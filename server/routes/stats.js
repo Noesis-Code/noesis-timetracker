@@ -1,11 +1,16 @@
 const express = require('express');
 const db = require('../db');
-const { breakdownForUser, dailyBreakdownForUser } = require('../lib/stats');
+const {
+  breakdownForUser,
+  dailyBreakdownForUser,
+  weeklyBreakdownForUser,
+  monthlyBreakdownForUser,
+} = require('../lib/stats');
 
 const router = express.Router();
 
 // Vue complète statistiques d'un utilisateur : jour / semaine / mois / année,
-// reprenant l'esprit du tableau "Statistiques" de la version Apps Script.
+// plus les 3 séries pour les graphiques (par jour / par semaine / par mois).
 router.get('/stats', (req, res) => {
   const userId = req.query.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
@@ -18,6 +23,8 @@ router.get('/stats', (req, res) => {
     month: breakdownForUser(userId, 'month', refDate),
     year: breakdownForUser(userId, 'year', refDate),
     dailyThisWeek: dailyBreakdownForUser(userId, 'week', refDate),
+    weeklyThisMonth: weeklyBreakdownForUser(userId, refDate),
+    monthlyThisYear: monthlyBreakdownForUser(userId, refDate),
   });
 });
 
