@@ -447,65 +447,52 @@
     return card;
   }
 
-  // ===================== STATISTIQUES =====================
-  document.querySelectorAll('#statsPeriodSwitch .periodBtn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      currentStatsPeriod = btn.dataset.period;
-      document.querySelectorAll('#statsPeriodSwitch .periodBtn').forEach(function (b) { b.classList.toggle('active', b === btn); });
-      loadStats();
-    });
-  });
+.statsSummary { text-align: center; margin-bottom: 18px; }
+.statsLabel { color: var(--text-light); margin: 0; font-size: 13px; }
+.statsTotal { font-size: 30px; font-weight: bold; margin: 4px 0; color: var(--purple); }
 
-  function loadStats() {
-    if (!profile) return;
-    api('GET', '/api/stats?userId=' + profile.id).then(function (data) {
-      var block = data[currentStatsPeriod];
-      $('statsLabel').textContent = block.label;
-      $('statsTotal').textContent = formatHM(block.totalSeconds);
-      renderBarList($('statsBars'), block.activities, block.totalSeconds);
+.barList { display: flex; flex-direction: column; gap: 10px; }
+.barRow { background: var(--card); border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.barRow .barTop { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
+.barRow .barTop .name { font-weight: bold; display: flex; align-items: center; }
+.barTrack { background: #eee; border-radius: 6px; height: 10px; overflow: hidden; }
+.barFill { height: 100%; border-radius: 6px; }
 
-      $('statsDailyBlock').classList.toggle('hidden', currentStatsPeriod !== 'week');
-      renderDaily(data.dailyThisWeek);
-    });
-  }
-
-  function renderBarList(container, activities, total) {
-    container.innerHTML = '';
-    if (activities.length === 0) {
-      container.innerHTML = '<p class="hint">Rien d\'enregistré sur cette période.</p>';
-      return;
-    }
-    activities.forEach(function (a) {
-      var row = document.createElement('div');
-      row.className = 'barRow';
-      row.innerHTML =
-        '<div class="barTop"><span class="name"><span class="dot" style="background:' + a.color + '"></span>' + escapeHtml(a.name) + '</span>' +
-        '<span>' + formatHM(a.seconds) + ' · ' + a.percent + '%</span></div>' +
-        '<div class="barTrack"><div class="barFill" style="width:' + a.percent + '%;background:' + a.color + '"></div></div>';
-      container.appendChild(row);
-    });
-  }
-
-  function renderDaily(days) {
-    var box = $('statsDaily');
-    box.innerHTML = '';
-    if (!days || days.length === 0) {
-      box.innerHTML = '<p class="hint">Aucune donnée cette semaine.</p>';
-      return;
-    }
-    days.forEach(function (d) {
-      var card = document.createElement('div');
-      card.className = 'dayCard';
-      var dateObj = new Date(d.isoDate + 'T00:00:00');
-      var label = d.dayOfWeek + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1);
-      var lines = d.activities.map(function (a) {
-        return '<div class="actLine"><span><span class="dot" style="background:' + a.color + '"></span>' + escapeHtml(a.name) + '</span><span>' + formatHM(a.seconds) + '</span></div>';
-      }).join('');
-      card.innerHTML = '<div class="dayTop"><span>' + label + '</span><span>' + formatHM(d.totalSeconds) + '</span></div>' + lines;
-      box.appendChild(card);
-    });
-  }
-
+.statsChartBlock { margin-top: 22px; }
+.statsChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px 4px 0;
+  overflow-x: auto;
+}
+.chartCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 0 30px;
+  min-width: 30px;
+}
+.chartBarStack {
+  display: flex;
+  flex-direction: column-reverse;
+  width: 100%;
+  max-width: 34px;
+  height: 120px;
+  background: #eee;
+  border-radius: 6px 6px 0 0;
+  overflow: hidden;
+}
+.chartSegment { width: 100%; }
+.chartSegment:not(:first-child) { border-top: 2px solid var(--card); }
+.chartColLabel {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-light);
+  text-transform: capitalize;
+  text-align: center;
+}
+.chartColTotal { font-size: 10px; color: var(--text-light); }
   // ===================== COMMUNAUTÉ =====================
   document.querySelectorAll('#communityPeriodSwitch .periodBtn').forEach(function (btn) {
     btn.addEventListener('click', function () {
