@@ -493,6 +493,83 @@
   text-align: center;
 }
 .chartColTotal { font-size: 10px; color: var(--text-light); }
+  // ===================== STATISTIQUES =====================
+  document.querySelectorAll('#statsPeriodSwitch .periodBtn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      currentStatsPeriod = btn.dataset.period;
+      document.querySelectorAll('#statsPeriodSwitch .periodBtn').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      loadStats();
+    });
+  });
+  var STATS_CHART_TITLES = {
+    week: 'Détail par jour',
+    month: 'Détail par semaine',
+    year: 'Détail par mois',
+  };
+  function loadStats() {
+    if (!profile) return;
+    api('GET', '/api/stats?userId=' + profile.id).then(function (data) {
+      var block = data[currentStatsPeriod];
+      $('statsLabel').textContent = block.label;
+      $('statsTotal').textContent = formatHM(block.totalSeconds);
+      renderBarList($('statsBars'), block.activities, block.totalSeconds);
+      $('statsChartTitle').textContent = STATS_CHART_TITLES[currentStatsPeriod];
+      var buckets = currentStatsPeriod === 'week'
+        ? data.dailyThisWeek.slice().sort(function (a, b) { return a.isoDate < b.isoDate ? -1 : 1; })
+        : currentStatsPeriod === 'month' ? data.weeklyThisMonth : data.monthlyThisYear;
+      renderStatsChart($('statsChart'), buckets, currentStatsPeriod);
+    });
+  }
+  function renderBarList(container, activities, total) {
+    container.innerHTML = '';
+    if (activities.length === 0) {
+      container.innerHTML = '<p class="hint">Rien d\'enregistré sur cette période.</p>';
+      return;
+    }
+    activities.forEach(function (a) {
+      var row = document.createElement('div');
+      row.className = 'barRow';
+      row.innerHTML =
+        '<div class="barTop"><span class="name"><span class="dot" style="background:' + a.color + '"></span>' + escapeHtml(a.name) + '</span>' +
+        '<span>' + formatHM(a.seconds) + ' · ' + a.percent + '%</span></div>' +
+        '<div class="barTrack"><div class="barFill" style="width:' + a.percent + '%;background:' + a.color + '"></div></div>';
+      container.appendChild(row);
+    });
+  }
+  function renderStatsChart(container, buckets, periodKind) {
+    container.innerHTML = '';
+    var hasData = buckets && buckets.some(function (b) { return b.totalSeconds > 0; });
+    if (!hasData) {
+      container.innerHTML = '<p class="hint">Rien d\'enregistré sur cette période.</p>';
+      return;
+    }
+    var maxTotal = Math.max.apply(null, buckets.map(function (b) { return b.totalSeconds; }));
+    buckets.forEach(function (b) {
+      var col = document.createElement('div');
+      col.className = 'chartCol';
+      var stack = document.createElement('div');
+      stack.className = 'chartBarStack';
+      (b.activities || []).forEach(function (a) {
+        var seg = document.createElement('div');
+        seg.className = 'chartSegment';
+        seg.style.height = (maxTotal > 0 ? (a.seconds / maxTotal) * 100 : 0) + '%';
+        seg.style.background = a.color;
+        seg.title = a.name + ' · ' + formatHM(a.seconds);
+        stack.appendChild(seg);
+      });
+      col.appendChild(stack);
+      var label = document.createElement('span');
+      label.className = 'chartColLabel';
+      label.textContent = periodKind === 'week' ? (b.dayOfWeek ? b.dayOfWeek.slice(0, 3) : '') : b.label;
+      col.appendChild(label);
+      var total = document.createElement('span');
+      total.className = 'chartColTotal';
+      total.textContent = b.totalSeconds > 0 ? formatHM(b.totalSeconds) : '–';
+      col.appendChild(total);
+      container.appendChild(col);
+    });
+  }
+  // ===================== COMMUNAUTÉ =====================
   // ===================== COMMUNAUTÉ =====================
   document.querySelectorAll('#communityPeriodSwitch .periodBtn').forEach(function (btn) {
     btn.addEventListener('click', function () {
