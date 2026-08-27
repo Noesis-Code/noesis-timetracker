@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Noèsis — TimeTracker</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<!-- ===================== ONBOARDING (première ouverture) ===================== -->
+<div id="onboarding" class="screen hidden">
+  <div class="onboarding-card">
+    <h1>Noèsis</h1>
+    <p class="subtitle">TimeTracker partagé</p>
+
+    <div id="onbCreate">
+      <p class="lead">Comment veux-tu qu'on t'appelle ?</p>
+      <input type="text" id="onbName" placeholder="Prénom ou pseudo" maxlength="40" autocomplete="off">
+      <label class="colorLabel">Ta couleur
+        <input type="color" id="onbColor" value="#674EA7">
+      </label>
+      <button class="btn btn-primary" id="onbCreateBtn">Créer mon profil</button>
+      <p class="switchLink"><a href="#" id="onbSwitchToExisting">J'ai déjà un profil sur cette app</a></p>
+    </div>
+
+    <div id="onbExisting" class="hidden">
+      <p class="lead">Retrouve ton profil</p>
+      <input type="text" id="onbSearch" placeholder="Tape ton prénom..." autocomplete="off">
+      <div id="onbUserList" class="userList"></div>
+      <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
+    </div>
+
+    <div id="onbActivities" class="hidden">
+      <p class="lead">Crée tes activités</p>
+      <p class="hint">Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Paramètres.</p>
+      <div id="onbActivityList" class="activitiesList"></div>
+      <div class="entryCard">
+        <input type="text" id="onbNewActivityName" placeholder="Nom de l'activité">
+        <label class="colorLabel">Couleur
+          <input type="color" id="onbNewActivityColor" value="#3498db">
+        </label>
+        <label class="checkLabel"><input type="checkbox" id="onbNewActivityNote"> Nécessite une note</label>
+        <button id="onbNewActivitySave" class="btn btn-small">Ajouter</button>
+      </div>
+      <button id="onbActivitiesContinue" class="btn btn-primary" disabled>Continuer</button>
+    </div>
+
+    <p id="onbMsg" class="msg"></p>
+  </div>
+</div>
+
+<!-- ===================== APPLICATION ===================== -->
+<div id="app" class="screen hidden">
+
+  <header class="topbar">
+    <span class="brand">Noèsis</span>
+    <span class="whoami" id="whoami"></span>
+  </header>
+
+  <main id="content">
+
+    <!-- ---------- ONGLET CHRONO ---------- -->
+    <section id="tab-chrono" class="tab">
+      <div id="chronoIdle" class="chronoBlock">
+        <p class="stepLabel">Quelle activité ?</p>
+        <div id="activityButtons" class="activityGrid"></div>
+        <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Paramètres.</p>
+      </div>
+
+      <div id="chronoRunning" class="chronoBlock hidden">
+        <p class="runningActivityLabel" id="runningActivityLabel"></p>
+        <div id="liveTimer">00:00:00</div>
+        <div id="noteWrapper" class="hidden">
+          <p class="stepLabel">Note</p>
+          <textarea id="noteText" placeholder="Précision sur cette session..."></textarea>
+        </div>
+        <button id="stopBtn" class="chronoBtn chronoBtn-stop">STOP</button>
+      </div>
+
+      <p id="chronoStatus" class="msg"></p>
+
+      <div class="historyBlock">
+        <div class="historyHeader">
+          <span>Historique de la semaine</span>
+          <button id="addEntryToggle" class="btn btn-small">+ Ajouter</button>
+        </div>
+
+        <div id="newEntryForm" class="entryCard hidden">
+          <input type="date" id="newEntryDate">
+          <select id="newEntryActivity"></select>
+          <div class="timeRow">
+            <input type="time" id="newEntryStart">
+            <input type="time" id="newEntryEnd">
+          </div>
+          <textarea id="newEntryNote" placeholder="Note (facultatif)"></textarea>
+          <button id="newEntrySave" class="btn btn-primary btn-small">Créer</button>
+        </div>
+
+        <div id="historyList"></div>
+      </div>
+    </section>
+
+    <!-- ---------- ONGLET STATISTIQUES ---------- -->
+    <section id="tab-stats" class="tab hidden">
+      <div class="periodSwitch" id="statsPeriodSwitch">
+        <button data-period="week" class="periodBtn active">Semaine</button>
+        <button data-period="month" class="periodBtn">Mois</button>
+        <button data-period="year" class="periodBtn">Année</button>
+      </div>
+
+      <div class="statsSummary">
+        <p class="statsLabel" id="statsLabel"></p>
+        <p class="statsTotal" id="statsTotal"></p>
+      </div>
+
+      <div id="statsBars" class="barList"></div>
+
+      <div id="statsDailyBlock">
+        <p class="sectionTitle">Détail par jour (cette semaine)</p>
+        <div id="statsDaily"></div>
+      </div>
+    </section>
+
+    <!-- ---------- ONGLET COMMUNAUTÉ ---------- -->
+    <section id="tab-community" class="tab hidden">
+      <p class="sectionTitle">Partager une de mes activités</p>
+      <div class="entryCard">
+        <p class="hint">Envoie ce lien à quelqu'un pour qu'il/elle rejoigne une de tes activités : elle apparaîtra alors ici, pour vous deux, avec un classement.</p>
+        <select id="shareActivitySelect"></select>
+        <button id="shareCopyBtn" class="btn btn-small">Copier le lien d'invitation</button>
+        <p id="shareMsg" class="msg"></p>
+      </div>
+
+      <div class="periodSwitch" id="communityPeriodSwitch">
+        <button data-period="week" class="periodBtn active">Semaine</button>
+        <button data-period="month" class="periodBtn">Mois</button>
+        <button data-period="year" class="periodBtn">Année</button>
+      </div>
+
+      <p class="sectionTitle">Mes activités partagées <span id="communityPeriodLabel" class="meta"></span></p>
+      <p id="communityEmptyHint" class="hint hidden">Aucune activité partagée pour l'instant. Partage le lien d'une de tes activités ci-dessus, ou rejoins celle de quelqu'un d'autre via son lien, pour faire apparaître un classement ici.</p>
+      <div id="communityActivities" class="communityActivities"></div>
+    </section>
+
+    <!-- ---------- ONGLET PARAMÈTRES ---------- -->
+    <section id="tab-settings" class="tab hidden">
+      <p class="sectionTitle">Mon profil</p>
+      <div class="settingsCard">
+        <input type="text" id="settingsName" placeholder="Prénom ou pseudo" maxlength="40">
+        <label class="colorLabel">Couleur
+          <input type="color" id="settingsColor">
+        </label>
+        <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
+        <p id="settingsMsg" class="msg"></p>
+        <p class="switchLink"><a href="#" id="switchProfileLink">Changer de profil / se déconnecter</a></p>
+      </div>
+
+      <p class="sectionTitle">Activités</p>
+      <div id="activitiesList" class="activitiesList"></div>
+      <div class="entryCard">
+        <input type="text" id="newActivityName" placeholder="Nouvelle activité">
+        <label class="colorLabel">Couleur
+          <input type="color" id="newActivityColor" value="#3498db">
+        </label>
+        <label class="checkLabel"><input type="checkbox" id="newActivityNote"> Nécessite une note</label>
+        <button id="newActivitySave" class="btn btn-primary btn-small">Ajouter l'activité</button>
+      </div>
+
+      <p class="sectionTitle">Importer l'historique existant</p>
+      <div class="entryCard">
+        <p class="hint">Depuis Google Sheets : onglet « Historique » → Fichier → Télécharger → Valeurs séparées par une virgule (.csv), puis choisis le fichier ici.</p>
+        <input type="file" id="importFile" accept=".csv,text/csv">
+        <button id="importBtn" class="btn btn-small">Importer</button>
+        <p id="importMsg" class="msg"></p>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <button class="tabBtn active" data-tab="chrono">
+      <span class="tabIcon">⏱</span><span>Chrono</span>
+    </button>
+    <button class="tabBtn" data-tab="stats">
+      <span class="tabIcon">📊</span><span>Stats</span>
+    </button>
+    <button class="tabBtn" data-tab="community">
+      <span class="tabIcon">👥</span><span>Communauté</span>
+    </button>
+    <button class="tabBtn" data-tab="settings">
+      <span class="tabIcon">⚙️</span><span>Paramètres</span>
+    </button>
+  </nav>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
