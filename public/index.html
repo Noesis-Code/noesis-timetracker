@@ -101,27 +101,26 @@
       </div>
     </section>
 
-    <!-- ---------- ONGLET STATISTIQUES ---------- -->
-    <section id="tab-stats" class="tab hidden">
-      <div class="periodSwitch" id="statsPeriodSwitch">
-        <button data-period="week" class="periodBtn active">Semaine</button>
-        <button data-period="month" class="periodBtn">Mois</button>
-        <button data-period="year" class="periodBtn">Année</button>
-      </div>
+<!-- -------- ONGLET STATISTIQUES -------- -->
+<section id="tab-stats" class="tab hidden">
+  <div class="periodSwitch" id="statsPeriodSwitch">
+    <button data-period="week" class="periodBtn active">Semaine</button>
+    <button data-period="month" class="periodBtn">Mois</button>
+    <button data-period="year" class="periodBtn">Année</button>
+  </div>
 
-      <div class="statsSummary">
-        <p class="statsLabel" id="statsLabel"></p>
-        <p class="statsTotal" id="statsTotal"></p>
-      </div>
+  <div class="statsSummary">
+    <p class="statsLabel" id="statsLabel"></p>
+    <p class="statsTotal" id="statsTotal"></p>
+  </div>
 
-      <div id="statsBars" class="barList"></div>
+  <div id="statsBars" class="barList"></div>
 
-      <div id="statsDailyBlock">
-        <p class="sectionTitle">Détail par jour (cette semaine)</p>
-        <div id="statsDaily"></div>
-      </div>
-    </section>
-
+  <div class="statsChartBlock">
+    <p class="sectionTitle" id="statsChartTitle">Détail par jour</p>
+    <div id="statsChart" class="statsChart"></div>
+  </div>
+</section>
     <!-- ---------- ONGLET COMMUNAUTÉ ---------- -->
     <section id="tab-community" class="tab hidden">
       <p class="sectionTitle">Partager une de mes activités</p>
