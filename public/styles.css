@@ -303,7 +303,16 @@ textarea {
    d'Emilien) plutôt qu'affichés en permanence — mêmes styles que le menu "⋮"
    de période de Statistiques (.statsPeriodMenuWrap/.statsPeriodMenu), gardés
    comme classes séparées puisque propres au Chrono. */
-.attachmentMenuWrap { position: relative; display: inline-block; margin-top: 10px; }
+.attachmentMenuWrap { position: relative; display: inline-block; flex-shrink: 0; }
+/* Icône trombone du bouton de pièce jointe (SVG, remplace l'ancienne épingle
+   en emoji le 30 août 2026) — même principe de centrage/taille que .notifBtn
+   plus bas dans ce fichier, propriété de Chrono. */
+.attachMenuIconBtn { display: flex; align-items: center; justify-content: center; }
+.attachMenuIconBtn svg { width: 16px; height: 16px; display: block; }
+/* Ligne d'en-tête "Historique" entièrement cliquable pour déplier/replier le
+   panneau (30 août 2026, demande d'Emilien) — ne redéfinit pas .sectionTitleRow
+   lui-même (propriété de Design), s'ajoute en complément. */
+.historyHeaderClickable { cursor: pointer; }
 .attachmentMenu {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
   min-width: 160px;
@@ -472,13 +481,21 @@ textarea {
   display: grid; grid-template-columns: 54px repeat(96, 12px); grid-auto-rows: 22px;
   gap: 1px; width: max-content;
 }
-.tsCorner { position: sticky; left: 0; background: var(--card); z-index: 2; }
+/* will-change: transform sur les deux colonnes figées ci-dessous : contourne
+   un bug de rendu connu de Safari/WebKit mobile où une colonne "position:
+   sticky" à l'intérieur d'une grille qui défile horizontalement peut, pendant
+   le défilement, laisser les cases colorées qui passent dessous "percer" à
+   travers sa propre couleur de fond — visuellement, des cases colorées
+   apparaissent alors à gauche des libellés de jour. Force ces colonnes sur
+   leur propre calque de composition (peinture opaque garantie) plutôt que de
+   compter sur le fond CSS seul. Signalé par Emilien le 30 août 2026. */
+.tsCorner { position: sticky; left: 0; background: var(--card); z-index: 2; will-change: transform; }
 .tsHourLabel {
   font-size: 10px; color: var(--text-light); display: flex; align-items: flex-end;
   padding-left: 2px; white-space: nowrap;
 }
 .tsDayLabel {
-  position: sticky; left: 0; background: var(--card); z-index: 1;
+  position: sticky; left: 0; background: var(--card); z-index: 1; will-change: transform;
   font-size: 11px; color: var(--text); display: flex; align-items: center;
   padding-right: 6px; white-space: nowrap;
 }
@@ -497,13 +514,16 @@ textarea {
   display: grid; grid-template-columns: 60px repeat(7, minmax(84px, 1fr));
   gap: 6px; width: max-content; min-width: 100%;
 }
-.tsCalCorner { position: sticky; left: 0; background: var(--card); z-index: 2; }
+/* Même correctif que .tsCorner/.tsDayLabel ci-dessus (voir le commentaire
+   associé) — même bug de rendu observé sur la colonne figée de la vue
+   "Mois". */
+.tsCalCorner { position: sticky; left: 0; background: var(--card); z-index: 2; will-change: transform; }
 .tsCalHeaderCell {
   font-size: 11px; color: var(--text-light); text-align: center; text-transform: capitalize;
   padding-bottom: 2px;
 }
 .tsCalWeekLabel {
-  position: sticky; left: 0; background: var(--card); z-index: 1;
+  position: sticky; left: 0; background: var(--card); z-index: 1; will-change: transform;
   font-size: 11px; color: var(--text); display: flex; align-items: center;
   padding-right: 4px; white-space: nowrap;
 }
@@ -597,13 +617,25 @@ textarea {
    téléphone tenu en portrait : rotation CSS 90°, dimensions locales
    pré-rotation inversées (largeur=100vh, hauteur=100vw) pour que la zone
    visible remplisse tout l'écran une fois pivotée — pas une simple demande
-   de retourner le téléphone. ----- */
+   de retourner le téléphone.
+
+   Correctif du 30 août 2026 (signalé par Emilien) : cette rotation forcée
+   supposait que le téléphone restait physiquement en portrait pendant tout
+   le plein écran. Si la rotation automatique du téléphone est activée et
+   qu'Emilien tourne réellement l'appareil (geste naturel face à un contenu
+   qui apparaît pivoté), le système d'exploitation fait alors pivoter le
+   viewport pour de vrai — ses dimensions 100vh/100vw se recalculent sur ce
+   nouveau viewport déjà en paysage, et s'ajoutent à la rotation CSS encore
+   active : les deux rotations se cumulent et cassent l'affichage ("le
+   changement de format automatique écrase le forçage"). Les propriétés
+   dépendantes de l'orientation sont donc désormais scindées en deux
+   @media (orientation: portrait/landscape) : la rotation CSS ne s'applique
+   plus que si le téléphone est réellement encore tenu en portrait ; s'il est
+   déjà en paysage (rotation naturelle détectée), le bloc remplit l'écran
+   sans aucune rotation CSS supplémentaire. ----- */
 body.scrollLock { overflow: hidden; }
 #statsTimesheetBlock.fullscreen {
-  position: fixed; top: 50%; left: 50%;
-  width: 100vh; height: 100vw;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transform-origin: center center;
+  position: fixed; top: 0; left: 0;
   z-index: 1000;
   margin: 0;
   background: var(--bg);
@@ -611,6 +643,20 @@ body.scrollLock { overflow: hidden; }
   overflow: hidden;
   display: flex; flex-direction: column;
   box-shadow: none; border-radius: 0;
+}
+@media (orientation: portrait) {
+  #statsTimesheetBlock.fullscreen {
+    top: 50%; left: 50%;
+    width: 100vh; height: 100vw;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center center;
+  }
+}
+@media (orientation: landscape) {
+  #statsTimesheetBlock.fullscreen {
+    width: 100vw; height: 100vh;
+    transform: none;
+  }
 }
 #statsTimesheetBlock.fullscreen .timesheetScroll {
   flex: 1; overflow: auto;
@@ -636,10 +682,7 @@ body.scrollLock { overflow: hidden; }
    (le <svg> lui-même) — sinon le pourcentage de hauteur du SVG n'a rien de
    défini à résoudre et retombe sur le ratio intrinsèque du viewBox. ----- */
 #statsChartBlock.fullscreen {
-  position: fixed; top: 50%; left: 50%;
-  width: 100vh; height: 100vw;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transform-origin: center center;
+  position: fixed; top: 0; left: 0;
   z-index: 1000;
   margin: 0;
   background: var(--bg);
@@ -647,6 +690,22 @@ body.scrollLock { overflow: hidden; }
   overflow: hidden;
   display: flex; flex-direction: column;
   box-shadow: none; border-radius: 0;
+}
+/* Même correctif "orientation réelle vs. rotation forcée" que
+   #statsTimesheetBlock.fullscreen ci-dessus — voir son commentaire. */
+@media (orientation: portrait) {
+  #statsChartBlock.fullscreen {
+    top: 50%; left: 50%;
+    width: 100vh; height: 100vw;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center center;
+  }
+}
+@media (orientation: landscape) {
+  #statsChartBlock.fullscreen {
+    width: 100vw; height: 100vh;
+    transform: none;
+  }
 }
 #statsChartBlock.fullscreen .chartWrap {
   flex: 1; min-height: 0;
@@ -877,10 +936,7 @@ body.scrollLock { overflow: hidden; }
    leurs équivalents Statistiques), donc dupliquées ici plutôt que
    partagées. -----*/
 #communityActivityTimesheetBlock.fullscreen {
-  position: fixed; top: 50%; left: 50%;
-  width: 100vh; height: 100vw;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transform-origin: center center;
+  position: fixed; top: 0; left: 0;
   z-index: 1000;
   margin: 0;
   background: var(--bg);
@@ -888,6 +944,23 @@ body.scrollLock { overflow: hidden; }
   overflow: hidden;
   display: flex; flex-direction: column;
   box-shadow: none; border-radius: 0;
+}
+/* Même correctif "orientation réelle vs. rotation forcée" que
+   #statsTimesheetBlock.fullscreen (voir son commentaire, plus haut dans ce
+   fichier). */
+@media (orientation: portrait) {
+  #communityActivityTimesheetBlock.fullscreen {
+    top: 50%; left: 50%;
+    width: 100vh; height: 100vw;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center center;
+  }
+}
+@media (orientation: landscape) {
+  #communityActivityTimesheetBlock.fullscreen {
+    width: 100vw; height: 100vh;
+    transform: none;
+  }
 }
 #communityActivityTimesheetBlock.fullscreen .timesheetScroll {
   flex: 1; overflow: auto;
@@ -897,10 +970,7 @@ body.scrollLock { overflow: hidden; }
 }
 
 #communityActivityChartBlock.fullscreen {
-  position: fixed; top: 50%; left: 50%;
-  width: 100vh; height: 100vw;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transform-origin: center center;
+  position: fixed; top: 0; left: 0;
   z-index: 1000;
   margin: 0;
   background: var(--bg);
@@ -908,6 +978,23 @@ body.scrollLock { overflow: hidden; }
   overflow: hidden;
   display: flex; flex-direction: column;
   box-shadow: none; border-radius: 0;
+}
+/* Même correctif "orientation réelle vs. rotation forcée" que
+   #statsTimesheetBlock.fullscreen (voir son commentaire, plus haut dans ce
+   fichier). */
+@media (orientation: portrait) {
+  #communityActivityChartBlock.fullscreen {
+    top: 50%; left: 50%;
+    width: 100vh; height: 100vw;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center center;
+  }
+}
+@media (orientation: landscape) {
+  #communityActivityChartBlock.fullscreen {
+    width: 100vw; height: 100vh;
+    transform: none;
+  }
 }
 #communityActivityChartBlock.fullscreen .chartWrap {
   flex: 1; min-height: 0;
