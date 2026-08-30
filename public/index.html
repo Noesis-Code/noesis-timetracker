@@ -1,10 +1,47 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Noèsis — TimeTracker</title>
+
+<!-- ===================== PWA (volet Déploiement / Mobile, 30 août 2026) =====
+     Tout ce bloc sert uniquement à rendre l'app installable sur l'écran
+     d'accueil d'un téléphone et à lui donner l'allure d'une vraie app
+     (plein écran, sans barre d'adresse). Aucun impact sur le comportement
+     de l'app dans un navigateur de bureau.
+     Voir public/manifest.webmanifest, public/sw.js et public/icons/. -->
+<meta name="description" content="Chrono, statistiques et communauté : suis le temps que tu passes sur tes activités.">
+<!-- Teinte de la barre d'état sur Android : accordée au dégradé violet de
+     la .topbar, pour que le haut de l'écran soit d'un seul tenant. -->
+<meta name="theme-color" content="#674EA7">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- iOS : "capable" = plein écran une fois l'app ajoutée à l'écran d'accueil.
+     "default" (plutôt que black-translucent) pour que le contenu ne passe pas
+     SOUS la barre d'état ; la .topbar reçoit en plus une marge de sécurité
+     côté CSS, ce qui couvre les deux cas. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Noèsis">
+
 <link rel="stylesheet" href="/styles.css">
+
+<script>
+  // Enregistrement du service worker. Volontairement ici, dans le <head> et
+  // hors de app.js : ce chantier ne touche à aucune section fonctionnelle de
+  // l'app. En cas d'échec (http non sécurisé, navigateur ancien), l'app
+  // fonctionne exactement comme avant — le service worker n'est qu'un bonus.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function (err) {
+        console.warn('[Noesis] Service worker non enregistre :', err);
+      });
+    });
+  }
+</script>
 </head>
 <body>
 
@@ -17,9 +54,15 @@
     <div id="onbCreate">
       <p class="lead">Comment veux-tu qu'on t'appelle ?</p>
       <input type="text" id="onbName" placeholder="Prénom ou pseudo" maxlength="40" autocomplete="off">
-      <label class="colorLabel">Ta couleur
-        <input type="color" id="onbColor" value="#674EA7">
-      </label>
+      <!-- Identité complète demandée dès la création du profil (29 août
+           2026, demande d'Emilien) : nom de famille, téléphone, email —
+           voir server/routes/profile.js pour la validation de format. -->
+      <input type="text" id="onbLastName" placeholder="Nom de famille" maxlength="60" autocomplete="off">
+      <input type="tel" id="onbPhone" placeholder="Numéro de téléphone" maxlength="30" autocomplete="off">
+      <input type="email" id="onbEmail" placeholder="Adresse email" maxlength="120" autocomplete="off">
+      <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPin" placeholder="Choisis un code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
+      <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinConfirm" placeholder="Confirme le code" maxlength="6" autocomplete="off">
+      <p class="hint">Ce code te sera redemandé si tu récupères ce profil depuis un autre appareil — retiens-le bien.</p>
       <button class="btn btn-primary" id="onbCreateBtn">Créer mon profil</button>
       <p class="switchLink"><a href="#" id="onbSwitchToExisting">J'ai déjà un profil sur cette app</a></p>
     </div>
@@ -31,16 +74,23 @@
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
     </div>
 
+    <div id="onbPinStep" class="hidden">
+      <p class="lead" id="onbPinStepTitle"></p>
+      <p id="onbPinStepHint" class="hint hidden"></p>
+      <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinInput" placeholder="Code" maxlength="6" autocomplete="off">
+      <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinConfirmInput" placeholder="Confirme le code" maxlength="6" autocomplete="off" class="hidden">
+      <button class="btn btn-primary" id="onbPinSubmit">Valider</button>
+      <p class="switchLink"><a href="#" id="onbPinCancel">Retour</a></p>
+    </div>
+
     <div id="onbActivities" class="hidden">
       <p class="lead">Crée tes activités</p>
-      <p class="hint">Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Paramètres.</p>
+      <p class="hint">Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Profil.</p>
       <div id="onbActivityList" class="activitiesList"></div>
       <div class="entryCard">
         <input type="text" id="onbNewActivityName" placeholder="Nom de l'activité">
-        <label class="colorLabel">Couleur
-          <input type="color" id="onbNewActivityColor" value="#3498db">
-        </label>
-        <label class="checkLabel"><input type="checkbox" id="onbNewActivityNote"> Nécessite une note</label>
+        <p class="colorPickLabel">Couleur</p>
+        <div id="onbNewActivitySwatches" class="colorSwatches"></div>
         <button id="onbNewActivitySave" class="btn btn-small">Ajouter</button>
       </div>
       <button id="onbActivitiesContinue" class="btn btn-primary" disabled>Continuer</button>
@@ -65,135 +115,564 @@
       <div id="chronoIdle" class="chronoBlock">
         <p class="stepLabel">Quelle activité ?</p>
         <div id="activityButtons" class="activityGrid"></div>
-        <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Paramètres.</p>
+        <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Profil.</p>
       </div>
 
       <div id="chronoRunning" class="chronoBlock hidden">
         <p class="runningActivityLabel" id="runningActivityLabel"></p>
         <div id="liveTimer">00:00:00</div>
-        <div id="noteWrapper" class="hidden">
+        <!-- Section de note unique pendant le chrono : le même champ sert à
+             la fois de brouillon privé (repris dans l'historique au STOP) et
+             de source pour un envoi "en direct" optionnel aux membres de
+             l'activité ou à la communauté. -->
+        <div id="noteWrapper">
           <p class="stepLabel">Note</p>
           <textarea id="noteText" placeholder="Précision sur cette session..."></textarea>
+
+          <!-- Pièces jointes de la note (photo prise à l'appareil, document) —
+               demande d'Emilien (29 août 2026). Restent "en attente" côté
+               serveur jusqu'au STOP, qui les rattache à la session créée. -->
+          <div class="attachmentActions">
+            <button id="attachPhotoBtn" type="button" class="iconBtn">📷 Photo</button>
+            <button id="attachDocBtn" type="button" class="iconBtn">📎 Document</button>
+            <input type="file" id="attachPhotoInput" accept="image/*" capture="environment" class="hidden">
+            <input type="file" id="attachDocInput" class="hidden">
+          </div>
+          <div id="attachmentList" class="attachmentList"></div>
+          <p id="attachmentMsg" class="meta attachmentMsg"></p>
+
+          <div class="broadcastRow">
+            <button id="broadcastSendMembersBtn" class="iconBtn">Envoyer aux membres</button>
+            <button id="broadcastSendCommunityBtn" class="iconBtn">Envoyer à la communauté</button>
+          </div>
+          <p id="broadcastHint" class="hint hidden">Cette activité n'est partagée avec personne pour l'instant — choisis "communauté" ou partage-la depuis Profil.</p>
+          <p id="broadcastMsg" class="meta"></p>
         </div>
+
         <button id="stopBtn" class="chronoBtn chronoBtn-stop">STOP</button>
+
+        <!-- Récapitulatif avant validation de l'arrêt : remplace le bouton
+             STOP le temps de confirmer. Heures de début/fin pré-remplies
+             (début = celle du chrono en cours, fin = maintenant) mais
+             modifiables avant d'enregistrer la session. -->
+        <div id="stopConfirmPanel" class="hidden">
+          <p class="stepLabel">Confirmer l'arrêt</p>
+          <p class="stopFieldLabel">Heure de début</p>
+          <input type="datetime-local" id="stopStartInput" step="1">
+          <p class="stopFieldLabel">Heure de fin</p>
+          <input type="datetime-local" id="stopEndInput" step="1">
+          <p id="stopDurationLabel" class="meta"></p>
+          <p id="stopConfirmMsg" class="msg"></p>
+          <div class="rowActions">
+            <button id="stopCancelBtn" class="iconBtn">Annuler</button>
+            <button id="stopConfirmBtn" class="iconBtn">Valider</button>
+          </div>
+        </div>
       </div>
 
       <p id="chronoStatus" class="msg"></p>
 
-      <div class="historyBlock">
-        <div class="historyHeader">
-          <span>Historique de la semaine</span>
-          <button id="addEntryToggle" class="btn btn-small">+ Ajouter</button>
+      <!-- Historique modifiable des sessions déjà enregistrées : corriger la
+           date/l'heure d'un enregistrement validé, ou le supprimer. Fonction
+           volontairement séparée de "Mes notes" dans Profil (qui ne permet
+           que de supprimer entièrement une session, pas de modifier ses
+           heures) — demande explicite d'Emilien du 29 août 2026. Repliée par
+           défaut, s'ouvre sur la semaine en cours à chaque ouverture de
+           l'onglet Chrono. -->
+      <div id="chronoHistorySection">
+        <div class="sectionTitleRow">
+          <p class="sectionTitle">Historique</p>
+          <button id="historyToggleBtn" type="button" class="menuBtn" title="Afficher l'historique" aria-label="Afficher l'historique">▾</button>
         </div>
-
-        <div id="newEntryForm" class="entryCard hidden">
-          <input type="date" id="newEntryDate">
-          <select id="newEntryActivity"></select>
-          <div class="timeRow">
-            <input type="time" id="newEntryStart">
-            <input type="time" id="newEntryEnd">
+        <div id="chronoHistoryPanel" class="hidden">
+          <div class="historyNav">
+            <button id="historyPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
+            <span id="historyWeekLabel" class="meta"></span>
+            <button id="historyNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
           </div>
-          <textarea id="newEntryNote" placeholder="Note (facultatif)"></textarea>
-          <button id="newEntrySave" class="btn btn-primary btn-small">Créer</button>
+          <div id="historyList"></div>
+          <p id="historyEmptyHint" class="hint hidden">Aucun enregistrement sur cette semaine.</p>
         </div>
-
-        <div id="historyList"></div>
       </div>
     </section>
 
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
     <section id="tab-stats" class="tab hidden">
-      <div class="periodSwitch" id="statsPeriodSwitch">
-        <button data-period="week" class="periodBtn active">Semaine</button>
-        <button data-period="month" class="periodBtn">Mois</button>
-        <button data-period="year" class="periodBtn">Année</button>
+      <!-- Section 1 : Feuille de temps (heatmap hebdomadaire, ou calendrier
+           mensuel — voir plus bas). Consultable en plein écran forcé en
+           paysage via #tsFullscreenBtn, même téléphone tenu en portrait —
+           voir la règle #statsTimesheetBlock.fullscreen dans styles.css.
+           Le menu "⋮" (Semaine/Mois — pas d'Année ici, demande d'Emilien du
+           30 août 2026) n'est visible qu'en plein écran : voir la règle
+           .statsPeriodMenuWrap.fullscreenOnly dans styles.css. -->
+      <div id="statsTimesheetBlock" class="statsSection">
+        <div class="sectionTitleRow">
+          <p class="sectionTitle">Feuille de temps</p>
+          <div class="timesheetNav">
+            <button id="tsPrevWeek" type="button" class="iconBtn" aria-label="Période précédente">‹</button>
+            <span id="tsWeekLabel" class="meta"></span>
+            <button id="tsNextWeek" type="button" class="iconBtn" aria-label="Période suivante">›</button>
+            <div class="statsPeriodMenuWrap fullscreenOnly" id="tsPeriodWrap">
+              <button type="button" class="menuBtn" id="tsPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+              <div class="statsPeriodMenu hidden" id="tsPeriodMenu">
+                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+              </div>
+            </div>
+            <button id="tsFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
+          </div>
+        </div>
+        <p class="hint">La semaine en cours s'affiche par défaut à chaque ouverture. Les semaines précédentes restent enregistrées et consultables avec les flèches, sans jamais être perdues. En plein écran, le menu "⋮" permet de passer à une vue calendrier par mois.</p>
+        <div class="timesheetScroll">
+          <div id="tsGrid" class="timesheetGrid"></div>
+          <div id="tsCalendar" class="tsCalendar hidden"></div>
+        </div>
+        <p id="tsEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
       </div>
 
-      <div class="statsSummary">
-        <p class="statsLabel" id="statsLabel"></p>
-        <p class="statsTotal" id="statsTotal"></p>
+      <!-- Section 2 : Camembert — répartition du temps par activité, sur sa
+           propre période (Semaine/Mois/Année), choisie indépendamment des
+           deux autres sections via le menu "⋮" (30 août 2026, demande
+           d'Emilien : périodes indépendantes par section, plus de sélecteur
+           global). Toujours visible, cette section n'ayant pas de plein
+           écran. -->
+      <div id="statsPieBlock" class="statsSection">
+        <div class="sectionTitleRow">
+          <p class="sectionTitle">Répartition</p>
+          <div class="statsPeriodMenuWrap" id="statsPiePeriodWrap">
+            <button type="button" class="menuBtn" id="statsPiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+            <div class="statsPeriodMenu hidden" id="statsPiePeriodMenu">
+              <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
+            </div>
+          </div>
+        </div>
+        <div class="statsSummary">
+          <p class="statsLabel" id="statsLabel"></p>
+          <p class="statsTotal" id="statsTotal"></p>
+        </div>
+        <div id="statsPie" class="pieWrap"></div>
+        <p id="statsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
       </div>
 
-      <div id="statsBars" class="barList"></div>
-
-      <div id="statsDailyBlock">
-        <p class="sectionTitle">Détail par jour (cette semaine)</p>
-        <div id="statsDaily"></div>
+      <!-- Section 3 : Graphique — une courbe par activité sur sa propre
+           période (Semaine/Mois/Année, indépendante des deux autres
+           sections), plus une courbe Total (blanche en mode sombre, noire
+           en mode clair) — remplace l'ancien "Détail par jour" et son
+           option barres, retirée (29 août 2026, suite demande Emilien :
+           plus de bascule barres/courbe, courbe multi-séries).
+           Plein écran forcé en paysage via #chartFullscreenBtn, même
+           mécanisme que #tsFullscreenBtn ci-dessus (rotation CSS 90°, voir
+           styles.css #statsChartBlock.fullscreen), avec en plus un
+           agrandissement du graphique lui-même : sa hauteur s'étire pour
+           remplir l'espace disponible au lieu de rester à 180px fixes
+           (29 août 2026, suite demande Emilien). Le menu "⋮" (période) n'est
+           visible qu'en plein écran, comme pour la Feuille de temps
+           ci-dessus (30 août 2026, demande d'Emilien). -->
+      <div id="statsChartBlock" class="statsSection">
+        <div class="sectionTitleRow">
+          <p class="sectionTitle">Graphique</p>
+          <div class="statsPeriodMenuWrap fullscreenOnly" id="chartPeriodWrap">
+            <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+            <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
+              <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
+            </div>
+          </div>
+          <button id="chartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
+        </div>
+        <div class="chartWrap" id="statsChartWrap">
+          <div class="chartScroll">
+            <div id="statsChart" class="chartSvgWrap"></div>
+          </div>
+          <div id="chartTooltip" class="chartTooltip hidden" role="tooltip"></div>
+        </div>
+        <div id="statsChartLegend" class="chartLegend"></div>
+        <p id="statsChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
       </div>
     </section>
 
     <!-- ---------- ONGLET COMMUNAUTÉ ---------- -->
     <section id="tab-community" class="tab hidden">
-      <p class="sectionTitle">Partager une de mes activités</p>
+      <!-- "En ce moment" : notes envoyées en direct (bouton "Envoyer" du
+           Chrono) par des membres/abonnés dont le chrono tourne ENCORE —
+           distinct des flux plus bas, qui listent des sessions déjà
+           terminées (time_entries). Toujours visible, indépendamment du
+           sélecteur Communauté/Membres ci-dessous (fusionne les deux
+           audiences). Une note ici disparaît toute seule dès que son auteur
+           clique sur STOP. -->
+      <p class="sectionTitle">En ce moment</p>
+      <p class="hint">Les personnes qui partagent une activité avec toi ou que tu suis, et qui ont un chrono en cours avec une note envoyée en direct.</p>
+      <div id="liveFeed"></div>
+      <p id="liveFeedEmptyHint" class="hint hidden">Personne ne partage de note en direct pour l'instant.</p>
+
+      <!-- Suivre quelqu'un est INDÉPENDANT du partage d'activité plus bas :
+           ça ne donne accès à rien de plus par défaut (voir section Suivi). -->
+      <p class="sectionTitle">Rechercher des membres</p>
       <div class="entryCard">
-        <p class="hint">Envoie ce lien à quelqu'un pour qu'il/elle rejoigne une de tes activités : elle apparaîtra alors ici, pour vous deux, avec un classement.</p>
-        <select id="shareActivitySelect"></select>
-        <button id="shareCopyBtn" class="btn btn-small">Copier le lien d'invitation</button>
-        <p id="shareMsg" class="msg"></p>
+        <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo..." autocomplete="off">
+        <div id="communitySearchResults" class="activitiesList"></div>
       </div>
 
-      <div class="periodSwitch" id="communityPeriodSwitch">
-        <button data-period="week" class="periodBtn active">Semaine</button>
-        <button data-period="month" class="periodBtn">Mois</button>
-        <button data-period="year" class="periodBtn">Année</button>
+      <!-- Deux sections distinctes : "Communauté" (fil d'actualité de tout ce
+           que partagent les personnes SUIVIES) et "Membres" (uniquement les
+           activités/notes des personnes avec qui une activité est PARTAGÉE,
+           indépendant du suivi). Un seul sélecteur en haut, à la manière du
+           sélecteur de période, pour ne pas tout afficher en même temps. -->
+      <div class="periodSwitch" id="communitySectionSwitch">
+        <button data-section="feed" class="periodBtn active">Communauté</button>
+        <button data-section="members" class="periodBtn">Membres</button>
       </div>
 
-      <p class="sectionTitle">Mes activités partagées <span id="communityPeriodLabel" class="meta"></span></p>
-      <p id="communityEmptyHint" class="hint hidden">Aucune activité partagée pour l'instant. Partage le lien d'une de tes activités ci-dessus, ou rejoins celle de quelqu'un d'autre via son lien, pour faire apparaître un classement ici.</p>
-      <div id="communityActivities" class="communityActivities"></div>
+      <div id="communitySectionFeed" class="communitySection">
+        <p class="sectionTitle">Suivi</p>
+        <p class="hint">Les personnes que tu suis, et leurs activités/notes si elles ont activé "Partager mon profil" (Profil &gt; Réglages).</p>
+        <div id="followingList" class="activitiesList"></div>
+        <p id="followingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant — trouve un membre ci-dessus et clique sur "Suivre".</p>
+        <div id="followingFeed"></div>
+        <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session n'a encore été enregistrée.</p>
+      </div>
+
+      <div id="communitySectionMembers" class="communitySection hidden">
+        <!-- Chaque activité partagée est représentée comme une ligne (même
+             format que les activités du Profil : pastille de couleur + nom
+             + "⋮") ; cliquer dessus la sélectionne (mise en évidence) et
+             affiche, juste en dessous, le détail (sessions + notes) de ses
+             AUTRES membres. Remplace l'ancien sélecteur de période
+             (Semaine/Mois/Année) et le classement en barres, qui
+             dépendaient tous deux d'une période désormais retirée de cette
+             section — demande d'Emilien du jour. -->
+        <p class="sectionTitle">Mes activités partagées</p>
+        <p id="communityEmptyHint" class="hint hidden">Aucune activité partagée pour l'instant. Partage une de tes activités depuis Profil (bouton "Partager", par pseudo), ou accepte une invitation reçue, pour la voir apparaître ici.</p>
+        <div id="communityActivities" class="activitiesList"></div>
+
+        <div id="communityActivityDetail" class="hidden">
+          <!-- Fil de discussion de l'activité sélectionnée : une vraie
+               conversation entre ses membres, conservée durablement — à ne
+               pas confondre avec les notes "en direct" du Chrono (bloc "En ce
+               moment" tout en haut de cet onglet), qui s'effacent dès que
+               leur auteur clique sur STOP, ni avec les notes de session
+               listées plus bas. Placé en tête du détail : c'est ce qu'on
+               vient voir en premier quand quelqu'un a écrit. -->
+          <div id="communityDiscussionBlock" class="discussionBlock">
+            <p class="sectionTitle">Discussion <span id="communityDiscussionName" class="meta"></span></p>
+            <p class="hint">Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.</p>
+            <div id="communityDiscussionList" class="discussionList"></div>
+            <p id="communityDiscussionEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
+            <div class="discussionComposer">
+              <textarea id="communityDiscussionInput" rows="2" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
+              <div class="rowActions">
+                <button type="button" id="communityDiscussionSendBtn" class="iconBtn">Envoyer</button>
+              </div>
+              <p id="communityDiscussionMsg" class="msg"></p>
+            </div>
+          </div>
+
+          <p class="sectionTitle">Statistiques et activités des membres <span id="communityActivityDetailName" class="meta"></span></p>
+
+          <!-- Mêmes trois sections (Feuille de temps / Répartition / Graphique)
+               que l'onglet Statistiques, même fonctionnement (période, plein
+               écran, navigation semaine), mais l'axe de comparaison change :
+               ici on compare les MEMBRES de cette activité entre eux, plus
+               les activités entre elles (on est déjà "dans" une seule
+               activité) — demande d'Emilien, 29-30 août 2026. Ids et blocs
+               entièrement distincts de ceux de Statistiques (préfixe
+               communityActivity/ca) : jamais partagés, jamais réutilisés
+               depuis l'onglet Statistiques. -->
+          <div class="periodSwitch" id="communityActivityPeriodSwitch">
+            <button data-period="week" class="periodBtn active">Semaine</button>
+            <button data-period="month" class="periodBtn">Mois</button>
+            <button data-period="year" class="periodBtn">Année</button>
+          </div>
+
+          <div class="statsSummary">
+            <p class="statsLabel" id="communityActivityStatsLabel"></p>
+            <p class="statsTotal" id="communityActivityStatsTotal"></p>
+          </div>
+
+          <div id="communityActivityTimesheetBlock" class="statsSection">
+            <div class="sectionTitleRow">
+              <p class="sectionTitle">Feuille de temps</p>
+              <div class="timesheetNav">
+                <button id="caTsPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
+                <span id="caTsWeekLabel" class="meta"></span>
+                <button id="caTsNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
+                <button id="caTsFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
+              </div>
+            </div>
+            <p class="hint">La semaine en cours s'affiche par défaut à chaque sélection de l'activité. Les semaines précédentes restent enregistrées et consultables avec les flèches, sans jamais être perdues.</p>
+            <div class="timesheetScroll">
+              <div id="caTsGrid" class="timesheetGrid"></div>
+            </div>
+            <p id="caTsEmptyHint" class="hint hidden">Rien d'enregistré sur cette semaine.</p>
+          </div>
+
+          <div id="communityActivityPieBlock" class="statsSection">
+            <p class="sectionTitle">Répartition</p>
+            <div id="communityActivityPie" class="pieWrap"></div>
+            <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+          </div>
+
+          <div id="communityActivityChartBlock" class="statsSection">
+            <div class="sectionTitleRow">
+              <p class="sectionTitle">Graphique</p>
+              <button id="caChartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
+            </div>
+            <div class="chartWrap" id="communityActivityChartWrap">
+              <div class="chartScroll">
+                <div id="communityActivityChart" class="chartSvgWrap"></div>
+              </div>
+              <div id="caChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
+            </div>
+            <div id="communityActivityChartLegend" class="chartLegend"></div>
+            <p id="communityActivityChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+          </div>
+
+          <div id="communityActivityDetailFeed"></div>
+          <p id="communityActivityDetailEmptyHint" class="hint hidden">Rien à afficher pour l'instant pour cette activité.</p>
+        </div>
+
+        <!-- Distinct du détail par activité ci-dessus : ici, le détail brut
+             des sessions, comme l'historique du Chrono mais pour les
+             co-membres, toutes activités partagées confondues. -->
+        <p class="sectionTitle">Partagée</p>
+        <p class="hint">Les activités et notes des personnes avec qui tu partages déjà une activité — sans rapport avec le suivi.</p>
+        <div id="sharedFeed"></div>
+        <p id="sharedFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant.</p>
+
+        <!-- Page (modale) listant tous les membres d'une activité partagée
+             précise, ouverte depuis le menu "⋮" d'une ligne ci-dessus (option
+             "Voir les membres") — un point vert apparaît à côté d'un membre
+             si son chrono est ACTUELLEMENT en cours pour CETTE activité
+             précise (pas un chrono quelconque sur une autre activité). -->
+        <div id="communityMembersModal" class="communityMembersModal hidden">
+          <div class="communityMembersModalCard">
+            <div class="communityMembersModalHeader">
+              <p class="sectionTitle" id="communityMembersModalTitle"></p>
+              <button type="button" class="menuBtn" id="communityMembersModalClose" aria-label="Fermer">✕</button>
+            </div>
+            <div id="communityMembersModalList" class="activitiesList"></div>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- ---------- ONGLET PARAMÈTRES ---------- -->
-    <section id="tab-settings" class="tab hidden">
-      <p class="sectionTitle">Mon profil</p>
-      <div class="settingsCard">
-        <input type="text" id="settingsName" placeholder="Prénom ou pseudo" maxlength="40">
-        <label class="colorLabel">Couleur
-          <input type="color" id="settingsColor">
-        </label>
-        <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
-        <p id="settingsMsg" class="msg"></p>
-        <p class="switchLink"><a href="#" id="switchProfileLink">Changer de profil / se déconnecter</a></p>
+    <!-- ---------- ONGLET PROFIL ---------- -->
+    <section id="tab-profile" class="tab hidden">
+
+      <!-- Vue principale de l'onglet Profil. Le nom reste affiché ici en
+           lecture seule (modifiable depuis Réglages > Identité), mais la
+           photo se modifie directement ici depuis le 29 août 2026 (demande
+           d'Emilien) : cliquer sur l'avatar ouvre le sélecteur de fichier et
+           enregistre aussitôt la nouvelle photo, sans passer par Réglages —
+           voir avatarDisplayCircle/avatarFileInput/avatarRemoveBtn dans
+           app.js. Le bouton "⚙️" bascule vers Réglages (échange de vue façon
+           écran séparé, même principe que les étapes de l'onboarding plus
+           haut dans ce fichier), plutôt qu'un panneau replié dans la même
+           page. -->
+      <div id="profileMain">
+        <div class="identityHeader">
+          <div class="avatarWrap">
+            <button type="button" class="avatarDisplay" id="avatarDisplayCircle" title="Changer la photo de profil" aria-label="Changer la photo de profil">
+              <img id="avatarDisplayImg" class="hidden" alt="">
+              <span id="avatarDisplayInitial"></span>
+            </button>
+            <button type="button" id="avatarRemoveBtn" class="avatarRemoveBtn hidden" title="Retirer la photo" aria-label="Retirer la photo">×</button>
+          </div>
+          <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" class="hidden">
+          <span class="identityName" id="identityDisplayName"></span>
+          <!-- Icône "avion en papier" : ouvre/ferme un panneau déroulant
+               (#profileNotifPanel) listant les invitations d'activité et les
+               demandes de suivi en attente. Sur demande d'Emilien (29 août
+               2026), ces deux listes ne sont plus affichées en permanence
+               sur la vue principale du Profil — seul ce panneau, ouvert par
+               un clic sur l'icône, les montre. Point rouge piloté par
+               notifPendingCounts/refreshNotifDot dans app.js. -->
+          <div class="notifWrap">
+            <button id="profileNotifBtn" class="menuBtn notifBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              <span id="profileNotifDot" class="notifDot hidden"></span>
+            </button>
+            <div id="profileNotifPanel" class="notifPanel hidden">
+              <p class="sectionTitle">Invitations reçues</p>
+              <div id="invitesList" class="activitiesList"></div>
+
+              <!-- Demandes de suivi (Suivi, indépendant du partage d'activité
+                   ci-dessus) — déplacé depuis l'onglet Communauté à la demande
+                   d'Emilien. Le reste du système de Suivi (recherche de membres,
+                   fil d'actualité) reste dans Communauté. -->
+              <p class="sectionTitle">Demandes de suivi reçues</p>
+              <div id="followRequestsList" class="activitiesList"></div>
+            </div>
+          </div>
+          <button id="profileSettingsBtn" class="menuBtn" title="Réglages" aria-label="Réglages">⚙️</button>
+        </div>
+        <p id="avatarMsg" class="msg"></p>
+
+        <div class="sectionTitleRow">
+          <p class="sectionTitle">Activités</p>
+          <button id="addActivityBtn" class="menuBtn" title="Ajouter une activité">+</button>
+        </div>
+        <div class="activityRow hidden" id="newActivityCard">
+          <div class="activityRowHeader">
+            <span class="dot" id="newActivityDot"></span>
+            <span class="activityRowName">Nouvelle activité</span>
+          </div>
+          <div class="activitySettingsPanel">
+            <input type="text" id="newActivityName" placeholder="Nom de l'activité">
+            <div id="newActivitySwatches" class="colorSwatches"></div>
+            <p class="meta" id="newActivityMsg"></p>
+            <div class="rowActions">
+              <button id="newActivitySave" class="iconBtn">Ajouter l'activité</button>
+            </div>
+          </div>
+        </div>
+        <div id="activitiesList" class="activitiesList"></div>
+
+        <p class="sectionTitle">Mes notes</p>
+        <p id="notesEmptyHint" class="hint hidden">Aucune note enregistrée pour l'instant — les notes ajoutées pendant tes sessions dans Chrono apparaîtront ici.</p>
+        <div id="notesList"></div>
       </div>
 
-      <p class="sectionTitle">Activités</p>
-      <div id="activitiesList" class="activitiesList"></div>
-      <div class="entryCard">
-        <input type="text" id="newActivityName" placeholder="Nouvelle activité">
-        <label class="colorLabel">Couleur
-          <input type="color" id="newActivityColor" value="#3498db">
-        </label>
-        <label class="checkLabel"><input type="checkbox" id="newActivityNote"> Nécessite une note</label>
-        <button id="newActivitySave" class="btn btn-primary btn-small">Ajouter l'activité</button>
-      </div>
+      <!-- Page "Réglages" : Apparence, Sécurité, Import. Masquée par défaut ;
+           ouverte en remplaçant #profileMain (pas en accordéon) au clic sur
+           le bouton "⚙️" ci-dessus. -->
+      <div id="profileSettingsPanel" class="hidden">
+        <!-- Déconnexion en haut à droite, au-dessus d'Identité (demande
+             d'Emilien, 29 août 2026) — auparavant un lien en bas de la
+             section Identité ("Changer de profil / se déconnecter"). -->
+        <div class="subpageHeader">
+          <button id="profileSettingsBack" class="menuBtn" title="Retour" aria-label="Retour">←</button>
+          <p class="sectionTitle subpageTitle">Réglages</p>
+          <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
+        </div>
 
-      <p class="sectionTitle">Importer l'historique existant</p>
-      <div class="entryCard">
-        <p class="hint">Depuis Google Sheets : onglet « Historique » → Fichier → Télécharger → Valeurs séparées par une virgule (.csv), puis choisis le fichier ici.</p>
-        <input type="file" id="importFile" accept=".csv,text/csv">
-        <button id="importBtn" class="btn btn-small">Importer</button>
-        <p id="importMsg" class="msg"></p>
+        <p class="sectionTitle">Identité</p>
+        <div class="settingsCard">
+          <!-- La photo de profil ne se modifie plus ici depuis le 29 août
+               2026 : elle s'édite directement en cliquant sur l'avatar de la
+               vue principale du Profil (voir #profileMain plus haut). -->
+          <p class="hint">La photo de profil se change directement depuis la vue principale du Profil — clique sur l'avatar, en haut.</p>
+          <input type="text" id="settingsName" placeholder="Prénom ou pseudo" maxlength="40">
+          <input type="text" id="settingsLastName" placeholder="Nom de famille" maxlength="60">
+          <input type="tel" id="settingsPhone" placeholder="Numéro de téléphone" maxlength="30">
+          <input type="email" id="settingsEmail" placeholder="Adresse email" maxlength="120">
+          <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
+          <p id="settingsMsg" class="msg"></p>
+        </div>
+
+        <p class="sectionTitle">Apparence</p>
+        <div class="settingsCard">
+          <div class="themeSwitch" id="themeSwitch">
+            <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
+            <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
+          </div>
+          <p class="hint">Le mode sombre est activé par défaut. Changer de mode adapte automatiquement les couleurs de tes activités si besoin.</p>
+          <p id="themeMsg" class="msg"></p>
+        </div>
+
+        <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
+             Réglage par profil, comme le thème : anglais par défaut pour
+             tout nouveau compte, français pour les profils qui existaient
+             déjà (voir la migration dans server/db.js). Réutilise les
+             classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
+             (composants génériques appartenant à la discussion Design :
+             utilisés tels quels, aucune définition CSS modifiée). -->
+        <p class="sectionTitle">Langue</p>
+        <div class="settingsCard">
+          <div class="themeSwitch" id="langSwitch">
+            <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
+            <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
+          </div>
+          <p class="hint">Change la langue de toute l'application. Le changement est appliqué immédiatement.</p>
+          <p id="langMsg" class="msg"></p>
+        </div>
+
+        <p class="sectionTitle">Sécurité</p>
+        <div class="settingsCard">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPinConfirm" placeholder="Confirme le nouveau code" maxlength="6" autocomplete="off">
+          <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
+          <p id="settingsPinMsg" class="msg"></p>
+        </div>
+
+        <p class="sectionTitle">Importer l'historique existant</p>
+        <div class="entryCard">
+          <p class="hint">Depuis Google Sheets : onglet « Historique » → Fichier → Télécharger → Valeurs séparées par une virgule (.csv), puis choisis le fichier ici.</p>
+          <input type="file" id="importFile" accept=".csv,text/csv">
+          <button id="importBtn" class="btn btn-small">Importer</button>
+          <p id="importMsg" class="msg"></p>
+        </div>
+
+        <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
+             2026, demande d'Emilien) : suppression définitive du compte,
+             confirmée par le code PIN du profil (même mécanisme que la
+             récupération d'un profil depuis un autre appareil, voir
+             server/lib/auth.js). Les activités partagées avec d'autres
+             personnes continuent d'exister pour elles — c'est exactement la
+             même règle que "Supprimer définitivement" sur une activité :
+             on part, les autres restent. -->
+        <p class="sectionTitle">Supprimer mon compte</p>
+        <div class="settingsCard">
+          <p class="hint">Cette action est définitive : ton profil, ton historique, tes notes, tes invitations et tes abonnements sont supprimés. Les activités que tu partages avec d'autres personnes continuent d'exister pour elles.</p>
+          <input type="password" inputmode="numeric" pattern="[0-9]*" id="deleteAccountPin" placeholder="Saisis ton code pour confirmer" maxlength="6" autocomplete="off">
+          <button id="deleteAccountBtn" class="iconBtn danger">Supprimer définitivement mon compte</button>
+          <p id="deleteAccountMsg" class="msg"></p>
+        </div>
       </div>
     </section>
 
   </main>
 
   <nav class="tabbar">
-    <button class="tabBtn active" data-tab="chrono">
-      <span class="tabIcon">⏱</span><span>Chrono</span>
+    <button class="tabBtn active" data-tab="chrono" aria-label="Chrono">
+      <span class="tabIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="13" r="8"/>
+          <line x1="12" y1="13" x2="12" y2="9"/>
+          <line x1="12" y1="13" x2="15" y2="15"/>
+          <line x1="10" y1="2" x2="14" y2="2"/>
+        </svg>
+      </span>
+      <span class="tabLabel">Chrono</span>
     </button>
-    <button class="tabBtn" data-tab="stats">
-      <span class="tabIcon">📊</span><span>Stats</span>
+    <button class="tabBtn" data-tab="stats" aria-label="Statistiques">
+      <span class="tabIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3,17 9,10 13,14 21,5"/>
+        </svg>
+      </span>
+      <span class="tabLabel">Stats</span>
     </button>
-    <button class="tabBtn" data-tab="community">
-      <span class="tabIcon">👥</span><span>Communauté</span>
+    <button class="tabBtn" data-tab="community" aria-label="Communauté">
+      <span class="tabIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="6" cy="12" r="3"/>
+          <circle cx="18" cy="12" r="3"/>
+          <line x1="9" y1="12" x2="15" y2="12"/>
+        </svg>
+      </span>
+      <span class="tabLabel">Communauté</span>
     </button>
-    <button class="tabBtn" data-tab="settings">
-      <span class="tabIcon">⚙️</span><span>Paramètres</span>
+    <button class="tabBtn" data-tab="profile" aria-label="Profil">
+      <span class="tabIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20c0-4.4 3.6-6 8-6s8 1.6 8 6"/>
+        </svg>
+      </span>
+      <span class="tabLabel">Profil</span>
     </button>
   </nav>
 </div>
 
+<script src="/i18n.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

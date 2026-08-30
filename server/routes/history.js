@@ -1,9 +1,15 @@
 const express = require('express');
 const db = require('../db');
 const { isoDateOf, dayNameOf } = require('../lib/dates');
-const { periodRange } = require('../lib/stats');
+const { periodRange } = require('../lib/period');
+const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 
 const router = express.Router();
+
+function attachmentsFor(timeEntryId) {
+  return db.prepare(`SELECT id, fileName, mimeType, sizeBytes, dataUrl, createdAt
+                      FROM note_attachments WHERE timeEntryId = ? ORDER BY createdAt ASC`).all(timeEntryId);
+}
 
 // Liste modifiable des enregistrements de la semaine en cours (ou d'une
 // période donnée) — pour corriger un oubli de STOP, une mauvaise activité, etc.
@@ -23,6 +29,33 @@ router.get('/history', (req, res) => {
     WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
     ORDER BY t.startTime DESC
   `).all(userId, start, end);
+
+  // Pièces jointes de note (photo, document) — voir panneau "Historique" du
+  // Chrono. Dataset borné à une semaine, une requête par entrée reste
+  // largement raisonnable (cohérent avec le reste de l'app, qui préfère la
+  // simplicité à l'optimisation prématurée pour un usage personnel).
+  rows.forEach((row) => { row.attachments = attachmentsFor(row.id); });
+
+  res.json(rows);
+});
+
+// Notes enregistrées par ce profil sur SES sessions, toutes activités et
+// toutes périodes confondues (contrairement à /history, pas de fenêtre de
+// temps) — alimente la section "Mes notes" de l'onglet Profil. Seules les
+// entrées avec une note non vide sont renvoyées, les plus récentes d'abord.
+router.get('/notes', (req, res) => {
+  const userId = req.query.userId;
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  const rows = db.prepare(`
+    SELECT t.id, t.activityId, a.name AS activity, t.note, t.startTime, t.endTime, t.durationSeconds
+    FROM time_entries t
+    JOIN activities a ON a.id = t.activityId
+    WHERE t.userId = ? AND t.note IS NOT NULL AND TRIM(t.note) != ''
+    ORDER BY t.startTime DESC
+    LIMIT 200
+  `).all(userId);
 
   res.json(rows);
 });
@@ -73,6 +106,34 @@ router.put('/history/:id', (req, res) => {
       isoDateOf(startTime), dayNameOf(startTime), entry.id);
 
   res.json({ message: 'Enregistrement mis à jour.' });
+});
+
+// Ajoute une pièce jointe directement sur un enregistrement déjà validé,
+// depuis le panneau "Historique" du Chrono (contrairement à
+// POST /timer/attachments dans timer.js, réservée à la session encore en
+// cours) — même table note_attachments, mêmes limites (server/lib/attachments.js).
+router.post('/history/:id/attachments', (req, res) => {
+  const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(req.params.id);
+  if (!entry) return res.status(404).json({ error: 'Enregistrement introuvable.' });
+  if (entry.userId !== req.body.userId) return res.status(403).json({ error: "Ce n'est pas ton enregistrement." });
+
+  const count = db.prepare('SELECT COUNT(*) AS n FROM note_attachments WHERE timeEntryId = ?').get(entry.id).n;
+  if (count >= MAX_ATTACHMENTS_PER_NOTE) {
+    return res.status(400).json({ error: `Maximum ${MAX_ATTACHMENTS_PER_NOTE} pièces jointes par session.` });
+  }
+
+  const parsed = validateAttachmentPayload(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+  const createdAt = new Date().toISOString();
+  const info = db.prepare(`INSERT INTO note_attachments (userId, timeEntryId, fileName, mimeType, sizeBytes, dataUrl, createdAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(entry.userId, entry.id, parsed.fileName, parsed.mimeType, parsed.sizeBytes, parsed.dataUrl, createdAt);
+
+  res.status(201).json({
+    id: info.lastInsertRowid, fileName: parsed.fileName, mimeType: parsed.mimeType,
+    sizeBytes: parsed.sizeBytes, dataUrl: parsed.dataUrl, createdAt,
+  });
 });
 
 router.delete('/history/:id', (req, res) => {

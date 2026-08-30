@@ -1,6 +1,7 @@
 :root {
   --purple: #674EA7;
   --purple-dark: #4a3980;
+  --purple-rgb: 103, 78, 167;
   --green: #4CAF50;
   --red: #E74C3C;
   --blue: #3498db;
@@ -10,6 +11,44 @@
   --text: #333333;
   --text-light: #777777;
   --border: #e0e0e0;
+  --track-bg: #eeeeee;
+  --hover-bg: #fafafa;
+
+  /* ===== Design tokens (amélioration visuelle du 29 août 2026) =====
+     Rayons/ombres/transitions communs, pour que tous les composants
+     (cartes, boutons, contrôles) restent visuellement cohérents et que le
+     mode sombre ait de vraies ombres/séparations au lieu d'un aplat. */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 12px 30px rgba(0, 0, 0, 0.25);
+  --shadow-topbar: 0 2px 10px rgba(0, 0, 0, 0.12);
+  --shadow-tabbar: 0 -2px 10px rgba(0, 0, 0, 0.06);
+  --transition-fast: 0.15s ease;
+}
+
+/* Mode sombre (par défaut) — activé via l'attribut data-theme sur <html>,
+   posé par public/app.js selon le thème du profil connecté. Voir aussi
+   server/lib/theme.js pour les palettes de couleurs d'activités associées. */
+:root[data-theme="dark"] {
+  --bg: #15171b;
+  --card: #1f2229;
+  --text: #eef0f2;
+  --text-light: #9a9ea6;
+  --border: #33363d;
+  --track-bg: #2b2e35;
+  --hover-bg: #2a2d34;
+
+  /* Sur fond sombre, une ombre noire classique est quasi invisible : on
+     l'assombrit et on ajoute un très léger liseré clair pour que les cartes
+     se détachent nettement du fond, au lieu de rester à plat. */
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-topbar: 0 2px 14px rgba(0, 0, 0, 0.4);
+  --shadow-tabbar: 0 -2px 14px rgba(0, 0, 0, 0.4);
 }
 
 * { box-sizing: border-box; }
@@ -19,9 +58,46 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
+button, input, select, textarea { font-family: inherit; }
+
 .hidden { display: none !important; }
+
+/* Respect du réglage système "réduire les animations" : on coupe toutes les
+   transitions/animations plutôt que de les ignorer. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Anneau de focus clavier cohérent sur toute l'app (accessibilité), sans
+   ajouter de cadre disgracieux sur un simple clic souris. */
+:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Les champs natifs (texte, date, heure, listes, zones de texte) gardent un
+   fond blanc par défaut dans la plupart des navigateurs, quel que soit le
+   thème de la page — on les aligne explicitement sur --card/--text. */
+input[type=text], input[type=password], input[type=tel], input[type=email],
+input[type=date], input[type=time],
+input[type=file], select, textarea {
+  background: var(--card);
+  color: var(--text);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+input[type=text]:focus, input[type=password]:focus, input[type=tel]:focus,
+input[type=email]:focus, input[type=date]:focus,
+input[type=time]:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
+}
 
 /* ===== Onboarding ===== */
 #onboarding {
@@ -34,156 +110,548 @@ body {
 }
 .onboarding-card {
   background: var(--card);
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   padding: 32px 26px;
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow-elevated);
   text-align: center;
 }
-.onboarding-card h1 { margin: 0; font-size: 32px; color: var(--purple); }
+.onboarding-card h1 { margin: 0; font-size: 32px; color: var(--purple); letter-spacing: -0.3px; }
 .onboarding-card .subtitle { margin: 2px 0 24px; color: var(--text-light); font-size: 14px; }
 .onboarding-card .lead { font-weight: bold; margin-bottom: 10px; text-align: left; }
-.onboarding-card input[type=text] {
+.onboarding-card input[type=text], .onboarding-card input[type=password],
+.onboarding-card input[type=tel], .onboarding-card input[type=email] {
   width: 100%; padding: 14px; font-size: 16px; border: 1px solid var(--border);
-  border-radius: 10px; margin-bottom: 14px;
+  border-radius: var(--radius-md); margin-bottom: 14px; box-sizing: border-box;
 }
 .colorLabel {
   display: flex; align-items: center; justify-content: space-between;
   font-size: 14px; color: var(--text-light); margin-bottom: 18px;
 }
 .colorLabel input[type=color] {
-  width: 48px; height: 36px; border: 1px solid var(--border); border-radius: 8px;
+  width: 48px; height: 36px; border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 0; cursor: pointer; background: none;
 }
 .switchLink { font-size: 13px; margin-top: 16px; }
 .switchLink a { color: var(--blue); text-decoration: none; }
+.switchLink a:hover { text-decoration: underline; }
 .userList { max-height: 220px; overflow-y: auto; text-align: left; margin-bottom: 8px; }
+.userList::-webkit-scrollbar { width: 8px; }
+.userList::-webkit-scrollbar-track { background: transparent; }
+.userList::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .userChip {
   display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-  border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px; cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
 }
-.userChip:hover { background: #fafafa; }
+.userChip:hover { background: var(--hover-bg); border-color: var(--purple); }
+.userChip:active { transform: scale(0.99); }
 .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
 
+/* ===== Palette de couleurs d'activités (pastilles) ===== */
+.colorPickLabel { font-size: 14px; color: var(--text-light); margin: 0 0 8px; text-align: left; }
+.colorSwatches { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.swatch {
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; padding: 0;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.swatch.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--purple); }
+.colorSwatches.compact { margin-bottom: 0; gap: 6px; }
+.colorSwatches.compact .swatch { width: 24px; height: 24px; }
+
+/* ===== Sélecteur de thème (Profil > Réglages > Apparence) ===== */
+.themeSwitch { display: flex; gap: 8px; margin-bottom: 10px; }
+.themeBtn {
+  flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--card);
+  color: var(--text); border-radius: var(--radius-md); cursor: pointer; font-size: 14px;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.themeBtn.active { background: var(--purple); color: white; border-color: var(--purple); }
+
 /* ===== Layout app ===== */
-#app { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 78px; }
+/* padding-bottom un peu plus généreux depuis l'ajout du libellé sous les
+   icônes de la barre d'onglets (tabbar plus haute qu'avant). */
+#app { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 88px; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px; background: var(--purple); color: white;
+  padding: 14px 18px; color: white;
+  background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+  box-shadow: var(--shadow-topbar);
   position: sticky; top: 0; z-index: 10;
 }
-.brand { font-weight: bold; font-size: 18px; }
+.brand { font-weight: bold; font-size: 18px; letter-spacing: 0.2px; }
 .whoami { font-size: 13px; opacity: 0.9; }
 #content { flex: 1; padding: 18px 5%; max-width: 640px; margin: 0 auto; width: 100%; }
 
 .tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; display: flex;
   background: var(--card); border-top: 1px solid var(--border);
+  box-shadow: var(--shadow-tabbar);
   padding: 6px 0 max(6px, env(safe-area-inset-bottom)); z-index: 10;
 }
 .tabBtn {
-  flex: 1; background: none; border: none; padding: 6px 2px; font-size: 11px;
-  color: var(--text-light); display: flex; flex-direction: column; align-items: center;
-  gap: 2px; cursor: pointer;
+  position: relative;
+  flex: 1; background: none; border: none; padding: 10px 2px 8px;
+  color: var(--text-light); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: color var(--transition-fast), transform var(--transition-fast);
 }
-.tabBtn.active { color: var(--purple); font-weight: bold; }
-.tabIcon { font-size: 22px; }
+.tabBtn.active { color: var(--purple); }
+/* Petit repère au-dessus de l'onglet actif, pour repérer l'onglet courant
+   au premier coup d'œil sans dépendre uniquement de la couleur de l'icône. */
+.tabBtn.active::before {
+  content: '';
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 18px; height: 3px; border-radius: 2px; background: var(--purple);
+}
+.tabBtn:active { transform: scale(0.94); }
+.tabIcon { display: flex; align-items: center; justify-content: center; }
+.tabIcon svg { width: 24px; height: 24px; display: block; transition: transform var(--transition-fast); }
+.tabBtn.active .tabIcon svg { transform: scale(1.08); }
+/* Nom de la section sous l'icône, dans la barre d'onglets. */
+.tabLabel {
+  font-size: 11px; font-weight: 600; line-height: 1;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* ===== Chrono ===== */
 .chronoBlock { text-align: center; margin: 20px 0; }
+/* Le bloc "chrono en cours" prend un léger habillage de carte pour se
+   détacher du fond pendant que le chrono tourne — pas le bloc "choix de
+   l'activité" (déjà très visuel avec la grille colorée). */
+#chronoRunning {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 26px 18px;
+  box-shadow: var(--shadow-card);
+}
 .chronoBtn {
   width: 90%; padding: 46px; font-size: 30px; font-weight: bold; border: none;
-  border-radius: 24px; color: white; cursor: pointer;
+  border-radius: var(--radius-2xl); color: white; cursor: pointer;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
 }
 .chronoBtn-start { background: var(--green); }
 .chronoBtn-stop { background: var(--red); }
+.chronoBtn:active { transform: scale(0.97); }
 #liveTimer {
-  font-size: 44px; font-weight: bold; color: #2c3e50; margin: 10px 0 24px;
+  font-size: 44px; font-weight: bold; color: var(--text); margin: 10px 0 24px;
   font-variant-numeric: tabular-nums;
 }
 .runningActivityLabel {
   display: inline-block; padding: 8px 18px; border-radius: 20px; font-weight: bold;
-  font-size: 17px; color: #333; margin-bottom: 6px;
+  font-size: 17px; color: var(--text); margin-bottom: 6px;
 }
 .elapsedInfo { text-align: center; color: var(--text-light); }
 .stepLabel { font-weight: bold; margin: 16px 0 8px; }
 .activityGrid { display: flex; flex-direction: column; gap: 10px; }
 .activityChoiceBtn {
-  padding: 18px; font-size: 17px; font-weight: bold; border: none; border-radius: 14px;
-  color: #333; cursor: pointer; text-align: left;
+  padding: 18px; font-size: 17px; font-weight: bold; border: none; border-radius: var(--radius-lg);
+  color: var(--text); cursor: pointer; text-align: left;
+  transition: transform var(--transition-fast), filter var(--transition-fast), box-shadow var(--transition-fast);
 }
 .activityChoiceBtn.selected { outline: 3px solid var(--purple); }
+.activityChoiceBtn:active { transform: scale(0.98); }
 textarea {
   width: 100%; padding: 12px; font-size: 15px; border: 1px solid var(--border);
-  border-radius: 10px; min-height: 80px; resize: vertical; font-family: inherit;
+  border-radius: var(--radius-md); min-height: 80px; resize: vertical; font-family: inherit;
+}
+
+/* ===== Envoi "en direct" pendant le Chrono (deux boutons d'audience) =====
+   Habillage de la ligne des deux boutons "Envoyer aux membres"/"Envoyer à la
+   communauté", à l'intérieur de #noteWrapper — une seule section de notes
+   (fusionnée avec le champ note privé, plus de bloc séparé), et depuis ce
+   passage plus de sélecteur d'audience : deux boutons distincts à la place. */
+.broadcastRow { display: flex; gap: 8px; margin-top: 8px; }
+.broadcastRow .iconBtn { flex: 1; }
+
+/* ===== Récapitulatif avant validation du STOP =====
+   Panneau qui remplace le bouton STOP le temps de confirmer les heures de
+   début/fin (modifiables) avant d'enregistrer la session — propre au Chrono. */
+#stopConfirmPanel { margin-top: 16px; text-align: left; }
+.stopFieldLabel { font-size: 13px; color: var(--text-light); margin: 10px 0 4px; }
+#stopConfirmPanel input[type=datetime-local] {
+  width: 100%; padding: 10px; font-size: 15px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-sizing: border-box; background: var(--card); color: var(--text);
+}
+#stopDurationLabel { text-align: left; margin: 10px 0 0; }
+#stopConfirmPanel .rowActions { margin-top: 12px; }
+
+/* ===== Historique modifiable (Chrono) =====
+   Section repliable listant les sessions déjà enregistrées, avec édition de
+   date/heure (mêmes champs datetime-local que le récapitulatif de STOP
+   ci-dessus) et suppression — propre au Chrono, distincte de "Mes notes"
+   dans Profil (voir #chronoHistorySection dans index.html). */
+#chronoHistorySection { margin-top: 24px; text-align: left; }
+.historyNav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.historyNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
+.historyEditFields { margin-top: 8px; text-align: left; }
+.historyEditFields input[type=datetime-local] {
+  width: 100%; padding: 10px; font-size: 15px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-sizing: border-box; background: var(--card); color: var(--text);
+}
+.historyEditFields .rowActions { margin-top: 10px; }
+.historyEditMsg { margin: 8px 0 0; }
+
+/* ===== Pièces jointes de note (photo / document) — Chrono =====
+   Réutilisées à la fois pendant le chrono en cours (#noteWrapper) et dans le
+   panneau "Historique" une fois la session validée (buildChronoHistoryEntry
+   dans app.js — voir renderAttachmentList/buildAttachmentRow). */
+.attachmentActions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.attachmentList { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.attachmentRow {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card);
+}
+.attachmentThumb {
+  width: 36px; height: 36px; object-fit: cover; border-radius: var(--radius-sm);
+  cursor: pointer; flex-shrink: 0;
+}
+.attachmentIcon { font-size: 20px; width: 36px; text-align: center; flex-shrink: 0; }
+.attachmentInfo { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.attachmentName { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachmentOpen, .attachmentRemove { flex-shrink: 0; }
+.attachmentRemove { font-size: 16px; line-height: 1; padding: 4px 9px; }
+.attachmentMsg { text-align: left; margin: 4px 0 0; }
+
+/* ===== Flux "En ce moment" (Communauté) — réutilise .historyEntry (voir
+   plus bas), ajoute juste le badge "en direct" à côté du nom. Cette classe
+   est propre à la fonctionnalité "note en direct" (Chrono + Communauté),
+   pas une classe générique Design. */
+.liveBadge {
+  display: inline-block; font-size: 11px; font-weight: bold; color: var(--red);
+  border: 1px solid var(--red); border-radius: 999px; padding: 1px 8px; margin-left: 8px;
+  vertical-align: middle;
 }
 .btn {
-  padding: 15px; font-size: 16px; font-weight: bold; border: none; border-radius: 12px;
+  padding: 15px; font-size: 16px; font-weight: bold; border: none; border-radius: var(--radius-lg);
   cursor: pointer; width: 100%; margin-top: 12px;
+  transition: transform var(--transition-fast), filter var(--transition-fast), opacity var(--transition-fast);
 }
 .btn-primary { background: var(--purple); color: white; }
 .btn-small { padding: 10px; font-size: 14px; width: auto; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:active:not(:disabled) { transform: scale(0.98); }
 .msg { text-align: center; font-size: 13px; color: var(--text-light); min-height: 18px; }
 
-.historyBlock { margin-top: 34px; }
-.historyHeader {
-  display: flex; align-items: center; justify-content: space-between;
-  font-weight: bold; margin-bottom: 10px;
+@media (hover: hover) {
+  .btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .activityChoiceBtn:hover { filter: brightness(1.08); box-shadow: var(--shadow-card); }
+  .chronoBtn:hover { filter: brightness(1.06); }
+  .themeBtn:hover:not(.active) { background: var(--hover-bg); }
+  .tabBtn:hover { color: var(--purple); }
 }
+
 .entryCard {
-  background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  background: var(--card); border-radius: var(--radius-lg); padding: 14px; margin-bottom: 10px;
+  box-shadow: var(--shadow-card);
 }
 .entryCard input, .entryCard select, .entryCard textarea {
   width: 100%; padding: 10px; font-size: 14px; margin-bottom: 8px;
-  border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); box-sizing: border-box;
 }
-.timeRow { display: flex; gap: 8px; }
-.timeRow input { flex: 1; }
 .checkLabel { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 10px; }
 
 .historyEntry {
-  background: var(--card); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 6px;
+  background: var(--card); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 8px;
+  box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 6px;
 }
 .historyEntry .rowTop { display: flex; justify-content: space-between; align-items: center; }
 .historyEntry .actName { font-weight: bold; }
 .historyEntry .actName .dot { display: inline-block; margin-right: 6px; vertical-align: middle; }
 .historyEntry .meta { font-size: 12px; color: var(--text-light); }
-.historyEntry .note { font-size: 13px; color: var(--text); white-space: pre-wrap; }
+.historyEntry .note {
+  font-size: 13px; color: var(--text); white-space: pre-wrap;
+  /* Un mot ou un lien sans espace (URL Google Sheets par exemple) ne doit
+     jamais pouvoir dépasser la largeur de la carte : on force la coupure
+     même en plein milieu du mot si besoin, quel que soit le contenu. */
+  overflow-wrap: anywhere; word-break: break-word; max-width: 100%;
+}
 .historyEntry .actions { display: flex; gap: 8px; margin-top: 4px; }
 .iconBtn {
-  border: 1px solid var(--border); background: white; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: var(--radius-sm);
   padding: 6px 10px; font-size: 12px; cursor: pointer;
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
 }
+.iconBtn:hover { background: var(--hover-bg); }
+.iconBtn:active { transform: scale(0.96); }
 .iconBtn.danger { color: var(--red); border-color: var(--red); }
+.iconBtn:disabled { opacity: 0.35; cursor: default; transform: none; }
 
 /* ===== Stats / Communauté ===== */
 .periodSwitch { display: flex; gap: 8px; margin-bottom: 16px; }
 .periodBtn {
-  flex: 1; padding: 10px; border: 1px solid var(--border); background: white;
-  border-radius: 10px; cursor: pointer; font-size: 14px;
+  flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--card);
+  color: var(--text); border-radius: var(--radius-md); cursor: pointer; font-size: 14px;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 .periodBtn.active { background: var(--purple); color: white; border-color: var(--purple); }
+@media (hover: hover) {
+  .periodBtn:hover:not(.active) { background: var(--hover-bg); }
+}
 .statsSummary { text-align: center; margin-bottom: 18px; }
 .statsLabel { color: var(--text-light); margin: 0; font-size: 13px; }
-.statsTotal { font-size: 30px; font-weight: bold; margin: 4px 0; color: var(--purple); }
+.statsTotal { font-size: 32px; font-weight: 800; margin: 4px 0; color: var(--purple); letter-spacing: -0.4px; }
 .sectionTitle { font-weight: bold; margin: 24px 0 10px; font-size: 15px; }
+.sectionTitleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* ----- Menu "⋮" de choix de période (Semaine/Mois/Année), propre aux trois
+   sections de Statistiques — 30 août 2026, demande d'Emilien : chaque
+   section a désormais sa propre période, choisie indépendamment des deux
+   autres via ce petit menu déroulant. Réutilise .menuBtn (générique Design)
+   pour le bouton lui-même ; .statsPeriodMenu/.statsPeriodMenuItem sont
+   propres à Statistiques (ne redéfinissent pas .notifPanel, propre à
+   Profil — voir carte des zones). Sur la Feuille de temps et le Graphique,
+   ce menu n'a de sens qu'en plein écran (seul endroit où la nouvelle vue
+   "Mois" tient à l'aise) : .fullscreenOnly le masque par défaut et ne le
+   révèle que sous #statsTimesheetBlock.fullscreen / #statsChartBlock.fullscreen
+   ci-dessous. Sur la Répartition (pas de plein écran), le menu reste
+   toujours visible. */
+.statsPeriodMenuWrap { position: relative; flex-shrink: 0; }
+.statsPeriodMenu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
+  min-width: 140px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated); overflow: hidden;
+}
+.statsPeriodMenuItem {
+  display: block; width: 100%; text-align: left; padding: 10px 12px; border: none;
+  background: none; color: var(--text); font-size: 14px; cursor: pointer;
+}
+.statsPeriodMenuItem:hover { background: var(--hover-bg); }
+.statsPeriodMenuItem.active { color: var(--purple); font-weight: bold; }
+
+.statsPeriodMenuWrap.fullscreenOnly { display: none; }
+#statsTimesheetBlock.fullscreen .statsPeriodMenuWrap.fullscreenOnly,
+#statsChartBlock.fullscreen .statsPeriodMenuWrap.fullscreenOnly {
+  display: block;
+}
+/* Même écart entre la carte d'ajout et la première activité existante
+   qu'entre deux activités existantes (voir ".activitiesList { gap: 8px }"). */
+#newActivityCard { margin-bottom: 8px; }
 
 .barList { display: flex; flex-direction: column; gap: 10px; }
-.barRow { background: var(--card); border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.barRow { background: var(--card); border-radius: var(--radius-lg); padding: 10px 12px; box-shadow: var(--shadow-card); }
 .barRow .barTop { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
 .barRow .barTop .name { font-weight: bold; display: flex; align-items: center; }
-.barTrack { background: #eee; border-radius: 6px; height: 10px; overflow: hidden; }
-.barFill { height: 100%; border-radius: 6px; }
+.barTrack { background: var(--track-bg); border-radius: 6px; height: 10px; overflow: hidden; }
+.barFill { height: 100%; border-radius: 6px; transition: width var(--transition-fast); }
 
 .meta { font-size: 12px; color: var(--text-light); font-weight: normal; }
 
+/* ===== Feuille de temps (heatmap hebdomadaire) — 29 août 2026 =====
+   Grille jour × quart d'heure (96 colonnes), inspirée de l'onglet "Feuille
+   de temps" du Google Sheet d'origine : colonne des jours figée à gauche
+   (position: sticky) comme la colonne A figée dans Sheets, défilement
+   horizontal sur le reste vu le nombre de colonnes (mobile-first). */
+.timesheetNav { display: flex; align-items: center; gap: 6px; }
+.timesheetNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
+.timesheetScroll {
+  overflow-x: auto; background: var(--card); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card); padding: 10px 8px;
+}
+.timesheetGrid {
+  display: grid; grid-template-columns: 54px repeat(96, 12px); grid-auto-rows: 22px;
+  gap: 1px; width: max-content;
+}
+.tsCorner { position: sticky; left: 0; background: var(--card); z-index: 2; }
+.tsHourLabel {
+  font-size: 10px; color: var(--text-light); display: flex; align-items: flex-end;
+  padding-left: 2px; white-space: nowrap;
+}
+.tsDayLabel {
+  position: sticky; left: 0; background: var(--card); z-index: 1;
+  font-size: 11px; color: var(--text); display: flex; align-items: center;
+  padding-right: 6px; white-space: nowrap;
+}
+.tsSlot { background: var(--track-bg); border-radius: 2px; }
+.tsSlot-filled { border-radius: 2px; }
+
+/* ===== Feuille de temps — vue "Mois" (calendrier) — 30 août 2026, demande
+   d'Emilien : semaines en lignes, jours de la semaine en colonnes (Lun à
+   Dim), chaque case-jour décomposée en 12 sections de 2h (6 colonnes × 2
+   lignes de mini-carrés, voir .tsCalDaySlots). Coexiste avec .timesheetGrid
+   dans le même conteneur .timesheetScroll : seule l'une des deux est visible
+   à la fois (classe .hidden posée/retirée par app.js selon la période
+   choisie). Colonne des semaines figée à gauche comme .tsDayLabel
+   ci-dessus. ===== */
+.tsCalendarGrid {
+  display: grid; grid-template-columns: 60px repeat(7, minmax(84px, 1fr));
+  gap: 6px; width: max-content; min-width: 100%;
+}
+.tsCalCorner { position: sticky; left: 0; background: var(--card); z-index: 2; }
+.tsCalHeaderCell {
+  font-size: 11px; color: var(--text-light); text-align: center; text-transform: capitalize;
+  padding-bottom: 2px;
+}
+.tsCalWeekLabel {
+  position: sticky; left: 0; background: var(--card); z-index: 1;
+  font-size: 11px; color: var(--text); display: flex; align-items: center;
+  padding-right: 4px; white-space: nowrap;
+}
+.tsCalDay {
+  background: var(--track-bg); border-radius: var(--radius-sm); padding: 5px;
+  display: flex; flex-direction: column; gap: 4px; min-height: 60px;
+}
+.tsCalDay.tsCalDay-outside { opacity: 0.35; }
+.tsCalDayNum { font-size: 11px; font-weight: bold; color: var(--text-light); }
+.tsCalDaySlots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; flex: 1; }
+.tsCalSlot { aspect-ratio: 1 / 1; border-radius: 1px; background: var(--card); }
+
+/* ===== Statistiques : sections séparées (Feuille de temps / Camembert /
+   Graphique) — 29 août 2026. Chaque section reprend l'habillage carte déjà
+   utilisé ailleurs dans l'app (fond .card, ombre, radius), pour bien les
+   distinguer les unes des autres. ===== */
+.statsSection {
+  background: var(--card); border-radius: var(--radius-lg); padding: 14px;
+  box-shadow: var(--shadow-card); margin-bottom: 16px;
+}
+.statsSection .sectionTitle { margin-top: 0; }
+.statsSection .timesheetScroll,
+.statsSection .chartScroll { box-shadow: none; padding: 10px 8px 4px; }
+
+/* ----- Camembert (remplace l'ancienne .barList en Statistiques — celle-ci
+   reste utilisée telle quelle par Communauté) ----- */
+.pieWrap { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.pieChartArea { position: relative; width: 100%; max-width: 220px; aspect-ratio: 1 / 1; }
+.pieSvg { width: 100%; height: 100%; display: block; }
+.pieSlice { transition: filter var(--transition-fast); }
+@media (hover: hover) {
+  .pieSlice:hover { filter: brightness(1.1); }
+}
+.pieCenter {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; pointer-events: none;
+}
+.pieCenterValue { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.3px; }
+.pieCenterLabel { font-size: 11px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.4px; }
+.pieLegend { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.pieLegendRow { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.pieLegendDot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.pieLegendLabel { flex: 1; min-width: 0; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pieLegendValue { color: var(--text-light); font-size: 12px; white-space: nowrap; }
+
+/* ----- Graphique (courbe d'évolution multi-séries — une courbe par
+   activité + une courbe Total ; remplace l'ancien "Détail par jour" en
+   cartes texte, et l'option barres retirée le 29 août 2026 à la demande
+   d'Emilien). La couleur de chaque courbe/point est posée en JS via
+   `.style.stroke`/`.style.fill` (couleur propre à chaque activité, ou
+   textColorForTheme() pour le Total) : ces règles ne fixent donc pas de
+   couleur, sauf le halo des points qui reste celui de la carte. ----- */
+.chartWrap { position: relative; }
+.chartScroll { overflow-x: auto; background: var(--card); border-radius: var(--radius-lg); }
+.chartSvgWrap { width: max-content; min-width: 100%; }
+.chartSvg { display: block; }
+.chartAxisLine { stroke: var(--border); stroke-width: 1; }
+.chartAxisLabel { fill: var(--text-light); font-size: 9px; }
+.chartLine { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.chartLineTotal { stroke-width: 2.5; }
+.chartDot { stroke: var(--card); stroke-width: 2; }
+.chartHoverLayer { fill: transparent; pointer-events: all; }
+.chartCrosshair { stroke: var(--text-light); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+
+/* Légende du Graphique — toujours présente (>= 2 séries dès qu'il y a une
+   seule activité + Total), pastille + libellé, jamais la couleur seule
+   (voir dataviz : légende obligatoire). Le Total est mis en avant (gras). */
+.chartLegend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; padding: 0 8px; }
+.chartLegendRow { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.chartLegendDot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 1px solid var(--border); }
+.chartLegendLabel { color: var(--text); }
+.chartLegendRow.chartLegendTotal .chartLegendLabel { font-weight: bold; }
+
+/* Infobulle de survol (crosshair + tooltip), ancrée dans .chartWrap (pas
+   .chartScroll, qui défile horizontalement) pour ne jamais être coupée par
+   le scroll du graphique sur les périodes longues (mois/année). */
+.chartTooltip {
+  position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-elevated); padding: 8px 10px; font-size: 12px; white-space: nowrap;
+  transform: translate(-50%, -100%);
+}
+.chartTooltipDate { font-weight: bold; color: var(--text); margin-bottom: 4px; }
+.chartTooltipRow { display: flex; align-items: center; gap: 6px; }
+.chartTooltipRow + .chartTooltipRow { margin-top: 2px; }
+.chartTooltipDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; border: 1px solid var(--border); }
+.chartTooltipLabel { color: var(--text); }
+.chartTooltipValue { color: var(--text-light); margin-left: auto; padding-left: 10px; }
+
+/* ----- Feuille de temps en plein écran forcé (format paysage), même
+   téléphone tenu en portrait : rotation CSS 90°, dimensions locales
+   pré-rotation inversées (largeur=100vh, hauteur=100vw) pour que la zone
+   visible remplisse tout l'écran une fois pivotée — pas une simple demande
+   de retourner le téléphone. ----- */
+body.scrollLock { overflow: hidden; }
+#statsTimesheetBlock.fullscreen {
+  position: fixed; top: 50%; left: 50%;
+  width: 100vh; height: 100vw;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+  z-index: 1000;
+  margin: 0;
+  background: var(--bg);
+  padding: 16px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: none; border-radius: 0;
+}
+#statsTimesheetBlock.fullscreen .timesheetScroll {
+  flex: 1; overflow: auto;
+}
+#statsTimesheetBlock.fullscreen .timesheetGrid {
+  height: 100%;
+}
+/* Idem pour la vue "Mois" (calendrier) — accessible uniquement en plein
+   écran via le menu "⋮" (voir plus haut .statsPeriodMenuWrap.fullscreenOnly). */
+#statsTimesheetBlock.fullscreen .tsCalendarGrid {
+  height: 100%;
+}
+
+/* ----- Graphique en plein écran forcé (format paysage), même mécanisme
+   que la Feuille de temps ci-dessus. En plus de la rotation, le graphique
+   est agrandi : sa largeur reste pilotée par le nombre de jours (défilement
+   horizontal conservé pour les longues périodes) ; seule la hauteur du SVG
+   s'étire pour remplir l'espace vertical disponible — voir renderChart()
+   dans app.js : preserveAspectRatio="none" posé sur le SVG, et sa hauteur
+   inline (style.height) simplement omise en plein écran pour laisser cette
+   règle CSS prendre le relais. Note : la stretch doit être posée sur
+   .chartSvgWrap (le <div> qui contient le <svg>), pas seulement sur .chartSvg
+   (le <svg> lui-même) — sinon le pourcentage de hauteur du SVG n'a rien de
+   défini à résoudre et retombe sur le ratio intrinsèque du viewBox. ----- */
+#statsChartBlock.fullscreen {
+  position: fixed; top: 50%; left: 50%;
+  width: 100vh; height: 100vw;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+  z-index: 1000;
+  margin: 0;
+  background: var(--bg);
+  padding: 16px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: none; border-radius: 0;
+}
+#statsChartBlock.fullscreen .chartWrap {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+#statsChartBlock.fullscreen .chartScroll {
+  flex: 1; overflow: auto;
+}
+#statsChartBlock.fullscreen .chartSvgWrap {
+  height: 100%;
+}
+#statsChartBlock.fullscreen .chartSvg {
+  height: 100%;
+}
+#statsChartBlock.fullscreen .chartLegend {
+  flex-shrink: 0;
+}
+
 .communityActivities { display: flex; flex-direction: column; gap: 14px; }
 .communityActivityCard {
-  background: var(--card); border-radius: 14px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  background: var(--card); border-radius: var(--radius-lg); padding: 14px; box-shadow: var(--shadow-card);
 }
 .communityActivityHeader {
   display: flex; justify-content: space-between; align-items: baseline;
@@ -195,37 +663,315 @@ textarea {
 .leaderboard { display: flex; flex-direction: column; gap: 8px; }
 .leaderRow {
   display: flex; align-items: center; gap: 10px; background: var(--card);
-  border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  border-radius: var(--radius-lg); padding: 12px 14px; box-shadow: var(--shadow-card);
 }
 .leaderRank { font-weight: bold; color: var(--text-light); width: 20px; }
 .leaderName { flex: 1; font-weight: bold; }
 .leaderTime { font-weight: bold; color: var(--purple); }
 
-.dayCard { background: var(--card); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.dayCard { background: var(--card); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 8px; box-shadow: var(--shadow-card); }
 .dayCard .dayTop { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 6px; text-transform: capitalize; }
 .dayCard .actLine { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
 
-/* ===== Paramètres ===== */
-.settingsCard { background: var(--card); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 8px; }
-.settingsCard input[type=text] {
-  width: 100%; padding: 12px; font-size: 15px; border: 1px solid var(--border);
-  border-radius: 10px; margin-bottom: 12px; box-sizing: border-box;
+/* ===== Profil ===== */
+/* Bandeau en haut de #profileMain (avatar + nom) : depuis le 29 août 2026,
+   la photo se modifie directement ici (voir .avatarWrap/.avatarRemoveBtn
+   ci-dessous) — Réglages > Identité n'affiche plus qu'un rappel textuel de
+   ça, et ne gère plus que nom/nom de famille/téléphone/email. */
+.identityHeader { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+/* Icône "avion en papier" (invitations/demandes de suivi) et son point
+   rouge — position: relative sur le bouton, pastille absolue dessus. Icône
+   explicitement plus petite que le bouton .menuBtn (32×32) et centrée en
+   flex, pour ne plus toucher les bords (un <svg> sans width/height fixe
+   prend sinon sa taille intrinsèque par défaut, bien plus grande que le
+   bouton). */
+.notifBtn { position: relative; display: flex; align-items: center; justify-content: center; }
+.notifBtn svg { width: 15px; height: 15px; display: block; }
+.notifDot {
+  position: absolute; top: 3px; right: 3px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--red); border: 2px solid var(--card);
 }
+/* Conteneur relatif pour ancrer le panneau déroulant sous l'icône, et le
+   panneau lui-même — remplace l'ancien bloc toujours visible
+   #profileNotifSection : les invitations/demandes de suivi ne sont plus
+   affichées sur la vue principale du Profil, uniquement ici au clic sur
+   l'icône (voir app.js). */
+.notifWrap { position: relative; }
+.notifPanel {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 20;
+  width: min(320px, 85vw); max-height: 60vh; overflow-y: auto;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-elevated);
+  padding: 12px;
+}
+.notifPanel .sectionTitle:first-child { margin-top: 0; }
+/* .avatarDisplay est un <button> (photo cliquable, ouvre le sélecteur de
+   fichier — voir app.js) : reset des styles par défaut de bouton, transitions
+   identiques à l'ancien .avatarPreview de Réglages qu'il remplace.
+   .avatarWrap ancre le petit bouton "retirer la photo" (.avatarRemoveBtn) en
+   overlay, visible uniquement quand une photo est définie. */
+.avatarWrap { position: relative; flex-shrink: 0; }
+.avatarDisplay {
+  flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--purple); color: white; font-weight: bold; font-size: 17px;
+  border: none; padding: 0; cursor: pointer;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+}
+.avatarDisplay img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (hover: hover) {
+  .avatarDisplay:hover { filter: brightness(1.08); }
+}
+.avatarDisplay:active { transform: scale(0.96); }
+.avatarRemoveBtn {
+  position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px;
+  border-radius: 50%; padding: 0; line-height: 1; font-size: 12px;
+  border: 2px solid var(--card); background: var(--text-light); color: var(--card);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.avatarRemoveBtn:hover { background: var(--red); }
+.identityName {
+  flex: 1; min-width: 0; font-weight: bold; font-size: 17px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.settingsCard { background: var(--card); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-card); margin-bottom: 8px; }
+/* Page "Réglages" (Apparence / Sécurité / Import) : remplace #profileMain au
+   clic sur le bouton "⚙️", plutôt qu'un panneau replié dans la même page. */
+.subpageHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.subpageHeader .subpageTitle { margin: 0; }
+/* Déconnexion : en haut à droite du bandeau de Réglages, au-dessus
+   d'Identité (voir index.html) — poussé à droite via margin-left: auto sur
+   le flex row .subpageHeader. */
+.logoutBtn {
+  margin-left: auto; background: none; border: none; padding: 4px 2px;
+  color: var(--blue); font-size: 13px; cursor: pointer; flex-shrink: 0;
+}
+.logoutBtn:hover { text-decoration: underline; }
+#profileSettingsPanel .sectionTitle:nth-child(2) { margin-top: 4px; }
+.settingsCard input[type=text], .settingsCard input[type=password],
+.settingsCard input[type=tel], .settingsCard input[type=email] {
+  width: 100%; padding: 12px; font-size: 15px; border: 1px solid var(--border);
+  border-radius: var(--radius-md); margin-bottom: 12px; box-sizing: border-box;
+}
+
 .activitiesList { display: flex; flex-direction: column; gap: 8px; }
 .activityRow {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--card);
-  border-radius: 12px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  display: flex; flex-direction: column; gap: 8px; background: var(--card);
+  border-radius: var(--radius-lg); padding: 12px; box-shadow: var(--shadow-card);
 }
 .activityRow.inactive { opacity: 0.5; }
-.activityRow input[type=text] { flex: 1 1 120px; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 8px; }
-.activityRow input[type=color] { width: 36px; height: 32px; border: none; border-radius: 6px; padding: 0; cursor: pointer; flex-shrink: 0; }
-.activityRow .checkLabel { margin: 0; flex-shrink: 0; }
-.activityRow .rowActions { display: flex; gap: 8px; flex-basis: 100%; justify-content: flex-end; }
-.activityRow > .meta { flex-basis: 100%; margin: 0 0 2px; }
-.activityRow input:disabled { opacity: 0.55; }
-.activityRow .iconBtn { flex-shrink: 0; white-space: nowrap; }
-.hint { font-size: 13px; color: var(--text-light); margin: 0 0 10px; }
+.activityRow > .meta { margin: 0; }
+/* Ajouté par Communauté : met en évidence l'activité partagée choisie dans
+   la section Membres (liste cliquable, voir renderCommunityActivities dans
+   app.js) — modificateur spécifique, ne change pas .activityRow lui-même. */
+.activityRow.selected { border: 2px solid var(--purple); }
+
+/* Petit menu déroulant sous une ligne d'activité partagée (section Membres),
+   ouvert par son bouton "⋮" — une seule option pour l'instant ("Voir les
+   membres"), pensé pour en accueillir d'autres plus tard. Propre à
+   Communauté, ne redéfinit pas .activityRow/.activityRowHeader/.menuBtn
+   (génériques Design). */
+.activityRowMenu {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+  margin-top: 6px; overflow: hidden;
+}
+.activityRowMenuItem {
+  display: block; width: 100%; text-align: left; padding: 10px 12px; border: none;
+  background: none; color: var(--text); font-size: 14px; cursor: pointer;
+}
+.activityRowMenuItem:hover { background: var(--hover-bg); }
+
+/* Point vert signalant qu'un membre a ACTUELLEMENT un chrono en cours sur
+   CETTE activité précise (pas un chrono quelconque) — voir la modale des
+   membres ci-dessous. Poussé à droite dans .activityRowHeader (flex). */
+.memberLiveDot {
+  width: 10px; height: 10px; border-radius: 50%; background: var(--green);
+  flex-shrink: 0; margin-left: auto;
+}
+
+/* ===== Fil de discussion d'une activité partagée (section Membres) =====
+   Classes propres à Communauté : ne redéfinissent aucune classe générique
+   (.activityRow/.menuBtn/.iconBtn/.rowActions/.hint/.msg restent à Design).
+   Le fil vit en tête de #communityActivityDetail — voir index.html. */
+.discussionBlock { margin-bottom: 8px; }
+.discussionList {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 340px; overflow-y: auto; padding-right: 2px;
+}
+.discussionMsg {
+  background: var(--card); border-radius: var(--radius-lg);
+  padding: 10px 12px; box-shadow: var(--shadow-card);
+  display: flex; flex-direction: column; gap: 4px;
+}
+/* Mes propres messages : liseré violet à gauche, comme repère de lecture
+   rapide dans le fil (même couleur d'accent que .activityRow.selected). */
+.discussionMsg.mine { border-left: 3px solid var(--purple); }
+.discussionMsgTop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.discussionMsgAuthor { font-weight: bold; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.discussionMsgAuthor .dot { display: inline-block; margin-right: 6px; vertical-align: middle; }
+.discussionMsgBody { font-size: 14px; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+/* Petite croix de suppression, visible seulement sur ses propres messages.
+   Dernier élément de .discussionMsgTop (donc après l'horodatage) plutôt qu'en
+   position absolue : elle ne peut jamais recouvrir la date. */
+.discussionMsgDelete {
+  flex-shrink: 0; width: 22px; height: 22px; padding: 0;
+  border: none; background: none; color: var(--text-light); font-size: 13px;
+  line-height: 1; cursor: pointer; border-radius: var(--radius-sm);
+}
+.discussionMsgDelete:hover { background: var(--hover-bg); color: var(--red); }
+.discussionComposer { margin-top: 10px; }
+.discussionComposer textarea { min-height: 56px; background: var(--card); color: var(--text); box-sizing: border-box; }
+.discussionComposer .rowActions { margin-top: 8px; }
+.discussionComposer .msg { text-align: right; }
+
+/* Pastille de messages non lus sur une ligne d'activité partagée. Poussée à
+   droite comme .memberLiveDot ci-dessus (toutes deux dans un
+   .activityRowHeader en flex) ; masquée quand le compteur est à zéro. */
+.unreadBadge {
+  margin-left: auto; flex-shrink: 0; min-width: 20px; padding: 1px 6px;
+  border-radius: 999px; background: var(--purple); color: white;
+  font-size: 11px; font-weight: bold; text-align: center; line-height: 18px;
+}
+
+/* Page (modale) listant les membres d'une activité partagée précise, ouverte
+   depuis le menu "⋮" ci-dessus. Propre à Communauté. */
+.communityMembersModal {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: flex-end; justify-content: center; z-index: 100;
+}
+.communityMembersModalCard {
+  background: var(--bg); width: 100%; max-width: 480px; max-height: 80vh;
+  overflow-y: auto; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 16px; box-shadow: var(--shadow-elevated);
+}
+.communityMembersModalHeader {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+}
+
+/* ----- Feuille de temps / Graphique d'UNE activité partagée (section
+   Membres) en plein écran forcé (format paysage) : copies exactes des
+   règles #statsTimesheetBlock.fullscreen / #statsChartBlock.fullscreen
+   ci-dessus, sur les ids dédiés à Communauté — voir le bloc
+   #communityActivityDetail dans index.html et la section "STATISTIQUES
+   D'UNE ACTIVITÉ" dans app.js (29-30 août 2026, demande Emilien). Aucune
+   classe générique ne peut porter ces règles (elles sont ID-scopées comme
+   leurs équivalents Statistiques), donc dupliquées ici plutôt que
+   partagées. -----*/
+#communityActivityTimesheetBlock.fullscreen {
+  position: fixed; top: 50%; left: 50%;
+  width: 100vh; height: 100vw;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+  z-index: 1000;
+  margin: 0;
+  background: var(--bg);
+  padding: 16px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: none; border-radius: 0;
+}
+#communityActivityTimesheetBlock.fullscreen .timesheetScroll {
+  flex: 1; overflow: auto;
+}
+#communityActivityTimesheetBlock.fullscreen .timesheetGrid {
+  height: 100%;
+}
+
+#communityActivityChartBlock.fullscreen {
+  position: fixed; top: 50%; left: 50%;
+  width: 100vh; height: 100vw;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+  z-index: 1000;
+  margin: 0;
+  background: var(--bg);
+  padding: 16px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: none; border-radius: 0;
+}
+#communityActivityChartBlock.fullscreen .chartWrap {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+}
+#communityActivityChartBlock.fullscreen .chartScroll {
+  flex: 1; overflow: auto;
+}
+#communityActivityChartBlock.fullscreen .chartSvgWrap {
+  height: 100%;
+}
+#communityActivityChartBlock.fullscreen .chartSvg {
+  height: 100%;
+}
+#communityActivityChartBlock.fullscreen .chartLegend {
+  flex-shrink: 0;
+}
+
+/* Ligne d'en-tête, toujours visible : couleur, nom, bouton "⋮" qui ouvre le
+   panneau de réglages/actions de cette activité. */
+.activityRowHeader { display: flex; align-items: center; gap: 10px; }
+.activityRowHeader .dot { flex-shrink: 0; }
+.activityRowName {
+  flex: 1; min-width: 0; font-weight: bold;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.menuBtn {
+  flex-shrink: 0; width: 32px; height: 32px; padding: 0; line-height: 1;
+  font-size: 18px; border: 1px solid var(--border); background: var(--card);
+  color: var(--text); border-radius: var(--radius-sm); cursor: pointer;
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+.menuBtn:hover { background: var(--hover-bg); }
+.menuBtn:active { transform: scale(0.92); }
+
+/* Panneau replié par défaut, ouvert/fermé par le bouton "⋮" : couleur,
+   Enregistrer, Partager, Séparer, Supprimer définitivement. */
+.activitySettingsPanel {
+  display: flex; flex-direction: column; gap: 10px;
+  padding-top: 10px; border-top: 1px solid var(--border);
+}
+.activitySettingsPanel input[type=text] { padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); width: 100%; box-sizing: border-box; }
+.activitySettingsPanel input:disabled { opacity: 0.55; }
+.activitySettingsPanel .iconBtn { flex-shrink: 0; white-space: nowrap; }
+
+/* Rangée de boutons d'action — utilisée à la fois dans le panneau de
+   réglages d'une activité et dans les lignes d'invitations reçues. */
+.rowActions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.hint { font-size: 13px; color: var(--text-light); margin: 0 0 10px; line-height: 1.5; }
 
 @media (min-width: 700px) {
   .tabbar { max-width: 640px; left: 50%; transform: translateX(-50%); border-radius: 16px 16px 0 0; }
 }
+
+
+/* ===================== Mode installé sur téléphone (PWA) =====================
+   Volet Déploiement / Mobile, 30 août 2026.
+
+   Une fois l'app ajoutée à l'écran d'accueil, elle s'ouvre en plein écran :
+   il n'y a plus de barre d'adresse pour "pousser" le contenu vers le bas, et
+   la .topbar violette se retrouve sous l'encoche / la barre d'état. Ces règles
+   ajoutent simplement la marge de sécurité correspondante.
+
+   Ajout purement additif : la définition de .topbar (Design) n'est pas
+   modifiée, on ne fait que compléter son padding. Quand les insets valent 0
+   (navigateur de bureau, Android sans encoche), max() retombe exactement sur
+   les valeurs d'origine — rien ne bouge. */
+.topbar {
+  padding-top: max(14px, env(safe-area-inset-top));
+  padding-left: max(18px, env(safe-area-inset-left));
+  padding-right: max(18px, env(safe-area-inset-right));
+}
+
+/* Idem sur les côtés du contenu, pour les téléphones à écran incurvé utilisés
+   en paysage (le plein écran Graphique / Feuille de temps). */
+#content {
+  padding-left: max(5%, env(safe-area-inset-left));
+  padding-right: max(5%, env(safe-area-inset-right));
+}
+
+/* Confort tactile : pas de surlignage bleu au tap sur Android/iOS, et pas de
+   sélection de texte accidentelle quand on maintient un bouton appuyé. */
+button, .tabBtn, .menuBtn, .iconBtn { -webkit-tap-highlight-color: transparent; }
+button { -webkit-user-select: none; user-select: none; }

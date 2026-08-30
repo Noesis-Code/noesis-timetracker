@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Noèsis — hors ligne</title>
+<!-- Page volontairement autonome (styles en ligne, aucun fichier externe) :
+     elle doit s'afficher même quand plus rien d'autre n'est disponible. -->
+<style>
+  :root { color-scheme: dark light; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #15171b; color: #eef0f2; line-height: 1.5;
+  }
+  .card {
+    background: #1f2229; border: 1px solid #33363d; border-radius: 20px;
+    padding: 32px 24px; max-width: 380px; width: 100%; text-align: center;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  }
+  h1 { margin: 0 0 6px; font-size: 24px; color: #674EA7; letter-spacing: -0.3px; }
+  p { margin: 0 0 20px; color: #9a9ea6; font-size: 15px; }
+  button {
+    font: inherit; font-weight: bold; cursor: pointer;
+    background: #674EA7; color: white; border: none;
+    border-radius: 10px; padding: 12px 22px; width: 100%;
+  }
+  button:active { transform: scale(0.98); }
+  .note { margin: 18px 0 0; font-size: 13px; }
+  @media (prefers-color-scheme: light) {
+    body { background: #f5f5f7; color: #333; }
+    .card { background: #fff; border-color: #e0e0e0; box-shadow: 0 12px 30px rgba(0,0,0,.12); }
+    p { color: #777; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Noèsis</h1>
+    <p>Pas de connexion internet.</p>
+    <button onclick="location.replace('/')">Réessayer</button>
+    <p class="note">Tes données sont sur le serveur, rien n'est perdu : elles réapparaîtront dès que le réseau reviendra.</p>
+  </div>
+</body>
+</html>

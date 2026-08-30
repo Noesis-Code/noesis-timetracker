@@ -3,3 +3,7 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 .DS_Store
+
+# Variables d'environnement locales (jamais sur GitHub, même dépôt public)
+.env
+.env.*

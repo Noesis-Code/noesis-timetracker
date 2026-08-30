@@ -13,6 +13,7 @@ const express = require('express');
 const crypto = require('node:crypto');
 const db = require('../db');
 const { isoDateOf, dayNameOf } = require('../lib/dates');
+const { paletteFor } = require('../lib/theme');
 
 function genToken() {
   return crypto.randomBytes(9).toString('base64url');
@@ -55,7 +56,7 @@ function findCol(header, needles) {
 
 router.post('/import/history', (req, res) => {
   const userId = req.body.userId;
-  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  const user = db.prepare('SELECT id, theme FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
   const csv = req.body.csv;
@@ -90,7 +91,10 @@ router.post('/import/history', (req, res) => {
   const insertMember = db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)');
   const insertEntry = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek)
                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-  const palette = ['#B39DDB', '#FFE082', '#A5D6A7', '#90CAF9', '#F48FB1', '#80CBC4', '#FFCC80', '#B0BEC5'];
+  // Palette du thème de l'utilisateur qui importe (voir lib/theme.js) — pas
+  // une palette libre, pour que les activités importées restent cohérentes
+  // avec son mode clair/sombre actuel.
+  const palette = paletteFor(user.theme);
 
   let imported = 0, skipped = 0;
 

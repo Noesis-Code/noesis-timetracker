@@ -10,7 +10,7 @@
   "license": "UNLICENSED",
   "private": true,
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=22.13.0"
   },
   "dependencies": {
     "express": "^4.19.2"
