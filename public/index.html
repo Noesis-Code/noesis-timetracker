@@ -131,10 +131,18 @@
 
           <!-- Pièces jointes de la note (photo prise à l'appareil, document) —
                demande d'Emilien (29 août 2026). Restent "en attente" côté
-               serveur jusqu'au STOP, qui les rattache à la session créée. -->
-          <div class="attachmentActions">
-            <button id="attachPhotoBtn" type="button" class="iconBtn">📷 Photo</button>
-            <button id="attachDocBtn" type="button" class="iconBtn">📎 Document</button>
+               serveur jusqu'au STOP, qui les rattache à la session créée.
+               Rangées derrière une épingle (30 août 2026, demande d'Emilien) :
+               le bouton "📌" ouvre un petit menu avec les types de pièce
+               jointe disponibles, plutôt que d'afficher chaque option en
+               permanence — même principe que les menus "⋮"/"+"/"⚙️" déjà
+               utilisés ailleurs dans l'app. -->
+          <div class="attachmentMenuWrap">
+            <button id="attachMenuBtn" type="button" class="menuBtn" aria-haspopup="true" aria-label="Ajouter une pièce jointe">📌</button>
+            <div id="attachMenu" class="attachmentMenu hidden">
+              <button id="attachPhotoBtn" type="button" class="attachmentMenuItem">📷 Photo</button>
+              <button id="attachDocBtn" type="button" class="attachmentMenuItem">📎 Document</button>
+            </div>
             <input type="file" id="attachPhotoInput" accept="image/*" capture="environment" class="hidden">
             <input type="file" id="attachDocInput" class="hidden">
           </div>
@@ -566,6 +574,22 @@
           <p id="settingsMsg" class="msg"></p>
         </div>
 
+        <!-- Abonnés & Abonnements (30 août 2026, demande d'Emilien) : liste en
+             lecture seule des noms, distincte de "Mes abonnements" dans
+             Communauté (qui reste, elle, actionnable — bouton "Se
+             désabonner"). Aucune action ici : on ne peut pas retirer un
+             abonné (seul lui peut se désabonner), et se désabonner de
+             quelqu'un se fait déjà depuis Communauté. -->
+        <p class="sectionTitle">Abonnés &amp; Abonnements</p>
+        <div class="settingsCard">
+          <p class="hint">Abonnés</p>
+          <div id="settingsFollowersList" class="activitiesList"></div>
+          <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
+          <p class="hint">Abonnements</p>
+          <div id="settingsFollowingList" class="activitiesList"></div>
+          <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+        </div>
+
         <p class="sectionTitle">Apparence</p>
         <div class="settingsCard">
           <div class="themeSwitch" id="themeSwitch">
@@ -608,6 +632,30 @@
           <input type="file" id="importFile" accept=".csv,text/csv">
           <button id="importBtn" class="btn btn-small">Importer</button>
           <p id="importMsg" class="msg"></p>
+        </div>
+
+        <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
+             quelqu'un, ou s'inviter soi-même en donnant son pseudo.
+             L'adresse publique est SAISIE À LA MAIN et mémorisée sur CET
+             appareil (localStorage), pas déduite de la page ouverte :
+             Noèsis n'est pas encore déployée, l'adresse actuelle
+             (localhost) ne fonctionnerait chez personne d'autre.
+             Volontairement pas un réglage partagé côté serveur non plus :
+             sur une app ouverte à tous, n'importe qui pourrait alors
+             remplacer le lien que tout le monde envoie. Le champ utilise
+             type="text" + inputmode="url" (et non type="url") pour hériter
+             de la mise en forme existante de .settingsCard sans toucher au
+             CSS générique, qui appartient à Design. -->
+        <p class="sectionTitle">Partage</p>
+        <div class="settingsCard">
+          <p class="hint">Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.</p>
+          <input type="text" inputmode="url" id="shareUrlInput" placeholder="https://mon-adresse-noesis.fr" autocomplete="off">
+          <button id="shareUrlSaveBtn" class="btn btn-primary btn-small">Enregistrer l'adresse</button>
+          <div class="shareActions">
+            <button id="shareAppBtn" class="iconBtn">Partager l'app</button>
+            <button id="shareProfileBtn" class="iconBtn">Partager mon profil</button>
+          </div>
+          <p id="shareMsg" class="msg"></p>
         </div>
 
         <!-- Zone "danger", volontairement tout en bas de Réglages (29 août

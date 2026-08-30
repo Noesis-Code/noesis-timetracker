@@ -298,8 +298,24 @@ textarea {
 /* ===== Pièces jointes de note (photo / document) — Chrono =====
    Réutilisées à la fois pendant le chrono en cours (#noteWrapper) et dans le
    panneau "Historique" une fois la session validée (buildChronoHistoryEntry
-   dans app.js — voir renderAttachmentList/buildAttachmentRow). */
-.attachmentActions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+   dans app.js — voir renderAttachmentList/buildAttachmentRow). Les types de
+   pièce jointe sont rangés derrière une épingle "📌" (30 août 2026, demande
+   d'Emilien) plutôt qu'affichés en permanence — mêmes styles que le menu "⋮"
+   de période de Statistiques (.statsPeriodMenuWrap/.statsPeriodMenu), gardés
+   comme classes séparées puisque propres au Chrono. */
+.attachmentMenuWrap { position: relative; display: inline-block; margin-top: 10px; }
+.attachmentMenu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
+  min-width: 160px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated); overflow: hidden;
+}
+.attachmentMenuItem {
+  display: block; width: 100%; text-align: left; padding: 10px 12px; border: none;
+  background: none; color: var(--text); font-size: 14px; cursor: pointer;
+}
+.attachmentMenuItem:hover { background: var(--hover-bg); }
+.attachmentMenuItem:disabled { opacity: 0.5; cursor: not-allowed; }
 .attachmentList { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .attachmentRow {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
@@ -750,6 +766,7 @@ body.scrollLock { overflow: hidden; }
 }
 .logoutBtn:hover { text-decoration: underline; }
 #profileSettingsPanel .sectionTitle:nth-child(2) { margin-top: 4px; }
+#profileSettingsPanel .shareActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .settingsCard input[type=text], .settingsCard input[type=password],
 .settingsCard input[type=tel], .settingsCard input[type=email] {
   width: 100%; padding: 12px; font-size: 15px; border: 1px solid var(--border);

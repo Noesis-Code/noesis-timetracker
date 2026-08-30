@@ -221,6 +221,31 @@
     (attachments || []).forEach(function (att) { container.appendChild(buildAttachmentRow(att, onRemoved)); });
   }
 
+  // Menu "épingle" (30 août 2026, demande d'Emilien) : regroupe les types de
+  // pièce jointe (Photo/Document) derrière un seul bouton "📌" plutôt que de
+  // les afficher en permanence — même mécanique que le menu "⋮" des périodes
+  // de Statistiques (setupStatsPeriodMenu), réutilisée ici pour rester
+  // cohérent, mais gardée comme fonction Chrono séparée puisque le menu de
+  // pièces jointes existe potentiellement en plusieurs exemplaires à la fois
+  // (session en cours + une par carte d'historique, voir
+  // buildChronoHistoryEntry plus bas).
+  function toggleAttachmentMenu(btn, menu) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var willOpen = menu.classList.contains('hidden');
+      closeAllAttachmentMenus();
+      if (willOpen) menu.classList.remove('hidden');
+    });
+  }
+  function closeAllAttachmentMenus() {
+    document.querySelectorAll('.attachmentMenu').forEach(function (m) { m.classList.add('hidden'); });
+  }
+  // Referme tout menu de pièce jointe ouvert au clic n'importe où en dehors
+  // de lui (ou de son bouton "📌") — même mécanisme que .statsPeriodMenuWrap.
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.attachmentMenuWrap')) closeAllAttachmentMenus();
+  });
+
   // Couleur de texte fixe pour un thème donné (blanc en sombre, foncé en
   // clair) — valable pour n'importe quelle couleur des deux palettes,
   // puisqu'elles sont justement construites pour ça (voir PALETTES).
@@ -550,7 +575,7 @@
       exitActivityTimesheetFullscreen();
       exitActivityChartFullscreen();
       if (tab === 'community') loadCommunity();
-      else if (tab === 'profile') { showProfileMain(); loadSettingsActivities(); loadPendingInvites(); loadFollowRequests(); renderThemeSwitch(); renderLangSwitch(); renderNewActivitySwatches(); loadProfileNotes(); }
+      else if (tab === 'profile') { showProfileMain(); loadSettingsActivities(); loadPendingInvites(); loadFollowRequests(); renderThemeSwitch(); renderLangSwitch(); renderShareSettings(); renderNewActivitySwatches(); loadProfileNotes(); }
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
@@ -645,8 +670,9 @@
       .catch(function (err) { $('attachmentMsg').textContent = err.message; });
   }
 
-  $('attachPhotoBtn').addEventListener('click', function () { $('attachPhotoInput').click(); });
-  $('attachDocBtn').addEventListener('click', function () { $('attachDocInput').click(); });
+  toggleAttachmentMenu($('attachMenuBtn'), $('attachMenu'));
+  $('attachPhotoBtn').addEventListener('click', function () { closeAllAttachmentMenus(); $('attachPhotoInput').click(); });
+  $('attachDocBtn').addEventListener('click', function () { closeAllAttachmentMenus(); $('attachDocInput').click(); });
 
   $('attachPhotoInput').addEventListener('change', function () {
     var file = this.files[0];
@@ -930,24 +956,36 @@
     // chaque ajout/suppression pour ne pas recharger toute la semaine.
     var attachBox = document.createElement('div');
     attachBox.className = 'attachmentList';
-    var attachActions = document.createElement('div');
-    attachActions.className = 'attachmentActions';
+    // Menu "épingle" (30 août 2026) — même structure que #attachMenuBtn/
+    // #attachMenu dans #noteWrapper (voir toggleAttachmentMenu plus haut),
+    // reconstruite ici en DOM puisque cette carte est générée dynamiquement.
+    var attachMenuWrap = document.createElement('div');
+    attachMenuWrap.className = 'attachmentMenuWrap';
+    var attachMenuBtn = document.createElement('button');
+    attachMenuBtn.type = 'button'; attachMenuBtn.className = 'menuBtn';
+    attachMenuBtn.setAttribute('aria-haspopup', 'true');
+    attachMenuBtn.setAttribute('aria-label', t('Ajouter une pièce jointe'));
+    attachMenuBtn.textContent = '📌';
+    var attachMenu = document.createElement('div');
+    attachMenu.className = 'attachmentMenu hidden';
     var attachPhotoBtn = document.createElement('button');
-    attachPhotoBtn.type = 'button'; attachPhotoBtn.className = 'iconBtn'; attachPhotoBtn.textContent = '📷 Photo';
+    attachPhotoBtn.type = 'button'; attachPhotoBtn.className = 'attachmentMenuItem'; attachPhotoBtn.textContent = '📷 Photo';
     var attachDocBtn = document.createElement('button');
-    attachDocBtn.type = 'button'; attachDocBtn.className = 'iconBtn'; attachDocBtn.textContent = '📎 Document';
+    attachDocBtn.type = 'button'; attachDocBtn.className = 'attachmentMenuItem'; attachDocBtn.textContent = '📎 Document';
     var attachPhotoInput = document.createElement('input');
     attachPhotoInput.type = 'file'; attachPhotoInput.accept = 'image/*'; attachPhotoInput.setAttribute('capture', 'environment'); attachPhotoInput.className = 'hidden';
     var attachDocInput = document.createElement('input');
     attachDocInput.type = 'file'; attachDocInput.className = 'hidden';
-    attachActions.appendChild(attachPhotoBtn);
-    attachActions.appendChild(attachDocBtn);
-    attachActions.appendChild(attachPhotoInput);
-    attachActions.appendChild(attachDocInput);
+    attachMenu.appendChild(attachPhotoBtn);
+    attachMenu.appendChild(attachDocBtn);
+    attachMenuWrap.appendChild(attachMenuBtn);
+    attachMenuWrap.appendChild(attachMenu);
+    attachMenuWrap.appendChild(attachPhotoInput);
+    attachMenuWrap.appendChild(attachDocInput);
     var attachMsg = document.createElement('p');
     attachMsg.className = 'meta attachmentMsg';
     card.appendChild(attachBox);
-    card.appendChild(attachActions);
+    card.appendChild(attachMenuWrap);
     card.appendChild(attachMsg);
 
     function refreshEntryAttachments() {
@@ -972,8 +1010,9 @@
         .catch(function (err) { attachMsg.textContent = err.message; });
     }
 
-    attachPhotoBtn.addEventListener('click', function () { attachPhotoInput.click(); });
-    attachDocBtn.addEventListener('click', function () { attachDocInput.click(); });
+    toggleAttachmentMenu(attachMenuBtn, attachMenu);
+    attachPhotoBtn.addEventListener('click', function () { closeAllAttachmentMenus(); attachPhotoInput.click(); });
+    attachDocBtn.addEventListener('click', function () { closeAllAttachmentMenus(); attachDocInput.click(); });
     attachPhotoInput.addEventListener('change', function () {
       var file = this.files[0];
       this.value = '';
@@ -2654,6 +2693,40 @@
     });
   }
 
+  // ----- Abonnés & Abonnements (Réglages, 30 août 2026) : simple liste de
+  // noms en lecture seule, chargée uniquement à l'ouverture de Réglages
+  // (showProfileSettings) — pas de bouton d'action ici, contrairement à
+  // "Mes abonnements" dans Communauté (renderFollowingList ci-dessus), qui
+  // reste le seul endroit pour se désabonner. -----
+  function loadFollowConnections() {
+    if (!profile) return;
+    api('GET', '/api/follows/followers?userId=' + profile.id).then(renderSettingsFollowers);
+    api('GET', '/api/follows/following?userId=' + profile.id).then(renderSettingsFollowing);
+  }
+
+  function renderNameOnlyList(boxId, emptyHintId, list) {
+    var box = $(boxId);
+    box.innerHTML = '';
+    $(emptyHintId).classList.toggle('hidden', list.length > 0);
+    list.forEach(function (f) {
+      var row = document.createElement('div');
+      row.className = 'activityRow';
+      var label = document.createElement('p');
+      label.className = 'meta';
+      label.innerHTML = '<span class="dot" style="background:' + f.color + '"></span> ' + escapeHtml(f.name);
+      row.appendChild(label);
+      box.appendChild(row);
+    });
+  }
+
+  function renderSettingsFollowers(list) {
+    renderNameOnlyList('settingsFollowersList', 'settingsFollowersEmptyHint', list);
+  }
+
+  function renderSettingsFollowing(list) {
+    renderNameOnlyList('settingsFollowingList', 'settingsFollowingEmptyHint', list);
+  }
+
   // ----- Flux "Partagée" et "Suivi" : cartes en lecture seule (activité de
   // quelqu'un d'autre, jamais supprimable depuis ici), avec le nom de
   // l'auteur — contrairement à buildHistoryCard (mes propres entrées). -----
@@ -2848,6 +2921,7 @@
   function showProfileSettings() {
     $('profileMain').classList.add('hidden');
     $('profileSettingsPanel').classList.remove('hidden');
+    loadFollowConnections();
   }
   $('profileSettingsBtn').addEventListener('click', showProfileSettings);
 
@@ -3002,6 +3076,143 @@
     if (!confirm(t('Se déconnecter de ce profil sur cet appareil ?'))) return;
     clearProfile();
     location.reload();
+  });
+
+  // ----- Partage (adresse publique de l'app + invitation par pseudo) -----
+  // L'adresse est mémorisée sur CET appareil uniquement (localStorage), pas
+  // côté serveur : l'app étant destinée à être publique, un réglage partagé
+  // laisserait n'importe qui remplacer le lien envoyé par tout le monde.
+  // Tant qu'aucune adresse n'est saisie, les deux boutons ne partagent rien
+  // et le disent — l'adresse de la page ouverte (localhost) ne servirait à
+  // personne d'autre tant que Noèsis n'est pas déployée.
+  var SHARE_URL_KEY = 'noesis_share_url';
+
+  function loadShareUrl() {
+    try { return localStorage.getItem(SHARE_URL_KEY) || ''; } catch (e) { return ''; }
+  }
+  function storeShareUrl(url) {
+    try { if (url) localStorage.setItem(SHARE_URL_KEY, url); else localStorage.removeItem(SHARE_URL_KEY); } catch (e) { /* ignore */ }
+  }
+  function renderShareSettings() {
+    var input = $('shareUrlInput');
+    if (!input) return;
+    input.value = loadShareUrl();
+    $('shareMsg').textContent = '';
+  }
+
+  // Accepte une saisie sans protocole ("noesis.exemple.fr") en préfixant
+  // https://. Renvoie null si l'adresse reste inexploitable. La validation
+  // est volontairement stricte sur le nom d'hôte : new URL() accepte des
+  // choses très surprenantes (une phrase avec des espaces devient un hôte
+  // suivi d'un chemin), et une adresse fausse ne se verrait qu'au moment où
+  // le destinataire clique sur le lien.
+  function normalizeShareUrl(raw) {
+    var v = (raw || '').trim();
+    if (!v) return '';
+    if (/\s/.test(v)) return null;
+    if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+    try {
+      var u = new URL(v);
+      var host = u.hostname;
+      if (!host || !/^[a-z0-9.\-]+$/i.test(host)) return null;
+      // Un nom d'hôte sans point n'est valable que sur le poste lui-même
+      // (localhost) : partout ailleurs c'est une faute de frappe.
+      if (host.indexOf('.') === -1 && host !== 'localhost') return null;
+      return u.href.replace(/\/+$/, '');
+    } catch (e) { return null; }
+  }
+
+  // Une adresse locale (localhost, 127.0.0.1, réseau privé) reste utile
+  // entre deux appareils du même wifi, mais pas au-delà : on l'accepte en
+  // le signalant plutôt que de la refuser.
+  function isLocalShareUrl(url) {
+    try {
+      var h = new URL(url).hostname;
+      return h === 'localhost' || h === '127.0.0.1' || h === '::1' ||
+        /^192\.168\./.test(h) || /^10\./.test(h) || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(h);
+    } catch (e) { return false; }
+  }
+
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  function copyShareText(text) {
+    var done = function () { $('shareMsg').textContent = t('Copié — tu peux le coller où tu veux.'); };
+    var failed = function () { $('shareMsg').textContent = t('Impossible de copier automatiquement — sélectionne le texte à la main.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(done)
+        .catch(function () { if (legacyCopy(text)) done(); else failed(); });
+      return;
+    }
+    if (legacyCopy(text)) done(); else failed();
+  }
+
+  // Menu de partage natif du téléphone quand il existe (WhatsApp, SMS,
+  // mail...), sinon copie dans le presse-papiers avec confirmation. Appelé
+  // directement depuis le clic, comme l'exige navigator.share.
+  function shareOrCopy(text) {
+    $('shareMsg').textContent = '';
+    if (navigator.share) {
+      try {
+        navigator.share({ title: 'Noèsis', text: text })
+          .then(function () { $('shareMsg').textContent = t('Partagé.'); })
+          .catch(function (err) {
+            if (err && err.name === 'AbortError') return; // partage annulé par l'utilisateur
+            copyShareText(text);
+          });
+        return;
+      } catch (e) { /* navigateur qui expose navigator.share sans le supporter */ }
+    }
+    copyShareText(text);
+  }
+
+  function shareUrlOrWarn() {
+    var url = loadShareUrl();
+    if (!url) {
+      $('shareMsg').textContent = t("Renseigne d'abord l'adresse publique de l'app ci-dessus.");
+      return null;
+    }
+    return url;
+  }
+
+  $('shareUrlSaveBtn').addEventListener('click', function () {
+    var normalized = normalizeShareUrl($('shareUrlInput').value);
+    if (normalized === null) {
+      $('shareMsg').textContent = t('Adresse invalide — elle doit ressembler à https://exemple.fr');
+      return;
+    }
+    storeShareUrl(normalized);
+    $('shareUrlInput').value = normalized;
+    if (!normalized) { $('shareMsg').textContent = t('Adresse effacée.'); return; }
+    $('shareMsg').textContent = isLocalShareUrl(normalized)
+      ? t('Adresse enregistrée. Attention : elle est locale, elle ne fonctionnera que depuis ton réseau.')
+      : t('Adresse enregistrée.');
+  });
+
+  $('shareAppBtn').addEventListener('click', function () {
+    var url = shareUrlOrWarn();
+    if (!url) return;
+    shareOrCopy(t('Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}', { url: url }));
+  });
+
+  $('shareProfileBtn').addEventListener('click', function () {
+    var url = shareUrlOrWarn();
+    if (!url) return;
+    shareOrCopy(t("Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.", { url: url, pseudo: profile.name }));
   });
 
   // ----- Supprimer mon compte (zone "danger" tout en bas de Réglages) -----

@@ -50,6 +50,25 @@ router.get('/follows/following', (req, res) => {
   res.json(rows);
 });
 
+// Comptes qui me suivent actuellement (acceptés) — "abonnés". Symétrique de
+// /follows/following ci-dessus, ajoutée le 30 août 2026 pour la section
+// "Abonnés & Abonnements" de Réglages (Profil). Lecture seule : seul CELUI
+// QUI SUIT peut retirer la relation (voir DELETE /follows/:id plus bas),
+// donc aucune action n'est proposée ici sur mes abonnés.
+router.get('/follows/followers', (req, res) => {
+  const userId = req.query.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+
+  const rows = db.prepare(`
+    SELECT f.id AS followId, u.id AS userId, u.name AS name, u.color AS color
+    FROM follows f JOIN users u ON u.id = f.followerId
+    WHERE f.followeeId = ? AND f.status = 'accepted'
+    ORDER BY u.name COLLATE NOCASE
+  `).all(userId);
+
+  res.json(rows);
+});
+
 // Demandes de suivi EN ATTENTE reçues par ce profil — alimente "Demandes de
 // suivi reçues" dans Communauté (même principe que /invites pour les
 // activités, mais un mécanisme entièrement séparé : suivre quelqu'un ne

@@ -114,6 +114,8 @@
     "Ce n'est pas ta pièce jointe.": 'This is not your attachment.',
     'Pièce jointe introuvable.': 'Attachment not found.',
     'Pièce jointe supprimée.': 'Attachment deleted.',
+    // Menu "épingle" regroupant les types de pièce jointe (30 août 2026).
+    'Ajouter une pièce jointe': 'Add an attachment',
 
     // ---- Statistiques ----
     'Semaine': 'Week',
@@ -183,6 +185,13 @@
     'Membre': 'Member',
     'Abonnement': 'Following',
     'En cours depuis ': 'Running since ',
+
+    // ---- Abonnés & Abonnements (Réglages, 30 août 2026) ----
+    'Abonnés & Abonnements': 'Followers & Following',
+    'Abonnés': 'Followers',
+    'Abonnements': 'Following',
+    "Personne ne te suit pour l'instant.": 'No one follows you yet.',
+    "Tu ne suis personne pour l'instant.": "You aren't following anyone yet.",
 
     // ---- Fil de discussion d'une activité partagée (Communauté > Membres) ----
     'Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.': 'Visible to the members of this activity only. Messages stay, even once the timers are stopped.',
@@ -274,6 +283,23 @@
     'Anglais': 'English',
     "Change la langue de toute l'application. Le changement est appliqué immédiatement.": 'Changes the language of the whole app. The change is applied straight away.',
     'Langue mise à jour.': 'Language updated.',
+    // ---- Partage (30 août 2026) ----
+    'Partage': 'Sharing',
+    "Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.": 'Enter the address where the app can be reached from another device. It is stored on this device only, and is used by the two buttons below.',
+    'https://mon-adresse-noesis.fr': 'https://my-noesis-address.com',
+    "Enregistrer l'adresse": 'Save the address',
+    "Partager l'app": 'Share the app',
+    'Partager mon profil': 'Share my profile',
+    'Adresse enregistrée.': 'Address saved.',
+    'Adresse enregistrée. Attention : elle est locale, elle ne fonctionnera que depuis ton réseau.': 'Address saved. Careful: it is a local address, it will only work from your own network.',
+    'Adresse effacée.': 'Address cleared.',
+    'Adresse invalide — elle doit ressembler à https://exemple.fr': 'Invalid address — it should look like https://example.com',
+    "Renseigne d'abord l'adresse publique de l'app ci-dessus.": 'Enter the public address of the app above first.',
+    'Partagé.': 'Shared.',
+    'Copié — tu peux le coller où tu veux.': 'Copied — paste it wherever you like.',
+    'Impossible de copier automatiquement — sélectionne le texte à la main.': 'Could not copy automatically — select the text by hand.',
+    'Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}': 'Noèsis — the shared TimeTracker. Join us here: {url}',
+    "Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.": 'Join me on Noèsis, my shared TimeTracker: {url}\nMy nickname is "{pseudo}" — find me in Community > Find members to follow me.',
     "Le serveur n'a pas pris en compte le changement de langue : il tourne encore sur la version d'avant la mise à jour. Arrête-le (Ctrl+C) et relance `npm start`, puis réessaie.": 'The server did not apply the language change: it is still running the version from before the update. Stop it (Ctrl+C), start it again with `npm start`, then try once more.',
 
     // ---- Suppression de compte (nouveau) ----
