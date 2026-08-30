@@ -20,9 +20,17 @@
  *
  * Pour forcer un renouvellement complet du cache après un changement lourd :
  * incrémenter CACHE_VERSION ci-dessous.
+ *
+ * Mise à jour automatique (30 août 2026) : ce service worker prend la main
+ * immédiatement (skipWaiting + clients.claim), sans attendre que toutes les
+ * fenêtres de l'app soient fermées — ce qui, sur un téléphone où l'app n'est
+ * jamais vraiment fermée, revenait à ne jamais se mettre à jour. Le
+ * rechargement de la page qui va avec est déclenché côté client (voir le bloc
+ * <script> en tête de public/index.html) ; ici on se contente de rendre la
+ * nouvelle version active le plus tôt possible.
  */
 
-const CACHE_VERSION = 'noesis-v1';
+const CACHE_VERSION = 'noesis-v2';
 
 // Enveloppe de l'app : ce qu'il faut pour qu'elle s'affiche sans réseau.
 const SHELL = [
@@ -52,6 +60,13 @@ self.addEventListener('install', (event) => {
       .then((cache) => Promise.all(SHELL.map((url) => cache.add(url).catch(() => null))))
       .then(() => self.skipWaiting())
   );
+});
+
+// La page peut demander au service worker en attente de prendre la main tout
+// de suite (cas où skipWaiting() de l'install n'a pas suffi, certains
+// navigateurs mettant le nouveau worker en file d'attente).
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

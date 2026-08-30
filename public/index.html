@@ -30,17 +30,129 @@
 <link rel="stylesheet" href="/styles.css">
 
 <script>
-  // Enregistrement du service worker. Volontairement ici, dans le <head> et
-  // hors de app.js : ce chantier ne touche à aucune section fonctionnelle de
-  // l'app. En cas d'échec (http non sécurisé, navigateur ancien), l'app
-  // fonctionne exactement comme avant — le service worker n'est qu'un bonus.
-  if ('serviceWorker' in navigator) {
+  // Enregistrement du service worker + mise à jour automatique de l'app.
+  // Volontairement ici, dans le <head> et hors de app.js : ce chantier ne
+  // touche à aucune section fonctionnelle de l'app. En cas d'échec (http non
+  // sécurisé, navigateur ancien), l'app fonctionne exactement comme avant —
+  // tout ce bloc n'est qu'un bonus.
+  //
+  // Pourquoi ce bloc existe (30 août 2026, demande d'Emilien : « que les
+  // prochaines mises à jour se fassent automatiquement sans avoir à
+  // désinstaller et réinstaller l'app ») : une app ajoutée à l'écran d'accueil
+  // n'est pas rechargée comme une page web. Elle est mise en veille puis
+  // reprise, en gardant en mémoire le code chargé la première fois — parfois
+  // pendant des jours. Un redéploiement pouvait donc rester totalement
+  // invisible sur le téléphone.
+  //
+  // Principe : le serveur expose une empreinte du code servi (/api/version,
+  // voir server/index.js). On la lit au chargement, puis à chaque fois que
+  // l'app revient au premier plan. Si elle a changé, c'est qu'un déploiement
+  // est passé entre-temps : on recharge. L'empreinte étant fixe pour un
+  // déploiement donné, un rechargement suffit toujours à se remettre à jour —
+  // pas de boucle possible.
+  (function () {
+    if (!('serviceWorker' in navigator)) return;
+
+    var VERSION_URL = '/api/version';
+    var MIN_INTERVAL = 30 * 1000;        // pas plus d'une vérification / 30 s
+    var PERIODIC = 15 * 60 * 1000;       // filet pour une app laissée ouverte
+
+    var registration = null;
+    var bootVersion = null;              // version en ligne au moment du chargement
+    var hadController = !!navigator.serviceWorker.controller;
+    var lastCheck = 0;
+    var reloading = false;
+    var pendingReload = false;
+
+    // Garde-fou : si un rechargement ne suffisait pas à changer de version
+    // (cache exotique, réseau capricieux), on s'arrête au bout de 3 essais
+    // plutôt que de recharger l'app en boucle sous le nez d'Emilien.
+    function reloadAllowed() {
+      try {
+        var now = Date.now();
+        var raw = sessionStorage.getItem('noesisAutoReload');
+        var data = raw ? JSON.parse(raw) : null;
+        if (!data || now - data.t > 120000) data = { n: 0, t: now };
+        data.n += 1;
+        sessionStorage.setItem('noesisAutoReload', JSON.stringify(data));
+        return data.n <= 3;
+      } catch (e) {
+        return true;
+      }
+    }
+
+    // On ne coupe jamais la parole à quelqu'un en train d'écrire (note du
+    // chrono, message, formulaire) : la mise à jour attend la fin de la saisie.
+    function isTyping() {
+      var el = document.activeElement;
+      if (!el) return false;
+      var tag = (el.tagName || '').toLowerCase();
+      return tag === 'input' || tag === 'textarea' || el.isContentEditable === true;
+    }
+
+    function applyUpdate() {
+      if (reloading) return;
+      if (isTyping()) { pendingReload = true; return; }
+      if (!reloadAllowed()) {
+        console.warn('[Noesis] Mise a jour reportee : trop de rechargements consecutifs.');
+        return;
+      }
+      reloading = true;
+      location.reload();
+    }
+
+    // Un chrono en cours est calculé côté serveur (table running_timers) :
+    // recharger la page ne l'arrête pas et ne fausse aucune durée.
+    document.addEventListener('blur', function () {
+      if (pendingReload && !isTyping()) applyUpdate();
+    }, true);
+
+    function checkForUpdate(force) {
+      var now = Date.now();
+      if (!force && now - lastCheck < MIN_INTERVAL) return;
+      lastCheck = now;
+
+      if (registration) {
+        try {
+          registration.update();
+          if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        } catch (e) { /* sans conséquence */ }
+      }
+
+      fetch(VERSION_URL, { cache: 'no-store', credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          var v = d && d.version;
+          if (!v) return;
+          if (bootVersion === null) { bootVersion = v; return; }
+          if (v !== bootVersion) applyUpdate();
+        })
+        .catch(function () { /* hors ligne : on retentera au prochain retour */ });
+    }
+
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      // Tout premier enregistrement : il n'y a pas de version précédente à
+      // remplacer, donc rien à recharger.
+      if (hadController) applyUpdate();
+    });
+
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/sw.js').catch(function (err) {
+      navigator.serviceWorker.register('/sw.js').then(function (reg) {
+        registration = reg;
+      }).catch(function (err) {
         console.warn('[Noesis] Service worker non enregistre :', err);
       });
+      checkForUpdate(true);
     });
-  }
+
+    // Le moment qui compte vraiment sur téléphone : l'app revient au premier plan.
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') checkForUpdate(false);
+    });
+    window.addEventListener('focus', function () { checkForUpdate(false); });
+    window.addEventListener('online', function () { checkForUpdate(true); });
+    setInterval(function () { checkForUpdate(false); }, PERIODIC);
+  })();
 </script>
 </head>
 <body>

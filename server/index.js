@@ -1,4 +1,6 @@
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const express = require('express');
 
 // Pas d'activités par défaut : chaque déploiement démarre vide, à chacun
@@ -23,6 +25,48 @@ app.set('trust proxy', 1);
 // erreur peu explicite. Relevée de 5 à 15 Mo le 29 août 2026 pour les pièces
 // jointes du Chrono (une seule à la fois par requête).
 app.use(express.json({ limit: '15mb' }));
+
+// ---------------------------------------------------------------------------
+// Empreinte de version de l'app (volet Déploiement / Mobile, 30 août 2026)
+//
+// Problème résolu : une app installée sur l'écran d'accueil (PWA) n'est pas
+// "relancée" comme une page web. Sur iOS surtout, elle est mise en veille puis
+// reprise telle quelle — le code JavaScript déjà chargé en mémoire continue de
+// tourner indéfiniment, même après un redéploiement. Emilien devait
+// désinstaller/réinstaller l'app pour voir ses propres mises à jour.
+//
+// Cette empreinte est calculée UNE SEULE FOIS au démarrage, à partir du
+// contenu réel des fichiers servis au navigateur. Elle est donc strictement
+// constante pendant toute la vie d'un déploiement, et change dès qu'un de ces
+// fichiers change — c'est exactement ce qu'il faut pour que le client puisse
+// comparer "la version que j'ai chargée" à "la version en ligne maintenant"
+// sans jamais se recharger en boucle. Voir le bloc <script> en tête de
+// public/index.html pour la partie client.
+const VERSION_FILES = ['index.html', 'app.js', 'styles.css', 'i18n.js', 'sw.js'];
+
+function computeAppVersion() {
+  const hash = crypto.createHash('sha1');
+  for (const name of VERSION_FILES) {
+    hash.update(name);
+    try {
+      hash.update(fs.readFileSync(path.join(PUBLIC_DIR, name)));
+    } catch (err) {
+      // Un fichier absent ne doit jamais empêcher le serveur de démarrer :
+      // il compte simplement comme "absent" dans l'empreinte.
+      hash.update('absent');
+    }
+  }
+  return hash.digest('hex').slice(0, 12);
+}
+
+const APP_VERSION = computeAppVersion();
+
+// no-store et pas seulement no-cache : cette réponse ne doit jamais être
+// resservie depuis un cache, sinon la détection de mise à jour est aveugle.
+app.get('/api/version', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ version: APP_VERSION });
+});
 
 app.use('/api', require('./routes/profile'));
 app.use('/api', require('./routes/activities'));
@@ -83,4 +127,5 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.NOESIS_HOST || (process.env.PORT ? '0.0.0.0' : 'localhost');
 app.listen(PORT, HOST, () => {
   console.log(`Noèsis TimeTracker en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  console.log(`Version de l'app servie : ${APP_VERSION}`);
 });
