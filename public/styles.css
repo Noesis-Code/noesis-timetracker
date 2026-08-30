@@ -182,7 +182,24 @@ input[type=time]:focus, select:focus, textarea:focus {
   position: sticky; top: 0; z-index: 10;
 }
 .brand { font-weight: bold; font-size: 18px; letter-spacing: 0.2px; }
-.whoami { font-size: 13px; opacity: 0.9; }
+/* .whoami est un <button> depuis le 30 août 2026 (demande d'Emilien) : ouvre
+   le Profil au clic (voir openProfile, app.js) — Profil n'a plus d'onglet
+   dédié dans la barre du bas. Reset des styles par défaut de bouton pour
+   garder l'apparence texte d'origine, léger soulignement au survol/focus
+   pour signaler que c'est cliquable sans alourdir la topbar. */
+.whoami {
+  font: inherit; font-size: 13px; opacity: 0.9;
+  background: none; border: none; padding: 0; margin: 0; color: inherit;
+  cursor: pointer;
+  text-decoration-line: underline; text-decoration-color: transparent;
+  transition: text-decoration-color var(--transition-fast), opacity var(--transition-fast);
+}
+.whoami:hover, .whoami:focus-visible { opacity: 1; text-decoration-color: currentColor; }
+/* Ancre du point rouge de notification posé sur le prénom (voir #whoamiDot
+   dans index.html) ; le point lui-même réutilise .notifDot, défini plus bas
+   avec l'icône "avion en papier" du Profil. */
+.whoami { position: relative; display: inline-flex; align-items: center; }
+.whoami .notifDot { top: -3px; right: -7px; border-color: var(--purple-dark); }
 #content { flex: 1; padding: 18px 5%; max-width: 640px; margin: 0 auto; width: 100%; }
 
 .tabbar {
@@ -208,8 +225,18 @@ input[type=time]:focus, select:focus, textarea:focus {
   width: 18px; height: 3px; border-radius: 2px; background: var(--purple);
 }
 .tabBtn:active { transform: scale(0.94); }
-.tabIcon { display: flex; align-items: center; justify-content: center; }
+.tabIcon { display: flex; align-items: center; justify-content: center; position: relative; }
 .tabIcon svg { width: 24px; height: 24px; display: block; transition: transform var(--transition-fast); }
+/* Point de notification sur l'icône d'un onglet — motif générique (Design),
+   introduit le 30 août 2026 pour l'onglet Activité (invitations en attente,
+   reprend le point qu'affichait auparavant l'icône "avion en papier" de
+   Profil) mais réutilisable pour tout autre onglet à l'avenir. Même style
+   que .notifDot ; .tabIcon fournit l'ancrage position:relative. */
+.tabBtnDot {
+  position: absolute; top: -2px; right: -2px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--red); border: 2px solid var(--card);
+}
 .tabBtn.active .tabIcon svg { transform: scale(1.08); }
 /* Nom de la section sous l'icône, dans la barre d'onglets. */
 .tabLabel {

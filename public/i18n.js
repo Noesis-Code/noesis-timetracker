@@ -215,6 +215,20 @@
     'Invitations reçues': 'Invitations received',
     'Demandes de suivi reçues': 'Follow requests received',
     'Activités': 'Activities',
+    // ---- Onglet Activité (30 août 2026) ----
+    // Clés ajoutées, aucune retirée : deux variantes de l'onglet Activité ont
+    // été écrites en parallèle par deux discussions le même jour, et ce
+    // dictionnaire doit pouvoir servir aux deux tant que l'une des deux n'a
+    // pas été retenue.
+    'Activité': 'Activity',
+    'Mes activités': 'My activities',
+    'Clique sur une activité partagée pour voir ses membres, leur discussion, leurs statistiques et leurs enregistrements. Le "⋮" ouvre ses réglages.': 'Click a shared activity to see its members, their discussion, their statistics and their sessions. The "⋮" button opens its settings.',
+    '{count} membres — clique sur la ligne pour les voir.': '{count} members — click the row to see them.',
+    'Ouvrir le profil': 'Open profile',
+    "Aucune activité partagée pour l'instant. Partage une de tes activités ci-dessus (bouton \"Partager\", par pseudo), ou accepte une invitation reçue, pour la voir apparaître ici.": 'No shared activity yet. Share one of your activities above (the "Share" button, by nickname), or accept an invitation you received, to see it here.',
+    "Aucune activité pour l'instant — ajoutes-en une dans Activité.": 'No activities yet — add one in Activity.',
+    'Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Activité.': 'Choose the activities you want to track, and a colour for each one. You can add or edit them later in Activity.',
+    "Cette activité n'est partagée avec personne pour l'instant — choisis \"communauté\" ou partage-la depuis Activité.": 'This activity is not shared with anyone yet — choose "community", or share it from Activity.',
     'Ajouter une activité': 'Add an activity',
     'Nouvelle activité': 'New activity',
     "Ajouter l'activité": 'Add activity',
@@ -239,6 +253,15 @@
     'Importer': 'Import',
     "Choisis un fichier .csv d'abord.": 'Choose a .csv file first.',
     'Import en cours...': 'Importing...',
+
+    // ---- Doublons d'import (30 août 2026) ----
+    'Chercher les doublons': 'Find duplicates',
+    "Un même fichier importé deux fois crée des sessions en double et gonfle toutes tes statistiques. Ce bouton cherche tes doublons exacts (même activité, mêmes heures de début et de fin) et te propose de n'en garder qu'un de chaque.": 'Importing the same file twice creates duplicate sessions and inflates all your statistics. This button looks for your exact duplicates (same activity, same start and end times) and offers to keep only one of each.',
+    'Recherche des doublons...': 'Looking for duplicates...',
+    'Aucun doublon dans ton historique.': 'No duplicate in your history.',
+    'Suppression en cours...': 'Deleting...',
+    '{n} sessions en double trouvées, soit {h} en trop. En supprimer une de chaque paire ? Il te restera {reste} sessions.': '{n} duplicate sessions found, i.e. {h} too many. Delete one of each pair? You will be left with {reste} sessions.',
+    '{n} sessions en double supprimées. Il te reste {reste} sessions.': '{n} duplicate sessions deleted. You now have {reste} sessions.',
     'Format non supporté — choisis une image PNG, JPEG ou WebP.': 'Unsupported format — choose a PNG, JPEG or WebP image.',
     'Image trop lourde (8 Mo max) — choisis-en une autre.': 'Image too large (8 MB max) — choose another one.',
     'Traitement de la photo...': 'Processing the photo...',
@@ -414,6 +437,7 @@
     [/^Tu as rejoint « (.+) », fusionnée avec ton ancienne activité « (.+) »\.$/, 'You joined "$1", merged with your former activity "$2".'],
     [/^Tu as rejoint « (.+) »\.$/, 'You joined "$1".'],
     [/^Activité enregistrée : (.*)$/, 'Session recorded: $1'],
+    [/^Import terminé : (\d+) ligne\(s\) importée\(s\), (\d+) déjà présente\(s\), (\d+) ignorée\(s\)\.$/, 'Import finished: $1 row(s) imported, $2 already there, $3 skipped.'],
     [/^Import terminé : (\d+) ligne\(s\) importée\(s\), (\d+) ignorée\(s\)\.$/, 'Import finished: $1 row(s) imported, $2 skipped.'],
     [/^"(.+)" existe déjà\. Choisis un autre nom, ou récupère ton profil si c'est toi\.$/, '"$1" already exists. Pick another name, or restore your profile if that is you.'],
     [/^"(.+)" est déjà pris par un autre profil\.$/, '"$1" is already taken by another profile.'],

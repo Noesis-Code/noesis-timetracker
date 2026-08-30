@@ -319,7 +319,7 @@
   function showApp() {
     $('onboarding').classList.add('hidden');
     $('app').classList.remove('hidden');
-    $('whoami').textContent = profile.name;
+    $('whoamiName').textContent = profile.name;
     $('settingsName').value = profile.name;
     $('settingsLastName').value = profile.lastName || '';
     $('settingsPhone').value = profile.phone || '';
@@ -552,7 +552,14 @@
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
   });
 
+  // Dernier onglet réel de la barre du bas (chrono/stats/community/activity)
+  // visité — mémorisé pour que la flèche "←" du Profil sache où revenir
+  // (Profil n'a plus de bouton dans la barre depuis le 30 août 2026, voir
+  // openProfile/closeProfile plus bas). switchTab n'est appelée qu'avec ces
+  // quatre valeurs (plus closeProfile, qui relit lastMainTab).
+  var lastMainTab = 'chrono';
   function switchTab(tab) {
+    lastMainTab = tab;
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
     tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
@@ -575,13 +582,58 @@
       exitActivityTimesheetFullscreen();
       exitActivityChartFullscreen();
       if (tab === 'community') loadCommunity();
-      else if (tab === 'profile') { showProfileMain(); loadSettingsActivities(); loadPendingInvites(); loadFollowRequests(); renderThemeSwitch(); renderLangSwitch(); renderShareSettings(); renderNewActivitySwatches(); loadProfileNotes(); }
+      else if (tab === 'activity') loadActivityTab();
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
         $('historyToggleBtn').textContent = '▾';
       }
     }
+  }
+
+  // ===================== PROFIL (accès par clic sur le prénom) =====================
+  // Depuis le 30 août 2026 (demande d'Emilien), Profil n'est plus un onglet
+  // de la barre du bas — remplacé par "Activité" — mais reste le même
+  // panneau plein écran qu'avant, ouvert en cliquant sur le prénom en haut
+  // à droite (#whoami) et refermé par la flèche "←" (#profileCloseBtn), qui
+  // rouvre le dernier onglet principal visité.
+  function openProfile() {
+    document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
+    $('tab-profile').classList.remove('hidden');
+    exitStatsFullscreen();
+    exitChartFullscreen();
+    exitActivityTimesheetFullscreen();
+    exitActivityChartFullscreen();
+    showProfileMain();
+    loadPendingInvites();
+    loadFollowRequests();
+    renderThemeSwitch();
+    renderLangSwitch();
+    renderShareSettings();
+    loadProfileNotes();
+  }
+  function closeProfile() { switchTab(lastMainTab); }
+  $('whoami').addEventListener('click', openProfile);
+  $('profileCloseBtn').addEventListener('click', closeProfile);
+
+  // ===================== ACTIVITÉ =====================
+  // Fusionne, depuis le 30 août 2026 (demande d'Emilien) : la gestion de
+  // "Mes activités" et les "Invitations reçues" (déménagées depuis Profil),
+  // et la liste des activités partagées + leur détail par activité
+  // (déménagée depuis la section "Membres" de Communauté — voir
+  // renderCommunityActivities/loadActivityDetail plus bas, inchangées).
+  function loadActivityTab() {
+    if (!profile) return;
+    loadSettingsActivities();
+    // La liste des invitations est affichée dans le Profil (arbitrage
+    // d'Emilien du 30 août 2026), pas ici — mais on la recharge quand même en
+    // passant, pour tenir à jour le compteur qui allume son point rouge.
+    loadPendingInvites();
+    renderNewActivitySwatches();
+    api('GET', '/api/community?userId=' + profile.id).then(function (data) {
+      renderCommunityActivities(data.activities);
+    });
+    loadSharedFeed();
   }
 
   // ===================== ACTIVITÉS (cache partagé, couleurs personnelles) =====================
@@ -956,16 +1008,19 @@
     // chaque ajout/suppression pour ne pas recharger toute la semaine.
     var attachBox = document.createElement('div');
     attachBox.className = 'attachmentList';
-    // Menu "épingle" (30 août 2026) — même structure que #attachMenuBtn/
+    // Menu de pièce jointe (30 août 2026) — même structure que #attachMenuBtn/
     // #attachMenu dans #noteWrapper (voir toggleAttachmentMenu plus haut),
     // reconstruite ici en DOM puisque cette carte est générée dynamiquement.
+    // Icône épingle remplacée par un trombone (SVG, même style que les icônes
+    // de la barre d'onglets) et bouton déplacé dans .actions, à gauche de
+    // "Modifier"/"Supprimer" (30 août 2026, demande d'Emilien).
     var attachMenuWrap = document.createElement('div');
     attachMenuWrap.className = 'attachmentMenuWrap';
     var attachMenuBtn = document.createElement('button');
-    attachMenuBtn.type = 'button'; attachMenuBtn.className = 'menuBtn';
+    attachMenuBtn.type = 'button'; attachMenuBtn.className = 'menuBtn attachMenuIconBtn';
     attachMenuBtn.setAttribute('aria-haspopup', 'true');
     attachMenuBtn.setAttribute('aria-label', t('Ajouter une pièce jointe'));
-    attachMenuBtn.textContent = '📌';
+    attachMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
     var attachMenu = document.createElement('div');
     attachMenu.className = 'attachmentMenu hidden';
     var attachPhotoBtn = document.createElement('button');
@@ -985,7 +1040,6 @@
     var attachMsg = document.createElement('p');
     attachMsg.className = 'meta attachmentMsg';
     card.appendChild(attachBox);
-    card.appendChild(attachMenuWrap);
     card.appendChild(attachMsg);
 
     function refreshEntryAttachments() {
@@ -1042,6 +1096,7 @@
     var delBtn = document.createElement('button');
     delBtn.className = 'iconBtn danger';
     delBtn.textContent = t('Supprimer');
+    actions.appendChild(attachMenuWrap);
     actions.appendChild(editBtn);
     actions.appendChild(delBtn);
     card.appendChild(actions);
@@ -1144,7 +1199,13 @@
     $('historyNextWeek').disabled = currentHistoryWeekOffset === 0;
   }
 
-  $('historyToggleBtn').addEventListener('click', function () {
+  // Toute la ligne d'en-tête ("case historique") est cliquable pour déplier/
+  // replier le panneau, pas seulement la petite flèche #historyToggleBtn
+  // (demande d'Emilien du 30 août 2026 — cible de clic plus grande). La
+  // flèche reste dans le DOM comme repère visuel (tabindex="-1" côté
+  // index.html, elle n'a plus son propre écouteur pour éviter un double
+  // basculement puisque son clic remonte de toute façon jusqu'ici).
+  $('chronoHistoryHeader').addEventListener('click', function () {
     var opening = $('chronoHistoryPanel').classList.contains('hidden');
     $('chronoHistoryPanel').classList.toggle('hidden', !opening);
     $('historyToggleBtn').textContent = opening ? '▴' : '▾';
@@ -1729,41 +1790,21 @@
   }
 
   // ===================== COMMUNAUTÉ =====================
-  // Deux sections indépendantes : "Communauté" (fil d'actualité du suivi) et
-  // "Membres" (classement + détail des activités partagées). Les deux
-  // restent chargées en même temps (loadCommunity ci-dessous) ; seul
-  // l'affichage bascule ici, pas de rechargement au clic.
-  document.querySelectorAll('#communitySectionSwitch .periodBtn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      document.querySelectorAll('#communitySectionSwitch .periodBtn').forEach(function (b) { b.classList.toggle('active', b === btn); });
-      $('communitySectionFeed').classList.toggle('hidden', btn.dataset.section !== 'feed');
-      $('communitySectionMembers').classList.toggle('hidden', btn.dataset.section !== 'members');
-      // Referme la modale "Voir les membres" si on quitte la section Membres
-      // pendant qu'elle est ouverte — évite un état incohérent (modale
-      // affichée alors que sa section parente est masquée).
-      $('communityMembersModal').classList.add('hidden');
-      exitActivityTimesheetFullscreen();
-      exitActivityChartFullscreen();
-    });
-  });
-
-  // Communauté = MES activités devenues partagées (>= 2 membres), affichées
-  // en lignes cliquables (voir renderCommunityActivities) plutôt qu'avec un
-  // classement par période — le sélecteur Semaine/Mois/Année a été retiré
-  // de cette section (demande d'Emilien du jour). Recharge aussi le suivi
-  // (Recherche/Suivi/Partagée), entièrement indépendant de la liste
-  // ci-dessus, à chaque ouverture de l'onglet. Les demandes de suivi reçues
-  // (loadFollowRequests) sont chargées depuis l'onglet Profil, pas ici —
-  // voir switchTab.
+  // Le sélecteur "Communauté / Membres" qui vivait ici (et son gestionnaire
+  // de clic) a été retiré le 30 août 2026 : la section "Membres" a déménagé
+  // en bloc dans l'onglet Activité — voir loadActivityTab plus haut.
+  // Communauté ne garde, depuis le 30 août 2026 (demande d'Emilien), que "En
+  // ce moment" (loadLiveFeed), "Rechercher des membres" et le Suivi
+  // (Recherche/liste/flux) — la liste des activités partagées et leur détail
+  // par activité (renderCommunityActivities/loadActivityDetail) ainsi que le
+  // fil "Partagée" (loadSharedFeed) ont déménagé dans l'onglet Activité, voir
+  // loadActivityTab ci-dessus. Les demandes de suivi reçues
+  // (loadFollowRequests) restent chargées depuis Profil, pas ici.
   function loadCommunity() {
     if (!profile) return;
-    api('GET', '/api/community?userId=' + profile.id).then(function (data) {
-      renderCommunityActivities(data.activities);
-    });
     $('communitySearchInput').value = '';
     $('communitySearchResults').innerHTML = '';
     loadFollowing();
-    loadSharedFeed();
     loadFollowingFeed();
     loadLiveFeed();
   }
@@ -2902,16 +2943,25 @@
   // Apparence, Sécurité et Import vivent sur une page "Réglages" séparée
   // (échange de vue #profileMain <-> #profileSettingsPanel), ouverte par le
   // bouton "⚙️" à côté du titre "Identité" et refermée par le bouton "←".
-  // ===================== NOTIFICATIONS (icône avion en papier) =====================
-  // Point rouge dès qu'il y a une invitation d'activité OU une demande de
-  // suivi en attente. Pas de nouvel appel réseau dédié : alimenté par
+  // ===================== NOTIFICATIONS =====================
+  // Un seul point rouge, sur l'icône "avion en papier" de Profil : il
+  // s'allume dès qu'une invitation d'activité OU une demande de suivi est en
+  // attente. Les invitations avaient migré vers l'onglet Activité (avec un
+  // second point rouge sur cet onglet) plus tôt le 30 août 2026 ; Emilien a
+  // tranché le même jour pour qu'elles restent dans ce panneau — d'où le
+  // retour à un point unique. Pas d'appel réseau dédié : alimenté par
   // renderInvitesList/renderFollowRequests ci-dessous, qui chargent déjà ces
-  // deux listes par ailleurs (showApp, changement d'onglet vers Profil).
+  // deux listes par ailleurs (showApp, ouverture du Profil).
   var notifPendingCounts = { invites: 0, followRequests: 0 };
   function refreshNotifDot() {
-    var dot = $('profileNotifDot');
-    if (!dot) return;
-    dot.classList.toggle('hidden', notifPendingCounts.invites === 0 && notifPendingCounts.followRequests === 0);
+    var none = notifPendingCounts.invites === 0 && notifPendingCounts.followRequests === 0;
+    var profileDot = $('profileNotifDot');
+    if (profileDot) profileDot.classList.toggle('hidden', none);
+    // Même point rouge sur le prénom de la barre du haut : c'est le seul
+    // toujours visible depuis les autres onglets, le Profil n'étant plus
+    // dans la barre du bas.
+    var topDot = $('whoamiDot');
+    if (topDot) topDot.classList.toggle('hidden', none);
   }
 
   function showProfileMain() {
@@ -2965,7 +3015,7 @@
     api('PUT', '/api/profile/' + profile.id, payload)
       .then(function (p) {
         saveProfile(p);
-        $('whoami').textContent = p.name;
+        $('whoamiName').textContent = p.name;
         $('settingsMsg').textContent = t('Profil mis à jour.');
       })
       .catch(function (err) { $('settingsMsg').textContent = err.message; })
@@ -3076,6 +3126,41 @@
     if (!confirm(t('Se déconnecter de ce profil sur cet appareil ?'))) return;
     clearProfile();
     location.reload();
+  });
+
+  // ----- Doublons d'historique (import passé deux fois) -----
+  // Deux temps : on compte et on montre ce qui partirait, puis on supprime
+  // seulement après confirmation. Rien n'est supprimé sans que le nombre
+  // exact d'entrées et d'heures concernées ait été affiché d'abord.
+  function formatHoursFromSeconds(seconds) {
+    var total = Math.round(seconds / 60);
+    return Math.floor(total / 60) + 'h' + pad(total % 60);
+  }
+
+  $('dedupeBtn').addEventListener('click', function () {
+    $('dedupeMsg').textContent = t('Recherche des doublons...');
+    $('dedupeBtn').disabled = true;
+    api('GET', '/api/import/duplicates?userId=' + profile.id)
+      .then(function (info) {
+        if (!info.removable) {
+          $('dedupeMsg').textContent = t('Aucun doublon dans ton historique.');
+          return;
+        }
+        var resume = t('{n} sessions en double trouvées, soit {h} en trop. En supprimer une de chaque paire ? Il te restera {reste} sessions.', {
+          n: info.removable, h: formatHoursFromSeconds(info.seconds), reste: info.remaining,
+        });
+        if (!confirm(resume)) { $('dedupeMsg').textContent = ''; return; }
+        $('dedupeMsg').textContent = t('Suppression en cours...');
+        return api('POST', '/api/import/dedupe', { userId: profile.id }).then(function (r) {
+          $('dedupeMsg').textContent = t('{n} sessions en double supprimées. Il te reste {reste} sessions.', {
+            n: r.removed, reste: r.remaining,
+          });
+          refreshActivities().then(renderActivityGrid);
+          loadProfileNotes();
+        });
+      })
+      .catch(function (err) { $('dedupeMsg').textContent = err.message; })
+      .finally(function () { $('dedupeBtn').disabled = false; });
   });
 
   // ----- Partage (adresse publique de l'app + invitation par pseudo) -----

@@ -96,7 +96,17 @@ router.post('/import/history', (req, res) => {
   // avec son mode clair/sombre actuel.
   const palette = paletteFor(user.theme);
 
-  let imported = 0, skipped = 0;
+  // Une même ligne de CSV réimportée donne EXACTEMENT les mêmes startTime et
+  // endTime (ils sont calculés à partir de "Date ISO" + "Début (décimal)",
+  // pas de l'heure d'import) : on peut donc reconnaître à coup sûr une ligne
+  // déjà présente et l'ignorer. Sans ça, réimporter le même fichier double
+  // tout l'historique — c'est arrivé en production le 30 août 2026.
+  const alreadyImported = db.prepare(`
+    SELECT id FROM time_entries
+    WHERE userId = ? AND activityId = ? AND startTime = ? AND endTime = ?
+  `);
+
+  let imported = 0, skipped = 0, duplicates = 0;
 
   db.exec('BEGIN');
   try {
@@ -121,9 +131,16 @@ router.post('/import/history', (req, res) => {
       startTime.setTime(startTime.getTime() + Math.round((startDecimal || 0) * 3600000));
       const endTime = new Date(startTime.getTime() + Math.round(durationH * 3600000));
 
+      const startIso = startTime.toISOString();
+      const endIso = endTime.toISOString();
+      if (alreadyImported.get(userId, activity.id, startIso, endIso)) {
+        duplicates++;
+        continue;
+      }
+
       insertEntry.run(
         userId, activity.id, (iNote !== -1 ? (row[iNote] || '') : '').trim(),
-        startTime.toISOString(), endTime.toISOString(),
+        startIso, endIso,
         Math.round(durationH * 3600),
         isoDateOf(startTime), dayNameOf(startTime)
       );
@@ -135,7 +152,69 @@ router.post('/import/history', (req, res) => {
     throw e;
   }
 
-  res.json({ message: `Import terminé : ${imported} ligne(s) importée(s), ${skipped} ignorée(s).`, imported, skipped });
+  res.json({
+    message: `Import terminé : ${imported} ligne(s) importée(s), ${duplicates} déjà présente(s), ${skipped} ignorée(s).`,
+    imported, skipped, duplicates,
+  });
+});
+
+// ===================== DOUBLONS D'HISTORIQUE =====================
+// Deux entrées du MÊME profil, sur la MÊME activité, avec les mêmes heures de
+// début ET de fin, ne peuvent pas exister légitimement : personne ne fait
+// tourner deux chronos identiques en même temps. C'est donc toujours la trace
+// d'un import passé deux fois. Le nettoyage est strictement limité au profil
+// appelant — jamais les entrées d'un autre membre, même sur une activité
+// partagée, comme partout ailleurs dans l'app.
+
+const DUPLICATE_IDS = `
+  SELECT id FROM time_entries
+  WHERE userId = ?
+    AND id NOT IN (
+      SELECT MIN(id) FROM time_entries WHERE userId = ?
+      GROUP BY activityId, startTime, endTime
+    )
+`;
+
+function duplicateSummary(userId) {
+  const row = db.prepare(`
+    SELECT COUNT(*) AS n, COALESCE(SUM(durationSeconds), 0) AS seconds
+    FROM time_entries WHERE id IN (${DUPLICATE_IDS})
+  `).get(userId, userId);
+  const total = db.prepare('SELECT COUNT(*) AS n FROM time_entries WHERE userId = ?').get(userId).n;
+  return { total, removable: row.n, seconds: row.seconds, remaining: total - row.n };
+}
+
+// Aperçu : ce que la suppression retirerait, sans rien modifier.
+router.get('/import/duplicates', (req, res) => {
+  const userId = req.query.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json(duplicateSummary(userId));
+});
+
+// Suppression effective : ne garde que la PREMIÈRE entrée de chaque groupe
+// (le plus petit id, donc celle du premier import), supprime les suivantes.
+router.post('/import/dedupe', (req, res) => {
+  const userId = req.body && req.body.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  const before = duplicateSummary(userId);
+  if (before.removable === 0) return res.json({ removed: 0, remaining: before.total });
+
+  db.exec('BEGIN');
+  try {
+    db.prepare(`DELETE FROM time_entries WHERE id IN (${DUPLICATE_IDS})`).run(userId, userId);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+
+  const after = duplicateSummary(userId);
+  res.json({ removed: before.removable, remaining: after.total, seconds: before.seconds });
 });
 
 module.exports = router;

@@ -45,13 +45,30 @@ git commit -m "PWA + configuration de deploiement"
 git push
 ```
 
-### 2.2 Créer le service
+### 2.2 Passer au plan Hobby — sinon la création du projet est refusée
+
+Constaté le 30 août 2026 : créer un nouveau projet renvoie
+« Free plan resource provision limit exceeded ».
+
+Le plan Trial de Railway ne donne que 5 $ de crédit une seule fois, et le plan
+Free 1 $/mois — insuffisant pour faire tourner un service en permanence, et le
+volume persistant y est limité à 0,5 Go. Le plan **Hobby, 5 $/mois, inclut 5 $
+d'usage** et 5 Go de volume : une app de cette taille reste dans le forfait,
+donc 5 $/mois au total.
+
+Bouton **Upgrade to Hobby** dans le message de blocage, ou
+<https://railway.com/account/plans>.
+
+Pour éviter toute surprise, l'écran **Usage** permet de fixer une limite de
+dépense mensuelle.
+
+### 2.3 Créer le service
 
 1. Aller sur <https://railway.app>, se connecter avec le compte GitHub.
 2. **New Project → Deploy from GitHub repo → `Noesis-Code/noesis-timetracker`**.
 3. Railway détecte Node.js tout seul et lance `node server/index.js`.
 
-### 2.3 Ajouter le volume persistant — étape à ne pas sauter
+### 2.4 Ajouter le volume persistant — étape à ne pas sauter
 
 Sans volume, **toute la base est effacée à chaque redéploiement**.
 
@@ -65,13 +82,13 @@ Sans volume, **toute la base est effacée à chaque redéploiement**.
 
 4. Redéployer.
 
-### 2.4 Obtenir l'URL
+### 2.5 Obtenir l'URL
 
 **Settings → Networking → Generate Domain.** Railway fournit une adresse du
 type `https://noesis-timetracker-production.up.railway.app`, en https — ce qui
 est obligatoire pour qu'un service worker fonctionne.
 
-### 2.5 Vérifier
+### 2.6 Vérifier
 
 - Ouvrir l'URL : l'écran de création de profil doit s'afficher.
 - Créer un profil, lancer un chrono, l'arrêter.

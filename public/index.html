@@ -105,7 +105,18 @@
 
   <header class="topbar">
     <span class="brand">Noèsis</span>
-    <span class="whoami" id="whoami"></span>
+    <!-- Cliquer sur le prénom ouvre le Profil (voir openProfile dans app.js) —
+         Profil n'est plus un onglet de la barre du bas depuis le 30 août 2026
+         (demande d'Emilien), remplacé par "Activité" ; c'est désormais le
+         seul point d'accès au Profil. -->
+    <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
+      <span id="whoamiName"></span>
+      <!-- Le Profil n'étant plus dans la barre du bas, son icône "avion en
+           papier" (et son point rouge) ne sont visibles qu'une fois le Profil
+           ouvert : sans ce point-ci, rien ne signalerait une invitation ou
+           une demande de suivi depuis les autres onglets. -->
+      <span id="whoamiDot" class="notifDot hidden"></span>
+    </button>
   </header>
 
   <main id="content">
@@ -116,6 +127,31 @@
         <p class="stepLabel">Quelle activité ?</p>
         <div id="activityButtons" class="activityGrid"></div>
         <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Profil.</p>
+      </div>
+
+      <!-- Historique modifiable des sessions déjà enregistrées : corriger la
+           date/l'heure d'un enregistrement validé, ou le supprimer. Fonction
+           volontairement séparée de "Mes notes" dans Profil (qui ne permet
+           que de supprimer entièrement une session, pas de modifier ses
+           heures) — demande explicite d'Emilien du 29 août 2026. Repliée par
+           défaut, s'ouvre sur la semaine en cours à chaque ouverture de
+           l'onglet Chrono. Rapprochée de la grille d'activités et rendue
+           dépliable au clic sur toute la ligne d'en-tête, pas seulement sur
+           la petite flèche (demande d'Emilien du 30 août 2026). -->
+      <div id="chronoHistorySection">
+        <div class="sectionTitleRow historyHeaderClickable" id="chronoHistoryHeader">
+          <p class="sectionTitle">Historique</p>
+          <button id="historyToggleBtn" type="button" class="menuBtn" title="Afficher l'historique" aria-label="Afficher l'historique" tabindex="-1">▾</button>
+        </div>
+        <div id="chronoHistoryPanel" class="hidden">
+          <div class="historyNav">
+            <button id="historyPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
+            <span id="historyWeekLabel" class="meta"></span>
+            <button id="historyNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
+          </div>
+          <div id="historyList"></div>
+          <p id="historyEmptyHint" class="hint hidden">Aucun enregistrement sur cette semaine.</p>
+        </div>
       </div>
 
       <div id="chronoRunning" class="chronoBlock hidden">
@@ -132,24 +168,29 @@
           <!-- Pièces jointes de la note (photo prise à l'appareil, document) —
                demande d'Emilien (29 août 2026). Restent "en attente" côté
                serveur jusqu'au STOP, qui les rattache à la session créée.
-               Rangées derrière une épingle (30 août 2026, demande d'Emilien) :
-               le bouton "📌" ouvre un petit menu avec les types de pièce
-               jointe disponibles, plutôt que d'afficher chaque option en
-               permanence — même principe que les menus "⋮"/"+"/"⚙️" déjà
-               utilisés ailleurs dans l'app. -->
-          <div class="attachmentMenuWrap">
-            <button id="attachMenuBtn" type="button" class="menuBtn" aria-haspopup="true" aria-label="Ajouter une pièce jointe">📌</button>
-            <div id="attachMenu" class="attachmentMenu hidden">
-              <button id="attachPhotoBtn" type="button" class="attachmentMenuItem">📷 Photo</button>
-              <button id="attachDocBtn" type="button" class="attachmentMenuItem">📎 Document</button>
-            </div>
-            <input type="file" id="attachPhotoInput" accept="image/*" capture="environment" class="hidden">
-            <input type="file" id="attachDocInput" class="hidden">
-          </div>
+               Rangées derrière un bouton menu (30 août 2026, demande
+               d'Emilien) : le bouton ouvre un petit menu avec les types de
+               pièce jointe disponibles, plutôt que d'afficher chaque option
+               en permanence — même principe que les menus "⋮"/"+"/"⚙️" déjà
+               utilisés ailleurs dans l'app. Icône changée d'une épingle à un
+               trombone (même style simple/traits que les icônes de la barre
+               d'onglets) et déplacée à gauche des boutons d'envoi "en
+               direct", toujours le 30 août 2026, sur demande d'Emilien. -->
           <div id="attachmentList" class="attachmentList"></div>
           <p id="attachmentMsg" class="meta attachmentMsg"></p>
 
           <div class="broadcastRow">
+            <div class="attachmentMenuWrap">
+              <button id="attachMenuBtn" type="button" class="menuBtn attachMenuIconBtn" aria-haspopup="true" aria-label="Ajouter une pièce jointe">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <div id="attachMenu" class="attachmentMenu hidden">
+                <button id="attachPhotoBtn" type="button" class="attachmentMenuItem">📷 Photo</button>
+                <button id="attachDocBtn" type="button" class="attachmentMenuItem">📎 Document</button>
+              </div>
+              <input type="file" id="attachPhotoInput" accept="image/*" capture="environment" class="hidden">
+              <input type="file" id="attachDocInput" class="hidden">
+            </div>
             <button id="broadcastSendMembersBtn" class="iconBtn">Envoyer aux membres</button>
             <button id="broadcastSendCommunityBtn" class="iconBtn">Envoyer à la communauté</button>
           </div>
@@ -179,29 +220,6 @@
       </div>
 
       <p id="chronoStatus" class="msg"></p>
-
-      <!-- Historique modifiable des sessions déjà enregistrées : corriger la
-           date/l'heure d'un enregistrement validé, ou le supprimer. Fonction
-           volontairement séparée de "Mes notes" dans Profil (qui ne permet
-           que de supprimer entièrement une session, pas de modifier ses
-           heures) — demande explicite d'Emilien du 29 août 2026. Repliée par
-           défaut, s'ouvre sur la semaine en cours à chaque ouverture de
-           l'onglet Chrono. -->
-      <div id="chronoHistorySection">
-        <div class="sectionTitleRow">
-          <p class="sectionTitle">Historique</p>
-          <button id="historyToggleBtn" type="button" class="menuBtn" title="Afficher l'historique" aria-label="Afficher l'historique">▾</button>
-        </div>
-        <div id="chronoHistoryPanel" class="hidden">
-          <div class="historyNav">
-            <button id="historyPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
-            <span id="historyWeekLabel" class="meta"></span>
-            <button id="historyNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
-          </div>
-          <div id="historyList"></div>
-          <p id="historyEmptyHint" class="hint hidden">Aucun enregistrement sur cette semaine.</p>
-        </div>
-      </div>
     </section>
 
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
@@ -324,16 +342,14 @@
         <div id="communitySearchResults" class="activitiesList"></div>
       </div>
 
-      <!-- Deux sections distinctes : "Communauté" (fil d'actualité de tout ce
-           que partagent les personnes SUIVIES) et "Membres" (uniquement les
-           activités/notes des personnes avec qui une activité est PARTAGÉE,
-           indépendant du suivi). Un seul sélecteur en haut, à la manière du
-           sélecteur de période, pour ne pas tout afficher en même temps. -->
-      <div class="periodSwitch" id="communitySectionSwitch">
-        <button data-section="feed" class="periodBtn active">Communauté</button>
-        <button data-section="members" class="periodBtn">Membres</button>
-      </div>
-
+      <!-- Le sélecteur "Communauté / Membres" qui vivait ici a été retiré le
+           30 août 2026 (demande d'Emilien) : la partie "Membres" (activités
+           partagées, détail par activité, "Partagée", modale des membres)
+           déménage entièrement dans le nouvel onglet "Activité", fusionnée
+           avec la gestion des activités et les invitations qui venaient de
+           Profil — voir #tab-activity plus bas. Il ne reste ici que le
+           Suivi, donc plus besoin de sélecteur : #communitySectionFeed
+           s'affiche directement. -->
       <div id="communitySectionFeed" class="communitySection">
         <p class="sectionTitle">Suivi</p>
         <p class="hint">Les personnes que tu suis, et leurs activités/notes si elles ont activé "Partager mon profil" (Profil &gt; Réglages).</p>
@@ -343,132 +359,172 @@
         <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session n'a encore été enregistrée.</p>
       </div>
 
-      <div id="communitySectionMembers" class="communitySection hidden">
-        <!-- Chaque activité partagée est représentée comme une ligne (même
-             format que les activités du Profil : pastille de couleur + nom
-             + "⋮") ; cliquer dessus la sélectionne (mise en évidence) et
-             affiche, juste en dessous, le détail (sessions + notes) de ses
-             AUTRES membres. Remplace l'ancien sélecteur de période
-             (Semaine/Mois/Année) et le classement en barres, qui
-             dépendaient tous deux d'une période désormais retirée de cette
-             section — demande d'Emilien du jour. -->
-        <p class="sectionTitle">Mes activités partagées</p>
-        <p id="communityEmptyHint" class="hint hidden">Aucune activité partagée pour l'instant. Partage une de tes activités depuis Profil (bouton "Partager", par pseudo), ou accepte une invitation reçue, pour la voir apparaître ici.</p>
-        <div id="communityActivities" class="activitiesList"></div>
+    </section>
 
-        <div id="communityActivityDetail" class="hidden">
-          <!-- Fil de discussion de l'activité sélectionnée : une vraie
-               conversation entre ses membres, conservée durablement — à ne
-               pas confondre avec les notes "en direct" du Chrono (bloc "En ce
-               moment" tout en haut de cet onglet), qui s'effacent dès que
-               leur auteur clique sur STOP, ni avec les notes de session
-               listées plus bas. Placé en tête du détail : c'est ce qu'on
-               vient voir en premier quand quelqu'un a écrit. -->
-          <div id="communityDiscussionBlock" class="discussionBlock">
-            <p class="sectionTitle">Discussion <span id="communityDiscussionName" class="meta"></span></p>
-            <p class="hint">Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.</p>
-            <div id="communityDiscussionList" class="discussionList"></div>
-            <p id="communityDiscussionEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
-            <div class="discussionComposer">
-              <textarea id="communityDiscussionInput" rows="2" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
-              <div class="rowActions">
-                <button type="button" id="communityDiscussionSendBtn" class="iconBtn">Envoyer</button>
-              </div>
-              <p id="communityDiscussionMsg" class="msg"></p>
+    <!-- ---------- ONGLET ACTIVITÉ ---------- -->
+    <!-- Remplace l'ancien onglet "Profil" dans la barre du bas depuis le 30
+         août 2026 (demande d'Emilien). Regroupe : la gestion de "Mes
+         activités" (déménagée telle quelle depuis Profil, ids inchangés) et
+         "Invitations reçues" (déménagée depuis le panneau déroulant de
+         notifications de Profil), plus tout ce qui vivait dans la section
+         "Membres" de Communauté (déménagée telle quelle, ids inchangés :
+         liste des activités partagées + détail par activité — discussion,
+         statistiques, graphique — + fil "Partagée" + modale des membres).
+         Le Profil lui-même reste un panneau plein écran comme avant, mais
+         s'ouvre désormais en cliquant sur le prénom en haut à droite (voir
+         #whoami) plutôt que depuis cette barre. -->
+    <section id="tab-activity" class="tab hidden">
+      <div class="sectionTitleRow">
+        <p class="sectionTitle">Activités</p>
+        <button id="addActivityBtn" class="menuBtn" title="Ajouter une activité">+</button>
+      </div>
+      <div class="activityRow hidden" id="newActivityCard">
+        <div class="activityRowHeader">
+          <span class="dot" id="newActivityDot"></span>
+          <span class="activityRowName">Nouvelle activité</span>
+        </div>
+        <div class="activitySettingsPanel">
+          <input type="text" id="newActivityName" placeholder="Nom de l'activité">
+          <div id="newActivitySwatches" class="colorSwatches"></div>
+          <p class="meta" id="newActivityMsg"></p>
+          <div class="rowActions">
+            <button id="newActivitySave" class="iconBtn">Ajouter l'activité</button>
+          </div>
+        </div>
+      </div>
+      <div id="activitiesList" class="activitiesList"></div>
+
+      <!-- Chaque activité partagée est représentée comme une ligne (même
+           format que les activités ci-dessus : pastille de couleur + nom
+           + "⋮") ; cliquer dessus la sélectionne (mise en évidence) et
+           affiche, juste en dessous, le détail (sessions + notes) de ses
+           AUTRES membres. -->
+      <p class="sectionTitle">Mes activités partagées</p>
+      <p id="communityEmptyHint" class="hint hidden">Aucune activité partagée pour l'instant. Partage une de tes activités ci-dessus (bouton "Partager", par pseudo), ou accepte une invitation reçue, pour la voir apparaître ici.</p>
+      <div id="communityActivities" class="activitiesList"></div>
+
+      <div id="communityActivityDetail" class="hidden">
+        <!-- Fil de discussion de l'activité sélectionnée : une vraie
+             conversation entre ses membres, conservée durablement — à ne
+             pas confondre avec les notes "en direct" du Chrono (bloc "En ce
+             moment" de Communauté), qui s'effacent dès que leur auteur
+             clique sur STOP, ni avec les notes de session listées plus bas.
+             Placé en tête du détail : c'est ce qu'on vient voir en premier
+             quand quelqu'un a écrit. -->
+        <div id="communityDiscussionBlock" class="discussionBlock">
+          <p class="sectionTitle">Discussion <span id="communityDiscussionName" class="meta"></span></p>
+          <p class="hint">Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.</p>
+          <div id="communityDiscussionList" class="discussionList"></div>
+          <p id="communityDiscussionEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
+          <div class="discussionComposer">
+            <textarea id="communityDiscussionInput" rows="2" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
+            <div class="rowActions">
+              <button type="button" id="communityDiscussionSendBtn" class="iconBtn">Envoyer</button>
             </div>
+            <p id="communityDiscussionMsg" class="msg"></p>
           </div>
-
-          <p class="sectionTitle">Statistiques et activités des membres <span id="communityActivityDetailName" class="meta"></span></p>
-
-          <!-- Mêmes trois sections (Feuille de temps / Répartition / Graphique)
-               que l'onglet Statistiques, même fonctionnement (période, plein
-               écran, navigation semaine), mais l'axe de comparaison change :
-               ici on compare les MEMBRES de cette activité entre eux, plus
-               les activités entre elles (on est déjà "dans" une seule
-               activité) — demande d'Emilien, 29-30 août 2026. Ids et blocs
-               entièrement distincts de ceux de Statistiques (préfixe
-               communityActivity/ca) : jamais partagés, jamais réutilisés
-               depuis l'onglet Statistiques. -->
-          <div class="periodSwitch" id="communityActivityPeriodSwitch">
-            <button data-period="week" class="periodBtn active">Semaine</button>
-            <button data-period="month" class="periodBtn">Mois</button>
-            <button data-period="year" class="periodBtn">Année</button>
-          </div>
-
-          <div class="statsSummary">
-            <p class="statsLabel" id="communityActivityStatsLabel"></p>
-            <p class="statsTotal" id="communityActivityStatsTotal"></p>
-          </div>
-
-          <div id="communityActivityTimesheetBlock" class="statsSection">
-            <div class="sectionTitleRow">
-              <p class="sectionTitle">Feuille de temps</p>
-              <div class="timesheetNav">
-                <button id="caTsPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
-                <span id="caTsWeekLabel" class="meta"></span>
-                <button id="caTsNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
-                <button id="caTsFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
-              </div>
-            </div>
-            <p class="hint">La semaine en cours s'affiche par défaut à chaque sélection de l'activité. Les semaines précédentes restent enregistrées et consultables avec les flèches, sans jamais être perdues.</p>
-            <div class="timesheetScroll">
-              <div id="caTsGrid" class="timesheetGrid"></div>
-            </div>
-            <p id="caTsEmptyHint" class="hint hidden">Rien d'enregistré sur cette semaine.</p>
-          </div>
-
-          <div id="communityActivityPieBlock" class="statsSection">
-            <p class="sectionTitle">Répartition</p>
-            <div id="communityActivityPie" class="pieWrap"></div>
-            <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
-          </div>
-
-          <div id="communityActivityChartBlock" class="statsSection">
-            <div class="sectionTitleRow">
-              <p class="sectionTitle">Graphique</p>
-              <button id="caChartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
-            </div>
-            <div class="chartWrap" id="communityActivityChartWrap">
-              <div class="chartScroll">
-                <div id="communityActivityChart" class="chartSvgWrap"></div>
-              </div>
-              <div id="caChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
-            </div>
-            <div id="communityActivityChartLegend" class="chartLegend"></div>
-            <p id="communityActivityChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
-          </div>
-
-          <div id="communityActivityDetailFeed"></div>
-          <p id="communityActivityDetailEmptyHint" class="hint hidden">Rien à afficher pour l'instant pour cette activité.</p>
         </div>
 
-        <!-- Distinct du détail par activité ci-dessus : ici, le détail brut
-             des sessions, comme l'historique du Chrono mais pour les
-             co-membres, toutes activités partagées confondues. -->
-        <p class="sectionTitle">Partagée</p>
-        <p class="hint">Les activités et notes des personnes avec qui tu partages déjà une activité — sans rapport avec le suivi.</p>
-        <div id="sharedFeed"></div>
-        <p id="sharedFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant.</p>
+        <p class="sectionTitle">Statistiques et activités des membres <span id="communityActivityDetailName" class="meta"></span></p>
 
-        <!-- Page (modale) listant tous les membres d'une activité partagée
-             précise, ouverte depuis le menu "⋮" d'une ligne ci-dessus (option
-             "Voir les membres") — un point vert apparaît à côté d'un membre
-             si son chrono est ACTUELLEMENT en cours pour CETTE activité
-             précise (pas un chrono quelconque sur une autre activité). -->
-        <div id="communityMembersModal" class="communityMembersModal hidden">
-          <div class="communityMembersModalCard">
-            <div class="communityMembersModalHeader">
-              <p class="sectionTitle" id="communityMembersModalTitle"></p>
-              <button type="button" class="menuBtn" id="communityMembersModalClose" aria-label="Fermer">✕</button>
+        <!-- Mêmes trois sections (Feuille de temps / Répartition / Graphique)
+             que l'onglet Statistiques, même fonctionnement (période, plein
+             écran, navigation semaine), mais l'axe de comparaison change :
+             ici on compare les MEMBRES de cette activité entre eux, plus
+             les activités entre elles (on est déjà "dans" une seule
+             activité) — demande d'Emilien, 29-30 août 2026. Ids et blocs
+             entièrement distincts de ceux de Statistiques (préfixe
+             communityActivity/ca) : jamais partagés, jamais réutilisés
+             depuis l'onglet Statistiques. -->
+        <div class="periodSwitch" id="communityActivityPeriodSwitch">
+          <button data-period="week" class="periodBtn active">Semaine</button>
+          <button data-period="month" class="periodBtn">Mois</button>
+          <button data-period="year" class="periodBtn">Année</button>
+        </div>
+
+        <div class="statsSummary">
+          <p class="statsLabel" id="communityActivityStatsLabel"></p>
+          <p class="statsTotal" id="communityActivityStatsTotal"></p>
+        </div>
+
+        <div id="communityActivityTimesheetBlock" class="statsSection">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Feuille de temps</p>
+            <div class="timesheetNav">
+              <button id="caTsPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
+              <span id="caTsWeekLabel" class="meta"></span>
+              <button id="caTsNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
+              <button id="caTsFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
             </div>
-            <div id="communityMembersModalList" class="activitiesList"></div>
           </div>
+          <p class="hint">La semaine en cours s'affiche par défaut à chaque sélection de l'activité. Les semaines précédentes restent enregistrées et consultables avec les flèches, sans jamais être perdues.</p>
+          <div class="timesheetScroll">
+            <div id="caTsGrid" class="timesheetGrid"></div>
+          </div>
+          <p id="caTsEmptyHint" class="hint hidden">Rien d'enregistré sur cette semaine.</p>
+        </div>
+
+        <div id="communityActivityPieBlock" class="statsSection">
+          <p class="sectionTitle">Répartition</p>
+          <div id="communityActivityPie" class="pieWrap"></div>
+          <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+        </div>
+
+        <div id="communityActivityChartBlock" class="statsSection">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Graphique</p>
+            <button id="caChartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
+          </div>
+          <div class="chartWrap" id="communityActivityChartWrap">
+            <div class="chartScroll">
+              <div id="communityActivityChart" class="chartSvgWrap"></div>
+            </div>
+            <div id="caChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
+          </div>
+          <div id="communityActivityChartLegend" class="chartLegend"></div>
+          <p id="communityActivityChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+        </div>
+
+        <div id="communityActivityDetailFeed"></div>
+        <p id="communityActivityDetailEmptyHint" class="hint hidden">Rien à afficher pour l'instant pour cette activité.</p>
+      </div>
+
+      <!-- Distinct du détail par activité ci-dessus : ici, le détail brut
+           des sessions, comme l'historique du Chrono mais pour les
+           co-membres, toutes activités partagées confondues. -->
+      <p class="sectionTitle">Partagée</p>
+      <p class="hint">Les activités et notes des personnes avec qui tu partages déjà une activité — sans rapport avec le suivi.</p>
+      <div id="sharedFeed"></div>
+      <p id="sharedFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant.</p>
+
+      <!-- Page (modale) listant tous les membres d'une activité partagée
+           précise, ouverte depuis le menu "⋮" d'une ligne ci-dessus (option
+           "Voir les membres") — un point vert apparaît à côté d'un membre
+           si son chrono est ACTUELLEMENT en cours pour CETTE activité
+           précise (pas un chrono quelconque sur une autre activité). -->
+      <div id="communityMembersModal" class="communityMembersModal hidden">
+        <div class="communityMembersModalCard">
+          <div class="communityMembersModalHeader">
+            <p class="sectionTitle" id="communityMembersModalTitle"></p>
+            <button type="button" class="menuBtn" id="communityMembersModalClose" aria-label="Fermer">✕</button>
+          </div>
+          <div id="communityMembersModalList" class="activitiesList"></div>
         </div>
       </div>
     </section>
 
     <!-- ---------- ONGLET PROFIL ---------- -->
     <section id="tab-profile" class="tab hidden">
+
+      <!-- Profil n'est plus un onglet de la barre du bas depuis le 30 août
+           2026 (demande d'Emilien) : ce panneau plein écran s'ouvre
+           désormais en cliquant sur le prénom en haut à droite (#whoami) et
+           se referme avec la flèche "←" ci-dessous, qui rouvre le dernier
+           onglet principal visité (voir openProfile/closeProfile, app.js). -->
+      <div class="subpageHeader">
+        <button type="button" id="profileCloseBtn" class="menuBtn" title="Retour" aria-label="Retour">←</button>
+        <p class="sectionTitle subpageTitle">Profil</p>
+      </div>
 
       <!-- Vue principale de l'onglet Profil. Le nom reste affiché ici en
            lecture seule (modifiable depuis Réglages > Identité), mais la
@@ -492,12 +548,13 @@
           <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" class="hidden">
           <span class="identityName" id="identityDisplayName"></span>
           <!-- Icône "avion en papier" : ouvre/ferme un panneau déroulant
-               (#profileNotifPanel) listant les invitations d'activité et les
-               demandes de suivi en attente. Sur demande d'Emilien (29 août
-               2026), ces deux listes ne sont plus affichées en permanence
-               sur la vue principale du Profil — seul ce panneau, ouvert par
-               un clic sur l'icône, les montre. Point rouge piloté par
-               notifPendingCounts/refreshNotifDot dans app.js. -->
+               (#profileNotifPanel) listant les invitations d'activité ET les
+               demandes de suivi en attente. Les invitations avaient migré
+               vers l'onglet Activité plus tôt le 30 août 2026 ; Emilien a
+               tranché le même jour pour qu'elles restent ici, avec les
+               demandes de suivi, sous un seul point rouge — d'où le retour du
+               bloc ci-dessous et la disparition de #activityTabDot. Point
+               rouge piloté par notifPendingCounts/refreshNotifDot (app.js). -->
           <div class="notifWrap">
             <button id="profileNotifBtn" class="menuBtn notifBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -510,8 +567,8 @@
               <p class="sectionTitle">Invitations reçues</p>
               <div id="invitesList" class="activitiesList"></div>
 
-              <!-- Demandes de suivi (Suivi, indépendant du partage d'activité
-                   ci-dessus) — déplacé depuis l'onglet Communauté à la demande
+              <!-- Demandes de suivi (Suivi, indépendant du partage d'activité)
+                   — déplacé depuis l'onglet Communauté à la demande
                    d'Emilien. Le reste du système de Suivi (recherche de membres,
                    fil d'actualité) reste dans Communauté. -->
               <p class="sectionTitle">Demandes de suivi reçues</p>
@@ -521,26 +578,6 @@
           <button id="profileSettingsBtn" class="menuBtn" title="Réglages" aria-label="Réglages">⚙️</button>
         </div>
         <p id="avatarMsg" class="msg"></p>
-
-        <div class="sectionTitleRow">
-          <p class="sectionTitle">Activités</p>
-          <button id="addActivityBtn" class="menuBtn" title="Ajouter une activité">+</button>
-        </div>
-        <div class="activityRow hidden" id="newActivityCard">
-          <div class="activityRowHeader">
-            <span class="dot" id="newActivityDot"></span>
-            <span class="activityRowName">Nouvelle activité</span>
-          </div>
-          <div class="activitySettingsPanel">
-            <input type="text" id="newActivityName" placeholder="Nom de l'activité">
-            <div id="newActivitySwatches" class="colorSwatches"></div>
-            <p class="meta" id="newActivityMsg"></p>
-            <div class="rowActions">
-              <button id="newActivitySave" class="iconBtn">Ajouter l'activité</button>
-            </div>
-          </div>
-        </div>
-        <div id="activitiesList" class="activitiesList"></div>
 
         <p class="sectionTitle">Mes notes</p>
         <p id="notesEmptyHint" class="hint hidden">Aucune note enregistrée pour l'instant — les notes ajoutées pendant tes sessions dans Chrono apparaîtront ici.</p>
@@ -632,6 +669,18 @@
           <input type="file" id="importFile" accept=".csv,text/csv">
           <button id="importBtn" class="btn btn-small">Importer</button>
           <p id="importMsg" class="msg"></p>
+
+          <!-- Nettoyage des doublons d'import (30 août 2026). Un même fichier
+               importé deux fois recrée exactement les mêmes lignes (les heures
+               sont calculées depuis le CSV, pas depuis l'heure d'import), ce
+               qui double l'historique et donc toutes les statistiques. Le
+               bouton compte d'abord, montre ce qui partirait, et ne supprime
+               qu'après confirmation. Strictement limité au profil courant. -->
+          <p class="hint">Un même fichier importé deux fois crée des sessions en double et gonfle toutes tes statistiques. Ce bouton cherche tes doublons exacts (même activité, mêmes heures de début et de fin) et te propose de n'en garder qu'un de chaque.</p>
+          <div class="shareActions">
+            <button id="dedupeBtn" class="iconBtn danger">Chercher les doublons</button>
+          </div>
+          <p id="dedupeMsg" class="msg"></p>
         </div>
 
         <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
@@ -708,14 +757,23 @@
       </span>
       <span class="tabLabel">Communauté</span>
     </button>
-    <button class="tabBtn" data-tab="profile" aria-label="Profil">
+    <!-- Remplace l'ancien onglet "Profil" (déplacé le 30 août 2026 vers un
+         accès par clic sur le prénom, #whoami — voir openProfile dans
+         app.js). Pas de point rouge ici : les invitations en attente sont
+         restées dans le panneau "avion en papier" du Profil (arbitrage
+         d'Emilien du 30 août 2026), qui garde donc son point rouge unique. -->
+    <button class="tabBtn" data-tab="activity" aria-label="Activité">
       <span class="tabIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="8" r="4"/>
-          <path d="M4 20c0-4.4 3.6-6 8-6s8 1.6 8 6"/>
+          <path d="M9 6h11"/>
+          <path d="M9 12h11"/>
+          <path d="M9 18h11"/>
+          <path d="M4 6h.01"/>
+          <path d="M4 12h.01"/>
+          <path d="M4 18h.01"/>
         </svg>
       </span>
-      <span class="tabLabel">Profil</span>
+      <span class="tabLabel">Activité</span>
     </button>
   </nav>
 </div>

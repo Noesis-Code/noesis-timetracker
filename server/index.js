@@ -38,12 +38,29 @@ app.use('/api', require('./routes/import'));
 // c'est lui qui pilote la mise à jour de l'app sur les téléphones installés.
 // S'il était mis en cache, un déploiement pourrait rester invisible pendant
 // des jours. Même chose pour index.html et le manifeste.
+//
+// Ajout du 30 août 2026 (constaté par Emilien : aucun changement visible sur
+// son téléphone après un simple rechargement) : app.js/styles.css/i18n.js
+// n'avaient AUCUN en-tête Cache-Control explicite (comportement par défaut
+// d'express.static plus bas) — sans max-age ni no-cache, un navigateur peut
+// les garder en cache et les servir tels quels sans même revalider auprès du
+// serveur (mise en cache heuristique), ce qui contournait complètement la
+// stratégie "réseau d'abord" du service worker (public/sw.js), qui appelle
+// bien fetch() à chaque fois mais reçoit alors une réponse déjà périmée
+// renvoyée par le cache du navigateur avant même d'atteindre le serveur.
+// "no-cache" (et non "no-store") est volontairement choisi ici : le fichier
+// reste mis en cache, mais une revalidation (ETag/Last-Modified, déjà gérée
+// par express.static) est obligatoire à chaque chargement — pas de course
+// perpétuelle au réseau, juste plus de version périmée servie sans vérifier.
 app.use((req, res, next) => {
   if (
     req.path === '/' ||
     req.path === '/index.html' ||
     req.path === '/sw.js' ||
-    req.path === '/manifest.webmanifest'
+    req.path === '/manifest.webmanifest' ||
+    req.path === '/app.js' ||
+    req.path === '/styles.css' ||
+    req.path === '/i18n.js'
   ) {
     res.set('Cache-Control', 'no-cache');
   }
