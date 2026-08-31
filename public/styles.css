@@ -53,6 +53,21 @@
 
 * { box-sizing: border-box; }
 
+/* Fond de secours violet sur <html>, sous <body> (31 août 2026, demande
+   d'Emilien : que le violet remonte jusqu'en haut de l'écran, là où
+   l'heure/le réseau/le wifi/la batterie du téléphone s'affichent EN DEHORS
+   de l'app, hors de portée du DOM). Le vrai fond de cette zone-là est piloté
+   par l'OS (meta theme-color pour Android, apple-mobile-web-app-status-bar-
+   style="black-translucent" pour iOS — tous deux déjà en place plus haut
+   dans index.html) : un navigateur/OS ne colore correctement cette bande
+   que si ces réglages sont lus ET que l'app tourne en PWA installée. Ce fond
+   <html> est un filet de sécurité pour les cas intermédiaires (rebond de
+   défilement iOS façon "élastique", angle mort d'un navigateur qui ignore
+   temporairement le thème) : sans lui, un défilement élastique découvrirait
+   var(--bg) (gris clair/anthracite) sous la topbar ; avec lui, c'est du
+   violet, cohérent avec la topbar juste en dessous quoi qu'il arrive. */
+html { background: var(--purple-dark); }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -352,11 +367,12 @@ textarea {
 }
 
 /* ===== Historique modifiable (Chrono) =====
-   Section repliable listant les sessions déjà enregistrées, avec édition de
-   date/heure (mêmes champs datetime-local que le récapitulatif de STOP
-   ci-dessus) et suppression — propre au Chrono, distincte de "Mes notes"
-   dans Profil (voir #chronoHistorySection dans index.html). */
-#chronoHistorySection { margin-top: 24px; text-align: left; }
+   Page à part listant les sessions déjà enregistrées (#tab-chronoHistory
+   dans index.html, ouverte depuis #chronoHistoryHeader en bas du
+   chronomètre — 31 août 2026, demande d'Emilien), avec édition de date/heure
+   (mêmes champs datetime-local que le récapitulatif de STOP ci-dessus) et
+   suppression — propre au Chrono, distincte de "Mes notes" dans Profil. */
+#chronoHistoryHeader { margin-top: 24px; }
 .historyNav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .historyNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
 .historyEditFields { margin-top: 8px; text-align: left; }
@@ -654,12 +670,43 @@ textarea {
 .chartSvgWrap { width: max-content; min-width: 100%; }
 .chartSvg { display: block; }
 .chartAxisLine { stroke: var(--border); stroke-width: 1; }
-.chartAxisLabel { fill: var(--text-light); font-size: 9px; }
+.chartAxisLabel { fill: var(--text-light); font-size: 9px; pointer-events: none; }
 .chartLine { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .chartLineTotal { stroke-width: 2.5; }
 .chartDot { stroke: var(--card); stroke-width: 2; }
-.chartHoverLayer { fill: transparent; pointer-events: all; }
+/* pan-x plutôt que "none" ou "auto" par défaut : laisse le navigateur gérer
+   le panoramique horizontal à un doigt (défilement natif de .chartScroll,
+   inchangé), tout en nous laissant intercepter nous-mêmes le pincement à
+   deux doigts (zoom) sans qu'il déclenche EN PLUS le zoom natif de la page —
+   voir applyZoom()/pointermove dans app.js (31 août 2026, demande d'Emilien :
+   pouvoir zoomer sur le Graphique). */
+.chartHoverLayer { fill: transparent; pointer-events: all; touch-action: pan-x; }
 .chartCrosshair { stroke: var(--text-light); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+
+/* Cadre + grille d'axe Y du Graphique (31 août 2026, demande d'Emilien : "un
+   fini qui ressemble à TradingView" — avant ce jour-là, le graphique n'avait
+   ni cadre ni graduation Y, juste une ligne de base). Grille délibérément
+   plus effacée que le cadre (voir dataviz : "gridlines... recessive") :
+   le cadre borne le panneau, la grille n'est qu'un repère de lecture. */
+.chartFrame { fill: none; stroke: var(--border); stroke-width: 1; }
+.chartGridLine { stroke: var(--border); stroke-width: 1; opacity: 0.55; }
+/* L'étiquette suit le bord gauche de la zone visible (voir axisLabelX() dans
+   app.js), donc elle flotte au-dessus des courbes une fois le graphique
+   défilé : halo (contour de la couleur du fond) plutôt qu'un pavé plein,
+   pour rester lisible sans alourdir le tracé. */
+.chartYAxisLabel {
+  font-size: 9px;
+  paint-order: stroke;
+  stroke: var(--card);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* Étiquettes d'axe qui suivent le curseur/crosshair (date sous l'axe X,
+   valeur à gauche de l'axe Y) — fond plein façon "tag", plutôt que du texte
+   nu, pour rester lisible par-dessus la grille et les courbes. */
+.chartAxisTagBg { fill: var(--text); }
+.chartAxisTagText { fill: var(--card); font-size: 9px; font-weight: bold; }
 
 /* Légende du Graphique — toujours présente (>= 2 séries dès qu'il y a une
    seule activité + Total), pastille + libellé, jamais la couleur seule
@@ -860,25 +907,37 @@ body.scrollLock { overflow: hidden; }
    bouton). */
 .notifBtn { position: relative; display: flex; align-items: center; justify-content: center; }
 .notifBtn svg { width: 15px; height: 15px; display: block; }
+/* Icônes "avion en papier" et "⚙️" en violet plutôt qu'en noir (couleur
+   .menuBtn par défaut, var(--text)) — demande d'Emilien du 31 août 2026.
+   Sélecteur par id (plus spécifique que .menuBtn) pour ne recolorer QUE ces
+   deux boutons de la topbar, sans toucher aux autres .menuBtn de l'app
+   (retour "←", "✕", "▾"...). Le fond du bouton (var(--card)) et sa bordure
+   restent inchangés : seule l'icône (stroke="currentColor") devient
+   violette. */
+#profileNotifBtn, #profileSettingsBtn { color: var(--purple); }
 .notifDot {
   position: absolute; top: 3px; right: 3px;
   width: 9px; height: 9px; border-radius: 50%;
   background: var(--red); border: 2px solid var(--card);
 }
-/* Conteneur relatif pour ancrer le panneau déroulant sous l'icône, et le
-   panneau lui-même — remplace l'ancien bloc toujours visible
-   #profileNotifSection : les invitations/demandes de suivi ne sont plus
-   affichées sur la vue principale du Profil, uniquement ici au clic sur
-   l'icône (voir app.js). */
-.notifWrap { position: relative; }
-/* Ancré à droite (right:0) plutôt qu'à gauche depuis le déménagement de
-   l'icône dans .topbar, à gauche du prénom (31 août 2026) : le bouton est
-   maintenant proche du bord droit de l'écran, donc un panneau ancré à
-   gauche (left:0, jusqu'alors sans problème dans la vue Profil, plus
-   centrée) dépasserait de l'écran sur les téléphones étroits. Ancré à
-   droite, le panneau s'étend vers la gauche et reste toujours visible. */
+/* .notifWrap n'a plus de position propre depuis le 31 août 2026 (nouvel
+   ajustement d'Emilien) : il ne sert plus que de sélecteur pour le clic "en
+   dehors du panneau" (voir app.js, e.target.closest('.notifWrap')). Le
+   panneau lui-même (.notifPanel ci-dessous) s'ancre maintenant sur .topbar
+   — qui reste positionnée (position: sticky) et sert donc de bloc
+   englobant — plutôt que sur ce petit conteneur, pour pouvoir se centrer
+   sur toute la largeur de l'écran. */
+
+/* Recentré au milieu de l'écran et collé au bas de la barre violette
+   (31 août 2026, demande d'Emilien) : auparavant ancré à droite sous
+   l'icône elle-même. .topbar fait toute la largeur de l'écran (pas de
+   max-width, contrairement à #content), donc se centrer sur .topbar
+   revient à se centrer sur l'écran. top:100% (sans marge) colle le panneau
+   directement sous la barre, quelle que soit sa hauteur réelle (marge de
+   sécurité iOS/Android incluse). */
 .notifPanel {
-  position: absolute; top: calc(100% + 8px); right: 0; z-index: 20;
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  z-index: 20;
   width: min(320px, 85vw); max-height: 60vh; overflow-y: auto;
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-elevated);

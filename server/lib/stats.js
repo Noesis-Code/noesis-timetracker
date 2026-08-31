@@ -34,8 +34,21 @@ function breakdownForUser(userId, period, refDate) {
   };
 }
 
+// Période "Total" du Graphique (31 août 2026, demande d'Emilien : remplacer
+// "Semaine" par Mois/Année/Total). Pas de notion de "période" au sens
+// périodRange (pas de longueur fixe) : du tout premier jour enregistré par
+// l'utilisateur (MIN(isoDate) sur ses propres entrées) jusqu'à aujourd'hui.
+// Vit ici (pas dans lib/period.js, qui est un pur utilitaire de dates sans
+// accès DB) car elle a besoin de lire time_entries.
+function totalRangeForUser(userId, refDate) {
+  const ref = refDate ? new Date(refDate) : new Date();
+  const todayIso = isoDateOf(ref);
+  const earliest = db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
+  return { start: (earliest && earliest.d) || todayIso, end: todayIso, label: 'Depuis le début' };
+}
+
 function dailyBreakdownForUser(userId, period, refDate) {
-  const { start, end } = periodRange(period, refDate);
+  const { start, end } = period === 'total' ? totalRangeForUser(userId, refDate) : periodRange(period, refDate);
 
   const rows = db.prepare(`
     SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek, a.id AS activityId,

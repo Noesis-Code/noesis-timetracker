@@ -255,7 +255,17 @@
           <div id="followRequestsList" class="activitiesList"></div>
         </div>
       </div>
-      <button id="profileSettingsBtn" class="menuBtn" title="Réglages" aria-label="Réglages">⚙️</button>
+      <!-- L'emoji "⚙️" a été remplacé par un SVG (31 août 2026, demande
+           d'Emilien) : un emoji porte sa propre couleur figée (impossible à
+           teinter en violet via CSS), contrairement à un SVG en
+           stroke="currentColor", qui hérite de la couleur définie plus bas
+           dans styles.css (#profileSettingsBtn { color: var(--purple) }). -->
+      <button id="profileSettingsBtn" class="menuBtn notifBtn" title="Réglages" aria-label="Réglages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
       <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
         <span id="whoamiName"></span>
         <!-- Redondant avec le point rouge du bouton "avion en papier"
@@ -275,31 +285,6 @@
         <p class="stepLabel">Quelle activité ?</p>
         <div id="activityButtons" class="activityGrid"></div>
         <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Activité.</p>
-      </div>
-
-      <!-- Historique modifiable des sessions déjà enregistrées : corriger la
-           date/l'heure d'un enregistrement validé, ou le supprimer. Fonction
-           volontairement séparée de "Mes notes" dans Profil (qui ne permet
-           que de supprimer entièrement une session, pas de modifier ses
-           heures) — demande explicite d'Emilien du 29 août 2026. Repliée par
-           défaut, s'ouvre sur la semaine en cours à chaque ouverture de
-           l'onglet Chrono. Rapprochée de la grille d'activités et rendue
-           dépliable au clic sur toute la ligne d'en-tête, pas seulement sur
-           la petite flèche (demande d'Emilien du 30 août 2026). -->
-      <div id="chronoHistorySection">
-        <div class="sectionTitleRow historyHeaderClickable" id="chronoHistoryHeader">
-          <p class="sectionTitle">Historique</p>
-          <button id="historyToggleBtn" type="button" class="menuBtn" title="Afficher l'historique" aria-label="Afficher l'historique" tabindex="-1">▾</button>
-        </div>
-        <div id="chronoHistoryPanel" class="hidden">
-          <div class="historyNav">
-            <button id="historyPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
-            <span id="historyWeekLabel" class="meta"></span>
-            <button id="historyNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
-          </div>
-          <div id="historyList"></div>
-          <p id="historyEmptyHint" class="hint hidden">Aucun enregistrement sur cette semaine.</p>
-        </div>
       </div>
 
       <div id="chronoRunning" class="chronoBlock hidden">
@@ -381,7 +366,47 @@
         </div>
       </div>
 
+      <!-- Accès à l'historique modifiable des sessions déjà enregistrées :
+           corriger la date/l'heure d'un enregistrement validé, ou le
+           supprimer. Fonction volontairement séparée de "Mes notes" dans
+           Profil (qui ne permet que de supprimer entièrement une session,
+           pas de modifier ses heures) — demande explicite d'Emilien du 29
+           août 2026. Repositionné en bas du chronomètre (après la grille
+           d'activités ET le chrono en cours, plutôt qu'entre les deux) et
+           transformé en un simple lien de navigation : plus de flèche ni de
+           panneau qui se déplie sur place, "Historique" est lui-même le
+           bouton, et cliquer dessus ouvre une page à part entière
+           (#tab-chronoHistory, ci-dessous, en dehors de cette section) —
+           demande d'Emilien du 31 août 2026. Cette page est un panneau plein
+           écran comme #tab-profile : pas de flèche de retour dédiée, elle se
+           quitte en tapant n'importe quel onglet de la barre du bas (même
+           convention que Profil, qui a perdu sa propre flèche de retour plus
+           tôt le même jour à la demande d'Emilien). -->
+      <div class="sectionTitleRow historyHeaderClickable" id="chronoHistoryHeader">
+        <p class="sectionTitle">Historique</p>
+      </div>
+
       <p id="chronoStatus" class="msg"></p>
+    </section>
+
+    <!-- ---------- PAGE HISTORIQUE (Chrono) ---------- -->
+    <!-- Ouverte en cliquant sur "Historique" dans #tab-chrono ci-dessus (voir
+         openChronoHistory() dans app.js) — même mécanique que #tab-profile
+         (panneau plein écran, hors de la barre du bas, fermé en tapant
+         n'importe quel autre onglet). Contenu inchangé par rapport à
+         l'ancien panneau déroulant : navigation par semaine, liste
+         modifiable, message si la semaine est vide. -->
+    <section id="tab-chronoHistory" class="tab hidden">
+      <div class="sectionTitleRow">
+        <p class="sectionTitle">Historique</p>
+      </div>
+      <div class="historyNav">
+        <button id="historyPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
+        <span id="historyWeekLabel" class="meta"></span>
+        <button id="historyNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
+      </div>
+      <div id="historyList"></div>
+      <p id="historyEmptyHint" class="hint hidden">Aucun enregistrement sur cette semaine.</p>
     </section>
 
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
@@ -457,16 +482,20 @@
            remplir l'espace disponible au lieu de rester à 180px fixes
            (29 août 2026, suite demande Emilien). Le menu "⋮" (période) n'est
            visible qu'en plein écran, comme pour la Feuille de temps
-           ci-dessus (30 août 2026, demande d'Emilien). -->
+           ci-dessus (30 août 2026, demande d'Emilien). Période "Semaine"
+           retirée, "Total" ajoutée (31 août 2026, demande d'Emilien : "un
+           fini qui ressemble à TradingView" — Mois par défaut désormais,
+           voir currentChartPeriod dans app.js ; Total = totalRangeForUser
+           dans server/lib/stats.js). -->
       <div id="statsChartBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
           <div class="statsPeriodMenuWrap fullscreenOnly" id="chartPeriodWrap">
             <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
             <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
-              <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
-              <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+              <button type="button" class="statsPeriodMenuItem active" data-period="month">Mois</button>
               <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="total">Total</button>
             </div>
           </div>
           <button id="chartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
@@ -493,15 +522,18 @@
            n'est plus appelé depuis cet onglet. Le sélecteur
            "Communauté / Membres" et la section "Membres" avaient déjà
            déménagé plus tôt dans la journée vers l'onglet "Activité" — voir
-           #tab-activity plus bas. -->
+           #tab-activity plus bas.
+           Déménagé le 31 août 2026 (demande d'Emilien) : la liste des noms
+           des membres suivis (#followingList / bouton "Se désabonner")
+           a quitté cet onglet et vit maintenant dans Réglages > Abonnés
+           & Abonnements (#settingsFollowingList, voir #profileSettingsPanel
+           plus bas). Seul le flux d'activité (#followingFeed) reste ici. -->
       <div class="entryCard">
         <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo..." autocomplete="off">
         <div id="communitySearchResults" class="activitiesList"></div>
       </div>
 
       <div id="communitySectionFeed" class="communitySection">
-        <div id="followingList" class="activitiesList"></div>
-        <p id="followingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant — trouve un membre ci-dessus et clique sur "Suivre".</p>
         <div id="followingFeed"></div>
         <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session avec une note n'a encore été enregistrée.</p>
       </div>
@@ -733,12 +765,16 @@
           <p id="settingsMsg" class="msg"></p>
         </div>
 
-        <!-- Abonnés & Abonnements (30 août 2026, demande d'Emilien) : liste en
-             lecture seule des noms, distincte de "Mes abonnements" dans
-             Communauté (qui reste, elle, actionnable — bouton "Se
-             désabonner"). Aucune action ici : on ne peut pas retirer un
-             abonné (seul lui peut se désabonner), et se désabonner de
-             quelqu'un se fait déjà depuis Communauté. -->
+        <!-- Abonnés & Abonnements. "Abonnés" (30 août 2026, demande
+             d'Emilien) reste en lecture seule : on ne peut pas retirer un
+             abonné, seul lui peut se désabonner. "Abonnements" a déménagé
+             ici depuis l'onglet Communauté le 31 août 2026 (demande
+             d'Emilien) et est maintenant actionnable : bouton "Se
+             désabonner" par membre (renderFollowingList, ex-Communauté,
+             réutilisé tel quel). Zone déclarée Paramètres
+             (#profileSettingsPanel) — édité ici à la demande directe
+             d'Emilien depuis la discussion Communauté ; voir
+             chantiers-en-cours.md pour le détail cross-discussion. -->
         <p class="sectionTitle">Abonnés &amp; Abonnements</p>
         <div class="settingsCard">
           <p class="hint">Abonnés</p>

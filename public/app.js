@@ -13,11 +13,19 @@
   // demande d'Emilien : plus de sélecteur global (#statsPeriodSwitch), chaque
   // section choisit sa propre période via son menu "⋮" (voir plus bas).
   var currentPiePeriod = 'week';
-  var currentChartPeriod = 'week';
+  // 'month' par défaut (31 août 2026, demande d'Emilien : plus de "Semaine"
+  // pour le Graphique, Mois/Année/Total à la place — voir #chartPeriodMenu
+  // dans index.html et VALID_PERIODS dans server/routes/stats.js).
+  var currentChartPeriod = 'month';
   var currentTimesheetPeriod = 'week'; // 'week' | 'month' — pas d'"année" pour la Feuille de temps (demande d'Emilien)
   var currentTimesheetOffset = 0; // décalage en semaines ; repart à 0 à chaque ouverture de l'onglet Statistiques
   var currentTimesheetMonthOffset = 0; // décalage en mois (vue calendrier) ; repart à 0 lui aussi
-  var currentHistoryWeekOffset = 0; // idem, pour l'historique modifiable du Chrono (#chronoHistoryPanel)
+  // Niveau de zoom horizontal du Graphique (31 août 2026, demande d'Emilien :
+  // pouvoir zoomer) — 1 = largeur normale, remis à 1 à chaque changement de
+  // période (voir setupStatsPeriodMenu($('chartPeriodBtn'), ...) plus bas) :
+  // zoomer sur "Mois" ne doit pas rester appliqué en passant sur "Total".
+  var chartZoomLevel = 1;
+  var currentHistoryWeekOffset = 0; // idem, pour l'historique modifiable du Chrono (#tab-chronoHistory)
   var runningAttachments = []; // pièces jointes de la note de la session en cours (#attachmentList) — voir enterRunning
   var lastDailyBreakdown = []; // dernier détail journalier chargé, pour redessiner le Graphique sans refetch (ex : couleur de la courbe Total après un changement de thème)
   var statsFullscreenActive = false; // plein écran forcé (paysage) de la Feuille de temps
@@ -615,11 +623,11 @@
       exitActivityChartFullscreen();
       if (tab === 'community') loadCommunity();
       else if (tab === 'activity') loadActivityTab();
-      else if (tab === 'chrono') {
-        currentHistoryWeekOffset = 0;
-        $('chronoHistoryPanel').classList.add('hidden');
-        $('historyToggleBtn').textContent = '▾';
-      }
+      // Plus rien à réinitialiser ici pour 'chrono' depuis que l'historique
+      // est une page à part (#tab-chronoHistory, voir openChronoHistory) :
+      // elle réinitialise elle-même currentHistoryWeekOffset à chaque
+      // ouverture, et se ferme comme n'importe quel autre .tab dès qu'on
+      // tape un onglet de la barre du bas (31 août 2026).
     }
   }
 
@@ -955,10 +963,12 @@
         renderActivityGrid();
         showChronoBlock('chronoIdle');
         closeStopConfirm();
-        // Si l'historique est déjà ouvert, la session qui vient d'être
-        // enregistrée doit y apparaître immédiatement sans qu'il faille
-        // refermer/rouvrir le panneau.
-        if (!$('chronoHistoryPanel').classList.contains('hidden')) loadChronoHistory();
+        // Rien à rafraîchir ici pour l'historique depuis qu'il vit sur sa
+        // propre page (#tab-chronoHistory, 31 août 2026) : cette page n'est
+        // plus accessible en même temps que #tab-chrono (validation du STOP
+        // suppose forcément d'être sur l'onglet Chrono), donc plus jamais déjà
+        // ouverte à ce moment — elle se recharge de toute façon à chaque
+        // ouverture (voir openChronoHistory).
       })
       .catch(function (err) { $('stopConfirmMsg').textContent = err.message; })
       .finally(function () {
@@ -1208,18 +1218,20 @@
     $('historyNextWeek').disabled = currentHistoryWeekOffset === 0;
   }
 
-  // Toute la ligne d'en-tête ("case historique") est cliquable pour déplier/
-  // replier le panneau, pas seulement la petite flèche #historyToggleBtn
-  // (demande d'Emilien du 30 août 2026 — cible de clic plus grande). La
-  // flèche reste dans le DOM comme repère visuel (tabindex="-1" côté
-  // index.html, elle n'a plus son propre écouteur pour éviter un double
-  // basculement puisque son clic remonte de toute façon jusqu'ici).
-  $('chronoHistoryHeader').addEventListener('click', function () {
-    var opening = $('chronoHistoryPanel').classList.contains('hidden');
-    $('chronoHistoryPanel').classList.toggle('hidden', !opening);
-    $('historyToggleBtn').textContent = opening ? '▴' : '▾';
-    if (opening) { currentHistoryWeekOffset = 0; loadChronoHistory(); }
-  });
+  // "Historique" est lui-même le bouton de navigation (plus de flèche à côté,
+  // demande d'Emilien du 31 août 2026) : cliquer dessus ouvre la page dédiée
+  // #tab-chronoHistory — même mécanique que l'ouverture du Profil
+  // (openProfile ci-dessus) plutôt qu'un panneau qui se dépliait sur place
+  // (comportement précédent, du 30 août 2026). Se ferme comme Profil : en
+  // tapant n'importe quel onglet de la barre du bas, qui appelle déjà
+  // switchTab() indépendamment de l'état de cette page.
+  function openChronoHistory() {
+    document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
+    $('tab-chronoHistory').classList.remove('hidden');
+    currentHistoryWeekOffset = 0;
+    loadChronoHistory();
+  }
+  $('chronoHistoryHeader').addEventListener('click', openChronoHistory);
   $('historyPrevWeek').addEventListener('click', function () { currentHistoryWeekOffset += 1; loadChronoHistory(); });
   $('historyNextWeek').addEventListener('click', function () {
     if (currentHistoryWeekOffset === 0) return;
@@ -1274,6 +1286,7 @@
   });
   setupStatsPeriodMenu($('chartPeriodBtn'), $('chartPeriodMenu'), function (period) {
     currentChartPeriod = period;
+    chartZoomLevel = 1;
     loadChartStats();
   });
   setupStatsPeriodMenu($('tsPeriodBtn'), $('tsPeriodMenu'), function (period) {
@@ -1482,6 +1495,29 @@
     });
   }
 
+  // Paliers "ronds" habituels d'une durée (15min/30min/1h/2h...), jusqu'à des
+  // semaines pour la période "Total" (voir dataviz : "Y-axis ticks: round to
+  // clean numbers"). Renvoie le plus petit palier tel que l'axe n'ait pas
+  // plus de ~5 graduations.
+  var CHART_HOUR_STEPS = [0.25, 0.5, 1, 2, 3, 4, 6, 8, 12, 24, 48, 96, 168, 336, 720];
+  function niceHourStep(maxHours) {
+    for (var i = 0; i < CHART_HOUR_STEPS.length; i++) {
+      if (maxHours / CHART_HOUR_STEPS[i] <= 5) return CHART_HOUR_STEPS[i];
+    }
+    return CHART_HOUR_STEPS[CHART_HOUR_STEPS.length - 1];
+  }
+
+  // ----- Graphique : cadre + grille d'axe Y + zoom/panoramique horizontal
+  // (31 août 2026, demande d'Emilien : "un fini qui ressemble à TradingView,
+  // sans trop de complexité"). Un seul axe (durée, voir dataviz : jamais de
+  // double axe), zoom horizontal uniquement (l'axe temps — pas de zoom sur
+  // les valeurs, ça resterait lisible sans). Le zoom recalcule stepW/la
+  // largeur totale et redessine les positions x (viewBox === largeur CSS en
+  // permanence, un point = un pixel) : c'est ce qui évite qu'un simple
+  // redimensionnement CSS du SVG (viewBox fixe + largeur CSS variable)
+  // déforme les cercles (ovales) et le texte (étiré/écrasé) aux zooms
+  // ≠ 1 — vérifié à l'écran avant ce correctif, cercles ovales bien
+  // visibles au zoom avant comme arrière. -----
   function renderChart(days) {
     var box = $('statsChart');
     box.innerHTML = '';
@@ -1495,81 +1531,237 @@
     var series = buildChartSeries(sorted);
     var maxSeconds = sorted.reduce(function (m, d) { return Math.max(m, d.totalSeconds); }, 0) || 1;
 
-    var width = Math.max(320, sorted.length * 56);
-    var height = 180, padTop = 14, padBottom = 26, padSide = 8;
-    var plotH = height - padTop - padBottom;
-    var stepW = (width - padSide * 2) / sorted.length;
+    // Palier d'axe Y "rond" avec un peu de marge au-dessus du point le plus
+    // haut (jamais une courbe qui touche le cadre) — axisMaxSeconds remplace
+    // maxSeconds pour placer les courbes, pas seulement pour les graduations.
+    var hourStep = niceHourStep(maxSeconds / 3600);
+    var axisMaxHours = Math.max(hourStep, Math.ceil((maxSeconds / 3600) / hourStep) * hourStep);
+    var axisMaxSeconds = axisMaxHours * 3600;
 
-    function xFor(i) { return padSide + stepW * (i + 0.5); }
-    function yFor(seconds) { return padTop + plotH - (seconds / maxSeconds) * plotH; }
+    // padRight assez large pour la moitié de la dernière étiquette de date
+    // (ex. "30/08" ~ 25px de large à 9px) : sinon elle se retrouve coupée
+    // pile au bord du cadre quand la vue par défaut est calée sur le jour
+    // le plus récent (voir plus bas, scrollLeft = scrollWidth).
+    var height = 180, padTop = 16, padBottom = 26, padLeft = 40, padRight = 24;
+    var plotH = height - padTop - padBottom;
+    var baseStepW = 56; // largeur "par jour" à zoom 1
+    var minWidth = 320;
+
+    function yFor(seconds) { return padTop + plotH - (seconds / axisMaxSeconds) * plotH; }
+    function hoursForY(y) { return Math.max(0, ((padTop + plotH - y) / plotH) * axisMaxHours); }
 
     var svgNS = 'http://www.w3.org/2000/svg';
     var svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
     svg.setAttribute('class', 'chartSvg');
+    // Nécessaire pour que la hauteur du SVG puisse s'étirer à 100% en plein
+    // écran (voir styles.css, commentaire sur #statsChartBlock.fullscreen) —
+    // sans rapport avec le zoom horizontal ci-dessous, qui lui garde
+    // toujours viewBox === largeur CSS (donc jamais de déformation propre
+    // au zoom, y compris en plein écran).
     svg.setAttribute('preserveAspectRatio', 'none');
-    svg.style.width = width + 'px';
     if (!chartFullscreenActive) svg.style.height = height + 'px';
 
-    var baseline = document.createElementNS(svgNS, 'line');
-    baseline.setAttribute('x1', 0); baseline.setAttribute('x2', width);
-    baseline.setAttribute('y1', height - padBottom); baseline.setAttribute('y2', height - padBottom);
-    baseline.setAttribute('class', 'chartAxisLine');
-    svg.appendChild(baseline);
+    var stepW = 0, totalWidth = 0;
+    function xFor(i) { return padLeft + stepW * (i + 0.5); }
+
+    // Cadre du panneau de tracé, plus grille Y en paliers ronds — c'est ce
+    // qui manquait le plus pour un "fini encadré" : avant, seule une ligne de
+    // base existait, sans cadre ni graduations. Grille toujours en dessous
+    // des courbes (ajoutée en premier), traits fins et effacés (voir
+    // dataviz : "gridlines... recessive").
+    var frame = document.createElementNS(svgNS, 'rect');
+    frame.setAttribute('x', padLeft); frame.setAttribute('y', padTop);
+    frame.setAttribute('height', plotH);
+    frame.setAttribute('class', 'chartFrame');
+    svg.appendChild(frame);
+
+    var gridLines = [];
+    var yAxisLabelEls = [];
+    for (var h = 0; h <= axisMaxHours + 1e-9; h += hourStep) {
+      var gy = yFor(h * 3600);
+      if (h > 0) {
+        var gridLine = document.createElementNS(svgNS, 'line');
+        gridLine.setAttribute('x1', padLeft);
+        gridLine.setAttribute('y1', gy); gridLine.setAttribute('y2', gy);
+        gridLine.setAttribute('class', 'chartGridLine');
+        svg.appendChild(gridLine);
+        gridLines.push(gridLine);
+      }
+      // Positionnée en x par layout()/updateYAxisLabelX() ci-dessous, pas ici
+      // : une étiquette fixée au bord gauche du SVG (comme avant ce
+      // correctif) disparaît dès que la vue défile vers la droite — or la
+      // vue par défaut est justement calée sur les données les plus
+      // récentes (scrollLeft = scrollWidth), donc l'axe Y était invisible
+      // dans le cas d'usage normal. Elle suit maintenant le bord gauche de
+      // la zone visible, comme l'échelle de prix fixe d'un graphique
+      // boursier.
+      var yLabel = document.createElementNS(svgNS, 'text');
+      yLabel.setAttribute('y', gy);
+      yLabel.setAttribute('class', 'chartAxisLabel chartYAxisLabel');
+      yLabel.setAttribute('text-anchor', 'start');
+      yLabel.setAttribute('dominant-baseline', 'middle');
+      yLabel.textContent = formatHM(h * 3600);
+      svg.appendChild(yLabel);
+      yAxisLabelEls.push(yLabel);
+    }
 
     // Le Total est dessiné en dernier (donc visuellement au-dessus des
     // courbes d'activité) : c'est la synthèse, elle doit rester lisible.
     var ordered = series.slice().sort(function (a, b) { return (a.isTotal ? 1 : 0) - (b.isTotal ? 1 : 0); });
-
+    var lineEls = [], dotEls = [];
     ordered.forEach(function (s) {
-      var points = s.values.map(function (v, i) { return { x: xFor(i), y: yFor(v) }; });
-      var pathD = points.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p.x + ',' + p.y; }).join(' ');
       var line = document.createElementNS(svgNS, 'path');
-      line.setAttribute('d', pathD);
       line.setAttribute('class', 'chartLine' + (s.isTotal ? ' chartLineTotal' : ''));
       line.style.stroke = s.color;
       svg.appendChild(line);
+      lineEls.push(line);
 
-      points.forEach(function (p) {
+      dotEls.push(s.values.map(function (v) {
         var dot = document.createElementNS(svgNS, 'circle');
-        dot.setAttribute('cx', p.x); dot.setAttribute('cy', p.y); dot.setAttribute('r', 4);
+        dot.setAttribute('cy', yFor(v)); dot.setAttribute('r', 4);
         dot.setAttribute('class', 'chartDot');
         dot.style.fill = s.color;
         svg.appendChild(dot);
-      });
+        return dot;
+      }));
     });
 
-    sorted.forEach(function (d, i) {
-      var x = xFor(i);
+    var xLabelEls = sorted.map(function (d) {
       var label = document.createElementNS(svgNS, 'text');
-      label.setAttribute('x', x); label.setAttribute('y', height - 8);
+      label.setAttribute('y', height - 8);
       label.setAttribute('class', 'chartAxisLabel');
       label.setAttribute('text-anchor', 'middle');
       label.textContent = dayChartLabel(d, true);
       svg.appendChild(label);
+      return label;
     });
 
-    // ----- Survol : crosshair vertical + infobulle listant chaque série au
-    // jour survolé (voir dataviz : interaction obligatoire par défaut sur
-    // un graphique en courbe — pas un <title> par point comme avant). -----
-    var crosshair = document.createElementNS(svgNS, 'line');
-    crosshair.setAttribute('y1', padTop); crosshair.setAttribute('y2', height - padBottom);
-    crosshair.setAttribute('class', 'chartCrosshair hidden');
-    svg.appendChild(crosshair);
+    // Repassées au-dessus des courbes (mais AVANT le crosshair/l'étiquette de
+    // survol créés juste après) pour rester lisibles quand elles flottent
+    // par-dessus une ligne de données — voir le halo posé en CSS
+    // (.chartYAxisLabel, paint-order/stroke). Ordre important : si elles
+    // passaient après l'étiquette de survol (yTag), elles la recouvriraient
+    // pile quand une graduation tombe près de la valeur survolée. pointer-
+    // events: none (CSS) pour ne jamais voler le survol à la couche
+    // transparente prévue pour ça.
+    yAxisLabelEls.forEach(function (el) { svg.appendChild(el); });
+
+    // ----- Survol : crosshair (vertical + horizontal, à la TradingView) +
+    // étiquettes sur les deux axes (date sous le curseur, valeur en face) en
+    // plus de l'infobulle qui liste chaque série au jour survolé (voir
+    // dataviz : interaction obligatoire par défaut sur un graphique en
+    // courbe). Le trait horizontal suit la position brute du pointeur (pas
+    // calé sur une série) : c'est une réglette de lecture de l'axe Y, pas une
+    // valeur de série — la valeur exacte de chaque série reste dans
+    // l'infobulle. -----
+    var crosshairX = document.createElementNS(svgNS, 'line');
+    crosshairX.setAttribute('y1', padTop); crosshairX.setAttribute('y2', height - padBottom);
+    crosshairX.setAttribute('class', 'chartCrosshair hidden');
+    svg.appendChild(crosshairX);
+
+    var crosshairY = document.createElementNS(svgNS, 'line');
+    crosshairY.setAttribute('x1', padLeft);
+    crosshairY.setAttribute('class', 'chartCrosshair hidden');
+    svg.appendChild(crosshairY);
+
+    function axisTag(anchor) {
+      var g = document.createElementNS(svgNS, 'g');
+      g.setAttribute('class', 'chartAxisTag hidden');
+      var bg = document.createElementNS(svgNS, 'rect');
+      bg.setAttribute('class', 'chartAxisTagBg');
+      bg.setAttribute('rx', 3);
+      var text = document.createElementNS(svgNS, 'text');
+      text.setAttribute('class', 'chartAxisTagText');
+      text.setAttribute('text-anchor', anchor);
+      g.appendChild(bg); g.appendChild(text);
+      svg.appendChild(g);
+      return { g: g, bg: bg, text: text };
+    }
+    var xTag = axisTag('middle');
+    var yTag = axisTag('start');
+
+    function positionTag(tag, cx, cy, anchor) {
+      tag.text.setAttribute('x', cx); tag.text.setAttribute('y', cy);
+      tag.text.setAttribute('dominant-baseline', 'middle');
+      // getBBox() a besoin que le texte soit déjà dans le DOM (c'est le cas,
+      // svg est attaché à `box` avant le premier appel — voir plus bas).
+      var box2 = tag.text.getBBox();
+      var padX = 5, padY = 3;
+      tag.bg.setAttribute('x', box2.x - padX);
+      tag.bg.setAttribute('y', box2.y - padY);
+      tag.bg.setAttribute('width', box2.width + padX * 2);
+      tag.bg.setAttribute('height', box2.height + padY * 2);
+      tag.g.classList.remove('hidden');
+    }
 
     var hoverLayer = document.createElementNS(svgNS, 'rect');
     hoverLayer.setAttribute('x', 0); hoverLayer.setAttribute('y', 0);
-    hoverLayer.setAttribute('width', width); hoverLayer.setAttribute('height', height);
+    hoverLayer.setAttribute('height', height);
     hoverLayer.setAttribute('class', 'chartHoverLayer');
     svg.appendChild(hoverLayer);
 
     var tooltip = $('chartTooltip');
     var wrapEl = $('statsChartWrap');
+    var scrollEl = wrapEl.querySelector('.chartScroll');
 
-    function showTooltipAt(i) {
+    // x "ancré viewport" pour l'axe Y (graduations fixes + étiquette de
+    // survol) : suit le bord gauche de la zone visible plutôt qu'un point
+    // fixe du SVG entier, comme l'échelle de prix fixe d'un graphique
+    // boursier qui reste collée à l'écran pendant que les données défilent
+    // dessous. text-anchor="start" (le texte s'étend vers la DROITE depuis
+    // ce point) : ancrer sur "end" ici ferait déborder l'étiquette hors-champ
+    // vers la gauche dès que le graphique est défilé (le texte grandirait
+    // dans la direction opposée à la zone visible).
+    function axisLabelX() {
+      var vx = scrollEl.scrollLeft + 6;
+      var minX = 6, maxX = totalWidth - padRight - 26;
+      return Math.max(minX, Math.min(maxX, vx));
+    }
+    function updateYAxisLabelX() {
+      var x = axisLabelX();
+      yAxisLabelEls.forEach(function (el) { el.setAttribute('x', x); });
+    }
+    scrollEl.addEventListener('scroll', updateYAxisLabelX);
+
+    // Recalcule toute la géométrie horizontale (largeur totale, tracés,
+    // points, étiquettes de date, grille) pour le niveau de zoom courant.
+    // viewBox et largeur CSS sont TOUJOURS égaux (1 unité = 1px) : c'est ce
+    // qui garde cercles et texte non déformés à n'importe quel zoom, plutôt
+    // que de se contenter d'agrandir/rétrécir le SVG en CSS.
+    function layout() {
+      stepW = Math.max(4, baseStepW * chartZoomLevel);
+      totalWidth = Math.max(minWidth, padLeft + padRight + stepW * sorted.length);
+      svg.setAttribute('viewBox', '0 0 ' + totalWidth + ' ' + height);
+      svg.style.width = totalWidth + 'px';
+
+      frame.setAttribute('width', totalWidth - padLeft - padRight);
+      gridLines.forEach(function (gl) { gl.setAttribute('x2', totalWidth - padRight); });
+      crosshairY.setAttribute('x2', totalWidth - padRight);
+      hoverLayer.setAttribute('width', totalWidth);
+
+      ordered.forEach(function (s, si) {
+        var pathD = s.values.map(function (v, i) { return (i === 0 ? 'M' : 'L') + xFor(i) + ',' + yFor(v); }).join(' ');
+        lineEls[si].setAttribute('d', pathD);
+        dotEls[si].forEach(function (dot, i) { dot.setAttribute('cx', xFor(i)); });
+      });
+      xLabelEls.forEach(function (label, i) { label.setAttribute('x', xFor(i)); });
+
+      updateYAxisLabelX();
+    }
+
+    function showTooltipAt(i, pointerY) {
       var d = sorted[i];
-      crosshair.setAttribute('x1', xFor(i)); crosshair.setAttribute('x2', xFor(i));
-      crosshair.classList.remove('hidden');
+      crosshairX.setAttribute('x1', xFor(i)); crosshairX.setAttribute('x2', xFor(i));
+      crosshairX.classList.remove('hidden');
+
+      var clampedY = Math.min(height - padBottom, Math.max(padTop, pointerY));
+      crosshairY.setAttribute('y1', clampedY); crosshairY.setAttribute('y2', clampedY);
+      crosshairY.classList.remove('hidden');
+
+      positionTag(xTag, xFor(i), height - padBottom + 14, 'middle');
+      xTag.text.textContent = dayChartLabel(d, true);
+      positionTag(yTag, axisLabelX(), clampedY, 'start');
+      yTag.text.textContent = formatHM(Math.round(hoursForY(clampedY) * 3600));
 
       tooltip.innerHTML = '';
       var dateEl = document.createElement('div');
@@ -1597,7 +1789,7 @@
       // horizontalement), pour ne jamais être coupée par le scroll.
       var svgRect = svg.getBoundingClientRect();
       var wrapRect = wrapEl.getBoundingClientRect();
-      var px = svgRect.left - wrapRect.left + (xFor(i) / width) * svgRect.width;
+      var px = svgRect.left - wrapRect.left + (xFor(i) / totalWidth) * svgRect.width;
       var py = svgRect.top - wrapRect.top + (yFor(d.totalSeconds) / height) * svgRect.height;
       tooltip.style.left = px + 'px';
       tooltip.style.top = (py - 10) + 'px';
@@ -1605,25 +1797,91 @@
     }
 
     function hideTooltip() {
-      crosshair.classList.add('hidden');
+      crosshairX.classList.add('hidden');
+      crosshairY.classList.add('hidden');
+      xTag.g.classList.add('hidden');
+      yTag.g.classList.add('hidden');
       tooltip.classList.add('hidden');
     }
 
     function indexFromEvent(evt) {
       var rect = svg.getBoundingClientRect();
-      var relX = ((evt.clientX - rect.left) / rect.width) * width;
-      var i = Math.round((relX - padSide) / stepW - 0.5);
+      var relX = ((evt.clientX - rect.left) / rect.width) * totalWidth;
+      var i = Math.round((relX - padLeft) / stepW - 0.5);
       if (i < 0) i = 0;
       if (i > sorted.length - 1) i = sorted.length - 1;
       return i;
     }
+    function yFromEvent(evt) {
+      var rect = svg.getBoundingClientRect();
+      return ((evt.clientY - rect.top) / rect.height) * height;
+    }
 
-    hoverLayer.addEventListener('pointermove', function (evt) { showTooltipAt(indexFromEvent(evt)); });
-    hoverLayer.addEventListener('pointerenter', function (evt) { showTooltipAt(indexFromEvent(evt)); });
+    hoverLayer.addEventListener('pointermove', function (evt) { showTooltipAt(indexFromEvent(evt), yFromEvent(evt)); });
+    hoverLayer.addEventListener('pointerenter', function (evt) { showTooltipAt(indexFromEvent(evt), yFromEvent(evt)); });
     hoverLayer.addEventListener('pointerleave', hideTooltip);
+
+    // ----- Zoom horizontal (molette + pincement tactile) et réinitialisation
+    // au double-clic/double-tap. Zoome/panoramique autour du point pointé
+    // (le point sous le curseur/les doigts reste sous eux) plutôt que de
+    // toujours zoomer depuis le bord gauche — c'est ce qui fait la
+    // différence entre "ça zoome" et "ça zoome confortablement". -----
+    function applyZoom(newZoom, anchorClientX) {
+      newZoom = Math.min(6, Math.max(0.2, newZoom));
+      if (Math.abs(newZoom - chartZoomLevel) < 0.001) return;
+      var scrollRect = scrollEl.getBoundingClientRect();
+      var pointerOffset = anchorClientX - scrollRect.left;
+      var oldWidthPx = totalWidth;
+      var fraction = oldWidthPx > 0 ? (scrollEl.scrollLeft + pointerOffset) / oldWidthPx : 0;
+      chartZoomLevel = newZoom;
+      layout();
+      scrollEl.scrollLeft = fraction * totalWidth - pointerOffset;
+    }
+
+    scrollEl.addEventListener('wheel', function (evt) {
+      // Un vrai geste de défilement horizontal (trackpad, shift+molette)
+      // continue de faire défiler normalement — seul un défilement vertical
+      // "franc" au-dessus du graphique est interprété comme un zoom.
+      if (Math.abs(evt.deltaY) <= Math.abs(evt.deltaX)) return;
+      evt.preventDefault();
+      applyZoom(chartZoomLevel * (evt.deltaY < 0 ? 1.15 : 1 / 1.15), evt.clientX);
+    }, { passive: false });
+
+    var activePointers = {};
+    hoverLayer.addEventListener('pointerdown', function (evt) {
+      activePointers[evt.pointerId] = { x: evt.clientX, y: evt.clientY };
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (type) {
+      hoverLayer.addEventListener(type, function (evt) { delete activePointers[evt.pointerId]; });
+    });
+    hoverLayer.addEventListener('pointermove', function (evt) {
+      if (!(evt.pointerId in activePointers)) return;
+      activePointers[evt.pointerId] = { x: evt.clientX, y: evt.clientY };
+      var ids = Object.keys(activePointers);
+      if (ids.length !== 2) return;
+      var p1 = activePointers[ids[0]], p2 = activePointers[ids[1]];
+      var dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      var mid = (p1.x + p2.x) / 2;
+      if (hoverLayer._pinchLastDist) {
+        applyZoom(chartZoomLevel * (dist / hoverLayer._pinchLastDist), mid);
+      }
+      hoverLayer._pinchLastDist = dist;
+    });
+    hoverLayer.addEventListener('pointerup', function () { hoverLayer._pinchLastDist = null; });
+
+    hoverLayer.addEventListener('dblclick', function (evt) { applyZoom(1, evt.clientX); });
 
     box.appendChild(svg);
     renderChartLegend(series);
+    layout();
+
+    // Vue initiale calée sur les données les plus récentes (jamais sur le
+    // tout premier jour de la période) — surtout utile pour "Total", qui
+    // peut couvrir des mois de points : voir requestAnimationFrame, le temps
+    // que la mise en page attribue sa largeur réelle à .chartScroll.
+    if (chartZoomLevel === 1) {
+      requestAnimationFrame(function () { scrollEl.scrollLeft = scrollEl.scrollWidth; updateYAxisLabelX(); });
+    }
   }
 
   // ----- Plein écran forcé (paysage) du Graphique : même mécanisme que la
@@ -1810,11 +2068,13 @@
   // avait déjà été retiré plus tôt dans la journée (doublon avec le détail
   // par activité de l'onglet Activité). Les demandes de suivi reçues
   // (loadFollowRequests) restent chargées depuis Profil, pas ici.
+  // Depuis le 31 août 2026 (demande d'Emilien), la liste des noms suivis
+  // (loadFollowing/renderFollowingList) a déménagé dans Réglages > Abonnés
+  // & Abonnements — elle n'est donc plus chargée ici, seul le flux reste.
   function loadCommunity() {
     if (!profile) return;
     $('communitySearchInput').value = '';
     $('communitySearchResults').innerHTML = '';
-    loadFollowing();
     loadFollowingFeed();
   }
 
@@ -2651,15 +2911,21 @@
   }
 
   // ----- Mes abonnements (comptes que je suis) -----
+  // Déménagé le 31 août 2026 (demande d'Emilien) de l'onglet Communauté
+  // vers Réglages > Abonnés & Abonnements : chargée depuis
+  // loadFollowConnections() (à l'ouverture de Réglages) plutôt que
+  // loadCommunity(), et rend dans #settingsFollowingList /
+  // #settingsFollowingEmptyHint plutôt que dans #tab-community. Le bouton
+  // "Se désabonner" est conservé tel quel.
   function loadFollowing() {
     if (!profile) return;
     api('GET', '/api/follows/following?userId=' + profile.id).then(renderFollowingList);
   }
 
   function renderFollowingList(list) {
-    var box = $('followingList');
+    var box = $('settingsFollowingList');
     box.innerHTML = '';
-    $('followingEmptyHint').classList.toggle('hidden', list.length > 0);
+    $('settingsFollowingEmptyHint').classList.toggle('hidden', list.length > 0);
     list.forEach(function (f) {
       var row = document.createElement('div');
       row.className = 'activityRow';
@@ -2686,15 +2952,16 @@
     });
   }
 
-  // ----- Abonnés & Abonnements (Réglages, 30 août 2026) : simple liste de
-  // noms en lecture seule, chargée uniquement à l'ouverture de Réglages
-  // (showProfileSettings) — pas de bouton d'action ici, contrairement à
-  // "Mes abonnements" dans Communauté (renderFollowingList ci-dessus), qui
-  // reste le seul endroit pour se désabonner. -----
+  // ----- Abonnés & Abonnements (Réglages) : "Abonnés" reste une simple
+  // liste de noms en lecture seule (renderSettingsFollowers). "Abonnements"
+  // a déménagé ici depuis Communauté le 31 août 2026 (demande d'Emilien) et
+  // réutilise loadFollowing/renderFollowingList tel quel (bouton "Se
+  // désabonner" inclus) — ce n'est donc plus une simple liste en lecture
+  // seule. Chargée à l'ouverture de Réglages (showProfileSettings). -----
   function loadFollowConnections() {
     if (!profile) return;
     api('GET', '/api/follows/followers?userId=' + profile.id).then(renderSettingsFollowers);
-    api('GET', '/api/follows/following?userId=' + profile.id).then(renderSettingsFollowing);
+    loadFollowing();
   }
 
   function renderNameOnlyList(boxId, emptyHintId, list) {
@@ -2714,10 +2981,6 @@
 
   function renderSettingsFollowers(list) {
     renderNameOnlyList('settingsFollowersList', 'settingsFollowersEmptyHint', list);
-  }
-
-  function renderSettingsFollowing(list) {
-    renderNameOnlyList('settingsFollowingList', 'settingsFollowingEmptyHint', list);
   }
 
   // ----- Flux "Partagée" et "Suivi" : cartes en lecture seule (activité de

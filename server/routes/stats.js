@@ -13,7 +13,10 @@ router.get('/stats', (req, res) => {
 
   const refDate = req.query.date || null;
 
-  const VALID_PERIODS = ['day', 'week', 'month', 'year'];
+  // 'total' : uniquement valide pour dailyBreakdown (le Graphique) — voir
+  // totalRangeForUser dans lib/stats.js. Les trois blocs week/month/year
+  // ci-dessous restent inchangés (Répartition n'a pas de "Total").
+  const VALID_PERIODS = ['day', 'week', 'month', 'year', 'total'];
   const period = VALID_PERIODS.includes(req.query.period) ? req.query.period : 'week';
 
   res.json({
