@@ -367,11 +367,14 @@ textarea {
 }
 
 /* ===== Historique modifiable (Chrono) =====
-   Page à part listant les sessions déjà enregistrées (#tab-chronoHistory
-   dans index.html, ouverte depuis #chronoHistoryHeader en bas du
-   chronomètre — 31 août 2026, demande d'Emilien), avec édition de date/heure
-   (mêmes champs datetime-local que le récapitulatif de STOP ci-dessus) et
-   suppression — propre au Chrono, distincte de "Mes notes" dans Profil. */
+   Panneau repliable (#chronoHistoryPanel dans index.html) listant les
+   sessions déjà enregistrées, avec édition de date/heure (mêmes champs
+   datetime-local que le récapitulatif de STOP ci-dessus) et suppression —
+   propre au Chrono, distincte de "Mes notes" dans Profil. Positionné tout en
+   bas du chronomètre, sa ligne d'en-tête (#chronoHistoryHeader) étant
+   elle-même le bouton qui déplie/replie le panneau, sans flèche à côté
+   (31 août 2026, demande d'Emilien — un essai en page à part le même jour a
+   été écarté au profit de ce panneau sur place). */
 #chronoHistoryHeader { margin-top: 24px; }
 .historyNav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .historyNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }

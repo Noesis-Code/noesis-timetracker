@@ -187,8 +187,16 @@
   // sinon, nom + poids, un lien "Ouvrir" pour les documents (l'image est déjà
   // cliquable via sa miniature) et un bouton de suppression. `onRemoved` est
   // rappelé avec l'id de la pièce jointe une fois la suppression confirmée
-  // côté serveur.
-  function buildAttachmentRow(att, onRemoved) {
+  // côté serveur. `deleteApiPath` (31 août 2026) : préfixe de la route DELETE
+  // à appeler avant `att.id` — par défaut '/api/attachments/' (note_attachments,
+  // Chrono/Mes notes) ; passer '/api/profile/post-attachments/' pour un
+  // message déjà envoyé de la zone Discussion (profile_post_attachments,
+  // table différente, donc route différente — bug corrigé ici : ce paramètre
+  // manquait, la suppression y échouait avec "Pièce jointe introuvable").
+  // Passer explicitement `null` pour une pièce jointe encore locale, pas
+  // encore envoyée au serveur (composeur de la zone Discussion) : la
+  // suppression retire alors juste la ligne, sans aucun appel réseau.
+  function buildAttachmentRow(att, onRemoved, deleteApiPath) {
     var row = document.createElement('div');
     row.className = 'attachmentRow';
     var isImage = att.mimeType && att.mimeType.indexOf('image/') === 0;
@@ -239,7 +247,8 @@
     removeBtn.title = t('Supprimer cette pièce jointe');
     removeBtn.addEventListener('click', function () {
       if (!confirm(t('Supprimer cette pièce jointe ?'))) return;
-      api('DELETE', '/api/attachments/' + att.id + '?userId=' + profile.id)
+      if (deleteApiPath === null) { onRemoved(att.id); return; }
+      api('DELETE', (deleteApiPath || '/api/attachments/') + att.id + '?userId=' + profile.id)
         .then(function () { onRemoved(att.id); })
         .catch(function (err) { alert(err.message); });
     });
@@ -248,9 +257,9 @@
     return row;
   }
 
-  function renderAttachmentList(container, attachments, onRemoved) {
+  function renderAttachmentList(container, attachments, onRemoved, deleteApiPath) {
     container.innerHTML = '';
-    (attachments || []).forEach(function (att) { container.appendChild(buildAttachmentRow(att, onRemoved)); });
+    (attachments || []).forEach(function (att) { container.appendChild(buildAttachmentRow(att, onRemoved, deleteApiPath)); });
   }
 
   // Point d'entrée unique pour une pièce jointe choisie via le sélecteur de
@@ -617,7 +626,6 @@
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
-        $('historyToggleBtn').textContent = '▾';
       }
     }
   }
@@ -1113,16 +1121,14 @@
     $('historyNextWeek').disabled = currentHistoryWeekOffset === 0;
   }
 
-  // Toute la ligne d'en-tête ("case historique") est cliquable pour déplier/
-  // replier le panneau, pas seulement la petite flèche #historyToggleBtn
-  // (demande d'Emilien du 30 août 2026 — cible de clic plus grande). La
-  // flèche reste dans le DOM comme repère visuel (tabindex="-1" côté
-  // index.html, elle n'a plus son propre écouteur pour éviter un double
-  // basculement puisque son clic remonte de toute façon jusqu'ici).
+  // Toute la ligne d'en-tête ("Historique") est cliquable pour déplier/
+  // replier le panneau — c'est elle-même le bouton, sans aucune flèche à
+  // côté (demande d'Emilien du 31 août 2026 ; la flèche #historyToggleBtn,
+  // conservée comme simple repère visuel depuis le 30 août, est retirée du
+  // DOM cette fois-ci).
   $('chronoHistoryHeader').addEventListener('click', function () {
     var opening = $('chronoHistoryPanel').classList.contains('hidden');
     $('chronoHistoryPanel').classList.toggle('hidden', !opening);
-    $('historyToggleBtn').textContent = opening ? '▴' : '▾';
     if (opening) { currentHistoryWeekOffset = 0; loadChronoHistory(); }
   });
   $('historyPrevWeek').addEventListener('click', function () { currentHistoryWeekOffset += 1; loadChronoHistory(); });
@@ -2804,6 +2810,18 @@
     showProfileSettings();
   });
 
+  // Accès rapide "Abonnés & Abonnements" (31 août 2026, demande d'Emilien) —
+  // ce bouton vit sur la vue principale du Profil (donc #tab-profile est déjà
+  // ouvert quand on peut cliquer dessus), pas besoin d'appeler openProfile().
+  // Réutilise Réglages telle quelle (même chargement des listes via
+  // showProfileSettings -> loadFollowConnections) plutôt que de dupliquer la
+  // section ailleurs, puis défile directement dessus.
+  $('profileFollowsBtn').addEventListener('click', function () {
+    showProfileSettings();
+    var target = $('followsSectionTitle');
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   // Bascule l'affichage du panneau déroulant (#profileNotifPanel) listant
   // invitations et demandes de suivi en attente — sur demande d'Emilien (29
   // août 2026), c'est désormais le SEUL endroit où ces deux listes sont
@@ -2952,52 +2970,26 @@
   // Remplace la zone "Note" du Chrono, retirée le 31 août 2026 (demande
   // d'Emilien : « ajouter une zone de discussion sur le profil [...] et
   // retirer la zone note dans chrono ») — voir #profileDiscussionBlock dans
-  // index.html. Deux sous-parties totalement indépendantes, jamais
-  // mélangées :
-  //  - "Communauté" (profileDiscussionCommunity*) : fil personnel, nouvelles
-  //    routes /api/profile/posts (server/routes/profile.js). Comme l'ancien
-  //    bouton "Envoyer à la communauté" qu'elle remplace, personne d'autre
-  //    que l'auteur ne lit ce fil ailleurs dans l'app pour l'instant — voir
-  //    le commentaire sur profile_posts dans server/db.js.
-  //  - "Membres" (profileDiscussionMembers*) : réutilise TEL QUEL le fil de
-  //    discussion d'une activité partagée déjà existant (table
-  //    activity_messages, routes /api/community/activity-messages) — état et
-  //    ids entièrement séparés de ceux de l'onglet Activité
-  //    (currentCommunityActivityId, loadDiscussion, renderDiscussion...) :
-  //    aucune des deux zones ne touche à l'autre. Pas de pièce jointe ici,
-  //    comme dans le fil d'origine.
-  var profileDiscussionAudience = 'community';
+  // index.html. Recentrée sur un seul fil personnel plus tard le même jour
+  // (nouvelle demande d'Emilien : « que la discussion sur le profil ne soit
+  // que pour la communauté [...] enlever l'option membre puisqu'elle se
+  // trouve déjà dans activité ») : la sous-partie "Membres"
+  // (profileDiscussionMembers*, qui réutilisait TEL QUEL le fil d'une
+  // activité partagée — table activity_messages, routes
+  // /api/community/activity-messages) a été retirée d'ici. Ce fil reste
+  // accessible sans aucun changement depuis l'onglet Activité
+  // (currentCommunityActivityId, loadDiscussion, renderDiscussion, jamais
+  // touchés par ce chantier) : le dupliquer dans Profil était redondant.
+  // Reste "Communauté" (profileDiscussionCommunity*) : fil personnel,
+  // routes /api/profile/posts (server/routes/profile.js). Comme l'ancien
+  // bouton "Envoyer à la communauté" qu'il remplace, personne d'autre que
+  // l'auteur ne le lit ailleurs dans l'app pour l'instant — voir le
+  // commentaire sur profile_posts dans server/db.js.
 
-  function switchProfileDiscussionAudience(audience) {
-    profileDiscussionAudience = audience;
-    document.querySelectorAll('#profileDiscussionSwitch .periodBtn').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.discussionAudience === audience);
-    });
-    $('profileDiscussionCommunityBlock').classList.toggle('hidden', audience !== 'community');
-    $('profileDiscussionMembersBlock').classList.toggle('hidden', audience !== 'members');
-    if (audience === 'members') {
-      loadProfileDiscussionActivities();
-      startProfileMembersPolling();
-    } else {
-      stopProfileMembersPolling();
-    }
-  }
-  document.querySelectorAll('#profileDiscussionSwitch .periodBtn').forEach(function (b) {
-    b.addEventListener('click', function () { switchProfileDiscussionAudience(b.dataset.discussionAudience); });
-  });
-
-  // Repart toujours sur "Communauté" à chaque ouverture du Profil (comme les
-  // autres sections de l'app, qui repartent d'un état par défaut à chaque
-  // ouverture d'onglet plutôt que de mémoriser le dernier choix).
   function loadProfileDiscussion() {
     if (!profile) return;
-    stopProfileMembersPolling();
-    profileDiscussionAudience = 'community';
-    document.querySelectorAll('#profileDiscussionSwitch .periodBtn').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.discussionAudience === 'community');
-    });
-    $('profileDiscussionCommunityBlock').classList.remove('hidden');
-    $('profileDiscussionMembersBlock').classList.add('hidden');
+    profileComposerPendingAttachments = [];
+    renderProfileComposerPending();
     $('profileDiscussionCommunityInput').value = '';
     $('profileDiscussionCommunityMsg').textContent = '';
     loadProfilePosts();
@@ -3077,7 +3069,7 @@
       renderAttachmentList(attachBox, post.attachments, function (removedId) {
         post.attachments = (post.attachments || []).filter(function (a) { return a.id !== removedId; });
         refreshPostAttachments();
-      });
+      }, '/api/profile/post-attachments/');
       attachMenuBtn.disabled = (post.attachments || []).length >= MAX_NOTE_ATTACHMENTS;
     }
     refreshPostAttachments();
@@ -3107,6 +3099,52 @@
     return msg;
   }
 
+  // ----- Pièces jointes choisies AVANT l'envoi, dans le composeur -----
+  // (31 août 2026, demande d'Emilien : « rajouter à la discussion le
+  // trombone avec les différentes options pour ajouter les documents, des
+  // photos ») — contrairement au trombone d'un message déjà publié
+  // (buildProfilePostCard, qui upload tout de suite), il n'existe pas encore
+  // de message ici : le fichier choisi est simplement lu et gardé en mémoire
+  // (dataUrl) côté client, prévisualisé comme une pièce jointe normale
+  // (buildAttachmentRow, en mode local — voir deleteApiPath=null), puis
+  // effectivement envoyé au serveur juste après la création du message
+  // (sendProfilePost ci-dessous). Même sélecteur de fichier natif que
+  // partout ailleurs (handleAttachmentFilePick) : pas de menu Photo/Document
+  // séparé, l'appareil propose déjà photothèque/appareil photo/fichiers.
+  var profileComposerPendingAttachments = []; // [{ tempId, fileName, mimeType, sizeBytes, dataUrl }]
+
+  function renderProfileComposerPending() {
+    var box = $('profileDiscussionPendingList');
+    box.classList.toggle('hidden', profileComposerPendingAttachments.length === 0);
+    renderAttachmentList(box, profileComposerPendingAttachments.map(function (p) {
+      return { id: p.tempId, fileName: p.fileName, mimeType: p.mimeType, sizeBytes: p.sizeBytes, dataUrl: p.dataUrl };
+    }), function (removedTempId) {
+      profileComposerPendingAttachments = profileComposerPendingAttachments.filter(function (p) { return p.tempId !== removedTempId; });
+      renderProfileComposerPending();
+    }, null);
+    $('profileDiscussionAttachBtn').disabled = profileComposerPendingAttachments.length >= MAX_NOTE_ATTACHMENTS;
+  }
+
+  $('profileDiscussionAttachBtn').addEventListener('click', function () { $('profileDiscussionAttachInput').click(); });
+  $('profileDiscussionAttachInput').addEventListener('change', function () {
+    var file = this.files[0];
+    this.value = '';
+    handleAttachmentFilePick(file, $('profileDiscussionCommunityMsg'), function (fileName, mimeType, dataUrl) {
+      profileComposerPendingAttachments.push({
+        tempId: 'pending-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        fileName: fileName,
+        mimeType: mimeType,
+        sizeBytes: Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4),
+        dataUrl: dataUrl,
+      });
+      $('profileDiscussionCommunityMsg').textContent = '';
+      renderProfileComposerPending();
+    });
+  });
+
+  // Crée le message puis, s'il y avait des pièces jointes en attente, les
+  // envoie une par une dans l'ordre choisi (POST /profile/posts/:id/attachments,
+  // même route que le trombone d'un message déjà publié).
   function sendProfilePost() {
     if (!profile) return;
     var input = $('profileDiscussionCommunityInput');
@@ -3116,9 +3154,23 @@
 
     msgEl.textContent = '';
     $('profileDiscussionCommunitySendBtn').disabled = true;
+    var pending = profileComposerPendingAttachments.slice();
     api('POST', '/api/profile/posts', { userId: profile.id, body: body })
+      .then(function (created) {
+        if (!pending.length) return;
+        var chain = Promise.resolve();
+        pending.forEach(function (p) {
+          chain = chain.then(function () {
+            return api('POST', '/api/profile/posts/' + created.id + '/attachments',
+              { userId: profile.id, fileName: p.fileName, mimeType: p.mimeType, dataUrl: p.dataUrl });
+          });
+        });
+        return chain;
+      })
       .then(function () {
         input.value = '';
+        profileComposerPendingAttachments = [];
+        renderProfileComposerPending();
         loadProfilePosts();
       })
       .catch(function (err) { msgEl.textContent = err.message; })
@@ -3126,161 +3178,9 @@
   }
   $('profileDiscussionCommunitySendBtn').addEventListener('click', sendProfilePost);
   // Entrée = envoyer, Maj+Entrée = retour à la ligne — même convention que
-  // le fil "Membres" ci-dessous et que celui de l'onglet Activité.
+  // le fil de discussion de l'onglet Activité.
   $('profileDiscussionCommunityInput').addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendProfilePost(); }
-  });
-
-  // ----- Sous-partie "Membres" (réutilise activity_messages) -----
-  var profileDiscussionActivityId = '';
-  var profileDiscussionMembersPollTimer = null;
-  var profileDiscussionMembersRenderedIds = '';
-
-  // Liste des activités partagées de ce profil, pour choisir avec laquelle
-  // discuter — GET /community renvoie déjà exactement cette liste (voir
-  // sharedActivitiesForUser dans lib/community.js), aucune route dédiée
-  // nécessaire.
-  function loadProfileDiscussionActivities() {
-    if (!profile) return;
-    api('GET', '/api/community?userId=' + profile.id + '&period=week').then(function (activities) {
-      var select = $('profileDiscussionActivitySelect');
-      var previous = profileDiscussionActivityId;
-      select.innerHTML = '';
-      $('profileDiscussionActivityEmptyHint').classList.toggle('hidden', activities.length > 0);
-      select.classList.toggle('hidden', activities.length === 0);
-      if (!activities.length) {
-        profileDiscussionActivityId = '';
-        $('profileDiscussionMembersList').classList.add('hidden');
-        $('profileDiscussionMembersComposer').classList.add('hidden');
-        $('profileDiscussionMembersEmptyHint').classList.add('hidden');
-        return;
-      }
-      activities.forEach(function (a) {
-        var opt = document.createElement('option');
-        opt.value = a.activityId;
-        opt.textContent = a.name;
-        select.appendChild(opt);
-      });
-      // Garde l'activité déjà choisie si elle est toujours partagée,
-      // sinon retombe sur la première de la liste.
-      var stillThere = activities.some(function (a) { return String(a.activityId) === String(previous); });
-      profileDiscussionActivityId = stillThere ? String(previous) : String(activities[0].activityId);
-      select.value = profileDiscussionActivityId;
-      $('profileDiscussionMembersList').classList.remove('hidden');
-      $('profileDiscussionMembersComposer').classList.remove('hidden');
-      profileDiscussionMembersRenderedIds = '';
-      loadProfileMembersDiscussion(true);
-    });
-  }
-  $('profileDiscussionActivitySelect').addEventListener('change', function () {
-    profileDiscussionActivityId = this.value;
-    profileDiscussionMembersRenderedIds = '';
-    $('profileDiscussionMembersList').innerHTML = '';
-    loadProfileMembersDiscussion(true);
-  });
-
-  // Même principe que startDiscussionPolling (onglet Activité) : la boucle
-  // s'auto-arrête dès que le Profil se ferme, que la sous-partie "Membres"
-  // n'est plus affichée, ou que l'app est en arrière-plan.
-  function startProfileMembersPolling() {
-    stopProfileMembersPolling();
-    profileDiscussionMembersPollTimer = setInterval(function () {
-      if ($('tab-profile').classList.contains('hidden') || profileDiscussionAudience !== 'members' || !profileDiscussionActivityId) {
-        stopProfileMembersPolling();
-        return;
-      }
-      if (document.hidden) return;
-      loadProfileMembersDiscussion(true);
-    }, 15000);
-  }
-  function stopProfileMembersPolling() {
-    if (profileDiscussionMembersPollTimer) clearInterval(profileDiscussionMembersPollTimer);
-    profileDiscussionMembersPollTimer = null;
-  }
-
-  function loadProfileMembersDiscussion(markRead) {
-    if (!profile || !profileDiscussionActivityId) return;
-    var activityId = profileDiscussionActivityId;
-    api('GET', '/api/community/activity-messages?userId=' + profile.id + '&activityId=' + activityId + (markRead ? '' : '&markRead=0'))
-      .then(function (data) {
-        if (String(activityId) !== String(profileDiscussionActivityId)) return; // sélection changée entre-temps
-        renderProfileMembersDiscussion(data.messages);
-        if (markRead) refreshUnreadBadges();
-      })
-      .catch(function () {
-        // Activité quittée/supprimée entre-temps : rien à faire de plus ici.
-      });
-  }
-
-  function renderProfileMembersDiscussion(messages) {
-    var box = $('profileDiscussionMembersList');
-    $('profileDiscussionMembersEmptyHint').classList.toggle('hidden', messages.length > 0);
-
-    var signature = messages.map(function (m) { return m.id; }).join(',');
-    if (signature === profileDiscussionMembersRenderedIds) return;
-    var wasAtBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
-    var isFirstRender = profileDiscussionMembersRenderedIds === '';
-    profileDiscussionMembersRenderedIds = signature;
-
-    box.innerHTML = '';
-    messages.forEach(function (m) {
-      var mine = profile && m.userId === profile.id;
-      var when = new Date(m.createdAt);
-      var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
-      var timeLabel = pad(when.getHours()) + ':' + pad(when.getMinutes());
-
-      var msg = document.createElement('div');
-      msg.className = 'discussionMsg' + (mine ? ' mine' : '');
-      msg.innerHTML =
-        '<div class="discussionMsgTop">' +
-          '<span class="discussionMsgAuthor"><span class="dot" style="background:' + m.userColor + '"></span>' +
-          escapeHtml(m.userName) + (mine ? t(' (toi)') : '') + '</span>' +
-          '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>' +
-        '</div>' +
-        '<div class="discussionMsgBody">' + escapeHtml(m.body) + '</div>';
-
-      if (mine) {
-        var del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'discussionMsgDelete';
-        del.textContent = '✕';
-        del.title = t('Supprimer ce message');
-        del.addEventListener('click', function () {
-          if (!confirm(t('Supprimer ce message ?'))) return;
-          api('DELETE', '/api/community/activity-messages/' + m.id + '?userId=' + profile.id)
-            .then(function () { profileDiscussionMembersRenderedIds = ''; loadProfileMembersDiscussion(true); })
-            .catch(function (err) { alert(err.message); });
-        });
-        msg.querySelector('.discussionMsgTop').appendChild(del);
-      }
-
-      box.appendChild(msg);
-    });
-
-    if (isFirstRender || wasAtBottom) box.scrollTop = box.scrollHeight;
-  }
-
-  function sendProfileMembersMessage() {
-    if (!profile || !profileDiscussionActivityId) return;
-    var input = $('profileDiscussionMembersInput');
-    var body = input.value.trim();
-    var msgEl = $('profileDiscussionMembersMsg');
-    if (!body) { msgEl.textContent = t('Écris un message avant d\'envoyer.'); return; }
-
-    msgEl.textContent = '';
-    $('profileDiscussionMembersSendBtn').disabled = true;
-    api('POST', '/api/community/activity-messages', { userId: profile.id, activityId: profileDiscussionActivityId, body: body })
-      .then(function () {
-        input.value = '';
-        profileDiscussionMembersRenderedIds = '';
-        loadProfileMembersDiscussion(true);
-      })
-      .catch(function (err) { msgEl.textContent = err.message; })
-      .then(function () { $('profileDiscussionMembersSendBtn').disabled = false; });
-  }
-  $('profileDiscussionMembersSendBtn').addEventListener('click', sendProfileMembersMessage);
-  $('profileDiscussionMembersInput').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendProfileMembersMessage(); }
   });
 
   // Déplacé en haut à droite de Réglages, au-dessus d'Identité (29 août

@@ -164,7 +164,6 @@
     "Tu ne suis personne pour l'instant — trouve un membre ci-dessus et clique sur \"Suivre\".": 'You are not following anyone yet — find a member above and click "Follow".',
     "Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session n'a encore été enregistrée.": 'Nothing to show yet: either nobody shares their profile with you, or no session has been recorded.',
     'Mes activités partagées': 'My shared activities',
-    "Aucune activité partagée pour l'instant. Partage une de tes activités depuis Profil (bouton \"Partager\", par pseudo), ou accepte une invitation reçue, pour la voir apparaître ici.": 'No shared activity yet. Share one of your activities from Profile (the "Share" button, by nickname), or accept an invitation you received, to see it here.',
     'Notes et activités des membres': "Members' notes and sessions",
     "Rien à afficher pour l'instant pour cette activité.": 'Nothing to show yet for this activity.',
     'Partagée': 'Shared',
@@ -200,7 +199,6 @@
     // et sa réutilisation dans la zone Discussion > Membres du Profil) ----
     'Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.': 'Visible to the members of this activity only. Messages stay, even once the timers are stopped.',
     "Aucun message pour l'instant — écris le premier ci-dessous.": 'No message yet — write the first one below.',
-    'Écrire aux membres...': 'Write to the members...',
     'Envoyer': 'Send',
     // ---- Fil "Communauté" de la zone Discussion du Profil (31 août 2026) ----
     'Écrire...': 'Write...',
