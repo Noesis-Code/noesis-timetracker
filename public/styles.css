@@ -182,6 +182,12 @@ input[type=time]:focus, select:focus, textarea:focus {
   position: sticky; top: 0; z-index: 10;
 }
 .brand { font-weight: bold; font-size: 18px; letter-spacing: 0.2px; }
+/* Regroupe "avion en papier" + "⚙️" Réglages + le prénom à l'extrémité
+   droite de .topbar (31 août 2026, demande d'Emilien) : .topbar garde son
+   justify-content:space-between entre .brand et ce groupe, alors que le
+   gap ci-dessous ne fait que resserrer les icônes contre le prénom, plutôt
+   que de les répartir sur toute la largeur de la barre. */
+.topbarActions { display: flex; align-items: center; gap: 10px; }
 /* .whoami est un <button> depuis le 30 août 2026 (demande d'Emilien) : ouvre
    le Profil au clic (voir openProfile, app.js) — Profil n'a plus d'onglet
    dédié dans la barre du bas. Reset des styles par défaut de bouton pour
@@ -297,37 +303,52 @@ textarea {
 /* ===== Récapitulatif avant validation du STOP =====
    Message flottant qui remplace le bouton STOP le temps de confirmer les
    heures de début/fin (modifiables) avant d'enregistrer la session — propre
-   au Chrono. Présentation en recouvrement (30 août 2026, demande d'Emilien) :
-   même schéma que .communityMembersModal/.communityMembersModalCard
-   (fond assombri en plein écran + carte ancrée en bas), dupliqué ici plutôt
-   que réutilisé tel quel car #stopConfirmPanel bascule déjà via la classe
-   générique .hidden dans app.js (openStopConfirm/closeStopConfirm) et non via
-   une classe dédiée à une modale. */
+   au Chrono. Présentation en recouvrement : fond assombri en plein écran +
+   carte CENTRÉE (31 août 2026, demande d'Emilien — un premier passage le 30
+   août avait donné une carte ancrée en bas, façon feuille remontant du bas
+   de l'écran ; Emilien a ensuite demandé un centrage classique à la place),
+   avec une marge fixe tout autour (`padding` sur #stopConfirmPanel) pour que
+   la carte ne touche jamais les bords de l'écran quelle que soit sa largeur. */
 #stopConfirmPanel {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
-  display: flex; align-items: flex-end; justify-content: center; z-index: 100;
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+  padding: 20px; box-sizing: border-box;
 }
+/* Carte volontairement étroite (31 août 2026, demande d'Emilien : "que les
+   bords ne dépassent pas l'écran") — 340px de large maximum, et de toute
+   façon jamais plus large que l'écran moins les marges de #stopConfirmPanel
+   ci-dessus grâce à width:100% + box-sizing:border-box. */
 .stopConfirmCard {
-  background: var(--bg); width: 100%; max-width: 480px; max-height: 80vh;
-  overflow-y: auto; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--bg); width: 100%; max-width: 340px; max-height: 85vh;
+  overflow-y: auto; border-radius: var(--radius-xl);
   padding: 16px; box-shadow: var(--shadow-elevated); text-align: left;
   box-sizing: border-box;
 }
 .stopFieldLabel { font-size: 13px; color: var(--text-light); margin: 10px 0 4px; }
-/* Les segments (jour/mois/année/heure/minute/seconde) d'un <input
-   datetime-local> ont une largeur minimale imposée par le navigateur qui ne
-   respecte pas toujours width:100% (débordement observé sur iPhone/Safari,
-   signalé par Emilien le 30 août 2026) — on réduit la taille de police et le
-   padding pour que l'ensemble tienne dans le cadre, avec un repli plus étroit
-   encore sur petit écran. */
-#stopConfirmPanel input[type=datetime-local] {
-  width: 100%; max-width: 100%; padding: 8px 6px; font-size: 14px; border: 1px solid var(--border);
+/* Heure de début/fin en DEUX champs natifs séparés (date + heure) plutôt
+   qu'un seul <input type="datetime-local"> — voir le commentaire détaillé
+   dans app.js (toDateValue/toTimeValue/combineDateTime). La date reçoit
+   volontairement moins de place que l'heure (31 août 2026, demande
+   d'Emilien : la date ne doit pas être plus grosse que l'heure) — un champ
+   combiné ne permet pas ce réglage, ses segments internes n'étant pas
+   stylables séparément. */
+.stopDateTimeRow { display: flex; gap: 6px; }
+.stopDateTimeRow input {
+  min-width: 0; padding: 8px 6px; font-size: 14px; border: 1px solid var(--border);
   border-radius: var(--radius-sm); box-sizing: border-box; background: var(--card); color: var(--text);
 }
+.stopDateInput { flex: 0.85; }
+.stopTimeInput { flex: 1.15; }
 #stopDurationLabel { text-align: left; margin: 10px 0 0; }
 #stopConfirmPanel .rowActions { margin-top: 12px; }
+/* Boutons Annuler/Valider agrandis (31 août 2026, demande d'Emilien) —
+   plus grands que le gabarit générique .iconBtn, propre à ce panneau : ils
+   se partagent toute la largeur de la carte plutôt que de rester à leur
+   taille naturelle. */
+.stopConfirmActions { flex-wrap: nowrap; }
+.stopConfirmActions .iconBtn { flex: 1; padding: 14px 10px; font-size: 15px; font-weight: 600; }
 @media (max-width: 380px) {
-  #stopConfirmPanel input[type=datetime-local] { font-size: 12px; padding: 7px 4px; }
+  .stopDateTimeRow input { font-size: 12px; padding: 7px 4px; }
 }
 
 /* ===== Historique modifiable (Chrono) =====
@@ -850,8 +871,14 @@ body.scrollLock { overflow: hidden; }
    affichées sur la vue principale du Profil, uniquement ici au clic sur
    l'icône (voir app.js). */
 .notifWrap { position: relative; }
+/* Ancré à droite (right:0) plutôt qu'à gauche depuis le déménagement de
+   l'icône dans .topbar, à gauche du prénom (31 août 2026) : le bouton est
+   maintenant proche du bord droit de l'écran, donc un panneau ancré à
+   gauche (left:0, jusqu'alors sans problème dans la vue Profil, plus
+   centrée) dépasserait de l'écran sur les téléphones étroits. Ancré à
+   droite, le panneau s'étend vers la gauche et reste toujours visible. */
 .notifPanel {
-  position: absolute; top: calc(100% + 8px); left: 0; z-index: 20;
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 20;
   width: min(320px, 85vw); max-height: 60vh; overflow-y: auto;
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-elevated);

@@ -20,11 +20,15 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <!-- iOS : "capable" = plein écran une fois l'app ajoutée à l'écran d'accueil.
-     "default" (plutôt que black-translucent) pour que le contenu ne passe pas
-     SOUS la barre d'état ; la .topbar reçoit en plus une marge de sécurité
-     côté CSS, ce qui couvre les deux cas. -->
+     "black-translucent" (plutôt que "default", jusqu'au 31 août 2026) rend la
+     barre d'état transparente : le dégradé violet de la .topbar se voit donc
+     A TRAVERS elle, et l'heure/réseau/wifi/batterie (rendus en blanc par iOS
+     sur fond sombre) se retrouvent visuellement sur fond violet — demande
+     d'Emilien. Sans risque de passer SOUS le contenu : la .topbar réserve déjà
+     max(14px, env(safe-area-inset-top)) de marge de sécurité en haut (voir
+     plus bas dans styles.css), pensée dès le départ pour couvrir ce cas. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Noèsis">
 
 <link rel="stylesheet" href="/styles.css">
@@ -221,14 +225,46 @@
          Profil n'est plus un onglet de la barre du bas depuis le 30 août 2026
          (demande d'Emilien), remplacé par "Activité" ; c'est désormais le
          seul point d'accès au Profil. -->
-    <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
-      <span id="whoamiName"></span>
-      <!-- Le Profil n'étant plus dans la barre du bas, son icône "avion en
-           papier" (et son point rouge) ne sont visibles qu'une fois le Profil
-           ouvert : sans ce point-ci, rien ne signalerait une invitation ou
-           une demande de suivi depuis les autres onglets. -->
-      <span id="whoamiDot" class="notifDot hidden"></span>
-    </button>
+    <div class="topbarActions">
+      <!-- Icône "avion en papier" et bouton "⚙️" Réglages : déplacés ici
+           depuis la vue principale du Profil (#profileMain) le 31 août 2026,
+           à la demande d'Emilien, pour qu'ils soient accessibles depuis
+           n'importe quel onglet, à gauche du prénom, plutôt que réservés au
+           Profil déjà ouvert. Le comportement au clic reste défini dans
+           app.js (profileNotifBtn/profileSettingsBtn) — profileSettingsBtn
+           ouvre désormais explicitement le Profil avant de basculer sur
+           Réglages, puisqu'il n'est plus garanti que Profil soit déjà
+           affiché. -->
+      <div class="notifWrap">
+        <button id="profileNotifBtn" class="menuBtn notifBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          <span id="profileNotifDot" class="notifDot hidden"></span>
+        </button>
+        <div id="profileNotifPanel" class="notifPanel hidden">
+          <p class="sectionTitle">Invitations reçues</p>
+          <div id="invitesList" class="activitiesList"></div>
+
+          <!-- Demandes de suivi (Suivi, indépendant du partage d'activité)
+               — déplacé depuis l'onglet Communauté à la demande
+               d'Emilien. Le reste du système de Suivi (recherche de membres,
+               fil d'actualité) reste dans Communauté. -->
+          <p class="sectionTitle">Demandes de suivi reçues</p>
+          <div id="followRequestsList" class="activitiesList"></div>
+        </div>
+      </div>
+      <button id="profileSettingsBtn" class="menuBtn" title="Réglages" aria-label="Réglages">⚙️</button>
+      <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
+        <span id="whoamiName"></span>
+        <!-- Redondant avec le point rouge du bouton "avion en papier"
+             ci-dessus depuis qu'il est visible en permanence, mais conservé :
+             visible même quand le nom est tronqué/loin de l'œil, comme avant
+             le 31 août 2026. -->
+        <span id="whoamiDot" class="notifDot hidden"></span>
+      </button>
+    </div>
   </header>
 
   <main id="content">
@@ -310,21 +346,34 @@
              STOP le temps de confirmer. Heures de début/fin pré-remplies
              (début = celle du chrono en cours, fin = maintenant) mais
              modifiables avant d'enregistrer la session. Affiché en message
-             flottant (même principe que #communityMembersModal : fond
-             assombri + carte ancrée en bas d'écran) plutôt qu'inséré dans le
-             flux de la page — demande d'Emilien du 30 août 2026. Le
+             flottant (fond assombri + carte centrée à l'écran, étroite pour
+             ne jamais déborder — demande d'Emilien du 30 et du 31 août 2026,
+             qui a d'abord donné une carte ancrée en bas puis demandé un
+             centrage) plutôt qu'inséré dans le flux de la page. Le
              basculement hidden/visible (voir openStopConfirm/closeStopConfirm
-             dans app.js) n'a pas changé, seule la présentation change. -->
+             dans app.js) n'a pas changé, seule la présentation change.
+             Chaque heure est désormais deux champs natifs séparés (date +
+             heure) plutôt qu'un seul <input type="datetime-local"> : outre
+             que ça règle un débordement déjà signalé, ça permet de donner à
+             la date une place volontairement plus petite qu'à l'heure (31
+             août 2026, demande d'Emilien), ce qu'un champ combiné ne permet
+             pas de régler par CSS. -->
         <div id="stopConfirmPanel" class="hidden">
           <div class="stopConfirmCard">
             <p class="stepLabel">Confirmer l'arrêt</p>
             <p class="stopFieldLabel">Heure de début</p>
-            <input type="datetime-local" id="stopStartInput" step="1">
+            <div class="stopDateTimeRow">
+              <input type="date" id="stopStartDateInput" class="stopDateInput">
+              <input type="time" id="stopStartTimeInput" step="1" class="stopTimeInput">
+            </div>
             <p class="stopFieldLabel">Heure de fin</p>
-            <input type="datetime-local" id="stopEndInput" step="1">
+            <div class="stopDateTimeRow">
+              <input type="date" id="stopEndDateInput" class="stopDateInput">
+              <input type="time" id="stopEndTimeInput" step="1" class="stopTimeInput">
+            </div>
             <p id="stopDurationLabel" class="meta"></p>
             <p id="stopConfirmMsg" class="msg"></p>
-            <div class="rowActions">
+            <div class="rowActions stopConfirmActions">
               <button id="stopCancelBtn" class="iconBtn">Annuler</button>
               <button id="stopConfirmBtn" class="iconBtn">Valider</button>
             </div>
@@ -609,12 +658,16 @@
     <section id="tab-profile" class="tab hidden">
 
       <!-- Profil n'est plus un onglet de la barre du bas depuis le 30 août
-           2026 (demande d'Emilien) : ce panneau plein écran s'ouvre
-           désormais en cliquant sur le prénom en haut à droite (#whoami) et
-           se referme avec la flèche "←" ci-dessous, qui rouvre le dernier
-           onglet principal visité (voir openProfile/closeProfile, app.js). -->
+           2026 (demande d'Emilien) : ce panneau plein écran s'ouvre en
+           cliquant sur le prénom en haut à droite (#whoami). La flèche "←"
+           de fermeture a été retirée le 31 août 2026 (demande d'Emilien,
+           « supprimer le bouton pour revenir en arrière dans profil ») —
+           on quitte désormais Profil en tapant n'importe quel onglet de la
+           barre du bas (Chrono/Stats/Communauté/Activité), qui appelle déjà
+           switchTab() indépendamment de l'état de Profil (voir tabButtons,
+           app.js) ; closeProfile() et l'état lastMainTab, devenus inutiles,
+           ont été retirés du même coup. -->
       <div class="subpageHeader">
-        <button type="button" id="profileCloseBtn" class="menuBtn" title="Retour" aria-label="Retour">←</button>
         <p class="sectionTitle subpageTitle">Profil</p>
       </div>
 
@@ -639,35 +692,12 @@
           </div>
           <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" class="hidden">
           <span class="identityName" id="identityDisplayName"></span>
-          <!-- Icône "avion en papier" : ouvre/ferme un panneau déroulant
-               (#profileNotifPanel) listant les invitations d'activité ET les
-               demandes de suivi en attente. Les invitations avaient migré
-               vers l'onglet Activité plus tôt le 30 août 2026 ; Emilien a
-               tranché le même jour pour qu'elles restent ici, avec les
-               demandes de suivi, sous un seul point rouge — d'où le retour du
-               bloc ci-dessous et la disparition de #activityTabDot. Point
-               rouge piloté par notifPendingCounts/refreshNotifDot (app.js). -->
-          <div class="notifWrap">
-            <button id="profileNotifBtn" class="menuBtn notifBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-              <span id="profileNotifDot" class="notifDot hidden"></span>
-            </button>
-            <div id="profileNotifPanel" class="notifPanel hidden">
-              <p class="sectionTitle">Invitations reçues</p>
-              <div id="invitesList" class="activitiesList"></div>
-
-              <!-- Demandes de suivi (Suivi, indépendant du partage d'activité)
-                   — déplacé depuis l'onglet Communauté à la demande
-                   d'Emilien. Le reste du système de Suivi (recherche de membres,
-                   fil d'actualité) reste dans Communauté. -->
-              <p class="sectionTitle">Demandes de suivi reçues</p>
-              <div id="followRequestsList" class="activitiesList"></div>
-            </div>
-          </div>
-          <button id="profileSettingsBtn" class="menuBtn" title="Réglages" aria-label="Réglages">⚙️</button>
+          <!-- L'icône "avion en papier" (invitations/demandes de suivi) et le
+               bouton "⚙️" Réglages ont déménagé dans .topbar, à gauche du
+               prénom (#whoami) — demande d'Emilien du 31 août 2026, pour
+               qu'ils soient accessibles depuis n'importe quel onglet et pas
+               seulement une fois le Profil ouvert. Voir .topbarActions, dans
+               le header .topbar, plus haut dans ce fichier. -->
         </div>
         <p id="avatarMsg" class="msg"></p>
 

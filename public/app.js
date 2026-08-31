@@ -591,14 +591,7 @@
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
   });
 
-  // Dernier onglet réel de la barre du bas (chrono/stats/community/activity)
-  // visité — mémorisé pour que la flèche "←" du Profil sache où revenir
-  // (Profil n'a plus de bouton dans la barre depuis le 30 août 2026, voir
-  // openProfile/closeProfile plus bas). switchTab n'est appelée qu'avec ces
-  // quatre valeurs (plus closeProfile, qui relit lastMainTab).
-  var lastMainTab = 'chrono';
   function switchTab(tab) {
-    lastMainTab = tab;
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
     tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
@@ -634,8 +627,13 @@
   // Depuis le 30 août 2026 (demande d'Emilien), Profil n'est plus un onglet
   // de la barre du bas — remplacé par "Activité" — mais reste le même
   // panneau plein écran qu'avant, ouvert en cliquant sur le prénom en haut
-  // à droite (#whoami) et refermé par la flèche "←" (#profileCloseBtn), qui
-  // rouvre le dernier onglet principal visité.
+  // à droite (#whoami). La flèche "←" de fermeture (#profileCloseBtn), sa
+  // fonction closeProfile() et l'état lastMainTab qui ne servait qu'à elle
+  // ont été retirés le 31 août 2026 (demande d'Emilien, « supprimer le
+  // bouton pour revenir en arrière dans profil ») : on quitte désormais
+  // Profil en tapant n'importe quel onglet de la barre du bas, qui appelle
+  // déjà switchTab() indépendamment de l'état de Profil (voir tabButtons
+  // plus haut) — aucun remplacement nécessaire.
   function openProfile() {
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-profile').classList.remove('hidden');
@@ -651,9 +649,7 @@
     renderShareSettings();
     loadProfileNotes();
   }
-  function closeProfile() { switchTab(lastMainTab); }
   $('whoami').addEventListener('click', openProfile);
-  $('profileCloseBtn').addEventListener('click', closeProfile);
 
   // ===================== ACTIVITÉ =====================
   // Une seule liste depuis le 30 août 2026 (fin de journée, demande
@@ -846,19 +842,44 @@
   // démarrée/arrêtée à moins d'une minute d'écart se retrouvait avec des
   // champs identiques une fois arrondis à la minute, et "Valider" restait
   // bloqué ("l'heure de fin doit être après le début") alors que la session
-  // avait bien duré quelques secondes. Voir aussi step="1" sur
-  // #stopStartInput/#stopEndInput dans index.html : sans cet attribut, le
-  // sélecteur natif du navigateur ignore de toute façon les secondes qu'on
-  // lui donne.
+  // avait bien duré quelques secondes. Voir aussi step="1" sur les champs
+  // heure dans index.html : sans cet attribut, le sélecteur natif du
+  // navigateur ignore de toute façon les secondes qu'on lui donne.
+  //
+  // Chaque heure est représentée par DEUX champs natifs séparés (date +
+  // heure, 31 août 2026, demande d'Emilien) plutôt qu'un seul
+  // <input type="datetime-local"> : ça évite le débordement déjà rencontré
+  // avec ce type de champ, et surtout ça permet de donner à la date une
+  // largeur volontairement plus petite qu'à l'heure via CSS
+  // (.stopDateInput/.stopTimeInput) — impossible à contrôler avec un champ
+  // combiné, dont on ne peut pas styler les segments internes séparément.
+  // Conservée telle quelle : utilisée par l'édition d'une session dans
+  // l'historique (voir plus bas), qui garde un unique champ datetime-local
+  // — seul le récapitulatif du STOP passe aux deux champs séparés ci-dessous.
   function toDatetimeLocalValue(dateLike) {
     var d = new Date(dateLike);
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
       'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
+  function toDateValue(dateLike) {
+    var d = new Date(dateLike);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function toTimeValue(dateLike) {
+    var d = new Date(dateLike);
+    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+  // Recombine les deux champs (date incomplète ou absente si l'un des deux
+  // n'est pas encore rempli) en un seul Date, ou une Date invalide sinon —
+  // même contrat que `new Date(datetimeLocalValue)` utilisé auparavant.
+  function combineDateTime(dateStr, timeStr) {
+    if (!dateStr || !timeStr) return new Date(NaN);
+    return new Date(dateStr + 'T' + timeStr);
+  }
 
   function updateStopDurationLabel() {
-    var start = new Date($('stopStartInput').value);
-    var end = new Date($('stopEndInput').value);
+    var start = combineDateTime($('stopStartDateInput').value, $('stopStartTimeInput').value);
+    var end = combineDateTime($('stopEndDateInput').value, $('stopEndTimeInput').value);
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
       $('stopDurationLabel').textContent = t('Durée : —');
       $('stopConfirmBtn').disabled = true;
@@ -880,8 +901,11 @@
 
   function openStopConfirm() {
     $('stopConfirmMsg').textContent = '';
-    $('stopStartInput').value = toDatetimeLocalValue(timerStartMs);
-    $('stopEndInput').value = toDatetimeLocalValue(new Date());
+    $('stopStartDateInput').value = toDateValue(timerStartMs);
+    $('stopStartTimeInput').value = toTimeValue(timerStartMs);
+    var now = new Date();
+    $('stopEndDateInput').value = toDateValue(now);
+    $('stopEndTimeInput').value = toTimeValue(now);
     updateStopDurationLabel();
     $('stopBtn').classList.add('hidden');
     $('stopConfirmPanel').classList.remove('hidden');
@@ -893,13 +917,15 @@
   }
 
   $('stopBtn').addEventListener('click', openStopConfirm);
-  $('stopStartInput').addEventListener('input', updateStopDurationLabel);
-  $('stopEndInput').addEventListener('input', updateStopDurationLabel);
+  $('stopStartDateInput').addEventListener('input', updateStopDurationLabel);
+  $('stopStartTimeInput').addEventListener('input', updateStopDurationLabel);
+  $('stopEndDateInput').addEventListener('input', updateStopDurationLabel);
+  $('stopEndTimeInput').addEventListener('input', updateStopDurationLabel);
   $('stopCancelBtn').addEventListener('click', closeStopConfirm);
 
   $('stopConfirmBtn').addEventListener('click', function () {
-    var startDate = new Date($('stopStartInput').value);
-    var endDate = new Date($('stopEndInput').value);
+    var startDate = combineDateTime($('stopStartDateInput').value, $('stopStartTimeInput').value);
+    var endDate = combineDateTime($('stopEndDateInput').value, $('stopEndTimeInput').value);
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       $('stopConfirmMsg').textContent = t('Heures invalides.');
       return;
@@ -2863,7 +2889,15 @@
     $('profileSettingsPanel').classList.remove('hidden');
     loadFollowConnections();
   }
-  $('profileSettingsBtn').addEventListener('click', showProfileSettings);
+  // Le bouton "⚙️" vit désormais dans .topbar (31 août 2026, demande
+  // d'Emilien — voir index.html), accessible depuis n'importe quel onglet et
+  // pas seulement une fois le Profil déjà ouvert. On ne peut donc plus
+  // supposer que #tab-profile est visible : on ouvre explicitement le Profil
+  // (openProfile, ci-dessus) avant de basculer sur la vue Réglages.
+  $('profileSettingsBtn').addEventListener('click', function () {
+    openProfile();
+    showProfileSettings();
+  });
 
   // Bascule l'affichage du panneau déroulant (#profileNotifPanel) listant
   // invitations et demandes de suivi en attente — sur demande d'Emilien (29

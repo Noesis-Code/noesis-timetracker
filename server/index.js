@@ -1,3 +1,23 @@
+// Fuseau horaire du serveur (30 août 2026, bug signalé par Emilien) — DOIT
+// être la toute première ligne exécutée, avant tout require, y compris
+// celui de ./db juste en dessous : tout le reste du code (dates.js, stats.js,
+// community.js, period.js, import.js...) calcule les heures/jours avec les
+// méthodes "locales" de Date (getHours, getDate, getDay, le constructeur
+// new Date(année, mois, jour, heure...)), qui dépendent du fuseau du
+// PROCESSUS Node, pas de celui d'Emilien. Sans réglage explicite, un
+// conteneur Railway démarre en UTC : une session commencée à 17h30-20h45
+// heure de Montréal (UTC-4 en été) se retrouvait ainsi affichée 15h30-18h45
+// dans la Feuille de temps — les heures de fin de journée basculaient même
+// carrément sur le mauvais jour calendaire. Fixé une bonne fois pour toutes
+// ici plutôt que de faire de la conversion de fuseau au cas par cas dans
+// chaque fichier qui manipule des dates.
+//
+// "America/Toronto" plutôt que "America/Montreal" : les deux partagent le
+// même fuseau (heure de l'Est, EDT/EST), mais "America/Montreal" est un
+// simple alias historique vers "America/Toronto" dans la base de données
+// IANA — on utilise directement le nom canonique.
+process.env.TZ = 'America/Toronto';
+
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');

@@ -17,6 +17,7 @@ const fs = require('fs');
 const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 const { isInPalette, nearestPaletteColor } = require('./lib/theme');
+const { isoDateOf, dayNameOf } = require('./lib/dates');
 
 // Emplacement du fichier de base. En local : le dossier "data/" du projet,
 // exactement comme avant. En déploiement (Railway ou équivalent), le système
@@ -467,5 +468,42 @@ if (activitiesNameStillGloballyUnique()) {
     db.exec('PRAGMA foreign_keys = ON');
   }
 }
+
+// Correctif fuseau horaire (30 août 2026) — voir server/index.js pour le
+// contexte complet : avant ce jour-là, aucun fuseau n'était fixé pour le
+// processus Node, donc le conteneur tournait en UTC plutôt qu'à l'heure
+// d'Emilien (Montréal, heure de l'Est). startTime/endTime (les timestamps
+// UTC bruts de time_entries) ont toujours été enregistrés correctement et
+// n'ont jamais eu besoin d'être touchés. En revanche, isoDate/dayOfWeek —
+// calculées UNE SEULE FOIS à l'insertion, à partir de startTime (voir
+// isoDateOf/dayNameOf dans server/routes/timer.js) — ont pu être calculées
+// dans le mauvais fuseau pour toute session à cheval sur minuit heure de
+// l'Est, et rester ainsi datées un jour trop tard. C'est ce qu'Emilien a
+// remarqué sur ses activités "Noèsis" et "Jacopo" (la Feuille de temps,
+// elle, n'était pas concernée : elle replace les créneaux à la volée à
+// chaque affichage directement depuis startTime, jamais depuis ces colonnes).
+//
+// Recalcul systématique au démarrage, désormais dans le bon fuseau (TZ posé
+// en tête de server/index.js, avant même le require de ce fichier) :
+// idempotent, ne réécrit que les lignes dont la valeur recalculée diffère
+// de la valeur stockée, sans aucun effet une fois toutes les lignes
+// alignées — même principe que les autres migrations de données de ce
+// fichier (shareProfile, couleurs héritées, plus haut).
+(function fixTimezoneDerivedDates() {
+  var rows = db.prepare('SELECT id, startTime, isoDate, dayOfWeek FROM time_entries').all();
+  var updateEntryDate = db.prepare('UPDATE time_entries SET isoDate = ?, dayOfWeek = ? WHERE id = ?');
+  var fixedCount = 0;
+  rows.forEach(function (r) {
+    var correctIsoDate = isoDateOf(new Date(r.startTime));
+    var correctDayOfWeek = dayNameOf(new Date(r.startTime));
+    if (correctIsoDate !== r.isoDate || correctDayOfWeek !== r.dayOfWeek) {
+      updateEntryDate.run(correctIsoDate, correctDayOfWeek, r.id);
+      fixedCount++;
+    }
+  });
+  if (fixedCount > 0) {
+    console.log('[migration fuseau horaire] ' + fixedCount + ' entrée(s) de time_entries recalculée(s) (isoDate/dayOfWeek), suite au correctif TZ America/Toronto.');
+  }
+})();
 
 module.exports = db;
