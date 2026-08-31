@@ -295,16 +295,40 @@ textarea {
 .broadcastRow .iconBtn { flex: 1; }
 
 /* ===== Récapitulatif avant validation du STOP =====
-   Panneau qui remplace le bouton STOP le temps de confirmer les heures de
-   début/fin (modifiables) avant d'enregistrer la session — propre au Chrono. */
-#stopConfirmPanel { margin-top: 16px; text-align: left; }
+   Message flottant qui remplace le bouton STOP le temps de confirmer les
+   heures de début/fin (modifiables) avant d'enregistrer la session — propre
+   au Chrono. Présentation en recouvrement (30 août 2026, demande d'Emilien) :
+   même schéma que .communityMembersModal/.communityMembersModalCard
+   (fond assombri en plein écran + carte ancrée en bas), dupliqué ici plutôt
+   que réutilisé tel quel car #stopConfirmPanel bascule déjà via la classe
+   générique .hidden dans app.js (openStopConfirm/closeStopConfirm) et non via
+   une classe dédiée à une modale. */
+#stopConfirmPanel {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: flex-end; justify-content: center; z-index: 100;
+}
+.stopConfirmCard {
+  background: var(--bg); width: 100%; max-width: 480px; max-height: 80vh;
+  overflow-y: auto; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 16px; box-shadow: var(--shadow-elevated); text-align: left;
+  box-sizing: border-box;
+}
 .stopFieldLabel { font-size: 13px; color: var(--text-light); margin: 10px 0 4px; }
+/* Les segments (jour/mois/année/heure/minute/seconde) d'un <input
+   datetime-local> ont une largeur minimale imposée par le navigateur qui ne
+   respecte pas toujours width:100% (débordement observé sur iPhone/Safari,
+   signalé par Emilien le 30 août 2026) — on réduit la taille de police et le
+   padding pour que l'ensemble tienne dans le cadre, avec un repli plus étroit
+   encore sur petit écran. */
 #stopConfirmPanel input[type=datetime-local] {
-  width: 100%; padding: 10px; font-size: 15px; border: 1px solid var(--border);
+  width: 100%; max-width: 100%; padding: 8px 6px; font-size: 14px; border: 1px solid var(--border);
   border-radius: var(--radius-sm); box-sizing: border-box; background: var(--card); color: var(--text);
 }
 #stopDurationLabel { text-align: left; margin: 10px 0 0; }
 #stopConfirmPanel .rowActions { margin-top: 12px; }
+@media (max-width: 380px) {
+  #stopConfirmPanel input[type=datetime-local] { font-size: 12px; padding: 7px 4px; }
+}
 
 /* ===== Historique modifiable (Chrono) =====
    Section repliable listant les sessions déjà enregistrées, avec édition de
@@ -315,21 +339,27 @@ textarea {
 .historyNav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .historyNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
 .historyEditFields { margin-top: 8px; text-align: left; }
+/* Même correctif de débordement que #stopConfirmPanel input[type=datetime-local]
+   ci-dessus (30 août 2026) — champs identiques, même bug Safari/iPhone. */
 .historyEditFields input[type=datetime-local] {
-  width: 100%; padding: 10px; font-size: 15px; border: 1px solid var(--border);
+  width: 100%; max-width: 100%; padding: 8px 6px; font-size: 14px; border: 1px solid var(--border);
   border-radius: var(--radius-sm); box-sizing: border-box; background: var(--card); color: var(--text);
 }
 .historyEditFields .rowActions { margin-top: 10px; }
 .historyEditMsg { margin: 8px 0 0; }
+@media (max-width: 380px) {
+  .historyEditFields input[type=datetime-local] { font-size: 12px; padding: 7px 4px; }
+}
 
 /* ===== Pièces jointes de note (photo / document) — Chrono =====
    Réutilisées à la fois pendant le chrono en cours (#noteWrapper) et dans le
    panneau "Historique" une fois la session validée (buildChronoHistoryEntry
-   dans app.js — voir renderAttachmentList/buildAttachmentRow). Les types de
-   pièce jointe sont rangés derrière une épingle "📌" (30 août 2026, demande
-   d'Emilien) plutôt qu'affichés en permanence — mêmes styles que le menu "⋮"
-   de période de Statistiques (.statsPeriodMenuWrap/.statsPeriodMenu), gardés
-   comme classes séparées puisque propres au Chrono. */
+   dans app.js — voir renderAttachmentList/buildAttachmentRow). Le trombone
+   ouvre directement le sélecteur de fichier natif du téléphone (30 août 2026,
+   demande d'Emilien) — un premier passage le rangeait derrière un petit menu
+   Photo/Document, remplacé par ce même trombone au clic direct pour accéder
+   tout de suite aux options du système (photothèque / appareil photo /
+   fichiers). */
 .attachmentMenuWrap { position: relative; display: inline-block; flex-shrink: 0; }
 /* Icône trombone du bouton de pièce jointe (SVG, remplace l'ancienne épingle
    en emoji le 30 août 2026) — même principe de centrage/taille que .notifBtn
@@ -340,18 +370,6 @@ textarea {
    panneau (30 août 2026, demande d'Emilien) — ne redéfinit pas .sectionTitleRow
    lui-même (propriété de Design), s'ajoute en complément. */
 .historyHeaderClickable { cursor: pointer; }
-.attachmentMenu {
-  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
-  min-width: 160px;
-  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
-  box-shadow: var(--shadow-elevated); overflow: hidden;
-}
-.attachmentMenuItem {
-  display: block; width: 100%; text-align: left; padding: 10px 12px; border: none;
-  background: none; color: var(--text); font-size: 14px; cursor: pointer;
-}
-.attachmentMenuItem:hover { background: var(--hover-bg); }
-.attachmentMenuItem:disabled { opacity: 0.5; cursor: not-allowed; }
 .attachmentList { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .attachmentRow {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
@@ -505,7 +523,7 @@ textarea {
   box-shadow: var(--shadow-card); padding: 10px 8px;
 }
 .timesheetGrid {
-  display: grid; grid-template-columns: 54px repeat(96, 12px); grid-auto-rows: 22px;
+  display: grid; grid-template-columns: 64px repeat(96, 12px); grid-auto-rows: 22px;
   gap: 1px; width: max-content;
 }
 /* will-change: transform sur les deux colonnes figées ci-dessous : contourne
@@ -521,6 +539,10 @@ textarea {
   font-size: 10px; color: var(--text-light); display: flex; align-items: flex-end;
   padding-left: 2px; white-space: nowrap;
 }
+/* Colonne figée élargie de 54px à 64px le 30 août 2026 (demande d'Emilien) :
+   le libellé "Mer 27/08" (jour abrégé + date) en 11px, avec padding-right,
+   était trop juste dans 54px et pouvait déborder sur la première case de
+   données. Même largeur reprise dans .timesheetGrid ci-dessus. */
 .tsDayLabel {
   position: sticky; left: 0; background: var(--card); z-index: 1; will-change: transform;
   font-size: 11px; color: var(--text); display: flex; align-items: center;
@@ -538,7 +560,7 @@ textarea {
    choisie). Colonne des semaines figée à gauche comme .tsDayLabel
    ci-dessus. ===== */
 .tsCalendarGrid {
-  display: grid; grid-template-columns: 60px repeat(7, minmax(84px, 1fr));
+  display: grid; grid-template-columns: 84px repeat(7, minmax(84px, 1fr));
   gap: 6px; width: max-content; min-width: 100%;
 }
 /* Même correctif que .tsCorner/.tsDayLabel ci-dessus (voir le commentaire
@@ -549,6 +571,9 @@ textarea {
   font-size: 11px; color: var(--text-light); text-align: center; text-transform: capitalize;
   padding-bottom: 2px;
 }
+/* Colonne figée élargie de 60px à 84px le 30 août 2026 (demande d'Emilien) :
+   le libellé de plage "25/08 - 31/08" (13 caractères) en 11px débordait
+   nettement de 60px. Même largeur reprise dans .tsCalendarGrid ci-dessus. */
 .tsCalWeekLabel {
   position: sticky; left: 0; background: var(--card); z-index: 1; will-change: transform;
   font-size: 11px; color: var(--text); display: flex; align-items: center;
@@ -751,6 +776,31 @@ body.scrollLock { overflow: hidden; }
   flex-shrink: 0;
 }
 
+/* Correctif 30 août 2026 (demande d'Emilien) : en plein écran, la largeur
+   visuelle réellement disponible une fois la rotation appliquée est celle du
+   téléphone (~360-430px), pas celle d'un écran de bureau — la ligne titre +
+   navigation (précédent/suivant, période, sortie ⛶/✕), alignée aux deux bords
+   par .sectionTitleRow (justify-content: space-between, définie par Design),
+   pouvait déborder sur la droite. Passage sur deux lignes centrées plutôt
+   qu'une seule alignée aux bords, pour les quatre blocs plein écran
+   (Statistiques + équivalents Communauté). Ne touche que le contexte plein
+   écran : la définition générique de .sectionTitleRow (Design) n'est pas
+   modifiée. */
+#statsTimesheetBlock.fullscreen .sectionTitleRow,
+#statsChartBlock.fullscreen .sectionTitleRow,
+#communityActivityTimesheetBlock.fullscreen .sectionTitleRow,
+#communityActivityChartBlock.fullscreen .sectionTitleRow {
+  flex-wrap: wrap;
+  justify-content: center;
+  text-align: center;
+  row-gap: 6px;
+}
+#statsTimesheetBlock.fullscreen .timesheetNav,
+#communityActivityTimesheetBlock.fullscreen .timesheetNav {
+  justify-content: center;
+  width: 100%;
+}
+
 .communityActivities { display: flex; flex-direction: column; gap: 14px; }
 .communityActivityCard {
   background: var(--card); border-radius: var(--radius-lg); padding: 14px; box-shadow: var(--shadow-card);
@@ -871,20 +921,10 @@ body.scrollLock { overflow: hidden; }
    app.js) — modificateur spécifique, ne change pas .activityRow lui-même. */
 .activityRow.selected { border: 2px solid var(--purple); }
 
-/* Petit menu déroulant sous une ligne d'activité partagée (section Membres),
-   ouvert par son bouton "⋮" — une seule option pour l'instant ("Voir les
-   membres"), pensé pour en accueillir d'autres plus tard. Propre à
-   Communauté, ne redéfinit pas .activityRow/.activityRowHeader/.menuBtn
-   (génériques Design). */
-.activityRowMenu {
-  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
-  margin-top: 6px; overflow: hidden;
-}
-.activityRowMenuItem {
-  display: block; width: 100%; text-align: left; padding: 10px 12px; border: none;
-  background: none; color: var(--text); font-size: 14px; cursor: pointer;
-}
-.activityRowMenuItem:hover { background: var(--hover-bg); }
+/* Note (30 août 2026) : les règles .activityRowMenu/.activityRowMenuItem qui
+   se trouvaient ici ont été retirées avec le petit menu déroulant qu'elles
+   habillaient — son unique option, "Voir les membres", est passée dans le
+   panneau de réglages ouvert par le "⋮", un motif d'UI en moins. */
 
 /* Point vert signalant qu'un membre a ACTUELLEMENT un chrono en cours sur
    CETTE activité précise (pas un chrono quelconque) — voir la modale des
@@ -1043,6 +1083,9 @@ body.scrollLock { overflow: hidden; }
 /* Ligne d'en-tête, toujours visible : couleur, nom, bouton "⋮" qui ouvre le
    panneau de réglages/actions de cette activité. */
 .activityRowHeader { display: flex; align-items: center; gap: 10px; }
+/* Posé par app.js sur les seules activités PARTAGÉES : ce sont les seules
+   dont le clic ouvre le suivi des autres membres (onglet Activité). */
+.activityRowHeader.clickable { cursor: pointer; }
 .activityRowHeader .dot { flex-shrink: 0; }
 .activityRowName {
   flex: 1; min-width: 0; font-weight: bold;

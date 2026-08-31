@@ -33,6 +33,40 @@
   var currentTheme = 'dark';
   var currentLang = 'en'; // 'en' par défaut (nouveaux comptes) ; voir applyLang plus bas
 
+  // ----- Verrouillage d'orientation (30 août 2026, demande d'Emilien) -----
+  // La Feuille de temps et le Graphique simulent un plein écran paysage par
+  // rotation CSS (voir #statsTimesheetBlock.fullscreen / #statsChartBlock.fullscreen
+  // dans styles.css), pensée pour un téléphone qui reste physiquement tenu en
+  // portrait. Le 30 août 2026, la rotation automatique réelle du téléphone
+  // entrait encore en conflit avec cette rotation forcée malgré le correctif
+  // CSS @media (orientation: ...) posé plus tôt le même jour (ce correctif
+  // évite que l'affichage casse une fois la rotation réelle survenue, mais ne
+  // l'empêche pas de survenir). Demande explicite d'Emilien : empêcher
+  // purement et simplement l'app de tourner automatiquement, plutôt que de
+  // continuer à s'adapter après coup. Deux mécanismes complémentaires :
+  //   1. `public/manifest.webmanifest` : "orientation": "portrait" (verrouille
+  //      la rotation quand l'app est installée sur l'écran d'accueil,
+  //      Android/Chrome uniquement — non supporté par iOS Safari).
+  //   2. Ici, la Screen Orientation API en best-effort : fonctionne aussi en
+  //      onglet navigateur classique sur Android/Chrome (pas besoin d'être
+  //      installée), mais reste silencieusement sans effet si non supportée
+  //      (iOS Safari ne l'implémente pas du tout) ou si le navigateur exige un
+  //      contexte plein écran/geste utilisateur qu'on n'a pas — d'où l'appel
+  //      répété au moment des clics plein écran ci-dessous (un clic est un
+  //      geste utilisateur, ça augmente les chances de succès). Le correctif
+  //      CSS @media (orientation: ...) reste en place tel quel comme filet de
+  //      sécurité pour les cas où ce verrouillage ne prend pas (iOS en
+  //      particulier) : si jamais la rotation survient malgré tout, l'affichage
+  //      ne casse toujours pas.
+  function lockPortraitOrientation() {
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === 'function') {
+        screen.orientation.lock('portrait').catch(function () {});
+      }
+    } catch (err) { /* API non supportée ou verrouillage refusé : on ignore, le CSS prend le relais */ }
+  }
+  lockPortraitOrientation();
+
   // Palettes de couleurs d'activités, une par thème — DOIVENT rester
   // identiques à server/lib/theme.js (voir le commentaire là-bas). Les 8
   // couleurs suivent l'ordre de l'arc-en-ciel (rouge, orange, jaune, vert,
@@ -221,30 +255,35 @@
     (attachments || []).forEach(function (att) { container.appendChild(buildAttachmentRow(att, onRemoved)); });
   }
 
-  // Menu "épingle" (30 août 2026, demande d'Emilien) : regroupe les types de
-  // pièce jointe (Photo/Document) derrière un seul bouton "📌" plutôt que de
-  // les afficher en permanence — même mécanique que le menu "⋮" des périodes
-  // de Statistiques (setupStatsPeriodMenu), réutilisée ici pour rester
-  // cohérent, mais gardée comme fonction Chrono séparée puisque le menu de
-  // pièces jointes existe potentiellement en plusieurs exemplaires à la fois
-  // (session en cours + une par carte d'historique, voir
-  // buildChronoHistoryEntry plus bas).
-  function toggleAttachmentMenu(btn, menu) {
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      var willOpen = menu.classList.contains('hidden');
-      closeAllAttachmentMenus();
-      if (willOpen) menu.classList.remove('hidden');
-    });
+  // Point d'entrée unique pour une pièce jointe choisie via le sélecteur de
+  // fichier natif du téléphone (30 août 2026, demande d'Emilien : accès
+  // direct aux options du système — photothèque / appareil photo / fichiers —
+  // sans passer par un menu Photo/Document intermédiaire, qui existait dans
+  // un premier passage). Le type MIME du fichier choisi détermine le
+  // traitement : redimensionnement pour une image (même logique
+  // qu'auparavant pour "Photo"), lecture brute sinon (même logique
+  // qu'auparavant pour "Document"). Partagé entre la session en cours
+  // (#attachInput) et chaque carte d'historique (buildChronoHistoryEntry).
+  function handleAttachmentFilePick(file, msgEl, uploadFn) {
+    if (!file) return;
+    var isImage = /^image\//.test(file.type);
+    if (file.size > MAX_ATTACHMENT_SOURCE_BYTES) {
+      msgEl.textContent = isImage
+        ? t('Photo trop lourde (8 Mo max) — choisis-en une autre.')
+        : t('Fichier trop lourd (8 Mo max) — choisis-en un autre.');
+      return;
+    }
+    if (isImage) {
+      msgEl.textContent = t('Traitement de la photo...');
+      resizeAttachmentPhoto(file, 1600, 0.82).then(function (dataUrl) {
+        uploadFn(file.name, 'image/jpeg', dataUrl);
+      }).catch(function () { msgEl.textContent = t('Impossible de traiter cette photo.'); });
+    } else {
+      readFileAsDataUrl(file).then(function (dataUrl) {
+        uploadFn(file.name, file.type || 'application/octet-stream', dataUrl);
+      }).catch(function () { msgEl.textContent = t('Impossible de lire ce fichier.'); });
+    }
   }
-  function closeAllAttachmentMenus() {
-    document.querySelectorAll('.attachmentMenu').forEach(function (m) { m.classList.add('hidden'); });
-  }
-  // Referme tout menu de pièce jointe ouvert au clic n'importe où en dehors
-  // de lui (ou de son bouton "📌") — même mécanisme que .statsPeriodMenuWrap.
-  document.addEventListener('click', function (e) {
-    if (!e.target.closest('.attachmentMenuWrap')) closeAllAttachmentMenus();
-  });
 
   // Couleur de texte fixe pour un thème donné (blanc en sombre, foncé en
   // clair) — valable pour n'importe quelle couleur des deux palettes,
@@ -617,11 +656,11 @@
   $('profileCloseBtn').addEventListener('click', closeProfile);
 
   // ===================== ACTIVITÉ =====================
-  // Fusionne, depuis le 30 août 2026 (demande d'Emilien) : la gestion de
-  // "Mes activités" et les "Invitations reçues" (déménagées depuis Profil),
-  // et la liste des activités partagées + leur détail par activité
-  // (déménagée depuis la section "Membres" de Communauté — voir
-  // renderCommunityActivities/loadActivityDetail plus bas, inchangées).
+  // Une seule liste depuis le 30 août 2026 (fin de journée, demande
+  // d'Emilien) : la gestion des activités (venue de Profil) et le suivi des
+  // activités partagées (venu de Communauté > Membres) ne forment plus deux
+  // listes empilées mais une seule — voir loadSettingsActivities, qui appelle
+  // les deux API d'un coup, et renderActivitiesSettings, qui les fusionne.
   function loadActivityTab() {
     if (!profile) return;
     loadSettingsActivities();
@@ -630,10 +669,6 @@
     // passant, pour tenir à jour le compteur qui allume son point rouge.
     loadPendingInvites();
     renderNewActivitySwatches();
-    api('GET', '/api/community?userId=' + profile.id).then(function (data) {
-      renderCommunityActivities(data.activities);
-    });
-    loadSharedFeed();
   }
 
   // ===================== ACTIVITÉS (cache partagé, couleurs personnelles) =====================
@@ -706,9 +741,7 @@
       runningAttachments = runningAttachments.filter(function (a) { return a.id !== removedId; });
       refreshRunningAttachments();
     });
-    var atLimit = runningAttachments.length >= MAX_NOTE_ATTACHMENTS;
-    $('attachPhotoBtn').disabled = atLimit;
-    $('attachDocBtn').disabled = atLimit;
+    $('attachMenuBtn').disabled = runningAttachments.length >= MAX_NOTE_ATTACHMENTS;
   }
 
   function uploadNoteAttachment(fileName, mimeType, dataUrl) {
@@ -722,30 +755,11 @@
       .catch(function (err) { $('attachmentMsg').textContent = err.message; });
   }
 
-  toggleAttachmentMenu($('attachMenuBtn'), $('attachMenu'));
-  $('attachPhotoBtn').addEventListener('click', function () { closeAllAttachmentMenus(); $('attachPhotoInput').click(); });
-  $('attachDocBtn').addEventListener('click', function () { closeAllAttachmentMenus(); $('attachDocInput').click(); });
-
-  $('attachPhotoInput').addEventListener('change', function () {
+  $('attachMenuBtn').addEventListener('click', function () { $('attachInput').click(); });
+  $('attachInput').addEventListener('change', function () {
     var file = this.files[0];
-    this.value = ''; // permet de reprendre/resélectionner la même photo ensuite
-    if (!file) return;
-    if (!/^image\//.test(file.type)) { $('attachmentMsg').textContent = t('Choisis une image.'); return; }
-    if (file.size > MAX_ATTACHMENT_SOURCE_BYTES) { $('attachmentMsg').textContent = t('Photo trop lourde (8 Mo max) — choisis-en une autre.'); return; }
-    $('attachmentMsg').textContent = t('Traitement de la photo...');
-    resizeAttachmentPhoto(file, 1600, 0.82).then(function (dataUrl) {
-      return uploadNoteAttachment(file.name, 'image/jpeg', dataUrl);
-    }).catch(function () { $('attachmentMsg').textContent = t('Impossible de traiter cette photo.'); });
-  });
-
-  $('attachDocInput').addEventListener('change', function () {
-    var file = this.files[0];
-    this.value = '';
-    if (!file) return;
-    if (file.size > MAX_ATTACHMENT_SOURCE_BYTES) { $('attachmentMsg').textContent = t('Fichier trop lourd (8 Mo max) — choisis-en un autre.'); return; }
-    readFileAsDataUrl(file).then(function (dataUrl) {
-      return uploadNoteAttachment(file.name, file.type || 'application/octet-stream', dataUrl);
-    }).catch(function () { $('attachmentMsg').textContent = t('Impossible de lire ce fichier.'); });
+    this.value = ''; // permet de reprendre/resélectionner le même fichier ensuite
+    handleAttachmentFilePick(file, $('attachmentMsg'), uploadNoteAttachment);
   });
 
   // Remet à zéro le composeur d'envoi "en direct" à chaque (re)démarrage du
@@ -1008,35 +1022,23 @@
     // chaque ajout/suppression pour ne pas recharger toute la semaine.
     var attachBox = document.createElement('div');
     attachBox.className = 'attachmentList';
-    // Menu de pièce jointe (30 août 2026) — même structure que #attachMenuBtn/
-    // #attachMenu dans #noteWrapper (voir toggleAttachmentMenu plus haut),
-    // reconstruite ici en DOM puisque cette carte est générée dynamiquement.
-    // Icône épingle remplacée par un trombone (SVG, même style que les icônes
-    // de la barre d'onglets) et bouton déplacé dans .actions, à gauche de
-    // "Modifier"/"Supprimer" (30 août 2026, demande d'Emilien).
+    // Bouton de pièce jointe (30 août 2026) — même structure que
+    // #attachMenuBtn/#attachInput dans #noteWrapper, reconstruite ici en DOM
+    // puisque cette carte est générée dynamiquement. Trombone (SVG, même
+    // style que les icônes de la barre d'onglets) déplacé dans .actions, à
+    // gauche de "Modifier"/"Supprimer" (30 août 2026, demande d'Emilien) ;
+    // ouvre directement le sélecteur de fichier natif du téléphone, sans menu
+    // Photo/Document intermédiaire (même demande, passage suivant).
     var attachMenuWrap = document.createElement('div');
     attachMenuWrap.className = 'attachmentMenuWrap';
     var attachMenuBtn = document.createElement('button');
     attachMenuBtn.type = 'button'; attachMenuBtn.className = 'menuBtn attachMenuIconBtn';
-    attachMenuBtn.setAttribute('aria-haspopup', 'true');
     attachMenuBtn.setAttribute('aria-label', t('Ajouter une pièce jointe'));
     attachMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
-    var attachMenu = document.createElement('div');
-    attachMenu.className = 'attachmentMenu hidden';
-    var attachPhotoBtn = document.createElement('button');
-    attachPhotoBtn.type = 'button'; attachPhotoBtn.className = 'attachmentMenuItem'; attachPhotoBtn.textContent = '📷 Photo';
-    var attachDocBtn = document.createElement('button');
-    attachDocBtn.type = 'button'; attachDocBtn.className = 'attachmentMenuItem'; attachDocBtn.textContent = '📎 Document';
-    var attachPhotoInput = document.createElement('input');
-    attachPhotoInput.type = 'file'; attachPhotoInput.accept = 'image/*'; attachPhotoInput.setAttribute('capture', 'environment'); attachPhotoInput.className = 'hidden';
-    var attachDocInput = document.createElement('input');
-    attachDocInput.type = 'file'; attachDocInput.className = 'hidden';
-    attachMenu.appendChild(attachPhotoBtn);
-    attachMenu.appendChild(attachDocBtn);
+    var attachInput = document.createElement('input');
+    attachInput.type = 'file'; attachInput.className = 'hidden';
     attachMenuWrap.appendChild(attachMenuBtn);
-    attachMenuWrap.appendChild(attachMenu);
-    attachMenuWrap.appendChild(attachPhotoInput);
-    attachMenuWrap.appendChild(attachDocInput);
+    attachMenuWrap.appendChild(attachInput);
     var attachMsg = document.createElement('p');
     attachMsg.className = 'meta attachmentMsg';
     card.appendChild(attachBox);
@@ -1047,9 +1049,7 @@
         entry.attachments = (entry.attachments || []).filter(function (a) { return a.id !== removedId; });
         refreshEntryAttachments();
       });
-      var atLimit = (entry.attachments || []).length >= MAX_NOTE_ATTACHMENTS;
-      attachPhotoBtn.disabled = atLimit;
-      attachDocBtn.disabled = atLimit;
+      attachMenuBtn.disabled = (entry.attachments || []).length >= MAX_NOTE_ATTACHMENTS;
     }
     refreshEntryAttachments();
 
@@ -1064,28 +1064,11 @@
         .catch(function (err) { attachMsg.textContent = err.message; });
     }
 
-    toggleAttachmentMenu(attachMenuBtn, attachMenu);
-    attachPhotoBtn.addEventListener('click', function () { closeAllAttachmentMenus(); attachPhotoInput.click(); });
-    attachDocBtn.addEventListener('click', function () { closeAllAttachmentMenus(); attachDocInput.click(); });
-    attachPhotoInput.addEventListener('change', function () {
+    attachMenuBtn.addEventListener('click', function () { attachInput.click(); });
+    attachInput.addEventListener('change', function () {
       var file = this.files[0];
       this.value = '';
-      if (!file) return;
-      if (!/^image\//.test(file.type)) { attachMsg.textContent = t('Choisis une image.'); return; }
-      if (file.size > MAX_ATTACHMENT_SOURCE_BYTES) { attachMsg.textContent = t('Photo trop lourde (8 Mo max) — choisis-en une autre.'); return; }
-      attachMsg.textContent = t('Traitement de la photo...');
-      resizeAttachmentPhoto(file, 1600, 0.82).then(function (dataUrl) {
-        uploadEntryAttachment(file.name, 'image/jpeg', dataUrl);
-      }).catch(function () { attachMsg.textContent = t('Impossible de traiter cette photo.'); });
-    });
-    attachDocInput.addEventListener('change', function () {
-      var file = this.files[0];
-      this.value = '';
-      if (!file) return;
-      if (file.size > MAX_ATTACHMENT_SOURCE_BYTES) { attachMsg.textContent = t('Fichier trop lourd (8 Mo max) — choisis-en un autre.'); return; }
-      readFileAsDataUrl(file).then(function (dataUrl) {
-        uploadEntryAttachment(file.name, file.type || 'application/octet-stream', dataUrl);
-      }).catch(function () { attachMsg.textContent = t('Impossible de lire ce fichier.'); });
+      handleAttachmentFilePick(file, attachMsg, uploadEntryAttachment);
     });
 
     var actions = document.createElement('div');
@@ -1248,8 +1231,7 @@
     document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
   }
   // Referme tout menu de période ouvert au clic n'importe où en dehors de
-  // lui (ou de son bouton "⋮") — même mécanisme que .activityRowMenu en
-  // Communauté et .notifPanel en Profil.
+  // lui (ou de son bouton "⋮") — même mécanisme que .notifPanel en Profil.
   document.addEventListener('click', function (e) {
     if (!e.target.closest('.statsPeriodMenuWrap')) closeAllStatsPeriodMenus();
   });
@@ -1637,6 +1619,7 @@
     renderChart(lastDailyBreakdown);
   }
   $('chartFullscreenBtn').addEventListener('click', function () {
+    lockPortraitOrientation();
     if (!chartFullscreenActive) exitStatsFullscreen();
     chartFullscreenActive = !chartFullscreenActive;
     $('statsChartBlock').classList.toggle('fullscreen', chartFullscreenActive);
@@ -1658,6 +1641,7 @@
     $('tsFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran, format paysage'));
   }
   $('tsFullscreenBtn').addEventListener('click', function () {
+    lockPortraitOrientation();
     if (!statsFullscreenActive) exitChartFullscreen();
     statsFullscreenActive = !statsFullscreenActive;
     $('statsTimesheetBlock').classList.toggle('fullscreen', statsFullscreenActive);
@@ -1793,12 +1777,12 @@
   // Le sélecteur "Communauté / Membres" qui vivait ici (et son gestionnaire
   // de clic) a été retiré le 30 août 2026 : la section "Membres" a déménagé
   // en bloc dans l'onglet Activité — voir loadActivityTab plus haut.
-  // Communauté ne garde, depuis le 30 août 2026 (demande d'Emilien), que "En
-  // ce moment" (loadLiveFeed), "Rechercher des membres" et le Suivi
-  // (Recherche/liste/flux) — la liste des activités partagées et leur détail
-  // par activité (renderCommunityActivities/loadActivityDetail) ainsi que le
-  // fil "Partagée" (loadSharedFeed) ont déménagé dans l'onglet Activité, voir
-  // loadActivityTab ci-dessus. Les demandes de suivi reçues
+  // Communauté ne garde plus, depuis le 30 août 2026 (nouvelle demande de
+  // simplification d'Emilien), que la recherche et le Suivi (liste + flux) —
+  // sans titres de section ni textes d'intro fixes (voir index.html). "En ce
+  // moment" (loadLiveFeed) a été retiré de cet onglet : le flux "Partagée"
+  // avait déjà été retiré plus tôt dans la journée (doublon avec le détail
+  // par activité de l'onglet Activité). Les demandes de suivi reçues
   // (loadFollowRequests) restent chargées depuis Profil, pas ici.
   function loadCommunity() {
     if (!profile) return;
@@ -1806,105 +1790,45 @@
     $('communitySearchResults').innerHTML = '';
     loadFollowing();
     loadFollowingFeed();
-    loadLiveFeed();
   }
 
-  // ----- Sélection d'une activité partagée (section Membres) : chaque
-  // activité partagée est affichée comme une ligne cliquable (même format
-  // que les activités du Profil : pastille + nom + "⋮") ; la sélectionner
-  // donne accès au détail (sessions + notes) de ses AUTRES membres,
-  // indépendamment du flux "Partagée" plus bas (qui reste inchangé, toutes
-  // activités partagées mélangées). -----
+  // ----- Activité sélectionnée dans l'onglet Activité -----
+  // Depuis le 30 août 2026 (fin de journée), il n'y a plus qu'UNE liste
+  // d'activités dans l'app (voir renderActivitiesSettings) : partagée ou non,
+  // chaque activité y est une ligne. Sélectionner une activité PARTAGÉE
+  // déplie, juste sous sa ligne, tout ce qui concerne ses autres membres —
+  // discussion, statistiques, feuille de temps, enregistrements et notes.
   var currentCommunityActivityId = '';
 
-  function renderCommunityActivities(list) {
-    var box = $('communityActivities');
-    box.innerHTML = '';
-    $('communityEmptyHint').classList.toggle('hidden', list.length > 0);
+  // Le bloc de détail est un élément unique, déplacé d'une ligne à l'autre au
+  // fil des sélections. Il doit être détaché AVANT que la liste ne soit vidée
+  // (box.innerHTML = ''), sans quoi il serait détruit avec elle.
+  // On garde une référence directe au nœud : tant qu'il est détaché, il n'est
+  // plus dans le document, donc getElementById (le $ de ce fichier) ne le
+  // retrouve PAS — ni lui, ni aucun de ses enfants.
+  var activityDetailNode = null;
 
-    var stillShared = list.some(function (act) { return String(act.activityId) === String(currentCommunityActivityId); });
-    if (!stillShared) {
-      currentCommunityActivityId = '';
-      $('communityActivityDetail').classList.add('hidden');
-      exitActivityTimesheetFullscreen();
-      exitActivityChartFullscreen();
-      stopDiscussionPolling();
-    }
-
-    list.forEach(function (act) {
-      var isSelected = String(act.activityId) === String(currentCommunityActivityId);
-      var row = document.createElement('div');
-      row.className = 'activityRow' + (isSelected ? ' selected' : '');
-
-      var header = document.createElement('div');
-      header.className = 'activityRowHeader';
-      var mine = profile && act.members.filter(function (m) { return m.userId === profile.id; })[0];
-      var memberColor = (mine && mine.color) || (act.members[0] && act.members[0].color) || '#3498db';
-      // Pastille de messages non lus du fil de discussion de cette activité
-      // (voir unreadMessages dans GET /api/community). L'attribut
-      // data-activity-id permet à refreshUnreadBadges() de la remettre à jour
-      // pendant le rafraîchissement périodique, sans reconstruire la liste
-      // (ce qui refermerait le menu "⋮" ouvert ou ferait sauter l'affichage).
-      var unread = act.unreadMessages || 0;
-      header.innerHTML =
-        '<span class="dot" style="background:' + memberColor + '"></span>' +
-        '<span class="activityRowName">' + escapeHtml(act.name) + '</span>' +
-        '<span class="unreadBadge' + (unread > 0 ? '' : ' hidden') + '" data-activity-id="' + act.activityId + '" ' +
-        'title="' + t('Messages non lus') + '">' + unread + '</span>' +
-        '<button type="button" class="menuBtn" aria-label="' + t('Actions de cette activité') + '">⋮</button>';
-
-      // Sélection de la ligne (affiche le détail juste en dessous, avec
-      // défilement automatique jusqu'à lui) : tout le reste de l'en-tête,
-      // à l'exception du bouton "⋮" ci-dessous qui a son propre menu.
-      header.addEventListener('click', function () {
-        var willSelect = !isSelected;
-        currentCommunityActivityId = isSelected ? '' : String(act.activityId);
-        renderCommunityActivities(list);
-        loadActivityDetail(willSelect);
-      });
-
-      // Petit menu déroulant du "⋮" : une seule option pour l'instant, "Voir
-      // les membres" — ouvre la modale listant tous les membres de cette
-      // activité avec leur statut "en direct" (voir openCommunityMembersModal).
-      // stopPropagation empêche ce clic de déclencher aussi la sélection de
-      // la ligne (écouteur ci-dessus, posé sur tout l'en-tête).
-      var menu = document.createElement('div');
-      menu.className = 'activityRowMenu hidden';
-      menu.innerHTML = '<button type="button" class="activityRowMenuItem">' + t('Voir les membres') + '</button>';
-
-      header.querySelector('.menuBtn').addEventListener('click', function (e) {
-        e.stopPropagation();
-        closeAllActivityRowMenus(menu);
-        menu.classList.toggle('hidden');
-      });
-
-      menu.querySelector('.activityRowMenuItem').addEventListener('click', function (e) {
-        e.stopPropagation();
-        menu.classList.add('hidden');
-        openCommunityMembersModal(act.activityId, act.name);
-      });
-
-      row.appendChild(header);
-      row.appendChild(menu);
-      box.appendChild(row);
-    });
+  function activityDetailEl() {
+    if (!activityDetailNode) activityDetailNode = $('communityActivityDetail');
+    return activityDetailNode;
   }
 
-  // Referme tous les menus "⋮" ouverts dans la liste, sauf `except` (celui
-  // qu'on est en train de basculer) — un seul menu ouvert à la fois.
-  function closeAllActivityRowMenus(except) {
-    document.querySelectorAll('#communityActivities .activityRowMenu').forEach(function (m) {
-      if (m !== except) m.classList.add('hidden');
-    });
+  function detachActivityDetail() {
+    var detail = activityDetailEl();
+    if (detail && detail.parentNode) detail.parentNode.removeChild(detail);
+    return detail;
   }
-  document.addEventListener('click', function (e) {
-    if (!e.target.closest('#communityActivities')) closeAllActivityRowMenus();
-  });
+
+  function attachActivityDetail(host) {
+    var detail = activityDetailEl();
+    if (!detail) return;
+    (host || $('activityDetailAnchor')).appendChild(detail);
+  }
 
   function loadActivityDetail(shouldScroll) {
     if (!profile) return;
     if (!currentCommunityActivityId) {
-      $('communityActivityDetail').classList.add('hidden');
+      activityDetailEl().classList.add('hidden');
       exitActivityTimesheetFullscreen();
       exitActivityChartFullscreen();
       stopDiscussionPolling();
@@ -1930,7 +1854,7 @@
     $('communityDiscussionMsg').textContent = '';
 
     api('GET', '/api/community/activity-feed?userId=' + profile.id + '&activityId=' + currentCommunityActivityId).then(function (data) {
-      $('communityActivityDetail').classList.remove('hidden');
+      activityDetailEl().classList.remove('hidden');
       $('communityActivityDetailName').textContent = '· ' + data.activityName;
       var box = $('communityActivityDetailFeed');
       box.innerHTML = '';
@@ -1940,15 +1864,15 @@
       // sélectionner une activité (pas quand on la désélectionne, ni lors
       // d'un rafraîchissement silencieux) — demande d'Emilien du jour.
       if (shouldScroll) {
-        $('communityActivityDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        activityDetailEl().scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }).catch(function (err) {
       // L'activité a pu être quittée/supprimée entre-temps par un autre
       // membre : on referme simplement le détail plutôt que d'afficher une
       // erreur bloquante.
-      $('communityActivityDetail').classList.add('hidden');
+      activityDetailEl().classList.add('hidden');
       currentCommunityActivityId = '';
-      loadCommunity();
+      loadSettingsActivities();
     });
 
     loadActivityStats(currentCommunityActivityId);
@@ -2102,7 +2026,7 @@
   // d'activités, ce qui refermerait un menu "⋮" ouvert) — voir
   // GET /api/community/unread-messages.
   function setUnreadBadge(activityId, count) {
-    var badge = document.querySelector('#communityActivities .unreadBadge[data-activity-id="' + activityId + '"]');
+    var badge = document.querySelector('#activitiesList .unreadBadge[data-activity-id="' + activityId + '"]');
     if (!badge) return;
     badge.textContent = count;
     badge.classList.toggle('hidden', !count);
@@ -2111,7 +2035,7 @@
   function refreshUnreadBadges() {
     if (!profile) return;
     api('GET', '/api/community/unread-messages?userId=' + profile.id).then(function (data) {
-      document.querySelectorAll('#communityActivities .unreadBadge').forEach(function (badge) {
+      document.querySelectorAll('#activitiesList .unreadBadge').forEach(function (badge) {
         var n = data.byActivity[badge.dataset.activityId] || 0;
         badge.textContent = n;
         badge.classList.toggle('hidden', !n);
@@ -2443,6 +2367,7 @@
     renderActivityChart(lastActivityDailyBreakdown);
   }
   $('caChartFullscreenBtn').addEventListener('click', function () {
+    lockPortraitOrientation();
     if (!activityChartFullscreenActive) exitActivityTimesheetFullscreen();
     activityChartFullscreenActive = !activityChartFullscreenActive;
     $('communityActivityChartBlock').classList.toggle('fullscreen', activityChartFullscreenActive);
@@ -2461,6 +2386,7 @@
     $('caTsFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran, format paysage'));
   }
   $('caTsFullscreenBtn').addEventListener('click', function () {
+    lockPortraitOrientation();
     if (!activityTimesheetFullscreenActive) exitActivityChartFullscreen();
     activityTimesheetFullscreenActive = !activityTimesheetFullscreenActive;
     $('communityActivityTimesheetBlock').classList.toggle('fullscreen', activityTimesheetFullscreenActive);
@@ -2791,16 +2717,6 @@
     return card;
   }
 
-  function loadSharedFeed() {
-    if (!profile) return;
-    api('GET', '/api/community/shared-feed?userId=' + profile.id).then(function (list) {
-      var box = $('sharedFeed');
-      box.innerHTML = '';
-      $('sharedFeedEmptyHint').classList.toggle('hidden', list.length > 0);
-      list.forEach(function (entry) { box.appendChild(buildFeedEntryCard(entry)); });
-    });
-  }
-
   function loadFollowingFeed() {
     if (!profile) return;
     api('GET', '/api/community/following-feed?userId=' + profile.id).then(function (list) {
@@ -2811,39 +2727,13 @@
     });
   }
 
-  // ----- "En ce moment" : notes envoyées en direct par des membres/abonnés
-  // dont le chrono tourne ENCORE (voir POST /timer/broadcast côté Chrono) —
-  // fusionne les deux origines (members/community) en un seul flux, à
-  // l'inverse de Partagée/Suivi ci-dessus qui restent deux flux séparés. -----
-  function buildLiveBroadcastCard(entry) {
-    var card = document.createElement('div');
-    card.className = 'historyEntry';
-
-    var since = new Date(entry.runStartTime);
-    var sinceLabel = pad(since.getHours()) + ':' + pad(since.getMinutes());
-    var audienceLabel = entry.audience === 'members' ? t('Membre') : t('Abonnement');
-
-    card.innerHTML =
-      '<div class="rowTop">' +
-        '<span class="actName"><span class="dot" style="background:' + entry.userColor + '"></span>' +
-        escapeHtml(entry.userName) + (profile && entry.userId === profile.id ? t(' (toi)') : '') + ' · ' + escapeHtml(entry.activityName) +
-        '<span class="liveBadge">🔴 ' + audienceLabel + '</span></span>' +
-      '</div>' +
-      '<div class="meta">' + t('En cours depuis {time}', { time: sinceLabel }) + '</div>' +
-      '<div class="note">' + escapeHtml(entry.note) + '</div>';
-
-    return card;
-  }
-
-  function loadLiveFeed() {
-    if (!profile) return;
-    api('GET', '/api/community/live-feed?userId=' + profile.id).then(function (list) {
-      var box = $('liveFeed');
-      box.innerHTML = '';
-      $('liveFeedEmptyHint').classList.toggle('hidden', list.length > 0);
-      list.forEach(function (entry) { box.appendChild(buildLiveBroadcastCard(entry)); });
-    });
-  }
+  // ----- "En ce moment" (notes envoyées en direct par des membres/abonnés
+  // dont le chrono tourne ENCORE) a été retiré du volet Communauté le 30
+  // août 2026 (demande d'Emilien) — buildLiveBroadcastCard/loadLiveFeed,
+  // qui l'alimentaient, ont été supprimées avec lui : plus aucun élément
+  // #liveFeed/#liveFeedEmptyHint dans le DOM pour les recevoir. Le backend
+  // (liveFeedForUser / GET /community/live-feed) reste disponible si une
+  // future section en a besoin ailleurs. -----
 
   // ===================== PROFIL =====================
 
@@ -3323,23 +3213,58 @@
       });
   });
 
+  // Les deux appels de l'onglet Activité, faits ensemble puis fusionnés dans
+  // un seul rendu : la liste de TOUTES mes activités (/api/activities, qui
+  // donne nom/couleur/propriétaire/nombre de membres) et celles qui sont
+  // effectivement PARTAGÉES (/api/community, qui donne en plus les membres et
+  // les messages non lus). Si le second échoue, la liste s'affiche quand
+  // même : on perd le détail des membres, pas la gestion des activités.
   function loadSettingsActivities() {
-    api('GET', '/api/activities?all=1&userId=' + profile.id).then(renderActivitiesSettings);
+    if (!profile) return;
+    Promise.all([
+      api('GET', '/api/activities?all=1&userId=' + profile.id),
+      api('GET', '/api/community?userId=' + profile.id).catch(function () { return { activities: [] }; })
+    ]).then(function (res) {
+      renderActivitiesSettings(res[0], (res[1] && res[1].activities) || []);
+    });
   }
 
-  // Toutes les actions/réglages d'une activité (couleur, note, Enregistrer,
-  // Partager, Séparer, Supprimer définitivement) sont rangés derrière le
-  // bouton "⋮" de sa ligne, dans un panneau repliable — seuls le nom et le
-  // badge de statut (partagée/membres) restent visibles en permanence.
-  function renderActivitiesSettings(acts) {
+  // Rendu unique de la liste d'activités. Deux gestes par ligne, distincts :
+  //  - le bouton "⋮" ouvre les RÉGLAGES de l'activité (nom, couleur,
+  //    Enregistrer, Partager, Séparer, Supprimer, Voir les membres) ;
+  //  - un clic sur la ligne elle-même ouvre, juste en dessous, le suivi de
+  //    ses AUTRES MEMBRES (discussion, statistiques, enregistrements, notes).
+  //    Une activité solo n'a rien à montrer là : le clic y ouvre les
+  //    réglages, pour qu'un clic ne reste jamais sans effet.
+  // Tant qu'aucune activité n'est sélectionnée, l'onglet ne montre que cette
+  // liste — pas de texte d'aide, pas de section en attente (demande
+  // d'Emilien, 30 août 2026).
+  function renderActivitiesSettings(acts, sharedList) {
     var box = $('activitiesList');
-    box.innerHTML = '';
-    if (acts.length === 0) {
-      box.innerHTML = '<p class="hint">' + t('Aucune activité pour l\'instant — ajoute la première ci-dessous.') + '</p>';
+    var shared = {};
+    (sharedList || []).forEach(function (x) { shared[String(x.activityId)] = x; });
+
+    // L'activité sélectionnée a pu être quittée/supprimée entre-temps (par
+    // soi-même ou par le dernier autre membre) : on referme alors le détail
+    // plutôt que de garder une sélection qui ne correspond plus à rien.
+    if (currentCommunityActivityId && !shared[String(currentCommunityActivityId)]) {
+      currentCommunityActivityId = '';
+      activityDetailEl().classList.add('hidden');
+      exitActivityTimesheetFullscreen();
+      exitActivityChartFullscreen();
+      stopDiscussionPolling();
     }
+
+    // Détaché avant le vidage de la liste : sans ça, le bloc de détail serait
+    // détruit avec elle (voir detachActivityDetail).
+    detachActivityDetail();
+    var detailAttached = false;
+    box.innerHTML = '';
     acts.forEach(function (a) {
+      var sharedInfo = shared[String(a.id)];
+      var isSelected = String(a.id) === String(currentCommunityActivityId);
       var row = document.createElement('div');
-      row.className = 'activityRow' + (a.active ? '' : ' inactive');
+      row.className = 'activityRow' + (a.active ? '' : ' inactive') + (isSelected ? ' selected' : '');
 
       var header = document.createElement('div');
       header.className = 'activityRowHeader';
@@ -3353,6 +3278,20 @@
       nameSpan.className = 'activityRowName';
       nameSpan.textContent = a.name;
       header.appendChild(nameSpan);
+
+      // Pastille de messages non lus du fil de discussion de cette activité
+      // (voir unreadMessages dans GET /api/community). L'attribut
+      // data-activity-id permet à refreshUnreadBadges() de la remettre à jour
+      // sans reconstruire la liste (ce qui refermerait un panneau ouvert).
+      if (sharedInfo) {
+        var unread = sharedInfo.unreadMessages || 0;
+        var unreadBadge = document.createElement('span');
+        unreadBadge.className = 'unreadBadge' + (unread > 0 ? '' : ' hidden');
+        unreadBadge.dataset.activityId = a.id;
+        unreadBadge.title = t('Messages non lus');
+        unreadBadge.textContent = unread;
+        header.appendChild(unreadBadge);
+      }
 
       var menuBtn = document.createElement('button');
       menuBtn.type = 'button';
@@ -3372,7 +3311,7 @@
       } else if (a.membersCount > 1) {
         var badge2 = document.createElement('p');
         badge2.className = 'meta';
-        badge2.textContent = t('{count} membres — visible dans Communauté.', { count: a.membersCount });
+        badge2.textContent = t('{count} membres — clique sur la ligne pour les voir.', { count: a.membersCount });
         row.appendChild(badge2);
       }
 
@@ -3449,6 +3388,21 @@
         actionsWrap.appendChild(separateBtn);
       }
 
+      // "Voir les membres" : la liste complète des membres de l'activité, avec
+      // un point vert sur ceux dont le chrono tourne en ce moment sur CETTE
+      // activité. Rangé ici plutôt que dans un second menu déroulant (il y en
+      // avait un, réservé à cette seule option, quand la liste des activités
+      // partagées était séparée) — un motif d'UI en moins.
+      if (sharedInfo) {
+        var membersBtn = document.createElement('button');
+        membersBtn.className = 'iconBtn';
+        membersBtn.textContent = t('Voir les membres');
+        membersBtn.addEventListener('click', function () {
+          openCommunityMembersModal(a.id, a.name);
+        });
+        actionsWrap.appendChild(membersBtn);
+      }
+
       // Suppression définitive : toujours pour SOI uniquement, jamais pour
       // les autres membres d'une activité partagée (disponible que tu sois
       // propriétaire ou simple membre).
@@ -3473,12 +3427,34 @@
       panel.appendChild(actionsWrap);
       row.appendChild(panel);
 
-      menuBtn.addEventListener('click', function () {
+      menuBtn.addEventListener('click', function (e) {
+        e.stopPropagation(); // sinon le clic sélectionnerait aussi la ligne
         panel.classList.toggle('hidden');
       });
 
+      // Clic sur la ligne (hors "⋮") : ouvre/referme le suivi des autres
+      // membres si l'activité est partagée. Sur une activité solo, il n'y a
+      // personne à suivre — le clic ouvre alors les réglages, pour qu'il ne
+      // reste jamais sans effet.
+      header.addEventListener('click', function () {
+        if (!sharedInfo) { panel.classList.toggle('hidden'); return; }
+        var willSelect = !isSelected;
+        currentCommunityActivityId = willSelect ? String(a.id) : '';
+        loadSettingsActivities();
+        loadActivityDetail(willSelect);
+      });
+      if (sharedInfo) header.classList.add('clickable');
+
       box.appendChild(row);
+
+      // Le détail vient se placer DANS la ligne sélectionnée, donc juste en
+      // dessous d'elle ; sinon il retourne à son ancre, en bas de l'onglet.
+      if (isSelected) { attachActivityDetail(row); detailAttached = true; }
     });
+
+    // Filet de sécurité : le bloc a été détaché en début de rendu, il doit
+    // toujours être rattaché quelque part à la fin.
+    if (!detailAttached) attachActivityDetail(null);
   }
 
   // ===================== INVITATIONS REÇUES =====================

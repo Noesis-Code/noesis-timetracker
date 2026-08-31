@@ -197,7 +197,7 @@
 
     <div id="onbActivities" class="hidden">
       <p class="lead">Crée tes activités</p>
-      <p class="hint">Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Profil.</p>
+      <p class="hint">Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Activité.</p>
       <div id="onbActivityList" class="activitiesList"></div>
       <div class="entryCard">
         <input type="text" id="onbNewActivityName" placeholder="Nom de l'activité">
@@ -238,7 +238,7 @@
       <div id="chronoIdle" class="chronoBlock">
         <p class="stepLabel">Quelle activité ?</p>
         <div id="activityButtons" class="activityGrid"></div>
-        <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Profil.</p>
+        <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Activité.</p>
       </div>
 
       <!-- Historique modifiable des sessions déjà enregistrées : corriger la
@@ -280,33 +280,27 @@
           <!-- Pièces jointes de la note (photo prise à l'appareil, document) —
                demande d'Emilien (29 août 2026). Restent "en attente" côté
                serveur jusqu'au STOP, qui les rattache à la session créée.
-               Rangées derrière un bouton menu (30 août 2026, demande
-               d'Emilien) : le bouton ouvre un petit menu avec les types de
-               pièce jointe disponibles, plutôt que d'afficher chaque option
-               en permanence — même principe que les menus "⋮"/"+"/"⚙️" déjà
-               utilisés ailleurs dans l'app. Icône changée d'une épingle à un
-               trombone (même style simple/traits que les icônes de la barre
-               d'onglets) et déplacée à gauche des boutons d'envoi "en
-               direct", toujours le 30 août 2026, sur demande d'Emilien. -->
+               Le trombone ouvre directement le sélecteur natif du téléphone
+               (photothèque / prendre une photo / choisir un fichier) plutôt
+               qu'un menu Photo/Document intermédiaire — demande d'Emilien du
+               30 août 2026, qui a remplacé un premier passage avec un menu
+               déroulant. Icône trombone (même style simple/traits que les
+               icônes de la barre d'onglets), positionnée à gauche des
+               boutons d'envoi "en direct". -->
           <div id="attachmentList" class="attachmentList"></div>
           <p id="attachmentMsg" class="meta attachmentMsg"></p>
 
           <div class="broadcastRow">
             <div class="attachmentMenuWrap">
-              <button id="attachMenuBtn" type="button" class="menuBtn attachMenuIconBtn" aria-haspopup="true" aria-label="Ajouter une pièce jointe">
+              <button id="attachMenuBtn" type="button" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
               </button>
-              <div id="attachMenu" class="attachmentMenu hidden">
-                <button id="attachPhotoBtn" type="button" class="attachmentMenuItem">📷 Photo</button>
-                <button id="attachDocBtn" type="button" class="attachmentMenuItem">📎 Document</button>
-              </div>
-              <input type="file" id="attachPhotoInput" accept="image/*" capture="environment" class="hidden">
-              <input type="file" id="attachDocInput" class="hidden">
+              <input type="file" id="attachInput" class="hidden">
             </div>
             <button id="broadcastSendMembersBtn" class="iconBtn">Envoyer aux membres</button>
             <button id="broadcastSendCommunityBtn" class="iconBtn">Envoyer à la communauté</button>
           </div>
-          <p id="broadcastHint" class="hint hidden">Cette activité n'est partagée avec personne pour l'instant — choisis "communauté" ou partage-la depuis Profil.</p>
+          <p id="broadcastHint" class="hint hidden">Cette activité n'est partagée avec personne pour l'instant — choisis "communauté" ou partage-la depuis Activité.</p>
           <p id="broadcastMsg" class="meta"></p>
         </div>
 
@@ -315,18 +309,25 @@
         <!-- Récapitulatif avant validation de l'arrêt : remplace le bouton
              STOP le temps de confirmer. Heures de début/fin pré-remplies
              (début = celle du chrono en cours, fin = maintenant) mais
-             modifiables avant d'enregistrer la session. -->
+             modifiables avant d'enregistrer la session. Affiché en message
+             flottant (même principe que #communityMembersModal : fond
+             assombri + carte ancrée en bas d'écran) plutôt qu'inséré dans le
+             flux de la page — demande d'Emilien du 30 août 2026. Le
+             basculement hidden/visible (voir openStopConfirm/closeStopConfirm
+             dans app.js) n'a pas changé, seule la présentation change. -->
         <div id="stopConfirmPanel" class="hidden">
-          <p class="stepLabel">Confirmer l'arrêt</p>
-          <p class="stopFieldLabel">Heure de début</p>
-          <input type="datetime-local" id="stopStartInput" step="1">
-          <p class="stopFieldLabel">Heure de fin</p>
-          <input type="datetime-local" id="stopEndInput" step="1">
-          <p id="stopDurationLabel" class="meta"></p>
-          <p id="stopConfirmMsg" class="msg"></p>
-          <div class="rowActions">
-            <button id="stopCancelBtn" class="iconBtn">Annuler</button>
-            <button id="stopConfirmBtn" class="iconBtn">Valider</button>
+          <div class="stopConfirmCard">
+            <p class="stepLabel">Confirmer l'arrêt</p>
+            <p class="stopFieldLabel">Heure de début</p>
+            <input type="datetime-local" id="stopStartInput" step="1">
+            <p class="stopFieldLabel">Heure de fin</p>
+            <input type="datetime-local" id="stopEndInput" step="1">
+            <p id="stopDurationLabel" class="meta"></p>
+            <p id="stopConfirmMsg" class="msg"></p>
+            <div class="rowActions">
+              <button id="stopCancelBtn" class="iconBtn">Annuler</button>
+              <button id="stopConfirmBtn" class="iconBtn">Valider</button>
+            </div>
           </div>
         </div>
       </div>
@@ -434,41 +435,26 @@
 
     <!-- ---------- ONGLET COMMUNAUTÉ ---------- -->
     <section id="tab-community" class="tab hidden">
-      <!-- "En ce moment" : notes envoyées en direct (bouton "Envoyer" du
-           Chrono) par des membres/abonnés dont le chrono tourne ENCORE —
-           distinct des flux plus bas, qui listent des sessions déjà
-           terminées (time_entries). Toujours visible, indépendamment du
-           sélecteur Communauté/Membres ci-dessous (fusionne les deux
-           audiences). Une note ici disparaît toute seule dès que son auteur
-           clique sur STOP. -->
-      <p class="sectionTitle">En ce moment</p>
-      <p class="hint">Les personnes qui partagent une activité avec toi ou que tu suis, et qui ont un chrono en cours avec une note envoyée en direct.</p>
-      <div id="liveFeed"></div>
-      <p id="liveFeedEmptyHint" class="hint hidden">Personne ne partage de note en direct pour l'instant.</p>
-
-      <!-- Suivre quelqu'un est INDÉPENDANT du partage d'activité plus bas :
-           ça ne donne accès à rien de plus par défaut (voir section Suivi). -->
-      <p class="sectionTitle">Rechercher des membres</p>
+      <!-- Simplifié le 30 août 2026 (demande d'Emilien) : plus de titres de
+           section ni de textes d'intro fixes dans cet onglet — juste la
+           recherche en haut, le suivi en bas. "En ce moment" (notes en
+           direct des membres/abonnés dont le chrono tourne encore,
+           #liveFeed) a été retiré du volet Communauté ; le backend
+           (liveFeedForUser / GET /community/live-feed) reste en place mais
+           n'est plus appelé depuis cet onglet. Le sélecteur
+           "Communauté / Membres" et la section "Membres" avaient déjà
+           déménagé plus tôt dans la journée vers l'onglet "Activité" — voir
+           #tab-activity plus bas. -->
       <div class="entryCard">
         <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo..." autocomplete="off">
         <div id="communitySearchResults" class="activitiesList"></div>
       </div>
 
-      <!-- Le sélecteur "Communauté / Membres" qui vivait ici a été retiré le
-           30 août 2026 (demande d'Emilien) : la partie "Membres" (activités
-           partagées, détail par activité, "Partagée", modale des membres)
-           déménage entièrement dans le nouvel onglet "Activité", fusionnée
-           avec la gestion des activités et les invitations qui venaient de
-           Profil — voir #tab-activity plus bas. Il ne reste ici que le
-           Suivi, donc plus besoin de sélecteur : #communitySectionFeed
-           s'affiche directement. -->
       <div id="communitySectionFeed" class="communitySection">
-        <p class="sectionTitle">Suivi</p>
-        <p class="hint">Les personnes que tu suis, et leurs activités/notes si elles ont activé "Partager mon profil" (Profil &gt; Réglages).</p>
         <div id="followingList" class="activitiesList"></div>
         <p id="followingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant — trouve un membre ci-dessus et clique sur "Suivre".</p>
         <div id="followingFeed"></div>
-        <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session n'a encore été enregistrée.</p>
+        <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session avec une note n'a encore été enregistrée.</p>
       </div>
 
     </section>
@@ -479,9 +465,15 @@
          activités" (déménagée telle quelle depuis Profil, ids inchangés) et
          "Invitations reçues" (déménagée depuis le panneau déroulant de
          notifications de Profil), plus tout ce qui vivait dans la section
-         "Membres" de Communauté (déménagée telle quelle, ids inchangés :
-         liste des activités partagées + détail par activité — discussion,
-         statistiques, graphique — + fil "Partagée" + modale des membres).
+         "Membres" de Communauté (détail par activité — discussion,
+         statistiques, graphique — et modale des membres).
+         Depuis le 30 août 2026 (fin de journée), les deux listes qui
+         coexistaient ici ("Activités" et "Mes activités partagées") n'en
+         font plus qu'une : une activité = une ligne, partagée ou non. Le
+         "⋮" ouvre ses réglages ; cliquer sur la ligne d'une activité
+         PARTAGÉE déplie juste en dessous tout ce qui concerne ses autres
+         membres. Tant qu'aucune activité n'est sélectionnée, l'onglet ne
+         montre rien d'autre que la liste.
          Le Profil lui-même reste un panneau plein écran comme avant, mais
          s'ouvre désormais en cliquant sur le prénom en haut à droite (voir
          #whoami) plutôt que depuis cette barre. -->
@@ -506,14 +498,12 @@
       </div>
       <div id="activitiesList" class="activitiesList"></div>
 
-      <!-- Chaque activité partagée est représentée comme une ligne (même
-           format que les activités ci-dessus : pastille de couleur + nom
-           + "⋮") ; cliquer dessus la sélectionne (mise en évidence) et
-           affiche, juste en dessous, le détail (sessions + notes) de ses
-           AUTRES membres. -->
-      <p class="sectionTitle">Mes activités partagées</p>
-      <p id="communityEmptyHint" class="hint hidden">Aucune activité partagée pour l'instant. Partage une de tes activités ci-dessus (bouton "Partager", par pseudo), ou accepte une invitation reçue, pour la voir apparaître ici.</p>
-      <div id="communityActivities" class="activitiesList"></div>
+      <!-- Ancre du détail : #communityActivityDetail est déplacé DANS la
+           ligne de l'activité sélectionnée (pour s'ouvrir juste en dessous
+           d'elle) et revient ici dès qu'aucune activité n'est sélectionnée —
+           voir attachActivityDetail() dans app.js. Sans cette ancre, le bloc
+           serait détruit au prochain rendu de la liste. -->
+      <div id="activityDetailAnchor"></div>
 
       <div id="communityActivityDetail" class="hidden">
         <!-- Fil de discussion de l'activité sélectionnée : une vraie
@@ -525,7 +515,6 @@
              quand quelqu'un a écrit. -->
         <div id="communityDiscussionBlock" class="discussionBlock">
           <p class="sectionTitle">Discussion <span id="communityDiscussionName" class="meta"></span></p>
-          <p class="hint">Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.</p>
           <div id="communityDiscussionList" class="discussionList"></div>
           <p id="communityDiscussionEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
           <div class="discussionComposer">
@@ -569,7 +558,6 @@
               <button id="caTsFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
             </div>
           </div>
-          <p class="hint">La semaine en cours s'affiche par défaut à chaque sélection de l'activité. Les semaines précédentes restent enregistrées et consultables avec les flèches, sans jamais être perdues.</p>
           <div class="timesheetScroll">
             <div id="caTsGrid" class="timesheetGrid"></div>
           </div>
@@ -601,17 +589,9 @@
         <p id="communityActivityDetailEmptyHint" class="hint hidden">Rien à afficher pour l'instant pour cette activité.</p>
       </div>
 
-      <!-- Distinct du détail par activité ci-dessus : ici, le détail brut
-           des sessions, comme l'historique du Chrono mais pour les
-           co-membres, toutes activités partagées confondues. -->
-      <p class="sectionTitle">Partagée</p>
-      <p class="hint">Les activités et notes des personnes avec qui tu partages déjà une activité — sans rapport avec le suivi.</p>
-      <div id="sharedFeed"></div>
-      <p id="sharedFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant.</p>
-
       <!-- Page (modale) listant tous les membres d'une activité partagée
-           précise, ouverte depuis le menu "⋮" d'une ligne ci-dessus (option
-           "Voir les membres") — un point vert apparaît à côté d'un membre
+           précise, ouverte par "Voir les membres" dans le panneau de
+           réglages d'une activité — un point vert apparaît à côté d'un membre
            si son chrono est ACTUELLEMENT en cours pour CETTE activité
            précise (pas un chrono quelconque sur une autre activité). -->
       <div id="communityMembersModal" class="communityMembersModal hidden">

@@ -103,6 +103,10 @@ function sharedFeedForUser(userId, activityId, limit) {
 // celles qu'elles ne partagent avec personne. Totalement indépendant de
 // sharedFeedForUser ci-dessus : les deux fonctions ne se recoupent que par
 // coïncidence (suivre quelqu'un avec qui on partage aussi une activité).
+// Depuis le 30 août 2026 (demande d'Emilien) : uniquement les sessions avec
+// une note publiée (t.note != '') — une simple session sans note n'a pas sa
+// place dans ce fil, qui n'affiche plus que ce que les personnes suivies ont
+// explicitement choisi de raconter.
 function followingFeedForUser(userId, limit) {
   limit = limit || 100;
   return db.prepare(`
@@ -112,6 +116,7 @@ function followingFeedForUser(userId, limit) {
     JOIN activities a ON a.id = t.activityId
     JOIN users u ON u.id = t.userId
     WHERE u.shareProfile = 1
+      AND t.note IS NOT NULL AND t.note != ''
       AND EXISTS (SELECT 1 FROM follows f WHERE f.followerId = ? AND f.followeeId = t.userId AND f.status = 'accepted')
     ORDER BY t.startTime DESC
     LIMIT ?

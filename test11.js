@@ -8,6 +8,11 @@
 // reçues, elles, sont restées dans le panneau "avion en papier" du Profil
 // (arbitrage d'Emilien du même jour, après un aller-retour).
 //
+// Fin de journée, deuxième passage : les deux listes de l'onglet ("Activités"
+// et "Mes activités partagées") ont fusionné en une seule, l'onglet ne montre
+// plus rien d'autre que cette liste tant qu'aucune activité n'est
+// sélectionnée, et les textes d'aide automatiques ont été retirés.
+//
 // À FAIRE AVANT DE LANCER CE FICHIER (comme test7/test9/test10) :
 //   1. Arrêter le serveur s'il tourne.
 //   2. Supprimer data/noesis.db pour repartir d'une base vide — ce fichier
@@ -95,8 +100,8 @@ async function addOnboardingActivity(page, name) {
   await a.waitForSelector('#tab-community:not(.hidden)');
   check('plus de sélecteur Communauté/Membres',
     await a.evaluate(() => !document.querySelector('#communitySectionSwitch')));
-  check('la liste des activités partagées a quitté Communauté',
-    await a.evaluate(() => !document.querySelector('#tab-community #communityActivities')));
+  check('la liste des activités a quitté Communauté',
+    await a.evaluate(() => !document.querySelector('#tab-community #activitiesList')));
   check('Communauté garde "En ce moment" et la recherche de membres',
     (await a.textContent('#tab-community')).includes('Right now') &&
     await a.isVisible('#communitySearchInput'));
@@ -144,24 +149,66 @@ async function addOnboardingActivity(page, name) {
   await b.click('#profileCloseBtn');
   await b.click('.tabBtn[data-tab="activity"]');
   await b.waitForSelector('#tab-activity:not(.hidden)');
-  await b.waitForFunction(() => document.querySelectorAll('#communityActivities .activityRow').length === 1);
-  check('l\'activité partagée apparaît dans "Mes activités partagées"',
-    (await b.textContent('#communityActivities')).includes('Lecture'));
-  check('les deux activités personnelles sont listées au-dessus',
-    (await b.$$('#activitiesList .activityRow')).length === 2);
+  await b.waitForFunction(() => document.querySelectorAll('#activitiesList .activityRow').length === 2);
+  check('une seule liste : la partagée et la solo y sont ensemble',
+    await b.evaluate(() => !document.querySelector('#communityActivities')));
 
-  await b.click('#communityActivities .activityRow .activityRowName');
+  const sharedRow = '#activitiesList .activityRow:has(.activityRowHeader.clickable)';
+  check('seule l\'activité partagée est cliquable', (await b.$$(sharedRow)).length === 1);
+  check('la ligne cliquable est bien "Lecture"',
+    (await b.textContent(sharedRow + ' .activityRowName')) === 'Lecture');
+
+  // Tant qu'aucune activité n'est choisie : rien d'autre que la liste
+  check('rien d\'autre que la liste tant qu\'aucune activité n\'est choisie',
+    await b.evaluate(() => {
+      var tab = document.querySelector('#tab-activity');
+      var detail = document.querySelector('#communityActivityDetail');
+      return detail.classList.contains('hidden')
+        && !document.querySelector('#sharedFeed')
+        // offsetParent null = pas rendu à l'écran (le bloc parent est masqué)
+        && Array.prototype.every.call(tab.querySelectorAll('p.hint'),
+             function (h) { return h.offsetParent === null; });
+    }));
+
+  await b.click(sharedRow + ' .activityRowHeader .activityRowName');
   await b.waitForSelector('#communityActivityDetail:not(.hidden)');
+  check('le détail s\'ouvre DANS la ligne sélectionnée',
+    await b.evaluate(() => !!document.querySelector('#activitiesList .activityRow.selected #communityActivityDetail')));
   check('le détail contient la discussion et la feuille de temps des membres',
     await b.isVisible('#communityDiscussionBlock') && await b.isVisible('#communityActivityTimesheetBlock'));
 
-  await b.click('#communityActivities .activityRow .menuBtn');
-  await b.click('#communityActivities .activityRowMenuItem');
+  // "Voir les membres" est passé dans le panneau de réglages du "⋮"
+  await b.click('#activitiesList .activityRow.selected .menuBtn');
+  await b.click('#activitiesList .activityRow.selected .rowActions button:has-text("View members")');
   await b.waitForSelector('#communityMembersModal:not(.hidden)');
   const modalTxt = await b.textContent('#communityMembersModalList');
   check('la modale "Voir les membres" liste les deux membres',
     modalTxt.includes('Alpha') && modalTxt.includes('Beta'));
   await b.click('#communityMembersModalClose');
+
+  // Désélection : le détail se referme et retourne à son ancre (il ne doit
+  // jamais être perdu — un nœud détaché n'est plus trouvable par son id).
+  await b.click(sharedRow + ' .activityRowHeader .activityRowName');
+  await b.waitForTimeout(600);
+  check('le détail se referme et retourne à son ancre',
+    await b.evaluate(() => {
+      var d = document.querySelector('#communityActivityDetail');
+      return !!d && d.parentNode.id === 'activityDetailAnchor' && d.classList.contains('hidden');
+    }));
+
+  // Aller-retour d'onglet : le bloc est toujours vivant
+  await b.click('.tabBtn[data-tab="chrono"]');
+  await b.click('.tabBtn[data-tab="activity"]');
+  await b.waitForTimeout(800);
+  await b.click(sharedRow + ' .activityRowHeader .activityRowName');
+  await b.waitForSelector('#communityActivityDetail:not(.hidden)');
+  check('le détail se rouvre après un aller-retour d\'onglet', true);
+
+  // Une activité solo ouvre ses réglages au clic (jamais un clic sans effet)
+  const soloRow = '#activitiesList .activityRow:not(:has(.activityRowHeader.clickable))';
+  await b.click(soloRow + ' .activityRowHeader .activityRowName');
+  check('clic sur une activité solo : ouvre ses réglages',
+    await b.isVisible(soloRow + ' .activitySettingsPanel'));
 
   await browser.close();
   console.log(failures === 0 ? '\nTOUT EST PASSÉ' : '\n' + failures + ' ÉCHEC(S)');

@@ -225,6 +225,7 @@
     'Clique sur une activité partagée pour voir ses membres, leur discussion, leurs statistiques et leurs enregistrements. Le "⋮" ouvre ses réglages.': 'Click a shared activity to see its members, their discussion, their statistics and their sessions. The "⋮" button opens its settings.',
     '{count} membres — clique sur la ligne pour les voir.': '{count} members — click the row to see them.',
     'Ouvrir le profil': 'Open profile',
+    'Invitations et demandes de suivi': 'Invitations and follow requests',
     "Aucune activité partagée pour l'instant. Partage une de tes activités ci-dessus (bouton \"Partager\", par pseudo), ou accepte une invitation reçue, pour la voir apparaître ici.": 'No shared activity yet. Share one of your activities above (the "Share" button, by nickname), or accept an invitation you received, to see it here.',
     "Aucune activité pour l'instant — ajoutes-en une dans Activité.": 'No activities yet — add one in Activity.',
     'Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Activité.': 'Choose the activities you want to track, and a colour for each one. You can add or edit them later in Activity.',
