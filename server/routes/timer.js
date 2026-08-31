@@ -1,20 +1,8 @@
 const express = require('express');
 const db = require('../db');
 const { isoDateOf, dayNameOf, formatElapsed } = require('../lib/dates');
-const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 
 const router = express.Router();
-
-// Pièces jointes encore "en attente" (pas encore rattachées à un
-// enregistrement) pour la session en cours de cet utilisateur — au plus une
-// session en cours par utilisateur (running_timers.userId est la clé
-// primaire), donc userId suffit à les retrouver sans passer par un id de
-// session dédié.
-function pendingAttachmentsFor(userId) {
-  return db.prepare(`SELECT id, fileName, mimeType, sizeBytes, dataUrl, createdAt
-                      FROM note_attachments WHERE userId = ? AND timeEntryId IS NULL
-                      ORDER BY createdAt ASC`).all(userId);
-}
 
 function requireUser(req, res) {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.body.userId || req.query.userId);
@@ -29,10 +17,7 @@ function activityWithColor(activityId, userId) {
   const a = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
   if (!a) return null;
   const membership = db.prepare('SELECT color FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId);
-  // membersCount : sert au client à savoir s'il faut proposer/griser l'audience
-  // "Membres" du bouton "Envoyer une note en direct" (rien à partager en solo).
-  const membersCount = db.prepare('SELECT COUNT(*) AS n FROM activity_members WHERE activityId = ?').get(activityId).n;
-  return { id: a.id, name: a.name, color: membership ? membership.color : '#3498db', requiresNote: !!a.requiresNote, membersCount };
+  return { id: a.id, name: a.name, color: membership ? membership.color : '#3498db', requiresNote: !!a.requiresNote };
 }
 
 // Statut courant (repris à chaque ouverture d'app / retour au premier plan).
@@ -47,9 +32,7 @@ router.get('/timer/status', (req, res) => {
   res.json({
     running: true,
     startTime: running.startTime,
-    note: running.note || '',
     activity: activityWithColor(running.activityId, user.id),
-    attachments: pendingAttachmentsFor(user.id),
   });
 });
 
@@ -76,90 +59,21 @@ router.post('/timer/start', (req, res) => {
   res.json({ alreadyRunning: false, startTime, activity: activityWithColor(activity.id, user.id) });
 });
 
-// Met à jour la note pendant que le chrono tourne (facultatif, peut être
-// rempli progressivement avant le STOP final).
-router.post('/timer/note', (req, res) => {
-  const user = requireUser(req, res);
-  if (!user) return;
-
-  const running = db.prepare('SELECT * FROM running_timers WHERE userId = ?').get(user.id);
-  if (!running) return res.status(400).json({ error: 'Aucun chrono en cours.' });
-
-  db.prepare('UPDATE running_timers SET note = ? WHERE userId = ?').run(req.body.note || '', user.id);
-  res.json({ ok: true });
-});
-
-// Envoie une note "en direct" pendant que le chrono tourne (bouton "Envoyer"
-// du Chrono) — distincte de la note de fin de session ci-dessus : peut être
-// envoyée plusieurs fois pendant une même session en cours, sans jamais
-// toucher à la note qui sera enregistrée au STOP. Visible par les autres
-// membres de l'activité (audience 'members') ou par les abonnés qui suivent
-// ce profil (audience 'community') tant que ce chrono précis tourne encore
-// — voir lib/community.js (liveFeedForUser) pour la lecture côté Communauté.
-router.post('/timer/broadcast', (req, res) => {
-  const user = requireUser(req, res);
-  if (!user) return;
-
-  const running = db.prepare('SELECT * FROM running_timers WHERE userId = ?').get(user.id);
-  if (!running) return res.status(400).json({ error: 'Aucun chrono en cours.' });
-
-  const audience = req.body.audience;
-  if (audience !== 'members' && audience !== 'community') {
-    return res.status(400).json({ error: "Audience invalide (attendu 'members' ou 'community')." });
-  }
-
-  const note = (req.body.note || '').trim();
-  if (!note) return res.status(400).json({ error: 'La note ne peut pas être vide.' });
-
-  if (audience === 'members') {
-    const membersCount = db.prepare('SELECT COUNT(*) AS n FROM activity_members WHERE activityId = ?').get(running.activityId).n;
-    if (membersCount < 2) return res.status(400).json({ error: "Cette activité n'est pas partagée avec d'autres membres." });
-  }
-
-  db.prepare('INSERT INTO activity_broadcasts (activityId, userId, note, audience, createdAt) VALUES (?, ?, ?, ?, ?)')
-    .run(running.activityId, user.id, note, audience, new Date().toISOString());
-
-  res.status(201).json({ message: audience === 'members' ? 'Note envoyée aux membres.' : 'Note envoyée à ta communauté.' });
-});
-
-// Ajoute une pièce jointe (photo prise à l'appareil, document) à la note de
-// la session EN COURS — demande d'Emilien (29 août 2026). Reste "en attente"
-// (timeEntryId NULL) jusqu'au STOP, qui la rattache à l'enregistrement créé
-// à ce moment-là (voir plus bas). Le fichier arrive déjà encodé en data URL
-// côté client (photo redimensionnée par resizeAttachmentPhoto, document lu
-// tel quel) — voir server/lib/attachments.js pour les limites de poids/nombre.
-router.post('/timer/attachments', (req, res) => {
-  const user = requireUser(req, res);
-  if (!user) return;
-
-  const running = db.prepare('SELECT * FROM running_timers WHERE userId = ?').get(user.id);
-  if (!running) return res.status(400).json({ error: 'Aucun chrono en cours.' });
-
-  const count = db.prepare('SELECT COUNT(*) AS n FROM note_attachments WHERE userId = ? AND timeEntryId IS NULL').get(user.id).n;
-  if (count >= MAX_ATTACHMENTS_PER_NOTE) {
-    return res.status(400).json({ error: `Maximum ${MAX_ATTACHMENTS_PER_NOTE} pièces jointes par session.` });
-  }
-
-  const parsed = validateAttachmentPayload(req.body);
-  if (parsed.error) return res.status(400).json({ error: parsed.error });
-
-  const createdAt = new Date().toISOString();
-  const info = db.prepare(`INSERT INTO note_attachments (userId, timeEntryId, fileName, mimeType, sizeBytes, dataUrl, createdAt)
-              VALUES (?, NULL, ?, ?, ?, ?, ?)`)
-    .run(user.id, parsed.fileName, parsed.mimeType, parsed.sizeBytes, parsed.dataUrl, createdAt);
-
-  res.status(201).json({
-    id: info.lastInsertRowid, fileName: parsed.fileName, mimeType: parsed.mimeType,
-    sizeBytes: parsed.sizeBytes, dataUrl: parsed.dataUrl, createdAt,
-  });
-});
-
-// Supprime une pièce jointe, qu'elle soit encore en attente (session en
-// cours) ou déjà rattachée à un enregistrement validé (ajoutée depuis le
-// panneau "Historique", voir server/routes/history.js) — la même table sert
-// aux deux cas, donc une seule route de suppression suffit. Toujours scopée
-// au propriétaire réel de la pièce jointe (sa colonne userId), jamais à
-// l'utilisateur de l'enregistrement si jamais les deux différaient un jour.
+// Supprime une pièce jointe déjà rattachée à un enregistrement validé
+// (ajoutée depuis le panneau "Historique", voir server/routes/history.js).
+// Toujours scopée au propriétaire réel de la pièce jointe (sa colonne
+// userId), jamais à l'utilisateur de l'enregistrement si jamais les deux
+// différaient un jour.
+//
+// La zone "Note" du Chrono (note de session en direct + pièces jointes "en
+// attente" + envoi "en direct" aux membres/à la communauté) a été retirée le
+// 31 août 2026 (demande d'Emilien) — voir la zone Discussion du Profil, qui
+// la remplace (server/routes/profile.js pour la partie "Communauté",
+// /community/activity-messages, déjà existante, pour la partie "Membres").
+// Les pièces jointes "en attente" (timeEntryId NULL) n'existent donc plus :
+// une pièce jointe de session s'ajoute désormais uniquement depuis le
+// panneau "Historique", sur un enregistrement déjà validé — cette route de
+// suppression reste néanmoins générique (elle ne dépend pas de timeEntryId).
 router.delete('/attachments/:id', (req, res) => {
   const attachment = db.prepare('SELECT * FROM note_attachments WHERE id = ?').get(req.params.id);
   if (!attachment) return res.status(404).json({ error: 'Pièce jointe introuvable.' });
@@ -170,11 +84,14 @@ router.delete('/attachments/:id', (req, res) => {
 });
 
 // STOP = enregistre directement la session (l'activité était déjà choisie
-// au démarrage), avec la note telle que remplie. Le client affiche désormais
-// un récapitulatif avant de valider, avec la possibilité de corriger l'heure
-// de début et/ou l'heure de fin — startTime/endTime (ISO) sont donc optionnels
-// dans le corps de la requête et remplacent, si fournis, l'heure de début
-// enregistrée au démarrage / l'heure actuelle du serveur.
+// au démarrage). Le client affiche désormais un récapitulatif avant de
+// valider, avec la possibilité de corriger l'heure de début et/ou l'heure de
+// fin — startTime/endTime (ISO) sont donc optionnels dans le corps de la
+// requête et remplacent, si fournis, l'heure de début enregistrée au
+// démarrage / l'heure actuelle du serveur. `note` reste accepté (optionnel,
+// vide par défaut) pour compatibilité, mais le Chrono ne propose plus de
+// champ pour la remplir depuis le retrait de la zone "Note" le 31 août 2026
+// (demande d'Emilien) — voir la zone Discussion du Profil, qui la remplace.
 router.post('/timer/stop', (req, res) => {
   const user = requireUser(req, res);
   if (!user) return;
@@ -209,12 +126,6 @@ router.post('/timer/stop', (req, res) => {
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(user.id, running.activityId, note.trim(), startTime.toISOString(), stopTime.toISOString(), durationSeconds,
       isoDateOf(startTime), dayNameOf(startTime));
-
-  // Les pièces jointes ajoutées pendant que le chrono tournait (encore "en
-  // attente", timeEntryId NULL) rejoignent l'enregistrement qui vient d'être
-  // créé — voir POST /timer/attachments plus haut.
-  db.prepare('UPDATE note_attachments SET timeEntryId = ? WHERE userId = ? AND timeEntryId IS NULL')
-    .run(info.lastInsertRowid, user.id);
 
   db.prepare('DELETE FROM running_timers WHERE userId = ?').run(user.id);
 

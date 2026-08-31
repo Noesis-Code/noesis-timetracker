@@ -116,6 +116,9 @@
     'Pièce jointe supprimée.': 'Attachment deleted.',
     // Menu "épingle" regroupant les types de pièce jointe (30 août 2026).
     'Ajouter une pièce jointe': 'Add an attachment',
+    // Fil "Communauté" de la zone Discussion du Profil (31 août 2026) — voir
+    // server/routes/profile.js.
+    "Ce n'est pas ton message.": 'This is not your message.',
 
     // ---- Statistiques ----
     'Semaine': 'Week',
@@ -193,11 +196,14 @@
     "Personne ne te suit pour l'instant.": 'No one follows you yet.',
     "Tu ne suis personne pour l'instant.": "You aren't following anyone yet.",
 
-    // ---- Fil de discussion d'une activité partagée (Communauté > Membres) ----
+    // ---- Fil de discussion d'une activité partagée (Communauté > Membres,
+    // et sa réutilisation dans la zone Discussion > Membres du Profil) ----
     'Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.': 'Visible to the members of this activity only. Messages stay, even once the timers are stopped.',
     "Aucun message pour l'instant — écris le premier ci-dessous.": 'No message yet — write the first one below.',
     'Écrire aux membres...': 'Write to the members...',
     'Envoyer': 'Send',
+    // ---- Fil "Communauté" de la zone Discussion du Profil (31 août 2026) ----
+    'Écrire...': 'Write...',
     'Messages non lus': 'Unread messages',
     'Supprimer ce message': 'Delete this message',
     'Supprimer ce message ?': 'Delete this message?',
@@ -215,21 +221,6 @@
     'Invitations reçues': 'Invitations received',
     'Demandes de suivi reçues': 'Follow requests received',
     'Activités': 'Activities',
-    // ---- Onglet Activité (30 août 2026) ----
-    // Clés ajoutées, aucune retirée : deux variantes de l'onglet Activité ont
-    // été écrites en parallèle par deux discussions le même jour, et ce
-    // dictionnaire doit pouvoir servir aux deux tant que l'une des deux n'a
-    // pas été retenue.
-    'Activité': 'Activity',
-    'Mes activités': 'My activities',
-    'Clique sur une activité partagée pour voir ses membres, leur discussion, leurs statistiques et leurs enregistrements. Le "⋮" ouvre ses réglages.': 'Click a shared activity to see its members, their discussion, their statistics and their sessions. The "⋮" button opens its settings.',
-    '{count} membres — clique sur la ligne pour les voir.': '{count} members — click the row to see them.',
-    'Ouvrir le profil': 'Open profile',
-    'Invitations et demandes de suivi': 'Invitations and follow requests',
-    "Aucune activité partagée pour l'instant. Partage une de tes activités ci-dessus (bouton \"Partager\", par pseudo), ou accepte une invitation reçue, pour la voir apparaître ici.": 'No shared activity yet. Share one of your activities above (the "Share" button, by nickname), or accept an invitation you received, to see it here.',
-    "Aucune activité pour l'instant — ajoutes-en une dans Activité.": 'No activities yet — add one in Activity.',
-    'Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Activité.': 'Choose the activities you want to track, and a colour for each one. You can add or edit them later in Activity.',
-    "Cette activité n'est partagée avec personne pour l'instant — choisis \"communauté\" ou partage-la depuis Activité.": 'This activity is not shared with anyone yet — choose "community", or share it from Activity.',
     'Ajouter une activité': 'Add an activity',
     'Nouvelle activité': 'New activity',
     "Ajouter l'activité": 'Add activity',
@@ -254,15 +245,6 @@
     'Importer': 'Import',
     "Choisis un fichier .csv d'abord.": 'Choose a .csv file first.',
     'Import en cours...': 'Importing...',
-
-    // ---- Doublons d'import (30 août 2026) ----
-    'Chercher les doublons': 'Find duplicates',
-    "Un même fichier importé deux fois crée des sessions en double et gonfle toutes tes statistiques. Ce bouton cherche tes doublons exacts (même activité, mêmes heures de début et de fin) et te propose de n'en garder qu'un de chaque.": 'Importing the same file twice creates duplicate sessions and inflates all your statistics. This button looks for your exact duplicates (same activity, same start and end times) and offers to keep only one of each.',
-    'Recherche des doublons...': 'Looking for duplicates...',
-    'Aucun doublon dans ton historique.': 'No duplicate in your history.',
-    'Suppression en cours...': 'Deleting...',
-    '{n} sessions en double trouvées, soit {h} en trop. En supprimer une de chaque paire ? Il te restera {reste} sessions.': '{n} duplicate sessions found, i.e. {h} too many. Delete one of each pair? You will be left with {reste} sessions.',
-    '{n} sessions en double supprimées. Il te reste {reste} sessions.': '{n} duplicate sessions deleted. You now have {reste} sessions.',
     'Format non supporté — choisis une image PNG, JPEG ou WebP.': 'Unsupported format — choose a PNG, JPEG or WebP image.',
     'Image trop lourde (8 Mo max) — choisis-en une autre.': 'Image too large (8 MB max) — choose another one.',
     'Traitement de la photo...': 'Processing the photo...',
@@ -307,23 +289,6 @@
     'Anglais': 'English',
     "Change la langue de toute l'application. Le changement est appliqué immédiatement.": 'Changes the language of the whole app. The change is applied straight away.',
     'Langue mise à jour.': 'Language updated.',
-    // ---- Partage (30 août 2026) ----
-    'Partage': 'Sharing',
-    "Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.": 'Enter the address where the app can be reached from another device. It is stored on this device only, and is used by the two buttons below.',
-    'https://mon-adresse-noesis.fr': 'https://my-noesis-address.com',
-    "Enregistrer l'adresse": 'Save the address',
-    "Partager l'app": 'Share the app',
-    'Partager mon profil': 'Share my profile',
-    'Adresse enregistrée.': 'Address saved.',
-    'Adresse enregistrée. Attention : elle est locale, elle ne fonctionnera que depuis ton réseau.': 'Address saved. Careful: it is a local address, it will only work from your own network.',
-    'Adresse effacée.': 'Address cleared.',
-    'Adresse invalide — elle doit ressembler à https://exemple.fr': 'Invalid address — it should look like https://example.com',
-    "Renseigne d'abord l'adresse publique de l'app ci-dessus.": 'Enter the public address of the app above first.',
-    'Partagé.': 'Shared.',
-    'Copié — tu peux le coller où tu veux.': 'Copied — paste it wherever you like.',
-    'Impossible de copier automatiquement — sélectionne le texte à la main.': 'Could not copy automatically — select the text by hand.',
-    'Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}': 'Noèsis — the shared TimeTracker. Join us here: {url}',
-    "Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.": 'Join me on Noèsis, my shared TimeTracker: {url}\nMy nickname is "{pseudo}" — find me in Community > Find members to follow me.',
     "Le serveur n'a pas pris en compte le changement de langue : il tourne encore sur la version d'avant la mise à jour. Arrête-le (Ctrl+C) et relance `npm start`, puis réessaie.": 'The server did not apply the language change: it is still running the version from before the update. Stop it (Ctrl+C), start it again with `npm start`, then try once more.',
 
     // ---- Suppression de compte (nouveau) ----
@@ -423,6 +388,7 @@
     // Pièces jointes de note (server/lib/attachments.js, server/routes/timer.js)
     [/^Fichier trop lourd \((\d+) Mo max\)\.$/, 'File too large ($1 MB max).'],
     [/^Maximum (\d+) pièces jointes par session\.$/, 'Maximum $1 attachments per session.'],
+    [/^Maximum (\d+) pièces jointes par message\.$/, 'Maximum $1 attachments per message.'],
     [/^Tu as déjà une activité "(.+)"\.$/, 'You already have an activity called "$1".'],
     [/^Tu as déjà une autre activité "(.+)" — renomme-la d'abord si tu veux séparer celle-ci sous le même nom\.$/, 'You already have another activity called "$1" — rename it first if you want to split this one off under the same name.'],
     [/^Aucun profil avec le pseudo "(.+)"\.$/, 'No profile with the nickname "$1".'],
@@ -438,7 +404,6 @@
     [/^Tu as rejoint « (.+) », fusionnée avec ton ancienne activité « (.+) »\.$/, 'You joined "$1", merged with your former activity "$2".'],
     [/^Tu as rejoint « (.+) »\.$/, 'You joined "$1".'],
     [/^Activité enregistrée : (.*)$/, 'Session recorded: $1'],
-    [/^Import terminé : (\d+) ligne\(s\) importée\(s\), (\d+) déjà présente\(s\), (\d+) ignorée\(s\)\.$/, 'Import finished: $1 row(s) imported, $2 already there, $3 skipped.'],
     [/^Import terminé : (\d+) ligne\(s\) importée\(s\), (\d+) ignorée\(s\)\.$/, 'Import finished: $1 row(s) imported, $2 skipped.'],
     [/^"(.+)" existe déjà\. Choisis un autre nom, ou récupère ton profil si c'est toi\.$/, '"$1" already exists. Pick another name, or restore your profile if that is you.'],
     [/^"(.+)" est déjà pris par un autre profil\.$/, '"$1" is already taken by another profile.'],

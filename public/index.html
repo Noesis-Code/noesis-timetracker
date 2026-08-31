@@ -255,17 +255,7 @@
           <div id="followRequestsList" class="activitiesList"></div>
         </div>
       </div>
-      <!-- L'emoji "⚙️" a été remplacé par un SVG (31 août 2026, demande
-           d'Emilien) : un emoji porte sa propre couleur figée (impossible à
-           teinter en violet via CSS), contrairement à un SVG en
-           stroke="currentColor", qui hérite de la couleur définie plus bas
-           dans styles.css (#profileSettingsBtn { color: var(--purple) }). -->
-      <button id="profileSettingsBtn" class="menuBtn notifBtn" title="Réglages" aria-label="Réglages">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </button>
+      <button id="profileSettingsBtn" class="menuBtn" title="Réglages" aria-label="Réglages">⚙️</button>
       <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
         <span id="whoamiName"></span>
         <!-- Redondant avec le point rouge du bouton "avion en papier"
@@ -287,43 +277,41 @@
         <p id="noActivitiesHint" class="hint hidden">Aucune activité pour l'instant — ajoutes-en une dans Activité.</p>
       </div>
 
+      <!-- Historique modifiable des sessions déjà enregistrées : corriger la
+           date/l'heure d'un enregistrement validé, ou le supprimer. Fonction
+           volontairement séparée de "Mes notes" dans Profil (qui ne permet
+           que de supprimer entièrement une session, pas de modifier ses
+           heures) — demande explicite d'Emilien du 29 août 2026. Repliée par
+           défaut, s'ouvre sur la semaine en cours à chaque ouverture de
+           l'onglet Chrono. Rapprochée de la grille d'activités et rendue
+           dépliable au clic sur toute la ligne d'en-tête, pas seulement sur
+           la petite flèche (demande d'Emilien du 30 août 2026). -->
+      <div id="chronoHistorySection">
+        <div class="sectionTitleRow historyHeaderClickable" id="chronoHistoryHeader">
+          <p class="sectionTitle">Historique</p>
+          <button id="historyToggleBtn" type="button" class="menuBtn" title="Afficher l'historique" aria-label="Afficher l'historique" tabindex="-1">▾</button>
+        </div>
+        <div id="chronoHistoryPanel" class="hidden">
+          <div class="historyNav">
+            <button id="historyPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
+            <span id="historyWeekLabel" class="meta"></span>
+            <button id="historyNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
+          </div>
+          <div id="historyList"></div>
+          <p id="historyEmptyHint" class="hint hidden">Aucun enregistrement sur cette semaine.</p>
+        </div>
+      </div>
+
       <div id="chronoRunning" class="chronoBlock hidden">
         <p class="runningActivityLabel" id="runningActivityLabel"></p>
         <div id="liveTimer">00:00:00</div>
-        <!-- Section de note unique pendant le chrono : le même champ sert à
-             la fois de brouillon privé (repris dans l'historique au STOP) et
-             de source pour un envoi "en direct" optionnel aux membres de
-             l'activité ou à la communauté. -->
-        <div id="noteWrapper">
-          <p class="stepLabel">Note</p>
-          <textarea id="noteText" placeholder="Précision sur cette session..."></textarea>
-
-          <!-- Pièces jointes de la note (photo prise à l'appareil, document) —
-               demande d'Emilien (29 août 2026). Restent "en attente" côté
-               serveur jusqu'au STOP, qui les rattache à la session créée.
-               Le trombone ouvre directement le sélecteur natif du téléphone
-               (photothèque / prendre une photo / choisir un fichier) plutôt
-               qu'un menu Photo/Document intermédiaire — demande d'Emilien du
-               30 août 2026, qui a remplacé un premier passage avec un menu
-               déroulant. Icône trombone (même style simple/traits que les
-               icônes de la barre d'onglets), positionnée à gauche des
-               boutons d'envoi "en direct". -->
-          <div id="attachmentList" class="attachmentList"></div>
-          <p id="attachmentMsg" class="meta attachmentMsg"></p>
-
-          <div class="broadcastRow">
-            <div class="attachmentMenuWrap">
-              <button id="attachMenuBtn" type="button" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              </button>
-              <input type="file" id="attachInput" class="hidden">
-            </div>
-            <button id="broadcastSendMembersBtn" class="iconBtn">Envoyer aux membres</button>
-            <button id="broadcastSendCommunityBtn" class="iconBtn">Envoyer à la communauté</button>
-          </div>
-          <p id="broadcastHint" class="hint hidden">Cette activité n'est partagée avec personne pour l'instant — choisis "communauté" ou partage-la depuis Activité.</p>
-          <p id="broadcastMsg" class="meta"></p>
-        </div>
+        <!-- La zone "Note" (brouillon de session + pièces jointes "en
+             attente" + envoi "en direct" aux membres/à la communauté) a été
+             retirée le 31 août 2026 (demande d'Emilien : « ajouter une zone
+             de discussion sur le profil [...] et retirer la zone note dans
+             chrono ») — voir la zone Discussion de l'onglet Profil
+             (#profileDiscussionBlock), qui reprend les mêmes fonctions,
+             disponible à tout moment, sans dépendre d'un chrono en cours. -->
 
         <button id="stopBtn" class="chronoBtn chronoBtn-stop">STOP</button>
 
@@ -366,47 +354,7 @@
         </div>
       </div>
 
-      <!-- Accès à l'historique modifiable des sessions déjà enregistrées :
-           corriger la date/l'heure d'un enregistrement validé, ou le
-           supprimer. Fonction volontairement séparée de "Mes notes" dans
-           Profil (qui ne permet que de supprimer entièrement une session,
-           pas de modifier ses heures) — demande explicite d'Emilien du 29
-           août 2026. Repositionné en bas du chronomètre (après la grille
-           d'activités ET le chrono en cours, plutôt qu'entre les deux) et
-           transformé en un simple lien de navigation : plus de flèche ni de
-           panneau qui se déplie sur place, "Historique" est lui-même le
-           bouton, et cliquer dessus ouvre une page à part entière
-           (#tab-chronoHistory, ci-dessous, en dehors de cette section) —
-           demande d'Emilien du 31 août 2026. Cette page est un panneau plein
-           écran comme #tab-profile : pas de flèche de retour dédiée, elle se
-           quitte en tapant n'importe quel onglet de la barre du bas (même
-           convention que Profil, qui a perdu sa propre flèche de retour plus
-           tôt le même jour à la demande d'Emilien). -->
-      <div class="sectionTitleRow historyHeaderClickable" id="chronoHistoryHeader">
-        <p class="sectionTitle">Historique</p>
-      </div>
-
       <p id="chronoStatus" class="msg"></p>
-    </section>
-
-    <!-- ---------- PAGE HISTORIQUE (Chrono) ---------- -->
-    <!-- Ouverte en cliquant sur "Historique" dans #tab-chrono ci-dessus (voir
-         openChronoHistory() dans app.js) — même mécanique que #tab-profile
-         (panneau plein écran, hors de la barre du bas, fermé en tapant
-         n'importe quel autre onglet). Contenu inchangé par rapport à
-         l'ancien panneau déroulant : navigation par semaine, liste
-         modifiable, message si la semaine est vide. -->
-    <section id="tab-chronoHistory" class="tab hidden">
-      <div class="sectionTitleRow">
-        <p class="sectionTitle">Historique</p>
-      </div>
-      <div class="historyNav">
-        <button id="historyPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
-        <span id="historyWeekLabel" class="meta"></span>
-        <button id="historyNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
-      </div>
-      <div id="historyList"></div>
-      <p id="historyEmptyHint" class="hint hidden">Aucun enregistrement sur cette semaine.</p>
     </section>
 
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
@@ -482,20 +430,16 @@
            remplir l'espace disponible au lieu de rester à 180px fixes
            (29 août 2026, suite demande Emilien). Le menu "⋮" (période) n'est
            visible qu'en plein écran, comme pour la Feuille de temps
-           ci-dessus (30 août 2026, demande d'Emilien). Période "Semaine"
-           retirée, "Total" ajoutée (31 août 2026, demande d'Emilien : "un
-           fini qui ressemble à TradingView" — Mois par défaut désormais,
-           voir currentChartPeriod dans app.js ; Total = totalRangeForUser
-           dans server/lib/stats.js). -->
+           ci-dessus (30 août 2026, demande d'Emilien). -->
       <div id="statsChartBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
           <div class="statsPeriodMenuWrap fullscreenOnly" id="chartPeriodWrap">
             <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
             <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
-              <button type="button" class="statsPeriodMenuItem active" data-period="month">Mois</button>
+              <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
               <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
-              <button type="button" class="statsPeriodMenuItem" data-period="total">Total</button>
             </div>
           </div>
           <button id="chartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
@@ -522,18 +466,15 @@
            n'est plus appelé depuis cet onglet. Le sélecteur
            "Communauté / Membres" et la section "Membres" avaient déjà
            déménagé plus tôt dans la journée vers l'onglet "Activité" — voir
-           #tab-activity plus bas.
-           Déménagé le 31 août 2026 (demande d'Emilien) : la liste des noms
-           des membres suivis (#followingList / bouton "Se désabonner")
-           a quitté cet onglet et vit maintenant dans Réglages > Abonnés
-           & Abonnements (#settingsFollowingList, voir #profileSettingsPanel
-           plus bas). Seul le flux d'activité (#followingFeed) reste ici. -->
+           #tab-activity plus bas. -->
       <div class="entryCard">
         <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo..." autocomplete="off">
         <div id="communitySearchResults" class="activitiesList"></div>
       </div>
 
       <div id="communitySectionFeed" class="communitySection">
+        <div id="followingList" class="activitiesList"></div>
+        <p id="followingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant — trouve un membre ci-dessus et clique sur "Suivre".</p>
         <div id="followingFeed"></div>
         <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session avec une note n'a encore été enregistrée.</p>
       </div>
@@ -733,21 +674,61 @@
         </div>
         <p id="avatarMsg" class="msg"></p>
 
+        <!-- Zone de discussion (31 août 2026, demande d'Emilien) : remplace
+             la zone "Note" du Chrono, retirée le même jour (voir
+             #tab-chrono plus haut). Disponible à tout moment, indépendamment
+             d'un chrono en cours. Deux sous-parties, choisies par
+             #profileDiscussionSwitch ci-dessous :
+             - "Communauté" (#profileDiscussionCommunityBlock) : un fil
+               personnel (nouvelles tables profile_posts /
+               profile_post_attachments, server/routes/profile.js). Remplace
+               le bouton "Envoyer à la communauté" de l'ancienne zone Note —
+               dont le seul affichage ("En ce moment" de Communauté) avait
+               déjà été retiré le 30 août 2026 : comme lui, ce fil n'est pour
+               l'instant lu que par son auteur (voir le commentaire sur
+               profile_posts dans server/db.js). Chaque message peut recevoir
+               une pièce jointe une fois envoyé (même trombone que le panneau
+               "Historique" du Chrono, voir buildChronoHistoryEntry dans
+               app.js).
+             - "Membres" (#profileDiscussionMembersBlock) : réutilise TEL
+               QUEL le fil de discussion d'une activité partagée déjà
+               existant (table activity_messages, routes
+               /api/community/activity-messages, déjà utilisées par l'onglet
+               Activité) — un sélecteur d'activité en plus, puisqu'il n'y a
+               pas d'activité "déjà sélectionnée" comme dans Activité. Même
+               absence de pièce jointe que ce fil d'origine. -->
+        <div id="profileDiscussionBlock" class="discussionBlock">
+          <p class="sectionTitle">Discussion</p>
+          <div class="periodSwitch" id="profileDiscussionSwitch">
+            <button type="button" data-discussion-audience="community" class="periodBtn active">Communauté</button>
+            <button type="button" data-discussion-audience="members" class="periodBtn">Membres</button>
+          </div>
 
-        <!-- Abonnés & Abonnements — déplacé du panneau ⚙️ vers la page Profil
-             le 31 août 2026 (demande d'Emilien) : c'est une information de
-             profil, pas un réglage. Contenu et identifiants inchangés
-             (#settingsFollowersList / #settingsFollowingList), seul
-             l'emplacement change ; le chargement passe de showProfileSettings()
-             à showProfileMain() dans app.js. -->
-        <p class="sectionTitle">Abonnés &amp; Abonnements</p>
-        <div class="settingsCard">
-          <p class="hint">Abonnés</p>
-          <div id="settingsFollowersList" class="activitiesList"></div>
-          <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
-          <p class="hint">Abonnements</p>
-          <div id="settingsFollowingList" class="activitiesList"></div>
-          <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+          <div id="profileDiscussionCommunityBlock">
+            <div id="profileDiscussionCommunityList" class="discussionList"></div>
+            <p id="profileDiscussionCommunityEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
+            <div class="discussionComposer">
+              <textarea id="profileDiscussionCommunityInput" rows="2" maxlength="2000" placeholder="Écrire..."></textarea>
+              <div class="rowActions">
+                <button type="button" id="profileDiscussionCommunitySendBtn" class="iconBtn">Envoyer</button>
+              </div>
+              <p id="profileDiscussionCommunityMsg" class="msg"></p>
+            </div>
+          </div>
+
+          <div id="profileDiscussionMembersBlock" class="hidden">
+            <select id="profileDiscussionActivitySelect"></select>
+            <p id="profileDiscussionActivityEmptyHint" class="hint hidden">Aucune activité partagée pour l'instant. Partage une de tes activités depuis Profil (bouton "Partager", par pseudo), ou accepte une invitation reçue, pour la voir apparaître ici.</p>
+            <div id="profileDiscussionMembersList" class="discussionList hidden"></div>
+            <p id="profileDiscussionMembersEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
+            <div id="profileDiscussionMembersComposer" class="discussionComposer hidden">
+              <textarea id="profileDiscussionMembersInput" rows="2" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
+              <div class="rowActions">
+                <button type="button" id="profileDiscussionMembersSendBtn" class="iconBtn">Envoyer</button>
+              </div>
+              <p id="profileDiscussionMembersMsg" class="msg"></p>
+            </div>
+          </div>
         </div>
 
         <p class="sectionTitle">Mes notes</p>
@@ -767,21 +748,8 @@
           <p class="sectionTitle subpageTitle">Réglages</p>
           <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
         </div>
-        <!-- Menu des Réglages (31 août 2026, demande d'Emilien) : le panneau
-             n'affiche plus toutes les sections déroulées les unes sous les
-             autres, mais la liste de leurs titres. Cliquer un titre déplie sa
-             section juste en dessous et referme les autres — un seul clic pour
-             passer de l'une à l'autre. Le titre reste un .sectionTitle, porté
-             par un span et non un p, pour rester valide à l'intérieur du bouton :
-             la traduction automatique du DOM continue donc de le reconnaître. -->
 
-
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Identité</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
+        <p class="sectionTitle">Identité</p>
         <div class="settingsCard">
           <!-- La photo de profil ne se modifie plus ici depuis le 29 août
                2026 : elle s'édite directement en cliquant sur l'avatar de la
@@ -794,16 +762,24 @@
           <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
           <p id="settingsMsg" class="msg"></p>
         </div>
-          </div>
+
+        <!-- Abonnés & Abonnements (30 août 2026, demande d'Emilien) : liste en
+             lecture seule des noms, distincte de "Mes abonnements" dans
+             Communauté (qui reste, elle, actionnable — bouton "Se
+             désabonner"). Aucune action ici : on ne peut pas retirer un
+             abonné (seul lui peut se désabonner), et se désabonner de
+             quelqu'un se fait déjà depuis Communauté. -->
+        <p class="sectionTitle">Abonnés &amp; Abonnements</p>
+        <div class="settingsCard">
+          <p class="hint">Abonnés</p>
+          <div id="settingsFollowersList" class="activitiesList"></div>
+          <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
+          <p class="hint">Abonnements</p>
+          <div id="settingsFollowingList" class="activitiesList"></div>
+          <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
         </div>
 
-
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Apparence</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
+        <p class="sectionTitle">Apparence</p>
         <div class="settingsCard">
           <div class="themeSwitch" id="themeSwitch">
             <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
@@ -812,9 +788,6 @@
           <p class="hint">Le mode sombre est activé par défaut. Changer de mode adapte automatiquement les couleurs de tes activités si besoin.</p>
           <p id="themeMsg" class="msg"></p>
         </div>
-          </div>
-        </div>
-
 
         <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
              Réglage par profil, comme le thème : anglais par défaut pour
@@ -823,12 +796,7 @@
              classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
              (composants génériques appartenant à la discussion Design :
              utilisés tels quels, aucune définition CSS modifiée). -->
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Langue</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
+        <p class="sectionTitle">Langue</p>
         <div class="settingsCard">
           <div class="themeSwitch" id="langSwitch">
             <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
@@ -837,16 +805,8 @@
           <p class="hint">Change la langue de toute l'application. Le changement est appliqué immédiatement.</p>
           <p id="langMsg" class="msg"></p>
         </div>
-          </div>
-        </div>
 
-
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Sécurité</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
+        <p class="sectionTitle">Sécurité</p>
         <div class="settingsCard">
           <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
           <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
@@ -854,16 +814,8 @@
           <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
           <p id="settingsPinMsg" class="msg"></p>
         </div>
-          </div>
-        </div>
 
-
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Importer l'historique existant</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
+        <p class="sectionTitle">Importer l'historique existant</p>
         <div class="entryCard">
           <p class="hint">Depuis Google Sheets : onglet « Historique » → Fichier → Télécharger → Valeurs séparées par une virgule (.csv), puis choisis le fichier ici.</p>
           <input type="file" id="importFile" accept=".csv,text/csv">
@@ -882,9 +834,6 @@
           </div>
           <p id="dedupeMsg" class="msg"></p>
         </div>
-          </div>
-        </div>
-
 
         <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
              quelqu'un, ou s'inviter soi-même en donnant son pseudo.
@@ -898,12 +847,7 @@
              type="text" + inputmode="url" (et non type="url") pour hériter
              de la mise en forme existante de .settingsCard sans toucher au
              CSS générique, qui appartient à Design. -->
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Partage</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
+        <p class="sectionTitle">Partage</p>
         <div class="settingsCard">
           <p class="hint">Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.</p>
           <input type="text" inputmode="url" id="shareUrlInput" placeholder="https://mon-adresse-noesis.fr" autocomplete="off">
@@ -914,9 +858,6 @@
           </div>
           <p id="shareMsg" class="msg"></p>
         </div>
-          </div>
-        </div>
-
 
         <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
              2026, demande d'Emilien) : suppression définitive du compte,
@@ -926,19 +867,12 @@
              personnes continuent d'exister pour elles — c'est exactement la
              même règle que "Supprimer définitivement" sur une activité :
              on part, les autres restent. -->
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Supprimer mon compte</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
+        <p class="sectionTitle">Supprimer mon compte</p>
         <div class="settingsCard">
           <p class="hint">Cette action est définitive : ton profil, ton historique, tes notes, tes invitations et tes abonnements sont supprimés. Les activités que tu partages avec d'autres personnes continuent d'exister pour elles.</p>
           <input type="password" inputmode="numeric" pattern="[0-9]*" id="deleteAccountPin" placeholder="Saisis ton code pour confirmer" maxlength="6" autocomplete="off">
           <button id="deleteAccountBtn" class="iconBtn danger">Supprimer définitivement mon compte</button>
           <p id="deleteAccountMsg" class="msg"></p>
-        </div>
-          </div>
         </div>
       </div>
     </section>

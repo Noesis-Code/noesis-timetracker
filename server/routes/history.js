@@ -109,9 +109,11 @@ router.put('/history/:id', (req, res) => {
 });
 
 // Ajoute une pièce jointe directement sur un enregistrement déjà validé,
-// depuis le panneau "Historique" du Chrono (contrairement à
-// POST /timer/attachments dans timer.js, réservée à la session encore en
-// cours) — même table note_attachments, mêmes limites (server/lib/attachments.js).
+// depuis le panneau "Historique" du Chrono — même table note_attachments,
+// mêmes limites (server/lib/attachments.js). Seule route qui écrive encore
+// dans note_attachments depuis le 31 août 2026 (POST /timer/attachments,
+// réservée à la session encore en cours, a été retirée avec toute l'ancienne
+// zone "Note" du Chrono — voir server/routes/timer.js).
 router.post('/history/:id/attachments', (req, res) => {
   const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(req.params.id);
   if (!entry) return res.status(404).json({ error: 'Enregistrement introuvable.' });

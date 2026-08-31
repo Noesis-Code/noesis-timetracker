@@ -170,20 +170,26 @@ CREATE INDEX IF NOT EXISTS idx_follows_followee_status ON follows(followeeId, st
 CREATE INDEX IF NOT EXISTS idx_follows_follower_status ON follows(followerId, status);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_follow_pending ON follows(followerId, followeeId) WHERE status = 'pending';
 
--- Note envoyée "en direct" pendant qu'un chrono tourne (bouton "Envoyer" du
--- Chrono, voir POST /timer/broadcast) — INDÉPENDANT de la note de fin de
--- session dans time_entries : peut être envoyée plusieurs fois pendant une
--- même session, sans jamais toucher à la note enregistrée au STOP. Pas de
--- lien vers time_entries (la session n'est pas forcément terminée au moment
--- de l'envoi) : "en direct" est déduit à la LECTURE en vérifiant que
--- l'auteur a toujours un chrono en cours sur cette même activité (jointure
--- sur running_timers, voir lib/community.js : liveFeedForUser) — une fois
--- STOP cliqué, la ligne running_timers disparaît et la note s'efface toute
--- seule du flux "en direct" (elle reste en base, juste plus "live").
+-- Note envoyée "en direct" pendant qu'un chrono tournait (bouton "Envoyer"
+-- de l'ancienne zone "Note" du Chrono) — INDÉPENDANT de la note de fin de
+-- session dans time_entries : pouvait être envoyée plusieurs fois pendant
+-- une même session, sans jamais toucher à la note enregistrée au STOP. Pas
+-- de lien vers time_entries (la session n'était pas forcément terminée au
+-- moment de l'envoi) : "en direct" était déduit à la LECTURE en vérifiant
+-- que l'auteur avait toujours un chrono en cours sur cette même activité
+-- (jointure sur running_timers, voir lib/community.js : liveFeedForUser).
 -- audience : 'members' (visible aux autres membres de l'activité partagée,
 -- comme sharedFeedForUser) ou 'community' (visible aux abonnés qui suivent
 -- ce profil, comme followingFeedForUser) — validé côté route, pas de CHECK
 -- SQL, même convention que la colonne "status" des tables ci-dessus.
+--
+-- ORPHELINE depuis le 31 août 2026 : la zone "Note" du Chrono qui l'écrivait
+-- a été retirée (demande d'Emilien, remplacée par la zone Discussion du
+-- Profil — voir profile_posts plus bas pour la sous-partie "Communauté" et
+-- activity_messages pour la sous-partie "Membres"), et son seul lecteur
+-- ("En ce moment" de Communauté) avait déjà été retiré le 30 août 2026. Plus
+-- aucune route ne lit ni n'écrit cette table — laissée telle quelle
+-- (données existantes non supprimées), candidate à un nettoyage ultérieur.
 CREATE TABLE IF NOT EXISTS activity_broadcasts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
@@ -195,14 +201,14 @@ CREATE TABLE IF NOT EXISTS activity_broadcasts (
 CREATE INDEX IF NOT EXISTS idx_broadcasts_activity_user ON activity_broadcasts(activityId, userId, createdAt);
 
 -- Pièce jointe (photo prise à l'appareil, document) rattachée à la note
--- d'une session — soit ajoutée pendant que le chrono tourne (timeEntryId
--- encore NULL : "en attente", au plus une session en cours par utilisateur
--- donc userId suffit à les retrouver, voir GET /timer/status et
--- POST /timer/attachments dans server/routes/timer.js), soit ajoutée
--- directement sur un enregistrement déjà validé depuis le panneau
--- "Historique" (POST /history/:id/attachments dans server/routes/history.js).
--- Au STOP, les pièces jointes encore en attente sont rattachées à la session
--- qui vient d'être créée (UPDATE ... SET timeEntryId, voir POST /timer/stop).
+-- d'une session déjà validée, ajoutée depuis le panneau "Historique" du
+-- Chrono ou depuis "Mes notes" dans Profil (POST /history/:id/attachments
+-- dans server/routes/history.js). timeEntryId reste nullable pour raison
+-- historique — elle servait aussi, jusqu'au 31 août 2026, à un état "en
+-- attente" (NULL) pendant qu'un chrono tournait, avant que la zone "Note" du
+-- Chrono qui produisait ce cas ne soit retirée (voir POST /timer/attachments
+-- et la ré-attache au STOP, retirés de server/routes/timer.js) : plus aucune
+-- route n'insère de ligne avec timeEntryId NULL désormais.
 -- Stockées directement en base sous forme de data URL (base64), même
 -- convention que l'avatar de profil (colonne users.avatar plus haut) — pas
 -- de fichier séparé ni de service externe, cohérent avec le reste de l'app.
@@ -256,6 +262,47 @@ CREATE TABLE IF NOT EXISTS activity_message_reads (
   lastReadAt TEXT NOT NULL,
   PRIMARY KEY (activityId, userId)
 );
+
+-- Fil "Communauté" de la zone Discussion de l'onglet Profil (31 août 2026,
+-- demande d'Emilien) : remplace le bouton "Envoyer à la communauté" de
+-- l'ancienne zone "Note" du Chrono, retirée le même jour avec tout le reste
+-- de cette zone (voir #noteWrapper, activity_broadcasts ci-dessus et
+-- POST /timer/note, /timer/broadcast, /timer/attachments dans
+-- server/routes/timer.js — tous retirés). Volontairement indépendant d'un
+-- chrono en cours (contrairement à activity_broadcasts) : userId suffit,
+-- pas d'activityId, on écrit à tout moment. Comme l'ancien
+-- activity_broadcasts en audience 'community', personne d'autre que l'auteur
+-- ne lit ces messages ailleurs dans l'app pour l'instant (il n'existe pas de
+-- flux "communauté" côté abonnés) : c'est donc, comme l'était déjà en
+-- pratique "Envoyer à la communauté" depuis le retrait de "En ce moment" de
+-- Communauté le 30 août 2026, un journal personnel consultable depuis
+-- Profil plutôt qu'une vraie diffusion.
+CREATE TABLE IF NOT EXISTS profile_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_profile_posts_user ON profile_posts(userId, createdAt);
+
+-- Pièce jointe (photo, document) d'un message de profile_posts — même
+-- principe que note_attachments (voir POST /history/:id/attachments dans
+-- server/routes/history.js), mais table dédiée : note_attachments est
+-- structurellement liée à une session (timeEntryId), pas à un message de
+-- Profil. Toujours ajoutée sur un message déjà envoyé (pas de statut "en
+-- attente" ici, contrairement à l'ancien note_attachments.timeEntryId NULL
+-- pendant le chrono) : un message de profile_posts existe dès l'envoi, rien
+-- n'empêche d'y attacher une pièce jointe juste après.
+CREATE TABLE IF NOT EXISTS profile_post_attachments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  postId INTEGER NOT NULL REFERENCES profile_posts(id) ON DELETE CASCADE,
+  fileName TEXT NOT NULL,
+  mimeType TEXT NOT NULL,
+  sizeBytes INTEGER NOT NULL,
+  dataUrl TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_profile_post_attachments_post ON profile_post_attachments(postId);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================

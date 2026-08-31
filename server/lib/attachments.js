@@ -1,9 +1,12 @@
-// Validation partagée pour les pièces jointes de note (photo, document) —
-// utilisée à la fois par server/routes/timer.js (ajout pendant le chrono en
-// cours) et server/routes/history.js (ajout sur un enregistrement déjà
-// validé, depuis le panneau "Historique"). Les deux fichiers restent
-// propriété de la discussion Chrono ; ce petit fichier partagé évite de
-// dupliquer les mêmes règles à deux endroits.
+// Validation partagée pour les pièces jointes (photo, document) — utilisée
+// par server/routes/history.js (ajout sur un enregistrement déjà validé,
+// depuis le panneau "Historique" du Chrono) et, depuis le 31 août 2026, par
+// server/routes/profile.js (pièces jointes des messages "Communauté" de la
+// zone Discussion du Profil). N'est plus utilisée par server/routes/timer.js
+// depuis le retrait de l'ancienne zone "Note" du Chrono (POST
+// /timer/attachments, qui gérait les pièces jointes "en attente" pendant
+// qu'un chrono tournait, a été retiré le même jour). Ce petit fichier
+// partagé évite de dupliquer les mêmes règles à plusieurs endroits.
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024; // 5 Mo décodés par fichier
 const MAX_ATTACHMENTS_PER_NOTE = 4; // par session (en cours ou déjà validée)

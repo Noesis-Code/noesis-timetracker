@@ -124,8 +124,13 @@ function followingFeedForUser(userId, limit) {
 }
 
 // Flux "En ce moment" : notes envoyées EN DIRECT pendant qu'un chrono tourne
-// encore (voir POST /timer/broadcast dans routes/timer.js) — jamais depuis
-// time_entries (une session pas forcément terminée). Fusionne deux origines
+// encore — jamais depuis time_entries (une session pas forcément terminée).
+// ORPHELIN depuis le 31 août 2026 (débordement Profil, signalé dans
+// chantiers-en-cours.md) : la route qui écrivait activity_broadcasts
+// (POST /timer/broadcast) a été retirée avec toute l'ancienne zone "Note"
+// du Chrono — cette fonction continue de fonctionner techniquement mais ne
+// lira plus jamais rien de neuf, la table ne recevant plus d'écriture.
+// Fusionne deux origines
 // dans un seul flux chronologique : les notes 'members' des activités que je
 // partage actuellement (même principe que sharedFeedForUser ci-dessus), et
 // les notes 'community' des personnes que je suis avec shareProfile activé

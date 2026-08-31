@@ -3,10 +3,16 @@ const { randomUUID } = require('node:crypto');
 const db = require('../db');
 const { makePinRecord, verifyPinRecord, isValidPinFormat, isLocked, registerFailure, registerSuccess } = require('../lib/auth');
 const { isInPalette, pairedColor } = require('../lib/theme');
+const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 
 const router = express.Router();
 
 const PALETTE = ['#4CAF50', '#3498db', '#E74C3C', '#F39C12', '#9B59B6', '#1ABC9C', '#E67E22', '#674EA7'];
+
+// Longueur maximale d'un message du fil "Communauté" de Profil — même limite
+// que le fil de discussion d'une activité partagée (voir MAX_MESSAGE_LENGTH
+// dans server/routes/community.js).
+const MAX_POST_LENGTH = 2000;
 
 // Validation volontairement légère (format uniquement) : pas de vérification
 // réelle (aucun SMS/email de confirmation envoyé) — juste de quoi filtrer
@@ -77,6 +83,38 @@ router.post('/profile', (req, res) => {
   db.prepare('INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)')
     .run(id, name, lastName, phone, email, color, createdAt, makePinRecord(pin), 'dark', lang);
   res.status(201).json({ id, name, lastName, phone, email, color, createdAt, theme: 'dark', lang, shareProfile: true, avatar: null });
+});
+
+// ---------- Fil "Communauté" de la zone Discussion de Profil ----------
+// Voir le commentaire sur la table profile_posts dans server/db.js : scopé
+// au seul profil courant, remplace le bouton "Envoyer à la communauté" de
+// l'ancienne zone "Note" du Chrono (retirée le 31 août 2026, avec tout le
+// reste de cette zone — voir server/routes/timer.js).
+//
+// IMPORTANT : cette route DOIT rester déclarée avant GET /profile/:id
+// ci-dessous — sinon Express matcherait "/profile/posts" contre ":id" (avec
+// id = "posts") et cette route ne serait jamais atteinte. Les autres routes
+// /profile/posts... (POST, DELETE, pièces jointes) n'ont pas ce problème :
+// leur nombre de segments d'URL diffère de celui des routes /profile/:id
+// existantes, donc l'ordre ne compte pas pour elles — laissées à la fin du
+// fichier avec le reste de ce chantier, par lisibilité.
+function postAttachmentsFor(postId) {
+  return db.prepare(`SELECT id, fileName, mimeType, sizeBytes, dataUrl, createdAt
+                      FROM profile_post_attachments WHERE postId = ? ORDER BY createdAt ASC`).all(postId);
+}
+
+router.get('/profile/posts', (req, res) => {
+  const userId = req.query.userId;
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  // Les 200 messages les plus récents (DESC + LIMIT), remis ensuite en ordre
+  // chronologique croissant — même principe que activityMessagesForUser dans
+  // lib/community.js.
+  const rows = db.prepare(`SELECT id, body, createdAt FROM profile_posts WHERE userId = ? ORDER BY createdAt DESC, id DESC LIMIT 200`).all(userId);
+  rows.reverse();
+  rows.forEach((row) => { row.attachments = postAttachmentsFor(row.id); });
+  res.json(rows);
 });
 
 router.get('/profile/:id', (req, res) => {
@@ -295,6 +333,76 @@ router.delete('/profile/:id', (req, res) => {
   }
 
   res.json({ message: 'Compte supprimé.' });
+});
+
+// ---------- Suite du fil "Communauté" (voir GET /profile/posts plus haut,
+// déclarée avant GET /profile/:id pour ne pas être masquée par elle) ----------
+
+router.post('/profile/posts', (req, res) => {
+  const userId = req.body.userId;
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+  if (!body) return res.status(400).json({ error: 'Message vide.' });
+  if (body.length > MAX_POST_LENGTH) return res.status(400).json({ error: 'Message trop long (2000 caractères maximum).' });
+
+  const createdAt = new Date().toISOString();
+  const info = db.prepare('INSERT INTO profile_posts (userId, body, createdAt) VALUES (?, ?, ?)').run(userId, body, createdAt);
+  res.status(201).json({ id: info.lastInsertRowid, body, createdAt, attachments: [] });
+});
+
+// Suppression d'un message : uniquement le sien, comme partout ailleurs dans
+// l'app (voir DELETE /community/activity-messages/:id).
+router.delete('/profile/posts/:id', (req, res) => {
+  const post = db.prepare('SELECT * FROM profile_posts WHERE id = ?').get(req.params.id);
+  if (!post) return res.status(404).json({ error: 'Message introuvable.' });
+  if (post.userId !== req.query.userId) return res.status(403).json({ error: 'Tu ne peux supprimer que tes propres messages.' });
+
+  db.prepare('DELETE FROM profile_posts WHERE id = ?').run(post.id);
+  res.json({ ok: true });
+});
+
+// Ajoute une pièce jointe à un message déjà envoyé — même limites que
+// POST /history/:id/attachments (server/lib/attachments.js).
+router.post('/profile/posts/:id/attachments', (req, res) => {
+  const post = db.prepare('SELECT * FROM profile_posts WHERE id = ?').get(req.params.id);
+  if (!post) return res.status(404).json({ error: 'Message introuvable.' });
+  if (post.userId !== req.body.userId) return res.status(403).json({ error: "Ce n'est pas ton message." });
+
+  const count = db.prepare('SELECT COUNT(*) AS n FROM profile_post_attachments WHERE postId = ?').get(post.id).n;
+  if (count >= MAX_ATTACHMENTS_PER_NOTE) {
+    return res.status(400).json({ error: `Maximum ${MAX_ATTACHMENTS_PER_NOTE} pièces jointes par message.` });
+  }
+
+  const parsed = validateAttachmentPayload(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+  const createdAt = new Date().toISOString();
+  const info = db.prepare(`INSERT INTO profile_post_attachments (postId, fileName, mimeType, sizeBytes, dataUrl, createdAt)
+              VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(post.id, parsed.fileName, parsed.mimeType, parsed.sizeBytes, parsed.dataUrl, createdAt);
+
+  res.status(201).json({
+    id: info.lastInsertRowid, fileName: parsed.fileName, mimeType: parsed.mimeType,
+    sizeBytes: parsed.sizeBytes, dataUrl: parsed.dataUrl, createdAt,
+  });
+});
+
+// Supprime une pièce jointe d'un message — toujours scopée au propriétaire
+// réel du MESSAGE (pas de userId direct sur profile_post_attachments), même
+// principe que DELETE /attachments/:id dans server/routes/timer.js.
+router.delete('/profile/post-attachments/:id', (req, res) => {
+  const attachment = db.prepare(`
+    SELECT a.*, p.userId AS postUserId FROM profile_post_attachments a
+    JOIN profile_posts p ON p.id = a.postId
+    WHERE a.id = ?
+  `).get(req.params.id);
+  if (!attachment) return res.status(404).json({ error: 'Pièce jointe introuvable.' });
+  if (attachment.postUserId !== req.query.userId) return res.status(403).json({ error: "Ce n'est pas ta pièce jointe." });
+
+  db.prepare('DELETE FROM profile_post_attachments WHERE id = ?').run(attachment.id);
+  res.json({ message: 'Pièce jointe supprimée.' });
 });
 
 module.exports = router;
