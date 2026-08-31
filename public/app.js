@@ -3146,11 +3146,44 @@
   function showProfileMain() {
     $('profileSettingsPanel').classList.add('hidden');
     $('profileMain').classList.remove('hidden');
+    // "Abonnés & Abonnements" vit sur la page Profil depuis le 31 août 2026
+    // (voir index.html) : c'est donc ici qu'il faut le charger, plus à
+    // l'ouverture de Réglages.
+    loadFollowConnections();
   }
+
+  // ----- Menu des Réglages : une section dépliée à la fois -----
+  // Le panneau ⚙️ n'affiche que la liste des titres ; cliquer un titre déplie
+  // sa section et referme les autres. Rouvrir Réglages repart toujours de la
+  // liste refermée, pour ne pas retomber sur la section consultée la dernière
+  // fois sans l'avoir demandé.
+  function closeAllSettingsSections() {
+    document.querySelectorAll('#profileSettingsPanel .settingsSection').forEach(function (section) {
+      section.classList.remove('open');
+      var body = section.querySelector('.settingsSectionBody');
+      var head = section.querySelector('.settingsSectionHeader');
+      if (body) body.classList.add('hidden');
+      if (head) head.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  document.querySelectorAll('#profileSettingsPanel .settingsSectionHeader').forEach(function (head) {
+    head.addEventListener('click', function () {
+      var section = head.closest('.settingsSection');
+      if (!section) return;
+      var willOpen = !section.classList.contains('open');
+      closeAllSettingsSections();
+      if (!willOpen) return;
+      section.classList.add('open');
+      section.querySelector('.settingsSectionBody').classList.remove('hidden');
+      head.setAttribute('aria-expanded', 'true');
+    });
+  });
+
   function showProfileSettings() {
     $('profileMain').classList.add('hidden');
     $('profileSettingsPanel').classList.remove('hidden');
-    loadFollowConnections();
+    closeAllSettingsSections();
   }
   // Le bouton "⚙️" vit désormais dans .topbar (31 août 2026, demande
   // d'Emilien — voir index.html), accessible depuis n'importe quel onglet et

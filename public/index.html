@@ -733,6 +733,23 @@
         </div>
         <p id="avatarMsg" class="msg"></p>
 
+
+        <!-- Abonnés & Abonnements — déplacé du panneau ⚙️ vers la page Profil
+             le 31 août 2026 (demande d'Emilien) : c'est une information de
+             profil, pas un réglage. Contenu et identifiants inchangés
+             (#settingsFollowersList / #settingsFollowingList), seul
+             l'emplacement change ; le chargement passe de showProfileSettings()
+             à showProfileMain() dans app.js. -->
+        <p class="sectionTitle">Abonnés &amp; Abonnements</p>
+        <div class="settingsCard">
+          <p class="hint">Abonnés</p>
+          <div id="settingsFollowersList" class="activitiesList"></div>
+          <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
+          <p class="hint">Abonnements</p>
+          <div id="settingsFollowingList" class="activitiesList"></div>
+          <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+        </div>
+
         <p class="sectionTitle">Mes notes</p>
         <p id="notesEmptyHint" class="hint hidden">Aucune note enregistrée pour l'instant — les notes ajoutées pendant tes sessions dans Chrono apparaîtront ici.</p>
         <div id="notesList"></div>
@@ -750,8 +767,21 @@
           <p class="sectionTitle subpageTitle">Réglages</p>
           <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
         </div>
+        <!-- Menu des Réglages (31 août 2026, demande d'Emilien) : le panneau
+             n'affiche plus toutes les sections déroulées les unes sous les
+             autres, mais la liste de leurs titres. Cliquer un titre déplie sa
+             section juste en dessous et referme les autres — un seul clic pour
+             passer de l'une à l'autre. Le titre reste un .sectionTitle, porté
+             par un span et non un p, pour rester valide à l'intérieur du bouton :
+             la traduction automatique du DOM continue donc de le reconnaître. -->
 
-        <p class="sectionTitle">Identité</p>
+
+        <div class="settingsSection">
+          <button type="button" class="settingsSectionHeader" aria-expanded="false">
+            <span class="sectionTitle">Identité</span>
+            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="settingsSectionBody hidden">
         <div class="settingsCard">
           <!-- La photo de profil ne se modifie plus ici depuis le 29 août
                2026 : elle s'édite directement en cliquant sur l'avatar de la
@@ -764,28 +794,16 @@
           <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
           <p id="settingsMsg" class="msg"></p>
         </div>
-
-        <!-- Abonnés & Abonnements. "Abonnés" (30 août 2026, demande
-             d'Emilien) reste en lecture seule : on ne peut pas retirer un
-             abonné, seul lui peut se désabonner. "Abonnements" a déménagé
-             ici depuis l'onglet Communauté le 31 août 2026 (demande
-             d'Emilien) et est maintenant actionnable : bouton "Se
-             désabonner" par membre (renderFollowingList, ex-Communauté,
-             réutilisé tel quel). Zone déclarée Paramètres
-             (#profileSettingsPanel) — édité ici à la demande directe
-             d'Emilien depuis la discussion Communauté ; voir
-             chantiers-en-cours.md pour le détail cross-discussion. -->
-        <p class="sectionTitle">Abonnés &amp; Abonnements</p>
-        <div class="settingsCard">
-          <p class="hint">Abonnés</p>
-          <div id="settingsFollowersList" class="activitiesList"></div>
-          <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
-          <p class="hint">Abonnements</p>
-          <div id="settingsFollowingList" class="activitiesList"></div>
-          <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+          </div>
         </div>
 
-        <p class="sectionTitle">Apparence</p>
+
+        <div class="settingsSection">
+          <button type="button" class="settingsSectionHeader" aria-expanded="false">
+            <span class="sectionTitle">Apparence</span>
+            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="settingsSectionBody hidden">
         <div class="settingsCard">
           <div class="themeSwitch" id="themeSwitch">
             <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
@@ -794,6 +812,9 @@
           <p class="hint">Le mode sombre est activé par défaut. Changer de mode adapte automatiquement les couleurs de tes activités si besoin.</p>
           <p id="themeMsg" class="msg"></p>
         </div>
+          </div>
+        </div>
+
 
         <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
              Réglage par profil, comme le thème : anglais par défaut pour
@@ -802,7 +823,12 @@
              classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
              (composants génériques appartenant à la discussion Design :
              utilisés tels quels, aucune définition CSS modifiée). -->
-        <p class="sectionTitle">Langue</p>
+        <div class="settingsSection">
+          <button type="button" class="settingsSectionHeader" aria-expanded="false">
+            <span class="sectionTitle">Langue</span>
+            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="settingsSectionBody hidden">
         <div class="settingsCard">
           <div class="themeSwitch" id="langSwitch">
             <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
@@ -811,8 +837,16 @@
           <p class="hint">Change la langue de toute l'application. Le changement est appliqué immédiatement.</p>
           <p id="langMsg" class="msg"></p>
         </div>
+          </div>
+        </div>
 
-        <p class="sectionTitle">Sécurité</p>
+
+        <div class="settingsSection">
+          <button type="button" class="settingsSectionHeader" aria-expanded="false">
+            <span class="sectionTitle">Sécurité</span>
+            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="settingsSectionBody hidden">
         <div class="settingsCard">
           <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
           <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
@@ -820,8 +854,16 @@
           <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
           <p id="settingsPinMsg" class="msg"></p>
         </div>
+          </div>
+        </div>
 
-        <p class="sectionTitle">Importer l'historique existant</p>
+
+        <div class="settingsSection">
+          <button type="button" class="settingsSectionHeader" aria-expanded="false">
+            <span class="sectionTitle">Importer l'historique existant</span>
+            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="settingsSectionBody hidden">
         <div class="entryCard">
           <p class="hint">Depuis Google Sheets : onglet « Historique » → Fichier → Télécharger → Valeurs séparées par une virgule (.csv), puis choisis le fichier ici.</p>
           <input type="file" id="importFile" accept=".csv,text/csv">
@@ -840,6 +882,9 @@
           </div>
           <p id="dedupeMsg" class="msg"></p>
         </div>
+          </div>
+        </div>
+
 
         <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
              quelqu'un, ou s'inviter soi-même en donnant son pseudo.
@@ -853,7 +898,12 @@
              type="text" + inputmode="url" (et non type="url") pour hériter
              de la mise en forme existante de .settingsCard sans toucher au
              CSS générique, qui appartient à Design. -->
-        <p class="sectionTitle">Partage</p>
+        <div class="settingsSection">
+          <button type="button" class="settingsSectionHeader" aria-expanded="false">
+            <span class="sectionTitle">Partage</span>
+            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="settingsSectionBody hidden">
         <div class="settingsCard">
           <p class="hint">Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.</p>
           <input type="text" inputmode="url" id="shareUrlInput" placeholder="https://mon-adresse-noesis.fr" autocomplete="off">
@@ -864,6 +914,9 @@
           </div>
           <p id="shareMsg" class="msg"></p>
         </div>
+          </div>
+        </div>
+
 
         <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
              2026, demande d'Emilien) : suppression définitive du compte,
@@ -873,12 +926,19 @@
              personnes continuent d'exister pour elles — c'est exactement la
              même règle que "Supprimer définitivement" sur une activité :
              on part, les autres restent. -->
-        <p class="sectionTitle">Supprimer mon compte</p>
+        <div class="settingsSection">
+          <button type="button" class="settingsSectionHeader" aria-expanded="false">
+            <span class="sectionTitle">Supprimer mon compte</span>
+            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="settingsSectionBody hidden">
         <div class="settingsCard">
           <p class="hint">Cette action est définitive : ton profil, ton historique, tes notes, tes invitations et tes abonnements sont supprimés. Les activités que tu partages avec d'autres personnes continuent d'exister pour elles.</p>
           <input type="password" inputmode="numeric" pattern="[0-9]*" id="deleteAccountPin" placeholder="Saisis ton code pour confirmer" maxlength="6" autocomplete="off">
           <button id="deleteAccountBtn" class="iconBtn danger">Supprimer définitivement mon compte</button>
           <p id="deleteAccountMsg" class="msg"></p>
+        </div>
+          </div>
         </div>
       </div>
     </section>
