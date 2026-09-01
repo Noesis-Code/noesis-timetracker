@@ -53,20 +53,23 @@
 
 * { box-sizing: border-box; }
 
-/* Fond de secours violet sur <html>, sous <body> (31 août 2026, demande
-   d'Emilien : que le violet remonte jusqu'en haut de l'écran, là où
-   l'heure/le réseau/le wifi/la batterie du téléphone s'affichent EN DEHORS
-   de l'app, hors de portée du DOM). Le vrai fond de cette zone-là est piloté
-   par l'OS (meta theme-color pour Android, apple-mobile-web-app-status-bar-
-   style="black-translucent" pour iOS — tous deux déjà en place plus haut
-   dans index.html) : un navigateur/OS ne colore correctement cette bande
-   que si ces réglages sont lus ET que l'app tourne en PWA installée. Ce fond
-   <html> est un filet de sécurité pour les cas intermédiaires (rebond de
-   défilement iOS façon "élastique", angle mort d'un navigateur qui ignore
-   temporairement le thème) : sans lui, un défilement élastique découvrirait
-   var(--bg) (gris clair/anthracite) sous la topbar ; avec lui, c'est du
-   violet, cohérent avec la topbar juste en dessous quoi qu'il arrive. */
-html { background: var(--purple-dark); }
+/* Fond de secours noir sur <html>, sous <body> (31 août 2026, demande
+   d'Emilien — d'abord violet ce même jour, puis noir : plutôt que de faire
+   remonter le violet jusqu'en haut de l'écran, .topbar elle-même est
+   désormais noire, comme le haut du téléphone, pour qu'il n'y ait plus de
+   différence visible entre les deux). Le vrai fond de la zone hors du DOM
+   (heure/réseau/wifi/batterie) est piloté par l'OS (meta theme-color pour
+   Android, apple-mobile-web-app-status-bar-style="black-translucent" pour
+   iOS — tous deux déjà en place plus haut dans index.html, mis à jour vers
+   le noir en même temps que ce fichier) : un navigateur/OS ne colore
+   correctement cette bande que si ces réglages sont lus ET que l'app tourne
+   en PWA installée. Ce fond <html> est un filet de sécurité pour les cas
+   intermédiaires (rebond de défilement iOS façon "élastique", angle mort
+   d'un navigateur qui ignore temporairement le thème) : sans lui, un
+   défilement élastique découvrirait var(--bg) (gris clair/anthracite) sous
+   la topbar ; avec lui, c'est du noir, cohérent avec la topbar juste en
+   dessous quoi qu'il arrive. */
+html { background: #000000; }
 
 body {
   margin: 0;
@@ -189,10 +192,16 @@ input[type=time]:focus, select:focus, textarea:focus {
 /* padding-bottom un peu plus généreux depuis l'ajout du libellé sous les
    icônes de la barre d'onglets (tabbar plus haute qu'avant). */
 #app { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 88px; }
+/* Noire plutôt que dégradé violet depuis le 31 août 2026 (demande
+   d'Emilien) : pour qu'il n'y ait plus de différence visible entre .topbar
+   et le haut du téléphone (heure/réseau/wifi/batterie, hors du DOM), la
+   barre elle-même s'aligne sur le noir plutôt que l'inverse (faire monter
+   le violet jusque là-haut, tenté plus tôt le même jour). color:white
+   inchangé : le texte/les icônes restent lisibles sur fond noir. */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; color: white;
-  background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+  background: #000000;
   box-shadow: var(--shadow-topbar);
   position: sticky; top: 0; z-index: 10;
 }
@@ -374,8 +383,19 @@ textarea {
    bas du chronomètre, sa ligne d'en-tête (#chronoHistoryHeader) étant
    elle-même le bouton qui déplie/replie le panneau, sans flèche à côté
    (31 août 2026, demande d'Emilien — un essai en page à part le même jour a
-   été écarté au profit de ce panneau sur place). */
-#chronoHistoryHeader { margin-top: 24px; }
+   été écarté au profit de ce panneau sur place). Encadrée comme un vrai
+   bouton (bordure + fond, même gabarit que .iconBtn) et rapprochée du
+   chrono au-dessus (marge réduite) à la demande d'Emilien du 1er septembre
+   2026 — jusque-là simple ligne de texte sans cadre, éloignée de 24px. Ne
+   redéfinit pas .sectionTitleRow/.sectionTitle (propriété de Design),
+   s'ajoute en complément comme .historyHeaderClickable ci-dessous. */
+#chronoHistoryHeader {
+  margin-top: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); padding: 10px 14px;
+  transition: background-color var(--transition-fast);
+}
+#chronoHistoryHeader:hover { background: var(--hover-bg); }
+#chronoHistoryHeader .sectionTitle { margin: 0; }
 .historyNav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .historyNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
 .historyEditFields { margin-top: 8px; text-align: left; }

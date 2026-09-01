@@ -78,15 +78,25 @@ function dailyBreakdownForUser(userId, period, refDate) {
 // reste des Statistiques : jamais mélangée avec les entrées de quelqu'un
 // d'autre, même sur une activité partagée.
 //
-// weekOffset (entier >= 0) décale la semaine affichée en arrière par rapport
-// à la semaine en cours — 0 = semaine en cours, 1 = semaine précédente, etc.
-// Jamais vers le futur. "Réinitialisable à chaque semaine" : c'est le client
-// (public/app.js) qui repart systématiquement sur weekOffset=0 à chaque
-// ouverture de l'onglet Statistiques — la semaine en cours est donc toujours
-// ce qu'on voit d'abord, vide au tout début de celle-ci. Les semaines
+// weekOffset (entier >= 0) décale la fenêtre de 7 jours affichée en arrière
+// par rapport à la fenêtre en cours — 0 = fenêtre en cours, 1 = fenêtre
+// précédente, etc. Jamais vers le futur. "Réinitialisable à chaque
+// semaine" : c'est le client (public/app.js) qui repart systématiquement sur
+// weekOffset=0 à chaque ouverture de l'onglet Statistiques. Les fenêtres
 // précédentes ne sont ni supprimées ni recalculées différemment : juste
 // masquées par défaut, et consultables en naviguant en arrière (voir
 // hasMoreBefore ci-dessous).
+//
+// La fenêtre de 7 jours n'est PAS calée sur le calendrier (lundi-dimanche) :
+// elle se termine toujours sur AUJOURD'HUI, jamais sur un jour à venir (1er
+// septembre 2026, demande d'Emilien : la semaine "en cours" ne doit plus
+// jamais s'ouvrir sur 5-6 jours vides simplement parce qu'on est en tout
+// début de semaine calendaire — "toujours les 7 derniers jours écoulés + le
+// jour actuel"). weekOffset=0 se recale donc automatiquement chaque jour :
+// aucun traitement spécial de minuit à faire, `today` est simplement
+// recalculé à chaque appel. Cette fenêtre glissante est propre à la vue
+// Semaine ; la vue Mois (calendrier, plus bas) reste, elle, calée sur de
+// vraies semaines lundi-dimanche — c'est ce que sa forme calendaire exige.
 const SLOTS_PER_DAY = 96; // 24h / 15 min
 const SLOT_MINUTES = 15;
 
@@ -173,14 +183,16 @@ function computeSlotsForDays(userId, days, slotMinutes) {
 function timesheetForUser(userId, weekOffset) {
   const offset = Math.max(0, Math.floor(Number(weekOffset)) || 0);
 
-  const ref = new Date();
-  ref.setDate(ref.getDate() - offset * 7);
-  const monday = mondayOf(ref);
+  // Dernier jour de la fenêtre : aujourd'hui pour offset=0, puis 7 jours plus
+  // tôt par tranche de offset supplémentaire — jamais un jour à venir.
+  const lastDay = new Date();
+  lastDay.setHours(0, 0, 0, 0);
+  lastDay.setDate(lastDay.getDate() - offset * 7);
 
   const days = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(lastDay);
+    d.setDate(lastDay.getDate() - i);
     days.push(d);
   }
   const start = isoDateOf(days[0]);

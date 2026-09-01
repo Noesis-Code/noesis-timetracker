@@ -12,21 +12,26 @@
      de l'app dans un navigateur de bureau.
      Voir public/manifest.webmanifest, public/sw.js et public/icons/. -->
 <meta name="description" content="Chrono, statistiques et communauté : suis le temps que tu passes sur tes activités.">
-<!-- Teinte de la barre d'état sur Android : accordée au dégradé violet de
-     la .topbar, pour que le haut de l'écran soit d'un seul tenant. -->
-<meta name="theme-color" content="#674EA7">
+<!-- Teinte de la barre d'état sur Android : noire (31 août 2026, demande
+     d'Emilien — d'abord violette ce même jour, en accord avec le dégradé de
+     .topbar ; Emilien a ensuite préféré l'inverse : que .topbar elle-même
+     devienne noire, pour qu'il n'y ait plus de différence avec le haut du
+     téléphone, plutôt que de faire remonter le violet jusque là-haut). -->
+<meta name="theme-color" content="#000000">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <!-- iOS : "capable" = plein écran une fois l'app ajoutée à l'écran d'accueil.
-     "black-translucent" (plutôt que "default", jusqu'au 31 août 2026) rend la
-     barre d'état transparente : le dégradé violet de la .topbar se voit donc
-     A TRAVERS elle, et l'heure/réseau/wifi/batterie (rendus en blanc par iOS
-     sur fond sombre) se retrouvent visuellement sur fond violet — demande
-     d'Emilien. Sans risque de passer SOUS le contenu : la .topbar réserve déjà
-     max(14px, env(safe-area-inset-top)) de marge de sécurité en haut (voir
-     plus bas dans styles.css), pensée dès le départ pour couvrir ce cas. -->
+     "black-translucent" rend la barre d'état transparente : c'est maintenant
+     le fond NOIR de .topbar qui se voit à travers elle (dégradé violet
+     jusqu'au 31 août 2026, puis noir uni le même jour — voir styles.css),
+     et l'heure/réseau/wifi/batterie (rendus en blanc par iOS sur fond
+     sombre) se fondent avec le haut du téléphone, sans plus aucune
+     différence de couleur — demande d'Emilien. Sans risque de passer SOUS
+     le contenu : la .topbar réserve déjà max(14px, env(safe-area-inset-top))
+     de marge de sécurité en haut (voir plus bas dans styles.css), pensée dès
+     le départ pour couvrir ce cas. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Noèsis">
