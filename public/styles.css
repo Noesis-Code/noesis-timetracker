@@ -431,8 +431,9 @@ textarea {
    fichiers). */
 .attachmentMenuWrap { position: relative; display: inline-block; flex-shrink: 0; }
 /* Icône trombone du bouton de pièce jointe (SVG, remplace l'ancienne épingle
-   en emoji le 30 août 2026) — même principe de centrage/taille que .notifBtn
-   plus bas dans ce fichier, propriété de Chrono. */
+   en emoji le 30 août 2026) — même principe de centrage/taille que
+   .topIconBtn plus bas dans ce fichier (Profil/topbar), propriété de
+   Chrono. */
 .attachMenuIconBtn { display: flex; align-items: center; justify-content: center; }
 .attachMenuIconBtn svg { width: 16px; height: 16px; display: block; }
 /* Ligne d'en-tête "Historique" entièrement cliquable pour déplier/replier le
@@ -931,22 +932,28 @@ body.scrollLock { overflow: hidden; }
    ci-dessous) — Réglages > Identité n'affiche plus qu'un rappel textuel de
    ça, et ne gère plus que nom/nom de famille/téléphone/email. */
 .identityHeader { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-/* Icône "avion en papier" (invitations/demandes de suivi) et son point
-   rouge — position: relative sur le bouton, pastille absolue dessus. Icône
-   explicitement plus petite que le bouton .menuBtn (32×32) et centrée en
-   flex, pour ne plus toucher les bords (un <svg> sans width/height fixe
-   prend sinon sa taille intrinsèque par défaut, bien plus grande que le
-   bouton). */
-.notifBtn { position: relative; display: flex; align-items: center; justify-content: center; }
-.notifBtn svg { width: 15px; height: 15px; display: block; }
-/* Icônes "avion en papier" et "⚙️" en violet plutôt qu'en noir (couleur
-   .menuBtn par défaut, var(--text)) — demande d'Emilien du 31 août 2026.
-   Sélecteur par id (plus spécifique que .menuBtn) pour ne recolorer QUE ces
-   deux boutons de la topbar, sans toucher aux autres .menuBtn de l'app
-   (retour "←", "✕", "▾"...). Le fond du bouton (var(--card)) et sa bordure
-   restent inchangés : seule l'icône (stroke="currentColor") devient
-   violette. */
-#profileNotifBtn, #profileSettingsBtn { color: var(--purple); }
+/* Icônes "avion en papier" et "⚙️" de la topbar, calquées sur les icônes de
+   la barre du bas (1er septembre 2026, demande d'Emilien — remplace le
+   traitement "bouton .menuBtn violet" du 31 août 2026) : mêmes proportions
+   qu'un .tabIcon (SVG 24×24, stroke="currentColor"), même simplicité (pas de
+   fond, pas de bordure — seulement l'icône, directement sur le noir de
+   .topbar), même couleur par défaut que .tabBtn (var(--text-light)), et
+   même règle "sélectionné = violet" que .tabBtn.active (voir
+   .topIconBtn.active ci-dessous, activée/désactivée depuis app.js selon que
+   le panneau ou la vue Réglages qu'elles ouvrent est affiché). */
+.topIconBtn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  background: none; border: none; padding: 4px; margin: 0; cursor: pointer;
+  color: var(--text-light); -webkit-tap-highlight-color: transparent;
+}
+.topIconBtn svg { width: 24px; height: 24px; display: block; }
+.topIconBtn.active { color: var(--purple); }
+/* Point rouge : repositionné pour ce bouton sans fond/bordure (au lieu de
+   .notifDot par défaut, pensé pour l'ancien bouton .menuBtn 32×32) — même
+   principe que .tabBtnDot sur les icônes de la barre du bas. Bordure noire
+   (et non var(--card)) pour se fondre dans le fond de .topbar, lui-même
+   noir depuis le même jour. */
+.topIconBtn .notifDot { top: -1px; right: -1px; border-color: #000000; }
 .notifDot {
   position: absolute; top: 3px; right: 3px;
   width: 9px; height: 9px; border-radius: 50%;

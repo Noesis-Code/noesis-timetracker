@@ -240,8 +240,15 @@
            ouvre désormais explicitement le Profil avant de basculer sur
            Réglages, puisqu'il n'est plus garanti que Profil soit déjà
            affiché. -->
+      <!-- Icônes "avion en papier" et "⚙️" calquées sur celles de la barre
+           du bas depuis le 1er septembre 2026 (demande d'Emilien) :
+           .topIconBtn (styles.css) plutôt que .menuBtn — plus de fond/
+           bordure, même simplicité et même couleur par défaut que .tabIcon,
+           et deviennent violettes ("active") pendant que le panneau/la vue
+           qu'elles ouvrent est affiché(e), comme un onglet sélectionné en
+           bas (voir app.js). -->
       <div class="notifWrap">
-        <button id="profileNotifBtn" class="menuBtn notifBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
+        <button id="profileNotifBtn" class="topIconBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="22" y1="2" x2="11" y2="13"/>
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -260,7 +267,15 @@
           <div id="followRequestsList" class="activitiesList"></div>
         </div>
       </div>
-      <button id="profileSettingsBtn" class="menuBtn" title="Réglages" aria-label="Réglages">⚙️</button>
+      <!-- Emoji "⚙️" remplacé par un SVG (même style que le "avion en
+           papier" ci-dessus) : un emoji porte sa propre couleur figée,
+           impossible à aligner sur .topIconBtn/.topIconBtn.active. -->
+      <button id="profileSettingsBtn" class="topIconBtn" title="Réglages" aria-label="Réglages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
       <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
         <span id="whoamiName"></span>
         <!-- Redondant avec le point rouge du bouton "avion en papier"

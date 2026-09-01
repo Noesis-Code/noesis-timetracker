@@ -607,6 +607,10 @@
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
     tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
+    // On quitte forcément la vue Réglages (dans #tab-profile) en rejoignant
+    // un onglet principal — l'icône "⚙️" de la topbar ne doit donc plus
+    // rester violette (1er septembre 2026, demande d'Emilien).
+    $('profileSettingsBtn').classList.remove('active');
 
     if (tab === 'stats') {
       loadStats();
@@ -2811,10 +2815,17 @@
   function showProfileMain() {
     $('profileSettingsPanel').classList.add('hidden');
     $('profileMain').classList.remove('hidden');
+    // L'icône "⚙️" redevient neutre dès qu'on quitte la vue Réglages —
+    // voir showProfileSettings ci-dessous et .topIconBtn.active (styles.css).
+    $('profileSettingsBtn').classList.remove('active');
   }
   function showProfileSettings() {
     $('profileMain').classList.add('hidden');
     $('profileSettingsPanel').classList.remove('hidden');
+    // Violette tant que Réglages est la vue affichée (1er septembre 2026,
+    // demande d'Emilien : même comportement "sélectionné = violet" que les
+    // onglets de la barre du bas).
+    $('profileSettingsBtn').classList.add('active');
   }
   // Le bouton "⚙️" vit désormais dans .topbar (31 août 2026, demande
   // d'Emilien — voir index.html), accessible depuis n'importe quel onglet et
@@ -2850,9 +2861,15 @@
   // principale du Profil). stopPropagation() évite que le clic soit aussi
   // capté par l'écouteur "clic en dehors" juste en dessous, qui refermerait
   // le panneau aussitôt ouvert.
+  // Icône "violette quand sélectionnée" comme les onglets de la barre du bas
+  // (1er septembre 2026, demande d'Emilien) : la classe "active" suit
+  // l'ouverture/fermeture du panneau, aussi bien au clic sur l'icône qu'à la
+  // fermeture "en dehors" juste en dessous — voir .topIconBtn.active dans
+  // styles.css.
   $('profileNotifBtn').addEventListener('click', function (e) {
     e.stopPropagation();
-    $('profileNotifPanel').classList.toggle('hidden');
+    var nowHidden = $('profileNotifPanel').classList.toggle('hidden');
+    $('profileNotifBtn').classList.toggle('active', !nowHidden);
   });
   // Referme le panneau au clic n'importe où en dehors de lui (ou du bouton).
   document.addEventListener('click', function (e) {
@@ -2860,6 +2877,7 @@
     if (panel.classList.contains('hidden')) return;
     if (e.target.closest('.notifWrap')) return;
     panel.classList.add('hidden');
+    $('profileNotifBtn').classList.remove('active');
   });
   $('profileSettingsBack').addEventListener('click', showProfileMain);
 
