@@ -97,6 +97,7 @@ app.use('/api', require('./routes/stats'));
 app.use('/api', require('./routes/community'));
 app.use('/api', require('./routes/history'));
 app.use('/api', require('./routes/import'));
+app.use('/api', require('./routes/push'));
 
 // Le service worker ne doit JAMAIS être servi depuis le cache du navigateur :
 // c'est lui qui pilote la mise à jour de l'app sur les téléphones installés.

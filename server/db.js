@@ -303,6 +303,37 @@ CREATE TABLE IF NOT EXISTS profile_post_attachments (
   createdAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_profile_post_attachments_post ON profile_post_attachments(postId);
+
+-- Abonnement d'un APPAREIL aux notifications push (Web Push standard, voir
+-- server/lib/push.js). Une ligne par (profil, appareil) : le téléphone et
+-- l'ordinateur d'une même personne sont deux abonnements distincts, et
+-- désactiver les notifications sur l'un ne les coupe pas sur l'autre — c'est
+-- le comportement attendu, et c'est aussi pour ça qu'il n'y a PAS de colonne
+-- "notifications on/off" sur users : la présence d'une ligne ici EST le
+-- réglage, appareil par appareil.
+--
+-- endpoint est l'URL fournie par le service de push du navigateur (Google,
+-- Mozilla, Apple selon l'appareil) ; elle identifie l'abonnement de façon
+-- unique, d'où la contrainte UNIQUE : un même appareil qui se réabonne écrase
+-- sa propre ligne au lieu d'en accumuler. p256dh/auth sont les clés de
+-- chiffrement fournies par le navigateur — sans elles le service de push ne
+-- peut pas déchiffrer le message. Rien de sensible pour Noèsis là-dedans :
+-- ces valeurs ne servent qu'à parler à CE navigateur, elles ne donnent accès
+-- à aucune donnée de l'app.
+--
+-- Les abonnements périmés (téléphone réinitialisé, app désinstallée) ne sont
+-- pas nettoyés par une tâche de fond : le service de push répond 404/410 au
+-- premier envoi raté, et la ligne est supprimée à ce moment-là (voir
+-- sendToUsers dans server/lib/push.js). Aucun ménage à programmer.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(userId);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================

@@ -5,6 +5,7 @@ const {
   activityMessagesForUser, postActivityMessage, markActivityMessagesRead, unreadMessageCountsForUser,
   activityBreakdownForUser, activityDailyBreakdownForUser, activityTimesheetForUser,
 } = require('../lib/community');
+const { notifyActivityMessage } = require('../lib/push');
 
 // Longueur maximale d'un message du fil de discussion : généreuse pour une
 // conversation, mais bornée — le corps de requête d'Express est certes déjà
@@ -131,7 +132,16 @@ router.post('/community/activity-messages', (req, res) => {
   if (!body) return res.status(400).json({ error: 'Message vide.' });
   if (body.length > MAX_MESSAGE_LENGTH) return res.status(400).json({ error: 'Message trop long (2000 caractères maximum).' });
 
-  res.status(201).json(postActivityMessage(activityId, userId, body));
+  const message = postActivityMessage(activityId, userId, body);
+
+  // Notification push aux autres membres de l'activité (1er septembre 2026).
+  // Volontairement APRÈS l'enregistrement et sans await : l'envoi part en
+  // arrière-plan et ne peut jamais faire échouer l'écriture du message (voir
+  // le principe posé en tête de server/lib/push.js). Sans clés VAPID
+  // configurées, cet appel ne fait rien du tout.
+  notifyActivityMessage(activityId, userId, body);
+
+  res.status(201).json(message);
 });
 
 // Suppression d'un message : uniquement le sien. Le propriétaire de

@@ -28,9 +28,16 @@
  * rechargement de la page qui va avec est déclenché côté client (voir le bloc
  * <script> en tête de public/index.html) ; ici on se contente de rendre la
  * nouvelle version active le plus tôt possible.
+ *
+ * Notifications push (1er septembre 2026, demande d'Emilien) : ce service
+ * worker reçoit désormais aussi les messages push envoyés par le serveur
+ * (voir server/lib/push.js) et affiche la notification correspondante — c'est
+ * la seule façon pour une app web d'apparaître sur un téléphone dont l'écran
+ * est verrouillé. Le texte arrive DÉJÀ traduit et complet depuis le serveur :
+ * un service worker n'a accès ni à public/i18n.js ni à la langue du profil.
  */
 
-const CACHE_VERSION = 'noesis-v2';
+const CACHE_VERSION = 'noesis-v3';
 
 // Enveloppe de l'app : ce qu'il faut pour qu'elle s'affiche sans réseau.
 const SHELL = [
@@ -141,4 +148,64 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(networkFirst(request, '/offline.html'));
+});
+
+/* ===================== NOTIFICATIONS PUSH =====================
+ * (1er septembre 2026 — voir server/lib/push.js pour le côté serveur)
+ *
+ * Le message arrive chiffré depuis le service de push du constructeur, déjà
+ * déchiffré ici par le navigateur. Son contenu est le JSON envoyé par Noèsis :
+ * { title, body, tag, url }. Rien n'est calculé ni traduit ici — le serveur
+ * envoie le texte final, dans la langue du destinataire.
+ */
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (err) {
+    // Charge utile illisible (ne devrait pas arriver, mais un service de push
+    // peut envoyer un "ping" vide) : on affiche quelque chose de neutre plutôt
+    // que rien — sur certains navigateurs, ignorer un push peut faire révoquer
+    // l'autorisation.
+    payload = {};
+  }
+
+  const title = payload.title || 'Noèsis';
+  const options = {
+    body: payload.body || '',
+    // Les icônes viennent du cache si elles y sont déjà (cacheFirst plus haut).
+    icon: '/icons/icon-192.png',
+    badge: '/icons/favicon-32.png',
+    // tag : deux notifications du même fil se remplacent au lieu de s'empiler
+    // (10 messages dans une activité = 1 notification à jour, pas 10 lignes).
+    tag: payload.tag || 'noesis',
+    renotify: true,
+    data: { url: payload.url || '/' },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Clic sur la notification : ramener la fenêtre déjà ouverte au premier plan
+// plutôt que d'en ouvrir une deuxième (sur un téléphone, l'app est presque
+// toujours déjà lancée en arrière-plan). L'URL porte un paramètre ?notif=...
+// que public/app.js lit au démarrage pour ouvrir le bon onglet.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if (client.url.indexOf(self.location.origin) === 0 && 'focus' in client) {
+          // La fenêtre existe déjà : on lui dit où aller, puis on la remet
+          // devant. navigate() n'est pas disponible partout, d'où le message.
+          client.postMessage({ type: 'NOTIFICATION_CLICK', url: target });
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });

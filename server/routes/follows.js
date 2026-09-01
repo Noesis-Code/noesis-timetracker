@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../db');
+const { notifyFollowRequest } = require('../lib/push');
 
 const router = express.Router();
 
@@ -106,6 +107,10 @@ router.post('/follows', (req, res) => {
 
   const info = db.prepare("INSERT INTO follows (followerId, followeeId, status, createdAt) VALUES (?, ?, 'pending', ?)")
     .run(followerId, followeeId, new Date().toISOString());
+
+  // Notification push à la personne visée (1er septembre 2026). Ne peut
+  // jamais faire échouer la demande : voir server/lib/push.js.
+  notifyFollowRequest(followeeId, followerId);
 
   res.status(201).json({ message: `Demande envoyée à ${target.name}.`, id: info.lastInsertRowid });
 });

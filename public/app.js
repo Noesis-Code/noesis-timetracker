@@ -385,6 +385,10 @@
       renderActivityGrid();
       syncChronoStatus();
     });
+    // Ouverture depuis une notification alors que l'app était fermée : on
+    // arrive sur /?notif=community ou /?notif=profile (voir server/lib/push.js
+    // et notificationclick dans public/sw.js).
+    if (location.search.indexOf('notif=') !== -1) openTabFromNotification(location.href);
   }
 
   // Appelé juste après la création/sélection d'un profil pendant l'onboarding.
@@ -2797,6 +2801,34 @@
     if (topDot) topDot.classList.toggle('hidden', none);
   }
 
+  // ----- Menu des Réglages : une section dépliée à la fois -----
+  // Le panneau ⚙️ n'affiche que la liste des titres ; cliquer un titre déplie
+  // sa section et referme les autres. Rouvrir Réglages repart toujours de la
+  // liste refermée, pour ne pas retomber sur la section consultée la dernière
+  // fois sans l'avoir demandé.
+  function closeAllSettingsSections() {
+    document.querySelectorAll('#profileSettingsPanel .settingsSection').forEach(function (section) {
+      section.classList.remove('open');
+      var body = section.querySelector('.settingsSectionBody');
+      var head = section.querySelector('.settingsSectionHeader');
+      if (body) body.classList.add('hidden');
+      if (head) head.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  document.querySelectorAll('#profileSettingsPanel .settingsSectionHeader').forEach(function (head) {
+    head.addEventListener('click', function () {
+      var section = head.closest('.settingsSection');
+      if (!section) return;
+      var willOpen = !section.classList.contains('open');
+      closeAllSettingsSections();
+      if (!willOpen) return;
+      section.classList.add('open');
+      section.querySelector('.settingsSectionBody').classList.remove('hidden');
+      head.setAttribute('aria-expanded', 'true');
+    });
+  });
+
   function showProfileMain() {
     $('profileSettingsPanel').classList.add('hidden');
     $('profileMain').classList.remove('hidden');
@@ -2805,12 +2837,14 @@
     $('profileSettingsBtn').classList.remove('active');
   }
   function showProfileSettings() {
+    closeAllSettingsSections();
     $('profileMain').classList.add('hidden');
     $('profileSettingsPanel').classList.remove('hidden');
     // Violette tant que Réglages est la vue affichée (1er septembre 2026,
     // demande d'Emilien : même comportement "sélectionné = violet" que les
     // onglets de la barre du bas).
     $('profileSettingsBtn').classList.add('active');
+    refreshPushSection();
   }
   // Le bouton "⚙️" vit désormais dans .topbar (31 août 2026, demande
   // d'Emilien — voir index.html), accessible depuis n'importe quel onglet et
@@ -2821,6 +2855,186 @@
     openProfile();
     showProfileSettings();
   });
+
+  // ===================== NOTIFICATIONS PUSH (Réglages) =====================
+  // 1er septembre 2026, demande d'Emilien : recevoir une notification sur le
+  // téléphone quand quelqu'un écrit dans le fil d'une activité partagée,
+  // invite sur une activité, ou demande à suivre. Côté serveur :
+  // server/lib/push.js + server/routes/push.js ; côté réception :
+  // le bloc "push" de public/sw.js.
+  //
+  // Réglage par APPAREIL, pas par profil : ce qui est enregistré côté serveur,
+  // c'est l'abonnement de CE navigateur (voir push_subscriptions dans
+  // server/db.js). Activer sur le téléphone n'active donc rien sur
+  // l'ordinateur, et réciproquement — c'est le comportement attendu.
+
+  var pushPublicKey = null;    // clé VAPID du serveur, chargée une seule fois
+  var pushServerEnabled = null; // null = pas encore su
+
+  // La clé VAPID voyage en base64url ; l'API du navigateur attend un tableau
+  // d'octets. Conversion standard, rien de spécifique à Noèsis.
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(base64);
+    var output = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
+    return output;
+  }
+
+  // Le navigateur sait-il faire des notifications push du tout ? (Un onglet
+  // Safari sur iPhone répond non tant que l'app n'est pas installée sur
+  // l'écran d'accueil — d'où le message d'aide dédié dans Réglages.)
+  function pushSupported() {
+    return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+  }
+
+  function isIos() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent);
+  }
+
+  function currentPushSubscription() {
+    if (!pushSupported()) return Promise.resolve(null);
+    return navigator.serviceWorker.ready
+      .then(function (reg) { return reg.pushManager.getSubscription(); })
+      .catch(function () { return null; });
+  }
+
+  function loadPushConfig() {
+    if (pushServerEnabled !== null) return Promise.resolve();
+    return api('GET', '/api/push/public-key')
+      .then(function (data) { pushServerEnabled = !!data.enabled; pushPublicKey = data.publicKey || null; })
+      .catch(function () { pushServerEnabled = false; });
+  }
+
+  // Met la section Notifications de Réglages dans l'état réel de cet appareil.
+  // Appelée à chaque ouverture de Réglages : l'autorisation peut avoir été
+  // retirée depuis les réglages du navigateur sans que l'app en sache rien.
+  function refreshPushSection() {
+    var btn = $('pushToggleBtn');
+    var testBtn = $('pushTestBtn');
+    var msg = $('pushMsg');
+    if (!btn) return;
+
+    $('pushIosHint').classList.toggle('hidden', !(isIos() && !pushSupported()));
+
+    if (!pushSupported()) {
+      btn.disabled = true;
+      testBtn.classList.add('hidden');
+      msg.textContent = t("Cet appareil ne gère pas les notifications.");
+      return;
+    }
+
+    loadPushConfig().then(function () {
+      if (!pushServerEnabled) {
+        btn.disabled = true;
+        testBtn.classList.add('hidden');
+        msg.textContent = t("Les notifications ne sont pas configurées sur ce serveur.");
+        return;
+      }
+      if (Notification.permission === 'denied') {
+        btn.disabled = true;
+        testBtn.classList.add('hidden');
+        msg.textContent = t("Les notifications sont bloquées pour ce site dans les réglages de ton navigateur.");
+        return;
+      }
+      btn.disabled = false;
+      return currentPushSubscription().then(function (sub) {
+        var on = !!sub;
+        btn.textContent = on ? t('Désactiver les notifications') : t('Activer les notifications');
+        testBtn.classList.toggle('hidden', !on);
+        msg.textContent = on ? t('Activées sur cet appareil.') : '';
+      });
+    });
+  }
+
+  function enablePush() {
+    var msg = $('pushMsg');
+    msg.textContent = t('Activation...');
+
+    return Notification.requestPermission()
+      .then(function (permission) {
+        if (permission !== 'granted') {
+          msg.textContent = t("Autorisation refusée — rien n'a été activé.");
+          return null;
+        }
+        return navigator.serviceWorker.ready.then(function (reg) {
+          // userVisibleOnly est obligatoire : c'est l'engagement que chaque
+          // push affichera bien une notification visible, et non un traitement
+          // silencieux en arrière-plan. Les navigateurs refusent sans.
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(pushPublicKey),
+          });
+        });
+      })
+      .then(function (sub) {
+        if (!sub) return;
+        return api('POST', '/api/push/subscribe', { userId: profile.id, subscription: sub.toJSON() })
+          .then(function () { msg.textContent = t('Activées sur cet appareil.'); });
+      })
+      .catch(function (err) { msg.textContent = err.message || t("Impossible d'activer les notifications."); })
+      .then(refreshPushSection);
+  }
+
+  function disablePush() {
+    var msg = $('pushMsg');
+    return currentPushSubscription()
+      .then(function (sub) {
+        if (!sub) return;
+        var endpoint = sub.endpoint;
+        // On se désabonne des deux côtés : côté navigateur (plus aucun push
+        // n'arrive) ET côté serveur (plus rien n'est envoyé pour rien).
+        return sub.unsubscribe().then(function () {
+          return api('DELETE', '/api/push/subscribe?userId=' + profile.id + '&endpoint=' + encodeURIComponent(endpoint));
+        });
+      })
+      .then(function () { msg.textContent = t('Désactivées sur cet appareil.'); })
+      .catch(function (err) { msg.textContent = err.message || t('Impossible de désactiver les notifications.'); })
+      .then(refreshPushSection);
+  }
+
+  $('pushToggleBtn').addEventListener('click', function () {
+    if (!profile) return;
+    currentPushSubscription().then(function (sub) {
+      if (sub) disablePush(); else enablePush();
+    });
+  });
+
+  $('pushTestBtn').addEventListener('click', function () {
+    if (!profile) return;
+    $('pushMsg').textContent = t('Envoi du test...');
+    api('POST', '/api/push/test', { userId: profile.id })
+      .then(function () { $('pushMsg').textContent = t('Test envoyé — la notification devrait arriver dans quelques secondes.'); })
+      .catch(function (err) { $('pushMsg').textContent = err.message; });
+  });
+
+  // Clic sur une notification alors que l'app est déjà ouverte : le service
+  // worker nous envoie l'adresse à ouvrir plutôt que de lancer une deuxième
+  // fenêtre (voir notificationclick dans public/sw.js).
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function (event) {
+      if (event.data && event.data.type === 'NOTIFICATION_CLICK') openTabFromNotification(event.data.url);
+    });
+  }
+
+  // L'app était fermée : elle s'ouvre sur /?notif=community ou /?notif=profile
+  // (voir les url des notifications dans server/lib/push.js). On bascule sur
+  // l'onglet correspondant puis on nettoie l'adresse, pour qu'un rechargement
+  // ultérieur ne rejoue pas la même bascule.
+  function openTabFromNotification(url) {
+    var target = null;
+    try {
+      target = new URL(url, location.origin).searchParams.get('notif');
+    } catch (err) {
+      target = null;
+    }
+    if (target !== 'community' && target !== 'profile') return;
+    switchTab(target);
+    if (location.search.indexOf('notif=') !== -1) {
+      history.replaceState(null, '', location.pathname);
+    }
+  }
 
   // "Abonnés & Abonnements" (1er septembre 2026, demande d'Emilien : «
   // déplacer la section abonnés et abonnements des réglages vers le bouton

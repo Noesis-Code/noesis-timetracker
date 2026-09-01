@@ -251,6 +251,15 @@
     'Importer': 'Import',
     "Choisis un fichier .csv d'abord.": 'Choose a .csv file first.',
     'Import en cours...': 'Importing...',
+
+    // ---- Doublons d'import (30 août 2026, rétabli le 1er septembre) ----
+    'Chercher les doublons': 'Find duplicates',
+    "Un même fichier importé deux fois crée des sessions en double et gonfle toutes tes statistiques. Ce bouton cherche tes doublons exacts (même activité, mêmes heures de début et de fin) et te propose de n'en garder qu'un de chaque.": 'Importing the same file twice creates duplicate sessions and inflates all your statistics. This button looks for your exact duplicates (same activity, same start and end times) and offers to keep only one of each.',
+    'Recherche des doublons...': 'Looking for duplicates...',
+    'Aucun doublon dans ton historique.': 'No duplicate in your history.',
+    'Suppression en cours...': 'Deleting...',
+    '{n} sessions en double trouvées, soit {h} en trop. En supprimer une de chaque paire ? Il te restera {reste} sessions.': '{n} duplicate sessions found, i.e. {h} too many. Delete one of each pair? You will be left with {reste} sessions.',
+    '{n} sessions en double supprimées. Il te reste {reste} sessions.': '{n} duplicate sessions deleted. You now have {reste} sessions.',
     'Format non supporté — choisis une image PNG, JPEG ou WebP.': 'Unsupported format — choose a PNG, JPEG or WebP image.',
     'Image trop lourde (8 Mo max) — choisis-en une autre.': 'Image too large (8 MB max) — choose another one.',
     'Traitement de la photo...': 'Processing the photo...',
@@ -295,7 +304,52 @@
     'Anglais': 'English',
     "Change la langue de toute l'application. Le changement est appliqué immédiatement.": 'Changes the language of the whole app. The change is applied straight away.',
     'Langue mise à jour.': 'Language updated.',
+
+    // ---- Partage (30 août 2026, rétabli le 1er septembre après une
+    // réécriture du dictionnaire qui l'avait fait disparaître) ----
+    'Partage': 'Sharing',
+    "Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.": 'Enter the address where the app can be reached from another device. It is stored on this device only, and is used by the two buttons below.',
+    'https://mon-adresse-noesis.fr': 'https://my-noesis-address.com',
+    "Enregistrer l'adresse": 'Save the address',
+    "Partager l'app": 'Share the app',
+    'Partager mon profil': 'Share my profile',
+    'Adresse enregistrée.': 'Address saved.',
+    'Adresse enregistrée. Attention : elle est locale, elle ne fonctionnera que depuis ton réseau.': 'Address saved. Careful: it is a local address, it will only work from your own network.',
+    'Adresse effacée.': 'Address cleared.',
+    'Adresse invalide — elle doit ressembler à https://exemple.fr': 'Invalid address — it should look like https://example.com',
+    "Renseigne d'abord l'adresse publique de l'app ci-dessus.": 'Enter the public address of the app above first.',
+    'Partagé.': 'Shared.',
+    'Copié — tu peux le coller où tu veux.': 'Copied — paste it wherever you like.',
+    'Impossible de copier automatiquement — sélectionne le texte à la main.': 'Could not copy automatically — select the text by hand.',
+    'Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}': 'Noèsis — the shared TimeTracker. Join us here: {url}',
+    "Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.": 'Join me on Noèsis, my shared TimeTracker: {url}\nMy nickname is "{pseudo}" — find me in Community > Find members to follow me.',
     "Le serveur n'a pas pris en compte le changement de langue : il tourne encore sur la version d'avant la mise à jour. Arrête-le (Ctrl+C) et relance `npm start`, puis réessaie.": 'The server did not apply the language change: it is still running the version from before the update. Stop it (Ctrl+C), start it again with `npm start`, then try once more.',
+
+    // ---- Notifications push (1er septembre 2026, volet Communauté) ----
+    // Les textes des notifications elles-mêmes ne sont PAS ici : ils sont
+    // construits côté serveur, déjà traduits (server/lib/push.js), parce que
+    // le service worker qui les affiche n'a accès ni à ce fichier ni à la
+    // langue du profil. Ci-dessous, uniquement l'interface de Réglages.
+    'Notifications': 'Notifications',
+    "Reçois une notification sur cet appareil quand un membre écrit dans le fil d'une de tes activités partagées, t'invite sur une activité, ou demande à te suivre.": 'Get a notification on this device when a member writes in the thread of one of your shared activities, invites you to an activity, or asks to follow you.',
+    'Activer les notifications': 'Turn on notifications',
+    'Désactiver les notifications': 'Turn off notifications',
+    'Envoyer un test': 'Send a test',
+    "Sur iPhone, les notifications ne fonctionnent que si Noèsis a été ajoutée à l'écran d'accueil depuis Safari (Partager → Sur l'écran d'accueil). Dans un simple onglet, Apple ne les autorise pas.": 'On iPhone, notifications only work if Noèsis has been added to the home screen from Safari (Share → Add to Home Screen). Apple does not allow them in a plain tab.',
+    'Cet appareil ne gère pas les notifications.': 'This device does not support notifications.',
+    "Les notifications ne sont pas configurées sur ce serveur.": 'Notifications are not configured on this server.',
+    "Les notifications sont bloquées pour ce site dans les réglages de ton navigateur.": 'Notifications are blocked for this site in your browser settings.',
+    'Activation...': 'Turning on...',
+    'Activées sur cet appareil.': 'Turned on for this device.',
+    'Désactivées sur cet appareil.': 'Turned off for this device.',
+    "Autorisation refusée — rien n'a été activé.": 'Permission denied — nothing was turned on.',
+    "Impossible d'activer les notifications.": 'Could not turn on notifications.',
+    'Impossible de désactiver les notifications.': 'Could not turn off notifications.',
+    'Envoi du test...': 'Sending the test...',
+    'Test envoyé — la notification devrait arriver dans quelques secondes.': 'Test sent — the notification should arrive within a few seconds.',
+    "Abonnement aux notifications invalide.": 'Invalid notification subscription.',
+    "Aucun appareil abonné — active d'abord les notifications.": 'No device subscribed — turn notifications on first.',
+    "Cet appareil n'est pas abonné avec ton profil.": 'This device is not subscribed with your profile.',
 
     // ---- Suppression de compte (nouveau) ----
     'Supprimer mon compte': 'Delete my account',
@@ -410,6 +464,7 @@
     [/^Tu as rejoint « (.+) », fusionnée avec ton ancienne activité « (.+) »\.$/, 'You joined "$1", merged with your former activity "$2".'],
     [/^Tu as rejoint « (.+) »\.$/, 'You joined "$1".'],
     [/^Activité enregistrée : (.*)$/, 'Session recorded: $1'],
+    [/^Import terminé : (\d+) ligne\(s\) importée\(s\), (\d+) déjà présente\(s\), (\d+) ignorée\(s\)\.$/, 'Import finished: $1 row(s) imported, $2 already there, $3 skipped.'],
     [/^Import terminé : (\d+) ligne\(s\) importée\(s\), (\d+) ignorée\(s\)\.$/, 'Import finished: $1 row(s) imported, $2 skipped.'],
     [/^"(.+)" existe déjà\. Choisis un autre nom, ou récupère ton profil si c'est toi\.$/, '"$1" already exists. Pick another name, or restore your profile if that is you.'],
     [/^"(.+)" est déjà pris par un autre profil\.$/, '"$1" is already taken by another profile.'],

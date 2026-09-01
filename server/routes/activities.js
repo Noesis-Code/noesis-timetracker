@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { paletteFor, isInPalette } = require('../lib/theme');
+const { notifyActivityInvite } = require('../lib/push');
 
 const router = express.Router();
 
@@ -153,6 +154,12 @@ router.post('/activities/:id/invite', (req, res) => {
 
   db.prepare("INSERT INTO activity_invites (activityId, fromUserId, toUserId, status, createdAt) VALUES (?, ?, ?, 'pending', ?)")
     .run(activity.id, userId, target.id, new Date().toISOString());
+
+  // Notification push à la personne invitée (1er septembre 2026) — jusqu'ici,
+  // seule la pastille rouge de l'icône "avion en papier" le signalait, et
+  // encore fallait-il ouvrir l'app pour la voir. Ne peut jamais faire échouer
+  // l'invitation : voir le principe en tête de server/lib/push.js.
+  notifyActivityInvite(target.id, userId, activity.name);
 
   res.status(201).json({ message: `Invitation envoyée à ${target.name}.` });
 });
