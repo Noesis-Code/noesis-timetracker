@@ -682,17 +682,30 @@
         </div>
         <p id="avatarMsg" class="msg"></p>
 
-        <!-- Accès rapide à "Abonnés & Abonnements" (31 août 2026, demande
-             d'Emilien : « remets un bouton juste en dessous du profil qui
-             ouvre sur les abonnés/abonnements »). La section elle-même reste
-             dans Réglages (#profileSettingsPanel plus bas — ajoutée par
-             Profil le 30 août 2026, panneau partagé avec Paramètres qui le
-             possède) : ce bouton ouvre directement Réglages et défile
-             jusqu'à elle, plutôt que d'en dupliquer le contenu ici (deux
-             copies des mêmes listes à tenir à jour). Voir l'écouteur
-             #profileFollowsBtn dans app.js, qui réutilise showProfileSettings
-             (donc loadFollowConnections) telle quelle. -->
+        <!-- "Abonnés & Abonnements" (1er septembre 2026, demande d'Emilien :
+             « déplacer la section abonnés et abonnements des réglages vers
+             le bouton abonnement dans le profil »). La section a quitté
+             Réglages (où elle vivait depuis le 30 août 2026, dans
+             #profileSettingsPanel — panneau partagé avec Paramètres, voir le
+             commentaire laissé là-bas) : elle s'ouvre désormais ici, juste
+             sous l'avatar, en panneau repliable au clic sur ce bouton — même
+             principe que le panneau "⋮" d'une activité
+             (.activitySettingsPanel). Ids de contenu inchangés
+             (#settingsFollowersList/#settingsFollowingList et leurs indices
+             vides) : seul l'emplacement dans le DOM change, aucune
+             modification de renderNameOnlyList/loadFollowConnections dans
+             app.js. Toujours en lecture seule des deux côtés ici — se
+             désabonner de quelqu'un reste réservé à Communauté (voir
+             #followingList, bouton "Se désabonner"). -->
         <button type="button" id="profileFollowsBtn" class="iconBtn">Abonnés &amp; Abonnements</button>
+        <div id="profileFollowsPanel" class="settingsCard hidden">
+          <p class="hint">Abonnés</p>
+          <div id="settingsFollowersList" class="activitiesList"></div>
+          <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
+          <p class="hint">Abonnements</p>
+          <div id="settingsFollowingList" class="activitiesList"></div>
+          <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+        </div>
 
         <!-- Zone de discussion (31 août 2026, demande d'Emilien) : remplace
              la zone "Note" du Chrono, retirée le même jour (voir
@@ -772,21 +785,11 @@
           <p id="settingsMsg" class="msg"></p>
         </div>
 
-        <!-- Abonnés & Abonnements (30 août 2026, demande d'Emilien) : liste en
-             lecture seule des noms, distincte de "Mes abonnements" dans
-             Communauté (qui reste, elle, actionnable — bouton "Se
-             désabonner"). Aucune action ici : on ne peut pas retirer un
-             abonné (seul lui peut se désabonner), et se désabonner de
-             quelqu'un se fait déjà depuis Communauté. -->
-        <p class="sectionTitle" id="followsSectionTitle">Abonnés &amp; Abonnements</p>
-        <div class="settingsCard">
-          <p class="hint">Abonnés</p>
-          <div id="settingsFollowersList" class="activitiesList"></div>
-          <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
-          <p class="hint">Abonnements</p>
-          <div id="settingsFollowingList" class="activitiesList"></div>
-          <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
-        </div>
+        <!-- "Abonnés & Abonnements" a quitté Réglages le 1er septembre 2026
+             (demande d'Emilien) pour s'ouvrir directement sur la vue
+             principale du Profil, au clic sur le bouton juste sous l'avatar
+             (#profileFollowsBtn/#profileFollowsPanel, voir #profileMain plus
+             haut dans ce fichier) — ce panneau ⚙️ ne la contient donc plus. -->
 
         <p class="sectionTitle">Apparence</p>
         <div class="settingsCard">

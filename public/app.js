@@ -2597,11 +2597,13 @@
     });
   }
 
-  // ----- Abonnés & Abonnements (Réglages, 30 août 2026) : simple liste de
-  // noms en lecture seule, chargée uniquement à l'ouverture de Réglages
-  // (showProfileSettings) — pas de bouton d'action ici, contrairement à
-  // "Mes abonnements" dans Communauté (renderFollowingList ci-dessus), qui
-  // reste le seul endroit pour se désabonner. -----
+  // ----- Abonnés & Abonnements (créée dans Réglages le 30 août 2026,
+  // déplacée sur la vue principale du Profil le 1er septembre 2026 — voir
+  // #profileFollowsBtn/#profileFollowsPanel plus bas) : simple liste de noms
+  // en lecture seule, chargée uniquement à l'ouverture de ce panneau — pas
+  // de bouton d'action ici, contrairement à "Mes abonnements" dans
+  // Communauté (renderFollowingList ci-dessus), qui reste le seul endroit
+  // pour se désabonner. -----
   function loadFollowConnections() {
     if (!profile) return;
     api('GET', '/api/follows/followers?userId=' + profile.id).then(renderSettingsFollowers);
@@ -2798,7 +2800,6 @@
   function showProfileSettings() {
     $('profileMain').classList.add('hidden');
     $('profileSettingsPanel').classList.remove('hidden');
-    loadFollowConnections();
   }
   // Le bouton "⚙️" vit désormais dans .topbar (31 août 2026, demande
   // d'Emilien — voir index.html), accessible depuis n'importe quel onglet et
@@ -2810,16 +2811,21 @@
     showProfileSettings();
   });
 
-  // Accès rapide "Abonnés & Abonnements" (31 août 2026, demande d'Emilien) —
-  // ce bouton vit sur la vue principale du Profil (donc #tab-profile est déjà
-  // ouvert quand on peut cliquer dessus), pas besoin d'appeler openProfile().
-  // Réutilise Réglages telle quelle (même chargement des listes via
-  // showProfileSettings -> loadFollowConnections) plutôt que de dupliquer la
-  // section ailleurs, puis défile directement dessus.
+  // "Abonnés & Abonnements" (1er septembre 2026, demande d'Emilien : «
+  // déplacer la section abonnés et abonnements des réglages vers le bouton
+  // abonnement dans le profil »). Vivait dans Réglages depuis le 30 août
+  // 2026 (#profileSettingsPanel) ; s'ouvre désormais en panneau repliable
+  // directement sous l'avatar, sur la vue principale du Profil — même
+  // principe que le panneau "⋮" d'une activité. loadFollowConnections()
+  // (inchangée, toujours scopée à l'appelant) n'est donc plus appelée à
+  // l'ouverture de Réglages (voir showProfileSettings ci-dessus) mais ici,
+  // uniquement quand on ouvre effectivement le panneau — pas à chaque
+  // ouverture du Profil.
   $('profileFollowsBtn').addEventListener('click', function () {
-    showProfileSettings();
-    var target = $('followsSectionTitle');
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var panel = $('profileFollowsPanel');
+    var opening = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden');
+    if (opening) loadFollowConnections();
   });
 
   // Bascule l'affichage du panneau déroulant (#profileNotifPanel) listant

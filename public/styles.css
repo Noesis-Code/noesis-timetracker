@@ -385,13 +385,22 @@ textarea {
    (31 août 2026, demande d'Emilien — un essai en page à part le même jour a
    été écarté au profit de ce panneau sur place). Encadrée comme un vrai
    bouton (bordure + fond, même gabarit que .iconBtn) et rapprochée du
-   chrono au-dessus (marge réduite) à la demande d'Emilien du 1er septembre
-   2026 — jusque-là simple ligne de texte sans cadre, éloignée de 24px. Ne
-   redéfinit pas .sectionTitleRow/.sectionTitle (propriété de Design),
-   s'ajoute en complément comme .historyHeaderClickable ci-dessous. */
+   chrono au-dessus à la demande d'Emilien du 1er septembre 2026 — jusque-là
+   simple ligne de texte sans cadre, éloignée de 24px (réduit une première
+   fois à 10px, puis à 4px suite à une seconde demande le même jour, « encore
+   »). Toujours le 1er septembre 2026 (même seconde demande) : le bouton ne
+   s'étire plus sur toute la largeur (`.sectionTitleRow` générique, propriété
+   de Design, est en `display: flex; justify-content: space-between` — étiré
+   par défaut) mais se réduit à la taille de son contenu et se centre
+   horizontellement, pour qu'"Historique" soit visuellement centré DANS le
+   bouton plutôt qu'aligné à gauche d'une large bande. Ne redéfinit pas
+   .sectionTitleRow/.sectionTitle eux-mêmes (propriété de Design), s'ajoute
+   en complément comme .historyHeaderClickable ci-dessous. */
 #chronoHistoryHeader {
-  margin-top: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--card); padding: 10px 14px;
+  margin-top: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); padding: 10px 20px;
+  display: flex; justify-content: center; width: fit-content;
+  margin-left: auto; margin-right: auto;
   transition: background-color var(--transition-fast);
 }
 #chronoHistoryHeader:hover { background: var(--hover-bg); }
