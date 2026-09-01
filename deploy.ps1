@@ -33,6 +33,14 @@ function Get-OnlineVersion {
   }
 }
 
+# Le projet vit dans OneDrive, qui garde des fichiers ouverts pendant qu'il
+# synchronise. Le menage automatique de Git (`gc`) essaie alors de supprimer
+# des dossiers de .git/objects que Windows lui refuse, et se met a poser
+# "Deletion of directory '.git/objects/xx' failed. Should I try again? (y/n)"
+# en boucle, en plein milieu d'un deploiement. Ce menage n'est pas necessaire
+# ici : on le desactive une bonne fois (commande sans effet si deja faite).
+git config gc.auto 0 | Out-Null
+
 Write-Host ""
 Write-Host "=== Ce qui va partir en production ===" -ForegroundColor Cyan
 $changes = git status --short
