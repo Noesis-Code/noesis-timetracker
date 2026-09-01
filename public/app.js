@@ -11,7 +11,11 @@
   // demande d'Emilien : plus de sélecteur global (#statsPeriodSwitch), chaque
   // section choisit sa propre période via son menu "⋮" (voir plus bas).
   var currentPiePeriod = 'week';
-  var currentChartPeriod = 'week';
+  // Graphique : plus de "période" au sens plage depuis le 1er septembre 2026
+  // (demande d'Emilien) — le Graphique couvre toujours tout l'historique
+  // (voir totalRangeForUser côté serveur), seule la granularité des points
+  // se choisit ('day' | 'week' | 'month', 'day' par défaut).
+  var currentChartGranularity = 'day';
   var currentTimesheetPeriod = 'week'; // 'week' | 'month' — pas d'"année" pour la Feuille de temps (demande d'Emilien)
   var currentTimesheetOffset = 0; // décalage en semaines ; repart à 0 à chaque ouverture de l'onglet Statistiques
   var currentTimesheetMonthOffset = 0; // décalage en mois (vue calendrier) ; repart à 0 lui aussi
@@ -1184,7 +1188,7 @@
     loadPieStats();
   });
   setupStatsPeriodMenu($('chartPeriodBtn'), $('chartPeriodMenu'), function (period) {
-    currentChartPeriod = period;
+    currentChartGranularity = period; // 'day' | 'week' | 'month' (data-period du menu ⋮ du Graphique)
     loadChartStats();
   });
   setupStatsPeriodMenu($('tsPeriodBtn'), $('tsPeriodMenu'), function (period) {
@@ -1209,7 +1213,7 @@
 
   function loadChartStats() {
     if (!profile) return;
-    api('GET', '/api/stats?userId=' + profile.id + '&period=' + currentChartPeriod).then(function (data) {
+    api('GET', '/api/stats?userId=' + profile.id + '&granularity=' + currentChartGranularity).then(function (data) {
       lastDailyBreakdown = data.dailyBreakdown || [];
       renderChart(lastDailyBreakdown);
     });
@@ -1320,7 +1324,18 @@
   // crosshair + infobulle flottante (pattern par défaut pour un graphique
   // en courbe, voir dataviz : interaction). -----
 
+  // Étiquette d'un point du Graphique. Utilitaire générique, partagé avec la
+  // Communauté (renderActivityChart plus bas, jamais modifiée par
+  // Statistiques) : ses points n'ont pas de `granularity`, donc ils passent
+  // toujours par la branche jour ci-dessous, comportement inchangé pour eux.
+  // Pour Statistiques (1er septembre 2026, granularité semaine/mois du
+  // Graphique), le serveur envoie déjà `shortLabel`/`fullLabel` tout formatés
+  // (voir chartBreakdownForUser, server/lib/stats.js) — pas de calcul de date
+  // ici pour ces deux cas.
   function dayChartLabel(d, shortForm) {
+    if (d.granularity === 'week' || d.granularity === 'month') {
+      return shortForm ? d.shortLabel : d.fullLabel;
+    }
     var dateObj = new Date(d.isoDate + 'T00:00:00');
     var dm = pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1);
     return shortForm ? dm : (t(d.dayOfWeek) + ' ' + dm);

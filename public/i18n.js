@@ -121,6 +121,9 @@
     "Ce n'est pas ton message.": 'This is not your message.',
 
     // ---- Statistiques ----
+    // 'Jour' : nouvelle option de granularité du Graphique (1er septembre
+    // 2026, remplace le choix de plage Semaine/Mois/Année/Total de ce menu).
+    'Jour': 'Day',
     'Semaine': 'Week',
     'Mois': 'Month',
     'Année': 'Year',

@@ -34,12 +34,14 @@ function breakdownForUser(userId, period, refDate) {
   };
 }
 
-// Période "Total" du Graphique (31 août 2026, demande d'Emilien : remplacer
-// "Semaine" par Mois/Année/Total). Pas de notion de "période" au sens
-// périodRange (pas de longueur fixe) : du tout premier jour enregistré par
-// l'utilisateur (MIN(isoDate) sur ses propres entrées) jusqu'à aujourd'hui.
-// Vit ici (pas dans lib/period.js, qui est un pur utilitaire de dates sans
-// accès DB) car elle a besoin de lire time_entries.
+// Plage du Graphique : du tout premier jour enregistré par l'utilisateur
+// (MIN(isoDate) sur ses propres entrées) jusqu'à aujourd'hui. Introduite le
+// 31 août 2026 comme une période "Total" parmi Mois/Année/Total ; devenue le
+// 1er septembre 2026 (nouvelle demande d'Emilien) la SEULE plage du
+// Graphique, qui affiche désormais toujours tout l'historique — seule la
+// granularité des points se choisit encore (voir chartBreakdownForUser
+// ci-dessous). Vit ici (pas dans lib/period.js, qui est un pur utilitaire de
+// dates sans accès DB) car elle a besoin de lire time_entries.
 function totalRangeForUser(userId, refDate) {
   const ref = refDate ? new Date(refDate) : new Date();
   const todayIso = isoDateOf(ref);
@@ -47,8 +49,34 @@ function totalRangeForUser(userId, refDate) {
   return { start: (earliest && earliest.d) || todayIso, end: todayIso, label: 'Depuis le début' };
 }
 
-function dailyBreakdownForUser(userId, period, refDate) {
-  const { start, end } = period === 'total' ? totalRangeForUser(userId, refDate) : periodRange(period, refDate);
+// ===================== GRAPHIQUE (regroupement jour / semaine / mois) =====
+// 1er septembre 2026, demande d'Emilien : « le graphique affiche toujours le
+// total des enregistrements depuis le début, mais qui peut être détaillé au
+// jour, à la semaine ou au mois ». Remplace l'ancien dailyBreakdownForUser
+// (qui gardait un point par jour quelle que soit la "période" — Semaine /
+// Mois / Année / Total — qui ne servait qu'à choisir la PLAGE affichée) :
+// la plage est maintenant toujours totalRangeForUser ci-dessus, et c'est la
+// GRANULARITÉ (`granularity`, 'day' | 'week' | 'month') qui choisit comment
+// regrouper les points sur cette plage fixe.
+//
+// "Semaine"/"Mois" regroupent par tranche CALENDAIRE fixe (mondayOf / premier
+// du mois), pas par fenêtre glissante par rapport à aujourd'hui : contrairement
+// à la fenêtre "7 derniers jours" de la Feuille de temps (un instantané "en
+// cours", recalculé chaque jour, voir timesheetForUser plus bas), un
+// regroupement historique doit rester des tranches stables — la même semaine
+// de juillet doit toujours apparaître comme le même point du graphique,
+// qu'on le regarde aujourd'hui ou dans un mois.
+//
+// Pour 'day', la forme renvoyée est strictement celle d'avant (isoDate /
+// dayOfWeek / totalSeconds / activities) : aucun changement de comportement
+// pour la granularité par défaut. Pour 'week'/'month', chaque point porte en
+// plus `granularity`, `shortLabel` (axe) et `fullLabel` (infobulle) déjà
+// formatés en français (même convention que timesheetForUser/
+// timesheetMonthForUser ci-dessous, dont les labels ne sont pas traduits non
+// plus) — public/app.js (dayChartLabel) les utilise directement pour ces
+// deux granularités, sans rien connaître du découpage calendaire.
+function chartBreakdownForUser(userId, granularity, refDate) {
+  const { start, end } = totalRangeForUser(userId, refDate);
 
   const rows = db.prepare(`
     SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek, a.id AS activityId,
@@ -61,14 +89,44 @@ function dailyBreakdownForUser(userId, period, refDate) {
     ORDER BY t.isoDate ASC, seconds DESC
   `).all(userId, start, end);
 
-  const byDay = {};
+  if (granularity !== 'week' && granularity !== 'month') {
+    const byDay = {};
+    rows.forEach((r) => {
+      if (!byDay[r.isoDate]) byDay[r.isoDate] = { isoDate: r.isoDate, dayOfWeek: r.dayOfWeek, totalSeconds: 0, activities: [] };
+      byDay[r.isoDate].totalSeconds += r.seconds;
+      byDay[r.isoDate].activities.push({ activityId: r.activityId, name: r.activity, color: r.color, seconds: r.seconds });
+    });
+    return Object.values(byDay).sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
+  }
+
+  const byBucket = {};
+  const order = [];
   rows.forEach((r) => {
-    if (!byDay[r.isoDate]) byDay[r.isoDate] = { isoDate: r.isoDate, dayOfWeek: r.dayOfWeek, totalSeconds: 0, activities: [] };
-    byDay[r.isoDate].totalSeconds += r.seconds;
-    byDay[r.isoDate].activities.push({ activityId: r.activityId, name: r.activity, color: r.color, seconds: r.seconds });
+    const dayDate = new Date(r.isoDate + 'T00:00:00');
+    const bucketStart = granularity === 'week' ? mondayOf(dayDate) : new Date(dayDate.getFullYear(), dayDate.getMonth(), 1);
+    const key = isoDateOf(bucketStart);
+    if (!byBucket[key]) { byBucket[key] = { isoDate: key, totalSeconds: 0, activitiesById: {} }; order.push(key); }
+    const bucket = byBucket[key];
+    bucket.totalSeconds += r.seconds;
+    if (!bucket.activitiesById[r.activityId]) bucket.activitiesById[r.activityId] = { activityId: r.activityId, name: r.activity, color: r.color, seconds: 0 };
+    bucket.activitiesById[r.activityId].seconds += r.seconds;
   });
 
-  return Object.values(byDay).sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
+  return order.map((key) => {
+    const b = byBucket[key];
+    const bucketStart = new Date(key + 'T00:00:00');
+    let shortLabel, fullLabel;
+    if (granularity === 'week') {
+      const bucketEnd = new Date(bucketStart);
+      bucketEnd.setDate(bucketEnd.getDate() + 6);
+      shortLabel = `${pad2(bucketStart.getDate())}/${pad2(bucketStart.getMonth() + 1)}`;
+      fullLabel = `Semaine du ${pad2(bucketStart.getDate())}/${pad2(bucketStart.getMonth() + 1)} au ${pad2(bucketEnd.getDate())}/${pad2(bucketEnd.getMonth() + 1)}`;
+    } else {
+      shortLabel = `${MONTH_NAMES_FR[bucketStart.getMonth()].slice(0, 3)} ${bucketStart.getFullYear()}`;
+      fullLabel = `${MONTH_NAMES_FR[bucketStart.getMonth()]} ${bucketStart.getFullYear()}`;
+    }
+    return { isoDate: key, granularity, shortLabel, fullLabel, totalSeconds: b.totalSeconds, activities: Object.values(b.activitiesById) };
+  }).sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
 }
 
 // ===================== FEUILLE DE TEMPS (heatmap hebdomadaire) =====================
@@ -261,4 +319,4 @@ function timesheetMonthForUser(userId, monthOffset) {
   return { monthOffset: offset, isCurrentMonth: offset === 0, start, end, label, hasMoreBefore, weeks };
 }
 
-module.exports = { breakdownForUser, dailyBreakdownForUser, timesheetForUser, timesheetMonthForUser };
+module.exports = { breakdownForUser, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };

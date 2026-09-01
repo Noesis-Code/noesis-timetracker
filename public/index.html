@@ -425,29 +425,34 @@
         <p id="statsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
       </div>
 
-      <!-- Section 3 : Graphique — une courbe par activité sur sa propre
-           période (Semaine/Mois/Année, indépendante des deux autres
-           sections), plus une courbe Total (blanche en mode sombre, noire
-           en mode clair) — remplace l'ancien "Détail par jour" et son
-           option barres, retirée (29 août 2026, suite demande Emilien :
-           plus de bascule barres/courbe, courbe multi-séries).
+      <!-- Section 3 : Graphique — une courbe par activité, plus une courbe
+           Total (blanche en mode sombre, noire en mode clair) — remplace
+           l'ancien "Détail par jour" et son option barres, retirée
+           (29 août 2026, suite demande Emilien : plus de bascule
+           barres/courbe, courbe multi-séries).
+           Couvre TOUJOURS tout l'historique de l'utilisateur (1er septembre
+           2026, demande d'Emilien : « affiche toujours le total des
+           enregistrements depuis le début » — plus de choix de plage
+           Semaine/Mois/Année/Total) ; le menu "⋮" choisit désormais la
+           GRANULARITÉ des points (Jour/Semaine/Mois), pas la plage — voir
+           chartBreakdownForUser dans server/lib/stats.js.
            Plein écran forcé en paysage via #chartFullscreenBtn, même
            mécanisme que #tsFullscreenBtn ci-dessus (rotation CSS 90°, voir
            styles.css #statsChartBlock.fullscreen), avec en plus un
            agrandissement du graphique lui-même : sa hauteur s'étire pour
            remplir l'espace disponible au lieu de rester à 180px fixes
-           (29 août 2026, suite demande Emilien). Le menu "⋮" (période) n'est
-           visible qu'en plein écran, comme pour la Feuille de temps
+           (29 août 2026, suite demande Emilien). Le menu "⋮" (granularité)
+           n'est visible qu'en plein écran, comme pour la Feuille de temps
            ci-dessus (30 août 2026, demande d'Emilien). -->
       <div id="statsChartBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
           <div class="statsPeriodMenuWrap fullscreenOnly" id="chartPeriodWrap">
-            <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+            <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
             <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
-              <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+              <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
               <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-              <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
             </div>
           </div>
           <button id="chartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>

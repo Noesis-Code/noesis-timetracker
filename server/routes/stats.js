@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { breakdownForUser, dailyBreakdownForUser, timesheetForUser, timesheetMonthForUser } = require('../lib/stats');
+const { breakdownForUser, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser } = require('../lib/stats');
 
 const router = express.Router();
 
@@ -13,17 +13,26 @@ router.get('/stats', (req, res) => {
 
   const refDate = req.query.date || null;
 
-  // 'total' : uniquement valide pour dailyBreakdown (le Graphique) — voir
-  // totalRangeForUser dans lib/stats.js. Les trois blocs week/month/year
-  // ci-dessous restent inchangés (Répartition n'a pas de "Total").
-  const VALID_PERIODS = ['day', 'week', 'month', 'year', 'total'];
+  // 'period' ne sert plus qu'à la Répartition (camembert, ci-dessous) — le
+  // Graphique n'a plus de "période" au sens plage : voir `granularity`
+  // ci-dessous et chartBreakdownForUser/totalRangeForUser dans lib/stats.js
+  // (1er septembre 2026, demande d'Emilien : le Graphique montre désormais
+  // toujours tout l'historique, plus de choix Semaine/Mois/Année/Total).
+  const VALID_PERIODS = ['day', 'week', 'month', 'year'];
   const period = VALID_PERIODS.includes(req.query.period) ? req.query.period : 'week';
+
+  // Granularité du Graphique : regroupe les points de tout l'historique par
+  // jour (défaut, comportement historique), semaine ou mois calendaire.
+  const VALID_GRANULARITIES = ['day', 'week', 'month'];
+  const granularity = VALID_GRANULARITIES.includes(req.query.granularity) ? req.query.granularity : 'day';
 
   res.json({
     week: breakdownForUser(userId, 'week', refDate),
     month: breakdownForUser(userId, 'month', refDate),
     year: breakdownForUser(userId, 'year', refDate),
-    dailyBreakdown: dailyBreakdownForUser(userId, period, refDate),
+    // Nom de champ conservé tel quel (historique) même si ce n'est plus
+    // forcément "journalier" : le client (app.js) le lit sous ce nom.
+    dailyBreakdown: chartBreakdownForUser(userId, granularity, refDate),
   });
 });
 
