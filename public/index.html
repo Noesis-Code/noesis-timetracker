@@ -419,34 +419,6 @@
           </div>
 
 
-          <div class="settingsSection">
-            <button type="button" class="settingsSectionHeader" aria-expanded="false">
-              <span class="sectionTitle">Importer l'historique existant</span>
-              <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-            </button>
-            <div class="settingsSectionBody hidden">
-          <div class="entryCard">
-            <p class="hint">Depuis Google Sheets : onglet « Historique » → Fichier → Télécharger → Valeurs séparées par une virgule (.csv), puis choisis le fichier ici.</p>
-            <input type="file" id="importFile" accept=".csv,text/csv">
-            <button id="importBtn" class="btn btn-small">Importer</button>
-            <p id="importMsg" class="msg"></p>
-
-            <!-- Nettoyage des doublons d'import (30 août 2026). Un même fichier
-                 importé deux fois recrée exactement les mêmes lignes (les heures
-                 sont calculées depuis le CSV, pas depuis l'heure d'import), ce
-                 qui double l'historique et donc toutes les statistiques. Le
-                 bouton compte d'abord, montre ce qui partirait, et ne supprime
-                 qu'après confirmation. Strictement limité au profil courant. -->
-            <p class="hint">Un même fichier importé deux fois crée des sessions en double et gonfle toutes tes statistiques. Ce bouton cherche tes doublons exacts (même activité, mêmes heures de début et de fin) et te propose de n'en garder qu'un de chaque.</p>
-            <div class="shareActions">
-              <button id="dedupeBtn" class="iconBtn danger">Chercher les doublons</button>
-            </div>
-            <p id="dedupeMsg" class="msg"></p>
-          </div>
-            </div>
-          </div>
-
-
           <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
                quelqu'un, ou s'inviter soi-même en donnant son pseudo.
                L'adresse publique est SAISIE À LA MAIN et mémorisée sur CET
@@ -1078,6 +1050,11 @@
   </nav>
 </div>
 
+<!-- Source unique des palettes de couleurs d'activités (1er septembre 2026,
+     Design) : pose window.NOESIS_THEME_PALETTES, lu par app.js juste après.
+     Doit être chargé avant app.js, comme i18n.js. Voir public/theme-palette.js
+     et server/lib/theme.js (même source, consommée côté serveur via require). -->
+<script src="/theme-palette.js"></script>
 <script src="/i18n.js"></script>
 <script src="/app.js"></script>
 </body>

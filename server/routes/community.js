@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const {
-  sharedActivitiesForUser, sharedFeedForUser, followingFeedForUser, liveFeedForUser, activityMembersForUser,
+  sharedActivitiesForUser, sharedFeedForUser, followingFeedForUser, activityMembersForUser,
   activityMessagesForUser, postActivityMessage, markActivityMessagesRead, unreadMessageCountsForUser,
   activityBreakdownForUser, activityDailyBreakdownForUser, activityTimesheetForUser,
 } = require('../lib/community');
@@ -97,8 +97,7 @@ router.get('/community/activity-members', (req, res) => {
 // ---------- Fil de discussion d'UNE activité partagée ----------
 // Mêmes contrôles d'accès que les autres routes /community/activity-* :
 // seuls les membres ACTUELS d'une activité effectivement partagée lisent et
-// écrivent dans son fil. Rien à voir avec les notes "en direct" du Chrono
-// (activity_broadcasts) : ici, le message reste, même une fois le chrono
+// écrivent dans son fil. Ici le message reste, même une fois le chrono
 // arrêté, et il n'y a pas d'audience à choisir.
 
 router.get('/community/activity-messages', (req, res) => {
@@ -234,19 +233,11 @@ router.get('/community/following-feed', (req, res) => {
   res.json(followingFeedForUser(userId));
 });
 
-// Flux "En ce moment" : notes envoyées en direct par des membres/abonnés
-// dont le chrono est TOUJOURS en cours — voir liveFeedForUser dans
-// lib/community.js. Fusionne les deux origines (members/community) en un
-// seul flux, contrairement à shared-feed/following-feed qui restent séparés
-// (ceux-là lisent time_entries, des sessions déjà terminées).
-router.get('/community/live-feed', (req, res) => {
-  const userId = req.query.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-
-  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
-  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
-
-  res.json(liveFeedForUser(userId));
-});
+// La route "En ce moment" (GET /community/live-feed, notes envoyées en
+// direct par des membres/abonnés dont le chrono tourne encore) a été
+// retirée le 1er septembre 2026 : orpheline des deux côtés depuis fin août
+// (plus aucun lecteur depuis le 30 août, plus aucun écrivain depuis le 31 —
+// voir noesis-timetracker-journal-communaute.md et l'audit
+// noesis-timetracker-audit-doublons-code-mort.md, point A1).
 
 module.exports = router;

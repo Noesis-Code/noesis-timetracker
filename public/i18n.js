@@ -373,7 +373,6 @@
     'userId et activityId requis.': 'userId and activityId are required.',
     'followerId et followeeId requis.': 'followerId and followeeId are required.',
     'Profil introuvable.': 'Profile not found.',
-    'Profil introuvable. Réinitialise ton profil dans Paramètres.': 'Profile not found. Reset your profile in Settings.',
     'Activité introuvable.': 'Activity not found.',
     'Activité invalide.': 'Invalid activity.',
     "Le nom de l'activité est requis.": 'The activity name is required.',

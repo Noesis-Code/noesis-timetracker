@@ -170,35 +170,17 @@ CREATE INDEX IF NOT EXISTS idx_follows_followee_status ON follows(followeeId, st
 CREATE INDEX IF NOT EXISTS idx_follows_follower_status ON follows(followerId, status);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_follow_pending ON follows(followerId, followeeId) WHERE status = 'pending';
 
--- Note envoyée "en direct" pendant qu'un chrono tournait (bouton "Envoyer"
--- de l'ancienne zone "Note" du Chrono) — INDÉPENDANT de la note de fin de
--- session dans time_entries : pouvait être envoyée plusieurs fois pendant
--- une même session, sans jamais toucher à la note enregistrée au STOP. Pas
--- de lien vers time_entries (la session n'était pas forcément terminée au
--- moment de l'envoi) : "en direct" était déduit à la LECTURE en vérifiant
--- que l'auteur avait toujours un chrono en cours sur cette même activité
--- (jointure sur running_timers, voir lib/community.js : liveFeedForUser).
--- audience : 'members' (visible aux autres membres de l'activité partagée,
--- comme sharedFeedForUser) ou 'community' (visible aux abonnés qui suivent
--- ce profil, comme followingFeedForUser) — validé côté route, pas de CHECK
--- SQL, même convention que la colonne "status" des tables ci-dessus.
---
--- ORPHELINE depuis le 31 août 2026 : la zone "Note" du Chrono qui l'écrivait
--- a été retirée (demande d'Emilien, remplacée par la zone Discussion du
--- Profil — voir profile_posts plus bas pour la sous-partie "Communauté" et
--- activity_messages pour la sous-partie "Membres"), et son seul lecteur
--- ("En ce moment" de Communauté) avait déjà été retiré le 30 août 2026. Plus
--- aucune route ne lit ni n'écrit cette table — laissée telle quelle
--- (données existantes non supprimées), candidate à un nettoyage ultérieur.
-CREATE TABLE IF NOT EXISTS activity_broadcasts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
-  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  note TEXT NOT NULL,
-  audience TEXT NOT NULL,
-  createdAt TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_broadcasts_activity_user ON activity_broadcasts(activityId, userId, createdAt);
+-- activity_broadcasts (note "en direct" envoyée depuis l'ancienne zone
+-- "Note" du Chrono, retirée le 31 août 2026 — voir profile_posts plus bas
+-- pour son remplacement côté "Communauté" et activity_messages pour
+-- "Membres") a été retirée pour de bon le 1er septembre 2026 : orpheline des
+-- deux côtés depuis fin août (plus aucun lecteur depuis le 30 août, plus
+-- aucun écrivain depuis le 31), confirmé par audit puis validé par Emilien —
+-- voir noesis-timetracker-journal-communaute.md et
+-- noesis-timetracker-audit-doublons-code-mort.md (point A1). DROP TABLE
+-- IF EXISTS ci-dessous, idempotent comme le reste de ce fichier : ne fait
+-- rien une fois la table déjà absente.
+DROP TABLE IF EXISTS activity_broadcasts;
 
 -- Pièce jointe (photo prise à l'appareil, document) rattachée à la note
 -- d'une session déjà validée, ajoutée depuis le panneau "Historique" du
@@ -227,11 +209,12 @@ CREATE INDEX IF NOT EXISTS idx_attachments_user_pending ON note_attachments(user
 CREATE INDEX IF NOT EXISTS idx_attachments_entry ON note_attachments(timeEntryId);
 
 -- Fil de discussion d'une activité PARTAGÉE : messages écrits par ses membres
--- pour ses membres, conservés durablement — c'est ce qui le distingue des
--- notes "en direct" (activity_broadcasts ci-dessus), qui disparaissent du flux
--- dès que leur auteur clique sur STOP, et de la note de session
--- (time_entries.note), attachée à une session précise. Ici rien n'est lié à un
--- chrono : on écrit à tout moment, chrono en cours ou non. Aucune audience à
+-- pour ses membres, conservés durablement — à ne pas confondre avec la note
+-- de session (time_entries.note), attachée à une session précise. Ici rien
+-- n'est lié à un chrono : on écrit à tout moment, chrono en cours ou non.
+-- (Une note "en direct", activity_broadcasts, existait aussi jusqu'au 1er
+-- septembre 2026, visible seulement tant que le chrono de son auteur
+-- tournait encore — retirée, voir plus haut.) Aucune audience à
 -- choisir non plus : le destinataire est toujours l'ensemble des membres
 -- ACTUELS de l'activité. Cette appartenance n'est jamais figée dans cette
 -- table — elle est revérifiée à chaque lecture/écriture (voir
@@ -266,12 +249,12 @@ CREATE TABLE IF NOT EXISTS activity_message_reads (
 -- Fil "Communauté" de la zone Discussion de l'onglet Profil (31 août 2026,
 -- demande d'Emilien) : remplace le bouton "Envoyer à la communauté" de
 -- l'ancienne zone "Note" du Chrono, retirée le même jour avec tout le reste
--- de cette zone (voir #noteWrapper, activity_broadcasts ci-dessus et
--- POST /timer/note, /timer/broadcast, /timer/attachments dans
--- server/routes/timer.js — tous retirés). Volontairement indépendant d'un
--- chrono en cours (contrairement à activity_broadcasts) : userId suffit,
--- pas d'activityId, on écrit à tout moment. Comme l'ancien
--- activity_broadcasts en audience 'community', personne d'autre que l'auteur
+-- de cette zone (voir #noteWrapper et POST /timer/note, /timer/broadcast,
+-- /timer/attachments dans server/routes/timer.js — tous retirés).
+-- Volontairement indépendant d'un chrono en cours : userId suffit, pas
+-- d'activityId, on écrit à tout moment. Comme l'ancien activity_broadcasts
+-- (retiré le 1er septembre 2026) en audience 'community', personne d'autre
+-- que l'auteur
 -- ne lit ces messages ailleurs dans l'app pour l'instant (il n'existe pas de
 -- flux "communauté" côté abonnés) : c'est donc, comme l'était déjà en
 -- pratique "Envoyer à la communauté" depuis le retrait de "En ce moment" de

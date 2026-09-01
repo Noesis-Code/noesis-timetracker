@@ -68,17 +68,22 @@
   }
   lockPortraitOrientation();
 
-  // Palettes de couleurs d'activités, une par thème — DOIVENT rester
-  // identiques à server/lib/theme.js (voir le commentaire là-bas). Les 8
-  // couleurs suivent l'ordre de l'arc-en-ciel (rouge, orange, jaune, vert,
-  // cyan, bleu, indigo, violet) ; chaque couleur sombre a sa jumelle claire
-  // au même index (même teinte, seule la luminosité change) : changer de
-  // thème garde "la même" couleur d'activité. Comme seules ces couleurs sont
-  // sélectionnables, on n'a plus besoin de calculer une couleur de texte au
-  // cas par cas : c'est le thème actif qui décide.
+  // Palettes de couleurs d'activités, une par thème. Les 8 couleurs suivent
+  // l'ordre de l'arc-en-ciel (rouge, orange, jaune, vert, cyan, bleu, indigo,
+  // violet) ; chaque couleur sombre a sa jumelle claire au même index (même
+  // teinte, seule la luminosité change) : changer de thème garde "la même"
+  // couleur d'activité. Comme seules ces couleurs sont sélectionnables, on
+  // n'a plus besoin de calculer une couleur de texte au cas par cas : c'est
+  // le thème actif qui décide.
+  //
+  // Valeurs lues depuis public/theme-palette.js (chargé juste avant ce
+  // fichier dans index.html, comme i18n.js) plutôt que recopiées ici — source
+  // unique partagée avec server/lib/theme.js depuis le 1er septembre 2026
+  // (Design, voir l'audit doublons/code mort). Pour changer une couleur,
+  // modifier public/theme-palette.js — pas cette ligne.
   var PALETTES = {
-    dark: ['#9E2E2E', '#9B5D27', '#8B7923', '#328540', '#2E828A', '#3659A1', '#573EA3', '#833B9B'],
-    light: ['#D87979', '#DAA06C', '#D8C564', '#7ACD88', '#75C9D1', '#85A0D6', '#9B89D2', '#C089D2'],
+    dark: NOESIS_THEME_PALETTES.DARK_PALETTE,
+    light: NOESIS_THEME_PALETTES.LIGHT_PALETTE,
   };
 
   function loadProfile() {
@@ -2479,20 +2484,11 @@
       actionsWrap.className = 'rowActions';
 
       if (u.followStatus === 'accepted') {
-        var unfollowBtn = document.createElement('button');
-        unfollowBtn.className = 'iconBtn danger';
-        unfollowBtn.textContent = t('Se désabonner');
-        unfollowBtn.addEventListener('click', function () {
-          if (!confirm(t('Te désabonner de {name} ?', { name: u.name }))) return;
-          api('DELETE', '/api/follows/' + u.followId + '?userId=' + profile.id)
-            .then(function () {
-              u.followStatus = 'none'; u.followId = null;
-              renderSearchResults(list);
-              loadFollowingFeed();
-            })
-            .catch(function (err) { alert(err.message); });
-        });
-        actionsWrap.appendChild(unfollowBtn);
+        actionsWrap.appendChild(buildUnfollowButton(u.followId, u.name, function () {
+          u.followStatus = 'none'; u.followId = null;
+          renderSearchResults(list);
+          loadFollowingFeed();
+        }));
       } else if (u.followStatus === 'pending') {
         var cancelBtn = document.createElement('button');
         cancelBtn.className = 'iconBtn';
@@ -2601,6 +2597,29 @@
     api('GET', '/api/follows/following?userId=' + profile.id).then(renderSettingsFollowing);
   }
 
+  // Construit le bouton "Se désabonner" (icône rouge, confirmation,
+  // DELETE /api/follows/:id) — partagé depuis le 1er septembre 2026 entre la
+  // recherche de Communauté (renderSearchResults, ci-dessus) et la liste
+  // "Abonnements" de Profil (renderNameOnlyList, mode actionable,
+  // ci-dessous), qui avaient chacune leur propre copie identique de ce même
+  // mécanisme jusque-là — voir noesis-timetracker-audit-doublons-code-mort.md
+  // (point B5) et noesis-timetracker-journal-communaute.md. `onDone` reçoit
+  // le contrôle après la suppression réussie : chaque appelant rafraîchit
+  // sa propre liste à sa façon (recherche : met à jour l'entrée en place ;
+  // Abonnements : recharge tout depuis le serveur).
+  function buildUnfollowButton(followId, name, onDone) {
+    var btn = document.createElement('button');
+    btn.className = 'iconBtn danger';
+    btn.textContent = t('Se désabonner');
+    btn.addEventListener('click', function () {
+      if (!confirm(t('Te désabonner de {name} ?', { name: name }))) return;
+      api('DELETE', '/api/follows/' + followId + '?userId=' + profile.id)
+        .then(onDone)
+        .catch(function (err) { alert(err.message); });
+    });
+    return btn;
+  }
+
   function renderNameOnlyList(boxId, emptyHintId, list, actionable) {
     var box = $(boxId);
     box.innerHTML = '';
@@ -2616,16 +2635,9 @@
       if (actionable) {
         var actionsWrap = document.createElement('div');
         actionsWrap.className = 'rowActions';
-        var unfollowBtn = document.createElement('button');
-        unfollowBtn.className = 'iconBtn danger';
-        unfollowBtn.textContent = t('Se désabonner');
-        unfollowBtn.addEventListener('click', function () {
-          if (!confirm(t('Te désabonner de {name} ?', { name: f.name }))) return;
-          api('DELETE', '/api/follows/' + f.followId + '?userId=' + profile.id)
-            .then(function () { loadFollowConnections(); loadFollowingFeed(); })
-            .catch(function (err) { alert(err.message); });
-        });
-        actionsWrap.appendChild(unfollowBtn);
+        actionsWrap.appendChild(buildUnfollowButton(f.followId, f.name, function () {
+          loadFollowConnections(); loadFollowingFeed();
+        }));
         row.appendChild(actionsWrap);
       }
 
@@ -3466,41 +3478,6 @@
     location.reload();
   });
 
-  // ----- Doublons d'historique (import passé deux fois) -----
-  // Deux temps : on compte et on montre ce qui partirait, puis on supprime
-  // seulement après confirmation. Rien n'est supprimé sans que le nombre
-  // exact d'entrées et d'heures concernées ait été affiché d'abord.
-  function formatHoursFromSeconds(seconds) {
-    var total = Math.round(seconds / 60);
-    return Math.floor(total / 60) + 'h' + pad(total % 60);
-  }
-
-  $('dedupeBtn').addEventListener('click', function () {
-    $('dedupeMsg').textContent = t('Recherche des doublons...');
-    $('dedupeBtn').disabled = true;
-    api('GET', '/api/import/duplicates?userId=' + profile.id)
-      .then(function (info) {
-        if (!info.removable) {
-          $('dedupeMsg').textContent = t('Aucun doublon dans ton historique.');
-          return;
-        }
-        var resume = t('{n} sessions en double trouvées, soit {h} en trop. En supprimer une de chaque paire ? Il te restera {reste} sessions.', {
-          n: info.removable, h: formatHoursFromSeconds(info.seconds), reste: info.remaining,
-        });
-        if (!confirm(resume)) { $('dedupeMsg').textContent = ''; return; }
-        $('dedupeMsg').textContent = t('Suppression en cours...');
-        return api('POST', '/api/import/dedupe', { userId: profile.id }).then(function (r) {
-          $('dedupeMsg').textContent = t('{n} sessions en double supprimées. Il te reste {reste} sessions.', {
-            n: r.removed, reste: r.remaining,
-          });
-          refreshActivities().then(renderActivityGrid);
-          loadProfileNotes();
-        });
-      })
-      .catch(function (err) { $('dedupeMsg').textContent = err.message; })
-      .finally(function () { $('dedupeBtn').disabled = false; });
-  });
-
   // ----- Partage (adresse publique de l'app + invitation par pseudo) -----
   // L'adresse est mémorisée sur CET appareil uniquement (localStorage), pas
   // côté serveur : l'app étant destinée à être publique, un réglage partagé
@@ -4038,24 +4015,6 @@
       loadSettingsActivities();
     }).catch(function (err) { alert(err.message); })
       .finally(function () { $('newActivitySave').disabled = false; });
-  });
-
-  $('importBtn').addEventListener('click', function () {
-    var file = $('importFile').files[0];
-    if (!file) { $('importMsg').textContent = t('Choisis un fichier .csv d\'abord.'); return; }
-    var reader = new FileReader();
-    reader.onload = function () {
-      $('importBtn').disabled = true;
-      $('importMsg').textContent = t('Import en cours...');
-      api('POST', '/api/import/history', { userId: profile.id, csv: reader.result })
-        .then(function (data) {
-          $('importMsg').textContent = t(data.message);
-          refreshActivities().then(renderActivityGrid);
-        })
-        .catch(function (err) { $('importMsg').textContent = err.message; })
-        .finally(function () { $('importBtn').disabled = false; });
-    };
-    reader.readAsText(file, 'UTF-8');
   });
 
   // ===================== DÉMARRAGE =====================

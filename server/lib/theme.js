@@ -17,31 +17,12 @@
 // par cas (voir textColorForTheme côté client) : c'est uniquement le thème
 // actif qui détermine si le texte est blanc ou foncé.
 //
-// IMPORTANT : ces deux listes sont dupliquées côté client dans public/app.js
-// (PALETTES). Si tu modifies une couleur ici, modifie-la aussi là-bas — en
-// conservant le même ordre (même index = même teinte dans les deux listes).
-
-const DARK_PALETTE = [
-  '#9E2E2E', // rouge foncé
-  '#9B5D27', // orange foncé
-  '#8B7923', // jaune foncé
-  '#328540', // vert foncé
-  '#2E828A', // cyan foncé
-  '#3659A1', // bleu foncé
-  '#573EA3', // indigo foncé
-  '#833B9B', // violet foncé
-];
-
-const LIGHT_PALETTE = [
-  '#D87979', // rouge clair
-  '#DAA06C', // orange clair
-  '#D8C564', // jaune clair
-  '#7ACD88', // vert clair
-  '#75C9D1', // cyan clair
-  '#85A0D6', // bleu clair
-  '#9B89D2', // indigo clair
-  '#C089D2', // violet clair
-];
+// Les valeurs elles-mêmes ne sont plus dupliquées ici (1er septembre 2026,
+// Design — voir l'audit doublons/code mort) : elles vivent désormais dans
+// public/theme-palette.js, seule source, chargée ici via require() et côté
+// client via une balise <script> (voir ce fichier pour le détail). Pour
+// changer une couleur, modifie public/theme-palette.js — pas ce fichier.
+const { DARK_PALETTE, LIGHT_PALETTE } = require('../../public/theme-palette.js');
 
 function paletteFor(theme) {
   return theme === 'light' ? LIGHT_PALETTE : DARK_PALETTE;

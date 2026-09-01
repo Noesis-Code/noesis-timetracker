@@ -395,7 +395,15 @@ textarea {
    horizontellement, pour qu'"Historique" soit visuellement centré DANS le
    bouton plutôt qu'aligné à gauche d'une large bande. Ne redéfinit pas
    .sectionTitleRow/.sectionTitle eux-mêmes (propriété de Design), s'ajoute
-   en complément comme .historyHeaderClickable ci-dessous. */
+   en complément comme .historyHeaderClickable ci-dessous. ⚠️ 1er septembre
+   2026, nouvelle demande d'Emilien le même jour : le bouton, une fois centré/
+   réduit ci-dessus, se retrouvait sans aucun espace avec la ligne de
+   navigation semaine (.historyNav, prev/date/next) juste en dessous quand le
+   panneau est ouvert — la flèche "suivant" (›), positionnée par le flex
+   gauche-aligné de .historyNav, semblait donc "coller" juste sous le bouton.
+   #chronoHistoryPanel gagne un léger margin-top pour aérer, sans toucher au
+   rapprochement du bouton avec le chrono au-dessus (margin-top: 4px sur
+   #chronoHistoryHeader, inchangé). */
 #chronoHistoryHeader {
   margin-top: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--card); padding: 10px 20px;
@@ -405,6 +413,7 @@ textarea {
 }
 #chronoHistoryHeader:hover { background: var(--hover-bg); }
 #chronoHistoryHeader .sectionTitle { margin: 0; }
+#chronoHistoryPanel { margin-top: 10px; }
 .historyNav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .historyNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
 .historyEditFields { margin-top: 8px; text-align: left; }

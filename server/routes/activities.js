@@ -88,7 +88,12 @@ router.put('/activities/:id', (req, res) => {
   const membership = db.prepare('SELECT * FROM activity_members WHERE activityId = ? AND userId = ?').get(activity.id, userId);
   if (!membership) return res.status(403).json({ error: "Tu ne fais pas partie de cette activité." });
 
-  const wantsSharedChange = req.body.name !== undefined || req.body.requiresNote !== undefined || req.body.active !== undefined;
+  // `active` n'est plus accepté ici depuis le 1er septembre 2026 (audit
+  // doublons/code mort) : l'UI n'envoie plus cette valeur depuis le retrait
+  // du bouton "Désactiver" (huitième passage), le champ reste piloté
+  // uniquement par la suppression définitive (deletedAt, voir plus bas dans
+  // ce fichier — `active = 0` y est mis à jour avec `deletedAt`).
+  const wantsSharedChange = req.body.name !== undefined || req.body.requiresNote !== undefined;
   if (wantsSharedChange && activity.ownerId !== userId) {
     return res.status(403).json({ error: 'Seul le créateur de cette activité peut modifier son nom ou sa note.' });
   }
@@ -96,7 +101,6 @@ router.put('/activities/:id', (req, res) => {
   if (wantsSharedChange) {
     const name = (req.body.name || activity.name).trim();
     const requiresNote = req.body.requiresNote !== undefined ? (req.body.requiresNote ? 1 : 0) : activity.requiresNote;
-    const active = req.body.active !== undefined ? (req.body.active ? 1 : 0) : activity.active;
 
     if (name.toLowerCase() !== activity.name.toLowerCase()) {
       const clash = db.prepare(`
@@ -106,8 +110,8 @@ router.put('/activities/:id', (req, res) => {
       if (clash) return res.status(409).json({ error: `Tu as déjà une activité "${name}".` });
     }
 
-    db.prepare('UPDATE activities SET name = ?, requiresNote = ?, active = ? WHERE id = ?')
-      .run(name, requiresNote, active, activity.id);
+    db.prepare('UPDATE activities SET name = ?, requiresNote = ? WHERE id = ?')
+      .run(name, requiresNote, activity.id);
   }
 
   if (req.body.color) {

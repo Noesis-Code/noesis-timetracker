@@ -123,51 +123,6 @@ function followingFeedForUser(userId, limit) {
   `).all(userId, limit);
 }
 
-// Flux "En ce moment" : notes envoyées EN DIRECT pendant qu'un chrono tourne
-// encore — jamais depuis time_entries (une session pas forcément terminée).
-// ORPHELIN depuis le 31 août 2026 (débordement Profil, signalé dans
-// chantiers-en-cours.md) : la route qui écrivait activity_broadcasts
-// (POST /timer/broadcast) a été retirée avec toute l'ancienne zone "Note"
-// du Chrono — cette fonction continue de fonctionner techniquement mais ne
-// lira plus jamais rien de neuf, la table ne recevant plus d'écriture.
-// Fusionne deux origines
-// dans un seul flux chronologique : les notes 'members' des activités que je
-// partage actuellement (même principe que sharedFeedForUser ci-dessus), et
-// les notes 'community' des personnes que je suis avec shareProfile activé
-// (même principe que followingFeedForUser). Une note ne reste visible que
-// tant que son auteur a TOUJOURS un chrono en cours sur cette même activité
-// (jointure sur running_timers, startTime <= createdAt pour éviter qu'une
-// note d'une session déjà arrêtée puis relancée ne resurgisse) — dès que
-// STOP est cliqué, la ligne running_timers disparaît et la note s'efface
-// naturellement de ce flux (elle reste en base, juste plus "live").
-function liveFeedForUser(userId, limit) {
-  limit = limit || 50;
-  return db.prepare(`
-    SELECT b.id, b.userId, u.name AS userName, u.color AS userColor,
-           b.activityId, a.name AS activityName, b.note, b.audience, b.createdAt,
-           rt.startTime AS runStartTime
-    FROM activity_broadcasts b
-    JOIN running_timers rt ON rt.userId = b.userId AND rt.activityId = b.activityId AND rt.startTime <= b.createdAt
-    JOIN activities a ON a.id = b.activityId
-    JOIN users u ON u.id = b.userId
-    WHERE
-      (
-        b.audience = 'members'
-        AND b.userId != ?
-        AND EXISTS (SELECT 1 FROM activity_members me WHERE me.activityId = b.activityId AND me.userId = ?)
-        AND EXISTS (SELECT 1 FROM activity_members him WHERE him.activityId = b.activityId AND him.userId = b.userId)
-      )
-      OR
-      (
-        b.audience = 'community'
-        AND u.shareProfile = 1
-        AND EXISTS (SELECT 1 FROM follows f WHERE f.followerId = ? AND f.followeeId = b.userId AND f.status = 'accepted')
-      )
-    ORDER BY b.createdAt DESC
-    LIMIT ?
-  `).all(userId, userId, userId, limit);
-}
-
 // Liste des membres d'UNE activité partagée précise, avec un indicateur "en
 // direct" : true si ce membre a ACTUELLEMENT un chrono en cours sur CETTE
 // activité précise (running_timers.activityId = cette activité), pas juste
@@ -189,15 +144,16 @@ function activityMembersForUser(activityId) {
 }
 
 // ============ FIL DE DISCUSSION D'UNE ACTIVITÉ PARTAGÉE ============
-// Troisième et dernière forme d'écrit entre membres, à ne pas confondre avec
-// les deux qui existaient déjà :
+// À ne pas confondre avec l'autre forme d'écrit entre membres :
 //   - time_entries.note  : la note d'UNE session, écrite au STOP, attachée à
 //     cette session, visible dans les flux "Partagée"/"Suivi" ;
-//   - activity_broadcasts : la note "en direct", visible seulement tant que
-//     le chrono de son auteur tourne encore, puis effacée du flux ;
 //   - activity_messages  : le fil ci-dessous — une vraie conversation, sans
 //     rapport avec un chrono, conservée durablement, réservée aux membres
 //     actuels de l'activité.
+// (Une troisième forme a existé — activity_broadcasts, la note "en direct"
+// envoyée depuis l'ancienne zone "Note" du Chrono — retirée le 1er septembre
+// 2026, orpheline des deux côtés depuis fin août : voir
+// noesis-timetracker-journal-communaute.md.)
 // Comme partout ailleurs dans ce fichier, le contrôle "l'appelant est bien
 // membre de cette activité partagée" est fait dans la route
 // (checkSharedActivityAccess), jamais ici.
@@ -435,7 +391,7 @@ function activityTimesheetForUser(activityId, weekOffset) {
 }
 
 module.exports = {
-  sharedActivitiesForUser, sharedFeedForUser, followingFeedForUser, liveFeedForUser, activityMembersForUser,
+  sharedActivitiesForUser, sharedFeedForUser, followingFeedForUser, activityMembersForUser,
   activityMessagesForUser, postActivityMessage, markActivityMessagesRead, unreadMessageCountsForUser,
   activityBreakdownForUser, activityDailyBreakdownForUser, activityTimesheetForUser,
 };

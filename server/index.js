@@ -62,7 +62,7 @@ app.use(express.json({ limit: '15mb' }));
 // comparer "la version que j'ai chargée" à "la version en ligne maintenant"
 // sans jamais se recharger en boucle. Voir le bloc <script> en tête de
 // public/index.html pour la partie client.
-const VERSION_FILES = ['index.html', 'app.js', 'styles.css', 'i18n.js', 'sw.js'];
+const VERSION_FILES = ['index.html', 'app.js', 'styles.css', 'i18n.js', 'sw.js', 'theme-palette.js'];
 
 function computeAppVersion() {
   const hash = crypto.createHash('sha1');
@@ -125,7 +125,8 @@ app.use((req, res, next) => {
     req.path === '/manifest.webmanifest' ||
     req.path === '/app.js' ||
     req.path === '/styles.css' ||
-    req.path === '/i18n.js'
+    req.path === '/i18n.js' ||
+    req.path === '/theme-palette.js'
   ) {
     res.set('Cache-Control', 'no-cache');
   }
