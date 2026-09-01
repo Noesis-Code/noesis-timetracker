@@ -903,19 +903,25 @@ body.scrollLock { overflow: hidden; }
 .identityHeader { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 /* Icônes "avion en papier" et "⚙️" de la topbar, calquées sur les icônes de
    la barre du bas (1er septembre 2026, demande d'Emilien — remplace le
-   traitement "bouton .menuBtn violet" du 31 août 2026) : mêmes proportions
-   qu'un .tabIcon (SVG 24×24, stroke="currentColor"), même simplicité (pas de
-   fond, pas de bordure — seulement l'icône, directement sur le noir de
-   .topbar), même couleur par défaut que .tabBtn (var(--text-light)), et
-   même règle "sélectionné = violet" que .tabBtn.active (voir
-   .topIconBtn.active ci-dessous, activée/désactivée depuis app.js selon que
-   le panneau ou la vue Réglages qu'elles ouvrent est affiché). */
+   traitement "bouton .menuBtn violet" du 31 août 2026) : même simplicité
+   qu'un .tabIcon (pas de fond, pas de bordure — seulement l'icône,
+   directement sur le noir de .topbar), même couleur par défaut que .tabBtn
+   (var(--text-light)), et même règle "sélectionné = violet" que
+   .tabBtn.active (voir .topIconBtn.active ci-dessous, activée/désactivée
+   depuis app.js selon que le panneau ou la vue Réglages qu'elles ouvrent est
+   affiché). */
 .topIconBtn {
   position: relative; display: flex; align-items: center; justify-content: center;
   background: none; border: none; padding: 4px; margin: 0; cursor: pointer;
   color: var(--text-light); -webkit-tap-highlight-color: transparent;
 }
-.topIconBtn svg { width: 24px; height: 24px; display: block; }
+/* Réduites à 20×20 le 1er septembre 2026 (retouche du même jour, demande
+   d'Emilien) : à 24×24 comme .tabIcon, l'avion et l'engrenage — des tracés
+   pleins qui occupent la quasi-totalité de leur viewBox 24×24 — rendaient
+   visiblement plus gros que les icônes de la barre du bas (glyphes plus
+   aérés dans le même viewBox). Le but est un encombrement visuel perçu
+   comparable, pas une valeur de propriété CSS identique. */
+.topIconBtn svg { width: 20px; height: 20px; display: block; }
 .topIconBtn.active { color: var(--purple); }
 /* Point rouge : repositionné pour ce bouton sans fond/bordure (au lieu de
    .notifDot par défaut, pensé pour l'ancien bouton .menuBtn 32×32) — même
