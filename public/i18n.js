@@ -131,6 +131,11 @@
     'Semaine précédente': 'Previous week',
     'Semaine suivante': 'Next week',
     'Voir en plein écran, format paysage': 'View full screen, landscape',
+    // Feuille de temps / Graphique (Statistiques) uniquement : plus de
+    // rotation forcée en paysage depuis le 1er septembre 2026 (demande
+    // d'Emilien) — la Communauté (activité partagée) garde encore l'ancien
+    // libellé ci-dessus pour l'instant.
+    'Voir en plein écran': 'View full screen',
     'Quitter le plein écran': 'Exit full screen',
     "La semaine en cours s'affiche par défaut à chaque ouverture. Les semaines précédentes restent enregistrées et consultables avec les flèches, sans jamais être perdues.": 'The current week is shown by default every time you open this tab. Previous weeks are kept and can be browsed with the arrows — nothing is ever lost.',
     "Rien d'enregistré sur cette semaine.": 'Nothing recorded this week.',

@@ -383,12 +383,15 @@
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
     <section id="tab-stats" class="tab hidden">
       <!-- Section 1 : Feuille de temps (heatmap hebdomadaire, ou calendrier
-           mensuel — voir plus bas). Consultable en plein écran forcé en
-           paysage via #tsFullscreenBtn, même téléphone tenu en portrait —
-           voir la règle #statsTimesheetBlock.fullscreen dans styles.css.
-           Le menu "⋮" (Semaine/Mois — pas d'Année ici, demande d'Emilien du
-           30 août 2026) n'est visible qu'en plein écran : voir la règle
-           .statsPeriodMenuWrap.fullscreenOnly dans styles.css. -->
+           mensuel — voir plus bas). Consultable en plein écran via
+           #tsFullscreenBtn — voir la règle #statsTimesheetBlock.fullscreen
+           dans styles.css (1er septembre 2026, demande d'Emilien : plus de
+           rotation forcée en paysage, le plein écran suit simplement
+           l'orientation réelle du téléphone). Le menu "⋮" (Semaine/Mois —
+           pas d'Année ici, demande d'Emilien du 30 août 2026) n'est visible
+           qu'en plein écran : voir la règle
+           .statsPeriodMenuWrap.fullscreenOnly dans styles.css. Texte
+           d'explication retiré le 1er septembre 2026 (demande d'Emilien). -->
       <div id="statsTimesheetBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Feuille de temps</p>
@@ -403,10 +406,9 @@
                 <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
               </div>
             </div>
-            <button id="tsFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
+            <button id="tsFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran">⛶</button>
           </div>
         </div>
-        <p class="hint">La semaine en cours s'affiche par défaut à chaque ouverture. Les semaines précédentes restent enregistrées et consultables avec les flèches, sans jamais être perdues. En plein écran, le menu "⋮" permet de passer à une vue calendrier par mois.</p>
         <div class="timesheetScroll">
           <div id="tsGrid" class="timesheetGrid"></div>
           <div id="tsCalendar" class="tsCalendar hidden"></div>
@@ -451,9 +453,10 @@
            Semaine/Mois/Année/Total) ; le menu "⋮" choisit désormais la
            GRANULARITÉ des points (Jour/Semaine/Mois), pas la plage — voir
            chartBreakdownForUser dans server/lib/stats.js.
-           Plein écran forcé en paysage via #chartFullscreenBtn, même
-           mécanisme que #tsFullscreenBtn ci-dessus (rotation CSS 90°, voir
-           styles.css #statsChartBlock.fullscreen), avec en plus un
+           Plein écran via #chartFullscreenBtn, même mécanisme que
+           #tsFullscreenBtn ci-dessus (voir styles.css
+           #statsChartBlock.fullscreen — plus de rotation forcée en paysage
+           depuis le 1er septembre 2026, demande d'Emilien), avec en plus un
            agrandissement du graphique lui-même : sa hauteur s'étire pour
            remplir l'espace disponible au lieu de rester à 180px fixes
            (29 août 2026, suite demande Emilien). Le menu "⋮" (granularité)
@@ -470,7 +473,7 @@
               <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
             </div>
           </div>
-          <button id="chartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
+          <button id="chartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran">⛶</button>
         </div>
         <div class="chartWrap" id="statsChartWrap">
           <div class="chartScroll">
@@ -494,15 +497,21 @@
            n'est plus appelé depuis cet onglet. Le sélecteur
            "Communauté / Membres" et la section "Membres" avaient déjà
            déménagé plus tôt dans la journée vers l'onglet "Activité" — voir
-           #tab-activity plus bas. -->
+           #tab-activity plus bas. ⚠️ 1er septembre 2026 (demande d'Emilien :
+           « je souhaite que l'option se désabonner apparaisse dans le menu
+           déroulant du bouton abonnés et abonnement sur le profil. Déplace
+           cette option de la communauté ») : la liste "Mes abonnements"
+           actionnable (#followingList, bouton "Se désabonner") a quitté cet
+           onglet — elle vit désormais dans le panneau "Abonnés &
+           Abonnements" de Profil (#settingsFollowingList, voir
+           #profileFollowsPanel dans #tab-profile). Il ne reste ici que la
+           recherche et le flux "Suivi" (#followingFeed, en lecture seule). -->
       <div class="entryCard">
         <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo..." autocomplete="off">
         <div id="communitySearchResults" class="activitiesList"></div>
       </div>
 
       <div id="communitySectionFeed" class="communitySection">
-        <div id="followingList" class="activitiesList"></div>
-        <p id="followingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant — trouve un membre ci-dessus et clique sur "Suivre".</p>
         <div id="followingFeed"></div>
         <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session avec une note n'a encore été enregistrée.</p>
       </div>
@@ -712,11 +721,17 @@
              principe que le panneau "⋮" d'une activité
              (.activitySettingsPanel). Ids de contenu inchangés
              (#settingsFollowersList/#settingsFollowingList et leurs indices
-             vides) : seul l'emplacement dans le DOM change, aucune
-             modification de renderNameOnlyList/loadFollowConnections dans
-             app.js. Toujours en lecture seule des deux côtés ici — se
-             désabonner de quelqu'un reste réservé à Communauté (voir
-             #followingList, bouton "Se désabonner"). -->
+             vides), seul l'emplacement dans le DOM change. ⚠️ 1er septembre
+             2026, même jour, second passage (demande d'Emilien : « je
+             souhaite que l'option se désabonner apparaisse dans le menu
+             déroulant du bouton abonnés et abonnement sur le profil. Déplace
+             cette option de la communauté ») : la liste Abonnements
+             (#settingsFollowingList) n'est plus en lecture seule — chaque
+             ligne porte désormais un bouton "Se désabonner" (renderNameOnlyList
+             dans app.js, appelé avec actionable=true pour cette liste
+             uniquement). La liste Abonnés (#settingsFollowersList) reste en
+             lecture seule : on ne peut retirer que ses propres abonnements,
+             jamais empêcher quelqu'un d'autre de nous suivre depuis ici. -->
         <button type="button" id="profileFollowsBtn" class="iconBtn">Abonnés &amp; Abonnements</button>
         <div id="profileFollowsPanel" class="settingsCard hidden">
           <p class="hint">Abonnés</p>
@@ -809,7 +824,10 @@
              (demande d'Emilien) pour s'ouvrir directement sur la vue
              principale du Profil, au clic sur le bouton juste sous l'avatar
              (#profileFollowsBtn/#profileFollowsPanel, voir #profileMain plus
-             haut dans ce fichier) — ce panneau ⚙️ ne la contient donc plus. -->
+             haut dans ce fichier) — ce panneau ⚙️ ne la contient donc plus.
+             Sa liste Abonnements y est même devenue actionnable ("Se
+             désabonner"), même jour, second passage — voir le commentaire
+             laissé là-bas. -->
 
         <p class="sectionTitle">Apparence</p>
         <div class="settingsCard">

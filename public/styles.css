@@ -766,29 +766,24 @@ textarea {
 .chartTooltipLabel { color: var(--text); }
 .chartTooltipValue { color: var(--text-light); margin-left: auto; padding-left: 10px; }
 
-/* ----- Feuille de temps en plein écran forcé (format paysage), même
-   téléphone tenu en portrait : rotation CSS 90°, dimensions locales
-   pré-rotation inversées (largeur=100vh, hauteur=100vw) pour que la zone
-   visible remplisse tout l'écran une fois pivotée — pas une simple demande
-   de retourner le téléphone.
+/* ----- Feuille de temps en plein écran : remplit simplement le viewport
+   réel (100vw × 100vh), quelle que soit l'orientation physique du
+   téléphone — plus de rotation CSS forcée.
 
-   Correctif du 30 août 2026 (signalé par Emilien) : cette rotation forcée
-   supposait que le téléphone restait physiquement en portrait pendant tout
-   le plein écran. Si la rotation automatique du téléphone est activée et
-   qu'Emilien tourne réellement l'appareil (geste naturel face à un contenu
-   qui apparaît pivoté), le système d'exploitation fait alors pivoter le
-   viewport pour de vrai — ses dimensions 100vh/100vw se recalculent sur ce
-   nouveau viewport déjà en paysage, et s'ajoutent à la rotation CSS encore
-   active : les deux rotations se cumulent et cassent l'affichage ("le
-   changement de format automatique écrase le forçage"). Les propriétés
-   dépendantes de l'orientation sont donc désormais scindées en deux
-   @media (orientation: portrait/landscape) : la rotation CSS ne s'applique
-   plus que si le téléphone est réellement encore tenu en portrait ; s'il est
-   déjà en paysage (rotation naturelle détectée), le bloc remplit l'écran
-   sans aucune rotation CSS supplémentaire. ----- */
+   1er septembre 2026 (demande d'Emilien) : le mécanisme précédent forçait
+   visuellement le format paysage par une rotation CSS de 90° même
+   téléphone tenu en portrait (avec un correctif du 30 août pour ne plus
+   casser si le téléphone pivotait réellement en même temps, voir l'historique
+   de ce bloc dans `noesis-timetracker-journal-statistiques.md`). Emilien a
+   demandé de retirer ce forçage : le plein écran suit désormais simplement
+   l'orientation réelle du téléphone (portrait ou paysage), sans aucune
+   rotation ni verrouillage d'orientation (voir aussi la suppression des
+   appels à `lockPortraitOrientation()` sur ces deux boutons plein écran dans
+   app.js). ----- */
 body.scrollLock { overflow: hidden; }
 #statsTimesheetBlock.fullscreen {
   position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
   z-index: 1000;
   margin: 0;
   background: var(--bg);
@@ -796,20 +791,6 @@ body.scrollLock { overflow: hidden; }
   overflow: hidden;
   display: flex; flex-direction: column;
   box-shadow: none; border-radius: 0;
-}
-@media (orientation: portrait) {
-  #statsTimesheetBlock.fullscreen {
-    top: 50%; left: 50%;
-    width: 100vh; height: 100vw;
-    transform: translate(-50%, -50%) rotate(90deg);
-    transform-origin: center center;
-  }
-}
-@media (orientation: landscape) {
-  #statsTimesheetBlock.fullscreen {
-    width: 100vw; height: 100vh;
-    transform: none;
-  }
 }
 #statsTimesheetBlock.fullscreen .timesheetScroll {
   flex: 1; overflow: auto;
@@ -823,19 +804,23 @@ body.scrollLock { overflow: hidden; }
   height: 100%;
 }
 
-/* ----- Graphique en plein écran forcé (format paysage), même mécanisme
-   que la Feuille de temps ci-dessus. En plus de la rotation, le graphique
-   est agrandi : sa largeur reste pilotée par le nombre de jours (défilement
-   horizontal conservé pour les longues périodes) ; seule la hauteur du SVG
-   s'étire pour remplir l'espace vertical disponible — voir renderChart()
-   dans app.js : preserveAspectRatio="none" posé sur le SVG, et sa hauteur
-   inline (style.height) simplement omise en plein écran pour laisser cette
-   règle CSS prendre le relais. Note : la stretch doit être posée sur
-   .chartSvgWrap (le <div> qui contient le <svg>), pas seulement sur .chartSvg
-   (le <svg> lui-même) — sinon le pourcentage de hauteur du SVG n'a rien de
-   défini à résoudre et retombe sur le ratio intrinsèque du viewBox. ----- */
+/* ----- Graphique en plein écran : même mécanisme que la Feuille de temps
+   ci-dessus (remplit le viewport réel, plus de rotation forcée depuis le
+   1er septembre 2026 — voir le commentaire au-dessus de
+   #statsTimesheetBlock.fullscreen). En plus du remplissage de l'écran, le
+   graphique est agrandi : sa largeur reste pilotée par le nombre de jours
+   (défilement horizontal conservé pour les longues périodes) ; seule la
+   hauteur du SVG s'étire pour remplir l'espace vertical disponible — voir
+   renderChart() dans app.js : preserveAspectRatio="none" posé sur le SVG, et
+   sa hauteur inline (style.height) simplement omise en plein écran pour
+   laisser cette règle CSS prendre le relais. Note : la stretch doit être
+   posée sur .chartSvgWrap (le <div> qui contient le <svg>), pas seulement sur
+   .chartSvg (le <svg> lui-même) — sinon le pourcentage de hauteur du SVG n'a
+   rien de défini à résoudre et retombe sur le ratio intrinsèque du
+   viewBox. ----- */
 #statsChartBlock.fullscreen {
   position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
   z-index: 1000;
   margin: 0;
   background: var(--bg);
@@ -843,22 +828,6 @@ body.scrollLock { overflow: hidden; }
   overflow: hidden;
   display: flex; flex-direction: column;
   box-shadow: none; border-radius: 0;
-}
-/* Même correctif "orientation réelle vs. rotation forcée" que
-   #statsTimesheetBlock.fullscreen ci-dessus — voir son commentaire. */
-@media (orientation: portrait) {
-  #statsChartBlock.fullscreen {
-    top: 50%; left: 50%;
-    width: 100vh; height: 100vw;
-    transform: translate(-50%, -50%) rotate(90deg);
-    transform-origin: center center;
-  }
-}
-@media (orientation: landscape) {
-  #statsChartBlock.fullscreen {
-    width: 100vw; height: 100vh;
-    transform: none;
-  }
 }
 #statsChartBlock.fullscreen .chartWrap {
   flex: 1; min-height: 0;

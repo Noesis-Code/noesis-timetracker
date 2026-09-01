@@ -1556,12 +1556,14 @@
     renderChartLegend(series);
   }
 
-  // ----- Plein écran forcé (paysage) du Graphique : même mécanisme que la
-  // Feuille de temps ci-dessous (rotation CSS 90° même téléphone tenu en
-  // portrait — voir #statsChartBlock.fullscreen dans styles.css), avec en
-  // plus un agrandissement du graphique lui-même (voir renderChart() plus
-  // haut : preserveAspectRatio="none" + hauteur inline omise en plein écran
-  // pour laisser la hauteur s'étirer via CSS). Les deux plein écrans de
+  // ----- Plein écran du Graphique : remplit simplement l'écran (voir
+  // #statsChartBlock.fullscreen dans styles.css), avec en plus un
+  // agrandissement du graphique lui-même (voir renderChart() plus haut :
+  // preserveAspectRatio="none" + hauteur inline omise en plein écran pour
+  // laisser la hauteur s'étirer via CSS). Plus de rotation CSS forcée ni de
+  // verrouillage d'orientation ici depuis le 1er septembre 2026 (demande
+  // d'Emilien — voir le commentaire dans styles.css) : le plein écran suit
+  // simplement l'orientation réelle du téléphone. Les deux plein écrans de
   // Statistiques partagent body.scrollLock : mutuellement exclusifs pour ne
   // jamais laisser le scroll verrouillé par l'un pendant que l'autre se
   // ferme (29 août 2026, suite demande Emilien).
@@ -1571,39 +1573,38 @@
     $('statsChartBlock').classList.remove('fullscreen');
     document.body.classList.remove('scrollLock');
     $('chartFullscreenBtn').textContent = '⛶';
-    $('chartFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran, format paysage'));
+    $('chartFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran'));
     renderChart(lastDailyBreakdown);
   }
   $('chartFullscreenBtn').addEventListener('click', function () {
-    lockPortraitOrientation();
     if (!chartFullscreenActive) exitStatsFullscreen();
     chartFullscreenActive = !chartFullscreenActive;
     $('statsChartBlock').classList.toggle('fullscreen', chartFullscreenActive);
     document.body.classList.toggle('scrollLock', chartFullscreenActive);
     $('chartFullscreenBtn').textContent = chartFullscreenActive ? '✕' : '⛶';
-    $('chartFullscreenBtn').setAttribute('aria-label', chartFullscreenActive ? t('Quitter le plein écran') : t('Voir en plein écran, format paysage'));
+    $('chartFullscreenBtn').setAttribute('aria-label', chartFullscreenActive ? t('Quitter le plein écran') : t('Voir en plein écran'));
     renderChart(lastDailyBreakdown);
   });
 
-  // ----- Plein écran forcé (paysage) de la Feuille de temps : rotation CSS
-  // 90° même téléphone tenu en portrait (voir #statsTimesheetBlock.fullscreen
-  // dans styles.css), pas une simple demande de retourner le téléphone. -----
+  // ----- Plein écran de la Feuille de temps : remplit simplement l'écran
+  // (voir #statsTimesheetBlock.fullscreen dans styles.css). Plus de rotation
+  // CSS forcée ni de verrouillage d'orientation depuis le 1er septembre 2026
+  // (demande d'Emilien — voir le commentaire dans styles.css). -----
   function exitStatsFullscreen() {
     if (!statsFullscreenActive) return;
     statsFullscreenActive = false;
     $('statsTimesheetBlock').classList.remove('fullscreen');
     document.body.classList.remove('scrollLock');
     $('tsFullscreenBtn').textContent = '⛶';
-    $('tsFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran, format paysage'));
+    $('tsFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran'));
   }
   $('tsFullscreenBtn').addEventListener('click', function () {
-    lockPortraitOrientation();
     if (!statsFullscreenActive) exitChartFullscreen();
     statsFullscreenActive = !statsFullscreenActive;
     $('statsTimesheetBlock').classList.toggle('fullscreen', statsFullscreenActive);
     document.body.classList.toggle('scrollLock', statsFullscreenActive);
     $('tsFullscreenBtn').textContent = statsFullscreenActive ? '✕' : '⛶';
-    $('tsFullscreenBtn').setAttribute('aria-label', statsFullscreenActive ? t('Quitter le plein écran') : t('Voir en plein écran, format paysage'));
+    $('tsFullscreenBtn').setAttribute('aria-label', statsFullscreenActive ? t('Quitter le plein écran') : t('Voir en plein écran'));
   });
 
   // ===================== FEUILLE DE TEMPS (heatmap hebdomadaire) =====
@@ -1744,7 +1745,6 @@
     if (!profile) return;
     $('communitySearchInput').value = '';
     $('communitySearchResults').innerHTML = '';
-    loadFollowing();
     loadFollowingFeed();
   }
 
@@ -2484,7 +2484,6 @@
             .then(function () {
               u.followStatus = 'none'; u.followId = null;
               renderSearchResults(list);
-              loadFollowing();
               loadFollowingFeed();
             })
             .catch(function (err) { alert(err.message); });
@@ -2580,56 +2579,25 @@
     });
   }
 
-  // ----- Mes abonnements (comptes que je suis) -----
-  function loadFollowing() {
-    if (!profile) return;
-    api('GET', '/api/follows/following?userId=' + profile.id).then(renderFollowingList);
-  }
-
-  function renderFollowingList(list) {
-    var box = $('followingList');
-    box.innerHTML = '';
-    $('followingEmptyHint').classList.toggle('hidden', list.length > 0);
-    list.forEach(function (f) {
-      var row = document.createElement('div');
-      row.className = 'activityRow';
-
-      var label = document.createElement('p');
-      label.className = 'meta';
-      label.innerHTML = '<span class="dot" style="background:' + f.color + '"></span> ' + escapeHtml(f.name);
-      row.appendChild(label);
-
-      var actionsWrap = document.createElement('div');
-      actionsWrap.className = 'rowActions';
-      var unfollowBtn = document.createElement('button');
-      unfollowBtn.className = 'iconBtn danger';
-      unfollowBtn.textContent = t('Se désabonner');
-      unfollowBtn.addEventListener('click', function () {
-        if (!confirm(t('Te désabonner de {name} ?', { name: f.name }))) return;
-        api('DELETE', '/api/follows/' + f.followId + '?userId=' + profile.id)
-          .then(function () { loadFollowing(); loadFollowingFeed(); })
-          .catch(function (err) { alert(err.message); });
-      });
-      actionsWrap.appendChild(unfollowBtn);
-      row.appendChild(actionsWrap);
-      box.appendChild(row);
-    });
-  }
-
   // ----- Abonnés & Abonnements (créée dans Réglages le 30 août 2026,
   // déplacée sur la vue principale du Profil le 1er septembre 2026 — voir
-  // #profileFollowsBtn/#profileFollowsPanel plus bas) : simple liste de noms
-  // en lecture seule, chargée uniquement à l'ouverture de ce panneau — pas
-  // de bouton d'action ici, contrairement à "Mes abonnements" dans
-  // Communauté (renderFollowingList ci-dessus), qui reste le seul endroit
-  // pour se désabonner. -----
+  // #profileFollowsBtn/#profileFollowsPanel plus bas), chargée uniquement à
+  // l'ouverture de ce panneau. ⚠️ 1er septembre 2026, même jour, second
+  // passage (demande d'Emilien : « je souhaite que l'option se désabonner
+  // apparaisse dans le menu déroulant du bouton abonnés et abonnement dans
+  // le profil. Déplace cette option de la communauté ») : le bouton "Se
+  // désabonner", jusqu'ici seulement dans "Mes abonnements" de Communauté
+  // (#followingList, retiré de #tab-community — voir index.html), vit
+  // désormais ici, sur la liste Abonnements uniquement. La liste Abonnés
+  // reste en lecture seule (on ne peut retirer que ses propres
+  // abonnements, jamais empêcher quelqu'un de nous suivre depuis ici). -----
   function loadFollowConnections() {
     if (!profile) return;
     api('GET', '/api/follows/followers?userId=' + profile.id).then(renderSettingsFollowers);
     api('GET', '/api/follows/following?userId=' + profile.id).then(renderSettingsFollowing);
   }
 
-  function renderNameOnlyList(boxId, emptyHintId, list) {
+  function renderNameOnlyList(boxId, emptyHintId, list, actionable) {
     var box = $(boxId);
     box.innerHTML = '';
     $(emptyHintId).classList.toggle('hidden', list.length > 0);
@@ -2640,16 +2608,33 @@
       label.className = 'meta';
       label.innerHTML = '<span class="dot" style="background:' + f.color + '"></span> ' + escapeHtml(f.name);
       row.appendChild(label);
+
+      if (actionable) {
+        var actionsWrap = document.createElement('div');
+        actionsWrap.className = 'rowActions';
+        var unfollowBtn = document.createElement('button');
+        unfollowBtn.className = 'iconBtn danger';
+        unfollowBtn.textContent = t('Se désabonner');
+        unfollowBtn.addEventListener('click', function () {
+          if (!confirm(t('Te désabonner de {name} ?', { name: f.name }))) return;
+          api('DELETE', '/api/follows/' + f.followId + '?userId=' + profile.id)
+            .then(function () { loadFollowConnections(); loadFollowingFeed(); })
+            .catch(function (err) { alert(err.message); });
+        });
+        actionsWrap.appendChild(unfollowBtn);
+        row.appendChild(actionsWrap);
+      }
+
       box.appendChild(row);
     });
   }
 
   function renderSettingsFollowers(list) {
-    renderNameOnlyList('settingsFollowersList', 'settingsFollowersEmptyHint', list);
+    renderNameOnlyList('settingsFollowersList', 'settingsFollowersEmptyHint', list, false);
   }
 
   function renderSettingsFollowing(list) {
-    renderNameOnlyList('settingsFollowingList', 'settingsFollowingEmptyHint', list);
+    renderNameOnlyList('settingsFollowingList', 'settingsFollowingEmptyHint', list, true);
   }
 
   // ----- Flux "Partagée" et "Suivi" : cartes en lecture seule (activité de
