@@ -98,18 +98,40 @@ function sharedFeedForUser(userId, activityId, limit) {
   `).all(userId, userId, limit);
 }
 
-// Flux "Suivi" : sessions des personnes que je suis (follows acceptés) ET
-// qui ont activé "Partager mon profil" — TOUTES leurs activités, même
-// celles qu'elles ne partagent avec personne. Totalement indépendant de
-// sharedFeedForUser ci-dessus : les deux fonctions ne se recoupent que par
-// coïncidence (suivre quelqu'un avec qui on partage aussi une activité).
-// Depuis le 30 août 2026 (demande d'Emilien) : uniquement les sessions avec
-// une note publiée (t.note != '') — une simple session sans note n'a pas sa
-// place dans ce fil, qui n'affiche plus que ce que les personnes suivies ont
-// explicitement choisi de raconter.
+// Pièces jointes d'un message profile_posts, pour son affichage dans le
+// flux "Suivi" de quelqu'un d'autre (voir followingFeedForUser ci-dessous).
+// Copie volontaire de postAttachmentsFor (server/routes/profile.js, table
+// propriété de Profil) plutôt qu'un import croisé entre deux zones : même
+// principe que activityTimesheetForUser/timesheetForUser, deux fichiers
+// distincts qui ne partagent pas leurs fonctions internes.
+function profilePostAttachmentsFor(postId) {
+  return db.prepare(`SELECT id, fileName, mimeType, sizeBytes, dataUrl, createdAt
+                      FROM profile_post_attachments WHERE postId = ? ORDER BY createdAt ASC`).all(postId);
+}
+
+// Flux "Suivi" : ce que les personnes que je suis (follows acceptés) ET qui
+// ont activé "Partager mon profil" ont publié — deux origines mélangées et
+// triées ensemble par date, la plus récente en tête :
+//   - les messages "Communauté" de leur zone Discussion (profile_posts,
+//     table propriété de Profil, lue ici en débordement signalé — voir
+//     noesis-timetracker-chantiers-en-cours.md) : origine PRINCIPALE depuis
+//     le 1er septembre 2026 (demande d'Emilien : « écrire à sa communauté
+//     [...] les messages se publient sur son profil, à la fois et dans les
+//     fils de la communauté pour les gens qui le suivent ») ;
+//   - les sessions avec une note publiée (t.note != ''), qui alimentaient
+//     seules ce flux depuis le 30 août 2026 — conservées pour ne pas faire
+//     disparaître d'éventuelles entrées historiques, mais devenues une
+//     origine résiduelle : plus aucune interface de l'app ne permet
+//     d'écrire une note de fin de session depuis que la zone "Note" du
+//     Chrono a été retirée le 31 août 2026 (voir la carte Chrono de
+//     noesis-timetracker-chantiers-en-cours.md).
+// Totalement indépendant de sharedFeedForUser ci-dessus : les deux
+// fonctions ne se recoupent que par coïncidence (suivre quelqu'un avec qui
+// on partage aussi une activité).
 function followingFeedForUser(userId, limit) {
   limit = limit || 100;
-  return db.prepare(`
+
+  const sessions = db.prepare(`
     SELECT t.id, t.userId, u.name AS userName, u.color AS userColor,
            t.activityId, a.name AS activityName, t.note, t.startTime, t.endTime, t.durationSeconds
     FROM time_entries t
@@ -120,7 +142,26 @@ function followingFeedForUser(userId, limit) {
       AND EXISTS (SELECT 1 FROM follows f WHERE f.followerId = ? AND f.followeeId = t.userId AND f.status = 'accepted')
     ORDER BY t.startTime DESC
     LIMIT ?
-  `).all(userId, limit);
+  `).all(userId, limit).map((row) => Object.assign({ type: 'session' }, row));
+
+  const posts = db.prepare(`
+    SELECT p.id, p.userId, u.name AS userName, u.color AS userColor, p.body, p.createdAt
+    FROM profile_posts p
+    JOIN users u ON u.id = p.userId
+    WHERE u.shareProfile = 1
+      AND EXISTS (SELECT 1 FROM follows f WHERE f.followerId = ? AND f.followeeId = p.userId AND f.status = 'accepted')
+    ORDER BY p.createdAt DESC
+    LIMIT ?
+  `).all(userId, limit).map((row) => Object.assign({ type: 'post' }, row));
+  posts.forEach((post) => { post.attachments = profilePostAttachmentsFor(post.id); });
+
+  // Fusionnées et re-triées ensemble par date (startTime pour une session,
+  // createdAt pour un message), la plus récente en tête, puis limitées de
+  // nouveau : chaque requête a déjà pris jusqu'à `limit` de son côté, mais
+  // le mélange peut en compter plus que nécessaire une fois combiné.
+  return sessions.concat(posts)
+    .sort((a, b) => new Date(b.type === 'post' ? b.createdAt : b.startTime) - new Date(a.type === 'post' ? a.createdAt : a.startTime))
+    .slice(0, limit);
 }
 
 // Liste des membres d'UNE activité partagée précise, avec un indicateur "en

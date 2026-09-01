@@ -582,15 +582,21 @@
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
     <section id="tab-stats" class="tab hidden">
       <!-- Section 1 : Feuille de temps (heatmap hebdomadaire, ou calendrier
-           mensuel — voir plus bas). Consultable en plein écran via
-           #tsFullscreenBtn — voir la règle #statsTimesheetBlock.fullscreen
-           dans styles.css (1er septembre 2026, demande d'Emilien : plus de
-           rotation forcée en paysage, le plein écran suit simplement
-           l'orientation réelle du téléphone). Le menu "⋮" (Semaine/Mois —
-           pas d'Année ici, demande d'Emilien du 30 août 2026) n'est visible
-           qu'en plein écran : voir la règle
-           .statsPeriodMenuWrap.fullscreenOnly dans styles.css. Texte
-           d'explication retiré le 1er septembre 2026 (demande d'Emilien). -->
+           mensuel — voir plus bas). Plus de mode plein écran depuis le
+           1er septembre 2026 (demande d'Emilien : « supprimer l'option de
+           passage en plein écran ») : #tsFullscreenBtn, exitStatsFullscreen()
+           et les règles #statsTimesheetBlock.fullscreen ont été retirés.
+           Conséquence directe traitée dans la même demande (« n'oublie pas de
+           déplacer les paramètres pour sélectionner le mois ou la semaine qui
+           sont présents uniquement dans le mode plein écran au mode réduit ») :
+           le menu "⋮" (Semaine/Mois — pas d'Année ici, demande d'Emilien du
+           30 août 2026) ne porte plus la classe .fullscreenOnly et reste donc
+           toujours visible — sans quoi la vue "Mois" serait devenue
+           inaccessible. (Le renvoi « comme celui de la Répartition » qui
+           figurait ici a été retiré le même jour par la discussion
+           Répartition : cette section n'a plus de menu "⋮" du tout, elle suit
+           désormais la période de la Feuille de temps.) Texte d'explication retiré le
+           1er septembre 2026 (demande d'Emilien). -->
       <div id="statsTimesheetBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Feuille de temps</p>
@@ -598,14 +604,13 @@
             <button id="tsPrevWeek" type="button" class="iconBtn" aria-label="Période précédente">‹</button>
             <span id="tsWeekLabel" class="meta"></span>
             <button id="tsNextWeek" type="button" class="iconBtn" aria-label="Période suivante">›</button>
-            <div class="statsPeriodMenuWrap fullscreenOnly" id="tsPeriodWrap">
+            <div class="statsPeriodMenuWrap" id="tsPeriodWrap">
               <button type="button" class="menuBtn" id="tsPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="tsPeriodMenu">
                 <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
                 <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
               </div>
             </div>
-            <button id="tsFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran">⛶</button>
           </div>
         </div>
         <div class="timesheetScroll">
@@ -615,23 +620,22 @@
         <p id="tsEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
       </div>
 
-      <!-- Section 2 : Camembert — répartition du temps par activité, sur sa
-           propre période (Semaine/Mois/Année), choisie indépendamment des
-           deux autres sections via le menu "⋮" (30 août 2026, demande
-           d'Emilien : périodes indépendantes par section, plus de sélecteur
-           global). Toujours visible, cette section n'ayant pas de plein
-           écran. -->
+      <!-- Section 2 : Camembert — répartition du temps par activité.
+           1er septembre 2026, demande d'Emilien : « je souhaite que la
+           répartition dépende de la feuille de temps. La répartition indique
+           les données affichées en temps réel dans la feuille de temps et se
+           modifie automatiquement avec elle. » Cette section n'a donc PLUS
+           de période à elle : son menu "⋮" (Semaine/Mois/Année, indépendant
+           depuis le 30 août 2026) a été retiré, et elle résume exactement la
+           fenêtre de jours que la grille ci-dessus est en train d'afficher —
+           ses données arrivent dans la même réponse serveur que la grille
+           (champ `breakdown` de GET /stats/timesheet), ce qui les rend
+           structurellement impossibles à désynchroniser. #statsLabel reprend
+           donc le libellé de la fenêtre affichée, plus une période à lui.
+           Toujours visible, cette section n'ayant pas de plein écran. -->
       <div id="statsPieBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Répartition</p>
-          <div class="statsPeriodMenuWrap" id="statsPiePeriodWrap">
-            <button type="button" class="menuBtn" id="statsPiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
-            <div class="statsPeriodMenu hidden" id="statsPiePeriodMenu">
-              <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
-              <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-              <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
-            </div>
-          </div>
         </div>
         <div class="statsSummary">
           <p class="statsLabel" id="statsLabel"></p>
@@ -652,15 +656,16 @@
            Semaine/Mois/Année/Total) ; le menu "⋮" choisit désormais la
            GRANULARITÉ des points (Jour/Semaine/Mois), pas la plage — voir
            chartBreakdownForUser dans server/lib/stats.js.
-           Plein écran via #chartFullscreenBtn, même mécanisme que
-           #tsFullscreenBtn ci-dessus (voir styles.css
+           Plein écran via #chartFullscreenBtn (voir styles.css
            #statsChartBlock.fullscreen — plus de rotation forcée en paysage
            depuis le 1er septembre 2026, demande d'Emilien), avec en plus un
            agrandissement du graphique lui-même : sa hauteur s'étire pour
            remplir l'espace disponible au lieu de rester à 180px fixes
            (29 août 2026, suite demande Emilien). Le menu "⋮" (granularité)
-           n'est visible qu'en plein écran, comme pour la Feuille de temps
-           ci-dessus (30 août 2026, demande d'Emilien). -->
+           n'est visible qu'en plein écran (30 août 2026, demande d'Emilien) —
+           le Graphique est désormais la SEULE section à garder ce mécanisme
+           .fullscreenOnly, la Feuille de temps ayant perdu son plein écran le
+           1er septembre 2026 (voir son commentaire plus haut). -->
       <div id="statsChartBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
@@ -703,16 +708,61 @@
            actionnable (#followingList, bouton "Se désabonner") a quitté cet
            onglet — elle vit désormais dans le panneau "Abonnés &
            Abonnements" de Profil (#settingsFollowingList, voir
-           #profileFollowsPanel dans #tab-profile). Il ne reste ici que la
-           recherche et le flux "Suivi" (#followingFeed, en lecture seule). -->
+           #profileFollowsPanel dans #tab-profile). ⚠️ 1er septembre 2026,
+           deuxième moitié de journée (demande d'Emilien : « créer une zone
+           pour écrire à sa communauté exactement comme il y a dans le
+           profil ») : la zone "Discussion" du Profil (#profileDiscussionBlock,
+           composeur + fil profile_posts) est désormais aussi mirée ici
+           (#communityMyPostsBlock, mêmes ids en préfixe communityMyPosts,
+           même donnée) et ses messages apparaissent dans le flux "Suivi"
+           (#followingFeed) des personnes qui suivent leur auteur — cet
+           onglet garde donc la recherche, la zone d'écriture, puis le flux
+           "Suivi" (en lecture seule pour ce qu'on y voit des autres). -->
       <div class="entryCard">
         <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo..." autocomplete="off">
         <div id="communitySearchResults" class="activitiesList"></div>
       </div>
 
+      <!-- Zone "écrire à sa communauté", identique à #profileDiscussionBlock
+           (même composeur texte + pièces jointes, même donnée profile_posts)
+           — demande d'Emilien du 1er septembre 2026 (« créer une zone pour
+           écrire à sa communauté exactement comme il y a dans le profil
+           [...] que les deux zones soient identiques »). Deux emplacements,
+           une seule liste de messages (toujours les siens, quel que soit
+           l'endroit d'où on l'ouvre) : voir mountProfilePostsComposer dans
+           app.js, appelée une fois pour chaque emplacement. Volontairement
+           sans <p class="sectionTitle"> ici (contrairement à
+           #profileDiscussionBlock) : cet onglet n'a plus aucun titre de
+           section fixe depuis le 30 août 2026 (voir plus haut) — à ajouter
+           si Emilien préfère malgré tout un titre pour cette zone. -->
+      <div id="communityMyPostsBlock" class="discussionBlock">
+        <div id="communityMyPostsList" class="discussionList"></div>
+        <p id="communityMyPostsEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
+        <div class="discussionComposer">
+          <textarea id="communityMyPostsInput" rows="2" maxlength="2000" placeholder="Écrire..."></textarea>
+          <div id="communityMyPostsPendingList" class="attachmentList hidden"></div>
+          <div class="rowActions">
+            <div class="attachmentMenuWrap">
+              <button type="button" id="communityMyPostsAttachBtn" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <input type="file" id="communityMyPostsAttachInput" class="hidden">
+            </div>
+            <button type="button" id="communityMyPostsSendBtn" class="iconBtn">Envoyer</button>
+          </div>
+          <p id="communityMyPostsMsg" class="msg"></p>
+        </div>
+      </div>
+
+      <!-- Flux "Suivi" : mélange, trié par date, des messages "Communauté"
+           (profile_posts) et des sessions notées (résiduel, voir le
+           commentaire sur followingFeedForUser dans server/lib/community.js)
+           des personnes suivies qui partagent leur profil — 1er septembre
+           2026, demande d'Emilien : « les messages se publient [...] dans
+           les fils de la communauté pour les gens qui le suivent ». -->
       <div id="communitySectionFeed" class="communitySection">
         <div id="followingFeed"></div>
-        <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session avec une note n'a encore été enregistrée.</p>
+        <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit personne n'a encore écrit.</p>
       </div>
 
     </section>

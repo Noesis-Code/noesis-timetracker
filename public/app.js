@@ -10,7 +10,9 @@
   // Périodes indépendantes par section de Statistiques — 30 août 2026, sur
   // demande d'Emilien : plus de sélecteur global (#statsPeriodSwitch), chaque
   // section choisit sa propre période via son menu "⋮" (voir plus bas).
-  var currentPiePeriod = 'week';
+  // (currentPiePeriod retirée le 1er septembre 2026 : la Répartition n'a plus
+  // de période à elle, elle suit celle de la Feuille de temps ci-dessous —
+  // voir renderPieFromTimesheet.)
   // Graphique : plus de "période" au sens plage depuis le 1er septembre 2026
   // (demande d'Emilien) — le Graphique couvre toujours tout l'historique
   // (voir totalRangeForUser côté serveur), seule la granularité des points
@@ -21,8 +23,9 @@
   var currentTimesheetMonthOffset = 0; // décalage en mois (vue calendrier) ; repart à 0 lui aussi
   var currentHistoryWeekOffset = 0; // idem, pour l'historique modifiable du Chrono (#chronoHistoryPanel)
   var lastDailyBreakdown = []; // dernier détail journalier chargé, pour redessiner le Graphique sans refetch (ex : couleur de la courbe Total après un changement de thème)
-  var statsFullscreenActive = false; // plein écran forcé (paysage) de la Feuille de temps
-  var chartFullscreenActive = false; // plein écran forcé (paysage) du Graphique
+  // La Feuille de temps n'a plus de plein écran depuis le 1er septembre 2026
+  // (demande d'Emilien) : plus de variable d'état ici, voir #statsTimesheetBlock.
+  var chartFullscreenActive = false; // plein écran du Graphique
   // ----- Statistiques d'UNE activité partagée (section Communauté > Membres)
   // — pendants exacts des 5 variables Statistiques ci-dessus, jamais
   // partagés avec elles (deux jeux d'état totalement indépendants). -----
@@ -35,9 +38,15 @@
   var currentLang = 'en'; // 'en' par défaut (nouveaux comptes) ; voir applyLang plus bas
 
   // ----- Verrouillage d'orientation (30 août 2026, demande d'Emilien) -----
-  // La Feuille de temps et le Graphique simulent un plein écran paysage par
-  // rotation CSS (voir #statsTimesheetBlock.fullscreen / #statsChartBlock.fullscreen
-  // dans styles.css), pensée pour un téléphone qui reste physiquement tenu en
+  // NOTE (1er septembre 2026) : ce commentaire décrit l'état du 30 août. Depuis,
+  // les plein écrans de Statistiques ne font plus de rotation CSS (Feuille de
+  // temps et Graphique), et celui de la Feuille de temps a été retiré tout
+  // court — seuls les deux plein écrans de Communauté
+  // (#communityActivityTimesheetBlock / #communityActivityChartBlock) simulent
+  // encore un paysage par rotation CSS. lockPortraitOrientation() reste appelée
+  // au chargement de l'app et par ces deux boutons-là.
+  // La Feuille de temps et le Graphique simulaient un plein écran paysage par
+  // rotation CSS, pensée pour un téléphone qui reste physiquement tenu en
   // portrait. Le 30 août 2026, la rotation automatique réelle du téléphone
   // entrait encore en conflit avec cette rotation forcée malgré le correctif
   // CSS @media (orientation: ...) posé plus tôt le même jour (ce correctif
@@ -271,6 +280,60 @@
     (attachments || []).forEach(function (att) { container.appendChild(buildAttachmentRow(att, onRemoved, deleteApiPath)); });
   }
 
+  // Version en lecture seule de buildAttachmentRow (pas de bouton de
+  // suppression) : pour une pièce jointe qui n'appartient pas à la personne
+  // qui la regarde — un message "Communauté" d'un profil suivi, dans le flux
+  // "Suivi" de Communauté (buildFollowingPostCard, plus bas). Un bouton de
+  // suppression y serait de toute façon refusé par le serveur (403, "Ce
+  // n'est pas ta pièce jointe" — voir DELETE /profile/post-attachments/:id),
+  // donc mieux vaut ne pas le proposer du tout.
+  function buildAttachmentRowReadOnly(att) {
+    var row = document.createElement('div');
+    row.className = 'attachmentRow';
+    var isImage = att.mimeType && att.mimeType.indexOf('image/') === 0;
+
+    if (isImage && att.dataUrl) {
+      var thumb = document.createElement('img');
+      thumb.className = 'attachmentThumb';
+      thumb.src = att.dataUrl;
+      thumb.alt = att.fileName;
+      thumb.title = t('Voir en grand');
+      thumb.addEventListener('click', function () { window.open(att.dataUrl, '_blank'); });
+      row.appendChild(thumb);
+    } else {
+      var icon = document.createElement('span');
+      icon.className = 'attachmentIcon';
+      icon.textContent = '📄';
+      row.appendChild(icon);
+    }
+
+    var info = document.createElement('div');
+    info.className = 'attachmentInfo';
+    var nameEl = document.createElement('span');
+    nameEl.className = 'attachmentName';
+    nameEl.textContent = att.fileName;
+    nameEl.title = att.fileName;
+    var sizeEl = document.createElement('span');
+    sizeEl.className = 'meta';
+    sizeEl.textContent = humanFileSize(att.sizeBytes);
+    info.appendChild(nameEl);
+    info.appendChild(sizeEl);
+    row.appendChild(info);
+
+    if (!isImage && att.dataUrl) {
+      var openLink = document.createElement('a');
+      openLink.className = 'iconBtn attachmentOpen';
+      openLink.textContent = t('Ouvrir');
+      openLink.href = att.dataUrl;
+      openLink.target = '_blank';
+      openLink.rel = 'noopener';
+      openLink.download = att.fileName;
+      row.appendChild(openLink);
+    }
+
+    return row;
+  }
+
   // Point d'entrée unique pour une pièce jointe choisie via le sélecteur de
   // fichier natif du téléphone (30 août 2026, demande d'Emilien : accès
   // direct aux options du système — photothèque / appareil photo / fichiers —
@@ -280,7 +343,7 @@
   // qu'auparavant pour "Photo"), lecture brute sinon (même logique
   // qu'auparavant pour "Document"). Partagé entre chaque carte d'historique
   // (buildChronoHistoryEntry) et chaque message "Communauté" de la zone
-  // Discussion du Profil (buildProfilePostCard, plus bas).
+  // Discussion (buildPostCard, dans mountProfilePostsComposer, plus bas).
   function handleAttachmentFilePick(file, msgEl, uploadFn) {
     if (!file) return;
     var isImage = /^image\//.test(file.type);
@@ -634,7 +697,6 @@
       loadTimesheet();
     }
     else {
-      exitStatsFullscreen();
       exitChartFullscreen();
       exitActivityTimesheetFullscreen();
       exitActivityChartFullscreen();
@@ -661,7 +723,6 @@
   function openProfile() {
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-profile').classList.remove('hidden');
-    exitStatsFullscreen();
     exitChartFullscreen();
     exitActivityTimesheetFullscreen();
     exitActivityChartFullscreen();
@@ -980,7 +1041,8 @@
     attachBox.className = 'attachmentList';
     // Bouton de pièce jointe (30 août 2026), reconstruite ici en DOM
     // puisque cette carte est générée dynamiquement (même structure que le
-    // bouton équivalent de buildProfilePostCard, plus bas). Trombone (SVG, même
+    // bouton équivalent de buildPostCard, dans mountProfilePostsComposer,
+    // plus bas). Trombone (SVG, même
     // style que les icônes de la barre d'onglets) déplacé dans .actions, à
     // gauche de "Modifier"/"Supprimer" (30 août 2026, demande d'Emilien) ;
     // ouvre directement le sélecteur de fichier natif du téléphone, sans menu
@@ -1196,10 +1258,9 @@
     menu.querySelectorAll('.statsPeriodMenuItem').forEach(function (b) { b.classList.toggle('active', b.dataset.period === period); });
   }
 
-  setupStatsPeriodMenu($('statsPiePeriodBtn'), $('statsPiePeriodMenu'), function (period) {
-    currentPiePeriod = period;
-    loadPieStats();
-  });
+  // (Le menu "⋮" de la Répartition a été retiré le 1er septembre 2026 : le
+  // camembert suit désormais la période de la Feuille de temps — voir
+  // renderPieFromTimesheet plus bas.)
   setupStatsPeriodMenu($('chartPeriodBtn'), $('chartPeriodMenu'), function (period) {
     currentChartGranularity = period; // 'day' | 'week' | 'month' (data-period du menu ⋮ du Graphique)
     loadChartStats();
@@ -1214,14 +1275,22 @@
     loadTimesheet();
   });
 
-  function loadPieStats() {
-    if (!profile) return;
-    api('GET', '/api/stats?userId=' + profile.id + '&period=' + currentPiePeriod).then(function (data) {
-      var block = data[currentPiePeriod];
-      $('statsLabel').textContent = t(block.label);
-      $('statsTotal').textContent = formatHM(block.totalSeconds);
-      renderPie(block.activities, block.totalSeconds);
-    });
+  // Remplace loadPieStats() (retirée le 1er septembre 2026, demande
+  // d'Emilien : « la répartition indique les données affichées en temps réel
+  // dans la feuille de temps et se modifie automatiquement avec elle »). Le
+  // camembert ne fait plus d'appel serveur à lui : il est redessiné à partir
+  // de la réponse que la Feuille de temps vient de recevoir (loadTimesheet
+  // ci-dessous), qui porte désormais un champ `breakdown` couvrant
+  // exactement les jours affichés par la grille. Conséquences voulues :
+  // aucune divergence possible entre les deux sections (mêmes données, même
+  // réponse), une requête HTTP de moins, et un camembert qui se remet à jour
+  // tout seul à chaque changement de période ou de flèche ‹ › de la grille,
+  // sans avoir à s'abonner à quoi que ce soit.
+  function renderPieFromTimesheet(data) {
+    var breakdown = (data && data.breakdown) || { totalSeconds: 0, activities: [] };
+    $('statsLabel').textContent = data && data.label ? t(data.label) : '';
+    $('statsTotal').textContent = formatHM(breakdown.totalSeconds);
+    renderPie(breakdown.activities || [], breakdown.totalSeconds);
   }
 
   function loadChartStats() {
@@ -1232,10 +1301,12 @@
     });
   }
 
-  // Recharge les deux sections à période indépendante d'un coup — utilisé à
-  // l'ouverture de l'onglet Statistiques (voir switchTab).
+  // Utilisé à l'ouverture de l'onglet Statistiques (voir switchTab). Ne
+  // charge plus que le Graphique depuis le 1er septembre 2026 : la
+  // Répartition n'a plus de chargement propre, elle est redessinée par
+  // loadTimesheet() que switchTab appelle juste après (voir
+  // renderPieFromTimesheet ci-dessus).
   function loadStats() {
-    loadPieStats();
     loadChartStats();
   }
 
@@ -1572,10 +1643,13 @@
   // laisser la hauteur s'étirer via CSS). Plus de rotation CSS forcée ni de
   // verrouillage d'orientation ici depuis le 1er septembre 2026 (demande
   // d'Emilien — voir le commentaire dans styles.css) : le plein écran suit
-  // simplement l'orientation réelle du téléphone. Les deux plein écrans de
-  // Statistiques partagent body.scrollLock : mutuellement exclusifs pour ne
-  // jamais laisser le scroll verrouillé par l'un pendant que l'autre se
-  // ferme (29 août 2026, suite demande Emilien).
+  // simplement l'orientation réelle du téléphone.
+  // Le Graphique est, depuis le 1er septembre 2026, le SEUL plein écran de
+  // l'onglet Statistiques : la Feuille de temps a perdu le sien (demande
+  // d'Emilien). L'exclusion mutuelle qui existait entre les deux — chacun
+  // appelait la sortie de l'autre pour ne jamais laisser body.scrollLock
+  // verrouillé par l'un pendant que l'autre se ferme (29 août 2026) — n'a
+  // donc plus d'objet et a été retirée avec exitStatsFullscreen().
   function exitChartFullscreen() {
     if (!chartFullscreenActive) return;
     chartFullscreenActive = false;
@@ -1586,7 +1660,6 @@
     renderChart(lastDailyBreakdown);
   }
   $('chartFullscreenBtn').addEventListener('click', function () {
-    if (!chartFullscreenActive) exitStatsFullscreen();
     chartFullscreenActive = !chartFullscreenActive;
     $('statsChartBlock').classList.toggle('fullscreen', chartFullscreenActive);
     document.body.classList.toggle('scrollLock', chartFullscreenActive);
@@ -1595,26 +1668,16 @@
     renderChart(lastDailyBreakdown);
   });
 
-  // ----- Plein écran de la Feuille de temps : remplit simplement l'écran
-  // (voir #statsTimesheetBlock.fullscreen dans styles.css). Plus de rotation
-  // CSS forcée ni de verrouillage d'orientation depuis le 1er septembre 2026
-  // (demande d'Emilien — voir le commentaire dans styles.css). -----
-  function exitStatsFullscreen() {
-    if (!statsFullscreenActive) return;
-    statsFullscreenActive = false;
-    $('statsTimesheetBlock').classList.remove('fullscreen');
-    document.body.classList.remove('scrollLock');
-    $('tsFullscreenBtn').textContent = '⛶';
-    $('tsFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran'));
-  }
-  $('tsFullscreenBtn').addEventListener('click', function () {
-    if (!statsFullscreenActive) exitChartFullscreen();
-    statsFullscreenActive = !statsFullscreenActive;
-    $('statsTimesheetBlock').classList.toggle('fullscreen', statsFullscreenActive);
-    document.body.classList.toggle('scrollLock', statsFullscreenActive);
-    $('tsFullscreenBtn').textContent = statsFullscreenActive ? '✕' : '⛶';
-    $('tsFullscreenBtn').setAttribute('aria-label', statsFullscreenActive ? t('Quitter le plein écran') : t('Voir en plein écran'));
-  });
+  // ----- La Feuille de temps n'a plus de plein écran depuis le 1er septembre
+  // 2026 (demande d'Emilien : « supprimer l'option de passage en plein
+  // écran ») : le bouton #tsFullscreenBtn, la variable statsFullscreenActive,
+  // la fonction exitStatsFullscreen() et les règles
+  // #statsTimesheetBlock.fullscreen de styles.css ont tous été retirés.
+  // Conséquence traitée dans la même demande : le menu "⋮" (Semaine/Mois), qui
+  // n'était révélé qu'en plein écran par la classe .fullscreenOnly, est
+  // désormais toujours visible — sans quoi la vue "Mois" serait devenue
+  // inaccessible. La vue "Mois" reste consultable hors plein écran : comme la
+  // vue "Semaine", elle défile horizontalement dans .timesheetScroll. -----
 
   // ===================== FEUILLE DE TEMPS (heatmap hebdomadaire) =====
   // Grille jour × quart d'heure, dans l'esprit de l'onglet "Feuille de
@@ -1643,12 +1706,24 @@
 
   // Dispatch selon la période choisie : "Semaine" (heatmap 15 min, inchangée)
   // ou "Mois" (calendrier 2h, ajouté le 30 août 2026 — voir renderTimesheetMonth).
+  // ⚠️ 1er septembre 2026 (discussion Répartition, débordement autorisé par
+  // Emilien sur cette fonction qui appartient à la Feuille de temps) : la
+  // même réponse alimente maintenant aussi le camembert, via
+  // renderPieFromTimesheet. Deux lignes ajoutées, aucune logique de la
+  // Feuille de temps modifiée — renderTimesheetWeek/renderTimesheetMonth
+  // sont appelées exactement comme avant, avec les mêmes données.
   function loadTimesheet() {
     if (!profile) return;
     if (currentTimesheetPeriod === 'month') {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset).then(renderTimesheetMonth);
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset).then(function (data) {
+        renderTimesheetMonth(data);
+        renderPieFromTimesheet(data);
+      });
     } else {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset).then(renderTimesheetWeek);
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset).then(function (data) {
+        renderTimesheetWeek(data);
+        renderPieFromTimesheet(data);
+      });
     }
   }
 
@@ -1754,6 +1829,11 @@
     if (!profile) return;
     $('communitySearchInput').value = '';
     $('communitySearchResults').innerHTML = '';
+    // Zone "écrire à sa communauté" (#communityMyPostsBlock, 1er septembre
+    // 2026) : voir mountProfilePostsComposer, plus bas dans ce fichier —
+    // communityDiscussionComposer est la seconde instance, celle du Profil
+    // (profileDiscussionComposer) restant inchangée.
+    communityDiscussionComposer.reset();
     loadFollowingFeed();
   }
 
@@ -2676,13 +2756,53 @@
     return card;
   }
 
+  // Carte d'un message "Communauté" (profile_posts) de quelqu'un qu'on suit,
+  // dans le flux "Suivi" — 1er septembre 2026, demande d'Emilien : « les
+  // messages se publient sur son profil, à la fois et dans les fils de la
+  // communauté pour les gens qui le suivent ». Même structure visuelle que
+  // buildProfilePostCard (mountProfilePostsComposer, plus bas) SAUF : pas de
+  // bouton de suppression (pas son message), pièces jointes en lecture
+  // seule (buildAttachmentRowReadOnly), et le nom de l'auteur est affiché
+  // (buildProfilePostCard ne montre jamais que "toi").
+  function buildFollowingPostCard(entry) {
+    var card = document.createElement('div');
+    card.className = 'discussionMsg';
+
+    var when = new Date(entry.createdAt);
+    var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
+    var timeLabel = pad(when.getHours()) + ':' + pad(when.getMinutes());
+
+    var top = document.createElement('div');
+    top.className = 'discussionMsgTop';
+    top.innerHTML = '<span class="discussionMsgAuthor"><span class="dot" style="background:' + entry.userColor + '"></span> ' +
+      escapeHtml(entry.userName) + '</span>' +
+      '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>';
+    card.appendChild(top);
+
+    var body = document.createElement('div');
+    body.className = 'discussionMsgBody';
+    body.textContent = entry.body;
+    card.appendChild(body);
+
+    if (entry.attachments && entry.attachments.length) {
+      var attachBox = document.createElement('div');
+      attachBox.className = 'attachmentList';
+      entry.attachments.forEach(function (att) { attachBox.appendChild(buildAttachmentRowReadOnly(att)); });
+      card.appendChild(attachBox);
+    }
+
+    return card;
+  }
+
   function loadFollowingFeed() {
     if (!profile) return;
     api('GET', '/api/community/following-feed?userId=' + profile.id).then(function (list) {
       var box = $('followingFeed');
       box.innerHTML = '';
       $('followingFeedEmptyHint').classList.toggle('hidden', list.length > 0);
-      list.forEach(function (entry) { box.appendChild(buildFeedEntryCard(entry)); });
+      list.forEach(function (entry) {
+        box.appendChild(entry.type === 'post' ? buildFollowingPostCard(entry) : buildFeedEntryCard(entry));
+      });
     });
   }
 
@@ -3272,202 +3392,235 @@
   // l'auteur ne le lit ailleurs dans l'app pour l'instant — voir le
   // commentaire sur profile_posts dans server/db.js.
 
-  function loadProfileDiscussion() {
-    if (!profile) return;
-    profileComposerPendingAttachments = [];
-    renderProfileComposerPending();
-    $('profileDiscussionCommunityInput').value = '';
-    $('profileDiscussionCommunityMsg').textContent = '';
-    loadProfilePosts();
-  }
-
   // ----- Sous-partie "Communauté" (profile_posts) -----
+  // Depuis le 1er septembre 2026 (demande d'Emilien : « créer une zone pour
+  // écrire à sa communauté exactement comme il y a dans le profil [...] que
+  // les deux zones soient identiques »), ce composeur + ce fil existent à
+  // DEUX emplacements — la zone Discussion du Profil (#profileDiscussionBlock,
+  // ids profileDiscussion*) et la nouvelle zone de Communauté
+  // (#communityMyPostsBlock, ids communityMyPosts*) — pour la MÊME donnée
+  // (toujours "mes" profile_posts, quel que soit l'endroit d'où on les
+  // regarde). mountProfilePostsComposer(ids) fabrique une instance
+  // indépendante (son propre état de pièces jointes "en attente") à partir
+  // d'un jeu d'ids DOM ; les deux instances sont ensuite gardées dans
+  // profilePostsComposers pour pouvoir se rafraîchir l'une l'autre après un
+  // envoi/suppression fait depuis n'importe laquelle des deux (voir
+  // refreshAllProfilePostsComposers, tout en bas).
+  var profilePostsComposers = [];
 
-  function loadProfilePosts() {
-    if (!profile) return;
-    api('GET', '/api/profile/posts?userId=' + profile.id).then(renderProfilePosts);
-  }
+  function mountProfilePostsComposer(ids) {
+    // [{ tempId, fileName, mimeType, sizeBytes, dataUrl }] — pièces jointes
+    // choisies AVANT l'envoi, gardées en mémoire côté client (voir le
+    // commentaire original ci-dessous), propres à CETTE instance.
+    var pendingAttachments = [];
 
-  function renderProfilePosts(posts) {
-    var box = $('profileDiscussionCommunityList');
-    box.innerHTML = '';
-    $('profileDiscussionCommunityEmptyHint').classList.toggle('hidden', posts.length > 0);
-    posts.forEach(function (post) { box.appendChild(buildProfilePostCard(post)); });
-    box.scrollTop = box.scrollHeight;
-  }
+    function renderPending() {
+      var box = $(ids.pendingList);
+      box.classList.toggle('hidden', pendingAttachments.length === 0);
+      renderAttachmentList(box, pendingAttachments.map(function (p) {
+        return { id: p.tempId, fileName: p.fileName, mimeType: p.mimeType, sizeBytes: p.sizeBytes, dataUrl: p.dataUrl };
+      }), function (removedTempId) {
+        pendingAttachments = pendingAttachments.filter(function (p) { return p.tempId !== removedTempId; });
+        renderPending();
+      }, null);
+      $(ids.attachBtn).disabled = pendingAttachments.length >= MAX_NOTE_ATTACHMENTS;
+    }
 
-  // Une carte de message "Communauté" : texte + pièces jointes déjà
-  // envoyées + trombone pour en ajouter une nouvelle (POST
-  // /profile/posts/:id/attachments, toujours sur un message déjà envoyé —
-  // pas d'état "en attente" ici, voir le commentaire sur
-  // profile_post_attachments dans server/db.js) + suppression du message
-  // entier. Même structure visuelle que renderDiscussion (fil "Membres"
-  // ci-dessous), avec `.mine` toujours vrai : ce fil n'affiche que les
-  // messages de l'auteur courant.
-  function buildProfilePostCard(post) {
-    var msg = document.createElement('div');
-    msg.className = 'discussionMsg mine';
+    // Une carte de message "Communauté" : texte + pièces jointes déjà
+    // envoyées + trombone pour en ajouter une nouvelle (POST
+    // /profile/posts/:id/attachments, toujours sur un message déjà envoyé —
+    // pas d'état "en attente" ici, voir le commentaire sur
+    // profile_post_attachments dans server/db.js) + suppression du message
+    // entier. `.mine` toujours vrai : ce fil n'affiche que les messages de
+    // l'auteur courant, quel que soit l'emplacement (Profil ou Communauté).
+    // Après un ajout/suppression de pièce jointe ou une suppression de
+    // message, les DEUX instances sont rafraîchies (refreshAllProfilePostsComposers)
+    // plutôt qu'une mise à jour locale : la même donnée est désormais visible
+    // à deux endroits, mieux vaut un aller-retour serveur de plus qu'un des
+    // deux affichages qui reste périmé.
+    function buildPostCard(post) {
+      var msg = document.createElement('div');
+      msg.className = 'discussionMsg mine';
 
-    var when = new Date(post.createdAt);
-    var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
-    var timeLabel = pad(when.getHours()) + ':' + pad(when.getMinutes());
+      var when = new Date(post.createdAt);
+      var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
+      var timeLabel = pad(when.getHours()) + ':' + pad(when.getMinutes());
 
-    var top = document.createElement('div');
-    top.className = 'discussionMsgTop';
-    top.innerHTML = '<span class="discussionMsgAuthor">' + escapeHtml(profile.name) + t(' (toi)') + '</span>' +
-      '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>';
+      var top = document.createElement('div');
+      top.className = 'discussionMsgTop';
+      top.innerHTML = '<span class="discussionMsgAuthor">' + escapeHtml(profile.name) + t(' (toi)') + '</span>' +
+        '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>';
 
-    var del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'discussionMsgDelete';
-    del.textContent = '✕';
-    del.title = t('Supprimer ce message');
-    del.addEventListener('click', function () {
-      if (!confirm(t('Supprimer ce message ?'))) return;
-      api('DELETE', '/api/profile/posts/' + post.id + '?userId=' + profile.id)
-        .then(loadProfilePosts)
-        .catch(function (err) { alert(err.message); });
-    });
-    top.appendChild(del);
-    msg.appendChild(top);
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'discussionMsgDelete';
+      del.textContent = '✕';
+      del.title = t('Supprimer ce message');
+      del.addEventListener('click', function () {
+        if (!confirm(t('Supprimer ce message ?'))) return;
+        api('DELETE', '/api/profile/posts/' + post.id + '?userId=' + profile.id)
+          .then(refreshAllProfilePostsComposers)
+          .catch(function (err) { alert(err.message); });
+      });
+      top.appendChild(del);
+      msg.appendChild(top);
 
-    var body = document.createElement('div');
-    body.className = 'discussionMsgBody';
-    body.textContent = post.body;
-    msg.appendChild(body);
+      var body = document.createElement('div');
+      body.className = 'discussionMsgBody';
+      body.textContent = post.body;
+      msg.appendChild(body);
 
-    var attachBox = document.createElement('div');
-    attachBox.className = 'attachmentList';
-    var attachMenuWrap = document.createElement('div');
-    attachMenuWrap.className = 'attachmentMenuWrap';
-    var attachMenuBtn = document.createElement('button');
-    attachMenuBtn.type = 'button'; attachMenuBtn.className = 'menuBtn attachMenuIconBtn';
-    attachMenuBtn.setAttribute('aria-label', t('Ajouter une pièce jointe'));
-    attachMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
-    var attachInput = document.createElement('input');
-    attachInput.type = 'file'; attachInput.className = 'hidden';
-    attachMenuWrap.appendChild(attachMenuBtn);
-    attachMenuWrap.appendChild(attachInput);
-    var attachMsg = document.createElement('p');
-    attachMsg.className = 'meta attachmentMsg';
-
-    function refreshPostAttachments() {
-      renderAttachmentList(attachBox, post.attachments, function (removedId) {
-        post.attachments = (post.attachments || []).filter(function (a) { return a.id !== removedId; });
-        refreshPostAttachments();
-      }, '/api/profile/post-attachments/');
+      var attachBox = document.createElement('div');
+      attachBox.className = 'attachmentList';
+      renderAttachmentList(attachBox, post.attachments, null, '/api/profile/post-attachments/');
+      var attachMenuWrap = document.createElement('div');
+      attachMenuWrap.className = 'attachmentMenuWrap';
+      var attachMenuBtn = document.createElement('button');
+      attachMenuBtn.type = 'button'; attachMenuBtn.className = 'menuBtn attachMenuIconBtn';
+      attachMenuBtn.setAttribute('aria-label', t('Ajouter une pièce jointe'));
+      attachMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
       attachMenuBtn.disabled = (post.attachments || []).length >= MAX_NOTE_ATTACHMENTS;
-    }
-    refreshPostAttachments();
+      var attachInput = document.createElement('input');
+      attachInput.type = 'file'; attachInput.className = 'hidden';
+      attachMenuWrap.appendChild(attachMenuBtn);
+      attachMenuWrap.appendChild(attachInput);
+      var attachMsg = document.createElement('p');
+      attachMsg.className = 'meta attachmentMsg';
 
-    function uploadPostAttachment(fileName, mimeType, dataUrl) {
-      attachMsg.textContent = t('Envoi...');
-      api('POST', '/api/profile/posts/' + post.id + '/attachments', { userId: profile.id, fileName: fileName, mimeType: mimeType, dataUrl: dataUrl })
-        .then(function (att) {
-          post.attachments = (post.attachments || []).concat([att]);
-          refreshPostAttachments();
-          attachMsg.textContent = '';
+      function uploadPostAttachment(fileName, mimeType, dataUrl) {
+        attachMsg.textContent = t('Envoi...');
+        api('POST', '/api/profile/posts/' + post.id + '/attachments', { userId: profile.id, fileName: fileName, mimeType: mimeType, dataUrl: dataUrl })
+          .then(function () { refreshAllProfilePostsComposers(); })
+          .catch(function (err) { attachMsg.textContent = err.message; });
+      }
+
+      attachMenuBtn.addEventListener('click', function () { attachInput.click(); });
+      attachInput.addEventListener('change', function () {
+        var file = this.files[0];
+        this.value = '';
+        handleAttachmentFilePick(file, attachMsg, uploadPostAttachment);
+      });
+
+      msg.appendChild(attachBox);
+      msg.appendChild(attachMsg);
+      msg.appendChild(attachMenuWrap);
+
+      return msg;
+    }
+
+    function renderPosts(posts) {
+      var box = $(ids.list);
+      box.innerHTML = '';
+      $(ids.emptyHint).classList.toggle('hidden', posts.length > 0);
+      posts.forEach(function (post) { box.appendChild(buildPostCard(post)); });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function load() {
+      if (!profile) return;
+      api('GET', '/api/profile/posts?userId=' + profile.id).then(renderPosts);
+    }
+
+    function reset() {
+      pendingAttachments = [];
+      renderPending();
+      $(ids.input).value = '';
+      $(ids.msg).textContent = '';
+      load();
+    }
+
+    // Crée le message puis, s'il y avait des pièces jointes en attente, les
+    // envoie une par une dans l'ordre choisi (POST /profile/posts/:id/attachments,
+    // même route que le trombone d'un message déjà publié).
+    function send() {
+      if (!profile) return;
+      var input = $(ids.input);
+      var body = input.value.trim();
+      var msgEl = $(ids.msg);
+      if (!body) { msgEl.textContent = t('Écris un message avant d\'envoyer.'); return; }
+
+      msgEl.textContent = '';
+      $(ids.sendBtn).disabled = true;
+      var pending = pendingAttachments.slice();
+      api('POST', '/api/profile/posts', { userId: profile.id, body: body })
+        .then(function (created) {
+          if (!pending.length) return;
+          var chain = Promise.resolve();
+          pending.forEach(function (p) {
+            chain = chain.then(function () {
+              return api('POST', '/api/profile/posts/' + created.id + '/attachments',
+                { userId: profile.id, fileName: p.fileName, mimeType: p.mimeType, dataUrl: p.dataUrl });
+            });
+          });
+          return chain;
         })
-        .catch(function (err) { attachMsg.textContent = err.message; });
+        .then(function () {
+          input.value = '';
+          pendingAttachments = [];
+          renderPending();
+          refreshAllProfilePostsComposers();
+          // Un nouveau message peut désormais apparaître dans le flux "Suivi"
+          // de qui nous suit, mais jamais dans le nôtre (Suivi ne montre que
+          // les AUTRES) — rien à recharger côté #followingFeed ici.
+        })
+        .catch(function (err) { msgEl.textContent = err.message; })
+        .then(function () { $(ids.sendBtn).disabled = false; });
     }
 
-    attachMenuBtn.addEventListener('click', function () { attachInput.click(); });
-    attachInput.addEventListener('change', function () {
+    $(ids.attachBtn).addEventListener('click', function () { $(ids.attachInput).click(); });
+    $(ids.attachInput).addEventListener('change', function () {
       var file = this.files[0];
       this.value = '';
-      handleAttachmentFilePick(file, attachMsg, uploadPostAttachment);
-    });
-
-    msg.appendChild(attachBox);
-    msg.appendChild(attachMsg);
-    msg.appendChild(attachMenuWrap);
-
-    return msg;
-  }
-
-  // ----- Pièces jointes choisies AVANT l'envoi, dans le composeur -----
-  // (31 août 2026, demande d'Emilien : « rajouter à la discussion le
-  // trombone avec les différentes options pour ajouter les documents, des
-  // photos ») — contrairement au trombone d'un message déjà publié
-  // (buildProfilePostCard, qui upload tout de suite), il n'existe pas encore
-  // de message ici : le fichier choisi est simplement lu et gardé en mémoire
-  // (dataUrl) côté client, prévisualisé comme une pièce jointe normale
-  // (buildAttachmentRow, en mode local — voir deleteApiPath=null), puis
-  // effectivement envoyé au serveur juste après la création du message
-  // (sendProfilePost ci-dessous). Même sélecteur de fichier natif que
-  // partout ailleurs (handleAttachmentFilePick) : pas de menu Photo/Document
-  // séparé, l'appareil propose déjà photothèque/appareil photo/fichiers.
-  var profileComposerPendingAttachments = []; // [{ tempId, fileName, mimeType, sizeBytes, dataUrl }]
-
-  function renderProfileComposerPending() {
-    var box = $('profileDiscussionPendingList');
-    box.classList.toggle('hidden', profileComposerPendingAttachments.length === 0);
-    renderAttachmentList(box, profileComposerPendingAttachments.map(function (p) {
-      return { id: p.tempId, fileName: p.fileName, mimeType: p.mimeType, sizeBytes: p.sizeBytes, dataUrl: p.dataUrl };
-    }), function (removedTempId) {
-      profileComposerPendingAttachments = profileComposerPendingAttachments.filter(function (p) { return p.tempId !== removedTempId; });
-      renderProfileComposerPending();
-    }, null);
-    $('profileDiscussionAttachBtn').disabled = profileComposerPendingAttachments.length >= MAX_NOTE_ATTACHMENTS;
-  }
-
-  $('profileDiscussionAttachBtn').addEventListener('click', function () { $('profileDiscussionAttachInput').click(); });
-  $('profileDiscussionAttachInput').addEventListener('change', function () {
-    var file = this.files[0];
-    this.value = '';
-    handleAttachmentFilePick(file, $('profileDiscussionCommunityMsg'), function (fileName, mimeType, dataUrl) {
-      profileComposerPendingAttachments.push({
-        tempId: 'pending-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-        fileName: fileName,
-        mimeType: mimeType,
-        sizeBytes: Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4),
-        dataUrl: dataUrl,
-      });
-      $('profileDiscussionCommunityMsg').textContent = '';
-      renderProfileComposerPending();
-    });
-  });
-
-  // Crée le message puis, s'il y avait des pièces jointes en attente, les
-  // envoie une par une dans l'ordre choisi (POST /profile/posts/:id/attachments,
-  // même route que le trombone d'un message déjà publié).
-  function sendProfilePost() {
-    if (!profile) return;
-    var input = $('profileDiscussionCommunityInput');
-    var body = input.value.trim();
-    var msgEl = $('profileDiscussionCommunityMsg');
-    if (!body) { msgEl.textContent = t('Écris un message avant d\'envoyer.'); return; }
-
-    msgEl.textContent = '';
-    $('profileDiscussionCommunitySendBtn').disabled = true;
-    var pending = profileComposerPendingAttachments.slice();
-    api('POST', '/api/profile/posts', { userId: profile.id, body: body })
-      .then(function (created) {
-        if (!pending.length) return;
-        var chain = Promise.resolve();
-        pending.forEach(function (p) {
-          chain = chain.then(function () {
-            return api('POST', '/api/profile/posts/' + created.id + '/attachments',
-              { userId: profile.id, fileName: p.fileName, mimeType: p.mimeType, dataUrl: p.dataUrl });
-          });
+      handleAttachmentFilePick(file, $(ids.msg), function (fileName, mimeType, dataUrl) {
+        pendingAttachments.push({
+          tempId: 'pending-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+          fileName: fileName,
+          mimeType: mimeType,
+          sizeBytes: Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4),
+          dataUrl: dataUrl,
         });
-        return chain;
-      })
-      .then(function () {
-        input.value = '';
-        profileComposerPendingAttachments = [];
-        renderProfileComposerPending();
-        loadProfilePosts();
-      })
-      .catch(function (err) { msgEl.textContent = err.message; })
-      .then(function () { $('profileDiscussionCommunitySendBtn').disabled = false; });
+        $(ids.msg).textContent = '';
+        renderPending();
+      });
+    });
+    $(ids.sendBtn).addEventListener('click', send);
+    // Entrée = envoyer, Maj+Entrée = retour à la ligne — même convention que
+    // le fil de discussion de l'onglet Activité.
+    $(ids.input).addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+
+    var instance = { load: load, reset: reset };
+    profilePostsComposers.push(instance);
+    return instance;
   }
-  $('profileDiscussionCommunitySendBtn').addEventListener('click', sendProfilePost);
-  // Entrée = envoyer, Maj+Entrée = retour à la ligne — même convention que
-  // le fil de discussion de l'onglet Activité.
-  $('profileDiscussionCommunityInput').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendProfilePost(); }
+
+  function refreshAllProfilePostsComposers() {
+    profilePostsComposers.forEach(function (c) { c.load(); });
+  }
+
+  var profileDiscussionComposer = mountProfilePostsComposer({
+    list: 'profileDiscussionCommunityList', emptyHint: 'profileDiscussionCommunityEmptyHint',
+    input: 'profileDiscussionCommunityInput', pendingList: 'profileDiscussionPendingList',
+    attachBtn: 'profileDiscussionAttachBtn', attachInput: 'profileDiscussionAttachInput',
+    sendBtn: 'profileDiscussionCommunitySendBtn', msg: 'profileDiscussionCommunityMsg',
   });
+  // Seconde instance, #communityMyPostsBlock dans #tab-community (1er
+  // septembre 2026) — voir loadCommunity() plus haut, qui appelle
+  // communityDiscussionComposer.reset() à l'ouverture de l'onglet.
+  var communityDiscussionComposer = mountProfilePostsComposer({
+    list: 'communityMyPostsList', emptyHint: 'communityMyPostsEmptyHint',
+    input: 'communityMyPostsInput', pendingList: 'communityMyPostsPendingList',
+    attachBtn: 'communityMyPostsAttachBtn', attachInput: 'communityMyPostsAttachInput',
+    sendBtn: 'communityMyPostsSendBtn', msg: 'communityMyPostsMsg',
+  });
+
+  // Appelée par openProfile() (Design, plus haut dans ce fichier) à chaque
+  // ouverture du Profil — signature inchangée pour ne pas avoir à toucher
+  // cet appel, hors périmètre Communauté.
+  function loadProfileDiscussion() {
+    profileDiscussionComposer.reset();
+  }
 
   // Déplacé en haut à droite de Réglages, au-dessus d'Identité (29 août
   // 2026, demande d'Emilien) — anciennement un lien texte en bas de la

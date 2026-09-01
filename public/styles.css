@@ -552,12 +552,13 @@ textarea {
    autres via ce petit menu déroulant. Réutilise .menuBtn (générique Design)
    pour le bouton lui-même ; .statsPeriodMenu/.statsPeriodMenuItem sont
    propres à Statistiques (ne redéfinissent pas .notifPanel, propre à
-   Profil — voir carte des zones). Sur la Feuille de temps et le Graphique,
-   ce menu n'a de sens qu'en plein écran (seul endroit où la nouvelle vue
-   "Mois" tient à l'aise) : .fullscreenOnly le masque par défaut et ne le
-   révèle que sous #statsTimesheetBlock.fullscreen / #statsChartBlock.fullscreen
-   ci-dessous. Sur la Répartition (pas de plein écran), le menu reste
-   toujours visible. */
+   Profil — voir carte des zones). Sur le Graphique, ce menu n'a de sens qu'en
+   plein écran : .fullscreenOnly le masque par défaut et ne le révèle que sous
+   #statsChartBlock.fullscreen ci-dessous. Sur la Répartition (pas de plein
+   écran) et, depuis le 1er septembre 2026, sur la Feuille de temps (plein
+   écran retiré à la demande d'Emilien — son menu "⋮" a perdu la classe
+   .fullscreenOnly dans index.html au même moment, sans quoi la vue "Mois"
+   serait devenue inaccessible), le menu reste toujours visible. */
 .statsPeriodMenuWrap { position: relative; flex-shrink: 0; }
 .statsPeriodMenu {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
@@ -573,7 +574,6 @@ textarea {
 .statsPeriodMenuItem.active { color: var(--purple); font-weight: bold; }
 
 .statsPeriodMenuWrap.fullscreenOnly { display: none; }
-#statsTimesheetBlock.fullscreen .statsPeriodMenuWrap.fullscreenOnly,
 #statsChartBlock.fullscreen .statsPeriodMenuWrap.fullscreenOnly {
   display: block;
 }
@@ -775,48 +775,30 @@ textarea {
 .chartTooltipLabel { color: var(--text); }
 .chartTooltipValue { color: var(--text-light); margin-left: auto; padding-left: 10px; }
 
-/* ----- Feuille de temps en plein écran : remplit simplement le viewport
-   réel (100vw × 100vh), quelle que soit l'orientation physique du
-   téléphone — plus de rotation CSS forcée.
-
-   1er septembre 2026 (demande d'Emilien) : le mécanisme précédent forçait
-   visuellement le format paysage par une rotation CSS de 90° même
-   téléphone tenu en portrait (avec un correctif du 30 août pour ne plus
-   casser si le téléphone pivotait réellement en même temps, voir l'historique
-   de ce bloc dans `noesis-timetracker-journal-statistiques.md`). Emilien a
-   demandé de retirer ce forçage : le plein écran suit désormais simplement
-   l'orientation réelle du téléphone (portrait ou paysage), sans aucune
-   rotation ni verrouillage d'orientation (voir aussi la suppression des
-   appels à `lockPortraitOrientation()` sur ces deux boutons plein écran dans
-   app.js). ----- */
+/* ----- La Feuille de temps N'A PLUS de mode plein écran depuis le
+   1er septembre 2026 (demande d'Emilien : « supprimer l'option de passage en
+   plein écran »). Les règles #statsTimesheetBlock.fullscreen qui vivaient ici
+   ont été retirées, ainsi que le bouton #tsFullscreenBtn et la fonction
+   exitStatsFullscreen() côté app.js. Historique de ce bloc (rotation CSS
+   forcée en paysage, puis correctif d'orientation réelle du 30 août, puis
+   retrait du forçage le 1er septembre) : voir
+   `noesis-timetracker-journal-statistiques.md`.
+   Les deux vues de la Feuille de temps restent entièrement consultables en
+   vue normale : .timesheetScroll défile déjà horizontalement, aussi bien pour
+   la grille "Semaine" que pour le calendrier "Mois". Seules les règles
+   `height: 100%` propres au plein écran disparaissent — les cases-jour
+   retrouvent leur hauteur naturelle (.tsCalDay { min-height: 60px }).
+   body.scrollLock reste défini ici : le plein écran du Graphique s'en sert
+   toujours. ----- */
 body.scrollLock { overflow: hidden; }
-#statsTimesheetBlock.fullscreen {
-  position: fixed; top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  z-index: 1000;
-  margin: 0;
-  background: var(--bg);
-  padding: 16px;
-  overflow: hidden;
-  display: flex; flex-direction: column;
-  box-shadow: none; border-radius: 0;
-}
-#statsTimesheetBlock.fullscreen .timesheetScroll {
-  flex: 1; overflow: auto;
-}
-#statsTimesheetBlock.fullscreen .timesheetGrid {
-  height: 100%;
-}
-/* Idem pour la vue "Mois" (calendrier) — accessible uniquement en plein
-   écran via le menu "⋮" (voir plus haut .statsPeriodMenuWrap.fullscreenOnly). */
-#statsTimesheetBlock.fullscreen .tsCalendarGrid {
-  height: 100%;
-}
 
-/* ----- Graphique en plein écran : même mécanisme que la Feuille de temps
-   ci-dessus (remplit le viewport réel, plus de rotation forcée depuis le
-   1er septembre 2026 — voir le commentaire au-dessus de
-   #statsTimesheetBlock.fullscreen). En plus du remplissage de l'écran, le
+/* ----- Graphique en plein écran : remplit simplement le viewport réel
+   (100vw × 100vh), quelle que soit l'orientation physique du téléphone — plus
+   de rotation CSS forcée ni de verrouillage d'orientation depuis le
+   1er septembre 2026 (demande d'Emilien ; voir aussi la suppression des appels
+   à `lockPortraitOrientation()` sur ce bouton plein écran dans app.js). C'est
+   désormais le SEUL plein écran de l'onglet Statistiques. En plus du
+   remplissage de l'écran, le
    graphique est agrandi : sa largeur reste pilotée par le nombre de jours
    (défilement horizontal conservé pour les longues périodes) ; seule la
    hauteur du SVG s'étire pour remplir l'espace vertical disponible — voir
@@ -861,11 +843,12 @@ body.scrollLock { overflow: hidden; }
    navigation (précédent/suivant, période, sortie ⛶/✕), alignée aux deux bords
    par .sectionTitleRow (justify-content: space-between, définie par Design),
    pouvait déborder sur la droite. Passage sur deux lignes centrées plutôt
-   qu'une seule alignée aux bords, pour les quatre blocs plein écran
-   (Statistiques + équivalents Communauté). Ne touche que le contexte plein
-   écran : la définition générique de .sectionTitleRow (Design) n'est pas
-   modifiée. */
-#statsTimesheetBlock.fullscreen .sectionTitleRow,
+   qu'une seule alignée aux bords. Ne touche que le contexte plein écran : la
+   définition générique de .sectionTitleRow (Design) n'est pas modifiée.
+   Portait à l'origine sur quatre blocs ; #statsTimesheetBlock.fullscreen en a
+   été retiré le 1er septembre 2026 avec le plein écran de la Feuille de temps
+   (demande d'Emilien) — restent le Graphique et les deux équivalents
+   Communauté. */
 #statsChartBlock.fullscreen .sectionTitleRow,
 #communityActivityTimesheetBlock.fullscreen .sectionTitleRow,
 #communityActivityChartBlock.fullscreen .sectionTitleRow {
@@ -874,7 +857,6 @@ body.scrollLock { overflow: hidden; }
   text-align: center;
   row-gap: 6px;
 }
-#statsTimesheetBlock.fullscreen .timesheetNav,
 #communityActivityTimesheetBlock.fullscreen .timesheetNav {
   justify-content: center;
   width: 100%;

@@ -7,6 +7,16 @@ const db = require('../db');
 const { periodRange } = require('./period');
 const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR } = require('./dates');
 
+// ⚠️ 1er septembre 2026 — PLUS AUCUN APPELANT CÔTÉ CLIENT. La Répartition
+// (camembert), seule consommatrice de cette fonction, est passée ce jour-là
+// sur breakdownForRange ci-dessous, aligné sur la fenêtre réellement
+// affichée par la Feuille de temps (demande d'Emilien). Les trois champs
+// `week`/`month`/`year` de la route GET /stats qu'elle alimente encore ne
+// sont plus lus par public/app.js. Volontairement NON supprimée dans le même
+// passage : cette route est partagée avec le Graphique (champ
+// `dailyBreakdown`), et le nettoyage a été proposé séparément à Emilien pour
+// être fait une fois le nouveau comportement confirmé — voir
+// noesis-timetracker-journal-repartition.md.
 function breakdownForUser(userId, period, refDate) {
   const { start, end, label } = periodRange(period, refDate);
 
@@ -30,6 +40,92 @@ function breakdownForUser(userId, period, refDate) {
       color: r.color,
       seconds: r.seconds,
       percent: totalSeconds > 0 ? Math.round((r.seconds / totalSeconds) * 100) : 0,
+    })),
+  };
+}
+
+// ===================== RÉPARTITION (camembert) — ALIGNÉE SUR LA FEUILLE DE TEMPS =====
+// 1er septembre 2026, demande d'Emilien : « je souhaite que la répartition
+// dépende de la feuille de temps. La répartition indique les données
+// affichées en temps réel dans la feuille de temps et se modifie
+// automatiquement avec elle. » Le camembert n'a donc plus de période à lui
+// (son menu "⋮" Semaine/Mois/Année a été retiré de public/index.html) : il
+// résume exactement la fenêtre de jours que la grille est en train
+// d'afficher, quelle qu'elle soit.
+//
+// Pourquoi une nouvelle fonction plutôt que breakdownForUser ci-dessus :
+// celle-ci part d'une PÉRIODE nommée ('week'/'month'/'year' → periodRange),
+// c'est-à-dire d'un découpage calendaire qui n'a aucune raison de coïncider
+// avec la fenêtre réellement affichée par la Feuille de temps — en
+// particulier depuis que sa vue Semaine est une fenêtre GLISSANTE de 7 jours
+// se terminant aujourd'hui (voir timesheetForUser plus bas), et que sa vue
+// Mois déborde sur les semaines voisines pour compléter le calendrier. C'est
+// précisément cet écart qui faisait diverger les deux sections. Ici on part
+// donc des bornes réelles de la grille, passées par l'appelant.
+//
+// Deux points de fidélité, choisis pour que le camembert soit toujours
+// réconciliable à l'œil avec la grille juste au-dessus :
+//  - même jeu d'entrées que la grille : filtre `isoDate BETWEEN ? AND ?`,
+//    identique à celui de computeSlotsForDays (une session est rattachée au
+//    jour où elle a DÉMARRÉ) ;
+//  - même découpe aux bords : une session qui déborde de la fenêtre n'est
+//    comptée que pour la portion visible, exactement comme la grille ne
+//    colorie que les créneaux compris dans les jours affichés.
+// À la différence de la grille, en revanche, on somme ici les vraies durées
+// et non des créneaux : la grille quantifie (15 min en vue Semaine, 2 h en
+// vue Mois) et ne garde qu'une activité dominante par créneau — inutilisable
+// pour des totaux justes. C'est la raison pour laquelle ce calcul reste
+// serveur au lieu d'être refait côté client à partir de la grille.
+function breakdownForRange(userId, startIso, endIso) {
+  const rangeStart = new Date(startIso + 'T00:00:00');
+  const rangeEnd = new Date(endIso + 'T00:00:00');
+  rangeEnd.setDate(rangeEnd.getDate() + 1); // borne haute exclusive = lendemain du dernier jour affiché
+
+  const rows = db.prepare(`
+    SELECT t.startTime, t.endTime, a.id AS activityId, a.name AS activity,
+           COALESCE(am.color, '#3498db') AS color
+    FROM time_entries t
+    JOIN activities a ON a.id = t.activityId
+    LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
+    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
+  `).all(userId, startIso, endIso);
+
+  const byActivity = {};
+  rows.forEach((r) => {
+    const entryStart = new Date(r.startTime);
+    const entryEnd = new Date(r.endTime);
+    // Une entrée encore en cours (endTime absent) ou une date illisible
+    // donnerait un NaN qui contaminerait silencieusement tous les totaux :
+    // on l'ignore plutôt que de la propager.
+    if (isNaN(entryStart.getTime()) || isNaN(entryEnd.getTime())) return;
+
+    const clipStart = entryStart > rangeStart ? entryStart : rangeStart;
+    const clipEnd = entryEnd < rangeEnd ? entryEnd : rangeEnd;
+    const seconds = (clipEnd - clipStart) / 1000;
+    if (seconds <= 0) return;
+
+    if (!byActivity[r.activityId]) {
+      byActivity[r.activityId] = { activityId: r.activityId, name: r.activity, color: r.color, seconds: 0 };
+    }
+    byActivity[r.activityId].seconds += seconds;
+  });
+
+  const activities = Object.keys(byActivity)
+    .map((k) => byActivity[k])
+    .map((a) => ({ activityId: a.activityId, name: a.name, color: a.color, seconds: Math.round(a.seconds) }))
+    .sort((a, b) => b.seconds - a.seconds);
+
+  // Total recalculé APRÈS arrondi de chaque part, pour que la somme des
+  // parts affichées soit toujours exactement le total affiché au centre du
+  // camembert (sinon on peut lire 3 parts qui ne font pas le total).
+  const totalSeconds = activities.reduce((sum, a) => sum + a.seconds, 0);
+
+  return {
+    start: startIso,
+    end: endIso,
+    totalSeconds,
+    activities: activities.map((a) => Object.assign({}, a, {
+      percent: totalSeconds > 0 ? Math.round((a.seconds / totalSeconds) * 100) : 0,
     })),
   };
 }
@@ -319,4 +415,4 @@ function timesheetMonthForUser(userId, monthOffset) {
   return { monthOffset: offset, isCurrentMonth: offset === 0, start, end, label, hasMoreBefore, weeks };
 }
 
-module.exports = { breakdownForUser, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };
+module.exports = { breakdownForUser, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };
