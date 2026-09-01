@@ -2829,16 +2829,35 @@
     });
   });
 
+  // Réglages est un panneau FLOTTANT depuis le 1er septembre 2026 : il ne
+  // remplace plus #profileMain, il se superpose à la page en cours, comme le
+  // panneau des invitations. showProfileMain() ne fait donc plus que refermer
+  // ce panneau et s'assurer que la page Profil est visible.
   function showProfileMain() {
-    $('profileSettingsPanel').classList.add('hidden');
+    closeSettingsPanel();
     $('profileMain').classList.remove('hidden');
     // L'icône "⚙️" redevient neutre dès qu'on quitte la vue Réglages —
     // voir showProfileSettings ci-dessous et .topIconBtn.active (styles.css).
     $('profileSettingsBtn').classList.remove('active');
   }
+  function closeSettingsPanel() {
+    $('profileSettingsPanel').classList.add('hidden');
+    $('profileSettingsBtn').classList.remove('active');
+  }
+
+  // Ouvre le panneau flottant des Réglages. Referme d'abord celui des
+  // invitations : les deux icônes de la barre du haut s'excluent
+  // mutuellement (demande d'Emilien, 1er septembre 2026).
   function showProfileSettings() {
+    closeNotifPanel();
     closeAllSettingsSections();
-    $('profileMain').classList.add('hidden');
+    // Le panneau ne passe plus par openProfile() : c'est donc lui qui doit
+    // rafraîchir SES propres commandes (thème coché, langue cochée, adresse
+    // de partage). Sans ça, après un rechargement de page, la langue et le
+    // thème actifs n'apparaissaient plus cochés.
+    renderThemeSwitch();
+    renderLangSwitch();
+    renderShareSettings();
     $('profileSettingsPanel').classList.remove('hidden');
     // Violette tant que Réglages est la vue affichée (1er septembre 2026,
     // demande d'Emilien : même comportement "sélectionné = violet" que les
@@ -2851,9 +2870,18 @@
   // pas seulement une fois le Profil déjà ouvert. On ne peut donc plus
   // supposer que #tab-profile est visible : on ouvre explicitement le Profil
   // (openProfile, ci-dessus) avant de basculer sur la vue Réglages.
-  $('profileSettingsBtn').addEventListener('click', function () {
-    openProfile();
-    showProfileSettings();
+  $('profileSettingsBtn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    if ($('profileSettingsPanel').classList.contains('hidden')) showProfileSettings();
+    else closeSettingsPanel();
+  });
+
+  // Referme le panneau des Réglages au clic n'importe où en dehors de lui (ou
+  // de son icône) — même mécanisme que le panneau des invitations.
+  document.addEventListener('click', function (e) {
+    if ($('profileSettingsPanel').classList.contains('hidden')) return;
+    if (e.target.closest('.settingsWrap')) return;
+    closeSettingsPanel();
   });
 
   // ===================== NOTIFICATIONS PUSH (Réglages) =====================
@@ -3065,20 +3093,28 @@
   // l'ouverture/fermeture du panneau, aussi bien au clic sur l'icône qu'à la
   // fermeture "en dehors" juste en dessous — voir .topIconBtn.active dans
   // styles.css.
+  function closeNotifPanel() {
+    $('profileNotifPanel').classList.add('hidden');
+    $('profileNotifBtn').classList.remove('active');
+  }
+
   $('profileNotifBtn').addEventListener('click', function (e) {
     e.stopPropagation();
-    var nowHidden = $('profileNotifPanel').classList.toggle('hidden');
-    $('profileNotifBtn').classList.toggle('active', !nowHidden);
+    var opening = $('profileNotifPanel').classList.contains('hidden');
+    // Les deux panneaux flottants de la barre du haut s'excluent : ouvrir
+    // les invitations referme les Réglages, et réciproquement (demande
+    // d'Emilien, 1er septembre 2026).
+    if (opening) closeSettingsPanel();
+    $('profileNotifPanel').classList.toggle('hidden', !opening);
+    $('profileNotifBtn').classList.toggle('active', opening);
   });
   // Referme le panneau au clic n'importe où en dehors de lui (ou du bouton).
   document.addEventListener('click', function (e) {
-    var panel = $('profileNotifPanel');
-    if (panel.classList.contains('hidden')) return;
+    if ($('profileNotifPanel').classList.contains('hidden')) return;
     if (e.target.closest('.notifWrap')) return;
-    panel.classList.add('hidden');
-    $('profileNotifBtn').classList.remove('active');
+    closeNotifPanel();
   });
-  $('profileSettingsBack').addEventListener('click', showProfileMain);
+  $('profileSettingsBack').addEventListener('click', closeSettingsPanel);
 
   $('settingsSaveBtn').addEventListener('click', function () {
     $('settingsSaveBtn').disabled = true;

@@ -1008,6 +1008,14 @@ body.scrollLock { overflow: hidden; }
    dessous. Tout est porté par #profileSettingsPanel — zone CSS de la
    discussion Paramètres — et réutilise les variables globales de Design sans
    redéfinir aucune classe générique. */
+/* Réglages en menu flottant : le panneau réutilise .notifPanel (propriété de
+   Profil/Design) sans la redéfinir — on ne fait qu'élargir un peu ce panneau
+   précis, ses sections étant des formulaires et non de simples listes.
+   .settingsWrap n'a pas de style propre : comme .notifWrap, elle ne sert qu'à
+   repérer le « clic en dehors » dans app.js. */
+#profileSettingsPanel.settingsPanel { width: min(380px, 92vw); padding: 12px; }
+#profileSettingsPanel.settingsPanel .subpageHeader { margin-bottom: 10px; }
+#profileSettingsPanel.settingsPanel .settingsSection:last-child { margin-bottom: 0; }
 #profileSettingsPanel .settingsSection { margin-bottom: 8px; }
 #profileSettingsPanel .settingsSectionHeader {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -1027,28 +1035,6 @@ body.scrollLock { overflow: hidden; }
 #profileSettingsPanel .settingsSectionBody .settingsCard,
 #profileSettingsPanel .settingsSectionBody .entryCard { margin-bottom: 0; }
 
-/* Menu des Réglages : une ligne cliquable par section, contenu replié en
-   dessous. Tout est porté par #profileSettingsPanel — zone CSS de la
-   discussion Paramètres — et réutilise les variables globales de Design sans
-   redéfinir aucune classe générique. */
-#profileSettingsPanel .settingsSection { margin-bottom: 8px; }
-#profileSettingsPanel .settingsSectionHeader {
-  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background: var(--card); color: var(--text); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 14px 16px; cursor: pointer; text-align: left;
-  box-shadow: var(--shadow-card); font: inherit;
-  transition: border-color var(--transition-fast);
-}
-#profileSettingsPanel .settingsSectionHeader .sectionTitle { margin: 0; }
-#profileSettingsPanel .settingsSectionChevron {
-  color: var(--text-light); font-size: 13px; flex-shrink: 0;
-  transition: transform var(--transition-fast);
-}
-#profileSettingsPanel .settingsSection.open .settingsSectionHeader { border-color: var(--purple); }
-#profileSettingsPanel .settingsSection.open .settingsSectionChevron { transform: rotate(180deg); }
-#profileSettingsPanel .settingsSectionBody { margin-top: 8px; }
-#profileSettingsPanel .settingsSectionBody .settingsCard,
-#profileSettingsPanel .settingsSectionBody .entryCard { margin-bottom: 0; }
 .settingsCard input[type=text], .settingsCard input[type=password],
 .settingsCard input[type=tel], .settingsCard input[type=email] {
   width: 100%; padding: 12px; font-size: 15px; border: 1px solid var(--border);

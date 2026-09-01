@@ -269,11 +269,240 @@
       <!-- Emoji "⚙️" remplacé par un SVG (même style que le "avion en
            papier" ci-dessus) : un emoji porte sa propre couleur figée,
            impossible à aligner sur .topIconBtn/.topIconBtn.active. -->
-      <button id="profileSettingsBtn" class="topIconBtn" title="Réglages" aria-label="Réglages">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </button>
+      <!-- Réglages en menu flottant (1er septembre 2026, demande
+           d'Emilien : « exactement comme l'invitation ») : le panneau a
+           quitté #tab-profile pour vivre ici, sous son icône, et reprend
+           telles quelles les classes du panneau des invitations
+           (.notifPanel) — même ancrage, même taille, même ombre. Ouvrir
+           l'un referme l'autre (voir app.js). .settingsWrap joue pour ce
+           panneau le rôle que .notifWrap joue pour les invitations :
+           repérer le « clic en dehors ». -->
+      <div class="settingsWrap">
+        <button id="profileSettingsBtn" class="topIconBtn" title="Réglages" aria-label="Réglages">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <div id="profileSettingsPanel" class="notifPanel settingsPanel hidden">
+          <!-- Déconnexion en haut à droite, au-dessus d'Identité (demande
+               d'Emilien, 29 août 2026) — auparavant un lien en bas de la
+               section Identité ("Changer de profil / se déconnecter"). -->
+          <div class="subpageHeader">
+            <button id="profileSettingsBack" class="menuBtn" title="Retour" aria-label="Retour">←</button>
+            <p class="sectionTitle subpageTitle">Réglages</p>
+            <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
+          </div>
+          <!-- Menu des Réglages (31 août 2026, demande d'Emilien) : le panneau
+               n'affiche plus toutes les sections déroulées les unes sous les
+               autres, mais la liste de leurs titres. Cliquer un titre déplie sa
+               section juste en dessous et referme les autres — un seul clic pour
+               passer de l'une à l'autre. Le titre reste un .sectionTitle, porté
+               par un span et non un p, pour rester valide à l'intérieur du bouton :
+               la traduction automatique du DOM continue donc de le reconnaître. -->
+
+
+          <div class="settingsSection">
+            <button type="button" class="settingsSectionHeader" aria-expanded="false">
+              <span class="sectionTitle">Identité</span>
+              <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="settingsSectionBody hidden">
+          <div class="settingsCard">
+            <!-- La photo de profil ne se modifie plus ici depuis le 29 août
+                 2026 : elle s'édite directement en cliquant sur l'avatar de la
+                 vue principale du Profil (voir #profileMain plus haut). -->
+            <p class="hint">La photo de profil se change directement depuis la vue principale du Profil — clique sur l'avatar, en haut.</p>
+            <input type="text" id="settingsName" placeholder="Prénom ou pseudo" maxlength="40">
+            <input type="text" id="settingsLastName" placeholder="Nom de famille" maxlength="60">
+            <input type="tel" id="settingsPhone" placeholder="Numéro de téléphone" maxlength="30">
+            <input type="email" id="settingsEmail" placeholder="Adresse email" maxlength="120">
+            <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
+            <p id="settingsMsg" class="msg"></p>
+          </div>
+            </div>
+          </div>
+
+
+          <!-- "Abonnés & Abonnements" a quitté Réglages le 1er septembre 2026
+               (demande d'Emilien) pour s'ouvrir directement sur la vue
+               principale du Profil, au clic sur le bouton juste sous l'avatar
+               (#profileFollowsBtn/#profileFollowsPanel, voir #profileMain plus
+               haut dans ce fichier) — ce panneau ⚙️ ne la contient donc plus.
+               Sa liste Abonnements y est même devenue actionnable ("Se
+               désabonner"), même jour, second passage — voir le commentaire
+               laissé là-bas. -->
+
+          <div class="settingsSection">
+            <button type="button" class="settingsSectionHeader" aria-expanded="false">
+              <span class="sectionTitle">Apparence</span>
+              <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="settingsSectionBody hidden">
+          <div class="settingsCard">
+            <div class="themeSwitch" id="themeSwitch">
+              <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
+              <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
+            </div>
+            <p class="hint">Le mode sombre est activé par défaut. Changer de mode adapte automatiquement les couleurs de tes activités si besoin.</p>
+            <p id="themeMsg" class="msg"></p>
+          </div>
+            </div>
+          </div>
+
+
+          <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
+               Réglage par profil, comme le thème : anglais par défaut pour
+               tout nouveau compte, français pour les profils qui existaient
+               déjà (voir la migration dans server/db.js). Réutilise les
+               classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
+               (composants génériques appartenant à la discussion Design :
+               utilisés tels quels, aucune définition CSS modifiée). -->
+          <div class="settingsSection">
+            <button type="button" class="settingsSectionHeader" aria-expanded="false">
+              <span class="sectionTitle">Langue</span>
+              <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="settingsSectionBody hidden">
+          <div class="settingsCard">
+            <div class="themeSwitch" id="langSwitch">
+              <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
+              <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
+            </div>
+            <p class="hint">Change la langue de toute l'application. Le changement est appliqué immédiatement.</p>
+            <p id="langMsg" class="msg"></p>
+          </div>
+            </div>
+          </div>
+
+
+          <!-- Notifications push (1er septembre 2026, demande d'Emilien).
+               L'autorisation du navigateur ne peut être demandée que suite à un
+               clic de la personne : d'où un bouton explicite plutôt qu'une
+               demande automatique au démarrage (qu'un navigateur refuserait,
+               ou pire, bloquerait définitivement). Réglage par APPAREIL et non
+               par profil : le téléphone et l'ordinateur s'activent séparément,
+               c'est pour ça que le texte parle de "cet appareil". Voir
+               server/lib/push.js et le bloc "push" de public/sw.js. -->
+          <div class="settingsSection">
+            <button type="button" class="settingsSectionHeader" aria-expanded="false">
+              <span class="sectionTitle">Notifications</span>
+              <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="settingsSectionBody hidden">
+          <div class="settingsCard">
+            <p class="hint">Reçois une notification sur cet appareil quand un membre écrit dans le fil d'une de tes activités partagées, t'invite sur une activité, ou demande à te suivre.</p>
+            <div class="shareActions">
+              <button type="button" id="pushToggleBtn" class="iconBtn">Activer les notifications</button>
+              <button type="button" id="pushTestBtn" class="iconBtn hidden">Envoyer un test</button>
+            </div>
+            <p id="pushMsg" class="msg"></p>
+            <p id="pushIosHint" class="hint hidden">Sur iPhone, les notifications ne fonctionnent que si Noèsis a été ajoutée à l'écran d'accueil depuis Safari (Partager → Sur l'écran d'accueil). Dans un simple onglet, Apple ne les autorise pas.</p>
+          </div>
+            </div>
+          </div>
+
+
+          <div class="settingsSection">
+            <button type="button" class="settingsSectionHeader" aria-expanded="false">
+              <span class="sectionTitle">Sécurité</span>
+              <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="settingsSectionBody hidden">
+          <div class="settingsCard">
+            <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
+            <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
+            <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPinConfirm" placeholder="Confirme le nouveau code" maxlength="6" autocomplete="off">
+            <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
+            <p id="settingsPinMsg" class="msg"></p>
+          </div>
+            </div>
+          </div>
+
+
+          <div class="settingsSection">
+            <button type="button" class="settingsSectionHeader" aria-expanded="false">
+              <span class="sectionTitle">Importer l'historique existant</span>
+              <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="settingsSectionBody hidden">
+          <div class="entryCard">
+            <p class="hint">Depuis Google Sheets : onglet « Historique » → Fichier → Télécharger → Valeurs séparées par une virgule (.csv), puis choisis le fichier ici.</p>
+            <input type="file" id="importFile" accept=".csv,text/csv">
+            <button id="importBtn" class="btn btn-small">Importer</button>
+            <p id="importMsg" class="msg"></p>
+
+            <!-- Nettoyage des doublons d'import (30 août 2026). Un même fichier
+                 importé deux fois recrée exactement les mêmes lignes (les heures
+                 sont calculées depuis le CSV, pas depuis l'heure d'import), ce
+                 qui double l'historique et donc toutes les statistiques. Le
+                 bouton compte d'abord, montre ce qui partirait, et ne supprime
+                 qu'après confirmation. Strictement limité au profil courant. -->
+            <p class="hint">Un même fichier importé deux fois crée des sessions en double et gonfle toutes tes statistiques. Ce bouton cherche tes doublons exacts (même activité, mêmes heures de début et de fin) et te propose de n'en garder qu'un de chaque.</p>
+            <div class="shareActions">
+              <button id="dedupeBtn" class="iconBtn danger">Chercher les doublons</button>
+            </div>
+            <p id="dedupeMsg" class="msg"></p>
+          </div>
+            </div>
+          </div>
+
+
+          <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
+               quelqu'un, ou s'inviter soi-même en donnant son pseudo.
+               L'adresse publique est SAISIE À LA MAIN et mémorisée sur CET
+               appareil (localStorage), pas déduite de la page ouverte :
+               Noèsis n'est pas encore déployée, l'adresse actuelle
+               (localhost) ne fonctionnerait chez personne d'autre.
+               Volontairement pas un réglage partagé côté serveur non plus :
+               sur une app ouverte à tous, n'importe qui pourrait alors
+               remplacer le lien que tout le monde envoie. Le champ utilise
+               type="text" + inputmode="url" (et non type="url") pour hériter
+               de la mise en forme existante de .settingsCard sans toucher au
+               CSS générique, qui appartient à Design. -->
+          <div class="settingsSection">
+            <button type="button" class="settingsSectionHeader" aria-expanded="false">
+              <span class="sectionTitle">Partage</span>
+              <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="settingsSectionBody hidden">
+          <div class="settingsCard">
+            <p class="hint">Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.</p>
+            <input type="text" inputmode="url" id="shareUrlInput" placeholder="https://mon-adresse-noesis.fr" autocomplete="off">
+            <button id="shareUrlSaveBtn" class="btn btn-primary btn-small">Enregistrer l'adresse</button>
+            <div class="shareActions">
+              <button id="shareAppBtn" class="iconBtn">Partager l'app</button>
+              <button id="shareProfileBtn" class="iconBtn">Partager mon profil</button>
+            </div>
+            <p id="shareMsg" class="msg"></p>
+          </div>
+            </div>
+          </div>
+
+
+          <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
+               2026, demande d'Emilien) : suppression définitive du compte,
+               confirmée par le code PIN du profil (même mécanisme que la
+               récupération d'un profil depuis un autre appareil, voir
+               server/lib/auth.js). Les activités partagées avec d'autres
+               personnes continuent d'exister pour elles — c'est exactement la
+               même règle que "Supprimer définitivement" sur une activité :
+               on part, les autres restent. -->
+          <div class="settingsSection">
+            <button type="button" class="settingsSectionHeader" aria-expanded="false">
+              <span class="sectionTitle">Supprimer mon compte</span>
+              <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="settingsSectionBody hidden">
+          <div class="settingsCard">
+            <p class="hint">Cette action est définitive : ton profil, ton historique, tes notes, tes invitations et tes abonnements sont supprimés. Les activités que tu partages avec d'autres personnes continuent d'exister pour elles.</p>
+            <input type="password" inputmode="numeric" pattern="[0-9]*" id="deleteAccountPin" placeholder="Saisis ton code pour confirmer" maxlength="6" autocomplete="off">
+            <button id="deleteAccountBtn" class="iconBtn danger">Supprimer définitivement mon compte</button>
+            <p id="deleteAccountMsg" class="msg"></p>
+          </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
         <span id="whoamiName"></span>
         <!-- Redondant avec le point rouge du bouton "avion en papier"
@@ -794,225 +1023,6 @@
       <!-- Page "Réglages" : Apparence, Sécurité, Import. Masquée par défaut ;
            ouverte en remplaçant #profileMain (pas en accordéon) au clic sur
            le bouton "⚙️" ci-dessus. -->
-      <div id="profileSettingsPanel" class="hidden">
-        <!-- Déconnexion en haut à droite, au-dessus d'Identité (demande
-             d'Emilien, 29 août 2026) — auparavant un lien en bas de la
-             section Identité ("Changer de profil / se déconnecter"). -->
-        <div class="subpageHeader">
-          <button id="profileSettingsBack" class="menuBtn" title="Retour" aria-label="Retour">←</button>
-          <p class="sectionTitle subpageTitle">Réglages</p>
-          <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
-        </div>
-        <!-- Menu des Réglages (31 août 2026, demande d'Emilien) : le panneau
-             n'affiche plus toutes les sections déroulées les unes sous les
-             autres, mais la liste de leurs titres. Cliquer un titre déplie sa
-             section juste en dessous et referme les autres — un seul clic pour
-             passer de l'une à l'autre. Le titre reste un .sectionTitle, porté
-             par un span et non un p, pour rester valide à l'intérieur du bouton :
-             la traduction automatique du DOM continue donc de le reconnaître. -->
-
-
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Identité</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
-        <div class="settingsCard">
-          <!-- La photo de profil ne se modifie plus ici depuis le 29 août
-               2026 : elle s'édite directement en cliquant sur l'avatar de la
-               vue principale du Profil (voir #profileMain plus haut). -->
-          <p class="hint">La photo de profil se change directement depuis la vue principale du Profil — clique sur l'avatar, en haut.</p>
-          <input type="text" id="settingsName" placeholder="Prénom ou pseudo" maxlength="40">
-          <input type="text" id="settingsLastName" placeholder="Nom de famille" maxlength="60">
-          <input type="tel" id="settingsPhone" placeholder="Numéro de téléphone" maxlength="30">
-          <input type="email" id="settingsEmail" placeholder="Adresse email" maxlength="120">
-          <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
-          <p id="settingsMsg" class="msg"></p>
-        </div>
-          </div>
-        </div>
-
-
-        <!-- "Abonnés & Abonnements" a quitté Réglages le 1er septembre 2026
-             (demande d'Emilien) pour s'ouvrir directement sur la vue
-             principale du Profil, au clic sur le bouton juste sous l'avatar
-             (#profileFollowsBtn/#profileFollowsPanel, voir #profileMain plus
-             haut dans ce fichier) — ce panneau ⚙️ ne la contient donc plus.
-             Sa liste Abonnements y est même devenue actionnable ("Se
-             désabonner"), même jour, second passage — voir le commentaire
-             laissé là-bas. -->
-
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Apparence</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
-        <div class="settingsCard">
-          <div class="themeSwitch" id="themeSwitch">
-            <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
-            <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
-          </div>
-          <p class="hint">Le mode sombre est activé par défaut. Changer de mode adapte automatiquement les couleurs de tes activités si besoin.</p>
-          <p id="themeMsg" class="msg"></p>
-        </div>
-          </div>
-        </div>
-
-
-        <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
-             Réglage par profil, comme le thème : anglais par défaut pour
-             tout nouveau compte, français pour les profils qui existaient
-             déjà (voir la migration dans server/db.js). Réutilise les
-             classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
-             (composants génériques appartenant à la discussion Design :
-             utilisés tels quels, aucune définition CSS modifiée). -->
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Langue</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
-        <div class="settingsCard">
-          <div class="themeSwitch" id="langSwitch">
-            <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
-            <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
-          </div>
-          <p class="hint">Change la langue de toute l'application. Le changement est appliqué immédiatement.</p>
-          <p id="langMsg" class="msg"></p>
-        </div>
-          </div>
-        </div>
-
-
-        <!-- Notifications push (1er septembre 2026, demande d'Emilien).
-             L'autorisation du navigateur ne peut être demandée que suite à un
-             clic de la personne : d'où un bouton explicite plutôt qu'une
-             demande automatique au démarrage (qu'un navigateur refuserait,
-             ou pire, bloquerait définitivement). Réglage par APPAREIL et non
-             par profil : le téléphone et l'ordinateur s'activent séparément,
-             c'est pour ça que le texte parle de "cet appareil". Voir
-             server/lib/push.js et le bloc "push" de public/sw.js. -->
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Notifications</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
-        <div class="settingsCard">
-          <p class="hint">Reçois une notification sur cet appareil quand un membre écrit dans le fil d'une de tes activités partagées, t'invite sur une activité, ou demande à te suivre.</p>
-          <div class="shareActions">
-            <button type="button" id="pushToggleBtn" class="iconBtn">Activer les notifications</button>
-            <button type="button" id="pushTestBtn" class="iconBtn hidden">Envoyer un test</button>
-          </div>
-          <p id="pushMsg" class="msg"></p>
-          <p id="pushIosHint" class="hint hidden">Sur iPhone, les notifications ne fonctionnent que si Noèsis a été ajoutée à l'écran d'accueil depuis Safari (Partager → Sur l'écran d'accueil). Dans un simple onglet, Apple ne les autorise pas.</p>
-        </div>
-          </div>
-        </div>
-
-
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Sécurité</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
-        <div class="settingsCard">
-          <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
-          <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
-          <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPinConfirm" placeholder="Confirme le nouveau code" maxlength="6" autocomplete="off">
-          <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
-          <p id="settingsPinMsg" class="msg"></p>
-        </div>
-          </div>
-        </div>
-
-
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Importer l'historique existant</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
-        <div class="entryCard">
-          <p class="hint">Depuis Google Sheets : onglet « Historique » → Fichier → Télécharger → Valeurs séparées par une virgule (.csv), puis choisis le fichier ici.</p>
-          <input type="file" id="importFile" accept=".csv,text/csv">
-          <button id="importBtn" class="btn btn-small">Importer</button>
-          <p id="importMsg" class="msg"></p>
-
-          <!-- Nettoyage des doublons d'import (30 août 2026). Un même fichier
-               importé deux fois recrée exactement les mêmes lignes (les heures
-               sont calculées depuis le CSV, pas depuis l'heure d'import), ce
-               qui double l'historique et donc toutes les statistiques. Le
-               bouton compte d'abord, montre ce qui partirait, et ne supprime
-               qu'après confirmation. Strictement limité au profil courant. -->
-          <p class="hint">Un même fichier importé deux fois crée des sessions en double et gonfle toutes tes statistiques. Ce bouton cherche tes doublons exacts (même activité, mêmes heures de début et de fin) et te propose de n'en garder qu'un de chaque.</p>
-          <div class="shareActions">
-            <button id="dedupeBtn" class="iconBtn danger">Chercher les doublons</button>
-          </div>
-          <p id="dedupeMsg" class="msg"></p>
-        </div>
-          </div>
-        </div>
-
-
-        <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
-             quelqu'un, ou s'inviter soi-même en donnant son pseudo.
-             L'adresse publique est SAISIE À LA MAIN et mémorisée sur CET
-             appareil (localStorage), pas déduite de la page ouverte :
-             Noèsis n'est pas encore déployée, l'adresse actuelle
-             (localhost) ne fonctionnerait chez personne d'autre.
-             Volontairement pas un réglage partagé côté serveur non plus :
-             sur une app ouverte à tous, n'importe qui pourrait alors
-             remplacer le lien que tout le monde envoie. Le champ utilise
-             type="text" + inputmode="url" (et non type="url") pour hériter
-             de la mise en forme existante de .settingsCard sans toucher au
-             CSS générique, qui appartient à Design. -->
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Partage</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
-        <div class="settingsCard">
-          <p class="hint">Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.</p>
-          <input type="text" inputmode="url" id="shareUrlInput" placeholder="https://mon-adresse-noesis.fr" autocomplete="off">
-          <button id="shareUrlSaveBtn" class="btn btn-primary btn-small">Enregistrer l'adresse</button>
-          <div class="shareActions">
-            <button id="shareAppBtn" class="iconBtn">Partager l'app</button>
-            <button id="shareProfileBtn" class="iconBtn">Partager mon profil</button>
-          </div>
-          <p id="shareMsg" class="msg"></p>
-        </div>
-          </div>
-        </div>
-
-
-        <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
-             2026, demande d'Emilien) : suppression définitive du compte,
-             confirmée par le code PIN du profil (même mécanisme que la
-             récupération d'un profil depuis un autre appareil, voir
-             server/lib/auth.js). Les activités partagées avec d'autres
-             personnes continuent d'exister pour elles — c'est exactement la
-             même règle que "Supprimer définitivement" sur une activité :
-             on part, les autres restent. -->
-        <div class="settingsSection">
-          <button type="button" class="settingsSectionHeader" aria-expanded="false">
-            <span class="sectionTitle">Supprimer mon compte</span>
-            <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="settingsSectionBody hidden">
-        <div class="settingsCard">
-          <p class="hint">Cette action est définitive : ton profil, ton historique, tes notes, tes invitations et tes abonnements sont supprimés. Les activités que tu partages avec d'autres personnes continuent d'exister pour elles.</p>
-          <input type="password" inputmode="numeric" pattern="[0-9]*" id="deleteAccountPin" placeholder="Saisis ton code pour confirmer" maxlength="6" autocomplete="off">
-          <button id="deleteAccountBtn" class="iconBtn danger">Supprimer définitivement mon compte</button>
-          <p id="deleteAccountMsg" class="msg"></p>
-        </div>
-          </div>
-        </div>
-      </div>
     </section>
 
   </main>
