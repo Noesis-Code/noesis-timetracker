@@ -562,7 +562,7 @@ router.get('/profile/:userId/projects', (req, res) => {
 // se prendre un 403 : il sait d'avance s'il doit afficher le fil ou
 // l'invitation à suivre.
 router.get('/profile/:userId/public', (req, res) => {
-  const owner = db.prepare('SELECT id, name, color, avatar, createdAt FROM users WHERE id = ?').get(req.params.userId);
+  const owner = db.prepare('SELECT id, name, lastName, color, avatar, createdAt FROM users WHERE id = ?').get(req.params.userId);
   if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
 
   const viewerId = req.query.viewerId;
@@ -570,9 +570,18 @@ router.get('/profile/:userId/public', (req, res) => {
     return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
   }
 
+  // ⚠️ `lastName` ajouté le 2 septembre 2026 sur demande d'Emilien
+  // (« indique le nom de famille également ») : il fait donc désormais
+  // partie de l'identité PUBLIQUE d'un profil, au même titre que le prénom
+  // et la photo — c'est le nom complet qui s'affiche sur la page de visite.
+  // `phone` et `email` restent, eux, strictement hors de cette réponse : ce
+  // sont des moyens de contact, pas une identité affichable. C'est toute la
+  // raison d'être de cette route, distincte de GET /profile/:id qui renvoie
+  // les trois.
   res.json({
     id: owner.id,
     name: owner.name,
+    lastName: owner.lastName || null,
     color: owner.color,
     avatar: owner.avatar || null,
     createdAt: owner.createdAt,

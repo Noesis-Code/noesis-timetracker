@@ -4225,9 +4225,35 @@
   // première sélection de leur onglet — inutile d'aller les chercher tant
   // que personne ne les regarde, et ça évite un appel systématique qui se
   // serait de toute façon soldé par un refus pour un non-abonné.
+  // ⚠️ 2 septembre 2026 (demande d'Emilien : « lorsque je passe de
+  // statistiques à message, je souhaite que cela reste dans le même format,
+  // qu'il n'y ait pas une diminution de la section, même s'il n'y a pas
+  // beaucoup de commentaires ») : les deux vues n'ont pas la même hauteur
+  // naturelle — deux graphiques d'un côté, parfois deux lignes de texte de
+  // l'autre —, et la carte se rétractait brutalement à la bascule.
+  //
+  // On mesure donc la hauteur réelle de la vue Statistiques une fois qu'elle
+  // est dessinée, et on la pose en `min-height` sur les DEUX vues. Mesurer
+  // plutôt que fixer une valeur en dur dans le CSS : la hauteur des
+  // statistiques dépend du nombre d'activités (légende du camembert) et de
+  // la largeur de l'écran, une constante serait fausse la moitié du temps.
+  // La mesure n'est possible que sur un élément visible, d'où l'appel depuis
+  // le rendu des statistiques (la vue par défaut) et non depuis la bascule.
+  function syncViewProfilePaneHeight() {
+    var stats = $('viewProfileStatsSection');
+    if (stats.classList.contains('hidden')) return; // rien à mesurer, on garde la valeur précédente
+    var h = stats.offsetHeight;
+    if (!h) return;
+    stats.style.minHeight = h + 'px';
+    $('viewProfileMessagesSection').style.minHeight = h + 'px';
+  }
+
   function setViewProfileSection(section) {
     viewProfileSection = section === 'messages' ? 'messages' : 'stats';
     var onStats = viewProfileSection === 'stats';
+    // La hauteur est figée AVANT de masquer la vue courante : une fois
+    // `hidden` posé, offsetHeight vaut 0 et il n'y a plus rien à mesurer.
+    syncViewProfilePaneHeight();
     $('viewProfileStatsSection').classList.toggle('hidden', !onStats);
     $('viewProfileMessagesSection').classList.toggle('hidden', onStats);
     $('viewProfileTabStats').classList.toggle('active', onStats);
@@ -4247,8 +4273,11 @@
     // Remise à zéro complète : la modale est réutilisée d'un profil à
     // l'autre, il ne doit jamais rester une miette du précédent affichée le
     // temps que les réponses arrivent.
-    $('viewProfileName').textContent = name;
-    $('viewProfileDot').style.background = color || '#999';
+    // Le nom affiché ici n'est que le prénom connu de la ligne cliquée : le
+    // nom COMPLET (avec le nom de famille) arrive avec la réponse de
+    // /profile/:id/public et remplace celui-ci — voir
+    // renderViewProfileIdentity. Cet affichage immédiat évite un en-tête
+    // vide le temps de la requête.
     $('viewProfileIdentityName').textContent = name;
     $('viewProfileAvatarImg').classList.add('hidden');
     $('viewProfileAvatarImg').removeAttribute('src');
@@ -4279,9 +4308,14 @@
     syncPeriodMenuActive($('viewProfileChartPeriodMenu'), viewProfileChartGranularity);
 
     // Le sélecteur repart lui aussi sur "Statistiques" à chaque ouverture, y
-    // compris si "Messages" était affiché sur le profil précédent.
+    // compris si "Messages" était affiché sur le profil précédent. La
+    // hauteur figée par syncViewProfilePaneHeight est remise à zéro : celle
+    // du profil précédent n'a aucune raison de valoir pour celui-ci (nombre
+    // d'activités différent, donc légende de camembert différente).
     viewProfileCanSeePosts = false;
     viewProfilePostsLoaded = false;
+    $('viewProfileStatsSection').style.minHeight = '';
+    $('viewProfileMessagesSection').style.minHeight = '';
     setViewProfileSection('stats');
 
     // Le contenu de la modale peut être long (projets + deux graphiques +
@@ -4317,9 +4351,11 @@
   }
 
   function renderViewProfileIdentity(card) {
-    $('viewProfileName').textContent = card.name;
-    $('viewProfileIdentityName').textContent = card.name;
-    $('viewProfileDot').style.background = card.color || '#999';
+    // Nom COMPLET (prénom + nom de famille quand il existe), exactement
+    // comme sa propre carte Identité l'affiche pour soi — demande d'Emilien
+    // du 2 septembre 2026. Un seul endroit dans la page porte le nom depuis
+    // ce même passage : celui de l'en-tête de la modale a été retiré.
+    $('viewProfileIdentityName').textContent = card.lastName ? (card.name + ' ' + card.lastName) : card.name;
     if (card.avatar) {
       $('viewProfileAvatarImg').src = card.avatar;
       $('viewProfileAvatarImg').classList.remove('hidden');
@@ -4356,6 +4392,7 @@
         $('viewProfileStatsTotal').textContent = formatHM(breakdown.totalSeconds);
         renderPie(breakdown.activities || [], breakdown.totalSeconds, { wrap: 'viewProfilePie', emptyHint: 'viewProfilePieEmptyHint' });
         renderViewProfileChart(data.chart || []);
+        syncViewProfilePaneHeight();
       })
       .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
   }
