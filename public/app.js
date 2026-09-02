@@ -2062,12 +2062,150 @@
   //      calendaire en haut du cadre) et le camembert (jours visibles).
   // L'anti-rebond du point 2 évite une requête par pixel parcouru : seul
   // l'arrêt compte.
+  // ⚠️ Réécrit le 1er septembre 2026 (~20h45 UTC) — quatre précisions
+  // d'Emilien sur le défilement livré une heure plus tôt :
+  //   « la feuille de temps ne permette de montrer qu'une semaine à la fois,
+  //     sept jours »
+  //   « on puisse défiler de haut en bas uniquement après avoir sélectionné
+  //     la section feuille de temps »
+  //   « on puisse bouger de haut en bas ou de gauche à droite, mais jamais en
+  //     diagonale »
+  //   « lorsque l'on défile de haut en bas, cela se fasse par à-coups de
+  //     journée complète. L'arrêt doit se faire net, du premier jour au
+  //     septième jour, sans mettre des moitiés de jour »
+  //
+  // Ces quatre points ne peuvent pas être obtenus par le défilement natif :
+  //   - `scroll-snap-type: y mandatory` (CSS) snappe bien à la journée, mais
+  //     ne verrouille pas les axes — un doigt en diagonale déplace les deux.
+  //   - `touch-action` ne sait pas exprimer « un seul axe, celui du geste » :
+  //     sa valeur est lue au DÉBUT du geste, quand la direction est encore
+  //     inconnue.
+  // D'où le partage suivant, qui garde le natif partout où il suffit :
+  //   - HORIZONTAL : natif (`overflow-x: auto`), inchangé — c'est ce
+  //     qu'Emilien voulait garder « comme c'est déjà le cas », inertie
+  //     comprise.
+  //   - VERTICAL : `overflow-y: hidden` côté CSS, et c'est ce code qui pilote
+  //     `scrollTop`. On ne touche donc au vertical que si on l'a décidé.
+  // Le verrouillage d'axe tombe alors tout seul : au premier mouvement franc
+  // du doigt on décide de l'axe dominant ; si c'est le vertical on appelle
+  // `preventDefault()` (ce qui gèle le défilement horizontal natif ET celui
+  // de la page) et on déplace nous-mêmes ; si c'est l'horizontal on ne fait
+  // rien du tout et le natif s'en charge, le vertical étant de toute façon
+  // impossible. Aucune diagonale n'est représentable.
+  var TS_SWIPE_THRESHOLD = 8; // px avant de trancher l'axe du geste
+  // Renseignée par setupTimesheetScroll ci-dessous ; appelée après un
+  // chargement de tranche, qui décale le contenu et peut laisser le cadre
+  // entre deux journées. Déclarée AVANT l'IIFE : un `var` placé après aurait
+  // été hoisté puis RÉASSIGNÉ à null juste après l'affectation.
+  var tsSnapAlign = null;
   (function setupTimesheetScroll() {
     var box = tsScrollBox();
     if (!box) return;
+
+    // --- Sélection de la section (prérequis au défilement vertical) ---
+    // Tant que la Feuille de temps n'a pas été touchée, un glissement
+    // vertical fait défiler la PAGE normalement : la grille ne capture pas le
+    // geste. C'est exactement la demande d'Emilien, et ça règle au passage la
+    // gêne classique d'un cadre défilant au milieu d'une page sur téléphone.
+    document.addEventListener('pointerdown', function (e) {
+      var block = $('statsTimesheetBlock');
+      if (!block) return;
+      block.classList.toggle('tsActive', block.contains(e.target));
+    }, true);
+
+    function tsActive() {
+      var block = $('statsTimesheetBlock');
+      return !!block && block.classList.contains('tsActive') && currentTimesheetPeriod === 'week';
+    }
+
+    // Hauteur d'une ligne de jour, gouttière comprise — mesurée sur le DOM
+    // réel plutôt que codée en dur, pour rester juste si Design change
+    // `grid-auto-rows` ou `gap` dans .timesheetGrid.
+    function tsRowStep() {
+      var rows = $('tsGrid').querySelectorAll('.tsDayLabel');
+      if (rows.length < 2) return rows.length ? rows[0].getBoundingClientRect().height + 1 : 23;
+      return rows[1].getBoundingClientRect().top - rows[0].getBoundingClientRect().top;
+    }
+
+    // Déplacement vertical d'un nombre entier de journées, avec arrêt net sur
+    // une frontière de jour : c'est le « par à-coups de journée complète,
+    // sans moitiés de jour ». On vise toujours un multiple exact du pas de
+    // ligne, jamais une position intermédiaire.
+    function tsStepDays(n) {
+      var step = tsRowStep();
+      var current = Math.round(box.scrollTop / step);
+      var target = Math.max(0, current + n) * step;
+      var max = box.scrollHeight - box.clientHeight;
+      box.scrollTo({ top: Math.min(target, max), behavior: 'smooth' });
+      tsAfterVerticalMove();
+    }
+
+    // Recale sur la frontière de jour la plus proche — filet de sécurité si
+    // quoi que ce soit (chargement d'une tranche, changement de taille de
+    // police, rotation) laisse le cadre à cheval sur deux journées.
+    function tsSnapToDay() {
+      var step = tsRowStep();
+      var snapped = Math.round(box.scrollTop / step) * step;
+      var max = box.scrollHeight - box.clientHeight;
+      snapped = Math.max(0, Math.min(snapped, max));
+      if (Math.abs(snapped - box.scrollTop) > 0.5) box.scrollTo({ top: snapped, behavior: 'smooth' });
+    }
+    tsSnapAlign = tsSnapToDay;
+
+    function tsAfterVerticalMove() {
+      if (box.scrollTop < tsRowStep() * 1.5) tsLoadOlder();
+      if (tsPieTimer) clearTimeout(tsPieTimer);
+      tsPieTimer = setTimeout(tsOnViewportChanged, 160);
+    }
+
+    // --- Geste tactile, axe verrouillé ---
+    var startX = 0, startY = 0, axis = null, movedDays = 0, baseTop = 0;
+    box.addEventListener('touchstart', function (e) {
+      if (!tsActive() || e.touches.length !== 1) { axis = null; return; }
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      axis = null; movedDays = 0; baseTop = box.scrollTop;
+    }, { passive: true });
+
+    box.addEventListener('touchmove', function (e) {
+      if (!tsActive() || e.touches.length !== 1) return;
+      var dx = e.touches[0].clientX - startX;
+      var dy = e.touches[0].clientY - startY;
+      if (axis === null) {
+        if (Math.abs(dx) < TS_SWIPE_THRESHOLD && Math.abs(dy) < TS_SWIPE_THRESHOLD) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      }
+      if (axis !== 'y') return; // horizontal : on laisse faire le natif
+      // Vertical : on gèle tout le reste et on suit le doigt, journée par
+      // journée. Le doigt vers le haut fait descendre dans la liste.
+      e.preventDefault();
+      var step = tsRowStep();
+      var wanted = -Math.round(dy / step);
+      if (wanted !== movedDays) {
+        movedDays = wanted;
+        var max = box.scrollHeight - box.clientHeight;
+        box.scrollTop = Math.max(0, Math.min(baseTop + movedDays * step, max));
+      }
+    }, { passive: false });
+
+    box.addEventListener('touchend', function () {
+      if (axis === 'y') { tsSnapToDay(); tsAfterVerticalMove(); }
+      axis = null;
+    }, { passive: true });
+
+    // --- Molette / trackpad, même verrouillage d'axe ---
+    box.addEventListener('wheel', function (e) {
+      if (!tsActive()) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // horizontal : natif
+      e.preventDefault();
+      tsStepDays(e.deltaY > 0 ? 1 : -1);
+    }, { passive: false });
+
+    // Le défilement horizontal natif continue d'alimenter le libellé et le
+    // camembert (il ne change pas les jours visibles, mais l'événement sert
+    // aussi de filet après un chargement de tranche).
     box.addEventListener('scroll', function () {
       if (currentTimesheetPeriod !== 'week') return;
-      if (box.scrollTop < 120) tsLoadOlder();
       if (tsPieTimer) clearTimeout(tsPieTimer);
       tsPieTimer = setTimeout(tsOnViewportChanged, 180);
     });
@@ -2213,6 +2351,10 @@
         tsHasMoreBefore = !!data.hasMoreBefore;
         renderTimesheetWeek();
         if (box) box.scrollTop = scrollBefore + (box.scrollHeight - heightBefore);
+        // La tranche insérée au-dessus décale le contenu d'un nombre entier de
+        // lignes, mais un arrondi de sous-pixel suffirait à laisser le cadre à
+        // cheval sur deux journées — on recale systématiquement.
+        if (tsSnapAlign) tsSnapAlign();
         tsLoadingMore = false;
         tsUpdateWeekLabel();
         if (done) done();

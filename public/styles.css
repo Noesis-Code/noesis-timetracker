@@ -643,10 +643,47 @@ textarea {
    écrasait le `padding-top: 0` et les lignes de jours défilaient
    visiblement dans la bande de 10px au-dessus de la ligne d'heures figée
    (constaté au test navigateur). ----- */
+/* ⚠️ 1er septembre 2026 (~20h30 UTC), quatre précisions d'Emilien — voir le
+   bloc setupTimesheetScroll dans app.js pour le détail du raisonnement.
+
+   HAUTEUR : exactement une semaine à l'écran (« ne permette de montrer qu'une
+   semaine à la fois, sept jours »). Calculée à partir des valeurs réelles de
+   .timesheetGrid ci-dessus (`grid-auto-rows: 22px`, `gap: 1px`) : la ligne
+   d'heures + 7 lignes de jours = 8 lignes et 7 gouttières. **Si Design change
+   `grid-auto-rows` ou `gap`, ce calcul doit suivre** — les variables sont
+   écrites en clair pour que le lien soit visible.
+
+   `padding-bottom: 0` est indispensable, et pas cosmétique : les 4px du
+   conteneur d'origine restent DANS la zone défilable, et un 8ᵉ jour venait y
+   dépasser de 4px — donc « une moitié de jour » en bas du cadre, exactement
+   ce qu'Emilien ne veut pas (constaté au test navigateur : 7 jours entiers +
+   1 partiel).
+
+   DÉFILEMENT VERTICAL : `overflow-y: hidden`, volontairement. Il n'est pas
+   désactivé — il est piloté par app.js, qui est le seul moyen d'obtenir à la
+   fois le verrouillage d'axe (« jamais en diagonale ») et l'arrêt net sur une
+   journée entière (« sans mettre des moitiés de jour »), deux choses que ni
+   `scroll-snap-type` ni `touch-action` ne savent exprimer ensemble.
+   L'horizontal, lui, reste entièrement natif et inchangé. */
 .statsSection .timesheetScroll.tsWeekScroll {
-  max-height: 50vh;
-  overflow: auto;
+  --ts-row: 22px;
+  --ts-gap: 1px;
+  height: calc((var(--ts-row) + var(--ts-gap)) * 8 - var(--ts-gap));
+  overflow-x: auto;
+  overflow-y: hidden;
   padding-top: 0;
+  padding-bottom: 0;
+  /* Le geste vertical est traité par app.js : on empêche le navigateur de le
+     transformer en zoom ou en navigation arrière pendant qu'on le suit. */
+  touch-action: pan-x;
+}
+/* Repère visuel de la section « sélectionnée » : tant qu'on n'a pas touché la
+   Feuille de temps, un glissement vertical fait défiler la page (demande
+   d'Emilien). Une fois sélectionnée, le cadre le montre discrètement — sans
+   quoi le changement de comportement serait invisible et donc déroutant. */
+#statsTimesheetBlock.tsActive .timesheetScroll.tsWeekScroll {
+  box-shadow: inset 0 0 0 1px var(--purple);
+  border-radius: var(--radius-lg);
 }
 /* Ligne des heures figée en haut pendant le défilement vertical. Le fond
    opaque est obligatoire (sans lui, les cases colorées défilent visiblement
