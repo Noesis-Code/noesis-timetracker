@@ -503,9 +503,29 @@
     $('app').classList.add('hidden');
   }
 
+  // Mesure la hauteur réelle de .topbar (marge de sécurité iOS/Android
+  // comprise) et l'expose en variable CSS --topbar-h, consommée par #app
+  // (padding-top) — ajouté le 2 septembre 2026 quand .topbar est passée de
+  // `position: sticky` à `position: fixed` (demande d'Emilien : « je
+  // souhaite que la barre du haut reste bloquée et qu'elle ne soit pas
+  // flottante quand je tire vers le bas »). .topbar étant sortie du flux de
+  // #app, il faut lui rendre sa place ailleurs, exactement comme
+  // padding-bottom le fait déjà pour .tabbar (fixed elle aussi). Appelée à
+  // l'ouverture de l'app (offsetHeight vaut 0 tant que #app est masqué) et à
+  // chaque redimensionnement/rotation, la hauteur pouvant changer avec
+  // l'orientation (env(safe-area-inset-top) diffère portrait/paysage).
+  function syncTopbarHeightVar() {
+    var topbarEl = document.querySelector('.topbar');
+    if (!topbarEl) return;
+    document.documentElement.style.setProperty('--topbar-h', topbarEl.offsetHeight + 'px');
+  }
+  window.addEventListener('resize', syncTopbarHeightVar);
+  window.addEventListener('orientationchange', syncTopbarHeightVar);
+
   function showApp() {
     $('onboarding').classList.add('hidden');
     $('app').classList.remove('hidden');
+    syncTopbarHeightVar();
     $('whoamiName').textContent = profile.name;
     $('settingsName').value = profile.name;
     $('settingsLastName').value = profile.lastName || '';
@@ -2060,12 +2080,11 @@
     $('tsGrid').classList.remove('hidden');
     $('tsCalendar').classList.add('hidden');
     // Marque le cadre défilant comme étant en vue "Semaine" : styles.css s'en
-    // sert pour coller la colonne des jours au bord gauche (voir
-    // .tsWeekScroll là-bas). La classe est portée par le conteneur et non par
-    // la grille parce que c'est son padding gauche qu'il faut annuler. Le
-    // même conteneur sert aux deux vues, d'où le retrait symétrique dans
-    // renderTimesheetMonth.
+    // sert pour retirer la colonne des libellés de la grille (voir
+    // .tsWeekScroll là-bas). Le même conteneur sert aux deux vues, d'où le
+    // retrait symétrique dans renderTimesheetMonth.
     $('tsGrid').parentNode.classList.add('tsWeekScroll');
+    $('tsFrozenCol').classList.remove('hidden');
 
     $('tsWeekLabel').textContent = t(data.label) + (data.isCurrentWeek ? t(' (en cours)') : '');
     $('tsNextWeek').disabled = data.isCurrentWeek;
@@ -2074,14 +2093,26 @@
     var hasAnyEntry = data.days.some(function (day) { return day.slots.some(function (s) { return !!s; }); });
     $('tsEmptyHint').classList.toggle('hidden', hasAnyEntry);
 
-    var html = '<div class="tsCorner"></div>';
+    // ⚠️ 2 septembre 2026 — DEUX blocs construits séparément.
+    // Le coin et les libellés de jour vont dans #tsFrozenCol, qui n'est PAS
+    // dans la zone défilante (voir index.html et .tsFrozenCol dans
+    // styles.css) : c'est ce qui les empêche de partir vers la gauche quand
+    // Emilien tire la feuille vers la droite, là où `position: sticky`
+    // échouait sur son iPhone. La grille ne contient plus que la ligne des
+    // heures et les créneaux.
+    // Les deux blocs listent les MÊMES jours dans le MÊME ordre — c'est la
+    // seule chose qui garantit que « Mer 02/09 » soit en face de la bonne
+    // rangée de créneaux. Une seule boucle les remplit tous les deux, pour
+    // qu'il soit impossible de faire diverger l'un sans l'autre.
+    var frozen = '<div class="tsCorner"></div>';
+    var html = '';
     for (var h = 0; h < 24; h++) {
       html += '<div class="tsHourLabel" style="grid-column: span 4;">' + h + 'h</div>';
     }
 
     data.days.forEach(function (day) {
       var dateObj = new Date(day.isoDate + 'T00:00:00');
-      html += '<div class="tsDayLabel">' + t(day.dayOfWeek).slice(0, 3) + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1) + '</div>';
+      frozen += '<div class="tsDayLabel">' + t(day.dayOfWeek).slice(0, 3) + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1) + '</div>';
       day.slots.forEach(function (slot, i) {
         var slotLabel = pad(Math.floor(i / 4)) + ':' + pad((i % 4) * 15);
         if (slot) {
@@ -2092,6 +2123,7 @@
       });
     });
 
+    $('tsFrozenCol').innerHTML = frozen;
     $('tsGrid').innerHTML = html;
   }
 
@@ -2109,9 +2141,11 @@
   function renderTimesheetMonth(data) {
     $('tsCalendar').classList.remove('hidden');
     $('tsGrid').classList.add('hidden');
-    // Voir renderTimesheetWeek : la vue "Mois" garde le padding d'origine du
-    // cadre (son calendrier a sa propre colonne figée, .tsCalWeekLabel).
+    // Voir renderTimesheetWeek : la vue "Mois" garde sa mise en page d'origine
+    // (son calendrier a sa propre colonne de libellés de semaine,
+    // .tsCalWeekLabel, à l'intérieur de sa propre grille).
     $('tsGrid').parentNode.classList.remove('tsWeekScroll');
+    $('tsFrozenCol').classList.add('hidden');
 
     $('tsWeekLabel').textContent = t(data.label) + (data.isCurrentMonth ? t(' (en cours)') : '');
     $('tsNextWeek').disabled = data.isCurrentMonth;
@@ -3493,11 +3527,13 @@
     $('profileSettingsBtn').classList.add('active');
     refreshPushSection();
   }
-  // Le bouton "⚙️" vit désormais dans .topbar (31 août 2026, demande
-  // d'Emilien — voir index.html), accessible depuis n'importe quel onglet et
-  // pas seulement une fois le Profil déjà ouvert. On ne peut donc plus
-  // supposer que #tab-profile est visible : on ouvre explicitement le Profil
-  // (openProfile, ci-dessus) avant de basculer sur la vue Réglages.
+  // Le bouton "⚙️" a vécu dans .topbar du 31 août au 2 septembre 2026
+  // (demande d'Emilien), accessible depuis n'importe quel onglet — puis
+  // Emilien a précisé, le 2 septembre (deuxième passage), qu'il voulait ces
+  // icônes sur la page Profil elle-même (voir index.html, .identityHeader) :
+  // il n'est donc plus nécessaire d'ouvrir explicitement #tab-profile avant
+  // de basculer sur la vue Réglages, le bouton n'étant de toute façon visible
+  // que lorsque Profil est déjà affiché.
   $('profileSettingsBtn').addEventListener('click', function (e) {
     e.stopPropagation();
     if ($('profileSettingsPanel').classList.contains('hidden')) showProfileSettings();

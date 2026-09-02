@@ -190,20 +190,37 @@ input[type=time]:focus, select:focus, textarea:focus {
 
 /* ===== Layout app ===== */
 /* padding-bottom un peu plus généreux depuis l'ajout du libellé sous les
-   icônes de la barre d'onglets (tabbar plus haute qu'avant). */
-#app { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 88px; }
+   icônes de la barre d'onglets (tabbar plus haute qu'avant).
+   padding-top ajouté le 2 septembre 2026 (demande d'Emilien : « je souhaite
+   que la barre du haut reste bloquée et qu'elle ne soit pas flottante quand
+   je tire vers le bas ») — compense .topbar passée de `position: sticky` à
+   `position: fixed` juste en dessous : elle ne fait plus partie du flux de
+   #app, il faut donc lui rendre sa place ici, exactement comme le fait déjà
+   padding-bottom pour .tabbar (fixed elle aussi). --topbar-h est mesurée par
+   syncTopbarHeightVar() dans app.js (hauteur réelle de .topbar, marge de
+   sécurité iOS/Android comprise) ; 56px n'est qu'un repli avant que le JS ne
+   s'exécute. */
+#app { min-height: 100vh; display: flex; flex-direction: column; padding-top: var(--topbar-h, 56px); padding-bottom: 88px; }
 /* Noire plutôt que dégradé violet depuis le 31 août 2026 (demande
    d'Emilien) : pour qu'il n'y ait plus de différence visible entre .topbar
    et le haut du téléphone (heure/réseau/wifi/batterie, hors du DOM), la
    barre elle-même s'aligne sur le noir plutôt que l'inverse (faire monter
    le violet jusque là-haut, tenté plus tôt le même jour). color:white
    inchangé : le texte/les icônes restent lisibles sur fond noir. */
+/* `position: sticky` → `position: fixed` le 2 septembre 2026 (demande
+   d'Emilien, voir plus haut) : en `sticky`, le rebond élastique du
+   défilement (« tirer vers le bas » en haut de la page, surtout visible en
+   PWA installée sur iPhone) fait visiblement décoller/flotter la barre
+   pendant l'animation de rebond — bug connu de WebKit sur les éléments
+   sticky. `fixed` l'épingle réellement à la fenêtre, quel que soit le
+   rebond ; `left`/`right` remplacent la largeur qu'elle tenait auparavant du
+   flux normal de #app. */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; color: white;
   background: #000000;
   box-shadow: var(--shadow-topbar);
-  position: sticky; top: 0; z-index: 10;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
 }
 .brand { font-weight: bold; font-size: 18px; letter-spacing: 0.2px; }
 /* Regroupe "avion en papier" + "⚙️" Réglages + le prénom à l'extrémité
@@ -615,63 +632,88 @@ textarea {
   padding-left: 2px; white-space: nowrap;
 }
 
-/* ----- Vue "Semaine" : la colonne des jours collée au bord gauche du cadre
-   (1er septembre 2026, demande d'Emilien : « coller les jours de la semaine
-   vers la gauche afin qu'on ne puisse pas voir de données sur la gauche des
-   journées », puis, capture d'écran à l'appui le 2 septembre : « je souhaite
-   que les jours ne soient pas flottants vers la droite mais qu'ils soient
-   fixés sur la gauche »).
+/* ----- Vue "Semaine" : la colonne des jours est SORTIE de la zone qui défile
+   (2 septembre 2026).
 
-   La classe .tsWeekScroll est posée/retirée par app.js (renderTimesheetWeek /
-   renderTimesheetMonth) : elle restreint ce bloc au mode Semaine, la vue
-   "Mois" — et le bloc jumeau de l'onglet Activité, qui partage la classe
-   .timesheetScroll — gardant exactement leur mise en page. Un sélecteur du
-   type `.timesheetScroll:has(#tsGrid:not(.hidden))` aurait évité ce couplage
-   au JS, mais :has() n'est supporté qu'à partir de Safari 15.4 — trop risqué
-   pour un iPhone dont on ne connaît pas la version.
+   Trois demandes successives d'Emilien portaient sur la même chose — « coller
+   les jours de la semaine vers la gauche », « les jours ne doivent pas être
+   flottants vers la droite mais fixés sur la gauche », puis « les jours ne
+   doivent pas être du tout flottants et doivent être bloqués vers la gauche
+   quand je tire vers la droite ». Les deux premières ont été traitées en CSS,
+   à tort : la colonne était la première colonne de #tsGrid, figée par
+   `position: sticky; left: 0`. Ça tient sur ordinateur, pas sur son iPhone.
 
-   ⚠️ Le sélecteur est préfixé `.statsSection` volontairement : la règle
-   `.statsSection .timesheetScroll { padding: 10px 8px 4px }` plus bas dans ce
-   fichier a la même spécificité et vient APRÈS — sans ce préfixe, elle
-   écraserait le padding-left remis à zéro (constaté au test navigateur).
+   La raison est structurelle, pas cosmétique : **le bloc contenant d'un
+   élément de grille est sa propre cellule.** Un élément `sticky` ne peut se
+   décaler que dans les limites de son bloc contenant — ici, zéro pixel. Les
+   navigateurs de bureau sont laxistes là-dessus et laissent la colonne
+   coller ; WebKit mobile applique la règle et la laisse défiler avec le
+   contenu. Aucun réglage de fond opaque, de `will-change` ou de padding ne
+   pouvait donc y changer quoi que ce soit — et trois tentatives l'ont
+   confirmé.
 
-   ⚠️ 2 septembre 2026 — ce bloc portait aussi, jusqu'à ce matin, tout le
-   défilement vertical de la vue Semaine : hauteur figée à 7 jours,
-   `overflow-y: hidden` piloté par app.js, ligne d'heures figée en haut,
-   liséré violet `.tsActive` sur la section sélectionnée. Emilien a demandé de
-   tout annuler (« je souhaite annuler les dernières modifications, revenir à
-   la version précédente de la feuille de temps qui défile que de gauche à
-   droite ») : le geste vertical suivi d'un geste horizontal sautait des jours,
-   et la colonne des jours ne restait plus figée pendant le défilement
-   horizontal sur son téléphone. Le cadre retrouve donc exactement les
-   propriétés qu'il avait le 30 août — celles sur lesquelles la colonne figée
-   fonctionnait chez lui. Ne survivent que deux choses : les semaines
-   calendaires lundi→dimanche sur les flèches (côté serveur, timesheetForUser)
-   et le collage à gauche ci-dessous. ----- */
-.statsSection .timesheetScroll.tsWeekScroll {
-  /* Les 8px de padding gauche d'origine sont DANS la zone défilable : la
-     colonne figée des jours (.tsDayLabel, `left: 0`) s'arrêtait donc à 8px du
-     bord du cadre, et les créneaux colorés défilaient visiblement dans cette
-     bande à sa gauche. À 0, la colonne est collée au bord et masque tout ce
-     qui passe derrière elle. */
-  padding-left: 0;
+   Solution : ce qui ne défile pas n'est plus dans ce qui défile.
+   #tsFrozenCol (voir index.html) est un FRÈRE du cadre défilant, les deux
+   côte à côte dans un conteneur flex .timesheetFrame. Plus aucun `sticky`,
+   donc plus rien à contourner — et le résultat est identique sur tous les
+   navigateurs.
+
+   ⚠️ L'alignement des lignes n'est plus garanti par la grille mais par des
+   métriques IDENTIQUES des deux côtés : `grid-auto-rows: 22px` et `gap: 1px`
+   (repris de .timesheetGrid ci-dessus), plus le même padding vertical que
+   `.statsSection .timesheetScroll` (10px en haut). **Si Design change l'une
+   de ces valeurs, les deux colonnes doivent suivre ensemble** — c'est le prix
+   de cette structure, et la raison pour laquelle les valeurs sont écrites en
+   clair ici plutôt que dérivées.
+
+   La classe .tsWeekScroll reste posée/retirée par app.js
+   (renderTimesheetWeek / renderTimesheetMonth) : elle restreint au mode
+   Semaine ce qui doit l'être, la vue "Mois" — et le bloc jumeau de l'onglet
+   Activité, qui partage la classe .timesheetScroll — gardant exactement leur
+   mise en page. Un sélecteur `:has()` aurait évité ce couplage au JS, mais il
+   n'est supporté qu'à partir de Safari 15.4 — trop risqué pour un iPhone dont
+   on ne connaît pas la version. ----- */
+.statsSection .timesheetFrame {
+  display: flex;
+  align-items: flex-start;
 }
-/* ⚠️ 2 septembre 2026 — les 8px retirés du cadre avaient d'abord été reportés
-   DANS la colonne (élargie 64 → 72px, `padding-left: 8px`), pour que le
-   libellé garde exactement la même place qu'avant. C'était l'erreur : le
-   collage à gauche devenait invisible à l'œil (le texte ne bougeait pas d'un
-   pixel), et Emilien a redemandé la même chose capture d'écran à l'appui —
-   « je souhaite que les jours ne soient pas flottants vers la droite mais
-   qu'ils soient fixés sur la gauche ». Le libellé part donc maintenant du
-   bord réel du cadre, et la colonne reprend sa largeur de 64px (calée le
-   30 août sur "Mer 27/08" : 64px moins les 6px de padding-right, le texte
-   dispose de la même place qu'avant). Le fond opaque de la colonne couvrant
-   toute cette largeur depuis le bord, aucun créneau ne peut apparaître à sa
-   gauche pendant le défilement horizontal. La marge visuelle qui reste vient
-   du padding de .statsSection, commun à toutes les sections de l'onglet. */
-.tsWeekScroll .tsDayLabel,
-.tsWeekScroll .tsCorner {
+/* Le cadre défilant occupe tout le reste de la largeur. `min-width: 0` est
+   indispensable : sans lui, un enfant flex refuse de rétrécir en dessous de la
+   largeur de son contenu (ici 96 colonnes de 12px), et c'est la SECTION
+   entière qui déborderait de l'écran au lieu de défiler à l'intérieur. */
+.statsSection .timesheetFrame > .timesheetScroll {
+  flex: 1 1 auto;
+  min-width: 0;
   padding-left: 0;
+  border-radius: 0;
+}
+/* La colonne figée. Ni sticky ni absolue : simplement hors du conteneur qui
+   défile. Fond opaque quand même — elle borde une zone défilante, et un fond
+   transparent laisserait voir le liseré des cases au moment où elles passent
+   sous son bord droit. */
+.tsFrozenCol {
+  flex: 0 0 auto;
+  display: grid;
+  grid-auto-rows: 22px;
+  gap: 1px;
+  padding: 10px 6px 4px 0;
+  background: var(--card);
+}
+/* Dans cette colonne, plus rien n'a besoin d'être figé : on annule le sticky
+   hérité de .tsCorner/.tsDayLabel (qui restent tels quels pour le bloc jumeau
+   de l'onglet Activité, propriété de Communauté, où la structure d'origine est
+   inchangée). Largeur calée le 30 août 2026 sur "Mer 27/08" en 11px. */
+.tsFrozenCol .tsCorner,
+.tsFrozenCol .tsDayLabel {
+  position: static;
+  width: 64px;
+  padding-left: 0;
+  will-change: auto;
+}
+/* La grille ne porte plus la colonne des libellés : uniquement les 96 quarts
+   d'heure. */
+.tsWeekScroll .timesheetGrid {
+  grid-template-columns: repeat(96, 12px);
 }
 /* Colonne figée élargie de 54px à 64px le 30 août 2026 (demande d'Emilien) :
    le libellé "Mer 27/08" (jour abrégé + date) en 11px, avec padding-right,
@@ -950,23 +992,26 @@ body.scrollLock { overflow: hidden; }
   width: 9px; height: 9px; border-radius: 50%;
   background: var(--red); border: 2px solid var(--card);
 }
-/* .notifWrap n'a plus de position propre depuis le 31 août 2026 (nouvel
-   ajustement d'Emilien) : il ne sert plus que de sélecteur pour le clic "en
-   dehors du panneau" (voir app.js, e.target.closest('.notifWrap')). Le
-   panneau lui-même (.notifPanel ci-dessous) s'ancre maintenant sur .topbar
-   — qui reste positionnée (position: sticky) et sert donc de bloc
-   englobant — plutôt que sur ce petit conteneur, pour pouvoir se centrer
-   sur toute la largeur de l'écran. */
+/* .notifWrap et .settingsWrap reprennent une position propre (`relative`)
+   depuis le 2 septembre 2026, deuxième passage : elles ont quitté .topbar
+   pour .identityHeader (voir index.html), qui n'est pas positionnée — sans
+   ça, .notifPanel en position absolute remonterait chercher le prochain
+   ancêtre positionné (potentiellement la fenêtre elle-même) et s'afficherait
+   n'importe où. Elles servent aussi, comme avant, de sélecteur pour le clic
+   "en dehors du panneau" (voir app.js, e.target.closest('.notifWrap')). */
+.notifWrap, .settingsWrap { position: relative; }
 
-/* Recentré au milieu de l'écran et collé au bas de la barre violette
-   (31 août 2026, demande d'Emilien) : auparavant ancré à droite sous
-   l'icône elle-même. .topbar fait toute la largeur de l'écran (pas de
-   max-width, contrairement à #content), donc se centrer sur .topbar
-   revient à se centrer sur l'écran. top:100% (sans marge) colle le panneau
-   directement sous la barre, quelle que soit sa hauteur réelle (marge de
-   sécurité iOS/Android incluse). */
+/* Ancré directement sous sa propre icône (2 septembre 2026, deuxième
+   passage — retour à l'ancrage d'avant le 31 août 2026) : .notifWrap et
+   .settingsWrap vivent maintenant dans .identityHeader, une ligne étroite au
+   milieu de la page Profil, plus dans .topbar qui faisait toute la largeur
+   de l'écran — se centrer sur l'écran comme avant n'aurait donc plus de
+   sens. right:0 aligne le bord droit du panneau sur celui de l'icône, qui
+   se trouve déjà près du bord droit de l'écran (identityHeader étant en
+   flex, icônes en bout de ligne) : le panneau s'ouvre vers la gauche, reste
+   entièrement visible quelle que soit la longueur du nom affiché à côté. */
 .notifPanel {
-  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  position: absolute; top: calc(100% + 6px); right: 0;
   z-index: 20;
   width: min(320px, 85vw); max-height: 60vh; overflow-y: auto;
   background: var(--card); border: 1px solid var(--border);
@@ -1027,8 +1072,11 @@ body.scrollLock { overflow: hidden; }
 /* Réglages en menu flottant : le panneau réutilise .notifPanel (propriété de
    Profil/Design) sans la redéfinir — on ne fait qu'élargir un peu ce panneau
    précis, ses sections étant des formulaires et non de simples listes.
-   .settingsWrap n'a pas de style propre : comme .notifWrap, elle ne sert qu'à
-   repérer le « clic en dehors » dans app.js. */
+   ⚠️ **2 septembre 2026, suite** : .settingsWrap a désormais son propre
+   `position: relative` (voir .notifWrap, .settingsWrap plus haut, propriété
+   Profil/Design) — nécessaire pour ancrer .notifPanel depuis que ce bloc vit
+   dans .identityHeader et non plus dans .topbar. Elle sert toujours, en
+   plus, à repérer le « clic en dehors » dans app.js. */
 /* Défilement « cran par cran » du menu des Réglages (2 septembre 2026,
    demande d'Emilien : « les options défilent de façon saccadée sans jamais
    couper une option ; lorsqu'une option est sélectionnée elle ne peut sortir

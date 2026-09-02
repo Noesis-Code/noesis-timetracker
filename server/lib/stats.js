@@ -305,17 +305,29 @@ function computeSlotsForDays(userId, days, slotMinutes) {
   });
 }
 
-// ⚠️ 2 septembre 2026 — SEMAINES CALENDAIRES (lundi → dimanche).
-// C'est la seule modification conservée du chantier annulé de la veille :
-// « je souhaite que lorsque je clique sur une flèche, cela me montre toujours
-// des semaines de lundi à dimanche. Seule modification que l'on garde. »
+// ⚠️ 2 septembre 2026 — RÈGLE MIXTE : la semaine en cours glisse, les
+// précédentes sont calendaires.
 //
-// La fonction utilisait jusqu'ici une fenêtre GLISSANTE de 7 jours se
-// terminant sur aujourd'hui. Conséquence assumée du changement, signalée à
-// Emilien : en début de semaine, la semaine en cours contient forcément des
-// jours à venir, donc vides à droite du jour courant — c'était précisément ce
-// que la fenêtre glissante évitait. Emilien préfère des semaines
-// lundi→dimanche, lisibles d'un coup d'œil et alignées sur le calendrier.
+// Les deux règles pures ont chacune été essayées ce jour-là, et chacune a été
+// rejetée par Emilien pour une raison précise :
+//   - fenêtre glissante partout (état d'origine) → les flèches donnaient des
+//     semaines décalées, jamais lundi→dimanche : « je souhaite que lorsque je
+//     clique sur une flèche, cela me montre toujours des semaines de lundi à
+//     dimanche » ;
+//   - semaines calendaires partout (livré le matin) → la semaine en cours
+//     affichait des jours à venir, donc vides : « je souhaite que par défaut
+//     la feuille de temps n'affiche jamais des journées qui ne soient pas
+//     encore passées ».
+// D'où la règle qu'il a formulée lui-même : « c'est seulement la dernière
+// semaine qui est décalée, les autres sont de lundi au dimanche. »
+//
+//   offset 0  → les 7 derniers jours, se terminant AUJOURD'HUI ;
+//   offset n  → la semaine calendaire lundi→dimanche, n semaines avant celle
+//               en cours (offset 1 = la dernière semaine complète révolue).
+//
+// Aller-retour vérifié : partir d'offset 0, reculer, puis revenir ramène bien
+// la fenêtre glissante — c'est exactement ce qu'il décrit (« quand on va
+// revenir sur la droite, ça va remettre en décalé »), et c'est voulu.
 //
 // mondayOf vient de ./dates (utilitaire partagé, déjà utilisé par la vue
 // "Mois" juste en dessous et par les regroupements hebdomadaires du
@@ -323,18 +335,32 @@ function computeSlotsForDays(userId, days, slotMinutes) {
 function timesheetForUser(userId, weekOffset) {
   const offset = Math.max(0, Math.floor(Number(weekOffset)) || 0);
 
-  // Lundi de la semaine affichée : celui de la semaine en cours pour
-  // offset=0, puis 7 jours plus tôt par cran supplémentaire.
-  const anchor = new Date();
-  anchor.setHours(0, 0, 0, 0);
-  anchor.setDate(anchor.getDate() - offset * 7);
-  const monday = mondayOf(anchor);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const days = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    days.push(d);
+  if (offset === 0) {
+    // Semaine EN COURS : fenêtre glissante des 7 derniers jours, se terminant
+    // aujourd'hui. Jamais un jour à venir.
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      days.push(d);
+    }
+  } else {
+    // Semaines PASSÉES : vraies semaines calendaires, lundi → dimanche.
+    // Ancrage sur le lundi de la semaine en cours, reculé de `offset`
+    // semaines : offset=1 est donc la dernière semaine complète révolue.
+    // Aucun jour n'est inatteignable — les jours de la semaine en cours qui
+    // ne sont pas dans cette semaine-là sont, eux, dans la fenêtre glissante
+    // d'offset 0 (les deux se chevauchent, mais ne laissent pas de trou).
+    const monday = mondayOf(today);
+    monday.setDate(monday.getDate() - offset * 7);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      days.push(d);
+    }
   }
   const start = isoDateOf(days[0]);
   const end = isoDateOf(days[6]);
