@@ -792,23 +792,24 @@ textarea {
 .chartLine { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .chartLineTotal { stroke-width: 2.5; }
 .chartDot { stroke: var(--card); stroke-width: 2; }
-/* `touch-action: none` (2 septembre 2026, demande d'Emilien : pincement à
-   deux doigts pour zoomer/dézoomer sur l'axe du temps, glissé à un doigt
-   pour naviguer une fois zoomé, "comme sur TradingView") : laisse TOUT le
-   geste tactile posé sur cette zone nous arriver en JS (voir renderChart()
-   dans app.js — pointerdown/pointermove/pointerup gèrent eux-mêmes aussi
-   bien le pincement que le panoramique), plutôt qu'un mélange de
-   comportements natifs et interceptés qui se marchent dessus. Remplace
-   `pan-x`, qui datait d'une tentative de zoom abandonnée le 31 août 2026
-   (jamais livrée côté app.js — voir le journal) et laissait le panoramique
-   au défilement natif de .chartScroll ; ce défilement natif n'a plus lieu
-   d'être non plus, la largeur du SVG égalant désormais toujours celle du
-   conteneur (voir `containerWidth` dans renderChart()) : la fenêtre visible
-   change par le geste plutôt que par un SVG plus large que son cadre. Le
-   zoom natif de la PAGE (pincement en dehors du Graphique) reste bloqué
-   globalement par `maximum-scale=1` sur la <meta viewport>, indépendamment
-   de cette règle. */
-.chartHoverLayer { fill: transparent; pointer-events: all; touch-action: none; }
+/* `touch-action: pan-x pan-y` (2 septembre 2026, demande d'Emilien : pincer
+   à deux doigts pour rapprocher/éloigner les points de l'axe du temps,
+   "comme sur TradingView"), REVU le même jour après un premier essai à
+   `touch-action: none` — retour d'Emilien : « lorsque je touche le
+   graphique cela bug ». `none` interceptait TOUT geste tactile dès qu'il
+   commençait sur cette zone, y compris le simple défilement vertical de la
+   PAGE quand le doigt touchait le graphique en premier : plus moyen de
+   scroller si on posait le doigt au mauvais endroit. `pan-x pan-y` laisse
+   le navigateur gérer nativement tout geste à UN doigt (défilement vertical
+   de la page, et défilement horizontal natif de .chartScroll une fois le
+   graphique plus large que son cadre — voir plus bas) ; seul le pincement à
+   DEUX doigts est encore intercepté, et seulement en JS via
+   `evt.preventDefault()` dans renderChart() (pointerdown y attend d'avoir
+   exactement 2 pointeurs actifs avant d'agir — un seul doigt ne déclenche
+   plus rien côté JS). Le zoom natif de la PAGE (pincement en dehors du
+   Graphique) reste bloqué globalement par `maximum-scale=1` sur la
+   <meta viewport>, indépendamment de cette règle. */
+.chartHoverLayer { fill: transparent; pointer-events: all; touch-action: pan-x pan-y; }
 .chartCrosshair { stroke: var(--text-light); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
 
 /* Légende du Graphique — toujours présente (>= 2 séries dès qu'il y a une

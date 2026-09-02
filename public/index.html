@@ -231,15 +231,33 @@
          (demande d'Emilien), remplacé par "Activité" ; c'est désormais le
          seul point d'accès au Profil. -->
     <div class="topbarActions">
+      <!-- #whoami déplacé en premier dans .topbarActions le 2 septembre 2026
+           (demande d'Emilien : « déplacer à nouveau les items invitation et
+           paramètres [...] à droite du nom de l'utilisateur ») : les icônes
+           "avion en papier"/"⚙️" vivaient avant le prénom (donc à sa gauche)
+           depuis le 31 août 2026, voir le commentaire ci-dessous ; seul
+           l'ordre DOM change ici (flex, sans row-reverse) — comportement au
+           clic, ancrage des panneaux (sur .topbar, indépendant de l'ordre des
+           boutons) et point rouge #whoamiDot inchangés. -->
+      <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
+        <span id="whoamiName"></span>
+        <!-- Redondant avec le point rouge du bouton "avion en papier"
+             ci-dessous depuis qu'il est visible en permanence, mais conservé :
+             visible même quand le nom est tronqué/loin de l'œil, comme avant
+             le 31 août 2026. Alimenté par notifPendingCounts.invites (voir
+             refreshNotifDot dans app.js) — reflète déjà les invitations en
+             attente, pas seulement les demandes de suivi. -->
+        <span id="whoamiDot" class="notifDot hidden"></span>
+      </button>
       <!-- Icône "avion en papier" et bouton "⚙️" Réglages : déplacés ici
            depuis la vue principale du Profil (#profileMain) le 31 août 2026,
            à la demande d'Emilien, pour qu'ils soient accessibles depuis
-           n'importe quel onglet, à gauche du prénom, plutôt que réservés au
-           Profil déjà ouvert. Le comportement au clic reste défini dans
-           app.js (profileNotifBtn/profileSettingsBtn) — profileSettingsBtn
-           ouvre désormais explicitement le Profil avant de basculer sur
-           Réglages, puisqu'il n'est plus garanti que Profil soit déjà
-           affiché. -->
+           n'importe quel onglet — à droite du prénom depuis le 2 septembre
+           2026 (avant cette date : à sa gauche). Le comportement au clic
+           reste défini dans app.js (profileNotifBtn/profileSettingsBtn) —
+           profileSettingsBtn ouvre désormais explicitement le Profil avant
+           de basculer sur Réglages, puisqu'il n'est plus garanti que Profil
+           soit déjà affiché. -->
       <!-- Icônes "avion en papier" et "⚙️" calquées sur celles de la barre
            du bas depuis le 1er septembre 2026 (demande d'Emilien) :
            .topIconBtn (styles.css) plutôt que .menuBtn — plus de fond/
@@ -468,14 +486,6 @@
           </div>
         </div>
       </div>
-      <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
-        <span id="whoamiName"></span>
-        <!-- Redondant avec le point rouge du bouton "avion en papier"
-             ci-dessus depuis qu'il est visible en permanence, mais conservé :
-             visible même quand le nom est tronqué/loin de l'œil, comme avant
-             le 31 août 2026. -->
-        <span id="whoamiDot" class="notifDot hidden"></span>
-      </button>
     </div>
   </header>
 
@@ -662,12 +672,17 @@
            son commentaire plus haut). Le Graphique était la dernière section
            de Statistiques à garder ce mécanisme ; .fullscreenOnly n'a donc
            plus aucun usage et a été retiré de styles.css.
-           Pincement à deux doigts pour zoomer/dézoomer sur l'axe du temps,
-           glissé à un doigt pour naviguer une fois zoomé (2 septembre 2026,
-           demande d'Emilien : « comme sur TradingView »), quelle que soit la
-           granularité Jour/Semaine/Mois — voir chartViewState et
-           renderChart() dans app.js. #chartZoomResetBtn (masqué hors zoom)
-           revient d'un coup à la fenêtre par défaut. -->
+           Pincement à deux doigts pour rapprocher/éloigner les points de
+           l'axe du temps (2 septembre 2026, demande d'Emilien : « comme sur
+           TradingView »), quelle que soit la granularité Jour/Semaine/Mois —
+           voir chartPointSpacing et renderChart() dans app.js. Tous les jours
+           restent toujours dans le graphique (rien de caché par le zoom) ; le
+           panoramique est le défilement horizontal natif de .chartScroll, pas
+           un geste JS. #chartZoomResetBtn (masqué hors zoom) revient d'un
+           coup à l'espacement par défaut. Corrigé le 2 septembre 2026 (même
+           jour) après un premier essai à base de fenêtre glissante qui
+           cachait des jours et cassait le tap normal — voir le journal
+           (noesis-timetracker-journal-statistiques.md) pour l'historique. -->
       <div id="statsChartBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
