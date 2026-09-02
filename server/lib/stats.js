@@ -28,8 +28,8 @@ const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR } = require('./date
 // d'une PÉRIODE nommée ('week'/'month'/'year' → periodRange),
 // c'est-à-dire d'un découpage calendaire qui n'a aucune raison de coïncider
 // avec la fenêtre réellement affichée par la Feuille de temps — en
-// particulier depuis que sa vue Semaine est une fenêtre GLISSANTE de 7 jours
-// se terminant aujourd'hui (voir timesheetForUser plus bas), et que sa vue
+// particulier parce que sa vue Semaine affiche une semaine calendaire entière
+// (lundi→dimanche, voir timesheetForUser plus bas), et que sa vue
 // Mois déborde sur les semaines voisines pour compléter le calendrier. C'est
 // précisément cet écart qui faisait diverger les deux sections. Ici on part
 // donc des bornes réelles de la grille, passées par l'appelant.
@@ -127,9 +127,9 @@ function totalRangeForUser(userId, refDate) {
 // regrouper les points sur cette plage fixe.
 //
 // "Semaine"/"Mois" regroupent par tranche CALENDAIRE fixe (mondayOf / premier
-// du mois), pas par fenêtre glissante par rapport à aujourd'hui : contrairement
-// à la fenêtre "7 derniers jours" de la Feuille de temps (un instantané "en
-// cours", recalculé chaque jour, voir timesheetForUser plus bas), un
+// du mois), pas par fenêtre glissante par rapport à aujourd'hui — même
+// convention que la vue Semaine de la Feuille de temps depuis le 2 septembre
+// 2026 (mondayOf, voir timesheetForUser plus bas) : un
 // regroupement historique doit rester des tranches stables — la même semaine
 // de juillet doit toujours apparaître comme le même point du graphique,
 // qu'on le regarde aujourd'hui ou dans un mois.
@@ -305,19 +305,35 @@ function computeSlotsForDays(userId, days, slotMinutes) {
   });
 }
 
+// ⚠️ 2 septembre 2026 — SEMAINES CALENDAIRES (lundi → dimanche).
+// C'est la seule modification conservée du chantier annulé de la veille :
+// « je souhaite que lorsque je clique sur une flèche, cela me montre toujours
+// des semaines de lundi à dimanche. Seule modification que l'on garde. »
+//
+// La fonction utilisait jusqu'ici une fenêtre GLISSANTE de 7 jours se
+// terminant sur aujourd'hui. Conséquence assumée du changement, signalée à
+// Emilien : en début de semaine, la semaine en cours contient forcément des
+// jours à venir, donc vides à droite du jour courant — c'était précisément ce
+// que la fenêtre glissante évitait. Emilien préfère des semaines
+// lundi→dimanche, lisibles d'un coup d'œil et alignées sur le calendrier.
+//
+// mondayOf vient de ./dates (utilitaire partagé, déjà utilisé par la vue
+// "Mois" juste en dessous et par les regroupements hebdomadaires du
+// Graphique) : un seul endroit décide de ce qu'est un lundi.
 function timesheetForUser(userId, weekOffset) {
   const offset = Math.max(0, Math.floor(Number(weekOffset)) || 0);
 
-  // Dernier jour de la fenêtre : aujourd'hui pour offset=0, puis 7 jours plus
-  // tôt par tranche de offset supplémentaire — jamais un jour à venir.
-  const lastDay = new Date();
-  lastDay.setHours(0, 0, 0, 0);
-  lastDay.setDate(lastDay.getDate() - offset * 7);
+  // Lundi de la semaine affichée : celui de la semaine en cours pour
+  // offset=0, puis 7 jours plus tôt par cran supplémentaire.
+  const anchor = new Date();
+  anchor.setHours(0, 0, 0, 0);
+  anchor.setDate(anchor.getDate() - offset * 7);
+  const monday = mondayOf(anchor);
 
   const days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(lastDay);
-    d.setDate(lastDay.getDate() - i);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
     days.push(d);
   }
   const start = isoDateOf(days[0]);
@@ -331,67 +347,6 @@ function timesheetForUser(userId, weekOffset) {
   const label = `Semaine du ${pad2(days[0].getDate())}/${pad2(days[0].getMonth() + 1)} au ${pad2(days[6].getDate())}/${pad2(days[6].getMonth() + 1)}`;
 
   return { weekOffset: offset, isCurrentWeek: offset === 0, start, end, label, hasMoreBefore, days: grid };
-}
-
-// ===================== FEUILLE DE TEMPS — VUE "SEMAINE" EN LISTE CONTINUE =====================
-// Ajoutée le 1er septembre 2026 à la demande d'Emilien : « je souhaite que
-// lorsque je sélectionne la section feuille de temps, je puisse à la fois
-// défiler vers la droite ou vers la gauche comme c'est déjà le cas, mais
-// aussi de haut en bas. Et alors les jours défilent au lieu des heures. Je
-// souhaite que cette option ne soit possible que pour le mode semaine. »
-//
-// La vue "Semaine" n'est donc plus une fenêtre de 7 jours qu'on déplace, mais
-// une LISTE CONTINUE de jours que le client allonge par tranches au fur et à
-// mesure qu'on remonte dans le passé (défilement infini vers le haut). Cette
-// fonction renvoie une tranche : les `count` jours consécutifs se terminant à
-// `endIso` inclus.
-//
-// Deux garde-fous repris de timesheetForUser ci-dessus, volontairement
-// identiques pour ne pas introduire deux comportements différents :
-//   - jamais de jour à venir : `endIso` est ramené à aujourd'hui s'il le
-//     dépasse (c'est ce qui garantit qu'on ne voit jamais de ligne vide en bas
-//     de la liste, la raison d'être de la fenêtre glissante du matin) ;
-//   - `hasMoreBefore` dit au client s'il reste quelque chose à charger plus
-//     haut, pour qu'il arrête de demander une fois l'historique épuisé.
-//
-// `count` est borné à 120 jours : au-delà, une seule requête deviendrait
-// lourde (120 × 96 créneaux) sans bénéfice, le client demandant de toute
-// façon la suite au défilement.
-//
-// timesheetForUser (fenêtre de 7 jours, ci-dessus) est CONSERVÉE telle
-// quelle : la route continue de l'utiliser quand elle reçoit `weekOffset`,
-// ce qui garde intact un client resté en mémoire sur l'ancien code — cas
-// fréquent sur ce projet avec la PWA installée sur l'écran d'accueil.
-function timesheetRangeForUser(userId, endIso, count) {
-  const n = Math.max(1, Math.min(120, Math.floor(Number(count)) || 7));
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  let lastDay = today;
-  if (endIso) {
-    const parsed = new Date(endIso + 'T00:00:00');
-    if (!isNaN(parsed.getTime())) lastDay = parsed > today ? today : parsed;
-  }
-
-  const days = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(lastDay);
-    d.setDate(lastDay.getDate() - i);
-    days.push(d);
-  }
-
-  const start = isoDateOf(days[0]);
-  const end = isoDateOf(days[days.length - 1]);
-
-  const grid = computeSlotsForDays(userId, days, SLOT_MINUTES);
-
-  const earliest = db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
-  const hasMoreBefore = !!(earliest && earliest.d && earliest.d < start);
-
-  const label = `Du ${pad2(days[0].getDate())}/${pad2(days[0].getMonth() + 1)} au ${pad2(days[days.length - 1].getDate())}/${pad2(days[days.length - 1].getMonth() + 1)}`;
-
-  return { start, end, label, hasMoreBefore, days: grid, isCurrentWeek: end === isoDateOf(today) };
 }
 
 // ===================== FEUILLE DE TEMPS — VUE "MOIS" (calendrier) =====================
@@ -447,4 +402,4 @@ function timesheetMonthForUser(userId, monthOffset) {
   return { monthOffset: offset, isCurrentMonth: offset === 0, start, end, label, hasMoreBefore, weeks };
 }
 
-module.exports = { breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser, timesheetRangeForUser };
+module.exports = { breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };

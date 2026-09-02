@@ -724,14 +724,37 @@
            "Suivi" (en lecture seule pour ce qu'on y voit des autres). -->
       <!-- id dédié (communitySearchBar) plutôt que de s'appuyer seulement sur
            la classe .entryCard (Design, réutilisée par des formulaires
-           ailleurs dans l'app) : permet de la rendre sticky ci-dessous sans
-           que ça s'applique à toutes les .entryCard du reste de l'app — voir
-           #communitySearchBar dans styles.css et
-           syncCommunitySearchStickyOffset() dans app.js. Demande d'Emilien,
-           2 septembre 2026 : « quand on défile vers le bas, la recherche de
-           pseudo se bloque en haut et reste en tout temps visible ». -->
+           ailleurs dans l'app) : sert de conteneur ciblable par les filtres
+           de découverte de membres décrits juste en dessous. A porté une
+           règle position: sticky (2 septembre 2026, demande d'Emilien :
+           « quand on défile vers le bas, la recherche de pseudo se bloque
+           en haut et reste en tout temps visible »), retirée le même jour
+           sur nouvelle demande d'Emilien (« que la section recherche un
+           pseudo ne soit pas flottante du tout, afin de donner un fini
+           plus propre ») — la barre défile normalement avec la page. -->
+      <!-- Découverte de membres (2 septembre 2026, demande d'Emilien :
+           « perfectionner la découverte [...] des profils des autres
+           utilisateurs »). Trois changements dans ce même bloc :
+           - la recherche ne porte plus seulement sur le pseudo mais aussi
+             sur le nom de famille et sur les PROJETS (nom, secteur,
+             description) — on trouve quelqu'un par ce qu'il fait, pas
+             seulement par un pseudo qu'il faut déjà connaître ;
+           - des filtres "Recherche" (partenaires / clients / financement,
+             les mêmes tags que les projets) permettent de ne garder que les
+             profils qui cherchent quelque chose de précis ;
+           - à l'ouverture de l'onglet, sans rien taper, une sélection de
+             profils à découvrir s'affiche (ceux qui ont des projets
+             d'abord, puis les inscriptions les plus récentes) — l'onglet ne
+             s'ouvre plus sur un champ vide et rien d'autre.
+           Voir GET /api/users/search (server/routes/follows.js), qui porte
+           les trois d'un seul tenant, et loadCommunityDiscovery dans app.js.
+           Les filtres et le message d'exploration sont volontairement DANS
+           #communitySearchBar : ils font partie du même bloc "recherche"
+           que le champ de saisie. -->
       <div class="entryCard" id="communitySearchBar">
-        <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo..." autocomplete="off">
+        <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo, un projet, un secteur..." autocomplete="off">
+        <div class="seekingTagPicker" id="communitySeekingFilters"></div>
+        <p id="communityDiscoverHint" class="hint hidden">Quelques profils à découvrir.</p>
         <div id="communitySearchResults" class="activitiesList"></div>
       </div>
 
@@ -1119,13 +1142,20 @@
          demande d'Emilien) : ouverte en cliquant sur un nom dans "Abonnés &
          Abonnements" (#profileFollowsPanel, ci-dessus) ou dans la recherche
          de Communauté (#communitySearchResults) — voir
-         openProfileViewModal dans app.js. Pour l'instant ne montre que la
-         section "Projets" de la personne, seule donnée pensée pour être
-         visible par ses abonnés à ce jour ; pourra accueillir d'autres
-         informations plus tard. Accès vérifié CÔTÉ SERVEUR (GET
-         /profile/:id/projects, server/routes/profile.js) : uniquement le
-         propriétaire ou un abonné accepté — ce panneau ne fait qu'afficher
-         ce que le serveur a bien voulu renvoyer.
+         openProfileViewModal dans app.js.
+         ⚠️ 2 septembre 2026 (demande d'Emilien : « perfectionner la
+         découverte et la lecture des profils des autres utilisateurs ») :
+         cette page ne montrait que les projets, et seulement à un abonné
+         déjà accepté. Elle montre désormais, dans cet ordre — décidé par
+         Emilien : identité (photo + nom), Projets, Statistiques
+         (Répartition + Graphique SEULEMENT, pas de Feuille de temps), puis
+         Messages "Communauté". Accès vérifié CÔTÉ SERVEUR
+         (server/routes/profile.js, canViewProjects/canViewPosts) et à deux
+         niveaux : identité + projets + statistiques sont un APERÇU PUBLIC
+         visible par tout membre identifié (c'est ce qui permet de découvrir
+         quelqu'un avant de le suivre), les messages restent réservés aux
+         abonnés acceptés. Ce panneau ne fait qu'afficher ce que le serveur a
+         bien voulu renvoyer.
          ⚠️ Volontairement placé ICI, en dehors de toute section .tab
          (sibling direct de .tab dans <main>) : les sections .tab reçoivent
          la classe .hidden (display:none) dès qu'on change d'onglet, ce qui
@@ -1143,10 +1173,95 @@
           </p>
           <button type="button" class="menuBtn" id="viewProfileModalClose" aria-label="Fermer">✕</button>
         </div>
+
+        <!-- Identité : même présentation que .identityHeader de son propre
+             profil (photo ronde + nom), en lecture seule — pas de bouton de
+             changement de photo ici. L'initiale sert de repli quand la
+             personne n'a pas encore mis de photo, exactement comme
+             #avatarDisplayInitial sur son propre profil. -->
+        <div class="viewProfileIdentity">
+          <div class="viewProfileAvatar" id="viewProfileAvatar">
+            <img id="viewProfileAvatarImg" class="hidden" alt="">
+            <span id="viewProfileAvatarInitial"></span>
+          </div>
+          <span class="identityName" id="viewProfileIdentityName"></span>
+        </div>
+        <p id="viewProfileProjectsMsg" class="msg"></p>
+
         <p class="sectionTitle">Projets</p>
         <div id="viewProfileProjectsList" class="activitiesList"></div>
         <p id="viewProfileProjectsEmptyHint" class="hint hidden">Aucun projet partagé pour l'instant.</p>
-        <p id="viewProfileProjectsMsg" class="msg"></p>
+
+        <!-- Statistiques du profil visité (2 septembre 2026) : Répartition +
+             Graphique uniquement, choix explicite d'Emilien — la Feuille de
+             temps n'est volontairement PAS reprise ici. Ids entièrement
+             propres à cette page (préfixe viewProfile), comme le fait déjà
+             la section "Membres" de l'onglet Activité avec les siens
+             (préfixe ca) : aucune dépendance à ceux de l'onglet
+             Statistiques, qui appartiennent aux trois discussions
+             Feuille de temps / Répartition / Graphique. Les classes, elles,
+             sont réutilisées telles quelles (.statsSection, .statsSummary,
+             .pieWrap, .chartWrap...) — aucune nouvelle règle CSS de mise en
+             page à écrire.
+             Différence assumée avec l'onglet Statistiques : le camembert y
+             suit la fenêtre de la Feuille de temps depuis le 1er septembre
+             2026, qui n'existe pas ici — il retrouve donc son propre menu
+             "⋮" de période (Semaine/Mois/Année), comme avant ce couplage. -->
+        <p class="sectionTitle">Statistiques</p>
+        <div id="viewProfilePieBlock" class="statsSection">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Répartition</p>
+            <div class="statsPeriodMenuWrap" id="viewProfilePiePeriodWrap">
+              <button type="button" class="menuBtn" id="viewProfilePiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+              <div class="statsPeriodMenu hidden" id="viewProfilePiePeriodMenu">
+                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
+              </div>
+            </div>
+          </div>
+          <div class="statsSummary">
+            <p class="statsLabel" id="viewProfileStatsLabel"></p>
+            <p class="statsTotal" id="viewProfileStatsTotal"></p>
+          </div>
+          <div id="viewProfilePie" class="pieWrap"></div>
+          <p id="viewProfilePieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+        </div>
+
+        <div id="viewProfileChartBlock" class="statsSection">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Graphique</p>
+            <div class="statsPeriodMenuWrap" id="viewProfileChartPeriodWrap">
+              <button type="button" class="menuBtn" id="viewProfileChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
+              <div class="statsPeriodMenu hidden" id="viewProfileChartPeriodMenu">
+                <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+              </div>
+            </div>
+          </div>
+          <div class="chartWrap" id="viewProfileChartWrap">
+            <div class="chartScroll">
+              <div id="viewProfileChart" class="chartSvgWrap"></div>
+            </div>
+          </div>
+          <div id="viewProfileChartLegend" class="chartLegend"></div>
+          <p id="viewProfileChartEmptyHint" class="hint hidden">Rien d'enregistré pour l'instant.</p>
+        </div>
+
+        <!-- Messages "Communauté" du profil visité — la SEULE partie
+             réservée aux abonnés acceptés (demande d'Emilien : « les
+             messages restent réservés à la communauté »). En lecture seule :
+             ni suppression, ni ajout de pièce jointe, contrairement au même
+             fil sur son propre profil (#profileDiscussionBlock). Quand
+             l'accès n'est pas accordé, on n'appelle même pas la route : le
+             serveur a déjà répondu canSeePosts=false sur
+             /profile/:id/public, et #viewProfilePostsLockedHint prend la
+             place de la liste. -->
+        <p class="sectionTitle">Messages</p>
+        <div id="viewProfilePostsList" class="discussionList"></div>
+        <p id="viewProfilePostsEmptyHint" class="hint hidden">Aucun message pour l'instant.</p>
+        <p id="viewProfilePostsLockedHint" class="hint hidden">Suis ce profil pour voir ses messages.</p>
       </div>
     </div>
 

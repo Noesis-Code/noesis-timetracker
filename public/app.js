@@ -19,9 +19,7 @@
   // se choisit ('day' | 'week' | 'month', 'day' par défaut).
   var currentChartGranularity = 'day';
   var currentTimesheetPeriod = 'week'; // 'week' | 'month' — pas d'"année" pour la Feuille de temps (demande d'Emilien)
-  // (currentTimesheetOffset retirée le 1er septembre 2026 : la vue "Semaine"
-  // n'est plus une fenêtre qu'on décale mais une liste continue qu'on fait
-  // défiler — voir tsDays/tsHasMoreBefore plus bas.)
+  var currentTimesheetOffset = 0; // décalage en semaines calendaires ; repart à 0 à chaque ouverture de l'onglet Statistiques
   var currentTimesheetMonthOffset = 0; // décalage en mois (vue calendrier) ; repart à 0 lui aussi
   var currentHistoryWeekOffset = 0; // idem, pour l'historique modifiable du Chrono (#chronoHistoryPanel)
   var lastDailyBreakdown = []; // dernier détail journalier chargé, pour redessiner le Graphique sans refetch (ex : couleur de la courbe Total après un changement de thème)
@@ -745,6 +743,7 @@
       // 2026) — Répartition/Graphique, eux, gardent la période choisie
       // précédemment (comme l'ancien sélecteur global #statsPeriodSwitch).
       currentTimesheetPeriod = 'week';
+      currentTimesheetOffset = 0;
       currentTimesheetMonthOffset = 0;
       syncPeriodMenuActive($('tsPeriodMenu'), 'week');
       loadTimesheet();
@@ -1333,6 +1332,7 @@
     // période, plutôt que de convertir un décalage semaine en décalage mois
     // (les deux ne correspondent à rien l'un pour l'autre).
     if (period === 'month') currentTimesheetMonthOffset = 0;
+    else currentTimesheetOffset = 0;
     loadTimesheet();
   });
 
@@ -1386,10 +1386,20 @@
       ' A' + rInner + ',' + rInner + ' 0 ' + largeArc + ' 0 ' + x2i + ',' + y2i + ' Z';
   }
 
-  function renderPie(activities, totalSeconds) {
-    var wrap = $('statsPie');
+  // `ids` (optionnel, ajouté le 2 septembre 2026) : où dessiner. Sans lui,
+  // le camembert de l'onglet Statistiques, exactement comme avant — la
+  // Répartition (#statsPieBlock) n'a aucun changement de comportement. Avec
+  // lui, la page de visite d'un profil (#viewProfilePie, voir
+  // openProfileViewModal plus bas) réutilise ce même rendu sur ses propres
+  // conteneurs, plutôt que d'en recopier une seconde version — même principe
+  // que mountProfilePostsComposer(ids), déjà utilisé pour partager le
+  // composeur de messages entre Profil et Communauté.
+  function renderPie(activities, totalSeconds, ids) {
+    var wrapId = (ids && ids.wrap) || 'statsPie';
+    var emptyHintId = (ids && ids.emptyHint) || 'statsPieEmptyHint';
+    var wrap = $(wrapId);
     wrap.innerHTML = '';
-    $('statsPieEmptyHint').classList.toggle('hidden', activities.length > 0);
+    $(emptyHintId).classList.toggle('hidden', activities.length > 0);
     if (activities.length === 0) return;
 
     var svgNS = 'http://www.w3.org/2000/svg';
@@ -1938,471 +1948,109 @@
   // longues périodes. -----
 
   // ===================== FEUILLE DE TEMPS (heatmap hebdomadaire) =====
-  // Grille jour × quart d'heure, dans l'esprit de l'onglet "Feuille de
-  // temps" du Google Sheet d'origine.
+  // Grille jour × quart d'heure, dans l'esprit de l'onglet "Feuille de temps"
+  // du Google Sheet d'origine. Une SEMAINE à la fois, qui ne défile QUE
+  // horizontalement (les 24 heures ne tiennent pas dans la largeur d'un
+  // téléphone) — la colonne des jours reste figée à gauche pendant ce
+  // défilement.
   //
-  // ⚠️ 1er septembre 2026 — la vue "Semaine" n'est plus une fenêtre de 7
-  // jours : c'est une LISTE CONTINUE de jours qu'on fait défiler
-  // verticalement, et qui s'allonge toute seule vers le passé quand on
-  // arrive en haut (défilement infini). Demande d'Emilien : « je puisse à la
-  // fois défiler vers la droite ou vers la gauche comme c'est déjà le cas,
-  // mais aussi de haut en bas. Et alors les jours défilent au lieu des
-  // heures. Je souhaite que cette option ne soit possible que pour le mode
-  // semaine. » Cadré en trois questions (`AskUserQuestion`) :
-  //   - remonter dans le passé SANS LIMITE, par chargement progressif ;
-  //   - ligne des heures figée en haut + colonne des jours figée à gauche
-  //     pendant le défilement ;
-  //   - camembert de la Répartition suivant « ce qui est visible à l'écran ».
-  // Puis confirmé explicitement : liste s'arrêtant à aujourd'hui (jamais de
-  // jour à venir), ouverture en bas sur aujourd'hui, et flèches ‹ › devenues
-  // un RACCOURCI qui saute d'une semaine calendaire (lundi→dimanche) à
-  // l'autre plutôt qu'un rechargement.
+  // ⚠️ 1er septembre 2026 (~03h00 heure de Toronto) — RETOUR EN ARRIÈRE
+  // demandé par Emilien : « je souhaite annuler les dernières modifications.
+  // Revenir à la version précédente de la feuille de temps qui défile que de
+  // gauche à droite. Cependant, je souhaite que lorsque je clique sur une
+  // flèche, cela me montre toujours des semaines de lundi à dimanche. Seule
+  // modification que l'on garde. »
   //
-  // La vue "Mois" est délibérément inchangée (demande explicite : « que pour
-  // le mode semaine ») — elle garde son calendrier, ses flèches par mois et
-  // son `currentTimesheetMonthOffset`.
-
-  // Nombre de jours par tranche. 30 à l'ouverture pour qu'il y ait de quoi
-  // défiler tout de suite, puis 30 par chargement — un compromis entre le
-  // poids d'une réponse (30 × 96 créneaux) et le nombre d'allers-retours en
-  // remontant loin.
-  var TS_CHUNK_DAYS = 30;
-  var tsDays = [];              // jours chargés, du plus ancien au plus récent
-  var tsHasMoreBefore = false;  // reste-t-il de l'historique au-dessus ?
-  var tsLoadingMore = false;    // une tranche est déjà en vol
-  var tsPieTimer = null;        // anti-rebond du recalcul du camembert
-
-  function tsScrollBox() { return document.querySelector('#statsTimesheetBlock .timesheetScroll'); }
-
-  // Lundi 00h00 de la semaine contenant cette date ISO — pendant client de
-  // mondayOf() (server/lib/dates.js), redéfini ici parce que le client n'a
-  // pas accès aux utilitaires serveur.
-  function tsMondayOf(isoDate) {
-    var d = new Date(isoDate + 'T00:00:00');
-    var day = d.getDay(); // 0 = dimanche
-    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
-    return d;
-  }
-  function tsIso(d) {
-    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-  }
-  function tsDayMonth(d) { return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); }
-
-  // Les flèches ‹ › sautent d'une semaine calendaire à l'autre. On part de la
-  // semaine actuellement en haut du cadre, on recule (ou avance) de 7 jours,
-  // et on amène le lundi correspondant en haut — en chargeant d'abord la
-  // suite de l'historique si ce lundi n'est pas encore là.
-  function tsJumpWeek(direction) {
-    var anchor = tsFirstVisibleDay();
-    if (!anchor) return;
-    var target = tsMondayOf(anchor.isoDate);
-    target.setDate(target.getDate() + direction * 7);
-
-    var today = new Date(); today.setHours(0, 0, 0, 0);
-    if (direction > 0 && target > today) return; // jamais de semaine à venir
-
-    tsReachDay(tsIso(target), 6);
-  }
-
-  // Amène ce jour en haut du cadre, en chargeant d'abord autant de tranches
-  // que nécessaire s'il est plus ancien que tout ce qui est déjà là. `budget`
-  // borne le nombre de chargements enchaînés : sans lui, un saut vers une
-  // date très ancienne pourrait déclencher une cascade de requêtes.
-  function tsReachDay(isoDate, budget) {
-    if (tsDays.length && isoDate < tsDays[0].isoDate && tsHasMoreBefore && budget > 0) {
-      tsLoadOlder(function () { tsReachDay(isoDate, budget - 1); });
-      return;
-    }
-    tsScrollToDay(isoDate);
-  }
-
-  // Hauteur de la ligne d'heures figée en haut — le jour "en haut du cadre"
-  // est celui qui commence juste en dessous d'elle, pas sous le bord du cadre.
-  function tsHeaderHeight() {
-    var corner = $('tsGrid').querySelector('.tsCorner');
-    return corner ? corner.getBoundingClientRect().height : 0;
-  }
-
-  // Amène la ligne de ce jour (ou la plus proche disponible) en haut du cadre.
-  // Calculs en coordonnées écran (getBoundingClientRect) plutôt qu'en
-  // offsetTop : indépendant de l'élément positionné de référence, donc
-  // insensible au fait que .tsDayLabel soit en position: sticky.
-  function tsScrollToDay(isoDate) {
-    var box = tsScrollBox();
-    if (!box || !tsDays.length) return;
-    var index = -1;
-    for (var i = 0; i < tsDays.length; i++) {
-      if (tsDays[i].isoDate >= isoDate) { index = i; break; }
-    }
-    if (index === -1) index = tsDays.length - 1;
-    var row = $('tsGrid').querySelector('.tsDayLabel[data-ts-day="' + tsDays[index].isoDate + '"]');
-    if (!row) return;
-    box.scrollTop += row.getBoundingClientRect().top - box.getBoundingClientRect().top - tsHeaderHeight();
-    tsOnViewportChanged();
-  }
-
+  // Ont donc été RETIRÉS (livrés plus tôt dans la journée, tous annulés) :
+  // le défilement vertical et son chargement progressif vers le passé
+  // (`tsDays`, `tsLoadOlder`, tranches de 30 jours), le cadre de hauteur fixe
+  // à 7 lignes, le verrouillage d'axe et l'avance par à-coups d'une journée,
+  // la sélection préalable de la section (classe `tsActive` + liséré violet),
+  // la ligne d'heures figée en haut, et le calcul du camembert sur les seuls
+  // jours visibles. Côté serveur, `timesheetRangeForUser` et les paramètres
+  // `endDate`/`days`/`breakdownFrom`/`breakdownTo` de `GET /stats/timesheet`
+  // ont disparu avec eux.
+  //
+  // A été GARDÉ, et c'est le seul écart avec l'état d'avant : la semaine
+  // affichée est une VRAIE semaine calendaire, du lundi au dimanche. C'est
+  // `timesheetForUser` (server/lib/stats.js) qui le porte — elle utilisait
+  // depuis le matin une fenêtre glissante de 7 jours se terminant sur
+  // aujourd'hui. Conséquence assumée, signalée à Emilien : en début de
+  // semaine, la semaine en cours contient forcément des jours à venir, donc
+  // vides. C'était précisément ce que la fenêtre glissante évitait — mais
+  // Emilien préfère des semaines lundi→dimanche lisibles d'un coup d'œil.
+  //
+  // Le camembert de la Répartition redevient alimenté par la réponse de cette
+  // même requête (`renderPieFromTimesheet(data)`), exactement comme cette
+  // discussion l'avait conçu : les jours affichés et les jours visibles sont
+  // de nouveau la même chose, il n'y a plus rien à recalculer au défilement.
+  //
+  // Ces deux flèches naviguent en semaines ou en mois selon la période
+  // choisie dans le menu "⋮" (currentTimesheetPeriod) : mêmes boutons, mêmes
+  // ids, comportement adapté à la vue affichée.
   $('tsPrevWeek').addEventListener('click', function () {
-    if (currentTimesheetPeriod === 'month') { currentTimesheetMonthOffset += 1; loadTimesheet(); return; }
-    tsJumpWeek(-1);
+    if (currentTimesheetPeriod === 'month') currentTimesheetMonthOffset += 1;
+    else currentTimesheetOffset += 1;
+    loadTimesheet();
   });
   $('tsNextWeek').addEventListener('click', function () {
     if (currentTimesheetPeriod === 'month') {
       if (currentTimesheetMonthOffset === 0) return;
       currentTimesheetMonthOffset -= 1;
-      loadTimesheet();
-      return;
+    } else {
+      if (currentTimesheetOffset === 0) return;
+      currentTimesheetOffset -= 1;
     }
-    tsJumpWeek(1);
+    loadTimesheet();
   });
 
-  // ----- Défilement vertical de la liste de jours -----
-  // Deux effets, volontairement séparés :
-  //   1. arrivé près du haut, on charge la tranche de jours précédente ;
-  //   2. à chaque arrêt du défilement, on met à jour le libellé (semaine
-  //      calendaire en haut du cadre) et le camembert (jours visibles).
-  // L'anti-rebond du point 2 évite une requête par pixel parcouru : seul
-  // l'arrêt compte.
-  // ⚠️ Réécrit le 1er septembre 2026 (~20h45 UTC) — quatre précisions
-  // d'Emilien sur le défilement livré une heure plus tôt :
-  //   « la feuille de temps ne permette de montrer qu'une semaine à la fois,
-  //     sept jours »
-  //   « on puisse défiler de haut en bas uniquement après avoir sélectionné
-  //     la section feuille de temps »
-  //   « on puisse bouger de haut en bas ou de gauche à droite, mais jamais en
-  //     diagonale »
-  //   « lorsque l'on défile de haut en bas, cela se fasse par à-coups de
-  //     journée complète. L'arrêt doit se faire net, du premier jour au
-  //     septième jour, sans mettre des moitiés de jour »
-  //
-  // Ces quatre points ne peuvent pas être obtenus par le défilement natif :
-  //   - `scroll-snap-type: y mandatory` (CSS) snappe bien à la journée, mais
-  //     ne verrouille pas les axes — un doigt en diagonale déplace les deux.
-  //   - `touch-action` ne sait pas exprimer « un seul axe, celui du geste » :
-  //     sa valeur est lue au DÉBUT du geste, quand la direction est encore
-  //     inconnue.
-  // D'où le partage suivant, qui garde le natif partout où il suffit :
-  //   - HORIZONTAL : natif (`overflow-x: auto`), inchangé — c'est ce
-  //     qu'Emilien voulait garder « comme c'est déjà le cas », inertie
-  //     comprise.
-  //   - VERTICAL : `overflow-y: hidden` côté CSS, et c'est ce code qui pilote
-  //     `scrollTop`. On ne touche donc au vertical que si on l'a décidé.
-  // Le verrouillage d'axe tombe alors tout seul : au premier mouvement franc
-  // du doigt on décide de l'axe dominant ; si c'est le vertical on appelle
-  // `preventDefault()` (ce qui gèle le défilement horizontal natif ET celui
-  // de la page) et on déplace nous-mêmes ; si c'est l'horizontal on ne fait
-  // rien du tout et le natif s'en charge, le vertical étant de toute façon
-  // impossible. Aucune diagonale n'est représentable.
-  var TS_SWIPE_THRESHOLD = 8; // px avant de trancher l'axe du geste
-  // Renseignée par setupTimesheetScroll ci-dessous ; appelée après un
-  // chargement de tranche, qui décale le contenu et peut laisser le cadre
-  // entre deux journées. Déclarée AVANT l'IIFE : un `var` placé après aurait
-  // été hoisté puis RÉASSIGNÉ à null juste après l'affectation.
-  var tsSnapAlign = null;
-  (function setupTimesheetScroll() {
-    var box = tsScrollBox();
-    if (!box) return;
-
-    // --- Sélection de la section (prérequis au défilement vertical) ---
-    // Tant que la Feuille de temps n'a pas été touchée, un glissement
-    // vertical fait défiler la PAGE normalement : la grille ne capture pas le
-    // geste. C'est exactement la demande d'Emilien, et ça règle au passage la
-    // gêne classique d'un cadre défilant au milieu d'une page sur téléphone.
-    document.addEventListener('pointerdown', function (e) {
-      var block = $('statsTimesheetBlock');
-      if (!block) return;
-      block.classList.toggle('tsActive', block.contains(e.target));
-    }, true);
-
-    function tsActive() {
-      var block = $('statsTimesheetBlock');
-      return !!block && block.classList.contains('tsActive') && currentTimesheetPeriod === 'week';
-    }
-
-    // Hauteur d'une ligne de jour, gouttière comprise — mesurée sur le DOM
-    // réel plutôt que codée en dur, pour rester juste si Design change
-    // `grid-auto-rows` ou `gap` dans .timesheetGrid.
-    function tsRowStep() {
-      var rows = $('tsGrid').querySelectorAll('.tsDayLabel');
-      if (rows.length < 2) return rows.length ? rows[0].getBoundingClientRect().height + 1 : 23;
-      return rows[1].getBoundingClientRect().top - rows[0].getBoundingClientRect().top;
-    }
-
-    // Déplacement vertical d'un nombre entier de journées, avec arrêt net sur
-    // une frontière de jour : c'est le « par à-coups de journée complète,
-    // sans moitiés de jour ». On vise toujours un multiple exact du pas de
-    // ligne, jamais une position intermédiaire.
-    function tsStepDays(n) {
-      var step = tsRowStep();
-      var current = Math.round(box.scrollTop / step);
-      var target = Math.max(0, current + n) * step;
-      var max = box.scrollHeight - box.clientHeight;
-      // Affectation directe plutôt que scrollTo({behavior:'smooth'}) : une
-      // animation de défilement en cours entrait en conflit avec un geste
-      // horizontal de l'utilisateur (bug des « sauts de jours » signalé le
-      // 1er septembre). En prime, l'à-coup est plus net, ce qui est ce
-      // qu'Emilien demande.
-      box.scrollTop = Math.min(target, max);
-      tsAfterVerticalMove();
-    }
-
-    // Recale sur la frontière de jour la plus proche — filet de sécurité si
-    // quoi que ce soit (chargement d'une tranche, changement de taille de
-    // police, rotation) laisse le cadre à cheval sur deux journées.
-    function tsSnapToDay() {
-      var step = tsRowStep();
-      var snapped = Math.round(box.scrollTop / step) * step;
-      var max = box.scrollHeight - box.clientHeight;
-      snapped = Math.max(0, Math.min(snapped, max));
-      if (Math.abs(snapped - box.scrollTop) > 0.5) box.scrollTop = snapped;
-    }
-    tsSnapAlign = tsSnapToDay;
-
-    function tsAfterVerticalMove() {
-      if (box.scrollTop < tsRowStep() * 1.5) tsLoadOlder();
-      if (tsPieTimer) clearTimeout(tsPieTimer);
-      tsPieTimer = setTimeout(tsOnViewportChanged, 160);
-    }
-
-    // --- Geste tactile, axe verrouillé ---
-    var startX = 0, startY = 0, axis = null, movedDays = 0, baseTop = 0;
-    box.addEventListener('touchstart', function (e) {
-      if (!tsActive() || e.touches.length !== 1) { axis = null; return; }
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      axis = null; movedDays = 0; baseTop = box.scrollTop;
-    }, { passive: true });
-
-    box.addEventListener('touchmove', function (e) {
-      if (!tsActive() || e.touches.length !== 1) return;
-      var dx = e.touches[0].clientX - startX;
-      var dy = e.touches[0].clientY - startY;
-      if (axis === null) {
-        if (Math.abs(dx) < TS_SWIPE_THRESHOLD && Math.abs(dy) < TS_SWIPE_THRESHOLD) return;
-        axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-      }
-      if (axis !== 'y') return; // horizontal : on laisse faire le natif
-      // Vertical : on gèle tout le reste et on suit le doigt, journée par
-      // journée. Le doigt vers le haut fait descendre dans la liste.
-      e.preventDefault();
-      var step = tsRowStep();
-      var wanted = -Math.round(dy / step);
-      if (wanted !== movedDays) {
-        movedDays = wanted;
-        var max = box.scrollHeight - box.clientHeight;
-        box.scrollTop = Math.max(0, Math.min(baseTop + movedDays * step, max));
-      }
-    }, { passive: false });
-
-    box.addEventListener('touchend', function () {
-      if (axis === 'y') { tsSnapToDay(); tsAfterVerticalMove(); }
-      axis = null;
-    }, { passive: true });
-
-    // --- Molette / trackpad, même verrouillage d'axe ---
-    box.addEventListener('wheel', function (e) {
-      if (!tsActive()) return;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // horizontal : natif
-      e.preventDefault();
-      tsStepDays(e.deltaY > 0 ? 1 : -1);
-    }, { passive: false });
-
-    // Le défilement horizontal natif continue d'alimenter le libellé et le
-    // camembert (il ne change pas les jours visibles, mais l'événement sert
-    // aussi de filet après un chargement de tranche).
-    box.addEventListener('scroll', function () {
-      if (currentTimesheetPeriod !== 'week') return;
-      if (tsPieTimer) clearTimeout(tsPieTimer);
-      tsPieTimer = setTimeout(tsOnViewportChanged, 180);
-    });
-  })();
-
-  // Jours dont la ligne est (au moins partiellement) dans le cadre, sous la
-  // ligne d'heures figée. Une seule fonction pour les deux besoins : le
-  // libellé n'a besoin que du premier, le camembert des deux bornes.
-  function tsVisibleDays() {
-    var box = tsScrollBox();
-    if (!box || !tsDays.length) return null;
-    var rows = $('tsGrid').querySelectorAll('.tsDayLabel');
-    if (!rows.length) return null;
-    var boxRect = box.getBoundingClientRect();
-    var top = boxRect.top + tsHeaderHeight();
-    var bottom = boxRect.bottom;
-    var first = null, last = null;
-    for (var i = 0; i < rows.length; i++) {
-      var r = rows[i].getBoundingClientRect();
-      // Un jour compte comme visible s'il est à MOITIÉ au moins dans le cadre.
-      // Le simple chevauchement (r.bottom > top) ne suffit pas : la ligne qui
-      // passe sous la ligne d'heures figée reste techniquement "à cheval" sur
-      // la limite alors qu'elle est entièrement masquée — elle faisait alors
-      // annoncer au libellé la semaine PRÉCÉDENTE (constaté sur capture).
-      var covered = Math.min(r.bottom, bottom) - Math.max(r.top, top);
-      if (covered >= r.height / 2) {
-        if (!first) first = rows[i].getAttribute('data-ts-day');
-        last = rows[i].getAttribute('data-ts-day');
-      }
-    }
-    if (!first) return null;
-    return { from: first, to: last };
-  }
-
-  function tsFirstVisibleDay() {
-    var v = tsVisibleDays();
-    if (v) return { isoDate: v.from };
-    if (tsDays.length) return { isoDate: tsDays[tsDays.length - 1].isoDate };
-    return null;
-  }
-
-  function tsVisibleRange() { return tsVisibleDays(); }
-
-  // Libellé = semaine calendaire (lundi→dimanche) du jour en haut du cadre,
-  // conformément à ce qu'Emilien a confirmé. Réutilise la formulation
-  // française existante « Semaine du X au Y », déjà traduite dans i18n.js.
-  function tsUpdateWeekLabel() {
-    var anchor = tsFirstVisibleDay();
-    if (!anchor) return;
-    var monday = tsMondayOf(anchor.isoDate);
-    var sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-    var today = new Date(); today.setHours(0, 0, 0, 0);
-    var isCurrent = today >= monday && today <= sunday;
-    $('tsWeekLabel').textContent = t('Semaine du ' + tsDayMonth(monday) + ' au ' + tsDayMonth(sunday))
-      + (isCurrent ? t(' (en cours)') : '');
-    $('tsNextWeek').disabled = isCurrent;
-    $('tsPrevWeek').disabled = !tsHasMoreBefore && tsDays.length > 0 && tsMondayOf(tsDays[0].isoDate) >= monday;
-  }
-
-  // Camembert : une requête légère qui ne renvoie QUE la répartition des
-  // jours visibles (voir la branche breakdownFrom/breakdownTo dans
-  // server/routes/stats.js). La réponse a exactement la forme que
-  // renderPieFromTimesheet (zone Répartition) consomme déjà — aucune ligne de
-  // sa fonction n'est modifiée.
-  var tsLastPieRange = '';
-  function tsUpdatePie() {
-    var range = tsVisibleRange();
-    if (!range || !profile) return;
-    var key = range.from + '>' + range.to;
-    if (key === tsLastPieRange) return; // rien de neuf à l'écran
-    tsLastPieRange = key;
-    api('GET', '/api/stats/timesheet?userId=' + profile.id
-      + '&breakdownFrom=' + range.from + '&breakdownTo=' + range.to)
-      .then(renderPieFromTimesheet)
-      .catch(function () { /* le camembert garde son état précédent */ });
-  }
-
-  function tsOnViewportChanged() {
-    if (currentTimesheetPeriod !== 'week') return;
-    tsUpdateWeekLabel();
-    tsUpdatePie();
-  }
-
-  // Dispatch selon la période choisie : "Semaine" (heatmap 15 min, inchangée)
-  // ou "Mois" (calendrier 2h, ajouté le 30 août 2026 — voir renderTimesheetMonth).
+  // Dispatch selon la période choisie : "Semaine" (heatmap 15 min) ou "Mois"
+  // (calendrier 2h, voir renderTimesheetMonth).
   // ⚠️ 1er septembre 2026 (discussion Répartition, débordement autorisé par
   // Emilien sur cette fonction qui appartient à la Feuille de temps) : la
-  // même réponse alimente maintenant aussi le camembert, via
-  // renderPieFromTimesheet. Deux lignes ajoutées, aucune logique de la
-  // Feuille de temps modifiée — renderTimesheetWeek/renderTimesheetMonth
-  // sont appelées exactement comme avant, avec les mêmes données.
+  // même réponse alimente aussi le camembert, via renderPieFromTimesheet.
+  // Deux lignes, aucune logique de la Feuille de temps modifiée.
   function loadTimesheet() {
     if (!profile) return;
-    var box = tsScrollBox();
     if (currentTimesheetPeriod === 'month') {
-      // La vue "Mois" est strictement inchangée : pas de défilement vertical
-      // (demande d'Emilien : « que pour le mode semaine »), et son camembert
-      // vient toujours de la réponse elle-même, comme l'a conçu Répartition.
-      if (box) box.classList.remove('tsWeekScroll');
-      // La sélection ne vaut que pour la vue Semaine (c'est elle seule qui
-      // capture le geste vertical) : on la retire en passant en vue Mois,
-      // sinon le liseré violet resterait allumé sans rien piloter.
-      $('statsTimesheetBlock').classList.remove('tsActive');
       api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset).then(function (data) {
         renderTimesheetMonth(data);
         renderPieFromTimesheet(data);
       });
-      return;
+    } else {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset).then(function (data) {
+        renderTimesheetWeek(data);
+        renderPieFromTimesheet(data);
+      });
     }
-
-    if (box) box.classList.add('tsWeekScroll');
-    tsDays = [];
-    tsHasMoreBefore = false;
-    tsLastPieRange = '';
-    api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&days=' + TS_CHUNK_DAYS).then(function (data) {
-      tsDays = data.days || [];
-      tsHasMoreBefore = !!data.hasMoreBefore;
-      renderTimesheetWeek();
-      // Ouverture EN BAS : aujourd'hui est la dernière ligne, c'est elle
-      // qu'Emilien veut voir en arrivant (confirmé explicitement).
-      var b = tsScrollBox();
-      if (b) b.scrollTop = b.scrollHeight;
-      tsOnViewportChanged();
-    });
   }
 
-  // Charge la tranche de jours précédant le plus ancien déjà affiché, puis
-  // l'INSÈRE en tête de la grille — sans reconstruire les lignes existantes.
-  //
-  // ⚠️ Correctif du 1er septembre 2026 (~21h30 UTC), bug signalé par Emilien :
-  // « quand je passe de droite à gauche après avoir fait de bas en haut, les
-  // données s'effacent et je saute des jours ». Cause exacte : la première
-  // version appelait `renderTimesheetWeek()`, qui réécrit `#tsGrid.innerHTML`
-  // en entier. Remplacer le contenu d'un conteneur défilant remet **les deux**
-  // positions de défilement à zéro ; on restaurait `scrollTop` mais pas
-  // `scrollLeft`. Un chargement déclenché pendant (ou juste avant) un
-  // défilement horizontal ramenait donc brutalement la grille sur 0h — d'où
-  // l'impression que « les données s'effacent » — et la restauration verticale
-  // par-dessus le geste en cours donnait les sauts de jours.
-  //
-  // On n'écrase donc plus rien : seules les nouvelles lignes sont construites
-  // et insérées avant la première ligne de jour existante. `scrollLeft` n'est
-  // jamais touché (l'insertion se fait au-dessus, pas à gauche), et
-  // `scrollTop` n'a qu'à être décalé de la hauteur exactement ajoutée pour que
-  // la ligne sous les yeux ne bouge pas d'un pixel.
-  function tsLoadOlder(done) {
-    if (tsLoadingMore || !tsHasMoreBefore || !tsDays.length || !profile) {
-      if (done) done();
-      return;
+  function renderTimesheetWeek(data) {
+    $('tsGrid').classList.remove('hidden');
+    $('tsCalendar').classList.add('hidden');
+    // Marque le cadre défilant comme étant en vue "Semaine" : styles.css s'en
+    // sert pour coller la colonne des jours au bord gauche (voir
+    // .tsWeekScroll là-bas). La classe est portée par le conteneur et non par
+    // la grille parce que c'est son padding gauche qu'il faut annuler. Le
+    // même conteneur sert aux deux vues, d'où le retrait symétrique dans
+    // renderTimesheetMonth.
+    $('tsGrid').parentNode.classList.add('tsWeekScroll');
+
+    $('tsWeekLabel').textContent = t(data.label) + (data.isCurrentWeek ? t(' (en cours)') : '');
+    $('tsNextWeek').disabled = data.isCurrentWeek;
+    $('tsPrevWeek').disabled = !data.hasMoreBefore;
+
+    var hasAnyEntry = data.days.some(function (day) { return day.slots.some(function (s) { return !!s; }); });
+    $('tsEmptyHint').classList.toggle('hidden', hasAnyEntry);
+
+    var html = '<div class="tsCorner"></div>';
+    for (var h = 0; h < 24; h++) {
+      html += '<div class="tsHourLabel" style="grid-column: span 4;">' + h + 'h</div>';
     }
-    tsLoadingMore = true;
-    var before = new Date(tsDays[0].isoDate + 'T00:00:00');
-    before.setDate(before.getDate() - 1);
-    api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&days=' + TS_CHUNK_DAYS
-      + '&endDate=' + tsIso(before))
-      .then(function (data) {
-        var fresh = data.days || [];
-        var box = tsScrollBox();
-        var grid = $('tsGrid');
-        if (fresh.length && grid) {
-          var heightBefore = grid.scrollHeight;
-          var scrollBefore = box ? box.scrollTop : 0;
 
-          var tpl = document.createElement('template');
-          tpl.innerHTML = tsDayRowsHtml(fresh);
-          var firstDayRow = grid.querySelector('.tsDayLabel');
-          grid.insertBefore(tpl.content, firstDayRow); // null => ajoute à la fin
-
-          tsDays = fresh.concat(tsDays);
-          if (box) box.scrollTop = scrollBefore + (grid.scrollHeight - heightBefore);
-          $('tsEmptyHint').classList.add('hidden');
-        }
-        tsHasMoreBefore = !!data.hasMoreBefore;
-        // Filet : l'insertion porte sur un nombre entier de lignes, mais un
-        // arrondi de sous-pixel suffirait à laisser le cadre à cheval sur deux
-        // journées.
-        if (tsSnapAlign) tsSnapAlign();
-        tsLoadingMore = false;
-        tsUpdateWeekLabel();
-        if (done) done();
-      })
-      .catch(function () { tsLoadingMore = false; if (done) done(); });
-  }
-
-  // Lignes de jours seules (une ligne = un libellé figé + 96 créneaux d'un
-  // quart d'heure). Extraites de renderTimesheetWeek pour que le chargement
-  // d'une tranche puisse les insérer sans toucher au reste de la grille.
-  function tsDayRowsHtml(days) {
-    var html = '';
-    days.forEach(function (day) {
+    data.days.forEach(function (day) {
       var dateObj = new Date(day.isoDate + 'T00:00:00');
-      html += '<div class="tsDayLabel" data-ts-day="' + day.isoDate + '">' + t(day.dayOfWeek).slice(0, 3) + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1) + '</div>';
+      html += '<div class="tsDayLabel">' + t(day.dayOfWeek).slice(0, 3) + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1) + '</div>';
       day.slots.forEach(function (slot, i) {
         var slotLabel = pad(Math.floor(i / 4)) + ':' + pad((i % 4) * 15);
         if (slot) {
@@ -2412,24 +2060,6 @@
         }
       });
     });
-    return html;
-  }
-
-  // Rend la liste complète des jours chargés. Le libellé, les flèches et le
-  // camembert ne sont plus pilotés ici (ils dépendent de ce qui est VISIBLE,
-  // pas de ce qui est chargé) — voir tsOnViewportChanged.
-  function renderTimesheetWeek() {
-    $('tsGrid').classList.remove('hidden');
-    $('tsCalendar').classList.add('hidden');
-
-    var hasAnyEntry = tsDays.some(function (day) { return day.slots.some(function (s) { return !!s; }); });
-    $('tsEmptyHint').classList.toggle('hidden', hasAnyEntry);
-
-    var html = '<div class="tsCorner"></div>';
-    for (var h = 0; h < 24; h++) {
-      html += '<div class="tsHourLabel" style="grid-column: span 4;">' + h + 'h</div>';
-    }
-    html += tsDayRowsHtml(tsDays);
 
     $('tsGrid').innerHTML = html;
   }
@@ -2448,6 +2078,9 @@
   function renderTimesheetMonth(data) {
     $('tsCalendar').classList.remove('hidden');
     $('tsGrid').classList.add('hidden');
+    // Voir renderTimesheetWeek : la vue "Mois" garde le padding d'origine du
+    // cadre (son calendrier a sa propre colonne figée, .tsCalWeekLabel).
+    $('tsGrid').parentNode.classList.remove('tsWeekScroll');
 
     $('tsWeekLabel').textContent = t(data.label) + (data.isCurrentMonth ? t(' (en cours)') : '');
     $('tsNextWeek').disabled = data.isCurrentMonth;
@@ -2502,36 +2135,22 @@
   // (loadFollowRequests) restent chargées depuis Profil, pas ici.
   function loadCommunity() {
     if (!profile) return;
+    // 2 septembre 2026 : l'onglet ne s'ouvre plus sur une zone de recherche
+    // vide. La saisie et les filtres sont remis à zéro (comme avant pour la
+    // saisie), puis la liste d'exploration est chargée — voir
+    // loadCommunityDiscovery plus haut.
     $('communitySearchInput').value = '';
+    communitySeekingFilter.length = 0;
+    buildCommunitySeekingFilters();
     $('communitySearchResults').innerHTML = '';
+    loadCommunityDiscovery();
     // Zone "écrire à sa communauté" (#communityMyPostsBlock, 1er septembre
     // 2026) : voir mountProfilePostsComposer, plus bas dans ce fichier —
     // communityDiscussionComposer est la seconde instance, celle du Profil
     // (profileDiscussionComposer) restant inchangée.
     communityDiscussionComposer.reset();
     loadFollowingFeed();
-    // Barre de recherche sticky (#communitySearchBar, 2 septembre 2026) :
-    // recalculée à chaque ouverture de l'onglet, voir la fonction plus bas.
-    syncCommunitySearchStickyOffset();
   }
-
-  // Hauteur réelle de .topbar (Design, styles.css), pour caler la barre de
-  // recherche de #tab-community juste en dessous d'elle en position: sticky
-  // (#communitySearchBar, styles.css) — demande d'Emilien du 2 septembre
-  // 2026. Mesurée en JS plutôt que codée en dur : .topbar grandit sur les
-  // téléphones à encoche (env(safe-area-inset-top)), un décalage fixe
-  // aurait laissé un espace ou un chevauchement selon les appareils. Lit
-  // seulement la hauteur rendue de .topbar, n'en modifie aucune règle
-  // (propriété de Design). Appelée à l'ouverture de l'onglet Communauté
-  // (loadCommunity) et sur resize/orientationchange (rotation, barre
-  // d'adresse mobile qui apparaît/disparaît) — voir les écouteurs plus bas.
-  function syncCommunitySearchStickyOffset() {
-    var bar = document.querySelector('.topbar');
-    if (!bar) return;
-    document.documentElement.style.setProperty('--topbar-h', bar.getBoundingClientRect().height + 'px');
-  }
-  window.addEventListener('resize', syncCommunitySearchStickyOffset);
-  window.addEventListener('orientationchange', syncCommunitySearchStickyOffset);
 
   // ----- Activité sélectionnée dans l'onglet Activité -----
   // Depuis le 30 août 2026 (fin de journée), il n'y a plus qu'UNE liste
@@ -3230,15 +2849,70 @@
   // quelqu'un ne donne accès à aucune de ses activités partagées, et
   // partager une activité avec quelqu'un ne le fait pas suivre.
 
+  // ----- Découverte de membres (2 septembre 2026, demande d'Emilien) -----
+  // Un seul chemin de chargement pour les trois cas — texte saisi, filtres
+  // "Recherche" actifs, ou rien du tout : c'est le serveur qui décide quoi
+  // renvoyer (voir GET /api/users/search, server/routes/follows.js). Sans
+  // aucun critère, la liste n'est plus vide mais devient une sélection de
+  // profils à découvrir, d'où le message d'accompagnement qui change.
   var communitySearchDebounce = null;
+  var communitySeekingFilter = []; // clés de SEEKING_TAGS, modifiées en place par le sélecteur
+
+  function loadCommunityDiscovery() {
+    if (!profile) return;
+    var q = $('communitySearchInput').value.trim();
+    var url = '/api/users/search?userId=' + profile.id +
+      '&q=' + encodeURIComponent(q) +
+      '&seeking=' + encodeURIComponent(communitySeekingFilter.join(','));
+    var isDiscovery = !q && communitySeekingFilter.length === 0;
+    api('GET', url).then(function (list) {
+      $('communityDiscoverHint').classList.toggle('hidden', !isDiscovery || list.length === 0);
+      renderSearchResults(list);
+    });
+  }
+
+  // ⚠️ Appelée depuis loadCommunity() (ouverture de l'onglet), JAMAIS au
+  // chargement du script : renderSeekingPicker lit SEEKING_TAGS, déclaré
+  // (var) bien plus bas dans ce fichier — donc encore `undefined` au moment
+  // où ces lignes-ci s'exécutent. La fonction, elle, est bien hoistée ; c'est
+  // la donnée qui ne l'est pas. Reconstruire le sélecteur à chaque ouverture
+  // le remet aussi visuellement à zéro en même temps que le tableau de
+  // filtres, sans avoir à gérer d'état d'affichage à part.
+  function buildCommunitySeekingFilters() {
+    renderSeekingPicker($('communitySeekingFilters'), communitySeekingFilter, function () {
+      // Un filtre se déclenche immédiatement : pas de debounce ici, ce n'est
+      // pas de la frappe (un clic = une intention nette, pas une saisie en
+      // cours), contrairement au champ texte ci-dessous.
+      clearTimeout(communitySearchDebounce);
+      loadCommunityDiscovery();
+    });
+  }
+
   $('communitySearchInput').addEventListener('input', function () {
     clearTimeout(communitySearchDebounce);
-    var q = $('communitySearchInput').value.trim();
-    if (!q) { $('communitySearchResults').innerHTML = ''; return; }
-    communitySearchDebounce = setTimeout(function () {
-      api('GET', '/api/users/search?userId=' + profile.id + '&q=' + encodeURIComponent(q)).then(renderSearchResults);
-    }, 250);
+    communitySearchDebounce = setTimeout(loadCommunityDiscovery, 250);
   });
+
+  // Petite pastille d'identité : la photo de profil si elle existe, sinon
+  // l'initiale sur fond de la couleur du profil — même repli que
+  // #avatarDisplayInitial sur son propre profil (voir renderIdentity plus
+  // bas), en plus petit et sans aucune interaction. Utilisée par les lignes
+  // de découverte de Communauté et par l'en-tête de la page de visite.
+  function buildSmallAvatar(avatar, name, color) {
+    var el = document.createElement('span');
+    el.className = 'smallAvatar';
+    if (avatar) {
+      var img = document.createElement('img');
+      img.src = avatar;
+      img.alt = '';
+      el.appendChild(img);
+      el.style.background = 'transparent';
+    } else {
+      el.textContent = name ? name.trim().charAt(0).toUpperCase() : '?';
+      el.style.background = color || 'var(--purple)';
+    }
+    return el;
+  }
 
   function renderSearchResults(list) {
     var box = $('communitySearchResults');
@@ -3251,19 +2925,44 @@
       var row = document.createElement('div');
       row.className = 'activityRow';
 
-      var label = document.createElement('p');
-      label.className = 'meta';
-      label.innerHTML = '<span class="dot" style="background:' + u.color + '"></span> ' + escapeHtml(u.name);
-      // Clic sur le nom (pas sur les boutons Suivre/Se désabonner ci-dessous,
-      // des éléments distincts) : ouvre la page de visite de son profil —
-      // voir openProfileViewModal, section "PAGE DE VISITE DE PROFIL" plus
-      // haut. Uniquement si le suivi est accepté : c'est la seule condition
-      // qui donne accès aux projets côté serveur (canViewProjects), pas la
-      // peine de proposer un clic qui mènerait juste à un message d'erreur.
-      if (u.followStatus === 'accepted') {
-        label.style.cursor = 'pointer';
-        label.addEventListener('click', function () { openProfileViewModal(u.id, u.name, u.color); });
-      }
+      // ⚠️ 2 septembre 2026 : la ligne ne portait qu'une pastille de couleur
+      // et un nom. Elle porte désormais la photo de profil, le nombre de
+      // projets et les badges "Recherche" — c'est ce qui fait la différence
+      // entre une liste de pseudos et une vraie liste de découverte : on
+      // peut décider d'ouvrir un profil sans l'avoir ouvert.
+      var label = document.createElement('div');
+      label.className = 'discoverRow';
+      label.appendChild(buildSmallAvatar(u.avatar, u.name, u.color));
+
+      var textWrap = document.createElement('div');
+      textWrap.className = 'discoverRowText';
+      var nameEl = document.createElement('span');
+      nameEl.className = 'discoverRowName';
+      nameEl.textContent = u.name;
+      textWrap.appendChild(nameEl);
+
+      var subLine = document.createElement('span');
+      subLine.className = 'meta';
+      subLine.textContent = u.projectsCount > 0
+        ? t('{n} projet(s)', { n: u.projectsCount })
+        : t('Aucun projet');
+      textWrap.appendChild(subLine);
+      label.appendChild(textWrap);
+
+      var badges = buildSeekingBadges(u.seeking, false);
+      if (badges) label.appendChild(badges);
+
+      // Clic sur la ligne d'identité (pas sur les boutons Suivre/Se
+      // désabonner ci-dessous, des éléments distincts) : ouvre la page de
+      // visite de son profil — voir openProfileViewModal, section "PAGE DE
+      // VISITE DE PROFIL" plus bas. ⚠️ 2 septembre 2026 : plus conditionné au
+      // suivi accepté. L'aperçu (identité, projets, statistiques) étant
+      // désormais public pour tout membre identifié (voir canViewProjects,
+      // server/routes/profile.js), le clic mène toujours à quelque chose —
+      // c'est même le geste central de la découverte : regarder un profil
+      // AVANT de décider de le suivre.
+      label.style.cursor = 'pointer';
+      label.addEventListener('click', function () { openProfileViewModal(u.id, u.name, u.color); });
       row.appendChild(label);
 
       var actionsWrap = document.createElement('div');
@@ -3417,15 +3116,17 @@
       label.className = 'meta';
       label.innerHTML = '<span class="dot" style="background:' + f.color + '"></span> ' + escapeHtml(f.name);
       // Clic sur le nom : ouvre la page de visite de son profil (voir
-      // openProfileViewModal, section "PAGE DE VISITE DE PROFIL" plus haut)
-      // — uniquement sur la liste "Abonnements" (actionable=true, on suit
-      // alors forcément cette personne : accès garanti côté serveur), pas
-      // sur "Abonnés" (actionable=false, ces personnes ME suivent, rien ne
-      // dit que je les suis en retour).
-      if (actionable) {
-        label.style.cursor = 'pointer';
-        label.addEventListener('click', function () { openProfileViewModal(f.userId, f.name, f.color); });
-      }
+      // openProfileViewModal, section "PAGE DE VISITE DE PROFIL" plus haut).
+      // ⚠️ 2 septembre 2026 : proposé désormais sur LES DEUX listes. Il ne
+      // l'était que sur "Abonnements" (actionable=true) parce qu'il fallait
+      // suivre quelqu'un pour voir quoi que ce soit de son profil — un clic
+      // sur un "Abonné" n'aurait mené qu'à un 403. L'aperçu (identité,
+      // projets, statistiques) étant maintenant public pour tout membre
+      // identifié (voir canViewProjects, server/routes/profile.js), ouvrir
+      // le profil de quelqu'un qui nous suit sans qu'on le suive en retour
+      // est même le cas le plus utile : c'est là qu'on décide de le suivre.
+      label.style.cursor = 'pointer';
+      label.addEventListener('click', function () { openProfileViewModal(f.userId, f.name, f.color); });
       row.appendChild(label);
 
       if (actionable) {
@@ -4191,7 +3892,13 @@
   // pas de callback ni de valeur de retour (plus simple qu'un vrai
   // composant contrôlé, suffisant ici : jamais plus de trois tags, jamais
   // reconstruit pendant qu'on interagit avec lui).
-  function renderSeekingPicker(containerEl, selected) {
+  // `onChange` (optionnel, ajouté le 2 septembre 2026) : appelé après chaque
+  // bascule de tag. Sans lui, le comportement est strictement celui d'avant
+  // — le formulaire de projet relit simplement `selected` au moment
+  // d'enregistrer. Avec lui, le même composant sert de barre de filtres à la
+  // découverte de Communauté (#communitySeekingFilters), qui doit relancer
+  // la recherche à chaque clic plutôt qu'attendre un bouton.
+  function renderSeekingPicker(containerEl, selected, onChange) {
     containerEl.innerHTML = '';
     SEEKING_TAGS.forEach(function (tag) {
       var btn = document.createElement('button');
@@ -4208,6 +3915,7 @@
         var idx = selected.indexOf(tag.key);
         if (idx === -1) selected.push(tag.key); else selected.splice(idx, 1);
         refresh();
+        if (onChange) onChange();
       });
       refresh();
       containerEl.appendChild(btn);
@@ -4517,25 +4225,296 @@
   });
 
   // ===================== PAGE DE VISITE DE PROFIL (#viewProfileModal) =====
-  // Voir le commentaire dans index.html, juste au-dessus de la modale. Pour
-  // l'instant n'affiche que la section Projets de la personne visitée, en
-  // lecture seule (aucun bouton d'édition/suppression/réordonnancement ici)
-  // — l'accès (abonné accepté ou soi-même) est vérifié côté serveur, ce
-  // panneau se contente d'afficher ce que le serveur a bien voulu renvoyer.
-  // Ouverte depuis renderNameOnlyList (Abonnés & Abonnements, ci-dessous)
-  // et renderSearchResults (recherche de Communauté, plus haut) au clic sur
-  // le NOM (jamais sur le bouton d'action de la ligne, un élément distinct
-  // du nom, donc jamais concerné par ce clic).
+  // Voir le commentaire dans index.html, juste au-dessus de la modale.
+  // Entièrement en LECTURE SEULE : aucun bouton d'édition, de suppression,
+  // de réordonnancement ni de pièce jointe ici — visiter un profil ne
+  // modifie jamais rien, ni chez le visiteur ni chez le visité.
+  //
+  // ⚠️ 2 septembre 2026 (demande d'Emilien) : ne montrait que les projets, et
+  // seulement à un abonné accepté. Montre désormais, dans l'ordre qu'il a
+  // fixé — identité, Projets, Statistiques (Répartition + Graphique
+  // seulement), Messages. Les trois premières sections sont un APERÇU PUBLIC
+  // (tout membre identifié), les messages restent réservés aux abonnés
+  // acceptés : c'est le serveur qui tranche (canViewProjects/canViewPosts
+  // dans server/routes/profile.js), ce panneau se contente d'afficher ce
+  // qu'il a bien voulu renvoyer, et `canSeePosts` lui évite d'appeler la
+  // route des messages juste pour se prendre un 403.
+  //
+  // Ouverte depuis renderNameOnlyList (Abonnés & Abonnements, ci-dessous) et
+  // renderSearchResults (découverte de Communauté, plus haut) au clic sur la
+  // ligne d'identité (jamais sur le bouton d'action de la ligne, un élément
+  // distinct, donc jamais concerné par ce clic).
+  var viewProfileUserId = null;        // profil actuellement visité (null = modale fermée)
+  var viewProfilePiePeriod = 'week';   // période propre au camembert de CETTE page
+  var viewProfileChartGranularity = 'day';
+
   function openProfileViewModal(userId, name, color) {
+    viewProfileUserId = userId;
+
+    // Remise à zéro complète : la modale est réutilisée d'un profil à
+    // l'autre, il ne doit jamais rester une miette du précédent affichée le
+    // temps que les réponses arrivent.
     $('viewProfileName').textContent = name;
     $('viewProfileDot').style.background = color || '#999';
+    $('viewProfileIdentityName').textContent = name;
+    $('viewProfileAvatarImg').classList.add('hidden');
+    $('viewProfileAvatarImg').removeAttribute('src');
+    $('viewProfileAvatarInitial').classList.remove('hidden');
+    $('viewProfileAvatarInitial').textContent = name ? name.trim().charAt(0).toUpperCase() : '?';
+    $('viewProfileAvatar').style.background = color || 'var(--purple)';
     $('viewProfileProjectsList').innerHTML = '';
     $('viewProfileProjectsEmptyHint').classList.add('hidden');
     $('viewProfileProjectsMsg').textContent = '';
+    $('viewProfilePie').innerHTML = '';
+    $('viewProfilePieEmptyHint').classList.add('hidden');
+    $('viewProfileStatsLabel').textContent = '';
+    $('viewProfileStatsTotal').textContent = '';
+    $('viewProfileChart').innerHTML = '';
+    $('viewProfileChartLegend').innerHTML = '';
+    $('viewProfileChartEmptyHint').classList.add('hidden');
+    $('viewProfilePostsList').innerHTML = '';
+    $('viewProfilePostsEmptyHint').classList.add('hidden');
+    $('viewProfilePostsLockedHint').classList.add('hidden');
+
+    // Période/granularité remises à leur valeur par défaut à chaque
+    // ouverture — même principe que l'onglet Statistiques, qui repart
+    // systématiquement sur la fenêtre en cours plutôt que de garder celle
+    // choisie la fois précédente sur un autre profil.
+    viewProfilePiePeriod = 'week';
+    viewProfileChartGranularity = 'day';
+    syncPeriodMenuActive($('viewProfilePiePeriodMenu'), viewProfilePiePeriod);
+    syncPeriodMenuActive($('viewProfileChartPeriodMenu'), viewProfileChartGranularity);
+
+    // Le contenu de la modale peut être long (projets + deux graphiques +
+    // messages) : on la rouvre toujours en haut, jamais là où le défilement
+    // du profil précédent s'était arrêté.
+    var card = $('viewProfileModal').querySelector('.communityMembersModalCard');
+    if (card) card.scrollTop = 0;
+
     $('viewProfileModal').classList.remove('hidden');
+
+    api('GET', '/api/profile/' + userId + '/public?viewerId=' + profile.id)
+      .then(function (card2) { renderViewProfileIdentity(card2); loadViewProfilePosts(card2.canSeePosts); })
+      .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
+
     api('GET', '/api/profile/' + userId + '/projects?viewerId=' + profile.id)
       .then(renderViewProfileProjects)
       .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
+
+    loadViewProfileStats();
+  }
+
+  function renderViewProfileIdentity(card) {
+    $('viewProfileName').textContent = card.name;
+    $('viewProfileIdentityName').textContent = card.name;
+    $('viewProfileDot').style.background = card.color || '#999';
+    if (card.avatar) {
+      $('viewProfileAvatarImg').src = card.avatar;
+      $('viewProfileAvatarImg').classList.remove('hidden');
+      $('viewProfileAvatarInitial').classList.add('hidden');
+      $('viewProfileAvatar').style.background = 'transparent';
+    } else {
+      $('viewProfileAvatarImg').classList.add('hidden');
+      $('viewProfileAvatarImg').removeAttribute('src');
+      $('viewProfileAvatarInitial').classList.remove('hidden');
+      $('viewProfileAvatarInitial').textContent = card.name ? card.name.trim().charAt(0).toUpperCase() : '?';
+      $('viewProfileAvatar').style.background = card.color || 'var(--purple)';
+    }
+  }
+
+  // ----- Statistiques du profil visité : Répartition + Graphique -----
+  // Un seul appel serveur pour les deux sections (GET /profile/:id/stats),
+  // comme l'onglet Statistiques le fait depuis que le camembert est alimenté
+  // par la réponse de la Feuille de temps : deux sections nourries par une
+  // même réponse ne peuvent pas diverger. Un changement de période ou de
+  // granularité recharge simplement l'ensemble — deux graphiques, c'est
+  // assez peu pour ne pas justifier deux routes.
+  function loadViewProfileStats() {
+    if (!viewProfileUserId || !profile) return;
+    var target = viewProfileUserId;
+    api('GET', '/api/profile/' + target + '/stats?viewerId=' + profile.id +
+        '&period=' + viewProfilePiePeriod + '&granularity=' + viewProfileChartGranularity)
+      .then(function (data) {
+        // La modale a pu être refermée (ou rouverte sur quelqu'un d'autre)
+        // pendant la requête : on ne dessine jamais les chiffres d'un profil
+        // dans la page d'un autre.
+        if (viewProfileUserId !== target) return;
+        var breakdown = data.breakdown || { totalSeconds: 0, activities: [] };
+        $('viewProfileStatsLabel').textContent = data.label ? t(data.label) : '';
+        $('viewProfileStatsTotal').textContent = formatHM(breakdown.totalSeconds);
+        renderPie(breakdown.activities || [], breakdown.totalSeconds, { wrap: 'viewProfilePie', emptyHint: 'viewProfilePieEmptyHint' });
+        renderViewProfileChart(data.chart || []);
+      })
+      .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
+  }
+
+  setupStatsPeriodMenu($('viewProfilePiePeriodBtn'), $('viewProfilePiePeriodMenu'), function (period) {
+    viewProfilePiePeriod = period;
+    loadViewProfileStats();
+  });
+  setupStatsPeriodMenu($('viewProfileChartPeriodBtn'), $('viewProfileChartPeriodMenu'), function (granularity) {
+    viewProfileChartGranularity = granularity;
+    loadViewProfileStats();
+  });
+
+  // Graphique de la page de visite — volontairement une version SIMPLE, et
+  // non un appel à renderChart (l'onglet Statistiques) :
+  //  - renderChart est couplée à l'état de zoom du Graphique (chartViewState,
+  //    chartUserZoomed, chartCurrentTotal, #chartZoomResetBtn, gestes de
+  //    pincement) et à son infobulle flottante (#chartTooltip,
+  //    #statsChartWrap). Le paramétrer pour deux conteneurs demanderait de
+  //    réécrire une fonction de 250 lignes qui appartient à une autre
+  //    discussion (Statistiques — Graphique) et qui a encore bougé ce jour ;
+  //  - un profil qu'on visite se lit, il ne s'explore pas au pincement : pas
+  //    de zoom ici, tous les points d'un coup, l'aire défile
+  //    horizontalement (.chartScroll) comme le Graphique le faisait avant
+  //    le zoom.
+  // Ce qui EST partagé l'est réellement : buildChartSeries (construction des
+  // séries) et dayChartLabel (étiquettes), tous deux déjà génériques et déjà
+  // partagés avec la Communauté.
+  function renderViewProfileChart(days) {
+    var box = $('viewProfileChart');
+    var legendBox = $('viewProfileChartLegend');
+    box.innerHTML = '';
+    legendBox.innerHTML = '';
+    var hasData = days && days.length > 0;
+    $('viewProfileChartEmptyHint').classList.toggle('hidden', hasData);
+    if (!hasData) return;
+
+    var sorted = days.slice().sort(function (a, b) { return a.isoDate < b.isoDate ? -1 : 1; });
+    var series = buildChartSeries(sorted);
+    var maxSeconds = sorted.reduce(function (m, d) { return Math.max(m, d.totalSeconds); }, 0) || 1;
+
+    var stepW = 56;
+    var width = Math.max(280, stepW * sorted.length);
+    var height = 160, padTop = 12, padBottom = 24, padSide = 8;
+    var plotH = height - padTop - padBottom;
+    var innerW = width - padSide * 2;
+    function xFor(i) { return padSide + (innerW / sorted.length) * (i + 0.5); }
+    function yFor(seconds) { return padTop + plotH - (seconds / maxSeconds) * plotH; }
+
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+    svg.setAttribute('class', 'chartSvg');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.width = width + 'px';
+    svg.style.height = height + 'px';
+
+    var baseline = document.createElementNS(svgNS, 'line');
+    baseline.setAttribute('x1', 0); baseline.setAttribute('x2', width);
+    baseline.setAttribute('y1', height - padBottom); baseline.setAttribute('y2', height - padBottom);
+    baseline.setAttribute('class', 'chartAxisLine');
+    svg.appendChild(baseline);
+
+    // Total dessiné en dernier, donc au-dessus des courbes d'activité :
+    // c'est la synthèse, elle doit rester lisible (même choix que renderChart).
+    var ordered = series.slice().sort(function (a, b) { return (a.isTotal ? 1 : 0) - (b.isTotal ? 1 : 0); });
+    ordered.forEach(function (s) {
+      var points = s.values.map(function (v, i) { return { x: xFor(i), y: yFor(v) }; });
+      var line = document.createElementNS(svgNS, 'path');
+      line.setAttribute('d', points.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p.x + ',' + p.y; }).join(' '));
+      line.setAttribute('class', 'chartLine' + (s.isTotal ? ' chartLineTotal' : ''));
+      line.style.stroke = s.color;
+      svg.appendChild(line);
+
+      points.forEach(function (p, i) {
+        var dot = document.createElementNS(svgNS, 'circle');
+        dot.setAttribute('cx', p.x); dot.setAttribute('cy', p.y); dot.setAttribute('r', 4);
+        dot.setAttribute('class', 'chartDot');
+        dot.style.fill = s.color;
+        // Pas d'infobulle flottante ici (voir plus haut) : un <title> SVG
+        // natif suffit, et fonctionne aussi en appui long sur mobile.
+        var title = document.createElementNS(svgNS, 'title');
+        title.textContent = dayChartLabel(sorted[i]) + ' — ' + s.name + ' : ' + formatHM(s.values[i]);
+        dot.appendChild(title);
+        svg.appendChild(dot);
+      });
+    });
+
+    sorted.forEach(function (d, i) {
+      var label = document.createElementNS(svgNS, 'text');
+      label.setAttribute('x', xFor(i)); label.setAttribute('y', height - 8);
+      label.setAttribute('class', 'chartAxisLabel');
+      label.setAttribute('text-anchor', 'middle');
+      label.textContent = dayChartLabel(d, true);
+      svg.appendChild(label);
+    });
+
+    box.appendChild(svg);
+
+    series.forEach(function (s) {
+      var row = document.createElement('div');
+      row.className = 'chartLegendRow' + (s.isTotal ? ' chartLegendTotal' : '');
+      var dot = document.createElement('span');
+      dot.className = 'chartLegendDot';
+      dot.style.background = s.color;
+      var label = document.createElement('span');
+      label.className = 'chartLegendLabel';
+      label.textContent = s.name;
+      row.appendChild(dot); row.appendChild(label);
+      legendBox.appendChild(row);
+    });
+  }
+
+  // ----- Messages "Communauté" du profil visité (abonnés acceptés) -----
+  // `allowed` vient de canSeePosts (GET /profile/:id/public) : quand l'accès
+  // n'est pas accordé, on n'appelle même pas la route — le serveur a déjà
+  // répondu, inutile de lui demander un 403 pour le plaisir.
+  function loadViewProfilePosts(allowed) {
+    if (!viewProfileUserId || !profile) return;
+    var target = viewProfileUserId;
+    if (!allowed) {
+      $('viewProfilePostsLockedHint').classList.remove('hidden');
+      $('viewProfilePostsEmptyHint').classList.add('hidden');
+      $('viewProfilePostsList').innerHTML = '';
+      return;
+    }
+    $('viewProfilePostsLockedHint').classList.add('hidden');
+    api('GET', '/api/profile/' + target + '/posts?viewerId=' + profile.id)
+      .then(function (list) {
+        if (viewProfileUserId !== target) return;
+        var box = $('viewProfilePostsList');
+        box.innerHTML = '';
+        $('viewProfilePostsEmptyHint').classList.toggle('hidden', list.length > 0);
+        list.forEach(function (post) { box.appendChild(buildViewProfilePostCard(post)); });
+        box.scrollTop = box.scrollHeight;
+      })
+      .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
+  }
+
+  // Carte d'un message en lecture seule — mêmes classes que le fil de son
+  // propre profil (.discussionMsg), sans le bouton de suppression ni le
+  // trombone, et avec des pièces jointes non supprimables
+  // (buildAttachmentRowReadOnly, déjà écrite pour le flux "Suivi").
+  function buildViewProfilePostCard(post) {
+    var card = document.createElement('div');
+    card.className = 'discussionMsg';
+
+    var head = document.createElement('div');
+    head.className = 'rowTop';
+    var when = document.createElement('span');
+    when.className = 'meta';
+    var d = new Date(post.createdAt);
+    when.textContent = d.toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit' }) + ' · ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    head.appendChild(when);
+    card.appendChild(head);
+
+    if (post.body) {
+      var body = document.createElement('p');
+      body.className = 'note';
+      body.textContent = post.body;
+      card.appendChild(body);
+    }
+
+    if (post.attachments && post.attachments.length > 0) {
+      var attWrap = document.createElement('div');
+      attWrap.className = 'attachmentList';
+      post.attachments.forEach(function (att) { attWrap.appendChild(buildAttachmentRowReadOnly(att)); });
+      card.appendChild(attWrap);
+    }
+
+    return card;
   }
 
   function renderViewProfileProjects(list) {
@@ -4586,13 +4565,20 @@
     });
   }
 
-  $('viewProfileModalClose').addEventListener('click', function () {
+  // Fermeture : `viewProfileUserId` repasse à null, ce qui neutralise au
+  // passage toute réponse encore en vol (voir les gardes `viewProfileUserId
+  // !== target` plus haut) — sans ça, une réponse lente pourrait redessiner
+  // des chiffres dans une modale déjà refermée, ou pire, rouverte sur
+  // quelqu'un d'autre.
+  function closeProfileViewModal() {
+    viewProfileUserId = null;
     $('viewProfileModal').classList.add('hidden');
-  });
+  }
+  $('viewProfileModalClose').addEventListener('click', closeProfileViewModal);
   // Clic sur le fond assombri (en dehors de la carte) pour fermer, comme
   // #communityMembersModal.
   $('viewProfileModal').addEventListener('click', function (e) {
-    if (e.target === this) this.classList.add('hidden');
+    if (e.target === this) closeProfileViewModal();
   });
 
   // ===================== ZONE DE DISCUSSION (Profil) =====================

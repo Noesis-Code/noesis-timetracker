@@ -615,117 +615,63 @@ textarea {
   padding-left: 2px; white-space: nowrap;
 }
 
-/* ----- Vue "Semaine" : liste de jours défilable verticalement (1er septembre
-   2026, demande d'Emilien : « défiler [...] aussi de haut en bas. Et alors
-   les jours défilent au lieu des heures. Je souhaite que cette option ne soit
-   possible que pour le mode semaine »).
+/* ----- Vue "Semaine" : la colonne des jours collée au bord gauche du cadre
+   (1er septembre 2026, demande d'Emilien : « coller les jours de la semaine
+   vers la gauche afin qu'on ne puisse pas voir de données sur la gauche des
+   journées », puis, capture d'écran à l'appui le 2 septembre : « je souhaite
+   que les jours ne soient pas flottants vers la droite mais qu'ils soient
+   fixés sur la gauche »).
 
-   La classe .tsWeekScroll est posée/retirée par app.js (loadTimesheet) selon
-   la période : c'est elle qui restreint tout ce bloc au mode Semaine, la vue
-   "Mois" gardant exactement son comportement d'avant. Un sélecteur du type
-   `.timesheetScroll:has(#tsGrid:not(.hidden))` aurait évité ce couplage
+   La classe .tsWeekScroll est posée/retirée par app.js (renderTimesheetWeek /
+   renderTimesheetMonth) : elle restreint ce bloc au mode Semaine, la vue
+   "Mois" — et le bloc jumeau de l'onglet Activité, qui partage la classe
+   .timesheetScroll — gardant exactement leur mise en page. Un sélecteur du
+   type `.timesheetScroll:has(#tsGrid:not(.hidden))` aurait évité ce couplage
    au JS, mais :has() n'est supporté qu'à partir de Safari 15.4 — trop risqué
    pour un iPhone dont on ne connaît pas la version.
-
-   `max-height` en vh plutôt qu'en pixels : le cadre garde des proportions
-   correctes du téléphone à l'écran de bureau. 50vh laisse une quinzaine de
-   jours visibles sur un téléphone tout en laissant voir la Répartition juste
-   en dessous, qui se met à jour en même temps qu'on défile.
-
-   `padding-top: 0` est indispensable : avec les 10px de padding d'origine,
-   les lignes de jours défileraient dans la bande au-dessus de la ligne
-   d'heures figée avant de passer dessous. Le padding est reporté sur les
-   cellules d'en-tête elles-mêmes, qui le compensent exactement.
 
    ⚠️ Le sélecteur est préfixé `.statsSection` volontairement : la règle
    `.statsSection .timesheetScroll { padding: 10px 8px 4px }` plus bas dans ce
    fichier a la même spécificité et vient APRÈS — sans ce préfixe, elle
-   écrasait le `padding-top: 0` et les lignes de jours défilaient
-   visiblement dans la bande de 10px au-dessus de la ligne d'heures figée
-   (constaté au test navigateur). ----- */
-/* ⚠️ 1er septembre 2026 (~20h30 UTC), quatre précisions d'Emilien — voir le
-   bloc setupTimesheetScroll dans app.js pour le détail du raisonnement.
+   écraserait le padding-left remis à zéro (constaté au test navigateur).
 
-   HAUTEUR : exactement une semaine à l'écran (« ne permette de montrer qu'une
-   semaine à la fois, sept jours »). Calculée à partir des valeurs réelles de
-   .timesheetGrid ci-dessus (`grid-auto-rows: 22px`, `gap: 1px`) : la ligne
-   d'heures + 7 lignes de jours = 8 lignes et 7 gouttières. **Si Design change
-   `grid-auto-rows` ou `gap`, ce calcul doit suivre** — les variables sont
-   écrites en clair pour que le lien soit visible.
-
-   `padding-bottom: 0` est indispensable, et pas cosmétique : les 4px du
-   conteneur d'origine restent DANS la zone défilable, et un 8ᵉ jour venait y
-   dépasser de 4px — donc « une moitié de jour » en bas du cadre, exactement
-   ce qu'Emilien ne veut pas (constaté au test navigateur : 7 jours entiers +
-   1 partiel).
-
-   DÉFILEMENT VERTICAL : `overflow-y: hidden`, volontairement. Il n'est pas
-   désactivé — il est piloté par app.js, qui est le seul moyen d'obtenir à la
-   fois le verrouillage d'axe (« jamais en diagonale ») et l'arrêt net sur une
-   journée entière (« sans mettre des moitiés de jour »), deux choses que ni
-   `scroll-snap-type` ni `touch-action` ne savent exprimer ensemble.
-   L'horizontal, lui, reste entièrement natif et inchangé. */
+   ⚠️ 2 septembre 2026 — ce bloc portait aussi, jusqu'à ce matin, tout le
+   défilement vertical de la vue Semaine : hauteur figée à 7 jours,
+   `overflow-y: hidden` piloté par app.js, ligne d'heures figée en haut,
+   liséré violet `.tsActive` sur la section sélectionnée. Emilien a demandé de
+   tout annuler (« je souhaite annuler les dernières modifications, revenir à
+   la version précédente de la feuille de temps qui défile que de gauche à
+   droite ») : le geste vertical suivi d'un geste horizontal sautait des jours,
+   et la colonne des jours ne restait plus figée pendant le défilement
+   horizontal sur son téléphone. Le cadre retrouve donc exactement les
+   propriétés qu'il avait le 30 août — celles sur lesquelles la colonne figée
+   fonctionnait chez lui. Ne survivent que deux choses : les semaines
+   calendaires lundi→dimanche sur les flèches (côté serveur, timesheetForUser)
+   et le collage à gauche ci-dessous. ----- */
 .statsSection .timesheetScroll.tsWeekScroll {
-  --ts-row: 22px;
-  --ts-gap: 1px;
-  height: calc((var(--ts-row) + var(--ts-gap)) * 8 - var(--ts-gap));
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-top: 0;
-  padding-bottom: 0;
-  /* ⚠️ 1er septembre 2026, demande d'Emilien : « coller les jours de la
-     semaine vers la gauche afin qu'on ne puisse pas voir de données sur la
-     gauche des journées ». Les 8px de padding gauche d'origine étaient DANS
-     la zone défilable : la colonne figée des jours (.tsDayLabel, `left: 0`)
-     s'arrêtait donc à 8px du bord, et les créneaux colorés défilaient
-     visiblement dans cette bande à sa gauche. À 0, la colonne des jours est
-     collée au bord et masque tout ce qui passe derrière elle. */
+  /* Les 8px de padding gauche d'origine sont DANS la zone défilable : la
+     colonne figée des jours (.tsDayLabel, `left: 0`) s'arrêtait donc à 8px du
+     bord du cadre, et les créneaux colorés défilaient visiblement dans cette
+     bande à sa gauche. À 0, la colonne est collée au bord et masque tout ce
+     qui passe derrière elle. */
   padding-left: 0;
-  /* Le geste vertical est traité par app.js : on empêche le navigateur de le
-     transformer en zoom ou en navigation arrière pendant qu'on le suit. */
-  touch-action: pan-x;
 }
-/* Repère visuel de la section « sélectionnée » : tant qu'on n'a pas touché la
-   Feuille de temps, un glissement vertical fait défiler la page (demande
-   d'Emilien). Une fois sélectionnée, le cadre le montre discrètement — sans
-   quoi le changement de comportement serait invisible et donc déroutant. */
-/* ⚠️ 1er septembre 2026, demande d'Emilien : « je souhaite que lorsque je
-   sélectionne la section entière feuille de temps, la ligne violette contourne
-   la section entière feuille de temps et pas seulement le calendrier ». Le
-   liseré est donc porté par le bloc lui-même (titre, navigation, grille et
-   indice compris) et non plus par le seul cadre défilant. `inset` plutôt
-   qu'une bordure : une bordure ajouterait 1px de large au bloc et le ferait
-   sauter d'un pixel à chaque sélection. */
-#statsTimesheetBlock.tsActive {
-  box-shadow: var(--shadow-card), inset 0 0 0 1.5px var(--purple);
-}
-/* Ligne des heures figée en haut pendant le défilement vertical. Le fond
-   opaque est obligatoire (sans lui, les cases colorées défilent visiblement
-   sous les libellés d'heure), et le padding-top reprend celui retiré du
-   conteneur ci-dessus. Même correctif `will-change: transform` que les
-   colonnes figées, pour le même bug de peinture WebKit mobile. */
-.tsWeekScroll .tsHourLabel {
-  position: sticky; top: 0; z-index: 2;
-  background: var(--card); padding-top: 10px;
-  will-change: transform;
-}
-/* Le coin haut-gauche cumule les deux : figé en haut ET à gauche, donc
-   au-dessus des deux autres (z-index 3, voir .tsCorner ci-dessus). */
-.tsWeekScroll .tsCorner {
-  top: 0; padding-top: 10px;
-}
-/* Contrepartie du `padding-left: 0` ci-dessus : la marge visuelle à gauche est
-   reportée DANS la colonne figée elle-même, dont la largeur est augmentée
-   d'autant (64 → 72px). Le libellé garde donc exactement la même place qu'avant
-   — la largeur de 64px avait été calée le 30 août sur "Mer 27/08" — mais son
-   fond opaque part maintenant du bord réel du cadre, si bien qu'aucun créneau
-   ne peut plus apparaître à sa gauche pendant le défilement horizontal. */
-.tsWeekScroll .timesheetGrid {
-  grid-template-columns: 72px repeat(96, 12px);
-}
+/* ⚠️ 2 septembre 2026 — les 8px retirés du cadre avaient d'abord été reportés
+   DANS la colonne (élargie 64 → 72px, `padding-left: 8px`), pour que le
+   libellé garde exactement la même place qu'avant. C'était l'erreur : le
+   collage à gauche devenait invisible à l'œil (le texte ne bougeait pas d'un
+   pixel), et Emilien a redemandé la même chose capture d'écran à l'appui —
+   « je souhaite que les jours ne soient pas flottants vers la droite mais
+   qu'ils soient fixés sur la gauche ». Le libellé part donc maintenant du
+   bord réel du cadre, et la colonne reprend sa largeur de 64px (calée le
+   30 août sur "Mer 27/08" : 64px moins les 6px de padding-right, le texte
+   dispose de la même place qu'avant). Le fond opaque de la colonne couvrant
+   toute cette largeur depuis le bord, aucun créneau ne peut apparaître à sa
+   gauche pendant le défilement horizontal. La marge visuelle qui reste vient
+   du padding de .statsSection, commun à toutes les sections de l'onglet. */
 .tsWeekScroll .tsDayLabel,
 .tsWeekScroll .tsCorner {
-  padding-left: 8px;
+  padding-left: 0;
 }
 /* Colonne figée élargie de 54px à 64px le 30 août 2026 (demande d'Emilien) :
    le libellé "Mer 27/08" (jour abrégé + date) en 11px, avec padding-right,
@@ -1183,25 +1129,17 @@ body.scrollLock { overflow: hidden; }
    cf. .discussionList ci-dessus et .historyEntry plus bas). */
 #followingFeed { display: flex; flex-direction: column; gap: 8px; }
 
-/* Barre de recherche de #tab-community, fixée en haut de l'écran au
-   défilement (demande d'Emilien, 2 septembre 2026 : « quand on défile vers
-   le bas, la recherche de pseudo se bloque en haut et reste en tout temps
-   visible »). id dédié (#communitySearchBar) plutôt que la classe générique
-   .entryCard (Design, réutilisée par des formulaires ailleurs dans l'app,
-   qui ne doivent pas devenir sticky). --topbar-h est calculée et posée en
-   JS sur :root par syncCommunitySearchStickyOffset() (app.js) : la hauteur
-   réelle de .topbar varie avec l'encoche/la zone de sécurité du téléphone
-   (voir .topbar plus haut, padding-top: max(14px,
-   env(safe-area-inset-top)) en media query mobile) — un décalage fixe
-   aurait laissé un espace ou un chevauchement selon les appareils. Aucune
-   règle de .topbar elle-même touchée ici. Fond opaque déjà fourni par
-   .entryCard (background: var(--card)) : pas de contenu visible par
-   transparence en dessous une fois collée sous la topbar. */
-#communitySearchBar {
-  position: sticky;
-  top: var(--topbar-h, 0px);
-  z-index: 5;
-}
+/* La barre de recherche de #tab-community (#communitySearchBar, voir
+   index.html) a été rendue sticky le 2 septembre 2026, puis Emilien est
+   revenu sur ce choix le même jour (« je souhaite que la section recherche
+   un pseudo ne soit pas flottante du tout, afin de donner un fini plus
+   propre ») : plus aucune règle de positionnement ici, la barre défile
+   normalement avec le reste de la page comme avant. La variable --topbar-h
+   et la fonction JS qui la posait (syncCommunitySearchStickyOffset,
+   app.js) ont été retirées avec elle, n'ayant plus d'utilité. L'id
+   #communitySearchBar lui-même est conservé (voir index.html) : il sert
+   aussi de conteneur aux filtres de découverte de membres ajoutés le même
+   jour, sans lien avec le positionnement. */
 
 /* Pastille de messages non lus sur une ligne d'activité partagée. Poussée à
    droite comme .memberLiveDot ci-dessus (toutes deux dans un
@@ -1484,3 +1422,51 @@ body.scrollLock { overflow: hidden; }
    sélection de texte accidentelle quand on maintient un bouton appuyé. */
 button, .tabBtn, .menuBtn, .iconBtn { -webkit-tap-highlight-color: transparent; }
 button { -webkit-user-select: none; user-select: none; }
+
+/* ===== Découverte de membres + page de visite d'un profil =====
+   2 septembre 2026, demande d'Emilien : « perfectionner la découverte et la
+   lecture des profils des autres utilisateurs ». Classes/ids SPÉCIFIQUES à
+   ces deux zones — aucune classe générique de Design n'est redéfinie ici
+   (règle habituelle de ce fichier, voir "Fichiers partagés" dans
+   noesis-timetracker-chantiers-en-cours.md). La page de visite réutilise
+   sinon telles quelles .statsSection / .statsSummary / .pieWrap /
+   .chartWrap / .chartScroll / .discussionList / .discussionMsg, déjà
+   définies plus haut pour les Statistiques et les zones de discussion. */
+
+/* Pastille d'identité des lignes de découverte et de l'en-tête de la page de
+   visite : même principe que .avatarDisplay (photo ronde, initiale en repli
+   sur la couleur du profil), mais en lecture seule — ce n'est pas un
+   <button>, rien ne se passe au clic dessus, c'est la ligne entière qui est
+   cliquable. */
+.smallAvatar {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: bold; font-size: 14px; line-height: 1;
+}
+.smallAvatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Ligne de résultat de la découverte : photo, puis nom + nombre de projets
+   empilés, puis les badges "Recherche" poussés à droite. */
+.discoverRow { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.discoverRowText { display: flex; flex-direction: column; min-width: 0; }
+.discoverRowName {
+  font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.discoverRow .seekingBadges { margin-left: auto; flex-shrink: 0; }
+
+/* En-tête de la page de visite : photo + nom, aligné comme .identityHeader
+   de son propre profil. */
+.viewProfileIdentity { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.viewProfileAvatar {
+  flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--purple); color: #fff; font-weight: bold; font-size: 17px;
+}
+.viewProfileAvatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Le fil de messages du profil visité vit dans une modale déjà défilante
+   (.communityMembersModalCard, max-height 80vh) : lui laisser en plus le
+   max-height/overflow de .discussionList créerait deux zones de défilement
+   imbriquées, désagréable au doigt sur mobile. */
+#viewProfilePostsList { max-height: none; overflow-y: visible; }

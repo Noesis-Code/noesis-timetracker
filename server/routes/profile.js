@@ -4,6 +4,15 @@ const db = require('../db');
 const { makePinRecord, verifyPinRecord, isValidPinFormat, isLocked, registerFailure, registerSuccess } = require('../lib/auth');
 const { isInPalette, pairedColor } = require('../lib/theme');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
+// Statistiques d'un profil VISITÉ (2 septembre 2026) — voir GET
+// /profile/:userId/stats plus bas. Les deux fonctions sont importées et
+// appelées TELLES QUELLES, en lecture seule : aucune ligne de
+// server/lib/stats.js ni de server/routes/stats.js n'est modifiée par ce
+// chantier (ce fichier appartient aux trois discussions Statistiques —
+// Feuille de temps / Répartition / Graphique — voir la carte des zones dans
+// noesis-timetracker-chantiers-en-cours.md).
+const { breakdownForRange, chartBreakdownForUser } = require('../lib/stats');
+const { periodRange } = require('../lib/period');
 
 const router = express.Router();
 
@@ -83,16 +92,45 @@ function sanitizeCategory(input) {
   return PROJECT_CATEGORIES.indexOf(value) !== -1 ? value : '';
 }
 
-// Un profil peut toujours voir SES PROPRES projets ; un autre profil doit
-// être un ABONNÉ ACCEPTÉ (voir la table follows dans server/db.js) — même
-// principe d'accès que le flux "Suivi" de Communauté (followingFeedForUser
-// dans lib/community.js), vérifié ici directement (une seule liste scopée à
-// un profil, pas de flux à composer).
-function canViewProjects(viewerId, ownerId) {
-  if (viewerId === ownerId) return true;
+// ---------- Droits de lecture d'un profil TIERS ----------
+// 2 septembre 2026, demande d'Emilien (« perfectionner la découverte et la
+// lecture des profils des autres utilisateurs ») : l'accès est désormais à
+// DEUX niveaux, là où tout était auparavant réservé aux abonnés acceptés.
+//
+//  - Aperçu PUBLIC (tout membre identifié, abonné ou non) : projets et
+//    statistiques. C'est ce qui permet de découvrir quelqu'un AVANT de
+//    décider de le suivre — l'ancien tout-ou-rien rendait la découverte
+//    circulaire : il fallait déjà être abonné accepté pour savoir si le
+//    profil valait la peine d'être suivi.
+//  - Réservé aux ABONNÉS acceptés : les messages "Communauté"
+//    (profile_posts), partie conversationnelle du profil — même règle
+//    d'accès que le flux "Suivi" de Communauté (followingFeedForUser dans
+//    lib/community.js).
+//
+// "Membre identifié" = un userId qui existe réellement dans `users`, pas
+// seulement une chaîne non vide : sans ce contrôle, un appel portant un
+// viewerId inventé lirait les projets de n'importe qui.
+function isKnownMember(viewerId) {
+  if (!viewerId) return false;
+  return !!db.prepare('SELECT 1 FROM users WHERE id = ?').get(viewerId);
+}
+
+function isAcceptedFollower(viewerId, ownerId) {
   if (!viewerId) return false;
   const row = db.prepare("SELECT 1 FROM follows WHERE followerId = ? AND followeeId = ? AND status = 'accepted'").get(viewerId, ownerId);
   return !!row;
+}
+
+// Projets + statistiques : aperçu public (voir ci-dessus).
+function canViewProjects(viewerId, ownerId) {
+  if (viewerId === ownerId) return true;
+  return isKnownMember(viewerId);
+}
+
+// Messages "Communauté" : soi-même, ou abonné accepté.
+function canViewPosts(viewerId, ownerId) {
+  if (viewerId === ownerId) return true;
+  return isAcceptedFollower(viewerId, ownerId);
 }
 
 function projectRowOut(p) {
@@ -500,12 +538,108 @@ router.get('/profile/:userId/projects', (req, res) => {
   const owner = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.userId);
   if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
 
+  // Aperçu public depuis le 2 septembre 2026 (voir canViewProjects plus
+  // haut) : n'importe quel membre identifié, plus seulement les abonnés.
   if (!canViewProjects(req.query.viewerId, owner.id)) {
-    return res.status(403).json({ error: "Tu dois suivre ce profil pour voir ses projets." });
+    return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
   }
 
   const rows = db.prepare('SELECT * FROM profile_projects WHERE userId = ? ORDER BY position ASC, id ASC').all(owner.id);
   res.json(rows.map(projectRowOut));
+});
+
+// ---------- Page de visite d'un profil tiers (2 septembre 2026) ----------
+// Trois routes de LECTURE SEULE, toutes en 3 segments (donc sans conflit
+// d'ordre avec GET /profile/:id, qui en a 2 — voir le commentaire sur ce
+// piège Express plus haut). Rien n'écrit ici : la visite d'un profil ne
+// modifie jamais rien, ni chez le visiteur ni chez le visité.
+
+// Carte d'identité publique du profil visité. VOLONTAIREMENT distincte de
+// GET /profile/:id : cette dernière renvoie aussi lastName / phone / email,
+// des données personnelles qui n'ont rien à faire dans une page de visite —
+// on ne renvoie ici que ce qui est réellement affiché (nom, couleur, photo).
+// `canSeePosts` évite au client d'appeler la route des messages juste pour
+// se prendre un 403 : il sait d'avance s'il doit afficher le fil ou
+// l'invitation à suivre.
+router.get('/profile/:userId/public', (req, res) => {
+  const owner = db.prepare('SELECT id, name, color, avatar, createdAt FROM users WHERE id = ?').get(req.params.userId);
+  if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  const viewerId = req.query.viewerId;
+  if (!canViewProjects(viewerId, owner.id)) {
+    return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
+  }
+
+  res.json({
+    id: owner.id,
+    name: owner.name,
+    color: owner.color,
+    avatar: owner.avatar || null,
+    createdAt: owner.createdAt,
+    isSelf: viewerId === owner.id,
+    canSeePosts: canViewPosts(viewerId, owner.id),
+  });
+});
+
+// Statistiques du profil visité : Répartition (camembert) + Graphique
+// uniquement — pas de Feuille de temps, choix explicite d'Emilien (« les
+// statistiques : Répartition et graphique seulement »). Fait partie de
+// l'aperçu public, comme les projets.
+//
+// Les deux calculs sont ceux de l'onglet Statistiques, appelés tels quels et
+// simplement scopés au profil VISITÉ au lieu de l'appelant :
+//  - breakdownForRange(userId, start, end) — mêmes vraies durées, même
+//    découpe aux bords que le camembert de l'onglet Statistiques ;
+//  - chartBreakdownForUser(userId, granularity) — toujours tout
+//    l'historique, la granularité choisit seulement le regroupement des
+//    points (jour / semaine / mois).
+// Différence assumée avec l'onglet Statistiques : là-bas le camembert suit
+// la fenêtre de la Feuille de temps (1er septembre 2026), qui n'existe pas
+// ici — la période est donc choisie directement par le visiteur, via
+// periodRange (Semaine / Mois / Année), comme le camembert le faisait avant
+// d'être couplé à la grille.
+const PROFILE_STATS_PERIODS = ['week', 'month', 'year'];
+const PROFILE_STATS_GRANULARITIES = ['day', 'week', 'month'];
+
+router.get('/profile/:userId/stats', (req, res) => {
+  const owner = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.userId);
+  if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  if (!canViewProjects(req.query.viewerId, owner.id)) {
+    return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
+  }
+
+  const period = PROFILE_STATS_PERIODS.indexOf(req.query.period) !== -1 ? req.query.period : 'week';
+  const granularity = PROFILE_STATS_GRANULARITIES.indexOf(req.query.granularity) !== -1 ? req.query.granularity : 'day';
+  const range = periodRange(period);
+
+  res.json({
+    period,
+    label: range.label,
+    granularity,
+    breakdown: breakdownForRange(owner.id, range.start, range.end),
+    chart: chartBreakdownForUser(owner.id, granularity),
+  });
+});
+
+// Messages "Communauté" du profil visité — la SEULE partie réservée aux
+// abonnés acceptés (demande d'Emilien : « aperçu public avec statistiques et
+// projets, mais les messages restent réservés à la communauté »). Même
+// donnée et même forme que GET /profile/posts (le fil qu'on voit sur son
+// propre profil), en lecture seule : ni suppression, ni pièce jointe
+// ajoutable ici — ces routes-là restent scopées à l'auteur.
+router.get('/profile/:userId/posts', (req, res) => {
+  const owner = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.userId);
+  if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  if (!canViewPosts(req.query.viewerId, owner.id)) {
+    return res.status(403).json({ error: "Tu dois suivre ce profil pour voir ses messages." });
+  }
+
+  const rows = db.prepare('SELECT id, body, createdAt FROM profile_posts WHERE userId = ? ORDER BY createdAt DESC, id DESC LIMIT 100').all(owner.id);
+  rows.reverse();
+  rows.forEach((row) => { row.attachments = postAttachmentsFor(row.id); });
+  res.json(rows);
 });
 
 router.post('/profile/projects', (req, res) => {

@@ -1,8 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser, timesheetRangeForUser } = require('../lib/stats');
-
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const { breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser } = require('../lib/stats');
 
 const router = express.Router();
 
@@ -12,7 +10,8 @@ const router = express.Router();
 // discussion Feuille de temps change un jour sa façon de choisir sa fenêtre
 // — aucune règle de fenêtrage n'est dupliquée de ce côté.
 //
-// Vue Semaine : `days` est la fenêtre glissante de 7 jours telle quelle.
+// Vue Semaine : `days` est la semaine calendaire affichée (lundi→dimanche)
+// telle quelle.
 // Vue Mois : on prend les bornes de la GRILLE (weeks), pas `start`/`end` qui
 // sont le 1er et le dernier jour du mois — le calendrier affiche des
 // semaines complètes et déborde donc sur le mois précédent/suivant. Ces
@@ -92,35 +91,6 @@ router.get('/stats/timesheet', (req, res) => {
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  // ⚠️ 1er septembre 2026 (Feuille de temps, défilement infini) — RÉPARTITION
-  // SEULE, sur une plage de jours arbitraire.
-  //
-  // Depuis que la vue "Semaine" est une liste continue qu'on fait défiler, la
-  // notion de "jours affichés" ne se déduit plus de la réponse : elle dépend
-  // de ce qui est réellement dans le cadre à l'écran, ce que seul le client
-  // sait. Emilien a tranché (`AskUserQuestion`) que le camembert devait
-  // suivre « ce qui est visible à l'écran ». Le client envoie donc les deux
-  // bornes visibles et ne reçoit que la répartition — pas la grille, qui est
-  // déjà chargée chez lui.
-  //
-  // Débordement signalé sur la zone Répartition : cette branche appelle SA
-  // fonction `breakdownForRange` (inchangée, en lecture seule) et sert SON
-  // camembert. La forme renvoyée est volontairement celle que
-  // `renderPieFromTimesheet` consomme déjà (`{ label, breakdown }`), pour
-  // n'avoir à modifier aucune ligne de son code côté client.
-  if (req.query.breakdownFrom !== undefined || req.query.breakdownTo !== undefined) {
-    const from = req.query.breakdownFrom;
-    const to = req.query.breakdownTo;
-    if (!ISO_DATE_RE.test(from || '') || !ISO_DATE_RE.test(to || '') || from > to) {
-      return res.status(400).json({ error: 'Plage de répartition invalide.' });
-    }
-    const d1 = new Date(from + 'T00:00:00');
-    const d2 = new Date(to + 'T00:00:00');
-    const label = `Du ${String(d1.getDate()).padStart(2, '0')}/${String(d1.getMonth() + 1).padStart(2, '0')}`
-      + ` au ${String(d2.getDate()).padStart(2, '0')}/${String(d2.getMonth() + 1).padStart(2, '0')}`;
-    return res.json({ label, breakdown: breakdownForRange(userId, from, to) });
-  }
-
   const period = req.query.period === 'month' ? 'month' : 'week';
 
   if (period === 'month') {
@@ -131,28 +101,17 @@ router.get('/stats/timesheet', (req, res) => {
     return res.json(Object.assign({ period }, withBreakdown(userId, timesheetMonthForUser(userId, isNaN(monthOffset) ? 0 : monthOffset))));
   }
 
-  // ⚠️ 1er septembre 2026 (Feuille de temps) — TRANCHE DE LISTE CONTINUE.
-  // `endDate` (jour le plus récent de la tranche, ramené à aujourd'hui s'il
-  // le dépasse) + `days` (nombre de jours). C'est le mode utilisé par le
-  // client depuis le passage au défilement infini : la première requête
-  // n'envoie pas `endDate` (donc la tranche se termine aujourd'hui), les
-  // suivantes envoient le jour précédant le plus ancien déjà chargé.
-  if (req.query.endDate !== undefined || req.query.days !== undefined) {
-    if (req.query.endDate !== undefined && !ISO_DATE_RE.test(req.query.endDate)) {
-      return res.status(400).json({ error: 'endDate invalide.' });
-    }
-    const count = parseInt(req.query.days, 10);
-    if (req.query.days !== undefined && (isNaN(count) || count < 1)) {
-      return res.status(400).json({ error: 'days invalide.' });
-    }
-    const slice = timesheetRangeForUser(userId, req.query.endDate || null, isNaN(count) ? 7 : count);
-    return res.json(Object.assign({ period }, withBreakdown(userId, slice)));
-  }
-
-  // Rétro-compatibilité : `weekOffset` (fenêtre glissante de 7 jours) reste
-  // servie telle quelle. Plus appelée par le client actuel, mais un onglet
-  // resté ouvert sur l'ancien JavaScript continue de fonctionner — cas déjà
-  // rencontré plusieurs fois sur ce projet avec la PWA installée.
+  // `weekOffset` : 0 = semaine en cours, 1 = la précédente, etc. Depuis le
+  // 2 septembre 2026, une semaine est une semaine CALENDAIRE lundi→dimanche
+  // (voir timesheetForUser dans lib/stats.js) et non plus les 7 derniers
+  // jours. Le paramètre et sa validation ne changent pas : un onglet resté
+  // ouvert sur l'ancien JavaScript continue de fonctionner, il verra
+  // simplement des semaines calées sur le lundi.
+  //
+  // ⚠️ 2 septembre 2026 — les paramètres `endDate`/`days` (tranches de la
+  // liste continue) et `breakdownFrom`/`breakdownTo` (répartition des seuls
+  // jours visibles à l'écran) qui vivaient ici ont été retirés avec le
+  // défilement vertical qu'ils servaient, annulé à la demande d'Emilien.
   const weekOffset = parseInt(req.query.weekOffset, 10);
   if (req.query.weekOffset !== undefined && (isNaN(weekOffset) || weekOffset < 0)) {
     return res.status(400).json({ error: 'weekOffset invalide.' });

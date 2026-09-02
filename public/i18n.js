@@ -471,6 +471,24 @@
     "Ce n'est pas ton projet.": 'This is not your project.',
     'Projet introuvable.': 'Project not found.',
 
+    // ---- Découverte de membres + page de visite d'un profil (2 septembre
+    // 2026) — voir GET /api/users/search (server/routes/follows.js) et les
+    // routes /profile/:id/public|stats|posts (server/routes/profile.js).
+    // L'ancienne clé "Tu dois suivre ce profil pour voir ses projets."
+    // ci-dessus est conservée volontairement : le serveur ne l'envoie plus
+    // (les projets sont devenus un aperçu public) mais un onglet PWA resté
+    // ouvert avec l'ancien code peut encore l'afficher.
+    'Chercher un pseudo, un projet, un secteur...': 'Search a nickname, a project, a sector...',
+    '{n} projet(s)': '{n} project(s)',
+    'Quelques profils à découvrir.': 'A few profiles to discover.',
+    'Aucun projet': 'No project',
+    "Aucun message pour l'instant.": 'No message yet.',
+    'Suis ce profil pour voir ses messages.': 'Follow this profile to see its messages.',
+    "Rien d'enregistré pour l'instant.": 'Nothing recorded yet.',
+    'Connecte-toi pour voir ce profil.': 'Sign in to view this profile.',
+    'Tu dois suivre ce profil pour voir ses messages.': 'You need to follow this profile to see its messages.',
+    'Choisir la période': 'Choose the period',
+
     // ---- Profil : Projets, formulaire en paliers + catégories fermées
     // (2 septembre 2026, chantier "Simplification du formulaire de saisie
     // Projets") ----
@@ -518,10 +536,10 @@
     [/^"(.+)" existe déjà\. Choisis un autre nom, ou récupère ton profil si c'est toi\.$/, '"$1" already exists. Pick another name, or restore your profile if that is you.'],
     [/^"(.+)" est déjà pris par un autre profil\.$/, '"$1" is already taken by another profile.'],
     [/^Semaine du (\S+) au (\S+)$/, 'Week of $1 to $2'],
-    // Libellé du camembert (Répartition) depuis que la Feuille de temps
-    // défile en continu : la plage visible n'est plus forcément une semaine
-    // entière — ajouté le 1er septembre 2026 par la discussion Feuille de temps.
-    [/^Du (\S+) au (\S+)$/, 'From $1 to $2'],
+    // (Le motif `Du $1 au $2`, ajouté ici le 1er septembre 2026 pour le
+    // libellé du camembert quand la Feuille de temps défilait en continu, a
+    // été retiré le 2 septembre avec ce défilement : plus aucun libellé de
+    // cette forme n'est produit côté serveur.)
   ];
 
   var lang = 'fr';

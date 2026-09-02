@@ -24,7 +24,7 @@ function relationFor(userId, targetId) {
 //
 //  1. Recherche ÉLARGIE : le pseudo ne suffisait plus. On cherche désormais
 //     aussi dans le nom de famille et dans les PROJETS de la personne (nom,
-//     catégorie/secteur, description courte) — on trouve donc quelqu'un par
+//     catégorie/secteur, description) — on trouve donc quelqu'un par
 //     ce qu'il fait, pas seulement par un pseudo qu'il faut déjà connaître.
 //  2. Filtre "Recherche" : ne garder que les profils qui cherchent des
 //     partenaires / des clients / du financement (tags portés par leurs
@@ -92,7 +92,7 @@ router.get('/users/search', (req, res) => {
         SELECT 1 FROM profile_projects p WHERE p.userId = u.id AND (
           p.name LIKE ? COLLATE NOCASE
           OR COALESCE(p.category, '') LIKE ? COLLATE NOCASE
-          OR COALESCE(p.shortDescription, '') LIKE ? COLLATE NOCASE
+          OR COALESCE(p.description, '') LIKE ? COLLATE NOCASE
         )
       )
     )`);
