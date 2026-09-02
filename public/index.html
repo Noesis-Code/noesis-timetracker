@@ -1029,14 +1029,26 @@
              app.js.
              Formulaire réorganisé en paliers (2 septembre 2026, chantier
              "Simplification du formulaire de saisie Projets") : palier 1
-             (nom + description, toujours visibles), palier 2 (Recherche,
-             toujours visible), palier 3 (lien/date/catégorie, replié par
+             (nom + description, toujours visibles), palier 2 (Recherche +
+             catégorie, toujours visibles), palier 3 (lien/date, replié par
              défaut derrière #newProjectMoreBtn — même pattern que
              #newActivityCard). shortDescription/fullDescription ont
              fusionné en un seul champ description (voir server/db.js) ;
-             category est désormais un <select> à liste fermée
-             (PROJECT_CATEGORIES, voir server/routes/profile.js et
-             app.js). -->
+             category est désormais une liste fermée (PROJECT_CATEGORIES,
+             voir server/routes/profile.js et app.js).
+             ⚠️ 2 septembre 2026, nouvelle demande d'Emilien (discussion
+             Profil) : catégorie remontée du palier 3 (repliée) vers le
+             palier 2 (toujours visible, avant le bouton "+ Ajouter des
+             détails") ; le <select> natif est remplacé par un dropdown
+             "maison" (voir buildCategoryDropdown dans app.js) qui s'ouvre
+             toujours vers le bas, limité à 5 options visibles à la fois et
+             calé au défilement (scroll-snap) pour ne jamais couper une
+             option en deux — un <select> natif ne permet de contrôler
+             aucun de ces trois points. #newProjectCategoryMount n'est qu'un
+             point d'ancrage : app.js le remplace au chargement par le
+             dropdown construit, qui reprend l'id "newProjectCategory" pour
+             que le reste du code (lecture/reset de la valeur) n'ait pas à
+             changer. -->
         <div class="sectionTitleRow">
           <p class="sectionTitle">Projets</p>
           <button type="button" id="addProjectBtn" class="menuBtn" title="Ajouter un projet">+</button>
@@ -1050,12 +1062,12 @@
             <textarea id="newProjectDesc" rows="3" placeholder="Description"></textarea>
             <p class="hint">Recherche (optionnel)</p>
             <div class="seekingTagPicker" id="newProjectSeeking"></div>
+            <div id="newProjectCategoryMount"></div>
             <button type="button" id="newProjectMoreBtn" class="iconBtn projectMoreDetailsBtn">+ Ajouter des détails</button>
             <div class="activitySettingsPanel projectMoreDetails hidden" id="newProjectMoreDetails">
               <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
               <p class="hint">Date de début (optionnel)</p>
               <input type="date" id="newProjectStartDate">
-              <select id="newProjectCategory"></select>
             </div>
             <p class="meta" id="newProjectMsg"></p>
             <div class="rowActions">

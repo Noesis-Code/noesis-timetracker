@@ -1029,6 +1029,47 @@ body.scrollLock { overflow: hidden; }
    précis, ses sections étant des formulaires et non de simples listes.
    .settingsWrap n'a pas de style propre : comme .notifWrap, elle ne sert qu'à
    repérer le « clic en dehors » dans app.js. */
+/* Défilement « cran par cran » du menu des Réglages (2 septembre 2026,
+   demande d'Emilien : « les options défilent de façon saccadée sans jamais
+   couper une option ; lorsqu'une option est sélectionnée elle ne peut sortir
+   du cadre »).
+
+   Tout est porté par #profileSettingsPanel.settingsPanel — .notifPanel, qui
+   appartient à Profil/Design, n'est pas redéfinie.
+
+   1. scroll-snap-type: y mandatory + scroll-snap-align: start sur chaque
+      section : le défilement s'arrête toujours sur le HAUT d'une option,
+      jamais au milieu. C'est ce qui donne l'impression « saccadée ».
+   2. scroll-snap-stop: always : un geste rapide ne peut pas SAUTER une
+      option au passage — il s'arrête sur la suivante, une par une.
+   3. scroll-padding-top : quelques pixels de respiration au-dessus de
+      l'option calée en haut, pour qu'elle ne colle pas au bord.
+
+   Le panneau est plus haut ici que .notifPanel (60vh) : une section de
+   Réglages est un formulaire, pas une ligne de liste, et le but est qu'elle
+   tienne entière à l'écran. Si une section dépasse malgré tout la hauteur
+   disponible, la norme prévoit exactement ce qu'il faut : une zone
+   d'accroche plus grande que la fenêtre se parcourt librement, sans
+   accrochage — on peut donc toujours atteindre le bas d'une longue section.
+
+   Pas de bandeau collant, volontairement : essayé puis abandonné le même
+   jour. Un en-tête en position: sticky se superpose au contenu qui défile
+   dessous et intercepte les clics sur les titres qui passent derrière lui —
+   une option devenait intappable dans cette bande. Le titre « Réglages »
+   défile donc normalement avec le reste. */
+#profileSettingsPanel.settingsPanel {
+  max-height: min(78vh, 640px);
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: 8px;
+  /* Le doigt qui arrive en bout de course ne fait pas défiler la page
+     derrière le panneau (comportement attendu d'un menu flottant). */
+  overscroll-behavior: contain;
+}
+#profileSettingsPanel.settingsPanel .settingsSection {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
 #profileSettingsPanel.settingsPanel { width: min(380px, 92vw); padding: 12px; }
 #profileSettingsPanel.settingsPanel .subpageHeader { margin-bottom: 10px; }
 #profileSettingsPanel.settingsPanel .settingsSection:last-child { margin-bottom: 0; }
@@ -1286,22 +1327,81 @@ body.scrollLock { overflow: hidden; }
 .activitySettingsPanel .iconBtn { flex-shrink: 0; white-space: nowrap; }
 /* Ajouté pour le formulaire de projet (section Projets de Profil, voir
    plus bas) : .activitySettingsPanel n'avait jusqu'ici que des input[type=
-   text] (formulaire d'activité). textarea/input[type=date] suivent le même
-   gabarit. */
-.activitySettingsPanel textarea,
-.activitySettingsPanel input[type=date] {
+   text] (formulaire d'activité). textarea suit le même gabarit. */
+.activitySettingsPanel textarea {
   padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
   width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px;
   background: var(--card); color: var(--text); resize: vertical;
 }
-/* Ajouté pour le <select> de catégorie (chantier "Simplification du
-   formulaire de saisie Projets", 2 septembre 2026, remplace le champ texte
-   libre) — même gabarit que textarea/input[type=date] ci-dessus. */
-.activitySettingsPanel select {
-  padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px;
-  background: var(--card); color: var(--text);
+/* input[type=date] du formulaire de projet (startDate) : règle séparée de
+   textarea ci-dessus depuis le 2 septembre 2026 (demande d'Emilien,
+   discussion Profil : "je souhaite que la date ne dépasse pas du cadre").
+   width:100%/box-sizing:border-box seuls ne suffisaient pas — même bug
+   Safari/iPhone que #stopConfirmPanel/.historyEditFields input[type=
+   datetime-local] plus haut dans ce fichier (30-31 août 2026) : le champ de
+   date natif a une largeur de contenu minimale que le navigateur refuse de
+   réduire sous width:100% sans min-width:0 explicite, et déborde alors du
+   cadre de la carte sur petit écran. Même correctif ici : min-width:0 +
+   max-width:100% + padding horizontal réduit, avec le même repli en
+   @media (max-width:380px) que les deux autres champs de date/heure du
+   projet. */
+.activitySettingsPanel input[type=date] {
+  padding: 8px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box;
+  font-family: inherit; font-size: 14px; background: var(--card); color: var(--text);
 }
+@media (max-width: 380px) {
+  .activitySettingsPanel input[type=date] { font-size: 12px; padding: 7px 4px; }
+}
+
+/* Dropdown "maison" de catégorie/secteur (voir buildCategoryDropdown dans
+   app.js — remplace le <select> natif utilisé jusqu'au 2 septembre 2026).
+   .categoryDropdown est en flux normal (position: static, pas d'overlay
+   absolu) : la liste d'options suit donc TOUJOURS le bouton déclencheur
+   dans la mise en page, ce qui garantit qu'elle s'ouvre "vers le bas"
+   demandé par Emilien sans z-index ni positionnement à gérer. */
+.categoryDropdownTrigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); color: var(--text); font-family: inherit; font-size: 14px;
+  text-align: left; cursor: pointer; box-sizing: border-box;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.categoryDropdownTrigger:hover { background: var(--hover-bg); }
+.categoryDropdown.open .categoryDropdownTrigger {
+  border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
+}
+.categoryDropdownLabel {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.categoryDropdownArrow {
+  flex-shrink: 0; font-size: 11px; color: var(--text-light);
+  transition: transform var(--transition-fast);
+}
+.categoryDropdown.open .categoryDropdownArrow { transform: rotate(180deg); }
+/* Liste d'options : hauteur maximale calée EXACTEMENT sur 5 lignes de 40px
+   (voir .categoryDropdownOption ci-dessous, hauteur fixe en px) — demande
+   d'Emilien "montrer maximum 5 options à la fois". scroll-snap-type: y
+   mandatory force le défilement à toujours se stabiliser sur une frontière
+   de ligne (scroll-snap-align/scroll-snap-stop ci-dessous), donc jamais de
+   ligne coupée en deux ni en haut ni en bas de la zone visible — demande
+   "doit défiler de manière saccadée sans jamais couper une option". */
+.categoryDropdownMenu {
+  margin-top: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); max-height: 200px; overflow-y: auto;
+  scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch;
+}
+.categoryDropdownOption {
+  height: 40px; box-sizing: border-box; display: flex; align-items: center;
+  padding: 0 10px; font-size: 14px; color: var(--text); cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  scroll-snap-align: start; scroll-snap-stop: always;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background-color var(--transition-fast);
+}
+.categoryDropdownOption:last-child { border-bottom: none; }
+.categoryDropdownOption:hover { background: var(--hover-bg); }
+.categoryDropdownOption.active { background: var(--hover-bg); font-weight: 600; }
 
 /* ===== Section "Projets" de Profil (1er septembre 2026, demande
    d'Emilien) — voir #projectsList/#newProjectCard dans index.html et le

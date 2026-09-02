@@ -3407,6 +3407,26 @@
   // sa section et referme les autres. Rouvrir Réglages repart toujours de la
   // liste refermée, pour ne pas retomber sur la section consultée la dernière
   // fois sans l'avoir demandé.
+  // Cale une section en haut de la zone défilante du panneau. Le panneau est
+  // en position: absolute : il est donc lui-même le parent de référence des
+  // offsetTop de ses sections, pas besoin de calculer des rectangles.
+  // On LIT scroll-padding-top sur l'élément au lieu de le figer ici : le
+  // navigateur accroche sur (offsetTop - scroll-padding-top), et si notre
+  // calcul s'en écartait, l'accrochage re-décalerait la section juste après
+  // notre propre défilement.
+  function scrollSettingsSectionIntoView(section) {
+    var panel = $('profileSettingsPanel');
+    if (!panel || !section) return;
+    var pad = parseFloat(getComputedStyle(panel).scrollPaddingTop) || 0;
+    var top = Math.max(0, section.offsetTop - pad);
+    try {
+      panel.scrollTo({ top: top, behavior: 'smooth' });
+    } catch (e) {
+      // Navigateur sans scrollTo({}) : on saute directement, sans animation.
+      panel.scrollTop = top;
+    }
+  }
+
   function closeAllSettingsSections() {
     document.querySelectorAll('#profileSettingsPanel .settingsSection').forEach(function (section) {
       section.classList.remove('open');
@@ -3427,6 +3447,12 @@
       section.classList.add('open');
       section.querySelector('.settingsSectionBody').classList.remove('hidden');
       head.setAttribute('aria-expanded', 'true');
+      // La section qu'on vient d'ouvrir se cale en haut du panneau : son
+      // contenu est donc visible en entier d'un coup, sans que le bas soit
+      // coupé par le bord du panneau (demande d'Emilien, 2 septembre 2026).
+      // Fait après le retrait de .hidden, pour que la hauteur prise en
+      // compte soit la hauteur DÉPLIÉE.
+      scrollSettingsSectionIntoView(section);
     });
   });
 
@@ -3452,6 +3478,7 @@
   function showProfileSettings() {
     closeNotifPanel();
     closeAllSettingsSections();
+    $('profileSettingsPanel').scrollTop = 0;
     // Le panneau ne passe plus par openProfile() : c'est donc lui qui doit
     // rafraîchir SES propres commandes (thème coché, langue cochée, adresse
     // de partage). Sans ça, après un rechargement de page, la langue et le
@@ -3883,22 +3910,114 @@
     'Autre',
   ];
 
-  // Remplit un <select> de catégorie : une option vide en tête (catégorie
-  // optionnelle, voir server/db.js) puis une option par PROJECT_CATEGORIES.
-  // `selected` (chaîne) présélectionne l'option correspondante si elle
-  // existe dans la liste, sinon laisse l'option vide active — même
-  // comportement de repli que sanitizeCategory() côté serveur.
-  function fillProjectCategorySelect(selectEl, selected) {
-    selectEl.innerHTML = '';
-    var emptyOpt = document.createElement('option');
-    emptyOpt.value = ''; emptyOpt.textContent = t('Catégorie / secteur (optionnel)');
-    selectEl.appendChild(emptyOpt);
-    PROJECT_CATEGORIES.forEach(function (cat) {
-      var opt = document.createElement('option');
-      opt.value = cat; opt.textContent = t(cat);
-      selectEl.appendChild(opt);
+  // Dropdown "maison" pour la catégorie/secteur d'un projet (remplace le
+  // <select> natif utilisé jusqu'au 2 septembre 2026 — voir
+  // fillProjectCategorySelect dans l'historique). Demande d'Emilien ce
+  // jour-là (discussion Profil) : la liste déroulante doit s'ouvrir
+  // TOUJOURS vers le bas, ne montrer que 5 options à la fois, et défiler
+  // "de manière saccadée" sans jamais couper une option en deux — un
+  // <select> natif ne permet de contrôler aucun de ces trois points (son
+  // popup est entièrement géré par le navigateur), d'où ce composant
+  // reconstruit en HTML/CSS/JS "maison" (aucune bibliothèque tierce, comme
+  // partout ailleurs dans ce projet — voir la convention).
+  //
+  // Structure : un bouton déclencheur (affiche le libellé courant) suivi
+  // dans le DOM par la liste d'options — donc TOUJOURS en dessous du
+  // bouton, jamais en recouvrement absolu (même principe "en flux, pas en
+  // overlay" que les autres panneaux pliables du projet, ex. palier 3 /
+  // #newActivityCard). La liste a une hauteur maximale calée exactement sur
+  // 5 lignes (voir .categoryDropdownOption/.categoryDropdownMenu dans
+  // styles.css, hauteur de ligne fixe en px) et scroll-snap-type: y
+  // mandatory + scroll-snap-align: start + scroll-snap-stop: always sur
+  // chaque ligne, pour que le défilement s'arrête toujours pile sur une
+  // frontière d'option, jamais au milieu.
+  //
+  // Expose volontairement une interface proche d'un <select> natif — une
+  // propriété `.value` lisible ET modifiable (via Object.defineProperty) —
+  // pour que le reste du code (lecture au moment d'enregistrer, reset du
+  // formulaire d'ajout) continue à écrire `categorySelect.value` sans rien
+  // changer d'autre. `selected` (chaîne) présélectionne l'option
+  // correspondante si elle existe dans PROJECT_CATEGORIES, sinon l'option
+  // vide reste active — même comportement de repli que sanitizeCategory()
+  // côté serveur.
+  function buildCategoryDropdown(selected) {
+    var wrap = document.createElement('div');
+    wrap.className = 'categoryDropdown';
+
+    var trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'categoryDropdownTrigger';
+    var label = document.createElement('span');
+    label.className = 'categoryDropdownLabel';
+    var arrow = document.createElement('span');
+    arrow.className = 'categoryDropdownArrow';
+    arrow.textContent = '▾';
+    trigger.appendChild(label);
+    trigger.appendChild(arrow);
+
+    var menu = document.createElement('div');
+    menu.className = 'categoryDropdownMenu hidden';
+
+    var allValues = [''].concat(PROJECT_CATEGORIES);
+    var optionEls = {};
+    var currentValue = PROJECT_CATEGORIES.indexOf(selected) !== -1 ? selected : '';
+
+    function optionLabel(val) {
+      return val ? t(val) : t('Catégorie / secteur (optionnel)');
+    }
+    function renderLabel() {
+      label.textContent = optionLabel(currentValue);
+    }
+    function setActive(val) {
+      if (optionEls[currentValue]) optionEls[currentValue].classList.remove('active');
+      currentValue = val;
+      if (optionEls[currentValue]) optionEls[currentValue].classList.add('active');
+      renderLabel();
+    }
+
+    function onDocClick(ev) { if (!wrap.contains(ev.target)) close(); }
+    function close() {
+      menu.classList.add('hidden');
+      wrap.classList.remove('open');
+      document.removeEventListener('click', onDocClick, true);
+    }
+    function open() {
+      wrap.classList.add('open');
+      menu.classList.remove('hidden');
+      // Aligne le défilement sur l'option active à l'ouverture (sans
+      // animation) plutôt que de toujours rouvrir en haut de liste.
+      if (optionEls[currentValue]) optionEls[currentValue].scrollIntoView({ block: 'nearest' });
+      document.addEventListener('click', onDocClick, true);
+    }
+    trigger.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      if (menu.classList.contains('hidden')) open(); else close();
     });
-    selectEl.value = PROJECT_CATEGORIES.indexOf(selected) !== -1 ? selected : '';
+
+    allValues.forEach(function (val) {
+      var opt = document.createElement('div');
+      opt.className = 'categoryDropdownOption';
+      if (val === currentValue) opt.classList.add('active');
+      opt.textContent = optionLabel(val);
+      opt.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        setActive(val);
+        close();
+      });
+      optionEls[val] = opt;
+      menu.appendChild(opt);
+    });
+
+    renderLabel();
+    wrap.appendChild(trigger);
+    wrap.appendChild(menu);
+
+    Object.defineProperty(wrap, 'value', {
+      get: function () { return currentValue; },
+      set: function (val) { setActive(PROJECT_CATEGORIES.indexOf(val) !== -1 ? val : ''); },
+    });
+
+    return wrap;
   }
 
   // Troncature de la description en vue liste (150-200 caractères, choix
@@ -4120,15 +4239,22 @@
       var selectedSeeking = (p.seeking || []).slice();
       renderSeekingPicker(seekingBox, selectedSeeking);
 
+      // Catégorie/secteur : remontée au palier 2 (toujours visible, avant
+      // le bouton "+ Ajouter des détails") le 2 septembre 2026, demande
+      // d'Emilien (discussion Profil) — jusque-là dans le palier 3 replié
+      // avec lien/date, voir buildCategoryDropdown plus haut pour le détail
+      // du dropdown "maison" qui remplace le <select> natif.
+      var categorySelect = buildCategoryDropdown(p.category || '');
+
       // Palier 3 (2 septembre 2026, chantier "Simplification du formulaire
-      // de saisie Projets") : lien/date/catégorie, replié par défaut
-      // derrière un bouton "+ Ajouter des détails" — même pattern que
-      // #newActivityCard (bouton qui bascule .hidden), repris ici pour le
-      // panneau d'édition de CHAQUE projet existant (pas seulement le
-      // formulaire d'ajout). Toujours replié à l'ouverture, même si des
-      // valeurs y sont déjà saisies — cohérent avec "replié par défaut" du
-      // cadrage, et évite de traiter différemment un projet selon qu'il a
-      // déjà des détails ou non.
+      // de saisie Projets") : lien/date, replié par défaut derrière un
+      // bouton "+ Ajouter des détails" — même pattern que #newActivityCard
+      // (bouton qui bascule .hidden), repris ici pour le panneau d'édition
+      // de CHAQUE projet existant (pas seulement le formulaire d'ajout).
+      // Toujours replié à l'ouverture, même si des valeurs y sont déjà
+      // saisies — cohérent avec "replié par défaut" du cadrage, et évite de
+      // traiter différemment un projet selon qu'il a déjà des détails ou
+      // non.
       var moreBtn = document.createElement('button');
       moreBtn.type = 'button'; moreBtn.className = 'iconBtn projectMoreDetailsBtn';
       moreBtn.textContent = '+ ' + t('Ajouter des détails');
@@ -4146,13 +4272,9 @@
       var dateInput = document.createElement('input');
       dateInput.type = 'date'; dateInput.value = p.startDate || '';
 
-      var categorySelect = document.createElement('select');
-      fillProjectCategorySelect(categorySelect, p.category || '');
-
       moreDetails.appendChild(linkInput);
       moreDetails.appendChild(dateHint);
       moreDetails.appendChild(dateInput);
-      moreDetails.appendChild(categorySelect);
 
       var saveMsg = document.createElement('p');
       saveMsg.className = 'meta';
@@ -4190,6 +4312,7 @@
       panel.appendChild(descInput);
       panel.appendChild(seekingHint);
       panel.appendChild(seekingBox);
+      panel.appendChild(categorySelect);
       panel.appendChild(moreBtn);
       panel.appendChild(moreDetails);
       panel.appendChild(saveMsg);
@@ -4211,7 +4334,15 @@
 
   var newProjectSeeking = [];
   renderSeekingPicker($('newProjectSeeking'), newProjectSeeking);
-  fillProjectCategorySelect($('newProjectCategory'), '');
+
+  // Dropdown de catégorie construit une seule fois ici et monté à la place
+  // de #newProjectCategoryMount (voir commentaire dans index.html), avec
+  // l'id "newProjectCategory" repris sur le dropdown lui-même — tout le
+  // reste du code (resetNewProjectForm, newProjectSave) continue donc à
+  // écrire/lire $('newProjectCategory').value sans rien changer d'autre.
+  var newProjectCategoryDropdown = buildCategoryDropdown('');
+  newProjectCategoryDropdown.id = 'newProjectCategory';
+  $('newProjectCategoryMount').replaceWith(newProjectCategoryDropdown);
 
   // Palier 3 du formulaire d'ajout : replié par défaut derrière "+ Ajouter
   // des détails" — même bouton/pattern que #newActivityCard (dixième
@@ -4231,7 +4362,7 @@
     $('newProjectName').value = ''; $('newProjectDesc').value = '';
     $('newProjectLink').value = '';
     $('newProjectStartDate').value = toDateValue(new Date());
-    fillProjectCategorySelect($('newProjectCategory'), '');
+    $('newProjectCategory').value = '';
     newProjectSeeking.length = 0;
     renderSeekingPicker($('newProjectSeeking'), newProjectSeeking);
     $('newProjectMoreDetails').classList.add('hidden');
