@@ -1269,34 +1269,30 @@
          l'intérieur de #tab-activity, qui est donc forcément déjà visible. -->
     <div id="viewProfileModal" class="communityMembersModal hidden">
       <div class="communityMembersModalCard">
-        <!-- ⚠️ 2 septembre 2026 (demande d'Emilien : « qu'il n'y ait pas de
-             doublon de nom. Garde juste la photo du profil avec le nom à
-             côté ») : cet en-tête portait une pastille de couleur + le nom,
-             déjà répétés juste en dessous par le bloc d'identité. Le nom et
-             sa pastille sont retirés d'ici — l'identité n'est donc plus
-             affichée qu'une seule fois, avec la photo. Le span vide est
-             conservé pour que .communityMembersModalHeader (space-between,
-             classe partagée avec #communityMembersModal, à ne pas
-             redéfinir) garde le bouton de fermeture aligné à droite. -->
-        <div class="communityMembersModalHeader">
-          <span></span>
-          <button type="button" class="menuBtn" id="viewProfileModalClose" aria-label="Fermer">✕</button>
-        </div>
-
-        <!-- Identité : même présentation que .identityHeader de son propre
-             profil (photo ronde + nom), en lecture seule — pas de bouton de
-             changement de photo ici. L'initiale sert de repli quand la
-             personne n'a pas encore mis de photo, exactement comme
-             #avatarDisplayInitial sur son propre profil. Le nom affiché est
-             le nom COMPLET (prénom + nom de famille quand il existe), comme
-             sur sa propre carte Identité — demande d'Emilien du 2 septembre
-             2026 ; voir `lastName` dans GET /profile/:userId/public. -->
+        <!-- En-tête d'identité, FIXE (2 septembre 2026, demande d'Emilien :
+             « je souhaite que la croix pour fermer le profil se trouve au
+             même niveau que la photo et que le nom de l'utilisateur et je
+             souhaite que la croix, le profil et le nom de l'utilisateur
+             soient fixes. Lorsque je fais défiler vers le bas, les données
+             passent en dessous du profil et de la croix »).
+             Photo ronde + nom + croix de fermeture sur UNE SEULE ligne, qui
+             reste collée en haut de la carte pendant le défilement (voir
+             .viewProfileIdentity dans styles.css : position sticky).
+             ⚠️ Le .communityMembersModalHeader qui portait la croix a été
+             retiré d'ici — cette classe reste utilisée telle quelle par
+             #communityMembersModal (zone Communauté) et n'est PAS modifiée.
+             L'initiale sert de repli quand la personne n'a pas encore mis de
+             photo, exactement comme #avatarDisplayInitial sur son propre
+             profil. Le nom affiché est le nom COMPLET (prénom + nom de
+             famille quand il existe), comme sur sa propre carte Identité —
+             voir `lastName` dans GET /profile/:userId/public. -->
         <div class="viewProfileIdentity">
           <div class="viewProfileAvatar" id="viewProfileAvatar">
             <img id="viewProfileAvatarImg" class="hidden" alt="">
             <span id="viewProfileAvatarInitial"></span>
           </div>
           <span class="identityName" id="viewProfileIdentityName"></span>
+          <button type="button" class="menuBtn" id="viewProfileModalClose" aria-label="Fermer">✕</button>
         </div>
         <p id="viewProfileProjectsMsg" class="msg"></p>
 

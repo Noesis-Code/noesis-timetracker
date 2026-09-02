@@ -134,9 +134,10 @@ function totalRangeForUser(userId, refDate) {
 // de juillet doit toujours apparaître comme le même point du graphique,
 // qu'on le regarde aujourd'hui ou dans un mois.
 //
-// Pour 'day', la forme renvoyée est strictement celle d'avant (isoDate /
-// dayOfWeek / totalSeconds / activities) : aucun changement de comportement
-// pour la granularité par défaut. Pour 'week'/'month', chaque point porte en
+// Pour 'day', chaque jour de la plage [start, end] apparaît désormais dans
+// le résultat, y compris les jours sans aucune entrée (point à zéro) — voir
+// le commentaire dans la branche ci-dessous pour le détail (2 septembre
+// 2026, demande d'Emilien). Pour 'week'/'month', chaque point porte en
 // plus `granularity`, `shortLabel` (axe) et `fullLabel` (infobulle) déjà
 // formatés en français (même convention que timesheetForUser/
 // timesheetMonthForUser ci-dessous, dont les labels ne sont pas traduits non
@@ -157,13 +158,33 @@ function chartBreakdownForUser(userId, granularity, refDate) {
   `).all(userId, start, end);
 
   if (granularity !== 'week' && granularity !== 'month') {
+    // Historique totalement vide (aucune entrée jamais enregistrée) : tableau
+    // vide, pour que #statsChartEmptyHint s'affiche comme avant — ne pas
+    // dessiner une ligne à plat de start (= todayIso, voir totalRangeForUser)
+    // à end quand il n'y a en réalité jamais rien eu.
+    if (rows.length === 0) return [];
     const byDay = {};
     rows.forEach((r) => {
       if (!byDay[r.isoDate]) byDay[r.isoDate] = { isoDate: r.isoDate, dayOfWeek: r.dayOfWeek, totalSeconds: 0, activities: [] };
       byDay[r.isoDate].totalSeconds += r.seconds;
       byDay[r.isoDate].activities.push({ activityId: r.activityId, name: r.activity, color: r.color, seconds: r.seconds });
     });
-    return Object.values(byDay).sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
+    // 2 septembre 2026, demande d'Emilien : « ajouter dans ce graphique tous
+    // les jours, même ceux où il n'y a aucune activité » — la ligne du
+    // Graphique ne doit plus sauter les jours sans entrée. On parcourt donc
+    // chaque jour civil de [start, end] et on complète par un point à zéro
+    // (totalSeconds: 0, activities: []) quand `byDay` n'a rien pour ce
+    // jour-là, plutôt que de simplement omettre le jour comme avant
+    // (Object.values(byDay) seul).
+    const out = [];
+    const cursor = new Date(start + 'T00:00:00');
+    const endDate = new Date(end + 'T00:00:00');
+    while (cursor <= endDate) {
+      const iso = isoDateOf(cursor);
+      out.push(byDay[iso] || { isoDate: iso, dayOfWeek: dayNameOf(cursor), totalSeconds: 0, activities: [] });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return out.sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
   }
 
   const byBucket = {};
