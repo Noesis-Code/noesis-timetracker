@@ -1294,6 +1294,21 @@
           <span class="identityName" id="viewProfileIdentityName"></span>
           <button type="button" class="menuBtn" id="viewProfileModalClose" aria-label="Fermer">✕</button>
         </div>
+
+        <!-- ⚠️ 2 septembre 2026, correction (demande d'Emilien : « lorsque je
+             tire vers le bas, le profil et la croix restent bloqués. Le
+             chargement se fait en dessous du profil et de la croix ») : tout
+             ce qui suit l'en-tête est enfermé dans CE conteneur, qui est
+             désormais la seule zone qui défile. L'en-tête, lui, est sorti du
+             défilement (voir #viewProfileScroll dans styles.css).
+             Un `position: sticky` ne suffisait pas : il tient pendant un
+             défilement normal, mais lors du rebond élastique d'un tirer-vers-
+             le-bas (iOS), c'est TOUTE la zone de défilement qui se déplace,
+             en-tête collé compris — d'où l'espace vide au-dessus du profil
+             sur la capture d'Emilien. Séparer les deux boîtes est le seul
+             moyen fiable : ce qui n'est pas dans le défilement ne peut pas
+             rebondir avec lui. -->
+        <div id="viewProfileScroll">
         <p id="viewProfileProjectsMsg" class="msg"></p>
 
         <p class="sectionTitle">Projets</p>
@@ -1394,6 +1409,7 @@
           <p id="viewProfilePostsEmptyHint" class="hint hidden">Aucun message pour l'instant.</p>
           <p id="viewProfilePostsLockedHint" class="hint hidden">Suis ce profil pour voir ses messages.</p>
         </div>
+        </div><!-- fin de #viewProfileScroll -->
       </div>
     </div>
 

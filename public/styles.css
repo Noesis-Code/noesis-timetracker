@@ -1676,26 +1676,48 @@ button { -webkit-user-select: none; user-select: none; }
 .discoverRow .seekingBadges { margin-left: auto; flex-shrink: 0; }
 
 /* En-tête de la page de visite : photo + nom + croix de fermeture sur une
-   seule ligne, FIXE en haut pendant le défilement (2 septembre 2026, demande
-   d'Emilien : « les données passent en dessous du profil et de la croix »).
-   Le conteneur de défilement est .communityMembersModalCard (max-height:
-   80vh ; overflow-y: auto) — c'est par rapport à LUI que l'ancrage
-   s'applique. Les trois valeurs de 16px ci-dessous compensent toutes le même
-   `padding: 16px` de cette carte, dont cette règle dépend donc directement :
-   - marges négatives à gauche/à droite (reprises en padding interne) pour
-     que l'en-tête couvre les deux bandes de 16px sur les côtés — sans elles
-     on verrait le contenu défiler dans ces bandes ;
-   - `top: -16px` et non `top: 0` : le rectangle d'ancrage d'un élément
-     sticky est le conteneur de défilement RÉDUIT DE SON PADDING, donc
-     `top: 0` collerait l'en-tête 16px trop bas et laisserait une bande où
-     le contenu apparaîtrait au-dessus de lui (constaté par assertion avant
-     correction : en-tête à 160px, haut de la carte à 144px).
-   Même arrondi que la carte, pour rester aligné avec elle une fois collé. */
+   seule ligne, RÉELLEMENT figé (2 septembre 2026, demande d'Emilien : « les
+   données passent en dessous du profil et de la croix », puis, après une
+   première tentative insuffisante : « lorsque je tire vers le bas, le profil
+   et la croix restent bloqués »).
+   ⚠️ Premier essai en `position: sticky` à l'intérieur de la carte
+   défilante : correct pendant un défilement normal (assertions au vert),
+   mais FAUX AU REBOND ÉLASTIQUE. Tirer vers le bas sur iOS déplace TOUTE la
+   zone de défilement, en-tête collé compris — d'où l'espace vide au-dessus
+   du profil sur la capture d'Emilien : un élément sticky reste solidaire de
+   son conteneur, il ne peut pas résister à un rebond de ce conteneur.
+   La correction est donc structurelle : la carte devient une colonne flex à
+   deux boîtes — cet en-tête, hors de tout défilement, et #viewProfileScroll
+   qui prend le reste de la hauteur et défile seul. Ce qui n'est pas dans le
+   défilement ne peut pas rebondir avec lui.
+   ⚠️ Les deux règles suivantes sont volontairement portées par
+   `#viewProfileModal ...` et non par `.communityMembersModalCard` seule :
+   cette classe est partagée avec #communityMembersModal (zone Communauté),
+   qui doit garder son comportement d'origine — carte entièrement défilante,
+   padding compris. */
+#viewProfileModal .communityMembersModalCard {
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+}
+#viewProfileScroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
+  /* Le rebond de cette zone ne se propage pas à la page derrière la modale. */
+  overscroll-behavior: contain;
+}
+/* Le message d'erreur de la page de visite est vide dans l'immense majorité
+   des cas, mais réservait quand même sa place (18px + 26px de marges) juste
+   sous l'en-tête, à chaque ouverture. Il ne prend de la place que s'il a
+   quelque chose à dire. */
+#viewProfileProjectsMsg:empty { display: none; }
+/* "Projets" est le seul titre de section en enfant direct de la zone
+   défilante (ceux de Répartition/Graphique sont imbriqués dans leurs
+   .statsSection) : en tête de panneau, il n'a pas besoin de la marge haute
+   de 24px qui sert à séparer deux sections l'une de l'autre. */
+#viewProfileScroll > .sectionTitle { margin-top: 4px; }
 .viewProfileIdentity {
   display: flex; align-items: center; gap: 12px;
-  position: sticky; top: -16px; z-index: 3;
+  flex: 0 0 auto;
   background: var(--bg);
-  margin: -16px -16px 12px; padding: 16px;
+  padding: 16px;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-bottom: 1px solid var(--border);
 }

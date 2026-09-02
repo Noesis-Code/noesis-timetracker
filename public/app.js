@@ -468,6 +468,33 @@
   window.addEventListener('resize', syncTopbarHeightVar);
   window.addEventListener('orientationchange', syncTopbarHeightVar);
 
+  // 2 septembre 2026, suite (Design) : sur mobile, quand le clavier virtuel
+  // est ouvert (un champ texte a le focus) et qu'on fait défiler la page,
+  // .topbar et .tabbar (toutes deux position: fixed) donnaient l'impression
+  // de "flotter"/se déplacer avec le contenu — signalé par Emilien, captures
+  // à l'appui. Cause : le clavier virtuel réduit le viewport visuel sans
+  // redimensionner de la même façon les éléments fixed (ancrés au viewport
+  // de mise en page, plus grand tant que rien ne le recalcule) ; un
+  // défilement pendant que le clavier est ouvert les fait donc apparaître
+  // décalés. Plutôt que de recalculer en continu la position des éléments
+  // fixed via l'API VisualViewport (fragile, support inégal), la solution
+  // retenue est celle demandée par Emilien : fermer le clavier dès qu'un
+  // défilement commence tant qu'un champ a le focus, quel que soit le sens
+  // du défilement. Limité aux écrans tactiles (pointer: coarse) — sur
+  // desktop, garder le focus sur un champ pendant qu'on fait défiler la
+  // page à la molette est un comportement normal, aucun clavier virtuel
+  // n'étant en jeu.
+  var _isCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  if (_isCoarsePointer) {
+    window.addEventListener('scroll', function () {
+      var active = document.activeElement;
+      if (!active) return;
+      var isTextInput = active.tagName === 'TEXTAREA' ||
+        (active.tagName === 'INPUT' && ['text', 'search', 'tel', 'email', 'password', 'number', 'url', 'date', 'time'].indexOf(active.type) !== -1);
+      if (isTextInput) active.blur();
+    }, { capture: true, passive: true });
+  }
+
   function showApp() {
     $('onboarding').classList.add('hidden');
     $('app').classList.remove('hidden');
