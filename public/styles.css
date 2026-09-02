@@ -609,10 +609,59 @@ textarea {
    apparaissent alors à gauche des libellés de jour. Force ces colonnes sur
    leur propre calque de composition (peinture opaque garantie) plutôt que de
    compter sur le fond CSS seul. Signalé par Emilien le 30 août 2026. */
-.tsCorner { position: sticky; left: 0; background: var(--card); z-index: 2; will-change: transform; }
+.tsCorner { position: sticky; left: 0; background: var(--card); z-index: 3; will-change: transform; }
 .tsHourLabel {
   font-size: 10px; color: var(--text-light); display: flex; align-items: flex-end;
   padding-left: 2px; white-space: nowrap;
+}
+
+/* ----- Vue "Semaine" : liste de jours défilable verticalement (1er septembre
+   2026, demande d'Emilien : « défiler [...] aussi de haut en bas. Et alors
+   les jours défilent au lieu des heures. Je souhaite que cette option ne soit
+   possible que pour le mode semaine »).
+
+   La classe .tsWeekScroll est posée/retirée par app.js (loadTimesheet) selon
+   la période : c'est elle qui restreint tout ce bloc au mode Semaine, la vue
+   "Mois" gardant exactement son comportement d'avant. Un sélecteur du type
+   `.timesheetScroll:has(#tsGrid:not(.hidden))` aurait évité ce couplage
+   au JS, mais :has() n'est supporté qu'à partir de Safari 15.4 — trop risqué
+   pour un iPhone dont on ne connaît pas la version.
+
+   `max-height` en vh plutôt qu'en pixels : le cadre garde des proportions
+   correctes du téléphone à l'écran de bureau. 50vh laisse une quinzaine de
+   jours visibles sur un téléphone tout en laissant voir la Répartition juste
+   en dessous, qui se met à jour en même temps qu'on défile.
+
+   `padding-top: 0` est indispensable : avec les 10px de padding d'origine,
+   les lignes de jours défileraient dans la bande au-dessus de la ligne
+   d'heures figée avant de passer dessous. Le padding est reporté sur les
+   cellules d'en-tête elles-mêmes, qui le compensent exactement.
+
+   ⚠️ Le sélecteur est préfixé `.statsSection` volontairement : la règle
+   `.statsSection .timesheetScroll { padding: 10px 8px 4px }` plus bas dans ce
+   fichier a la même spécificité et vient APRÈS — sans ce préfixe, elle
+   écrasait le `padding-top: 0` et les lignes de jours défilaient
+   visiblement dans la bande de 10px au-dessus de la ligne d'heures figée
+   (constaté au test navigateur). ----- */
+.statsSection .timesheetScroll.tsWeekScroll {
+  max-height: 50vh;
+  overflow: auto;
+  padding-top: 0;
+}
+/* Ligne des heures figée en haut pendant le défilement vertical. Le fond
+   opaque est obligatoire (sans lui, les cases colorées défilent visiblement
+   sous les libellés d'heure), et le padding-top reprend celui retiré du
+   conteneur ci-dessus. Même correctif `will-change: transform` que les
+   colonnes figées, pour le même bug de peinture WebKit mobile. */
+.tsWeekScroll .tsHourLabel {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--card); padding-top: 10px;
+  will-change: transform;
+}
+/* Le coin haut-gauche cumule les deux : figé en haut ET à gauche, donc
+   au-dessus des deux autres (z-index 3, voir .tsCorner ci-dessus). */
+.tsWeekScroll .tsCorner {
+  top: 0; padding-top: 10px;
 }
 /* Colonne figée élargie de 54px à 64px le 30 août 2026 (demande d'Emilien) :
    le libellé "Mer 27/08" (jour abrégé + date) en 11px, avec padding-right,
@@ -1069,6 +1118,19 @@ body.scrollLock { overflow: hidden; }
 .discussionComposer textarea { min-height: 56px; background: var(--card); color: var(--text); box-sizing: border-box; }
 .discussionComposer .rowActions { margin-top: 8px; }
 .discussionComposer .msg { text-align: right; }
+
+/* Flux "Suivi" (#followingFeed, Communauté) : contrairement à
+   #communityMyPostsList/#profileDiscussionCommunityList (encadrées par
+   .discussionList, boîte à hauteur fixe avec défilement interne), ce flux
+   s'étend avec le reste de la page — pas de max-height/overflow ici. Sans
+   cette règle, les cartes .discussionMsg qu'il contient (voir
+   buildFollowingPostCard, app.js) n'avaient AUCUN espacement entre elles
+   (ni gap de conteneur, ni margin propre à .discussionMsg) et apparaissaient
+   collées les unes aux autres — corrigé le 2 septembre 2026 à la demande
+   d'Emilien (« aucune note ne soit collée [...] l'espace entre 2 notes doit
+   être systématique »), avec le même espacement que partout ailleurs (8px,
+   cf. .discussionList ci-dessus et .historyEntry plus bas). */
+#followingFeed { display: flex; flex-direction: column; gap: 8px; }
 
 /* Pastille de messages non lus sur une ligne d'activité partagée. Poussée à
    droite comme .memberLiveDot ci-dessus (toutes deux dans un

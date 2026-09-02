@@ -498,6 +498,10 @@
     [/^"(.+)" existe déjà\. Choisis un autre nom, ou récupère ton profil si c'est toi\.$/, '"$1" already exists. Pick another name, or restore your profile if that is you.'],
     [/^"(.+)" est déjà pris par un autre profil\.$/, '"$1" is already taken by another profile.'],
     [/^Semaine du (\S+) au (\S+)$/, 'Week of $1 to $2'],
+    // Libellé du camembert (Répartition) depuis que la Feuille de temps
+    // défile en continu : la plage visible n'est plus forcément une semaine
+    // entière — ajouté le 1er septembre 2026 par la discussion Feuille de temps.
+    [/^Du (\S+) au (\S+)$/, 'From $1 to $2'],
   ];
 
   var lang = 'fr';

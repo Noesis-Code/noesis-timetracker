@@ -109,40 +109,28 @@ function profilePostAttachmentsFor(postId) {
                       FROM profile_post_attachments WHERE postId = ? ORDER BY createdAt ASC`).all(postId);
 }
 
-// Flux "Suivi" : ce que les personnes que je suis (follows acceptés) ET qui
-// ont activé "Partager mon profil" ont publié — deux origines mélangées et
-// triées ensemble par date, la plus récente en tête :
-//   - les messages "Communauté" de leur zone Discussion (profile_posts,
-//     table propriété de Profil, lue ici en débordement signalé — voir
-//     noesis-timetracker-chantiers-en-cours.md) : origine PRINCIPALE depuis
-//     le 1er septembre 2026 (demande d'Emilien : « écrire à sa communauté
-//     [...] les messages se publient sur son profil, à la fois et dans les
-//     fils de la communauté pour les gens qui le suivent ») ;
-//   - les sessions avec une note publiée (t.note != ''), qui alimentaient
-//     seules ce flux depuis le 30 août 2026 — conservées pour ne pas faire
-//     disparaître d'éventuelles entrées historiques, mais devenues une
-//     origine résiduelle : plus aucune interface de l'app ne permet
-//     d'écrire une note de fin de session depuis que la zone "Note" du
-//     Chrono a été retirée le 31 août 2026 (voir la carte Chrono de
-//     noesis-timetracker-chantiers-en-cours.md).
+// Flux "Suivi" : les messages "Communauté" (profile_posts, table propriété
+// de Profil, lue ici en débordement signalé — voir
+// noesis-timetracker-chantiers-en-cours.md) des personnes que je suis
+// (follows acceptés) ET qui ont activé "Partager mon profil" — SEULE source
+// depuis le 2 septembre 2026, sur demande explicite d'Emilien : « seules
+// les notes directement écrites depuis la discussion sur l'app peuvent y
+// être répertoriées ».
+// Ancienne branche retirée à ce passage : les sessions avec une note
+// publiée (t.note != '') alimentaient seules ce flux depuis le 30 août
+// 2026, puis étaient restées mélangées comme source "résiduelle" après
+// l'arrivée de profile_posts le 1er septembre — plus aucune interface de
+// l'app ne permettant d'écrire une telle note depuis le retrait de la zone
+// "Note" du Chrono le 31 août 2026 (voir la carte Chrono de
+// noesis-timetracker-chantiers-en-cours.md), ces entrées historiques
+// pouvaient laisser croire qu'un message provenait "de la communauté" sans
+// avoir jamais été écrit depuis la discussion. Emilien a tranché pour leur
+// retrait complet plutôt que leur maintien comme legacy.
 // Totalement indépendant de sharedFeedForUser ci-dessus : les deux
 // fonctions ne se recoupent que par coïncidence (suivre quelqu'un avec qui
 // on partage aussi une activité).
 function followingFeedForUser(userId, limit) {
   limit = limit || 100;
-
-  const sessions = db.prepare(`
-    SELECT t.id, t.userId, u.name AS userName, u.color AS userColor,
-           t.activityId, a.name AS activityName, t.note, t.startTime, t.endTime, t.durationSeconds
-    FROM time_entries t
-    JOIN activities a ON a.id = t.activityId
-    JOIN users u ON u.id = t.userId
-    WHERE u.shareProfile = 1
-      AND t.note IS NOT NULL AND t.note != ''
-      AND EXISTS (SELECT 1 FROM follows f WHERE f.followerId = ? AND f.followeeId = t.userId AND f.status = 'accepted')
-    ORDER BY t.startTime DESC
-    LIMIT ?
-  `).all(userId, limit).map((row) => Object.assign({ type: 'session' }, row));
 
   const posts = db.prepare(`
     SELECT p.id, p.userId, u.name AS userName, u.color AS userColor, p.body, p.createdAt
@@ -155,13 +143,7 @@ function followingFeedForUser(userId, limit) {
   `).all(userId, limit).map((row) => Object.assign({ type: 'post' }, row));
   posts.forEach((post) => { post.attachments = profilePostAttachmentsFor(post.id); });
 
-  // Fusionnées et re-triées ensemble par date (startTime pour une session,
-  // createdAt pour un message), la plus récente en tête, puis limitées de
-  // nouveau : chaque requête a déjà pris jusqu'à `limit` de son côté, mais
-  // le mélange peut en compter plus que nécessaire une fois combiné.
-  return sessions.concat(posts)
-    .sort((a, b) => new Date(b.type === 'post' ? b.createdAt : b.startTime) - new Date(a.type === 'post' ? a.createdAt : a.startTime))
-    .slice(0, limit);
+  return posts;
 }
 
 // Liste des membres d'UNE activité partagée précise, avec un indicateur "en

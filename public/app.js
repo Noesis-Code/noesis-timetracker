@@ -19,7 +19,9 @@
   // se choisit ('day' | 'week' | 'month', 'day' par défaut).
   var currentChartGranularity = 'day';
   var currentTimesheetPeriod = 'week'; // 'week' | 'month' — pas d'"année" pour la Feuille de temps (demande d'Emilien)
-  var currentTimesheetOffset = 0; // décalage en semaines ; repart à 0 à chaque ouverture de l'onglet Statistiques
+  // (currentTimesheetOffset retirée le 1er septembre 2026 : la vue "Semaine"
+  // n'est plus une fenêtre qu'on décale mais une liste continue qu'on fait
+  // défiler — voir tsDays/tsHasMoreBefore plus bas.)
   var currentTimesheetMonthOffset = 0; // décalage en mois (vue calendrier) ; repart à 0 lui aussi
   var currentHistoryWeekOffset = 0; // idem, pour l'historique modifiable du Chrono (#chronoHistoryPanel)
   var lastDailyBreakdown = []; // dernier détail journalier chargé, pour redessiner le Graphique sans refetch (ex : couleur de la courbe Total après un changement de thème)
@@ -692,7 +694,6 @@
       // 2026) — Répartition/Graphique, eux, gardent la période choisie
       // précédemment (comme l'ancien sélecteur global #statsPeriodSwitch).
       currentTimesheetPeriod = 'week';
-      currentTimesheetOffset = 0;
       currentTimesheetMonthOffset = 0;
       syncPeriodMenuActive($('tsPeriodMenu'), 'week');
       loadTimesheet();
@@ -1271,7 +1272,6 @@
     // période, plutôt que de convertir un décalage semaine en décalage mois
     // (les deux ne correspondent à rien l'un pour l'autre).
     if (period === 'month') currentTimesheetMonthOffset = 0;
-    else currentTimesheetOffset = 0;
     loadTimesheet();
   });
 
@@ -1666,28 +1666,217 @@
 
   // ===================== FEUILLE DE TEMPS (heatmap hebdomadaire) =====
   // Grille jour × quart d'heure, dans l'esprit de l'onglet "Feuille de
-  // temps" du Google Sheet d'origine. Repart toujours sur la semaine en
-  // cours à l'ouverture de l'onglet (voir switchTab) : les semaines
-  // précédentes ne sont jamais supprimées côté serveur, seulement masquées
-  // par défaut ici — on y accède avec la flèche "précédente".
-  // Ces deux flèches naviguent en semaines ou en mois selon la période
-  // choisie dans le menu "⋮" (currentTimesheetPeriod — voir plus haut) :
-  // mêmes boutons, mêmes ids, comportement adapté à la vue affichée.
+  // temps" du Google Sheet d'origine.
+  //
+  // ⚠️ 1er septembre 2026 — la vue "Semaine" n'est plus une fenêtre de 7
+  // jours : c'est une LISTE CONTINUE de jours qu'on fait défiler
+  // verticalement, et qui s'allonge toute seule vers le passé quand on
+  // arrive en haut (défilement infini). Demande d'Emilien : « je puisse à la
+  // fois défiler vers la droite ou vers la gauche comme c'est déjà le cas,
+  // mais aussi de haut en bas. Et alors les jours défilent au lieu des
+  // heures. Je souhaite que cette option ne soit possible que pour le mode
+  // semaine. » Cadré en trois questions (`AskUserQuestion`) :
+  //   - remonter dans le passé SANS LIMITE, par chargement progressif ;
+  //   - ligne des heures figée en haut + colonne des jours figée à gauche
+  //     pendant le défilement ;
+  //   - camembert de la Répartition suivant « ce qui est visible à l'écran ».
+  // Puis confirmé explicitement : liste s'arrêtant à aujourd'hui (jamais de
+  // jour à venir), ouverture en bas sur aujourd'hui, et flèches ‹ › devenues
+  // un RACCOURCI qui saute d'une semaine calendaire (lundi→dimanche) à
+  // l'autre plutôt qu'un rechargement.
+  //
+  // La vue "Mois" est délibérément inchangée (demande explicite : « que pour
+  // le mode semaine ») — elle garde son calendrier, ses flèches par mois et
+  // son `currentTimesheetMonthOffset`.
+
+  // Nombre de jours par tranche. 30 à l'ouverture pour qu'il y ait de quoi
+  // défiler tout de suite, puis 30 par chargement — un compromis entre le
+  // poids d'une réponse (30 × 96 créneaux) et le nombre d'allers-retours en
+  // remontant loin.
+  var TS_CHUNK_DAYS = 30;
+  var tsDays = [];              // jours chargés, du plus ancien au plus récent
+  var tsHasMoreBefore = false;  // reste-t-il de l'historique au-dessus ?
+  var tsLoadingMore = false;    // une tranche est déjà en vol
+  var tsPieTimer = null;        // anti-rebond du recalcul du camembert
+
+  function tsScrollBox() { return document.querySelector('#statsTimesheetBlock .timesheetScroll'); }
+
+  // Lundi 00h00 de la semaine contenant cette date ISO — pendant client de
+  // mondayOf() (server/lib/dates.js), redéfini ici parce que le client n'a
+  // pas accès aux utilitaires serveur.
+  function tsMondayOf(isoDate) {
+    var d = new Date(isoDate + 'T00:00:00');
+    var day = d.getDay(); // 0 = dimanche
+    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+    return d;
+  }
+  function tsIso(d) {
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function tsDayMonth(d) { return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); }
+
+  // Les flèches ‹ › sautent d'une semaine calendaire à l'autre. On part de la
+  // semaine actuellement en haut du cadre, on recule (ou avance) de 7 jours,
+  // et on amène le lundi correspondant en haut — en chargeant d'abord la
+  // suite de l'historique si ce lundi n'est pas encore là.
+  function tsJumpWeek(direction) {
+    var anchor = tsFirstVisibleDay();
+    if (!anchor) return;
+    var target = tsMondayOf(anchor.isoDate);
+    target.setDate(target.getDate() + direction * 7);
+
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    if (direction > 0 && target > today) return; // jamais de semaine à venir
+
+    tsReachDay(tsIso(target), 6);
+  }
+
+  // Amène ce jour en haut du cadre, en chargeant d'abord autant de tranches
+  // que nécessaire s'il est plus ancien que tout ce qui est déjà là. `budget`
+  // borne le nombre de chargements enchaînés : sans lui, un saut vers une
+  // date très ancienne pourrait déclencher une cascade de requêtes.
+  function tsReachDay(isoDate, budget) {
+    if (tsDays.length && isoDate < tsDays[0].isoDate && tsHasMoreBefore && budget > 0) {
+      tsLoadOlder(function () { tsReachDay(isoDate, budget - 1); });
+      return;
+    }
+    tsScrollToDay(isoDate);
+  }
+
+  // Hauteur de la ligne d'heures figée en haut — le jour "en haut du cadre"
+  // est celui qui commence juste en dessous d'elle, pas sous le bord du cadre.
+  function tsHeaderHeight() {
+    var corner = $('tsGrid').querySelector('.tsCorner');
+    return corner ? corner.getBoundingClientRect().height : 0;
+  }
+
+  // Amène la ligne de ce jour (ou la plus proche disponible) en haut du cadre.
+  // Calculs en coordonnées écran (getBoundingClientRect) plutôt qu'en
+  // offsetTop : indépendant de l'élément positionné de référence, donc
+  // insensible au fait que .tsDayLabel soit en position: sticky.
+  function tsScrollToDay(isoDate) {
+    var box = tsScrollBox();
+    if (!box || !tsDays.length) return;
+    var index = -1;
+    for (var i = 0; i < tsDays.length; i++) {
+      if (tsDays[i].isoDate >= isoDate) { index = i; break; }
+    }
+    if (index === -1) index = tsDays.length - 1;
+    var row = $('tsGrid').querySelector('.tsDayLabel[data-ts-day="' + tsDays[index].isoDate + '"]');
+    if (!row) return;
+    box.scrollTop += row.getBoundingClientRect().top - box.getBoundingClientRect().top - tsHeaderHeight();
+    tsOnViewportChanged();
+  }
+
   $('tsPrevWeek').addEventListener('click', function () {
-    if (currentTimesheetPeriod === 'month') currentTimesheetMonthOffset += 1;
-    else currentTimesheetOffset += 1;
-    loadTimesheet();
+    if (currentTimesheetPeriod === 'month') { currentTimesheetMonthOffset += 1; loadTimesheet(); return; }
+    tsJumpWeek(-1);
   });
   $('tsNextWeek').addEventListener('click', function () {
     if (currentTimesheetPeriod === 'month') {
       if (currentTimesheetMonthOffset === 0) return;
       currentTimesheetMonthOffset -= 1;
-    } else {
-      if (currentTimesheetOffset === 0) return;
-      currentTimesheetOffset -= 1;
+      loadTimesheet();
+      return;
     }
-    loadTimesheet();
+    tsJumpWeek(1);
   });
+
+  // ----- Défilement vertical de la liste de jours -----
+  // Deux effets, volontairement séparés :
+  //   1. arrivé près du haut, on charge la tranche de jours précédente ;
+  //   2. à chaque arrêt du défilement, on met à jour le libellé (semaine
+  //      calendaire en haut du cadre) et le camembert (jours visibles).
+  // L'anti-rebond du point 2 évite une requête par pixel parcouru : seul
+  // l'arrêt compte.
+  (function setupTimesheetScroll() {
+    var box = tsScrollBox();
+    if (!box) return;
+    box.addEventListener('scroll', function () {
+      if (currentTimesheetPeriod !== 'week') return;
+      if (box.scrollTop < 120) tsLoadOlder();
+      if (tsPieTimer) clearTimeout(tsPieTimer);
+      tsPieTimer = setTimeout(tsOnViewportChanged, 180);
+    });
+  })();
+
+  // Jours dont la ligne est (au moins partiellement) dans le cadre, sous la
+  // ligne d'heures figée. Une seule fonction pour les deux besoins : le
+  // libellé n'a besoin que du premier, le camembert des deux bornes.
+  function tsVisibleDays() {
+    var box = tsScrollBox();
+    if (!box || !tsDays.length) return null;
+    var rows = $('tsGrid').querySelectorAll('.tsDayLabel');
+    if (!rows.length) return null;
+    var boxRect = box.getBoundingClientRect();
+    var top = boxRect.top + tsHeaderHeight();
+    var bottom = boxRect.bottom;
+    var first = null, last = null;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i].getBoundingClientRect();
+      // Un jour compte comme visible s'il est à MOITIÉ au moins dans le cadre.
+      // Le simple chevauchement (r.bottom > top) ne suffit pas : la ligne qui
+      // passe sous la ligne d'heures figée reste techniquement "à cheval" sur
+      // la limite alors qu'elle est entièrement masquée — elle faisait alors
+      // annoncer au libellé la semaine PRÉCÉDENTE (constaté sur capture).
+      var covered = Math.min(r.bottom, bottom) - Math.max(r.top, top);
+      if (covered >= r.height / 2) {
+        if (!first) first = rows[i].getAttribute('data-ts-day');
+        last = rows[i].getAttribute('data-ts-day');
+      }
+    }
+    if (!first) return null;
+    return { from: first, to: last };
+  }
+
+  function tsFirstVisibleDay() {
+    var v = tsVisibleDays();
+    if (v) return { isoDate: v.from };
+    if (tsDays.length) return { isoDate: tsDays[tsDays.length - 1].isoDate };
+    return null;
+  }
+
+  function tsVisibleRange() { return tsVisibleDays(); }
+
+  // Libellé = semaine calendaire (lundi→dimanche) du jour en haut du cadre,
+  // conformément à ce qu'Emilien a confirmé. Réutilise la formulation
+  // française existante « Semaine du X au Y », déjà traduite dans i18n.js.
+  function tsUpdateWeekLabel() {
+    var anchor = tsFirstVisibleDay();
+    if (!anchor) return;
+    var monday = tsMondayOf(anchor.isoDate);
+    var sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var isCurrent = today >= monday && today <= sunday;
+    $('tsWeekLabel').textContent = t('Semaine du ' + tsDayMonth(monday) + ' au ' + tsDayMonth(sunday))
+      + (isCurrent ? t(' (en cours)') : '');
+    $('tsNextWeek').disabled = isCurrent;
+    $('tsPrevWeek').disabled = !tsHasMoreBefore && tsDays.length > 0 && tsMondayOf(tsDays[0].isoDate) >= monday;
+  }
+
+  // Camembert : une requête légère qui ne renvoie QUE la répartition des
+  // jours visibles (voir la branche breakdownFrom/breakdownTo dans
+  // server/routes/stats.js). La réponse a exactement la forme que
+  // renderPieFromTimesheet (zone Répartition) consomme déjà — aucune ligne de
+  // sa fonction n'est modifiée.
+  var tsLastPieRange = '';
+  function tsUpdatePie() {
+    var range = tsVisibleRange();
+    if (!range || !profile) return;
+    var key = range.from + '>' + range.to;
+    if (key === tsLastPieRange) return; // rien de neuf à l'écran
+    tsLastPieRange = key;
+    api('GET', '/api/stats/timesheet?userId=' + profile.id
+      + '&breakdownFrom=' + range.from + '&breakdownTo=' + range.to)
+      .then(renderPieFromTimesheet)
+      .catch(function () { /* le camembert garde son état précédent */ });
+  }
+
+  function tsOnViewportChanged() {
+    if (currentTimesheetPeriod !== 'week') return;
+    tsUpdateWeekLabel();
+    tsUpdatePie();
+  }
 
   // Dispatch selon la période choisie : "Semaine" (heatmap 15 min, inchangée)
   // ou "Mois" (calendrier 2h, ajouté le 30 août 2026 — voir renderTimesheetMonth).
@@ -1699,28 +1888,73 @@
   // sont appelées exactement comme avant, avec les mêmes données.
   function loadTimesheet() {
     if (!profile) return;
+    var box = tsScrollBox();
     if (currentTimesheetPeriod === 'month') {
+      // La vue "Mois" est strictement inchangée : pas de défilement vertical
+      // (demande d'Emilien : « que pour le mode semaine »), et son camembert
+      // vient toujours de la réponse elle-même, comme l'a conçu Répartition.
+      if (box) box.classList.remove('tsWeekScroll');
       api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset).then(function (data) {
         renderTimesheetMonth(data);
         renderPieFromTimesheet(data);
       });
-    } else {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset).then(function (data) {
-        renderTimesheetWeek(data);
-        renderPieFromTimesheet(data);
-      });
+      return;
     }
+
+    if (box) box.classList.add('tsWeekScroll');
+    tsDays = [];
+    tsHasMoreBefore = false;
+    tsLastPieRange = '';
+    api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&days=' + TS_CHUNK_DAYS).then(function (data) {
+      tsDays = data.days || [];
+      tsHasMoreBefore = !!data.hasMoreBefore;
+      renderTimesheetWeek();
+      // Ouverture EN BAS : aujourd'hui est la dernière ligne, c'est elle
+      // qu'Emilien veut voir en arrivant (confirmé explicitement).
+      var b = tsScrollBox();
+      if (b) b.scrollTop = b.scrollHeight;
+      tsOnViewportChanged();
+    });
   }
 
-  function renderTimesheetWeek(data) {
+  // Charge la tranche de jours précédant le plus ancien déjà affiché, puis la
+  // préfixe à la liste. Le point délicat est le défilement : ajouter des
+  // lignes AU-DESSUS de ce qu'on regarde décale visuellement tout le contenu.
+  // On mesure donc la hauteur avant/après et on compense `scrollTop` de la
+  // différence, pour que la ligne sous les yeux ne bouge pas d'un pixel.
+  function tsLoadOlder(done) {
+    if (tsLoadingMore || !tsHasMoreBefore || !tsDays.length || !profile) {
+      if (done) done();
+      return;
+    }
+    tsLoadingMore = true;
+    var before = new Date(tsDays[0].isoDate + 'T00:00:00');
+    before.setDate(before.getDate() - 1);
+    api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&days=' + TS_CHUNK_DAYS
+      + '&endDate=' + tsIso(before))
+      .then(function (data) {
+        var box = tsScrollBox();
+        var heightBefore = box ? box.scrollHeight : 0;
+        var scrollBefore = box ? box.scrollTop : 0;
+        tsDays = (data.days || []).concat(tsDays);
+        tsHasMoreBefore = !!data.hasMoreBefore;
+        renderTimesheetWeek();
+        if (box) box.scrollTop = scrollBefore + (box.scrollHeight - heightBefore);
+        tsLoadingMore = false;
+        tsUpdateWeekLabel();
+        if (done) done();
+      })
+      .catch(function () { tsLoadingMore = false; if (done) done(); });
+  }
+
+  // Rend la liste complète des jours chargés. Le libellé, les flèches et le
+  // camembert ne sont plus pilotés ici (ils dépendent de ce qui est VISIBLE,
+  // pas de ce qui est chargé) — voir tsOnViewportChanged.
+  function renderTimesheetWeek() {
     $('tsGrid').classList.remove('hidden');
     $('tsCalendar').classList.add('hidden');
 
-    $('tsWeekLabel').textContent = t(data.label) + (data.isCurrentWeek ? t(' (en cours)') : '');
-    $('tsNextWeek').disabled = data.isCurrentWeek;
-    $('tsPrevWeek').disabled = !data.hasMoreBefore;
-
-    var hasAnyEntry = data.days.some(function (day) { return day.slots.some(function (s) { return !!s; }); });
+    var hasAnyEntry = tsDays.some(function (day) { return day.slots.some(function (s) { return !!s; }); });
     $('tsEmptyHint').classList.toggle('hidden', hasAnyEntry);
 
     var html = '<div class="tsCorner"></div>';
@@ -1728,9 +1962,9 @@
       html += '<div class="tsHourLabel" style="grid-column: span 4;">' + h + 'h</div>';
     }
 
-    data.days.forEach(function (day) {
+    tsDays.forEach(function (day) {
       var dateObj = new Date(day.isoDate + 'T00:00:00');
-      html += '<div class="tsDayLabel">' + t(day.dayOfWeek).slice(0, 3) + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1) + '</div>';
+      html += '<div class="tsDayLabel" data-ts-day="' + day.isoDate + '">' + t(day.dayOfWeek).slice(0, 3) + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1) + '</div>';
       day.slots.forEach(function (slot, i) {
         var slotLabel = pad(Math.floor(i / 4)) + ':' + pad((i % 4) * 15);
         if (slot) {
@@ -2799,15 +3033,17 @@
     return card;
   }
 
+  // 2 septembre 2026 : le flux ne reçoit plus que des messages "Communauté"
+  // (profile_posts) depuis le retrait de l'ancienne branche de sessions
+  // notées côté serveur (voir followingFeedForUser, server/lib/community.js)
+  // — chaque entrée est donc toujours affichée via buildFollowingPostCard.
   function loadFollowingFeed() {
     if (!profile) return;
     api('GET', '/api/community/following-feed?userId=' + profile.id).then(function (list) {
       var box = $('followingFeed');
       box.innerHTML = '';
       $('followingFeedEmptyHint').classList.toggle('hidden', list.length > 0);
-      list.forEach(function (entry) {
-        box.appendChild(entry.type === 'post' ? buildFollowingPostCard(entry) : buildFeedEntryCard(entry));
-      });
+      list.forEach(function (entry) { box.appendChild(buildFollowingPostCard(entry)); });
     });
   }
 
