@@ -471,29 +471,32 @@
            son commentaire plus haut). Le Graphique était la dernière section
            de Statistiques à garder ce mécanisme ; .fullscreenOnly n'a donc
            plus aucun usage et a été retiré de styles.css.
-           Pincement à deux doigts pour rapprocher/éloigner les points de
-           l'axe du temps (2 septembre 2026, demande d'Emilien : « comme sur
-           TradingView »), quelle que soit la granularité Jour/Semaine/Mois —
-           voir chartPointSpacing et renderChart() dans app.js. Tous les jours
-           restent toujours dans le graphique (rien de caché par le zoom) ; le
-           panoramique est le défilement horizontal natif de .chartScroll, pas
-           un geste JS. #chartZoomResetBtn (masqué hors zoom) revient d'un
-           coup à l'espacement par défaut. Corrigé le 2 septembre 2026 (même
-           jour) après un premier essai à base de fenêtre glissante qui
-           cachait des jours et cassait le tap normal — voir le journal
-           (noesis-timetracker-journal-statistiques.md) pour l'historique. -->
+           Pincement à deux doigts pour zoomer, essayé le 2 septembre 2026
+           (« comme sur TradingView »), reconstruit une première fois le
+           même jour après une régression signalée par Emilien, puis
+           ANNULÉ ENTIÈREMENT à sa demande après un nouveau problème (saut
+           visuel pendant le pincement) : « On repasse à la version d'avant
+           graphique simple. » Plus aucune capacité de zoom — tous les jours
+           sont dessinés à un espacement fixe (CHART_DAY_SPACING, app.js),
+           le panoramique est uniquement le défilement horizontal natif de
+           .chartScroll. Historique complet des trois tentatives : voir
+           noesis-timetracker-journal-statistiques.md.
+           Tous les jours de l'historique sont désormais représentés, y
+           compris ceux sans la moindre activité (posés à zéro) — demande
+           d'Emilien du 2 septembre 2026 (« ajouter dans ce graphique tous
+           les jours, même ceux où il n'y a aucune activité ») : un jour vide
+           créait jusque-là un trou invisible dans la courbe plutôt que d'y
+           passer à zéro. Voir chartBreakdownForUser dans
+           server/lib/stats.js. -->
       <div id="statsChartBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
-          <div class="chartNav">
-            <button id="chartZoomResetBtn" type="button" class="iconBtn hidden" aria-label="Réinitialiser le zoom">⟲</button>
-            <div class="statsPeriodMenuWrap" id="chartPeriodWrap">
-              <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
-              <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
-                <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-              </div>
+          <div class="statsPeriodMenuWrap" id="chartPeriodWrap">
+            <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
+            <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
+              <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
             </div>
           </div>
         </div>

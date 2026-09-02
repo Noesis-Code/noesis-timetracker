@@ -27,73 +27,19 @@
   // (retiré le même jour, demande d'Emilien : « supprimer le mode plein
   // écran de graphique ») n'ont plus de plein écran : plus de variable
   // d'état ici, voir #statsTimesheetBlock et #statsChartBlock.
-  // ----- Zoom/panoramique du Graphique (2 septembre 2026, demande d'Emilien :
-  // « pouvoir, en pinçant avec mes deux doigts, rapprocher ou éloigner les
-  // points du graphique, comme sur TradingView »).
-  //
-  // ⚠️ REVU le 2 septembre 2026 (même jour, suite) après retour d'Emilien
-  // sur la première version : « je ne peux pas sélectionner le graphique
-  // pour bloquer l'image [...] je ne peux pas voir tous les jours en même
-  // temps. Il n'y a plus le total des jours. Ce n'est pas ce que j'ai
-  // demandé. » La première version remplaçait la vue "tous les jours,
-  // défilement horizontal" (le comportement d'origine — voir
-  // renderViewProfileChart plus bas, qui décrit explicitement ce
-  // comportement d'origine) par une fenêtre glissante limitée à ce qui
-  // tient dans le conteneur : régression non voulue. Un geste tactile à un
-  // doigt interceptait en plus le survol/tap normal (plus moyen de figer
-  // l'infobulle sur un jour d'un simple appui), et `touch-action: none`
-  // bloquait jusqu'au défilement normal de la PAGE quand le doigt touchait
-  // le graphique en premier.
-  //
-  // Nouveau modèle, plus fidèle à la demande d'origine et à TradingView :
-  // TOUS les jours restent toujours dans le graphique, exactement comme
-  // avant l'ajout du zoom — c'est `chartPointSpacing` (56px par défaut,
-  // valeur d'origine) qui change avec le pincement, PAS le nombre de jours
-  // affichés. Le panoramique redevient le défilement horizontal NATIF de
-  // `.chartScroll` (`overflow-x: auto`, comme avant) : plus aucun code de
-  // panoramique à un doigt, plus de `touch-action` restrictif — seul le
-  // pincement à DEUX doigts est encore intercepté en JS (`preventDefault`
-  // uniquement pendant un pincement actif). Le survol/tap à un doigt et le
-  // défilement de la page redeviennent entièrement natifs, comme avant le
-  // zoom.
-  var CHART_POINT_SPACING_DEFAULT = 56; // valeur/espacement d'origine, avant tout zoom
-  var CHART_POINT_SPACING_MIN = 8; // pincement vers l'intérieur : les points se resserrent, jusqu'à cette limite
-  var CHART_POINT_SPACING_MAX = 240; // pincement vers l'extérieur : les points s'écartent, jusqu'à cette limite
-  var chartPointSpacing = CHART_POINT_SPACING_DEFAULT;
-  // Posé à `true` par resetChartZoom() : le PROCHAIN rendu défile
-  // `.chartScroll` vers les jours les plus récents (bord droit), plutôt que
-  // de laisser le navigateur au bord gauche par défaut — seulement au
-  // premier rendu après une réouverture d'onglet ou un changement de
-  // granularité, jamais pendant un pincement ou un défilement manuel en
-  // cours (qui doivent rester où l'utilisateur les a laissés).
-  var chartScrollToEndOnNextRender = false;
-  function resetChartZoom() {
-    chartPointSpacing = CHART_POINT_SPACING_DEFAULT;
-    chartScrollToEndOnNextRender = true;
-  }
-  // Pincement à deux doigts en cours (SEUL geste encore intercepté en JS) +
-  // throttling des redessins pendant le geste : un redessin reconstruit tout
-  // le SVG (voir renderChart), le limiter à une fois par frame évite le
-  // clignotement/lag sur un téléphone modeste tout en gardant le geste fluide.
-  var chartGesturePointers = {}; // pointerId -> {x, y} ; jamais plus de 2 entrées utiles (voir renderChart)
-  // Ancre du zoom en cours — le point de donnée sous le milieu du pincement
-  // (ou sous le curseur pour Ctrl+molette) doit rester au même endroit à
-  // l'écran pendant tout le geste. Reste non-null tant qu'un pincement
-  // tactile est en cours (plusieurs redessins successifs doivent réutiliser
-  // la MÊME ancre) ; pour Ctrl+molette (un seul saut discret par évènement,
-  // pas de "début"/"fin" de geste), posée juste avant chaque redessin et
-  // aussitôt relâchée après application — voir la fin de renderChart().
-  var chartZoomAnchor = null; // {anchorDataIndex, anchorViewportOffset}
-  var chartGestureCleanup = null; // retire les écouteurs document du pincement en cours (voir renderChart)
-  var chartRerenderScheduled = false;
-  function scheduleChartRerender() {
-    if (chartRerenderScheduled) return;
-    chartRerenderScheduled = true;
-    requestAnimationFrame(function () {
-      chartRerenderScheduled = false;
-      if (lastDailyBreakdown.length) renderChart(lastDailyBreakdown);
-    });
-  }
+  // ----- Pincement à deux doigts pour zoomer le Graphique : essayé le
+  // 2 septembre 2026 (demande d'Emilien : « comme sur TradingView »),
+  // reconstruit le même jour après une première régression signalée
+  // (« je ne peux pas voir tous les jours en même temps [...] cela bug »),
+  // puis ANNULÉ ENTIÈREMENT à la demande d'Emilien après un nouveau
+  // problème (saut visuel pendant le pincement) : « On annule la dernière
+  // modification de pincement. On repasse à la version d'avant graphique
+  // simple. » Le Graphique n'a donc plus aucune capacité de zoom — tous les
+  // jours sont dessinés à un espacement fixe (CHART_DAY_SPACING ci-dessous),
+  // le panoramique est le simple défilement horizontal natif de
+  // `.chartScroll`. Historique complet des trois tentatives : voir
+  // noesis-timetracker-journal-statistiques.md.
+  var CHART_DAY_SPACING = 56; // espacement fixe entre deux points, en pixels
   // ----- Statistiques d'UNE activité partagée (section Communauté > Membres)
   // — pendants exacts des 5 variables Statistiques ci-dessus, jamais
   // partagés avec elles (deux jeux d'état totalement indépendants). -----
@@ -773,7 +719,6 @@
     $('profileSettingsBtn').classList.remove('active');
 
     if (tab === 'stats') {
-      resetChartZoom(); // demande d'Emilien : le zoom du Graphique ne doit pas survivre à une réouverture de l'onglet
       loadStats();
       // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
       // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
@@ -1351,17 +1296,7 @@
   // renderPieFromTimesheet plus bas.)
   setupStatsPeriodMenu($('chartPeriodBtn'), $('chartPeriodMenu'), function (period) {
     currentChartGranularity = period; // 'day' | 'week' | 'month' (data-period du menu ⋮ du Graphique)
-    resetChartZoom(); // une fenêtre de zoom choisie pour une granularité n'a plus de sens pour une autre
     loadChartStats();
-  });
-  // Bouton "réinitialiser le zoom" du Graphique — masqué par défaut (voir
-  // renderChart, qui le révèle uniquement quand chartPointSpacing s'écarte de
-  // sa valeur d'origine). #chartZoomResetBtn est dans le HTML statique de
-  // #statsChartBlock, jamais recréé par renderChart() : un seul écouteur ici
-  // suffit pour toute la durée de la session.
-  $('chartZoomResetBtn').addEventListener('click', function () {
-    resetChartZoom();
-    if (lastDailyBreakdown.length) renderChart(lastDailyBreakdown);
   });
   setupStatsPeriodMenu($('tsPeriodBtn'), $('tsPeriodMenu'), function (period) {
     currentTimesheetPeriod = period;
@@ -1607,46 +1542,22 @@
     $('statsChartEmptyHint').classList.toggle('hidden', hasData);
     $('statsChartLegend').innerHTML = '';
     $('chartTooltip').classList.add('hidden');
-    var resetBtn = $('chartZoomResetBtn');
-    if (!hasData) {
-      if (resetBtn) resetBtn.classList.add('hidden');
-      return;
-    }
+    if (!hasData) return;
 
     var sorted = days.slice().sort(function (a, b) { return a.isoDate < b.isoDate ? -1 : 1; });
     var total = sorted.length;
 
-    // ----- Espacement des points (2 septembre 2026, demande d'Emilien :
-    // pincer à deux doigts pour rapprocher/éloigner les points de l'axe du
-    // temps, "comme sur TradingView"), REVU le même jour après un premier
-    // essai à base de fenêtre glissante (chartViewState — voir le journal) :
-    // Emilien a signalé que cette première version cachait des jours ("je ne
-    // peux pas voir tous les jours en même temps, il n'y a plus le total des
-    // jours") et cassait le tap normal ("je ne peux pas sélectionner
-    // graphique pour bloquer l'image [...] cela bug"). Cette version-ci ne
-    // fenêtre plus RIEN : tous les jours (`sorted`, sans troncature) sont
-    // toujours dans le SVG, exactement comme avant tout travail de zoom —
-    // seul l'espacement entre eux (`chartPointSpacing`, 56px par défaut, la
-    // valeur d'origine) change avec le pincement, et le panoramique redevient
-    // le défilement horizontal NATIF de .chartScroll (voir styles.css)
-    // plutôt qu'un geste JS. Comparer à renderViewProfileChart plus bas, qui
-    // réplique délibérément ce même comportement "tous les points, défilement
-    // natif" pour la page de visite de profil — c'est cette fonction-là qui a
-    // servi de référence pour retrouver le comportement d'origine.
-    var scrollEl = box.closest('.chartScroll') || box.parentElement;
+    // Espacement fixe entre les points (voir CHART_DAY_SPACING en haut du
+    // fichier — plus de zoom, voir son commentaire) : tous les jours sont
+    // toujours dessinés, le graphique s'élargit avec l'historique et défile
+    // horizontalement nativement dans .chartScroll (styles.css) au besoin.
     var padSide = 8;
     var minWidth = Math.max(280, box.clientWidth || 280);
-    var width = Math.max(minWidth, padSide * 2 + chartPointSpacing * total);
+    var width = Math.max(minWidth, padSide * 2 + CHART_DAY_SPACING * total);
     var innerW = width - padSide * 2;
     var stepW = innerW / total;
 
     function xFor(i) { return padSide + stepW * (i + 0.5); }
-
-    // Petite marge (0.5px) contre l'imprécision flottante d'un aller-retour
-    // de zoom (pincement puis bouton réinitialiser) qui ne retombe pas
-    // exactement sur CHART_POINT_SPACING_DEFAULT.
-    var isZoomed = Math.abs(chartPointSpacing - CHART_POINT_SPACING_DEFAULT) > 0.5;
-    if (resetBtn) resetBtn.classList.toggle('hidden', !isZoomed);
 
     var series = buildChartSeries(sorted);
     var maxSeconds = sorted.reduce(function (m, d) { return Math.max(m, d.totalSeconds); }, 0) || 1;
@@ -1715,13 +1626,7 @@
 
     // ----- Survol : crosshair vertical + infobulle listant chaque série au
     // jour survolé/touché (voir dataviz : interaction obligatoire par défaut
-    // sur un graphique en courbe). Gestion INCONDITIONNELLE sauf pendant un
-    // pincement à deux doigts en cours (voir isPinching plus bas) : c'est le
-    // comportement d'origine, restauré tel quel après le correctif du
-    // 2 septembre — la première version du zoom le conditionnait à l'absence
-    // de geste de panoramique en cours, ce qui cassait le simple appui pour
-    // figer l'infobulle sur un jour ("je ne peux pas sélectionner graphique
-    // pour bloquer l'image"). -----
+    // sur un graphique en courbe). -----
     var crosshair = document.createElementNS(svgNS, 'line');
     crosshair.setAttribute('y1', padTop); crosshair.setAttribute('y2', height - padBottom);
     crosshair.setAttribute('class', 'chartCrosshair hidden');
@@ -1788,186 +1693,12 @@
       return i;
     }
 
-    function isPinching() { return Object.keys(chartGesturePointers).length === 2; }
-
-    hoverLayer.addEventListener('pointermove', function (evt) {
-      if (isPinching()) return;
-      showTooltipAt(indexFromEvent(evt));
-    });
-    hoverLayer.addEventListener('pointerenter', function (evt) {
-      if (isPinching()) return;
-      showTooltipAt(indexFromEvent(evt));
-    });
-    hoverLayer.addEventListener('pointerleave', function () {
-      if (isPinching()) return;
-      hideTooltip();
-    });
-
-    // ----- Pincement à deux doigts : SEUL geste encore intercepté en JS
-    // (voir le commentaire sur chartZoomAnchor en haut du fichier, et sur
-    // `touch-action` dans styles.css — un doigt seul, lui, redevient
-    // entièrement natif : défilement de page, défilement horizontal de
-    // .chartScroll, tap pour l'infobulle ci-dessus). Ancré sur le MILIEU des
-    // deux doigts : le point de donnée sous le milieu reste sous le milieu
-    // pendant tout le geste, sans quoi le contenu "fuit" sous les doigts.
-    // L'ancre (chartZoomAnchor) est calculée une seule fois au début du
-    // pincement (beginPinch) et réutilisée telle quelle à chaque
-    // déplacement — seul `chartPointSpacing` change, en fonction du ratio
-    // de distance entre les deux doigts. Un rendu complet reconstruit tout
-    // le SVG (voir plus haut) : pendant le geste, les redessins passent par
-    // scheduleChartRerender() (throttlé à une fois par frame) plutôt qu'un
-    // appel direct à chaque évènement, et c'est APRÈS chaque redessin (tout
-    // en bas de cette fonction) que chartZoomAnchor est appliqué en
-    // repositionnant .chartScroll — pas pendant, le SVG venant d'être
-    // reconstruit à la nouvelle largeur.
-    //
-    // Piège évité (déjà rencontré sur la première version, toujours vrai
-    // ici) : cette fonction est entièrement redéfinie à chaque appel de
-    // renderChart() (nouvelles fermetures sur `svg`/`stepW`/etc, qui sont
-    // elles-mêmes recréées à chaque rendu). Pendant un pincement prolongé,
-    // plusieurs rendus se succèdent — les anciens `svg`/`hoverLayer` sont
-    // alors détachés du DOM et cesseraient de recevoir des évènements. Pour
-    // que le geste reste continu malgré ces redessins, la suite du geste
-    // (pointermove/pointerup) est écoutée sur `document` (jamais détaché)
-    // plutôt que sur .chartHoverLayer, et réattachée à la fin de CHAQUE
-    // rendu tant que le pincement est actif (reattachGestureListeners plus
-    // bas) — chartGestureCleanup retire toujours l'ancienne attache avant
-    // d'en poser une nouvelle, pour ne jamais en cumuler deux.
-    function distanceBetween(p1, p2) {
-      var dx = p1.x - p2.x, dy = p1.y - p2.y;
-      return Math.sqrt(dx * dx + dy * dy);
-    }
-
-    function clampPointSpacing(v) {
-      return Math.min(CHART_POINT_SPACING_MAX, Math.max(CHART_POINT_SPACING_MIN, v));
-    }
-
-    function beginPinch() {
-      var ids = Object.keys(chartGesturePointers);
-      var p1 = chartGesturePointers[ids[0]], p2 = chartGesturePointers[ids[1]];
-      var midX = (p1.x + p2.x) / 2;
-      var svgRect = svg.getBoundingClientRect();
-      var scrollRect = scrollEl.getBoundingClientRect();
-      var contentX = midX - svgRect.left;
-      chartZoomAnchor = {
-        anchorDataIndex: (contentX - padSide) / stepW - 0.5,
-        anchorViewportOffset: midX - scrollRect.left,
-        pinchInitialDistance: distanceBetween(p1, p2) || 1,
-        pinchInitialSpacing: chartPointSpacing,
-      };
-    }
-
-    function handleGestureMove(evt) {
-      if (!(evt.pointerId in chartGesturePointers)) return;
-      chartGesturePointers[evt.pointerId] = { x: evt.clientX, y: evt.clientY };
-      var ids = Object.keys(chartGesturePointers);
-      if (ids.length !== 2 || !chartZoomAnchor) return;
-      var p1 = chartGesturePointers[ids[0]], p2 = chartGesturePointers[ids[1]];
-      var dist = distanceBetween(p1, p2) || 1;
-      var scale = dist / chartZoomAnchor.pinchInitialDistance;
-      chartPointSpacing = clampPointSpacing(chartZoomAnchor.pinchInitialSpacing * scale);
-      scheduleChartRerender();
-      evt.preventDefault();
-    }
-
-    // Piège corrigé pendant la vérification du correctif du 2 septembre
-    // (test réel au doigt/pincement, pas seulement une relecture de code) :
-    // un doigt SEUL qui se lève n'était suivi par AUCUN écouteur (ni sur
-    // hoverLayer, ni sur document — ces derniers n'étaient posés qu'à partir
-    // de 2 doigts). Son entrée dans chartGesturePointers restait donc
-    // indéfiniment, et un pincement à deux doigts ultérieur retombait sur 3
-    // entrées (le doigt fantôme + les 2 nouveaux) au lieu de 2 : le
-    // pincement ne se déclenchait alors plus jamais. handleGestureUp est
-    // donc maintenant attachée dès le PREMIER doigt (voir pointerdown
-    // ci-dessous et reattachGestureListeners), pas seulement au deuxième.
-    function handleGestureUp(evt) {
-      delete chartGesturePointers[evt.pointerId];
-      var remaining = Object.keys(chartGesturePointers).length;
-      if (remaining < 2) chartZoomAnchor = null; // le pincement en cours (s'il y en avait un) est terminé
-      if (remaining === 0) {
-        // Plus aucun doigt suivi : plus aucun geste custom à suivre, le
-        // comportement natif (défilement/tap) reprend seul.
-        if (chartGestureCleanup) { chartGestureCleanup(); chartGestureCleanup = null; }
-      }
-    }
-
-    function reattachGestureListeners() {
-      if (chartGestureCleanup) { chartGestureCleanup(); chartGestureCleanup = null; }
-      if (Object.keys(chartGesturePointers).length === 0) return;
-      document.addEventListener('pointermove', handleGestureMove);
-      document.addEventListener('pointerup', handleGestureUp);
-      document.addEventListener('pointercancel', handleGestureUp);
-      chartGestureCleanup = function () {
-        document.removeEventListener('pointermove', handleGestureMove);
-        document.removeEventListener('pointerup', handleGestureUp);
-        document.removeEventListener('pointercancel', handleGestureUp);
-      };
-    }
-
-    hoverLayer.addEventListener('pointerdown', function (evt) {
-      if (evt.pointerType !== 'touch') return; // souris/trackpad : la molette gère déjà le zoom, rien à intercepter ici
-      chartGesturePointers[evt.pointerId] = { x: evt.clientX, y: evt.clientY };
-      if (Object.keys(chartGesturePointers).length === 2) {
-        hideTooltip();
-        beginPinch();
-      }
-      // Attachée dès le premier doigt (pas seulement au deuxième) : c'est ce
-      // qui garantit que handleGestureUp entend bien CE doigt se lever, même
-      // s'il ne rejoint jamais un pincement (voir le commentaire sur
-      // handleGestureUp juste au-dessus).
-      reattachGestureListeners();
-    });
-
-    // ----- Équivalent souris/trackpad, pour pouvoir tester ailleurs que sur
-    // le téléphone d'Emilien. Pincement de trackpad : les navigateurs le
-    // transmettent comme un évènement `wheel` avec `ctrlKey: true` posé
-    // automatiquement (même sans que Ctrl soit réellement enfoncée) —
-    // Ctrl+molette explicite déclenche donc la même chose. Ancré sous le
-    // curseur, comme le pincement tactile — mais c'est un saut discret par
-    // évènement (pas de "début"/"fin" de geste comme pour le tactile), donc
-    // chartZoomAnchor est reconstruit à CHAQUE évènement plutôt que réutilisé.
-    // Une molette sans Ctrl n'est PAS interceptée : la page doit défiler
-    // normalement au-dessus du Graphique, et le défilement horizontal (Maj+
-    // molette, pavé tactile deux doigts) passe désormais nativement par
-    // .chartScroll — plus aucun code de panoramique ici. -----
-    hoverLayer.addEventListener('wheel', function (evt) {
-      if (!(evt.ctrlKey || evt.metaKey)) return;
-      evt.preventDefault();
-      var svgRect = svg.getBoundingClientRect();
-      var scrollRect = scrollEl.getBoundingClientRect();
-      var contentX = evt.clientX - svgRect.left;
-      chartZoomAnchor = {
-        anchorDataIndex: (contentX - padSide) / stepW - 0.5,
-        anchorViewportOffset: evt.clientX - scrollRect.left,
-      };
-      var zoomFactor = Math.exp(-evt.deltaY * 0.01);
-      chartPointSpacing = clampPointSpacing(chartPointSpacing * zoomFactor);
-      scheduleChartRerender();
-    }, { passive: false });
+    hoverLayer.addEventListener('pointermove', function (evt) { showTooltipAt(indexFromEvent(evt)); });
+    hoverLayer.addEventListener('pointerenter', function (evt) { showTooltipAt(indexFromEvent(evt)); });
+    hoverLayer.addEventListener('pointerleave', function () { hideTooltip(); });
 
     box.appendChild(svg);
     renderChartLegend(series);
-    reattachGestureListeners();
-
-    // ----- Repositionnement de .chartScroll APRÈS le rendu : soit pour
-    // garder le point ancré sous le doigt/curseur pendant un zoom
-    // (chartZoomAnchor), soit — au premier rendu suivant une réouverture
-    // d'onglet ou un changement de granularité (resetChartZoom) — pour
-    // partir sur les jours les plus récents plutôt que sur le bord gauche
-    // par défaut du navigateur (même logique que la Feuille de temps, qui
-    // s'ouvre toujours sur "aujourd'hui inclus"). chartZoomAnchor n'est
-    // effacé ici que si le pincement tactile est terminé (molette :
-    // toujours — un seul saut par évènement, voir plus haut) ; s'il est
-    // encore en cours (2 doigts toujours posés), il est conservé pour le
-    // prochain redessin du même geste. -----
-    if (chartZoomAnchor) {
-      var newContentX = padSide + stepW * (chartZoomAnchor.anchorDataIndex + 0.5);
-      scrollEl.scrollLeft = newContentX - chartZoomAnchor.anchorViewportOffset;
-      if (Object.keys(chartGesturePointers).length !== 2) chartZoomAnchor = null;
-    } else if (chartScrollToEndOnNextRender) {
-      scrollEl.scrollLeft = scrollEl.scrollWidth;
-    }
-    chartScrollToEndOnNextRender = false;
   }
 
   // ----- Ni le Graphique ni la Feuille de temps n'ont de mode plein écran :
@@ -2085,6 +1816,7 @@
     // retrait symétrique dans renderTimesheetMonth.
     $('tsGrid').parentNode.classList.add('tsWeekScroll');
     $('tsFrozenCol').classList.remove('hidden');
+    $('tsFrozenCol').classList.remove('tsFrozenCal');
 
     $('tsWeekLabel').textContent = t(data.label) + (data.isCurrentWeek ? t(' (en cours)') : '');
     $('tsNextWeek').disabled = data.isCurrentWeek;
@@ -2141,11 +1873,17 @@
   function renderTimesheetMonth(data) {
     $('tsCalendar').classList.remove('hidden');
     $('tsGrid').classList.add('hidden');
-    // Voir renderTimesheetWeek : la vue "Mois" garde sa mise en page d'origine
-    // (son calendrier a sa propre colonne de libellés de semaine,
-    // .tsCalWeekLabel, à l'intérieur de sa propre grille).
+    // ⚠️ 2 septembre 2026 — la vue "Mois" avait exactement le même défaut que
+    // la vue "Semaine" (« le bug des journées qui se décalent vers la droite
+    // est présent pour le mode mois ») et pour exactement la même raison : sa
+    // colonne de libellés de semaine (.tsCalWeekLabel) était figée par
+    // `position: sticky` À L'INTÉRIEUR de .tsCalendarGrid, ce qu'un navigateur
+    // n'est pas tenu d'honorer sur un élément de grille. Elle est donc traitée
+    // comme celle de la vue Semaine : sortie dans #tsFrozenCol, qui prend ici
+    // les métriques du calendrier (classe tsFrozenCal, voir styles.css).
     $('tsGrid').parentNode.classList.remove('tsWeekScroll');
-    $('tsFrozenCol').classList.add('hidden');
+    $('tsFrozenCol').classList.remove('hidden');
+    $('tsFrozenCol').classList.add('tsFrozenCal');
 
     $('tsWeekLabel').textContent = t(data.label) + (data.isCurrentMonth ? t(' (en cours)') : '');
     $('tsNextWeek').disabled = data.isCurrentMonth;
@@ -2156,7 +1894,12 @@
     });
     $('tsEmptyHint').classList.toggle('hidden', hasAnyEntry);
 
-    var html = '<div class="tsCalCorner"></div>';
+    // Même découpage qu'en vue Semaine : le coin et les libellés de semaine
+    // vont dans le bloc figé, le calendrier ne garde que les 7 colonnes de
+    // jours. Une seule boucle remplit les deux, pour qu'une semaine ne puisse
+    // pas se retrouver en face de la mauvaise ligne.
+    var frozen = '<div class="tsCalCorner"></div>';
+    var html = '';
     TS_CAL_WEEKDAY_NAMES.forEach(function (name) {
       html += '<div class="tsCalHeaderCell">' + t(name).slice(0, 3) + '</div>';
     });
@@ -2164,7 +1907,7 @@
     data.weeks.forEach(function (week) {
       var firstDate = new Date(week[0].isoDate + 'T00:00:00');
       var lastDate = new Date(week[6].isoDate + 'T00:00:00');
-      html += '<div class="tsCalWeekLabel">' + pad(firstDate.getDate()) + '/' + pad(firstDate.getMonth() + 1)
+      frozen += '<div class="tsCalWeekLabel">' + pad(firstDate.getDate()) + '/' + pad(firstDate.getMonth() + 1)
         + ' - ' + pad(lastDate.getDate()) + '/' + pad(lastDate.getMonth() + 1) + '</div>';
 
       week.forEach(function (day) {
@@ -2184,6 +1927,7 @@
       });
     });
 
+    $('tsFrozenCol').innerHTML = frozen;
     $('tsCalendar').innerHTML = '<div class="tsCalendarGrid">' + html + '</div>';
   }
 
@@ -4606,16 +4350,19 @@
 
   // Graphique de la page de visite — volontairement une version SIMPLE, et
   // non un appel à renderChart (l'onglet Statistiques) :
-  //  - renderChart est couplée à l'état de zoom du Graphique (chartViewState,
-  //    chartUserZoomed, chartCurrentTotal, #chartZoomResetBtn, gestes de
-  //    pincement) et à son infobulle flottante (#chartTooltip,
-  //    #statsChartWrap). Le paramétrer pour deux conteneurs demanderait de
-  //    réécrire une fonction de 250 lignes qui appartient à une autre
-  //    discussion (Statistiques — Graphique) et qui a encore bougé ce jour ;
-  //  - un profil qu'on visite se lit, il ne s'explore pas au pincement : pas
-  //    de zoom ici, tous les points d'un coup, l'aire défile
-  //    horizontalement (.chartScroll) comme le Graphique le faisait avant
-  //    le zoom.
+  //  - renderChart a son propre crosshair + infobulle flottante ancrée
+  //    (#chartTooltip, #statsChartWrap). Le paramétrer pour deux conteneurs
+  //    demanderait de réécrire une fonction qui appartient à une autre
+  //    discussion (Statistiques — Graphique) ;
+  //  - un profil qu'on visite se lit, il ne s'explore pas au clic : pas
+  //    d'infobulle flottante ici, tous les points d'un coup, l'aire défile
+  //    horizontalement (.chartScroll) — même principe que le Graphique,
+  //    qui n'a lui non plus aucune capacité de zoom (essayée puis annulée
+  //    le 2 septembre 2026, voir noesis-timetracker-journal-statistiques.md).
+  //    ⚠️ Commentaire corrigé par Statistiques — Graphique (2 septembre
+  //    2026) : mentionnait des identifiants de zoom déjà retirés
+  //    (chartViewState/chartUserZoomed/chartCurrentTotal/#chartZoomResetBtn)
+  //    depuis longtemps obsolètes — aucune ligne de logique touchée.
   // Ce qui EST partagé l'est réellement : buildChartSeries (construction des
   // séries) et dayChartLabel (étiquettes), tous deux déjà génériques et déjà
   // partagés avec la Communauté.

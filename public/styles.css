@@ -715,6 +715,22 @@ textarea {
 .tsWeekScroll .timesheetGrid {
   grid-template-columns: repeat(96, 12px);
 }
+/* Variante "Mois" de la colonne figée : mêmes métriques que .tsCalendarGrid
+   (voir plus bas dans ce fichier), posée par app.js en même temps que le
+   contenu. La classe est retirée en vue "Semaine", qui reprend les valeurs de
+   .tsFrozenCol ci-dessus. */
+.tsFrozenCol.tsFrozenCal {
+  grid-template-rows: var(--cal-head);
+  grid-auto-rows: var(--cal-row);
+  gap: var(--cal-gap);
+  padding-right: var(--cal-gap);
+}
+.tsFrozenCol .tsCalCorner,
+.tsFrozenCol .tsCalWeekLabel {
+  position: static;
+  width: 84px;
+  will-change: auto;
+}
 /* Colonne figée élargie de 54px à 64px le 30 août 2026 (demande d'Emilien) :
    le libellé "Mer 27/08" (jour abrégé + date) en 11px, avec padding-right,
    était trop juste dans 54px et pouvait déborder sur la première case de
@@ -749,9 +765,31 @@ textarea {
    calendrier défile déjà horizontalement dans .timesheetScroll, cet
    élargissement ne change donc rien d'autre que la distance de défilement.
    ===== */
+/* ⚠️ 2 septembre 2026 — la colonne des libellés de semaine est SORTIE de la
+   grille, exactement comme celle des jours en vue "Semaine" et pour la même
+   raison : elle était figée par `position: sticky` sur un élément de grille,
+   ce qui ne tient pas sur l'iPhone d'Emilien (« le bug des journées qui se
+   décalent vers la droite est présent pour le mode mois »). Voir le grand
+   commentaire de .tsFrozenCol plus haut pour le pourquoi.
+
+   ⚠️ Conséquence : les hauteurs de lignes ne sont plus déduites du contenu,
+   elles sont FIXÉES ici — c'est le seul moyen que la colonne sortie et le
+   calendrier restent alignés, puisqu'ils ne partagent plus de grille.
+   --cal-row = 48px se décompose ainsi, en border-box (voir `* { box-sizing }`
+   en tête de fichier) : 5px de padding haut + 14px de numéro de jour + 4px
+   d'écart + 20px de rectangles + 5px de padding bas. **Toucher à l'un de ces
+   cinq nombres oblige à recalculer --cal-row.** C'est aussi pour ça que
+   .tsCalDayNum a désormais une `line-height` explicite : sans elle, la
+   hauteur du chiffre dépendrait de la police du système. */
+#statsTimesheetBlock {
+  --cal-head: 20px;
+  --cal-row: 48px;
+  --cal-gap: 6px;
+}
 .tsCalendarGrid {
-  display: grid; grid-template-columns: 84px repeat(7, minmax(132px, 1fr));
-  gap: 6px; width: max-content; min-width: 100%;
+  display: grid; grid-template-columns: repeat(7, minmax(132px, 1fr));
+  grid-template-rows: var(--cal-head); grid-auto-rows: var(--cal-row);
+  gap: var(--cal-gap); width: max-content; min-width: 100%;
 }
 /* Même correctif que .tsCorner/.tsDayLabel ci-dessus (voir le commentaire
    associé) — même bug de rendu observé sur la colonne figée de la vue
@@ -774,7 +812,7 @@ textarea {
   display: flex; flex-direction: column; gap: 4px;
 }
 .tsCalDay.tsCalDay-outside { opacity: 0.35; }
-.tsCalDayNum { font-size: 11px; font-weight: bold; color: var(--text-light); }
+.tsCalDayNum { font-size: 11px; line-height: 14px; font-weight: bold; color: var(--text-light); }
 /* Une seule ligne de 12 rectangles (00h → 24h de gauche à droite), plus une
    grille 6 × 2 de mini-carrés — voir l'encart du 1er septembre 2026 en tête de
    cette section. `grid-auto-rows` fixe la hauteur du rectangle (le pendant de
@@ -824,8 +862,6 @@ textarea {
    textColorForTheme() pour le Total) : ces règles ne fixent donc pas de
    couleur, sauf le halo des points qui reste celui de la carte. ----- */
 .chartWrap { position: relative; }
-.chartNav { display: flex; align-items: center; gap: 6px; }
-.chartNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
 .chartScroll { overflow-x: auto; background: var(--card); border-radius: var(--radius-lg); }
 .chartSvgWrap { width: max-content; min-width: 100%; }
 .chartSvg { display: block; }
@@ -834,24 +870,16 @@ textarea {
 .chartLine { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .chartLineTotal { stroke-width: 2.5; }
 .chartDot { stroke: var(--card); stroke-width: 2; }
-/* `touch-action: pan-x pan-y` (2 septembre 2026, demande d'Emilien : pincer
-   à deux doigts pour rapprocher/éloigner les points de l'axe du temps,
-   "comme sur TradingView"), REVU le même jour après un premier essai à
-   `touch-action: none` — retour d'Emilien : « lorsque je touche le
-   graphique cela bug ». `none` interceptait TOUT geste tactile dès qu'il
-   commençait sur cette zone, y compris le simple défilement vertical de la
-   PAGE quand le doigt touchait le graphique en premier : plus moyen de
-   scroller si on posait le doigt au mauvais endroit. `pan-x pan-y` laisse
-   le navigateur gérer nativement tout geste à UN doigt (défilement vertical
-   de la page, et défilement horizontal natif de .chartScroll une fois le
-   graphique plus large que son cadre — voir plus bas) ; seul le pincement à
-   DEUX doigts est encore intercepté, et seulement en JS via
-   `evt.preventDefault()` dans renderChart() (pointerdown y attend d'avoir
-   exactement 2 pointeurs actifs avant d'agir — un seul doigt ne déclenche
-   plus rien côté JS). Le zoom natif de la PAGE (pincement en dehors du
-   Graphique) reste bloqué globalement par `maximum-scale=1` sur la
-   <meta viewport>, indépendamment de cette règle. */
-.chartHoverLayer { fill: transparent; pointer-events: all; touch-action: pan-x pan-y; }
+/* Le pincement à deux doigts pour zoomer (tenté puis reconstruit le
+   2 septembre 2026, voir noesis-timetracker-journal-statistiques.md) a été
+   ANNULÉ ENTIÈREMENT le même jour (saut visuel pendant le geste, retour
+   d'Emilien : « On repasse à la version d'avant graphique simple »). Aucun
+   geste custom n'est plus intercepté ici : `touch-action` reste à sa valeur
+   par défaut, un doigt comme deux se comportent nativement (défilement
+   vertical de la page, défilement horizontal natif de .chartScroll). Le
+   zoom natif de la PAGE reste bloqué globalement par `maximum-scale=1` sur
+   la <meta viewport>, indépendamment de cette règle. */
+.chartHoverLayer { fill: transparent; pointer-events: all; }
 .chartCrosshair { stroke: var(--text-light); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
 
 /* Légende du Graphique — toujours présente (>= 2 séries dès qu'il y a une
