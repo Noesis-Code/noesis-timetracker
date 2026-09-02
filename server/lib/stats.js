@@ -4,45 +4,15 @@
 // fichier en même temps.
 
 const db = require('../db');
-const { periodRange } = require('./period');
 const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR } = require('./dates');
 
-// ⚠️ 1er septembre 2026 — PLUS AUCUN APPELANT CÔTÉ CLIENT. La Répartition
-// (camembert), seule consommatrice de cette fonction, est passée ce jour-là
-// sur breakdownForRange ci-dessous, aligné sur la fenêtre réellement
-// affichée par la Feuille de temps (demande d'Emilien). Les trois champs
-// `week`/`month`/`year` de la route GET /stats qu'elle alimente encore ne
-// sont plus lus par public/app.js. Volontairement NON supprimée dans le même
-// passage : cette route est partagée avec le Graphique (champ
-// `dailyBreakdown`), et le nettoyage a été proposé séparément à Emilien pour
-// être fait une fois le nouveau comportement confirmé — voir
+// Note (1er septembre 2026) : `breakdownForUser` vivait ici — la répartition
+// par activité sur une PÉRIODE nommée ('week'/'month'/'year' via periodRange).
+// Retirée sur confirmation d'Emilien après que la Répartition est passée sur
+// breakdownForRange ci-dessous (aligné sur la fenêtre réellement affichée par
+// la Feuille de temps) : elle n'avait plus aucun appelant, pas plus que les
+// champs `week`/`month`/`year` de GET /stats qu'elle alimentait. Voir
 // noesis-timetracker-journal-repartition.md.
-function breakdownForUser(userId, period, refDate) {
-  const { start, end, label } = periodRange(period, refDate);
-
-  const rows = db.prepare(`
-    SELECT a.id AS activityId, a.name AS activity, COALESCE(am.color, '#3498db') AS color,
-           SUM(t.durationSeconds) AS seconds
-    FROM time_entries t
-    JOIN activities a ON a.id = t.activityId
-    LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
-    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
-    GROUP BY a.id
-    ORDER BY seconds DESC
-  `).all(userId, start, end);
-
-  const totalSeconds = rows.reduce((sum, r) => sum + r.seconds, 0);
-  return {
-    period, label, start, end, totalSeconds,
-    activities: rows.map((r) => ({
-      activityId: r.activityId,
-      name: r.activity,
-      color: r.color,
-      seconds: r.seconds,
-      percent: totalSeconds > 0 ? Math.round((r.seconds / totalSeconds) * 100) : 0,
-    })),
-  };
-}
 
 // ===================== RÉPARTITION (camembert) — ALIGNÉE SUR LA FEUILLE DE TEMPS =====
 // 1er septembre 2026, demande d'Emilien : « je souhaite que la répartition
@@ -53,8 +23,9 @@ function breakdownForUser(userId, period, refDate) {
 // résume exactement la fenêtre de jours que la grille est en train
 // d'afficher, quelle qu'elle soit.
 //
-// Pourquoi une nouvelle fonction plutôt que breakdownForUser ci-dessus :
-// celle-ci part d'une PÉRIODE nommée ('week'/'month'/'year' → periodRange),
+// Pourquoi une nouvelle fonction plutôt que l'ancienne breakdownForUser
+// (retirée le même jour, voir la note en tête de fichier) : celle-là partait
+// d'une PÉRIODE nommée ('week'/'month'/'year' → periodRange),
 // c'est-à-dire d'un découpage calendaire qui n'a aucune raison de coïncider
 // avec la fenêtre réellement affichée par la Feuille de temps — en
 // particulier depuis que sa vue Semaine est une fenêtre GLISSANTE de 7 jours
@@ -415,4 +386,4 @@ function timesheetMonthForUser(userId, monthOffset) {
   return { monthOffset: offset, isCurrentMonth: offset === 0, start, end, label, hasMoreBefore, weeks };
 }
 
-module.exports = { breakdownForUser, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };
+module.exports = { breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };

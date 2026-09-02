@@ -552,13 +552,13 @@ textarea {
    autres via ce petit menu déroulant. Réutilise .menuBtn (générique Design)
    pour le bouton lui-même ; .statsPeriodMenu/.statsPeriodMenuItem sont
    propres à Statistiques (ne redéfinissent pas .notifPanel, propre à
-   Profil — voir carte des zones). Sur le Graphique, ce menu n'a de sens qu'en
-   plein écran : .fullscreenOnly le masque par défaut et ne le révèle que sous
-   #statsChartBlock.fullscreen ci-dessous. Sur la Répartition (pas de plein
-   écran) et, depuis le 1er septembre 2026, sur la Feuille de temps (plein
-   écran retiré à la demande d'Emilien — son menu "⋮" a perdu la classe
-   .fullscreenOnly dans index.html au même moment, sans quoi la vue "Mois"
-   serait devenue inaccessible), le menu reste toujours visible. */
+   Profil — voir carte des zones). Sur la Répartition, ce menu n'existe plus
+   du tout depuis le 1er septembre 2026 (elle suit désormais la période de la
+   Feuille de temps). Sur la Feuille de temps et sur le Graphique, ce menu
+   est toujours visible — les deux ont perdu leur mode plein écran le
+   1er septembre 2026 (demandes d'Emilien) : la classe .fullscreenOnly, qui
+   masquait ce menu hors plein écran, n'a donc plus aucun usage et a été
+   retirée d'ici comme d'index.html. */
 .statsPeriodMenuWrap { position: relative; flex-shrink: 0; }
 .statsPeriodMenu {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
@@ -573,10 +573,6 @@ textarea {
 .statsPeriodMenuItem:hover { background: var(--hover-bg); }
 .statsPeriodMenuItem.active { color: var(--purple); font-weight: bold; }
 
-.statsPeriodMenuWrap.fullscreenOnly { display: none; }
-#statsChartBlock.fullscreen .statsPeriodMenuWrap.fullscreenOnly {
-  display: block;
-}
 /* Même écart entre la carte d'ajout et la première activité existante
    qu'entre deux activités existantes (voir ".activitiesList { gap: 8px }"). */
 #newActivityCard { margin-bottom: 8px; }
@@ -632,14 +628,28 @@ textarea {
 
 /* ===== Feuille de temps — vue "Mois" (calendrier) — 30 août 2026, demande
    d'Emilien : semaines en lignes, jours de la semaine en colonnes (Lun à
-   Dim), chaque case-jour décomposée en 12 sections de 2h (6 colonnes × 2
-   lignes de mini-carrés, voir .tsCalDaySlots). Coexiste avec .timesheetGrid
-   dans le même conteneur .timesheetScroll : seule l'une des deux est visible
-   à la fois (classe .hidden posée/retirée par app.js selon la période
-   choisie). Colonne des semaines figée à gauche comme .tsDayLabel
-   ci-dessus. ===== */
+   Dim), chaque case-jour décomposée en 12 sections de 2h (voir
+   .tsCalDaySlots). Coexiste avec .timesheetGrid dans le même conteneur
+   .timesheetScroll : seule l'une des deux est visible à la fois (classe
+   .hidden posée/retirée par app.js selon la période choisie). Colonne des
+   semaines figée à gauche comme .tsDayLabel ci-dessus.
+
+   ⚠️ 1er septembre 2026, demande d'Emilien : « le mode mois affiche des
+   lignes continues. Les jours ne doivent plus être coupés en deux. Douze
+   rectangles par jour. Même format que pour la semaine. » Les 12 sections de
+   2h étaient jusque-là disposées en 6 colonnes × 2 lignes de mini-carrés, ce
+   qui coupait la journée en deux et cassait la lecture chronologique de
+   gauche à droite (00h-10h sur la première ligne, 12h-22h sur la seconde).
+   Elles forment désormais UNE seule ligne continue de 12 rectangles, comme la
+   grille de la vue "Semaine". Conséquence : chaque case-jour est deux fois
+   moins haute, et la colonne d'un jour a été élargie de 84px à 132px pour que
+   12 rectangles y restent lisibles (12 × ~9px, contre ~5px si la colonne
+   était restée à 84px — la vue "Semaine" utilise 12px par créneau). Le
+   calendrier défile déjà horizontalement dans .timesheetScroll, cet
+   élargissement ne change donc rien d'autre que la distance de défilement.
+   ===== */
 .tsCalendarGrid {
-  display: grid; grid-template-columns: 84px repeat(7, minmax(84px, 1fr));
+  display: grid; grid-template-columns: 84px repeat(7, minmax(132px, 1fr));
   gap: 6px; width: max-content; min-width: 100%;
 }
 /* Même correctif que .tsCorner/.tsDayLabel ci-dessus (voir le commentaire
@@ -660,12 +670,17 @@ textarea {
 }
 .tsCalDay {
   background: var(--track-bg); border-radius: var(--radius-sm); padding: 5px;
-  display: flex; flex-direction: column; gap: 4px; min-height: 60px;
+  display: flex; flex-direction: column; gap: 4px;
 }
 .tsCalDay.tsCalDay-outside { opacity: 0.35; }
 .tsCalDayNum { font-size: 11px; font-weight: bold; color: var(--text-light); }
-.tsCalDaySlots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; flex: 1; }
-.tsCalSlot { aspect-ratio: 1 / 1; border-radius: 1px; background: var(--card); }
+/* Une seule ligne de 12 rectangles (00h → 24h de gauche à droite), plus une
+   grille 6 × 2 de mini-carrés — voir l'encart du 1er septembre 2026 en tête de
+   cette section. `grid-auto-rows` fixe la hauteur du rectangle (le pendant de
+   la ligne de 22px de .timesheetGrid en vue "Semaine") ; plus d'aspect-ratio,
+   qui imposait un carré et donc une seconde ligne pour tenir en largeur. */
+.tsCalDaySlots { display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: 20px; gap: 1px; }
+.tsCalSlot { border-radius: 1px; background: var(--card); }
 
 /* ===== Statistiques : sections séparées (Feuille de temps / Camembert /
    Graphique) — 29 août 2026. Chaque section reprend l'habillage carte déjà
@@ -787,55 +802,19 @@ textarea {
    vue normale : .timesheetScroll défile déjà horizontalement, aussi bien pour
    la grille "Semaine" que pour le calendrier "Mois". Seules les règles
    `height: 100%` propres au plein écran disparaissent — les cases-jour
-   retrouvent leur hauteur naturelle (.tsCalDay { min-height: 60px }).
-   body.scrollLock reste défini ici : le plein écran du Graphique s'en sert
-   toujours. ----- */
+   retrouvent leur hauteur naturelle (celle de leur unique ligne de créneaux,
+   voir .tsCalDaySlots).
+   body.scrollLock reste défini ici : les deux plein écrans de Communauté
+   (voir plus bas) s'en servent toujours. Le Graphique, lui, a perdu son
+   propre plein écran le 1er septembre 2026 (demande d'Emilien : « supprimer
+   le mode plein écran de graphique ») — les règles #statsChartBlock.fullscreen
+   qui vivaient ici, ainsi que le bouton #chartFullscreenBtn et la fonction
+   exitChartFullscreen() côté app.js, ont été retirés. Le graphique garde
+   désormais toujours sa hauteur inline fixe (voir renderChart() dans app.js)
+   ; sa largeur reste pilotée par le nombre de jours, avec défilement
+   horizontal dans .chartScroll pour les longues périodes, comme avant. -----
+   */
 body.scrollLock { overflow: hidden; }
-
-/* ----- Graphique en plein écran : remplit simplement le viewport réel
-   (100vw × 100vh), quelle que soit l'orientation physique du téléphone — plus
-   de rotation CSS forcée ni de verrouillage d'orientation depuis le
-   1er septembre 2026 (demande d'Emilien ; voir aussi la suppression des appels
-   à `lockPortraitOrientation()` sur ce bouton plein écran dans app.js). C'est
-   désormais le SEUL plein écran de l'onglet Statistiques. En plus du
-   remplissage de l'écran, le
-   graphique est agrandi : sa largeur reste pilotée par le nombre de jours
-   (défilement horizontal conservé pour les longues périodes) ; seule la
-   hauteur du SVG s'étire pour remplir l'espace vertical disponible — voir
-   renderChart() dans app.js : preserveAspectRatio="none" posé sur le SVG, et
-   sa hauteur inline (style.height) simplement omise en plein écran pour
-   laisser cette règle CSS prendre le relais. Note : la stretch doit être
-   posée sur .chartSvgWrap (le <div> qui contient le <svg>), pas seulement sur
-   .chartSvg (le <svg> lui-même) — sinon le pourcentage de hauteur du SVG n'a
-   rien de défini à résoudre et retombe sur le ratio intrinsèque du
-   viewBox. ----- */
-#statsChartBlock.fullscreen {
-  position: fixed; top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  z-index: 1000;
-  margin: 0;
-  background: var(--bg);
-  padding: 16px;
-  overflow: hidden;
-  display: flex; flex-direction: column;
-  box-shadow: none; border-radius: 0;
-}
-#statsChartBlock.fullscreen .chartWrap {
-  flex: 1; min-height: 0;
-  display: flex; flex-direction: column;
-}
-#statsChartBlock.fullscreen .chartScroll {
-  flex: 1; overflow: auto;
-}
-#statsChartBlock.fullscreen .chartSvgWrap {
-  height: 100%;
-}
-#statsChartBlock.fullscreen .chartSvg {
-  height: 100%;
-}
-#statsChartBlock.fullscreen .chartLegend {
-  flex-shrink: 0;
-}
 
 /* Correctif 30 août 2026 (demande d'Emilien) : en plein écran, la largeur
    visuelle réellement disponible une fois la rotation appliquée est celle du
@@ -845,11 +824,10 @@ body.scrollLock { overflow: hidden; }
    pouvait déborder sur la droite. Passage sur deux lignes centrées plutôt
    qu'une seule alignée aux bords. Ne touche que le contexte plein écran : la
    définition générique de .sectionTitleRow (Design) n'est pas modifiée.
-   Portait à l'origine sur quatre blocs ; #statsTimesheetBlock.fullscreen en a
-   été retiré le 1er septembre 2026 avec le plein écran de la Feuille de temps
-   (demande d'Emilien) — restent le Graphique et les deux équivalents
-   Communauté. */
-#statsChartBlock.fullscreen .sectionTitleRow,
+   Portait à l'origine sur quatre blocs ; #statsTimesheetBlock.fullscreen puis
+   #statsChartBlock.fullscreen en ont été retirés le 1er septembre 2026 avec
+   le plein écran de la Feuille de temps puis celui du Graphique (demandes
+   d'Emilien) — ne restent plus que les deux équivalents Communauté. */
 #communityActivityTimesheetBlock.fullscreen .sectionTitleRow,
 #communityActivityChartBlock.fullscreen .sectionTitleRow {
   flex-wrap: wrap;
@@ -1117,14 +1095,16 @@ body.scrollLock { overflow: hidden; }
 }
 
 /* ----- Feuille de temps / Graphique d'UNE activité partagée (section
-   Membres) en plein écran forcé (format paysage) : copies exactes des
-   règles #statsTimesheetBlock.fullscreen / #statsChartBlock.fullscreen
-   ci-dessus, sur les ids dédiés à Communauté — voir le bloc
+   Membres) en plein écran forcé (format paysage) : à l'origine des copies
+   exactes des règles #statsTimesheetBlock.fullscreen / #statsChartBlock.fullscreen
+   (Statistiques), sur les ids dédiés à Communauté — voir le bloc
    #communityActivityDetail dans index.html et la section "STATISTIQUES
-   D'UNE ACTIVITÉ" dans app.js (29-30 août 2026, demande Emilien). Aucune
-   classe générique ne peut porter ces règles (elles sont ID-scopées comme
-   leurs équivalents Statistiques), donc dupliquées ici plutôt que
-   partagées. -----*/
+   D'UNE ACTIVITÉ" dans app.js (29-30 août 2026, demande Emilien). Les deux
+   règles Statistiques d'origine ont depuis été retirées (1er septembre 2026,
+   plein écran supprimé côté Feuille de temps puis Graphique) mais celles-ci,
+   propres à Communauté, restent intactes et hors de ce chantier. Aucune
+   classe générique ne peut porter ces règles (elles sont ID-scopées), donc
+   dupliquées ici plutôt que partagées. -----*/
 #communityActivityTimesheetBlock.fullscreen {
   position: fixed; top: 0; left: 0;
   z-index: 1000;
@@ -1232,6 +1212,79 @@ body.scrollLock { overflow: hidden; }
 .activitySettingsPanel input[type=text] { padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); width: 100%; box-sizing: border-box; }
 .activitySettingsPanel input:disabled { opacity: 0.55; }
 .activitySettingsPanel .iconBtn { flex-shrink: 0; white-space: nowrap; }
+/* Ajouté pour le formulaire de projet (section Projets de Profil, voir
+   plus bas) : .activitySettingsPanel n'avait jusqu'ici que des input[type=
+   text] (formulaire d'activité). textarea/input[type=date] suivent le même
+   gabarit. */
+.activitySettingsPanel textarea,
+.activitySettingsPanel input[type=date] {
+  padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px;
+  background: var(--card); color: var(--text); resize: vertical;
+}
+
+/* ===== Section "Projets" de Profil (1er septembre 2026, demande
+   d'Emilien) — voir #projectsList/#newProjectCard dans index.html et le
+   commentaire au-dessus d'eux. Réutilise .activityRow/.activityRowHeader/
+   .activitySettingsPanel telles quelles (mêmes classes que la liste
+   d'activités) ; les règles ci-dessous n'ajoutent que ce qui est propre à
+   un projet : le sélecteur de tags "Recherche", les badges (compacts et
+   détaillés) qui en résultent, et les boutons de réordonnancement manuel.
+   Aussi utilisé, en lecture seule, par #viewProfileModal (badges +
+   .projectDetailField). ===== */
+.seekingTagPicker { display: flex; flex-wrap: wrap; gap: 6px; }
+.seekingTagBtn {
+  display: flex; align-items: center; gap: 5px; padding: 6px 10px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--card);
+  color: var(--text); font-size: 13px; cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+/* .active posé/retiré par app.js, qui fixe aussi background/color en ligne
+   (couleur propre à chaque tag, comme .dot ailleurs dans l'app) — cette
+   règle ne fait que garantir un contraste correct une fois la couleur de
+   fond posée. */
+.seekingTagBtn.active { border-color: transparent; font-weight: 600; }
+
+/* Badges compacts (liste repliée d'un projet, chez soi comme dans la page
+   de visite d'un abonnement) : symbole seul, couleur du tag — le libellé
+   n'apparaît qu'au clic (vue détail, .seekingBadgeFull ci-dessous),
+   conformément à la demande d'Emilien ("un symbole ou code couleur" dans la
+   liste, "en toutes lettres" seulement au détail). */
+.seekingBadges { display: flex; gap: 4px; flex-shrink: 0; margin-left: auto; }
+.seekingBadgeDot {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 12px;
+}
+/* Badges détaillés (vue dépliée d'un projet) : symbole + libellé complet. */
+.seekingBadgesFullRow { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.seekingBadgeFull {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border-radius: 999px; font-size: 13px; color: #fff; font-weight: 600;
+}
+
+/* Boutons monter/descendre (réordonnancement manuel, sans glisser-déposer —
+   plus fiable sur mobile sans bibliothèque tierce). Pastilles carrées comme
+   .menuBtn, mais plus petites : posées à côté de lui dans
+   .activityRowHeader, jamais seules. */
+.projectMoveBtn {
+  flex-shrink: 0; width: 26px; height: 26px; padding: 0; line-height: 1;
+  font-size: 13px; border: 1px solid var(--border); background: var(--card);
+  color: var(--text); border-radius: var(--radius-sm); cursor: pointer;
+}
+.projectMoveBtn:hover { background: var(--hover-bg); }
+.projectMoveBtn:disabled { opacity: 0.3; cursor: default; }
+
+/* Champ "étiquette : valeur" de la vue détail d'un projet (description
+   complète, lien, date de début, catégorie) — chez soi (panneau d'édition)
+   comme dans la page de visite (#viewProfileModal, lecture seule). */
+.projectDetailField { font-size: 14px; color: var(--text); margin: 0 0 6px; line-height: 1.5; }
+.projectDetailField strong { color: var(--text-light); font-weight: 600; margin-right: 4px; }
+.projectDetailField a { color: var(--purple); word-break: break-all; }
+
+/* Pastille de couleur devant le nom, dans l'en-tête de #viewProfileModal —
+   même principe que .discussionMsgAuthor .dot (inline, pas dans un flex
+   direct comme .activityRowHeader .dot). */
+#viewProfileDot { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: middle; }
 
 /* Rangée de boutons d'action — utilisée à la fois dans le panneau de
    réglages d'une activité et dans les lignes d'invitations reçues. */

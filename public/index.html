@@ -656,20 +656,23 @@
            Semaine/Mois/Année/Total) ; le menu "⋮" choisit désormais la
            GRANULARITÉ des points (Jour/Semaine/Mois), pas la plage — voir
            chartBreakdownForUser dans server/lib/stats.js.
-           Plein écran via #chartFullscreenBtn (voir styles.css
-           #statsChartBlock.fullscreen — plus de rotation forcée en paysage
-           depuis le 1er septembre 2026, demande d'Emilien), avec en plus un
-           agrandissement du graphique lui-même : sa hauteur s'étire pour
-           remplir l'espace disponible au lieu de rester à 180px fixes
-           (29 août 2026, suite demande Emilien). Le menu "⋮" (granularité)
-           n'est visible qu'en plein écran (30 août 2026, demande d'Emilien) —
-           le Graphique est désormais la SEULE section à garder ce mécanisme
-           .fullscreenOnly, la Feuille de temps ayant perdu son plein écran le
-           1er septembre 2026 (voir son commentaire plus haut). -->
+           Plus de mode plein écran depuis le 1er septembre 2026 (demande
+           d'Emilien : « supprimer le mode plein écran de graphique »).
+           #chartFullscreenBtn, exitChartFullscreen() et les règles
+           #statsChartBlock.fullscreen ont été retirés (côté styles.css, la
+           hauteur du SVG reste fixe désormais — plus d'étirement vertical
+           réservé au plein écran). Conséquence directe traitée dans la même
+           demande (« range les paramètres de sélection jour, semaine, mois
+           dans le format régulier ») : le menu "⋮" (granularité) ne porte
+           plus la classe .fullscreenOnly et reste donc toujours visible —
+           même principe que la Feuille de temps le 1er septembre 2026 (voir
+           son commentaire plus haut). Le Graphique était la dernière section
+           de Statistiques à garder ce mécanisme ; .fullscreenOnly n'a donc
+           plus aucun usage et a été retiré de styles.css. -->
       <div id="statsChartBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
-          <div class="statsPeriodMenuWrap fullscreenOnly" id="chartPeriodWrap">
+          <div class="statsPeriodMenuWrap" id="chartPeriodWrap">
             <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
             <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
               <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
@@ -677,7 +680,6 @@
               <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
             </div>
           </div>
-          <button id="chartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran">⛶</button>
         </div>
         <div class="chartWrap" id="statsChartWrap">
           <div class="chartScroll">
@@ -960,6 +962,50 @@
         </div>
         <p id="avatarMsg" class="msg"></p>
 
+        <!-- Section "Projets" (1er septembre 2026, demande d'Emilien : « une
+             section sous le nom de l'utilisateur où il parle de ses
+             projets »). Modèle de données et périmètre négociés avec
+             Emilien AVANT codage (voir noesis-timetracker-contexte-
+             technique.md) : liste ILLIMITÉE de projets personnels,
+             réordonnable manuellement (boutons ▲▼, pas de glisser-déposer —
+             plus fiable sur mobile sans bibliothèque tierce), entièrement
+             indépendante du Chrono/activities. Pas de statut "en pause"/
+             "terminé", pas d'image par projet, pas d'épinglage — exclus
+             explicitement par Emilien. Ici : gestion complète (ajout/
+             modification/suppression/réordonnement) par le propriétaire du
+             profil. En lecture seule, ses ABONNÉS (follows acceptés)
+             consultent la même liste depuis #viewProfileModal, plus bas
+             dans ce fichier (hors de toute section .tab — voir le
+             commentaire à cet endroit) — voir GET /profile/:id/projects
+             dans server/routes/profile.js et openProfileViewModal dans
+             app.js. -->
+        <div class="sectionTitleRow">
+          <p class="sectionTitle">Projets</p>
+          <button type="button" id="addProjectBtn" class="menuBtn" title="Ajouter un projet">+</button>
+        </div>
+        <div class="activityRow hidden" id="newProjectCard">
+          <div class="activityRowHeader">
+            <span class="activityRowName">Nouveau projet</span>
+          </div>
+          <div class="activitySettingsPanel">
+            <input type="text" id="newProjectName" placeholder="Nom du projet">
+            <input type="text" id="newProjectShortDesc" placeholder="Description courte (quelques mots)">
+            <textarea id="newProjectFullDesc" rows="3" placeholder="Description complète (optionnel)"></textarea>
+            <p class="hint">Recherche (optionnel)</p>
+            <div class="seekingTagPicker" id="newProjectSeeking"></div>
+            <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
+            <p class="hint">Date de début (optionnel)</p>
+            <input type="date" id="newProjectStartDate">
+            <input type="text" id="newProjectCategory" placeholder="Catégorie / secteur (optionnel)">
+            <p class="meta" id="newProjectMsg"></p>
+            <div class="rowActions">
+              <button type="button" id="newProjectSave" class="iconBtn">Ajouter le projet</button>
+            </div>
+          </div>
+        </div>
+        <div id="projectsList" class="activitiesList"></div>
+        <p id="projectsEmptyHint" class="hint hidden">Aucun projet ajouté pour l'instant.</p>
+
         <!-- "Abonnés & Abonnements" (1er septembre 2026, demande d'Emilien :
              « déplacer la section abonnés et abonnements des réglages vers
              le bouton abonnement dans le profil »). La section a quitté
@@ -1046,6 +1092,41 @@
            ouverte en remplaçant #profileMain (pas en accordéon) au clic sur
            le bouton "⚙️" ci-dessus. -->
     </section>
+
+    <!-- Page de visite du profil de quelqu'un d'autre (1er septembre 2026,
+         demande d'Emilien) : ouverte en cliquant sur un nom dans "Abonnés &
+         Abonnements" (#profileFollowsPanel, ci-dessus) ou dans la recherche
+         de Communauté (#communitySearchResults) — voir
+         openProfileViewModal dans app.js. Pour l'instant ne montre que la
+         section "Projets" de la personne, seule donnée pensée pour être
+         visible par ses abonnés à ce jour ; pourra accueillir d'autres
+         informations plus tard. Accès vérifié CÔTÉ SERVEUR (GET
+         /profile/:id/projects, server/routes/profile.js) : uniquement le
+         propriétaire ou un abonné accepté — ce panneau ne fait qu'afficher
+         ce que le serveur a bien voulu renvoyer.
+         ⚠️ Volontairement placé ICI, en dehors de toute section .tab
+         (sibling direct de .tab dans <main>) : les sections .tab reçoivent
+         la classe .hidden (display:none) dès qu'on change d'onglet, ce qui
+         masquerait aussi tout ce qu'elles contiennent, modale comprise — la
+         page de visite doit rester ouvrable/visible qu'on l'ait déclenchée
+         depuis Profil ou depuis Communauté. #communityMembersModal, plus
+         haut, n'a pas ce problème : il ne s'ouvre jamais que depuis
+         l'intérieur de #tab-activity, qui est donc forcément déjà visible. -->
+    <div id="viewProfileModal" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="communityMembersModalHeader">
+          <p class="sectionTitle">
+            <span class="dot" id="viewProfileDot"></span>
+            <span id="viewProfileName"></span>
+          </p>
+          <button type="button" class="menuBtn" id="viewProfileModalClose" aria-label="Fermer">✕</button>
+        </div>
+        <p class="sectionTitle">Projets</p>
+        <div id="viewProfileProjectsList" class="activitiesList"></div>
+        <p id="viewProfileProjectsEmptyHint" class="hint hidden">Aucun projet partagé pour l'instant.</p>
+        <p id="viewProfileProjectsMsg" class="msg"></p>
+      </div>
+    </div>
 
   </main>
 

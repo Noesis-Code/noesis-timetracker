@@ -23,9 +23,10 @@
   var currentTimesheetMonthOffset = 0; // décalage en mois (vue calendrier) ; repart à 0 lui aussi
   var currentHistoryWeekOffset = 0; // idem, pour l'historique modifiable du Chrono (#chronoHistoryPanel)
   var lastDailyBreakdown = []; // dernier détail journalier chargé, pour redessiner le Graphique sans refetch (ex : couleur de la courbe Total après un changement de thème)
-  // La Feuille de temps n'a plus de plein écran depuis le 1er septembre 2026
-  // (demande d'Emilien) : plus de variable d'état ici, voir #statsTimesheetBlock.
-  var chartFullscreenActive = false; // plein écran du Graphique
+  // Ni la Feuille de temps (retiré le 1er septembre 2026) ni le Graphique
+  // (retiré le même jour, demande d'Emilien : « supprimer le mode plein
+  // écran de graphique ») n'ont plus de plein écran : plus de variable
+  // d'état ici, voir #statsTimesheetBlock et #statsChartBlock.
   // ----- Statistiques d'UNE activité partagée (section Communauté > Membres)
   // — pendants exacts des 5 variables Statistiques ci-dessus, jamais
   // partagés avec elles (deux jeux d'état totalement indépendants). -----
@@ -697,7 +698,6 @@
       loadTimesheet();
     }
     else {
-      exitChartFullscreen();
       exitActivityTimesheetFullscreen();
       exitActivityChartFullscreen();
       if (tab === 'community') loadCommunity();
@@ -723,7 +723,6 @@
   function openProfile() {
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-profile').classList.remove('hidden');
-    exitChartFullscreen();
     exitActivityTimesheetFullscreen();
     exitActivityChartFullscreen();
     showProfileMain();
@@ -732,6 +731,7 @@
     renderThemeSwitch();
     renderLangSwitch();
     renderShareSettings();
+    loadProfileProjects();
     loadProfileNotes();
     loadProfileDiscussion();
   }
@@ -1519,7 +1519,7 @@
     svg.setAttribute('class', 'chartSvg');
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.style.width = width + 'px';
-    if (!chartFullscreenActive) svg.style.height = height + 'px';
+    svg.style.height = height + 'px';
 
     var baseline = document.createElementNS(svgNS, 'line');
     baseline.setAttribute('x1', 0); baseline.setAttribute('x2', width);
@@ -1636,48 +1636,33 @@
     renderChartLegend(series);
   }
 
-  // ----- Plein écran du Graphique : remplit simplement l'écran (voir
-  // #statsChartBlock.fullscreen dans styles.css), avec en plus un
-  // agrandissement du graphique lui-même (voir renderChart() plus haut :
-  // preserveAspectRatio="none" + hauteur inline omise en plein écran pour
-  // laisser la hauteur s'étirer via CSS). Plus de rotation CSS forcée ni de
-  // verrouillage d'orientation ici depuis le 1er septembre 2026 (demande
-  // d'Emilien — voir le commentaire dans styles.css) : le plein écran suit
-  // simplement l'orientation réelle du téléphone.
-  // Le Graphique est, depuis le 1er septembre 2026, le SEUL plein écran de
-  // l'onglet Statistiques : la Feuille de temps a perdu le sien (demande
-  // d'Emilien). L'exclusion mutuelle qui existait entre les deux — chacun
-  // appelait la sortie de l'autre pour ne jamais laisser body.scrollLock
-  // verrouillé par l'un pendant que l'autre se ferme (29 août 2026) — n'a
-  // donc plus d'objet et a été retirée avec exitStatsFullscreen().
-  function exitChartFullscreen() {
-    if (!chartFullscreenActive) return;
-    chartFullscreenActive = false;
-    $('statsChartBlock').classList.remove('fullscreen');
-    document.body.classList.remove('scrollLock');
-    $('chartFullscreenBtn').textContent = '⛶';
-    $('chartFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran'));
-    renderChart(lastDailyBreakdown);
-  }
-  $('chartFullscreenBtn').addEventListener('click', function () {
-    chartFullscreenActive = !chartFullscreenActive;
-    $('statsChartBlock').classList.toggle('fullscreen', chartFullscreenActive);
-    document.body.classList.toggle('scrollLock', chartFullscreenActive);
-    $('chartFullscreenBtn').textContent = chartFullscreenActive ? '✕' : '⛶';
-    $('chartFullscreenBtn').setAttribute('aria-label', chartFullscreenActive ? t('Quitter le plein écran') : t('Voir en plein écran'));
-    renderChart(lastDailyBreakdown);
-  });
-
-  // ----- La Feuille de temps n'a plus de plein écran depuis le 1er septembre
-  // 2026 (demande d'Emilien : « supprimer l'option de passage en plein
-  // écran ») : le bouton #tsFullscreenBtn, la variable statsFullscreenActive,
-  // la fonction exitStatsFullscreen() et les règles
-  // #statsTimesheetBlock.fullscreen de styles.css ont tous été retirés.
-  // Conséquence traitée dans la même demande : le menu "⋮" (Semaine/Mois), qui
-  // n'était révélé qu'en plein écran par la classe .fullscreenOnly, est
-  // désormais toujours visible — sans quoi la vue "Mois" serait devenue
-  // inaccessible. La vue "Mois" reste consultable hors plein écran : comme la
-  // vue "Semaine", elle défile horizontalement dans .timesheetScroll. -----
+  // ----- Ni le Graphique ni la Feuille de temps n'ont de mode plein écran :
+  // la Feuille de temps a perdu le sien le 1er septembre 2026 (demande
+  // d'Emilien : « supprimer l'option de passage en plein écran »), le
+  // Graphique le sien plus tard le même jour (demande d'Emilien :
+  // « supprimer le mode plein écran de graphique »). Pour le Graphique : le
+  // bouton #chartFullscreenBtn, la variable chartFullscreenActive, la
+  // fonction exitChartFullscreen() et les règles #statsChartBlock.fullscreen
+  // de styles.css ont tous été retirés — y compris l'étirement de hauteur du
+  // SVG qui n'avait de sens qu'en plein écran (renderChart() pose maintenant
+  // toujours une hauteur inline fixe). L'exclusion mutuelle qui existait
+  // entre les deux plein écrans — chacun appelait la sortie de l'autre pour
+  // ne jamais laisser body.scrollLock verrouillé par l'un pendant que
+  // l'autre se ferme (29 août 2026) — n'a donc plus d'objet et a été retirée
+  // des deux côtés (voir switchTab() et openProfile() plus haut). Pour la
+  // Feuille de temps : le bouton #tsFullscreenBtn, la variable
+  // statsFullscreenActive, la fonction exitStatsFullscreen() et les règles
+  // #statsTimesheetBlock.fullscreen de styles.css ont eux aussi été retirés.
+  // Conséquence traitée dans les deux demandes : les menus "⋮" (Semaine/Mois
+  // pour la Feuille de temps, Jour/Semaine/Mois pour le Graphique), qui
+  // n'étaient révélés qu'en plein écran par la classe .fullscreenOnly, sont
+  // désormais toujours visibles — sans quoi la vue "Mois" de la Feuille de
+  // temps et le choix de granularité du Graphique seraient devenus
+  // inaccessibles. .fullscreenOnly n'a donc plus aucun usage et a été
+  // retirée de styles.css. Les deux vues restent entièrement consultables
+  // hors plein écran : comme la grille "Semaine" de la Feuille de temps, le
+  // Graphique défile déjà horizontalement dans .chartScroll pour les
+  // longues périodes. -----
 
   // ===================== FEUILLE DE TEMPS (heatmap hebdomadaire) =====
   // Grille jour × quart d'heure, dans l'esprit de l'onglet "Feuille de
@@ -2558,6 +2543,16 @@
       var label = document.createElement('p');
       label.className = 'meta';
       label.innerHTML = '<span class="dot" style="background:' + u.color + '"></span> ' + escapeHtml(u.name);
+      // Clic sur le nom (pas sur les boutons Suivre/Se désabonner ci-dessous,
+      // des éléments distincts) : ouvre la page de visite de son profil —
+      // voir openProfileViewModal, section "PAGE DE VISITE DE PROFIL" plus
+      // haut. Uniquement si le suivi est accepté : c'est la seule condition
+      // qui donne accès aux projets côté serveur (canViewProjects), pas la
+      // peine de proposer un clic qui mènerait juste à un message d'erreur.
+      if (u.followStatus === 'accepted') {
+        label.style.cursor = 'pointer';
+        label.addEventListener('click', function () { openProfileViewModal(u.id, u.name, u.color); });
+      }
       row.appendChild(label);
 
       var actionsWrap = document.createElement('div');
@@ -2710,6 +2705,16 @@
       var label = document.createElement('p');
       label.className = 'meta';
       label.innerHTML = '<span class="dot" style="background:' + f.color + '"></span> ' + escapeHtml(f.name);
+      // Clic sur le nom : ouvre la page de visite de son profil (voir
+      // openProfileViewModal, section "PAGE DE VISITE DE PROFIL" plus haut)
+      // — uniquement sur la liste "Abonnements" (actionable=true, on suit
+      // alors forcément cette personne : accès garanti côté serveur), pas
+      // sur "Abonnés" (actionable=false, ces personnes ME suivent, rien ne
+      // dit que je les suis en retour).
+      if (actionable) {
+        label.style.cursor = 'pointer';
+        label.addEventListener('click', function () { openProfileViewModal(f.userId, f.name, f.color); });
+      }
       row.appendChild(label);
 
       if (actionable) {
@@ -3371,6 +3376,398 @@
       box.appendChild(buildHistoryCard(entry, loadProfileNotes));
     });
   }
+
+  // ===================== SECTION "PROJETS" (Profil) =====================
+  // Voir le commentaire au-dessus de #projectsList/#newProjectCard dans
+  // index.html, et profile_projects / SEEKING_TAGS dans server/db.js et
+  // server/routes/profile.js. Gestion complète ici (ajout, modification,
+  // suppression, réordonnancement manuel #projectMoveBtn) ; la même donnée
+  // est consultée en lecture seule par les abonnés depuis #viewProfileModal
+  // (voir openProfileViewModal, plus bas dans ce fichier).
+  //
+  // Copie cliente des tags fixes "Recherche" — clés IDENTIQUES à
+  // SEEKING_TAGS côté serveur (server/routes/profile.js) ; libellés/
+  // symboles/couleurs propres à l'affichage, sans équivalent côté serveur
+  // (qui ne connaît que la clé). À étendre des DEUX côtés à la fois si
+  // Emilien demande un jour une nouvelle catégorie de recherche.
+  var SEEKING_TAGS = [
+    { key: 'partners', label: 'Partenaires', symbol: '🤝', color: '#3498db' },
+    { key: 'clients', label: 'Clients', symbol: '💼', color: '#F39C12' },
+    { key: 'funding', label: 'Financement', symbol: '💰', color: '#4CAF50' },
+  ];
+  function seekingTagByKey(key) {
+    for (var i = 0; i < SEEKING_TAGS.length; i++) { if (SEEKING_TAGS[i].key === key) return SEEKING_TAGS[i]; }
+    return null;
+  }
+
+  // Sélecteur multi-tags (formulaire d'ajout/modification d'un projet) : un
+  // bouton par tag, actif/inactif au clic. `selected` (tableau de clés) est
+  // modifié EN PLACE — l'appelant le relit tel quel au moment d'enregistrer,
+  // pas de callback ni de valeur de retour (plus simple qu'un vrai
+  // composant contrôlé, suffisant ici : jamais plus de trois tags, jamais
+  // reconstruit pendant qu'on interagit avec lui).
+  function renderSeekingPicker(containerEl, selected) {
+    containerEl.innerHTML = '';
+    SEEKING_TAGS.forEach(function (tag) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'seekingTagBtn';
+      btn.textContent = tag.symbol + ' ' + t(tag.label);
+      function refresh() {
+        var active = selected.indexOf(tag.key) !== -1;
+        btn.classList.toggle('active', active);
+        btn.style.background = active ? tag.color : '';
+        btn.style.color = active ? '#fff' : '';
+      }
+      btn.addEventListener('click', function () {
+        var idx = selected.indexOf(tag.key);
+        if (idx === -1) selected.push(tag.key); else selected.splice(idx, 1);
+        refresh();
+      });
+      refresh();
+      containerEl.appendChild(btn);
+    });
+  }
+
+  // Badges "Recherche". `detailed=false` (liste compacte, chez soi comme
+  // dans #viewProfileModal) : symboles seuls en pastilles colorées —
+  // demande d'Emilien, « un symbole ou code couleur » — avec le libellé en
+  // info-bulle (title) pour l'accessibilité. `detailed=true` (vue détail
+  // dépliée) : symbole + libellé complet, « en toutes lettres ». Renvoie
+  // null si `seeking` est vide : un projet sans recherche n'affiche AUCUN
+  // badge, jamais de pastille neutre (confirmé avec Emilien).
+  function buildSeekingBadges(seeking, detailed) {
+    if (!seeking || seeking.length === 0) return null;
+    var wrap = document.createElement('div');
+    wrap.className = detailed ? 'seekingBadgesFullRow' : 'seekingBadges';
+    seeking.forEach(function (key) {
+      var tag = seekingTagByKey(key);
+      if (!tag) return;
+      var el = document.createElement('span');
+      if (detailed) {
+        el.className = 'seekingBadgeFull';
+        el.style.background = tag.color;
+        el.textContent = tag.symbol + ' ' + t(tag.label);
+      } else {
+        el.className = 'seekingBadgeDot';
+        el.style.background = tag.color;
+        el.title = t(tag.label);
+        el.textContent = tag.symbol;
+      }
+      wrap.appendChild(el);
+    });
+    return wrap;
+  }
+
+  // Champs "étiquette : valeur" de la vue détail d'un projet (description
+  // complète, lien externe, date de début, catégorie) — chacun omis s'il
+  // est vide. Partagé entre le panneau d'édition (chez soi, ci-dessous) et
+  // #viewProfileModal (lecture seule chez un abonnement, plus bas).
+  function buildProjectDetailFields(p) {
+    var frag = document.createDocumentFragment();
+    if (p.fullDescription) {
+      var d = document.createElement('p');
+      d.className = 'projectDetailField';
+      var dStrong = document.createElement('strong');
+      dStrong.textContent = t('Description') + ' :';
+      var dSpan = document.createElement('span');
+      dSpan.style.whiteSpace = 'pre-wrap';
+      dSpan.textContent = ' ' + p.fullDescription;
+      d.appendChild(dStrong); d.appendChild(dSpan);
+      frag.appendChild(d);
+    }
+    if (p.externalLink) {
+      var l = document.createElement('p');
+      l.className = 'projectDetailField';
+      var lStrong = document.createElement('strong');
+      lStrong.textContent = t('Lien') + ' :';
+      var a = document.createElement('a');
+      a.href = /^https?:\/\//i.test(p.externalLink) ? p.externalLink : ('https://' + p.externalLink);
+      a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.textContent = p.externalLink;
+      l.appendChild(lStrong); l.appendChild(document.createTextNode(' ')); l.appendChild(a);
+      frag.appendChild(l);
+    }
+    if (p.startDate) {
+      var s = document.createElement('p');
+      s.className = 'projectDetailField';
+      var sStrong = document.createElement('strong');
+      sStrong.textContent = t('Début') + ' :';
+      s.appendChild(sStrong); s.appendChild(document.createTextNode(' ' + p.startDate));
+      frag.appendChild(s);
+    }
+    if (p.category) {
+      var c = document.createElement('p');
+      c.className = 'projectDetailField';
+      var cStrong = document.createElement('strong');
+      cStrong.textContent = t('Catégorie') + ' :';
+      c.appendChild(cStrong); c.appendChild(document.createTextNode(' ' + p.category));
+      frag.appendChild(c);
+    }
+    return frag;
+  }
+
+  // Dernière liste de SES PROPRES projets chargée depuis le serveur —
+  // utilisée par moveProject() pour recalculer l'ordre localement avant de
+  // le renvoyer en entier (voir PUT /profile/projects/reorder).
+  var currentProjects = [];
+
+  function loadProfileProjects() {
+    if (!profile) return;
+    api('GET', '/api/profile/' + profile.id + '/projects?viewerId=' + profile.id).then(renderProjectsList);
+  }
+
+  // Réordonnancement manuel via ▲▼ (pas de glisser-déposer : plus fiable
+  // sur mobile sans bibliothèque tierce, et l'app n'en utilise déjà aucune
+  // ailleurs). Échange le projet à `index` avec son voisin, puis renvoie la
+  // liste ENTIÈRE des ids dans le nouvel ordre — le serveur réécrit
+  // position = index dans ce tableau (voir PUT /profile/projects/reorder).
+  function moveProject(index, direction) {
+    var target = index + direction;
+    if (target < 0 || target >= currentProjects.length) return;
+    var reordered = currentProjects.slice();
+    var tmp = reordered[index]; reordered[index] = reordered[target]; reordered[target] = tmp;
+    var orderedIds = reordered.map(function (p) { return p.id; });
+    api('PUT', '/api/profile/projects/reorder', { userId: profile.id, orderedIds: orderedIds })
+      .then(renderProjectsList)
+      .catch(function (err) { alert(err.message); });
+  }
+
+  function renderProjectsList(list) {
+    currentProjects = list;
+    var box = $('projectsList');
+    box.innerHTML = '';
+    $('projectsEmptyHint').classList.toggle('hidden', list.length > 0);
+
+    list.forEach(function (p, index) {
+      var row = document.createElement('div');
+      row.className = 'activityRow';
+
+      var header = document.createElement('div');
+      header.className = 'activityRowHeader clickable';
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'activityRowName';
+      nameSpan.textContent = p.name;
+      header.appendChild(nameSpan);
+
+      var badges = buildSeekingBadges(p.seeking, false);
+      if (badges) header.appendChild(badges);
+
+      var upBtn = document.createElement('button');
+      upBtn.type = 'button'; upBtn.className = 'projectMoveBtn'; upBtn.textContent = '▲';
+      upBtn.title = t('Monter'); upBtn.setAttribute('aria-label', t('Monter'));
+      upBtn.disabled = index === 0;
+      upBtn.addEventListener('click', function (e) { e.stopPropagation(); moveProject(index, -1); });
+      header.appendChild(upBtn);
+
+      var downBtn = document.createElement('button');
+      downBtn.type = 'button'; downBtn.className = 'projectMoveBtn'; downBtn.textContent = '▼';
+      downBtn.title = t('Descendre'); downBtn.setAttribute('aria-label', t('Descendre'));
+      downBtn.disabled = index === list.length - 1;
+      downBtn.addEventListener('click', function (e) { e.stopPropagation(); moveProject(index, 1); });
+      header.appendChild(downBtn);
+
+      row.appendChild(header);
+
+      if (p.shortDescription) {
+        var shortP = document.createElement('p');
+        shortP.className = 'meta';
+        shortP.textContent = p.shortDescription;
+        row.appendChild(shortP);
+      }
+
+      var panel = document.createElement('div');
+      panel.className = 'activitySettingsPanel hidden';
+
+      var nameInput = document.createElement('input');
+      nameInput.type = 'text'; nameInput.placeholder = t('Nom du projet'); nameInput.value = p.name;
+
+      var shortInput = document.createElement('input');
+      shortInput.type = 'text'; shortInput.placeholder = t('Description courte (quelques mots)'); shortInput.value = p.shortDescription || '';
+
+      var fullInput = document.createElement('textarea');
+      fullInput.rows = 3; fullInput.placeholder = t('Description complète (optionnel)'); fullInput.value = p.fullDescription || '';
+
+      var seekingHint = document.createElement('p');
+      seekingHint.className = 'hint'; seekingHint.textContent = t('Recherche (optionnel)');
+
+      var seekingBox = document.createElement('div');
+      seekingBox.className = 'seekingTagPicker';
+      var selectedSeeking = (p.seeking || []).slice();
+      renderSeekingPicker(seekingBox, selectedSeeking);
+
+      var linkInput = document.createElement('input');
+      linkInput.type = 'text'; linkInput.placeholder = t('Lien externe (optionnel)'); linkInput.value = p.externalLink || '';
+
+      var dateHint = document.createElement('p');
+      dateHint.className = 'hint'; dateHint.textContent = t('Date de début (optionnel)');
+
+      var dateInput = document.createElement('input');
+      dateInput.type = 'date'; dateInput.value = p.startDate || '';
+
+      var categoryInput = document.createElement('input');
+      categoryInput.type = 'text'; categoryInput.placeholder = t('Catégorie / secteur (optionnel)'); categoryInput.value = p.category || '';
+
+      var saveMsg = document.createElement('p');
+      saveMsg.className = 'meta';
+
+      var saveBtn = document.createElement('button');
+      saveBtn.type = 'button'; saveBtn.className = 'iconBtn'; saveBtn.textContent = t('Enregistrer');
+      saveBtn.addEventListener('click', function () {
+        var name = nameInput.value.trim();
+        if (!name) { saveMsg.textContent = t('Le nom du projet est requis.'); return; }
+        saveMsg.textContent = '';
+        api('PUT', '/api/profile/projects/' + p.id, {
+          userId: profile.id, name: name, shortDescription: shortInput.value.trim(),
+          fullDescription: fullInput.value.trim(), seeking: selectedSeeking,
+          externalLink: linkInput.value.trim(), startDate: dateInput.value, category: categoryInput.value.trim(),
+        }).then(function () {
+          loadProfileProjects();
+        }).catch(function (err) { saveMsg.textContent = err.message; });
+      });
+
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button'; delBtn.className = 'iconBtn danger'; delBtn.textContent = t('Supprimer');
+      delBtn.addEventListener('click', function () {
+        if (!confirm(t('Supprimer ce projet ?'))) return;
+        api('DELETE', '/api/profile/projects/' + p.id + '?userId=' + profile.id)
+          .then(loadProfileProjects)
+          .catch(function (err) { alert(err.message); });
+      });
+
+      var actionsWrap = document.createElement('div');
+      actionsWrap.className = 'rowActions';
+      actionsWrap.appendChild(saveBtn);
+      actionsWrap.appendChild(delBtn);
+
+      panel.appendChild(nameInput);
+      panel.appendChild(shortInput);
+      panel.appendChild(fullInput);
+      panel.appendChild(seekingHint);
+      panel.appendChild(seekingBox);
+      panel.appendChild(linkInput);
+      panel.appendChild(dateHint);
+      panel.appendChild(dateInput);
+      panel.appendChild(categoryInput);
+      panel.appendChild(saveMsg);
+      panel.appendChild(actionsWrap);
+      row.appendChild(panel);
+
+      // Clic sur la ligne (hors ▲▼, qui isolent leur propre clic) :
+      // ouvre/referme le panneau d'édition — même principe que le clic sur
+      // une activité SOLO dans #tab-activity (renderActivitiesSettings).
+      header.addEventListener('click', function () { panel.classList.toggle('hidden'); });
+
+      box.appendChild(row);
+    });
+  }
+
+  $('addProjectBtn').addEventListener('click', function () {
+    $('newProjectCard').classList.toggle('hidden');
+  });
+
+  var newProjectSeeking = [];
+  renderSeekingPicker($('newProjectSeeking'), newProjectSeeking);
+
+  $('newProjectSave').addEventListener('click', function () {
+    var name = $('newProjectName').value.trim();
+    var msg = $('newProjectMsg');
+    if (!name) { msg.textContent = t('Le nom du projet est requis.'); return; }
+    msg.textContent = '';
+    api('POST', '/api/profile/projects', {
+      userId: profile.id, name: name, shortDescription: $('newProjectShortDesc').value.trim(),
+      fullDescription: $('newProjectFullDesc').value.trim(), seeking: newProjectSeeking,
+      externalLink: $('newProjectLink').value.trim(), startDate: $('newProjectStartDate').value,
+      category: $('newProjectCategory').value.trim(),
+    }).then(function () {
+      $('newProjectName').value = ''; $('newProjectShortDesc').value = ''; $('newProjectFullDesc').value = '';
+      $('newProjectLink').value = ''; $('newProjectStartDate').value = ''; $('newProjectCategory').value = '';
+      newProjectSeeking.length = 0;
+      renderSeekingPicker($('newProjectSeeking'), newProjectSeeking);
+      $('newProjectCard').classList.add('hidden');
+      loadProfileProjects();
+    }).catch(function (err) { msg.textContent = err.message; });
+  });
+
+  // ===================== PAGE DE VISITE DE PROFIL (#viewProfileModal) =====
+  // Voir le commentaire dans index.html, juste au-dessus de la modale. Pour
+  // l'instant n'affiche que la section Projets de la personne visitée, en
+  // lecture seule (aucun bouton d'édition/suppression/réordonnancement ici)
+  // — l'accès (abonné accepté ou soi-même) est vérifié côté serveur, ce
+  // panneau se contente d'afficher ce que le serveur a bien voulu renvoyer.
+  // Ouverte depuis renderNameOnlyList (Abonnés & Abonnements, ci-dessous)
+  // et renderSearchResults (recherche de Communauté, plus haut) au clic sur
+  // le NOM (jamais sur le bouton d'action de la ligne, un élément distinct
+  // du nom, donc jamais concerné par ce clic).
+  function openProfileViewModal(userId, name, color) {
+    $('viewProfileName').textContent = name;
+    $('viewProfileDot').style.background = color || '#999';
+    $('viewProfileProjectsList').innerHTML = '';
+    $('viewProfileProjectsEmptyHint').classList.add('hidden');
+    $('viewProfileProjectsMsg').textContent = '';
+    $('viewProfileModal').classList.remove('hidden');
+    api('GET', '/api/profile/' + userId + '/projects?viewerId=' + profile.id)
+      .then(renderViewProfileProjects)
+      .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
+  }
+
+  function renderViewProfileProjects(list) {
+    var box = $('viewProfileProjectsList');
+    box.innerHTML = '';
+    $('viewProfileProjectsEmptyHint').classList.toggle('hidden', list.length > 0);
+
+    list.forEach(function (p) {
+      var row = document.createElement('div');
+      row.className = 'activityRow';
+
+      var header = document.createElement('div');
+      header.className = 'activityRowHeader clickable';
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'activityRowName';
+      nameSpan.textContent = p.name;
+      header.appendChild(nameSpan);
+
+      var badges = buildSeekingBadges(p.seeking, false);
+      if (badges) header.appendChild(badges);
+
+      row.appendChild(header);
+
+      if (p.shortDescription) {
+        var shortP = document.createElement('p');
+        shortP.className = 'meta';
+        shortP.textContent = p.shortDescription;
+        row.appendChild(shortP);
+      }
+
+      var panel = document.createElement('div');
+      panel.className = 'activitySettingsPanel hidden';
+      var fullBadges = buildSeekingBadges(p.seeking, true);
+      if (fullBadges) panel.appendChild(fullBadges);
+      panel.appendChild(buildProjectDetailFields(p));
+      if (!p.fullDescription && !p.externalLink && !p.startDate && !p.category && !fullBadges) {
+        var none = document.createElement('p');
+        none.className = 'hint';
+        none.textContent = t('Aucun détail supplémentaire pour ce projet.');
+        panel.appendChild(none);
+      }
+      row.appendChild(panel);
+
+      header.addEventListener('click', function () { panel.classList.toggle('hidden'); });
+
+      box.appendChild(row);
+    });
+  }
+
+  $('viewProfileModalClose').addEventListener('click', function () {
+    $('viewProfileModal').classList.add('hidden');
+  });
+  // Clic sur le fond assombri (en dehors de la carte) pour fermer, comme
+  // #communityMembersModal.
+  $('viewProfileModal').addEventListener('click', function (e) {
+    if (e.target === this) this.classList.add('hidden');
+  });
 
   // ===================== ZONE DE DISCUSSION (Profil) =====================
   // Remplace la zone "Note" du Chrono, retirée le 31 août 2026 (demande

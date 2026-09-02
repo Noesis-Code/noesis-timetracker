@@ -287,6 +287,42 @@ CREATE TABLE IF NOT EXISTS profile_post_attachments (
 );
 CREATE INDEX IF NOT EXISTS idx_profile_post_attachments_post ON profile_post_attachments(postId);
 
+-- Section "Projets" de la vue principale de Profil (1er septembre 2026,
+-- demande d'Emilien : « une section sous le nom de l'utilisateur où il
+-- parle de ses projets »). Modèle négocié avec Emilien avant codage (voir
+-- noesis-timetracker-contexte-technique.md) : liste ILLIMITÉE de projets
+-- personnels, INDÉPENDANTE du Chrono/activities (aucune référence à
+-- activities ici, à part le même userId), gérée en entier par le
+-- propriétaire (server/routes/profile.js), visible en LECTURE SEULE par ses
+-- ABONNÉS (follows acceptés) depuis la nouvelle page de visite de profil
+-- (#viewProfileModal, public/index.html) — jamais publique, jamais visible
+-- par un simple membre d'une activité partagée.
+-- shortDescription / fullDescription : deux champs INDÉPENDANTS (pas l'un
+-- dérivé de l'autre) — la courte s'affiche dans la liste compacte, la
+-- complète seulement au clic sur le projet (vue détail).
+-- seeking : sous-ensemble JSON (ex. '["partners","clients"]') des tags
+-- fixes définis par SEEKING_TAGS dans server/routes/profile.js — ce que le
+-- projet recherche actuellement. Optionnel (peut être '[]', auquel cas
+-- aucun badge n'est affiché) ; plusieurs tags à la fois possibles.
+-- position : ordre d'affichage choisi manuellement par le propriétaire
+-- (réorganisation, voir PUT /profile/projects/reorder) — aucun tri
+-- automatique. Explicitement exclus par Emilien : pas de statut "en
+-- pause"/"terminé", pas d'image par projet, pas d'épinglage.
+CREATE TABLE IF NOT EXISTS profile_projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  shortDescription TEXT NOT NULL DEFAULT '',
+  fullDescription TEXT NOT NULL DEFAULT '',
+  seeking TEXT NOT NULL DEFAULT '[]',
+  externalLink TEXT,
+  startDate TEXT,
+  category TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_profile_projects_user ON profile_projects(userId, position);
+
 -- Abonnement d'un APPAREIL aux notifications push (Web Push standard, voir
 -- server/lib/push.js). Une ligne par (profil, appareil) : le téléphone et
 -- l'ordinateur d'une même personne sont deux abonnements distincts, et

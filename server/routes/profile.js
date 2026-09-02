@@ -35,6 +35,50 @@ function pickColor() {
   return PALETTE[n % PALETTE.length];
 }
 
+// ---------- Section "Projets" (voir profile_projects dans server/db.js) ----------
+// Tags "Recherche" fixes d'un projet — liste fermée, jamais de tag libre :
+// toute valeur hors de cet ensemble est silencieusement écartée (voir
+// sanitizeSeeking). Tenue en phase avec la copie cliente SEEKING_TAGS dans
+// public/app.js (clés identiques, ordre identique) — voir ce fichier pour
+// les libellés/symboles affichés, qui restent une préoccupation purement
+// d'affichage et n'ont donc rien à faire ici.
+const SEEKING_TAGS = ['partners', 'clients', 'funding'];
+
+function sanitizeSeeking(input) {
+  if (!Array.isArray(input)) return [];
+  const out = [];
+  input.forEach((tag) => {
+    if (SEEKING_TAGS.indexOf(tag) !== -1 && out.indexOf(tag) === -1) out.push(tag);
+  });
+  return out;
+}
+
+// Un profil peut toujours voir SES PROPRES projets ; un autre profil doit
+// être un ABONNÉ ACCEPTÉ (voir la table follows dans server/db.js) — même
+// principe d'accès que le flux "Suivi" de Communauté (followingFeedForUser
+// dans lib/community.js), vérifié ici directement (une seule liste scopée à
+// un profil, pas de flux à composer).
+function canViewProjects(viewerId, ownerId) {
+  if (viewerId === ownerId) return true;
+  if (!viewerId) return false;
+  const row = db.prepare("SELECT 1 FROM follows WHERE followerId = ? AND followeeId = ? AND status = 'accepted'").get(viewerId, ownerId);
+  return !!row;
+}
+
+function projectRowOut(p) {
+  return {
+    id: p.id,
+    name: p.name,
+    shortDescription: p.shortDescription || '',
+    fullDescription: p.fullDescription || '',
+    seeking: JSON.parse(p.seeking || '[]'),
+    externalLink: p.externalLink || null,
+    startDate: p.startDate || null,
+    category: p.category || null,
+    position: p.position,
+  };
+}
+
 // Liste légère (id, name, color, theme, hasPin) — utilisée par l'onboarding
 // "J'ai déjà un profil" et par l'onglet Communauté. hasPin dit juste si un
 // code a déjà été défini, jamais le code lui-même (ni même son hash).
@@ -403,6 +447,125 @@ router.delete('/profile/post-attachments/:id', (req, res) => {
 
   db.prepare('DELETE FROM profile_post_attachments WHERE id = ?').run(attachment.id);
   res.json({ message: 'Pièce jointe supprimée.' });
+});
+
+// ---------- Suite de la section "Projets" (voir SEEKING_TAGS/sanitizeSeeking/
+// canViewProjects/projectRowOut plus haut, et profile_projects dans
+// server/db.js). GET est la SEULE route ici lue par quelqu'un d'autre que le
+// propriétaire (ses abonnés acceptés, voir canViewProjects) ; POST/PUT/
+// DELETE/reorder restent toujours scopées à SOI, comme profile_posts plus
+// haut : le userId envoyé dans le corps/la query identifie l'AUTEUR de
+// l'action, jamais une cible différente de lui-même.
+//
+// ⚠️ Ordre de déclaration : PUT /profile/projects/reorder DOIT rester avant
+// PUT /profile/projects/:id — sinon Express matcherait "/profile/projects/
+// reorder" contre ":id" (avec id = "reorder") et la route reorder ne serait
+// jamais atteinte (même piège documenté sur GET /profile/posts plus haut,
+// ici entre deux routes de même méthode et même nombre de segments).
+// GET /profile/:userId/projects, lui, a un segment de plus que GET
+// /profile/:id (3 contre 2) : son ordre par rapport à elle n'a pas
+// d'importance, Express les distingue déjà par la forme de l'URL.
+
+router.get('/profile/:userId/projects', (req, res) => {
+  const owner = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.userId);
+  if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  if (!canViewProjects(req.query.viewerId, owner.id)) {
+    return res.status(403).json({ error: "Tu dois suivre ce profil pour voir ses projets." });
+  }
+
+  const rows = db.prepare('SELECT * FROM profile_projects WHERE userId = ? ORDER BY position ASC, id ASC').all(owner.id);
+  res.json(rows.map(projectRowOut));
+});
+
+router.post('/profile/projects', (req, res) => {
+  const userId = req.body.userId;
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Le nom du projet est requis.' });
+
+  const shortDescription = (req.body.shortDescription || '').trim();
+  const fullDescription = (req.body.fullDescription || '').trim();
+  const seeking = sanitizeSeeking(req.body.seeking);
+  const externalLink = (req.body.externalLink || '').trim();
+  const startDate = (req.body.startDate || '').trim();
+  const category = (req.body.category || '').trim();
+
+  const maxPos = db.prepare('SELECT COALESCE(MAX(position), -1) AS m FROM profile_projects WHERE userId = ?').get(userId).m;
+  const position = maxPos + 1;
+  const createdAt = new Date().toISOString();
+  const info = db.prepare(`INSERT INTO profile_projects
+      (userId, name, shortDescription, fullDescription, seeking, externalLink, startDate, category, position, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(userId, name, shortDescription, fullDescription, JSON.stringify(seeking), externalLink || null, startDate || null, category || null, position, createdAt);
+
+  res.status(201).json({
+    id: info.lastInsertRowid, name, shortDescription, fullDescription, seeking,
+    externalLink: externalLink || null, startDate: startDate || null, category: category || null, position,
+  });
+});
+
+// Réorganisation manuelle (boutons monter/descendre côté client, voir
+// app.js) : reçoit la liste ORDONNÉE de tous les ids de projets du profil et
+// réécrit position en conséquence (index dans le tableau). Un id qui
+// n'appartient pas à userId (projet supprimé entre-temps sur un autre
+// appareil, par exemple) est silencieusement ignoré par la clause
+// "AND userId = ?" plutôt que de faire échouer toute la requête.
+router.put('/profile/projects/reorder', (req, res) => {
+  const userId = req.body.userId;
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  const orderedIds = Array.isArray(req.body.orderedIds) ? req.body.orderedIds : [];
+  const updatePos = db.prepare('UPDATE profile_projects SET position = ? WHERE id = ? AND userId = ?');
+
+  db.exec('BEGIN');
+  try {
+    orderedIds.forEach((id, index) => { updatePos.run(index, id, userId); });
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+
+  const rows = db.prepare('SELECT * FROM profile_projects WHERE userId = ? ORDER BY position ASC, id ASC').all(userId);
+  res.json(rows.map(projectRowOut));
+});
+
+router.put('/profile/projects/:id', (req, res) => {
+  const project = db.prepare('SELECT * FROM profile_projects WHERE id = ?').get(req.params.id);
+  if (!project) return res.status(404).json({ error: 'Projet introuvable.' });
+  if (project.userId !== req.body.userId) return res.status(403).json({ error: "Ce n'est pas ton projet." });
+
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Le nom du projet est requis.' });
+
+  const shortDescription = (req.body.shortDescription || '').trim();
+  const fullDescription = (req.body.fullDescription || '').trim();
+  const seeking = sanitizeSeeking(req.body.seeking);
+  const externalLink = (req.body.externalLink || '').trim();
+  const startDate = (req.body.startDate || '').trim();
+  const category = (req.body.category || '').trim();
+
+  db.prepare(`UPDATE profile_projects SET name = ?, shortDescription = ?, fullDescription = ?, seeking = ?,
+              externalLink = ?, startDate = ?, category = ? WHERE id = ?`)
+    .run(name, shortDescription, fullDescription, JSON.stringify(seeking), externalLink || null, startDate || null, category || null, project.id);
+
+  res.json({
+    id: project.id, name, shortDescription, fullDescription, seeking,
+    externalLink: externalLink || null, startDate: startDate || null, category: category || null, position: project.position,
+  });
+});
+
+router.delete('/profile/projects/:id', (req, res) => {
+  const project = db.prepare('SELECT * FROM profile_projects WHERE id = ?').get(req.params.id);
+  if (!project) return res.status(404).json({ error: 'Projet introuvable.' });
+  if (project.userId !== req.query.userId) return res.status(403).json({ error: "Ce n'est pas ton projet." });
+
+  db.prepare('DELETE FROM profile_projects WHERE id = ?').run(project.id);
+  res.json({ ok: true });
 });
 
 module.exports = router;
