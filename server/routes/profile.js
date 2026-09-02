@@ -4,6 +4,7 @@ const db = require('../db');
 const { makePinRecord, verifyPinRecord, isValidPinFormat, isLocked, registerFailure, registerSuccess } = require('../lib/auth');
 const { isInPalette, pairedColor } = require('../lib/theme');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
+const { notifyCommunityPost } = require('../lib/push');
 // Statistiques d'un profil VISITÉ (2 septembre 2026) — voir GET
 // /profile/:userId/stats plus bas. Les deux fonctions sont importées et
 // appelées TELLES QUELLES, en lecture seule : aucune ligne de
@@ -460,6 +461,14 @@ router.post('/profile/posts', (req, res) => {
 
   const createdAt = new Date().toISOString();
   const info = db.prepare('INSERT INTO profile_posts (userId, body, createdAt) VALUES (?, ?, ?)').run(userId, body, createdAt);
+
+  // Notification push aux personnes qui suivent l'auteur (2 septembre 2026,
+  // demande d'Emilien) : ce message apparaît dans leur flux Suivi, elles sont
+  // donc prévenues, et le clic les y ramène directement. Comme partout
+  // ailleurs, l'envoi part en arrière-plan et ne peut jamais faire échouer la
+  // publication elle-même — voir le principe en tête de server/lib/push.js.
+  notifyCommunityPost(userId, body, info.lastInsertRowid);
+
   res.status(201).json({ id: info.lastInsertRowid, body, createdAt, attachments: [] });
 });
 

@@ -1232,6 +1232,24 @@ body.scrollLock { overflow: hidden; }
   padding: 10px 12px; box-shadow: var(--shadow-card);
   display: flex; flex-direction: column; gap: 4px;
 }
+
+/* Repère de renvoi depuis une notification (2 septembre 2026, demande
+   d'Emilien) : l'élément visé par le clic sur une notification s'entoure d'un
+   halo violet le temps qu'on le repère, puis redevient normal — voir
+   focusWhenReady dans public/app.js. Posée en classe additionnelle et non sur
+   un id : le même repère sert à un message d'activité, à une publication du
+   flux Suivi et à un panneau du Profil. La transition est sur .notifHighlight
+   plutôt que sur les éléments cibles, pour ne rien changer à leur rendu
+   habituel. */
+.notifHighlight {
+  animation: notifHighlightFade 2.4s ease-out;
+  border-radius: var(--radius-lg);
+}
+@keyframes notifHighlightFade {
+  0%   { box-shadow: 0 0 0 3px var(--purple); }
+  70%  { box-shadow: 0 0 0 3px var(--purple); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
 /* Mes propres messages : liseré violet à gauche, comme repère de lecture
    rapide dans le fil (même couleur d'accent que .activityRow.selected). */
 .discussionMsg.mine { border-left: 3px solid var(--purple); }

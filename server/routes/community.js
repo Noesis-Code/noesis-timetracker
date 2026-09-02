@@ -138,7 +138,7 @@ router.post('/community/activity-messages', (req, res) => {
   // arrière-plan et ne peut jamais faire échouer l'écriture du message (voir
   // le principe posé en tête de server/lib/push.js). Sans clés VAPID
   // configurées, cet appel ne fait rien du tout.
-  notifyActivityMessage(activityId, userId, body);
+  notifyActivityMessage(activityId, userId, body, message && message.id);
 
   res.status(201).json(message);
 });

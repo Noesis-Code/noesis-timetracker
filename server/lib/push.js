@@ -92,6 +92,7 @@ const TEXTS = {
     inviteBody: (from, activity) => `${from} t'invite sur « ${activity} ».`,
     followTitle: 'Demande de suivi',
     followBody: (from) => `${from} souhaite te suivre.`,
+    postTitle: '📣 Communauté',
     testTitle: 'Noèsis',
     testBody: 'Les notifications fonctionnent sur cet appareil.',
   },
@@ -100,6 +101,7 @@ const TEXTS = {
     inviteBody: (from, activity) => `${from} invites you to "${activity}".`,
     followTitle: 'Follow request',
     followBody: (from) => `${from} wants to follow you.`,
+    postTitle: '📣 Community',
     testTitle: 'Noèsis',
     testBody: 'Notifications are working on this device.',
   },
@@ -170,11 +172,32 @@ function sendToUsers(userIds, payload) {
 // endroit, et une route qui déclenche une notification n'a qu'une seule ligne
 // à écrire.
 
+// ---- Adresses de renvoi (2 septembre 2026, demande d'Emilien : « que cela
+// renvoie exactement à l'endroit précis de la notification ») ----
+//
+// Chaque notification porte une adresse qui décrit sa CIBLE, pas seulement un
+// onglet : le type d'événement plus les identifiants nécessaires pour
+// retrouver l'élément exact. C'est public/app.js (openTabFromNotification) qui
+// sait traduire ça en « ouvre tel onglet, sélectionne telle activité, défile
+// jusqu'à tel message et le met en évidence ».
+//
+//   /?notif=activity&activityId=12&messageId=345  → le message 345 dans le fil
+//                                                   de l'activité 12
+//   /?notif=post&postId=77                        → la publication 77 dans le
+//                                                   flux Suivi de Communauté
+//   /?notif=invite                                → le panneau Invitations
+//   /?notif=follow                                → le panneau Demandes de suivi
+//
+// Les anciennes adresses (`notif=community`/`notif=profile`) restent comprises
+// par le client : un téléphone qui n'a pas encore rechargé la nouvelle version
+// de l'app continue de recevoir des notifications parfaitement utilisables, il
+// atterrit simplement sur l'onglet plutôt que sur l'élément précis.
+
 // Message écrit dans le fil de discussion d'une activité partagée : tous les
 // AUTRES membres actuels de l'activité (jamais l'auteur lui-même).
 // Titre = le nom de l'activité, corps = « Auteur : message » — l'info
 // "activité" et le texte du message, comme demandé.
-function notifyActivityMessage(activityId, authorId, messageBody) {
+function notifyActivityMessage(activityId, authorId, messageBody, messageId) {
   if (!configured) return;
   try {
     const activity = db.prepare('SELECT name FROM activities WHERE id = ?').get(activityId);
@@ -192,10 +215,48 @@ function notifyActivityMessage(activityId, authorId, messageBody) {
       title: '💬 ' + activity.name,
       body: author.name + ' : ' + truncate(messageBody, MESSAGE_MAX),
       tag: 'activity-message-' + activityId,
-      url: '/?notif=community',
+      url: '/?notif=activity&activityId=' + activityId + (messageId ? '&messageId=' + messageId : ''),
     });
   } catch (err) {
     console.warn('[push] notifyActivityMessage :', err.message);
+  }
+}
+
+// Publication dans la zone « écrire à sa communauté » (profile_posts) : toutes
+// les personnes qui SUIVENT l'auteur, et qui verront donc ce message dans leur
+// flux Suivi. Audience calquée exactement sur followingFeedForUser
+// (server/lib/community.js) : abonnement accepté + profil partagé côté auteur —
+// notifier quelqu'un pour un message qu'il ne pourrait pas voir n'aurait aucun
+// sens. L'auteur n'est jamais dans cette liste (on ne se suit pas soi-même).
+//
+// Envoi individuel plutôt que groupé, contrairement au message d'activité : le
+// titre est une phrase de l'app (« Communauté »), donc traduite selon la langue
+// de CHAQUE destinataire.
+function notifyCommunityPost(authorId, postBody, postId) {
+  if (!configured) return;
+  try {
+    const author = db.prepare('SELECT name, shareProfile FROM users WHERE id = ?').get(authorId);
+    if (!author || !author.shareProfile) return;
+
+    const recipients = db.prepare(`
+      SELECT followerId FROM follows WHERE followeeId = ? AND status = 'accepted'
+    `).all(authorId).map((r) => r.followerId);
+    if (recipients.length === 0) return;
+
+    const body = author.name + ' : ' + truncate(postBody, MESSAGE_MAX);
+    recipients.forEach((userId) => {
+      const t = textsFor(userId);
+      sendToUsers([userId], {
+        title: t.postTitle,
+        body: body,
+        // Un tag par auteur : deux publications d'affilée de la même personne
+        // se remplacent au lieu d'empiler deux lignes, comme pour un fil.
+        tag: 'community-post-' + authorId,
+        url: '/?notif=post&postId=' + postId,
+      });
+    });
+  } catch (err) {
+    console.warn('[push] notifyCommunityPost :', err.message);
   }
 }
 
@@ -210,7 +271,7 @@ function notifyActivityInvite(toUserId, fromUserId, activityName) {
       title: t.inviteTitle,
       body: t.inviteBody(from.name, activityName),
       tag: 'invite',
-      url: '/?notif=profile',
+      url: '/?notif=invite',
     });
   } catch (err) {
     console.warn('[push] notifyActivityInvite :', err.message);
@@ -228,7 +289,7 @@ function notifyFollowRequest(toUserId, fromUserId) {
       title: t.followTitle,
       body: t.followBody(from.name),
       tag: 'follow-request',
-      url: '/?notif=profile',
+      url: '/?notif=follow',
     });
   } catch (err) {
     console.warn('[push] notifyFollowRequest :', err.message);
@@ -245,5 +306,5 @@ function notifyTest(userId) {
 
 module.exports = {
   pushEnabled, publicKey, sendToUsers,
-  notifyActivityMessage, notifyActivityInvite, notifyFollowRequest, notifyTest,
+  notifyActivityMessage, notifyCommunityPost, notifyActivityInvite, notifyFollowRequest, notifyTest,
 };

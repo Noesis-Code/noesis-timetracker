@@ -2127,6 +2127,9 @@
 
       var msg = document.createElement('div');
       msg.className = 'discussionMsg' + (mine ? ' mine' : '');
+      // Repère utilisé par le renvoi depuis une notification, pour retrouver
+      // et mettre en évidence LE message concerné (voir focusFromNotification).
+      msg.dataset.messageId = m.id;
       msg.innerHTML =
         '<div class="discussionMsgTop">' +
           '<span class="discussionMsgAuthor"><span class="dot" style="background:' + m.userColor + '"></span>' +
@@ -2993,6 +2996,9 @@
   function buildFollowingPostCard(entry) {
     var card = document.createElement('div');
     card.className = 'discussionMsg';
+    // Même repère que dans le fil d'une activité : sert au renvoi précis
+    // depuis une notification (voir focusFromNotification).
+    card.dataset.postId = entry.id;
 
     var when = new Date(entry.createdAt);
     var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
@@ -3453,22 +3459,117 @@
     });
   }
 
-  // L'app était fermée : elle s'ouvre sur /?notif=community ou /?notif=profile
-  // (voir les url des notifications dans server/lib/push.js). On bascule sur
-  // l'onglet correspondant puis on nettoie l'adresse, pour qu'un rechargement
-  // ultérieur ne rejoue pas la même bascule.
-  function openTabFromNotification(url) {
-    var target = null;
-    try {
-      target = new URL(url, location.origin).searchParams.get('notif');
-    } catch (err) {
-      target = null;
+  // ----- Renvoi à l'endroit EXACT de la notification -----
+  // 2 septembre 2026, demande d'Emilien : « lorsqu'une notification apparaît
+  // sur le téléphone et que l'utilisateur clique dessus, cela renvoie
+  // exactement à l'endroit précis de la notification ».
+  //
+  // L'adresse portée par la notification décrit sa cible (voir la section
+  // "Adresses de renvoi" dans server/lib/push.js) :
+  //   ?notif=activity&activityId=..&messageId=..  le message d'un fil d'activité
+  //   ?notif=post&postId=..                       une publication du flux Suivi
+  //   ?notif=invite / ?notif=follow               les panneaux du Profil
+  // Les deux anciennes formes (community/profile) restent acceptées : un
+  // téléphone dont l'app n'a pas encore été rechargée continue d'envoyer
+  // celles-là, et elles doivent rester utilisables.
+  //
+  // Deux chemins d'arrivée, même fonction : l'app était fermée (elle s'ouvre
+  // sur l'adresse, voir showApp) ou déjà ouverte (le service worker nous
+  // transmet l'adresse par message, voir notificationclick dans sw.js).
+
+  // Le contenu visé n'est presque jamais dans le DOM au moment du clic : il
+  // faut d'abord que l'onglet charge ses données depuis le serveur. On attend
+  // donc que l'élément apparaisse, sans bloquer, et on abandonne au bout de
+  // ~4 s (contenu supprimé entre-temps, ou trop ancien pour être encore dans
+  // la liste chargée) — dans ce cas on est simplement au bon endroit, sans
+  // surbrillance, ce qui reste correct.
+  function focusWhenReady(selector, tries) {
+    tries = tries === undefined ? 40 : tries;
+    var el = document.querySelector(selector);
+    if (!el) {
+      if (tries <= 0) return;
+      setTimeout(function () { focusWhenReady(selector, tries - 1); }, 100);
+      return;
     }
-    if (target !== 'community' && target !== 'profile') return;
-    switchTab(target);
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Halo violet bref : dans un fil de vingt messages, sans ça on ne sait pas
+    // lequel a déclenché la notification. Retiré tout seul — c'est un repère,
+    // pas un état.
+    el.classList.add('notifHighlight');
+    setTimeout(function () { el.classList.remove('notifHighlight'); }, 2400);
+  }
+
+  // Ouvre le panneau flottant des invitations/demandes de suivi du Profil,
+  // exactement comme le clic sur son icône (mêmes exclusions mutuelles).
+  function openNotifPanelForNotification() {
+    openProfile();
+    closeSettingsPanel();
+    closeFollowsPanel();
+    $('profileNotifPanel').classList.remove('hidden');
+    $('profileNotifBtn').classList.add('active');
+  }
+
+  function openTabFromNotification(url) {
+    var params = null;
+    try {
+      params = new URL(url, location.origin).searchParams;
+    } catch (err) {
+      return;
+    }
+    var target = params.get('notif');
+    if (!target) return;
+
+    // L'adresse est nettoyée tout de suite : un rechargement ultérieur ne doit
+    // pas rejouer la même bascule.
     if (location.search.indexOf('notif=') !== -1) {
       history.replaceState(null, '', location.pathname);
     }
+
+    if (target === 'activity') {
+      var activityId = params.get('activityId');
+      var messageId = params.get('messageId');
+      switchTab('activity');
+      if (activityId) {
+        // Même enchaînement que le clic sur la ligne d'une activité partagée
+        // (voir renderActivitiesSettings) : on la sélectionne, la liste se
+        // redessine avec le détail replié dessous, puis le détail se charge.
+        currentCommunityActivityId = String(activityId);
+        loadSettingsActivities();
+        loadActivityDetail(true);
+        if (messageId) {
+          focusWhenReady('#communityDiscussionList [data-message-id="' + messageId + '"]');
+        } else {
+          focusWhenReady('#communityDiscussionBlock');
+        }
+      }
+      return;
+    }
+
+    if (target === 'post') {
+      var postId = params.get('postId');
+      switchTab('community');
+      if (postId) focusWhenReady('#followingFeed [data-post-id="' + postId + '"]');
+      return;
+    }
+
+    if (target === 'invite') {
+      openNotifPanelForNotification();
+      loadPendingInvites();
+      focusWhenReady('#invitesList');
+      return;
+    }
+
+    if (target === 'follow') {
+      openNotifPanelForNotification();
+      loadFollowRequests();
+      focusWhenReady('#followRequestsList');
+      return;
+    }
+
+    // Anciennes adresses, encore envoyées par les notifications déjà reçues
+    // avant cette mise à jour.
+    if (target === 'community') { switchTab('community'); return; }
+    if (target === 'profile') { openProfile(); return; }
   }
 
   // "Abonnés & Abonnements" (1er septembre 2026, demande d'Emilien : «
