@@ -1276,7 +1276,23 @@
              suit la fenêtre de la Feuille de temps depuis le 1er septembre
              2026, qui n'existe pas ici — il retrouve donc son propre menu
              "⋮" de période (Semaine/Mois/Année), comme avant ce couplage. -->
-        <p class="sectionTitle">Statistiques</p>
+        <!-- ⚠️ 2 septembre 2026, suite (demande d'Emilien : « je souhaite que
+             la partie message soit une option qui peut être sélectionnée au
+             même niveau que statistique. Je vois les statistiques par défaut
+             ou je peux choisir de regarder les messages de l'utilisateur ») :
+             Statistiques et Messages ne s'empilent plus l'une sous l'autre —
+             ce sont deux vues alternatives d'un même espace, choisies par ce
+             sélecteur. Statistiques est actif par défaut à chaque ouverture.
+             Réutilise .periodSwitch/.periodBtn, le motif déjà utilisé par le
+             sélecteur de période d'une activité partagée (#communityActivity
+             PeriodSwitch) — aucune nouvelle règle CSS. La section "Projets"
+             au-dessus n'est PAS concernée : elle reste toujours visible. -->
+        <div class="periodSwitch" id="viewProfileSectionSwitch">
+          <button type="button" class="periodBtn active" id="viewProfileTabStats">Statistiques</button>
+          <button type="button" class="periodBtn" id="viewProfileTabMessages">Messages</button>
+        </div>
+
+        <div id="viewProfileStatsSection">
         <div id="viewProfilePieBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Répartition</p>
@@ -1317,6 +1333,7 @@
           <div id="viewProfileChartLegend" class="chartLegend"></div>
           <p id="viewProfileChartEmptyHint" class="hint hidden">Rien d'enregistré pour l'instant.</p>
         </div>
+        </div>
 
         <!-- Messages "Communauté" du profil visité — la SEULE partie
              réservée aux abonnés acceptés (demande d'Emilien : « les
@@ -1326,11 +1343,18 @@
              l'accès n'est pas accordé, on n'appelle même pas la route : le
              serveur a déjà répondu canSeePosts=false sur
              /profile/:id/public, et #viewProfilePostsLockedHint prend la
-             place de la liste. -->
-        <p class="sectionTitle">Messages</p>
-        <div id="viewProfilePostsList" class="discussionList"></div>
-        <p id="viewProfilePostsEmptyHint" class="hint hidden">Aucun message pour l'instant.</p>
-        <p id="viewProfilePostsLockedHint" class="hint hidden">Suis ce profil pour voir ses messages.</p>
+             place de la liste.
+             ⚠️ 2 septembre 2026, suite : ce bloc n'a plus de titre de section
+             et démarre masqué — c'est le sélecteur ci-dessus qui le montre,
+             en alternative aux statistiques (voir setViewProfileSection dans
+             app.js). Les messages ne sont chargés qu'à la PREMIÈRE sélection
+             de cet onglet, pas à l'ouverture du profil : inutile d'aller les
+             chercher tant que personne ne les regarde. -->
+        <div id="viewProfileMessagesSection" class="hidden">
+          <div id="viewProfilePostsList" class="discussionList"></div>
+          <p id="viewProfilePostsEmptyHint" class="hint hidden">Aucun message pour l'instant.</p>
+          <p id="viewProfilePostsLockedHint" class="hint hidden">Suis ce profil pour voir ses messages.</p>
+        </div>
       </div>
     </div>
 

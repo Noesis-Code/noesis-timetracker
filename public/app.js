@@ -4445,6 +4445,36 @@
   var viewProfileUserId = null;        // profil actuellement visité (null = modale fermée)
   var viewProfilePiePeriod = 'week';   // période propre au camembert de CETTE page
   var viewProfileChartGranularity = 'day';
+  // ⚠️ 2 septembre 2026, suite (demande d'Emilien : « je souhaite que la
+  // partie message soit une option qui peut être sélectionnée au même niveau
+  // que statistique. Je vois les statistiques par défaut ou je peux choisir
+  // de regarder les messages de l'utilisateur ») : Statistiques et Messages
+  // ne s'empilent plus, ce sont deux vues alternatives du même espace.
+  var viewProfileSection = 'stats';    // 'stats' | 'messages' — 'stats' par défaut à chaque ouverture
+  var viewProfileCanSeePosts = false;  // renseigné par GET /profile/:id/public (canSeePosts)
+  var viewProfilePostsLoaded = false;  // les messages ne sont chargés qu'à la première sélection
+
+  // Bascule entre les deux vues. Volontairement séparée de leur CHARGEMENT :
+  // les statistiques sont chargées à l'ouverture du profil (c'est la vue par
+  // défaut, elle doit être prête tout de suite), les messages seulement à la
+  // première sélection de leur onglet — inutile d'aller les chercher tant
+  // que personne ne les regarde, et ça évite un appel systématique qui se
+  // serait de toute façon soldé par un refus pour un non-abonné.
+  function setViewProfileSection(section) {
+    viewProfileSection = section === 'messages' ? 'messages' : 'stats';
+    var onStats = viewProfileSection === 'stats';
+    $('viewProfileStatsSection').classList.toggle('hidden', !onStats);
+    $('viewProfileMessagesSection').classList.toggle('hidden', onStats);
+    $('viewProfileTabStats').classList.toggle('active', onStats);
+    $('viewProfileTabMessages').classList.toggle('active', !onStats);
+    if (!onStats && !viewProfilePostsLoaded) {
+      viewProfilePostsLoaded = true;
+      loadViewProfilePosts(viewProfileCanSeePosts);
+    }
+  }
+
+  $('viewProfileTabStats').addEventListener('click', function () { setViewProfileSection('stats'); });
+  $('viewProfileTabMessages').addEventListener('click', function () { setViewProfileSection('messages'); });
 
   function openProfileViewModal(userId, name, color) {
     viewProfileUserId = userId;
@@ -4483,6 +4513,12 @@
     syncPeriodMenuActive($('viewProfilePiePeriodMenu'), viewProfilePiePeriod);
     syncPeriodMenuActive($('viewProfileChartPeriodMenu'), viewProfileChartGranularity);
 
+    // Le sélecteur repart lui aussi sur "Statistiques" à chaque ouverture, y
+    // compris si "Messages" était affiché sur le profil précédent.
+    viewProfileCanSeePosts = false;
+    viewProfilePostsLoaded = false;
+    setViewProfileSection('stats');
+
     // Le contenu de la modale peut être long (projets + deux graphiques +
     // messages) : on la rouvre toujours en haut, jamais là où le défilement
     // du profil précédent s'était arrêté.
@@ -4492,7 +4528,20 @@
     $('viewProfileModal').classList.remove('hidden');
 
     api('GET', '/api/profile/' + userId + '/public?viewerId=' + profile.id)
-      .then(function (card2) { renderViewProfileIdentity(card2); loadViewProfilePosts(card2.canSeePosts); })
+      .then(function (card2) {
+        // Même garde que loadViewProfileStats : la modale a pu être refermée
+        // ou rouverte sur quelqu'un d'autre pendant la requête.
+        if (viewProfileUserId !== userId) return;
+        renderViewProfileIdentity(card2);
+        viewProfileCanSeePosts = !!card2.canSeePosts;
+        // Cas de course réel : on peut cliquer "Messages" AVANT que cette
+        // réponse n'arrive. Le clic ne savait pas encore si l'accès était
+        // accordé, il n'a donc rien chargé — c'est ici qu'on rattrape.
+        if (viewProfileSection === 'messages') {
+          viewProfilePostsLoaded = true;
+          loadViewProfilePosts(viewProfileCanSeePosts);
+        }
+      })
       .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
 
     api('GET', '/api/profile/' + userId + '/projects?viewerId=' + profile.id)
