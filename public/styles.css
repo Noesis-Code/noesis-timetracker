@@ -1156,6 +1156,26 @@ body.scrollLock { overflow: hidden; }
    cf. .discussionList ci-dessus et .historyEntry plus bas). */
 #followingFeed { display: flex; flex-direction: column; gap: 8px; }
 
+/* Barre de recherche de #tab-community, fixée en haut de l'écran au
+   défilement (demande d'Emilien, 2 septembre 2026 : « quand on défile vers
+   le bas, la recherche de pseudo se bloque en haut et reste en tout temps
+   visible »). id dédié (#communitySearchBar) plutôt que la classe générique
+   .entryCard (Design, réutilisée par des formulaires ailleurs dans l'app,
+   qui ne doivent pas devenir sticky). --topbar-h est calculée et posée en
+   JS sur :root par syncCommunitySearchStickyOffset() (app.js) : la hauteur
+   réelle de .topbar varie avec l'encoche/la zone de sécurité du téléphone
+   (voir .topbar plus haut, padding-top: max(14px,
+   env(safe-area-inset-top)) en media query mobile) — un décalage fixe
+   aurait laissé un espace ou un chevauchement selon les appareils. Aucune
+   règle de .topbar elle-même touchée ici. Fond opaque déjà fourni par
+   .entryCard (background: var(--card)) : pas de contenu visible par
+   transparence en dessous une fois collée sous la topbar. */
+#communitySearchBar {
+  position: sticky;
+  top: var(--topbar-h, 0px);
+  z-index: 5;
+}
+
 /* Pastille de messages non lus sur une ligne d'activité partagée. Poussée à
    droite comme .memberLiveDot ci-dessus (toutes deux dans un
    .activityRowHeader en flex) ; masquée quand le compteur est à zéro. */
@@ -1308,6 +1328,14 @@ body.scrollLock { overflow: hidden; }
   width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px;
   background: var(--card); color: var(--text); resize: vertical;
 }
+/* Ajouté pour le <select> de catégorie (chantier "Simplification du
+   formulaire de saisie Projets", 2 septembre 2026, remplace le champ texte
+   libre) — même gabarit que textarea/input[type=date] ci-dessus. */
+.activitySettingsPanel select {
+  padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px;
+  background: var(--card); color: var(--text);
+}
 
 /* ===== Section "Projets" de Profil (1er septembre 2026, demande
    d'Emilien) — voir #projectsList/#newProjectCard dans index.html et le
@@ -1315,10 +1343,28 @@ body.scrollLock { overflow: hidden; }
    .activitySettingsPanel telles quelles (mêmes classes que la liste
    d'activités) ; les règles ci-dessous n'ajoutent que ce qui est propre à
    un projet : le sélecteur de tags "Recherche", les badges (compacts et
-   détaillés) qui en résultent, et les boutons de réordonnancement manuel.
-   Aussi utilisé, en lecture seule, par #viewProfileModal (badges +
-   .projectDetailField). ===== */
+   détaillés) qui en résultent, les boutons de réordonnancement manuel, et
+   (2 septembre 2026, chantier "Simplification du formulaire de saisie
+   Projets") le bloc "palier 3" replié par défaut derrière
+   "+ Ajouter des détails". Aussi utilisé, en lecture seule, par
+   #viewProfileModal (badges + .projectDetailField). ===== */
 .seekingTagPicker { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Palier 3 du formulaire d'ajout/édition d'un projet (lien externe, date de
+   début, catégorie) : replié par défaut derrière ce bouton, même principe
+   que "+" sur #addProjectBtn/#addActivityBtn mais en pleine largeur/texte
+   plutôt qu'une pastille "+", pour bien le distinguer visuellement d'un
+   bouton d'action primaire comme "Ajouter le projet"/"Enregistrer". */
+.projectMoreDetailsBtn {
+  align-self: flex-start; background: transparent; border: 1px dashed var(--border);
+  color: var(--text-light); font-size: 13px;
+}
+.projectMoreDetailsBtn:hover { background: var(--hover-bg); }
+/* .projectMoreDetails réutilise directement .activitySettingsPanel (voir
+   index.html/app.js, deux classes posées sur le même élément) pour hériter
+   du même padding/gap/bordure du dessus qu'un panneau parent — pas de
+   règle supplémentaire ici. .hidden (display:none !important, tout en haut
+   de ce fichier) gère déjà le repli par défaut. */
 .seekingTagBtn {
   display: flex; align-items: center; gap: 5px; padding: 6px 10px;
   border-radius: 999px; border: 1px solid var(--border); background: var(--card);

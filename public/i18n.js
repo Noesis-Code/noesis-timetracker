@@ -448,8 +448,6 @@
     'Ajouter un projet': 'Add a project',
     'Nouveau projet': 'New project',
     'Nom du projet': 'Project name',
-    'Description courte (quelques mots)': 'Short description (a few words)',
-    'Description complète (optionnel)': 'Full description (optional)',
     'Recherche (optionnel)': 'Looking for (optional)',
     'Lien externe (optionnel)': 'External link (optional)',
     'Date de début (optionnel)': 'Start date (optional)',
@@ -472,6 +470,24 @@
     "Tu dois suivre ce profil pour voir ses projets.": 'You need to follow this profile to see its projects.',
     "Ce n'est pas ton projet.": 'This is not your project.',
     'Projet introuvable.': 'Project not found.',
+
+    // ---- Profil : Projets, formulaire en paliers + catégories fermées
+    // (2 septembre 2026, chantier "Simplification du formulaire de saisie
+    // Projets") ----
+    'Ajouter des détails': 'Add details',
+    'voir plus': 'see more',
+    'Commerce & e-commerce': 'Retail & e-commerce',
+    'Mode & habillement': 'Fashion & apparel',
+    'Finance & investissement': 'Finance & investment',
+    'Technologie & logiciel': 'Technology & software',
+    'Services professionnels & conseil': 'Professional services & consulting',
+    'Alimentation & restauration': 'Food & restaurants',
+    'Santé & bien-être': 'Health & wellness',
+    'Éducation & formation': 'Education & training',
+    'Immobilier': 'Real estate',
+    'Marketing & création de contenu': 'Marketing & content creation',
+    'Artisanat & fabrication': 'Crafts & manufacturing',
+    'Autre': 'Other',
   };
 
   // ------------------- Messages contenant une valeur variable -------------

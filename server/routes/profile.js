@@ -53,6 +53,36 @@ function sanitizeSeeking(input) {
   return out;
 }
 
+// Catégories/secteurs fixes d'un projet — liste fermée depuis le chantier
+// "Simplification du formulaire de saisie Projets" (2 septembre 2026, texte
+// libre avant cette date). Confirmée par Emilien. "Autre" est OBLIGATOIRE
+// dans la liste : sans lui, un projet hors des onze premières catégories
+// verrait sa valeur silencieusement écartée par sanitizeCategory()
+// ci-dessous (même comportement que sanitizeSeeking pour un tag inconnu).
+// Tenue en phase avec la copie cliente PROJECT_CATEGORIES dans
+// public/app.js (mêmes valeurs, même ordre — utilisées telles quelles comme
+// value/texte des <option> du <select>, pas de clé technique séparée ici,
+// contrairement à SEEKING_TAGS).
+const PROJECT_CATEGORIES = [
+  'Commerce & e-commerce',
+  'Mode & habillement',
+  'Finance & investissement',
+  'Technologie & logiciel',
+  'Services professionnels & conseil',
+  'Alimentation & restauration',
+  'Santé & bien-être',
+  'Éducation & formation',
+  'Immobilier',
+  'Marketing & création de contenu',
+  'Artisanat & fabrication',
+  'Autre',
+];
+
+function sanitizeCategory(input) {
+  const value = (input || '').trim();
+  return PROJECT_CATEGORIES.indexOf(value) !== -1 ? value : '';
+}
+
 // Un profil peut toujours voir SES PROPRES projets ; un autre profil doit
 // être un ABONNÉ ACCEPTÉ (voir la table follows dans server/db.js) — même
 // principe d'accès que le flux "Suivi" de Communauté (followingFeedForUser
@@ -69,8 +99,7 @@ function projectRowOut(p) {
   return {
     id: p.id,
     name: p.name,
-    shortDescription: p.shortDescription || '',
-    fullDescription: p.fullDescription || '',
+    description: p.description || '',
     seeking: JSON.parse(p.seeking || '[]'),
     externalLink: p.externalLink || null,
     startDate: p.startDate || null,
@@ -450,9 +479,10 @@ router.delete('/profile/post-attachments/:id', (req, res) => {
 });
 
 // ---------- Suite de la section "Projets" (voir SEEKING_TAGS/sanitizeSeeking/
-// canViewProjects/projectRowOut plus haut, et profile_projects dans
-// server/db.js). GET est la SEULE route ici lue par quelqu'un d'autre que le
-// propriétaire (ses abonnés acceptés, voir canViewProjects) ; POST/PUT/
+// PROJECT_CATEGORIES/sanitizeCategory/canViewProjects/projectRowOut plus
+// haut, et profile_projects dans server/db.js). GET est la SEULE route ici
+// lue par quelqu'un d'autre que le propriétaire (ses abonnés acceptés, voir
+// canViewProjects) ; POST/PUT/
 // DELETE/reorder restent toujours scopées à SOI, comme profile_posts plus
 // haut : le userId envoyé dans le corps/la query identifie l'AUTEUR de
 // l'action, jamais une cible différente de lui-même.
@@ -486,23 +516,22 @@ router.post('/profile/projects', (req, res) => {
   const name = (req.body.name || '').trim();
   if (!name) return res.status(400).json({ error: 'Le nom du projet est requis.' });
 
-  const shortDescription = (req.body.shortDescription || '').trim();
-  const fullDescription = (req.body.fullDescription || '').trim();
+  const description = (req.body.description || '').trim();
   const seeking = sanitizeSeeking(req.body.seeking);
   const externalLink = (req.body.externalLink || '').trim();
   const startDate = (req.body.startDate || '').trim();
-  const category = (req.body.category || '').trim();
+  const category = sanitizeCategory(req.body.category);
 
   const maxPos = db.prepare('SELECT COALESCE(MAX(position), -1) AS m FROM profile_projects WHERE userId = ?').get(userId).m;
   const position = maxPos + 1;
   const createdAt = new Date().toISOString();
   const info = db.prepare(`INSERT INTO profile_projects
-      (userId, name, shortDescription, fullDescription, seeking, externalLink, startDate, category, position, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(userId, name, shortDescription, fullDescription, JSON.stringify(seeking), externalLink || null, startDate || null, category || null, position, createdAt);
+      (userId, name, description, seeking, externalLink, startDate, category, position, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(userId, name, description, JSON.stringify(seeking), externalLink || null, startDate || null, category || null, position, createdAt);
 
   res.status(201).json({
-    id: info.lastInsertRowid, name, shortDescription, fullDescription, seeking,
+    id: info.lastInsertRowid, name, description, seeking,
     externalLink: externalLink || null, startDate: startDate || null, category: category || null, position,
   });
 });
@@ -542,19 +571,18 @@ router.put('/profile/projects/:id', (req, res) => {
   const name = (req.body.name || '').trim();
   if (!name) return res.status(400).json({ error: 'Le nom du projet est requis.' });
 
-  const shortDescription = (req.body.shortDescription || '').trim();
-  const fullDescription = (req.body.fullDescription || '').trim();
+  const description = (req.body.description || '').trim();
   const seeking = sanitizeSeeking(req.body.seeking);
   const externalLink = (req.body.externalLink || '').trim();
   const startDate = (req.body.startDate || '').trim();
-  const category = (req.body.category || '').trim();
+  const category = sanitizeCategory(req.body.category);
 
-  db.prepare(`UPDATE profile_projects SET name = ?, shortDescription = ?, fullDescription = ?, seeking = ?,
+  db.prepare(`UPDATE profile_projects SET name = ?, description = ?, seeking = ?,
               externalLink = ?, startDate = ?, category = ? WHERE id = ?`)
-    .run(name, shortDescription, fullDescription, JSON.stringify(seeking), externalLink || null, startDate || null, category || null, project.id);
+    .run(name, description, JSON.stringify(seeking), externalLink || null, startDate || null, category || null, project.id);
 
   res.json({
-    id: project.id, name, shortDescription, fullDescription, seeking,
+    id: project.id, name, description, seeking,
     externalLink: externalLink || null, startDate: startDate || null, category: category || null, position: project.position,
   });
 });

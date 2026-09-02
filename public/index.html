@@ -722,7 +722,15 @@
            (#followingFeed) des personnes qui suivent leur auteur — cet
            onglet garde donc la recherche, la zone d'écriture, puis le flux
            "Suivi" (en lecture seule pour ce qu'on y voit des autres). -->
-      <div class="entryCard">
+      <!-- id dédié (communitySearchBar) plutôt que de s'appuyer seulement sur
+           la classe .entryCard (Design, réutilisée par des formulaires
+           ailleurs dans l'app) : permet de la rendre sticky ci-dessous sans
+           que ça s'applique à toutes les .entryCard du reste de l'app — voir
+           #communitySearchBar dans styles.css et
+           syncCommunitySearchStickyOffset() dans app.js. Demande d'Emilien,
+           2 septembre 2026 : « quand on défile vers le bas, la recherche de
+           pseudo se bloque en haut et reste en tout temps visible ». -->
+      <div class="entryCard" id="communitySearchBar">
         <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo..." autocomplete="off">
         <div id="communitySearchResults" class="activitiesList"></div>
       </div>
@@ -980,7 +988,17 @@
              dans ce fichier (hors de toute section .tab — voir le
              commentaire à cet endroit) — voir GET /profile/:id/projects
              dans server/routes/profile.js et openProfileViewModal dans
-             app.js. -->
+             app.js.
+             Formulaire réorganisé en paliers (2 septembre 2026, chantier
+             "Simplification du formulaire de saisie Projets") : palier 1
+             (nom + description, toujours visibles), palier 2 (Recherche,
+             toujours visible), palier 3 (lien/date/catégorie, replié par
+             défaut derrière #newProjectMoreBtn — même pattern que
+             #newActivityCard). shortDescription/fullDescription ont
+             fusionné en un seul champ description (voir server/db.js) ;
+             category est désormais un <select> à liste fermée
+             (PROJECT_CATEGORIES, voir server/routes/profile.js et
+             app.js). -->
         <div class="sectionTitleRow">
           <p class="sectionTitle">Projets</p>
           <button type="button" id="addProjectBtn" class="menuBtn" title="Ajouter un projet">+</button>
@@ -991,14 +1009,16 @@
           </div>
           <div class="activitySettingsPanel">
             <input type="text" id="newProjectName" placeholder="Nom du projet">
-            <input type="text" id="newProjectShortDesc" placeholder="Description courte (quelques mots)">
-            <textarea id="newProjectFullDesc" rows="3" placeholder="Description complète (optionnel)"></textarea>
+            <textarea id="newProjectDesc" rows="3" placeholder="Description"></textarea>
             <p class="hint">Recherche (optionnel)</p>
             <div class="seekingTagPicker" id="newProjectSeeking"></div>
-            <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
-            <p class="hint">Date de début (optionnel)</p>
-            <input type="date" id="newProjectStartDate">
-            <input type="text" id="newProjectCategory" placeholder="Catégorie / secteur (optionnel)">
+            <button type="button" id="newProjectMoreBtn" class="iconBtn projectMoreDetailsBtn">+ Ajouter des détails</button>
+            <div class="activitySettingsPanel projectMoreDetails hidden" id="newProjectMoreDetails">
+              <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
+              <p class="hint">Date de début (optionnel)</p>
+              <input type="date" id="newProjectStartDate">
+              <select id="newProjectCategory"></select>
+            </div>
             <p class="meta" id="newProjectMsg"></p>
             <div class="rowActions">
               <button type="button" id="newProjectSave" class="iconBtn">Ajouter le projet</button>

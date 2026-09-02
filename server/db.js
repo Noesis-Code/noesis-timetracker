@@ -297,13 +297,19 @@ CREATE INDEX IF NOT EXISTS idx_profile_post_attachments_post ON profile_post_att
 -- ABONNÉS (follows acceptés) depuis la nouvelle page de visite de profil
 -- (#viewProfileModal, public/index.html) — jamais publique, jamais visible
 -- par un simple membre d'une activité partagée.
--- shortDescription / fullDescription : deux champs INDÉPENDANTS (pas l'un
--- dérivé de l'autre) — la courte s'affiche dans la liste compacte, la
--- complète seulement au clic sur le projet (vue détail).
+-- description : champ UNIQUE (2 septembre 2026, chantier "Simplification du
+-- formulaire de saisie Projets" — avant cette date, deux champs séparés
+-- shortDescription/fullDescription ; voir la migration de fusion plus bas
+-- dans ce fichier pour les bases créées avant ce chantier). Tronquée à
+-- l'affichage en vue liste (150-200 caractères + "… voir plus" côté
+-- client, public/app.js) ; affichée en entier en vue détail.
 -- seeking : sous-ensemble JSON (ex. '["partners","clients"]') des tags
 -- fixes définis par SEEKING_TAGS dans server/routes/profile.js — ce que le
 -- projet recherche actuellement. Optionnel (peut être '[]', auquel cas
 -- aucun badge n'est affiché) ; plusieurs tags à la fois possibles.
+-- category : liste fermée depuis le même chantier (PROJECT_CATEGORIES dans
+-- server/routes/profile.js, valeur hors liste silencieusement ignorée par
+-- sanitizeCategory()) — texte libre avant cette date.
 -- position : ordre d'affichage choisi manuellement par le propriétaire
 -- (réorganisation, voir PUT /profile/projects/reorder) — aucun tri
 -- automatique. Explicitement exclus par Emilien : pas de statut "en
@@ -312,8 +318,7 @@ CREATE TABLE IF NOT EXISTS profile_projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  shortDescription TEXT NOT NULL DEFAULT '',
-  fullDescription TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
   seeking TEXT NOT NULL DEFAULT '[]',
   externalLink TEXT,
   startDate TEXT,
@@ -602,5 +607,61 @@ if (activitiesNameStillGloballyUnique()) {
     console.log('[migration fuseau horaire] ' + fixedCount + ' entrée(s) de time_entries recalculée(s) (isoDate/dayOfWeek), suite au correctif TZ America/Toronto.');
   }
 })();
+
+// Fusion description (chantier "Simplification du formulaire de saisie
+// Projets", 2 septembre 2026, suite au vingt-septième passage) :
+// shortDescription/fullDescription fusionnent en une seule colonne
+// description. Détection par présence de l'ancienne colonne
+// shortDescription — idempotent, comme activitiesNameStillGloballyUnique
+// plus haut, dont cette migration reprend le même principe de
+// reconstruction de table (plutôt qu'un ALTER TABLE DROP COLUMN : SQLite
+// ne le supporte que sur des versions récentes, aucune raison de dépendre
+// de la version exacte embarquée par node:sqlite). Règle de migration
+// confirmée par Emilien (option a) : description = fullDescription si non
+// vide, sinon shortDescription — objectif : ne perdre aucun contenu déjà
+// saisi. Rappel du projet : cette migration ne prend effet qu'au
+// redémarrage du serveur.
+function profileProjectsStillHasSplitDescription() {
+  var row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='profile_projects'").get();
+  return !!(row && row.sql && /\bshortDescription\b/i.test(row.sql));
+}
+
+if (profileProjectsStillHasSplitDescription()) {
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec('BEGIN');
+  try {
+    db.exec(`
+      CREATE TABLE profile_projects_rebuild (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        seeking TEXT NOT NULL DEFAULT '[]',
+        externalLink TEXT,
+        startDate TEXT,
+        category TEXT,
+        position INTEGER NOT NULL DEFAULT 0,
+        createdAt TEXT NOT NULL
+      )
+    `);
+    db.exec(`
+      INSERT INTO profile_projects_rebuild
+        (id, userId, name, description, seeking, externalLink, startDate, category, position, createdAt)
+      SELECT id, userId, name,
+        CASE WHEN TRIM(COALESCE(fullDescription, '')) <> '' THEN fullDescription ELSE shortDescription END,
+        seeking, externalLink, startDate, category, position, createdAt
+      FROM profile_projects
+    `);
+    db.exec('DROP TABLE profile_projects');
+    db.exec('ALTER TABLE profile_projects_rebuild RENAME TO profile_projects');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_profile_projects_user ON profile_projects(userId, position)');
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+}
 
 module.exports = db;

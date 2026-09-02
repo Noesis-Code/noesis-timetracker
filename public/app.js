@@ -2469,7 +2469,28 @@
     // (profileDiscussionComposer) restant inchangée.
     communityDiscussionComposer.reset();
     loadFollowingFeed();
+    // Barre de recherche sticky (#communitySearchBar, 2 septembre 2026) :
+    // recalculée à chaque ouverture de l'onglet, voir la fonction plus bas.
+    syncCommunitySearchStickyOffset();
   }
+
+  // Hauteur réelle de .topbar (Design, styles.css), pour caler la barre de
+  // recherche de #tab-community juste en dessous d'elle en position: sticky
+  // (#communitySearchBar, styles.css) — demande d'Emilien du 2 septembre
+  // 2026. Mesurée en JS plutôt que codée en dur : .topbar grandit sur les
+  // téléphones à encoche (env(safe-area-inset-top)), un décalage fixe
+  // aurait laissé un espace ou un chevauchement selon les appareils. Lit
+  // seulement la hauteur rendue de .topbar, n'en modifie aucune règle
+  // (propriété de Design). Appelée à l'ouverture de l'onglet Communauté
+  // (loadCommunity) et sur resize/orientationchange (rotation, barre
+  // d'adresse mobile qui apparaît/disparaît) — voir les écouteurs plus bas.
+  function syncCommunitySearchStickyOffset() {
+    var bar = document.querySelector('.topbar');
+    if (!bar) return;
+    document.documentElement.style.setProperty('--topbar-h', bar.getBoundingClientRect().height + 'px');
+  }
+  window.addEventListener('resize', syncCommunitySearchStickyOffset);
+  window.addEventListener('orientationchange', syncCommunitySearchStickyOffset);
 
   // ----- Activité sélectionnée dans l'onglet Activité -----
   // Depuis le 30 août 2026 (fin de journée), il n'y a plus qu'UNE liste
@@ -3428,9 +3449,28 @@
 
     var top = document.createElement('div');
     top.className = 'discussionMsgTop';
-    top.innerHTML = '<span class="discussionMsgAuthor"><span class="dot" style="background:' + entry.userColor + '"></span> ' +
-      escapeHtml(entry.userName) + '</span>' +
-      '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>';
+
+    // Clic sur le nom de l'auteur : ouvre sa page de visite de profil
+    // (#viewProfileModal / openProfileViewModal, déjà utilisée par
+    // renderSearchResults et renderNameOnlyList) — demande d'Emilien du
+    // 2 septembre 2026 : « avoir accès directement à leur profil ».
+    // Toujours activable ici, contrairement à renderSearchResults (qui doit
+    // distinguer Suivre/Demande envoyée/Se désabonner) : une entrée de ce
+    // flux ne peut provenir que d'un abonnement accepté avec profil partagé
+    // (voir followingFeedForUser, server/lib/community.js), condition qui
+    // suffit déjà à canViewProjects côté serveur (server/routes/profile.js).
+    var authorSpan = document.createElement('span');
+    authorSpan.className = 'discussionMsgAuthor';
+    authorSpan.innerHTML = '<span class="dot" style="background:' + entry.userColor + '"></span> ' + escapeHtml(entry.userName);
+    authorSpan.style.cursor = 'pointer';
+    authorSpan.addEventListener('click', function () { openProfileViewModal(entry.userId, entry.userName, entry.userColor); });
+    top.appendChild(authorSpan);
+
+    var metaSpan = document.createElement('span');
+    metaSpan.className = 'meta';
+    metaSpan.textContent = dateLabel + ' · ' + timeLabel;
+    top.appendChild(metaSpan);
+
     card.appendChild(top);
 
     var body = document.createElement('div');
@@ -4048,6 +4088,62 @@
     return null;
   }
 
+  // Catégories/secteurs fixes d'un projet (2 septembre 2026, chantier
+  // "Simplification du formulaire de saisie Projets" — texte libre avant
+  // cette date). Copie EXACTE de PROJECT_CATEGORIES côté serveur
+  // (server/routes/profile.js), mêmes valeurs et même ordre : utilisées
+  // telles quelles comme value/texte des <option> du <select>, pas de clé
+  // technique séparée ici contrairement à SEEKING_TAGS (le serveur écarte
+  // silencieusement toute valeur hors liste, voir sanitizeCategory()).
+  var PROJECT_CATEGORIES = [
+    'Commerce & e-commerce',
+    'Mode & habillement',
+    'Finance & investissement',
+    'Technologie & logiciel',
+    'Services professionnels & conseil',
+    'Alimentation & restauration',
+    'Santé & bien-être',
+    'Éducation & formation',
+    'Immobilier',
+    'Marketing & création de contenu',
+    'Artisanat & fabrication',
+    'Autre',
+  ];
+
+  // Remplit un <select> de catégorie : une option vide en tête (catégorie
+  // optionnelle, voir server/db.js) puis une option par PROJECT_CATEGORIES.
+  // `selected` (chaîne) présélectionne l'option correspondante si elle
+  // existe dans la liste, sinon laisse l'option vide active — même
+  // comportement de repli que sanitizeCategory() côté serveur.
+  function fillProjectCategorySelect(selectEl, selected) {
+    selectEl.innerHTML = '';
+    var emptyOpt = document.createElement('option');
+    emptyOpt.value = ''; emptyOpt.textContent = t('Catégorie / secteur (optionnel)');
+    selectEl.appendChild(emptyOpt);
+    PROJECT_CATEGORIES.forEach(function (cat) {
+      var opt = document.createElement('option');
+      opt.value = cat; opt.textContent = t(cat);
+      selectEl.appendChild(opt);
+    });
+    selectEl.value = PROJECT_CATEGORIES.indexOf(selected) !== -1 ? selected : '';
+  }
+
+  // Troncature de la description en vue liste (150-200 caractères, choix
+  // 180 comme point médian, + « … voir plus » si dépassement — demande
+  // confirmée par Emilien, chantier "Simplification du formulaire de
+  // saisie Projets"). Coupure sur un espace proche de la limite plutôt
+  // qu'en plein milieu d'un mot, quand c'est possible. La vue détail
+  // (panneau déplié au clic sur la ligne, voir plus bas) affiche toujours
+  // `description` en entier, jamais cette version tronquée.
+  var PROJECT_DESC_TRUNCATE_AT = 180;
+  function truncateProjectDescription(description) {
+    if (!description || description.length <= PROJECT_DESC_TRUNCATE_AT) return description || '';
+    var cut = description.slice(0, PROJECT_DESC_TRUNCATE_AT);
+    var lastSpace = cut.lastIndexOf(' ');
+    if (lastSpace > PROJECT_DESC_TRUNCATE_AT - 40) cut = cut.slice(0, lastSpace);
+    return cut.trim() + '… ' + t('voir plus');
+  }
+
   // Sélecteur multi-tags (formulaire d'ajout/modification d'un projet) : un
   // bouton par tag, actif/inactif au clic. `selected` (tableau de clés) est
   // modifié EN PLACE — l'appelant le relit tel quel au moment d'enregistrer,
@@ -4113,14 +4209,14 @@
   // #viewProfileModal (lecture seule chez un abonnement, plus bas).
   function buildProjectDetailFields(p) {
     var frag = document.createDocumentFragment();
-    if (p.fullDescription) {
+    if (p.description) {
       var d = document.createElement('p');
       d.className = 'projectDetailField';
       var dStrong = document.createElement('strong');
       dStrong.textContent = t('Description') + ' :';
       var dSpan = document.createElement('span');
       dSpan.style.whiteSpace = 'pre-wrap';
-      dSpan.textContent = ' ' + p.fullDescription;
+      dSpan.textContent = ' ' + p.description;
       d.appendChild(dStrong); d.appendChild(dSpan);
       frag.appendChild(d);
     }
@@ -4149,7 +4245,7 @@
       c.className = 'projectDetailField';
       var cStrong = document.createElement('strong');
       cStrong.textContent = t('Catégorie') + ' :';
-      c.appendChild(cStrong); c.appendChild(document.createTextNode(' ' + p.category));
+      c.appendChild(cStrong); c.appendChild(document.createTextNode(' ' + t(p.category)));
       frag.appendChild(c);
     }
     return frag;
@@ -4218,25 +4314,24 @@
 
       row.appendChild(header);
 
-      if (p.shortDescription) {
+      if (p.description) {
         var shortP = document.createElement('p');
         shortP.className = 'meta';
-        shortP.textContent = p.shortDescription;
+        shortP.textContent = truncateProjectDescription(p.description);
         row.appendChild(shortP);
       }
 
       var panel = document.createElement('div');
       panel.className = 'activitySettingsPanel hidden';
 
+      // Palier 1 (toujours visible dans le panneau déplié) : nom + description.
       var nameInput = document.createElement('input');
       nameInput.type = 'text'; nameInput.placeholder = t('Nom du projet'); nameInput.value = p.name;
 
-      var shortInput = document.createElement('input');
-      shortInput.type = 'text'; shortInput.placeholder = t('Description courte (quelques mots)'); shortInput.value = p.shortDescription || '';
+      var descInput = document.createElement('textarea');
+      descInput.rows = 3; descInput.placeholder = t('Description'); descInput.value = p.description || '';
 
-      var fullInput = document.createElement('textarea');
-      fullInput.rows = 3; fullInput.placeholder = t('Description complète (optionnel)'); fullInput.value = p.fullDescription || '';
-
+      // Palier 2 (toujours visible) : Recherche.
       var seekingHint = document.createElement('p');
       seekingHint.className = 'hint'; seekingHint.textContent = t('Recherche (optionnel)');
 
@@ -4244,6 +4339,23 @@
       seekingBox.className = 'seekingTagPicker';
       var selectedSeeking = (p.seeking || []).slice();
       renderSeekingPicker(seekingBox, selectedSeeking);
+
+      // Palier 3 (2 septembre 2026, chantier "Simplification du formulaire
+      // de saisie Projets") : lien/date/catégorie, replié par défaut
+      // derrière un bouton "+ Ajouter des détails" — même pattern que
+      // #newActivityCard (bouton qui bascule .hidden), repris ici pour le
+      // panneau d'édition de CHAQUE projet existant (pas seulement le
+      // formulaire d'ajout). Toujours replié à l'ouverture, même si des
+      // valeurs y sont déjà saisies — cohérent avec "replié par défaut" du
+      // cadrage, et évite de traiter différemment un projet selon qu'il a
+      // déjà des détails ou non.
+      var moreBtn = document.createElement('button');
+      moreBtn.type = 'button'; moreBtn.className = 'iconBtn projectMoreDetailsBtn';
+      moreBtn.textContent = '+ ' + t('Ajouter des détails');
+
+      var moreDetails = document.createElement('div');
+      moreDetails.className = 'activitySettingsPanel projectMoreDetails hidden';
+      moreBtn.addEventListener('click', function () { moreDetails.classList.toggle('hidden'); });
 
       var linkInput = document.createElement('input');
       linkInput.type = 'text'; linkInput.placeholder = t('Lien externe (optionnel)'); linkInput.value = p.externalLink || '';
@@ -4254,8 +4366,13 @@
       var dateInput = document.createElement('input');
       dateInput.type = 'date'; dateInput.value = p.startDate || '';
 
-      var categoryInput = document.createElement('input');
-      categoryInput.type = 'text'; categoryInput.placeholder = t('Catégorie / secteur (optionnel)'); categoryInput.value = p.category || '';
+      var categorySelect = document.createElement('select');
+      fillProjectCategorySelect(categorySelect, p.category || '');
+
+      moreDetails.appendChild(linkInput);
+      moreDetails.appendChild(dateHint);
+      moreDetails.appendChild(dateInput);
+      moreDetails.appendChild(categorySelect);
 
       var saveMsg = document.createElement('p');
       saveMsg.className = 'meta';
@@ -4267,9 +4384,9 @@
         if (!name) { saveMsg.textContent = t('Le nom du projet est requis.'); return; }
         saveMsg.textContent = '';
         api('PUT', '/api/profile/projects/' + p.id, {
-          userId: profile.id, name: name, shortDescription: shortInput.value.trim(),
-          fullDescription: fullInput.value.trim(), seeking: selectedSeeking,
-          externalLink: linkInput.value.trim(), startDate: dateInput.value, category: categoryInput.value.trim(),
+          userId: profile.id, name: name, description: descInput.value.trim(),
+          seeking: selectedSeeking,
+          externalLink: linkInput.value.trim(), startDate: dateInput.value, category: categorySelect.value,
         }).then(function () {
           loadProfileProjects();
         }).catch(function (err) { saveMsg.textContent = err.message; });
@@ -4290,14 +4407,11 @@
       actionsWrap.appendChild(delBtn);
 
       panel.appendChild(nameInput);
-      panel.appendChild(shortInput);
-      panel.appendChild(fullInput);
+      panel.appendChild(descInput);
       panel.appendChild(seekingHint);
       panel.appendChild(seekingBox);
-      panel.appendChild(linkInput);
-      panel.appendChild(dateHint);
-      panel.appendChild(dateInput);
-      panel.appendChild(categoryInput);
+      panel.appendChild(moreBtn);
+      panel.appendChild(moreDetails);
       panel.appendChild(saveMsg);
       panel.appendChild(actionsWrap);
       row.appendChild(panel);
@@ -4317,6 +4431,32 @@
 
   var newProjectSeeking = [];
   renderSeekingPicker($('newProjectSeeking'), newProjectSeeking);
+  fillProjectCategorySelect($('newProjectCategory'), '');
+
+  // Palier 3 du formulaire d'ajout : replié par défaut derrière "+ Ajouter
+  // des détails" — même bouton/pattern que #newActivityCard (dixième
+  // passage) et que le panneau d'édition de chaque projet existant
+  // ci-dessus (moreBtn/moreDetails dans renderProjectsList).
+  $('newProjectMoreBtn').addEventListener('click', function () {
+    $('newProjectMoreDetails').classList.toggle('hidden');
+  });
+
+  // startDate pré-rempli à la date du jour (2 septembre 2026, chantier
+  // "Simplification du formulaire de saisie Projets") : reste un champ
+  // modifiable, ce n'est qu'une valeur de départ pratique — la plupart des
+  // projets ajoutés démarrent le jour même de leur saisie. toDateValue
+  // (voir plus haut dans ce fichier, récapitulatif du STOP) donne la date
+  // LOCALE au format attendu par <input type=date>, jamais l'UTC.
+  function resetNewProjectForm() {
+    $('newProjectName').value = ''; $('newProjectDesc').value = '';
+    $('newProjectLink').value = '';
+    $('newProjectStartDate').value = toDateValue(new Date());
+    fillProjectCategorySelect($('newProjectCategory'), '');
+    newProjectSeeking.length = 0;
+    renderSeekingPicker($('newProjectSeeking'), newProjectSeeking);
+    $('newProjectMoreDetails').classList.add('hidden');
+  }
+  resetNewProjectForm();
 
   $('newProjectSave').addEventListener('click', function () {
     var name = $('newProjectName').value.trim();
@@ -4324,15 +4464,12 @@
     if (!name) { msg.textContent = t('Le nom du projet est requis.'); return; }
     msg.textContent = '';
     api('POST', '/api/profile/projects', {
-      userId: profile.id, name: name, shortDescription: $('newProjectShortDesc').value.trim(),
-      fullDescription: $('newProjectFullDesc').value.trim(), seeking: newProjectSeeking,
+      userId: profile.id, name: name, description: $('newProjectDesc').value.trim(),
+      seeking: newProjectSeeking,
       externalLink: $('newProjectLink').value.trim(), startDate: $('newProjectStartDate').value,
-      category: $('newProjectCategory').value.trim(),
+      category: $('newProjectCategory').value,
     }).then(function () {
-      $('newProjectName').value = ''; $('newProjectShortDesc').value = ''; $('newProjectFullDesc').value = '';
-      $('newProjectLink').value = ''; $('newProjectStartDate').value = ''; $('newProjectCategory').value = '';
-      newProjectSeeking.length = 0;
-      renderSeekingPicker($('newProjectSeeking'), newProjectSeeking);
+      resetNewProjectForm();
       $('newProjectCard').classList.add('hidden');
       loadProfileProjects();
     }).catch(function (err) { msg.textContent = err.message; });
@@ -4382,10 +4519,10 @@
 
       row.appendChild(header);
 
-      if (p.shortDescription) {
+      if (p.description) {
         var shortP = document.createElement('p');
         shortP.className = 'meta';
-        shortP.textContent = p.shortDescription;
+        shortP.textContent = truncateProjectDescription(p.description);
         row.appendChild(shortP);
       }
 
@@ -4394,7 +4531,7 @@
       var fullBadges = buildSeekingBadges(p.seeking, true);
       if (fullBadges) panel.appendChild(fullBadges);
       panel.appendChild(buildProjectDetailFields(p));
-      if (!p.fullDescription && !p.externalLink && !p.startDate && !p.category && !fullBadges) {
+      if (!p.description && !p.externalLink && !p.startDate && !p.category && !fullBadges) {
         var none = document.createElement('p');
         none.className = 'hint';
         none.textContent = t('Aucun détail supplémentaire pour ce projet.');
