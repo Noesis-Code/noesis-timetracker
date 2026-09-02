@@ -16,23 +16,126 @@ function relationFor(userId, targetId) {
   return row ? { followId: row.id, followStatus: row.status } : { followId: null, followStatus: 'none' };
 }
 
-// Recherche de membres par pseudo (partiel, insensible à la casse), pour la
-// section "Recherche" de Communauté. Exclut toujours l'appelant lui-même.
+// ---------- Découverte de membres (recherche + exploration) ----------
+// 2 septembre 2026, demande d'Emilien (« perfectionner la découverte [...]
+// des profils des autres utilisateurs »). Trois évolutions d'un même
+// endpoint, plutôt que trois routes séparées — c'est la même liste de
+// profils, seuls les critères changent :
+//
+//  1. Recherche ÉLARGIE : le pseudo ne suffisait plus. On cherche désormais
+//     aussi dans le nom de famille et dans les PROJETS de la personne (nom,
+//     catégorie/secteur, description courte) — on trouve donc quelqu'un par
+//     ce qu'il fait, pas seulement par un pseudo qu'il faut déjà connaître.
+//  2. Filtre "Recherche" : ne garder que les profils qui cherchent des
+//     partenaires / des clients / du financement (tags portés par leurs
+//     projets, voir SEEKING_TAGS dans server/routes/profile.js).
+//  3. EXPLORATION sans rien taper : une requête vide ne renvoie plus une
+//     liste vide (l'onglet s'ouvrait sur un champ de recherche et rien
+//     d'autre) mais une sélection de profils à découvrir — ceux qui ont des
+//     projets d'abord, puis les plus récemment inscrits.
+//
+// Chaque ligne porte en plus `avatar`, `projectsCount` et `seeking` (union
+// des tags de ses projets) : de quoi afficher une vraie carte de découverte
+// plutôt qu'un nom nu, et de quoi comprendre POURQUOI un profil ressort d'un
+// filtre. Exclut toujours l'appelant lui-même.
+//
+// ⚠️ Ces données restent volontairement minimales et publiques (nom, couleur,
+// photo, comptage de projets, tags) : le détail des projets, les
+// statistiques et les messages passent par les routes dédiées de
+// server/routes/profile.js, qui portent chacune leur propre contrôle
+// d'accès (voir canViewProjects/canViewPosts là-bas). Rien de personnel
+// (nom de famille, téléphone, email) ne sort d'ici, même quand la recherche
+// a matché sur le nom de famille.
+const SEARCH_LIMIT = 30;
+
+// Doit rester en phase avec SEEKING_TAGS de server/routes/profile.js (liste
+// fermée, même clés) — dupliqué ici plutôt qu'importé pour ne pas créer une
+// dépendance entre deux fichiers de routes qui n'en avaient aucune ; la
+// liste est figée depuis sa création et sert seulement à filtrer une valeur
+// reçue du client.
+const SEEKING_TAGS = ['partners', 'clients', 'funding'];
+
+// Union des tags "Recherche" portés par les projets d'un profil, dans
+// l'ordre stable de SEEKING_TAGS (jamais l'ordre de saisie) — sert de badges
+// sur la ligne de résultat.
+function seekingSummaryFor(userId) {
+  const rows = db.prepare('SELECT seeking FROM profile_projects WHERE userId = ?').all(userId);
+  const found = {};
+  rows.forEach((r) => {
+    let tags = [];
+    try { tags = JSON.parse(r.seeking || '[]'); } catch (e) { tags = []; }
+    if (Array.isArray(tags)) tags.forEach((tag) => { found[tag] = true; });
+  });
+  return SEEKING_TAGS.filter((tag) => found[tag]);
+}
+
 router.get('/users/search', (req, res) => {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const q = (req.query.q || '').trim();
-  if (!q) return res.json([]);
+  // `seeking` arrive en liste séparée par des virgules ; toute valeur hors
+  // de la liste fermée est écartée en silence, comme côté profile.js.
+  const seeking = (req.query.seeking || '').split(',')
+    .map((s) => s.trim())
+    .filter((s) => SEEKING_TAGS.indexOf(s) !== -1);
+
+  const where = ['u.id != ?'];
+  const params = [userId];
+
+  if (q) {
+    const like = '%' + q + '%';
+    where.push(`(
+      u.name LIKE ? COLLATE NOCASE
+      OR COALESCE(u.lastName, '') LIKE ? COLLATE NOCASE
+      OR EXISTS (
+        SELECT 1 FROM profile_projects p WHERE p.userId = u.id AND (
+          p.name LIKE ? COLLATE NOCASE
+          OR COALESCE(p.category, '') LIKE ? COLLATE NOCASE
+          OR COALESCE(p.shortDescription, '') LIKE ? COLLATE NOCASE
+        )
+      )
+    )`);
+    params.push(like, like, like, like, like);
+  }
+
+  if (seeking.length > 0) {
+    // Les tags sont stockés en JSON dans profile_projects.seeking (ex.
+    // ["partners","funding"]) : un LIKE sur '%"partners"%' suffit et évite
+    // d'avoir à parser toute la table en SQL. Les guillemets font partie du
+    // motif — sans eux, un futur tag dont le nom contiendrait celui-ci
+    // matcherait aussi.
+    const clauses = seeking.map(() => `p2.seeking LIKE ?`).join(' OR ');
+    where.push(`EXISTS (SELECT 1 FROM profile_projects p2 WHERE p2.userId = u.id AND (${clauses}))`);
+    seeking.forEach((tag) => params.push('%"' + tag + '"%'));
+  }
+
+  // Sans critère (ni texte ni filtre), on est en mode EXPLORATION : d'abord
+  // les profils qui ont quelque chose à montrer (au moins un projet), puis
+  // les inscriptions les plus récentes. Avec un critère, l'ordre alphabétique
+  // reste le plus lisible — on cherche alors quelqu'un de précis.
+  const isDiscovery = !q && seeking.length === 0;
+  const orderBy = isDiscovery
+    ? '(SELECT COUNT(*) FROM profile_projects p3 WHERE p3.userId = u.id) DESC, u.createdAt DESC'
+    : 'u.name COLLATE NOCASE';
 
   const rows = db.prepare(`
-    SELECT id, name, color FROM users
-    WHERE id != ? AND name LIKE ? COLLATE NOCASE
-    ORDER BY name COLLATE NOCASE
-    LIMIT 30
-  `).all(userId, '%' + q + '%');
+    SELECT u.id, u.name, u.color, u.avatar,
+           (SELECT COUNT(*) FROM profile_projects p4 WHERE p4.userId = u.id) AS projectsCount
+    FROM users u
+    WHERE ${where.join(' AND ')}
+    ORDER BY ${orderBy}
+    LIMIT ${SEARCH_LIMIT}
+  `).all(...params);
 
-  res.json(rows.map((u) => Object.assign({ id: u.id, name: u.name, color: u.color }, relationFor(userId, u.id))));
+  res.json(rows.map((u) => Object.assign({
+    id: u.id,
+    name: u.name,
+    color: u.color,
+    avatar: u.avatar || null,
+    projectsCount: u.projectsCount,
+    seeking: seekingSummaryFor(u.id),
+  }, relationFor(userId, u.id))));
 });
 
 // Comptes que je suis actuellement (acceptés) — alimente "Mes abonnements"

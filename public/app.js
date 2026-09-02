@@ -2136,7 +2136,12 @@
       var current = Math.round(box.scrollTop / step);
       var target = Math.max(0, current + n) * step;
       var max = box.scrollHeight - box.clientHeight;
-      box.scrollTo({ top: Math.min(target, max), behavior: 'smooth' });
+      // Affectation directe plutôt que scrollTo({behavior:'smooth'}) : une
+      // animation de défilement en cours entrait en conflit avec un geste
+      // horizontal de l'utilisateur (bug des « sauts de jours » signalé le
+      // 1er septembre). En prime, l'à-coup est plus net, ce qui est ce
+      // qu'Emilien demande.
+      box.scrollTop = Math.min(target, max);
       tsAfterVerticalMove();
     }
 
@@ -2148,7 +2153,7 @@
       var snapped = Math.round(box.scrollTop / step) * step;
       var max = box.scrollHeight - box.clientHeight;
       snapped = Math.max(0, Math.min(snapped, max));
-      if (Math.abs(snapped - box.scrollTop) > 0.5) box.scrollTo({ top: snapped, behavior: 'smooth' });
+      if (Math.abs(snapped - box.scrollTop) > 0.5) box.scrollTop = snapped;
     }
     tsSnapAlign = tsSnapToDay;
 
@@ -2305,6 +2310,10 @@
       // (demande d'Emilien : « que pour le mode semaine »), et son camembert
       // vient toujours de la réponse elle-même, comme l'a conçu Répartition.
       if (box) box.classList.remove('tsWeekScroll');
+      // La sélection ne vaut que pour la vue Semaine (c'est elle seule qui
+      // capture le geste vertical) : on la retire en passant en vue Mois,
+      // sinon le liseré violet resterait allumé sans rien piloter.
+      $('statsTimesheetBlock').classList.remove('tsActive');
       api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset).then(function (data) {
         renderTimesheetMonth(data);
         renderPieFromTimesheet(data);
@@ -2328,11 +2337,25 @@
     });
   }
 
-  // Charge la tranche de jours précédant le plus ancien déjà affiché, puis la
-  // préfixe à la liste. Le point délicat est le défilement : ajouter des
-  // lignes AU-DESSUS de ce qu'on regarde décale visuellement tout le contenu.
-  // On mesure donc la hauteur avant/après et on compense `scrollTop` de la
-  // différence, pour que la ligne sous les yeux ne bouge pas d'un pixel.
+  // Charge la tranche de jours précédant le plus ancien déjà affiché, puis
+  // l'INSÈRE en tête de la grille — sans reconstruire les lignes existantes.
+  //
+  // ⚠️ Correctif du 1er septembre 2026 (~21h30 UTC), bug signalé par Emilien :
+  // « quand je passe de droite à gauche après avoir fait de bas en haut, les
+  // données s'effacent et je saute des jours ». Cause exacte : la première
+  // version appelait `renderTimesheetWeek()`, qui réécrit `#tsGrid.innerHTML`
+  // en entier. Remplacer le contenu d'un conteneur défilant remet **les deux**
+  // positions de défilement à zéro ; on restaurait `scrollTop` mais pas
+  // `scrollLeft`. Un chargement déclenché pendant (ou juste avant) un
+  // défilement horizontal ramenait donc brutalement la grille sur 0h — d'où
+  // l'impression que « les données s'effacent » — et la restauration verticale
+  // par-dessus le geste en cours donnait les sauts de jours.
+  //
+  // On n'écrase donc plus rien : seules les nouvelles lignes sont construites
+  // et insérées avant la première ligne de jour existante. `scrollLeft` n'est
+  // jamais touché (l'insertion se fait au-dessus, pas à gauche), et
+  // `scrollTop` n'a qu'à être décalé de la hauteur exactement ajoutée pour que
+  // la ligne sous les yeux ne bouge pas d'un pixel.
   function tsLoadOlder(done) {
     if (tsLoadingMore || !tsHasMoreBefore || !tsDays.length || !profile) {
       if (done) done();
@@ -2344,22 +2367,52 @@
     api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&days=' + TS_CHUNK_DAYS
       + '&endDate=' + tsIso(before))
       .then(function (data) {
+        var fresh = data.days || [];
         var box = tsScrollBox();
-        var heightBefore = box ? box.scrollHeight : 0;
-        var scrollBefore = box ? box.scrollTop : 0;
-        tsDays = (data.days || []).concat(tsDays);
+        var grid = $('tsGrid');
+        if (fresh.length && grid) {
+          var heightBefore = grid.scrollHeight;
+          var scrollBefore = box ? box.scrollTop : 0;
+
+          var tpl = document.createElement('template');
+          tpl.innerHTML = tsDayRowsHtml(fresh);
+          var firstDayRow = grid.querySelector('.tsDayLabel');
+          grid.insertBefore(tpl.content, firstDayRow); // null => ajoute à la fin
+
+          tsDays = fresh.concat(tsDays);
+          if (box) box.scrollTop = scrollBefore + (grid.scrollHeight - heightBefore);
+          $('tsEmptyHint').classList.add('hidden');
+        }
         tsHasMoreBefore = !!data.hasMoreBefore;
-        renderTimesheetWeek();
-        if (box) box.scrollTop = scrollBefore + (box.scrollHeight - heightBefore);
-        // La tranche insérée au-dessus décale le contenu d'un nombre entier de
-        // lignes, mais un arrondi de sous-pixel suffirait à laisser le cadre à
-        // cheval sur deux journées — on recale systématiquement.
+        // Filet : l'insertion porte sur un nombre entier de lignes, mais un
+        // arrondi de sous-pixel suffirait à laisser le cadre à cheval sur deux
+        // journées.
         if (tsSnapAlign) tsSnapAlign();
         tsLoadingMore = false;
         tsUpdateWeekLabel();
         if (done) done();
       })
       .catch(function () { tsLoadingMore = false; if (done) done(); });
+  }
+
+  // Lignes de jours seules (une ligne = un libellé figé + 96 créneaux d'un
+  // quart d'heure). Extraites de renderTimesheetWeek pour que le chargement
+  // d'une tranche puisse les insérer sans toucher au reste de la grille.
+  function tsDayRowsHtml(days) {
+    var html = '';
+    days.forEach(function (day) {
+      var dateObj = new Date(day.isoDate + 'T00:00:00');
+      html += '<div class="tsDayLabel" data-ts-day="' + day.isoDate + '">' + t(day.dayOfWeek).slice(0, 3) + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1) + '</div>';
+      day.slots.forEach(function (slot, i) {
+        var slotLabel = pad(Math.floor(i / 4)) + ':' + pad((i % 4) * 15);
+        if (slot) {
+          html += '<div class="tsSlot tsSlot-filled" style="background:' + slot.color + '" title="' + escapeHtml(slot.name) + ' · ' + slotLabel + '"></div>';
+        } else {
+          html += '<div class="tsSlot" title="' + slotLabel + '"></div>';
+        }
+      });
+    });
+    return html;
   }
 
   // Rend la liste complète des jours chargés. Le libellé, les flèches et le
@@ -2376,19 +2429,7 @@
     for (var h = 0; h < 24; h++) {
       html += '<div class="tsHourLabel" style="grid-column: span 4;">' + h + 'h</div>';
     }
-
-    tsDays.forEach(function (day) {
-      var dateObj = new Date(day.isoDate + 'T00:00:00');
-      html += '<div class="tsDayLabel" data-ts-day="' + day.isoDate + '">' + t(day.dayOfWeek).slice(0, 3) + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1) + '</div>';
-      day.slots.forEach(function (slot, i) {
-        var slotLabel = pad(Math.floor(i / 4)) + ':' + pad((i % 4) * 15);
-        if (slot) {
-          html += '<div class="tsSlot tsSlot-filled" style="background:' + slot.color + '" title="' + escapeHtml(slot.name) + ' · ' + slotLabel + '"></div>';
-        } else {
-          html += '<div class="tsSlot" title="' + slotLabel + '"></div>';
-        }
-      });
-    });
+    html += tsDayRowsHtml(tsDays);
 
     $('tsGrid').innerHTML = html;
   }

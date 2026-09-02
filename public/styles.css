@@ -673,6 +673,14 @@ textarea {
   overflow-y: hidden;
   padding-top: 0;
   padding-bottom: 0;
+  /* ⚠️ 1er septembre 2026, demande d'Emilien : « coller les jours de la
+     semaine vers la gauche afin qu'on ne puisse pas voir de données sur la
+     gauche des journées ». Les 8px de padding gauche d'origine étaient DANS
+     la zone défilable : la colonne figée des jours (.tsDayLabel, `left: 0`)
+     s'arrêtait donc à 8px du bord, et les créneaux colorés défilaient
+     visiblement dans cette bande à sa gauche. À 0, la colonne des jours est
+     collée au bord et masque tout ce qui passe derrière elle. */
+  padding-left: 0;
   /* Le geste vertical est traité par app.js : on empêche le navigateur de le
      transformer en zoom ou en navigation arrière pendant qu'on le suit. */
   touch-action: pan-x;
@@ -681,9 +689,15 @@ textarea {
    Feuille de temps, un glissement vertical fait défiler la page (demande
    d'Emilien). Une fois sélectionnée, le cadre le montre discrètement — sans
    quoi le changement de comportement serait invisible et donc déroutant. */
-#statsTimesheetBlock.tsActive .timesheetScroll.tsWeekScroll {
-  box-shadow: inset 0 0 0 1px var(--purple);
-  border-radius: var(--radius-lg);
+/* ⚠️ 1er septembre 2026, demande d'Emilien : « je souhaite que lorsque je
+   sélectionne la section entière feuille de temps, la ligne violette contourne
+   la section entière feuille de temps et pas seulement le calendrier ». Le
+   liseré est donc porté par le bloc lui-même (titre, navigation, grille et
+   indice compris) et non plus par le seul cadre défilant. `inset` plutôt
+   qu'une bordure : une bordure ajouterait 1px de large au bloc et le ferait
+   sauter d'un pixel à chaque sélection. */
+#statsTimesheetBlock.tsActive {
+  box-shadow: var(--shadow-card), inset 0 0 0 1.5px var(--purple);
 }
 /* Ligne des heures figée en haut pendant le défilement vertical. Le fond
    opaque est obligatoire (sans lui, les cases colorées défilent visiblement
@@ -699,6 +713,19 @@ textarea {
    au-dessus des deux autres (z-index 3, voir .tsCorner ci-dessus). */
 .tsWeekScroll .tsCorner {
   top: 0; padding-top: 10px;
+}
+/* Contrepartie du `padding-left: 0` ci-dessus : la marge visuelle à gauche est
+   reportée DANS la colonne figée elle-même, dont la largeur est augmentée
+   d'autant (64 → 72px). Le libellé garde donc exactement la même place qu'avant
+   — la largeur de 64px avait été calée le 30 août sur "Mer 27/08" — mais son
+   fond opaque part maintenant du bord réel du cadre, si bien qu'aucun créneau
+   ne peut plus apparaître à sa gauche pendant le défilement horizontal. */
+.tsWeekScroll .timesheetGrid {
+  grid-template-columns: 72px repeat(96, 12px);
+}
+.tsWeekScroll .tsDayLabel,
+.tsWeekScroll .tsCorner {
+  padding-left: 8px;
 }
 /* Colonne figée élargie de 54px à 64px le 30 août 2026 (demande d'Emilien) :
    le libellé "Mer 27/08" (jour abrégé + date) en 11px, avec padding-right,
