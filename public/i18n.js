@@ -137,6 +137,10 @@
     // libellé ci-dessus pour l'instant.
     'Voir en plein écran': 'View full screen',
     'Quitter le plein écran': 'Exit full screen',
+    // Graphique (Statistiques) uniquement, 2 septembre 2026 : bouton révélé
+    // par renderChart() une fois zoomé (pincement à deux doigts) — voir
+    // #chartZoomResetBtn dans index.html et chartViewState dans app.js.
+    'Réinitialiser le zoom': 'Reset zoom',
     "La semaine en cours s'affiche par défaut à chaque ouverture. Les semaines précédentes restent enregistrées et consultables avec les flèches, sans jamais être perdues.": 'The current week is shown by default every time you open this tab. Previous weeks are kept and can be browsed with the arrows — nothing is ever lost.',
     "Rien d'enregistré sur cette semaine.": 'Nothing recorded this week.',
     'Répartition': 'Breakdown',

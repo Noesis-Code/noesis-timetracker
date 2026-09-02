@@ -288,7 +288,6 @@
                d'Emilien, 29 août 2026) — auparavant un lien en bas de la
                section Identité ("Changer de profil / se déconnecter"). -->
           <div class="subpageHeader">
-            <button id="profileSettingsBack" class="menuBtn" title="Retour" aria-label="Retour">←</button>
             <p class="sectionTitle subpageTitle">Réglages</p>
             <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
           </div>
@@ -311,7 +310,6 @@
             <!-- La photo de profil ne se modifie plus ici depuis le 29 août
                  2026 : elle s'édite directement en cliquant sur l'avatar de la
                  vue principale du Profil (voir #profileMain plus haut). -->
-            <p class="hint">La photo de profil se change directement depuis la vue principale du Profil — clique sur l'avatar, en haut.</p>
             <input type="text" id="settingsName" placeholder="Prénom ou pseudo" maxlength="40">
             <input type="text" id="settingsLastName" placeholder="Nom de famille" maxlength="60">
             <input type="tel" id="settingsPhone" placeholder="Numéro de téléphone" maxlength="30">
@@ -343,7 +341,6 @@
               <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
               <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
             </div>
-            <p class="hint">Le mode sombre est activé par défaut. Changer de mode adapte automatiquement les couleurs de tes activités si besoin.</p>
             <p id="themeMsg" class="msg"></p>
           </div>
             </div>
@@ -368,7 +365,6 @@
               <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
               <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
             </div>
-            <p class="hint">Change la langue de toute l'application. Le changement est appliqué immédiatement.</p>
             <p id="langMsg" class="msg"></p>
           </div>
             </div>
@@ -390,13 +386,11 @@
             </button>
             <div class="settingsSectionBody hidden">
           <div class="settingsCard">
-            <p class="hint">Reçois une notification sur cet appareil quand un membre écrit dans le fil d'une de tes activités partagées, t'invite sur une activité, ou demande à te suivre.</p>
             <div class="shareActions">
               <button type="button" id="pushToggleBtn" class="iconBtn">Activer les notifications</button>
               <button type="button" id="pushTestBtn" class="iconBtn hidden">Envoyer un test</button>
             </div>
             <p id="pushMsg" class="msg"></p>
-            <p id="pushIosHint" class="hint hidden">Sur iPhone, les notifications ne fonctionnent que si Noèsis a été ajoutée à l'écran d'accueil depuis Safari (Partager → Sur l'écran d'accueil). Dans un simple onglet, Apple ne les autorise pas.</p>
           </div>
             </div>
           </div>
@@ -438,7 +432,6 @@
             </button>
             <div class="settingsSectionBody hidden">
           <div class="settingsCard">
-            <p class="hint">Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.</p>
             <input type="text" inputmode="url" id="shareUrlInput" placeholder="https://mon-adresse-noesis.fr" autocomplete="off">
             <button id="shareUrlSaveBtn" class="btn btn-primary btn-small">Enregistrer l'adresse</button>
             <div class="shareActions">
@@ -668,16 +661,25 @@
            même principe que la Feuille de temps le 1er septembre 2026 (voir
            son commentaire plus haut). Le Graphique était la dernière section
            de Statistiques à garder ce mécanisme ; .fullscreenOnly n'a donc
-           plus aucun usage et a été retiré de styles.css. -->
+           plus aucun usage et a été retiré de styles.css.
+           Pincement à deux doigts pour zoomer/dézoomer sur l'axe du temps,
+           glissé à un doigt pour naviguer une fois zoomé (2 septembre 2026,
+           demande d'Emilien : « comme sur TradingView »), quelle que soit la
+           granularité Jour/Semaine/Mois — voir chartViewState et
+           renderChart() dans app.js. #chartZoomResetBtn (masqué hors zoom)
+           revient d'un coup à la fenêtre par défaut. -->
       <div id="statsChartBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Graphique</p>
-          <div class="statsPeriodMenuWrap" id="chartPeriodWrap">
-            <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
-            <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
-              <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
-              <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
-              <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+          <div class="chartNav">
+            <button id="chartZoomResetBtn" type="button" class="iconBtn hidden" aria-label="Réinitialiser le zoom">⟲</button>
+            <div class="statsPeriodMenuWrap" id="chartPeriodWrap">
+              <button type="button" class="menuBtn" id="chartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
+              <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
+                <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+              </div>
             </div>
           </div>
         </div>

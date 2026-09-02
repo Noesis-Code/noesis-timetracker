@@ -772,6 +772,8 @@ textarea {
    textColorForTheme() pour le Total) : ces règles ne fixent donc pas de
    couleur, sauf le halo des points qui reste celui de la carte. ----- */
 .chartWrap { position: relative; }
+.chartNav { display: flex; align-items: center; gap: 6px; }
+.chartNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
 .chartScroll { overflow-x: auto; background: var(--card); border-radius: var(--radius-lg); }
 .chartSvgWrap { width: max-content; min-width: 100%; }
 .chartSvg { display: block; }
@@ -780,39 +782,24 @@ textarea {
 .chartLine { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .chartLineTotal { stroke-width: 2.5; }
 .chartDot { stroke: var(--card); stroke-width: 2; }
-/* pan-x plutôt que "none" ou "auto" par défaut : laisse le navigateur gérer
-   le panoramique horizontal à un doigt (défilement natif de .chartScroll,
-   inchangé), tout en nous laissant intercepter nous-mêmes le pincement à
-   deux doigts (zoom) sans qu'il déclenche EN PLUS le zoom natif de la page —
-   voir applyZoom()/pointermove dans app.js (31 août 2026, demande d'Emilien :
-   pouvoir zoomer sur le Graphique). */
-.chartHoverLayer { fill: transparent; pointer-events: all; touch-action: pan-x; }
+/* `touch-action: none` (2 septembre 2026, demande d'Emilien : pincement à
+   deux doigts pour zoomer/dézoomer sur l'axe du temps, glissé à un doigt
+   pour naviguer une fois zoomé, "comme sur TradingView") : laisse TOUT le
+   geste tactile posé sur cette zone nous arriver en JS (voir renderChart()
+   dans app.js — pointerdown/pointermove/pointerup gèrent eux-mêmes aussi
+   bien le pincement que le panoramique), plutôt qu'un mélange de
+   comportements natifs et interceptés qui se marchent dessus. Remplace
+   `pan-x`, qui datait d'une tentative de zoom abandonnée le 31 août 2026
+   (jamais livrée côté app.js — voir le journal) et laissait le panoramique
+   au défilement natif de .chartScroll ; ce défilement natif n'a plus lieu
+   d'être non plus, la largeur du SVG égalant désormais toujours celle du
+   conteneur (voir `containerWidth` dans renderChart()) : la fenêtre visible
+   change par le geste plutôt que par un SVG plus large que son cadre. Le
+   zoom natif de la PAGE (pincement en dehors du Graphique) reste bloqué
+   globalement par `maximum-scale=1` sur la <meta viewport>, indépendamment
+   de cette règle. */
+.chartHoverLayer { fill: transparent; pointer-events: all; touch-action: none; }
 .chartCrosshair { stroke: var(--text-light); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
-
-/* Cadre + grille d'axe Y du Graphique (31 août 2026, demande d'Emilien : "un
-   fini qui ressemble à TradingView" — avant ce jour-là, le graphique n'avait
-   ni cadre ni graduation Y, juste une ligne de base). Grille délibérément
-   plus effacée que le cadre (voir dataviz : "gridlines... recessive") :
-   le cadre borne le panneau, la grille n'est qu'un repère de lecture. */
-.chartFrame { fill: none; stroke: var(--border); stroke-width: 1; }
-.chartGridLine { stroke: var(--border); stroke-width: 1; opacity: 0.55; }
-/* L'étiquette suit le bord gauche de la zone visible (voir axisLabelX() dans
-   app.js), donc elle flotte au-dessus des courbes une fois le graphique
-   défilé : halo (contour de la couleur du fond) plutôt qu'un pavé plein,
-   pour rester lisible sans alourdir le tracé. */
-.chartYAxisLabel {
-  font-size: 9px;
-  paint-order: stroke;
-  stroke: var(--card);
-  stroke-width: 3px;
-  stroke-linejoin: round;
-}
-
-/* Étiquettes d'axe qui suivent le curseur/crosshair (date sous l'axe X,
-   valeur à gauche de l'axe Y) — fond plein façon "tag", plutôt que du texte
-   nu, pour rester lisible par-dessus la grille et les courbes. */
-.chartAxisTagBg { fill: var(--text); }
-.chartAxisTagText { fill: var(--card); font-size: 9px; font-weight: bold; }
 
 /* Légende du Graphique — toujours présente (>= 2 séries dès qu'il y a une
    seule activité + Total), pastille + libellé, jamais la couleur seule

@@ -29,6 +29,56 @@
   // (retiré le même jour, demande d'Emilien : « supprimer le mode plein
   // écran de graphique ») n'ont plus de plein écran : plus de variable
   // d'état ici, voir #statsTimesheetBlock et #statsChartBlock.
+  // ----- Zoom/panoramique du Graphique (2 septembre 2026, demande d'Emilien :
+  // « pouvoir, en pinçant avec mes deux doigts, rapprocher ou éloigner les
+  // points du graphique, comme sur TradingView »). Fenêtre de points
+  // affichée = [start, start+count), bornée par CHART_MIN_VISIBLE et le
+  // nombre total de points chargés — `count: null` signifie "pas encore de
+  // zoom choisi", renderChart() calcule alors une fenêtre par défaut. Reste
+  // en dehors de renderChart() (pas une variable locale) : un geste de
+  // pincement/glissé redessine le graphique plusieurs fois par seconde (voir
+  // scheduleChartRerender ci-dessous), la fenêtre doit donc survivre à
+  // chacun de ces redessins plutôt que d'être réinitialisée à chaque appel.
+  var chartViewState = { start: 0, count: null };
+  var CHART_MIN_VISIBLE = 2; // on ne peut jamais zoomer en dessous de 2 points affichés
+  // La fenêtre PAR DÉFAUT (ci-dessus, "autant de points que le conteneur peut
+  // montrer") est déjà plus étroite que l'historique complet dès qu'il y a
+  // plus de ~7 jours de données — donc quasiment toujours, pour n'importe
+  // quel utilisateur réel. Sans ce drapeau séparé, `visibleCount < total`
+  // serait vrai dès le premier rendu, AVANT tout pincement : le bouton
+  // "réinitialiser" resterait affiché en permanence (perdant tout son sens
+  // d'indicateur), et le glissé à un doigt basculerait en panoramique dès
+  // l'ouverture au lieu de survoler/afficher l'infobulle comme avant cette
+  // fonctionnalité. `chartUserZoomed` ne devient vrai que par un geste de
+  // zoom RÉEL (pincement ou Ctrl+molette) — jamais par le seul effet de la
+  // fenêtre par défaut — et distingue donc "l'utilisateur a zoomé" de "la
+  // fenêtre par défaut est plus étroite que tout l'historique".
+  var chartUserZoomed = false;
+  function resetChartZoom() { chartViewState = { start: 0, count: null }; chartUserZoomed = false; }
+  // Geste en cours (pincement à deux doigts ou glissé à un doigt), et
+  // throttling des redessins pendant le geste : un redessin reconstruit tout
+  // le SVG (voir renderChart), le limiter à une fois par frame évite le
+  // clignotement/lag sur un téléphone modeste tout en gardant le geste fluide.
+  var chartGesturePointers = {}; // pointerId -> {x, y}
+  var chartGestureMode = null; // null | 'pinch' | 'maybe-pan' | 'pan'
+  var chartPinchState = null;
+  var chartPanState = null;
+  var chartGestureCleanup = null; // retire les écouteurs document du geste en cours (voir renderChart)
+  var chartCurrentTotal = 0; // nombre total de points chargés, tenu à jour à chaque rendu pour les gestes en cours entre deux rendus
+  var chartRerenderScheduled = false;
+  function scheduleChartRerender() {
+    if (chartRerenderScheduled) return;
+    chartRerenderScheduled = true;
+    requestAnimationFrame(function () {
+      chartRerenderScheduled = false;
+      if (lastDailyBreakdown.length) renderChart(lastDailyBreakdown);
+    });
+  }
+  function clampChartView(start, count, total) {
+    count = Math.min(Math.max(Math.round(count), CHART_MIN_VISIBLE), Math.max(CHART_MIN_VISIBLE, total));
+    start = Math.min(Math.max(Math.round(start), 0), Math.max(0, total - count));
+    return { start: start, count: count };
+  }
   // ----- Statistiques d'UNE activité partagée (section Communauté > Membres)
   // — pendants exacts des 5 variables Statistiques ci-dessus, jamais
   // partagés avec elles (deux jeux d'état totalement indépendants). -----
@@ -688,6 +738,7 @@
     $('profileSettingsBtn').classList.remove('active');
 
     if (tab === 'stats') {
+      resetChartZoom(); // demande d'Emilien : le zoom du Graphique ne doit pas survivre à une réouverture de l'onglet
       loadStats();
       // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
       // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
@@ -1264,7 +1315,17 @@
   // renderPieFromTimesheet plus bas.)
   setupStatsPeriodMenu($('chartPeriodBtn'), $('chartPeriodMenu'), function (period) {
     currentChartGranularity = period; // 'day' | 'week' | 'month' (data-period du menu ⋮ du Graphique)
+    resetChartZoom(); // une fenêtre de zoom choisie pour une granularité n'a plus de sens pour une autre
     loadChartStats();
+  });
+  // Bouton "réinitialiser le zoom" du Graphique — masqué par défaut (voir
+  // renderChart, qui le révèle uniquement quand une fenêtre zoomée est
+  // affichée). #chartZoomResetBtn est dans le HTML statique de
+  // #statsChartBlock, jamais recréé par renderChart() : un seul écouteur ici
+  // suffit pour toute la durée de la session.
+  $('chartZoomResetBtn').addEventListener('click', function () {
+    resetChartZoom();
+    if (lastDailyBreakdown.length) renderChart(lastDailyBreakdown);
   });
   setupStatsPeriodMenu($('tsPeriodBtn'), $('tsPeriodMenu'), function (period) {
     currentTimesheetPeriod = period;
@@ -1499,16 +1560,49 @@
     $('statsChartEmptyHint').classList.toggle('hidden', hasData);
     $('statsChartLegend').innerHTML = '';
     $('chartTooltip').classList.add('hidden');
-    if (!hasData) return;
+    var resetBtn = $('chartZoomResetBtn');
+    if (!hasData) {
+      if (resetBtn) resetBtn.classList.add('hidden');
+      return;
+    }
 
     var sorted = days.slice().sort(function (a, b) { return a.isoDate < b.isoDate ? -1 : 1; });
-    var series = buildChartSeries(sorted);
-    var maxSeconds = sorted.reduce(function (m, d) { return Math.max(m, d.totalSeconds); }, 0) || 1;
+    var total = sorted.length;
+    chartCurrentTotal = total;
 
-    var width = Math.max(320, sorted.length * 56);
+    // ----- Fenêtre de zoom (2 septembre 2026, demande d'Emilien : pincer à
+    // deux doigts pour rapprocher/éloigner les points, comme sur TradingView)
+    // — voir chartViewState/CHART_MIN_VISIBLE/clampChartView en haut du
+    // fichier. Fenêtre par défaut (premier rendu après un changement de
+    // granularité ou une réouverture de l'onglet, voir resetChartZoom) :
+    // autant de points que la largeur réelle du conteneur peut en montrer à
+    // leur largeur "naturelle" d'avant le zoom (56px/point), les PLUS
+    // RÉCENTS — même logique que la Feuille de temps qui s'ouvre toujours sur
+    // "aujourd'hui inclus" plutôt que sur le tout début de l'historique. -----
+    var containerWidth = Math.max(280, box.clientWidth || 320);
+    if (chartViewState.count === null) {
+      var naturalFit = Math.max(CHART_MIN_VISIBLE, Math.floor(containerWidth / 56));
+      var defaultCount = Math.min(total, naturalFit);
+      chartViewState = { start: Math.max(0, total - defaultCount), count: defaultCount };
+    }
+    chartViewState = clampChartView(chartViewState.start, chartViewState.count, total);
+    var startIndex = chartViewState.start;
+    var visibleCount = chartViewState.count;
+    var visible = sorted.slice(startIndex, startIndex + visibleCount);
+    // `chartUserZoomed` (et non la seule troncature de la fenêtre par défaut,
+    // voir sa définition plus haut) : le bouton n'apparaît que si un vrai
+    // geste de zoom a eu lieu, et redisparaît si ce geste ramène malgré tout
+    // la fenêtre à afficher tout l'historique (rien à réinitialiser).
+    var isZoomed = chartUserZoomed && visibleCount < total;
+    if (resetBtn) resetBtn.classList.toggle('hidden', !isZoomed);
+
+    var series = buildChartSeries(visible);
+    var maxSeconds = visible.reduce(function (m, d) { return Math.max(m, d.totalSeconds); }, 0) || 1;
+
+    var width = containerWidth;
     var height = 180, padTop = 14, padBottom = 26, padSide = 8;
     var plotH = height - padTop - padBottom;
-    var stepW = (width - padSide * 2) / sorted.length;
+    var stepW = (width - padSide * 2) / visibleCount;
 
     function xFor(i) { return padSide + stepW * (i + 0.5); }
     function yFor(seconds) { return padTop + plotH - (seconds / maxSeconds) * plotH; }
@@ -1549,7 +1643,19 @@
       });
     });
 
-    sorted.forEach(function (d, i) {
+    // Étiquettes de l'axe X éclaircies selon le zoom (2 septembre 2026) :
+    // avant le zoom, une étiquette par point suffisait (la largeur de la
+    // fenêtre suivait déjà le nombre de points, 56px chacun) ; avec la
+    // fenêtre désormais fixe (largeur du conteneur), un fort dézoom peut
+    // afficher des dizaines de points dans le même espace, où une étiquette
+    // par point se chevaucherait. Un pas minimal en pixels entre deux
+    // étiquettes (~34px, assez pour "27/08") détermine combien en sauter ;
+    // le dernier point garde toujours la sienne pour ne pas perdre le repère
+    // du bord droit.
+    var minLabelPx = 34;
+    var labelStride = Math.max(1, Math.ceil(minLabelPx / stepW));
+    visible.forEach(function (d, i) {
+      if (i % labelStride !== 0 && i !== visible.length - 1) return;
       var x = xFor(i);
       var label = document.createElementNS(svgNS, 'text');
       label.setAttribute('x', x); label.setAttribute('y', height - 8);
@@ -1577,7 +1683,7 @@
     var wrapEl = $('statsChartWrap');
 
     function showTooltipAt(i) {
-      var d = sorted[i];
+      var d = visible[i];
       crosshair.setAttribute('x1', xFor(i)); crosshair.setAttribute('x2', xFor(i));
       crosshair.classList.remove('hidden');
 
@@ -1624,16 +1730,183 @@
       var relX = ((evt.clientX - rect.left) / rect.width) * width;
       var i = Math.round((relX - padSide) / stepW - 0.5);
       if (i < 0) i = 0;
-      if (i > sorted.length - 1) i = sorted.length - 1;
+      if (i > visible.length - 1) i = visible.length - 1;
       return i;
     }
 
-    hoverLayer.addEventListener('pointermove', function (evt) { showTooltipAt(indexFromEvent(evt)); });
-    hoverLayer.addEventListener('pointerenter', function (evt) { showTooltipAt(indexFromEvent(evt)); });
-    hoverLayer.addEventListener('pointerleave', hideTooltip);
+    // ----- Pincement à deux doigts (zoom) et glissé à un doigt (panoramique
+    // une fois zoomé) — 2 septembre 2026, demande d'Emilien. `touch-action:
+    // none` sur .chartHoverLayer (styles.css) laisse tout le geste tactile
+    // nous arriver plutôt qu'au navigateur (défilement de page ou zoom natif
+    // — ce dernier de toute façon déjà bloqué partout par
+    // `maximum-scale=1` sur la <meta viewport>). Le pincement est ancré sur
+    // le MILIEU des deux doigts (pas le bord gauche) : le point sous le
+    // milieu reste sous le milieu pendant tout le geste, sans quoi le
+    // contenu "fuit" sous les doigts. Un rendu complet reconstruit tout le
+    // SVG (voir plus haut) : pendant un geste, les redessins passent par
+    // scheduleChartRerender() (throttlé à une fois par frame) plutôt qu'un
+    // appel direct à chaque évènement.
+    //
+    // Piège évité : cette fonction est entièrement redéfinie à chaque appel
+    // de renderChart() (nouvelles fermetures sur `svg`/`visible`/etc, qui
+    // sont elles-mêmes recréées à chaque rendu). Pendant un geste prolongé,
+    // plusieurs rendus se succèdent — les anciens `svg`/`hoverLayer` sont
+    // alors détachés du DOM et cesseraient de recevoir des évènements. Pour
+    // que le geste reste continu malgré ces redessins, la suite du geste
+    // (pointermove/pointerup) est écoutée sur `document` (jamais détaché)
+    // plutôt que sur .chartHoverLayer, et réattachée à la fin de CHAQUE
+    // rendu tant que le geste est actif (voir reattachGestureListeners plus
+    // bas) — chartGestureCleanup retire toujours l'ancienne attache avant
+    // d'en poser une nouvelle, pour ne jamais en cumuler deux.
+    function distanceBetween(p1, p2) {
+      var dx = p1.x - p2.x, dy = p1.y - p2.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function beginPinch() {
+      var ids = Object.keys(chartGesturePointers);
+      var p1 = chartGesturePointers[ids[0]], p2 = chartGesturePointers[ids[1]];
+      var rect = svg.getBoundingClientRect();
+      var midX = (p1.x + p2.x) / 2;
+      var frac = rect.width ? Math.min(1, Math.max(0, (midX - rect.left) / rect.width)) : 0.5;
+      chartPinchState = {
+        initialDistance: distanceBetween(p1, p2) || 1,
+        initialCount: chartViewState.count,
+        anchorIndex: chartViewState.start + frac * chartViewState.count,
+        anchorFraction: frac,
+      };
+    }
+
+    function beginPan(pt) {
+      chartPanState = { startClientX: pt.x, startIndex: chartViewState.start };
+    }
+
+    function handleGestureMove(evt) {
+      if (!(evt.pointerId in chartGesturePointers)) return;
+      chartGesturePointers[evt.pointerId] = { x: evt.clientX, y: evt.clientY };
+      var ids = Object.keys(chartGesturePointers);
+
+      if (chartGestureMode === 'pinch' && ids.length === 2) {
+        var p1 = chartGesturePointers[ids[0]], p2 = chartGesturePointers[ids[1]];
+        var dist = distanceBetween(p1, p2) || 1;
+        var scale = dist / chartPinchState.initialDistance;
+        var newCount = chartPinchState.initialCount / scale;
+        var newStart = chartPinchState.anchorIndex - chartPinchState.anchorFraction * newCount;
+        chartViewState = clampChartView(newStart, newCount, chartCurrentTotal);
+        chartUserZoomed = true;
+        scheduleChartRerender();
+        evt.preventDefault();
+        return;
+      }
+
+      if ((chartGestureMode === 'maybe-pan' || chartGestureMode === 'pan') && ids.length === 1) {
+        var pt = chartGesturePointers[ids[0]];
+        var deltaX = pt.x - chartPanState.startClientX;
+        if (!chartUserZoomed || chartViewState.count >= chartCurrentTotal) {
+          // Pas encore zoomé (ou zoom revenu à toute la plage, plus rien à
+          // parcourir) : le glissé à un doigt garde son comportement
+          // d'origine (survol/infobulle), inchangé.
+          showTooltipAt(indexFromEvent(evt));
+          return;
+        }
+        if (chartGestureMode === 'maybe-pan') {
+          if (Math.abs(deltaX) < 4) return; // pas encore assez de mouvement pour trancher glissé vs. simple tap
+          chartGestureMode = 'pan';
+          hideTooltip();
+        }
+        var rect = svg.getBoundingClientRect();
+        var deltaIndex = rect.width ? -(deltaX / (rect.width / chartViewState.count)) : 0;
+        chartViewState = clampChartView(chartPanState.startIndex + deltaIndex, chartViewState.count, chartCurrentTotal);
+        scheduleChartRerender();
+        evt.preventDefault();
+      }
+    }
+
+    function handleGestureUp(evt) {
+      delete chartGesturePointers[evt.pointerId];
+      var ids = Object.keys(chartGesturePointers);
+      if (ids.length === 0) {
+        chartGestureMode = null; chartPinchState = null; chartPanState = null;
+        if (chartGestureCleanup) { chartGestureCleanup(); chartGestureCleanup = null; }
+      } else if (ids.length === 1) {
+        // Sortie d'un pincement avec un doigt encore posé : reprend le geste
+        // en panoramique depuis la position actuelle de ce doigt.
+        chartGestureMode = 'maybe-pan';
+        beginPan(chartGesturePointers[ids[0]]);
+      }
+    }
+
+    function reattachGestureListenersIfActive() {
+      if (chartGestureCleanup) { chartGestureCleanup(); chartGestureCleanup = null; }
+      if (chartGestureMode === null) return;
+      document.addEventListener('pointermove', handleGestureMove);
+      document.addEventListener('pointerup', handleGestureUp);
+      document.addEventListener('pointercancel', handleGestureUp);
+      chartGestureCleanup = function () {
+        document.removeEventListener('pointermove', handleGestureMove);
+        document.removeEventListener('pointerup', handleGestureUp);
+        document.removeEventListener('pointercancel', handleGestureUp);
+      };
+    }
+
+    hoverLayer.addEventListener('pointerdown', function (evt) {
+      chartGesturePointers[evt.pointerId] = { x: evt.clientX, y: evt.clientY };
+      var ids = Object.keys(chartGesturePointers);
+      if (ids.length === 2) {
+        chartGestureMode = 'pinch';
+        hideTooltip();
+        beginPinch();
+        reattachGestureListenersIfActive();
+      } else if (ids.length === 1) {
+        chartGestureMode = 'maybe-pan';
+        beginPan(chartGesturePointers[evt.pointerId]);
+        reattachGestureListenersIfActive();
+      }
+    });
+    hoverLayer.addEventListener('pointermove', function (evt) {
+      if (chartGestureMode === null) showTooltipAt(indexFromEvent(evt));
+    });
+    hoverLayer.addEventListener('pointerenter', function (evt) {
+      if (chartGestureMode === null) showTooltipAt(indexFromEvent(evt));
+    });
+    hoverLayer.addEventListener('pointerleave', function () {
+      if (chartGestureMode === null) hideTooltip();
+    });
+
+    // ----- Équivalent souris/trackpad, pour pouvoir tester ailleurs que sur
+    // le téléphone d'Emilien (2 septembre 2026). Pincement de trackpad : les
+    // navigateurs le transmettent comme un évènement `wheel` avec
+    // `ctrlKey: true` posé automatiquement (même sans que Ctrl soit
+    // réellement enfoncée) — Ctrl+molette explicite déclenche donc la même
+    // chose. Ancré sous le curseur, comme le pincement tactile. Un
+    // défilement horizontal franc (Maj+molette, ou pavé tactile deux doigts
+    // horizontal) panoramique à la place. Une simple molette verticale sans
+    // Ctrl n'est PAS interceptée : la page doit pouvoir défiler normalement
+    // au-dessus du Graphique. -----
+    hoverLayer.addEventListener('wheel', function (evt) {
+      if (evt.ctrlKey || evt.metaKey) {
+        evt.preventDefault();
+        var rect = svg.getBoundingClientRect();
+        var frac = rect.width ? Math.min(1, Math.max(0, (evt.clientX - rect.left) / rect.width)) : 0.5;
+        var anchorIndex = chartViewState.start + frac * chartViewState.count;
+        var zoomFactor = Math.exp(-evt.deltaY * 0.01);
+        var newCount = chartViewState.count / zoomFactor;
+        var newStart = anchorIndex - frac * newCount;
+        chartViewState = clampChartView(newStart, newCount, chartCurrentTotal);
+        chartUserZoomed = true;
+        scheduleChartRerender();
+      } else if (Math.abs(evt.deltaX) > Math.abs(evt.deltaY) && chartUserZoomed && chartViewState.count < chartCurrentTotal) {
+        evt.preventDefault();
+        var rect2 = svg.getBoundingClientRect();
+        var deltaIndex = rect2.width ? (evt.deltaX / (rect2.width / chartViewState.count)) : 0;
+        chartViewState = clampChartView(chartViewState.start + deltaIndex, chartViewState.count, chartCurrentTotal);
+        scheduleChartRerender();
+      }
+    }, { passive: false });
 
     box.appendChild(svg);
     renderChartLegend(series);
+    reattachGestureListenersIfActive();
   }
 
   // ----- Ni le Graphique ni la Feuille de temps n'ont de mode plein écran :
@@ -3317,8 +3590,6 @@
     var msg = $('pushMsg');
     if (!btn) return;
 
-    $('pushIosHint').classList.toggle('hidden', !(isIos() && !pushSupported()));
-
     if (!pushSupported()) {
       btn.disabled = true;
       testBtn.classList.add('hidden');
@@ -3487,7 +3758,6 @@
     if (e.target.closest('.notifWrap')) return;
     closeNotifPanel();
   });
-  $('profileSettingsBack').addEventListener('click', closeSettingsPanel);
 
   $('settingsSaveBtn').addEventListener('click', function () {
     $('settingsSaveBtn').disabled = true;
