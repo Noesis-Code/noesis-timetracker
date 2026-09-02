@@ -3255,6 +3255,7 @@
   // mutuellement (demande d'Emilien, 1er septembre 2026).
   function showProfileSettings() {
     closeNotifPanel();
+    closeFollowsPanel();
     closeAllSettingsSections();
     $('profileSettingsPanel').scrollTop = 0;
     // Le panneau ne passe plus par openProfile() : c'est donc lui qui doit
@@ -3473,18 +3474,38 @@
   // "Abonnés & Abonnements" (1er septembre 2026, demande d'Emilien : «
   // déplacer la section abonnés et abonnements des réglages vers le bouton
   // abonnement dans le profil »). Vivait dans Réglages depuis le 30 août
-  // 2026 (#profileSettingsPanel) ; s'ouvre désormais en panneau repliable
-  // directement sous l'avatar, sur la vue principale du Profil — même
-  // principe que le panneau "⋮" d'une activité. loadFollowConnections()
-  // (inchangée, toujours scopée à l'appelant) n'est donc plus appelée à
-  // l'ouverture de Réglages (voir showProfileSettings ci-dessus) mais ici,
-  // uniquement quand on ouvre effectivement le panneau — pas à chaque
-  // ouverture du Profil.
-  $('profileFollowsBtn').addEventListener('click', function () {
-    var panel = $('profileFollowsPanel');
-    var opening = panel.classList.contains('hidden');
-    panel.classList.toggle('hidden');
-    if (opening) loadFollowConnections();
+  // 2026 (#profileSettingsPanel). Devenue une icône dédiée dans
+  // .identityHeader le 2 septembre 2026 (demande d'Emilien : « créer un
+  // icône simple pour abonnés et abonnements [...] à gauche de l'icône
+  // invitation [...] qu'une fois sélectionné, il exclut invitation et
+  // paramètres ») — même principe que .notifWrap/.settingsWrap : panneau
+  // flottant ancré sous sa propre icône, exclusion mutuelle avec les deux
+  // autres (voir closeFollowsPanel plus bas, et closeNotifPanel/
+  // closeSettingsPanel qui l'appellent désormais aussi à leur ouverture).
+  // loadFollowConnections() (inchangée, toujours scopée à l'appelant) n'est
+  // appelée qu'à l'ouverture effective du panneau — pas à chaque ouverture
+  // du Profil.
+  $('profileFollowsBtn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var opening = $('profileFollowsPanel').classList.contains('hidden');
+    if (opening) {
+      closeSettingsPanel();
+      closeNotifPanel();
+      loadFollowConnections();
+    }
+    $('profileFollowsPanel').classList.toggle('hidden', !opening);
+    $('profileFollowsBtn').classList.toggle('active', opening);
+  });
+  function closeFollowsPanel() {
+    $('profileFollowsPanel').classList.add('hidden');
+    $('profileFollowsBtn').classList.remove('active');
+  }
+  // Referme le panneau au clic n'importe où en dehors de lui (ou de son
+  // icône) — même mécanisme que les panneaux Invitations et Réglages.
+  document.addEventListener('click', function (e) {
+    if ($('profileFollowsPanel').classList.contains('hidden')) return;
+    if (e.target.closest('.followsWrap')) return;
+    closeFollowsPanel();
   });
 
   // Bascule l'affichage du panneau déroulant (#profileNotifPanel) listant
@@ -3507,10 +3528,10 @@
   $('profileNotifBtn').addEventListener('click', function (e) {
     e.stopPropagation();
     var opening = $('profileNotifPanel').classList.contains('hidden');
-    // Les deux panneaux flottants de la barre du haut s'excluent : ouvrir
-    // les invitations referme les Réglages, et réciproquement (demande
-    // d'Emilien, 1er septembre 2026).
-    if (opening) closeSettingsPanel();
+    // Les panneaux flottants de la barre du haut s'excluent mutuellement :
+    // ouvrir les invitations referme les Réglages et Abonnés & Abonnements,
+    // et réciproquement (demande d'Emilien, 1er et 2 septembre 2026).
+    if (opening) { closeSettingsPanel(); closeFollowsPanel(); }
     $('profileNotifPanel').classList.toggle('hidden', !opening);
     $('profileNotifBtn').classList.toggle('active', opening);
   });
@@ -5191,14 +5212,7 @@
       delBtn.className = 'iconBtn danger';
       delBtn.textContent = t('Supprimer définitivement');
       delBtn.addEventListener('click', function () {
-        if (!confirm(t('Supprimer définitivement cette activité pour toi ? Elle disparaîtra de ton Chrono et de ton Profil. Les autres personnes qui la partagent avec toi ne sont pas concernées.'))) return;
-        var keepHistory = confirm(t("Veux-tu garder l'historique déjà enregistré sur cette activité ?\n\nOK = garder l'historique\nAnnuler = tout supprimer aussi"));
-        api('DELETE', '/api/activities/' + a.id + '?userId=' + profile.id + '&keepHistory=' + (keepHistory ? '1' : '0'))
-          .then(function () {
-            refreshActivities().then(renderActivityGrid);
-            loadSettingsActivities();
-          })
-          .catch(function (err) { alert(err.message); });
+        openDeleteActivityModal(a);
       });
       actionsWrap.appendChild(delBtn);
 
@@ -5237,6 +5251,66 @@
     // toujours être rattaché quelque part à la fin.
     if (!detailAttached) attachActivityDetail(null);
   }
+
+  // ===================== SUPPRESSION D'UNE ACTIVITÉ =====================
+  // Deux confirm() natifs enchaînés posaient la question en "OK / Annuler" :
+  // il fallait lire le texte pour savoir laquelle des deux touches supprimait
+  // l'historique — et sur mobile, deux boîtes système de suite. Depuis le
+  // 2 septembre 2026 (demande d'Emilien), une seule boîte, avec les deux
+  // issues écrites sur les boutons. Rien n'est supprimé tant que l'une des
+  // deux n'a pas été choisie ; "✕" et un clic sur le fond annulent.
+  //
+  // La suppression reste, comme avant, scopée à l'appelant : les autres
+  // membres d'une activité partagée ne sont jamais concernés (voir
+  // DELETE /api/activities/:id dans server/routes/activities.js).
+  var pendingDeleteActivity = null;
+
+  function openDeleteActivityModal(activity) {
+    pendingDeleteActivity = activity;
+    $('deleteActivityModalTitle').textContent =
+      t('Supprimer « {activity} » ?', { activity: activity.name });
+    $('deleteActivityModalMsg').textContent = '';
+    setDeleteActivityBusy(false);
+    $('deleteActivityModal').classList.remove('hidden');
+  }
+
+  function closeDeleteActivityModal() {
+    pendingDeleteActivity = null;
+    $('deleteActivityModal').classList.add('hidden');
+  }
+
+  function setDeleteActivityBusy(busy) {
+    $('deleteActivityKeepBtn').disabled = busy;
+    $('deleteActivityPurgeBtn').disabled = busy;
+  }
+
+  function confirmDeleteActivity(keepHistory) {
+    if (!pendingDeleteActivity) return;
+    var activity = pendingDeleteActivity;
+    setDeleteActivityBusy(true);
+    $('deleteActivityModalMsg').textContent = '';
+    api('DELETE', '/api/activities/' + activity.id + '?userId=' + profile.id +
+        '&keepHistory=' + (keepHistory ? '1' : '0'))
+      .then(function () {
+        closeDeleteActivityModal();
+        refreshActivities().then(renderActivityGrid);
+        loadSettingsActivities();
+      })
+      .catch(function (err) {
+        // Cas courant : un chrono tourne encore sur cette activité (409). On
+        // garde la boîte ouverte avec le message, plutôt qu'une alerte
+        // système par-dessus.
+        setDeleteActivityBusy(false);
+        $('deleteActivityModalMsg').textContent = err.message;
+      });
+  }
+
+  $('deleteActivityKeepBtn').addEventListener('click', function () { confirmDeleteActivity(true); });
+  $('deleteActivityPurgeBtn').addEventListener('click', function () { confirmDeleteActivity(false); });
+  $('deleteActivityModalClose').addEventListener('click', closeDeleteActivityModal);
+  $('deleteActivityModal').addEventListener('click', function (e) {
+    if (e.target === this) closeDeleteActivityModal(); // clic sur le fond
+  });
 
   // ===================== INVITATIONS REÇUES =====================
   // Remplace l'ancien lien de partage : quelqu'un t'invite par ton pseudo

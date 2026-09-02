@@ -184,6 +184,11 @@
     'Fermer': 'Close',
     "Actions de cette activité": 'Actions for this activity',
     'Voir les membres': 'View members',
+    // ---- Suppression d'une activité (2 septembre 2026) ----
+    'Supprimer « {activity} » ?': 'Delete "{activity}"?',
+    "Elle disparaîtra de ton Chrono et de ta liste d'activités. Les autres personnes qui la partagent avec toi ne sont pas concernées.": 'It will disappear from your Timer and from your activity list. The other people sharing it with you are not affected.',
+    'Conserver les anciens enregistrements': 'Keep the past sessions',
+    'Supprimer les anciens enregistrements': 'Delete the past sessions',
     'Membres · ': 'Members · ',
     ' (toi)': ' (you)',
     'Chrono en cours sur cette activité': 'Timer running on this activity',

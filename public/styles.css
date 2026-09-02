@@ -71,6 +71,21 @@
    dessous quoi qu'il arrive. */
 html { background: #000000; }
 
+/* 2 septembre 2026, deuxième passage, suite (Design) : .topbar continuait à
+   visiblement "flotter" au tiré-vers-le-bas même après le passage de
+   sticky à fixed ci-dessous (#tab-profile section .topbar). Cause réelle :
+   ni <html> ni <body> n'ont de conteneur de défilement dédié ici — c'est le
+   document entier (html/body) qui défile, donc le rebond élastique iOS
+   (pull-to-refresh) déplace tout le viewport rendu, y compris les éléments
+   en position: fixed (position: fixed les ancre au viewport, pas au
+   document, mais WebKit fait quand même suivre le rebond du document à tout
+   le viewport visuel tant que rien ne l'en empêche). Plutôt que de
+   compenser ce rebond après coup, on l'empêche d'apparaître du tout :
+   overscroll-behavior-y déjà utilisé plus bas dans ce fichier pour
+   contenir le défilement d'un panneau (#profileSettingsPanel.settingsPanel)
+   — appliqué ici à la page entière. */
+html, body { overscroll-behavior-y: none; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -1026,8 +1041,12 @@ body.scrollLock { overflow: hidden; }
    ça, .notifPanel en position absolute remonterait chercher le prochain
    ancêtre positionné (potentiellement la fenêtre elle-même) et s'afficherait
    n'importe où. Elles servent aussi, comme avant, de sélecteur pour le clic
-   "en dehors du panneau" (voir app.js, e.target.closest('.notifWrap')). */
-.notifWrap, .settingsWrap { position: relative; }
+   "en dehors du panneau" (voir app.js, e.target.closest('.notifWrap')).
+   .followsWrap (2 septembre 2026, même jour, demande d'Emilien : « créer un
+   icône simple pour abonnés et abonnements [...] à gauche de l'icône
+   invitation ») rejoint les deux : même .topIconBtn, même panneau flottant
+   .notifPanel, même ancrage sous sa propre icône. */
+.notifWrap, .settingsWrap, .followsWrap { position: relative; }
 
 /* Ancré directement sous sa propre icône (2 septembre 2026, deuxième
    passage — retour à l'ancrage d'avant le 31 août 2026) : .notifWrap et
@@ -1282,6 +1301,12 @@ body.scrollLock { overflow: hidden; }
 .communityMembersModalHeader {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
 }
+/* Les deux issues de la suppression d'une activité (conserver / supprimer les
+   anciens enregistrements). Empilées et en pleine largeur : leurs libellés
+   sont longs, côte à côte ils passeraient à la ligne n'importe où sur un
+   téléphone. Ordre volontaire : l'option non destructive en premier. */
+.deleteActivityChoices { flex-direction: column; align-items: stretch; margin-top: 12px; }
+.deleteActivityChoices .iconBtn { width: 100%; text-align: center; }
 
 /* ----- Feuille de temps / Graphique d'UNE activité partagée (section
    Membres) en plein écran forcé (format paysage) : à l'origine des copies

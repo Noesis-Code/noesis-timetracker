@@ -763,6 +763,29 @@
           <div id="communityMembersModalList" class="activitiesList"></div>
         </div>
       </div>
+
+      <!-- Confirmation de suppression d'une activité (2 septembre 2026,
+           demande d'Emilien). Remplace les deux confirm() natifs enchaînés
+           qui posaient la question en "OK / Annuler" : il fallait lire le
+           texte pour savoir laquelle des deux touches supprimait l'historique.
+           Ici, les deux issues sont écrites sur les boutons eux-mêmes, et
+           aucune n'est déclenchée par défaut. Réutilise le motif de modale
+           déjà en place (.communityMembersModal*), qui sert aussi à la liste
+           des membres et à la fiche d'un membre. -->
+      <div id="deleteActivityModal" class="communityMembersModal hidden">
+        <div class="communityMembersModalCard">
+          <div class="communityMembersModalHeader">
+            <p class="sectionTitle" id="deleteActivityModalTitle"></p>
+            <button type="button" class="menuBtn" id="deleteActivityModalClose" aria-label="Fermer">✕</button>
+          </div>
+          <p class="hint">Elle disparaîtra de ton Chrono et de ta liste d'activités. Les autres personnes qui la partagent avec toi ne sont pas concernées.</p>
+          <div class="rowActions deleteActivityChoices">
+            <button type="button" id="deleteActivityKeepBtn" class="iconBtn">Conserver les anciens enregistrements</button>
+            <button type="button" id="deleteActivityPurgeBtn" class="iconBtn danger">Supprimer les anciens enregistrements</button>
+          </div>
+          <p id="deleteActivityModalMsg" class="msg"></p>
+        </div>
+      </div>
     </section>
 
     <!-- ---------- ONGLET PROFIL ---------- -->
@@ -823,6 +846,45 @@
                et deviennent violettes ("active") pendant que le panneau/la vue
                qu'elles ouvrent est affiché(e), comme un onglet sélectionné en
                bas (voir app.js). -->
+
+          <!-- Icône "Abonnés & Abonnements" (2 septembre 2026, demande
+               d'Emilien : « créer un icône simple pour abonnés et
+               abonnements [...] à gauche de l'icône invitation [...] qu'une
+               fois sélectionné, il exclut invitation et paramètres »).
+               Troisième icône de .identityHeader, calquée à l'identique sur
+               .notifWrap/.settingsWrap juste après (même .topIconBtn, même
+               panneau flottant .notifPanel ancré sous sa propre icône, même
+               violet "active" pendant l'ouverture, même fermeture au clic en
+               dehors) et rejoint leur exclusion mutuelle : ouvrir ce panneau
+               referme Invitations et Réglages, et réciproquement (voir
+               closeFollowsPanel/closeNotifPanel/closeSettingsPanel dans
+               app.js). Remplace l'ancien bouton texte "Abonnés &
+               Abonnements" qui vivait juste sous l'avatar depuis le 1er
+               septembre 2026 (voir plus bas dans #profileMain) — même
+               panneau, même contenu (#settingsFollowersList/
+               #settingsFollowingList inchangés, y compris le bouton "Se
+               désabonner" sur la liste Abonnements), seul le point d'entrée
+               change : une icône simple plutôt qu'un bouton texte, cohérente
+               avec les deux autres icônes de la ligne. -->
+                <div class="followsWrap">
+            <button id="profileFollowsBtn" class="topIconBtn" title="Abonnés et abonnements" aria-label="Abonnés et abonnements">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </button>
+            <div id="profileFollowsPanel" class="notifPanel hidden">
+              <p class="hint">Abonnés</p>
+              <div id="settingsFollowersList" class="activitiesList"></div>
+              <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
+              <p class="hint">Abonnements</p>
+              <div id="settingsFollowingList" class="activitiesList"></div>
+              <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+            </div>
+          </div>
+
                 <div class="notifWrap">
             <button id="profileNotifBtn" class="topIconBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -906,13 +968,13 @@
 
 
               <!-- "Abonnés & Abonnements" a quitté Réglages le 1er septembre 2026
-                   (demande d'Emilien) pour s'ouvrir directement sur la vue
-                   principale du Profil, au clic sur le bouton juste sous l'avatar
-                   (#profileFollowsBtn/#profileFollowsPanel, voir #profileMain plus
-                   haut dans ce fichier) — ce panneau ⚙️ ne la contient donc plus.
-                   Sa liste Abonnements y est même devenue actionnable ("Se
-                   désabonner"), même jour, second passage — voir le commentaire
-                   laissé là-bas. -->
+                   (demande d'Emilien) — ce panneau ⚙️ ne la contient donc plus.
+                   Devenue une icône dédiée dans .identityHeader le 2 septembre
+                   2026 (#profileFollowsBtn/#profileFollowsPanel, voir le
+                   commentaire juste au-dessus de .notifWrap plus haut dans ce
+                   fichier). Sa liste Abonnements y est même devenue actionnable
+                   ("Se désabonner"), 1er septembre 2026, second passage — voir
+                   le commentaire laissé là-bas. -->
 
               <div class="settingsSection">
                 <button type="button" class="settingsSectionHeader" aria-expanded="false">
@@ -1122,37 +1184,6 @@
         </div>
         <div id="projectsList" class="activitiesList"></div>
         <p id="projectsEmptyHint" class="hint hidden">Aucun projet ajouté pour l'instant.</p>
-
-        <!-- "Abonnés & Abonnements" (1er septembre 2026, demande d'Emilien :
-             « déplacer la section abonnés et abonnements des réglages vers
-             le bouton abonnement dans le profil »). La section a quitté
-             Réglages (où elle vivait depuis le 30 août 2026, dans
-             #profileSettingsPanel — panneau partagé avec Paramètres, voir le
-             commentaire laissé là-bas) : elle s'ouvre désormais ici, juste
-             sous l'avatar, en panneau repliable au clic sur ce bouton — même
-             principe que le panneau "⋮" d'une activité
-             (.activitySettingsPanel). Ids de contenu inchangés
-             (#settingsFollowersList/#settingsFollowingList et leurs indices
-             vides), seul l'emplacement dans le DOM change. ⚠️ 1er septembre
-             2026, même jour, second passage (demande d'Emilien : « je
-             souhaite que l'option se désabonner apparaisse dans le menu
-             déroulant du bouton abonnés et abonnement sur le profil. Déplace
-             cette option de la communauté ») : la liste Abonnements
-             (#settingsFollowingList) n'est plus en lecture seule — chaque
-             ligne porte désormais un bouton "Se désabonner" (renderNameOnlyList
-             dans app.js, appelé avec actionable=true pour cette liste
-             uniquement). La liste Abonnés (#settingsFollowersList) reste en
-             lecture seule : on ne peut retirer que ses propres abonnements,
-             jamais empêcher quelqu'un d'autre de nous suivre depuis ici. -->
-        <button type="button" id="profileFollowsBtn" class="iconBtn">Abonnés &amp; Abonnements</button>
-        <div id="profileFollowsPanel" class="settingsCard hidden">
-          <p class="hint">Abonnés</p>
-          <div id="settingsFollowersList" class="activitiesList"></div>
-          <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
-          <p class="hint">Abonnements</p>
-          <div id="settingsFollowingList" class="activitiesList"></div>
-          <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
-        </div>
 
         <!-- Zone de discussion (31 août 2026, demande d'Emilien) : remplace
              la zone "Note" du Chrono, retirée le même jour (voir
