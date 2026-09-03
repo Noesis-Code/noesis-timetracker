@@ -1961,30 +1961,32 @@ button { -webkit-user-select: none; user-select: none; }
    largeur et pousse son libellé dans une colonne de trois mots. Défaut visible
    à l'œil, corrigé le 3 septembre 2026 en même temps que l'ouverture du
    panneau "Option" qui l'a rendu visible. */
-/* Cases à cocher NOIRES (3 septembre 2026, demande d'Emilien). La case native
-   se dessine en blanc quel que soit le thème : impossible de la noircir sans
-   reprendre son rendu (`appearance: none`), donc coche redessinée ici. La
-   couleur est volontairement en dur et non `var(--card)` : c'est le noir qui a
-   été demandé, pas « la couleur du fond ». */
-.pollFormRow input[type="checkbox"] {
+/* ⚠️ Ne PAS redessiner ces cases. Elles ont été noircies le 3 septembre 2026
+   (appearance: none + coche en ::after), puis Emilien est revenu dessus le jour
+   même : « enlève ma dernière demande que les cases à cocher soient noires,
+   remet-les comme avant par défaut ». On ne garde donc que le correctif de
+   largeur ci-dessus — le rendu de la case est celui du navigateur. */
+.pollFormRow input[type="checkbox"] { width: auto; flex: 0 0 auto; margin: 0; }
+
+/* Libellé au-dessus, champ de date en dessous, le tout CENTRÉ dans le cadre du
+   panneau "Option" (3 septembre 2026 : « je souhaite que la section clôture ne
+   dépasse pas du cadre [...] je souhaite qu'elle soit centrée »). Côte à côte,
+   "Clôture (facultatif)" se coupait en deux sur un téléphone. */
+.pollFormRowStacked {
+  flex-direction: column; align-items: center; gap: 6px; text-align: center;
+}
+/* Le débordement hors du cadre venait du champ de date lui-même : sur iOS, un
+   input[type=date] garde une largeur intrinsèque native que `width: 100%` ne
+   contraint pas — d'où appearance: none, qui le fait se comporter comme un
+   champ texte ordinaire, et box-sizing explicite pour que le padding reste À
+   L'INTÉRIEUR de la largeur. max-width borne le champ bien avant les bords du
+   cadre, ce qui rend le centrage visible plutôt que théorique. */
+.pollFormRow input[type="date"] {
   appearance: none; -webkit-appearance: none;
-  width: 18px; height: 18px; flex: 0 0 auto; margin: 0;
-  background: #000; border: 1px solid var(--border);
-  border-radius: 4px; position: relative; cursor: pointer;
+  box-sizing: border-box;
+  width: 100%; max-width: 220px; min-width: 0;
+  margin-bottom: 0; text-align: center;
 }
-.pollFormRow input[type="checkbox"]:checked { border-color: var(--purple); }
-.pollFormRow input[type="checkbox"]:checked::after {
-  content: ''; position: absolute; left: 5px; top: 1px;
-  width: 4px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-.pollFormRow input[type="checkbox"]:focus-visible {
-  outline: none; box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
-}
-/* Libellé au-dessus, champ de date en dessous sur toute la largeur : sur un
-   téléphone, les deux côte à côte coupaient "Clôture (facultatif)" en deux. */
-.pollFormRowStacked { flex-direction: column; align-items: stretch; gap: 6px; }
-.pollFormRow input[type="date"] { min-width: 0; max-width: 100%; margin-bottom: 0; }
 
 /* ----- carte d'un sondage ----- */
 .pollQuestion { margin: 2px 0 0; font-weight: 600; line-height: 1.35; }
