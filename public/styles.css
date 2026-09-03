@@ -2186,23 +2186,46 @@ button { -webkit-user-select: none; user-select: none; }
    d'activité est une superposition avec son en-tête hors du défilement, voir
    plus haut). La barre du haut de l'app est recouverte par cette page, elle ne
    mange donc rien ici — un décalage de 56 px laisserait juste un trou. */
+/* ⚠️ AUCUNE marge négative en HAUT, et c'est le correctif du 3 septembre 2026
+   (Emilien : « que les écritures ne puissent pas passer entre le titre et la
+   barre supérieure »). Le décalage `top` d'un élément collant se mesure
+   jusqu'à son bord de MARGE : un `margin-top: -12px` posait donc le bord
+   visible 12 px plus bas que la butée, et les messages défilaient dans cette
+   bande. La compensation se fait maintenant sur la ligne elle-même
+   (.subProjectRow.open perd son padding haut), ce qui donne exactement le même
+   dessin sans décaler la butée. */
+.subProjectRow.open {
+  padding-top: 0;
+}
+
 .subProjectSticky.open {
   position: sticky;
   top: 0;
   z-index: 4;   /* sous .topbar/.tabbar (10), au-dessus du contenu de la carte */
-  /* Marges négatives : l'en-tête couvre toute la largeur de la carte, sinon le
-     contenu défilerait visiblement dans ses 12 px de padding latéral. */
-  margin: -12px -12px 0;
+  /* Marges négatives LATÉRALES seulement : l'en-tête couvre toute la largeur
+     de la carte, sinon le contenu défilerait visiblement dans ses 12 px de
+     padding gauche/droite. */
+  margin: 0 -12px;
   padding: 12px 12px 8px;
   background: var(--card);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  /* Elle se fond dans la barre du haut : plus d'arrondi côté butée, et un
+     filet en bas qui la sépare du contenu qui glisse dessous. */
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
 }
 
-/* La croix de fermeture ne s'affiche que sur le sous-projet ouvert : elle est
-   construite en JS, il n'y a rien à masquer ici — juste à ne pas la laisser
+/* Le bouton "Sortir" ne s'affiche que sur le sous-projet ouvert : il est
+   construit en JS, il n'y a rien à masquer ici — juste à ne pas le laisser
    s'étirer entre le badge et le bouton "Ajouter". */
 .subProjectCloseBtn {
   flex: 0 0 auto;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+/* Le "+" seul, sans titre à sa gauche : il reste calé à droite. */
+.subProjectsHeadRow {
+  justify-content: flex-end;
 }
 
 .subProjectSection {
@@ -2671,16 +2694,28 @@ button { -webkit-user-select: none; user-select: none; }
 /* Le champ de date suit le même gabarit que les autres champs du panneau
    (même règle que le formulaire de projet du Profil) : sans ça, il déborde du
    cadre sur téléphone. */
+/* ⚠️ `appearance: none` et `min-width: 0` : sur iOS, un <input type="date">
+   s'attribue une largeur intrinsèque plus grande que son conteneur et déborde
+   du cadre malgré width:100% — c'est le même défaut que la date du formulaire
+   de projet du Profil, corrigé le 2 septembre 2026. Le texte est centré
+   (demande d'Emilien, 3 septembre 2026) : sans ça, la date se colle à gauche
+   sur Android et au milieu sur iOS, deux dessins pour un même champ. */
 #newSubProjectClosesAt {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
-  padding: 8px;
+  padding: 10px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--card);
   color: var(--text);
   font-family: inherit;
   font-size: 14px;
+  text-align: center;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 /* ----- Mode édition de la liste (appui long) ----- */
@@ -2701,6 +2736,16 @@ button { -webkit-user-select: none; user-select: none; }
 .subProjectRow.dragging {
   opacity: 0.75;
   border-color: var(--purple);
+  z-index: 2;   /* la ligne tirée passe AU-DESSUS de celles qui s'écartent */
+  position: relative;
+}
+
+/* ⭐ Les voisines s'écartent pour ouvrir la place (demande d'Emilien,
+   3 septembre 2026). Le glissement est animé, mais UNIQUEMENT sur les lignes
+   qui s'écartent : la ligne tirée doit suivre le doigt sans retard, sinon le
+   geste paraît mou. D'où le `:not(.dragging)`. */
+#subProjectsList.dragging .subProjectRow:not(.dragging) {
+  transition: transform 0.16s ease;
 }
 
 /* ⚠️ SEUL élément qui neutralise le geste natif : le reste de la page défile

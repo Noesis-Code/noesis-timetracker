@@ -1123,8 +1123,12 @@
              (mountMessageThread, ids fixes) au lieu d'une instance par
              sous-projet. -->
         <div id="activitySubProjectsBlock">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Sous-projets</p>
+          <!-- ⚠️ Plus de titre "Sous-projets" ici (demande d'Emilien,
+               3 septembre 2026) : depuis que la page d'activité a un
+               sélecteur de sections, l'onglet actif porte déjà ce mot. Le
+               titre le répétait à deux centimètres d'écart. Il ne reste que
+               le "+", poussé à droite comme avant. -->
+          <div class="sectionTitleRow subProjectsHeadRow">
             <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter un sous-projet">+</button>
           </div>
 
@@ -1268,7 +1272,8 @@
           <p class="sectionTitle">Sondages</p>
           <div class="rowActions">
             <button type="button" class="menuBtn hidden" id="subProjectPollsAddBtn" aria-label="Créer un sondage">+</button>
-            <button type="button" class="menuBtn" id="subProjectPollsRemoveBtn" aria-label="Retirer les sondages">✕</button>
+            <!-- Rouge : elle RETIRE la section (3 septembre 2026, Emilien). -->
+            <button type="button" class="subProjectDeleteX subProjectSectionRemove" id="subProjectPollsRemoveBtn" aria-label="Retirer les sondages">✕</button>
           </div>
         </div>
         <!-- Plus de titre de section ni de ligne d'en-tête ici (3 septembre
@@ -1315,7 +1320,7 @@
             <div id="subProjectDiscussionBlock" class="discussionBlock hidden">
               <div class="sectionTitleRow">
                 <p class="sectionTitle">Discussion</p>
-                <button type="button" id="subProjectDiscussionRemoveBtn" class="menuBtn" aria-label="Retirer la discussion">✕</button>
+                <button type="button" id="subProjectDiscussionRemoveBtn" class="subProjectDeleteX subProjectSectionRemove" aria-label="Retirer la discussion">✕</button>
               </div>
               <!-- ⚠️ Débordement signalé (Activité — général, 3 septembre 2026) :
                    Emilien a demandé que les principes du fil d'activité

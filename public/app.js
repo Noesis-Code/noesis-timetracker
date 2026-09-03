@@ -2781,6 +2781,23 @@
       progress.done + ' / ' + progress.total + t(' tâches complétées');
   }
 
+  // ⚠️ La butée de l'en-tête collant est MESURÉE, pas écrite en dur, et c'est
+  // le correctif du 3 septembre 2026 (Emilien : « que les écritures ne
+  // puissent pas passer entre le titre et la barre supérieure »).
+  //
+  // Le rectangle de collage d'un élément `sticky` est la zone de CONTENU de
+  // son conteneur de défilement — donc son padding EXCLU. #activityPageScroll
+  // a 16 px de padding : avec `top: 0`, l'en-tête se figeait 16 px trop bas et
+  // les messages défilaient visiblement dans cette bande. Un `top: -16px` en
+  // dur corrigerait l'écran d'aujourd'hui, mais ce padding appartient à la
+  // discussion "Activité — général" : le jour où elle le change, la bande
+  // revient sans que personne ne le voie. On lit donc la valeur réelle.
+  function pinSubProjectSticky(stick) {
+    var scroller = document.getElementById('activityPageScroll');
+    var pad = scroller ? (parseFloat(getComputedStyle(scroller).paddingTop) || 0) : 0;
+    stick.style.top = pad ? (-pad) + 'px' : '0';
+  }
+
   function resetSubProjectsBlock() {
     currentSubProjectId = '';
     subProjectsCache = [];
@@ -2846,7 +2863,8 @@
 
     data.subProjects.forEach(function (sub) {
       var row = document.createElement('div');
-      row.className = 'activityRow subProjectRow' + (subProjectsEditMode ? ' editing' : '');
+      row.className = 'activityRow subProjectRow' + (subProjectsEditMode ? ' editing' : '')
+        + (String(sub.id) === String(currentSubProjectId) && !subProjectsEditMode ? ' open' : '');
       row.dataset.subProjectId = sub.id;
 
       var header = document.createElement('div');
@@ -2963,6 +2981,7 @@
       }
 
       row.appendChild(stick);
+      if (isOpen) pinSubProjectSticky(stick);
 
       if (sub.description) {
         var desc = document.createElement('p');
@@ -3016,9 +3035,13 @@
       if (isOpen) {
         var close = document.createElement('button');
         close.type = 'button';
-        close.className = 'menuBtn subProjectCloseBtn';
-        close.textContent = '✕';
-        close.setAttribute('aria-label', t('Fermer ce sous-projet'));
+        // ⭐ Un bouton "Sortir" et non une croix (demande d'Emilien,
+        // 3 septembre 2026) : dans cet en-tête, la croix se confondait avec
+        // celles qui SUPPRIMENT (une section, une tâche). Un mot dit ce qu'il
+        // fait ; ici on ne perd rien, on remonte d'un cran.
+        close.className = 'iconBtn subProjectCloseBtn';
+        close.textContent = t('Sortir');
+        close.setAttribute('aria-label', t('Sortir de ce sous-projet'));
         close.addEventListener('click', function (e) {
           e.stopPropagation();
           selectSubProject('');
@@ -3118,9 +3141,33 @@
       var fromIndex = rows.indexOf(row);
       var startY = e.clientY;
       var targetIndex = fromIndex;
+      // Hauteur d'un « cran » : la ligne tirée, écart compris. C'est de
+      // combien les voisines doivent s'écarter pour ouvrir la place. En mode
+      // édition les lignes sont toutes réduites à leur en-tête, donc de même
+      // hauteur : une seule mesure suffit.
+      var step = row.getBoundingClientRect().height +
+        parseFloat(getComputedStyle(box).rowGap || getComputedStyle(box).gap || 0) || 0;
 
       handle.setPointerCapture(e.pointerId);
       row.classList.add('dragging');
+      box.classList.add('dragging');
+
+      // ⭐ Les voisines S'ÉCARTENT pendant le geste (demande d'Emilien,
+      // 3 septembre 2026) : on voit la place où le sous-projet va tomber au
+      // lieu de deviner. Toujours par `transform`, jamais en touchant le DOM —
+      // même raison qu'au-dessus, réinsérer un nœud relâcherait la capture du
+      // pointeur et arrêterait le glissement.
+      function layoutGap() {
+        for (var i = 0; i < rows.length; i++) {
+          if (i === fromIndex) continue;
+          var shift = 0;
+          // On descend : tout ce qu'on a dépassé remonte d'un cran.
+          if (targetIndex > fromIndex && i > fromIndex && i <= targetIndex) shift = -step;
+          // On monte : tout ce qu'on a dépassé descend d'un cran.
+          else if (targetIndex < fromIndex && i >= targetIndex && i < fromIndex) shift = step;
+          rows[i].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+        }
+      }
 
       function onMove(ev) {
         row.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
@@ -3129,7 +3176,7 @@
         for (var i = 0; i < mids.length; i++) {
           if (ev.clientY > mids[i]) idx = i;
         }
-        targetIndex = idx;
+        if (idx !== targetIndex) { targetIndex = idx; layoutGap(); }
       }
 
       function onUp() {
@@ -3137,7 +3184,12 @@
         handle.removeEventListener('pointerup', onUp);
         handle.removeEventListener('pointercancel', onUp);
         row.classList.remove('dragging');
+        box.classList.remove('dragging');
         row.style.transform = '';
+        // Les décalages visuels sont annulés AVANT le réordonnancement réel :
+        // sans ça, les lignes garderaient leur translation par-dessus leur
+        // nouvelle position et tout paraîtrait décalé d'un cran.
+        rows.forEach(function (el) { el.style.transform = ''; });
 
         if (targetIndex !== fromIndex) {
           var ordered = rows.slice();
@@ -3215,6 +3267,11 @@
     }
     currentSubProjectId = id ? String(id) : '';
     subProjectDetailData = null;
+    // ⭐ Un sous-projet ouvert et un formulaire de création ne coexistent pas
+    // (demande d'Emilien, 3 septembre 2026) : ouvrir un sous-projet abandonne
+    // la création en cours. Ce sont deux façons de se servir de la même liste,
+    // et l'écran devenait illisible avec les deux à la fois.
+    if (currentSubProjectId) closeNewSubProjectForm();
     // ⚠️ La LIGNE est redessinée, pas seulement le détail : depuis l'en-tête
     // collant (3 septembre 2026), ce qu'elle contient dépend de l'ouverture —
     // la croix de fermeture n'existe que sur le sous-projet ouvert, et c'est
@@ -3332,7 +3389,12 @@
 
     var del = document.createElement('button');
     del.type = 'button';
-    del.className = 'menuBtn';
+    // ⭐ Rouge (demande d'Emilien, 3 septembre 2026) : cette croix RETIRE une
+    // section entière. Elle avait exactement la même allure que le bouton
+    // "Sortir" d'à côté, qui ne détruit rien — même classe .subProjectDeleteX
+    // que la croix de suppression d'un sous-projet, pour que « rouge » veuille
+    // dire la même chose partout dans ce volet.
+    del.className = 'subProjectDeleteX subProjectSectionRemove';
     del.textContent = '✕';
     del.title = t('Retirer cette section');
     del.addEventListener('click', function () {
@@ -3582,6 +3644,10 @@
   $('addSubProjectBtn').addEventListener('click', function () {
     var card = $('newSubProjectCard');
     if (card.classList.contains('hidden')) {
+      // ⭐ Réciproque de la règle ci-dessus : créer referme le sous-projet
+      // ouvert. selectSubProject('') redessine la liste, donc on ouvre le
+      // formulaire APRÈS.
+      if (currentSubProjectId) selectSubProject('');
       card.classList.remove('hidden');
       $('newSubProjectName').focus();
     } else {

@@ -283,7 +283,7 @@ async function api(page, method, path, body) {
 
   // --- Retirer une section de tâches ---
   page.once('dialog', (d) => d.accept());
-  await page.click('#subProjectSections .subProjectTasksSection .subProjectSectionHead .menuBtn');
+  await page.click('#subProjectSections .subProjectTasksSection .subProjectSectionHead .subProjectSectionRemove');
   await page.waitForTimeout(900);
   ok((await page.$$('#subProjectSections .subProjectTasksSection')).length === 0, '8.3 la section de tâches est retirée');
   ok(!(await page.isVisible('#activityProgressWrap')),
@@ -435,7 +435,24 @@ async function api(page, method, path, body) {
   await page.mouse.move(h2.x + h2.width / 2, h2.y + h2.height / 2);
   await page.mouse.down();
   await page.mouse.move(h1.x + h1.width / 2, h1.y - 12, { steps: 12 });
+  // ⭐ PENDANT le geste : la ligne survolée s'écarte pour ouvrir la place
+  // (demande d'Emilien, 3 septembre 2026). Mesuré doigt encore posé — c'est
+  // le seul moment où c'est observable.
+  ok(await page.evaluate(() => {
+    const rows = document.querySelectorAll('#subProjectsList .subProjectRow');
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].classList.contains('dragging')) continue;
+      const tr = rows[i].style.transform;
+      if (tr && tr.indexOf('translateY(0px)') === -1 && tr.indexOf('translateY') !== -1) return true;
+    }
+    return false;
+  }), '12.7b ⭐ les voisines s\'écartent pendant le glissement');
   await page.mouse.up();
+  await page.waitForTimeout(400);
+  // Et elles reviennent : aucune translation résiduelle après le lâcher.
+  ok(await page.evaluate(() => Array.prototype.every.call(
+    document.querySelectorAll('#subProjectsList .subProjectRow'),
+    (r) => !r.style.transform)), '12.7c ⭐ aucune translation résiduelle au lâcher');
   await page.waitForTimeout(1000);
   const orderAfter = (await api(page, 'GET', '/api/activities/' + activity.id + '/sub-projects?userId=' + user.id))
     .body.subProjects.map((sp) => sp.id);
@@ -553,6 +570,110 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(1200);
   ok((await page.textContent('#subProjectsList')).indexOf('Éphémère') !== -1,
     '14.7 ⭐ on peut le faire revenir : la clôture masque, elle ne supprime pas');
+
+  // ============ 15. En-tête calé sous la barre, "Sortir", exclusion ========
+  // Demandes d'Emilien du 3 septembre 2026 (sixième passage).
+  const sp15 = (await api(page, 'POST', '/api/activities/' + activity.id + '/sub-projects', {
+    userId: user.id, name: 'Cale',
+  })).body;
+  const sec15 = (await api(page, 'POST', '/api/sub-projects/' + sp15.id + '/sections',
+    { userId: user.id, kind: 'tasks' })).body.section;
+  // Assez de contenu pour que la ligne dépasse la hauteur de l'écran : sinon
+  // elle n'atteint jamais la butée et l'assertion 15.3 ne mesurerait que sa
+  // position normale.
+  for (let i = 0; i < 10; i++) {
+    await api(page, 'POST', '/api/sub-project-sections/' + sec15.id + '/items',
+      { userId: user.id, label: 'Tâche de remplissage numéro ' + i + ', assez longue pour occuper deux lignes' });
+  }
+  await api(page, 'POST', '/api/sub-projects/' + sp15.id + '/sections', { userId: user.id, kind: 'discussion' });
+  for (let i = 0; i < 8; i++) {
+    await api(page, 'POST', '/api/sub-projects/' + sp15.id + '/messages',
+      { userId: user.id, body: 'Message de remplissage numéro ' + i + ' dans le fil de ce sous-projet.' });
+  }
+  await page.click('#activityPageClose');
+  await page.waitForTimeout(500);
+  await page.click('#activitiesList .activityRow .activityRowHeader');
+  await page.waitForTimeout(1400);
+  const r15 = '#subProjectsList .subProjectRow[data-sub-project-id="' + sp15.id + '"] ';
+
+  // ⭐ Le titre "Sous-projets" a disparu : l'onglet actif le dit déjà.
+  ok(await page.evaluate(() => {
+    const head = document.querySelector('#activitySubProjectsBlock .sectionTitleRow');
+    return !!head && !head.querySelector('.sectionTitle') && !!head.querySelector('#addSubProjectBtn');
+  }), '15.1 ⭐ le titre "Sous-projets" a disparu, le "+" reste');
+
+  await page.click(r15 + '.subProjectRowHeader');
+  await page.waitForTimeout(1000);
+  ok((await page.textContent(r15 + '.subProjectCloseBtn')) === 'Sortir',
+    '15.2 ⭐ la croix de fermeture est devenue un bouton "Sortir"');
+
+  // ⭐ Calé SOUS la barre du haut, sans bande où du texte puisse défiler.
+  // Le rectangle de collage exclut le padding du conteneur : sans la butée
+  // négative posée en JS, l'écart vaudrait ce padding (16 px aujourd'hui).
+  // On défile assez loin pour que la ligne ATTEIGNE la butée : sans ça on
+  // mesurerait simplement sa position normale, et l'assertion passerait ou
+  // échouerait au hasard du contenu au-dessus.
+  await page.evaluate((sel) => {
+    const row = document.querySelector(sel.trim());
+    const sc = document.getElementById('activityPageScroll');
+    sc.scrollTop = row.offsetTop + 150;
+  }, r15);
+  await page.waitForTimeout(400);
+  const pin = await page.evaluate((sel) => {
+    const st = document.querySelector(sel + '.subProjectSticky');
+    const sc = document.getElementById('activityPageScroll');
+    return st.getBoundingClientRect().top - sc.getBoundingClientRect().top;
+  }, r15);
+  ok(Math.abs(pin) <= 1, '15.3 ⭐ l\'en-tête se cale à ras de la barre du haut (écart ' + pin + ' px)');
+
+  // L'autre moitié de « rien ne passe » : la barre est OPAQUE et peinte
+  // au-dessus. Une bande de hauteur nulle ne suffit pas si le contenu se voit
+  // au travers.
+  ok(await page.evaluate((sel) => {
+    const st = document.querySelector(sel + '.subProjectSticky');
+    const cs = getComputedStyle(st);
+    const alpha = (cs.backgroundColor.match(/rgba?\([^)]*\)/) || [''])[0].split(',')[3];
+    return (alpha === undefined || parseFloat(alpha) === 1) &&
+      cs.backgroundColor !== 'transparent' && Number(cs.zIndex) > 0;
+  }, r15), '15.4 ⭐ la barre est opaque et peinte au-dessus : rien ne se voit au travers');
+  await page.evaluate(() => document.getElementById('activityPageScroll').scrollTo(0, 0));
+  await page.waitForTimeout(300);
+
+  // ⭐ Les croix qui RETIRENT une section sont rouges.
+  ok(await page.evaluate(() => {
+    const x = document.querySelector('#subProjectSections .subProjectSectionRemove');
+    const m = getComputedStyle(x).color.match(/\d+/g).map(Number);
+    return m[0] > 150 && m[1] < 110 && m[2] < 110;
+  }), '15.5 ⭐ la croix qui retire une section de tâches est rouge');
+
+  // ⭐ Création et ouverture s'excluent, dans les deux sens.
+  await page.click('#addSubProjectBtn');
+  await page.waitForTimeout(700);
+  ok(await page.evaluate((sel) => !document.querySelector(sel.trim()).querySelector('#subProjectDetail'), r15),
+    '15.6 ⭐ ouvrir la création referme le sous-projet ouvert');
+  ok(await page.isVisible('#newSubProjectCard'), '15.7 et le formulaire est bien ouvert');
+
+  await page.fill('#newSubProjectName', 'Jamais ajouté');
+  await page.click(r15 + '.subProjectRowHeader');
+  await page.waitForTimeout(900);
+  ok(!(await page.isVisible('#newSubProjectCard')),
+    '15.8 ⭐ ouvrir un sous-projet fait disparaître la création non validée');
+  const after15 = (await api(page, 'GET', '/api/activities/' + activity.id + '/sub-projects?userId=' + user.id)).body;
+  ok(!after15.subProjects.some((s) => s.name === 'Jamais ajouté'),
+    '15.9 ⭐ et rien n\'a été créé au passage');
+
+  // Le champ de clôture ne déborde pas de sa carte et son texte est centré.
+  await page.click('#addSubProjectBtn');
+  await page.waitForTimeout(500);
+  ok(await page.evaluate(() => {
+    const input = document.getElementById('newSubProjectClosesAt');
+    const card = document.getElementById('newSubProjectCard');
+    const ir = input.getBoundingClientRect(), cr = card.getBoundingClientRect();
+    return ir.left >= cr.left - 0.5 && ir.right <= cr.right + 0.5 &&
+      getComputedStyle(input).textAlign === 'center';
+  }), '15.10 ⭐ le champ Clôture est centré et tient dans la carte');
+  await page.click('#newSubProjectCancel');
+  await page.waitForTimeout(300);
 
   // --- Activité PARTAGÉE ---
   // ⚠️ 3 septembre 2026 : la partie NAVIGATION de ce scénario a dû être
