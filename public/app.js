@@ -2120,6 +2120,9 @@
     // communityDiscussionComposer est la seconde instance, celle du Profil
     // (profileDiscussionComposer) restant inchangée.
     communityDiscussionComposer.reset();
+    // Sondages (3 septembre 2026, discussion "Sondages") : bloc jumeau de
+    // celui du Profil, même donnée — voir mountPolls plus bas.
+    communityPollsMount.reset();
     loadFollowingFeed();
   }
 
@@ -3617,13 +3620,45 @@
   // (profile_posts) depuis le retrait de l'ancienne branche de sessions
   // notées côté serveur (voir followingFeedForUser, server/lib/community.js)
   // — chaque entrée est donc toujours affichée via buildFollowingPostCard.
+  //
+  // ⚠️ 3 septembre 2026 (discussion "Sondages", débordement signalé) : le flux
+  // mêle désormais deux sources, triées ensemble par date décroissante — les
+  // messages (inchangés, /community/following-feed) et les SONDAGES des mêmes
+  // personnes (/polls/following). C'est la conséquence directe du cadrage
+  // d'Emilien : un sondage « est un post qui défile », il n'a donc pas de
+  // bloc à lui dans cet onglet, il se lit au milieu des messages.
+  //
+  // Deux précautions volontaires :
+  //   - AUCUNE ligne de server/lib/community.js n'a été touchée. La fusion se
+  //     fait ici, côté client, à partir de deux réponses. Le jour où
+  //     Communauté voudra une seule réponse serveur, pollsForFollowing()
+  //     (server/lib/polls.js) est déjà écrite pour être appelée depuis
+  //     followingFeedForUser.
+  //   - Le .catch sur l'appel des sondages renvoie une liste vide : une panne
+  //     du socle des sondages ne doit pas faire disparaître les messages, qui
+  //     eux marchaient très bien avant.
   function loadFollowingFeed() {
     if (!profile) return;
-    api('GET', '/api/community/following-feed?userId=' + profile.id).then(function (list) {
+    Promise.all([
+      api('GET', '/api/community/following-feed?userId=' + profile.id),
+      api('GET', '/api/polls/following?userId=' + profile.id).catch(function () { return []; }),
+    ]).then(function (results) {
+      var posts = results[0] || [];
+      var followedPolls = results[1] || [];
+      var merged = posts.map(function (e) { return { at: e.createdAt, kind: 'post', data: e }; })
+        .concat(followedPolls.map(function (p) { return { at: p.createdAt, kind: 'poll', data: p }; }));
+      // Les deux sources sont déjà triées chacune de son côté ; le tri
+      // commun se fait sur la chaîne ISO, comparable telle quelle.
+      merged.sort(function (a, b) { return a.at < b.at ? 1 : (a.at > b.at ? -1 : 0); });
+
       var box = $('followingFeed');
       box.innerHTML = '';
-      $('followingFeedEmptyHint').classList.toggle('hidden', list.length > 0);
-      list.forEach(function (entry) { box.appendChild(buildFollowingPostCard(entry)); });
+      $('followingFeedEmptyHint').classList.toggle('hidden', merged.length > 0);
+      merged.forEach(function (item) {
+        box.appendChild(item.kind === 'poll'
+          ? buildPollCard(item.data, loadFollowingFeed)
+          : buildFollowingPostCard(item.data));
+      });
     });
   }
 
@@ -4966,6 +5001,13 @@
     $('viewProfilePostsList').innerHTML = '';
     $('viewProfilePostsEmptyHint').classList.add('hidden');
     $('viewProfilePostsLockedHint').classList.add('hidden');
+    // Sondages du profil visité (3 septembre 2026, discussion "Sondages") :
+    // remis à zéro ET remasqués comme le reste — le bloc se réaffichera de
+    // lui-même si ce profil-ci en a (voir mountPolls, plus bas). Chargé plus
+    // bas dans cette même fonction, après la remise à zéro complète.
+    $('viewProfilePollsList').innerHTML = '';
+    $('viewProfilePollsEmptyHint').classList.add('hidden');
+    $('viewProfilePollsBlock').classList.add('hidden');
 
     // Période/granularité remises à leur valeur par défaut à chaque
     // ouverture — même principe que l'onglet Statistiques, qui repart
@@ -5018,6 +5060,12 @@
       .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
 
     loadViewProfileStats();
+    // Sondages du profil visité (3 septembre 2026, discussion "Sondages") :
+    // premier niveau d'accès (tout membre identifié), comme les projets et
+    // les statistiques juste au-dessus — et contrairement aux messages,
+    // réservés aux abonnés acceptés. mountPolls porte sa propre garde
+    // anti-réponse-en-vol, sur le même principe que viewProfileUserId.
+    viewProfilePollsMount.load();
   }
 
   function renderViewProfileIdentity(card) {
@@ -5676,7 +5724,426 @@
   // cet appel, hors périmètre Communauté.
   function loadProfileDiscussion() {
     profileDiscussionComposer.reset();
+    // Sondages du Profil (3 septembre 2026, discussion "Sondages") : accroché
+    // au même point d'entrée que la zone Discussion, pour ne pas avoir à
+    // toucher openProfile() (propriété de Design).
+    profilePollsMount.reset();
   }
+
+  // ===================== SONDAGES (socle réutilisable) =====================
+  // Discussion "Sondages" (11ᵉ discussion, 3 septembre 2026).
+  //
+  // Cadrage d'Emilien : « Les sondages n'apparaissent jamais dans les
+  // discussions, ils sont toujours des post qui défile sur le volet
+  // communauté, sur le profil ou dans un sous projet d'une activité. » D'où
+  // deux briques, et pas une de plus :
+  //
+  //   buildPollCard(poll, onChanged, opts) — UNE carte de sondage, autonome.
+  //     Utilisée aussi bien par les listes montées ci-dessous que par le flux
+  //     "Suivi" (loadFollowingFeed, plus haut), où les sondages des personnes
+  //     suivies défilent mêlés à leurs messages. Tout le comportement de vote
+  //     est là : un seul endroit à relire pour comprendre ce qui se passe au
+  //     clic.
+  //
+  //   mountPolls(ids) — une LISTE + (optionnellement) un composeur, montée sur
+  //     un jeu d'ids DOM. Même motif que mountProfilePostsComposer(ids) juste
+  //     au-dessus : trois instances aujourd'hui (Communauté, Profil, page de
+  //     visite d'un profil), zéro duplication.
+  //
+  // ⚠️ Le serveur ne renvoie AUCUN résultat tant qu'on n'a pas voté (ni
+  // compte, ni nom, ni total — voir serializePoll dans server/lib/polls.js) :
+  // il n'y a donc rien à masquer ici, et rien à trouver dans l'inspecteur
+  // réseau. Ce fichier ne fait qu'afficher ce qu'il a reçu. Ne jamais
+  // « optimiser » en demandant tout au serveur pour filtrer côté client.
+
+  var pollsMounts = [];
+
+  function refreshAllPolls() {
+    pollsMounts.forEach(function (m) { m.load(); });
+  }
+
+  function pollStampLabel(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit' }) + ' · ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function pollDayLabel(iso) {
+    return new Date(iso).toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  // opts.authorClickable : false sur la page de visite d'un profil, où
+  // l'auteur EST le profil déjà ouvert — un clic n'y ferait que réinitialiser
+  // la modale sur elle-même.
+  function buildPollCard(poll, onChanged, opts) {
+    opts = opts || {};
+    var card = document.createElement('div');
+    card.className = 'discussionMsg pollCard' + (poll.isMine ? ' mine' : '');
+    card.dataset.pollId = poll.id;
+
+    var msgEl = document.createElement('p');
+    msgEl.className = 'msg';
+
+    // ----- en-tête : auteur, date, actions de l'auteur -----
+    var top = document.createElement('div');
+    top.className = 'discussionMsgTop';
+
+    var author = document.createElement('span');
+    author.className = 'discussionMsgAuthor';
+    author.innerHTML = '<span class="dot" style="background:' + poll.author.color + '"></span> ' +
+      escapeHtml(poll.author.name) + (poll.isMine ? t(' (toi)') : '');
+    if (!poll.isMine && opts.authorClickable !== false) {
+      author.style.cursor = 'pointer';
+      author.addEventListener('click', function () {
+        openProfileViewModal(poll.author.id, poll.author.name, poll.author.color);
+      });
+    }
+    top.appendChild(author);
+
+    var stamp = document.createElement('span');
+    stamp.className = 'meta';
+    stamp.textContent = pollStampLabel(poll.createdAt);
+    top.appendChild(stamp);
+
+    // Clore et supprimer : l'AUTEUR SEUL (choix d'Emilien du 3 septembre
+    // 2026). Le serveur refuse de toute façon quiconque d'autre — ces boutons
+    // sont un raccourci, pas le contrôle d'accès.
+    if (poll.isMine) {
+      if (!poll.isClosed) {
+        var closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'discussionMsgDelete pollCloseBtn';
+        closeBtn.textContent = '⏹';
+        closeBtn.title = t('Clore ce sondage');
+        closeBtn.addEventListener('click', function () {
+          if (!confirm(t('Clore ce sondage ? Plus personne ne pourra voter.'))) return;
+          api('POST', '/api/polls/' + poll.id + '/close', { userId: profile.id })
+            .then(function () { if (onChanged) onChanged(); })
+            .catch(function (err) { msgEl.textContent = err.message; });
+        });
+        top.appendChild(closeBtn);
+      }
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'discussionMsgDelete';
+      del.textContent = '✕';
+      del.title = t('Supprimer ce sondage');
+      del.addEventListener('click', function () {
+        if (!confirm(t('Supprimer ce sondage et tous ses votes ?'))) return;
+        api('DELETE', '/api/polls/' + poll.id + '?userId=' + profile.id)
+          .then(function () { if (onChanged) onChanged(); })
+          .catch(function (err) { msgEl.textContent = err.message; });
+      });
+      top.appendChild(del);
+    }
+    card.appendChild(top);
+
+    // ----- question et étiquettes -----
+    var q = document.createElement('p');
+    q.className = 'pollQuestion';
+    q.textContent = poll.question;
+    card.appendChild(q);
+
+    var flags = [];
+    if (poll.multiChoice) flags.push(t('Plusieurs réponses possibles'));
+    if (poll.isClosed) flags.push(t('Clos'));
+    else if (poll.closesAt) flags.push(t('Ouvert jusqu\'au') + ' ' + pollDayLabel(poll.closesAt));
+    if (flags.length) {
+      var flagEl = document.createElement('p');
+      flagEl.className = 'meta pollFlags';
+      flagEl.textContent = flags.join(' · ');
+      card.appendChild(flagEl);
+    }
+
+    // ----- vote (seulement si ouvert et pas encore voté) -----
+    if (!poll.isClosed && !poll.hasVoted) {
+      var choices = document.createElement('div');
+      choices.className = 'pollOptions';
+      // Nom de groupe unique : plusieurs sondages cohabitent dans le même
+      // flux, et deux groupes de boutons radio homonymes se
+      // désélectionneraient mutuellement.
+      var groupName = 'poll-' + poll.id + '-' + Math.random().toString(36).slice(2);
+      poll.options.forEach(function (o) {
+        var lab = document.createElement('label');
+        lab.className = 'pollChoice';
+        var inp = document.createElement('input');
+        inp.type = poll.multiChoice ? 'checkbox' : 'radio';
+        inp.name = groupName;
+        inp.value = String(o.id);
+        var span = document.createElement('span');
+        span.textContent = o.label;
+        lab.appendChild(inp);
+        lab.appendChild(span);
+        choices.appendChild(lab);
+      });
+      card.appendChild(choices);
+
+      var actions = document.createElement('div');
+      actions.className = 'rowActions';
+      var voteBtn = document.createElement('button');
+      voteBtn.type = 'button';
+      voteBtn.className = 'iconBtn';
+      voteBtn.textContent = t('Voter');
+      voteBtn.addEventListener('click', function () {
+        var chosen = Array.prototype.slice.call(choices.querySelectorAll('input'))
+          .filter(function (i) { return i.checked; })
+          .map(function (i) { return Number(i.value); });
+        if (!chosen.length) { msgEl.textContent = t('Choisis une réponse.'); return; }
+
+        // Validation préalable EXIGÉE par Emilien (3 septembre 2026) : « Non
+        // [pas modifiable], mais demande de validation préalable avant
+        // enregistrement ». Le vote étant définitif côté serveur, c'est la
+        // seule chose qui rattrape un clic à côté — d'où le rappel des
+        // réponses choisies dans la confirmation, plutôt qu'un « Confirmer ? »
+        // sec qui ne laisse rien vérifier.
+        var picked = poll.options
+          .filter(function (o) { return chosen.indexOf(o.id) !== -1; })
+          .map(function (o) { return o.label; })
+          .join(', ');
+        if (!confirm(t('Ton vote est définitif et ne pourra plus être modifié.') + '\n\n' + picked + '\n\n' + t('Confirmer ce vote ?'))) return;
+
+        voteBtn.disabled = true;
+        msgEl.textContent = '';
+        api('POST', '/api/polls/' + poll.id + '/vote', { userId: profile.id, optionIds: chosen })
+          .then(function () { if (onChanged) onChanged(); })
+          .catch(function (err) { msgEl.textContent = err.message; voteBtn.disabled = false; });
+      });
+      actions.appendChild(voteBtn);
+      card.appendChild(actions);
+    }
+
+    // ----- résultats -----
+    if (poll.resultsVisible) {
+      var total = poll.totalVoters || 0;
+      var res = document.createElement('div');
+      res.className = 'pollResults';
+      poll.options.forEach(function (o) {
+        var row = document.createElement('div');
+        row.className = 'pollResult' + (poll.myVote.indexOf(o.id) !== -1 ? ' chosen' : '');
+        // Pourcentage de VOTANTS, pas de votes : sur un sondage à choix
+        // multiple la somme des barres peut donc dépasser 100%, et c'est la
+        // lecture juste (« 60% des gens ont coché Lundi »).
+        var pct = total ? Math.round((o.count / total) * 100) : 0;
+
+        var head = document.createElement('div');
+        head.className = 'pollResultTop';
+        var lab = document.createElement('span');
+        lab.className = 'pollResultLabel';
+        lab.textContent = o.label;
+        var num = document.createElement('span');
+        num.className = 'meta pollResultCount';
+        num.textContent = pct + '% · ' + o.count;
+        head.appendChild(lab);
+        head.appendChild(num);
+        row.appendChild(head);
+
+        var bar = document.createElement('div');
+        bar.className = 'pollBar';
+        var fill = document.createElement('div');
+        fill.className = 'pollBarFill';
+        fill.style.width = pct + '%';
+        bar.appendChild(fill);
+        row.appendChild(bar);
+
+        if (o.voters && o.voters.length) {
+          var v = document.createElement('p');
+          v.className = 'meta pollVoters';
+          v.textContent = o.voters.map(function (x) { return x.name; }).join(', ');
+          row.appendChild(v);
+        }
+        res.appendChild(row);
+      });
+      card.appendChild(res);
+
+      var tot = document.createElement('p');
+      tot.className = 'meta pollTotal';
+      tot.textContent = total === 1 ? t('1 personne a voté') : String(total) + ' ' + t('personnes ont voté');
+      card.appendChild(tot);
+    } else {
+      var hidden = document.createElement('p');
+      hidden.className = 'hint pollHiddenHint';
+      hidden.textContent = t('Vote pour voir les résultats.');
+      card.appendChild(hidden);
+    }
+
+    card.appendChild(msgEl);
+    return card;
+  }
+
+  // ids.scopeId accepte une valeur OU une fonction : la page de visite d'un
+  // profil change de cible à chaque ouverture, elle passe donc une fonction.
+  // Sans ids.form, l'instance est en lecture + vote seulement (aucun
+  // composeur) — c'est le cas de la page de visite d'un profil.
+  function mountPolls(ids) {
+    var MAX_POLL_OPTIONS = 10;
+
+    function scopeIdValue() {
+      return typeof ids.scopeId === 'function' ? ids.scopeId() : ids.scopeId;
+    }
+
+    function hasComposer() { return !!ids.form; }
+
+    function renumberOptions() {
+      var box = $(ids.optionsBox);
+      Array.prototype.slice.call(box.children).forEach(function (row, i) {
+        var input = row.querySelector('input');
+        if (input) input.placeholder = t('Réponse') + ' ' + (i + 1);
+        var rm = row.querySelector('button');
+        if (rm) rm.classList.toggle('hidden', box.children.length <= 2);
+      });
+    }
+
+    function addOptionRow() {
+      var box = $(ids.optionsBox);
+      if (box.children.length >= MAX_POLL_OPTIONS) return;
+      var row = document.createElement('div');
+      row.className = 'pollFormOptionRow';
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = 120;
+      row.appendChild(input);
+      var rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'menuBtn';
+      rm.textContent = '✕';
+      rm.title = t('Retirer cette réponse');
+      rm.addEventListener('click', function () {
+        if (box.children.length <= 2) return;
+        box.removeChild(row);
+        renumberOptions();
+        $(ids.addOptionBtn).disabled = false;
+      });
+      row.appendChild(rm);
+      box.appendChild(row);
+      renumberOptions();
+      $(ids.addOptionBtn).disabled = box.children.length >= MAX_POLL_OPTIONS;
+    }
+
+    function resetForm() {
+      if (!hasComposer()) return;
+      $(ids.form).classList.add('hidden');
+      $(ids.question).value = '';
+      $(ids.multi).checked = false;
+      $(ids.closesAt).value = '';
+      $(ids.msg).textContent = '';
+      $(ids.optionsBox).innerHTML = '';
+      addOptionRow();
+      addOptionRow();
+      $(ids.addOptionBtn).disabled = false;
+    }
+
+    function load() {
+      if (!profile) return;
+      var sid = scopeIdValue();
+      if (!sid) return;
+      api('GET', '/api/polls?userId=' + encodeURIComponent(profile.id) +
+        '&scope=' + encodeURIComponent(ids.scope) + '&scopeId=' + encodeURIComponent(sid))
+        .then(function (data) {
+          // Garde anti-réponse-en-vol, même principe que viewProfileUserId
+          // côté page de visite : la cible a pu changer pendant la requête.
+          if (scopeIdValue() !== sid) return;
+          if (ids.addBtn) $(ids.addBtn).classList.toggle('hidden', !data.canCreate);
+          var box = $(ids.list);
+          box.innerHTML = '';
+          $(ids.emptyHint).classList.toggle('hidden', data.polls.length > 0);
+          data.polls.forEach(function (p) {
+            box.appendChild(buildPollCard(p, refreshAllPolls, { authorClickable: ids.authorClickable !== false }));
+          });
+          // Un bloc en lecture seule sans aucun sondage n'a rien à dire : on
+          // l'efface plutôt que d'afficher un titre vide sur la page de
+          // quelqu'un d'autre.
+          if (ids.root && !hasComposer()) {
+            $(ids.root).classList.toggle('hidden', data.polls.length === 0);
+          }
+        })
+        .catch(function () {
+          // Les sondages sont un ajout : leur panne ne doit jamais casser
+          // l'écran qui les accueille (même esprit que le principe posé pour
+          // les notifications dans server/lib/push.js).
+          if (ids.root && !hasComposer()) $(ids.root).classList.add('hidden');
+        });
+    }
+
+    function create() {
+      if (!profile) return;
+      var question = $(ids.question).value.trim();
+      var options = Array.prototype.slice.call($(ids.optionsBox).querySelectorAll('input'))
+        .map(function (i) { return i.value.trim(); })
+        .filter(function (v) { return v.length > 0; });
+      var msgEl = $(ids.msg);
+      if (!question) { msgEl.textContent = t('Écris une question.'); return; }
+      if (options.length < 2) { msgEl.textContent = t('Il faut au moins deux réponses possibles.'); return; }
+
+      msgEl.textContent = '';
+      $(ids.createBtn).disabled = true;
+      api('POST', '/api/polls', {
+        userId: profile.id,
+        scope: ids.scope,
+        scopeId: scopeIdValue(),
+        question: question,
+        options: options,
+        multiChoice: $(ids.multi).checked,
+        closesAt: $(ids.closesAt).value || null,
+      })
+        .then(function () {
+          resetForm();
+          // Les deux instances (Communauté et Profil) montrent la même donnée :
+          // on les rafraîchit toutes plutôt que la seule qui a servi à créer,
+          // sinon l'autre reste périmée — même choix que
+          // refreshAllProfilePostsComposers pour les messages.
+          refreshAllPolls();
+        })
+        .catch(function (err) { msgEl.textContent = err.message; })
+        .then(function () { $(ids.createBtn).disabled = false; });
+    }
+
+    function reset() {
+      resetForm();
+      load();
+    }
+
+    if (hasComposer()) {
+      $(ids.addBtn).addEventListener('click', function () {
+        var form = $(ids.form);
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden')) $(ids.question).focus();
+      });
+      $(ids.addOptionBtn).addEventListener('click', addOptionRow);
+      $(ids.createBtn).addEventListener('click', create);
+      resetForm();
+    }
+
+    var instance = { load: load, reset: reset };
+    pollsMounts.push(instance);
+    return instance;
+  }
+
+  var communityPollsMount = mountPolls({
+    scope: 'profile',
+    scopeId: function () { return profile && profile.id; },
+    root: 'communityPollsBlock', addBtn: 'communityPollsAddBtn', form: 'communityPollsForm',
+    question: 'communityPollsQuestion', optionsBox: 'communityPollsOptions',
+    addOptionBtn: 'communityPollsAddOptionBtn', multi: 'communityPollsMulti',
+    closesAt: 'communityPollsClosesAt', createBtn: 'communityPollsCreateBtn',
+    msg: 'communityPollsMsg', list: 'communityPollsList', emptyHint: 'communityPollsEmptyHint',
+  });
+
+  var profilePollsMount = mountPolls({
+    scope: 'profile',
+    scopeId: function () { return profile && profile.id; },
+    root: 'profilePollsBlock', addBtn: 'profilePollsAddBtn', form: 'profilePollsForm',
+    question: 'profilePollsQuestion', optionsBox: 'profilePollsOptions',
+    addOptionBtn: 'profilePollsAddOptionBtn', multi: 'profilePollsMulti',
+    closesAt: 'profilePollsClosesAt', createBtn: 'profilePollsCreateBtn',
+    msg: 'profilePollsMsg', list: 'profilePollsList', emptyHint: 'profilePollsEmptyHint',
+  });
+
+  // Page de visite d'un profil : lecture + vote, jamais de création.
+  var viewProfilePollsMount = mountPolls({
+    scope: 'profile',
+    scopeId: function () { return viewProfileUserId; },
+    root: 'viewProfilePollsBlock', list: 'viewProfilePollsList',
+    emptyHint: 'viewProfilePollsEmptyHint', authorClickable: false,
+  });
 
   // Déplacé en haut à droite de Réglages, au-dessus d'Identité (29 août
   // 2026, demande d'Emilien) — anciennement un lien texte en bas de la

@@ -448,6 +448,79 @@ CREATE TABLE IF NOT EXISTS sub_project_messages (
   createdAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sub_project_messages_sp ON sub_project_messages(subProjectId, createdAt);
+
+-- ===================== SONDAGES (3 septembre 2026) =====================
+-- Discussion "Sondages" (11ᵉ discussion). Trois tables NEUVES, purement
+-- additives : aucun ALTER TABLE, aucune migration de données, aucune ligne
+-- existante touchée. Lire l'en-tête de server/lib/polls.js pour le pourquoi
+-- de l'architecture.
+--
+-- scope / scopeId : le couple qui rend ce mécanisme réutilisable partout sans
+-- le recopier. scope dit QUEL type d'endroit héberge le sondage, scopeId
+-- lequel précisément :
+--   'profile'    -> scopeId = users.id (UUID texte) de l'auteur. Le sondage
+--                   défile alors comme un "post" : chez son auteur (zone
+--                   Discussion du Profil + « écrire à sa communauté »), dans
+--                   le flux Suivi de ses abonnés, et sur sa page de visite de
+--                   profil.
+--   'subproject' -> scopeId = sub_projects.id (discussion "Sous-projets").
+-- scopeId est en TEXT parce que les deux familles d'identifiants du projet
+-- cohabitent ici : un UUID texte pour un profil, un entier pour un
+-- sous-projet. Toujours écrit via String(scopeId) côté application, pour que
+-- la comparaison reste homogène.
+--
+-- ⚠️ AUCUNE clé étrangère sur scopeId, et c'est VOLONTAIRE : une même colonne
+-- ne peut pas référencer deux tables différentes selon la valeur d'une autre
+-- colonne. C'est le prix d'un socle générique. La contrepartie est assumée et
+-- compensée à deux endroits : (1) le socle refuse tout scope dont la
+-- discussion hôte n'a pas enregistré sa garde d'accès (fermé par défaut, voir
+-- checkScopeAccess) ; (2) un sondage dont l'hôte a disparu devient
+-- inaccessible plutôt que dangereux — sa garde répond « introuvable ». Le seul
+-- effet résiduel est une ligne orpheline en base, sans lecteur.
+--
+-- closesAt : date de clôture optionnelle (fin de la journée choisie, fuseau du
+-- processus — voir parseClosesAt). closedAt : clôture anticipée par l'auteur.
+-- Un sondage est clos si l'une OU l'autre est atteinte ; rien n'est recalculé
+-- ni maintenu en tâche de fond, la clôture est DÉDUITE à la lecture — même
+-- principe que le compteur de non-lus d'activity_message_reads, aucun
+-- compteur qui puisse dériver.
+CREATE TABLE IF NOT EXISTS polls (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scope TEXT NOT NULL,
+  scopeId TEXT NOT NULL,
+  authorId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  multiChoice INTEGER NOT NULL DEFAULT 0,
+  closesAt TEXT,
+  closedAt TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_polls_scope ON polls(scope, scopeId, createdAt);
+CREATE INDEX IF NOT EXISTS idx_polls_author ON polls(authorId, createdAt);
+
+CREATE TABLE IF NOT EXISTS poll_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pollId INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_poll_options_poll ON poll_options(pollId, position);
+
+-- Une LIGNE PAR (sondage, option, votant) : un vote à choix multiple en pose
+-- plusieurs, un vote simple une seule. L'index unique empêche le doublon exact
+-- (double clic, requête rejouée) ; la règle « un seul vote par personne, et il
+-- est définitif » (choix d'Emilien du 3 septembre 2026) est vérifiée en amont
+-- dans votePoll — elle ne peut pas s'exprimer en contrainte SQL sans interdire
+-- du même coup le choix multiple.
+CREATE TABLE IF NOT EXISTS poll_votes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pollId INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+  optionId INTEGER NOT NULL REFERENCES poll_options(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  votedAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_poll_vote ON poll_votes(pollId, optionId, userId);
+CREATE INDEX IF NOT EXISTS idx_poll_votes_poll_user ON poll_votes(pollId, userId);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================

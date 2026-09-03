@@ -748,4 +748,19 @@ router.delete('/profile/projects/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// Exports additionnels (3 septembre 2026, discussion "Sondages" — débordement
+// de DEUX lignes, signalé à Profil dans chantiers-en-cours.md).
+//
+// Pourquoi : le socle des sondages (server/lib/polls.js) pose comme règle que
+// le contrôle d'accès reste chez la discussion HÔTE, et qu'il ne fait que
+// l'appeler. Pour un sondage de scope 'profile', l'hôte c'est ce fichier —
+// il fallait donc pouvoir appeler canViewProjects sans la recopier, sans quoi
+// une évolution des règles d'accès d'un profil laisserait les sondages sur
+// l'ancienne version, en silence.
+//
+// Un routeur Express est une fonction : lui attacher une propriété n'a aucun
+// effet sur le routage. AUCUNE ligne de logique n'a été modifiée ici.
+router.canViewProjects = canViewProjects;
+router.canViewPosts = canViewPosts;
+
 module.exports = router;

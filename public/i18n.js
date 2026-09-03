@@ -552,6 +552,60 @@
     'Intitulé de la tâche requis.': 'Task label required.',
     'Tâche introuvable.': 'Task not found.',
     "Seul le créateur du sous-projet ou le propriétaire de l'activité peut le supprimer.": 'Only the sub-project creator or the activity owner can delete it.',
+
+    // ---- Sondages (3 septembre 2026, 11ᵉ discussion "Sondages") ----
+    // Textes statiques d'index.html (traduits par translateStaticDom), textes
+    // dynamiques d'app.js (passés par t()), et messages d'erreur renvoyés par
+    // server/routes/polls.js et server/lib/polls.js — français côté serveur
+    // comme partout ailleurs dans le projet, traduits à l'affichage.
+    'Sondages': 'Polls',
+    'Créer un sondage': 'Create a poll',
+    'Ta question...': 'Your question...',
+    '+ Ajouter une réponse': '+ Add an answer',
+    'Plusieurs réponses possibles': 'Multiple answers allowed',
+    'Clôture (facultatif)': 'Closing date (optional)',
+    "Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.":
+      'Voting is not anonymous: voter names are visible once you have voted. Nobody sees the results before voting.',
+    'Créer le sondage': 'Create the poll',
+    "Aucun sondage pour l'instant.": 'No polls yet.',
+    'Réponse': 'Answer',
+    'Retirer cette réponse': 'Remove this answer',
+    'Écris une question.': 'Write a question.',
+    'Voter': 'Vote',
+    'Choisis une réponse.': 'Choose an answer.',
+    'Vote pour voir les résultats.': 'Vote to see the results.',
+    'Ton vote est définitif et ne pourra plus être modifié.': 'Your vote is final and cannot be changed afterwards.',
+    'Confirmer ce vote ?': 'Confirm this vote?',
+    '1 personne a voté': '1 person voted',
+    'personnes ont voté': 'people voted',
+    'Clos': 'Closed',
+    "Ouvert jusqu'au": 'Open until',
+    'Clore ce sondage': 'Close this poll',
+    'Clore ce sondage ? Plus personne ne pourra voter.': 'Close this poll? Nobody will be able to vote any more.',
+    'Supprimer ce sondage': 'Delete this poll',
+    'Supprimer ce sondage et tous ses votes ?': 'Delete this poll and all its votes?',
+    // Messages renvoyés par le serveur
+    'La question est obligatoire.': 'The question is required.',
+    'Question trop longue (300 caractères maximum).': 'Question too long (300 characters maximum).',
+    'Il faut au moins deux réponses possibles.': 'You need at least two possible answers.',
+    'Dix réponses possibles au maximum.': 'Ten possible answers maximum.',
+    'Réponse trop longue (120 caractères maximum).': 'Answer too long (120 characters maximum).',
+    'Deux réponses possibles sont identiques.': 'Two possible answers are identical.',
+    'Date de clôture invalide.': 'Invalid closing date.',
+    'La date de clôture doit être dans le futur.': 'The closing date must be in the future.',
+    'Sondage introuvable.': 'Poll not found.',
+    'Ce sondage est clos.': 'This poll is closed.',
+    'Tu as déjà voté à ce sondage.': 'You have already voted in this poll.',
+    'Une seule réponse possible pour ce sondage.': 'Only one answer allowed for this poll.',
+    'Réponse inconnue pour ce sondage.': 'Unknown answer for this poll.',
+    "Seul l'auteur peut clore ce sondage.": 'Only the author can close this poll.',
+    "Seul l'auteur peut supprimer ce sondage.": 'Only the author can delete this poll.',
+    'Type de sondage inconnu.': 'Unknown poll type.',
+    "Accès impossible à vérifier pour l'instant.": 'Access cannot be checked right now.',
+    'Tu ne peux pas créer de sondage ici.': 'You cannot create a poll here.',
+    "Tu n'as pas accès à ce profil.": 'You do not have access to this profile.',
+    'scope et scopeId requis.': 'scope and scopeId are required.',
+    'Accès refusé.': 'Access denied.',
   };
 
   // ------------------- Messages contenant une valeur variable -------------

@@ -629,8 +629,45 @@
         </div>
       </div>
 
+      <!-- Sondages (3 septembre 2026, 11ᵉ discussion "Sondages"). Cadrage
+           d'Emilien : « Les sondages n'apparaissent jamais dans les
+           discussions, ils sont toujours des post qui défile sur le volet
+           communauté, sur le profil ou dans un sous projet d'une activité. »
+           D'où un bloc à part, jamais mêlé au composeur de messages
+           ci-dessus — mais alimenté par la MÊME donnée que le bloc jumeau du
+           Profil (#profilePollsBlock) : ce sont toujours MES sondages, quel
+           que soit l'endroit d'où on les ouvre, exactement comme les messages
+           de #communityMyPostsBlock. Voir mountPolls dans app.js, appelée une
+           fois par emplacement, et server/lib/polls.js pour le modèle
+           (scope='profile', scopeId = mon propre userId).
+           ⚠️ Les sondages des personnes SUIVIES ne sont pas ici : ils défilent
+           mêlés à leurs messages dans #followingFeed juste en dessous (voir
+           loadFollowingFeed dans app.js). -->
+      <div id="communityPollsBlock" class="pollsBlock">
+        <div class="sectionTitleRow">
+          <p class="sectionTitle">Sondages</p>
+          <button type="button" class="menuBtn hidden" id="communityPollsAddBtn" aria-label="Créer un sondage">+</button>
+        </div>
+        <div class="entryCard pollForm hidden" id="communityPollsForm">
+          <input type="text" id="communityPollsQuestion" maxlength="300" placeholder="Ta question...">
+          <div class="pollFormOptions" id="communityPollsOptions"></div>
+          <button type="button" class="iconBtn pollAddOptionBtn" id="communityPollsAddOptionBtn">+ Ajouter une réponse</button>
+          <label class="pollFormRow"><input type="checkbox" id="communityPollsMulti"> Plusieurs réponses possibles</label>
+          <label class="pollFormRow">Clôture (facultatif)<input type="date" id="communityPollsClosesAt"></label>
+          <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+          <div class="rowActions">
+            <button type="button" class="iconBtn" id="communityPollsCreateBtn">Créer le sondage</button>
+          </div>
+          <p id="communityPollsMsg" class="msg"></p>
+        </div>
+        <div id="communityPollsList" class="pollsList"></div>
+        <p id="communityPollsEmptyHint" class="hint hidden">Aucun sondage pour l'instant.</p>
+      </div>
+
       <!-- Flux "Suivi" : mélange, trié par date, des messages "Communauté"
-           (profile_posts) et des sessions notées (résiduel, voir le
+           (profile_posts), des sondages des personnes suivies (3 septembre
+           2026, voir loadFollowingFeed) et des sessions notées (résiduel,
+           voir le
            commentaire sur followingFeedForUser dans server/lib/community.js)
            des personnes suivies qui partagent leur profil — 1er septembre
            2026, demande d'Emilien : « les messages se publient [...] dans
@@ -1398,6 +1435,32 @@
           </div>
         </div>
 
+        <!-- Sondages — bloc JUMEAU de #communityPollsBlock (#tab-community) :
+             même donnée (scope='profile', scopeId = mon userId), deux
+             emplacements, une seule liste. Même principe que la zone
+             Discussion et son miroir « écrire à sa communauté ». Voir
+             mountPolls dans app.js. -->
+        <div id="profilePollsBlock" class="pollsBlock">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Sondages</p>
+            <button type="button" class="menuBtn hidden" id="profilePollsAddBtn" aria-label="Créer un sondage">+</button>
+          </div>
+          <div class="entryCard pollForm hidden" id="profilePollsForm">
+            <input type="text" id="profilePollsQuestion" maxlength="300" placeholder="Ta question...">
+            <div class="pollFormOptions" id="profilePollsOptions"></div>
+            <button type="button" class="iconBtn pollAddOptionBtn" id="profilePollsAddOptionBtn">+ Ajouter une réponse</button>
+            <label class="pollFormRow"><input type="checkbox" id="profilePollsMulti"> Plusieurs réponses possibles</label>
+            <label class="pollFormRow">Clôture (facultatif)<input type="date" id="profilePollsClosesAt"></label>
+            <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+            <div class="rowActions">
+              <button type="button" class="iconBtn" id="profilePollsCreateBtn">Créer le sondage</button>
+            </div>
+            <p id="profilePollsMsg" class="msg"></p>
+          </div>
+          <div id="profilePollsList" class="pollsList"></div>
+          <p id="profilePollsEmptyHint" class="hint hidden">Aucun sondage pour l'instant.</p>
+        </div>
+
         <p class="sectionTitle">Mes notes</p>
         <p id="notesEmptyHint" class="hint hidden">Aucune note enregistrée pour l'instant — les notes ajoutées pendant tes sessions dans Chrono apparaîtront ici.</p>
         <div id="notesList"></div>
@@ -1481,6 +1544,23 @@
         <p class="sectionTitle">Projets</p>
         <div id="viewProfileProjectsList" class="activitiesList"></div>
         <p id="viewProfileProjectsEmptyHint" class="hint hidden">Aucun projet partagé pour l'instant.</p>
+
+        <!-- Sondages du profil visité (3 septembre 2026, 11ᵉ discussion
+             "Sondages"). Placé ici, AVANT le sélecteur Statistiques/Messages,
+             et pas à l'intérieur : les sondages relèvent du premier niveau
+             d'accès (tout membre identifié, comme les projets et les
+             statistiques), alors que les messages restent réservés aux
+             abonnés acceptés — les ranger sous "Messages" les aurait cachés
+             à ceux-là mêmes qu'Emilien veut voir voter (« Aussi les visiteurs
+             de sa page de profil », 3 septembre 2026). Lecture + vote
+             seulement : aucun composeur ici, on ne publie pas de sondage sur
+             le profil de quelqu'un d'autre. Le bloc entier reste masqué tant
+             que le profil visité n'a aucun sondage. -->
+        <div id="viewProfilePollsBlock" class="pollsBlock hidden">
+          <p class="sectionTitle">Sondages</p>
+          <div id="viewProfilePollsList" class="pollsList"></div>
+          <p id="viewProfilePollsEmptyHint" class="hint hidden">Aucun sondage pour l'instant.</p>
+        </div>
 
         <!-- Statistiques du profil visité (2 septembre 2026) : Répartition +
              Graphique uniquement, choix explicite d'Emilien — la Feuille de

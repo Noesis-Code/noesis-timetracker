@@ -1773,3 +1773,63 @@ button { -webkit-user-select: none; user-select: none; }
 .subProjectItemAdd .iconBtn {
   flex: 0 0 auto;
 }
+
+/* ===================== SONDAGES =====================
+   Discussion "Sondages" (11ᵉ discussion, 3 septembre 2026).
+
+   Aucune classe générique de Design n'est redéfinie ici : tout est préfixé
+   `poll`. Les cartes réutilisent .discussionMsg (fond, rayon, ombre) et n'y
+   ajoutent que ce qui leur est propre — un sondage doit se lire comme un
+   message dans le flux "Suivi", où les deux défilent ensemble. */
+
+.pollsBlock { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.pollsList { display: flex; flex-direction: column; gap: 8px; }
+
+/* ----- formulaire de création ----- */
+.pollForm { display: flex; flex-direction: column; gap: 8px; }
+.pollFormOptions { display: flex; flex-direction: column; gap: 6px; }
+/* Le champ prend toute la largeur restante, la croix garde la sienne : sans
+   min-width: 0, un champ texte en flex refuse de rétrécir sous sa largeur
+   intrinsèque et pousse le bouton hors de la ligne sur un téléphone. */
+.pollFormOptionRow { display: flex; align-items: center; gap: 6px; }
+.pollFormOptionRow input { flex: 1; min-width: 0; }
+.pollAddOptionBtn { align-self: flex-start; }
+.pollFormRow {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; color: var(--text);
+}
+.pollFormRow input[type="date"] { min-width: 0; max-width: 100%; }
+
+/* ----- carte d'un sondage ----- */
+.pollQuestion { margin: 2px 0 0; font-weight: 600; line-height: 1.35; }
+/* Une question collée sans espace (un lien, un mot très long) ne doit pas
+   pouvoir sortir de sa carte — même garantie que .historyEntry .note. */
+.pollQuestion, .pollResultLabel, .pollChoice span {
+  overflow-wrap: anywhere; word-break: break-word; max-width: 100%;
+}
+.pollFlags { margin: 0; }
+
+.pollOptions { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.pollChoice {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-lg);
+  cursor: pointer; line-height: 1.3;
+}
+.pollChoice input { margin-top: 2px; flex-shrink: 0; }
+
+/* ----- résultats ----- */
+.pollResults { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.pollResult { display: flex; flex-direction: column; gap: 3px; }
+.pollResultTop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pollResultLabel { flex: 1; min-width: 0; }
+.pollResultCount { flex-shrink: 0; }
+.pollBar {
+  height: 8px; border-radius: 999px; background: var(--track-bg); overflow: hidden;
+}
+.pollBarFill { height: 100%; background: var(--purple); border-radius: 999px; }
+/* Sa propre réponse, repérable d'un coup d'œil sans avoir à relire les noms. */
+.pollResult.chosen .pollResultLabel { font-weight: 600; }
+.pollResult.chosen .pollBarFill { background: var(--purple-dark); }
+.pollVoters { margin: 0; }
+.pollTotal { margin: 2px 0 0; }
+.pollHiddenHint { margin: 4px 0 0; }

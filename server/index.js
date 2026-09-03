@@ -101,6 +101,9 @@ app.use('/api', require('./routes/subprojects'));
 app.use('/api', require('./routes/history'));
 app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/push'));
+// Sondages (3 septembre 2026, 11ᵉ discussion) — socle générique réutilisable
+// depuis plusieurs zones de l'app, voir server/lib/polls.js.
+app.use('/api', require('./routes/polls'));
 
 // Le service worker ne doit JAMAIS être servi depuis le cache du navigateur :
 // c'est lui qui pilote la mise à jour de l'app sur les téléphones installés.
