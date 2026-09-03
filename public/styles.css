@@ -1689,7 +1689,7 @@ button { -webkit-user-select: none; user-select: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .activityPageHeader .dot { flex-shrink: 0; }
-#activityPageMenuBtn, #activityPageClose { flex-shrink: 0; }
+#activityPageClose { flex-shrink: 0; }
 /* Le premier titre de section de la zone défilante n'a pas besoin de la marge
    haute qui sert à séparer deux sections l'une de l'autre — même ajustement
    que #viewProfileScroll > .sectionTitle ci-dessus. */
@@ -1852,14 +1852,50 @@ button { -webkit-user-select: none; user-select: none; }
 /* Le champ prend toute la largeur restante, la croix garde la sienne : sans
    min-width: 0, un champ texte en flex refuse de rétrécir sous sa largeur
    intrinsèque et pousse le bouton hors de la ligne sur un téléphone. */
-.pollFormOptionRow { display: flex; align-items: center; gap: 6px; }
-.pollFormOptionRow input { flex: 1; min-width: 0; }
-.pollAddOptionBtn { align-self: flex-start; }
+.pollFormOptionRow { display: flex; align-items: flex-start; gap: 6px; }
+.pollFormOptionRow textarea { flex: 1; min-width: 0; }
+
+/* Question et réponses : des <textarea> qui grandissent avec le texte au lieu
+   d'une ligne unique qui défile (3 septembre 2026, demande d'Emilien). La
+   hauteur est posée en JS (pollAutoGrow dans app.js) ; ici on ne fait que
+   retirer tout ce qui l'en empêcherait :
+     - min-height, car la règle générique `textarea` en impose 80px ;
+     - resize, pour que la poignée manuelle ne se batte pas avec le calcul ;
+     - overflow, sinon une barre de défilement apparaît le temps d'une frappe ;
+     - margin-bottom, hérité de `.entryCard textarea`, qui doublerait le gap
+       du formulaire. */
+.pollAutoGrow {
+  min-height: 0; resize: none; overflow: hidden;
+  line-height: 1.35; margin-bottom: 0;
+}
+
+/* "+ Ajouter une réponse" et "Option" sur la même ligne, la seconde à droite
+   de la première. Le bouton "Option" ouvre .pollFormAdvanced juste en dessous. */
+.pollFormActions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.pollFormActions .pollAddOptionBtn { align-self: auto; }
+.pollFormAdvanced { display: flex; flex-direction: column; gap: 8px; }
+
+/* "Terminer" : un seul bouton, sur toute la largeur, sous les réglages. */
+.pollCreateBtn { width: 100%; }
+
+/* Le "+" qui ouvre le formulaire vit dans la barre du composeur de messages,
+   à gauche du trombone — pas dans le bloc des sondages. */
+.pollComposerAddBtn { font-size: 20px; }
+
 .pollFormRow {
   display: flex; align-items: center; gap: 8px;
   font-size: 14px; color: var(--text);
 }
-.pollFormRow input[type="date"] { min-width: 0; max-width: 100%; }
+/* ⚠️ `.entryCard input` impose width: 100% à TOUS les champs de la carte,
+   case à cocher comprise : sans ces deux lignes, la case occupe toute la
+   largeur et pousse son libellé dans une colonne de trois mots. Défaut visible
+   à l'œil, corrigé le 3 septembre 2026 en même temps que l'ouverture du
+   panneau "Option" qui l'a rendu visible. */
+.pollFormRow input[type="checkbox"] { width: auto; flex: 0 0 auto; margin: 0; }
+/* Libellé au-dessus, champ de date en dessous sur toute la largeur : sur un
+   téléphone, les deux côte à côte coupaient "Clôture (facultatif)" en deux. */
+.pollFormRowStacked { flex-direction: column; align-items: stretch; gap: 6px; }
+.pollFormRow input[type="date"] { min-width: 0; max-width: 100%; margin-bottom: 0; }
 
 /* ----- carte d'un sondage ----- */
 .pollQuestion { margin: 2px 0 0; font-weight: 600; line-height: 1.35; }
@@ -1894,3 +1930,20 @@ button { -webkit-user-select: none; user-select: none; }
 .pollVoters { margin: 0; }
 .pollTotal { margin: 2px 0 0; }
 .pollHiddenHint { margin: 4px 0 0; }
+
+/* ----- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) -----
+   Un sous-projet ne contient plus une todolist et un fil imposés, mais des
+   sections ajoutées une par une. Uniquement des classes spécifiques ici — les
+   sondages réutilisent telles quelles .pollsBlock/.pollForm/.pollCard du socle
+   commun (discussion "Sondages"), aucune n'est redéfinie. */
+
+.subProjectSectionHead {
+  margin-bottom: 6px;
+}
+
+#subProjectDetail .pollsBlock,
+#subProjectDetail .discussionBlock {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}

@@ -449,6 +449,56 @@ CREATE TABLE IF NOT EXISTS sub_project_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_sub_project_messages_sp ON sub_project_messages(subProjectId, createdAt);
 
+-- ===================== SECTIONS D'UN SOUS-PROJET =====================
+-- Ajoutées le 3 septembre 2026 (deuxième passage), demande d'Emilien : « je
+-- souhaite qu'il n'y ait pas de section vide par défaut. les sections se
+-- créent à partir d'un bouton ajouter qui me propose les options de créer :
+-- des tâches (les cases à cocher), les sondages ou les discussions. »
+--
+-- Un sous-projet ne contient donc plus une todolist + un fil imposés : il
+-- contient une LISTE DE SECTIONS, chacune d'un des trois types ci-dessous.
+-- Un sous-projet neuf n'a aucune section — rien de vide n'est affiché.
+--
+-- kind : 'tasks' (cases à cocher) | 'poll' (sondages) | 'discussion'
+--
+-- ⚠️ UNE SEULE DISCUSSION PAR SOUS-PROJET (demande d'Emilien), et une seule
+-- section 'poll' — cette dernière parce que les sondages sont scopés au
+-- SOUS-PROJET par le socle commun (scope 'subproject', voir server/lib/
+-- polls.js) : deux sections de sondages afficheraient exactement la même
+-- liste. Les deux règles sont posées par les index uniques PARTIELS
+-- ci-dessous, donc tenues par la base elle-même et pas seulement par un
+-- contrôle applicatif — même technique que l'index partiel d'activity_invites
+-- sur les invitations 'pending'. Les sections 'tasks', elles, peuvent être en
+-- nombre quelconque.
+--
+-- ⚠️ ORDRE D'AFFICHAGE : la discussion est TOUJOURS en bas du sous-projet,
+-- tâches et sondages au-dessus (demande d'Emilien). Ce n'est pas géré par la
+-- colonne position — qui ordonne seulement les sections entre elles — mais par
+-- le tri sur (kind = 'discussion') d'abord, dans server/lib/subprojects.js, et
+-- côté client par l'ordre des blocs dans index.html. La règle reste donc vraie
+-- même si une discussion est créée avant des tâches.
+--
+-- ⚠️ Une section 'poll' ne STOCKE aucun sondage : elle dit seulement « ce
+-- sous-projet affiche ses sondages ». Les sondages eux-mêmes appartiennent au
+-- socle commun de la discussion "Sondages" (tables polls/poll_options/
+-- poll_votes plus bas), accrochés au sous-projet par (scope='subproject',
+-- scopeId=sub_projects.id). Aucune deuxième implémentation de sondage n'a été
+-- écrite ici.
+CREATE TABLE IF NOT EXISTS sub_project_sections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subProjectId INTEGER NOT NULL REFERENCES sub_projects(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  createdBy TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sub_project_sections_sp ON sub_project_sections(subProjectId, position);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sub_project_one_discussion
+  ON sub_project_sections(subProjectId) WHERE kind = 'discussion';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sub_project_one_poll
+  ON sub_project_sections(subProjectId) WHERE kind = 'poll';
+
 -- ===================== SONDAGES (3 septembre 2026) =====================
 -- Discussion "Sondages" (11ᵉ discussion). Trois tables NEUVES, purement
 -- additives : aucun ALTER TABLE, aucune migration de données, aucune ligne
@@ -824,6 +874,48 @@ if (profileProjectsStillHasSplitDescription()) {
     throw e;
   } finally {
     db.exec('PRAGMA foreign_keys = ON');
+  }
+}
+
+// ----- Sous-projets : les tâches vivent désormais dans une SECTION -----
+// (3 septembre 2026, deuxième passage — voir sub_project_sections ci-dessus.)
+// Migration additive et idempotente : une colonne, puis rattachement des
+// tâches déjà saisies à une section 'tasks' créée pour l'occasion, de façon à
+// ne perdre aucune todolist existante. Sans ce rattachement, des tâches
+// orphelines resteraient invisibles (elles ne sont plus lues que par section).
+if (tableExists('sub_project_items') && !columnExists('sub_project_items', 'sectionId')) {
+  db.exec('ALTER TABLE sub_project_items ADD COLUMN sectionId INTEGER REFERENCES sub_project_sections(id) ON DELETE CASCADE');
+}
+if (tableExists('sub_project_items') && tableExists('sub_project_sections')) {
+  const orphanSubProjects = db
+    .prepare('SELECT DISTINCT subProjectId FROM sub_project_items WHERE sectionId IS NULL')
+    .all();
+  for (const row of orphanSubProjects) {
+    const sub = db.prepare('SELECT id, createdBy FROM sub_projects WHERE id = ?').get(row.subProjectId);
+    if (!sub) continue;
+    const info = db
+      .prepare("INSERT INTO sub_project_sections (subProjectId, kind, title, createdBy, position, createdAt) VALUES (?, 'tasks', '', ?, 0, ?)")
+      .run(sub.id, sub.createdBy, new Date().toISOString());
+    db.prepare('UPDATE sub_project_items SET sectionId = ? WHERE subProjectId = ? AND sectionId IS NULL')
+      .run(info.lastInsertRowid, sub.id);
+  }
+}
+// Un sous-projet qui a déjà des messages avait forcément sa discussion avant
+// la restructuration : on lui crée la section correspondante, sinon son fil
+// disparaîtrait de l'affichage alors que les messages sont toujours là.
+if (tableExists('sub_project_messages') && tableExists('sub_project_sections')) {
+  const withMessages = db.prepare(`
+    SELECT DISTINCT m.subProjectId AS id FROM sub_project_messages m
+    WHERE NOT EXISTS (
+      SELECT 1 FROM sub_project_sections s
+      WHERE s.subProjectId = m.subProjectId AND s.kind = 'discussion'
+    )
+  `).all();
+  for (const row of withMessages) {
+    const sub = db.prepare('SELECT id, createdBy FROM sub_projects WHERE id = ?').get(row.id);
+    if (!sub) continue;
+    db.prepare("INSERT INTO sub_project_sections (subProjectId, kind, title, createdBy, position, createdAt) VALUES (?, 'discussion', '', ?, 99, ?)")
+      .run(sub.id, sub.createdBy, new Date().toISOString());
   }
 }
 

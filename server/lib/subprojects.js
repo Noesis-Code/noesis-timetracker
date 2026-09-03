@@ -1,25 +1,33 @@
-// Sous-projets d'une activité — accès aux données et calcul d'avancement.
+// Sous-projets d'une activité — accès aux données, sections, sondages et
+// calcul d'avancement.
 //
 // Propriété : discussion "Sous-projets" (3 septembre 2026). Périmètre strict :
-// le DÉCOUPAGE d'une activité (sous-projets, todolist, fil de discussion par
-// sous-projet, avancement). Rien au niveau de l'activité elle-même —
+// le DÉCOUPAGE d'une activité. Rien au niveau de l'activité elle-même —
 // création/édition/suppression d'activité, invitations, fil de discussion de
 // l'activité et classement appartiennent à "Gestion des activités" et à
 // "Général".
 //
+// STRUCTURE (deuxième passage du 3 septembre 2026, demande d'Emilien) :
+// un sous-projet ne contient plus une todolist et un fil imposés, mais une
+// LISTE DE SECTIONS que l'on ajoute une par une — 'tasks', 'poll' ou
+// 'discussion'. Un sous-projet neuf n'a AUCUNE section : rien de vide n'est
+// affiché. Une seule 'discussion' par sous-projet (index unique partiel dans
+// server/db.js), et elle est toujours rendue en DERNIER.
+//
 // ⚠️ CONTRAT AVEC LA DISCUSSION "GÉNÉRAL" — voir
 // noesis-timetracker-contrat-avancement.md. progressForActivities() est le
-// SEUL point d'entrée par lequel Général lit l'avancement : il ne doit jamais
-// écrire de SELECT sur sub_projects/sub_project_items, exactement comme
-// server/routes/profile.js appelle breakdownForRange() sans dupliquer le
-// calcul de server/lib/stats.js. Ni la signature ni la forme de retour ne
-// changent sans prévenir Général (règle R6 du contrat).
+// SEUL point d'entrée par lequel Général lit l'avancement. **La forme de
+// retour n'a PAS changé lors de la restructuration en sections** : seule la
+// requête interne passe désormais par sub_project_sections. C'est exactement
+// ce que la règle R6 protège — Général n'a rien à adapter.
 
 const db = require('../db');
 
+const SECTION_KINDS = ['tasks', 'poll', 'discussion'];
+
 // Un sous-projet appartient à l'ACTIVITÉ, pas à la personne qui l'a créé
-// (cadrage d'Emilien du 3 septembre 2026 : « communs à l'activité »). Le
-// contrôle d'accès est donc toujours « membre de cette activité ».
+// (cadrage d'Emilien : « communs à l'activité »). Le contrôle d'accès est
+// donc toujours « membre de cette activité ».
 //
 // ⚠️ Ne PAS réutiliser checkSharedActivityAccess() de
 // server/routes/community.js ici : il exige membersCount >= 2, alors que
@@ -31,11 +39,10 @@ function isActivityMember(userId, activityId) {
     .get(activityId, userId);
 }
 
-// Traduit un ensemble de lignes { total, done } en bloc d'avancement, avec la
-// règle R1 du contrat : percent vaut null — JAMAIS 0 — quand il n'y a aucune
-// tâche. C'est ce qui permet à l'appelant de distinguer « rien à faire » de
-// « rien de fait » ; un 0 par défaut ferait passer toute activité sans
-// todolist pour une activité à l'arrêt.
+// Règle R1 du contrat : percent vaut null — JAMAIS 0 — quand il n'y a aucune
+// tâche. C'est ce qui permet de distinguer « rien à faire » de « rien de
+// fait » ; un 0 par défaut ferait passer tout sous-projet sans todolist pour
+// un travail à l'arrêt.
 function percentOf(done, total) {
   if (!total) return null;
   return Math.round((done / total) * 100);
@@ -51,13 +58,15 @@ function percentOf(done, total) {
 //   subProjectCount, completedSubProjectCount
 // }
 //
-// R3 : une activité SANS aucun sous-projet est absente de la Map (elle ne
-//      renvoie pas un objet à zéro) — l'absence se lit « rien à afficher ».
-// R4 : toujours scopé par userId. Une activité dont l'appelant n'est pas
-//      membre est ignorée EN SILENCE (pas de 403, pas d'exception) : un
-//      activityId deviné n'apparaît simplement pas dans la Map.
-// Un seul appel pour N activités — pas de N+1 requêtes quand Général dessine
-// une liste.
+// R3 : une activité SANS aucun sous-projet est absente de la Map.
+// R4 : toujours scopé par userId — une activité dont l'appelant n'est pas
+//      membre est ignorée EN SILENCE.
+// Un seul appel pour N activités.
+//
+// ⚠️ Les tâches vivent dans une section depuis le 3 septembre 2026 : la
+// requête traverse donc sub_project_sections. Un sous-projet sans section
+// 'tasks' compte comme un sous-projet sans tâche (total = 0, percent null),
+// exactement comme avant la restructuration.
 function progressForActivities(userId, activityIds) {
   const out = new Map();
   if (!userId || !Array.isArray(activityIds) || activityIds.length === 0) return out;
@@ -68,8 +77,7 @@ function progressForActivities(userId, activityIds) {
   if (!ids.length) return out;
 
   const placeholders = ids.map(() => '?').join(',');
-  // La jointure sur activity_members EST le contrôle d'accès (R4) : une
-  // activité dont userId n'est pas membre ne produit aucune ligne.
+  // La jointure sur activity_members EST le contrôle d'accès (R4).
   const rows = db.prepare(`
     SELECT sp.activityId AS activityId,
            sp.id         AS subProjectId,
@@ -77,14 +85,12 @@ function progressForActivities(userId, activityIds) {
            COALESCE(SUM(CASE WHEN i.done = 1 THEN 1 ELSE 0 END), 0) AS done
     FROM sub_projects sp
     JOIN activity_members am ON am.activityId = sp.activityId AND am.userId = ?
-    LEFT JOIN sub_project_items i ON i.subProjectId = sp.id
+    LEFT JOIN sub_project_sections sec ON sec.subProjectId = sp.id AND sec.kind = 'tasks'
+    LEFT JOIN sub_project_items i ON i.sectionId = sec.id
     WHERE sp.activityId IN (${placeholders})
     GROUP BY sp.id
   `).all(userId, ...ids);
 
-  // Accumulation par activité. On garde de côté les pourcentages par
-  // sous-projet pour pouvoir fournir AUSSI la moyenne non pondérée (R2) —
-  // les deux sont exposées, Général choisit celle qu'il affiche.
   const acc = new Map();
   for (const row of rows) {
     let a = acc.get(row.activityId);
@@ -118,31 +124,32 @@ function progressForActivities(userId, activityIds) {
   return out;
 }
 
-// Raccourci pour une seule activité — même forme de retour, ou null si
-// l'activité n'a aucun sous-projet (ou si l'appelant n'en est pas membre).
 function progressForActivity(userId, activityId) {
   return progressForActivities(userId, [activityId]).get(Number(activityId)) || null;
 }
 
 // ===================== SOUS-PROJETS =====================
 
-// Liste complète d'une activité, avec l'avancement de chaque sous-projet.
-// La todolist elle-même n'est PAS incluse ici : elle est chargée à
-// l'ouverture d'un sous-projet (GET /sub-projects/:id/items), pour ne pas
-// transporter des centaines de lignes de cases à cocher à chaque ouverture
-// de l'onglet Activité.
+// Liste d'une activité, avec l'avancement de chaque sous-projet et un aperçu
+// de ce qu'il contient (nombre de sections par type) — assez pour dessiner la
+// ligne repliée, sans transporter tout le contenu de chaque section.
 function subProjectsForActivity(activityId) {
   return db.prepare(`
     SELECT sp.id, sp.activityId, sp.name, sp.description, sp.createdBy, sp.position, sp.createdAt,
-           u.name  AS createdByName,
-           COUNT(i.id) AS total,
-           COALESCE(SUM(CASE WHEN i.done = 1 THEN 1 ELSE 0 END), 0) AS done,
+           u.name AS createdByName,
+           (SELECT COUNT(*) FROM sub_project_items i
+              JOIN sub_project_sections s2 ON s2.id = i.sectionId
+             WHERE s2.subProjectId = sp.id AND s2.kind = 'tasks') AS total,
+           (SELECT COUNT(*) FROM sub_project_items i
+              JOIN sub_project_sections s3 ON s3.id = i.sectionId
+             WHERE s3.subProjectId = sp.id AND s3.kind = 'tasks' AND i.done = 1) AS done,
+           (SELECT COUNT(*) FROM sub_project_sections s4 WHERE s4.subProjectId = sp.id AND s4.kind = 'tasks') AS taskSectionCount,
+           (SELECT COUNT(*) FROM sub_project_sections s5 WHERE s5.subProjectId = sp.id AND s5.kind = 'poll') AS pollSectionCount,
+           (SELECT COUNT(*) FROM sub_project_sections s6 WHERE s6.subProjectId = sp.id AND s6.kind = 'discussion') AS discussionSectionCount,
            (SELECT COUNT(*) FROM sub_project_messages m WHERE m.subProjectId = sp.id) AS messageCount
     FROM sub_projects sp
     LEFT JOIN users u ON u.id = sp.createdBy
-    LEFT JOIN sub_project_items i ON i.subProjectId = sp.id
     WHERE sp.activityId = ?
-    GROUP BY sp.id
     ORDER BY sp.position ASC, sp.id ASC
   `).all(activityId).map((r) => ({
     id: r.id,
@@ -156,6 +163,9 @@ function subProjectsForActivity(activityId) {
     done: r.done,
     total: r.total,
     percent: percentOf(r.done, r.total),
+    taskSectionCount: r.taskSectionCount,
+    pollSectionCount: r.pollSectionCount,
+    hasDiscussion: r.discussionSectionCount > 0,
     messageCount: r.messageCount,
   }));
 }
@@ -164,11 +174,10 @@ function getSubProject(subProjectId) {
   return db.prepare('SELECT * FROM sub_projects WHERE id = ?').get(subProjectId) || null;
 }
 
-// Contrôle d'accès commun à toutes les routes qui partent d'un sous-projet
-// (items, messages, édition) : le sous-projet existe, et l'appelant est
-// membre de l'activité qui le porte. Renvoie { error: { status, body } } ou
-// { subProject } — même forme que checkSharedActivityAccess côté Communauté,
-// pour que les deux fichiers se lisent pareil.
+// Contrôle d'accès commun à tout ce qui part d'un sous-projet : il existe, et
+// l'appelant est membre de l'activité qui le porte. Renvoie
+// { error: { status, body } } ou { subProject } — même forme que
+// checkSharedActivityAccess côté Communauté, pour que les deux se lisent pareil.
 function checkSubProjectAccess(userId, subProjectId) {
   if (!userId) return { error: { status: 400, body: { error: 'userId requis.' } } };
   const subProject = getSubProject(subProjectId);
@@ -186,6 +195,9 @@ function createSubProject(activityId, userId, name, description) {
     INSERT INTO sub_projects (activityId, name, description, createdBy, position, createdAt)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(activityId, name, description || '', userId, next, new Date().toISOString());
+  // ⚠️ AUCUNE section créée automatiquement : « je souhaite qu'il n'y ait pas
+  // de section vide par défaut » (Emilien). Le sous-projet naît vide et se
+  // remplit par le bouton "Ajouter".
   return getSubProject(info.lastInsertRowid);
 }
 
@@ -200,15 +212,14 @@ function updateSubProject(subProjectId, fields) {
 }
 
 function deleteSubProject(subProjectId) {
-  // Les items et les messages partent avec, par ON DELETE CASCADE — voir
-  // server/db.js. Rien à supprimer à la main ici.
+  // Sections, tâches et messages partent en cascade (ON DELETE CASCADE). Les
+  // sondages, eux, n'ont pas de clé étrangère vers le sous-projet — le socle
+  // commun est générique et ne connaît que (scope, scopeId) — donc ils sont
+  // supprimés explicitement, sans quoi ils resteraient en base sans lecteur.
+  deletePollsForSubProject(subProjectId);
   db.prepare('DELETE FROM sub_projects WHERE id = ?').run(subProjectId);
 }
 
-// Réordonnancement : on réécrit la position de chaque id selon son rang dans
-// le tableau reçu, en filtrant sur l'activité pour qu'un id étranger glissé
-// dans la liste ne puisse pas être déplacé. Même principe que
-// PUT /profile/projects/reorder.
 function reorderSubProjects(activityId, orderedIds) {
   const stmt = db.prepare('UPDATE sub_projects SET position = ? WHERE id = ? AND activityId = ?');
   db.exec('BEGIN');
@@ -221,54 +232,139 @@ function reorderSubProjects(activityId, orderedIds) {
   }
 }
 
-// ===================== TODOLIST =====================
+// ===================== SECTIONS =====================
 
-function itemsForSubProject(subProjectId) {
+function getSection(sectionId) {
+  return db.prepare('SELECT * FROM sub_project_sections WHERE id = ?').get(sectionId) || null;
+}
+
+function checkSectionAccess(userId, sectionId) {
+  if (!userId) return { error: { status: 400, body: { error: 'userId requis.' } } };
+  const section = getSection(sectionId);
+  if (!section) return { error: { status: 404, body: { error: 'Section introuvable.' } } };
+  const access = checkSubProjectAccess(userId, section.subProjectId);
+  if (access.error) return access;
+  return { section, subProject: access.subProject };
+}
+
+function hasPollSection(subProjectId) {
+  return !!db.prepare("SELECT 1 FROM sub_project_sections WHERE subProjectId = ? AND kind = 'poll'").get(subProjectId);
+}
+
+function hasDiscussionSection(subProjectId) {
+  return !!db.prepare("SELECT 1 FROM sub_project_sections WHERE subProjectId = ? AND kind = 'discussion'").get(subProjectId);
+}
+
+function createSection(subProjectId, userId, kind, title) {
+  const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_sections WHERE subProjectId = ?')
+    .get(subProjectId).pos;
+  const info = db.prepare(`
+    INSERT INTO sub_project_sections (subProjectId, kind, title, createdBy, position, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(subProjectId, kind, title || '', userId, next, new Date().toISOString());
+  return getSection(info.lastInsertRowid);
+}
+
+function updateSectionTitle(sectionId, title) {
+  db.prepare('UPDATE sub_project_sections SET title = ? WHERE id = ?').run(title, sectionId);
+  return getSection(sectionId);
+}
+
+function deleteSection(sectionId) {
+  const section = getSection(sectionId);
+  if (!section) return;
+  // Retirer une section ne détruit JAMAIS de contenu, ni pour 'discussion' ni
+  // pour 'poll' : les messages sont rattachés au sous-projet et les sondages
+  // au socle commun. Retirer la section revient à masquer le bloc — il revient
+  // intact si on la remet. Seule la suppression du sous-projet emporte tout.
+  db.prepare('DELETE FROM sub_project_sections WHERE id = ?').run(sectionId);
+}
+
+// Toutes les sections d'un sous-projet, AVEC leur contenu, dans l'ordre
+// d'affichage définitif.
+//
+// ⚠️ ORDRE : la discussion est TOUJOURS en dernier (demande d'Emilien : « la
+// discussion se retrouve toujours en bas du sous-projet et les tâches et
+// sondages se présentent au-dessus »). Le tri porte donc d'abord sur
+// (kind = 'discussion'), et seulement ensuite sur la position — la règle tient
+// même si la discussion a été créée avant les autres sections.
+function sectionsForSubProject(subProjectId, viewerId) {
+  const rows = db.prepare(`
+    SELECT * FROM sub_project_sections
+    WHERE subProjectId = ?
+    ORDER BY (kind = 'discussion') ASC, position ASC, id ASC
+  `).all(subProjectId);
+
+  return rows.map((sec) => {
+    const base = {
+      id: sec.id,
+      subProjectId: sec.subProjectId,
+      kind: sec.kind,
+      title: sec.title,
+      createdBy: sec.createdBy,
+      position: sec.position,
+      createdAt: sec.createdAt,
+    };
+    if (sec.kind === 'tasks') {
+      const items = itemsForSection(sec.id);
+      const done = items.filter((i) => i.done).length;
+      return Object.assign(base, {
+        items: items,
+        done: done,
+        total: items.length,
+        percent: percentOf(done, items.length),
+      });
+    }
+    // 'poll' et 'discussion' : rien à embarquer ici. Les sondages sont servis
+    // par le socle commun (GET /api/polls?scope=subproject&scopeId=...) et les
+    // messages par leur propre route — les deux se rafraîchissent tout seuls.
+    return base;
+  });
+}
+
+// ===================== TODOLIST (dans une section 'tasks') =====================
+
+function itemsForSection(sectionId) {
   return db.prepare(`
-    SELECT i.id, i.subProjectId, i.label, i.done, i.doneBy, i.doneAt, i.position, i.createdAt,
+    SELECT i.id, i.sectionId, i.subProjectId, i.label, i.done, i.doneBy, i.doneAt, i.position, i.createdAt,
            u.name AS doneByName
     FROM sub_project_items i
     LEFT JOIN users u ON u.id = i.doneBy
-    WHERE i.subProjectId = ?
+    WHERE i.sectionId = ?
     ORDER BY i.position ASC, i.id ASC
-  `).all(subProjectId).map(itemRowOut);
+  `).all(sectionId).map(itemRowOut);
 }
 
-// `done` est un INTEGER 0/1 en base ; il ressort TOUJOURS en booléen côté
-// API. Normalisé ici, dans le seul endroit qui lit une ligne d'item, plutôt
-// que dans chaque route — sans ça, la création/mise à jour renverrait `done: 1`
-// pendant que la liste renvoie `done: true`, et le client se retrouverait avec
-// deux formes du même champ selon la route appelée (trouvé par la suite API à
-// la première exécution, assertions 2.6/2.10/2.14).
+// `done` est un INTEGER 0/1 en base ; il ressort TOUJOURS en booléen côté API.
+// Normalisé dans le seul endroit qui lit une ligne d'item — sans ça, la
+// création renverrait `done: 1` pendant que la liste renvoie `done: true`.
 function itemRowOut(row) {
   if (!row) return null;
-  return { ...row, done: !!row.done };
+  return Object.assign({}, row, { done: !!row.done });
 }
 
 function getItem(itemId) {
   return itemRowOut(db.prepare('SELECT * FROM sub_project_items WHERE id = ?').get(itemId));
 }
 
-// Version brute (done en 0/1), pour les besoins internes de updateItem qui
-// réécrit la ligne telle quelle.
 function getItemRaw(itemId) {
   return db.prepare('SELECT * FROM sub_project_items WHERE id = ?').get(itemId) || null;
 }
 
-function createItem(subProjectId, label) {
-  const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_items WHERE subProjectId = ?')
-    .get(subProjectId).pos;
+function createItem(section, label) {
+  const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_items WHERE sectionId = ?')
+    .get(section.id).pos;
   const info = db.prepare(`
-    INSERT INTO sub_project_items (subProjectId, label, done, position, createdAt)
-    VALUES (?, ?, 0, ?, ?)
-  `).run(subProjectId, label, next, new Date().toISOString());
+    INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt)
+    VALUES (?, ?, ?, 0, ?, ?)
+  `).run(section.subProjectId, section.id, label, next, new Date().toISOString());
   return getItem(info.lastInsertRowid);
 }
 
 // Cocher/décocher, et/ou renommer. doneBy/doneAt sont posés à la coche et
 // remis à NULL au décochage : sur une activité partagée, savoir QUI a coché
-// évite le « c'est moi qui l'ai fait » — et un item décoché ne doit pas
-// garder le nom de la dernière personne qui l'avait coché.
+// évite le « c'est moi qui l'ai fait » — et un item décoché ne doit pas garder
+// le nom de la dernière personne qui l'avait coché.
 function updateItem(itemId, fields, userId) {
   const current = getItemRaw(itemId);
   if (!current) return null;
@@ -295,11 +391,11 @@ function deleteItem(itemId) {
   db.prepare('DELETE FROM sub_project_items WHERE id = ?').run(itemId);
 }
 
-function reorderItems(subProjectId, orderedIds) {
-  const stmt = db.prepare('UPDATE sub_project_items SET position = ? WHERE id = ? AND subProjectId = ?');
+function reorderItems(sectionId, orderedIds) {
+  const stmt = db.prepare('UPDATE sub_project_items SET position = ? WHERE id = ? AND sectionId = ?');
   db.exec('BEGIN');
   try {
-    orderedIds.forEach((id, index) => stmt.run(index, id, subProjectId));
+    orderedIds.forEach((id, index) => stmt.run(index, id, sectionId));
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');
@@ -307,12 +403,45 @@ function reorderItems(subProjectId, orderedIds) {
   }
 }
 
-// ===================== FIL DE DISCUSSION PAR SOUS-PROJET =====================
+// ===================== SONDAGES : PAS D'IMPLÉMENTATION ICI =====================
+// ⚠️ Les sondages d'un sous-projet appartiennent au SOCLE COMMUN écrit par la
+// discussion "Sondages" (server/lib/polls.js), pas à ce fichier. Ils s'y
+// accrochent par (scope = 'subproject', scopeId = sub_projects.id), et la
+// garde d'accès de ce scope est enregistrée dans server/routes/polls.js — elle
+// appelle checkSubProjectAccess() ci-dessus, donc le contrôle « membre de
+// l'activité » reste défini à un seul endroit : ici.
+//
+// Une première version de ce fichier avait commencé à écrire ses propres
+// tables polls/poll_options/poll_votes ; elles ont été RETIRÉES avant
+// livraison en découvrant le socle commun sur le disque. Deux tables `polls`
+// aux colonnes différentes auraient cohabité par CREATE TABLE IF NOT EXISTS,
+// et la première créée aurait fait échouer l'autre code en silence. Ne jamais
+// réintroduire de sondage ici : une section de type 'poll' ne stocke rien,
+// elle dit seulement que ce sous-projet affiche ses sondages.
+
+// Supprime les sondages accrochés à un sous-projet. Chargement TOLÉRANT du
+// socle, sur le même principe que server/routes/polls.js vis-à-vis de ce
+// fichier : un socle absent ne doit pas empêcher de supprimer un sous-projet.
+function deletePollsForSubProject(subProjectId) {
+  try {
+    const polls = require('./polls');
+    const db2 = require('../db');
+    const rows = db2.prepare("SELECT id FROM polls WHERE scope = 'subproject' AND scopeId = ?").all(String(subProjectId));
+    for (const row of rows) db2.prepare('DELETE FROM polls WHERE id = ?').run(row.id);
+    void polls;
+  } catch (err) {
+    console.warn('[sous-projets] sondages non nettoyés :', err && err.message);
+  }
+}
+
+// ===================== FIL DE DISCUSSION (section 'discussion') =====================
 // Système NOUVEAU et distinct du fil de l'activité (activity_messages,
-// propriété de "Général") — demande explicite d'Emilien. L'alternative
-// (colonne subProjectId nullable sur activity_messages) aurait écrit moins de
-// code mais touché la table d'une autre discussion ; écartée pour cette
-// raison, pas par méconnaissance.
+// propriété de "Général") — demande explicite d'Emilien.
+//
+// Les messages restent rattachés au SOUS-PROJET, pas à la section : il ne peut
+// y avoir qu'une seule discussion par sous-projet (index unique partiel), donc
+// les deux reviennent au même — et retirer la section sans effacer ce que les
+// membres se sont écrit devient possible.
 
 function messagesForSubProject(subProjectId) {
   return db.prepare(`
@@ -348,12 +477,14 @@ function deleteSubProjectMessage(messageId) {
 }
 
 module.exports = {
+  SECTION_KINDS,
   // Contrat "Général" — ne pas changer sans le prévenir (R6).
   progressForActivities,
   progressForActivity,
   // Accès
   isActivityMember,
   checkSubProjectAccess,
+  checkSectionAccess,
   // Sous-projets
   subProjectsForActivity,
   getSubProject,
@@ -361,14 +492,25 @@ module.exports = {
   updateSubProject,
   deleteSubProject,
   reorderSubProjects,
+  // Sections
+  getSection,
+  hasDiscussionSection,
+  hasPollSection,
+  createSection,
+  updateSectionTitle,
+  deleteSection,
+  sectionsForSubProject,
   // Todolist
-  itemsForSubProject,
+  itemsForSection,
   getItem,
   getItemRaw,
   createItem,
   updateItem,
   deleteItem,
   reorderItems,
+  // Sondages : voir server/lib/polls.js (socle commun). Rien ici hormis le
+  // nettoyage à la suppression d'un sous-projet.
+  deletePollsForSubProject,
   // Fil de discussion
   messagesForSubProject,
   postSubProjectMessage,

@@ -617,6 +617,16 @@
           <textarea id="communityMyPostsInput" rows="2" maxlength="2000" placeholder="Écrire..."></textarea>
           <div id="communityMyPostsPendingList" class="attachmentList hidden"></div>
           <div class="rowActions">
+            <!-- "+" des sondages : déplacé ici le 3 septembre 2026 sur demande
+                 d'Emilien (« l'icône + de sondages [...] à gauche de l'icône
+                 trombone en dessous des zones de textes »). Le bouton vit donc
+                 dans le composeur de MESSAGES, mais il ouvre le formulaire de
+                 #communityPollsBlock, son frère juste en dessous — les deux
+                 blocs restent distincts (un sondage n'est pas un message), seul
+                 le point de départ du geste a bougé. Son id n'a pas changé :
+                 mountPolls le câble toujours par ids.addBtn, et il reste masqué
+                 tant que le serveur n'a pas confirmé le droit de créer. -->
+            <button type="button" class="menuBtn pollComposerAddBtn hidden" id="communityPollsAddBtn" aria-label="Créer un sondage" title="Créer un sondage">+</button>
             <div class="attachmentMenuWrap">
               <button type="button" id="communityMyPostsAttachBtn" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -644,20 +654,23 @@
            mêlés à leurs messages dans #followingFeed juste en dessous (voir
            loadFollowingFeed dans app.js). -->
       <div id="communityPollsBlock" class="pollsBlock">
-        <div class="sectionTitleRow">
-          <p class="sectionTitle">Sondages</p>
-          <button type="button" class="menuBtn hidden" id="communityPollsAddBtn" aria-label="Créer un sondage">+</button>
-        </div>
+        <!-- Plus de titre de section ni de ligne d'en-tête ici (3 septembre
+             2026, « Supprimer le titre "sondage" ») : le bloc n'apparaît que
+             par ce qu'il contient. Le "+" qui ouvre ce formulaire est monté
+             dans le composeur ci-dessus. -->
         <div class="entryCard pollForm hidden" id="communityPollsForm">
-          <input type="text" id="communityPollsQuestion" maxlength="300" placeholder="Ta question...">
+          <textarea id="communityPollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
           <div class="pollFormOptions" id="communityPollsOptions"></div>
-          <button type="button" class="iconBtn pollAddOptionBtn" id="communityPollsAddOptionBtn">+ Ajouter une réponse</button>
-          <label class="pollFormRow"><input type="checkbox" id="communityPollsMulti"> Plusieurs réponses possibles</label>
-          <label class="pollFormRow">Clôture (facultatif)<input type="date" id="communityPollsClosesAt"></label>
-          <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
-          <div class="rowActions">
-            <button type="button" class="iconBtn" id="communityPollsCreateBtn">Créer le sondage</button>
+          <div class="pollFormActions">
+            <button type="button" class="iconBtn pollAddOptionBtn" id="communityPollsAddOptionBtn">+ Ajouter une réponse</button>
+            <button type="button" class="iconBtn pollOptionsBtn" id="communityPollsOptionsBtn">Option</button>
           </div>
+          <div class="pollFormAdvanced hidden" id="communityPollsAdvanced">
+            <label class="pollFormRow"><input type="checkbox" id="communityPollsMulti"> Plusieurs réponses possibles</label>
+            <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="communityPollsClosesAt"></label>
+          </div>
+          <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+          <button type="button" class="btn btn-primary pollCreateBtn" id="communityPollsCreateBtn">Terminer</button>
           <p id="communityPollsMsg" class="msg"></p>
         </div>
         <div id="communityPollsList" class="pollsList"></div>
@@ -795,45 +808,113 @@
           <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.</p>
 
           <div id="subProjectDetailAnchor"></div>
+          <!-- Contenu d'un sous-projet. ⚠️ AUCUNE section n'existe par défaut
+               (demande d'Emilien, 3 septembre 2026) : un sous-projet neuf
+               n'affiche que son en-tête et le bouton "Ajouter". Trois blocs se
+               suivent dans cet ordre, et l'ordre est STRUCTUREL — il n'y a rien
+               à recalculer côté JS :
+                 1. #subProjectSections  : les listes de tâches
+                 2. #subProjectPollsBlock : les sondages
+                 3. #subProjectDiscussionBlock : la discussion, TOUJOURS en bas
+               (« la discussion se retrouve toujours en bas du sous-projet et
+               les tâches et sondages se présentent au-dessus », Emilien). -->
           <div id="subProjectDetail" class="hidden">
-            <div class="subProjectSection">
-              <div class="sectionTitleRow">
-                <p class="sectionTitle">Tâches <span id="subProjectProgressLabel" class="meta"></span></p>
+            <div class="sectionTitleRow">
+              <p class="sectionTitle" id="subProjectDetailName"></p>
+              <div class="rowActions">
+                <button type="button" id="addSubProjectSectionBtn" class="iconBtn">Ajouter</button>
                 <button type="button" id="subProjectSettingsBtn" class="menuBtn" aria-label="Réglages du sous-projet">⋮</button>
               </div>
-              <div class="subProjectProgress">
-                <div class="subProjectProgressTrack"><div id="subProjectProgressFill" class="subProjectProgressFill"></div></div>
-              </div>
-
-              <!-- Réglages du sous-projet : replié par défaut, même motif que
-                   le panneau "⋮" d'une activité (.activitySettingsPanel). -->
-              <div id="subProjectSettingsPanel" class="activitySettingsPanel hidden">
-                <label class="fieldLabel" for="subProjectEditName">Nom</label>
-                <input id="subProjectEditName" type="text" maxlength="120" />
-                <label class="fieldLabel" for="subProjectEditDescription">Description</label>
-                <textarea id="subProjectEditDescription" rows="2" maxlength="2000"></textarea>
-                <p id="subProjectEditMsg" class="msg"></p>
-                <div class="rowActions">
-                  <button type="button" id="subProjectEditSave" class="iconBtn">Enregistrer</button>
-                  <button type="button" id="subProjectDeleteBtn" class="iconBtn">Supprimer le sous-projet</button>
-                </div>
-              </div>
-
-              <div id="subProjectItems" class="subProjectItems"></div>
-              <p id="subProjectItemsEmptyHint" class="hint hidden">Aucune tâche — ajoute la première ci-dessous.</p>
-              <div class="subProjectItemAdd">
-                <input id="newSubProjectItemInput" type="text" maxlength="300" placeholder="Ajouter une tâche..." />
-                <button type="button" id="newSubProjectItemBtn" class="iconBtn">Ajouter</button>
-              </div>
-              <p id="subProjectItemsMsg" class="msg"></p>
             </div>
 
-            <!-- Fil de discussion PROPRE À CE SOUS-PROJET. Monté par
-                 mountMessageThread(), la version généralisée de l'ancien
-                 mountProfilePostsComposer — pas un troisième système de
-                 messages écrit à part. -->
-            <div id="subProjectDiscussionBlock" class="discussionBlock">
-              <p class="sectionTitle">Discussion du sous-projet</p>
+            <div id="subProjectProgressWrap" class="subProjectProgress hidden">
+              <div class="subProjectProgressTrack"><div id="subProjectProgressFill" class="subProjectProgressFill"></div></div>
+            </div>
+
+            <!-- Menu du bouton "Ajouter" : les trois types de section. Les
+                 options "sondages" et "discussion" se grisent dès que le
+                 sous-projet en a déjà une. -->
+            <div id="addSectionMenu" class="activitySettingsPanel hidden">
+              <p class="hint">Qu'est-ce que tu veux ajouter à ce sous-projet ?</p>
+              <div class="rowActions">
+                <button type="button" id="addSectionTasksBtn" class="iconBtn">Des tâches</button>
+                <button type="button" id="addSectionPollBtn" class="iconBtn">Des sondages</button>
+                <button type="button" id="addSectionDiscussionBtn" class="iconBtn">Une discussion</button>
+              </div>
+              <p id="addSectionMsg" class="msg"></p>
+            </div>
+
+            <div id="subProjectSettingsPanel" class="activitySettingsPanel hidden">
+              <label class="fieldLabel" for="subProjectEditName">Nom</label>
+              <input id="subProjectEditName" type="text" maxlength="120" />
+              <label class="fieldLabel" for="subProjectEditDescription">Description</label>
+              <textarea id="subProjectEditDescription" rows="2" maxlength="2000"></textarea>
+              <p id="subProjectEditMsg" class="msg"></p>
+              <div class="rowActions">
+                <button type="button" id="subProjectEditSave" class="iconBtn">Enregistrer</button>
+                <button type="button" id="subProjectDeleteBtn" class="iconBtn">Supprimer le sous-projet</button>
+              </div>
+            </div>
+
+            <!-- 1. Listes de tâches, dans l'ordre d'ajout. -->
+            <div id="subProjectSections"></div>
+
+            <p id="subProjectEmptyHint" class="hint hidden">Ce sous-projet est vide — clique sur « Ajouter » pour y mettre des tâches, des sondages ou une discussion.</p>
+
+            <!-- Sondages du sous-projet. ⚠️ Ce bloc est une COPIE EXACTE de la
+               structure de #communityPollsBlock (discussion "Sondages"), aux
+               ids près : il est monté par leur mountPolls() avec scope
+               'subproject'. Toute évolution de leur formulaire doit être
+               recopiée ici — c'est le prix d'un socle monté sur des ids fixes,
+               et c'est plus sûr que d'écrire une deuxième implémentation.
+               (Leur passage du 3 septembre 2026 a remplacé les <input> par des
+               <textarea> auto-agrandissants : recopié tel quel.) -->
+      <div id="subProjectPollsBlock" class="pollsBlock hidden">
+        <!-- ⚠️ Le socle a retiré son propre en-tête le 3 septembre 2026 (« le
+             bloc n'apparaît que par ce qu'il contient ») et déplacé son "+"
+             dans le composeur de la page qui l'accueille. Un sous-projet n'a
+             pas ce composeur : on redonne donc ici les deux boutons dont le
+             montage a besoin — le "+" attendu par mountPolls (ids.addBtn, qu'il
+             affiche lui-même selon canCreate) et le "✕" propre à ce volet, qui
+             retire la section sans toucher aux sondages. -->
+        <div class="sectionTitleRow">
+          <p class="sectionTitle">Sondages</p>
+          <div class="rowActions">
+            <button type="button" class="menuBtn hidden" id="subProjectPollsAddBtn" aria-label="Créer un sondage">+</button>
+            <button type="button" class="menuBtn" id="subProjectPollsRemoveBtn" aria-label="Retirer les sondages">✕</button>
+          </div>
+        </div>
+        <!-- Plus de titre de section ni de ligne d'en-tête ici (3 septembre
+             2026, « Supprimer le titre "sondage" ») : le bloc n'apparaît que
+             par ce qu'il contient. Le "+" qui ouvre ce formulaire est monté
+             dans le composeur ci-dessus. -->
+        <div class="entryCard pollForm hidden" id="subProjectPollsForm">
+          <textarea id="subProjectPollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
+          <div class="pollFormOptions" id="subProjectPollsOptions"></div>
+          <div class="pollFormActions">
+            <button type="button" class="iconBtn pollAddOptionBtn" id="subProjectPollsAddOptionBtn">+ Ajouter une réponse</button>
+            <button type="button" class="iconBtn pollOptionsBtn" id="subProjectPollsOptionsBtn">Option</button>
+          </div>
+          <div class="pollFormAdvanced hidden" id="subProjectPollsAdvanced">
+            <label class="pollFormRow"><input type="checkbox" id="subProjectPollsMulti"> Plusieurs réponses possibles</label>
+            <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="subProjectPollsClosesAt"></label>
+          </div>
+          <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+          <button type="button" class="btn btn-primary pollCreateBtn" id="subProjectPollsCreateBtn">Terminer</button>
+          <p id="subProjectPollsMsg" class="msg"></p>
+        </div>
+        <div id="subProjectPollsList" class="pollsList"></div>
+        <p id="subProjectPollsEmptyHint" class="hint hidden">Aucun sondage pour l'instant.</p>
+      </div>
+
+            <!-- 3. Fil de discussion du sous-projet : TOUJOURS en dernier,
+                 parce qu'il est écrit ici en dernier. Affiché seulement si le
+                 sous-projet a une section 'discussion'. -->
+            <div id="subProjectDiscussionBlock" class="discussionBlock hidden">
+              <div class="sectionTitleRow">
+                <p class="sectionTitle">Discussion</p>
+                <button type="button" id="subProjectDiscussionRemoveBtn" class="menuBtn" aria-label="Retirer la discussion">✕</button>
+              </div>
               <div id="subProjectMessagesList" class="discussionList"></div>
               <p id="subProjectMessagesEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
               <div class="discussionComposer">
@@ -1429,6 +1510,11 @@
             <textarea id="profileDiscussionCommunityInput" rows="2" maxlength="2000" placeholder="Écrire..."></textarea>
             <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
             <div class="rowActions">
+              <!-- "+" des sondages, à gauche du trombone — même déplacement que
+                   dans le composeur jumeau de #tab-community (3 septembre
+                   2026). Il ouvre le formulaire de #profilePollsBlock, juste en
+                   dessous. -->
+              <button type="button" class="menuBtn pollComposerAddBtn hidden" id="profilePollsAddBtn" aria-label="Créer un sondage" title="Créer un sondage">+</button>
               <div class="attachmentMenuWrap">
                 <button type="button" id="profileDiscussionAttachBtn" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -1447,20 +1533,22 @@
              Discussion et son miroir « écrire à sa communauté ». Voir
              mountPolls dans app.js. -->
         <div id="profilePollsBlock" class="pollsBlock">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Sondages</p>
-            <button type="button" class="menuBtn hidden" id="profilePollsAddBtn" aria-label="Créer un sondage">+</button>
-          </div>
+          <!-- Ni titre ni ligne d'en-tête (3 septembre 2026, comme le bloc
+               jumeau de Communauté) : le "+" qui ouvre ce formulaire est dans
+               le composeur ci-dessus, à gauche du trombone. -->
           <div class="entryCard pollForm hidden" id="profilePollsForm">
-            <input type="text" id="profilePollsQuestion" maxlength="300" placeholder="Ta question...">
+            <textarea id="profilePollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
             <div class="pollFormOptions" id="profilePollsOptions"></div>
-            <button type="button" class="iconBtn pollAddOptionBtn" id="profilePollsAddOptionBtn">+ Ajouter une réponse</button>
-            <label class="pollFormRow"><input type="checkbox" id="profilePollsMulti"> Plusieurs réponses possibles</label>
-            <label class="pollFormRow">Clôture (facultatif)<input type="date" id="profilePollsClosesAt"></label>
-            <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
-            <div class="rowActions">
-              <button type="button" class="iconBtn" id="profilePollsCreateBtn">Créer le sondage</button>
+            <div class="pollFormActions">
+              <button type="button" class="iconBtn pollAddOptionBtn" id="profilePollsAddOptionBtn">+ Ajouter une réponse</button>
+              <button type="button" class="iconBtn pollOptionsBtn" id="profilePollsOptionsBtn">Option</button>
             </div>
+            <div class="pollFormAdvanced hidden" id="profilePollsAdvanced">
+              <label class="pollFormRow"><input type="checkbox" id="profilePollsMulti"> Plusieurs réponses possibles</label>
+              <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="profilePollsClosesAt"></label>
+            </div>
+            <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+            <button type="button" class="btn btn-primary pollCreateBtn" id="profilePollsCreateBtn">Terminer</button>
             <p id="profilePollsMsg" class="msg"></p>
           </div>
           <div id="profilePollsList" class="pollsList"></div>
@@ -1703,15 +1791,15 @@
         <div class="activityPageHeader">
           <span class="dot" id="activityPageDot"></span>
           <span class="activityPageName" id="activityPageName"></span>
-          <button type="button" class="menuBtn" id="activityPageMenuBtn" aria-label="Réglages de l'activité" title="Réglages de l'activité">☰</button>
           <button type="button" class="menuBtn" id="activityPageClose" aria-label="Fermer">✕</button>
         </div>
         <div id="activityPageScroll">
-          <!-- Réglages de l'activité (nom, couleur, Enregistrer, Partager,
-               Séparer, Fusionner, Voir les membres, Supprimer). Construits à la
-               demande par buildActivitySettingsPanel() — le même code qui les
-               construisait dans le "⋮" de chaque ligne avant ce passage. -->
-          <div id="activityPageMenuPanel" class="hidden"></div>
+          <!-- ⚠️ Le menu "☰" qui portait ici les réglages de l'activité a été
+               retiré le 3 septembre 2026, à la demande d'Emilien : les réglages
+               sont retournés sous le "⋮" de chaque ligne, dans la liste des
+               activités, sous leur forme d'origine. buildActivitySettingsPanel()
+               (public/app.js), écrite pour ce menu, sert désormais à les
+               construire là-bas — c'est le seul reste utile de ce passage. -->
           <div class="periodSwitch" id="activityPageSectionSwitch">
             <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Sous-projets</button>
             <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>

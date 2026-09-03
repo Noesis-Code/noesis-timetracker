@@ -748,19 +748,22 @@ router.delete('/profile/projects/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// Exports additionnels (3 septembre 2026, discussion "Sondages" — débordement
-// de DEUX lignes, signalé à Profil dans chantiers-en-cours.md).
+// ⚠️ 3 septembre 2026 (discussion "Sous-projets", débordement signalé —
+// correctif d'un bug trouvé par test15.js).
 //
-// Pourquoi : le socle des sondages (server/lib/polls.js) pose comme règle que
-// le contrôle d'accès reste chez la discussion HÔTE, et qu'il ne fait que
-// l'appeler. Pour un sondage de scope 'profile', l'hôte c'est ce fichier —
-// il fallait donc pouvoir appeler canViewProjects sans la recopier, sans quoi
-// une évolution des règles d'accès d'un profil laisserait les sondages sur
-// l'ancienne version, en silence.
+// server/routes/polls.js (discussion "Sondages") appelle
+// `require('./profile').canViewProjects(...)` dans la garde du scope
+// 'profile' — mais ce fichier n'exportait QUE le routeur. L'appel valait donc
+// `undefined(...)`, levait, et checkScopeAccess convertissait l'exception en
+// 403 : AUCUN sondage de profil n'était visible ni créable, ni sur le Profil
+// ni sur la Communauté, y compris sur son propre profil. Le socle refusait
+// « proprement » une panne, ce qui est le bon comportement — mais la panne,
+// elle, était bien réelle.
 //
-// Un routeur Express est une fonction : lui attacher une propriété n'a aucun
-// effet sur le routage. AUCUNE ligne de logique n'a été modifiée ici.
-router.canViewProjects = canViewProjects;
-router.canViewPosts = canViewPosts;
-
+// La propriété est attachée AU ROUTEUR (qui est une fonction) plutôt que de
+// remplacer module.exports par un objet : `app.use('/api', require('./routes/profile'))`
+// dans server/index.js continue de recevoir exactement le même routeur, et
+// aucune autre ligne du projet n'a besoin de changer.
 module.exports = router;
+module.exports.canViewProjects = canViewProjects;
+module.exports.canViewPosts = canViewPosts;

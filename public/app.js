@@ -2336,8 +2336,6 @@
 
     $('activityPageDot').style.background = a.color;
     $('activityPageName').textContent = a.name;
-    $('activityPageMenuPanel').classList.add('hidden');
-    $('activityPageMenuPanel').innerHTML = '';
 
     $('activityPageTabStats').classList.toggle('hidden', !isShared);
     $('activityPageTabDisc').classList.toggle('hidden', !isShared);
@@ -2362,7 +2360,6 @@
 
   function closeActivityPage() {
     $('activityPage').classList.add('hidden');
-    $('activityPageMenuPanel').classList.add('hidden');
     currentCommunityActivityId = '';
     stopDiscussionPolling();
     resetSubProjectsBlock();
@@ -2397,7 +2394,12 @@
     if (!row) return;
 
     var panel = document.createElement('div');
-    panel.className = 'activitySettingsPanel';
+    // ⚠️ Deux classes : `activitySettingsPanel` pour hériter de l'apparence du
+    // panneau replié d'une ligne, et `inlineSubProjectForm` pour rester
+    // DISTINGUABLE de lui. Depuis le retour du "⋮" sur les lignes, une même
+    // ligne peut porter les deux à la fois — sans cette seconde classe, rien
+    // ne les sépare dans le DOM.
+    panel.className = 'activitySettingsPanel inlineSubProjectForm';
     panel.dataset.activityId = String(a.id);
 
     var hint = document.createElement('p');
@@ -2465,51 +2467,35 @@
     b.addEventListener('click', function () { setActivityPageSection(b.dataset.section); });
   });
 
-  // Menu "☰" : les réglages de l'activité ouverte, construits à la demande.
-  $('activityPageMenuBtn').addEventListener('click', function () {
-    var box = $('activityPageMenuPanel');
-    if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
-    var current = null;
-    (lastRenderedActivities || []).forEach(function (x) {
-      if (String(x.id) === String(currentCommunityActivityId)) current = x;
-    });
-    if (!current) return;
-    box.innerHTML = '';
-    box.appendChild(buildActivitySettingsPanel(current, lastRenderedShared[String(current.id)], lastRenderedActivities));
-    box.classList.remove('hidden');
-  });
-
   // ===================== SOUS-PROJETS D'UNE ACTIVITÉ =====================
   // Discussion "Sous-projets" (3 septembre 2026). Découper une activité en
-  // objectifs, chacun avec sa todolist, son avancement et son propre fil de
-  // discussion — voir #activitySubProjectsBlock dans index.html,
+  // objectifs — voir #activitySubProjectsBlock dans index.html,
   // server/lib/subprojects.js et server/routes/subprojects.js.
   //
-  // Périmètre strict : rien au-dessus du sous-projet. Le fil de l'activité
-  // (#communityDiscussionBlock, renderDiscussion) et la gestion de l'activité
-  // elle-même ne sont pas touchés par ce bloc.
+  // STRUCTURE (deuxième passage, demande d'Emilien) : un sous-projet ne
+  // contient RIEN par défaut. On lui ajoute des sections une par une via le
+  // bouton "Ajouter" — des tâches, un sondage, ou une discussion (une seule
+  // par sous-projet). Aucune section vide n'est jamais affichée.
   //
-  // ⚠️ L'avancement affiché ici vient du MÊME calcul serveur que celui exposé
-  // à la discussion "Général" (progressForActivities) : une seule source, deux
-  // affichages, jamais deux calculs qui divergent. En particulier, percent
-  // vaut null — et non 0 — quand aucune tâche n'existe (règle R1 du contrat,
-  // voir noesis-timetracker-contrat-avancement.md) : c'est pour ça que la
-  // barre est MASQUÉE dans ce cas au lieu d'être dessinée vide.
+  // ⚠️ L'ordre "discussion toujours en bas" n'est pas recalculé ici : le fil
+  // (#subProjectDiscussionBlock) est écrit APRÈS #subProjectSections dans le
+  // HTML, donc il est structurellement en dernier. Le serveur trie de la même
+  // façon, pour que l'ordre soit le même partout.
+  //
+  // ⚠️ L'avancement affiché vient du MÊME calcul serveur que celui exposé à la
+  // discussion "Général" (progressForActivities) : une seule source, deux
+  // affichages. percent vaut null — et non 0 — quand aucune tâche n'existe
+  // (règle R1 du contrat) : la barre est donc MASQUÉE dans ce cas plutôt que
+  // dessinée vide.
   var currentSubProjectId = '';
-  var subProjectsCanDeleteAny = false;
   var subProjectsCache = [];
+  var subProjectDetailData = null;
 
-  // #subProjectDetail est déplacé DANS la ligne du sous-projet sélectionné
-  // (et remis à son ancre quand plus rien n'est sélectionné) — même mécanique
-  // que attachActivityDetail() pour #communityActivityDetail. C'est ce qui
-  // permet de n'avoir qu'UN fil de discussion monté en mémoire, sur des ids
-  // fixes, au lieu d'une instance par sous-projet.
   // ⚠️ Le nœud est MÉMORISÉ : une fois détaché du document (pour survivre au
   // vidage de la liste), document.getElementById ne le retrouve plus et
   // renverrait null — le bloc serait alors définitivement perdu. C'est
-  // exactement la raison pour laquelle activityDetailEl() met déjà en cache
-  // activityDetailNode plus haut ; le piège s'est reproduit ici et a été
-  // trouvé par la suite Playwright.
+  // exactement pour ça que activityDetailEl() met déjà activityDetailNode en
+  // cache ; le piège s'est reproduit ici, trouvé par la suite Playwright.
   var subProjectDetailNode = null;
   function subProjectDetailEl() {
     if (!subProjectDetailNode) subProjectDetailNode = $('subProjectDetail');
@@ -2529,9 +2515,8 @@
     detail.classList.remove('hidden');
   }
 
-  // Barre d'avancement partagée par l'activité et par un sous-projet.
-  // percent === null (aucune tâche) : on masque au lieu de dessiner une barre
-  // vide, qui se lirait à tort comme « 0 % fait ».
+  // Barre d'avancement. percent === null (aucune tâche) : on masque au lieu de
+  // dessiner une barre vide, qui se lirait à tort comme « 0 % fait ».
   function renderProgressBar(wrapId, fillId, labelId, done, total, percent) {
     var wrap = wrapId ? $(wrapId) : null;
     var label = labelId ? $(labelId) : null;
@@ -2549,6 +2534,7 @@
   function resetSubProjectsBlock() {
     currentSubProjectId = '';
     subProjectsCache = [];
+    subProjectDetailData = null;
     if (subProjectThread) subProjectThread.stopPolling();
     attachSubProjectDetail();
     $('subProjectsList').innerHTML = '';
@@ -2564,10 +2550,8 @@
     api('GET', '/api/activities/' + activityId + '/sub-projects?userId=' + profile.id)
       .then(function (data) {
         // Sélection changée pendant la requête : réponse périmée, on ne
-        // dessine pas (même garde que loadDiscussion et que la page de visite
-        // d'un profil).
+        // dessine pas (même garde que loadDiscussion).
         if (String(activityId) !== String(currentCommunityActivityId)) return;
-        subProjectsCanDeleteAny = !!data.canDeleteAny;
         subProjectsCache = data.subProjects;
         renderSubProjectsList(data);
       })
@@ -2579,9 +2563,7 @@
     // ⚠️ Détacher le détail AVANT de vider la liste : il vit dans la ligne
     // sélectionnée, il serait donc détruit avec elle (et avec lui le fil de
     // discussion et ses écouteurs, montés une seule fois sur des ids fixes).
-    // Exactement le même piège que detachActivityDetail() pour
-    // #communityActivityDetail — trouvé ici par la suite Playwright, qui ne
-    // retrouvait plus #newSubProjectItemInput après un rechargement de liste.
+    // Même piège que detachActivityDetail() pour #communityActivityDetail.
     var detail = subProjectDetailEl();
     if (detail && detail.parentNode) detail.parentNode.removeChild(detail);
     box.innerHTML = '';
@@ -2606,18 +2588,16 @@
 
       var badge = document.createElement('span');
       badge.className = 'meta subProjectBadge';
-      // Un sous-projet sans aucune tâche n'affiche PAS "0 %" — il n'a pas
+      // Un sous-projet sans aucune tâche n'affiche PAS "0 %" : il n'a pas
       // encore de todolist, ce n'est pas la même chose qu'un travail non
-      // commencé (règle R1).
+      // commencé (règle R1). On indique alors ce qu'il contient réellement.
       badge.textContent = sub.percent === null
-        ? t('aucune tâche')
+        ? subProjectContentSummary(sub)
         : sub.percent + '% · ' + sub.done + '/' + sub.total;
       header.appendChild(badge);
 
       row.appendChild(header);
 
-      // Mini-barre par sous-projet, dans la ligne repliée : c'est ce qu'on
-      // vient lire en premier quand on ouvre une activité.
       if (sub.percent !== null) {
         var track = document.createElement('div');
         track.className = 'subProjectProgressTrack subProjectRowTrack';
@@ -2647,135 +2627,284 @@
     attachSubProjectDetail();
   }
 
-  function selectedSubProject() {
-    for (var i = 0; i < subProjectsCache.length; i++) {
-      if (String(subProjectsCache[i].id) === String(currentSubProjectId)) return subProjectsCache[i];
-    }
-    return null;
+  // Résumé de ce que contient un sous-projet quand il n'a aucune tâche —
+  // "vide", "1 sondage", "discussion"... Évite un badge muet sur une ligne
+  // repliée, sans mentir avec un "0 %".
+  function subProjectContentSummary(sub) {
+    var bits = [];
+    if (sub.pollSectionCount) bits.push(t('sondages'));
+    if (sub.hasDiscussion) bits.push(t('discussion'));
+    if (!bits.length) return t('vide');
+    return bits.join(' · ');
   }
 
   function selectSubProject(id) {
     currentSubProjectId = id ? String(id) : '';
+    subProjectDetailData = null;
     attachSubProjectDetail();
-    $('subProjectSettingsPanel').classList.add('hidden');
-    $('subProjectItemsMsg').textContent = '';
-    $('subProjectEditMsg').textContent = '';
+    closeSubProjectPanels();
 
     if (!currentSubProjectId) {
       subProjectThread.stopPolling();
       return;
     }
-
-    var sub = selectedSubProject();
-    if (sub) {
-      $('subProjectEditName').value = sub.name;
-      $('subProjectEditDescription').value = sub.description || '';
-      // Barre du sous-projet ouvert. On passe null comme wrapId : le panneau
-      // de détail ne doit JAMAIS être masqué par l'absence de tâches — seule
-      // la barre est vidée et le libellé bascule sur "aucune tâche".
-      renderProgressBar(null, 'subProjectProgressFill', null, sub.done, sub.total, sub.percent);
-      $('subProjectProgressLabel').textContent = sub.percent === null
-        ? t('aucune tâche')
-        : sub.percent + '% · ' + sub.done + '/' + sub.total;
-    }
-
-    loadSubProjectItems();
-    subProjectThread.reset();
-    subProjectThread.startPolling();
+    loadSubProjectDetail();
   }
 
-  // ----- Todolist -----
+  function closeSubProjectPanels() {
+    $('subProjectSettingsPanel').classList.add('hidden');
+    $('addSectionMenu').classList.add('hidden');
+    $('addSectionMsg').textContent = '';
+    $('subProjectEditMsg').textContent = '';
+  }
 
-  function loadSubProjectItems() {
+  // Charge le contenu complet du sous-projet ouvert : ses sections, dans
+  // l'ordre définitif, avec leur contenu. Un seul aller-retour.
+  function loadSubProjectDetail() {
     if (!profile || !currentSubProjectId) return;
     var id = currentSubProjectId;
-    api('GET', '/api/sub-projects/' + id + '/items?userId=' + profile.id)
+    api('GET', '/api/sub-projects/' + id + '?userId=' + profile.id)
       .then(function (data) {
         if (String(id) !== String(currentSubProjectId)) return;
-        renderSubProjectItems(data.items);
+        subProjectDetailData = data;
+        renderSubProjectDetail(data);
       })
       .catch(function () { /* sous-projet supprimé entre-temps */ });
   }
 
-  function renderSubProjectItems(items) {
-    var box = $('subProjectItems');
-    box.innerHTML = '';
-    $('subProjectItemsEmptyHint').classList.toggle('hidden', items.length > 0);
+  function renderSubProjectDetail(data) {
+    $('subProjectDetailName').textContent = data.subProject.name;
+    $('subProjectEditName').value = data.subProject.name;
+    $('subProjectEditDescription').value = data.subProject.description || '';
 
-    items.forEach(function (item) {
-      var row = document.createElement('div');
-      row.className = 'subProjectItem' + (item.done ? ' done' : '');
-
-      var cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = item.done;
-      cb.addEventListener('change', function () {
-        cb.disabled = true;
-        api('PUT', '/api/sub-project-items/' + item.id, { userId: profile.id, done: cb.checked })
-          .then(function () {
-            // Une case cochée change l'avancement du sous-projet ET celui de
-            // l'activité : on recharge la liste (qui porte les deux) plutôt
-            // que de recalculer un pourcentage côté client — le serveur reste
-            // la seule source de vérité de l'avancement.
-            loadSubProjectItems();
-            loadSubProjects();
-          })
-          .catch(function (err) {
-            cb.checked = !cb.checked;
-            $('subProjectItemsMsg').textContent = err.message;
-          })
-          .then(function () { cb.disabled = false; });
-      });
-      row.appendChild(cb);
-
-      var label = document.createElement('span');
-      label.className = 'subProjectItemLabel';
-      label.textContent = item.label;
-      row.appendChild(label);
-
-      // Sur une activité partagée, savoir QUI a coché évite le « c'est moi qui
-      // l'ai fait ». Rien n'est affiché sur une activité solo : doneByName
-      // serait toujours soi-même.
-      if (item.done && item.doneByName && profile && item.doneBy !== profile.id) {
-        var who = document.createElement('span');
-        who.className = 'meta subProjectItemWho';
-        who.textContent = item.doneByName;
-        row.appendChild(who);
-      }
-
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'discussionMsgDelete';
-      del.textContent = '✕';
-      del.title = t('Supprimer cette tâche');
-      del.addEventListener('click', function () {
-        if (!confirm(t('Supprimer cette tâche ?'))) return;
-        api('DELETE', '/api/sub-project-items/' + item.id + '?userId=' + profile.id)
-          .then(function () { loadSubProjectItems(); loadSubProjects(); })
-          .catch(function (err) { $('subProjectItemsMsg').textContent = err.message; });
-      });
-      row.appendChild(del);
-
-      box.appendChild(row);
+    // Avancement du sous-projet : somme de toutes ses sections de tâches.
+    var done = 0, total = 0;
+    data.sections.forEach(function (sec) {
+      if (sec.kind === 'tasks') { done += sec.done; total += sec.total; }
     });
+    renderProgressBar('subProjectProgressWrap', 'subProjectProgressFill', null,
+      done, total, total ? Math.round((done / total) * 100) : null);
+
+    // Seules les sections de TÂCHES sont dessinées ici. Les sondages et la
+    // discussion sont deux blocs fixes placés APRÈS #subProjectSections dans
+    // le HTML : c'est ce qui garantit l'ordre voulu par Emilien (tâches et
+    // sondages au-dessus, discussion toujours en bas) sans rien recalculer.
+    var box = $('subProjectSections');
+    box.innerHTML = '';
+    data.sections.forEach(function (sec) {
+      if (sec.kind === 'tasks') box.appendChild(buildTasksSection(sec));
+    });
+
+    $('subProjectPollsBlock').classList.toggle('hidden', !data.hasPolls);
+    $('subProjectDiscussionBlock').classList.toggle('hidden', !data.hasDiscussion);
+    $('subProjectEmptyHint').classList.toggle('hidden', data.sections.length > 0);
+    // Une seule discussion et une seule section de sondages par sous-projet :
+    // les options se grisent dès qu'elles existent, plutôt que de laisser
+    // cliquer pour un 409.
+    $('addSectionDiscussionBtn').disabled = !!data.hasDiscussion;
+    $('addSectionPollBtn').disabled = !!data.hasPolls;
+
+    if (data.hasPolls) ensureSubProjectPollsMount().reset();
+
+    if (data.hasDiscussion) {
+      subProjectThread.reset();
+      subProjectThread.startPolling();
+    } else {
+      subProjectThread.stopPolling();
+    }
   }
 
-  function addSubProjectItem() {
+  // ----- En-tête commun à toute section (titre + retrait) -----
+  function buildSectionHeader(sec, defaultTitle) {
+    var head = document.createElement('div');
+    head.className = 'sectionTitleRow subProjectSectionHead';
+
+    var title = document.createElement('p');
+    title.className = 'sectionTitle';
+    title.textContent = sec.title || defaultTitle;
+    head.appendChild(title);
+
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'menuBtn';
+    del.textContent = '✕';
+    del.title = t('Retirer cette section');
+    del.addEventListener('click', function () {
+      if (!confirm(t('Retirer cette section ?'))) return;
+      api('DELETE', '/api/sub-project-sections/' + sec.id + '?userId=' + profile.id)
+        .then(function () { loadSubProjectDetail(); loadSubProjects(); })
+        .catch(function (err) { alert(err.message); });
+    });
+    head.appendChild(del);
+    return head;
+  }
+
+  // ----- Section "tâches" -----
+  function buildTasksSection(sec) {
+    var wrap = document.createElement('div');
+    wrap.className = 'subProjectSection subProjectTasksSection';
+    wrap.dataset.sectionId = sec.id;
+    wrap.appendChild(buildSectionHeader(sec, t('Tâches')));
+
+    if (sec.total) {
+      var track = document.createElement('div');
+      track.className = 'subProjectProgressTrack';
+      var fill = document.createElement('div');
+      fill.className = 'subProjectProgressFill';
+      fill.style.width = sec.percent + '%';
+      track.appendChild(fill);
+      wrap.appendChild(track);
+    }
+
+    var list = document.createElement('div');
+    list.className = 'subProjectItems';
+    sec.items.forEach(function (item) { list.appendChild(buildTaskRow(item)); });
+    wrap.appendChild(list);
+
+    if (!sec.items.length) {
+      var hint = document.createElement('p');
+      hint.className = 'hint';
+      hint.textContent = t('Aucune tâche — ajoute la première ci-dessous.');
+      wrap.appendChild(hint);
+    }
+
+    var add = document.createElement('div');
+    add.className = 'subProjectItemAdd';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 300;
+    input.placeholder = t('Ajouter une tâche...');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'iconBtn';
+    btn.textContent = t('Ajouter');
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+
+    function submit() {
+      var label = input.value.trim();
+      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
+      msg.textContent = '';
+      btn.disabled = true;
+      api('POST', '/api/sub-project-sections/' + sec.id + '/items', { userId: profile.id, label: label })
+        .then(function () { input.value = ''; loadSubProjectDetail(); loadSubProjects(); })
+        .catch(function (err) { msg.textContent = err.message; })
+        .then(function () { btn.disabled = false; });
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    });
+
+    add.appendChild(input);
+    add.appendChild(btn);
+    wrap.appendChild(add);
+    wrap.appendChild(msg);
+    return wrap;
+  }
+
+  function buildTaskRow(item) {
+    var row = document.createElement('div');
+    row.className = 'subProjectItem' + (item.done ? ' done' : '');
+
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = item.done;
+    cb.addEventListener('change', function () {
+      cb.disabled = true;
+      api('PUT', '/api/sub-project-items/' + item.id, { userId: profile.id, done: cb.checked })
+        .then(function () {
+          // Une case cochée change l'avancement du sous-projet ET celui de
+          // l'activité : on recharge les deux plutôt que de recalculer un
+          // pourcentage côté client — le serveur reste la seule source de
+          // vérité de l'avancement.
+          loadSubProjectDetail();
+          loadSubProjects();
+        })
+        .catch(function (err) { cb.checked = !cb.checked; alert(err.message); })
+        .then(function () { cb.disabled = false; });
+    });
+    row.appendChild(cb);
+
+    var label = document.createElement('span');
+    label.className = 'subProjectItemLabel';
+    label.textContent = item.label;
+    row.appendChild(label);
+
+    // Sur une activité partagée, savoir QUI a coché évite le « c'est moi qui
+    // l'ai fait ». Rien n'est affiché quand c'est soi-même.
+    if (item.done && item.doneByName && profile && item.doneBy !== profile.id) {
+      var who = document.createElement('span');
+      who.className = 'meta subProjectItemWho';
+      who.textContent = item.doneByName;
+      row.appendChild(who);
+    }
+
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'discussionMsgDelete';
+    del.textContent = '✕';
+    del.title = t('Supprimer cette tâche');
+    del.addEventListener('click', function () {
+      if (!confirm(t('Supprimer cette tâche ?'))) return;
+      api('DELETE', '/api/sub-project-items/' + item.id + '?userId=' + profile.id)
+        .then(function () { loadSubProjectDetail(); loadSubProjects(); })
+        .catch(function (err) { alert(err.message); });
+    });
+    row.appendChild(del);
+    return row;
+  }
+
+  // ----- Sondages : montés depuis le SOCLE COMMUN, pas réimplémentés -----
+  // ⚠️ La discussion "Sondages" (11ᵉ discussion) a écrit un socle réutilisable
+  // le 3 septembre 2026 : buildPollCard / mountPolls plus bas dans ce fichier,
+  // tables polls/poll_options/poll_votes, routes /api/polls, et un scope
+  // 'subproject' déjà prévu POUR ce volet (sa garde d'accès, enregistrée dans
+  // server/routes/polls.js, appelle checkSubProjectAccess de
+  // server/lib/subprojects.js). Une première version de ce chantier avait
+  // commencé à écrire ses propres sondages ; ils ont été retirés en découvrant
+  // ce socle — deux implémentations parallèles du même mécanisme, c'est
+  // exactement ce que le cadrage voulait éviter.
+  //
+  // ⚠️ MONTAGE PARESSEUX, et ce n'est pas une coquetterie : mountPolls pousse
+  // son instance dans `pollsMounts`, déclaré (var) BIEN PLUS BAS dans ce
+  // fichier. Monter ici au chargement du script le trouverait encore
+  // `undefined` — la fonction est hoistée, la donnée ne l'est pas. Même piège
+  // que buildCommunitySeekingFilters avec SEEKING_TAGS (voir la carte Profil
+  // dans chantiers-en-cours.md). On monte donc à la première ouverture d'un
+  // sous-projet, quand tout le fichier a été évalué.
+  var subProjectPollsMount = null;
+
+  function ensureSubProjectPollsMount() {
+    if (subProjectPollsMount) return subProjectPollsMount;
+    subProjectPollsMount = mountPolls({
+      scope: 'subproject',
+      scopeId: function () { return currentSubProjectId; },
+      // Jeu d'ids calqué à l'identique sur celui de communityPollsMount
+      // (discussion "Sondages") : même formulaire, mêmes options avancées.
+      // Toute clé ajoutée là-bas doit l'être ici aussi.
+      root: 'subProjectPollsBlock', addBtn: 'subProjectPollsAddBtn', form: 'subProjectPollsForm',
+      question: 'subProjectPollsQuestion', optionsBox: 'subProjectPollsOptions',
+      addOptionBtn: 'subProjectPollsAddOptionBtn', optionsBtn: 'subProjectPollsOptionsBtn',
+      advanced: 'subProjectPollsAdvanced', multi: 'subProjectPollsMulti',
+      closesAt: 'subProjectPollsClosesAt', createBtn: 'subProjectPollsCreateBtn',
+      msg: 'subProjectPollsMsg', list: 'subProjectPollsList', emptyHint: 'subProjectPollsEmptyHint',
+    });
+    return subProjectPollsMount;
+  }
+
+  // ----- Bouton "Ajouter" : les trois types de section -----
+
+  function addSection(kind, extra) {
     if (!profile || !currentSubProjectId) return;
-    var input = $('newSubProjectItemInput');
-    var label = input.value.trim();
-    var msgEl = $('subProjectItemsMsg');
-    if (!label) { msgEl.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
-    msgEl.textContent = '';
-    $('newSubProjectItemBtn').disabled = true;
-    api('POST', '/api/sub-projects/' + currentSubProjectId + '/items', { userId: profile.id, label: label })
+    var payload = { userId: profile.id, kind: kind };
+    if (extra) Object.keys(extra).forEach(function (k) { payload[k] = extra[k]; });
+    return api('POST', '/api/sub-projects/' + currentSubProjectId + '/sections', payload)
       .then(function () {
-        input.value = '';
-        loadSubProjectItems();
+        closeSubProjectPanels();
+        loadSubProjectDetail();
         loadSubProjects();
-      })
-      .catch(function (err) { msgEl.textContent = err.message; })
-      .then(function () { $('newSubProjectItemBtn').disabled = false; });
+      });
   }
 
   // ----- Création / édition / suppression d'un sous-projet -----
@@ -2810,24 +2939,20 @@
       name: $('subProjectEditName').value.trim(),
       description: $('subProjectEditDescription').value.trim(),
     })
-      .then(function () { msgEl.textContent = t('Enregistré.'); loadSubProjects(); })
+      .then(function () { msgEl.textContent = t('Enregistré.'); loadSubProjectDetail(); loadSubProjects(); })
       .catch(function (err) { msgEl.textContent = err.message; })
       .then(function () { $('subProjectEditSave').disabled = false; });
   }
 
   function deleteSubProject() {
     if (!profile || !currentSubProjectId) return;
-    // Double confirmation : la suppression emporte la todolist ET le fil de
-    // discussion de TOUS les membres — même prudence que la suppression
+    // Double confirmation : la suppression emporte toutes les sections du
+    // sous-projet, pour tous les membres — même prudence que la suppression
     // définitive d'une activité.
     if (!confirm(t('Supprimer ce sous-projet ?'))) return;
-    if (!confirm(t('Sa todolist et sa discussion seront supprimées pour tous les membres. Confirmer ?'))) return;
-    var id = currentSubProjectId;
-    api('DELETE', '/api/sub-projects/' + id + '?userId=' + profile.id)
-      .then(function () {
-        selectSubProject('');
-        loadSubProjects();
-      })
+    if (!confirm(t('Tout son contenu sera supprimé pour tous les membres. Confirmer ?'))) return;
+    api('DELETE', '/api/sub-projects/' + currentSubProjectId + '?userId=' + profile.id)
+      .then(function () { selectSubProject(''); loadSubProjects(); })
       .catch(function (err) { $('subProjectEditMsg').textContent = err.message; });
   }
 
@@ -2861,11 +2986,48 @@
     if (!card.classList.contains('hidden')) $('newSubProjectName').focus();
   });
   $('newSubProjectSave').addEventListener('click', createSubProject);
-  $('newSubProjectItemBtn').addEventListener('click', addSubProjectItem);
-  $('newSubProjectItemInput').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); addSubProjectItem(); }
+
+  $('addSubProjectSectionBtn').addEventListener('click', function () {
+    $('subProjectSettingsPanel').classList.add('hidden');
+    $('addSectionMenu').classList.toggle('hidden');
   });
+  $('addSectionTasksBtn').addEventListener('click', function () {
+    addSection('tasks').catch(function (err) { $('addSectionMsg').textContent = err.message; });
+  });
+  $('addSectionDiscussionBtn').addEventListener('click', function () {
+    addSection('discussion').catch(function (err) { $('addSectionMsg').textContent = err.message; });
+  });
+  // "Des sondages" ajoute simplement la section : le bloc de sondages est
+  // ensuite entièrement pris en charge par le socle commun (composeur compris).
+  $('addSectionPollBtn').addEventListener('click', function () {
+    addSection('poll').catch(function (err) { $('addSectionMsg').textContent = err.message; });
+  });
+  $('subProjectPollsRemoveBtn').addEventListener('click', function () {
+    if (!subProjectDetailData) return;
+    var section = subProjectDetailData.sections.filter(function (s) { return s.kind === 'poll'; })[0];
+    if (!section) return;
+    // Retirer la section ne supprime AUCUN sondage : ils appartiennent au
+    // socle commun et reviennent intacts si on la remet.
+    if (!confirm(t('Retirer les sondages de ce sous-projet ?'))) return;
+    api('DELETE', '/api/sub-project-sections/' + section.id + '?userId=' + profile.id)
+      .then(function () { loadSubProjectDetail(); loadSubProjects(); })
+      .catch(function (err) { alert(err.message); });
+  });
+
+  $('subProjectDiscussionRemoveBtn').addEventListener('click', function () {
+    if (!subProjectDetailData) return;
+    var section = subProjectDetailData.sections.filter(function (s) { return s.kind === 'discussion'; })[0];
+    if (!section) return;
+    // Les messages ne sont PAS supprimés avec la section : retirer la
+    // discussion masque le fil, il revient intact si on la rajoute.
+    if (!confirm(t('Retirer la discussion de ce sous-projet ?'))) return;
+    api('DELETE', '/api/sub-project-sections/' + section.id + '?userId=' + profile.id)
+      .then(function () { loadSubProjectDetail(); loadSubProjects(); })
+      .catch(function (err) { alert(err.message); });
+  });
+
   $('subProjectSettingsBtn').addEventListener('click', function () {
+    $('addSectionMenu').classList.add('hidden');
     $('subProjectSettingsPanel').classList.toggle('hidden');
   });
   $('subProjectEditSave').addEventListener('click', saveSubProjectEdits);
@@ -6018,6 +6180,29 @@
     return new Date(iso).toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
+  // Champs de saisie du formulaire de sondage : des <textarea> qui reviennent à
+  // la ligne et grandissent avec le texte, plutôt que des <input> d'une seule
+  // ligne (3 septembre 2026, demande d'Emilien : « les zones d'écriture,
+  // questions, réponses [...] doivent s'agrandir automatiquement en revenant à
+  // la ligne si le texte est plus long »).
+  //
+  // ⚠️ Deux pièges, tous les deux vus en bac à sable :
+  //   - il FAUT remettre height à 'auto' avant de lire scrollHeight, sinon la
+  //     hauteur ne fait que croître et ne redescend jamais quand on efface ;
+  //   - un élément masqué (display:none, cas du formulaire replié) a un
+  //     scrollHeight de 0 — recalculer une hauteur à ce moment-là écraserait
+  //     les champs à 0px. D'où le garde-fou ci-dessous, et le recalcul fait à
+  //     l'OUVERTURE du formulaire, jamais avant.
+  function pollAutoGrow(el) {
+    if (!el || !el.offsetParent) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  function bindPollAutoGrow(el) {
+    el.addEventListener('input', function () { pollAutoGrow(el); });
+  }
+
   // opts.authorClickable : false sur la page de visite d'un profil, où
   // l'auteur EST le profil déjà ouvert — un clic n'y ferait que réinitialiser
   // la modale sur elle-même.
@@ -6232,11 +6417,20 @@
     function renumberOptions() {
       var box = $(ids.optionsBox);
       Array.prototype.slice.call(box.children).forEach(function (row, i) {
-        var input = row.querySelector('input');
-        if (input) input.placeholder = t('Réponse') + ' ' + (i + 1);
+        var field = row.querySelector('textarea');
+        if (field) field.placeholder = t('Réponse') + ' ' + (i + 1);
         var rm = row.querySelector('button');
         if (rm) rm.classList.toggle('hidden', box.children.length <= 2);
       });
+    }
+
+    // Recalcule la hauteur de TOUS les champs du formulaire. Appelée à
+    // l'ouverture : tant que le formulaire est replié, les champs n'ont aucune
+    // hauteur mesurable (voir pollAutoGrow).
+    function growAllFields() {
+      pollAutoGrow($(ids.question));
+      Array.prototype.slice.call($(ids.optionsBox).querySelectorAll('textarea'))
+        .forEach(pollAutoGrow);
     }
 
     function addOptionRow() {
@@ -6244,9 +6438,11 @@
       if (box.children.length >= MAX_POLL_OPTIONS) return;
       var row = document.createElement('div');
       row.className = 'pollFormOptionRow';
-      var input = document.createElement('input');
-      input.type = 'text';
+      var input = document.createElement('textarea');
+      input.className = 'pollAutoGrow';
+      input.rows = 1;
       input.maxLength = 120;
+      bindPollAutoGrow(input);
       row.appendChild(input);
       var rm = document.createElement('button');
       rm.type = 'button';
@@ -6262,6 +6458,7 @@
       row.appendChild(rm);
       box.appendChild(row);
       renumberOptions();
+      pollAutoGrow(input);
       $(ids.addOptionBtn).disabled = box.children.length >= MAX_POLL_OPTIONS;
     }
 
@@ -6269,6 +6466,7 @@
       if (!hasComposer()) return;
       $(ids.form).classList.add('hidden');
       $(ids.question).value = '';
+      $(ids.question).style.height = 'auto';
       $(ids.multi).checked = false;
       $(ids.closesAt).value = '';
       $(ids.msg).textContent = '';
@@ -6276,6 +6474,10 @@
       addOptionRow();
       addOptionRow();
       $(ids.addOptionBtn).disabled = false;
+      // Le panneau "Option" (choix multiple, date de clôture) se referme avec
+      // le formulaire : on ne rouvre jamais sur des réglages hérités du
+      // sondage précédent.
+      $(ids.advanced).classList.add('hidden');
     }
 
     function load() {
@@ -6313,7 +6515,11 @@
     function create() {
       if (!profile) return;
       var question = $(ids.question).value.trim();
-      var options = Array.prototype.slice.call($(ids.optionsBox).querySelectorAll('input'))
+      // querySelectorAll('textarea') et non 'input' : les champs de réponse
+      // sont des <textarea> depuis le 3 septembre 2026 (voir pollAutoGrow) —
+      // et la case "Plusieurs réponses possibles" est justement un <input>
+      // qu'il ne faut surtout pas ramasser ici.
+      var options = Array.prototype.slice.call($(ids.optionsBox).querySelectorAll('textarea'))
         .map(function (i) { return i.value.trim(); })
         .filter(function (v) { return v.length > 0; });
       var msgEl = $(ids.msg);
@@ -6352,9 +6558,22 @@
       $(ids.addBtn).addEventListener('click', function () {
         var form = $(ids.form);
         form.classList.toggle('hidden');
-        if (!form.classList.contains('hidden')) $(ids.question).focus();
+        if (!form.classList.contains('hidden')) {
+          // Les champs viennent d'apparaître : c'est le premier moment où leur
+          // hauteur est mesurable (voir pollAutoGrow).
+          growAllFields();
+          $(ids.question).focus();
+        }
       });
       $(ids.addOptionBtn).addEventListener('click', addOptionRow);
+      // "Option" : choix multiple et date de clôture, repliés par défaut
+      // (3 septembre 2026, demande d'Emilien). Ce sont les deux seuls réglages
+      // facultatifs du sondage — la question et les réponses restent, elles,
+      // toujours visibles.
+      bindPollAutoGrow($(ids.question));
+      $(ids.optionsBtn).addEventListener('click', function () {
+        $(ids.advanced).classList.toggle('hidden');
+      });
       $(ids.createBtn).addEventListener('click', create);
       resetForm();
     }
@@ -6369,7 +6588,8 @@
     scopeId: function () { return profile && profile.id; },
     root: 'communityPollsBlock', addBtn: 'communityPollsAddBtn', form: 'communityPollsForm',
     question: 'communityPollsQuestion', optionsBox: 'communityPollsOptions',
-    addOptionBtn: 'communityPollsAddOptionBtn', multi: 'communityPollsMulti',
+    addOptionBtn: 'communityPollsAddOptionBtn', optionsBtn: 'communityPollsOptionsBtn',
+    advanced: 'communityPollsAdvanced', multi: 'communityPollsMulti',
     closesAt: 'communityPollsClosesAt', createBtn: 'communityPollsCreateBtn',
     msg: 'communityPollsMsg', list: 'communityPollsList', emptyHint: 'communityPollsEmptyHint',
   });
@@ -6379,7 +6599,8 @@
     scopeId: function () { return profile && profile.id; },
     root: 'profilePollsBlock', addBtn: 'profilePollsAddBtn', form: 'profilePollsForm',
     question: 'profilePollsQuestion', optionsBox: 'profilePollsOptions',
-    addOptionBtn: 'profilePollsAddOptionBtn', multi: 'profilePollsMulti',
+    addOptionBtn: 'profilePollsAddOptionBtn', optionsBtn: 'profilePollsOptionsBtn',
+    advanced: 'profilePollsAdvanced', multi: 'profilePollsMulti',
     closesAt: 'profilePollsClosesAt', createBtn: 'profilePollsCreateBtn',
     msg: 'profilePollsMsg', list: 'profilePollsList', emptyHint: 'profilePollsEmptyHint',
   });
@@ -6790,10 +7011,23 @@
         header.appendChild(unreadBadge);
       }
 
-      // ⚠️ 3 septembre 2026 (Activité — général) : le bouton "⋮" a été retiré
-      // d'ici. Les réglages de l'activité vivent désormais derrière le menu
-      // "☰" de la page d'activité (choix d'Emilien : un seul chemin, pas
-      // deux). La ligne n'a donc plus qu'un seul geste : l'ouvrir.
+      // ⚠️ 3 septembre 2026 (Activité — général), RETOUR EN ARRIÈRE demandé par
+      // Emilien le jour même : « J'aimerais cependant que les réglages de
+      // l'activité qui étaient dans les trois petits points retournent sur le
+      // volet activité où se trouvent toutes les activités. Il doit se
+      // présenter sous la même forme qu'auparavant sous les trois petits
+      // points. » Le "⋮" avait été retiré d'ici quelques heures plus tôt au
+      // profit d'un menu "☰" dans la page d'activité ; ce menu a donc été
+      // supprimé à son tour, pour ne pas laisser deux chemins vers les mêmes
+      // réglages. La ligne a de nouveau DEUX gestes distincts : le "⋮" ouvre
+      // les réglages sur place, un clic ailleurs sur la ligne ouvre la page.
+      var menuBtn = document.createElement('button');
+      menuBtn.type = 'button';
+      menuBtn.className = 'menuBtn';
+      menuBtn.title = t("Paramètres de l'activité");
+      menuBtn.setAttribute('aria-label', t("Paramètres de l'activité"));
+      menuBtn.textContent = '⋮';
+      header.appendChild(menuBtn);
 
       row.appendChild(header);
 
@@ -6809,6 +7043,21 @@
         row.appendChild(badge2);
       }
 
+
+      // Panneau de réglages replié, rendu par la même fonction que celle
+      // écrite lors du déménagement vers le "☰" — elle est simplement
+      // rappelée ici. Le panneau naît replié : c'est le "⋮" qui le déplie.
+      var panel = buildActivitySettingsPanel(a, sharedInfo, acts);
+      panel.classList.add('hidden');
+      row.appendChild(panel);
+
+      menuBtn.addEventListener('click', function (e) {
+        // ⚠️ Sans ça, le clic remonterait jusqu'à la ligne et ouvrirait la
+        // page en même temps que le panneau — les deux gestes doivent rester
+        // distincts.
+        e.stopPropagation();
+        panel.classList.toggle('hidden');
+      });
 
       // Clic sur la ligne : ouvre la PAGE de l'activité.
       //

@@ -540,13 +540,11 @@
     'Ex. Refonte du site': 'E.g. Website redesign',
     'Description (facultatif)': 'Description (optional)',
     'À quoi sert ce sous-projet ?': 'What is this sub-project for?',
-    'Ajouter le sous-projet': 'Add the sub-project',
     'Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.': 'No sub-project yet — tap “+” to split this activity into goals.',
     'Tâches': 'Tasks',
     'Réglages du sous-projet': 'Sub-project settings',
     'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
     'Ajouter une tâche...': 'Add a task...',
-    'Discussion du sous-projet': 'Sub-project discussion',
     'Écrire sur ce sous-projet...': 'Write about this sub-project...',
     'Supprimer le sous-projet': 'Delete the sub-project',
     'aucune tâche': 'no task',
@@ -555,7 +553,6 @@
     "Écris une tâche avant d'ajouter.": 'Write a task before adding it.',
     'Le nom du sous-projet est requis.': 'The sub-project name is required.',
     'Supprimer ce sous-projet ?': 'Delete this sub-project?',
-    'Sa todolist et sa discussion seront supprimées pour tous les membres. Confirmer ?': 'Its checklist and discussion will be deleted for every member. Confirm?',
     // Messages d'erreur renvoyés par server/routes/subprojects.js
     'Sous-projet introuvable.': 'Sub-project not found.',
     'Intitulé de la tâche requis.': 'Task label required.',
@@ -571,11 +568,18 @@
     'Créer un sondage': 'Create a poll',
     'Ta question...': 'Your question...',
     '+ Ajouter une réponse': '+ Add an answer',
+    // Bouton qui déplie le choix multiple et la date de clôture (3 septembre
+    // 2026). Singulier en français, voulu tel quel par Emilien (« un bouton
+    // option à droite de "+ajouter une réponse" ») ; pluriel en anglais, où
+    // "Options" est la forme usuelle pour ce genre de bouton.
+    'Option': 'Options',
     'Plusieurs réponses possibles': 'Multiple answers allowed',
     'Clôture (facultatif)': 'Closing date (optional)',
     "Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.":
       'Voting is not anonymous: voter names are visible once you have voted. Nobody sees the results before voting.',
-    'Créer le sondage': 'Create the poll',
+    // Anciennement "Créer le sondage" — renommé par Emilien le 3 septembre
+    // 2026, sur un bouton qui prend désormais toute la largeur.
+    'Terminer': 'Done',
     "Aucun sondage pour l'instant.": 'No polls yet.',
     'Réponse': 'Answer',
     'Retirer cette réponse': 'Remove this answer',
@@ -615,6 +619,32 @@
     "Tu n'as pas accès à ce profil.": 'You do not have access to this profile.',
     'scope et scopeId requis.': 'scope and scopeId are required.',
     'Accès refusé.': 'Access denied.',
+    // ---- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) ----
+    "Qu'est-ce que tu veux ajouter à ce sous-projet ?": 'What do you want to add to this sub-project?',
+    'Des tâches': 'Tasks',
+    'Des sondages': 'Polls',
+    'Une discussion': 'A discussion',
+    'Ce sous-projet est vide — clique sur « Ajouter » pour y mettre des tâches, des sondages ou une discussion.': 'This sub-project is empty — tap "Add" to put tasks, polls or a discussion in it.',
+    'Retirer les sondages': 'Remove the polls',
+    'Retirer les sondages de ce sous-projet ?': 'Remove the polls from this sub-project?',
+    'Retirer la discussion': 'Remove the discussion',
+    'Retirer la discussion de ce sous-projet ?': 'Remove the discussion from this sub-project?',
+    'Retirer cette section': 'Remove this section',
+    'Retirer cette section ?': 'Remove this section?',
+    'sondages': 'polls',
+    'discussion': 'discussion',
+    'vide': 'empty',
+    'Tout son contenu sera supprimé pour tous les membres. Confirmer ?': 'All of its content will be deleted for every member. Confirm?',
+    // Messages d'erreur renvoyés par server/routes/subprojects.js
+    'Type de section inconnu.': 'Unknown section type.',
+    'Ce sous-projet a déjà une discussion.': 'This sub-project already has a discussion.',
+    'Ce sous-projet a déjà une section de sondages.': 'This sub-project already has a polls section.',
+    'Cette section existe déjà dans ce sous-projet.': 'This section already exists in this sub-project.',
+    'Section introuvable.': 'Section not found.',
+    "Cette section n'est pas une liste de tâches.": 'This section is not a task list.',
+    "Ce sous-projet n'a pas de discussion.": 'This sub-project has no discussion.',
+    "Seul le créateur de la section ou le propriétaire de l'activité peut la supprimer.": 'Only the section creator or the activity owner can remove it.',
+
   };
 
   // ------------------- Messages contenant une valeur variable -------------
