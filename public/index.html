@@ -224,43 +224,350 @@
 <!-- ===================== APPLICATION ===================== -->
 <div id="app" class="screen hidden">
 
-  <header class="topbar">
-    <span class="brand">Noèsis</span>
-    <!-- Cliquer sur le prénom ouvre le Profil (voir openProfile dans app.js) —
-         Profil n'est plus un onglet de la barre du bas depuis le 30 août 2026
-         (demande d'Emilien), remplacé par "Activité" ; c'est désormais le
-         seul point d'accès au Profil. -->
-    <div class="topbarActions">
-      <!-- #whoami déplacé en premier dans .topbarActions le 2 septembre 2026
-           (demande d'Emilien : « déplacer à nouveau les items invitation et
-           paramètres [...] à droite du nom de l'utilisateur ») : les icônes
-           "avion en papier"/"⚙️" vivaient avant le prénom (donc à sa gauche)
-           depuis le 31 août 2026, voir le commentaire ci-dessous ; seul
-           l'ordre DOM change ici (flex, sans row-reverse) — comportement au
-           clic, ancrage des panneaux (sur .topbar, indépendant de l'ordre des
-           boutons) et point rouge #whoamiDot inchangés. -->
-      <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
-        <span id="whoamiName"></span>
-        <!-- Redondant avec le point rouge du bouton "avion en papier"
-             ci-dessous depuis qu'il est visible en permanence, mais conservé :
-             visible même quand le nom est tronqué/loin de l'œil, comme avant
-             le 31 août 2026. Alimenté par notifPendingCounts.invites (voir
-             refreshNotifDot dans app.js) — reflète déjà les invitations en
-             attente, pas seulement les demandes de suivi. -->
-        <span id="whoamiDot" class="notifDot hidden"></span>
-      </button>
-      <!-- Icônes "avion en papier" (invitations/demandes de suivi) et "⚙️"
-           (Réglages) : de retour sur la page Profil (bandeau
-           `.identityHeader`, dans `#profileMain`) depuis le 2 septembre
-           2026, deuxième passage — Emilien a précisé sa demande du jour
-           même (« déplacer à nouveau les items invitation et paramètres
-           [...] à droite du nom de l'utilisateur ») : c'est le nom affiché
-           SUR LA PAGE PROFIL (`#identityDisplayName`) qui était visé, pas
-           le lien `#whoami` de cette topbar. Elles ne sont donc plus
-           accessibles depuis les autres onglets — seulement une fois le
-           Profil ouvert. Voir `.identityHeader`, plus bas dans
-           `#tab-profile`. -->
-      
+  <header class="topbar" id="topbar">
+    <!-- État par défaut (Profil fermé) : "Noèsis" à gauche, #whoami à droite
+         — désormais une photo de profil (ou l'initiale du prénom à défaut)
+         plutôt qu'un nom en texte (3 septembre 2026, demande d'Emilien :
+         « remplacer le nom de l'utilisateur en haut à droite par sa photo de
+         profil »). Bascule vers/depuis #topbarProfile ci-dessous, pilotée par
+         openProfile()/switchTab() dans app.js (voir syncTopbarHeightVar(),
+         appelée à chaque bascule pour que --topbar-h reste juste). -->
+    <div class="topbarDefault" id="topbarDefault">
+      <span class="brand">Noèsis</span>
+      <div class="topbarActions">
+        <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
+          <span class="whoamiAvatar" id="whoamiAvatar">
+            <img id="whoamiAvatarImg" class="hidden" alt="">
+            <span id="whoamiAvatarInitial"></span>
+          </span>
+          <!-- Redondant avec le point rouge du bouton "avion en papier" du
+               Profil (une fois ouvert) depuis qu'il est visible en
+               permanence, mais conservé : visible même sans ouvrir le
+               Profil. Alimenté par notifPendingCounts.invites (voir
+               refreshNotifDot dans app.js) — reflète déjà les invitations en
+               attente, pas seulement les demandes de suivi. -->
+          <span id="whoamiDot" class="notifDot hidden"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- État Profil ouvert (3 septembre 2026, demande d'Emilien : « lorsqu'on
+         clique sur sa photo de profil, je souhaite que celle-ci disparaisse,
+         que le profil soit intégré à la barre supérieure avec y compris les
+         icônes d'abonnés, d'invitation et de paramètres [...] et que Noèsis
+         se décale en haut au milieu de l'écran de la barre supérieure »). La
+         photo/#whoami de l'état par défaut disparaît (tout #topbarDefault se
+         masque) et `.identityHeader` — avec ses trois icônes
+         .followsWrap/.notifWrap/.settingsWrap — quitte #profileMain pour
+         vivre ici, sous "Noèsis" recentré en petit ; le titre "Profil" est
+         supprimé (il faisait doublon). Le reste de la page Profil
+         (Projets/Discussion/Mes notes, dans #profileMain plus bas) continue
+         de s'afficher tel quel en dessous, sans bandeau d'identité dupliqué
+         (cadrage confirmé par Emilien). ⚠️ Ce bloc déborde sur le territoire
+         de la discussion Design (`.topbar`/`.brand`) — fait à la demande
+         explicite d'Emilien, voir le journal Profil du 3 septembre 2026. -->
+    <div class="topbarProfile hidden" id="topbarProfile">
+      <span class="brand brandCentered">Noèsis</span>
+      <div class="identityHeader">
+        <div class="avatarWrap">
+          <button type="button" class="avatarDisplay" id="avatarDisplayCircle" title="Changer la photo de profil" aria-label="Changer la photo de profil">
+            <img id="avatarDisplayImg" class="hidden" alt="">
+            <span id="avatarDisplayInitial"></span>
+          </button>
+          <button type="button" id="avatarRemoveBtn" class="avatarRemoveBtn hidden" title="Retirer la photo" aria-label="Retirer la photo">×</button>
+        </div>
+        <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" class="hidden">
+        <span class="identityName" id="identityDisplayName"></span>
+        <!-- Icône "avion en papier" (invitations/demandes de suivi) et bouton
+             "⚙️" Réglages : de retour ici, à droite du nom (2 septembre
+             2026, deuxième passage — précision d'Emilien sur sa demande
+             du jour même). Historique : nées ici (#profileMain),
+             déplacées dans .topbar le 31 août 2026 pour être accessibles
+             depuis n'importe quel onglet, puis replacées à gauche du
+             prénom #whoami, puis à sa droite le 2 septembre (premier
+             passage) — Emilien voulait en réalité dire le nom affiché
+             ICI, sur la page Profil, pas celui de la topbar. Comportement
+             au clic inchangé (profileNotifBtn/profileSettingsBtn dans
+             app.js) ; ces icônes ne sont donc plus visibles/cliquables
+             que lorsque le Profil est déjà ouvert (elles vivent dans
+             #tab-profile). -->
+        <!-- Icônes "avion en papier" et "⚙️" calquées sur celles de la barre
+             du bas depuis le 1er septembre 2026 (demande d'Emilien) :
+             .topIconBtn (styles.css) plutôt que .menuBtn — plus de fond/
+             bordure, même simplicité et même couleur par défaut que .tabIcon,
+             et deviennent violettes ("active") pendant que le panneau/la vue
+             qu'elles ouvrent est affiché(e), comme un onglet sélectionné en
+             bas (voir app.js). -->
+
+        <!-- Icône "Abonnés & Abonnements" (2 septembre 2026, demande
+             d'Emilien : « créer un icône simple pour abonnés et
+             abonnements [...] à gauche de l'icône invitation [...] qu'une
+             fois sélectionné, il exclut invitation et paramètres »).
+             Troisième icône de .identityHeader, calquée à l'identique sur
+             .notifWrap/.settingsWrap juste après (même .topIconBtn, même
+             panneau flottant .notifPanel ancré sous sa propre icône, même
+             violet "active" pendant l'ouverture, même fermeture au clic en
+             dehors) et rejoint leur exclusion mutuelle : ouvrir ce panneau
+             referme Invitations et Réglages, et réciproquement (voir
+             closeFollowsPanel/closeNotifPanel/closeSettingsPanel dans
+             app.js). Remplace l'ancien bouton texte "Abonnés &
+             Abonnements" qui vivait juste sous l'avatar depuis le 1er
+             septembre 2026 (voir plus bas dans #profileMain) — même
+             panneau, même contenu (#settingsFollowersList/
+             #settingsFollowingList inchangés, y compris le bouton "Se
+             désabonner" sur la liste Abonnements), seul le point d'entrée
+             change : une icône simple plutôt qu'un bouton texte, cohérente
+             avec les deux autres icônes de la ligne. -->
+              <div class="followsWrap">
+          <button id="profileFollowsBtn" class="topIconBtn" title="Abonnés et abonnements" aria-label="Abonnés et abonnements">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </button>
+          <div id="profileFollowsPanel" class="notifPanel hidden">
+            <p class="hint">Abonnés</p>
+            <div id="settingsFollowersList" class="activitiesList"></div>
+            <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
+            <p class="hint">Abonnements</p>
+            <div id="settingsFollowingList" class="activitiesList"></div>
+            <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+          </div>
+        </div>
+
+              <div class="notifWrap">
+          <button id="profileNotifBtn" class="topIconBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span id="profileNotifDot" class="notifDot hidden"></span>
+          </button>
+          <div id="profileNotifPanel" class="notifPanel hidden">
+            <p class="sectionTitle">Invitations reçues</p>
+            <div id="invitesList" class="activitiesList"></div>
+
+            <!-- Demandes de suivi (Suivi, indépendant du partage d'activité)
+                 — déplacé depuis l'onglet Communauté à la demande
+                 d'Emilien. Le reste du système de Suivi (recherche de membres,
+                 fil d'actualité) reste dans Communauté. -->
+            <p class="sectionTitle">Demandes de suivi reçues</p>
+            <div id="followRequestsList" class="activitiesList"></div>
+          </div>
+        </div>
+
+        <!-- Emoji "⚙️" remplacé par un SVG (même style que le "avion en
+             papier" ci-dessus) : un emoji porte sa propre couleur figée,
+             impossible à aligner sur .topIconBtn/.topIconBtn.active. -->
+        <!-- Réglages en menu flottant (1er septembre 2026, demande
+             d'Emilien : « exactement comme l'invitation ») : le panneau a
+             quitté #tab-profile pour vivre ici, sous son icône, et reprend
+             telles quelles les classes du panneau des invitations
+             (.notifPanel) — même ancrage, même taille, même ombre. Ouvrir
+             l'un referme l'autre (voir app.js). .settingsWrap joue pour ce
+             panneau le rôle que .notifWrap joue pour les invitations :
+             repérer le « clic en dehors ». ⚠️ **2 septembre 2026, suite** : ce bloc
+             reprend sa place initiale dans `#tab-profile` (voir
+             `.identityHeader` plus bas) — Emilien a précisé que les icônes
+             doivent être sur la page Profil, pas dans la topbar. L'ancrage
+             du panneau change en conséquence : il ne se centre plus sous
+             toute la largeur de `.topbar`, mais s'ouvre directement sous sa
+             propre icône (`.notifWrap`/`.settingsWrap` en `position:
+             relative`, voir styles.css). -->
+              <div class="settingsWrap">
+          <button id="profileSettingsBtn" class="topIconBtn" title="Réglages" aria-label="Réglages">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+          <div id="profileSettingsPanel" class="notifPanel settingsPanel hidden">
+            <!-- Déconnexion en haut à droite, au-dessus d'Identité (demande
+                 d'Emilien, 29 août 2026) — auparavant un lien en bas de la
+                 section Identité ("Changer de profil / se déconnecter"). -->
+            <div class="subpageHeader">
+              <p class="sectionTitle subpageTitle">Réglages</p>
+              <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
+            </div>
+            <!-- Menu des Réglages (31 août 2026, demande d'Emilien) : le panneau
+                 n'affiche plus toutes les sections déroulées les unes sous les
+                 autres, mais la liste de leurs titres. Cliquer un titre déplie sa
+                 section juste en dessous et referme les autres — un seul clic pour
+                 passer de l'une à l'autre. Le titre reste un .sectionTitle, porté
+                 par un span et non un p, pour rester valide à l'intérieur du bouton :
+                 la traduction automatique du DOM continue donc de le reconnaître. -->
+
+
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Identité</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+            <div class="settingsCard">
+              <!-- La photo de profil ne se modifie plus ici depuis le 29 août
+                   2026 : elle s'édite directement en cliquant sur l'avatar de la
+                   vue principale du Profil (voir #profileMain plus haut). -->
+              <input type="text" id="settingsName" placeholder="Prénom ou pseudo" maxlength="40">
+              <input type="text" id="settingsLastName" placeholder="Nom de famille" maxlength="60">
+              <input type="tel" id="settingsPhone" placeholder="Numéro de téléphone" maxlength="30">
+              <input type="email" id="settingsEmail" placeholder="Adresse email" maxlength="120">
+              <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
+              <p id="settingsMsg" class="msg"></p>
+            </div>
+              </div>
+            </div>
+
+
+            <!-- "Abonnés & Abonnements" a quitté Réglages le 1er septembre 2026
+                 (demande d'Emilien) — ce panneau ⚙️ ne la contient donc plus.
+                 Devenue une icône dédiée dans .identityHeader le 2 septembre
+                 2026 (#profileFollowsBtn/#profileFollowsPanel, voir le
+                 commentaire juste au-dessus de .notifWrap plus haut dans ce
+                 fichier). Sa liste Abonnements y est même devenue actionnable
+                 ("Se désabonner"), 1er septembre 2026, second passage — voir
+                 le commentaire laissé là-bas. -->
+
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Apparence</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+            <div class="settingsCard">
+              <div class="themeSwitch" id="themeSwitch">
+                <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
+                <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
+              </div>
+              <p id="themeMsg" class="msg"></p>
+            </div>
+              </div>
+            </div>
+
+
+            <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
+                 Réglage par profil, comme le thème : anglais par défaut pour
+                 tout nouveau compte, français pour les profils qui existaient
+                 déjà (voir la migration dans server/db.js). Réutilise les
+                 classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
+                 (composants génériques appartenant à la discussion Design :
+                 utilisés tels quels, aucune définition CSS modifiée). -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Langue</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+            <div class="settingsCard">
+              <div class="themeSwitch" id="langSwitch">
+                <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
+                <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
+              </div>
+              <p id="langMsg" class="msg"></p>
+            </div>
+              </div>
+            </div>
+
+
+            <!-- Notifications push (1er septembre 2026, demande d'Emilien).
+                 L'autorisation du navigateur ne peut être demandée que suite à un
+                 clic de la personne : d'où un bouton explicite plutôt qu'une
+                 demande automatique au démarrage (qu'un navigateur refuserait,
+                 ou pire, bloquerait définitivement). Réglage par APPAREIL et non
+                 par profil : le téléphone et l'ordinateur s'activent séparément,
+                 c'est pour ça que le texte parle de "cet appareil". Voir
+                 server/lib/push.js et le bloc "push" de public/sw.js. -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Notifications</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+            <div class="settingsCard">
+              <div class="shareActions">
+                <button type="button" id="pushToggleBtn" class="iconBtn">Activer les notifications</button>
+                <button type="button" id="pushTestBtn" class="iconBtn hidden">Envoyer un test</button>
+              </div>
+              <p id="pushMsg" class="msg"></p>
+            </div>
+              </div>
+            </div>
+
+
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Sécurité</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+            <div class="settingsCard">
+              <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
+              <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
+              <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPinConfirm" placeholder="Confirme le nouveau code" maxlength="6" autocomplete="off">
+              <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
+              <p id="settingsPinMsg" class="msg"></p>
+            </div>
+              </div>
+            </div>
+
+
+            <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
+                 quelqu'un, ou s'inviter soi-même en donnant son pseudo.
+                 L'adresse publique est SAISIE À LA MAIN et mémorisée sur CET
+                 appareil (localStorage), pas déduite de la page ouverte :
+                 Noèsis n'est pas encore déployée, l'adresse actuelle
+                 (localhost) ne fonctionnerait chez personne d'autre.
+                 Volontairement pas un réglage partagé côté serveur non plus :
+                 sur une app ouverte à tous, n'importe qui pourrait alors
+                 remplacer le lien que tout le monde envoie. Le champ utilise
+                 type="text" + inputmode="url" (et non type="url") pour hériter
+                 de la mise en forme existante de .settingsCard sans toucher au
+                 CSS générique, qui appartient à Design. -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Partage</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+            <div class="settingsCard">
+              <input type="text" inputmode="url" id="shareUrlInput" placeholder="https://mon-adresse-noesis.fr" autocomplete="off">
+              <button id="shareUrlSaveBtn" class="btn btn-primary btn-small">Enregistrer l'adresse</button>
+              <div class="shareActions">
+                <button id="shareAppBtn" class="iconBtn">Partager l'app</button>
+                <button id="shareProfileBtn" class="iconBtn">Partager mon profil</button>
+              </div>
+              <p id="shareMsg" class="msg"></p>
+            </div>
+              </div>
+            </div>
+
+
+            <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
+                 2026, demande d'Emilien) : suppression définitive du compte,
+                 confirmée par le code PIN du profil (même mécanisme que la
+                 récupération d'un profil depuis un autre appareil, voir
+                 server/lib/auth.js). Les activités partagées avec d'autres
+                 personnes continuent d'exister pour elles — c'est exactement la
+                 même règle que "Supprimer définitivement" sur une activité :
+                 on part, les autres restent. -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Supprimer mon compte</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+            <div class="settingsCard">
+              <p class="hint">Cette action est définitive : ton profil, ton historique, tes notes, tes invitations et tes abonnements sont supprimés. Les activités que tu partages avec d'autres personnes continuent d'exister pour elles.</p>
+              <input type="password" inputmode="numeric" pattern="[0-9]*" id="deleteAccountPin" placeholder="Saisis ton code pour confirmer" maxlength="6" autocomplete="off">
+              <button id="deleteAccountBtn" class="iconBtn danger">Supprimer définitivement mon compte</button>
+              <p id="deleteAccountMsg" class="msg"></p>
+            </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p id="avatarMsg" class="msg"></p>
     </div>
   </header>
 
@@ -1205,329 +1512,21 @@
 
       <!-- Profil n'est plus un onglet de la barre du bas depuis le 30 août
            2026 (demande d'Emilien) : ce panneau plein écran s'ouvre en
-           cliquant sur le prénom en haut à droite (#whoami). La flèche "←"
+           cliquant sur la photo en haut à droite (#whoami). La flèche "←"
            de fermeture a été retirée le 31 août 2026 (demande d'Emilien,
            « supprimer le bouton pour revenir en arrière dans profil ») —
            on quitte désormais Profil en tapant n'importe quel onglet de la
            barre du bas (Chrono/Stats/Communauté/Activité), qui appelle déjà
            switchTab() indépendamment de l'état de Profil (voir tabButtons,
            app.js) ; closeProfile() et l'état lastMainTab, devenus inutiles,
-           ont été retirés du même coup. -->
-      <div class="subpageHeader">
-        <p class="sectionTitle subpageTitle">Profil</p>
-      </div>
-
-      <!-- Vue principale de l'onglet Profil. Le nom reste affiché ici en
-           lecture seule (modifiable depuis Réglages > Identité), mais la
-           photo se modifie directement ici depuis le 29 août 2026 (demande
-           d'Emilien) : cliquer sur l'avatar ouvre le sélecteur de fichier et
-           enregistre aussitôt la nouvelle photo, sans passer par Réglages —
-           voir avatarDisplayCircle/avatarFileInput/avatarRemoveBtn dans
-           app.js. Le bouton "⚙️" bascule vers Réglages (échange de vue façon
-           écran séparé, même principe que les étapes de l'onboarding plus
-           haut dans ce fichier), plutôt qu'un panneau replié dans la même
-           page. -->
+           ont été retirés du même coup. Le titre "Profil" et le bandeau
+           identité/icônes (avatar, nom, abonnés, invitations, réglages) ont
+           quitté cette section le 3 septembre 2026 (demande d'Emilien) —
+           ils vivent désormais dans `.topbar` (`#topbarProfile`, voir plus
+           haut dans ce fichier), affichés dès que le Profil est ouvert. Le
+           reste de la page (Projets/Discussion/Mes notes ci-dessous)
+           n'a pas changé. -->
       <div id="profileMain">
-        <div class="identityHeader">
-          <div class="avatarWrap">
-            <button type="button" class="avatarDisplay" id="avatarDisplayCircle" title="Changer la photo de profil" aria-label="Changer la photo de profil">
-              <img id="avatarDisplayImg" class="hidden" alt="">
-              <span id="avatarDisplayInitial"></span>
-            </button>
-            <button type="button" id="avatarRemoveBtn" class="avatarRemoveBtn hidden" title="Retirer la photo" aria-label="Retirer la photo">×</button>
-          </div>
-          <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" class="hidden">
-          <span class="identityName" id="identityDisplayName"></span>
-          <!-- Icône "avion en papier" (invitations/demandes de suivi) et bouton
-               "⚙️" Réglages : de retour ici, à droite du nom (2 septembre
-               2026, deuxième passage — précision d'Emilien sur sa demande
-               du jour même). Historique : nées ici (#profileMain),
-               déplacées dans .topbar le 31 août 2026 pour être accessibles
-               depuis n'importe quel onglet, puis replacées à gauche du
-               prénom #whoami, puis à sa droite le 2 septembre (premier
-               passage) — Emilien voulait en réalité dire le nom affiché
-               ICI, sur la page Profil, pas celui de la topbar. Comportement
-               au clic inchangé (profileNotifBtn/profileSettingsBtn dans
-               app.js) ; ces icônes ne sont donc plus visibles/cliquables
-               que lorsque le Profil est déjà ouvert (elles vivent dans
-               #tab-profile). -->
-          <!-- Icônes "avion en papier" et "⚙️" calquées sur celles de la barre
-               du bas depuis le 1er septembre 2026 (demande d'Emilien) :
-               .topIconBtn (styles.css) plutôt que .menuBtn — plus de fond/
-               bordure, même simplicité et même couleur par défaut que .tabIcon,
-               et deviennent violettes ("active") pendant que le panneau/la vue
-               qu'elles ouvrent est affiché(e), comme un onglet sélectionné en
-               bas (voir app.js). -->
-
-          <!-- Icône "Abonnés & Abonnements" (2 septembre 2026, demande
-               d'Emilien : « créer un icône simple pour abonnés et
-               abonnements [...] à gauche de l'icône invitation [...] qu'une
-               fois sélectionné, il exclut invitation et paramètres »).
-               Troisième icône de .identityHeader, calquée à l'identique sur
-               .notifWrap/.settingsWrap juste après (même .topIconBtn, même
-               panneau flottant .notifPanel ancré sous sa propre icône, même
-               violet "active" pendant l'ouverture, même fermeture au clic en
-               dehors) et rejoint leur exclusion mutuelle : ouvrir ce panneau
-               referme Invitations et Réglages, et réciproquement (voir
-               closeFollowsPanel/closeNotifPanel/closeSettingsPanel dans
-               app.js). Remplace l'ancien bouton texte "Abonnés &
-               Abonnements" qui vivait juste sous l'avatar depuis le 1er
-               septembre 2026 (voir plus bas dans #profileMain) — même
-               panneau, même contenu (#settingsFollowersList/
-               #settingsFollowingList inchangés, y compris le bouton "Se
-               désabonner" sur la liste Abonnements), seul le point d'entrée
-               change : une icône simple plutôt qu'un bouton texte, cohérente
-               avec les deux autres icônes de la ligne. -->
-                <div class="followsWrap">
-            <button id="profileFollowsBtn" class="topIconBtn" title="Abonnés et abonnements" aria-label="Abonnés et abonnements">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-            </button>
-            <div id="profileFollowsPanel" class="notifPanel hidden">
-              <p class="hint">Abonnés</p>
-              <div id="settingsFollowersList" class="activitiesList"></div>
-              <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
-              <p class="hint">Abonnements</p>
-              <div id="settingsFollowingList" class="activitiesList"></div>
-              <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
-            </div>
-          </div>
-
-                <div class="notifWrap">
-            <button id="profileNotifBtn" class="topIconBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-              <span id="profileNotifDot" class="notifDot hidden"></span>
-            </button>
-            <div id="profileNotifPanel" class="notifPanel hidden">
-              <p class="sectionTitle">Invitations reçues</p>
-              <div id="invitesList" class="activitiesList"></div>
-
-              <!-- Demandes de suivi (Suivi, indépendant du partage d'activité)
-                   — déplacé depuis l'onglet Communauté à la demande
-                   d'Emilien. Le reste du système de Suivi (recherche de membres,
-                   fil d'actualité) reste dans Communauté. -->
-              <p class="sectionTitle">Demandes de suivi reçues</p>
-              <div id="followRequestsList" class="activitiesList"></div>
-            </div>
-          </div>
-
-          <!-- Emoji "⚙️" remplacé par un SVG (même style que le "avion en
-               papier" ci-dessus) : un emoji porte sa propre couleur figée,
-               impossible à aligner sur .topIconBtn/.topIconBtn.active. -->
-          <!-- Réglages en menu flottant (1er septembre 2026, demande
-               d'Emilien : « exactement comme l'invitation ») : le panneau a
-               quitté #tab-profile pour vivre ici, sous son icône, et reprend
-               telles quelles les classes du panneau des invitations
-               (.notifPanel) — même ancrage, même taille, même ombre. Ouvrir
-               l'un referme l'autre (voir app.js). .settingsWrap joue pour ce
-               panneau le rôle que .notifWrap joue pour les invitations :
-               repérer le « clic en dehors ». ⚠️ **2 septembre 2026, suite** : ce bloc
-               reprend sa place initiale dans `#tab-profile` (voir
-               `.identityHeader` plus bas) — Emilien a précisé que les icônes
-               doivent être sur la page Profil, pas dans la topbar. L'ancrage
-               du panneau change en conséquence : il ne se centre plus sous
-               toute la largeur de `.topbar`, mais s'ouvre directement sous sa
-               propre icône (`.notifWrap`/`.settingsWrap` en `position:
-               relative`, voir styles.css). -->
-                <div class="settingsWrap">
-            <button id="profileSettingsBtn" class="topIconBtn" title="Réglages" aria-label="Réglages">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-            </button>
-            <div id="profileSettingsPanel" class="notifPanel settingsPanel hidden">
-              <!-- Déconnexion en haut à droite, au-dessus d'Identité (demande
-                   d'Emilien, 29 août 2026) — auparavant un lien en bas de la
-                   section Identité ("Changer de profil / se déconnecter"). -->
-              <div class="subpageHeader">
-                <p class="sectionTitle subpageTitle">Réglages</p>
-                <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
-              </div>
-              <!-- Menu des Réglages (31 août 2026, demande d'Emilien) : le panneau
-                   n'affiche plus toutes les sections déroulées les unes sous les
-                   autres, mais la liste de leurs titres. Cliquer un titre déplie sa
-                   section juste en dessous et referme les autres — un seul clic pour
-                   passer de l'une à l'autre. Le titre reste un .sectionTitle, porté
-                   par un span et non un p, pour rester valide à l'intérieur du bouton :
-                   la traduction automatique du DOM continue donc de le reconnaître. -->
-
-
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Identité</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard">
-                <!-- La photo de profil ne se modifie plus ici depuis le 29 août
-                     2026 : elle s'édite directement en cliquant sur l'avatar de la
-                     vue principale du Profil (voir #profileMain plus haut). -->
-                <input type="text" id="settingsName" placeholder="Prénom ou pseudo" maxlength="40">
-                <input type="text" id="settingsLastName" placeholder="Nom de famille" maxlength="60">
-                <input type="tel" id="settingsPhone" placeholder="Numéro de téléphone" maxlength="30">
-                <input type="email" id="settingsEmail" placeholder="Adresse email" maxlength="120">
-                <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
-                <p id="settingsMsg" class="msg"></p>
-              </div>
-                </div>
-              </div>
-
-
-              <!-- "Abonnés & Abonnements" a quitté Réglages le 1er septembre 2026
-                   (demande d'Emilien) — ce panneau ⚙️ ne la contient donc plus.
-                   Devenue une icône dédiée dans .identityHeader le 2 septembre
-                   2026 (#profileFollowsBtn/#profileFollowsPanel, voir le
-                   commentaire juste au-dessus de .notifWrap plus haut dans ce
-                   fichier). Sa liste Abonnements y est même devenue actionnable
-                   ("Se désabonner"), 1er septembre 2026, second passage — voir
-                   le commentaire laissé là-bas. -->
-
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Apparence</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard">
-                <div class="themeSwitch" id="themeSwitch">
-                  <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
-                  <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
-                </div>
-                <p id="themeMsg" class="msg"></p>
-              </div>
-                </div>
-              </div>
-
-
-              <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
-                   Réglage par profil, comme le thème : anglais par défaut pour
-                   tout nouveau compte, français pour les profils qui existaient
-                   déjà (voir la migration dans server/db.js). Réutilise les
-                   classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
-                   (composants génériques appartenant à la discussion Design :
-                   utilisés tels quels, aucune définition CSS modifiée). -->
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Langue</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard">
-                <div class="themeSwitch" id="langSwitch">
-                  <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
-                  <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
-                </div>
-                <p id="langMsg" class="msg"></p>
-              </div>
-                </div>
-              </div>
-
-
-              <!-- Notifications push (1er septembre 2026, demande d'Emilien).
-                   L'autorisation du navigateur ne peut être demandée que suite à un
-                   clic de la personne : d'où un bouton explicite plutôt qu'une
-                   demande automatique au démarrage (qu'un navigateur refuserait,
-                   ou pire, bloquerait définitivement). Réglage par APPAREIL et non
-                   par profil : le téléphone et l'ordinateur s'activent séparément,
-                   c'est pour ça que le texte parle de "cet appareil". Voir
-                   server/lib/push.js et le bloc "push" de public/sw.js. -->
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Notifications</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard">
-                <div class="shareActions">
-                  <button type="button" id="pushToggleBtn" class="iconBtn">Activer les notifications</button>
-                  <button type="button" id="pushTestBtn" class="iconBtn hidden">Envoyer un test</button>
-                </div>
-                <p id="pushMsg" class="msg"></p>
-              </div>
-                </div>
-              </div>
-
-
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Sécurité</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsCurrentPin" placeholder="Code actuel" maxlength="6" autocomplete="off">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPin" placeholder="Nouveau code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="settingsNewPinConfirm" placeholder="Confirme le nouveau code" maxlength="6" autocomplete="off">
-                <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
-                <p id="settingsPinMsg" class="msg"></p>
-              </div>
-                </div>
-              </div>
-
-
-              <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
-                   quelqu'un, ou s'inviter soi-même en donnant son pseudo.
-                   L'adresse publique est SAISIE À LA MAIN et mémorisée sur CET
-                   appareil (localStorage), pas déduite de la page ouverte :
-                   Noèsis n'est pas encore déployée, l'adresse actuelle
-                   (localhost) ne fonctionnerait chez personne d'autre.
-                   Volontairement pas un réglage partagé côté serveur non plus :
-                   sur une app ouverte à tous, n'importe qui pourrait alors
-                   remplacer le lien que tout le monde envoie. Le champ utilise
-                   type="text" + inputmode="url" (et non type="url") pour hériter
-                   de la mise en forme existante de .settingsCard sans toucher au
-                   CSS générique, qui appartient à Design. -->
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Partage</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard">
-                <input type="text" inputmode="url" id="shareUrlInput" placeholder="https://mon-adresse-noesis.fr" autocomplete="off">
-                <button id="shareUrlSaveBtn" class="btn btn-primary btn-small">Enregistrer l'adresse</button>
-                <div class="shareActions">
-                  <button id="shareAppBtn" class="iconBtn">Partager l'app</button>
-                  <button id="shareProfileBtn" class="iconBtn">Partager mon profil</button>
-                </div>
-                <p id="shareMsg" class="msg"></p>
-              </div>
-                </div>
-              </div>
-
-
-              <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
-                   2026, demande d'Emilien) : suppression définitive du compte,
-                   confirmée par le code PIN du profil (même mécanisme que la
-                   récupération d'un profil depuis un autre appareil, voir
-                   server/lib/auth.js). Les activités partagées avec d'autres
-                   personnes continuent d'exister pour elles — c'est exactement la
-                   même règle que "Supprimer définitivement" sur une activité :
-                   on part, les autres restent. -->
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Supprimer mon compte</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard">
-                <p class="hint">Cette action est définitive : ton profil, ton historique, tes notes, tes invitations et tes abonnements sont supprimés. Les activités que tu partages avec d'autres personnes continuent d'exister pour elles.</p>
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="deleteAccountPin" placeholder="Saisis ton code pour confirmer" maxlength="6" autocomplete="off">
-                <button id="deleteAccountBtn" class="iconBtn danger">Supprimer définitivement mon compte</button>
-                <p id="deleteAccountMsg" class="msg"></p>
-              </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <p id="avatarMsg" class="msg"></p>
 
         <!-- Section "Projets" (1er septembre 2026, demande d'Emilien : « une
              section sous le nom de l'utilisateur où il parle de ses
@@ -1624,13 +1623,21 @@
              ailleurs dans l'app (handleAttachmentFilePick), pas de menu
              Photo/Document intermédiaire. -->
         <div id="profileDiscussionBlock" class="discussionBlock">
-          <p class="sectionTitle">Discussion</p>
+          <!-- Titre "Discussion" renommé "Publier" le 3 septembre 2026
+               (demande d'Emilien) — cette zone reste la même (composeur +
+               fil profile_posts), seul l'intitulé change. -->
+          <p class="sectionTitle">Publier</p>
           <!-- La liste est passée SOUS le composeur le 3 septembre 2026
                (demande d'Emilien : « lorsqu'un message est envoyé, je souhaite
                qu'il apparaisse en dessous de la zone d'écriture ») — voir plus
                bas dans ce même bloc. -->
           <div class="discussionComposer">
-            <textarea id="profileDiscussionCommunityInput" rows="2" maxlength="2000" placeholder="Écrire..."></textarea>
+            <!-- Placeholder "Écrire au membre..." depuis le 3 septembre 2026
+                 (demande d'Emilien) — remplace "Écrire...". Composeur jumeau
+                 de Communauté (#communityMyPostsInput, plus haut dans ce
+                 fichier) volontairement laissé tel quel : hors du périmètre
+                 de cette demande. -->
+            <textarea id="profileDiscussionCommunityInput" rows="2" maxlength="2000" placeholder="Écrire au membre..."></textarea>
             <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
             <div class="rowActions">
               <!-- "+" des sondages, à gauche du trombone — même déplacement que

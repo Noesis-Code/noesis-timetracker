@@ -707,7 +707,6 @@
     $('app').classList.remove('hidden');
     syncTopbarHeightVar();
     refreshScrollLock();
-    $('whoamiName').textContent = profile.name;
     $('settingsName').value = profile.name;
     $('settingsLastName').value = profile.lastName || '';
     $('settingsPhone').value = profile.phone || '';
@@ -948,6 +947,16 @@
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
     tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
+    // Tout onglet de la barre du bas quitte forcément le Profil (voir plus
+    // bas, openProfile()) — la topbar revient donc à son état par défaut
+    // (photo + "Noèsis" à gauche) si elle était dans son état "Profil ouvert"
+    // (3 septembre 2026, demande d'Emilien). Sans effet, donc inoffensif, si
+    // elle y était déjà. syncTopbarHeightVar() recalcule --topbar-h : la
+    // hauteur de la barre change entre les deux états (une ligne contre
+    // deux).
+    $('topbarProfile').classList.add('hidden');
+    $('topbarDefault').classList.remove('hidden');
+    syncTopbarHeightVar();
     // On quitte forcément la vue Réglages (dans #tab-profile) en rejoignant
     // un onglet principal — l'icône "⚙️" de la topbar ne doit donc plus
     // rester violette (1er septembre 2026, demande d'Emilien).
@@ -1002,6 +1011,17 @@
   function openProfile() {
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-profile').classList.remove('hidden');
+    // La photo/#whoami de la topbar disparaît et le Profil (identité + les
+    // trois icônes abonnés/invitations/réglages) s'intègre à la topbar à sa
+    // place, "Noèsis" se recentrant au-dessus (3 septembre 2026, demande
+    // d'Emilien). Voir #topbarDefault/#topbarProfile dans index.html, et le
+    // retour à l'état par défaut dans switchTab() ci-dessus. La hauteur de la
+    // topbar passe d'une à deux lignes : syncTopbarHeightVar() remet
+    // --topbar-h à jour pour que le reste de la mise en page (padding-top de
+    // #app, etc.) suive.
+    $('topbarDefault').classList.add('hidden');
+    $('topbarProfile').classList.remove('hidden');
+    syncTopbarHeightVar();
     showProfileMain();
     loadPendingInvites();
     loadFollowRequests();
@@ -4810,6 +4830,26 @@
       $('avatarDisplayCircle').style.background = profile.color || 'var(--purple)';
       $('avatarRemoveBtn').classList.add('hidden');
     }
+    // Miniature #whoami de la topbar (3 septembre 2026, demande d'Emilien :
+    // « remplacer le nom de l'utilisateur en haut à droite par sa photo de
+    // profil ») — remplace l'ancien texte #whoamiName. Même logique photo/
+    // initiale que l'avatar de la page Profil ci-dessus, juste une cible et
+    // une taille différentes (voir .whoamiAvatar, styles.css). Regroupée ici
+    // plutôt que dupliquée : tout appelant de renderIdentityHeader() (showApp,
+    // saveProfile, changement d'avatar…) tient donc déjà les deux avatars à
+    // jour sans code supplémentaire.
+    if (profile.avatar) {
+      $('whoamiAvatarImg').src = profile.avatar;
+      $('whoamiAvatarImg').classList.remove('hidden');
+      $('whoamiAvatarInitial').classList.add('hidden');
+      $('whoamiAvatar').style.background = 'transparent';
+    } else {
+      $('whoamiAvatarImg').classList.add('hidden');
+      $('whoamiAvatarImg').removeAttribute('src');
+      $('whoamiAvatarInitial').classList.remove('hidden');
+      $('whoamiAvatarInitial').textContent = profile.name ? profile.name.trim().charAt(0).toUpperCase() : '?';
+      $('whoamiAvatar').style.background = profile.color || 'var(--purple)';
+    }
   }
 
   // Recadre l'image choisie en carré (centre), la limite à `size`x`size` et
@@ -5390,8 +5430,11 @@
     if (email) payload.email = email;
     api('PUT', '/api/profile/' + profile.id, payload)
       .then(function (p) {
+        // saveProfile(p) appelle déjà renderIdentityHeader(), qui met à jour
+        // #identityDisplayName ET la miniature #whoami (voir plus haut) — la
+        // ligne "$('whoamiName')..." devenue inutile depuis le 3 septembre
+        // 2026 (remplacement du nom en topbar par une photo) a été retirée.
         saveProfile(p);
-        $('whoamiName').textContent = p.name;
         $('settingsMsg').textContent = t('Profil mis à jour.');
       })
       .catch(function (err) { $('settingsMsg').textContent = err.message; })

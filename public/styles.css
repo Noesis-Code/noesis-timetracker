@@ -280,13 +280,22 @@ input[type=time]:focus, select:focus, textarea:focus {
    rebond ; `left`/`right` remplacent la largeur qu'elle tenait auparavant du
    flux normal de #app. */
 .topbar {
-  display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; color: white;
   background: #000000;
   box-shadow: var(--shadow-topbar);
   position: fixed; top: 0; left: 0; right: 0; z-index: 10;
 }
 .brand { font-weight: bold; font-size: 18px; letter-spacing: 0.2px; }
+/* États de .topbar (3 septembre 2026, demande d'Emilien) : .topbar ne porte
+   plus elle-même de display:flex — elle contient désormais deux blocs
+   mutuellement exclusifs (.hidden bascule l'un contre l'autre, voir
+   openProfile()/switchTab() dans app.js) qui définissent chacun leur propre
+   layout interne :
+   - .topbarDefault : l'état d'origine (Profil fermé), "Noèsis" à gauche et
+     #whoami à droite — reprend l'ancien display:flex de .topbar tel quel,
+     rien ne change visuellement dans cet état.
+   - .topbarProfile : nouvel état "Profil ouvert" juste en dessous. */
+.topbarDefault { display: flex; align-items: center; justify-content: space-between; }
 /* Regroupe "avion en papier" + "⚙️" Réglages + le prénom à l'extrémité
    droite de .topbar (31 août 2026, demande d'Emilien) : .topbar garde son
    justify-content:space-between entre .brand et ce groupe, alors que le
@@ -295,22 +304,51 @@ input[type=time]:focus, select:focus, textarea:focus {
 .topbarActions { display: flex; align-items: center; gap: 10px; }
 /* .whoami est un <button> depuis le 30 août 2026 (demande d'Emilien) : ouvre
    le Profil au clic (voir openProfile, app.js) — Profil n'a plus d'onglet
-   dédié dans la barre du bas. Reset des styles par défaut de bouton pour
-   garder l'apparence texte d'origine, léger soulignement au survol/focus
-   pour signaler que c'est cliquable sans alourdir la topbar. */
+   dédié dans la barre du bas. Reset des styles par défaut de bouton. Depuis
+   le 3 septembre 2026 (demande d'Emilien : « remplacer le nom de
+   l'utilisateur en haut à droite par sa photo de profil »), #whoami affiche
+   une petite photo (ou l'initiale du prénom à défaut, voir .whoamiAvatar
+   ci-dessous) plutôt qu'un nom en texte souligné au survol — le
+   soulignement au survol n'a donc plus de sens et disparaît avec le texte. */
 .whoami {
-  font: inherit; font-size: 13px; opacity: 0.9;
   background: none; border: none; padding: 0; margin: 0; color: inherit;
   cursor: pointer;
-  text-decoration-line: underline; text-decoration-color: transparent;
-  transition: text-decoration-color var(--transition-fast), opacity var(--transition-fast);
 }
-.whoami:hover, .whoami:focus-visible { opacity: 1; text-decoration-color: currentColor; }
-/* Ancre du point rouge de notification posé sur le prénom (voir #whoamiDot
+/* Ancre du point rouge de notification posé sur la photo (voir #whoamiDot
    dans index.html) ; le point lui-même réutilise .notifDot, défini plus bas
    avec l'icône "avion en papier" du Profil. */
 .whoami { position: relative; display: inline-flex; align-items: center; }
-.whoami .notifDot { top: -3px; right: -7px; border-color: var(--purple-dark); }
+.whoami .notifDot { top: -2px; right: -2px; border-color: var(--purple-dark); }
+/* Photo/initiale miniature de #whoami (3 septembre 2026) : même principe que
+   .avatarDisplay plus bas (photo en fond si définie, sinon initiale sur fond
+   coloré — voir renderIdentityHeader() dans app.js, qui alimente les deux en
+   même temps), en plus petit puisqu'elle vit dans la topbar plutôt que sur
+   la page Profil elle-même. Pas de bouton dédié "changer la photo" ici :
+   cliquer #whoami ouvre le Profil, où .avatarDisplay reste le seul endroit
+   pour changer la photo (inchangé). */
+.whoamiAvatar {
+  width: 30px; height: 30px; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--purple); color: white; font-weight: bold; font-size: 12px;
+  flex-shrink: 0;
+}
+.whoamiAvatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* État "Profil ouvert" (3 septembre 2026, demande d'Emilien) : deux lignes
+   dans .topbar — "Noèsis" recentré en petit tout en haut, puis en dessous
+   .identityHeader (photo, nom, icônes abonnés/invitations/réglages)
+   relocalisée ici depuis #profileMain (voir index.html). column plutôt que
+   row : centre le petit "Noèsis" horizontalement au-dessus de la ligne
+   d'identité, qui garde elle son propre display:flex (.identityHeader,
+   ci-dessous) pour aligner photo/nom/icônes sur une ligne. */
+.topbarProfile { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.topbarProfile .brandCentered { font-size: 12px; font-weight: 600; opacity: 0.85; letter-spacing: 0.3px; }
+/* .identityHeader garde ici son display:flex/gap d'origine (règle générique
+   plus bas, zone Profil) ; seule sa largeur et sa marge changent dans ce
+   nouveau contexte — elle occupait avant toute la largeur de #profileMain
+   avec un margin-bottom la séparant de la section "Projets" suivante, elle
+   occupe maintenant toute la largeur de .topbarProfile sans rien en
+   dessous. */
+.topbarProfile .identityHeader { width: 100%; margin-bottom: 0; }
 #content { flex: 1; padding: 18px 5%; max-width: 640px; margin: 0 auto; width: 100%; }
 
 .tabbar {

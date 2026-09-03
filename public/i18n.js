@@ -184,23 +184,6 @@
     'Fermer': 'Close',
     "Actions de cette activité": 'Actions for this activity',
     'Voir les membres': 'View members',
-    // ---- Fusion de deux activités (2 septembre 2026) ----
-    'Fusionner': 'Merge',
-    'Fusionner « {activity} » avec…': 'Merge "{activity}" with…',
-    "Les enregistrements des deux activités seront additionnés. Une activité partagée avec d'autres personnes ne disparaît jamais : c'est elle qui recueille les enregistrements de l'autre.": 'The sessions of both activities will be added together. An activity shared with other people never disappears: it is the one that takes in the other\'s sessions.',
-    'Choisir une autre activité': 'Pick another activity',
-    'Partagée elle aussi — impossible de fusionner deux activités partagées.': 'Shared as well — two shared activities cannot be merged.',
-    'Aucune autre activité à fusionner avec celle-ci.': 'No other activity to merge this one with.',
-    '« {removed} » disparaîtra et ses enregistrements seront ajoutés à « {kept} », qui garde son nom et sa couleur.': '"{removed}" will disappear and its sessions will be added to "{kept}", which keeps its name and colour.',
-    'Choisis deux activités différentes.': 'Pick two different activities.',
-    'Tu ne fais pas partie de ces deux activités.': 'You are not part of both of these activities.',
-    "Ces deux activités sont partagées avec d'autres personnes. Il faut qu'au moins une des deux soit personnelle pour pouvoir les fusionner.": 'Both of these activities are shared with other people. At least one of the two must be personal for them to be merged.',
-    'Arrête le chrono en cours avant de fusionner ces activités.': 'Stop the running timer before merging these activities.',
-    // ---- Suppression d'une activité (2 septembre 2026) ----
-    'Supprimer « {activity} » ?': 'Delete "{activity}"?',
-    "Elle disparaîtra de ton Chrono et de ta liste d'activités. Les autres personnes qui la partagent avec toi ne sont pas concernées.": 'It will disappear from your Timer and from your activity list. The other people sharing it with you are not affected.',
-    'Conserver les anciens enregistrements': 'Keep the past sessions',
-    'Supprimer les anciens enregistrements': 'Delete the past sessions',
     'Membres · ': 'Members · ',
     ' (toi)': ' (you)',
     'Chrono en cours sur cette activité': 'Timer running on this activity',
@@ -228,12 +211,15 @@
     // et sa réutilisation dans la zone Discussion > Membres du Profil) ----
     'Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.': 'Visible to the members of this activity only. Messages stay, even once the timers are stopped.',
     "Aucun message pour l'instant — écris le premier ci-dessous.": 'No message yet — write the first one below.',
-    // Variante « ci-dessus » : depuis le 3 septembre 2026, la liste des
-    // messages du Profil est SOUS la zone d'écriture, pas au-dessus.
-    "Aucun message pour l'instant — écris le premier ci-dessus.": 'No message yet — write the first one above.',
     'Envoyer': 'Send',
     // ---- Fil "Communauté" de la zone Discussion du Profil (31 août 2026) ----
     'Écrire...': 'Write...',
+    // 'Discussion' renommé 'Publier' et 'Écrire...' renommé 'Écrire au
+    // membre...' sur le composeur du Profil (mais pas son jumeau
+    // #communityMyPostsInput, resté "Écrire...") le 3 septembre 2026,
+    // demande d'Emilien — voir index.html, #profileDiscussionBlock.
+    'Publier': 'Post',
+    'Écrire au membre...': 'Write to a member...',
     'Messages non lus': 'Unread messages',
     'Supprimer ce message': 'Delete this message',
     'Supprimer ce message ?': 'Delete this message?',
@@ -491,35 +477,6 @@
     "Ce n'est pas ton projet.": 'This is not your project.',
     'Projet introuvable.': 'Project not found.',
 
-    // ---- Page de visite d'un profil : renommage "Messages" -> "Publications"
-    // et point vert "chrono en cours" (3 septembre 2026, demande d'Emilien).
-    // Les deux anciennes clés ("Aucun message pour l'instant." / "Suis ce
-    // profil pour voir ses messages.") restent ailleurs dans ce fichier :
-    // elles ne servent plus à cette page mais un onglet PWA resté ouvert
-    // avec l'ancien code peut encore les afficher.
-    'Publications': 'Posts',
-    'Aucune publication pour l\'instant.': 'No post yet.',
-    'Suis ce profil pour voir ses publications.': 'Follow this profile to see its posts.',
-    'Chrono en cours': 'Timer running',
-
-    // ---- Découverte de membres + page de visite d'un profil (2 septembre
-    // 2026) — voir GET /api/users/search (server/routes/follows.js) et les
-    // routes /profile/:id/public|stats|posts (server/routes/profile.js).
-    // L'ancienne clé "Tu dois suivre ce profil pour voir ses projets."
-    // ci-dessus est conservée volontairement : le serveur ne l'envoie plus
-    // (les projets sont devenus un aperçu public) mais un onglet PWA resté
-    // ouvert avec l'ancien code peut encore l'afficher.
-    'Chercher un pseudo, un projet, un secteur...': 'Search a nickname, a project, a sector...',
-    '{n} projet(s)': '{n} project(s)',
-    'Quelques profils à découvrir.': 'A few profiles to discover.',
-    'Aucun projet': 'No project',
-    "Aucun message pour l'instant.": 'No message yet.',
-    'Suis ce profil pour voir ses messages.': 'Follow this profile to see its messages.',
-    "Rien d'enregistré pour l'instant.": 'Nothing recorded yet.',
-    'Connecte-toi pour voir ce profil.': 'Sign in to view this profile.',
-    'Tu dois suivre ce profil pour voir ses messages.': 'You need to follow this profile to see its messages.',
-    'Choisir la période': 'Choose the period',
-
     // ---- Profil : Projets, formulaire en paliers + catégories fermées
     // (2 septembre 2026, chantier "Simplification du formulaire de saisie
     // Projets") ----
@@ -537,175 +494,6 @@
     'Marketing & création de contenu': 'Marketing & content creation',
     'Artisanat & fabrication': 'Crafts & manufacturing',
     'Autre': 'Other',
-
-    // ---- Sous-projets d'une activité (discussion "Sous-projets", 3 septembre 2026) ----
-    // ---- Page d'une activité (discussion "Activité — général", 3 septembre 2026) ----
-    'Discussion': 'Discussion',
-    "Réglages de l'activité": 'Activity settings',
-    "Cette activité n'a encore aucun sous-projet. Ajoute-en un pour ouvrir sa page.":
-      'This activity has no sub-project yet. Add one to open its page.',
-    'Ajouter le sous-projet': 'Add sub-project',
-    // Période "Aujourd'hui", ajoutée au menu "⋮" de la Répartition d'une
-    // activité le 3 septembre 2026. Le libellé renvoyé par periodRange est
-    // "Aujourd'hui" lui aussi : une seule entrée couvre le bouton ET le
-    // libellé affiché à côté du titre de section.
-    "Aujourd'hui": 'Today',
-    // Titre de la section Statistiques d'une activité : jamais traduit
-    // jusqu'ici, alors qu'il s'affiche pour tout compte en anglais.
-    'Statistiques et activités des membres': 'Member statistics and activity',
-    'Sous-projets': 'Sub-projects',
-    'Ajouter un sous-projet': 'Add a sub-project',
-    'Nom du sous-projet': 'Sub-project name',
-    'Ex. Refonte du site': 'E.g. Website redesign',
-    'Description (facultatif)': 'Description (optional)',
-    'À quoi sert ce sous-projet ?': 'What is this sub-project for?',
-    'Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.': 'No sub-project yet — tap “+” to split this activity into goals.',
-    'Tâches': 'Tasks',
-    'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
-    'Ajouter une tâche...': 'Add a task...',
-    'Écrire sur ce sous-projet...': 'Write about this sub-project...',
-    'aucune tâche': 'no task',
-    'Supprimer cette tâche': 'Delete this task',
-    'Supprimer cette tâche ?': 'Delete this task?',
-    "Écris une tâche avant d'ajouter.": 'Write a task before adding it.',
-    'Le nom du sous-projet est requis.': 'The sub-project name is required.',
-    // Messages d'erreur renvoyés par server/routes/subprojects.js
-    'Sous-projet introuvable.': 'Sub-project not found.',
-    'Intitulé de la tâche requis.': 'Task label required.',
-    'Tâche introuvable.': 'Task not found.',
-    "Seul le créateur du sous-projet ou le propriétaire de l'activité peut le supprimer.": 'Only the sub-project creator or the activity owner can delete it.',
-
-    // ---- Sondages (3 septembre 2026, 11ᵉ discussion "Sondages") ----
-    // Textes statiques d'index.html (traduits par translateStaticDom), textes
-    // dynamiques d'app.js (passés par t()), et messages d'erreur renvoyés par
-    // server/routes/polls.js et server/lib/polls.js — français côté serveur
-    // comme partout ailleurs dans le projet, traduits à l'affichage.
-    'Sondages': 'Polls',
-    'Créer un sondage': 'Create a poll',
-    'Ta question...': 'Your question...',
-    '+ Ajouter une réponse': '+ Add an answer',
-    // Bouton qui déplie le choix multiple et la date de clôture (3 septembre
-    // 2026). Singulier en français, voulu tel quel par Emilien (« un bouton
-    // option à droite de "+ajouter une réponse" ») ; pluriel en anglais, où
-    // "Options" est la forme usuelle pour ce genre de bouton.
-    'Option': 'Options',
-    'Plusieurs réponses possibles': 'Multiple answers allowed',
-    // Vote anonyme (3 septembre 2026). Sert deux fois : le libellé de la case
-    // dans le panneau "Option", et l'étiquette portée par la carte du sondage.
-    'Vote anonyme': 'Anonymous vote',
-    // Réponse libre proposée par un votant (3 septembre 2026). Trois textes :
-    // l'option de création, l'étiquette portée par la carte, et le choix
-    // « Autre » offert au votant, avec le libellé de son champ.
-    'Autoriser une autre réponse': 'Allow another answer',
-    'Réponse libre autorisée': 'Free answer allowed',
-    'Autre': 'Other',
-    'Ta réponse...': 'Your answer...',
-    'Écris ta réponse.': 'Write your answer.',
-    'Annuler la création du sondage': 'Cancel poll creation',
-    'Annuler': 'Cancel',
-    "Ce sondage n'accepte pas de réponse libre.": 'This poll does not accept free answers.',
-    'Ce sondage a déjà le nombre maximum de réponses.': 'This poll already has the maximum number of answers.',
-    'Clôture (facultatif)': 'Closing date (optional)',
-    // Les deux versions de l'avertissement, échangées par syncPrivacyHint
-    // selon la case "Vote anonyme".
-    "Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.":
-      'Voting is not anonymous: voter names are visible once you have voted. Nobody sees the results before voting.',
-    "Vote anonyme : personne ne voit qui a voté quoi, pas même toi. Personne ne voit les résultats avant d'avoir voté.":
-      'Anonymous vote: nobody sees who voted for what, not even you. Nobody sees the results before voting.',
-    // Anciennement "Créer le sondage" — renommé par Emilien le 3 septembre
-    // 2026, sur un bouton qui prend désormais toute la largeur.
-    'Terminer': 'Done',
-    "Aucun sondage pour l'instant.": 'No polls yet.',
-    'Réponse': 'Answer',
-    'Retirer cette réponse': 'Remove this answer',
-    'Écris une question.': 'Write a question.',
-    'Voter': 'Vote',
-    'Choisis une réponse.': 'Choose an answer.',
-    'Vote pour voir les résultats.': 'Vote to see the results.',
-    'Ton vote est définitif et ne pourra plus être modifié.': 'Your vote is final and cannot be changed afterwards.',
-    'Confirmer ce vote ?': 'Confirm this vote?',
-    '1 personne a voté': '1 person voted',
-    'personnes ont voté': 'people voted',
-    'Clos': 'Closed',
-    "Ouvert jusqu'au": 'Open until',
-    // Libellé du bouton encadré de clôture (3 septembre 2026) — l'ancien
-    // pictogramme "⏹" ne disait pas ce qu'il faisait. Le title de survol
-    // reste 'Clore ce sondage', plus explicite au survol.
-    'Finir': 'Finish',
-    'Clore ce sondage': 'Close this poll',
-    'Clore ce sondage ? Plus personne ne pourra voter.': 'Close this poll? Nobody will be able to vote any more.',
-    'Supprimer ce sondage': 'Delete this poll',
-    'Supprimer ce sondage et tous ses votes ?': 'Delete this poll and all its votes?',
-    // Messages renvoyés par le serveur
-    'La question est obligatoire.': 'The question is required.',
-    'Question trop longue (300 caractères maximum).': 'Question too long (300 characters maximum).',
-    'Il faut au moins deux réponses possibles.': 'You need at least two possible answers.',
-    'Dix réponses possibles au maximum.': 'Ten possible answers maximum.',
-    'Réponse trop longue (120 caractères maximum).': 'Answer too long (120 characters maximum).',
-    'Deux réponses possibles sont identiques.': 'Two possible answers are identical.',
-    'Date de clôture invalide.': 'Invalid closing date.',
-    'La date de clôture doit être dans le futur.': 'The closing date must be in the future.',
-    'Sondage introuvable.': 'Poll not found.',
-    'Ce sondage est clos.': 'This poll is closed.',
-    'Tu as déjà voté à ce sondage.': 'You have already voted in this poll.',
-    'Une seule réponse possible pour ce sondage.': 'Only one answer allowed for this poll.',
-    'Réponse inconnue pour ce sondage.': 'Unknown answer for this poll.',
-    "Seul l'auteur peut clore ce sondage.": 'Only the author can close this poll.',
-    "Seul l'auteur peut supprimer ce sondage.": 'Only the author can delete this poll.',
-    'Type de sondage inconnu.': 'Unknown poll type.',
-    "Accès impossible à vérifier pour l'instant.": 'Access cannot be checked right now.',
-    'Tu ne peux pas créer de sondage ici.': 'You cannot create a poll here.',
-    "Tu n'as pas accès à ce profil.": 'You do not have access to this profile.',
-    'scope et scopeId requis.': 'scope and scopeId are required.',
-    'Accès refusé.': 'Access denied.',
-    // ---- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) ----
-    'Ce sous-projet est vide — clique sur « Ajouter » pour y mettre des tâches, des sondages ou une discussion.': 'This sub-project is empty — tap "Add" to put tasks, polls or a discussion in it.',
-    'Retirer les sondages': 'Remove the polls',
-    'Retirer les sondages de ce sous-projet ?': 'Remove the polls from this sub-project?',
-    'Retirer la discussion': 'Remove the discussion',
-    'Retirer la discussion de ce sous-projet ?': 'Remove the discussion from this sub-project?',
-    'Retirer cette section': 'Remove this section',
-    'Retirer cette section ?': 'Remove this section?',
-    'sondages': 'polls',
-    'discussion': 'discussion',
-    'vide': 'empty',
-    'Tout son contenu sera supprimé pour tous les membres. Confirmer ?': 'All of its content will be deleted for every member. Confirm?',
-    // Messages d'erreur renvoyés par server/routes/subprojects.js
-    'Type de section inconnu.': 'Unknown section type.',
-    'Ce sous-projet a déjà une discussion.': 'This sub-project already has a discussion.',
-    'Ce sous-projet a déjà une section de sondages.': 'This sub-project already has a polls section.',
-    'Cette section existe déjà dans ce sous-projet.': 'This section already exists in this sub-project.',
-    'Section introuvable.': 'Section not found.',
-    "Cette section n'est pas une liste de tâches.": 'This section is not a task list.',
-    "Ce sous-projet n'a pas de discussion.": 'This sub-project has no discussion.',
-    "Seul le créateur de la section ou le propriétaire de l'activité peut la supprimer.": 'Only the section creator or the activity owner can remove it.',
-
-
-    // ---- Sous-projets : anneau d'avancement et mode édition (3 sept. 2026) ----
-    'Avancement global': 'Overall progress',
-    ' tâches complétées': ' tasks completed',
-    'Nouvelle tâche': 'New task',
-    'Nouveau sondage': 'New poll',
-    'Nouvelle discussion': 'New discussion',
-    'Glisse pour réordonner, touche le nom pour le modifier.': 'Drag to reorder, tap the name to change it.',
-    'Déplacer ce sous-projet': 'Move this sub-project',
-    'Supprimer ce sous-projet': 'Delete this sub-project',
-    'Supprimer « ': 'Delete “',
-    ' » ?': '”?',
-
-    // ---- Sous-projets : en-tête collant et clôture (3 sept. 2026) ----
-    'Fermer ce sous-projet': 'Close this sub-project',
-    'Nouveau sous-projet': 'New sub-project',
-    'Annuler la création': 'Cancel',
-    // « Clôture (facultatif) » est déjà au dictionnaire (formulaire de sondage
-    // du socle commun) : même mot, même geste, une seule entrée.
-    'Passé cette date, le sous-projet disparaît de la liste. Rien n\'est supprimé : il reste accessible par « afficher les sous-projets clôturés ».':
-      'After this date the sub-project disappears from the list. Nothing is deleted: it stays reachable through “show closed sub-projects”.',
-    'Masquer les sous-projets clôturés': 'Hide closed sub-projects',
-    ' sous-projet clôturé': ' closed sub-project',
-    ' sous-projets clôturés': ' closed sub-projects',
-    ' — afficher': ' — show',
-
   };
 
   // ------------------- Messages contenant une valeur variable -------------
@@ -722,9 +510,6 @@
     [/^(.+) fait déjà partie de cette activité\.$/, '$1 is already part of this activity.'],
     [/^(.+) a déjà une invitation en attente pour cette activité\.$/, '$1 already has a pending invitation for this activity.'],
     [/^Invitation envoyée à (.+)\.$/, 'Invitation sent to $1.'],
-    // Fusion de deux activités (server/routes/activities.js, 2 septembre 2026)
-    [/^« (.+) » a été fusionnée dans « (.+) » : (\d+) enregistrement\(s\) y ont été ajoutés\.$/,
-      '"$1" was merged into "$2": $3 session(s) were added to it.'],
     [/^"(.+)" a été séparée : tu as maintenant ta propre activité personnelle, avec ton historique\.$/, '"$1" was split off: you now have your own personal activity, with your history.'],
     [/^Tu suis déjà (.+)\.$/, 'You already follow $1.'],
     [/^Demande envoyée à (.+)\.$/, 'Request sent to $1.'],
@@ -739,10 +524,10 @@
     [/^"(.+)" existe déjà\. Choisis un autre nom, ou récupère ton profil si c'est toi\.$/, '"$1" already exists. Pick another name, or restore your profile if that is you.'],
     [/^"(.+)" est déjà pris par un autre profil\.$/, '"$1" is already taken by another profile.'],
     [/^Semaine du (\S+) au (\S+)$/, 'Week of $1 to $2'],
-    // (Le motif `Du $1 au $2`, ajouté ici le 1er septembre 2026 pour le
-    // libellé du camembert quand la Feuille de temps défilait en continu, a
-    // été retiré le 2 septembre avec ce défilement : plus aucun libellé de
-    // cette forme n'est produit côté serveur.)
+    // Libellé du camembert (Répartition) depuis que la Feuille de temps
+    // défile en continu : la plage visible n'est plus forcément une semaine
+    // entière — ajouté le 1er septembre 2026 par la discussion Feuille de temps.
+    [/^Du (\S+) au (\S+)$/, 'From $1 to $2'],
   ];
 
   var lang = 'fr';
