@@ -524,6 +524,26 @@
   window.addEventListener('resize', syncTopbarHeightVar);
   window.addEventListener('orientationchange', syncTopbarHeightVar);
 
+  // 3 septembre 2026 (demande d'Emilien : « je souhaite que la section
+  // flottante dans communauté [...] soit une prolongation de la barre du
+  // haut [...] que cette section ne bouge pas du tout »). Même principe
+  // qu'au-dessus pour --topbar-h : #communitySearchBar est passée de
+  // `position: sticky` à `position: fixed` (voir styles.css), donc sortie du
+  // flux de #tab-community, qui doit récupérer l'espace perdu via un
+  // padding-top dédié (--community-searchbar-h). Appelée depuis loadCommunity()
+  // — inutile de l'appeler plus tôt : le volet est encore masqué
+  // (`display:none` via .hidden) tant qu'on n'a pas cliqué sur l'onglet, et
+  // offsetHeight y vaudrait 0 — puis à chaque redimensionnement/rotation
+  // comme pour la topbar (les filtres "Recherche" peuvent passer sur 2
+  // lignes selon la largeur, changeant la hauteur réelle de la barre).
+  function syncCommunitySearchBarHeightVar() {
+    var barEl = $('communitySearchBar');
+    if (!barEl) return;
+    document.documentElement.style.setProperty('--community-searchbar-h', barEl.offsetHeight + 'px');
+  }
+  window.addEventListener('resize', syncCommunitySearchBarHeightVar);
+  window.addEventListener('orientationchange', syncCommunitySearchBarHeightVar);
+
   // 2 septembre 2026, suite (Design) : sur mobile, quand le clavier virtuel
   // est ouvert (un champ texte a le focus) et qu'on fait défiler la page,
   // .topbar et .tabbar (toutes deux position: fixed) pouvaient donner
@@ -870,6 +890,13 @@
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
     tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
+    // Défilement "par saccade" du fil de Communauté (3 septembre 2026, voir
+    // styles.css, html.communityFeedSnap) : posée/retirée ici, seul endroit
+    // (avec openProfile() plus bas) qui montre/masque les onglets — plutôt
+    // que dans loadCommunity(), pour être sûr qu'elle disparaît dès qu'on
+    // QUITTE cet onglet, même vers un autre onglet principal qui ne
+    // rappellerait jamais loadCommunity().
+    document.documentElement.classList.toggle('communityFeedSnap', tab === 'community');
     // On quitte forcément la vue Réglages (dans #tab-profile) en rejoignant
     // un onglet principal — l'icône "⚙️" de la topbar ne doit donc plus
     // rester violette (1er septembre 2026, demande d'Emilien).
@@ -924,6 +951,11 @@
   function openProfile() {
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-profile').classList.remove('hidden');
+    // On quitte forcément #tab-community pour arriver ici (voir switchTab())
+    // — retire le défilement "par saccade" posé pour son fil (3 septembre
+    // 2026, styles.css) : cette fonction ne passe pas par switchTab(), qui
+    // s'en charge normalement en quittant un onglet principal.
+    document.documentElement.classList.remove('communityFeedSnap');
     showProfileMain();
     loadPendingInvites();
     loadFollowRequests();
@@ -2214,6 +2246,11 @@
     $('communitySearchInput').value = '';
     communitySeekingFilter.length = 0;
     buildCommunitySeekingFilters();
+    // 3 septembre 2026 : #communitySearchBar est désormais position: fixed
+    // (voir styles.css) — mesurée APRÈS buildCommunitySeekingFilters() pour
+    // que sa hauteur réelle inclue les filtres déjà rendus (ils peuvent
+    // passer sur 2 lignes selon la largeur de l'écran).
+    syncCommunitySearchBarHeightVar();
     $('communitySearchResults').innerHTML = '';
     loadCommunityDiscovery();
     // Zone "écrire à sa communauté" (#communityMyPostsBlock, 1er septembre
@@ -4284,7 +4321,9 @@
       $('followingFeedEmptyHint').classList.toggle('hidden', merged.length > 0);
       merged.forEach(function (item) {
         box.appendChild(item.kind === 'poll'
-          ? buildPollCard(item.data, loadFollowingFeed)
+          // Violet plein pour les miens, exactement comme buildFollowingPostCard
+          // le fait déjà pour mes messages dans ce même flux.
+          ? buildPollCard(item.data, loadFollowingFeed, { mineStyle: 'feedMine' })
           : buildFollowingPostCard(item.data));
       });
     });
@@ -6466,7 +6505,20 @@
   function buildPollCard(poll, onChanged, opts) {
     opts = opts || {};
     var card = document.createElement('div');
-    card.className = 'discussionMsg pollCard' + (poll.isMine ? ' mine' : '');
+    // Comment un sondage DONT JE SUIS L'AUTEUR se distingue — décidé par
+    // l'emplacement, pas par la carte (3 septembre 2026, demande d'Emilien :
+    // « dans le volet communauté [...] affiché en violet [...] dans le profil,
+    // le sondage doit être normal comme tous les autres messages sans aucune
+    // particularité »). Exactement la règle déjà appliquée aux messages par
+    // buildPostCard/buildFollowingPostCard :
+    //   'feedMine' → violet plein, comme mes publications du flux Communauté ;
+    //   'mine'     → liséré violet à gauche, utile dans un fil MULTI-auteur
+    //                (sous-projet) pour repérer les siens parmi ceux des autres ;
+    //   'none'     → rien du tout, cas d'un fil mono-auteur (Profil) où tout
+    //                est de moi et où marquer chaque carte ne distingue rien.
+    var mineStyle = opts.mineStyle || 'mine';
+    card.className = 'discussionMsg pollCard' +
+      (poll.isMine && mineStyle !== 'none' ? ' ' + mineStyle : '');
     card.dataset.pollId = poll.id;
 
     var msgEl = document.createElement('p');
@@ -6498,10 +6550,14 @@
     // sont un raccourci, pas le contrôle d'accès.
     if (poll.isMine) {
       if (!poll.isClosed) {
+        // Un vrai bouton encadré, pas un pictogramme (3 septembre 2026, demande
+        // d'Emilien : « je souhaite modifier l'icône clore ce sondage [...] un
+        // bouton finir encadré »). L'ancien "⏹" ne disait pas ce qu'il faisait
+        // et se confondait avec la croix de suppression juste à côté.
         var closeBtn = document.createElement('button');
         closeBtn.type = 'button';
-        closeBtn.className = 'discussionMsgDelete pollCloseBtn';
-        closeBtn.textContent = '⏹';
+        closeBtn.className = 'iconBtn pollCloseBtn';
+        closeBtn.textContent = t('Finir');
         closeBtn.title = t('Clore ce sondage');
         closeBtn.addEventListener('click', function () {
           if (!confirm(t('Clore ce sondage ? Plus personne ne pourra voter.'))) return;
@@ -6786,7 +6842,10 @@
           box.innerHTML = '';
           $(ids.emptyHint).classList.toggle('hidden', data.polls.length > 0);
           data.polls.forEach(function (p) {
-            box.appendChild(buildPollCard(p, refreshAllPolls, { authorClickable: ids.authorClickable !== false }));
+            box.appendChild(buildPollCard(p, refreshAllPolls, {
+              authorClickable: ids.authorClickable !== false,
+              mineStyle: ids.mineStyle,
+            }));
           });
           // Un bloc en lecture seule sans aucun sondage n'a rien à dire : on
           // l'efface plutôt que d'afficher un titre vide sur la page de
@@ -6879,6 +6938,8 @@
   var communityPollsMount = mountPolls({
     scope: 'profile',
     scopeId: function () { return profile && profile.id; },
+    // Volet Communauté : mes sondages en violet plein, comme mes messages.
+    mineStyle: 'feedMine',
     root: 'communityPollsBlock', addBtn: 'communityPollsAddBtn', form: 'communityPollsForm',
     question: 'communityPollsQuestion', optionsBox: 'communityPollsOptions',
     addOptionBtn: 'communityPollsAddOptionBtn', optionsBtn: 'communityPollsOptionsBtn',
@@ -6891,6 +6952,9 @@
   var profilePollsMount = mountPolls({
     scope: 'profile',
     scopeId: function () { return profile && profile.id; },
+    // Profil : fil mono-auteur, tout est de moi — aucune distinction, comme
+    // pour les messages (voir buildPostCard).
+    mineStyle: 'none',
     root: 'profilePollsBlock', addBtn: 'profilePollsAddBtn', form: 'profilePollsForm',
     question: 'profilePollsQuestion', optionsBox: 'profilePollsOptions',
     addOptionBtn: 'profilePollsAddOptionBtn', optionsBtn: 'profilePollsOptionsBtn',
@@ -6904,6 +6968,7 @@
   var viewProfilePollsMount = mountPolls({
     scope: 'profile',
     scopeId: function () { return viewProfileUserId; },
+    mineStyle: 'none',
     root: 'viewProfilePollsBlock', list: 'viewProfilePollsList',
     emptyHint: 'viewProfilePollsEmptyHint', authorClickable: false,
   });

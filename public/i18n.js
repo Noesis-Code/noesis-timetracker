@@ -607,6 +607,10 @@
     'personnes ont voté': 'people voted',
     'Clos': 'Closed',
     "Ouvert jusqu'au": 'Open until',
+    // Libellé du bouton encadré de clôture (3 septembre 2026) — l'ancien
+    // pictogramme "⏹" ne disait pas ce qu'il faisait. Le title de survol
+    // reste 'Clore ce sondage', plus explicite au survol.
+    'Finir': 'Finish',
     'Clore ce sondage': 'Close this poll',
     'Clore ce sondage ? Plus personne ne pourra voter.': 'Close this poll? Nobody will be able to vote any more.',
     'Supprimer ce sondage': 'Delete this poll',

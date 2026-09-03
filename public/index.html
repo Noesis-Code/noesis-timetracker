@@ -568,7 +568,17 @@
            en le formulant lui-même ("les autres données passent en
            dessous"), et ce qui rend le collage fiable quel que soit le
            nombre de résultats. Aucun sélecteur JS ne dépendait de
-           l'imbrication (tous via $('id')) : rien d'autre n'a changé. -->
+           l'imbrication (tous via $('id')) : rien d'autre n'a changé.
+           ⚠️ 3 septembre 2026, quatrième pose (demande d'Emilien : «... une
+           prolongation de la barre du haut... le noir descend jusqu'en bas...
+           que cette section ne bouge pas du tout... défilement par saccade,
+           coupure toujours entre 2 section et/ou posts »). `position: sticky`
+           → `position: fixed` (voir styles.css, même raison que .topbar :
+           bug WebKit du rebond élastique en sticky) ; fond noir prolongeant
+           .topbar, bordure basse nette. La structure DOM ci-dessous n'a pas
+           bougé (toujours id dédié, toujours #communitySearchResults en
+           frère) — seul le CSS change, plus une classe html.communityFeedSnap
+           posée par app.js (défilement par saccade de tout le volet). -->
       <div class="entryCard" id="communitySearchBar">
         <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo, un projet, un secteur..." autocomplete="off">
         <div class="seekingTagPicker" id="communitySeekingFilters"></div>

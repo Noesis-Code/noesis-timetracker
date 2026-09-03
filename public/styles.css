@@ -1374,18 +1374,101 @@ body.scrollLock { overflow: hidden; }
    un pseudo ne soit pas flottante du tout, afin de donner un fini plus
    propre »), avant de redemander le comportement fixe une troisième fois le
    même jour (« lorsque je fais défiler vers le bas, la zone de recherche
-   [...] reste fixe et les autres données passent en dessous ») — sticky
-   remis, cette fois sans code JS dédié : entre-temps, Design a rendu .topbar
-   elle-même position: fixed et pose déjà --topbar-h globalement
-   (syncTopbarHeightVar(), app.js, appelée à l'ouverture de l'app et sur
-   resize/orientationchange) pour le padding-top de #app — cette variable,
-   toujours fraîche, est simplement réutilisée ici telle quelle plutôt que
-   dupliquée. z-index sous celui de .topbar (10) pour ne jamais passer
-   par-dessus elle. */
+   [...] reste fixe et les autres données passent en dessous »).
+
+   ⚠️ 3 septembre 2026, quatrième pose (demande d'Emilien : « je souhaite que
+   la section flottante [...] soit une prolongation de la barre du haut où se
+   trouve Noèsis et le profil [...] que le noir descende jusqu'en bas cette
+   section-là et qu'elle se termine par un trait net [...] que cette section
+   ne bouge pas du tout lorsque je fais défiler le fil [...] qu'il n'y ait
+   pas de demi-section affichée »). `position: sticky` → `position: fixed` :
+   même raison que pour .topbar plus haut (le rebond élastique du défilement
+   peut faire flotter/décoller un élément sticky, bug WebKit déjà documenté
+   deux fois dans ce fichier) — cette fois l'immobilité doit être totale,
+   demandée explicitement. `left`/`right` (et non plus une largeur héritée du
+   flux de #content) pour occuper toute la largeur de l'écran, exactement
+   comme .topbar, dont cette barre devient visuellement le prolongement :
+   fond noir identique (#000, pas var(--card) — sinon elle resterait une
+   carte blanche/grise ordinaire), texte blanc, coins carrés (pas de
+   border-radius, sinon "prolongement" et "carte" se contrediraient), et un
+   border-bottom net (« se termine par un trait net ») pour marquer la fin
+   nette de la zone noire, littéralement demandée par Emilien. Rien à ajouter
+   pour rester posée sous .topbar (elle est déjà collée juste en dessous via
+   `top: var(--topbar-h)`) — c'est `#tab-community` qui récupère l'espace
+   perdu par ce passage en `fixed` (la barre ne fait plus partie du flux),
+   via un padding-top dédié à --community-searchbar-h — même principe que
+   padding-top sur #app pour --topbar-h, voir plus haut — mesurée par
+   syncCommunitySearchBarHeightVar() dans app.js (appelée à l'ouverture de
+   l'onglet Communauté, puis sur resize/orientationchange, comme pour
+   --topbar-h). z-index sous celui de .topbar/.tabbar (10, jamais par-dessus
+   eux) mais au-dessus du contenu normal du volet, qui défile dessous. */
 #communitySearchBar {
-  position: sticky;
+  position: fixed;
   top: var(--topbar-h, 56px);
-  z-index: 5;
+  left: 0;
+  right: 0;
+  z-index: 9;
+  background: #000000;
+  color: #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+  margin-bottom: 0;
+  padding: 12px 18px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+#tab-community {
+  padding-top: var(--community-searchbar-h, 74px);
+}
+
+/* Défilement « par saccade » du volet Communauté (même demande, même jour :
+   « je souhaite que le défilement se fasse par saccade et la coupure entre
+   la barre du haut de l'écran et le fils se fasse toujours entre 2 section
+   et/ou posts »). Recette identique à celle déjà posée le 2 septembre 2026
+   pour #profileSettingsPanel.settingsPanel (voir plus haut dans ce fichier :
+   scroll-snap-type: y mandatory + scroll-snap-align: start + scroll-snap-stop:
+   always, avec la même garantie qu'une section plus haute que l'écran reste
+   libre à parcourir sans jamais bloquer le défilement) — sauf que cet onglet
+   n'a PAS de conteneur de défilement local comme Réglages (pas de
+   `overflow-y: auto` dédié) : il défile avec la PAGE entière, comme tous les
+   autres onglets. Un défilement CSS ne peut porter que sur le véritable
+   conteneur défilant, jamais sur une simple <section> qui n'en est pas un —
+   les trois propriétés portent donc sur <html> (le scroller racine), via une
+   classe posée/retirée par JS (html.communityFeedSnap) au moment précis où
+   on entre/sort de cet onglet — voir switchTab()/openProfile() dans app.js —
+   plutôt que sur #tab-community lui-même. scroll-padding-top compense les
+   deux barres fixes empilées (.topbar + #communitySearchBar) pour qu'une
+   section calée en haut ne se retrouve jamais à moitié cachée dessous
+   (+8px de respiration, comme pour Réglages).
+
+   Granularité retenue, faute de précision plus fine dans la demande : les
+   grandes zones du volet (résultats de recherche/découverte, composeur
+   "écrire à sa communauté", bloc Sondages) sont chacune UNE section — on n'y
+   entre jamais à moitié, quitte à ensuite y défiler librement si elle dépasse
+   l'écran. Le fil "Suivi" (#followingFeed), lui, est saccadé POST PAR POST
+   (#followingFeed > *, qui vaut aussi bien pour un message que pour un
+   sondage mêlé au fil, voir loadFollowingFeed dans app.js) — c'est
+   explicitement de lui qu'Emilien parle en évoquant des "posts".
+   #communityDiscoverHint (simple ligne d'aide au-dessus des résultats) n'a
+   volontairement aucun point d'accrochage propre : trop court pour mériter
+   un arrêt dédié, il est simplement entraîné jusqu'au prochain arrêt
+   (#communitySearchResults) plutôt que de laisser un texte isolé à moitié
+   visible. Ajustable si Emilien préfère une granularité différente.
+
+   ⚠️ Mécanisme d'interaction tactile combiné à deux barres fixes — testé au
+   clavier/doigt émulé (Playwright) avant livraison, mais comme toujours pour
+   ce type de geste (voir la remarque transverse dans
+   noesis-timetracker-chantiers-en-cours.md), la confirmation définitive
+   reste la vérification d'Emilien sur son téléphone. */
+html.communityFeedSnap {
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: calc(var(--topbar-h, 56px) + var(--community-searchbar-h, 74px) + 8px);
+}
+#communitySearchResults,
+#communityMyPostsBlock,
+#communityPollsBlock,
+#followingFeed > * {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 /* Pastille de messages non lus sur une ligne d'activité partagée. Poussée à
@@ -1932,8 +2015,22 @@ button { -webkit-user-select: none; user-select: none; }
    ajoutent que ce qui leur est propre — un sondage doit se lire comme un
    message dans le flux "Suivi", où les deux défilent ensemble. */
 
-.pollsBlock { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+/* margin-bottom autant que margin-top (3 septembre 2026, demande d'Emilien :
+   « les sondages doivent être décollés des postes précédents, il doit y avoir
+   un espace entre chaque poste »). Sans lui, la dernière carte de sondage de
+   Communauté touchait la première carte du flux Suivi juste en dessous —
+   mesuré à 0 px sur un rendu réel, pas déduit du CSS. Même valeur que partout
+   ailleurs dans l'app : 8px, comme .discussionList, #followingFeed et
+   .historyEntry. */
+.pollsBlock { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
 .pollsList { display: flex; flex-direction: column; gap: 8px; }
+
+/* Le bouton de clôture est un vrai bouton encadré « Finir » depuis le
+   3 septembre 2026, plus un pictogramme "⏹" qui ne disait pas ce qu'il faisait
+   et se confondait avec la croix de suppression juste à côté. Il vit dans
+   .discussionMsgTop : il ne doit ni s'étirer ni se laisser écraser par un nom
+   d'auteur long. */
+.pollCloseBtn { flex-shrink: 0; padding: 4px 10px; }
 
 /* ----- formulaire de création ----- */
 .pollForm { display: flex; flex-direction: column; gap: 8px; }
@@ -2048,6 +2145,44 @@ button { -webkit-user-select: none; user-select: none; }
 .pollVoters { margin: 0; }
 .pollTotal { margin: 2px 0 0; }
 .pollHiddenHint { margin: 4px 0 0; }
+
+/* ----- une carte de sondage EN VIOLET PLEIN (mes sondages, volet Communauté)
+   3 septembre 2026, demande d'Emilien. `.discussionMsg.feedMine` existait déjà
+   pour mes MESSAGES du flux (fond violet + descendants en blanc), mais il ne
+   connaissait que .discussionMsgBody/.discussionMsgAuthor/.meta : une carte de
+   sondage a une dizaine d'éléments de plus, qui seraient restés en var(--text)
+   — donc illisibles en thème clair, et ternes en sombre. Tout est repris ici,
+   et rien n'est laissé au hasard : ce qui n'est pas listé reste noir sur
+   violet. ----- */
+.discussionMsg.feedMine.pollCard .pollQuestion,
+.discussionMsg.feedMine.pollCard .pollChoice,
+.discussionMsg.feedMine.pollCard .pollChoice span,
+.discussionMsg.feedMine.pollCard .pollResultLabel,
+.discussionMsg.feedMine.pollCard .msg {
+  color: #fff;
+}
+/* Les cadres des réponses et des boutons : un trait blanc translucide se
+   détache du violet sans faire de bord dur. */
+.discussionMsg.feedMine.pollCard .pollChoice {
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.discussionMsg.feedMine.pollCard .iconBtn {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+.discussionMsg.feedMine.pollCard .iconBtn:hover { background: rgba(255, 255, 255, 0.26); }
+/* Barres de résultat : la piste et le remplissage sont tous deux violets dans
+   le thème normal — sur fond violet, ils disparaîtraient l'un dans l'autre. */
+.discussionMsg.feedMine.pollCard .pollBar { background: rgba(255, 255, 255, 0.28); }
+.discussionMsg.feedMine.pollCard .pollBarFill { background: #fff; }
+.discussionMsg.feedMine.pollCard .pollResult.chosen .pollBarFill { background: rgba(255, 255, 255, 0.72); }
+/* .meta et .hint sont volontairement un peu en retrait, comme ailleurs dans
+   l'app — blanc atténué plutôt que blanc pur. */
+.discussionMsg.feedMine.pollCard .meta,
+.discussionMsg.feedMine.pollCard .hint {
+  color: rgba(255, 255, 255, 0.82);
+}
 
 /* ----- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) -----
    Un sous-projet ne contient plus une todolist et un fil imposés, mais des
