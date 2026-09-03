@@ -794,16 +794,31 @@
              sous-projet. -->
         <div id="activitySubProjectsBlock">
           <div class="sectionTitleRow">
-            <p class="sectionTitle">Sous-projets <span id="subProjectsProgressLabel" class="meta"></span></p>
+            <p class="sectionTitle">Sous-projets</p>
             <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter un sous-projet">+</button>
           </div>
 
-          <!-- Avancement global de l'activité : la même donnée que celle
-               exposée à "Général" par progressForActivities() — une seule
-               source, deux affichages. Masqué tant qu'aucune tâche n'existe
-               (percent vaut null, jamais 0 : règle R1 du contrat). -->
-          <div id="activityProgressWrap" class="subProjectProgress hidden">
-            <div class="subProjectProgressTrack"><div id="activityProgressFill" class="subProjectProgressFill"></div></div>
+          <!-- Avancement global de l'activité, en anneau (demande d'Emilien,
+               3 septembre 2026, capture à l'appui). C'est la MÊME donnée que
+               celle exposée à la discussion "Général" par
+               progressForActivities() — une seule source, deux affichages.
+               Masqué tant qu'aucune tâche n'existe (percent vaut null, jamais
+               0 : règle R1 du contrat), sans quoi une activité sans todolist
+               s'afficherait à tort comme « 0 % fait ».
+
+               L'anneau est un SVG : un cercle de fond, et un second cercle
+               dont le `stroke-dasharray` est piloté en JS. Pas d'image, pas de
+               librairie — et il suit le thème comme le reste. -->
+          <div id="activityProgressWrap" class="activityProgressCard hidden">
+            <svg class="activityProgressRing" viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="activityProgressRingBg" cx="22" cy="22" r="19"></circle>
+              <circle id="activityProgressRingFill" class="activityProgressRingFill" cx="22" cy="22" r="19"></circle>
+            </svg>
+            <span id="activityProgressPercent" class="activityProgressPercent">0%</span>
+            <div class="activityProgressText">
+              <p class="activityProgressTitle">Avancement global</p>
+              <p id="activityProgressCount" class="meta"></p>
+            </div>
           </div>
 
 
@@ -855,25 +870,17 @@
                  "sondages" et "discussion" se grisent dès que le sous-projet en
                  a déjà une. -->
             <div id="addSectionMenu" class="activitySettingsPanel subProjectAddMenu hidden">
+              <!-- ⚠️ Renommer et Supprimer ont QUITTÉ ce menu le 3 septembre
+                   2026 : ils vivent désormais dans le mode édition, ouvert par
+                   un appui long sur la ligne du sous-projet. Ce menu ne
+                   propose plus que ce qu'on AJOUTE — c'est ce que son nom
+                   annonce. -->
               <div class="subProjectAddMenuOptions">
-                <button type="button" id="addSectionTasksBtn" class="subProjectAddMenuItem">Des tâches</button>
-                <button type="button" id="addSectionPollBtn" class="subProjectAddMenuItem">Des sondages</button>
-                <button type="button" id="addSectionDiscussionBtn" class="subProjectAddMenuItem">Une discussion</button>
-                <button type="button" id="subProjectRenameBtn" class="subProjectAddMenuItem subProjectAddMenuSep">Renommer le sous-projet</button>
-                <button type="button" id="subProjectDeleteBtn" class="subProjectAddMenuItem">Supprimer le sous-projet</button>
+                <button type="button" id="addSectionTasksBtn" class="subProjectAddMenuItem">Nouvelle tâche</button>
+                <button type="button" id="addSectionPollBtn" class="subProjectAddMenuItem">Nouveau sondage</button>
+                <button type="button" id="addSectionDiscussionBtn" class="subProjectAddMenuItem">Nouvelle discussion</button>
               </div>
               <p id="addSectionMsg" class="msg"></p>
-            </div>
-
-            <div id="subProjectRenamePanel" class="activitySettingsPanel hidden">
-              <label class="fieldLabel" for="subProjectEditName">Nom</label>
-              <input id="subProjectEditName" type="text" maxlength="120" />
-              <label class="fieldLabel" for="subProjectEditDescription">Description</label>
-              <textarea id="subProjectEditDescription" rows="2" maxlength="2000"></textarea>
-              <p id="subProjectEditMsg" class="msg"></p>
-              <div class="rowActions">
-                <button type="button" id="subProjectEditSave" class="iconBtn">Enregistrer</button>
-              </div>
             </div>
 
             <!-- 1. Listes de tâches, dans l'ordre d'ajout. -->

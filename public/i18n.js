@@ -553,13 +553,11 @@
     'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
     'Ajouter une tâche...': 'Add a task...',
     'Écrire sur ce sous-projet...': 'Write about this sub-project...',
-    'Supprimer le sous-projet': 'Delete the sub-project',
     'aucune tâche': 'no task',
     'Supprimer cette tâche': 'Delete this task',
     'Supprimer cette tâche ?': 'Delete this task?',
     "Écris une tâche avant d'ajouter.": 'Write a task before adding it.',
     'Le nom du sous-projet est requis.': 'The sub-project name is required.',
-    'Supprimer ce sous-projet ?': 'Delete this sub-project?',
     // Messages d'erreur renvoyés par server/routes/subprojects.js
     'Sous-projet introuvable.': 'Sub-project not found.',
     'Intitulé de la tâche requis.': 'Task label required.',
@@ -638,9 +636,6 @@
     'scope et scopeId requis.': 'scope and scopeId are required.',
     'Accès refusé.': 'Access denied.',
     // ---- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) ----
-    'Des tâches': 'Tasks',
-    'Des sondages': 'Polls',
-    'Une discussion': 'A discussion',
     'Ce sous-projet est vide — clique sur « Ajouter » pour y mettre des tâches, des sondages ou une discussion.': 'This sub-project is empty — tap "Add" to put tasks, polls or a discussion in it.',
     'Retirer les sondages': 'Remove the polls',
     'Retirer les sondages de ce sous-projet ?': 'Remove the polls from this sub-project?',
@@ -662,7 +657,18 @@
     "Ce sous-projet n'a pas de discussion.": 'This sub-project has no discussion.',
     "Seul le créateur de la section ou le propriétaire de l'activité peut la supprimer.": 'Only the section creator or the activity owner can remove it.',
 
-    'Renommer le sous-projet': 'Rename the sub-project',
+
+    // ---- Sous-projets : anneau d'avancement et mode édition (3 sept. 2026) ----
+    'Avancement global': 'Overall progress',
+    ' tâches complétées': ' tasks completed',
+    'Nouvelle tâche': 'New task',
+    'Nouveau sondage': 'New poll',
+    'Nouvelle discussion': 'New discussion',
+    'Glisse pour réordonner, touche le nom pour le modifier.': 'Drag to reorder, tap the name to change it.',
+    'Déplacer ce sous-projet': 'Move this sub-project',
+    'Supprimer ce sous-projet': 'Delete this sub-project',
+    'Supprimer « ': 'Delete “',
+    ' » ?': '”?',
 
   };
 

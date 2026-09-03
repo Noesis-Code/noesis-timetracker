@@ -1941,10 +1941,13 @@ button { -webkit-user-select: none; user-select: none; }
 /* Le détail d'un sous-projet est déplacé dans la ligne sélectionnée
    (attachSubProjectDetail) : un léger décalage et une ligne de séparation le
    rattachent visuellement à sa ligne, comme .activitySettingsPanel. */
+/* ⚠️ Plus de bordure ici (3 septembre 2026, demande d'Emilien : « supprimer
+   les lignes qui ne sont pas utiles entre les sections »). Elle doublait la
+   barre de progression du sous-projet, juste au-dessus — deux traits collés
+   pour une seule séparation. Le détail se contente d'un espace. */
 #subProjectDetail {
   margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  padding-top: 4px;
 }
 
 .subProjectSection {
@@ -2194,10 +2197,20 @@ button { -webkit-user-select: none; user-select: none; }
   margin-bottom: 6px;
 }
 
+/* UNE SEULE ligne fine entre deux sections, jamais avant la première : la
+   bordure est portée par chaque bloc SAUF quand rien ne le précède. Les blocs
+   masqués (sondages ou discussion absents) ne comptent pas — d'où les
+   sélecteurs :not(.hidden). */
 #subProjectDetail .pollsBlock,
 #subProjectDetail .discussionBlock {
   margin-top: 14px;
   padding-top: 10px;
+}
+
+#subProjectDetail .subProjectSection + .subProjectSection,
+#subProjectSections:not(:empty) ~ .pollsBlock:not(.hidden),
+#subProjectSections:not(:empty) ~ .discussionBlock:not(.hidden),
+#subProjectDetail .pollsBlock:not(.hidden) ~ .discussionBlock:not(.hidden) {
   border-top: 1px solid var(--border);
 }
 
@@ -2264,4 +2277,132 @@ button { -webkit-user-select: none; user-select: none; }
   padding-top: 12px;
   border-top: 1px solid var(--border);
   border-radius: 0;
+}
+
+
+/* ----- Avancement global en anneau (3 septembre 2026, demande d'Emilien) -----
+   Remplace la barre horizontale : un anneau qui se remplit, le pourcentage au
+   centre, et sous le titre le décompte exact de ce qui est compté. */
+
+.activityProgressCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 14px;
+  padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.activityProgressRing {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  transform: rotate(-90deg);   /* le remplissage part du haut, pas de la droite */
+}
+
+.activityProgressRingBg,
+.activityProgressRingFill {
+  fill: none;
+  stroke-width: 5;
+}
+
+.activityProgressRingBg { stroke: var(--track-bg); }
+
+.activityProgressRingFill {
+  stroke: var(--purple);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+/* Le pourcentage est posé PAR-DESSUS l'anneau, pas dedans : un <text> SVG
+   aurait tourné avec lui (rotate(-90deg) ci-dessus). */
+.activityProgressPercent {
+  position: absolute;
+  left: 14px;
+  width: 44px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.activityProgressText { min-width: 0; }
+
+.activityProgressTitle {
+  margin: 0 0 2px;
+  font-weight: 600;
+}
+
+.activityProgressText .meta { margin: 0; }
+
+/* ----- Menu "Ajouter" : une carte étroite et cadrée -----
+   Demande d'Emilien : « encadrée dans une section étroite, bien définie ».
+   Il occupait jusqu'ici toute la largeur de la ligne. */
+
+.subProjectAddMenu {
+  width: max-content;
+  min-width: 190px;
+  max-width: 100%;
+  margin: 6px 0 6px auto;   /* aligné sous le bouton "Ajouter", à droite */
+  padding: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.subProjectAddMenuItem { padding: 9px 12px; }
+
+/* ----- Mode édition de la liste (appui long) ----- */
+
+.subProjectEditBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 2px;
+}
+
+.subProjectRow.editing .subProjectRowHeader {
+  gap: 10px;
+  cursor: default;
+}
+
+.subProjectRow.dragging {
+  opacity: 0.75;
+  border-color: var(--purple);
+}
+
+/* ⚠️ SEUL élément qui neutralise le geste natif : le reste de la page défile
+   normalement, même en mode édition. */
+.subProjectDragHandle {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  color: var(--text-light);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.subProjectNameInput {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.subProjectDeleteX {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--red);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
 }

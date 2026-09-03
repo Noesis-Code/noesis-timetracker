@@ -633,9 +633,27 @@
   // dernier couvre les cas où le contenu change de hauteur en différé (une
   // liste chargée après un appel réseau, un panneau qu'on déplie), sans
   // avoir à ajouter un appel dédié dans chaque volet.
+  // ⚠️ 3 septembre 2026, suite (Design) : la première version de cette
+  // fonction comparait `scrollHeight` à `window.innerHeight` — Emilien a
+  // signalé que le mouvement persistait malgré tout sur Chrono/Activité,
+  // sans exception. Cause probable : `window.innerHeight` est une mesure
+  // JS historiquement incohérente avec la mise en page réelle sur mobile
+  // (elle peut refléter le plus grand viewport possible, barre d'adresse
+  // masquée comprise, ou ignorer différemment la zone de sécurité selon le
+  // navigateur/contexte PWA installée), alors que `#app { min-height: 100vh
+  // }` est, lui, calculé par le moteur de rendu à partir d'une notion de
+  // viewport qui peut légèrement différer. Un écart de quelques pixels
+  // entre les deux suffisait à ce que `needsScroll` soit TOUJOURS vrai,
+  // même quand le contenu ne dépassait pas réellement l'écran — la classe
+  // `noScrollNeeded` n'était alors jamais posée. Remplacé par la
+  // comparaison canonique pour détecter un dépassement (`scrollHeight` vs
+  // `clientHeight` du MÊME élément) : les deux valeurs sont mesurées par le
+  // moteur de rendu dans le même repère, sans dépendre d'une API JS de
+  // viewport séparée.
   function refreshScrollLock() {
-    var needsScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
-    document.documentElement.classList.toggle('noScrollNeeded', !needsScroll);
+    var docEl = document.documentElement;
+    var needsScroll = docEl.scrollHeight > docEl.clientHeight + 1;
+    docEl.classList.toggle('noScrollNeeded', !needsScroll);
     document.body.classList.toggle('noScrollNeeded', !needsScroll);
   }
   window.addEventListener('resize', refreshScrollLock);
@@ -2608,6 +2626,12 @@
   // Le menu "Ajouter" a été demandé depuis une ligne qui n'était pas encore
   // ouverte : on le déplie dès que son détail est rendu.
   var pendingAddMenuOpen = false;
+  // Mode édition de la liste, ouvert par un APPUI LONG sur un sous-projet
+  // (demande d'Emilien, 3 septembre 2026). Il remplace les entrées "Renommer"
+  // et "Supprimer" qui encombraient le menu "Ajouter" : on y renomme en place,
+  // on réordonne au doigt, et une croix rouge supprime.
+  var subProjectsEditMode = false;
+  var lastSubProjectsData = null;
   // Même mécanique pour le composeur de sondage : la section vient d'être
   // créée, mais son bloc n'est démasqué qu'au rendu suivant du détail — on
   // ouvre donc le formulaire LÀ, pas avant (sinon reset() du socle le
@@ -2654,6 +2678,32 @@
     if (label) label.textContent = percent + '% · ' + done + '/' + total;
   }
 
+  // Anneau d'avancement global. C'est la MÊME donnée que celle exposée à la
+  // discussion "Général" (progressForActivities) : le pourcentage est celui de
+  // TOUTES les tâches de l'activité, tous sous-projets confondus — d'où le
+  // « X / Y tâches complétées » sous le titre, qui dit exactement ce qui est
+  // compté. Rien n'est recalculé ici, on dessine ce que le serveur renvoie.
+  //
+  // percent vaut null (aucune tâche nulle part) : on masque la carte au lieu
+  // d'afficher un anneau vide, qui se lirait à tort comme « 0 % fait ».
+  function renderActivityProgressRing(progress) {
+    var wrap = $('activityProgressWrap');
+    if (!progress || progress.percent === null || progress.percent === undefined) {
+      wrap.classList.add('hidden');
+      return;
+    }
+    wrap.classList.remove('hidden');
+    // r = 19 dans le viewBox 44×44 du SVG (voir index.html). La circonférence
+    // sert de longueur de tiret : l'anneau se remplit en réduisant le décalage.
+    var circumference = 2 * Math.PI * 19;
+    var fill = $('activityProgressRingFill');
+    fill.style.strokeDasharray = circumference.toFixed(2);
+    fill.style.strokeDashoffset = (circumference * (1 - progress.percent / 100)).toFixed(2);
+    $('activityProgressPercent').textContent = progress.percent + '%';
+    $('activityProgressCount').textContent =
+      progress.done + ' / ' + progress.total + t(' tâches complétées');
+  }
+
   function resetSubProjectsBlock() {
     currentSubProjectId = '';
     subProjectsCache = [];
@@ -2663,7 +2713,8 @@
     $('subProjectsList').innerHTML = '';
     $('subProjectsEmptyHint').classList.add('hidden');
     $('activityProgressWrap').classList.add('hidden');
-    $('subProjectsProgressLabel').textContent = '';
+    subProjectsEditMode = false;
+    lastSubProjectsData = null;
     $('newSubProjectCard').classList.add('hidden');
   }
 
@@ -2682,6 +2733,7 @@
   }
 
   function renderSubProjectsList(data) {
+    lastSubProjectsData = data;
     var box = $('subProjectsList');
     // ⚠️ Détacher le détail AVANT de vider la liste : il vit dans la ligne
     // sélectionnée, il serait donc détruit avec elle (et avec lui le fil de
@@ -2690,19 +2742,97 @@
     var detail = subProjectDetailEl();
     if (detail && detail.parentNode) detail.parentNode.removeChild(detail);
     box.innerHTML = '';
+    box.classList.toggle('editing', subProjectsEditMode);
     $('subProjectsEmptyHint').classList.toggle('hidden', data.subProjects.length > 0);
 
-    var p = data.progress;
-    renderProgressBar('activityProgressWrap', 'activityProgressFill', 'subProjectsProgressLabel',
-      p ? p.done : 0, p ? p.total : 0, p ? p.percent : null);
+    renderActivityProgressRing(data.progress);
+
+    // Barre du mode édition : elle dit ce qu'on peut y faire et comment en
+    // sortir. Sans elle, un appui long accidentel laisserait la liste dans un
+    // état qu'on ne sait pas quitter.
+    if (subProjectsEditMode && data.subProjects.length) {
+      var bar = document.createElement('div');
+      bar.className = 'subProjectEditBar';
+      var hint = document.createElement('span');
+      hint.className = 'meta';
+      hint.textContent = t('Glisse pour réordonner, touche le nom pour le modifier.');
+      var done = document.createElement('button');
+      done.type = 'button';
+      done.className = 'iconBtn';
+      done.textContent = t('Terminer');
+      done.addEventListener('click', exitSubProjectsEditMode);
+      bar.appendChild(hint);
+      bar.appendChild(done);
+      box.appendChild(bar);
+    }
 
     data.subProjects.forEach(function (sub) {
       var row = document.createElement('div');
-      row.className = 'activityRow subProjectRow';
+      row.className = 'activityRow subProjectRow' + (subProjectsEditMode ? ' editing' : '');
       row.dataset.subProjectId = sub.id;
 
       var header = document.createElement('div');
       header.className = 'activityRowHeader subProjectRowHeader';
+
+      if (subProjectsEditMode) {
+        // ⚠️ La poignée est le SEUL élément qui capture le geste tactile
+        // (touch-action: none en CSS). Le reste de la ligne et la page
+        // continuent de défiler normalement — c'est ce qui distingue ce
+        // glisser-déposer du pincement du Graphique, retiré en septembre 2026
+        // pour avoir intercepté des gestes qui ne lui appartenaient pas.
+        var handle = document.createElement('span');
+        handle.className = 'subProjectDragHandle';
+        handle.setAttribute('aria-label', t('Déplacer ce sous-projet'));
+        handle.textContent = '≡';
+        bindSubProjectDrag(handle, row);
+        header.appendChild(handle);
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'subProjectNameInput';
+        input.maxLength = 120;
+        input.value = sub.name;
+        input.addEventListener('click', function (e) { e.stopPropagation(); });
+        // Enregistré à la sortie du champ, ou sur Entrée. Un nom vidé n'est
+        // jamais enregistré : on remet l'ancien plutôt que de refuser avec un
+        // message, la correction est plus rapide que la lecture.
+        function commitName() {
+          var value = input.value.trim();
+          if (!value || value === sub.name) { input.value = sub.name; return; }
+          api('PUT', '/api/sub-projects/' + sub.id, { userId: profile.id, name: value })
+            .then(function () { sub.name = value; loadSubProjects(); })
+            .catch(function (err) { input.value = sub.name; alert(err.message); });
+        }
+        input.addEventListener('blur', commitName);
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        });
+        header.appendChild(input);
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'subProjectDeleteX';
+        del.textContent = '✕';
+        del.setAttribute('aria-label', t('Supprimer ce sous-projet'));
+        del.addEventListener('click', function (e) {
+          e.stopPropagation();
+          // Deux confirmations : la suppression emporte tout le contenu du
+          // sous-projet, pour TOUS les membres.
+          if (!confirm(t('Supprimer « ') + sub.name + t(' » ?'))) return;
+          if (!confirm(t('Tout son contenu sera supprimé pour tous les membres. Confirmer ?'))) return;
+          api('DELETE', '/api/sub-projects/' + sub.id + '?userId=' + profile.id)
+            .then(function () {
+              if (String(sub.id) === String(currentSubProjectId)) selectSubProject('');
+              loadSubProjects();
+            })
+            .catch(function (err) { alert(err.message); });
+        });
+        header.appendChild(del);
+
+        row.appendChild(header);
+        box.appendChild(row);
+        return;   // en édition : ni avancement, ni description, ni "Ajouter"
+      }
 
       var name = document.createElement('span');
       name.className = 'activityRowName';
@@ -2741,6 +2871,7 @@
       header.addEventListener('click', function () {
         selectSubProject(String(sub.id) === String(currentSubProjectId) ? '' : sub.id);
       });
+      bindSubProjectLongPress(header);
 
       // "Ajouter" vit ICI, à droite du nom (demande d'Emilien, 3 septembre
       // 2026) — plus dans un en-tête interne qui répétait le nom du
@@ -2768,7 +2899,129 @@
 
     // La ligne sélectionnée vient d'être reconstruite : le détail doit y être
     // rebranché, sinon il resterait orphelin dans l'ancre.
-    attachSubProjectDetail();
+    if (!subProjectsEditMode) attachSubProjectDetail();
+  }
+
+  // ----- Mode édition : appui long, glisser-déposer, renommage, suppression -----
+  //
+  // ⚠️ ARCHITECTURE DU GESTE, écrite ici parce que ce projet s'est déjà brûlé
+  // avec un geste tactile (le pincement du Graphique, construit deux fois puis
+  // retiré en septembre 2026 pour avoir cassé le simple appui et le
+  // défilement). Les règles suivies ici :
+  //   - RIEN n'est intercepté tant qu'on n'est pas en mode édition ;
+  //   - l'appui long est ABANDONNÉ dès que le doigt bouge de plus de 10 px :
+  //     un défilement de la page ne peut donc jamais l'enclencher ;
+  //   - en édition, seule la POIGNÉE porte `touch-action: none` — le reste de
+  //     la page défile comme d'habitude ;
+  //   - on sort par un bouton visible ("Terminer"), jamais par un geste
+  //     deviné.
+  var longPressTimer = null;
+
+  function bindSubProjectLongPress(el) {
+    function cancel() {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', cancel);
+      el.removeEventListener('pointercancel', cancel);
+      el.removeEventListener('pointerleave', cancel);
+    }
+    var startX = 0, startY = 0;
+    function onMove(e) {
+      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
+    }
+    el.addEventListener('pointerdown', function (e) {
+      if (subProjectsEditMode) return;
+      // Un appui long sur "Ajouter" n'a pas à ouvrir le mode édition.
+      if (e.target.closest && e.target.closest('.subProjectAddBtn')) return;
+      startX = e.clientX; startY = e.clientY;
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', cancel);
+      el.addEventListener('pointercancel', cancel);
+      el.addEventListener('pointerleave', cancel);
+      longPressTimer = setTimeout(function () {
+        cancel();
+        enterSubProjectsEditMode();
+      }, 500);
+    });
+  }
+
+  function enterSubProjectsEditMode() {
+    if (subProjectsEditMode || !lastSubProjectsData) return;
+    subProjectsEditMode = true;
+    // On referme le sous-projet ouvert : en édition, la liste ne sert qu'à
+    // s'organiser, pas à travailler dedans.
+    selectSubProject('');
+    closeSubProjectPanels();
+    renderSubProjectsList(lastSubProjectsData);
+  }
+
+  function exitSubProjectsEditMode() {
+    subProjectsEditMode = false;
+    loadSubProjects();
+  }
+
+  // Glisser-déposer d'une ligne, à la poignée.
+  //
+  // ⚠️ La ligne n'est PAS déplacée dans le DOM pendant le geste, et ce n'est
+  // pas un détail de style : réinsérer un nœud (insertBefore) RELÂCHE la
+  // capture du pointeur posée dessus, et le glissement s'arrête net au premier
+  // déplacement. C'est exactement ce qui s'est produit à la première version,
+  // trouvé par la suite Playwright (assertion 12.8). On se contente donc de
+  // translater visuellement la ligne tirée, et on ne réordonne le DOM — puis
+  // le serveur — qu'UNE fois, au relâchement.
+  function bindSubProjectDrag(handle, row) {
+    handle.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var box = $('subProjectsList');
+      var rows = Array.prototype.slice.call(box.querySelectorAll('.subProjectRow'));
+      // Positions figées au DÉBUT du geste : elles ne bougent plus, puisque
+      // rien n'est réordonné en cours de route.
+      var mids = rows.map(function (el) {
+        var r = el.getBoundingClientRect();
+        return r.top + r.height / 2;
+      });
+      var fromIndex = rows.indexOf(row);
+      var startY = e.clientY;
+      var targetIndex = fromIndex;
+
+      handle.setPointerCapture(e.pointerId);
+      row.classList.add('dragging');
+
+      function onMove(ev) {
+        row.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
+        // La cible est la première ligne dont on a dépassé le milieu.
+        var idx = 0;
+        for (var i = 0; i < mids.length; i++) {
+          if (ev.clientY > mids[i]) idx = i;
+        }
+        targetIndex = idx;
+      }
+
+      function onUp() {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        row.classList.remove('dragging');
+        row.style.transform = '';
+
+        if (targetIndex !== fromIndex) {
+          var ordered = rows.slice();
+          ordered.splice(fromIndex, 1);
+          ordered.splice(targetIndex, 0, row);
+          ordered.forEach(function (el) { box.appendChild(el); });
+          api('PUT', '/api/sub-projects/reorder', {
+            userId: profile.id,
+            activityId: currentCommunityActivityId,
+            ids: ordered.map(function (el) { return Number(el.dataset.subProjectId); }),
+          }).catch(function (err) { alert(err.message); loadSubProjects(); });
+        }
+      }
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
+    });
   }
 
   // Résumé de ce que contient un sous-projet quand il n'a aucune tâche —
@@ -2801,10 +3054,8 @@
   }
 
   function closeSubProjectPanels() {
-    $('subProjectRenamePanel').classList.add('hidden');
     $('addSectionMenu').classList.add('hidden');
     $('addSectionMsg').textContent = '';
-    $('subProjectEditMsg').textContent = '';
   }
 
   // Charge le contenu complet du sous-projet ouvert : ses sections, dans
@@ -2824,10 +3075,8 @@
   function renderSubProjectDetail(data) {
     // Le nom n'est PLUS réécrit ici : il est déjà sur la ligne juste au-dessus
     // (demande d'Emilien — « que le nom du sous-projet ne soit marqué qu'une
-    // seule fois et pas deux fois »). Il ne sert plus qu'à pré-remplir le
-    // formulaire de renommage.
-    $('subProjectEditName').value = data.subProject.name;
-    $('subProjectEditDescription').value = data.subProject.description || '';
+    // seule fois et pas deux fois »), et il se modifie en ligne dans le mode
+    // édition de la liste.
 
     // Avancement du sous-projet : somme de toutes ses sections de tâches.
     var done = 0, total = 0;
@@ -3102,36 +3351,10 @@
       .then(function () { $('newSubProjectSave').disabled = false; });
   }
 
-  function saveSubProjectEdits() {
-    if (!profile || !currentSubProjectId) return;
-    var msgEl = $('subProjectEditMsg');
-    $('subProjectEditSave').disabled = true;
-    api('PUT', '/api/sub-projects/' + currentSubProjectId, {
-      userId: profile.id,
-      name: $('subProjectEditName').value.trim(),
-      description: $('subProjectEditDescription').value.trim(),
-    })
-      .then(function () {
-        msgEl.textContent = '';
-        $('subProjectRenamePanel').classList.add('hidden');
-        loadSubProjectDetail();
-        loadSubProjects();
-      })
-      .catch(function (err) { msgEl.textContent = err.message; })
-      .then(function () { $('subProjectEditSave').disabled = false; });
-  }
-
-  function deleteSubProject() {
-    if (!profile || !currentSubProjectId) return;
-    // Double confirmation : la suppression emporte toutes les sections du
-    // sous-projet, pour tous les membres — même prudence que la suppression
-    // définitive d'une activité.
-    if (!confirm(t('Supprimer ce sous-projet ?'))) return;
-    if (!confirm(t('Tout son contenu sera supprimé pour tous les membres. Confirmer ?'))) return;
-    api('DELETE', '/api/sub-projects/' + currentSubProjectId + '?userId=' + profile.id)
-      .then(function () { selectSubProject(''); loadSubProjects(); })
-      .catch(function (err) { $('subProjectEditMsg').textContent = err.message; });
-  }
+  // ⚠️ saveSubProjectEdits() et deleteSubProject() ont été retirées le
+  // 3 septembre 2026 : renommer et supprimer se font maintenant EN LIGNE dans
+  // le mode édition (renderSubProjectsList), au plus près de ce qu'on modifie.
+  // Les routes serveur, elles, n'ont pas bougé.
 
   // Fil de discussion du sous-projet ouvert — même factory que les zones
   // Discussion du Profil et de Communauté (mountMessageThread), montée ici en
@@ -3168,7 +3391,6 @@
   // dans le détail lui-même). Ouvrir le menu referme le panneau de renommage,
   // et réciproquement — un seul panneau à la fois.
   function openAddSectionMenu() {
-    $('subProjectRenamePanel').classList.add('hidden');
     $('addSectionMsg').textContent = '';
     $('addSectionMenu').classList.remove('hidden');
   }
@@ -3261,14 +3483,9 @@
       .catch(function (err) { alert(err.message); });
   });
 
-  // Renommer : ancienne action du menu "⋮", passée au bas du menu déroulant.
-  $('subProjectRenameBtn').addEventListener('click', function () {
-    $('addSectionMenu').classList.add('hidden');
-    $('subProjectRenamePanel').classList.remove('hidden');
-    $('subProjectEditName').focus();
-  });
-  $('subProjectEditSave').addEventListener('click', saveSubProjectEdits);
-  $('subProjectDeleteBtn').addEventListener('click', deleteSubProject);
+  // ⚠️ Plus aucun bouton "Renommer"/"Supprimer" ici : les deux vivent
+  // désormais dans le mode édition de la liste (appui long), voir
+  // renderSubProjectsList. Le menu "Ajouter" ne propose plus que des ajouts.
 
   // ===================== FIL DE DISCUSSION D'UNE ACTIVITÉ PARTAGÉE =========
   // Troisième forme d'écrit entre membres, volontairement distincte des deux
@@ -6248,8 +6465,24 @@
       }
 
       box.innerHTML = '';
-      posts.forEach(function (post) { box.appendChild(buildPostCard(post)); });
-      box.scrollTop = box.scrollHeight;
+      // Ordre d'affichage (3 septembre 2026, suite, demande d'Emilien : « je
+      // souhaite que tous les nouveaux postes créés par l'utilisateur et qui
+      // s'affichent sur son profil, s'affichent les uns par-dessus aux
+      // autres, le plus récent tout en haut »). `posts` arrive du serveur
+      // trié du plus ancien au plus récent (même convention qu'un fil de
+      // discussion classique — voir GET /profile/posts, server/routes/
+      // profile.js) : un fil de chat (sous-projet, multi-auteur) veut cet
+      // ordre tel quel, avec le plus récent en bas et le défilement calé
+      // dessus (comportement par défaut, inchangé). `cfg.newestFirst`
+      // inverse les deux à la fois pour un flux personnel façon "mes
+      // publications" : le plus récent devient la première carte du DOM
+      // (donc tout en haut de la liste) et la liste s'ouvre sur le haut
+      // plutôt que défilée vers le bas. N'affecte que les instances qui
+      // l'activent explicitement (voir mountProfilePostsComposer plus bas) —
+      // le fil d'un sous-projet n'est pas touché.
+      var ordered = cfg.newestFirst ? posts.slice().reverse() : posts;
+      ordered.forEach(function (post) { box.appendChild(buildPostCard(post)); });
+      box.scrollTop = cfg.newestFirst ? 0 : box.scrollHeight;
     }
 
     function load() {
@@ -6365,9 +6598,15 @@
 
   // Appel préconfiguré — le fil "Communauté" d'un profil (profile_posts),
   // monté deux fois (zone Discussion du Profil + zone "écrire à sa
-  // communauté"). Signature et comportement inchangés depuis le 1er septembre
-  // 2026 : mono-auteur, pièces jointes, deux instances qui se rafraîchissent
-  // mutuellement.
+  // communauté"). Mono-auteur, pièces jointes, deux instances qui se
+  // rafraîchissent mutuellement. ⚠️ 3 septembre 2026, suite (demande
+  // d'Emilien : « les nouveaux postes [...] le plus récent tout en haut ») :
+  // `newestFirst: true` — voir renderPosts, dans mountMessageThread
+  // ci-dessus. Seule l'instance du Profil (`profileDiscussionCommunityList`)
+  // a réellement une liste à réordonner ; celle de Communauté n'en a plus
+  // depuis le 3 septembre (ses messages publiés apparaissent dans
+  // #followingFeed, pas ici) — le drapeau est sans effet visible pour elle,
+  // gardé pour cohérence des deux instances de ce même appel.
   function mountProfilePostsComposer(ids, onSent) {
     return mountMessageThread({
       ids: ids,
@@ -6375,6 +6614,7 @@
       registry: profilePostsComposers,
       attachments: true,
       multiAuthor: false,
+      newestFirst: true,
       listUrl: function () { return '/api/profile/posts?userId=' + profile.id; },
       messagesOf: function (data) { return data; },
       createUrl: function () { return '/api/profile/posts'; },
