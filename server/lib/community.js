@@ -132,15 +132,24 @@ function profilePostAttachmentsFor(postId) {
 function followingFeedForUser(userId, limit) {
   limit = limit || 100;
 
+  // Depuis le 3 septembre 2026 (demande d'Emilien), ce flux contient AUSSI mes
+  // propres publications, mêlées chronologiquement à celles des personnes que
+  // je suis — l'onglet Communauté n'a plus de liste séparée pour les miennes.
+  // Deux conditions alternatives, donc :
+  //   - c'est moi qui l'ai écrite (aucune autre condition : mes messages
+  //     m'appartiennent, mon propre réglage de partage ne me concerne pas) ;
+  //   - ou son auteur partage son profil ET j'ai un abonnement accepté vers
+  //     lui — condition inchangée depuis l'origine.
   const posts = db.prepare(`
     SELECT p.id, p.userId, u.name AS userName, u.color AS userColor, p.body, p.createdAt
     FROM profile_posts p
     JOIN users u ON u.id = p.userId
-    WHERE u.shareProfile = 1
-      AND EXISTS (SELECT 1 FROM follows f WHERE f.followerId = ? AND f.followeeId = p.userId AND f.status = 'accepted')
+    WHERE p.userId = ?
+       OR (u.shareProfile = 1
+           AND EXISTS (SELECT 1 FROM follows f WHERE f.followerId = ? AND f.followeeId = p.userId AND f.status = 'accepted'))
     ORDER BY p.createdAt DESC
     LIMIT ?
-  `).all(userId, limit).map((row) => Object.assign({ type: 'post' }, row));
+  `).all(userId, userId, limit).map((row) => Object.assign({ type: 'post' }, row));
   posts.forEach((post) => { post.attachments = profilePostAttachmentsFor(post.id); });
 
   return posts;
@@ -417,4 +426,4 @@ module.exports = {
   sharedActivitiesForUser, sharedFeedForUser, followingFeedForUser, activityMembersForUser,
   activityMessagesForUser, postActivityMessage, markActivityMessagesRead, unreadMessageCountsForUser,
   activityBreakdownForUser, activityDailyBreakdownForUser, activityTimesheetForUser,
-};
+};

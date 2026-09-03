@@ -189,6 +189,45 @@
     return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
   }
 
+  // ----- Visionneuse d'image plein écran (3 septembre 2026) -----
+  // Remplace `window.open(dataUrl, '_blank')`, qui ne pouvait PAS fonctionner :
+  // Chrome et Safari bloquent depuis 2017 toute navigation de premier niveau
+  // vers une URL `data:`, et les pièces jointes de Noèsis sont justement
+  // stockées en data URL (voir note_attachments/profile_post_attachments dans
+  // server/db.js). Dans l'app installée sur l'écran d'accueil, il n'y avait de
+  // toute façon aucun onglet où ouvrir quoi que ce soit — d'où l'impression que
+  // « les images ne s'ouvrent pas ».
+  //
+  // Une seule visionneuse pour toute l'app, posée au niveau du <body> (voir
+  // #imageViewerModal dans index.html) : elle sert les pièces jointes du
+  // Profil, de Communauté, du fil d'une activité et d'un sous-projet, quel que
+  // soit l'auteur de l'image.
+  function openImageViewer(dataUrl, fileName) {
+    if (!dataUrl) return;
+    $('imageViewerImg').src = dataUrl;
+    $('imageViewerImg').alt = fileName || '';
+    $('imageViewerName').textContent = fileName || '';
+    $('imageViewerModal').classList.remove('hidden');
+  }
+
+  function closeImageViewer() {
+    $('imageViewerModal').classList.add('hidden');
+    // L'image est libérée à la fermeture : une data URL de plusieurs mégaoctets
+    // n'a aucune raison de rester en mémoire une fois la visionneuse fermée.
+    $('imageViewerImg').removeAttribute('src');
+    $('imageViewerName').textContent = '';
+  }
+
+  $('imageViewerClose').addEventListener('click', closeImageViewer);
+  // Clic n'importe où sur le fond noir (pas sur l'image elle-même) : ferme,
+  // comme n'importe quelle visionneuse.
+  $('imageViewerModal').addEventListener('click', function (e) {
+    if (e.target === this) closeImageViewer();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !$('imageViewerModal').classList.contains('hidden')) closeImageViewer();
+  });
+
   function readFileAsDataUrl(file) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -249,7 +288,8 @@
       thumb.src = att.dataUrl;
       thumb.alt = att.fileName;
       thumb.title = t('Voir en grand');
-      thumb.addEventListener('click', function () { window.open(att.dataUrl, '_blank'); });
+      thumb.style.cursor = 'zoom-in';
+      thumb.addEventListener('click', function () { openImageViewer(att.dataUrl, att.fileName); });
       row.appendChild(thumb);
     } else {
       var icon = document.createElement('span');
@@ -322,7 +362,8 @@
       thumb.src = att.dataUrl;
       thumb.alt = att.fileName;
       thumb.title = t('Voir en grand');
-      thumb.addEventListener('click', function () { window.open(att.dataUrl, '_blank'); });
+      thumb.style.cursor = 'zoom-in';
+      thumb.addEventListener('click', function () { openImageViewer(att.dataUrl, att.fileName); });
       row.appendChild(thumb);
     } else {
       var icon = document.createElement('span');
@@ -514,29 +555,39 @@
     }, { capture: true, passive: true });
   }
 
-  // 3 septembre 2026 (Design), suite : dans certains contextes (ex. la
-  // description d'un sous-projet, #newSubProjectDescription), .tabbar
-  // (position: fixed; bottom: 0) restait décollée du bas de l'écran réel,
-  // flottant au-dessus du clavier virtuel plutôt que collée juste à sa
-  // bordure supérieure — bottom: 0 s'ancre au bas du viewport de MISE EN
-  // PAGE, qui ne se réduit pas forcément de la même façon que le viewport
-  // VISUEL réellement couvert par le clavier selon le contexte. Correctif :
-  // mesurer en continu, via l'API VisualViewport (support mobile large ;
-  // se dégrade sans effet si absente), la portion de l'écran couverte par
-  // le clavier, et l'exposer en variable CSS --keyboard-inset consommée par
-  // .tabbar (voir styles.css) pour remonter sa position exactement de cette
-  // hauteur — elle reste ainsi collée juste au-dessus du clavier quand il
-  // est ouvert, et à sa position normale (bottom: 0) quand il ne l'est pas.
-  if (window.visualViewport) {
+  // ⚠️ 3 septembre 2026 (Design), suite : la mesure de --keyboard-inset via
+  // VisualViewport (tentée juste avant, voir historique dans le journal du
+  // volet) ne suffisait pas dans tous les contextes — Emilien a reproduit le
+  // "flottement" de .tabbar sur le composeur de sondage, où le clavier
+  // ajoute sa propre barre d'accessoires (texte prédictif + une rangée de
+  // navigation ↑↓✓) au-dessus des touches : selon le navigateur/contexte,
+  // `visualViewport.height` ne reflète pas toujours fidèlement la hauteur
+  // totale réellement couverte (clavier + ces barres additionnelles), en
+  // particulier en PWA installée où le support de cette API est connu pour
+  // être inégal. Plutôt que de continuer à ajuster une position calculée
+  // dont la fiabilité dépend du navigateur, solution plus robuste — masquer
+  // .tabbar entièrement tant qu'un champ texte a le focus, et la remontrer
+  // dès que ce n'est plus le cas. Il n'y a alors plus rien à positionner
+  // pendant que le clavier est ouvert, donc plus rien qui puisse flotter.
+  if (_isCoarsePointer) {
     (function () {
-      var vv = window.visualViewport;
-      function syncKeyboardInset() {
-        var inset = window.innerHeight - (vv.height + vv.offsetTop);
-        document.documentElement.style.setProperty('--keyboard-inset', Math.max(0, Math.round(inset)) + 'px');
-      }
-      vv.addEventListener('resize', syncKeyboardInset);
-      vv.addEventListener('scroll', syncKeyboardInset);
-      syncKeyboardInset();
+      var tabbarEl = document.querySelector('.tabbar');
+      if (!tabbarEl) return;
+      var hideTimer = null;
+      document.addEventListener('focusin', function (e) {
+        if (!_isTextInputEl(e.target)) return;
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        tabbarEl.classList.add('tabbarHidden');
+      }, true);
+      document.addEventListener('focusout', function (e) {
+        if (!_isTextInputEl(e.target)) return;
+        // Court délai pour absorber le passage d'un champ à l'autre dans un
+        // même formulaire (focusout puis focusin quasi immédiat) sans
+        // laisser la barre réapparaître puis disparaître entre les deux.
+        hideTimer = setTimeout(function () {
+          if (!_isTextInputEl(document.activeElement)) tabbarEl.classList.remove('tabbarHidden');
+        }, 80);
+      }, true);
     })();
   }
 
@@ -2887,6 +2938,7 @@
       question: 'subProjectPollsQuestion', optionsBox: 'subProjectPollsOptions',
       addOptionBtn: 'subProjectPollsAddOptionBtn', optionsBtn: 'subProjectPollsOptionsBtn',
       advanced: 'subProjectPollsAdvanced', multi: 'subProjectPollsMulti',
+      anonymous: 'subProjectPollsAnonymous', privacyHint: 'subProjectPollsPrivacyHint',
       closesAt: 'subProjectPollsClosesAt', createBtn: 'subProjectPollsCreateBtn',
       msg: 'subProjectPollsMsg', list: 'subProjectPollsList', emptyHint: 'subProjectPollsEmptyHint',
     });
@@ -3974,8 +4026,14 @@
   // seule (buildAttachmentRowReadOnly), et le nom de l'auteur est affiché
   // (buildProfilePostCard ne montre jamais que "toi").
   function buildFollowingPostCard(entry) {
+    // Mes propres publications défilent désormais dans ce flux, mêlées à celles
+    // des membres que je suis (3 septembre 2026, demande d'Emilien) — voir
+    // followingFeedForUser, server/lib/community.js. Elles prennent le violet
+    // plein pour se repérer d'un coup d'œil sans casser l'ordre chronologique.
+    var isMine = !!(profile && entry.userId === profile.id);
+
     var card = document.createElement('div');
-    card.className = 'discussionMsg';
+    card.className = 'discussionMsg' + (isMine ? ' feedMine' : '');
     // Même repère que dans le fil d'une activité : sert au renvoi précis
     // depuis une notification (voir focusFromNotification).
     card.dataset.postId = entry.id;
@@ -3998,15 +4056,39 @@
     // suffit déjà à canViewProjects côté serveur (server/routes/profile.js).
     var authorSpan = document.createElement('span');
     authorSpan.className = 'discussionMsgAuthor';
-    authorSpan.innerHTML = '<span class="dot" style="background:' + entry.userColor + '"></span> ' + escapeHtml(entry.userName);
-    authorSpan.style.cursor = 'pointer';
-    authorSpan.addEventListener('click', function () { openProfileViewModal(entry.userId, entry.userName, entry.userColor); });
+    authorSpan.innerHTML = '<span class="dot" style="background:' + entry.userColor + '"></span> ' +
+      escapeHtml(entry.userName) + (isMine ? t(' (toi)') : '');
+    // Ouvrir sa PROPRE page de visite de profil depuis son propre message
+    // n'aurait aucun sens : le clic n'est proposé que sur les autres.
+    if (!isMine) {
+      authorSpan.style.cursor = 'pointer';
+      authorSpan.addEventListener('click', function () { openProfileViewModal(entry.userId, entry.userName, entry.userColor); });
+    }
     top.appendChild(authorSpan);
 
     var metaSpan = document.createElement('span');
     metaSpan.className = 'meta';
     metaSpan.textContent = dateLabel + ' · ' + timeLabel;
     top.appendChild(metaSpan);
+
+    // La liste séparée de mes messages ayant disparu de cet onglet, c'est ici
+    // que je dois pouvoir supprimer les miens — sinon la suppression depuis
+    // Communauté disparaîtrait avec elle. Même règle que partout : chacun ne
+    // supprime que ses propres traces.
+    if (isMine) {
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'discussionMsgDelete';
+      del.textContent = '✕';
+      del.title = t('Supprimer ce message');
+      del.addEventListener('click', function () {
+        if (!confirm(t('Supprimer ce message ?'))) return;
+        api('DELETE', '/api/profile/posts/' + entry.id + '?userId=' + profile.id)
+          .then(function () { refreshAllProfilePostsComposers(); loadFollowingFeed(); })
+          .catch(function (err) { alert(err.message); });
+      });
+      top.appendChild(del);
+    }
 
     card.appendChild(top);
 
@@ -4495,14 +4577,22 @@
   // ~4 s (contenu supprimé entre-temps, ou trop ancien pour être encore dans
   // la liste chargée) — dans ce cas on est simplement au bon endroit, sans
   // surbrillance, ce qui reste correct.
-  function focusWhenReady(selector, tries) {
+  // Attend qu'un élément apparaisse dans le DOM (le contenu visé arrive du
+  // serveur, il n'est jamais là au moment du clic sur la notification), puis
+  // appelle `done`. Abandonne silencieusement au bout de ~4 s.
+  function whenElementReady(selector, done, tries) {
     tries = tries === undefined ? 40 : tries;
     var el = document.querySelector(selector);
-    if (!el) {
-      if (tries <= 0) return;
-      setTimeout(function () { focusWhenReady(selector, tries - 1); }, 100);
-      return;
-    }
+    if (el) { done(el); return; }
+    if (tries <= 0) return;
+    setTimeout(function () { whenElementReady(selector, done, tries - 1); }, 100);
+  }
+
+  function focusWhenReady(selector, tries) {
+    whenElementReady(selector, function (el) { focusElement(el); }, tries);
+  }
+
+  function focusElement(el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     // Halo violet bref : dans un fil de vingt messages, sans ça on ne sait pas
     // lequel a déclenché la notification. Retiré tout seul — c'est un repère,
@@ -4542,17 +4632,25 @@
       var messageId = params.get('messageId');
       switchTab('activity');
       if (activityId) {
-        // Même enchaînement que le clic sur la ligne d'une activité partagée
-        // (voir renderActivitiesSettings) : on la sélectionne, la liste se
-        // redessine avec le détail replié dessous, puis le détail se charge.
-        currentCommunityActivityId = String(activityId);
-        loadSettingsActivities();
-        loadActivityDetail(true);
-        if (messageId) {
-          focusWhenReady('#communityDiscussionList [data-message-id="' + messageId + '"]');
-        } else {
-          focusWhenReady('#communityDiscussionBlock');
-        }
+        // Le détail d'une activité n'est plus déplié sous sa ligne : c'est
+        // désormais une page superposée (#activityPage), ouverte par
+        // openActivityPage(). Plutôt que de reconstruire ses arguments — dont
+        // sharedInfo, que seule la liste connaît —, on attend que la ligne
+        // concernée soit rendue et on déclenche le même clic que la personne
+        // aurait fait. Le jour où le mécanisme d'ouverture changera encore, ce
+        // renvoi suivra tout seul.
+        whenElementReady('#activitiesList .activityRow[data-activity-id="' + activityId + '"] .activityRowHeader', function (header) {
+          header.click();
+          // La page s'ouvre sur "Sous-projets" ou "Statistiques" selon
+          // l'activité : la notification, elle, parle d'un message, donc on
+          // bascule sur la section Discussion.
+          setActivityPageSection('disc');
+          if (messageId) {
+            focusWhenReady('#communityDiscussionList [data-message-id="' + messageId + '"]');
+          } else {
+            focusWhenReady('#communityDiscussionBlock');
+          }
+        });
       }
       return;
     }
@@ -5868,7 +5966,12 @@
       var mine = cfg.multiAuthor ? !!(profile && post.userId === profile.id) : true;
 
       var msg = document.createElement('div');
-      msg.className = 'discussionMsg' + (mine ? ' mine' : '');
+      // Le liséré violet ne sert QU'EN multi-auteur, à distinguer mes messages
+      // de ceux des autres. Dans un fil mono-auteur (Profil, Communauté), tout
+      // est de moi : le marquer sur chaque carte ne distingue rien et fait du
+      // bruit — retiré le 3 septembre 2026 (demande d'Emilien : « sur mon
+      // profil, le message doit être normal, sans aucune distinction »).
+      msg.className = 'discussionMsg' + (cfg.multiAuthor && mine ? ' mine' : '');
       msg.dataset.messageId = post.id;
 
       var when = new Date(post.createdAt);
@@ -5947,7 +6050,12 @@
     }
 
     function renderPosts(posts) {
-      var box = $(cfg.ids.list);
+      // Une instance peut n'avoir AUCUNE liste : depuis le 3 septembre 2026, le
+      // composeur de #tab-community publie dans le flux d'actualité plus bas
+      // (#followingFeed) au lieu d'avoir sa propre liste. On sort proprement
+      // plutôt que de faire dépendre le composeur d'un élément absent.
+      var box = cfg.ids.list ? $(cfg.ids.list) : null;
+      if (!box) return;
       $(cfg.ids.emptyHint).classList.toggle('hidden', posts.length > 0);
 
       // Garde anti-redessin, uniquement quand le fil se rafraîchit tout seul
@@ -5984,7 +6092,7 @@
       pendingAttachments = [];
       renderPending();
       renderedSignature = '';
-      $(cfg.ids.list).innerHTML = '';
+      if (cfg.ids.list) $(cfg.ids.list).innerHTML = '';
       $(cfg.ids.input).value = '';
       $(cfg.ids.msg).textContent = '';
       load();
@@ -6084,9 +6192,10 @@
   // communauté"). Signature et comportement inchangés depuis le 1er septembre
   // 2026 : mono-auteur, pièces jointes, deux instances qui se rafraîchissent
   // mutuellement.
-  function mountProfilePostsComposer(ids) {
+  function mountProfilePostsComposer(ids, onSent) {
     return mountMessageThread({
       ids: ids,
+      onSent: onSent,
       registry: profilePostsComposers,
       attachments: true,
       multiAuthor: false,
@@ -6097,9 +6206,11 @@
       deleteUrl: function (post) { return '/api/profile/posts/' + post.id + '?userId=' + profile.id; },
       attachUrl: function (post) { return '/api/profile/posts/' + post.id + '/attachments'; },
       attachDeletePath: '/api/profile/post-attachments/',
-      // Un nouveau message peut désormais apparaître dans le flux "Suivi" de
-      // qui nous suit, mais jamais dans le nôtre (Suivi ne montre que les
-      // AUTRES) — rien à recharger côté #followingFeed ici.
+      // Depuis le 3 septembre 2026, un nouveau message apparaît AUSSI dans mon
+      // propre flux d'actualité (voir followingFeedForUser côté serveur) :
+      // l'instance de #tab-community passe donc un rappel `onSent` qui recharge
+      // #followingFeed. Celle du Profil n'en a pas besoin — sa liste
+      // personnelle se rafraîchit déjà toute seule.
     });
   }
 
@@ -6121,11 +6232,20 @@
   // Seconde instance, #communityMyPostsBlock dans #tab-community (1er
   // septembre 2026) — voir loadCommunity() plus haut, qui appelle
   // communityDiscussionComposer.reset() à l'ouverture de l'onglet.
+  // Depuis le 3 septembre 2026, cette instance n'a plus de liste à elle : le
+  // message publié apparaît dans le flux d'actualité juste en dessous
+  // (#followingFeed), en violet plein. `list`/`emptyHint` sont donc absents —
+  // mountMessageThread le tolère explicitement (voir renderPosts).
   var communityDiscussionComposer = mountProfilePostsComposer({
-    list: 'communityMyPostsList', emptyHint: 'communityMyPostsEmptyHint',
     input: 'communityMyPostsInput', pendingList: 'communityMyPostsPendingList',
     attachBtn: 'communityMyPostsAttachBtn', attachInput: 'communityMyPostsAttachInput',
     sendBtn: 'communityMyPostsSendBtn', msg: 'communityMyPostsMsg',
+  }, function () {
+    // Recharge le flux puis amène le message tout juste publié à l'écran : il
+    // arrive en tête (le flux est trié du plus récent au plus ancien), mais
+    // d'autres blocs le séparent du composeur.
+    loadFollowingFeed();
+    focusWhenReady('#followingFeed .discussionMsg');
   });
 
   // Appelée par openProfile() (Design, plus haut dans ce fichier) à chaque
@@ -6277,6 +6397,11 @@
 
     var flags = [];
     if (poll.multiChoice) flags.push(t('Plusieurs réponses possibles'));
+    // Annoncé AVANT le vote, pas après : c'est ce qui décide si on répond
+    // franchement. Le serveur ne renvoie de toute façon aucun nom sur un
+    // sondage anonyme (serializePoll) — cette étiquette informe, elle ne
+    // protège rien à elle seule.
+    if (poll.anonymous) flags.push(t('Vote anonyme'));
     if (poll.isClosed) flags.push(t('Clos'));
     else if (poll.closesAt) flags.push(t('Ouvert jusqu\'au') + ' ' + pollDayLabel(poll.closesAt));
     if (flags.length) {
@@ -6468,16 +6593,45 @@
       $(ids.question).value = '';
       $(ids.question).style.height = 'auto';
       $(ids.multi).checked = false;
+      if (anonymousBox()) anonymousBox().checked = false;
       $(ids.closesAt).value = '';
       $(ids.msg).textContent = '';
       $(ids.optionsBox).innerHTML = '';
       addOptionRow();
       addOptionRow();
       $(ids.addOptionBtn).disabled = false;
-      // Le panneau "Option" (choix multiple, date de clôture) se referme avec
-      // le formulaire : on ne rouvre jamais sur des réglages hérités du
-      // sondage précédent.
+      // Le panneau "Option" (choix multiple, vote anonyme, date de clôture) se
+      // referme avec le formulaire : on ne rouvre jamais sur des réglages
+      // hérités du sondage précédent.
       $(ids.advanced).classList.add('hidden');
+      syncPrivacyHint();
+    }
+
+    // ⚠️ `anonymous` et `privacyHint` sont FACULTATIFS, et doivent le rester.
+    // Le vote anonyme est arrivé après que la discussion Sous-projets eut
+    // branché son propre bloc sur le contrat de la veille : rendre ces deux ids
+    // obligatoires aurait fait lever mountPolls chez elle — c'est-à-dire casser
+    // le volet d'une autre discussion, à distance, sans que rien ne le signale.
+    // Règle générale du socle, dans le même esprit que le registre de gardes :
+    // un hôte qui n'a pas suivi la dernière évolution perd la fonctionnalité
+    // nouvelle, jamais celles qu'il avait déjà.
+    function anonymousBox() {
+      return ids.anonymous ? $(ids.anonymous) : null;
+    }
+
+    function isAnonymousChecked() {
+      var box = anonymousBox();
+      return !!(box && box.checked);
+    }
+
+    // L'avertissement sous le formulaire doit dire la vérité : promettre « le
+    // nom des votants est visible » au-dessus d'un sondage anonyme serait pire
+    // que ne rien écrire. Il suit donc la case "Vote anonyme".
+    function syncPrivacyHint() {
+      if (!ids.privacyHint) return;
+      $(ids.privacyHint).textContent = isAnonymousChecked()
+        ? t("Vote anonyme : personne ne voit qui a voté quoi, pas même toi. Personne ne voit les résultats avant d'avoir voté.")
+        : t("Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.");
     }
 
     function load() {
@@ -6535,6 +6689,7 @@
         question: question,
         options: options,
         multiChoice: $(ids.multi).checked,
+        anonymous: isAnonymousChecked(),
         closesAt: $(ids.closesAt).value || null,
       })
         .then(function () {
@@ -6574,6 +6729,7 @@
       $(ids.optionsBtn).addEventListener('click', function () {
         $(ids.advanced).classList.toggle('hidden');
       });
+      if (anonymousBox()) anonymousBox().addEventListener('change', syncPrivacyHint);
       $(ids.createBtn).addEventListener('click', create);
       resetForm();
     }
@@ -6590,6 +6746,7 @@
     question: 'communityPollsQuestion', optionsBox: 'communityPollsOptions',
     addOptionBtn: 'communityPollsAddOptionBtn', optionsBtn: 'communityPollsOptionsBtn',
     advanced: 'communityPollsAdvanced', multi: 'communityPollsMulti',
+    anonymous: 'communityPollsAnonymous', privacyHint: 'communityPollsPrivacyHint',
     closesAt: 'communityPollsClosesAt', createBtn: 'communityPollsCreateBtn',
     msg: 'communityPollsMsg', list: 'communityPollsList', emptyHint: 'communityPollsEmptyHint',
   });
@@ -6601,6 +6758,7 @@
     question: 'profilePollsQuestion', optionsBox: 'profilePollsOptions',
     addOptionBtn: 'profilePollsAddOptionBtn', optionsBtn: 'profilePollsOptionsBtn',
     advanced: 'profilePollsAdvanced', multi: 'profilePollsMulti',
+    anonymous: 'profilePollsAnonymous', privacyHint: 'profilePollsPrivacyHint',
     closesAt: 'profilePollsClosesAt', createBtn: 'profilePollsCreateBtn',
     msg: 'profilePollsMsg', list: 'profilePollsList', emptyHint: 'profilePollsEmptyHint',
   });
@@ -6983,6 +7141,11 @@
       var isSelected = String(a.id) === String(currentCommunityActivityId);
       var row = document.createElement('div');
       row.className = 'activityRow' + (a.active ? '' : ' inactive') + (isSelected ? ' selected' : '');
+      // Repère stable pour retrouver CETTE ligne depuis l'extérieur — utilisé
+      // par le renvoi depuis une notification, qui doit ouvrir la page d'une
+      // activité précise (voir openTabFromNotification). Ajouté par Communauté
+      // le 3 septembre 2026, une ligne, sans effet sur le rendu.
+      row.dataset.activityId = a.id;
 
       var header = document.createElement('div');
       header.className = 'activityRowHeader';
@@ -7463,4 +7626,4 @@
     applyLang('en'); // anglais par défaut pour un tout nouveau compte
     showOnboarding();
   }
-})();
+})();

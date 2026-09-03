@@ -157,9 +157,20 @@ function votesOf(pollId) {
 //     résultat, une fois le vote devenu impossible) ;
 //   - on est l'auteur (il doit pouvoir suivre son propre sondage sans être
 //     obligé d'y voter — décision du socle, signalée à Emilien).
+//
+// Le vote anonyme (3 septembre 2026, demande d'Emilien) se superpose à cette
+// règle sans la remplacer : `anonymous` ne change RIEN à la visibilité des
+// compteurs, il supprime seulement les NOMS — pour tout le monde, l'auteur du
+// sondage compris. Là encore par omission : `voters` vaut null dans la
+// réponse, il n'est pas envoyé puis caché côté client. La contrepartie
+// honnête, écrite ici pour qu'aucune session future ne la découvre trop tard :
+// `poll_votes` garde le lien vote↔personne, seul moyen d'empêcher un second
+// vote. C'est un anonymat vis-à-vis des autres utilisateurs, pas vis-à-vis de
+// la base de données.
 function serializePoll(row, viewerId, at) {
   const closed = isPollClosed(row, at);
   const isMine = row.authorId === viewerId;
+  const anonymous = !!row.anonymous;
   const options = optionsOf(row.id);
   const votes = votesOf(row.id);
 
@@ -176,6 +187,7 @@ function serializePoll(row, viewerId, at) {
     scopeId: row.scopeId,
     question: row.question,
     multiChoice: !!row.multiChoice,
+    anonymous: anonymous,
     closesAt: row.closesAt || null,
     closedAt: row.closedAt || null,
     createdAt: row.createdAt,
@@ -193,7 +205,9 @@ function serializePoll(row, viewerId, at) {
         label: o.label,
         position: o.position,
         count: resultsVisible ? forThis.length : null,
-        voters: resultsVisible
+        // Deux conditions, pas une : les résultats ouverts NE suffisent pas à
+        // livrer les noms si le sondage est anonyme.
+        voters: (resultsVisible && !anonymous)
           ? forThis.map((v) => ({ id: v.userId, name: v.userName, color: v.userColor }))
           : null,
       };
@@ -309,10 +323,10 @@ function createPoll(params) {
   db.exec('BEGIN');
   try {
     const info = db.prepare(`
-      INSERT INTO polls (scope, scopeId, authorId, question, multiChoice, closesAt, closedAt, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+      INSERT INTO polls (scope, scopeId, authorId, question, multiChoice, anonymous, closesAt, closedAt, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
     `).run(params.scope, String(params.scopeId), params.authorId, question,
-      params.multiChoice ? 1 : 0, closes.closesAt, createdAt);
+      params.multiChoice ? 1 : 0, params.anonymous ? 1 : 0, closes.closesAt, createdAt);
     const pollId = info.lastInsertRowid;
     const insertOption = db.prepare('INSERT INTO poll_options (pollId, label, position) VALUES (?, ?, ?)');
     labels.forEach((label, i) => insertOption.run(pollId, label, i));

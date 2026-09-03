@@ -228,6 +228,9 @@
     // et sa réutilisation dans la zone Discussion > Membres du Profil) ----
     'Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.': 'Visible to the members of this activity only. Messages stay, even once the timers are stopped.',
     "Aucun message pour l'instant — écris le premier ci-dessous.": 'No message yet — write the first one below.',
+    // Variante « ci-dessus » : depuis le 3 septembre 2026, la liste des
+    // messages du Profil est SOUS la zone d'écriture, pas au-dessus.
+    "Aucun message pour l'instant — écris le premier ci-dessus.": 'No message yet — write the first one above.',
     'Envoyer': 'Send',
     // ---- Fil "Communauté" de la zone Discussion du Profil (31 août 2026) ----
     'Écrire...': 'Write...',
@@ -574,9 +577,16 @@
     // "Options" est la forme usuelle pour ce genre de bouton.
     'Option': 'Options',
     'Plusieurs réponses possibles': 'Multiple answers allowed',
+    // Vote anonyme (3 septembre 2026). Sert deux fois : le libellé de la case
+    // dans le panneau "Option", et l'étiquette portée par la carte du sondage.
+    'Vote anonyme': 'Anonymous vote',
     'Clôture (facultatif)': 'Closing date (optional)',
+    // Les deux versions de l'avertissement, échangées par syncPrivacyHint
+    // selon la case "Vote anonyme".
     "Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.":
       'Voting is not anonymous: voter names are visible once you have voted. Nobody sees the results before voting.',
+    "Vote anonyme : personne ne voit qui a voté quoi, pas même toi. Personne ne voit les résultats avant d'avoir voté.":
+      'Anonymous vote: nobody sees who voted for what, not even you. Nobody sees the results before voting.',
     // Anciennement "Créer le sondage" — renommé par Emilien le 3 septembre
     // 2026, sur un bouton qui prend désormais toute la largeur.
     'Terminer': 'Done',

@@ -134,6 +134,7 @@ router.post('/polls', (req, res) => {
     question: req.body.question,
     options: req.body.options,
     multiChoice: !!req.body.multiChoice,
+    anonymous: !!req.body.anonymous,
     closesAt: req.body.closesAt,
   });
   if (created.error) return res.status(created.error.status).json(created.error.body);

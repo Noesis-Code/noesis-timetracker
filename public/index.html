@@ -610,9 +610,13 @@
            #profileDiscussionBlock) : cet onglet n'a plus aucun titre de
            section fixe depuis le 30 août 2026 (voir plus haut) — à ajouter
            si Emilien préfère malgré tout un titre pour cette zone. -->
+      <!-- 3 septembre 2026 (demande d'Emilien) : la liste séparée de MES
+           messages a disparu de cet onglet. Mes messages défilent désormais
+           dans le flux d'actualité plus bas (#followingFeed), mêlés
+           chronologiquement à ceux des membres que je suis, en violet plein
+           pour qu'on les repère. Les afficher aussi ici les aurait montrés
+           deux fois sur le même écran. Il ne reste donc que le composeur. -->
       <div id="communityMyPostsBlock" class="discussionBlock">
-        <div id="communityMyPostsList" class="discussionList"></div>
-        <p id="communityMyPostsEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
         <div class="discussionComposer">
           <textarea id="communityMyPostsInput" rows="2" maxlength="2000" placeholder="Écrire..."></textarea>
           <div id="communityMyPostsPendingList" class="attachmentList hidden"></div>
@@ -667,9 +671,10 @@
           </div>
           <div class="pollFormAdvanced hidden" id="communityPollsAdvanced">
             <label class="pollFormRow"><input type="checkbox" id="communityPollsMulti"> Plusieurs réponses possibles</label>
+            <label class="pollFormRow"><input type="checkbox" id="communityPollsAnonymous"> Vote anonyme</label>
             <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="communityPollsClosesAt"></label>
           </div>
-          <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+          <p class="hint" id="communityPollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
           <button type="button" class="btn btn-primary pollCreateBtn" id="communityPollsCreateBtn">Terminer</button>
           <p id="communityPollsMsg" class="msg"></p>
         </div>
@@ -895,11 +900,19 @@
             <button type="button" class="iconBtn pollAddOptionBtn" id="subProjectPollsAddOptionBtn">+ Ajouter une réponse</button>
             <button type="button" class="iconBtn pollOptionsBtn" id="subProjectPollsOptionsBtn">Option</button>
           </div>
+          <!-- ⚠️ Deux lignes ajoutées par la discussion Sondages le 3 septembre
+               2026 (débordement signalé) : la case "Vote anonyme" et l'id sur
+               l'avertissement, que mountPolls réécrit selon cette case. Les
+               deux ids correspondants (anonymous, privacyHint) sont FACULTATIFS
+               dans le socle — sans eux ce bloc continuait de fonctionner, il
+               perdait seulement le vote anonyme. Ajoutés pour que les trois
+               emplacements proposent la même chose. -->
           <div class="pollFormAdvanced hidden" id="subProjectPollsAdvanced">
             <label class="pollFormRow"><input type="checkbox" id="subProjectPollsMulti"> Plusieurs réponses possibles</label>
+            <label class="pollFormRow"><input type="checkbox" id="subProjectPollsAnonymous"> Vote anonyme</label>
             <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="subProjectPollsClosesAt"></label>
           </div>
-          <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+          <p class="hint" id="subProjectPollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
           <button type="button" class="btn btn-primary pollCreateBtn" id="subProjectPollsCreateBtn">Terminer</button>
           <p id="subProjectPollsMsg" class="msg"></p>
         </div>
@@ -1504,8 +1517,10 @@
              Photo/Document intermédiaire. -->
         <div id="profileDiscussionBlock" class="discussionBlock">
           <p class="sectionTitle">Discussion</p>
-          <div id="profileDiscussionCommunityList" class="discussionList"></div>
-          <p id="profileDiscussionCommunityEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
+          <!-- La liste est passée SOUS le composeur le 3 septembre 2026
+               (demande d'Emilien : « lorsqu'un message est envoyé, je souhaite
+               qu'il apparaisse en dessous de la zone d'écriture ») — voir plus
+               bas dans ce même bloc. -->
           <div class="discussionComposer">
             <textarea id="profileDiscussionCommunityInput" rows="2" maxlength="2000" placeholder="Écrire..."></textarea>
             <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
@@ -1525,6 +1540,15 @@
             </div>
             <p id="profileDiscussionCommunityMsg" class="msg"></p>
           </div>
+          <!-- Mon flux personnel de messages, sous la zone d'écriture. Aucune
+               mise en évidence ici : tous les messages y sont les miens, un
+               repère « c'est moi » n'y distinguerait rien (demande d'Emilien,
+               3 septembre 2026 : « sur mon profil, le message doit être
+               normal, sans aucune distinction »). Le violet plein est réservé
+               au flux de Communauté, où mes messages côtoient ceux des
+               autres. -->
+          <div id="profileDiscussionCommunityList" class="discussionList"></div>
+          <p id="profileDiscussionCommunityEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessus.</p>
         </div>
 
         <!-- Sondages — bloc JUMEAU de #communityPollsBlock (#tab-community) :
@@ -1545,9 +1569,10 @@
             </div>
             <div class="pollFormAdvanced hidden" id="profilePollsAdvanced">
               <label class="pollFormRow"><input type="checkbox" id="profilePollsMulti"> Plusieurs réponses possibles</label>
+              <label class="pollFormRow"><input type="checkbox" id="profilePollsAnonymous"> Vote anonyme</label>
               <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="profilePollsClosesAt"></label>
             </div>
-            <p class="hint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+            <p class="hint" id="profilePollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
             <button type="button" class="btn btn-primary pollCreateBtn" id="profilePollsCreateBtn">Terminer</button>
             <p id="profilePollsMsg" class="msg"></p>
           </div>
@@ -1863,6 +1888,21 @@
   </nav>
 </div>
 
+<!-- Visionneuse d'image plein écran (3 septembre 2026, demande d'Emilien :
+     « je souhaite que tout les utilisateurs puisse cliquer sur l'image et le
+     voir en plein écran »). Elle remplace l'ancien window.open() sur l'URL
+     data: de la pièce jointe, que Chrome et Safari bloquent depuis 2017
+     (navigation de premier niveau vers une URL data:) — et qui, dans une app
+     installée sur l'écran d'accueil, n'aurait de toute façon aucun onglet où
+     s'ouvrir. Volontairement au niveau du <body>, hors de tout onglet : la
+     même visionneuse sert les pièces jointes du Profil, de Communauté, du fil
+     d'une activité et d'un sous-projet. Voir openImageViewer dans app.js. -->
+<div id="imageViewerModal" class="imageViewer hidden">
+  <button type="button" id="imageViewerClose" class="imageViewerClose" aria-label="Fermer">✕</button>
+  <img id="imageViewerImg" class="imageViewerImg" alt="">
+  <p id="imageViewerName" class="imageViewerName"></p>
+</div>
+
 <!-- Source unique des palettes de couleurs d'activités (1er septembre 2026,
      Design) : pose window.NOESIS_THEME_PALETTES, lu par app.js juste après.
      Doit être chargé avant app.js, comme i18n.js. Voir public/theme-palette.js
@@ -1871,4 +1911,4 @@
 <script src="/i18n.js"></script>
 <script src="/app.js"></script>
 </body>
-</html>
+</html>

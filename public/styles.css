@@ -265,19 +265,24 @@ input[type=time]:focus, select:focus, textarea:focus {
 #content { flex: 1; padding: 18px 5%; max-width: 640px; margin: 0 auto; width: 100%; }
 
 .tabbar {
-  /* 3 septembre 2026 (Design) : bottom: 0 seul s'ancre au bas du viewport
-     de mise en page — quand le clavier virtuel est ouvert dans certains
-     contextes, la barre restait "collée" à ce bas-là plutôt qu'au bord
-     réellement visible juste au-dessus du clavier, donnant l'impression de
-     flotter au milieu de l'écran (signalé par Emilien sur la description
-     d'un sous-projet). --keyboard-inset est mesurée en JS via l'API
-     VisualViewport (voir app.js, près de syncTopbarHeightVar) et vaut 0px
-     clavier fermé — bottom: 0 inchangé dans ce cas, comportement identique
-     à avant ce correctif. */
-  position: fixed; bottom: var(--keyboard-inset, 0px); left: 0; right: 0; display: flex;
+  position: fixed; bottom: 0; left: 0; right: 0; display: flex;
   background: var(--card); border-top: 1px solid var(--border);
   box-shadow: var(--shadow-tabbar);
   padding: 6px 0 max(6px, env(safe-area-inset-bottom)); z-index: 10;
+  transition: transform var(--transition-fast);
+}
+/* ⚠️ 3 septembre 2026 (Design), suite : une première tentative recalculait
+   la position de .tabbar via --keyboard-inset (mesurée en JS avec l'API
+   VisualViewport) pour la recoller juste au-dessus du clavier — insuffisant
+   dans certains contextes (composeur de sondage, où le clavier ajoute sa
+   propre barre d'accessoires), la mesure n'étant pas fiable partout,
+   surtout en PWA installée. Remplacé par un masquage complet : app.js pose
+   cette classe sur .tabbar tant qu'un champ texte a le focus (écrans
+   tactiles uniquement), et la retire au blur — plus rien à positionner
+   pendant que le clavier est ouvert, donc plus rien qui puisse flotter. */
+.tabbar.tabbarHidden {
+  transform: translateY(100%);
+  pointer-events: none;
 }
 .tabBtn {
   position: relative;
@@ -1279,6 +1284,63 @@ body.scrollLock { overflow: hidden; }
    cf. .discussionList ci-dessus et .historyEntry plus bas). */
 #followingFeed { display: flex; flex-direction: column; gap: 8px; }
 
+/* Mes propres publications dans le flux d'actualité de Communauté (3 septembre
+   2026, demande d'Emilien : « le message doit être violet complètement pour
+   indiquer que c'est le mien mais il doit défiler normalement parmi les autres
+   messages »). Violet PLEIN, donc — à ne pas confondre avec `.discussionMsg.mine`
+   (simple liséré à gauche), qui sert dans les fils multi-auteurs comme celui
+   d'une activité. Seule la couleur change : la carte garde exactement la même
+   place et le même gabarit, elle défile avec les autres.
+   Les descendants sont forcés en blanc plutôt que laissés à `var(--text)` :
+   sur fond violet, le texte du mode clair deviendrait illisible. */
+.discussionMsg.feedMine {
+  background: var(--purple);
+  box-shadow: var(--shadow-card);
+}
+.discussionMsg.feedMine .discussionMsgBody,
+.discussionMsg.feedMine .discussionMsgAuthor,
+.discussionMsg.feedMine .meta,
+.discussionMsg.feedMine .attachmentName {
+  color: #fff;
+}
+.discussionMsg.feedMine .discussionMsgDelete { color: rgba(255, 255, 255, 0.75); }
+.discussionMsg.feedMine .discussionMsgDelete:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
+
+/* ===== Visionneuse d'image plein écran =====
+   Ouverte au clic sur la vignette d'une pièce jointe image, n'importe où dans
+   l'app (voir openImageViewer dans public/app.js). Volontairement sobre : fond
+   noir, l'image au maximum de la place disponible sans jamais être déformée ni
+   rognée, une croix de fermeture. Les marges de sécurité (encoche, barre
+   d'état) sont respectées pour que la croix reste atteignable sur téléphone. */
+.imageViewer {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0, 0, 0, 0.93);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.imageViewerImg {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+.imageViewerClose {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  width: 40px; height: 40px; padding: 0;
+  border: none; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15); color: #fff;
+  font-size: 20px; line-height: 1; cursor: pointer;
+}
+.imageViewerClose:hover { background: rgba(255, 255, 255, 0.28); }
+.imageViewerName {
+  position: absolute; left: 0; right: 0;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  margin: 0; padding: 0 16px;
+  text-align: center; font-size: 13px; color: rgba(255, 255, 255, 0.7);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* La barre de recherche de #tab-community (#communitySearchBar, voir
    index.html) a été rendue sticky le 2 septembre 2026, puis Emilien est
    revenu sur ce choix le même jour (« je souhaite que la section recherche
@@ -1873,7 +1935,15 @@ button { -webkit-user-select: none; user-select: none; }
    de la première. Le bouton "Option" ouvre .pollFormAdvanced juste en dessous. */
 .pollFormActions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .pollFormActions .pollAddOptionBtn { align-self: auto; }
-.pollFormAdvanced { display: flex; flex-direction: column; gap: 8px; }
+/* Le panneau des réglages est ENCADRÉ (3 septembre 2026, demande d'Emilien :
+   « lorsque je clique sur option, un cadre se forme et entoure les options »).
+   Sans bordure, les trois réglages flottaient au milieu du formulaire sans
+   qu'on voie ce que le bouton "Option" avait ouvert. */
+.pollFormAdvanced {
+  display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 12px; background: var(--bg);
+}
 
 /* "Terminer" : un seul bouton, sur toute la largeur, sous les réglages. */
 .pollCreateBtn { width: 100%; }
@@ -1891,7 +1961,26 @@ button { -webkit-user-select: none; user-select: none; }
    largeur et pousse son libellé dans une colonne de trois mots. Défaut visible
    à l'œil, corrigé le 3 septembre 2026 en même temps que l'ouverture du
    panneau "Option" qui l'a rendu visible. */
-.pollFormRow input[type="checkbox"] { width: auto; flex: 0 0 auto; margin: 0; }
+/* Cases à cocher NOIRES (3 septembre 2026, demande d'Emilien). La case native
+   se dessine en blanc quel que soit le thème : impossible de la noircir sans
+   reprendre son rendu (`appearance: none`), donc coche redessinée ici. La
+   couleur est volontairement en dur et non `var(--card)` : c'est le noir qui a
+   été demandé, pas « la couleur du fond ». */
+.pollFormRow input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; flex: 0 0 auto; margin: 0;
+  background: #000; border: 1px solid var(--border);
+  border-radius: 4px; position: relative; cursor: pointer;
+}
+.pollFormRow input[type="checkbox"]:checked { border-color: var(--purple); }
+.pollFormRow input[type="checkbox"]:checked::after {
+  content: ''; position: absolute; left: 5px; top: 1px;
+  width: 4px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.pollFormRow input[type="checkbox"]:focus-visible {
+  outline: none; box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
+}
 /* Libellé au-dessus, champ de date en dessous sur toute la largeur : sur un
    téléphone, les deux côte à côte coupaient "Clôture (facultatif)" en deux. */
 .pollFormRowStacked { flex-direction: column; align-items: stretch; gap: 6px; }

@@ -534,6 +534,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_sub_project_one_poll
 -- ni maintenu en tâche de fond, la clôture est DÉDUITE à la lecture — même
 -- principe que le compteur de non-lus d'activity_message_reads, aucun
 -- compteur qui puisse dériver.
+-- anonymous (3 septembre 2026, demande d'Emilien) : quand il vaut 1, le nom
+-- des votants n'est JAMAIS renvoyé par l'API, pour personne — pas même pour
+-- l'auteur du sondage. Les comptes et le total, eux, restent soumis à la règle
+-- habituelle (visibles une fois qu'on a voté). Le lien vote-personne reste en
+-- base dans poll_votes, sans quoi il serait impossible d'empêcher un second
+-- vote : anonyme vis-à-vis des autres utilisateurs, pas vis-à-vis de la base.
+-- ⚠️ Ce bloc est un littéral de gabarit JavaScript : aucun accent grave ne
+-- doit apparaître dans ces commentaires SQL, il refermerait la chaîne et le
+-- fichier entier cesserait d'être valide (erreur commise et rattrapée ici).
 CREATE TABLE IF NOT EXISTS polls (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   scope TEXT NOT NULL,
@@ -541,6 +550,7 @@ CREATE TABLE IF NOT EXISTS polls (
   authorId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   question TEXT NOT NULL,
   multiChoice INTEGER NOT NULL DEFAULT 0,
+  anonymous INTEGER NOT NULL DEFAULT 0,
   closesAt TEXT,
   closedAt TEXT,
   createdAt TEXT NOT NULL
@@ -623,6 +633,17 @@ if (!columnExists('users', 'email')) {
 if (!columnExists('users', 'lang')) {
   db.exec("ALTER TABLE users ADD COLUMN lang TEXT NOT NULL DEFAULT 'en'");
   db.exec("UPDATE users SET lang = 'fr'");
+}
+
+// Vote anonyme (3 septembre 2026, demande d'Emilien). Migration purement
+// additive, comme toutes celles de ce bloc : DEFAULT 0, donc tout sondage créé
+// avant ce jour reste nominatif — le comportement d'un sondage déjà publié ne
+// change pas sous les pieds de ceux qui y ont voté.
+// La table `polls` n'existe que depuis la veille de cette ligne ; l'ALTER ne
+// sert donc qu'aux bases démarrées dans l'intervalle, mais il est nécessaire :
+// sans lui, une base créée hier planterait à l'INSERT.
+if (tableExists('polls') && !columnExists('polls', 'anonymous')) {
+  db.exec('ALTER TABLE polls ADD COLUMN anonymous INTEGER NOT NULL DEFAULT 0');
 }
 
 // Le partage de profil (shareProfile) est devenu obligatoire pour tout le
