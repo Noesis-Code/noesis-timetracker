@@ -2519,6 +2519,23 @@
       var list = $('communityDiscussionList');
       if (list) requestAnimationFrame(function () { list.scrollTop = list.scrollHeight; });
     }
+
+    // « je souhaite que dans le graphique, les dernières données se
+    // réaffichent toujours par défaut, pas d'enregistrement de la dernière
+    // position quand je quitte et que je reviens » (Emilien, 3 septembre).
+    //
+    // Deux raisons rendent ce rappel nécessaire, et pas seulement confortable :
+    //  · le repositionnement fait dans renderActivityChart s'exécute pendant
+    //    que la section Statistiques est encore MASQUÉE à l'ouverture de la
+    //    page (la section par défaut est Sous-projets) — or un élément en
+    //    display:none a un scrollWidth de 0, donc il n'y a rien à cadrer.
+    //    Exactement le même piège que le défilement du fil juste au-dessus ;
+    //  · quand on revient sur Statistiques sans recharger les données, le
+    //    navigateur restitue la position laissée au départ.
+    if (name === 'stats') {
+      var chartScroll = document.querySelector('#communityActivityChartWrap .chartScroll');
+      if (chartScroll) requestAnimationFrame(function () { chartScroll.scrollLeft = chartScroll.scrollWidth; });
+    }
   }
 
   function openActivityPage(a, sharedInfo, row) {
@@ -3747,7 +3764,6 @@
     api('GET', '/api/community/activity-messages?userId=' + profile.id + '&activityId=' + activityId + (markRead ? '' : '&markRead=0'))
       .then(function (data) {
         if (String(activityId) !== String(currentCommunityActivityId)) return; // sélection changée entre-temps
-        $('communityDiscussionName').textContent = '· ' + data.activityName;
         renderDiscussion(data.messages);
         // La pastille de cette activité vient d'être remise à zéro côté
         // serveur (markRead) : on l'efface tout de suite ici plutôt que
