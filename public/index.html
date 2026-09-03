@@ -842,16 +842,37 @@
                ouverture. -->
           <div id="newSubProjectCard" class="activityRow hidden">
             <div class="activitySettingsPanel">
+              <!-- Croix d'abandon (demande d'Emilien, 3 septembre 2026) : le
+                   formulaire s'ouvrait par le "+" mais ne se refermait que par
+                   ce même "+", tout en haut du bloc — on ne le retrouvait plus
+                   après avoir fait défiler la liste. -->
+              <div class="sectionTitleRow newSubProjectHead">
+                <p class="sectionTitle">Nouveau sous-projet</p>
+                <button type="button" id="newSubProjectCancel" class="menuBtn" aria-label="Annuler la création">✕</button>
+              </div>
               <label class="fieldLabel" for="newSubProjectName">Nom du sous-projet</label>
               <input id="newSubProjectName" type="text" maxlength="120" placeholder="Ex. Refonte du site" />
               <label class="fieldLabel" for="newSubProjectDescription">Description (facultatif)</label>
               <textarea id="newSubProjectDescription" rows="2" maxlength="2000" placeholder="À quoi sert ce sous-projet ?"></textarea>
+              <!-- CLÔTURE : date après laquelle le sous-projet disparaît de la
+                   liste. ⚠️ Il n'est PAS supprimé — rien n'est effacé, et la
+                   ligne « … clôturé(s) » sous la liste permet de le rouvrir.
+                   Le même mot est déjà employé par le socle de sondages pour
+                   la date de fermeture d'un vote : c'est délibéré, c'est le
+                   même geste. -->
+              <label class="fieldLabel" for="newSubProjectClosesAt">Clôture (facultatif)</label>
+              <input id="newSubProjectClosesAt" type="date" />
+              <p class="hint">Passé cette date, le sous-projet disparaît de la liste. Rien n'est supprimé : il reste accessible par « afficher les sous-projets clôturés ».</p>
               <p id="newSubProjectMsg" class="msg"></p>
               <div class="rowActions">
                 <button type="button" id="newSubProjectSave" class="iconBtn">Ajouter le sous-projet</button>
               </div>
             </div>
           </div>
+          <!-- Rappel des sous-projets masqués par leur clôture, et bascule pour
+               les revoir. Sans cette ligne, une date saisie de travers rendrait
+               un sous-projet définitivement inatteignable. -->
+          <p id="subProjectsClosedToggle" class="hint subProjectsClosedToggle hidden"></p>
 
           <div id="subProjectDetailAnchor"></div>
           <!-- Contenu d'un sous-projet. ⚠️ AUCUNE section n'existe par défaut
@@ -871,14 +892,23 @@
                  vient se placer. Le bouton "Ajouter" a rejoint cette ligne, à
                  droite du nom, et le menu "⋮" a été retiré : ses deux actions
                  (renommer, supprimer) sont passées au bas du menu déroulant
-                 ci-dessous, sous un séparateur. -->
-            <div id="subProjectProgressWrap" class="subProjectProgress hidden">
-              <div class="subProjectProgressTrack"><div id="subProjectProgressFill" class="subProjectProgressFill"></div></div>
-            </div>
+                 ci-dessous, sous un séparateur.
 
-            <!-- Menu déroulant du bouton "Ajouter" de la ligne. Les options
-                 "sondages" et "discussion" se grisent dès que le sous-projet en
-                 a déjà une. -->
+                 ⚠️ La barre d'avancement du sous-projet a QUITTÉ ce bloc le
+                 3 septembre 2026 : elle était la deuxième de trois barres
+                 larges empilées (ligne, détail, section de tâches). Il n'en
+                 reste qu'UNE, construite en JS dans l'en-tête collant de la
+                 ligne, et seulement si le sous-projet a une section de tâches
+                 (« une seule barre large […] uniquement si la fonction tâche a
+                 été activée », Emilien). -->
+
+            <!-- Menu déroulant du bouton "Ajouter" de la ligne.
+                 ⚠️ Il FLOTTE (position: absolute) au-dessus du contenu du
+                 sous-projet — il ne prend aucune place dans la mise en page et
+                 ne pousse donc plus les tâches vers le bas à chaque ouverture
+                 (« je ne souhaite pas qu'il soit créé une zone spéciale pour
+                 cela », Emilien). Les options déjà utilisées DISPARAISSENT au
+                 lieu d'être grisées. -->
             <div id="addSectionMenu" class="activitySettingsPanel subProjectAddMenu hidden">
               <!-- ⚠️ Renommer et Supprimer ont QUITTÉ ce menu le 3 septembre
                    2026 : ils vivent désormais dans le mode édition, ouvert par

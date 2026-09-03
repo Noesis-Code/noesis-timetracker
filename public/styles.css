@@ -242,7 +242,29 @@ input[type=time]:focus, select:focus, textarea:focus {
    syncTopbarHeightVar() dans app.js (hauteur réelle de .topbar, marge de
    sécurité iOS/Android comprise) ; 56px n'est qu'un repli avant que le JS ne
    s'exécute. */
-#app { min-height: 100vh; display: flex; flex-direction: column; padding-top: var(--topbar-h, 56px); padding-bottom: 88px; }
+#app {
+  min-height: 100vh; /* repli pour les navigateurs sans 100dvh */
+  min-height: 100dvh; /* 3 sept. 2026 — voir note ci-dessous */
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--topbar-h, 56px);
+  padding-bottom: 88px;
+}
+/* Pourquoi 100dvh en plus de 100vh (volet Design, 3 septembre 2026) :
+   piste distincte des trois correctifs de « volet figé » précédents (barre
+   de défilement, touchmove). Sur mobile, Safari (et Chrome Android) affiche
+   et masque sa barre d'adresse pendant qu'on touche l'écran, même sans que
+   la page défile réellement. 100vh se calcule sur la hauteur MAXIMALE
+   (barre masquée) et ne change jamais, donc rien ne devrait bouger à cause
+   de #app — mais le contenu visible, lui, change de taille sous le pouce
+   d'Emilien pendant l'animation de cette barre, ce qui peut donner
+   l'impression que la carte du Chrono ou le bouton Historique « saute »,
+   même sans le moindre défilement de notre côté. 100dvh (dynamic viewport
+   height, gérée nativement par le navigateur depuis iOS 15.4) suit en
+   continu la hauteur réellement visible au lieu de rester figée sur le
+   maximum, ce qui élimine ce sursaut. Les deux déclarations sont volontaires
+   : un navigateur qui ne connaît pas dvh ignore silencieusement la seconde
+   ligne et garde 100vh. */
 /* Noire plutôt que dégradé violet depuis le 31 août 2026 (demande
    d'Emilien) : pour qu'il n'y ait plus de différence visible entre .topbar
    et le haut du téléphone (heure/réseau/wifi/batterie, hors du DOM), la
@@ -1431,6 +1453,32 @@ body.scrollLock { overflow: hidden; }
 .discussionMsg.feedMine .discussionMsgDelete { color: rgba(255, 255, 255, 0.75); }
 .discussionMsg.feedMine .discussionMsgDelete:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
 
+/* Nom d'auteur TOUJOURS affiché en entier dans le fil "Suivi" (3 septembre
+   2026, demande d'Emilien : « le nom des utilisateurs doit toujours
+   s'afficher en entier [...] que ce soit [...] dans les posts »).
+   .discussionMsgAuthor (règle générique, plus haut dans ce fichier) tronque
+   en "…" — nécessaire dans un fil multi-auteur étroit (activité,
+   sous-projet, hors périmètre Communauté), mais plus du tout voulu ici : un
+   post n'a pas de bouton à côté du nom pour justifier de lui voler de la
+   place, contrairement à une ligne de découverte (voir .discoveryLine
+   ci-dessus). Modificateur `.feedPost`, posé par buildFollowingPostCard
+   (app.js) sur CHAQUE carte du fil "Suivi" (mienne ou non) — sans lui,
+   .discussionMsgAuthor resterait indiscernable de celle de buildPostCard/
+   buildPollCard (Profil, sondages), qui gardent leur troncature. */
+.feedPost .discussionMsgAuthor {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  /* La photo de profil (.smallAvatar, remplace le point de couleur — même
+     demande du 3 septembre 2026) ne s'aligne pas correctement au fil du
+     texte comme le faisait l'ancien `.dot` (8px, vertical-align: middle
+     suffisait) : `.discussionMsgAuthor` doit devenir elle-même un conteneur
+     flex pour centrer la pastille (34px) sur le nom. */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ===== Visionneuse d'image plein écran =====
    Ouverte au clic sur la vignette d'une pièce jointe image, n'importe où dans
    l'app (voir openImageViewer dans public/app.js). Volontairement sobre : fond
@@ -1514,60 +1562,38 @@ body.scrollLock { overflow: hidden; }
   padding: 12px 18px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
+/* ⚠️ 3 septembre 2026, demande d'Emilien : « lorsque je clique sur le texte,
+   cherchez un pseudo, les infos Noèsis et nom de l'utilisateur doivent
+   toujours s'afficher. A présent, elles sont effacées par la zone texte qui
+   les remplacent. » .topbar (z-index 10) est pourtant déjà au-dessus de
+   #communitySearchBar (z-index 9) au repos — la topbar n'est cachée par
+   AUCUN élément, elle disparaît de l'écran lui-même : bug connu de Safari
+   iOS, qui zoome automatiquement la page au focus d'un champ dont le
+   font-size est inférieur à 16px (ici 14px, hérité de `.entryCard input`
+   ci-dessus), et recadre la fenêtre visuelle sur ce champ zoomé — poussant
+   la topbar, fixe mais hors de ce cadrage, hors champ. Même piège déjà
+   évité ailleurs dans ce fichier avec `.onboarding-card input` (16px). Non
+   corrigé sur `.entryCard input` en général (règle générique de Design,
+   réutilisée par de nombreuses cartes hors Communauté) : seul ce champ
+   précis a besoin du correctif, d'où la règle ciblée ci-dessous, qui gagne
+   sur la règle générique grâce au sélecteur par id. */
+#communitySearchInput {
+  font-size: 16px;
+}
 #tab-community {
   padding-top: var(--community-searchbar-h, 74px);
 }
 
-/* Défilement « par saccade » du volet Communauté (même demande, même jour :
-   « je souhaite que le défilement se fasse par saccade et la coupure entre
-   la barre du haut de l'écran et le fils se fasse toujours entre 2 section
-   et/ou posts »). Recette identique à celle déjà posée le 2 septembre 2026
-   pour #profileSettingsPanel.settingsPanel (voir plus haut dans ce fichier :
-   scroll-snap-type: y mandatory + scroll-snap-align: start + scroll-snap-stop:
-   always, avec la même garantie qu'une section plus haute que l'écran reste
-   libre à parcourir sans jamais bloquer le défilement) — sauf que cet onglet
-   n'a PAS de conteneur de défilement local comme Réglages (pas de
-   `overflow-y: auto` dédié) : il défile avec la PAGE entière, comme tous les
-   autres onglets. Un défilement CSS ne peut porter que sur le véritable
-   conteneur défilant, jamais sur une simple <section> qui n'en est pas un —
-   les trois propriétés portent donc sur <html> (le scroller racine), via une
-   classe posée/retirée par JS (html.communityFeedSnap) au moment précis où
-   on entre/sort de cet onglet — voir switchTab()/openProfile() dans app.js —
-   plutôt que sur #tab-community lui-même. scroll-padding-top compense les
-   deux barres fixes empilées (.topbar + #communitySearchBar) pour qu'une
-   section calée en haut ne se retrouve jamais à moitié cachée dessous
-   (+8px de respiration, comme pour Réglages).
-
-   Granularité retenue, faute de précision plus fine dans la demande : les
-   grandes zones du volet (résultats de recherche/découverte, composeur
-   "écrire à sa communauté", bloc Sondages) sont chacune UNE section — on n'y
-   entre jamais à moitié, quitte à ensuite y défiler librement si elle dépasse
-   l'écran. Le fil "Suivi" (#followingFeed), lui, est saccadé POST PAR POST
-   (#followingFeed > *, qui vaut aussi bien pour un message que pour un
-   sondage mêlé au fil, voir loadFollowingFeed dans app.js) — c'est
-   explicitement de lui qu'Emilien parle en évoquant des "posts".
-   #communityDiscoverHint (simple ligne d'aide au-dessus des résultats) n'a
-   volontairement aucun point d'accrochage propre : trop court pour mériter
-   un arrêt dédié, il est simplement entraîné jusqu'au prochain arrêt
-   (#communitySearchResults) plutôt que de laisser un texte isolé à moitié
-   visible. Ajustable si Emilien préfère une granularité différente.
-
-   ⚠️ Mécanisme d'interaction tactile combiné à deux barres fixes — testé au
-   clavier/doigt émulé (Playwright) avant livraison, mais comme toujours pour
-   ce type de geste (voir la remarque transverse dans
-   noesis-timetracker-chantiers-en-cours.md), la confirmation définitive
-   reste la vérification d'Emilien sur son téléphone. */
-html.communityFeedSnap {
-  scroll-snap-type: y mandatory;
-  scroll-padding-top: calc(var(--topbar-h, 56px) + var(--community-searchbar-h, 74px) + 8px);
-}
-#communitySearchResults,
-#communityMyPostsBlock,
-#communityPollsBlock,
-#followingFeed > * {
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-}
+/* Le "défilement par saccade" (scroll-snap) posé ici le 3 septembre 2026 a
+   été entièrement retiré le même jour, sur demande explicite d'Emilien
+   (« je souhaite supprimer la fonction de défilement par saccade lorsque je
+   scrolle »). Ancien mécanisme : classe html.communityFeedSnap posée/retirée
+   par JS dans switchTab()/openProfile() (app.js) + scroll-snap-type sur
+   <html> + scroll-snap-align/stop sur les grandes zones du volet et chaque
+   entrée de #followingFeed. Tout a disparu — CSS et JS — sans toucher au
+   reste (barre noire fixe, padding-top ci-dessus) : voir
+   noesis-timetracker-journal-communaute.md pour l'historique complet des
+   deux passages. */
 
 /* Pastille de messages non lus sur une ligne d'activité partagée. Poussée à
    droite comme .memberLiveDot ci-dessus (toutes deux dans un
@@ -1859,6 +1885,52 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .discoverRow .seekingBadges { margin-left: auto; flex-shrink: 0; }
 
+/* Ligne "identité + bouton" toujours sur UNE seule ligne, alignés (3 septembre
+   2026, demande d'Emilien : « le bouton se désabonner présent dans la zone
+   quelques profils à découvrir ou dans le profil, dans la section abonnés
+   abonnement doit toujours être aligné avec le profil [...] on laisse un
+   espace entre les "..." et le bouton [...] je ne veux pas que l'écriture
+   soit collée au bouton »). .activityRow générique empile en colonne
+   (identité, PUIS bouton en dessous) — ce modificateur la remet en ligne
+   uniquement ici, sans toucher .activityRow elle-même (réutilisée telle
+   quelle par une quinzaine d'autres listes, voir
+   noesis-timetracker-chantiers-en-cours.md, "Fichiers partagés").
+   Appliqué à TOUTES les lignes de la zone de découverte, quel que soit le
+   bouton affiché (Suivre / Demande envoyée / Se désabonner — clarifié par
+   Emilien : « toutes les lignes de la découverte »), et aux lignes
+   d'"Abonnements" du Profil (toujours un bouton "Se désabonner" ; la liste
+   "Abonnés", elle, n'a aucun bouton à aligner et garde donc son ancienne
+   mise en page).
+   - .discoverRow (zone de découverte) a déjà `flex:1; min-width:0`, et son
+     propre nom (.discoverRowName) tronque déjà en "…" — il suffisait donc
+     de remettre la LIGNE en `row` pour que le bouton vienne s'aligner à
+     côté au lieu d'en dessous.
+   - .meta (lignes Abonnés/Abonnements, simple pastille+nom) n'avait encore
+     jamais besoin de tronquer : la troncature est ajoutée ici, avec le même
+     espace (`gap`) que la découverte avant le bouton.
+   Le bouton lui-même (.rowActions) ne rétrécit jamais (flex: 0 0 auto) :
+   c'est toujours le nom qui cède la place, jamais le bouton qui se
+   déforme. */
+.activityRow.discoveryLine {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.activityRow.discoveryLine > .discoverRow,
+.activityRow.discoveryLine > .meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.activityRow.discoveryLine > .meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activityRow.discoveryLine > .rowActions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
 /* En-tête de la page de visite : photo + nom + croix de fermeture sur une
    seule ligne, RÉELLEMENT figé (2 septembre 2026, demande d'Emilien : « les
    données passent en dessous du profil et de la croix », puis, après une
@@ -2012,11 +2084,10 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* Barre d'avancement : le remplissage est piloté en JS (style.width), la
    piste garde la couleur de fond déjà utilisée par les barres de classement
-   (--track-bg, variable de Design). */
-.subProjectProgress {
-  margin: 8px 0 4px;
-}
-
+   (--track-bg, variable de Design).
+   ⚠️ .subProjectProgress (l'ancien conteneur de la barre du DÉTAIL) a été
+   retiré le 3 septembre 2026 avec la barre qu'il habillait : il n'en reste
+   qu'une, dans l'en-tête collant de la ligne. */
 .subProjectProgressTrack {
   height: 6px;
   border-radius: 3px;
@@ -2043,9 +2114,45 @@ button { -webkit-user-select: none; user-select: none; }
    les lignes qui ne sont pas utiles entre les sections »). Elle doublait la
    barre de progression du sous-projet, juste au-dessus — deux traits collés
    pour une seule séparation. Le détail se contente d'un espace. */
+/* `position: relative` : c'est le repère du menu "Ajouter", qui FLOTTE
+   au-dessus du contenu (voir .subProjectAddMenu plus bas). */
 #subProjectDetail {
+  position: relative;
   margin-top: 10px;
   padding-top: 4px;
+}
+
+/* ----- En-tête collant d'un sous-projet OUVERT (3 septembre 2026) -----
+   Nom, "Ajouter", croix de fermeture et l'unique barre large restent en haut
+   pendant qu'on fait défiler les tâches, les sondages et la discussion.
+
+   ⚠️ `sticky` ne colle QUE dans les limites de son parent : le parent est ici
+   .subProjectRow, qui contient tout le détail — donc l'en-tête accompagne le
+   sous-projet ouvert et se décolle tout seul quand on en sort. Aucun écouteur
+   de défilement, aucune mesure en JS.
+
+   ⚠️ `top: 0` et NON `var(--topbar-h)` : le bloc Sous-projets vit dans
+   #activityPageScroll, qui est sa PROPRE zone de défilement (la page
+   d'activité est une superposition avec son en-tête hors du défilement, voir
+   plus haut). La barre du haut de l'app est recouverte par cette page, elle ne
+   mange donc rien ici — un décalage de 56 px laisserait juste un trou. */
+.subProjectSticky.open {
+  position: sticky;
+  top: 0;
+  z-index: 4;   /* sous .topbar/.tabbar (10), au-dessus du contenu de la carte */
+  /* Marges négatives : l'en-tête couvre toute la largeur de la carte, sinon le
+     contenu défilerait visiblement dans ses 12 px de padding latéral. */
+  margin: -12px -12px 0;
+  padding: 12px 12px 8px;
+  background: var(--card);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* La croix de fermeture ne s'affiche que sur le sous-projet ouvert : elle est
+   construite en JS, il n'y a rien à masquer ici — juste à ne pas la laisser
+   s'étirer entre le badge et le bouton "Ajouter". */
+.subProjectCloseBtn {
+  flex: 0 0 auto;
 }
 
 .subProjectSection {
@@ -2363,19 +2470,10 @@ button { -webkit-user-select: none; user-select: none; }
   background: var(--hover-bg);
 }
 
-.subProjectAddMenuItem:disabled {
-  color: var(--text-light);
-  cursor: default;
-}
-
-/* Renommer / Supprimer : mêmes lignes, mais séparées des trois types de
-   section par un filet — ce ne sont pas des choses qu'on "ajoute". */
-.subProjectAddMenuSep {
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  border-radius: 0;
-}
+/* ⚠️ .subProjectAddMenuItem:disabled et .subProjectAddMenuSep ont été retirés
+   le 3 septembre 2026 : les options déjà utilisées DISPARAISSENT du menu au
+   lieu d'être grisées, et le séparateur habillait Renommer/Supprimer, partis
+   dans le mode édition. */
 
 
 /* ----- Avancement global en anneau (3 septembre 2026, demande d'Emilien) -----
@@ -2439,11 +2537,19 @@ button { -webkit-user-select: none; user-select: none; }
    Demande d'Emilien : « encadrée dans une section étroite, bien définie ».
    Il occupait jusqu'ici toute la largeur de la ligne. */
 
+/* ⚠️ Il FLOTTE (3 septembre 2026) : `absolute` dans #subProjectDetail, donc il
+   se superpose aux tâches et au texte au lieu de les pousser vers le bas. Il
+   occupait auparavant une place réelle dans la mise en page — ouvrir le menu
+   faisait sauter tout le contenu du sous-projet. */
 .subProjectAddMenu {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 6;   /* au-dessus de l'en-tête collant (4) et du contenu */
   width: max-content;
   min-width: 190px;
   max-width: 100%;
-  margin: 6px 0 6px auto;   /* aligné sous le bouton "Ajouter", à droite */
+  margin: 0;
   padding: 4px;
   background: var(--card);
   border: 1px solid var(--border);
@@ -2452,6 +2558,41 @@ button { -webkit-user-select: none; user-select: none; }
 }
 
 .subProjectAddMenuItem { padding: 9px 12px; }
+
+/* Ligne « N sous-projet clôturé — afficher », sous la liste. */
+.subProjectsClosedToggle {
+  margin: 10px 0 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* En-tête du formulaire de création : titre + croix d'abandon. Le filet que
+   .activitySettingsPanel pose en haut n'a plus lieu d'être — la carte a
+   maintenant un titre, qui dit à lui seul où commence le formulaire (Emilien,
+   3 septembre 2026 : « supprimer les lignes qui ne sont pas utiles »). */
+#newSubProjectCard .activitySettingsPanel {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.newSubProjectHead {
+  margin-bottom: 6px;
+}
+
+/* Le champ de date suit le même gabarit que les autres champs du panneau
+   (même règle que le formulaire de projet du Profil) : sans ça, il déborde du
+   cadre sur téléphone. */
+#newSubProjectClosesAt {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
 
 /* ----- Mode édition de la liste (appui long) ----- */
 

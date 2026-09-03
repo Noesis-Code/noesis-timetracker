@@ -89,7 +89,13 @@ async function api(page, method, path, body) {
     '3.1 ⭐ aucune section n\'existe par défaut');
   ok(await page.isVisible('#subProjectEmptyHint'), '3.2 le sous-projet dit qu\'il est vide');
   ok(!(await page.isVisible('#subProjectDiscussionBlock')), '3.3 ⭐ aucune discussion affichée par défaut');
-  ok(!(await page.isVisible('#subProjectProgressWrap')), '3.4 aucune barre d\'avancement');
+  // ⭐ Plus AUCUNE barre large tant que les tâches ne sont pas activées, et le
+  // conteneur de l'ancienne barre du détail n'existe plus du tout.
+  ok(await page.evaluate(() => !document.getElementById('subProjectProgressWrap')),
+    '3.4 ⭐ la barre d\'avancement du détail a disparu du document');
+  ok(await page.evaluate(() => document.querySelectorAll(
+    '#subProjectsList .subProjectProgressTrack').length === 0),
+    '3.4b ⭐ aucune barre large tant que la fonction "tâches" n\'est pas activée');
 
   // --- Le bouton "Ajouter" est sur la LIGNE, à droite du nom ---
   ok(await page.evaluate(() =>
@@ -185,8 +191,12 @@ async function api(page, method, path, body) {
 
   await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(300);
-  ok(await page.evaluate(() => document.getElementById('addSectionPollBtn').disabled),
-    '6.7 "Des sondages" est grisée : une seule section de sondages par sous-projet');
+  // ⭐ L'option DISPARAÎT (elle était grisée jusqu'au 3 septembre 2026) : une
+  // seule section de sondages par sous-projet.
+  ok(!(await page.isVisible('#addSectionPollBtn')),
+    '6.7 ⭐ "Nouveau sondage" a disparu du menu : une seule section de sondages');
+  ok(await page.isVisible('#addSectionDiscussionBtn'),
+    '6.7b ce qui reste à ajouter est toujours proposé');
   await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(200);
 
@@ -197,12 +207,13 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(900);
   ok(await page.isVisible('#subProjectDiscussionBlock'), '7.1 la discussion apparaît');
 
-  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
-  await page.waitForTimeout(300);
-  ok(await page.evaluate(() => document.getElementById('addSectionDiscussionBtn').disabled),
-    '7.2 ⭐ "Une discussion" est désormais grisée : une seule par sous-projet');
-  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
-  await page.waitForTimeout(200);
+  // ⭐ Les trois types sont là : le bouton "Ajouter" lui-même s'efface, plutôt
+  // que d'ouvrir un menu vide.
+  ok(!(await page.isVisible('#subProjectsList .subProjectRowHeader .subProjectAddBtn')),
+    '7.2 ⭐ plus rien à ajouter : le bouton "Ajouter" disparaît');
+  ok(await page.evaluate(() => document.getElementById('addSectionDiscussionBtn')
+    .classList.contains('hidden')),
+    '7.2b "Nouvelle discussion" a disparu du menu : une seule par sous-projet');
 
   // ⭐ Ordre : le fil est après toutes les sections tâches/sondage
   const discussionIsLast = await page.evaluate(() => {
@@ -255,12 +266,20 @@ async function api(page, method, path, body) {
   await page.click('#subProjectPollsRemoveBtn');
   await page.waitForTimeout(900);
   ok(!(await page.isVisible('#subProjectPollsBlock')), '8.2b le bloc Sondages disparaît');
+  // ⭐ RACCOURCI : tâches et discussion existent déjà, le sondage est la seule
+  // chose qu'on puisse encore ajouter — le clic sur "Ajouter" le crée
+  // directement, sans passer par un menu à une seule entrée (demande
+  // d'Emilien, 3 septembre 2026).
   await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
-  await page.waitForTimeout(200);
-  await page.click('#addSectionPollBtn');
-  await page.waitForTimeout(1100);
+  await page.waitForTimeout(1200);
+  ok(!(await page.isVisible('#addSectionMenu')),
+    '8.2c ⭐ aucun menu ouvert : il ne restait que le sondage');
+  ok(await page.isVisible('#subProjectPollsBlock'),
+    '8.2d ⭐ la section de sondages a été créée directement');
+  ok(await page.isVisible('#subProjectPollsForm'),
+    '8.2e ⭐ et son formulaire est ouvert d\'emblée');
   ok((await page.$$('#subProjectPollsList .pollCard')).length === 1,
-    '8.2c ⭐ le sondage est retrouvé intact quand on remet la section');
+    '8.2f ⭐ le sondage est retrouvé intact quand on remet la section');
 
   // --- Retirer une section de tâches ---
   page.once('dialog', (d) => d.accept());
@@ -439,6 +458,101 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(1200);
   const left = (await api(page, 'GET', '/api/activities/' + activity.id + '/sub-projects?userId=' + user.id)).body;
   ok(left.subProjects.length === 1, '12.10 ⭐ la croix rouge supprime le sous-projet, après confirmation');
+
+  // ============ 13. En-tête collant, barre unique, menu flottant, clôture ====
+  // Demandes d'Emilien du 3 septembre 2026 (cinquième passage).
+  const sp13 = (await api(page, 'POST', '/api/activities/' + activity.id + '/sub-projects', {
+    userId: user.id, name: 'Collant',
+  })).body;
+  await page.click('#activityPageClose');
+  await page.waitForTimeout(500);
+  await page.click('#activitiesList .activityRow .activityRowHeader');
+  await page.waitForTimeout(1400);
+  const r13 = '#subProjectsList .subProjectRow[data-sub-project-id="' + sp13.id + '"] ';
+  await page.click(r13 + '.subProjectRowHeader');
+  await page.waitForTimeout(1000);
+
+  // ⭐ L'en-tête du sous-projet OUVERT est collant, et il porte bien le nom, la
+  // croix de fermeture et le bouton "Ajouter" — les trois choses qui doivent
+  // rester atteignables quand on descend dans le contenu.
+  ok(await page.evaluate((sel) => {
+    const stick = document.querySelector(sel + '.subProjectSticky');
+    return !!stick && getComputedStyle(stick).position === 'sticky';
+  }, r13), '13.1 ⭐ l\'en-tête du sous-projet ouvert est collant');
+  ok(await page.evaluate((sel) => {
+    const stick = document.querySelector(sel + '.subProjectSticky');
+    return !!stick.querySelector('.activityRowName') &&
+      !!stick.querySelector('.subProjectCloseBtn') &&
+      !!stick.querySelector('.subProjectAddBtn');
+  }, r13), '13.2 ⭐ il contient le nom, la croix de fermeture et "Ajouter"');
+  // Un sous-projet FERMÉ ne colle pas : rien à suivre en défilant.
+  ok(await page.evaluate(() => {
+    const closed = document.querySelector('#subProjectsList .subProjectRow:not(:has(#subProjectDetail)) .subProjectSticky');
+    return !closed || getComputedStyle(closed).position !== 'sticky';
+  }), '13.3 un sous-projet fermé n\'a pas d\'en-tête collant');
+
+  // ⭐ La croix ferme le sous-projet.
+  await page.click(r13 + '.subProjectCloseBtn');
+  await page.waitForTimeout(800);
+  ok(await page.evaluate((sel) => {
+    const row = document.querySelector(sel.trim());
+    return !row.querySelector('#subProjectDetail');
+  }, r13), '13.4 ⭐ la croix quitte le sous-projet');
+  await page.click(r13 + '.subProjectRowHeader');
+  await page.waitForTimeout(1000);
+
+  // ⭐ Le menu "Ajouter" FLOTTE : il ne prend aucune place, donc il ne déplace
+  // pas ce qu'il recouvre. On mesure la position d'un repère avant/après.
+  const beforeTop = await page.evaluate(() =>
+    document.getElementById('subProjectEmptyHint').getBoundingClientRect().top);
+  await page.click(r13 + '.subProjectAddBtn');
+  await page.waitForTimeout(400);
+  const afterTop = await page.evaluate(() =>
+    document.getElementById('subProjectEmptyHint').getBoundingClientRect().top);
+  ok(await page.evaluate(() => getComputedStyle(document.getElementById('addSectionMenu')).position === 'absolute'),
+    '13.5 ⭐ le menu est en position absolue');
+  ok(Math.abs(afterTop - beforeTop) < 2,
+    '13.6 ⭐ ouvrir le menu ne pousse plus le contenu (' + beforeTop + ' -> ' + afterTop + ')');
+
+  // ⭐ UNE SEULE barre large, et seulement une fois les tâches activées.
+  await page.click('#addSectionTasksBtn');
+  await page.waitForTimeout(1000);
+  ok(await page.evaluate((sel) => document.querySelectorAll(sel + '.subProjectProgressTrack').length === 1, r13),
+    '13.7 ⭐ une seule barre large dans tout le sous-projet');
+  ok(await page.evaluate((sel) =>
+    !!document.querySelector(sel + '.subProjectSticky .subProjectProgressTrack'), r13),
+    '13.8 ⭐ et elle est dans l\'en-tête collant');
+  ok(await page.evaluate(() =>
+    !document.querySelector('#subProjectSections .subProjectProgressTrack')),
+    '13.9 ⭐ plus de barre par section de tâches');
+
+  // ============ 14. Clôture d'un sous-projet ============
+  await page.click('#addSubProjectBtn');
+  await page.waitForTimeout(300);
+  ok(await page.isVisible('#newSubProjectClosesAt'), '14.1 le formulaire propose une date de clôture');
+  // ⭐ La croix abandonne la création ET vide ce qui avait été saisi.
+  await page.fill('#newSubProjectName', 'Jetable');
+  await page.click('#newSubProjectCancel');
+  await page.waitForTimeout(300);
+  ok(!(await page.isVisible('#newSubProjectCard')), '14.2 ⭐ la croix referme le formulaire de création');
+  await page.click('#addSubProjectBtn');
+  await page.waitForTimeout(300);
+  ok((await page.inputValue('#newSubProjectName')) === '',
+    '14.3 ⭐ et la saisie abandonnée n\'est pas rouverte telle quelle');
+
+  await page.fill('#newSubProjectName', 'Éphémère');
+  await page.fill('#newSubProjectClosesAt', '2020-01-01');
+  await page.click('#newSubProjectSave');
+  await page.waitForTimeout(1200);
+  ok(!(await page.isVisible('#newSubProjectCard')), '14.4 le formulaire se referme après création');
+  ok((await page.textContent('#subProjectsList')).indexOf('Éphémère') === -1,
+    '14.5 ⭐ échéance dépassée : le sous-projet n\'apparaît pas dans la liste');
+  ok(await page.isVisible('#subProjectsClosedToggle'),
+    '14.6 ⭐ une ligne signale qu\'il existe un sous-projet clôturé');
+  await page.click('#subProjectsClosedToggle');
+  await page.waitForTimeout(1200);
+  ok((await page.textContent('#subProjectsList')).indexOf('Éphémère') !== -1,
+    '14.7 ⭐ on peut le faire revenir : la clôture masque, elle ne supprime pas');
 
   // --- Activité PARTAGÉE ---
   // ⚠️ 3 septembre 2026 : la partie NAVIGATION de ce scénario a dû être

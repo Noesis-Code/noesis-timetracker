@@ -140,8 +140,14 @@ function followingFeedForUser(userId, limit) {
   //     m'appartiennent, mon propre réglage de partage ne me concerne pas) ;
   //   - ou son auteur partage son profil ET j'ai un abonnement accepté vers
   //     lui — condition inchangée depuis l'origine.
+  // u.avatar AS userAvatar ajouté le 3 septembre 2026 (demande d'Emilien :
+  // « dans les postes, il doit y avoir à la place du point de couleur la
+  // photo de profil en petit ») — même colonne, même alias que les autres
+  // requêtes de ce fichier qui l'exposent déjà (voir activityMessagesForUser
+  // plus bas), simplement absente ici jusqu'à présent car ce flux n'avait
+  // encore jamais eu besoin de la photo.
   const posts = db.prepare(`
-    SELECT p.id, p.userId, u.name AS userName, u.color AS userColor, p.body, p.createdAt
+    SELECT p.id, p.userId, u.name AS userName, u.color AS userColor, u.avatar AS userAvatar, p.body, p.createdAt
     FROM profile_posts p
     JOIN users u ON u.id = p.userId
     WHERE p.userId = ?

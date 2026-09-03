@@ -69,12 +69,24 @@ router.get('/activities/:activityId/sub-projects', (req, res) => {
   const check = checkActivityAccess(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
+  // ?includeClosed=1 : les sous-projets dont la date de clôture est passée
+  // reviennent dans la liste, marqués `closed`. Sans ce paramètre ils sont
+  // masqués, et `closedCount` dit seulement COMBIEN il y en a — c'est ce qui
+  // permet à l'écran d'afficher « 2 sous-projets clôturés » sans les charger.
+  const includeClosed = req.query.includeClosed === '1' || req.query.includeClosed === 'true';
+  const subProjects = sp.subProjectsForActivity(activityId, includeClosed);
+  const closedCount = includeClosed
+    ? subProjects.filter((s) => s.closed).length
+    : sp.subProjectsForActivity(activityId, true).filter((s) => s.closed).length;
+
   res.json({
     activityId,
     activityName: check.activity.name,
     isActivityOwner: check.activity.ownerId === userId,
     progress: sp.progressForActivity(userId, activityId),
-    subProjects: sp.subProjectsForActivity(activityId),
+    subProjects,
+    closedCount,
+    includeClosed,
   });
 });
 
@@ -92,7 +104,7 @@ router.post('/activities/:activityId/sub-projects', (req, res) => {
     return res.status(400).json({ error: 'Description trop longue (2000 caractères maximum).' });
   }
 
-  res.status(201).json(sp.createSubProject(activityId, userId, name, description));
+  res.status(201).json(sp.createSubProject(activityId, userId, name, description, req.body.closesAt));
 });
 
 // ⚠️ AVANT /sub-projects/:id — voir l'avertissement en tête de fichier.

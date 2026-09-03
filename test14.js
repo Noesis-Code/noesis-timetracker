@@ -440,6 +440,71 @@ async function detail(user, subProject) {
   eq(db.prepare('SELECT COUNT(*) AS n FROM sub_project_sections WHERE id = ?').get(secDoomed.id).n, 0,
     '10.11 cascade : leurs sections aussi');
 
+  // ============ 12. ⭐ CLÔTURE : la date qui fait disparaître (sans effacer) ==
+  // Demande d'Emilien du 3 septembre 2026. Ce qui est verrouillé ici : la
+  // disparition est un MASQUAGE, la donnée survit, et le sous-projet clôturé
+  // sort AUSSI du contrat d'avancement — sinon l'anneau compterait des tâches
+  // qui ne sont plus à l'écran.
+  console.log('12. Clôture d\'un sous-projet');
+  const actC = await makeActivity(alice, uniq('Cloture'));
+  const spLive = (await call('POST', '/activities/' + actC.id + '/sub-projects',
+    { userId: alice.id, name: 'Toujours là' })).body;
+  const spPast = (await call('POST', '/activities/' + actC.id + '/sub-projects',
+    { userId: alice.id, name: 'Échue', closesAt: '2020-01-01' })).body;
+  eq(spPast.closesAt, '2020-01-01', '12.1 la date de clôture est enregistrée telle quelle');
+  eq(spLive.closesAt, null, '12.2 pas de date = pas d\'échéance');
+
+  // Une date au format douteux ne doit pas faire échouer la création : elle est
+  // simplement ignorée. Un sous-projet perdu vaut mieux qu'un refus obscur.
+  const spJunk = (await call('POST', '/activities/' + actC.id + '/sub-projects',
+    { userId: alice.id, name: 'Date bancale', closesAt: 'demain' })).body;
+  eq(spJunk.closesAt, null, '12.3 une date mal formée est ignorée, pas refusée');
+
+  r = await call('GET', '/activities/' + actC.id + '/sub-projects?userId=' + alice.id);
+  const visibleIds = r.body.subProjects.map((s) => s.id);
+  ok(visibleIds.indexOf(spPast.id) === -1, '12.4 le sous-projet échu a disparu de la liste');
+  ok(visibleIds.indexOf(spLive.id) !== -1, '12.5 les autres sont toujours là');
+  eq(r.body.closedCount, 1, '12.6 closedCount dit combien sont masqués');
+
+  // ⭐ Il n'est PAS supprimé : c'est toute la différence entre une clôture et
+  // une suppression, et c'est ce qui rend une date saisie de travers réversible.
+  eq(db.prepare('SELECT COUNT(*) AS n FROM sub_projects WHERE id = ?').get(spPast.id).n, 1,
+    '12.7 ⭐ le sous-projet clôturé existe toujours en base');
+
+  r = await call('GET', '/activities/' + actC.id + '/sub-projects?userId=' + alice.id + '&includeClosed=1');
+  const withClosed = r.body.subProjects.filter((s) => s.id === spPast.id)[0];
+  ok(!!withClosed, '12.8 includeClosed=1 le fait revenir');
+  eq(withClosed.closed, true, '12.9 il est marqué closed');
+  eq(r.body.subProjects.filter((s) => s.id === spLive.id)[0].closed, false,
+    '12.10 les autres ne le sont pas');
+
+  // Retirer la date le fait revenir pour de bon.
+  await call('PUT', '/sub-projects/' + spPast.id, { userId: alice.id, closesAt: '' });
+  r = await call('GET', '/activities/' + actC.id + '/sub-projects?userId=' + alice.id);
+  ok(r.body.subProjects.map((s) => s.id).indexOf(spPast.id) !== -1,
+    '12.11 échéance retirée : le sous-projet est de retour');
+  eq(r.body.closedCount, 0, '12.12 plus rien de clôturé');
+
+  // La date du JOUR ne clôture pas : « après quoi il va disparaître ».
+  const today = new Date().toISOString().slice(0, 10);
+  await call('PUT', '/sub-projects/' + spPast.id, { userId: alice.id, closesAt: today });
+  r = await call('GET', '/activities/' + actC.id + '/sub-projects?userId=' + alice.id);
+  ok(r.body.subProjects.map((s) => s.id).indexOf(spPast.id) !== -1,
+    '12.13 le jour même de la clôture, le sous-projet est encore visible');
+
+  // ⭐ Et l'avancement suit : les tâches d'un sous-projet clôturé sortent du
+  // total exposé à "Général".
+  await call('PUT', '/sub-projects/' + spPast.id, { userId: alice.id, closesAt: '2020-01-01' });
+  const secLive = (await addSection(alice, spLive, { kind: 'tasks' })).body.section;
+  const secPast = (await addSection(alice, spPast, { kind: 'tasks' })).body.section;
+  await call('POST', '/sub-project-sections/' + secLive.id + '/items', { userId: alice.id, label: 'Visible' });
+  await call('POST', '/sub-project-sections/' + secPast.id + '/items', { userId: alice.id, label: 'Cachée' });
+  const progC = progressForActivities(alice.id, [actC.id]).get(actC.id);
+  eq(progC.total, 1, '12.14 ⭐ les tâches d\'un sous-projet clôturé ne comptent plus');
+  eq(progC.subProjectCount, 2, '12.15 et il n\'est plus compté dans les sous-projets');
+  eq(Object.keys(progC).sort(), ['activityId', 'completedSubProjectCount', 'done', 'percent', 'percentBySubProject', 'subProjectCount', 'total'],
+    '12.16 ⭐ la FORME du contrat reste inchangée (R6)');
+
   // ============ 11. Non-régression sur l'existant ============
   console.log('11. Non-régression');
   for (const [path, label] of [

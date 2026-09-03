@@ -587,6 +587,15 @@ router.get('/profile/:userId/public', (req, res) => {
   // sont des moyens de contact, pas une identité affichable. C'est toute la
   // raison d'être de cette route, distincte de GET /profile/:id qui renvoie
   // les trois.
+  // `chronoRunning` (3 septembre 2026, demande d'Emilien : un point vert à
+  // côté du nom quand le chrono de la personne tourne). Volontairement un
+  // simple BOOLÉEN : la table running_timers porte aussi l'activité en cours
+  // et l'heure de démarrage, qui en diraient bien plus long sur ce que fait
+  // la personne que ce qui a été demandé. On ne renvoie que « oui/non ».
+  // Instantané au moment de l'appel : la page de visite ne s'abonne à rien,
+  // le point reflète l'état à l'ouverture du profil.
+  const running = db.prepare('SELECT 1 FROM running_timers WHERE userId = ?').get(owner.id);
+
   res.json({
     id: owner.id,
     name: owner.name,
@@ -596,6 +605,7 @@ router.get('/profile/:userId/public', (req, res) => {
     createdAt: owner.createdAt,
     isSelf: viewerId === owner.id,
     canSeePosts: canViewPosts(viewerId, owner.id),
+    chronoRunning: !!running,
   });
 });
 

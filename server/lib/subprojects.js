@@ -48,6 +48,20 @@ function percentOf(done, total) {
   return Math.round((done / total) * 100);
 }
 
+// ----- CLÔTURE : le filtre, écrit UNE fois -----
+// Un sous-projet dont la date de clôture est passée disparaît de la liste ET
+// cesse de compter dans l'avancement. Les deux vont ensemble : une activité
+// dont un sous-projet terminé s'efface ne doit pas continuer à traîner ses
+// tâches dans le pourcentage global, sinon l'anneau afficherait un
+// dénominateur que plus personne ne voit à l'écran.
+//
+// `date('now','localtime')` et non UTC : la journée de clôture doit finir à
+// minuit chez l'utilisateur, pas à 20 h. Comparaison sur 'YYYY-MM-DD', donc
+// lexicographique — c'est exactement l'ordre chronologique pour ce format.
+// `>=` et non `>` : le jour de la clôture, le sous-projet est encore là ; il
+// disparaît le lendemain (« une deadline APRÈS QUOI il va disparaître »).
+const OPEN_ONLY = "(sp.closesAt IS NULL OR sp.closesAt >= date('now','localtime'))";
+
 // ===================== CONTRAT "GÉNÉRAL" =====================
 // progressForActivities(userId, activityIds) -> Map<Number activityId, ActivityProgress>
 //
@@ -58,7 +72,11 @@ function percentOf(done, total) {
 //   subProjectCount, completedSubProjectCount
 // }
 //
-// R3 : une activité SANS aucun sous-projet est absente de la Map.
+// R3 : une activité SANS aucun sous-projet est absente de la Map — et depuis
+//      la clôture (3 septembre 2026), une activité dont TOUS les sous-projets
+//      sont clôturés l'est aussi : elle n'a plus rien à afficher.
+//      ⚠️ La FORME de retour ne bouge pas (R6) ; seul l'ensemble des
+//      sous-projets comptés change. Signalé à "Général".
 // R4 : toujours scopé par userId — une activité dont l'appelant n'est pas
 //      membre est ignorée EN SILENCE.
 // Un seul appel pour N activités.
@@ -87,7 +105,7 @@ function progressForActivities(userId, activityIds) {
     JOIN activity_members am ON am.activityId = sp.activityId AND am.userId = ?
     LEFT JOIN sub_project_sections sec ON sec.subProjectId = sp.id AND sec.kind = 'tasks'
     LEFT JOIN sub_project_items i ON i.sectionId = sec.id
-    WHERE sp.activityId IN (${placeholders})
+    WHERE sp.activityId IN (${placeholders}) AND ${OPEN_ONLY}
     GROUP BY sp.id
   `).all(userId, ...ids);
 
@@ -133,9 +151,14 @@ function progressForActivity(userId, activityId) {
 // Liste d'une activité, avec l'avancement de chaque sous-projet et un aperçu
 // de ce qu'il contient (nombre de sections par type) — assez pour dessiner la
 // ligne repliée, sans transporter tout le contenu de chaque section.
-function subProjectsForActivity(activityId) {
+// `includeClosed` remet les sous-projets clôturés dans la liste (chacun marqué
+// `closed: true`) : c'est la seule façon de revenir sur une date saisie de
+// travers, puisque la clôture masque au lieu de supprimer.
+function subProjectsForActivity(activityId, includeClosed) {
   return db.prepare(`
     SELECT sp.id, sp.activityId, sp.name, sp.description, sp.createdBy, sp.position, sp.createdAt,
+           sp.closesAt,
+           CASE WHEN ${OPEN_ONLY} THEN 0 ELSE 1 END AS closed,
            u.name AS createdByName,
            (SELECT COUNT(*) FROM sub_project_items i
               JOIN sub_project_sections s2 ON s2.id = i.sectionId
@@ -149,7 +172,7 @@ function subProjectsForActivity(activityId) {
            (SELECT COUNT(*) FROM sub_project_messages m WHERE m.subProjectId = sp.id) AS messageCount
     FROM sub_projects sp
     LEFT JOIN users u ON u.id = sp.createdBy
-    WHERE sp.activityId = ?
+    WHERE sp.activityId = ? ${includeClosed ? '' : 'AND ' + OPEN_ONLY}
     ORDER BY sp.position ASC, sp.id ASC
   `).all(activityId).map((r) => ({
     id: r.id,
@@ -160,6 +183,8 @@ function subProjectsForActivity(activityId) {
     createdByName: r.createdByName,
     position: r.position,
     createdAt: r.createdAt,
+    closesAt: r.closesAt || null,
+    closed: r.closed === 1,
     done: r.done,
     total: r.total,
     percent: percentOf(r.done, r.total),
@@ -188,13 +213,26 @@ function checkSubProjectAccess(userId, subProjectId) {
   return { subProject };
 }
 
-function createSubProject(activityId, userId, name, description) {
+// Une date de clôture n'est retenue que si elle a la forme 'YYYY-MM-DD' : c'est
+// ce que renvoie <input type="date">, et c'est le seul format sur lequel la
+// comparaison SQL lexicographique est fiable. Tout le reste (chaîne vide,
+// texte libre, null) vaut « pas d'échéance » plutôt qu'une erreur — une date
+// mal formée ne doit pas empêcher de créer un sous-projet.
+function normalizeClosesAt(value) {
+  if (typeof value !== 'string') return null;
+  const v = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  return v;
+}
+
+function createSubProject(activityId, userId, name, description, closesAt) {
   const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_projects WHERE activityId = ?')
     .get(activityId).pos;
   const info = db.prepare(`
-    INSERT INTO sub_projects (activityId, name, description, createdBy, position, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(activityId, name, description || '', userId, next, new Date().toISOString());
+    INSERT INTO sub_projects (activityId, name, description, createdBy, position, createdAt, closesAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(activityId, name, description || '', userId, next, new Date().toISOString(),
+    normalizeClosesAt(closesAt));
   // ⚠️ AUCUNE section créée automatiquement : « je souhaite qu'il n'y ait pas
   // de section vide par défaut » (Emilien). Le sous-projet naît vide et se
   // remplit par le bouton "Ajouter".
@@ -206,8 +244,12 @@ function updateSubProject(subProjectId, fields) {
   if (!current) return null;
   const name = typeof fields.name === 'string' && fields.name.trim() ? fields.name.trim() : current.name;
   const description = typeof fields.description === 'string' ? fields.description : current.description;
-  db.prepare('UPDATE sub_projects SET name = ?, description = ? WHERE id = ?')
-    .run(name, description, subProjectId);
+  // `closesAt` absent du corps : on n'y touche pas. Présent mais vide ou
+  // invalide : on RETIRE l'échéance — c'est ce qui permet de faire revenir un
+  // sous-projet clôturé par erreur.
+  const closesAt = 'closesAt' in fields ? normalizeClosesAt(fields.closesAt) : current.closesAt;
+  db.prepare('UPDATE sub_projects SET name = ?, description = ?, closesAt = ? WHERE id = ?')
+    .run(name, description, closesAt, subProjectId);
   return getSubProject(subProjectId);
 }
 

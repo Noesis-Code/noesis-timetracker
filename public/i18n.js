@@ -670,6 +670,19 @@
     'Supprimer « ': 'Delete “',
     ' » ?': '”?',
 
+    // ---- Sous-projets : en-tête collant et clôture (3 sept. 2026) ----
+    'Fermer ce sous-projet': 'Close this sub-project',
+    'Nouveau sous-projet': 'New sub-project',
+    'Annuler la création': 'Cancel',
+    // « Clôture (facultatif) » est déjà au dictionnaire (formulaire de sondage
+    // du socle commun) : même mot, même geste, une seule entrée.
+    'Passé cette date, le sous-projet disparaît de la liste. Rien n\'est supprimé : il reste accessible par « afficher les sous-projets clôturés ».':
+      'After this date the sub-project disappears from the list. Nothing is deleted: it stays reachable through “show closed sub-projects”.',
+    'Masquer les sous-projets clôturés': 'Hide closed sub-projects',
+    ' sous-projet clôturé': ' closed sub-project',
+    ' sous-projets clôturés': ' closed sub-projects',
+    ' — afficher': ' — show',
+
   };
 
   // ------------------- Messages contenant une valeur variable -------------

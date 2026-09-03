@@ -402,7 +402,18 @@ CREATE TABLE IF NOT EXISTS sub_projects (
   description TEXT NOT NULL DEFAULT '',
   createdBy TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   position INTEGER NOT NULL DEFAULT 0,
-  createdAt TEXT NOT NULL
+  createdAt TEXT NOT NULL,
+  -- CLÔTURE (demande d'Emilien, 3 septembre 2026) : date 'YYYY-MM-DD' après
+  -- laquelle le sous-projet disparaît de la liste. NULL = pas d'échéance, cas
+  -- par défaut.
+  --
+  -- ⚠️ La clôture MASQUE, elle ne supprime pas. Rien n'est effacé, aucune
+  -- tâche ni aucun message : la ligne reste en base et redevient visible si on
+  -- retire la date. C'est délibéré — une date saisie de travers ne doit pas
+  -- coûter le contenu d'un sous-projet, et une échéance dépassée n'est pas la
+  -- même chose qu'une décision de supprimer. La liste expose closedCount et
+  -- accepte ?includeClosed=1 pour les rouvrir.
+  closesAt TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_sub_projects_activity ON sub_projects(activityId, position);
 
@@ -921,6 +932,15 @@ if (tableExists('sub_project_items') && tableExists('sub_project_sections')) {
       .run(info.lastInsertRowid, sub.id);
   }
 }
+// ----- Sous-projets : date de clôture -----
+// (3 septembre 2026, cinquième passage.) Colonne ajoutée à part pour les bases
+// créées avant : `CREATE TABLE IF NOT EXISTS` ne rattrape jamais une table qui
+// existe déjà. Additive et nullable, donc sans effet sur l'existant — tous les
+// sous-projets déjà créés restent sans échéance.
+if (tableExists('sub_projects') && !columnExists('sub_projects', 'closesAt')) {
+  db.exec('ALTER TABLE sub_projects ADD COLUMN closesAt TEXT');
+}
+
 // Un sous-projet qui a déjà des messages avait forcément sa discussion avant
 // la restructuration : on lui crée la section correspondante, sinon son fil
 // disparaîtrait de l'affichage alors que les messages sont toujours là.
@@ -940,4 +960,4 @@ if (tableExists('sub_project_messages') && tableExists('sub_project_sections')) 
   }
 }
 
-module.exports = db;
+module.exports = db;

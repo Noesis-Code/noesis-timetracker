@@ -948,13 +948,6 @@
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
     tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
-    // Défilement "par saccade" du fil de Communauté (3 septembre 2026, voir
-    // styles.css, html.communityFeedSnap) : posée/retirée ici, seul endroit
-    // (avec openProfile() plus bas) qui montre/masque les onglets — plutôt
-    // que dans loadCommunity(), pour être sûr qu'elle disparaît dès qu'on
-    // QUITTE cet onglet, même vers un autre onglet principal qui ne
-    // rappellerait jamais loadCommunity().
-    document.documentElement.classList.toggle('communityFeedSnap', tab === 'community');
     // On quitte forcément la vue Réglages (dans #tab-profile) en rejoignant
     // un onglet principal — l'icône "⚙️" de la topbar ne doit donc plus
     // rester violette (1er septembre 2026, demande d'Emilien).
@@ -1009,11 +1002,6 @@
   function openProfile() {
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-profile').classList.remove('hidden');
-    // On quitte forcément #tab-community pour arriver ici (voir switchTab())
-    // — retire le défilement "par saccade" posé pour son fil (3 septembre
-    // 2026, styles.css) : cette fonction ne passe pas par switchTab(), qui
-    // s'en charge normalement en quittant un onglet principal.
-    document.documentElement.classList.remove('communityFeedSnap');
     showProfileMain();
     loadPendingInvites();
     loadFollowRequests();
@@ -2696,6 +2684,10 @@
   // ouvre donc le formulaire LÀ, pas avant (sinon reset() du socle le
   // referme aussitôt).
   var pendingPollFormOpen = false;
+  // Clôture : les sous-projets dont l'échéance est passée sont masqués par
+  // défaut. Ce drapeau les fait revenir — c'est la porte de sortie d'une date
+  // saisie de travers, la clôture ne supprimant rien.
+  var subProjectsShowClosed = false;
 
   // ⚠️ Le nœud est MÉMORISÉ : une fois détaché du document (pour survivre au
   // vidage de la liste), document.getElementById ne le retrouve plus et
@@ -2721,21 +2713,10 @@
     detail.classList.remove('hidden');
   }
 
-  // Barre d'avancement. percent === null (aucune tâche) : on masque au lieu de
-  // dessiner une barre vide, qui se lirait à tort comme « 0 % fait ».
-  function renderProgressBar(wrapId, fillId, labelId, done, total, percent) {
-    var wrap = wrapId ? $(wrapId) : null;
-    var label = labelId ? $(labelId) : null;
-    if (percent === null || percent === undefined) {
-      if (wrap) wrap.classList.add('hidden');
-      if (label) label.textContent = '';
-      $(fillId).style.width = '0%';
-      return;
-    }
-    if (wrap) wrap.classList.remove('hidden');
-    $(fillId).style.width = percent + '%';
-    if (label) label.textContent = percent + '% · ' + done + '/' + total;
-  }
+  // ⚠️ renderProgressBar() a été retirée le 3 septembre 2026 : elle ne servait
+  // plus qu'à la barre du détail, elle-même supprimée avec les doublons de
+  // barres larges. L'unique barre restante est construite dans
+  // renderSubProjectsList, à même la ligne.
 
   // Anneau d'avancement global. C'est la MÊME donnée que celle exposée à la
   // discussion "Général" (progressForActivities) : le pourcentage est celui de
@@ -2780,7 +2761,8 @@
   function loadSubProjects() {
     if (!profile || !currentCommunityActivityId) { resetSubProjectsBlock(); return; }
     var activityId = currentCommunityActivityId;
-    api('GET', '/api/activities/' + activityId + '/sub-projects?userId=' + profile.id)
+    api('GET', '/api/activities/' + activityId + '/sub-projects?userId=' + profile.id
+      + (subProjectsShowClosed ? '&includeClosed=1' : ''))
       .then(function (data) {
         // Sélection changée pendant la requête : réponse périmée, on ne
         // dessine pas (même garde que loadDiscussion).
@@ -2893,6 +2875,8 @@
         return;   // en édition : ni avancement, ni description, ni "Ajouter"
       }
 
+      var isOpen = String(sub.id) === String(currentSubProjectId);
+
       var name = document.createElement('span');
       name.className = 'activityRowName';
       name.textContent = sub.name;
@@ -2908,17 +2892,40 @@
         : sub.percent + '% · ' + sub.done + '/' + sub.total;
       header.appendChild(badge);
 
-      row.appendChild(header);
+      // ----- En-tête COLLANT (demande d'Emilien, 3 septembre 2026) -----
+      // Le nom, la croix de fermeture et l'unique barre large restent en haut
+      // de l'écran tant qu'on fait défiler le contenu du sous-projet ouvert :
+      // sinon, arrivé au milieu d'une longue todolist ou d'une discussion, on
+      // ne sait plus dans quel sous-projet on écrit, et il faut remonter tout
+      // en haut pour en sortir.
+      //
+      // ⚠️ La colle est posée sur ce conteneur, PAS sur la ligne : `sticky`
+      // n'agit qu'à l'intérieur de son parent direct. La ligne (.subProjectRow)
+      // contient tout le détail, elle est donc haute — l'en-tête colle sur
+      // toute cette hauteur, puis se décolle naturellement quand on quitte le
+      // sous-projet. Rien à calculer en JS, aucun écouteur de défilement.
+      var stick = document.createElement('div');
+      stick.className = 'subProjectSticky' + (isOpen ? ' open' : '');
+      stick.appendChild(header);
 
-      if (sub.percent !== null) {
+      // ----- L'UNIQUE barre large -----
+      // Une seule dans tout le sous-projet (Emilien : « je ne souhaite pas
+      // qu'il y ait plusieurs barres qui montrent l'avancement »). Elle
+      // n'apparaît que si la fonction "tâches" a été activée — c'est
+      // taskSectionCount, et non percent, qui en décide : un sous-projet qui
+      // vient d'activer ses tâches sans en avoir saisi aucune montre une barre
+      // vide, ce qui est exact, alors que percent vaut encore null (règle R1).
+      if (sub.taskSectionCount) {
         var track = document.createElement('div');
         track.className = 'subProjectProgressTrack subProjectRowTrack';
         var fill = document.createElement('div');
         fill.className = 'subProjectProgressFill';
-        fill.style.width = sub.percent + '%';
+        fill.style.width = (sub.percent || 0) + '%';
         track.appendChild(fill);
-        row.appendChild(track);
+        stick.appendChild(track);
       }
+
+      row.appendChild(stick);
 
       if (sub.description) {
         var desc = document.createElement('p');
@@ -2940,6 +2947,18 @@
       addBtn.type = 'button';
       addBtn.className = 'iconBtn subProjectAddBtn';
       addBtn.textContent = t('Ajouter');
+      // ⚠️ Sa visibilité dépend de ce que contient DÉJÀ le sous-projet, donc
+      // du DÉTAIL — chargé par une seconde requête. Les deux rendus courent en
+      // parallèle après un ajout de section (addSection déclenche
+      // loadSubProjectDetail ET loadSubProjects) et l'ordre d'arrivée n'est pas
+      // garanti : la règle est donc appliquée AUX DEUX ENDROITS, ici avec le
+      // détail déjà connu et à nouveau dans renderSubProjectDetail. Quel que
+      // soit celui qui finit en dernier, l'état est le bon.
+      if (isOpen && subProjectDetailData &&
+          String(subProjectDetailData.subProject.id) === String(sub.id) &&
+          !availableSectionKinds(subProjectDetailData).length) {
+        addBtn.classList.add('hidden');
+      }
       addBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         if (String(sub.id) !== String(currentSubProjectId)) {
@@ -2949,12 +2968,31 @@
           pendingAddMenuOpen = true;
           return;
         }
-        toggleAddSectionMenu();
+        addSectionFromButton();
       });
       header.appendChild(addBtn);
 
+      // Croix de fermeture, seulement sur le sous-projet OUVERT : elle vit
+      // dans l'en-tête collant, donc elle reste atteignable où qu'on soit dans
+      // le contenu. Refermer par un second clic sur le nom marche toujours,
+      // mais suppose de retrouver ce nom.
+      if (isOpen) {
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'menuBtn subProjectCloseBtn';
+        close.textContent = '✕';
+        close.setAttribute('aria-label', t('Fermer ce sous-projet'));
+        close.addEventListener('click', function (e) {
+          e.stopPropagation();
+          selectSubProject('');
+        });
+        header.appendChild(close);
+      }
+
       box.appendChild(row);
     });
+
+    renderClosedSubProjectsToggle(data);
 
     // La ligne sélectionnée vient d'être reconstruite : le détail doit y être
     // rebranché, sinon il resterait orphelin dans l'ancre.
@@ -3086,6 +3124,44 @@
   // Résumé de ce que contient un sous-projet quand il n'a aucune tâche —
   // "vide", "1 sondage", "discussion"... Évite un badge muet sur une ligne
   // repliée, sans mentir avec un "0 %".
+  // Ligne « N sous-projet(s) clôturé(s) — afficher », sous la liste. Elle
+  // n'apparaît que s'il y en a : rien à lire quand personne n'a mis
+  // d'échéance.
+  function renderClosedSubProjectsToggle(data) {
+    var el = $('subProjectsClosedToggle');
+    if (!el) return;
+    var count = data.closedCount || 0;
+    if (!count) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      subProjectsShowClosed = false;
+      return;
+    }
+    el.classList.remove('hidden');
+    el.textContent = subProjectsShowClosed
+      ? t('Masquer les sous-projets clôturés')
+      : count + (count > 1 ? t(' sous-projets clôturés') : t(' sous-projet clôturé')) + t(' — afficher');
+    el.onclick = function () {
+      subProjectsShowClosed = !subProjectsShowClosed;
+      loadSubProjects();
+    };
+  }
+
+  // Ce qu'il reste à proposer dans le menu "Ajouter", d'après ce que le
+  // sous-projet contient déjà. Une seule section de chaque type : les tâches
+  // s'ajoutent ensuite depuis la section elle-même (« je peux déjà rajouter
+  // des nouvelles tâches si une tâche existe déjà, cela fait un doublon »,
+  // Emilien), la discussion et les sondages sont uniques par construction
+  // (index uniques partiels dans server/db.js).
+  function availableSectionKinds(data) {
+    var kinds = [];
+    var hasTasks = data.sections.some(function (sec) { return sec.kind === 'tasks'; });
+    if (!hasTasks) kinds.push('tasks');
+    if (!data.hasPolls) kinds.push('poll');
+    if (!data.hasDiscussion) kinds.push('discussion');
+    return kinds;
+  }
+
   function subProjectContentSummary(sub) {
     var bits = [];
     if (sub.pollSectionCount) bits.push(t('sondages'));
@@ -3102,7 +3178,13 @@
     }
     currentSubProjectId = id ? String(id) : '';
     subProjectDetailData = null;
-    attachSubProjectDetail();
+    // ⚠️ La LIGNE est redessinée, pas seulement le détail : depuis l'en-tête
+    // collant (3 septembre 2026), ce qu'elle contient dépend de l'ouverture —
+    // la croix de fermeture n'existe que sur le sous-projet ouvert, et c'est
+    // la classe .open qui colle l'en-tête. Sans ce rendu, ouvrir un
+    // sous-projet ne changeait que ce qu'il y a EN DESSOUS.
+    if (lastSubProjectsData && !subProjectsEditMode) renderSubProjectsList(lastSubProjectsData);
+    else attachSubProjectDetail();
     closeSubProjectPanels();
 
     if (!currentSubProjectId) {
@@ -3137,13 +3219,10 @@
     // seule fois et pas deux fois »), et il se modifie en ligne dans le mode
     // édition de la liste.
 
-    // Avancement du sous-projet : somme de toutes ses sections de tâches.
-    var done = 0, total = 0;
-    data.sections.forEach(function (sec) {
-      if (sec.kind === 'tasks') { done += sec.done; total += sec.total; }
-    });
-    renderProgressBar('subProjectProgressWrap', 'subProjectProgressFill', null,
-      done, total, total ? Math.round((done / total) * 100) : null);
+    // ⚠️ Plus AUCUNE barre d'avancement dessinée ici (3 septembre 2026) :
+    // l'unique barre large du sous-projet vit dans son en-tête collant, dans
+    // la ligne au-dessus (renderSubProjectsList). Il y en avait trois
+    // empilées, elles disaient toutes la même chose.
 
     // Seules les sections de TÂCHES sont dessinées ici. Les sondages et la
     // discussion sont deux blocs fixes placés APRÈS #subProjectSections dans
@@ -3158,11 +3237,19 @@
     $('subProjectPollsBlock').classList.toggle('hidden', !data.hasPolls);
     $('subProjectDiscussionBlock').classList.toggle('hidden', !data.hasDiscussion);
     $('subProjectEmptyHint').classList.toggle('hidden', data.sections.length > 0);
-    // Une seule discussion et une seule section de sondages par sous-projet :
-    // les options se grisent dès qu'elles existent, plutôt que de laisser
-    // cliquer pour un 409.
-    $('addSectionDiscussionBtn').disabled = !!data.hasDiscussion;
-    $('addSectionPollBtn').disabled = !!data.hasPolls;
+
+    // ⚠️ Les options déjà utilisées DISPARAISSENT du menu (elles étaient
+    // seulement grisées jusqu'au 3 septembre 2026) : une fois la section de
+    // tâches créée, on ajoute ses tâches depuis la section elle-même — garder
+    // "Nouvelle tâche" au menu proposait deux chemins pour la même chose.
+    var kinds = availableSectionKinds(data);
+    $('addSectionTasksBtn').classList.toggle('hidden', kinds.indexOf('tasks') === -1);
+    $('addSectionPollBtn').classList.toggle('hidden', kinds.indexOf('poll') === -1);
+    $('addSectionDiscussionBtn').classList.toggle('hidden', kinds.indexOf('discussion') === -1);
+    // Le bouton "Ajouter" de la ligne n'a plus rien à ouvrir : on le retire.
+    var rowAddBtn = document.querySelector(
+      '#subProjectsList .subProjectRow[data-sub-project-id="' + currentSubProjectId + '"] .subProjectAddBtn');
+    if (rowAddBtn) rowAddBtn.classList.toggle('hidden', kinds.length === 0);
 
     if (data.hasPolls) {
       ensureSubProjectPollsMount().reset();
@@ -3182,7 +3269,10 @@
 
     if (pendingAddMenuOpen) {
       pendingAddMenuOpen = false;
-      openAddSectionMenu();
+      // Même arbitrage que sur un sous-projet déjà ouvert : s'il ne reste que
+      // le sondage, on le crée au lieu d'ouvrir un menu à une seule entrée.
+      if (kinds.length === 1 && kinds[0] === 'poll') createPollSection();
+      else if (kinds.length) openAddSectionMenu();
     }
 
     if (data.hasDiscussion) {
@@ -3225,15 +3315,10 @@
     wrap.dataset.sectionId = sec.id;
     wrap.appendChild(buildSectionHeader(sec, t('Tâches')));
 
-    if (sec.total) {
-      var track = document.createElement('div');
-      track.className = 'subProjectProgressTrack';
-      var fill = document.createElement('div');
-      fill.className = 'subProjectProgressFill';
-      fill.style.width = sec.percent + '%';
-      track.appendChild(fill);
-      wrap.appendChild(track);
-    }
+    // ⚠️ Pas de barre large ici non plus : la seule du sous-projet est dans
+    // son en-tête collant, et elle additionne DÉJÀ toutes les sections de
+    // tâches. Une barre par section répétait la même information à trois
+    // endroits de la même vue.
 
     var list = document.createElement('div');
     list.className = 'subProjectItems';
@@ -3399,11 +3484,13 @@
     $('newSubProjectSave').disabled = true;
     api('POST', '/api/activities/' + currentCommunityActivityId + '/sub-projects', {
       userId: profile.id, name: name, description: $('newSubProjectDescription').value.trim(),
+      // Vide = pas d'échéance. Le serveur ne retient qu'un 'YYYY-MM-DD' bien
+      // formé et ignore le reste : une date incomplète ne bloque pas la
+      // création (voir normalizeClosesAt).
+      closesAt: $('newSubProjectClosesAt').value,
     })
       .then(function () {
-        nameEl.value = '';
-        $('newSubProjectDescription').value = '';
-        $('newSubProjectCard').classList.add('hidden');
+        closeNewSubProjectForm();
         loadSubProjects();
       })
       .catch(function (err) { msgEl.textContent = err.message; })
@@ -3439,11 +3526,28 @@
     deleteUrl: function (m) { return '/api/sub-project-messages/' + m.id + '?userId=' + profile.id; },
   });
 
+  // Fermeture du formulaire de création : on vide TOUT au passage. Un
+  // formulaire abandonné qui rouvre avec l'ancienne saisie (et surtout
+  // l'ancienne date de clôture) est le meilleur moyen de créer un sous-projet
+  // qui disparaît aussitôt.
+  function closeNewSubProjectForm() {
+    $('newSubProjectCard').classList.add('hidden');
+    $('newSubProjectName').value = '';
+    $('newSubProjectDescription').value = '';
+    $('newSubProjectClosesAt').value = '';
+    $('newSubProjectMsg').textContent = '';
+  }
+
   $('addSubProjectBtn').addEventListener('click', function () {
     var card = $('newSubProjectCard');
-    card.classList.toggle('hidden');
-    if (!card.classList.contains('hidden')) $('newSubProjectName').focus();
+    if (card.classList.contains('hidden')) {
+      card.classList.remove('hidden');
+      $('newSubProjectName').focus();
+    } else {
+      closeNewSubProjectForm();
+    }
   });
+  $('newSubProjectCancel').addEventListener('click', closeNewSubProjectForm);
   $('newSubProjectSave').addEventListener('click', createSubProject);
 
   // Menu déroulant du bouton "Ajouter" de la ligne (il n'y a plus de bouton
@@ -3457,6 +3561,33 @@
   function toggleAddSectionMenu() {
     if ($('addSectionMenu').classList.contains('hidden')) openAddSectionMenu();
     else $('addSectionMenu').classList.add('hidden');
+  }
+
+  // ⚠️ Le bouton "Ajouter" n'ouvre PAS toujours un menu (demande d'Emilien,
+  // 3 septembre 2026) : quand tâches et discussion existent déjà, le sondage
+  // est la seule chose qu'on puisse encore ajouter — le menu n'aurait plus
+  // qu'une entrée, et cliquer deux fois pour un choix unique n'est pas un
+  // choix. On crée donc la section directement, formulaire ouvert.
+  function addSectionFromButton() {
+    var data = subProjectDetailData;
+    if (!data) { toggleAddSectionMenu(); return; }
+    var kinds = availableSectionKinds(data);
+    if (!kinds.length) return;                       // rien à ajouter
+    if (kinds.length === 1 && kinds[0] === 'poll') { createPollSection(); return; }
+    toggleAddSectionMenu();
+  }
+
+  // "Nouveau sondage" : on crée la section ET on ouvre immédiatement le
+  // composeur, curseur dans la question (demande d'Emilien — « je tombe
+  // directement dans la zone texte pour écrire ma question et mes réponses »).
+  // Appelée depuis le menu comme depuis le raccourci ci-dessus.
+  function createPollSection() {
+    pendingPollFormOpen = true;
+    return addSection('poll').catch(function (err) {
+      pendingPollFormOpen = false;
+      $('addSectionMsg').textContent = err.message;
+      alert(err.message);
+    });
   }
 
   // Un clic n'importe où ailleurs referme le menu — comportement attendu d'un
@@ -3474,17 +3605,7 @@
   $('addSectionDiscussionBtn').addEventListener('click', function () {
     addSection('discussion').catch(function (err) { $('addSectionMsg').textContent = err.message; });
   });
-  // "Des sondages" : on crée la section ET on ouvre immédiatement le composeur,
-  // curseur dans la question (demande d'Emilien — « je tombe directement dans
-  // la zone texte pour écrire ma question et mes réponses »). Sans ça, il
-  // fallait un second clic sur le "+" du socle pour commencer à écrire.
-  $('addSectionPollBtn').addEventListener('click', function () {
-    pendingPollFormOpen = true;
-    addSection('poll').catch(function (err) {
-      pendingPollFormOpen = false;
-      $('addSectionMsg').textContent = err.message;
-    });
-  });
+  $('addSectionPollBtn').addEventListener('click', createPollSection);
 
   // ⚠️ Une section de sondages qu'on abandonne sans rien écrire ne doit PAS
   // rester en place, vide (demande d'Emilien : « si je n'[ajoute] pas le
@@ -4234,7 +4355,11 @@
     }
     list.forEach(function (u) {
       var row = document.createElement('div');
-      row.className = 'activityRow';
+      // .discoveryLine (styles.css, 3 septembre 2026, demande d'Emilien) :
+      // identité + bouton toujours sur UNE ligne, alignés, quel que soit le
+      // bouton affiché (Suivre / Demande envoyée / Se désabonner — clarifié
+      // par Emilien : « toutes les lignes de la découverte »).
+      row.className = 'activityRow discoveryLine';
 
       // ⚠️ 2 septembre 2026 : la ligne ne portait qu'une pastille de couleur
       // et un nom. Elle porte désormais la photo de profil, le nombre de
@@ -4422,7 +4547,13 @@
     $(emptyHintId).classList.toggle('hidden', list.length > 0);
     list.forEach(function (f) {
       var row = document.createElement('div');
-      row.className = 'activityRow';
+      // .discoveryLine (styles.css, 3 septembre 2026, demande d'Emilien) :
+      // uniquement quand la ligne porte le bouton "Se désabonner"
+      // (Abonnements) — pour qu'il reste toujours aligné avec le nom, tronqué
+      // en "…" avec un espace devant lui plutôt que collé. La liste Abonnés
+      // (actionable=false) n'a aucun bouton à aligner et garde donc sa mise
+      // en page d'origine.
+      row.className = 'activityRow' + (actionable ? ' discoveryLine' : '');
       var label = document.createElement('p');
       label.className = 'meta';
       label.innerHTML = '<span class="dot" style="background:' + f.color + '"></span> ' + escapeHtml(f.name);
@@ -4500,7 +4631,13 @@
     var isMine = !!(profile && entry.userId === profile.id);
 
     var card = document.createElement('div');
-    card.className = 'discussionMsg' + (isMine ? ' feedMine' : '');
+    // .feedPost (styles.css, 3 septembre 2026, demande d'Emilien : « le nom
+    // des utilisateurs doit toujours s'afficher en entier [...] dans les
+    // posts ») : désactive la troncature générique de .discussionMsgAuthor
+    // pour CETTE carte précisément — posée qu'on soit l'auteur ou non, sans
+    // quoi elle resterait indiscernable de buildPostCard/buildPollCard
+    // (Profil, sondages), qui gardent leur troncature.
+    card.className = 'discussionMsg feedPost' + (isMine ? ' feedMine' : '');
     // Même repère que dans le fil d'une activité : sert au renvoi précis
     // depuis une notification (voir focusFromNotification).
     card.dataset.postId = entry.id;
@@ -4521,10 +4658,18 @@
     // flux ne peut provenir que d'un abonnement accepté avec profil partagé
     // (voir followingFeedForUser, server/lib/community.js), condition qui
     // suffit déjà à canViewProjects côté serveur (server/routes/profile.js).
+    // Photo de profil en petit à la place de la pastille de couleur (3
+    // septembre 2026, demande d'Emilien : « dans les postes, il doit y avoir
+    // à la place du point de couleur la photo de profil en petit ») — même
+    // repli sur l'initiale que la zone de découverte, via buildSmallAvatar
+    // (ci-dessus, déjà utilisée par renderSearchResults). entry.userAvatar
+    // vient de followingFeedForUser (server/lib/community.js), qui ne
+    // sélectionnait jusqu'ici que userName/userColor.
     var authorSpan = document.createElement('span');
     authorSpan.className = 'discussionMsgAuthor';
-    authorSpan.innerHTML = '<span class="dot" style="background:' + entry.userColor + '"></span> ' +
-      escapeHtml(entry.userName) + (isMine ? t(' (toi)') : '');
+    authorSpan.appendChild(buildSmallAvatar(entry.userAvatar, entry.userName, entry.userColor));
+    authorSpan.appendChild(document.createTextNode(
+      ' ' + entry.userName + (isMine ? t(' (toi)') : '')));
     // Ouvrir sa PROPRE page de visite de profil depuis son propre message
     // n'aurait aucun sens : le clic n'est proposé que sur les autres.
     if (!isMine) {
