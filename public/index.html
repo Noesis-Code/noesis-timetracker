@@ -763,11 +763,21 @@
              quand quelqu'un a écrit. -->
         <div id="communityDiscussionBlock" class="discussionBlock">
           <p class="sectionTitle">Discussion <span id="communityDiscussionName" class="meta"></span></p>
-          <div id="communityDiscussionList" class="discussionList"></div>
+          <!-- ⚠️ .chatThread (3 septembre 2026, Activité — général) : ce fil et celui
+         d'un sous-projet sont de VRAIES conversations, avec des bulles alignées
+         à gauche ou à droite selon l'auteur. Les deux autres listes qui portent
+         .discussionList — le fil "Communauté" du Profil et les messages d'une
+         page de visite — sont des FLUX, pas des conversations : elles gardent
+         l'apparence d'origine. D'où ce modificateur, plutôt qu'une modification
+         de .discussionMsg qui les aurait toutes touchées. -->
+    <div id="communityDiscussionList" class="discussionList chatThread"></div>
           <p id="communityDiscussionEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
-          <div class="discussionComposer">
-            <textarea id="communityDiscussionInput" rows="2" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
-            <div class="rowActions">
+          <!-- Composeur : le bouton "Envoyer" vit DANS la zone de saisie, à droite
+               (demande d'Emilien). .chatComposerRow le pose en absolu par-dessus le
+               textarea, qui lui réserve la place par un padding à droite. -->
+          <div class="discussionComposer chatComposer">
+            <div class="chatComposerRow">
+              <textarea id="communityDiscussionInput" rows="2" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
               <button type="button" id="communityDiscussionSendBtn" class="iconBtn">Envoyer</button>
             </div>
             <p id="communityDiscussionMsg" class="msg"></p>
@@ -950,11 +960,16 @@
                 <p class="sectionTitle">Discussion</p>
                 <button type="button" id="subProjectDiscussionRemoveBtn" class="menuBtn" aria-label="Retirer la discussion">✕</button>
               </div>
-              <div id="subProjectMessagesList" class="discussionList"></div>
+              <!-- ⚠️ Débordement signalé (Activité — général, 3 septembre 2026) :
+                   Emilien a demandé que les principes du fil d'activité
+                   s'appliquent « également pour les discussions des
+                   sous-projets ». Seule la CLASSE est ajoutée ici — aucune
+                   logique de Sous-projets n'est touchée. -->
+              <div id="subProjectMessagesList" class="discussionList chatThread"></div>
               <p id="subProjectMessagesEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
-              <div class="discussionComposer">
-                <textarea id="subProjectMessageInput" rows="2" maxlength="2000" placeholder="Écrire sur ce sous-projet..."></textarea>
-                <div class="rowActions">
+              <div class="discussionComposer chatComposer">
+                <div class="chatComposerRow">
+                  <textarea id="subProjectMessageInput" rows="2" maxlength="2000" placeholder="Écrire dans ce sous-projet..."></textarea>
                   <button type="button" id="subProjectMessageSendBtn" class="iconBtn">Envoyer</button>
                 </div>
                 <p id="subProjectMessageMsg" class="msg"></p>
@@ -1032,10 +1047,14 @@
             <p class="sectionTitle">Graphique <span id="caChartPeriodLabel" class="meta"></span></p>
             <div class="statsPeriodMenuWrap" id="caChartPeriodWrap">
               <button type="button" class="menuBtn" id="caChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+              <!-- ⚠️ Second passage du 3 septembre : GRANULARITÉ (Jour/Semaine/Mois),
+                   plus une période. Le graphique couvre toujours toute l'histoire
+                   de l'activité — mêmes valeurs et même ordre que #chartPeriodMenu
+                   dans l'onglet Statistiques, dont ce bloc est la copie. -->
               <div class="statsPeriodMenu hidden" id="caChartPeriodMenu">
-                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
                 <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
               </div>
             </div>
           </div>

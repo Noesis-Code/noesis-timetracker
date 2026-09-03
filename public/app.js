@@ -58,7 +58,11 @@
   // donc devenues DEUX variables indépendantes. La Répartition accepte en
   // plus 'day' ("Aujourd'hui") ; le Graphique non, il tracerait un point.
   var currentActivityPiePeriod = 'week';
-  var currentActivityChartPeriod = 'week';
+  // ⚠️ Second passage du 3 septembre : ce n'est plus une période mais une
+  // GRANULARITÉ (jour / semaine / mois), le graphique couvrant toujours toute
+  // l'histoire de l'activité — alignement sur le Graphique de l'onglet
+  // Statistiques, dont 'day' est aussi la valeur par défaut.
+  var currentActivityChartGranularity = 'day';
   var lastActivityDailyBreakdown = [];
   // activityTimesheetFullscreenActive / activityChartFullscreenActive ont été
   // retirées le 3 septembre 2026 avec le plein écran de cette page — voir le
@@ -650,17 +654,53 @@
   // `clientHeight` du MÊME élément) : les deux valeurs sont mesurées par le
   // moteur de rendu dans le même repère, sans dépendre d'une API JS de
   // viewport séparée.
-  function refreshScrollLock() {
+  function _documentNeedsScroll() {
     var docEl = document.documentElement;
-    var needsScroll = docEl.scrollHeight > docEl.clientHeight + 1;
-    docEl.classList.toggle('noScrollNeeded', !needsScroll);
-    document.body.classList.toggle('noScrollNeeded', !needsScroll);
+    return docEl.scrollHeight > docEl.clientHeight + 1;
+  }
+  function refreshScrollLock() {
+    var lock = !_documentNeedsScroll();
+    document.documentElement.classList.toggle('noScrollNeeded', lock);
+    document.body.classList.toggle('noScrollNeeded', lock);
   }
   window.addEventListener('resize', refreshScrollLock);
   window.addEventListener('orientationchange', refreshScrollLock);
   if (window.ResizeObserver) {
     new ResizeObserver(refreshScrollLock).observe($('app'));
   }
+
+  // ⚠️ 3 septembre 2026, encore une suite (Design) : `noScrollNeeded`
+  // (overflow: hidden sur <html>/<body>) reste, en théorie, dépendant du
+  // même genre de subtilités de mesure que le passage précédent essayait
+  // déjà de corriger — et Emilien a de nouveau constaté du mouvement sur
+  // Chrono/Activité malgré cette classe. Plutôt que de continuer à
+  // fiabiliser une mesure de hauteur, ceinture ET bretelles : on intercepte
+  // directement le geste tactile lui-même. `touchmove` avec
+  // `preventDefault()` annule le défilement/rebond natif du navigateur pour
+  // CE geste précis, sans dépendre d'aucun calcul de hauteur au moment où
+  // le doigt bouge — la vérification "le document a-t-il besoin de
+  // défiler ?" est refaite à CHAQUE mouvement (pas mise en cache), donc
+  // aucun risque de bloquer un futur besoin réel de défilement une fois le
+  // contenu chargé/déplié. Ne bloque QUE si ni le document entier NI un
+  // conteneur interne sous le doigt (panneau Réglages, graphique à
+  // défilement horizontal, liste de discussion...) n'a besoin de défiler —
+  // sinon le geste est laissé intact pour que ces zones défilent
+  // normalement.
+  function _isScrollableAncestor(el) {
+    while (el && el !== document.body && el !== document.documentElement) {
+      var cs = window.getComputedStyle(el);
+      var canScrollY = (cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 1;
+      var canScrollX = (cs.overflowX === 'auto' || cs.overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 1;
+      if (canScrollY || canScrollX) return true;
+      el = el.parentElement;
+    }
+    return false;
+  }
+  document.addEventListener('touchmove', function (e) {
+    if (_documentNeedsScroll()) return;
+    if (_isScrollableAncestor(e.target)) return;
+    e.preventDefault();
+  }, { passive: false });
 
   function showApp() {
     $('onboarding').classList.add('hidden');
@@ -2340,7 +2380,7 @@
     // CETTE activité (période "Semaine", semaine en cours) — même logique
     // que l'ouverture de l'onglet Statistiques.
     currentActivityPiePeriod = 'week';
-    currentActivityChartPeriod = 'week';
+    currentActivityChartGranularity = 'day';
     syncActivityPeriodMenus();
     // Nouvelle activité : on repart d'un fil vide côté affichage, sinon la
     // signature du fil précédent empêcherait le premier rendu (et le
@@ -2452,6 +2492,25 @@
     // section demandée : le partage a toujours le dernier mot.
     if (stats) stats.classList.toggle('hidden', name !== 'stats' || !currentActivityIsShared);
     if (disc) disc.classList.toggle('hidden', name !== 'disc' || !currentActivityIsShared);
+
+    // ----- Mode conversation (3 septembre 2026, demande d'Emilien) -----
+    // « lorsque le clavier n'est pas activé, la zone pour écrire se situe tout
+    // en bas de l'écran ». La page cesse alors de défiler en bloc : elle
+    // devient une colonne dont seule la liste de messages défile, le composeur
+    // restant collé en bas. Voir #activityPageScroll.chatMode dans styles.css.
+    var scroller = $('activityPageScroll');
+    if (scroller) scroller.classList.toggle('chatMode', name === 'disc' && currentActivityIsShared);
+
+    // « je souhaite que la discussion affiche les messages les plus récents
+    // situés tout en bas ». Le fil est chargé à l'ouverture de la page, alors
+    // que sa section est encore masquée : à ce moment-là scrollHeight vaut 0
+    // (un élément en display:none n'a pas de hauteur), et le défilement
+    // automatique de renderDiscussion ne peut donc rien faire. On le rejoue
+    // au moment où la section devient réellement visible.
+    if (name === 'disc') {
+      var list = $('communityDiscussionList');
+      if (list) requestAnimationFrame(function () { list.scrollTop = list.scrollHeight; });
+    }
   }
 
   function openActivityPage(a, sharedInfo, row) {
@@ -3686,8 +3745,8 @@
     currentActivityPiePeriod = p;
     if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
   });
-  setupStatsPeriodMenu($('caChartPeriodBtn'), $('caChartPeriodMenu'), function (p) {
-    currentActivityChartPeriod = p;
+  setupStatsPeriodMenu($('caChartPeriodBtn'), $('caChartPeriodMenu'), function (g) {
+    currentActivityChartGranularity = g;
     if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
   });
 
@@ -3696,7 +3755,7 @@
   // l'activité précédente, alors que les variables, elles, sont réinitialisées.
   function syncActivityPeriodMenus() {
     syncPeriodMenuActive($('caPiePeriodMenu'), currentActivityPiePeriod);
-    syncPeriodMenuActive($('caChartPeriodMenu'), currentActivityChartPeriod);
+    syncPeriodMenuActive($('caChartPeriodMenu'), currentActivityChartGranularity);
   }
 
   // ⚠️ UN SEUL appel serveur pour les deux sections, avec DEUX périodes.
@@ -3709,7 +3768,7 @@
     var url = '/api/community/activity-stats?userId=' + profile.id +
       '&activityId=' + activityId +
       '&period=' + currentActivityPiePeriod +
-      '&chartPeriod=' + currentActivityChartPeriod;
+      '&chartGranularity=' + currentActivityChartGranularity;
     api('GET', url).then(function (data) {
       if (String(activityId) !== String(currentCommunityActivityId)) return; // sélection changée entre-temps
       var block = data.breakdown;

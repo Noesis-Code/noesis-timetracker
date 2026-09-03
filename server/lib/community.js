@@ -4,7 +4,7 @@
 
 const db = require('../db');
 const { periodRange } = require('./period');
-const { mondayOf, isoDateOf, dayNameOf, pad2 } = require('./dates');
+const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR } = require('./dates');
 
 function sharedActivitiesForUser(userId, period, refDate) {
   const { start, end, label } = periodRange(period, refDate);
@@ -308,8 +308,31 @@ function activityBreakdownForUser(activityId, period, refDate) {
   };
 }
 
-function activityDailyBreakdownForUser(activityId, period, refDate) {
-  const { start, end } = periodRange(period, refDate);
+// ⚠️ 3 septembre 2026 (Activité — général) — REMPLACE activityDailyBreakdownForUser.
+// Demande d'Emilien : « le graphique ne respecte pas les mêmes principes que
+// dans le volet statistique. Les options doivent être jour, semaine, mois, non
+// pas année, et il doit afficher toujours le total des activités enregistrées,
+// mais [...] par jour, par semaine ou par mois. »
+//
+// C'est mot pour mot ce que chartBreakdownForUser (server/lib/stats.js) fait
+// depuis le 1er septembre pour l'onglet Statistiques. Cette copie s'aligne donc
+// dessus, en application de la règle posée par Emilien le 3 septembre : le code
+// des copies parallèles reste dupliqué, mais leur COMPORTEMENT ne diverge pas.
+//
+// Ce qui change concrètement : la PLAGE n'est plus une période glissante
+// (periodRange) mais toute l'histoire de l'activité (activityTotalRange) ; et
+// c'est la GRANULARITÉ ('day' | 'week' | 'month') qui décide du regroupement.
+// L'axe de comparaison, lui, reste propre à cette page : une série par MEMBRE
+// de l'activité, là où Statistiques trace une série par activité.
+function activityTotalRange(activityId, refDate) {
+  const ref = refDate ? new Date(refDate) : new Date();
+  const todayIso = isoDateOf(ref);
+  const earliest = db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE activityId = ?').get(activityId);
+  return { start: (earliest && earliest.d) || todayIso, end: todayIso, label: 'Depuis le début' };
+}
+
+function activityChartBreakdownForUser(activityId, granularity, refDate) {
+  const { start, end } = activityTotalRange(activityId, refDate);
 
   const rows = db.prepare(`
     SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek, u.id AS userId,
@@ -322,14 +345,60 @@ function activityDailyBreakdownForUser(activityId, period, refDate) {
     ORDER BY t.isoDate ASC, seconds DESC
   `).all(activityId, start, end);
 
-  const byDay = {};
+  if (granularity !== 'week' && granularity !== 'month') {
+    // Aucune entrée n'a jamais été enregistrée sur cette activité : tableau
+    // vide, pour que l'indice "rien d'enregistré" s'affiche — surtout pas une
+    // ligne à plat d'aujourd'hui à aujourd'hui. Même précaution que dans
+    // chartBreakdownForUser.
+    if (rows.length === 0) return [];
+    const byDay = {};
+    rows.forEach((r) => {
+      if (!byDay[r.isoDate]) byDay[r.isoDate] = { isoDate: r.isoDate, dayOfWeek: r.dayOfWeek, totalSeconds: 0, members: [] };
+      byDay[r.isoDate].totalSeconds += r.seconds;
+      byDay[r.isoDate].members.push({ userId: r.userId, name: r.name, color: r.color, seconds: r.seconds });
+    });
+    // Tous les jours civils de la plage, y compris ceux sans aucune entrée
+    // (point à zéro) — alignement sur le correctif du 2 septembre côté
+    // Statistiques, sans quoi la courbe saute des jours et se lit mal.
+    const out = [];
+    const cursor = new Date(start + 'T00:00:00');
+    const endDate = new Date(end + 'T00:00:00');
+    while (cursor <= endDate) {
+      const iso = isoDateOf(cursor);
+      out.push(byDay[iso] || { isoDate: iso, dayOfWeek: dayNameOf(cursor), totalSeconds: 0, members: [] });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return out.sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
+  }
+
+  const byBucket = {};
+  const order = [];
   rows.forEach((r) => {
-    if (!byDay[r.isoDate]) byDay[r.isoDate] = { isoDate: r.isoDate, dayOfWeek: r.dayOfWeek, totalSeconds: 0, members: [] };
-    byDay[r.isoDate].totalSeconds += r.seconds;
-    byDay[r.isoDate].members.push({ userId: r.userId, name: r.name, color: r.color, seconds: r.seconds });
+    const dayDate = new Date(r.isoDate + 'T00:00:00');
+    const bucketStart = granularity === 'week' ? mondayOf(dayDate) : new Date(dayDate.getFullYear(), dayDate.getMonth(), 1);
+    const key = isoDateOf(bucketStart);
+    if (!byBucket[key]) { byBucket[key] = { isoDate: key, totalSeconds: 0, membersById: {} }; order.push(key); }
+    const bucket = byBucket[key];
+    bucket.totalSeconds += r.seconds;
+    if (!bucket.membersById[r.userId]) bucket.membersById[r.userId] = { userId: r.userId, name: r.name, color: r.color, seconds: 0 };
+    bucket.membersById[r.userId].seconds += r.seconds;
   });
 
-  return Object.values(byDay).sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
+  return order.map((key) => {
+    const b = byBucket[key];
+    const bucketStart = new Date(key + 'T00:00:00');
+    let shortLabel, fullLabel;
+    if (granularity === 'week') {
+      const bucketEnd = new Date(bucketStart);
+      bucketEnd.setDate(bucketEnd.getDate() + 6);
+      shortLabel = `${pad2(bucketStart.getDate())}/${pad2(bucketStart.getMonth() + 1)}`;
+      fullLabel = `Semaine du ${pad2(bucketStart.getDate())}/${pad2(bucketStart.getMonth() + 1)} au ${pad2(bucketEnd.getDate())}/${pad2(bucketEnd.getMonth() + 1)}`;
+    } else {
+      shortLabel = `${MONTH_NAMES_FR[bucketStart.getMonth()].slice(0, 3)} ${bucketStart.getFullYear()}`;
+      fullLabel = `${MONTH_NAMES_FR[bucketStart.getMonth()]} ${bucketStart.getFullYear()}`;
+    }
+    return { isoDate: key, granularity, shortLabel, fullLabel, totalSeconds: b.totalSeconds, members: Object.values(b.membersById) };
+  }).sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
 }
 
 const ACTIVITY_TS_SLOTS_PER_DAY = 96; // 24h / 15 min
@@ -425,5 +494,5 @@ function activityTimesheetForUser(activityId, weekOffset) {
 module.exports = {
   sharedActivitiesForUser, sharedFeedForUser, followingFeedForUser, activityMembersForUser,
   activityMessagesForUser, postActivityMessage, markActivityMessagesRead, unreadMessageCountsForUser,
-  activityBreakdownForUser, activityDailyBreakdownForUser, activityTimesheetForUser,
+  activityBreakdownForUser, activityChartBreakdownForUser, activityTotalRange, activityTimesheetForUser,
 };

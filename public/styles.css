@@ -1298,6 +1298,94 @@ body.scrollLock { overflow: hidden; }
 .discussionComposer .rowActions { margin-top: 8px; }
 .discussionComposer .msg { text-align: right; }
 
+/* ===== CONVERSATIONS : fil d'activité et fil d'un sous-projet =============
+   3 septembre 2026, discussion "Activité — général", demande d'Emilien.
+   ⚠️ Tout est porté par `.chatThread` / `.chatComposer`, JAMAIS par
+   `.discussionMsg` seule : cette classe sert aussi au fil "Communauté" du
+   Profil et aux messages d'une page de visite, qui sont des FLUX en lecture
+   et doivent garder leur apparence pleine largeur. Deux conversations
+   changent d'aspect, deux flux ne bougent pas.
+
+   « je souhaite que les messages des autres utilisateurs se situent un peu
+   sur la gauche et qu'il y ait un espace entre la droite du message et la
+   droite de l'écran, et que les messages de l'utilisateur s'affichent sur la
+   droite avec un espace sur la gauche » : c'est le décalage classique d'une
+   messagerie. 82% de largeur maximale laisse toujours voir de quel côté
+   penche un message, même très court. */
+.chatThread .discussionMsg {
+  max-width: 82%;
+  align-self: flex-start;
+  border-bottom-left-radius: var(--radius-sm);
+}
+/* Mes messages : à droite, en violet plein. Le liseré gauche de
+   `.discussionMsg.mine` n'a plus lieu d'être ici — c'est la couleur ET la
+   position qui disent "c'est moi", le liseré ferait un troisième signal. */
+.chatThread .discussionMsg.mine {
+  align-self: flex-end;
+  background: var(--purple);
+  border-left: none;
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-sm);
+}
+.chatThread .discussionMsg.mine .discussionMsgBody,
+.chatThread .discussionMsg.mine .discussionMsgAuthor,
+.chatThread .discussionMsg.mine .meta,
+.chatThread .discussionMsg.mine .discussionMsgDelete { color: #fff; }
+.chatThread .discussionMsg.mine .meta { opacity: 0.8; }
+.chatThread .discussionMsg.mine .discussionMsgDelete:hover {
+  background: rgba(255, 255, 255, 0.18); color: #fff;
+}
+/* Le fil est une conversation : on la lit du haut vers le bas, le plus récent
+   en dernier. `justify-content: flex-end` colle les messages au BAS du cadre
+   quand ils ne le remplissent pas encore — sans quoi une conversation de deux
+   messages flotterait en haut d'une grande zone vide. */
+.chatThread { justify-content: flex-end; gap: 6px; }
+
+/* Composeur : "Envoyer" DANS la zone de saisie, à droite. Le textarea réserve
+   la place par un padding plutôt que par une marge, pour que le texte saisi
+   ne passe jamais sous le bouton. */
+.chatComposerRow { position: relative; }
+.chatComposerRow textarea {
+  width: 100%; box-sizing: border-box;
+  padding-right: 92px; min-height: 56px;
+  background: var(--card); color: var(--text);
+}
+.chatComposerRow .iconBtn {
+  position: absolute; right: 8px; bottom: 8px;
+  padding: 6px 12px;
+}
+.chatComposer .msg { text-align: right; margin-top: 6px; }
+.chatComposer .msg:empty { display: none; }
+
+/* ----- Fil d'activité : le composeur tient le bas de l'ÉCRAN -----
+   « lorsque le clavier n'est pas activé, la zone pour écrire se situe tout en
+   bas de l'écran ». Posée uniquement quand la section Discussion est à
+   l'écran (classe `chatMode` mise par setActivityPageSection) : dans les deux
+   autres sections, la page doit défiler normalement.
+   ⚠️ NON appliqué au fil d'un sous-projet : celui-ci est une section parmi
+   d'autres (tâches, sondage) dans un détail qui défile — y coller un
+   composeur au bas de l'écran le décrocherait de son contenu. Il garde donc
+   le bouton dans la zone de saisie, mais reste dans le flux. */
+#activityPageScroll.chatMode {
+  display: flex; flex-direction: column; overflow-y: hidden;
+}
+/* ⚠️ La chaîne doit être COMPLÈTE de la zone défilante jusqu'au composeur :
+   il suffit d'un maillon sans `flex: 1; min-height: 0` pour que la hauteur
+   cesse de se propager et que le composeur remonte au milieu de l'écran.
+   #activityPageBody, simple conteneur, en fait partie — oublié à la première
+   écriture, c'est le test de position qui l'a rattrapé (deux fois : il avait
+   aussi sauté lors d'une réapplication après collision). */
+#activityPageScroll.chatMode #activityPageBody,
+#activityPageScroll.chatMode #communityActivityDetail,
+#activityPageScroll.chatMode #communityDiscussionBlock {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+}
+#activityPageScroll.chatMode #communityDiscussionBlock { margin-bottom: 0; }
+#activityPageScroll.chatMode #communityDiscussionList {
+  flex: 1 1 auto; min-height: 0; max-height: none;
+}
+#activityPageScroll.chatMode .discussionComposer { flex: 0 0 auto; }
+
 /* Flux "Suivi" (#followingFeed, Communauté) : contrairement à
    #communityMyPostsList/#profileDiscussionCommunityList (encadrées par
    .discussionList, boîte à hauteur fixe avec défilement interne), ce flux

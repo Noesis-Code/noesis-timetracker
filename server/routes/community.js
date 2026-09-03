@@ -3,7 +3,7 @@ const db = require('../db');
 const {
   sharedActivitiesForUser, sharedFeedForUser, followingFeedForUser, activityMembersForUser,
   activityMessagesForUser, postActivityMessage, markActivityMessagesRead, unreadMessageCountsForUser,
-  activityBreakdownForUser, activityDailyBreakdownForUser, activityTimesheetForUser,
+  activityBreakdownForUser, activityChartBreakdownForUser, activityTotalRange, activityTimesheetForUser,
 } = require('../lib/community');
 const { notifyActivityMessage } = require('../lib/push');
 // ⚠️ 3 septembre 2026 (Activité — général) : import ajouté pour renvoyer le
@@ -211,18 +211,26 @@ router.get('/community/activity-stats', (req, res) => {
   // vide jusqu'au rechargement, sans erreur : même compromis que celui déjà
   // retenu pour GET /stats le 1er septembre 2026.
   const VALID_PERIODS = ['day', 'week', 'month', 'year'];
-  const CHART_PERIODS = ['week', 'month', 'year'];
+  // ⚠️ 3 septembre 2026, second passage (Activité — général) : le graphique ne
+  // prend plus une PÉRIODE mais une GRANULARITÉ, et couvre toujours toute
+  // l'histoire de l'activité. Demande d'Emilien : « il doit afficher toujours
+  // le total des activités enregistrées, mais [...] par jour, par semaine ou
+  // par mois ». Même sémantique que ?granularity= sur GET /stats (Graphique),
+  // dont cette page est la copie parallèle — la règle d'alignement d'Emilien.
+  // 'year' n'est donc plus une valeur acceptée pour le graphique : ce n'était
+  // pas une granularité mais une fenêtre, et la fenêtre est désormais totale.
+  const CHART_GRANULARITIES = ['day', 'week', 'month'];
   const period = VALID_PERIODS.includes(req.query.period) ? req.query.period : 'week';
-  const chartPeriod = CHART_PERIODS.includes(req.query.chartPeriod)
-    ? req.query.chartPeriod
-    : (CHART_PERIODS.includes(period) ? period : 'week');
+  const chartGranularity = CHART_GRANULARITIES.includes(req.query.chartGranularity)
+    ? req.query.chartGranularity
+    : 'day';
 
   res.json({
     activityName: check.activity.name,
     breakdown: activityBreakdownForUser(activityId, period, refDate),
-    chartPeriod,
-    chartLabel: periodRange(chartPeriod, refDate).label,
-    dailyBreakdown: activityDailyBreakdownForUser(activityId, chartPeriod, refDate),
+    chartGranularity,
+    chartLabel: activityTotalRange(activityId, refDate).label,
+    dailyBreakdown: activityChartBreakdownForUser(activityId, chartGranularity, refDate),
   });
 });
 
