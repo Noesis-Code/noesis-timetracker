@@ -480,53 +480,64 @@
 
   // 2 septembre 2026, suite (Design) : sur mobile, quand le clavier virtuel
   // est ouvert (un champ texte a le focus) et qu'on fait défiler la page,
-  // .topbar et .tabbar (toutes deux position: fixed) donnaient l'impression
-  // de "flotter"/se déplacer avec le contenu — signalé par Emilien, captures
-  // à l'appui. Cause : le clavier virtuel réduit le viewport visuel sans
-  // redimensionner de la même façon les éléments fixed (ancrés au viewport
-  // de mise en page, plus grand tant que rien ne le recalcule) ; un
-  // défilement pendant que le clavier est ouvert les fait donc apparaître
-  // décalés. Plutôt que de recalculer en continu la position des éléments
-  // fixed via l'API VisualViewport (fragile, support inégal), la solution
-  // retenue est celle demandée par Emilien : fermer le clavier dès qu'un
-  // défilement commence tant qu'un champ a le focus, quel que soit le sens
-  // du défilement. Limité aux écrans tactiles (pointer: coarse) — sur
-  // desktop, garder le focus sur un champ pendant qu'on fait défiler la
-  // page à la molette est un comportement normal, aucun clavier virtuel
-  // n'étant en jeu.
+  // .topbar et .tabbar (toutes deux position: fixed) pouvaient donner
+  // l'impression de "flotter"/se déplacer avec le contenu — signalé par
+  // Emilien, captures à l'appui. Limité aux écrans tactiles (pointer:
+  // coarse) — sur desktop, aucun clavier virtuel n'est en jeu.
   var _isCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   function _isTextInputEl(el) {
     return !!el && (el.tagName === 'TEXTAREA' ||
       (el.tagName === 'INPUT' && ['text', 'search', 'tel', 'email', 'password', 'number', 'url', 'date', 'time'].indexOf(el.type) !== -1));
   }
+  // ⚠️ 3 septembre 2026 (Design) : la première version de ce correctif
+  // fermait le clavier au premier ÉVÉNEMENT `scroll` reçu pendant qu'un champ
+  // avait le focus. Un ajustement à 600ms (voir historique dans le journal
+  // du volet) n'a pas suffi : sur certains champs/claviers, le navigateur
+  // redéclenche un micro-scroll d'ajustement à CHAQUE caractère tapé (pas
+  // seulement à l'ouverture), pas seulement une fois au focus — Emilien ne
+  // pouvait alors taper qu'un seul caractère avant fermeture. Remplacé par
+  // la détection demandée explicitement par Emilien : fermer le clavier
+  // uniquement au TOUCHER de l'écran EN DEHORS du champ qui a le focus, plus
+  // aucun lien avec le défilement. Un clavier virtuel natif ne fait pas
+  // partie du DOM de la page : un `touchstart` ne peut donc jamais être émis
+  // "sur le clavier" lui-même (l'OS l'intercepte avant qu'il n'atteigne la
+  // page) — vérifier que la cible du toucher n'est pas le champ actif
+  // suffit à distinguer "toucher pour continuer à écrire" de "toucher
+  // ailleurs pour fermer le clavier", sans jamais réagir à un scroll.
   if (_isCoarsePointer) {
-    // 3 septembre 2026 (Communauté, débordement signalé) : ce blur-au-scroll
-    // blurait AUSSI le tout premier scroll suivant un focus — exactement celui
-    // que le navigateur déclenche lui-même pour amener le champ au-dessus du
-    // clavier virtuel qui vient de s'ouvrir. Sur un champ assez bas dans la
-    // page (ex. le composeur "écrire à sa communauté", sous la liste de
-    // découverte), ce scroll automatique arrivait donc SYSTÉMATIQUEMENT et
-    // refermait le clavier aussitôt ouvert — impossible de taper le moindre
-    // message, symptôme signalé par Emilien (« je ne peux pas cliquer dessus
-    // et écrire un message »), reproduit ici en rejouant exactement cette
-    // séquence (focus puis scroll synthétique immédiat) dans un bac à sable.
-    // Le scroll voulu par le correctif d'origine (flottement de .topbar/
-    // .tabbar pendant qu'on fait défiler la page AVEC le clavier déjà ouvert)
-    // arrive, lui, après que ce scroll d'ajustement automatique s'est calmé.
-    // Fix : on ignore le(s) scroll(s) dans les 600ms qui suivent un focus sur
-    // un champ texte — assez large pour couvrir l'animation d'ajustement
-    // native, sans retarder perceptiblement le comportement d'origine pour un
-    // vrai défilement utilisateur ultérieur.
-    var _lastTextFocusAt = 0;
-    window.addEventListener('focusin', function (e) {
-      if (_isTextInputEl(e.target)) _lastTextFocusAt = Date.now();
-    }, { capture: true, passive: true });
-    window.addEventListener('scroll', function () {
+    document.addEventListener('touchstart', function (e) {
       var active = document.activeElement;
       if (!_isTextInputEl(active)) return;
-      if (Date.now() - _lastTextFocusAt < 600) return;
+      var target = e.target;
+      if (target === active || (active.contains && active.contains(target))) return;
       active.blur();
     }, { capture: true, passive: true });
+  }
+
+  // 3 septembre 2026 (Design), suite : dans certains contextes (ex. la
+  // description d'un sous-projet, #newSubProjectDescription), .tabbar
+  // (position: fixed; bottom: 0) restait décollée du bas de l'écran réel,
+  // flottant au-dessus du clavier virtuel plutôt que collée juste à sa
+  // bordure supérieure — bottom: 0 s'ancre au bas du viewport de MISE EN
+  // PAGE, qui ne se réduit pas forcément de la même façon que le viewport
+  // VISUEL réellement couvert par le clavier selon le contexte. Correctif :
+  // mesurer en continu, via l'API VisualViewport (support mobile large ;
+  // se dégrade sans effet si absente), la portion de l'écran couverte par
+  // le clavier, et l'exposer en variable CSS --keyboard-inset consommée par
+  // .tabbar (voir styles.css) pour remonter sa position exactement de cette
+  // hauteur — elle reste ainsi collée juste au-dessus du clavier quand il
+  // est ouvert, et à sa position normale (bottom: 0) quand il ne l'est pas.
+  if (window.visualViewport) {
+    (function () {
+      var vv = window.visualViewport;
+      function syncKeyboardInset() {
+        var inset = window.innerHeight - (vv.height + vv.offsetTop);
+        document.documentElement.style.setProperty('--keyboard-inset', Math.max(0, Math.round(inset)) + 'px');
+      }
+      vv.addEventListener('resize', syncKeyboardInset);
+      vv.addEventListener('scroll', syncKeyboardInset);
+      syncKeyboardInset();
+    })();
   }
 
   function showApp() {
@@ -2158,10 +2169,15 @@
     return detail;
   }
 
+  // ⚠️ 3 septembre 2026 (Activité — général) : l'hôte par défaut n'est plus
+  // #activityDetailAnchor (bas de l'onglet Activité) mais #activityPageBody,
+  // la zone défilante de la nouvelle page d'activité. #activityDetailAnchor
+  // reste déclaré dans index.html comme filet de repli, mais n'est plus
+  // utilisé en fonctionnement normal.
   function attachActivityDetail(host) {
     var detail = activityDetailEl();
     if (!detail) return;
-    (host || $('activityDetailAnchor')).appendChild(detail);
+    (host || $('activityPageBody') || $('activityDetailAnchor')).appendChild(detail);
   }
 
   function loadActivityDetail(shouldScroll) {
@@ -2195,8 +2211,12 @@
     // membres — on n'affiche que les sous-projets, et on n'appelle même pas
     // les routes /community/activity-* (elles refusent d'ailleurs une
     // activité solo par 400, voir checkSharedActivityAccess).
-    $('communityActivityMembersPart').classList.toggle('hidden', !currentActivityIsShared);
-    $('communityDiscussionBlock').classList.toggle('hidden', !currentActivityIsShared);
+    // ⚠️ 3 septembre 2026 (Activité — général) : ces deux parties ne sont plus
+    // affichées/masquées par le seul partage — elles sont devenues deux des
+    // TROIS SECTIONS de la page d'activité. C'est setActivityPageSection() qui
+    // tranche, en tenant compte à la fois de la section choisie ET du partage
+    // (une activité non partagée n'a ni statistiques ni fil).
+    setActivityPageSection(activityPageSection);
     if (!currentActivityIsShared) {
       activityDetailEl().classList.remove('hidden');
       stopDiscussionPolling();
@@ -2208,7 +2228,6 @@
 
     api('GET', '/api/community/activity-feed?userId=' + profile.id + '&activityId=' + currentCommunityActivityId).then(function (data) {
       activityDetailEl().classList.remove('hidden');
-      $('communityActivityDetailName').textContent = '· ' + data.activityName;
       var box = $('communityActivityDetailFeed');
       box.innerHTML = '';
       $('communityActivityDetailEmptyHint').classList.toggle('hidden', data.entries.length > 0);
@@ -2238,6 +2257,227 @@
     resetSubProjectsBlock();
     loadSubProjects();
   }
+
+
+  // ===================== PAGE D'UNE ACTIVITÉ =====================
+  // 3 septembre 2026, discussion "Activité — général". Demande d'Emilien :
+  // « lorsque je clique sur l'activité, cela m'amène automatiquement sur une
+  // nouvelle page. Le nom de l'activité doit être inscrit en haut en gros.
+  // Sous le nom, on me propose d'accéder à trois sections. »
+  //
+  // LES QUATRE RÈGLES D'OUVERTURE, toutes tranchées par Emilien le même jour.
+  // Elles tiennent en deux questions : l'activité est-elle partagée, a-t-elle
+  // au moins un sous-projet ?
+  //
+  //   partagée ? | sous-projets ? | ce qui se passe au clic
+  //   -----------|----------------|--------------------------------------------
+  //   non        | non            | AUCUNE page. Formulaire "nouveau sous-projet"
+  //              |                | déplié sur place, dans la ligne. « Je souhaite
+  //              |                | qu'il n'y ait pas d'ouverture de nouvelle page
+  //              |                | pour les activités qui ne sont pas partagées et
+  //              |                | qui n'ont pas de sous-projet. »
+  //   non        | oui            | Page, section Sous-projets SEULE (ni statistiques
+  //              |                | ni fil : il n'y a personne d'autre). Sélecteur
+  //              |                | masqué — un seul bouton serait du bruit.
+  //   oui        | non            | Page ouverte sur STATISTIQUES : la section par
+  //              |                | défaut n'aurait rien à montrer.
+  //   oui        | oui            | Page ouverte sur Sous-projets (section par défaut).
+  //
+  // ⚠️ La question « a-t-elle des sous-projets ? » n'est PAS posée au serveur
+  // au moment du clic : elle se lit sur `a.progress`, ajouté à GET /api/activities.
+  // C'est l'application directe de la règle R3 du contrat d'avancement
+  // (noesis-timetracker-contrat-avancement.md) : une activité sans aucun
+  // sous-projet est ABSENTE de la Map renvoyée par progressForActivities, donc
+  // son `progress` vaut null. L'absence EST l'information. Aucune requête
+  // supplémentaire, aucune latence au clic, et surtout aucun second calcul.
+  var activityPageSection = 'sub';
+
+  function activityHasSubProjects(a) {
+    return !!(a && a.progress && a.progress.subProjectCount > 0);
+  }
+
+  // Affiche l'une des trois sections. Elles ne sont ni déplacées ni
+  // reconstruites : ce sont les trois parties déjà existantes de
+  // #communityActivityDetail, simplement masquées ou montrées. C'est ce qui
+  // permet de ne rien casser chez "Sous-projets" ni dans les statistiques par
+  // activité — leur code ne sait même pas que ce sélecteur existe.
+  function setActivityPageSection(name) {
+    activityPageSection = name;
+    document.querySelectorAll('#activityPageSectionSwitch .periodBtn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.section === name);
+    });
+    var sub = $('activitySubProjectsBlock');
+    var anchor = $('subProjectDetailAnchor');
+    var stats = $('communityActivityMembersPart');
+    var disc = $('communityDiscussionBlock');
+    // #subProjectDetail (le sous-projet ouvert) n'a pas besoin d'être traité
+    // ici : il est soit DANS une ligne de #subProjectsList, soit sur son ancre
+    // — dans les deux cas à l'intérieur de ce qu'on masque ou montre.
+    if (sub) sub.classList.toggle('hidden', name !== 'sub');
+    if (anchor) anchor.classList.toggle('hidden', name !== 'sub');
+    // Une activité non partagée n'a ni statistiques ni fil, quelle que soit la
+    // section demandée : le partage a toujours le dernier mot.
+    if (stats) stats.classList.toggle('hidden', name !== 'stats' || !currentActivityIsShared);
+    if (disc) disc.classList.toggle('hidden', name !== 'disc' || !currentActivityIsShared);
+  }
+
+  function openActivityPage(a, sharedInfo, row) {
+    if (!profile || !a) return;
+    var isShared = !!sharedInfo || a.membersCount > 1;
+
+    if (!isShared && !activityHasSubProjects(a)) {
+      openInlineSubProjectForm(a, row);
+      return;
+    }
+    closeInlineSubProjectForm();
+
+    currentCommunityActivityId = String(a.id);
+    currentActivityIsShared = isShared;
+
+    $('activityPageDot').style.background = a.color;
+    $('activityPageName').textContent = a.name;
+    $('activityPageMenuPanel').classList.add('hidden');
+    $('activityPageMenuPanel').innerHTML = '';
+
+    $('activityPageTabStats').classList.toggle('hidden', !isShared);
+    $('activityPageTabDisc').classList.toggle('hidden', !isShared);
+    $('activityPageSectionSwitch').classList.toggle('hidden', !isShared);
+
+    setActivityPageSection(isShared && !activityHasSubProjects(a) ? 'stats' : 'sub');
+
+    $('activityPage').classList.remove('hidden');
+    // La zone défilante repart du haut : rouvrir une activité ne doit pas
+    // hériter du défilement de la précédente.
+    $('activityPageScroll').scrollTop = 0;
+
+    // loadActivityDetail remplit les trois sections (sous-projets, stats, fil)
+    // et démarre le minuteur du fil quand l'activité est partagée. Le `false`
+    // supprime le scrollIntoView d'autrefois : le détail n'est plus quelque
+    // part dans la liste, il EST la page.
+    loadActivityDetail(false);
+    // Rafraîchit la liste derrière la page (surlignage de la ligne ouverte,
+    // pastilles de non-lus) sans bloquer l'affichage.
+    loadSettingsActivities();
+  }
+
+  function closeActivityPage() {
+    $('activityPage').classList.add('hidden');
+    $('activityPageMenuPanel').classList.add('hidden');
+    currentCommunityActivityId = '';
+    stopDiscussionPolling();
+    resetSubProjectsBlock();
+    loadSettingsActivities();
+  }
+
+  // Formulaire "nouveau sous-projet" déplié dans la ligne, pour une activité
+  // non partagée qui n'en a encore aucun (choix d'Emilien : « le formulaire
+  // déplié sur place »). Volontairement minimal — nom seul : c'est une amorce,
+  // la description et la todolist s'éditent ensuite dans la page, qui s'ouvre
+  // dès l'ajout réussi.
+  //
+  // ⚠️ Il ne réutilise PAS #newSubProjectCard : celui-là vit à l'intérieur de
+  // #activitySubProjectsBlock, donc dans la page — précisément celle qu'on ne
+  // veut pas ouvrir ici.
+  var inlineSubProjectPanel = null;
+
+  function closeInlineSubProjectForm() {
+    if (inlineSubProjectPanel && inlineSubProjectPanel.parentNode) {
+      inlineSubProjectPanel.parentNode.removeChild(inlineSubProjectPanel);
+    }
+    inlineSubProjectPanel = null;
+  }
+
+  function openInlineSubProjectForm(a, row) {
+    // Deuxième clic sur la même ligne : on referme, comme un panneau "⋮".
+    if (inlineSubProjectPanel && inlineSubProjectPanel.dataset.activityId === String(a.id)) {
+      closeInlineSubProjectForm();
+      return;
+    }
+    closeInlineSubProjectForm();
+    if (!row) return;
+
+    var panel = document.createElement('div');
+    panel.className = 'activitySettingsPanel';
+    panel.dataset.activityId = String(a.id);
+
+    var hint = document.createElement('p');
+    hint.className = 'hint';
+    hint.textContent = t("Cette activité n'a encore aucun sous-projet. Ajoute-en un pour ouvrir sa page.");
+    panel.appendChild(hint);
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = t('Nom du sous-projet');
+    panel.appendChild(input);
+
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+    panel.appendChild(msg);
+
+    var actions = document.createElement('div');
+    actions.className = 'rowActions';
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'iconBtn';
+    addBtn.textContent = t('Ajouter le sous-projet');
+
+    function submit() {
+      var name = input.value.trim();
+      if (!name) { msg.textContent = t('Le nom du sous-projet est requis.'); return; }
+      msg.textContent = '';
+      addBtn.disabled = true;
+      api('POST', '/api/activities/' + a.id + '/sub-projects', {
+        userId: profile.id, name: name, description: '',
+      })
+        .then(function () {
+          closeInlineSubProjectForm();
+          // L'activité a désormais un sous-projet : la règle qui interdisait
+          // la page ne s'applique plus. On la marque sur place plutôt que de
+          // rappeler le serveur — loadSettingsActivities() remettra de toute
+          // façon la vraie valeur juste après.
+          a.progress = { done: 0, total: 0, percent: null, subProjectCount: 1, completedSubProjectCount: 0 };
+          openActivityPage(a, null, row);
+        })
+        .catch(function (err) { msg.textContent = err.message; addBtn.disabled = false; });
+    }
+
+    addBtn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    });
+    actions.appendChild(addBtn);
+    panel.appendChild(actions);
+    row.appendChild(panel);
+    inlineSubProjectPanel = panel;
+    input.focus();
+  }
+
+  $('activityPageClose').addEventListener('click', closeActivityPage);
+
+  // Clic sur le fond noir, hors de la carte : referme, comme la page de visite
+  // d'un profil. Le test sur e.target évite de refermer quand le clic vient
+  // d'un élément intérieur qui a laissé remonter l'événement.
+  $('activityPage').addEventListener('click', function (e) {
+    if (e.target === $('activityPage')) closeActivityPage();
+  });
+
+  document.querySelectorAll('#activityPageSectionSwitch .periodBtn').forEach(function (b) {
+    b.addEventListener('click', function () { setActivityPageSection(b.dataset.section); });
+  });
+
+  // Menu "☰" : les réglages de l'activité ouverte, construits à la demande.
+  $('activityPageMenuBtn').addEventListener('click', function () {
+    var box = $('activityPageMenuPanel');
+    if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+    var current = null;
+    (lastRenderedActivities || []).forEach(function (x) {
+      if (String(x.id) === String(currentCommunityActivityId)) current = x;
+    });
+    if (!current) return;
+    box.innerHTML = '';
+    box.appendChild(buildActivitySettingsPanel(current, lastRenderedShared[String(current.id)], lastRenderedActivities));
+    box.classList.remove('hidden');
+  });
 
   // ===================== SOUS-PROJETS D'UNE ACTIVITÉ =====================
   // Discussion "Sous-projets" (3 septembre 2026). Découper une activité en
@@ -2659,7 +2899,14 @@
       // condition était vraie dès le premier tick et le minuteur se tuait
       // aussitôt : le fil ne se rafraîchissait plus tout seul, et
       // refreshUnreadBadges() (son unique appelant) ne s'exécutait jamais.
-      if (!currentCommunityActivityId || $('tab-activity').classList.contains('hidden')) {
+      // ⚠️ 3 septembre 2026 (Activité — général), deuxième correction de cette
+      // même garde en deux jours : elle testait #tab-community jusqu'au 3
+      // septembre au matin (le fil avait déménagé dans #tab-activity le 30
+      // août sans que la garde suive), puis #tab-activity. Le fil vit
+      // maintenant dans #activityPage, une page qui se superpose aux onglets :
+      // c'est SA visibilité, et elle seule, qui dit si le fil est regardé.
+      // Application directe de la directive transverse née du premier bug.
+      if (!currentCommunityActivityId || $('activityPage').classList.contains('hidden')) {
         stopDiscussionPolling();
         return;
       }
@@ -6340,6 +6587,137 @@
   // Tant qu'aucune activité n'est sélectionnée, l'onglet ne montre que cette
   // liste — pas de texte d'aide, pas de section en attente (demande
   // d'Emilien, 30 août 2026).
+  // ⚠️ 3 septembre 2026 (Activité — général) : ce panneau était construit
+  // DANS la boucle de renderActivitiesSettings et rangé derrière le "⋮" de
+  // chaque ligne. Emilien a demandé qu'il déménage dans le menu "☰" de la
+  // nouvelle page d'activité (« en haut à droite, il y a trois tirets avec
+  // toutes les autres données : membres, supprimer activité »). Le code est
+  // repris à l'IDENTIQUE — aucun bouton retiré, aucune règle métier changée —
+  // il est simplement extrait dans une fonction, appelée à la demande à
+  // l'ouverture du menu plutôt qu'une fois par ligne à chaque rendu de liste.
+  //
+  // `acts` sert uniquement à savoir s'il y a au moins deux activités (bouton
+  // Fusionner) ; `sharedInfo` uniquement à savoir si "Voir les membres" a un
+  // sens. Les deux viennent de lastRenderedActivities/lastRenderedShared.
+  function buildActivitySettingsPanel(a, sharedInfo, acts) {
+        var panel = document.createElement('div');
+        panel.className = 'activitySettingsPanel';
+
+        var nameInput = document.createElement('input');
+        nameInput.type = 'text'; nameInput.value = a.name;
+        nameInput.disabled = !a.isOwner;
+
+        var colorBox = document.createElement('div');
+        var rowColor = a.color;
+        renderColorSwatches(colorBox, rowColor, function (c) { rowColor = c; }, true);
+
+        var saveMsg = document.createElement('p');
+        saveMsg.className = 'meta';
+
+        var saveBtn = document.createElement('button');
+        saveBtn.className = 'iconBtn'; saveBtn.textContent = t('Enregistrer');
+        saveBtn.addEventListener('click', function () {
+          // Un membre non-propriétaire ne peut changer QUE sa couleur perso :
+          // on n'envoie jamais name/active dans ce cas (ça déclencherait un
+          // refus 403 côté serveur, à raison).
+          var payload = a.isOwner
+            ? { userId: profile.id, name: nameInput.value.trim(), color: rowColor, active: a.active }
+            : { userId: profile.id, color: rowColor };
+          saveMsg.textContent = '';
+          api('PUT', '/api/activities/' + a.id, payload)
+            .then(function () {
+              refreshActivities().then(renderActivityGrid);
+              saveMsg.textContent = t('Enregistré.');
+              setTimeout(function () { loadSettingsActivities(); }, 500);
+            })
+            .catch(function (err) { saveMsg.textContent = err.message; });
+        });
+
+        var actionsWrap = document.createElement('div');
+        actionsWrap.className = 'rowActions';
+        actionsWrap.appendChild(saveBtn);
+
+        // Partager par pseudo : envoie une invitation en attente à quelqu'un.
+        // Disponible à tout membre actuel, pas seulement au propriétaire —
+        // comme l'était l'ancien lien de partage que ce bouton remplace.
+        var shareBtn = document.createElement('button');
+        shareBtn.className = 'iconBtn';
+        shareBtn.textContent = t('Partager');
+        shareBtn.addEventListener('click', function () {
+          var pseudo = prompt(t('Pseudo de la personne à inviter sur "{activity}" :', { activity: a.name }));
+          if (!pseudo || !pseudo.trim()) return;
+          api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: pseudo.trim() })
+            .then(function (res) { alert(t(res.message)); })
+            .catch(function (err) { alert(err.message); });
+        });
+        actionsWrap.appendChild(shareBtn);
+
+        // Séparer : seulement si l'activité est actuellement partagée (rien à
+        // séparer sur une activité déjà solo). Disponible à tout membre, comme
+        // Partager. Contrairement à Supprimer, on obtient sa propre copie
+        // personnelle (avec son historique) au lieu de perdre l'activité.
+        if (a.membersCount > 1) {
+          var separateBtn = document.createElement('button');
+          separateBtn.className = 'iconBtn';
+          separateBtn.textContent = t('Séparer');
+          separateBtn.addEventListener('click', function () {
+            if (!confirm(t('Séparer "{activity}" ? Tu auras désormais ta propre activité personnelle du même nom, avec ton historique déjà enregistré dessus. Les autres personnes qui la partagent ne sont pas concernées.', { activity: a.name }))) return;
+            api('POST', '/api/activities/' + a.id + '/separate', { userId: profile.id })
+              .then(function (res) {
+                refreshActivities().then(renderActivityGrid);
+                loadSettingsActivities();
+                alert(t(res.message));
+              })
+              .catch(function (err) { alert(err.message); });
+          });
+          actionsWrap.appendChild(separateBtn);
+        }
+
+        // Fusionner : verser une autre de mes activités dans celle-ci (ou
+        // l'inverse — voir le sens décidé par le serveur). Proposé dès que j'ai
+        // au moins deux activités ; le détail des cas impossibles (deux
+        // activités partagées) est expliqué dans la boîte, pas ici.
+        if (acts.length > 1) {
+          var mergeBtn = document.createElement('button');
+          mergeBtn.className = 'iconBtn';
+          mergeBtn.textContent = t('Fusionner');
+          mergeBtn.addEventListener('click', function () { openMergeActivityModal(a); });
+          actionsWrap.appendChild(mergeBtn);
+        }
+
+        // "Voir les membres" : la liste complète des membres de l'activité, avec
+        // un point vert sur ceux dont le chrono tourne en ce moment sur CETTE
+        // activité. Rangé ici plutôt que dans un second menu déroulant (il y en
+        // avait un, réservé à cette seule option, quand la liste des activités
+        // partagées était séparée) — un motif d'UI en moins.
+        if (sharedInfo) {
+          var membersBtn = document.createElement('button');
+          membersBtn.className = 'iconBtn';
+          membersBtn.textContent = t('Voir les membres');
+          membersBtn.addEventListener('click', function () {
+            openCommunityMembersModal(a.id, a.name);
+          });
+          actionsWrap.appendChild(membersBtn);
+        }
+
+        // Suppression définitive : toujours pour SOI uniquement, jamais pour
+        // les autres membres d'une activité partagée (disponible que tu sois
+        // propriétaire ou simple membre).
+        var delBtn = document.createElement('button');
+        delBtn.className = 'iconBtn danger';
+        delBtn.textContent = t('Supprimer définitivement');
+        delBtn.addEventListener('click', function () {
+          openDeleteActivityModal(a);
+        });
+        actionsWrap.appendChild(delBtn);
+
+        panel.appendChild(nameInput);
+        panel.appendChild(colorBox);
+        panel.appendChild(saveMsg);
+        panel.appendChild(actionsWrap);
+        return panel;
+  }
+
   function renderActivitiesSettings(acts, sharedList) {
     var box = $('activitiesList');
     var shared = {};
@@ -6363,19 +6741,21 @@
       currentCommunityActivityId = '';
       activityDetailEl().classList.add('hidden');
       stopDiscussionPolling();
+      // L'activité affichée n'existe plus : sa page n'a plus rien à montrer.
+      $('activityPage').classList.add('hidden');
     } else if (currentCommunityActivityId) {
       currentActivityIsShared = !!shared[String(currentCommunityActivityId)];
     }
 
-    // Détaché avant le vidage de la liste : sans ça, le bloc de détail serait
-    // détruit avec elle (voir detachActivityDetail).
-    // Mémorisé pour la boîte de fusion, qui doit proposer les AUTRES
-    // activités et savoir lesquelles sont partagées.
+    // Mémorisé pour la boîte de fusion (qui doit proposer les AUTRES activités
+    // et savoir lesquelles sont partagées) et pour le menu "☰" de la page
+    // d'activité, qui construit ses réglages à partir de ces deux valeurs.
     lastRenderedActivities = acts;
     lastRenderedShared = shared;
 
-    detachActivityDetail();
-    var detailAttached = false;
+    // ⚠️ 3 septembre 2026 (Activité — général) : plus de detachActivityDetail()
+    // ici. Le détail ne vit plus dans la liste, vider celle-ci ne peut donc
+    // plus l'emporter avec elle.
     box.innerHTML = '';
     acts.forEach(function (a) {
       var sharedInfo = shared[String(a.id)];
@@ -6410,13 +6790,10 @@
         header.appendChild(unreadBadge);
       }
 
-      var menuBtn = document.createElement('button');
-      menuBtn.type = 'button';
-      menuBtn.className = 'menuBtn';
-      menuBtn.title = t("Paramètres de l'activité");
-      menuBtn.setAttribute('aria-label', t("Paramètres de l'activité"));
-      menuBtn.textContent = '⋮';
-      header.appendChild(menuBtn);
+      // ⚠️ 3 septembre 2026 (Activité — général) : le bouton "⋮" a été retiré
+      // d'ici. Les réglages de l'activité vivent désormais derrière le menu
+      // "☰" de la page d'activité (choix d'Emilien : un seul chemin, pas
+      // deux). La ligne n'a donc plus qu'un seul geste : l'ouvrir.
 
       row.appendChild(header);
 
@@ -6432,160 +6809,48 @@
         row.appendChild(badge2);
       }
 
-      var panel = document.createElement('div');
-      panel.className = 'activitySettingsPanel hidden';
 
-      var nameInput = document.createElement('input');
-      nameInput.type = 'text'; nameInput.value = a.name;
-      nameInput.disabled = !a.isOwner;
-
-      var colorBox = document.createElement('div');
-      var rowColor = a.color;
-      renderColorSwatches(colorBox, rowColor, function (c) { rowColor = c; }, true);
-
-      var saveMsg = document.createElement('p');
-      saveMsg.className = 'meta';
-
-      var saveBtn = document.createElement('button');
-      saveBtn.className = 'iconBtn'; saveBtn.textContent = t('Enregistrer');
-      saveBtn.addEventListener('click', function () {
-        // Un membre non-propriétaire ne peut changer QUE sa couleur perso :
-        // on n'envoie jamais name/active dans ce cas (ça déclencherait un
-        // refus 403 côté serveur, à raison).
-        var payload = a.isOwner
-          ? { userId: profile.id, name: nameInput.value.trim(), color: rowColor, active: a.active }
-          : { userId: profile.id, color: rowColor };
-        saveMsg.textContent = '';
-        api('PUT', '/api/activities/' + a.id, payload)
-          .then(function () {
-            refreshActivities().then(renderActivityGrid);
-            saveMsg.textContent = t('Enregistré.');
-            setTimeout(function () { loadSettingsActivities(); }, 500);
-          })
-          .catch(function (err) { saveMsg.textContent = err.message; });
-      });
-
-      var actionsWrap = document.createElement('div');
-      actionsWrap.className = 'rowActions';
-      actionsWrap.appendChild(saveBtn);
-
-      // Partager par pseudo : envoie une invitation en attente à quelqu'un.
-      // Disponible à tout membre actuel, pas seulement au propriétaire —
-      // comme l'était l'ancien lien de partage que ce bouton remplace.
-      var shareBtn = document.createElement('button');
-      shareBtn.className = 'iconBtn';
-      shareBtn.textContent = t('Partager');
-      shareBtn.addEventListener('click', function () {
-        var pseudo = prompt(t('Pseudo de la personne à inviter sur "{activity}" :', { activity: a.name }));
-        if (!pseudo || !pseudo.trim()) return;
-        api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: pseudo.trim() })
-          .then(function (res) { alert(t(res.message)); })
-          .catch(function (err) { alert(err.message); });
-      });
-      actionsWrap.appendChild(shareBtn);
-
-      // Séparer : seulement si l'activité est actuellement partagée (rien à
-      // séparer sur une activité déjà solo). Disponible à tout membre, comme
-      // Partager. Contrairement à Supprimer, on obtient sa propre copie
-      // personnelle (avec son historique) au lieu de perdre l'activité.
-      if (a.membersCount > 1) {
-        var separateBtn = document.createElement('button');
-        separateBtn.className = 'iconBtn';
-        separateBtn.textContent = t('Séparer');
-        separateBtn.addEventListener('click', function () {
-          if (!confirm(t('Séparer "{activity}" ? Tu auras désormais ta propre activité personnelle du même nom, avec ton historique déjà enregistré dessus. Les autres personnes qui la partagent ne sont pas concernées.', { activity: a.name }))) return;
-          api('POST', '/api/activities/' + a.id + '/separate', { userId: profile.id })
-            .then(function (res) {
-              refreshActivities().then(renderActivityGrid);
-              loadSettingsActivities();
-              alert(t(res.message));
-            })
-            .catch(function (err) { alert(err.message); });
-        });
-        actionsWrap.appendChild(separateBtn);
-      }
-
-      // Fusionner : verser une autre de mes activités dans celle-ci (ou
-      // l'inverse — voir le sens décidé par le serveur). Proposé dès que j'ai
-      // au moins deux activités ; le détail des cas impossibles (deux
-      // activités partagées) est expliqué dans la boîte, pas ici.
-      if (acts.length > 1) {
-        var mergeBtn = document.createElement('button');
-        mergeBtn.className = 'iconBtn';
-        mergeBtn.textContent = t('Fusionner');
-        mergeBtn.addEventListener('click', function () { openMergeActivityModal(a); });
-        actionsWrap.appendChild(mergeBtn);
-      }
-
-      // "Voir les membres" : la liste complète des membres de l'activité, avec
-      // un point vert sur ceux dont le chrono tourne en ce moment sur CETTE
-      // activité. Rangé ici plutôt que dans un second menu déroulant (il y en
-      // avait un, réservé à cette seule option, quand la liste des activités
-      // partagées était séparée) — un motif d'UI en moins.
-      if (sharedInfo) {
-        var membersBtn = document.createElement('button');
-        membersBtn.className = 'iconBtn';
-        membersBtn.textContent = t('Voir les membres');
-        membersBtn.addEventListener('click', function () {
-          openCommunityMembersModal(a.id, a.name);
-        });
-        actionsWrap.appendChild(membersBtn);
-      }
-
-      // Suppression définitive : toujours pour SOI uniquement, jamais pour
-      // les autres membres d'une activité partagée (disponible que tu sois
-      // propriétaire ou simple membre).
-      var delBtn = document.createElement('button');
-      delBtn.className = 'iconBtn danger';
-      delBtn.textContent = t('Supprimer définitivement');
-      delBtn.addEventListener('click', function () {
-        openDeleteActivityModal(a);
-      });
-      actionsWrap.appendChild(delBtn);
-
-      panel.appendChild(nameInput);
-      panel.appendChild(colorBox);
-      panel.appendChild(saveMsg);
-      panel.appendChild(actionsWrap);
-      row.appendChild(panel);
-
-      menuBtn.addEventListener('click', function (e) {
-        e.stopPropagation(); // sinon le clic sélectionnerait aussi la ligne
-        panel.classList.toggle('hidden');
-      });
-
-      // Clic sur la ligne (hors "⋮") : ouvre/referme le détail de l'activité.
+      // Clic sur la ligne : ouvre la PAGE de l'activité.
       //
-      // ⚠️ 3 septembre 2026 (discussion "Sous-projets", débordement signalé) :
-      // jusqu'ici, ce clic n'ouvrait le détail que sur une activité PARTAGÉE
-      // et se rabattait sur les réglages pour une activité solo — la raison
-      // donnée était qu'il n'y avait « personne à suivre » sur une activité
-      // solo, donc rien à montrer. Ce n'est plus vrai : les sous-projets
-      // (découper son activité en objectifs) ont tout leur sens en solo, c'est
-      // même leur cas d'usage principal. Le détail s'ouvre donc désormais pour
-      // TOUTE activité ; c'est #communityActivityMembersPart et le fil de
-      // discussion des membres qui sont masqués quand elle n'est pas partagée
-      // (voir loadActivityDetail). Le bouton "⋮" reste le chemin vers les
-      // réglages, inchangé.
+      // Historique de ce geste, en trois temps :
+      //  · jusqu'au 2 septembre 2026, il n'ouvrait un détail que sur une
+      //    activité PARTAGÉE et se rabattait sur les réglages en solo ;
+      //  · le 3 septembre au matin (Sous-projets), il s'est mis à ouvrir le
+      //    détail pour TOUTE activité, les sous-projets ayant tout leur sens
+      //    en solo — c'est même leur cas d'usage principal ;
+      //  · le 3 septembre (Activité — général, demande d'Emilien), il ouvre
+      //    une vraie page plein écran au lieu d'un bloc déplié dans la liste.
+      //
+      // openActivityPage() porte à lui seul les quatre règles d'ouverture
+      // décidées par Emilien — voir son commentaire.
       header.addEventListener('click', function () {
-        var willSelect = !isSelected;
-        currentCommunityActivityId = willSelect ? String(a.id) : '';
-        currentActivityIsShared = !!sharedInfo;
-        loadSettingsActivities();
-        loadActivityDetail(willSelect);
+        openActivityPage(a, sharedInfo, row);
       });
       header.classList.add('clickable');
 
       box.appendChild(row);
-
-      // Le détail vient se placer DANS la ligne sélectionnée, donc juste en
-      // dessous d'elle ; sinon il retourne à son ancre, en bas de l'onglet.
-      if (isSelected) { attachActivityDetail(row); detailAttached = true; }
     });
 
-    // Filet de sécurité : le bloc a été détaché en début de rendu, il doit
-    // toujours être rattaché quelque part à la fin.
-    if (!detailAttached) attachActivityDetail(null);
+    // ⚠️ 3 septembre 2026 (Activité — général) : le détail ne vient plus se
+    // placer DANS la ligne sélectionnée — il vit dans #activityPageBody, la
+    // page d'activité. Vider #activitiesList ne peut donc plus le détruire, et
+    // il n'y a plus rien à détacher puis rattacher à chaque rendu de liste (ce
+    // qui, au passage, ne casse plus le défilement de la page quand la liste
+    // se rafraîchit derrière elle). Filet conservé : si le nœud s'est retrouvé
+    // ailleurs, on le remet dans la page.
+    var detail = activityDetailEl();
+    if (detail && detail.parentNode !== $('activityPageBody')) attachActivityDetail(null);
+
+    // La page ouverte suit le rafraîchissement : si l'activité affichée vient
+    // d'être renommée ou recolorée depuis un autre appareil, son en-tête doit
+    // le refléter sans qu'on ait à la refermer.
+    if (currentCommunityActivityId && !$('activityPage').classList.contains('hidden')) {
+      (acts || []).forEach(function (x) {
+        if (String(x.id) !== String(currentCommunityActivityId)) return;
+        $('activityPageName').textContent = x.name;
+        $('activityPageDot').style.background = x.color;
+      });
+    }
   }
 
   // ===================== FUSION DE DEUX ACTIVITÉS =====================

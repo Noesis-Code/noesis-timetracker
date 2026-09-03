@@ -525,6 +525,15 @@
     'Autre': 'Other',
 
     // ---- Sous-projets d'une activité (discussion "Sous-projets", 3 septembre 2026) ----
+    // ---- Page d'une activité (discussion "Activité — général", 3 septembre 2026) ----
+    'Discussion': 'Discussion',
+    "Réglages de l'activité": 'Activity settings',
+    "Cette activité n'a encore aucun sous-projet. Ajoute-en un pour ouvrir sa page.":
+      'This activity has no sub-project yet. Add one to open its page.',
+    'Ajouter le sous-projet': 'Add sub-project',
+    // Titre de la section Statistiques d'une activité : jamais traduit
+    // jusqu'ici, alors qu'il s'affiche pour tout compte en anglais.
+    'Statistiques et activités des membres': 'Member statistics and activity',
     'Sous-projets': 'Sub-projects',
     'Ajouter un sous-projet': 'Add a sub-project',
     'Nom du sous-projet': 'Sub-project name',

@@ -2,6 +2,13 @@ const express = require('express');
 const db = require('../db');
 const { paletteFor, isInPalette } = require('../lib/theme');
 const { notifyActivityInvite } = require('../lib/push');
+// ⚠️ 3 septembre 2026 — débordement signalé par la discussion "Activité —
+// général", dans la zone de "Gestion des activités".
+// C'est la MISE EN ŒUVRE du contrat d'avancement décrit dans
+// noesis-timetracker-contrat-avancement.md, accepté tel quel : Général ne lit
+// jamais sub_projects/sub_project_items lui-même, il appelle la fonction de
+// Sous-projets. Un seul require, un seul appel pour toute la liste.
+const { progressForActivities } = require('../lib/subprojects');
 
 const router = express.Router();
 
@@ -38,7 +45,23 @@ router.get('/activities', (req, res) => {
     ORDER BY a.id
   `).all(userId);
 
-  res.json(rows.map((a) => serializeActivity(a, userId)));
+  // Avancement des sous-projets, en UN SEUL appel pour toute la liste (pas de
+  // N+1). Sert à deux choses côté client :
+  //  · afficher l'avancement d'une activité ;
+  //  · savoir si elle a au moins un sous-projet — ce qui décide si un clic
+  //    ouvre sa page ou propose d'abord d'en créer un (règle d'Emilien du
+  //    3 septembre 2026).
+  // ⚠️ Règle R3 du contrat : une activité SANS aucun sous-projet est ABSENTE
+  // de la Map. On expose donc `progress: null` dans ce cas — surtout pas un
+  // objet à zéro, qui se lirait comme « 0 % fait » au lieu de « rien à
+  // afficher ». Idem pour `percent`, qui vaut null et jamais 0 quand aucune
+  // case n'existe (règle R1).
+  const progress = progressForActivities(userId, rows.map((a) => a.id));
+  res.json(rows.map((a) => {
+    const out = serializeActivity(a, userId);
+    out.progress = progress.get(a.id) || null;
+    return out;
+  }));
 });
 
 // Crée une nouvelle activité PERSONNELLE : son créateur en est le

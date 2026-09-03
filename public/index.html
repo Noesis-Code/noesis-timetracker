@@ -860,7 +860,13 @@
              Aucun id ni aucune classe existante n'a changé : seul un div
              englobant a été ajouté. -->
         <div id="communityActivityMembersPart">
-        <p class="sectionTitle">Statistiques et activités des membres <span id="communityActivityDetailName" class="meta"></span></p>
+        <!-- ⚠️ 3 septembre 2026 (Activité — général) : le nom de l'activité
+             était répété ici, en petit, à la suite du titre de section. Il est
+             désormais écrit en gros dans l'en-tête de la page, juste au-dessus
+             — le répéter deux fois à trois centimètres d'intervalle n'apprend
+             rien. Le <span id="communityActivityDetailName"> a donc été retiré,
+             ainsi que la ligne de loadActivityDetail qui le remplissait. -->
+        <p class="sectionTitle">Statistiques et activités des membres</p>
 
         <!-- Mêmes trois sections (Feuille de temps / Répartition / Graphique)
              que l'onglet Statistiques, même fonctionnement (période, plein
@@ -1657,6 +1663,62 @@
           <p id="viewProfilePostsLockedHint" class="hint hidden">Suis ce profil pour voir ses messages.</p>
         </div>
         </div><!-- fin de #viewProfileScroll -->
+      </div>
+    </div>
+
+    <!-- ===================== PAGE D'UNE ACTIVITÉ =====================
+         3 septembre 2026, discussion "Activité — général". Demande d'Emilien :
+         « lorsque je clique sur l'activité, cela m'amène automatiquement sur
+         une nouvelle page. Le nom de l'activité doit être inscrit en haut en
+         gros. Sous le nom, on me propose d'accéder à trois sections. »
+         Et, sur la façon d'ouvrir : « de la même manière que les profils
+         utilisateurs » — d'où la reprise stricte du motif de
+         #viewProfileModal juste au-dessus (même classe .communityMembersModal,
+         même en-tête fixe hors du défilement, même zone défilante).
+
+         ⚠️ Placée ICI, hors de toute section .tab, pour exactement la même
+         raison que #viewProfileModal : une section .tab reçoit .hidden
+         (display:none) dès qu'on change d'onglet, ce qui masquerait aussi
+         cette page.
+
+         ⚠️ #activityPageBody est VOLONTAIREMENT VIDE dans ce fichier. C'est le
+         nœud #communityActivityDetail — resté déclaré dans #tab-activity —
+         qui vient s'y loger à l'exécution (attachActivityDetail). Ne rien y
+         écrire en dur : le contenu serait poussé hors de vue au premier
+         déplacement. Les trois sections du sélecteur sont les trois parties
+         déjà existantes de ce nœud, simplement affichées l'une après l'autre :
+           · Sous-projets  -> #activitySubProjectsBlock (+ #subProjectDetailAnchor)
+           · Statistiques  -> #communityActivityMembersPart
+           · Discussion    -> #communityDiscussionBlock
+         Aucune des trois n'est reconstruite ni déplacée individuellement :
+         c'est ce qui permet de ne rien casser chez "Sous-projets" ni dans les
+         statistiques par activité.
+
+         ⚠️ Le sélecteur est masqué en entier pour une activité NON partagée :
+         elle n'a ni statistiques (personne à comparer) ni fil (personne à qui
+         parler), donc une seule section — un sélecteur à un seul bouton est du
+         bruit. -->
+    <div id="activityPage" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="activityPageHeader">
+          <span class="dot" id="activityPageDot"></span>
+          <span class="activityPageName" id="activityPageName"></span>
+          <button type="button" class="menuBtn" id="activityPageMenuBtn" aria-label="Réglages de l'activité" title="Réglages de l'activité">☰</button>
+          <button type="button" class="menuBtn" id="activityPageClose" aria-label="Fermer">✕</button>
+        </div>
+        <div id="activityPageScroll">
+          <!-- Réglages de l'activité (nom, couleur, Enregistrer, Partager,
+               Séparer, Fusionner, Voir les membres, Supprimer). Construits à la
+               demande par buildActivitySettingsPanel() — le même code qui les
+               construisait dans le "⋮" de chaque ligne avant ce passage. -->
+          <div id="activityPageMenuPanel" class="hidden"></div>
+          <div class="periodSwitch" id="activityPageSectionSwitch">
+            <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Sous-projets</button>
+            <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
+            <button type="button" class="periodBtn" id="activityPageTabDisc" data-section="disc">Discussion</button>
+          </div>
+          <div id="activityPageBody"></div>
+        </div>
       </div>
     </div>
 

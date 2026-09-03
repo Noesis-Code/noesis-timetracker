@@ -265,7 +265,16 @@ input[type=time]:focus, select:focus, textarea:focus {
 #content { flex: 1; padding: 18px 5%; max-width: 640px; margin: 0 auto; width: 100%; }
 
 .tabbar {
-  position: fixed; bottom: 0; left: 0; right: 0; display: flex;
+  /* 3 septembre 2026 (Design) : bottom: 0 seul s'ancre au bas du viewport
+     de mise en page — quand le clavier virtuel est ouvert dans certains
+     contextes, la barre restait "collée" à ce bas-là plutôt qu'au bord
+     réellement visible juste au-dessus du clavier, donnant l'impression de
+     flotter au milieu de l'écran (signalé par Emilien sur la description
+     d'un sous-projet). --keyboard-inset est mesurée en JS via l'API
+     VisualViewport (voir app.js, près de syncTopbarHeightVar) et vaut 0px
+     clavier fermé — bottom: 0 inchangé dans ce cas, comportement identique
+     à avant ce correctif. */
+  position: fixed; bottom: var(--keyboard-inset, 0px); left: 0; right: 0; display: flex;
   background: var(--card); border-top: 1px solid var(--border);
   box-shadow: var(--shadow-tabbar);
   padding: 6px 0 max(6px, env(safe-area-inset-bottom)); z-index: 10;
@@ -1634,6 +1643,58 @@ button { -webkit-user-select: none; user-select: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 #viewProfileModalClose { flex-shrink: 0; }
+
+/* ===== PAGE D'UNE ACTIVITÉ (3 septembre 2026, Activité — général) =====
+   Reprise stricte du motif de #viewProfileModal juste au-dessus, à la demande
+   d'Emilien (« que la discussion s'ouvre de la même manière que les profils
+   utilisateurs ») : en-tête fixe hors du défilement, corps défilant seul.
+   ⚠️ Comme pour la page de visite, les deux premières règles sont portées par
+   `#activityPage ...` et NON par `.communityMembersModalCard` seule : cette
+   classe est partagée avec #communityMembersModal (zone Communauté), qui doit
+   garder son comportement d'origine — carte entièrement défilante. */
+/* ⚠️ Une PAGE, pas une feuille qui remonte du bas. .communityMembersModal
+   aligne ses cartes en `flex-end` avec `max-height: 80vh` — parfait pour une
+   modale, mais ça plaçait le nom de l'activité aux deux tiers de l'écran,
+   alors qu'Emilien l'a demandé « inscrit en haut ». On garde donc le
+   MÉCANISME de #viewProfileModal (superposition déclarée hors des sections
+   .tab, seule façon de survivre à un changement d'onglet) et on change son
+   APPARENCE : pleine hauteur, pas de coins arrondis, fond opaque — la liste
+   ne transparaît plus derrière, on est passé à une autre page.
+   Sur écran large, la carte reste une colonne centrée de 480px comme le
+   reste de l'app ; sur téléphone elle occupe tout l'écran. */
+#activityPage { align-items: stretch; background: var(--bg); }
+#activityPage .communityMembersModalCard {
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  height: 100%; max-height: 100%;
+  border-radius: 0; box-shadow: none;
+}
+#activityPageScroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
+  /* Le rebond de cette zone ne se propage pas à la page derrière. */
+  overscroll-behavior: contain;
+}
+.activityPageHeader {
+  display: flex; align-items: center; gap: 10px;
+  flex: 0 0 auto;
+  background: var(--bg);
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+/* « Le nom de l'activité doit être inscrit en haut en gros » (Emilien).
+   Il occupe toute la place restante et se tronque plutôt que de pousser les
+   deux boutons hors de la ligne — un nom long sur un téléphone étroit. */
+.activityPageName {
+  flex: 1; min-width: 0;
+  font-size: 22px; font-weight: 700; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.activityPageHeader .dot { flex-shrink: 0; }
+#activityPageMenuBtn, #activityPageClose { flex-shrink: 0; }
+/* Le premier titre de section de la zone défilante n'a pas besoin de la marge
+   haute qui sert à séparer deux sections l'une de l'autre — même ajustement
+   que #viewProfileScroll > .sectionTitle ci-dessus. */
+#activityPageBody > div > .sectionTitle:first-child { margin-top: 4px; }
+
 .viewProfileAvatar {
   flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
