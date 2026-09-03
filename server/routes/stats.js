@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser } = require('../lib/stats');
+const { isoDateOf } = require('../lib/dates');
 
 const router = express.Router();
 
@@ -118,6 +119,40 @@ router.get('/stats/timesheet', (req, res) => {
   }
 
   res.json(Object.assign({ period }, withBreakdown(userId, timesheetForUser(userId, isNaN(weekOffset) ? 0 : weekOffset))));
+});
+
+// Répartition en mode "Aujourd'hui" — 3 septembre 2026, demande d'Emilien :
+// un bouton qui DÉSYNCHRONISE le camembert de la Feuille de temps pour
+// n'afficher que la journée en cours (00h00 → 23h59), et qui le
+// resynchronise au second clic.
+//
+// Route dédiée plutôt qu'un paramètre ajouté ailleurs : GET /stats/timesheet
+// appartient à la Feuille de temps (le champ `breakdown` y est déjà un
+// débordement signalé) et GET /stats appartient au Graphique depuis le
+// 1er septembre. Celle-ci est entièrement à la Répartition, ce qui évite
+// d'élargir encore une zone partagée pour un mode qui ne concerne qu'elle.
+//
+// La journée est calculée SERVEUR (isoDateOf sur l'heure du process, fixée à
+// America/Toronto par server/index.js) et non envoyée par le client : c'est
+// la même horloge que celle qui a écrit `isoDate` sur chaque entrée, donc le
+// même "aujourd'hui" que partout ailleurs dans l'app, quel que soit le
+// réglage du téléphone.
+//
+// Même fonction de calcul que le mode synchronisé (breakdownForRange, sur une
+// plage d'un seul jour) : les totaux d'"Aujourd'hui" et ceux de la colonne du
+// jour dans la grille viennent donc exactement de la même règle — y compris
+// sur le point délicat des sessions à cheval sur minuit, rattachées au jour
+// où elles ont DÉMARRÉ, comme la grille les dessine.
+router.get('/stats/today', (req, res) => {
+  const userId = req.query.userId;
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  const today = isoDateOf(new Date());
+  // Forme volontairement identique à celle de GET /stats/timesheet ({ label,
+  // breakdown }) pour que le client repeigne le camembert par le même chemin,
+  // sans code de rendu en double.
+  res.json({ day: today, label: "Aujourd'hui", breakdown: breakdownForRange(userId, today, today) });
 });
 
 module.exports = router;

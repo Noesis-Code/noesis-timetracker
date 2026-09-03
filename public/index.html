@@ -434,10 +434,18 @@
            (champ `breakdown` de GET /stats/timesheet), ce qui les rend
            structurellement impossibles à désynchroniser. #statsLabel reprend
            donc le libellé de la fenêtre affichée, plus une période à lui.
-           Toujours visible, cette section n'ayant pas de plein écran. -->
+           Toujours visible, cette section n'ayant pas de plein écran.
+           3 septembre 2026, demande d'Emilien : le bouton #statsPieTodayBtn
+           ci-dessous DÉSYNCHRONISE ponctuellement le camembert de la grille
+           pour n'afficher que la journée en cours (00h00 → 23h59) ; un second
+           clic le resynchronise, quelle que soit la période de la Feuille de
+           temps. La synchronisation reste le comportement PAR DÉFAUT : le
+           mode "Aujourd'hui" est toujours abandonné en quittant l'onglet
+           Statistiques (voir switchTab dans app.js). -->
       <div id="statsPieBlock" class="statsSection">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Répartition</p>
+          <button id="statsPieTodayBtn" type="button" class="iconBtn" aria-pressed="false">Aujourd'hui</button>
         </div>
         <div class="statsSummary">
           <p class="statsLabel" id="statsLabel"></p>
@@ -541,14 +549,30 @@
            "Suivi" (en lecture seule pour ce qu'on y voit des autres). -->
       <!-- id dédié (communitySearchBar) plutôt que de s'appuyer seulement sur
            la classe .entryCard (Design, réutilisée par des formulaires
-           ailleurs dans l'app) : sert de conteneur ciblable par les filtres
-           de découverte de membres décrits juste en dessous. A porté une
-           règle position: sticky (2 septembre 2026, demande d'Emilien :
-           « quand on défile vers le bas, la recherche de pseudo se bloque
-           en haut et reste en tout temps visible »), retirée le même jour
-           sur nouvelle demande d'Emilien (« que la section recherche un
-           pseudo ne soit pas flottante du tout, afin de donner un fini
-           plus propre ») — la barre défile normalement avec la page. -->
+           ailleurs dans l'app). Position: sticky (styles.css) allée-venue
+           trois fois le 2 septembre 2026 au gré des demandes d'Emilien sur
+           ce même point (posée, retirée, reposée une troisième fois : « la
+           zone de recherche [...] reste fixe et les autres données passent
+           en dessous »). ⚠️ Restructuration nécessaire à cette troisième
+           pose, découverte en la testant : quand #communitySearchResults
+           vivait DANS #communitySearchBar (comme aux deux poses
+           précédentes), la liste de découverte (jusqu'à 25+ profils) rendait
+           la boîte sticky elle-même très haute, et CSS ne peut garder collé
+           un élément sticky que dans la limite de ce qui reste de son bloc
+           englobant après lui — avec si peu de contenu après un bloc aussi
+           haut, il se décollait au bout de 100-200px de défilement au lieu
+           de rester fixe. #communitySearchBar ne contient donc plus QUE le
+           champ de recherche et les filtres (petit, hauteur stable) ; les
+           résultats/la découverte sont désormais des frères juste en
+           dessous, dans le flux normal — exactement ce qu'Emilien a demandé
+           en le formulant lui-même ("les autres données passent en
+           dessous"), et ce qui rend le collage fiable quel que soit le
+           nombre de résultats. Aucun sélecteur JS ne dépendait de
+           l'imbrication (tous via $('id')) : rien d'autre n'a changé. -->
+      <div class="entryCard" id="communitySearchBar">
+        <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo, un projet, un secteur..." autocomplete="off">
+        <div class="seekingTagPicker" id="communitySeekingFilters"></div>
+      </div>
       <!-- Découverte de membres (2 septembre 2026, demande d'Emilien :
            « perfectionner la découverte [...] des profils des autres
            utilisateurs »). Trois changements dans ce même bloc :
@@ -558,22 +582,21 @@
              seulement par un pseudo qu'il faut déjà connaître ;
            - des filtres "Recherche" (partenaires / clients / financement,
              les mêmes tags que les projets) permettent de ne garder que les
-             profils qui cherchent quelque chose de précis ;
+             profils qui cherchent quelque chose de précis (filtres restés
+             DANS #communitySearchBar ci-dessus, avec le champ de saisie) ;
            - à l'ouverture de l'onglet, sans rien taper, une sélection de
              profils à découvrir s'affiche (ceux qui ont des projets
              d'abord, puis les inscriptions les plus récentes) — l'onglet ne
              s'ouvre plus sur un champ vide et rien d'autre.
            Voir GET /api/users/search (server/routes/follows.js), qui porte
            les trois d'un seul tenant, et loadCommunityDiscovery dans app.js.
-           Les filtres et le message d'exploration sont volontairement DANS
-           #communitySearchBar : ils font partie du même bloc "recherche"
-           que le champ de saisie. -->
-      <div class="entryCard" id="communitySearchBar">
-        <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo, un projet, un secteur..." autocomplete="off">
-        <div class="seekingTagPicker" id="communitySeekingFilters"></div>
-        <p id="communityDiscoverHint" class="hint hidden">Quelques profils à découvrir.</p>
-        <div id="communitySearchResults" class="activitiesList"></div>
-      </div>
+           ⚠️ 2 septembre 2026, troisième pose du sticky (Communauté) : le
+           message d'exploration et les résultats ont quitté
+           #communitySearchBar pour devenir des frères juste en dessous —
+           voir la note au-dessus. Comportement/rendu identiques, seul
+           l'emboîtement DOM a changé. -->
+      <p id="communityDiscoverHint" class="hint hidden">Quelques profils à découvrir.</p>
+      <div id="communitySearchResults" class="activitiesList"></div>
 
       <!-- Zone "écrire à sa communauté", identique à #profileDiscussionBlock
            (même composeur texte + pièces jointes, même donnée profile_posts)
@@ -772,6 +795,37 @@
            aucune n'est déclenchée par défaut. Réutilise le motif de modale
            déjà en place (.communityMembersModal*), qui sert aussi à la liste
            des membres et à la fiche d'un membre. -->
+      <!-- Fusion de deux de mes activités (2 septembre 2026, demande
+           d'Emilien). Deux temps dans la même boîte : d'abord le choix de
+           l'autre activité (#mergeActivityList), puis un récapitulatif qui
+           dit dans quel sens la fusion se fera et ce qui sera déplacé
+           (#mergeActivityConfirm) — le sens n'est pas toujours celui par
+           lequel on est parti : une activité partagée ne disparaît jamais,
+           c'est elle qui recueille les enregistrements de l'autre. -->
+      <div id="mergeActivityModal" class="communityMembersModal hidden">
+        <div class="communityMembersModalCard">
+          <div class="communityMembersModalHeader">
+            <p class="sectionTitle" id="mergeActivityModalTitle"></p>
+            <button type="button" class="menuBtn" id="mergeActivityModalClose" aria-label="Fermer">✕</button>
+          </div>
+
+          <div id="mergeActivityStepPick">
+            <p class="hint">Les enregistrements des deux activités seront additionnés. Une activité partagée avec d'autres personnes ne disparaît jamais : c'est elle qui recueille les enregistrements de l'autre.</p>
+            <div id="mergeActivityList" class="activitiesList"></div>
+          </div>
+
+          <div id="mergeActivityStepConfirm" class="hidden">
+            <p id="mergeActivitySummary"></p>
+            <div class="rowActions deleteActivityChoices">
+              <button type="button" id="mergeActivityConfirmBtn" class="iconBtn">Fusionner</button>
+              <button type="button" id="mergeActivityBackBtn" class="iconBtn">Choisir une autre activité</button>
+            </div>
+          </div>
+
+          <p id="mergeActivityMsg" class="msg"></p>
+        </div>
+      </div>
+
       <div id="deleteActivityModal" class="communityMembersModal hidden">
         <div class="communityMembersModalCard">
           <div class="communityMembersModalHeader">

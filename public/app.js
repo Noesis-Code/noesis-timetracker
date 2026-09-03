@@ -13,6 +13,15 @@
   // (currentPiePeriod retirée le 1er septembre 2026 : la Répartition n'a plus
   // de période à elle, elle suit celle de la Feuille de temps ci-dessous —
   // voir renderPieFromTimesheet.)
+  // Mode "Aujourd'hui" de la Répartition (3 septembre 2026) : quand il est
+  // actif, le camembert est DÉSYNCHRONISÉ de la Feuille de temps et n'affiche
+  // que la journée en cours. Toujours false par défaut, et systématiquement
+  // remis à false à chaque ouverture de l'onglet Statistiques (voir
+  // switchTab) — la synchronisation reste le comportement normal.
+  var pieTodayMode = false;
+  // Dernière réponse de la Feuille de temps, gardée pour pouvoir
+  // resynchroniser le camembert instantanément au second clic, sans refetch.
+  var lastTimesheetPieData = null;
   // Graphique : plus de "période" au sens plage depuis le 1er septembre 2026
   // (demande d'Emilien) — le Graphique couvre toujours tout l'historique
   // (voir totalRangeForUser côté serveur), seule la granularité des points
@@ -755,6 +764,15 @@
       currentTimesheetOffset = 0;
       currentTimesheetMonthOffset = 0;
       syncPeriodMenuActive($('tsPeriodMenu'), 'week');
+      // La Répartition repart toujours SYNCHRONISÉE sur la Feuille de temps
+      // (3 septembre 2026, demande d'Emilien : « je souhaite que la
+      // répartition soit par défaut synchronisée à la feuille de temps »).
+      // Remis à zéro à l'ENTRÉE dans l'onglet plutôt qu'à la sortie : même
+      // résultat observable, mais ça couvre aussi le tout premier affichage
+      // et une réouverture de l'app directement sur cet onglet. Pas de
+      // repeinture ici — loadTimesheet() juste en dessous s'en charge.
+      pieTodayMode = false;
+      syncPieTodayBtn();
       loadTimesheet();
     }
     else {
@@ -1346,12 +1364,56 @@
   // réponse), une requête HTTP de moins, et un camembert qui se remet à jour
   // tout seul à chaque changement de période ou de flèche ‹ › de la grille,
   // sans avoir à s'abonner à quoi que ce soit.
-  function renderPieFromTimesheet(data) {
+  // Peinture du camembert à partir d'un objet { label, breakdown }. Les deux
+  // sources ont volontairement la même forme : la réponse de
+  // GET /stats/timesheet (mode synchronisé) et celle de GET /stats/today
+  // (mode "Aujourd'hui") — un seul chemin de rendu, pas de code en double.
+  function renderPieBreakdown(data) {
     var breakdown = (data && data.breakdown) || { totalSeconds: 0, activities: [] };
     $('statsLabel').textContent = data && data.label ? t(data.label) : '';
     $('statsTotal').textContent = formatHM(breakdown.totalSeconds);
     renderPie(breakdown.activities || [], breakdown.totalSeconds);
   }
+
+  function renderPieFromTimesheet(data) {
+    // Mémorisée même en mode "Aujourd'hui" : c'est ce qui permet de
+    // resynchroniser instantanément au second clic, sans redemander au
+    // serveur une réponse qu'on a déjà.
+    lastTimesheetPieData = data;
+    // Désynchronisé : la grille continue de se rafraîchir normalement, elle
+    // ne pilote simplement plus le camembert tant que le mode est actif.
+    if (pieTodayMode) return;
+    renderPieBreakdown(data);
+  }
+
+  // ----- Bouton "Aujourd'hui" (3 septembre 2026, demande d'Emilien) -----
+  function syncPieTodayBtn() {
+    var btn = $('statsPieTodayBtn');
+    if (!btn) return;
+    btn.classList.toggle('active', pieTodayMode);
+    btn.setAttribute('aria-pressed', pieTodayMode ? 'true' : 'false');
+  }
+
+  function loadPieToday() {
+    if (!profile) return;
+    api('GET', '/api/stats/today?userId=' + profile.id).then(function (data) {
+      // L'utilisateur a pu re-cliquer (ou quitter l'onglet) pendant la
+      // requête : ne rien peindre si le mode n'est plus actif, sinon une
+      // réponse tardive écraserait le camembert resynchronisé.
+      if (!pieTodayMode) return;
+      renderPieBreakdown(data);
+    });
+  }
+
+  function setPieTodayMode(on) {
+    pieTodayMode = !!on;
+    syncPieTodayBtn();
+    if (pieTodayMode) loadPieToday();
+    else if (lastTimesheetPieData) renderPieBreakdown(lastTimesheetPieData);
+    else loadTimesheet(); // resynchronisation avant toute réponse de la grille
+  }
+
+  $('statsPieTodayBtn').addEventListener('click', function () { setPieTodayMode(!pieTodayMode); });
 
   function loadChartStats() {
     if (!profile) return;
@@ -4448,9 +4510,10 @@
 
     // Le contenu de la modale peut être long (projets + deux graphiques +
     // messages) : on la rouvre toujours en haut, jamais là où le défilement
-    // du profil précédent s'était arrêté.
-    var card = $('viewProfileModal').querySelector('.communityMembersModalCard');
-    if (card) card.scrollTop = 0;
+    // du profil précédent s'était arrêté. ⚠️ C'est #viewProfileScroll qui
+    // défile, plus la carte elle-même, depuis que l'en-tête d'identité a été
+    // sorti du défilement (voir styles.css).
+    $('viewProfileScroll').scrollTop = 0;
 
     $('viewProfileModal').classList.remove('hidden');
 
@@ -5224,6 +5287,11 @@
 
     // Détaché avant le vidage de la liste : sans ça, le bloc de détail serait
     // détruit avec elle (voir detachActivityDetail).
+    // Mémorisé pour la boîte de fusion, qui doit proposer les AUTRES
+    // activités et savoir lesquelles sont partagées.
+    lastRenderedActivities = acts;
+    lastRenderedShared = shared;
+
     detachActivityDetail();
     var detailAttached = false;
     box.innerHTML = '';
@@ -5355,6 +5423,18 @@
         actionsWrap.appendChild(separateBtn);
       }
 
+      // Fusionner : verser une autre de mes activités dans celle-ci (ou
+      // l'inverse — voir le sens décidé par le serveur). Proposé dès que j'ai
+      // au moins deux activités ; le détail des cas impossibles (deux
+      // activités partagées) est expliqué dans la boîte, pas ici.
+      if (acts.length > 1) {
+        var mergeBtn = document.createElement('button');
+        mergeBtn.className = 'iconBtn';
+        mergeBtn.textContent = t('Fusionner');
+        mergeBtn.addEventListener('click', function () { openMergeActivityModal(a); });
+        actionsWrap.appendChild(mergeBtn);
+      }
+
       // "Voir les membres" : la liste complète des membres de l'activité, avec
       // un point vert sur ceux dont le chrono tourne en ce moment sur CETTE
       // activité. Rangé ici plutôt que dans un second menu déroulant (il y en
@@ -5416,6 +5496,150 @@
     // toujours être rattaché quelque part à la fin.
     if (!detailAttached) attachActivityDetail(null);
   }
+
+  // ===================== FUSION DE DEUX ACTIVITÉS =====================
+  // Verser une de mes activités dans une autre : les enregistrements des deux
+  // s'additionnent. Possible seulement si au moins une des deux n'est
+  // partagée avec personne (règle posée par Emilien) — et si l'une des deux
+  // est partagée, c'est toujours ELLE qui reste, quel que soit le bouton par
+  // lequel on est parti. Le serveur applique cette règle de son côté
+  // (POST /api/activities/:id/merge) ; ici on l'explique avant d'agir, pour
+  // que le sens de la fusion ne soit jamais une surprise.
+  var lastRenderedActivities = [];
+  var lastRenderedShared = {};
+  var mergeFromActivity = null;   // celle dont on a ouvert le "⋮"
+  var mergeOtherActivity = null;  // celle choisie dans la liste
+
+  function isSharedActivity(activity) {
+    return !!lastRenderedShared[String(activity.id)] || activity.membersCount > 1;
+  }
+
+  function openMergeActivityModal(activity) {
+    mergeFromActivity = activity;
+    mergeOtherActivity = null;
+    $('mergeActivityModalTitle').textContent =
+      t('Fusionner « {activity} » avec…', { activity: activity.name });
+    $('mergeActivityMsg').textContent = '';
+    showMergeStep('pick');
+    renderMergeCandidates();
+    $('mergeActivityModal').classList.remove('hidden');
+  }
+
+  function closeMergeActivityModal() {
+    mergeFromActivity = null;
+    mergeOtherActivity = null;
+    $('mergeActivityModal').classList.add('hidden');
+  }
+
+  function showMergeStep(step) {
+    $('mergeActivityStepPick').classList.toggle('hidden', step !== 'pick');
+    $('mergeActivityStepConfirm').classList.toggle('hidden', step !== 'confirm');
+  }
+
+  function renderMergeCandidates() {
+    var box = $('mergeActivityList');
+    box.innerHTML = '';
+    var fromShared = isSharedActivity(mergeFromActivity);
+
+    lastRenderedActivities.forEach(function (other) {
+      if (String(other.id) === String(mergeFromActivity.id)) return;
+
+      var otherShared = isSharedActivity(other);
+      var blocked = fromShared && otherShared; // les deux partagées : refusé
+
+      var row = document.createElement('div');
+      row.className = 'activityRow' + (blocked ? ' inactive' : '');
+
+      var header = document.createElement('div');
+      header.className = 'activityRowHeader' + (blocked ? '' : ' clickable');
+
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = other.color;
+      header.appendChild(dot);
+
+      var name = document.createElement('span');
+      name.className = 'activityRowName';
+      name.textContent = other.name;
+      header.appendChild(name);
+
+      row.appendChild(header);
+
+      if (blocked) {
+        var why = document.createElement('p');
+        why.className = 'meta';
+        why.textContent = t('Partagée elle aussi — impossible de fusionner deux activités partagées.');
+        row.appendChild(why);
+      } else {
+        header.addEventListener('click', function () { pickMergeCandidate(other); });
+      }
+
+      box.appendChild(row);
+    });
+
+    if (!box.children.length) {
+      var empty = document.createElement('p');
+      empty.className = 'meta';
+      empty.textContent = t('Aucune autre activité à fusionner avec celle-ci.');
+      box.appendChild(empty);
+    }
+  }
+
+  // Récapitulatif : le sens réel de la fusion est calculé ici avec la même
+  // règle que le serveur, pour qu'il soit annoncé AVANT de cliquer.
+  function pickMergeCandidate(other) {
+    mergeOtherActivity = other;
+    var from = mergeFromActivity;
+    var kept = isSharedActivity(from) ? from : isSharedActivity(other) ? other : other;
+    var removed = kept === from ? other : from;
+
+    $('mergeActivitySummary').textContent = t(
+      '« {removed} » disparaîtra et ses enregistrements seront ajoutés à « {kept} », qui garde son nom et sa couleur.',
+      { removed: removed.name, kept: kept.name });
+    $('mergeActivityMsg').textContent = '';
+    showMergeStep('confirm');
+  }
+
+  function confirmMergeActivities() {
+    if (!mergeFromActivity || !mergeOtherActivity) return;
+    var from = mergeFromActivity;
+    var other = mergeOtherActivity;
+    // On envoie toujours l'autre comme destination souhaitée ; si l'une des
+    // deux est partagée, le serveur redresse le sens de lui-même.
+    var into = isSharedActivity(from) ? from.id : other.id;
+    var startId = String(into) === String(from.id) ? other.id : from.id;
+
+    $('mergeActivityConfirmBtn').disabled = true;
+    $('mergeActivityMsg').textContent = '';
+    api('POST', '/api/activities/' + startId + '/merge', { userId: profile.id, intoActivityId: into })
+      .then(function (res) {
+        // La boîte reste ouverte sur le résultat plutôt que de disparaître :
+        // c'est la seule trace de ce qui vient d'être déplacé, et l'app n'a
+        // pas de message flottant global. On la referme par "✕" ou par le
+        // fond, comme les autres.
+        mergeFromActivity = null;
+        mergeOtherActivity = null;
+        showMergeStep('done');
+        $('mergeActivityMsg').textContent = t(res.message);
+        refreshActivities().then(renderActivityGrid);
+        loadSettingsActivities();
+      })
+      .catch(function (err) {
+        $('mergeActivityMsg').textContent = err.message;
+      })
+      .finally(function () { $('mergeActivityConfirmBtn').disabled = false; });
+  }
+
+  $('mergeActivityConfirmBtn').addEventListener('click', confirmMergeActivities);
+  $('mergeActivityBackBtn').addEventListener('click', function () {
+    mergeOtherActivity = null;
+    $('mergeActivityMsg').textContent = '';
+    showMergeStep('pick');
+  });
+  $('mergeActivityModalClose').addEventListener('click', closeMergeActivityModal);
+  $('mergeActivityModal').addEventListener('click', function (e) {
+    if (e.target === this) closeMergeActivityModal();
+  });
 
   // ===================== SUPPRESSION D'UNE ACTIVITÉ =====================
   // Deux confirm() natifs enchaînés posaient la question en "OK / Annuler" :

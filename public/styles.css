@@ -572,6 +572,13 @@ textarea {
 @media (hover: hover) {
   .periodBtn:hover:not(.active) { background: var(--hover-bg); }
 }
+/* Bouton "Aujourd'hui" de la Répartition (3 septembre 2026) : bascule qui
+   désynchronise le camembert de la Feuille de temps. Reprend .iconBtn tel
+   quel (classe générique de Design, non modifiée) et n'ajoute que l'état
+   "actif", calqué à l'identique sur .periodBtn.active plus haut — même
+   convention visuelle de bascule enfoncée que le reste de l'app. */
+#statsPieTodayBtn.active { background: var(--purple); color: white; border-color: var(--purple); }
+
 .statsSummary { text-align: center; margin-bottom: 18px; }
 .statsLabel { color: var(--text-light); margin: 0; font-size: 13px; }
 .statsTotal { font-size: 32px; font-weight: 800; margin: 4px 0; color: var(--purple); letter-spacing: -0.4px; }
@@ -1288,13 +1295,21 @@ body.scrollLock { overflow: hidden; }
    index.html) a été rendue sticky le 2 septembre 2026, puis Emilien est
    revenu sur ce choix le même jour (« je souhaite que la section recherche
    un pseudo ne soit pas flottante du tout, afin de donner un fini plus
-   propre ») : plus aucune règle de positionnement ici, la barre défile
-   normalement avec le reste de la page comme avant. La variable --topbar-h
-   et la fonction JS qui la posait (syncCommunitySearchStickyOffset,
-   app.js) ont été retirées avec elle, n'ayant plus d'utilité. L'id
-   #communitySearchBar lui-même est conservé (voir index.html) : il sert
-   aussi de conteneur aux filtres de découverte de membres ajoutés le même
-   jour, sans lien avec le positionnement. */
+   propre »), avant de redemander le comportement fixe une troisième fois le
+   même jour (« lorsque je fais défiler vers le bas, la zone de recherche
+   [...] reste fixe et les autres données passent en dessous ») — sticky
+   remis, cette fois sans code JS dédié : entre-temps, Design a rendu .topbar
+   elle-même position: fixed et pose déjà --topbar-h globalement
+   (syncTopbarHeightVar(), app.js, appelée à l'ouverture de l'app et sur
+   resize/orientationchange) pour le padding-top de #app — cette variable,
+   toujours fraîche, est simplement réutilisée ici telle quelle plutôt que
+   dupliquée. z-index sous celui de .topbar (10) pour ne jamais passer
+   par-dessus elle. */
+#communitySearchBar {
+  position: sticky;
+  top: var(--topbar-h, 56px);
+  z-index: 5;
+}
 
 /* Pastille de messages non lus sur une ligne d'activité partagée. Poussée à
    droite comme .memberLiveDot ci-dessus (toutes deux dans un

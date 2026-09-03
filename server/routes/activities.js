@@ -244,6 +244,114 @@ router.post('/activities/:id/separate', (req, res) => {
   });
 });
  
+// Fusionne DEUX de mes activités en une seule (2 septembre 2026, demande
+// d'Emilien). Les enregistrements de celle qui disparaît sont ajoutés à celle
+// qui reste : les temps s'additionnent, rien n'est perdu.
+//
+// Règle posée par Emilien : la fusion n'est possible que si AU MOINS UNE des
+// deux n'est partagée avec personne. Deux activités partagées ne peuvent pas
+// fusionner — chacune a ses propres membres, son historique collectif et sa
+// discussion, et les fusionner déciderait à la place des autres.
+//
+// Sens de la fusion, dans cet ordre :
+//   1. si exactement une des deux est partagée, c'est ELLE qui reste, quel
+//      que soit le bouton par lequel on est parti — elle garde son nom, sa
+//      couleur, ses membres, sa discussion, et ne fait que recueillir les
+//      enregistrements de l'autre (demande explicite d'Emilien) ;
+//   2. sinon (les deux sont personnelles), celle qui reste est celle que
+//      l'appelant a désignée dans `intoActivityId`.
+//
+// Conséquence utile : l'activité qui DISPARAÎT est toujours une activité dont
+// l'appelant est le seul membre. Il n'y a donc jamais de transfert de
+// propriété ni d'autre membre à prévenir, contrairement à "Séparer" ou
+// "Supprimer définitivement".
+router.post('/activities/:id/merge', (req, res) => {
+  const userId = req.body.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+
+  const intoId = req.body.intoActivityId;
+  if (!intoId) return res.status(400).json({ error: 'intoActivityId requis.' });
+  if (String(intoId) === String(req.params.id)) {
+    return res.status(400).json({ error: 'Choisis deux activités différentes.' });
+  }
+
+  const a = db.prepare('SELECT * FROM activities WHERE id = ?').get(req.params.id);
+  const b = db.prepare('SELECT * FROM activities WHERE id = ?').get(intoId);
+  if (!a || !b) return res.status(404).json({ error: 'Activité introuvable.' });
+
+  // Appartenance exigée sur les DEUX : on ne fusionne que ses propres
+  // activités, jamais celles de quelqu'un d'autre.
+  const memberA = db.prepare('SELECT * FROM activity_members WHERE activityId = ? AND userId = ?').get(a.id, userId);
+  const memberB = db.prepare('SELECT * FROM activity_members WHERE activityId = ? AND userId = ?').get(b.id, userId);
+  if (!memberA || !memberB) {
+    return res.status(403).json({ error: "Tu ne fais pas partie de ces deux activités." });
+  }
+
+  const sharedA = membershipCount(a.id) > 1;
+  const sharedB = membershipCount(b.id) > 1;
+  if (sharedA && sharedB) {
+    return res.status(409).json({
+      error: "Ces deux activités sont partagées avec d'autres personnes. Il faut qu'au moins une des deux soit personnelle pour pouvoir les fusionner.",
+    });
+  }
+
+  // Une activité partagée ne disparaît jamais : c'est elle qui recueille.
+  const target = sharedA ? a : sharedB ? b : (String(b.id) === String(intoId) ? b : a);
+  const source = target.id === a.id ? b : a;
+
+  // Un chrono en cours sur l'une ou l'autre bloque : la session en cours
+  // pointe une activité qui peut disparaître au milieu de l'opération.
+  const running = db.prepare(
+    'SELECT activityId FROM running_timers WHERE userId = ? AND activityId IN (?, ?)'
+  ).get(userId, a.id, b.id);
+  if (running) {
+    return res.status(409).json({ error: 'Arrête le chrono en cours avant de fusionner ces activités.' });
+  }
+
+  const movedRow = db.prepare(
+    'SELECT COUNT(*) AS n, COALESCE(SUM(durationSeconds), 0) AS seconds FROM time_entries WHERE activityId = ? AND userId = ?'
+  ).get(source.id, userId);
+
+  db.exec('BEGIN');
+  try {
+    // Les enregistrements de la source rejoignent la cible : c'est ça, la
+    // fusion — les temps des deux activités s'additionnent ensuite
+    // naturellement partout (Chrono, Statistiques, Communauté).
+    db.prepare('UPDATE time_entries SET activityId = ? WHERE activityId = ? AND userId = ?')
+      .run(target.id, source.id, userId);
+
+    db.prepare('DELETE FROM activity_members WHERE activityId = ? AND userId = ?').run(source.id, userId);
+
+    // La source n'avait que moi comme membre (voir l'en-tête) : elle n'a donc
+    // plus aucun membre. Même précaution que DELETE /activities/:id — si de
+    // l'historique la référence encore (celui d'un ancien membre qui avait
+    // gardé le sien), on la masque au lieu de l'effacer, la clé étrangère
+    // time_entries.activityId étant NOT NULL et sans cascade.
+    const stillReferenced = db.prepare('SELECT 1 FROM time_entries WHERE activityId = ? LIMIT 1').get(source.id);
+    if (stillReferenced) {
+      db.prepare('UPDATE activities SET active = 0, deletedAt = ? WHERE id = ?')
+        .run(new Date().toISOString(), source.id);
+    } else {
+      db.prepare('DELETE FROM activities WHERE id = ?').run(source.id);
+    }
+
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+
+  const kept = db.prepare('SELECT * FROM activities WHERE id = ?').get(target.id);
+  res.json({
+    message: `« ${source.name} » a été fusionnée dans « ${target.name} » : ${movedRow.n} enregistrement(s) y ont été ajoutés.`,
+    movedEntries: movedRow.n,
+    movedSeconds: movedRow.seconds,
+    keptName: target.name,
+    removedName: source.name,
+    activity: serializeActivity(kept, userId),
+  });
+});
+
 // Supprime DÉFINITIVEMENT cette activité, mais UNIQUEMENT pour la personne
 // qui appelle : jamais pour les autres membres d'une activité partagée. Au
 // choix (keepHistory), son propre historique déjà enregistré est conservé

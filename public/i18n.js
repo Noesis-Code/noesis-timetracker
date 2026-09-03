@@ -184,6 +184,18 @@
     'Fermer': 'Close',
     "Actions de cette activité": 'Actions for this activity',
     'Voir les membres': 'View members',
+    // ---- Fusion de deux activités (2 septembre 2026) ----
+    'Fusionner': 'Merge',
+    'Fusionner « {activity} » avec…': 'Merge "{activity}" with…',
+    "Les enregistrements des deux activités seront additionnés. Une activité partagée avec d'autres personnes ne disparaît jamais : c'est elle qui recueille les enregistrements de l'autre.": 'The sessions of both activities will be added together. An activity shared with other people never disappears: it is the one that takes in the other\'s sessions.',
+    'Choisir une autre activité': 'Pick another activity',
+    'Partagée elle aussi — impossible de fusionner deux activités partagées.': 'Shared as well — two shared activities cannot be merged.',
+    'Aucune autre activité à fusionner avec celle-ci.': 'No other activity to merge this one with.',
+    '« {removed} » disparaîtra et ses enregistrements seront ajoutés à « {kept} », qui garde son nom et sa couleur.': '"{removed}" will disappear and its sessions will be added to "{kept}", which keeps its name and colour.',
+    'Choisis deux activités différentes.': 'Pick two different activities.',
+    'Tu ne fais pas partie de ces deux activités.': 'You are not part of both of these activities.',
+    "Ces deux activités sont partagées avec d'autres personnes. Il faut qu'au moins une des deux soit personnelle pour pouvoir les fusionner.": 'Both of these activities are shared with other people. At least one of the two must be personal for them to be merged.',
+    'Arrête le chrono en cours avant de fusionner ces activités.': 'Stop the running timer before merging these activities.',
     // ---- Suppression d'une activité (2 septembre 2026) ----
     'Supprimer « {activity} » ?': 'Delete "{activity}"?',
     "Elle disparaîtra de ton Chrono et de ta liste d'activités. Les autres personnes qui la partagent avec toi ne sont pas concernées.": 'It will disappear from your Timer and from your activity list. The other people sharing it with you are not affected.',
@@ -527,6 +539,9 @@
     [/^(.+) fait déjà partie de cette activité\.$/, '$1 is already part of this activity.'],
     [/^(.+) a déjà une invitation en attente pour cette activité\.$/, '$1 already has a pending invitation for this activity.'],
     [/^Invitation envoyée à (.+)\.$/, 'Invitation sent to $1.'],
+    // Fusion de deux activités (server/routes/activities.js, 2 septembre 2026)
+    [/^« (.+) » a été fusionnée dans « (.+) » : (\d+) enregistrement\(s\) y ont été ajoutés\.$/,
+      '"$1" was merged into "$2": $3 session(s) were added to it.'],
     [/^"(.+)" a été séparée : tu as maintenant ta propre activité personnelle, avec ton historique\.$/, '"$1" was split off: you now have your own personal activity, with your history.'],
     [/^Tu suis déjà (.+)\.$/, 'You already follow $1.'],
     [/^Demande envoyée à (.+)\.$/, 'Request sent to $1.'],
