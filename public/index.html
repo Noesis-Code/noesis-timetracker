@@ -1022,7 +1022,7 @@
              Statistiques (préfixe communityActivity/ca) : jamais partagés. -->
         <div id="communityActivityPieBlock" class="statsSection">
           <div class="sectionTitleRow">
-            <p class="sectionTitle">Répartition <span id="caPiePeriodLabel" class="meta"></span></p>
+            <p class="sectionTitle">Répartition</p>
             <!-- Motif "⋮" générique de l'onglet Statistiques (.statsPeriodMenu*),
                  câblé par setupStatsPeriodMenu() — réutilisé tel quel, aucune
                  règle CSS ni aucune ligne de ce helper n'a été modifiée.
@@ -1038,13 +1038,28 @@
               </div>
             </div>
           </div>
+          <!-- ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que
+               l'indication de l'année ou de la semaine ou du mois ou
+               d'aujourd'hui soit affichée comme sur la capture d'écran, comme
+               dans le volet statistique ». Reprise à l'identique de
+               #statsPieBlock : .statsSummary (libellé de période au-dessus,
+               total en gros) entre la ligne de titre et le camembert.
+               Ces deux ids avaient été retirés du HAUT de la section le matin
+               même (« supprimer les heures totales tout en haut, puisqu'elle
+               se trouve déjà dans répartition ») : ils reviennent ici, à
+               l'intérieur du bloc auquel ils appartiennent, et non en tête
+               d'une section qu'ils ne décrivaient qu'en partie. -->
+          <div class="statsSummary">
+            <p class="statsLabel" id="communityActivityStatsLabel"></p>
+            <p class="statsTotal" id="communityActivityStatsTotal"></p>
+          </div>
           <div id="communityActivityPie" class="pieWrap"></div>
           <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
         </div>
 
         <div id="communityActivityChartBlock" class="statsSection">
           <div class="sectionTitleRow">
-            <p class="sectionTitle">Graphique <span id="caChartPeriodLabel" class="meta"></span></p>
+            <p class="sectionTitle">Graphique</p>
             <div class="statsPeriodMenuWrap" id="caChartPeriodWrap">
               <button type="button" class="menuBtn" id="caChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
               <!-- ⚠️ Second passage du 3 septembre : GRANULARITÉ (Jour/Semaine/Mois),

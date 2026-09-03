@@ -3776,10 +3776,14 @@
       // par .statsSummary, retirée à la demande d'Emilien. Il est repris ici,
       // en petit à côté du titre de chaque section : sans lui, plus rien
       // n'indiquerait au repos sur quelle période on regarde.
-      $('caPiePeriodLabel').textContent = t(block.label);
+      // Libellé de période + total, dans le bloc Répartition lui-même
+      // (motif .statsSummary de l'onglet Statistiques). Le total apparaît
+      // donc deux fois — ici en gros et au centre du camembert — exactement
+      // comme dans le volet Statistiques dont Emilien demande la reprise.
+      $('communityActivityStatsLabel').textContent = t(block.label);
+      $('communityActivityStatsTotal').textContent = formatHM(block.totalSeconds);
       renderActivityPie(block.members, block.totalSeconds);
 
-      $('caChartPeriodLabel').textContent = t(data.chartLabel || '');
       lastActivityDailyBreakdown = data.dailyBreakdown || [];
       renderActivityChart(lastActivityDailyBreakdown);
     }).catch(function () {
@@ -4067,6 +4071,19 @@
 
     box.appendChild(svg);
     renderActivityChartLegend(series);
+
+    // ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que graphique
+    // montre par défaut les derniers enregistrements ». Le graphique couvrant
+    // désormais TOUTE l'histoire de l'activité, la vue s'ouvrait sur son
+    // début — c'est-à-dire sur les points les plus anciens, les moins utiles.
+    // On se cale donc sur la fin de la piste après chaque rendu. Repris tel
+    // quel de renderChart (onglet Statistiques), qui le fait depuis le
+    // 1er septembre : simple repositionnement de scrollLeft, aucun mécanisme
+    // de geste ni de zoom.
+    var chartScrollWrap = box.parentElement;
+    if (chartScrollWrap && chartScrollWrap.classList.contains('chartScroll')) {
+      chartScrollWrap.scrollLeft = chartScrollWrap.scrollWidth;
+    }
   }
 
   // ----- Plein écran retiré le 3 septembre 2026 (Activité — général),

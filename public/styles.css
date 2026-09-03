@@ -1346,12 +1346,22 @@ body.scrollLock { overflow: hidden; }
    ne passe jamais sous le bouton. */
 .chatComposerRow { position: relative; }
 .chatComposerRow textarea {
+  /* ⚠️ `display: block` n'est pas cosmétique ici : un textarea est
+     inline-block par défaut, donc son parent réserve sous lui l'espace de
+     descente d'une ligne de texte (~4px). La hauteur de .chatComposerRow
+     dépassait alors celle du textarea, et le bouton centré sur le conteneur
+     tombait 4px trop bas — écart mesuré par le test de position. */
+  display: block;
   width: 100%; box-sizing: border-box;
   padding-right: 92px; min-height: 56px;
   background: var(--card); color: var(--text);
 }
+/* ⚠️ Bouton centré verticalement dans la zone de saisie (demande d'Emilien :
+   « le bouton envoyer [...] centré entre le haut et le bas de la zone
+   texte »). `top: 50%` + translation plutôt que `bottom` : la hauteur du
+   textarea change quand il grandit, un ancrage au bas le collerait au bord. */
 .chatComposerRow .iconBtn {
-  position: absolute; right: 8px; bottom: 8px;
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   padding: 6px 12px;
 }
 .chatComposer .msg { text-align: right; margin-top: 6px; }
