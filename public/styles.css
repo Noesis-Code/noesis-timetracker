@@ -2036,3 +2036,68 @@ button { -webkit-user-select: none; user-select: none; }
   padding-top: 10px;
   border-top: 1px solid var(--border);
 }
+
+/* ----- Sous-projets : espacement, bouton "Ajouter" et son menu déroulant -----
+   3 septembre 2026, demandes d'Emilien : un espace entre deux sous-projets, le
+   bouton "Ajouter" à droite du nom, et un vrai menu déroulant sous ce bouton. */
+
+/* Les lignes de sous-projets ne se touchent plus. */
+#subProjectsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Le formulaire de création vit désormais SOUS la liste : il en est séparé du
+   même écart que deux sous-projets entre eux. */
+#newSubProjectCard {
+  margin-top: 10px;
+}
+
+.subProjectRowHeader .subProjectAddBtn {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  padding: 4px 10px;
+}
+
+/* Menu déroulant : ancré juste sous la ligne, options empilées pleine largeur
+   — plus lisible au pouce qu'une rangée de boutons serrés. */
+.subProjectAddMenu {
+  margin-top: 6px;
+}
+
+.subProjectAddMenuOptions {
+  display: flex;
+  flex-direction: column;
+}
+
+.subProjectAddMenuItem {
+  display: block;
+  width: 100%;
+  padding: 10px 8px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.subProjectAddMenuItem:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.subProjectAddMenuItem:disabled {
+  color: var(--text-light);
+  cursor: default;
+}
+
+/* Renommer / Supprimer : mêmes lignes, mais séparées des trois types de
+   section par un filet — ce ne sont pas des choses qu'on "ajoute". */
+.subProjectAddMenuSep {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}

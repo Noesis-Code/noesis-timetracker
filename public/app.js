@@ -2541,6 +2541,14 @@
   var currentSubProjectId = '';
   var subProjectsCache = [];
   var subProjectDetailData = null;
+  // Le menu "Ajouter" a été demandé depuis une ligne qui n'était pas encore
+  // ouverte : on le déplie dès que son détail est rendu.
+  var pendingAddMenuOpen = false;
+  // Même mécanique pour le composeur de sondage : la section vient d'être
+  // créée, mais son bloc n'est démasqué qu'au rendu suivant du détail — on
+  // ouvre donc le formulaire LÀ, pas avant (sinon reset() du socle le
+  // referme aussitôt).
+  var pendingPollFormOpen = false;
 
   // ⚠️ Le nœud est MÉMORISÉ : une fois détaché du document (pour survivre au
   // vidage de la liste), document.getElementById ne le retrouve plus et
@@ -2670,6 +2678,27 @@
         selectSubProject(String(sub.id) === String(currentSubProjectId) ? '' : sub.id);
       });
 
+      // "Ajouter" vit ICI, à droite du nom (demande d'Emilien, 3 septembre
+      // 2026) — plus dans un en-tête interne qui répétait le nom du
+      // sous-projet une seconde fois. Le clic ne doit pas refermer la ligne :
+      // il l'ouvre si elle est fermée, puis déplie le menu déroulant.
+      var addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'iconBtn subProjectAddBtn';
+      addBtn.textContent = t('Ajouter');
+      addBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (String(sub.id) !== String(currentSubProjectId)) {
+          selectSubProject(sub.id);
+          // Le détail se charge de façon asynchrone : on ouvre le menu une
+          // fois qu'il est en place, sinon il serait refermé par le rendu.
+          pendingAddMenuOpen = true;
+          return;
+        }
+        toggleAddSectionMenu();
+      });
+      header.appendChild(addBtn);
+
       box.appendChild(row);
     });
 
@@ -2690,6 +2719,11 @@
   }
 
   function selectSubProject(id) {
+    // Avant de quitter un sous-projet : retirer sa section de sondages si elle
+    // est restée vide (voir removeEmptyPollSectionIfAbandoned).
+    if (currentSubProjectId && String(currentSubProjectId) !== String(id || '')) {
+      removeEmptyPollSectionIfAbandoned(currentSubProjectId);
+    }
     currentSubProjectId = id ? String(id) : '';
     subProjectDetailData = null;
     attachSubProjectDetail();
@@ -2703,7 +2737,7 @@
   }
 
   function closeSubProjectPanels() {
-    $('subProjectSettingsPanel').classList.add('hidden');
+    $('subProjectRenamePanel').classList.add('hidden');
     $('addSectionMenu').classList.add('hidden');
     $('addSectionMsg').textContent = '';
     $('subProjectEditMsg').textContent = '';
@@ -2724,7 +2758,10 @@
   }
 
   function renderSubProjectDetail(data) {
-    $('subProjectDetailName').textContent = data.subProject.name;
+    // Le nom n'est PLUS réécrit ici : il est déjà sur la ligne juste au-dessus
+    // (demande d'Emilien — « que le nom du sous-projet ne soit marqué qu'une
+    // seule fois et pas deux fois »). Il ne sert plus qu'à pré-remplir le
+    // formulaire de renommage.
     $('subProjectEditName').value = data.subProject.name;
     $('subProjectEditDescription').value = data.subProject.description || '';
 
@@ -2755,7 +2792,26 @@
     $('addSectionDiscussionBtn').disabled = !!data.hasDiscussion;
     $('addSectionPollBtn').disabled = !!data.hasPolls;
 
-    if (data.hasPolls) ensureSubProjectPollsMount().reset();
+    if (data.hasPolls) {
+      ensureSubProjectPollsMount().reset();
+      if (pendingPollFormOpen) {
+        pendingPollFormOpen = false;
+        $('subProjectPollsForm').classList.remove('hidden');
+        // Le focus est posé au tour de boucle suivant : le socle finit de
+        // (re)construire son formulaire de façon asynchrone après reset(), et
+        // un focus posé trop tôt est perdu au moment où il redessine ses
+        // champs. Trouvé par la suite Playwright (assertion 6.3).
+        setTimeout(function () {
+          var q = document.getElementById('subProjectPollsQuestion');
+          if (q) q.focus();
+        }, 60);
+      }
+    }
+
+    if (pendingAddMenuOpen) {
+      pendingAddMenuOpen = false;
+      openAddSectionMenu();
+    }
 
     if (data.hasDiscussion) {
       subProjectThread.reset();
@@ -2991,7 +3047,12 @@
       name: $('subProjectEditName').value.trim(),
       description: $('subProjectEditDescription').value.trim(),
     })
-      .then(function () { msgEl.textContent = t('Enregistré.'); loadSubProjectDetail(); loadSubProjects(); })
+      .then(function () {
+        msgEl.textContent = '';
+        $('subProjectRenamePanel').classList.add('hidden');
+        loadSubProjectDetail();
+        loadSubProjects();
+      })
       .catch(function (err) { msgEl.textContent = err.message; })
       .then(function () { $('subProjectEditSave').disabled = false; });
   }
@@ -3039,9 +3100,28 @@
   });
   $('newSubProjectSave').addEventListener('click', createSubProject);
 
-  $('addSubProjectSectionBtn').addEventListener('click', function () {
-    $('subProjectSettingsPanel').classList.add('hidden');
-    $('addSectionMenu').classList.toggle('hidden');
+  // Menu déroulant du bouton "Ajouter" de la ligne (il n'y a plus de bouton
+  // dans le détail lui-même). Ouvrir le menu referme le panneau de renommage,
+  // et réciproquement — un seul panneau à la fois.
+  function openAddSectionMenu() {
+    $('subProjectRenamePanel').classList.add('hidden');
+    $('addSectionMsg').textContent = '';
+    $('addSectionMenu').classList.remove('hidden');
+  }
+
+  function toggleAddSectionMenu() {
+    if ($('addSectionMenu').classList.contains('hidden')) openAddSectionMenu();
+    else $('addSectionMenu').classList.add('hidden');
+  }
+
+  // Un clic n'importe où ailleurs referme le menu — comportement attendu d'un
+  // menu déroulant, et évite qu'il reste ouvert derrière une autre action.
+  document.addEventListener('click', function (e) {
+    var menu = document.getElementById('addSectionMenu');
+    if (!menu || menu.classList.contains('hidden')) return;
+    if (menu.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('.subProjectAddBtn')) return;
+    menu.classList.add('hidden');
   });
   $('addSectionTasksBtn').addEventListener('click', function () {
     addSection('tasks').catch(function (err) { $('addSectionMsg').textContent = err.message; });
@@ -3049,11 +3129,50 @@
   $('addSectionDiscussionBtn').addEventListener('click', function () {
     addSection('discussion').catch(function (err) { $('addSectionMsg').textContent = err.message; });
   });
-  // "Des sondages" ajoute simplement la section : le bloc de sondages est
-  // ensuite entièrement pris en charge par le socle commun (composeur compris).
+  // "Des sondages" : on crée la section ET on ouvre immédiatement le composeur,
+  // curseur dans la question (demande d'Emilien — « je tombe directement dans
+  // la zone texte pour écrire ma question et mes réponses »). Sans ça, il
+  // fallait un second clic sur le "+" du socle pour commencer à écrire.
   $('addSectionPollBtn').addEventListener('click', function () {
-    addSection('poll').catch(function (err) { $('addSectionMsg').textContent = err.message; });
+    pendingPollFormOpen = true;
+    addSection('poll').catch(function (err) {
+      pendingPollFormOpen = false;
+      $('addSectionMsg').textContent = err.message;
+    });
   });
+
+  // ⚠️ Une section de sondages qu'on abandonne sans rien écrire ne doit PAS
+  // rester en place, vide (demande d'Emilien : « si je n'[ajoute] pas le
+  // sondage, celle-ci disparaît et ne reste pas vide dans le sous-projet »).
+  // On la retire donc dès qu'on la quitte alors qu'elle ne contient aucun
+  // sondage ET que son formulaire est refermé — jamais pendant la saisie.
+  function removeEmptyPollSectionIfAbandoned(subProjectId) {
+    if (!profile || !subProjectId) return;
+    var data = subProjectDetailData;
+    if (!data || String(data.subProject.id) !== String(subProjectId) || !data.hasPolls) return;
+    var section = data.sections.filter(function (sec) { return sec.kind === 'poll'; })[0];
+    if (!section) return;
+    var form = document.getElementById('subProjectPollsForm');
+    var writing = form && !form.classList.contains('hidden') &&
+      (($('subProjectPollsQuestion') || {}).value || '').trim();
+    if (writing) return;   // on est en train d'écrire : on ne touche à rien
+    api('GET', '/api/polls?userId=' + profile.id + '&scope=subproject&scopeId=' + subProjectId)
+      .then(function (res) {
+        if (res.polls && res.polls.length) return;   // il y a des sondages : on garde
+        return api('DELETE', '/api/sub-project-sections/' + section.id + '?userId=' + profile.id)
+          .then(function () { loadSubProjects(); });
+      })
+      .catch(function () { /* section déjà retirée, ou hors ligne : sans conséquence */ });
+  }
+  // Le "+" du socle bascule son formulaire. S'il vient d'être REFERMÉ sans
+  // qu'aucun sondage n'existe, la section n'a plus de raison d'être.
+  $('subProjectPollsAddBtn').addEventListener('click', function () {
+    var form = $('subProjectPollsForm');
+    if (form && form.classList.contains('hidden')) {
+      removeEmptyPollSectionIfAbandoned(currentSubProjectId);
+    }
+  });
+
   $('subProjectPollsRemoveBtn').addEventListener('click', function () {
     if (!subProjectDetailData) return;
     var section = subProjectDetailData.sections.filter(function (s) { return s.kind === 'poll'; })[0];
@@ -3078,9 +3197,11 @@
       .catch(function (err) { alert(err.message); });
   });
 
-  $('subProjectSettingsBtn').addEventListener('click', function () {
+  // Renommer : ancienne action du menu "⋮", passée au bas du menu déroulant.
+  $('subProjectRenameBtn').addEventListener('click', function () {
     $('addSectionMenu').classList.add('hidden');
-    $('subProjectSettingsPanel').classList.toggle('hidden');
+    $('subProjectRenamePanel').classList.remove('hidden');
+    $('subProjectEditName').focus();
   });
   $('subProjectEditSave').addEventListener('click', saveSubProjectEdits);
   $('subProjectDeleteBtn').addEventListener('click', deleteSubProject);
@@ -7626,4 +7747,4 @@
     applyLang('en'); // anglais par défaut pour un tout nouveau compte
     showOnboarding();
   }
-})();
+})();

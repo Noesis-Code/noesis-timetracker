@@ -91,13 +91,24 @@ async function api(page, method, path, body) {
   ok(!(await page.isVisible('#subProjectDiscussionBlock')), '3.3 ⭐ aucune discussion affichée par défaut');
   ok(!(await page.isVisible('#subProjectProgressWrap')), '3.4 aucune barre d\'avancement');
 
-  // --- Le bouton "Ajouter" et ses trois options ---
-  await page.click('#addSubProjectSectionBtn');
-  await page.waitForTimeout(200);
-  ok(await page.isVisible('#addSectionMenu'), '4.1 le menu "Ajouter" s\'ouvre');
+  // --- Le bouton "Ajouter" est sur la LIGNE, à droite du nom ---
+  ok(await page.evaluate(() =>
+    !!document.querySelector('#subProjectsList .subProjectRowHeader .subProjectAddBtn')),
+    '4.0 ⭐ le bouton "Ajouter" est dans l\'en-tête de la ligne, à droite du nom');
+  // ⭐ Le nom n'apparaît qu'UNE fois : plus d'en-tête interne qui le répétait.
+  ok(await page.evaluate(() => !document.getElementById('subProjectDetailName')),
+    '4.0b ⭐ le nom du sous-projet n\'est plus écrit une seconde fois dans le détail');
+  ok(await page.evaluate(() => !document.getElementById('subProjectSettingsBtn')),
+    '4.0c ⭐ le menu "⋮" interne a disparu');
+
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
+  await page.waitForTimeout(300);
+  ok(await page.isVisible('#addSectionMenu'), '4.1 le menu déroulant s\'ouvre');
   ok(await page.isVisible('#addSectionTasksBtn'), '4.2 option "Des tâches"');
   ok(await page.isVisible('#addSectionPollBtn'), '4.3 option "Des sondages"');
   ok(await page.isVisible('#addSectionDiscussionBtn'), '4.4 option "Une discussion"');
+  ok(await page.isVisible('#subProjectRenameBtn'), '4.4b "Renommer" a rejoint le bas du menu');
+  ok(await page.isVisible('#subProjectDeleteBtn'), '4.4c "Supprimer" aussi');
   ok(!(await page.evaluate(() => document.getElementById('addSectionDiscussionBtn').disabled)),
     '4.5 "Une discussion" est disponible tant qu\'il n\'y en a pas');
 
@@ -129,16 +140,16 @@ async function api(page, method, path, body) {
   // ⚠️ Rien de ce bloc n'est une implémentation de ce volet : le composeur, la
   // carte de vote et les routes appartiennent à la discussion "Sondages"
   // (mountPolls, scope 'subproject'). On vérifie le BRANCHEMENT.
-  await page.click('#addSubProjectSectionBtn');
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(200);
   await page.click('#addSectionPollBtn');
-  await page.waitForTimeout(900);
+  await page.waitForTimeout(1000);
   ok(await page.isVisible('#subProjectPollsBlock'), '6.1 le bloc Sondages apparaît dans le sous-projet');
-  ok(await page.isVisible('#subProjectPollsEmptyHint'), '6.2 il dit qu\'il n\'y a aucun sondage');
-  ok(await page.isVisible('#subProjectPollsAddBtn'), '6.3 le composeur du socle est disponible (membre de l\'activité)');
+  // ⭐ On tombe DIRECTEMENT dans la zone de saisie, sans second clic.
+  ok(await page.isVisible('#subProjectPollsForm'), '6.2 ⭐ le formulaire est ouvert d\'emblée');
+  ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'subProjectPollsQuestion'),
+    '6.3 ⭐ le curseur est déjà dans la question');
 
-  await page.click('#subProjectPollsAddBtn');
-  await page.waitForTimeout(300);
   await page.fill('#subProjectPollsQuestion', 'Quelle date ?');
   // Le socle utilise des <textarea> auto-agrandissants depuis le 3 septembre 2026.
   const pollOptionInputs = await page.$$('#subProjectPollsOptions textarea');
@@ -150,25 +161,25 @@ async function api(page, method, path, body) {
   ok((await page.$$('#subProjectPollsList .pollCard')).length === 1, '6.5 le sondage est créé et listé');
   ok((await page.textContent('#subProjectPollsList')).indexOf('Quelle date ?') !== -1, '6.6 la question est affichée');
 
-  await page.click('#addSubProjectSectionBtn');
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(300);
   ok(await page.evaluate(() => document.getElementById('addSectionPollBtn').disabled),
     '6.7 "Des sondages" est grisée : une seule section de sondages par sous-projet');
-  await page.click('#addSubProjectSectionBtn');
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(200);
 
   // --- Discussion : une seule, et TOUJOURS en bas ---
-  await page.click('#addSubProjectSectionBtn');
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(200);
   await page.click('#addSectionDiscussionBtn');
   await page.waitForTimeout(900);
   ok(await page.isVisible('#subProjectDiscussionBlock'), '7.1 la discussion apparaît');
 
-  await page.click('#addSubProjectSectionBtn');
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(300);
   ok(await page.evaluate(() => document.getElementById('addSectionDiscussionBtn').disabled),
     '7.2 ⭐ "Une discussion" est désormais grisée : une seule par sous-projet');
-  await page.click('#addSubProjectSectionBtn');
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(200);
 
   // ⭐ Ordre : le fil est après toutes les sections tâches/sondage
@@ -210,7 +221,7 @@ async function api(page, method, path, body) {
   await page.click('#subProjectDiscussionRemoveBtn');
   await page.waitForTimeout(900);
   ok(!(await page.isVisible('#subProjectDiscussionBlock')), '8.1 la discussion retirée disparaît');
-  await page.click('#addSubProjectSectionBtn');
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(200);
   await page.click('#addSectionDiscussionBtn');
   await page.waitForTimeout(900);
@@ -222,7 +233,7 @@ async function api(page, method, path, body) {
   await page.click('#subProjectPollsRemoveBtn');
   await page.waitForTimeout(900);
   ok(!(await page.isVisible('#subProjectPollsBlock')), '8.2b le bloc Sondages disparaît');
-  await page.click('#addSubProjectSectionBtn');
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
   await page.waitForTimeout(200);
   await page.click('#addSectionPollBtn');
   await page.waitForTimeout(1100);
@@ -237,6 +248,49 @@ async function api(page, method, path, body) {
   ok(!(await page.isVisible('#activityProgressWrap')),
     '8.4 R1 — plus aucune tâche : la barre d\'avancement disparaît au lieu d\'afficher 0 %');
 
+  // --- ⭐ Une section de sondages abandonnée ne reste pas vide ---
+  // Sur un sous-projet NEUF (donc sans aucun sondage) : on ajoute la section,
+  // on n'écrit rien, on quitte — elle doit avoir disparu au retour. Sur un
+  // sous-projet qui a déjà des sondages, la section reste évidemment : elle
+  // n'est pas vide.
+  const sp2 = (await api(page, 'POST', '/api/activities/' + activity.id + '/sub-projects', {
+    userId: user.id, name: 'Second',
+  })).body;
+  // La page d'activité est une surcouche : on la referme, on la rouvre, et la
+  // liste des sous-projets est rechargée avec le nouveau.
+  await page.click('#activityPageClose');
+  await page.waitForTimeout(500);
+  await page.click('#activitiesList .activityRow .activityRowHeader');
+  await page.waitForTimeout(1400);
+  const row2 = '#subProjectsList .subProjectRow[data-sub-project-id="' + sp2.id + '"] ';
+  await page.click(row2 + '.subProjectRowHeader');
+  await page.waitForTimeout(900);
+  await page.click(row2 + '.subProjectAddBtn');
+  await page.waitForTimeout(300);
+  await page.click('#addSectionPollBtn');
+  await page.waitForTimeout(1000);
+  ok(await page.isVisible('#subProjectPollsBlock'), '8.5 la section de sondages est là');
+  await page.click(row2 + '.subProjectRowHeader');   // on quitte sans rien écrire
+  await page.waitForTimeout(1300);
+  await page.click(row2 + '.subProjectRowHeader');   // on revient
+  await page.waitForTimeout(1300);
+  ok(!(await page.isVisible('#subProjectPollsBlock')),
+    '8.6 ⭐ abandonnée sans aucun sondage, la section a disparu');
+
+  // --- ⭐ Espace entre deux sous-projets ---
+  const gap = await page.evaluate(() => {
+    const el = document.getElementById('subProjectsList');
+    return getComputedStyle(el).rowGap || getComputedStyle(el).gap;
+  });
+  ok(parseFloat(gap) > 0, '8.7 ⭐ les sous-projets sont espacés (gap = ' + gap + ')');
+
+  // --- ⭐ Le formulaire de création est SOUS la liste ---
+  ok(await page.evaluate(() => {
+    const list = document.getElementById('subProjectsList');
+    const card = document.getElementById('newSubProjectCard');
+    return !!(list.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING);
+  }), '8.8 ⭐ le formulaire de création vient après la liste des sous-projets');
+
   // --- NON-RÉGRESSION : zone "écrire à sa communauté" (Communauté) ---
   // La page d'activité est une surcouche : il faut la refermer avant de
   // changer d'onglet, sinon elle intercepte le clic.
@@ -245,6 +299,10 @@ async function api(page, method, path, body) {
   await page.click('.tabBtn[data-tab="community"]');
   await page.waitForTimeout(900);
   ok(await page.isVisible('#communityMyPostsBlock'), '9.1 zone "écrire à sa communauté" toujours présente');
+  // ⚠️ Depuis le 3 septembre 2026, cette zone n'a plus de liste à elle : les
+  // messages partent dans le flux d'actualité juste en dessous. La factory doit
+  // donc supporter une instance QUI N'EST QU'UN COMPOSEUR — c'est ce que cette
+  // assertion protège (sans la garde, la page casse au chargement).
   // ⚠️ Bug trouvé par cette suite le 3 septembre 2026 : la garde du scope
   // 'profile' des sondages appelait profileRoutes.canViewProjects, qui n'était
   // pas exporté — tout sondage de profil répondait 403. Corrigé dans
@@ -255,14 +313,13 @@ async function api(page, method, path, body) {
   await page.fill('#communityMyPostsInput', 'Message communauté');
   await page.click('#communityMyPostsSendBtn');
   await page.waitForTimeout(900);
-  ok((await page.$$('#communityMyPostsList .discussionMsg')).length === 1,
+  // Le message part bien : on le retrouve dans le flux d'actualité.
+  // Cette zone n'ayant plus de liste à elle, on vérifie le résultat à la
+  // source : le message a bien été créé côté serveur. C'est exactement ce que
+  // la généralisation du composeur ne devait pas casser.
+  const myPosts = await (await page.request.get(BASE + '/api/profile/posts?userId=' + user.id)).json();
+  ok(myPosts.some((m) => m.body === 'Message communauté'),
     '9.2 envoi toujours fonctionnel après la généralisation du composeur');
-  ok(await page.evaluate(() => document.querySelector('#communityMyPostsList .discussionMsg').classList.contains('mine')),
-    '9.3 rendu mono-auteur inchangé (.mine)');
-  ok(await page.evaluate(() => !document.querySelector('#communityMyPostsList .discussionMsg .discussionMsgAuthor .dot')),
-    '9.4 mono-auteur : pas de pastille de couleur, comme avant');
-  ok(await page.evaluate(() => !!document.querySelector('#communityMyPostsList .attachmentMenuWrap')),
-    '9.5 le trombone par message est toujours là');
   ok(await page.isVisible('#communityMyPostsAttachBtn'), '9.6 le trombone du composeur est toujours là');
 
   // --- NON-RÉGRESSION : zone Discussion du Profil + rafraîchissement mutuel ---
@@ -292,7 +349,8 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(1600);
   ok(await page.isVisible('#activityPage'), '11.1 activité partagée : la page s\'ouvre');
   ok(await page.isVisible('#activitySubProjectsBlock'), '11.2 les sous-projets sont là');
-  ok((await page.$$('#subProjectsList .subProjectRow')).length === 1, '11.3 le sous-projet créé en solo est toujours là');
+  ok((await page.$$('#subProjectsList .subProjectRow')).length === 2,
+    '11.3 les deux sous-projets créés en solo sont toujours là');
   // Une activité partagée retrouve son sélecteur de sections (Sous-projets /
   // Statistiques / Discussion), masqué en solo.
   ok(await page.isVisible('#activityPageSectionSwitch'), '11.4 le sélecteur de sections apparaît (activité partagée)');

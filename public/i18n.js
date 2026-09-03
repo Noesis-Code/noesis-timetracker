@@ -545,7 +545,6 @@
     'À quoi sert ce sous-projet ?': 'What is this sub-project for?',
     'Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.': 'No sub-project yet — tap “+” to split this activity into goals.',
     'Tâches': 'Tasks',
-    'Réglages du sous-projet': 'Sub-project settings',
     'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
     'Ajouter une tâche...': 'Add a task...',
     'Écrire sur ce sous-projet...': 'Write about this sub-project...',
@@ -630,7 +629,6 @@
     'scope et scopeId requis.': 'scope and scopeId are required.',
     'Accès refusé.': 'Access denied.',
     // ---- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) ----
-    "Qu'est-ce que tu veux ajouter à ce sous-projet ?": 'What do you want to add to this sub-project?',
     'Des tâches': 'Tasks',
     'Des sondages': 'Polls',
     'Une discussion': 'A discussion',
@@ -654,6 +652,8 @@
     "Cette section n'est pas une liste de tâches.": 'This section is not a task list.',
     "Ce sous-projet n'a pas de discussion.": 'This sub-project has no discussion.',
     "Seul le créateur de la section ou le propriétaire de l'activité peut la supprimer.": 'Only the section creator or the activity owner can remove it.',
+
+    'Renommer le sous-projet': 'Rename the sub-project',
 
   };
 

@@ -796,6 +796,15 @@
             <div class="subProjectProgressTrack"><div id="activityProgressFill" class="subProjectProgressFill"></div></div>
           </div>
 
+
+
+          <div id="subProjectsList" class="activitiesList"></div>
+          <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.</p>
+          <!-- ⚠️ Le formulaire de création vit SOUS la liste (demande d'Emilien,
+               3 septembre 2026 : « la création d'un nouveau sous-projet apparaisse
+               automatiquement en dessous des sous-projets existants ») — il était
+               au-dessus jusqu'ici, ce qui poussait la liste vers le bas à chaque
+               ouverture. -->
           <div id="newSubProjectCard" class="activityRow hidden">
             <div class="activitySettingsPanel">
               <label class="fieldLabel" for="newSubProjectName">Nom du sous-projet</label>
@@ -809,9 +818,6 @@
             </div>
           </div>
 
-          <div id="subProjectsList" class="activitiesList"></div>
-          <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.</p>
-
           <div id="subProjectDetailAnchor"></div>
           <!-- Contenu d'un sous-projet. ⚠️ AUCUNE section n'existe par défaut
                (demande d'Emilien, 3 septembre 2026) : un sous-projet neuf
@@ -824,32 +830,32 @@
                (« la discussion se retrouve toujours en bas du sous-projet et
                les tâches et sondages se présentent au-dessus », Emilien). -->
           <div id="subProjectDetail" class="hidden">
-            <div class="sectionTitleRow">
-              <p class="sectionTitle" id="subProjectDetailName"></p>
-              <div class="rowActions">
-                <button type="button" id="addSubProjectSectionBtn" class="iconBtn">Ajouter</button>
-                <button type="button" id="subProjectSettingsBtn" class="menuBtn" aria-label="Réglages du sous-projet">⋮</button>
-              </div>
-            </div>
-
+            <!-- ⚠️ Plus d'en-tête ici (demande d'Emilien, 3 septembre 2026) :
+                 le nom du sous-projet n'était affiché qu'une fois de trop — il
+                 est déjà sur la ligne juste au-dessus, dans laquelle ce bloc
+                 vient se placer. Le bouton "Ajouter" a rejoint cette ligne, à
+                 droite du nom, et le menu "⋮" a été retiré : ses deux actions
+                 (renommer, supprimer) sont passées au bas du menu déroulant
+                 ci-dessous, sous un séparateur. -->
             <div id="subProjectProgressWrap" class="subProjectProgress hidden">
               <div class="subProjectProgressTrack"><div id="subProjectProgressFill" class="subProjectProgressFill"></div></div>
             </div>
 
-            <!-- Menu du bouton "Ajouter" : les trois types de section. Les
-                 options "sondages" et "discussion" se grisent dès que le
-                 sous-projet en a déjà une. -->
-            <div id="addSectionMenu" class="activitySettingsPanel hidden">
-              <p class="hint">Qu'est-ce que tu veux ajouter à ce sous-projet ?</p>
-              <div class="rowActions">
-                <button type="button" id="addSectionTasksBtn" class="iconBtn">Des tâches</button>
-                <button type="button" id="addSectionPollBtn" class="iconBtn">Des sondages</button>
-                <button type="button" id="addSectionDiscussionBtn" class="iconBtn">Une discussion</button>
+            <!-- Menu déroulant du bouton "Ajouter" de la ligne. Les options
+                 "sondages" et "discussion" se grisent dès que le sous-projet en
+                 a déjà une. -->
+            <div id="addSectionMenu" class="activitySettingsPanel subProjectAddMenu hidden">
+              <div class="subProjectAddMenuOptions">
+                <button type="button" id="addSectionTasksBtn" class="subProjectAddMenuItem">Des tâches</button>
+                <button type="button" id="addSectionPollBtn" class="subProjectAddMenuItem">Des sondages</button>
+                <button type="button" id="addSectionDiscussionBtn" class="subProjectAddMenuItem">Une discussion</button>
+                <button type="button" id="subProjectRenameBtn" class="subProjectAddMenuItem subProjectAddMenuSep">Renommer le sous-projet</button>
+                <button type="button" id="subProjectDeleteBtn" class="subProjectAddMenuItem">Supprimer le sous-projet</button>
               </div>
               <p id="addSectionMsg" class="msg"></p>
             </div>
 
-            <div id="subProjectSettingsPanel" class="activitySettingsPanel hidden">
+            <div id="subProjectRenamePanel" class="activitySettingsPanel hidden">
               <label class="fieldLabel" for="subProjectEditName">Nom</label>
               <input id="subProjectEditName" type="text" maxlength="120" />
               <label class="fieldLabel" for="subProjectEditDescription">Description</label>
@@ -857,12 +863,11 @@
               <p id="subProjectEditMsg" class="msg"></p>
               <div class="rowActions">
                 <button type="button" id="subProjectEditSave" class="iconBtn">Enregistrer</button>
-                <button type="button" id="subProjectDeleteBtn" class="iconBtn">Supprimer le sous-projet</button>
               </div>
             </div>
 
             <!-- 1. Listes de tâches, dans l'ordre d'ajout. -->
-            <div id="subProjectSections"></div>
+<div id="subProjectSections"></div>
 
             <p id="subProjectEmptyHint" class="hint hidden">Ce sous-projet est vide — clique sur « Ajouter » pour y mettre des tâches, des sondages ou une discussion.</p>
 
@@ -1911,4 +1916,4 @@
 <script src="/i18n.js"></script>
 <script src="/app.js"></script>
 </body>
-</html>
+</html>
