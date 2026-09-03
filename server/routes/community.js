@@ -6,6 +6,11 @@ const {
   activityBreakdownForUser, activityDailyBreakdownForUser, activityTimesheetForUser,
 } = require('../lib/community');
 const { notifyActivityMessage } = require('../lib/push');
+// ⚠️ 3 septembre 2026 (Activité — général) : import ajouté pour renvoyer le
+// LIBELLÉ de la période du graphique ("Cette semaine", "Ce mois-ci"...).
+// periodRange est déjà la source de ces libellés partout ailleurs — aucune
+// ligne de server/lib/period.js n'est modifiée, elle est seulement appelée.
+const { periodRange } = require('../lib/period');
 
 // Longueur maximale d'un message du fil de discussion : généreuse pour une
 // conversation, mais bornée — le corps de requête d'Express est certes déjà
@@ -188,15 +193,36 @@ router.get('/community/activity-stats', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   const refDate = req.query.date || null;
+
+  // ⚠️ 3 septembre 2026 (Activité — général) — DEUX périodes indépendantes.
+  // Demande d'Emilien : « je souhaite que les options semaines, mois, années
+  // se trouvent directement dans les sections répartition et graphique ».
+  // La Répartition et le Graphique ayant désormais chacun leur menu "⋮", une
+  // seule période ne suffit plus :
+  //   ?period=      -> le camembert (accepte 'day', c'est-à-dire "Aujourd'hui")
+  //   ?chartPeriod= -> le graphique (jamais 'day' : une seule journée ne trace
+  //                    qu'un point ; on retombe alors sur la semaine)
+  //
+  // ⚠️ CHANGEMENT DE CONTRAT ASSUMÉ : les champs `week`, `month` et `year`
+  // ont disparu de la réponse au profit d'un seul `breakdown`, celui
+  // réellement demandé. Ils étaient TOUS LES TROIS calculés à chaque appel
+  // alors que le client n'en lisait qu'un — trois requêtes SQL dont deux
+  // jetées. Un onglet resté ouvert avec l'ancien JS affichera un camembert
+  // vide jusqu'au rechargement, sans erreur : même compromis que celui déjà
+  // retenu pour GET /stats le 1er septembre 2026.
   const VALID_PERIODS = ['day', 'week', 'month', 'year'];
+  const CHART_PERIODS = ['week', 'month', 'year'];
   const period = VALID_PERIODS.includes(req.query.period) ? req.query.period : 'week';
+  const chartPeriod = CHART_PERIODS.includes(req.query.chartPeriod)
+    ? req.query.chartPeriod
+    : (CHART_PERIODS.includes(period) ? period : 'week');
 
   res.json({
     activityName: check.activity.name,
-    week: activityBreakdownForUser(activityId, 'week', refDate),
-    month: activityBreakdownForUser(activityId, 'month', refDate),
-    year: activityBreakdownForUser(activityId, 'year', refDate),
-    dailyBreakdown: activityDailyBreakdownForUser(activityId, period, refDate),
+    breakdown: activityBreakdownForUser(activityId, period, refDate),
+    chartPeriod,
+    chartLabel: periodRange(chartPeriod, refDate).label,
+    dailyBreakdown: activityDailyBreakdownForUser(activityId, chartPeriod, refDate),
   });
 });
 

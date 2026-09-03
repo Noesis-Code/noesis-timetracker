@@ -52,8 +52,13 @@
   // ----- Statistiques d'UNE activité partagée (section Communauté > Membres)
   // — pendants exacts des 5 variables Statistiques ci-dessus, jamais
   // partagés avec elles (deux jeux d'état totalement indépendants). -----
-  var currentActivityStatsPeriod = 'week';
-  var currentActivityTimesheetOffset = 0; // repart à 0 à chaque nouvelle sélection d'activité
+  // ⚠️ 3 septembre 2026 (Activité — général) : une seule période partagée
+  // par les trois blocs jusqu'ici (currentActivityStatsPeriod). Emilien a
+  // demandé que Répartition et Graphique aient chacun la leur — elles sont
+  // donc devenues DEUX variables indépendantes. La Répartition accepte en
+  // plus 'day' ("Aujourd'hui") ; le Graphique non, il tracerait un point.
+  var currentActivityPiePeriod = 'week';
+  var currentActivityChartPeriod = 'week';
   var lastActivityDailyBreakdown = [];
   // activityTimesheetFullscreenActive / activityChartFullscreenActive ont été
   // retirées le 3 septembre 2026 avec le plein écran de cette page — voir le
@@ -591,10 +596,39 @@
     })();
   }
 
+  // 3 septembre 2026, suite (Design) : Emilien souhaite qu'un volet dont le
+  // contenu tient déjà entièrement dans l'écran (ex. Chrono, Activité selon
+  // ce qu'ils contiennent à l'instant) ne présente AUCUN mouvement au
+  // toucher — pas seulement un défilement sans effet, mais une page
+  // réellement figée. `overscroll-behavior-y: none` (2 septembre 2026, plus
+  // haut dans styles.css) empêche déjà le rebond élastique quand il existe
+  // un vrai défilement ; ceci va plus loin pour le cas où il n'y en a AUCUN
+  // besoin : `overflow: hidden` sur <html>/<body> retire toute possibilité
+  // de tirer/glisser la page, quel que soit le comportement d'un navigateur
+  // particulier vis-à-vis du rebond. La classe `.noScrollNeeded` (voir
+  // styles.css) n'est posée que lorsque le contenu réel ne dépasse pas la
+  // fenêtre visible ; retirée dès qu'un onglet a besoin de défiler.
+  // Recalculée à chaque changement d'onglet (switchTab/openProfile), au
+  // redimensionnement/rotation, ET via un ResizeObserver sur #app — ce
+  // dernier couvre les cas où le contenu change de hauteur en différé (une
+  // liste chargée après un appel réseau, un panneau qu'on déplie), sans
+  // avoir à ajouter un appel dédié dans chaque volet.
+  function refreshScrollLock() {
+    var needsScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
+    document.documentElement.classList.toggle('noScrollNeeded', !needsScroll);
+    document.body.classList.toggle('noScrollNeeded', !needsScroll);
+  }
+  window.addEventListener('resize', refreshScrollLock);
+  window.addEventListener('orientationchange', refreshScrollLock);
+  if (window.ResizeObserver) {
+    new ResizeObserver(refreshScrollLock).observe($('app'));
+  }
+
   function showApp() {
     $('onboarding').classList.add('hidden');
     $('app').classList.remove('hidden');
     syncTopbarHeightVar();
+    refreshScrollLock();
     $('whoamiName').textContent = profile.name;
     $('settingsName').value = profile.name;
     $('settingsLastName').value = profile.lastName || '';
@@ -870,6 +904,10 @@
         $('chronoHistoryPanel').classList.add('hidden');
       }
     }
+    // Mesure immédiate pour la partie du DOM déjà en place ; le
+    // ResizeObserver posé sur #app rattrape les listes/blocs qui arrivent
+    // après un appel réseau (loadCommunity/loadActivityTab/etc. ci-dessus).
+    refreshScrollLock();
   }
 
   // ===================== PROFIL (accès par clic sur le prénom) =====================
@@ -895,6 +933,7 @@
     loadProfileProjects();
     loadProfileNotes();
     loadProfileDiscussion();
+    refreshScrollLock();
   }
   $('whoami').addEventListener('click', openProfile);
 
@@ -2245,11 +2284,9 @@
     // Nouvelle sélection : on repart toujours de zéro sur les statistiques de
     // CETTE activité (période "Semaine", semaine en cours) — même logique
     // que l'ouverture de l'onglet Statistiques.
-    currentActivityStatsPeriod = 'week';
-    document.querySelectorAll('#communityActivityPeriodSwitch .periodBtn').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.period === 'week');
-    });
-    currentActivityTimesheetOffset = 0;
+    currentActivityPiePeriod = 'week';
+    currentActivityChartPeriod = 'week';
+    syncActivityPeriodMenus();
     // Nouvelle activité : on repart d'un fil vide côté affichage, sinon la
     // signature du fil précédent empêcherait le premier rendu (et le
     // défilement automatique vers le dernier message).
@@ -2277,29 +2314,19 @@
       return;
     }
 
-    api('GET', '/api/community/activity-feed?userId=' + profile.id + '&activityId=' + currentCommunityActivityId).then(function (data) {
-      activityDetailEl().classList.remove('hidden');
-      var box = $('communityActivityDetailFeed');
-      box.innerHTML = '';
-      $('communityActivityDetailEmptyHint').classList.toggle('hidden', data.entries.length > 0);
-      data.entries.forEach(function (entry) { box.appendChild(buildFeedEntryCard(entry)); });
-      // Défile directement jusqu'au détail, uniquement quand on VIENT de
-      // sélectionner une activité (pas quand on la désélectionne, ni lors
-      // d'un rafraîchissement silencieux) — demande d'Emilien du jour.
-      if (shouldScroll) {
-        activityDetailEl().scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }).catch(function (err) {
-      // L'activité a pu être quittée/supprimée entre-temps par un autre
-      // membre : on referme simplement le détail plutôt que d'afficher une
-      // erreur bloquante.
-      activityDetailEl().classList.add('hidden');
-      currentCommunityActivityId = '';
-      loadSettingsActivities();
-    });
+    // ⚠️ 3 septembre 2026 (Activité — général) : l'appel à
+    // /api/community/activity-feed a été retiré ici avec le flux des
+    // enregistrements des autres membres (« les notes », demande d'Emilien).
+    // Il portait aussi la garde « l'activité a-t-elle disparu ? » — celle-ci
+    // est reprise telle quelle dans le .catch de loadActivityStats, le seul
+    // appel restant à faire la même vérification d'accès.
+    // ⚠️ La ROUTE serveur et sharedFeedForUser ne sont PAS supprimées : elles
+    // appartiennent à Communauté et servent encore ailleurs. Signalées comme
+    // sans appelant depuis cette page, décision à Emilien.
+    activityDetailEl().classList.remove('hidden');
+    if (shouldScroll) activityDetailEl().scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     loadActivityStats(currentCommunityActivityId);
-    loadActivityTimesheet(currentCommunityActivityId);
     loadDiscussion(true);
     startDiscussionPolling();
     // Sous-projets de cette activité (discussion "Sous-projets", 3 septembre
@@ -3398,25 +3425,60 @@
   // tels quels. L'axe de comparaison change : ici on compare les MEMBRES
   // d'UNE SEULE activité entre eux, plus les activités entre elles (on est
   // déjà "dans" une seule activité, il n'y en a plus à comparer).
-  document.querySelectorAll('#communityActivityPeriodSwitch .periodBtn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      currentActivityStatsPeriod = btn.dataset.period;
-      document.querySelectorAll('#communityActivityPeriodSwitch .periodBtn').forEach(function (b) { b.classList.toggle('active', b === btn); });
-      if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
-    });
+  // Un menu "⋮" par section, câblés par le helper générique de l'onglet
+  // Statistiques (setupStatsPeriodMenu) — réutilisé tel quel, pas une ligne
+  // modifiée, exactement comme la page de visite d'un profil le fait déjà.
+  setupStatsPeriodMenu($('caPiePeriodBtn'), $('caPiePeriodMenu'), function (p) {
+    currentActivityPiePeriod = p;
+    if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
+  });
+  setupStatsPeriodMenu($('caChartPeriodBtn'), $('caChartPeriodMenu'), function (p) {
+    currentActivityChartPeriod = p;
+    if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
   });
 
+  // Remet les deux menus sur leur période courante. Nécessaire à chaque
+  // nouvelle sélection d'activité : les menus gardent sinon la coche de
+  // l'activité précédente, alors que les variables, elles, sont réinitialisées.
+  function syncActivityPeriodMenus() {
+    syncPeriodMenuActive($('caPiePeriodMenu'), currentActivityPiePeriod);
+    syncPeriodMenuActive($('caChartPeriodMenu'), currentActivityChartPeriod);
+  }
+
+  // ⚠️ UN SEUL appel serveur pour les deux sections, avec DEUX périodes.
+  // La route renvoie `breakdown` (camembert, période demandée) et
+  // `dailyBreakdown` (graphique, sa propre période). Changer la période de
+  // l'une redessine aussi l'autre à l'identique — un aller-retour réseau de
+  // moins qu'avec deux appels, pour un rendu client négligeable.
   function loadActivityStats(activityId) {
     if (!profile || !activityId) return;
-    api('GET', '/api/community/activity-stats?userId=' + profile.id + '&activityId=' + activityId + '&period=' + currentActivityStatsPeriod).then(function (data) {
+    var url = '/api/community/activity-stats?userId=' + profile.id +
+      '&activityId=' + activityId +
+      '&period=' + currentActivityPiePeriod +
+      '&chartPeriod=' + currentActivityChartPeriod;
+    api('GET', url).then(function (data) {
       if (String(activityId) !== String(currentCommunityActivityId)) return; // sélection changée entre-temps
-      var block = data[currentActivityStatsPeriod];
-      $('communityActivityStatsLabel').textContent = t(block.label);
-      $('communityActivityStatsTotal').textContent = formatHM(block.totalSeconds);
+      var block = data.breakdown;
+      // Le libellé de période ("Cette semaine", "Aujourd'hui"...) était porté
+      // par .statsSummary, retirée à la demande d'Emilien. Il est repris ici,
+      // en petit à côté du titre de chaque section : sans lui, plus rien
+      // n'indiquerait au repos sur quelle période on regarde.
+      $('caPiePeriodLabel').textContent = t(block.label);
       renderActivityPie(block.members, block.totalSeconds);
 
+      $('caChartPeriodLabel').textContent = t(data.chartLabel || '');
       lastActivityDailyBreakdown = data.dailyBreakdown || [];
       renderActivityChart(lastActivityDailyBreakdown);
+    }).catch(function () {
+      // L'activité a pu être quittée/supprimée entre-temps par un autre
+      // membre. Cette garde vivait dans l'appel à /community/activity-feed,
+      // retiré avec le flux des notes : elle est reprise ici, sur le seul
+      // appel qui reste à porter la même vérification d'accès.
+      if (String(activityId) !== String(currentCommunityActivityId)) return;
+      $('activityPage').classList.add('hidden');
+      currentCommunityActivityId = '';
+      stopDiscussionPolling();
+      loadSettingsActivities();
     });
   }
 
@@ -3720,65 +3782,19 @@
   // voir le commentaire de la section "STATISTIQUES D'UNE ACTIVITÉ" — mais le
   // comportement, lui, ne doit plus diverger. -----
 
-  // ===================== FEUILLE DE TEMPS D'UNE ACTIVITÉ (section Membres) ==
-  // Même grille jour × quart d'heure que Statistiques, mais combinant les
-  // sessions de TOUS les membres actuels de cette activité (voir
-  // activityTimesheetForUser dans lib/community.js) — pendant exact de
-  // loadTimesheet/renderTimesheet, réindexé par membre. Repart toujours sur
-  // la semaine en cours à chaque nouvelle sélection d'activité (voir
-  // loadActivityDetail ci-dessus).
-  $('caTsPrevWeek').addEventListener('click', function () {
-    currentActivityTimesheetOffset += 1;
-    if (currentCommunityActivityId) loadActivityTimesheet(currentCommunityActivityId);
-  });
-  $('caTsNextWeek').addEventListener('click', function () {
-    if (currentActivityTimesheetOffset === 0) return;
-    currentActivityTimesheetOffset -= 1;
-    if (currentCommunityActivityId) loadActivityTimesheet(currentCommunityActivityId);
-  });
+  // ⚠️ 3 septembre 2026 (Activité — général) : toute la Feuille de temps de
+  // cette page a été retirée ici — demande d'Emilien, « je souhaite supprimer
+  // la feuille de temps de la section statistiques des activités ».
+  // Étaient concernés : les écouteurs #caTsPrevWeek/#caTsNextWeek,
+  // loadActivityTimesheet(), renderActivityTimesheet() et la variable
+  // currentActivityTimesheetOffset — tous strictement propres à ce bloc,
+  // aucun autre appelant (vérifié sur l'ensemble des fichiers du projet).
+  // ⚠️ Côté serveur, RIEN n'a été supprimé : la route
+  // GET /api/community/activity-timesheet et activityTimesheetForUser
+  // (server/lib/community.js) sont toujours là, simplement sans appelant.
+  // Les retirer est une décision distincte, signalée à Emilien — ce projet a
+  // déjà failli perdre server/lib/period.js sur une conclusion trop rapide.
 
-  function loadActivityTimesheet(activityId) {
-    if (!profile || !activityId) return;
-    api('GET', '/api/community/activity-timesheet?userId=' + profile.id + '&activityId=' + activityId + '&weekOffset=' + currentActivityTimesheetOffset).then(function (data) {
-      if (String(activityId) !== String(currentCommunityActivityId)) return;
-      renderActivityTimesheet(data);
-    });
-  }
-
-  function renderActivityTimesheet(data) {
-    $('caTsWeekLabel').textContent = t(data.label) + (data.isCurrentWeek ? t(' (en cours)') : '');
-    $('caTsNextWeek').disabled = data.isCurrentWeek;
-    $('caTsPrevWeek').disabled = !data.hasMoreBefore;
-
-    var hasAnyEntry = data.days.some(function (day) { return day.slots.some(function (s) { return !!s; }); });
-    $('caTsEmptyHint').classList.toggle('hidden', hasAnyEntry);
-
-    var html = '<div class="tsCorner"></div>';
-    for (var h = 0; h < 24; h++) {
-      html += '<div class="tsHourLabel" style="grid-column: span 4;">' + h + 'h</div>';
-    }
-
-    data.days.forEach(function (day) {
-      var dateObj = new Date(day.isoDate + 'T00:00:00');
-      html += '<div class="tsDayLabel">' + t(day.dayOfWeek).slice(0, 3) + ' ' + pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1) + '</div>';
-      day.slots.forEach(function (slot, i) {
-        var slotLabel = pad(Math.floor(i / 4)) + ':' + pad((i % 4) * 15);
-        if (slot) {
-          html += '<div class="tsSlot tsSlot-filled" style="background:' + slot.color + '" title="' + escapeHtml(slot.name) + ' · ' + slotLabel + '"></div>';
-        } else {
-          html += '<div class="tsSlot" title="' + slotLabel + '"></div>';
-        }
-      });
-    });
-
-    $('caTsGrid').innerHTML = html;
-  }
-
-  // ----- Modale "Voir les membres" (menu "⋮" d'une ligne d'activité) : liste
-  // tous les membres de cette activité, avec un point vert si leur chrono
-  // est ACTUELLEMENT en cours pour CETTE activité précise (pas un chrono
-  // quelconque sur une autre activité) — voir GET /community/activity-members
-  // et activityMembersForUser dans server/lib/community.js. -----
   function openCommunityMembersModal(activityId, activityName) {
     if (!profile) return;
     api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + activityId).then(function (data) {

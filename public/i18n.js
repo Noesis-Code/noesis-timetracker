@@ -534,6 +534,11 @@
     "Cette activité n'a encore aucun sous-projet. Ajoute-en un pour ouvrir sa page.":
       'This activity has no sub-project yet. Add one to open its page.',
     'Ajouter le sous-projet': 'Add sub-project',
+    // Période "Aujourd'hui", ajoutée au menu "⋮" de la Répartition d'une
+    // activité le 3 septembre 2026. Le libellé renvoyé par periodRange est
+    // "Aujourd'hui" lui aussi : une seule entrée couvre le bouton ET le
+    // libellé affiché à côté du titre de section.
+    "Aujourd'hui": 'Today',
     // Titre de la section Statistiques d'une activité : jamais traduit
     // jusqu'ici, alors qu'il s'affiche pour tout compte en anglais.
     'Statistiques et activités des membres': 'Member statistics and activity',

@@ -965,52 +965,62 @@
              — le répéter deux fois à trois centimètres d'intervalle n'apprend
              rien. Le <span id="communityActivityDetailName"> a donc été retiré,
              ainsi que la ligne de loadActivityDetail qui le remplissait. -->
-        <p class="sectionTitle">Statistiques et activités des membres</p>
-
-        <!-- Mêmes trois sections (Feuille de temps / Répartition / Graphique)
-             que l'onglet Statistiques, même fonctionnement (période, plein
-             écran, navigation semaine), mais l'axe de comparaison change :
-             ici on compare les MEMBRES de cette activité entre eux, plus
-             les activités entre elles (on est déjà "dans" une seule
-             activité) — demande d'Emilien, 29-30 août 2026. Ids et blocs
-             entièrement distincts de ceux de Statistiques (préfixe
-             communityActivity/ca) : jamais partagés, jamais réutilisés
-             depuis l'onglet Statistiques. -->
-        <div class="periodSwitch" id="communityActivityPeriodSwitch">
-          <button data-period="week" class="periodBtn active">Semaine</button>
-          <button data-period="month" class="periodBtn">Mois</button>
-          <button data-period="year" class="periodBtn">Année</button>
-        </div>
-
-        <div class="statsSummary">
-          <p class="statsLabel" id="communityActivityStatsLabel"></p>
-          <p class="statsTotal" id="communityActivityStatsTotal"></p>
-        </div>
-
-        <div id="communityActivityTimesheetBlock" class="statsSection">
+        <!-- ⚠️ 3 septembre 2026 (Activité — général), demande d'Emilien — quatre
+             retraits et un déplacement dans cette section :
+               · le titre "Statistiques et activités des membres" (le bouton
+                 "Statistiques" du sélecteur de sections le nomme déjà) ;
+               · le sélecteur de période PARTAGÉ par les trois blocs
+                 (#communityActivityPeriodSwitch) — « je souhaite que les
+                 options semaines, mois, années se trouvent directement dans
+                 les sections répartition et graphique ». Chaque section a
+                 donc désormais son propre menu "⋮", indépendant de l'autre ;
+               · le total en haut (.statsSummary) — « puisqu'elle se trouve
+                 déjà dans répartition » : c'est exact, renderActivityPie
+                 l'écrit au centre du camembert depuis toujours ;
+               · la Feuille de temps (#communityActivityTimesheetBlock) ;
+               · le flux des enregistrements des autres membres
+                 (#communityActivityDetailFeed, « les notes »).
+             ⚠️ Ce dernier était de toute façon vide de sens depuis le
+             31 août 2026 : la zone Note du Chrono ayant été retirée, plus
+             rien ne peut écrire time_entries.note. Il affichait donc des
+             sessions dont la note est toujours vide.
+             Restent les deux blocs que compare vraiment cette page : la
+             Répartition (qui compare les MEMBRES entre eux) et le Graphique.
+             Ids et blocs toujours entièrement distincts de ceux de l'onglet
+             Statistiques (préfixe communityActivity/ca) : jamais partagés. -->
+        <div id="communityActivityPieBlock" class="statsSection">
           <div class="sectionTitleRow">
-            <p class="sectionTitle">Feuille de temps</p>
-            <div class="timesheetNav">
-              <button id="caTsPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
-              <span id="caTsWeekLabel" class="meta"></span>
-              <button id="caTsNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
+            <p class="sectionTitle">Répartition <span id="caPiePeriodLabel" class="meta"></span></p>
+            <!-- Motif "⋮" générique de l'onglet Statistiques (.statsPeriodMenu*),
+                 câblé par setupStatsPeriodMenu() — réutilisé tel quel, aucune
+                 règle CSS ni aucune ligne de ce helper n'a été modifiée.
+                 "Aujourd'hui" n'existe QUE sur la Répartition, comme demandé :
+                 le Graphique tracerait un seul point pour une seule journée. -->
+            <div class="statsPeriodMenuWrap" id="caPiePeriodWrap">
+              <button type="button" class="menuBtn" id="caPiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+              <div class="statsPeriodMenu hidden" id="caPiePeriodMenu">
+                <button type="button" class="statsPeriodMenuItem" data-period="day">Aujourd'hui</button>
+                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
+              </div>
             </div>
           </div>
-          <div class="timesheetScroll">
-            <div id="caTsGrid" class="timesheetGrid"></div>
-          </div>
-          <p id="caTsEmptyHint" class="hint hidden">Rien d'enregistré sur cette semaine.</p>
-        </div>
-
-        <div id="communityActivityPieBlock" class="statsSection">
-          <p class="sectionTitle">Répartition</p>
           <div id="communityActivityPie" class="pieWrap"></div>
           <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
         </div>
 
         <div id="communityActivityChartBlock" class="statsSection">
           <div class="sectionTitleRow">
-            <p class="sectionTitle">Graphique</p>
+            <p class="sectionTitle">Graphique <span id="caChartPeriodLabel" class="meta"></span></p>
+            <div class="statsPeriodMenuWrap" id="caChartPeriodWrap">
+              <button type="button" class="menuBtn" id="caChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+              <div class="statsPeriodMenu hidden" id="caChartPeriodMenu">
+                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
+              </div>
+            </div>
           </div>
           <div class="chartWrap" id="communityActivityChartWrap">
             <div class="chartScroll">
@@ -1022,8 +1032,6 @@
           <p id="communityActivityChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
         </div>
 
-        <div id="communityActivityDetailFeed"></div>
-        <p id="communityActivityDetailEmptyHint" class="hint hidden">Rien à afficher pour l'instant pour cette activité.</p>
         </div><!-- /#communityActivityMembersPart -->
       </div>
 
