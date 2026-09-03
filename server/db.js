@@ -562,6 +562,7 @@ CREATE TABLE IF NOT EXISTS polls (
   question TEXT NOT NULL,
   multiChoice INTEGER NOT NULL DEFAULT 0,
   anonymous INTEGER NOT NULL DEFAULT 0,
+  allowSuggestions INTEGER NOT NULL DEFAULT 0,
   closesAt TEXT,
   closedAt TEXT,
   createdAt TEXT NOT NULL
@@ -655,6 +656,18 @@ if (!columnExists('users', 'lang')) {
 // sans lui, une base créée hier planterait à l'INSERT.
 if (tableExists('polls') && !columnExists('polls', 'anonymous')) {
   db.exec('ALTER TABLE polls ADD COLUMN anonymous INTEGER NOT NULL DEFAULT 0');
+}
+
+// Reponses libres proposees par les votants (3 septembre 2026, demande
+// d'Emilien). Migration additive, DEFAULT 0 : un sondage deja publie garde
+// exactement les reponses avec lesquelles il a ete cree.
+// Consequence a connaitre : quand elle vaut 1, une ligne de poll_options peut
+// apparaitre APRES la creation du sondage, ajoutee par un votant au moment de
+// son vote (voir votePoll dans server/lib/polls.js). La table ne garde pas qui
+// l'a proposee : le vote qui l'accompagne le dit deja, et sur un sondage
+// anonyme il ne faut surtout pas d'autre trace.
+if (tableExists('polls') && !columnExists('polls', 'allowSuggestions')) {
+  db.exec('ALTER TABLE polls ADD COLUMN allowSuggestions INTEGER NOT NULL DEFAULT 0');
 }
 
 // Le partage de profil (shareProfile) est devenu obligatoire pour tout le

@@ -491,6 +491,17 @@
     "Ce n'est pas ton projet.": 'This is not your project.',
     'Projet introuvable.': 'Project not found.',
 
+    // ---- Page de visite d'un profil : renommage "Messages" -> "Publications"
+    // et point vert "chrono en cours" (3 septembre 2026, demande d'Emilien).
+    // Les deux anciennes clés ("Aucun message pour l'instant." / "Suis ce
+    // profil pour voir ses messages.") restent ailleurs dans ce fichier :
+    // elles ne servent plus à cette page mais un onglet PWA resté ouvert
+    // avec l'ancien code peut encore les afficher.
+    'Publications': 'Posts',
+    'Aucune publication pour l\'instant.': 'No post yet.',
+    'Suis ce profil pour voir ses publications.': 'Follow this profile to see its posts.',
+    'Chrono en cours': 'Timer running',
+
     // ---- Découverte de membres + page de visite d'un profil (2 septembre
     // 2026) — voir GET /api/users/search (server/routes/follows.js) et les
     // routes /profile/:id/public|stats|posts (server/routes/profile.js).
@@ -582,6 +593,18 @@
     // Vote anonyme (3 septembre 2026). Sert deux fois : le libellé de la case
     // dans le panneau "Option", et l'étiquette portée par la carte du sondage.
     'Vote anonyme': 'Anonymous vote',
+    // Réponse libre proposée par un votant (3 septembre 2026). Trois textes :
+    // l'option de création, l'étiquette portée par la carte, et le choix
+    // « Autre » offert au votant, avec le libellé de son champ.
+    'Autoriser une autre réponse': 'Allow another answer',
+    'Réponse libre autorisée': 'Free answer allowed',
+    'Autre': 'Other',
+    'Ta réponse...': 'Your answer...',
+    'Écris ta réponse.': 'Write your answer.',
+    'Annuler la création du sondage': 'Cancel poll creation',
+    'Annuler': 'Cancel',
+    "Ce sondage n'accepte pas de réponse libre.": 'This poll does not accept free answers.',
+    'Ce sondage a déjà le nombre maximum de réponses.': 'This poll already has the maximum number of answers.',
     'Clôture (facultatif)': 'Closing date (optional)',
     // Les deux versions de l'avertissement, échangées par syncPrivacyHint
     // selon la case "Vote anonyme".

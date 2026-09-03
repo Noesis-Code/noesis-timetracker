@@ -3452,6 +3452,10 @@
       addOptionBtn: 'subProjectPollsAddOptionBtn', optionsBtn: 'subProjectPollsOptionsBtn',
       advanced: 'subProjectPollsAdvanced', multi: 'subProjectPollsMulti',
       anonymous: 'subProjectPollsAnonymous', privacyHint: 'subProjectPollsPrivacyHint',
+      // Ajoutés par la discussion Sondages (débordement signalé) pour que les
+      // trois emplacements proposent la même chose — les deux ids existent
+      // désormais dans le bloc HTML de ce volet.
+      allowSuggestions: 'subProjectPollsAllowSuggestions', cancelBtn: 'subProjectPollsCancelBtn',
       closesAt: 'subProjectPollsClosesAt', createBtn: 'subProjectPollsCreateBtn',
       msg: 'subProjectPollsMsg', list: 'subProjectPollsList', emptyHint: 'subProjectPollsEmptyHint',
     });
@@ -6109,6 +6113,9 @@
     $('viewProfileAvatarInitial').classList.remove('hidden');
     $('viewProfileAvatarInitial').textContent = name ? name.trim().charAt(0).toUpperCase() : '?';
     $('viewProfileAvatar').style.background = color || 'var(--purple)';
+    // Le point vert repart masqué : l'état du chrono du profil PRÉCÉDENT ne
+    // doit jamais rester affiché le temps que la réponse arrive.
+    $('viewProfileLiveDot').classList.add('hidden');
     $('viewProfileProjectsList').innerHTML = '';
     $('viewProfileProjectsEmptyHint').classList.add('hidden');
     $('viewProfileProjectsMsg').textContent = '';
@@ -6195,6 +6202,10 @@
     // du 2 septembre 2026. Un seul endroit dans la page porte le nom depuis
     // ce même passage : celui de l'en-tête de la modale a été retiré.
     $('viewProfileIdentityName').textContent = card.lastName ? (card.name + ' ' + card.lastName) : card.name;
+    // Point vert « chrono en cours » (3 septembre 2026, demande d'Emilien) :
+    // instantané au moment de l'ouverture du profil — cette page ne
+    // s'abonne à rien et ne se rafraîchit pas toute seule.
+    $('viewProfileLiveDot').classList.toggle('hidden', !card.chronoRunning);
     if (card.avatar) {
       $('viewProfileAvatarImg').src = card.avatar;
       $('viewProfileAvatarImg').classList.remove('hidden');
@@ -6956,6 +6967,56 @@
     el.style.height = el.scrollHeight + 'px';
   }
 
+  // Amène le haut du formulaire de sondage juste sous la barre supérieure
+  // (3 septembre 2026, demande d'Emilien : « que le nouveau sondage qui est en
+  // train d'être créé soit automatiquement tout en haut de l'écran à la limite
+  // avec la barre supérieure, car parfois le sondage disparaît sous le
+  // clavier »).
+  //
+  // La hauteur de .topbar est LUE, jamais codée en dur : elle change d'un
+  // appareil à l'autre avec l'encoche (safe-area-inset-top). Et le défilement
+  // est instantané, pas 'smooth' : une animation se fait interrompre par le
+  // repositionnement que le navigateur mobile opère lui-même à l'ouverture du
+  // clavier, et le formulaire s'arrête alors n'importe où.
+  // Le formulaire ne PEUT remonter en haut que s'il reste de quoi défiler en
+  // dessous de lui. Sur une page courte (aucun sondage encore publié), le
+  // défilement bute et le formulaire reste au milieu de l'écran — c'est
+  // exactement le cas où le clavier le recouvre. On ajoute donc, le temps de
+  // la saisie, une réserve de défilement en bas de page ; elle disparaît à la
+  // fermeture. En padding sur <body> plutôt qu'en élément inséré : rien à
+  // nettoyer dans le DOM d'un autre volet, et strictement réversible.
+  function setPollScrollRoom(on) {
+    document.body.style.paddingBottom = on ? '70vh' : '';
+  }
+
+  // Ce qui masque le haut de l'écran n'est PAS seulement .topbar : dans
+  // Communauté, la barre de recherche est collante juste en dessous et
+  // recouvrait encore le début du formulaire (constaté sur capture, pas
+  // déduit du CSS). On mesure donc tout ce qui est réellement épinglé en
+  // haut, sans nommer d'id appartenant à un autre volet : n'importe quel
+  // élément fixed/sticky posé près du bord supérieur compte. Les barres du
+  // BAS sont écartées par le seuil sur leur position verticale.
+  function topObstructionBottom() {
+    var bottom = 0;
+    var all = document.body.querySelectorAll('*');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      var pos = getComputedStyle(el).position;
+      if (pos !== 'fixed' && pos !== 'sticky') continue;
+      var r = el.getBoundingClientRect();
+      if (r.height === 0 || r.width === 0) continue;
+      if (r.top > 140 || r.height > 320) continue;
+      if (r.bottom > bottom) bottom = r.bottom;
+    }
+    return bottom;
+  }
+
+  function bringFormUnderTopbar(form) {
+    if (!form || form.classList.contains('hidden')) return;
+    var y = window.pageYOffset + form.getBoundingClientRect().top - topObstructionBottom() - 8;
+    window.scrollTo(0, Math.max(0, y));
+  }
+
   function bindPollAutoGrow(el) {
     el.addEventListener('input', function () { pollAutoGrow(el); });
   }
@@ -7056,6 +7117,7 @@
     // sondage anonyme (serializePoll) — cette étiquette informe, elle ne
     // protège rien à elle seule.
     if (poll.anonymous) flags.push(t('Vote anonyme'));
+    if (poll.allowSuggestions) flags.push(t('Réponse libre autorisée'));
     if (poll.isClosed) flags.push(t('Clos'));
     else if (poll.closesAt) flags.push(t('Ouvert jusqu\'au') + ' ' + pollDayLabel(poll.closesAt));
     if (flags.length) {
@@ -7086,6 +7148,58 @@
         lab.appendChild(span);
         choices.appendChild(lab);
       });
+
+      // ----- « Autre » : une réponse libre proposée par le votant -----
+      // (3 septembre 2026, demande d'Emilien.) Volontairement une option de
+      // plus dans la MÊME liste, avec le même bouton radio/case que les
+      // autres : elle obéit donc toute seule au choix simple ou multiple, sans
+      // règle particulière à écrire. Le champ de saisie n'apparaît qu'une fois
+      // « Autre » coché — sinon il invite à écrire alors que rien ne le
+      // demande.
+      var otherInput = null;
+      var otherToggle = null;
+      if (poll.allowSuggestions) {
+        var otherLab = document.createElement('label');
+        otherLab.className = 'pollChoice pollChoiceOther';
+        otherToggle = document.createElement('input');
+        otherToggle.type = poll.multiChoice ? 'checkbox' : 'radio';
+        otherToggle.name = groupName;
+        // dataset plutôt qu'une valeur numérique : la collecte des ids plus bas
+        // doit pouvoir écarter cette case sans la confondre avec une option.
+        otherToggle.dataset.other = '1';
+
+        var otherBody = document.createElement('span');
+        otherBody.className = 'pollOtherBody';
+        var otherLabel = document.createElement('span');
+        otherLabel.textContent = t('Autre');
+        otherInput = document.createElement('textarea');
+        otherInput.className = 'pollAutoGrow pollOtherInput hidden';
+        otherInput.rows = 1;
+        otherInput.maxLength = 120;
+        otherInput.placeholder = t('Ta réponse...');
+        bindPollAutoGrow(otherInput);
+        otherBody.appendChild(otherLabel);
+        otherBody.appendChild(otherInput);
+
+        otherLab.appendChild(otherToggle);
+        otherLab.appendChild(otherBody);
+        choices.appendChild(otherLab);
+
+        // Le champ suit l'état de la case — y compris quand c'est le choix
+        // d'une AUTRE option qui la décoche (boutons radio).
+        var syncOther = function () {
+          otherInput.classList.toggle('hidden', !otherToggle.checked);
+          if (otherToggle.checked) {
+            pollAutoGrow(otherInput);
+            otherInput.focus();
+          }
+        };
+        choices.addEventListener('change', syncOther);
+        // Cliquer dans le champ ne doit pas décocher la case qui l'a ouvert
+        // (il est à l'intérieur du <label>).
+        otherInput.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });
+      }
+
       card.appendChild(choices);
 
       var actions = document.createElement('div');
@@ -7096,9 +7210,16 @@
       voteBtn.textContent = t('Voter');
       voteBtn.addEventListener('click', function () {
         var chosen = Array.prototype.slice.call(choices.querySelectorAll('input'))
-          .filter(function (i) { return i.checked; })
+          .filter(function (i) { return i.checked && i.dataset.other !== '1'; })
           .map(function (i) { return Number(i.value); });
-        if (!chosen.length) { msgEl.textContent = t('Choisis une réponse.'); return; }
+        var suggestion = (otherToggle && otherToggle.checked && otherInput)
+          ? otherInput.value.trim() : '';
+        if (otherToggle && otherToggle.checked && !suggestion) {
+          msgEl.textContent = t('Écris ta réponse.');
+          otherInput.focus();
+          return;
+        }
+        if (!chosen.length && !suggestion) { msgEl.textContent = t('Choisis une réponse.'); return; }
 
         // Validation préalable EXIGÉE par Emilien (3 septembre 2026) : « Non
         // [pas modifiable], mais demande de validation préalable avant
@@ -7106,15 +7227,18 @@
         // seule chose qui rattrape un clic à côté — d'où le rappel des
         // réponses choisies dans la confirmation, plutôt qu'un « Confirmer ? »
         // sec qui ne laisse rien vérifier.
-        var picked = poll.options
+        var pickedList = poll.options
           .filter(function (o) { return chosen.indexOf(o.id) !== -1; })
-          .map(function (o) { return o.label; })
-          .join(', ');
+          .map(function (o) { return o.label; });
+        // La réponse libre est rappelée comme les autres dans la confirmation :
+        // c'est celle qu'on vient de taper, donc celle qu'on relit le mieux.
+        if (suggestion) pickedList.push(suggestion);
+        var picked = pickedList.join(', ');
         if (!confirm(t('Ton vote est définitif et ne pourra plus être modifié.') + '\n\n' + picked + '\n\n' + t('Confirmer ce vote ?'))) return;
 
         voteBtn.disabled = true;
         msgEl.textContent = '';
-        api('POST', '/api/polls/' + poll.id + '/vote', { userId: profile.id, optionIds: chosen })
+        api('POST', '/api/polls/' + poll.id + '/vote', { userId: profile.id, optionIds: chosen, suggestion: suggestion })
           .then(function () { if (onChanged) onChanged(); })
           .catch(function (err) { msgEl.textContent = err.message; voteBtn.disabled = false; });
       });
@@ -7244,10 +7368,12 @@
     function resetForm() {
       if (!hasComposer()) return;
       $(ids.form).classList.add('hidden');
+      setPollScrollRoom(false);
       $(ids.question).value = '';
       $(ids.question).style.height = 'auto';
       $(ids.multi).checked = false;
       if (anonymousBox()) anonymousBox().checked = false;
+      if (ids.allowSuggestions) $(ids.allowSuggestions).checked = false;
       $(ids.closesAt).value = '';
       $(ids.msg).textContent = '';
       $(ids.optionsBox).innerHTML = '';
@@ -7347,6 +7473,7 @@
         options: options,
         multiChoice: $(ids.multi).checked,
         anonymous: isAnonymousChecked(),
+        allowSuggestions: !!(ids.allowSuggestions && $(ids.allowSuggestions).checked),
         closesAt: $(ids.closesAt).value || null,
       })
         .then(function () {
@@ -7370,13 +7497,25 @@
       $(ids.addBtn).addEventListener('click', function () {
         var form = $(ids.form);
         form.classList.toggle('hidden');
+        setPollScrollRoom(!form.classList.contains('hidden'));
         if (!form.classList.contains('hidden')) {
           // Les champs viennent d'apparaître : c'est le premier moment où leur
           // hauteur est mesurable (voir pollAutoGrow).
           growAllFields();
+          bringFormUnderTopbar(form);
           $(ids.question).focus();
+          // Second passage après l'ouverture du clavier : sur téléphone,
+          // c'est LUI qui fait remonter la page à sa façon juste après le
+          // focus, et écrase le premier défilement.
+          setTimeout(function () { bringFormUnderTopbar(form); }, 350);
         }
       });
+      // Croix d'annulation : referme et remet tout à zéro, sans rien
+      // enregistrer (3 septembre 2026). Facultative, comme les autres ids
+      // arrivés après coup — un hôte qui ne l'a pas garde son formulaire.
+      if (ids.cancelBtn) {
+        $(ids.cancelBtn).addEventListener('click', function () { resetForm(); });
+      }
       $(ids.addOptionBtn).addEventListener('click', addOptionRow);
       // "Option" : choix multiple et date de clôture, repliés par défaut
       // (3 septembre 2026, demande d'Emilien). Ce sont les deux seuls réglages
@@ -7406,6 +7545,7 @@
     addOptionBtn: 'communityPollsAddOptionBtn', optionsBtn: 'communityPollsOptionsBtn',
     advanced: 'communityPollsAdvanced', multi: 'communityPollsMulti',
     anonymous: 'communityPollsAnonymous', privacyHint: 'communityPollsPrivacyHint',
+    allowSuggestions: 'communityPollsAllowSuggestions', cancelBtn: 'communityPollsCancelBtn',
     closesAt: 'communityPollsClosesAt', createBtn: 'communityPollsCreateBtn',
     msg: 'communityPollsMsg', list: 'communityPollsList', emptyHint: 'communityPollsEmptyHint',
   });
@@ -7421,6 +7561,7 @@
     addOptionBtn: 'profilePollsAddOptionBtn', optionsBtn: 'profilePollsOptionsBtn',
     advanced: 'profilePollsAdvanced', multi: 'profilePollsMulti',
     anonymous: 'profilePollsAnonymous', privacyHint: 'profilePollsPrivacyHint',
+    allowSuggestions: 'profilePollsAllowSuggestions', cancelBtn: 'profilePollsCancelBtn',
     closesAt: 'profilePollsClosesAt', createBtn: 'profilePollsCreateBtn',
     msg: 'profilePollsMsg', list: 'profilePollsList', emptyHint: 'profilePollsEmptyHint',
   });

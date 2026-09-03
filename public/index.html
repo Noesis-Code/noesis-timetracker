@@ -673,6 +673,12 @@
              par ce qu'il contient. Le "+" qui ouvre ce formulaire est monté
              dans le composeur ci-dessus. -->
         <div class="entryCard pollForm hidden" id="communityPollsForm">
+          <!-- Croix d'annulation (3 septembre 2026, demande d'Emilien) :
+               referme le formulaire ET remet tout à zéro, sans rien
+               enregistrer. Premier enfant du formulaire, posée en absolu par
+               .pollFormCancel pour rester au coin haut droit quelle que soit
+               la hauteur des champs. -->
+          <button type="button" class="pollFormCancel" id="communityPollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
           <textarea id="communityPollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
           <div class="pollFormOptions" id="communityPollsOptions"></div>
           <div class="pollFormActions">
@@ -682,6 +688,7 @@
           <div class="pollFormAdvanced hidden" id="communityPollsAdvanced">
             <label class="pollFormRow"><input type="checkbox" id="communityPollsMulti"> Plusieurs réponses possibles</label>
             <label class="pollFormRow"><input type="checkbox" id="communityPollsAnonymous"> Vote anonyme</label>
+            <label class="pollFormRow"><input type="checkbox" id="communityPollsAllowSuggestions"> Autoriser une autre réponse</label>
             <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="communityPollsClosesAt"></label>
           </div>
           <p class="hint" id="communityPollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
@@ -956,6 +963,12 @@
              par ce qu'il contient. Le "+" qui ouvre ce formulaire est monté
              dans le composeur ci-dessus. -->
         <div class="entryCard pollForm hidden" id="subProjectPollsForm">
+          <!-- Croix d'annulation (3 septembre 2026, demande d'Emilien) :
+               referme le formulaire ET remet tout à zéro, sans rien
+               enregistrer. Premier enfant du formulaire, posée en absolu par
+               .pollFormCancel pour rester au coin haut droit quelle que soit
+               la hauteur des champs. -->
+          <button type="button" class="pollFormCancel" id="subProjectPollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
           <textarea id="subProjectPollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
           <div class="pollFormOptions" id="subProjectPollsOptions"></div>
           <div class="pollFormActions">
@@ -972,6 +985,7 @@
           <div class="pollFormAdvanced hidden" id="subProjectPollsAdvanced">
             <label class="pollFormRow"><input type="checkbox" id="subProjectPollsMulti"> Plusieurs réponses possibles</label>
             <label class="pollFormRow"><input type="checkbox" id="subProjectPollsAnonymous"> Vote anonyme</label>
+            <label class="pollFormRow"><input type="checkbox" id="subProjectPollsAllowSuggestions"> Autoriser une autre réponse</label>
             <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="subProjectPollsClosesAt"></label>
           </div>
           <p class="hint" id="subProjectPollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
@@ -1655,6 +1669,12 @@
                jumeau de Communauté) : le "+" qui ouvre ce formulaire est dans
                le composeur ci-dessus, à gauche du trombone. -->
           <div class="entryCard pollForm hidden" id="profilePollsForm">
+            <!-- Croix d'annulation (3 septembre 2026, demande d'Emilien) :
+                 referme le formulaire ET remet tout à zéro, sans rien
+                 enregistrer. Premier enfant du formulaire, posée en absolu par
+                 .pollFormCancel pour rester au coin haut droit quelle que soit
+                 la hauteur des champs. -->
+            <button type="button" class="pollFormCancel" id="profilePollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
             <textarea id="profilePollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
             <div class="pollFormOptions" id="profilePollsOptions"></div>
             <div class="pollFormActions">
@@ -1664,6 +1684,7 @@
             <div class="pollFormAdvanced hidden" id="profilePollsAdvanced">
               <label class="pollFormRow"><input type="checkbox" id="profilePollsMulti"> Plusieurs réponses possibles</label>
               <label class="pollFormRow"><input type="checkbox" id="profilePollsAnonymous"> Vote anonyme</label>
+              <label class="pollFormRow"><input type="checkbox" id="profilePollsAllowSuggestions"> Autoriser une autre réponse</label>
               <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="profilePollsClosesAt"></label>
             </div>
             <p class="hint" id="profilePollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
@@ -1735,6 +1756,15 @@
             <span id="viewProfileAvatarInitial"></span>
           </div>
           <span class="identityName" id="viewProfileIdentityName"></span>
+          <!-- Point vert (3 septembre 2026, demande d'Emilien : « un point
+               vert s'affiche à droite du nom de l'utilisateur dans la page
+               profil ouverte lorsque le chrono de l'utilisateur est
+               actuellement lancé »). Alimenté par `chronoRunning` de GET
+               /profile/:userId/public — un simple booléen : ni le nom de
+               l'activité en cours, ni depuis quand, qui en diraient bien plus
+               que ce qui a été demandé. Un <span> vide et décoratif, d'où le
+               title/aria-label qui portent seuls le sens. -->
+          <span id="viewProfileLiveDot" class="viewProfileLiveDot hidden" title="Chrono en cours" role="img" aria-label="Chrono en cours"></span>
           <button type="button" class="menuBtn" id="viewProfileModalClose" aria-label="Fermer">✕</button>
         </div>
 
@@ -1757,23 +1787,6 @@
         <p class="sectionTitle">Projets</p>
         <div id="viewProfileProjectsList" class="activitiesList"></div>
         <p id="viewProfileProjectsEmptyHint" class="hint hidden">Aucun projet partagé pour l'instant.</p>
-
-        <!-- Sondages du profil visité (3 septembre 2026, 11ᵉ discussion
-             "Sondages"). Placé ici, AVANT le sélecteur Statistiques/Messages,
-             et pas à l'intérieur : les sondages relèvent du premier niveau
-             d'accès (tout membre identifié, comme les projets et les
-             statistiques), alors que les messages restent réservés aux
-             abonnés acceptés — les ranger sous "Messages" les aurait cachés
-             à ceux-là mêmes qu'Emilien veut voir voter (« Aussi les visiteurs
-             de sa page de profil », 3 septembre 2026). Lecture + vote
-             seulement : aucun composeur ici, on ne publie pas de sondage sur
-             le profil de quelqu'un d'autre. Le bloc entier reste masqué tant
-             que le profil visité n'a aucun sondage. -->
-        <div id="viewProfilePollsBlock" class="pollsBlock hidden">
-          <p class="sectionTitle">Sondages</p>
-          <div id="viewProfilePollsList" class="pollsList"></div>
-          <p id="viewProfilePollsEmptyHint" class="hint hidden">Aucun sondage pour l'instant.</p>
-        </div>
 
         <!-- Statistiques du profil visité (2 septembre 2026) : Répartition +
              Graphique uniquement, choix explicite d'Emilien — la Feuille de
@@ -1803,7 +1816,7 @@
              au-dessus n'est PAS concernée : elle reste toujours visible. -->
         <div class="periodSwitch" id="viewProfileSectionSwitch">
           <button type="button" class="periodBtn active" id="viewProfileTabStats">Statistiques</button>
-          <button type="button" class="periodBtn" id="viewProfileTabMessages">Messages</button>
+          <button type="button" class="periodBtn" id="viewProfileTabMessages">Publications</button>
         </div>
 
         <div id="viewProfileStatsSection">
@@ -1865,9 +1878,33 @@
              de cet onglet, pas à l'ouverture du profil : inutile d'aller les
              chercher tant que personne ne les regarde. -->
         <div id="viewProfileMessagesSection" class="hidden">
+          <!-- ⚠️ 3 septembre 2026 (demande d'Emilien : « je souhaite que les
+               sondages s'affichent uniquement dans la section message »,
+               section renommée "Publications" par la même demande) : ce bloc
+               était auparavant AVANT le sélecteur, donc visible en
+               permanence. Il est désormais ICI, en tête de la vue
+               Publications.
+               ⚠️ Ça ne restreint PAS l'accès aux sondages, et c'est
+               volontaire : cette vue s'ouvre pour tout le monde (voir
+               setViewProfileSection dans app.js, qui ne la conditionne pas à
+               `canSeePosts`). Seule la LISTE DES MESSAGES juste en dessous
+               reste réservée aux abonnés acceptés, remplacée sinon par
+               #viewProfilePostsLockedHint. Un visiteur non abonné ouvre donc
+               "Publications", voit et vote les sondages, et lit l'invitation
+               à suivre à la place des messages — ce qui reste conforme à la
+               demande du 3 septembre (« aussi les visiteurs de sa page de
+               profil » doivent pouvoir voter).
+               Lecture + vote seulement : aucun composeur ici, on ne publie
+               pas de sondage sur le profil de quelqu'un d'autre. Le bloc
+               reste masqué tant que le profil visité n'a aucun sondage. -->
+          <div id="viewProfilePollsBlock" class="pollsBlock hidden">
+            <p class="sectionTitle">Sondages</p>
+            <div id="viewProfilePollsList" class="pollsList"></div>
+            <p id="viewProfilePollsEmptyHint" class="hint hidden">Aucun sondage pour l'instant.</p>
+          </div>
           <div id="viewProfilePostsList" class="discussionList"></div>
-          <p id="viewProfilePostsEmptyHint" class="hint hidden">Aucun message pour l'instant.</p>
-          <p id="viewProfilePostsLockedHint" class="hint hidden">Suis ce profil pour voir ses messages.</p>
+          <p id="viewProfilePostsEmptyHint" class="hint hidden">Aucune publication pour l'instant.</p>
+          <p id="viewProfilePostsLockedHint" class="hint hidden">Suis ce profil pour voir ses publications.</p>
         </div>
         </div><!-- fin de #viewProfileScroll -->
       </div>

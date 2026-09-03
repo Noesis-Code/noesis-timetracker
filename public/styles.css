@@ -1986,6 +1986,18 @@ button { -webkit-user-select: none; user-select: none; }
 }
 #viewProfileModalClose { flex-shrink: 0; }
 
+/* Point vert « chrono en cours » du profil visité (3 septembre 2026, demande
+   d'Emilien). Posé à droite du nom, donc APRÈS lui dans le DOM et avant la
+   croix — le nom porte `flex: 1` et se tronque, ce point ne se comprime
+   jamais. Le halo le rend lisible sur les deux thèmes sans dépendre du fond.
+   Couleur volontairement en dur et non prise dans la palette d'activités :
+   ce n'est pas une couleur de donnée, c'est un état (« en cours »), et le
+   vert doit rester le même quelle que soit la palette du profil. */
+.viewProfileLiveDot {
+  flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%;
+  background: #22C55E; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22);
+}
+
 /* ===== PAGE D'UNE ACTIVITÉ (3 septembre 2026, Activité — général) =====
    Reprise stricte du motif de #viewProfileModal juste au-dessus, à la demande
    d'Emilien (« que la discussion s'ouvre de la même manière que les profils
@@ -2239,6 +2251,45 @@ button { -webkit-user-select: none; user-select: none; }
    .discussionMsgTop : il ne doit ni s'étirer ni se laisser écraser par un nom
    d'auteur long. */
 .pollCloseBtn { flex-shrink: 0; padding: 4px 10px; }
+
+/* Croix d'annulation du formulaire de création (3 septembre 2026). En absolu
+   plutôt qu'en première ligne du flux : le formulaire n'a pas d'en-tête, et
+   une croix poussée par la hauteur variable du champ de question ne serait
+   jamais « en haut à droite ». Le padding-right du formulaire lui réserve sa
+   place pour qu'elle ne recouvre jamais le texte de la question. */
+/* padding-top élargi : le formulaire n'a pas d'en-tête, la croix a donc
+   besoin de sa propre bande en haut — sinon elle se pose sur le bord du
+   champ de question (constaté sur capture). */
+.pollForm { position: relative; padding-top: 36px; }
+/* Seule la question passe sous la croix : on lui réserve la place à droite,
+   plutôt que de rétrécir tout le formulaire (ce qui décalait « Terminer »
+   et rendait les marges asymétriques). Sélecteur en enfant DIRECT : les
+   champs de réponse sont dans .pollFormOptionRow, ils ne sont pas visés. */
+.pollForm > textarea.pollAutoGrow { padding-right: 34px; }
+.pollFormCancel {
+  position: absolute; top: 8px; right: 8px;
+  width: 26px; height: 26px; padding: 0; line-height: 1;
+  border: none; background: none; color: var(--text-light);
+  font-size: 15px; cursor: pointer; border-radius: var(--radius-sm);
+}
+.pollFormCancel:hover { background: var(--hover-bg); color: var(--text); }
+
+/* Choix « Autre » : la case garde sa place en haut, le champ de saisie
+   s'ouvre en dessous du mot, à l'intérieur du même cadre de réponse. */
+.pollOtherBody { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.pollOtherInput {
+  width: 100%; box-sizing: border-box; margin: 0;
+  padding: 6px 8px; font-size: 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); color: var(--text);
+  min-height: 0; resize: none; overflow: hidden; line-height: 1.35;
+}
+/* Sur une carte en violet plein, le champ doit rester lisible comme le reste. */
+.discussionMsg.feedMine.pollCard .pollOtherInput {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
 
 /* ----- formulaire de création ----- */
 .pollForm { display: flex; flex-direction: column; gap: 8px; }

@@ -135,6 +135,7 @@ router.post('/polls', (req, res) => {
     options: req.body.options,
     multiChoice: !!req.body.multiChoice,
     anonymous: !!req.body.anonymous,
+    allowSuggestions: !!req.body.allowSuggestions,
     closesAt: req.body.closesAt,
   });
   if (created.error) return res.status(created.error.status).json(created.error.body);
@@ -160,7 +161,7 @@ router.post('/polls/:id/vote', (req, res) => {
   const access = accessForPoll(req.params.id, userId);
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
-  const result = polls.votePoll(access.row.id, userId, req.body.optionIds);
+  const result = polls.votePoll(access.row.id, userId, req.body.optionIds, req.body.suggestion);
   if (result.error) return res.status(result.error.status).json(result.error.body);
 
   res.json(result.poll);
