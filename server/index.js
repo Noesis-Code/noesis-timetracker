@@ -95,6 +95,9 @@ app.use('/api', require('./routes/follows'));
 app.use('/api', require('./routes/timer'));
 app.use('/api', require('./routes/stats'));
 app.use('/api', require('./routes/community'));
+// Sous-projets d'une activité (découpage, todolist, fil par sous-projet,
+// avancement) — discussion "Sous-projets", 3 septembre 2026.
+app.use('/api', require('./routes/subprojects'));
 app.use('/api', require('./routes/history'));
 app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/push'));

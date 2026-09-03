@@ -55,8 +55,9 @@
   var currentActivityStatsPeriod = 'week';
   var currentActivityTimesheetOffset = 0; // repart à 0 à chaque nouvelle sélection d'activité
   var lastActivityDailyBreakdown = [];
-  var activityTimesheetFullscreenActive = false;
-  var activityChartFullscreenActive = false;
+  // activityTimesheetFullscreenActive / activityChartFullscreenActive ont été
+  // retirées le 3 septembre 2026 avec le plein écran de cette page — voir le
+  // commentaire juste avant la section "FEUILLE DE TEMPS D'UNE ACTIVITÉ".
   var currentTheme = 'dark';
   var currentLang = 'en'; // 'en' par défaut (nouveaux comptes) ; voir applyLang plus bas
 
@@ -494,13 +495,37 @@
   // page à la molette est un comportement normal, aucun clavier virtuel
   // n'étant en jeu.
   var _isCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  function _isTextInputEl(el) {
+    return !!el && (el.tagName === 'TEXTAREA' ||
+      (el.tagName === 'INPUT' && ['text', 'search', 'tel', 'email', 'password', 'number', 'url', 'date', 'time'].indexOf(el.type) !== -1));
+  }
   if (_isCoarsePointer) {
+    // 3 septembre 2026 (Communauté, débordement signalé) : ce blur-au-scroll
+    // blurait AUSSI le tout premier scroll suivant un focus — exactement celui
+    // que le navigateur déclenche lui-même pour amener le champ au-dessus du
+    // clavier virtuel qui vient de s'ouvrir. Sur un champ assez bas dans la
+    // page (ex. le composeur "écrire à sa communauté", sous la liste de
+    // découverte), ce scroll automatique arrivait donc SYSTÉMATIQUEMENT et
+    // refermait le clavier aussitôt ouvert — impossible de taper le moindre
+    // message, symptôme signalé par Emilien (« je ne peux pas cliquer dessus
+    // et écrire un message »), reproduit ici en rejouant exactement cette
+    // séquence (focus puis scroll synthétique immédiat) dans un bac à sable.
+    // Le scroll voulu par le correctif d'origine (flottement de .topbar/
+    // .tabbar pendant qu'on fait défiler la page AVEC le clavier déjà ouvert)
+    // arrive, lui, après que ce scroll d'ajustement automatique s'est calmé.
+    // Fix : on ignore le(s) scroll(s) dans les 600ms qui suivent un focus sur
+    // un champ texte — assez large pour couvrir l'animation d'ajustement
+    // native, sans retarder perceptiblement le comportement d'origine pour un
+    // vrai défilement utilisateur ultérieur.
+    var _lastTextFocusAt = 0;
+    window.addEventListener('focusin', function (e) {
+      if (_isTextInputEl(e.target)) _lastTextFocusAt = Date.now();
+    }, { capture: true, passive: true });
     window.addEventListener('scroll', function () {
       var active = document.activeElement;
-      if (!active) return;
-      var isTextInput = active.tagName === 'TEXTAREA' ||
-        (active.tagName === 'INPUT' && ['text', 'search', 'tel', 'email', 'password', 'number', 'url', 'date', 'time'].indexOf(active.type) !== -1);
-      if (isTextInput) active.blur();
+      if (!_isTextInputEl(active)) return;
+      if (Date.now() - _lastTextFocusAt < 600) return;
+      active.blur();
     }, { capture: true, passive: true });
   }
 
@@ -776,8 +801,6 @@
       loadTimesheet();
     }
     else {
-      exitActivityTimesheetFullscreen();
-      exitActivityChartFullscreen();
       if (tab === 'community') loadCommunity();
       else if (tab === 'activity') loadActivityTab();
       else if (tab === 'chrono') {
@@ -801,8 +824,6 @@
   function openProfile() {
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-profile').classList.remove('hidden');
-    exitActivityTimesheetFullscreen();
-    exitActivityChartFullscreen();
     showProfileMain();
     loadPendingInvites();
     loadFollowRequests();
@@ -1436,6 +1457,37 @@
   // par activité, couleur = couleur déjà attribuée à l'activité (identité
   // stable, jamais générée) — remplace l'ancienne .barList. -----
   function donutSlicePath(cx, cy, rOuter, rInner, startAngle, endAngle) {
+    // Cas particulier du tour COMPLET (une seule activité enregistrée, donc
+    // 100 % — signalé par Emilien le 3 septembre 2026 : « je souhaite qu'on
+    // voie tout de même un cercle de la couleur de l'activité »).
+    //
+    // Un arc SVG dont le point d'arrivée est exactement le point de départ
+    // n'est pas dessiné : c'est la règle du format (un arc a besoin de deux
+    // points distincts pour être défini), pas un bug de navigateur. Avec une
+    // part unique, `endAngle - startAngle` vaut exactement 2π, donc les deux
+    // extrémités coïncident et l'anneau disparaissait entièrement — alors que
+    // le total au centre et la légende, eux, s'affichaient normalement.
+    //
+    // On dessine donc l'anneau en quatre demi-arcs : deux pour le contour
+    // extérieur (sens horaire), deux pour le contour intérieur parcouru en
+    // SENS INVERSE. Les deux sous-tracés ayant des sens d'enroulement
+    // opposés, la règle de remplissage par défaut (nonzero) évide le centre —
+    // le trou du donut est obtenu exactement comme pour une part partielle,
+    // sans `fill-rule` particulier ni élément d'un autre type.
+    if (endAngle - startAngle >= Math.PI * 2 - 1e-6) {
+      var mid = startAngle + Math.PI; // point diamétralement opposé
+      var oax = cx + rOuter * Math.cos(startAngle), oay = cy + rOuter * Math.sin(startAngle);
+      var obx = cx + rOuter * Math.cos(mid), oby = cy + rOuter * Math.sin(mid);
+      var iax = cx + rInner * Math.cos(startAngle), iay = cy + rInner * Math.sin(startAngle);
+      var ibx = cx + rInner * Math.cos(mid), iby = cy + rInner * Math.sin(mid);
+      return 'M' + oax + ',' + oay +
+        ' A' + rOuter + ',' + rOuter + ' 0 0 1 ' + obx + ',' + oby +
+        ' A' + rOuter + ',' + rOuter + ' 0 0 1 ' + oax + ',' + oay + ' Z' +
+        ' M' + iax + ',' + iay +
+        ' A' + rInner + ',' + rInner + ' 0 0 0 ' + ibx + ',' + iby +
+        ' A' + rInner + ',' + rInner + ' 0 0 0 ' + iax + ',' + iay + ' Z';
+    }
+
     var x1o = cx + rOuter * Math.cos(startAngle), y1o = cy + rOuter * Math.sin(startAngle);
     var x2o = cx + rOuter * Math.cos(endAngle), y2o = cy + rOuter * Math.sin(endAngle);
     var x1i = cx + rInner * Math.cos(endAngle), y1i = cy + rInner * Math.sin(endAngle);
@@ -1788,6 +1840,27 @@
 
     box.appendChild(svg);
     renderChartLegend(series);
+
+    // 3 septembre 2026, demande d'Emilien : « par défaut, la section
+    // graphique doit afficher les six dernières données du calendrier [...]
+    // même si j'ai touché le graphique avant [...] peu importe qu'on soit en
+    // mode jour, semaine ou mois. » Le Graphique n'a plus aucun zoom (voir
+    // CHART_DAY_SPACING plus haut) : chaque point garde son espacement fixe
+    // de 56px, ce qui correspond à peu près à six points visibles sur la
+    // largeur d'un écran de téléphone. On se contente donc de replacer le
+    // défilement horizontal de .chartScroll sur son bord droit (les données
+    // les plus récentes) à CHAQUE rendu de cette fonction — premier
+    // chargement, changement de granularité (Jour/Semaine/Mois) ou retour
+    // sur l'onglet Statistiques après l'avoir quitté (switchTab('stats')
+    // appelle systématiquement loadStats() → loadChartStats() →
+    // renderChart(), voir plus haut) — plutôt que de laisser le navigateur
+    // conserver la position laissée par un défilement précédent de
+    // l'utilisateur. Aucun mécanisme de zoom/geste réintroduit : un simple
+    // repositionnement de scrollLeft, sans toucher à l'espacement des points.
+    var chartScrollWrap = box.parentElement;
+    if (chartScrollWrap && chartScrollWrap.classList.contains('chartScroll')) {
+      chartScrollWrap.scrollLeft = chartScrollWrap.scrollWidth;
+    }
   }
 
   // ----- Ni le Graphique ni la Feuille de temps n'ont de mode plein écran :
@@ -2057,6 +2130,11 @@
   // déplie, juste sous sa ligne, tout ce qui concerne ses autres membres —
   // discussion, statistiques, feuille de temps, enregistrements et notes.
   var currentCommunityActivityId = '';
+  // Vrai quand l'activité sélectionnée est partagée (>= 2 membres). Posée au
+  // clic sur la ligne, lue par loadActivityDetail pour décider s'il faut
+  // afficher la partie "membres" du détail — voir #communityActivityMembersPart
+  // dans index.html (ajoutée le 3 septembre 2026 avec les sous-projets).
+  var currentActivityIsShared = false;
 
   // Le bloc de détail est un élément unique, déplacé d'une ligne à l'autre au
   // fil des sélections. Il doit être détaché AVANT que la liste ne soit vidée
@@ -2087,22 +2165,21 @@
     if (!profile) return;
     if (!currentCommunityActivityId) {
       activityDetailEl().classList.add('hidden');
-      exitActivityTimesheetFullscreen();
-      exitActivityChartFullscreen();
       stopDiscussionPolling();
+      // Sous-projets (3 septembre 2026) : le bloc suit la sélection
+      // d'activité, exactement comme le fil de discussion juste au-dessus.
+      resetSubProjectsBlock();
       return;
     }
 
     // Nouvelle sélection : on repart toujours de zéro sur les statistiques de
-    // CETTE activité (période "Semaine", semaine en cours, aucun plein
-    // écran) — même logique que l'ouverture de l'onglet Statistiques.
+    // CETTE activité (période "Semaine", semaine en cours) — même logique
+    // que l'ouverture de l'onglet Statistiques.
     currentActivityStatsPeriod = 'week';
     document.querySelectorAll('#communityActivityPeriodSwitch .periodBtn').forEach(function (b) {
       b.classList.toggle('active', b.dataset.period === 'week');
     });
     currentActivityTimesheetOffset = 0;
-    exitActivityTimesheetFullscreen();
-    exitActivityChartFullscreen();
     // Nouvelle activité : on repart d'un fil vide côté affichage, sinon la
     // signature du fil précédent empêcherait le premier rendu (et le
     // défilement automatique vers le dernier message).
@@ -2110,6 +2187,21 @@
     $('communityDiscussionList').innerHTML = '';
     $('communityDiscussionInput').value = '';
     $('communityDiscussionMsg').textContent = '';
+
+    // Activité NON partagée : rien à comparer entre membres, aucun fil de
+    // membres — on n'affiche que les sous-projets, et on n'appelle même pas
+    // les routes /community/activity-* (elles refusent d'ailleurs une
+    // activité solo par 400, voir checkSharedActivityAccess).
+    $('communityActivityMembersPart').classList.toggle('hidden', !currentActivityIsShared);
+    $('communityDiscussionBlock').classList.toggle('hidden', !currentActivityIsShared);
+    if (!currentActivityIsShared) {
+      activityDetailEl().classList.remove('hidden');
+      stopDiscussionPolling();
+      resetSubProjectsBlock();
+      loadSubProjects();
+      if (shouldScroll) activityDetailEl().scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
 
     api('GET', '/api/community/activity-feed?userId=' + profile.id + '&activityId=' + currentCommunityActivityId).then(function (data) {
       activityDetailEl().classList.remove('hidden');
@@ -2137,7 +2229,404 @@
     loadActivityTimesheet(currentCommunityActivityId);
     loadDiscussion(true);
     startDiscussionPolling();
+    // Sous-projets de cette activité (discussion "Sous-projets", 3 septembre
+    // 2026) : on repart toujours d'aucun sous-projet ouvert, comme les
+    // statistiques repartent de la période "Semaine".
+    resetSubProjectsBlock();
+    loadSubProjects();
   }
+
+  // ===================== SOUS-PROJETS D'UNE ACTIVITÉ =====================
+  // Discussion "Sous-projets" (3 septembre 2026). Découper une activité en
+  // objectifs, chacun avec sa todolist, son avancement et son propre fil de
+  // discussion — voir #activitySubProjectsBlock dans index.html,
+  // server/lib/subprojects.js et server/routes/subprojects.js.
+  //
+  // Périmètre strict : rien au-dessus du sous-projet. Le fil de l'activité
+  // (#communityDiscussionBlock, renderDiscussion) et la gestion de l'activité
+  // elle-même ne sont pas touchés par ce bloc.
+  //
+  // ⚠️ L'avancement affiché ici vient du MÊME calcul serveur que celui exposé
+  // à la discussion "Général" (progressForActivities) : une seule source, deux
+  // affichages, jamais deux calculs qui divergent. En particulier, percent
+  // vaut null — et non 0 — quand aucune tâche n'existe (règle R1 du contrat,
+  // voir noesis-timetracker-contrat-avancement.md) : c'est pour ça que la
+  // barre est MASQUÉE dans ce cas au lieu d'être dessinée vide.
+  var currentSubProjectId = '';
+  var subProjectsCanDeleteAny = false;
+  var subProjectsCache = [];
+
+  // #subProjectDetail est déplacé DANS la ligne du sous-projet sélectionné
+  // (et remis à son ancre quand plus rien n'est sélectionné) — même mécanique
+  // que attachActivityDetail() pour #communityActivityDetail. C'est ce qui
+  // permet de n'avoir qu'UN fil de discussion monté en mémoire, sur des ids
+  // fixes, au lieu d'une instance par sous-projet.
+  // ⚠️ Le nœud est MÉMORISÉ : une fois détaché du document (pour survivre au
+  // vidage de la liste), document.getElementById ne le retrouve plus et
+  // renverrait null — le bloc serait alors définitivement perdu. C'est
+  // exactement la raison pour laquelle activityDetailEl() met déjà en cache
+  // activityDetailNode plus haut ; le piège s'est reproduit ici et a été
+  // trouvé par la suite Playwright.
+  var subProjectDetailNode = null;
+  function subProjectDetailEl() {
+    if (!subProjectDetailNode) subProjectDetailNode = $('subProjectDetail');
+    return subProjectDetailNode;
+  }
+
+  function attachSubProjectDetail() {
+    var detail = subProjectDetailEl();
+    if (!detail) return;
+    if (!currentSubProjectId) {
+      $('subProjectDetailAnchor').appendChild(detail);
+      detail.classList.add('hidden');
+      return;
+    }
+    var row = document.querySelector('#subProjectsList .subProjectRow[data-sub-project-id="' + currentSubProjectId + '"]');
+    if (row) row.appendChild(detail);
+    detail.classList.remove('hidden');
+  }
+
+  // Barre d'avancement partagée par l'activité et par un sous-projet.
+  // percent === null (aucune tâche) : on masque au lieu de dessiner une barre
+  // vide, qui se lirait à tort comme « 0 % fait ».
+  function renderProgressBar(wrapId, fillId, labelId, done, total, percent) {
+    var wrap = wrapId ? $(wrapId) : null;
+    var label = labelId ? $(labelId) : null;
+    if (percent === null || percent === undefined) {
+      if (wrap) wrap.classList.add('hidden');
+      if (label) label.textContent = '';
+      $(fillId).style.width = '0%';
+      return;
+    }
+    if (wrap) wrap.classList.remove('hidden');
+    $(fillId).style.width = percent + '%';
+    if (label) label.textContent = percent + '% · ' + done + '/' + total;
+  }
+
+  function resetSubProjectsBlock() {
+    currentSubProjectId = '';
+    subProjectsCache = [];
+    if (subProjectThread) subProjectThread.stopPolling();
+    attachSubProjectDetail();
+    $('subProjectsList').innerHTML = '';
+    $('subProjectsEmptyHint').classList.add('hidden');
+    $('activityProgressWrap').classList.add('hidden');
+    $('subProjectsProgressLabel').textContent = '';
+    $('newSubProjectCard').classList.add('hidden');
+  }
+
+  function loadSubProjects() {
+    if (!profile || !currentCommunityActivityId) { resetSubProjectsBlock(); return; }
+    var activityId = currentCommunityActivityId;
+    api('GET', '/api/activities/' + activityId + '/sub-projects?userId=' + profile.id)
+      .then(function (data) {
+        // Sélection changée pendant la requête : réponse périmée, on ne
+        // dessine pas (même garde que loadDiscussion et que la page de visite
+        // d'un profil).
+        if (String(activityId) !== String(currentCommunityActivityId)) return;
+        subProjectsCanDeleteAny = !!data.canDeleteAny;
+        subProjectsCache = data.subProjects;
+        renderSubProjectsList(data);
+      })
+      .catch(function () { /* activité quittée entre-temps : loadActivityDetail gère */ });
+  }
+
+  function renderSubProjectsList(data) {
+    var box = $('subProjectsList');
+    // ⚠️ Détacher le détail AVANT de vider la liste : il vit dans la ligne
+    // sélectionnée, il serait donc détruit avec elle (et avec lui le fil de
+    // discussion et ses écouteurs, montés une seule fois sur des ids fixes).
+    // Exactement le même piège que detachActivityDetail() pour
+    // #communityActivityDetail — trouvé ici par la suite Playwright, qui ne
+    // retrouvait plus #newSubProjectItemInput après un rechargement de liste.
+    var detail = subProjectDetailEl();
+    if (detail && detail.parentNode) detail.parentNode.removeChild(detail);
+    box.innerHTML = '';
+    $('subProjectsEmptyHint').classList.toggle('hidden', data.subProjects.length > 0);
+
+    var p = data.progress;
+    renderProgressBar('activityProgressWrap', 'activityProgressFill', 'subProjectsProgressLabel',
+      p ? p.done : 0, p ? p.total : 0, p ? p.percent : null);
+
+    data.subProjects.forEach(function (sub) {
+      var row = document.createElement('div');
+      row.className = 'activityRow subProjectRow';
+      row.dataset.subProjectId = sub.id;
+
+      var header = document.createElement('div');
+      header.className = 'activityRowHeader subProjectRowHeader';
+
+      var name = document.createElement('span');
+      name.className = 'activityRowName';
+      name.textContent = sub.name;
+      header.appendChild(name);
+
+      var badge = document.createElement('span');
+      badge.className = 'meta subProjectBadge';
+      // Un sous-projet sans aucune tâche n'affiche PAS "0 %" — il n'a pas
+      // encore de todolist, ce n'est pas la même chose qu'un travail non
+      // commencé (règle R1).
+      badge.textContent = sub.percent === null
+        ? t('aucune tâche')
+        : sub.percent + '% · ' + sub.done + '/' + sub.total;
+      header.appendChild(badge);
+
+      row.appendChild(header);
+
+      // Mini-barre par sous-projet, dans la ligne repliée : c'est ce qu'on
+      // vient lire en premier quand on ouvre une activité.
+      if (sub.percent !== null) {
+        var track = document.createElement('div');
+        track.className = 'subProjectProgressTrack subProjectRowTrack';
+        var fill = document.createElement('div');
+        fill.className = 'subProjectProgressFill';
+        fill.style.width = sub.percent + '%';
+        track.appendChild(fill);
+        row.appendChild(track);
+      }
+
+      if (sub.description) {
+        var desc = document.createElement('p');
+        desc.className = 'meta subProjectRowDesc';
+        desc.textContent = sub.description;
+        row.appendChild(desc);
+      }
+
+      header.addEventListener('click', function () {
+        selectSubProject(String(sub.id) === String(currentSubProjectId) ? '' : sub.id);
+      });
+
+      box.appendChild(row);
+    });
+
+    // La ligne sélectionnée vient d'être reconstruite : le détail doit y être
+    // rebranché, sinon il resterait orphelin dans l'ancre.
+    attachSubProjectDetail();
+  }
+
+  function selectedSubProject() {
+    for (var i = 0; i < subProjectsCache.length; i++) {
+      if (String(subProjectsCache[i].id) === String(currentSubProjectId)) return subProjectsCache[i];
+    }
+    return null;
+  }
+
+  function selectSubProject(id) {
+    currentSubProjectId = id ? String(id) : '';
+    attachSubProjectDetail();
+    $('subProjectSettingsPanel').classList.add('hidden');
+    $('subProjectItemsMsg').textContent = '';
+    $('subProjectEditMsg').textContent = '';
+
+    if (!currentSubProjectId) {
+      subProjectThread.stopPolling();
+      return;
+    }
+
+    var sub = selectedSubProject();
+    if (sub) {
+      $('subProjectEditName').value = sub.name;
+      $('subProjectEditDescription').value = sub.description || '';
+      // Barre du sous-projet ouvert. On passe null comme wrapId : le panneau
+      // de détail ne doit JAMAIS être masqué par l'absence de tâches — seule
+      // la barre est vidée et le libellé bascule sur "aucune tâche".
+      renderProgressBar(null, 'subProjectProgressFill', null, sub.done, sub.total, sub.percent);
+      $('subProjectProgressLabel').textContent = sub.percent === null
+        ? t('aucune tâche')
+        : sub.percent + '% · ' + sub.done + '/' + sub.total;
+    }
+
+    loadSubProjectItems();
+    subProjectThread.reset();
+    subProjectThread.startPolling();
+  }
+
+  // ----- Todolist -----
+
+  function loadSubProjectItems() {
+    if (!profile || !currentSubProjectId) return;
+    var id = currentSubProjectId;
+    api('GET', '/api/sub-projects/' + id + '/items?userId=' + profile.id)
+      .then(function (data) {
+        if (String(id) !== String(currentSubProjectId)) return;
+        renderSubProjectItems(data.items);
+      })
+      .catch(function () { /* sous-projet supprimé entre-temps */ });
+  }
+
+  function renderSubProjectItems(items) {
+    var box = $('subProjectItems');
+    box.innerHTML = '';
+    $('subProjectItemsEmptyHint').classList.toggle('hidden', items.length > 0);
+
+    items.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'subProjectItem' + (item.done ? ' done' : '');
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = item.done;
+      cb.addEventListener('change', function () {
+        cb.disabled = true;
+        api('PUT', '/api/sub-project-items/' + item.id, { userId: profile.id, done: cb.checked })
+          .then(function () {
+            // Une case cochée change l'avancement du sous-projet ET celui de
+            // l'activité : on recharge la liste (qui porte les deux) plutôt
+            // que de recalculer un pourcentage côté client — le serveur reste
+            // la seule source de vérité de l'avancement.
+            loadSubProjectItems();
+            loadSubProjects();
+          })
+          .catch(function (err) {
+            cb.checked = !cb.checked;
+            $('subProjectItemsMsg').textContent = err.message;
+          })
+          .then(function () { cb.disabled = false; });
+      });
+      row.appendChild(cb);
+
+      var label = document.createElement('span');
+      label.className = 'subProjectItemLabel';
+      label.textContent = item.label;
+      row.appendChild(label);
+
+      // Sur une activité partagée, savoir QUI a coché évite le « c'est moi qui
+      // l'ai fait ». Rien n'est affiché sur une activité solo : doneByName
+      // serait toujours soi-même.
+      if (item.done && item.doneByName && profile && item.doneBy !== profile.id) {
+        var who = document.createElement('span');
+        who.className = 'meta subProjectItemWho';
+        who.textContent = item.doneByName;
+        row.appendChild(who);
+      }
+
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'discussionMsgDelete';
+      del.textContent = '✕';
+      del.title = t('Supprimer cette tâche');
+      del.addEventListener('click', function () {
+        if (!confirm(t('Supprimer cette tâche ?'))) return;
+        api('DELETE', '/api/sub-project-items/' + item.id + '?userId=' + profile.id)
+          .then(function () { loadSubProjectItems(); loadSubProjects(); })
+          .catch(function (err) { $('subProjectItemsMsg').textContent = err.message; });
+      });
+      row.appendChild(del);
+
+      box.appendChild(row);
+    });
+  }
+
+  function addSubProjectItem() {
+    if (!profile || !currentSubProjectId) return;
+    var input = $('newSubProjectItemInput');
+    var label = input.value.trim();
+    var msgEl = $('subProjectItemsMsg');
+    if (!label) { msgEl.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
+    msgEl.textContent = '';
+    $('newSubProjectItemBtn').disabled = true;
+    api('POST', '/api/sub-projects/' + currentSubProjectId + '/items', { userId: profile.id, label: label })
+      .then(function () {
+        input.value = '';
+        loadSubProjectItems();
+        loadSubProjects();
+      })
+      .catch(function (err) { msgEl.textContent = err.message; })
+      .then(function () { $('newSubProjectItemBtn').disabled = false; });
+  }
+
+  // ----- Création / édition / suppression d'un sous-projet -----
+
+  function createSubProject() {
+    if (!profile || !currentCommunityActivityId) return;
+    var nameEl = $('newSubProjectName');
+    var name = nameEl.value.trim();
+    var msgEl = $('newSubProjectMsg');
+    if (!name) { msgEl.textContent = t('Le nom du sous-projet est requis.'); return; }
+    msgEl.textContent = '';
+    $('newSubProjectSave').disabled = true;
+    api('POST', '/api/activities/' + currentCommunityActivityId + '/sub-projects', {
+      userId: profile.id, name: name, description: $('newSubProjectDescription').value.trim(),
+    })
+      .then(function () {
+        nameEl.value = '';
+        $('newSubProjectDescription').value = '';
+        $('newSubProjectCard').classList.add('hidden');
+        loadSubProjects();
+      })
+      .catch(function (err) { msgEl.textContent = err.message; })
+      .then(function () { $('newSubProjectSave').disabled = false; });
+  }
+
+  function saveSubProjectEdits() {
+    if (!profile || !currentSubProjectId) return;
+    var msgEl = $('subProjectEditMsg');
+    $('subProjectEditSave').disabled = true;
+    api('PUT', '/api/sub-projects/' + currentSubProjectId, {
+      userId: profile.id,
+      name: $('subProjectEditName').value.trim(),
+      description: $('subProjectEditDescription').value.trim(),
+    })
+      .then(function () { msgEl.textContent = t('Enregistré.'); loadSubProjects(); })
+      .catch(function (err) { msgEl.textContent = err.message; })
+      .then(function () { $('subProjectEditSave').disabled = false; });
+  }
+
+  function deleteSubProject() {
+    if (!profile || !currentSubProjectId) return;
+    // Double confirmation : la suppression emporte la todolist ET le fil de
+    // discussion de TOUS les membres — même prudence que la suppression
+    // définitive d'une activité.
+    if (!confirm(t('Supprimer ce sous-projet ?'))) return;
+    if (!confirm(t('Sa todolist et sa discussion seront supprimées pour tous les membres. Confirmer ?'))) return;
+    var id = currentSubProjectId;
+    api('DELETE', '/api/sub-projects/' + id + '?userId=' + profile.id)
+      .then(function () {
+        selectSubProject('');
+        loadSubProjects();
+      })
+      .catch(function (err) { $('subProjectEditMsg').textContent = err.message; });
+  }
+
+  // Fil de discussion du sous-projet ouvert — même factory que les zones
+  // Discussion du Profil et de Communauté (mountMessageThread), montée ici en
+  // MULTI-AUTEUR et sans pièces jointes, avec un rafraîchissement périodique
+  // comme le fil d'une activité. listUrl() renvoie null quand aucun
+  // sous-projet n'est ouvert : la factory ne charge alors rien.
+  var subProjectThread = mountMessageThread({
+    ids: {
+      list: 'subProjectMessagesList', emptyHint: 'subProjectMessagesEmptyHint',
+      input: 'subProjectMessageInput', sendBtn: 'subProjectMessageSendBtn',
+      msg: 'subProjectMessageMsg',
+    },
+    attachments: false,
+    multiAuthor: true,
+    pollMs: 15000,
+    listUrl: function () {
+      if (!profile || !currentSubProjectId) return null;
+      return '/api/sub-projects/' + currentSubProjectId + '/messages?userId=' + profile.id;
+    },
+    messagesOf: function (data) { return data.messages; },
+    createUrl: function () { return '/api/sub-projects/' + currentSubProjectId + '/messages'; },
+    createBody: function (body) { return { userId: profile.id, body: body }; },
+    deleteUrl: function (m) { return '/api/sub-project-messages/' + m.id + '?userId=' + profile.id; },
+  });
+
+  $('addSubProjectBtn').addEventListener('click', function () {
+    var card = $('newSubProjectCard');
+    card.classList.toggle('hidden');
+    if (!card.classList.contains('hidden')) $('newSubProjectName').focus();
+  });
+  $('newSubProjectSave').addEventListener('click', createSubProject);
+  $('newSubProjectItemBtn').addEventListener('click', addSubProjectItem);
+  $('newSubProjectItemInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); addSubProjectItem(); }
+  });
+  $('subProjectSettingsBtn').addEventListener('click', function () {
+    $('subProjectSettingsPanel').classList.toggle('hidden');
+  });
+  $('subProjectEditSave').addEventListener('click', saveSubProjectEdits);
+  $('subProjectDeleteBtn').addEventListener('click', deleteSubProject);
 
   // ===================== FIL DE DISCUSSION D'UNE ACTIVITÉ PARTAGÉE =========
   // Troisième forme d'écrit entre membres, volontairement distincte des deux
@@ -2160,7 +2649,14 @@
     discussionPollTimer = setInterval(function () {
       // Onglet quitté, activité désélectionnée, ou app en arrière-plan
       // (téléphone verrouillé) : rien à recharger.
-      if (!currentCommunityActivityId || $('tab-community').classList.contains('hidden')) {
+      // ⚠️ Testé sur #tab-activity, PAS sur #tab-community : ce fil vit dans
+      // l'onglet Activité depuis son déménagement du 30 août 2026. Le test
+      // portait encore sur #tab-community jusqu'au 3 septembre 2026 — comme
+      // cet onglet-là est forcément masqué quand on regarde une activité, la
+      // condition était vraie dès le premier tick et le minuteur se tuait
+      // aussitôt : le fil ne se rafraîchissait plus tout seul, et
+      // refreshUnreadBadges() (son unique appelant) ne s'exécutait jamais.
+      if (!currentCommunityActivityId || $('tab-activity').classList.contains('hidden')) {
         stopDiscussionPolling();
         return;
       }
@@ -2503,7 +2999,7 @@
     svg.setAttribute('class', 'chartSvg');
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.style.width = width + 'px';
-    if (!activityChartFullscreenActive) svg.style.height = height + 'px';
+    svg.style.height = height + 'px';
 
     var baseline = document.createElementNS(svgNS, 'line');
     baseline.setAttribute('x1', 0); baseline.setAttribute('x2', width);
@@ -2613,48 +3109,31 @@
     renderActivityChartLegend(series);
   }
 
-  // ----- Plein écran forcé (paysage) du Graphique / de la Feuille de temps
-  // de cette activité : même mécanisme (rotation CSS 90°) et même exclusion
-  // mutuelle via body.scrollLock que Statistiques — voir
-  // #communityActivityTimesheetBlock.fullscreen / #communityActivityChartBlock.fullscreen
-  // dans styles.css. -----
-  function exitActivityChartFullscreen() {
-    if (!activityChartFullscreenActive) return;
-    activityChartFullscreenActive = false;
-    $('communityActivityChartBlock').classList.remove('fullscreen');
-    document.body.classList.remove('scrollLock');
-    $('caChartFullscreenBtn').textContent = '⛶';
-    $('caChartFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran, format paysage'));
-    renderActivityChart(lastActivityDailyBreakdown);
-  }
-  $('caChartFullscreenBtn').addEventListener('click', function () {
-    lockPortraitOrientation();
-    if (!activityChartFullscreenActive) exitActivityTimesheetFullscreen();
-    activityChartFullscreenActive = !activityChartFullscreenActive;
-    $('communityActivityChartBlock').classList.toggle('fullscreen', activityChartFullscreenActive);
-    document.body.classList.toggle('scrollLock', activityChartFullscreenActive);
-    $('caChartFullscreenBtn').textContent = activityChartFullscreenActive ? '✕' : '⛶';
-    $('caChartFullscreenBtn').setAttribute('aria-label', activityChartFullscreenActive ? t('Quitter le plein écran') : t('Voir en plein écran, format paysage'));
-    renderActivityChart(lastActivityDailyBreakdown);
-  });
-
-  function exitActivityTimesheetFullscreen() {
-    if (!activityTimesheetFullscreenActive) return;
-    activityTimesheetFullscreenActive = false;
-    $('communityActivityTimesheetBlock').classList.remove('fullscreen');
-    document.body.classList.remove('scrollLock');
-    $('caTsFullscreenBtn').textContent = '⛶';
-    $('caTsFullscreenBtn').setAttribute('aria-label', t('Voir en plein écran, format paysage'));
-  }
-  $('caTsFullscreenBtn').addEventListener('click', function () {
-    lockPortraitOrientation();
-    if (!activityTimesheetFullscreenActive) exitActivityChartFullscreen();
-    activityTimesheetFullscreenActive = !activityTimesheetFullscreenActive;
-    $('communityActivityTimesheetBlock').classList.toggle('fullscreen', activityTimesheetFullscreenActive);
-    document.body.classList.toggle('scrollLock', activityTimesheetFullscreenActive);
-    $('caTsFullscreenBtn').textContent = activityTimesheetFullscreenActive ? '✕' : '⛶';
-    $('caTsFullscreenBtn').setAttribute('aria-label', activityTimesheetFullscreenActive ? t('Quitter le plein écran') : t('Voir en plein écran, format paysage'));
-  });
+  // ----- Plein écran retiré le 3 septembre 2026 (Activité — général),
+  // demande d'Emilien : « aligne-le. Plus de plein écran nulle part. »
+  // Cette page était la dernière à en avoir un : la Feuille de temps de
+  // l'onglet Statistiques a perdu le sien le 1er septembre 2026, le
+  // Graphique le 2 septembre. Ont disparu ici : les boutons
+  // #caTsFullscreenBtn / #caChartFullscreenBtn (index.html), les variables
+  // activityTimesheetFullscreenActive / activityChartFullscreenActive, les
+  // fonctions exitActivityTimesheetFullscreen() / exitActivityChartFullscreen()
+  // et leur exclusion mutuelle (chacune appelait la sortie de l'autre pour ne
+  // jamais laisser body.scrollLock verrouillé par l'un pendant que l'autre se
+  // ferme), leurs points d'appel (switchTab, openProfile, loadActivityDetail,
+  // rafraîchissement de la liste d'activités), et les règles
+  // #communityActivityTimesheetBlock.fullscreen /
+  // #communityActivityChartBlock.fullscreen de styles.css.
+  // L'étirement de hauteur du SVG qui n'avait de sens qu'en plein écran a été
+  // retiré aussi : renderActivityChart() pose désormais toujours une hauteur
+  // inline fixe, exactement comme renderChart() côté Statistiques.
+  // Les deux sections restent entièrement consultables en vue normale
+  // (.timesheetScroll et .chartScroll défilent déjà horizontalement).
+  // ⚠️ Règle générale posée par Emilien le même jour : les sections
+  // statistiques de cette page s'alignent TOUJOURS sur les modifications
+  // apportées par les discussions Statistiques (Feuille de temps /
+  // Répartition / Graphique). Le code reste dupliqué — c'est un choix assumé,
+  // voir le commentaire de la section "STATISTIQUES D'UNE ACTIVITÉ" — mais le
+  // comportement, lui, ne doit plus diverger. -----
 
   // ===================== FEUILLE DE TEMPS D'UNE ACTIVITÉ (section Membres) ==
   // Même grille jour × quart d'heure que Statistiques, mais combinant les
@@ -4860,14 +5339,57 @@
   // refreshAllProfilePostsComposers, tout en bas).
   var profilePostsComposers = [];
 
-  function mountProfilePostsComposer(ids) {
+  // ===================== FIL DE DISCUSSION — FACTORY GÉNÉRIQUE =====================
+  // Généralisée le 3 septembre 2026 par la discussion "Sous-projets", à partir
+  // de mountProfilePostsComposer(ids) (Communauté, 1er septembre 2026).
+  //
+  // POURQUOI : l'app avait déjà DEUX rendus de messages, et aucun n'était
+  // réutilisable tel quel pour un fil par sous-projet —
+  //   1. renderDiscussion (fil d'une activité) : multi-auteur, mais SINGLETON,
+  //      câblé sur des ids fixes et sur currentCommunityActivityId. Propriété
+  //      de la discussion "Général" : non modifié par ce chantier.
+  //   2. mountProfilePostsComposer : bien une factory paramétrée par des ids,
+  //      mais câblée en dur sur /api/profile/posts et MONO-auteur (.mine
+  //      toujours vrai, ni nom ni couleur d'auteur).
+  // Le fil d'un sous-projet est multi-auteur ET doit vivre sur ses propres
+  // ids. Plutôt que d'écrire un TROISIÈME système, la factory existante est
+  // généralisée ici : sa source de données et son mode d'affichage deviennent
+  // des paramètres.
+  //
+  // ⚠️ mountProfilePostsComposer reste juste en dessous, sous la forme d'un
+  // appel préconfiguré : la zone Discussion du Profil et la zone "écrire à sa
+  // communauté" gardent EXACTEMENT le même comportement qu'avant (mêmes
+  // routes, rendu mono-auteur, pièces jointes, rafraîchissement mutuel des
+  // deux instances). Aucun de leurs appelants n'a été touché.
+  //
+  // cfg :
+  //   ids               { list, emptyHint, input, sendBtn, msg,
+  //                       pendingList?, attachBtn?, attachInput? }
+  //   registry          tableau d'instances rafraîchies ensemble
+  //   attachments       true = trombone au composeur ET sur chaque message
+  //   multiAuthor       true = nom + couleur d'auteur, .mine sur les siens seulement
+  //   listUrl()         url de lecture — renvoyer null quand le fil n'a pas
+  //                     encore de contexte (aucun sous-projet ouvert, p. ex.)
+  //   messagesOf(data)  extrait le tableau de messages de la réponse
+  //   createUrl()       url d'envoi
+  //   createBody(body)  corps de la requête d'envoi
+  //   deleteUrl(m)      url de suppression d'un message
+  //   attachUrl(m)      url d'ajout d'une pièce jointe (si attachments)
+  //   attachDeletePath  chemin de suppression d'une pièce jointe (si attachments)
+  //   pollMs            si défini : rafraîchissement périodique, et garde
+  //                     anti-redessin (sans elle, un rafraîchissement
+  //                     périodique ferait sauter le défilement à chaque tour)
+  function mountMessageThread(cfg) {
     // [{ tempId, fileName, mimeType, sizeBytes, dataUrl }] — pièces jointes
-    // choisies AVANT l'envoi, gardées en mémoire côté client (voir le
-    // commentaire original ci-dessous), propres à CETTE instance.
+    // choisies AVANT l'envoi, gardées en mémoire côté client, propres à CETTE
+    // instance.
     var pendingAttachments = [];
+    var renderedSignature = '';
+    var pollTimer = null;
 
     function renderPending() {
-      var box = $(ids.pendingList);
+      if (!cfg.attachments) return;
+      var box = $(cfg.ids.pendingList);
       box.classList.toggle('hidden', pendingAttachments.length === 0);
       renderAttachmentList(box, pendingAttachments.map(function (p) {
         return { id: p.tempId, fileName: p.fileName, mimeType: p.mimeType, sizeBytes: p.sizeBytes, dataUrl: p.dataUrl };
@@ -4875,46 +5397,51 @@
         pendingAttachments = pendingAttachments.filter(function (p) { return p.tempId !== removedTempId; });
         renderPending();
       }, null);
-      $(ids.attachBtn).disabled = pendingAttachments.length >= MAX_NOTE_ATTACHMENTS;
+      $(cfg.ids.attachBtn).disabled = pendingAttachments.length >= MAX_NOTE_ATTACHMENTS;
     }
 
-    // Une carte de message "Communauté" : texte + pièces jointes déjà
-    // envoyées + trombone pour en ajouter une nouvelle (POST
-    // /profile/posts/:id/attachments, toujours sur un message déjà envoyé —
-    // pas d'état "en attente" ici, voir le commentaire sur
-    // profile_post_attachments dans server/db.js) + suppression du message
-    // entier. `.mine` toujours vrai : ce fil n'affiche que les messages de
-    // l'auteur courant, quel que soit l'emplacement (Profil ou Communauté).
-    // Après un ajout/suppression de pièce jointe ou une suppression de
-    // message, les DEUX instances sont rafraîchies (refreshAllProfilePostsComposers)
-    // plutôt qu'une mise à jour locale : la même donnée est désormais visible
-    // à deux endroits, mieux vaut un aller-retour serveur de plus qu'un des
-    // deux affichages qui reste périmé.
+    // Une carte de message : texte + (si cfg.attachments) pièces jointes déjà
+    // envoyées et trombone pour en ajouter une + suppression du message.
+    // En mono-auteur (Profil/Communauté), `mine` est toujours vrai : ce fil
+    // n'affiche que les messages de l'auteur courant. En multi-auteur
+    // (sous-projet), on affiche le nom et la couleur de chacun et seul
+    // l'auteur voit la croix de suppression — même règle que le fil d'une
+    // activité, où le propriétaire n'a aucun droit particulier.
     function buildPostCard(post) {
+      var mine = cfg.multiAuthor ? !!(profile && post.userId === profile.id) : true;
+
       var msg = document.createElement('div');
-      msg.className = 'discussionMsg mine';
+      msg.className = 'discussionMsg' + (mine ? ' mine' : '');
+      msg.dataset.messageId = post.id;
 
       var when = new Date(post.createdAt);
       var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
       var timeLabel = pad(when.getHours()) + ':' + pad(when.getMinutes());
 
+      var authorHtml = cfg.multiAuthor
+        ? '<span class="dot" style="background:' + (post.userColor || 'transparent') + '"></span>' +
+          escapeHtml(post.userName || '') + (mine ? t(' (toi)') : '')
+        : escapeHtml(profile ? profile.name : '') + t(' (toi)');
+
       var top = document.createElement('div');
       top.className = 'discussionMsgTop';
-      top.innerHTML = '<span class="discussionMsgAuthor">' + escapeHtml(profile.name) + t(' (toi)') + '</span>' +
+      top.innerHTML = '<span class="discussionMsgAuthor">' + authorHtml + '</span>' +
         '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>';
 
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'discussionMsgDelete';
-      del.textContent = '✕';
-      del.title = t('Supprimer ce message');
-      del.addEventListener('click', function () {
-        if (!confirm(t('Supprimer ce message ?'))) return;
-        api('DELETE', '/api/profile/posts/' + post.id + '?userId=' + profile.id)
-          .then(refreshAllProfilePostsComposers)
-          .catch(function (err) { alert(err.message); });
-      });
-      top.appendChild(del);
+      if (mine) {
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'discussionMsgDelete';
+        del.textContent = '✕';
+        del.title = t('Supprimer ce message');
+        del.addEventListener('click', function () {
+          if (!confirm(t('Supprimer ce message ?'))) return;
+          api('DELETE', cfg.deleteUrl(post))
+            .then(refreshRegistry)
+            .catch(function (err) { alert(err.message); });
+        });
+        top.appendChild(del);
+      }
       msg.appendChild(top);
 
       var body = document.createElement('div');
@@ -4922,9 +5449,11 @@
       body.textContent = post.body;
       msg.appendChild(body);
 
+      if (!cfg.attachments) return msg;
+
       var attachBox = document.createElement('div');
       attachBox.className = 'attachmentList';
-      renderAttachmentList(attachBox, post.attachments, null, '/api/profile/post-attachments/');
+      renderAttachmentList(attachBox, post.attachments, null, cfg.attachDeletePath);
       var attachMenuWrap = document.createElement('div');
       attachMenuWrap.className = 'attachmentMenuWrap';
       var attachMenuBtn = document.createElement('button');
@@ -4941,8 +5470,8 @@
 
       function uploadPostAttachment(fileName, mimeType, dataUrl) {
         attachMsg.textContent = t('Envoi...');
-        api('POST', '/api/profile/posts/' + post.id + '/attachments', { userId: profile.id, fileName: fileName, mimeType: mimeType, dataUrl: dataUrl })
-          .then(function () { refreshAllProfilePostsComposers(); })
+        api('POST', cfg.attachUrl(post), { userId: profile.id, fileName: fileName, mimeType: mimeType, dataUrl: dataUrl })
+          .then(function () { refreshRegistry(); })
           .catch(function (err) { attachMsg.textContent = err.message; });
       }
 
@@ -4961,46 +5490,69 @@
     }
 
     function renderPosts(posts) {
-      var box = $(ids.list);
+      var box = $(cfg.ids.list);
+      $(cfg.ids.emptyHint).classList.toggle('hidden', posts.length > 0);
+
+      // Garde anti-redessin, uniquement quand le fil se rafraîchit tout seul
+      // (cfg.pollMs) : sans elle, chaque tour reconstruirait le fil à
+      // l'identique et ferait sauter le défilement. Les instances sans
+      // polling (Profil/Communauté) redessinent comme avant — comportement
+      // strictement inchangé pour elles.
+      if (cfg.pollMs) {
+        var signature = posts.map(function (m) {
+          return m.id + ':' + (m.attachments ? m.attachments.length : 0) + ':' + (m.body || '').length;
+        }).join(',');
+        if (signature === renderedSignature) return;
+        renderedSignature = signature;
+      }
+
       box.innerHTML = '';
-      $(ids.emptyHint).classList.toggle('hidden', posts.length > 0);
       posts.forEach(function (post) { box.appendChild(buildPostCard(post)); });
       box.scrollTop = box.scrollHeight;
     }
 
     function load() {
       if (!profile) return;
-      api('GET', '/api/profile/posts?userId=' + profile.id).then(renderPosts);
+      var url = cfg.listUrl();
+      if (!url) return;   // pas de contexte (aucun sous-projet ouvert) : rien à charger
+      api('GET', url).then(function (data) {
+        // Le contexte a pu changer pendant la requête (autre sous-projet
+        // ouvert entre-temps) : on ne dessine pas une réponse périmée.
+        if (cfg.listUrl() !== url) return;
+        renderPosts(cfg.messagesOf(data));
+      }).catch(function () { /* contexte disparu : rien à afficher */ });
     }
 
     function reset() {
       pendingAttachments = [];
       renderPending();
-      $(ids.input).value = '';
-      $(ids.msg).textContent = '';
+      renderedSignature = '';
+      $(cfg.ids.list).innerHTML = '';
+      $(cfg.ids.input).value = '';
+      $(cfg.ids.msg).textContent = '';
       load();
     }
 
     // Crée le message puis, s'il y avait des pièces jointes en attente, les
-    // envoie une par une dans l'ordre choisi (POST /profile/posts/:id/attachments,
-    // même route que le trombone d'un message déjà publié).
+    // envoie une par une dans l'ordre choisi — pas de notion serveur de
+    // "brouillon", uniquement un état client temporaire.
     function send() {
       if (!profile) return;
-      var input = $(ids.input);
+      var input = $(cfg.ids.input);
       var body = input.value.trim();
-      var msgEl = $(ids.msg);
+      var msgEl = $(cfg.ids.msg);
       if (!body) { msgEl.textContent = t('Écris un message avant d\'envoyer.'); return; }
 
       msgEl.textContent = '';
-      $(ids.sendBtn).disabled = true;
-      var pending = pendingAttachments.slice();
-      api('POST', '/api/profile/posts', { userId: profile.id, body: body })
+      $(cfg.ids.sendBtn).disabled = true;
+      var pending = cfg.attachments ? pendingAttachments.slice() : [];
+      api('POST', cfg.createUrl(), cfg.createBody(body))
         .then(function (created) {
           if (!pending.length) return;
           var chain = Promise.resolve();
           pending.forEach(function (p) {
             chain = chain.then(function () {
-              return api('POST', '/api/profile/posts/' + created.id + '/attachments',
+              return api('POST', cfg.attachUrl(created),
                 { userId: profile.id, fileName: p.fileName, mimeType: p.mimeType, dataUrl: p.dataUrl });
             });
           });
@@ -5010,43 +5562,95 @@
           input.value = '';
           pendingAttachments = [];
           renderPending();
-          refreshAllProfilePostsComposers();
-          // Un nouveau message peut désormais apparaître dans le flux "Suivi"
-          // de qui nous suit, mais jamais dans le nôtre (Suivi ne montre que
-          // les AUTRES) — rien à recharger côté #followingFeed ici.
+          renderedSignature = '';
+          refreshRegistry();
+          if (cfg.onSent) cfg.onSent();
         })
         .catch(function (err) { msgEl.textContent = err.message; })
-        .then(function () { $(ids.sendBtn).disabled = false; });
+        .then(function () { $(cfg.ids.sendBtn).disabled = false; });
     }
 
-    $(ids.attachBtn).addEventListener('click', function () { $(ids.attachInput).click(); });
-    $(ids.attachInput).addEventListener('change', function () {
-      var file = this.files[0];
-      this.value = '';
-      handleAttachmentFilePick(file, $(ids.msg), function (fileName, mimeType, dataUrl) {
-        pendingAttachments.push({
-          tempId: 'pending-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-          fileName: fileName,
-          mimeType: mimeType,
-          sizeBytes: Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4),
-          dataUrl: dataUrl,
+    function refreshRegistry() {
+      if (cfg.registry) cfg.registry.forEach(function (c) { c.load(); });
+      else load();
+    }
+
+    function startPolling() {
+      stopPolling();
+      if (!cfg.pollMs) return;
+      pollTimer = setInterval(function () {
+        // Onglet quitté, contexte perdu, ou app en arrière-plan (téléphone
+        // verrouillé) : rien à recharger. Même prudence que le fil d'activité.
+        if (!cfg.listUrl()) { stopPolling(); return; }
+        if (document.hidden) return;
+        load();
+      }, cfg.pollMs);
+    }
+
+    function stopPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+    }
+
+    if (cfg.attachments) {
+      $(cfg.ids.attachBtn).addEventListener('click', function () { $(cfg.ids.attachInput).click(); });
+      $(cfg.ids.attachInput).addEventListener('change', function () {
+        var file = this.files[0];
+        this.value = '';
+        handleAttachmentFilePick(file, $(cfg.ids.msg), function (fileName, mimeType, dataUrl) {
+          pendingAttachments.push({
+            tempId: 'pending-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+            fileName: fileName,
+            mimeType: mimeType,
+            sizeBytes: Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4),
+            dataUrl: dataUrl,
+          });
+          $(cfg.ids.msg).textContent = '';
+          renderPending();
         });
-        $(ids.msg).textContent = '';
-        renderPending();
       });
-    });
-    $(ids.sendBtn).addEventListener('click', send);
+    }
+    $(cfg.ids.sendBtn).addEventListener('click', send);
     // Entrée = envoyer, Maj+Entrée = retour à la ligne — même convention que
     // le fil de discussion de l'onglet Activité.
-    $(ids.input).addEventListener('keydown', function (e) {
+    $(cfg.ids.input).addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
 
-    var instance = { load: load, reset: reset };
-    profilePostsComposers.push(instance);
+    var instance = { load: load, reset: reset, startPolling: startPolling, stopPolling: stopPolling };
+    if (cfg.registry) cfg.registry.push(instance);
     return instance;
   }
 
+  // Appel préconfiguré — le fil "Communauté" d'un profil (profile_posts),
+  // monté deux fois (zone Discussion du Profil + zone "écrire à sa
+  // communauté"). Signature et comportement inchangés depuis le 1er septembre
+  // 2026 : mono-auteur, pièces jointes, deux instances qui se rafraîchissent
+  // mutuellement.
+  function mountProfilePostsComposer(ids) {
+    return mountMessageThread({
+      ids: ids,
+      registry: profilePostsComposers,
+      attachments: true,
+      multiAuthor: false,
+      listUrl: function () { return '/api/profile/posts?userId=' + profile.id; },
+      messagesOf: function (data) { return data; },
+      createUrl: function () { return '/api/profile/posts'; },
+      createBody: function (body) { return { userId: profile.id, body: body }; },
+      deleteUrl: function (post) { return '/api/profile/posts/' + post.id + '?userId=' + profile.id; },
+      attachUrl: function (post) { return '/api/profile/posts/' + post.id + '/attachments'; },
+      attachDeletePath: '/api/profile/post-attachments/',
+      // Un nouveau message peut désormais apparaître dans le flux "Suivi" de
+      // qui nous suit, mais jamais dans le nôtre (Suivi ne montre que les
+      // AUTRES) — rien à recharger côté #followingFeed ici.
+    });
+  }
+
+  // Conservée après la généralisation du 3 septembre 2026 (le rafraîchissement
+  // mutuel des deux instances est désormais fait par mountMessageThread
+  // lui-même, via cfg.registry) : plus aucun appelant dans ce fichier, mais
+  // gardée comme filet pour une session concurrente qui l'appellerait encore.
+  // À retirer par Profil ou Communauté lors d'un prochain audit de code mort.
   function refreshAllProfilePostsComposers() {
     profilePostsComposers.forEach(function (c) { c.load(); });
   }
@@ -5277,12 +5881,23 @@
     // L'activité sélectionnée a pu être quittée/supprimée entre-temps (par
     // soi-même ou par le dernier autre membre) : on referme alors le détail
     // plutôt que de garder une sélection qui ne correspond plus à rien.
-    if (currentCommunityActivityId && !shared[String(currentCommunityActivityId)]) {
+    //
+    // ⚠️ 3 septembre 2026 (discussion "Sous-projets", débordement signalé) :
+    // cette garde testait la présence de l'activité dans la liste des
+    // activités PARTAGÉES — ce qui refermait aussitôt le détail de toute
+    // activité solo, puisqu'elle n'y figure jamais. C'était sans conséquence
+    // tant que le détail ne s'ouvrait que sur une activité partagée ; ça ne
+    // l'est plus depuis que les sous-projets s'y affichent, y compris en solo.
+    // Le test porte donc désormais sur l'EXISTENCE de l'activité (acts), et
+    // non sur son partage. Le partage est mémorisé à part, pour que
+    // loadActivityDetail sache s'il doit afficher la partie "membres".
+    var stillExists = (acts || []).some(function (x) { return String(x.id) === String(currentCommunityActivityId); });
+    if (currentCommunityActivityId && !stillExists) {
       currentCommunityActivityId = '';
       activityDetailEl().classList.add('hidden');
-      exitActivityTimesheetFullscreen();
-      exitActivityChartFullscreen();
       stopDiscussionPolling();
+    } else if (currentCommunityActivityId) {
+      currentActivityIsShared = !!shared[String(currentCommunityActivityId)];
     }
 
     // Détaché avant le vidage de la liste : sans ça, le bloc de détail serait
@@ -5472,18 +6087,27 @@
         panel.classList.toggle('hidden');
       });
 
-      // Clic sur la ligne (hors "⋮") : ouvre/referme le suivi des autres
-      // membres si l'activité est partagée. Sur une activité solo, il n'y a
-      // personne à suivre — le clic ouvre alors les réglages, pour qu'il ne
-      // reste jamais sans effet.
+      // Clic sur la ligne (hors "⋮") : ouvre/referme le détail de l'activité.
+      //
+      // ⚠️ 3 septembre 2026 (discussion "Sous-projets", débordement signalé) :
+      // jusqu'ici, ce clic n'ouvrait le détail que sur une activité PARTAGÉE
+      // et se rabattait sur les réglages pour une activité solo — la raison
+      // donnée était qu'il n'y avait « personne à suivre » sur une activité
+      // solo, donc rien à montrer. Ce n'est plus vrai : les sous-projets
+      // (découper son activité en objectifs) ont tout leur sens en solo, c'est
+      // même leur cas d'usage principal. Le détail s'ouvre donc désormais pour
+      // TOUTE activité ; c'est #communityActivityMembersPart et le fil de
+      // discussion des membres qui sont masqués quand elle n'est pas partagée
+      // (voir loadActivityDetail). Le bouton "⋮" reste le chemin vers les
+      // réglages, inchangé.
       header.addEventListener('click', function () {
-        if (!sharedInfo) { panel.classList.toggle('hidden'); return; }
         var willSelect = !isSelected;
         currentCommunityActivityId = willSelect ? String(a.id) : '';
+        currentActivityIsShared = !!sharedInfo;
         loadSettingsActivities();
         loadActivityDetail(willSelect);
       });
-      if (sharedInfo) header.classList.add('clickable');
+      header.classList.add('clickable');
 
       box.appendChild(row);
 

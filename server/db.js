@@ -358,6 +358,96 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   createdAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(userId);
+
+-- ===================== SOUS-PROJETS D'UNE ACTIVITÉ =====================
+-- Ajoutées le 3 septembre 2026 par la discussion "Sous-projets", avec
+-- l'autorisation explicite d'Emilien (server/db.js reste la zone la plus
+-- sensible du projet). Trois tables NEUVES, purement additives : aucune table
+-- existante n'est modifiée, aucune migration n'est nécessaire — un
+-- CREATE TABLE IF NOT EXISTS suffit. ⚠️ Comme toujours ici : elles n'existent
+-- qu'après un REDÉMARRAGE du serveur.
+--
+-- Un sous-projet découpe une activité en objectifs. Il appartient à
+-- l'ACTIVITÉ, pas à la personne qui l'a créé (cadrage d'Emilien : « communs à
+-- l'activité ») : tous les membres les voient, les modifient et cochent leurs
+-- tâches. createdBy ne sert qu'à afficher l'origine et à autoriser la
+-- suppression (créateur ou propriétaire de l'activité — voir
+-- server/routes/subprojects.js, c'est la seule action non ouverte à tout
+-- membre, parce qu'elle emporte en cascade le travail des autres).
+--
+-- ⚠️ Les sous-projets existent AUSSI sur une activité solo : découper sa
+-- propre activité est le cas d'usage principal. Ne pas réutiliser
+-- checkSharedActivityAccess (server/routes/community.js), qui exige
+-- membersCount >= 2.
+--
+-- Volontairement ABSENTS de ce modèle en V1 : statut (en pause/terminé),
+-- échéance, priorité, assignation d'une tâche à un membre — même discipline
+-- que la section Projets du Profil, où Emilien avait explicitement écarté les
+-- statuts. L'avancement se lit sur les cases cochées, rien d'autre.
+--
+-- ⚠️ PAS de lien avec profile_projects : la section "Projets" du Profil est
+-- une vitrine publique (ce que je fais, ce que je cherche), les sous-projets
+-- sont le découpage interne d'une activité chronométrée. Deux concepts
+-- distincts, décision d'Emilien du 3 septembre 2026.
+--
+-- ⚠️ PHASE 2 non faite : le lien avec le Chrono (attribuer le temps d'une
+-- session à un sous-projet) demanderait une colonne subProjectId sur
+-- time_entries ET running_timers. Voulu par Emilien, mais renvoyé à un
+-- chantier conjoint avec Chrono et les trois discussions Statistiques — voir
+-- noesis-timetracker-sous-projets-cadrage.md §7.
+CREATE TABLE IF NOT EXISTS sub_projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  createdBy TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sub_projects_activity ON sub_projects(activityId, position);
+
+-- La todolist d'un sous-projet. C'est la SEULE source de l'avancement : le
+-- pourcentage n'est jamais stocké, il est dérivé à la lecture
+-- (progressForActivities dans server/lib/subprojects.js) — donc jamais
+-- désynchronisé d'avec les cases réellement cochées.
+--
+-- doneBy/doneAt : sur une activité partagée, savoir QUI a coché quoi évite le
+-- « c'est moi qui l'ai fait ». ON DELETE SET NULL pour qu'un membre qui quitte
+-- l'activité (ou supprime son compte) ne décoche jamais rien au passage — la
+-- tâche reste faite, elle perd juste son auteur. Les deux repassent à NULL au
+-- décochage : un item décoché ne doit pas garder le nom de la dernière
+-- personne qui l'avait coché.
+CREATE TABLE IF NOT EXISTS sub_project_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subProjectId INTEGER NOT NULL REFERENCES sub_projects(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  done INTEGER NOT NULL DEFAULT 0,
+  doneBy TEXT REFERENCES users(id) ON DELETE SET NULL,
+  doneAt TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sub_project_items_sp ON sub_project_items(subProjectId, position);
+
+-- Fil de discussion PROPRE À CHAQUE SOUS-PROJET. Système nouveau et
+-- volontairement DISTINCT du fil de l'activité (activity_messages, propriété
+-- de la discussion "Général") — demande explicite d'Emilien le 3 septembre
+-- 2026. L'alternative envisagée (une colonne subProjectId nullable sur
+-- activity_messages : NULL = fil de l'activité) aurait écrit moins de code
+-- mais touché la table d'une autre discussion ; écartée pour cette raison,
+-- pas par méconnaissance de son existence.
+--
+-- Pas de pièces jointes ni de suivi des non-lus en V1, contrairement à
+-- activity_messages : à ajouter si Emilien le demande, plutôt que d'avoir
+-- deux mécanismes à moitié faits.
+CREATE TABLE IF NOT EXISTS sub_project_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subProjectId INTEGER NOT NULL REFERENCES sub_projects(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sub_project_messages_sp ON sub_project_messages(subProjectId, createdAt);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================

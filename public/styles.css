@@ -943,8 +943,11 @@ textarea {
    `height: 100%` propres au plein écran disparaissent — les cases-jour
    retrouvent leur hauteur naturelle (celle de leur unique ligne de créneaux,
    voir .tsCalDaySlots).
-   body.scrollLock reste défini ici : les deux plein écrans de Communauté
-   (voir plus bas) s'en servent toujours. Le Graphique, lui, a perdu son
+   body.scrollLock n'a PLUS AUCUN lecteur depuis le 3 septembre 2026 : ses
+   deux derniers, les plein écrans de la page d'une activité, ont été retirés
+   ce jour-là (demande d'Emilien : « aligne-le. Plus de plein écran nulle
+   part. »). La règle est laissée en place — c'est une classe utilitaire
+   générique, donc zone Design : signalé plutôt que supprimé unilatéralement. Le Graphique, lui, a perdu son
    propre plein écran le 1er septembre 2026 (demande d'Emilien : « supprimer
    le mode plein écran de graphique ») — les règles #statsChartBlock.fullscreen
    qui vivaient ici, ainsi que le bouton #chartFullscreenBtn et la fonction
@@ -954,30 +957,6 @@ textarea {
    horizontal dans .chartScroll pour les longues périodes, comme avant. -----
    */
 body.scrollLock { overflow: hidden; }
-
-/* Correctif 30 août 2026 (demande d'Emilien) : en plein écran, la largeur
-   visuelle réellement disponible une fois la rotation appliquée est celle du
-   téléphone (~360-430px), pas celle d'un écran de bureau — la ligne titre +
-   navigation (précédent/suivant, période, sortie ⛶/✕), alignée aux deux bords
-   par .sectionTitleRow (justify-content: space-between, définie par Design),
-   pouvait déborder sur la droite. Passage sur deux lignes centrées plutôt
-   qu'une seule alignée aux bords. Ne touche que le contexte plein écran : la
-   définition générique de .sectionTitleRow (Design) n'est pas modifiée.
-   Portait à l'origine sur quatre blocs ; #statsTimesheetBlock.fullscreen puis
-   #statsChartBlock.fullscreen en ont été retirés le 1er septembre 2026 avec
-   le plein écran de la Feuille de temps puis celui du Graphique (demandes
-   d'Emilien) — ne restent plus que les deux équivalents Communauté. */
-#communityActivityTimesheetBlock.fullscreen .sectionTitleRow,
-#communityActivityChartBlock.fullscreen .sectionTitleRow {
-  flex-wrap: wrap;
-  justify-content: center;
-  text-align: center;
-  row-gap: 6px;
-}
-#communityActivityTimesheetBlock.fullscreen .timesheetNav {
-  justify-content: center;
-  width: 100%;
-}
 
 .communityActivities { display: flex; flex-direction: column; gap: 14px; }
 .communityActivityCard {
@@ -1341,95 +1320,6 @@ body.scrollLock { overflow: hidden; }
 .deleteActivityChoices { flex-direction: column; align-items: stretch; margin-top: 12px; }
 .deleteActivityChoices .iconBtn { width: 100%; text-align: center; }
 
-/* ----- Feuille de temps / Graphique d'UNE activité partagée (section
-   Membres) en plein écran forcé (format paysage) : à l'origine des copies
-   exactes des règles #statsTimesheetBlock.fullscreen / #statsChartBlock.fullscreen
-   (Statistiques), sur les ids dédiés à Communauté — voir le bloc
-   #communityActivityDetail dans index.html et la section "STATISTIQUES
-   D'UNE ACTIVITÉ" dans app.js (29-30 août 2026, demande Emilien). Les deux
-   règles Statistiques d'origine ont depuis été retirées (1er septembre 2026,
-   plein écran supprimé côté Feuille de temps puis Graphique) mais celles-ci,
-   propres à Communauté, restent intactes et hors de ce chantier. Aucune
-   classe générique ne peut porter ces règles (elles sont ID-scopées), donc
-   dupliquées ici plutôt que partagées. -----*/
-#communityActivityTimesheetBlock.fullscreen {
-  position: fixed; top: 0; left: 0;
-  z-index: 1000;
-  margin: 0;
-  background: var(--bg);
-  padding: 16px;
-  overflow: hidden;
-  display: flex; flex-direction: column;
-  box-shadow: none; border-radius: 0;
-}
-/* Même correctif "orientation réelle vs. rotation forcée" que
-   #statsTimesheetBlock.fullscreen (voir son commentaire, plus haut dans ce
-   fichier). */
-@media (orientation: portrait) {
-  #communityActivityTimesheetBlock.fullscreen {
-    top: 50%; left: 50%;
-    width: 100vh; height: 100vw;
-    transform: translate(-50%, -50%) rotate(90deg);
-    transform-origin: center center;
-  }
-}
-@media (orientation: landscape) {
-  #communityActivityTimesheetBlock.fullscreen {
-    width: 100vw; height: 100vh;
-    transform: none;
-  }
-}
-#communityActivityTimesheetBlock.fullscreen .timesheetScroll {
-  flex: 1; overflow: auto;
-}
-#communityActivityTimesheetBlock.fullscreen .timesheetGrid {
-  height: 100%;
-}
-
-#communityActivityChartBlock.fullscreen {
-  position: fixed; top: 0; left: 0;
-  z-index: 1000;
-  margin: 0;
-  background: var(--bg);
-  padding: 16px;
-  overflow: hidden;
-  display: flex; flex-direction: column;
-  box-shadow: none; border-radius: 0;
-}
-/* Même correctif "orientation réelle vs. rotation forcée" que
-   #statsTimesheetBlock.fullscreen (voir son commentaire, plus haut dans ce
-   fichier). */
-@media (orientation: portrait) {
-  #communityActivityChartBlock.fullscreen {
-    top: 50%; left: 50%;
-    width: 100vh; height: 100vw;
-    transform: translate(-50%, -50%) rotate(90deg);
-    transform-origin: center center;
-  }
-}
-@media (orientation: landscape) {
-  #communityActivityChartBlock.fullscreen {
-    width: 100vw; height: 100vh;
-    transform: none;
-  }
-}
-#communityActivityChartBlock.fullscreen .chartWrap {
-  flex: 1; min-height: 0;
-  display: flex; flex-direction: column;
-}
-#communityActivityChartBlock.fullscreen .chartScroll {
-  flex: 1; overflow: auto;
-}
-#communityActivityChartBlock.fullscreen .chartSvgWrap {
-  height: 100%;
-}
-#communityActivityChartBlock.fullscreen .chartSvg {
-  height: 100%;
-}
-#communityActivityChartBlock.fullscreen .chartLegend {
-  flex-shrink: 0;
-}
-
 /* Ligne d'en-tête, toujours visible : couleur, nom, bouton "⋮" qui ouvre le
    panneau de réglages/actions de cette activité. */
 .activityRowHeader { display: flex; align-items: center; gap: 10px; }
@@ -1756,3 +1646,130 @@ button { -webkit-user-select: none; user-select: none; }
    max-height/overflow de .discussionList créerait deux zones de défilement
    imbriquées, désagréable au doigt sur mobile. */
 #viewProfilePostsList { max-height: none; overflow-y: visible; }
+
+/* ===================== SOUS-PROJETS D'UNE ACTIVITÉ =====================
+   Discussion "Sous-projets", 3 septembre 2026. Classes SPÉCIFIQUES
+   uniquement — aucune classe générique de Design n'est redéfinie ici. Les
+   motifs déjà en place sont réutilisés tels quels : .activityRow /
+   .activityRowHeader / .activitySettingsPanel (lignes d'activité),
+   .sectionTitleRow, .rowActions, .menuBtn, .iconBtn, .discussionBlock /
+   .discussionList / .discussionMsg / .discussionComposer (fils de
+   discussion). */
+
+#activitySubProjectsBlock {
+  margin-top: 18px;
+}
+
+.subProjectRow {
+  cursor: default;
+}
+
+.subProjectRowHeader {
+  cursor: pointer;
+  gap: 8px;
+}
+
+.subProjectBadge {
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.subProjectRowDesc {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* Barre d'avancement : le remplissage est piloté en JS (style.width), la
+   piste garde la couleur de fond déjà utilisée par les barres de classement
+   (--track-bg, variable de Design). */
+.subProjectProgress {
+  margin: 8px 0 4px;
+}
+
+.subProjectProgressTrack {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--track-bg);
+  overflow: hidden;
+}
+
+.subProjectProgressFill {
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--purple);
+  transition: width 0.2s ease;
+}
+
+.subProjectRowTrack {
+  margin-top: 6px;
+}
+
+/* Le détail d'un sous-projet est déplacé dans la ligne sélectionnée
+   (attachSubProjectDetail) : un léger décalage et une ligne de séparation le
+   rattachent visuellement à sa ligne, comme .activitySettingsPanel. */
+#subProjectDetail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.subProjectSection {
+  margin-bottom: 14px;
+}
+
+.subProjectItems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.subProjectItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 6px;
+}
+
+.subProjectItem:hover {
+  background: var(--track-bg);
+}
+
+.subProjectItem input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.subProjectItemLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.subProjectItem.done .subProjectItemLabel {
+  text-decoration: line-through;
+  color: var(--text-light);
+}
+
+.subProjectItemWho {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.subProjectItemAdd {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.subProjectItemAdd input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.subProjectItemAdd .iconBtn {
+  flex: 0 0 auto;
+}

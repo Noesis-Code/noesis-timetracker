@@ -709,6 +709,120 @@
           </div>
         </div>
 
+        <!-- ===================== SOUS-PROJETS DE CETTE ACTIVITÉ =====================
+             Discussion "Sous-projets" (3 septembre 2026). Découper une
+             activité en objectifs, chacun avec sa todolist, son avancement et
+             SON PROPRE fil de discussion — distinct du fil de l'activité
+             juste au-dessus (#communityDiscussionBlock, propriété de
+             "Général"), qui n'est pas touché par ce bloc.
+
+             Les sous-projets sont COMMUNS à l'activité (cadrage d'Emilien) :
+             tous les membres les voient et cochent leurs tâches. Ils
+             existent aussi sur une activité SOLO — découper sa propre
+             activité est le cas d'usage principal.
+
+             ⚠️ #subProjectDetail vit ici et est DÉPLACÉ dans la ligne du
+             sous-projet sélectionné (attachSubProjectDetail() dans app.js),
+             exactement comme #communityActivityDetail plus haut. C'est ce qui
+             permet de n'avoir qu'UN seul fil de discussion monté en mémoire
+             (mountMessageThread, ids fixes) au lieu d'une instance par
+             sous-projet. -->
+        <div id="activitySubProjectsBlock">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Sous-projets <span id="subProjectsProgressLabel" class="meta"></span></p>
+            <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter un sous-projet">+</button>
+          </div>
+
+          <!-- Avancement global de l'activité : la même donnée que celle
+               exposée à "Général" par progressForActivities() — une seule
+               source, deux affichages. Masqué tant qu'aucune tâche n'existe
+               (percent vaut null, jamais 0 : règle R1 du contrat). -->
+          <div id="activityProgressWrap" class="subProjectProgress hidden">
+            <div class="subProjectProgressTrack"><div id="activityProgressFill" class="subProjectProgressFill"></div></div>
+          </div>
+
+          <div id="newSubProjectCard" class="activityRow hidden">
+            <div class="activitySettingsPanel">
+              <label class="fieldLabel" for="newSubProjectName">Nom du sous-projet</label>
+              <input id="newSubProjectName" type="text" maxlength="120" placeholder="Ex. Refonte du site" />
+              <label class="fieldLabel" for="newSubProjectDescription">Description (facultatif)</label>
+              <textarea id="newSubProjectDescription" rows="2" maxlength="2000" placeholder="À quoi sert ce sous-projet ?"></textarea>
+              <p id="newSubProjectMsg" class="msg"></p>
+              <div class="rowActions">
+                <button type="button" id="newSubProjectSave" class="iconBtn">Ajouter le sous-projet</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="subProjectsList" class="activitiesList"></div>
+          <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.</p>
+
+          <div id="subProjectDetailAnchor"></div>
+          <div id="subProjectDetail" class="hidden">
+            <div class="subProjectSection">
+              <div class="sectionTitleRow">
+                <p class="sectionTitle">Tâches <span id="subProjectProgressLabel" class="meta"></span></p>
+                <button type="button" id="subProjectSettingsBtn" class="menuBtn" aria-label="Réglages du sous-projet">⋮</button>
+              </div>
+              <div class="subProjectProgress">
+                <div class="subProjectProgressTrack"><div id="subProjectProgressFill" class="subProjectProgressFill"></div></div>
+              </div>
+
+              <!-- Réglages du sous-projet : replié par défaut, même motif que
+                   le panneau "⋮" d'une activité (.activitySettingsPanel). -->
+              <div id="subProjectSettingsPanel" class="activitySettingsPanel hidden">
+                <label class="fieldLabel" for="subProjectEditName">Nom</label>
+                <input id="subProjectEditName" type="text" maxlength="120" />
+                <label class="fieldLabel" for="subProjectEditDescription">Description</label>
+                <textarea id="subProjectEditDescription" rows="2" maxlength="2000"></textarea>
+                <p id="subProjectEditMsg" class="msg"></p>
+                <div class="rowActions">
+                  <button type="button" id="subProjectEditSave" class="iconBtn">Enregistrer</button>
+                  <button type="button" id="subProjectDeleteBtn" class="iconBtn">Supprimer le sous-projet</button>
+                </div>
+              </div>
+
+              <div id="subProjectItems" class="subProjectItems"></div>
+              <p id="subProjectItemsEmptyHint" class="hint hidden">Aucune tâche — ajoute la première ci-dessous.</p>
+              <div class="subProjectItemAdd">
+                <input id="newSubProjectItemInput" type="text" maxlength="300" placeholder="Ajouter une tâche..." />
+                <button type="button" id="newSubProjectItemBtn" class="iconBtn">Ajouter</button>
+              </div>
+              <p id="subProjectItemsMsg" class="msg"></p>
+            </div>
+
+            <!-- Fil de discussion PROPRE À CE SOUS-PROJET. Monté par
+                 mountMessageThread(), la version généralisée de l'ancien
+                 mountProfilePostsComposer — pas un troisième système de
+                 messages écrit à part. -->
+            <div id="subProjectDiscussionBlock" class="discussionBlock">
+              <p class="sectionTitle">Discussion du sous-projet</p>
+              <div id="subProjectMessagesList" class="discussionList"></div>
+              <p id="subProjectMessagesEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
+              <div class="discussionComposer">
+                <textarea id="subProjectMessageInput" rows="2" maxlength="2000" placeholder="Écrire sur ce sous-projet..."></textarea>
+                <div class="rowActions">
+                  <button type="button" id="subProjectMessageSendBtn" class="iconBtn">Envoyer</button>
+                </div>
+                <p id="subProjectMessageMsg" class="msg"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Partie RÉSERVÉE AUX ACTIVITÉS PARTAGÉES : statistiques comparant
+             les membres entre eux, et flux des sessions de l'activité. Isolée
+             dans ce conteneur le 3 septembre 2026 (discussion "Sous-projets",
+             débordement signalé) pour une raison précise : le détail d'une
+             activité ne s'ouvrait jusque-là QUE sur une activité partagée,
+             alors que les sous-projets ci-dessus ont tout leur sens sur une
+             activité SOLO (découper sa propre activité est même leur cas
+             d'usage principal). Le détail s'ouvre donc désormais pour toute
+             activité, et c'est ce bloc-ci — plus le fil de discussion des
+             membres — qui est masqué quand l'activité n'est pas partagée.
+             Aucun id ni aucune classe existante n'a changé : seul un div
+             englobant a été ajouté. -->
+        <div id="communityActivityMembersPart">
         <p class="sectionTitle">Statistiques et activités des membres <span id="communityActivityDetailName" class="meta"></span></p>
 
         <!-- Mêmes trois sections (Feuille de temps / Répartition / Graphique)
@@ -738,7 +852,6 @@
               <button id="caTsPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
               <span id="caTsWeekLabel" class="meta"></span>
               <button id="caTsNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
-              <button id="caTsFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
             </div>
           </div>
           <div class="timesheetScroll">
@@ -756,7 +869,6 @@
         <div id="communityActivityChartBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Graphique</p>
-            <button id="caChartFullscreenBtn" type="button" class="iconBtn" aria-label="Voir en plein écran, format paysage">⛶</button>
           </div>
           <div class="chartWrap" id="communityActivityChartWrap">
             <div class="chartScroll">
@@ -770,6 +882,7 @@
 
         <div id="communityActivityDetailFeed"></div>
         <p id="communityActivityDetailEmptyHint" class="hint hidden">Rien à afficher pour l'instant pour cette activité.</p>
+        </div><!-- /#communityActivityMembersPart -->
       </div>
 
       <!-- Page (modale) listant tous les membres d'une activité partagée

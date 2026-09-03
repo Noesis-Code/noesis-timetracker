@@ -523,6 +523,35 @@
     'Marketing & création de contenu': 'Marketing & content creation',
     'Artisanat & fabrication': 'Crafts & manufacturing',
     'Autre': 'Other',
+
+    // ---- Sous-projets d'une activité (discussion "Sous-projets", 3 septembre 2026) ----
+    'Sous-projets': 'Sub-projects',
+    'Ajouter un sous-projet': 'Add a sub-project',
+    'Nom du sous-projet': 'Sub-project name',
+    'Ex. Refonte du site': 'E.g. Website redesign',
+    'Description (facultatif)': 'Description (optional)',
+    'À quoi sert ce sous-projet ?': 'What is this sub-project for?',
+    'Ajouter le sous-projet': 'Add the sub-project',
+    'Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.': 'No sub-project yet — tap “+” to split this activity into goals.',
+    'Tâches': 'Tasks',
+    'Réglages du sous-projet': 'Sub-project settings',
+    'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
+    'Ajouter une tâche...': 'Add a task...',
+    'Discussion du sous-projet': 'Sub-project discussion',
+    'Écrire sur ce sous-projet...': 'Write about this sub-project...',
+    'Supprimer le sous-projet': 'Delete the sub-project',
+    'aucune tâche': 'no task',
+    'Supprimer cette tâche': 'Delete this task',
+    'Supprimer cette tâche ?': 'Delete this task?',
+    "Écris une tâche avant d'ajouter.": 'Write a task before adding it.',
+    'Le nom du sous-projet est requis.': 'The sub-project name is required.',
+    'Supprimer ce sous-projet ?': 'Delete this sub-project?',
+    'Sa todolist et sa discussion seront supprimées pour tous les membres. Confirmer ?': 'Its checklist and discussion will be deleted for every member. Confirm?',
+    // Messages d'erreur renvoyés par server/routes/subprojects.js
+    'Sous-projet introuvable.': 'Sub-project not found.',
+    'Intitulé de la tâche requis.': 'Task label required.',
+    'Tâche introuvable.': 'Task not found.',
+    "Seul le créateur du sous-projet ou le propriétaire de l'activité peut le supprimer.": 'Only the sub-project creator or the activity owner can delete it.',
   };
 
   // ------------------- Messages contenant une valeur variable -------------
