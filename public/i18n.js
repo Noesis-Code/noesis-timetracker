@@ -713,6 +713,16 @@
     'Jamais relu par un calendrier pour le moment.': 'No calendar has read it yet.',
     'Dernière lecture par un calendrier : ': 'Last read by a calendar: ',
 
+    // ----- Détail par sous-projet dans les statistiques (4 septembre 2026) -----
+    // Chantier « Chrono — sous-projets », second passage.
+    'Mon temps': 'My time',
+    'Temps de {name}': '{name}’s time',
+    'Aucun temps enregistré sur cette période.': 'No time recorded in this period.',
+    'Chargement...': 'Loading...',
+    // Message renvoyé par server/routes/subprojectstats.js
+    // ('Activité invalide.' est déjà traduite plus haut — pas de doublon).
+    'Période invalide.': 'Invalid period.',
+    "Cette personne n'est pas membre de cette activité.": 'This person is not a member of this activity.',
   };
 
   // ------------------- Messages contenant une valeur variable -------------

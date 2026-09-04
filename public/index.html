@@ -173,15 +173,47 @@
   // du tout (déploiement cassé, réseau coupé au mauvais moment), l'écran
   // doit quand même finir par s'effacer au lieu de laisser un écran noir
   // indéfiniment. app.js se contente d'appeler window.hideBootSplash() dès
-  // que #app ou #onboarding est prêt à être montré — c'est lui qui décide du
-  // moment, ce bloc ne fait qu'exécuter la disparition.
+  // que l'app est réellement prête — mais c'est ce bloc qui décide du moment
+  // exact, en attendant AUSSI la fin de l'ident.
+  //
+  // 4 septembre 2026, second passage (demande d'Emilien : « je souhaite que
+  // l'animation soit toujours visible en entier avant que l'app s'ouvre ») :
+  // l'écran ne disparaît plus dès que l'app est prête, mais au PLUS TARD des
+  // deux — fin de l'ident ET app prête. La règle inverse du premier passage
+  // (aucune durée minimale, ident coupée en plein milieu sur réseau rapide)
+  // est donc annulée et remplacée par celle-ci.
   (function () {
-    var FAILSAFE = 12000;  // filet de sécurité, jamais une durée d'affichage
+    var FAILSAFE = 12000;  // filet de sécurité si app.js ne se charge pas du tout
+    var IDENT_MAX = 6000;  // filet si `animationend` ne vient jamais
     var done = false;
+    var identDone = false;   // l'ident a fini de se jouer
+    var appReady = false;    // app.js a signalé que l'app est prête
     var failsafeTimer = null;
 
-    function hide() {
-      if (done) return;
+    // Sous "réduire les animations", styles.css coupe toutes les animations :
+    // l'ident s'affiche d'un bloc, elle est donc "entièrement visible" tout de
+    // suite, et aucun `animationend` ne viendra jamais. Rien à attendre.
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        identDone = true;
+      }
+    } catch (e) { /* pas de matchMedia : le filet IDENT_MAX ci-dessous suffit */ }
+
+    // Fin de l'ident = fin de la DERNIÈRE animation de la séquence (`bsWord`,
+    // le wordmark). Détectée par événement plutôt que par un délai fixe : sur
+    // un premier chargement lent, l'animation ne démarre qu'au premier rendu,
+    // largement après l'exécution de ce script — un `setTimeout` compté d'ici
+    // couperait l'ident au lieu de l'attendre. L'écouteur est posé avant même
+    // que #bootSplash n'existe (ce script est dans le <head>), donc aucun
+    // risque de manquer l'événement.
+    document.addEventListener('animationend', function (e) {
+      if (e.animationName === 'bsWord') { identDone = true; maybeHide(); }
+    }, true);
+    setTimeout(function () { identDone = true; maybeHide(); }, IDENT_MAX);
+
+    // L'écran s'efface au PLUS TARD des deux conditions, jamais à la première.
+    function maybeHide() {
+      if (done || !identDone || !appReady) return;
       done = true;
       if (failsafeTimer) { clearTimeout(failsafeTimer); failsafeTimer = null; }
       var el = document.getElementById('bootSplash');
@@ -196,8 +228,13 @@
       }, 300);
     }
 
-    window.hideBootSplash = hide;
-    failsafeTimer = setTimeout(hide, FAILSAFE);
+    window.hideBootSplash = function () { appReady = true; maybeHide(); };
+
+    // Filet de sécurité : au bout de 12 s, l'écran s'efface quoi qu'il arrive,
+    // y compris si app.js n'est jamais arrivé.
+    failsafeTimer = setTimeout(function () {
+      identDone = true; appReady = true; maybeHide();
+    }, FAILSAFE);
   })();
 </script>
 
@@ -2029,6 +2066,43 @@
          depuis Profil ou depuis Communauté. #communityMembersModal, plus
          haut, n'a pas ce problème : il ne s'ouvre jamais que depuis
          l'intérieur de #tab-activity, qui est donc forcément déjà visible. -->
+    <!-- ===== DÉTAIL PAR SOUS-PROJET (4 septembre 2026, « Chrono — sous-projets ») =====
+         Demande d'Emilien : « l'appli permet d'observer les stat par sous
+         projet lorsque l'utilisateur appuie rapidement sur la couleur de
+         l'activité dans feuille de temps ou répartition. Alors une fenêtre
+         identique à la fenêtre qui permet d'observer les autres utilisateurs
+         dans communauté s'ouvre. » D'où la reprise telle quelle des classes
+         .communityMembersModal / .communityMembersModalCard de
+         #viewProfileModal juste en dessous — aucune classe n'est redéfinie.
+
+         ⚠️ Placée en FRÈRE direct des sections .tab, jamais à l'intérieur de
+         l'une d'elles : `.hidden { display:none !important }` posé sur une
+         section .tab masque tout ce qu'elle contient, y compris une fenêtre
+         dont on vient de retirer .hidden. Piège déjà rencontré et documenté
+         pour #viewProfileModal.
+
+         ⚠️ Le GRAPHIQUE n'ouvre PAS cette fenêtre (précision d'Emilien) : il
+         garde son appui qui affiche le nombre d'heures enregistrées. -->
+    <div id="subProjectStatsModal" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="viewProfileIdentity">
+          <span class="identityName" id="subProjectStatsTitle"></span>
+          <button type="button" class="menuBtn" id="subProjectStatsClose" aria-label="Fermer">✕</button>
+        </div>
+        <div id="subProjectStatsScroll" class="viewProfileScroll">
+          <div class="statsSection">
+            <p id="subProjectStatsSubtitle" class="meta"></p>
+            <p id="subProjectStatsTotal" class="statsTotal"></p>
+            <div id="subProjectStatsPie" class="pieWrap"></div>
+            <p id="subProjectStatsPieEmptyHint" class="hint hidden">Aucun temps enregistré sur cette période.</p>
+            <div id="subProjectStatsList" class="subProjectStatsList"></div>
+            <p id="subProjectStatsEmptyHint" class="hint hidden">Aucun temps enregistré sur cette période.</p>
+            <p id="subProjectStatsMsg" class="msg"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="viewProfileModal" class="communityMembersModal hidden">
       <div class="communityMembersModalCard">
         <!-- En-tête d'identité, FIXE (2 septembre 2026, demande d'Emilien :

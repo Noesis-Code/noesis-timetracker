@@ -743,13 +743,18 @@
     // déjà visible (et mesuré : syncTopbarHeightVar/refreshScrollLock sont
     // passés juste au-dessus, donc aucun sursaut de mise en page au moment
     // du fondu), mais la grille du Chrono est encore vide tant que ce
-    // premier chargement n'est pas retombé. On l'efface dès qu'il l'est —
-    // qu'il ait réussi OU échoué (hors ligne : mieux vaut montrer l'app
-    // vide que garder l'écran de chargement), et sans jamais attendre plus
-    // que ça.
+    // premier chargement n'est pas retombé. On signale "prêt" dès que tout
+    // est retombé — que ça ait réussi OU échoué (hors ligne : mieux vaut
+    // montrer l'app vide que garder l'écran de chargement). L'effacement
+    // réel attend en plus la fin de l'ident : voir hideBootSplash() dans
+    // public/index.html.
     refreshActivities().then(function () {
       renderActivityGrid();
-      syncChronoStatus();
+      // `return` (4 septembre 2026, second passage) : on attend aussi l'état
+      // du chrono — et, s'il tourne, le sélecteur de sous-projet — avant de
+      // se déclarer prêt. Sans ce `return`, l'app s'ouvrait sur la grille des
+      // activités et basculait ensuite sur le chronomètre en cours.
+      return syncChronoStatus();
     }).then(dismissBootSplash, dismissBootSplash);
     // Ouverture depuis une notification alors que l'app était fermée : on
     // arrive sur /?notif=community ou /?notif=profile (voir server/lib/push.js
@@ -1182,8 +1187,10 @@
     var wrap = $('chronoSubProjectWrap');
     $('chronoSubProjectMsg').textContent = '';
     wrap.classList.add('hidden');
-    if (!activity) return;
-    fetchChronoSubProjects(activity.id).then(function (list) {
+    // Rend une promesse (au lieu de ne rien rendre) pour que l'appelant
+    // puisse attendre que le sélecteur soit peuplé — voir enterRunning().
+    if (!activity) return Promise.resolve();
+    return fetchChronoSubProjects(activity.id).then(function (list) {
       // Garde anti-réponse-en-vol : l'activité a pu changer entre-temps.
       if (chronoRunningActivityId !== activity.id) return;
       if (!list.length && !(subProject && subProject.id)) return;
@@ -1198,14 +1205,24 @@
     $('runningActivityLabel').style.color = textColorForTheme(currentTheme);
     chronoRunningActivityId = activity.id;
     chronoRunningSubProject = subProject || null;
-    renderChronoSubProjectSelector(activity, chronoRunningSubProject);
+    var subProjectsReady = renderChronoSubProjectSelector(activity, chronoRunningSubProject);
     startLiveTimer(startTimeIso);
     closeStopConfirm();
     showChronoBlock('chronoRunning');
+    // Rendue pour que l'appelant puisse attendre que TOUT le bloc "chrono en
+    // cours" soit peint, sélecteur de sous-projet compris (voir showApp() :
+    // l'écran de chargement ne s'efface pas avant). Les autres appelants
+    // ignorent simplement la valeur de retour, comme avant.
+    return subProjectsReady;
   }
 
+  // Rend sa promesse depuis le 4 septembre 2026 : showApp() attend qu'elle
+  // soit retombée avant d'effacer l'écran de chargement, sans quoi l'app
+  // s'ouvre sur la grille des activités puis bascule sur le chronomètre une
+  // fois la réponse arrivée — c'est exactement le clignotement signalé par
+  // Emilien (« voir les activités lorsque le chrono est déjà lancé »).
   function syncChronoStatus() {
-    api('GET', '/api/timer/status?userId=' + profile.id).then(function (data) {
+    return api('GET', '/api/timer/status?userId=' + profile.id).then(function (data) {
       if (!data.running) {
         stopLiveTimer();
         chronoRunningActivityId = null;
@@ -1214,7 +1231,7 @@
         showChronoBlock('chronoIdle');
         return;
       }
-      enterRunning(data.activity, data.startTime, data.subProject);
+      return enterRunning(data.activity, data.startTime, data.subProject);
     }).catch(function () { showChronoBlock('chronoIdle'); });
   }
 
@@ -1760,10 +1777,30 @@
     var breakdown = (data && data.breakdown) || { totalSeconds: 0, activities: [] };
     $('statsLabel').textContent = data && data.label ? t(data.label) : '';
     $('statsTotal').textContent = formatHM(breakdown.totalSeconds);
-    renderPie(breakdown.activities || [], breakdown.totalSeconds);
+    // Zone d'appui n° 2 et n° 3 : une part du camembert et une ligne de sa
+    // légende ouvrent le détail par sous-projet de cette activité, sur la
+    // fenêtre de jours que le camembert résume — jamais une autre.
+    // ⚠️ La période vient de la réponse elle-même : en mode « Aujourd'hui » le
+    // camembert est volontairement désynchronisé de la grille, et le détail
+    // doit suivre le camembert d'où part l'appui, pas la grille.
+    renderPie(breakdown.activities || [], breakdown.totalSeconds, {
+      onActivityTap: function (a) {
+        if (!breakdown.start || !breakdown.end) return;
+        openSubProjectStats({
+          activityId: a.activityId, name: a.name,
+          from: breakdown.start, to: breakdown.end,
+        });
+      },
+    });
   }
 
   function renderPieFromTimesheet(data) {
+    // La grille et le camembert peuvent regarder deux fenêtres différentes
+    // (mode « Aujourd'hui ») : on retient donc CELLE DE LA GRILLE à part, pour
+    // les appuis sur les cases de la Feuille de temps.
+    if (data && data.breakdown && data.breakdown.start && data.breakdown.end) {
+      lastStatsGridRange = { from: data.breakdown.start, to: data.breakdown.end };
+    }
     // Mémorisée même en mode "Aujourd'hui" : c'est ce qui permet de
     // resynchroniser instantanément au second clic, sans redemander au
     // serveur une réponse qu'on a déjà.
@@ -1906,6 +1943,10 @@
       var title = document.createElementNS(svgNS, 'title');
       title.textContent = a.name + ' — ' + formatHM(a.seconds) + ' (' + a.percent + '%)';
       path.appendChild(title);
+      if (ids && ids.onActivityTap && a.activityId) {
+        path.setAttribute('class', 'pieSlice pieSlice-tappable');
+        path.addEventListener('click', function () { ids.onActivityTap(a); });
+      }
       svg.appendChild(path);
       angle += sweep;
     });
@@ -1944,10 +1985,234 @@
       value.className = 'pieLegendValue';
       value.textContent = formatHM(a.seconds) + ' · ' + a.percent + '%';
       row.appendChild(dot); row.appendChild(label); row.appendChild(value);
+      // ⚠️ 4 septembre 2026 (Chrono — sous-projets, débordement signalé) :
+      // paramètre OPTIONNEL `ids.onActivityTap`. Absent — c'est le cas de tous
+      // les appelants existants, y compris la page de visite d'un profil — le
+      // comportement est strictement celui d'avant. Présent, une ligne de
+      // légende ouvre le détail par sous-projet : c'est de loin la cible la
+      // plus facile à viser au doigt, une case de Feuille de temps ne fait que
+      // quelques pixels.
+      if (ids && ids.onActivityTap && a.activityId) {
+        row.classList.add('pieLegendRow-tappable');
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+        row.addEventListener('click', function () { ids.onActivityTap(a); });
+      }
       legend.appendChild(row);
     });
     wrap.appendChild(legend);
   }
+
+  // ===================== DÉTAIL PAR SOUS-PROJET =====================
+  // 4 septembre 2026, demande d'Emilien : « l'appli permet d'observer les stat
+  // par sous projet lorsque l'utilisateur appuie rapidement sur la couleur de
+  // l'activité dans feuille de temps ou répartition. Alors une fenêtre
+  // identique à la fenêtre qui permet d'observer les autres utilisateurs dans
+  // communauté s'ouvre. » Plus : « Je souhaite que les couleurs attribué aux
+  // enregistrements des sous-projets soient des nuances de la couleur
+  // attribuées a l'activité par l'utilisateur. »
+  //
+  // ⚠️ LE GRAPHIQUE N'EST PAS CONCERNÉ — précision explicite d'Emilien le même
+  // jour : « sauf sur le graphie car je souhaite conserver l'option d'afficher
+  // le nombre d'heure enregistré lorsque l'utilisateur appuie sur le
+  // graphique ». Aucun écouteur n'est posé sur #statsChart ni sur
+  // #communityActivityChart, et leur infobulle reste intacte.
+  //
+  // ⛔ Ce bloc affiche du TEMPS, jamais de l'AVANCEMENT. Le pourcentage
+  // d'avancement d'un sous-projet vient uniquement des cases cochées de sa
+  // todolist (contrat R1-R6, figé) : les deux chiffres se lisent côte à côte,
+  // jamais l'un dans l'autre.
+
+  // ----- Nuances : même teinte, même saturation, clarté échelonnée -----
+  // Les couleurs d'activité viennent d'une palette fermée de 8 teintes très
+  // écartées (public/theme-palette.js) : ne faire varier que la CLARTÉ garantit
+  // qu'un sous-projet d'une activité « rouge » reste reconnaissable comme du
+  // rouge, et qu'aucune nuance ne peut être confondue avec une autre activité.
+  function hexToHsl(hex) {
+    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
+    if (!m) return null;
+    var r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var l = (max + min) / 2, h = 0, s = 0;
+    if (max !== min) {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return { h: h, s: s, l: l };
+  }
+
+  function hslToHex(h, s, l) {
+    function hue2rgb(p, q, tt) {
+      if (tt < 0) tt += 1;
+      if (tt > 1) tt -= 1;
+      if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+      if (tt < 1 / 2) return q;
+      if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+      return p;
+    }
+    var r, g, b;
+    if (s === 0) { r = g = b = l; }
+    else {
+      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      var p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3);
+    }
+    function hx(v) { return ('0' + Math.round(v * 255).toString(16)).slice(-2); }
+    return '#' + hx(r) + hx(g) + hx(b);
+  }
+
+  // `index` est le rang du sous-projet dans l'ordre d'affichage de l'activité
+  // (calculé côté serveur sur TOUS ses sous-projets, clôturés compris, pour
+  // qu'une couleur ne change pas d'une semaine à l'autre). `index` null =
+  // temps NON rattaché : il garde exactement la couleur de l'activité, donc
+  // rien ne change à l'écran pour qui n'utilise pas les sous-projets.
+  function subProjectShade(baseHex, index, count) {
+    if (index === null || index === undefined) return baseHex;
+    var hsl = hexToHsl(baseHex);
+    if (!hsl) return baseHex;
+    var span = 0.30;
+    var hi = Math.min(0.82, hsl.l + span);   // le plus clair
+    var lo = Math.max(0.18, hsl.l - span);   // le plus foncé
+    var ratio = count > 1 ? index / (count - 1) : 0.5;
+    var l = hi - (hi - lo) * ratio;
+    // Une nuance ne doit jamais tomber sur la couleur de base elle-même, qui
+    // est réservée au temps sans sous-projet : sinon les deux parts du
+    // camembert seraient impossibles à distinguer l'une de l'autre.
+    if (Math.abs(l - hsl.l) < 0.05) l = hsl.l + (l >= hsl.l ? 0.05 : -0.05);
+    l = Math.max(0.14, Math.min(0.88, l));
+    return hslToHex(hsl.h, hsl.s, l);
+  }
+
+  // ----- La fenêtre -----
+  // `subProjectStatsToken` est la garde anti-réponse-en-vol : deux appuis
+  // rapprochés sur deux activités différentes ne doivent pas laisser la
+  // réponse la plus lente peindre par-dessus la plus récente. Même motif que
+  // viewProfileUserId pour la page de visite d'un profil.
+  var subProjectStatsToken = 0;
+  // Fenêtre de jours réellement affichée par la grille — jamais recalculée
+  // ici, toujours lue dans la réponse serveur, même discipline que le
+  // camembert depuis le 1er septembre 2026.
+  var lastStatsGridRange = null;
+
+  function openSubProjectStats(opts) {
+    if (!profile || !opts || !opts.activityId || !opts.from || !opts.to) return;
+    var token = ++subProjectStatsToken;
+    $('subProjectStatsModal').classList.remove('hidden');
+    $('subProjectStatsTitle').textContent = opts.name || '';
+    $('subProjectStatsSubtitle').textContent = '';
+    $('subProjectStatsTotal').textContent = '';
+    $('subProjectStatsPie').innerHTML = '';
+    $('subProjectStatsList').innerHTML = '';
+    $('subProjectStatsEmptyHint').classList.add('hidden');
+    $('subProjectStatsMsg').textContent = t('Chargement...');
+
+    var url = '/api/sub-project-stats?userId=' + profile.id +
+      '&activityId=' + opts.activityId +
+      '&from=' + opts.from + '&to=' + opts.to +
+      (opts.memberId ? '&memberId=' + encodeURIComponent(opts.memberId) : '');
+
+    api('GET', url).then(function (data) {
+      if (token !== subProjectStatsToken) return;
+      $('subProjectStatsMsg').textContent = '';
+      renderSubProjectStats(data);
+    }).catch(function (err) {
+      if (token !== subProjectStatsToken) return;
+      $('subProjectStatsMsg').textContent = err.message;
+    });
+  }
+
+  function closeSubProjectStats() {
+    subProjectStatsToken++;   // toute réponse encore en vol devient périmée
+    $('subProjectStatsModal').classList.add('hidden');
+  }
+
+  // Nom complet, avec repli si le nom de famille manque.
+  function subProjectStatsFullName(name, lastName) {
+    return lastName ? (name + ' ' + lastName) : (name || '');
+  }
+
+  function renderSubProjectStats(data) {
+    var parts = data.subProjects || [];
+    $('subProjectStatsTitle').textContent = data.activityName || '';
+    // Sur une activité partagée, on regarde le temps d'UN membre : le dire,
+    // sinon on croit lire le total de l'activité.
+    $('subProjectStatsSubtitle').textContent = data.isSelf
+      ? t('Mon temps')
+      : t('Temps de {name}', { name: subProjectStatsFullName(data.memberName, data.memberLastName) });
+    $('subProjectStatsTotal').textContent = formatHM(data.totalSeconds);
+    $('subProjectStatsEmptyHint').classList.toggle('hidden', parts.length > 0);
+
+    var colored = parts.map(function (p) {
+      return {
+        name: p.subProjectId === null
+          ? t('Sans sous-projet')
+          : (p.name || t('Sous-projet')) + (p.closed ? ' (' + t('clôturé') + ')' : ''),
+        seconds: p.seconds,
+        percent: p.percent,
+        color: subProjectShade(data.baseColor, p.shadeIndex, data.shadeCount),
+      };
+    });
+
+    // Le camembert est dessiné par renderPie, la fonction de la Répartition,
+    // appelée telle quelle : mêmes proportions, même trou central, même
+    // légende. Aucun second camembert n'a été écrit pour cet écran. Sans
+    // `onActivityTap` : on est déjà au niveau le plus fin, il n'y a rien à
+    // ouvrir en dessous.
+    renderPie(colored, data.totalSeconds, {
+      wrap: 'subProjectStatsPie',
+      emptyHint: 'subProjectStatsPieEmptyHint',
+    });
+
+    var box = $('subProjectStatsList');
+    box.innerHTML = '';
+    colored.forEach(function (p) {
+      var row = document.createElement('div');
+      row.className = 'subProjectStatsRow';
+      var dot = document.createElement('span');
+      dot.className = 'subProjectStatsDot';
+      dot.style.background = p.color;
+      var label = document.createElement('span');
+      label.className = 'subProjectStatsLabel';
+      label.textContent = p.name;
+      var value = document.createElement('span');
+      value.className = 'subProjectStatsValue';
+      value.textContent = formatHM(p.seconds) + ' · ' + p.percent + '%';
+      row.appendChild(dot); row.appendChild(label); row.appendChild(value);
+      box.appendChild(row);
+    });
+  }
+
+  $('subProjectStatsClose').addEventListener('click', closeSubProjectStats);
+  $('subProjectStatsModal').addEventListener('click', function (e) {
+    // Appui sur le fond (hors de la carte) = fermeture, comme les autres
+    // fenêtres flottantes de l'app.
+    if (e.target === this) closeSubProjectStats();
+  });
+
+  // ----- Zone d'appui n° 1 : les cases colorées de la Feuille de temps -----
+  // Écouteur DÉLÉGUÉ sur les deux conteneurs, posé une seule fois : la grille
+  // est réécrite en innerHTML à chaque rendu, un écouteur par case serait
+  // reposé des centaines de fois (672 cases en vue Semaine).
+  function bindTimesheetSubProjectTap(containerId) {
+    var el = $(containerId);
+    if (!el) return;
+    el.addEventListener('click', function (e) {
+      var slot = e.target.closest('[data-activity-id]');
+      if (!slot || !lastStatsGridRange) return;
+      openSubProjectStats({
+        activityId: Number(slot.getAttribute('data-activity-id')),
+        name: slot.getAttribute('data-activity-name') || '',
+        from: lastStatsGridRange.from,
+        to: lastStatsGridRange.to,
+      });
+    });
+  }
+  bindTimesheetSubProjectTap('tsGrid');
+  bindTimesheetSubProjectTap('tsCalendar');
 
   // ----- Section Graphique : une courbe d'évolution par activité sur la
   // période sélectionnée, plus une courbe Total agrégeant toutes les
@@ -2377,7 +2642,13 @@
       day.slots.forEach(function (slot, i) {
         var slotLabel = pad(Math.floor(i / 4)) + ':' + pad((i % 4) * 15);
         if (slot) {
-          html += '<div class="tsSlot tsSlot-filled" style="background:' + slot.color + '" title="' + escapeHtml(slot.name) + ' · ' + slotLabel + '"></div>';
+          // data-activity-id/-name : cible de l'appui qui ouvre le détail par
+          // sous-projet (4 septembre 2026). Des attributs plutôt qu'un
+          // écouteur par case — la grille en compte 672 en vue Semaine et est
+          // réécrite en innerHTML à chaque rendu.
+          html += '<div class="tsSlot tsSlot-filled tsSlot-tappable" data-activity-id="' + slot.activityId
+            + '" data-activity-name="' + escapeHtml(slot.name) + '" style="background:' + slot.color
+            + '" title="' + escapeHtml(slot.name) + ' · ' + slotLabel + '"></div>';
         } else {
           html += '<div class="tsSlot" title="' + slotLabel + '"></div>';
         }
@@ -2447,7 +2718,9 @@
         day.slots.forEach(function (slot, i) {
           var slotLabel = pad(i * 2) + 'h-' + pad(i * 2 + 2) + 'h';
           if (slot) {
-            html += '<div class="tsCalSlot" style="background:' + slot.color + '" title="' + escapeHtml(slot.name) + ' · ' + slotLabel + '"></div>';
+            html += '<div class="tsCalSlot tsSlot-tappable" data-activity-id="' + slot.activityId
+              + '" data-activity-name="' + escapeHtml(slot.name) + '" style="background:' + slot.color
+              + '" title="' + escapeHtml(slot.name) + ' · ' + slotLabel + '"></div>';
           } else {
             html += '<div class="tsCalSlot" title="' + slotLabel + '"></div>';
           }
@@ -4208,7 +4481,11 @@
       // comme dans le volet Statistiques dont Emilien demande la reprise.
       $('communityActivityStatsLabel').textContent = t(block.label);
       $('communityActivityStatsTotal').textContent = formatHM(block.totalSeconds);
-      renderActivityPie(block.members, block.totalSeconds);
+      renderActivityPie(block.members, block.totalSeconds, {
+        activityId: Number(activityId),
+        name: data.activityName || $('communityActivityName') && $('communityActivityName').textContent || '',
+        from: block.start, to: block.end,
+      });
 
       lastActivityDailyBreakdown = data.dailyBreakdown || [];
       renderActivityChart(lastActivityDailyBreakdown);
@@ -4229,7 +4506,14 @@
   // par MEMBRE de cette activité, couleur = couleur personnelle de ce membre
   // sur cette activité (activity_members.color) — pendant exact de
   // renderPie, réindexé par membre au lieu d'activité. -----
-  function renderActivityPie(members, totalSeconds) {
+  // ⚠️ 4 septembre 2026 (Chrono — sous-projets, débordement signalé) :
+  // troisième paramètre OPTIONNEL `tapRange` ({activityId, from, to}). Absent,
+  // le comportement est strictement celui d'avant. Présent, appuyer sur la
+  // couleur d'un membre — part du camembert ou ligne de légende — ouvre le
+  // détail par sous-projet du temps DE CE MEMBRE sur cette activité. On
+  // n'ouvre rien de plus que ce que cet écran montre déjà : le serveur exige
+  // que l'appelant ET la personne regardée soient membres de l'activité.
+  function renderActivityPie(members, totalSeconds, tapRange) {
     var wrap = $('communityActivityPie');
     wrap.innerHTML = '';
     $('communityActivityPieEmptyHint').classList.toggle('hidden', members.length > 0);
@@ -4259,6 +4543,15 @@
       var title = document.createElementNS(svgNS, 'title');
       title.textContent = m.name + ' — ' + formatHM(m.seconds) + ' (' + m.percent + '%)';
       path.appendChild(title);
+      if (tapRange) {
+        path.setAttribute('class', 'pieSlice pieSlice-tappable');
+        path.addEventListener('click', function () {
+          openSubProjectStats({
+            activityId: tapRange.activityId, name: tapRange.name,
+            memberId: m.userId, from: tapRange.from, to: tapRange.to,
+          });
+        });
+      }
       svg.appendChild(path);
       angle += sweep;
     });
@@ -4295,6 +4588,17 @@
       value.className = 'pieLegendValue';
       value.textContent = formatHM(m.seconds) + ' · ' + m.percent + '%';
       row.appendChild(dot); row.appendChild(label); row.appendChild(value);
+      if (tapRange) {
+        row.classList.add('pieLegendRow-tappable');
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+        row.addEventListener('click', function () {
+          openSubProjectStats({
+            activityId: tapRange.activityId, name: tapRange.name,
+            memberId: m.userId, from: tapRange.from, to: tapRange.to,
+          });
+        });
+      }
       legend.appendChild(row);
     });
     wrap.appendChild(legend);

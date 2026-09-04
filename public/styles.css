@@ -2821,10 +2821,21 @@ button { -webkit-user-select: none; user-select: none; }
    Le sélecteur reste discret : il ne doit jamais concurrencer visuellement le
    chronomètre ni le bouton STOP, puisque ne rien choisir est le cas normal. */
 .chronoSubProjectWrap {
+  /* 4 septembre 2026, demande d'Emilien : « recentrer la section sous-projets
+     entre le temps qui défile et le bouton stop. Il faut laisser un espace
+     entre la section et le bouton. » Le bloc est donc centré horizontalement
+     (marges auto + contenu centré) et respire des DEUX côtés : au-dessus par
+     rapport au chronomètre, en dessous par rapport au bouton STOP. */
   width: 100%;
   max-width: 320px;
-  margin: 10px auto 0;
-  text-align: left;
+  margin: 18px auto 26px;
+  text-align: center;
+}
+
+.chronoSubProjectWrap .stopFieldLabel {
+  display: block;
+  text-align: center;
+  margin-bottom: 6px;
 }
 
 .subProjectSelect {
@@ -2862,4 +2873,56 @@ button { -webkit-user-select: none; user-select: none; }
   word-break: break-all;
   overflow-wrap: anywhere;
   max-width: 100%;
+}
+
+
+/* ===================== DÉTAIL PAR SOUS-PROJET (4 septembre 2026) =====================
+   Fenêtre ouverte en appuyant sur la couleur d'une activité (case de la
+   Feuille de temps, part du camembert, ligne de légende). Elle réutilise
+   .communityMembersModal/.communityMembersModalCard/.viewProfileIdentity/
+   .viewProfileScroll telles quelles — aucune classe générique n'est
+   redéfinie ici, seules les classes propres à la liste sont ajoutées. */
+.pieSlice-tappable,
+.pieLegendRow-tappable,
+.tsSlot-tappable {
+  cursor: pointer;
+}
+
+.pieLegendRow-tappable {
+  border-radius: var(--radius-sm);
+}
+
+.subProjectStatsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.subProjectStatsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.subProjectStatsDot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.subProjectStatsLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subProjectStatsValue {
+  flex: 0 0 auto;
+  color: var(--text-light);
+  font-size: 0.85rem;
 }

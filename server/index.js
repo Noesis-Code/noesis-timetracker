@@ -98,6 +98,10 @@ app.use('/api', require('./routes/community'));
 // Sous-projets d'une activité (découpage, todolist, fil par sous-projet,
 // avancement) — discussion "Sous-projets", 3 septembre 2026.
 app.use('/api', require('./routes/subprojects'));
+// Détail par sous-projet du temps d'une activité (chantier « Chrono —
+// sous-projets », 4 septembre 2026). Volontairement hors du préfixe /stats/*,
+// qui appartient à server/routes/stats.js.
+app.use('/api', require('./routes/subprojectstats'));
 app.use('/api', require('./routes/history'));
 app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/push'));
