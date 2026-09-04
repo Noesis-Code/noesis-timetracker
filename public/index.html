@@ -1010,8 +1010,13 @@
           <button type="button" class="btn btn-primary pollCreateBtn" id="communityPollsCreateBtn">Terminer</button>
           <p id="communityPollsMsg" class="msg"></p>
         </div>
-        <div id="communityPollsList" class="pollsList"></div>
-        <p id="communityPollsEmptyHint" class="hint hidden">Aucun sondage pour l'instant.</p>
+        <!-- Plus de liste de sondages ici (4 septembre 2026, Emilien : « ils ne
+             défilent pas normalement dans le flux [...] je ne souhaite pas que
+             mon sondage reste bloqué en haut ni qu'il y ait de doublon »). Ce
+             bloc ne porte plus que le FORMULAIRE de création ; les sondages,
+             les miens compris, défilent dans #followingFeed juste en dessous,
+             mêlés aux messages et triés par date — exactement comme eux.
+             Un seul endroit les rend, donc plus de doublon possible. -->
       </div>
 
       <!-- Flux "Suivi" : mélange, trié par date, des messages "Communauté"
@@ -1717,8 +1722,14 @@
             <button type="button" class="btn btn-primary pollCreateBtn" id="profilePollsCreateBtn">Terminer</button>
             <p id="profilePollsMsg" class="msg"></p>
           </div>
-          <div id="profilePollsList" class="pollsList"></div>
-          <p id="profilePollsEmptyHint" class="hint hidden">Aucun sondage pour l'instant.</p>
+          <!-- Plus de liste propre à ce bloc depuis le 3 septembre 2026,
+               huitième passage (demande d'Emilien : tous les postes du profil
+               triés du plus récent au moins récent, sondages compris) : mes
+               sondages apparaissent désormais mêlés à mes messages dans le
+               flux fusionné de #profileDiscussionBlock plus haut
+               (#profileDiscussionCommunityList, rendu par renderProfileFeed
+               dans app.js). #profilePollsList/#profilePollsEmptyHint
+               retirés — ce bloc ne garde que le formulaire de création. -->
         </div>
 
         <p class="sectionTitle">Mes notes</p>

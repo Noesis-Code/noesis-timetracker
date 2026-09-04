@@ -188,6 +188,7 @@ function serializePoll(row, viewerId, at) {
     question: row.question,
     multiChoice: !!row.multiChoice,
     anonymous: anonymous,
+    allowSuggestions: !!row.allowSuggestions,
     closesAt: row.closesAt || null,
     closedAt: row.closedAt || null,
     createdAt: row.createdAt,
@@ -343,10 +344,11 @@ function createPoll(params) {
   db.exec('BEGIN');
   try {
     const info = db.prepare(`
-      INSERT INTO polls (scope, scopeId, authorId, question, multiChoice, anonymous, closesAt, closedAt, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
+      INSERT INTO polls (scope, scopeId, authorId, question, multiChoice, anonymous, allowSuggestions, closesAt, closedAt, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
     `).run(params.scope, String(params.scopeId), params.authorId, question,
-      params.multiChoice ? 1 : 0, params.anonymous ? 1 : 0, closes.closesAt, createdAt);
+      params.multiChoice ? 1 : 0, params.anonymous ? 1 : 0, params.allowSuggestions ? 1 : 0,
+      closes.closesAt, createdAt);
     const pollId = info.lastInsertRowid;
     const insertOption = db.prepare('INSERT INTO poll_options (pollId, label, position) VALUES (?, ?, ?)');
     labels.forEach((label, i) => insertOption.run(pollId, label, i));
@@ -364,7 +366,7 @@ function createPoll(params) {
 // donc refusée plutôt que d'écraser le vote précédent : ce refus est la seule
 // chose qui rend la règle vraie, un client modifié ne doit pas pouvoir la
 // contourner.
-function votePoll(pollId, userId, optionIds) {
+function votePoll(pollId, userId, optionIds, suggestion) {
   const row = getPollRow(pollId);
   if (!row) return { error: { status: 404, body: { error: 'Sondage introuvable.' } } };
   if (isPollClosed(row)) return { error: { status: 409, body: { error: 'Ce sondage est clos.' } } };
@@ -374,8 +376,49 @@ function votePoll(pollId, userId, optionIds) {
 
   const ids = Array.isArray(optionIds) ? optionIds.map(Number).filter((n) => !isNaN(n)) : [];
   const unique = ids.filter((v, i) => ids.indexOf(v) === i);
-  if (unique.length === 0) return { error: { status: 400, body: { error: 'Choisis une réponse.' } } };
-  if (!row.multiChoice && unique.length > 1) {
+
+  // ----- réponse libre proposée par le votant (3 septembre 2026) -----
+  // ⚠️ Ce bloc a déjà été effacé une fois, le 4 septembre 2026, par un patch
+  // appliqué sur une copie plus ancienne de ce fichier. L'interface
+  // proposait encore « Autre » et le serveur l'ignorait en silence. Ne pas
+  // le retirer sans retirer aussi la case « Autoriser une autre réponse »
+  // du formulaire (public/index.html) et le choix « Autre » de
+  // buildPollCard (public/app.js).
+  //
+  // Elle n'est PAS un cas particulier du vote : elle devient une option du
+  // sondage comme les autres, puis on vote dessus. Tout ce qui suit
+  // (unicité du vote, choix simple/multiple, contrôle d'appartenance) reste
+  // donc valable sans exception à écrire.
+  const wanted = typeof suggestion === 'string' ? suggestion.trim() : '';
+  let suggested = null;
+  if (wanted) {
+    if (!row.allowSuggestions) {
+      return { error: { status: 403, body: { error: 'Ce sondage n\'accepte pas de réponse libre.' } } };
+    }
+    if (wanted.length > MAX_OPTION_LENGTH) {
+      return { error: { status: 400, body: { error: 'Réponse trop longue (120 caractères maximum).' } } };
+    }
+    const existing = optionsOf(pollId);
+    // Une proposition identique à une réponse déjà là (casse ignorée) ne crée
+    // PAS de doublon : on vote sur celle qui existe. Même règle qu'à la
+    // création, où deux options identiques sont refusées — sinon un sondage
+    // finirait avec « Oui » à 40% et « oui » à 20%, sans erreur visible.
+    const twin = existing.filter((o) => o.label.toLowerCase() === wanted.toLowerCase())[0];
+    if (twin) {
+      suggested = { id: twin.id, created: false };
+    } else {
+      if (existing.length >= MAX_OPTIONS) {
+        return { error: { status: 409, body: { error: 'Ce sondage a déjà le nombre maximum de réponses.' } } };
+      }
+      suggested = { label: wanted, position: existing.length, created: true };
+    }
+  }
+
+  if (unique.length === 0 && !suggested) return { error: { status: 400, body: { error: 'Choisis une réponse.' } } };
+  // La réponse libre compte comme un choix : sur un sondage à choix unique,
+  // elle ne peut donc pas s'ajouter à une case déjà cochée.
+  const totalChoices = unique.length + (suggested ? 1 : 0);
+  if (!row.multiChoice && totalChoices > 1) {
     return { error: { status: 400, body: { error: 'Une seule réponse possible pour ce sondage.' } } };
   }
 
@@ -389,8 +432,21 @@ function votePoll(pollId, userId, optionIds) {
   const votedAt = nowIso();
   db.exec('BEGIN');
   try {
+    // La création de l'option et le vote qui la porte sont dans LA MÊME
+    // transaction : sans ça, un échec au vote laisserait une réponse
+    // orpheline que personne n'a choisie.
+    const chosen = unique.slice();
+    if (suggested) {
+      if (suggested.created) {
+        const info = db.prepare('INSERT INTO poll_options (pollId, label, position) VALUES (?, ?, ?)')
+          .run(pollId, suggested.label, suggested.position);
+        chosen.push(Number(info.lastInsertRowid));
+      } else if (chosen.indexOf(suggested.id) === -1) {
+        chosen.push(suggested.id);
+      }
+    }
     const insert = db.prepare('INSERT INTO poll_votes (pollId, optionId, userId, votedAt) VALUES (?, ?, ?, ?)');
-    unique.forEach((optionId) => insert.run(pollId, optionId, userId, votedAt));
+    chosen.forEach((optionId) => insert.run(pollId, optionId, userId, votedAt));
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');

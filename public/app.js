@@ -7060,12 +7060,19 @@
     profilePostsComposers.forEach(function (c) { c.load(); });
   }
 
+  // ⚠️ 3 septembre 2026, huitième passage (Profil) : `list`/`emptyHint`
+  // retirés — cette instance n'a plus SA PROPRE liste. Les messages envoyés
+  // ici apparaissent désormais dans le flux fusionné de la page de profil
+  // (#profileDiscussionCommunityList, rendu par renderProfileFeed, plus bas
+  // dans ce fichier), mêlés aux sondages, trié une seule fois pour les deux.
+  // Même principe que communityDiscussionComposer juste en dessous, qui a
+  // fait ce choix en premier (pour #followingFeed) le 3 septembre 2026 déjà —
+  // `onSent: renderProfileFeed` en est le pendant exact de son propre rappel.
   var profileDiscussionComposer = mountProfilePostsComposer({
-    list: 'profileDiscussionCommunityList', emptyHint: 'profileDiscussionCommunityEmptyHint',
     input: 'profileDiscussionCommunityInput', pendingList: 'profileDiscussionPendingList',
     attachBtn: 'profileDiscussionAttachBtn', attachInput: 'profileDiscussionAttachInput',
     sendBtn: 'profileDiscussionCommunitySendBtn', msg: 'profileDiscussionCommunityMsg',
-  });
+  }, function () { renderProfileFeed(); });
   // Seconde instance, #communityMyPostsBlock dans #tab-community (1er
   // septembre 2026) — voir loadCommunity() plus haut, qui appelle
   // communityDiscussionComposer.reset() à l'ouverture de l'onglet.
@@ -7085,6 +7092,137 @@
     focusWhenReady('#followingFeed .discussionMsg');
   });
 
+  // ===================== FLUX DU PROFIL — FUSIONNÉ (3 septembre 2026, huitième passage) =====================
+  // Demande d'Emilien, verbatim : « Toutes les postes présents sur le profil
+  // doivent être rangées du plus récent au moins récent. [...] Les images de
+  // même que les graphiques ou que les documents doivent se comporter comme
+  // des posts normaux. Ils doivent respecter la hiérarchie temporelle. »
+  // (« le graphique » désigne ici un sondage — ses barres de résultat en ont
+  // l'apparence — et « un doc » une pièce jointe non-image sur un message.)
+  //
+  // État avant ce passage : #profileDiscussionBlock (messages, pièces
+  // jointes incluses — images ET documents, déjà traités comme un simple
+  // attribut du message) et #profilePollsBlock (sondages) étaient deux blocs
+  // DOM empilés l'un sous l'autre, chacun trié en interne (le plus récent en
+  // premier) mais JAMAIS entre eux : un sondage plus récent qu'un message
+  // s'affichait quand même en dessous, parce que son bloc entier venait
+  // après. D'où le symptôme exact observé par Emilien (capture d'écran) :
+  // Message(04/09) → Image(03/09, plus ancienne) → Sondage(04/09) au lieu de
+  // Message+Sondage(04/09) → Image(03/09).
+  //
+  // Fusionné ici selon EXACTEMENT le même principe que loadFollowingFeed
+  // (Communauté, discussion "Sondages", 3 septembre 2026, un peu plus haut
+  // dans ce fichier) : deux réponses serveur indépendantes, fusionnées et
+  // triées ensemble côté client par date décroissante, dans une seule liste.
+  // AUCUNE route serveur touchée par ce chantier.
+  function buildProfileFeedPostCard(post) {
+    // Sœur de buildPostCard (mountMessageThread, plus haut) mais autonome :
+    // sur SA PROPRE page de profil, on garde le même niveau de contrôle
+    // qu'avant ce chantier (pièces jointes modifiables après coup — ajouter,
+    // retirer — contrairement à buildFollowingPostCard qui les affiche en
+    // lecture seule), seul l'endroit où la carte est rendue a changé.
+    var msg = document.createElement('div');
+    msg.className = 'discussionMsg';
+    msg.dataset.messageId = post.id;
+
+    var when = new Date(post.createdAt);
+    var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
+    var timeLabel = pad(when.getHours()) + ':' + pad(when.getMinutes());
+
+    var top = document.createElement('div');
+    top.className = 'discussionMsgTop';
+    top.innerHTML = '<span class="discussionMsgAuthor">' + escapeHtml(profile ? profile.name : '') + t(' (toi)') + '</span>' +
+      '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>';
+
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'discussionMsgDelete';
+    del.textContent = '✕';
+    del.title = t('Supprimer ce message');
+    del.addEventListener('click', function () {
+      if (!confirm(t('Supprimer ce message ?'))) return;
+      api('DELETE', '/api/profile/posts/' + post.id + '?userId=' + profile.id)
+        .then(renderProfileFeed)
+        .catch(function (err) { alert(err.message); });
+    });
+    top.appendChild(del);
+    msg.appendChild(top);
+
+    var body = document.createElement('div');
+    body.className = 'discussionMsgBody';
+    body.appendChild(linkifyText(post.body));
+    msg.appendChild(body);
+
+    var attachBox = document.createElement('div');
+    attachBox.className = 'attachmentList';
+    renderAttachmentList(attachBox, post.attachments, null, '/api/profile/post-attachments/');
+    var attachMenuWrap = document.createElement('div');
+    attachMenuWrap.className = 'attachmentMenuWrap';
+    var attachMenuBtn = document.createElement('button');
+    attachMenuBtn.type = 'button'; attachMenuBtn.className = 'menuBtn attachMenuIconBtn';
+    attachMenuBtn.setAttribute('aria-label', t('Ajouter une pièce jointe'));
+    attachMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+    attachMenuBtn.disabled = (post.attachments || []).length >= MAX_NOTE_ATTACHMENTS;
+    var attachInput = document.createElement('input');
+    attachInput.type = 'file'; attachInput.className = 'hidden';
+    attachMenuWrap.appendChild(attachMenuBtn);
+    attachMenuWrap.appendChild(attachInput);
+    var attachMsg = document.createElement('p');
+    attachMsg.className = 'meta attachmentMsg';
+
+    attachMenuBtn.addEventListener('click', function () { attachInput.click(); });
+    attachInput.addEventListener('change', function () {
+      var file = this.files[0];
+      this.value = '';
+      handleAttachmentFilePick(file, attachMsg, function (fileName, mimeType, dataUrl) {
+        attachMsg.textContent = t('Envoi...');
+        api('POST', '/api/profile/posts/' + post.id + '/attachments',
+          { userId: profile.id, fileName: fileName, mimeType: mimeType, dataUrl: dataUrl })
+          .then(renderProfileFeed)
+          .catch(function (err) { attachMsg.textContent = err.message; });
+      });
+    });
+
+    msg.appendChild(attachBox);
+    msg.appendChild(attachMsg);
+    msg.appendChild(attachMenuWrap);
+
+    return msg;
+  }
+
+  // Rend le flux fusionné dans #profileDiscussionCommunityList (conservé tel
+  // quel comme conteneur — seul son contenu change de nature). Appelée à
+  // l'ouverture du Profil, après l'envoi d'un message, après l'ajout/retrait
+  // d'une pièce jointe, après la suppression d'un message, et après la
+  // création d'un sondage depuis #profilePollsBlock (voir profilePollsMount,
+  // ids.onCreated, plus bas).
+  function renderProfileFeed() {
+    if (!profile) return;
+    Promise.all([
+      api('GET', '/api/profile/posts?userId=' + profile.id),
+      api('GET', '/api/polls?userId=' + profile.id + '&scope=profile&scopeId=' + profile.id)
+        .catch(function () { return { polls: [] }; }),
+    ]).then(function (results) {
+      var posts = results[0] || [];
+      var polls = (results[1] && results[1].polls) || [];
+      var merged = posts.map(function (p) { return { at: p.createdAt, kind: 'post', data: p }; })
+        .concat(polls.map(function (p) { return { at: p.createdAt, kind: 'poll', data: p }; }));
+      // Les deux sources sont déjà triées chacune de son côté ; le tri commun
+      // se fait sur la chaîne ISO, comparable telle quelle (même méthode que
+      // loadFollowingFeed, plus haut).
+      merged.sort(function (a, b) { return a.at < b.at ? 1 : (a.at > b.at ? -1 : 0); });
+
+      var box = $('profileDiscussionCommunityList');
+      box.innerHTML = '';
+      $('profileDiscussionCommunityEmptyHint').classList.toggle('hidden', merged.length > 0);
+      merged.forEach(function (item) {
+        box.appendChild(item.kind === 'poll'
+          ? buildPollCard(item.data, renderProfileFeed, { mineStyle: 'none' })
+          : buildProfileFeedPostCard(item.data));
+      });
+    });
+  }
+
   // Appelée par openProfile() (Design, plus haut dans ce fichier) à chaque
   // ouverture du Profil — signature inchangée pour ne pas avoir à toucher
   // cet appel, hors périmètre Communauté.
@@ -7094,6 +7232,11 @@
     // au même point d'entrée que la zone Discussion, pour ne pas avoir à
     // toucher openProfile() (propriété de Design).
     profilePollsMount.reset();
+    // ⚠️ 3 septembre 2026, huitième passage : rend le flux fusionné —
+    // profileDiscussionComposer.reset()/profilePollsMount.reset() ci-dessus
+    // ne dessinent plus rien eux-mêmes (voir leurs configurations plus bas),
+    // c'est renderProfileFeed qui s'en charge désormais, en une seule liste.
+    renderProfileFeed();
   }
 
   // ===================== SONDAGES (socle réutilisable) =====================
@@ -7126,6 +7269,12 @@
 
   function refreshAllPolls() {
     pollsMounts.forEach(function (m) { m.load(); });
+    // Le flux Suivi porte désormais les sondages : sans ce rafraîchissement,
+    // un sondage créé depuis le composeur de Communauté n'apparaîtrait qu'au
+    // prochain passage sur l'onglet. Uniquement si l'onglet est à l'écran,
+    // pour ne pas déclencher une requête depuis le Chrono.
+    var tab = $('tab-community');
+    if (profile && tab && !tab.classList.contains('hidden')) loadFollowingFeed();
   }
 
   function pollStampLabel(iso) {
@@ -7614,9 +7763,15 @@
           // côté page de visite : la cible a pu changer pendant la requête.
           if (scopeIdValue() !== sid) return;
           if (ids.addBtn) $(ids.addBtn).classList.toggle('hidden', !data.canCreate);
+          // Liste FACULTATIVE (4 septembre 2026) : dans Communauté, le bloc
+          // n'a plus que le formulaire de création — les sondages y défilent
+          // dans #followingFeed, mêlés aux messages, au lieu d'être épinglés
+          // au-dessus. On garde quand même cet appel : c'est lui qui dit si
+          // le "+" doit apparaître (data.canCreate).
+          if (!ids.list) return;
           var box = $(ids.list);
           box.innerHTML = '';
-          $(ids.emptyHint).classList.toggle('hidden', data.polls.length > 0);
+          if (ids.emptyHint) $(ids.emptyHint).classList.toggle('hidden', data.polls.length > 0);
           data.polls.forEach(function (p) {
             box.appendChild(buildPollCard(p, refreshAllPolls, {
               authorClickable: ids.authorClickable !== false,
@@ -7672,6 +7827,14 @@
           // sinon l'autre reste périmée — même choix que
           // refreshAllProfilePostsComposers pour les messages.
           refreshAllPolls();
+          // ⚠️ Ajouté le 3 septembre 2026, huitième passage (Profil) : hook
+          // optionnel, sans effet sur les instances qui ne le fixent pas (voir
+          // ids.onChanged plus haut dans ce fichier pour le même principe).
+          // profilePollsMount s'en sert pour rafraîchir le flux fusionné de la
+          // page de profil (renderProfileFeed) juste après la création d'un
+          // sondage depuis SON composeur — refreshAllPolls() seul ne suffit
+          // plus, cette instance n'a plus de liste à elle (voir load()).
+          if (ids.onCreated) ids.onCreated();
         })
         .catch(function (err) { msgEl.textContent = err.message; })
         .then(function () { $(ids.createBtn).disabled = false; });
@@ -7736,7 +7899,8 @@
     anonymous: 'communityPollsAnonymous', privacyHint: 'communityPollsPrivacyHint',
     allowSuggestions: 'communityPollsAllowSuggestions', cancelBtn: 'communityPollsCancelBtn',
     closesAt: 'communityPollsClosesAt', createBtn: 'communityPollsCreateBtn',
-    msg: 'communityPollsMsg', list: 'communityPollsList', emptyHint: 'communityPollsEmptyHint',
+    // Ni list ni emptyHint : plus de liste épinglée dans Communauté.
+    msg: 'communityPollsMsg',
   });
 
   var profilePollsMount = mountPolls({
@@ -7745,6 +7909,13 @@
     // Profil : fil mono-auteur, tout est de moi — aucune distinction, comme
     // pour les messages (voir buildPostCard).
     mineStyle: 'none',
+    // ⚠️ 3 septembre 2026, huitième passage (Profil) : `list`/`emptyHint`
+    // retirés — mes sondages n'ont plus leur propre liste ici, ils
+    // apparaissent mêlés à mes messages dans le flux fusionné de la page de
+    // profil (voir renderProfileFeed, un peu plus haut dans ce fichier).
+    // `onCreated` le rafraîchit juste après la création d'un sondage depuis
+    // ce composeur — refreshAllPolls() seul ne suffit plus (voir load()).
+    onCreated: function () { renderProfileFeed(); },
     root: 'profilePollsBlock', addBtn: 'profilePollsAddBtn', form: 'profilePollsForm',
     question: 'profilePollsQuestion', optionsBox: 'profilePollsOptions',
     addOptionBtn: 'profilePollsAddOptionBtn', optionsBtn: 'profilePollsOptionsBtn',
@@ -7752,7 +7923,7 @@
     anonymous: 'profilePollsAnonymous', privacyHint: 'profilePollsPrivacyHint',
     allowSuggestions: 'profilePollsAllowSuggestions', cancelBtn: 'profilePollsCancelBtn',
     closesAt: 'profilePollsClosesAt', createBtn: 'profilePollsCreateBtn',
-    msg: 'profilePollsMsg', list: 'profilePollsList', emptyHint: 'profilePollsEmptyHint',
+    msg: 'profilePollsMsg',
   });
 
   // Page de visite d'un profil : lecture + vote, jamais de création.
