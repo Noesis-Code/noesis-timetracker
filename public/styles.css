@@ -2926,3 +2926,34 @@ button { -webkit-user-select: none; user-select: none; }
   color: var(--text-light);
   font-size: 0.85rem;
 }
+
+/* ---- Date de clôture sur la ligne d'un sous-projet (4 septembre 2026,
+   discussion "Calendrier des clôtures", débordement signalé dans la zone
+   Sous-projets). Une seule classe propre, préfixée ; aucune générique de
+   Design redéfinie, et `--purple` est consommée telle quelle.
+   `flex: 0 0 auto` : c'est le NOM (`.activityRowName`, flex: 1 avec ellipse)
+   qui se rétrécit, jamais la date — une date tronquée ne veut plus rien dire. */
+.subProjectDue {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+/* Le dernier jour où le sous-projet est encore là. */
+.subProjectDue.today {
+  border-color: var(--purple);
+  color: var(--purple);
+  font-weight: bold;
+}
+/* Déjà clôturé : visible seulement via « afficher les sous-projets clôturés ». */
+.subProjectDue.closed { opacity: 0.55; }
+
+/* ----- Activite SOLO depliee dans le volet Activite (4 septembre 2026) -----
+   Le bandeau ne contient que le bouton "Fermer" : .sectionTitleRow etant en
+   space-between, un enfant unique se collerait a gauche. On le pousse a
+   droite, la ou vit deja la croix de fermeture de la page d activite, pour
+   que le geste soit au meme endroit dans les deux affichages. */
+.activityInlineHeader { justify-content: flex-end; margin-bottom: 4px; }

@@ -695,6 +695,11 @@
     "Ce sous-projet n'appartient pas à cette activité.": 'This sub-project does not belong to this activity.',
     'Ce sous-projet est clôturé.': 'This sub-project is closed.',
 
+    // ---- Date de clôture sur la ligne d'un sous-projet (4 septembre 2026) ----
+    'Clôture le ': 'Closes on ',
+    'Clôturé le ': 'Closed on ',
+    'Dernier jour : ce sous-projet disparaît de la liste demain.': 'Last day: this sub-project drops off the list tomorrow.',
+
     // ---- Flux calendrier des échéances (4 septembre 2026) ----
     'Calendrier': 'Calendar',
     "Les dates de clôture de tes sous-projets peuvent apparaître dans Apple Calendar ou Google Agenda. Tu obtiens une adresse à laquelle ton calendrier s'abonne, en lecture seule : il la relit tout seul de temps en temps.": 'Your sub-project closing dates can show up in Apple Calendar or Google Calendar. You get an address your calendar subscribes to, read-only: it re-reads it on its own from time to time.',

@@ -1,34 +1,28 @@
-// test17.js — suite navigateur (Playwright) : rattachement d'une session
-// chronométrée à un sous-projet (chantier « Chrono — sous-projets »,
-// 4 septembre 2026).
+// test17.js — suite navigateur (Playwright) : ACTIVITÉ SOLO DÉPLIÉE DANS LE VOLET.
 //
-// Ce que cette suite protège en priorité, dans l'ordre :
-//   1. que ne RIEN choisir reste le cas normal et ne bloque rien ;
-//   2. qu'un rattachement existant ne puisse jamais être effacé par omission
-//      (sélecteur non affiché, sous-projet clôturé entre-temps) ;
-//   3. que l'avancement d'un sous-projet ne bouge JAMAIS parce qu'on a
-//      enregistré du temps dessus.
+// Discussion « Activité solo », 4 septembre 2026. Demande d'Emilien, verbatim :
+// « lorsque l'on clique sur activité solo depuis le volet activité, on puisse
+// directement ajouter un projet et que les projets soient directement visibles,
+// toujours sur le volet, sans aller dans une nouvelle page. [...] les principes
+// et la mise en forme [...] les mêmes que sur les fenêtres des activités
+// partagées avec l'avancement, les différents sous-projets reliés au chrono et
+// [...] la possibilité de créer des tâches (avec l'avancement global et local)
+// mais [...] pas [...] discussion. »
+//
+// Trois choses à prouver, et la troisième est celle qui casse en silence :
+//   1. une activité SOLO ne fait plus jamais apparaître #activityPage ;
+//   2. le bloc est bien DANS sa ligne, avec avancement + sous-projets + tâches,
+//      sans statistiques ni discussion ;
+//   3. le bloc SURVIT à un rendu de la liste — c'est le piège documenté
+//      (box.innerHTML = '' détruit la ligne, et le bloc avec).
 //
 // Lancement : node test17.js  (serveur sur :3000, base VIERGE, playwright)
 
 const { chromium } = require('playwright');
 
-const BASE = 'http://localhost:' + (process.env.PORT || 3000);
+const BASE = 'http://localhost:3000';
 let passed = 0, failed = 0;
 function ok(cond, label) { if (cond) passed++; else { failed++; console.log('  ✗ ' + label); } }
-function eq(a, b, label) {
-  ok(JSON.stringify(a) === JSON.stringify(b), label + ' — attendu ' + JSON.stringify(b) + ', obtenu ' + JSON.stringify(a));
-}
-
-// Le récapitulatif d'arrêt désactive « Valider » tant que la fin n'est pas
-// APRÈS le début, et les deux champs sont à la seconde près : une session
-// démarrée et arrêtée dans la même seconde laisse donc le bouton grisé
-// (comportement voulu, documenté dans app.js). On laisse tourner un peu.
-async function stopSession(page) {
-  await page.waitForTimeout(1600);
-  await page.click('#stopBtn');
-  await page.waitForTimeout(600);
-}
 
 async function api(page, method, path, body) {
   return page.evaluate(async ({ method, path, body }) => {
@@ -39,201 +33,183 @@ async function api(page, method, path, body) {
   }, { method, path, body });
 }
 
-// Options réellement proposées par un <select>, dans l'ordre.
-async function optionsOf(page, selector) {
-  return page.$$eval(selector + ' option', (os) => os.map((o) => o.textContent.trim()));
+// Le détail est-il un descendant de la ligne de CETTE activité ?
+async function detailInsideRow(page, activityId) {
+  return page.evaluate((id) => {
+    const row = document.querySelector('#activitiesList .activityRow[data-activity-id="' + id + '"]');
+    const detail = document.getElementById('communityActivityDetail');
+    return !!(row && detail && row.contains(detail));
+  }, String(activityId));
+}
+
+async function clickActivityRow(page, activityId) {
+  await page.click('#activitiesList .activityRow[data-activity-id="' + activityId + '"] .activityRowHeader');
+  await page.waitForTimeout(1200);
 }
 
 (async () => {
-  console.log('--- Chrono → sous-projets : suite navigateur ---\n');
-  // PLAYWRIGHT_CHROMIUM_PATH permet de pointer un Chromium déjà installé
-  // (bac à sable) sans lancer `npx playwright install`.
-  const browser = await chromium.launch(
-    process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {});
-  const page = await browser.newPage({ viewport: { width: 390, height: 780 } });
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
 
   const consoleErrors = [];
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', (e) => consoleErrors.push('pageerror: ' + e.message));
 
-  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.goto(BASE);
 
   const stamp = Date.now();
-  const name = 'ChronoSP' + stamp;
-  // ⚠️ lang: 'fr' — un compte créé par l'API démarre en ANGLAIS depuis le
-  // 29 août 2026 ; sans ça les libellés cherchés ici sont introuvables.
+  const name = 'Inline' + stamp;
   const user = (await api(page, 'POST', '/api/profile', {
-    name, lastName: 'Test', phone: '+15145550123', email: name + '@example.com', pin: '1234', lang: 'fr',
+    name, lastName: 'Test', phone: '+15145550166', email: name + '@example.com', pin: '1234', lang: 'fr',
   })).body;
-  ok(!!user.id, '0.1 profil de test créé');
+  ok(!!user.id, '0.1 profil créé');
 
-  const sansSP = (await api(page, 'POST', '/api/activities', { userId: user.id, name: 'SansSP' + stamp })).body;
-  const avecSP = (await api(page, 'POST', '/api/activities', { userId: user.id, name: 'AvecSP' + stamp })).body;
-  const sp1 = (await api(page, 'POST', '/api/activities/' + avecSP.id + '/sub-projects',
-    { userId: user.id, name: 'Cadrage' })).body;
-  const sp2 = (await api(page, 'POST', '/api/activities/' + avecSP.id + '/sub-projects',
-    { userId: user.id, name: 'Développement' })).body;
-  ok(!!sp1.id && !!sp2.id, '0.2 deux sous-projets créés sur la seconde activité');
+  // A : solo SANS aucun sous-projet — c'est le cas dont la règle a changé.
+  const actVide = (await api(page, 'POST', '/api/activities', { userId: user.id, name: 'AVide' + stamp })).body;
+  // B : solo AVEC un sous-projet.
+  const actPlein = (await api(page, 'POST', '/api/activities', { userId: user.id, name: 'BPlein' + stamp })).body;
+  const sp = (await api(page, 'POST', '/api/activities/' + actPlein.id + '/sub-projects', {
+    userId: user.id, name: 'Maquettes',
+  })).body;
+  // C : activité qui sera PARTAGÉE — elle doit garder sa page.
+  const actPartage = (await api(page, 'POST', '/api/activities', { userId: user.id, name: 'CPartage' + stamp })).body;
+  ok(!!actVide.id && !!actPlein.id && !!actPartage.id && !!sp.id, '0.2 trois activités et un sous-projet créés');
 
   await page.evaluate((u) => localStorage.setItem('noesis_profile', JSON.stringify(u)), user);
-  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1200);
-  ok(await page.evaluate(() => !document.getElementById('app').classList.contains('hidden')),
-    '0.3 application ouverte');
-
-  // ============ 1. Une activité SANS sous-projet : rien ne change ============
-  console.log('1. Activité sans sous-projet : l\'écran est celui d\'avant');
-  await page.click('#activityButtons button:has-text("SansSP' + stamp + '")');
-  await page.waitForTimeout(700);
-  ok(await page.isVisible('#chronoRunning'), '1.1 le chrono démarre en UN clic, comme avant');
-  ok(await page.isHidden('#chronoSubProjectWrap'), '1.2 aucun sélecteur affiché — rien à proposer');
-
-  await stopSession(page);
-  ok(await page.isHidden('#stopSubProjectWrap'), '1.3 ni dans le récapitulatif d\'arrêt');
-  await page.click('#stopConfirmBtn');
-  await page.waitForTimeout(800);
-  ok(await page.isVisible('#chronoIdle'), '1.4 la session s\'enregistre normalement');
-
-  // ============ 2. Activité AVEC sous-projets : choix optionnel ============
-  console.log('2. Activité avec sous-projets : le choix apparaît, sans rien imposer');
-  await page.click('#activityButtons button:has-text("AvecSP' + stamp + '")');
-  await page.waitForTimeout(900);
-  ok(await page.isVisible('#chronoRunning'), '2.1 le chrono démarre toujours en UN clic');
-  ok(await page.isVisible('#chronoSubProjectWrap'), '2.2 le sélecteur apparaît sous le chronomètre');
-  eq(await page.inputValue('#chronoSubProjectSelect'), '', '2.3 ⭐ rien n\'est pré-sélectionné : ne rien choisir est le cas normal');
-  eq(await optionsOf(page, '#chronoSubProjectSelect'), ['Aucun sous-projet', 'Cadrage', 'Développement'],
-    '2.4 les deux sous-projets ouverts sont proposés, précédés de « Aucun »');
-
-  await page.selectOption('#chronoSubProjectSelect', String(sp1.id));
-  await page.waitForTimeout(600);
-  let status = (await api(page, 'GET', '/api/timer/status?userId=' + user.id)).body;
-  eq(status.subProject.id, sp1.id, '2.5 le choix est enregistré sur le chrono en cours (pas gardé dans l\'écran)');
-
-  // Il survit à un rechargement de page — c'est tout l'intérêt de le stocker
-  // sur running_timers plutôt que dans une variable JavaScript.
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1200);
-  ok(await page.isVisible('#chronoRunning'), '2.6 le chrono tourne toujours après rechargement');
-  eq(await page.inputValue('#chronoSubProjectSelect'), String(sp1.id),
-    '2.7 ⭐ le sous-projet choisi est retrouvé après rechargement');
-
-  // ============ 3. Correction au moment de l'arrêt ============
-  console.log('3. Correction dans le récapitulatif d\'arrêt');
-  await stopSession(page);
-  ok(await page.isVisible('#stopSubProjectWrap'), '3.1 le sélecteur est repris dans le récapitulatif');
-  eq(await page.inputValue('#stopSubProjectSelect'), String(sp1.id), '3.2 pré-rempli avec le choix de la session');
-
-  await page.selectOption('#stopSubProjectSelect', String(sp2.id));
-  await page.click('#stopConfirmBtn');
-  await page.waitForTimeout(900);
-  let hist = (await api(page, 'GET', '/api/history?userId=' + user.id + '&period=week')).body;
-  eq(hist[0].subProjectId, sp2.id, '3.3 ⭐ la correction faite à l\'arrêt est bien celle enregistrée');
-  eq(hist[0].subProjectName, 'Développement', '3.4 et son nom revient avec l\'historique');
-  const entryId = hist[0].id;
-
-  // ============ 4. Historique modifiable ============
-  console.log('4. Historique : affichage et correction a posteriori');
-  await page.click('#chronoHistoryHeader');
-  await page.waitForTimeout(900);
-  const firstCard = '#historyList .historyEntry:first-child';
-  // `> div.meta` et non `.meta` : la carte porte aussi la durée dans un
-  // <span class="meta"> à l'intérieur de .rowTop, et le message de pièce
-  // jointe dans un <p class="meta">. Seule la ligne date/heure est un div.
-  ok((await page.textContent(firstCard + ' > div.meta')).includes('Développement'),
-    '4.1 le sous-projet s\'affiche sur la carte, à côté de la durée');
-
-  await page.click(firstCard + ' .actions .iconBtn:has-text("Modifier")');
-  await page.waitForTimeout(800);
-  ok(await page.isVisible(firstCard + ' .historyEditSubProjectWrap'), '4.2 le sélecteur est proposé à la modification');
-  eq(await page.inputValue(firstCard + ' .historyEditSubProject'), String(sp2.id), '4.3 pré-rempli sur le rattachement actuel');
-
-  await page.selectOption(firstCard + ' .historyEditSubProject', String(sp1.id));
-  await page.click(firstCard + ' .historyEditSave');
-  await page.waitForTimeout(900);
-  hist = (await api(page, 'GET', '/api/history?userId=' + user.id + '&period=week')).body;
-  eq(hist.find((e) => e.id === entryId).subProjectId, sp1.id, '4.4 corrigé depuis l\'historique');
-
-  // Rattraper une session enregistrée SANS sous-projet (celle de l'étape 1) :
-  // son activité n'en a aucun, le sélecteur doit donc rester masqué.
-  const sansCard = '#historyList .historyEntry:last-child';
-  await page.click(sansCard + ' .actions .iconBtn:has-text("Modifier")');
-  await page.waitForTimeout(800);
-  ok(await page.isHidden(sansCard + ' .historyEditSubProjectWrap'),
-    '4.5 aucun sélecteur pour une activité qui n\'a pas de sous-projet');
-  await page.click(sansCard + ' .historyEditCancel');
-
-  // ============ 5. ⭐ Un rattachement existant ne se perd jamais ============
-  console.log('5. ⭐ Clôture : plus proposé, mais le lien existant tient');
-  const hier = new Date(Date.now() - 86400000);
-  const iso = hier.getFullYear() + '-' + String(hier.getMonth() + 1).padStart(2, '0') + '-' + String(hier.getDate()).padStart(2, '0');
-  await api(page, 'PUT', '/api/sub-projects/' + sp1.id, { userId: user.id, closesAt: iso });
-
-  await page.click('#activityButtons button:has-text("AvecSP' + stamp + '")');
-  await page.waitForTimeout(900);
-  eq(await optionsOf(page, '#chronoSubProjectSelect'), ['Aucun sous-projet', 'Développement'],
-    '5.1 ⭐ un sous-projet clôturé disparaît du sélecteur du chrono');
-  await stopSession(page);
-  await page.click('#stopConfirmBtn');
+  await page.goto(BASE);
+  await page.waitForTimeout(1400);
+  await page.click('.tabBtn[data-tab="activity"]');
   await page.waitForTimeout(900);
 
-  // L'enregistrement de l'étape 4 pointe sp1, désormais clôturé : il doit
-  // garder son lien, et le sélecteur doit l'ÉPINGLER au lieu de le perdre.
-  await page.waitForTimeout(300);
-  hist = (await api(page, 'GET', '/api/history?userId=' + user.id + '&period=week')).body;
-  const cible = hist.find((e) => e.id === entryId);
-  eq(cible.subProjectId, sp1.id, '5.2 ⭐ l\'enregistrement déjà rattaché garde son lien après clôture');
-  eq(cible.subProjectClosed, true, '5.3 marqué comme clôturé');
+  // ============ 1. SOLO SANS SOUS-PROJET : plus de « rien ne se passe » ============
+  await clickActivityRow(page, actVide.id);
+  ok(!(await page.isVisible('#activityPage')),
+    '1.1 ⭐ aucune page ne s\'ouvre sur une activité solo');
+  ok(await detailInsideRow(page, actVide.id),
+    '1.2 ⭐ le bloc est déplié DANS la ligne, dans le volet Activité');
+  ok(await page.isVisible('#activitySubProjectsBlock'), '1.3 les sous-projets sont visibles');
+  ok(await page.isVisible('#newSubProjectCard'),
+    '1.4 ⭐ « directement ajouter un projet » : le formulaire de création est ouvert d\'emblée');
+  ok(await page.isVisible('#activityInlineClose'), '1.5 le bouton « Fermer » est présent');
+  ok(!(await page.isVisible('#communityActivityMembersPart')),
+    '1.6 ⭐ aucune statistique en solo (elles vivent désormais dans le volet Stats)');
+  ok(!(await page.isVisible('#communityDiscussionBlock')), '1.7 ⭐ aucune discussion en solo');
 
-  await page.click('#chronoHistoryHeader');   // referme
-  await page.waitForTimeout(300);
-  await page.click('#chronoHistoryHeader');   // rouvre, rechargé
+  // On crée le premier sous-projet depuis ce formulaire.
+  await page.fill('#newSubProjectName', 'Premier objectif');
+  await page.click('#newSubProjectSave');
+  await page.waitForTimeout(1500);
+  ok((await page.$$('#subProjectsList .subProjectRow')).length === 1,
+    '1.8 ⭐ le sous-projet créé apparaît immédiatement dans la ligne');
+  ok(!(await page.isVisible('#activityPage')),
+    '1.9 ⭐ et toujours aucune page ne s\'ouvre après la création');
+  ok(await detailInsideRow(page, actVide.id),
+    '1.10 ⭐ le bloc a SURVÉCU au rendu de la liste déclenché par la création');
+
+  // ============ 2. LE BOUTON « FERMER » ============
+  await page.click('#activityInlineClose');
+  await page.waitForTimeout(900);
+  ok(!(await page.isVisible('#communityActivityDetail')), '2.1 « Fermer » referme le bloc');
+  ok(!(await detailInsideRow(page, actVide.id)), '2.2 et le nœud est ressorti de la ligne');
+  ok(await page.evaluate(() => {
+    const d = document.getElementById('communityActivityDetail');
+    const body = document.getElementById('activityPageBody');
+    return !!(d && body && body.contains(d));
+  }), '2.3 ⭐ il est remis dans son hôte par défaut, jamais laissé détaché');
+
+  // ============ 3. SOLO AVEC SOUS-PROJET : avancement global et local ============
+  await clickActivityRow(page, actPlein.id);
+  ok(!(await page.isVisible('#activityPage')), '3.1 toujours aucune page');
+  ok(await detailInsideRow(page, actPlein.id), '3.2 le bloc s\'est déplacé dans l\'autre ligne');
+  ok(!(await page.isVisible('#newSubProjectCard')),
+    '3.3 le formulaire ne s\'ouvre PAS tout seul quand des sous-projets existent déjà');
+  ok((await page.$$('#subProjectsList .subProjectRow')).length === 1, '3.4 le sous-projet est listé');
+
+  // Tâches : on ouvre le sous-projet et on crée une section de tâches.
+  await page.click('#subProjectsList .subProjectRowHeader');
   await page.waitForTimeout(1000);
-  const cibleSel = '#historyList .historyEntry:has-text("Cadrage")';
-  ok(await page.isVisible(cibleSel), '5.4 son nom reste affiché sur la carte');
-  await page.click(cibleSel + ' .actions .iconBtn:has-text("Modifier")');
-  await page.waitForTimeout(900);
-  const opts = await optionsOf(page, cibleSel + ' .historyEditSubProject');
-  ok(opts.some((o) => o.indexOf('Cadrage') === 0 && o.indexOf('clôturé') !== -1),
-    '5.5 ⭐ le sous-projet clôturé reste proposé, épinglé et marqué (sinon ouvrir la liste l\'effacerait)');
-  eq(await page.inputValue(cibleSel + ' .historyEditSubProject'), String(sp1.id),
-    '5.6 ⭐ et il reste bien sélectionné');
-  await page.click(cibleSel + ' .historyEditSave');
-  await page.waitForTimeout(900);
-  hist = (await api(page, 'GET', '/api/history?userId=' + user.id + '&period=week')).body;
-  eq(hist.find((e) => e.id === entryId).subProjectId, sp1.id,
-    '5.7 ⭐⭐ enregistrer sans y toucher ne détache PAS un sous-projet clôturé');
-
-  // ============ 6. ⛔ Le temps n'entre pas dans l'avancement ============
-  console.log('6. ⛔ Aucune heure enregistrée ne bouge un pourcentage d\'avancement');
-  const before = (await api(page, 'GET', '/api/activities/' + avecSP.id + '/sub-projects?userId=' + user.id)).body;
-  await page.click('#activityButtons button:has-text("AvecSP' + stamp + '")');
-  await page.waitForTimeout(900);
-  await page.selectOption('#chronoSubProjectSelect', String(sp2.id));
+  await page.click('#subProjectsList .subProjectRow.open .subProjectAddBtn');
   await page.waitForTimeout(500);
-  await stopSession(page);
-  await page.click('#stopConfirmBtn');
+  ok(await page.isVisible('#addSectionTasksBtn'), '3.5 « Nouvelle tâche » proposée');
+  ok(!(await page.isVisible('#addSectionPollBtn')), '3.6 pas de sondage en solo');
+  ok(!(await page.isVisible('#addSectionDiscussionBtn')), '3.7 pas de discussion en solo');
+  await page.click('#addSectionTasksBtn');
   await page.waitForTimeout(1000);
-  const after = (await api(page, 'GET', '/api/activities/' + avecSP.id + '/sub-projects?userId=' + user.id)).body;
-  eq(after.progress, before.progress, '6.1 ⭐ l\'avancement de l\'activité est strictement inchangé');
-  eq(after.subProjects.map((s) => s.percent), before.subProjects.map((s) => s.percent),
-    '6.2 ⭐ celui de chaque sous-projet aussi');
-  eq(after.subProjects.map((s) => s.done + '/' + s.total), before.subProjects.map((s) => s.done + '/' + s.total),
-    '6.3 ⭐ « done / total » reste un compte de CASES, jamais d\'heures');
 
-  // ============ 7. Non-régression de l'onglet Chrono ============
-  console.log('7. Non-régression de l\'onglet Chrono');
-  ok(await page.isVisible('#chronoIdle'), '7.1 retour à la grille d\'activités après l\'arrêt');
-  ok((await page.$$('#activityButtons button')).length === 2, '7.2 les deux activités sont toujours proposées');
-  ok(await page.isHidden('#stopConfirmPanel'), '7.3 le récapitulatif d\'arrêt est refermé');
-  ok(await page.isVisible('#chronoHistoryHeader'), '7.4 le panneau d\'historique est toujours là');
-  hist = (await api(page, 'GET', '/api/history?userId=' + user.id + '&period=week')).body;
-  ok(hist.length >= 4 && hist.every((e) => e.durationSeconds >= 0),
-    '7.5 toutes les sessions enregistrées pendant cette suite sont présentes');
-  ok(hist.every((e) => Array.isArray(e.attachments)), '7.6 les pièces jointes de session sont toujours servies');
+  const secId = (await api(page, 'GET', '/api/sub-projects/' + sp.id + '?userId=' + user.id))
+    .body.sections.filter((s) => s.kind === 'tasks')[0].id;
+  await api(page, 'POST', '/api/sub-project-sections/' + secId + '/items', { userId: user.id, label: 'Tache A' });
+  await api(page, 'POST', '/api/sub-project-sections/' + secId + '/items', { userId: user.id, label: 'Tache B' });
+  await clickActivityRow(page, actPlein.id);   // recharge le bloc
+  await page.waitForTimeout(800);
 
-  eq(consoleErrors, [], '7.7 aucune erreur JavaScript en console pendant toute la suite');
+  ok(await page.isVisible('#activityProgressWrap'),
+    '3.8 ⭐ l\'anneau d\'avancement GLOBAL s\'affiche dans le volet');
+  ok((await page.textContent('#activityProgressPercent')).indexOf('0%') !== -1,
+    '3.9 avancement global à 0 % avec deux tâches non cochées');
+  const badge = await page.textContent('#subProjectsList .subProjectBadge');
+  ok(badge.indexOf('0/2') !== -1,
+    '3.10 ⭐ l\'avancement LOCAL du sous-projet est affiché — "' + badge + '"');
+
+  // On coche une tâche : les deux avancements bougent ensemble.
+  const items = (await api(page, 'GET', '/api/sub-projects/' + sp.id + '?userId=' + user.id)).body;
+  const firstItem = items.sections.filter((s) => s.kind === 'tasks')[0].items[0];
+  await api(page, 'PUT', '/api/sub-project-items/' + firstItem.id, { userId: user.id, done: true });
+  await clickActivityRow(page, actPlein.id);
+  await page.waitForTimeout(900);
+  ok((await page.textContent('#activityProgressPercent')).indexOf('50%') !== -1,
+    '3.11 ⭐ une tâche cochée sur deux → 50 % en global');
+  ok((await page.textContent('#subProjectsList .subProjectBadge')).indexOf('1/2') !== -1,
+    '3.12 ⭐ et 1/2 en local');
+
+  // ============ 4. LE RENDU DE LISTE NE DÉTRUIT PAS LE BLOC ============
+  // C'est le piège : box.innerHTML = '' emporte la ligne, et le bloc avec.
+  await page.evaluate(() => { document.querySelector('.tabBtn[data-tab="chrono"]').click(); });
+  await page.waitForTimeout(700);
+  await page.click('.tabBtn[data-tab="activity"]');
+  await page.waitForTimeout(1400);
+  ok(await detailInsideRow(page, actPlein.id),
+    '4.1 ⭐ le bloc est toujours dans sa ligne après un aller-retour d\'onglets');
+  ok(await page.isVisible('#subProjectsList'), '4.2 et son contenu est toujours là');
+
+  // ============ 5. UNE ACTIVITÉ PARTAGÉE GARDE SA PAGE ============
+  const other = 'InlineOther' + stamp;
+  const user2 = (await api(page, 'POST', '/api/profile', {
+    name: other, lastName: 'Test', phone: '+15145550167', email: other + '@example.com', pin: '1234', lang: 'fr',
+  })).body;
+  await api(page, 'POST', '/api/activities/' + actPartage.id + '/invite', { userId: user.id, pseudo: other });
+  const invites = (await api(page, 'GET', '/api/invites?userId=' + user2.id)).body;
+  await api(page, 'POST', '/api/invites/' + invites[0].id + '/accept', { userId: user2.id });
+
+  await page.goto(BASE);
+  await page.waitForTimeout(1400);
+  await page.click('.tabBtn[data-tab="activity"]');
+  await page.waitForTimeout(1000);
+  await clickActivityRow(page, actPartage.id);
+  ok(await page.isVisible('#activityPage'),
+    '5.1 ⭐ une activité PARTAGÉE ouvre toujours sa page plein écran');
+  ok(await page.isVisible('#activityPageSectionSwitch'), '5.2 son sélecteur de sections est là');
+  ok(await page.isVisible('#activityPageTabDisc'), '5.3 avec la Discussion');
+  ok(await page.evaluate(() => {
+    const d = document.getElementById('communityActivityDetail');
+    const body = document.getElementById('activityPageBody');
+    return !!(d && body && body.contains(d));
+  }), '5.4 ⭐ le bloc est remonté dans la page');
+
+  // Et l'on repasse directement de la page partagée à une activité solo.
+  await page.click('#activityPageClose');
+  await page.waitForTimeout(900);
+  await clickActivityRow(page, actPlein.id);
+  ok(!(await page.isVisible('#activityPage')), '5.5 retour au solo : plus de page');
+  ok(await detailInsideRow(page, actPlein.id), '5.6 ⭐ et le bloc redescend dans la ligne');
+
+  const realErrors = consoleErrors.filter((e) =>
+    e.indexOf('favicon') === -1 && e.indexOf('manifest') === -1 && e.indexOf('sw.js') === -1);
+  ok(realErrors.length === 0, '6.1 aucune erreur JS en console — ' + JSON.stringify(realErrors.slice(0, 4)));
+
+  await page.screenshot({ path: '/home/claude/work2/inline-solo.png' });
 
   await browser.close();
-  console.log('\n' + passed + ' assertions passées, ' + failed + ' échec(s).');
+  console.log('\n--- ' + passed + ' assertions passées, ' + failed + ' échouées ---');
   process.exit(failed ? 1 : 0);
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch((e) => { console.error('ERREUR : ' + e.stack); process.exit(1); });

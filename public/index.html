@@ -1379,6 +1379,19 @@
       <div id="activityDetailAnchor"></div>
 
       <div id="communityActivityDetail" class="hidden">
+        <!-- ⚠️ 4 septembre 2026 (discussion « Activité solo ») — bandeau
+             visible UNIQUEMENT quand ce bloc est déplié dans la ligne d'une
+             activité NON PARTAGÉE, directement dans le volet Activité.
+             Demande d'Emilien : un bouton « Fermer « plutôt qu'un second clic
+             sur la ligne — on clique beaucoup À L'INTÉRIEUR du bloc, et le
+             replier par erreur coûte tout le contexte.
+             Il ne répète PAS le nom de l'activité : il est déjà sur la ligne,
+             deux centimètres au-dessus. Sur la page (activité partagée), c'est
+             la croix de #activityPageHeader qui ferme, et ce bandeau reste
+             masqué. -->
+        <div id="activityInlineHeader" class="sectionTitleRow activityInlineHeader hidden">
+          <button type="button" id="activityInlineClose" class="iconBtn">Fermer</button>
+        </div>
         <!-- Fil de discussion de l'activité sélectionnée : une vraie
              conversation entre ses membres, conservée durablement — à ne
              pas confondre avec les notes "en direct" du Chrono (bloc "En ce

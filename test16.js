@@ -104,7 +104,11 @@ async function openSubProject(page, name) {
   await page.waitForTimeout(800);
   await page.click('#activitiesList .activityRow .activityRowHeader');
   await page.waitForTimeout(1200);
-  ok(await page.isVisible('#activityPage'), '1.1 la page de l\'activité solo s\'ouvre');
+  // ⚠️ 4 septembre 2026 : cette assertion a été INVERSÉE. Une activité solo
+  // n'ouvre plus de page — son bloc se déplie dans sa ligne du volet Activité
+  // (demande d'Emilien du même jour, voir test17.js).
+  ok(!(await page.isVisible('#activityPage')),
+    '1.1 ⭐ une activité solo n\'ouvre PAS de page');
   ok(await page.isVisible('#activitySubProjectsBlock'), '1.2 section Sous-projets affichée');
 
   // --- Le sous-projet VIERGE : le menu ne propose que des tâches ---
