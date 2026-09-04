@@ -2154,6 +2154,17 @@
             <div class="chartScroll">
               <div id="viewProfileChart" class="chartSvgWrap"></div>
             </div>
+            <!-- Infobulle de survol (4 septembre 2026, demande d'Emilien :
+                 « lorsque un utilisateur fait défiler son doigt sur les
+                 statistiques du profil d'un autre utilisateur, les données en
+                 heure s'affichent exactement comme sur le volet statistique »).
+                 Même structure exacte que #chartTooltip (onglet Statistiques)
+                 et #caChartTooltip (page d'une activité) : hors de
+                 .chartScroll, donc jamais coupée par le défilement horizontal
+                 du graphique, et positionnée par renderViewProfileChart par
+                 rapport à .chartWrap. Aucune règle CSS nouvelle — la classe
+                 .chartTooltip est déjà générique. -->
+            <div id="viewProfileChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
           </div>
           <div id="viewProfileChartLegend" class="chartLegend"></div>
           <p id="viewProfileChartEmptyHint" class="hint hidden">Rien d'enregistré pour l'instant.</p>

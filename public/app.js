@@ -6602,6 +6602,9 @@
     $('viewProfileStatsTotal').textContent = '';
     $('viewProfileChart').innerHTML = '';
     $('viewProfileChartLegend').innerHTML = '';
+    // L'infobulle repart masquée : celle du profil PRÉCÉDENT n'a aucune
+    // raison de rester affichée le temps que les données arrivent.
+    $('viewProfileChartTooltip').classList.add('hidden');
     $('viewProfileChartEmptyHint').classList.add('hidden');
     $('viewProfilePostsList').innerHTML = '';
     $('viewProfilePostsEmptyHint').classList.add('hidden');
@@ -6733,29 +6736,30 @@
     loadViewProfileStats();
   });
 
-  // Graphique de la page de visite — volontairement une version SIMPLE, et
-  // non un appel à renderChart (l'onglet Statistiques) :
-  //  - renderChart a son propre crosshair + infobulle flottante ancrée
-  //    (#chartTooltip, #statsChartWrap). Le paramétrer pour deux conteneurs
-  //    demanderait de réécrire une fonction qui appartient à une autre
-  //    discussion (Statistiques — Graphique) ;
-  //  - un profil qu'on visite se lit, il ne s'explore pas au clic : pas
-  //    d'infobulle flottante ici, tous les points d'un coup, l'aire défile
-  //    horizontalement (.chartScroll) — même principe que le Graphique,
-  //    qui n'a lui non plus aucune capacité de zoom (essayée puis annulée
-  //    le 2 septembre 2026, voir noesis-timetracker-journal-statistiques.md).
-  //    ⚠️ Commentaire corrigé par Statistiques — Graphique (2 septembre
-  //    2026) : mentionnait des identifiants de zoom déjà retirés
-  //    (chartViewState/chartUserZoomed/chartCurrentTotal/#chartZoomResetBtn)
-  //    depuis longtemps obsolètes — aucune ligne de logique touchée.
-  // Ce qui EST partagé l'est réellement : buildChartSeries (construction des
-  // séries) et dayChartLabel (étiquettes), tous deux déjà génériques et déjà
-  // partagés avec la Communauté.
+  // Graphique de la page de visite — fonction distincte de renderChart
+  // (l'onglet Statistiques), et non un appel à celle-ci : renderChart écrit en
+  // dur ses deux conteneurs (#statsChart, #statsChartWrap, #chartTooltip,
+  // #statsChartLegend) et appartient à une autre discussion. Même situation,
+  // même choix et même code que renderCommunityActivityChart pour la page
+  // d'une activité (#caChartTooltip) : ces trois graphiques sont des jumeaux
+  // assumés. Ce qui EST réellement partageable l'est : buildChartSeries
+  // (séries), dayChartLabel (étiquettes) et formatHM (durées).
+  //
+  // ⚠️ 4 septembre 2026, demande d'Emilien : « je souhaite que lorsque un
+  // utilisateur fait défiler son doigt sur les statistiques du profil d'un
+  // autre utilisateur, les données en heure s'affichent exactement comme sur
+  // le volet statistique ». Cette fonction se contentait auparavant d'un
+  // <title> SVG natif sur chaque point (infobulle du système, une seule série
+  // à la fois, et qui ne se déclenche pas au glissé du doigt). Elle a
+  // désormais le MÊME crosshair + la MÊME infobulle listant toutes les séries
+  // du jour survolé que renderChart — code repris ligne pour ligne, pour que
+  // le comportement soit strictement identique des deux côtés.
   function renderViewProfileChart(days) {
     var box = $('viewProfileChart');
     var legendBox = $('viewProfileChartLegend');
     box.innerHTML = '';
     legendBox.innerHTML = '';
+    $('viewProfileChartTooltip').classList.add('hidden');
     var hasData = days && days.length > 0;
     $('viewProfileChartEmptyHint').classList.toggle('hidden', hasData);
     if (!hasData) return;
@@ -6764,12 +6768,15 @@
     var series = buildChartSeries(sorted);
     var maxSeconds = sorted.reduce(function (m, d) { return Math.max(m, d.totalSeconds); }, 0) || 1;
 
-    var stepW = 56;
-    var width = Math.max(280, stepW * sorted.length);
+    var width = Math.max(280, 56 * sorted.length);
     var height = 160, padTop = 12, padBottom = 24, padSide = 8;
     var plotH = height - padTop - padBottom;
     var innerW = width - padSide * 2;
-    function xFor(i) { return padSide + (innerW / sorted.length) * (i + 0.5); }
+    // `stepW` = largeur réelle d'une colonne. Nommée ici parce que
+    // indexFromEvent (plus bas) s'en sert pour retrouver le jour sous le
+    // doigt — exactement la même formule que dans renderChart.
+    var stepW = innerW / sorted.length;
+    function xFor(i) { return padSide + stepW * (i + 0.5); }
     function yFor(seconds) { return padTop + plotH - (seconds / maxSeconds) * plotH; }
 
     var svgNS = 'http://www.w3.org/2000/svg';
@@ -6797,16 +6804,15 @@
       line.style.stroke = s.color;
       svg.appendChild(line);
 
-      points.forEach(function (p, i) {
+      points.forEach(function (p) {
         var dot = document.createElementNS(svgNS, 'circle');
         dot.setAttribute('cx', p.x); dot.setAttribute('cy', p.y); dot.setAttribute('r', 4);
         dot.setAttribute('class', 'chartDot');
         dot.style.fill = s.color;
-        // Pas d'infobulle flottante ici (voir plus haut) : un <title> SVG
-        // natif suffit, et fonctionne aussi en appui long sur mobile.
-        var title = document.createElementNS(svgNS, 'title');
-        title.textContent = dayChartLabel(sorted[i]) + ' — ' + s.name + ' : ' + formatHM(s.values[i]);
-        dot.appendChild(title);
+        // ⚠️ Le <title> SVG qui vivait ici a été RETIRÉ le 4 septembre 2026 :
+        // il déclenchait l'infobulle native du navigateur (une seule série,
+        // apparition retardée, jamais au glissé du doigt) par-dessus la
+        // nouvelle infobulle. L'onglet Statistiques n'en a pas non plus.
         svg.appendChild(dot);
       });
     });
@@ -6819,6 +6825,86 @@
       label.textContent = dayChartLabel(d, true);
       svg.appendChild(label);
     });
+
+    // ----- Survol : crosshair vertical + infobulle listant CHAQUE série au
+    // jour survolé ou touché (4 septembre 2026, demande d'Emilien). Repris
+    // ligne pour ligne de renderChart (onglet Statistiques) — c'est le but :
+    // « exactement comme sur le volet statistique ». -----
+    var crosshair = document.createElementNS(svgNS, 'line');
+    crosshair.setAttribute('y1', padTop); crosshair.setAttribute('y2', height - padBottom);
+    crosshair.setAttribute('class', 'chartCrosshair hidden');
+    svg.appendChild(crosshair);
+
+    // Rectangle transparent posé EN DERNIER, donc au-dessus de tout : c'est
+    // lui qui reçoit le doigt, et non chaque point un par un — on n'a pas à
+    // viser un point de 4px de rayon pour lire la journée.
+    var hoverLayer = document.createElementNS(svgNS, 'rect');
+    hoverLayer.setAttribute('x', 0); hoverLayer.setAttribute('y', 0);
+    hoverLayer.setAttribute('width', width); hoverLayer.setAttribute('height', height);
+    hoverLayer.setAttribute('class', 'chartHoverLayer');
+    svg.appendChild(hoverLayer);
+
+    var tooltip = $('viewProfileChartTooltip');
+    var wrapEl = $('viewProfileChartWrap');
+
+    function showTooltipAt(i) {
+      var d = sorted[i];
+      crosshair.setAttribute('x1', xFor(i)); crosshair.setAttribute('x2', xFor(i));
+      crosshair.classList.remove('hidden');
+
+      tooltip.innerHTML = '';
+      var dateEl = document.createElement('div');
+      dateEl.className = 'chartTooltipDate';
+      dateEl.textContent = dayChartLabel(d);
+      tooltip.appendChild(dateEl);
+
+      // `ordered` est trié Total en dernier (pour le dessiner par-dessus) :
+      // on le relit à l'envers pour que le Total soit en TÊTE de l'infobulle,
+      // comme dans l'onglet Statistiques.
+      ordered.slice().reverse().forEach(function (s) {
+        var row = document.createElement('div');
+        row.className = 'chartTooltipRow';
+        var dot = document.createElement('span');
+        dot.className = 'chartTooltipDot';
+        dot.style.background = s.color;
+        var label = document.createElement('span');
+        label.className = 'chartTooltipLabel';
+        label.textContent = s.name;
+        var value = document.createElement('span');
+        value.className = 'chartTooltipValue';
+        value.textContent = formatHM(s.values[i]);
+        row.appendChild(dot); row.appendChild(label); row.appendChild(value);
+        tooltip.appendChild(row);
+      });
+
+      // Positionnée par rapport à .chartWrap (pas .chartScroll, qui défile
+      // horizontalement), pour ne jamais être coupée par le scroll.
+      var svgRect = svg.getBoundingClientRect();
+      var wrapRect = wrapEl.getBoundingClientRect();
+      var px = svgRect.left - wrapRect.left + (xFor(i) / width) * svgRect.width;
+      var py = svgRect.top - wrapRect.top + (yFor(d.totalSeconds) / height) * svgRect.height;
+      tooltip.style.left = px + 'px';
+      tooltip.style.top = (py - 10) + 'px';
+      tooltip.classList.remove('hidden');
+    }
+
+    function hideTooltip() {
+      crosshair.classList.add('hidden');
+      tooltip.classList.add('hidden');
+    }
+
+    function indexFromEvent(evt) {
+      var rect = svg.getBoundingClientRect();
+      var relX = ((evt.clientX - rect.left) / rect.width) * width;
+      var i = Math.round((relX - padSide) / stepW - 0.5);
+      if (i < 0) i = 0;
+      if (i > sorted.length - 1) i = sorted.length - 1;
+      return i;
+    }
+
+    hoverLayer.addEventListener('pointermove', function (evt) { showTooltipAt(indexFromEvent(evt)); });
+    hoverLayer.addEventListener('pointerenter', function (evt) { showTooltipAt(indexFromEvent(evt)); });
+    hoverLayer.addEventListener('pointerleave', function () { hideTooltip(); });
 
     box.appendChild(svg);
 
