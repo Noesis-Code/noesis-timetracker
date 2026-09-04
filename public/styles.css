@@ -1135,17 +1135,43 @@ body.scrollLock { overflow: hidden; }
    .notifPanel, même ancrage sous sa propre icône. */
 .notifWrap, .settingsWrap, .followsWrap { position: relative; }
 
-/* Ancré directement sous sa propre icône (2 septembre 2026, deuxième
-   passage — retour à l'ancrage d'avant le 31 août 2026) : .notifWrap et
-   .settingsWrap vivent maintenant dans .identityHeader, une ligne étroite au
-   milieu de la page Profil, plus dans .topbar qui faisait toute la largeur
-   de l'écran — se centrer sur l'écran comme avant n'aurait donc plus de
-   sens. right:0 aligne le bord droit du panneau sur celui de l'icône, qui
-   se trouve déjà près du bord droit de l'écran (identityHeader étant en
-   flex, icônes en bout de ligne) : le panneau s'ouvre vers la gauche, reste
-   entièrement visible quelle que soit la longueur du nom affiché à côté. */
+/* Ancré sous sa propre icône jusqu'au 3 septembre 2026 (deuxième passage) :
+   .notifWrap/.settingsWrap/.followsWrap gardent leur `position: relative`
+   (ci-dessus), mais uniquement pour le clic "en dehors" désormais (voir
+   app.js, e.target.closest('.notifWrap') etc. — le panneau reste un
+   descendant DOM de son wrap même en `position: fixed`, donc ce repérage
+   continue de fonctionner sans changement JS).
+
+   .notifPanel lui-même passe d'un ancrage "sous l'icône" à un centrage sur
+   l'écran (3 septembre 2026, sixième passage — demande d'Emilien : « je
+   souhaite que lorsque je clique sur les icônes abonnés/abonnement,
+   invitation et paramètres, le menu flottant s'affiche de manière centrée
+   sur l'écran et un peu plus bas par rapport au profil »). Raison du
+   changement : depuis la restructuration de la topbar plus haut dans ce
+   fichier (photo de profil intégrée à la topbar, même journée), les trois
+   icônes vivent dans `#topbarProfile .identityHeader`, elle-même dans
+   `.topbar` en `position: fixed` pleine largeur — un ancrage "sous l'icône"
+   place mécaniquement le panneau sur le côté (près de l'icône cliquée)
+   plutôt qu'au centre, ce qu'Emilien ne souhaite plus.
+
+   `position: fixed` + `left: 50%; transform: translateX(-50%)` centre le
+   panneau horizontalement sur la fenêtre, quelle que soit l'icône cliquée
+   parmi les trois (Abonnés/Abonnements, Invitations, Réglages) — un seul
+   centrage pour les trois, pas un calcul par icône. `.topbar` n'a ni
+   transform ni filter : elle ne devient donc pas le bloc de référence d'un
+   enfant `position: fixed` (qui reste sinon la fenêtre elle-même), la
+   règle CSS le confirme.
+
+   `top: calc(var(--topbar-h, 56px) + 16px)` place le panneau sous LA
+   TOPBAR ENTIÈRE plutôt que sous l'icône précise : --topbar-h est déjà
+   mesurée en temps réel par syncTopbarHeightVar() (app.js) et vaut, au
+   moment où ces icônes sont cliquables, la hauteur du bandeau à DEUX
+   lignes de l'état "Profil ouvert" (voir .topbarProfile plus haut) — donc
+   déjà "en dessous du profil" sans rien recalculer ici. Les 16px
+   supplémentaires répondent au « un peu plus bas » de la demande. */
 .notifPanel {
-  position: absolute; top: calc(100% + 6px); right: 0;
+  position: fixed; top: calc(var(--topbar-h, 56px) + 16px);
+  left: 50%; transform: translateX(-50%);
   z-index: 20;
   width: min(320px, 85vw); max-height: 60vh; overflow-y: auto;
   background: var(--card); border: 1px solid var(--border);
@@ -1395,6 +1421,14 @@ body.scrollLock { overflow: hidden; }
 .chatThread .discussionMsg.mine .discussionMsgDelete:hover {
   background: rgba(255, 255, 255, 0.18); color: #fff;
 }
+/* Liens cliquables dans le corps d'un message (3 septembre 2026, demande
+   d'Emilien : « si un utilisateur publie un lien, les autres [...] puissent
+   cliquer directement dessus »). Voir linkifyText() dans app.js, qui pose
+   la classe .msgLink sur chaque <a> généré. Sur fond violet plein
+   (.discussionMsg.mine ici, .feedMine plus bas), le violet du lien
+   disparaîtrait sur le violet du fond : surchargé en blanc souligné. */
+.msgLink { color: var(--purple); text-decoration: underline; word-break: break-word; }
+.chatThread .discussionMsg.mine .msgLink { color: #fff; }
 /* Le fil est une conversation : on la lit du haut vers le bas, le plus récent
    en dernier. `justify-content: flex-end` colle les messages au BAS du cadre
    quand ils ne le remplissent pas encore — sans quoi une conversation de deux
@@ -1490,6 +1524,7 @@ body.scrollLock { overflow: hidden; }
 }
 .discussionMsg.feedMine .discussionMsgDelete { color: rgba(255, 255, 255, 0.75); }
 .discussionMsg.feedMine .discussionMsgDelete:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.discussionMsg.feedMine .msgLink { color: #fff; }
 
 /* Nom d'auteur TOUJOURS affiché en entier dans le fil "Suivi" (3 septembre
    2026, demande d'Emilien : « le nom des utilisateurs doit toujours

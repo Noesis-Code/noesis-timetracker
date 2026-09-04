@@ -146,8 +146,16 @@ function followingFeedForUser(userId, limit) {
   // requêtes de ce fichier qui l'exposent déjà (voir activityMessagesForUser
   // plus bas), simplement absente ici jusqu'à présent car ce flux n'avait
   // encore jamais eu besoin de la photo.
+  // u.lastName AS userLastName ajouté le 3 septembre 2026, sixième passage
+  // (demande d'Emilien : « le nom des utilisateurs doit toujours s'afficher
+  // en entier [...] que ce soit dans la zone des quelques profils à
+  // découvrir ou que ce soit dans les posts ») — le passage précédent avait
+  // seulement empêché la troncature CSS du nom déjà affiché (u.name, le
+  // prénom), sans jamais aller chercher le nom de famille : « nom complet »
+  // au sens où Emilien l'utilise ailleurs (renderIdentityHeader,
+  // renderViewProfileIdentity) veut dire prénom + nom de famille.
   const posts = db.prepare(`
-    SELECT p.id, p.userId, u.name AS userName, u.color AS userColor, u.avatar AS userAvatar, p.body, p.createdAt
+    SELECT p.id, p.userId, u.name AS userName, u.lastName AS userLastName, u.color AS userColor, u.avatar AS userAvatar, p.body, p.createdAt
     FROM profile_posts p
     JOIN users u ON u.id = p.userId
     WHERE p.userId = ?

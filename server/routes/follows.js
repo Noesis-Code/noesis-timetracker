@@ -120,7 +120,7 @@ router.get('/users/search', (req, res) => {
     : 'u.name COLLATE NOCASE';
 
   const rows = db.prepare(`
-    SELECT u.id, u.name, u.color, u.avatar,
+    SELECT u.id, u.name, u.lastName, u.color, u.avatar,
            (SELECT COUNT(*) FROM profile_projects p4 WHERE p4.userId = u.id) AS projectsCount
     FROM users u
     WHERE ${where.join(' AND ')}
@@ -128,9 +128,14 @@ router.get('/users/search', (req, res) => {
     LIMIT ${SEARCH_LIMIT}
   `).all(...params);
 
+  // lastName ajouté le 3 septembre 2026, sixième passage (demande d'Emilien :
+  // « le nom des utilisateurs doit toujours s'afficher en entier [...] dans
+  // la zone des quelques profils à découvrir ») — u.name seul (le prénom)
+  // était déjà exposé, mais ne constituait pas le "nom complet" demandé.
   res.json(rows.map((u) => Object.assign({
     id: u.id,
     name: u.name,
+    lastName: u.lastName || null,
     color: u.color,
     avatar: u.avatar || null,
     projectsCount: u.projectsCount,
@@ -144,8 +149,10 @@ router.get('/follows/following', (req, res) => {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
+  // lastName ajouté le 3 septembre 2026, sixième passage (demande d'Emilien,
+  // « nom complet » partout) — voir la même note sur /users/search plus haut.
   const rows = db.prepare(`
-    SELECT f.id AS followId, u.id AS userId, u.name AS name, u.color AS color
+    SELECT f.id AS followId, u.id AS userId, u.name AS name, u.lastName AS lastName, u.color AS color
     FROM follows f JOIN users u ON u.id = f.followeeId
     WHERE f.followerId = ? AND f.status = 'accepted'
     ORDER BY u.name COLLATE NOCASE
@@ -163,8 +170,10 @@ router.get('/follows/followers', (req, res) => {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
+  // lastName ajouté le 3 septembre 2026, sixième passage (même raison que
+  // /follows/following ci-dessus).
   const rows = db.prepare(`
-    SELECT f.id AS followId, u.id AS userId, u.name AS name, u.color AS color
+    SELECT f.id AS followId, u.id AS userId, u.name AS name, u.lastName AS lastName, u.color AS color
     FROM follows f JOIN users u ON u.id = f.followerId
     WHERE f.followeeId = ? AND f.status = 'accepted'
     ORDER BY u.name COLLATE NOCASE

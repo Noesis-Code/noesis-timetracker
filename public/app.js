@@ -4452,6 +4452,57 @@
     return el;
   }
 
+  // Nom complet (prénom + nom de famille) — ajouté le 3 septembre 2026,
+  // sixième passage (demande d'Emilien : « le nom des utilisateurs doit
+  // toujours s'afficher en entier [...] que ce soit dans la zone des
+  // quelques profils à découvrir ou que ce soit dans les posts »). Même
+  // règle que renderIdentityHeader/renderViewProfileIdentity plus bas dans
+  // ce fichier (qui, elles, l'appliquaient déjà à leur propre carte
+  // d'identité) : lastName est facultatif tant qu'un profil créé avant le
+  // 29 août 2026 ne l'a pas renseigné.
+  function fullName(name, lastName) {
+    return lastName ? (name + ' ' + lastName) : name;
+  }
+
+  // Rend un texte de message en détectant les URL (http(s):// et www.) pour
+  // en faire des liens cliquables — ajouté le 3 septembre 2026, sixième
+  // passage (demande d'Emilien : « si un utilisateur publie un lien, les
+  // autres utilisateurs puissent cliquer directement dessus »). Construit
+  // uniquement avec createTextNode/createElement (jamais innerHTML) : le
+  // texte de l'utilisateur ne passe jamais par un parseur HTML, donc aucun
+  // risque d'injection, exactement comme le textContent qu'elle remplace.
+  function linkifyText(text) {
+    var frag = document.createDocumentFragment();
+    if (!text) return frag;
+    var urlRe = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+    var lastIndex = 0;
+    var match;
+    while ((match = urlRe.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      var raw = match[0];
+      // La ponctuation de fin de phrase collée à l'URL (., ,, ;, :, !, ?,
+      // parenthèse/crochet fermant) n'en fait presque jamais partie —
+      // retirée du lien et remise après, en texte normal.
+      var trail = '';
+      var clean = raw.replace(/[.,;:!?)\]}]+$/, function (m) { trail = m; return ''; });
+      var href = /^https?:\/\//i.test(clean) ? clean : ('https://' + clean);
+      var a = document.createElement('a');
+      a.href = href;
+      a.textContent = clean;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.className = 'msgLink';
+      a.addEventListener('click', function (ev) { ev.stopPropagation(); });
+      frag.appendChild(a);
+      if (trail) frag.appendChild(document.createTextNode(trail));
+      lastIndex = match.index + raw.length;
+    }
+    if (lastIndex < text.length) frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+    return frag;
+  }
+
   function renderSearchResults(list) {
     var box = $('communitySearchResults');
     box.innerHTML = '';
@@ -4480,7 +4531,10 @@
       textWrap.className = 'discoverRowText';
       var nameEl = document.createElement('span');
       nameEl.className = 'discoverRowName';
-      nameEl.textContent = u.name;
+      // Nom complet (prénom + nom de famille) depuis le 3 septembre 2026,
+      // sixième passage — voir fullName() plus haut. u.lastName vient de
+      // GET /api/users/search (server/routes/follows.js).
+      nameEl.textContent = fullName(u.name, u.lastName);
       textWrap.appendChild(nameEl);
 
       var subLine = document.createElement('span');
@@ -4662,7 +4716,10 @@
       row.className = 'activityRow' + (actionable ? ' discoveryLine' : '');
       var label = document.createElement('p');
       label.className = 'meta';
-      label.innerHTML = '<span class="dot" style="background:' + f.color + '"></span> ' + escapeHtml(f.name);
+      // Nom complet (prénom + nom de famille) depuis le 3 septembre 2026,
+      // sixième passage — f.lastName vient de GET /follows/following et
+      // GET /follows/followers (server/routes/follows.js).
+      label.innerHTML = '<span class="dot" style="background:' + f.color + '"></span> ' + escapeHtml(fullName(f.name, f.lastName));
       // Clic sur le nom : ouvre la page de visite de son profil (voir
       // openProfileViewModal, section "PAGE DE VISITE DE PROFIL" plus haut).
       // ⚠️ 2 septembre 2026 : proposé désormais sur LES DEUX listes. Il ne
@@ -4774,8 +4831,11 @@
     var authorSpan = document.createElement('span');
     authorSpan.className = 'discussionMsgAuthor';
     authorSpan.appendChild(buildSmallAvatar(entry.userAvatar, entry.userName, entry.userColor));
+    // Nom complet (prénom + nom de famille) depuis le 3 septembre 2026,
+    // sixième passage — entry.userLastName vient de followingFeedForUser
+    // (server/lib/community.js), voir fullName() plus haut.
     authorSpan.appendChild(document.createTextNode(
-      ' ' + entry.userName + (isMine ? t(' (toi)') : '')));
+      ' ' + fullName(entry.userName, entry.userLastName) + (isMine ? t(' (toi)') : '')));
     // Ouvrir sa PROPRE page de visite de profil depuis son propre message
     // n'aurait aucun sens : le clic n'est proposé que sur les autres.
     if (!isMine) {
@@ -4812,7 +4872,9 @@
 
     var body = document.createElement('div');
     body.className = 'discussionMsgBody';
-    body.textContent = entry.body;
+    // Liens cliquables depuis le 3 septembre 2026, sixième passage — voir
+    // linkifyText() plus haut.
+    body.appendChild(linkifyText(entry.body));
     card.appendChild(body);
 
     if (entry.attachments && entry.attachments.length) {
@@ -6530,7 +6592,8 @@
     if (post.body) {
       var body = document.createElement('p');
       body.className = 'note';
-      body.textContent = post.body;
+      // Liens cliquables depuis le 3 septembre 2026 — voir linkifyText() plus haut.
+      body.appendChild(linkifyText(post.body));
       card.appendChild(body);
     }
 
@@ -6756,7 +6819,8 @@
 
       var body = document.createElement('div');
       body.className = 'discussionMsgBody';
-      body.textContent = post.body;
+      // Liens cliquables depuis le 3 septembre 2026 — voir linkifyText() plus haut.
+      body.appendChild(linkifyText(post.body));
       msg.appendChild(body);
 
       if (!cfg.attachments) return msg;
