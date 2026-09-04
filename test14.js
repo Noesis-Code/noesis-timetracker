@@ -519,11 +519,26 @@ async function detail(user, subProject) {
     r = await call('GET', path);
     ok(r.status === 200, '11.x ' + label + ' répond toujours');
   }
-  // Le Chrono n'a PAS été touché : aucune colonne subProjectId (phase 2)
-  ok(db.prepare('PRAGMA table_info(time_entries)').all().every((c) => c.name !== 'subProjectId'),
-    '11.1 time_entries inchangée (phase 2 non commencée)');
-  ok(db.prepare('PRAGMA table_info(running_timers)').all().every((c) => c.name !== 'subProjectId'),
-    '11.2 running_timers inchangée');
+  // ⚠️ MISE À JOUR DU 4 SEPTEMBRE 2026 — débordement signalé, fait par le
+  // chantier « Chrono — sous-projets ». Ces deux assertions vérifiaient que la
+  // PHASE 2 n'avait pas commencé (aucune colonne subProjectId sur les deux
+  // tables du Chrono). Elle a commencé, et elle est livrée : les garder telles
+  // quelles rendrait cette suite rouge pour une raison qui n'a rien d'un
+  // défaut. Elles sont donc retournées — elles vérifient maintenant que la
+  // phase 2 a été faite SANS RIEN CASSER de ce que ce fichier protège :
+  // colonne présente, NULLABLE (le choix reste optionnel) et surtout
+  // ON DELETE **SET NULL** et jamais CASCADE, pour qu'une suppression de
+  // sous-projet n'efface jamais de temps enregistré.
+  // Détail complet, et 111 assertions dédiées : test16.js.
+  const teCols = db.prepare('PRAGMA table_info(time_entries)').all();
+  const rtCols = db.prepare('PRAGMA table_info(running_timers)').all();
+  const teSub = teCols.find((c) => c.name === 'subProjectId');
+  const rtSub = rtCols.find((c) => c.name === 'subProjectId');
+  ok(!!teSub && teSub.notnull === 0, '11.1 time_entries.subProjectId existe et est NULLABLE (choix optionnel)');
+  ok(!!rtSub && rtSub.notnull === 0, '11.2 running_timers.subProjectId existe et est NULLABLE');
+  ok(db.prepare('PRAGMA foreign_key_list(time_entries)').all()
+    .some((f) => f.from === 'subProjectId' && f.table === 'sub_projects' && f.on_delete === 'SET NULL'),
+    '11.2b ⭐ SET NULL et PAS CASCADE : supprimer un sous-projet n\'efface pas de temps');
 
   console.log('\n--- ' + passed + ' assertions passées, ' + failed + ' échouées ---');
   process.exit(failed ? 1 : 0);

@@ -240,7 +240,18 @@ router.post('/activities/:id/separate', (req, res) => {
       .run(newActivityId, userId, membership.color, now);
  
     // Son historique déjà enregistré sur l'ancienne le suit vers la nouvelle.
-    db.prepare('UPDATE time_entries SET activityId = ? WHERE activityId = ? AND userId = ?')
+    //
+    // ⚠️ `subProjectId = NULL` (4 septembre 2026, chantier « Chrono —
+    // sous-projets », arbitrage d'Emilien). Les sous-projets appartiennent à
+    // l'ACTIVITÉ : ceux de l'activité d'origine n'existent pas dans la copie
+    // personnelle qu'on vient de créer. Sans cette mise à NULL, les
+    // enregistrements déplacés pointeraient un sous-projet d'une AUTRE
+    // activité — la clé étrangère resterait valide et rien ne le signalerait.
+    // Le TEMPS est intégralement conservé ; seul le rattachement fin est perdu.
+    // ⚠️ ON DELETE SET NULL ne couvre PAS ce cas : l'activité d'origine n'est
+    // jamais supprimée par « Séparer » (elle était partagée), donc ses
+    // sous-projets survivent.
+    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = NULL WHERE activityId = ? AND userId = ?')
       .run(newActivityId, activity.id, userId);
  
     // Il n'est plus membre de l'activité d'origine.
@@ -340,7 +351,18 @@ router.post('/activities/:id/merge', (req, res) => {
     // Les enregistrements de la source rejoignent la cible : c'est ça, la
     // fusion — les temps des deux activités s'additionnent ensuite
     // naturellement partout (Chrono, Statistiques, Communauté).
-    db.prepare('UPDATE time_entries SET activityId = ? WHERE activityId = ? AND userId = ?')
+    //
+    // ⚠️ `subProjectId = NULL` (4 septembre 2026, chantier « Chrono —
+    // sous-projets », arbitrage d'Emilien). Un sous-projet appartient à son
+    // activité : celui de la source n'a aucun sens dans la cible.
+    // ⚠️ Vérifié sur pièce plutôt que supposé : ON DELETE SET NULL ne suffit
+    // PAS ici. Il ne se déclenche que dans la branche « source réellement
+    // effacée » quelques lignes plus bas ; dans l'autre branche la source est
+    // seulement MASQUÉE (active = 0 + deletedAt) et ses sous-projets restent
+    // en base. Sans cette mise à NULL explicite, les enregistrements déplacés
+    // resteraient rattachés à un sous-projet d'une autre activité, et rien ne
+    // le signalerait. Le temps, lui, est intégralement conservé.
+    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = NULL WHERE activityId = ? AND userId = ?')
       .run(target.id, source.id, userId);
 
     db.prepare('DELETE FROM activity_members WHERE activityId = ? AND userId = ?').run(source.id, userId);

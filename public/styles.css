@@ -2814,3 +2814,52 @@ button { -webkit-user-select: none; user-select: none; }
   line-height: 1;
   cursor: pointer;
 }
+
+/* ===================== CHRONO → SOUS-PROJETS (4 septembre 2026) =====================
+   Rattachement optionnel d'une session à un sous-projet de son activité.
+   Classes propres à ce chantier, aucune générique de Design redéfinie.
+   Le sélecteur reste discret : il ne doit jamais concurrencer visuellement le
+   chronomètre ni le bouton STOP, puisque ne rien choisir est le cas normal. */
+.chronoSubProjectWrap {
+  width: 100%;
+  max-width: 320px;
+  margin: 10px auto 0;
+  text-align: left;
+}
+
+.subProjectSelect {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text);
+  /* 16px : en dessous, Safari iOS zoome automatiquement au focus et pousse la
+     topbar fixe hors de l'écran — défaut déjà rencontré et corrigé le
+     3 septembre 2026 sur la recherche de Communauté. */
+  font-size: 16px;
+}
+
+#chronoSubProjectMsg:empty {
+  display: none;
+}
+
+.historyEditSubProjectWrap {
+  margin-top: 4px;
+}
+
+/* ---- Flux calendrier (4 septembre 2026, discussion "Calendrier des clôtures")
+   Une seule classe propre, préfixée, aucune générique de Design redéfinie.
+   L'adresse est longue et sans espace : sans break-all elle déborderait de sa
+   carte sur un téléphone (même problème que .historyEntry .note, treizième
+   passage). Police à chasse fixe pour qu'un jeton se relise caractère par
+   caractère. */
+.calendarFeedUrl {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}

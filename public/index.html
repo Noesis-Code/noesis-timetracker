@@ -38,6 +38,169 @@
 
 <link rel="stylesheet" href="/styles.css">
 
+<style>
+/* ===================== ÉCRAN DE CHARGEMENT ANIMÉ (4 septembre 2026, Design) ===
+   Volontairement INLINE ici, et non dans styles.css : cet écran doit être
+   peint au tout premier rendu du navigateur, avant même que /app.js (plus de
+   400 Ko) ne soit téléchargé et exécuté. Injecté par app.js, il n'apparaîtrait
+   qu'APRÈS l'attente qu'il est censé masquer — sur un premier lancement sans
+   cache de service worker, on verrait un écran vide puis l'animation, ce qui
+   raterait complètement l'objectif.
+
+   Ce n'est PAS le splash natif du manifest (icône + background_color, statique,
+   piloté par l'OS, non modifiable) : celui-ci prend le relais visuellement dès
+   que l'OS efface le sien, et jusqu'à ce que l'app soit réellement utilisable.
+
+   Aucune durée minimale, aucune temporisation : l'écran disparaît dès que
+   #onboarding ou #app est prêt à être montré (voir hideBootSplash() plus bas
+   et ses deux points d'appel dans app.js), quitte à couper l'ident en plein
+   milieu — demande explicite d'Emilien : ne jamais faire attendre pour le
+   principe de l'animation.
+
+   Le tracé reprend l'ident fourni par Emilien (noesis_ident_1.mp4) : le "N"
+   à facettes se construit dans l'ordre où on le dessinerait à la main —
+   jambage gauche de bas en haut, diagonale du haut-gauche vers le bas-droit,
+   jambage droit de bas en haut — puis l'éclat apparaît dans un flash, et
+   "NOÈSIS" se révèle en dessous.
+
+   Technique du dévoilement : chaque facette est peinte en entier dès le
+   départ, et c'est un cache NOIR de la forme exacte du bloc (donc invisible
+   sur le fond noir) qui glisse pour la découvrir. Pas de clip-path animé,
+   pas de stroke-dasharray : uniquement des translations, ce qui reste fiable
+   sur les vieilles versions de WebKit. Chaque cache est placé dans l'ordre du
+   document JUSTE APRÈS le bloc qu'il masque et AVANT le suivant : il ne peut
+   donc jamais recouvrir un bloc déjà révélé, où qu'il se trouve en fin de
+   course.
+
+   État par défaut = état FINAL (caches déjà écartés, opacités à 1) et les
+   @keyframes partent de l'état masqué. C'est indispensable : styles.css coupe
+   toutes les animations sous "réduire les animations"
+   (prefers-reduced-motion) — avec l'état par défaut inverse, le logo serait
+   alors resté invisible. Ici, il s'affiche simplement d'un coup. */
+#bootSplash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;              /* au-dessus de .topbar (10) et de .tabbar */
+  background: #000000;        /* même noir que html{} et .topbar */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;         /* rien ne défile derrière pendant l'attente */
+  opacity: 1;
+  transition: opacity .26s ease;
+}
+/* Disparition : on laisse #app/#onboarding, déjà en place dessous, se
+   découvrir par fondu. Le retrait du DOM suit 300 ms plus tard (setTimeout,
+   pas transitionend — voir le script). Aucun sursaut de mise en page
+   possible : #bootSplash est en position:fixed, il ne participe ni au flux ni
+   à la hauteur du document (donc ni à #app{min-height:100dvh} ni à
+   refreshScrollLock()). */
+#bootSplash.bootSplashDone { opacity: 0; pointer-events: none; }
+
+#bootSplash svg {
+  display: block;
+  width: auto;
+  height: min(50vh, 360px);
+  max-width: 72vw;
+  /* Respiration lente une fois l'ident jouée : si le chargement dure, rien
+     ne doit sembler figé. Volontairement sur l'opacité seule (pas d'échelle
+     ni de rotation) : ni spinner générique, ni logo qui tourne. */
+  animation: bsBreathe 2.8s ease-in-out 1.55s infinite;
+}
+
+#bootSplash .bsL { fill: #8772C7; }   /* facettes claires de l'ident */
+#bootSplash .bsD { fill: #46397D; }   /* facettes sombres */
+#bootSplash .bsS { fill: #674EA9; }   /* l'éclat — la teinte de --purple */
+/* Caches de dévoilement. Le stroke noir de 7 unités (3,5 de débord de chaque
+   côté) n'est pas décoratif : sans lui, l'anti-aliasing du bord du cache
+   laisse passer une frange d'un pixel tout autour de la facette qu'il
+   masque, et on devine le tracé complet en fantôme avant qu'il ne soit
+   dessiné. Ce débord reste très en deçà du plus étroit des interstices noirs
+   de l'ident (≈ 20 unités entre la diagonale et le jambage droit) : il ne
+   peut donc jamais mordre sur un bloc voisin. */
+#bootSplash .bsC { fill: #000000; stroke: #000000; stroke-width: 7; }
+
+/* Les trois caches. Chaque translation vaut exactement la longueur du bloc
+   dans le sens du tracé, en unités du viewBox. will-change: transform est
+   une simple indication au navigateur : sur un tout premier chargement lent,
+   le fil principal est occupé à analyser un index.html de 140 Ko pendant que
+   l'ident se joue, et sans elle le dévoilement peut saccader. */
+#bootSplash .bsC { will-change: transform; }
+#bootSplash .bsCL {
+  transform: translateY(-572px);
+  animation: bsWipeL .24s cubic-bezier(.22,.61,.36,1) .02s both;
+}
+#bootSplash .bsCD {
+  transform: translate(346px, 578px);
+  animation: bsWipeD .26s cubic-bezier(.22,.61,.36,1) .22s both;
+}
+#bootSplash .bsCR {
+  transform: translateY(-604px);
+  animation: bsWipeR .30s cubic-bezier(.22,.61,.36,1) .44s both;
+}
+@keyframes bsWipeL { from { transform: translateY(0); }            to { transform: translateY(-572px); } }
+@keyframes bsWipeD { from { transform: translate(0, 0); }          to { transform: translate(346px, 578px); } }
+@keyframes bsWipeR { from { transform: translateY(0); }            to { transform: translateY(-604px); } }
+
+/* "NOÈSIS" est dans le SVG plutôt qu'en HTML à côté : il suit ainsi
+   exactement la même échelle que le logo, quelle que soit la taille
+   d'écran, sans aucun calcul de taille de police à maintenir en parallèle.
+   font-size/letter-spacing sont en unités du viewBox. Le x de 423 (plutôt
+   que le centre exact du N, 422,5) compense la demi-lettre d'interlettrage
+   que text-anchor="middle" ajoute après le dernier S. */
+#bootSplash .bsW {
+  fill: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 12px;
+}
+
+#bootSplash .bsS { animation: bsPop .18s ease-out .74s both; }
+#bootSplash .bsF { opacity: 0; animation: bsFlash .62s ease-out .70s both; }
+#bootSplash .bsW { opacity: 1; animation: bsWord .5s ease-out 1.02s both; }
+
+@keyframes bsPop   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bsFlash { 0% { opacity: 0; } 22% { opacity: .9; } 100% { opacity: 0; } }
+@keyframes bsWord  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bsBreathe { 0%, 100% { opacity: 1; } 50% { opacity: .74; } }
+</style>
+
+<script>
+  // ===== Effacement de l'écran de chargement animé (#bootSplash) =====
+  // Volontairement ici plutôt que dans app.js : si app.js ne se charge pas
+  // du tout (déploiement cassé, réseau coupé au mauvais moment), l'écran
+  // doit quand même finir par s'effacer au lieu de laisser un écran noir
+  // indéfiniment. app.js se contente d'appeler window.hideBootSplash() dès
+  // que #app ou #onboarding est prêt à être montré — c'est lui qui décide du
+  // moment, ce bloc ne fait qu'exécuter la disparition.
+  (function () {
+    var FAILSAFE = 12000;  // filet de sécurité, jamais une durée d'affichage
+    var done = false;
+    var failsafeTimer = null;
+
+    function hide() {
+      if (done) return;
+      done = true;
+      if (failsafeTimer) { clearTimeout(failsafeTimer); failsafeTimer = null; }
+      var el = document.getElementById('bootSplash');
+      if (!el) return;
+      el.classList.add('bootSplashDone');
+      // setTimeout plutôt que transitionend : sous "réduire les animations",
+      // styles.css coupe toutes les transitions (transition: none !important),
+      // donc transitionend ne se déclencherait jamais et l'écran resterait
+      // dans le DOM, invisible mais bien présent.
+      setTimeout(function () {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 300);
+    }
+
+    window.hideBootSplash = hide;
+    failsafeTimer = setTimeout(hide, FAILSAFE);
+  })();
+</script>
+
 <script>
   // Enregistrement du service worker + mise à jour automatique de l'app.
   // Volontairement ici, dans le <head> et hors de app.js : ce chantier ne
@@ -165,6 +328,43 @@
 </script>
 </head>
 <body>
+
+<!-- ===================== ÉCRAN DE CHARGEMENT ANIMÉ =====================
+     Placé en tout premier dans <body> pour être peint avant tout le reste.
+     Le CSS qui le porte est inliné dans <head> (voir le commentaire détaillé
+     à cet endroit) ; app.js ne fait que l'effacer, jamais l'afficher. -->
+<div id="bootSplash" role="status" aria-label="Chargement de Noèsis">
+  <svg viewBox="170 138 578 912" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="bootSplashFlash">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity=".95"/>
+        <stop offset="35%" stop-color="#b9a6ee" stop-opacity=".5"/>
+        <stop offset="100%" stop-color="#674ea9" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <!-- Jambage gauche, puis son cache (qui remonte pour le découvrir de bas
+         en haut). Le cache est déclaré avant la diagonale : il ne peut donc
+         pas la masquer en fin de course. -->
+    <polygon class="bsL" points="183,293 287,461 287,616 183,675"/>
+    <polygon class="bsD" points="287,628 287,863 184,863 184,687"/>
+    <polygon class="bsC bsCL" points="183,293 287,461 287,863 184,863"/>
+    <!-- Diagonale, puis son cache (qui glisse le long du tracé, vers le bas
+         à droite, pour la découvrir depuis le haut à gauche). -->
+    <polygon class="bsL" points="192,262 293,262 468,557 367,555"/>
+    <polygon class="bsD" points="374,565 475,568 536,670 536,835"/>
+    <polygon class="bsC bsCD" points="192,262 293,262 536,670 536,835"/>
+    <!-- Jambage droit, biseauté en haut à droite là où l'éclat vient se
+         loger, puis son cache. -->
+    <polygon class="bsL" points="556,262 616,262 659,286 661,616 556,673"/>
+    <polygon class="bsD" points="661,629 662,863 557,863 556,686"/>
+    <polygon class="bsC bsCR" points="556,262 616,262 659,286 662,863 557,863"/>
+    <!-- L'éclat et son flash. Déclarés après tous les caches : rien ne peut
+         les recouvrir. -->
+    <circle class="bsF" cx="671" cy="219" r="135" fill="url(#bootSplashFlash)"/>
+    <polygon class="bsS" points="729,151 612,186 635,253 708,287"/>
+    <text class="bsW" x="423" y="1029" text-anchor="middle">NOÈSIS</text>
+  </svg>
+</div>
 
 <!-- ===================== ONBOARDING (première ouverture) ===================== -->
 <div id="onboarding" class="screen hidden">
@@ -494,6 +694,39 @@
             </div>
 
 
+            <!-- Calendrier — flux ICS des échéances de sous-projets
+                 (4 septembre 2026, discussion "Calendrier des clôtures").
+                 Toute la section est masquée quand la fonction est éteinte
+                 côté serveur (NOESIS_CALENDAR_FEED) : inutile de proposer un
+                 réglage qui ne peut rien faire. Les trois blocs ci-dessous
+                 s'excluent, c'est renderCalendarFeedState() qui bascule. -->
+            <div id="calendarFeedSection" class="settingsSection hidden">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Calendrier</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+            <div class="settingsCard">
+              <p class="hint">Les dates de clôture de tes sous-projets peuvent apparaître dans Apple Calendar ou Google Agenda. Tu obtiens une adresse à laquelle ton calendrier s'abonne, en lecture seule : il la relit tout seul de temps en temps.</p>
+              <div id="calendarFeedOff" class="hidden">
+                <button type="button" id="calendarFeedCreateBtn" class="iconBtn">Créer mon lien de calendrier</button>
+              </div>
+              <div id="calendarFeedOn" class="hidden">
+                <input type="text" id="calendarFeedUrl" class="calendarFeedUrl" readonly>
+                <p class="hint">Cette adresse vaut mot de passe : qui l'a voit les noms de tes sous-projets et leurs dates. Ne la publie nulle part. Si elle t'échappe, régénère-la — l'ancienne cesse aussitôt de fonctionner.</p>
+                <div class="shareActions">
+                  <button type="button" id="calendarFeedCopyBtn" class="iconBtn">Copier l'adresse</button>
+                  <button type="button" id="calendarFeedRenewBtn" class="iconBtn">Régénérer</button>
+                  <button type="button" id="calendarFeedRevokeBtn" class="iconBtn danger">Désactiver</button>
+                </div>
+                <p id="calendarFeedLastAccess" class="hint"></p>
+              </div>
+              <p id="calendarFeedMsg" class="msg"></p>
+            </div>
+              </div>
+            </div>
+
+
             <div class="settingsSection">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
                 <span class="sectionTitle">Sécurité</span>
@@ -592,6 +825,26 @@
              (#profileDiscussionBlock), qui reprend les mêmes fonctions,
              disponible à tout moment, sans dépendre d'un chrono en cours. -->
 
+        <!-- Rattachement OPTIONNEL de la session à un sous-projet de
+             l'activité (4 septembre 2026, chantier « Chrono — sous-projets » ;
+             décision d'Emilien du 3 septembre : « choix optionnel au démarrage
+             du chrono »). Le clic sur une activité démarre toujours le chrono
+             immédiatement — le « démarrage en un clic » du 27 août 2026 est
+             conservé —, et le choix se fait ici, une fois la session lancée.
+             Ne rien choisir est le cas normal et ne bloque rien.
+             Le bloc reste masqué tant que l'activité n'a aucun sous-projet
+             ouvert à proposer ; un sous-projet clôturé n'y apparaît jamais,
+             sauf s'il est déjà celui de la session en cours (sinon ouvrir la
+             liste suffirait à effacer un rattachement existant).
+             ⚠️ Le temps rattaché n'entre JAMAIS dans le pourcentage
+             d'avancement d'un sous-projet, qui reste calculé uniquement sur
+             les cases cochées de sa todolist. -->
+        <div id="chronoSubProjectWrap" class="chronoSubProjectWrap hidden">
+          <label class="stopFieldLabel" for="chronoSubProjectSelect">Sous-projet (facultatif)</label>
+          <select id="chronoSubProjectSelect" class="subProjectSelect"></select>
+          <p id="chronoSubProjectMsg" class="msg"></p>
+        </div>
+
         <button id="stopBtn" class="chronoBtn chronoBtn-stop">STOP</button>
 
         <!-- Récapitulatif avant validation de l'arrêt : remplace le bouton
@@ -622,6 +875,14 @@
             <div class="stopDateTimeRow">
               <input type="date" id="stopEndDateInput" class="stopDateInput">
               <input type="time" id="stopEndTimeInput" step="1" class="stopTimeInput">
+            </div>
+            <!-- Dernière chance de corriger le sous-projet avant que la
+                 session ne soit enregistrée (demande d'Emilien). Masqué s'il
+                 n'y a rien à proposer — et dans ce cas le STOP n'envoie pas
+                 le champ du tout, pour ne jamais détacher par omission. -->
+            <div id="stopSubProjectWrap" class="hidden">
+              <p class="stopFieldLabel">Sous-projet</p>
+              <select id="stopSubProjectSelect" class="subProjectSelect"></select>
             </div>
             <p id="stopDurationLabel" class="meta"></p>
             <p id="stopConfirmMsg" class="msg"></p>

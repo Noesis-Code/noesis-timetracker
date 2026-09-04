@@ -110,6 +110,13 @@ CREATE TABLE IF NOT EXISTS activity_members (
   PRIMARY KEY (activityId, userId)
 );
 
+-- ⚠️ La colonne subProjectId (rattachement optionnel du temps à un
+-- sous-projet, 4 septembre 2026) N'EST PAS déclarée ici : elle est ajoutée
+-- plus bas, dans le bloc de migrations, parce qu'elle référence la table
+-- sub_projects, créée APRÈS celle-ci dans ce même fichier. La déclarer ici
+-- ferait pointer une clé étrangère vers une table qui n'existe pas encore au
+-- moment du CREATE. Même motif que la colonne sectionId de
+-- sub_project_items.
 CREATE TABLE IF NOT EXISTS time_entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -124,6 +131,8 @@ CREATE TABLE IF NOT EXISTS time_entries (
 
 -- Chrono en cours : l'activité est connue dès le démarrage (on démarre en
 -- cliquant sur son bouton) : pas de phase intermédiaire de choix.
+-- ⚠️ subProjectId ajoutée par migration plus bas — voir le commentaire
+-- au-dessus de time_entries.
 CREATE TABLE IF NOT EXISTS running_timers (
   userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   activityId INTEGER NOT NULL REFERENCES activities(id),
@@ -593,6 +602,37 @@ CREATE TABLE IF NOT EXISTS poll_votes (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_poll_vote ON poll_votes(pollId, optionId, userId);
 CREATE INDEX IF NOT EXISTS idx_poll_votes_poll_user ON poll_votes(pollId, userId);
+
+-- ===================== FLUX CALENDRIER (4 septembre 2026) =====================
+-- Discussion "Calendrier des clotures". Table ADDITIVE : aucune table ni
+-- colonne existante n'est touchee, donc CREATE TABLE IF NOT EXISTS suffit et
+-- il n'y a aucune migration a jouer. Comme toujours ici, elle n'existe
+-- qu'APRES un redemarrage du serveur.
+--
+-- Un seul flux par personne (choix d'Emilien, cadrage du 4 septembre 2026) :
+-- userId est la cle primaire. ON DELETE CASCADE, donc supprimer son compte
+-- revoque le flux du meme geste, sans code a ecrire.
+--
+-- token : 32 octets tires de crypto.randomBytes, en base64url. C'est un jeton
+-- PORTEUR : l'URL du flux vaut mot de passe, puisqu'elle est appelee par les
+-- serveurs de Google et d'Apple, qui n'ont ni session ni navigateur. Stocke en
+-- clair, contrairement au PIN de users.pin : l'utilisateur doit pouvoir
+-- RELIRE son URL pour la poser sur un second appareil, ce qu'un hache
+-- interdirait. Voir server/lib/calendarfeed.js pour le raisonnement complet.
+-- Sa defense est sa longueur et sa revocabilite, pas son stockage.
+--
+-- lastAccessAt : une date, et rien d'autre — ni adresse IP, ni agent
+-- utilisateur, ni journal d'acces. Elle sert uniquement a montrer dans
+-- Reglages que l'abonnement est bien relu par le calendrier.
+-- ⚠️ Ce bloc est un litteral de gabarit JavaScript : aucun accent grave ne
+-- doit apparaitre dans ces commentaires SQL, il refermerait la chaine.
+CREATE TABLE IF NOT EXISTS calendar_feed_tokens (
+  userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  lastAccessAt TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_calendar_feed_token ON calendar_feed_tokens(token);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================
@@ -971,6 +1011,41 @@ if (tableExists('sub_project_messages') && tableExists('sub_project_sections')) 
     db.prepare("INSERT INTO sub_project_sections (subProjectId, kind, title, createdBy, position, createdAt) VALUES (?, 'discussion', '', ?, 99, ?)")
       .run(sub.id, sub.createdBy, new Date().toISOString());
   }
+}
+
+// ----- Chrono → sous-projet : rattacher du temps enregistré -----
+// (4 septembre 2026, chantier « Chrono — sous-projets », phase 2 annoncée par
+// le cadrage des sous-projets. Décision d'Emilien du 3 septembre 2026 :
+// « Oui, choix optionnel au démarrage du chrono ».)
+//
+// Deux tables EXISTANTES gagnent une colonne nullable. `CREATE TABLE IF NOT
+// EXISTS` ne rattrape JAMAIS une table déjà créée : il faut donc l'ALTER
+// idempotent ci-dessous pour toutes les bases existantes (celle d'Emilien
+// comprise). Même motif que `sub_project_items.sectionId` et
+// `sub_projects.closesAt` juste au-dessus.
+//
+// ⚠️ ON DELETE **SET NULL**, surtout PAS CASCADE. Supprimer un sous-projet ne
+// doit jamais effacer du temps déjà enregistré : le temps est la donnée la
+// plus coûteuse à reconstituer de toute l'application, et un sous-projet est
+// un simple classement par-dessus. L'enregistrement survit à son sous-projet,
+// il perd seulement son rattachement.
+//
+// NULL est le cas NORMAL, pas une anomalie : le choix est optionnel, ne rien
+// choisir ne doit rien bloquer nulle part.
+//
+// ⚠️ Ces colonnes ne servent QU'À rattacher. L'avancement d'un sous-projet
+// reste calculé UNIQUEMENT sur les cases cochées de sa todolist
+// (noesis-timetracker-contrat-avancement.md, R1 à R6) : le temps passé
+// n'entre sous aucun prétexte dans ce pourcentage, sans quoi la même donnée
+// aurait deux sources de vérité qui divergeraient dès la première semaine.
+if (tableExists('time_entries') && !columnExists('time_entries', 'subProjectId')) {
+  db.exec('ALTER TABLE time_entries ADD COLUMN subProjectId INTEGER REFERENCES sub_projects(id) ON DELETE SET NULL');
+}
+if (tableExists('running_timers') && !columnExists('running_timers', 'subProjectId')) {
+  db.exec('ALTER TABLE running_timers ADD COLUMN subProjectId INTEGER REFERENCES sub_projects(id) ON DELETE SET NULL');
+}
+if (columnExists('time_entries', 'subProjectId')) {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_entries_subproject ON time_entries(subProjectId)');
 }
 
 module.exports = db;

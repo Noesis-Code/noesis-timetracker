@@ -3,8 +3,28 @@ const db = require('../db');
 const { isoDateOf, dayNameOf } = require('../lib/dates');
 const { periodRange } = require('../lib/period');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
+// Même validation que le Chrono, au même endroit — voir l'en-tête du module.
+const { resolveSubProjectId, subProjectSummary } = require('../lib/entrysubproject');
 
 const router = express.Router();
+
+// Nom du sous-projet rattaché, pour l'afficher sur la carte d'historique.
+// Un cache local à la requête suffit : une semaine d'enregistrements pointe
+// en pratique une poignée de sous-projets, et on passe par la fonction de
+// "Sous-projets" plutôt que par un JOIN sur sa table.
+function decorateWithSubProject(rows) {
+  const cache = new Map();
+  rows.forEach((row) => {
+    if (!row.subProjectId) { row.subProjectName = null; return; }
+    if (!cache.has(row.subProjectId)) {
+      cache.set(row.subProjectId, subProjectSummary(row.activityId, row.subProjectId));
+    }
+    const summary = cache.get(row.subProjectId);
+    row.subProjectName = summary ? summary.name : null;
+    row.subProjectClosed = summary ? summary.closed : false;
+  });
+  return rows;
+}
 
 function attachmentsFor(timeEntryId) {
   return db.prepare(`SELECT id, fileName, mimeType, sizeBytes, dataUrl, createdAt
@@ -23,12 +43,14 @@ router.get('/history', (req, res) => {
 
   const rows = db.prepare(`
     SELECT t.id, t.activityId, a.name AS activity, t.note, t.startTime, t.endTime,
-           t.durationSeconds, t.isoDate, t.dayOfWeek
+           t.durationSeconds, t.isoDate, t.dayOfWeek, t.subProjectId
     FROM time_entries t
     JOIN activities a ON a.id = t.activityId
     WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
     ORDER BY t.startTime DESC
   `).all(userId, start, end);
+
+  decorateWithSubProject(rows);
 
   // Pièces jointes de note (photo, document) — voir panneau "Historique" du
   // Chrono. Dataset borné à une semaine, une requête par entrée reste
@@ -75,12 +97,15 @@ router.post('/history', (req, res) => {
   }
   const durationSeconds = Math.round((endTime - startTime) / 1000);
 
-  const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(userId, activity.id, (req.body.note || '').trim(), startTime.toISOString(), endTime.toISOString(),
-      durationSeconds, isoDateOf(startTime), dayNameOf(startTime));
+  const resolved = resolveSubProjectId(userId, activity.id, req.body.subProjectId, null);
+  if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
-  res.status(201).json({ id: info.lastInsertRowid });
+  const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, subProjectId)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(userId, activity.id, (req.body.note || '').trim(), startTime.toISOString(), endTime.toISOString(),
+      durationSeconds, isoDateOf(startTime), dayNameOf(startTime), resolved.subProjectId);
+
+  res.status(201).json({ id: info.lastInsertRowid, subProjectId: resolved.subProjectId });
 });
 
 router.put('/history/:id', (req, res) => {
@@ -100,12 +125,21 @@ router.put('/history/:id', (req, res) => {
   const durationSeconds = Math.round((endTime - startTime) / 1000);
   const note = req.body.note !== undefined ? req.body.note.trim() : entry.note;
 
-  db.prepare(`UPDATE time_entries SET activityId = ?, note = ?, startTime = ?, endTime = ?, durationSeconds = ?, isoDate = ?, dayOfWeek = ?
+  // Le rattachement courant ne « suit » l'enregistrement que si l'activité ne
+  // change pas : déplacer une session vers une AUTRE activité détache
+  // automatiquement son sous-projet, qui n'appartient pas à la nouvelle. Sans
+  // cette ligne, une modification d'activité laisserait un rattachement
+  // incohérent que plus rien ne rattraperait.
+  const carried = Number(entry.activityId) === Number(activity.id) ? entry.subProjectId : null;
+  const resolved = resolveSubProjectId(req.body.userId, activity.id, req.body.subProjectId, carried);
+  if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
+
+  db.prepare(`UPDATE time_entries SET activityId = ?, note = ?, startTime = ?, endTime = ?, durationSeconds = ?, isoDate = ?, dayOfWeek = ?, subProjectId = ?
               WHERE id = ?`)
     .run(activity.id, note, startTime.toISOString(), endTime.toISOString(), durationSeconds,
-      isoDateOf(startTime), dayNameOf(startTime), entry.id);
+      isoDateOf(startTime), dayNameOf(startTime), resolved.subProjectId, entry.id);
 
-  res.json({ message: 'Enregistrement mis à jour.' });
+  res.json({ message: 'Enregistrement mis à jour.', subProjectId: resolved.subProjectId });
 });
 
 // Ajoute une pièce jointe directement sur un enregistrement déjà validé,

@@ -104,6 +104,16 @@ app.use('/api', require('./routes/push'));
 // Sondages (3 septembre 2026, 11ᵉ discussion) — socle générique réutilisable
 // depuis plusieurs zones de l'app, voir server/lib/polls.js.
 app.use('/api', require('./routes/polls'));
+// Flux calendrier des échéances de sous-projets (4 septembre 2026) — un
+// calendrier iCalendar par utilisateur, auquel Apple Calendar et Google
+// Agenda s'abonnent en lecture seule. DÉSACTIVÉ PAR DÉFAUT : les routes
+// répondent 404 tant que NOESIS_CALENDAR_FEED=1 n'est pas posée côté
+// hébergeur. Voir server/lib/calendarfeed.js.
+//
+// ⚠️ Doit rester monté sous /api : le catch-all plus bas renvoie index.html
+// pour toute route non-API, et un lecteur de calendrier recevrait alors du
+// HTML au lieu du flux.
+app.use('/api', require('./routes/calendar'));
 
 // Le service worker ne doit JAMAIS être servi depuis le cache du navigateur :
 // c'est lui qui pilote la mise à jour de l'app sur les téléphones installés.

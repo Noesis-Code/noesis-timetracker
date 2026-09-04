@@ -1,6 +1,11 @@
 const express = require('express');
 const db = require('../db');
 const { isoDateOf, dayNameOf, formatElapsed } = require('../lib/dates');
+// Rattachement OPTIONNEL du temps à un sous-projet (4 septembre 2026, chantier
+// « Chrono — sous-projets »). Toute la validation vit dans ce module partagé
+// avec server/routes/history.js — voir son en-tête. Il n'interroge jamais les
+// tables de "Sous-projets" lui-même : il appelle leurs fonctions.
+const { resolveSubProjectId, subProjectSummary } = require('../lib/entrysubproject');
 
 const router = express.Router();
 
@@ -33,6 +38,8 @@ router.get('/timer/status', (req, res) => {
     running: true,
     startTime: running.startTime,
     activity: activityWithColor(running.activityId, user.id),
+    // null est le cas NORMAL : le choix d'un sous-projet est optionnel.
+    subProject: subProjectSummary(running.activityId, running.subProjectId),
   });
 });
 
@@ -51,12 +58,55 @@ router.post('/timer/start', (req, res) => {
 
   const existing = db.prepare('SELECT * FROM running_timers WHERE userId = ?').get(user.id);
   if (existing) {
-    return res.json({ alreadyRunning: true, startTime: existing.startTime, activity: activityWithColor(existing.activityId, user.id) });
+    return res.json({
+      alreadyRunning: true,
+      startTime: existing.startTime,
+      activity: activityWithColor(existing.activityId, user.id),
+      subProject: subProjectSummary(existing.activityId, existing.subProjectId),
+    });
   }
 
+  // Sous-projet OPTIONNEL au démarrage (décision d'Emilien du 3 septembre
+  // 2026). Champ absent = aucun sous-projet, et c'est le cas normal : rien
+  // n'est bloqué, le démarrage reste un clic. Le client ne l'envoie
+  // d'ailleurs pas ici — il propose le choix pendant que le chrono tourne
+  // (POST /timer/sub-project) — mais la route l'accepte pour qu'un autre
+  // appelant puisse démarrer directement rattaché.
+  const resolved = resolveSubProjectId(user.id, activity.id, req.body.subProjectId, null);
+  if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
+
   const startTime = new Date().toISOString();
-  db.prepare('INSERT INTO running_timers (userId, activityId, startTime, note) VALUES (?, ?, ?, ?)').run(user.id, activity.id, startTime, '');
-  res.json({ alreadyRunning: false, startTime, activity: activityWithColor(activity.id, user.id) });
+  db.prepare('INSERT INTO running_timers (userId, activityId, startTime, note, subProjectId) VALUES (?, ?, ?, ?, ?)')
+    .run(user.id, activity.id, startTime, '', resolved.subProjectId);
+  res.json({
+    alreadyRunning: false,
+    startTime,
+    activity: activityWithColor(activity.id, user.id),
+    subProject: subProjectSummary(activity.id, resolved.subProjectId),
+  });
+});
+
+// Choisir / changer / retirer le sous-projet PENDANT que le chrono tourne.
+// C'est le point d'entrée réellement utilisé par l'écran : le clic sur une
+// activité démarre le chrono immédiatement (décision du 27 août 2026,
+// « démarrage en un clic »), et le sélecteur apparaît ensuite sous le
+// chronomètre. Le choix est ainsi vraiment optionnel — ne rien choisir ne
+// coûte aucun geste — et il survit à un rechargement de page ou à un autre
+// appareil, puisqu'il est stocké sur le chrono en cours et pas dans l'écran.
+//
+// `subProjectId: null` détache. Champ absent : ne change rien.
+router.post('/timer/sub-project', (req, res) => {
+  const user = requireUser(req, res);
+  if (!user) return;
+
+  const running = db.prepare('SELECT * FROM running_timers WHERE userId = ?').get(user.id);
+  if (!running) return res.status(400).json({ error: 'Aucun chrono en cours.' });
+
+  const resolved = resolveSubProjectId(user.id, running.activityId, req.body.subProjectId, running.subProjectId);
+  if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
+
+  db.prepare('UPDATE running_timers SET subProjectId = ? WHERE userId = ?').run(resolved.subProjectId, user.id);
+  res.json({ subProject: subProjectSummary(running.activityId, resolved.subProjectId) });
 });
 
 // Supprime une pièce jointe déjà rattachée à un enregistrement validé
@@ -122,14 +172,27 @@ router.post('/timer/stop', (req, res) => {
 
   const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(running.activityId);
 
-  const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+  // Dernière chance de corriger le sous-projet, au moment de valider l'arrêt
+  // (demande d'Emilien). Champ absent : on garde celui choisi pendant la
+  // session — c'est ce qui permet à l'écran de ne rien envoyer quand il n'a
+  // pas pu afficher le sélecteur, plutôt que d'effacer un rattachement par
+  // omission. `null` détache explicitement.
+  const resolved = resolveSubProjectId(user.id, running.activityId, req.body.subProjectId, running.subProjectId);
+  if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
+
+  const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, subProjectId)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(user.id, running.activityId, note.trim(), startTime.toISOString(), stopTime.toISOString(), durationSeconds,
-      isoDateOf(startTime), dayNameOf(startTime));
+      isoDateOf(startTime), dayNameOf(startTime), resolved.subProjectId);
 
   db.prepare('DELETE FROM running_timers WHERE userId = ?').run(user.id);
 
-  res.json({ message: `Activité enregistrée : ${activity ? activity.name : ''}`, elapsed: formatElapsed(durationSeconds * 1000) });
+  res.json({
+    message: `Activité enregistrée : ${activity ? activity.name : ''}`,
+    elapsed: formatElapsed(durationSeconds * 1000),
+    entryId: info.lastInsertRowid,
+    subProject: subProjectSummary(running.activityId, resolved.subProjectId),
+  });
 });
 
 module.exports = router;

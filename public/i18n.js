@@ -684,6 +684,35 @@
     'Supprimer « ': 'Delete “',
     ' » ?': '”?',
 
+    // ----- Chrono → sous-projets (4 septembre 2026) -----
+    // Rattachement optionnel d'une session à un sous-projet de son activité.
+    'Sous-projet': 'Sub-project',
+    'Sous-projet (facultatif)': 'Sub-project (optional)',
+    'Aucun sous-projet': 'No sub-project',
+    'clôturé': 'closed',
+    // Messages renvoyés par le serveur (server/lib/entrysubproject.js).
+    'Sous-projet invalide.': 'Invalid sub-project.',
+    "Ce sous-projet n'appartient pas à cette activité.": 'This sub-project does not belong to this activity.',
+    'Ce sous-projet est clôturé.': 'This sub-project is closed.',
+
+    // ---- Flux calendrier des échéances (4 septembre 2026) ----
+    'Calendrier': 'Calendar',
+    "Les dates de clôture de tes sous-projets peuvent apparaître dans Apple Calendar ou Google Agenda. Tu obtiens une adresse à laquelle ton calendrier s'abonne, en lecture seule : il la relit tout seul de temps en temps.": 'Your sub-project closing dates can show up in Apple Calendar or Google Calendar. You get an address your calendar subscribes to, read-only: it re-reads it on its own from time to time.',
+    'Créer mon lien de calendrier': 'Create my calendar link',
+    "Cette adresse vaut mot de passe : qui l'a voit les noms de tes sous-projets et leurs dates. Ne la publie nulle part. Si elle t'échappe, régénère-la — l'ancienne cesse aussitôt de fonctionner.": 'This address is as good as a password: anyone who has it sees your sub-project names and dates. Do not publish it anywhere. If it gets out, regenerate it — the old one stops working at once.',
+    "Copier l'adresse": 'Copy the address',
+    'Régénérer': 'Regenerate',
+    'Désactiver': 'Turn off',
+    'Création du lien...': 'Creating the link...',
+    'Lien créé. Colle-le dans ton calendrier comme un abonnement.': 'Link created. Paste it into your calendar as a subscription.',
+    'Copié — colle-le dans ton calendrier.': 'Copied — paste it into your calendar.',
+    'Impossible de copier automatiquement — sélectionne le texte à la main.': 'Could not copy automatically — select the text by hand.',
+    "Régénérer l'adresse ? L'ancienne cessera immédiatement de fonctionner, et tu devras refaire l'abonnement sur chaque appareil.": 'Regenerate the address? The old one stops working immediately, and you will have to set up the subscription again on every device.',
+    'Désactiver le calendrier ? L\'adresse cesse de fonctionner et les échéances disparaîtront de ton agenda.': 'Turn the calendar off? The address stops working and the deadlines will disappear from your calendar.',
+    'Calendrier désactivé.': 'Calendar turned off.',
+    'Jamais relu par un calendrier pour le moment.': 'No calendar has read it yet.',
+    'Dernière lecture par un calendrier : ': 'Last read by a calendar: ',
+
   };
 
   // ------------------- Messages contenant une valeur variable -------------

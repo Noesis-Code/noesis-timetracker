@@ -7,6 +7,14 @@
   var activitiesCache = [];
   var timerInterval = null;
   var timerStartMs = null;
+  // Rattachement OPTIONNEL de la session en cours à un sous-projet
+  // (4 septembre 2026, chantier « Chrono — sous-projets »). null = aucun
+  // sous-projet, et c'est le cas normal. `chronoRunningActivityId` sert de
+  // garde anti-réponse-en-vol : la liste des sous-projets arrive de façon
+  // asynchrone, et on ne veut pas peupler le sélecteur avec ceux d'une
+  // activité qu'on vient de quitter (même motif que viewProfileUserId).
+  var chronoRunningActivityId = null;
+  var chronoRunningSubProject = null;
   // Périodes indépendantes par section de Statistiques — 30 août 2026, sur
   // demande d'Emilien : plus de sélecteur global (#statsPeriodSwitch), chaque
   // section choisit sa propre période via son menu "⋮" (voir plus bas).
@@ -504,9 +512,23 @@
   }
 
   // ===================== ONBOARDING =====================
+  // Efface l'écran de chargement animé de public/index.html (#bootSplash).
+  // La fonction elle-même vit dans index.html, hors de app.js, pour qu'un
+  // app.js qui ne se chargerait pas ne laisse pas l'écran affiché
+  // indéfiniment (voir le filet de sécurité à cet endroit). Ici on ne fait
+  // que dire QUAND : dès que l'un des deux écrans de l'app est prêt à être
+  // montré. Idempotent, donc sans risque à appeler plusieurs fois.
+  function dismissBootSplash() {
+    if (typeof window.hideBootSplash === 'function') window.hideBootSplash();
+  }
+
   function showOnboarding() {
     $('onboarding').classList.remove('hidden');
     $('app').classList.add('hidden');
+    // Premier lancement (aucun profil connu) : c'est l'affichage de
+    // l'onboarding, et non showApp(), qui marque la fin du "chargement" —
+    // il n'y a rien d'autre à attendre à ce stade.
+    dismissBootSplash();
   }
 
   // Mesure la hauteur réelle de .topbar (marge de sécurité iOS/Android
@@ -717,10 +739,18 @@
     // jour dès l'ouverture de l'app, même si on ne visite pas encore Profil.
     loadPendingInvites();
     loadFollowRequests();
+    // L'écran de chargement animé reste affiché jusqu'ici : #app est certes
+    // déjà visible (et mesuré : syncTopbarHeightVar/refreshScrollLock sont
+    // passés juste au-dessus, donc aucun sursaut de mise en page au moment
+    // du fondu), mais la grille du Chrono est encore vide tant que ce
+    // premier chargement n'est pas retombé. On l'efface dès qu'il l'est —
+    // qu'il ait réussi OU échoué (hors ligne : mieux vaut montrer l'app
+    // vide que garder l'écran de chargement), et sans jamais attendre plus
+    // que ça.
     refreshActivities().then(function () {
       renderActivityGrid();
       syncChronoStatus();
-    });
+    }).then(dismissBootSplash, dismissBootSplash);
     // Ouverture depuis une notification alors que l'app était fermée : on
     // arrive sur /?notif=community ou /?notif=profile (voir server/lib/push.js
     // et notificationclick dans public/sw.js).
@@ -1099,10 +1129,76 @@
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   }
 
-  function enterRunning(activity, startTimeIso) {
+  // ===================== CHRONO → SOUS-PROJET (rattachement optionnel) =====================
+  // Décision d'Emilien du 3 septembre 2026 (« choix optionnel au démarrage du
+  // chrono »), précisée le 4 : le clic sur une activité DÉMARRE toujours le
+  // chrono immédiatement — le « démarrage en un clic » du 27 août 2026 n'est
+  // pas repris. Le sélecteur apparaît juste sous le chronomètre, une fois la
+  // session lancée, et uniquement si l'activité a des sous-projets ouverts.
+  // Ne rien choisir reste le cas normal et ne coûte aucun geste.
+  //
+  // ⚠️ Le temps rattaché ne compte JAMAIS dans l'avancement d'un sous-projet
+  // (contrat R1-R6) : celui-ci vient uniquement des cases cochées. Rien ici ne
+  // lit ni n'écrit un pourcentage.
+  function fetchChronoSubProjects(activityId) {
+    // Les sous-projets clôturés sont exclus par défaut côté serveur : un
+    // sous-projet clôturé ne doit plus apparaître dans le sélecteur.
+    // Le .catch garantit qu'une panne des sous-projets ne bloque jamais le
+    // Chrono — même principe que le flux Suivi vis-à-vis des sondages.
+    return api('GET', '/api/activities/' + activityId + '/sub-projects?userId=' + profile.id)
+      .then(function (data) { return (data && data.subProjects) || []; })
+      .catch(function () { return []; });
+  }
+
+  // `current` est le rattachement DÉJÀ en place (ou null). S'il ne figure plus
+  // dans la liste (sous-projet clôturé depuis, par exemple), il est quand même
+  // proposé, épinglé en fin de liste et marqué — sans quoi le simple fait
+  // d'ouvrir le sélecteur suffirait à effacer un rattachement existant.
+  function fillSubProjectSelect(sel, list, current) {
+    var currentId = current && current.id ? Number(current.id) : null;
+    sel.innerHTML = '';
+    var none = document.createElement('option');
+    none.value = '';
+    none.textContent = t('Aucun sous-projet');
+    sel.appendChild(none);
+    var found = false;
+    list.forEach(function (s) {
+      var o = document.createElement('option');
+      o.value = String(s.id);
+      o.textContent = s.name;
+      if (currentId && Number(s.id) === currentId) found = true;
+      sel.appendChild(o);
+    });
+    if (currentId && !found) {
+      var kept = document.createElement('option');
+      kept.value = String(currentId);
+      kept.textContent = (current.name || t('Sous-projet')) + ' (' + t('clôturé') + ')';
+      sel.appendChild(kept);
+    }
+    sel.value = currentId ? String(currentId) : '';
+  }
+
+  function renderChronoSubProjectSelector(activity, subProject) {
+    var wrap = $('chronoSubProjectWrap');
+    $('chronoSubProjectMsg').textContent = '';
+    wrap.classList.add('hidden');
+    if (!activity) return;
+    fetchChronoSubProjects(activity.id).then(function (list) {
+      // Garde anti-réponse-en-vol : l'activité a pu changer entre-temps.
+      if (chronoRunningActivityId !== activity.id) return;
+      if (!list.length && !(subProject && subProject.id)) return;
+      fillSubProjectSelect($('chronoSubProjectSelect'), list, subProject);
+      wrap.classList.remove('hidden');
+    });
+  }
+
+  function enterRunning(activity, startTimeIso, subProject) {
     $('runningActivityLabel').textContent = activity.name;
     $('runningActivityLabel').style.backgroundColor = activity.color;
     $('runningActivityLabel').style.color = textColorForTheme(currentTheme);
+    chronoRunningActivityId = activity.id;
+    chronoRunningSubProject = subProject || null;
+    renderChronoSubProjectSelector(activity, chronoRunningSubProject);
     startLiveTimer(startTimeIso);
     closeStopConfirm();
     showChronoBlock('chronoRunning');
@@ -1112,13 +1208,31 @@
     api('GET', '/api/timer/status?userId=' + profile.id).then(function (data) {
       if (!data.running) {
         stopLiveTimer();
+        chronoRunningActivityId = null;
+        chronoRunningSubProject = null;
         renderActivityGrid();
         showChronoBlock('chronoIdle');
         return;
       }
-      enterRunning(data.activity, data.startTime);
+      enterRunning(data.activity, data.startTime, data.subProject);
     }).catch(function () { showChronoBlock('chronoIdle'); });
   }
+
+  // Le choix est écrit sur le CHRONO EN COURS côté serveur, pas gardé dans
+  // l'écran : il survit donc à un rechargement de page ou à un changement
+  // d'appareil, exactement comme l'activité et l'heure de démarrage.
+  $('chronoSubProjectSelect').addEventListener('change', function () {
+    var value = this.value ? Number(this.value) : null;
+    $('chronoSubProjectMsg').textContent = '';
+    api('POST', '/api/timer/sub-project', { userId: profile.id, subProjectId: value })
+      .then(function (data) { chronoRunningSubProject = data.subProject || null; })
+      .catch(function (err) {
+        $('chronoSubProjectMsg').textContent = err.message;
+        // Le serveur a refusé : on remet le sélecteur sur ce qu'il porte
+        // vraiment, plutôt que de laisser l'écran mentir sur l'état réel.
+        this.value = chronoRunningSubProject ? String(chronoRunningSubProject.id) : '';
+      }.bind(this));
+  });
 
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && profile) syncChronoStatus();
@@ -1127,7 +1241,7 @@
   function startActivity(activity) {
     $('chronoStatus').textContent = '';
     api('POST', '/api/timer/start', { userId: profile.id, activityId: activity.id })
-      .then(function (data) { enterRunning(data.activity, data.startTime); })
+      .then(function (data) { enterRunning(data.activity, data.startTime, data.subProject); })
       .catch(function (err) { $('chronoStatus').textContent = err.message; });
   }
 
@@ -1198,6 +1312,21 @@
 
   function openStopConfirm() {
     $('stopConfirmMsg').textContent = '';
+    // Dernière chance de corriger le sous-projet avant d'enregistrer (demande
+    // d'Emilien). Le bloc reste masqué s'il n'y a rien à proposer — et dans ce
+    // cas le STOP n'envoie PAS le champ, pour ne jamais effacer par omission
+    // un rattachement que l'écran n'a pas pu afficher.
+    $('stopSubProjectWrap').classList.add('hidden');
+    if (chronoRunningActivityId) {
+      (function (activityId) {
+        fetchChronoSubProjects(activityId).then(function (list) {
+          if (chronoRunningActivityId !== activityId) return;
+          if (!list.length && !chronoRunningSubProject) return;
+          fillSubProjectSelect($('stopSubProjectSelect'), list, chronoRunningSubProject);
+          $('stopSubProjectWrap').classList.remove('hidden');
+        });
+      })(chronoRunningActivityId);
+    }
     $('stopStartDateInput').value = toDateValue(timerStartMs);
     $('stopStartTimeInput').value = toTimeValue(timerStartMs);
     var now = new Date();
@@ -1233,13 +1362,22 @@
     }
     $('stopConfirmBtn').disabled = true;
     $('stopCancelBtn').disabled = true;
-    api('POST', '/api/timer/stop', {
+    var stopPayload = {
       userId: profile.id,
       startTime: startDate.toISOString(),
       endTime: endDate.toISOString(),
-    })
+    };
+    // Champ envoyé UNIQUEMENT si le sélecteur a pu être affiché. Absent, le
+    // serveur garde le sous-projet choisi pendant la session — c'est
+    // volontairement l'inverse d'un `null` implicite, qui détacherait.
+    if (!$('stopSubProjectWrap').classList.contains('hidden')) {
+      stopPayload.subProjectId = $('stopSubProjectSelect').value ? Number($('stopSubProjectSelect').value) : null;
+    }
+    api('POST', '/api/timer/stop', stopPayload)
       .then(function (data) {
         stopLiveTimer();
+        chronoRunningActivityId = null;
+        chronoRunningSubProject = null;
         $('chronoStatus').textContent = t(data.message) + ' (' + data.elapsed + ')';
         renderActivityGrid();
         showChronoBlock('chronoIdle');
@@ -1320,7 +1458,12 @@
 
     var metaLine = document.createElement('div');
     metaLine.className = 'meta';
-    metaLine.textContent = timeRangeLabel();
+    // Le sous-projet rattaché s'affiche À CÔTÉ de la durée, jamais mêlé à
+    // elle : c'est un classement, pas une mesure.
+    function metaText() {
+      return timeRangeLabel() + (entry.subProjectName ? ' · ' + entry.subProjectName : '');
+    }
+    metaLine.textContent = metaText();
     card.appendChild(metaLine);
 
     if (entry.note) {
@@ -1407,6 +1550,14 @@
       '<input type="datetime-local" class="historyEditStart" step="1">' +
       '<p class="stopFieldLabel">' + t('Heure de fin') + '</p>' +
       '<input type="datetime-local" class="historyEditEnd" step="1">' +
+      // Corriger le sous-projet d'une session déjà enregistrée — y compris
+      // d'une session ANTÉRIEURE à ce chantier, donc sans rattachement
+      // (arbitrage d'Emilien : « oui, toutes les sessions »). Masqué tant que
+      // l'activité de la session n'a aucun sous-projet à proposer.
+      '<div class="historyEditSubProjectWrap hidden">' +
+        '<p class="stopFieldLabel">' + t('Sous-projet') + '</p>' +
+        '<select class="historyEditSubProject subProjectSelect"></select>' +
+      '</div>' +
       '<p class="historyEditMsg msg"></p>' +
       '<div class="rowActions">' +
         '<button type="button" class="iconBtn historyEditCancel">' + t('Annuler') + '</button>' +
@@ -1419,11 +1570,22 @@
     var editMsg = editFields.querySelector('.historyEditMsg');
     var saveBtn = editFields.querySelector('.historyEditSave');
     var cancelBtn = editFields.querySelector('.historyEditCancel');
+    var subWrap = editFields.querySelector('.historyEditSubProjectWrap');
+    var subSelect = editFields.querySelector('.historyEditSubProject');
 
     editBtn.addEventListener('click', function () {
       editMsg.textContent = '';
       startInput.value = toDatetimeLocalValue(entry.startTime);
       endInput.value = toDatetimeLocalValue(entry.endTime);
+      subWrap.classList.add('hidden');
+      fetchChronoSubProjects(entry.activityId).then(function (list) {
+        var current = entry.subProjectId
+          ? { id: entry.subProjectId, name: entry.subProjectName }
+          : null;
+        if (!list.length && !current) return;
+        fillSubProjectSelect(subSelect, list, current);
+        subWrap.classList.remove('hidden');
+      });
       editFields.classList.remove('hidden');
       actions.classList.add('hidden');
     });
@@ -1444,11 +1606,17 @@
       }
       saveBtn.disabled = true;
       cancelBtn.disabled = true;
-      api('PUT', '/api/history/' + entry.id, {
+      var payload = {
         userId: profile.id,
         startTime: newStart.toISOString(),
         endTime: newEnd.toISOString(),
-      })
+      };
+      // Même règle qu'au STOP : champ envoyé seulement si le sélecteur a pu
+      // être affiché, pour ne jamais détacher par omission.
+      if (!subWrap.classList.contains('hidden')) {
+        payload.subProjectId = subSelect.value ? Number(subSelect.value) : null;
+      }
+      api('PUT', '/api/history/' + entry.id, payload)
         .then(function () { onChanged(); })
         .catch(function (err) {
           editMsg.textContent = err.message;
@@ -3246,6 +3414,19 @@
     var kinds = [];
     var hasTasks = data.sections.some(function (sec) { return sec.kind === 'tasks'; });
     if (!hasTasks) kinds.push('tasks');
+    // ⚠️ 4 septembre 2026 (Activité solo) — sur une activité NON
+    // PARTAGÉE, un sous-projet ne propose que des tâches. Demande d'Emilien :
+    // « sans la section discussion, ni les options d'ajouter des discussions
+    // dans les sous-projets, ni des sondages. » Se parler à soi-même ou se
+    // sonder soi-même n'a pas d'objet.
+    //
+    // ⚠️ Ce test ne RETIRE rien. Une activité « Séparée » après coup peut
+    // porter des sections de sondage ou de discussion créées du temps où elle
+    // était partagée : elles restent en base et réapparaissent intactes si
+    // elle est repartagée. Décision d'Emilien du 4 septembre 2026 :
+    // « masquer, rien supprimer ». Aucune route de suppression n'est appelée
+    // par ce chemin.
+    if (!currentActivityIsShared) return kinds;
     if (!data.hasPolls) kinds.push('poll');
     if (!data.hasDiscussion) kinds.push('discussion');
     return kinds;
@@ -3253,8 +3434,13 @@
 
   function subProjectContentSummary(sub) {
     var bits = [];
-    if (sub.pollSectionCount) bits.push(t('sondages'));
-    if (sub.hasDiscussion) bits.push(t('discussion'));
+    // Sur une activité solo, sondages et discussion sont masqués (voir
+    // availableSectionKinds) : les annoncer ici décrirait un contenu que le
+    // sous-projet ouvert ne montre nulle part.
+    if (currentActivityIsShared) {
+      if (sub.pollSectionCount) bits.push(t('sondages'));
+      if (sub.hasDiscussion) bits.push(t('discussion'));
+    }
     if (!bits.length) return t('vide');
     return bits.join(' · ');
   }
@@ -3328,9 +3514,20 @@
       if (sec.kind === 'tasks') box.appendChild(buildTasksSection(sec));
     });
 
-    $('subProjectPollsBlock').classList.toggle('hidden', !data.hasPolls);
-    $('subProjectDiscussionBlock').classList.toggle('hidden', !data.hasDiscussion);
-    $('subProjectEmptyHint').classList.toggle('hidden', data.sections.length > 0);
+    // ⚠️ 4 septembre 2026 (Activité solo) : sur une activité non partagée,
+    // ces deux blocs ne s'affichent JAMAIS, même quand leurs sections existent
+    // en base — cas d'une activité « Séparée » après coup. C'est un masquage
+    // d'affichage, réversible par un simple repartage : rien n'est supprimé.
+    var sharedSections = currentActivityIsShared;
+    $('subProjectPollsBlock').classList.toggle('hidden', !data.hasPolls || !sharedSections);
+    $('subProjectDiscussionBlock').classList.toggle('hidden', !data.hasDiscussion || !sharedSections);
+    // L'indice « ce sous-projet est vide » compte les sections VISIBLES, pas
+    // celles qui existent : en solo, un sous-projet qui n'a qu'une discussion
+    // héritée n'affiche rien du tout, et doit donc le dire.
+    var visibleSectionCount = data.sections.filter(function (sec) {
+      return sec.kind === 'tasks' || sharedSections;
+    }).length;
+    $('subProjectEmptyHint').classList.toggle('hidden', visibleSectionCount > 0);
 
     // ⚠️ Les options déjà utilisées DISPARAISSENT du menu (elles étaient
     // seulement grisées jusqu'au 3 septembre 2026) : une fois la section de
@@ -3345,7 +3542,7 @@
       '#subProjectsList .subProjectRow[data-sub-project-id="' + currentSubProjectId + '"] .subProjectAddBtn');
     if (rowAddBtn) rowAddBtn.classList.toggle('hidden', kinds.length === 0);
 
-    if (data.hasPolls) {
+    if (data.hasPolls && sharedSections) {
       ensureSubProjectPollsMount().reset();
       if (pendingPollFormOpen) {
         pendingPollFormOpen = false;
@@ -3369,7 +3566,9 @@
       else if (kinds.length) openAddSectionMenu();
     }
 
-    if (data.hasDiscussion) {
+    // Le minuteur du fil ne tourne pas non plus en solo : un bloc masqué qui
+    // interroge le serveur toutes les 15 s ne sert personne.
+    if (data.hasDiscussion && sharedSections) {
       subProjectThread.reset();
       subProjectThread.startPolling();
     } else {
@@ -5155,6 +5354,96 @@
   // Ouvre le panneau flottant des Réglages. Referme d'abord celui des
   // invitations : les deux icônes de la barre du haut s'excluent
   // mutuellement (demande d'Emilien, 1er septembre 2026).
+  // ===================== FLUX CALENDRIER DES ÉCHÉANCES =====================
+  // Discussion "Calendrier des clôtures" (4 septembre 2026). Section
+  // Profil > Réglages > Calendrier. Le serveur fait tout le travail
+  // (server/lib/calendarfeed.js) ; ici on ne fait qu'afficher l'état et
+  // déclencher les trois gestes : créer, régénérer, désactiver.
+  //
+  // ⚠️ Aucun partage natif (navigator.share) sur cette adresse, contrairement
+  // au bloc "Partage" juste à côté : cette URL vaut mot de passe, et une
+  // feuille de partage système invite précisément à l'envoyer à quelqu'un.
+  // Copie explicite seulement, avec l'avertissement écrit au-dessus.
+  function renderCalendarFeedState(state) {
+    var section = $('calendarFeedSection');
+    if (!section) return;
+    // Fonction éteinte côté serveur : la section n'apparaît pas du tout.
+    // Elle est désactivée par défaut, c'est le cas normal tant qu'Emilien
+    // n'a pas posé NOESIS_CALENDAR_FEED=1 chez l'hébergeur.
+    if (!state || !state.enabled) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    $('calendarFeedOff').classList.toggle('hidden', !!state.hasFeed);
+    $('calendarFeedOn').classList.toggle('hidden', !state.hasFeed);
+    if (state.hasFeed) {
+      $('calendarFeedUrl').value = state.url || '';
+      $('calendarFeedLastAccess').textContent = state.lastAccessAt
+        ? t('Dernière lecture par un calendrier : ') + new Date(state.lastAccessAt).toLocaleString()
+        : t('Jamais relu par un calendrier pour le moment.');
+    } else {
+      $('calendarFeedUrl').value = '';
+      $('calendarFeedLastAccess').textContent = '';
+    }
+  }
+
+  function refreshCalendarFeedSection() {
+    if (!profile) return;
+    $('calendarFeedMsg').textContent = '';
+    api('GET', '/api/calendar/feed?userId=' + encodeURIComponent(profile.id))
+      .then(renderCalendarFeedState)
+      // Une panne de ce flux ne doit jamais empêcher Réglages de s'ouvrir :
+      // la section se referme, tout le reste du panneau est intact.
+      .catch(function () { renderCalendarFeedState(null); });
+  }
+
+  function issueCalendarFeed(msgText) {
+    var msg = $('calendarFeedMsg');
+    msg.textContent = t('Création du lien...');
+    return api('POST', '/api/calendar/feed', { userId: profile.id })
+      .then(function (state) {
+        renderCalendarFeedState(state);
+        msg.textContent = t(msgText);
+      })
+      .catch(function (err) { msg.textContent = err.message; });
+  }
+
+  $('calendarFeedCreateBtn').addEventListener('click', function () {
+    if (!profile) return;
+    issueCalendarFeed('Lien créé. Colle-le dans ton calendrier comme un abonnement.');
+  });
+
+  $('calendarFeedRenewBtn').addEventListener('click', function () {
+    if (!profile) return;
+    if (!confirm(t("Régénérer l'adresse ? L'ancienne cessera immédiatement de fonctionner, et tu devras refaire l'abonnement sur chaque appareil."))) return;
+    issueCalendarFeed('Lien créé. Colle-le dans ton calendrier comme un abonnement.');
+  });
+
+  $('calendarFeedRevokeBtn').addEventListener('click', function () {
+    if (!profile) return;
+    if (!confirm(t("Désactiver le calendrier ? L'adresse cesse de fonctionner et les échéances disparaîtront de ton agenda."))) return;
+    api('DELETE', '/api/calendar/feed?userId=' + encodeURIComponent(profile.id))
+      .then(function (state) {
+        renderCalendarFeedState(state);
+        $('calendarFeedMsg').textContent = t('Calendrier désactivé.');
+      })
+      .catch(function (err) { $('calendarFeedMsg').textContent = err.message; });
+  });
+
+  $('calendarFeedCopyBtn').addEventListener('click', function () {
+    var url = $('calendarFeedUrl').value;
+    if (!url) return;
+    var msg = $('calendarFeedMsg');
+    var done = function () { msg.textContent = t('Copié — colle-le dans ton calendrier.'); };
+    var failed = function () { msg.textContent = t('Impossible de copier automatiquement — sélectionne le texte à la main.'); };
+    // legacyCopy() est le repli déjà utilisé par le bloc "Partage"
+    // (déclaration de fonction, donc hissée : elle est définie plus bas dans
+    // ce fichier mais parfaitement appelable ici).
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(function () { if (legacyCopy(url)) done(); else failed(); });
+      return;
+    }
+    if (legacyCopy(url)) done(); else failed();
+  });
+
   function showProfileSettings() {
     closeNotifPanel();
     closeFollowsPanel();
@@ -5173,6 +5462,7 @@
     // onglets de la barre du bas).
     $('profileSettingsBtn').classList.add('active');
     refreshPushSection();
+    refreshCalendarFeedSection();
   }
   // Le bouton "⚙️" a vécu dans .topbar du 31 août au 2 septembre 2026
   // (demande d'Emilien), accessible depuis n'importe quel onglet — puis
