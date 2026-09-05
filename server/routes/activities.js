@@ -42,7 +42,7 @@ router.get('/activities', (req, res) => {
     SELECT a.* FROM activities a
     JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? ${includeInactive ? '' : 'AND a.active = 1'}
-    ORDER BY a.id
+    ORDER BY m.position, a.id
   `).all(userId);
 
   // Avancement des sous-projets, en UN SEUL appel pour toute la liste (pas de
@@ -95,6 +95,29 @@ router.post('/activities', (req, res) => {
 
   const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(info.lastInsertRowid);
   res.status(201).json(serializeActivity(activity, userId));
+});
+
+// Réordonne MES activités (5 septembre 2026, demande d'Emilien : appui long
+// sur une ligne du volet, exactement comme /sub-projects/reorder). L'ordre est
+// PERSONNEL — la colonne `position` vit sur activity_members, pas sur
+// activities — donc sans effet sur les autres membres d'une activité
+// partagée, et il pilote aussi l'ordre affiché dans la grille du Chrono
+// (GET /activities trie désormais par cette même colonne).
+// ⚠️ AVANT /activities/:id — même précaution que /sub-projects/reorder dans
+// server/routes/subprojects.js : un id numérique après /activities/
+// matcherait sinon la route paramétrée /activities/:id.
+router.put('/activities/reorder', (req, res) => {
+  const userId = req.body.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : null;
+  if (!ids) return res.status(400).json({ error: 'ids requis.' });
+  const stmt = db.prepare('UPDATE activity_members SET position = ? WHERE activityId = ? AND userId = ?');
+  db.exec('BEGIN');
+  try {
+    ids.forEach((id, index) => stmt.run(index, id, userId));
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  res.json({ ok: true });
 });
 
 // Modifie une activité. Nom / note requise : réservés au créateur (c'est

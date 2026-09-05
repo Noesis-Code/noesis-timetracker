@@ -763,6 +763,24 @@ if (legacyColors.length > 0) {
   });
 }
 
+// Ordre personnel des activités dans le volet (5 septembre 2026, demande
+// d'Emilien : appui long → glisser pour réordonner, exactement comme pour
+// les sous-projets). PERSONNEL, comme la couleur juste au-dessus : chacun
+// range ses activités dans l'ordre qui l'arrange, sans effet sur les autres
+// membres d'une activité partagée. Migration additive : DEFAULT 0, puis
+// backfill au même ordre que l'ancien tri fixe (ORDER BY a.id) pour ne rien
+// bouger à l'affichage tant que personne n'a réordonné manuellement.
+if (!columnExists('activity_members', 'position')) {
+  db.exec('ALTER TABLE activity_members ADD COLUMN position INTEGER NOT NULL DEFAULT 0');
+  var membersToOrder = db.prepare('SELECT activityId, userId FROM activity_members ORDER BY userId, activityId').all();
+  var setMemberPosition = db.prepare('UPDATE activity_members SET position = ? WHERE activityId = ? AND userId = ?');
+  var posUserId = null, posIndex = 0;
+  membersToOrder.forEach(function (m) {
+    if (m.userId !== posUserId) { posUserId = m.userId; posIndex = 0; }
+    setMemberPosition.run(posIndex, m.activityId, m.userId);
+    posIndex++;
+  });
+}
 if (!columnExists('running_timers', 'activityId')) {
   db.exec('ALTER TABLE running_timers ADD COLUMN activityId INTEGER REFERENCES activities(id)');
 }

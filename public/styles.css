@@ -1900,6 +1900,22 @@ body.scrollLock { overflow: hidden; }
 .categoryDropdownOption:hover { background: var(--hover-bg); }
 .categoryDropdownOption.active { background: var(--hover-bg); font-weight: 600; }
 
+/* ===== Volet Activité : mode réordonnancement (appui long) — 5 septembre 2026 =====
+   Demande d'Emilien : appui long sur une ligne du volet Activité pour entrer
+   dans un mode édition identique à celui des sous-projets (glisser pour
+   réordonner, toucher le nom ou la pastille de couleur pour les modifier,
+   croix à droite pour supprimer). Ce bloc habille les éléments créés
+   dynamiquement dans public/app.js (voir bindActivityDrag/bindActivityLongPress). */
+.activityEditBar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 2px; }
+.activityRow.editing .activityRowHeader { gap: 10px; cursor: default; }
+.activityRow.dragging { opacity: 0.75; border-color: var(--purple); z-index: 2; position: relative; }
+#activitiesList.dragging .activityRow:not(.dragging) { transition: transform 0.16s ease; }
+.activityDragHandle { flex: 0 0 auto; padding: 4px 8px; color: var(--text-light); font-size: 1.1rem; line-height: 1; cursor: grab; touch-action: none; user-select: none; }
+.activityColorDot { flex: 0 0 auto; width: 20px; height: 20px; padding: 0; border: 1px solid var(--border); border-radius: 50%; cursor: pointer; }
+.activityNameInput { flex: 1 1 auto; min-width: 0; }
+.activityPeopleBtn { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); font-size: 0.85rem; line-height: 1; cursor: pointer; }
+.activityDeleteX { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--red); border-radius: var(--radius-sm); background: none; color: var(--red); font-size: 0.9rem; line-height: 1; cursor: pointer; }
+
 /* ===== Section "Projets" de Profil (1er septembre 2026, demande
    d'Emilien) — voir #projectsList/#newProjectCard dans index.html et le
    commentaire au-dessus d'eux. Réutilise .activityRow/.activityRowHeader/

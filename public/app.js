@@ -9421,6 +9421,14 @@
       });
   });
 
+  // Mode édition par appui long (5 septembre 2026, demande d'Emilien :
+  // « exactement comme cela fonctionne pour les sous-projets »). Mêmes
+  // principes que subProjectsEditMode/lastSubProjectsData (voir plus haut) :
+  // lastActivitiesData permet de rebasculer entre les deux rendus SANS
+  // aller-retour réseau, ce sont les mêmes données affichées autrement.
+  var activitiesEditMode = false;
+  var lastActivitiesData = null;
+
   // Les deux appels de l'onglet Activité, faits ensemble puis fusionnés dans
   // un seul rendu : la liste de TOUTES mes activités (/api/activities, qui
   // donne nom/couleur/propriétaire/nombre de membres) et celles qui sont
@@ -9438,64 +9446,37 @@
   }
 
   // Rendu unique de la liste d'activités. Deux gestes par ligne, distincts :
-  //  - le bouton "⋮" ouvre les RÉGLAGES de l'activité (nom, couleur,
-  //    Enregistrer, Partager, Séparer, Supprimer, Voir les membres) ;
+  //  - un appui long ouvre le mode ÉDITION (réordonner par glisser, modifier
+  //    le nom, la couleur, supprimer avec la croix) — voir bindActivityLongPress/
+  //    enterActivitiesEditMode plus bas, exactement le mécanisme des
+  //    sous-projets (bindSubProjectLongPress/enterSubProjectsEditMode) ;
   //  - un clic sur la ligne elle-même ouvre, juste en dessous, le suivi de
   //    ses AUTRES MEMBRES (discussion, statistiques, enregistrements, notes).
-  //    Une activité solo n'a rien à montrer là : le clic y ouvre les
-  //    réglages, pour qu'un clic ne reste jamais sans effet.
+  //    Une activité solo n'a rien à montrer là : le clic y ouvre sa page
+  //    quand même, pour qu'un clic ne reste jamais sans effet.
   // Tant qu'aucune activité n'est sélectionnée, l'onglet ne montre que cette
   // liste — pas de texte d'aide, pas de section en attente (demande
   // d'Emilien, 30 août 2026).
-  // ⚠️ 3 septembre 2026 (Activité — général) : ce panneau était construit
-  // DANS la boucle de renderActivitiesSettings et rangé derrière le "⋮" de
-  // chaque ligne. Emilien a demandé qu'il déménage dans le menu "☰" de la
-  // nouvelle page d'activité (« en haut à droite, il y a trois tirets avec
-  // toutes les autres données : membres, supprimer activité »). Le code est
-  // repris à l'IDENTIQUE — aucun bouton retiré, aucune règle métier changée —
-  // il est simplement extrait dans une fonction, appelée à la demande à
-  // l'ouverture du menu plutôt qu'une fois par ligne à chaque rendu de liste.
+  // ⚠️ 5 septembre 2026 (demande d'Emilien) : le "⋮" et son panneau complet
+  // (nom, couleur, Enregistrer, Partager, Séparer, Supprimer, Voir les
+  // membres) sont RETIRÉS, remplacés par le mode édition ci-dessus. Nom et
+  // couleur se modifient désormais directement dans la ligne (comme le nom
+  // d'un sous-projet), la suppression a sa propre croix « ✕ » (qui rouvre la
+  // même modale garder/purger l'historique qu'avant, inchangée). Seuls
+  // Partager/Séparer/Fusionner/Voir les membres — sans équivalent dans le
+  // mode édition — survivent ici, dans un panneau réduit à ces boutons,
+  // derrière une icône « 👤+ » plutôt que le "⋮" (emplacement demandé par
+  // Emilien : en haut à gauche de la croix de suppression).
   //
   // `acts` sert uniquement à savoir s'il y a au moins deux activités (bouton
   // Fusionner) ; `sharedInfo` uniquement à savoir si "Voir les membres" a un
   // sens. Les deux viennent de lastRenderedActivities/lastRenderedShared.
-  function buildActivitySettingsPanel(a, sharedInfo, acts) {
+  function buildActivityCommunityActions(a, sharedInfo, acts) {
         var panel = document.createElement('div');
         panel.className = 'activitySettingsPanel';
 
-        var nameInput = document.createElement('input');
-        nameInput.type = 'text'; nameInput.value = a.name;
-        nameInput.disabled = !a.isOwner;
-
-        var colorBox = document.createElement('div');
-        var rowColor = a.color;
-        renderColorSwatches(colorBox, rowColor, function (c) { rowColor = c; }, true);
-
-        var saveMsg = document.createElement('p');
-        saveMsg.className = 'meta';
-
-        var saveBtn = document.createElement('button');
-        saveBtn.className = 'iconBtn'; saveBtn.textContent = t('Enregistrer');
-        saveBtn.addEventListener('click', function () {
-          // Un membre non-propriétaire ne peut changer QUE sa couleur perso :
-          // on n'envoie jamais name/active dans ce cas (ça déclencherait un
-          // refus 403 côté serveur, à raison).
-          var payload = a.isOwner
-            ? { userId: profile.id, name: nameInput.value.trim(), color: rowColor, active: a.active }
-            : { userId: profile.id, color: rowColor };
-          saveMsg.textContent = '';
-          api('PUT', '/api/activities/' + a.id, payload)
-            .then(function () {
-              refreshActivities().then(renderActivityGrid);
-              saveMsg.textContent = t('Enregistré.');
-              setTimeout(function () { loadSettingsActivities(); }, 500);
-            })
-            .catch(function (err) { saveMsg.textContent = err.message; });
-        });
-
         var actionsWrap = document.createElement('div');
         actionsWrap.className = 'rowActions';
-        actionsWrap.appendChild(saveBtn);
 
         // Partager par pseudo : envoie une invitation en attente à quelqu'un.
         // Disponible à tout membre actuel, pas seulement au propriétaire —
@@ -9560,26 +9541,13 @@
           actionsWrap.appendChild(membersBtn);
         }
 
-        // Suppression définitive : toujours pour SOI uniquement, jamais pour
-        // les autres membres d'une activité partagée (disponible que tu sois
-        // propriétaire ou simple membre).
-        var delBtn = document.createElement('button');
-        delBtn.className = 'iconBtn danger';
-        delBtn.textContent = t('Supprimer définitivement');
-        delBtn.addEventListener('click', function () {
-          openDeleteActivityModal(a);
-        });
-        actionsWrap.appendChild(delBtn);
-
-        panel.appendChild(nameInput);
-        panel.appendChild(colorBox);
-        panel.appendChild(saveMsg);
         panel.appendChild(actionsWrap);
         return panel;
   }
 
   function renderActivitiesSettings(acts, sharedList) {
     var box = $('activitiesList');
+    lastActivitiesData = { acts: acts, sharedList: sharedList };
     var shared = {};
     (sharedList || []).forEach(function (x) { shared[String(x.activityId)] = x; });
 
@@ -9621,6 +9589,24 @@
     // remettre le detachActivityDetail() ici : sans lui, box.innerHTML = ''
     // emporte le nœud, son fil monté sur des ids fixes et tous ses écouteurs.
     box.innerHTML = '';
+    // Barre du mode édition : elle dit ce qu'on peut y faire et comment en
+    // sortir. Sans elle, un appui long accidentel laisserait la liste dans un
+    // état qu'on ne sait pas quitter. Même rôle que .subProjectEditBar.
+    if (activitiesEditMode && acts.length) {
+      var editBar = document.createElement('div');
+      editBar.className = 'activityEditBar';
+      var editHint = document.createElement('span');
+      editHint.className = 'meta';
+      editHint.textContent = t('Glisse pour réordonner, touche le nom ou la couleur pour les modifier.');
+      var editDone = document.createElement('button');
+      editDone.type = 'button';
+      editDone.className = 'iconBtn';
+      editDone.textContent = t('Terminer');
+      editDone.addEventListener('click', exitActivitiesEditMode);
+      editBar.appendChild(editHint);
+      editBar.appendChild(editDone);
+      box.appendChild(editBar);
+    }
     acts.forEach(function (a) {
       var sharedInfo = shared[String(a.id)];
       var isSelected = String(a.id) === String(currentCommunityActivityId);
@@ -9634,6 +9620,116 @@
 
       var header = document.createElement('div');
       header.className = 'activityRowHeader';
+
+      // ⚠️ 5 septembre 2026 (demande d'Emilien, « exactement comme cela
+      // fonctionne pour les sous-projets ») : le mode édition par appui long
+      // REMPLACE le "⋮" et son panneau de réglages complet (menuBtn/
+      // buildActivitySettingsPanel, retirés — voir buildActivityCommunityActions
+      // ci-dessus, ce qui en reste). En édition : poignée de glissement, nom
+      // éditable, pastille de couleur cliquable, icône « 👤+ » (Partager/
+      // Séparer/Fusionner/Voir les membres), et une croix « ✕ » qui ouvre la
+      // même modale de suppression qu'avant (#deleteActivityModal, garder/
+      // purger l'historique — inchangée). Glisser-déposer : voir
+      // bindActivityDrag, copié tel quel de bindSubProjectDrag.
+      if (activitiesEditMode) {
+        var handle = document.createElement('span');
+        handle.className = 'activityDragHandle';
+        handle.setAttribute('aria-label', t('Déplacer cette activité'));
+        handle.textContent = '≡';
+        bindActivityDrag(handle, row);
+        header.appendChild(handle);
+
+        var colorBtn = document.createElement('button');
+        colorBtn.type = 'button';
+        colorBtn.className = 'activityColorDot';
+        colorBtn.style.background = a.color;
+        colorBtn.setAttribute('aria-label', t('Changer la couleur'));
+        colorBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          box.querySelectorAll('.colorSwatches').forEach(function (el) { if (el !== swatches) el.classList.add('hidden'); });
+          box.querySelectorAll('.activitySettingsPanel').forEach(function (el) { el.classList.add('hidden'); });
+          swatches.classList.toggle('hidden');
+        });
+        header.appendChild(colorBtn);
+
+        var nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'activityNameInput';
+        nameInput.maxLength = 120;
+        nameInput.value = a.name;
+        // Réservé au créateur, même règle que PUT /api/activities/:id : les
+        // autres membres suivent l'activité telle quelle, seule leur couleur
+        // leur appartient.
+        nameInput.disabled = !a.isOwner;
+        nameInput.addEventListener('click', function (e) { e.stopPropagation(); });
+        function commitActivityName() {
+          var value = nameInput.value.trim();
+          if (!value || value === a.name) { nameInput.value = a.name; return; }
+          api('PUT', '/api/activities/' + a.id, { userId: profile.id, name: value })
+            .then(function () { a.name = value; refreshActivities().then(renderActivityGrid); })
+            .catch(function (err) { nameInput.value = a.name; alert(err.message); });
+        }
+        nameInput.addEventListener('blur', commitActivityName);
+        nameInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); }
+        });
+        header.appendChild(nameInput);
+
+        // « Je souhaite les intégrer dans le volet des activités en haut à
+        // gauche de la croix sous une icône d'une personne avec un + »
+        // (Emilien, 5 septembre 2026).
+        var peopleBtn = document.createElement('button');
+        peopleBtn.type = 'button';
+        peopleBtn.className = 'activityPeopleBtn';
+        peopleBtn.textContent = '👤+';
+        peopleBtn.setAttribute('aria-label', t('Partager, séparer, fusionner, voir les membres'));
+        peopleBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          box.querySelectorAll('.activitySettingsPanel').forEach(function (el) { if (el !== actionsPanel) el.classList.add('hidden'); });
+          box.querySelectorAll('.colorSwatches').forEach(function (el) { el.classList.add('hidden'); });
+          actionsPanel.classList.toggle('hidden');
+        });
+        header.appendChild(peopleBtn);
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'activityDeleteX';
+        del.textContent = '✕';
+        del.setAttribute('aria-label', t('Supprimer cette activité'));
+        del.addEventListener('click', function (e) {
+          e.stopPropagation();
+          openDeleteActivityModal(a);
+        });
+        header.appendChild(del);
+
+        row.appendChild(header);
+
+        var swatches = document.createElement('div');
+        // ⚠️ renderColorSwatches() ÉCRASE containerEl.className (voir sa
+        // définition : `containerEl.className = 'colorSwatches' + ...`) — la
+        // classe "hidden" doit donc être ajoutée APRÈS l'appel, jamais avant,
+        // sous peine d'être aussitôt effacée (le panneau resterait visible
+        // dès le rendu, et le premier appui sur la pastille l'aurait alors
+        // masqué au lieu de l'ouvrir).
+        renderColorSwatches(swatches, a.color, function (c) {
+          api('PUT', '/api/activities/' + a.id, { userId: profile.id, color: c })
+            .then(function () {
+              a.color = c;
+              colorBtn.style.background = c;
+              refreshActivities().then(renderActivityGrid);
+            })
+            .catch(function (err) { alert(err.message); });
+        }, true);
+        swatches.classList.add('hidden');
+        row.appendChild(swatches);
+
+        var actionsPanel = buildActivityCommunityActions(a, sharedInfo, acts);
+        actionsPanel.classList.add('hidden');
+        row.appendChild(actionsPanel);
+
+        box.appendChild(row);
+        return;   // en édition : ni badge de membres, ni clic pour ouvrir la page
+      }
 
       var dot = document.createElement('span');
       dot.className = 'dot';
@@ -9659,24 +9755,6 @@
         header.appendChild(unreadBadge);
       }
 
-      // ⚠️ 3 septembre 2026 (Activité — général), RETOUR EN ARRIÈRE demandé par
-      // Emilien le jour même : « J'aimerais cependant que les réglages de
-      // l'activité qui étaient dans les trois petits points retournent sur le
-      // volet activité où se trouvent toutes les activités. Il doit se
-      // présenter sous la même forme qu'auparavant sous les trois petits
-      // points. » Le "⋮" avait été retiré d'ici quelques heures plus tôt au
-      // profit d'un menu "☰" dans la page d'activité ; ce menu a donc été
-      // supprimé à son tour, pour ne pas laisser deux chemins vers les mêmes
-      // réglages. La ligne a de nouveau DEUX gestes distincts : le "⋮" ouvre
-      // les réglages sur place, un clic ailleurs sur la ligne ouvre la page.
-      var menuBtn = document.createElement('button');
-      menuBtn.type = 'button';
-      menuBtn.className = 'menuBtn';
-      menuBtn.title = t("Paramètres de l'activité");
-      menuBtn.setAttribute('aria-label', t("Paramètres de l'activité"));
-      menuBtn.textContent = '⋮';
-      header.appendChild(menuBtn);
-
       row.appendChild(header);
 
       if (!a.isOwner) {
@@ -9691,45 +9769,17 @@
         row.appendChild(badge2);
       }
 
-
-      // Panneau de réglages replié, rendu par la même fonction que celle
-      // écrite lors du déménagement vers le "☰" — elle est simplement
-      // rappelée ici. Le panneau naît replié : c'est le "⋮" qui le déplie.
-      var panel = buildActivitySettingsPanel(a, sharedInfo, acts);
-      panel.classList.add('hidden');
-      row.appendChild(panel);
-
-      menuBtn.addEventListener('click', function (e) {
-        // ⚠️ Sans ça, le clic remonterait jusqu'à la ligne et ouvrirait la
-        // page en même temps que le panneau — les deux gestes doivent rester
-        // distincts.
-        e.stopPropagation();
-        panel.classList.toggle('hidden');
-      });
-
-      // Clic sur la ligne : ouvre la PAGE de l'activité.
-      //
-      // Historique de ce geste, en trois temps :
-      //  · jusqu'au 2 septembre 2026, il n'ouvrait un détail que sur une
-      //    activité PARTAGÉE et se rabattait sur les réglages en solo ;
-      //  · le 3 septembre au matin (Sous-projets), il s'est mis à ouvrir le
-      //    détail pour TOUTE activité, les sous-projets ayant tout leur sens
-      //    en solo — c'est même leur cas d'usage principal ;
-      //  · le 3 septembre (Activité — général, demande d'Emilien), il ouvre
-      //    une vraie page plein écran au lieu d'un bloc déplié dans la liste ;
-      //  · le 4 septembre (Activité solo), une activité solo a brièvement
-      //    déplié son bloc dans sa ligne au lieu d'ouvrir la page — essayé,
-      //    puis abandonné par Emilien le lendemain ;
-      //  · le 5 septembre (Activité solo, demande d'Emilien), TOUTE activité
-      //    ouvre de nouveau sa page. Le solo n'y a qu'une section,
-      //    Sous-projets, et pas de sélecteur.
-      //
-      // openActivityPage() porte à lui seul les quatre règles d'ouverture
-      // décidées par Emilien — voir son commentaire.
+      // Clic sur la ligne : ouvre la PAGE de l'activité — voir le commentaire
+      // au long de openActivityPage() pour l'historique de ce geste et les
+      // règles d'ouverture. Le "⋮" qui ouvrait les réglages sur place a été
+      // retiré le 5 septembre 2026 : c'est désormais l'appui long
+      // (bindActivityLongPress) qui ouvre le mode édition, exactement comme
+      // pour les sous-projets.
       header.addEventListener('click', function () {
         openActivityPage(a, sharedInfo, row);
       });
       header.classList.add('clickable');
+      bindActivityLongPress(header);
 
       box.appendChild(row);
     });
@@ -9754,6 +9804,122 @@
         $('activityPageDot').style.background = x.color;
       });
     }
+  }
+
+  // Appui long qui ouvre le mode édition — copié tel quel de
+  // bindSubProjectLongPress (mêmes délais, mêmes gardes), appliqué à
+  // #activitiesList plutôt qu'à #subProjectsList.
+  var activityLongPressTimer = null;
+
+  function bindActivityLongPress(el) {
+    function cancel() {
+      if (activityLongPressTimer) { clearTimeout(activityLongPressTimer); activityLongPressTimer = null; }
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', cancel);
+      el.removeEventListener('pointercancel', cancel);
+      el.removeEventListener('pointerleave', cancel);
+    }
+    var startX = 0, startY = 0;
+    function onMove(e) {
+      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
+    }
+    el.addEventListener('pointerdown', function (e) {
+      if (activitiesEditMode) return;
+      startX = e.clientX; startY = e.clientY;
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', cancel);
+      el.addEventListener('pointercancel', cancel);
+      el.addEventListener('pointerleave', cancel);
+      activityLongPressTimer = setTimeout(function () {
+        cancel();
+        enterActivitiesEditMode();
+      }, 500);
+    });
+  }
+
+  function enterActivitiesEditMode() {
+    if (activitiesEditMode || !lastActivitiesData) return;
+    activitiesEditMode = true;
+    renderActivitiesSettings(lastActivitiesData.acts, lastActivitiesData.sharedList);
+  }
+
+  function exitActivitiesEditMode() {
+    activitiesEditMode = false;
+    loadSettingsActivities();
+  }
+
+  // Glisser-déposer d'une ligne d'activité, à la poignée — copié tel quel de
+  // bindSubProjectDrag (même mécanique, même piège évité : voir son
+  // commentaire). Seule différence : persistance sur PUT /api/activities/
+  // reorder (ordre PERSONNEL, sans activityId à transmettre), et
+  // rafraîchissement du Chrono ensuite, puisque sa grille suit désormais le
+  // même ordre que ce volet.
+  function bindActivityDrag(handle, row) {
+    handle.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var box = $('activitiesList');
+      var rows = Array.prototype.slice.call(box.querySelectorAll('.activityRow'));
+      var mids = rows.map(function (el) {
+        var r = el.getBoundingClientRect();
+        return r.top + r.height / 2;
+      });
+      var fromIndex = rows.indexOf(row);
+      var startY = e.clientY;
+      var targetIndex = fromIndex;
+      var step = row.getBoundingClientRect().height +
+        parseFloat(getComputedStyle(box).rowGap || getComputedStyle(box).gap || 0) || 0;
+
+      handle.setPointerCapture(e.pointerId);
+      row.classList.add('dragging');
+      box.classList.add('dragging');
+
+      function layoutGap() {
+        for (var i = 0; i < rows.length; i++) {
+          if (i === fromIndex) continue;
+          var shift = 0;
+          if (targetIndex > fromIndex && i > fromIndex && i <= targetIndex) shift = -step;
+          else if (targetIndex < fromIndex && i >= targetIndex && i < fromIndex) shift = step;
+          rows[i].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+        }
+      }
+
+      function onMove(ev) {
+        row.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
+        var idx = 0;
+        for (var i = 0; i < mids.length; i++) {
+          if (ev.clientY > mids[i]) idx = i;
+        }
+        if (idx !== targetIndex) { targetIndex = idx; layoutGap(); }
+      }
+
+      function onUp() {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        row.classList.remove('dragging');
+        box.classList.remove('dragging');
+        row.style.transform = '';
+        rows.forEach(function (el) { el.style.transform = ''; });
+
+        if (targetIndex !== fromIndex) {
+          var ordered = rows.slice();
+          ordered.splice(fromIndex, 1);
+          ordered.splice(targetIndex, 0, row);
+          ordered.forEach(function (el) { box.appendChild(el); });
+          api('PUT', '/api/activities/reorder', {
+            userId: profile.id,
+            ids: ordered.map(function (el) { return Number(el.dataset.activityId); }),
+          }).then(function () {
+            refreshActivities().then(renderActivityGrid);
+          }).catch(function (err) { alert(err.message); loadSettingsActivities(); });
+        }
+      }
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
+    });
   }
 
   // ===================== FUSION DE DEUX ACTIVITÉS =====================
