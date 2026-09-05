@@ -768,6 +768,24 @@ textarea {
 .statsPeriodMenuItem:hover { background: var(--hover-bg); }
 .statsPeriodMenuItem.active { color: var(--purple); font-weight: bold; }
 
+/* Sélecteur de sous-projet de la section Statistiques d'une activité
+   (4 septembre 2026, chantier « Chrono — sous-projets »). Bouton plein,
+   aligné à gauche au-dessus des deux blocs qu'il filtre. Le menu réutilise
+   .statsPeriodMenu tel quel ; seul l'ancrage change (à gauche, sous un bouton
+   large, et non à droite sous un « ⋮ »). */
+.caSubProjectFilter { display: block; margin: 0 0 10px; }
+.caSubProjectBtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: 100%; padding: 8px 12px;
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  font-size: 14px; cursor: pointer;
+}
+.caSubProjectBtn::after { content: '\25BE'; opacity: 0.7; }
+.caSubProjectBtn:hover { background: var(--hover-bg); }
+#caSubProjectBtnLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caSubProjectMenu { left: 0; right: auto; max-height: 260px; overflow-y: auto; }
+
 /* Même écart entre la carte d'ajout et la première activité existante
    qu'entre deux activités existantes (voir ".activitiesList { gap: 8px }"). */
 #newActivityCard { margin-bottom: 8px; }
@@ -2338,6 +2356,16 @@ button { -webkit-user-select: none; user-select: none; }
 /* Le "+" seul, sans titre à sa gauche : il reste calé à droite. */
 .subProjectsHeadRow {
   justify-content: flex-end;
+}
+
+/* L indication "Aucun sous-projet" partage la ligne du "+" (5 septembre
+   2026, Activite solo). margin-right: auto plutot que space-between sur la
+   ligne : quand l indication est masquee, le cas normal, le "+" doit
+   rester colle a droite, ce que space-between ne ferait pas avec un enfant
+   unique. */
+.subProjectsHeadRow #subProjectsEmptyHint {
+  margin: 0 auto 0 0;
+  text-align: left;
 }
 
 .subProjectSection {

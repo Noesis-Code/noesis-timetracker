@@ -265,6 +265,118 @@ async function detail(caller, activityId, opts) {
     ['activityId', 'completedSubProjectCount', 'done', 'percent', 'percentBySubProject', 'subProjectCount', 'total'],
     '7.5 ⭐ la forme du contrat d\'avancement est intacte — aucun champ de temps ajouté');
 
+  // ============ 8bis. Troisième passage (4 septembre 2026) ============
+  // La fenêtre affiche désormais une Feuille de temps ET une Répartition, la
+  // liste des activités ouvrables filtre les couleurs cliquables, et la
+  // section Statistiques d'une activité se filtre par sous-projet.
+  console.log('8bis. Feuille de temps de la fenêtre, filtre d\'ouverture, filtre par sous-projet');
+
+  const tsUrl = (caller, activityId, o) => '/sub-project-timesheet?userId=' + caller.id
+    + '&activityId=' + activityId
+    + '&period=' + ((o && o.period) || 'week')
+    + ((o && o.memberId) ? '&memberId=' + o.memberId : '');
+
+  r = await call('GET', tsUrl(alice, shared.id));
+  eq(r.status, 200, '8bis.1 GET /sub-project-timesheet répond');
+  eq(r.body.period, 'week', '8bis.2 en vue Semaine par défaut');
+  ok(Array.isArray(r.body.days) && r.body.days.length === 7, '8bis.3 sept jours de grille');
+  ok(!!r.body.label, '8bis.4 avec le libellé de période que la fenêtre affiche');
+
+  // ⭐ LA garantie de synchronisation : la répartition sort du MÊME appel que
+  // la grille, sur les bornes de cette grille. Aucun client ne peut les faire
+  // diverger, puisqu'il n'a pas deux réponses à réconcilier.
+  ok(!!r.body.breakdown, '8bis.5 la répartition voyage dans la même réponse');
+  eq(r.body.breakdown.start, r.body.days[0].isoDate,
+    '8bis.6 ⭐ elle commence exactement au premier jour de la grille');
+  eq(r.body.breakdown.end, r.body.days[6].isoDate,
+    '8bis.7 ⭐ et finit exactement au dernier');
+  const sumParts = (r.body.breakdown.subProjects || []).reduce((n, p) => n + p.seconds, 0);
+  eq(sumParts, r.body.breakdown.totalSeconds,
+    '8bis.8 ⭐ les parts additionnées font le total annoncé');
+
+  // Les cases sont indexées par SOUS-PROJET, pas par activité : c'est la
+  // bascule que l'option groupBySubProject opère côté serveur.
+  const spSlots = (r.body.days || []).flatMap((d) => d.slots).filter(Boolean);
+  ok(spSlots.length > 0, '8bis.9 la grille contient des cases (' + spSlots.length + ')');
+  ok(spSlots.every((s) => 'subProjectId' in s && 'name' in s),
+    '8bis.10 ⭐ chaque case porte son sous-projet, pas une activité');
+  ok(spSlots.every((s) => !('activityId' in s)),
+    '8bis.11 ⭐⭐ et AUCUNE ne porte d\'activityId : rien à rouvrir sous ce niveau');
+  ok(r.body.shadeCount >= 1 && r.body.shadeBySubProject,
+    '8bis.12 les rangs de nuance accompagnent la grille');
+
+  r = await call('GET', tsUrl(alice, shared.id, { period: 'month' }));
+  eq(r.status, 200, '8bis.13 la vue Mois répond aussi');
+  eq(r.body.period, 'month', '8bis.14 et se déclare comme telle');
+  ok(Array.isArray(r.body.weeks) && r.body.weeks.length > 0, '8bis.15 avec ses semaines de calendrier');
+
+  r = await call('GET', tsUrl(alice, shared.id, { memberId: bob.id }));
+  eq(r.status, 200, '8bis.16 un membre peut demander la grille d\'un autre membre');
+  eq(r.body.isSelf, false, '8bis.17 marquée comme n\'étant pas la sienne');
+  r = await call('GET', tsUrl(mallory, shared.id, { memberId: bob.id }));
+  eq(r.status, 403, '8bis.18 ⭐ mais pas un non-membre — même garde que le détail');
+
+  // ---- Le filtre d'ouverture ----
+  // Une activité SANS aucun rattachement ne doit pas figurer dans la liste :
+  // sa couleur ne sera pas cliquable, et la fenêtre ne s'ouvrira pas.
+  const muette = await makeActivity(alice, uniq('Muette'));
+  await record(alice, muette, undefined, 60);   // du temps, mais rien de rattaché
+  const gate = await call('GET', '/sub-project-stats/activities?userId=' + alice.id
+    + '&from=' + TODAY + '&to=' + TODAY);
+  eq(gate.status, 200, '8bis.19 GET /sub-project-stats/activities répond');
+  ok(gate.body.activityIds.includes(shared.id),
+    '8bis.20 l\'activité avec du temps rattaché y figure');
+  ok(!gate.body.activityIds.includes(muette.id),
+    '8bis.21 ⭐⭐ celle qui n\'a QUE du temps non rattaché n\'y figure pas');
+
+  // Sur une fenêtre où rien n'a été enregistré, la liste est vide : aucune
+  // couleur cliquable, ce qui est bien le comportement voulu.
+  const vieux = await call('GET', '/sub-project-stats/activities?userId=' + alice.id
+    + '&from=2020-01-01&to=2020-01-07');
+  eq(vieux.body.activityIds, [], '8bis.22 ⭐ liste vide sur une période sans enregistrement');
+  r = await call('GET', '/sub-project-stats/activities?userId=' + alice.id + '&from=x&to=y');
+  eq(r.status, 400, '8bis.23 des bornes invalides sont refusées');
+
+  // ---- Le filtre par sous-projet de la section Statistiques d'une activité ----
+  const statsUrl = (filter) => '/community/activity-stats?userId=' + alice.id
+    + '&activityId=' + shared.id + '&period=week'
+    + (filter === undefined ? '' : '&subProject=' + filter);
+
+  const sansFiltre = await call('GET', statsUrl());
+  eq(sansFiltre.status, 200, '8bis.24 sans filtre, la comparaison entre membres est inchangée');
+  const memberCount = sansFiltre.body.breakdown.members.length;
+  eq(memberCount, 2, '8bis.25 deux membres comparés');
+
+  const filtre = await call('GET', statsUrl(spShared.id));
+  eq(filtre.status, 200, '8bis.26 avec un filtre, la route répond');
+  eq(filtre.body.subProject, String(spShared.id), '8bis.27 et rappelle le filtre appliqué');
+  eq(filtre.body.breakdown.members.length, memberCount,
+    '8bis.28 ⭐⭐ les DEUX membres restent comparés : c\'est un filtre, pas une fenêtre par membre');
+  eq(filtre.body.breakdown.totalSeconds, 10800,
+    '8bis.29 ⭐ 1 h d\'Alice + 2 h de Bob sur ce sous-projet, et rien d\'autre');
+  ok(filtre.body.breakdown.totalSeconds < sansFiltre.body.breakdown.totalSeconds,
+    '8bis.30 strictement moins que le total global de l\'activité');
+
+  const nonRattache = await call('GET', statsUrl('none'));
+  eq(nonRattache.status, 200, '8bis.31 « none » est accepté');
+  eq(nonRattache.body.breakdown.totalSeconds, 3600,
+    '8bis.32 ⭐ et ne montre que l\'heure NON rattachée de Bob');
+
+  // ⚠️ Le graphique suit le même filtre : c'est le même appel qui le sert.
+  ok(filtre.body.dailyBreakdown !== undefined,
+    '8bis.33 le graphique est servi sous filtre lui aussi');
+  ok(nonRattache.body.dailyBreakdown !== undefined, '8bis.34 y compris sur « none »');
+
+  r = await call('GET', statsUrl('abc'));
+  eq(r.status, 400,
+    '8bis.35 ⭐ un filtre fantaisiste est REFUSÉ, jamais transformé en camembert vide');
+  r = await call('GET', statsUrl('0'));
+  eq(r.status, 400, '8bis.36 zéro non plus n\'est pas un identifiant');
+  r = await call('GET', statsUrl('all'));
+  eq(r.status, 200, '8bis.37 « all » reste synonyme de « pas de filtre »');
+  eq(r.body.breakdown.totalSeconds, sansFiltre.body.breakdown.totalSeconds,
+    '8bis.38 avec exactement le total global');
+
   // ============ 8. Non-régression ============
   console.log('8. Non-régression sur l\'existant');
   r = await call('GET', '/stats?userId=' + alice.id);

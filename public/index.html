@@ -1545,7 +1545,17 @@
                sélecteur de sections, l'onglet actif porte déjà ce mot. Le
                titre le répétait à deux centimètres d'écart. Il ne reste que
                le "+", poussé à droite comme avant. -->
+          <!-- ⚠️ 5 septembre 2026 (Activité solo, débordement signalé) :
+               l'indication « Aucun sous-projet » vit désormais SUR LA LIGNE du
+               « + » (demande d'Emilien : « l'inscription à côté du + [doit être]
+               alignée avec le + »). Elle était en dessous, sur sa propre ligne,
+               ce qui laissait le « + » seul en haut à droite d'une bande vide.
+               C'est un `margin-right: auto` qui la pousse à gauche : la ligne
+               reste en `flex-end`, donc le « + » ne bouge pas quand
+               l'indication est masquée (cas normal, dès qu'un sous-projet
+               existe). -->
           <div class="sectionTitleRow subProjectsHeadRow">
+            <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.</p>
             <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter un sous-projet">+</button>
           </div>
 
@@ -1575,7 +1585,6 @@
 
 
           <div id="subProjectsList" class="activitiesList"></div>
-          <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.</p>
           <!-- ⚠️ Le formulaire de création vit SOUS la liste (demande d'Emilien,
                3 septembre 2026 : « la création d'un nouveau sous-projet apparaisse
                automatiquement en dessous des sous-projets existants ») — il était
@@ -1799,6 +1808,29 @@
              Répartition (qui compare les MEMBRES entre eux) et le Graphique.
              Ids et blocs toujours entièrement distincts de ceux de l'onglet
              Statistiques (préfixe communityActivity/ca) : jamais partagés. -->
+        <!-- ⚠️ 4 septembre 2026, chantier « Chrono — sous-projets », demande
+             d'Emilien : « je souhaite que les membres d'une activité puissent
+             comparer entre eux leurs enregistrements globaux (cette fonction
+             existe déjà), ainsi que leurs enregistrements par sous-projet »,
+             et « je souhaite que l'affichage ne se fasse plus avec un clic
+             rapide sur la couleur d'une activité (ce qui est le cas pour le
+             volet stat) mais grâce à un bouton et des options pour
+             sélectionner le sous-projet que l'on désire observer ».
+             Le sélecteur est posé AU-DESSUS des deux blocs, et non dans la
+             ligne de titre de la Répartition : il filtre la Répartition ET le
+             Graphique, qui sont servis par un seul appel. Le mettre dans un
+             seul des deux en-têtes ferait croire qu'il n'agit que là.
+             Le bloc reste caché tant que l'activité n'a aucun sous-projet :
+             un menu à une seule entrée n'apprend rien.
+             Aucune Feuille de temps ici : demande explicite d'Emilien du
+             4 septembre (« pas de feuille de temps »). -->
+        <div id="caSubProjectFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
+          <button type="button" class="caSubProjectBtn" id="caSubProjectBtn" aria-haspopup="true">
+            <span id="caSubProjectBtnLabel">Tous les sous-projets</span>
+          </button>
+          <div class="statsPeriodMenu caSubProjectMenu hidden" id="caSubProjectMenu"></div>
+        </div>
+
         <div id="communityActivityPieBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Répartition</p>
@@ -1863,6 +1895,61 @@
         </div>
 
         </div><!-- /#communityActivityMembersPart -->
+
+        <!-- ⚠️ 5 septembre 2026 (discussion « Activité solo »), demande d'Emilien :
+             « lorsqu'un sous-projet a été créé, une section statistique apparaît
+             comme pour les activités partagées. Il y a alors 2 sections :
+             sous-projets et statistique. Et je souhaite que cette statistique
+             montre les statistiques de l'activité par sous-projets. »
+
+             ⚠️ Bloc DISTINCT de #communityActivityMembersPart, et c'est le point
+             de conception de cette section : celui-là compare les MEMBRES entre
+             eux — ce qui n'a aucun sens à un seul membre — et s'appuie sur des
+             routes qui refusent une activité solo (checkSharedActivityAccess
+             exige >= 2 membres). Ici l'axe de comparaison est le SOUS-PROJET.
+
+             ⚠️ Rien n'est recalculé ici. Les données viennent de
+             GET /api/sub-project-stats (chantier « Chrono — sous-projets »),
+             dont la garde d'accès est « membre de l'activité » SANS seuil de
+             partage : elle fonctionne donc telle quelle en solo, et
+             checkSharedActivityAccess n'a pas eu à être touché. Le camembert est
+             dessiné par renderPie (Répartition) et les nuances par
+             subProjectShade — les deux appelés tels quels.
+
+             ⚠️ Le temps enregistré SANS sous-projet forme sa propre part : le
+             choix d'un sous-projet au chrono est optionnel, et masquer cette
+             part donnerait un camembert dont les tranches ne font pas le total
+             affiché juste au-dessus. -->
+        <div id="activitySoloStatsBlock" class="statsSection hidden">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Par sous-projet</p>
+            <div class="statsPeriodMenuWrap" id="soloStatsPeriodWrap">
+              <button type="button" class="menuBtn" id="soloStatsPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
+              <div class="statsPeriodMenu hidden" id="soloStatsPeriodMenu">
+                <button type="button" class="statsPeriodMenuItem" data-period="day">Aujourd'hui</button>
+                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
+              </div>
+            </div>
+          </div>
+          <div class="statsSummary">
+            <p class="statsLabel" id="soloStatsLabel"></p>
+            <p class="statsTotal" id="soloStatsTotal"></p>
+          </div>
+          <div id="soloStatsPie" class="pieWrap"></div>
+          <p id="soloStatsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+          <!-- ⚠️ PAS de seconde liste de légende ici, volontairement : renderPie
+               dessine déjà la sienne à l'intérieur de #soloStatsPie (nom, durée,
+               pourcentage, pastille de couleur). En ajouter une seconde
+               affichait les mêmes trois lignes deux fois de suite — constaté à
+               la capture, pas par une assertion.
+               ⚠️ À SIGNALER À « Chrono — sous-projets » : la fenêtre flottante
+               #subProjectStatsModal a exactement le même doublon
+               (#subProjectStatsList sous #subProjectStatsPie). Non corrigé ici,
+               c'est son écran. -->
+          <p id="soloStatsMsg" class="msg"></p>
+        </div>
       </div>
 
       <!-- Page (modale) listant tous les membres d'une activité partagée
@@ -2148,15 +2235,60 @@
           <button type="button" class="menuBtn" id="subProjectStatsClose" aria-label="Fermer">✕</button>
         </div>
         <div id="subProjectStatsScroll" class="viewProfileScroll">
-          <div class="statsSection">
-            <p id="subProjectStatsSubtitle" class="meta"></p>
-            <p id="subProjectStatsTotal" class="statsTotal"></p>
-            <div id="subProjectStatsPie" class="pieWrap"></div>
-            <p id="subProjectStatsPieEmptyHint" class="hint hidden">Aucun temps enregistré sur cette période.</p>
-            <div id="subProjectStatsList" class="subProjectStatsList"></div>
-            <p id="subProjectStatsEmptyHint" class="hint hidden">Aucun temps enregistré sur cette période.</p>
-            <p id="subProjectStatsMsg" class="msg"></p>
+          <p id="subProjectStatsSubtitle" class="meta"></p>
+
+          <!-- Feuille de temps — MÊME structure que #statsTimesheetBlock du
+               volet Statistiques (demande d'Emilien du 4 septembre 2026 :
+               « le même visuel et les mêmes fonctionnalités »). Elle est
+               dessinée par renderTimesheetWeek/renderTimesheetMonth, les
+               fonctions de la Feuille de temps elles-mêmes, appelées avec ces
+               ids-ci — aucune seconde implémentation. Seule la COULEUR des
+               cases change : une nuance par sous-projet au lieu de la couleur
+               de l'activité. -->
+          <div id="spTimesheetBlock" class="statsSection">
+            <div class="sectionTitleRow">
+              <p class="sectionTitle">Feuille de temps</p>
+              <div class="timesheetNav">
+                <button type="button" class="iconBtn" id="spTsPrevWeek" aria-label="Période précédente">‹</button>
+                <span class="meta" id="spTsWeekLabel"></span>
+                <button type="button" class="iconBtn" id="spTsNextWeek" aria-label="Période suivante">›</button>
+                <div class="statsPeriodMenuWrap" id="spTsPeriodWrap">
+                  <button type="button" class="menuBtn" id="spTsPeriodBtn" aria-label="Choisir la période">⋮</button>
+                  <div class="statsPeriodMenu hidden" id="spTsPeriodMenu">
+                    <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
+                    <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="timesheetFrame">
+              <div id="spTsFrozenCol" class="tsFrozenCol hidden"></div>
+              <div class="timesheetScroll">
+                <div id="spTsGrid" class="timesheetGrid"></div>
+                <div id="spTsCalendar" class="tsCalendar hidden"></div>
+              </div>
+            </div>
+            <p id="spTsEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
           </div>
+
+          <!-- Répartition — MÊME structure que #statsPieBlock, bouton
+               « Aujourd'hui » compris : elle résume exactement la fenêtre de
+               jours que la grille ci-dessus affiche, et « Aujourd'hui » la
+               désynchronise sur la seule journée en cours. -->
+          <div id="spPieBlock" class="statsSection">
+            <div class="sectionTitleRow">
+              <p class="sectionTitle">Répartition</p>
+              <button id="spPieTodayBtn" type="button" class="iconBtn" aria-pressed="false">Aujourd'hui</button>
+            </div>
+            <div class="statsSummary">
+              <p class="statsLabel" id="spStatsLabel"></p>
+              <p class="statsTotal" id="spStatsTotal"></p>
+            </div>
+            <div id="subProjectStatsPie" class="pieWrap"></div>
+            <p id="subProjectStatsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+          </div>
+
+          <p id="subProjectStatsMsg" class="msg"></p>
         </div>
       </div>
     </div>

@@ -155,4 +155,62 @@ function rowClosesAt(rows, subProjectId) {
   return hit ? hit.subProjectClosesAt : null;
 }
 
-module.exports = { subProjectBreakdownForRange, checkAccess };
+// ===================== FEUILLE DE TEMPS PAR SOUS-PROJET =====================
+// 4 septembre 2026, second passage — demande d'Emilien : « je souhaite
+// afficher la feuille de temps avec le même visuel et les mêmes
+// fonctionnalités », et « je souhaite que la répartition soit synchronisée
+// avec la feuille de temps de l'activité et qu'il y ait l'option de se
+// désynchroniser sur la journée en cliquant sur "aujourd'hui" ».
+//
+// ⚠️ AUCUNE grille n'est recalculée ici. On appelle les fonctions de la
+// Feuille de temps (server/lib/stats.js) avec leur paramètre optionnel
+// `opts` — c'est LE point qui garantit que les deux écrans ne peuvent pas
+// diverger : même règle de semaine glissante, même calendrier du mois, mêmes
+// libellés, même départage des créneaux. Une copie aurait divergé au premier
+// ajustement.
+const { timesheetForUser, timesheetMonthForUser } = require('./stats');
+
+function subProjectTimesheet(userId, activityId, period, offset) {
+  const opts = { activityId: Number(activityId), groupBySubProject: true };
+  const grid = period === 'month'
+    ? timesheetMonthForUser(userId, offset, opts)
+    : timesheetForUser(userId, offset, opts);
+
+  // Rangs de nuance, joints à la grille : le client colore chaque case à
+  // partir de la couleur de l'activité, sans jamais recalculer un rang.
+  const { ranks, count } = shadeRanks(Number(activityId));
+  const shadeBySubProject = {};
+  ranks.forEach((rank, id) => { shadeBySubProject[id] = rank; });
+
+  return Object.assign({ period: period === 'month' ? 'month' : 'week' }, grid, {
+    shadeCount: count,
+    shadeBySubProject,
+  });
+}
+
+// Les activités pour lesquelles CE membre a, sur la fenêtre affichée, au
+// moins un enregistrement rattaché à un sous-projet.
+//
+// ⚠️ C'est la condition d'Emilien (4 septembre 2026) : « les activités qui
+// n'ont pas encore enregistré de sous-projets dans chrono n'ont pas l'option
+// et ne s'ouvrent pas ». Sans elle, appuyer sur une activité dont rien n'est
+// rattaché ouvrait une fenêtre à 100 % « Sans sous-projet » — inutile, et
+// c'est exactement ce qu'il a vu à l'écran.
+//
+// Évaluée sur la PÉRIODE AFFICHÉE, pas sur tout l'historique (son choix) :
+// une fenêtre qui s'ouvre doit toujours avoir quelque chose à montrer.
+function activitiesWithSubProjectTime(userId, startIso, endIso) {
+  return db.prepare(`
+    SELECT DISTINCT t.activityId AS id
+    FROM time_entries t
+    WHERE t.userId = ? AND t.subProjectId IS NOT NULL
+      AND t.isoDate BETWEEN ? AND ?
+  `).all(userId, startIso, endIso).map((r) => r.id);
+}
+
+module.exports = {
+  subProjectBreakdownForRange,
+  subProjectTimesheet,
+  activitiesWithSubProjectTime,
+  checkAccess,
+};

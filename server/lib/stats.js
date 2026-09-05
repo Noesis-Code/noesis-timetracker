@@ -261,12 +261,33 @@ const MONTH_SLOT_MINUTES = 120;
 // timesheetForUser (comportement inchangé pour la vue Semaine) pour être
 // réutilisé tel quel par timesheetMonthForUser ci-dessous, avec un
 // slotMinutes différent.
-function computeSlotsForDays(userId, days, slotMinutes) {
+// ⚠️ 4 septembre 2026 (chantier « Chrono — sous-projets », débordement
+// signalé) : paramètre `opts` OPTIONNEL, par défaut inerte.
+//   opts absent                                  → comportement d'avant, à la ligne près ;
+//   opts = { activityId, groupBySubProject: true } → même grille, mais restreinte
+//     à UNE activité et découpée par SOUS-PROJET au lieu de par activité.
+//
+// Pourquoi un paramètre plutôt qu'une copie de cette fonction : la fenêtre de
+// détail par sous-projet doit se comporter EXACTEMENT comme la Feuille de
+// temps du volet Statistiques (demande d'Emilien : « le même visuel et les
+// mêmes fonctionnalités »). Une copie divergerait au premier ajustement — le
+// projet en a déjà l'exemple avec la copie parallèle de l'onglet Activité.
+// Ici, les deux partagent littéralement le même code de découpe en créneaux.
+function computeSlotsForDays(userId, days, slotMinutes, opts) {
+  const bySubProject = !!(opts && opts.groupBySubProject);
+  const onlyActivityId = opts && opts.activityId ? Number(opts.activityId) : null;
   const slotsPerDay = Math.round((24 * 60) / slotMinutes);
   const start = isoDateOf(days[0]);
   const end = isoDateOf(days[days.length - 1]);
 
-  const rows = db.prepare(`
+  const rows = bySubProject
+    ? db.prepare(`
+        SELECT t.startTime, t.endTime, t.subProjectId, sp.name AS subProjectName
+        FROM time_entries t
+        LEFT JOIN sub_projects sp ON sp.id = t.subProjectId
+        WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
+      `).all(userId, onlyActivityId, start, end)
+    : db.prepare(`
     SELECT t.startTime, t.endTime, a.id AS activityId, a.name AS activity,
            COALESCE(am.color, '#3498db') AS color
     FROM time_entries t
@@ -308,8 +329,19 @@ function computeSlotsForDays(userId, days, slotMinutes) {
         if (seconds <= 0) continue;
 
         const bucket = overlap[dayIndex][s];
-        if (!bucket[r.activityId]) bucket[r.activityId] = { seconds: 0, name: r.activity, color: r.color, activityId: r.activityId };
-        bucket[r.activityId].seconds += seconds;
+        // Même mécanisme de départage (le plus de secondes gagne le créneau),
+        // seule la CLÉ change : l'activité, ou le sous-projet à l'intérieur
+        // d'une activité. `none` est le temps non rattaché — une valeur à part
+        // entière, jamais un trou.
+        const key = bySubProject
+          ? (r.subProjectId === null || r.subProjectId === undefined ? 'none' : 'sp' + r.subProjectId)
+          : r.activityId;
+        if (!bucket[key]) {
+          bucket[key] = bySubProject
+            ? { seconds: 0, subProjectId: r.subProjectId === undefined ? null : r.subProjectId, name: r.subProjectName || null }
+            : { seconds: 0, name: r.activity, color: r.color, activityId: r.activityId };
+        }
+        bucket[key].seconds += seconds;
       }
     });
   });
@@ -320,7 +352,9 @@ function computeSlotsForDays(userId, days, slotMinutes) {
       if (candidates.length === 0) return null;
       candidates.sort((a, b) => b.seconds - a.seconds);
       const best = candidates[0];
-      return { activityId: best.activityId, name: best.name, color: best.color };
+      return bySubProject
+        ? { subProjectId: best.subProjectId, name: best.name }
+        : { activityId: best.activityId, name: best.name, color: best.color };
     });
     return { isoDate: isoDateOf(d), dayOfWeek: dayNameOf(d), slots };
   });
@@ -353,7 +387,8 @@ function computeSlotsForDays(userId, days, slotMinutes) {
 // mondayOf vient de ./dates (utilitaire partagé, déjà utilisé par la vue
 // "Mois" juste en dessous et par les regroupements hebdomadaires du
 // Graphique) : un seul endroit décide de ce qu'est un lundi.
-function timesheetForUser(userId, weekOffset) {
+// ⚠️ `opts` OPTIONNEL, par défaut inerte — voir computeSlotsForDays.
+function timesheetForUser(userId, weekOffset, opts) {
   const offset = Math.max(0, Math.floor(Number(weekOffset)) || 0);
 
   const today = new Date();
@@ -386,9 +421,15 @@ function timesheetForUser(userId, weekOffset) {
   const start = isoDateOf(days[0]);
   const end = isoDateOf(days[6]);
 
-  const grid = computeSlotsForDays(userId, days, SLOT_MINUTES);
+  const grid = computeSlotsForDays(userId, days, SLOT_MINUTES, opts);
 
-  const earliest = db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
+  // La flèche « semaine précédente » doit s'éteindre quand il n'y a plus rien
+  // AVANT — donc sur le même périmètre que la grille, sinon elle resterait
+  // active à l'infini sur une activité qui n'a que deux semaines d'histoire.
+  const earliest = opts && opts.activityId
+    ? db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ? AND activityId = ?')
+        .get(userId, Number(opts.activityId))
+    : db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
   const hasMoreBefore = !!(earliest && earliest.d && earliest.d < start);
 
   const label = `Semaine du ${pad2(days[0].getDate())}/${pad2(days[0].getMonth() + 1)} au ${pad2(days[6].getDate())}/${pad2(days[6].getMonth() + 1)}`;
@@ -412,7 +453,8 @@ function timesheetForUser(userId, weekOffset) {
 // le mois précédent/suivant pour compléter la première/dernière semaine —
 // ces jours "hors mois" sont marqués `inMonth: false` pour être atténués
 // côté affichage plutôt que masqués, comme un calendrier classique.
-function timesheetMonthForUser(userId, monthOffset) {
+// ⚠️ `opts` OPTIONNEL, par défaut inerte — voir computeSlotsForDays.
+function timesheetMonthForUser(userId, monthOffset, opts) {
   const offset = Math.max(0, Math.floor(Number(monthOffset)) || 0);
 
   const now = new Date();
@@ -431,7 +473,7 @@ function timesheetMonthForUser(userId, monthOffset) {
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  const grid = computeSlotsForDays(userId, days, MONTH_SLOT_MINUTES);
+  const grid = computeSlotsForDays(userId, days, MONTH_SLOT_MINUTES, opts);
   grid.forEach((day, i) => { day.inMonth = days[i].getMonth() === targetMonth; });
 
   // Regroupe la liste à plat en semaines de 7 jours (calStart tombe toujours
@@ -441,7 +483,10 @@ function timesheetMonthForUser(userId, monthOffset) {
 
   const start = isoDateOf(firstOfMonth);
   const end = isoDateOf(lastOfMonth);
-  const earliest = db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
+  const earliest = opts && opts.activityId
+    ? db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ? AND activityId = ?')
+        .get(userId, Number(opts.activityId))
+    : db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
   const hasMoreBefore = !!(earliest && earliest.d && earliest.d < start);
 
   const label = `${MONTH_NAMES_FR[targetMonth]} ${firstOfMonth.getFullYear()}`;

@@ -146,10 +146,15 @@ function rgbToHex(rgb) {
   eq(await page.textContent('#subProjectStatsTitle'), 'Chantier' + stamp, '2.4 elle porte le nom de l\'activité');
   eq(await page.textContent('#subProjectStatsSubtitle'), 'Mon temps', '2.5 et précise qu\'on regarde son propre temps');
 
-  const rows = await page.$$eval('#subProjectStatsList .subProjectStatsRow', (rs) => rs.map((r) => ({
-    label: r.querySelector('.subProjectStatsLabel').textContent,
-    value: r.querySelector('.subProjectStatsValue').textContent,
-    color: getComputedStyle(r.querySelector('.subProjectStatsDot')).backgroundColor,
+  // ⚠️ Troisième passage (4 septembre 2026) : la liste maison
+  // #subProjectStatsList a été SUPPRIMÉE. Emilien l'avait relevée capture à
+  // l'appui — « je souhaite que la légende ne soit affichée qu'une seule
+  // fois » : elle doublait la légende que renderPie dessine déjà. On lit donc
+  // désormais la légende du camembert, la seule qui reste.
+  const rows = await page.$$eval('#subProjectStatsPie .pieLegendRow', (rs) => rs.map((r) => ({
+    label: r.querySelector('.pieLegendLabel').textContent,
+    value: r.querySelector('.pieLegendValue').textContent,
+    color: getComputedStyle(r.querySelector('.pieLegendDot')).backgroundColor,
   })));
   eq(rows.length, 3, '2.6 trois parts : deux sous-projets et le temps non rattaché');
   ok(rows.some((r) => r.label === 'Cadrage'), '2.7 « Cadrage » est listé');
@@ -157,7 +162,11 @@ function rgbToHex(rgb) {
     '2.8 ⭐ le temps NON rattaché apparaît comme une part nommée, jamais masqué');
   ok(/2h00/.test(rows.find((r) => r.label === 'Cadrage').value), '2.9 avec ses heures (2h00)');
   ok(/50%/.test(rows.find((r) => r.label === 'Cadrage').value), '2.10 et son pourcentage');
-  eq(await page.textContent('#subProjectStatsTotal'), '4h00', '2.11 le total de la période est affiché');
+  eq(await page.textContent('#spStatsTotal'), '4h00', '2.11 le total de la période est affiché');
+  eq(await page.evaluate(() => document.querySelectorAll('#subProjectStatsModal .pieLegend').length), 1,
+    '2.12 ⭐ UNE SEULE légende dans la fenêtre (demande d\'Emilien du 4 septembre)');
+  eq(await page.evaluate(() => !!document.getElementById('subProjectStatsList')), false,
+    '2.13 ⭐ l\'ancienne liste en double n\'existe plus dans le document');
 
   // ============ 3. Les nuances ============
   console.log('3. Nuances de la couleur de l\'activité');

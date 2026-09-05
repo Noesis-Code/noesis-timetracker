@@ -193,6 +193,22 @@ router.get('/community/activity-stats', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   const refDate = req.query.date || null;
+  const rawSubProject = req.query.subProject;
+  let subProjectFilter = (rawSubProject === undefined || rawSubProject === '' || rawSubProject === 'all')
+    ? null
+    : String(rawSubProject);
+  // ⚠️ Trois familles de valeurs et TROIS SEULEMENT : null (tout le temps de
+  // l'activité), 'none' (temps non rattaché) et un id entier. Une valeur
+  // fantaisiste ('abc') donnerait NaN dans le paramètre lié plus bas, donc une
+  // comparaison qui n'est jamais vraie : le camembert se viderait en silence
+  // au lieu de dire ce qui ne va pas. On refuse explicitement.
+  if (subProjectFilter !== null && subProjectFilter !== 'none') {
+    const n = Number(subProjectFilter);
+    if (!Number.isInteger(n) || n <= 0) {
+      return res.status(400).json({ error: 'Sous-projet invalide.' });
+    }
+    subProjectFilter = String(n);
+  }
 
   // ⚠️ 3 septembre 2026 (Activité — général) — DEUX périodes indépendantes.
   // Demande d'Emilien : « je souhaite que les options semaines, mois, années
@@ -227,10 +243,16 @@ router.get('/community/activity-stats', (req, res) => {
 
   res.json({
     activityName: check.activity.name,
-    breakdown: activityBreakdownForUser(activityId, period, refDate),
+    // ⚠️ 4 septembre 2026 (chantier « Chrono — sous-projets », débordement
+    // signalé) : ?subProject= filtre la comparaison entre membres sur UN
+    // sous-projet. Absent, rien ne change. 'none' = le temps non rattaché.
+    // Le camembert et le graphique reçoivent le MÊME filtre : les deux
+    // sections de cette page doivent comparer les mêmes enregistrements.
+    subProject: subProjectFilter,
+    breakdown: activityBreakdownForUser(activityId, period, refDate, subProjectFilter),
     chartGranularity,
     chartLabel: activityTotalRange(activityId, refDate).label,
-    dailyBreakdown: activityChartBreakdownForUser(activityId, chartGranularity, refDate),
+    dailyBreakdown: activityChartBreakdownForUser(activityId, chartGranularity, refDate, subProjectFilter),
   });
 });
 

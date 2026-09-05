@@ -690,6 +690,11 @@
     'Sous-projet (facultatif)': 'Sub-project (optional)',
     'Aucun sous-projet': 'No sub-project',
     'clôturé': 'closed',
+    // Activité solo, 5 septembre 2026. 'Sans sous-projet' était déjà
+    // employée par la fenêtre de détail par sous-projet sans avoir jamais été
+    // traduite : lacune corrigée au passage (débordement d'une ligne signalé).
+    'Par sous-projet': 'By sub-project',
+    'Sans sous-projet': 'No sub-project',
     // Messages renvoyés par le serveur (server/lib/entrysubproject.js).
     'Sous-projet invalide.': 'Invalid sub-project.',
     "Ce sous-projet n'appartient pas à cette activité.": 'This sub-project does not belong to this activity.',
@@ -726,6 +731,10 @@
     // ----- Détail par sous-projet dans les statistiques (4 septembre 2026) -----
     // Chantier « Chrono — sous-projets », second passage.
     'Mon temps': 'My time',
+    'Sans sous-projet': 'No sub-project attached',
+    // ----- Filtre par sous-projet, section Statistiques d'une activité
+    //       (4 septembre 2026, troisième passage) -----
+    'Tous les sous-projets': 'All sub-projects',
     'Temps de {name}': '{name}’s time',
     'Aucun temps enregistré sur cette période.': 'No time recorded in this period.',
     'Chargement...': 'Loading...',

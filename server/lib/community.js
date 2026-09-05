@@ -295,19 +295,42 @@ function unreadMessageCountsForUser(userId) {
 // Comme sharedActivitiesForUser ci-dessus, seuls les membres ACTUELS de
 // l'activité sont pris en compte (jointure sur activity_members).
 
-function activityBreakdownForUser(activityId, period, refDate) {
+// ⚠️ 4 septembre 2026 (chantier « Chrono — sous-projets », débordement
+// signalé) : quatrième paramètre OPTIONNEL `subProjectFilter`, par défaut
+// inerte. Demande d'Emilien : « je souhaite que les membres d'une activité
+// puissent comparer entre eux leurs enregistrements globaux (cette fonction
+// existe déjà), ainsi que leurs enregistrements par sous-projet (à faire) ».
+//
+//   absent / null   → tous les enregistrements, comportement d'avant ;
+//   un identifiant  → seulement le temps rattaché à CE sous-projet ;
+//   'none'          → seulement le temps NON rattaché.
+//
+// Le filtre est posé dans le ON du LEFT JOIN, pas dans le WHERE : un membre
+// qui n'a rien enregistré sur ce sous-projet doit rester dans la comparaison
+// avec 0, sinon il disparaîtrait de la liste des membres — or c'est
+// justement une information (« lui n'y a pas touché »).
+function activityBreakdownForUser(activityId, period, refDate, subProjectFilter) {
   const { start, end, label } = periodRange(period, refDate);
+
+  let joinExtra = '';
+  const joinArgs = [];
+  if (subProjectFilter === 'none') {
+    joinExtra = ' AND t.subProjectId IS NULL';
+  } else if (subProjectFilter !== undefined && subProjectFilter !== null && subProjectFilter !== '') {
+    joinExtra = ' AND t.subProjectId = ?';
+    joinArgs.push(Number(subProjectFilter));
+  }
 
   const rows = db.prepare(`
     SELECT u.id AS userId, u.name AS name, am.color AS color,
            COALESCE(SUM(t.durationSeconds), 0) AS seconds
     FROM activity_members am
     JOIN users u ON u.id = am.userId
-    LEFT JOIN time_entries t ON t.userId = am.userId AND t.activityId = am.activityId AND t.isoDate BETWEEN ? AND ?
+    LEFT JOIN time_entries t ON t.userId = am.userId AND t.activityId = am.activityId AND t.isoDate BETWEEN ? AND ?${joinExtra}
     WHERE am.activityId = ?
     GROUP BY u.id
     ORDER BY seconds DESC, u.name COLLATE NOCASE ASC
-  `).all(start, end, activityId);
+  `).all(start, end, ...joinArgs, activityId);
 
   const totalSeconds = rows.reduce((sum, r) => sum + r.seconds, 0);
   return {
@@ -345,8 +368,22 @@ function activityTotalRange(activityId, refDate) {
   return { start: (earliest && earliest.d) || todayIso, end: todayIso, label: 'Depuis le début' };
 }
 
-function activityChartBreakdownForUser(activityId, granularity, refDate) {
+// ⚠️ 4 septembre 2026 (chantier « Chrono — sous-projets », débordement
+// signalé) : quatrième paramètre OPTIONNEL `subProjectFilter`, mêmes valeurs
+// et même sémantique que pour activityBreakdownForUser ci-dessus. Le
+// graphique suit le même filtre que le camembert — les deux sections de cette
+// page comparent les mêmes enregistrements, sinon elles se contrediraient.
+function activityChartBreakdownForUser(activityId, granularity, refDate, subProjectFilter) {
   const { start, end } = activityTotalRange(activityId, refDate);
+
+  let whereExtra = '';
+  const extraArgs = [];
+  if (subProjectFilter === 'none') {
+    whereExtra = ' AND t.subProjectId IS NULL';
+  } else if (subProjectFilter !== undefined && subProjectFilter !== null && subProjectFilter !== '') {
+    whereExtra = ' AND t.subProjectId = ?';
+    extraArgs.push(Number(subProjectFilter));
+  }
 
   const rows = db.prepare(`
     SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek, u.id AS userId,
@@ -354,10 +391,10 @@ function activityChartBreakdownForUser(activityId, granularity, refDate) {
     FROM time_entries t
     JOIN activity_members am ON am.activityId = t.activityId AND am.userId = t.userId
     JOIN users u ON u.id = am.userId
-    WHERE t.activityId = ? AND t.isoDate BETWEEN ? AND ?
+    WHERE t.activityId = ? AND t.isoDate BETWEEN ? AND ?${whereExtra}
     GROUP BY t.isoDate, u.id
     ORDER BY t.isoDate ASC, seconds DESC
-  `).all(activityId, start, end);
+  `).all(activityId, start, end, ...extraArgs);
 
   if (granularity !== 'week' && granularity !== 'month') {
     // Aucune entrée n'a jamais été enregistrée sur cette activité : tableau
