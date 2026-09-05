@@ -696,6 +696,12 @@
     'Ce sous-projet est clôturé.': 'This sub-project is closed.',
 
     // ---- Date de clôture sur la ligne d'un sous-projet (4 septembre 2026) ----
+    'toucher pour modifier': 'tap to change',
+    'Clôture': 'Closing date',
+    "Retirer l'échéance": 'Remove the deadline',
+    'Choisis une date, ou touche « Retirer l\'échéance ».': 'Pick a date, or tap “Remove the deadline”.',
+    'Retirer la date de clôture ? Le sous-projet restera dans la liste indéfiniment.': 'Remove the closing date? The sub-project will stay in the list indefinitely.',
+    'Le sous-projet reste visible le jour de sa clôture et disparaît le lendemain. Rien n\'est supprimé.': 'The sub-project stays visible on its closing day and drops off the next day. Nothing is deleted.',
     'Clôture le ': 'Closes on ',
     'Clôturé le ': 'Closed on ',
     'Dernier jour : ce sous-projet disparaît de la liste demain.': 'Last day: this sub-project drops off the list tomorrow.',
@@ -711,7 +717,6 @@
     'Création du lien...': 'Creating the link...',
     'Lien créé. Colle-le dans ton calendrier comme un abonnement.': 'Link created. Paste it into your calendar as a subscription.',
     'Copié — colle-le dans ton calendrier.': 'Copied — paste it into your calendar.',
-    'Impossible de copier automatiquement — sélectionne le texte à la main.': 'Could not copy automatically — select the text by hand.',
     "Régénérer l'adresse ? L'ancienne cessera immédiatement de fonctionner, et tu devras refaire l'abonnement sur chaque appareil.": 'Regenerate the address? The old one stops working immediately, and you will have to set up the subscription again on every device.',
     'Désactiver le calendrier ? L\'adresse cesse de fonctionner et les échéances disparaîtront de ton agenda.': 'Turn the calendar off? The address stops working and the deadlines will disappear from your calendar.',
     'Calendrier désactivé.': 'Calendar turned off.',

@@ -633,6 +633,34 @@ CREATE TABLE IF NOT EXISTS calendar_feed_tokens (
   lastAccessAt TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_calendar_feed_token ON calendar_feed_tokens(token);
+
+-- ===================== RAPPELS D'ECHEANCE (4 septembre 2026) =====================
+-- Discussion "Calendrier des clotures". Table ADDITIVE : aucune table ni
+-- colonne existante n'est touchee. Comme toujours ici, elle n'existe qu'APRES
+-- un redemarrage du serveur.
+--
+-- Memoire des rappels deja envoyes avant la cloture d'un sous-projet
+-- (server/lib/duereminders.js). Sans elle, chaque balayage renverrait le meme
+-- rappel toutes les 30 minutes.
+--
+-- La cle porte la DATE DE CLOTURE, volontairement : deplacer l'echeance rearme
+-- les rappels, ce qui est le comportement attendu — une nouvelle date est une
+-- nouvelle echeance. Et elle porte la PERSONNE : quelqu'un qui rejoint
+-- l'activite apres coup recoit quand meme le sien.
+--
+-- daysBefore : 3 ou 1, les deux seuils choisis par Emilien.
+-- ON DELETE CASCADE des deux cotes : supprimer un sous-projet ou un compte
+-- nettoie ses rappels sans une ligne de code.
+CREATE TABLE IF NOT EXISTS sub_project_due_reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subProjectId INTEGER NOT NULL REFERENCES sub_projects(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  closesAt TEXT NOT NULL,
+  daysBefore INTEGER NOT NULL,
+  sentAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_sub_project_due_reminder
+  ON sub_project_due_reminders(subProjectId, userId, closesAt, daysBefore);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================

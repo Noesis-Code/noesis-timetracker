@@ -2941,6 +2941,14 @@ button { -webkit-user-select: none; user-select: none; }
   padding: 2px 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
+  /* Depuis le 4 septembre 2026 c'est un <button> (il ouvre l'éditeur de date) :
+     on neutralise l'apparence native pour qu'il reste exactement la pastille
+     d'avant, en gardant le curseur qui dit qu'on peut cliquer. */
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
 }
 /* Le dernier jour où le sous-projet est encore là. */
 .subProjectDue.today {
@@ -2957,3 +2965,22 @@ button { -webkit-user-select: none; user-select: none; }
    droite, la ou vit deja la croix de fermeture de la page d activite, pour
    que le geste soit au meme endroit dans les deux affichages. */
 .activityInlineHeader { justify-content: flex-end; margin-bottom: 4px; }
+
+/* ---- Éditeur de la date de clôture (4 septembre 2026)
+   Une ligne entière sous l'en-tête plutôt qu'un panneau flottant : rien à
+   positionner dans un conteneur qui défile ET qui colle. */
+.subProjectDueEditor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.subProjectDueInput {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+.subProjectDueActions { flex: 1 1 100%; }
+.subProjectDueHint { flex: 1 1 100%; margin: 0; }

@@ -3274,6 +3274,94 @@
       .catch(function () { /* activité quittée entre-temps : loadActivityDetail gère */ });
   }
 
+  // Sous-projet dont la date de clôture est en cours de modification ('' =
+  // aucun). Un seul à la fois : rouvrir l'éditeur ailleurs referme le premier.
+  var subProjectDueEditingId = '';
+
+  // Éditeur de la date de clôture d'un sous-projet (4 septembre 2026).
+  //
+  // Trois issues, et c'est volontairement tout : enregistrer une nouvelle date,
+  // retirer l'échéance, ou annuler. `<input type="date">` ouvre le sélecteur
+  // natif du téléphone — aucune librairie, cohérent avec le champ de création.
+  //
+  // ⚠️ Le serveur distingue `closesAt` ABSENT (ne touche à rien) de `closesAt`
+  // VIDE (retire l'échéance) — voir updateSubProject dans
+  // server/lib/subprojects.js. « Retirer » envoie donc bien une chaîne vide, et
+  // surtout pas `null`, qui serait ignoré par le `'closesAt' in fields` du
+  // serveur.
+  function buildSubProjectDueEditor(sub) {
+    var box = document.createElement('div');
+    box.className = 'subProjectDueEditor';
+    // L'éditeur ne doit jamais refermer le sous-projet ni déclencher l'appui
+    // long : il vit à l'intérieur de la ligne, dont l'en-tête est cliquable.
+    box.addEventListener('click', function (e) { e.stopPropagation(); });
+
+    var label = document.createElement('span');
+    label.className = 'meta';
+    label.textContent = t('Clôture');
+    box.appendChild(label);
+
+    var input = document.createElement('input');
+    input.type = 'date';
+    input.className = 'subProjectDueInput';
+    input.value = sub.closesAt || '';
+    box.appendChild(input);
+
+    var actions = document.createElement('div');
+    actions.className = 'rowActions subProjectDueActions';
+
+    function save(value) {
+      api('PUT', '/api/sub-projects/' + sub.id, { userId: profile.id, name: sub.name, closesAt: value })
+        .then(function () {
+          subProjectDueEditingId = '';
+          // La liste est rechargée depuis le serveur, pas rafraîchie de
+          // mémoire : `closed` et `closedCount` se recalculent côté serveur, et
+          // une date reculée dans le passé doit faire disparaître la ligne.
+          loadSubProjects();
+        })
+        .catch(function (err) { alert(err.message); });
+    }
+
+    var ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'iconBtn';
+    ok.textContent = t('Enregistrer');
+    ok.addEventListener('click', function () {
+      if (!input.value) { alert(t('Choisis une date, ou touche « Retirer l\'échéance ».')); return; }
+      save(input.value);
+    });
+    actions.appendChild(ok);
+
+    var clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'iconBtn danger';
+    clear.textContent = t("Retirer l'échéance");
+    clear.addEventListener('click', function () {
+      if (!confirm(t('Retirer la date de clôture ? Le sous-projet restera dans la liste indéfiniment.'))) return;
+      save('');
+    });
+    actions.appendChild(clear);
+
+    var cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'iconBtn';
+    cancel.textContent = t('Annuler');
+    cancel.addEventListener('click', function () {
+      subProjectDueEditingId = '';
+      renderSubProjectsList(lastSubProjectsData);
+    });
+    actions.appendChild(cancel);
+
+    box.appendChild(actions);
+
+    var hint = document.createElement('p');
+    hint.className = 'hint subProjectDueHint';
+    hint.textContent = t('Le sous-projet reste visible le jour de sa clôture et disparaît le lendemain. Rien n\'est supprimé.');
+    box.appendChild(hint);
+
+    return box;
+  }
+
   function renderSubProjectsList(data) {
     lastSubProjectsData = data;
     var box = $('subProjectsList');
@@ -3410,7 +3498,14 @@
       // Le libellé complet est porté par `title`/`aria-label` plutôt que par le
       // texte, pour ne pas allonger une ligne déjà serrée sur téléphone.
       if (sub.closesAt) {
-        var due = document.createElement('span');
+        // ⭐ 4 septembre 2026 : la pastille est un BOUTON, pas une étiquette.
+        // Demande d'Emilien (« pouvoir modifier la date après coup ») : la date
+        // ne se saisissait qu'à la création, et une date fausse ne se corrigeait
+        // nulle part — alors que la clôture fait disparaître le sous-projet de
+        // l'écran. Le serveur savait déjà le faire (PUT /api/sub-projects/:id),
+        // il ne manquait que l'accès.
+        var due = document.createElement('button');
+        due.type = 'button';
         due.className = 'meta subProjectDue'
           + (sub.closed ? ' closed' : (isSubProjectDueToday(sub) ? ' today' : ''));
         due.textContent = subProjectDueLabel(sub.closesAt);
@@ -3419,8 +3514,15 @@
           : (isSubProjectDueToday(sub)
             ? t('Dernier jour : ce sous-projet disparaît de la liste demain.')
             : t('Clôture le ') + subProjectDueLabel(sub.closesAt));
-        due.title = dueTitle;
-        due.setAttribute('aria-label', dueTitle);
+        due.title = dueTitle + ' — ' + t('toucher pour modifier');
+        due.setAttribute('aria-label', dueTitle + ' — ' + t('toucher pour modifier'));
+        due.addEventListener('click', function (e) {
+          // Sans ça, le clic remonterait à l'en-tête et ouvrirait/refermerait
+          // le sous-projet au lieu d'ouvrir l'éditeur.
+          e.stopPropagation();
+          subProjectDueEditingId = (String(subProjectDueEditingId) === String(sub.id)) ? '' : String(sub.id);
+          renderSubProjectsList(lastSubProjectsData);
+        });
         header.appendChild(due);
       }
 
@@ -3469,6 +3571,16 @@
 
       row.appendChild(stick);
       if (isOpen) pinSubProjectSticky(stick);
+
+      // ----- Éditeur de la date de clôture -----
+      // Une LIGNE ENTIÈRE sous l'en-tête, et non un panneau flottant : la
+      // ligne d'en-tête est déjà serrée sur téléphone (nom + date +
+      // avancement + « Ajouter »), et un panneau ancré aurait dû gérer sa
+      // position dans un conteneur qui défile ET qui colle. Ici, rien à
+      // positionner.
+      if (String(subProjectDueEditingId) === String(sub.id)) {
+        row.appendChild(buildSubProjectDueEditor(sub));
+      }
 
       if (sub.description) {
         var desc = document.createElement('p');
@@ -6119,6 +6231,27 @@
             focusWhenReady('#communityDiscussionList [data-message-id="' + messageId + '"]');
           } else {
             focusWhenReady('#communityDiscussionBlock');
+          }
+        });
+      }
+      return;
+    }
+
+    // Rappel d'échéance d'un sous-projet (4 septembre 2026, "Calendrier des
+    // clôtures") : on ouvre la page de l'activité sur sa section Sous-projets
+    // et on met le sous-projet concerné en évidence. Même mécanisme que
+    // 'activity' ci-dessus — on rejoue le clic sur la ligne plutôt que de
+    // reconstruire les arguments d'openActivityPage().
+    if (target === 'subproject') {
+      var dueActivityId = params.get('activityId');
+      var dueSubProjectId = params.get('subProjectId');
+      switchTab('activity');
+      if (dueActivityId) {
+        whenElementReady('#activitiesList .activityRow[data-activity-id="' + dueActivityId + '"] .activityRowHeader', function (header) {
+          header.click();
+          setActivityPageSection('sub');
+          if (dueSubProjectId) {
+            focusWhenReady('#subProjectsList .subProjectRow[data-sub-project-id="' + dueSubProjectId + '"]');
           }
         });
       }

@@ -170,4 +170,13 @@ const HOST = process.env.NOESIS_HOST || (process.env.PORT ? '0.0.0.0' : 'localho
 app.listen(PORT, HOST, () => {
   console.log(`Noèsis TimeTracker en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`Version de l'app servie : ${APP_VERSION}`);
+
+  // Rappels avant l'échéance d'un sous-projet (4 septembre 2026, discussion
+  // "Calendrier des clôtures") : 3 jours avant, puis la veille.
+  //
+  // Démarré APRÈS l'écoute, jamais avant : un balayage ne doit pas retarder
+  // l'ouverture du port. Il ne fait rien tant que le Web Push n'est pas
+  // configuré (clés VAPID), et rien non plus si NOESIS_DUE_REMINDERS=0.
+  // Voir server/lib/duereminders.js.
+  require('./lib/duereminders').startDueReminders();
 });
