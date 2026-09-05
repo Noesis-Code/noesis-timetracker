@@ -3372,6 +3372,24 @@
 
   $('activityPageClose').addEventListener('click', closeActivityPage);
 
+  // L'activité affichée, relue dans la dernière liste rendue plutôt que
+  // mémorisée à l'ouverture : renommée ou repartagée depuis un autre
+  // appareil, c'est bien son état courant qu'on veut, pas celui du clic.
+  function currentActivityRecord() {
+    if (!currentCommunityActivityId) return null;
+    var list = lastRenderedActivities || [];
+    for (var i = 0; i < list.length; i++) {
+      if (String(list[i].id) === String(currentCommunityActivityId)) return list[i];
+    }
+    return null;
+  }
+
+  $('activityPageMembersBtn').addEventListener('click', function () {
+    var a = currentActivityRecord();
+    if (!a) return;
+    openCommunityMembersModal(a.id, a.name, { activity: a, solo: !currentActivityIsShared });
+  });
+
   // Clic sur le fond noir, hors de la carte : referme, comme la page de visite
   // d'un profil. Le test sur e.target évite de refermer quand le clic vient
   // d'un élément intérieur qui a laissé remonter l'événement.
@@ -5355,23 +5373,125 @@
   // Les retirer est une décision distincte, signalée à Emilien — ce projet a
   // déjà failli perdre server/lib/period.js sur une conclusion trop rapide.
 
-  function openCommunityMembersModal(activityId, activityName) {
+  // Une ligne de la liste des membres. Extraite telle quelle de
+  // openCommunityMembersModal (5 septembre 2026) pour être partagée avec le cas
+  // SOLO, qui la construit sans passer par le serveur — aucun caractère du
+  // rendu n'a changé.
+  function buildActivityMemberRow(m) {
+    var row = document.createElement('div');
+    row.className = 'activityRow';
+    row.innerHTML =
+      '<div class="activityRowHeader">' +
+      '<span class="dot" style="background:' + m.color + '"></span>' +
+      '<span class="activityRowName">' + escapeHtml(m.name) + (profile && m.userId === profile.id ? t(' (toi)') : '') + '</span>' +
+      (m.isRunning ? '<span class="memberLiveDot" title="' + t('Chrono en cours sur cette activité') + '"></span>' : '') +
+      '</div>';
+    return row;
+  }
+
+  // Les deux boutons sous la liste. Demande d'Emilien, 5 septembre 2026 :
+  // « en dessous il y a un bouton ajouter membre pour le créateur de l'activité
+  // uniquement ou alors pour les activités solo et un autre bouton quitter la
+  // communauté pour les activités partagées ».
+  //
+  // ⚠️ « Ajouter un membre » envoie EXACTEMENT la même invitation que le bouton
+  // « Partager » du menu « ⋮ » (POST /activities/:id/invite) : aucune seconde
+  // route, aucun second mécanisme. Seule la règle d'AFFICHAGE diffère —
+  // « Partager » reste ouvert à tout membre (choix d'origine, non touché),
+  // celui-ci est réservé au créateur. Différence voulue par Emilien, signalée.
+  //
+  // ⚠️ « Quitter la communauté » appelle POST /activities/:id/separate, le même
+  // que « Séparer ». Ce n'est PAS une suppression : on repart avec sa propre
+  // activité personnelle du même nom et tout son historique déjà enregistré.
+  // Le libellé change, le comportement non — et la confirmation le dit en
+  // toutes lettres, parce que « quitter » se lit facilement comme « perdre ».
+  function renderActivityMembersActions(a, isShared) {
+    var box = $('activityMembersActions');
+    if (!box) return;
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    if (!a || !profile) return;
+
+    if (a.isOwner || !isShared) {
+      var addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'iconBtn';
+      addBtn.textContent = t('Ajouter un membre');
+      addBtn.addEventListener('click', function () {
+        var pseudo = prompt(t('Pseudo de la personne à inviter sur "{activity}" :', { activity: a.name }));
+        if (!pseudo || !pseudo.trim()) return;
+        api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: pseudo.trim() })
+          .then(function (res) { alert(t(res.message)); })
+          .catch(function (err) { alert(err.message); });
+      });
+      box.appendChild(addBtn);
+    }
+
+    if (isShared) {
+      var leaveBtn = document.createElement('button');
+      leaveBtn.type = 'button';
+      leaveBtn.className = 'iconBtn';
+      leaveBtn.textContent = t('Quitter la communauté');
+      leaveBtn.addEventListener('click', function () {
+        if (!confirm(t('Quitter "{activity}" ? Tu gardes ta propre activité personnelle du même nom, avec tout ton historique déjà enregistré. Les autres membres ne sont pas concernés.', { activity: a.name }))) return;
+        api('POST', '/api/activities/' + a.id + '/separate', { userId: profile.id })
+          .then(function (res) {
+            $('communityMembersModal').classList.add('hidden');
+            // L'activité vient de changer de nature : elle n'est plus partagée,
+            // sa page n'a donc plus les mêmes sections. On la referme plutôt que
+            // de laisser à l'écran une fenêtre qui ne lui correspond plus.
+            closeActivityPage();
+            refreshActivities().then(renderActivityGrid);
+            alert(t(res.message));
+          })
+          .catch(function (err) { alert(err.message); });
+      });
+      box.appendChild(leaveBtn);
+    }
+
+    box.classList.toggle('hidden', !box.children.length);
+  }
+
+  // ⚠️ 5 septembre 2026 (Activité solo) — troisième paramètre OPTIONNEL `opts`,
+  // sur le modèle déjà employé plusieurs fois dans ce fichier. Sans lui, le
+  // comportement est strictement celui d'avant, et c'est le cas de l'appelant
+  // historique : « Voir les membres » du menu « ⋮ ».
+  //
+  //   opts.activity : l'activité, pour construire les boutons sous la liste.
+  //                   Absent → aucun bouton, la zone reste masquée.
+  //   opts.solo     : l'activité n'a qu'un seul membre. La route
+  //                   /community/activity-members est gardée par
+  //                   checkSharedActivityAccess, qui REFUSE toute activité de
+  //                   moins de deux membres. On ne demande donc pas au serveur
+  //                   une liste qu'on connaît déjà — c'est moi, et moi seul.
+  //                   Aucune garde n'a eu à être assouplie pour cet écran.
+  function openCommunityMembersModal(activityId, activityName, opts) {
     if (!profile) return;
+    opts = opts || {};
+    renderActivityMembersActions(opts.activity || null, !opts.solo);
+
+    if (opts.solo) {
+      $('communityMembersModalTitle').textContent = t('Membres · {name}', { name: activityName });
+      var soloBox = $('communityMembersModalList');
+      soloBox.innerHTML = '';
+      soloBox.appendChild(buildActivityMemberRow({
+        userId: profile.id,
+        name: profile.name,
+        // La couleur de l'activité plutôt que celle du profil : c'est celle-ci
+        // qu'on voit partout ailleurs sur cet écran (pastille de l'en-tête,
+        // parts du camembert).
+        color: (opts.activity && opts.activity.color) || profile.color,
+        isRunning: false,
+      }));
+      $('communityMembersModal').classList.remove('hidden');
+      return;
+    }
+
     api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + activityId).then(function (data) {
       $('communityMembersModalTitle').textContent = t('Membres · {name}', { name: data.activityName });
       var box = $('communityMembersModalList');
       box.innerHTML = '';
-      data.members.forEach(function (m) {
-        var row = document.createElement('div');
-        row.className = 'activityRow';
-        row.innerHTML =
-          '<div class="activityRowHeader">' +
-          '<span class="dot" style="background:' + m.color + '"></span>' +
-          '<span class="activityRowName">' + escapeHtml(m.name) + (profile && m.userId === profile.id ? t(' (toi)') : '') + '</span>' +
-          (m.isRunning ? '<span class="memberLiveDot" title="' + t('Chrono en cours sur cette activité') + '"></span>' : '') +
-          '</div>';
-        box.appendChild(row);
-      });
+      data.members.forEach(function (m) { box.appendChild(buildActivityMemberRow(m)); });
       $('communityMembersModal').classList.remove('hidden');
     });
   }

@@ -111,6 +111,33 @@ html, body { overscroll-behavior-y: none; }
    fenêtre visible. */
 html.noScrollNeeded, body.noScrollNeeded { overflow: hidden; }
 
+/* Sélection de texte au toucher désactivée sur toute l'app (Design,
+   5 septembre 2026, demande d'Emilien) : un appui long sur du contenu
+   déclenche par défaut le menu natif "Copier / Sélectionner tout" du
+   téléphone (et, sur Android, les poignées de sélection) — or l'app utilise
+   elle-même l'appui long comme geste (bindActivityLongPress,
+   bindSubProjectLongPress dans app.js, 500 ms chacun), et les deux gestes se
+   déclenchent quasiment en même temps : le menu natif apparaît et vient
+   perturber l'ouverture du mode d'options attendu. -webkit-touch-callout
+   retire spécifiquement ce menu sur iOS/Safari ; user-select empêche la
+   sélection elle-même, nécessaire aussi sur Android qui n'a pas de
+   touch-callout mais affiche ses propres poignées. Portée volontairement
+   large (body entier, pas seulement les zones à appui long) : Emilien a
+   demandé de retirer la copie au toucher partout, pas seulement là où elle
+   gêne aujourd'hui. Les champs de saisie réels sont réactivés juste
+   après : on ne peut pas corriger un texte qu'on ne peut pas sélectionner à
+   l'intérieur. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -3098,3 +3125,63 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .subProjectDueActions { flex: 1 1 100%; }
 .subProjectDueHint { flex: 1 1 100%; margin: 0; }
+
+/* ===== Page d'activite : zone sure de l'appareil (5 septembre 2026) =====
+   BUG signale par Emilien, capture a l'appui : « lorsque mon frere ouvre la
+   fenetre activite, le mode plein ecran se met et alors les donnees tout en
+   haut de l'ecran sont melangees avec les donnees de l'appareil ».
+
+   Cause : #activityPage est la SEULE surface de l'app qui occupe tout l'ecran
+   (position: fixed; inset: 0 ; carte pleine hauteur depuis le 3 septembre).
+   .topbar, elle, reserve depuis toujours la place de la barre d'etat avec
+   env(safe-area-inset-*) — mais .activityPageHeader n'avait qu'un padding fixe
+   de 16px. Sur un telephone a encoche, en PWA installee, l'en-tete de la page
+   se dessinait donc SOUS l'heure, le reseau et la batterie.
+
+   Le meta viewport porte deja viewport-fit=cover : les insets sont donc bien
+   renseignes, il suffisait de les lire. max() plutot qu'une addition : sur un
+   ecran sans encoche l'inset vaut 0 et le padding d'origine est conserve tel
+   quel — aucune difference visible sur les appareils qui n'ont pas le probleme.
+
+   /!\ padding-top de #activityPageScroll VOLONTAIREMENT non touche : sa valeur
+   est lue au pixel pres par pinSubProjectSticky() pour caler l'en-tete collant
+   d'un sous-projet. Seuls les cotes et le bas recoivent les insets. */
+.activityPageHeader {
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+#activityPageScroll {
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Les deux actions sous la liste des membres. Empilees et pleine largeur, sur
+   le modele de .deleteActivityChoices : leurs libelles sont longs, cote a cote
+   ils passeraient a la ligne n'importe ou sur un telephone. */
+.activityMembersActions { flex-direction: column; align-items: stretch; margin-top: 12px; }
+.activityMembersActions .iconBtn { width: 100%; text-align: center; }
+
+/* Un .menuBtn qui contient une icone dessinee plutot qu'un caractere. Regle
+   additive : aucun bouton existant ne contient de <svg>, donc rien ne bouge
+   ailleurs. (.menuBtn appartient a Design — debordement de deux lignes,
+   signale.) */
+.menuBtn svg { display: block; margin: 0 auto; }
+
+/* ===== La page d'activite est une PAGE, pas une boite de dialogue =====
+   BUG trouve par test18.js, pas a l'oeil : #activityPage porte la classe
+   .communityMembersModal, donc son z-index valait 100 — exactement celui des
+   modales. A egalite, c'est l'ordre du document qui tranche, et #activityPage
+   est declare APRES #communityMembersModal : la liste des membres ouverte
+   depuis la page s'affichait donc DERRIERE elle. Playwright l'a dit sans
+   ambiguite (« #activityPageScroll intercepts pointer events »), alors que les
+   assertions de contenu passaient toutes : le noeud etait bien la, simplement
+   invisible et inatteignable.
+
+   Une page se place SOUS les boites de dialogue qu'elle ouvre, et AU-DESSUS de
+   la barre du haut et de la barre d'onglets (10). D'ou 90 : au-dessus des
+   barres, sous toutes les modales (100) et sous la visionneuse d'image (200).
+   Corrige du meme coup l'ouverture de n'importe quelle autre modale depuis
+   cette page. */
+#activityPage { z-index: 90; }

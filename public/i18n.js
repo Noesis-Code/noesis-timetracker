@@ -331,6 +331,11 @@
     'Te désabonner de {name} ?': 'Unfollow {name}?',
     '{name} souhaite te suivre.': '{name} wants to follow you.',
     'Membres · {name}': 'Members · {name}',
+    // Actions sous la liste des membres (Activité solo, 5 septembre 2026).
+    'Ajouter un membre': 'Add a member',
+    'Quitter la communauté': 'Leave the community',
+    'Quitter "{activity}" ? Tu gardes ta propre activité personnelle du même nom, avec tout ton historique déjà enregistré. Les autres membres ne sont pas concernés.':
+      'Leave "{activity}"? You keep your own personal activity with the same name and all your recorded history. The other members are not affected.',
     'En cours depuis {time}': 'Running since {time}',
     'Partagée par {owner} — tu peux choisir ta couleur, le reste lui appartient.': 'Shared by {owner} — you can pick your colour, the rest belongs to them.',
     '{count} membres — visible dans Communauté.': '{count} members — visible in Community.',

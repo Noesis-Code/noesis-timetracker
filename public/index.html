@@ -1964,6 +1964,12 @@
             <button type="button" class="menuBtn" id="communityMembersModalClose" aria-label="Fermer">✕</button>
           </div>
           <div id="communityMembersModalList" class="activitiesList"></div>
+          <!-- ⚠️ 5 septembre 2026 (Activité solo) : zone d'actions sous la liste,
+               remplie par renderActivityMembersActions(). Elle reste VIDE et
+               masquée quand la liste est ouverte depuis « Voir les membres »
+               (menu « ⋮ ») : cet appelant historique ne passe pas d'activité, son
+               écran est donc strictement inchangé. -->
+          <div id="activityMembersActions" class="rowActions activityMembersActions hidden"></div>
         </div>
       </div>
 
@@ -2520,6 +2526,21 @@
         <div class="activityPageHeader">
           <span class="dot" id="activityPageDot"></span>
           <span class="activityPageName" id="activityPageName"></span>
+          <!-- ⚠️ 5 septembre 2026 (Activité solo), demande d'Emilien : « je souhaite
+             ajouter une icône. Un petit personnage avec un + sur lequel on
+             clique, on voit la liste des membres et en dessous il y a un bouton
+             ajouter membre [...] et un autre bouton quitter la communauté ».
+             Dessinée en SVG inline plutôt qu'en emoji : elle suit alors le
+             thème (stroke: currentColor) et garde la même taille sur tous les
+             appareils, ce qu'un emoji ne fait ni l'un ni l'autre. -->
+          <button type="button" class="menuBtn" id="activityPageMembersBtn" aria-label="Membres" title="Membres">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <circle cx="9" cy="8" r="3.2"></circle>
+              <path d="M3 20v-1a5.5 5.5 0 0 1 5.5-5.5h1.5"></path>
+              <path d="M18 13v6"></path>
+              <path d="M15 16h6"></path>
+            </svg>
+          </button>
           <button type="button" class="menuBtn" id="activityPageClose" aria-label="Fermer">✕</button>
         </div>
         <div id="activityPageScroll">
