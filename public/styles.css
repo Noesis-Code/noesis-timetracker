@@ -349,6 +349,61 @@ input[type=time]:focus, select:focus, textarea:focus {
    occupe maintenant toute la largeur de .topbarProfile sans rien en
    dessous. */
 .topbarProfile .identityHeader { width: 100%; margin-bottom: 0; }
+/* Bande "Projets" de la barre supérieure (4 septembre 2026, demande
+   d'Emilien : « déplacer les projets dans la zone du profil [...] une fois
+   créé les projet n'affiche que le nom et les logo des recherches, les
+   details apparaissent lorsqu'on clic dessus », cadrée en « Dans la barre
+   supérieure, sous l'identité »). Troisième ligne de .topbarProfile, sous
+   "Noèsis" et la ligne d'identité — voir #topbarProjects dans index.html.
+   Défilement HORIZONTAL et non retour à la ligne : le nombre de projets est
+   illimité, une bande qui passerait sur 3 ou 4 lignes ferait grandir une
+   barre en `position: fixed` jusqu'à recouvrir la page. La barre garde donc
+   une hauteur d'exactement une ligne de pastilles, quel que soit le nombre de
+   projets. `flex-shrink: 0` sur le "+" : il reste atteignable même quand la
+   bande déborde. */
+.topbarProjects { display: flex; align-items: center; gap: 8px; width: 100%; }
+.topbarProjectsStrip {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+  overflow-x: auto; overflow-y: hidden; padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.topbarProjectsStrip::-webkit-scrollbar { display: none; }
+/* Pastille d'un projet : nom + badges "Recherche", rien d'autre (c'est la
+   demande). `max-width` + ellipse : un nom long ne pousse jamais les autres
+   pastilles hors de portée. */
+.projectChip {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+  max-width: 60vw; padding: 4px 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18);
+  color: white; font-size: 13px; line-height: 1.3; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.projectChip:active { background: rgba(255, 255, 255, 0.22); }
+.projectChipName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Les badges viennent de buildSeekingBadges(seeking, false), partagée avec la
+   liste dépliée et la page de visite d'un profil : aucune de ses règles n'est
+   redéfinie ici, seul l'espacement du conteneur est neutralisé pour tenir
+   dans une pastille. */
+.projectChip .seekingBadges { margin: 0; flex-shrink: 0; }
+/* Le "+" : même sobriété que .topIconBtn (pas de fond, pas de bordure,
+   directement sur le noir de .topbar), mais un glyphe texte plutôt qu'un
+   SVG. */
+.topbarProjectsAddBtn {
+  flex-shrink: 0; background: none; border: none; padding: 0 4px; margin: 0;
+  color: white; font-size: 20px; line-height: 1; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Le panneau flottant des projets réutilise .notifPanel telle quelle (aucune
+   de ses règles redéfinie) — seulement élargi comme l'est déjà celui des
+   Réglages : il contient des formulaires, pas une simple liste. */
+#profileProjectsPanel.projectsPanel { width: min(380px, 92vw); }
+#profileProjectsPanel .subpageHeader { margin-bottom: 10px; }
+/* #avatarMsg (message d'erreur du changement de photo) est vide dans
+   l'immense majorité des cas, mais réservait quand même sa ligne — 28px de
+   noir en bas d'une barre qui vient de gagner une troisième ligne. Il ne
+   prend plus de place que s'il a quelque chose à dire. Même correctif que
+   celui déjà appliqué à #viewProfileProjectsMsg le 2 septembre 2026. */
+.topbarProfile #avatarMsg:empty { display: none; }
 #content { flex: 1; padding: 18px 5%; max-width: 640px; margin: 0 auto; width: 100%; }
 
 .tabbar {
@@ -1379,6 +1434,28 @@ body.scrollLock { overflow: hidden; }
   line-height: 1; cursor: pointer; border-radius: var(--radius-sm);
 }
 .discussionMsgDelete:hover { background: var(--hover-bg); color: var(--red); }
+/* Flux du Profil (4 septembre 2026, demande d'Emilien : « je souhaite que les
+   publications fassent partie à part entière du flux dans le profil et ne
+   soient pas une sous section », précisée en « La section avec le texte et les
+   options pour publier défile dans le flux avec les publication. Les
+   publication ne doivent pas glisser en dessous »).
+
+   C'est le `max-height: 340px; overflow-y: auto` de .discussionList ci-dessus
+   qui produisait le défaut décrit : les publications défilaient DANS leur
+   propre boîte, en glissant sous le bord de cette boîte, pendant que le
+   composeur restait immobile juste au-dessus — exactement l'impression d'une
+   sous-section détachée du reste de la page. En rendant la liste de hauteur
+   libre, c'est la PAGE qui défile : le composeur (et le formulaire de sondage
+   qui le suit) remontent avec elle, les publications ne passent plus sous
+   rien, et le flux se lit d'un seul tenant.
+
+   ⚠️ Porté par l'id, jamais par .discussionList : la même classe sert au fil
+   d'une activité partagée, à celui d'un sous-projet et à la page de visite
+   d'un profil, qui gardent tous leur boîte à hauteur bornée. */
+#profileDiscussionCommunityList { max-height: none; overflow-y: visible; padding-right: 0; }
+/* Le formulaire de sondage vit désormais entre le composeur et le flux (voir
+   index.html) : sans marge, il se collait au bouton "Envoyer". */
+#profileDiscussionBlock .pollsBlock:not(:empty) { margin-top: 8px; }
 .discussionComposer { margin-top: 10px; }
 .discussionComposer textarea { min-height: 56px; background: var(--card); color: var(--text); box-sizing: border-box; }
 .discussionComposer .rowActions { margin-top: 8px; }
@@ -2958,13 +3035,6 @@ button { -webkit-user-select: none; user-select: none; }
 }
 /* Déjà clôturé : visible seulement via « afficher les sous-projets clôturés ». */
 .subProjectDue.closed { opacity: 0.55; }
-
-/* ----- Activite SOLO depliee dans le volet Activite (4 septembre 2026) -----
-   Le bandeau ne contient que le bouton "Fermer" : .sectionTitleRow etant en
-   space-between, un enfant unique se collerait a gauche. On le pousse a
-   droite, la ou vit deja la croix de fermeture de la page d activite, pour
-   que le geste soit au meme endroit dans les deux affichages. */
-.activityInlineHeader { justify-content: flex-end; margin-bottom: 4px; }
 
 /* ---- Éditeur de la date de clôture (4 septembre 2026)
    Une ligne entière sous l'en-tête plutôt qu'un panneau flottant : rien à

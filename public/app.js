@@ -1064,7 +1064,6 @@
     renderLangSwitch();
     renderShareSettings();
     loadProfileProjects();
-    loadProfileNotes();
     loadProfileDiscussion();
     refreshScrollLock();
   }
@@ -1411,49 +1410,20 @@
       });
   });
 
-  // `onDeleted` est rappelé après une suppression réussie, pour que
-  // l'appelant rafraîchisse la bonne liste (Mes notes dans Profil, seul
-  // appelant depuis le retrait de l'historique de la semaine du Chrono).
-  function buildHistoryCard(entry, onDeleted) {
-    var card = document.createElement('div');
-    card.className = 'historyEntry';
-
-    var start = new Date(entry.startTime), end = new Date(entry.endTime);
-    var dateLabel = start.toLocaleDateString(dateLocale(), { weekday: 'long', day: '2-digit', month: '2-digit' });
-    var timeLabel = pad(start.getHours()) + ':' + pad(start.getMinutes()) + ' → ' + pad(end.getHours()) + ':' + pad(end.getMinutes());
-
-    var activity = activitiesCache.find(function (a) { return a.id === entry.activityId; }) || { name: entry.activity, color: '#CCCCCC' };
-
-    card.innerHTML =
-      '<div class="rowTop">' +
-        '<span class="actName"><span class="dot" style="background:' + activity.color + '"></span>' + escapeHtml(entry.activity) + '</span>' +
-        '<span class="meta">' + formatHM(entry.durationSeconds) + '</span>' +
-      '</div>' +
-      '<div class="meta">' + dateLabel + ' · ' + timeLabel + '</div>' +
-      (entry.note ? '<div class="note">' + escapeHtml(entry.note) + '</div>' : '');
-
-    var actions = document.createElement('div');
-    actions.className = 'actions';
-
-    var delBtn = document.createElement('button');
-    delBtn.className = 'iconBtn danger';
-    delBtn.textContent = t('Supprimer');
-    delBtn.addEventListener('click', function () {
-      if (!confirm(t('Supprimer cet enregistrement ?'))) return;
-      api('DELETE', '/api/history/' + entry.id + '?userId=' + profile.id).then(onDeleted).catch(function (err) { alert(err.message); });
-    });
-    actions.appendChild(delBtn);
-    card.appendChild(actions);
-    return card;
-  }
+  // buildHistoryCard(entry, onDeleted) a été retirée le 4 septembre 2026 en
+  // même temps que la section "Mes notes" du Profil (demande d'Emilien), dont
+  // elle était l'unique appelante depuis le retrait de l'historique de la
+  // semaine du Chrono. Ne pas la confondre avec buildChronoHistoryEntry
+  // ci-dessous, qui est une fonction distincte, toujours utilisée par le
+  // panneau "Historique" du Chrono et laissée strictement inchangée.
 
   // ===================== HISTORIQUE MODIFIABLE (Chrono) =====================
   // Demande d'Emilien (29 août 2026) : pouvoir corriger la date/l'heure d'une
   // session déjà enregistrée, ou la supprimer, depuis l'onglet Chrono —
-  // explicitement séparé de buildHistoryCard ci-dessus (réservée à "Mes
-  // notes" dans Profil, où seule la suppression complète existe). Les deux
-  // fonctions restent indépendantes : rien ici ne touche à buildHistoryCard,
-  // ni à la section "Mes notes".
+  // explicitement séparé de buildHistoryCard (retirée le 4 septembre 2026
+  // avec la section "Mes notes" — voir le commentaire juste au-dessus). Les
+  // deux fonctions étaient indépendantes : la suppression de l'une n'a rien
+  // changé à celle-ci.
   function buildChronoHistoryEntry(entry, onChanged) {
     var card = document.createElement('div');
     card.className = 'historyEntry';
@@ -2979,26 +2949,31 @@
     }
   }
 
-  // ⚠️ 4 septembre 2026 (discussion « Activité solo ») — DEUX COMPORTEMENTS,
-  // plus un seul. Demande d'Emilien, verbatim : « lorsque l'on clique sur
-  // activité solo depuis le volet activité, on puisse directement ajouter un
-  // projet et que les projets soient directement visibles, toujours sur le
-  // volet, sans aller dans une nouvelle page. »
+  // ⚠️ 5 septembre 2026 (discussion « Activité solo ») — UNE PAGE DANS LES DEUX
+  // CAS, mais pas les mêmes sections. Demande d'Emilien, verbatim : « lorsque
+  // je clique sur une activité solo, une fenêtre s'ouvre identique aux
+  // fenêtres partagées, mais sans les sections discussions et statistiques.
+  // Uniquement l'option d'ajouter des sous-projets et des tâches. »
   //
-  //   activité PARTAGÉE → la page plein écran, inchangée (trois sections) ;
-  //   activité SOLO     → le MÊME bloc, déplié dans sa ligne du volet.
+  //   activité PARTAGÉE → trois sections : Sous-projets / Statistiques / Discussion.
+  //   activité SOLO     → une seule : Sous-projets. Le sélecteur est masqué —
+  //                       un sélecteur à un seul bouton n'est pas un choix.
   //
-  // C'est le même nœud dans les deux cas (#communityActivityDetail) : on ne
-  // change que son hôte. Rien n'est dupliqué, rien n'est reconstruit —
-  // attachActivityDetail(host) n'a jamais cessé d'accepter un hôte, c'est le
-  // mécanisme d'avant la page, remis en service pour le solo.
+  // ⚠️ Historique de ce geste, pour qui le relira : il a changé trois fois en
+  // deux jours. Page à trois sections (3 sept) → bloc déplié dans la ligne du
+  // volet (4 sept, matin) → page à une section (5 sept, ici). Le mécanisme
+  // « déplié dans le volet » (openActivityInline, detachInlineDetail,
+  // closeActivityInline, le bandeau #activityInlineHeader) a été RETIRÉ
+  // entièrement plutôt que laissé en sommeil : deux chemins d'affichage pour
+  // le même bloc, dont un mort, est exactement ce qui rend ce fichier difficile
+  // à relire.
   //
-  // ⚠️ LA RÈGLE « solo sans sous-projet → aucune page » EST CADUQUE. Elle
-  // répondait à « ne pas ouvrir une page vide » ; il n'y a plus de page à
-  // ouvrir, et le bloc déplié porte lui-même de quoi créer le premier
-  // sous-projet. Le formulaire déplié dans la ligne qui la mettait en œuvre a
-  // donc été retiré (openInlineSubProjectForm) : il faisait doublon avec
-  // #newSubProjectCard, qui est maintenant visible au même endroit.
+  // ⚠️ LA RÈGLE « solo sans sous-projet → aucune page » RESTE CADUQUE, et c'est
+  // volontaire. Elle répondait à « ne pas ouvrir une page vide » ; la page
+  // porte maintenant elle-même de quoi créer le premier sous-projet, et son
+  // formulaire s'ouvre tout seul dans ce cas précis. Le second formulaire qui
+  // se dépliait dans la ligne (openInlineSubProjectForm) reste supprimé — il
+  // faisait doublon avec #newSubProjectCard.
   //
   // Ce que le solo ne montre PAS, et pourquoi :
   //   · pas de Statistiques — Emilien, 4 septembre : « je souhaite que les
@@ -3006,38 +2981,40 @@
   //     activité étant donné qu'elles seront désormais disponibles depuis le
   //     volet stats » ;
   //   · pas de Discussion, ni de sondage dans ses sous-projets — on est seul.
-  // Tout le reste est identique au partagé : l'anneau d'avancement global, la
-  // liste des sous-projets avec leur avancement local, leurs tâches, et leur
-  // rattachement au chrono.
-  var activityInlineMode = false;
+  // Tout le reste est identique au partagé : même fenêtre, même en-tête, même
+  // anneau d'avancement global, mêmes sous-projets avec leur avancement local,
+  // leurs tâches et leur rattachement au chrono.
   var pendingOpenNewSubProjectForm = false;
 
   function openActivityPage(a, sharedInfo, row) {
     if (!profile || !a) return;
     var isShared = !!sharedInfo || a.membersCount > 1;
 
-    if (!isShared) { openActivityInline(a, row); return; }
-
-    // On vient d'une activité solo dépliée : le nœud doit remonter dans la
-    // page AVANT qu'elle ne s'affiche, sinon elle s'ouvrirait vide.
-    if (activityInlineMode) detachInlineDetail();
-
     currentCommunityActivityId = String(a.id);
-    currentActivityIsShared = true;
+    currentActivityIsShared = isShared;
 
     $('activityPageDot').style.background = a.color;
     $('activityPageName').textContent = a.name;
 
-    // Une activité partagée a toujours ses trois sections : ces trois bascules
-    // ne dépendent plus du partage, puisqu'on n'arrive ici qu'en partagé.
-    $('activityPageTabStats').classList.remove('hidden');
-    $('activityPageTabDisc').classList.remove('hidden');
-    $('activityPageSectionSwitch').classList.remove('hidden');
+    // Statistiques et Discussion n'existent que sur une activité partagée, et
+    // le sélecteur avec elles : en solo il ne resterait qu'un bouton
+    // « Sous-projets » qui ne mène nulle part ailleurs.
+    $('activityPageTabStats').classList.toggle('hidden', !isShared);
+    $('activityPageTabDisc').classList.toggle('hidden', !isShared);
+    $('activityPageSectionSwitch').classList.toggle('hidden', !isShared);
 
-    // Sans sous-projet, la section par défaut n'aurait rien à montrer : on
-    // ouvre alors sur Statistiques (règle tranchée par Emilien le 3 septembre,
-    // toujours valable côté partagé).
-    setActivityPageSection(activityHasSubProjects(a) ? 'sub' : 'stats');
+    // Une activité partagée sans sous-projet ouvre sur Statistiques : sa
+    // section par défaut n'aurait rien à montrer (règle d'Emilien du
+    // 3 septembre). En solo, Sous-projets est la seule section possible.
+    setActivityPageSection(isShared && !activityHasSubProjects(a) ? 'stats' : 'sub');
+
+    // « Uniquement l'option d'ajouter des sous-projets et des tâches » : sur
+    // une activité solo qui n'en a encore aucun, le formulaire de création
+    // s'ouvre de lui-même — c'est la seule chose à faire sur cette page, elle
+    // ne mérite pas un second geste. Le drapeau est consommé par
+    // renderSubProjectsList, seul endroit qui connaisse le nombre RÉEL de
+    // sous-projets revenus du serveur.
+    pendingOpenNewSubProjectForm = !isShared && !activityHasSubProjects(a);
 
     $('activityPage').classList.remove('hidden');
     // La zone défilante repart du haut : rouvrir une activité ne doit pas
@@ -3058,55 +3035,7 @@
     loadSettingsActivities();
   }
 
-  // ----- Activité SOLO : le bloc se déplie dans sa ligne -----
-  function openActivityInline(a, row) {
-    $('activityPage').classList.add('hidden');
-    stopDiscussionPolling();
-
-    currentCommunityActivityId = String(a.id);
-    currentActivityIsShared = false;
-    activityInlineMode = true;
-    // « on puisse directement ajouter un projet » : quand l'activité n'a encore
-    // aucun sous-projet, le formulaire de création s'ouvre de lui-même — c'est
-    // la seule chose à faire sur cet écran, elle ne mérite pas un second geste.
-    // Le drapeau est consommé par renderSubProjectsList, seul endroit qui
-    // connaît le nombre RÉEL de sous-projets revenus du serveur.
-    pendingOpenNewSubProjectForm = true;
-
-    if (row) attachActivityDetail(row);
-    $('activityInlineHeader').classList.remove('hidden');
-    setActivityPageSection('sub');
-
-    // `true` : la ligne dépliée est amenée sous les yeux. Contrairement à la
-    // page, qui occupe tout l'écran, ce bloc peut s'ouvrir hors du champ de
-    // vision si l'activité est basse dans la liste.
-    loadActivityDetail(true);
-    loadSettingsActivities();
-  }
-
-  // Remet le nœud dans la page (son hôte par défaut) et le masque. Ne touche
-  // NI à la sélection NI aux données : c'est la moitié « déplacement » de la
-  // fermeture, réutilisée telle quelle quand on passe d'une activité solo à
-  // une activité partagée sans rien fermer entre les deux.
-  function detachInlineDetail() {
-    activityInlineMode = false;
-    $('activityInlineHeader').classList.add('hidden');
-    var detail = activityDetailEl();
-    if (detail) detail.classList.add('hidden');
-    attachActivityDetail(null);
-  }
-
-  function closeActivityInline() {
-    if (!activityInlineMode) return;
-    detachInlineDetail();
-    currentCommunityActivityId = '';
-    stopDiscussionPolling();
-    resetSubProjectsBlock();
-    loadSettingsActivities();
-  }
-
   $('activityPageClose').addEventListener('click', closeActivityPage);
-  $('activityInlineClose').addEventListener('click', closeActivityInline);
 
   // Clic sur le fond noir, hors de la carte : referme, comme la page de visite
   // d'un profil. Le test sur e.target évite de refermer quand le clic vient
@@ -3228,18 +3157,6 @@
   // discussion "Activité — général" : le jour où elle le change, la bande
   // revient sans que personne ne le voie. On lit donc la valeur réelle.
   function pinSubProjectSticky(stick) {
-    // ⚠️ 4 septembre 2026 (Activité solo, débordement signalé — 5 lignes) :
-    // sur une activité non partagée, ce bloc n'est plus dans la page mais
-    // déplié dans le volet. Le conteneur de défilement est alors la page
-    // elle-même, dont le haut est recouvert par la topbar fixe : la butée est
-    // sa hauteur réelle, déjà mesurée en continu par syncTopbarHeightVar()
-    // (Design) et exposée en --topbar-h. Une valeur en dur ferait revenir la
-    // bande où le contenu défile, exactement comme le 3 septembre.
-    if (activityInlineMode) {
-      var h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h'));
-      stick.style.top = (h > 0 ? h : 56) + 'px';
-      return;
-    }
     var scroller = document.getElementById('activityPageScroll');
     var pad = scroller ? (parseFloat(getComputedStyle(scroller).paddingTop) || 0) : 0;
     stick.style.top = pad ? (-pad) + 'px' : '0';
@@ -5446,7 +5363,7 @@
 
   // ----- Flux "Partagée" et "Suivi" : cartes en lecture seule (activité de
   // quelqu'un d'autre, jamais supprimable depuis ici), avec le nom de
-  // l'auteur — contrairement à buildHistoryCard (mes propres entrées). -----
+  // l'auteur — contrairement à l'ex-buildHistoryCard (mes propres entrées). --
   function buildFeedEntryCard(entry) {
     var card = document.createElement('div');
     card.className = 'historyEntry';
@@ -5937,6 +5854,9 @@
   function showProfileSettings() {
     closeNotifPanel();
     closeFollowsPanel();
+    // Quatrième panneau flottant de la barre supérieure depuis le 4 septembre
+    // 2026 (Projets) : l'exclusion mutuelle passe de trois à quatre.
+    closeProjectsPanel();
     closeAllSettingsSections();
     $('profileSettingsPanel').scrollTop = 0;
     // Le panneau ne passe plus par openProfile() : c'est donc lui qui doit
@@ -6189,6 +6109,7 @@
     openProfile();
     closeSettingsPanel();
     closeFollowsPanel();
+    closeProjectsPanel();
     $('profileNotifPanel').classList.remove('hidden');
     $('profileNotifBtn').classList.add('active');
   }
@@ -6305,6 +6226,7 @@
     if (opening) {
       closeSettingsPanel();
       closeNotifPanel();
+      closeProjectsPanel();
       loadFollowConnections();
     }
     $('profileFollowsPanel').classList.toggle('hidden', !opening);
@@ -6345,7 +6267,7 @@
     // Les panneaux flottants de la barre du haut s'excluent mutuellement :
     // ouvrir les invitations referme les Réglages et Abonnés & Abonnements,
     // et réciproquement (demande d'Emilien, 1er et 2 septembre 2026).
-    if (opening) { closeSettingsPanel(); closeFollowsPanel(); }
+    if (opening) { closeSettingsPanel(); closeFollowsPanel(); closeProjectsPanel(); }
     $('profileNotifPanel').classList.toggle('hidden', !opening);
     $('profileNotifBtn').classList.toggle('active', opening);
   });
@@ -6462,26 +6384,17 @@
       .finally(function () { $('settingsPinSaveBtn').disabled = false; });
   });
 
-  // ===================== MES NOTES =====================
-  // Toutes les notes que CE profil a laissées sur ses propres sessions,
-  // toutes activités et toutes périodes confondues (contrairement à
-  // l'historique du Chrono, limité à la semaine en cours) — alimente la
-  // section "Mes notes" de l'onglet Profil. Réutilise buildHistoryCard,
-  // qui construit déjà la même carte (activité, date, durée, note,
-  // suppression) pour l'historique de Chrono.
-  function loadProfileNotes() {
-    if (!profile) return;
-    api('GET', '/api/notes?userId=' + profile.id).then(renderNotesList);
-  }
-
-  function renderNotesList(entries) {
-    var box = $('notesList');
-    box.innerHTML = '';
-    $('notesEmptyHint').classList.toggle('hidden', entries.length > 0);
-    entries.forEach(function (entry) {
-      box.appendChild(buildHistoryCard(entry, loadProfileNotes));
-    });
-  }
+  // ===================== MES NOTES — SUPPRIMÉE LE 4 SEPTEMBRE 2026 =====================
+  // Demande d'Emilien : « je souhaite supprimer les notes », cadrée en
+  // « Tout supprimer, interface et serveur ». loadProfileNotes/renderNotesList
+  // retirées ici, #notesList/#notesEmptyHint retirés d'index.html, et
+  // GET /api/notes retirée de server/routes/history.js. buildHistoryCard, dont
+  // c'était l'unique appelant, est retirée du même coup (voir plus haut, zone
+  // Chrono) — buildChronoHistoryEntry, l'autre carte d'historique, est une
+  // fonction indépendante et reste en place, inchangée.
+  // Les notes déjà saisies restent en base (colonne time_entries.note, non
+  // touchée) : plus rien ne les lit, rien n'est effacé. Le Chrono n'offre de
+  // toute façon plus aucun moyen d'en écrire depuis le 31 août 2026.
 
   // ===================== SECTION "PROJETS" (Profil) =====================
   // Voir le commentaire au-dessus de #projectsList/#newProjectCard dans
@@ -6794,8 +6707,111 @@
       .catch(function (err) { alert(err.message); });
   }
 
+  // ===================== PROJETS DANS LA BARRE SUPÉRIEURE (4 sept. 2026) =====================
+  // Demande d'Emilien, verbatim : « déplacer les projets dans la zone du
+  // profil (une fois créé les projet n'affiche que le nom et les logo des
+  // recherches, les details apparaissent lorsqu'on clic dessus) », précisée au
+  // cadrage par « Dans la barre supérieure, sous l'identité ».
+  //
+  // Deux niveaux, un seul jeu de données :
+  //   renderTopbarProjects(list) — la bande toujours visible, une pastille par
+  //     projet, strictement nom + badges "Recherche" (aucune description,
+  //     aucun bouton d'action).
+  //   openProjectsPanel(projectId) — le panneau flottant #profileProjectsPanel,
+  //     qui contient TOUTE la gestion (le contenu déplacé tel quel depuis
+  //     #profileMain : #newProjectCard, #projectsList, #projectsEmptyHint).
+  //
+  // ⚠️ Pourquoi un panneau flottant plutôt qu'un dépliage sur place : .topbar
+  // est en `position: fixed` et sa hauteur pilote --topbar-h (padding-top de
+  // #app, voir syncTopbarHeightVar). Déplier un formulaire d'édition
+  // directement dans la barre la ferait grandir sans limite et pousserait
+  // toute la page — et sur un écran de téléphone, la barre finirait par le
+  // recouvrir. Les trois icônes voisines (abonnés/invitations/réglages)
+  // règlent déjà exactement ce problème de cette façon ; ce panneau reprend
+  // .notifPanel telle quelle et entre dans la même exclusion mutuelle, qui
+  // passe donc de trois à quatre panneaux.
+  function renderTopbarProjects(list) {
+    var strip = $('topbarProjectsList');
+    if (!strip) return;
+    strip.innerHTML = '';
+    list.forEach(function (p) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'projectChip';
+      chip.title = p.name;
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'projectChipName';
+      nameSpan.textContent = p.name;
+      chip.appendChild(nameSpan);
+
+      // Mêmes badges que dans la liste dépliée (symboles seuls en pastilles
+      // colorées, libellé en info-bulle) : buildSeekingBadges est appelée
+      // telle quelle, aucune variante à maintenir.
+      var badges = buildSeekingBadges(p.seeking, false);
+      if (badges) chip.appendChild(badges);
+
+      chip.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openProjectsPanel(p.id);
+      });
+      strip.appendChild(chip);
+    });
+    // La bande change la hauteur de .topbar (une ligne de plus, ou aucune si
+    // aucun projet) : --topbar-h doit suivre, sinon le haut de la page passe
+    // sous la barre. Les projets arrivent par un appel réseau, donc APRÈS le
+    // syncTopbarHeightVar() d'openProfile().
+    syncTopbarHeightVar();
+  }
+
+  // `projectId` null = ouvrir le panneau sans rien déplier (cas du "+").
+  function openProjectsPanel(projectId) {
+    closeSettingsPanel();
+    closeNotifPanel();
+    closeFollowsPanel();
+    $('profileProjectsPanel').classList.remove('hidden');
+    $('newProjectCard').classList.add('hidden');
+    var rows = $('projectsList').querySelectorAll('.activityRow');
+    var target = null;
+    rows.forEach(function (row) {
+      var panel = row.querySelector('.activitySettingsPanel');
+      if (!panel) return;
+      var match = projectId !== null && projectId !== undefined && row.dataset.projectId === String(projectId);
+      // Un seul projet déplié à la fois : le panneau est déjà borné en hauteur
+      // (.notifPanel, max-height 60vh), inutile d'y empiler des formulaires.
+      panel.classList.toggle('hidden', !match);
+      if (match) target = row;
+    });
+    // Défilement calé À LA MAIN dans le panneau plutôt que par
+    // scrollIntoView() : celui-ci fait défiler TOUS les ancêtres qui le
+    // peuvent, y compris la bande horizontale de la barre supérieure — la
+    // pastille qu'on venait de toucher se retrouvait alors à moitié sortie de
+    // l'écran. Ici, seul le panneau bouge.
+    var panelBox = $('profileProjectsPanel');
+    panelBox.scrollTop = target ? Math.max(0, target.offsetTop - panelBox.offsetTop) : 0;
+  }
+
+  function closeProjectsPanel() {
+    $('profileProjectsPanel').classList.add('hidden');
+    $('newProjectCard').classList.add('hidden');
+  }
+
+  // Referme le panneau au clic n'importe où en dehors de lui, des pastilles ou
+  // du "+" — même mécanisme que les trois panneaux voisins. .projectsWrap
+  // enveloppe toute la bande (pastilles + "+" + panneau), donc un clic sur une
+  // pastille n'est jamais compris comme un "clic en dehors".
+  document.addEventListener('click', function (e) {
+    if ($('profileProjectsPanel').classList.contains('hidden')) return;
+    if (e.target.closest('.projectsWrap')) return;
+    closeProjectsPanel();
+  });
+
   function renderProjectsList(list) {
     currentProjects = list;
+    // Bande compacte de la barre supérieure (4 septembre 2026) : rendue à
+    // partir de la MÊME liste, dans la même passe — aucune requête de plus, et
+    // aucun risque que les deux affichages divergent.
+    renderTopbarProjects(list);
     var box = $('projectsList');
     box.innerHTML = '';
     $('projectsEmptyHint').classList.toggle('hidden', list.length > 0);
@@ -6803,6 +6819,12 @@
     list.forEach(function (p, index) {
       var row = document.createElement('div');
       row.className = 'activityRow';
+      // Repère utilisé par openProjectsPanel(projectId) pour déplier le bon
+      // projet quand on arrive ici depuis une pastille de la barre supérieure.
+      // String() explicite : les ids de projet sont des ENTIERS côté serveur
+      // (rowid SQLite), alors qu'un dataset est toujours une chaîne — comparer
+      // les deux avec === renverrait faux à tous les coups.
+      row.dataset.projectId = String(p.id);
 
       var header = document.createElement('div');
       header.className = 'activityRowHeader clickable';
@@ -6831,12 +6853,13 @@
 
       row.appendChild(header);
 
-      if (p.description) {
-        var shortP = document.createElement('p');
-        shortP.className = 'meta';
-        shortP.textContent = truncateProjectDescription(p.description);
-        row.appendChild(shortP);
-      }
+      // L'aperçu tronqué de la description a été retiré le 4 septembre 2026
+      // (demande d'Emilien : « une fois créé les projet n'affiche que le nom et
+      // les logo des recherches, les details apparaissent lorsqu'on clic
+      // dessus ») : la ligne repliée ne porte plus que le nom et les badges
+      // "Recherche". La description reste visible dans le panneau déplié
+      // ci-dessous. truncateProjectDescription garde son autre appelant (page
+      // de visite d'un profil tiers, #viewProfileModal) — non touché.
 
       var panel = document.createElement('div');
       panel.className = 'activitySettingsPanel hidden';
@@ -6946,8 +6969,18 @@
     });
   }
 
-  $('addProjectBtn').addEventListener('click', function () {
-    $('newProjectCard').classList.toggle('hidden');
+  // Le "+" vit désormais dans la bande de la barre supérieure (4 septembre
+  // 2026) : il ouvre le panneau flottant ET y déplie le formulaire d'ajout,
+  // plutôt que de basculer un formulaire déjà à l'écran. stopPropagation()
+  // évite que le clic soit aussitôt capté par l'écouteur "clic en dehors"
+  // posé plus bas.
+  $('addProjectBtn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var alreadyAdding = !$('profileProjectsPanel').classList.contains('hidden')
+      && !$('newProjectCard').classList.contains('hidden');
+    if (alreadyAdding) { closeProjectsPanel(); return; }
+    openProjectsPanel(null);
+    $('newProjectCard').classList.remove('hidden');
   });
 
   var newProjectSeeking = [];
@@ -9171,11 +9204,7 @@
       currentCommunityActivityId = '';
       activityDetailEl().classList.add('hidden');
       stopDiscussionPolling();
-      // L'activité affichée n'existe plus : sa page n'a plus rien à montrer,
-      // et si elle était dépliée dans le volet son nœud doit être remis dans
-      // la page AVANT que la ligne qui l'héberge ne soit détruite juste
-      // en dessous — sinon il part avec elle.
-      if (activityInlineMode) detachInlineDetail();
+      // L'activité affichée n'existe plus : sa page n'a plus rien à montrer.
       $('activityPage').classList.add('hidden');
     } else if (currentCommunityActivityId) {
       currentActivityIsShared = !!shared[String(currentCommunityActivityId)];
@@ -9189,13 +9218,11 @@
 
     // ⚠️ 3 septembre 2026 (Activité — général) : le détail ne vit plus dans
     // la liste, il vit dans la page — vider celle-ci ne peut donc plus
-    // l'emporter avec elle.
-    // ⚠️ 4 septembre 2026 (Activité solo) : SAUF quand une activité non
-    // partagée est dépliée dans le volet. Le bloc est alors DANS une ligne, et
-    // box.innerHTML = '' le détruirait — avec lui le fil monté sur des ids
-    // fixes et tous ses écouteurs. C'est exactement le piège que
-    // detachActivityDetail() documente ; il redevient nécessaire.
-    if (activityInlineMode) detachActivityDetail();
+    // l'emporter avec elle. ⚠️ 5 septembre 2026 : c'est de nouveau vrai
+    // SANS exception, le mode « déplié dans la ligne » du 4 septembre ayant
+    // été retiré. Si un jour un bloc redescend dans la liste, il faudra
+    // remettre le detachActivityDetail() ici : sans lui, box.innerHTML = ''
+    // emporte le nœud, son fil monté sur des ids fixes et tous ses écouteurs.
     box.innerHTML = '';
     acts.forEach(function (a) {
       var sharedInfo = shared[String(a.id)];
@@ -9293,10 +9320,12 @@
       //    en solo — c'est même leur cas d'usage principal ;
       //  · le 3 septembre (Activité — général, demande d'Emilien), il ouvre
       //    une vraie page plein écran au lieu d'un bloc déplié dans la liste ;
-      //  · le 4 septembre (Activité solo, demande d'Emilien), la page est
-      //    réservée aux activités PARTAGÉES : une activité solo redéplie son
-      //    bloc dans sa ligne, ici même, et se referme par son bouton
-      //    « Fermer ». Les deux chemins passent par openActivityPage().
+      //  · le 4 septembre (Activité solo), une activité solo a brièvement
+      //    déplié son bloc dans sa ligne au lieu d'ouvrir la page — essayé,
+      //    puis abandonné par Emilien le lendemain ;
+      //  · le 5 septembre (Activité solo, demande d'Emilien), TOUTE activité
+      //    ouvre de nouveau sa page. Le solo n'y a qu'une section,
+      //    Sous-projets, et pas de sélecteur.
       //
       // openActivityPage() porte à lui seul les quatre règles d'ouverture
       // décidées par Emilien — voir son commentaire.
@@ -9316,17 +9345,7 @@
     // se rafraîchit derrière elle). Filet conservé : si le nœud s'est retrouvé
     // ailleurs, on le remet dans la page.
     var detail = activityDetailEl();
-    if (activityInlineMode && currentCommunityActivityId) {
-      // Le bloc retourne dans la ligne fraîchement reconstruite de l'activité
-      // ouverte. Si cette ligne a disparu, on le remet dans la page plutôt que
-      // de le laisser détaché : un nœud détaché est introuvable par $(), et
-      // tout le bloc serait perdu jusqu'au rechargement.
-      var host = box.querySelector('.activityRow[data-activity-id="' + currentCommunityActivityId + '"]');
-      if (host) { if (detail && detail.parentNode !== host) host.appendChild(detail); }
-      else detachInlineDetail();
-    } else if (detail && detail.parentNode !== $('activityPageBody')) {
-      attachActivityDetail(null);
-    }
+    if (detail && detail.parentNode !== $('activityPageBody')) attachActivityDetail(null);
 
     // La page ouverte suit le rafraîchissement : si l'activité affichée vient
     // d'être renommée ou recolorée depuis un autre appareil, son en-tête doit

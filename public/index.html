@@ -837,6 +837,108 @@
           </div>
         </div>
       </div>
+      <!-- Projets (4 septembre 2026, demande d'Emilien : « déplacer les
+           projets dans la zone du profil (une fois créé les projet n'affiche
+           que le nom et les logo des recherches, les details apparaissent
+           lorsqu'on clic dessus) »). Toute la section "Projets" a quitté
+           #profileMain pour vivre ICI, sous l'identité, dans la barre
+           supérieure — même déménagement que .identityHeader le 3 septembre.
+           Deux niveaux, comme demandé :
+             - visible en permanence : une bande de pastilles
+               (#topbarProjectsList, rendue par renderTopbarProjects dans
+               app.js) qui n'affiche QUE le nom du projet et ses badges
+               "Recherche" ;
+             - au clic sur une pastille (ou sur le "+") : le panneau flottant
+               #profileProjectsPanel s'ouvre, avec le détail complet et toute
+               la gestion (ajout, modification, suppression, réordonnancement)
+               — exactement le contenu qui vivait dans #profileMain, déplacé
+               tel quel, ids inchangés.
+           ⚠️ Panneau flottant plutôt qu'un dépliage sur place : .topbar est en
+           `position: fixed` et sa hauteur pilote --topbar-h (padding-top de
+           #app) — y déplier un formulaire ferait grandir la barre sans limite
+           et pousserait toute la page. Les trois icônes voisines
+           (abonnés/invitations/réglages) utilisent déjà ce motif ; ce panneau
+           réutilise .notifPanel telle quelle et s'exclut mutuellement avec
+           elles (voir closeProjectsPanel dans app.js). .projectsWrap joue le
+           rôle de .notifWrap/.settingsWrap/.followsWrap : repérer le "clic en
+           dehors". -->
+      <div class="topbarProjects projectsWrap" id="topbarProjects">
+        <div class="topbarProjectsStrip" id="topbarProjectsList"></div>
+        <button type="button" id="addProjectBtn" class="topbarProjectsAddBtn" title="Ajouter un projet" aria-label="Ajouter un projet">+</button>
+        <div id="profileProjectsPanel" class="notifPanel projectsPanel hidden">
+          <div class="subpageHeader">
+            <p class="sectionTitle subpageTitle">Projets</p>
+          </div>
+          <!-- Section "Projets" (1er septembre 2026, demande d'Emilien : « une
+               section sous le nom de l'utilisateur où il parle de ses
+               projets »). Modèle de données et périmètre négociés avec
+               Emilien AVANT codage (voir noesis-timetracker-contexte-
+               technique.md) : liste ILLIMITÉE de projets personnels,
+               réordonnable manuellement (boutons ▲▼, pas de glisser-déposer —
+               plus fiable sur mobile sans bibliothèque tierce), entièrement
+               indépendante du Chrono/activities. Pas de statut "en pause"/
+               "terminé", pas d'image par projet, pas d'épinglage — exclus
+               explicitement par Emilien. Ici : gestion complète (ajout/
+               modification/suppression/réordonnement) par le propriétaire du
+               profil. En lecture seule, ses ABONNÉS (follows acceptés)
+               consultent la même liste depuis #viewProfileModal, plus bas
+               dans ce fichier (hors de toute section .tab — voir le
+               commentaire à cet endroit) — voir GET /profile/:id/projects
+               dans server/routes/profile.js et openProfileViewModal dans
+               app.js.
+               Formulaire réorganisé en paliers (2 septembre 2026, chantier
+               "Simplification du formulaire de saisie Projets") : palier 1
+               (nom + description, toujours visibles), palier 2 (Recherche +
+               catégorie, toujours visibles), palier 3 (lien/date, replié par
+               défaut derrière #newProjectMoreBtn — même pattern que
+               #newActivityCard). shortDescription/fullDescription ont
+               fusionné en un seul champ description (voir server/db.js) ;
+               category est désormais une liste fermée (PROJECT_CATEGORIES,
+               voir server/routes/profile.js et app.js).
+               ⚠️ 2 septembre 2026, nouvelle demande d'Emilien (discussion
+               Profil) : catégorie remontée du palier 3 (repliée) vers le
+               palier 2 (toujours visible, avant le bouton "+ Ajouter des
+               détails") ; le <select> natif est remplacé par un dropdown
+               "maison" (voir buildCategoryDropdown dans app.js) qui s'ouvre
+               toujours vers le bas, limité à 5 options visibles à la fois et
+               calé au défilement (scroll-snap) pour ne jamais couper une
+               option en deux — un <select> natif ne permet de contrôler
+               aucun de ces trois points. #newProjectCategoryMount n'est qu'un
+               point d'ancrage : app.js le remplace au chargement par le
+               dropdown construit, qui reprend l'id "newProjectCategory" pour
+               que le reste du code (lecture/reset de la valeur) n'ait pas à
+               changer. -->
+          <!-- Ancienne ligne de titre "Projets" + "+" retirée le 4 septembre
+               2026 : le panneau a déjà son propre titre juste au-dessus, et le
+               "+" vit désormais dans la bande de la barre supérieure
+               (#topbarProjectsList, même id #addProjectBtn conservé pour que
+               son écouteur dans app.js n'ait pas à changer de cible). -->
+          <div class="activityRow hidden" id="newProjectCard">
+            <div class="activityRowHeader">
+              <span class="activityRowName">Nouveau projet</span>
+            </div>
+            <div class="activitySettingsPanel">
+              <input type="text" id="newProjectName" placeholder="Nom du projet">
+              <textarea id="newProjectDesc" rows="3" placeholder="Description"></textarea>
+              <p class="hint">Recherche (optionnel)</p>
+              <div class="seekingTagPicker" id="newProjectSeeking"></div>
+              <div id="newProjectCategoryMount"></div>
+              <button type="button" id="newProjectMoreBtn" class="iconBtn projectMoreDetailsBtn">+ Ajouter des détails</button>
+              <div class="activitySettingsPanel projectMoreDetails hidden" id="newProjectMoreDetails">
+                <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
+                <p class="hint">Date de début (optionnel)</p>
+                <input type="date" id="newProjectStartDate">
+              </div>
+              <p class="meta" id="newProjectMsg"></p>
+              <div class="rowActions">
+                <button type="button" id="newProjectSave" class="iconBtn">Ajouter le projet</button>
+              </div>
+            </div>
+          </div>
+          <div id="projectsList" class="activitiesList"></div>
+          <p id="projectsEmptyHint" class="hint hidden">Aucun projet ajouté pour l'instant.</p>
+        </div>
+      </div>
       <p id="avatarMsg" class="msg"></p>
     </div>
   </header>
@@ -1379,19 +1481,10 @@
       <div id="activityDetailAnchor"></div>
 
       <div id="communityActivityDetail" class="hidden">
-        <!-- ⚠️ 4 septembre 2026 (discussion « Activité solo ») — bandeau
-             visible UNIQUEMENT quand ce bloc est déplié dans la ligne d'une
-             activité NON PARTAGÉE, directement dans le volet Activité.
-             Demande d'Emilien : un bouton « Fermer « plutôt qu'un second clic
-             sur la ligne — on clique beaucoup À L'INTÉRIEUR du bloc, et le
-             replier par erreur coûte tout le contexte.
-             Il ne répète PAS le nom de l'activité : il est déjà sur la ligne,
-             deux centimètres au-dessus. Sur la page (activité partagée), c'est
-             la croix de #activityPageHeader qui ferme, et ce bandeau reste
-             masqué. -->
-        <div id="activityInlineHeader" class="sectionTitleRow activityInlineHeader hidden">
-          <button type="button" id="activityInlineClose" class="iconBtn">Fermer</button>
-        </div>
+        <!-- ⚠️ 5 septembre 2026 : le bandeau « Fermer » posé la veille a été
+             retiré avec le mode « déplié dans la ligne » qu'il servait. Toute
+             activité ouvre de nouveau sa page, et c'est la croix de
+             #activityPageHeader qui ferme — un seul geste, un seul endroit. -->
         <!-- Fil de discussion de l'activité sélectionnée : une vraie
              conversation entre ses membres, conservée durablement — à ne
              pas confondre avec les notes "en direct" du Chrono (bloc "En ce
@@ -1863,73 +1956,9 @@
            n'a pas changé. -->
       <div id="profileMain">
 
-        <!-- Section "Projets" (1er septembre 2026, demande d'Emilien : « une
-             section sous le nom de l'utilisateur où il parle de ses
-             projets »). Modèle de données et périmètre négociés avec
-             Emilien AVANT codage (voir noesis-timetracker-contexte-
-             technique.md) : liste ILLIMITÉE de projets personnels,
-             réordonnable manuellement (boutons ▲▼, pas de glisser-déposer —
-             plus fiable sur mobile sans bibliothèque tierce), entièrement
-             indépendante du Chrono/activities. Pas de statut "en pause"/
-             "terminé", pas d'image par projet, pas d'épinglage — exclus
-             explicitement par Emilien. Ici : gestion complète (ajout/
-             modification/suppression/réordonnement) par le propriétaire du
-             profil. En lecture seule, ses ABONNÉS (follows acceptés)
-             consultent la même liste depuis #viewProfileModal, plus bas
-             dans ce fichier (hors de toute section .tab — voir le
-             commentaire à cet endroit) — voir GET /profile/:id/projects
-             dans server/routes/profile.js et openProfileViewModal dans
-             app.js.
-             Formulaire réorganisé en paliers (2 septembre 2026, chantier
-             "Simplification du formulaire de saisie Projets") : palier 1
-             (nom + description, toujours visibles), palier 2 (Recherche +
-             catégorie, toujours visibles), palier 3 (lien/date, replié par
-             défaut derrière #newProjectMoreBtn — même pattern que
-             #newActivityCard). shortDescription/fullDescription ont
-             fusionné en un seul champ description (voir server/db.js) ;
-             category est désormais une liste fermée (PROJECT_CATEGORIES,
-             voir server/routes/profile.js et app.js).
-             ⚠️ 2 septembre 2026, nouvelle demande d'Emilien (discussion
-             Profil) : catégorie remontée du palier 3 (repliée) vers le
-             palier 2 (toujours visible, avant le bouton "+ Ajouter des
-             détails") ; le <select> natif est remplacé par un dropdown
-             "maison" (voir buildCategoryDropdown dans app.js) qui s'ouvre
-             toujours vers le bas, limité à 5 options visibles à la fois et
-             calé au défilement (scroll-snap) pour ne jamais couper une
-             option en deux — un <select> natif ne permet de contrôler
-             aucun de ces trois points. #newProjectCategoryMount n'est qu'un
-             point d'ancrage : app.js le remplace au chargement par le
-             dropdown construit, qui reprend l'id "newProjectCategory" pour
-             que le reste du code (lecture/reset de la valeur) n'ait pas à
-             changer. -->
-        <div class="sectionTitleRow">
-          <p class="sectionTitle">Projets</p>
-          <button type="button" id="addProjectBtn" class="menuBtn" title="Ajouter un projet">+</button>
-        </div>
-        <div class="activityRow hidden" id="newProjectCard">
-          <div class="activityRowHeader">
-            <span class="activityRowName">Nouveau projet</span>
-          </div>
-          <div class="activitySettingsPanel">
-            <input type="text" id="newProjectName" placeholder="Nom du projet">
-            <textarea id="newProjectDesc" rows="3" placeholder="Description"></textarea>
-            <p class="hint">Recherche (optionnel)</p>
-            <div class="seekingTagPicker" id="newProjectSeeking"></div>
-            <div id="newProjectCategoryMount"></div>
-            <button type="button" id="newProjectMoreBtn" class="iconBtn projectMoreDetailsBtn">+ Ajouter des détails</button>
-            <div class="activitySettingsPanel projectMoreDetails hidden" id="newProjectMoreDetails">
-              <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
-              <p class="hint">Date de début (optionnel)</p>
-              <input type="date" id="newProjectStartDate">
-            </div>
-            <p class="meta" id="newProjectMsg"></p>
-            <div class="rowActions">
-              <button type="button" id="newProjectSave" class="iconBtn">Ajouter le projet</button>
-            </div>
-          </div>
-        </div>
-        <div id="projectsList" class="activitiesList"></div>
-        <p id="projectsEmptyHint" class="hint hidden">Aucun projet ajouté pour l'instant.</p>
+        <!-- La section "Projets" a quitté #profileMain le 4 septembre 2026
+             (demande d'Emilien) : elle vit désormais dans la barre supérieure,
+             sous l'identité — voir #topbarProjects plus haut dans ce fichier. -->
 
         <!-- Zone de discussion (31 août 2026, demande d'Emilien) : remplace
              la zone "Note" du Chrono, retirée le même jour (voir
@@ -1961,7 +1990,12 @@
           <!-- Titre "Discussion" renommé "Publier" le 3 septembre 2026
                (demande d'Emilien) — cette zone reste la même (composeur +
                fil profile_posts), seul l'intitulé change. -->
-          <p class="sectionTitle">Publier</p>
+          <!-- Titre "Publier" retiré le 4 septembre 2026 (demande d'Emilien :
+               « je souhaite que les publications fassent partie à part entière
+               du flux dans le profil et ne soient pas une sous section ») :
+               plus aucun intertitre ici — composeur, formulaire de sondage et
+               publications forment un seul flux continu, qui défile avec la
+               page. -->
           <!-- La liste est passée SOUS le composeur le 3 septembre 2026
                (demande d'Emilien : « lorsqu'un message est envoyé, je souhaite
                qu'il apparaisse en dessous de la zone d'écriture ») — voir plus
@@ -1990,6 +2024,47 @@
             </div>
             <p id="profileDiscussionCommunityMsg" class="msg"></p>
           </div>
+          <!-- Sondages — bloc JUMEAU de #communityPollsBlock (#tab-community) :
+               même donnée (scope='profile', scopeId = mon userId), deux
+               emplacements, une seule liste. Même principe que la zone
+               Discussion et son miroir « écrire à sa communauté ». Voir
+               mountPolls dans app.js. -->
+          <div id="profilePollsBlock" class="pollsBlock">
+            <!-- Ni titre ni ligne d'en-tête (3 septembre 2026, comme le bloc
+                 jumeau de Communauté) : le "+" qui ouvre ce formulaire est dans
+                 le composeur ci-dessus, à gauche du trombone. -->
+            <div class="entryCard pollForm hidden" id="profilePollsForm">
+              <!-- Croix d'annulation (3 septembre 2026, demande d'Emilien) :
+                   referme le formulaire ET remet tout à zéro, sans rien
+                   enregistrer. Premier enfant du formulaire, posée en absolu par
+                   .pollFormCancel pour rester au coin haut droit quelle que soit
+                   la hauteur des champs. -->
+              <button type="button" class="pollFormCancel" id="profilePollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
+              <textarea id="profilePollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
+              <div class="pollFormOptions" id="profilePollsOptions"></div>
+              <div class="pollFormActions">
+                <button type="button" class="iconBtn pollAddOptionBtn" id="profilePollsAddOptionBtn">+ Ajouter une réponse</button>
+                <button type="button" class="iconBtn pollOptionsBtn" id="profilePollsOptionsBtn">Option</button>
+              </div>
+              <div class="pollFormAdvanced hidden" id="profilePollsAdvanced">
+                <label class="pollFormRow"><input type="checkbox" id="profilePollsMulti"> Plusieurs réponses possibles</label>
+                <label class="pollFormRow"><input type="checkbox" id="profilePollsAnonymous"> Vote anonyme</label>
+                <label class="pollFormRow"><input type="checkbox" id="profilePollsAllowSuggestions"> Autoriser une autre réponse</label>
+                <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="profilePollsClosesAt"></label>
+              </div>
+              <p class="hint" id="profilePollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+              <button type="button" class="btn btn-primary pollCreateBtn" id="profilePollsCreateBtn">Terminer</button>
+              <p id="profilePollsMsg" class="msg"></p>
+            </div>
+            <!-- Plus de liste propre à ce bloc depuis le 3 septembre 2026,
+                 huitième passage (demande d'Emilien : tous les postes du profil
+                 triés du plus récent au moins récent, sondages compris) : mes
+                 sondages apparaissent désormais mêlés à mes messages dans le
+                 flux fusionné de #profileDiscussionBlock plus haut
+                 (#profileDiscussionCommunityList, rendu par renderProfileFeed
+                 dans app.js). #profilePollsList/#profilePollsEmptyHint
+                 retirés — ce bloc ne garde que le formulaire de création. -->
+          </div>
           <!-- Mon flux personnel de messages, sous la zone d'écriture. Aucune
                mise en évidence ici : tous les messages y sont les miens, un
                repère « c'est moi » n'y distinguerait rien (demande d'Emilien,
@@ -2001,51 +2076,21 @@
           <p id="profileDiscussionCommunityEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessus.</p>
         </div>
 
-        <!-- Sondages — bloc JUMEAU de #communityPollsBlock (#tab-community) :
-             même donnée (scope='profile', scopeId = mon userId), deux
-             emplacements, une seule liste. Même principe que la zone
-             Discussion et son miroir « écrire à sa communauté ». Voir
-             mountPolls dans app.js. -->
-        <div id="profilePollsBlock" class="pollsBlock">
-          <!-- Ni titre ni ligne d'en-tête (3 septembre 2026, comme le bloc
-               jumeau de Communauté) : le "+" qui ouvre ce formulaire est dans
-               le composeur ci-dessus, à gauche du trombone. -->
-          <div class="entryCard pollForm hidden" id="profilePollsForm">
-            <!-- Croix d'annulation (3 septembre 2026, demande d'Emilien) :
-                 referme le formulaire ET remet tout à zéro, sans rien
-                 enregistrer. Premier enfant du formulaire, posée en absolu par
-                 .pollFormCancel pour rester au coin haut droit quelle que soit
-                 la hauteur des champs. -->
-            <button type="button" class="pollFormCancel" id="profilePollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
-            <textarea id="profilePollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
-            <div class="pollFormOptions" id="profilePollsOptions"></div>
-            <div class="pollFormActions">
-              <button type="button" class="iconBtn pollAddOptionBtn" id="profilePollsAddOptionBtn">+ Ajouter une réponse</button>
-              <button type="button" class="iconBtn pollOptionsBtn" id="profilePollsOptionsBtn">Option</button>
-            </div>
-            <div class="pollFormAdvanced hidden" id="profilePollsAdvanced">
-              <label class="pollFormRow"><input type="checkbox" id="profilePollsMulti"> Plusieurs réponses possibles</label>
-              <label class="pollFormRow"><input type="checkbox" id="profilePollsAnonymous"> Vote anonyme</label>
-              <label class="pollFormRow"><input type="checkbox" id="profilePollsAllowSuggestions"> Autoriser une autre réponse</label>
-              <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="profilePollsClosesAt"></label>
-            </div>
-            <p class="hint" id="profilePollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
-            <button type="button" class="btn btn-primary pollCreateBtn" id="profilePollsCreateBtn">Terminer</button>
-            <p id="profilePollsMsg" class="msg"></p>
-          </div>
-          <!-- Plus de liste propre à ce bloc depuis le 3 septembre 2026,
-               huitième passage (demande d'Emilien : tous les postes du profil
-               triés du plus récent au moins récent, sondages compris) : mes
-               sondages apparaissent désormais mêlés à mes messages dans le
-               flux fusionné de #profileDiscussionBlock plus haut
-               (#profileDiscussionCommunityList, rendu par renderProfileFeed
-               dans app.js). #profilePollsList/#profilePollsEmptyHint
-               retirés — ce bloc ne garde que le formulaire de création. -->
-        </div>
+        <!-- Le formulaire de création de sondage (#profilePollsBlock) est
+             remonté le 4 septembre 2026 DANS #profileDiscussionBlock, juste
+             sous le composeur : le flux n'a plus de hauteur bornée (voir
+             #profileDiscussionCommunityList dans styles.css), un bloc placé
+             après lui se serait retrouvé hors d'écran. -->
 
-        <p class="sectionTitle">Mes notes</p>
-        <p id="notesEmptyHint" class="hint hidden">Aucune note enregistrée pour l'instant — les notes ajoutées pendant tes sessions dans Chrono apparaîtront ici.</p>
-        <div id="notesList"></div>
+        <!-- "Mes notes" a été supprimée le 4 septembre 2026 (demande
+             d'Emilien : « je souhaite supprimer les notes »), interface ET
+             route serveur : #notesList/#notesEmptyHint retirés d'ici,
+             loadProfileNotes/renderNotesList/buildHistoryCard retirés de
+             app.js, et GET /api/notes retirée de server/routes/history.js.
+             Les notes déjà saisies restent en base (colonne
+             time_entries.note, non touchée) mais plus rien ne les lit — le
+             Chrono n'offre de toute façon plus aucun moyen d'en écrire depuis
+             le 31 août 2026. -->
       </div>
 
       <!-- Page "Réglages" : Apparence, Sécurité, Import. Masquée par défaut ;

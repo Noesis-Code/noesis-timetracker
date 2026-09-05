@@ -61,26 +61,13 @@ router.get('/history', (req, res) => {
   res.json(rows);
 });
 
-// Notes enregistrées par ce profil sur SES sessions, toutes activités et
-// toutes périodes confondues (contrairement à /history, pas de fenêtre de
-// temps) — alimente la section "Mes notes" de l'onglet Profil. Seules les
-// entrées avec une note non vide sont renvoyées, les plus récentes d'abord.
-router.get('/notes', (req, res) => {
-  const userId = req.query.userId;
-  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
-  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
-
-  const rows = db.prepare(`
-    SELECT t.id, t.activityId, a.name AS activity, t.note, t.startTime, t.endTime, t.durationSeconds
-    FROM time_entries t
-    JOIN activities a ON a.id = t.activityId
-    WHERE t.userId = ? AND t.note IS NOT NULL AND TRIM(t.note) != ''
-    ORDER BY t.startTime DESC
-    LIMIT 200
-  `).all(userId);
-
-  res.json(rows);
-});
+// GET /notes a été retirée le 4 septembre 2026 (demande d'Emilien : « je
+// souhaite supprimer les notes », cadrée en « Tout supprimer, interface et
+// serveur »). Elle alimentait la section "Mes notes" de l'onglet Profil, elle
+// aussi supprimée le même jour (voir #profileMain dans public/index.html).
+// La colonne time_entries.note n'est PAS touchée : les notes déjà saisies
+// restent en base, plus rien ne les lit. Le Chrono n'offre de toute façon
+// aucun moyen d'en écrire depuis le retrait de la zone "Note" (31 août 2026).
 
 router.post('/history', (req, res) => {
   const userId = req.body.userId;
