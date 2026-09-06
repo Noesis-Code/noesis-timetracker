@@ -200,6 +200,29 @@ async function api(page, method, path, body) {
       scrollable: scroll.scrollHeight > scroll.clientHeight + 4,
     };
   });
+  // ⭐ 6 septembre 2026 : la barre supérieure prend la couleur de l'activité.
+  const bar = await page.evaluate(() => {
+    function hex(rgb) {
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb || '');
+      return m ? '#' + [1, 2, 3].map((i) => ('0' + Number(m[i]).toString(16)).slice(-2)).join('') : null;
+    }
+    const el = document.querySelector('#subProjectStatsModal .viewProfileIdentity');
+    const close = document.getElementById('subProjectStatsClose');
+    return {
+      tinted: el.classList.contains('tinted'),
+      bg: hex(getComputedStyle(el).backgroundColor),
+      closeBg: getComputedStyle(close).backgroundColor,
+      cardBg: hex(getComputedStyle(document.body).backgroundColor),
+    };
+  });
+  const activityColor = (await api(page, 'GET', '/api/activities?userId=' + user.id))
+    .body.find((a) => String(a.id) === String(avec.id)).color;
+  ok(bar.tinted, '2bis.0a ⭐ la barre supérieure est marquée teintée');
+  eq(bar.bg, activityColor.toLowerCase(),
+    '2bis.0b ⭐⭐ et porte EXACTEMENT la couleur de l\'activité');
+  ok(/rgba\(0, 0, 0, 0\)|transparent/.test(bar.closeBg),
+    '2bis.0c ⭐ la croix de fermeture est transparente, pas une boîte pâle posée dessus');
+
   eq(layout.cardFlex, 'column', '2bis.1 la carte est une colonne : en-tête puis zone défilante');
   eq(layout.cardOverflow, 'hidden', '2bis.2 ⭐ la carte elle-même ne défile PAS');
   eq(layout.scrollOverflow, 'auto', '2bis.3 c\'est la zone intérieure qui défile');
@@ -326,6 +349,27 @@ async function api(page, method, path, body) {
     const A = lum(a), B = lum(b);
     return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05);
   }
+  // ⚠️ 6 septembre 2026 : le rapport de contraste WCAG ne mesure QUE la
+  // luminance. Il ne voit ni la teinte ni la saturation, et il écrase les
+  // écarts dans les tons clairs — il est donc le mauvais outil pour juger
+  // « distinguable à l'œil nu ». On mesure désormais l'écart perceptif ΔE
+  // (CIELAB) : au-dessus de 10, deux couleurs sont nettement distinctes ;
+  // en dessous de 5, elles se confondent.
+  function lab(rgb) {
+    const [r, g, b] = rgb.map((v) => {
+      const x = v / 255;
+      return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    });
+    const X = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047;
+    const Y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    const Z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883;
+    const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+    return [116 * f(Y) - 16, 500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z))];
+  }
+  function deltaE(a, b) {
+    const A = lab(a), B = lab(b);
+    return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+  }
   function hue(rgb) {
     const [r, g, b] = rgb.map((v) => v / 255);
     const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
@@ -340,13 +384,15 @@ async function api(page, method, path, body) {
   let worst = Infinity, worstPair = '';
   for (let i = 0; i < shades.length; i++) {
     for (let j = i + 1; j < shades.length; j++) {
-      const c = contrast(shades[i].rgb, shades[j].rgb);
-      if (c < worst) { worst = c; worstPair = shades[i].label + ' / ' + shades[j].label; }
+      const d = deltaE(shades[i].rgb, shades[j].rgb);
+      if (d < worst) { worst = d; worstPair = shades[i].label + ' / ' + shades[j].label; }
     }
   }
-  ok(worst >= 1.6,
-    '3bis.2 ⭐⭐ le couple le moins contrasté l\'est quand même nettement ('
-    + worst.toFixed(2) + ':1 entre ' + worstPair + ')');
+  ok(worst >= 10,
+    '3bis.2 ⭐⭐ le couple le plus proche reste nettement distinguable (ΔE '
+    + worst.toFixed(1) + ' entre ' + worstPair + ')');
+  ok(contrast(shades[0].rgb, shades[shades.length - 1].rgb) > 1,
+    '3bis.2bis (le rapport de contraste reste calculé, mais il ne juge plus seul)');
 
   // Le contraste ne doit pas avoir été gagné en changeant de couleur : ce sont
   // toujours des NUANCES de la couleur de l'activité (demande du 4 septembre).
@@ -359,6 +405,71 @@ async function api(page, method, path, body) {
       '3bis.4.' + i + ' ⭐ « ' + s.label + ' » garde la teinte de l\'activité ('
       + Math.round(hue(s.rgb)) + '° vs ' + Math.round(baseHue) + '°)');
   });
+
+  // ⭐ 6 septembre 2026 : « 5 nuances distinguables à l'œil nu » par couleur
+  // d'activité. Vérifié par le CHEMIN RÉEL — on ajoute des sous-projets, on
+  // rouvre la fenêtre et on lit les pastilles de la légende — plutôt qu'en
+  // appelant la fonction depuis la page : c'est ce que voit Emilien qui compte.
+  const before = {};
+  shades.forEach((r) => { before[r.label] = r.rgb.join(','); });
+
+  await page.click('#subProjectStatsClose');
+  await page.waitForTimeout(400);
+
+  for (const nom of ['Design', 'Tests', 'Livraison']) {
+    const sp = (await api(page, 'POST', '/api/activities/' + avec.id + '/sub-projects',
+      { userId: user.id, name: nom })).body;
+    await seed(avec.id, sp.id, nom === 'Design' ? 13 : (nom === 'Tests' ? 14 : 16), 30);
+  }
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+  await page.click('.tabBtn[data-tab="stats"]');
+  await page.waitForTimeout(2200);
+  await page.$eval('#statsPie .pieLegendRow-tappable',
+    (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await page.waitForTimeout(1500);
+
+  const sixRows = await page.$$eval('#subProjectStatsPie .pieLegendRow', (rs) => {
+    function hex(rgb) {
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb || '');
+      return m ? [1, 2, 3].map((i) => Number(m[i])) : null;
+    }
+    return rs.map((r) => ({
+      label: r.querySelector('.pieLegendLabel').textContent,
+      rgb: hex(getComputedStyle(r.querySelector('.pieLegendDot')).backgroundColor),
+    }));
+  });
+  eq(sixRows.length, 6, '3bis.5 cinq sous-projets plus le temps non rattaché : six parts');
+
+  // ⭐⭐ La propriété qui change tout à l'usage : le nombre de nuances étant
+  // désormais FIXE, ajouter un sous-projet ne repeint pas les autres.
+  const kept = ['Cadrage', 'Développement'].filter((n) => {
+    const row = sixRows.find((r) => r.label === n);
+    return row && before[n] === row.rgb.join(',');
+  });
+  eq(kept.length, 2,
+    '3bis.6 ⭐⭐ les sous-projets déjà présents ont GARDÉ leur couleur exacte après en avoir ajouté trois');
+
+  let worstFive = Infinity, worstFivePair = '';
+  for (let i = 0; i < sixRows.length; i++) {
+    for (let j = i + 1; j < sixRows.length; j++) {
+      const d = deltaE(sixRows[i].rgb, sixRows[j].rgb);
+      if (d < worstFive) { worstFive = d; worstFivePair = sixRows[i].label + ' / ' + sixRows[j].label; }
+    }
+  }
+  ok(worstFive >= 10,
+    '3bis.7 ⭐⭐ les 5 nuances ET la couleur de base sont deux à deux distinguables (ΔE '
+    + worstFive.toFixed(1) + ', le plus proche : ' + worstFivePair + ')');
+  eq(new Set(sixRows.map((r) => r.rgb.join(','))).size, 6,
+    '3bis.8 les six couleurs sont toutes différentes');
+
+  const baseRow = sixRows.find((r) => r.label === 'Sans sous-projet');
+  const baseHue2 = hue(baseRow.rgb);
+  ok(sixRows.filter((r) => r !== baseRow).every((r) => {
+    const d = Math.abs(hue(r.rgb) - baseHue2);
+    return Math.min(d, 360 - d) <= 4;
+  }), '3bis.9 ⭐ et toutes gardent la teinte de l\'activité : ce sont des nuances, pas d\'autres couleurs');
 
   // ============ 3ter. ⭐ La section Graphique ============
   // 5 septembre 2026, Emilien : « rajouter une section graphique avec les
@@ -481,8 +592,10 @@ async function api(page, method, path, body) {
     '#communityActivityPie .pieSlice-tappable, #communityActivityPie .pieLegendRow-tappable').length), 0,
     '4.5 ⭐⭐ la couleur d\'un membre n\'est PLUS cliquable ici (demande d\'Emilien du 4 septembre)');
 
+  // 4h de temps rattaché/non rattaché du premier membre + 1h30 ajoutée par le
+  // trio de sous-projets du bloc 3bis + 3h du second membre.
   const totalGlobal = await page.textContent('#communityActivityStatsTotal');
-  eq(totalGlobal, '7h00', '4.6 la comparaison globale porte sur les 7h des deux membres');
+  eq(totalGlobal, '8h30', '4.6 la comparaison globale porte sur le temps des deux membres');
   eq(await page.evaluate(() => document.querySelectorAll('#communityActivityPie .pieLegendRow').length), 2,
     '4.7 et compare bien DEUX membres');
 
@@ -491,7 +604,8 @@ async function api(page, method, path, body) {
   const options = await page.$$eval('#caSubProjectMenu .statsPeriodMenuItem',
     (bs) => bs.map((b) => ({ value: b.getAttribute('data-sub-project'), label: b.textContent })));
   eq(options.map((o) => o.label),
-    ['Tous les sous-projets', 'Sans sous-projet', 'Cadrage', 'Développement'],
+    ['Tous les sous-projets', 'Sans sous-projet',
+      'Cadrage', 'Développement', 'Design', 'Tests', 'Livraison'],
     '4.8 ⭐ le menu propose le global, le non-rattaché, puis chaque sous-projet');
 
   await page.click('#caSubProjectMenu [data-sub-project="' + sp2.id + '"]');
@@ -517,7 +631,7 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(400);
   await page.click('#caSubProjectMenu [data-sub-project=""]');
   await page.waitForTimeout(1400);
-  eq(await page.textContent('#communityActivityStatsTotal'), '7h00',
+  eq(await page.textContent('#communityActivityStatsTotal'), '8h30',
     '4.14 le retour au global redonne le total complet');
 
   // ============ 5. Non-régressions ============

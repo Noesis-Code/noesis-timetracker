@@ -2327,6 +2327,27 @@ button { -webkit-user-select: none; user-select: none; }
 #viewProfileModalClose,
 #subProjectStatsClose { flex-shrink: 0; }
 
+/* Barre supérieure de la fenêtre de détail, teintée de la couleur de
+   l'activité (6 septembre 2026, demande d'Emilien : « je souhaite que la barre
+   supérieure soit de la même couleur que l'activité »). Le fond et la couleur
+   du texte sont posés en ligne par paintSubProjectStatsHeader — ils dépendent
+   de la couleur choisie par le membre, ils ne peuvent pas vivre dans la
+   feuille de style. Ne restent ici que les conséquences, qui elles sont
+   fixes. */
+#subProjectStatsModal .viewProfileIdentity.tinted {
+  border-bottom-color: rgba(0, 0, 0, 0.2);
+}
+/* Le bouton de fermeture s'efface au profit de la couleur d'activité : fond
+   transparent, bordure et glyphe dans la couleur du texte de la barre. */
+#subProjectStatsModal .viewProfileIdentity.tinted #subProjectStatsClose {
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
+}
+#subProjectStatsModal .viewProfileIdentity.tinted #subProjectStatsClose:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
 /* Point vert « chrono en cours » du profil visité (3 septembre 2026, demande
    d'Emilien). Posé à droite du nom, donc APRÈS lui dans le DOM et avant la
    croix — le nom porte `flex: 1` et se tronque, ce point ne se comprime

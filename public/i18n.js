@@ -338,8 +338,8 @@
     'Quitter "{activity}" ? Tu gardes ta propre activité personnelle du même nom, avec tout ton historique déjà enregistré. Les autres membres ne sont pas concernés.':
       'Leave "{activity}"? You keep your own personal activity with the same name and all your recorded history. The other members are not affected.',
     'En cours depuis {time}': 'Running since {time}',
-    'Partagée par {owner} — tu peux choisir ta couleur, le reste lui appartient.': 'Shared by {owner} — you can pick your colour, the rest belongs to them.',
-    '{count} membres — visible dans Communauté.': '{count} members — visible in Community.',
+    'Partagée par {owner}': 'Shared by {owner}',
+    '{count} membres': '{count} members',
     'Pseudo de la personne à inviter sur "{activity}" :': 'Nickname of the person to invite to "{activity}":',
     'Séparer "{activity}" ? Tu auras désormais ta propre activité personnelle du même nom, avec ton historique déjà enregistré dessus. Les autres personnes qui la partagent ne sont pas concernées.': 'Split off "{activity}"? You will get your own personal activity with the same name, carrying the history you already recorded on it. The other people sharing it are not affected.',
     '{from} t\'invite sur « {activity} ».': '{from} invites you to "{activity}".',

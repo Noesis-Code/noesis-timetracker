@@ -144,7 +144,11 @@ function rgbToHex(rgb) {
   await page.waitForTimeout(1000);
   ok(await page.isVisible('#subProjectStatsModal'), '2.3 ⭐ la fenêtre s\'ouvre');
   eq(await page.textContent('#subProjectStatsTitle'), 'Chantier' + stamp, '2.4 elle porte le nom de l\'activité');
-  eq(await page.textContent('#subProjectStatsSubtitle'), 'Mon temps', '2.5 et précise qu\'on regarde son propre temps');
+  // ⚠️ 6 septembre 2026 : la ligne « Mon temps » a été RETIRÉE sur demande
+  // d'Emilien (« supprimer l'inscription temps tout en haut »). Sur son propre
+  // temps, le titre ne porte donc que le nom de l'activité — vérifié en 2.4.
+  eq(await page.evaluate(() => !!document.getElementById('subProjectStatsSubtitle')), false,
+    '2.5 ⭐ la ligne « Mon temps » n\'existe plus dans le document');
 
   // ⚠️ Troisième passage (4 septembre 2026) : la liste maison
   // #subProjectStatsList a été SUPPRIMÉE. Emilien l'avait relevée capture à
