@@ -166,7 +166,11 @@ function rgbToHex(rgb) {
     '2.8 ⭐ le temps NON rattaché apparaît comme une part nommée, jamais masqué');
   ok(/2h00/.test(rows.find((r) => r.label === 'Cadrage').value), '2.9 avec ses heures (2h00)');
   ok(/50%/.test(rows.find((r) => r.label === 'Cadrage').value), '2.10 et son pourcentage');
-  eq(await page.textContent('#spStatsTotal'), '4h00', '2.11 le total de la période est affiché');
+  // ⚠️ 6 septembre 2026 : #spStatsTotal a été RETIRÉ par une autre discussion
+  // (doublon avec le total affiché au centre du camembert). Le total se lit
+  // donc désormais dans .pieCenterValue — même chiffre, une seule source.
+  eq(await page.textContent('#subProjectStatsPie .pieCenterValue'), '4h00',
+    '2.11 le total de la période est affiché');
   eq(await page.evaluate(() => document.querySelectorAll('#subProjectStatsModal .pieLegend').length), 1,
     '2.12 ⭐ UNE SEULE légende dans la fenêtre (demande d\'Emilien du 4 septembre)');
   eq(await page.evaluate(() => !!document.getElementById('subProjectStatsList')), false,

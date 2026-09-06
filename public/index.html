@@ -1082,7 +1082,7 @@
            Répartition : cette section n'a plus de menu "⋮" du tout, elle suit
            désormais la période de la Feuille de temps.) Texte d'explication retiré le
            1er septembre 2026 (demande d'Emilien). -->
-      <div id="statsTimesheetBlock" class="statsSection">
+      <div id="statsTimesheetBlock" class="statsSection timesheetBlock">
         <div class="sectionTitleRow">
           <p class="sectionTitle">Feuille de temps</p>
           <div class="timesheetNav">
@@ -1905,11 +1905,6 @@
                il faisait doublon avec celui que renderActivityPie écrit au
                centre du camembert. Le libellé de période, lui, reste :
                c'est ce qu'Emilien demandait le 3 septembre. -->
-               Ces deux ids avaient été retirés du HAUT de la section le matin
-               même (« supprimer les heures totales tout en haut, puisqu'elle
-               se trouve déjà dans répartition ») : ils reviennent ici, à
-               l'intérieur du bloc auquel ils appartiennent, et non en tête
-               d'une section qu'ils ne décrivaient qu'en partie. -->
           <div class="statsSummary">
             <p class="statsLabel" id="communityActivityStatsLabel"></p>
           </div>
@@ -2311,7 +2306,7 @@
                ids-ci — aucune seconde implémentation. Seule la COULEUR des
                cases change : une nuance par sous-projet au lieu de la couleur
                de l'activité. -->
-          <div id="spTimesheetBlock" class="statsSection">
+          <div id="spTimesheetBlock" class="statsSection timesheetBlock">
             <div class="sectionTitleRow">
               <p class="sectionTitle">Feuille de temps</p>
               <div class="timesheetNav">
@@ -2451,8 +2446,28 @@
         <p id="viewProfileProjectsMsg" class="msg"></p>
 
         <p class="sectionTitle">Projets</p>
-        <div id="viewProfileProjectsList" class="activitiesList"></div>
+        <!-- 5 septembre 2026, demande d'Emilien : « je souhaite que les
+             projets apparaissent comme sur le profil avec des cases qui
+             peuvent défiler de gauche à droite [...] les détails des projets
+             n'apparaissent que lorsqu'on clic sur le projet ». Reprend
+             volontairement le même principe que la bande de pastilles de SON
+             PROPRE profil (#topbarProjectsList, 4 septembre 2026 : « les
+             projet n'affiche que le nom et les logo des recherches, les
+             details apparaissent lorsqu'on clic dessus ») — pas les mêmes
+             classes CSS, car ces pastilles sont taillées pour la barre
+             supérieure noire en `position: fixed` (fond blanc translucide),
+             alors que cette liste vit dans la carte claire/sombre de la page
+             de visite : voir .viewProfileProjectCase dans styles.css, qui
+             reprend `var(--card)`/`var(--border)` comme .activityRow plutôt
+             que les couleurs fixes de .projectChip.
+             Une seule "case" ouverte à la fois : #viewProfileProjectDetail
+             est un unique panneau sous la bande, rempli par
+             renderViewProfileProjects (app.js) au clic sur une case — pas un
+             panneau par projet, pour ne jamais faire grandir la bande
+             elle-même. -->
+        <div id="viewProfileProjectsList" class="viewProfileProjectsStrip"></div>
         <p id="viewProfileProjectsEmptyHint" class="hint hidden">Aucun projet partagé pour l'instant.</p>
+        <div id="viewProfileProjectDetail" class="activityRow viewProfileProjectDetail hidden"></div>
 
         <!-- Statistiques du profil visité (2 septembre 2026) : Répartition +
              Graphique uniquement, choix explicite d'Emilien — la Feuille de

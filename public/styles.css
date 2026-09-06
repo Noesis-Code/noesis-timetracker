@@ -1010,7 +1010,21 @@ textarea {
    cinq nombres oblige à recalculer --cal-row.** C'est aussi pour ça que
    .tsCalDayNum a désormais une `line-height` explicite : sans elle, la
    hauteur du chiffre dépendrait de la police du système. */
-#statsTimesheetBlock {
+/* ⚠️ 6 septembre 2026 — ces trois mesures étaient portées par
+   #statsTimesheetBlock, un IDENTIFIANT. La fenêtre de détail par sous-projet
+   réutilise pourtant les MÊMES fonctions de rendu (renderTimesheetMonth) avec
+   ses propres ids : chez elle, les trois variables n'existaient pas, donc
+   `grid-template-rows: var(--cal-head)`, `grid-auto-rows: var(--cal-row)` et
+   `gap: var(--cal-gap)` étaient invalides et purement ignorés. D'où les deux
+   défauts qu'Emilien a relevés d'un coup : les libellés de semaine tassés en
+   haut au lieu d'être en face de leur ligne (les hauteurs n'étaient plus
+   fixées, donc la colonne sortie et le calendrier ne pouvaient plus
+   s'aligner), et aucun espace entre les jours (gap ignoré).
+   Elles vivent donc désormais sur une CLASSE, posée sur les deux blocs — une
+   copie future de la Feuille de temps n'aura qu'à l'ajouter. C'est la même
+   erreur que #viewProfileScroll la veille : une règle qu'on veut partagée ne
+   se porte pas par un identifiant. */
+.timesheetBlock {
   --cal-head: 20px;
   --cal-row: 48px;
   --cal-gap: 6px;
@@ -2404,6 +2418,62 @@ button { -webkit-user-select: none; user-select: none; }
   flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%;
   background: #22C55E; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22);
 }
+
+/* Projets de la page de visite, en bande défilante horizontalement (5
+   septembre 2026, demande d'Emilien : « les projets apparaissent comme sur
+   le profil avec des cases qui peuvent défiler de gauche à droite [...] les
+   détails [...] n'apparaissent que lorsqu'on clic sur le projet »).
+   Même principe que .topbarProjectsStrip/.projectChip (sa propre page,
+   4 septembre 2026), mais PAS les mêmes règles : celles-ci habillent la
+   barre supérieure noire en `position: fixed`, fond blanc translucide fixe
+   — ici la bande vit dans la carte claire/sombre de #viewProfileScroll, donc
+   `var(--card)`/`var(--border)`/`var(--text)` comme .activityRow, pas des
+   couleurs figées. */
+.viewProfileProjectsStrip {
+  display: flex; align-items: stretch; gap: 8px;
+  overflow-x: auto; overflow-y: hidden; padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.viewProfileProjectsStrip::-webkit-scrollbar { display: none; }
+/* Une "case" : nom + badges "Recherche" seulement, comme sa propre bande de
+   pastilles — aucune description ici, elle n'apparaît que dans
+   #viewProfileProjectDetail au clic. `min-width` évite une case ridiculement
+   étroite pour un nom d'un seul mot ; `max-width` + ellipse sur le nom
+   évitent qu'un nom très long ne fasse une case interminable. */
+.viewProfileProjectCase {
+  flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  min-width: 110px; max-width: 60vw; padding: 10px 12px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card); color: var(--text); font-size: 14px;
+  text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+/* Case du projet actuellement déplié : même traitement que .activityRow.
+   selected (liste "Membres" de Communauté) — un contour de la couleur
+   d'accent, plutôt qu'un fond plein qui nuirait au contraste des badges. */
+.viewProfileProjectCase.active { border: 2px solid var(--purple); }
+.viewProfileProjectCaseName {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600;
+}
+/* Les badges viennent de buildSeekingBadges(seeking, false), partagée avec sa
+   propre bande de pastilles et la liste d'édition : aucune de ses règles
+   n'est redéfinie ici, seul l'espacement du conteneur est neutralisé pour
+   tenir dans la case. */
+.viewProfileProjectCase .seekingBadges { margin: 0; }
+/* Panneau de détail UNIQUE, sous la bande — pas un par case, pour que la
+   bande elle-même ne grandisse jamais. Réutilise .activityRow telle quelle
+   (fond, radius, ombre) : visuellement, c'est la même carte que l'ancienne
+   ligne dépliée d'avant ce chantier, simplement détachée de la case
+   compacte qui l'a fait apparaître. */
+.viewProfileProjectDetail { margin-top: 4px; }
+/* Espace entre la liste de projets et le sélecteur Statistiques/Publications
+   (5 septembre 2026, demande d'Emilien : « je souhaite que les projets des
+   utilisateurs ne soient pas collés au bouton statistiques et publications »)
+   — .periodSwitch n'a qu'un margin-bottom, jamais de margin-top, d'où le
+   collage. Porté par l'id : les autres usages de .periodSwitch (période
+   d'une activité partagée, par exemple) ne suivent pas d'une liste de
+   projets et n'ont pas à changer. */
+#viewProfileSectionSwitch { margin-top: 16px; }
 
 /* ===== PAGE D'UNE ACTIVITÉ (3 septembre 2026, Activité — général) =====
    Reprise stricte du motif de #viewProfileModal juste au-dessus, à la demande

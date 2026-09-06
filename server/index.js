@@ -53,6 +53,12 @@ app.use(express.json({ limit: '15mb' }));
 // désormais sur req.userId plutôt que sur un userId envoyé par le client.
 app.use(require('./lib/session').middleware);
 
+// Sauvegarde chiffrée hors site (Cloudflare R2, 6 septembre 2026) — voir
+// GUIDE-SAUVEGARDE-R2.md et noesis-timetracker-sauvegardes.md. Ne fait rien
+// tant que les variables R2_*/NOESIS_BACKUP_KEY ne sont pas posées côté
+// Railway (le module se désactive avec un avertissement, jamais une erreur).
+const { startBackupSchedule } = require('./lib/backup');
+
 // ---------------------------------------------------------------------------
 // Empreinte de version de l'app (volet Déploiement / Mobile, 30 août 2026)
 //
@@ -187,4 +193,9 @@ app.listen(PORT, HOST, () => {
   // configuré (clés VAPID), et rien non plus si NOESIS_DUE_REMINDERS=0.
   // Voir server/lib/duereminders.js.
   require('./lib/duereminders').startDueReminders();
+
+  // Sauvegarde chiffrée hors site (Cloudflare R2). Démarrée APRÈS l'écoute,
+  // comme les rappels d'échéance ci-dessus : la première copie a lieu 2
+  // minutes après le démarrage, jamais immédiatement.
+  startBackupSchedule();
 });

@@ -8114,6 +8114,10 @@
     $('viewProfileLiveDot').classList.add('hidden');
     $('viewProfileProjectsList').innerHTML = '';
     $('viewProfileProjectsEmptyHint').classList.add('hidden');
+    // Le détail déplié appartient au profil PRÉCÉDENT — jamais de fuite d'un
+    // projet à l'autre le temps que la nouvelle liste arrive.
+    $('viewProfileProjectDetail').classList.add('hidden');
+    $('viewProfileProjectDetail').innerHTML = '';
     $('viewProfileProjectsMsg').textContent = '';
     $('viewProfilePie').innerHTML = '';
     $('viewProfilePieEmptyHint').classList.add('hidden');
@@ -8519,51 +8523,80 @@
     return card;
   }
 
+  // 5 septembre 2026, demande d'Emilien : « je souhaite que les projets
+  // apparaissent comme sur le profil avec des cases qui peuvent défiler de
+  // gauche à droite [...] les détails des projets n'apparaissent que
+  // lorsqu'on clic sur le projet ». Remplace l'ancienne liste verticale de
+  // .activityRow (nom + description toujours visible + panneau dépliable
+  // par ligne) par une bande horizontale de "cases" compactes (nom + badges
+  // seulement, jamais de description) et un panneau de détail UNIQUE sous la
+  // bande, rempli au clic — même principe que la bande de pastilles de son
+  // PROPRE profil (renderTopbarProjects, 4 septembre 2026), mais un vrai
+  // panneau plutôt qu'un dépliage sur place : contrairement à une pastille
+  // dans .topbar (position: fixed, panneau flottant obligatoire), une case
+  // ici peut se permettre de pousser le contenu qui suit, la page défile
+  // déjà (#viewProfileScroll).
   function renderViewProfileProjects(list) {
     var box = $('viewProfileProjectsList');
+    var detailBox = $('viewProfileProjectDetail');
     box.innerHTML = '';
+    detailBox.innerHTML = '';
+    detailBox.classList.add('hidden');
     $('viewProfileProjectsEmptyHint').classList.toggle('hidden', list.length > 0);
 
-    list.forEach(function (p) {
-      var row = document.createElement('div');
-      row.className = 'activityRow';
+    // Un seul projet déplié à la fois, dans CE panneau — jamais un panneau
+    // par case, sinon la bande elle-même grandirait à chaque clic.
+    var openProjectId = null;
 
-      var header = document.createElement('div');
-      header.className = 'activityRowHeader clickable';
+    list.forEach(function (p) {
+      var card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'viewProfileProjectCase';
 
       var nameSpan = document.createElement('span');
-      nameSpan.className = 'activityRowName';
+      nameSpan.className = 'viewProfileProjectCaseName';
       nameSpan.textContent = p.name;
-      header.appendChild(nameSpan);
+      card.appendChild(nameSpan);
 
       var badges = buildSeekingBadges(p.seeking, false);
-      if (badges) header.appendChild(badges);
+      if (badges) card.appendChild(badges);
 
-      row.appendChild(header);
+      card.addEventListener('click', function () {
+        var wasOpen = openProjectId === p.id;
+        box.querySelectorAll('.viewProfileProjectCase.active').forEach(function (el) {
+          el.classList.remove('active');
+        });
+        // Re-cliquer la case déjà ouverte referme le détail (pas de nouveau
+        // clic ailleurs nécessaire pour le masquer).
+        if (wasOpen) {
+          openProjectId = null;
+          detailBox.classList.add('hidden');
+          detailBox.innerHTML = '';
+          return;
+        }
+        openProjectId = p.id;
+        card.classList.add('active');
+        detailBox.innerHTML = '';
+        // Le nom est répété ici : la case qui l'a ouvert peut être défilée
+        // hors de vue une fois le panneau affiché, surtout sur un écran
+        // étroit avec plusieurs projets.
+        var title = document.createElement('p');
+        title.className = 'activityRowName';
+        title.textContent = p.name;
+        detailBox.appendChild(title);
+        var fullBadges = buildSeekingBadges(p.seeking, true);
+        if (fullBadges) detailBox.appendChild(fullBadges);
+        detailBox.appendChild(buildProjectDetailFields(p));
+        if (!p.description && !p.externalLink && !p.startDate && !p.category && !fullBadges) {
+          var none = document.createElement('p');
+          none.className = 'hint';
+          none.textContent = t('Aucun détail supplémentaire pour ce projet.');
+          detailBox.appendChild(none);
+        }
+        detailBox.classList.remove('hidden');
+      });
 
-      if (p.description) {
-        var shortP = document.createElement('p');
-        shortP.className = 'meta';
-        shortP.textContent = truncateProjectDescription(p.description);
-        row.appendChild(shortP);
-      }
-
-      var panel = document.createElement('div');
-      panel.className = 'activitySettingsPanel hidden';
-      var fullBadges = buildSeekingBadges(p.seeking, true);
-      if (fullBadges) panel.appendChild(fullBadges);
-      panel.appendChild(buildProjectDetailFields(p));
-      if (!p.description && !p.externalLink && !p.startDate && !p.category && !fullBadges) {
-        var none = document.createElement('p');
-        none.className = 'hint';
-        none.textContent = t('Aucun détail supplémentaire pour ce projet.');
-        panel.appendChild(none);
-      }
-      row.appendChild(panel);
-
-      header.addEventListener('click', function () { panel.classList.toggle('hidden'); });
-
-      box.appendChild(row);
+      box.appendChild(card);
     });
   }
 

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node server/index.js",
-    "vapid": "node -e \"console.log(JSON.stringify(require('web-push').generateVAPIDKeys(), null, 2))\""
+    "vapid": "node -e \"console.log(JSON.stringify(require('web-push').generateVAPIDKeys(), null, 2))\"",
+    "backup-key": "node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
   },
   "license": "UNLICENSED",
   "private": true,

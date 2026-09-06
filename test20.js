@@ -302,9 +302,12 @@ async function api(page, method, path, body) {
   function hm(sec) {
     return Math.floor(sec / 3600) + 'h' + String(Math.round((sec % 3600) / 60)).padStart(2, '0');
   }
+  // ⚠️ 6 septembre 2026 : #spStatsTotal a été RETIRÉ par une autre discussion
+  // (doublon avec le total affiché au centre du camembert). Le total se lit
+  // donc désormais dans .pieCenterValue — même chiffre, une seule source.
   async function gridVsPie() {
     return page.evaluate(() => ({
-      total: document.getElementById('spStatsTotal').textContent,
+      total: (document.querySelector('#subProjectStatsPie .pieCenterValue') || {}).textContent || '',
       filled: document.querySelectorAll('#spTsGrid .tsSlot-filled').length,
       label: document.getElementById('spStatsLabel').textContent,
     }));
@@ -330,7 +333,7 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(1200);
   const desync = await page.evaluate(() => ({
     pressed: document.getElementById('spPieTodayBtn').getAttribute('aria-pressed'),
-    total: document.getElementById('spStatsTotal').textContent,
+    total: (document.querySelector('#subProjectStatsPie .pieCenterValue') || {}).textContent || '',
     filled: document.querySelectorAll('#spTsGrid .tsSlot-filled').length,
   }));
   eq(desync.pressed, 'true', '3.5 le bouton est marqué actif');
@@ -343,14 +346,15 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(900);
   const resync = await page.evaluate(() => ({
     pressed: document.getElementById('spPieTodayBtn').getAttribute('aria-pressed'),
-    total: document.getElementById('spStatsTotal').textContent,
+    total: (document.querySelector('#subProjectStatsPie .pieCenterValue') || {}).textContent || '',
   }));
   eq(resync.pressed, 'false', '3.8 un second appui relâche le bouton');
   eq(resync.total, prev.total, '3.9 ⭐ et la Répartition se recale sur la grille');
 
   await page.click('#spTsNextWeek');
   await page.waitForTimeout(1200);
-  eq(await page.textContent('#spStatsTotal'), '4h00', '3.10 retour sur la semaine en cours');
+  eq(await page.textContent('#subProjectStatsPie .pieCenterValue'), '4h00',
+    '3.10 retour sur la semaine en cours');
 
   // Vue Mois : le même couple grille + répartition, par le même chemin. Le
   // total attendu vient de la route elle-même — le mois peut contenir ou non
@@ -364,8 +368,57 @@ async function api(page, method, path, body) {
   ok(await page.isVisible('#spTsCalendar'), '3.11 la vue Mois affiche le calendrier');
   ok(await page.evaluate(() => document.querySelectorAll('#spTsCalendar .tsCalSlot').length > 0),
     '3.12 avec ses cases de 2h');
-  eq(await page.textContent('#spStatsTotal'), hm(monthApi.breakdown.totalSeconds),
+  eq(await page.textContent('#subProjectStatsPie .pieCenterValue'), hm(monthApi.breakdown.totalSeconds),
     '3.13 ⭐ et la Répartition a suivi la période Mois');
+
+  // ⭐⭐ 6 septembre 2026, Emilien : « la feuille de temps en mode mois ne
+  // mettait pas les dates au niveau des lignes » et « je souhaite un petit
+  // espace entre les jours, comme sur la feuille de temps mensuelle du volet
+  // stat ».
+  //
+  // Les deux défauts avaient UNE seule cause : les trois mesures du calendrier
+  // (--cal-head / --cal-row / --cal-gap) étaient déclarées sur
+  // #statsTimesheetBlock, un identifiant. Dans la fenêtre elles n'existaient
+  // pas, donc les hauteurs de ligne ET la gouttière étaient purement ignorées.
+  // On mesure ici la géométrie réelle, pas la présence d'une règle.
+  const calGeom = await page.evaluate(() => {
+    function read(frozenId, calId) {
+      const fr = document.getElementById(frozenId);
+      const ca = document.getElementById(calId);
+      const labels = Array.from(fr.querySelectorAll('.tsCalWeekLabel'));
+      const days = Array.from(ca.querySelectorAll('.tsCalendarGrid > .tsCalDay'));
+      const firstOfRow = [];
+      for (let i = 0; i < days.length; i += 7) firstOfRow.push(days[i]);
+      return {
+        labels: labels.length,
+        // Écart vertical entre chaque libellé de semaine et la première case
+        // de SA ligne : c'est exactement « les dates au niveau des lignes ».
+        offsets: labels.map((el, i) => (firstOfRow[i]
+          ? Math.round(el.getBoundingClientRect().top - firstOfRow[i].getBoundingClientRect().top)
+          : null)),
+        // Espace horizontal réel entre deux jours voisins.
+        dayGap: (days[0] && days[1])
+          ? Math.round(days[1].getBoundingClientRect().left - days[0].getBoundingClientRect().right)
+          : null,
+      };
+    }
+    return read('spTsFrozenCol', 'spTsCalendar');
+  });
+  ok(calGeom.labels >= 4, '3.14 le calendrier a ses libellés de semaine (' + calGeom.labels + ')');
+  ok(calGeom.offsets.every((d) => d !== null && Math.abs(d) <= 1),
+    '3.15 ⭐⭐ chaque date est en face de SA ligne (décalages : '
+    + JSON.stringify(calGeom.offsets) + ')');
+  ok(calGeom.dayGap > 0,
+    '3.16 ⭐⭐ et il y a un espace entre les jours (' + calGeom.dayGap + 'px)');
+
+  // Et cet espace est bien CELUI du volet Statistiques, pas une valeur
+  // inventée : on lit la même mesure là-bas et on compare.
+  const statsGap = await page.evaluate(() => {
+    const el = document.getElementById('statsTimesheetBlock');
+    return getComputedStyle(el).getPropertyValue('--cal-gap').trim();
+  });
+  eq(calGeom.dayGap + 'px', statsGap,
+    '3.17 ⭐ exactement l\'espacement de la feuille de temps mensuelle du volet Stats');
 
   // ============ 3bis. ⭐ Contraste des nuances ============
   // 5 septembre 2026, Emilien (captures à l'appui) : « je souhaite que le
@@ -641,7 +694,10 @@ async function api(page, method, path, body) {
 
   // 4h de temps rattaché/non rattaché du premier membre + 1h30 ajoutée par le
   // trio de sous-projets du bloc 3bis + 3h du second membre.
-  const totalGlobal = await page.textContent('#communityActivityStatsTotal');
+  // ⚠️ 6 septembre 2026 : #communityActivityStatsTotal a été retiré par une
+  // autre discussion, comme #spStatsTotal — le total ne s'affiche plus qu'au
+  // centre du camembert.
+  const totalGlobal = await page.textContent('#communityActivityPie .pieCenterValue');
   eq(totalGlobal, '8h30', '4.6 la comparaison globale porte sur le temps des deux membres');
   eq(await page.evaluate(() => document.querySelectorAll('#communityActivityPie .pieLegendRow').length), 2,
     '4.7 et compare bien DEUX membres');
@@ -659,7 +715,7 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(1400);
   eq(await page.textContent('#caSubProjectBtnLabel'), 'Développement',
     '4.9 le bouton porte le sous-projet choisi');
-  eq(await page.textContent('#communityActivityStatsTotal'), '4h00',
+  eq(await page.textContent('#communityActivityPie .pieCenterValue'), '4h00',
     '4.10 ⭐ la comparaison ne porte plus que sur « Développement » (1h + 3h)');
   eq(await page.evaluate(() => document.querySelectorAll('#communityActivityPie .pieLegendRow').length), 2,
     '4.11 ⭐⭐ les DEUX membres restent comparés : c\'est un filtre, pas une fenêtre par membre');
@@ -671,14 +727,14 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(400);
   await page.click('#caSubProjectMenu [data-sub-project="none"]');
   await page.waitForTimeout(1400);
-  eq(await page.textContent('#communityActivityStatsTotal'), '1h00',
+  eq(await page.textContent('#communityActivityPie .pieCenterValue'), '1h00',
     '4.13 ⭐ « Sans sous-projet » ne montre que l\'heure non rattachée');
 
   await page.click('#caSubProjectBtn');
   await page.waitForTimeout(400);
   await page.click('#caSubProjectMenu [data-sub-project=""]');
   await page.waitForTimeout(1400);
-  eq(await page.textContent('#communityActivityStatsTotal'), '8h30',
+  eq(await page.textContent('#communityActivityPie .pieCenterValue'), '8h30',
     '4.14 le retour au global redonne le total complet');
 
   // ============ 4bis. ⭐ Garde de version index.html / app.js ============
@@ -710,6 +766,47 @@ async function api(page, method, path, body) {
     '4bis.3 la fenêtre n\'a pas été construite à moitié');
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1600);
+
+  // ============ 4ter. ⭐ Aucun commentaire HTML ne fuit à l'écran ============
+  // 6 septembre 2026 — incident réel, capture d'Emilien à l'appui : en
+  // réécrivant un commentaire au-dessus du camembert de la page d'une
+  // activité, une discussion l'a fermé trop tôt et a laissé la fin de
+  // l'ancien en TEXTE BRUT. Cinq lignes de commentaire de code s'affichaient
+  // donc dans l'app, « --> » compris.
+  // Un commentaire mal fermé ne casse rien : le navigateur affiche
+  // simplement son contenu. Aucune erreur, aucun test rouge — c'est
+  // exactement pour ça que ça a atteint son téléphone.
+  console.log('4ter. ⭐ Aucun commentaire de code ne s\'affiche dans l\'app');
+  const leaked = await page.evaluate(() => {
+    // Marqueurs qu'on n'écrit QUE dans des commentaires de code : s'ils
+    // apparaissent dans le texte rendu, c'est qu'un commentaire est ouvert.
+    const needles = ['-->', '⚠️ ', 'demande d\'Emilien', 'septembre 2026'];
+    const found = [];
+    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walk.nextNode())) {
+      const el = n.parentElement;
+      if (!el || el.closest('script, style')) continue;
+      const txt = (n.nodeValue || '').trim();
+      if (!txt) continue;
+      if (needles.some((k) => txt.indexOf(k) !== -1)) {
+        found.push(txt.slice(0, 70));
+      }
+    }
+    return found;
+  });
+  eq(leaked, [], '4ter.1 ⭐⭐ aucun texte de commentaire de code n\'est rendu dans la page');
+
+  const commentBalance = await page.evaluate(() => {
+    // Le DOM ne garde pas un commentaire mal fermé — on relit donc la source.
+    return fetch('/index.html').then((r) => r.text()).then((s) => ({
+      opens: (s.match(/<!--/g) || []).length,
+      closes: (s.match(/-->/g) || []).length,
+    }));
+  });
+  eq(commentBalance.opens, commentBalance.closes,
+    '4ter.2 ⭐⭐ index.html a autant d\'ouvertures que de fermetures de commentaire ('
+    + commentBalance.opens + ' / ' + commentBalance.closes + ')');
 
   // ============ 5. Non-régressions ============
   console.log('5. Non-régression');
