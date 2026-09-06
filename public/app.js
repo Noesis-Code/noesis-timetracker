@@ -9890,89 +9890,22 @@
   // membres) sont RETIRÉS, remplacés par le mode édition ci-dessus. Nom et
   // couleur se modifient désormais directement dans la ligne (comme le nom
   // d'un sous-projet), la suppression a sa propre croix « ✕ » (qui rouvre la
-  // même modale garder/purger l'historique qu'avant, inchangée). Seuls
-  // Partager/Séparer/Fusionner/Voir les membres — sans équivalent dans le
-  // mode édition — survivent ici, dans un panneau réduit à ces boutons,
-  // derrière une icône « 👤+ » plutôt que le "⋮" (emplacement demandé par
-  // Emilien : en haut à gauche de la croix de suppression).
+  // même modale garder/purger l'historique qu'avant, inchangée).
   //
-  // `acts` sert uniquement à savoir s'il y a au moins deux activités (bouton
-  // Fusionner) ; `sharedInfo` uniquement à savoir si "Voir les membres" a un
-  // sens. Les deux viennent de lastRenderedActivities/lastRenderedShared.
-  function buildActivityCommunityActions(a, sharedInfo, acts) {
-        var panel = document.createElement('div');
-        panel.className = 'activitySettingsPanel';
-
-        var actionsWrap = document.createElement('div');
-        actionsWrap.className = 'rowActions';
-
-        // Partager par pseudo : envoie une invitation en attente à quelqu'un.
-        // Disponible à tout membre actuel, pas seulement au propriétaire —
-        // comme l'était l'ancien lien de partage que ce bouton remplace.
-        var shareBtn = document.createElement('button');
-        shareBtn.className = 'iconBtn';
-        shareBtn.textContent = t('Partager');
-        shareBtn.addEventListener('click', function () {
-          var pseudo = prompt(t('Pseudo de la personne à inviter sur "{activity}" :', { activity: a.name }));
-          if (!pseudo || !pseudo.trim()) return;
-          api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: pseudo.trim() })
-            .then(function (res) { alert(t(res.message)); })
-            .catch(function (err) { alert(err.message); });
-        });
-        actionsWrap.appendChild(shareBtn);
-
-        // Séparer : seulement si l'activité est actuellement partagée (rien à
-        // séparer sur une activité déjà solo). Disponible à tout membre, comme
-        // Partager. Contrairement à Supprimer, on obtient sa propre copie
-        // personnelle (avec son historique) au lieu de perdre l'activité.
-        if (a.membersCount > 1) {
-          var separateBtn = document.createElement('button');
-          separateBtn.className = 'iconBtn';
-          separateBtn.textContent = t('Séparer');
-          separateBtn.addEventListener('click', function () {
-            if (!confirm(t('Séparer "{activity}" ? Tu auras désormais ta propre activité personnelle du même nom, avec ton historique déjà enregistré dessus. Les autres personnes qui la partagent ne sont pas concernées.', { activity: a.name }))) return;
-            api('POST', '/api/activities/' + a.id + '/separate', { userId: profile.id })
-              .then(function (res) {
-                refreshActivities().then(renderActivityGrid);
-                loadSettingsActivities();
-                alert(t(res.message));
-              })
-              .catch(function (err) { alert(err.message); });
-          });
-          actionsWrap.appendChild(separateBtn);
-        }
-
-        // Fusionner : verser une autre de mes activités dans celle-ci (ou
-        // l'inverse — voir le sens décidé par le serveur). Proposé dès que j'ai
-        // au moins deux activités ; le détail des cas impossibles (deux
-        // activités partagées) est expliqué dans la boîte, pas ici.
-        if (acts.length > 1) {
-          var mergeBtn = document.createElement('button');
-          mergeBtn.className = 'iconBtn';
-          mergeBtn.textContent = t('Fusionner');
-          mergeBtn.addEventListener('click', function () { openMergeActivityModal(a); });
-          actionsWrap.appendChild(mergeBtn);
-        }
-
-        // "Voir les membres" : la liste complète des membres de l'activité, avec
-        // un point vert sur ceux dont le chrono tourne en ce moment sur CETTE
-        // activité. Rangé ici plutôt que dans un second menu déroulant (il y en
-        // avait un, réservé à cette seule option, quand la liste des activités
-        // partagées était séparée) — un motif d'UI en moins.
-        if (sharedInfo) {
-          var membersBtn = document.createElement('button');
-          membersBtn.className = 'iconBtn';
-          membersBtn.textContent = t('Voir les membres');
-          membersBtn.addEventListener('click', function () {
-            openCommunityMembersModal(a.id, a.name);
-          });
-          actionsWrap.appendChild(membersBtn);
-        }
-
-        panel.appendChild(actionsWrap);
-        return panel;
-  }
-
+  // 6 septembre 2026 (Emilien), suite : Partager/Séparer/Voir les membres —
+  // un temps regroupés derrière un « 👤+ » à la place du "⋮" — sont
+  // finalement retirés PLUTÔT QUE déplacés. En construisant leur nouvel
+  // emplacement (l'en-tête de la page d'activité), j'y ai trouvé un bouton
+  // « Membres » tout neuf, posé entre-temps par « Activité solo » (icône
+  // personne+ en SVG, #activityPageMembersBtn dans index.html) : voir la
+  // liste des membres, en ajouter un, quitter la communauté. Emilien,
+  // consulté : « partager = ajouter membre et séparer = quitter la
+  // communauté » — la fonction que je m'apprêtais à dupliquer existe déjà
+  // là-bas. D'où la disparition pure et simple du « 👤+ » du volet, sans
+  // remplaçant ; buildActivityCommunityActions() et le panneau qui allait
+  // avec ont été retirés avec lui. Fusionner, qui n'a pas d'équivalent
+  // ailleurs, garde sa propre icône dans la ligne (mode édition) et ouvre le
+  // choix de fusion directement.
   function renderActivitiesSettings(acts, sharedList) {
     var box = $('activitiesList');
     lastActivitiesData = { acts: acts, sharedList: sharedList };
@@ -10051,13 +9984,14 @@
 
       // ⚠️ 5 septembre 2026 (demande d'Emilien, « exactement comme cela
       // fonctionne pour les sous-projets ») : le mode édition par appui long
-      // REMPLACE le "⋮" et son panneau de réglages complet (menuBtn/
-      // buildActivitySettingsPanel, retirés — voir buildActivityCommunityActions
-      // ci-dessus, ce qui en reste). En édition : poignée de glissement, nom
-      // éditable, pastille de couleur cliquable, icône « 👤+ » (Partager/
-      // Séparer/Fusionner/Voir les membres), et une croix « ✕ » qui ouvre la
-      // même modale de suppression qu'avant (#deleteActivityModal, garder/
-      // purger l'historique — inchangée). Glisser-déposer : voir
+      // REMPLACE le "⋮" et son panneau de réglages complet (menuBtn,
+      // retiré). En édition : poignée de glissement, nom éditable, pastille
+      // de couleur cliquable, icône de fusion (voir commentaire du
+      // 6 septembre au-dessus de renderActivitiesSettings — Partager/Séparer/
+      // Voir les membres n'ont finalement pas leur place ici, déjà couverts
+      // par le bouton « Membres » d'Activité solo), et une croix « ✕ » qui
+      // ouvre la même modale de suppression qu'avant (#deleteActivityModal,
+      // garder/purger l'historique — inchangée). Glisser-déposer : voir
       // bindActivityDrag, copié tel quel de bindSubProjectDrag.
       if (activitiesEditMode) {
         var handle = document.createElement('span');
@@ -10074,8 +10008,10 @@
         colorBtn.setAttribute('aria-label', t('Changer la couleur'));
         colorBtn.addEventListener('click', function (e) {
           e.stopPropagation();
+          // Plus de panneau d'actions par ligne depuis le 6 septembre 2026
+          // (voir le commentaire au-dessus de renderActivitiesSettings) : il
+          // ne reste que les autres pastilles de couleur à refermer.
           box.querySelectorAll('.colorSwatches').forEach(function (el) { if (el !== swatches) el.classList.add('hidden'); });
-          box.querySelectorAll('.activitySettingsPanel').forEach(function (el) { el.classList.add('hidden'); });
           swatches.classList.toggle('hidden');
         });
         header.appendChild(colorBtn);
@@ -10103,21 +10039,26 @@
         });
         header.appendChild(nameInput);
 
-        // « Je souhaite les intégrer dans le volet des activités en haut à
-        // gauche de la croix sous une icône d'une personne avec un + »
-        // (Emilien, 5 septembre 2026).
-        var peopleBtn = document.createElement('button');
-        peopleBtn.type = 'button';
-        peopleBtn.className = 'activityPeopleBtn';
-        peopleBtn.textContent = '👤+';
-        peopleBtn.setAttribute('aria-label', t('Partager, séparer, fusionner, voir les membres'));
-        peopleBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          box.querySelectorAll('.activitySettingsPanel').forEach(function (el) { if (el !== actionsPanel) el.classList.add('hidden'); });
-          box.querySelectorAll('.colorSwatches').forEach(function (el) { el.classList.add('hidden'); });
-          actionsPanel.classList.toggle('hidden');
-        });
-        header.appendChild(peopleBtn);
+        // 6 septembre 2026 (Emilien) : le "👤+" quitte le volet sans
+        // remplaçant — Partager et Séparer sont désormais couverts par le
+        // bouton « Membres » d'Activité solo, sur la page de l'activité (voir
+        // le commentaire au-dessus de renderActivitiesSettings). Cette place,
+        // dans la ligne, revient à Fusionner seul — la seule des quatre
+        // actions d'origine qui a un sens SANS ouvrir l'activité — sous une
+        // icône dédiée qui ouvre le choix de fusion directement, sans passer
+        // par un panneau (demande explicite d'Emilien).
+        if (acts.length > 1) {
+          var mergeIconBtn = document.createElement('button');
+          mergeIconBtn.type = 'button';
+          mergeIconBtn.className = 'activityMergeBtn';
+          mergeIconBtn.textContent = '⇄';
+          mergeIconBtn.setAttribute('aria-label', t('Fusionner cette activité'));
+          mergeIconBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openMergeActivityModal(a);
+          });
+          header.appendChild(mergeIconBtn);
+        }
 
         var del = document.createElement('button');
         del.type = 'button';
@@ -10150,10 +10091,6 @@
         }, true);
         swatches.classList.add('hidden');
         row.appendChild(swatches);
-
-        var actionsPanel = buildActivityCommunityActions(a, sharedInfo, acts);
-        actionsPanel.classList.add('hidden');
-        row.appendChild(actionsPanel);
 
         box.appendChild(row);
         return;   // en édition : ni badge de membres, ni clic pour ouvrir la page

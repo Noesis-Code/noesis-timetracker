@@ -317,6 +317,7 @@
     'Changer la couleur': 'Change the colour',
     'Partager, séparer, fusionner, voir les membres': 'Share, split off, merge, view members',
     'Supprimer cette activité': 'Delete this activity',
+    'Fusionner cette activité': 'Merge this activity',
     'Partager': 'Share',
     'Séparer': 'Split off',
     'Supprimer définitivement': 'Delete permanently',

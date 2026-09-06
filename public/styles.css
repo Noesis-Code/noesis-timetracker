@@ -1797,16 +1797,30 @@ body.scrollLock { overflow: hidden; }
    modification de .periodBtn/.periodSwitch, génériques et réutilisées
    ailleurs pour les bascules de période) mais même convention visuelle
    "actif = fond violet plein" que le reste de l'app. */
-.communityModeSwitch { display: flex; gap: 8px; margin-bottom: 10px; }
-.communityModeBtn {
-  flex: 1; padding: 8px; border: 1px solid rgba(255, 255, 255, 0.3);
-  background: transparent; color: #fff; border-radius: var(--radius-md);
-  cursor: pointer; font-size: 14px; font-weight: 600;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+/* Modernisation du bouton à deux états (6 septembre 2026, demande
+   d'Emilien : « je souhaite que les boutons soient un peu plus modernes »)
+   — segmented control (piste translucide + pastille pleine qui glisse
+   visuellement d'un état à l'autre) au lieu de deux rectangles bordés. */
+.communityModeSwitch {
+  display: flex; gap: 4px; margin-bottom: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px;
 }
-.communityModeBtn.active { background: var(--purple); border-color: var(--purple); }
+.communityModeBtn {
+  flex: 1; padding: 9px 8px; border: none;
+  background: transparent; color: rgba(255, 255, 255, 0.75); border-radius: 999px;
+  cursor: pointer; font-size: 14px; font-weight: 600;
+  transition: background-color var(--transition-fast), color var(--transition-fast),
+    box-shadow var(--transition-fast), transform 0.12s ease;
+}
+.communityModeBtn.active {
+  background: var(--purple); color: #fff;
+  box-shadow: 0 2px 8px rgba(103, 78, 169, 0.5);
+}
+.communityModeBtn:active { transform: scale(0.97); }
 @media (hover: hover) {
-  .communityModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.08); }
+  .communityModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: #fff; }
 }
 
 /* Rangée du champ actif + actions de publication (le "+"-sondage, le
@@ -1846,6 +1860,28 @@ body.scrollLock { overflow: hidden; }
    index.html) n'ont pas leur place pendant qu'on rédige un message. */
 #communitySearchBar.modePublish ~ #communityDiscoverHint,
 #communitySearchBar.modePublish ~ #communitySearchResults { display: none; }
+
+/* Décollement + modernisation des étiquettes de filtre Partenaires/Clients/
+   Financement (6 septembre 2026, demande d'Emilien : « j'aimerais que les
+   boutons partenaires client et financement soient décollés de la zone de
+   texte »). Ciblé par id pour ne PAS toucher .seekingTagPicker/.seekingTagBtn
+   génériques, partagés avec le sélecteur de tags-projet du Profil. */
+#communitySeekingFilters {
+  margin-top: 16px;
+  gap: 8px;
+}
+#communitySeekingFilters .seekingTagBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 7px 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), transform 0.12s ease;
+}
+#communitySeekingFilters .seekingTagBtn:active { transform: scale(0.96); }
+@media (hover: hover) {
+  #communitySeekingFilters .seekingTagBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.16); }
+}
 
 /* Découverte passive en ronds cliquables (5 septembre 2026, demande
    d'Emilien : « uniquement sous forme de rond sur lesquels on clique pour
@@ -2022,7 +2058,7 @@ body.scrollLock { overflow: hidden; }
 .activityDragHandle { flex: 0 0 auto; padding: 4px 8px; color: var(--text-light); font-size: 1.1rem; line-height: 1; cursor: grab; touch-action: none; user-select: none; }
 .activityColorDot { flex: 0 0 auto; width: 20px; height: 20px; padding: 0; border: 1px solid var(--border); border-radius: 50%; cursor: pointer; }
 .activityNameInput { flex: 1 1 auto; min-width: 0; }
-.activityPeopleBtn { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); font-size: 0.85rem; line-height: 1; cursor: pointer; }
+.activityMergeBtn { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); font-size: 0.95rem; line-height: 1; cursor: pointer; }
 .activityDeleteX { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--red); border-radius: var(--radius-sm); background: none; color: var(--red); font-size: 0.9rem; line-height: 1; cursor: pointer; }
 
 /* ===== Section "Projets" de Profil (1er septembre 2026, demande
@@ -2244,10 +2280,21 @@ button { -webkit-user-select: none; user-select: none; }
    cette classe est partagée avec #communityMembersModal (zone Communauté),
    qui doit garder son comportement d'origine — carte entièrement défilante,
    padding compris. */
-#viewProfileModal .communityMembersModalCard {
+/* ⚠️ 5 septembre 2026 (Chrono — sous-projets, débordement signalé) :
+   la fenêtre de détail par sous-projet est AJOUTÉE aux deux sélecteurs
+   ci-dessous plutôt que de recopier leurs deux règles à côté — demande
+   d'Emilien : « je souhaite que le nom de l'activité en haut et la croix pour
+   fermer soient fixes et que la feuille de temps et la répartition défilent
+   en dessous comme pour le profil utilisateur ». Elle portait déjà les
+   bonnes classes (.viewProfileIdentity / .viewProfileScroll) mais la règle de
+   défilement était portée par un ID (#viewProfileScroll), pas par la classe :
+   elle ne s'appliquait donc qu'à la page de visite d'un profil. */
+#viewProfileModal .communityMembersModalCard,
+#subProjectStatsModal .communityMembersModalCard {
   display: flex; flex-direction: column; padding: 0; overflow: hidden;
 }
-#viewProfileScroll {
+#viewProfileScroll,
+#subProjectStatsScroll {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
   /* Le rebond de cette zone ne se propage pas à la page derrière la modale. */
   overscroll-behavior: contain;
@@ -2277,7 +2324,8 @@ button { -webkit-user-select: none; user-select: none; }
   flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-#viewProfileModalClose { flex-shrink: 0; }
+#viewProfileModalClose,
+#subProjectStatsClose { flex-shrink: 0; }
 
 /* Point vert « chrono en cours » du profil visité (3 septembre 2026, demande
    d'Emilien). Posé à droite du nom, donc APRÈS lui dans le DOM et avant la
