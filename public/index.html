@@ -1286,9 +1286,63 @@
            bougé (toujours id dédié, toujours #communitySearchResults en
            frère) — seul le CSS change, plus une classe html.communityFeedSnap
            posée par app.js (défilement par saccade de tout le volet). -->
+      <!-- ⚠️ 5 septembre 2026 (demande d'Emilien : « je souhaite utiliser une
+           seule sorte de texte pour rechercher ou pour publier [...] je
+           clique alors sur un bouton pour sélectionner ce que je vais
+           faire »). Fusion de l'ancienne barre de recherche et de l'ancien
+           composeur "Publier" (#communityMyPostsBlock, qui vivait plus bas —
+           voir la note à son ancien emplacement) en une seule carte :
+           #communityModeSwitch choisit le mode (Rechercher/Publier), un seul
+           champ texte visible à la fois (communitySearchInput OU
+           communityMyPostsInput — même style .communityComposerRow input,
+           même emplacement) porte l'action active. Aucun id de champ n'a
+           changé (communityMyPostsInput est passé de <textarea> à <input> —
+           mountMessageThread ne lit que .value, ça ne change rien pour lui —
+           communityMyPostsSendBtn/AttachBtn/AttachInput/PendingList/Msg et
+           communityPollsAddBtn ont juste été déplacés ici) : mountProfilePostsComposer
+           et mountPolls (app.js) les retrouvent exactement comme avant. Visibilité
+           pilotée en CSS par les classes .communitySearchOnly/.communityPublishOnly
+           (masquées via #communitySearchBar.modePublish / :not(.modePublish),
+           voir setCommunityMode dans app.js et styles.css) — chaque champ reste
+           par ailleurs montré/masqué comme avant par son propre code (mountPolls
+           pour le "+", renderPending()/send() pour la pièce jointe en attente et
+           le message d'erreur) : les deux mécanismes se combinent sans se marcher
+           dessus (masqué si l'un OU l'autre le décide). -->
       <div class="entryCard" id="communitySearchBar">
-        <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo, un projet, un secteur..." autocomplete="off">
-        <div class="seekingTagPicker" id="communitySeekingFilters"></div>
+        <div class="communityModeSwitch" id="communityModeSwitch">
+          <button type="button" class="communityModeBtn active" id="communityModeSearchBtn" data-mode="search">Rechercher</button>
+          <button type="button" class="communityModeBtn" id="communityModePublishBtn" data-mode="publish">Publier</button>
+        </div>
+        <div class="communityComposerRow">
+          <input type="text" id="communitySearchInput" class="communitySearchOnly" placeholder="Chercher un pseudo, un projet, un secteur..." autocomplete="off">
+          <!-- Même "sorte" de champ que la recherche ci-dessus (un seul <input>
+               texte, même style) : demande explicite d'Emilien de ne plus avoir
+               un composeur d'aspect différent (l'ancien <textarea rows="2">) pour
+               publier. mountMessageThread (app.js) n'utilise que .value/addEventListener
+               sur cet id, jamais de propriété propre à <textarea> : aucune
+               modification nécessaire côté JS pour ce changement de balise. -->
+          <input type="text" id="communityMyPostsInput" class="communityPublishOnly" maxlength="2000" placeholder="Écrire aux membres" autocomplete="off">
+          <!-- "+" des sondages : mountPolls le câble toujours par ids.addBtn
+               (id inchangé) et le montre/masque selon le droit de créer
+               (data.canCreate) — .communityPublishOnly ajoute une seconde
+               condition (mode actif) sans toucher à cette logique. -->
+          <button type="button" class="menuBtn pollComposerAddBtn communityPublishOnly hidden" id="communityPollsAddBtn" aria-label="Créer un sondage" title="Créer un sondage">+</button>
+          <div class="attachmentMenuWrap communityPublishOnly">
+            <button type="button" id="communityMyPostsAttachBtn" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <input type="file" id="communityMyPostsAttachInput" class="hidden">
+          </div>
+          <!-- Icône d'envoi (plus de bouton "Envoyer" texte) : masquée tant que
+               le champ est vide (syncCommunitySendBtnVisibility, app.js), en
+               plus d'Entrée pour envoyer (déjà géré par mountMessageThread). -->
+          <button type="button" id="communityMyPostsSendBtn" class="communitySendBtn communityPublishOnly" aria-label="Envoyer" title="Envoyer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <div id="communityMyPostsPendingList" class="attachmentList communityPublishOnly hidden"></div>
+        <p id="communityMyPostsMsg" class="msg communityPublishOnly"></p>
+        <div class="seekingTagPicker communitySearchOnly" id="communitySeekingFilters"></div>
       </div>
       <!-- Découverte de membres (2 septembre 2026, demande d'Emilien :
            « perfectionner la découverte [...] des profils des autres
@@ -1312,61 +1366,28 @@
            #communitySearchBar pour devenir des frères juste en dessous —
            voir la note au-dessus. Comportement/rendu identiques, seul
            l'emboîtement DOM a changé. -->
+      <!-- ⚠️ 5 septembre 2026 (demande d'Emilien : « les quelques profils à
+           découvrir soient uniquement sous forme de rond sur lesquels on
+           clique pour ouvrir le profil ») : quand la liste vient d'une
+           découverte passive (champ vide, aucun filtre — voir isDiscovery
+           dans loadCommunityDiscovery, app.js), renderSearchResults rend
+           #communitySearchResults en rangée de ronds cliquables
+           (.discoveryCircles, sans nom écrit) plutôt qu'en lignes détaillées.
+           Une recherche ACTIVE (nom tapé, ou un filtre choisi) continue de
+           rendre les lignes complètes avec nom + bouton Suivre/Se
+           désabonner, confirmé par Emilien à ce même passage — c'est
+           d'ailleurs le seul endroit où l'on peut encore suivre quelqu'un
+           découvert par ce biais : la page de visite d'un profil
+           (#viewProfileModal) n'a toujours pas de bouton "Suivre" (voir
+           "Suite naturelle non faite" dans noesis-timetracker-chantiers-en-cours.md). -->
       <p id="communityDiscoverHint" class="hint hidden">Quelques profils à découvrir.</p>
       <div id="communitySearchResults" class="activitiesList"></div>
 
-      <!-- Zone "écrire à sa communauté", identique à #profileDiscussionBlock
-           (même composeur texte + pièces jointes, même donnée profile_posts)
-           — demande d'Emilien du 1er septembre 2026 (« créer une zone pour
-           écrire à sa communauté exactement comme il y a dans le profil
-           [...] que les deux zones soient identiques »). Deux emplacements,
-           une seule liste de messages (toujours les siens, quel que soit
-           l'endroit d'où on l'ouvre) : voir mountProfilePostsComposer dans
-           app.js, appelée une fois pour chaque emplacement. Volontairement
-           sans <p class="sectionTitle"> ici (contrairement à
-           #profileDiscussionBlock) : cet onglet n'a plus aucun titre de
-           section fixe depuis le 30 août 2026 (voir plus haut) — à ajouter
-           si Emilien préfère malgré tout un titre pour cette zone. -->
-      <!-- 3 septembre 2026 (demande d'Emilien) : la liste séparée de MES
-           messages a disparu de cet onglet. Mes messages défilent désormais
-           dans le flux d'actualité plus bas (#followingFeed), mêlés
-           chronologiquement à ceux des membres que je suis, en violet plein
-           pour qu'on les repère. Les afficher aussi ici les aurait montrés
-           deux fois sur le même écran. Il ne reste donc que le composeur. -->
-      <div id="communityMyPostsBlock" class="discussionBlock">
-        <!-- Titre "Publier" ajouté le 3 septembre 2026 (demande d'Emilien),
-             même intitulé que le composeur jumeau du Profil
-             (#profileDiscussionBlock, voir plus bas dans ce fichier) qui
-             l'avait déjà. Placeholder passé de "Écrire..." à
-             "Écrire aux membres" le même jour, même demande — distinct de
-             "Écrire au membre..." (#profileDiscussionCommunityInput,
-             singulier) : ici c'est visible de toute la communauté. -->
-        <p class="sectionTitle">Publier</p>
-        <div class="discussionComposer">
-          <textarea id="communityMyPostsInput" rows="2" maxlength="2000" placeholder="Écrire aux membres"></textarea>
-          <div id="communityMyPostsPendingList" class="attachmentList hidden"></div>
-          <div class="rowActions">
-            <!-- "+" des sondages : déplacé ici le 3 septembre 2026 sur demande
-                 d'Emilien (« l'icône + de sondages [...] à gauche de l'icône
-                 trombone en dessous des zones de textes »). Le bouton vit donc
-                 dans le composeur de MESSAGES, mais il ouvre le formulaire de
-                 #communityPollsBlock, son frère juste en dessous — les deux
-                 blocs restent distincts (un sondage n'est pas un message), seul
-                 le point de départ du geste a bougé. Son id n'a pas changé :
-                 mountPolls le câble toujours par ids.addBtn, et il reste masqué
-                 tant que le serveur n'a pas confirmé le droit de créer. -->
-            <button type="button" class="menuBtn pollComposerAddBtn hidden" id="communityPollsAddBtn" aria-label="Créer un sondage" title="Créer un sondage">+</button>
-            <div class="attachmentMenuWrap">
-              <button type="button" id="communityMyPostsAttachBtn" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              </button>
-              <input type="file" id="communityMyPostsAttachInput" class="hidden">
-            </div>
-            <button type="button" id="communityMyPostsSendBtn" class="iconBtn">Envoyer</button>
-          </div>
-          <p id="communityMyPostsMsg" class="msg"></p>
-        </div>
-      </div>
+      <!-- ⚠️ 5 septembre 2026 : l'ancien bloc composeur "Publier" séparé
+           (#communityMyPostsBlock, titre "Publier" + <textarea> + actions)
+           a été retiré d'ici — son contenu vit désormais dans la carte
+           fusionnée #communitySearchBar tout en haut (voir la note à cet
+           endroit). Les ids de ses champs n'ont pas changé. -->
 
       <!-- Sondages (3 septembre 2026, 11ᵉ discussion "Sondages"). Cadrage
            d'Emilien : « Les sondages n'apparaissent jamais dans les

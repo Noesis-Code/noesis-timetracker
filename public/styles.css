@@ -1775,9 +1775,91 @@ body.scrollLock { overflow: hidden; }
 #communitySearchInput {
   font-size: 16px;
 }
+/* ⚠️ 5 septembre 2026 : même correctif de zoom automatique Safari iOS que
+   #communitySearchInput ci-dessus, nécessaire depuis que ce champ vit dans
+   la même carte fixe #communitySearchBar (voir index.html — fusion
+   recherche/publication). Sans lui, le bug reviendrait dès qu'on tape en
+   mode Publier. */
+#communityMyPostsInput {
+  font-size: 16px;
+}
 #tab-community {
   padding-top: var(--community-searchbar-h, 74px);
 }
+
+/* ===== Fusion recherche/publication de #communitySearchBar (5 septembre
+   2026, demande d'Emilien : « une seule sorte de texte pour rechercher ou
+   pour publier [...] je clique sur un bouton pour sélectionner ce que je
+   vais faire »). Voir index.html pour la structure et app.js pour
+   setCommunityMode()/syncCommunitySendBtnVisibility(). ===== */
+
+/* Bouton à deux états (Rechercher/Publier) — style propre (pas de
+   modification de .periodBtn/.periodSwitch, génériques et réutilisées
+   ailleurs pour les bascules de période) mais même convention visuelle
+   "actif = fond violet plein" que le reste de l'app. */
+.communityModeSwitch { display: flex; gap: 8px; margin-bottom: 10px; }
+.communityModeBtn {
+  flex: 1; padding: 8px; border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent; color: #fff; border-radius: var(--radius-md);
+  cursor: pointer; font-size: 14px; font-weight: 600;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.communityModeBtn.active { background: var(--purple); border-color: var(--purple); }
+@media (hover: hover) {
+  .communityModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.08); }
+}
+
+/* Rangée du champ actif + actions de publication (le "+"-sondage, le
+   trombone, l'icône d'envoi) — un seul champ visible à la fois
+   (communitySearchOnly / communityPublishOnly ci-dessous), même style pour
+   les deux (demande d'Emilien : "une seule sorte de texte"). `.entryCard
+   input` (générique) impose déjà width:100% + margin-bottom:8px ; annulés
+   ici pour que le champ partage la ligne avec les icônes. */
+.communityComposerRow { display: flex; align-items: center; gap: 8px; }
+.communityComposerRow input[type="text"] { width: auto; flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
+
+/* Icône d'envoi ronde, à côté du champ plutôt qu'un bouton "Envoyer" en
+   pleine largeur en dessous (confirmé par Emilien) — masquée tant que le
+   champ est vide (.communitySendBtnHidden, posée par
+   syncCommunitySendBtnVisibility dans app.js). Classe autonome (pas
+   .iconBtn) pour éviter tout conflit de spécificité avec sa variante ronde. */
+.communitySendBtn {
+  flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--purple); color: #fff;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+.communitySendBtn svg { width: 16px; height: 16px; }
+.communitySendBtn:hover { opacity: 0.9; }
+.communitySendBtn:active { transform: scale(0.92); }
+.communitySendBtn:disabled { opacity: 0.35; cursor: default; transform: none; }
+.communitySendBtn.communitySendBtnHidden { display: none; }
+
+/* Visibilité par mode : #communitySearchBar.modePublish est posée/retirée
+   par setCommunityMode() (app.js). Se combine SANS conflit avec le .hidden
+   posé indépendamment par mountPolls (le "+") et par
+   renderPending()/send() (pièce jointe en attente, message d'erreur) —
+   masqué si l'un OU l'autre le décide, chacun garde son propre code. */
+#communitySearchBar.modePublish .communitySearchOnly { display: none; }
+#communitySearchBar:not(.modePublish) .communityPublishOnly { display: none; }
+/* La découverte/les résultats de recherche (frères de la barre, voir
+   index.html) n'ont pas leur place pendant qu'on rédige un message. */
+#communitySearchBar.modePublish ~ #communityDiscoverHint,
+#communitySearchBar.modePublish ~ #communitySearchResults { display: none; }
+
+/* Découverte passive en ronds cliquables (5 septembre 2026, demande
+   d'Emilien : « uniquement sous forme de rond sur lesquels on clique pour
+   ouvrir le profil ») — posée par renderSearchResults (app.js) UNIQUEMENT
+   quand isDiscovery est vrai ; une recherche active par nom/filtre reprend
+   .activitiesList (lignes détaillées, inchangées). */
+.discoveryCircles { display: flex; flex-wrap: wrap; gap: 14px; }
+.discoveryCircleBtn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  width: 56px; padding: 0; border: none; background: none; cursor: pointer;
+}
+/* .smallAvatar (générique, définie plus bas) reste à 34px partout ailleurs —
+   agrandie ICI seulement, par imbrication, sans toucher la classe elle-même. */
+.discoveryCircleBtn .smallAvatar { width: 48px; height: 48px; font-size: 18px; }
 
 /* Le "défilement par saccade" (scroll-snap) posé ici le 3 septembre 2026 a
    été entièrement retiré le même jour, sur demande explicite d'Emilien

@@ -3035,23 +3035,73 @@
     $('communitySearchInput').value = '';
     communitySeekingFilter.length = 0;
     buildCommunitySeekingFilters();
-    // 3 septembre 2026 : #communitySearchBar est désormais position: fixed
-    // (voir styles.css) — mesurée APRÈS buildCommunitySeekingFilters() pour
-    // que sa hauteur réelle inclue les filtres déjà rendus (ils peuvent
-    // passer sur 2 lignes selon la largeur de l'écran).
-    syncCommunitySearchBarHeightVar();
+    // 5 septembre 2026 : l'onglet s'ouvre toujours en mode Rechercher (jamais
+    // en Publier) — setCommunityMode() mesure aussi --community-searchbar-h
+    // (voir sa définition plus bas), APRÈS buildCommunitySeekingFilters()
+    // ci-dessus pour que sa hauteur réelle inclue les filtres déjà rendus
+    // (ils peuvent passer sur 2 lignes selon la largeur de l'écran).
+    setCommunityMode('search');
     $('communitySearchResults').innerHTML = '';
     loadCommunityDiscovery();
-    // Zone "écrire à sa communauté" (#communityMyPostsBlock, 1er septembre
-    // 2026) : voir mountProfilePostsComposer, plus bas dans ce fichier —
-    // communityDiscussionComposer est la seconde instance, celle du Profil
-    // (profileDiscussionComposer) restant inchangée.
+    // Zone "Publier" (fusionnée le 5 septembre 2026 dans #communitySearchBar,
+    // voir index.html) : mountProfilePostsComposer, plus bas dans ce
+    // fichier — communityDiscussionComposer est la seconde instance, celle du
+    // Profil (profileDiscussionComposer) restant inchangée.
     communityDiscussionComposer.reset();
+    syncCommunitySendBtnVisibility();
     // Sondages (3 septembre 2026, discussion "Sondages") : bloc jumeau de
     // celui du Profil, même donnée — voir mountPolls plus bas.
     communityPollsMount.reset();
     loadFollowingFeed();
   }
+
+  // ⚠️ 5 septembre 2026 (demande d'Emilien : « une seule sorte de texte pour
+  // rechercher ou pour publier [...] je clique alors sur un bouton pour
+  // sélectionner ce que je vais faire »). Bascule le mode de
+  // #communitySearchBar (voir index.html pour la structure fusionnée et
+  // styles.css pour .communitySearchOnly/.communityPublishOnly, montrés/masqués
+  // via la classe modePublish posée ici). Ne touche à AUCUN champ directement :
+  // seule la classe change, chaque mécanisme (recherche, composeur, sondages)
+  // garde son propre code de affichage/masquage inchangé (voir la note sur
+  // #communitySearchBar dans index.html).
+  function setCommunityMode(mode) {
+    var bar = $('communitySearchBar');
+    var isPublish = mode === 'publish';
+    bar.classList.toggle('modePublish', isPublish);
+    $('communityModeSearchBtn').classList.toggle('active', !isPublish);
+    $('communityModePublishBtn').classList.toggle('active', isPublish);
+    // Un sondage resté ouvert (formulaire visible) en quittant le mode
+    // Publier serait affiché sous un mode qui ne le montre plus — on le
+    // referme proprement via sa propre croix d'annulation (resetForm() côté
+    // mountPolls), plutôt que de le masquer en CSS sans réinitialiser son
+    // état interne.
+    if (!isPublish && !$('communityPollsForm').classList.contains('hidden')) {
+      $('communityPollsCancelBtn').click();
+    }
+    if (isPublish) syncCommunitySendBtnVisibility();
+    // La hauteur réelle de la barre change entre les deux modes (filtres vs.
+    // actions de publication) — voir syncCommunitySearchBarHeightVar plus haut.
+    syncCommunitySearchBarHeightVar();
+  }
+  $('communityModeSearchBtn').addEventListener('click', function () { setCommunityMode('search'); });
+  $('communityModePublishBtn').addEventListener('click', function () { setCommunityMode('publish'); });
+
+  // ⚠️ 5 septembre 2026 : icône d'envoi masquée tant que le champ est vide
+  // (confirmé par Emilien : « Entrée ou icône d'envoi [...] une icône
+  // d'envoi apparaît à côté du champ dès qu'il y a du texte »). Purement
+  // présentatif — le bouton reste câblé comme avant par mountMessageThread
+  // (cfg.ids.sendBtn), Entrée continue de fonctionner même icône masquée.
+  // Appelée à l'entrée en mode Publier (setCommunityMode), après un envoi
+  // réussi (onSent de communityDiscussionComposer, plus bas) et à chaque
+  // frappe (écouteur juste en dessous) — .value est remis à zéro par
+  // reset()/send() sans déclencher 'input', d'où ces rappels explicites.
+  function syncCommunitySendBtnVisibility() {
+    var input = $('communityMyPostsInput');
+    var btn = $('communityMyPostsSendBtn');
+    if (!input || !btn) return;
+    btn.classList.toggle('communitySendBtnHidden', !input.value.trim());
+  }
+  $('communityMyPostsInput').addEventListener('input', syncCommunitySendBtnVisibility);
 
   // ----- Activité sélectionnée dans l'onglet Activité -----
   // Depuis le 30 août 2026 (fin de journée), il n'y a plus qu'UNE liste
@@ -5528,7 +5578,10 @@
     var isDiscovery = !q && communitySeekingFilter.length === 0;
     api('GET', url).then(function (list) {
       $('communityDiscoverHint').classList.toggle('hidden', !isDiscovery || list.length === 0);
-      renderSearchResults(list);
+      // isDiscovery (5 septembre 2026) : rangée de ronds sans nom en
+      // découverte passive, lignes détaillées dès qu'une recherche/un filtre
+      // est actif — voir renderSearchResults ci-dessous.
+      renderSearchResults(list, isDiscovery);
     });
   }
 
@@ -5626,13 +5679,41 @@
     return frag;
   }
 
-  function renderSearchResults(list) {
+  // isDiscovery (5 septembre 2026, demande d'Emilien : « les quelques profils
+  // à découvrir soient uniquement sous forme de rond sur lesquels on clique
+  // pour ouvrir le profil ») : rendu en rangée de ronds cliquables
+  // (.discoveryCircles), sans nom ni bouton — le clic ouvre directement la
+  // page de visite du profil (openProfileViewModal). Réservé à la découverte
+  // PASSIVE (champ vide, aucun filtre — voir isDiscovery dans
+  // loadCommunityDiscovery ci-dessus) : une recherche active par nom ou par
+  // filtre garde les lignes détaillées ci-dessous, confirmé par Emilien au
+  // même passage — c'est d'ailleurs le seul endroit où l'on peut encore
+  // suivre quelqu'un trouvé par ce biais (voir la note plus haut dans
+  // index.html sur l'absence de bouton "Suivre" dans #viewProfileModal).
+  function renderSearchResults(list, isDiscovery) {
     var box = $('communitySearchResults');
     box.innerHTML = '';
     if (list.length === 0) {
+      box.className = 'activitiesList';
       box.innerHTML = '<p class="hint">' + t('Aucun membre trouvé.') + '</p>';
       return;
     }
+    if (isDiscovery) {
+      box.className = 'discoveryCircles';
+      list.forEach(function (u) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'discoveryCircleBtn';
+        var name = fullName(u.name, u.lastName);
+        btn.setAttribute('aria-label', name);
+        btn.title = name;
+        btn.appendChild(buildSmallAvatar(u.avatar, u.name, u.color));
+        btn.addEventListener('click', function () { openProfileViewModal(u.id, u.name, u.color); });
+        box.appendChild(btn);
+      });
+      return;
+    }
+    box.className = 'activitiesList';
     list.forEach(function (u) {
       var row = document.createElement('div');
       // .discoveryLine (styles.css, 3 septembre 2026, demande d'Emilien) :
@@ -5690,7 +5771,7 @@
       if (u.followStatus === 'accepted') {
         actionsWrap.appendChild(buildUnfollowButton(u.followId, u.name, function () {
           u.followStatus = 'none'; u.followId = null;
-          renderSearchResults(list);
+          renderSearchResults(list, isDiscovery);
           loadFollowingFeed();
         }));
       } else if (u.followStatus === 'pending') {
@@ -5702,7 +5783,7 @@
           api('DELETE', '/api/follows/' + u.followId + '?userId=' + profile.id)
             .then(function () {
               u.followStatus = 'none'; u.followId = null;
-              renderSearchResults(list);
+              renderSearchResults(list, isDiscovery);
             })
             .catch(function (err) { alert(err.message); });
         });
@@ -5716,7 +5797,7 @@
           api('POST', '/api/follows', { followerId: profile.id, followeeId: u.id })
             .then(function (r) {
               u.followStatus = 'pending'; u.followId = r.id;
-              renderSearchResults(list);
+              renderSearchResults(list, isDiscovery);
             })
             .catch(function (err) { alert(err.message); followBtn.disabled = false; });
         });
@@ -7103,6 +7184,19 @@
       btn.type = 'button';
       btn.className = 'seekingTagBtn';
       btn.textContent = tag.symbol + ' ' + t(tag.label);
+      // ⚠️ 5 septembre 2026 (demande d'Emilien, filtres de découverte
+      // #communitySeekingFilters : « je peux continuer à cliquer dessus tout
+      // en conservant mon clavier ouvert [...] le seul endroit où je peux
+      // cliquer en dehors de mon clavier qui ne ferme pas mon clavier »).
+      // preventDefault() sur mousedown bloque le blur implicite du champ
+      // texte actif juste avant (communitySearchInput/communityMyPostsInput)
+      // sans empêcher le click de se déclencher ensuite normalement —
+      // technique standard pour une barre d'outils utilisable clavier
+      // ouvert. Sans effet ailleurs où cette fonction est réutilisée (le
+      // sélecteur "Recherche" du formulaire de projet) : aucun champ n'y est
+      // nécessairement focalisé au moment du clic, et le comportement du
+      // clic lui-même (refresh/onChange ci-dessous) est inchangé.
+      btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
       function refresh() {
         var active = selected.indexOf(tag.key) !== -1;
         btn.classList.toggle('active', active);
@@ -8527,6 +8621,10 @@
     // d'autres blocs le séparent du composeur.
     loadFollowingFeed();
     focusWhenReady('#followingFeed .discussionMsg');
+    // 5 septembre 2026 : le champ vient d'être vidé par send() sans déclencher
+    // 'input' (valeur remise à zéro par code, pas par frappe) — l'icône
+    // d'envoi resterait visible sur un champ vide sans cet appel explicite.
+    syncCommunitySendBtnVisibility();
   });
 
   // ===================== FLUX DU PROFIL — FUSIONNÉ (3 septembre 2026, huitième passage) =====================
