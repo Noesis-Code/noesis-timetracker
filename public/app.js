@@ -8369,6 +8369,25 @@
       row.appendChild(dot); row.appendChild(label);
       legendBox.appendChild(row);
     });
+
+    // 4-5 septembre 2026, demande d'Emilien : « je souhaite que la section
+    // graphique affiche les derniers enregistrements par défaut » — même
+    // demande, mêmes mots, que celle du 3 septembre déjà traitée pour
+    // l'onglet Statistiques (voir renderChart, plus haut dans ce fichier :
+    // « par défaut, la section graphique doit afficher les six dernières
+    // données du calendrier »). Repris à l'identique ici : le graphique de la
+    // page de visite n'a lui non plus aucun zoom, chaque point garde un
+    // espacement fixe, et le défilement horizontal de .chartScroll est
+    // simplement replacé sur son bord droit (les données les plus récentes,
+    // sorted étant trié du plus ancien au plus récent) à CHAQUE rendu —
+    // premier chargement d'un profil ou changement de granularité
+    // (Jour/Semaine/Mois) — plutôt que de laisser le navigateur conserver la
+    // position d'un défilement précédent, y compris celui laissé sur le
+    // profil précédemment visité.
+    var viewProfileChartScrollWrap = box.parentElement;
+    if (viewProfileChartScrollWrap && viewProfileChartScrollWrap.classList.contains('chartScroll')) {
+      viewProfileChartScrollWrap.scrollLeft = viewProfileChartScrollWrap.scrollWidth;
+    }
   }
 
   // ----- Messages "Communauté" du profil visité (abonnés acceptés) -----

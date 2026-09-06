@@ -1868,6 +1868,23 @@ body.scrollLock { overflow: hidden; }
 #communitySearchBar.modePublish ~ #communityDiscoverHint,
 #communitySearchBar.modePublish ~ #communitySearchResults { display: none; }
 
+/* ⚠️ 6 septembre 2026, demande d'Emilien : « la barre noire du haut descend
+   trop bas en mode Publier [...] au même niveau que pour Rechercher ». Cause
+   trouvée par mesure directe (sandbox) : #communityMyPostsMsg — le paragraphe
+   d'erreur du composeur — réserve en permanence min-height:18px (.msg,
+   générique) PLUS la marge par défaut du navigateur sur <p> (1em, soit 13px
+   ici vu font-size:13px de .msg), même vide. Rechercher n'a pas d'équivalent :
+   d'où l'écart de hauteur entre les deux modes. On ne touche PAS à .msg
+   (générique, ~47 appels à .textContent = '' ailleurs dans app.js comptent
+   sur son min-height pour ne pas faire sauter LEUR mise en page) — seulement
+   CE paragraphe précis, et seulement quand :empty (aucun texte, donc rien à
+   réserver) ; un message d'erreur réel reprend sa hauteur normale dès qu'il
+   est posé (msgEl.textContent = err.message, voir mountMessageThread). */
+#communityMyPostsMsg:empty {
+  min-height: 0;
+  margin: 0;
+}
+
 /* Décollement + modernisation des étiquettes de filtre Partenaires/Clients/
    Financement (6 septembre 2026, demande d'Emilien : « j'aimerais que les
    boutons partenaires client et financement soient décollés de la zone de
