@@ -223,6 +223,53 @@ async function api(page, method, path, body) {
   ok(/rgba\(0, 0, 0, 0\)|transparent/.test(bar.closeBg),
     '2bis.0c ⭐ la croix de fermeture est transparente, pas une boîte pâle posée dessus');
 
+  // ⭐⭐ 6 septembre 2026, Emilien : « il y a un délai entre le moment où la
+  // fenêtre s'ouvre et où la barre du haut se colore ; je souhaite que dès que
+  // la fenêtre s'ouvre, la barre soit déjà colorée ».
+  //
+  // La preuve ne peut pas être « la barre est colorée après coup » : elle
+  // l'était déjà avant ce correctif, simplement un aller-retour réseau trop
+  // tard. Il faut donc observer la barre AVANT que la réponse ne puisse
+  // arriver.
+  // ⚠️ Retenir la réponse avec page.route() ne marche PAS ici : l'app
+  // enregistre un service worker, et les requêtes qui passent par lui
+  // échappent à l'interception de Playwright (mesuré : 0 interception).
+  // On procède donc sans réseau du tout : on efface la couleur de la barre,
+  // on déclenche le clic ET on relit la barre dans le MÊME tick synchrone.
+  // Rien de ce qui dépend du réseau ne peut s'être exécuté entre les deux.
+  await page.click('#subProjectStatsClose');
+  await page.waitForTimeout(300);
+  const during = await page.evaluate(() => {
+    function hex(rgb) {
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb || '');
+      return m ? '#' + [1, 2, 3].map((i) => ('0' + Number(m[i]).toString(16)).slice(-2)).join('') : null;
+    }
+    const bar = document.querySelector('#subProjectStatsModal .viewProfileIdentity');
+    // On repart d'une barre NEUTRE : sans ça, la couleur laissée par
+    // l'ouverture précédente ferait passer l'assertion sans rien prouver.
+    bar.classList.remove('tinted');
+    bar.style.background = '';
+    const before = { tinted: bar.classList.contains('tinted'), bg: hex(getComputedStyle(bar).backgroundColor) };
+
+    document.querySelector('#statsPie .pieLegendRow-tappable')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // Même tick : aucune réponse serveur n'a pu être traitée.
+    return {
+      before,
+      open: !document.getElementById('subProjectStatsModal').classList.contains('hidden'),
+      tinted: bar.classList.contains('tinted'),
+      bg: hex(getComputedStyle(bar).backgroundColor),
+    };
+  });
+  ok(!during.before.tinted, '2bis.0-0 (contrôle) la barre était bien neutre juste avant le clic');
+  ok(during.open, '2bis.0-1 la fenêtre s\'ouvre au clic');
+  ok(during.tinted,
+    '2bis.0-2 ⭐⭐ et la barre est DÉJÀ teintée dans le même tick — aucune attente du serveur');
+  eq(during.bg, activityColor.toLowerCase(),
+    '2bis.0-3 ⭐ avec la couleur de l\'activité sur laquelle on vient d\'appuyer');
+  await page.waitForTimeout(1500);   // on laisse la réponse arriver pour la suite
+
   eq(layout.cardFlex, 'column', '2bis.1 la carte est une colonne : en-tête puis zone défilante');
   eq(layout.cardOverflow, 'hidden', '2bis.2 ⭐ la carte elle-même ne défile PAS');
   eq(layout.scrollOverflow, 'auto', '2bis.3 c\'est la zone intérieure qui défile');

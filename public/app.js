@@ -1770,6 +1770,10 @@
         if (!bStart || !bEnd) return;
         openSubProjectStats({
           activityId: a.activityId, name: a.name,
+          // La couleur de l'activité est déjà à l'écran : on la transmet pour
+          // que la barre de la fenêtre soit teintée dès l'ouverture, sans
+          // attendre la réponse du serveur (6 septembre 2026).
+          color: a.color,
           from: bStart, to: bEnd,
         });
       },
@@ -2376,10 +2380,26 @@
     // afficherait sa fenêtre à la position laissée par la précédente.
     if ($('subProjectStatsScroll')) $('subProjectStatsScroll').scrollTop = 0;
     $('subProjectStatsTitle').textContent = spCtx.name;
-    // La barre reprend sa couleur neutre le temps du chargement : sans ça,
-    // ouvrir une seconde activité afficherait un instant la couleur de la
-    // précédente.
-    paintSubProjectStatsHeader(null);
+    // ⚠️ 6 septembre 2026, Emilien : « il y a un délai entre le moment où la
+    // fenêtre s'ouvre et où la barre du haut se colore ; je souhaite que dès
+    // que la fenêtre s'ouvre, la barre soit déjà colorée ».
+    //
+    // La barre était peinte à l'arrivée de la réponse serveur — donc un
+    // aller-retour réseau après l'ouverture. Or la couleur est DÉJÀ à l'écran
+    // au moment de l'appui : c'est celle de la part du camembert ou de la case
+    // de la grille sur laquelle on vient d'appuyer. L'appelant la transmet
+    // maintenant dans `opts.color`, et on peint tout de suite.
+    //
+    // `renderSubProjectStats` repeindra ensuite avec `data.baseColor`. Ce n'est
+    // pas redondant : sur une activité partagée dont on regarde le temps d'un
+    // AUTRE membre, la couleur de référence est la sienne, pas celle qu'on a
+    // sous le doigt. Les deux coïncident dans le cas courant — on regarde son
+    // propre temps — et l'écart éventuel se corrige sans clignotement, une
+    // couleur en remplaçant une autre.
+    //
+    // Sans couleur transmise, on repart du neutre : ouvrir une seconde
+    // activité ne doit pas afficher un instant la couleur de la précédente.
+    paintSubProjectStatsHeader(opts.color || null);
     loadSubProjectStats();
     loadSubProjectChart();
   }
@@ -2714,6 +2734,11 @@
       openSubProjectStats({
         activityId: Number(slot.getAttribute('data-activity-id')),
         name: slot.getAttribute('data-activity-name') || '',
+        // La case EST peinte de la couleur de l'activité : on la relit sur
+        // elle plutôt que d'ajouter un attribut de plus sur 672 cases. Le
+        // navigateur renvoie un « rgb(...) », qui convient tel quel comme
+        // fond — la barre est ainsi teintée dès l'ouverture (6 septembre 2026).
+        color: slot.style.backgroundColor || '',
         from: lastStatsGridRange.from,
         to: lastStatsGridRange.to,
       });
