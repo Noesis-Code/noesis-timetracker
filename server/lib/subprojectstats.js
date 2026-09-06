@@ -168,7 +168,7 @@ function rowClosesAt(rows, subProjectId) {
 // diverger : même règle de semaine glissante, même calendrier du mois, mêmes
 // libellés, même départage des créneaux. Une copie aurait divergé au premier
 // ajustement.
-const { timesheetForUser, timesheetMonthForUser } = require('./stats');
+const { timesheetForUser, timesheetMonthForUser, chartBreakdownForUser } = require('./stats');
 
 function subProjectTimesheet(userId, activityId, period, offset) {
   const opts = { activityId: Number(activityId), groupBySubProject: true };
@@ -208,9 +208,40 @@ function activitiesWithSubProjectTime(userId, startIso, endIso) {
   `).all(userId, startIso, endIso).map((r) => r.id);
 }
 
+// ===================== GRAPHIQUE PAR SOUS-PROJET =====================
+// 5 septembre 2026, demande d'Emilien : « rajouter une section graphique avec
+// les mêmes fonctions que dans stat (apparition des données lorsqu'on clique
+// sur un point et dernier enregistrement visible par défaut) ».
+//
+// « Les mêmes fonctions » a été pris au pied de la lettre : c'est
+// chartBreakdownForUser (server/lib/stats.js) qui découpe les points, avec son
+// paramètre optionnel — même règle de semaine calendaire, mêmes libellés
+// français, même complétion des jours sans enregistrement. Rien n'est
+// recalculé ici.
+//
+// ⚠️ Comme le Graphique du volet Statistiques, il couvre TOUT l'historique
+// (de cette activité) et non la fenêtre de la grille : c'est la granularité,
+// pas la période, qui se choisit. La Répartition, elle, reste synchronisée
+// sur la Feuille de temps — les deux comportements sont ceux du volet
+// Statistiques, dont Emilien demande la reprise.
+function subProjectChart(userId, activityId, granularity) {
+  const g = granularity === 'week' || granularity === 'month' ? granularity : 'day';
+  const points = chartBreakdownForUser(userId, g, null, {
+    activityId: Number(activityId),
+    groupBySubProject: true,
+  });
+
+  const { ranks, count } = shadeRanks(Number(activityId));
+  const shadeBySubProject = {};
+  ranks.forEach((rank, id) => { shadeBySubProject[id] = rank; });
+
+  return { granularity: g, points, shadeCount: count, shadeBySubProject };
+}
+
 module.exports = {
   subProjectBreakdownForRange,
   subProjectTimesheet,
+  subProjectChart,
   activitiesWithSubProjectTime,
   checkAccess,
 };

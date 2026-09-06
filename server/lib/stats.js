@@ -109,10 +109,21 @@ function breakdownForRange(userId, startIso, endIso) {
 // granularité des points se choisit encore (voir chartBreakdownForUser
 // ci-dessous). Vit ici (pas dans lib/period.js, qui est un pur utilitaire de
 // dates sans accès DB) car elle a besoin de lire time_entries.
-function totalRangeForUser(userId, refDate) {
+//
+// ⚠️ 5 septembre 2026 (chantier « Chrono — sous-projets », débordement
+// signalé) : troisième paramètre OPTIONNEL `activityId`. Absent — c'est le cas
+// de l'appelant du volet Statistiques — la plage est celle de TOUT
+// l'historique de la personne, comportement strictement inchangé. Présent,
+// elle démarre au premier jour enregistré SUR CETTE ACTIVITÉ : sans quoi le
+// graphique d'une activité créée en septembre commencerait par des mois de
+// points à zéro hérités d'une autre activité.
+function totalRangeForUser(userId, refDate, activityId) {
   const ref = refDate ? new Date(refDate) : new Date();
   const todayIso = isoDateOf(ref);
-  const earliest = db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
+  const earliest = activityId
+    ? db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ? AND activityId = ?')
+      .get(userId, Number(activityId))
+    : db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
   return { start: (earliest && earliest.d) || todayIso, end: todayIso, label: 'Depuis le début' };
 }
 
@@ -143,19 +154,57 @@ function totalRangeForUser(userId, refDate) {
 // timesheetMonthForUser ci-dessous, dont les labels ne sont pas traduits non
 // plus) — public/app.js (dayChartLabel) les utilise directement pour ces
 // deux granularités, sans rien connaître du découpage calendaire.
-function chartBreakdownForUser(userId, granularity, refDate) {
-  const { start, end } = totalRangeForUser(userId, refDate);
+//
+// ⚠️ 5 septembre 2026 (chantier « Chrono — sous-projets », débordement
+// signalé) : quatrième paramètre OPTIONNEL `opts`, INERTE PAR DÉFAUT.
+//   - absent : comportement strictement inchangé (un point par jour/semaine/
+//     mois, une série par ACTIVITÉ sous la clé `activities`) ;
+//   - `{ activityId, groupBySubProject: true }` : le même découpage
+//     calendaire, les mêmes libellés, la même complétion des jours vides —
+//     mais restreint à UNE activité et ventilé par SOUS-PROJET, sous la clé
+//     `subProjects`. La clé change de nom parce que les entrées changent de
+//     nature (`subProjectId` au lieu de `activityId`/`color`) : réutiliser
+//     `activities` ferait passer un sous-projet pour une activité au premier
+//     appelant distrait.
+// C'est la même discipline que computeSlotsForDays/timesheetForUser plus bas :
+// une seule implémentation du découpage, pour que la fenêtre de détail par
+// sous-projet ne puisse jamais dériver du Graphique dont Emilien demande
+// « les mêmes fonctions ».
+function chartBreakdownForUser(userId, granularity, refDate, opts) {
+  const o = opts || {};
+  const bySubProject = !!o.groupBySubProject;
+  const activityId = o.activityId ? Number(o.activityId) : null;
+  const groupKey = bySubProject ? 'subProjects' : 'activities';
+  const { start, end } = totalRangeForUser(userId, refDate, activityId);
 
-  const rows = db.prepare(`
-    SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek, a.id AS activityId,
-           a.name AS activity, COALESCE(am.color, '#3498db') AS color, SUM(t.durationSeconds) AS seconds
-    FROM time_entries t
-    JOIN activities a ON a.id = t.activityId
-    LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
-    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
-    GROUP BY t.isoDate, a.id
-    ORDER BY t.isoDate ASC, seconds DESC
-  `).all(userId, start, end);
+  const rows = bySubProject
+    ? db.prepare(`
+      SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek,
+             t.subProjectId AS subProjectId, sp.name AS name,
+             SUM(t.durationSeconds) AS seconds
+      FROM time_entries t
+      LEFT JOIN sub_projects sp ON sp.id = t.subProjectId
+      WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
+      GROUP BY t.isoDate, t.subProjectId
+      ORDER BY t.isoDate ASC, seconds DESC
+    `).all(userId, activityId, start, end)
+    : db.prepare(`
+      SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek, a.id AS activityId,
+             a.name AS activity, COALESCE(am.color, '#3498db') AS color, SUM(t.durationSeconds) AS seconds
+      FROM time_entries t
+      JOIN activities a ON a.id = t.activityId
+      LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
+      WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
+      GROUP BY t.isoDate, a.id
+      ORDER BY t.isoDate ASC, seconds DESC
+    `).all(userId, start, end);
+
+  // Identité et forme d'une entrée de point, selon le mode. Le reste de la
+  // fonction ne connaît plus la différence.
+  const keyOf = (r) => (bySubProject ? (r.subProjectId === null ? 'none' : 'sp' + r.subProjectId) : r.activityId);
+  const entryOf = (r) => (bySubProject
+    ? { subProjectId: r.subProjectId === null ? null : r.subProjectId, name: r.name || null, seconds: r.seconds }
+    : { activityId: r.activityId, name: r.activity, color: r.color, seconds: r.seconds });
 
   if (granularity !== 'week' && granularity !== 'month') {
     // Historique totalement vide (aucune entrée jamais enregistrée) : tableau
@@ -165,9 +214,11 @@ function chartBreakdownForUser(userId, granularity, refDate) {
     if (rows.length === 0) return [];
     const byDay = {};
     rows.forEach((r) => {
-      if (!byDay[r.isoDate]) byDay[r.isoDate] = { isoDate: r.isoDate, dayOfWeek: r.dayOfWeek, totalSeconds: 0, activities: [] };
+      if (!byDay[r.isoDate]) {
+        byDay[r.isoDate] = { isoDate: r.isoDate, dayOfWeek: r.dayOfWeek, totalSeconds: 0, [groupKey]: [] };
+      }
       byDay[r.isoDate].totalSeconds += r.seconds;
-      byDay[r.isoDate].activities.push({ activityId: r.activityId, name: r.activity, color: r.color, seconds: r.seconds });
+      byDay[r.isoDate][groupKey].push(entryOf(r));
     });
     // 2 septembre 2026, demande d'Emilien : « ajouter dans ce graphique tous
     // les jours, même ceux où il n'y a aucune activité » — la ligne du
@@ -181,7 +232,7 @@ function chartBreakdownForUser(userId, granularity, refDate) {
     const endDate = new Date(end + 'T00:00:00');
     while (cursor <= endDate) {
       const iso = isoDateOf(cursor);
-      out.push(byDay[iso] || { isoDate: iso, dayOfWeek: dayNameOf(cursor), totalSeconds: 0, activities: [] });
+      out.push(byDay[iso] || { isoDate: iso, dayOfWeek: dayNameOf(cursor), totalSeconds: 0, [groupKey]: [] });
       cursor.setDate(cursor.getDate() + 1);
     }
     return out.sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
@@ -193,11 +244,12 @@ function chartBreakdownForUser(userId, granularity, refDate) {
     const dayDate = new Date(r.isoDate + 'T00:00:00');
     const bucketStart = granularity === 'week' ? mondayOf(dayDate) : new Date(dayDate.getFullYear(), dayDate.getMonth(), 1);
     const key = isoDateOf(bucketStart);
-    if (!byBucket[key]) { byBucket[key] = { isoDate: key, totalSeconds: 0, activitiesById: {} }; order.push(key); }
+    if (!byBucket[key]) { byBucket[key] = { isoDate: key, totalSeconds: 0, entriesById: {} }; order.push(key); }
     const bucket = byBucket[key];
     bucket.totalSeconds += r.seconds;
-    if (!bucket.activitiesById[r.activityId]) bucket.activitiesById[r.activityId] = { activityId: r.activityId, name: r.activity, color: r.color, seconds: 0 };
-    bucket.activitiesById[r.activityId].seconds += r.seconds;
+    const k = keyOf(r);
+    if (!bucket.entriesById[k]) bucket.entriesById[k] = Object.assign(entryOf(r), { seconds: 0 });
+    bucket.entriesById[k].seconds += r.seconds;
   });
 
   return order.map((key) => {
@@ -213,7 +265,11 @@ function chartBreakdownForUser(userId, granularity, refDate) {
       shortLabel = `${MONTH_NAMES_FR[bucketStart.getMonth()].slice(0, 3)} ${bucketStart.getFullYear()}`;
       fullLabel = `${MONTH_NAMES_FR[bucketStart.getMonth()]} ${bucketStart.getFullYear()}`;
     }
-    return { isoDate: key, granularity, shortLabel, fullLabel, totalSeconds: b.totalSeconds, activities: Object.values(b.activitiesById) };
+    return {
+      isoDate: key, granularity, shortLabel, fullLabel,
+      totalSeconds: b.totalSeconds,
+      [groupKey]: Object.values(b.entriesById),
+    };
   }).sort((a, b) => (a.isoDate < b.isoDate ? 1 : -1));
 }
 

@@ -24,6 +24,7 @@ const db = require('../db');
 const {
   subProjectBreakdownForRange,
   subProjectTimesheet,
+  subProjectChart,
   activitiesWithSubProjectTime,
   checkAccess,
 } = require('../lib/subprojectstats');
@@ -140,6 +141,39 @@ router.get('/sub-project-timesheet', (req, res) => {
     baseColor: membership ? membership.color : '#3498db',
     breakdown,
   }, grid));
+});
+
+// ===================== GRAPHIQUE DE LA FENÊTRE =====================
+// 5 septembre 2026, demande d'Emilien. Route SÉPARÉE de
+// /sub-project-timesheet, volontairement : le graphique couvre tout
+// l'historique et suit sa propre granularité, la grille et la répartition
+// suivent leur fenêtre de jours. Les mettre dans la même réponse forcerait
+// l'un à se recharger à chaque flèche ‹ › de l'autre, pour rien.
+router.get('/sub-project-chart', (req, res) => {
+  const activityId = Number(req.query.activityId);
+  if (!Number.isInteger(activityId) || activityId <= 0) {
+    return res.status(400).json({ error: 'Activité invalide.' });
+  }
+
+  const access = checkAccess(req.query.userId, activityId, req.query.memberId || null);
+  if (access.error) return res.status(access.error.status).json(access.error.body);
+
+  // ⚠️ `baseColor` est indispensable ici aussi : le client dérive les nuances
+  // du graphique avec la MÊME fonction que la grille et le camembert
+  // (subProjectShade). Sans elle, les trois sections coloreraient le même
+  // sous-projet de trois façons différentes.
+  const membership = db.prepare(
+    'SELECT color FROM activity_members WHERE activityId = ? AND userId = ?'
+  ).get(activityId, access.targetId);
+
+  res.json(Object.assign(
+    {
+      activityName: access.activity.name,
+      memberId: access.targetId,
+      baseColor: membership ? membership.color : '#3498db',
+    },
+    subProjectChart(access.targetId, activityId, String(req.query.granularity || 'day')),
+  ));
 });
 
 // Les activités qui ont du temps rattaché sur la fenêtre affichée — celles,

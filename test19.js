@@ -79,7 +79,7 @@ function rgbToHex(rgb) {
   const sp2 = (await api(page, 'POST', '/api/activities/' + act.id + '/sub-projects',
     { userId: user.id, name: 'Développement' })).body;
 
-  // Trois sessions en pleine journée (piège du fuseau, voir test18.js).
+  // Trois sessions en pleine journée (piège du fuseau, voir test23.js).
   const today = new Date();
   async function seed(subProjectId, hour, minutes) {
     await api(page, 'POST', '/api/timer/start', { userId: user.id, activityId: act.id });

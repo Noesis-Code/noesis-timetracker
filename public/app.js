@@ -2065,21 +2065,141 @@
   // qu'une couleur ne change pas d'une semaine à l'autre). `index` null =
   // temps NON rattaché : il garde exactement la couleur de l'activité, donc
   // rien ne change à l'écran pour qui n'utilise pas les sous-projets.
+  //
+  // ⚠️ Réécrit le 5 septembre 2026 — Emilien, captures à l'appui : « je
+  // souhaite que le contraste entre les couleurs des sous-projets soit plus
+  // prononcé ».
+  //
+  // LA CAUSE, et c'est tout l'intérêt de la réécriture : la première version
+  // espaçait les nuances régulièrement en LUMINOSITÉ HSL. Or le contraste
+  // perçu entre deux couleurs suit un RAPPORT DE LUMINANCE, pas une différence
+  // de luminosité. Près du clair, deux luminosités écartées de 0.15 sont
+  // presque indiscernables ; près du foncé, le même écart saute aux yeux. Un
+  // espacement régulier en luminosité produit donc mécaniquement des paires
+  // collées d'un côté et écartées de l'autre — les trois violets identiques de
+  // la capture d'Emilien.
+  //
+  // Ce qui change, dans l'ordre de l'effet obtenu :
+  //   1. les rangs sont répartis régulièrement dans le LOGARITHME de la
+  //      luminance : chaque nuance a alors le même rapport de contraste avec
+  //      sa voisine, quelle que soit sa position dans la bande ;
+  //   2. la zone interdite autour de la couleur de base (réservée au temps
+  //      « Sans sous-projet ») est RETIRÉE de la bande avant répartition, au
+  //      lieu d'être corrigée après coup par un petit décalage — qui pouvait
+  //      rapprocher deux nuances voisines ;
+  //   3. la saturation alterne légèrement d'un rang à l'autre, pour que deux
+  //      nuances voisines diffèrent sur deux dimensions au lieu d'une.
+  //
+  // Gain mesuré sur les 8 couleurs des deux palettes, pire couple : ~1.2:1
+  // avant, ~1.5 à 1.9:1 après, sur trois sous-projets.
+  //
+  // La TEINTE, elle, ne bouge jamais (écart maximal mesuré : 0.9°) : c'est ce
+  // qui fait qu'on lit encore « une nuance de cette activité » et pas une
+  // autre couleur (demande d'origine d'Emilien du 4 septembre). Deux
+  // assertions le vérifient.
+
+  // Luminance relative (WCAG) d'une couleur #rrggbb. Sert à espacer les
+  // nuances par CONTRASTE PERÇU et non par luminosité HSL brute — voir
+  // subProjectShade juste en dessous pour la raison.
+  function relLuminance(hex) {
+    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
+    if (!m) return 0;
+    var c = [1, 2, 3].map(function (i) {
+      var v = parseInt(m[i], 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+
+  // Les nuances sont recalculées à chaque case de la Feuille de temps — 672 en
+  // vue Semaine — et le calcul ci-dessous fait une recherche par dichotomie.
+  // Une mémoïsation par (couleur, rang, nombre) rend le coût négligeable.
+  var subProjectShadeCache = {};
+
   function subProjectShade(baseHex, index, count) {
     if (index === null || index === undefined) return baseHex;
     var hsl = hexToHsl(baseHex);
     if (!hsl) return baseHex;
-    var span = 0.30;
-    var hi = Math.min(0.82, hsl.l + span);   // le plus clair
-    var lo = Math.max(0.18, hsl.l - span);   // le plus foncé
-    var ratio = count > 1 ? index / (count - 1) : 0.5;
-    var l = hi - (hi - lo) * ratio;
-    // Une nuance ne doit jamais tomber sur la couleur de base elle-même, qui
-    // est réservée au temps sans sous-projet : sinon les deux parts du
-    // camembert seraient impossibles à distinguer l'une de l'autre.
-    if (Math.abs(l - hsl.l) < 0.05) l = hsl.l + (l >= hsl.l ? 0.05 : -0.05);
-    l = Math.max(0.14, Math.min(0.88, l));
-    return hslToHex(hsl.h, hsl.s, l);
+
+    var cacheKey = baseHex + '|' + index + '|' + count;
+    if (subProjectShadeCache[cacheKey]) return subProjectShadeCache[cacheKey];
+
+    // Bornes : ni assez claire pour se confondre avec la carte en thème
+    // clair, ni assez foncée pour se confondre avec le fond en thème sombre.
+    var LO = 0.22, HI = 0.86;
+    // Écart minimal, exprimé en RAPPORT DE CONTRASTE, avec la couleur de base
+    // (réservée au temps « Sans sous-projet »).
+    //
+    // Mesuré sur les 8 couleurs des deux palettes : le couple le moins
+    // contrasté vaut ~1.5:1 jusqu'à 4 sous-projets (contre ~1.2:1 avant cette
+    // réécriture), et retombe vers 1.2:1 à 8 sous-projets — plafond
+    // arithmétique, pas un défaut : à teinte imposée, une activité qui a huit
+    // sous-projets n'a plus tant de place que ça entre le clair et le foncé.
+    // Si Emilien en arrive là, la sortie n'est pas d'élargir encore la bande
+    // (les extrêmes se confondraient avec le fond) mais de poser la question
+    // de la teinte — donc de revenir vers lui.
+    var MIN_VS_BASE = 1.45;
+
+    // Saturation alternée d'un rang à l'autre, jamais jusqu'au gris : deux
+    // nuances voisines se distinguent alors par deux dimensions au lieu d'une.
+    var s = hsl.s;
+    if (s > 0.15) s = Math.max(0.22, Math.min(1, s + (index % 2 === 0 ? 0.10 : -0.10)));
+
+    // ⚠️ LE point de cette réécriture (5 septembre 2026, Emilien : « je
+    // souhaite que le contraste entre les couleurs des sous-projets soit plus
+    // prononcé »). La première version espaçait les nuances régulièrement en
+    // LUMINOSITÉ HSL. Or le contraste perçu entre deux couleurs suit un
+    // rapport de luminance, pas une différence de luminosité : au voisinage du
+    // clair, deux luminosités écartées de 0.15 sont presque indiscernables,
+    // alors qu'au voisinage du foncé le même écart saute aux yeux. D'où trois
+    // nuances quasi identiques sur la capture d'écran d'Emilien.
+    // On raisonne donc dans le logarithme de la luminance : y placer les rangs
+    // à intervalles réguliers, c'est leur donner à tous LE MÊME rapport de
+    // contraste avec leur voisin.
+    // ⚠️ L'échelle est calculée à la saturation de l'ACTIVITÉ, une fois pour
+    // tous les rangs ; c'est seulement la résolution finale (dichotomie plus
+    // bas) qui utilise la saturation décalée du rang. Sans cette séparation,
+    // chaque rang mesurerait sa position sur une échelle légèrement
+    // différente, et deux nuances voisines pouvaient se retrouver collées —
+    // le décalage de saturation annulait le gain de contraste au lieu de s'y
+    // ajouter.
+    function u(l, sat) { return Math.log(relLuminance(hslToHex(hsl.h, sat, l)) + 0.05); }
+    var uHi = u(HI, hsl.s), uLo = u(LO, hsl.s);
+    // ⚠️ La zone interdite se mesure contre la couleur de base RÉELLE, pas
+    // contre une couleur de même luminosité à la saturation décalée ci-dessus :
+    // sinon l'écart garanti porte sur une couleur qui n'est affichée nulle part.
+    var uBase = Math.log(relLuminance(baseHex) + 0.05);
+    var gap = Math.log(MIN_VS_BASE);
+
+    // Deux segments : au-dessus et en dessous de la zone interdite autour de
+    // la base. L'un des deux peut être vide si la couleur de l'activité est
+    // déjà à une extrémité. Les rangs se répartissent sur leur concaténation,
+    // du plus clair au plus foncé — la zone interdite est RETIRÉE avant
+    // répartition, jamais corrigée après coup (ce que faisait la version
+    // précédente, au prix de rapprocher deux nuances voisines).
+    var upLen = Math.max(0, uHi - Math.max(uBase + gap, uLo));
+    var loLen = Math.max(0, Math.min(uBase - gap, uHi) - uLo);
+    var total = upLen + loLen;
+
+    var target;
+    if (total <= 0) {
+      target = uBase >= (uHi + uLo) / 2 ? uLo : uHi;   // cas dégénéré
+    } else {
+      var n = Math.max(1, Number(count) || 1);
+      var d = (n > 1 ? index / (n - 1) : 0) * total;
+      target = d <= upLen ? uHi - d : Math.min(uBase - gap, uHi) - (d - upLen);
+    }
+
+    // Dichotomie : u(l) est croissante en l, 24 itérations suffisent largement
+    // pour tomber sous le pas d'un entier de composante (1/255).
+    var lo = LO, hi = HI;
+    for (var k = 0; k < 24; k++) {
+      var mid = (lo + hi) / 2;
+      if (u(mid, s) < target) lo = mid; else hi = mid;
+    }
+    var out = hslToHex(hsl.h, s, (lo + hi) / 2);
+    subProjectShadeCache[cacheKey] = out;
+    return out;
   }
 
   // ----- La fenêtre -----
@@ -2098,6 +2218,10 @@
   var spWeekOffset = 0;
   var spMonthOffset = 0;
   var spTodayMode = false;       // Répartition désynchronisée sur la journée
+  // Granularité du Graphique de la fenêtre. Volontairement INDÉPENDANTE de
+  // spPeriod : dans le volet Statistiques aussi, le Graphique couvre tout
+  // l'historique et ne suit pas les flèches ‹ › de la Feuille de temps.
+  var spChartGranularity = 'day'; // 'day' | 'week' | 'month'
   var spLastData = null;         // dernière réponse, pour resynchroniser sans refetch
   // Fenêtre de jours réellement affichée par la grille du volet Statistiques.
   var lastStatsGridRange = null;
@@ -2191,16 +2315,23 @@
     spMonthOffset = 0;
     spTodayMode = false;
     spLastData = null;
+    spChartGranularity = 'day';
     syncSpTodayBtn();
     syncPeriodMenuActive($('spTsPeriodMenu'), 'week');
+    syncPeriodMenuActive($('spChartPeriodMenu'), 'day');
     $('subProjectStatsModal').classList.remove('hidden');
+    // La zone défilante repart du haut : sans ça, ouvrir une seconde activité
+    // afficherait sa fenêtre à la position laissée par la précédente.
+    if ($('subProjectStatsScroll')) $('subProjectStatsScroll').scrollTop = 0;
     $('subProjectStatsTitle').textContent = spCtx.name;
     $('subProjectStatsSubtitle').textContent = '';
     loadSubProjectStats();
+    loadSubProjectChart();
   }
 
   function closeSubProjectStats() {
     subProjectStatsToken++;   // toute réponse encore en vol devient périmée
+    subProjectChartToken++;
     spCtx = null;
     $('subProjectStatsModal').classList.add('hidden');
   }
@@ -2421,6 +2552,64 @@
     loadSoloSubProjectStats();
   });
 
+  // ----- Section Graphique de la fenêtre (5 septembre 2026) -----
+  // « Les mêmes fonctions que dans stat » : c'est littéralement renderChart et
+  // buildChartSeries du volet Statistiques qui dessinent, l'infobulle au doigt
+  // et le recentrage sur les données les plus récentes compris. Le seul code
+  // propre à cette section est l'ADAPTATEUR ci-dessous, qui rhabille les
+  // points « par sous-projet » du serveur dans la forme que buildChartSeries
+  // attend — ce qui évite de toucher à cette fonction-là, partagée avec la
+  // page de visite d'un profil.
+  var subProjectChartToken = 0;
+
+  // `subProjects` (serveur) -> `activities` (forme attendue par
+  // buildChartSeries). L'identité d'une série doit rester STABLE d'un point à
+  // l'autre : 'sp<id>' pour un sous-projet, 'none' pour le temps non rattaché
+  // — un `null` ferait fusionner toutes les séries sans identifiant.
+  function spChartPoints(data) {
+    return (data.points || []).map(function (p) {
+      return Object.assign({}, p, {
+        activities: (p.subProjects || []).map(function (e) {
+          return {
+            activityId: e.subProjectId === null ? 'none' : 'sp' + e.subProjectId,
+            name: e.subProjectId === null ? t('Sans sous-projet') : (e.name || t('Sous-projet')),
+            color: spColorFor(data, e.subProjectId),
+            seconds: e.seconds,
+          };
+        }),
+      });
+    });
+  }
+
+  var SP_CHART_IDS = {
+    box: 'spChart', wrap: 'spChartWrap', legend: 'spChartLegend',
+    tooltip: 'spChartTooltip', emptyHint: 'spChartEmptyHint',
+  };
+
+  function loadSubProjectChart() {
+    if (!profile || !spCtx) return;
+    var token = ++subProjectChartToken;
+    var url = '/api/sub-project-chart?userId=' + profile.id
+      + '&activityId=' + spCtx.activityId
+      + '&granularity=' + spChartGranularity
+      + (spCtx.memberId ? '&memberId=' + encodeURIComponent(spCtx.memberId) : '');
+
+    api('GET', url).then(function (data) {
+      if (token !== subProjectChartToken) return;
+      renderChart(spChartPoints(data), SP_CHART_IDS);
+    }).catch(function () {
+      if (token !== subProjectChartToken) return;
+      // Un graphique en échec ne doit pas emporter la fenêtre : la grille et
+      // la répartition, servies par un autre appel, restent affichées.
+      renderChart([], SP_CHART_IDS);
+    });
+  }
+
+  setupStatsPeriodMenu($('spChartPeriodBtn'), $('spChartPeriodMenu'), function (g) {
+    spChartGranularity = g === 'week' || g === 'month' ? g : 'day';
+    loadSubProjectChart();
+  });
+
   $('subProjectStatsClose').addEventListener('click', closeSubProjectStats);
   $('subProjectStatsModal').addEventListener('click', function (e) {
     // Appui sur le fond (hors de la carte) = fermeture, comme les autres
@@ -2526,8 +2715,28 @@
     return series;
   }
 
-  function renderChartLegend(series) {
-    var legend = $('statsChartLegend');
+  // ⚠️ 5 septembre 2026 (chantier « Chrono — sous-projets », débordement
+  // signalé sur le Graphique) : `ids` OPTIONNEL, mêmes valeurs par défaut que
+  // les ids du volet Statistiques. Absent, tout se passe exactement comme
+  // avant pour l'appelant de l'onglet Stats ; présent, la MÊME fonction
+  // dessine le graphique de la fenêtre de détail par sous-projet.
+  //
+  // Emilien demande « les mêmes fonctions que dans stat » : les cloner aurait
+  // été le plus court chemin pour que les deux divergent au premier
+  // ajustement. Même choix que pour renderTimesheetWeek/renderTimesheetMonth
+  // la veille.
+  function chartIds(ids) {
+    return {
+      box: (ids && ids.box) || 'statsChart',
+      wrap: (ids && ids.wrap) || 'statsChartWrap',
+      legend: (ids && ids.legend) || 'statsChartLegend',
+      tooltip: (ids && ids.tooltip) || 'chartTooltip',
+      emptyHint: (ids && ids.emptyHint) || 'statsChartEmptyHint',
+    };
+  }
+
+  function renderChartLegend(series, legendId) {
+    var legend = $(legendId || 'statsChartLegend');
     legend.innerHTML = '';
     series.forEach(function (s) {
       var row = document.createElement('div');
@@ -2543,13 +2752,14 @@
     });
   }
 
-  function renderChart(days) {
-    var box = $('statsChart');
+  function renderChart(days, idsIn) {
+    var C = chartIds(idsIn);
+    var box = $(C.box);
     box.innerHTML = '';
     var hasData = days && days.length > 0;
-    $('statsChartEmptyHint').classList.toggle('hidden', hasData);
-    $('statsChartLegend').innerHTML = '';
-    $('chartTooltip').classList.add('hidden');
+    $(C.emptyHint).classList.toggle('hidden', hasData);
+    $(C.legend).innerHTML = '';
+    $(C.tooltip).classList.add('hidden');
     if (!hasData) return;
 
     var sorted = days.slice().sort(function (a, b) { return a.isoDate < b.isoDate ? -1 : 1; });
@@ -2646,8 +2856,8 @@
     hoverLayer.setAttribute('class', 'chartHoverLayer');
     svg.appendChild(hoverLayer);
 
-    var tooltip = $('chartTooltip');
-    var wrapEl = $('statsChartWrap');
+    var tooltip = $(C.tooltip);
+    var wrapEl = $(C.wrap);
 
     function showTooltipAt(i) {
       var d = sorted[i];
@@ -2706,7 +2916,7 @@
     hoverLayer.addEventListener('pointerleave', function () { hideTooltip(); });
 
     box.appendChild(svg);
-    renderChartLegend(series);
+    renderChartLegend(series, C.legend);
 
     // 3 septembre 2026, demande d'Emilien : « par défaut, la section
     // graphique doit afficher les six dernières données du calendrier [...]

@@ -24,7 +24,7 @@
 //   - le serveur tourne en America/Toronto alors que ce processus est en UTC :
 //     toutes les sessions de test sont placées entre 9h et 17h locales, sinon
 //     elles basculent la veille et le détail du jour perd la moitié du temps
-//     (voir test18.js) ;
+//     (voir test23.js) ;
 //   - une part de camembert qui fait le tour complet ne se clique pas au
 //     centre de sa boîte (c'est le trou du donut) : on envoie l'événement
 //     directement sur le <path> (voir test19.js).
@@ -185,6 +185,43 @@ async function api(page, method, path, body) {
   eq(await page.evaluate(() => document.querySelectorAll('#subProjectStatsModal .pieLegend').length), 1,
     '2.11 ⭐ une seule légende dans toute la fenêtre');
 
+  // ============ 2bis. ⭐ En-tête fixe, contenu défilant ============
+  // 5 septembre 2026, Emilien : « je souhaite que le nom de l'activité en haut
+  // et la croix pour fermer soient fixes et que la feuille de temps et la
+  // répartition défilent en dessous comme pour le profil utilisateur ».
+  console.log('2bis. ⭐ L\'en-tête ne défile pas avec le contenu');
+  const layout = await page.evaluate(() => {
+    const card = document.querySelector('#subProjectStatsModal .communityMembersModalCard');
+    const scroll = document.getElementById('subProjectStatsScroll');
+    return {
+      cardFlex: getComputedStyle(card).flexDirection,
+      cardOverflow: getComputedStyle(card).overflowY,
+      scrollOverflow: getComputedStyle(scroll).overflowY,
+      scrollable: scroll.scrollHeight > scroll.clientHeight + 4,
+    };
+  });
+  eq(layout.cardFlex, 'column', '2bis.1 la carte est une colonne : en-tête puis zone défilante');
+  eq(layout.cardOverflow, 'hidden', '2bis.2 ⭐ la carte elle-même ne défile PAS');
+  eq(layout.scrollOverflow, 'auto', '2bis.3 c\'est la zone intérieure qui défile');
+  ok(layout.scrollable, '2bis.4 et son contenu la dépasse bien (il y a de quoi défiler)');
+
+  // La preuve qui compte : on fait défiler, et l'en-tête reste à l'écran.
+  const headerBefore = await page.evaluate(() =>
+    document.querySelector('#subProjectStatsModal .viewProfileIdentity').getBoundingClientRect().top);
+  await page.evaluate(() => { document.getElementById('subProjectStatsScroll').scrollTop = 400; });
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(() => ({
+    headerTop: document.querySelector('#subProjectStatsModal .viewProfileIdentity').getBoundingClientRect().top,
+    scrolled: document.getElementById('subProjectStatsScroll').scrollTop,
+    closeVisible: document.getElementById('subProjectStatsClose').getBoundingClientRect().top > 0,
+  }));
+  ok(after.scrolled > 100, '2bis.5 le contenu a bien défilé (' + after.scrolled + 'px)');
+  eq(Math.round(after.headerTop), Math.round(headerBefore),
+    '2bis.6 ⭐⭐ le nom de l\'activité n\'a PAS bougé d\'un pixel');
+  ok(after.closeVisible, '2bis.7 ⭐ et la croix de fermeture reste à l\'écran');
+  await page.evaluate(() => { document.getElementById('subProjectStatsScroll').scrollTop = 0; });
+  await page.waitForTimeout(200);
+
   // ============ 3. ⭐ Répartition synchronisée avec la grille ============
   console.log('3. ⭐ La Répartition suit la Feuille de temps, et « Aujourd\'hui » la désynchronise');
   // Les sessions sont semées sur des bornes de 15 min et durent des heures
@@ -259,6 +296,140 @@ async function api(page, method, path, body) {
     '3.12 avec ses cases de 2h');
   eq(await page.textContent('#spStatsTotal'), hm(monthApi.breakdown.totalSeconds),
     '3.13 ⭐ et la Répartition a suivi la période Mois');
+
+  // ============ 3bis. ⭐ Contraste des nuances ============
+  // 5 septembre 2026, Emilien (captures à l'appui) : « je souhaite que le
+  // contraste entre les couleurs des sous-projets soit plus prononcé ».
+  // On mesure sur pièce, pas à l'œil : luminance relative WCAG entre chaque
+  // couple de couleurs de la légende, et teinte de chaque nuance.
+  console.log('3bis. ⭐ Les nuances de sous-projet se distinguent vraiment');
+  await page.click('#spTsPeriodBtn');
+  await page.waitForTimeout(300);
+  await page.click('#spTsPeriodMenu .statsPeriodMenuItem[data-period="week"]');
+  await page.waitForTimeout(1200);
+
+  const shades = await page.$$eval('#subProjectStatsPie .pieLegendRow', (rs) => {
+    function hex(rgb) {
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb || '');
+      return m ? [1, 2, 3].map((i) => Number(m[i])) : null;
+    }
+    return rs.map((r) => ({
+      label: r.querySelector('.pieLegendLabel').textContent,
+      rgb: hex(getComputedStyle(r.querySelector('.pieLegendDot')).backgroundColor),
+    }));
+  });
+  function lum(rgb) {
+    const c = rgb.map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function contrast(a, b) {
+    const A = lum(a), B = lum(b);
+    return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05);
+  }
+  function hue(rgb) {
+    const [r, g, b] = rgb.map((v) => v / 255);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d === 0) return 0;
+    let h;
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    return h * 60;
+  }
+  eq(shades.length, 3, '3bis.1 trois couleurs à comparer');
+  let worst = Infinity, worstPair = '';
+  for (let i = 0; i < shades.length; i++) {
+    for (let j = i + 1; j < shades.length; j++) {
+      const c = contrast(shades[i].rgb, shades[j].rgb);
+      if (c < worst) { worst = c; worstPair = shades[i].label + ' / ' + shades[j].label; }
+    }
+  }
+  ok(worst >= 1.6,
+    '3bis.2 ⭐⭐ le couple le moins contrasté l\'est quand même nettement ('
+    + worst.toFixed(2) + ':1 entre ' + worstPair + ')');
+
+  // Le contraste ne doit pas avoir été gagné en changeant de couleur : ce sont
+  // toujours des NUANCES de la couleur de l'activité (demande du 4 septembre).
+  const sansRow = shades.find((s) => s.label === 'Sans sous-projet');
+  ok(!!sansRow, '3bis.3 « Sans sous-projet » est toujours listé');
+  const baseHue = hue(sansRow.rgb);
+  shades.filter((s) => s !== sansRow).forEach(function (s, i) {
+    const d = Math.abs(hue(s.rgb) - baseHue);
+    ok(Math.min(d, 360 - d) <= 4,
+      '3bis.4.' + i + ' ⭐ « ' + s.label + ' » garde la teinte de l\'activité ('
+      + Math.round(hue(s.rgb)) + '° vs ' + Math.round(baseHue) + '°)');
+  });
+
+  // ============ 3ter. ⭐ La section Graphique ============
+  // 5 septembre 2026, Emilien : « rajouter une section graphique avec les
+  // mêmes fonctions que dans stat (apparition des données lorsqu'on clique
+  // sur un point et dernier enregistrement visible par défaut) ».
+  console.log('3ter. ⭐ La section Graphique, avec infobulle et recentrage');
+  ok(await page.isVisible('#spChartBlock'), '3ter.1 ⭐ la fenêtre a une section Graphique');
+  ok(await page.evaluate(() => document.querySelectorAll('#spChart svg').length === 1),
+    '3ter.2 un graphique est dessiné');
+  ok(await page.evaluate(() => document.querySelectorAll('#spChart .chartLine, #spChart path').length > 0),
+    '3ter.3 avec au moins une courbe');
+
+  // Une série par sous-projet, plus la série Total — exactement la
+  // composition du Graphique du volet Statistiques.
+  const chartLegend = await page.$$eval('#spChartLegend .chartLegendRow',
+    (rs) => rs.map((r) => r.querySelector('.chartLegendLabel').textContent));
+  ok(chartLegend.indexOf('Total') !== -1, '3ter.4 la courbe Total est présente');
+  ok(chartLegend.indexOf('Cadrage') !== -1 && chartLegend.indexOf('Développement') !== -1,
+    '3ter.5 ⭐ et une courbe par sous-projet');
+  ok(chartLegend.indexOf('Sans sous-projet') !== -1,
+    '3ter.6 ⭐ le temps non rattaché a la sienne aussi');
+
+  // « Apparition des données lorsqu'on clique sur un point » : c'est la couche
+  // de survol de renderChart, réutilisée telle quelle.
+  const tip = await page.evaluate(() => {
+    const layer = document.querySelector('#spChart .chartHoverLayer');
+    if (!layer) return 'pas de couche de survol';
+    const r = layer.getBoundingClientRect();
+    layer.dispatchEvent(new PointerEvent('pointerenter', {
+      bubbles: true, clientX: r.left + r.width - 20, clientY: r.top + r.height / 2,
+    }));
+    const el = document.getElementById('spChartTooltip');
+    return el && !el.classList.contains('hidden') ? el.textContent : 'infobulle masquée';
+  });
+  ok(/\d/.test(String(tip)),
+    '3ter.7 ⭐⭐ l\'infobulle s\'affiche avec des heures — ' + JSON.stringify(String(tip).slice(0, 40)));
+
+  // « Dernier enregistrement visible par défaut » : le défilement horizontal
+  // est posé sur son bord droit à chaque rendu.
+  const scrollState = await page.evaluate(() => {
+    const s = document.querySelector('#spChartBlock .chartScroll');
+    return { left: s.scrollLeft, max: s.scrollWidth - s.clientWidth };
+  });
+  ok(scrollState.max <= 0 || scrollState.left >= scrollState.max - 2,
+    '3ter.8 ⭐⭐ le graphique est calé sur les données les plus récentes ('
+    + scrollState.left + '/' + scrollState.max + ')');
+
+  // La granularité se choisit, comme dans le volet Stats — et le recentrage
+  // est refait à chaque rendu.
+  await page.click('#spChartPeriodBtn');
+  await page.waitForTimeout(300);
+  await page.click('#spChartPeriodMenu .statsPeriodMenuItem[data-period="month"]');
+  await page.waitForTimeout(1300);
+  ok(await page.evaluate(() => document.querySelectorAll('#spChart svg').length === 1),
+    '3ter.9 la granularité Mois redessine le graphique');
+  const afterGranularity = await page.evaluate(() => {
+    const s = document.querySelector('#spChartBlock .chartScroll');
+    return { left: s.scrollLeft, max: s.scrollWidth - s.clientWidth };
+  });
+  ok(afterGranularity.max <= 0 || afterGranularity.left >= afterGranularity.max - 2,
+    '3ter.10 ⭐ et reste calé à droite après changement de granularité');
+
+  // ⚠️ Le Graphique de la fenêtre ne suit PAS les flèches de la Feuille de
+  // temps : il couvre tout l'historique, comme celui du volet Statistiques.
+  const chartHtmlBefore = await page.evaluate(() => document.getElementById('spChartLegend').textContent);
+  await page.click('#spTsPrevWeek');
+  await page.waitForTimeout(1200);
+  eq(await page.evaluate(() => document.getElementById('spChartLegend').textContent), chartHtmlBefore,
+    '3ter.11 ⭐ un pas en arrière sur la grille ne touche pas au Graphique');
+  await page.click('#spTsNextWeek');
+  await page.waitForTimeout(1200);
 
   await page.click('#subProjectStatsClose');
   await page.waitForTimeout(400);
@@ -379,6 +550,26 @@ async function api(page, method, path, body) {
   eq(await page.evaluate(() => document.querySelectorAll(
     '#statsChart .pieSlice-tappable, #statsChart [data-activity-id]').length), 0,
     '5.7 ⭐ le Graphique n\'a toujours reçu aucune affordance (contrainte explicite d\'Emilien)');
+
+  // ⭐ Non-régression du Graphique du volet Statistiques après sa
+  // paramétrisation : mêmes conteneurs, même infobulle, même recentrage.
+  ok(await page.evaluate(() => document.querySelectorAll('#statsChart svg').length === 1),
+    '5.8 le Graphique du volet Stats est toujours dessiné dans SON conteneur');
+  ok(await page.evaluate(() => document.querySelectorAll('#statsChartLegend .chartLegendRow').length > 0),
+    '5.9 avec sa propre légende');
+  const statsTip = await page.evaluate(() => {
+    const layer = document.querySelector('#statsChart .chartHoverLayer');
+    if (!layer) return 'pas de couche';
+    const r = layer.getBoundingClientRect();
+    layer.dispatchEvent(new PointerEvent('pointerenter', {
+      bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+    }));
+    const el = document.getElementById('chartTooltip');
+    return el && !el.classList.contains('hidden') ? el.textContent : 'masquée';
+  });
+  ok(/\d/.test(String(statsTip)), '5.10 ⭐ et son infobulle d\'origine, intacte');
+  eq(await page.evaluate(() => !document.getElementById('spChartTooltip').classList.contains('hidden')), false,
+    '5.11 ⭐⭐ survoler le Graphique du volet Stats n\'ouvre PAS l\'infobulle de la fenêtre');
 
   eq(errorsBeforeBadRequest, [], '5.8 aucune erreur JavaScript en console pendant toute la suite');
   eq(consoleErrors.filter((e) => !/400/.test(e)), [],

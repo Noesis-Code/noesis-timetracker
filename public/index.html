@@ -2315,6 +2315,41 @@
             <p id="subProjectStatsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
           </div>
 
+          <!-- Graphique — MÊME structure que #statsChartBlock (5 septembre
+               2026, demande d'Emilien : « rajouter une section graphique avec
+               les mêmes fonctions que dans stat — apparition des données
+               lorsqu'on clique sur un point, et dernier enregistrement visible
+               par défaut »). Dessiné par renderChart, la fonction du volet
+               Statistiques, appelée avec ces ids-ci : l'infobulle au doigt et
+               le recentrage sur les données les plus récentes viennent donc
+               d'elle, sans une ligne de plus.
+               ⚠️ Comme celui du volet Statistiques, il couvre TOUT
+               l'historique de l'activité et suit sa propre granularité — il
+               ne se recale PAS sur les flèches ‹ › de la Feuille de temps,
+               contrairement à la Répartition juste au-dessus. C'est le
+               comportement du volet Stats, dont Emilien demande la reprise. -->
+          <div id="spChartBlock" class="statsSection">
+            <div class="sectionTitleRow">
+              <p class="sectionTitle">Graphique</p>
+              <div class="statsPeriodMenuWrap" id="spChartPeriodWrap">
+                <button type="button" class="menuBtn" id="spChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
+                <div class="statsPeriodMenu hidden" id="spChartPeriodMenu">
+                  <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
+                  <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
+                  <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                </div>
+              </div>
+            </div>
+            <div class="chartWrap" id="spChartWrap">
+              <div class="chartScroll">
+                <div id="spChart" class="chartSvgWrap"></div>
+              </div>
+              <div id="spChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
+            </div>
+            <div id="spChartLegend" class="chartLegend"></div>
+            <p id="spChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+          </div>
+
           <p id="subProjectStatsMsg" class="msg"></p>
         </div>
       </div>
