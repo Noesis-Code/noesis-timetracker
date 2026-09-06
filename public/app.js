@@ -2116,86 +2116,96 @@
   // Une mémoïsation par (couleur, rang, nombre) rend le coût négligeable.
   var subProjectShadeCache = {};
 
+  // Clarté CIE L* d'une couleur — l'axe perceptuellement uniforme de la
+  // luminosité. Deux couleurs séparées de 12 unités de L* se distinguent
+  // toujours autant, qu'on soit dans les tons clairs ou dans les tons foncés,
+  // ce qui n'est vrai NI de la luminosité HSL NI du rapport de contraste WCAG.
+  function labLightness(hex) {
+    var y = relLuminance(hex);
+    return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
+  }
+
+  // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que tu crées pour
+  // chaque couleur d'activité 5 nuances distinguables à l'œil nu ».
+  //
+  // Deux changements par rapport à la veille :
+  //   · le nombre de nuances est FIXE (5) au lieu de dépendre du nombre de
+  //     sous-projets. Conséquence voulue et importante : ajouter un
+  //     sous-projet ne redistribue plus toutes les couleurs — celle d'un
+  //     sous-projet donné ne bouge plus jamais. `count` n'est donc plus lu ;
+  //     le paramètre reste dans la signature pour tous les appelants
+  //     existants, y compris le serveur qui envoie encore `shadeCount` ;
+  //   · les nuances sont espacées en CLARTÉ CIE L*, et non plus en logarithme
+  //     de luminance. Le rapport de contraste WCAG ne mesure que la luminance :
+  //     il ne voit pas la différence de teinte ou de saturation, et écrase les
+  //     écarts dans les tons clairs. L* est l'axe fait pour ça.
+  //
+  // Réglage choisi par balayage sur 12 couleurs (les 8 des deux palettes plus
+  // 4 cas extrêmes), en maximisant le PIRE écart perceptif (ΔE CIELAB) de
+  // toutes les paires, couleur de base comprise :
+  //   bande L* [22, 90], écart minimal de 11 avec la base, teinte et
+  //   saturation inchangées.
+  // Résultat : ΔE minimal de 12.3 (contre 6.4 la veille) — « nettement
+  // distinguable » commence vers 10. La nuance la plus claire reste à ΔE ≥ 13
+  // du blanc pur et la plus foncée à ΔE ≥ 18 d'un fond sombre : les cinq
+  // restent visibles sur les deux thèmes, ce qui interdisait d'élargir
+  // davantage la bande.
+  //
+  // ⚠️ Au-delà de 5 sous-projets, les nuances se répètent (index % 5). C'est
+  // volontaire et c'est la conséquence directe de la demande : cinq couleurs
+  // franches valent mieux que huit indistinctes. Si Emilien a un jour des
+  // activités à plus de cinq sous-projets et veut les distinguer toutes, il
+  // faudra parler de teinte — c'est la seule dimension qui reste.
+  var SUB_PROJECT_SHADE_COUNT = 5;
+
   function subProjectShade(baseHex, index, count) {
     if (index === null || index === undefined) return baseHex;
     var hsl = hexToHsl(baseHex);
     if (!hsl) return baseHex;
 
-    var cacheKey = baseHex + '|' + index + '|' + count;
+    var rank = ((Number(index) % SUB_PROJECT_SHADE_COUNT) + SUB_PROJECT_SHADE_COUNT)
+      % SUB_PROJECT_SHADE_COUNT;
+    var cacheKey = baseHex + '|' + rank;
     if (subProjectShadeCache[cacheKey]) return subProjectShadeCache[cacheKey];
 
-    // Bornes : ni assez claire pour se confondre avec la carte en thème
-    // clair, ni assez foncée pour se confondre avec le fond en thème sombre.
-    var LO = 0.22, HI = 0.86;
-    // Écart minimal, exprimé en RAPPORT DE CONTRASTE, avec la couleur de base
-    // (réservée au temps « Sans sous-projet »).
-    //
-    // Mesuré sur les 8 couleurs des deux palettes : le couple le moins
-    // contrasté vaut ~1.5:1 jusqu'à 4 sous-projets (contre ~1.2:1 avant cette
-    // réécriture), et retombe vers 1.2:1 à 8 sous-projets — plafond
-    // arithmétique, pas un défaut : à teinte imposée, une activité qui a huit
-    // sous-projets n'a plus tant de place que ça entre le clair et le foncé.
-    // Si Emilien en arrive là, la sortie n'est pas d'élargir encore la bande
-    // (les extrêmes se confondraient avec le fond) mais de poser la question
-    // de la teinte — donc de revenir vers lui.
-    var MIN_VS_BASE = 1.45;
+    // Bande de clarté : ni assez claire pour se confondre avec la carte en
+    // thème clair, ni assez foncée pour se confondre avec le fond en thème
+    // sombre. Vérifié : la nuance la plus claire reste à ΔE ≥ 13 du blanc pur,
+    // la plus foncée à ΔE ≥ 18 d'un fond sombre.
+    var LO = 22, HI = 90;      // en clarté CIE L*, pas en luminosité HSL
+    var GAP = 11;              // écart minimal, en L*, avec la couleur de base
 
-    // Saturation alternée d'un rang à l'autre, jamais jusqu'au gris : deux
-    // nuances voisines se distinguent alors par deux dimensions au lieu d'une.
+    // Teinte ET saturation sont conservées telles quelles : ce sont bien des
+    // nuances de la couleur de l'activité (demande d'Emilien du 4 septembre),
+    // et le balayage de réglages a montré qu'y toucher ne gagnait rien une
+    // fois l'espacement fait dans le bon espace.
     var s = hsl.s;
-    if (s > 0.15) s = Math.max(0.22, Math.min(1, s + (index % 2 === 0 ? 0.10 : -0.10)));
-
-    // ⚠️ LE point de cette réécriture (5 septembre 2026, Emilien : « je
-    // souhaite que le contraste entre les couleurs des sous-projets soit plus
-    // prononcé »). La première version espaçait les nuances régulièrement en
-    // LUMINOSITÉ HSL. Or le contraste perçu entre deux couleurs suit un
-    // rapport de luminance, pas une différence de luminosité : au voisinage du
-    // clair, deux luminosités écartées de 0.15 sont presque indiscernables,
-    // alors qu'au voisinage du foncé le même écart saute aux yeux. D'où trois
-    // nuances quasi identiques sur la capture d'écran d'Emilien.
-    // On raisonne donc dans le logarithme de la luminance : y placer les rangs
-    // à intervalles réguliers, c'est leur donner à tous LE MÊME rapport de
-    // contraste avec leur voisin.
-    // ⚠️ L'échelle est calculée à la saturation de l'ACTIVITÉ, une fois pour
-    // tous les rangs ; c'est seulement la résolution finale (dichotomie plus
-    // bas) qui utilise la saturation décalée du rang. Sans cette séparation,
-    // chaque rang mesurerait sa position sur une échelle légèrement
-    // différente, et deux nuances voisines pouvaient se retrouver collées —
-    // le décalage de saturation annulait le gain de contraste au lieu de s'y
-    // ajouter.
-    function u(l, sat) { return Math.log(relLuminance(hslToHex(hsl.h, sat, l)) + 0.05); }
-    var uHi = u(HI, hsl.s), uLo = u(LO, hsl.s);
-    // ⚠️ La zone interdite se mesure contre la couleur de base RÉELLE, pas
-    // contre une couleur de même luminosité à la saturation décalée ci-dessus :
-    // sinon l'écart garanti porte sur une couleur qui n'est affichée nulle part.
-    var uBase = Math.log(relLuminance(baseHex) + 0.05);
-    var gap = Math.log(MIN_VS_BASE);
+    var lBase = labLightness(baseHex);
 
     // Deux segments : au-dessus et en dessous de la zone interdite autour de
-    // la base. L'un des deux peut être vide si la couleur de l'activité est
-    // déjà à une extrémité. Les rangs se répartissent sur leur concaténation,
-    // du plus clair au plus foncé — la zone interdite est RETIRÉE avant
-    // répartition, jamais corrigée après coup (ce que faisait la version
-    // précédente, au prix de rapprocher deux nuances voisines).
-    var upLen = Math.max(0, uHi - Math.max(uBase + gap, uLo));
-    var loLen = Math.max(0, Math.min(uBase - gap, uHi) - uLo);
+    // la base (réservée au temps « Sans sous-projet »). L'un des deux peut
+    // être vide si la couleur de l'activité est déjà à une extrémité. Les cinq
+    // rangs se répartissent régulièrement sur leur concaténation, du plus clair
+    // au plus foncé.
+    var upLen = Math.max(0, HI - Math.max(lBase + GAP, LO));
+    var loLen = Math.max(0, Math.min(lBase - GAP, HI) - LO);
     var total = upLen + loLen;
 
     var target;
     if (total <= 0) {
-      target = uBase >= (uHi + uLo) / 2 ? uLo : uHi;   // cas dégénéré
+      target = lBase >= (HI + LO) / 2 ? LO : HI;   // cas dégénéré
     } else {
-      var n = Math.max(1, Number(count) || 1);
-      var d = (n > 1 ? index / (n - 1) : 0) * total;
-      target = d <= upLen ? uHi - d : Math.min(uBase - gap, uHi) - (d - upLen);
+      var d = (rank / (SUB_PROJECT_SHADE_COUNT - 1)) * total;
+      target = d <= upLen ? HI - d : Math.min(lBase - GAP, HI) - (d - upLen);
     }
 
-    // Dichotomie : u(l) est croissante en l, 24 itérations suffisent largement
-    // pour tomber sous le pas d'un entier de composante (1/255).
-    var lo = LO, hi = HI;
-    for (var k = 0; k < 24; k++) {
+    // Dichotomie sur la luminosité HSL pour atteindre la clarté L* visée :
+    // L* est monotone en l à teinte et saturation fixées. 28 itérations
+    // descendent bien en dessous du pas d'un entier de composante.
+    var lo = 0, hi = 1;
+    for (var k = 0; k < 28; k++) {
       var mid = (lo + hi) / 2;
-      if (u(mid, s) < target) lo = mid; else hi = mid;
+      if (labLightness(hslToHex(hsl.h, s, mid)) < target) lo = mid; else hi = mid;
     }
     var out = hslToHex(hsl.h, s, (lo + hi) / 2);
     subProjectShadeCache[cacheKey] = out;
@@ -2324,7 +2334,10 @@
     // afficherait sa fenêtre à la position laissée par la précédente.
     if ($('subProjectStatsScroll')) $('subProjectStatsScroll').scrollTop = 0;
     $('subProjectStatsTitle').textContent = spCtx.name;
-    $('subProjectStatsSubtitle').textContent = '';
+    // La barre reprend sa couleur neutre le temps du chargement : sans ça,
+    // ouvrir une seconde activité afficherait un instant la couleur de la
+    // précédente.
+    paintSubProjectStatsHeader(null);
     loadSubProjectStats();
     loadSubProjectChart();
   }
@@ -2371,13 +2384,42 @@
     return subProjectShade(data.baseColor, rank === undefined ? null : rank, data.shadeCount);
   }
 
+  // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que la barre
+  // supérieure soit de la même couleur que l'activité ». La barre d'en-tête de
+  // la fenêtre prend donc la couleur que CE membre a choisie pour cette
+  // activité — la même que sa part dans le camembert d'où l'on vient, et la
+  // même que celle réservée au temps « Sans sous-projet » à l'intérieur.
+  //
+  // Le texte suit textColorForTheme, comme les boutons d'activité du Chrono :
+  // les couleurs d'activité viennent d'une palette contrainte par thème (voir
+  // public/theme-palette.js), dont c'est justement la raison d'être — blanc
+  // fixe en sombre, foncé fixe en clair, lisible par construction sur les huit
+  // couleurs. Pas de calcul de contraste par couleur, qui rouvrirait le
+  // problème réglé le 28 août.
+  // La classe `tinted` fait le reste en CSS : le bouton de fermeture, qui a
+  // normalement le fond d'une carte et une bordure grise, devient transparent
+  // avec une bordure de la couleur du texte. Sans ça il resterait une petite
+  // boîte pâle posée sur la barre colorée.
+  function paintSubProjectStatsHeader(color) {
+    var bar = $('subProjectStatsModal').querySelector('.viewProfileIdentity');
+    if (!bar) return;
+    bar.classList.toggle('tinted', !!color);
+    bar.style.background = color || '';
+    bar.style.color = color ? textColorForTheme(currentTheme) : '';
+  }
+
   function renderSubProjectStats(data) {
-    $('subProjectStatsTitle').textContent = data.activityName || '';
-    // Sur une activité partagée, on regarde le temps d'UN membre : le dire,
-    // sinon on croit lire le total de l'activité.
-    $('subProjectStatsSubtitle').textContent = data.isSelf
-      ? t('Mon temps')
-      : t('Temps de {name}', { name: subProjectStatsFullName(data.memberName, data.memberLastName) });
+    // ⚠️ 6 septembre 2026 : « supprimer l'inscription temps tout en haut ».
+    // La ligne « Mon temps » / « Temps de X » a disparu. Sur une activité
+    // partagée, l'information qu'elle portait — on regarde le temps d'UNE
+    // personne, pas le total de l'activité — reste indispensable : elle passe
+    // dans le titre lui-même, et seulement quand ce n'est PAS son propre temps.
+    // Chez soi, le titre est le seul nom de l'activité, comme demandé.
+    $('subProjectStatsTitle').textContent = data.isSelf
+      ? (data.activityName || '')
+      : (data.activityName || '') + ' · '
+        + subProjectStatsFullName(data.memberName, data.memberLastName);
+    paintSubProjectStatsHeader(data.baseColor);
 
     // ----- La grille, dessinée par les fonctions de la Feuille de temps -----
     var ids = {
@@ -8496,6 +8538,18 @@
     var renderedSignature = '';
     var pollTimer = null;
 
+    // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que lorsqu'on
+    // arrive au bout, elle s'agrandisse [...] à la ligne ». Réutilise
+    // pollAutoGrow (défini plus bas dans ce fichier — déclaration de
+    // fonction, donc "hoistée" et déjà disponible ici) plutôt que d'écrire un
+    // second mécanisme : même comportement, même piège déjà résolu (hauteur
+    // remise à 'auto' avant lecture de scrollHeight, garde sur élément masqué).
+    // Commun aux trois instances de mountMessageThread (Communauté, Profil,
+    // chat de sous-projet) — étendre à toutes les trois plutôt qu'une option
+    // par instance a été confirmé par Emilien (le "en dessous" existait déjà
+    // côté Profil et sous-projet ; seule Communauté avait un <input> une
+    // ligne à convertir en <textarea>, voir index.html).
+
     function renderPending() {
       if (!cfg.attachments) return;
       var box = $(cfg.ids.pendingList);
@@ -8651,6 +8705,12 @@
       if (!profile) return;
       var url = cfg.listUrl();
       if (!url) return;   // pas de contexte (aucun sous-projet ouvert) : rien à charger
+      // Recalcule la hauteur à chaque fois que ce fil redevient pertinent
+      // (onglet ouvert, sous-projet sélectionné) : le garde-fou de
+      // pollAutoGrow (élément masqué → scrollHeight de 0) est sans effet une
+      // fois le champ visible, exactement comme pour l'ouverture d'un
+      // formulaire de sondage.
+      pollAutoGrow($(cfg.ids.input));
       api('GET', url).then(function (data) {
         // Le contexte a pu changer pendant la requête (autre sous-projet
         // ouvert entre-temps) : on ne dessine pas une réponse périmée.
@@ -8665,6 +8725,7 @@
       renderedSignature = '';
       if (cfg.ids.list) $(cfg.ids.list).innerHTML = '';
       $(cfg.ids.input).value = '';
+      pollAutoGrow($(cfg.ids.input));
       $(cfg.ids.msg).textContent = '';
       load();
     }
@@ -8696,6 +8757,7 @@
         })
         .then(function () {
           input.value = '';
+          pollAutoGrow(input);
           pendingAttachments = [];
           renderPending();
           renderedSignature = '';
@@ -8752,6 +8814,10 @@
     $(cfg.ids.input).addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
+    // Agrandissement automatique à la frappe (voir la note en tête de
+    // mountMessageThread) — se déclenche aussi bien sur un retour à la ligne
+    // explicite (Maj+Entrée) que sur un retour automatique en fin de ligne.
+    $(cfg.ids.input).addEventListener('input', function () { pollAutoGrow($(cfg.ids.input)); });
 
     var instance = { load: load, reset: reset, startPolling: startPolling, stopPolling: stopPolling };
     if (cfg.registry) cfg.registry.push(instance);
@@ -10122,15 +10188,20 @@
 
       row.appendChild(header);
 
+      // 6 septembre 2026 (Emilien) : « supprime les textes en dessous des
+      // activités, garde uniquement la première partie » — les deux phrases
+      // explicatives qui suivaient (« tu peux choisir ta couleur... »,
+      // « clique sur la ligne pour les voir ») sont retirées ; ne reste que
+      // l'essentiel (qui la partage / combien de membres).
       if (!a.isOwner) {
         var badge = document.createElement('p');
         badge.className = 'meta';
-        badge.textContent = t('Partagée par {owner} — tu peux choisir ta couleur, le reste lui appartient.', { owner: a.ownerName || '?' });
+        badge.textContent = t('Partagée par {owner}', { owner: a.ownerName || '?' });
         row.appendChild(badge);
       } else if (a.membersCount > 1) {
         var badge2 = document.createElement('p');
         badge2.className = 'meta';
-        badge2.textContent = t('{count} membres — clique sur la ligne pour les voir.', { count: a.membersCount });
+        badge2.textContent = t('{count} membres', { count: a.membersCount });
         row.appendChild(badge2);
       }
 

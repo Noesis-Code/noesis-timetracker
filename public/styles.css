@@ -1823,14 +1823,21 @@ body.scrollLock { overflow: hidden; }
   .communityModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: #fff; }
 }
 
-/* Rangée du champ actif + actions de publication (le "+"-sondage, le
-   trombone, l'icône d'envoi) — un seul champ visible à la fois
-   (communitySearchOnly / communityPublishOnly ci-dessous), même style pour
-   les deux (demande d'Emilien : "une seule sorte de texte"). `.entryCard
-   input` (générique) impose déjà width:100% + margin-bottom:8px ; annulés
-   ici pour que le champ partage la ligne avec les icônes. */
+/* Rangée du champ actif — un seul champ visible à la fois (communitySearchOnly
+   / communityPublishOnly ci-dessous), même style pour les deux (demande
+   d'Emilien : "une seule sorte de texte"). `.entryCard input`/`textarea`
+   (génériques) imposent déjà width:100% + margin-bottom:8px ; annulés ici
+   pour que le champ occupe toute la largeur sans marge parasite.
+   ⚠️ 6 septembre 2026 (demande d'Emilien, boutons "en dessous de la barre") :
+   le "+"-sondage/trombone/icône d'envoi ne sont PLUS dans cette rangée — ils
+   forment leur propre .rowActions juste en dessous (voir plus bas), même
+   structure que le composeur jumeau du Profil. */
 .communityComposerRow { display: flex; align-items: center; gap: 8px; }
-.communityComposerRow input[type="text"] { width: auto; flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
+.communityComposerRow input[type="text"],
+.communityComposerRow textarea { width: auto; flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
+/* Espace entre le champ et sa rangée de boutons — même valeur que le
+   composeur jumeau du Profil (.discussionComposer .rowActions ci-dessous). */
+#communitySearchBar > .rowActions.communityPublishOnly { margin-top: 8px; }
 
 /* Icône d'envoi ronde, à côté du champ plutôt qu'un bouton "Envoyer" en
    pleine largeur en dessous (confirmé par Emilien) — masquée tant que le
