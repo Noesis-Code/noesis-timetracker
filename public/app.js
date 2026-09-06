@@ -3354,6 +3354,12 @@
     $('communitySearchInput').value = '';
     communitySeekingFilter.length = 0;
     buildCommunitySeekingFilters();
+    // 6 septembre 2026 : la rangée (filtres ou boutons de publication, selon
+    // le mode) démarre repliée à l'ouverture de l'onglet — elle ne se déploie
+    // qu'au clic dans la zone de texte (voir collapseCommunitySearchBarRow,
+    // plus bas dans ce fichier). AVANT setCommunityMode() ci-dessous pour que
+    // sa mesure de hauteur tienne compte de l'état replié dès le départ.
+    collapseCommunitySearchBarRow();
     // 5 septembre 2026 : l'onglet s'ouvre toujours en mode Rechercher (jamais
     // en Publier) — setCommunityMode() mesure aussi --community-searchbar-h
     // (voir sa définition plus bas), APRÈS buildCommunitySeekingFilters()
@@ -3404,6 +3410,47 @@
   }
   $('communityModeSearchBtn').addEventListener('click', function () { setCommunityMode('search'); });
   $('communityModePublishBtn').addEventListener('click', function () { setCommunityMode('publish'); });
+
+  // ⚠️ 6 septembre 2026, demande d'Emilien : « les options partenaires,
+  // clients, financement [...] et + et épingles [...] se déploient et soient
+  // visibles uniquement lorsque l'utilisateur clique sur la zone de texte et
+  // qu'ils se replient (invisible) lorsque l'utilisateur clique en dehors de
+  // la zone noire de l'entête ». Uniquement Communauté (confirmé par
+  // Emilien — la rangée jumeau du Profil garde son affichage permanent).
+  // .searchBarExpanded sur #communitySearchBar pilote les deux rangées à la
+  // fois (une seule visible à un instant donné, déjà réglé par
+  // .communitySearchOnly/.communityPublishOnly) — voir styles.css. Le clic
+  // sur une étiquette de filtre (mousedown preventDefault, renderSeekingPicker)
+  // ne fait JAMAIS perdre le focus au champ, donc jamais collapse par
+  // mégarde ; un clic sur le "+"/le trombone est de toute façon À L'INTÉRIEUR
+  // de #communitySearchBar, donc ignoré par l'écouteur "en dehors" ci-dessous
+  // — même mécanisme que .followsWrap/.notifWrap/.settingsWrap plus loin dans
+  // ce fichier.
+  // ⚠️ Piège trouvé en testant (6 septembre 2026) : quitter le mode Publier
+  // alors qu'un sondage est resté ouvert déclenche
+  // `$('communityPollsCancelBtn').click()` (voir setCommunityMode, plus haut)
+  // — un clic SYNTHÉTIQUE (isTrusted === false), mais qui bouillonne quand
+  // même jusqu'à `document` puisque #communityPollsForm vit HORS de
+  // #communitySearchBar (carte séparée, plus bas dans le DOM). Sans garde,
+  // ce clic interne était pris pour un « clic en dehors » et repliait la
+  // rangée par erreur. D'où le filtre `e.isTrusted` ci-dessous : seul un
+  // clic humain réel peut replier la rangée.
+  function expandCommunitySearchBarRow() {
+    $('communitySearchBar').classList.add('searchBarExpanded');
+    syncCommunitySearchBarHeightVar();
+  }
+  function collapseCommunitySearchBarRow() {
+    $('communitySearchBar').classList.remove('searchBarExpanded');
+    syncCommunitySearchBarHeightVar();
+  }
+  $('communitySearchInput').addEventListener('focus', expandCommunitySearchBarRow);
+  $('communityMyPostsInput').addEventListener('focus', expandCommunitySearchBarRow);
+  document.addEventListener('click', function (e) {
+    if (!e.isTrusted) return;
+    if (!$('communitySearchBar').classList.contains('searchBarExpanded')) return;
+    if (e.target.closest('#communitySearchBar')) return;
+    collapseCommunitySearchBarRow();
+  });
 
   // ⚠️ 5 septembre 2026 : icône d'envoi masquée tant que le champ est vide
   // (confirmé par Emilien : « Entrée ou icône d'envoi [...] une icône

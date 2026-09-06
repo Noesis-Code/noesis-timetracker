@@ -1907,6 +1907,21 @@ body.scrollLock { overflow: hidden; }
   #communitySeekingFilters .seekingTagBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.16); }
 }
 
+/* ⚠️ 6 septembre 2026, demande d'Emilien : « [ces deux rangées] se
+   déploient et soient visibles uniquement lorsque l'utilisateur clique sur
+   la zone de texte et qu'ils se replient (invisible) lorsque l'utilisateur
+   clique en dehors de la zone noire de l'entête ». Communauté uniquement
+   (confirmé par Emilien) — .searchBarExpanded posée/retirée par
+   expandCommunitySearchBarRow()/collapseCommunitySearchBarRow() (app.js).
+   Se combine SANS conflit avec .communitySearchOnly/.communityPublishOnly
+   (masqué si l'un OU l'autre le décide, même principe que plus haut) : les
+   deux rangées ne sont donc visibles que dans le bon mode ET une fois
+   dépliées. */
+#communitySearchBar:not(.searchBarExpanded) #communitySeekingFilters,
+#communitySearchBar:not(.searchBarExpanded) > .rowActions.communityPublishOnly {
+  display: none;
+}
+
 /* Découverte passive en ronds cliquables (5 septembre 2026, demande
    d'Emilien : « uniquement sous forme de rond sur lesquels on clique pour
    ouvrir le profil ») — posée par renderSearchResults (app.js) UNIQUEMENT
