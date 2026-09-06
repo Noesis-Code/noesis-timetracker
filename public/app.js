@@ -1751,7 +1751,10 @@
   function renderPieBreakdown(data) {
     var breakdown = (data && data.breakdown) || { totalSeconds: 0, activities: [] };
     $('statsLabel').textContent = data && data.label ? t(data.label) : '';
-    $('statsTotal').textContent = formatHM(breakdown.totalSeconds);
+    // Plus de total écrit au-dessus du camembert depuis le 6 septembre
+    // 2026 (Emilien : « le temps total est marqué deux fois ») : renderPie
+    // l'affiche déjà au centre du donut. Idem dans les quatre autres
+    // Répartitions de l'app.
     // Zone d'appui n° 2 et n° 3 : une part du camembert et une ligne de sa
     // légende ouvrent le détail par sous-projet de cette activité, sur la
     // fenêtre de jours que le camembert résume — jamais une autre.
@@ -2335,7 +2338,7 @@
     'subProjectStatsModal', 'subProjectStatsTitle', 'subProjectStatsClose',
     'subProjectStatsScroll', 'subProjectStatsMsg',
     'spTimesheetBlock', 'spTsGrid', 'spTsCalendar', 'spTsFrozenCol',
-    'spPieBlock', 'subProjectStatsPie', 'spStatsTotal',
+    'spPieBlock', 'subProjectStatsPie',
     'spChartBlock', 'spChart', 'spChartLegend',
   ];
 
@@ -2501,7 +2504,6 @@
   function renderSubProjectPie(breakdown, label, data) {
     var parts = (breakdown && breakdown.subProjects) || [];
     $('spStatsLabel').textContent = label ? t(label) : '';
-    $('spStatsTotal').textContent = formatHM(breakdown ? breakdown.totalSeconds : 0);
 
     var colored = parts.map(function (p) {
       return {
@@ -2610,7 +2612,6 @@
 
   function renderSoloSubProjectPie(data) {
     var parts = data.subProjects || [];
-    $('soloStatsTotal').textContent = formatHM(data.totalSeconds);
     var colored = parts.map(function (p) {
       return {
         name: p.subProjectId === null
@@ -5422,16 +5423,13 @@
     api('GET', url).then(function (data) {
       if (String(activityId) !== String(currentCommunityActivityId)) return; // sélection changée entre-temps
       var block = data.breakdown;
-      // Le libellé de période ("Cette semaine", "Aujourd'hui"...) était porté
-      // par .statsSummary, retirée à la demande d'Emilien. Il est repris ici,
-      // en petit à côté du titre de chaque section : sans lui, plus rien
-      // n'indiquerait au repos sur quelle période on regarde.
-      // Libellé de période + total, dans le bloc Répartition lui-même
-      // (motif .statsSummary de l'onglet Statistiques). Le total apparaît
-      // donc deux fois — ici en gros et au centre du camembert — exactement
-      // comme dans le volet Statistiques dont Emilien demande la reprise.
+      // Libellé de période seul, dans le bloc Répartition lui-même (motif
+      // .statsSummary de l'onglet Statistiques). Le total qui l'accompagnait
+      // a été retiré le 6 septembre 2026 — Emilien : « le temps total est
+      // marqué deux fois dans répartition » — renderActivityPie l'écrivant
+      // déjà au centre du camembert. block.totalSeconds continue de lui être
+      // passé, c'est lui qui alimente ce centre.
       $('communityActivityStatsLabel').textContent = t(block.label);
-      $('communityActivityStatsTotal').textContent = formatHM(block.totalSeconds);
       renderActivityPie(block.members, block.totalSeconds);
 
       lastActivityDailyBreakdown = data.dailyBreakdown || [];
@@ -8120,7 +8118,6 @@
     $('viewProfilePie').innerHTML = '';
     $('viewProfilePieEmptyHint').classList.add('hidden');
     $('viewProfileStatsLabel').textContent = '';
-    $('viewProfileStatsTotal').textContent = '';
     $('viewProfileChart').innerHTML = '';
     $('viewProfileChartLegend').innerHTML = '';
     // L'infobulle repart masquée : celle du profil PRÉCÉDENT n'a aucune
@@ -8240,7 +8237,6 @@
         if (viewProfileUserId !== target) return;
         var breakdown = data.breakdown || { totalSeconds: 0, activities: [] };
         $('viewProfileStatsLabel').textContent = data.label ? t(data.label) : '';
-        $('viewProfileStatsTotal').textContent = formatHM(breakdown.totalSeconds);
         renderPie(breakdown.activities || [], breakdown.totalSeconds, { wrap: 'viewProfilePie', emptyHint: 'viewProfilePieEmptyHint' });
         renderViewProfileChart(data.chart || []);
         syncViewProfilePaneHeight();
@@ -9884,8 +9880,14 @@
   // section Identité.
   $('logoutBtn').addEventListener('click', function () {
     if (!confirm(t('Se déconnecter de ce profil sur cet appareil ?'))) return;
-    clearProfile();
-    location.reload();
+    // Système de session (chantier 1, 6 septembre 2026) : efface aussi le
+    // témoin de session côté serveur, pas seulement le profil mémorisé
+    // localement — sinon "se déconnecter" ne déconnectait plus vraiment
+    // rien puisque l'appareil resterait authentifié pour ce profil.
+    api('POST', '/api/session/logout', {}).catch(function () {}).then(function () {
+      clearProfile();
+      location.reload();
+    });
   });
 
   // ----- Partage (adresse publique de l'app + invitation par pseudo) -----
@@ -10830,6 +10832,18 @@
       .finally(function () { $('newActivitySave').disabled = false; });
   });
 
+  // Resynchronise nom/couleur/thème/langue avec le serveur puis ouvre l'app
+  // — code partagé entre le démarrage normal (session déjà valide) et la
+  // redemande de code ci-dessous (une fois le témoin de session posé).
+  function refreshProfileAndEnter() {
+    api('GET', '/api/profile/' + profile.id).then(function (fresh) {
+      var langChanged = !!fresh.lang && fresh.lang !== currentLang;
+      saveProfile(fresh);
+      if (langChanged) location.reload();
+    }).catch(function () { /* hors-ligne ou profil supprimé : on garde la version locale */ });
+    showApp();
+  }
+
   // ===================== DÉMARRAGE =====================
   profile = loadProfile();
   if (profile) {
@@ -10838,15 +10852,43 @@
     // champ `lang` : c'est forcément un profil qui existait déjà, donc
     // français — cohérent avec la migration côté serveur (voir db.js).
     applyLang(profile.lang || 'fr');
-    api('GET', '/api/profile/' + profile.id).then(function (fresh) {
-      var langChanged = !!fresh.lang && fresh.lang !== currentLang;
-      saveProfile(fresh); // resynchronise nom/couleur/thème/langue avec le serveur (utile après un changement fait sur un autre appareil)
-      // La langue a changé depuis un autre appareil : on recharge une seule
-      // fois pour tout remettre dans la bonne langue (la version fraîche est
-      // déjà enregistrée juste au-dessus, donc pas de boucle possible).
-      if (langChanged) location.reload();
-    }).catch(function () { /* hors-ligne ou profil supprimé : on garde la version locale */ });
-    showApp();
+    // Système de session (chantier 1, 6 septembre 2026 — voir
+    // noesis-timetracker-securite.md) : avant ce chantier, un id mémorisé
+    // en localStorage suffisait à entrer dans l'app pour toujours, sans
+    // jamais revérifier le code — c'est exactement le trou que le témoin de
+    // session signé côté serveur comble. GET /api/session/me dit si CET
+    // APPAREIL a déjà un témoin valide pour CE profil. Si non — premier
+    // chargement depuis ce chantier, ou un autre profil récupéré entre-temps
+    // sur le même appareil —, le code est redemandé UNE SEULE FOIS ; une
+    // fois le témoin posé (POST .../verify-pin), les prochains démarrages
+    // repassent par la branche silencieuse ci-dessus, exactement comme
+        // avant.
+    api('GET', '/api/session/me').then(function (session) {
+      if (session.userId && session.userId === profile.id) {
+        refreshProfileAndEnter();
+      } else {
+        api('GET', '/api/users').then(function (users) {
+          var match = users.filter(function (u) { return u.id === profile.id; })[0];
+          if (!match) {
+            // Profil introuvable côté serveur (compte supprimé ailleurs) :
+            // abandon silencieux du profil local, retour à l'onboarding normal.
+            clearProfile();
+            applyTheme('dark');
+            applyLang('en');
+            showOnboarding();
+            return;
+          }
+          showOnboarding();
+          showOnbPinStep(match);
+        }).catch(function () {
+          // Hors-ligne au tout premier chargement post-chantier : pas de
+          // liste à vérifier, on continue comme avant plutôt que de bloquer
+          // l'usage hors-ligne. Dégradation limitée à l'absence de réseau,
+          // pas pire que ce que l'app faisait avant ce chantier.
+          refreshProfileAndEnter();
+        });
+      }
+    }).catch(function () { refreshProfileAndEnter(); });
   } else {
     applyTheme('dark');
     applyLang('en'); // anglais par défaut pour un tout nouveau compte

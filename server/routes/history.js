@@ -34,7 +34,7 @@ function attachmentsFor(timeEntryId) {
 // Liste modifiable des enregistrements de la semaine en cours (ou d'une
 // période donnée) — pour corriger un oubli de STOP, une mauvaise activité, etc.
 router.get('/history', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -70,7 +70,7 @@ router.get('/history', (req, res) => {
 // aucun moyen d'en écrire depuis le retrait de la zone "Note" (31 août 2026).
 
 router.post('/history', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -98,7 +98,7 @@ router.post('/history', (req, res) => {
 router.put('/history/:id', (req, res) => {
   const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(req.params.id);
   if (!entry) return res.status(404).json({ error: 'Enregistrement introuvable.' });
-  if (entry.userId !== req.body.userId) return res.status(403).json({ error: 'Ce n\'est pas ton enregistrement.' });
+  if (entry.userId !== req.userId) return res.status(403).json({ error: 'Ce n\'est pas ton enregistrement.' });
 
   const activityId = req.body.activityId ? Number(req.body.activityId) : entry.activityId;
   const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
@@ -118,7 +118,7 @@ router.put('/history/:id', (req, res) => {
   // cette ligne, une modification d'activité laisserait un rattachement
   // incohérent que plus rien ne rattraperait.
   const carried = Number(entry.activityId) === Number(activity.id) ? entry.subProjectId : null;
-  const resolved = resolveSubProjectId(req.body.userId, activity.id, req.body.subProjectId, carried);
+  const resolved = resolveSubProjectId(req.userId, activity.id, req.body.subProjectId, carried);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   db.prepare(`UPDATE time_entries SET activityId = ?, note = ?, startTime = ?, endTime = ?, durationSeconds = ?, isoDate = ?, dayOfWeek = ?, subProjectId = ?
@@ -138,7 +138,7 @@ router.put('/history/:id', (req, res) => {
 router.post('/history/:id/attachments', (req, res) => {
   const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(req.params.id);
   if (!entry) return res.status(404).json({ error: 'Enregistrement introuvable.' });
-  if (entry.userId !== req.body.userId) return res.status(403).json({ error: "Ce n'est pas ton enregistrement." });
+  if (entry.userId !== req.userId) return res.status(403).json({ error: "Ce n'est pas ton enregistrement." });
 
   const count = db.prepare('SELECT COUNT(*) AS n FROM note_attachments WHERE timeEntryId = ?').get(entry.id).n;
   if (count >= MAX_ATTACHMENTS_PER_NOTE) {
@@ -162,7 +162,7 @@ router.post('/history/:id/attachments', (req, res) => {
 router.delete('/history/:id', (req, res) => {
   const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(req.params.id);
   if (!entry) return res.status(404).json({ error: 'Enregistrement introuvable.' });
-  if (entry.userId !== req.query.userId) return res.status(403).json({ error: 'Ce n\'est pas ton enregistrement.' });
+  if (entry.userId !== req.userId) return res.status(403).json({ error: 'Ce n\'est pas ton enregistrement.' });
 
   db.prepare('DELETE FROM time_entries WHERE id = ?').run(entry.id);
   res.json({ message: 'Enregistrement supprimé.' });

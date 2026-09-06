@@ -93,7 +93,7 @@ try {
 // ⚠️ Déclarée AVANT toute route à paramètre commençant par /polls/ — piège
 // Express déjà rencontré trois fois sur server/routes/profile.js.
 router.get('/polls/following', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
@@ -103,7 +103,7 @@ router.get('/polls/following', (req, res) => {
 });
 
 router.get('/polls', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const scope = req.query.scope;
   const scopeId = req.query.scopeId;
 
@@ -117,7 +117,7 @@ router.get('/polls', (req, res) => {
 });
 
 router.post('/polls', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   const scope = req.body.scope;
   const scopeId = req.body.scopeId;
 
@@ -155,7 +155,7 @@ function accessForPoll(pollId, userId) {
 }
 
 router.post('/polls/:id/vote', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const access = accessForPoll(req.params.id, userId);
@@ -168,7 +168,7 @@ router.post('/polls/:id/vote', (req, res) => {
 });
 
 router.post('/polls/:id/close', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const access = accessForPoll(req.params.id, userId);
@@ -181,7 +181,7 @@ router.post('/polls/:id/close', (req, res) => {
 });
 
 router.delete('/polls/:id', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const access = accessForPoll(req.params.id, userId);

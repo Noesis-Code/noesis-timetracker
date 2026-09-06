@@ -70,7 +70,7 @@ function seekingSummaryFor(userId) {
 }
 
 router.get('/users/search', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const q = (req.query.q || '').trim();
@@ -146,7 +146,7 @@ router.get('/users/search', (req, res) => {
 // Comptes que je suis actuellement (acceptés) — alimente "Mes abonnements"
 // (avec bouton pour se désabonner) dans la section Suivi de Communauté.
 router.get('/follows/following', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   // lastName ajouté le 3 septembre 2026, sixième passage (demande d'Emilien,
@@ -167,7 +167,7 @@ router.get('/follows/following', (req, res) => {
 // QUI SUIT peut retirer la relation (voir DELETE /follows/:id plus bas),
 // donc aucune action n'est proposée ici sur mes abonnés.
 router.get('/follows/followers', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   // lastName ajouté le 3 septembre 2026, sixième passage (même raison que
@@ -187,7 +187,7 @@ router.get('/follows/followers', (req, res) => {
 // activités, mais un mécanisme entièrement séparé : suivre quelqu'un ne
 // donne accès à aucune de ses activités partagées, et inversement).
 router.get('/follows/requests', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const rows = db.prepare(`
@@ -232,7 +232,7 @@ router.post('/follows', (req, res) => {
 // "Partager mon profil" dans Profil > Réglages (sinon rien de nouveau n'est
 // visible malgré le suivi accepté).
 router.post('/follows/:id/accept', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const follow = db.prepare("SELECT * FROM follows WHERE id = ? AND status = 'pending'").get(req.params.id);
@@ -244,7 +244,7 @@ router.post('/follows/:id/accept', (req, res) => {
 });
 
 router.post('/follows/:id/decline', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const follow = db.prepare("SELECT * FROM follows WHERE id = ? AND status = 'pending'").get(req.params.id);
@@ -261,7 +261,7 @@ router.post('/follows/:id/decline', (req, res) => {
 // rien à en faire pour s'en défaire de son côté (elle n'apparaît nulle part
 // comme "abonnée" chez elle).
 router.delete('/follows/:id', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const follow = db.prepare('SELECT * FROM follows WHERE id = ?').get(req.params.id);

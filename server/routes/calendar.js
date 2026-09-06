@@ -54,7 +54,7 @@ function stateFor(req, row) {
 // savoir s'il doit afficher la section du tout. C'est la seule route du
 // fichier qui répond quand la fonction est désactivée.
 router.get('/calendar/feed', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   if (!feed.isFeedEnabled()) {
     return res.json({ enabled: false, hasFeed: false, url: null, createdAt: null, lastAccessAt: null });
@@ -66,13 +66,13 @@ router.get('/calendar/feed', (req, res) => {
 // cas : régénérer invalide immédiatement l'ancienne URL, c'est ce qu'il faut
 // faire si elle a fuité.
 router.post('/calendar/feed', guardEnabled, (req, res) => {
-  const userId = (req.body || {}).userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   res.json(stateFor(req, feed.issueToken(userId)));
 });
 
 router.delete('/calendar/feed', guardEnabled, (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   feed.revokeToken(userId);
   res.json(stateFor(req, null));

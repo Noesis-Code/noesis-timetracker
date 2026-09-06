@@ -64,7 +64,7 @@ function canRemove(userId, createdBy, activityId) {
 // ===================== SOUS-PROJETS =====================
 
 router.get('/activities/:activityId/sub-projects', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const activityId = Number(req.params.activityId);
   const check = checkActivityAccess(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
@@ -91,7 +91,7 @@ router.get('/activities/:activityId/sub-projects', (req, res) => {
 });
 
 router.post('/activities/:activityId/sub-projects', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   const activityId = Number(req.params.activityId);
   const check = checkActivityAccess(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
@@ -109,7 +109,7 @@ router.post('/activities/:activityId/sub-projects', (req, res) => {
 
 // ⚠️ AVANT /sub-projects/:id — voir l'avertissement en tête de fichier.
 router.put('/sub-projects/reorder', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   const activityId = Number(req.body.activityId);
   const check = checkActivityAccess(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
@@ -125,7 +125,7 @@ router.put('/sub-projects/reorder', (req, res) => {
 // (discussion toujours en dernier), avec le contenu de chacune. Un seul
 // aller-retour à l'ouverture, plutôt qu'un appel par section.
 router.get('/sub-projects/:id', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const access = sp.checkSubProjectAccess(userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
@@ -152,7 +152,7 @@ router.get('/sub-projects/:id', (req, res) => {
 });
 
 router.put('/sub-projects/:id', (req, res) => {
-  const access = sp.checkSubProjectAccess(req.body.userId, Number(req.params.id));
+  const access = sp.checkSubProjectAccess(req.userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
   const name = str(req.body.name);
@@ -167,7 +167,7 @@ router.put('/sub-projects/:id', (req, res) => {
 });
 
 router.delete('/sub-projects/:id', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const access = sp.checkSubProjectAccess(userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
@@ -186,7 +186,7 @@ router.delete('/sub-projects/:id', (req, res) => {
 // + options) — un sondage vide n'aurait aucun sens et obligerait à une
 // deuxième étape.
 router.post('/sub-projects/:id/sections', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   const access = sp.checkSubProjectAccess(userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
@@ -225,7 +225,7 @@ router.post('/sub-projects/:id/sections', (req, res) => {
 });
 
 router.put('/sub-project-sections/:id', (req, res) => {
-  const access = sp.checkSectionAccess(req.body.userId, Number(req.params.id));
+  const access = sp.checkSectionAccess(req.userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
   const title = str(req.body.title);
@@ -236,7 +236,7 @@ router.put('/sub-project-sections/:id', (req, res) => {
 });
 
 router.delete('/sub-project-sections/:id', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const access = sp.checkSectionAccess(userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
@@ -251,7 +251,7 @@ router.delete('/sub-project-sections/:id', (req, res) => {
 // ===================== TODOLIST (section 'tasks') =====================
 
 router.post('/sub-project-sections/:id/items', (req, res) => {
-  const access = sp.checkSectionAccess(req.body.userId, Number(req.params.id));
+  const access = sp.checkSectionAccess(req.userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
   if (access.section.kind !== 'tasks') {
     return res.status(400).json({ error: "Cette section n'est pas une liste de tâches." });
@@ -267,7 +267,7 @@ router.post('/sub-project-sections/:id/items', (req, res) => {
 });
 
 router.put('/sub-project-sections/:id/items/reorder', (req, res) => {
-  const access = sp.checkSectionAccess(req.body.userId, Number(req.params.id));
+  const access = sp.checkSectionAccess(req.userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
   const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : null;
@@ -282,7 +282,7 @@ router.put('/sub-project-sections/:id/items/reorder', (req, res) => {
 // percent lu par "Général" au prochain appel, sans recalcul stocké nulle part
 // (l'avancement est dérivé à la lecture, jamais mis en cache).
 router.put('/sub-project-items/:id', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   const item = sp.getItem(Number(req.params.id));
   if (!item) return res.status(404).json({ error: 'Tâche introuvable.' });
 
@@ -300,7 +300,7 @@ router.delete('/sub-project-items/:id', (req, res) => {
   const item = sp.getItem(Number(req.params.id));
   if (!item) return res.status(404).json({ error: 'Tâche introuvable.' });
 
-  const access = sp.checkSubProjectAccess(req.query.userId, item.subProjectId);
+  const access = sp.checkSubProjectAccess(req.userId, item.subProjectId);
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
   sp.deleteItem(item.id);
@@ -321,7 +321,7 @@ router.delete('/sub-project-items/:id', (req, res) => {
 // ===================== FIL DE DISCUSSION (section 'discussion') =====================
 
 router.get('/sub-projects/:id/messages', (req, res) => {
-  const access = sp.checkSubProjectAccess(req.query.userId, Number(req.params.id));
+  const access = sp.checkSubProjectAccess(req.userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
   res.json({
     subProjectId: access.subProject.id,
@@ -331,7 +331,7 @@ router.get('/sub-projects/:id/messages', (req, res) => {
 });
 
 router.post('/sub-projects/:id/messages', (req, res) => {
-  const access = sp.checkSubProjectAccess(req.body.userId, Number(req.params.id));
+  const access = sp.checkSubProjectAccess(req.userId, Number(req.params.id));
   if (access.error) return res.status(access.error.status).json(access.error.body);
   // Écrire suppose que la discussion existe : sans section 'discussion', le
   // fil n'est pas affiché, et rien ne doit pouvoir s'y déposer par une requête
@@ -350,14 +350,14 @@ router.post('/sub-projects/:id/messages', (req, res) => {
   // vit dans server/lib/push.js (propriété Communauté) et ajouter un événement
   // demanderait d'y écrire. Signalé comme suite possible plutôt que fait en
   // douce dans le fichier d'une autre discussion.
-  res.status(201).json(sp.postSubProjectMessage(access.subProject.id, req.body.userId, body));
+  res.status(201).json(sp.postSubProjectMessage(access.subProject.id, req.userId, body));
 });
 
 // Chacun ne supprime que ses propres messages — le propriétaire de l'activité
 // n'a aucun droit particulier, exactement comme sur le fil de l'activité
 // (DELETE /community/activity-messages/:id).
 router.delete('/sub-project-messages/:id', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const message = sp.getSubProjectMessage(Number(req.params.id));
   if (!message) return res.status(404).json({ error: 'Message introuvable.' });
 

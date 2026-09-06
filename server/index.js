@@ -46,6 +46,13 @@ app.set('trust proxy', 1);
 // jointes du Chrono (une seule à la fois par requête).
 app.use(express.json({ limit: '15mb' }));
 
+// Système de session (chantier 1, échéance du 11 septembre 2026 — voir
+// noesis-timetracker-securite.md) : résout req.userId depuis un témoin
+// signé côté serveur, posé dans une routes/session.js à ne jamais depuis
+// le client. Doit être monté AVANT toutes les routes /api, qui s'appuient
+// désormais sur req.userId plutôt que sur un userId envoyé par le client.
+app.use(require('./lib/session').middleware);
+
 // ---------------------------------------------------------------------------
 // Empreinte de version de l'app (volet Déploiement / Mobile, 30 août 2026)
 //
@@ -88,6 +95,7 @@ app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION });
 });
 
+app.use('/api', require('./routes/session'));
 app.use('/api', require('./routes/profile'));
 app.use('/api', require('./routes/activities'));
 app.use('/api', require('./routes/invites'));

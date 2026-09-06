@@ -7,3 +7,10 @@ data/*.db-wal
 # Variables d'environnement locales (jamais sur GitHub, même dépôt public)
 .env
 .env.*
+
+# Secret de signature des témoins de session (chantier 1, 6 septembre 2026 —
+# voir server/lib/session.js et noesis-timetracker-securite.md). Écrit dans
+# NOESIS_DATA_DIR (data/ en local, le volume persistant en production) —
+# cette ligne couvre le cas local uniquement, ne doit jamais être commité :
+# quiconque le lit peut forger un témoin pour n'importe quel profil.
+data/session-secret

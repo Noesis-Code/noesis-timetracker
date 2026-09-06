@@ -40,7 +40,7 @@ const router = express.Router();
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 router.get('/sub-project-stats', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const activityId = Number(req.query.activityId);
   if (!Number.isInteger(activityId) || activityId <= 0) {
     return res.status(400).json({ error: 'Activité invalide.' });
@@ -109,7 +109,7 @@ router.get('/sub-project-stats', (req, res) => {
 // rend la synchronisation impossible à casser — les deux sections ne peuvent
 // pas parler de deux périodes différentes puisqu'elles sortent du même appel.
 router.get('/sub-project-timesheet', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const activityId = Number(req.query.activityId);
   if (!Number.isInteger(activityId) || activityId <= 0) {
     return res.status(400).json({ error: 'Activité invalide.' });
@@ -155,7 +155,7 @@ router.get('/sub-project-chart', (req, res) => {
     return res.status(400).json({ error: 'Activité invalide.' });
   }
 
-  const access = checkAccess(req.query.userId, activityId, req.query.memberId || null);
+  const access = checkAccess(req.userId, activityId, req.query.memberId || null);
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
   // ⚠️ `baseColor` est indispensable ici aussi : le client dérive les nuances
@@ -179,7 +179,7 @@ router.get('/sub-project-chart', (req, res) => {
 // Les activités qui ont du temps rattaché sur la fenêtre affichée — celles,
 // et seulement celles, dont la couleur doit être cliquable.
 router.get('/sub-project-stats/activities', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });

@@ -21,7 +21,7 @@ router.get('/push/public-key', (req, res) => {
 // téléphone et sur l'ordinateur a deux réponses différentes, ce qui est
 // exactement le comportement voulu.
 router.get('/push/status', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const endpoint = req.query.endpoint;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
@@ -37,7 +37,7 @@ router.get('/push/status', (req, res) => {
 // d'accumuler des doublons — c'est le rôle de la contrainte UNIQUE sur
 // endpoint dans server/db.js.
 router.post('/push/subscribe', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   const sub = req.body.subscription;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
@@ -61,7 +61,7 @@ router.post('/push/subscribe', (req, res) => {
 // qui demande : sans ce contrôle, connaître l'endpoint de quelqu'un suffirait
 // à lui couper ses notifications.
 router.delete('/push/subscribe', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const endpoint = req.query.endpoint;
   if (!userId || !endpoint) return res.status(400).json({ error: 'userId et endpoint requis.' });
 
@@ -76,7 +76,7 @@ router.delete('/push/subscribe', (req, res) => {
 // Envoi de test vers ses PROPRES appareils uniquement — jamais vers ceux de
 // quelqu'un d'autre, quel que soit le corps de la requête.
 router.post('/push/test', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);

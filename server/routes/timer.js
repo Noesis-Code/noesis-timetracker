@@ -10,7 +10,7 @@ const { resolveSubProjectId, subProjectSummary } = require('../lib/entrysubproje
 const router = express.Router();
 
 function requireUser(req, res) {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.body.userId || req.query.userId);
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userId);
   if (!user) { res.status(404).json({ error: 'Profil introuvable. Réinitialise ton profil dans Paramètres.' }); return null; }
   return user;
 }
@@ -127,7 +127,7 @@ router.post('/timer/sub-project', (req, res) => {
 router.delete('/attachments/:id', (req, res) => {
   const attachment = db.prepare('SELECT * FROM note_attachments WHERE id = ?').get(req.params.id);
   if (!attachment) return res.status(404).json({ error: 'Pièce jointe introuvable.' });
-  if (attachment.userId !== req.query.userId) return res.status(403).json({ error: "Ce n'est pas ta pièce jointe." });
+  if (attachment.userId !== req.userId) return res.status(403).json({ error: "Ce n'est pas ta pièce jointe." });
 
   db.prepare('DELETE FROM note_attachments WHERE id = ?').run(attachment.id);
   res.json({ message: 'Pièce jointe supprimée.' });

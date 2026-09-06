@@ -47,7 +47,7 @@ function withBreakdown(userId, result) {
 // allaient avec. La route n'a donc plus qu'un seul consommateur, le
 // Graphique, et n'est plus partagée entre deux discussions.
 router.get('/stats', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -88,7 +88,7 @@ router.get('/stats', (req, res) => {
 // timesheetForUser/timesheetMonthForUser sont appelées telles quelles et
 // leur résultat seulement enrichi (voir withBreakdown en haut du fichier).
 router.get('/stats/timesheet', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -144,7 +144,7 @@ router.get('/stats/timesheet', (req, res) => {
 // sur le point délicat des sessions à cheval sur minuit, rattachées au jour
 // où elles ont DÉMARRÉ, comme la grille les dessine.
 router.get('/stats/today', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 

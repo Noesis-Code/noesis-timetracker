@@ -5,6 +5,7 @@ const { makePinRecord, verifyPinRecord, isValidPinFormat, isLocked, registerFail
 const { isInPalette, pairedColor } = require('../lib/theme');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 const { notifyCommunityPost } = require('../lib/push');
+const { setSessionCookie } = require('../lib/session');
 // Statistiques d'un profil VISITÉ (2 septembre 2026) — voir GET
 // /profile/:userId/stats plus bas. Les deux fonctions sont importées et
 // appelées TELLES QUELLES, en lecture seule : aucune ligne de
@@ -147,12 +148,26 @@ function projectRowOut(p) {
   };
 }
 
-// Liste légère (id, name, color, theme, hasPin) — utilisée par l'onboarding
-// "J'ai déjà un profil" et par l'onglet Communauté. hasPin dit juste si un
-// code a déjà été défini, jamais le code lui-même (ni même son hash).
+// Annuaire léger, utilisé UNIQUEMENT par l'onboarding "J'ai déjà un profil"
+// (public/app.js, loadUserListForOnboarding/renderOnbUserList/
+// showOnbPinStep) pour retrouver son propre profil sur un nouvel appareil
+// AVANT d'avoir la moindre session — impossible à fermer derrière
+// requireAuth sans casser ce flux, qui est justement le seul moyen de se
+// (re)connecter. Sécurité (chantier 1, point « fermer ou authentifier
+// GET /api/users », noesis-timetracker-securite.md) : puisqu'elle ne peut
+// pas être fermée, elle est minimisée au strict nécessaire à ce flux — id,
+// name, color (affichage de la liste) et hasPin (pour proposer "définir un
+// code" plutôt que "vérifier le code" sur un compte créé avant l'ajout de
+// cette protection). `theme` et `createdAt`, jamais lus par ce flux, ont été
+// retirés de la réponse : ni l'un ni l'autre n'étaient des données
+// personnelles sensibles, mais autant ne renvoyer que ce qui sert vraiment
+// (principe de minimisation, Loi 25). Si Communauté/Design ont besoin d'un
+// autre usage de cet annuaire, GET /users/search (server/routes/follows.js)
+// est la route enrichie prévue pour ça — à leur discrétion, hors périmètre
+// de ce chantier.
 router.get('/users', (req, res) => {
-  const rows = db.prepare('SELECT id, name, color, createdAt, pin, theme FROM users ORDER BY name COLLATE NOCASE').all();
-  res.json(rows.map((u) => ({ id: u.id, name: u.name, color: u.color, createdAt: u.createdAt, hasPin: !!u.pin, theme: u.theme })));
+  const rows = db.prepare('SELECT id, name, color, pin FROM users ORDER BY name COLLATE NOCASE').all();
+  res.json(rows.map((u) => ({ id: u.id, name: u.name, color: u.color, hasPin: !!u.pin })));
 });
 
 // Création de profil (initialisation de l'app). Un code PIN (4 à 6
@@ -194,6 +209,11 @@ router.post('/profile', (req, res) => {
   // existants créés avant ce changement).
   db.prepare('INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)')
     .run(id, name, lastName, phone, email, color, createdAt, makePinRecord(pin), 'dark', lang);
+  // Système de session (chantier 1) : la création d'un profil vaut
+  // connexion — le témoin posé ici est ce qui authentifiera ensuite chaque
+  // appel de ce profil, plutôt que l'id renvoyé ci-dessous (gardé pour
+  // l'affichage côté client, plus jamais comme preuve d'identité serveur).
+  setSessionCookie(req, res, id);
   res.status(201).json({ id, name, lastName, phone, email, color, createdAt, theme: 'dark', lang, shareProfile: true, avatar: null });
 });
 
@@ -216,7 +236,10 @@ function postAttachmentsFor(postId) {
 }
 
 router.get('/profile/posts', (req, res) => {
-  const userId = req.query.userId;
+  // Sécurité (chantier 1) : c'est le fil du profil COURANT (celui de
+  // l'appelant), plus jamais un userId annoncé par le client.
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -229,10 +252,20 @@ router.get('/profile/posts', (req, res) => {
   res.json(rows);
 });
 
+// Correction Sécurité (chantier 1, une fois la session posée — voir
+// noesis-timetracker-securite.md) : cette route renvoyait lastName/phone/
+// email pour N'IMPORTE QUEL id, à n'importe quel appelant. Avec req.userId
+// désormais disponible (résolu depuis le témoin de session, jamais depuis
+// :id), lastName/phone/email ne sortent que pour le titulaire du profil —
+// même principe que GET /profile/:userId/public plus bas pour les champs
+// publics. La route reste volontairement accessible sans authentification
+// (comme /public) : elle sert aussi à afficher l'identité publique d'un
+// tiers, seuls les trois champs sensibles sont gated.
 router.get('/profile/:id', (req, res) => {
   const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
-  res.json({ id: user.id, name: user.name, lastName: user.lastName || null, phone: user.phone || null, email: user.email || null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null });
+  const isOwner = req.userId === user.id;
+  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null });
 });
 
 // Taille max d'une photo de profil UNE FOIS encodée en data URL (~1.5 Mo
@@ -256,7 +289,15 @@ const AVATAR_DATA_URL_RE = /^data:image\/(png|jpe?g|webp);base64,/;
 // corps de la requête laisse la photo actuelle inchangée — nécessaire pour
 // qu'Enregistrer (qui n'envoie pas toujours de nouvelle photo) ne l'efface
 // jamais par erreur.
+// Sécurité (chantier 1) : modifier un profil est une action protégée —
+// avant, n'importe qui connaissant :id pouvait rebaptiser/reco­lorer/changer
+// le thème ou même la photo de n'importe quel autre profil. req.userId
+// (résolu depuis le témoin de session, jamais depuis :id) doit désormais
+// correspondre au profil visé.
 router.put('/profile/:id', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux modifier que ton propre profil.' });
+
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -336,6 +377,10 @@ router.post('/profile/:id/verify-pin', (req, res) => {
   }
 
   registerSuccess(user.id);
+  // Système de session (chantier 1) : une récupération de profil réussie
+  // (bon PIN) vaut connexion sur CET appareil, exactement comme la création
+  // ci-dessus — c'est le seul autre point d'entrée qui doit poser le témoin.
+  setSessionCookie(req, res, user.id);
   res.json({ id: user.id, name: user.name, lastName: user.lastName || null, phone: user.phone || null, email: user.email || null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null });
 });
 
@@ -348,6 +393,16 @@ router.post('/profile/:id/set-pin', (req, res) => {
 
   const newPin = (req.body.pin || '').trim();
   if (!isValidPinFormat(newPin)) return res.status(400).json({ error: 'Le code doit comporter 4 à 6 chiffres.' });
+
+  // Sécurité (chantier 1) : quand ce profil n'a PAS ENCORE de code (comptes
+  // créés avant l'ajout de cette protection), rien d'autre que :id ne
+  // protégeait jusqu'ici cette route — n'importe qui connaissant l'UUID
+  // pouvait poser un PIN sur le compte de quelqu'un d'autre et se
+  // l'approprier. Le cas "code déjà existant" reste protégé comme avant par
+  // currentPin (un vrai second facteur), sans exiger de session en plus.
+  if (!user.pin && req.userId !== user.id) {
+    return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  }
 
   if (user.pin) {
     if (isLocked(user.id)) return res.status(429).json({ error: 'Trop d\'essais. Réessaie dans une minute.' });
@@ -451,7 +506,8 @@ router.delete('/profile/:id', (req, res) => {
 // déclarée avant GET /profile/:id pour ne pas être masquée par elle) ----------
 
 router.post('/profile/posts', (req, res) => {
-  const userId = req.body.userId;
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -477,7 +533,7 @@ router.post('/profile/posts', (req, res) => {
 router.delete('/profile/posts/:id', (req, res) => {
   const post = db.prepare('SELECT * FROM profile_posts WHERE id = ?').get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Message introuvable.' });
-  if (post.userId !== req.query.userId) return res.status(403).json({ error: 'Tu ne peux supprimer que tes propres messages.' });
+  if (!req.userId || post.userId !== req.userId) return res.status(403).json({ error: 'Tu ne peux supprimer que tes propres messages.' });
 
   db.prepare('DELETE FROM profile_posts WHERE id = ?').run(post.id);
   res.json({ ok: true });
@@ -488,7 +544,7 @@ router.delete('/profile/posts/:id', (req, res) => {
 router.post('/profile/posts/:id/attachments', (req, res) => {
   const post = db.prepare('SELECT * FROM profile_posts WHERE id = ?').get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Message introuvable.' });
-  if (post.userId !== req.body.userId) return res.status(403).json({ error: "Ce n'est pas ton message." });
+  if (!req.userId || post.userId !== req.userId) return res.status(403).json({ error: "Ce n'est pas ton message." });
 
   const count = db.prepare('SELECT COUNT(*) AS n FROM profile_post_attachments WHERE postId = ?').get(post.id).n;
   if (count >= MAX_ATTACHMENTS_PER_NOTE) {
@@ -519,7 +575,7 @@ router.delete('/profile/post-attachments/:id', (req, res) => {
     WHERE a.id = ?
   `).get(req.params.id);
   if (!attachment) return res.status(404).json({ error: 'Pièce jointe introuvable.' });
-  if (attachment.postUserId !== req.query.userId) return res.status(403).json({ error: "Ce n'est pas ta pièce jointe." });
+  if (!req.userId || attachment.postUserId !== req.userId) return res.status(403).json({ error: "Ce n'est pas ta pièce jointe." });
 
   db.prepare('DELETE FROM profile_post_attachments WHERE id = ?').run(attachment.id);
   res.json({ message: 'Pièce jointe supprimée.' });
@@ -549,7 +605,11 @@ router.get('/profile/:userId/projects', (req, res) => {
 
   // Aperçu public depuis le 2 septembre 2026 (voir canViewProjects plus
   // haut) : n'importe quel membre identifié, plus seulement les abonnés.
-  if (!canViewProjects(req.query.viewerId, owner.id)) {
+  // Sécurité (chantier 1) : le visiteur est req.userId (résolu depuis le
+  // témoin de session), plus jamais un viewerId annoncé par le client —
+  // sinon n'importe qui pouvait se prétendre abonné accepté de n'importe
+  // qui d'autre simplement en changeant ce paramètre.
+  if (!canViewProjects(req.userId, owner.id)) {
     return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
   }
 
@@ -574,7 +634,9 @@ router.get('/profile/:userId/public', (req, res) => {
   const owner = db.prepare('SELECT id, name, lastName, color, avatar, createdAt FROM users WHERE id = ?').get(req.params.userId);
   if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  const viewerId = req.query.viewerId;
+  // Sécurité (chantier 1) : viewerId vient de req.userId, jamais de la
+  // requête cliente — voir le commentaire équivalent sur /projects ci-dessus.
+  const viewerId = req.userId;
   if (!canViewProjects(viewerId, owner.id)) {
     return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
   }
@@ -633,7 +695,7 @@ router.get('/profile/:userId/stats', (req, res) => {
   const owner = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.userId);
   if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  if (!canViewProjects(req.query.viewerId, owner.id)) {
+  if (!canViewProjects(req.userId, owner.id)) {
     return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
   }
 
@@ -660,7 +722,7 @@ router.get('/profile/:userId/posts', (req, res) => {
   const owner = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.userId);
   if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  if (!canViewPosts(req.query.viewerId, owner.id)) {
+  if (!canViewPosts(req.userId, owner.id)) {
     return res.status(403).json({ error: "Tu dois suivre ce profil pour voir ses messages." });
   }
 
@@ -671,7 +733,8 @@ router.get('/profile/:userId/posts', (req, res) => {
 });
 
 router.post('/profile/projects', (req, res) => {
-  const userId = req.body.userId;
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -705,7 +768,8 @@ router.post('/profile/projects', (req, res) => {
 // appareil, par exemple) est silencieusement ignoré par la clause
 // "AND userId = ?" plutôt que de faire échouer toute la requête.
 router.put('/profile/projects/reorder', (req, res) => {
-  const userId = req.body.userId;
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -728,7 +792,7 @@ router.put('/profile/projects/reorder', (req, res) => {
 router.put('/profile/projects/:id', (req, res) => {
   const project = db.prepare('SELECT * FROM profile_projects WHERE id = ?').get(req.params.id);
   if (!project) return res.status(404).json({ error: 'Projet introuvable.' });
-  if (project.userId !== req.body.userId) return res.status(403).json({ error: "Ce n'est pas ton projet." });
+  if (!req.userId || project.userId !== req.userId) return res.status(403).json({ error: "Ce n'est pas ton projet." });
 
   const name = (req.body.name || '').trim();
   if (!name) return res.status(400).json({ error: 'Le nom du projet est requis.' });
@@ -752,7 +816,7 @@ router.put('/profile/projects/:id', (req, res) => {
 router.delete('/profile/projects/:id', (req, res) => {
   const project = db.prepare('SELECT * FROM profile_projects WHERE id = ?').get(req.params.id);
   if (!project) return res.status(404).json({ error: 'Projet introuvable.' });
-  if (project.userId !== req.query.userId) return res.status(403).json({ error: "Ce n'est pas ton projet." });
+  if (!req.userId || project.userId !== req.userId) return res.status(403).json({ error: "Ce n'est pas ton projet." });
 
   db.prepare('DELETE FROM profile_projects WHERE id = ?').run(project.id);
   res.json({ ok: true });

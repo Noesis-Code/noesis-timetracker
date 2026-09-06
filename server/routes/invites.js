@@ -12,7 +12,7 @@ function membershipCount(activityId) {
 // celles déjà traitées) — c'est cette liste qui alimente la section
 // "Invitations reçues" de Paramètres.
 router.get('/invites', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const rows = db.prepare(`
@@ -42,7 +42,7 @@ router.get('/invites', (req, res) => {
 // Nécessite d'être actuellement membre de mergeActivityId ; comme pour
 // "Séparer"/"Supprimer", un chrono en cours dessus bloque l'opération.
 router.post('/invites/:id/accept', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const invite = db.prepare("SELECT * FROM activity_invites WHERE id = ? AND status = 'pending'").get(req.params.id);
@@ -127,7 +127,7 @@ router.post('/invites/:id/accept', (req, res) => {
 // Refuse une invitation : ne rejoint pas l'activité, l'invitation disparaît
 // de la liste des invitations en attente.
 router.post('/invites/:id/decline', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const invite = db.prepare("SELECT * FROM activity_invites WHERE id = ? AND status = 'pending'").get(req.params.id);

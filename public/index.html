@@ -1156,7 +1156,14 @@
         </div>
         <div class="statsSummary">
           <p class="statsLabel" id="statsLabel"></p>
-          <p class="statsTotal" id="statsTotal"></p>
+          <!-- ⚠️ 6 septembre 2026, demande d'Emilien : « le temps total
+               est marqué deux fois dans répartition [...] supprimer le
+               temps marqué au-dessus du camembert pour toutes les
+               sections répartition de l'application ». #statsTotal
+               retiré ici et dans les quatre autres Répartitions : le
+               donut affiche déjà ce même total en son centre
+               (.pieCenterValue, voir renderPie dans app.js). Seul le
+               libellé de période reste au-dessus. -->
         </div>
         <div id="statsPie" class="pieWrap"></div>
         <p id="statsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
@@ -1331,7 +1338,7 @@
                cet id : passer de <input> à <textarea> ne lui demande aucune
                modification. rows="1" + .pollAutoGrow (styles.css) : hauteur de
                départ compacte, agrandie ensuite par pollAutoGrow (app.js). -->
-          <textarea id="communityMyPostsInput" class="communityPublishOnly pollAutoGrow" rows="1" maxlength="2000" placeholder="Écrire aux membres"></textarea>
+          <textarea id="communityMyPostsInput" class="communityPublishOnly pollAutoGrow" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
         </div>
         <div class="rowActions communityPublishOnly">
           <!-- "+" des sondages : mountPolls le câble toujours par ids.addBtn
@@ -1891,8 +1898,13 @@
                l'indication de l'année ou de la semaine ou du mois ou
                d'aujourd'hui soit affichée comme sur la capture d'écran, comme
                dans le volet statistique ». Reprise à l'identique de
-               #statsPieBlock : .statsSummary (libellé de période au-dessus,
-               total en gros) entre la ligne de titre et le camembert.
+               #statsPieBlock : .statsSummary (libellé de période au-dessus)
+               entre la ligne de titre et le camembert.
+               ⚠️ 6 septembre 2026 : le total en gros qui l'accompagnait a
+               été retiré, ici comme dans les quatre autres Répartitions —
+               il faisait doublon avec celui que renderActivityPie écrit au
+               centre du camembert. Le libellé de période, lui, reste :
+               c'est ce qu'Emilien demandait le 3 septembre. -->
                Ces deux ids avaient été retirés du HAUT de la section le matin
                même (« supprimer les heures totales tout en haut, puisqu'elle
                se trouve déjà dans répartition ») : ils reviennent ici, à
@@ -1900,7 +1912,6 @@
                d'une section qu'ils ne décrivaient qu'en partie. -->
           <div class="statsSummary">
             <p class="statsLabel" id="communityActivityStatsLabel"></p>
-            <p class="statsTotal" id="communityActivityStatsTotal"></p>
           </div>
           <div id="communityActivityPie" class="pieWrap"></div>
           <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
@@ -1973,7 +1984,8 @@
           </div>
           <div class="statsSummary">
             <p class="statsLabel" id="soloStatsLabel"></p>
-            <p class="statsTotal" id="soloStatsTotal"></p>
+            <!-- #soloStatsTotal retiré le 6 septembre 2026 (doublon avec le
+                 centre du camembert) — voir #statsPieBlock. -->
           </div>
           <div id="soloStatsPie" class="pieWrap"></div>
           <p id="soloStatsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
@@ -2149,7 +2161,7 @@
                  communityDiscussionInput (Activité, texte similaire par
                  coïncidence, zone différente, hors périmètre de cette
                  demande). -->
-            <textarea id="profileDiscussionCommunityInput" class="pollAutoGrow" rows="2" maxlength="2000" placeholder="Écrire aux membres"></textarea>
+            <textarea id="profileDiscussionCommunityInput" class="pollAutoGrow" rows="2" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
             <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
             <div class="rowActions">
               <!-- "+" des sondages, à gauche du trombone — même déplacement que
@@ -2336,7 +2348,10 @@
             </div>
             <div class="statsSummary">
               <p class="statsLabel" id="spStatsLabel"></p>
-              <p class="statsTotal" id="spStatsTotal"></p>
+              <!-- #spStatsTotal retiré le 6 septembre 2026 (doublon avec le
+                   centre du camembert) — voir #statsPieBlock. Retiré aussi
+                   de SUB_PROJECT_STATS_REQUIRED_IDS dans app.js, sans quoi
+                   la modale se croirait cassée. -->
             </div>
             <div id="subProjectStatsPie" class="pieWrap"></div>
             <p id="subProjectStatsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
@@ -2485,7 +2500,8 @@
           </div>
           <div class="statsSummary">
             <p class="statsLabel" id="viewProfileStatsLabel"></p>
-            <p class="statsTotal" id="viewProfileStatsTotal"></p>
+            <!-- #viewProfileStatsTotal retiré le 6 septembre 2026 (doublon
+                 avec le centre du donut) — voir #statsPieBlock. -->
           </div>
           <div id="viewProfilePie" class="pieWrap"></div>
           <p id="viewProfilePieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>

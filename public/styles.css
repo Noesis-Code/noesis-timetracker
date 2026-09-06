@@ -764,7 +764,13 @@ textarea {
 
 .statsSummary { text-align: center; margin-bottom: 18px; }
 .statsLabel { color: var(--text-light); margin: 0; font-size: 13px; }
-.statsTotal { font-size: 32px; font-weight: 800; margin: 4px 0; color: var(--purple); letter-spacing: -0.4px; }
+/* .statsTotal a été retirée le 6 septembre 2026. Les cinq éléments qui la
+   portaient (#statsTotal, #communityActivityStatsTotal, #soloStatsTotal,
+   #spStatsTotal, #viewProfileStatsTotal) affichaient au-dessus de leur
+   camembert un total déjà présent au centre du donut (.pieCenterValue).
+   Demande d'Emilien, appliquée aux cinq Répartitions de l'app.
+   .statsSummary et .statsLabel restent : le libellé de période, lui, est
+   toujours affiché au-dessus du camembert. */
 .sectionTitle { font-weight: bold; margin: 24px 0 10px; font-size: 15px; }
 .sectionTitleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 

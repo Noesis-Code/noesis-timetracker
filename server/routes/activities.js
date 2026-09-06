@@ -34,7 +34,7 @@ function serializeActivity(a, userId) {
 // MES activités uniquement (celles dont je suis membre) — jamais celles
 // des autres. C'est cette liste qui alimente le chrono.
 router.get('/activities', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const includeInactive = req.query.all === '1';
@@ -68,7 +68,7 @@ router.get('/activities', (req, res) => {
 // propriétaire et le premier (et pour l'instant seul) membre. La couleur
 // doit venir de la palette du thème actuel de son créateur.
 router.post('/activities', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const user = db.prepare('SELECT id, theme FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
@@ -107,7 +107,7 @@ router.post('/activities', (req, res) => {
 // server/routes/subprojects.js : un id numérique après /activities/
 // matcherait sinon la route paramétrée /activities/:id.
 router.put('/activities/reorder', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : null;
   if (!ids) return res.status(400).json({ error: 'ids requis.' });
@@ -125,7 +125,7 @@ router.put('/activities/reorder', (req, res) => {
 // reste propre à chaque membre, et doit venir de la palette de SON thème à
 // lui.
 router.put('/activities/:id', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(req.params.id);
@@ -179,7 +179,7 @@ router.put('/activities/:id', (req, res) => {
 // Disponible à TOUT membre actuel de l'activité, pas seulement au
 // propriétaire — comme l'était le lien de partage que ce système remplace.
 router.post('/activities/:id/invite', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const activity = db.prepare('SELECT * FROM activities WHERE id = ? AND active = 1').get(req.params.id);
@@ -223,7 +223,7 @@ router.post('/activities/:id/invite', (req, res) => {
 // perd jamais l'activité : on obtient sa propre copie à la place.
 // Disponible à TOUT membre actuel, comme "Partager" — cohérent, symétrique.
 router.post('/activities/:id/separate', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
  
   const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(req.params.id);
@@ -323,7 +323,7 @@ router.post('/activities/:id/separate', (req, res) => {
 // propriété ni d'autre membre à prévenir, contrairement à "Séparer" ou
 // "Supprimer définitivement".
 router.post('/activities/:id/merge', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const intoId = req.body.intoActivityId;
@@ -426,7 +426,7 @@ router.post('/activities/:id/merge', (req, res) => {
 // ou supprimé avec elle. Un chrono en cours pour cette personne sur cette
 // activité bloque la suppression (il faut d'abord l'arrêter).
 router.delete('/activities/:id', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(req.params.id);

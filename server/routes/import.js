@@ -55,7 +55,7 @@ function findCol(header, needles) {
 }
 
 router.post('/import/history', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   const user = db.prepare('SELECT id, theme FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
@@ -186,7 +186,7 @@ function duplicateSummary(userId) {
 
 // Aperçu : ce que la suppression retirerait, sans rien modifier.
 router.get('/import/duplicates', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
@@ -196,7 +196,7 @@ router.get('/import/duplicates', (req, res) => {
 // Suppression effective : ne garde que la PREMIÈRE entrée de chaque groupe
 // (le plus petit id, donc celle du premier import), supprime les suivantes.
 router.post('/import/dedupe', (req, res) => {
-  const userId = req.body && req.body.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });

@@ -47,7 +47,7 @@ function checkSharedActivityAccess(userId, activityId) {
 // >= 2 membres), avec un classement par activité. Jamais les activités
 // (encore) solo, ni celles des autres auxquelles je n'appartiens pas.
 router.get('/community', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
@@ -60,7 +60,7 @@ router.get('/community', (req, res) => {
 // Flux "Partagée" : sessions des autres membres des activités que je
 // partage actuellement — voir sharedFeedForUser dans lib/community.js.
 router.get('/community/shared-feed', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
@@ -74,7 +74,7 @@ router.get('/community/shared-feed', (req, res) => {
 // uniquement, jamais de toutes les activités partagées mélangées — voir
 // sharedFeedForUser(userId, activityId) dans lib/community.js.
 router.get('/community/activity-feed', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const activityId = req.query.activityId;
   if (!userId || !activityId) return res.status(400).json({ error: 'userId et activityId requis.' });
 
@@ -89,7 +89,7 @@ router.get('/community/activity-feed', (req, res) => {
 // quelconque) — section Membres > menu "⋮" d'une ligne > "Voir les
 // membres". Mêmes contrôles d'accès que /community/activity-feed.
 router.get('/community/activity-members', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const activityId = req.query.activityId;
   if (!userId || !activityId) return res.status(400).json({ error: 'userId et activityId requis.' });
 
@@ -106,7 +106,7 @@ router.get('/community/activity-members', (req, res) => {
 // arrêté, et il n'y a pas d'audience à choisir.
 
 router.get('/community/activity-messages', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const activityId = req.query.activityId;
   if (!userId || !activityId) return res.status(400).json({ error: 'userId et activityId requis.' });
 
@@ -125,7 +125,7 @@ router.get('/community/activity-messages', (req, res) => {
 });
 
 router.post('/community/activity-messages', (req, res) => {
-  const userId = req.body.userId;
+  const userId = req.userId;
   const activityId = req.body.activityId;
   if (!userId || !activityId) return res.status(400).json({ error: 'userId et activityId requis.' });
 
@@ -153,7 +153,7 @@ router.post('/community/activity-messages', (req, res) => {
 // l'app, où chacun ne supprime que ses propres traces (une session, une
 // note, son appartenance à une activité) et jamais celles des autres.
 router.delete('/community/activity-messages/:id', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const message = db.prepare('SELECT id, activityId, userId FROM activity_messages WHERE id = ?').get(req.params.id);
@@ -168,7 +168,7 @@ router.delete('/community/activity-messages/:id', (req, res) => {
 // la pastille de l'onglet Communauté, consultable depuis n'importe quel
 // onglet sans charger tout le reste du volet.
 router.get('/community/unread-messages', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
@@ -185,7 +185,7 @@ router.get('/community/unread-messages', (req, res) => {
 // entre elles — voir activityBreakdownForUser/activityDailyBreakdownForUser
 // dans lib/community.js. Mêmes contrôles d'accès que activity-feed/-members.
 router.get('/community/activity-stats', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const activityId = req.query.activityId;
   if (!userId || !activityId) return res.status(400).json({ error: 'userId et activityId requis.' });
 
@@ -261,7 +261,7 @@ router.get('/community/activity-stats', (req, res) => {
 // TOUS les membres actuels de cette activité — voir activityTimesheetForUser
 // dans lib/community.js. Mêmes contrôles d'accès que les routes ci-dessus.
 router.get('/community/activity-timesheet', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   const activityId = req.query.activityId;
   if (!userId || !activityId) return res.status(400).json({ error: 'userId et activityId requis.' });
 
@@ -280,7 +280,7 @@ router.get('/community/activity-timesheet', (req, res) => {
 // Flux "Suivi" : sessions des personnes que je suis et qui ont activé
 // "Partager mon profil" — voir followingFeedForUser dans lib/community.js.
 router.get('/community/following-feed', (req, res) => {
-  const userId = req.query.userId;
+  const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
 
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
