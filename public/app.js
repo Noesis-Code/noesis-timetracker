@@ -7529,6 +7529,27 @@
     return cut.trim() + '… ' + t('voir plus');
   }
 
+  // Nom affiché sur une CASE de la page de visite d'un profil (5 septembre
+  // 2026, demande d'Emilien : « que la fenêtre des autres utilisateurs ne
+  // montre que le nom du projet et l'icône de recherche, enlevez le nom de
+  // l'icône de recherche après le tiret »). Ses projets de test sont nommés
+  // "Teste 1 - partenaires", "Teste 2 - clients", etc. : la partie après
+  // " - " ne fait que répéter en toutes lettres ce que le badge
+  // (buildSeekingBadges) affiche déjà en icône, et se faisait couper au
+  // milieu par l'ellipse de la case ("Teste 3 -"). On coupe donc PROPREMENT
+  // au séparateur plutôt que de laisser le CSS couper n'importe où.
+  // ⚠️ Purement un affichage de la case compacte : le nom ENTIER reste
+  // stocké tel quel (aucune requête ne le modifie) et s'affiche toujours en
+  // entier dans le panneau de détail au clic, ainsi qu'en `title` de la case
+  // (info-bulle/lecteur d'écran) — rien n'est perdu, seulement replié.
+  // `' - '` (espace-tiret-espace) et non un tiret nu : un nom de projet peut
+  // légitimement contenir un tiret sans espace ("Teste-1"), qu'on ne veut
+  // surtout pas tronquer par erreur.
+  function projectCaseDisplayName(name) {
+    var idx = name.indexOf(' - ');
+    return idx === -1 ? name : name.slice(0, idx).trim();
+  }
+
   // Sélecteur multi-tags (formulaire d'ajout/modification d'un projet) : un
   // bouton par tag, actif/inactif au clic. `selected` (tableau de clés) est
   // modifié EN PLACE — l'appelant le relit tel quel au moment d'enregistrer,
@@ -8552,10 +8573,13 @@
       var card = document.createElement('button');
       card.type = 'button';
       card.className = 'viewProfileProjectCase';
+      // Nom complet en info-bulle : rien n'est perdu, seulement replié sur
+      // la case elle-même (voir projectCaseDisplayName ci-dessus).
+      card.title = p.name;
 
       var nameSpan = document.createElement('span');
       nameSpan.className = 'viewProfileProjectCaseName';
-      nameSpan.textContent = p.name;
+      nameSpan.textContent = projectCaseDisplayName(p.name);
       card.appendChild(nameSpan);
 
       var badges = buildSeekingBadges(p.seeking, false);
