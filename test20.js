@@ -634,6 +634,36 @@ async function api(page, method, path, body) {
   eq(await page.textContent('#communityActivityStatsTotal'), '8h30',
     '4.14 le retour au global redonne le total complet');
 
+  // ============ 4bis. ⭐ Garde de version index.html / app.js ============
+  // 6 septembre 2026 — incident réel : après un redéploiement, le téléphone
+  // d'Emilien a chargé le NOUVEL index.html avec l'ANCIEN app.js (deux fichiers
+  // mis en cache séparément par le navigateur). L'ancien script écrivait dans
+  // une ligne que le nouvel HTML ne contenait plus, l'exception traversait tout
+  // le rendu, et la fenêtre s'ouvrait vide avec une erreur technique affichée
+  // en bas de l'écran.
+  // On ne peut pas empêcher le décalage. On vérifie ici qu'il produit une
+  // phrase actionnable et AUCUNE exception.
+  console.log('4bis. ⭐ Un décalage de version se dit, il ne plante pas');
+  await page.evaluate(() => document.querySelector('.tabBtn[data-tab="stats"]').click());
+  await page.waitForTimeout(1800);
+  const errorsBeforeSkew = consoleErrors.length;
+  await page.evaluate(() => {
+    const el = document.getElementById('spChartBlock');
+    if (el) el.remove();
+  });
+  await page.$eval('#statsPie .pieLegendRow-tappable',
+    (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await page.waitForTimeout(1200);
+  eq(await page.textContent('#subProjectStatsMsg'),
+    "L'application vient d'être mise à jour. Recharge la page.",
+    '4bis.1 ⭐⭐ une phrase que quelqu\'un peut suivre, pas une erreur technique');
+  eq(consoleErrors.length, errorsBeforeSkew,
+    '4bis.2 ⭐⭐ et AUCUNE exception n\'a traversé le rendu');
+  eq(await page.evaluate(() => document.querySelectorAll('#spTsGrid .tsSlot-filled').length), 0,
+    '4bis.3 la fenêtre n\'a pas été construite à moitié');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1600);
+
   // ============ 5. Non-régressions ============
   console.log('5. Non-régression');
   ok(await page.isHidden('#subProjectStatsModal'),

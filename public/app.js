@@ -2312,8 +2312,50 @@
     });
   }
 
+  // ⚠️ GARDE DE VERSION — ajoutée le 6 septembre 2026 après un vrai incident.
+  //
+  // index.html et app.js sont deux fichiers que le navigateur met en cache
+  // SÉPARÉMENT. À un redéploiement, un téléphone peut donc se retrouver, le
+  // temps d'un chargement, avec le nouvel HTML et l'ancien script — ou
+  // l'inverse. C'est exactement ce qu'Emilien a vu : l'ancien app.js écrivait
+  // dans une ligne que le nouvel index.html ne contenait plus, l'exception
+  // traversait tout le rendu, et la fenêtre s'ouvrait vide avec un message
+  // d'erreur brut affiché en bas de l'écran.
+  //
+  // On ne peut pas empêcher ce décalage depuis le script — mais on peut le
+  // reconnaître et le DIRE en une phrase actionnable, au lieu de laisser une
+  // erreur technique sous les yeux de quelqu'un qui n'y peut rien. Le
+  // rechargement remet forcément les deux fichiers en phase (voir le bloc de
+  // mise à jour en tête d'index.html, qui compare l'empreinte /api/version).
+  var SUB_PROJECT_STATS_REQUIRED_IDS = [
+    'subProjectStatsModal', 'subProjectStatsTitle', 'subProjectStatsClose',
+    'subProjectStatsScroll', 'subProjectStatsMsg',
+    'spTimesheetBlock', 'spTsGrid', 'spTsCalendar', 'spTsFrozenCol',
+    'spPieBlock', 'subProjectStatsPie', 'spStatsTotal',
+    'spChartBlock', 'spChart', 'spChartLegend',
+  ];
+
+  function subProjectStatsMarkupMissing() {
+    return SUB_PROJECT_STATS_REQUIRED_IDS.filter(function (id) { return !$(id); });
+  }
+
   function openSubProjectStats(opts) {
     if (!profile || !opts || !opts.activityId) return;
+
+    var missing = subProjectStatsMarkupMissing();
+    if (missing.length) {
+      console.warn('[Noesis] Fenêtre sous-projets : balisage absent (' + missing.join(', ')
+        + ') — index.html et app.js ne sont pas de la même version.');
+      // On n'ouvre PAS une fenêtre à moitié construite. Si le message a sa
+      // place dans le document, on s'en sert ; sinon la console suffit, mieux
+      // vaut ne rien faire qu'afficher une erreur technique.
+      if ($('subProjectStatsMsg')) {
+        $('subProjectStatsMsg').textContent = t("L'application vient d'être mise à jour. Recharge la page.");
+        if ($('subProjectStatsModal')) $('subProjectStatsModal').classList.remove('hidden');
+      }
+      return;
+    }
+
     // ⚠️ Garde de dernier recours, et VRAI filtre : même si une couleur restait
     // cliquable par accident (rattrapage DOM pas encore passé, cache arrivé
     // entre-temps), une activité sans temps rattaché sur la fenêtre d'où part

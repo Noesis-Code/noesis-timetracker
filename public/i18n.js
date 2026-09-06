@@ -742,10 +742,19 @@
     // ----- Détail par sous-projet dans les statistiques (4 septembre 2026) -----
     // Chantier « Chrono — sous-projets », second passage.
     'Mon temps': 'My time',
-    'Sans sous-projet': 'No sub-project attached',
+    // ⚠️ 6 septembre 2026 : 'Sans sous-projet' était déclarée DEUX fois —
+    // ici depuis le 4 septembre, et plus haut dans le bloc « sous-projets »
+    // depuis le 5 (Activité solo), chacune sans voir l'autre. En JavaScript
+    // c'est la DERNIÈRE qui gagne : la traduction réellement affichée était
+    // celle-ci. On garde celle d'en haut, mieux placée avec le reste du
+    // vocabulaire des sous-projets ; l'anglais passe donc de « No
+    // sub-project attached » à « No sub-project ». Signalé à Activité solo.
     // ----- Filtre par sous-projet, section Statistiques d'une activité
     //       (4 septembre 2026, troisième passage) -----
     'Tous les sous-projets': 'All sub-projects',
+    // Décalage de version entre index.html et app.js (6 septembre 2026).
+    "L'application vient d'être mise à jour. Recharge la page.":
+      'The app was just updated. Please reload the page.',
     'Temps de {name}': '{name}’s time',
     'Aucun temps enregistré sur cette période.': 'No time recorded in this period.',
     'Chargement...': 'Loading...',
