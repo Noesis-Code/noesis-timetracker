@@ -439,6 +439,13 @@ router.post('/profile/:id/set-pin', (req, res) => {
 //  - les invitations, demandes de suivi et abonnements partent avec le
 //    profil (ON DELETE CASCADE sur users, voir server/db.js).
 router.delete('/profile/:id', (req, res) => {
+  // Point de sécurité signalé par la discussion Sécurité (6 septembre 2026) :
+  // cette route n'était protégée que par le PIN, jamais par la session.
+  // Défense en profondeur, même principe que PUT /profile/:id ci-dessus —
+  // le PIN reste exigé en plus, il n'est pas remplacé.
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux supprimer que ton propre profil.' });
+
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
