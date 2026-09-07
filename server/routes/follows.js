@@ -203,9 +203,14 @@ router.get('/follows/requests', (req, res) => {
 // Envoie une demande de suivi : reste EN ATTENTE tant que la personne visée
 // ne l'a pas acceptée — aucune visibilité nouvelle avant ça.
 router.post('/follows', (req, res) => {
-  const followerId = req.body.followerId;
+  // Sécurité : followerId DOIT venir de la session (comme partout ailleurs
+  // dans ce fichier — accept/decline/delete), jamais du corps de la requête.
+  // Sinon n'importe quel appelant pouvait créer une demande de suivi "au nom
+  // de" un autre profil (IDOR), sans même être authentifié.
+  const followerId = req.userId;
+  if (!followerId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
   const followeeId = req.body.followeeId;
-  if (!followerId || !followeeId) return res.status(400).json({ error: 'followerId et followeeId requis.' });
+  if (!followeeId) return res.status(400).json({ error: 'followeeId requis.' });
   if (followerId === followeeId) return res.status(400).json({ error: 'Tu ne peux pas te suivre toi-même.' });
 
   const target = db.prepare('SELECT id, name FROM users WHERE id = ?').get(followeeId);

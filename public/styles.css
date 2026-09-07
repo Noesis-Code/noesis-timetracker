@@ -2021,16 +2021,37 @@ body.scrollLock { overflow: hidden; }
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
 }
 /* Texte des Conditions d'utilisation (7 septembre 2026, discussion
-   "Conditions d'utilisation") : #legalTermsModal réutilise
-   .communityMembersModal/.communityMembersModalCard telles quelles (page qui
-   remonte du bas, déjà en max-height: 80vh; overflow-y: auto — un texte
-   long défile donc dans la carte sans rien ajouter). Seule nouveauté : la
-   présentation interne du texte lui-même (titres d'article, espacement),
-   propre à cette section, aucune classe générique de Design touchée. */
+   "Conditions d'utilisation") : présentation interne du texte lui-même
+   (titres d'article, espacement), propre à cette section, aucune classe
+   générique de Design touchée. */
 .legalTermsBody h3 { margin: 18px 0 6px; font-size: 15px; }
 .legalTermsBody h3:first-of-type { margin-top: 4px; }
 .legalTermsBody p { margin: 0 0 10px; line-height: 1.5; }
 .legalTermsBody p:last-child { margin-bottom: 0; }
+/* Barre supérieure fixe + texte défilant en dessous (7 septembre 2026,
+   demande d'Emilien : « je souhaite que la barre supérieure avec marqué
+   condition de utilisation et la croix pour fermer les conditions
+   d'utilisation reste fixe et que le texte défile en dessous »). Même
+   mécanisme que #viewProfileModal/#subProjectStatsModal plus haut dans ce
+   fichier (voir leur commentaire) : la carte passe en colonne flex sans
+   padding, l'en-tête devient une zone fixe (flex: 0 0 auto) et le corps du
+   texte prend le reste de la hauteur en défilant seul — la croix ne peut
+   plus rebondir avec dix-sept articles de CGU. Porté par #legalTermsModal
+   plutôt que par .communityMembersModalHeader/.communityMembersModalCard
+   elles-mêmes : ces classes restent partagées avec #communityMembersModal,
+   qui doit garder son comportement d'origine (carte entièrement défilante).
+*/
+#legalTermsModal .communityMembersModalCard {
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+}
+#legalTermsModal .communityMembersModalHeader {
+  flex: 0 0 auto; margin-bottom: 0; padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+#legalTermsModal .legalTermsBody {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
+  overscroll-behavior: contain;
+}
 /* Les deux issues de la suppression d'une activité (conserver / supprimer les
    anciens enregistrements). Empilées et en pleine largeur : leurs libellés
    sont longs, côte à côte ils passeraient à la ligne n'importe où sur un
