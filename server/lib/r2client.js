@@ -1,7 +1,14 @@
-// Client S3 minimal pour Cloudflare R2 — seulement les quatre opérations
-// dont les sauvegardes ont besoin (put, get, list, delete). Aucune
-// dépendance npm : signature maison (./s3sig.js) + https natif de Node.
-// R2 est nativement compatible avec l'API S3 (region "auto", service "s3").
+// Client S3 minimal — seulement les quatre opérations dont les sauvegardes
+// ont besoin (put, get, list, delete). Aucune dépendance npm : signature
+// maison (./s3sig.js) + https natif de Node.
+//
+// Écrit à l'origine pour Cloudflare R2 ; migré vers OVHcloud Object Storage
+// le 7 septembre 2026 (paiement Cloudflare bloqué côté banque — voir
+// noesis-timetracker-sauvegardes.md). Le fichier garde son nom (r2client.js)
+// pour limiter le nombre de fichiers touchés, mais le contenu est un client
+// S3 générique : il ne connaît plus rien de spécifique à Cloudflare ni à
+// OVHcloud, seulement l'API S3 standard (endpoint et région passés en
+// paramètre, aucune valeur par défaut).
 
 const https = require('https');
 const http = require('http');
@@ -38,19 +45,27 @@ function request({ method, host, path, query, body, headers, accessKeyId, secret
       }
     );
     req.on('error', reject);
-    req.on('timeout', () => req.destroy(new Error('R2 request timeout')));
+    req.on('timeout', () => req.destroy(new Error('S3 request timeout')));
     if (buf.length) req.write(buf);
     req.end();
   });
 }
 
-function makeClient({ accountId, bucket, accessKeyId, secretAccessKey, endpoint, region = 'auto' }) {
-  // http:// n'est accepté que pour un endpoint explicite (tests locaux) :
-  // R2 lui-même n'est jamais parlé qu'en https.
-  const protocol = endpoint && endpoint.startsWith('http://') ? 'http:' : 'https:';
-  const host = endpoint
-    ? endpoint.replace(/^https?:\/\//, '')
-    : `${accountId}.eu.r2.cloudflarestorage.com`;
+function makeClient({ bucket, accessKeyId, secretAccessKey, endpoint, region }) {
+  if (!endpoint) {
+    throw new Error(
+      "makeClient: 'endpoint' requis (ex. https://s3.gra.io.cloud.ovh.net pour OVHcloud région Gravelines) — il n'y a plus de valeur par défaut Cloudflare depuis la migration du 7 septembre 2026."
+    );
+  }
+  if (!region) {
+    throw new Error(
+      "makeClient: 'region' requise, doit correspondre à la région de l'endpoint (ex. \"gra\" pour Gravelines) — la signature SigV4 échoue silencieusement sinon."
+    );
+  }
+  // http:// n'est accepté que pour un endpoint explicite (tests locaux) : un
+  // vrai fournisseur S3 n'est jamais parlé qu'en https.
+  const protocol = endpoint.startsWith('http://') ? 'http:' : 'https:';
+  const host = endpoint.replace(/^https?:\/\//, '');
 
   function objectPath(key) {
     return `/${bucket}/${key.split('/').map(encodeURIComponent).join('/')}`;
@@ -69,7 +84,7 @@ function makeClient({ accountId, bucket, accessKeyId, secretAccessKey, endpoint,
       protocol,
     });
     if (res.statusCode >= 300) {
-      throw new Error(`R2 putObject ${key} → HTTP ${res.statusCode}: ${res.body.toString('utf8').slice(0, 500)}`);
+      throw new Error(`S3 putObject ${key} → HTTP ${res.statusCode}: ${res.body.toString('utf8').slice(0, 500)}`);
     }
     return res;
   }
@@ -85,7 +100,7 @@ function makeClient({ accountId, bucket, accessKeyId, secretAccessKey, endpoint,
       protocol,
     });
     if (res.statusCode >= 300) {
-      throw new Error(`R2 getObject ${key} → HTTP ${res.statusCode}: ${res.body.toString('utf8').slice(0, 500)}`);
+      throw new Error(`S3 getObject ${key} → HTTP ${res.statusCode}: ${res.body.toString('utf8').slice(0, 500)}`);
     }
     return res.body;
   }
@@ -101,7 +116,7 @@ function makeClient({ accountId, bucket, accessKeyId, secretAccessKey, endpoint,
       protocol,
     });
     if (res.statusCode >= 300 && res.statusCode !== 404) {
-      throw new Error(`R2 deleteObject ${key} → HTTP ${res.statusCode}: ${res.body.toString('utf8').slice(0, 500)}`);
+      throw new Error(`S3 deleteObject ${key} → HTTP ${res.statusCode}: ${res.body.toString('utf8').slice(0, 500)}`);
     }
     return res;
   }
@@ -126,7 +141,7 @@ function makeClient({ accountId, bucket, accessKeyId, secretAccessKey, endpoint,
         protocol,
       });
       if (res.statusCode >= 300) {
-        throw new Error(`R2 listObjects → HTTP ${res.statusCode}: ${res.body.toString('utf8').slice(0, 500)}`);
+        throw new Error(`S3 listObjects → HTTP ${res.statusCode}: ${res.body.toString('utf8').slice(0, 500)}`);
       }
       const xml = res.body.toString('utf8');
       const contentsBlocks = xml.match(/<Contents>[\s\S]*?<\/Contents>/g) || [];

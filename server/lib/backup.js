@@ -1,4 +1,4 @@
-// Sauvegarde chiffrée hors site (Cloudflare R2) — Noèsis TimeTracker.
+// Sauvegarde chiffrée hors site (OVHcloud Object Storage) — Noèsis TimeTracker.
 //
 // Pourquoi ce module existe : au 6 septembre 2026, aucune copie de secours
 // n'existe nulle part (ni Railway natif, ni ailleurs). Les données de tous
@@ -7,6 +7,17 @@
 // l'envoie vers un espace de stockage distinct du compte Railway — pour
 // survivre à autre chose qu'une corruption interne (perte du projet Railway,
 // facturation coupée, suspension, panne de région).
+//
+// **Migration du 7 septembre 2026** : prévu à l'origine pour Cloudflare R2,
+// jamais activé en production car l'activation du compte Cloudflare (carte
+// bancaire) a échoué de façon répétée, sur deux circuits de paiement
+// différents (carte directe, Google Pay), avec la même carte — signe d'un
+// blocage côté banque plutôt que côté Cloudflare. Décision prise avec
+// Emilien de basculer sur OVHcloud Object Storage : entreprise française,
+// stockage en France, compatible S3, egress gratuit. Voir
+// noesis-timetracker-sauvegardes.md pour le détail. Le module lui-même ne
+// change pas de logique — seulement de destination (variables d'environnement
+// ci-dessous) et de client (`./r2client`, resté générique, voir son en-tête).
 //
 // Décisions structurantes :
 //
@@ -42,13 +53,17 @@
 //   déclenche autant de sauvegardes coup sur coup.
 //
 // Variables d'environnement :
-//   R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+//   OVH_S3_ENDPOINT, OVH_S3_REGION, OVH_S3_BUCKET, OVH_S3_ACCESS_KEY_ID,
+//   OVH_S3_SECRET_ACCESS_KEY
 //     — obligatoires. Sans l'une d'elles, le module se désactive avec un
 //       avertissement au démarrage (jamais silencieusement).
-//   R2_ENDPOINT (optionnel)
-//     — surcharge l'hôte R2 ; par défaut la forme UE
-//       "<compte>.eu.r2.cloudflarestorage.com" (juridiction retenue,
-//       cohérente avec l'ÉFVP déjà rédigée pour l'hébergement Railway UE).
+//       OVH_S3_ENDPOINT : ex. "https://s3.gra.io.cloud.ovh.net" (région
+//       Gravelines, France — voir GUIDE-SAUVEGARDE-R2.md pour le choix de
+//       région et sa justification vis-à-vis de l'ÉFVP déjà rédigée pour
+//       Railway UE).
+//       OVH_S3_REGION : le code de région correspondant à l'endpoint
+//       ci-dessus (ex. "gra"), requis pour la signature SigV4 — aucune
+//       valeur par défaut, contrairement à l'ancien "auto" de Cloudflare R2.
 //   NOESIS_BACKUP_KEY (obligatoire pour que le module tourne)
 //     — 64 caractères hexadécimaux (32 octets), clé AES-256-GCM. DOIT vivre
 //       ailleurs que dans Railway (gestionnaire de mots de passe) : perdre à
@@ -84,11 +99,11 @@ function dbPath() {
 
 function readConfig() {
   const {
-    R2_ACCOUNT_ID,
-    R2_BUCKET,
-    R2_ACCESS_KEY_ID,
-    R2_SECRET_ACCESS_KEY,
-    R2_ENDPOINT,
+    OVH_S3_ENDPOINT,
+    OVH_S3_REGION,
+    OVH_S3_BUCKET,
+    OVH_S3_ACCESS_KEY_ID,
+    OVH_S3_SECRET_ACCESS_KEY,
     NOESIS_BACKUP_KEY,
     NOESIS_BACKUP_INTERVAL_HOURS,
     NOESIS_BACKUP_KEEP,
@@ -96,10 +111,11 @@ function readConfig() {
   } = process.env;
 
   const missing = [];
-  if (!R2_ACCOUNT_ID) missing.push('R2_ACCOUNT_ID');
-  if (!R2_BUCKET) missing.push('R2_BUCKET');
-  if (!R2_ACCESS_KEY_ID) missing.push('R2_ACCESS_KEY_ID');
-  if (!R2_SECRET_ACCESS_KEY) missing.push('R2_SECRET_ACCESS_KEY');
+  if (!OVH_S3_ENDPOINT) missing.push('OVH_S3_ENDPOINT');
+  if (!OVH_S3_REGION) missing.push('OVH_S3_REGION');
+  if (!OVH_S3_BUCKET) missing.push('OVH_S3_BUCKET');
+  if (!OVH_S3_ACCESS_KEY_ID) missing.push('OVH_S3_ACCESS_KEY_ID');
+  if (!OVH_S3_SECRET_ACCESS_KEY) missing.push('OVH_S3_SECRET_ACCESS_KEY');
   if (!NOESIS_BACKUP_KEY) missing.push('NOESIS_BACKUP_KEY');
 
   if (missing.length) {
@@ -112,11 +128,11 @@ function readConfig() {
 
   return {
     ok: true,
-    accountId: R2_ACCOUNT_ID,
-    bucket: R2_BUCKET,
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-    endpoint: R2_ENDPOINT,
+    endpoint: OVH_S3_ENDPOINT,
+    region: OVH_S3_REGION,
+    bucket: OVH_S3_BUCKET,
+    accessKeyId: OVH_S3_ACCESS_KEY_ID,
+    secretAccessKey: OVH_S3_SECRET_ACCESS_KEY,
     key: Buffer.from(NOESIS_BACKUP_KEY, 'hex'),
     intervalHours: Number(NOESIS_BACKUP_INTERVAL_HOURS) > 0 ? Number(NOESIS_BACKUP_INTERVAL_HOURS) : 24,
     keep: Number(NOESIS_BACKUP_KEEP) > 0 ? Number(NOESIS_BACKUP_KEEP) : 30,
@@ -195,11 +211,11 @@ async function runBackupOnce(logger = console) {
     const key = `${cfg.prefix}${stamp}.db.gz.enc`;
 
     const client = makeClient({
-      accountId: cfg.accountId,
       bucket: cfg.bucket,
       accessKeyId: cfg.accessKeyId,
       secretAccessKey: cfg.secretAccessKey,
       endpoint: cfg.endpoint,
+      region: cfg.region,
     });
 
     await client.putObject(key, encrypted);

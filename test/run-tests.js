@@ -1,7 +1,7 @@
 // Suite de vérification du mécanisme de sauvegarde — contre du vrai code
 // exécuté (vraie base SQLite, vrai serveur HTTP local imitant l'API S3,
-// vrai chiffrement/déchiffrement). Ne teste PAS l'authentification réelle de
-// Cloudflare (aucune vraie clé disponible ici) — voir GUIDE-SAUVEGARDE-R2.md
+// vrai chiffrement/déchiffrement). Ne teste PAS l'authentification réelle
+// d'OVHcloud (aucune vraie clé disponible ici) — voir GUIDE-SAUVEGARDE-R2.md
 // pour l'étape qui le fera.
 
 const path = require('path');
@@ -64,11 +64,11 @@ async function main() {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noesis-backup-test-'));
 
   process.env.NOESIS_DATA_DIR = path.join(workDir, 'data');
-  process.env.R2_ACCOUNT_ID = 'testaccount';
-  process.env.R2_BUCKET = 'noesis-test-bucket';
-  process.env.R2_ACCESS_KEY_ID = 'TESTKEYID';
-  process.env.R2_SECRET_ACCESS_KEY = 'testsecretkeyvalue1234567890';
-  process.env.R2_ENDPOINT = `http://127.0.0.1:${port}`;
+  process.env.OVH_S3_ENDPOINT = `http://127.0.0.1:${port}`;
+  process.env.OVH_S3_REGION = 'gra';
+  process.env.OVH_S3_BUCKET = 'noesis-test-bucket';
+  process.env.OVH_S3_ACCESS_KEY_ID = 'TESTKEYID';
+  process.env.OVH_S3_SECRET_ACCESS_KEY = 'testsecretkeyvalue1234567890';
   process.env.NOESIS_BACKUP_KEY = TEST_KEY_HEX;
   process.env.NOESIS_BACKUP_KEEP = '3';
   process.env.NOESIS_BACKUP_PREFIX = 'noesis-backups/';
@@ -93,13 +93,13 @@ async function main() {
   process.env.NOESIS_BACKUP_KEY = savedKey;
   assert(backup.isConfigured(), 'isConfigured() de nouveau vrai une fois la clé restaurée');
 
-  console.log('\n2. Cycle complet de sauvegarde (vraie base, faux R2)');
+  console.log('\n2. Cycle complet de sauvegarde (vraie base, faux S3)');
   const result = await backup.runBackupOnce({ log() {}, warn() {}, error(...a) { console.error('   [erreur inattendue]', ...a); } });
   assert(!result.error, 'runBackupOnce() ne renvoie aucune erreur');
-  assert(!!result.key, 'une clé d\'objet R2 a été produite');
+  assert(!!result.key, 'une clé d\'objet S3 a été produite');
   assert(result.sentBytes > 0 && result.sentBytes < result.rawBytes, 'le fichier envoyé est plus petit que la base brute (compression effective)');
 
-  const client = makeClient({ accountId: 'testaccount', bucket: 'noesis-test-bucket', accessKeyId: 'TESTKEYID', secretAccessKey: 'testsecretkeyvalue1234567890', endpoint: process.env.R2_ENDPOINT });
+  const client = makeClient({ bucket: 'noesis-test-bucket', accessKeyId: 'TESTKEYID', secretAccessKey: 'testsecretkeyvalue1234567890', endpoint: process.env.OVH_S3_ENDPOINT, region: 'gra' });
   const listed = await client.listObjects('noesis-backups/');
   assert(listed.length === 1, 'exactement un objet présent après une sauvegarde');
 

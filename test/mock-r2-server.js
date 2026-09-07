@@ -1,5 +1,8 @@
-// Faux serveur S3/R2, utilisé uniquement pour les tests (pas d'authentification
-// réelle de Cloudflare — voir la limite documentée dans GUIDE-SAUVEGARDE-R2.md).
+// Faux serveur S3 générique, utilisé uniquement pour les tests (pas
+// d'authentification réelle d'un vrai fournisseur — voir la limite
+// documentée dans GUIDE-SAUVEGARDE-R2.md). Fichier conservé sous son nom
+// d'origine (mock-r2-server.js) depuis la migration Cloudflare R2 → OVHcloud
+// du 7 septembre 2026 ; son contenu n'a jamais été spécifique à Cloudflare.
 // Lancé dans un PROCESS SÉPARÉ quand un test doit aussi exécuter une commande
 // synchrone (execFileSync) qui parlerait à ce serveur : un serveur et son
 // client dans le même process gèlent tous les deux si le client bloque la

@@ -6,6 +6,10 @@ const { isInPalette, pairedColor } = require('../lib/theme');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 const { notifyCommunityPost } = require('../lib/push');
 const { setSessionCookie } = require('../lib/session');
+// Export de mes données personnelles (7 septembre 2026) — voir GET
+// /profile/export plus bas et l'en-tête de server/lib/dataexport.js pour le
+// détail du périmètre.
+const { buildUserExport } = require('../lib/dataexport');
 // Statistiques d'un profil VISITÉ (2 septembre 2026) — voir GET
 // /profile/:userId/stats plus bas. Les deux fonctions sont importées et
 // appelées TELLES QUELLES, en lecture seule : aucune ligne de
@@ -258,6 +262,28 @@ router.get('/profile/posts', (req, res) => {
   rows.reverse();
   rows.forEach((row) => { row.attachments = postAttachmentsFor(row.id); });
   res.json(rows);
+});
+
+// Export de mes données personnelles (7 septembre 2026, candidate n°1 de
+// l'audit des sections manquantes du panneau Réglages — voir
+// noesis-timetracker-parametres.md). Route STATIQUE, déclarée AVANT
+// GET /profile/:id (même piège d'ordre Express que /profile/posts
+// ci-dessus, déjà rencontré trois fois sur ce fichier — voir la carte
+// Profil dans noesis-timetracker-chantiers-en-cours.md) : sans ça,
+// "export" serait avalé comme une valeur de :id.
+//
+// Toujours l'utilisateur COURANT (req.userId, jamais un id fourni par le
+// client) — même principe que /profile/posts au-dessus. Le détail du
+// périmètre exact (ce qui est inclus, ce qui est strictement exclu parce
+// qu'appartenant à un tiers) est documenté dans server/lib/dataexport.js.
+router.get('/profile/export', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  const data = buildUserExport(req.userId);
+  if (!data) return res.status(404).json({ error: 'Profil introuvable.' });
+  const fileDate = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Disposition', `attachment; filename="noesis-export-${fileDate}.json"`);
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.json(data);
 });
 
 // Correction Sécurité (chantier 1, une fois la session posée — voir

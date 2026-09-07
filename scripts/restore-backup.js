@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// Chemin de retour des sauvegardes chiffrées R2 — Noèsis TimeTracker.
+// Chemin de retour des sauvegardes chiffrées — Noèsis TimeTracker.
 //
 // Une sauvegarde jamais restaurée n'est pas une sauvegarde, c'est une
 // hypothèse. Ce script est la preuve : il télécharge, déchiffre, décompresse
-// et vérifie une copie réelle depuis Cloudflare R2.
+// et vérifie une copie réelle depuis OVHcloud Object Storage (migré depuis
+// Cloudflare R2 le 7 septembre 2026, voir server/lib/backup.js).
 //
 // Usage :
 //   node scripts/restore-backup.js list
@@ -25,8 +26,8 @@
 //     test avant de basculer.
 //
 // Variables d'environnement requises : les mêmes que server/lib/backup.js
-// (R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
-// NOESIS_BACKUP_KEY, + R2_ENDPOINT en option).
+// (OVH_S3_ENDPOINT, OVH_S3_REGION, OVH_S3_BUCKET, OVH_S3_ACCESS_KEY_ID,
+// OVH_S3_SECRET_ACCESS_KEY, NOESIS_BACKUP_KEY).
 
 const fs = require('fs');
 const path = require('path');
@@ -47,11 +48,11 @@ function getClientOrFail() {
     fail(`variables manquantes : ${cfg.missing.join(', ')}`);
   }
   const client = makeClient({
-    accountId: cfg.accountId,
     bucket: cfg.bucket,
     accessKeyId: cfg.accessKeyId,
     secretAccessKey: cfg.secretAccessKey,
     endpoint: cfg.endpoint,
+    region: cfg.region,
   });
   return { client, cfg };
 }
