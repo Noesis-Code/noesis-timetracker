@@ -20,13 +20,45 @@ function eq(actual, expected, label) {
   ok(JSON.stringify(actual) === JSON.stringify(expected), label + ' — attendu ' + JSON.stringify(expected) + ', obtenu ' + JSON.stringify(actual));
 }
 
+// ⚠️ SESSIONS (mise à jour du 7 septembre 2026). Le chantier « Sécurité »
+// (échéance du 11 septembre, voir server/lib/session.js) a remplacé le
+// `userId` transmis dans le corps par un COOKIE signé : les routes lisent
+// désormais `req.userId`, posé par un middleware. Cette suite, écrite avant,
+// appelait tout en anonyme et retournait « userId requis » dès la deuxième
+// ligne.
+//
+// Plutôt que de retoucher les ~400 appels un par un, le bocal à cookies
+// ci-dessous devine à qui appartient chaque requête : le `userId` déjà présent
+// dans le corps ou dans la query sert de clé, et le cookie correspondant est
+// attaché. Les `userId` transmis restent en place — ils sont ignorés par le
+// serveur, et ils documentent au lecteur qui agit.
+const cookieJar = new Map();   // userId -> valeur du cookie de session
+
+function rememberCookie(userId, setCookie) {
+  if (!userId || !setCookie) return;
+  const first = String(setCookie).split(',')[0].split(';')[0].trim();
+  if (first) cookieJar.set(String(userId), first);
+}
+
+// À qui attribuer cette requête ? Au userId du corps, sinon à celui de la
+// query. Aucun des deux : requête anonyme (c'est volontaire pour les
+// assertions qui vérifient justement le refus).
+function actorOf(path, body) {
+  if (body && body.userId) return String(body.userId);
+  const m = String(path).match(/[?&]userId=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 async function call(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body !== undefined) opts.body = JSON.stringify(body);
+  const actor = actorOf(path, body);
+  const cookie = actor ? cookieJar.get(actor) : null;
+  if (cookie) opts.headers.Cookie = cookie;
   const r = await fetch(BASE + path, opts);
   let json = null;
   try { json = await r.json(); } catch (e) { /* 204 etc. */ }
-  return { status: r.status, body: json };
+  return { status: r.status, body: json, setCookie: r.headers.get('set-cookie') };
 }
 
 let n = 0;
@@ -38,6 +70,8 @@ async function makeUser(prefix) {
     name, lastName: 'Test', phone: '+15145550123', email: name + '@example.com', pin: '1234',
   });
   if (r.status !== 201) throw new Error('création de profil ratée : ' + JSON.stringify(r));
+  // La création vaut connexion : le serveur pose le témoin dans sa réponse.
+  rememberCookie(r.body.id, r.setCookie);
   return r.body;
 }
 
@@ -286,8 +320,15 @@ async function detail(user, subProject) {
   eq(r.status, 404, '6.5 ce volet n\'expose AUCUNE route de vote (socle commun uniquement)');
   r = await call('GET', '/sub-projects/' + sp1.id + '/messages?userId=' + mallory.id);
   eq(r.status, 403, '6.6 non-membre : fil refusé');
+  // ⚠️ MISE À JOUR DU 7 SEPTEMBRE 2026 — chantier « Sécurité » (sessions).
+  // Cette assertion vérifiait qu'un `userId` inconnu donnait 404. Depuis que
+  // l'identité vient d'un cookie signé et non plus du corps de la requête,
+  // ce cas ne peut plus se produire : on ne peut pas détenir une session pour
+  // un profil qui n'existe pas. Ce qui reste à protéger — et qui compte
+  // davantage — c'est qu'une requête SANS session valide soit refusée.
   r = await call('GET', '/activities/' + solo.id + '/sub-projects?userId=inconnu-xyz');
-  eq(r.status, 404, '6.7 profil inexistant : 404');
+  ok(r.status === 400 || r.status === 401 || r.status === 403,
+    '6.7 sans session valide, la liste des sous-projets est refusée (obtenu ' + r.status + ')');
   r = await call('GET', '/sub-projects/999999?userId=' + alice.id);
   eq(r.status, 404, '6.8 sous-projet inexistant : 404');
   r = await call('DELETE', '/sub-project-sections/999999?userId=' + alice.id);

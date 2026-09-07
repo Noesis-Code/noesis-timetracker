@@ -16,6 +16,18 @@ const BASE = 'http://localhost:3000';
 let passed = 0, failed = 0;
 function ok(cond, label) { if (cond) passed++; else { failed++; console.log('  ✗ ' + label); } }
 
+// ⚠️ SESSIONS (7 septembre 2026). Depuis le chantier « Sécurité »
+// (server/lib/session.js), l'identité d'une requête vient d'un cookie signé,
+// posé à la création d'un profil ET à une vérification de code réussie. Un
+// contexte de navigateur ne détient qu'un cookie à la fois : dès qu'un
+// scénario met deux profils en scène, il faut basculer explicitement de l'un
+// à l'autre. Tous les profils de cette suite utilisent le code 1234.
+async function loginAs(page, user) {
+  const r = await api(page, 'POST', '/api/profile/' + user.id + '/verify-pin', { pin: '1234' });
+  if (r.status !== 200) throw new Error('connexion ratée pour ' + user.name + ' : ' + JSON.stringify(r));
+  return r.body;
+}
+
 async function api(page, method, path, body) {
   return page.evaluate(async ({ method, path, body }) => {
     const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -111,6 +123,39 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(300);
   ok(await page.isVisible('#addSectionMenu'), '4.1 le menu déroulant s\'ouvre');
   ok(await page.isVisible('#addSectionTasksBtn'), '4.2 option "Des tâches"');
+
+  // ⚠️ MISE À JOUR DU 7 SEPTEMBRE 2026 — règle posée le 4 septembre par le
+  // chantier « Activité solo », à la demande d'Emilien : sur une activité NON
+  // PARTAGÉE, un sous-projet ne propose QUE des tâches (se parler à soi-même
+  // ou se sonder soi-même n'a pas d'objet). Cette suite testait l'ancien
+  // comportement sur une activité solo ; elle vérifie maintenant la règle
+  // elle-même, puis PARTAGE l'activité pour éprouver sondages et discussion.
+  ok(!(await page.isVisible('#addSectionPollBtn')),
+    '4.2b ⭐ activité SOLO : aucune option "sondage"');
+  ok(!(await page.isVisible('#addSectionDiscussionBtn')),
+    '4.2c ⭐ activité SOLO : aucune option "discussion"');
+
+  // Partage de l'activité, puis retour sur la session du membre principal.
+  const mate = 'UIMate' + stamp;
+  const userMate = (await api(page, 'POST', '/api/profile', {
+    name: mate, lastName: 'Test', phone: '+15145550125', email: mate + '@example.com', pin: '1234', lang: 'fr',
+  })).body;
+  await loginAs(page, user);
+  await api(page, 'POST', '/api/activities/' + activity.id + '/invite', { userId: user.id, pseudo: mate });
+  await loginAs(page, userMate);
+  const inv0 = (await api(page, 'GET', '/api/invites?userId=' + userMate.id)).body;
+  await api(page, 'POST', '/api/invites/' + inv0[0].id + '/accept', { userId: userMate.id });
+  await loginAs(page, user);
+  await page.goto(BASE);
+  await page.waitForTimeout(1400);
+  await page.click('.tabBtn[data-tab="activity"]');
+  await page.waitForTimeout(700);
+  await page.click('#activitiesList .activityRow .activityRowHeader');
+  await page.waitForTimeout(1400);
+  await page.click('#subProjectsList .subProjectRowHeader');
+  await page.waitForTimeout(1000);
+  await page.click('#subProjectsList .subProjectRowHeader .subProjectAddBtn');
+  await page.waitForTimeout(400);
   ok(await page.isVisible('#addSectionPollBtn'), '4.3 option "Des sondages"');
   ok(await page.isVisible('#addSectionDiscussionBtn'), '4.4 option "Une discussion"');
   // ⭐ Le menu ne propose plus QUE des ajouts : renommer et supprimer sont
@@ -163,6 +208,60 @@ async function api(page, method, path, body) {
   }), '5.8b ⭐ l\'anneau est rempli au quart');
   ok(await page.evaluate(() => document.querySelector('#subProjectSections .subProjectItem').classList.contains('done')),
     '5.8 la tâche cochée est barrée');
+
+  // ============ 5bis. ⭐ Un lien collé dans une tâche est cliquable ==========
+  // Demande d'Emilien du 7 septembre 2026.
+  const tasksInput = '#subProjectSections .subProjectTasksSection .subProjectItemAdd input';
+  await page.fill(tasksInput, 'Relire https://exemple.org/page?x=1&y=2 avant jeudi.');
+  await page.click('#subProjectSections .subProjectTasksSection .subProjectItemAdd .iconBtn');
+  await page.waitForTimeout(900);
+  const linkInfo = await page.evaluate(() => {
+    const rows = document.querySelectorAll('#subProjectSections .subProjectItem');
+    const row = rows[rows.length - 1];
+    const a = row.querySelector('.subProjectItemLabel a');
+    return a ? { href: a.href, text: a.textContent, target: a.target, rel: a.rel,
+      label: row.querySelector('.subProjectItemLabel').textContent } : null;
+  });
+  ok(!!linkInfo, '5.9 ⭐ le lien collé dans une tâche devient un vrai lien');
+  ok(linkInfo && linkInfo.href === 'https://exemple.org/page?x=1&y=2',
+    '5.10 ⭐ l\'adresse est complète, paramètres compris — obtenue : ' + (linkInfo && linkInfo.href));
+  ok(linkInfo && linkInfo.target === '_blank' && linkInfo.rel.indexOf('noopener') !== -1,
+    '5.11 il s\'ouvre dans un nouvel onglet, avec rel="noopener"');
+  // ⭐ Le point final de la phrase n'appartient pas au lien, et le reste du
+  // texte est conservé tel quel.
+  ok(linkInfo && linkInfo.text.slice(-1) !== '.',
+    '5.12 ⭐ la ponctuation finale n\'est pas avalée par le lien');
+  ok(linkInfo && linkInfo.label === 'Relire https://exemple.org/page?x=1&y=2 avant jeudi.',
+    '5.13 le texte de la tâche est intact autour du lien');
+
+  // ⭐ SÉCURITÉ : une tâche peut être écrite par un autre membre. Ni HTML
+  // injecté, ni schéma d'URL exécutable ne doivent survivre.
+  await page.fill(tasksInput, 'javascript:alert(1) et <img src=x onerror=alert(1)> et www.exemple.net/a');
+  await page.click('#subProjectSections .subProjectTasksSection .subProjectItemAdd .iconBtn');
+  await page.waitForTimeout(900);
+  const danger = await page.evaluate(() => {
+    const rows = document.querySelectorAll('#subProjectSections .subProjectItem');
+    const label = rows[rows.length - 1].querySelector('.subProjectItemLabel');
+    return {
+      imgs: label.querySelectorAll('img').length,
+      hrefs: Array.prototype.map.call(label.querySelectorAll('a'), (a) => a.href),
+      text: label.textContent,
+    };
+  });
+  ok(danger.imgs === 0, '5.14 ⭐ aucun HTML injecté : le texte reste du texte');
+  ok(danger.hrefs.every((h) => h.indexOf('javascript:') !== 0),
+    '5.15 ⭐ aucun lien "javascript:" fabriqué');
+  ok(danger.hrefs.some((h) => h === 'https://www.exemple.net/a'),
+    '5.16 ⭐ un "www." sans schéma devient bien un https:// — obtenu : ' + JSON.stringify(danger.hrefs));
+  ok(danger.text.indexOf('<img') !== -1, '5.17 et le texte brut est affiché tel qu\'écrit');
+
+  // On nettoie les deux tâches de démonstration : la suite compte les tâches.
+  for (let i = 0; i < 2; i++) {
+    page.once('dialog', (dd) => dd.accept());
+    const dels = await page.$$('#subProjectSections .subProjectItem .discussionMsgDelete');
+    await dels[dels.length - 1].click();
+    await page.waitForTimeout(800);
+  }
 
   // --- Sondages : le SOCLE COMMUN, monté dans le sous-projet ---
   // ⚠️ Rien de ce bloc n'est une implémentation de ce volet : le composeur, la
@@ -339,7 +438,14 @@ async function api(page, method, path, body) {
   await page.waitForTimeout(500);
   await page.click('.tabBtn[data-tab="community"]');
   await page.waitForTimeout(900);
-  ok(await page.isVisible('#communityMyPostsBlock'), '9.1 zone "écrire à sa communauté" toujours présente');
+  // ⚠️ MISE À JOUR DU 7 SEPTEMBRE 2026. Le conteneur #communityMyPostsBlock a
+  // été dissous le 5 septembre dans la barre fusionnée « rechercher ou
+  // publier » ; seuls ses champs subsistent, avec les mêmes ids. Ce que cette
+  // suite doit protéger, c'est le COMPOSEUR (monté par mountMessageThread,
+  // que ce volet a généralisé), pas le div qui l'entourait.
+  ok(await page.evaluate(() => !!document.getElementById('communityMyPostsInput') &&
+    !!document.getElementById('communityMyPostsSendBtn')),
+    '9.1 le composeur "écrire à sa communauté" est toujours monté');
   // ⚠️ Depuis le 3 septembre 2026, cette zone n'a plus de liste à elle : les
   // messages partent dans le flux d'actualité juste en dessous. La factory doit
   // donc supporter une instance QUI N'EST QU'UN COMPOSEUR — c'est ce que cette
@@ -351,6 +457,15 @@ async function api(page, method, path, body) {
   const profilePolls = await page.request.get(BASE + '/api/polls?userId=' + user.id + '&scope=profile&scopeId=' + user.id);
   ok(profilePolls.status() === 200, '9.1b les sondages de profil répondent 200 (garde du scope opérationnelle)');
   ok((await profilePolls.json()).canCreate === true, '9.1c et on peut en créer sur son propre profil');
+  // ⚠️ MISE À JOUR DU 7 SEPTEMBRE 2026 — depuis le 5 septembre, la barre de
+  // Communauté fusionne recherche et publication derrière deux boutons de mode
+  // (demande d'Emilien : « une seule sorte de texte pour rechercher ou pour
+  // publier »). Le composeur n'est donc visible qu'en mode Publier : il faut
+  // basculer avant d'écrire, sinon on remplit un champ masqué. Ce que cette
+  // assertion protège n'a pas changé — que l'envoi marche toujours après la
+  // généralisation du composeur.
+  await page.click('#communityModePublishBtn');
+  await page.waitForTimeout(400);
   await page.fill('#communityMyPostsInput', 'Message communauté');
   await page.click('#communityMyPostsSendBtn');
   await page.waitForTimeout(900);
@@ -687,16 +802,26 @@ async function api(page, method, path, body) {
   // Ce qui relève de CE volet est donc vérifié à la source : une fois
   // l'activité partagée, ses sous-projets restent servis à ses deux membres,
   // avec le même avancement.
+  // ⚠️ SESSIONS (7 septembre 2026). Depuis le chantier « Sécurité », l'identité
+  // vient d'un cookie et non plus du `userId` transmis : la page n'en détient
+  // qu'UN à la fois. Inviter puis accepter demande donc de changer de session
+  // entre les deux, et de revenir ensuite sur celle du membre principal —
+  // sinon la suite du scénario s'exécuterait au nom du second profil.
+  // L'invitation se fait par pseudo : le second profil doit donc exister
+  // d'abord, ce qui bascule la session sur lui — d'où le retour explicite.
   const other = 'UIOther' + stamp;
   const user2 = (await api(page, 'POST', '/api/profile', {
     name: other, lastName: 'Test', phone: '+15145550124', email: other + '@example.com', pin: '1234', lang: 'fr',
-  })).body;
+  })).body;   // la création vaut connexion : on est maintenant user2
+  await loginAs(page, user);
   await api(page, 'POST', '/api/activities/' + activity.id + '/invite', { userId: user.id, pseudo: other });
+  await loginAs(page, user2);
   const invites = (await api(page, 'GET', '/api/invites?userId=' + user2.id)).body;
   await api(page, 'POST', '/api/invites/' + invites[0].id + '/accept', { userId: user2.id });
-
-  const asOwner = (await api(page, 'GET', '/api/activities/' + activity.id + '/sub-projects?userId=' + user.id)).body;
   const asMember = (await api(page, 'GET', '/api/activities/' + activity.id + '/sub-projects?userId=' + user2.id)).body;
+
+  await loginAs(page, user);   // retour sur la session du membre principal
+  const asOwner = (await api(page, 'GET', '/api/activities/' + activity.id + '/sub-projects?userId=' + user.id)).body;
   ok(asMember.subProjects.length === asOwner.subProjects.length && asOwner.subProjects.length >= 1,
     '11.1 les sous-projets sont servis aux deux membres après partage');
   ok(JSON.stringify(asMember.progress) === JSON.stringify(asOwner.progress),

@@ -715,6 +715,21 @@ if (!columnExists('users', 'lang')) {
   db.exec("UPDATE users SET lang = 'fr'");
 }
 
+// Déconnexion de tous les appareils (7 septembre 2026, discussion "Sécurité
+// — Réglages utilisateur", server/lib/session.js). Le témoin de session
+// (chantier 1, 6 septembre) est auto-suffisant, sans registre en base — donc
+// aucun moyen de révoquer UNE session précise. Cette colonne permet de
+// révoquer TOUTES les sessions d'un utilisateur d'un coup : chaque témoin
+// signé embarque la valeur de sessionEpoch au moment où il a été posé ;
+// l'incrémenter (bumpSessionEpoch) invalide instantanément tous les témoins
+// déjà émis. DEFAULT 0, purement additive comme les migrations ci-dessus :
+// un témoin déjà en circulation avant ce déploiement (qui n'a pas de champ
+// epoch du tout) est traité comme epoch 0 par server/lib/session.js, donc ce
+// déploiement lui-même ne déconnecte personne.
+if (!columnExists('users', 'sessionEpoch')) {
+  db.exec('ALTER TABLE users ADD COLUMN sessionEpoch INTEGER NOT NULL DEFAULT 0');
+}
+
 // Vote anonyme (3 septembre 2026, demande d'Emilien). Migration purement
 // additive, comme toutes celles de ce bloc : DEFAULT 0, donc tout sondage créé
 // avant ce jour reste nominatif — le comportement d'un sondage déjà publié ne

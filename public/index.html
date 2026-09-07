@@ -97,6 +97,20 @@
    à la hauteur du document (donc ni à #app{min-height:100dvh} ni à
    refreshScrollLock()). */
 #bootSplash.bootSplashDone { opacity: 0; pointer-events: none; }
+/* 6 septembre 2026 (Design) : même bande visible que sur .tabbar (voir le
+   commentaire équivalent dans styles.css) signalée par Emilien sur iPhone 16
+   au démarrage de l'app. Même stratégie "tous les modèles" : un débordement
+   généreux (+24px au-delà de env(safe-area-inset-bottom), qui peut ne pas
+   être fiable ici selon l'hypothèse retenue) plutôt qu'une correspondance
+   exacte — invisible et sans effet si #bootSplash couvrait déjà tout
+   l'écran, comble la bande sinon, quel que soit l'appareil. */
+#bootSplash::after {
+  content: '';
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  height: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  background: #000000;
+}
 
 #bootSplash svg {
   display: block;
@@ -421,6 +435,7 @@
       <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPin" placeholder="Choisis un code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
       <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinConfirm" placeholder="Confirme le code" maxlength="6" autocomplete="off">
       <p class="hint">Ce code te sera redemandé si tu récupères ce profil depuis un autre appareil — retiens-le bien.</p>
+      <p class="switchLink"><a href="#" id="onbLegalTermsLink">Lire les conditions d'utilisation avant de créer ton profil</a></p>
       <button class="btn btn-primary" id="onbCreateBtn">Créer mon profil</button>
       <p class="switchLink"><a href="#" id="onbSwitchToExisting">J'ai déjà un profil sur cette app</a></p>
     </div>
@@ -751,6 +766,17 @@
               <div id="calendarFeedOn" class="hidden">
                 <input type="text" id="calendarFeedUrl" class="calendarFeedUrl" readonly>
                 <p class="hint">Cette adresse vaut mot de passe : qui l'a voit les noms de tes sous-projets et leurs dates. Ne la publie nulle part. Si elle t'échappe, régénère-la — l'ancienne cesse aussitôt de fonctionner.</p>
+                <!-- Raccourcis d'abonnement (7 septembre 2026, demande d'Emilien :
+                     boutons + instructions pas-à-pas). Les deux boutons ouvrent
+                     directement l'app de calendrier plutôt que de forcer un
+                     copier/coller manuel ; l'adresse et les gestes copier/régénérer/
+                     désactiver juste en dessous restent le repli qui marche
+                     partout (Outlook, autre navigateur, etc.). -->
+                <div class="shareActions">
+                  <button type="button" id="calendarFeedAppleBtn" class="iconBtn">Ajouter à Apple Calendar</button>
+                  <button type="button" id="calendarFeedGoogleBtn" class="iconBtn">Ajouter à Google Agenda</button>
+                </div>
+                <p class="hint">Sur un autre calendrier (Outlook ou autre), copie l'adresse ci-dessous puis choisis « S'abonner à un calendrier » ou « Ajouter un calendrier à partir d'une adresse Internet », et colle-la.</p>
                 <div class="shareActions">
                   <button type="button" id="calendarFeedCopyBtn" class="iconBtn">Copier l'adresse</button>
                   <button type="button" id="calendarFeedRenewBtn" class="iconBtn">Régénérer</button>
@@ -777,6 +803,39 @@
               <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon code</button>
               <p id="settingsPinMsg" class="msg"></p>
             </div>
+            <!-- "Se déconnecter de tous les appareils" (7 septembre 2026,
+                 discussion "Sécurité — Réglages utilisateur") : le système de
+                 session (6 septembre) n'a aucun registre de sessions
+                 individuelles — un témoin auto-suffisant par appareil, sans
+                 liste consultable en base (voir server/lib/session.js). Pas
+                 de "voir mes sessions" possible sans un chantier plus lourd
+                 (table `sessions`), hors périmètre retenu pour l'échéance du
+                 11 septembre : cette carte se limite donc à une révocation
+                 GLOBALE, immédiate, de tous les appareils à la fois. -->
+            <div class="settingsCard">
+              <p class="hint">Déconnecte immédiatement tous tes appareils, y compris celui-ci — utile si tu penses que ton code a pu être vu par quelqu'un d'autre. Chaque appareil redemandera ton code à la prochaine ouverture.</p>
+              <button id="settingsLogoutAllBtn" class="iconBtn danger">Se déconnecter de tous les appareils</button>
+              <p id="settingsLogoutAllMsg" class="msg"></p>
+            </div>
+              </div>
+            </div>
+
+            <!-- Conditions d'utilisation (7 septembre 2026, discussion
+                 "Conditions d'utilisation") : nouvelle section en LECTURE
+                 SEULE dans l'accordéon Réglages, absente jusqu'ici. Affiche
+                 (via #legalTermsModal, voir plus bas dans ce fichier) le
+                 texte déjà rédigé par la discussion Légal
+                 (noesis-timetracker-conditions-utilisation.md) — cette
+                 discussion n'a pas mandat sur le fond juridique, elle ne
+                 fait qu'exposer le texte déjà validé, jamais le réécrire. -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Conditions d'utilisation</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+                <p class="hint">Le contrat qui régit l'utilisation de Noèsis TimeTracker.</p>
+                <button type="button" id="openLegalTermsBtn" class="iconBtn">Lire les conditions d'utilisation</button>
               </div>
             </div>
 
@@ -2725,6 +2784,131 @@
       <span class="tabLabel">Activité</span>
     </button>
   </nav>
+</div>
+
+<!-- Texte des Conditions d'utilisation (7 septembre 2026, discussion
+     "Conditions d'utilisation") : affichage en LECTURE SEULE du texte
+     déjà rédigé par la discussion Légal
+     (noesis-timetracker-conditions-utilisation.md, fusion du
+     6 septembre 2026 entre le brouillon "Légal" et la V3 de Gaspard,
+     datée du 5 septembre — voir noesis-timetracker-securite.md pour
+     la vérification de version faite avant d'intégrer ce texte).
+     Reprend le motif de #communityMembersModal (page qui remonte du bas,
+     .communityMembersModalCard déjà en max-height: 80vh; overflow-y: auto
+     — aucune nouvelle mécanique de défilement nécessaire pour un texte
+     long). Ouvert depuis Réglages → Conditions d'utilisation
+     (#openLegalTermsBtn, dans #app) ET depuis le lien de consentement de
+     la création de compte (#onbLegalTermsLink, dans #onboarding) : les deux
+     écrans ne sont jamais affichés en même temps (#app est masqué par
+     .hidden tant que le compte n'existe pas). Placé ici, au niveau du
+     <body> et hors des deux (comme #imageViewerModal juste après, voir
+     son commentaire) — PAS à l'intérieur de #app comme un modal ordinaire
+     de l'app : imbriqué dans #app, ce modal héritait du display: none de
+     #app tant que .hidden y était posé, donc restait invisible même une
+     fois sa propre classe .hidden retirée par le clic sur le lien
+     d'onboarding (bug constaté en vérification Playwright le 7 septembre
+     2026 : #legalTermsModal.classList sans .hidden mais aucune boîte
+     visible à l'écran). ⚠️ Cette discussion n'a PAS mandat sur le fond
+     juridique : le texte ci-dessous est repris tel quel (à l'exception des
+     notes éditoriales internes — historique de fusion, suivi de rédaction —
+     qui ne sont pas des clauses du contrat et n'ont pas leur place devant
+     l'Utilisateur). Toute mise à jour du FOND doit passer par
+     noesis-timetracker-conditions-utilisation.md (discussion Légal) puis
+     être reportée ici à l'identique, jamais rédigée ici directement. Le
+     texte légal proprement dit reste en français uniquement (voir
+     article 14) : seuls les libellés d'interface autour de lui (titre de
+     section, bouton, indice) sont traduits via i18n.js. -->
+<div id="legalTermsModal" class="communityMembersModal hidden">
+  <div class="communityMembersModalCard legalTermsModalCard">
+    <div class="communityMembersModalHeader">
+      <p class="sectionTitle">Conditions d'utilisation</p>
+      <button type="button" class="menuBtn" id="legalTermsModalClose" aria-label="Fermer">✕</button>
+    </div>
+    <div class="legalTermsBody">
+      <p class="hint">Version de travail — brouillon fusionné le 6 septembre 2026, pas encore relu par un avocat d'affaires. Ce texte peut évoluer avant sa publication officielle, prévue avant le premier abonnement payant.</p>
+
+      <h3>1. Objet et acceptation</h3>
+      <p>Les présentes Conditions Générales d'Utilisation (les « CGU ») régissent l'accès et l'utilisation de l'application Noèsis TimeTracker et des services associés (les « Services »), édités par Noèsis Inc. (la « Société »). En créant un compte ou en utilisant les Services, l'Utilisateur reconnaît avoir lu, compris et accepté les présentes CGU.</p>
+      <p>Les Services sont offerts aux personnes résidant au Canada. Ils ne sont pas proposés aux résidents d'autres territoires et n'y sont pas promus ; en créant un Compte, l'Utilisateur déclare résider au Canada.</p>
+      <p>Les dispositions du présent document propres aux Utilisateurs résidant en France ou dans l'Union européenne (articles 7, 8, 12 et 15) sont rédigées par anticipation d'une expansion future des Services au-delà du Canada ; elles ne sont pas opérantes tant que les Services demeurent offerts exclusivement aux résidents du Canada.</p>
+
+      <h3>2. Identification de la Société</h3>
+      <p>Noèsis Inc. est une société par actions constituée au Québec.</p>
+      <p class="hint">Numéro d'entreprise du Québec (NEQ) et adresse du siège social à ajouter dès réception du certificat de constitution.</p>
+      <p>Les présentes CGU engagent la Société elle-même. Ses fondateurs, administrateurs et dirigeants n'y sont pas personnellement parties et ne peuvent être tenus personnellement responsables des obligations qui y sont décrites.</p>
+      <p>Pour toute question relative aux présentes CGU : confidentialite.noesis@gmail.com.</p>
+
+      <h3>3. Définitions</h3>
+      <p><strong>« Services »</strong> : l'ensemble des fonctionnalités offertes par Noèsis TimeTracker, incluant l'Offre Gratuite (et, une fois construite et lancée, l'Offre 1 — voir article 4.2).</p>
+      <p><strong>« Compte »</strong> : l'espace personnel créé par l'Utilisateur pour accéder aux Services ; un Compte correspond à une seule personne responsable.</p>
+      <p><strong>« Utilisateur »</strong> : toute personne physique ou entreprise/organisation titulaire d'un Compte.</p>
+      <p><strong>« Contenu »</strong> : toute donnée, information ou message transmis par l'Utilisateur dans le cadre des Services, y compris dans la Communauté.</p>
+      <p><strong>« Abonnement »</strong> : l'accès payant à l'Offre 1, une fois celle-ci lancée.</p>
+
+      <h3>4. Description des Services</h3>
+      <p><strong>4.1 Offre Gratuite.</strong> L'Offre Gratuite comprend le suivi du temps (TimeTracker), avec répartition de l'activité par jour, semaine, mois et année, l'organisation en sous-projets, les statistiques, ainsi qu'un accès à la Communauté (sondages, publications, abonnements entre utilisateurs) et au calendrier optionnel. C'est la seule offre active au lancement du 11 septembre 2026.</p>
+      <p class="hint"><strong>4.2 Offre 1 (payante) — non applicable au lancement du 11 septembre 2026.</strong> Cette section décrit une offre qui n'existe pas encore dans l'application. Elle est conservée ici par anticipation et deviendra opérante seulement le jour où l'Offre 1 sera réellement construite et lancée — pas avant. L'Offre 1 donnerait accès à des formulaires d'identification et à l'analyse générée à partir de ces formulaires, incluant une feuille de route régénérée automatiquement tous les six mois. Elle serait souscrite par activité. Prix envisagé : 20 $ par mois et par activité.</p>
+
+      <h3>5. Création et gestion du Compte</h3>
+      <p>L'Utilisateur garantit l'exactitude des informations fournies lors de la création du Compte et s'engage à les maintenir à jour. Un Compte est strictement personnel ; il ne peut être partagé entre plusieurs personnes, même au sein d'une même entreprise ou organisation.</p>
+      <p>L'accès aux Services est réservé aux personnes âgées de 16 ans ou plus. La Société peut suspendre ou résilier tout Compte créé par une personne n'ayant pas atteint cet âge.</p>
+      <p class="hint">Le mécanisme de consentement parental pour un mineur de 16-17 ans, décrit ci-dessous, ne s'applique qu'à la souscription de l'Offre 1 — non pertinent tant que celle-ci n'existe pas.</p>
+      <p>L'abonnement payant à l'Offre 1, le jour où elle existera, constituerait un engagement financier récurrent excédant les besoins ordinaires et usuels d'un mineur au sens de l'article 157 du Code civil du Québec. La souscription à l'Offre 1 serait alors réservée aux personnes majeures (18 ans ou plus) ou, pour un mineur de 16 ou 17 ans, subordonnée au consentement exprès de son représentant légal, recueilli au moment de la souscription au moyen d'une case à cocher distincte.</p>
+
+      <h3>6. Prix, facturation et taxes — non applicable tant que l'Offre 1 n'existe pas</h3>
+      <p>Les frais d'abonnement à l'Offre 1, le jour où elle existera, seraient facturés avant le début de chaque mois de service, via Stripe. En cas d'échec de paiement, l'accès à l'Offre 1 pourrait être suspendu jusqu'à régularisation.</p>
+      <p>La Société n'est pas inscrite aux fichiers de la TPS et de la TVQ, ses revenus taxables étant sous le seuil de 30 000 $ prévu pour les petits fournisseurs. Si la Société devient assujettie, le prix affiché sera ajusté en conséquence et l'Utilisateur en sera avisé conformément à l'article 8.</p>
+
+      <h3>7. Droit de résolution du contrat</h3>
+      <p><strong>Utilisateurs résidant au Canada.</strong> Conformément aux articles 54.1 et suivants de la Loi sur la protection du consommateur (contrats conclus à distance), l'Utilisateur consommateur dispose d'un droit de résolution si la Société ne respecte pas ses obligations de divulgation précontractuelle ou de transmission d'une copie du contrat. Cette section ne devient pertinente que le jour où un contrat payant (Offre 1) existe.</p>
+      <p class="hint"><strong>Utilisateurs résidant en France ou dans l'Union européenne (par anticipation, non opérant).</strong> Conformément à l'article L221-18 du Code de la consommation, l'Utilisateur consommateur résidant en France ou dans l'Union européenne disposerait d'un délai de rétractation de quatorze (14) jours à compter de la souscription à l'Offre 1, sans avoir à motiver sa décision. Non pertinent tant que le service reste limité au Canada et gratuit.</p>
+
+      <h3>8. Modification des présentes CGU</h3>
+      <p>La Société peut modifier les présentes CGU pour un motif légitime, notamment une évolution des Services, de la réglementation applicable ou de ses coûts d'exploitation ; elle ne peut le faire de façon purement discrétionnaire.</p>
+      <p>Toute modification substantielle sera communiquée à l'Utilisateur par un avis écrit au moins 30 jours avant son entrée en vigueur, conformément à l'article 11.2 de la Loi sur la protection du consommateur. L'Utilisateur qui refuse une modification substantielle peut résilier son Compte sans frais avant l'entrée en vigueur de celle-ci.</p>
+
+      <h3>9. Propriété intellectuelle</h3>
+      <p>L'application Noèsis TimeTracker, sa structure, ses fonctionnalités et son contenu éditorial demeurent la propriété exclusive de la Société.</p>
+
+      <h3>10. Contenu utilisateur et Communauté</h3>
+      <p>La Communauté permet à l'Utilisateur d'échanger des messages privés, visibles uniquement par leur destinataire, et des messages publics, visibles uniquement par les autres abonnés, ainsi que de publier des sondages. L'Utilisateur reste seul responsable du Contenu qu'il publie et garantit qu'il ne contrevient à aucune loi applicable ni aux droits d'un tiers.</p>
+      <p>En publiant du Contenu dans le cadre des Services, l'Utilisateur accorde à la Société une licence non exclusive, gratuite et mondiale d'héberger, de reproduire, d'afficher et de transmettre ce Contenu dans la seule mesure nécessaire au fonctionnement des Services, notamment son affichage aux destinataires ou abonnés concernés. Cette licence prend fin lorsque le Contenu est supprimé, sous réserve des copies conservées à des fins de sauvegarde ou de conformité légale.</p>
+      <p>La Société applique une modération proactive des messages publics de la Communauté, sans attendre nécessairement un signalement. Cette lecture, effectuée manuellement par un dirigeant de la Société, a pour seul objet de détecter un Contenu contraire aux présentes CGU ou à la loi ; elle ne comporte aucune appréciation de l'opinion, de la valeur ou de la qualité du Contenu, et la Société ne sélectionne, ne classe ni ne met en évidence aucun Contenu en fonction de son intérêt ou de son point de vue. Un Contenu ainsi détecté peut être retiré et le Compte de son auteur suspendu.</p>
+      <p>Les messages privés échangés entre Utilisateurs ne font l'objet d'aucune surveillance ni lecture proactive par la Société. Ils ne sont examinés que sur signalement, adressé par courriel à confidentialite.noesis@gmail.com ou par tout autre moyen de signalement mis à disposition dans l'application.</p>
+      <p>À l'égard du Contenu publié par ses Utilisateurs, la Société agit à titre d'hébergeur. Sa responsabilité pour un tel Contenu ne peut être engagée que si, ayant été informée par un signalement suffisamment précis de son caractère illicite, elle n'agit pas promptement pour le retirer ou en bloquer l'accès.</p>
+
+      <h3>11. Absence de détention de fonds de tiers</h3>
+      <p>La Société fournit des services d'accompagnement et d'outils logiciels ; elle ne détient, ne gère et ne conserve à aucun moment des fonds pour le compte de tiers.</p>
+
+      <h3>12. Limitation de responsabilité</h3>
+      <p><strong>Utilisateurs résidant au Canada.</strong> Sous réserve de l'article 1474 du Code civil du Québec, qui interdit d'exclure ou de limiter la responsabilité pour un préjudice matériel causé par une faute intentionnelle ou une faute lourde, ou pour un préjudice corporel ou moral, la responsabilité de la Société envers l'Utilisateur est limitée aux dommages directs et prévisibles résultant d'un manquement de la Société à ses obligations essentielles.</p>
+      <p>La Société décline toute responsabilité pour les dommages indirects, notamment la perte de profits, de clientèle, de données ou d'opportunités d'affaires, sauf en cas de faute intentionnelle ou lourde de sa part.</p>
+      <p><strong>Sur les sauvegardes</strong> : aucune sauvegarde n'est active à ce jour ; une fois une sauvegarde chiffrée réellement en place, la Société fera des efforts raisonnables pour éviter la perte de données, sans garantir l'absence totale de perte. L'Utilisateur demeure responsable de conserver ses propres copies des données qu'il juge essentielles.</p>
+      <p>Sous réserve du premier alinéa du présent article (faute intentionnelle ou faute lourde, préjudice corporel ou moral, qui ne sont jamais plafonnés), et tant que les Services restent gratuits, la responsabilité de la Société envers un Utilisateur ne peut pratiquement donner lieu à un plafond en argent versé, puisqu'aucune somme n'est versée par l'Utilisateur. Le jour où l'Offre 1 existera, la responsabilité totale de la Société envers un Utilisateur, pour l'ensemble des réclamations liées à une période de douze (12) mois, ne pourra excéder le montant des sommes versées par cet Utilisateur à la Société au cours de cette même période.</p>
+      <p>La présente clause ne prive en aucun cas l'Utilisateur consommateur des droits qui lui sont accordés par la Loi sur la protection du consommateur (Québec) ou par toute autre loi d'ordre public applicable.</p>
+      <p class="hint"><strong>Utilisateurs résidant en France ou dans l'Union européenne (par anticipation, non opérant).</strong> Aucune clause des présentes ne saurait supprimer ou réduire le droit à réparation de l'Utilisateur résidant en France ou dans l'Union européenne en cas de manquement de la Société à l'une de ses obligations.</p>
+
+      <h3>13. Résiliation</h3>
+      <p>L'Utilisateur peut résilier son Compte à tout moment, directement depuis les paramètres de son Compte ou en en faisant la demande à confidentialite.noesis@gmail.com. La Société peut suspendre ou résilier un Compte en cas de manquement grave ou répété aux présentes CGU, moyennant un avis préalable sauf urgence.</p>
+
+      <h3>14. Langue du contrat</h3>
+      <p>Conformément à la Charte de la langue française (telle que modifiée par la Loi 96), la version française des présentes CGU est celle qui prévaut. Toute version dans une autre langue n'est offerte qu'à titre de commodité et ne lie l'Utilisateur que s'il y consent expressément après avoir reçu la version française.</p>
+
+      <h3>15. Droit applicable et recours</h3>
+      <p>Les présentes CGU sont régies par le droit applicable dans la province de Québec. Sous réserve du droit de l'Utilisateur consommateur d'intenter un recours devant le tribunal de son propre domicile lorsque la loi le lui permet, tout litige relève des tribunaux compétents du district judiciaire de Montréal. Aucune clause des présentes n'a pour effet de priver l'Utilisateur consommateur de son droit d'intenter un recours devant les tribunaux compétents, y compris un recours collectif, ni de le contraindre à un arbitrage obligatoire, conformément à l'article 11.1 de la Loi sur la protection du consommateur.</p>
+      <p>Avant toute action judiciaire, les parties s'engagent à tenter de bonne foi de résoudre à l'amiable tout différend découlant des présentes CGU, au moyen d'une communication écrite adressée à confidentialite.noesis@gmail.com décrivant le différend, suivie d'une période de négociation d'au moins trente (30) jours. Cette tentative amiable ne prive en aucun cas l'Utilisateur consommateur de son droit d'intenter à tout moment un recours devant les tribunaux compétents, ni n'affecte les délais de prescription qui lui sont applicables.</p>
+
+      <h3>16. Dispositions diverses</h3>
+      <p><strong>Divisibilité</strong> — Si une disposition des présentes CGU est jugée invalide, illégale ou inapplicable, cette disposition est réputée dissociée des présentes, sans affecter la validité ni le caractère exécutoire des autres dispositions.</p>
+      <p><strong>Non-renonciation</strong> — Le fait pour la Société de ne pas exercer ou de ne pas faire respecter, à une occasion donnée, un droit ou une disposition des présentes CGU ne constitue pas une renonciation à ce droit ou à cette disposition pour l'avenir.</p>
+      <p><strong>Intégralité de l'accord</strong> — Les présentes CGU, ainsi que les politiques auxquelles elles renvoient (notamment la politique de confidentialité), constituent l'intégralité de l'entente entre l'Utilisateur et la Société relativement aux Services.</p>
+      <p><strong>Cession</strong> — La Société peut céder tout ou partie de ses droits et obligations découlant des présentes CGU, notamment dans le cadre d'une réorganisation de son entreprise, sans que cette cession ne réduise les droits dont bénéficie l'Utilisateur consommateur en vertu des présentes ou de la loi applicable.</p>
+      <p><strong>Force majeure</strong> — La Société ne peut être tenue responsable d'un retard ou d'un défaut d'exécution résultant d'une cause indépendante de sa volonté raisonnable, notamment une panne d'un fournisseur d'hébergement, une catastrophe naturelle ou une décision gouvernementale.</p>
+
+      <h3>17. Coordonnées</h3>
+      <p>Pour toute question relative aux présentes CGU : confidentialite.noesis@gmail.com.</p>
+    </div>
+  </div>
 </div>
 
 <!-- Visionneuse d'image plein écran (3 septembre 2026, demande d'Emilien :

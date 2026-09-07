@@ -239,6 +239,10 @@
     // #communityMyPostsBlock côté Communauté) — une seule entrée suffit, les
     // deux blocs affichent exactement le même mot.
     'Publier': 'Post',
+    "Conditions d'utilisation": 'Terms of use',
+    "Le contrat qui régit l'utilisation de Noèsis TimeTracker.": 'The contract governing the use of Noèsis TimeTracker.',
+    "Lire les conditions d'utilisation": 'Read the terms of use',
+    "Lire les conditions d'utilisation avant de créer ton profil": 'Read the terms of use before creating your profile',
     // 'Écrire aux membres' : placeholder du composeur de Communauté
     // (#communityMyPostsInput), 3 septembre 2026, demande d'Emilien.
     'Écrire aux membres': 'Write to members',
@@ -482,6 +486,12 @@
     "Trop d'essais. Réessaie dans une minute.": 'Too many attempts. Try again in a minute.',
     'Code incorrect.': 'Wrong PIN.',
     'Code actuel incorrect.': 'Wrong current PIN.',
+    'Non authentifié. Reconnecte-toi.': 'Not signed in. Please sign in again.',
+
+    // ---- Sécurité (Réglages) : déconnexion de tous les appareils (7 septembre 2026) ----
+    'Se déconnecter de tous les appareils': 'Sign out of all devices',
+    "Déconnecte immédiatement tous tes appareils, y compris celui-ci — utile si tu penses que ton code a pu être vu par quelqu'un d'autre. Chaque appareil redemandera ton code à la prochaine ouverture.": "Immediately signs you out of every device, including this one — useful if you think someone else may have seen your PIN. Each device will ask for the PIN again next time it opens.",
+    'Se déconnecter de TOUS les appareils, y compris celui-ci ? Chacun redemandera ton code à la prochaine ouverture.': 'Sign out of ALL devices, including this one? Each one will ask for your PIN again next time it opens.',
     'weekOffset invalide.': 'Invalid weekOffset.',
     'Champ "csv" manquant.': 'Missing "csv" field.',
     'Fichier CSV vide ou illisible.': 'Empty or unreadable CSV file.',
@@ -738,6 +748,9 @@
     'Calendrier désactivé.': 'Calendar turned off.',
     'Jamais relu par un calendrier pour le moment.': 'No calendar has read it yet.',
     'Dernière lecture par un calendrier : ': 'Last read by a calendar: ',
+    'Ajouter à Apple Calendar': 'Add to Apple Calendar',
+    'Ajouter à Google Agenda': 'Add to Google Calendar',
+    "Sur un autre calendrier (Outlook ou autre), copie l'adresse ci-dessous puis choisis « S'abonner à un calendrier » ou « Ajouter un calendrier à partir d'une adresse Internet », et colle-la.": 'On another calendar app (Outlook or other), copy the address below then choose “Subscribe to a calendar” or “Add a calendar from an internet address”, and paste it in.',
 
     // ----- Détail par sous-projet dans les statistiques (4 septembre 2026) -----
     // Chantier « Chrono — sous-projets », second passage.
@@ -762,6 +775,34 @@
     // ('Activité invalide.' est déjà traduite plus haut — pas de doublon).
     'Période invalide.': 'Invalid period.',
     "Cette personne n'est pas membre de cette activité.": 'This person is not a member of this activity.',
+
+    // ---- Entrées remises après une perte (7 septembre 2026) ----
+    // ⚠️ Deuxième fois en quatre jours : des entrées de ce dictionnaire
+    // disparaissent quand le fichier est réécrit depuis une copie périmée.
+    // Celles-ci sont toutes encore employées littéralement par app.js ou
+    // index.html d'aujourd'hui — leur absence ne se voit pas en français
+    // (t(x) renvoie x quand la clé manque), seulement en anglais. Remises ici
+    // sans leurs commentaires d'origine ; chaque discussion concernée peut
+    // les replacer dans sa section. Signalé à Emilien.
+    'Publications': 'Posts',
+    'Aucune publication pour l\'instant.': 'No post yet.',
+    'Suis ce profil pour voir ses publications.': 'Follow this profile to see its posts.',
+    'Chrono en cours': 'Timer running',
+    'Autoriser une autre réponse': 'Allow another answer',
+    'Réponse libre autorisée': 'Free answer allowed',
+    'Ta réponse...': 'Your answer...',
+    'Écris ta réponse.': 'Write your answer.',
+    'Annuler la création du sondage': 'Cancel poll creation',
+    'Nouveau sous-projet': 'New sub-project',
+    'Annuler la création': 'Cancel',
+    'Passé cette date, le sous-projet disparaît de la liste. Rien n\'est supprimé : il reste accessible par « afficher les sous-projets clôturés ».':
+      'After this date the sub-project disappears from the list. Nothing is deleted: it stays reachable through “show closed sub-projects”.',
+    'Sortir': 'Exit',
+    'Sortir de ce sous-projet': 'Exit this sub-project',
+    'Masquer les sous-projets clôturés': 'Hide closed sub-projects',
+    ' sous-projet clôturé': ' closed sub-project',
+    ' sous-projets clôturés': ' closed sub-projects',
+    ' — afficher': ' — show',
   };
 
   // ------------------- Messages contenant une valeur variable -------------

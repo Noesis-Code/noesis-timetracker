@@ -440,6 +440,36 @@ input[type=time]:focus, select:focus, textarea:focus {
   padding: 6px 0 max(6px, env(safe-area-inset-bottom)); z-index: 10;
   transition: transform var(--transition-fast);
 }
+/* 6 septembre 2026 (Design) : Emilien signale, sur iPhone 16 précisément,
+   une fine bande visible sous la barre d'icônes (et au même endroit sur
+   #bootSplash ci-dessous — même symptôme, même correctif). `.tabbar` a
+   pourtant déjà `bottom: 0` et réserve `env(safe-area-inset-bottom)` en
+   padding : en théorie, rien ne devrait dépasser en dessous. Hypothèse
+   retenue (non vérifiable sans l'appareil) : WebKit positionne parfois un
+   élément `position: fixed; bottom: 0` d'une PWA installée légèrement
+   AU-DESSUS du bord physique réel sur certains modèles/versions récentes,
+   laissant la hauteur de la zone de sécurité non peinte — ce qui découvre
+   le fond de <body> (var(--bg), plus clair que le noir de .topbar/html en
+   thème sombre) à cet endroit précis.
+   Stratégie "tous les modèles" (suite à la question d'Emilien) : ne pas
+   chercher à reproduire exactement env(safe-area-inset-bottom) (qui suppose
+   que le navigateur le rapporte ET l'applique correctement — exactement ce
+   qui est mis en doute ici) mais DÉBORDER largement au-delà de toute valeur
+   réaliste (34-35px au maximum connu sur les iPhone à Face ID actuels) :
+   +24px de marge. Ce débordement ne coûte rien et ne peut rien casser : si
+   .tabbar couvre déjà correctement le bord réel de l'écran (tous les
+   iPhone à bouton Home, tout Android, et si l'hypothèse WebKit est fausse
+   même sur iPhone 16), ce prolongement tombe simplement hors de l'écran
+   visible, invisible. `env(..., 0px)` renvoie 0 sur les appareils sans zone
+   de sécurité (repli natif du navigateur) : aucune branche par appareil à
+   écrire à la main, le calcul s'adapte de lui-même. */
+.tabbar::after {
+  content: '';
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  height: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  background: inherit;
+}
 /* ⚠️ 3 septembre 2026 (Design), suite : une première tentative recalculait
    la position de .tabbar via --keyboard-inset (mesurée en JS avec l'API
    VisualViewport) pour la recoller juste au-dessus du clavier — insuffisant
@@ -1990,6 +2020,17 @@ body.scrollLock { overflow: hidden; }
 .communityMembersModalHeader {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
 }
+/* Texte des Conditions d'utilisation (7 septembre 2026, discussion
+   "Conditions d'utilisation") : #legalTermsModal réutilise
+   .communityMembersModal/.communityMembersModalCard telles quelles (page qui
+   remonte du bas, déjà en max-height: 80vh; overflow-y: auto — un texte
+   long défile donc dans la carte sans rien ajouter). Seule nouveauté : la
+   présentation interne du texte lui-même (titres d'article, espacement),
+   propre à cette section, aucune classe générique de Design touchée. */
+.legalTermsBody h3 { margin: 18px 0 6px; font-size: 15px; }
+.legalTermsBody h3:first-of-type { margin-top: 4px; }
+.legalTermsBody p { margin: 0 0 10px; line-height: 1.5; }
+.legalTermsBody p:last-child { margin-bottom: 0; }
 /* Les deux issues de la suppression d'une activité (conserver / supprimer les
    anciens enregistrements). Empilées et en pleine largeur : leurs libellés
    sont longs, côte à côte ils passeraient à la ligne n'importe où sur un
@@ -2714,6 +2755,26 @@ button { -webkit-user-select: none; user-select: none; }
 
 .subProjectItem.done .subProjectItemLabel {
   text-decoration: line-through;
+  color: var(--text-light);
+}
+
+/* Lien collé dans une tâche (7 septembre 2026, demande d'Emilien). Il doit se
+   voir COMME un lien — c'est la seule chose qui dit qu'on peut cliquer — sans
+   casser la ligne quand l'URL est longue. */
+.subProjectItemLink {
+  color: var(--purple);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+  /* Cible tactile confortable sans agrandir la ligne : le lien est souvent
+     collé à d'autres mots, et rater sa cible coche la tâche par erreur. */
+  padding: 2px 0;
+}
+
+/* Une tâche cochée garde son lien cliquable, mais barré comme le reste : le
+   `line-through` du parent ne traverse pas un <a>, qui redéfinit sa
+   décoration. */
+.subProjectItem.done .subProjectItemLink {
+  text-decoration: line-through underline;
   color: var(--text-light);
 }
 

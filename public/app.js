@@ -2443,9 +2443,28 @@
 
   // Couleur d'une case ou d'une part : la couleur de l'activité pour le temps
   // NON rattaché, une nuance de celle-ci pour chaque sous-projet.
-  function spColorFor(data, subProjectId) {
+  // `fallbackRank` (6 septembre 2026) : le rang de nuance porté par la part
+  // elle-même (`shadeIndex`), utilisé quand la réponse ne contient pas la
+  // table `shadeBySubProject`.
+  //
+  // ⚠️ Pourquoi ce repli existe : les trois réponses du serveur ne portent PAS
+  // le rang de la même façon. /sub-project-timesheet et /sub-project-chart
+  // envoient la table complète `shadeBySubProject` (la grille et le graphique
+  // doivent colorer des cases dont ils n'ont pas la part sous la main), tandis
+  // que /sub-project-stats — celle du mode « Aujourd'hui » et de la page solo —
+  // met un `shadeIndex` sur CHAQUE part et pas de table. Sans ce repli, le rang
+  // était introuvable, `subProjectShade(base, null, ...)` renvoyait la couleur
+  // de base, et TOUS les sous-projets ressortaient de la couleur de l'activité
+  // — exactement ce qu'Emilien a vu en appuyant sur « Aujourd'hui ».
+  //
+  // Les deux sources donnent le même rang (`shadeRanks` côté serveur, position
+  // parmi tous les sous-projets de l'activité, clôturés compris) : le repli ne
+  // peut donc pas produire une couleur différente de la table, il comble juste
+  // son absence. La règle de couleur reste unique, ici.
+  function spColorFor(data, subProjectId, fallbackRank) {
     if (subProjectId === null || subProjectId === undefined) return data.baseColor;
-    var rank = data.shadeBySubProject ? data.shadeBySubProject[subProjectId] : null;
+    var rank = data.shadeBySubProject ? data.shadeBySubProject[subProjectId] : undefined;
+    if (rank === undefined || rank === null) rank = fallbackRank;
     return subProjectShade(data.baseColor, rank === undefined ? null : rank, data.shadeCount);
   }
 
@@ -2512,7 +2531,9 @@
           : (p.name || t('Sous-projet')) + (p.closed ? ' (' + t('clôturé') + ')' : ''),
         seconds: p.seconds,
         percent: p.percent,
-        color: spColorFor(data, p.subProjectId),
+        // Le rang de la part est passé en repli : en mode « Aujourd'hui »,
+        // c'est le seul endroit où il se trouve (voir spColorFor).
+        color: spColorFor(data, p.subProjectId, p.shadeIndex),
       };
     });
 
@@ -4806,6 +4827,63 @@
     return wrap;
   }
 
+  // ----- Liens cliquables dans le texte d'une tâche -----
+  //
+  // ⚠️ CONSTRUIT EN NŒUDS DOM, JAMAIS EN innerHTML, et ce n'est pas une
+  // préférence de style : le texte vient d'une TÂCHE, qu'un autre membre de
+  // l'activité peut avoir écrite. Passer par innerHTML ferait de chaque
+  // todolist partagée une porte d'entrée pour du HTML injecté. Ici le texte
+  // reste du texte (createTextNode), seuls les fragments reconnus comme URL
+  // deviennent des <a>.
+  //
+  // ⚠️ SEULS http:// et https:// (et « www. », préfixé en https://) sont
+  // transformés. C'est ce qui rend « javascript:... » ou « data:... »
+  // impossibles à faire passer : ils ne correspondent tout simplement pas au
+  // motif, et restent du texte.
+  var LINK_RE = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+
+  // La ponctuation finale d'une phrase n'appartient pas au lien : « voir
+  // https://exemple.com. » ne doit pas produire une URL terminée par un point.
+  // Exception pour la parenthèse fermante quand le lien en ouvre une (les URL
+  // de Wikipédia, par exemple).
+  function trimUrlTail(url) {
+    var m = url.match(/[.,;:!?»"']+$/);
+    if (m) url = url.slice(0, url.length - m[0].length);
+    while (/[)\]}]$/.test(url)) {
+      var open = url.charAt(url.length - 1) === ')' ? '(' : (url.charAt(url.length - 1) === ']' ? '[' : '{');
+      if (url.indexOf(open) !== -1) break;   // la parenthèse fait partie du lien
+      url = url.slice(0, -1);
+    }
+    return url;
+  }
+
+  function appendLinkified(node, text) {
+    var str = String(text == null ? '' : text);
+    var last = 0;
+    LINK_RE.lastIndex = 0;
+    var match;
+    while ((match = LINK_RE.exec(str)) !== null) {
+      var raw = trimUrlTail(match[0]);
+      if (!raw) continue;
+      if (match.index > last) {
+        node.appendChild(document.createTextNode(str.slice(last, match.index)));
+      }
+      var a = document.createElement('a');
+      a.className = 'subProjectItemLink';
+      a.href = /^https?:\/\//i.test(raw) ? raw : ('https://' + raw);
+      a.textContent = raw;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      // Le clic ouvre le lien et RIEN d'autre : ni cochage de la tâche, ni
+      // ouverture/fermeture du sous-projet si la ligne gagne un jour un
+      // écouteur de clic.
+      a.addEventListener('click', function (e) { e.stopPropagation(); });
+      node.appendChild(a);
+      last = match.index + raw.length;
+    }
+    if (last < str.length) node.appendChild(document.createTextNode(str.slice(last)));
+  }
+
   function buildTaskRow(item) {
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (item.done ? ' done' : '');
@@ -4831,7 +4909,9 @@
 
     var label = document.createElement('span');
     label.className = 'subProjectItemLabel';
-    label.textContent = item.label;
+    // ⭐ Les liens collés dans une tâche deviennent cliquables (demande
+    // d'Emilien, 7 septembre 2026). Voir appendLinkified : jamais innerHTML.
+    appendLinkified(label, item.label);
     row.appendChild(label);
 
     // Sur une activité partagée, savoir QUI a coché évite le « c'est moi qui
@@ -5918,6 +5998,25 @@
   $('communityMembersModal').addEventListener('click', function (e) {
     if (e.target === this) this.classList.add('hidden');
   });
+  var legalTermsOpenBtn = $('openLegalTermsBtn');
+  if (legalTermsOpenBtn) {
+    legalTermsOpenBtn.addEventListener('click', function () {
+      $('legalTermsModal').classList.remove('hidden');
+    });
+  }
+  var onbLegalTermsLink = $('onbLegalTermsLink');
+  if (onbLegalTermsLink) {
+    onbLegalTermsLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      $('legalTermsModal').classList.remove('hidden');
+    });
+  }
+  $('legalTermsModalClose').addEventListener('click', function () {
+    $('legalTermsModal').classList.add('hidden');
+  });
+  $('legalTermsModal').addEventListener('click', function (e) {
+    if (e.target === this) this.classList.add('hidden');
+  });
 
   // ===================== SUIVI (Recherche / Demandes / Suivi / Partagée) =====
   // Entièrement indépendant du partage d'activité ci-dessus : suivre
@@ -6813,6 +6912,32 @@
     if (legacyCopy(url)) done(); else failed();
   });
 
+  // Raccourcis d'abonnement en un clic (7 septembre 2026, demande d'Emilien).
+  // 'webcal:' est le schéma standard pour une souscription calendrier : le
+  // système d'exploitation (ou le navigateur) route ce schéma vers l'app de
+  // calendrier par défaut sans jamais charger de page — assigner
+  // location.href ne fait donc PAS quitter Réglages, contrairement à un lien
+  // http normal. On dérive ce lien de l'adresse déjà affichée plutôt que de
+  // refaire un appel serveur : c'est la même adresse, juste un autre schéma.
+  function calendarFeedWebcalUrl() {
+    var url = $('calendarFeedUrl').value;
+    return url ? url.replace(/^https:/, 'webcal:') : '';
+  }
+
+  $('calendarFeedAppleBtn').addEventListener('click', function () {
+    var webcal = calendarFeedWebcalUrl();
+    if (!webcal) return;
+    window.location.href = webcal;
+  });
+
+  $('calendarFeedGoogleBtn').addEventListener('click', function () {
+    var webcal = calendarFeedWebcalUrl();
+    if (!webcal) return;
+    // Paramètre `cid` documenté par Google pour s'abonner à une adresse
+    // externe — un simple lien, aucune clé API ni compte Google côté serveur.
+    window.open('https://calendar.google.com/calendar/render?cid=' + encodeURIComponent(webcal), '_blank', 'noopener');
+  });
+
   function showProfileSettings() {
     closeNotifPanel();
     closeFollowsPanel();
@@ -7344,6 +7469,28 @@
       })
       .catch(function (err) { $('settingsPinMsg').textContent = err.message; })
       .finally(function () { $('settingsPinSaveBtn').disabled = false; });
+  });
+
+  // "Se déconnecter de tous les appareils" (7 septembre 2026, section
+  // Sécurité du panneau Réglages). Contrairement au bouton de déconnexion
+  // habituel (qui n'efface QUE le profil local de CET appareil), cette
+  // action révoque côté serveur tous les témoins déjà posés sur TOUS les
+  // appareils, y compris celui-ci (voir POST /api/session/logout-all,
+  // server/routes/session.js) — le profil local n'est volontairement PAS
+  // effacé : au rechargement, l'app le retrouve, constate qu'il n'a plus de
+  // témoin valide et redemande le code, exactement comme sur un nouvel
+  // appareil (voir plus haut, section "DÉMARRAGE").
+  $('settingsLogoutAllBtn').addEventListener('click', function () {
+    if (!confirm(t('Se déconnecter de TOUS les appareils, y compris celui-ci ? Chacun redemandera ton code à la prochaine ouverture.'))) return;
+    $('settingsLogoutAllBtn').disabled = true;
+    api('POST', '/api/session/logout-all')
+      .then(function () {
+        location.reload();
+      })
+      .catch(function (err) {
+        $('settingsLogoutAllMsg').textContent = err.message;
+        $('settingsLogoutAllBtn').disabled = false;
+      });
   });
 
   // ===================== MES NOTES — SUPPRIMÉE LE 4 SEPTEMBRE 2026 =====================

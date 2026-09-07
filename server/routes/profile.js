@@ -5,7 +5,7 @@ const { makePinRecord, verifyPinRecord, isValidPinFormat, isLocked, registerFail
 const { isInPalette, pairedColor } = require('../lib/theme');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 const { notifyCommunityPost } = require('../lib/push');
-const { setSessionCookie } = require('../lib/session');
+const { setSessionCookie, bumpSessionEpoch } = require('../lib/session');
 // Statistiques d'un profil VISITÉ (2 septembre 2026) — voir GET
 // /profile/:userId/stats plus bas. Les deux fonctions sont importées et
 // appelées TELLES QUELLES, en lecture seule : aucune ligne de
@@ -404,7 +404,18 @@ router.post('/profile/:id/set-pin', (req, res) => {
     return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
   }
 
-  if (user.pin) {
+  // Sécurité — Réglages utilisateur (7 septembre 2026) : le cas "code déjà
+  // existant" (changement de PIN depuis Réglages) n'exigeait jusqu'ici QUE
+  // currentPin, jamais req.userId — un appelant qui connaît/devine
+  // currentPin (fuite, code partagé...) pouvait changer le PIN d'un profil
+  // sans être connecté dessus du tout. Défense en profondeur, même principe
+  // que DELETE /profile/:id plus bas : les deux facteurs sont désormais
+  // exigés ensemble pour CE cas aussi.
+  const isChange = !!user.pin;
+  if (isChange) {
+    if (req.userId !== user.id) {
+      return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+    }
     if (isLocked(user.id)) return res.status(429).json({ error: 'Trop d\'essais. Réessaie dans une minute.' });
     const currentPin = (req.body.currentPin || '').trim();
     if (!verifyPinRecord(currentPin, user.pin)) {
@@ -415,6 +426,18 @@ router.post('/profile/:id/set-pin', (req, res) => {
   }
 
   db.prepare('UPDATE users SET pin = ? WHERE id = ?').run(makePinRecord(newPin), user.id);
+
+  if (isChange) {
+    // Un changement de PIN réussi déconnecte tous les AUTRES appareils déjà
+    // authentifiés sur ce compte (voir bumpSessionEpoch, server/lib/session.js)
+    // — le PIN qui a pu être vu par quelqu'un d'autre ne sert plus à rien une
+    // fois changé. CET appareil-ci n'est pas déconnecté : il vient de prouver
+    // deux fois son identité (session + currentPin), on lui pose donc
+    // aussitôt un témoin frais plutôt que de le forcer à se reconnecter.
+    bumpSessionEpoch(user.id);
+    setSessionCookie(req, res, user.id);
+  }
+
   res.json({ ok: true });
 });
 
