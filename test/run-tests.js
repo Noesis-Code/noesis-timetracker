@@ -1,7 +1,7 @@
 // Suite de vérification du mécanisme de sauvegarde — contre du vrai code
 // exécuté (vraie base SQLite, vrai serveur HTTP local imitant l'API S3,
 // vrai chiffrement/déchiffrement). Ne teste PAS l'authentification réelle
-// d'OVHcloud (aucune vraie clé disponible ici) — voir GUIDE-SAUVEGARDE-R2.md
+// de Cloudflare (aucune vraie clé disponible ici) — voir GUIDE-SAUVEGARDE-R2.md
 // pour l'étape qui le fera.
 
 const path = require('path');
@@ -64,11 +64,11 @@ async function main() {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noesis-backup-test-'));
 
   process.env.NOESIS_DATA_DIR = path.join(workDir, 'data');
-  process.env.OVH_S3_ENDPOINT = `http://127.0.0.1:${port}`;
-  process.env.OVH_S3_REGION = 'gra';
-  process.env.OVH_S3_BUCKET = 'noesis-test-bucket';
-  process.env.OVH_S3_ACCESS_KEY_ID = 'TESTKEYID';
-  process.env.OVH_S3_SECRET_ACCESS_KEY = 'testsecretkeyvalue1234567890';
+  process.env.S3_ENDPOINT = `http://127.0.0.1:${port}`;
+  process.env.S3_REGION = 'auto';
+  process.env.S3_BUCKET = 'noesis-test-bucket';
+  process.env.S3_ACCESS_KEY_ID = 'TESTKEYID';
+  process.env.S3_SECRET_ACCESS_KEY = 'testsecretkeyvalue1234567890';
   process.env.NOESIS_BACKUP_KEY = TEST_KEY_HEX;
   process.env.NOESIS_BACKUP_KEEP = '3';
   process.env.NOESIS_BACKUP_PREFIX = 'noesis-backups/';
@@ -99,7 +99,7 @@ async function main() {
   assert(!!result.key, 'une clé d\'objet S3 a été produite');
   assert(result.sentBytes > 0 && result.sentBytes < result.rawBytes, 'le fichier envoyé est plus petit que la base brute (compression effective)');
 
-  const client = makeClient({ bucket: 'noesis-test-bucket', accessKeyId: 'TESTKEYID', secretAccessKey: 'testsecretkeyvalue1234567890', endpoint: process.env.OVH_S3_ENDPOINT, region: 'gra' });
+  const client = makeClient({ bucket: 'noesis-test-bucket', accessKeyId: 'TESTKEYID', secretAccessKey: 'testsecretkeyvalue1234567890', endpoint: process.env.S3_ENDPOINT, region: 'auto' });
   const listed = await client.listObjects('noesis-backups/');
   assert(listed.length === 1, 'exactement un objet présent après une sauvegarde');
 

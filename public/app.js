@@ -837,23 +837,39 @@
       });
   });
 
-  var allUsersCache = [];
+  // ⚠️ 7 septembre 2026 (incident 2026-001) : cet écran chargeait TOUT
+  // l'annuaire (`GET /api/users` sans paramètre) puis filtrait côté client —
+  // c'est ce qui rendait la liste complète des membres lisible par n'importe
+  // qui, sans session. Le filtrage est désormais fait PAR LE SERVEUR, sur une
+  // correspondance EXACTE du pseudo (voir GET /users dans
+  // server/routes/profile.js). Conséquence visible pour la personne : il faut
+  // taper son pseudo en entier, un début ne suffit plus — c'est le prix à
+  // payer pour qu'on ne puisse plus énumérer les membres.
+  // `onbSearchSeq` : garde anti-réponse-en-vol, même principe que
+  // viewProfileUserId sur la page de visite. Deux frappes rapides peuvent
+  // revenir dans le désordre ; seule la dernière a le droit de dessiner.
+  var onbSearchSeq = 0;
   function loadUserListForOnboarding(filter) {
-    api('GET', '/api/users').then(function (users) {
-      allUsersCache = users;
-      renderOnbUserList(filter);
-    });
+    var q = (filter || '').trim();
+    var seq = ++onbSearchSeq;
+    if (!q) { renderOnbUserList([], seq, ''); return; }
+    api('GET', '/api/users?name=' + encodeURIComponent(q))
+      .then(function (users) { renderOnbUserList(users, seq, q); })
+      .catch(function () { renderOnbUserList([], seq, q); });
   }
-  function renderOnbUserList(filter) {
+  function renderOnbUserList(users, seq, q) {
+    if (seq !== onbSearchSeq) return;
     var box = $('onbUserList');
     box.innerHTML = '';
-    var f = (filter || '').toLowerCase();
-    var filtered = allUsersCache.filter(function (u) { return u.name.toLowerCase().indexOf(f) !== -1; });
-    if (filtered.length === 0) {
+    if (!q) {
+      box.innerHTML = '<p class="hint">' + t('Tape ton pseudo en entier pour retrouver ton profil.') + '</p>';
+      return;
+    }
+    if (users.length === 0) {
       box.innerHTML = '<p class="hint">' + t('Aucun profil trouvé.') + '</p>';
       return;
     }
-    filtered.forEach(function (u) {
+    users.forEach(function (u) {
       var chip = document.createElement('div');
       chip.className = 'userChip';
       chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(u.name) + '</span>';
@@ -863,7 +879,7 @@
       box.appendChild(chip);
     });
   }
-  $('onbSearch').addEventListener('input', function () { renderOnbUserList(this.value); });
+  $('onbSearch').addEventListener('input', function () { loadUserListForOnboarding(this.value); });
 
   // ----- Étape "code PIN" (récupérer un profil existant, ou lui en définir
   // un s'il n'en a pas encore — comptes créés avant cette protection) -----
@@ -8210,6 +8226,13 @@
   // ne s'empilent plus, ce sont deux vues alternatives du même espace.
   var viewProfileSection = 'stats';    // 'stats' | 'messages' — 'stats' par défaut à chaque ouverture
   var viewProfileCanSeePosts = false;  // renseigné par GET /profile/:id/public (canSeePosts)
+  // 7 septembre 2026, chantier « minimisation + confidentialité par défaut » :
+  // renseigné par le champ canSeeContent de la même réponse. Gouverne les
+  // STATISTIQUES et le DÉTAIL DES PROJETS, qui ne sont plus visibles de tout
+  // membre identifié mais des seuls abonnés acceptés. Volontairement une
+  // variable distincte de viewProfileCanSeePosts, comme les deux gardes le
+  // sont côté serveur.
+  var viewProfileCanSeeContent = false;
   var viewProfilePostsLoaded = false;  // les messages ne sont chargés qu'à la première sélection
 
   // Bascule entre les deux vues. Volontairement séparée de leur CHARGEMENT :
@@ -8299,6 +8322,10 @@
     $('viewProfilePostsList').innerHTML = '';
     $('viewProfilePostsEmptyHint').classList.add('hidden');
     $('viewProfilePostsLockedHint').classList.add('hidden');
+    $('viewProfileProjectsLockedHint').classList.add('hidden');
+    $('viewProfileStatsLockedHint').classList.add('hidden');
+    $('viewProfilePieBlock').classList.remove('hidden');
+    $('viewProfileChartBlock').classList.remove('hidden');
     // Sondages du profil visité (3 septembre 2026, discussion "Sondages") :
     // remis à zéro ET remasqués comme le reste — le bloc se réaffichera de
     // lui-même si ce profil-ci en a (voir mountPolls, plus bas). Chargé plus
@@ -8322,6 +8349,7 @@
     // du profil précédent n'a aucune raison de valoir pour celui-ci (nombre
     // d'activités différent, donc légende de camembert différente).
     viewProfileCanSeePosts = false;
+    viewProfileCanSeeContent = false;
     viewProfilePostsLoaded = false;
     $('viewProfileStatsSection').style.minHeight = '';
     $('viewProfileMessagesSection').style.minHeight = '';
@@ -8343,6 +8371,14 @@
         if (viewProfileUserId !== userId) return;
         renderViewProfileIdentity(card2);
         viewProfileCanSeePosts = !!card2.canSeePosts;
+        // 7 septembre 2026 : statistiques et détail des projets ne partent
+        // plus en parallèle de cette requête — ils attendent de savoir si
+        // l'accès est accordé, exactement comme les publications le font
+        // déjà. Sans ça, on déclencherait deux 403 à chaque visite d'un
+        // profil qu'on ne suit pas.
+        viewProfileCanSeeContent = !!card2.canSeeContent;
+        loadViewProfileProjects();
+        loadViewProfileStats();
         // Cas de course réel : on peut cliquer "Messages" AVANT que cette
         // réponse n'arrive. Le clic ne savait pas encore si l'accès était
         // accordé, il n'a donc rien chargé — c'est ici qu'on rattrape.
@@ -8353,11 +8389,8 @@
       })
       .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
 
-    api('GET', '/api/profile/' + userId + '/projects?viewerId=' + profile.id)
-      .then(renderViewProfileProjects)
-      .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
-
-    loadViewProfileStats();
+    // (Projets et statistiques sont chargés dans le .then() de /public
+    //  ci-dessus, une fois canSeeContent connu.)
     // Sondages du profil visité (3 septembre 2026, discussion "Sondages") :
     // premier niveau d'accès (tout membre identifié), comme les projets et
     // les statistiques juste au-dessus — et contrairement aux messages,
@@ -8397,9 +8430,51 @@
   // même réponse ne peuvent pas diverger. Un changement de période ou de
   // granularité recharge simplement l'ensemble — deux graphiques, c'est
   // assez peu pour ne pas justifier deux routes.
+  // 7 septembre 2026 : le détail des projets est réservé aux abonnés
+  // acceptés. Le NOMBRE de projets, lui, reste visible de tous — il vient de
+  // la recherche (GET /users/search), pas d'ici.
+  function loadViewProfileProjects() {
+    if (!viewProfileUserId || !profile) return;
+    var target = viewProfileUserId;
+    if (!viewProfileCanSeeContent) {
+      $('viewProfileProjectsLockedHint').classList.remove('hidden');
+      $('viewProfileProjectsEmptyHint').classList.add('hidden');
+      $('viewProfileProjectsList').innerHTML = '';
+      $('viewProfileProjectDetail').classList.add('hidden');
+      return;
+    }
+    $('viewProfileProjectsLockedHint').classList.add('hidden');
+    api('GET', '/api/profile/' + target + '/projects?viewerId=' + profile.id)
+      .then(function (list) {
+        if (viewProfileUserId !== target) return;
+        renderViewProfileProjects(list);
+      })
+      .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
+  }
+
   function loadViewProfileStats() {
     if (!viewProfileUserId || !profile) return;
     var target = viewProfileUserId;
+    if (!viewProfileCanSeeContent) {
+      $('viewProfileStatsLockedHint').classList.remove('hidden');
+      // Les deux blocs sont MASQUÉS, pas seulement vidés : laisser leurs
+      // cadres « Répartition »/« Graphique » avec leurs menus « ⋮ » donnerait
+      // l'impression d'un chargement en cours, ou pire, d'un profil sans
+      // aucune activité — deux lectures fausses.
+      $('viewProfilePieBlock').classList.add('hidden');
+      $('viewProfileChartBlock').classList.add('hidden');
+      $('viewProfilePie').innerHTML = '';
+      $('viewProfilePieEmptyHint').classList.add('hidden');
+      $('viewProfileChart').innerHTML = '';
+      $('viewProfileChartLegend').innerHTML = '';
+      $('viewProfileChartEmptyHint').classList.add('hidden');
+      $('viewProfileStatsLabel').textContent = '';
+      syncViewProfilePaneHeight();
+      return;
+    }
+    $('viewProfileStatsLockedHint').classList.add('hidden');
+    $('viewProfilePieBlock').classList.remove('hidden');
+    $('viewProfileChartBlock').classList.remove('hidden');
     api('GET', '/api/profile/' + target + '/stats?viewerId=' + profile.id +
         '&period=' + viewProfilePiePeriod + '&granularity=' + viewProfileChartGranularity)
       .then(function (data) {
@@ -11071,7 +11146,14 @@
       if (session.userId && session.userId === profile.id) {
         refreshProfileAndEnter();
       } else {
-        api('GET', '/api/users').then(function (users) {
+        // ⚠️ 7 septembre 2026 (incident 2026-001) : cet appel demandait
+        // l'annuaire complet pour y retrouver une seule ligne. Il interroge
+        // désormais la route par pseudo EXACT — le profil local en mémoire
+        // porte déjà son propre `name`, donc rien de plus n'est nécessaire.
+        // L'identifiant reste vérifié ci-dessous : un homonyme (impossible en
+        // pratique, `users.name` est unique, mais la garde ne coûte rien) ne
+        // doit pas être pris pour soi.
+        api('GET', '/api/users?name=' + encodeURIComponent(profile.name || '')).then(function (users) {
           var match = users.filter(function (u) { return u.id === profile.id; })[0];
           if (!match) {
             // Profil introuvable côté serveur (compte supprimé ailleurs) :

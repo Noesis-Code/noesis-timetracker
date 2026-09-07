@@ -139,6 +139,28 @@ function canViewPosts(viewerId, ownerId) {
   return isAcceptedFollower(viewerId, ownerId);
 }
 
+// CONTENU SUIVI (7 septembre 2026, chantier « minimisation + confidentialité
+// par défaut », décision d'Emilien) : ce que la personne enregistre et
+// fabrique — noms de ses activités, totaux de temps, détail de ses projets —
+// n'est visible que par elle-même ou par un abonné accepté.
+//
+// ⚠️ Volontairement une fonction DISTINCTE de canViewPosts, malgré une règle
+// aujourd'hui identique. Les deux répondent à des questions différentes
+// (« peut-il lire mes messages ? » / « peut-il voir sur quoi je passe mon
+// temps ? ») : les garder séparées évite qu'un futur assouplissement de
+// l'une ouvre l'autre en silence.
+//
+// ⚠️ Et volontairement PAS canViewProjects, qui reste « tout membre
+// identifié » : celle-là gouverne encore la carte publique (identité
+// minimale) ET le scope 'profile' des sondages (server/routes/polls.js,
+// choix explicite d'Emilien du 3 septembre — un sondage doit pouvoir
+// récolter des votes au-delà des seuls abonnés). Changer canViewProjects
+// aurait fermé les sondages sans que personne ne le demande.
+function canViewTrackedContent(viewerId, ownerId) {
+  if (viewerId === ownerId) return true;
+  return isAcceptedFollower(viewerId, ownerId);
+}
+
 function projectRowOut(p) {
   return {
     id: p.id,
@@ -169,8 +191,45 @@ function projectRowOut(p) {
 // autre usage de cet annuaire, GET /users/search (server/routes/follows.js)
 // est la route enrichie prévue pour ça — à leur discrétion, hors périmètre
 // de ce chantier.
+// ⚠️ 7 septembre 2026 — INCIDENT 2026-001 FERMÉ (chantier « minimisation +
+// confidentialité par défaut », décision d'Emilien).
+//
+// Cette route renvoyait la liste ENTIÈRE des profils, sans aucune session :
+// n'importe qui, en navigation privée, obtenait l'annuaire complet des
+// membres (id, prénom, couleur, « a un code »). Constaté en production par
+// Emilien lui-même le 7 septembre 2026 ; consigné comme incident 2026-001
+// dans noesis-timetracker-registre-incidents.md.
+//
+// Elle ne peut PAS être fermée derrière requireAuth : c'est le seul moyen de
+// retrouver son propre profil sur un nouvel appareil AVANT d'avoir la
+// moindre session (onboarding « J'ai déjà un profil », voir
+// loadUserListForOnboarding dans public/app.js). D'où la correction retenue :
+// **on garde la route ouverte, mais on retire l'énumération.**
+//
+//   - Sans paramètre `name`, la réponse est un tableau VIDE. Plus aucune
+//     liste ne sort d'ici, quoi qu'il arrive.
+//   - Avec `name`, la correspondance est EXACTE (COLLATE NOCASE) : il faut
+//     déjà connaître le pseudo complet de la personne pour obtenir sa ligne.
+//     Un préfixe ne suffit pas — sinon 26 requêtes d'une lettre chacune
+//     reconstitueraient l'annuaire.
+//
+// Ce qui sort reste minimisé au strict nécessaire à ce flux : id, name,
+// color (affichage de la ligne) et hasPin (proposer « définir un code »
+// plutôt que « vérifier le code » sur un compte créé avant cette
+// protection). LIMIT 5 est une ceinture : `users.name` est déjà unique
+// (contrôle d'unicité COLLATE NOCASE dans POST /profile ci-dessous).
+//
+// ⚠️ Limite assumée, à connaître : cette route confirme toujours l'EXISTENCE
+// d'un pseudo à qui le devine exactement. C'est le prix d'une récupération de
+// compte sans mot de passe ni courriel de vérification. Le chantier « mot de
+// passe à la place du NIP » (reporté après le 11 septembre) est ce qui
+// permettra de la fermer complètement.
 router.get('/users', (req, res) => {
-  const rows = db.prepare('SELECT id, name, color, pin FROM users ORDER BY name COLLATE NOCASE').all();
+  const name = (req.query.name || '').trim();
+  if (!name) return res.json([]);
+  const rows = db.prepare(
+    'SELECT id, name, color, pin FROM users WHERE name = ? COLLATE NOCASE LIMIT 5'
+  ).all(name);
   res.json(rows.map((u) => ({ id: u.id, name: u.name, color: u.color, hasPin: !!u.pin })));
 });
 
@@ -651,14 +710,21 @@ router.get('/profile/:userId/projects', (req, res) => {
   const owner = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.userId);
   if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  // Aperçu public depuis le 2 septembre 2026 (voir canViewProjects plus
-  // haut) : n'importe quel membre identifié, plus seulement les abonnés.
+  // ⚠️ 7 septembre 2026 — RETOUR EN ARRIÈRE sur l'aperçu public du 2
+  // septembre : le DÉTAIL d'un projet (nom, description, lien, date,
+  // secteur) repasse de « tout membre identifié » à « abonné accepté ».
+  // Motif : la politique de confidentialité (section 4.1) annonce que le
+  // contenu créé reste privé tant que la personne n'a pas posé un geste
+  // volontaire, et le détail des projets n'était pas couvert par l'identité
+  // minimale que cette section décrit. Ce qui RESTE repérable de tout
+  // membre : le NOMBRE de projets et les tags « Recherche », calculés par
+  // GET /users/search (server/routes/follows.js), non touché.
   // Sécurité (chantier 1) : le visiteur est req.userId (résolu depuis le
   // témoin de session), plus jamais un viewerId annoncé par le client —
   // sinon n'importe qui pouvait se prétendre abonné accepté de n'importe
   // qui d'autre simplement en changeant ce paramètre.
-  if (!canViewProjects(req.userId, owner.id)) {
-    return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
+  if (!canViewTrackedContent(req.userId, owner.id)) {
+    return res.status(403).json({ error: "Tu dois suivre ce profil pour voir ses projets." });
   }
 
   const rows = db.prepare('SELECT * FROM profile_projects WHERE userId = ? ORDER BY position ASC, id ASC').all(owner.id);
@@ -715,6 +781,12 @@ router.get('/profile/:userId/public', (req, res) => {
     createdAt: owner.createdAt,
     isSelf: viewerId === owner.id,
     canSeePosts: canViewPosts(viewerId, owner.id),
+    // 7 septembre 2026 : même rôle que canSeePosts, pour le contenu suivi
+    // (statistiques, détail des projets) — le client sait d'avance s'il doit
+    // dessiner ces sections ou l'invitation à suivre, sans provoquer un 403
+    // pour rien. Champ SÉPARÉ de canSeePosts bien que la valeur soit
+    // aujourd'hui la même : voir canViewTrackedContent plus haut.
+    canSeeContent: canViewTrackedContent(viewerId, owner.id),
     chronoRunning: !!running,
   });
 });
@@ -743,8 +815,12 @@ router.get('/profile/:userId/stats', (req, res) => {
   const owner = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.userId);
   if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  if (!canViewProjects(req.userId, owner.id)) {
-    return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
+  // ⚠️ 7 septembre 2026 : cette route renvoie les NOMS des activités et le
+  // temps passé sur chacune — précisément ce que la politique de
+  // confidentialité (section 4.1) annonce comme privé par défaut. Elle passe
+  // donc de « tout membre identifié » à « abonné accepté ».
+  if (!canViewTrackedContent(req.userId, owner.id)) {
+    return res.status(403).json({ error: "Tu dois suivre ce profil pour voir ses statistiques." });
   }
 
   const period = PROFILE_STATS_PERIODS.indexOf(req.query.period) !== -1 ? req.query.period : 'week';

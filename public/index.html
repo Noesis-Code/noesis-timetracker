@@ -2526,6 +2526,13 @@
              elle-même. -->
         <div id="viewProfileProjectsList" class="viewProfileProjectsStrip"></div>
         <p id="viewProfileProjectsEmptyHint" class="hint hidden">Aucun projet partagé pour l'instant.</p>
+        <!-- 7 septembre 2026, chantier « minimisation + confidentialité par
+             défaut » : le DÉTAIL des projets est passé de « tout membre
+             identifié » à « abonné accepté » (server/routes/profile.js,
+             canViewTrackedContent). Même motif d'invitation à suivre que
+             #viewProfilePostsLockedHint plus bas. Le NOMBRE de projets, lui,
+             reste visible de tous — il vient de la recherche, pas d'ici. -->
+        <p id="viewProfileProjectsLockedHint" class="hint hidden">Suis ce profil pour voir ses projets.</p>
         <div id="viewProfileProjectDetail" class="activityRow viewProfileProjectDetail hidden"></div>
 
         <!-- Statistiques du profil visité (2 septembre 2026) : Répartition +
@@ -2560,6 +2567,12 @@
         </div>
 
         <div id="viewProfileStatsSection">
+        <!-- 7 septembre 2026, même chantier : les statistiques d'un profil
+             visité (noms des activités + temps passé sur chacune) sont
+             désormais réservées aux abonnés acceptés. Placé AVANT les deux
+             blocs plutôt qu'à l'intérieur de l'un d'eux : c'est toute la vue
+             qui est verrouillée, pas une de ses deux moitiés. -->
+        <p id="viewProfileStatsLockedHint" class="hint hidden">Suis ce profil pour voir ses statistiques.</p>
         <div id="viewProfilePieBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Répartition</p>

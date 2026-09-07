@@ -1,4 +1,4 @@
-// Sauvegarde chiffrée hors site (OVHcloud Object Storage) — Noèsis TimeTracker.
+// Sauvegarde chiffrée hors site (Cloudflare R2) — Noèsis TimeTracker.
 //
 // Pourquoi ce module existe : au 6 septembre 2026, aucune copie de secours
 // n'existe nulle part (ni Railway natif, ni ailleurs). Les données de tous
@@ -8,16 +8,18 @@
 // survivre à autre chose qu'une corruption interne (perte du projet Railway,
 // facturation coupée, suspension, panne de région).
 //
-// **Migration du 7 septembre 2026** : prévu à l'origine pour Cloudflare R2,
-// jamais activé en production car l'activation du compte Cloudflare (carte
-// bancaire) a échoué de façon répétée, sur deux circuits de paiement
-// différents (carte directe, Google Pay), avec la même carte — signe d'un
-// blocage côté banque plutôt que côté Cloudflare. Décision prise avec
-// Emilien de basculer sur OVHcloud Object Storage : entreprise française,
-// stockage en France, compatible S3, egress gratuit. Voir
-// noesis-timetracker-sauvegardes.md pour le détail. Le module lui-même ne
-// change pas de logique — seulement de destination (variables d'environnement
-// ci-dessous) et de client (`./r2client`, resté générique, voir son en-tête).
+// **Aller-retour du 7 septembre 2026** : Cloudflare R2 → OVHcloud → Cloudflare
+// R2. Le compte Cloudflare d'Emilien n'a jamais pu être activé (paiement
+// refusé de façon répétée, plusieurs cartes, deux circuits de paiement).
+// Basculé sur OVHcloud le même jour, mais la création de compte OVHcloud a
+// échoué à son tour, pour Emilien ET pour Gaspard (le cofondateur) sur des
+// comptes séparés. **Gaspard a finalement réussi à activer Cloudflare** (son
+// compte à lui, pas celui d'Emilien) — retour à Cloudflare R2, cette fois
+// sous le compte de Gaspard. Voir noesis-timetracker-sauvegardes.md pour
+// l'historique complet des trois tentatives. Le module lui-même n'a jamais
+// changé de logique — seulement de destination (variables d'environnement
+// ci-dessous, génériques depuis le premier aller-retour) et de client
+// (`./r2client`, générique, voir son en-tête).
 //
 // Décisions structurantes :
 //
@@ -53,17 +55,19 @@
 //   déclenche autant de sauvegardes coup sur coup.
 //
 // Variables d'environnement :
-//   OVH_S3_ENDPOINT, OVH_S3_REGION, OVH_S3_BUCKET, OVH_S3_ACCESS_KEY_ID,
-//   OVH_S3_SECRET_ACCESS_KEY
+//   S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID,
+//   S3_SECRET_ACCESS_KEY
 //     — obligatoires. Sans l'une d'elles, le module se désactive avec un
-//       avertissement au démarrage (jamais silencieusement).
-//       OVH_S3_ENDPOINT : ex. "https://s3.gra.io.cloud.ovh.net" (région
-//       Gravelines, France — voir GUIDE-SAUVEGARDE-R2.md pour le choix de
-//       région et sa justification vis-à-vis de l'ÉFVP déjà rédigée pour
-//       Railway UE).
-//       OVH_S3_REGION : le code de région correspondant à l'endpoint
-//       ci-dessus (ex. "gra"), requis pour la signature SigV4 — aucune
-//       valeur par défaut, contrairement à l'ancien "auto" de Cloudflare R2.
+//       avertissement au démarrage (jamais silencieusement). Noms génériques
+//       délibérément (aucun préfixe de fournisseur) : ce projet a déjà changé
+//       de destination deux fois en une journée (R2 → OVHcloud → R2), inutile
+//       de renommer les variables à chaque fois.
+//       S3_ENDPOINT : pour Cloudflare R2, forme UE
+//       "https://<compte>.eu.r2.cloudflarestorage.com" (juridiction UE
+//       obligatoire — voir GUIDE-SAUVEGARDE-R2.md).
+//       S3_REGION : "auto" pour Cloudflare R2 (valeur fixe attendue par R2,
+//       peu importe la région réelle du bucket) ; requis quand même, sans
+//       valeur par défaut dans le code — le client ne devine jamais.
 //   NOESIS_BACKUP_KEY (obligatoire pour que le module tourne)
 //     — 64 caractères hexadécimaux (32 octets), clé AES-256-GCM. DOIT vivre
 //       ailleurs que dans Railway (gestionnaire de mots de passe) : perdre à
@@ -99,11 +103,11 @@ function dbPath() {
 
 function readConfig() {
   const {
-    OVH_S3_ENDPOINT,
-    OVH_S3_REGION,
-    OVH_S3_BUCKET,
-    OVH_S3_ACCESS_KEY_ID,
-    OVH_S3_SECRET_ACCESS_KEY,
+    S3_ENDPOINT,
+    S3_REGION,
+    S3_BUCKET,
+    S3_ACCESS_KEY_ID,
+    S3_SECRET_ACCESS_KEY,
     NOESIS_BACKUP_KEY,
     NOESIS_BACKUP_INTERVAL_HOURS,
     NOESIS_BACKUP_KEEP,
@@ -111,11 +115,11 @@ function readConfig() {
   } = process.env;
 
   const missing = [];
-  if (!OVH_S3_ENDPOINT) missing.push('OVH_S3_ENDPOINT');
-  if (!OVH_S3_REGION) missing.push('OVH_S3_REGION');
-  if (!OVH_S3_BUCKET) missing.push('OVH_S3_BUCKET');
-  if (!OVH_S3_ACCESS_KEY_ID) missing.push('OVH_S3_ACCESS_KEY_ID');
-  if (!OVH_S3_SECRET_ACCESS_KEY) missing.push('OVH_S3_SECRET_ACCESS_KEY');
+  if (!S3_ENDPOINT) missing.push('S3_ENDPOINT');
+  if (!S3_REGION) missing.push('S3_REGION');
+  if (!S3_BUCKET) missing.push('S3_BUCKET');
+  if (!S3_ACCESS_KEY_ID) missing.push('S3_ACCESS_KEY_ID');
+  if (!S3_SECRET_ACCESS_KEY) missing.push('S3_SECRET_ACCESS_KEY');
   if (!NOESIS_BACKUP_KEY) missing.push('NOESIS_BACKUP_KEY');
 
   if (missing.length) {
@@ -128,11 +132,11 @@ function readConfig() {
 
   return {
     ok: true,
-    endpoint: OVH_S3_ENDPOINT,
-    region: OVH_S3_REGION,
-    bucket: OVH_S3_BUCKET,
-    accessKeyId: OVH_S3_ACCESS_KEY_ID,
-    secretAccessKey: OVH_S3_SECRET_ACCESS_KEY,
+    endpoint: S3_ENDPOINT,
+    region: S3_REGION,
+    bucket: S3_BUCKET,
+    accessKeyId: S3_ACCESS_KEY_ID,
+    secretAccessKey: S3_SECRET_ACCESS_KEY,
     key: Buffer.from(NOESIS_BACKUP_KEY, 'hex'),
     intervalHours: Number(NOESIS_BACKUP_INTERVAL_HOURS) > 0 ? Number(NOESIS_BACKUP_INTERVAL_HOURS) : 24,
     keep: Number(NOESIS_BACKUP_KEEP) > 0 ? Number(NOESIS_BACKUP_KEEP) : 30,

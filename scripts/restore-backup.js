@@ -3,8 +3,9 @@
 //
 // Une sauvegarde jamais restaurée n'est pas une sauvegarde, c'est une
 // hypothèse. Ce script est la preuve : il télécharge, déchiffre, décompresse
-// et vérifie une copie réelle depuis OVHcloud Object Storage (migré depuis
-// Cloudflare R2 le 7 septembre 2026, voir server/lib/backup.js).
+// et vérifie une copie réelle depuis Cloudflare R2 (après un aller-retour
+// via OVHcloud le 7 septembre 2026, voir server/lib/backup.js pour
+// l'historique).
 //
 // Usage :
 //   node scripts/restore-backup.js list
@@ -26,8 +27,8 @@
 //     test avant de basculer.
 //
 // Variables d'environnement requises : les mêmes que server/lib/backup.js
-// (OVH_S3_ENDPOINT, OVH_S3_REGION, OVH_S3_BUCKET, OVH_S3_ACCESS_KEY_ID,
-// OVH_S3_SECRET_ACCESS_KEY, NOESIS_BACKUP_KEY).
+// (S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID,
+// S3_SECRET_ACCESS_KEY, NOESIS_BACKUP_KEY).
 
 const fs = require('fs');
 const path = require('path');

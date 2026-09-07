@@ -2,13 +2,15 @@
 // ont besoin (put, get, list, delete). Aucune dépendance npm : signature
 // maison (./s3sig.js) + https natif de Node.
 //
-// Écrit à l'origine pour Cloudflare R2 ; migré vers OVHcloud Object Storage
-// le 7 septembre 2026 (paiement Cloudflare bloqué côté banque — voir
-// noesis-timetracker-sauvegardes.md). Le fichier garde son nom (r2client.js)
-// pour limiter le nombre de fichiers touchés, mais le contenu est un client
-// S3 générique : il ne connaît plus rien de spécifique à Cloudflare ni à
-// OVHcloud, seulement l'API S3 standard (endpoint et région passés en
-// paramètre, aucune valeur par défaut).
+// Écrit à l'origine pour Cloudflare R2 ; le 7 septembre 2026, généralisé en
+// client S3 pur (sans rien de spécifique à un fournisseur) lors d'un
+// aller-retour Cloudflare R2 → OVHcloud → Cloudflare R2 — voir
+// noesis-timetracker-sauvegardes.md pour l'historique complet. Le fichier
+// garde son nom (r2client.js) pour limiter le nombre de fichiers touchés à
+// chaque changement de fournisseur ; le contenu, lui, ne connaît plus rien
+// de spécifique à Cloudflare, OVHcloud ou tout autre fournisseur S3 —
+// seulement l'API S3 standard (endpoint et région passés en paramètre,
+// aucune valeur par défaut).
 
 const https = require('https');
 const http = require('http');
@@ -54,7 +56,7 @@ function request({ method, host, path, query, body, headers, accessKeyId, secret
 function makeClient({ bucket, accessKeyId, secretAccessKey, endpoint, region }) {
   if (!endpoint) {
     throw new Error(
-      "makeClient: 'endpoint' requis (ex. https://s3.gra.io.cloud.ovh.net pour OVHcloud région Gravelines) — il n'y a plus de valeur par défaut Cloudflare depuis la migration du 7 septembre 2026."
+      "makeClient: 'endpoint' requis (ex. https://<compte>.eu.r2.cloudflarestorage.com pour Cloudflare R2 en UE) — ce client ne devine plus aucune valeur par défaut depuis le 7 septembre 2026, voir l'en-tête du fichier."
     );
   }
   if (!region) {

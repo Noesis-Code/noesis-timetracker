@@ -53,11 +53,11 @@ app.use(express.json({ limit: '15mb' }));
 // désormais sur req.userId plutôt que sur un userId envoyé par le client.
 app.use(require('./lib/session').middleware);
 
-// Sauvegarde chiffrée hors site (OVHcloud Object Storage, migré depuis
-// Cloudflare R2 le 7 septembre 2026) — voir GUIDE-SAUVEGARDE-R2.md et
-// noesis-timetracker-sauvegardes.md. Ne fait rien tant que les variables
-// OVH_S3_*/NOESIS_BACKUP_KEY ne sont pas posées côté Railway (le module se
-// désactive avec un avertissement, jamais une erreur).
+// Sauvegarde chiffrée hors site (Cloudflare R2, compte de Gaspard — après un
+// aller-retour via OVHcloud le 7 septembre 2026, voir GUIDE-SAUVEGARDE-R2.md
+// et noesis-timetracker-sauvegardes.md pour l'historique complet). Ne fait
+// rien tant que les variables S3_*/NOESIS_BACKUP_KEY ne sont pas posées côté
+// Railway (le module se désactive avec un avertissement, jamais une erreur).
 const { startBackupSchedule } = require('./lib/backup');
 
 // ---------------------------------------------------------------------------
