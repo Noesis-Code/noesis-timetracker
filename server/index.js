@@ -202,7 +202,14 @@ app.use((req, res, next) => {
 app.use(express.static(PUBLIC_DIR));
 
 // Toute route non-API renvoie l'app (navigation par onglets gérée côté client)
-app.get('*', (req, res) => {
+// Migration Express 5 (8 septembre 2026, chantier PR Dependabot "Bump express
+// 4.22.2 → 5.2.1") : path-to-regexp v8 n'accepte plus le simple '*' comme
+// motif de route, il faut nommer le joker ('/*splat'). Sans risque pour la
+// racine '/' : elle est déjà servie plus haut par express.static(PUBLIC_DIR)
+// (index.html comme fichier d'index par défaut), avant d'atteindre cette
+// route de repli — vérifié par des tests isolés sur Express 4 et 5 avant
+// d'appliquer ce correctif.
+app.get('/*splat', (req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
