@@ -174,6 +174,26 @@
     return h + 'h' + pad(m);
   }
 
+  // Déconnexion forcée par le serveur (7 septembre 2026 — correctif du
+  // bouton "Se déconnecter de tous les appareils", server/lib/session.js) :
+  // un rejet 401 portant `needsLogin: true` signifie que le témoin de
+  // session de CET appareil vient d'être invalidé (epoch changée par un
+  // autre appareil, ou expiration à 180 jours) — jusqu'ici rien ne le
+  // distinguait d'une erreur ordinaire côté client, l'appareil restait
+  // affiché comme connecté et se contentait d'accumuler des messages
+  // "Non authentifié" éparpillés au lieu de redemander le code. `location.
+  // reload()` refait passer par la section DÉMARRAGE plus bas, qui redemande
+  // le PIN une seule fois exactement comme au premier chargement post-
+  // chantier session (voir plus bas). `sessionLostHandled` évite de
+  // recharger plusieurs fois si plusieurs appels échouent d'un coup
+  // (plusieurs minuteurs de rafraîchissement en parallèle, par exemple).
+  var sessionLostHandled = false;
+  function handleSessionLost() {
+    if (sessionLostHandled) return;
+    sessionLostHandled = true;
+    location.reload();
+  }
+
   function api(method, url, body) {
     var opts = { method: method, headers: {} };
     if (body !== undefined) {
@@ -182,7 +202,10 @@
     }
     return fetch(url, opts).then(function (r) {
       return r.json().then(function (data) {
-        if (!r.ok) throw new Error(t(data.error || 'Erreur serveur'));
+        if (!r.ok) {
+          if (data.needsLogin) handleSessionLost();
+          throw new Error(t(data.error || 'Erreur serveur'));
+        }
         return data;
       });
     });

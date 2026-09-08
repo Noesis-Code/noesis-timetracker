@@ -2500,6 +2500,33 @@ button { -webkit-user-select: none; user-select: none; }
   display: inline-flex; align-items: center; gap: 4px; text-decoration: none;
 }
 
+/* Sections protégées (Statistiques/Publications) de la page de visite (8
+   septembre 2026, demande d'Emilien : « les profils qui ne sont pas suivis
+   montent aussi haut que les profils qui sont suivis [...] rajouter une
+   image de cadenas en gris, dans le même style que les icônes des volets du
+   bas de l'écran »). Avant ce changement, une section verrouillée se
+   réduisait à une seule ligne de texte (.hint) pendant que ses graphiques ou
+   sa liste de publications restaient masqués — la page d'un profil non suivi
+   s'en trouvait beaucoup plus courte que celle d'un profil suivi. Ce bloc lui
+   donne une hauteur minimale comparable, avec un cadenas centré au-dessus du
+   texte. `min-height` est une estimation raisonnable (pas une mesure exacte
+   du contenu réel, qui varie avec les données) — voir noesis-timetracker-
+   profil.md pour le détail. */
+.viewProfileLockedBlock {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; min-height: 200px; padding: 24px 16px; text-align: center;
+}
+/* .hint reste la classe générique (Design) : on ne touche qu'à sa marge à
+   l'intérieur de ce bloc précis, sans redéfinir la règle de base — même
+   motif que .discussionMsg.feedMine.pollCard .hint plus bas dans ce fichier. */
+.viewProfileLockedBlock .hint { margin: 0; }
+/* Même gabarit d'icône que .tabIcon (barre d'onglets du bas) — SVG trait,
+   viewBox 24, stroke-width 2 — et même gris neutre que .hint
+   (var(--text-light)), simplement agrandi pour porter le regard au milieu
+   d'un bloc plus grand qu'une icône d'onglet. */
+.viewProfileLockIcon { color: var(--text-light); }
+.viewProfileLockIcon svg { width: 32px; height: 32px; display: block; }
+
 /* Projets de la page de visite, en bande défilante horizontalement (5
    septembre 2026, demande d'Emilien : « les projets apparaissent comme sur
    le profil avec des cases qui peuvent défiler de gauche à droite [...] les

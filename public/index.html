@@ -2620,7 +2620,25 @@
              désormais réservées aux abonnés acceptés. Placé AVANT les deux
              blocs plutôt qu'à l'intérieur de l'un d'eux : c'est toute la vue
              qui est verrouillée, pas une de ses deux moitiés. -->
-        <p id="viewProfileStatsLockedHint" class="hint hidden">Suis ce profil pour voir ses statistiques.</p>
+        <!-- 8 septembre 2026, demande d'Emilien : « les profils qui ne sont
+             pas suivis montent aussi haut que les profils qui sont suivis
+             [...] rajouter une image de cadenas en gris, dans le même style
+             que les icônes des volets du bas de l'écran ») : ce bloc
+             remplace le simple texte d'invitation à suivre par un cadenas
+             (même gabarit SVG trait que .tabIcon en bas de l'écran) et une
+             hauteur minimale, pour que la page d'un profil non suivi occupe
+             une place comparable à celle d'un profil suivi plutôt que de
+             s'effondrer sur une seule ligne pendant que Répartition/
+             Graphique restent masqués juste en dessous. -->
+        <div id="viewProfileStatsLockedHint" class="viewProfileLockedBlock hidden">
+          <span class="viewProfileLockIcon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="11" width="14" height="10" rx="2"/>
+              <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+            </svg>
+          </span>
+          <p class="hint">Suis ce profil pour voir ses statistiques.</p>
+        </div>
         <div id="viewProfilePieBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Répartition</p>
@@ -2717,7 +2735,20 @@
           </div>
           <div id="viewProfilePostsList" class="discussionList"></div>
           <p id="viewProfilePostsEmptyHint" class="hint hidden">Aucune publication pour l'instant.</p>
-          <p id="viewProfilePostsLockedHint" class="hint hidden">Suis ce profil pour voir ses publications.</p>
+          <!-- Même cadenas et même hauteur minimale que
+               #viewProfileStatsLockedHint plus haut (voir le commentaire
+               là-bas) — pour la même raison : une liste de publications
+               masquée ne doit pas réduire "Publications" à une seule ligne
+               de texte. -->
+          <div id="viewProfilePostsLockedHint" class="viewProfileLockedBlock hidden">
+            <span class="viewProfileLockIcon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="11" width="14" height="10" rx="2"/>
+                <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+              </svg>
+            </span>
+            <p class="hint">Suis ce profil pour voir ses publications.</p>
+          </div>
         </div>
         </div><!-- fin de #viewProfileScroll -->
       </div>
