@@ -161,6 +161,22 @@ function canViewTrackedContent(viewerId, ownerId) {
   return isAcceptedFollower(viewerId, ownerId);
 }
 
+// Relation d'abonnement du visiteur envers le profil visité (7 septembre
+// 2026, ajout du bouton Suivre/Se désabonner directement sur la page de
+// visite — voir GET /profile/:userId/public plus bas). Duplique
+// volontairement relationFor() de server/routes/follows.js plutôt que
+// d'importer ce fichier — même convention que SEEKING_TAGS, déjà dupliquée
+// entre ces deux fichiers pour éviter une dépendance croisée entre deux
+// chantiers distincts (Profil / Communauté-Abonnements).
+function followRelation(viewerId, ownerId) {
+  if (!viewerId || viewerId === ownerId) return { followId: null, followStatus: 'none' };
+  const row = db.prepare(`
+    SELECT id, status FROM follows WHERE followerId = ? AND followeeId = ?
+    ORDER BY id DESC LIMIT 1
+  `).get(viewerId, ownerId);
+  return row ? { followId: row.id, followStatus: row.status } : { followId: null, followStatus: 'none' };
+}
+
 function projectRowOut(p) {
   return {
     id: p.id,
@@ -285,7 +301,7 @@ router.post('/profile', (req, res) => {
   // appel de ce profil, plutôt que l'id renvoyé ci-dessous (gardé pour
   // l'affichage côté client, plus jamais comme preuve d'identité serveur).
   setSessionCookie(req, res, id);
-  res.status(201).json({ id, name, lastName, phone, email, color, createdAt, theme: 'dark', lang, shareProfile: true, avatar: null });
+  res.status(201).json({ id, name, lastName, phone, email, color, createdAt, theme: 'dark', lang, shareProfile: true, avatar: null, contactShareEmail: false, contactSharePhone: false });
 });
 
 // ---------- Fil "Communauté" de la zone Discussion de Profil ----------
@@ -355,10 +371,10 @@ router.get('/profile/export', (req, res) => {
 // (comme /public) : elle sert aussi à afficher l'identité publique d'un
 // tiers, seuls les trois champs sensibles sont gated.
 router.get('/profile/:id', (req, res) => {
-  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar FROM users WHERE id = ?').get(req.params.id);
+  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   const isOwner = req.userId === user.id;
-  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null });
+  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone });
 });
 
 // Taille max d'une photo de profil UNE FOIS encodée en data URL (~1.5 Mo
@@ -428,6 +444,15 @@ router.put('/profile/:id', (req, res) => {
   const email = (req.body.email !== undefined ? req.body.email : (user.email || '')).trim();
   if (req.body.email !== undefined && !EMAIL_RE.test(email)) return res.status(400).json({ error: 'Adresse email invalide.' });
 
+  // contactShareEmail / contactSharePhone (7 septembre 2026) : deux cases à
+  // cocher indépendantes dans Réglages > Identité, toujours envoyées par le
+  // client (contrairement à lastName/phone/email, une case à cocher a
+  // toujours un état défini) — mais champ absent = valeur actuelle inchangée
+  // tout de même, par cohérence avec le reste de cette route et pour ne pas
+  // écraser le réglage si un appelant plus ancien n'envoie pas ces champs.
+  const contactShareEmail = req.body.contactShareEmail !== undefined ? !!req.body.contactShareEmail : !!user.contactShareEmail;
+  const contactSharePhone = req.body.contactSharePhone !== undefined ? !!req.body.contactSharePhone : !!user.contactSharePhone;
+
   let avatar = user.avatar;
   if (req.body.avatar !== undefined) {
     if (!req.body.avatar) {
@@ -444,8 +469,8 @@ router.put('/profile/:id', (req, res) => {
   const clash = db.prepare('SELECT id FROM users WHERE name = ? COLLATE NOCASE AND id != ?').get(name, user.id);
   if (clash) return res.status(409).json({ error: `"${name}" est déjà pris par un autre profil.` });
 
-  db.prepare('UPDATE users SET name = ?, lastName = ?, phone = ?, email = ?, color = ?, theme = ?, lang = ?, shareProfile = ?, avatar = ? WHERE id = ?')
-    .run(name, lastName || null, phone || null, email || null, color, theme, lang, shareProfile, avatar, user.id);
+  db.prepare('UPDATE users SET name = ?, lastName = ?, phone = ?, email = ?, color = ?, theme = ?, lang = ?, shareProfile = ?, avatar = ?, contactShareEmail = ?, contactSharePhone = ? WHERE id = ?')
+    .run(name, lastName || null, phone || null, email || null, color, theme, lang, shareProfile, avatar, contactShareEmail ? 1 : 0, contactSharePhone ? 1 : 0, user.id);
 
   if (theme !== user.theme) {
     const memberships = db.prepare('SELECT activityId, color FROM activity_members WHERE userId = ?').all(user.id);
@@ -457,7 +482,7 @@ router.put('/profile/:id', (req, res) => {
     });
   }
 
-  res.json({ id: user.id, name, lastName: lastName || null, phone: phone || null, email: email || null, color, theme, lang, shareProfile: !!shareProfile, avatar: avatar || null, createdAt: user.createdAt });
+  res.json({ id: user.id, name, lastName: lastName || null, phone: phone || null, email: email || null, color, theme, lang, shareProfile: !!shareProfile, avatar: avatar || null, createdAt: user.createdAt, contactShareEmail, contactSharePhone });
 });
 
 // Vérifie le code d'un profil avant de le "récupérer" depuis "J'ai déjà un
@@ -481,7 +506,7 @@ router.post('/profile/:id/verify-pin', (req, res) => {
   // (bon PIN) vaut connexion sur CET appareil, exactement comme la création
   // ci-dessus — c'est le seul autre point d'entrée qui doit poser le témoin.
   setSessionCookie(req, res, user.id);
-  res.json({ id: user.id, name: user.name, lastName: user.lastName || null, phone: user.phone || null, email: user.email || null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null });
+  res.json({ id: user.id, name: user.name, lastName: user.lastName || null, phone: user.phone || null, email: user.email || null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone });
 });
 
 // Définit le code d'un profil qui n'en a pas encore (comptes créés avant
@@ -745,7 +770,7 @@ router.get('/profile/:userId/projects', (req, res) => {
 // se prendre un 403 : il sait d'avance s'il doit afficher le fil ou
 // l'invitation à suivre.
 router.get('/profile/:userId/public', (req, res) => {
-  const owner = db.prepare('SELECT id, name, lastName, color, avatar, createdAt FROM users WHERE id = ?').get(req.params.userId);
+  const owner = db.prepare('SELECT id, name, lastName, color, avatar, createdAt, email, phone, contactShareEmail, contactSharePhone FROM users WHERE id = ?').get(req.params.userId);
   if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
 
   // Sécurité (chantier 1) : viewerId vient de req.userId, jamais de la
@@ -754,6 +779,22 @@ router.get('/profile/:userId/public', (req, res) => {
   if (!canViewProjects(viewerId, owner.id)) {
     return res.status(403).json({ error: "Connecte-toi pour voir ce profil." });
   }
+
+  const canSeePosts = canViewPosts(viewerId, owner.id);
+
+  // Contact (7 septembre 2026, demande d'Emilien : « ajouter une option
+  // contact [...] mail ou téléphone ») : jamais les champs bruts phone/email
+  // (voir le commentaire au-dessus sur la raison d'être de cette route,
+  // distincte de GET /profile/:id) — seulement ces deux dérivés, révélés
+  // uniquement quand LES DEUX conditions sont réunies : le visiteur est un
+  // abonné accepté (même niveau d'accès que les messages "Communauté",
+  // canSeePosts) ET le propriétaire a explicitement coché le canal
+  // correspondant depuis Réglages > Identité. Aucune des deux conditions
+  // seule ne suffit — un abonné accepté d'un profil qui n'a rien activé ne
+  // voit toujours rien, et personne ne voit le contact d'un profil qu'il ne
+  // suit pas même si celui-ci l'a activé.
+  const contactEmail = (canSeePosts && owner.contactShareEmail) ? (owner.email || null) : null;
+  const contactPhone = (canSeePosts && owner.contactSharePhone) ? (owner.phone || null) : null;
 
   // ⚠️ `lastName` ajouté le 2 septembre 2026 sur demande d'Emilien
   // (« indique le nom de famille également ») : il fait donc désormais
@@ -772,7 +813,7 @@ router.get('/profile/:userId/public', (req, res) => {
   // le point reflète l'état à l'ouverture du profil.
   const running = db.prepare('SELECT 1 FROM running_timers WHERE userId = ?').get(owner.id);
 
-  res.json({
+  res.json(Object.assign({
     id: owner.id,
     name: owner.name,
     lastName: owner.lastName || null,
@@ -780,7 +821,7 @@ router.get('/profile/:userId/public', (req, res) => {
     avatar: owner.avatar || null,
     createdAt: owner.createdAt,
     isSelf: viewerId === owner.id,
-    canSeePosts: canViewPosts(viewerId, owner.id),
+    canSeePosts,
     // 7 septembre 2026 : même rôle que canSeePosts, pour le contenu suivi
     // (statistiques, détail des projets) — le client sait d'avance s'il doit
     // dessiner ces sections ou l'invitation à suivre, sans provoquer un 403
@@ -788,7 +829,13 @@ router.get('/profile/:userId/public', (req, res) => {
     // aujourd'hui la même : voir canViewTrackedContent plus haut.
     canSeeContent: canViewTrackedContent(viewerId, owner.id),
     chronoRunning: !!running,
-  });
+    contactEmail,
+    contactPhone,
+    // followId/followStatus (7 septembre 2026, bouton Suivre directement sur
+    // la page de visite) : ajoutés par étalement plutôt qu'un champ imbriqué,
+    // pour que le client les lise au même niveau que le reste de la carte
+    // d'identité — voir followRelation() plus haut.
+  }, followRelation(viewerId, owner.id)));
 });
 
 // Statistiques du profil visité : Répartition (camembert) + Graphique

@@ -738,6 +738,11 @@
     $('settingsLastName').value = profile.lastName || '';
     $('settingsPhone').value = profile.phone || '';
     $('settingsEmail').value = profile.email || '';
+    // Option Contact (7 septembre 2026, demande d'Emilien) — voir
+    // contactShareEmail/contactSharePhone dans server/db.js et le
+    // commentaire sur #settingsContactShareEmail dans index.html.
+    $('settingsContactShareEmail').checked = !!profile.contactShareEmail;
+    $('settingsContactSharePhone').checked = !!profile.contactSharePhone;
     renderIdentityHeader();
     // Vérifie tout de suite s'il y a des invitations/demandes de suivi en
     // attente, pour que le point rouge sur l'icône "avion en papier" soit à
@@ -7398,6 +7403,11 @@
     if (lastName) payload.lastName = lastName;
     if (phone) payload.phone = phone;
     if (email) payload.email = email;
+    // contactShareEmail/contactSharePhone : contrairement à lastName/phone/
+    // email ci-dessus, une case à cocher a toujours un état défini (cochée
+    // ou non) — envoyée systématiquement, jamais omise du payload.
+    payload.contactShareEmail = $('settingsContactShareEmail').checked;
+    payload.contactSharePhone = $('settingsContactSharePhone').checked;
     api('PUT', '/api/profile/' + profile.id, payload)
       .then(function (p) {
         // saveProfile(p) appelle déjà renderIdentityHeader(), qui met à jour
@@ -8303,6 +8313,15 @@
     // Le point vert repart masqué : l'état du chrono du profil PRÉCÉDENT ne
     // doit jamais rester affiché le temps que la réponse arrive.
     $('viewProfileLiveDot').classList.add('hidden');
+    // Suivre + Contact (7 septembre 2026, demande d'Emilien) : la rangée
+    // appartient au profil PRÉCÉDENT tant que la réponse de /public n'est
+    // pas revenue — masquée et vidée comme le reste, voir
+    // renderViewProfileFollowRow plus bas, appelée une fois cette réponse
+    // arrivée.
+    $('viewProfileActionsRow').classList.add('hidden');
+    $('viewProfileFollowSlot').innerHTML = '';
+    $('viewProfileContactSlot').innerHTML = '';
+    $('viewProfileContactSlot').classList.add('hidden');
     $('viewProfileProjectsList').innerHTML = '';
     $('viewProfileProjectsEmptyHint').classList.add('hidden');
     // Le détail déplié appartient au profil PRÉCÉDENT — jamais de fuite d'un
@@ -8370,6 +8389,7 @@
         // ou rouverte sur quelqu'un d'autre pendant la requête.
         if (viewProfileUserId !== userId) return;
         renderViewProfileIdentity(card2);
+        renderViewProfileFollowRow(card2);
         viewProfileCanSeePosts = !!card2.canSeePosts;
         // 7 septembre 2026 : statistiques et détail des projets ne partent
         // plus en parallèle de cette requête — ils attendent de savoir si
@@ -8421,6 +8441,134 @@
       $('viewProfileAvatarInitial').textContent = card.name ? card.name.trim().charAt(0).toUpperCase() : '?';
       $('viewProfileAvatar').style.background = card.color || 'var(--purple)';
     }
+  }
+
+  // ----- Suivre + Contact de la page de visite (7 septembre 2026, demande
+  // d'Emilien : « ajouter une option contact et suivre directement sur la
+  // fenêtre des profils utilisateurs [...] pour que les autres puissent le
+  // contacter. Mail ou téléphone ») -----
+  // ⚠️ Ceci REVIENT sur le cadrage du 2 septembre 2026, qui excluait
+  // délibérément un bouton "Suivre" et les compteurs d'abonnés de cette
+  // page (voir noesis-timetracker-journal-profil.md) — seul le bouton
+  // Suivre est repris ici, PAS les compteurs, qu'Emilien a explicitement
+  // choisi de laisser de côté à cette occasion.
+  //
+  // `card` est l'objet renvoyé par GET /profile/:userId/public, qui porte
+  // désormais aussi `followId`/`followStatus` (même calcul que
+  // relationFor() dans server/routes/follows.js, voir followRelation() côté
+  // serveur) et `contactEmail`/`contactPhone` (jamais `phone`/`email`
+  // eux-mêmes) — null/absent tant que le propriétaire n'a pas activé le
+  // canal correspondant ET que ce visiteur n'est pas un abonné accepté.
+  function renderViewProfileFollowRow(card) {
+    var row = $('viewProfileActionsRow');
+    var contactSlot = $('viewProfileContactSlot');
+    contactSlot.innerHTML = '';
+    contactSlot.classList.add('hidden');
+
+    // Jamais de bouton Suivre ni de contact sur SON PROPRE profil — on ne
+    // se suit ni ne se contacte soi-même. Ce cas ne devrait normalement pas
+    // se présenter (rien n'ouvre #viewProfileModal sur soi-même), mais
+    // mieux vaut une rangée simplement masquée qu'un bouton absurde si ça
+    // arrivait malgré tout.
+    if (card.isSelf) {
+      $('viewProfileFollowSlot').innerHTML = '';
+      row.classList.add('hidden');
+      return;
+    }
+
+    renderViewProfileFollowButton(card);
+
+    var links = [];
+    if (card.contactEmail) links.push(buildViewProfileContactLink('mailto:' + card.contactEmail, '✉️', card.contactEmail));
+    if (card.contactPhone) links.push(buildViewProfileContactLink('tel:' + card.contactPhone, '📞', card.contactPhone));
+    if (links.length) {
+      links.forEach(function (a) { contactSlot.appendChild(a); });
+      contactSlot.classList.remove('hidden');
+    }
+
+    row.classList.remove('hidden');
+  }
+
+  // Bouton Suivre / Demande envoyée / Se désabonner — même mécanique que
+  // dans renderSearchResults (découverte de Communauté), simplement rendue
+  // ici dans un seul slot au lieu d'une ligne de liste, et réutilisant
+  // buildUnfollowButton tel quel (voir plus haut dans ce fichier). Séparée
+  // de renderViewProfileFollowRow pour pouvoir se re-rendre seule après
+  // chaque action (suivre/annuler/se désabonner), sans toucher au slot
+  // Contact à côté. `target` fige le profil concerné au moment du clic :
+  // si la modale a été refermée ou rouverte sur quelqu'un d'autre pendant
+  // l'appel, la réponse est ignorée — même garde que partout ailleurs sur
+  // cette page (viewProfileUserId).
+  function renderViewProfileFollowButton(card) {
+    var slot = $('viewProfileFollowSlot');
+    slot.innerHTML = '';
+    var target = card.id;
+
+    if (card.followStatus === 'accepted') {
+      slot.appendChild(buildUnfollowButton(card.followId, card.name, function () {
+        if (viewProfileUserId !== target) return;
+        card.followStatus = 'none';
+        card.followId = null;
+        renderViewProfileFollowButton(card);
+        // Se désabonner retire l'accès "abonné accepté" à l'instant même :
+        // le contact affiché à côté (chargé avec l'accès d'AVANT ce clic)
+        // n'a plus lieu d'être visible sans réouvrir la page — voir la même
+        // règle côté serveur (canSeePosts) dans GET /profile/:userId/public.
+        card.contactEmail = null;
+        card.contactPhone = null;
+        var contactSlot = $('viewProfileContactSlot');
+        contactSlot.innerHTML = '';
+        contactSlot.classList.add('hidden');
+        loadFollowingFeed();
+      }));
+      return;
+    }
+
+    if (card.followStatus === 'pending') {
+      var cancelBtn = document.createElement('button');
+      cancelBtn.className = 'iconBtn';
+      cancelBtn.textContent = t('Demande envoyée');
+      cancelBtn.title = t('Annuler la demande');
+      cancelBtn.addEventListener('click', function () {
+        api('DELETE', '/api/follows/' + card.followId + '?userId=' + profile.id)
+          .then(function () {
+            if (viewProfileUserId !== target) return;
+            card.followStatus = 'none';
+            card.followId = null;
+            renderViewProfileFollowButton(card);
+          })
+          .catch(function (err) { alert(err.message); });
+      });
+      slot.appendChild(cancelBtn);
+      return;
+    }
+
+    var followBtn = document.createElement('button');
+    followBtn.className = 'iconBtn';
+    followBtn.textContent = t('Suivre');
+    followBtn.addEventListener('click', function () {
+      followBtn.disabled = true;
+      api('POST', '/api/follows', { followerId: profile.id, followeeId: card.id })
+        .then(function (r) {
+          if (viewProfileUserId !== target) return;
+          card.followStatus = 'pending';
+          card.followId = r.id;
+          renderViewProfileFollowButton(card);
+        })
+        .catch(function (err) { alert(err.message); followBtn.disabled = false; });
+    });
+    slot.appendChild(followBtn);
+  }
+
+  // Lien mailto:/tel: habillé comme .iconBtn (voir styles.css) — un <a>, pas
+  // un <button> : cliquer doit ouvrir l'app mail/téléphone du visiteur, pas
+  // déclencher un appel réseau côté Noèsis.
+  function buildViewProfileContactLink(href, icon, label) {
+    var a = document.createElement('a');
+    a.className = 'iconBtn viewProfileContactLink';
+    a.href = href;
+    a.textContent = icon + ' ' + label;
+    return a;
   }
 
   // ----- Statistiques du profil visité : Répartition + Graphique -----

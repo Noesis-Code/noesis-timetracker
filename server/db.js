@@ -71,6 +71,23 @@ db.exec(`
 -- retrouvent pas en anglais du jour au lendemain. La traduction elle-même
 -- est entièrement côté client (public/i18n.js) : le serveur continue de
 -- répondre en français et ses messages sont traduits à l'affichage.
+-- contactShareEmail / contactSharePhone (7 septembre 2026, demande
+-- d'Emilien : « ajouter une option contact [...] réglée dans le profil de
+-- l'utilisateur et lui donne une option pour que les autres puissent le
+-- contacter. Mail ou téléphone ») : deux interrupteurs INDÉPENDANTS,
+-- réglés depuis Réglages > Identité, qui décident si phone/email
+-- deviennent visibles sur la page de visite du profil (voir GET
+-- /profile/:userId/public dans server/routes/profile.js). 0 par défaut
+-- (contact masqué tant que la personne ne l'a pas explicitement activé) —
+-- même logique de "rien d'exposé sans opt-in explicite" que shareProfile
+-- ci-dessus. Volontairement DEUX colonnes plutôt qu'un seul champ à trois
+-- valeurs (aucun/email/téléphone) : les deux canaux peuvent être partagés
+-- en même temps, confirmé par Emilien. Le NIVEAU d'accès (qui peut voir le
+-- contact une fois activé) n'est pas stocké ici : c'est
+-- canViewPosts()/l'appartenance à follows (statut 'accepted') qui
+-- tranche, exactement comme pour les messages "Communauté" du profil —
+-- un contact partagé n'est visible qu'à un abonné accepté, jamais à
+-- n'importe quel membre identifié.
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
@@ -83,7 +100,9 @@ CREATE TABLE IF NOT EXISTS users (
   theme TEXT NOT NULL DEFAULT 'dark',
   shareProfile INTEGER NOT NULL DEFAULT 0,
   avatar TEXT,
-  lang TEXT NOT NULL DEFAULT 'en'
+  lang TEXT NOT NULL DEFAULT 'en',
+  contactShareEmail INTEGER NOT NULL DEFAULT 0,
+  contactSharePhone INTEGER NOT NULL DEFAULT 0
 );
 
 -- Une activité appartient à son créateur (ownerId). Le nom n'est PAS unique
@@ -713,6 +732,17 @@ if (!columnExists('users', 'email')) {
 if (!columnExists('users', 'lang')) {
   db.exec("ALTER TABLE users ADD COLUMN lang TEXT NOT NULL DEFAULT 'en'");
   db.exec("UPDATE users SET lang = 'fr'");
+}
+
+// contactShareEmail / contactSharePhone (voir le commentaire sur ces
+// colonnes plus haut, sur CREATE TABLE users) : purement additif, DEFAULT 0
+// pour les deux — un profil existant avant ce changement garde son contact
+// masqué tant qu'il ne l'active pas explicitement depuis Réglages > Identité.
+if (!columnExists('users', 'contactShareEmail')) {
+  db.exec('ALTER TABLE users ADD COLUMN contactShareEmail INTEGER NOT NULL DEFAULT 0');
+}
+if (!columnExists('users', 'contactSharePhone')) {
+  db.exec('ALTER TABLE users ADD COLUMN contactSharePhone INTEGER NOT NULL DEFAULT 0');
 }
 
 // Déconnexion de tous les appareils (7 septembre 2026, discussion "Sécurité

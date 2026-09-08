@@ -664,6 +664,28 @@
               <input type="text" id="settingsLastName" placeholder="Nom de famille" maxlength="60">
               <input type="tel" id="settingsPhone" placeholder="Numéro de téléphone" maxlength="30">
               <input type="email" id="settingsEmail" placeholder="Adresse email" maxlength="120">
+              <!-- Option Contact (7 septembre 2026, demande d'Emilien :
+                   « l'option contact doit être réglée dans le profil de
+                   l'utilisateur et lui donne une option pour que les autres
+                   puissent le contacter. Mail ou téléphone ») : deux
+                   interrupteurs INDÉPENDANTS (les deux peuvent être activés
+                   en même temps) — voir contactShareEmail/contactSharePhone
+                   dans server/db.js. Décide si le bouton Contact affiché sur
+                   la page de visite du profil (#viewProfileModal,
+                   #viewProfileContactSlot) montre ce canal — visible
+                   uniquement à un abonné accepté, jamais à n'importe quel
+                   membre identifié (voir canSeePosts/canViewPosts dans
+                   server/routes/profile.js). Enregistrés par le même bouton
+                   "Enregistrer" que le reste de cette carte (voir
+                   settingsSaveBtn, app.js). -->
+              <label class="checkLabel">
+                <input type="checkbox" id="settingsContactShareEmail">
+                <span>Autoriser mes abonnés à me contacter par email</span>
+              </label>
+              <label class="checkLabel">
+                <input type="checkbox" id="settingsContactSharePhone">
+                <span>Autoriser mes abonnés à me contacter par téléphone</span>
+              </label>
               <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
               <p id="settingsMsg" class="msg"></p>
             </div>
@@ -1454,11 +1476,12 @@
            (.discoveryCircles, sans nom écrit) plutôt qu'en lignes détaillées.
            Une recherche ACTIVE (nom tapé, ou un filtre choisi) continue de
            rendre les lignes complètes avec nom + bouton Suivre/Se
-           désabonner, confirmé par Emilien à ce même passage — c'est
-           d'ailleurs le seul endroit où l'on peut encore suivre quelqu'un
-           découvert par ce biais : la page de visite d'un profil
-           (#viewProfileModal) n'a toujours pas de bouton "Suivre" (voir
-           "Suite naturelle non faite" dans noesis-timetracker-chantiers-en-cours.md). -->
+           désabonner, confirmé par Emilien à ce même passage.
+           ⚠️ 7 septembre 2026 : ce n'est plus le SEUL endroit où l'on peut
+           suivre quelqu'un — la page de visite d'un profil
+           (#viewProfileModal) a désormais elle aussi son propre bouton
+           Suivre/Demande envoyée/Se désabonner, voir #viewProfileActionsRow
+           plus bas. -->
       <p id="communityDiscoverHint" class="hint hidden">Quelques profils à découvrir.</p>
       <div id="communitySearchResults" class="activitiesList"></div>
 
@@ -2502,6 +2525,31 @@
              moyen fiable : ce qui n'est pas dans le défilement ne peut pas
              rebondir avec lui. -->
         <div id="viewProfileScroll">
+        <!-- Suivre + Contact (7 septembre 2026, demande d'Emilien : « ajouter
+             une option contact et suivre directement sur la fenêtre des
+             profils utilisateurs »). Rendue entièrement par
+             renderViewProfileFollowRow (app.js), remise à zéro et masquée à
+             chaque ouverture (voir openProfileViewModal) — jamais affichée
+             sur son PROPRE profil (isSelf).
+             - #viewProfileFollowSlot : bouton Suivre / Demande envoyée / Se
+               désabonner, même mécanique que renderSearchResults
+               (Communauté) et buildUnfollowButton, réutilisé tel quel.
+               ⚠️ Ceci REVIENT sur la décision du 2 septembre 2026 (cadrée
+               avec Emilien : pas de bouton Suivre ni de compteurs
+               d'abonnés sur cette page, voir noesis-timetracker-journal-
+               profil.md) — seul le bouton revient, PAS les compteurs
+               d'abonnés/abonnements, qu'Emilien a explicitement choisi de
+               ne pas rouvrir à cette occasion.
+             - #viewProfileContactSlot : moyen(s) de contact que le profil
+               visité a choisi de partager (contactEmail/contactPhone, voir
+               GET /profile/:userId/public) — vide et masqué tant qu'aucun
+               canal n'est à la fois activé par le propriétaire ET visible à
+               CE visiteur (réservé aux abonnés acceptés, comme les
+               messages "Communauté" : voir canSeePosts côté serveur). -->
+        <div id="viewProfileActionsRow" class="viewProfileActionsRow hidden">
+          <div id="viewProfileFollowSlot"></div>
+          <div id="viewProfileContactSlot" class="viewProfileContactSlot hidden"></div>
+        </div>
         <p id="viewProfileProjectsMsg" class="msg"></p>
 
         <p class="sectionTitle">Projets</p>

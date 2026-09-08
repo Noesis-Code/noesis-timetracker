@@ -2481,6 +2481,25 @@ button { -webkit-user-select: none; user-select: none; }
   background: #22C55E; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22);
 }
 
+/* Suivre + Contact de la page de visite (7 septembre 2026, demande
+   d'Emilien) — voir #viewProfileActionsRow dans index.html et
+   renderViewProfileFollowRow dans app.js. Une seule rangée souple : le
+   bouton Suivre/Demande envoyée/Se désabonner (.iconBtn, réutilisé tel
+   quel, aucune règle à écrire pour lui) et, quand un canal est partagé,
+   un ou deux liens de contact juste à côté — jamais empilés verticalement
+   tant que la largeur le permet, `flex-wrap` évite seulement un
+   débordement sur un très petit écran. */
+.viewProfileActionsRow {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+}
+.viewProfileContactSlot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+/* Lien mailto:/tel:, habillé comme .iconBtn (bordure + fond, même gabarit)
+   sans redéfinir cette classe générique — seul ce qu'un <a> a de différent
+   d'un <button> (soulignement, alignement de l'icône) est corrigé ici. */
+.viewProfileContactLink {
+  display: inline-flex; align-items: center; gap: 4px; text-decoration: none;
+}
+
 /* Projets de la page de visite, en bande défilante horizontalement (5
    septembre 2026, demande d'Emilien : « les projets apparaissent comme sur
    le profil avec des cases qui peuvent défiler de gauche à droite [...] les
