@@ -1557,8 +1557,19 @@ body.scrollLock { overflow: hidden; }
 #profileDiscussionBlock .pollsBlock:not(:empty) { margin-top: 8px; }
 .discussionComposer { margin-top: 10px; }
 .discussionComposer textarea { min-height: 56px; background: var(--card); color: var(--text); box-sizing: border-box; }
-.discussionComposer .rowActions { margin-top: 8px; }
+.discussionComposer .rowActions { margin-top: 8px; align-items: center; }
 .discussionComposer .msg { text-align: right; }
+/* 8 septembre 2026 (Connexion / Création de compte, sur demande d'Emilien) :
+   bouton "Envoyer" (#feedbackSendBtn, section Aide et suggestions) mal
+   aligné avec le trombone (.attachmentMenuWrap) à sa gauche. Cause : c'est
+   le seul endroit du projet où un bouton texte plein (.btn.btn-primary,
+   pensé pour un formulaire empilé verticalement) partage une .rowActions
+   avec un .menuBtn — .btn impose `margin-top: 12px` (utile entre des
+   champs de formulaire empilés), qui décale ce bouton vers le bas sans
+   toucher son voisin. Neutralisé ici plutôt que dans .btn lui-même, pour
+   ne rien changer aux nombreux autres boutons qui dépendent de cette
+   marge. */
+#feedbackSendBtn { margin-top: 0; }
 
 /* ===== CONVERSATIONS : fil d'activité et fil d'un sous-projet =============
    3 septembre 2026, discussion "Activité — général", demande d'Emilien.
