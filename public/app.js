@@ -6387,6 +6387,9 @@
     if (!profile) return;
     api('GET', '/api/follows/followers?userId=' + profile.id).then(renderSettingsFollowers);
     api('GET', '/api/follows/following?userId=' + profile.id).then(renderSettingsFollowing);
+    // Bloqués (8 septembre 2026, demande d'Emilien) — voir renderBlockedUsers
+    // et le commentaire au-dessus de #settingsBlockedList dans index.html.
+    api('GET', '/api/blocks?userId=' + profile.id).then(renderBlockedUsers);
   }
 
   // Construit le bouton "Se désabonner" (icône rouge, confirmation,
@@ -6412,46 +6415,91 @@
     return btn;
   }
 
-  function renderNameOnlyList(boxId, emptyHintId, list, actionable) {
+  // Bloquer un abonné (8 septembre 2026, demande d'Emilien). Le retire
+  // aussitôt de "Abonnés" (voir renderSettingsFollowers) et l'envoie dans
+  // "Bloqués" — POST /api/blocks (server/routes/follows.js) fait les deux
+  // côté serveur en une seule opération.
+  function buildBlockButton(userId, name, onDone) {
+    var btn = document.createElement('button');
+    btn.className = 'iconBtn danger';
+    btn.textContent = t('Bloquer');
+    btn.addEventListener('click', function () {
+      if (!confirm(t('Bloquer {name} ? Cette personne sera retirée de tes abonnés et ne pourra plus te suivre tant que tu ne l\'auras pas débloquée.', { name: name }))) return;
+      api('POST', '/api/blocks', { blockedId: userId })
+        .then(onDone)
+        .catch(function (err) { alert(err.message); });
+    });
+    return btn;
+  }
+
+  // Débloquer (liste "Bloqués") — la personne pourra à nouveau envoyer une
+  // demande de suivi, qu'il faudra accepter comme toute autre demande.
+  function buildUnblockButton(blockId, name, onDone) {
+    var btn = document.createElement('button');
+    btn.className = 'iconBtn';
+    btn.textContent = t('Débloquer');
+    btn.addEventListener('click', function () {
+      api('DELETE', '/api/blocks/' + blockId)
+        .then(onDone)
+        .catch(function (err) { alert(err.message); });
+    });
+    return btn;
+  }
+
+  // `mode` : 'none' (lecture seule), 'unfollow' (Abonnements), 'block'
+  // (Abonnés — bouton "Bloquer" ajouté le 8 septembre 2026) ou 'unblock'
+  // (Bloqués). Trois listes du même panneau "Abonnés & Abonnements"
+  // partagent ce même rendu plutôt que d'avoir chacune leur copie.
+  function renderNameOnlyList(boxId, emptyHintId, list, mode) {
     var box = $(boxId);
     box.innerHTML = '';
     $(emptyHintId).classList.toggle('hidden', list.length > 0);
     list.forEach(function (f) {
       var row = document.createElement('div');
       // .discoveryLine (styles.css, 3 septembre 2026, demande d'Emilien) :
-      // uniquement quand la ligne porte le bouton "Se désabonner"
-      // (Abonnements) — pour qu'il reste toujours aligné avec le nom, tronqué
-      // en "…" avec un espace devant lui plutôt que collé. La liste Abonnés
-      // (actionable=false) n'a aucun bouton à aligner et garde donc sa mise
-      // en page d'origine.
-      row.className = 'activityRow' + (actionable ? ' discoveryLine' : '');
+      // uniquement quand la ligne porte un bouton d'action — pour qu'il
+      // reste toujours aligné avec le nom, tronqué en "…" avec un espace
+      // devant lui plutôt que collé. La liste en lecture seule (mode='none')
+      // n'a aucun bouton à aligner et garde donc sa mise en page d'origine.
+      row.className = 'activityRow' + (mode !== 'none' ? ' discoveryLine' : '');
       var label = document.createElement('p');
       label.className = 'meta';
       // Nom complet (prénom + nom de famille) depuis le 3 septembre 2026,
-      // sixième passage — f.lastName vient de GET /follows/following et
-      // GET /follows/followers (server/routes/follows.js).
+      // sixième passage — f.lastName vient de GET /follows/following,
+      // GET /follows/followers et GET /blocks (server/routes/follows.js).
       label.innerHTML = '<span class="dot" style="background:' + f.color + '"></span> ' + escapeHtml(fullName(f.name, f.lastName));
       // Clic sur le nom : ouvre la page de visite de son profil (voir
       // openProfileViewModal, section "PAGE DE VISITE DE PROFIL" plus haut).
-      // ⚠️ 2 septembre 2026 : proposé désormais sur LES DEUX listes. Il ne
-      // l'était que sur "Abonnements" (actionable=true) parce qu'il fallait
-      // suivre quelqu'un pour voir quoi que ce soit de son profil — un clic
-      // sur un "Abonné" n'aurait mené qu'à un 403. L'aperçu (identité,
-      // projets, statistiques) étant maintenant public pour tout membre
-      // identifié (voir canViewProjects, server/routes/profile.js), ouvrir
-      // le profil de quelqu'un qui nous suit sans qu'on le suive en retour
-      // est même le cas le plus utile : c'est là qu'on décide de le suivre.
+      // ⚠️ 2 septembre 2026 : proposé sur toutes les listes de ce panneau,
+      // y compris "Bloqués" (consultation en lecture seule, sans effet sur
+      // le blocage). L'aperçu (identité, projets, statistiques) étant public
+      // pour tout membre identifié (voir canViewProjects,
+      // server/routes/profile.js), ça reste sans risque.
       label.style.cursor = 'pointer';
       label.addEventListener('click', function () { openProfileViewModal(f.userId, f.name, f.color); });
       row.appendChild(label);
 
-      if (actionable) {
+      if (mode === 'unfollow') {
         var actionsWrap = document.createElement('div');
         actionsWrap.className = 'rowActions';
         actionsWrap.appendChild(buildUnfollowButton(f.followId, f.name, function () {
           loadFollowConnections(); loadFollowingFeed();
         }));
         row.appendChild(actionsWrap);
+      } else if (mode === 'block') {
+        var blockActionsWrap = document.createElement('div');
+        blockActionsWrap.className = 'rowActions';
+        blockActionsWrap.appendChild(buildBlockButton(f.userId, f.name, function () {
+          loadFollowConnections();
+        }));
+        row.appendChild(blockActionsWrap);
+      } else if (mode === 'unblock') {
+        var unblockActionsWrap = document.createElement('div');
+        unblockActionsWrap.className = 'rowActions';
+        unblockActionsWrap.appendChild(buildUnblockButton(f.blockId, f.name, function () {
+          loadFollowConnections();
+        }));
+        row.appendChild(unblockActionsWrap);
       }
 
       box.appendChild(row);
@@ -6459,11 +6507,15 @@
   }
 
   function renderSettingsFollowers(list) {
-    renderNameOnlyList('settingsFollowersList', 'settingsFollowersEmptyHint', list, false);
+    renderNameOnlyList('settingsFollowersList', 'settingsFollowersEmptyHint', list, 'block');
   }
 
   function renderSettingsFollowing(list) {
-    renderNameOnlyList('settingsFollowingList', 'settingsFollowingEmptyHint', list, true);
+    renderNameOnlyList('settingsFollowingList', 'settingsFollowingEmptyHint', list, 'unfollow');
+  }
+
+  function renderBlockedUsers(list) {
+    renderNameOnlyList('settingsBlockedList', 'settingsBlockedEmptyHint', list, 'unblock');
   }
 
   // ----- Flux "Partagée" et "Suivi" : cartes en lecture seule (activité de
@@ -7539,6 +7591,37 @@
       .catch(function (err) {
         $('settingsLogoutAllMsg').textContent = err.message;
         $('settingsLogoutAllBtn').disabled = false;
+      });
+  });
+
+  // Export de mes données personnelles (7 septembre 2026, candidate n°1 de
+  // l'audit des sections manquantes du panneau Réglages — voir
+  // noesis-timetracker-parametres.md). GET /api/profile/export renvoie déjà
+  // du JSON (server/lib/dataexport.js) : on passe par le même helper api()
+  // que le reste de l'app (gère needsLogin/erreurs de façon cohérente)
+  // plutôt qu'un fetch dédié, puis on reconstruit un fichier téléchargeable
+  // à partir de l'objet reçu — pas besoin d'un second aller-retour réseau.
+  $('exportDataBtn').addEventListener('click', function () {
+    $('exportDataBtn').disabled = true;
+    $('exportDataMsg').textContent = '';
+    api('GET', '/api/profile/export')
+      .then(function (data) {
+        var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        var fileDate = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = 'noesis-export-' + fileDate + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch(function (err) {
+        $('exportDataMsg').textContent = err.message;
+      })
+      .finally(function () {
+        $('exportDataBtn').disabled = false;
       });
   });
 

@@ -212,6 +212,10 @@
     'Aucune demande en attente.': 'No pending request.',
     ' souhaite te suivre.': ' wants to follow you.',
     'Accepter': 'Accept',
+    'Bloquer': 'Block',
+    'Débloquer': 'Unblock',
+    'Bloqués': 'Blocked',
+    'Aucun utilisateur bloqué.': 'No blocked users.',
     'Refuser': 'Decline',
     'Membre': 'Member',
     'Abonnement': 'Following',
@@ -239,6 +243,11 @@
     // #communityMyPostsBlock côté Communauté) — une seule entrée suffit, les
     // deux blocs affichent exactement le même mot.
     'Publier': 'Post',
+    // Export de mes données personnelles (7 septembre 2026, candidate n°1 de
+    // l'audit des sections manquantes du panneau Réglages).
+    'Exporter mes données': 'Export my data',
+    "Télécharge un fichier contenant tout ce qui te concerne sur Noèsis : ton profil, tes activités, tes sessions chronométrées, tes messages, tes sondages et tes votes. Les messages ou tâches des autres membres d'une activité partagée ne sont jamais inclus.": "Downloads a file containing everything about you on Noèsis: your profile, activities, tracked sessions, messages, polls and votes. Messages or tasks from other members of a shared activity are never included.",
+    'Télécharger mes données': 'Download my data',
     "Conditions d'utilisation": 'Terms of use',
     "Le contrat qui régit l'utilisation de Noèsis TimeTracker.": 'The contract governing the use of Noèsis TimeTracker.',
     "Lire les conditions d'utilisation": 'Read the terms of use',
@@ -334,6 +343,7 @@
     'Définis un code pour {name}': 'Set a PIN for {name}',
     'Durée : {duration}': 'Duration: {duration}',
     'Te désabonner de {name} ?': 'Unfollow {name}?',
+    'Bloquer {name} ? Cette personne sera retirée de tes abonnés et ne pourra plus te suivre tant que tu ne l\'auras pas débloquée.': 'Block {name}? This person will be removed from your followers and won\'t be able to follow you again until you unblock them.',
     '{name} souhaite te suivre.': '{name} wants to follow you.',
     'Membres · {name}': 'Members · {name}',
     // Actions sous la liste des membres (Activité solo, 5 septembre 2026).

@@ -586,6 +586,20 @@
             <p class="hint">Abonnements</p>
             <div id="settingsFollowingList" class="activitiesList"></div>
             <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+            <!-- Bloqués (8 septembre 2026, demande d'Emilien : « je souhaite
+                 que l'on puisse bloquer les utilisateurs qui nous suivent [...]
+                 que ce paramètre s'affiche sur le profil sous l'icône abonné
+                 et abonnement en face des abonnés »). Troisième liste de ce
+                 même panneau, juste après Abonnements — le bouton "Bloquer"
+                 lui-même vit sur chaque ligne de la liste Abonnés
+                 ci-dessus (voir renderSettingsFollowers dans app.js).
+                 Portée du blocage cadrée avec Emilien (AskUserQuestion) :
+                 empêche seulement la personne de (re)suivre, ne la retire ni
+                 de la recherche/découverte de membres ni de la consultation
+                 de la page de visite du profil. -->
+            <p class="hint">Bloqués</p>
+            <div id="settingsBlockedList" class="activitiesList"></div>
+            <p id="settingsBlockedEmptyHint" class="hint hidden">Aucun utilisateur bloqué.</p>
           </div>
         </div>
 
@@ -841,6 +855,28 @@
             </div>
               </div>
             </div>
+
+            <!-- Export de mes données personnelles (7 septembre 2026,
+                 candidate n°1 de l'audit des sections manquantes du panneau
+                 Réglages — voir noesis-timetracker-parametres.md). Déclenche
+                 un simple téléchargement de GET /api/profile/export (déjà
+                 livré côté serveur, voir server/lib/dataexport.js) : aucun
+                 état à gérer ici, juste un lien de téléchargement classique.
+                 Le jeton du flux calendrier et les identifiants push restent
+                 exclus du fichier exporté (décision confirmée par Emilien),
+                 rien à faire côté client pour ça. -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Exporter mes données</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+                <p class="hint">Télécharge un fichier contenant tout ce qui te concerne sur Noèsis : ton profil, tes activités, tes sessions chronométrées, tes messages, tes sondages et tes votes. Les messages ou tâches des autres membres d'une activité partagée ne sont jamais inclus.</p>
+                <button type="button" id="exportDataBtn" class="iconBtn">Télécharger mes données</button>
+                <p id="exportDataMsg" class="msg"></p>
+              </div>
+            </div>
+
 
             <!-- Conditions d'utilisation (7 septembre 2026, discussion
                  "Conditions d'utilisation") : nouvelle section en LECTURE

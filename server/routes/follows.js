@@ -216,6 +216,16 @@ router.post('/follows', (req, res) => {
   const target = db.prepare('SELECT id, name FROM users WHERE id = ?').get(followeeId);
   if (!target) return res.status(404).json({ error: 'Profil introuvable.' });
 
+  // Blocage (8 septembre 2026) : si la personne visée m'a bloqué, ma demande
+  // de suivi est refusée — c'est tout l'intérêt du blocage (voir POST
+  // /blocks plus bas). Volontairement unidirectionnel : que MOI j'aie
+  // bloqué la personne visée n'empêche pas d'envoyer une demande dans
+  // l'autre sens si je change d'avis (pas demandé par Emilien, mais rien
+  // n'interdit non plus ce cas — seul le sens "la cible m'a bloqué" est
+  // vérifié ici).
+  const blockedByTarget = db.prepare('SELECT 1 FROM blocks WHERE blockerId = ? AND blockedId = ?').get(followeeId, followerId);
+  if (blockedByTarget) return res.status(403).json({ error: 'Tu ne peux pas suivre cette personne.' });
+
   const pending = db.prepare("SELECT 1 FROM follows WHERE followerId = ? AND followeeId = ? AND status = 'pending'").get(followerId, followeeId);
   if (pending) return res.status(409).json({ error: 'Demande déjà en attente.' });
 
@@ -275,6 +285,66 @@ router.delete('/follows/:id', (req, res) => {
 
   db.prepare('DELETE FROM follows WHERE id = ?').run(follow.id);
   res.json({ message: follow.status === 'accepted' ? 'Désabonné.' : 'Demande annulée.' });
+});
+
+// ---------- Blocage d'un abonné (8 septembre 2026, demande d'Emilien) ----------
+// Portée retenue avec Emilien (AskUserQuestion) : bloquer quelqu'un
+// l'empêche seulement de (re)suivre — ça ne le retire ni de la recherche/
+// découverte de membres, ni de la consultation de la page de visite du
+// profil (ce n'est pas un blocage social complet, juste un frein sur le
+// suivi). Géré dans un nouvel onglet "Bloqués" du panneau "Abonnés &
+// Abonnements" du Profil (public/index.html/app.js), pas dans Réglages —
+// choix d'emplacement confirmé par Emilien.
+
+// Mes utilisateurs bloqués — alimente l'onglet "Bloqués".
+router.get('/blocks', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+
+  const rows = db.prepare(`
+    SELECT b.id AS blockId, u.id AS userId, u.name AS name, u.lastName AS lastName, u.color AS color
+    FROM blocks b JOIN users u ON u.id = b.blockedId
+    WHERE b.blockerId = ?
+    ORDER BY u.name COLLATE NOCASE
+  `).all(userId);
+
+  res.json(rows);
+});
+
+// Bloque un abonné : le retire aussitôt de mes abonnés (toute ligne follows
+// où il me suit, quel que soit son statut — accepté ou une demande encore en
+// attente) et l'empêche d'envoyer une nouvelle demande tant que je ne l'ai
+// pas débloqué (voir la vérification dans POST /follows plus haut).
+router.post('/blocks', (req, res) => {
+  const blockerId = req.userId;
+  if (!blockerId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  const blockedId = req.body.blockedId;
+  if (!blockedId) return res.status(400).json({ error: 'blockedId requis.' });
+  if (blockerId === blockedId) return res.status(400).json({ error: 'Tu ne peux pas te bloquer toi-même.' });
+
+  const target = db.prepare('SELECT id, name FROM users WHERE id = ?').get(blockedId);
+  if (!target) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  db.prepare('DELETE FROM follows WHERE followerId = ? AND followeeId = ?').run(blockedId, blockerId);
+  db.prepare('INSERT OR IGNORE INTO blocks (blockerId, blockedId, createdAt) VALUES (?, ?, ?)')
+    .run(blockerId, blockedId, new Date().toISOString());
+
+  res.status(201).json({ message: `${target.name} a été bloqué(e).` });
+});
+
+// Débloque : la personne pourra à nouveau envoyer une demande de suivi
+// (qu'il faudra accepter comme n'importe quelle autre — le déblocage ne la
+// remet pas automatiquement dans mes abonnés).
+router.delete('/blocks/:id', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+
+  const block = db.prepare('SELECT * FROM blocks WHERE id = ?').get(req.params.id);
+  if (!block) return res.status(404).json({ error: 'Introuvable.' });
+  if (block.blockerId !== userId) return res.status(403).json({ error: "Tu ne peux retirer que tes propres blocages." });
+
+  db.prepare('DELETE FROM blocks WHERE id = ?').run(block.id);
+  res.json({ message: 'Débloqué.' });
 });
 
 module.exports = router;

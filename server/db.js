@@ -198,6 +198,26 @@ CREATE INDEX IF NOT EXISTS idx_follows_followee_status ON follows(followeeId, st
 CREATE INDEX IF NOT EXISTS idx_follows_follower_status ON follows(followerId, status);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_follow_pending ON follows(followerId, followeeId) WHERE status = 'pending';
 
+-- Blocage d'un abonné (8 septembre 2026, demande d'Emilien : « je souhaite
+-- que l'on puisse bloquer les utilisateurs qui nous suivent »). Portée
+-- volontairement limitée, choisie par Emilien : bloquer quelqu'un l'empêche
+-- seulement de te suivre à nouveau (et le retire aussitôt de tes abonnés,
+-- voir POST /api/blocks dans server/routes/follows.js) -- ça ne le retire
+-- PAS de la recherche/découverte de membres et ne cache pas ton profil
+-- public, ce n'est pas un blocage social complet. Table séparée plutôt
+-- qu'un troisième statut sur follows : un blocage n'est pas une relation de
+-- suivi (il peut exister sans qu'aucune ligne follows n'ait jamais existé
+-- entre les deux comptes), et il doit survivre à la suppression de la
+-- relation de suivi qu'il vient justement de couper.
+CREATE TABLE IF NOT EXISTS blocks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  blockerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blockedId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  createdAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_block ON blocks(blockerId, blockedId);
+CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blockedId);
+
 -- activity_broadcasts (note "en direct" envoyée depuis l'ancienne zone
 -- "Note" du Chrono, retirée le 31 août 2026 — voir profile_posts plus bas
 -- pour son remplacement côté "Communauté" et activity_messages pour
