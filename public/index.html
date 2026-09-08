@@ -442,7 +442,17 @@
 
     <div id="onbExisting" class="hidden">
       <p class="lead">Retrouve ton profil</p>
+      <!-- 8 septembre 2026 (chantier "Connexion / Création de compte") :
+           deux champs plutôt qu'un seul, puisque le prénom seul n'identifie
+           plus forcément une unique personne (voir server/db.js,
+           "usersNameStillGloballyUnique" — les prénoms en double sont
+           désormais permis, distingués par le nom de famille). Le nom de
+           famille est facultatif (comptes créés avant le 29 août 2026,
+           sans nom de famille en base) — voir loadUserListForOnboarding et
+           GET /api/users dans server/routes/profile.js pour la règle de
+           correspondance exacte, y compris ce cas. -->
       <input type="text" id="onbSearch" placeholder="Tape ton prénom..." autocomplete="off">
+      <input type="text" id="onbSearchLastName" placeholder="Nom de famille (si tu en as un sur ton profil)" autocomplete="off">
       <div id="onbUserList" class="userList"></div>
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
     </div>

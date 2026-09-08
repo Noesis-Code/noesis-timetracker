@@ -232,20 +232,51 @@ function projectRowOut(p) {
 // Ce qui sort reste minimisé au strict nécessaire à ce flux : id, name,
 // color (affichage de la ligne) et hasPin (proposer « définir un code »
 // plutôt que « vérifier le code » sur un compte créé avant cette
-// protection). LIMIT 5 est une ceinture : `users.name` est déjà unique
-// (contrôle d'unicité COLLATE NOCASE dans POST /profile ci-dessous).
+// protection).
 //
 // ⚠️ Limite assumée, à connaître : cette route confirme toujours l'EXISTENCE
-// d'un pseudo à qui le devine exactement. C'est le prix d'une récupération de
-// compte sans mot de passe ni courriel de vérification. Le chantier « mot de
-// passe à la place du NIP » (reporté après le 11 septembre) est ce qui
-// permettra de la fermer complètement.
+// d'un pseudo (et, depuis le 8 septembre, d'une paire prénom+nom) à qui le
+// devine exactement. C'est le prix d'une récupération de compte sans mot de
+// passe ni courriel de vérification. Le chantier « mot de passe à la place
+// du NIP » (reporté après le 11 septembre) est ce qui permettra de la fermer
+// complètement.
+//
+// ⚠️ 8 septembre 2026 — chantier « Connexion / Création de compte », trois
+// changements liés à la décision d'Emilien de permettre les prénoms en
+// double (voir server/db.js, "usersNameStillGloballyUnique") :
+//
+//   1. `name` seul n'est plus unique dans la base : cette route accepte
+//      DÉSORMAIS aussi `lastName` en paramètre et, s'il est fourni (non
+//      vide), exige que les DEUX correspondent exactement (même logique
+//      COLLATE NOCASE) — jamais de liste par prénom seul dès qu'un nom de
+//      famille est en jeu, ce qui redeviendrait une petite énumération si
+//      plusieurs personnes partagent un prénom.
+//   2. `lastName` reste facultatif pour ne pas exclure les tout premiers
+//      profils créés avant le 29 août 2026 (Emilien, Gaspard), dont le nom
+//      de famille en base peut être NULL/vide tant qu'ils ne l'ont pas
+//      renseigné depuis Réglages > Identité — sans cette tolérance, un tel
+//      profil deviendrait irrécupérable sur un nouvel appareil. Laisser le
+//      champ vide ne matche donc QUE les comptes dont le nom de famille est
+//      lui-même NULL/vide (`COALESCE(lastName, '')`) : ça ne réintroduit
+//      aucune énumération par prénom seul pour un compte qui, lui, a un nom
+//      de famille renseigné.
+//   3. Le nom de famille n'est JAMAIS renvoyé dans la réponse (toujours
+//      minimisée à id/name/color/hasPin) : il ne sert qu'à filtrer côté
+//      serveur, jamais à identifier quelqu'un d'autre dans la réponse.
+//   LIMIT 2 (abaissé de 5) reste une ceinture, pas une béance : la paire est
+//   désormais unique en base pour tout compte ayant un nom de famille
+//   (index `uniq_user_name_lastname`) — il ne devrait jamais y avoir plus
+//   d'une ligne, LIMIT 2 permet seulement de distinguer "0 ou 1" (normal) de
+//   "2 et plus" (anomalie de données, ou plusieurs comptes grand-père sans
+//   nom de famille partageant le même prénom) sans jamais se comporter
+//   comme un listing.
 router.get('/users', (req, res) => {
   const name = (req.query.name || '').trim();
+  const lastName = (req.query.lastName || '').trim();
   if (!name) return res.json([]);
   const rows = db.prepare(
-    'SELECT id, name, color, pin FROM users WHERE name = ? COLLATE NOCASE LIMIT 5'
-  ).all(name);
+    "SELECT id, name, color, pin FROM users WHERE name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2"
+  ).all(name, lastName);
   res.json(rows.map((u) => ({ id: u.id, name: u.name, color: u.color, hasPin: !!u.pin })));
 });
 
@@ -274,8 +305,16 @@ router.post('/profile', (req, res) => {
   const pin = (req.body.pin || '').trim();
   if (!isValidPinFormat(pin)) return res.status(400).json({ error: 'Le code doit comporter 4 à 6 chiffres.' });
 
-  const existing = db.prepare('SELECT id FROM users WHERE name = ? COLLATE NOCASE').get(name);
-  if (existing) return res.status(409).json({ error: `"${name}" existe déjà. Choisis un autre nom, ou récupère ton profil si c'est toi.` });
+  // Unicité : la PAIRE prénom + nom de famille (8 septembre 2026, décision
+  // d'Emilien — voir server/db.js, "usersNameStillGloballyUnique", pour le
+  // raisonnement complet et la migration). Avant ce jour, le prénom seul
+  // était unique dans toute l'app ; deux personnes peuvent désormais
+  // partager le même prénom tant que leur nom de famille diffère — c'est ce
+  // qui rend la recherche combinée de GET /users (plus bas) nécessaire.
+  const existing = db.prepare(
+    'SELECT id FROM users WHERE name = ? COLLATE NOCASE AND lastName = ? COLLATE NOCASE'
+  ).get(name, lastName);
+  if (existing) return res.status(409).json({ error: `"${name} ${lastName}" existe déjà. Choisis un autre prénom ou nom, ou récupère ton profil si c'est toi.` });
 
   const lang = LANGS.indexOf(req.body.lang) !== -1 ? req.body.lang : DEFAULT_LANG;
 

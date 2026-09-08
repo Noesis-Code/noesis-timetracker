@@ -823,7 +823,9 @@
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.remove('hidden');
     $('onbMsg').textContent = '';
-    loadUserListForOnboarding('');
+    $('onbSearch').value = '';
+    $('onbSearchLastName').value = '';
+    loadUserListForOnboarding();
   });
   $('onbSwitchToCreate').addEventListener('click', function (e) {
     e.preventDefault();
@@ -873,15 +875,25 @@
   // server/routes/profile.js). Conséquence visible pour la personne : il faut
   // taper son pseudo en entier, un début ne suffit plus — c'est le prix à
   // payer pour qu'on ne puisse plus énumérer les membres.
+  // ⚠️ 8 septembre 2026 (chantier "Connexion / Création de compte") : prénom
+  // seul ne suffit plus à identifier une personne à coup sûr, puisque les
+  // prénoms en double sont désormais permis (voir server/db.js,
+  // "usersNameStillGloballyUnique" — décision d'Emilien). Cette fonction lit
+  // maintenant AUSSI #onbSearchLastName et l'envoie au serveur dès que le
+  // prénom est rempli — le nom de famille reste FACULTATIF côté champ pour
+  // ne pas bloquer les tout premiers profils sans nom de famille en base
+  // (Emilien, Gaspard ; voir GET /users dans server/routes/profile.js pour
+  // la règle exacte de correspondance, y compris ce cas).
   // `onbSearchSeq` : garde anti-réponse-en-vol, même principe que
   // viewProfileUserId sur la page de visite. Deux frappes rapides peuvent
   // revenir dans le désordre ; seule la dernière a le droit de dessiner.
   var onbSearchSeq = 0;
-  function loadUserListForOnboarding(filter) {
-    var q = (filter || '').trim();
+  function loadUserListForOnboarding() {
+    var q = $('onbSearch').value.trim();
+    var qLastName = $('onbSearchLastName').value.trim();
     var seq = ++onbSearchSeq;
-    if (!q) { renderOnbUserList([], seq, ''); return; }
-    api('GET', '/api/users?name=' + encodeURIComponent(q))
+    if (!q) { renderOnbUserList([], seq, q); return; }
+    api('GET', '/api/users?name=' + encodeURIComponent(q) + '&lastName=' + encodeURIComponent(qLastName))
       .then(function (users) { renderOnbUserList(users, seq, q); })
       .catch(function () { renderOnbUserList([], seq, q); });
   }
@@ -890,7 +902,7 @@
     var box = $('onbUserList');
     box.innerHTML = '';
     if (!q) {
-      box.innerHTML = '<p class="hint">' + t('Tape ton pseudo en entier pour retrouver ton profil.') + '</p>';
+      box.innerHTML = '<p class="hint">' + t('Tape ton prénom en entier (et ton nom de famille, si tu en as un sur ton profil) pour retrouver ton profil.') + '</p>';
       return;
     }
     if (users.length === 0) {
@@ -907,7 +919,8 @@
       box.appendChild(chip);
     });
   }
-  $('onbSearch').addEventListener('input', function () { loadUserListForOnboarding(this.value); });
+  $('onbSearch').addEventListener('input', function () { loadUserListForOnboarding(); });
+  $('onbSearchLastName').addEventListener('input', function () { loadUserListForOnboarding(); });
 
   // ----- Étape "code PIN" (récupérer un profil existant, ou lui en définir
   // un s'il n'en a pas encore — comptes créés avant cette protection) -----
@@ -11404,10 +11417,20 @@
         // l'annuaire complet pour y retrouver une seule ligne. Il interroge
         // désormais la route par pseudo EXACT — le profil local en mémoire
         // porte déjà son propre `name`, donc rien de plus n'est nécessaire.
-        // L'identifiant reste vérifié ci-dessous : un homonyme (impossible en
-        // pratique, `users.name` est unique, mais la garde ne coûte rien) ne
-        // doit pas être pris pour soi.
-        api('GET', '/api/users?name=' + encodeURIComponent(profile.name || '')).then(function (users) {
+        // L'identifiant reste vérifié ci-dessous : un homonyme ne doit pas
+        // être pris pour soi.
+        // ⚠️ 8 septembre 2026 (chantier "Connexion / Création de compte") :
+        // `users.name` n'est plus unique à lui seul (prénoms en double
+        // permis, voir server/db.js) — GET /users prend désormais aussi
+        // `lastName` en paramètre. Un profil mémorisé localement AVANT ce
+        // changement peut ne pas avoir de `lastName` du tout (comptes créés
+        // avant le 29 août 2026, ex. Emilien/Gaspard) : dans ce cas
+        // `profile.lastName` vaut '' ici, et GET /users (server/routes/
+        // profile.js) matche volontairement les comptes dont le nom de
+        // famille en base est lui-même NULL/vide dans ce cas précis — cette
+        // branche continue donc de fonctionner sans régression pour ces
+        // comptes-là, exactement comme avant ce chantier.
+        api('GET', '/api/users?name=' + encodeURIComponent(profile.name || '') + '&lastName=' + encodeURIComponent(profile.lastName || '')).then(function (users) {
           var match = users.filter(function (u) { return u.id === profile.id; })[0];
           if (!match) {
             // Profil introuvable côté serveur (compte supprimé ailleurs) :

@@ -780,6 +780,79 @@ if (!columnExists('users', 'sessionEpoch')) {
   db.exec('ALTER TABLE users ADD COLUMN sessionEpoch INTEGER NOT NULL DEFAULT 0');
 }
 
+// Prénom/pseudo en double, distingués par nom de famille (8 septembre 2026,
+// discussion "Connexion / Création de compte", décision explicite d'Emilien
+// — cadrage AskUserQuestion avant ce changement). Avant ce jour, "name" avait
+// "UNIQUE" en base ET côté serveur (POST /profile refusait tout prénom déjà
+// pris, quel que soit le nom de famille) : deux personnes ne pouvaient donc
+// jamais partager le même prénom, ce qui rendait la confusion à la
+// reconnexion (l'objet de ce chantier) impossible dans les faits, mais
+// obligeait aussi tout le monde à choisir un pseudo unique dans toute
+// l'application — contraignant à mesure que la base d'utilisateurs grandit.
+// Nouvelle règle : c'est la PAIRE (prénom, nom de famille) qui doit être
+// unique, plus le prénom seul — voir la nouvelle vérification dans
+// POST /profile (server/routes/profile.js) et le nouvel index unique juste
+// en dessous. SQLite ne retire jamais une contrainte UNIQUE existante avec
+// un simple ALTER TABLE ADD COLUMN : comme pour "activities" plus bas dans
+// ce fichier (même motif, méthode identique), on détecte l'ancienne
+// contrainte et on reconstruit la table sans elle, en conservant les id (les
+// autres tables référencent "users" par son id, jamais par son nom, donc
+// rien d'autre à toucher) et toutes les colonnes existantes, y compris
+// celles ajoutées par les migrations ci-dessus (lastName, phone, email,
+// lang, contactShareEmail, contactSharePhone, sessionEpoch).
+function usersNameStillGloballyUnique() {
+  var row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get();
+  return !!(row && row.sql && /\bname\s+TEXT\s+NOT\s+NULL\s+UNIQUE\b/i.test(row.sql));
+}
+
+if (usersNameStillGloballyUnique()) {
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec('BEGIN');
+  try {
+    db.exec(`
+      CREATE TABLE users_rebuild (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        lastName TEXT,
+        phone TEXT,
+        email TEXT,
+        color TEXT NOT NULL DEFAULT '#674EA7',
+        createdAt TEXT NOT NULL,
+        pin TEXT,
+        theme TEXT NOT NULL DEFAULT 'dark',
+        shareProfile INTEGER NOT NULL DEFAULT 0,
+        avatar TEXT,
+        lang TEXT NOT NULL DEFAULT 'en',
+        contactShareEmail INTEGER NOT NULL DEFAULT 0,
+        contactSharePhone INTEGER NOT NULL DEFAULT 0,
+        sessionEpoch INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+    db.exec(`
+      INSERT INTO users_rebuild (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, avatar, lang, contactShareEmail, contactSharePhone, sessionEpoch)
+      SELECT id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, avatar, lang, contactShareEmail, contactSharePhone, sessionEpoch FROM users
+    `);
+    db.exec('DROP TABLE users');
+    db.exec('ALTER TABLE users_rebuild RENAME TO users');
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+}
+
+// Unicité prénom + nom de famille, à la place de l'ancienne unicité du seul
+// prénom (voir ci-dessus). COLLATE NOCASE pour rester cohérent avec les
+// comparaisons déjà faites ailleurs (POST /profile, GET /users).
+// ⚠️ Limite connue et acceptée : SQLite ne considère jamais deux NULL comme
+// égaux dans un index UNIQUE, donc deux profils qui auraient CHACUN un nom
+// de famille NULL ne seraient pas bloqués par cet index. Seuls les profils
+// créés avant le 29 août 2026 (Emilien, Gaspard) peuvent être dans ce cas :
+// tout profil créé depuis exige un nom de famille non vide (POST /profile).
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_name_lastname ON users(name COLLATE NOCASE, lastName COLLATE NOCASE)');
+
 // Vote anonyme (3 septembre 2026, demande d'Emilien). Migration purement
 // additive, comme toutes celles de ce bloc : DEFAULT 0, donc tout sondage créé
 // avant ce jour reste nominatif — le comportement d'un sondage déjà publié ne

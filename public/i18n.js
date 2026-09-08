@@ -45,6 +45,7 @@
     "J'ai déjà un profil sur cette app": 'I already have a profile on this app',
     'Retrouve ton profil': 'Find your profile',
     'Tape ton prénom...': 'Type your first name...',
+    'Nom de famille (si tu en as un sur ton profil)': 'Last name (if your profile has one)',
     'Créer un nouveau profil': 'Create a new profile',
     'Code': 'PIN',
     'Valider': 'Confirm',
@@ -525,6 +526,7 @@
     'Tu dois suivre ce profil pour voir ses projets.': 'You need to follow this profile to see its projects.',
     'Tu dois suivre ce profil pour voir ses statistiques.': 'You need to follow this profile to see its statistics.',
     'Tape ton pseudo en entier pour retrouver ton profil.': 'Type your full username to find your profile.',
+    'Tape ton prénom en entier (et ton nom de famille, si tu en as un sur ton profil) pour retrouver ton profil.': 'Type your full first name (and your last name, if your profile has one) to find your profile.',
     'Aucun détail supplémentaire pour ce projet.': 'No further details for this project.',
     'Le nom du projet est requis.': 'The project name is required.',
     'Supprimer ce projet ?': 'Delete this project?',
@@ -848,7 +850,10 @@
     [/^Activité enregistrée : (.*)$/, 'Session recorded: $1'],
     [/^Import terminé : (\d+) ligne\(s\) importée\(s\), (\d+) déjà présente\(s\), (\d+) ignorée\(s\)\.$/, 'Import finished: $1 row(s) imported, $2 already there, $3 skipped.'],
     [/^Import terminé : (\d+) ligne\(s\) importée\(s\), (\d+) ignorée\(s\)\.$/, 'Import finished: $1 row(s) imported, $2 skipped.'],
-    [/^"(.+)" existe déjà\. Choisis un autre nom, ou récupère ton profil si c'est toi\.$/, '"$1" already exists. Pick another name, or restore your profile if that is you.'],
+    // 8 septembre 2026 (chantier "Connexion / Création de compte") : le
+    // prénom seul n'est plus unique (voir server/db.js), le message inclut
+    // désormais le nom de famille — motif mis à jour en conséquence.
+    [/^"(.+) (.+)" existe déjà\. Choisis un autre prénom ou nom, ou récupère ton profil si c'est toi\.$/, '"$1 $2" already exists. Pick another first or last name, or restore your profile if that is you.'],
     [/^"(.+)" est déjà pris par un autre profil\.$/, '"$1" is already taken by another profile.'],
     [/^Semaine du (\S+) au (\S+)$/, 'Week of $1 to $2'],
     // (Le motif `Du $1 au $2`, ajouté ici le 1er septembre 2026 pour le
