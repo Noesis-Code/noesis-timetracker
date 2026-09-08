@@ -36,6 +36,34 @@ const app = express();
 // confiance aux en-têtes X-Forwarded-*. Sans effet en local.
 app.set('trust proxy', 1);
 
+// En-têtes de sécurité HTTP (audit Sécurité, 7-8 septembre 2026 —
+// noesis-timetracker-securite.md) : confirmés absents en production par un
+// test en direct sans session sur https://web-production-15a4a.up.railway.app.
+// Aucun n'était défendu par le code lui-même (la garantie HTTPS, par
+// exemple, dépendait entièrement de Railway en amont). Posé tôt, avant
+// toutes les routes, pour s'appliquer à toutes les réponses.
+app.use((req, res, next) => {
+  // HSTS seulement si la requête est déjà en HTTPS (req.secure reflète
+  // X-Forwarded-Proto grâce à 'trust proxy' ci-dessus) : un navigateur
+  // n'obéit de toute façon à cet en-tête que reçu sur une connexion https,
+  // et l'envoyer sur http en local n'aurait aucun effet utile.
+  if (req.secure) {
+    res.set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  }
+  // Empêche l'app d'être chargée dans une iframe sur un autre site
+  // (protection contre le clickjacking — piéger un clic sur une action
+  // sensible comme la suppression de compte).
+  res.set('X-Frame-Options', 'DENY');
+  // Empêche un navigateur de deviner un type MIME différent de celui
+  // annoncé par le serveur (protection contre certaines attaques XSS via
+  // upload de fichier).
+  res.set('X-Content-Type-Options', 'nosniff');
+  // N'envoie l'URL complète comme référent qu'aux requêtes de même origine ;
+  // seule l'origine (sans chemin) part vers un site tiers.
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 // 15 Mo au lieu des 100 Ko par défaut : l'import CSV de l'historique
 // (POST /api/import/history) envoie tout le fichier dans le corps de la
 // requête, une photo de profil transite en data URL, et une pièce jointe de
