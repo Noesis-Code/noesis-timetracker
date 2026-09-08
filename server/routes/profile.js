@@ -270,14 +270,28 @@ function projectRowOut(p) {
 //   "2 et plus" (anomalie de données, ou plusieurs comptes grand-père sans
 //   nom de famille partageant le même prénom) sans jamais se comporter
 //   comme un listing.
+// 8 septembre 2026 (discussion « Connexion / Création de compte », demande
+// directe d'Emilien) : le nom de famille est désormais renvoyé dans la
+// réponse, alors qu'il était volontairement omis jusqu'ici (minimisation
+// liée à l'incident 2026-001, voir le commentaire plus haut). Décision
+// assumée et cadrée avec Emilien (`AskUserQuestion`) : cette route reste
+// pré-session, publique, sans authentification, donc l'élargissement
+// n'est acceptable QUE parce que le nom de famille renvoyé est TOUJOURS
+// exactement celui que l'appelant vient lui-même de saisir pour obtenir
+// une correspondance exacte — un utilisateur qui ne connaît pas déjà le
+// nom de famille exact n'obtient aucun résultat (voir la clause
+// COALESCE ci-dessous), donc rien n'est exposé qui ne soit pas déjà
+// connu de l'appelant. Cette route reste une recherche par correspondance
+// exacte, jamais un listing : ne pas réintroduire ici un paramètre
+// permettant de lister sans connaître le nom de famille au préalable.
 router.get('/users', (req, res) => {
   const name = (req.query.name || '').trim();
   const lastName = (req.query.lastName || '').trim();
   if (!name) return res.json([]);
   const rows = db.prepare(
-    "SELECT id, name, color, pin FROM users WHERE name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2"
+    "SELECT id, name, lastName, color, pin FROM users WHERE name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2"
   ).all(name, lastName);
-  res.json(rows.map((u) => ({ id: u.id, name: u.name, color: u.color, hasPin: !!u.pin })));
+  res.json(rows.map((u) => ({ id: u.id, name: u.name, lastName: u.lastName || '', color: u.color, hasPin: !!u.pin })));
 });
 
 // Création de profil (initialisation de l'app). Un code PIN (4 à 6

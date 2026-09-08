@@ -912,7 +912,14 @@
     users.forEach(function (u) {
       var chip = document.createElement('div');
       chip.className = 'userChip';
-      chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(u.name) + '</span>';
+      // 8 septembre 2026 (Connexion / Création de compte, demande d'Emilien) :
+      // afficher le nom de famille en plus du prénom sur le résultat trouvé,
+      // pour confirmer clairement lequel des homonymes a été retrouvé. Le
+      // serveur ne renvoie ce nom de famille que parce que l'utilisateur
+      // vient déjà de le taper pour obtenir ce résultat (voir GET /users
+      // dans server/routes/profile.js) — rien de nouveau n'est exposé.
+      var displayName = u.lastName ? (u.name + ' ' + u.lastName) : u.name;
+      chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(displayName) + '</span>';
       chip.addEventListener('click', function () {
         showOnbPinStep(u);
       });
@@ -934,12 +941,17 @@
     $('onbMsg').textContent = '';
     $('onbPinInput').value = '';
     $('onbPinConfirmInput').value = '';
+    // 8 septembre 2026 (Connexion / Création de compte, demande d'Emilien) :
+    // afficher le nom de famille en plus du prénom ici aussi, pour confirmer
+    // sans ambiguïté quel profil homonyme a été retrouvé avant de saisir son
+    // code PIN.
+    var displayName = user.lastName ? (user.name + ' ' + user.lastName) : user.name;
     if (user.hasPin) {
-      $('onbPinStepTitle').textContent = t('Code de {name}', { name: user.name });
+      $('onbPinStepTitle').textContent = t('Code de {name}', { name: displayName });
       $('onbPinStepHint').classList.add('hidden');
       $('onbPinConfirmInput').classList.add('hidden');
     } else {
-      $('onbPinStepTitle').textContent = t('Définis un code pour {name}', { name: user.name });
+      $('onbPinStepTitle').textContent = t('Définis un code pour {name}', { name: displayName });
       $('onbPinStepHint').textContent = t('Ce profil n\'a pas encore de code (créé avant l\'ajout de cette protection). Définis-en un maintenant.');
       $('onbPinStepHint').classList.remove('hidden');
       $('onbPinConfirmInput').classList.remove('hidden');
@@ -7637,101 +7649,6 @@
         $('exportDataBtn').disabled = false;
       });
   });
-
-  // ===================== AIDE ET SUGGESTIONS (8 septembre 2026, demande d'Emilien) =====================
-  // Un seul champ de texte libre (+ pièce jointe optionnelle : photo ou
-  // document, 2 max), envoyé par courriel à l'adresse confidentielle de
-  // Noèsis. Pas de FAQ : aucune loi québécoise ne l'impose (la Loi 25
-  // encadre les données, pas l'UX) — décision confirmée avec Emilien.
-  // Réutilise l'infrastructure de pièces jointes existante
-  // (handleAttachmentFilePick / renderAttachmentList / pollAutoGrow) plutôt
-  // que d'en dupliquer une nouvelle.
-  (function initFeedbackSection() {
-    var categorySwitch = $('feedbackCategorySwitch');
-    var messageInput = $('feedbackMessageInput');
-    var pendingList = $('feedbackPendingList');
-    var attachBtn = $('feedbackAttachBtn');
-    var attachInput = $('feedbackAttachInput');
-    var sendBtn = $('feedbackSendBtn');
-    var msgEl = $('feedbackMsg');
-    if (!categorySwitch || !messageInput || !sendBtn) return;
-
-    var feedbackCategory = 'suggestion';
-    var feedbackAttachments = [];
-
-    categorySwitch.querySelectorAll('[data-feedback-category]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        feedbackCategory = btn.getAttribute('data-feedback-category');
-        categorySwitch.querySelectorAll('[data-feedback-category]').forEach(function (b) {
-          b.classList.toggle('active', b === btn);
-        });
-      });
-    });
-
-    // Transit seulement (Loi 25) : deleteApiPath = null, exactement comme
-    // les pièces jointes en attente de mountMessageThread — pas d'appel
-    // serveur pour retirer une pièce pas encore envoyée.
-    function renderFeedbackPending() {
-      if (pendingList) pendingList.classList.toggle('hidden', feedbackAttachments.length === 0);
-      renderAttachmentList(pendingList, feedbackAttachments, function (removedId) {
-        feedbackAttachments = feedbackAttachments.filter(function (a) { return a.id !== removedId; });
-        renderFeedbackPending();
-      }, null);
-      if (attachBtn) attachBtn.disabled = feedbackAttachments.length >= 2;
-    }
-
-    if (attachBtn && attachInput) {
-      attachBtn.addEventListener('click', function () {
-        if (feedbackAttachments.length >= 2) return;
-        attachInput.click();
-      });
-      attachInput.addEventListener('change', function () {
-        var file = attachInput.files[0];
-        attachInput.value = '';
-        if (feedbackAttachments.length >= 2) return;
-        handleAttachmentFilePick(file, msgEl, function (fileName, mimeType, dataUrl) {
-          feedbackAttachments.push({
-            id: 'pending-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-            fileName: fileName,
-            mimeType: mimeType,
-            sizeBytes: Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4),
-            dataUrl: dataUrl,
-          });
-          if (msgEl) msgEl.textContent = '';
-          renderFeedbackPending();
-        });
-      });
-    }
-
-    if (messageInput) pollAutoGrow(messageInput);
-
-    sendBtn.addEventListener('click', function () {
-      var message = (messageInput.value || '').trim();
-      if (!message) {
-        if (msgEl) msgEl.textContent = t('Écris un message avant d\'envoyer.');
-        return;
-      }
-      sendBtn.disabled = true;
-      if (msgEl) msgEl.textContent = '';
-      api('POST', '/api/feedback', {
-        category: feedbackCategory,
-        message: message,
-        attachments: feedbackAttachments,
-      })
-        .then(function () {
-          messageInput.value = '';
-          feedbackAttachments = [];
-          renderFeedbackPending();
-          if (msgEl) msgEl.textContent = t('Message envoyé. Merci !');
-        })
-        .catch(function () {
-          if (msgEl) msgEl.textContent = t('Envoi impossible pour le moment. Réessaie plus tard.');
-        })
-        .finally(function () {
-          sendBtn.disabled = false;
-        });
-    });
-  })();
 
   // ===================== MES NOTES — SUPPRIMÉE LE 4 SEPTEMBRE 2026 =====================
   // Demande d'Emilien : « je souhaite supprimer les notes », cadrée en
