@@ -253,6 +253,15 @@
     "Le contrat qui régit l'utilisation de Noèsis TimeTracker.": 'The contract governing the use of Noèsis TimeTracker.',
     "Lire les conditions d'utilisation": 'Read the terms of use',
     "Lire les conditions d'utilisation avant de créer ton profil": 'Read the terms of use before creating your profile',
+    // Aide et suggestions (8 septembre 2026, demande d'Emilien) : un seul
+    // champ de texte libre envoyé par courriel, sans FAQ (voir app.js).
+    'Aide et suggestions': 'Help & suggestions',
+    "Une question, un bug, une idée ? Écris-nous directement — ton message est envoyé par courriel, rien n'est conservé sur nos serveurs.": "A question, a bug, an idea? Write to us directly — your message is sent by email, nothing is stored on our servers.",
+    'Suggestion': 'Suggestion',
+    'Signaler un bug': 'Report a bug',
+    'Ton message...': 'Your message...',
+    'Joindre une photo ou un document': 'Attach a photo or document',
+    'Message envoyé. Merci !': 'Message sent. Thank you!',
     // 'Écrire aux membres' : placeholder du composeur de Communauté
     // (#communityMyPostsInput), 3 septembre 2026, demande d'Emilien.
     'Écrire aux membres': 'Write to members',

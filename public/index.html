@@ -908,6 +908,55 @@
             </div>
 
 
+            <!-- Aide et suggestions (8 septembre 2026, nouvelle discussion
+                 dédiée — voir noesis-timetracker-conformite-discussions-legal-
+                 securite.md). Cadrage avec Emilien : PAS de FAQ (rien dans la
+                 Loi 25 ni ailleurs ne l'exige — ça porte sur les données, pas
+                 sur l'ergonomie) — un simple formulaire texte + pièce jointe
+                 optionnelle (photo ET document, une de chaque au maximum),
+                 envoyé par courriel à confidentialite.noesis@gmail.com
+                 (server/routes/feedback.js, via server/lib/mail.js/Resend).
+                 Minimisation Loi 25 : aucun champ nom/courriel redemandé — le
+                 message est authentifié par la session déjà active
+                 (req.userId), le nom affiché dans le courriel vient du profil
+                 déjà existant. Pièces jointes transmises dans le courriel puis
+                 JAMAIS conservées côté serveur (aucune table, aucun fichier
+                 écrit sur le volume persistant) — décision explicite
+                 d'Emilien, minimisation maximale. Réutilise les helpers de
+                 pièce jointe déjà partagés par le reste de l'app (voir
+                 public/app.js, section PIÈCES JOINTES) plutôt que d'en écrire
+                 de nouveaux. -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Aide et suggestions</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+                <p class="hint">Une suggestion, un bug à signaler ? Écris-nous, on te lit.</p>
+                <div class="settingsCard">
+                  <div id="feedbackCategorySwitch" class="feedbackCategorySwitch">
+                    <button type="button" class="themeBtn active" data-feedback-category="suggestion">Suggestion</button>
+                    <button type="button" class="themeBtn" data-feedback-category="bug">Signaler un bug</button>
+                  </div>
+                  <div class="discussionComposer">
+                    <textarea id="feedbackMessageInput" class="pollAutoGrow" rows="3" placeholder="Ton message..." maxlength="4000"></textarea>
+                    <div id="feedbackPendingList" class="attachmentList hidden"></div>
+                    <div class="rowActions">
+                      <div class="attachmentMenuWrap">
+                        <button type="button" class="menuBtn attachMenuIconBtn" id="feedbackAttachBtn" aria-label="Joindre une photo ou un document">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                        </button>
+                        <input type="file" id="feedbackAttachInput" class="hidden">
+                      </div>
+                      <button type="button" id="feedbackSendBtn" class="btn btn-primary btn-small">Envoyer</button>
+                    </div>
+                  </div>
+                  <p id="feedbackMsg" class="msg"></p>
+                </div>
+              </div>
+            </div>
+
+
             <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
                  quelqu'un, ou s'inviter soi-même en donnant son pseudo.
                  L'adresse publique est SAISIE À LA MAIN et mémorisée sur CET

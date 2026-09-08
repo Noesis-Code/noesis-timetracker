@@ -151,6 +151,9 @@ app.use('/api', require('./routes/push'));
 // Sondages (3 septembre 2026, 11ᵉ discussion) — socle générique réutilisable
 // depuis plusieurs zones de l'app, voir server/lib/polls.js.
 app.use('/api', require('./routes/polls'));
+// Aide et suggestions (8 septembre 2026) — formulaire de contact envoyé par
+// courriel via Resend, voir server/lib/mail.js et server/routes/feedback.js.
+app.use('/api', require('./routes/feedback'));
 // Flux calendrier des échéances de sous-projets (4 septembre 2026) — un
 // calendrier iCalendar par utilisateur, auquel Apple Calendar et Google
 // Agenda s'abonnent en lecture seule. DÉSACTIVÉ PAR DÉFAUT : les routes

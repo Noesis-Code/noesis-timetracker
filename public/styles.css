@@ -1360,6 +1360,10 @@ body.scrollLock { overflow: hidden; }
 }
 
 .settingsCard { background: var(--card); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-card); margin-bottom: 8px; }
+/* Aide et suggestions (8 septembre 2026) : bascule Suggestion/Signaler un bug,
+   deux .themeBtn génériques (Design) côte à côte — cette règle ne fait que
+   les positionner, elle ne redéfinit rien de générique. */
+.feedbackCategorySwitch { display: flex; gap: 8px; margin-bottom: 12px; }
 /* Page "Réglages" (Apparence / Sécurité / Import) : remplace #profileMain au
    clic sur le bouton "⚙️", plutôt qu'un panneau replié dans la même page. */
 .subpageHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
