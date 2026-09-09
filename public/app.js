@@ -81,7 +81,7 @@
   // retirées le 3 septembre 2026 avec le plein écran de cette page — voir le
   // commentaire juste avant la section "FEUILLE DE TEMPS D'UNE ACTIVITÉ".
   var currentTheme = 'dark';
-  var currentLang = 'en'; // 'en' par défaut (nouveaux comptes) ; voir applyLang plus bas
+  var currentLang = 'fr'; // 'fr' par défaut depuis le 9 sept. 2026 (nouveaux comptes) ; voir applyLang plus bas
 
   // ----- Verrouillage d'orientation (30 août 2026, demande d'Emilien) -----
   // NOTE (1er septembre 2026) : ce commentaire décrit l'état du 30 août. Depuis,
@@ -194,8 +194,24 @@
     location.reload();
   }
 
+  // Fuseau horaire IANA du téléphone/navigateur (9 septembre 2026, demande
+  // d'Emilien : « assure-toi que le fuseau horaire de l'app s'ajuste
+  // automatiquement au fuseau horaire du téléphone de l'utilisateur »).
+  // Calculé une seule fois : il ne peut pas changer en cours de page (un
+  // changement de fuseau système ne s'applique qu'au prochain chargement),
+  // et Intl.DateTimeFormat().resolvedOptions().timeZone est disponible sur
+  // tous les navigateurs ciblés par l'app sans bibliothèque supplémentaire.
+  // Lu côté serveur par server/lib/session.js (en-tête X-Client-Tz), avec
+  // repli silencieux sur America/Toronto si jamais indisponible ou invalide
+  // — aucun risque de casser un appel si cette détection échoue.
+  var clientTimezone = null;
+  try {
+    clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch (e) { /* ignore — repli serveur sur le fuseau par défaut */ }
+
   function api(method, url, body) {
     var opts = { method: method, headers: {} };
+    if (clientTimezone) opts.headers['X-Client-Tz'] = clientTimezone;
     if (body !== undefined) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
@@ -6875,15 +6891,18 @@
   // sa section et referme les autres. Rouvrir Réglages repart toujours de la
   // liste refermée, pour ne pas retomber sur la section consultée la dernière
   // fois sans l'avoir demandé.
-  // Cale une section en haut de la zone défilante du panneau. Le panneau est
-  // en position: absolute : il est donc lui-même le parent de référence des
-  // offsetTop de ses sections, pas besoin de calculer des rectangles.
+  // Cale une section en haut de la zone défilante du panneau — depuis le 9
+  // septembre 2026 (fenêtre plein écran), cette zone est #profileSettingsScroll
+  // (position: absolute à l'intérieur de #profileSettingsPanel, qui ne défile
+  // plus lui-même — voir styles.css) plutôt que le panneau entier : c'est
+  // elle qui est le parent de référence des offsetTop de ses sections, pas
+  // besoin de calculer des rectangles.
   // On LIT scroll-padding-top sur l'élément au lieu de le figer ici : le
   // navigateur accroche sur (offsetTop - scroll-padding-top), et si notre
   // calcul s'en écartait, l'accrochage re-décalerait la section juste après
   // notre propre défilement.
   function scrollSettingsSectionIntoView(section) {
-    var panel = $('profileSettingsPanel');
+    var panel = $('profileSettingsScroll');
     if (!panel || !section) return;
     var pad = parseFloat(getComputedStyle(panel).scrollPaddingTop) || 0;
     var top = Math.max(0, section.offsetTop - pad);
@@ -6895,32 +6914,84 @@
     }
   }
 
+  // ----- Accordéon imbriqué (9 septembre 2026, réorganisation du panneau
+  // Réglages demandée par Emilien — voir noesis-timetracker-parametres.md) -----
+  // Trois groupes fusionnent plusieurs anciennes sections en une seule entrée
+  // de premier niveau (.settingsGroup, corps .settingsGroupBody) qui contient
+  // à son tour plusieurs .settingsSection (mêmes ids, markup inchangé). Les
+  // sections restées autonomes (Notifications, Partage, Aide et suggestions)
+  // gardent exactement le comportement d'avant : un seul header partage la
+  // classe .settingsSectionHeader dans les deux cas (groupe ou section), ce
+  // qui permet de réutiliser tel quel tout le CSS existant (.open, chevron,
+  // bordure violette) sans dupliquer une seule règle de style.
+  //
+  // Referme un conteneur (section OU groupe) sans toucher à ses voisins —
+  // fonction générique réutilisée par les trois niveaux de remise à zéro
+  // ci-dessous.
+  function closeSettingsContainer(container) {
+    container.classList.remove('open');
+    var isGroup = container.classList.contains('settingsGroup');
+    var body = container.querySelector(isGroup ? '.settingsGroupBody' : '.settingsSectionBody');
+    // Le premier .settingsSectionHeader rencontré dans l'ordre du document
+    // est toujours celui du conteneur lui-même (son propre bouton précède
+    // dans le HTML toute sous-section qu'il contient) — pas besoin de :scope.
+    var head = container.querySelector('.settingsSectionHeader');
+    if (body) body.classList.add('hidden');
+    if (head) head.setAttribute('aria-expanded', 'false');
+  }
+
+  // Referme TOUT ce qui est ouvert dans le panneau, y compris les
+  // sous-sections d'un groupe fusionné — un groupe rouvert repart donc
+  // toujours sans sous-section pré-ouverte, comme le panneau lui-même
+  // (convention déjà en vigueur : liste refermée à chaque réouverture).
+  // ⚠️ Cible #profileSettingsScroll (et non plus #profileSettingsPanel) pour
+  // ce sélecteur d'ENFANTS DIRECTS depuis le 9 septembre 2026 (fenêtre plein
+  // écran, discussion Design) : les sections/groupes de premier niveau ne
+  // sont plus des enfants directs de #profileSettingsPanel (qui ne contient
+  // plus que le bouton "←" et #profileSettingsScroll) — voir index.html et
+  // le commentaire de #profileSettingsScroll dans styles.css.
   function closeAllSettingsSections() {
-    document.querySelectorAll('#profileSettingsPanel .settingsSection').forEach(function (section) {
-      section.classList.remove('open');
-      var body = section.querySelector('.settingsSectionBody');
-      var head = section.querySelector('.settingsSectionHeader');
-      if (body) body.classList.add('hidden');
-      if (head) head.setAttribute('aria-expanded', 'false');
+    document.querySelectorAll('#profileSettingsScroll > .settingsSection, #profileSettingsScroll > .settingsGroup').forEach(function (top) {
+      closeSettingsContainer(top);
+      if (top.classList.contains('settingsGroup')) {
+        top.querySelectorAll('.settingsSection').forEach(closeSettingsContainer);
+      }
     });
   }
 
   document.querySelectorAll('#profileSettingsPanel .settingsSectionHeader').forEach(function (head) {
     head.addEventListener('click', function () {
-      var section = head.closest('.settingsSection');
-      if (!section) return;
-      var willOpen = !section.classList.contains('open');
-      closeAllSettingsSections();
+      var container = head.parentElement; // .settingsSection ou .settingsGroup
+      if (!container) return;
+      var isNested = container.parentElement && container.parentElement.classList.contains('settingsGroupBody');
+      var willOpen = !container.classList.contains('open');
+      if (isNested) {
+        // Sous-section À L'INTÉRIEUR d'un groupe fusionné : une seule
+        // ouverte à la fois DANS CE GROUPE, sans jamais refermer le groupe
+        // lui-même (resté ouvert) ni toucher aux autres sections/groupes de
+        // premier niveau.
+        var group = container.parentElement.parentElement; // .settingsGroup
+        group.querySelectorAll('.settingsSection').forEach(closeSettingsContainer);
+      } else {
+        // Titre de premier niveau (section autonome ou groupe fusionné) :
+        // comportement inchangé depuis le 2 septembre 2026, un seul ouvert
+        // à la fois — referme aussi les sous-sections de tout groupe qu'on
+        // vient de refermer au passage.
+        closeAllSettingsSections();
+      }
       if (!willOpen) return;
-      section.classList.add('open');
-      section.querySelector('.settingsSectionBody').classList.remove('hidden');
+      container.classList.add('open');
+      var body = container.classList.contains('settingsGroup')
+        ? container.querySelector('.settingsGroupBody')
+        : container.querySelector('.settingsSectionBody');
+      if (body) body.classList.remove('hidden');
       head.setAttribute('aria-expanded', 'true');
-      // La section qu'on vient d'ouvrir se cale en haut du panneau : son
-      // contenu est donc visible en entier d'un coup, sans que le bas soit
+      // La section/le groupe qu'on vient d'ouvrir se cale en haut du panneau :
+      // son contenu est donc visible en entier d'un coup, sans que le bas soit
       // coupé par le bord du panneau (demande d'Emilien, 2 septembre 2026).
       // Fait après le retrait de .hidden, pour que la hauteur prise en
       // compte soit la hauteur DÉPLIÉE.
-      scrollSettingsSectionIntoView(section);
+      scrollSettingsSectionIntoView(container);
     });
   });
 
@@ -6936,8 +7007,32 @@
     $('profileSettingsBtn').classList.remove('active');
   }
   function closeSettingsPanel() {
-    $('profileSettingsPanel').classList.add('hidden');
+    var panel = $('profileSettingsPanel');
     $('profileSettingsBtn').classList.remove('active');
+    // Rien à glisser si le panneau est déjà fermé — cette fonction est
+    // appelée par prudence avant l'ouverture de chaque autre panneau
+    // flottant (voir plus bas), pas seulement au clic sur "←"/l'icône.
+    if (panel.classList.contains('hidden')) return;
+    // Plein écran avec glissement gauche → droite à la fermeture (9
+    // septembre 2026, demande d'Emilien) : on retire .open (démarre la
+    // transition vers translateX(100%), hors écran à droite — voir
+    // styles.css) et on n'ajoute .hidden qu'une fois la transition VRAIMENT
+    // terminée, sinon le panneau disparaîtrait instantanément sans jamais
+    // glisser. transitionend plutôt qu'une durée fixe recopiée ici : reste
+    // synchronisé même si la durée change dans styles.css, et se déclenche
+    // immédiatement (durée nulle) quand `prefers-reduced-motion` a coupé la
+    // transition.
+    panel.classList.remove('open');
+    var finishClose = function () { panel.classList.add('hidden'); };
+    panel.addEventListener('transitionend', function onSettingsClosed(e) {
+      if (e.target !== panel || e.propertyName !== 'transform') return;
+      panel.removeEventListener('transitionend', onSettingsClosed);
+      finishClose();
+    });
+    // Filet de sécurité si transitionend ne se déclenche jamais pour une
+    // raison quelconque : 350ms, un peu plus que les 280ms de la transition
+    // définie dans styles.css.
+    setTimeout(finishClose, 350);
   }
 
   // Ouvre le panneau flottant des Réglages. Referme d'abord celui des
@@ -7066,7 +7161,10 @@
     // 2026 (Projets) : l'exclusion mutuelle passe de trois à quatre.
     closeProjectsPanel();
     closeAllSettingsSections();
-    $('profileSettingsPanel').scrollTop = 0;
+    // #profileSettingsScroll est la zone qui défile depuis le 9 septembre
+    // 2026 (fenêtre plein écran) — #profileSettingsPanel lui-même ne défile
+    // plus (voir styles.css).
+    $('profileSettingsScroll').scrollTop = 0;
     // Le panneau ne passe plus par openProfile() : c'est donc lui qui doit
     // rafraîchir SES propres commandes (thème coché, langue cochée, adresse
     // de partage). Sans ça, après un rechargement de page, la langue et le
@@ -7074,7 +7172,17 @@
     renderThemeSwitch();
     renderLangSwitch();
     renderShareSettings();
-    $('profileSettingsPanel').classList.remove('hidden');
+    var settingsPanelEl = $('profileSettingsPanel');
+    settingsPanelEl.classList.remove('hidden');
+    // Plein écran avec glissement droite → gauche à l'ouverture (9 septembre
+    // 2026, demande d'Emilien) : .hidden vient d'être retiré (le panneau
+    // redevient affiché, hors écran à droite — voir styles.css) ; on force
+    // un reflow AVANT d'ajouter .open pour que le navigateur ait bien "vu"
+    // cet état de départ dans une image séparée — sans ce forçage, les deux
+    // changements de classe risqueraient de se fondre dans la même image et
+    // le panneau apparaîtrait déjà ouvert, sans glisser.
+    void settingsPanelEl.offsetWidth;
+    settingsPanelEl.classList.add('open');
     // Violette tant que Réglages est la vue affichée (1er septembre 2026,
     // demande d'Emilien : même comportement "sélectionné = violet" que les
     // onglets de la barre du bas).
@@ -7095,11 +7203,26 @@
     else closeSettingsPanel();
   });
 
+  // Plein écran (9 septembre 2026) : la fenêtre couvre tout l'écran, il n'y a
+  // donc plus de "clic en dehors" atteignable pour la refermer — bouton "←"
+  // dédié dans son en-tête (voir index.html), symétrique du glissement
+  // d'ouverture.
+  $('settingsCloseBtn').addEventListener('click', closeSettingsPanel);
+
   // Referme le panneau des Réglages au clic n'importe où en dehors de lui (ou
-  // de son icône) — même mécanisme que le panneau des invitations.
+  // de son icône) — même mécanisme que le panneau des invitations. Devenu
+  // inatteignable en pratique depuis le passage plein écran (le panneau
+  // couvre tout l'écran, plus de "dehors" à cliquer) : laissé tel quel
+  // plutôt que retiré, sans effet sur le comportement, au cas où une future
+  // ouverture partielle le rendrait de nouveau pertinent. ⚠️ Le panneau
+  // lui-même a déménagé hors de .settingsWrap le 9 septembre 2026 (voir son
+  // nouvel emplacement, juste avant </main> dans index.html) — le clic
+  // dedans doit donc être vérifié séparément de .settingsWrap (qui ne
+  // contient plus que l'icône ⚙️), sans quoi tout clic à l'intérieur du
+  // panneau plein écran refermerait celui-ci immédiatement.
   document.addEventListener('click', function (e) {
     if ($('profileSettingsPanel').classList.contains('hidden')) return;
-    if (e.target.closest('.settingsWrap')) return;
+    if (e.target.closest('.settingsWrap') || e.target.closest('#profileSettingsPanel')) return;
     closeSettingsPanel();
   });
 
@@ -11544,7 +11667,7 @@
             // abandon silencieux du profil local, retour à l'onboarding normal.
             clearProfile();
             applyTheme('dark');
-            applyLang('en');
+            applyLang('fr');
             showOnboarding();
             return;
           }
@@ -11561,7 +11684,7 @@
     }).catch(function () { refreshProfileAndEnter(); });
   } else {
     applyTheme('dark');
-    applyLang('en'); // anglais par défaut pour un tout nouveau compte
+    applyLang('fr'); // français par défaut depuis le 9 sept. 2026 (chantier « Français par défaut », Charte de la langue française) pour un tout nouveau compte
     showOnboarding();
   }
 })();

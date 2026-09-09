@@ -39,7 +39,10 @@ router.get('/history', (req, res) => {
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
   const period = ['day', 'week', 'month', 'year'].includes(req.query.period) ? req.query.period : 'week';
-  const { start, end } = periodRange(period, req.query.date || null);
+  // req.timezone (9 septembre 2026, chantier "fuseau horaire automatique") :
+  // "cette semaine"/"ce mois-ci" sont désormais calculés dans le fuseau du
+  // téléphone de la personne plutôt que dans celui, fixe, du serveur.
+  const { start, end } = periodRange(period, req.query.date || null, req.timezone);
 
   const rows = db.prepare(`
     SELECT t.id, t.activityId, a.name AS activity, t.note, t.startTime, t.endTime,
@@ -87,10 +90,12 @@ router.post('/history', (req, res) => {
   const resolved = resolveSubProjectId(userId, activity.id, req.body.subProjectId, null);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
+  // isoDate/dayOfWeek dans le fuseau du téléphone de la personne (voir
+  // server/routes/timer.js pour le même changement et son raisonnement).
   const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, subProjectId)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(userId, activity.id, (req.body.note || '').trim(), startTime.toISOString(), endTime.toISOString(),
-      durationSeconds, isoDateOf(startTime), dayNameOf(startTime), resolved.subProjectId);
+      durationSeconds, isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.subProjectId);
 
   res.status(201).json({ id: info.lastInsertRowid, subProjectId: resolved.subProjectId });
 });
@@ -124,7 +129,7 @@ router.put('/history/:id', (req, res) => {
   db.prepare(`UPDATE time_entries SET activityId = ?, note = ?, startTime = ?, endTime = ?, durationSeconds = ?, isoDate = ?, dayOfWeek = ?, subProjectId = ?
               WHERE id = ?`)
     .run(activity.id, note, startTime.toISOString(), endTime.toISOString(), durationSeconds,
-      isoDateOf(startTime), dayNameOf(startTime), resolved.subProjectId, entry.id);
+      isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.subProjectId, entry.id);
 
   res.json({ message: 'Enregistrement mis à jour.', subProjectId: resolved.subProjectId });
 });

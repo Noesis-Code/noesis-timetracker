@@ -132,11 +132,17 @@ router.get('/stats/timesheet', (req, res) => {
 // 1er septembre. Celle-ci est entièrement à la Répartition, ce qui évite
 // d'élargir encore une zone partagée pour un mode qui ne concerne qu'elle.
 //
-// La journée est calculée SERVEUR (isoDateOf sur l'heure du process, fixée à
-// America/Toronto par server/index.js) et non envoyée par le client : c'est
-// la même horloge que celle qui a écrit `isoDate` sur chaque entrée, donc le
-// même "aujourd'hui" que partout ailleurs dans l'app, quel que soit le
-// réglage du téléphone.
+// ⚠️ 9 septembre 2026, chantier "fuseau horaire automatique" : la journée
+// était calculée SERVEUR (isoDateOf sur l'heure du process, fixée à
+// America/Toronto par server/index.js depuis le 30 août 2026), sans jamais
+// tenir compte du fuseau réel de la personne. Corrigé pour utiliser
+// req.timezone (résolu par server/lib/session.js depuis l'en-tête envoyé
+// par le client) : c'est maintenant la même horloge que celle qui a écrit
+// `isoDate` sur CETTE entrée au moment où elle a été enregistrée (voir
+// server/routes/timer.js et server/routes/history.js, mis à jour le même
+// jour) — le même "aujourd'hui" que partout ailleurs dans les Statistiques
+// de cette personne, ajusté à son propre téléphone plutôt qu'à un fuseau
+// unique pour tout le monde.
 //
 // Même fonction de calcul que le mode synchronisé (breakdownForRange, sur une
 // plage d'un seul jour) : les totaux d'"Aujourd'hui" et ceux de la colonne du
@@ -148,7 +154,7 @@ router.get('/stats/today', (req, res) => {
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  const today = isoDateOf(new Date());
+  const today = isoDateOf(new Date(), req.timezone);
   // Forme volontairement identique à celle de GET /stats/timesheet ({ label,
   // breakdown }) pour que le client repeigne le camembert par le même chemin,
   // sans code de rendu en double.

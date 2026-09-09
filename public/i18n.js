@@ -21,10 +21,14 @@
 //    sont traduits à l'affichage : les messages fixes via DICT, ceux qui
 //    contiennent une valeur variable via PATTERNS ci-dessous.
 //
-// Langue par défaut : anglais (demande d'Emilien, 29 août 2026). Les
-// profils qui existaient déjà avant ce changement ont été basculés en
-// français par une migration (voir server/db.js), donc rien ne change pour
-// eux.
+// Langue par défaut : français depuis le 9 septembre 2026 (chantier
+// « Français par défaut » de l'échéance du 11 septembre — la Charte de la
+// langue française donne au consommateur québécois le droit d'être servi
+// en français, et Noèsis cible d'abord des résidents du Québec ; voir
+// server/db.js et server/routes/profile.js). Entre le 29 août et le
+// 9 septembre 2026, ce défaut avait été l'anglais (demande d'Emilien) ; les
+// profils créés avant le 29 août étaient déjà en français et n'ont jamais
+// été affectés par ce changement.
 
 (function (global) {
   'use strict';
@@ -294,6 +298,16 @@
     'Mes notes': 'My notes',
     "Aucune note enregistrée pour l'instant — les notes ajoutées pendant tes sessions dans Chrono apparaîtront ici.": 'No note recorded yet — notes added during your sessions in Timer will show up here.',
     'Déconnexion': 'Log out',
+    // ---- Titres des groupes fusionnés du panneau Réglages (9 septembre
+    // 2026, réorganisation demandée par Emilien — voir
+    // noesis-timetracker-parametres.md). Les titres des sous-sections
+    // qu'ils contiennent (Identité, Sécurité, Apparence, Langue, etc.)
+    // gardent leurs entrées existantes plus bas, inchangées.
+    // « Préférences d'affichage » renommé « Affichage » le 9 septembre 2026
+    // à la demande d'Emilien. ----
+    'Compte et sécurité': 'Account & security',
+    'Affichage': 'Display',
+    'Calendrier et export de données': 'Calendar & data export',
     'Identité': 'Identity',
     'La photo de profil se change directement depuis la vue principale du Profil — clique sur l\'avatar, en haut.': 'The profile picture is changed straight from the main Profile view — click the avatar at the top.',
     'Enregistrer': 'Save',

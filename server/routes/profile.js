@@ -35,15 +35,19 @@ const MAX_POST_LENGTH = 2000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[0-9+()\-\s]{6,30}$/;
 
-// Langues proposées par l'interface (voir public/i18n.js). L'anglais est la
-// langue par défaut de tout nouveau compte depuis le 29 août 2026 ; les
-// profils créés avant ont été basculés en français par la migration de
-// server/db.js. La traduction est entièrement côté client : cette valeur
-// n'est qu'une préférence stockée avec le profil, elle ne change rien aux
-// réponses du serveur (toujours rédigées en français, traduites à
-// l'affichage par i18n.js).
+// Langues proposées par l'interface (voir public/i18n.js). Le français est
+// la langue par défaut de tout nouveau compte depuis le 9 septembre 2026
+// (chantier « Français par défaut » de l'échéance du 11 septembre — la
+// Charte de la langue française donne au consommateur québécois le droit
+// d'être servi en français, et Noèsis cible d'abord des résidents du
+// Québec). Entre le 29 août et le 9 septembre 2026, ce défaut avait été
+// l'anglais ; les profils créés avant le 29 août étaient déjà en français.
+// La traduction est entièrement côté client : cette valeur n'est qu'une
+// préférence stockée avec le profil, elle ne change rien aux réponses du
+// serveur (toujours rédigées en français, traduites à l'affichage par
+// i18n.js).
 const LANGS = ['en', 'fr'];
-const DEFAULT_LANG = 'en';
+const DEFAULT_LANG = 'fr';
 
 function pickColor() {
   const n = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;

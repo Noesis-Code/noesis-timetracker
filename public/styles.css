@@ -1419,23 +1419,146 @@ body.scrollLock { overflow: hidden; }
    dessous et intercepte les clics sur les titres qui passent derrière lui —
    une option devenait intappable dans cette bande. Le titre « Réglages »
    défile donc normalement avec le reste. */
+/* ===== Réglages : fenêtre plein écran avec glissement (9 septembre 2026) =====
+   Demande d'Emilien : Réglages passe de menu flottant centré (ci-dessus) à
+   une fenêtre plein écran qui s'ouvre en glissant de la droite vers la
+   gauche et se referme en glissant de la gauche vers la droite — portée
+   volontairement limitée à #profileSettingsPanel (pas aux panneaux jumeaux
+   Abonnés & Abonnements/Invitations/Projets, qui gardent .notifPanel telle
+   quelle) : tout ce qui suit passe donc par des sélecteurs scopés à
+   #profileSettingsPanel/#profileSettingsScroll plutôt que par une
+   modification de .notifPanel elle-même.
+
+   Comme #activityPage (seule autre surface plein écran de l'app, voir plus
+   bas dans ce fichier) : position: fixed; inset: 0, z-index 90 (au-dessus de
+   .topbar/.tabbar à 10, sous les boîtes de dialogue à 100 et la visionneuse
+   d'image à 200), et les mêmes marges de sécurité env(safe-area-inset-*)
+   qu'elle pour ne pas dessiner sous l'encoche/la barre d'état ni sous la
+   zone d'accueil iOS.
+
+   État par défaut = fermé (transform: translateX(100%), hors écran à
+   droite) — voir la directive transverse de Design du 4 septembre 2026
+   (état par défaut d'un élément animé = état final, jamais l'inverse) :
+   app.js retire .hidden PUIS ajoute .open un instant après (reflow forcé
+   entre les deux), pour que le navigateur applique bien cet état de départ
+   avant que la transition ne parte vers translateX(0) ; à la fermeture,
+   .open est retiré (transition inverse) et .hidden n'est ré-ajouté qu'après
+   la fin réelle de la transition (transitionend, voir closeSettingsPanel
+   dans app.js) — jamais avant, sinon le panneau disparaîtrait instantanément
+   sans glisser. `prefers-reduced-motion` coupe la durée à 0 : le panneau
+   atteint alors son état final instantanément, sans jamais rester bloqué
+   dans un état masqué.
+
+   ===== Pourquoi le panneau est coupé en DEUX boîtes (9 septembre 2026) =====
+   #profileSettingsPanel (extérieur, ce bloc-ci) ne défile plus lui-même —
+   seul #profileSettingsScroll, à l'intérieur (voir index.html), porte
+   désormais overflow-y/scroll-snap/le padding de marge de sécurité. Le
+   bouton "←" (#settingsCloseBtn, plus bas) est un troisième enfant direct de
+   #profileSettingsPanel, À CÔTÉ de #profileSettingsScroll plutôt que dedans.
+
+   Raison : Réglages ne se ferme plus que via ce bouton (plus de "clic en
+   dehors" possible, tout l'écran étant couvert) — or le défilement « cran
+   par cran » (2 septembre 2026, voir plus haut) aligne systématiquement la
+   section ouverte tout en haut du panneau dès qu'on en déplie une, ce qui
+   pousse l'ancien en-tête (et un bouton qui y aurait vécu) hors champ, et
+   `scroll-snap-type: y mandatory` empêche ensuite d'y remonter par un simple
+   défilement (la position ne peut se stabiliser que sur une section, jamais
+   entre les deux) : sans séparation, Réglages deviendrait fermable
+   uniquement en revenant tout en haut — impossible une fois cette position
+   interdite par le "mandatory" — une impasse, pas juste un inconfort.
+   `position: sticky`/`fixed` posé DANS la zone qui défile a été essayé et
+   ne suffit pas : l'élément reste subordonné au défilement de son propre
+   conteneur scrollable, il ne peut pas s'en extraire de l'intérieur. Seule
+   une sortie complète de cette zone — un enfant SÉPARÉ de
+   #profileSettingsPanel, positionné une fois pour toutes par rapport à lui
+   plutôt que par rapport à sa zone de défilement interne — le laisse
+   accessible en toute circonstance. Le titre "Réglages"/"Déconnexion" (dans
+   #profileSettingsScroll) continue de défiler normalement avec le reste,
+   comme décidé le 2 septembre 2026 — seul le bouton de fermeture a besoin de
+   rester en permanence joignable.
+
+   ⚠️ .settingsGroup/.settingsGroupBody (réorganisation du panneau Réglages,
+   9 septembre 2026, discussion Paramètres) ajoutés partout où figurait déjà
+   .settingsSection ci-dessous : un groupe fusionné est, du point de vue du
+   défilement « cran par cran » et de l'espacement, un élément de premier
+   niveau EXACTEMENT comme une section autonome — seule sa boîte englobante
+   change de nom, tout le reste (accroche, marge, en-tête partagé
+   .settingsSectionHeader) est déjà commun aux deux, voir plus bas. */
 #profileSettingsPanel.settingsPanel {
-  max-height: min(78vh, 640px);
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--bg);
+  transform: translateX(100%);
+  transition: transform 280ms ease;
+}
+#profileSettingsPanel.settingsPanel.open { transform: translateX(0); }
+@media (prefers-reduced-motion: reduce) {
+  #profileSettingsPanel.settingsPanel { transition-duration: 0.01ms; }
+}
+/* Bouton "←" : voir le commentaire complet ci-dessus. Enfant direct de
+   #profileSettingsPanel (pas de #profileSettingsScroll), positionné par
+   rapport à lui — #profileSettingsPanel ne défilant plus lui-même, une
+   simple absolute suffit, insensible par construction au défilement de
+   #profileSettingsScroll à côté. */
+#profileSettingsPanel.settingsPanel #settingsCloseBtn {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 2;
+}
+/* scroll-padding-top agrandi (8px → ~52px, plutôt que le padding-top du
+   conteneur — voir plus bas pourquoi) : avec le défilement « cran par
+   cran », N'IMPORTE QUEL élément de premier niveau — section autonome OU
+   groupe fusionné (pas seulement "Réglages"/Identité) — peut se retrouver
+   aligné tout en haut de cette zone une fois ouvert, et le bouton "←"
+   (flottant, voir #settingsCloseBtn ci-dessus) chevaucherait alors son
+   titre ("Identity" affiché coupé en "entity", par exemple) si le point
+   d'ancrage restait à 8px du haut. Augmenter scroll-padding-top (et non le
+   padding-top du conteneur, qui n'influence que la position AVANT tout
+   défilement — l'alignement « cran par cran » d'un élément une fois ouvert
+   ignore le padding du conteneur et se cale uniquement sur
+   scroll-padding-top, mesuré depuis le haut du viewport de défilement)
+   pousse l'élément ouvert sous le bouton, quel qu'il soit. */
+#profileSettingsScroll {
+  position: absolute;
+  inset: 0;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
-  scroll-padding-top: 8px;
-  /* Le doigt qui arrive en bout de course ne fait pas défiler la page
-     derrière le panneau (comportement attendu d'un menu flottant). */
+  scroll-padding-top: calc(max(12px, env(safe-area-inset-top)) + 40px);
   overscroll-behavior: contain;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+           max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
-#profileSettingsPanel.settingsPanel .settingsSection {
+#profileSettingsScroll .settingsSection,
+#profileSettingsScroll .settingsGroup {
   scroll-snap-align: start;
   scroll-snap-stop: always;
 }
-#profileSettingsPanel.settingsPanel { width: min(380px, 92vw); padding: 12px; }
-#profileSettingsPanel.settingsPanel .subpageHeader { margin-bottom: 10px; }
-#profileSettingsPanel.settingsPanel .settingsSection:last-child { margin-bottom: 0; }
-#profileSettingsPanel .settingsSection { margin-bottom: 8px; }
+/* Espace réservé pour le bouton "←" flottant (position: absolute, voir
+   #settingsCloseBtn ci-dessus) : ".subpageHeader" en a besoin pour l'état
+   initial du panneau (scrollTop à 0, avant toute ouverture de
+   section/groupe). scroll-padding-top (ci-dessus) pousse l'élément CIBLE
+   sous le bouton une fois ouvert, mais les éléments ne sont espacés que de
+   8px (margin-bottom) : l'en-tête collapsed de l'élément PRÉCÉDENT peut
+   donc encore dépasser de ~44px sous ce point d'ancrage et chevaucher le
+   bouton par la gauche (ex. "Notifications" coupé en "otifications" derrière
+   "←" quand une section plus bas est ouverte). Réserver la même colonne de
+   44px sur .settingsSectionHeader (et pas seulement .subpageHeader, voir
+   plus bas) couvre ce cas quel que soit l'élément ouvert, sans dépendre
+   uniquement du dégagement vertical de scroll-padding-top. */
+#profileSettingsScroll .subpageHeader { margin-bottom: 10px; padding-left: 44px; }
+#profileSettingsScroll .settingsSection:last-child,
+#profileSettingsScroll .settingsGroup:last-child { margin-bottom: 0; }
+#profileSettingsPanel .settingsSection,
+#profileSettingsPanel .settingsGroup { margin-bottom: 8px; }
 #profileSettingsPanel .settingsSectionHeader {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
   background: var(--card); color: var(--text); border: 1px solid var(--border);
@@ -1443,16 +1566,35 @@ body.scrollLock { overflow: hidden; }
   box-shadow: var(--shadow-card); font: inherit;
   transition: border-color var(--transition-fast);
 }
+/* Doit venir APRÈS la règle ci-dessus (même spécificité 1 id + 1 classe :
+   sinon le "padding: 14px 16px" écraserait ce padding-left en cascade,
+   l'ordre source tranchant à spécificité égale). Voir le commentaire au-
+   dessus de #profileSettingsScroll pour le pourquoi de ces 44px — .settingsSectionHeader
+   est déjà l'en-tête partagé des sections ET des groupes fusionnés (voir
+   app.js), un seul sélecteur couvre donc les deux cas sans rien dupliquer. */
+#profileSettingsScroll .settingsSectionHeader { padding-left: 44px; }
 #profileSettingsPanel .settingsSectionHeader .sectionTitle { margin: 0; }
 #profileSettingsPanel .settingsSectionChevron {
   color: var(--text-light); font-size: 13px; flex-shrink: 0;
   transition: transform var(--transition-fast);
 }
-#profileSettingsPanel .settingsSection.open .settingsSectionHeader { border-color: var(--purple); }
-#profileSettingsPanel .settingsSection.open .settingsSectionChevron { transform: rotate(180deg); }
+#profileSettingsPanel .settingsSection.open .settingsSectionHeader,
+#profileSettingsPanel .settingsGroup.open .settingsSectionHeader { border-color: var(--purple); }
+#profileSettingsPanel .settingsSection.open .settingsSectionChevron,
+#profileSettingsPanel .settingsGroup.open .settingsSectionChevron { transform: rotate(180deg); }
 #profileSettingsPanel .settingsSectionBody { margin-top: 8px; }
 #profileSettingsPanel .settingsSectionBody .settingsCard,
 #profileSettingsPanel .settingsSectionBody .entryCard { margin-bottom: 0; }
+/* Groupe fusionné (9 septembre 2026, réorganisation du panneau Réglages) :
+   .settingsGroupBody réutilise l'espacement de .settingsSectionBody. Les
+   sous-sections qu'il contient sont des .settingsSection ordinaires — elles
+   héritent donc déjà de tout le style ci-dessus (carte, chevron, bordure
+   violette à l'ouverture) sans rien redéfinir. Seul ajout : un léger retrait
+   + une ligne verticale ténue pour signaler visuellement l'imbrication. */
+#profileSettingsPanel .settingsGroupBody { margin-top: 8px; }
+#profileSettingsPanel .settingsGroupBody .settingsSection {
+  margin-left: 10px; padding-left: 10px; border-left: 2px solid var(--border);
+}
 
 .settingsCard input[type=text], .settingsCard input[type=password],
 .settingsCard input[type=tel], .settingsCard input[type=email] {

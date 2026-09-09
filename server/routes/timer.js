@@ -180,10 +180,19 @@ router.post('/timer/stop', (req, res) => {
   const resolved = resolveSubProjectId(user.id, running.activityId, req.body.subProjectId, running.subProjectId);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
+  // isoDate/dayOfWeek calculés dans le fuseau du TÉLÉPHONE de la personne
+  // (req.timezone, résolu par server/lib/session.js depuis l'en-tête envoyé
+  // par le client), pas dans celui, fixe, du serveur — 9 septembre 2026,
+  // chantier "fuseau horaire automatique". Sans ça, une session commencée en
+  // fin de soirée pour un membre hors du fuseau de l'Est (Colombie-
+  // Britannique, Alberta...) resterait datée du mauvais jour calendaire,
+  // exactement le bug déjà corrigé le 30 août 2026 pour le fuseau du
+  // serveur lui-même (voir server/index.js) mais qui reste entier pour
+  // quiconque n'est pas à l'heure de l'Est.
   const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, subProjectId)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(user.id, running.activityId, note.trim(), startTime.toISOString(), stopTime.toISOString(), durationSeconds,
-      isoDateOf(startTime), dayNameOf(startTime), resolved.subProjectId);
+      isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.subProjectId);
 
   db.prepare('DELETE FROM running_timers WHERE userId = ?').run(user.id);
 

@@ -58,6 +58,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const db = require('../db');
+const { isValidTimezone, DEFAULT_TIMEZONE } = require('./dates');
 
 const COOKIE_NAME = 'noesis_session';
 const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 180; // 180 jours — persistant comme l'était l'id en localStorage
@@ -224,8 +225,27 @@ function bumpSessionEpoch(userId) {
 // lui-même, se contente de résoudre req.userId (ou null) depuis le témoin.
 // C'est requireAuth ci-dessous, posé route par route, qui décide si
 // l'absence de session doit refuser la requête.
+//
+// ⚠️ Résout aussi req.timezone (9 septembre 2026, demande d'Emilien :
+// « assure-toi que le fuseau horaire de l'app s'ajuste automatiquement au
+// fuseau horaire du téléphone de l'utilisateur »). Jusqu'ici le serveur
+// entier tournait sur un seul fuseau fixe (America/Toronto, posé une fois
+// pour toutes par server/index.js le 30 août 2026 pour corriger les
+// sessions mal datées sur un conteneur Railway en UTC) — correct pour un
+// public d'abord québécois/ontarien, mais pas pour un membre ailleurs au
+// Canada (le lancement du 11 septembre vise tout le pays, voir
+// noesis-timetracker-conformite-loi25.md). Le client envoie désormais son
+// fuseau IANA dans l'en-tête X-Client-Tz à chaque appel (voir la fonction
+// api() partagée dans public/app.js) ; posé ici, sur TOUTE requête, plutôt
+// que route par route, pour qu'aucun appelant n'ait à s'en souvenir. Un
+// en-tête absent, malformé, ou qui n'est pas un fuseau IANA reconnu retombe
+// silencieusement sur DEFAULT_TIMEZONE — jamais une erreur, jamais un blocage
+// de la requête : un client plus ancien (avant ce chantier) continue de
+// fonctionner exactement comme avant.
 function middleware(req, res, next) {
   req.userId = readSessionUserId(req);
+  const headerTz = req.get('X-Client-Tz');
+  req.timezone = isValidTimezone(headerTz) ? headerTz : DEFAULT_TIMEZONE;
   next();
 }
 

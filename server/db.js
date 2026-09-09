@@ -63,12 +63,13 @@ db.exec(`
 -- connaît pas). Validation légère (format, pas de vérification réelle —
 -- aucun envoi de SMS/email de confirmation) côté serveur, voir
 -- EMAIL_RE/PHONE_RE dans server/routes/profile.js.
--- lang : langue de l'interface pour ce profil, 'en' (défaut, demande
--- d'Emilien du 29 août 2026) ou 'fr'. Réglage strictement par profil, comme
--- theme : jamais global, jamais déduit de la langue du navigateur. Les
--- profils qui existaient AVANT l'ajout de cette colonne sont basculés en
--- 'fr' une seule fois par la migration plus bas, pour qu'ils ne se
--- retrouvent pas en anglais du jour au lendemain. La traduction elle-même
+-- lang : langue de l'interface pour ce profil, 'fr' (défaut depuis le
+-- 9 septembre 2026 — chantier « Français par défaut » de l'échéance du
+-- 11 septembre, changement de la valeur retenue le 29 août 2026, qui était
+-- 'en' ; la Charte de la langue française donne au consommateur québécois
+-- le droit d'être servi en français, et Noèsis cible d'abord des résidents
+-- du Québec) ou 'en'. Réglage strictement par profil, comme theme : jamais
+-- global, jamais déduit de la langue du navigateur. La traduction elle-même
 -- est entièrement côté client (public/i18n.js) : le serveur continue de
 -- répondre en français et ses messages sont traduits à l'affichage.
 -- contactShareEmail / contactSharePhone (7 septembre 2026, demande
@@ -100,7 +101,7 @@ CREATE TABLE IF NOT EXISTS users (
   theme TEXT NOT NULL DEFAULT 'dark',
   shareProfile INTEGER NOT NULL DEFAULT 0,
   avatar TEXT,
-  lang TEXT NOT NULL DEFAULT 'en',
+  lang TEXT NOT NULL DEFAULT 'fr',
   contactShareEmail INTEGER NOT NULL DEFAULT 0,
   contactSharePhone INTEGER NOT NULL DEFAULT 0
 );
@@ -743,15 +744,16 @@ if (!columnExists('users', 'email')) {
 }
 
 // Langue de l'interface (voir le commentaire sur la colonne plus haut).
-// Le backfill vers 'fr' est DANS le bloc de création de la colonne, et
-// nulle part ailleurs : il ne doit s'exécuter qu'une seule fois, au tout
-// premier démarrage suivant cette mise à jour, pour les profils qui
-// existaient déjà (Emilien, Gaspard). Un profil créé APRÈS démarre en 'en'
-// (défaut de la colonne + INSERT explicite dans POST /profile) et ne doit
-// évidemment jamais être rebasculé en français à chaque redémarrage.
+// Sur une base qui ne connaît pas encore cette colonne, l'ajouter avec
+// DEFAULT 'fr' suffit désormais à couvrir tous les cas : les profils déjà
+// existants ET les profils créés après démarrent en français, cohérent
+// avec le nouveau défaut retenu le 9 septembre 2026 (chantier « Français
+// par défaut »). Avant cette date, ce bloc ajoutait la colonne en 'en' puis
+// rebasculait explicitement les profils existants en 'fr' (le défaut de
+// l'époque était l'anglais) — cette étape supplémentaire n'a plus lieu
+// d'être, les deux valeurs étant désormais identiques.
 if (!columnExists('users', 'lang')) {
-  db.exec("ALTER TABLE users ADD COLUMN lang TEXT NOT NULL DEFAULT 'en'");
-  db.exec("UPDATE users SET lang = 'fr'");
+  db.exec("ALTER TABLE users ADD COLUMN lang TEXT NOT NULL DEFAULT 'fr'");
 }
 
 // contactShareEmail / contactSharePhone (voir le commentaire sur ces
@@ -822,7 +824,7 @@ if (usersNameStillGloballyUnique()) {
         theme TEXT NOT NULL DEFAULT 'dark',
         shareProfile INTEGER NOT NULL DEFAULT 0,
         avatar TEXT,
-        lang TEXT NOT NULL DEFAULT 'en',
+        lang TEXT NOT NULL DEFAULT 'fr',
         contactShareEmail INTEGER NOT NULL DEFAULT 0,
         contactSharePhone INTEGER NOT NULL DEFAULT 0,
         sessionEpoch INTEGER NOT NULL DEFAULT 0
