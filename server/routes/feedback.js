@@ -27,10 +27,26 @@ const { validateAttachmentPayload } = require('../lib/attachments');
 
 const router = express.Router();
 
-// Adresse de destination confirmée par Emilien le 8 septembre 2026 —
-// distincte de compagnie.noesis@gmail.com (dossier légal de Gaspard), qui
-// reste l'adresse de contact générale de l'entreprise.
-const CONTACT_EMAIL = 'confidentialite.noesis@gmail.com';
+// ⚠️ 8 septembre 2026, en soirée (discussion « Connexion / Création de
+// compte », sur demande directe d'Emilien) : basculé TEMPORAIREMENT vers
+// compagnie.noesis@gmail.com. La destination d'origine (confidentialite.
+// noesis@gmail.com, choisie le même jour, voir ci-dessous) échouait
+// systématiquement (Resend, HTTP 403) : le domaine d'envoi par défaut
+// resend.dev n'accepte, en l'absence de domaine vérifié sur
+// resend.com/domains, que l'adresse propre au compte Resend lui-même —
+// qui est compagnie.noesis@gmail.com. Emilien n'a pas de domaine pour
+// Noèsis et a choisi cette solution de repli plutôt que d'en acheter un
+// avant le 11 septembre (voir noesis-timetracker-chantiers-en-cours.md et
+// noesis-timetracker-registre-traitements.md, ligne 10, pour le détail).
+// **À REBASCULER vers confidentialite.noesis@gmail.com dès qu'un domaine
+// sera vérifié sur Resend** — ce n'est plus l'adresse légalement
+// documentée comme destinataire tant que ce commentaire n'a pas été
+// retiré.
+//
+// Adresse de destination initialement confirmée par Emilien le 8 septembre
+// 2026 — distincte de compagnie.noesis@gmail.com (dossier légal de
+// Gaspard), qui reste l'adresse de contact générale de l'entreprise.
+const CONTACT_EMAIL = 'compagnie.noesis@gmail.com';
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_ATTACHMENTS = 2; // une photo + un document, cadré avec Emilien
 const CATEGORY_LABELS = { suggestion: 'Suggestion', bug: 'Signalement de bug' };
