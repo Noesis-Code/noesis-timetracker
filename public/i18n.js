@@ -447,6 +447,12 @@
     'Dernière confirmation : tout ton historique et tes notes seront perdus. Continuer ?': 'Last confirmation: all your history and notes will be lost. Continue?',
     'Compte supprimé.': 'Account deleted.',
     'Saisis ton code pour confirmer la suppression.': 'Enter your PIN to confirm the deletion.',
+    // Étiquette d'auteur affichée à la place d'un nom absent (9 septembre
+    // 2026, sur-effacement corrigé) : un message de sous-projet ou un
+    // sondage 'profile' dont l'auteur a supprimé son compte. Distincte de
+    // 'Compte supprimé.' ci-dessus (message de confirmation, avec point) :
+    // celle-ci est une étiquette, jamais une phrase.
+    'Compte supprimé': 'Deleted account',
 
     // ---- Barre d'onglets ----
     'Chrono': 'Timer',

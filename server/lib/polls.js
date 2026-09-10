@@ -216,10 +216,21 @@ function serializePoll(row, viewerId, at) {
   };
 }
 
+// LEFT JOIN (9 septembre 2026, correction du sur-effacement — voir
+// server/db.js et noesis-timetracker-conformite-loi25.md, section 6bis) :
+// authorId peut désormais être NULL (compte de l'auteur supprimé, sondage
+// 'profile' sans "membre restant" à qui transférer la paternité). Un JOIN
+// simple ferait disparaître ces sondages de TOUTES les requêtes qui
+// réutilisent SELECT_POLL — y compris pollsForScope, qui les affiche encore
+// dans leur sous-projet — au lieu de se contenter de masquer authorName/
+// authorColor. serializePoll() ci-dessus gère déjà un authorId absent
+// (isMine devient faux pour tout le monde, closePoll/deletePoll refusent
+// tout le monde — un sondage orphelin ne peut plus être clos ni supprimé,
+// conséquence acceptée : plus personne n'a autorité dessus).
 const SELECT_POLL = `
   SELECT p.*, u.name AS authorName, u.color AS authorColor
   FROM polls p
-  JOIN users u ON u.id = p.authorId
+  LEFT JOIN users u ON u.id = p.authorId
 `;
 
 function getPollRow(pollId) {

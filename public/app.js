@@ -9491,9 +9491,13 @@
       var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
       var timeLabel = pad(when.getHours()) + ':' + pad(when.getMinutes());
 
+      // post.userName/userColor peuvent être absents depuis le 9 septembre
+      // 2026 (sur-effacement corrigé, voir server/db.js) : l'auteur d'un
+      // message de sous-projet peut avoir supprimé son compte — le message
+      // survit (ON DELETE SET NULL), seul son auteur disparaît.
       var authorHtml = cfg.multiAuthor
         ? '<span class="dot" style="background:' + (post.userColor || 'transparent') + '"></span>' +
-          escapeHtml(post.userName || '') + (mine ? t(' (toi)') : '')
+          escapeHtml(post.userName || t('Compte supprimé')) + (mine ? t(' (toi)') : '')
         : escapeHtml(profile ? profile.name : '') + t(' (toi)');
 
       var top = document.createElement('div');
@@ -10104,11 +10108,16 @@
     var top = document.createElement('div');
     top.className = 'discussionMsgTop';
 
+    // poll.author.id/name/color peuvent être absents depuis le 9 septembre
+    // 2026 (sur-effacement corrigé, voir server/db.js) : un sondage 'profile'
+    // (page personnelle, sans "membre restant" à qui transférer) perd son
+    // auteur si celui-ci supprime son compte — le sondage et les votes des
+    // autres survivent. Pas de profil à visiter dans ce cas : pas de clic.
     var author = document.createElement('span');
     author.className = 'discussionMsgAuthor';
-    author.innerHTML = '<span class="dot" style="background:' + poll.author.color + '"></span> ' +
-      escapeHtml(poll.author.name) + (poll.isMine ? t(' (toi)') : '');
-    if (!poll.isMine && opts.authorClickable !== false) {
+    author.innerHTML = '<span class="dot" style="background:' + (poll.author.color || 'transparent') + '"></span> ' +
+      escapeHtml(poll.author.name || t('Compte supprimé')) + (poll.isMine ? t(' (toi)') : '');
+    if (poll.author.id && !poll.isMine && opts.authorClickable !== false) {
       author.style.cursor = 'pointer';
       author.addEventListener('click', function () {
         openProfileViewModal(poll.author.id, poll.author.name, poll.author.color);

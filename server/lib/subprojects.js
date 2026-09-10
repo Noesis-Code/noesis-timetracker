@@ -485,12 +485,19 @@ function deletePollsForSubProject(subProjectId) {
 // les deux reviennent au même — et retirer la section sans effacer ce que les
 // membres se sont écrit devient possible.
 
+// LEFT JOIN (9 septembre 2026, correction du sur-effacement — voir
+// server/db.js et noesis-timetracker-conformite-loi25.md, section 6bis) :
+// userId peut désormais être NULL (compte de l'auteur du message supprimé,
+// ON DELETE SET NULL — le message survit, comme sub_project_items.doneBy).
+// Un JOIN simple ferait disparaître ces messages du fil plutôt que de se
+// contenter de masquer userName/userColor ; public/app.js affiche "Compte
+// supprimé" quand userName est absent.
 function messagesForSubProject(subProjectId) {
   return db.prepare(`
     SELECT m.id, m.subProjectId, m.userId, m.body, m.createdAt,
            u.name AS userName, u.color AS userColor
     FROM sub_project_messages m
-    JOIN users u ON u.id = m.userId
+    LEFT JOIN users u ON u.id = m.userId
     WHERE m.subProjectId = ?
     ORDER BY m.createdAt ASC, m.id ASC
   `).all(subProjectId);
@@ -505,7 +512,7 @@ function postSubProjectMessage(subProjectId, userId, body) {
     SELECT m.id, m.subProjectId, m.userId, m.body, m.createdAt,
            u.name AS userName, u.color AS userColor
     FROM sub_project_messages m
-    JOIN users u ON u.id = m.userId
+    LEFT JOIN users u ON u.id = m.userId
     WHERE m.id = ?
   `).get(info.lastInsertRowid);
 }

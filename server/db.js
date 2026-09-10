@@ -444,6 +444,21 @@ CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(use
 -- time_entries ET running_timers. Voulu par Emilien, mais renvoyé à un
 -- chantier conjoint avec Chrono et les trois discussions Statistiques — voir
 -- noesis-timetracker-sous-projets-cadrage.md §7.
+--
+-- createdBy reste NOT NULL + ON DELETE CASCADE (corrigé le 9 septembre 2026,
+-- sur-effacement — voir noesis-timetracker-conformite-loi25.md, section
+-- 6bis) : supprimer le compte de la personne qui a créé un sous-projet
+-- supprimait le sous-projet ENTIER, y compris les tâches cochées par
+-- d'autres membres, le fil de discussion et les échéances, même si
+-- l'activité restait partagée par des personnes actives — un défaut de
+-- PATERNITÉ traité comme une CASCADE. Pas de changement de schéma ici : au
+-- lieu d'un ON DELETE SET NULL (createdBy sert aussi de droit de
+-- suppression, une valeur NULL n'aurait aucun sens), server/routes/
+-- profile.js (DELETE /profile/:id) transfère la paternité au membre restant
+-- le plus ancien de l'activité AVANT la suppression du compte, exactement
+-- comme activities.ownerId plus haut. La cascade ne s'applique donc plus
+-- que si l'activité n'a plus aucun membre restant pour hériter du
+-- sous-projet — auquel cas plus personne n'est affecté par sa disparition.
 CREATE TABLE IF NOT EXISTS sub_projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
@@ -500,10 +515,20 @@ CREATE INDEX IF NOT EXISTS idx_sub_project_items_sp ON sub_project_items(subProj
 -- Pas de pièces jointes ni de suivi des non-lus en V1, contrairement à
 -- activity_messages : à ajouter si Emilien le demande, plutôt que d'avoir
 -- deux mécanismes à moitié faits.
+-- userId (corrigé le 9 septembre 2026, sur-effacement — voir
+-- noesis-timetracker-conformite-loi25.md, section 6bis) : NOT NULL +
+-- ON DELETE CASCADE jusqu'ici, donc un message du fil de discussion d'un
+-- sous-projet disparaissait si son auteur supprimait son compte, alors que
+-- les tâches cochées par d'autres (sub_project_items.doneBy) survivent déjà
+-- dans ce même sous-projet. Choix d'Emilien : même traitement que doneBy —
+-- ON DELETE SET NULL, le message reste, il perd seulement son auteur.
+-- server/lib/subprojects.js utilise un LEFT JOIN sur userId pour ne jamais
+-- faire disparaître ces messages des requêtes ; public/app.js affiche
+-- "Compte supprimé" quand userName est absent.
 CREATE TABLE IF NOT EXISTS sub_project_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   subProjectId INTEGER NOT NULL REFERENCES sub_projects(id) ON DELETE CASCADE,
-  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  userId TEXT REFERENCES users(id) ON DELETE SET NULL,
   body TEXT NOT NULL,
   createdAt TEXT NOT NULL
 );
@@ -544,6 +569,12 @@ CREATE INDEX IF NOT EXISTS idx_sub_project_messages_sp ON sub_project_messages(s
 -- poll_votes plus bas), accrochés au sous-projet par (scope='subproject',
 -- scopeId=sub_projects.id). Aucune deuxième implémentation de sondage n'a été
 -- écrite ici.
+--
+-- createdBy reste NOT NULL + ON DELETE CASCADE, même correctif et même
+-- raisonnement que sub_projects.createdBy ci-dessus (9 septembre 2026, voir
+-- noesis-timetracker-conformite-loi25.md, section 6bis) : server/routes/
+-- profile.js transfère la paternité d'une section au membre restant le plus
+-- ancien de l'activité du sous-projet avant la suppression du compte.
 CREATE TABLE IF NOT EXISTS sub_project_sections (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   subProjectId INTEGER NOT NULL REFERENCES sub_projects(id) ON DELETE CASCADE,
@@ -603,11 +634,30 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_sub_project_one_poll
 -- ⚠️ Ce bloc est un littéral de gabarit JavaScript : aucun accent grave ne
 -- doit apparaître dans ces commentaires SQL, il refermerait la chaîne et le
 -- fichier entier cesserait d'être valide (erreur commise et rattrapée ici).
+--
+-- authorId (corrigé le 9 septembre 2026, sur-effacement — voir
+-- noesis-timetracker-conformite-loi25.md, section 6bis) : NOT NULL +
+-- ON DELETE CASCADE jusqu'ici, donc supprimer le compte de l'auteur d'un
+-- sondage supprimait le sondage ENTIER, y compris les votes et les noms des
+-- AUTRES votants — un défaut de PATERNITÉ traité comme une CASCADE, alors que
+-- activities.ownerId (plus haut) montre déjà le bon traitement pour ce genre
+-- de colonne. Deux cas, deux devenirs (choix d'Emilien) :
+--  - scope 'subproject' (sondage rattaché à une activité partagée) :
+--    server/routes/profile.js (DELETE /profile/:id) transfère la paternité au
+--    membre restant le plus ancien de l'activité AVANT la suppression du
+--    compte, sur le modèle exact d'activities.ownerId — authorId ne devient
+--    donc NULL ici que si l'activité n'a plus aucun membre restant.
+--  - scope 'profile' (sondage personnel, publié sur la page de quelqu'un) :
+--    aucune activité, donc aucun "membre restant" à qui transférer — authorId
+--    passe directement à NULL via ON DELETE SET NULL ci-dessous, le sondage
+--    et les votes des AUTRES survivent, l'auteur affiché devient "Compte
+--    supprimé" (public/app.js). server/lib/polls.js utilise un LEFT JOIN sur
+--    authorId pour ne jamais faire disparaître ces sondages des requêtes.
 CREATE TABLE IF NOT EXISTS polls (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   scope TEXT NOT NULL,
   scopeId TEXT NOT NULL,
-  authorId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  authorId TEXT REFERENCES users(id) ON DELETE SET NULL,
   question TEXT NOT NULL,
   multiChoice INTEGER NOT NULL DEFAULT 0,
   anonymous INTEGER NOT NULL DEFAULT 0,
@@ -1232,6 +1282,93 @@ if (tableExists('running_timers') && !columnExists('running_timers', 'subProject
 }
 if (columnExists('time_entries', 'subProjectId')) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_entries_subproject ON time_entries(subProjectId)');
+}
+
+// ----- Correction du sur-effacement à la suppression d'un compte -----
+// (9 septembre 2026 — voir noesis-timetracker-conformite-loi25.md, section
+// 6bis, et les commentaires sur les colonnes polls.authorId et
+// sub_project_messages.userId plus haut dans ce fichier.) Les deux colonnes
+// passent de NOT NULL + ON DELETE CASCADE à nullable + ON DELETE SET NULL.
+// SQLite ne modifie jamais une contrainte NOT NULL ni une action ON DELETE
+// avec un simple ALTER TABLE : même motif et même méthode que
+// usersNameStillGloballyUnique/activitiesNameStillGloballyUnique/
+// profileProjectsStillHasSplitDescription plus haut — on détecte l'ancien
+// schéma et on reconstruit la table sans perdre de données. Les deux
+// CREATE TABLE IF NOT EXISTS plus haut portent déjà le nouveau schéma : ces
+// blocs ne s'exécutent donc que sur une base créée avant ce jour.
+function pollsAuthorIdStillNotNull() {
+  var row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='polls'").get();
+  return !!(row && row.sql && /\bauthorId\s+TEXT\s+NOT\s+NULL\b/i.test(row.sql));
+}
+
+if (pollsAuthorIdStillNotNull()) {
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec('BEGIN');
+  try {
+    db.exec(`
+      CREATE TABLE polls_rebuild (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope TEXT NOT NULL,
+        scopeId TEXT NOT NULL,
+        authorId TEXT REFERENCES users(id) ON DELETE SET NULL,
+        question TEXT NOT NULL,
+        multiChoice INTEGER NOT NULL DEFAULT 0,
+        anonymous INTEGER NOT NULL DEFAULT 0,
+        allowSuggestions INTEGER NOT NULL DEFAULT 0,
+        closesAt TEXT,
+        closedAt TEXT,
+        createdAt TEXT NOT NULL
+      )
+    `);
+    db.exec(`
+      INSERT INTO polls_rebuild (id, scope, scopeId, authorId, question, multiChoice, anonymous, allowSuggestions, closesAt, closedAt, createdAt)
+      SELECT id, scope, scopeId, authorId, question, multiChoice, anonymous, allowSuggestions, closesAt, closedAt, createdAt FROM polls
+    `);
+    db.exec('DROP TABLE polls');
+    db.exec('ALTER TABLE polls_rebuild RENAME TO polls');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_polls_scope ON polls(scope, scopeId, createdAt)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_polls_author ON polls(authorId, createdAt)');
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+}
+
+function subProjectMessagesUserIdStillNotNull() {
+  var row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='sub_project_messages'").get();
+  return !!(row && row.sql && /\buserId\s+TEXT\s+NOT\s+NULL\b/i.test(row.sql));
+}
+
+if (subProjectMessagesUserIdStillNotNull()) {
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec('BEGIN');
+  try {
+    db.exec(`
+      CREATE TABLE sub_project_messages_rebuild (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subProjectId INTEGER NOT NULL REFERENCES sub_projects(id) ON DELETE CASCADE,
+        userId TEXT REFERENCES users(id) ON DELETE SET NULL,
+        body TEXT NOT NULL,
+        createdAt TEXT NOT NULL
+      )
+    `);
+    db.exec(`
+      INSERT INTO sub_project_messages_rebuild (id, subProjectId, userId, body, createdAt)
+      SELECT id, subProjectId, userId, body, createdAt FROM sub_project_messages
+    `);
+    db.exec('DROP TABLE sub_project_messages');
+    db.exec('ALTER TABLE sub_project_messages_rebuild RENAME TO sub_project_messages');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_sub_project_messages_sp ON sub_project_messages(subProjectId, createdAt)');
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
 }
 
 module.exports = db;
