@@ -614,24 +614,6 @@
   window.addEventListener('resize', syncCommunitySearchBarHeightVar);
   window.addEventListener('orientationchange', syncCommunitySearchBarHeightVar);
 
-  // Même patron que les deux fonctions ci-dessus, pour le bandeau
-  // "Réglages"/Déconnexion (.subpageHeader) de #profileSettingsPanel, devenu
-  // fixe le 10 septembre 2026 (demande d'Emilien, voir styles.css) au lieu de
-  // défiler avec le reste du contenu. --settings-header-h (consommée par
-  // #profileSettingsScroll, styles.css) laisse le contenu qui défile réserver
-  // exactement la place du bandeau, quelle que soit sa hauteur réelle (langue,
-  // taille de police système). Garde explicite sur .hidden : offsetHeight
-  // vaudrait 0 tant que le panneau est masqué, ce qui écraserait la variable
-  // à tort si un redimensionnement survient pendant que Réglages est fermé.
-  function syncSettingsHeaderHeightVar() {
-    var panel = $('profileSettingsPanel');
-    var header = panel && panel.querySelector('.subpageHeader');
-    if (!panel || !header || panel.classList.contains('hidden')) return;
-    document.documentElement.style.setProperty('--settings-header-h', header.offsetHeight + 'px');
-  }
-  window.addEventListener('resize', syncSettingsHeaderHeightVar);
-  window.addEventListener('orientationchange', syncSettingsHeaderHeightVar);
-
   // 2 septembre 2026, suite (Design) : sur mobile, quand le clavier virtuel
   // est ouvert (un champ texte a le focus) et qu'on fait défiler la page,
   // .topbar et .tabbar (toutes deux position: fixed) pouvaient donner
@@ -858,6 +840,7 @@
     $('onbExisting').classList.remove('hidden');
     $('onbMsg').textContent = '';
     $('onbSearch').value = '';
+    $('onbSearchLastName').value = '';
     loadUserListForOnboarding();
   });
   $('onbSwitchToCreate').addEventListener('click', function (e) {
@@ -903,34 +886,30 @@
   // ⚠️ 7 septembre 2026 (incident 2026-001) : cet écran chargeait TOUT
   // l'annuaire (`GET /api/users` sans paramètre) puis filtrait côté client —
   // c'est ce qui rendait la liste complète des membres lisible par n'importe
-  // qui, sans session. Le filtrage a ensuite été fait PAR LE SERVEUR, sur une
-  // correspondance EXACTE du pseudo, prénom+nom (voir GET /users dans
-  // server/routes/profile.js).
-  // ⚠️ 10 septembre 2026 (chantier "Connexion / Création de compte", demande
-  // directe d'Emilien) : les deux champs prénom/nom séparés du 8 septembre
-  // sont remplacés par un seul champ "nom complet", et la correspondance
-  // EXACTE devient une recherche par SOUS-CHAÎNE (façon "ctrl+f") — le
-  // paramètre `q` de GET /api/users. Compromis vie privée cadré avec
-  // Emilien (`AskUserQuestion`) : une recherche par sous-chaîne sans aucune
-  // restriction recréerait le risque d'énumération de l'incident 2026-001
-  // sur cette route pré-session/publique — Emilien a choisi de MINIMISER ce
-  // risque plutôt que de l'éliminer (ce qui aurait signifié revenir à la
-  // correspondance exacte) : la recherche ne part qu'à partir de
-  // `ONB_SEARCH_MIN_LENGTH` caractères tapés (voir server/routes/profile.js,
-  // même constante nommée côté serveur), et le serveur plafonne lui-même le
-  // nombre de résultats. Voir server/routes/profile.js pour le détail
-  // complet du compromis, y compris pourquoi seule l'INITIALE du nom de
-  // famille est renvoyée (jamais le nom complet) sur ce chemin.
+  // qui, sans session. Le filtrage est désormais fait PAR LE SERVEUR, sur une
+  // correspondance EXACTE du pseudo (voir GET /users dans
+  // server/routes/profile.js). Conséquence visible pour la personne : il faut
+  // taper son pseudo en entier, un début ne suffit plus — c'est le prix à
+  // payer pour qu'on ne puisse plus énumérer les membres.
+  // ⚠️ 8 septembre 2026 (chantier "Connexion / Création de compte") : prénom
+  // seul ne suffit plus à identifier une personne à coup sûr, puisque les
+  // prénoms en double sont désormais permis (voir server/db.js,
+  // "usersNameStillGloballyUnique" — décision d'Emilien). Cette fonction lit
+  // maintenant AUSSI #onbSearchLastName et l'envoie au serveur dès que le
+  // prénom est rempli — le nom de famille reste FACULTATIF côté champ pour
+  // ne pas bloquer les tout premiers profils sans nom de famille en base
+  // (Emilien, Gaspard ; voir GET /users dans server/routes/profile.js pour
+  // la règle exacte de correspondance, y compris ce cas).
   // `onbSearchSeq` : garde anti-réponse-en-vol, même principe que
   // viewProfileUserId sur la page de visite. Deux frappes rapides peuvent
   // revenir dans le désordre ; seule la dernière a le droit de dessiner.
-  var ONB_SEARCH_MIN_LENGTH = 3;
   var onbSearchSeq = 0;
   function loadUserListForOnboarding() {
     var q = $('onbSearch').value.trim();
+    var qLastName = $('onbSearchLastName').value.trim();
     var seq = ++onbSearchSeq;
-    if (q.length < ONB_SEARCH_MIN_LENGTH) { renderOnbUserList([], seq, q); return; }
-    api('GET', '/api/users?q=' + encodeURIComponent(q))
+    if (!q) { renderOnbUserList([], seq, q); return; }
+    api('GET', '/api/users?name=' + encodeURIComponent(q) + '&lastName=' + encodeURIComponent(qLastName))
       .then(function (users) { renderOnbUserList(users, seq, q); })
       .catch(function () { renderOnbUserList([], seq, q); });
   }
@@ -938,8 +917,8 @@
     if (seq !== onbSearchSeq) return;
     var box = $('onbUserList');
     box.innerHTML = '';
-    if (q.length < ONB_SEARCH_MIN_LENGTH) {
-      box.innerHTML = '<p class="hint">' + t('Tape au moins 3 caractères de ton nom complet pour retrouver ton profil.') + '</p>';
+    if (!q) {
+      box.innerHTML = '<p class="hint">' + t('Tape ton prénom en entier (et ton nom de famille, si tu en as un sur ton profil) pour retrouver ton profil.') + '</p>';
       return;
     }
     if (users.length === 0) {
@@ -949,16 +928,13 @@
     users.forEach(function (u) {
       var chip = document.createElement('div');
       chip.className = 'userChip';
-      // 10 septembre 2026 (Connexion / Création de compte, demande
-      // d'Emilien) : le serveur ne renvoie plus le nom de famille complet
-      // sur ce chemin de recherche par sous-chaîne (voir GET /users dans
-      // server/routes/profile.js) — seulement son initiale, pour
-      // distinguer les homonymes sans apprendre à un inconnu un nom de
-      // famille qu'il n'a pas lui-même tapé. `displayName` est mémorisé sur
-      // l'objet transmis à showOnbPinStep pour que l'étape suivante affiche
-      // exactement ce qui était déjà visible ici, rien de plus.
-      var displayName = u.lastInitial ? (u.name + ' ' + u.lastInitial + '.') : u.name;
-      u.displayName = displayName;
+      // 8 septembre 2026 (Connexion / Création de compte, demande d'Emilien) :
+      // afficher le nom de famille en plus du prénom sur le résultat trouvé,
+      // pour confirmer clairement lequel des homonymes a été retrouvé. Le
+      // serveur ne renvoie ce nom de famille que parce que l'utilisateur
+      // vient déjà de le taper pour obtenir ce résultat (voir GET /users
+      // dans server/routes/profile.js) — rien de nouveau n'est exposé.
+      var displayName = u.lastName ? (u.name + ' ' + u.lastName) : u.name;
       chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(displayName) + '</span>';
       chip.addEventListener('click', function () {
         showOnbPinStep(u);
@@ -967,6 +943,7 @@
     });
   }
   $('onbSearch').addEventListener('input', function () { loadUserListForOnboarding(); });
+  $('onbSearchLastName').addEventListener('input', function () { loadUserListForOnboarding(); });
 
   // ----- Étape "code PIN" (récupérer un profil existant, ou lui en définir
   // un s'il n'en a pas encore — comptes créés avant cette protection) -----
@@ -984,16 +961,7 @@
     // afficher le nom de famille en plus du prénom ici aussi, pour confirmer
     // sans ambiguïté quel profil homonyme a été retrouvé avant de saisir son
     // code PIN.
-    // ⚠️ 10 septembre 2026, suite : `user.displayName`, quand il est présent
-    // (résultat de la recherche par sous-chaîne, voir renderOnbUserList),
-    // est PRIORITAIRE — il porte déjà exactement ce qui a été montré à la
-    // personne dans la liste de résultats (prénom + initiale du nom de
-    // famille, jamais le nom complet). Le repli sur `user.lastName` reste
-    // nécessaire pour l'autre appelant de cette fonction, la revérification
-    // d'un profil déjà mémorisé localement (correspondance exacte, voir plus
-    // bas dans ce fichier), qui continue de fournir le nom de famille
-    // complet.
-    var displayName = user.displayName || (user.lastName ? (user.name + ' ' + user.lastName) : user.name);
+    var displayName = user.lastName ? (user.name + ' ' + user.lastName) : user.name;
     if (user.hasPin) {
       $('onbPinStepTitle').textContent = t('Code de {name}', { name: displayName });
       $('onbPinStepHint').classList.add('hidden');
@@ -7117,10 +7085,15 @@
     section.classList.remove('hidden');
     $('calendarFeedOff').classList.toggle('hidden', !!state.hasFeed);
     $('calendarFeedOn').classList.toggle('hidden', !state.hasFeed);
-    // "Dernière lecture par un calendrier" retiré le 10 septembre 2026 (voir
-    // l'avertissement dans index.html) — #calendarFeedUrl reste renseigné
-    // (caché) pour calendarFeedWebcalUrl()/les boutons Apple/Google plus bas.
-    $('calendarFeedUrl').value = state.hasFeed ? (state.url || '') : '';
+    if (state.hasFeed) {
+      $('calendarFeedUrl').value = state.url || '';
+      $('calendarFeedLastAccess').textContent = state.lastAccessAt
+        ? t('Dernière lecture par un calendrier : ') + new Date(state.lastAccessAt).toLocaleString()
+        : t('Jamais relu par un calendrier pour le moment.');
+    } else {
+      $('calendarFeedUrl').value = '';
+      $('calendarFeedLastAccess').textContent = '';
+    }
   }
 
   function refreshCalendarFeedSection() {
@@ -7149,13 +7122,38 @@
     issueCalendarFeed('Lien créé. Colle-le dans ton calendrier comme un abonnement.');
   });
 
-  // Copier l'adresse / Régénérer / Désactiver retirés le 10 septembre 2026
-  // (demande explicite d'Emilien, cadrée par AskUserQuestion — voir
-  // l'avertissement dans index.html) : plus aucun geste, depuis Réglages,
-  // pour invalider ou régénérer un lien de calendrier une fois créé — perte
-  // de fonction assumée et confirmée. issueCalendarFeed()/l'API DELETE
-  // sous-jacentes restent utilisables par un futur chantier qui les
-  // réintroduirait ; seuls les trois écouteurs de bouton disparaissent ici.
+  $('calendarFeedRenewBtn').addEventListener('click', function () {
+    if (!profile) return;
+    if (!confirm(t("Régénérer l'adresse ? L'ancienne cessera immédiatement de fonctionner, et tu devras refaire l'abonnement sur chaque appareil."))) return;
+    issueCalendarFeed('Lien créé. Colle-le dans ton calendrier comme un abonnement.');
+  });
+
+  $('calendarFeedRevokeBtn').addEventListener('click', function () {
+    if (!profile) return;
+    if (!confirm(t("Désactiver le calendrier ? L'adresse cesse de fonctionner et les échéances disparaîtront de ton agenda."))) return;
+    api('DELETE', '/api/calendar/feed?userId=' + encodeURIComponent(profile.id))
+      .then(function (state) {
+        renderCalendarFeedState(state);
+        $('calendarFeedMsg').textContent = t('Calendrier désactivé.');
+      })
+      .catch(function (err) { $('calendarFeedMsg').textContent = err.message; });
+  });
+
+  $('calendarFeedCopyBtn').addEventListener('click', function () {
+    var url = $('calendarFeedUrl').value;
+    if (!url) return;
+    var msg = $('calendarFeedMsg');
+    var done = function () { msg.textContent = t('Copié — colle-le dans ton calendrier.'); };
+    var failed = function () { msg.textContent = t('Impossible de copier automatiquement — sélectionne le texte à la main.'); };
+    // legacyCopy() est le repli déjà utilisé par le bloc "Partage"
+    // (déclaration de fonction, donc hissée : elle est définie plus bas dans
+    // ce fichier mais parfaitement appelable ici).
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(function () { if (legacyCopy(url)) done(); else failed(); });
+      return;
+    }
+    if (legacyCopy(url)) done(); else failed();
+  });
 
   // Raccourcis d'abonnement en un clic (7 septembre 2026, demande d'Emilien).
   // 'webcal:' est le schéma standard pour une souscription calendrier : le
@@ -7203,11 +7201,6 @@
     renderShareSettings();
     var settingsPanelEl = $('profileSettingsPanel');
     settingsPanelEl.classList.remove('hidden');
-    // Mesure la hauteur réelle du bandeau "Réglages"/Déconnexion, désormais
-    // fixe (10 septembre 2026, voir styles.css) — après remove('hidden') pour
-    // qu'offsetHeight soit correct, avant l'ajout de .open (la mesure ne
-    // dépend pas de la transition en cours).
-    syncSettingsHeaderHeightVar();
     // Plein écran avec glissement droite → gauche à l'ouverture (9 septembre
     // 2026, demande d'Emilien) : .hidden vient d'être retiré (le panneau
     // redevient affiché, hors écran à droite — voir styles.css) ; on force

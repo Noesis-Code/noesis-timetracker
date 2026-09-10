@@ -588,27 +588,58 @@
               <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
           </button>
+          <!-- ⚠️ 10 septembre 2026, demande d'Emilien : « je souhaite ajouter
+               des boutons. Pour abonner, abonnement et bloquer. Il faut
+               cliquer sur ces boutons pour scroller les abonnés ou les
+               abonnements ou les personnes bloqué [...] lorsque j'appuie sur
+               un bouton par exemple abonné, que j'ouvre la fenêtre, je
+               souhaite que le mot abonné, le titre reste fixe au-dessus et
+               que les noms des abonnés défilent en dessous. »
+
+               Les trois listes étaient jusqu'ici EMPILÉES dans un panneau qui
+               défilait d'un seul bloc, chacune précédée de son propre titre.
+               Elles deviennent trois vues exclusives d'un même espace, avec :
+                 - un sélecteur à trois boutons (#followsSwitch), qui reprend
+                   .periodSwitch/.periodBtn — le motif déjà utilisé par le
+                   sélecteur Statistiques/Publications de la page de visite,
+                   donc aucune nouvelle classe à écrire ;
+                 - un titre unique (#followsPanelTitle) qui prend le nom de la
+                   vue active et reste FIXE ;
+                 - une seule zone défilante (#followsScroll) sous ce titre.
+               Le panneau lui-même passe donc en colonne flex avec
+               `overflow: hidden` (voir #profileFollowsPanel dans styles.css) :
+               c'est #followsScroll, et lui seul, qui défile. -->
           <div id="profileFollowsPanel" class="notifPanel hidden">
-            <p class="hint">Abonnés</p>
-            <div id="settingsFollowersList" class="activitiesList"></div>
-            <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
-            <p class="hint">Abonnements</p>
-            <div id="settingsFollowingList" class="activitiesList"></div>
-            <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
-            <!-- Bloqués (8 septembre 2026, demande d'Emilien : « je souhaite
-                 que l'on puisse bloquer les utilisateurs qui nous suivent [...]
-                 que ce paramètre s'affiche sur le profil sous l'icône abonné
-                 et abonnement en face des abonnés »). Troisième liste de ce
-                 même panneau, juste après Abonnements — le bouton "Bloquer"
-                 lui-même vit sur chaque ligne de la liste Abonnés
-                 ci-dessus (voir renderSettingsFollowers dans app.js).
-                 Portée du blocage cadrée avec Emilien (AskUserQuestion) :
-                 empêche seulement la personne de (re)suivre, ne la retire ni
-                 de la recherche/découverte de membres ni de la consultation
-                 de la page de visite du profil. -->
-            <p class="hint">Bloqués</p>
-            <div id="settingsBlockedList" class="activitiesList"></div>
-            <p id="settingsBlockedEmptyHint" class="hint hidden">Aucun utilisateur bloqué.</p>
+            <div class="periodSwitch" id="followsSwitch">
+              <button type="button" class="periodBtn active" id="followsTabFollowers">Abonnés</button>
+              <button type="button" class="periodBtn" id="followsTabFollowing">Abonnements</button>
+              <button type="button" class="periodBtn" id="followsTabBlocked">Bloqués</button>
+            </div>
+            <p class="sectionTitle" id="followsPanelTitle">Abonnés</p>
+            <div id="followsScroll">
+              <div id="followsSectionFollowers">
+                <div id="settingsFollowersList" class="activitiesList"></div>
+                <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
+              </div>
+              <div id="followsSectionFollowing" class="hidden">
+                <div id="settingsFollowingList" class="activitiesList"></div>
+                <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+              </div>
+              <!-- Bloqués (8 septembre 2026, demande d'Emilien : « je souhaite
+                   que l'on puisse bloquer les utilisateurs qui nous suivent [...]
+                   que ce paramètre s'affiche sur le profil sous l'icône abonné
+                   et abonnement en face des abonnés »). Le bouton "Bloquer"
+                   lui-même vit sur chaque ligne de la liste Abonnés (voir
+                   renderSettingsFollowers dans app.js).
+                   Portée du blocage cadrée avec Emilien (AskUserQuestion) :
+                   empêche seulement la personne de (re)suivre, ne la retire ni
+                   de la recherche/découverte de membres ni de la consultation
+                   de la page de visite du profil. -->
+              <div id="followsSectionBlocked" class="hidden">
+                <div id="settingsBlockedList" class="activitiesList"></div>
+                <p id="settingsBlockedEmptyHint" class="hint hidden">Aucun utilisateur bloqué.</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -619,16 +650,32 @@
             </svg>
             <span id="profileNotifDot" class="notifDot hidden"></span>
           </button>
-          <div id="profileNotifPanel" class="notifPanel hidden">
-            <p class="sectionTitle">Invitations reçues</p>
-            <div id="invitesList" class="activitiesList"></div>
+          <!-- ⚠️ 10 septembre 2026, demande d'Emilien : « je souhaite que
+               l'icône avion à papier [...] n'affiche que les demande
+               d'invitation reçue et les demande de suivi, pas de titre en haut
+               avec marqué aucune invitation. Sauf lorsqu'il n'y a aucune
+               invitation ni demande de suivit, juste marquer une phrase style
+               "aucune invitation ni demande de suivit". »
 
+               Les deux titres de section ("Invitations reçues" / "Demandes de
+               suivi reçues") sont donc RETIRÉS, ainsi que les deux phrases
+               "Aucune invitation en attente."/"Aucune demande en attente."
+               que chaque liste affichait pour elle-même (voir
+               renderInvitesList/renderFollowRequests dans app.js) : un panneau
+               vide affichait jusqu'ici deux titres et deux phrases pour ne
+               rien dire du tout. Les deux listes se suivent désormais sans
+               aucun intertitre — une invitation et une demande de suivi se
+               distinguent déjà par leur propre libellé — et une SEULE phrase
+               (#profileNotifEmptyHint) s'affiche quand les deux sont vides,
+               posée par syncNotifPanelEmptyHint(). -->
+          <div id="profileNotifPanel" class="notifPanel hidden">
+            <div id="invitesList" class="activitiesList"></div>
             <!-- Demandes de suivi (Suivi, indépendant du partage d'activité)
                  — déplacé depuis l'onglet Communauté à la demande
                  d'Emilien. Le reste du système de Suivi (recherche de membres,
                  fil d'actualité) reste dans Communauté. -->
-            <p class="sectionTitle">Demandes de suivi reçues</p>
             <div id="followRequestsList" class="activitiesList"></div>
+            <p id="profileNotifEmptyHint" class="hint hidden">Aucune invitation ni demande de suivi.</p>
           </div>
         </div>
 
@@ -2767,36 +2814,46 @@
             <!-- Affichage (anciennement « Préférences d'affichage », renommé le 9
                  septembre 2026, puis groupe accordéon fusionné le même jour —
                  réorganisation du panneau Réglages, voir
-                 noesis-timetracker-parametres.md). Accordéon de groupe ET cadre
-                 .settingsCard retirés le 10 septembre 2026 (demande d'Emilien :
-                 « pour affichage, je souhaite réduire le menu déroulant et ne
-                 conserver que les cases [...] pas le cadre autour ») —
-                 Apparence et Langue redeviennent deux entrées de premier niveau
-                 TOUJOURS affichées, sans clic pour les déplier, et leurs
-                 boutons .themeSwitch/.themeBtn ne sont plus encadrés. Tous les
-                 ids inchangés. -->
-            <div class="settingsFlat">
-              <p class="sectionTitle settingsFlatTitle">Apparence</p>
-              <div class="themeSwitch" id="themeSwitch">
-                <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
-                <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
+                 noesis-timetracker-parametres.md). Accordéon de groupe retiré
+                 le 10 septembre 2026 sur demande d'Emilien, PUIS RESTAURÉ le
+                 jour même (rectification explicite d'Emilien : « je souhaite
+                 que l'apparence et la langue soient rangées dans un menu
+                 déroulant ») — Apparence et Langue redeviennent donc des
+                 sous-entrées TOUJOURS affichées (aucun accordéon propre à
+                 chacune, un seul menu déroulant pour les deux) à l'intérieur
+                 de ce groupe. Le cadre .settingsCard autour des boutons
+                 .themeSwitch/.themeBtn, lui, reste retiré (jamais redemandé).
+                 Tous les ids inchangés. -->
+            <div class="settingsGroup">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Affichage</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsGroupBody hidden">
+              <div class="settingsFlat">
+                <p class="sectionTitle settingsFlatTitle">Apparence</p>
+                <div class="themeSwitch" id="themeSwitch">
+                  <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
+                  <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
+                </div>
+                <p id="themeMsg" class="msg"></p>
               </div>
-              <p id="themeMsg" class="msg"></p>
-            </div>
-            <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
-                 Réglage par profil, comme le thème : anglais par défaut pour
-                 tout nouveau compte, français pour les profils qui existaient
-                 déjà (voir la migration dans server/db.js). Réutilise les
-                 classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
-                 (composants génériques appartenant à la discussion Design :
-                 utilisés tels quels, aucune définition CSS modifiée). -->
-            <div class="settingsFlat">
-              <p class="sectionTitle settingsFlatTitle">Langue</p>
-              <div class="themeSwitch" id="langSwitch">
-                <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
-                <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
+              <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
+                   Réglage par profil, comme le thème : anglais par défaut pour
+                   tout nouveau compte, français pour les profils qui existaient
+                   déjà (voir la migration dans server/db.js). Réutilise les
+                   classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
+                   (composants génériques appartenant à la discussion Design :
+                   utilisés tels quels, aucune définition CSS modifiée). -->
+              <div class="settingsFlat">
+                <p class="sectionTitle settingsFlatTitle">Langue</p>
+                <div class="themeSwitch" id="langSwitch">
+                  <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
+                  <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
+                </div>
+                <p id="langMsg" class="msg"></p>
               </div>
-              <p id="langMsg" class="msg"></p>
+              </div>
             </div>
 
 
@@ -2826,35 +2883,50 @@
 
 
             <!-- Calendrier et export de données : accordéon de groupe (fusion du
-                 9 septembre 2026) ET les deux accordéons internes retirés le 10
-                 septembre 2026 (demande d'Emilien : « pour calendrier et
-                 données, je souhaite supprimer les menus déroulants ») —
-                 Calendrier et Exporter mes données redeviennent deux entrées de
-                 premier niveau TOUJOURS affichées, sans clic pour les déplier.
-                 Tous les ids inchangés, y compris #calendarFeedSection (classe
-                 de base passée de settingsSection à settingsFlat — le "hidden"
-                 que bascule renderCalendarFeedState, app.js, reste le même
-                 mécanisme). -->
-            <!-- Calendrier — flux ICS des échéances de sous-projets
-                 (4 septembre 2026, discussion "Calendrier des clôtures").
-                 Toute la section est masquée quand la fonction est éteinte
-                 côté serveur (NOESIS_CALENDAR_FEED) : inutile de proposer un
-                 réglage qui ne peut rien faire. Les deux blocs ci-dessous
-                 s'excluent, c'est renderCalendarFeedState() qui bascule.
-                 ⚠️ Adresse/avertissement/Copier l'adresse/Régénérer/Désactiver/
-                 dernière lecture retirés le 10 septembre 2026 (demande
-                 explicite d'Emilien, cadrée par AskUserQuestion : « supprime
-                 l'adresse d'un calendrier avec le texte, garde uniquement les
-                 boutons ajouter à Apple Calendar, ajouter à Google Agenda ») —
-                 perte de fonction assumée et confirmée : plus aucun moyen,
-                 depuis Réglages, de régénérer ou désactiver un lien de
-                 calendrier une fois créé. #calendarFeedUrl reste dans le DOM,
-                 mais caché (.hidden) : calendarFeedWebcalUrl()/les boutons
-                 Apple/Google (app.js) continuent de lire sa valeur en
-                 coulisse. -->
-            <div id="calendarFeedSection" class="settingsFlat hidden">
-              <p class="sectionTitle settingsFlatTitle">Calendrier</p>
-              <div class="settingsCard">
+                 9 septembre 2026), retiré le 10 septembre 2026 (demande
+                 d'Emilien : « pour calendrier et données, je souhaite
+                 supprimer les menus déroulants »), PUIS RESTAURÉ le jour même
+                 (rectification explicite d'Emilien : « je souhaite que le
+                 calendrier et exporté mes données soient également rangés
+                 dans un menu déroulant ») — Calendrier et Exporter mes
+                 données redeviennent des sous-entrées TOUJOURS affichées
+                 (aucun accordéon propre à chacune, un seul menu déroulant
+                 pour les deux) à l'intérieur de ce groupe. Tous les ids
+                 inchangés, y compris #calendarFeedSection (classe de base
+                 restée settingsFlat — le "hidden" que bascule
+                 renderCalendarFeedState, app.js, reste le même mécanisme). -->
+            <div class="settingsGroup">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Calendrier et export de données</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsGroupBody hidden">
+              <!-- Calendrier — flux ICS des échéances de sous-projets
+                   (4 septembre 2026, discussion "Calendrier des clôtures").
+                   Toute la section est masquée quand la fonction est éteinte
+                   côté serveur (NOESIS_CALENDAR_FEED) : inutile de proposer un
+                   réglage qui ne peut rien faire. Les deux blocs ci-dessous
+                   s'excluent, c'est renderCalendarFeedState() qui bascule.
+                   ⚠️ Adresse/avertissement/Copier l'adresse/Régénérer/Désactiver/
+                   dernière lecture retirés le 10 septembre 2026 (demande
+                   explicite d'Emilien, cadrée par AskUserQuestion : « supprime
+                   l'adresse d'un calendrier avec le texte, garde uniquement les
+                   boutons ajouter à Apple Calendar, ajouter à Google Agenda ») —
+                   perte de fonction assumée et confirmée : plus aucun moyen,
+                   depuis Réglages, de régénérer ou désactiver un lien de
+                   calendrier une fois créé. #calendarFeedUrl reste dans le DOM,
+                   mais caché (.hidden) : calendarFeedWebcalUrl()/les boutons
+                   Apple/Google (app.js) continuent de lire sa valeur en
+                   coulisse. ⚠️ Cadre .settingsCard retiré le 10 septembre 2026,
+                   le jour même (rectification explicite d'Emilien : « pour
+                   calendrier, supprime le cadre autour des boutons ajoutés à
+                   calendrier Apple et Google Agenda ») : calendarFeedOff/
+                   calendarFeedOn/calendarFeedMsg sont désormais des enfants
+                   directs de #calendarFeedSection, sans changement d'id ni de
+                   logique (renderCalendarFeedState continue de basculer leur
+                   "hidden" tel quel). -->
+              <div id="calendarFeedSection" class="settingsFlat hidden">
+                <p class="sectionTitle settingsFlatTitle">Calendrier</p>
                 <div id="calendarFeedOff" class="hidden">
                   <button type="button" id="calendarFeedCreateBtn" class="iconBtn">Créer mon lien de calendrier</button>
                 </div>
@@ -2870,20 +2942,21 @@
                 </div>
                 <p id="calendarFeedMsg" class="msg"></p>
               </div>
-            </div>
-            <!-- Export de mes données personnelles (7 septembre 2026,
-                 candidate n°1 de l'audit des sections manquantes du panneau
-                 Réglages — voir noesis-timetracker-parametres.md). Déclenche
-                 un simple téléchargement de GET /api/profile/export (déjà
-                 livré côté serveur, voir server/lib/dataexport.js) : aucun
-                 état à gérer ici, juste un lien de téléchargement classique.
-                 Le jeton du flux calendrier et les identifiants push restent
-                 exclus du fichier exporté (décision confirmée par Emilien),
-                 rien à faire côté client pour ça. -->
-            <div class="settingsFlat">
-              <p class="sectionTitle settingsFlatTitle">Exporter mes données</p>
-              <button type="button" id="exportDataBtn" class="iconBtn">Télécharger mes données</button>
-              <p id="exportDataMsg" class="msg"></p>
+              <!-- Export de mes données personnelles (7 septembre 2026,
+                   candidate n°1 de l'audit des sections manquantes du panneau
+                   Réglages — voir noesis-timetracker-parametres.md). Déclenche
+                   un simple téléchargement de GET /api/profile/export (déjà
+                   livré côté serveur, voir server/lib/dataexport.js) : aucun
+                   état à gérer ici, juste un lien de téléchargement classique.
+                   Le jeton du flux calendrier et les identifiants push restent
+                   exclus du fichier exporté (décision confirmée par Emilien),
+                   rien à faire côté client pour ça. -->
+              <div class="settingsFlat">
+                <p class="sectionTitle settingsFlatTitle">Exporter mes données</p>
+                <button type="button" id="exportDataBtn" class="iconBtn">Télécharger mes données</button>
+                <p id="exportDataMsg" class="msg"></p>
+              </div>
+              </div>
             </div>
 
 

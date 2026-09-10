@@ -1,10 +1,17 @@
 // Routes d'abonnement aux notifications push (1er septembre 2026).
 // La logique d'envoi est dans server/lib/push.js ; ici on ne fait que gérer
-// l'abonnement/désabonnement d'un APPAREIL, et un envoi de test.
+// l'abonnement/désabonnement d'un APPAREIL. Depuis la refonte du 10 septembre
+// 2026 (section Notifications de Réglages, demande d'Emilien), l'abonnement
+// est déclenché automatiquement à la création du profil ou à la connexion à
+// un profil existant sur cet appareil (voir proceedAfterProfile() dans
+// public/app.js) — ces deux routes /subscribe et /unsubscribe restent
+// inchangées, seul l'appelant a changé. Le bouton "Envoyer un test" a été
+// retiré (demande d'Emilien) : la route POST /push/test et notifyTest() ont
+// été supprimées avec lui.
 
 const express = require('express');
 const db = require('../db');
-const { pushEnabled, publicKey, notifyTest } = require('../lib/push');
+const { pushEnabled, publicKey } = require('../lib/push');
 
 const router = express.Router();
 
@@ -15,11 +22,13 @@ router.get('/push/public-key', (req, res) => {
   res.json({ enabled: pushEnabled(), publicKey: publicKey() });
 });
 
-// Cet appareil est-il déjà abonné pour ce profil ? Sert à afficher le bon
-// bouton (Activer / Désactiver) à l'ouverture de Réglages. On compare sur
+// Cet appareil est-il déjà abonné pour ce profil ? On compare sur
 // l'endpoint, qui identifie l'appareil : le même profil ouvert sur le
 // téléphone et sur l'ordinateur a deux réponses différentes, ce qui est
-// exactement le comportement voulu.
+// exactement le comportement voulu. (Non appelée par public/app.js
+// actuellement, qui interroge directement le navigateur via
+// currentPushSubscription() — conservée telle quelle, une future page de
+// gestion des appareils abonnés pourrait s'en servir.)
 router.get('/push/status', (req, res) => {
   const userId = req.userId;
   const endpoint = req.query.endpoint;
@@ -71,24 +80,6 @@ router.delete('/push/subscribe', (req, res) => {
 
   db.prepare('DELETE FROM push_subscriptions WHERE id = ?').run(row.id);
   res.json({ ok: true });
-});
-
-// Envoi de test vers ses PROPRES appareils uniquement — jamais vers ceux de
-// quelqu'un d'autre, quel que soit le corps de la requête.
-router.post('/push/test', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-
-  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
-  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
-
-  if (!pushEnabled()) return res.status(503).json({ error: "Les notifications ne sont pas configurées sur ce serveur." });
-
-  const count = db.prepare('SELECT COUNT(*) AS n FROM push_subscriptions WHERE userId = ?').get(userId).n;
-  if (count === 0) return res.status(400).json({ error: "Aucun appareil abonné — active d'abord les notifications." });
-
-  notifyTest(userId);
-  res.json({ ok: true, devices: count });
 });
 
 module.exports = router;

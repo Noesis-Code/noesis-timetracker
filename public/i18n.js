@@ -48,7 +48,6 @@
     'Créer mon profil': 'Create my profile',
     "J'ai déjà un profil sur cette app": 'I already have a profile on this app',
     'Retrouve ton profil': 'Find your profile',
-    'Tape ton nom complet...': 'Type your full name...',
     'Tape ton prénom...': 'Type your first name...',
     'Nom de famille (si tu en as un sur ton profil)': 'Last name (if your profile has one)',
     'Créer un nouveau profil': 'Create a new profile',
@@ -258,6 +257,15 @@
     "Le contrat qui régit l'utilisation de Noèsis TimeTracker.": 'The contract governing the use of Noèsis TimeTracker.',
     "Lire les conditions d'utilisation": 'Read the terms of use',
     "Lire les conditions d'utilisation avant de créer ton profil": 'Read the terms of use before creating your profile',
+    // Documents légaux (10 septembre 2026, demande directe d'Emilien) :
+    // sous-section déroulante regroupant politique de confidentialité,
+    // mentions légales et conditions d'utilisation (auparavant seule, à part).
+    'Documents légaux': 'Legal documents',
+    "Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.": 'How Noèsis TimeTracker works, what it does with your information, and the rules for using the service.',
+    'Lire la politique de confidentialité': 'Read the privacy policy',
+    'Politique de confidentialité': 'Privacy policy',
+    'Lire les mentions légales': 'Read the legal notices',
+    'Mentions légales': 'Legal notices',
     // Aide et suggestions (8 septembre 2026, demande d'Emilien) : un seul
     // champ de texte libre envoyé par courriel, sans FAQ (voir app.js).
     'Aide et suggestions': 'Help & suggestions',
@@ -557,7 +565,6 @@
     'Tu dois suivre ce profil pour voir ses statistiques.': 'You need to follow this profile to see its statistics.',
     'Tape ton pseudo en entier pour retrouver ton profil.': 'Type your full username to find your profile.',
     'Tape ton prénom en entier (et ton nom de famille, si tu en as un sur ton profil) pour retrouver ton profil.': 'Type your full first name (and your last name, if your profile has one) to find your profile.',
-    'Tape au moins 3 caractères de ton nom complet pour retrouver ton profil.': 'Type at least 3 characters of your full name to find your profile.',
     'Aucun détail supplémentaire pour ce projet.': 'No further details for this project.',
     'Le nom du projet est requis.': 'The project name is required.',
     'Supprimer ce projet ?': 'Delete this project?',
@@ -784,13 +791,18 @@
     'Calendrier': 'Calendar',
     "Les dates de clôture de tes sous-projets peuvent apparaître dans Apple Calendar ou Google Agenda. Tu obtiens une adresse à laquelle ton calendrier s'abonne, en lecture seule : il la relit tout seul de temps en temps.": 'Your sub-project closing dates can show up in Apple Calendar or Google Calendar. You get an address your calendar subscribes to, read-only: it re-reads it on its own from time to time.',
     'Créer mon lien de calendrier': 'Create my calendar link',
-    // ⚠️ 10 septembre 2026 : les entrées pour l'adresse affichée, son
-    // avertissement, "Copier l'adresse"/"Régénérer"/"Désactiver" et la
-    // dernière lecture ont été retirées ici (demande explicite d'Emilien,
-    // voir l'avertissement dans index.html) — leurs éléments HTML ont
-    // disparu, ces traductions n'ont donc plus de texte à traduire.
+    "Cette adresse vaut mot de passe : qui l'a voit les noms de tes sous-projets et leurs dates. Ne la publie nulle part. Si elle t'échappe, régénère-la — l'ancienne cesse aussitôt de fonctionner.": 'This address is as good as a password: anyone who has it sees your sub-project names and dates. Do not publish it anywhere. If it gets out, regenerate it — the old one stops working at once.',
+    "Copier l'adresse": 'Copy the address',
+    'Régénérer': 'Regenerate',
+    'Désactiver': 'Turn off',
     'Création du lien...': 'Creating the link...',
     'Lien créé. Colle-le dans ton calendrier comme un abonnement.': 'Link created. Paste it into your calendar as a subscription.',
+    'Copié — colle-le dans ton calendrier.': 'Copied — paste it into your calendar.',
+    "Régénérer l'adresse ? L'ancienne cessera immédiatement de fonctionner, et tu devras refaire l'abonnement sur chaque appareil.": 'Regenerate the address? The old one stops working immediately, and you will have to set up the subscription again on every device.',
+    'Désactiver le calendrier ? L\'adresse cesse de fonctionner et les échéances disparaîtront de ton agenda.': 'Turn the calendar off? The address stops working and the deadlines will disappear from your calendar.',
+    'Calendrier désactivé.': 'Calendar turned off.',
+    'Jamais relu par un calendrier pour le moment.': 'No calendar has read it yet.',
+    'Dernière lecture par un calendrier : ': 'Last read by a calendar: ',
     'Ajouter à Apple Calendar': 'Add to Apple Calendar',
     'Ajouter à Google Agenda': 'Add to Google Calendar',
     "Sur un autre calendrier (Outlook ou autre), copie l'adresse ci-dessous puis choisis « S'abonner à un calendrier » ou « Ajouter un calendrier à partir d'une adresse Internet », et colle-la.": 'On another calendar app (Outlook or other), copy the address below then choose “Subscribe to a calendar” or “Add a calendar from an internet address”, and paste it in.',

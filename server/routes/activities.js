@@ -17,7 +17,7 @@ function membershipCount(activityId) {
 }
 
 function serializeActivity(a, userId) {
-  var membership = db.prepare('SELECT color FROM activity_members WHERE activityId = ? AND userId = ?').get(a.id, userId);
+  var membership = db.prepare('SELECT color, notifyEnabled FROM activity_members WHERE activityId = ? AND userId = ?').get(a.id, userId);
   var owner = a.ownerId ? db.prepare('SELECT name FROM users WHERE id = ?').get(a.ownerId) : null;
   return {
     id: a.id,
@@ -28,6 +28,12 @@ function serializeActivity(a, userId) {
     isOwner: a.ownerId === userId,
     ownerName: owner ? owner.name : null,
     membersCount: membershipCount(a.id),
+    // notifyEnabled (10 septembre 2026, refonte de la section Notifications
+    // de Réglages) : PERSONNEL, comme color juste au-dessus — voir
+    // server/db.js. Un membre sans ligne activity_members (ne devrait pas
+    // arriver ici) est traité comme activé, par cohérence avec le DEFAULT 1
+    // de la colonne.
+    notifyEnabled: membership ? !!membership.notifyEnabled : true,
   };
 }
 
@@ -167,6 +173,15 @@ router.put('/activities/:id', (req, res) => {
     }
     db.prepare('UPDATE activity_members SET color = ? WHERE activityId = ? AND userId = ?')
       .run(req.body.color, activity.id, userId);
+  }
+
+  // notifyEnabled (10 septembre 2026, section Notifications de Réglages,
+  // demande d'Emilien) : PERSONNEL comme color juste au-dessus, donc réglé
+  // ici de la même façon — aucune restriction au créateur, chaque membre
+  // choisit pour lui-même.
+  if (req.body.notifyEnabled !== undefined) {
+    db.prepare('UPDATE activity_members SET notifyEnabled = ? WHERE activityId = ? AND userId = ?')
+      .run(req.body.notifyEnabled ? 1 : 0, activity.id, userId);
   }
 
   const updated = db.prepare('SELECT * FROM activities WHERE id = ?').get(activity.id);

@@ -93,8 +93,6 @@ const TEXTS = {
     followTitle: 'Demande de suivi',
     followBody: (from) => `${from} souhaite te suivre.`,
     postTitle: '📣 Communauté',
-    testTitle: 'Noèsis',
-    testBody: 'Les notifications fonctionnent sur cet appareil.',
   },
   en: {
     inviteTitle: 'Invitation',
@@ -102,8 +100,6 @@ const TEXTS = {
     followTitle: 'Follow request',
     followBody: (from) => `${from} wants to follow you.`,
     postTitle: '📣 Community',
-    testTitle: 'Noèsis',
-    testBody: 'Notifications are working on this device.',
   },
 };
 
@@ -204,7 +200,11 @@ function notifyActivityMessage(activityId, authorId, messageBody, messageId) {
     const author = db.prepare('SELECT name FROM users WHERE id = ?').get(authorId);
     if (!activity || !author) return;
 
-    const recipients = db.prepare('SELECT userId FROM activity_members WHERE activityId = ? AND userId != ?')
+    // notifyEnabled (10 septembre 2026, refonte de la section Notifications
+    // de Réglages, demande d'Emilien) : chaque membre choisit par activité
+    // s'il veut ces notifications — voir server/db.js et
+    // server/routes/activities.js.
+    const recipients = db.prepare('SELECT userId FROM activity_members WHERE activityId = ? AND userId != ? AND notifyEnabled = 1')
       .all(activityId, authorId)
       .map((r) => r.userId);
     if (recipients.length === 0) return;
@@ -238,8 +238,14 @@ function notifyCommunityPost(authorId, postBody, postId) {
     const author = db.prepare('SELECT name, shareProfile FROM users WHERE id = ?').get(authorId);
     if (!author || !author.shareProfile) return;
 
+    // communityNotifyEnabled (10 septembre 2026, refonte de la section
+    // Notifications de Réglages, demande d'Emilien) : filtré sur le profil du
+    // DESTINATAIRE (l'abonné), pas de l'auteur — chacun choisit pour
+    // lui-même s'il reçoit ces notifications, indépendamment de qui il suit.
     const recipients = db.prepare(`
-      SELECT followerId FROM follows WHERE followeeId = ? AND status = 'accepted'
+      SELECT f.followerId FROM follows f
+      JOIN users u ON u.id = f.followerId
+      WHERE f.followeeId = ? AND f.status = 'accepted' AND u.communityNotifyEnabled = 1
     `).all(authorId).map((r) => r.followerId);
     if (recipients.length === 0) return;
 
@@ -296,15 +302,7 @@ function notifyFollowRequest(toUserId, fromUserId) {
   }
 }
 
-// Notification de test, envoyée à ses propres appareils depuis Réglages —
-// pour vérifier toute la chaîne sans avoir à faire écrire quelqu'un d'autre.
-function notifyTest(userId) {
-  if (!configured) return;
-  const t = textsFor(userId);
-  sendToUsers([userId], { title: t.testTitle, body: t.testBody, tag: 'test', url: '/' });
-}
-
 module.exports = {
   pushEnabled, publicKey, sendToUsers,
-  notifyActivityMessage, notifyCommunityPost, notifyActivityInvite, notifyFollowRequest, notifyTest,
+  notifyActivityMessage, notifyCommunityPost, notifyActivityInvite, notifyFollowRequest,
 };

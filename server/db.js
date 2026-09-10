@@ -905,6 +905,28 @@ if (usersNameStillGloballyUnique()) {
 // tout profil créé depuis exige un nom de famille non vide (POST /profile).
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_name_lastname ON users(name COLLATE NOCASE, lastName COLLATE NOCASE)');
 
+// Notifications "Communauté" (10 septembre 2026, refonte de la section
+// Notifications de Réglages, demande d'Emilien) : bascule PAR PROFIL — pas
+// par appareil comme push_subscriptions — pour recevoir ou non les
+// notifications des nouveaux messages "Communauté" des profils suivis. Voir
+// aussi activity_members.notifyEnabled plus bas pour l'équivalent par
+// activité. DEFAULT 1 : purement additive, ne change rien pour un profil
+// déjà abonné aux notifications avant ce déploiement. Les invitations,
+// demandes de suivi et notifications de l'application elle-même restent
+// toujours actives et n'ont pas de colonne — voir server/lib/push.js.
+// ⚠️ Placée APRÈS le rebuild de "users" ci-dessus (usersNameStillGloballyUnique)
+// et non juste après sessionEpoch : ce rebuild recopie les colonnes vers une
+// table neuve via une liste EXPLICITE (CREATE TABLE users_rebuild / INSERT
+// INTO users_rebuild) qui ne connaît pas les colonnes ajoutées après elle —
+// une migration placée avant lui serait donc appliquée puis immédiatement
+// perdue sur toute base où ce rebuild a encore lieu (dont une base neuve : le
+// CREATE TABLE IF NOT EXISTS users tout en haut de ce fichier a toujours
+// l'ancienne contrainte UNIQUE sur name). Les migrations plus bas dans ce
+// fichier (ex. "polls.anonymous") suivent déjà cette même règle.
+if (!columnExists('users', 'communityNotifyEnabled')) {
+  db.exec('ALTER TABLE users ADD COLUMN communityNotifyEnabled INTEGER NOT NULL DEFAULT 1');
+}
+
 // Vote anonyme (3 septembre 2026, demande d'Emilien). Migration purement
 // additive, comme toutes celles de ce bloc : DEFAULT 0, donc tout sondage créé
 // avant ce jour reste nominatif — le comportement d'un sondage déjà publié ne
@@ -970,6 +992,20 @@ if (!columnExists('activity_members', 'position')) {
     setMemberPosition.run(posIndex, m.activityId, m.userId);
     posIndex++;
   });
+}
+
+// Notifications par activité (10 septembre 2026, refonte de la section
+// Notifications de Réglages, demande d'Emilien) : chaque membre choisit s'il
+// reçoit les notifications de nouveaux messages de CETTE activité — remplace
+// l'ancien on/off unique par appareil (pushToggleBtn). PERSONNEL comme
+// position/color juste au-dessus : n'affecte que les notifications reçues
+// par ce membre, pas celles des autres. DEFAULT 1, purement additive : un
+// membre déjà abonné aux notifications avant ce déploiement continue de
+// recevoir celles de toutes ses activités tant qu'il n'en désactive pas une
+// explicitement. Voir server/lib/push.js (notifyActivityMessage) et
+// server/routes/activities.js.
+if (!columnExists('activity_members', 'notifyEnabled')) {
+  db.exec('ALTER TABLE activity_members ADD COLUMN notifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
 if (!columnExists('running_timers', 'activityId')) {
   db.exec('ALTER TABLE running_timers ADD COLUMN activityId INTEGER REFERENCES activities(id)');

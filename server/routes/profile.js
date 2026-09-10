@@ -288,52 +288,7 @@ function projectRowOut(p) {
 // connu de l'appelant. Cette route reste une recherche par correspondance
 // exacte, jamais un listing : ne pas réintroduire ici un paramètre
 // permettant de lister sans connaître le nom de famille au préalable.
-// ⚠️ 10 septembre 2026 (discussion « Connexion / Création de compte »,
-// demande directe d'Emilien) : un paramètre `q` est ajouté ci-dessous pour
-// une recherche par SOUS-CHAÎNE (façon « ctrl+f ») sur l'écran « J'ai déjà
-// un profil », en remplacement des deux champs prénom/nom séparés par un
-// champ unique « nom complet ». Le commentaire ci-dessus (`ne pas
-// réintroduire ici un paramètre permettant de lister sans connaître le nom
-// de famille au préalable ») visait précisément ce risque — il est
-// sciemment outrepassé ici, sur instruction explicite d'Emilien, après
-// qu'un compromis lui a été présenté (`AskUserQuestion`) : une recherche
-// par sous-chaîne sans restriction sur une route PRÉ-session (donc
-// forcément sans authentification) recrée par nature le risque
-// d'énumération corrigé par l'incident 2026-001 — il n'existe aucune
-// variante technique qui élimine ce risque tout en gardant une recherche
-// par sous-chaîne totalement libre. Emilien a choisi de minimiser plutôt
-// que d'éliminer le risque : seuil minimal de caractères, résultats
-// plafonnés, et SEULE L'INITIALE du nom de famille est renvoyée (jamais le
-// nom complet) pour qu'un homonyme puisse être distingué sans qu'un
-// inconnu n'apprenne un nom de famille qu'il n'a pas lui-même tapé — voir
-// noesis-timetracker-registre-incidents.md et noesis-timetracker-
-// conformite-loi25.md pour la trace de ce compromis assumé. La branche
-// `name`/`lastName` ci-dessous (correspondance EXACTE) reste strictement
-// inchangée : elle est encore utilisée ailleurs (revérification d'un
-// profil déjà mémorisé localement, voir public/app.js) et ne doit pas être
-// modifiée par ce chantier.
-const USERS_SEARCH_MIN_LENGTH = 3;
-const USERS_SEARCH_MAX_RESULTS = 5;
-function escapeSqliteLike(s) {
-  return s.replace(/[\\%_]/g, (c) => '\\' + c);
-}
 router.get('/users', (req, res) => {
-  const q = (req.query.q || '').trim();
-  if (q) {
-    if (q.length < USERS_SEARCH_MIN_LENGTH) return res.json([]);
-    const rows = db.prepare(
-      "SELECT id, name, lastName, color, pin FROM users " +
-      "WHERE (name || ' ' || COALESCE(lastName, '')) LIKE '%' || ? || '%' ESCAPE '\\' " +
-      "LIMIT ?"
-    ).all(escapeSqliteLike(q), USERS_SEARCH_MAX_RESULTS);
-    return res.json(rows.map((u) => ({
-      id: u.id,
-      name: u.name,
-      lastInitial: u.lastName ? u.lastName.trim().charAt(0).toUpperCase() : '',
-      color: u.color,
-      hasPin: !!u.pin,
-    })));
-  }
   const name = (req.query.name || '').trim();
   const lastName = (req.query.lastName || '').trim();
   if (!name) return res.json([]);
@@ -403,7 +358,7 @@ router.post('/profile', (req, res) => {
   // appel de ce profil, plutôt que l'id renvoyé ci-dessous (gardé pour
   // l'affichage côté client, plus jamais comme preuve d'identité serveur).
   setSessionCookie(req, res, id);
-  res.status(201).json({ id, name, lastName, phone, email, color, createdAt, theme: 'dark', lang, shareProfile: true, avatar: null, contactShareEmail: false, contactSharePhone: false });
+  res.status(201).json({ id, name, lastName, phone, email, color, createdAt, theme: 'dark', lang, shareProfile: true, avatar: null, contactShareEmail: false, contactSharePhone: false, communityNotifyEnabled: true });
 });
 
 // ---------- Fil "Communauté" de la zone Discussion de Profil ----------
@@ -473,10 +428,10 @@ router.get('/profile/export', (req, res) => {
 // (comme /public) : elle sert aussi à afficher l'identité publique d'un
 // tiers, seuls les trois champs sensibles sont gated.
 router.get('/profile/:id', (req, res) => {
-  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone FROM users WHERE id = ?').get(req.params.id);
+  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   const isOwner = req.userId === user.id;
-  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone });
+  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled });
 });
 
 // Taille max d'une photo de profil UNE FOIS encodée en data URL (~1.5 Mo
@@ -554,6 +509,12 @@ router.put('/profile/:id', (req, res) => {
   // écraser le réglage si un appelant plus ancien n'envoie pas ces champs.
   const contactShareEmail = req.body.contactShareEmail !== undefined ? !!req.body.contactShareEmail : !!user.contactShareEmail;
   const contactSharePhone = req.body.contactSharePhone !== undefined ? !!req.body.contactSharePhone : !!user.contactSharePhone;
+  // communityNotifyEnabled : même principe champ-absent-= inchangé — la
+  // section Notifications de Réglages ne passe en réalité pas par cette
+  // route (elle bascule instantanément via PUT /profile/:id/notify-community
+  // plus bas, sans attendre un clic sur "Enregistrer") mais un futur appelant
+  // qui l'enverrait ici avec le reste du formulaire n'écrase rien d'autre.
+  const communityNotifyEnabled = req.body.communityNotifyEnabled !== undefined ? !!req.body.communityNotifyEnabled : !!user.communityNotifyEnabled;
 
   let avatar = user.avatar;
   if (req.body.avatar !== undefined) {
@@ -571,8 +532,8 @@ router.put('/profile/:id', (req, res) => {
   const clash = db.prepare('SELECT id FROM users WHERE name = ? COLLATE NOCASE AND id != ?').get(name, user.id);
   if (clash) return res.status(409).json({ error: `"${name}" est déjà pris par un autre profil.` });
 
-  db.prepare('UPDATE users SET name = ?, lastName = ?, phone = ?, email = ?, color = ?, theme = ?, lang = ?, shareProfile = ?, avatar = ?, contactShareEmail = ?, contactSharePhone = ? WHERE id = ?')
-    .run(name, lastName || null, phone || null, email || null, color, theme, lang, shareProfile, avatar, contactShareEmail ? 1 : 0, contactSharePhone ? 1 : 0, user.id);
+  db.prepare('UPDATE users SET name = ?, lastName = ?, phone = ?, email = ?, color = ?, theme = ?, lang = ?, shareProfile = ?, avatar = ?, contactShareEmail = ?, contactSharePhone = ?, communityNotifyEnabled = ? WHERE id = ?')
+    .run(name, lastName || null, phone || null, email || null, color, theme, lang, shareProfile, avatar, contactShareEmail ? 1 : 0, contactSharePhone ? 1 : 0, communityNotifyEnabled ? 1 : 0, user.id);
 
   if (theme !== user.theme) {
     const memberships = db.prepare('SELECT activityId, color FROM activity_members WHERE userId = ?').all(user.id);
@@ -584,7 +545,26 @@ router.put('/profile/:id', (req, res) => {
     });
   }
 
-  res.json({ id: user.id, name, lastName: lastName || null, phone: phone || null, email: email || null, color, theme, lang, shareProfile: !!shareProfile, avatar: avatar || null, createdAt: user.createdAt, contactShareEmail, contactSharePhone });
+  res.json({ id: user.id, name, lastName: lastName || null, phone: phone || null, email: email || null, color, theme, lang, shareProfile: !!shareProfile, avatar: avatar || null, createdAt: user.createdAt, contactShareEmail, contactSharePhone, communityNotifyEnabled });
+});
+
+// Bascule la notification "Communauté" (10 septembre 2026, section
+// Notifications de Réglages, demande d'Emilien) : la seule chose que
+// contrôle ce bouton on/off, PAR PROFIL et non par appareil — voir
+// server/db.js et server/lib/push.js (notifyCommunityPost). Route dédiée,
+// séparée du gros PUT /profile/:id ci-dessus : un interrupteur doit prendre
+// effet au clic, pas attendre le bouton "Enregistrer" du reste du formulaire
+// d'Identité.
+router.put('/profile/:id/notify-community', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux modifier que ton propre profil.' });
+
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+
+  const enabled = req.body.enabled ? 1 : 0;
+  db.prepare('UPDATE users SET communityNotifyEnabled = ? WHERE id = ?').run(enabled, user.id);
+  res.json({ ok: true, communityNotifyEnabled: !!enabled });
 });
 
 // Vérifie le code d'un profil avant de le "récupérer" depuis "J'ai déjà un
@@ -608,7 +588,7 @@ router.post('/profile/:id/verify-pin', (req, res) => {
   // (bon PIN) vaut connexion sur CET appareil, exactement comme la création
   // ci-dessus — c'est le seul autre point d'entrée qui doit poser le témoin.
   setSessionCookie(req, res, user.id);
-  res.json({ id: user.id, name: user.name, lastName: user.lastName || null, phone: user.phone || null, email: user.email || null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone });
+  res.json({ id: user.id, name: user.name, lastName: user.lastName || null, phone: user.phone || null, email: user.email || null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled });
 });
 
 // Définit le code d'un profil qui n'en a pas encore (comptes créés avant
