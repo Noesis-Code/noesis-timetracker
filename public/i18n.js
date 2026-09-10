@@ -58,6 +58,13 @@
     'Retour': 'Back',
     'Crée tes activités': 'Create your activities',
     'Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Profil.': 'Choose the activities you want to track, and a colour for each one. You can add or edit them later in Profile.',
+    // Variante "dans Activité" : le texte HTML actuel dit désormais "Activité"
+    // (renommage du volet de gestion des activités survenu après l'écriture
+    // de la clé ci-dessus, qui est donc orpheline) — clé ci-dessus gardée
+    // sans y toucher, celle-ci ajoutée pour correspondre au texte réel.
+    // Trouvée et comblée le 10 septembre 2026 (audit des traductions
+    // manquantes signalé par Emilien).
+    'Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Activité.': 'Choose the activities you want to track, and a colour for each one. You can add or edit them later in Activity.',
     "Nom de l'activité": 'Activity name',
     'Couleur': 'Colour',
     'Ajouter': 'Add',
@@ -77,6 +84,12 @@
     // ---- Chrono ----
     'Quelle activité ?': 'Which activity?',
     "Aucune activité pour l'instant — ajoutes-en une dans Profil.": 'No activities yet — add one in Profile.',
+    // Même défaut que ci-dessus, même cause (renommage "Profil" → "Activité"
+    // du volet de gestion des activités) : clé ci-dessus orpheline, celle-ci
+    // ajoutée pour le texte réellement affiché. Trouvée et comblée le
+    // 10 septembre 2026 (audit des traductions manquantes signalé par
+    // Emilien).
+    "Aucune activité pour l'instant — ajoutes-en une dans Activité.": 'No activities yet — add one in Activity.',
     'Note': 'Note',
     'Précision sur cette session...': 'Anything to note about this session...',
     'Envoyer aux membres': 'Send to members',
@@ -217,6 +230,15 @@
     'Annuler la demande': 'Cancel the request',
     'Suivre': 'Follow',
     'Aucune demande en attente.': 'No pending request.',
+    // 10 septembre 2026 : phrase unique du panneau de l'avion en papier,
+    // affichée seulement quand il n'y a NI invitation NI demande de suivi.
+    // Les deux clés par liste ('Aucune demande en attente.',
+    // 'Aucune invitation en attente.') et les deux titres de section retirés
+    // ('Invitations reçues', 'Demandes de suivi reçues') sont VOLONTAIREMENT
+    // conservés : un onglet PWA resté ouvert sur l'ancien code peut encore
+    // les afficher. Une clé orpheline ne coûte rien, une clé manquante
+    // affiche du français à un anglophone.
+    'Aucune invitation ni demande de suivi.': 'No invitation or follow request.',
     ' souhaite te suivre.': ' wants to follow you.',
     'Accepter': 'Accept',
     'Bloquer': 'Block',
@@ -230,6 +252,10 @@
 
     // ---- Abonnés & Abonnements (Réglages, 30 août 2026) ----
     'Abonnés & Abonnements': 'Followers & Following',
+    // Variante "et" au lieu de "&" : title/aria-label de #profileFollowsBtn
+    // (icône Profil), jamais alignée avec le libellé ci-dessus — trouvée et
+    // comblée le 10 septembre 2026 (audit des traductions manquantes).
+    'Abonnés et abonnements': 'Followers & Following',
     'Abonnés': 'Followers',
     'Abonnements': 'Following',
     "Personne ne te suit pour l'instant.": 'No one follows you yet.',
@@ -280,6 +306,20 @@
     // 'Écrire aux membres' : placeholder du composeur de Communauté
     // (#communityMyPostsInput), 3 septembre 2026, demande d'Emilien.
     'Écrire aux membres': 'Write to members',
+    // Variante avec points de suspension : c'est en réalité le texte
+    // exactement présent dans les 3 placeholders HTML actuels
+    // (#communityMyPostsInput, #communityDiscussionInput,
+    // #profileDiscussionCommunityInput) — la clé ci-dessus sans "..." ne
+    // correspondait donc plus à rien depuis un ajout de ponctuation ultérieur
+    // (comparaison stricte de translateStaticDom). Trouvée et comblée le
+    // 10 septembre 2026 (signalé par Emilien — texte non traduit en anglais
+    // dans le composeur "Écrire aux membres"), clé précédente gardée.
+    'Écrire aux membres...': 'Write to members...',
+    // 'Écrire dans ce sous-projet...' (#subProjectMessageInput, territoire
+    // Sous-projets) : même défaut, jamais traduit du tout — ajoutée en
+    // passant le 10 septembre 2026 pour ne pas laisser l'anglais afficher du
+    // français, sans autre changement au fichier de Sous-projets.
+    'Écrire dans ce sous-projet...': 'Write in this sub-project...',
     // ⚠️ Débordement signalé (Communauté, 3 septembre 2026) : "Écrire au
     // membre..." (#profileDiscussionCommunityInput, posé par Profil le même
     // jour) n'avait pas sa traduction non plus — ajoutée ici en passant pour
@@ -327,6 +367,12 @@
     '☀️ Clair': '☀️ Light',
     '🌙 Sombre': '🌙 Dark',
     'Le mode sombre est activé par défaut. Changer de mode adapte automatiquement les couleurs de tes activités si besoin.': 'Dark mode is on by default. Switching mode automatically adapts your activity colours if needed.',
+    // Option Contact (7 septembre 2026, demande d'Emilien : autoriser ses
+    // abonnés à contacter par email/téléphone) : gap de traduction trouvé et
+    // comblé le 10 septembre 2026 (signalé par Emilien — « certains
+    // paramètres ne sont pas traduits »), aucune entrée n'existait avant.
+    'Autoriser mes abonnés à me contacter par email': 'Allow my followers to contact me by email',
+    'Autoriser mes abonnés à me contacter par téléphone': 'Allow my followers to contact me by phone',
     'Sécurité': 'Security',
     'Code actuel': 'Current PIN',
     'Nouveau code (4 à 6 chiffres)': 'New PIN (4 to 6 digits)',
@@ -458,6 +504,13 @@
     'Chrono': 'Timer',
     'Stats': 'Stats',
     'Statistiques': 'Statistics',
+    // 'Activité' (singulier) : libellé de l'onglet du bas + aria-label du
+    // bouton (data-tab="activity") — distinct de 'Activités' (pluriel, titre
+    // de section, déjà traduit plus haut). N'avait jamais eu sa propre
+    // entrée alors que 'Chrono'/'Stats'/'Communauté' juste à côté l'ont
+    // toutes — trouvé et comblé le 10 septembre 2026 (signalé par Emilien —
+    // « le titre du volet de activité n'est pas non plus traduit »).
+    'Activité': 'Activity',
     'Profil': 'Profile',
 
     // ---- Messages renvoyés par le serveur (texte fixe) ----
