@@ -436,6 +436,14 @@
     'Partagée par {owner}': 'Shared by {owner}',
     '{count} membres': '{count} members',
     'Pseudo de la personne à inviter sur "{activity}" :': 'Nickname of the person to invite to "{activity}":',
+    // ---- Ajout de membre par recherche + exclusion par le propriétaire
+    // (10 septembre 2026, demande d'Emilien) ----
+    'Tape au moins 3 lettres du nom complet...': 'Type at least 3 letters of the full name...',
+    'Tape au moins 3 caractères pour voir des suggestions.': 'Type at least 3 characters to see suggestions.',
+    'Inviter': 'Invite',
+    'Exclure': 'Exclude',
+    'Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.':
+      'Exclude {name} from "{activity}"? This person will keep their already recorded history, in their own personal activity. They will no longer be part of "{activity}" afterwards.',
     'Séparer "{activity}" ? Tu auras désormais ta propre activité personnelle du même nom, avec ton historique déjà enregistré dessus. Les autres personnes qui la partagent ne sont pas concernées.': 'Split off "{activity}"? You will get your own personal activity with the same name, carrying the history you already recorded on it. The other people sharing it are not affected.',
     '{from} t\'invite sur « {activity} ».': '{from} invites you to "{activity}".',
     'Fusionner avec une de tes activités existantes ?': 'Merge with one of your existing activities?',
@@ -922,6 +930,13 @@
     [/^« (.+) » a été fusionnée dans « (.+) » : (\d+) enregistrement\(s\) y ont été ajoutés\.$/,
       '"$1" was merged into "$2": $3 session(s) were added to it.'],
     [/^"(.+)" a été séparée : tu as maintenant ta propre activité personnelle, avec ton historique\.$/, '"$1" was split off: you now have your own personal activity, with your history.'],
+    // Exclusion d'un membre par le/la propriétaire (server/routes/activities.js, 10 septembre 2026)
+    [/^Seul le ou la propriétaire de l'activité peut exclure un membre\.$/, "Only the activity's owner can exclude a member."],
+    [/^Utilise « Quitter la communauté » pour te retirer toi-même de cette activité\.$/, 'Use "Leave the community" to remove yourself from this activity.'],
+    [/^Cette personne ne fait pas partie de cette activité\.$/, 'This person is not part of this activity.'],
+    [/^(.+) a un chrono en cours sur cette activité : impossible de l'exclure maintenant\.$/, "$1 has a timer running on this activity: can't exclude them right now."],
+    [/^(.+) a déjà une autre activité "(.+)" — impossible de créer sa copie personnelle sous le même nom\.$/, '$1 already has another activity called "$2" — cannot create their personal copy under the same name.'],
+    [/^(.+) a été exclu\(e\) de "(.+)" — son historique a été conservé dans une activité personnelle\.$/, '$1 was excluded from "$2" — their history was kept in a personal activity.'],
     [/^Tu suis déjà (.+)\.$/, 'You already follow $1.'],
     [/^Demande envoyée à (.+)\.$/, 'Request sent to $1.'],
     // Doit rester AVANT le pattern générique "Tu as rejoint « (.+) »." juste

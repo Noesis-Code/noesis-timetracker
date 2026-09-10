@@ -6077,7 +6077,17 @@
   // openCommunityMembersModal (5 septembre 2026) pour être partagée avec le cas
   // SOLO, qui la construit sans passer par le serveur — aucun caractère du
   // rendu n'a changé.
-  function buildActivityMemberRow(m) {
+  // ⚠️ 10 septembre 2026 (demande d'Emilien : « je souhaite également que le
+  // propriétaire de l'activité puisse exclure des membres d'une activité,
+  // seulement le propriétaire ») — deuxième paramètre OPTIONNEL `opts` :
+  //   opts.canExclude  : affiche le bouton "Exclure" sur cette ligne (le
+  //                      propriétaire consulte SA liste ; jamais sur sa
+  //                      propre ligne, voir plus bas).
+  //   opts.onExcluded  : rappel après une exclusion réussie, pour rafraîchir
+  //                      la liste affichée sans refermer la modale.
+  // Sans `opts` (ou dans le cas SOLO), comportement strictement inchangé.
+  function buildActivityMemberRow(m, opts) {
+    opts = opts || {};
     var row = document.createElement('div');
     row.className = 'activityRow';
     row.innerHTML =
@@ -6086,6 +6096,31 @@
       '<span class="activityRowName">' + escapeHtml(m.name) + (profile && m.userId === profile.id ? t(' (toi)') : '') + '</span>' +
       (m.isRunning ? '<span class="memberLiveDot" title="' + t('Chrono en cours sur cette activité') + '"></span>' : '') +
       '</div>';
+
+    if (opts.canExclude && profile && m.userId !== profile.id) {
+      var actions = document.createElement('div');
+      actions.className = 'rowActions';
+      var excludeBtn = document.createElement('button');
+      excludeBtn.type = 'button';
+      excludeBtn.className = 'iconBtn';
+      excludeBtn.textContent = t('Exclure');
+      excludeBtn.addEventListener('click', function () {
+        if (!confirm(t('Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.', { name: m.name, activity: opts.activityName }))) return;
+        excludeBtn.disabled = true;
+        api('DELETE', '/api/activities/' + opts.activityId + '/members/' + m.userId, { userId: profile.id })
+          .then(function (res) {
+            alert(t(res.message));
+            if (opts.onExcluded) opts.onExcluded();
+          })
+          .catch(function (err) {
+            excludeBtn.disabled = false;
+            alert(err.message);
+          });
+      });
+      actions.appendChild(excludeBtn);
+      row.appendChild(actions);
+    }
+
     return row;
   }
 
@@ -6099,12 +6134,25 @@
   // route, aucun second mécanisme. Seule la règle d'AFFICHAGE diffère —
   // « Partager » reste ouvert à tout membre (choix d'origine, non touché),
   // celui-ci est réservé au créateur. Différence voulue par Emilien, signalée.
+  // ⚠️ 10 septembre 2026 (demande d'Emilien : « je tape trois lettres, et une
+  // suggestion m'indique le nom complet des comptes existants », même principe
+  // que la recherche de compte à la connexion) — le prompt() est remplacé par
+  // un mini-champ de recherche, sur GET /users/search (choix confirmé
+  // d'Emilien : réutiliser la recherche de Communauté plutôt que la route
+  // publique de connexion, plus adaptée ici puisque l'utilisateur a déjà une
+  // session). Cliquer une suggestion REMPLIT le champ (ne cherche pas la case
+  // au clic) ; un bouton "Inviter" séparé confirme l'envoi — choix confirmé
+  // d'Emilien. Les personnes déjà membres de l'activité sont masquées des
+  // suggestions (choix confirmé d'Emilien). Aucune route serveur nouvelle : la
+  // confirmation appelle toujours POST /activities/:id/invite tel quel.
   //
   // ⚠️ « Quitter la communauté » appelle POST /activities/:id/separate, le même
   // que « Séparer ». Ce n'est PAS une suppression : on repart avec sa propre
   // activité personnelle du même nom et tout son historique déjà enregistré.
   // Le libellé change, le comportement non — et la confirmation le dit en
   // toutes lettres, parce que « quitter » se lit facilement comme « perdre ».
+  var ADD_MEMBER_SEARCH_MIN_LENGTH = 3;
+  var addMemberSearchSeq = 0;
   function renderActivityMembersActions(a, isShared) {
     var box = $('activityMembersActions');
     if (!box) return;
@@ -6117,14 +6165,117 @@
       addBtn.type = 'button';
       addBtn.className = 'iconBtn';
       addBtn.textContent = t('Ajouter un membre');
-      addBtn.addEventListener('click', function () {
-        var pseudo = prompt(t('Pseudo de la personne à inviter sur "{activity}" :', { activity: a.name }));
-        if (!pseudo || !pseudo.trim()) return;
-        api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: pseudo.trim() })
-          .then(function (res) { alert(t(res.message)); })
-          .catch(function (err) { alert(err.message); });
+
+      // Panneau de recherche, construit une seule fois, masqué par défaut.
+      var panel = document.createElement('div');
+      panel.className = 'hidden';
+      panel.style.marginTop = '8px';
+
+      var searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.placeholder = t('Tape au moins 3 lettres du nom complet...');
+
+      var suggestBox = document.createElement('div');
+
+      var confirmRow = document.createElement('div');
+      confirmRow.className = 'rowActions';
+      var inviteBtn = document.createElement('button');
+      inviteBtn.type = 'button';
+      inviteBtn.className = 'iconBtn';
+      inviteBtn.textContent = t('Inviter');
+      var cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'iconBtn';
+      cancelBtn.textContent = t('Annuler');
+      confirmRow.appendChild(inviteBtn);
+      confirmRow.appendChild(cancelBtn);
+
+      panel.appendChild(searchInput);
+      panel.appendChild(suggestBox);
+      panel.appendChild(confirmRow);
+
+      // Membres déjà présents (+ moi-même), à exclure des suggestions — choix
+      // confirmé d'Emilien. Chargé une seule fois à l'ouverture du panneau :
+      // le résultat de "Membres · {name}" affiché juste au-dessus est la même
+      // information, elle ne peut pas changer pendant que le panneau est ouvert
+      // sans que la modale entière ne se referme.
+      var existingMemberIds = null;
+      function loadExistingMemberIds() {
+        if (!isShared) { existingMemberIds = [profile.id]; return Promise.resolve(); }
+        return api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + a.id)
+          .then(function (data) { existingMemberIds = data.members.map(function (m) { return m.userId; }); })
+          .catch(function () { existingMemberIds = [profile.id]; });
+      }
+
+      function runAddMemberSearch() {
+        var q = searchInput.value.trim();
+        var seq = ++addMemberSearchSeq;
+        if (q.length < ADD_MEMBER_SEARCH_MIN_LENGTH) {
+          suggestBox.innerHTML = '<p class="hint">' + t('Tape au moins 3 caractères pour voir des suggestions.') + '</p>';
+          return;
+        }
+        api('GET', '/api/users/search?userId=' + profile.id + '&q=' + encodeURIComponent(q))
+          .then(function (users) {
+            if (seq !== addMemberSearchSeq) return;
+            var hideIds = existingMemberIds || [profile.id];
+            var filtered = users.filter(function (u) { return hideIds.indexOf(u.id) === -1; });
+            suggestBox.innerHTML = '';
+            if (filtered.length === 0) {
+              suggestBox.innerHTML = '<p class="hint">' + t('Aucun profil trouvé.') + '</p>';
+              return;
+            }
+            filtered.forEach(function (u) {
+              var displayName = fullName(u.name, u.lastName);
+              var chip = document.createElement('div');
+              chip.className = 'userChip';
+              chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(displayName) + '</span>';
+              chip.addEventListener('click', function () {
+                searchInput.value = u.name;
+                suggestBox.innerHTML = '';
+              });
+              suggestBox.appendChild(chip);
+            });
+          })
+          .catch(function () { if (seq === addMemberSearchSeq) suggestBox.innerHTML = ''; });
+      }
+      var addMemberDebounce = null;
+      searchInput.addEventListener('input', function () {
+        clearTimeout(addMemberDebounce);
+        addMemberDebounce = setTimeout(runAddMemberSearch, 250);
       });
+
+      inviteBtn.addEventListener('click', function () {
+        var pseudo = searchInput.value.trim();
+        if (!pseudo) return;
+        inviteBtn.disabled = true;
+        api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: pseudo })
+          .then(function (res) {
+            alert(t(res.message));
+            panel.classList.add('hidden');
+            searchInput.value = '';
+            suggestBox.innerHTML = '';
+          })
+          .catch(function (err) { alert(err.message); })
+          .then(function () { inviteBtn.disabled = false; });
+      });
+      cancelBtn.addEventListener('click', function () {
+        panel.classList.add('hidden');
+        searchInput.value = '';
+        suggestBox.innerHTML = '';
+      });
+
+      addBtn.addEventListener('click', function () {
+        var showing = !panel.classList.contains('hidden');
+        if (showing) { panel.classList.add('hidden'); return; }
+        panel.classList.remove('hidden');
+        searchInput.value = '';
+        suggestBox.innerHTML = '';
+        searchInput.focus();
+        loadExistingMemberIds();
+      });
+
       box.appendChild(addBtn);
+      box.appendChild(panel);
     }
 
     if (isShared) {
@@ -6187,13 +6338,37 @@
       return;
     }
 
-    api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + activityId).then(function (data) {
-      $('communityMembersModalTitle').textContent = t('Membres · {name}', { name: data.activityName });
-      var box = $('communityMembersModalList');
-      box.innerHTML = '';
-      data.members.forEach(function (m) { box.appendChild(buildActivityMemberRow(m)); });
-      $('communityMembersModal').classList.remove('hidden');
-    });
+    // ⚠️ 10 septembre 2026 (exclusion de membre par le/la propriétaire) :
+    // extrait en fonction RE-APPELABLE (au lieu d'un .then() inline) pour
+    // pouvoir rafraîchir la liste après une exclusion, sans refermer la
+    // modale ni la retraverser depuis la grille d'activités.
+    function loadMembers() {
+      return api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + activityId).then(function (data) {
+        $('communityMembersModalTitle').textContent = t('Membres · {name}', { name: data.activityName });
+        var box = $('communityMembersModalList');
+        box.innerHTML = '';
+        var canExclude = !!(opts.activity && opts.activity.isOwner);
+        data.members.forEach(function (m) {
+          box.appendChild(buildActivityMemberRow(m, {
+            canExclude: canExclude,
+            activityId: activityId,
+            activityName: data.activityName,
+            onExcluded: refreshAfterExclude,
+          }));
+        });
+        $('communityMembersModal').classList.remove('hidden');
+      });
+    }
+    // Une exclusion change le nombre de membres : la grille d'activités
+    // derrière la modale (pastille "X membres") et la page détaillée de
+    // l'activité si elle est ouverte doivent le refléter, en plus de la liste
+    // affichée dans la modale elle-même.
+    function refreshAfterExclude() {
+      refreshActivities().then(renderActivityGrid);
+      if (currentCommunityActivityId) loadActivityDetail(false);
+      loadMembers();
+    }
+    loadMembers();
   }
 
   $('communityMembersModalClose').addEventListener('click', function () {

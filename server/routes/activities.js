@@ -316,6 +316,80 @@ router.post('/activities/:id/separate', (req, res) => {
   });
 });
  
+// Exclut un membre d'une activité partagée (10 septembre 2026, demande
+// d'Emilien). Réservée au PROPRIÉTAIRE de l'activité — un membre ordinaire
+// ne peut retirer que lui-même (voir "Séparer" ci-dessus). Le membre exclu
+// garde son historique déjà enregistré : il obtient sa propre copie
+// personnelle de l'activité, exactement comme s'il s'était séparé lui-même
+// (même logique, même transfert de time_entries) — seule la personne qui
+// déclenche l'action diffère.
+router.delete('/activities/:id/members/:memberId', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+
+  const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(req.params.id);
+  if (!activity) return res.status(404).json({ error: 'Activité introuvable.' });
+
+  if (activity.ownerId !== userId) {
+    return res.status(403).json({ error: "Seul le ou la propriétaire de l'activité peut exclure un membre." });
+  }
+
+  const targetId = Number(req.params.memberId);
+  if (targetId === userId) {
+    return res.status(400).json({ error: "Utilise « Quitter la communauté » pour te retirer toi-même de cette activité." });
+  }
+
+  const membership = db.prepare('SELECT * FROM activity_members WHERE activityId = ? AND userId = ?').get(activity.id, targetId);
+  if (!membership) return res.status(404).json({ error: "Cette personne ne fait pas partie de cette activité." });
+
+  const target = db.prepare('SELECT id, name FROM users WHERE id = ?').get(targetId);
+
+  const runningForTarget = db.prepare('SELECT 1 FROM running_timers WHERE userId = ? AND activityId = ?').get(targetId, activity.id);
+  if (runningForTarget) {
+    return res.status(409).json({ error: `${target ? target.name : 'Cette personne'} a un chrono en cours sur cette activité : impossible de l'exclure maintenant.` });
+  }
+
+  const clash = db.prepare(`
+    SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id
+    WHERE m.userId = ? AND a.name = ? COLLATE NOCASE AND a.id != ?
+  `).get(targetId, activity.name, activity.id);
+  if (clash) {
+    return res.status(409).json({ error: `${target ? target.name : 'Cette personne'} a déjà une autre activité "${activity.name}" — impossible de créer sa copie personnelle sous le même nom.` });
+  }
+
+  const now = new Date().toISOString();
+  let newActivityId;
+
+  db.exec('BEGIN');
+  try {
+    // Nouvelle activité personnelle pour la personne exclue, même logique que
+    // "Séparer" (voir plus haut) : elle garde son historique déjà enregistré.
+    const info = db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, ?, 1, ?, ?)')
+      .run(activity.name, activity.requiresNote, targetId, now);
+    newActivityId = info.lastInsertRowid;
+
+    db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)')
+      .run(newActivityId, targetId, membership.color, now);
+
+    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = NULL WHERE activityId = ? AND userId = ?')
+      .run(newActivityId, activity.id, targetId);
+
+    // Elle n'est plus membre de l'activité d'origine. Le propriétaire (qui
+    // déclenche l'exclusion) reste forcément membre : aucun transfert de
+    // propriété n'est nécessaire ici, contrairement à "Séparer".
+    db.prepare('DELETE FROM activity_members WHERE activityId = ? AND userId = ?').run(activity.id, targetId);
+
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+
+  res.status(200).json({
+    message: `${target ? target.name : 'Ce membre'} a été exclu(e) de "${activity.name}" — son historique a été conservé dans une activité personnelle.`,
+  });
+});
+
 // Fusionne DEUX de mes activités en une seule (2 septembre 2026, demande
 // d'Emilien). Les enregistrements de celle qui disparaît sont ajoutés à celle
 // qui reste : les temps s'additionnent, rien n'est perdu.
