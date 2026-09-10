@@ -3636,6 +3636,67 @@
   // dans index.html (ajoutée le 3 septembre 2026 avec les sous-projets).
   var currentActivityIsShared = false;
 
+  // ⭐ 10 septembre 2026, demande d'Emilien : « Gaspard et moi avons la même
+  // couleur dans les stats des activités que l'on partage [...] cinq nuances
+  // de la même couleur comme pour les sous-projets ».
+  //
+  // Les parts du camembert et les courbes du graphique prenaient la couleur
+  // personnelle du membre (`activity_members.color`). Rien n'empêche deux
+  // membres d'avoir choisi la même : ils devenaient alors indistinguables,
+  // exactement le cas de la capture. On garde donc ici la couleur de
+  // l'ACTIVITÉ, et chaque membre reçoit une de ses cinq nuances — même
+  // fonction (subProjectShade) et même palette que les sous-projets, pour que
+  // les deux sections de cette page se lisent de la même façon.
+  var currentActivityColor = '';
+
+  // Rang de nuance par membre, mémorisé PAR ACTIVITÉ.
+  //
+  // ⚠️ Le rang doit être STABLE : si on numérotait les membres dans l'ordre du
+  // camembert (trié par temps décroissant), la couleur de Gaspard changerait
+  // dès qu'il passe devant Emilien. On indexe donc sur les identifiants triés,
+  // et l'ensemble ne fait que GRANDIR au fil des réponses reçues — un membre
+  // absent d'une période donnée ne décale personne.
+  var activityMemberIds = {};   // activityId -> tableau d'identifiants triés
+
+  function rememberActivityMembers(activityId, lists) {
+    var key = String(activityId);
+    var known = activityMemberIds[key] || [];
+    var seen = {};
+    known.forEach(function (id) { seen[id] = true; });
+    (lists || []).forEach(function (list) {
+      (list || []).forEach(function (m) {
+        if (m && m.userId && !seen[m.userId]) { seen[m.userId] = true; known.push(String(m.userId)); }
+      });
+    });
+    known.sort();
+    activityMemberIds[key] = known;
+  }
+
+  // Couleur d'un membre dans les statistiques de l'activité ouverte. Repli sur
+  // sa couleur personnelle si la couleur de l'activité n'est pas connue
+  // (aucune régression possible : c'est le comportement d'avant).
+  function activityMemberColor(userId, fallbackColor) {
+    if (!currentActivityColor || !userId) return fallbackColor;
+    var known = activityMemberIds[String(currentCommunityActivityId)] || [];
+    var index = known.indexOf(String(userId));
+    if (index < 0) return fallbackColor;
+    // Un seul membre : rien à distinguer, on garde sa couleur telle quelle.
+    if (known.length < 2) return fallbackColor;
+
+    // ⚠️ Les rangs sont ÉTALÉS sur toute l'échelle, au lieu d'être pris dans
+    // l'ordre 0, 1, 2… Un sous-projet garde un rang fixe parce qu'il ne doit
+    // jamais changer de couleur quand on en ajoute un autre ; ici c'est
+    // l'inverse qui compte — Emilien veut d'abord DISTINGUER deux personnes.
+    // À deux membres, prendre les rangs 0 et 1 donnait deux nuances claires
+    // presque jumelles ; étalés, ils prennent les deux extrêmes de l'échelle.
+    // Conséquence assumée : arriver à trois membres redistribue les nuances.
+    var last = SUB_PROJECT_SHADE_COUNT - 1;
+    var rank = known.length > SUB_PROJECT_SHADE_COUNT
+      ? index % SUB_PROJECT_SHADE_COUNT
+      : Math.round((index * last) / (known.length - 1));
+    return subProjectShade(currentActivityColor, rank, known.length);
+  }
+
   // Le bloc de détail est un élément unique, déplacé d'une ligne à l'autre au
   // fil des sélections. Il doit être détaché AVANT que la liste ne soit vidée
   // (box.innerHTML = ''), sans quoi il serait détruit avec elle.
@@ -3898,6 +3959,8 @@
 
     $('activityPageDot').style.background = a.color;
     $('activityPageName').textContent = a.name;
+    // Base des nuances de membres (voir activityMemberColor).
+    currentActivityColor = a.color || '';
 
     // ⚠️ 5 septembre 2026, second passage — une activité SOLO a elle aussi
     // une section Statistiques, mais seulement à partir de son premier
@@ -5642,6 +5705,15 @@
       // déjà au centre du camembert. block.totalSeconds continue de lui être
       // passé, c'est lui qui alimente ce centre.
       $('communityActivityStatsLabel').textContent = t(block.label);
+      // ⚠️ AVANT les deux rendus : ils lisent tous les deux le rang de nuance
+      // de chaque membre, et ce rang se calcule sur l'ensemble des membres
+      // connus. On le nourrit des DEUX sources de la réponse — le camembert
+      // (période courte) et le graphique (période longue) — pour qu'un membre
+      // absent de l'une garde la même couleur dans l'autre.
+      var seen = [block.members];
+      (data.dailyBreakdown || []).forEach(function (d) { seen.push(d.members); });
+      rememberActivityMembers(activityId, seen);
+
       renderActivityPie(block.members, block.totalSeconds);
 
       lastActivityDailyBreakdown = data.dailyBreakdown || [];
@@ -5702,7 +5774,7 @@
       if (end < start) end = start;
       var path = document.createElementNS(svgNS, 'path');
       path.setAttribute('d', donutSlicePath(cx, cy, rOuter, rInner, start, end));
-      path.setAttribute('fill', m.color);
+      path.setAttribute('fill', activityMemberColor(m.userId, m.color));
       path.setAttribute('class', 'pieSlice');
       var title = document.createElementNS(svgNS, 'title');
       title.textContent = m.name + ' — ' + formatHM(m.seconds) + ' (' + m.percent + '%)';
@@ -5735,7 +5807,7 @@
       row.className = 'pieLegendRow';
       var dot = document.createElement('span');
       dot.className = 'pieLegendDot';
-      dot.style.background = m.color;
+      dot.style.background = activityMemberColor(m.userId, m.color);
       var label = document.createElement('span');
       label.className = 'pieLegendLabel';
       label.textContent = m.name;
@@ -5773,7 +5845,9 @@
       return {
         id: mem.userId,
         name: mem.name,
-        color: mem.color,
+        // Même nuance que dans le camembert juste au-dessus : les deux
+        // sections se lisent avec une seule légende dans la tête.
+        color: activityMemberColor(mem.userId, mem.color),
         isTotal: false,
         values: sortedDays.map(function (d) {
           var found = (d.members || []).find(function (m) { return m.userId === mem.userId; });
@@ -11457,6 +11531,9 @@
         if (String(x.id) !== String(currentCommunityActivityId)) return;
         $('activityPageName').textContent = x.name;
         $('activityPageDot').style.background = x.color;
+        // Une activité recolorée depuis un autre appareil recolore aussi les
+        // nuances de ses membres au prochain rendu des statistiques.
+        currentActivityColor = x.color || '';
       });
     }
   }

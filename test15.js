@@ -827,6 +827,93 @@ async function api(page, method, path, body) {
   ok(JSON.stringify(asMember.progress) === JSON.stringify(asOwner.progress),
     '11.2 le même avancement est vu par les deux membres');
 
+  // ============ 16. ⭐ Deux membres de MÊME couleur restent distinguables ====
+  // Demande d'Emilien du 10 septembre 2026 : sur une activité partagée, lui et
+  // Gaspard avaient la même couleur dans la Répartition et le Graphique — donc
+  // deux parts identiques. Les membres portent maintenant des NUANCES de la
+  // couleur de l'activité, comme les sous-projets.
+  //
+  // Le scénario force le cas : les deux membres partagent la même couleur
+  // personnelle, et enregistrent chacun du temps sur l'activité partagée.
+  // ⚠️ La couleur d'une activité est PROPRE À CHAQUE MEMBRE
+  // (activity_members.color, voir PUT /activities/:id) : chacun voit la
+  // sienne. Le cas d'Emilien est celui où les deux ont choisi la MÊME — c'est
+  // ce qu'on force ici, en passant par la route de chaque membre.
+  await loginAs(page, user);
+  const sameColor = (await api(page, 'GET', '/api/activities?userId=' + user.id)).body
+    .filter((a) => String(a.id) === String(activity.id))[0].color;
+  await loginAs(page, userMate);
+  const setMate = await api(page, 'PUT', '/api/activities/' + activity.id, { color: sameColor });
+  ok(setMate.status === 200, '16.0 les deux membres ont bien la même couleur sur cette activité');
+
+  const hier = new Date(Date.now() - 24 * 3600 * 1000);
+  const mkEntry = (h) => ({
+    activityId: activity.id,
+    startTime: new Date(hier.getFullYear(), hier.getMonth(), hier.getDate(), h, 0, 0).toISOString(),
+    endTime: new Date(hier.getFullYear(), hier.getMonth(), hier.getDate(), h + 2, 0, 0).toISOString(),
+  });
+  await api(page, 'POST', '/api/history', mkEntry(9));
+  await loginAs(page, user);
+  await api(page, 'POST', '/api/history', mkEntry(13));
+
+  await page.goto(BASE);
+  await page.waitForTimeout(1500);
+  await page.click('.tabBtn[data-tab="activity"]');
+  await page.waitForTimeout(800);
+  await page.click('#activitiesList .activityRow .activityRowHeader');
+  await page.waitForTimeout(1500);
+  await page.click('#activityPageTabStats');
+  await page.waitForTimeout(1800);
+
+  const pie = await page.evaluate(() => ({
+    fills: Array.prototype.map.call(document.querySelectorAll('#communityActivityPie .pieSlice'),
+      (p) => p.getAttribute('fill')),
+    dots: Array.prototype.map.call(document.querySelectorAll('#communityActivityPie .pieLegendDot'),
+      (d) => getComputedStyle(d).backgroundColor),
+    lines: Array.prototype.map.call(
+      document.querySelectorAll('#communityActivityChart .chartLine, #communityActivityChart path'),
+      (l) => l.style.stroke).filter(Boolean),
+  }));
+  ok(pie.fills.length >= 2, '16.1 les deux membres ont chacun leur part — ' + pie.fills.length + ' parts');
+  ok(new Set(pie.fills).size === pie.fills.length,
+    '16.2 ⭐ deux membres de même couleur personnelle ont des parts DIFFÉRENTES — ' + JSON.stringify(pie.fills));
+  ok(new Set(pie.dots).size === pie.dots.length,
+    '16.3 ⭐ et des pastilles de légende différentes');
+  // ⭐ Ce sont bien des nuances de la couleur de l'ACTIVITÉ, pas des couleurs
+  // quelconques : même teinte, clartés distinctes.
+  ok(await page.evaluate((fills) => {
+    function hue(hex) {
+      const m = hex.replace('#', '');
+      const r = parseInt(m.slice(0, 2), 16) / 255, g = parseInt(m.slice(2, 4), 16) / 255, b = parseInt(m.slice(4, 6), 16) / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+      if (d === 0) return 0;
+      let h;
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      return (h * 60 + 360) % 360;
+    }
+    const hs = fills.map(hue);
+    return hs.every((h) => Math.abs(h - hs[0]) < 2 || Math.abs(Math.abs(h - hs[0]) - 360) < 2);
+  }, pie.fills), '16.4 ⭐ les parts gardent la teinte de l\'activité : ce sont des nuances');
+
+  // ⭐ Stabilité : la couleur d'un membre ne doit pas changer quand le
+  // classement change. On change de période (le graphique en a une autre) et
+  // on vérifie que la même personne garde la même nuance.
+  const legendBefore = await page.evaluate(() => Array.prototype.map.call(
+    document.querySelectorAll('#communityActivityPie .pieLegendRow'),
+    (r) => r.querySelector('.pieLegendLabel').textContent + '=' + getComputedStyle(r.querySelector('.pieLegendDot')).backgroundColor));
+  await page.click('#caPiePeriodBtn');
+  await page.waitForTimeout(300);
+  const items = await page.$$('#caPiePeriodMenu .statsPeriodMenuItem');
+  if (items.length > 1) { await items[items.length - 1].click(); await page.waitForTimeout(1600); }
+  const legendAfter = await page.evaluate(() => Array.prototype.map.call(
+    document.querySelectorAll('#communityActivityPie .pieLegendRow'),
+    (r) => r.querySelector('.pieLegendLabel').textContent + '=' + getComputedStyle(r.querySelector('.pieLegendDot')).backgroundColor));
+  const common = legendBefore.filter((x) => legendAfter.some((y) => y.split('=')[0] === x.split('=')[0]));
+  ok(common.every((x) => legendAfter.indexOf(x) !== -1),
+    '16.5 ⭐ changer de période ne change pas la nuance d\'un membre');
+
   // --- Console propre ---
   const realErrors = consoleErrors.filter((e) => e.indexOf('favicon') === -1 && e.indexOf('manifest') === -1 && e.indexOf('sw.js') === -1);
   ok(realErrors.length === 0, '12.1 aucune erreur JS en console — ' + JSON.stringify(realErrors.slice(0, 4)));
