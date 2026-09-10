@@ -2857,11 +2857,24 @@
             </div>
 
 
-            <!-- Notifications push (1er septembre 2026, demande d'Emilien).
-                 L'autorisation du navigateur ne peut être demandée que suite à un
-                 clic de la personne : d'où un bouton explicite plutôt qu'une
-                 demande automatique au démarrage (qu'un navigateur refuserait,
-                 ou pire, bloquerait définitivement). Réglage par APPAREIL et non
+            <!-- Notifications (1er septembre 2026, demande d'Emilien ; remplacée le
+                 10 septembre 2026 par une bascule par activité — même demande :
+                 « le nom de chaque activité créée par l'utilisateur et un bouton
+                 on/off » — au lieu de l'ancien bouton unique "Activer les
+                 notifications". Voir renderNotificationsSection/
+                 renderNotifyActivityList dans public/app.js : ce sont ces deux
+                 fonctions, ainsi que les écouteurs posés sur #notifCommunityToggle
+                 et #notifActivityList, qui donnent leur sens à ce balisage — un
+                 identifiant qui ne matcherait pas ce que public/app.js attend ici
+                 ferait planter TOUT le script au chargement (incident du 10
+                 septembre 2026 : #notifCommunityToggle/#notifActivityList
+                 manquaient de ce fichier alors que app.js avait déjà été mis à
+                 jour, un $(...).addEventListener sur null en haut du fichier a
+                 empêché l'app entière de démarrer, pour tout le monde — voir
+                 noesis-timetracker-securite.md). L'autorisation du navigateur ne
+                 peut être demandée que suite à un clic de la personne : la
+                 première bascule activée sur CET appareil déclenche la demande
+                 (voir ensurePushSubscribedForToggle). Réglage par APPAREIL et non
                  par profil : le téléphone et l'ordinateur s'activent séparément,
                  c'est pour ça que le texte parle de "cet appareil". Voir
                  server/lib/push.js et le bloc "push" de public/sw.js. -->
@@ -2872,10 +2885,14 @@
               </button>
               <div class="settingsSectionBody hidden">
             <div class="settingsCard">
-              <div class="shareActions">
-                <button type="button" id="pushToggleBtn" class="iconBtn">Activer les notifications</button>
-                <button type="button" id="pushTestBtn" class="iconBtn hidden">Envoyer un test</button>
+              <div class="notifRow">
+                <span class="notifRowLabel">Communauté</span>
+                <label class="toggleSwitch">
+                  <input type="checkbox" id="notifCommunityToggle">
+                  <span class="toggleSwitchTrack"></span>
+                </label>
               </div>
+              <div id="notifActivityList"></div>
               <p id="pushMsg" class="msg"></p>
             </div>
               </div>
