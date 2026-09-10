@@ -741,74 +741,84 @@
           <div class="subpageHeader">
             <p class="sectionTitle subpageTitle">Projets</p>
           </div>
-          <!-- Section "Projets" (1er septembre 2026, demande d'Emilien : « une
-               section sous le nom de l'utilisateur où il parle de ses
-               projets »). Modèle de données et périmètre négociés avec
-               Emilien AVANT codage (voir noesis-timetracker-contexte-
-               technique.md) : liste ILLIMITÉE de projets personnels,
-               réordonnable manuellement (boutons ▲▼, pas de glisser-déposer —
-               plus fiable sur mobile sans bibliothèque tierce), entièrement
-               indépendante du Chrono/activities. Pas de statut "en pause"/
-               "terminé", pas d'image par projet, pas d'épinglage — exclus
-               explicitement par Emilien. Ici : gestion complète (ajout/
-               modification/suppression/réordonnement) par le propriétaire du
-               profil. En lecture seule, ses ABONNÉS (follows acceptés)
-               consultent la même liste depuis #viewProfileModal, plus bas
-               dans ce fichier (hors de toute section .tab — voir le
-               commentaire à cet endroit) — voir GET /profile/:id/projects
-               dans server/routes/profile.js et openProfileViewModal dans
-               app.js.
-               Formulaire réorganisé en paliers (2 septembre 2026, chantier
-               "Simplification du formulaire de saisie Projets") : palier 1
-               (nom + description, toujours visibles), palier 2 (Recherche +
-               catégorie, toujours visibles), palier 3 (lien/date, replié par
-               défaut derrière #newProjectMoreBtn — même pattern que
-               #newActivityCard). shortDescription/fullDescription ont
-               fusionné en un seul champ description (voir server/db.js) ;
-               category est désormais une liste fermée (PROJECT_CATEGORIES,
-               voir server/routes/profile.js et app.js).
-               ⚠️ 2 septembre 2026, nouvelle demande d'Emilien (discussion
-               Profil) : catégorie remontée du palier 3 (repliée) vers le
-               palier 2 (toujours visible, avant le bouton "+ Ajouter des
-               détails") ; le <select> natif est remplacé par un dropdown
-               "maison" (voir buildCategoryDropdown dans app.js) qui s'ouvre
-               toujours vers le bas, limité à 5 options visibles à la fois et
-               calé au défilement (scroll-snap) pour ne jamais couper une
-               option en deux — un <select> natif ne permet de contrôler
-               aucun de ces trois points. #newProjectCategoryMount n'est qu'un
-               point d'ancrage : app.js le remplace au chargement par le
-               dropdown construit, qui reprend l'id "newProjectCategory" pour
-               que le reste du code (lecture/reset de la valeur) n'ait pas à
-               changer. -->
-          <!-- Ancienne ligne de titre "Projets" + "+" retirée le 4 septembre
-               2026 : le panneau a déjà son propre titre juste au-dessus, et le
-               "+" vit désormais dans la bande de la barre supérieure
-               (#topbarProjectsList, même id #addProjectBtn conservé pour que
-               son écouteur dans app.js n'ait pas à changer de cible). -->
-          <div class="activityRow hidden" id="newProjectCard">
-            <div class="activityRowHeader">
-              <span class="activityRowName">Nouveau projet</span>
-            </div>
-            <div class="activitySettingsPanel">
-              <input type="text" id="newProjectName" placeholder="Nom du projet">
-              <textarea id="newProjectDesc" rows="3" placeholder="Description"></textarea>
-              <p class="hint">Recherche (optionnel)</p>
-              <div class="seekingTagPicker" id="newProjectSeeking"></div>
-              <div id="newProjectCategoryMount"></div>
-              <button type="button" id="newProjectMoreBtn" class="iconBtn projectMoreDetailsBtn">+ Ajouter des détails</button>
-              <div class="activitySettingsPanel projectMoreDetails hidden" id="newProjectMoreDetails">
-                <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
-                <p class="hint">Date de début (optionnel)</p>
-                <input type="date" id="newProjectStartDate">
+          <!-- ⚠️ 10 septembre 2026, demande d'Emilien : « lorsque l'option pour
+               ajouter des projets est ouverte, le titre projet reste bloqué en
+               haut et les autres informations défilent en dessous lorsqu'on
+               scroll ». Même structure que le panneau Abonnés du même jour :
+               le bandeau ci-dessus reste hors défilement, et tout le reste
+               (formulaire d'ajout, liste des projets) passe dans
+               #projectsScroll, seule zone défilante. Voir
+               #profileProjectsPanel dans styles.css. -->
+          <div id="projectsScroll">
+            <!-- Section "Projets" (1er septembre 2026, demande d'Emilien : « une
+                 section sous le nom de l'utilisateur où il parle de ses
+                 projets »). Modèle de données et périmètre négociés avec
+                 Emilien AVANT codage (voir noesis-timetracker-contexte-
+                 technique.md) : liste ILLIMITÉE de projets personnels,
+                 réordonnable manuellement (boutons ▲▼, pas de glisser-déposer —
+                 plus fiable sur mobile sans bibliothèque tierce), entièrement
+                 indépendante du Chrono/activities. Pas de statut "en pause"/
+                 "terminé", pas d'image par projet, pas d'épinglage — exclus
+                 explicitement par Emilien. Ici : gestion complète (ajout/
+                 modification/suppression/réordonnement) par le propriétaire du
+                 profil. En lecture seule, ses ABONNÉS (follows acceptés)
+                 consultent la même liste depuis #viewProfileModal, plus bas
+                 dans ce fichier (hors de toute section .tab — voir le
+                 commentaire à cet endroit) — voir GET /profile/:id/projects
+                 dans server/routes/profile.js et openProfileViewModal dans
+                 app.js.
+                 Formulaire réorganisé en paliers (2 septembre 2026, chantier
+                 "Simplification du formulaire de saisie Projets") : palier 1
+                 (nom + description, toujours visibles), palier 2 (Recherche +
+                 catégorie, toujours visibles), palier 3 (lien/date, replié par
+                 défaut derrière #newProjectMoreBtn — même pattern que
+                 #newActivityCard). shortDescription/fullDescription ont
+                 fusionné en un seul champ description (voir server/db.js) ;
+                 category est désormais une liste fermée (PROJECT_CATEGORIES,
+                 voir server/routes/profile.js et app.js).
+                 ⚠️ 2 septembre 2026, nouvelle demande d'Emilien (discussion
+                 Profil) : catégorie remontée du palier 3 (repliée) vers le
+                 palier 2 (toujours visible, avant le bouton "+ Ajouter des
+                 détails") ; le <select> natif est remplacé par un dropdown
+                 "maison" (voir buildCategoryDropdown dans app.js) qui s'ouvre
+                 toujours vers le bas, limité à 5 options visibles à la fois et
+                 calé au défilement (scroll-snap) pour ne jamais couper une
+                 option en deux — un <select> natif ne permet de contrôler
+                 aucun de ces trois points. #newProjectCategoryMount n'est qu'un
+                 point d'ancrage : app.js le remplace au chargement par le
+                 dropdown construit, qui reprend l'id "newProjectCategory" pour
+                 que le reste du code (lecture/reset de la valeur) n'ait pas à
+                 changer. -->
+            <!-- Ancienne ligne de titre "Projets" + "+" retirée le 4 septembre
+                 2026 : le panneau a déjà son propre titre juste au-dessus, et le
+                 "+" vit désormais dans la bande de la barre supérieure
+                 (#topbarProjectsList, même id #addProjectBtn conservé pour que
+                 son écouteur dans app.js n'ait pas à changer de cible). -->
+            <div class="activityRow hidden" id="newProjectCard">
+              <div class="activityRowHeader">
+                <span class="activityRowName">Nouveau projet</span>
               </div>
-              <p class="meta" id="newProjectMsg"></p>
-              <div class="rowActions">
-                <button type="button" id="newProjectSave" class="iconBtn">Ajouter le projet</button>
+              <div class="activitySettingsPanel">
+                <input type="text" id="newProjectName" placeholder="Nom du projet">
+                <textarea id="newProjectDesc" rows="3" placeholder="Description"></textarea>
+                <p class="hint">Recherche (optionnel)</p>
+                <div class="seekingTagPicker" id="newProjectSeeking"></div>
+                <div id="newProjectCategoryMount"></div>
+                <button type="button" id="newProjectMoreBtn" class="iconBtn projectMoreDetailsBtn">+ Ajouter des détails</button>
+                <div class="activitySettingsPanel projectMoreDetails hidden" id="newProjectMoreDetails">
+                  <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
+                  <p class="hint">Date de début (optionnel)</p>
+                  <input type="date" id="newProjectStartDate">
+                </div>
+                <p class="meta" id="newProjectMsg"></p>
+                <div class="rowActions">
+                  <button type="button" id="newProjectSave" class="iconBtn">Ajouter le projet</button>
+                </div>
               </div>
             </div>
+            <div id="projectsList" class="activitiesList"></div>
+            <p id="projectsEmptyHint" class="hint hidden">Aucun projet ajouté pour l'instant.</p>
           </div>
-          <div id="projectsList" class="activitiesList"></div>
-          <p id="projectsEmptyHint" class="hint hidden">Aucun projet ajouté pour l'instant.</p>
         </div>
       </div>
       <p id="avatarMsg" class="msg"></p>

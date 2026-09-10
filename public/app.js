@@ -612,6 +612,23 @@
   window.addEventListener('resize', syncTabbarHeightVar);
   window.addEventListener('orientationchange', syncTabbarHeightVar);
 
+  // ⚠️ RESTAURÉE le 10 septembre 2026 (voir la note de collision dans
+  // noesis-timetracker-profil.md). Cette fonction avait disparu d'app.js entre
+  // deux écritures concurrentes, alors que TROIS règles de styles.css
+  // dépendent toujours de la variable qu'elle pose (--settings-header-h,
+  // scroll-padding-top et padding du panneau Réglages) : sans elle, le
+  // bandeau fixe "Réglages"/Déconnexion recouvre le haut du contenu dès que
+  // sa hauteur réelle diffère du repli de 56px. Territoire Paramètres —
+  // remise à l'identique, pas réécrite.
+  function syncSettingsHeaderHeightVar() {
+    var panel = $('profileSettingsPanel');
+    var header = panel && panel.querySelector('.subpageHeader');
+    if (!panel || !header || panel.classList.contains('hidden')) return;
+    document.documentElement.style.setProperty('--settings-header-h', header.offsetHeight + 'px');
+  }
+  window.addEventListener('resize', syncSettingsHeaderHeightVar);
+  window.addEventListener('orientationchange', syncSettingsHeaderHeightVar);
+
   // 3 septembre 2026 (demande d'Emilien : « je souhaite que la section
   // flottante dans communauté [...] soit une prolongation de la barre du
   // haut [...] que cette section ne bouge pas du tout »). Même principe
@@ -631,24 +648,6 @@
   }
   window.addEventListener('resize', syncCommunitySearchBarHeightVar);
   window.addEventListener('orientationchange', syncCommunitySearchBarHeightVar);
-
-  // Même patron que les deux fonctions ci-dessus, pour le bandeau
-  // "Réglages"/Déconnexion (.subpageHeader) de #profileSettingsPanel, devenu
-  // fixe le 10 septembre 2026 (demande d'Emilien, voir styles.css) au lieu de
-  // défiler avec le reste du contenu. --settings-header-h (consommée par
-  // #profileSettingsScroll, styles.css) laisse le contenu qui défile réserver
-  // exactement la place du bandeau, quelle que soit sa hauteur réelle (langue,
-  // taille de police système). Garde explicite sur .hidden : offsetHeight
-  // vaudrait 0 tant que le panneau est masqué, ce qui écraserait la variable
-  // à tort si un redimensionnement survient pendant que Réglages est fermé.
-  function syncSettingsHeaderHeightVar() {
-    var panel = $('profileSettingsPanel');
-    var header = panel && panel.querySelector('.subpageHeader');
-    if (!panel || !header || panel.classList.contains('hidden')) return;
-    document.documentElement.style.setProperty('--settings-header-h', header.offsetHeight + 'px');
-  }
-  window.addEventListener('resize', syncSettingsHeaderHeightVar);
-  window.addEventListener('orientationchange', syncSettingsHeaderHeightVar);
 
   // 2 septembre 2026, suite (Design) : sur mobile, quand le clavier virtuel
   // est ouvert (un champ texte a le focus) et qu'on fait défiler la page,
@@ -864,6 +863,14 @@
     // pas : on garde la langue courante et on continue l'onboarding
     // normalement, plutôt que de sauter l'étape "Crée tes activités".
     if (profile.lang && profile.lang !== currentLang) { location.reload(); return; }
+    // Abonnement automatique aux notifications push sur CET appareil (10
+    // septembre 2026, demande d'Emilien — voir le commentaire complet sur
+    // autoSubscribePushOnLogin plus bas) : le clic qui a mené ici (sur
+    // "Créer" ou "Valider le code") est le geste utilisateur qui autorise le
+    // navigateur à demander la permission. S'applique aussi bien à une
+    // création de profil qu'à une connexion à un profil existant sur cet
+    // appareil, les deux chemins passant par ici.
+    autoSubscribePushOnLogin();
     api('GET', '/api/activities?userId=' + profile.id).then(function (acts) {
       if (acts.length === 0) {
         showOnboardingActivitiesStep();
@@ -924,24 +931,17 @@
   // ⚠️ 7 septembre 2026 (incident 2026-001) : cet écran chargeait TOUT
   // l'annuaire (`GET /api/users` sans paramètre) puis filtrait côté client —
   // c'est ce qui rendait la liste complète des membres lisible par n'importe
-  // qui, sans session. Le filtrage a ensuite été fait PAR LE SERVEUR, sur une
-  // correspondance EXACTE du pseudo, prénom+nom (voir GET /users dans
-  // server/routes/profile.js).
+  // qui, sans session. Le filtrage est désormais fait PAR LE SERVEUR.
   // ⚠️ 10 septembre 2026 (chantier "Connexion / Création de compte", demande
-  // directe d'Emilien) : les deux champs prénom/nom séparés du 8 septembre
-  // sont remplacés par un seul champ "nom complet", et la correspondance
-  // EXACTE devient une recherche par SOUS-CHAÎNE (façon "ctrl+f") — le
-  // paramètre `q` de GET /api/users. Compromis vie privée cadré avec
-  // Emilien (`AskUserQuestion`) : une recherche par sous-chaîne sans aucune
-  // restriction recréerait le risque d'énumération de l'incident 2026-001
-  // sur cette route pré-session/publique — Emilien a choisi de MINIMISER ce
-  // risque plutôt que de l'éliminer (ce qui aurait signifié revenir à la
-  // correspondance exacte) : la recherche ne part qu'à partir de
-  // `ONB_SEARCH_MIN_LENGTH` caractères tapés (voir server/routes/profile.js,
-  // même constante nommée côté serveur), et le serveur plafonne lui-même le
-  // nombre de résultats. Voir server/routes/profile.js pour le détail
-  // complet du compromis, y compris pourquoi seule l'INITIALE du nom de
-  // famille est renvoyée (jamais le nom complet) sur ce chemin.
+  // directe d'Emilien) : les deux champs prénom/nom sont fusionnés en un
+  // seul champ #onbSearch ("nom complet"), et la correspondance EXACTE
+  // d'origine est remplacée par une recherche par SOUS-CHAÎNE façon
+  // « ctrl+f » (voir `GET /users?q=` dans server/routes/profile.js). Pour
+  // limiter le risque d'énumération sur cette route publique et non
+  // authentifiée (compromis validé avec Emilien) : un seuil minimal de
+  // caractères tapés avant que la recherche ne parte (ONB_SEARCH_MIN_LENGTH,
+  // doit rester synchronisé avec USERS_SEARCH_MIN_LENGTH côté serveur), et un
+  // plafond de résultats déjà appliqué côté serveur.
   // `onbSearchSeq` : garde anti-réponse-en-vol, même principe que
   // viewProfileUserId sur la page de visite. Deux frappes rapides peuvent
   // revenir dans le désordre ; seule la dernière a le droit de dessiner.
@@ -970,15 +970,15 @@
     users.forEach(function (u) {
       var chip = document.createElement('div');
       chip.className = 'userChip';
-      // 10 septembre 2026 (Connexion / Création de compte, demande
-      // d'Emilien) : le serveur ne renvoie plus le nom de famille complet
-      // sur ce chemin de recherche par sous-chaîne (voir GET /users dans
-      // server/routes/profile.js) — seulement son initiale, pour
-      // distinguer les homonymes sans apprendre à un inconnu un nom de
-      // famille qu'il n'a pas lui-même tapé. `displayName` est mémorisé sur
-      // l'objet transmis à showOnbPinStep pour que l'étape suivante affiche
-      // exactement ce qui était déjà visible ici, rien de plus.
-      var displayName = u.lastInitial ? (u.name + ' ' + u.lastInitial + '.') : u.name;
+      // 10 septembre 2026 (Connexion / Création de compte, demande directe
+      // d'Emilien, revenant sur le choix précédent qui n'affichait que
+      // l'initiale du nom de famille) : le nom complet (prénom + nom de
+      // famille) est affiché ici, pour distinguer sans ambiguïté les
+      // homonymes. Voir la mention ajoutée aux conditions d'utilisation
+      // (section recherche de profil) documentant que le nom complet d'un
+      // profil peut apparaître à l'écran dès qu'une suite de 3 caractères
+      // qu'il contient est tapée par un visiteur.
+      var displayName = u.lastName ? (u.name + ' ' + u.lastName) : u.name;
       u.displayName = displayName;
       chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(displayName) + '</span>';
       chip.addEventListener('click', function () {
@@ -1001,19 +1001,13 @@
     $('onbMsg').textContent = '';
     $('onbPinInput').value = '';
     $('onbPinConfirmInput').value = '';
-    // 8 septembre 2026 (Connexion / Création de compte, demande d'Emilien) :
-    // afficher le nom de famille en plus du prénom ici aussi, pour confirmer
-    // sans ambiguïté quel profil homonyme a été retrouvé avant de saisir son
-    // code PIN.
-    // ⚠️ 10 septembre 2026, suite : `user.displayName`, quand il est présent
-    // (résultat de la recherche par sous-chaîne, voir renderOnbUserList),
-    // est PRIORITAIRE — il porte déjà exactement ce qui a été montré à la
-    // personne dans la liste de résultats (prénom + initiale du nom de
-    // famille, jamais le nom complet). Le repli sur `user.lastName` reste
-    // nécessaire pour l'autre appelant de cette fonction, la revérification
-    // d'un profil déjà mémorisé localement (correspondance exacte, voir plus
-    // bas dans ce fichier), qui continue de fournir le nom de famille
-    // complet.
+    // 8 septembre 2026, puis 10 septembre 2026 (Connexion / Création de
+    // compte, demande d'Emilien) : afficher le nom complet ici aussi, pour
+    // confirmer sans ambiguïté quel profil homonyme a été retrouvé avant de
+    // saisir son code PIN. `user.displayName` est déjà calculé par
+    // renderOnbUserList ci-dessus ; le repli sert à l'autre appelant de cette
+    // fonction (revérification d'un profil local mémorisé, voir ~L11800),
+    // qui fournit un objet `user` sans `displayName`.
     var displayName = user.displayName || (user.lastName ? (user.name + ' ' + user.lastName) : user.name);
     if (user.hasPin) {
       $('onbPinStepTitle').textContent = t('Code de {name}', { name: displayName });
@@ -7193,10 +7187,19 @@
     section.classList.remove('hidden');
     $('calendarFeedOff').classList.toggle('hidden', !!state.hasFeed);
     $('calendarFeedOn').classList.toggle('hidden', !state.hasFeed);
-    // "Dernière lecture par un calendrier" retiré le 10 septembre 2026 (voir
-    // l'avertissement dans index.html) — #calendarFeedUrl reste renseigné
-    // (caché) pour calendarFeedWebcalUrl()/les boutons Apple/Google plus bas.
-    $('calendarFeedUrl').value = state.hasFeed ? (state.url || '') : '';
+    // Même correctif défensif que pour les trois boutons plus bas : cette
+    // ligne de « dernière lecture » n'est plus dans index.html, et l'écrire
+    // sans garde faisait échouer tout le rendu de la section.
+    var calFeedLastAccess = $('calendarFeedLastAccess');
+    if (state.hasFeed) {
+      $('calendarFeedUrl').value = state.url || '';
+      if (calFeedLastAccess) calFeedLastAccess.textContent = state.lastAccessAt
+        ? t('Dernière lecture par un calendrier : ') + new Date(state.lastAccessAt).toLocaleString()
+        : t('Jamais relu par un calendrier pour le moment.');
+    } else {
+      $('calendarFeedUrl').value = '';
+      if (calFeedLastAccess) calFeedLastAccess.textContent = '';
+    }
   }
 
   function refreshCalendarFeedSection() {
@@ -7225,13 +7228,61 @@
     issueCalendarFeed('Lien créé. Colle-le dans ton calendrier comme un abonnement.');
   });
 
-  // Copier l'adresse / Régénérer / Désactiver retirés le 10 septembre 2026
-  // (demande explicite d'Emilien, cadrée par AskUserQuestion — voir
-  // l'avertissement dans index.html) : plus aucun geste, depuis Réglages,
-  // pour invalider ou régénérer un lien de calendrier une fois créé — perte
-  // de fonction assumée et confirmée. issueCalendarFeed()/l'API DELETE
-  // sous-jacentes restent utilisables par un futur chantier qui les
-  // réintroduirait ; seuls les trois écouteurs de bouton disparaissent ici.
+  // ⚠️ 10 septembre 2026 — CORRECTIF BLOQUANT, hors périmètre de ce chantier.
+  //
+  // La section Calendrier d'index.html a été simplifiée (son commentaire sur
+  // place le dit : les deux raccourcis Apple/Google sont « désormais les SEULS
+  // gestes disponibles ici »), ce qui a retiré #calendarFeedRenewBtn,
+  // #calendarFeedRevokeBtn, #calendarFeedCopyBtn et #calendarFeedLastAccess —
+  // mais les écouteurs ci-dessous, eux, sont restés.
+  //
+  // Or ils sont posés AU CHARGEMENT DU SCRIPT : `$('calendarFeedRenewBtn')`
+  // renvoyait null, `.addEventListener` levait une TypeError, et **tout app.js
+  // à partir de cette ligne cessait de s'exécuter** — l'application entière ne
+  // démarrait plus, ni onboarding ni écran principal, sur un écran vide.
+  // Reproduit en bac à sable sur les fichiers tels qu'ils étaient sur le
+  // disque, AVANT toute modification de ce chantier.
+  //
+  // Correctif volontairement MINIMAL et réversible : les quatre références
+  // deviennent défensives, elles ne décident pas si ces boutons doivent
+  // revenir ou disparaître pour de bon — c'est une question produit qui
+  // appartient aux discussions Calendrier/Paramètres. Si le balisage revient,
+  // ces écouteurs se rebranchent tout seuls, sans rien changer ici.
+  var calFeedRenewBtn = $('calendarFeedRenewBtn');
+  if (calFeedRenewBtn) calFeedRenewBtn.addEventListener('click', function () {
+    if (!profile) return;
+    if (!confirm(t("Régénérer l'adresse ? L'ancienne cessera immédiatement de fonctionner, et tu devras refaire l'abonnement sur chaque appareil."))) return;
+    issueCalendarFeed('Lien créé. Colle-le dans ton calendrier comme un abonnement.');
+  });
+
+  var calFeedRevokeBtn = $('calendarFeedRevokeBtn');
+  if (calFeedRevokeBtn) calFeedRevokeBtn.addEventListener('click', function () {
+    if (!profile) return;
+    if (!confirm(t("Désactiver le calendrier ? L'adresse cesse de fonctionner et les échéances disparaîtront de ton agenda."))) return;
+    api('DELETE', '/api/calendar/feed?userId=' + encodeURIComponent(profile.id))
+      .then(function (state) {
+        renderCalendarFeedState(state);
+        $('calendarFeedMsg').textContent = t('Calendrier désactivé.');
+      })
+      .catch(function (err) { $('calendarFeedMsg').textContent = err.message; });
+  });
+
+  var calFeedCopyBtn = $('calendarFeedCopyBtn');
+  if (calFeedCopyBtn) calFeedCopyBtn.addEventListener('click', function () {
+    var url = $('calendarFeedUrl').value;
+    if (!url) return;
+    var msg = $('calendarFeedMsg');
+    var done = function () { msg.textContent = t('Copié — colle-le dans ton calendrier.'); };
+    var failed = function () { msg.textContent = t('Impossible de copier automatiquement — sélectionne le texte à la main.'); };
+    // legacyCopy() est le repli déjà utilisé par le bloc "Partage"
+    // (déclaration de fonction, donc hissée : elle est définie plus bas dans
+    // ce fichier mais parfaitement appelable ici).
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(function () { if (legacyCopy(url)) done(); else failed(); });
+      return;
+    }
+    if (legacyCopy(url)) done(); else failed();
+  });
 
   // Raccourcis d'abonnement en un clic (7 septembre 2026, demande d'Emilien).
   // 'webcal:' est le schéma standard pour une souscription calendrier : le
@@ -7279,10 +7330,10 @@
     renderShareSettings();
     var settingsPanelEl = $('profileSettingsPanel');
     settingsPanelEl.classList.remove('hidden');
-    // Mesure la hauteur réelle du bandeau "Réglages"/Déconnexion, désormais
-    // fixe (10 septembre 2026, voir styles.css) — après remove('hidden') pour
-    // qu'offsetHeight soit correct, avant l'ajout de .open (la mesure ne
-    // dépend pas de la transition en cours).
+    // Mesure la hauteur réelle du bandeau "Réglages"/Déconnexion, fixe depuis
+    // le 10 septembre 2026 (voir styles.css) — après remove('hidden') pour
+    // qu'offsetHeight soit correct. Appel RESTAURÉ le 10 septembre, voir la
+    // note au-dessus de syncSettingsHeaderHeightVar.
     syncSettingsHeaderHeightVar();
     // Plein écran avec glissement droite → gauche à l'ouverture (9 septembre
     // 2026, demande d'Emilien) : .hidden vient d'être retiré (le panneau
@@ -7297,7 +7348,7 @@
     // demande d'Emilien : même comportement "sélectionné = violet" que les
     // onglets de la barre du bas).
     $('profileSettingsBtn').classList.add('active');
-    refreshPushSection();
+    renderNotificationsSection();
     refreshCalendarFeedSection();
   }
   // Le bouton "⚙️" a vécu dans .topbar du 31 août au 2 septembre 2026
@@ -7363,12 +7414,13 @@
   // dedans doit donc être vérifié séparément de .settingsWrap (qui ne
   // contient plus que l'icône ⚙️), sans quoi tout clic à l'intérieur du
   // panneau plein écran refermerait celui-ci immédiatement.
-  // ⚠️ Correctif du 10 septembre 2026 (signalé par Emilien) : les modales de
+  // ⚠️ Correctif du 10 septembre 2026 (signalé par Emilien, porté depuis le
+  // chantier Paramètres lors de la réconciliation du même jour) : les modales de
   // documents légaux (#legalTermsModal, #privacyPolicyModal,
   // #legalNoticesModal) sont volontairement placées au niveau du <body>,
   // hors de #profileSettingsPanel (voir leur commentaire dans index.html —
   // nécessaire pour échapper au display: none de #app/du panneau). Ce clic
-  // "en dehors" les considérait donc comme un clic hors Réglages : cliquer
+  // « en dehors » les considérait donc comme un clic hors Réglages : cliquer
   // la croix d'une de ces modales (ou n'importe où dedans) refermait
   // Réglages en plus de la modale, renvoyant Emilien jusqu'au Profil. Ces
   // trois modales ne sont jamais ouvertes que depuis Réglages : un clic
@@ -7387,10 +7439,21 @@
   // server/lib/push.js + server/routes/push.js ; côté réception :
   // le bloc "push" de public/sw.js.
   //
-  // Réglage par APPAREIL, pas par profil : ce qui est enregistré côté serveur,
-  // c'est l'abonnement de CE navigateur (voir push_subscriptions dans
-  // server/db.js). Activer sur le téléphone n'active donc rien sur
-  // l'ordinateur, et réciproquement — c'est le comportement attendu.
+  // Refonte du 10 septembre 2026 (demande d'Emilien) : la section Notifications
+  // de Réglages ne porte plus de bouton "Activer/Désactiver" ni "Envoyer un
+  // test" (supprimés). L'ABONNEMENT du navigateur (par APPAREIL — voir
+  // push_subscriptions dans server/db.js) est désormais déclenché
+  // automatiquement par autoSubscribePushOnLogin(), appelée juste après la
+  // création d'un profil ou la connexion à un profil existant sur cet
+  // appareil (voir proceedAfterProfile()) : un clic sur "Créer"/"Valider le
+  // code" est un geste utilisateur suffisant pour que le navigateur accepte
+  // la demande d'autorisation, sans exiger de bouton dédié. Ce que Réglages
+  // affiche maintenant, ce sont deux PRÉFÉRENCES par PROFIL (pas par
+  // appareil, voir server/db.js) : une bascule "Communauté" et une bascule
+  // par activité — pour choisir QUELLES notifications arrivent, l'abonnement
+  // lui-même n'étant plus un réglage visible. Les invitations, demandes de
+  // suivi et notifications de l'application elle-même restent toujours
+  // actives (aucune bascule pour elles).
 
   var pushPublicKey = null;    // clé VAPID du serveur, chargée une seule fois
   var pushServerEnabled = null; // null = pas encore su
@@ -7408,13 +7471,9 @@
 
   // Le navigateur sait-il faire des notifications push du tout ? (Un onglet
   // Safari sur iPhone répond non tant que l'app n'est pas installée sur
-  // l'écran d'accueil — d'où le message d'aide dédié dans Réglages.)
+  // l'écran d'accueil.)
   function pushSupported() {
     return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
-  }
-
-  function isIos() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent);
   }
 
   function currentPushSubscription() {
@@ -7431,120 +7490,174 @@
       .catch(function () { pushServerEnabled = false; });
   }
 
-  // Met la section Notifications de Réglages dans l'état réel de cet appareil.
-  // Appelée à chaque ouverture de Réglages : l'autorisation peut avoir été
-  // retirée depuis les réglages du navigateur sans que l'app en sache rien.
-  function refreshPushSection() {
-    var btn = $('pushToggleBtn');
-    var testBtn = $('pushTestBtn');
+  // Abonne CET appareil, sans aucun message affiché — appelée automatiquement
+  // (voir plus bas) ou en filet de sécurité au premier clic sur une bascule
+  // (voir ensurePushSubscribedForToggle) si l'appel automatique n'a pour une
+  // raison quelconque pas abouti (hors-ligne au moment de la création du
+  // profil, par exemple). Ne lève jamais : résout `false` sur tout échec ou
+  // refus, `true` si l'appareil est abonné (déjà ou à l'instant).
+  function subscribePushSilently() {
+    if (!pushSupported() || !profile) return Promise.resolve(false);
+    return loadPushConfig().then(function () {
+      if (!pushServerEnabled) return false;
+      if (Notification.permission === 'denied') return false;
+      return currentPushSubscription().then(function (existing) {
+        if (existing) return true;
+        return Notification.requestPermission().then(function (permission) {
+          if (permission !== 'granted') return false;
+          return navigator.serviceWorker.ready.then(function (reg) {
+            // userVisibleOnly est obligatoire : c'est l'engagement que chaque
+            // push affichera bien une notification visible, et non un
+            // traitement silencieux en arrière-plan. Les navigateurs
+            // refusent sans.
+            return reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(pushPublicKey),
+            });
+          }).then(function (sub) {
+            return api('POST', '/api/push/subscribe', { userId: profile.id, subscription: sub.toJSON() })
+              .then(function () { return true; });
+          });
+        });
+      });
+    }).catch(function () { return false; });
+  }
+
+  // Appelée juste après la création d'un profil OU la connexion à un profil
+  // existant sur cet appareil (voir proceedAfterProfile()) — le seul moment
+  // où le navigateur accepte la demande d'autorisation, puisqu'elle suit
+  // directement un geste de la personne. Volontairement "fire-and-forget" :
+  // ne doit jamais retarder ni faire échouer la suite de l'onboarding (même
+  // principe que server/lib/push.js : une notification — ou son réglage — ne
+  // doit jamais faire échouer l'action qui l'a déclenchée).
+  function autoSubscribePushOnLogin() {
+    subscribePushSilently();
+  }
+
+  // Filet de sécurité : si cet appareil n'est pour une raison ou une autre
+  // pas encore abonné au moment où la personne touche une bascule (l'appel
+  // automatique à la connexion a pu échouer, ou n'a pas encore eu lieu sur un
+  // profil créé avant ce chantier), on tente l'abonnement à cet instant — un
+  // clic sur une bascule est lui aussi un geste utilisateur valable. Ne
+  // bloque jamais l'enregistrement de la préférence elle-même : voir les
+  // appelants plus bas.
+  function ensurePushSubscribedForToggle() {
+    if (!pushSupported() || !pushServerEnabled) return Promise.resolve();
+    return currentPushSubscription().then(function (existing) {
+      if (existing) return;
+      if (Notification.permission === 'denied') {
+        $('pushMsg').textContent = t("Les notifications sont bloquées pour ce site dans les réglages de ton navigateur.");
+        return;
+      }
+      return subscribePushSilently().then(function (ok) {
+        if (!ok) $('pushMsg').textContent = t("Impossible d'activer les notifications.");
+      });
+    }).catch(function () { /* la préférence se sauvegarde quand même, voir les appelants */ });
+  }
+
+  // Liste des activités avec bascule on/off (remplace le bouton "Activer les
+  // notifications" — demande d'Emilien du 10 septembre 2026 : « le nom de
+  // chaque activité créée par l'utilisateur et un bouton on/off »).
+  function renderNotifyActivityList(acts) {
+    var box = $('notifActivityList');
+    if (!box) return;
+    box.innerHTML = '';
+    if (acts.length === 0) {
+      box.innerHTML = '<p class="hint">' + t('Aucune activité ajoutée pour l\'instant.') + '</p>';
+      return;
+    }
+    acts.forEach(function (a) {
+      var row = document.createElement('div');
+      row.className = 'notifRow';
+      row.innerHTML = '<span class="notifRowLabel">' + escapeHtml(a.name) + '</span>' +
+        '<label class="toggleSwitch"><input type="checkbox" data-activity-id="' + a.id + '"' + (a.notifyEnabled ? ' checked' : '') + '><span class="toggleSwitchTrack"></span></label>';
+      box.appendChild(row);
+    });
+  }
+
+  // Met la section Notifications de Réglages dans l'état réel : message
+  // d'aide si l'appareil/le serveur ne peut pas faire de push, sinon la
+  // bascule "Communauté" + la liste des activités. Appelée à chaque
+  // ouverture de Réglages, comme l'ancien refreshPushSection : l'autorisation
+  // peut avoir été retirée depuis les réglages du navigateur entre-temps.
+  function renderNotificationsSection() {
     var msg = $('pushMsg');
-    if (!btn) return;
+    var communityToggle = $('notifCommunityToggle');
+    var activityList = $('notifActivityList');
+    if (!msg || !communityToggle || !activityList) return;
+
+    msg.textContent = '';
+    communityToggle.disabled = true;
+    communityToggle.checked = false;
+    activityList.innerHTML = '';
 
     if (!pushSupported()) {
-      btn.disabled = true;
-      testBtn.classList.add('hidden');
-      msg.textContent = t("Cet appareil ne gère pas les notifications.");
+      msg.textContent = t('Cet appareil ne gère pas les notifications.');
       return;
     }
 
     loadPushConfig().then(function () {
       if (!pushServerEnabled) {
-        btn.disabled = true;
-        testBtn.classList.add('hidden');
-        msg.textContent = t("Les notifications ne sont pas configurées sur ce serveur.");
+        msg.textContent = t('Les notifications ne sont pas configurées sur ce serveur.');
         return;
       }
       if (Notification.permission === 'denied') {
-        btn.disabled = true;
-        testBtn.classList.add('hidden');
-        msg.textContent = t("Les notifications sont bloquées pour ce site dans les réglages de ton navigateur.");
+        msg.textContent = t('Les notifications sont bloquées pour ce site dans les réglages de ton navigateur.');
         return;
       }
-      btn.disabled = false;
-      return currentPushSubscription().then(function (sub) {
-        var on = !!sub;
-        btn.textContent = on ? t('Désactiver les notifications') : t('Activer les notifications');
-        testBtn.classList.toggle('hidden', !on);
-        msg.textContent = on ? t('Activées sur cet appareil.') : '';
-      });
+      communityToggle.disabled = false;
+      // Préférences relues depuis le serveur plutôt que le profil mis en
+      // cache localement (voir saveProfile) : certains chemins de connexion
+      // (set-pin) ne renvoient pas communityNotifyEnabled — sans cette
+      // relecture, la bascule pourrait afficher un état obsolète.
+      api('GET', '/api/profile/' + profile.id).then(function (p) {
+        communityToggle.checked = !!p.communityNotifyEnabled;
+      }).catch(function () { communityToggle.checked = true; });
+      api('GET', '/api/activities?userId=' + profile.id).then(renderNotifyActivityList).catch(function () {});
     });
   }
 
-  function enablePush() {
-    var msg = $('pushMsg');
-    msg.textContent = t('Activation...');
-
-    return Notification.requestPermission()
-      .then(function (permission) {
-        if (permission !== 'granted') {
-          msg.textContent = t("Autorisation refusée — rien n'a été activé.");
-          return null;
-        }
-        return navigator.serviceWorker.ready.then(function (reg) {
-          // userVisibleOnly est obligatoire : c'est l'engagement que chaque
-          // push affichera bien une notification visible, et non un traitement
-          // silencieux en arrière-plan. Les navigateurs refusent sans.
-          return reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(pushPublicKey),
-          });
-        });
-      })
-      .then(function (sub) {
-        if (!sub) return;
-        return api('POST', '/api/push/subscribe', { userId: profile.id, subscription: sub.toJSON() })
-          .then(function () { msg.textContent = t('Activées sur cet appareil.'); });
-      })
-      .catch(function (err) { msg.textContent = err.message || t("Impossible d'activer les notifications."); })
-      .then(refreshPushSection);
-  }
-
-  function disablePush() {
-    var msg = $('pushMsg');
-    return currentPushSubscription()
-      .then(function (sub) {
-        if (!sub) return;
-        var endpoint = sub.endpoint;
-        // On se désabonne des deux côtés : côté navigateur (plus aucun push
-        // n'arrive) ET côté serveur (plus rien n'est envoyé pour rien).
-        return sub.unsubscribe().then(function () {
-          return api('DELETE', '/api/push/subscribe?userId=' + profile.id + '&endpoint=' + encodeURIComponent(endpoint));
-        });
-      })
-      .then(function () { msg.textContent = t('Désactivées sur cet appareil.'); })
-      .catch(function (err) { msg.textContent = err.message || t('Impossible de désactiver les notifications.'); })
-      .then(refreshPushSection);
-  }
-
-  // ⚠️ Gardes défensives (incident du 10 septembre 2026 — voir
-  // noesis-timetracker-securite.md) : un décalage entre app.js et index.html
-  // sur CES DEUX identifiants précis (#pushToggleBtn/#pushTestBtn pendant un
-  // chantier qui les avait temporairement remplacés par #notifCommunityToggle/
-  // #notifActivityList, probable désync OneDrive) a fait planter TOUT le
-  // script au chargement — un $(...).addEventListener posé sur null, ici même,
-  // en haut du fichier, empêchait la moindre ligne suivante de s'exécuter :
-  // plus personne, connecté ou non, ne pouvait ouvrir l'app. Ce garde-fou ne
-  // dispense pas de garder index.html et app.js synchronisés : il évite
-  // seulement qu'un futur décalage du même genre reproduise une panne totale
-  // de l'app — au pire, le bouton Notifications resterait inerte.
-  var pushToggleBtnEl = $('pushToggleBtn');
-  if (pushToggleBtnEl) {
-    pushToggleBtnEl.addEventListener('click', function () {
+  // ⚠️ Gardes défensives (incident du 10 septembre 2026) : ces deux éléments
+  // sont posés dans index.html (voir le commentaire au-dessus de
+  // #notifCommunityToggle dans ce fichier). Un décalage entre app.js et
+  // index.html — HTML pas encore redéployé, ou perdu par une synchronisation
+  // (OneDrive) — a fait planter TOUT le script au chargement (un
+  // $(...).addEventListener sur null, en haut du fichier, empêchait la
+  // moindre ligne suivante de s'exécuter : plus aucun profil ne pouvait
+  // ouvrir l'app, connecté ou non, jusqu'à ce que ce fichier soit corrigé).
+  // Ce garde-fou ne remplace pas la correction du HTML : il évite seulement
+  // qu'un futur décalage du même genre reproduise une panne totale — au pire,
+  // la section Notifications resterait inerte, sans rien casser d'autre.
+  var notifCommunityToggleEl = $('notifCommunityToggle');
+  if (notifCommunityToggleEl) {
+    notifCommunityToggleEl.addEventListener('change', function () {
       if (!profile) return;
-      currentPushSubscription().then(function (sub) {
-        if (sub) disablePush(); else enablePush();
-      });
+      var checkbox = this;
+      var enabled = checkbox.checked;
+      checkbox.disabled = true;
+      ensurePushSubscribedForToggle().then(function () {
+        return api('PUT', '/api/profile/' + profile.id + '/notify-community', { enabled: enabled });
+      }).catch(function (err) {
+        checkbox.checked = !enabled;
+        $('pushMsg').textContent = err.message || t("Impossible d'activer les notifications.");
+      }).then(function () { checkbox.disabled = false; });
     });
   }
 
-  var pushTestBtnEl = $('pushTestBtn');
-  if (pushTestBtnEl) {
-    pushTestBtnEl.addEventListener('click', function () {
-      if (!profile) return;
-      $('pushMsg').textContent = t('Envoi du test...');
-      api('POST', '/api/push/test', { userId: profile.id })
-        .then(function () { $('pushMsg').textContent = t('Test envoyé — la notification devrait arriver dans quelques secondes.'); })
-        .catch(function (err) { $('pushMsg').textContent = err.message; });
+  var notifActivityListEl = $('notifActivityList');
+  if (notifActivityListEl) {
+    notifActivityListEl.addEventListener('change', function (e) {
+      var checkbox = e.target.closest('input[type="checkbox"][data-activity-id]');
+      if (!checkbox || !profile) return;
+      var activityId = checkbox.dataset.activityId;
+      var enabled = checkbox.checked;
+      checkbox.disabled = true;
+      ensurePushSubscribedForToggle().then(function () {
+        return api('PUT', '/api/activities/' + activityId, { notifyEnabled: enabled });
+      }).catch(function (err) {
+        checkbox.checked = !enabled;
+        $('pushMsg').textContent = err.message || t("Impossible d'activer les notifications.");
+      }).then(function () { checkbox.disabled = false; });
     });
   }
 

@@ -213,15 +213,17 @@ input[type=time]:focus, select:focus, textarea:focus {
   padding: 32px 26px;
   width: 100%;
   max-width: 420px;
-  /* La CARTE elle-même (pas la page) peut défiler si son contenu dépasse
-     l'espace restant (ex. le formulaire de création, plus long, sur un
-     petit écran) — c'est la soupape de sécurité qui évite de couper des
-     champs, tout en garantissant qu'aucun défilement ne touche jamais le
-     fond/la page derrière la carte. 48px = les deux paddings de 24px de
-     #onboarding ci-dessus (haut + bas). */
+  /* 10 septembre 2026 (demande explicite d'Emilien, confirmée à plusieurs
+     reprises) : la carte ne défile JAMAIS, même en interne — pas de
+     `overflow-y: auto` de secours. `max-height` reste posé par précaution
+     pour ne jamais dépasser #onboarding (déjà en overflow: hidden), mais
+     `overflow: hidden` sur la carte elle-même empêche toute barre de
+     défilement d'apparaître, quitte à ce que le contenu soit rogné sur un
+     écran très court. 48px = les deux paddings de 24px de #onboarding
+     ci-dessus (haut + bas). */
   max-height: calc(100vh - 48px);
   max-height: calc(100dvh - 48px);
-  overflow-y: auto;
+  overflow: hidden;
   box-shadow: var(--shadow-elevated);
   text-align: center;
 }
@@ -242,7 +244,12 @@ input[type=time]:focus, select:focus, textarea:focus {
   padding: 0; cursor: pointer; background: none;
 }
 .switchLink { font-size: 13px; margin-top: 16px; }
-.switchLink a { color: var(--blue); text-decoration: none; }
+/* Violet (10 septembre 2026, demande d'Emilien : les liens « Lire les
+   conditions d'utilisation », « J'ai déjà un profil » et « Créer un nouveau
+   profil » passent de bleu à violet) — anciennement var(--blue). var(--purple)
+   est la variable de palette déjà utilisée partout ailleurs pour signaler une
+   action/un état "sélectionné" (aucune nouvelle variable de couleur). */
+.switchLink a { color: var(--purple); text-decoration: none; }
 .switchLink a:hover { text-decoration: underline; }
 .userList { max-height: 220px; overflow-y: auto; text-align: left; margin-bottom: 8px; }
 /* Les 3 règles ::-webkit-scrollbar dédiées à .userList (barre grise fine
@@ -447,7 +454,60 @@ input[type=time]:focus, select:focus, textarea:focus {
    de ses règles redéfinie) — seulement élargi comme l'est déjà celui des
    Réglages : il contient des formulaires, pas une simple liste. */
 #profileProjectsPanel.projectsPanel { width: min(380px, 92vw); }
-#profileProjectsPanel .subpageHeader { margin-bottom: 10px; }
+
+/* ===== Panneaux flottants du Profil à en-tête fixe (10 septembre 2026) =====
+   Deux demandes d'Emilien le même jour, même mécanisme :
+   - « je souhaite que les fenêtres des abonnés abonnements et bloqué s'arrête
+     toujours légèrement au dessus (laisser un espace) de la barre des volets »
+     et « je souhaite que le mot abonné, le titre reste fixe au-dessus et que
+     les noms des abonnés défilent en dessous » ;
+   - « lorsque l'option pour ajouter des projets est ouverte, le titre projet
+     reste bloqué en haut et les autres informations défilent en dessous
+     lorsqu'on scroll ».
+
+   ⚠️ Tout est porté par l'ID, jamais par `.notifPanel` : cette classe est
+   partagée avec le panneau des invitations et celui des Réglages, qui gardent
+   leur `max-height: 60vh` et leur défilement d'un seul bloc.
+
+   1. Hauteur : `100dvh` moins la topbar, moins les 16px qui séparent déjà le
+      panneau de la topbar (voir .notifPanel plus bas), moins la hauteur RÉELLE
+      de la barre d'onglets (--tabbar-h, mesurée par syncTabbarHeightVar() dans
+      app.js), moins 12px d'espace demandé. `dvh` et non `vh` : sur mobile,
+      `vh` ignore la barre d'adresse rétractable et le panneau passerait sous
+      la barre d'onglets au moment précis où elle réapparaît. Le repli
+      `var(--tabbar-h, 64px)` couvre le premier rendu, avant la mesure.
+
+   2. Défilement : le panneau devient une colonne flex en `overflow: hidden`,
+      et c'est la zone dédiée — et elle seule — qui défile. Sans ce partage, le
+      titre défilerait avec le contenu, ce qui est exactement ce qu'Emilien ne
+      veut pas. `min-height: 0` est indispensable : sans lui, un enfant flex
+      refuse de descendre sous la hauteur de son contenu et rien ne défile. */
+#profileFollowsPanel,
+#profileProjectsPanel {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--topbar-h, 56px) - 16px - var(--tabbar-h, 64px) - 12px);
+  overflow: hidden;
+}
+#followsScroll,
+#projectsScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* Les parties FIXES, hors défilement. */
+#profileFollowsPanel #followsSwitch { flex: 0 0 auto; margin-bottom: 10px; }
+#profileProjectsPanel .subpageHeader { flex: 0 0 auto; margin-bottom: 0; }
+/* Un filet sous le titre : sans lui, la première ligne du contenu passe juste
+   sous le mot « Abonnés »/« Projets » pendant le défilement et on ne voit plus
+   que le titre est un en-tête fixe, pas une ligne comme les autres. */
+#profileFollowsPanel #followsPanelTitle,
+#profileProjectsPanel .subpageHeader {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+#profileFollowsPanel #followsPanelTitle { flex: 0 0 auto; margin: 0 0 8px; }
+#profileProjectsPanel #projectsScroll { padding-top: 10px; }
+/* Les trois boutons se partagent la largeur à parts égales et tolèrent un
+   libellé plus long (« Abonnements ») sans pousser les deux autres hors du
+   panneau, qui ne fait que 320px au plus. */
+#followsSwitch .periodBtn { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; }
 /* #avatarMsg (message d'erreur du changement de photo) est vide dans
    l'immense majorité des cas, mais réservait quand même sa ligne — 28px de
    noir en bas d'une barre qui vient de gagner une troisième ligne. Il ne
