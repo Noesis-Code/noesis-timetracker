@@ -6088,24 +6088,34 @@
   // Sans `opts` (ou dans le cas SOLO), comportement strictement inchangé.
   function buildActivityMemberRow(m, opts) {
     opts = opts || {};
+    // ⚠️ 10 septembre 2026 (demande d'Emilien : nom affiché au complet
+    // prénom+nom, comme partout ailleurs — connexion, découverte Communauté)
+    // — m.lastName vient d'activityMembersForUser (server/lib/community.js).
+    // Absent pour le cas SOLO (openCommunityMembersModal construit
+    // directement `profile`, qui a bien un lastName) : fullName() gère déjà
+    // l'absence de nom de famille sans rien afficher de faux.
+    var displayName = fullName(m.name, m.lastName);
     var row = document.createElement('div');
     row.className = 'activityRow';
     row.innerHTML =
       '<div class="activityRowHeader">' +
       '<span class="dot" style="background:' + m.color + '"></span>' +
-      '<span class="activityRowName">' + escapeHtml(m.name) + (profile && m.userId === profile.id ? t(' (toi)') : '') + '</span>' +
+      '<span class="activityRowName">' + escapeHtml(displayName) + (profile && m.userId === profile.id ? t(' (toi)') : '') + '</span>' +
       (m.isRunning ? '<span class="memberLiveDot" title="' + t('Chrono en cours sur cette activité') + '"></span>' : '') +
       '</div>';
 
+    // ⚠️ 10 septembre 2026 (demande d'Emilien : « le bouton exclure les
+    // membres [doit se situer] au même niveau que le nom complet des
+    // membres ») — ajouté DANS .activityRowHeader (même ligne que le nom),
+    // pas dans un .rowActions séparé en dessous comme au premier jet.
     if (opts.canExclude && profile && m.userId !== profile.id) {
-      var actions = document.createElement('div');
-      actions.className = 'rowActions';
+      var header = row.querySelector('.activityRowHeader');
       var excludeBtn = document.createElement('button');
       excludeBtn.type = 'button';
       excludeBtn.className = 'iconBtn';
       excludeBtn.textContent = t('Exclure');
       excludeBtn.addEventListener('click', function () {
-        if (!confirm(t('Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.', { name: m.name, activity: opts.activityName }))) return;
+        if (!confirm(t('Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.', { name: displayName, activity: opts.activityName }))) return;
         excludeBtn.disabled = true;
         api('DELETE', '/api/activities/' + opts.activityId + '/members/' + m.userId, { userId: profile.id })
           .then(function (res) {
@@ -6117,8 +6127,7 @@
             alert(err.message);
           });
       });
-      actions.appendChild(excludeBtn);
-      row.appendChild(actions);
+      header.appendChild(excludeBtn);
     }
 
     return row;

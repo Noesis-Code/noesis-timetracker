@@ -178,7 +178,7 @@ function followingFeedForUser(userId, limit) {
 // que sharedFeedForUser/activity-feed).
 function activityMembersForUser(activityId) {
   const rows = db.prepare(`
-    SELECT u.id AS userId, u.name AS name, am.color AS color,
+    SELECT u.id AS userId, u.name AS name, u.lastName AS lastName, am.color AS color,
            EXISTS (SELECT 1 FROM running_timers rt WHERE rt.userId = u.id AND rt.activityId = am.activityId) AS isRunning
     FROM activity_members am
     JOIN users u ON u.id = am.userId
@@ -186,7 +186,13 @@ function activityMembersForUser(activityId) {
     ORDER BY u.name COLLATE NOCASE ASC
   `).all(activityId);
 
-  return rows.map((r) => ({ userId: r.userId, name: r.name, color: r.color, isRunning: !!r.isRunning }));
+  // ⚠️ 10 septembre 2026 (demande d'Emilien : « le nom des membres affiché
+  // au complet prénom+nom ») — lastName ajouté ici pour que la modale des
+  // membres d'une activité partagée distingue les homonymes, comme c'est
+  // déjà le cas ailleurs dans l'app (recherche de compte à la connexion,
+  // découverte Communauté). Aucun autre appelant de cette fonction (vérifié)
+  // n'est affecté par ce champ supplémentaire.
+  return rows.map((r) => ({ userId: r.userId, name: r.name, lastName: r.lastName || null, color: r.color, isRunning: !!r.isRunning }));
 }
 
 // ============ FIL DE DISCUSSION D'UNE ACTIVITÉ PARTAGÉE ============
