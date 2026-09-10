@@ -6143,17 +6143,17 @@
   // route, aucun second mécanisme. Seule la règle d'AFFICHAGE diffère —
   // « Partager » reste ouvert à tout membre (choix d'origine, non touché),
   // celui-ci est réservé au créateur. Différence voulue par Emilien, signalée.
-  // ⚠️ 10 septembre 2026 (demande d'Emilien : « je tape trois lettres, et une
-  // suggestion m'indique le nom complet des comptes existants », même principe
-  // que la recherche de compte à la connexion) — le prompt() est remplacé par
-  // un mini-champ de recherche, sur GET /users/search (choix confirmé
-  // d'Emilien : réutiliser la recherche de Communauté plutôt que la route
-  // publique de connexion, plus adaptée ici puisque l'utilisateur a déjà une
-  // session). Cliquer une suggestion REMPLIT le champ (ne cherche pas la case
-  // au clic) ; un bouton "Inviter" séparé confirme l'envoi — choix confirmé
-  // d'Emilien. Les personnes déjà membres de l'activité sont masquées des
-  // suggestions (choix confirmé d'Emilien). Aucune route serveur nouvelle : la
-  // confirmation appelle toujours POST /activities/:id/invite tel quel.
+  // ⚠️ 10 septembre 2026, DEUXIÈME passage (demande d'Emilien, revenant sur le
+  // premier jet) : pendant la recherche, la liste des membres ET la rangée de
+  // boutons (« Ajouter un membre »/« Quitter la communauté ») disparaissent
+  // complètement — seule la barre de recherche reste visible. Taper 3 lettres
+  // fait apparaître des suggestions ; cliquer UNE suggestion (et non plus
+  // remplir le champ + bouton « Inviter » séparé, choix du premier jet
+  // abandonné) affiche directement une confirmation « Voulez-vous inviter
+  // {nom complet} à rejoindre cette activité ? » avec Valider/Annuler.
+  // Toujours GET /users/search (choix déjà confirmé) ; toujours
+  // POST /activities/:id/invite tel quel à la validation, aucune route
+  // nouvelle. Les personnes déjà membres restent masquées des suggestions.
   //
   // ⚠️ « Quitter la communauté » appelle POST /activities/:id/separate, le même
   // que « Séparer ». Ce n'est PAS une suppression : on repart avec sa propre
@@ -6169,122 +6169,22 @@
     box.classList.add('hidden');
     if (!a || !profile) return;
 
-    if (a.isOwner || !isShared) {
+    // La liste des membres vit hors de ce panneau (#communityMembersModalList,
+    // remplie par loadMembers() dans openCommunityMembersModal) — masquée elle
+    // aussi pendant la recherche, demande explicite d'Emilien.
+    var membersListBox = $('communityMembersModalList');
+
+    var actionsRow = document.createElement('div');
+    actionsRow.className = 'rowActions';
+
+    var canAdd = a.isOwner || !isShared;
+
+    if (canAdd) {
       var addBtn = document.createElement('button');
       addBtn.type = 'button';
       addBtn.className = 'iconBtn';
       addBtn.textContent = t('Ajouter un membre');
-
-      // Panneau de recherche, construit une seule fois, masqué par défaut.
-      var panel = document.createElement('div');
-      panel.className = 'hidden';
-      panel.style.marginTop = '8px';
-
-      var searchInput = document.createElement('input');
-      searchInput.type = 'text';
-      searchInput.placeholder = t('Tape au moins 3 lettres du nom complet...');
-
-      var suggestBox = document.createElement('div');
-
-      var confirmRow = document.createElement('div');
-      confirmRow.className = 'rowActions';
-      var inviteBtn = document.createElement('button');
-      inviteBtn.type = 'button';
-      inviteBtn.className = 'iconBtn';
-      inviteBtn.textContent = t('Inviter');
-      var cancelBtn = document.createElement('button');
-      cancelBtn.type = 'button';
-      cancelBtn.className = 'iconBtn';
-      cancelBtn.textContent = t('Annuler');
-      confirmRow.appendChild(inviteBtn);
-      confirmRow.appendChild(cancelBtn);
-
-      panel.appendChild(searchInput);
-      panel.appendChild(suggestBox);
-      panel.appendChild(confirmRow);
-
-      // Membres déjà présents (+ moi-même), à exclure des suggestions — choix
-      // confirmé d'Emilien. Chargé une seule fois à l'ouverture du panneau :
-      // le résultat de "Membres · {name}" affiché juste au-dessus est la même
-      // information, elle ne peut pas changer pendant que le panneau est ouvert
-      // sans que la modale entière ne se referme.
-      var existingMemberIds = null;
-      function loadExistingMemberIds() {
-        if (!isShared) { existingMemberIds = [profile.id]; return Promise.resolve(); }
-        return api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + a.id)
-          .then(function (data) { existingMemberIds = data.members.map(function (m) { return m.userId; }); })
-          .catch(function () { existingMemberIds = [profile.id]; });
-      }
-
-      function runAddMemberSearch() {
-        var q = searchInput.value.trim();
-        var seq = ++addMemberSearchSeq;
-        if (q.length < ADD_MEMBER_SEARCH_MIN_LENGTH) {
-          suggestBox.innerHTML = '<p class="hint">' + t('Tape au moins 3 caractères pour voir des suggestions.') + '</p>';
-          return;
-        }
-        api('GET', '/api/users/search?userId=' + profile.id + '&q=' + encodeURIComponent(q))
-          .then(function (users) {
-            if (seq !== addMemberSearchSeq) return;
-            var hideIds = existingMemberIds || [profile.id];
-            var filtered = users.filter(function (u) { return hideIds.indexOf(u.id) === -1; });
-            suggestBox.innerHTML = '';
-            if (filtered.length === 0) {
-              suggestBox.innerHTML = '<p class="hint">' + t('Aucun profil trouvé.') + '</p>';
-              return;
-            }
-            filtered.forEach(function (u) {
-              var displayName = fullName(u.name, u.lastName);
-              var chip = document.createElement('div');
-              chip.className = 'userChip';
-              chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(displayName) + '</span>';
-              chip.addEventListener('click', function () {
-                searchInput.value = u.name;
-                suggestBox.innerHTML = '';
-              });
-              suggestBox.appendChild(chip);
-            });
-          })
-          .catch(function () { if (seq === addMemberSearchSeq) suggestBox.innerHTML = ''; });
-      }
-      var addMemberDebounce = null;
-      searchInput.addEventListener('input', function () {
-        clearTimeout(addMemberDebounce);
-        addMemberDebounce = setTimeout(runAddMemberSearch, 250);
-      });
-
-      inviteBtn.addEventListener('click', function () {
-        var pseudo = searchInput.value.trim();
-        if (!pseudo) return;
-        inviteBtn.disabled = true;
-        api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: pseudo })
-          .then(function (res) {
-            alert(t(res.message));
-            panel.classList.add('hidden');
-            searchInput.value = '';
-            suggestBox.innerHTML = '';
-          })
-          .catch(function (err) { alert(err.message); })
-          .then(function () { inviteBtn.disabled = false; });
-      });
-      cancelBtn.addEventListener('click', function () {
-        panel.classList.add('hidden');
-        searchInput.value = '';
-        suggestBox.innerHTML = '';
-      });
-
-      addBtn.addEventListener('click', function () {
-        var showing = !panel.classList.contains('hidden');
-        if (showing) { panel.classList.add('hidden'); return; }
-        panel.classList.remove('hidden');
-        searchInput.value = '';
-        suggestBox.innerHTML = '';
-        searchInput.focus();
-        loadExistingMemberIds();
-      });
-
-      box.appendChild(addBtn);
-      box.appendChild(panel);
+      actionsRow.appendChild(addBtn);
     }
 
     if (isShared) {
@@ -6306,10 +6206,163 @@
           })
           .catch(function (err) { alert(err.message); });
       });
-      box.appendChild(leaveBtn);
+      actionsRow.appendChild(leaveBtn);
     }
 
-    box.classList.toggle('hidden', !box.children.length);
+    box.appendChild(actionsRow);
+
+    if (canAdd) {
+      // Panneau de recherche, construit une seule fois, masqué par défaut.
+      // Trois "vues" internes, une seule visible à la fois :
+      //   1. searchInput + suggestBox (recherche en cours)
+      //   2. confirmBox (une suggestion a été cliquée)
+      var panel = document.createElement('div');
+      panel.className = 'hidden';
+      panel.style.marginTop = '8px';
+
+      var searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.className = 'memberSearchInput';
+      searchInput.placeholder = t('Rechercher...');
+
+      var suggestBox = document.createElement('div');
+
+      var confirmBox = document.createElement('div');
+      confirmBox.className = 'hidden';
+      var confirmMsg = document.createElement('p');
+      confirmMsg.className = 'hint';
+      var confirmRow = document.createElement('div');
+      confirmRow.className = 'rowActions';
+      var validateBtn = document.createElement('button');
+      validateBtn.type = 'button';
+      validateBtn.className = 'iconBtn';
+      validateBtn.textContent = t('Valider');
+      var confirmCancelBtn = document.createElement('button');
+      confirmCancelBtn.type = 'button';
+      confirmCancelBtn.className = 'iconBtn';
+      confirmCancelBtn.textContent = t('Annuler');
+      confirmRow.appendChild(validateBtn);
+      confirmRow.appendChild(confirmCancelBtn);
+      confirmBox.appendChild(confirmMsg);
+      confirmBox.appendChild(confirmRow);
+
+      panel.appendChild(searchInput);
+      panel.appendChild(suggestBox);
+      panel.appendChild(confirmBox);
+      box.appendChild(panel);
+
+      var selectedUser = null;
+
+      function showSearchView() {
+        selectedUser = null;
+        confirmBox.classList.add('hidden');
+        searchInput.classList.remove('hidden');
+        suggestBox.classList.remove('hidden');
+        searchInput.focus();
+      }
+
+      function showConfirmView(u) {
+        selectedUser = u;
+        searchInput.classList.add('hidden');
+        suggestBox.classList.add('hidden');
+        confirmMsg.textContent = t('Voulez-vous inviter {name} à rejoindre cette activité ?', { name: fullName(u.name, u.lastName) });
+        confirmBox.classList.remove('hidden');
+      }
+
+      // Referme entièrement le panneau et rétablit la vue normale (rangée de
+      // boutons + liste des membres) — appelé après une invitation envoyée,
+      // ou pour fermer la recherche.
+      function closeSearchPanel() {
+        panel.classList.add('hidden');
+        searchInput.value = '';
+        suggestBox.innerHTML = '';
+        showSearchView();
+        actionsRow.classList.remove('hidden');
+        if (membersListBox) membersListBox.classList.remove('hidden');
+      }
+
+      // Membres déjà présents (+ moi-même), à exclure des suggestions — choix
+      // confirmé d'Emilien. Chargé une seule fois à l'ouverture du panneau :
+      // le résultat de "Membres · {name}" affiché juste au-dessus est la même
+      // information, elle ne peut pas changer pendant que le panneau est ouvert
+      // sans que la modale entière ne se referme.
+      var existingMemberIds = null;
+      function loadExistingMemberIds() {
+        if (!isShared) { existingMemberIds = [profile.id]; return Promise.resolve(); }
+        return api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + a.id)
+          .then(function (data) { existingMemberIds = data.members.map(function (m) { return m.userId; }); })
+          .catch(function () { existingMemberIds = [profile.id]; });
+      }
+
+      function runAddMemberSearch() {
+        var q = searchInput.value.trim();
+        var seq = ++addMemberSearchSeq;
+        if (q.length < ADD_MEMBER_SEARCH_MIN_LENGTH) {
+          suggestBox.innerHTML = '';
+          return;
+        }
+        api('GET', '/api/users/search?userId=' + profile.id + '&q=' + encodeURIComponent(q))
+          .then(function (users) {
+            if (seq !== addMemberSearchSeq) return;
+            var hideIds = existingMemberIds || [profile.id];
+            var filtered = users.filter(function (u) { return hideIds.indexOf(u.id) === -1; });
+            suggestBox.innerHTML = '';
+            if (filtered.length === 0) {
+              suggestBox.innerHTML = '<p class="hint">' + t('Aucun profil trouvé.') + '</p>';
+              return;
+            }
+            filtered.forEach(function (u) {
+              var displayName = fullName(u.name, u.lastName);
+              var chip = document.createElement('div');
+              chip.className = 'userChip';
+              chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(displayName) + '</span>';
+              chip.addEventListener('click', function () { showConfirmView(u); });
+              suggestBox.appendChild(chip);
+            });
+          })
+          .catch(function () { if (seq === addMemberSearchSeq) suggestBox.innerHTML = ''; });
+      }
+      var addMemberDebounce = null;
+      searchInput.addEventListener('input', function () {
+        clearTimeout(addMemberDebounce);
+        addMemberDebounce = setTimeout(runAddMemberSearch, 250);
+      });
+
+      validateBtn.addEventListener('click', function () {
+        if (!selectedUser) return;
+        validateBtn.disabled = true;
+        api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: selectedUser.name })
+          .then(function (res) {
+            alert(t(res.message));
+            closeSearchPanel();
+          })
+          .catch(function (err) {
+            alert(err.message);
+            validateBtn.disabled = false;
+          });
+      });
+      confirmCancelBtn.addEventListener('click', function () {
+        // Annule uniquement CETTE invitation-là — retour à la recherche, pas
+        // fermeture complète du panneau (choix explicite d'Emilien : les deux
+        // boutons Valider/Annuler n'accompagnent que l'écran de confirmation).
+        showSearchView();
+        searchInput.value = '';
+      });
+
+      addBtn.addEventListener('click', function () {
+        var showing = !panel.classList.contains('hidden');
+        if (showing) { closeSearchPanel(); return; }
+        actionsRow.classList.add('hidden');
+        if (membersListBox) membersListBox.classList.add('hidden');
+        panel.classList.remove('hidden');
+        searchInput.value = '';
+        suggestBox.innerHTML = '';
+        showSearchView();
+        loadExistingMemberIds();
+      });
+    }
+
+    box.classList.toggle('hidden', !actionsRow.children.length);
   }
 
   // ⚠️ 5 septembre 2026 (Activité solo) — troisième paramètre OPTIONNEL `opts`,

@@ -1799,6 +1799,15 @@ body.scrollLock { overflow: hidden; }
   flex-shrink: 0; margin-left: auto;
 }
 
+/* Barre de recherche "Ajouter un membre" (section Membres, 10 septembre 2026,
+   demande d'Emilien : « je souhaite que la barre de recherche soit plus
+   grande ») — même gabarit que .onboarding-card input (recherche de compte à
+   la connexion) : plus généreux que les champs texte par défaut de l'app. */
+.memberSearchInput {
+  width: 100%; padding: 14px; font-size: 16px; border: 1px solid var(--border);
+  border-radius: var(--radius-md); margin-bottom: 8px; box-sizing: border-box;
+}
+
 /* ===== Fil de discussion d'une activité partagée (section Membres) =====
    Classes propres à Communauté : ne redéfinissent aucune classe générique
    (.activityRow/.menuBtn/.iconBtn/.rowActions/.hint/.msg restent à Design).

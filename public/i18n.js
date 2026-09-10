@@ -437,10 +437,11 @@
     '{count} membres': '{count} members',
     'Pseudo de la personne à inviter sur "{activity}" :': 'Nickname of the person to invite to "{activity}":',
     // ---- Ajout de membre par recherche + exclusion par le propriétaire
-    // (10 septembre 2026, demande d'Emilien) ----
-    'Tape au moins 3 lettres du nom complet...': 'Type at least 3 letters of the full name...',
-    'Tape au moins 3 caractères pour voir des suggestions.': 'Type at least 3 characters to see suggestions.',
-    'Inviter': 'Invite',
+    // (10 septembre 2026, demande d'Emilien — texte du champ et confirmation
+    // revus au second passage : recherche seule à l'écran, une suggestion
+    // cliquée ouvre directement Valider/Annuler) ----
+    'Rechercher...': 'Search...',
+    'Voulez-vous inviter {name} à rejoindre cette activité ?': 'Do you want to invite {name} to join this activity?',
     'Exclure': 'Exclude',
     'Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.':
       'Exclude {name} from "{activity}"? This person will keep their already recorded history, in their own personal activity. They will no longer be part of "{activity}" afterwards.',
