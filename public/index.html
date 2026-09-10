@@ -2611,12 +2611,8 @@
                 <span class="settingsSectionChevron" aria-hidden="true">▾</span>
               </button>
               <div class="settingsGroupBody hidden">
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Identité</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
+              <div class="settingsFlat">
+                <p class="sectionTitle settingsFlatTitle">Identité</p>
               <div class="settingsCard">
                 <!-- La photo de profil ne se modifie plus ici depuis le 29 août
                      2026 : elle s'édite directement en cliquant sur l'avatar de la
@@ -2650,7 +2646,6 @@
                 <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
                 <p id="settingsMsg" class="msg"></p>
               </div>
-                </div>
               </div>
               <!-- "Abonnés & Abonnements" a quitté Réglages le 1er septembre 2026
                    (demande d'Emilien) — ce panneau ⚙️ ne la contient donc plus.
@@ -2684,7 +2679,6 @@
                    11 septembre : cette carte se limite donc à une révocation
                    GLOBALE, immédiate, de tous les appareils à la fois. -->
               <div class="settingsCard">
-                <p class="hint">Déconnecte immédiatement tous tes appareils, y compris celui-ci — utile si tu penses que ton code a pu être vu par quelqu'un d'autre. Chaque appareil redemandera ton code à la prochaine ouverture.</p>
                 <button id="settingsLogoutAllBtn" class="iconBtn danger">Se déconnecter de tous les appareils</button>
                 <p id="settingsLogoutAllMsg" class="msg"></p>
               </div>
@@ -2698,15 +2692,9 @@
                    (noesis-timetracker-conditions-utilisation.md) — cette
                    discussion n'a pas mandat sur le fond juridique, elle ne
                    fait qu'exposer le texte déjà validé, jamais le réécrire. -->
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Conditions d'utilisation</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-                  <p class="hint">Le contrat qui régit l'utilisation de Noèsis TimeTracker.</p>
-                  <button type="button" id="openLegalTermsBtn" class="iconBtn">Lire les conditions d'utilisation</button>
-                </div>
+              <div class="settingsFlat">
+                <p class="sectionTitle settingsFlatTitle">Conditions d'utilisation</p>
+                <button type="button" id="openLegalTermsBtn" class="iconBtn">Lire les conditions d'utilisation</button>
               </div>
               <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
                    2026, demande d'Emilien) : suppression définitive du compte,
@@ -2750,12 +2738,8 @@
                 <span class="settingsSectionChevron" aria-hidden="true">▾</span>
               </button>
               <div class="settingsGroupBody hidden">
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Apparence</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
+              <div class="settingsFlat">
+                <p class="sectionTitle settingsFlatTitle">Apparence</p>
               <div class="settingsCard">
                 <div class="themeSwitch" id="themeSwitch">
                   <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
@@ -2763,7 +2747,6 @@
                 </div>
                 <p id="themeMsg" class="msg"></p>
               </div>
-                </div>
               </div>
               <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
                    Réglage par profil, comme le thème : anglais par défaut pour
@@ -2772,12 +2755,8 @@
                    classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
                    (composants génériques appartenant à la discussion Design :
                    utilisés tels quels, aucune définition CSS modifiée). -->
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Langue</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
+              <div class="settingsFlat">
+                <p class="sectionTitle settingsFlatTitle">Langue</p>
               <div class="settingsCard">
                 <div class="themeSwitch" id="langSwitch">
                   <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
@@ -2785,7 +2764,6 @@
                 </div>
                 <p id="langMsg" class="msg"></p>
               </div>
-                </div>
               </div>
               </div>
             </div>
@@ -2843,7 +2821,6 @@
                 </button>
                 <div class="settingsSectionBody hidden">
               <div class="settingsCard">
-                <p class="hint">Les dates de clôture de tes sous-projets peuvent apparaître dans Apple Calendar ou Google Agenda. Tu obtiens une adresse à laquelle ton calendrier s'abonne, en lecture seule : il la relit tout seul de temps en temps.</p>
                 <div id="calendarFeedOff" class="hidden">
                   <button type="button" id="calendarFeedCreateBtn" class="iconBtn">Créer mon lien de calendrier</button>
                 </div>
@@ -2860,7 +2837,6 @@
                     <button type="button" id="calendarFeedAppleBtn" class="iconBtn">Ajouter à Apple Calendar</button>
                     <button type="button" id="calendarFeedGoogleBtn" class="iconBtn">Ajouter à Google Agenda</button>
                   </div>
-                  <p class="hint">Sur un autre calendrier (Outlook ou autre), copie l'adresse ci-dessous puis choisis « S'abonner à un calendrier » ou « Ajouter un calendrier à partir d'une adresse Internet », et colle-la.</p>
                   <div class="shareActions">
                     <button type="button" id="calendarFeedCopyBtn" class="iconBtn">Copier l'adresse</button>
                     <button type="button" id="calendarFeedRenewBtn" class="iconBtn">Régénérer</button>
@@ -2887,7 +2863,6 @@
                   <span class="settingsSectionChevron" aria-hidden="true">▾</span>
                 </button>
                 <div class="settingsSectionBody hidden">
-                  <p class="hint">Télécharge un fichier contenant tout ce qui te concerne sur Noèsis : ton profil, tes activités, tes sessions chronométrées, tes messages, tes sondages et tes votes. Les messages ou tâches des autres membres d'une activité partagée ne sont jamais inclus.</p>
                   <button type="button" id="exportDataBtn" class="iconBtn">Télécharger mes données</button>
                   <p id="exportDataMsg" class="msg"></p>
                 </div>
@@ -2945,13 +2920,8 @@
                  pièce jointe déjà partagés par le reste de l'app (voir
                  public/app.js, section PIÈCES JOINTES) plutôt que d'en écrire
                  de nouveaux. -->
-            <div class="settingsSection">
-              <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                <span class="sectionTitle">Aide et suggestions</span>
-                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-              </button>
-              <div class="settingsSectionBody hidden">
-                <p class="hint">Une suggestion, un bug à signaler ? Écris-nous, on te lit.</p>
+            <div class="settingsFlat">
+              <p class="sectionTitle settingsFlatTitle">Aide et suggestions</p>
                 <div class="settingsCard">
                   <div id="feedbackCategorySwitch" class="feedbackCategorySwitch">
                     <button type="button" class="themeBtn active" data-feedback-category="suggestion">Suggestion</button>
@@ -2972,7 +2942,6 @@
                   </div>
                   <p id="feedbackMsg" class="msg"></p>
                 </div>
-              </div>
             </div>
                       </div>
           </div>
@@ -3069,8 +3038,6 @@
       <button type="button" class="menuBtn" id="legalTermsModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
-      <p class="hint">Version de travail — brouillon fusionné le 6 septembre 2026, pas encore relu par un avocat d'affaires. Ce texte peut évoluer avant sa publication officielle, prévue avant le premier abonnement payant.</p>
-
       <h3>1. Objet et acceptation</h3>
       <p>Les présentes Conditions Générales d'Utilisation (les « CGU ») régissent l'accès et l'utilisation de l'application Noèsis TimeTracker et des services associés (les « Services »), édités par Noèsis Inc. (la « Société »). En créant un compte ou en utilisant les Services, l'Utilisateur reconnaît avoir lu, compris et accepté les présentes CGU.</p>
       <p>Les Services sont offerts aux personnes résidant au Canada. Ils ne sont pas proposés aux résidents d'autres territoires et n'y sont pas promus ; en créant un Compte, l'Utilisateur déclare résider au Canada.</p>

@@ -7209,6 +7209,39 @@
   // d'ouverture.
   $('settingsCloseBtn').addEventListener('click', closeSettingsPanel);
 
+  // Geste de retour tactile (9 septembre 2026, demande d'Emilien) : sur un
+  // appareil à pointeur tactile, on referme Réglages en glissant simplement
+  // de gauche à droite sur le panneau — le bouton "←" (masqué sur ces
+  // appareils, voir styles.css, @media (pointer: coarse)) devient inutile.
+  // "Détection simple" plutôt qu'un suivi du doigt en direct (comme discuté
+  // avec Emilien) : on mesure juste le déplacement total entre touchstart et
+  // touchend, et on déclenche closeSettingsPanel() s'il ressemble à un
+  // balayage horizontal vers la droite — cette fonction anime déjà
+  // exactement le bon sens de glissement (droite, voir plus haut), rien à
+  // réanimer ici.
+  (function () {
+    var panel = $('profileSettingsPanel');
+    var startX = null, startY = null, tracking = false;
+    var MIN_DISTANCE = 60; // px — évite de déclencher sur un simple tapotement
+    var MAX_VERTICAL_RATIO = 0.5; // le geste doit rester majoritairement horizontal
+    panel.addEventListener('touchstart', function (e) {
+      if (panel.classList.contains('hidden') || e.touches.length !== 1) { tracking = false; return; }
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      tracking = true;
+    }, { passive: true });
+    panel.addEventListener('touchend', function (e) {
+      if (!tracking) return;
+      tracking = false;
+      if (panel.classList.contains('hidden') || !e.changedTouches.length) return;
+      var dx = e.changedTouches[0].clientX - startX;
+      var dy = e.changedTouches[0].clientY - startY;
+      if (dx < MIN_DISTANCE) return;
+      if (Math.abs(dy) > Math.abs(dx) * MAX_VERTICAL_RATIO) return;
+      closeSettingsPanel();
+    }, { passive: true });
+  })();
+
   // Referme le panneau des Réglages au clic n'importe où en dehors de lui (ou
   // de son icône) — même mécanisme que le panneau des invitations. Devenu
   // inatteignable en pratique depuis le passage plein écran (le panneau

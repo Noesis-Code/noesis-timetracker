@@ -1514,6 +1514,19 @@ body.scrollLock { overflow: hidden; }
   left: max(12px, env(safe-area-inset-left));
   z-index: 2;
 }
+/* Geste de retour tactile (9 septembre 2026, demande d'Emilien) : sur un
+   appareil à pointeur tactile, Réglages se referme désormais par un
+   glissement gauche → droite sur le panneau (voir app.js, écouteurs
+   touchstart/touchend sur #profileSettingsPanel) — le bouton "←" devient
+   redondant et disparaît pour ces appareils. Il reste affiché sur
+   ordinateur/souris (pointer: fine) : c'est là le SEUL moyen de refermer
+   le panneau, plein écran, sans souris ni geste tactile équivalent. Reprend
+   le même test (pointer: coarse) déjà utilisé ailleurs dans ce fichier et
+   dans app.js (_isCoarsePointer) pour distinguer les deux familles
+   d'appareils. */
+@media (pointer: coarse) {
+  #profileSettingsPanel.settingsPanel #settingsCloseBtn { display: none; }
+}
 /* scroll-padding-top agrandi (8px → ~52px, plutôt que le padding-top du
    conteneur — voir plus bas pourquoi) : avec le défilement « cran par
    cran », N'IMPORTE QUEL élément de premier niveau — section autonome OU
@@ -1538,7 +1551,8 @@ body.scrollLock { overflow: hidden; }
            max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 #profileSettingsScroll .settingsSection,
-#profileSettingsScroll .settingsGroup {
+#profileSettingsScroll .settingsGroup,
+#profileSettingsScroll .settingsFlat {
   scroll-snap-align: start;
   scroll-snap-stop: always;
 }
@@ -1556,9 +1570,11 @@ body.scrollLock { overflow: hidden; }
    uniquement du dégagement vertical de scroll-padding-top. */
 #profileSettingsScroll .subpageHeader { margin-bottom: 10px; padding-left: 44px; }
 #profileSettingsScroll .settingsSection:last-child,
-#profileSettingsScroll .settingsGroup:last-child { margin-bottom: 0; }
+#profileSettingsScroll .settingsGroup:last-child,
+#profileSettingsScroll .settingsFlat:last-child { margin-bottom: 0; }
 #profileSettingsPanel .settingsSection,
-#profileSettingsPanel .settingsGroup { margin-bottom: 8px; }
+#profileSettingsPanel .settingsGroup,
+#profileSettingsPanel .settingsFlat { margin-bottom: 8px; }
 #profileSettingsPanel .settingsSectionHeader {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
   background: var(--card); color: var(--text); border: 1px solid var(--border);
@@ -1592,9 +1608,20 @@ body.scrollLock { overflow: hidden; }
    violette à l'ouverture) sans rien redéfinir. Seul ajout : un léger retrait
    + une ligne verticale ténue pour signaler visuellement l'imbrication. */
 #profileSettingsPanel .settingsGroupBody { margin-top: 8px; }
-#profileSettingsPanel .settingsGroupBody .settingsSection {
+#profileSettingsPanel .settingsGroupBody .settingsSection,
+#profileSettingsPanel .settingsGroupBody .settingsFlat {
   margin-left: 10px; padding-left: 10px; border-left: 2px solid var(--border);
 }
+/* .settingsFlat (9 septembre 2026, demande d'Emilien : limiter les menus
+   déroulants aux seules sections qui en ont vraiment besoin) — variante SANS
+   accordéon de .settingsSection ci-dessus, pour les items dont le contenu
+   est toujours affiché : pas de .settingsSectionHeader/bouton ni de
+   .settingsSectionBody à replier, juste un titre (.settingsFlatTitle,
+   reprend .sectionTitle) suivi directement de son contenu. Hérite déjà de
+   .settingsSection l'espacement de premier niveau et, le cas échéant,
+   l'imbrication dans un groupe fusionné (règles ci-dessus). */
+#profileSettingsPanel .settingsFlatTitle { margin: 0 0 8px; }
+#profileSettingsScroll .settingsFlatTitle { padding-left: 44px; }
 
 .settingsCard input[type=text], .settingsCard input[type=password],
 .settingsCard input[type=tel], .settingsCard input[type=email] {
