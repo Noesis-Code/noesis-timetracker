@@ -288,7 +288,52 @@ function projectRowOut(p) {
 // connu de l'appelant. Cette route reste une recherche par correspondance
 // exacte, jamais un listing : ne pas réintroduire ici un paramètre
 // permettant de lister sans connaître le nom de famille au préalable.
+// ⚠️ 10 septembre 2026 (discussion « Connexion / Création de compte »,
+// demande directe d'Emilien) : un paramètre `q` est ajouté ci-dessous pour
+// une recherche par SOUS-CHAÎNE (façon « ctrl+f ») sur l'écran « J'ai déjà
+// un profil », en plus de la branche `name`/`lastName` EXACTE ci-dessous
+// (laissée inchangée — toujours utilisée ailleurs pour la revérification
+// d'un profil local mémorisé, voir public/app.js ~L11800). Cette branche `q`
+// outrepasse SCIEMMENT l'avertissement du 7 septembre 2026 (incident
+// 2026-001) contre un paramètre de listing sur cette route publique et non
+// authentifiée : cadré avec Emilien via deux tours d'`AskUserQuestion` (sa
+// première réponse demandait à la fois une recherche libre ET zéro risque
+// d'énumération, ce qui est contradictoire sur une route publique — signalé
+// explicitement, puis re-tranché : minimiser le risque plutôt que
+// l'éliminer). Minimisation retenue : seuil minimal de caractères tapés
+// avant que la recherche ne parte (USERS_SEARCH_MIN_LENGTH) et résultats
+// plafonnés (USERS_SEARCH_MAX_RESULTS).
+// 10 septembre 2026 (même jour, second retour d'Emilien) : le nom de famille
+// COMPLET est désormais renvoyé (et non plus seulement son initiale, comme
+// dans la toute première version de cette branche) — décision assumée par
+// Emilien : une ligne dédiée a été ajoutée aux conditions d'utilisation
+// (voir claude/noesis-timetracker-conditions-utilisation.md et le modal
+// « Conditions d'utilisation » de l'app) informant qu'un nom complet peut
+// apparaître à l'écran dès qu'un visiteur tape une suite de 3 caractères
+// qu'il contient. Ceci n'est pas un avis juridique : à faire valider par un
+// conseil légal si Emilien le souhaite.
+const USERS_SEARCH_MIN_LENGTH = 3;
+const USERS_SEARCH_MAX_RESULTS = 5;
+function escapeSqliteLike(s) {
+  return s.replace(/[\\%_]/g, (c) => '\\' + c);
+}
 router.get('/users', (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q) {
+    if (q.length < USERS_SEARCH_MIN_LENGTH) return res.json([]);
+    const rows = db.prepare(
+      "SELECT id, name, lastName, color, pin FROM users " +
+      "WHERE (name || ' ' || COALESCE(lastName, '')) LIKE '%' || ? || '%' ESCAPE '\\' " +
+      "LIMIT ?"
+    ).all(escapeSqliteLike(q), USERS_SEARCH_MAX_RESULTS);
+    return res.json(rows.map((u) => ({
+      id: u.id,
+      name: u.name,
+      lastName: u.lastName || '',
+      color: u.color,
+      hasPin: !!u.pin,
+    })));
+  }
   const name = (req.query.name || '').trim();
   const lastName = (req.query.lastName || '').trim();
   if (!name) return res.json([]);

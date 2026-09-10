@@ -37,6 +37,8 @@
   var DICT = {
     // ---- Onboarding ----
     'TimeTracker partagé': 'Shared TimeTracker',
+    'Tape ton nom complet...': 'Type your full name...',
+    'Tape au moins 3 caractères de ton nom complet pour retrouver ton profil.': 'Type at least 3 characters of your full name to find your profile.',
     "Comment veux-tu qu'on t'appelle ?": 'What should we call you?',
     'Prénom ou pseudo': 'First name or nickname',
     'Nom de famille': 'Last name',
@@ -421,30 +423,19 @@
     "Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.": 'Join me on Noèsis, my shared TimeTracker: {url}\nMy nickname is "{pseudo}" — find me in Community > Find members to follow me.',
     "Le serveur n'a pas pris en compte le changement de langue : il tourne encore sur la version d'avant la mise à jour. Arrête-le (Ctrl+C) et relance `npm start`, puis réessaie.": 'The server did not apply the language change: it is still running the version from before the update. Stop it (Ctrl+C), start it again with `npm start`, then try once more.',
 
-    // ---- Notifications push (1er septembre 2026, volet Communauté) ----
+    // ---- Notifications push (1er septembre 2026, volet Communauté ; refonte
+    // du 10 septembre 2026, demande d'Emilien : bascule "Communauté" + une
+    // bascule par activité, plus de bouton "Activer"/"Envoyer un test") ----
     // Les textes des notifications elles-mêmes ne sont PAS ici : ils sont
     // construits côté serveur, déjà traduits (server/lib/push.js), parce que
     // le service worker qui les affiche n'a accès ni à ce fichier ni à la
     // langue du profil. Ci-dessous, uniquement l'interface de Réglages.
     'Notifications': 'Notifications',
-    "Reçois une notification sur cet appareil quand un membre écrit dans le fil d'une de tes activités partagées, t'invite sur une activité, ou demande à te suivre.": 'Get a notification on this device when a member writes in the thread of one of your shared activities, invites you to an activity, or asks to follow you.',
-    'Activer les notifications': 'Turn on notifications',
-    'Désactiver les notifications': 'Turn off notifications',
-    'Envoyer un test': 'Send a test',
-    "Sur iPhone, les notifications ne fonctionnent que si Noèsis a été ajoutée à l'écran d'accueil depuis Safari (Partager → Sur l'écran d'accueil). Dans un simple onglet, Apple ne les autorise pas.": 'On iPhone, notifications only work if Noèsis has been added to the home screen from Safari (Share → Add to Home Screen). Apple does not allow them in a plain tab.',
     'Cet appareil ne gère pas les notifications.': 'This device does not support notifications.',
     "Les notifications ne sont pas configurées sur ce serveur.": 'Notifications are not configured on this server.',
     "Les notifications sont bloquées pour ce site dans les réglages de ton navigateur.": 'Notifications are blocked for this site in your browser settings.',
-    'Activation...': 'Turning on...',
-    'Activées sur cet appareil.': 'Turned on for this device.',
-    'Désactivées sur cet appareil.': 'Turned off for this device.',
-    "Autorisation refusée — rien n'a été activé.": 'Permission denied — nothing was turned on.',
     "Impossible d'activer les notifications.": 'Could not turn on notifications.',
-    'Impossible de désactiver les notifications.': 'Could not turn off notifications.',
-    'Envoi du test...': 'Sending the test...',
-    'Test envoyé — la notification devrait arriver dans quelques secondes.': 'Test sent — the notification should arrive within a few seconds.',
     "Abonnement aux notifications invalide.": 'Invalid notification subscription.',
-    "Aucun appareil abonné — active d'abord les notifications.": 'No device subscribed — turn notifications on first.',
     "Cet appareil n'est pas abonné avec ton profil.": 'This device is not subscribed with your profile.',
 
     // ---- Suppression de compte (nouveau) ----
