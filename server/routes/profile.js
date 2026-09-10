@@ -288,7 +288,52 @@ function projectRowOut(p) {
 // connu de l'appelant. Cette route reste une recherche par correspondance
 // exacte, jamais un listing : ne pas réintroduire ici un paramètre
 // permettant de lister sans connaître le nom de famille au préalable.
+// ⚠️ 10 septembre 2026 (discussion « Connexion / Création de compte »,
+// demande directe d'Emilien) : un paramètre `q` est ajouté ci-dessous pour
+// une recherche par SOUS-CHAÎNE (façon « ctrl+f ») sur l'écran « J'ai déjà
+// un profil », en remplacement des deux champs prénom/nom séparés par un
+// champ unique « nom complet ». Le commentaire ci-dessus (`ne pas
+// réintroduire ici un paramètre permettant de lister sans connaître le nom
+// de famille au préalable ») visait précisément ce risque — il est
+// sciemment outrepassé ici, sur instruction explicite d'Emilien, après
+// qu'un compromis lui a été présenté (`AskUserQuestion`) : une recherche
+// par sous-chaîne sans restriction sur une route PRÉ-session (donc
+// forcément sans authentification) recrée par nature le risque
+// d'énumération corrigé par l'incident 2026-001 — il n'existe aucune
+// variante technique qui élimine ce risque tout en gardant une recherche
+// par sous-chaîne totalement libre. Emilien a choisi de minimiser plutôt
+// que d'éliminer le risque : seuil minimal de caractères, résultats
+// plafonnés, et SEULE L'INITIALE du nom de famille est renvoyée (jamais le
+// nom complet) pour qu'un homonyme puisse être distingué sans qu'un
+// inconnu n'apprenne un nom de famille qu'il n'a pas lui-même tapé — voir
+// noesis-timetracker-registre-incidents.md et noesis-timetracker-
+// conformite-loi25.md pour la trace de ce compromis assumé. La branche
+// `name`/`lastName` ci-dessous (correspondance EXACTE) reste strictement
+// inchangée : elle est encore utilisée ailleurs (revérification d'un
+// profil déjà mémorisé localement, voir public/app.js) et ne doit pas être
+// modifiée par ce chantier.
+const USERS_SEARCH_MIN_LENGTH = 3;
+const USERS_SEARCH_MAX_RESULTS = 5;
+function escapeSqliteLike(s) {
+  return s.replace(/[\\%_]/g, (c) => '\\' + c);
+}
 router.get('/users', (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q) {
+    if (q.length < USERS_SEARCH_MIN_LENGTH) return res.json([]);
+    const rows = db.prepare(
+      "SELECT id, name, lastName, color, pin FROM users " +
+      "WHERE (name || ' ' || COALESCE(lastName, '')) LIKE '%' || ? || '%' ESCAPE '\\' " +
+      "LIMIT ?"
+    ).all(escapeSqliteLike(q), USERS_SEARCH_MAX_RESULTS);
+    return res.json(rows.map((u) => ({
+      id: u.id,
+      name: u.name,
+      lastInitial: u.lastName ? u.lastName.trim().charAt(0).toUpperCase() : '',
+      color: u.color,
+      hasPin: !!u.pin,
+    })));
+  }
   const name = (req.query.name || '').trim();
   const lastName = (req.query.lastName || '').trim();
   if (!name) return res.json([]);

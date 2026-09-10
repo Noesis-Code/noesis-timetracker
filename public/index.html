@@ -442,17 +442,16 @@
 
     <div id="onbExisting" class="hidden">
       <p class="lead">Retrouve ton profil</p>
-      <!-- 8 septembre 2026 (chantier "Connexion / Création de compte") :
-           deux champs plutôt qu'un seul, puisque le prénom seul n'identifie
-           plus forcément une unique personne (voir server/db.js,
-           "usersNameStillGloballyUnique" — les prénoms en double sont
-           désormais permis, distingués par le nom de famille). Le nom de
-           famille est facultatif (comptes créés avant le 29 août 2026,
-           sans nom de famille en base) — voir loadUserListForOnboarding et
-           GET /api/users dans server/routes/profile.js pour la règle de
-           correspondance exacte, y compris ce cas. -->
-      <input type="text" id="onbSearch" placeholder="Tape ton prénom..." autocomplete="off">
-      <input type="text" id="onbSearchLastName" placeholder="Nom de famille (si tu en as un sur ton profil)" autocomplete="off">
+      <!-- 10 septembre 2026 (chantier "Connexion / Création de compte",
+           demande directe d'Emilien) : un seul champ "nom complet" remplace
+           les deux champs séparés prénom/nom de famille du 8 septembre 2026
+           — la recherche se fait désormais par sous-chaîne (façon
+           "ctrl+f") sur prénom+nom concaténés, dès 3 caractères tapés,
+           voir loadUserListForOnboarding et GET /api/users (paramètre `q`)
+           dans server/routes/profile.js pour le compromis vie privée
+           retenu avec Emilien (résultats plafonnés, seule l'initiale du nom
+           de famille est renvoyée par le serveur). -->
+      <input type="text" id="onbSearch" placeholder="Tape ton nom complet..." autocomplete="off">
       <div id="onbUserList" class="userList"></div>
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
     </div>
@@ -2573,20 +2572,34 @@
     <!-- Réglages (#profileSettingsPanel) déplacé ici le 9 septembre 2026 (demande d'Emilien, fenêtre plein écran) : il vivait jusque-là imbriqué dans .topbar (.settingsWrap > .identityHeader > #topbarProfile > .topbar), qui établit sa PROPRE zone d'empilement (position: fixed + z-index) — un enfant aussi profondément imbriqué ne peut pas, avec son seul z-index, se peindre au-dessus d'un AUTRE enfant direct de #app comme .tabbar : c'est la position de .topbar elle-même (z-index 10) qui aurait été comparée à .tabbar (z-index 10 aussi), pas celle du panneau, et .tabbar (déclarée après .topbar dans le document) l'aurait donc emporté et serait restée visible par-dessus. Déplacé ici, comme #activityPage juste au-dessus (même principe, voir son propre commentaire plus bas dans ce fichier) : enfant direct de <main>, qui ne crée aucune zone d'empilement propre — son z-index (90, styles.css) se compare alors directement à celui de .topbar/.tabbar (10 chacune) et l'emporte réellement. Le bouton "⚙️" (#profileSettingsBtn), lui, reste à sa place dans .identityHeader — seul le PANNEAU a bougé, showProfileSettings()/closeSettingsPanel() (app.js) continuent de le cibler par id, inchangés. -->
 <div id="profileSettingsPanel" class="notifPanel settingsPanel hidden">
             <button type="button" id="settingsCloseBtn" class="menuBtn" aria-label="Fermer">←</button>
-            <!-- 9 septembre 2026 : le contenu défilant (en-tête + sections) est isolé dans #profileSettingsScroll, séparé du bouton "←" ci-dessus — voir le commentaire détaillé dans styles.css (#settingsCloseBtn) sur pourquoi ce bouton doit vivre HORS de la zone qui défile pour rester cliquable une fois une section ouverte (le défilement « cran par cran » pousserait sinon un simple sticky/fixed posé À L'INTÉRIEUR hors champ avec elle). -->
-            <div id="profileSettingsScroll">
-            <!-- Déconnexion en haut à droite, au-dessus d'Identité (demande
-                 d'Emilien, 29 août 2026) — auparavant un lien en bas de la
-                 section Identité ("Changer de profil / se déconnecter"). Le
-                 bouton "←" de fermeture (9 septembre 2026) ne vit plus ici
-                 mais juste avant #profileSettingsScroll (voir plus haut) :
-                 il reste ainsi cliquable même quand ce bandeau défile hors
-                 champ, une section ouverte étant alignée tout en haut du
-                 panneau (voir styles.css, #settingsCloseBtn). -->
+            <!-- En-tête "Réglages"/Déconnexion : FIXE en haut du panneau depuis le
+                 10 septembre 2026 (demande d'Emilien : « je souhaite que le titre
+                 réglage et le bouton pour déconnexion reste fixe en haut du
+                 panneau réglage [...] que lorsque l'on fait défiler, les
+                 différentes options passent en dessous »), en sortant ce bandeau
+                 de la zone qui défile — revient sur la décision du 2 septembre
+                 2026 (il défilait jusque-là normalement avec le reste, voir
+                 styles.css). Troisième enfant direct de #profileSettingsPanel, à
+                 côté de "←" et de #profileSettingsScroll, pour la même raison
+                 exacte que "←" lui-même (voir "Pourquoi le panneau est coupé en
+                 DEUX boîtes" dans styles.css) : un position:sticky/fixed posé
+                 DANS #profileSettingsScroll resterait subordonné à son propre
+                 défilement. Fond opaque (styles.css) pour que le contenu qui
+                 défile disparaisse visuellement dessous plutôt que de
+                 transparaître. -->
             <div class="subpageHeader">
               <p class="sectionTitle subpageTitle">Réglages</p>
               <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
             </div>
+            <!-- Le contenu défilant (sections/groupes) est isolé dans
+                 #profileSettingsScroll, séparé du bouton "←" ET du bandeau
+                 "Réglages"/Déconnexion ci-dessus — voir le commentaire détaillé
+                 dans styles.css (#settingsCloseBtn / .subpageHeader) sur pourquoi
+                 ces deux éléments doivent vivre HORS de la zone qui défile pour
+                 rester joignables une fois une section ouverte (le défilement
+                 « cran par cran » pousserait sinon un simple sticky/fixed posé
+                 À L'INTÉRIEUR hors champ avec elle). -->
+            <div id="profileSettingsScroll">
             <!-- Menu des Réglages (31 août 2026, demande d'Emilien) : le panneau
                  n'affiche plus toutes les sections déroulées les unes sous les
                  autres, mais la liste de leurs titres. Cliquer un titre déplie sa
@@ -2684,17 +2697,46 @@
               </div>
                 </div>
               </div>
-              <!-- Conditions d'utilisation (7 septembre 2026, discussion
-                   "Conditions d'utilisation") : nouvelle section en LECTURE
-                   SEULE dans l'accordéon Réglages, absente jusqu'ici. Affiche
-                   (via #legalTermsModal, voir plus bas dans ce fichier) le
-                   texte déjà rédigé par la discussion Légal
-                   (noesis-timetracker-conditions-utilisation.md) — cette
-                   discussion n'a pas mandat sur le fond juridique, elle ne
-                   fait qu'exposer le texte déjà validé, jamais le réécrire. -->
-              <div class="settingsFlat">
-                <p class="sectionTitle settingsFlatTitle">Conditions d'utilisation</p>
+              <!-- Documents légaux (10 septembre 2026, demande directe
+                   d'Emilien) : la politique de confidentialité et les
+                   mentions légales n'étaient nulle part visibles dans l'app
+                   (seules les Conditions d'utilisation avaient une page,
+                   depuis le 7 septembre 2026) — voir
+                   noesis-timetracker-inventaire-11-septembre.md. Emilien a
+                   demandé une SEULE sous-section déroulante regroupant les
+                   trois documents plutôt que trois entrées séparées. Ancienne
+                   section "Conditions d'utilisation" (.settingsFlat, toujours
+                   dépliée) transformée en .settingsSection repliable, sur le
+                   même patron que "Sécurité"/"Supprimer mon compte" juste
+                   au-dessus/en-dessous dans ce même groupe "Compte et
+                   sécurité" — l'accordéon imbriqué générique
+                   (closeAllSettingsSections/closeSettingsContainer, voir
+                   app.js) la gère sans aucun changement de logique.
+                   #openLegalTermsBtn est INCHANGÉ (même id, même
+                   comportement) : seul son conteneur direct change. Les deux
+                   nouveaux boutons suivent exactement le même patron
+                   (#privacyPolicyModal/#legalNoticesModal, voir plus bas dans
+                   ce fichier) : lecture seule, aucun mandat sur le fond
+                   juridique, textes repris tels quels depuis
+                   noesis-timetracker-conformite-loi25.md (section 1) et
+                   noesis-timetracker-mentions-legales.md (Partie A
+                   uniquement — la Partie B est un usage interne, jamais
+                   montrée à l'Utilisateur). Toute mise à jour du FOND doit
+                   passer par ces documents projet, jamais être rédigée ici
+                   directement. -->
+              <div class="settingsSection">
+                <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                  <span class="sectionTitle">Documents légaux</span>
+                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+                </button>
+                <div class="settingsSectionBody hidden">
+              <div class="settingsCard">
+                <p class="hint">Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.</p>
+                <button type="button" id="openPrivacyPolicyBtn" class="iconBtn">Lire la politique de confidentialité</button>
+                <button type="button" id="openLegalNoticesBtn" class="iconBtn">Lire les mentions légales</button>
                 <button type="button" id="openLegalTermsBtn" class="iconBtn">Lire les conditions d'utilisation</button>
+              </div>
+                </div>
               </div>
               <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
                    2026, demande d'Emilien) : suppression définitive du compte,
@@ -2722,50 +2764,39 @@
             </div>
 
 
-            <!-- Groupe « Affichage » (anciennement « Préférences d'affichage »,
-                 renommé le 9 septembre 2026 à la demande d'Emilien) — fusion
-                 demandée par Emilien le 9 septembre 2026 (réorganisation du
-                 panneau Réglages, voir noesis-timetracker-parametres.md).
-                 Sous-sections en accordéon imbriqué : ce groupe s'ouvre/se
-                 referme comme une section de premier niveau ; une fois
-                 ouvert, une seule sous-section à la fois s'ouvre à
-                 l'intérieur, sans jamais refermer le groupe lui-même (voir
-                 closeAllSettingsSections/closeSettingsContainer,
-                 public/app.js). Tous les ids des sous-sections sont inchangés. -->
-            <div class="settingsGroup">
-              <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                <span class="sectionTitle">Affichage</span>
-                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-              </button>
-              <div class="settingsGroupBody hidden">
-              <div class="settingsFlat">
-                <p class="sectionTitle settingsFlatTitle">Apparence</p>
-              <div class="settingsCard">
-                <div class="themeSwitch" id="themeSwitch">
-                  <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
-                  <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
-                </div>
-                <p id="themeMsg" class="msg"></p>
+            <!-- Affichage (anciennement « Préférences d'affichage », renommé le 9
+                 septembre 2026, puis groupe accordéon fusionné le même jour —
+                 réorganisation du panneau Réglages, voir
+                 noesis-timetracker-parametres.md). Accordéon de groupe ET cadre
+                 .settingsCard retirés le 10 septembre 2026 (demande d'Emilien :
+                 « pour affichage, je souhaite réduire le menu déroulant et ne
+                 conserver que les cases [...] pas le cadre autour ») —
+                 Apparence et Langue redeviennent deux entrées de premier niveau
+                 TOUJOURS affichées, sans clic pour les déplier, et leurs
+                 boutons .themeSwitch/.themeBtn ne sont plus encadrés. Tous les
+                 ids inchangés. -->
+            <div class="settingsFlat">
+              <p class="sectionTitle settingsFlatTitle">Apparence</p>
+              <div class="themeSwitch" id="themeSwitch">
+                <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
+                <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
               </div>
+              <p id="themeMsg" class="msg"></p>
+            </div>
+            <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
+                 Réglage par profil, comme le thème : anglais par défaut pour
+                 tout nouveau compte, français pour les profils qui existaient
+                 déjà (voir la migration dans server/db.js). Réutilise les
+                 classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
+                 (composants génériques appartenant à la discussion Design :
+                 utilisés tels quels, aucune définition CSS modifiée). -->
+            <div class="settingsFlat">
+              <p class="sectionTitle settingsFlatTitle">Langue</p>
+              <div class="themeSwitch" id="langSwitch">
+                <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
+                <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
               </div>
-              <!-- Langue de toute l'interface (29 août 2026, demande d'Emilien).
-                   Réglage par profil, comme le thème : anglais par défaut pour
-                   tout nouveau compte, français pour les profils qui existaient
-                   déjà (voir la migration dans server/db.js). Réutilise les
-                   classes .themeSwitch/.themeBtn du sélecteur de thème ci-dessus
-                   (composants génériques appartenant à la discussion Design :
-                   utilisés tels quels, aucune définition CSS modifiée). -->
-              <div class="settingsFlat">
-                <p class="sectionTitle settingsFlatTitle">Langue</p>
-              <div class="settingsCard">
-                <div class="themeSwitch" id="langSwitch">
-                  <button type="button" data-lang-choice="fr" class="themeBtn">Français</button>
-                  <button type="button" data-lang-choice="en" class="themeBtn">Anglais</button>
-                </div>
-                <p id="langMsg" class="msg"></p>
-              </div>
-              </div>
-              </div>
+              <p id="langMsg" class="msg"></p>
             </div>
 
 
@@ -2794,80 +2825,65 @@
             </div>
 
 
-            <!-- Groupe « Calendrier et export de données » — fusion demandée par Emilien le 9
-                 septembre 2026 (réorganisation du panneau Réglages, voir
-                 noesis-timetracker-parametres.md). Sous-sections en accordéon
-                 imbriqué : ce groupe s'ouvre/se referme comme une section de
-                 premier niveau ; une fois ouvert, une seule sous-section à la
-                 fois s'ouvre à l'intérieur, sans jamais refermer le groupe
-                 lui-même (voir closeAllSettingsSections/closeSettingsContainer,
-                 public/app.js). Tous les ids des sous-sections sont inchangés. -->
-            <div class="settingsGroup">
-              <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                <span class="sectionTitle">Calendrier et export de données</span>
-                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-              </button>
-              <div class="settingsGroupBody hidden">
-              <!-- Calendrier — flux ICS des échéances de sous-projets
-                   (4 septembre 2026, discussion "Calendrier des clôtures").
-                   Toute la section est masquée quand la fonction est éteinte
-                   côté serveur (NOESIS_CALENDAR_FEED) : inutile de proposer un
-                   réglage qui ne peut rien faire. Les trois blocs ci-dessous
-                   s'excluent, c'est renderCalendarFeedState() qui bascule. -->
-              <div id="calendarFeedSection" class="settingsSection hidden">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Calendrier</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
+            <!-- Calendrier et export de données : accordéon de groupe (fusion du
+                 9 septembre 2026) ET les deux accordéons internes retirés le 10
+                 septembre 2026 (demande d'Emilien : « pour calendrier et
+                 données, je souhaite supprimer les menus déroulants ») —
+                 Calendrier et Exporter mes données redeviennent deux entrées de
+                 premier niveau TOUJOURS affichées, sans clic pour les déplier.
+                 Tous les ids inchangés, y compris #calendarFeedSection (classe
+                 de base passée de settingsSection à settingsFlat — le "hidden"
+                 que bascule renderCalendarFeedState, app.js, reste le même
+                 mécanisme). -->
+            <!-- Calendrier — flux ICS des échéances de sous-projets
+                 (4 septembre 2026, discussion "Calendrier des clôtures").
+                 Toute la section est masquée quand la fonction est éteinte
+                 côté serveur (NOESIS_CALENDAR_FEED) : inutile de proposer un
+                 réglage qui ne peut rien faire. Les deux blocs ci-dessous
+                 s'excluent, c'est renderCalendarFeedState() qui bascule.
+                 ⚠️ Adresse/avertissement/Copier l'adresse/Régénérer/Désactiver/
+                 dernière lecture retirés le 10 septembre 2026 (demande
+                 explicite d'Emilien, cadrée par AskUserQuestion : « supprime
+                 l'adresse d'un calendrier avec le texte, garde uniquement les
+                 boutons ajouter à Apple Calendar, ajouter à Google Agenda ») —
+                 perte de fonction assumée et confirmée : plus aucun moyen,
+                 depuis Réglages, de régénérer ou désactiver un lien de
+                 calendrier une fois créé. #calendarFeedUrl reste dans le DOM,
+                 mais caché (.hidden) : calendarFeedWebcalUrl()/les boutons
+                 Apple/Google (app.js) continuent de lire sa valeur en
+                 coulisse. -->
+            <div id="calendarFeedSection" class="settingsFlat hidden">
+              <p class="sectionTitle settingsFlatTitle">Calendrier</p>
               <div class="settingsCard">
                 <div id="calendarFeedOff" class="hidden">
                   <button type="button" id="calendarFeedCreateBtn" class="iconBtn">Créer mon lien de calendrier</button>
                 </div>
                 <div id="calendarFeedOn" class="hidden">
-                  <input type="text" id="calendarFeedUrl" class="calendarFeedUrl" readonly>
-                  <p class="hint">Cette adresse vaut mot de passe : qui l'a voit les noms de tes sous-projets et leurs dates. Ne la publie nulle part. Si elle t'échappe, régénère-la — l'ancienne cesse aussitôt de fonctionner.</p>
+                  <input type="text" id="calendarFeedUrl" class="calendarFeedUrl hidden" readonly>
                   <!-- Raccourcis d'abonnement (7 septembre 2026, demande d'Emilien :
-                       boutons + instructions pas-à-pas). Les deux boutons ouvrent
-                       directement l'app de calendrier plutôt que de forcer un
-                       copier/coller manuel ; l'adresse et les gestes copier/régénérer/
-                       désactiver juste en dessous restent le repli qui marche
-                       partout (Outlook, autre navigateur, etc.). -->
+                       boutons + instructions pas-à-pas) — désormais les SEULS
+                       gestes disponibles ici (voir l'avertissement ci-dessus). -->
                   <div class="shareActions">
                     <button type="button" id="calendarFeedAppleBtn" class="iconBtn">Ajouter à Apple Calendar</button>
                     <button type="button" id="calendarFeedGoogleBtn" class="iconBtn">Ajouter à Google Agenda</button>
                   </div>
-                  <div class="shareActions">
-                    <button type="button" id="calendarFeedCopyBtn" class="iconBtn">Copier l'adresse</button>
-                    <button type="button" id="calendarFeedRenewBtn" class="iconBtn">Régénérer</button>
-                    <button type="button" id="calendarFeedRevokeBtn" class="iconBtn danger">Désactiver</button>
-                  </div>
-                  <p id="calendarFeedLastAccess" class="hint"></p>
                 </div>
                 <p id="calendarFeedMsg" class="msg"></p>
               </div>
-                </div>
-              </div>
-              <!-- Export de mes données personnelles (7 septembre 2026,
-                   candidate n°1 de l'audit des sections manquantes du panneau
-                   Réglages — voir noesis-timetracker-parametres.md). Déclenche
-                   un simple téléchargement de GET /api/profile/export (déjà
-                   livré côté serveur, voir server/lib/dataexport.js) : aucun
-                   état à gérer ici, juste un lien de téléchargement classique.
-                   Le jeton du flux calendrier et les identifiants push restent
-                   exclus du fichier exporté (décision confirmée par Emilien),
-                   rien à faire côté client pour ça. -->
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Exporter mes données</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-                  <button type="button" id="exportDataBtn" class="iconBtn">Télécharger mes données</button>
-                  <p id="exportDataMsg" class="msg"></p>
-                </div>
-              </div>
-              </div>
+            </div>
+            <!-- Export de mes données personnelles (7 septembre 2026,
+                 candidate n°1 de l'audit des sections manquantes du panneau
+                 Réglages — voir noesis-timetracker-parametres.md). Déclenche
+                 un simple téléchargement de GET /api/profile/export (déjà
+                 livré côté serveur, voir server/lib/dataexport.js) : aucun
+                 état à gérer ici, juste un lien de téléchargement classique.
+                 Le jeton du flux calendrier et les identifiants push restent
+                 exclus du fichier exporté (décision confirmée par Emilien),
+                 rien à faire côté client pour ça. -->
+            <div class="settingsFlat">
+              <p class="sectionTitle settingsFlatTitle">Exporter mes données</p>
+              <button type="button" id="exportDataBtn" class="iconBtn">Télécharger mes données</button>
+              <p id="exportDataMsg" class="msg"></p>
             </div>
 
 
@@ -2920,8 +2936,21 @@
                  pièce jointe déjà partagés par le reste de l'app (voir
                  public/app.js, section PIÈCES JOINTES) plutôt que d'en écrire
                  de nouveaux. -->
-            <div class="settingsFlat">
-              <p class="sectionTitle settingsFlatTitle">Aide et suggestions</p>
+            <!-- Aide et suggestions reconvertie en accordéon le 10 septembre
+                 2026 (demande d'Emilien : « je souhaite également remettre le
+                 menu déroulant pour l'aide des suggestions ») — revient sur son
+                 aplatissement du même jour plus tôt (.settingsFlat, voir
+                 noesis-timetracker-parametres.md). Même patron que
+                 "Sécurité"/"Documents légaux"/"Supprimer mon compte" plus haut :
+                 l'accordéon générique (closeAllSettingsSections/
+                 closeSettingsContainer, app.js) la gère sans aucun changement
+                 de logique. -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Aide et suggestions</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
                 <div class="settingsCard">
                   <div id="feedbackCategorySwitch" class="feedbackCategorySwitch">
                     <button type="button" class="themeBtn active" data-feedback-category="suggestion">Suggestion</button>
@@ -2942,6 +2971,7 @@
                   </div>
                   <p id="feedbackMsg" class="msg"></p>
                 </div>
+              </div>
             </div>
                       </div>
           </div>
@@ -3118,6 +3148,159 @@
 
       <h3>17. Coordonnées</h3>
       <p>Pour toute question relative aux présentes CGU : confidentialite.noesis@gmail.com.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Texte de la politique de confidentialité (10 septembre 2026, demande
+     directe d'Emilien : rendre la politique de confidentialité et les
+     mentions légales accessibles depuis Réglages, comme les Conditions
+     d'utilisation le sont déjà depuis le 7 septembre). Reprend EXACTEMENT le
+     même motif que #legalTermsModal juste au-dessus (page qui remonte du
+     bas, en-tête fixe + corps défilant, placé au niveau du <body>, hors de
+     #app et #onboarding). ⚠️ Aucun mandat sur le fond juridique : le texte
+     ci-dessous est repris tel quel depuis
+     noesis-timetracker-conformite-loi25.md (section 1, version 2.7 — en
+     vigueur le 11 septembre 2026), à l'exception du préambule éditorial
+     interne (historique détaillé des versions 2.0 à 2.7, notes de relecture)
+     qui n'est pas une clause opposable et n'a pas sa place devant
+     l'Utilisateur — remplacé par la seule mention du numéro de version. Le
+     tableau détaillé de l'historique des versions (section 9 du document
+     source) n'est pas reproduit ici : le texte lui-même précise qu'il est
+     "conservé et peut être communiqué sur demande", ce que couvre déjà
+     l'adresse de contact indiquée. Toute mise à jour du FOND doit passer par
+     noesis-timetracker-conformite-loi25.md (discussion Légal) puis être
+     reportée ici à l'identique. -->
+<div id="privacyPolicyModal" class="communityMembersModal hidden">
+  <div class="communityMembersModalCard legalTermsModalCard">
+    <div class="communityMembersModalHeader">
+      <p class="sectionTitle">Politique de confidentialité</p>
+      <button type="button" class="menuBtn" id="privacyPolicyModalClose" aria-label="Fermer">✕</button>
+    </div>
+    <div class="legalTermsBody">
+      <p class="hint">Version 2.7 — en vigueur le 11 septembre 2026.</p>
+
+      <h3>À qui s'adresse ce service</h3>
+      <p>Noèsis TimeTracker est offert aux personnes résidant au Canada. Le service n'est pas proposé aux résidents de l'Union européenne ni d'autres territoires, et il n'y est pas promu. Si vous n'êtes pas au Canada, ce service ne vous est pas destiné.</p>
+
+      <h3>En bref</h3>
+      <p>Noèsis TimeTracker est une application qui vous permet de chronométrer vos activités et d'en suivre les totaux. Pour fonctionner, elle a besoin de savoir qui vous êtes et de conserver ce que vous chronométrez.</p>
+      <p>Nous collectons le minimum : votre nom, votre numéro de téléphone, une adresse courriel, et ce que vous enregistrez vous-même dans l'application. Nous ne vendons rien, nous ne partageons rien avec des annonceurs, et il n'y a aucune publicité ni aucun traceur publicitaire. Votre identité minimale (prénom, nom de famille, photo, nombre de projets) est repérable par les autres membres inscrits, dès la création de votre compte — c'est la fonction d'annuaire de base de l'application. <strong>Tout le reste</strong> — vos activités, vos totaux, vos notes — est <strong>privé par défaut</strong>. Rien n'est visible par les autres tant que vous ne le décidez pas. Vous pouvez supprimer votre compte à tout moment : tout est alors effacé. Vos renseignements sont hébergés aux Pays-Bas, chez notre fournisseur d'infrastructure.</p>
+      <p>Le reste de ce document détaille chacun de ces points.</p>
+
+      <h3>1. Qui est responsable de vos renseignements</h3>
+      <p>L'application Noèsis TimeTracker est exploitée par <strong>Noèsis Inc.</strong>, société par actions constituée au Québec, dont le siège social est situé à Montréal, Québec.</p>
+      <p>Conformément à la <em>Loi sur la protection des renseignements personnels dans le secteur privé</em>, la personne responsable de la protection des renseignements personnels est <strong>Gaspard et Émilien Morel-Obaton</strong>, dirigeants de Noèsis Inc. — confidentialite.noesis@gmail.com.</p>
+      <p>C'est à cette adresse qu'il faut écrire pour toute question sur cette politique, pour exercer vos droits, ou pour signaler un problème.</p>
+
+      <h3>2. Ce que nous collectons, et pourquoi</h3>
+      <p>Nous ne collectons rien d'autre que ce qui est nécessaire au fonctionnement de l'application.</p>
+      <p><strong>2.1 Ce que vous nous donnez à l'inscription</strong></p>
+      <p><strong>Prénom ou pseudonyme</strong> — vous identifier dans l'application, et vous nommer auprès des personnes avec qui vous partagez une activité.</p>
+      <p><strong>Nom de famille</strong> — vous identifier de façon plus formelle, notamment lors d'échanges professionnels au sein d'une activité partagée.</p>
+      <p><strong>Numéro de téléphone</strong> — vous joindre et vous permettre de récupérer l'accès à votre compte si les autres moyens ne suffisent pas.</p>
+      <p><strong>Adresse courriel</strong> — retrouver votre compte et vous aider à en récupérer l'accès si vous oubliez votre code PIN.</p>
+      <p><strong>Code PIN (4 à 6 chiffres)</strong> — protéger l'accès à votre compte. Il n'est jamais conservé en clair : seule une empreinte cryptographique irréversible est enregistrée.</p>
+      <p>Nous <strong>ne demandons pas</strong> votre date de naissance, votre adresse postale ni aucune donnée de paiement.</p>
+      <p><strong>2.2 Ce que vous créez en utilisant l'application</strong></p>
+      <p><strong>Vos activités</strong> — la liste que vous créez vous-même, avec le nom et la couleur que vous choisissez.</p>
+      <p><strong>Vos sessions chronométrées</strong> — date, heure de début, durée. C'est la raison d'être de l'application.</p>
+      <p><strong>Vos notes</strong> — le texte libre que vous ajoutez à une session ou à une publication. Vous seul décidez de ce que vous y écrivez.</p>
+      <p><strong>Vos pièces jointes</strong> — les fichiers, photos ou documents que vous choisissez d'ajouter.</p>
+      <p><strong>Vos liens avec d'autres personnes</strong> — les activités que vous partagez, les invitations envoyées ou reçues, les personnes que vous suivez, et les messages échangés dans une activité partagée.</p>
+      <p><strong>Votre photo de profil</strong> — facultative.</p>
+      <p><strong>Vos préférences</strong> — thème clair ou sombre, langue, couleurs.</p>
+      <p><strong>Votre adresse de calendrier</strong> — créée uniquement si vous activez le calendrier (section 4.3). C'est une suite de caractères aléatoire, qui n'est associée qu'à votre compte, et que vous pouvez supprimer ou remplacer à tout moment.</p>
+      <p class="hint">Sur les notes et les pièces jointes : ce sont des espaces de texte et de fichiers libres. Nous n'en contrôlons pas le contenu et nous ne les analysons pas. Évitez d'y inscrire des renseignements sensibles — sur votre santé, vos finances ou votre vie privée — que vous ne voudriez pas voir conservés.</p>
+      <p><strong>2.3 Ce que nous n'utilisons pas</strong> — aucun témoin publicitaire ou de mesure d'audience (l'application utilise un seul témoin, strictement nécessaire à son fonctionnement, qui vous garde connecté d'une page à l'autre — c'est pourquoi il ne nécessite pas votre consentement préalable) ; aucun outil d'analyse tiers, aucun pixel de suivi, aucun réseau publicitaire ; aucune décision automatisée vous concernant.</p>
+
+      <h3>3. Sur quelle base nous traitons vos renseignements</h3>
+      <p>Nous traitons vos renseignements sur la base de <strong>votre consentement</strong>, que vous donnez à l'inscription, séparément des conditions d'utilisation. Ce consentement est libre : vous n'êtes pas obligé d'utiliser Noèsis. Il est éclairé : la présente politique en explique la portée. Il est donné à des fins précises, énumérées à la section 2.</p>
+      <p><strong>Vous pouvez le retirer à tout moment</strong> en supprimant votre compte (section 6). Le retrait n'a pas d'effet rétroactif sur ce qui a été fait avant, mais il met fin au traitement pour l'avenir.</p>
+
+      <h3>4. Qui peut voir vos renseignements</h3>
+      <p><strong>4.1 Les autres utilisateurs.</strong> Votre identité minimale est repérable par tout autre utilisateur inscrit et connecté, dès la création de votre compte : votre prénom, votre nom de famille, votre photo de profil, le nombre de projets que vous suivez et ce que vous recherchez (si vous l'indiquez). C'est la fonction d'annuaire de base de l'application, nécessaire pour que d'autres personnes puissent vous retrouver — elle ne dépend d'aucun geste de votre part et vous ne pouvez pas vous en retirer autrement qu'en supprimant votre compte. <strong>Votre numéro de téléphone et votre adresse courriel, eux, ne sont jamais visibles par personne d'autre que vous.</strong></p>
+      <p>Tout le reste reste privé par défaut. Vos activités, vos totaux, vos sessions chronométrées, vos notes, le détail de vos projets et vos publications ne sont visibles par personne d'autre tant que vous n'avez pas posé, vous-même, l'un des gestes volontaires suivants : (1) inviter quelqu'un à partager une activité — cette personne voit alors le nom de l'activité, votre prénom et le temps que vous y consacrez, pour cette activité seulement, jamais vos autres activités ni vos notes personnelles ; (2) accepter la demande d'abonnement de quelqu'un — cette personne peut alors consulter vos statistiques, le détail de vos projets et vos publications ; (3) écrire dans une discussion d'activité partagée — vos messages sont lus par les autres membres de cette activité. Vous pouvez revenir sur chacun de ces trois choix à tout moment.</p>
+      <p><strong>4.2 Notre fournisseur d'hébergement.</strong> L'application et sa base de données sont hébergées chez <strong>Railway Corporation</strong>, dans un centre de données situé à <strong>Amsterdam, aux Pays-Bas</strong>. Railway agit uniquement comme prestataire technique : il héberge, il n'exploite pas. Il est tenu par ses propres conditions d'utilisation et sa politique de confidentialité publiques, qui lui imposent des obligations de confidentialité et de sécurité, et il n'a pas le droit d'utiliser vos renseignements à ses propres fins. Une démarche est en cours pour formaliser ces engagements dans une entente écrite spécifique à notre relation avec cet hébergeur.</p>
+      <p>Puisque cet hébergement se situe hors du Québec, nous avons réalisé au préalable une évaluation des facteurs relatifs à la vie privée, comme la loi l'exige. Vous pouvez en demander le résumé à l'adresse indiquée à la section 1. Les Pays-Bas relèvent du Règlement général sur la protection des données de l'Union européenne, un cadre juridique reconnu comme offrant un niveau de protection élevé — supérieur, sur plusieurs points, à ce qu'exige la loi québécoise.</p>
+      <p><strong>Une copie de secours chiffrée existe désormais</strong>, en plus de la base de données principale. Chaque jour, une copie de vos renseignements est chiffrée avant de quitter nos serveurs et envoyée chez Cloudflare, dans un centre de données situé dans l'Union européenne. Cloudflare ne reçoit jamais que des octets illisibles : la clé de déchiffrement n'est jamais transmise à cette entreprise.</p>
+      <p><strong>4.3 Votre application de calendrier, si vous l'activez.</strong> Noèsis peut faire apparaître les dates d'échéance de vos sous-projets dans une application de calendrier — par exemple Apple Calendar ou Google Agenda. Cette fonction est désactivée par défaut. Rien ne sort de l'application tant que vous ne l'avez pas activée vous-même, dans Profil → Réglages → Calendrier.</p>
+      <p>Quand vous l'activez : l'application vous remet une adresse web unique, contenant une suite de caractères aléatoire, que vous donnez à votre application de calendrier — c'est votre calendrier qui vient chercher l'information, Noèsis n'envoie rien nulle part. Si vous utilisez Google Agenda, ce sont les serveurs de Google qui viennent relire cette adresse ; si vous utilisez Apple Calendar, ce sont ceux d'Apple ou directement votre appareil. Ces entreprises reçoivent alors ce que l'adresse contient, et le conservent selon leurs propres politiques, sur lesquelles nous n'avons aucun contrôle. <strong>Ce que l'adresse contient, et rien d'autre :</strong> le nom du sous-projet, le nom de l'activité à laquelle il appartient, et la date d'échéance — aucune tâche, aucun message, aucun sondage, aucun nom de membre, aucune durée chronométrée, aucune donnée de votre profil. La liaison ne va que dans un sens : ce que vous modifiez dans votre calendrier ne change jamais rien dans Noèsis.</p>
+      <p class="hint">Cette adresse doit être traitée comme un mot de passe. Toute personne qui l'obtient peut lire les noms de vos sous-projets et leurs dates, sans avoir à se connecter. Ne la publiez nulle part.</p>
+      <p>Vous gardez la main à tout moment, depuis Profil → Réglages → Calendrier : régénérer l'adresse, désactiver le calendrier, ou supprimer votre compte (l'adresse est alors détruite avec le reste).</p>
+      <p><strong>4.4 Personne d'autre.</strong> Nous ne vendons pas vos renseignements. Nous ne les louons pas. Nous ne les communiquons à aucun annonceur, courtier de données ou partenaire commercial. Nous ne les communiquerions à une autorité publique que si la loi nous y obligeait, et nous vous en informerions dans la mesure où la loi nous le permet.</p>
+
+      <h3>5. Combien de temps nous les conservons</h3>
+      <p>Tant que votre compte existe, vos renseignements sont conservés — c'est ce qui vous permet de consulter votre historique.</p>
+      <p>Dès que vous supprimez votre compte, tout est effacé immédiatement et définitivement de la base de données vivante : votre profil, vos activités, votre historique, vos notes, vos pièces jointes, vos messages, vos liens avec d'autres personnes et votre adresse de calendrier. Il n'y a pas de période de grâce et pas de corbeille : la suppression est irréversible.</p>
+      <p><strong>Seule exception : les sauvegardes chiffrées.</strong> Une copie chiffrée de la base est conservée hors site pour nous protéger d'une perte accidentelle. Une copie de vos renseignements, déjà chiffrée, peut donc subsister jusqu'à <strong>30 jours</strong> dans ces sauvegardes avant d'être définitivement purgée par rotation automatique, même après la suppression de votre compte. Personne ne peut lire cette copie sans la clé de déchiffrement, qui n'est jamais transmise à notre fournisseur de sauvegarde.</p>
+      <p>Si vous cessez simplement d'utiliser l'application sans supprimer votre compte, vos renseignements restent conservés. Écrivez-nous si vous voulez que nous fermions un compte inactif.</p>
+
+      <h3>6. Vos droits</h3>
+      <p>Vous pouvez, à tout moment :</p>
+      <p><strong>Consulter</strong> vos renseignements — ils sont visibles dans l'application. Vous pouvez aussi en demander copie.</p>
+      <p><strong>Les corriger</strong> — directement dans l'onglet Profil, ou en nous écrivant.</p>
+      <p><strong>Les emporter</strong> (portabilité) — depuis Profil → Réglages → « Exporter mes données », un bouton vous remet directement un fichier structuré contenant tout ce qui vous concerne.</p>
+      <p><strong>Les faire effacer</strong> — le bouton « Supprimer mon compte » de l'onglet Profil. Effet immédiat, sous réserve de la section 5.</p>
+      <p><strong>Retirer votre consentement</strong> — en supprimant votre compte. Pour le seul calendrier, il suffit de le désactiver (section 4.3).</p>
+      <p><strong>Porter plainte</strong> — auprès de la Commission d'accès à l'information du Québec.</p>
+      <p>Nous répondons à toute demande dans un délai maximal de 30 jours. Si nous devions refuser une demande, nous vous en donnerions le motif écrit et vous indiquerions les recours possibles.</p>
+      <p><strong>6bis. Audit de l'effacement réel du compte (« Supprimer mon compte »).</strong> À la suppression de votre compte, sont réellement effacés (ligne de base de données supprimée, pas seulement masquée) : votre profil (identité, nom de famille, téléphone, courriel, code PIN hashé), votre historique et votre chrono en cours, vos appartenances aux activités, ainsi que — par cascade — vos invitations, vos abonnements, vos pièces jointes, vos messages, vos publications et projets de profil, vos abonnements de notification, vos votes de sondage, votre adresse de calendrier. Vos pièces jointes n'existent nulle part ailleurs que dans ces lignes de base de données : leur suppression est donc complète, sans résidu sur un service de stockage séparé.</p>
+      <p>Ce qui subsiste légitimement, par construction : une activité partagée dont d'autres personnes restent membres continue d'exister, avec sa propriété transférée automatiquement au membre restant le plus ancien ; les sessions chronométrées et messages des autres membres d'une activité partagée restent inchangés — seuls les vôtres sont retirés ; un sous-projet, une section de tâches ou un sondage que vous avez créé au sein d'une activité partagée survit à la suppression de votre compte, avec sa paternité transférée de la même façon, plutôt que d'entraîner la disparition du contenu et des votes des autres membres. Là où un transfert de paternité n'est pas possible (un sondage publié sur votre page personnelle, ou un message que vous avez écrit dans le fil d'un sous-projet), le contenu est conservé et seul votre nom disparaît, affiché comme « Compte supprimé ».</p>
+
+      <h3>7. Comment nous protégeons vos renseignements</h3>
+      <p><strong>Chiffrement en transit.</strong> Toutes les communications entre votre appareil et l'application passent par HTTPS.</p>
+      <p><strong>Codes PIN irréversibles.</strong> Votre code PIN (4 à 6 chiffres) est transformé par une fonction cryptographique salée (scrypt) ; même nous ne pouvons pas le lire.</p>
+      <p><strong>Cloisonnement des comptes.</strong> Le serveur vérifie votre identité à chaque requête à partir d'une session signée. Il n'est pas possible d'accéder aux renseignements d'un autre compte en modifiant une adresse.</p>
+      <p><strong>Confidentialité par défaut.</strong> Tous les réglages de visibilité sont au maximum de protection à la création du compte, à l'exception de votre identité minimale (section 4.1) qui reste repérable par tout autre membre inscrit — le reste, et les fonctions qui communiquent quelque chose à l'extérieur, comme le calendrier de la section 4.3, restent éteints tant que vous ne les activez pas.</p>
+      <p><strong>Adresses de calendrier imprévisibles et révocables.</strong> L'adresse décrite à la section 4.3 est tirée au hasard sur 256 bits, ce qui la rend impossible à deviner, et vous pouvez la remplacer ou la supprimer à tout moment.</p>
+      <p><strong>Accès restreint.</strong> Seuls les responsables désignés à la section 1 ont accès à l'infrastructure.</p>
+      <p>Aucun système n'est parfaitement sûr. En cas d'incident présentant un risque de préjudice sérieux, nous en informerons la Commission d'accès à l'information et les personnes touchées, comme la loi l'exige.</p>
+
+      <h3>8. Les personnes mineures</h3>
+      <p>Noèsis TimeTracker n'est pas destinée aux personnes de moins de 16 ans.</p>
+      <p class="hint">Une offre payante est prévue pour l'avenir avec des conditions d'âge et de consentement parental additionnelles — voir les conditions d'utilisation. Elle n'existe pas encore dans l'application au moment de la publication de cette politique.</p>
+
+      <h3>9. Si cette politique change</h3>
+      <p>Nous pouvons modifier cette politique, par exemple si l'application évolue. Toute modification importante vous sera signalée dans l'application avant sa prise d'effet, et la date de version en tête de ce document sera mise à jour. L'historique des versions est conservé et peut vous être communiqué sur demande.</p>
+
+      <h3>10. Nous joindre</h3>
+      <p>Pour toute question, demande ou plainte relative à vos renseignements personnels :</p>
+      <p><strong>Gaspard et Émilien Morel-Obaton</strong>, dirigeants de Noèsis Inc. — Responsable de la protection des renseignements personnels<br>confidentialite.noesis@gmail.com</p>
+      <p>Vous pouvez également vous adresser directement à la <strong>Commission d'accès à l'information du Québec</strong> — cai.gouv.qc.ca.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Texte des mentions légales (10 septembre 2026, même chantier que
+     #privacyPolicyModal juste au-dessus — voir son commentaire pour le
+     contexte complet). Reprend UNIQUEMENT la Partie A de
+     noesis-timetracker-mentions-legales.md ("Ce qui doit être publié dans
+     l'application") — la Partie B de ce même document est un usage interne
+     (notes sur l'incorporation, immatriculation) et n'est jamais montrée à
+     l'Utilisateur. Même motif que les deux modaux juste au-dessus. -->
+<div id="legalNoticesModal" class="communityMembersModal hidden">
+  <div class="communityMembersModalCard legalTermsModalCard">
+    <div class="communityMembersModalHeader">
+      <p class="sectionTitle">Mentions légales</p>
+      <button type="button" class="menuBtn" id="legalNoticesModalClose" aria-label="Fermer">✕</button>
+    </div>
+    <div class="legalTermsBody">
+      <h3>Identification de l'exploitant</h3>
+      <p>L'application Noèsis TimeTracker est exploitée par <strong>Noèsis Inc.</strong>, société par actions constituée au Québec, dont le siège social est situé à Montréal, Québec, Canada.</p>
+      <p class="hint">Numéro d'entreprise du Québec (NEQ) à ajouter dès réception du certificat de constitution.</p>
+      <p>Noèsis Inc. est une société par actions constituée au Québec. Les fondateurs, Gaspard et Émilien Morel-Obaton, en sont les dirigeants et actionnaires et n'assument plus personnellement, à titre individuel, les responsabilités liées à l'application.</p>
+      <p>Contact : confidentialite.noesis@gmail.com</p>
+
+      <h3>Responsable de la protection des renseignements personnels</h3>
+      <p>Conformément à l'article 3.1 de la <em>Loi sur la protection des renseignements personnels dans le secteur privé</em>, la personne responsable de la protection des renseignements personnels est <strong>Gaspard et Émilien Morel-Obaton</strong>, dirigeants de Noèsis Inc. — confidentialite.noesis@gmail.com.</p>
+      <p>Cette personne est chargée de veiller au respect de la loi, de répondre aux demandes d'accès, de rectification et de suppression, et de traiter les incidents de confidentialité.</p>
+
+      <h3>Hébergement</h3>
+      <p>L'application est hébergée par Railway Corporation, dans un centre de données situé à Amsterdam, aux Pays-Bas.</p>
+
+      <h3>Langue</h3>
+      <p>Cette application et ses documents contractuels sont offerts en français. Une version anglaise est disponible à titre de commodité ; en cas de divergence, la version française prévaut.</p>
     </div>
   </div>
 </div>

@@ -185,8 +185,22 @@ input[type=time]:focus, select:focus, textarea:focus {
 }
 
 /* ===== Onboarding ===== */
+/* 10 septembre 2026 (chantier "Connexion / Création de compte", demande
+   directe d'Emilien) : la fenêtre de connexion/création doit être FIXE,
+   sans aucun défilement possible sur la page elle-même. `height` (au lieu
+   du `min-height` d'origine, qui laissait la page grandir au-delà de
+   l'écran et donc défiler si le contenu était plus haut que la fenêtre)
+   fige #onboarding exactement à la hauteur de l'écran, et `overflow: hidden`
+   retire toute possibilité de tirer/glisser la page — même patron que
+   `.noScrollNeeded` déjà utilisé ailleurs dans ce fichier pour #app (voir
+   plus haut). 100dvh en plus de 100vh pour la même raison que le reste du
+   fichier (barre d'adresse mobile qui apparaît/disparaît, voir la note du 3
+   septembre 2026 plus haut) : 100vh reste le repli pour les navigateurs qui
+   ne comprennent pas 100dvh. */
 #onboarding {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,6 +213,15 @@ input[type=time]:focus, select:focus, textarea:focus {
   padding: 32px 26px;
   width: 100%;
   max-width: 420px;
+  /* La CARTE elle-même (pas la page) peut défiler si son contenu dépasse
+     l'espace restant (ex. le formulaire de création, plus long, sur un
+     petit écran) — c'est la soupape de sécurité qui évite de couper des
+     champs, tout en garantissant qu'aucun défilement ne touche jamais le
+     fond/la page derrière la carte. 48px = les deux paddings de 24px de
+     #onboarding ci-dessus (haut + bas). */
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
   box-shadow: var(--shadow-elevated);
   text-align: center;
 }
@@ -1373,7 +1396,11 @@ body.scrollLock { overflow: hidden; }
    le flex row .subpageHeader. */
 .logoutBtn {
   margin-left: auto; background: none; border: none; padding: 4px 2px;
-  color: var(--blue); font-size: 13px; cursor: pointer; flex-shrink: 0;
+  /* Violet (10 septembre 2026, demande d'Emilien : « mettre "déconnexion" en
+     violet ») — anciennement var(--blue). var(--purple) est la variable de
+     palette déjà utilisée partout ailleurs pour signaler une action/un état
+     "sélectionné" (aucune nouvelle variable de couleur). */
+  color: var(--purple); font-size: 13px; cursor: pointer; flex-shrink: 0;
 }
 .logoutBtn:hover { text-decoration: underline; }
 #profileSettingsPanel .sectionTitle:nth-child(2) { margin-top: 4px; }
@@ -1472,10 +1499,17 @@ body.scrollLock { overflow: hidden; }
    une sortie complète de cette zone — un enfant SÉPARÉ de
    #profileSettingsPanel, positionné une fois pour toutes par rapport à lui
    plutôt que par rapport à sa zone de défilement interne — le laisse
-   accessible en toute circonstance. Le titre "Réglages"/"Déconnexion" (dans
-   #profileSettingsScroll) continue de défiler normalement avec le reste,
-   comme décidé le 2 septembre 2026 — seul le bouton de fermeture a besoin de
-   rester en permanence joignable.
+   accessible en toute circonstance.
+
+   ⚠️ **10 septembre 2026, mise à jour** : le titre "Réglages"/"Déconnexion"
+   (.subpageHeader) est sorti à son tour de #profileSettingsScroll pour
+   rejoindre "←" comme troisième enfant direct de #profileSettingsPanel — sur
+   demande d'Emilien (« je souhaite que le titre réglage et le bouton pour
+   déconnexion reste fixe en haut du panneau réglage [...] que lorsque l'on
+   fait défiler, les différentes options passent en dessous »), revenant sur
+   la phrase ci-dessus qui décrivait la décision du 2 septembre 2026. Voir la
+   règle .subpageHeader dédiée plus bas dans ce bloc pour le détail (position,
+   fond opaque, mesure JS de sa hauteur).
 
    ⚠️ .settingsGroup/.settingsGroupBody (réorganisation du panneau Réglages,
    9 septembre 2026, discussion Paramètres) ajoutés partout où figurait déjà
@@ -1527,27 +1561,49 @@ body.scrollLock { overflow: hidden; }
 @media (pointer: coarse) {
   #profileSettingsPanel.settingsPanel #settingsCloseBtn { display: none; }
 }
-/* scroll-padding-top agrandi (8px → ~52px, plutôt que le padding-top du
-   conteneur — voir plus bas pourquoi) : avec le défilement « cran par
-   cran », N'IMPORTE QUEL élément de premier niveau — section autonome OU
-   groupe fusionné (pas seulement "Réglages"/Identité) — peut se retrouver
-   aligné tout en haut de cette zone une fois ouvert, et le bouton "←"
-   (flottant, voir #settingsCloseBtn ci-dessus) chevaucherait alors son
-   titre ("Identity" affiché coupé en "entity", par exemple) si le point
-   d'ancrage restait à 8px du haut. Augmenter scroll-padding-top (et non le
+/* En-tête "Réglages"/Déconnexion FIXE en haut du panneau (10 septembre 2026,
+   demande d'Emilien — voir le commentaire "Pourquoi le panneau est coupé en
+   DEUX boîtes" plus haut pour le pourquoi de cette sortie de
+   #profileSettingsScroll, désormais valable pour .subpageHeader comme pour
+   "←"). Troisième enfant direct de #profileSettingsPanel, positionné en
+   absolute par rapport à lui (comme #settingsCloseBtn juste au-dessus) —
+   z-index 1, sous "←" (z-index 2) pour que le bouton reste cliquable
+   par-dessus si jamais ils se chevauchent visuellement. Fond opaque
+   (var(--bg), la couleur de fond de toute l'app) : le contenu qui défile
+   dessous disparaît visuellement sous ce bandeau plutôt que de transparaître.
+   padding-left réutilise la même colonne de 44px que .settingsSectionHeader
+   ci-dessous, pour ne jamais chevaucher "←" sur pointer: fine. */
+#profileSettingsPanel.settingsPanel > .subpageHeader {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 1;
+  margin: 0;
+  background: var(--bg);
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 12px
+           calc(max(12px, env(safe-area-inset-left)) + 44px);
+}
+/* scroll-padding-top et padding-top calés sur la hauteur RÉELLE du bandeau
+   ci-dessus (--settings-header-h, mesurée en JS — voir
+   syncSettingsHeaderHeightVar dans app.js, même patron que
+   --topbar-h/--community-searchbar-h ailleurs dans ce fichier) plutôt que sur
+   un nombre codé en dur : le texte du bandeau peut changer de hauteur selon
+   la langue ou la taille de police du système. 56px de repli tant que la
+   variable n'a pas encore été posée par JS (avant la première ouverture du
+   panneau). +8px de respiration, comme le reste du panneau. Avec le
+   défilement « cran par cran », N'IMPORTE QUEL élément de premier niveau —
+   section autonome OU groupe fusionné — peut se retrouver aligné tout en
+   haut de cette zone une fois ouvert : scroll-padding-top (et non le
    padding-top du conteneur, qui n'influence que la position AVANT tout
-   défilement — l'alignement « cran par cran » d'un élément une fois ouvert
-   ignore le padding du conteneur et se cale uniquement sur
-   scroll-padding-top, mesuré depuis le haut du viewport de défilement)
-   pousse l'élément ouvert sous le bouton, quel qu'il soit. */
+   défilement) pousse l'élément ouvert sous le bandeau fixe, quel qu'il
+   soit. */
 #profileSettingsScroll {
   position: absolute;
   inset: 0;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
-  scroll-padding-top: calc(max(12px, env(safe-area-inset-top)) + 40px);
+  scroll-padding-top: calc(var(--settings-header-h, 56px) + 8px);
   overscroll-behavior: contain;
-  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+  padding: calc(var(--settings-header-h, 56px) + 8px) max(12px, env(safe-area-inset-right))
            max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 #profileSettingsScroll .settingsSection,
@@ -1557,18 +1613,19 @@ body.scrollLock { overflow: hidden; }
   scroll-snap-stop: always;
 }
 /* Espace réservé pour le bouton "←" flottant (position: absolute, voir
-   #settingsCloseBtn ci-dessus) : ".subpageHeader" en a besoin pour l'état
-   initial du panneau (scrollTop à 0, avant toute ouverture de
-   section/groupe). scroll-padding-top (ci-dessus) pousse l'élément CIBLE
-   sous le bouton une fois ouvert, mais les éléments ne sont espacés que de
-   8px (margin-bottom) : l'en-tête collapsed de l'élément PRÉCÉDENT peut
-   donc encore dépasser de ~44px sous ce point d'ancrage et chevaucher le
-   bouton par la gauche (ex. "Notifications" coupé en "otifications" derrière
-   "←" quand une section plus bas est ouverte). Réserver la même colonne de
-   44px sur .settingsSectionHeader (et pas seulement .subpageHeader, voir
-   plus bas) couvre ce cas quel que soit l'élément ouvert, sans dépendre
-   uniquement du dégagement vertical de scroll-padding-top. */
-#profileSettingsScroll .subpageHeader { margin-bottom: 10px; padding-left: 44px; }
+   #settingsCloseBtn ci-dessus) : scroll-padding-top (ci-dessus) pousse
+   l'élément CIBLE sous le bandeau fixe une fois ouvert, mais les éléments ne
+   sont espacés que de 8px (margin-bottom) : l'en-tête collapsed de l'élément
+   PRÉCÉDENT peut donc encore dépasser de ~44px sous ce point d'ancrage et
+   chevaucher le bouton par la gauche (ex. "Notifications" coupé en
+   "otifications" derrière "←" quand une section plus bas est ouverte).
+   Réserver la même colonne de 44px sur .settingsSectionHeader couvre ce cas
+   quel que soit l'élément ouvert, sans dépendre uniquement du dégagement
+   vertical de scroll-padding-top. ⚠️ .subpageHeader n'a plus besoin de sa
+   propre règle ici depuis le 10 septembre 2026 : elle a quitté
+   #profileSettingsScroll (voir plus haut, bandeau désormais fixe), sa
+   réservation des 44px vit maintenant directement sur
+   #profileSettingsPanel.settingsPanel > .subpageHeader ci-dessus. */
 #profileSettingsScroll .settingsSection:last-child,
 #profileSettingsScroll .settingsGroup:last-child,
 #profileSettingsScroll .settingsFlat:last-child { margin-bottom: 0; }
@@ -2233,6 +2290,24 @@ body.scrollLock { overflow: hidden; }
   border-bottom: 1px solid var(--border);
 }
 #legalTermsModal .legalTermsBody {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
+  overscroll-behavior: contain;
+}
+/* Politique de confidentialité / mentions légales (10 septembre 2026) :
+   même mécanique de barre fixe + corps défilant que #legalTermsModal
+   juste au-dessus (voir son commentaire) — deux nouveaux modaux, aucune
+   nouvelle mécanique. */
+#privacyPolicyModal .communityMembersModalCard,
+#legalNoticesModal .communityMembersModalCard {
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+}
+#privacyPolicyModal .communityMembersModalHeader,
+#legalNoticesModal .communityMembersModalHeader {
+  flex: 0 0 auto; margin-bottom: 0; padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+#privacyPolicyModal .legalTermsBody,
+#legalNoticesModal .legalTermsBody {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
   overscroll-behavior: contain;
 }
