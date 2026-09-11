@@ -397,48 +397,6 @@
 </head>
 <body>
 
-<!-- ⚠️ 11 septembre 2026 (nuit) — INDICATEUR TEMPORAIRE DE DIAGNOSTIC, à
-     retirer dès que la cause de la bande résiduelle est confirmée. N'affiche
-     rien de sensible, purement des valeurs CSS calculées par le téléphone
-     (zones de sécurité haut/bas, hauteur de fenêtre, mode d'affichage). Placé
-     tout en haut de <body>, visible sur tous les écrans (chargement, connexion/
-     création, app), pour comparer les valeurs réelles avant/après un
-     correctif au lieu de deviner. Sans effet sur la mise en page (position:
-     fixed, pointer-events: none, bande fine en haut). -->
-<div id="safeAreaDebug" style="position:fixed;top:0;left:0;right:0;z-index:2147483647;background:rgba(220,30,30,0.92);color:#fff;font:11px/1.4 monospace;padding:3px 8px;pointer-events:none;white-space:pre-wrap;"></div>
-<div id="saProbeTop" style="position:fixed;top:0;left:0;height:0;padding-top:env(safe-area-inset-top,0px);visibility:hidden;"></div>
-<div id="saProbeBottom" style="position:fixed;bottom:0;left:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;"></div>
-<!-- Repère 1 : ligne VERTE fine exactement là où "position:fixed; bottom:0"
-     atterrit réellement sur ce téléphone. -->
-<div style="position:fixed;bottom:0;left:0;right:0;height:6px;background:#00ff00;z-index:2147483646;pointer-events:none;"></div>
-<!-- Repère 2 : ligne MAGENTA fine à l'endroit exact où se termine le
-     débordement actuel (env(safe-area-inset-bottom)+24px sous bottom:0). -->
-<div style="position:fixed;bottom:calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));left:0;right:0;height:6px;background:#ff00ff;z-index:2147483646;pointer-events:none;"></div>
-<script>
-(function(){
-  function update(){
-    try {
-      var top = document.getElementById('saProbeTop');
-      var bottom = document.getElementById('saProbeBottom');
-      var topPad = getComputedStyle(top).paddingTop;
-      var bottomPad = getComputedStyle(bottom).paddingBottom;
-      var dbg = document.getElementById('safeAreaDebug');
-      var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-      if (dbg) {
-        dbg.textContent = 'safe-top=' + topPad + '  safe-bottom=' + bottomPad +
-          '  innerH=' + window.innerHeight + 'px  outerH=' + window.outerHeight + 'px' +
-          '  standalone=' + standalone;
-      }
-    } catch (e) {}
-  }
-  window.addEventListener('load', update);
-  window.addEventListener('resize', update);
-  window.addEventListener('orientationchange', update);
-  setTimeout(update, 300);
-  setTimeout(update, 1200);
-})();
-</script>
-
 <!-- ===================== ÉCRAN DE CHARGEMENT ANIMÉ =====================
      Placé en tout premier dans <body> pour être peint avant tout le reste.
      Le CSS qui le porte est inliné dans <head> (voir le commentaire détaillé
