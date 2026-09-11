@@ -207,6 +207,26 @@ input[type=time]:focus, select:focus, textarea:focus {
   padding: 24px;
   background: linear-gradient(160deg, var(--purple) 0%, var(--purple-dark) 100%);
 }
+/* 11 septembre 2026 (nuit, diagnostic chiffré) : indicateur temporaire posé
+   sur l'app (safe-top/safe-bottom/innerH/outerH) a montré, sur l'iPhone
+   d'Emilien en mode installé, un écart de 48px entre innerHeight (848px, ce
+   que mesure 100dvh) et outerHeight (896px, la vraie hauteur physique) —
+   exactement la valeur de safe-area-inset-top. Deux repères visuels (ligne
+   verte à bottom:0, ligne magenta au bas du débordement ::after) ont ensuite
+   montré que cette zone de 48px est hors de portée de tout élément CSS,
+   position:fixed compris : ce n'est pas un manque de peinture, c'est une
+   zone que WebKit ne considère pas comme faisant partie du viewport en mode
+   standalone quand 100dvh est utilisé. 100dvh existe dans ce fichier pour
+   suivre la barre d'adresse de Safari qui apparaît/disparaît (3 septembre
+   2026) — un problème qui n'existe PAS en mode installé (standalone),
+   puisqu'il n'y a alors aucune barre d'adresse. Ce correctif retire donc
+   100dvh UNIQUEMENT en mode standalone, où 100vh (fixe, jamais recalculée)
+   semble correspondre à la vraie hauteur physique de l'écran. Aucun effet en
+   navigateur normal (Safari onglet, Chrome, bureau) : seule la variante
+   `(display-mode: standalone)` est touchée. */
+@media (display-mode: standalone) {
+  #onboarding { height: 100vh; }
+}
 /* 11 septembre 2026 (soir), même cause et même correctif que
    #bootSplash::after (voir index.html, où le raisonnement complet est
    documenté) : sur certains iPhone, une hauteur calculée en 100dvh peut
@@ -350,6 +370,16 @@ input[type=time]:focus, select:focus, textarea:focus {
   flex-direction: column;
   padding-top: var(--topbar-h, 56px);
   padding-bottom: 88px;
+}
+/* 11 septembre 2026 (nuit) — même correctif et même diagnostic chiffré que
+   #onboarding ci-dessus (voir son commentaire pour le détail complet) :
+   100dvh sous-évalue la hauteur réelle de l'écran en mode standalone sur
+   l'iPhone d'Emilien, laissant une bande hors de portée de tout élément CSS
+   sous la barre d'onglets. 100vh, stable et non recalculée, est utilisée à
+   la place UNIQUEMENT en mode standalone (aucun effet en navigateur normal,
+   où 100dvh reste nécessaire pour suivre la barre d'adresse de Safari). */
+@media (display-mode: standalone) {
+  #app { min-height: 100vh; }
 }
 /* 11 septembre 2026 (nuit), même cause et même correctif que
    #onboarding::after et #bootSplash::after (voir plus haut / index.html) :
