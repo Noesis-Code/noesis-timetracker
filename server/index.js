@@ -25,7 +25,15 @@ const express = require('express');
 
 // Pas d'activités par défaut : chaque déploiement démarre vide, à chacun
 // de créer ses activités (à l'initialisation puis dans Paramètres).
-require('./db');
+const db = require('./db');
+
+// 11 septembre 2026 (demande d'Emilien) : sur l'environnement de TEST
+// Railway (PR staging -> main) uniquement — jamais en production, jamais en
+// local — on repeuple la base avec des profils/activités FICTIFS à chaque
+// démarrage, pour tester dans des conditions réalistes sans qu'aucune
+// vraie donnée d'utilisateur n'y transite. Voir server/lib/seed-staging.js
+// pour le détail (portée, garde-fous, cadrage fait avec Emilien).
+require('./lib/seed-staging').seedStagingData(db);
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 

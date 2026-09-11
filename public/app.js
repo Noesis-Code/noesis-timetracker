@@ -598,18 +598,31 @@
     return 'desktop';
   }
 
+  // 11 septembre 2026 (précision d'Emilien après un premier test réel sur
+  // son iPhone) : la première consigne — ouvrir le lien dans le navigateur
+  // natif de l'appareil, pas depuis une appli tierce (Messenger, Instagram,
+  // etc. ouvrent les liens dans leur propre navigateur intégré, qui ne
+  // propose pas l'installation) — s'applique à toutes les plateformes, en
+  // tête de liste. Les étapes iOS elles-mêmes ont aussi été corrigées
+  // d'après ce qu'Emilien voit réellement sur Safari (passage par le menu
+  // ⋯ avant que le bouton Partager n'apparaisse).
+  var ONB_INSTALL_COMMON_FIRST_STEP = "Ouvre ce lien directement dans le navigateur de ton appareil (Safari sur iPhone, Chrome sur Android, ton navigateur habituel sur ordinateur) — pas depuis une application comme Messenger ou Instagram, qui n'offre pas l'option d'installation.";
   var ONB_INSTALL_STEPS = {
     ios: [
-      "Touche l'icône Partager (le carré avec la flèche vers le haut) en bas de l'écran.",
-      "Fais défiler les options et touche « Sur l'écran d'accueil ».",
-      "Touche « Ajouter » en haut à droite."
+      ONB_INSTALL_COMMON_FIRST_STEP,
+      'Touche les trois petits points (⋯) pour faire apparaître le bouton Partager.',
+      'Touche le bouton Partager.',
+      "Fais défiler les options et touche « Ajouter à l'écran d'accueil ».",
+      'Touche « Valider » en haut à droite.'
     ],
     android: [
+      ONB_INSTALL_COMMON_FIRST_STEP,
       'Touche le menu ⋮ (trois points) en haut à droite du navigateur.',
       "Touche « Ajouter à l'écran d'accueil » (ou « Installer l'application »).",
       'Confirme en touchant « Ajouter » ou « Installer ».'
     ],
     desktop: [
+      ONB_INSTALL_COMMON_FIRST_STEP,
       "Clique sur l'icône d'installation (⊕) dans la barre d'adresse, à droite.",
       "Clique sur « Installer ».",
       "Noèsis s'ouvre dans sa propre fenêtre, accessible depuis ton bureau ou ton menu de démarrage."
