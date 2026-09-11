@@ -851,12 +851,22 @@
   // `clientHeight` du MÊME élément) : les deux valeurs sont mesurées par le
   // moteur de rendu dans le même repère, sans dépendre d'une API JS de
   // viewport séparée.
+  // ⚠️ 12 septembre 2026 (Design) : ce gel doit rester propre à l'app
+  // INSTALLÉE — Emilien a signalé qu'après le passage en production, un
+  // écran affiché uniquement dans un onglet de navigateur normal (l'écran
+  // d'instructions « Ajouter à l'écran d'accueil », #onbInstallPwa) se
+  // retrouvait avec son texte coupé, impossible à faire défiler pour le
+  // lire en entier — le gel s'appliquait aussi là où un vrai besoin de
+  // défilement existe légitimement, hors de l'app installée. Explicitement
+  // scopé à `isStandaloneMode()` (définie plus haut, déjà utilisée pour
+  // #onbInstallPwa) : en dehors de ce mode, le document se comporte comme
+  // une page web normale, jamais gelé.
   function _documentNeedsScroll() {
     var docEl = document.documentElement;
     return docEl.scrollHeight > docEl.clientHeight + 1;
   }
   function refreshScrollLock() {
-    var lock = !_documentNeedsScroll();
+    var lock = isStandaloneMode() && !_documentNeedsScroll();
     document.documentElement.classList.toggle('noScrollNeeded', lock);
     document.body.classList.toggle('noScrollNeeded', lock);
   }
@@ -894,6 +904,7 @@
     return false;
   }
   document.addEventListener('touchmove', function (e) {
+    if (!isStandaloneMode()) return;
     if (_documentNeedsScroll()) return;
     if (_isScrollableAncestor(e.target)) return;
     e.preventDefault();
