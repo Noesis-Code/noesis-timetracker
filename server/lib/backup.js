@@ -278,17 +278,11 @@ function startBackupSchedule(logger = console) {
   }, twoMinutes).unref();
 }
 
-function stopBackupSchedule() {
-  if (scheduleHandle) clearInterval(scheduleHandle);
-  scheduleHandle = null;
-}
-
 module.exports = {
   isConfigured,
   readConfig,
   runBackupOnce,
   startBackupSchedule,
-  stopBackupSchedule,
   encryptBuffer,
   decryptBuffer,
   snapshotDatabase,
