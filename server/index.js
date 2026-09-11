@@ -29,10 +29,14 @@ const db = require('./db');
 
 // 11 septembre 2026 (demande d'Emilien) : sur l'environnement de TEST
 // Railway (PR staging -> main) uniquement — jamais en production, jamais en
-// local — on repeuple la base avec des profils/activités FICTIFS à chaque
-// démarrage, pour tester dans des conditions réalistes sans qu'aucune
-// vraie donnée d'utilisateur n'y transite. Voir server/lib/seed-staging.js
-// pour le détail (portée, garde-fous, cadrage fait avec Emilien).
+// local — on repeuple la base avec des profils/activités FICTIFS, y compris
+// un compte de test persistant pour Emilien lui-même, sans qu'aucune vraie
+// donnée d'utilisateur n'y transite. ⚠️ Revu le même jour (deuxième
+// cadrage) : ce seed ne s'exécute plus qu'UNE SEULE FOIS, uniquement si la
+// base est vide au démarrage — les données (dont le compte d'Emilien)
+// survivent désormais aux redéploiements de `staging`, elles ne sont plus
+// effacées à chaque push. Voir server/lib/seed-staging.js pour le détail
+// (portée, garde-fous, cadrage fait avec Emilien).
 require('./lib/seed-staging').seedStagingData(db);
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');

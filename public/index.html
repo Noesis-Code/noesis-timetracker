@@ -98,6 +98,37 @@
    refreshScrollLock()). */
 #bootSplash.bootSplashDone { opacity: 0; pointer-events: none; }
 
+/* 11 septembre 2026 (soir), retour ciblé du correctif du dix-neuvième passage
+   (voir noesis-timetracker-journal-design.md) : sur certains iPhone (signalé
+   à l'origine sur iPhone 16), un élément position:fixed ancré aux bords du
+   viewport — ici #bootSplash, inset:0 — peut s'arrêter quelques pixels
+   AU-DESSUS du bord physique réel de l'écran en PWA installée, ce qui
+   découvre le fond de <body> (var(--bg), plus clair que le noir de cet
+   écran de chargement) sur la hauteur de la zone de sécurité du bas.
+   Retiré À TORT au vingt-troisième passage en même temps que .tabbar::after
+   (qui, lui, causait réellement une bande EN TROP, visible même là où il
+   n'y avait aucun manque à combler) : le signalement de ce vingt-troisième
+   passage ne portait QUE sur la barre d'onglets, jamais sur cet écran de
+   chargement — le retrait collatéral a simplement rouvert le manque
+   d'origine ici. Prolongement volontairement généreux et indépendant de la
+   fiabilité de env() (même renforcement qu'au dix-neuvième passage,
+   suite) : s'il n'y a pas de bande à combler sur un appareil donné, ce
+   prolongement tombe simplement hors de l'écran visible, sans aucun effet.
+   position:fixed (pas absolute) : sort du flux indépendamment du fait que
+   #bootSplash ait ou non un contexte de positionnement propre, et échappe à
+   son overflow:hidden (aucun `transform`/`filter` sur #bootSplash pour
+   piéger un enfant fixed dans son propre cadre). */
+#bootSplash::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
+  height: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  background: #000000;
+  pointer-events: none;
+}
+
 #bootSplash svg {
   display: block;
   width: auto;
@@ -3273,9 +3304,18 @@
      bas, en-tête fixe + corps défilant, placé au niveau du <body>, hors de
      #app et #onboarding). ⚠️ Aucun mandat sur le fond juridique : le texte
      ci-dessous est repris tel quel depuis
-     noesis-timetracker-conformite-loi25.md (section 1, version 2.7 — en
-     vigueur le 11 septembre 2026), à l'exception du préambule éditorial
-     interne (historique détaillé des versions 2.0 à 2.7, notes de relecture)
+     noesis-timetracker-conformite-loi25.md (section 1, version 2.9 — en
+     vigueur le 11 septembre 2026). **Mise à jour du 11 septembre 2026** :
+     remplacement de « En bref », de la section 4.1 et d'un paragraphe de la
+     section 7 (version 2.9) — deux écarts trouvés entre le texte publié le
+     10 septembre et le produit réel (partage volontaire de courriel/
+     téléphone avec les abonnés acceptés, livré le 7 septembre ; affichage du
+     nom de famille sur une correspondance exacte à l'écran de connexion,
+     livré le 8 septembre), signalés par Emilien et corrigés dans
+     noesis-timetracker-conformite-loi25.md avant d'être reportés ici. Le
+     reste du texte (sections 1 à 3, 4.2 à 10) n'a pas été retouché à ce
+     passage — hors du périmètre signalé, à l'exception du préambule
+     éditorial interne (historique détaillé des versions, notes de relecture)
      qui n'est pas une clause opposable et n'a pas sa place devant
      l'Utilisateur — remplacé par la seule mention du numéro de version. Le
      tableau détaillé de l'historique des versions (section 9 du document
@@ -3291,14 +3331,14 @@
       <button type="button" class="menuBtn" id="privacyPolicyModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
-      <p class="hint">Version 2.7 — en vigueur le 11 septembre 2026.</p>
+      <p class="hint">Version 2.9 — en vigueur le 11 septembre 2026.</p>
 
       <h3>À qui s'adresse ce service</h3>
       <p>Noèsis TimeTracker est offert aux personnes résidant au Canada. Le service n'est pas proposé aux résidents de l'Union européenne ni d'autres territoires, et il n'y est pas promu. Si vous n'êtes pas au Canada, ce service ne vous est pas destiné.</p>
 
       <h3>En bref</h3>
       <p>Noèsis TimeTracker est une application qui vous permet de chronométrer vos activités et d'en suivre les totaux. Pour fonctionner, elle a besoin de savoir qui vous êtes et de conserver ce que vous chronométrez.</p>
-      <p>Nous collectons le minimum : votre nom, votre numéro de téléphone, une adresse courriel, et ce que vous enregistrez vous-même dans l'application. Nous ne vendons rien, nous ne partageons rien avec des annonceurs, et il n'y a aucune publicité ni aucun traceur publicitaire. Votre identité minimale (prénom, nom de famille, photo, nombre de projets) est repérable par les autres membres inscrits, dès la création de votre compte — c'est la fonction d'annuaire de base de l'application. <strong>Tout le reste</strong> — vos activités, vos totaux, vos notes — est <strong>privé par défaut</strong>. Rien n'est visible par les autres tant que vous ne le décidez pas. Vous pouvez supprimer votre compte à tout moment : tout est alors effacé. Vos renseignements sont hébergés aux Pays-Bas, chez notre fournisseur d'infrastructure.</p>
+      <p>Nous collectons le minimum : votre nom, votre numéro de téléphone, une adresse courriel, et ce que vous enregistrez vous-même dans l'application. Nous ne vendons rien, nous ne partageons rien avec des annonceurs, et il n'y a aucune publicité ni aucun traceur publicitaire. Votre identité minimale (prénom, nom de famille, photo, nombre de projets) est repérable par les autres membres inscrits, dès la création de votre compte — c'est la fonction d'annuaire de base de l'application. Elle peut aussi apparaître sur l'écran de connexion, à une personne qui cherche votre compte en connaissant déjà votre prénom et votre nom de famille exacts. <strong>Tout le reste</strong> — vos activités, vos totaux, vos notes — est <strong>privé par défaut</strong>. Rien n'est visible par les autres tant que vous ne le décidez pas. Votre numéro de téléphone et votre adresse courriel ne sont jamais visibles par défaut : vous pouvez choisir de partager l'un, l'autre, ou les deux avec vos abonnés acceptés, chacun restant désactivé tant que vous ne l'activez pas vous-même. Vous pouvez supprimer votre compte à tout moment : tout est alors effacé. Vos renseignements sont hébergés aux Pays-Bas, chez notre fournisseur d'infrastructure.</p>
       <p>Le reste de ce document détaille chacun de ces points.</p>
 
       <h3>1. Qui est responsable de vos renseignements</h3>
@@ -3332,8 +3372,10 @@
       <p><strong>Vous pouvez le retirer à tout moment</strong> en supprimant votre compte (section 6). Le retrait n'a pas d'effet rétroactif sur ce qui a été fait avant, mais il met fin au traitement pour l'avenir.</p>
 
       <h3>4. Qui peut voir vos renseignements</h3>
-      <p><strong>4.1 Les autres utilisateurs.</strong> Votre identité minimale est repérable par tout autre utilisateur inscrit et connecté, dès la création de votre compte : votre prénom, votre nom de famille, votre photo de profil, le nombre de projets que vous suivez et ce que vous recherchez (si vous l'indiquez). C'est la fonction d'annuaire de base de l'application, nécessaire pour que d'autres personnes puissent vous retrouver — elle ne dépend d'aucun geste de votre part et vous ne pouvez pas vous en retirer autrement qu'en supprimant votre compte. <strong>Votre numéro de téléphone et votre adresse courriel, eux, ne sont jamais visibles par personne d'autre que vous.</strong></p>
-      <p>Tout le reste reste privé par défaut. Vos activités, vos totaux, vos sessions chronométrées, vos notes, le détail de vos projets et vos publications ne sont visibles par personne d'autre tant que vous n'avez pas posé, vous-même, l'un des gestes volontaires suivants : (1) inviter quelqu'un à partager une activité — cette personne voit alors le nom de l'activité, votre prénom et le temps que vous y consacrez, pour cette activité seulement, jamais vos autres activités ni vos notes personnelles ; (2) accepter la demande d'abonnement de quelqu'un — cette personne peut alors consulter vos statistiques, le détail de vos projets et vos publications ; (3) écrire dans une discussion d'activité partagée — vos messages sont lus par les autres membres de cette activité. Vous pouvez revenir sur chacun de ces trois choix à tout moment.</p>
+      <p><strong>4.1 Les autres utilisateurs.</strong> Votre identité minimale est repérable par tout autre utilisateur inscrit et connecté, dès la création de votre compte : votre prénom, votre nom de famille, votre photo de profil, le nombre de projets que vous suivez et ce que vous recherchez (si vous l'indiquez). C'est la fonction d'annuaire de base de l'application, nécessaire pour que d'autres personnes puissent vous retrouver — elle ne dépend d'aucun geste de votre part et vous ne pouvez pas vous en retirer autrement qu'en supprimant votre compte.</p>
+      <p>Cette même identité (prénom et nom de famille) peut aussi apparaître sur l'écran de connexion, avant même qu'une personne soit identifiée dans l'application. Pour retrouver un compte existant, on peut y chercher un prénom ET un nom de famille exacts ; si les deux correspondent à un seul compte, ce prénom et ce nom s'affichent, pour confirmer qu'il s'agit bien du bon compte avant de saisir un code PIN. Cette recherche ne fonctionne que si la personne qui la fait connaît déjà les deux, exactement — elle ne permet de parcourir aucune liste de comptes, et ne révèle jamais un prénom ou un nom que vous n'auriez pas vous-même déjà fourni pour trouver votre propre compte.</p>
+      <p><strong>Votre numéro de téléphone et votre adresse courriel ne sont jamais visibles par défaut.</strong> Vous pouvez cependant choisir, dans Réglages → Identité, de partager votre adresse courriel et/ou votre numéro de téléphone — les deux, l'un ou l'autre, indépendamment — avec les personnes qui vous suivent et dont vous avez accepté la demande d'abonnement. Tant que vous n'avez pas activé ce partage pour un canal donné, personne d'autre que vous ne voit ce renseignement par ce canal ; si vous vous désabonnez d'une personne ou qu'elle se désabonne de vous, l'accès à ce contact disparaît avec le reste de ce que permet l'abonnement.</p>
+      <p>Tout le reste reste privé par défaut. Vos activités, vos totaux, vos sessions chronométrées, vos notes, le détail de vos projets et vos publications ne sont visibles par personne d'autre tant que vous n'avez pas posé, vous-même, l'un des gestes volontaires suivants : (1) inviter quelqu'un à partager une activité — cette personne voit alors le nom de l'activité, votre prénom et le temps que vous y consacrez, pour cette activité seulement, jamais vos autres activités ni vos notes personnelles ; (2) accepter la demande d'abonnement de quelqu'un — cette personne peut alors consulter vos statistiques, le détail de vos projets et vos publications, et, si vous l'avez activé, votre courriel et/ou votre téléphone (voir ci-dessus) ; (3) écrire dans une discussion d'activité partagée — vos messages sont lus par les autres membres de cette activité. Vous pouvez revenir sur chacun de ces choix à tout moment.</p>
       <p><strong>4.2 Notre fournisseur d'hébergement.</strong> L'application et sa base de données sont hébergées chez <strong>Railway Corporation</strong>, dans un centre de données situé à <strong>Amsterdam, aux Pays-Bas</strong>. Railway agit uniquement comme prestataire technique : il héberge, il n'exploite pas. Il est tenu par ses propres conditions d'utilisation et sa politique de confidentialité publiques, qui lui imposent des obligations de confidentialité et de sécurité, et il n'a pas le droit d'utiliser vos renseignements à ses propres fins. Une démarche est en cours pour formaliser ces engagements dans une entente écrite spécifique à notre relation avec cet hébergeur.</p>
       <p>Puisque cet hébergement se situe hors du Québec, nous avons réalisé au préalable une évaluation des facteurs relatifs à la vie privée, comme la loi l'exige. Vous pouvez en demander le résumé à l'adresse indiquée à la section 1. Les Pays-Bas relèvent du Règlement général sur la protection des données de l'Union européenne, un cadre juridique reconnu comme offrant un niveau de protection élevé — supérieur, sur plusieurs points, à ce qu'exige la loi québécoise.</p>
       <p><strong>Une copie de secours chiffrée existe désormais</strong>, en plus de la base de données principale. Chaque jour, une copie de vos renseignements est chiffrée avant de quitter nos serveurs et envoyée chez Cloudflare, dans un centre de données situé dans l'Union européenne. Cloudflare ne reçoit jamais que des octets illisibles : la clé de déchiffrement n'est jamais transmise à cette entreprise.</p>
@@ -3365,7 +3407,7 @@
       <p><strong>Chiffrement en transit.</strong> Toutes les communications entre votre appareil et l'application passent par HTTPS.</p>
       <p><strong>Codes PIN irréversibles.</strong> Votre code PIN (4 à 6 chiffres) est transformé par une fonction cryptographique salée (scrypt) ; même nous ne pouvons pas le lire.</p>
       <p><strong>Cloisonnement des comptes.</strong> Le serveur vérifie votre identité à chaque requête à partir d'une session signée. Il n'est pas possible d'accéder aux renseignements d'un autre compte en modifiant une adresse.</p>
-      <p><strong>Confidentialité par défaut.</strong> Tous les réglages de visibilité sont au maximum de protection à la création du compte, à l'exception de votre identité minimale (section 4.1) qui reste repérable par tout autre membre inscrit — le reste, et les fonctions qui communiquent quelque chose à l'extérieur, comme le calendrier de la section 4.3, restent éteints tant que vous ne les activez pas.</p>
+      <p><strong>Confidentialité par défaut.</strong> Tous les réglages de visibilité sont au maximum de protection à la création du compte, à l'exception de votre identité minimale (section 4.1) qui reste repérable par tout autre membre inscrit, et repérable sur l'écran de connexion par quiconque connaît déjà votre prénom et votre nom de famille exacts — le partage de votre courriel et de votre téléphone, eux, comme le reste et les fonctions qui communiquent quelque chose à l'extérieur, comme le calendrier de la section 4.3, restent éteints tant que vous ne les activez pas.</p>
       <p><strong>Adresses de calendrier imprévisibles et révocables.</strong> L'adresse décrite à la section 4.3 est tirée au hasard sur 256 bits, ce qui la rend impossible à deviner, et vous pouvez la remplacer ou la supprimer à tout moment.</p>
       <p><strong>Accès restreint.</strong> Seuls les responsables désignés à la section 1 ont accès à l'infrastructure.</p>
       <p>Aucun système n'est parfaitement sûr. En cas d'incident présentant un risque de préjudice sérieux, nous en informerons la Commission d'accès à l'information et les personnes touchées, comme la loi l'exige.</p>

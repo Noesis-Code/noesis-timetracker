@@ -207,6 +207,27 @@ input[type=time]:focus, select:focus, textarea:focus {
   padding: 24px;
   background: linear-gradient(160deg, var(--purple) 0%, var(--purple-dark) 100%);
 }
+/* 11 septembre 2026 (soir), même cause et même correctif que
+   #bootSplash::after (voir index.html, où le raisonnement complet est
+   documenté) : sur certains iPhone, une hauteur calculée en 100dvh peut
+   s'arrêter quelques pixels au-dessus du bord physique réel de l'écran en
+   PWA installée, ce qui découvre le fond de <body> (var(--bg), plus clair)
+   sous #onboarding. Cet écran (création de compte / connexion) n'avait
+   jamais reçu ce correctif — seuls .tabbar et #bootSplash l'avaient eu au
+   dix-neuvième passage — signalé pour la première fois par Emilien ce jour.
+   position:fixed plutôt qu'absolute : échappe à #onboarding.overflow:hidden
+   sans dépendre de son propre positionnement (display:flex n'affecte pas un
+   ::after sorti du flux par position:fixed). */
+#onboarding::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
+  height: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  background: linear-gradient(160deg, var(--purple) 0%, var(--purple-dark) 100%);
+  pointer-events: none;
+}
 .onboarding-card {
   background: var(--card);
   border-radius: var(--radius-xl);
