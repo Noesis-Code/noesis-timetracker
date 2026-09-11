@@ -64,14 +64,11 @@
     'Créer mon profil': 'Create my profile',
     "J'ai déjà un profil sur cette app": 'I already have a profile on this app',
     'Retrouve ton profil': 'Find your profile',
-    'Tape ton prénom...': 'Type your first name...',
-    'Nom de famille (si tu en as un sur ton profil)': 'Last name (if your profile has one)',
     'Créer un nouveau profil': 'Create a new profile',
     'Code': 'PIN',
     'Valider': 'Confirm',
     'Retour': 'Back',
     'Crée tes activités': 'Create your activities',
-    'Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Profil.': 'Choose the activities you want to track, and a colour for each one. You can add or edit them later in Profile.',
     // Variante "dans Activité" : le texte HTML actuel dit désormais "Activité"
     // (renommage du volet de gestion des activités survenu après l'écriture
     // de la clé ci-dessus, qui est donc orpheline) — clé ci-dessus gardée
@@ -85,7 +82,6 @@
     'Continuer': 'Continue',
     'Aucun profil trouvé.': 'No profile found.',
     "Aucune activité ajoutée pour l'instant.": 'No activity added yet.',
-    ' (note)': ' (note)',
     'Indique un prénom ou un pseudo.': 'Enter a first name or a nickname.',
     'Indique ton nom de famille.': 'Enter your last name.',
     'Indique un numéro de téléphone valide.': 'Enter a valid phone number.',
@@ -105,11 +101,8 @@
     // Emilien).
     "Aucune activité pour l'instant — ajoutes-en une dans Activité.": 'No activities yet — add one in Activity.',
     'Note': 'Note',
-    'Précision sur cette session...': 'Anything to note about this session...',
-    'Envoyer aux membres': 'Send to members',
     'Envoyer à la communauté': 'Send to community',
     "Cette activité n'est partagée avec personne pour l'instant — choisis \"communauté\" ou partage-la depuis Profil.": 'This activity is not shared with anyone yet — choose "community", or share it from Profile.',
-    "Écris une note avant d'envoyer.": 'Write a note before sending.',
     "Confirmer l'arrêt": 'Confirm stop',
     'Heure de début': 'Start time',
     'Heure de fin': 'End time',
@@ -119,18 +112,15 @@
     'Heures invalides.': 'Invalid times.',
     "L'heure de fin doit être après l'heure de début.": 'The end time must be after the start time.',
     'Supprimer': 'Delete',
-    'Supprimer cet enregistrement ?': 'Delete this record?',
     // Historique modifiable du Chrono (ajouté par la discussion Chrono le
     // 29 août 2026, traduit ici avec le reste de l'interface).
     'Historique': 'History',
-    "Afficher l'historique": 'Show history',
     'Aucun enregistrement sur cette semaine.': 'No record for this week.',
     'Modifier': 'Edit',
     'Supprimer définitivement cet enregistrement ?': 'Permanently delete this record?',
 
     // Pièces jointes de note (photo prise à l'appareil, document) — ajoutées
     // par la discussion Chrono le 29 août 2026, traduites ici avec le reste.
-    'Choisis une image.': 'Choose an image.',
     'Photo trop lourde (8 Mo max) — choisis-en une autre.': 'Photo too large (8 MB max) — choose another one.',
     'Fichier trop lourd (8 Mo max) — choisis-en un autre.': 'File too large (8 MB max) — choose another one.',
     'Envoi...': 'Sending...',
@@ -164,19 +154,13 @@
     'Feuille de temps': 'Timesheet',
     'Semaine précédente': 'Previous week',
     'Semaine suivante': 'Next week',
-    'Voir en plein écran, format paysage': 'View full screen, landscape',
     // Feuille de temps / Graphique (Statistiques) uniquement : plus de
     // rotation forcée en paysage depuis le 1er septembre 2026 (demande
     // d'Emilien) — la Communauté (activité partagée) garde encore l'ancien
     // libellé ci-dessus pour l'instant.
-    'Voir en plein écran': 'View full screen',
-    'Quitter le plein écran': 'Exit full screen',
     // Graphique (Statistiques) uniquement, 2 septembre 2026 : bouton révélé
     // par renderChart() une fois zoomé (pincement à deux doigts) — voir
     // #chartZoomResetBtn dans index.html et chartViewState dans app.js.
-    'Réinitialiser le zoom': 'Reset zoom',
-    "La semaine en cours s'affiche par défaut à chaque ouverture. Les semaines précédentes restent enregistrées et consultables avec les flèches, sans jamais être perdues.": 'The current week is shown by default every time you open this tab. Previous weeks are kept and can be browsed with the arrows — nothing is ever lost.',
-    "Rien d'enregistré sur cette semaine.": 'Nothing recorded this week.',
     'Répartition': 'Breakdown',
     "Rien d'enregistré sur cette période.": 'Nothing recorded for this period.',
     'Graphique': 'Chart',
@@ -199,10 +183,7 @@
 
     // ---- Communauté ----
     'En ce moment': 'Right now',
-    'Les personnes qui partagent une activité avec toi ou que tu suis, et qui ont un chrono en cours avec une note envoyée en direct.': 'People who share an activity with you, or who you follow, with a running timer and a note sent live.',
-    "Personne ne partage de note en direct pour l'instant.": 'Nobody is sharing a live note right now.',
     'Rechercher des membres': 'Find members',
-    'Chercher un pseudo...': 'Search for a nickname...',
     'Communauté': 'Community',
     'Membres': 'Members',
     'Suivi': 'Following',
@@ -210,13 +191,10 @@
     "Tu ne suis personne pour l'instant — trouve un membre ci-dessus et clique sur \"Suivre\".": 'You are not following anyone yet — find a member above and click "Follow".',
     "Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session n'a encore été enregistrée.": 'Nothing to show yet: either nobody shares their profile with you, or no session has been recorded.',
     'Mes activités partagées': 'My shared activities',
-    'Notes et activités des membres': "Members' notes and sessions",
     "Rien à afficher pour l'instant pour cette activité.": 'Nothing to show yet for this activity.',
     'Partagée': 'Shared',
-    'Les activités et notes des personnes avec qui tu partages déjà une activité — sans rapport avec le suivi.': 'Sessions and notes from the people you already share an activity with — unrelated to following.',
     "Rien à afficher pour l'instant.": 'Nothing to show yet.',
     'Fermer': 'Close',
-    "Actions de cette activité": 'Actions for this activity',
     'Voir les membres': 'View members',
     // ---- Fusion de deux activités (2 septembre 2026) ----
     'Fusionner': 'Merge',
@@ -262,7 +240,6 @@
     'Refuser': 'Decline',
     'Membre': 'Member',
     'Abonnement': 'Following',
-    'En cours depuis ': 'Running since ',
 
     // ---- Abonnés & Abonnements (Réglages, 30 août 2026) ----
     'Abonnés & Abonnements': 'Followers & Following',
@@ -277,7 +254,6 @@
 
     // ---- Fil de discussion d'une activité partagée (Communauté > Membres,
     // et sa réutilisation dans la zone Discussion > Membres du Profil) ----
-    'Visible uniquement par les membres de cette activité. Les messages restent, même une fois les chronos arrêtés.': 'Visible to the members of this activity only. Messages stay, even once the timers are stopped.',
     "Aucun message pour l'instant — écris le premier ci-dessous.": 'No message yet — write the first one below.',
     // Variante « ci-dessus » : depuis le 3 septembre 2026, la liste des
     // messages du Profil est SOUS la zone d'écriture, pas au-dessus.
@@ -293,10 +269,8 @@
     // Export de mes données personnelles (7 septembre 2026, candidate n°1 de
     // l'audit des sections manquantes du panneau Réglages).
     'Exporter mes données': 'Export my data',
-    "Télécharge un fichier contenant tout ce qui te concerne sur Noèsis : ton profil, tes activités, tes sessions chronométrées, tes messages, tes sondages et tes votes. Les messages ou tâches des autres membres d'une activité partagée ne sont jamais inclus.": "Downloads a file containing everything about you on Noèsis: your profile, activities, tracked sessions, messages, polls and votes. Messages or tasks from other members of a shared activity are never included.",
     'Télécharger mes données': 'Download my data',
     "Conditions d'utilisation": 'Terms of use',
-    "Le contrat qui régit l'utilisation de Noèsis TimeTracker.": 'The contract governing the use of Noèsis TimeTracker.',
     "Lire les conditions d'utilisation": 'Read the terms of use',
     "Lire les conditions d'utilisation avant de créer ton profil": 'Read the terms of use before creating your profile',
     // Documents légaux (10 septembre 2026, demande directe d'Emilien) :
@@ -311,7 +285,6 @@
     // Aide et suggestions (8 septembre 2026, demande d'Emilien) : un seul
     // champ de texte libre envoyé par courriel, sans FAQ (voir app.js).
     'Aide et suggestions': 'Help & suggestions',
-    "Une question, un bug, une idée ? Écris-nous directement — ton message est envoyé par courriel, rien n'est conservé sur nos serveurs.": "A question, a bug, an idea? Write to us directly — your message is sent by email, nothing is stored on our servers.",
     'Suggestion': 'Suggestion',
     'Signaler un bug': 'Report a bug',
     'Ton message...': 'Your message...',
@@ -361,7 +334,6 @@
     'Nouvelle activité': 'New activity',
     "Ajouter l'activité": 'Add activity',
     'Mes notes': 'My notes',
-    "Aucune note enregistrée pour l'instant — les notes ajoutées pendant tes sessions dans Chrono apparaîtront ici.": 'No note recorded yet — notes added during your sessions in Timer will show up here.',
     'Déconnexion': 'Log out',
     // ---- Titres des groupes fusionnés du panneau Réglages (9 septembre
     // 2026, réorganisation demandée par Emilien — voir
@@ -374,13 +346,10 @@
     'Affichage': 'Display',
     'Calendrier et export de données': 'Calendar & data export',
     'Identité': 'Identity',
-    'La photo de profil se change directement depuis la vue principale du Profil — clique sur l\'avatar, en haut.': 'The profile picture is changed straight from the main Profile view — click the avatar at the top.',
     'Enregistrer': 'Save',
-    'Enregistré.': 'Saved.',
     'Apparence': 'Appearance',
     '☀️ Clair': '☀️ Light',
     '🌙 Sombre': '🌙 Dark',
-    'Le mode sombre est activé par défaut. Changer de mode adapte automatiquement les couleurs de tes activités si besoin.': 'Dark mode is on by default. Switching mode automatically adapts your activity colours if needed.',
     // Option Contact (7 septembre 2026, demande d'Emilien : autoriser ses
     // abonnés à contacter par email/téléphone) : gap de traduction trouvé et
     // comblé le 10 septembre 2026 (signalé par Emilien — « certains
@@ -393,19 +362,8 @@
     'Confirme le nouveau code': 'Confirm the new PIN',
     'Changer mon code': 'Change my PIN',
     "Importer l'historique existant": 'Import existing history',
-    'Depuis Google Sheets : onglet « Historique » → Fichier → Télécharger → Valeurs séparées par une virgule (.csv), puis choisis le fichier ici.': 'From Google Sheets: "Historique" tab → File → Download → Comma-separated values (.csv), then pick the file here.',
-    'Importer': 'Import',
-    "Choisis un fichier .csv d'abord.": 'Choose a .csv file first.',
-    'Import en cours...': 'Importing...',
 
     // ---- Doublons d'import (30 août 2026, rétabli le 1er septembre) ----
-    'Chercher les doublons': 'Find duplicates',
-    "Un même fichier importé deux fois crée des sessions en double et gonfle toutes tes statistiques. Ce bouton cherche tes doublons exacts (même activité, mêmes heures de début et de fin) et te propose de n'en garder qu'un de chaque.": 'Importing the same file twice creates duplicate sessions and inflates all your statistics. This button looks for your exact duplicates (same activity, same start and end times) and offers to keep only one of each.',
-    'Recherche des doublons...': 'Looking for duplicates...',
-    'Aucun doublon dans ton historique.': 'No duplicate in your history.',
-    'Suppression en cours...': 'Deleting...',
-    '{n} sessions en double trouvées, soit {h} en trop. En supprimer une de chaque paire ? Il te restera {reste} sessions.': '{n} duplicate sessions found, i.e. {h} too many. Delete one of each pair? You will be left with {reste} sessions.',
-    '{n} sessions en double supprimées. Il te reste {reste} sessions.': '{n} duplicate sessions deleted. You now have {reste} sessions.',
     'Format non supporté — choisis une image PNG, JPEG ou WebP.': 'Unsupported format — choose a PNG, JPEG or WebP image.',
     'Image trop lourde (8 Mo max) — choisis-en une autre.': 'Image too large (8 MB max) — choose another one.',
     'Traitement de la photo...': 'Processing the photo...',
@@ -419,18 +377,14 @@
     'Code mis à jour.': 'PIN updated.',
     'Se déconnecter de ce profil sur cet appareil ?': 'Log out of this profile on this device?',
     "Aucune activité pour l'instant — ajoute la première ci-dessous.": 'No activity yet — add your first one below.',
-    "Paramètres de l'activité": 'Activity settings',
     'Glisse pour réordonner, touche le nom ou la couleur pour les modifier.': 'Drag to reorder, tap the name or the colour to change them.',
     'Déplacer cette activité': 'Move this activity',
     'Changer la couleur': 'Change the colour',
-    'Partager, séparer, fusionner, voir les membres': 'Share, split off, merge, view members',
     'Supprimer cette activité': 'Delete this activity',
     'Fusionner cette activité': 'Merge this activity',
     'Partager': 'Share',
     'Séparer': 'Split off',
     'Supprimer définitivement': 'Delete permanently',
-    'Supprimer définitivement cette activité pour toi ? Elle disparaîtra de ton Chrono et de ton Profil. Les autres personnes qui la partagent avec toi ne sont pas concernées.': 'Permanently delete this activity for you? It will disappear from your Timer and your Profile. The other people who share it with you are not affected.',
-    "Veux-tu garder l'historique déjà enregistré sur cette activité ?\n\nOK = garder l'historique\nAnnuler = tout supprimer aussi": 'Do you want to keep the history already recorded on this activity?\n\nOK = keep the history\nCancel = delete everything too',
     'Aucune invitation en attente.': 'No pending invitation.',
 
     // ---- Phrases à emplacement variable ({nom} remplacé à l'affichage) ----
@@ -446,10 +400,8 @@
     'Quitter la communauté': 'Leave the community',
     'Quitter "{activity}" ? Tu gardes ta propre activité personnelle du même nom, avec tout ton historique déjà enregistré. Les autres membres ne sont pas concernés.':
       'Leave "{activity}"? You keep your own personal activity with the same name and all your recorded history. The other members are not affected.',
-    'En cours depuis {time}': 'Running since {time}',
     'Partagée par {owner}': 'Shared by {owner}',
     '{count} membres': '{count} members',
-    'Pseudo de la personne à inviter sur "{activity}" :': 'Nickname of the person to invite to "{activity}":',
     // ---- Ajout de membre par recherche + exclusion par le propriétaire
     // (10 septembre 2026, demande d'Emilien — texte du champ et confirmation
     // revus au second passage : recherche seule à l'écran, une suggestion
@@ -459,7 +411,6 @@
     'Exclure': 'Exclude',
     'Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.':
       'Exclude {name} from "{activity}"? This person will keep their already recorded history, in their own personal activity. They will no longer be part of "{activity}" afterwards.',
-    'Séparer "{activity}" ? Tu auras désormais ta propre activité personnelle du même nom, avec ton historique déjà enregistré dessus. Les autres personnes qui la partagent ne sont pas concernées.': 'Split off "{activity}"? You will get your own personal activity with the same name, carrying the history you already recorded on it. The other people sharing it are not affected.',
     '{from} t\'invite sur « {activity} ».': '{from} invites you to "{activity}".',
     'Fusionner avec une de tes activités existantes ?': 'Merge with one of your existing activities?',
     'Non, nouvelle activité': 'No, new activity',
@@ -469,7 +420,6 @@
     'Langue': 'Language',
     'Français': 'French',
     'Anglais': 'English',
-    "Change la langue de toute l'application. Le changement est appliqué immédiatement.": 'Changes the language of the whole app. The change is applied straight away.',
     'Langue mise à jour.': 'Language updated.',
 
     // ---- Partage (30 août 2026, rétabli le 1er septembre après une
@@ -485,7 +435,6 @@
     'Copié — tu peux le coller où tu veux.': 'Copied — paste it wherever you like.',
     'Impossible de copier automatiquement — sélectionne le texte à la main.': 'Could not copy automatically — select the text by hand.',
     'Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}': 'Noèsis — the shared TimeTracker. Join us here: {url}',
-    "Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.": 'Join me on Noèsis, my shared TimeTracker: {url}\nMy nickname is "{pseudo}" — find me in Community > Find members to follow me.',
     "Le serveur n'a pas pris en compte le changement de langue : il tourne encore sur la version d'avant la mise à jour. Arrête-le (Ctrl+C) et relance `npm start`, puis réessaie.": 'The server did not apply the language change: it is still running the version from before the update. Stop it (Ctrl+C), start it again with `npm start`, then try once more.',
 
     // ---- Notifications push (1er septembre 2026, volet Communauté ; refonte
@@ -536,7 +485,6 @@
     'Erreur serveur': 'Server error',
     'userId requis.': 'userId is required.',
     'userId et activityId requis.': 'userId and activityId are required.',
-    'followerId et followeeId requis.': 'followerId and followeeId are required.',
     'Profil introuvable.': 'Profile not found.',
     'Activité introuvable.': 'Activity not found.',
     'Activité invalide.': 'Invalid activity.',
@@ -581,10 +529,6 @@
     'Heure de fin invalide.': 'Invalid end time.',
     'Aucun chrono en cours.': 'No timer is running.',
     "Cette activité ne t'appartient pas.": 'This activity is not yours.',
-    "Audience invalide (attendu 'members' ou 'community').": "Invalid audience (expected 'members' or 'community').",
-    'La note ne peut pas être vide.': 'The note cannot be empty.',
-    'Note envoyée aux membres.': 'Note sent to the members.',
-    'Note envoyée à ta communauté.': 'Note sent to your community.',
     'Le prénom (ou pseudo) est requis.': 'The first name (or nickname) is required.',
     'Le nom de famille est requis.': 'The last name is required.',
     'Un numéro de téléphone valide est requis.': 'A valid phone number is required.',
@@ -602,7 +546,6 @@
 
     // ---- Sécurité (Réglages) : déconnexion de tous les appareils (7 septembre 2026) ----
     'Se déconnecter de tous les appareils': 'Sign out of all devices',
-    "Déconnecte immédiatement tous tes appareils, y compris celui-ci — utile si tu penses que ton code a pu être vu par quelqu'un d'autre. Chaque appareil redemandera ton code à la prochaine ouverture.": "Immediately signs you out of every device, including this one — useful if you think someone else may have seen your PIN. Each device will ask for the PIN again next time it opens.",
     'Se déconnecter de TOUS les appareils, y compris celui-ci ? Chacun redemandera ton code à la prochaine ouverture.': 'Sign out of ALL devices, including this one? Each one will ask for your PIN again next time it opens.',
     'weekOffset invalide.': 'Invalid weekOffset.',
     'Champ "csv" manquant.': 'Missing "csv" field.',
@@ -626,8 +569,6 @@
     'Suis ce profil pour voir ses statistiques.': 'Follow this profile to see its statistics.',
     'Tu dois suivre ce profil pour voir ses projets.': 'You need to follow this profile to see its projects.',
     'Tu dois suivre ce profil pour voir ses statistiques.': 'You need to follow this profile to see its statistics.',
-    'Tape ton pseudo en entier pour retrouver ton profil.': 'Type your full username to find your profile.',
-    'Tape ton prénom en entier (et ton nom de famille, si tu en as un sur ton profil) pour retrouver ton profil.': 'Type your full first name (and your last name, if your profile has one) to find your profile.',
     'Aucun détail supplémentaire pour ce projet.': 'No further details for this project.',
     'Le nom du projet est requis.': 'The project name is required.',
     'Supprimer ce projet ?': 'Delete this project?',
@@ -656,7 +597,6 @@
     'Quelques profils à découvrir.': 'A few profiles to discover.',
     'Aucun projet': 'No project',
     "Aucun message pour l'instant.": 'No message yet.',
-    'Suis ce profil pour voir ses messages.': 'Follow this profile to see its messages.',
     "Rien d'enregistré pour l'instant.": 'Nothing recorded yet.',
     'Connecte-toi pour voir ce profil.': 'Sign in to view this profile.',
     'Tu dois suivre ce profil pour voir ses messages.': 'You need to follow this profile to see its messages.',
@@ -683,7 +623,6 @@
     // ---- Sous-projets d'une activité (discussion "Sous-projets", 3 septembre 2026) ----
     // ---- Page d'une activité (discussion "Activité — général", 3 septembre 2026) ----
     'Discussion': 'Discussion',
-    "Réglages de l'activité": 'Activity settings',
     "Cette activité n'a encore aucun sous-projet. Ajoute-en un pour ouvrir sa page.":
       'This activity has no sub-project yet. Add one to open its page.',
     'Ajouter le sous-projet': 'Add sub-project',
@@ -705,7 +644,6 @@
     'Tâches': 'Tasks',
     'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
     'Ajouter une tâche...': 'Add a task...',
-    'Écrire sur ce sous-projet...': 'Write about this sub-project...',
     'aucune tâche': 'no task',
     'Supprimer cette tâche': 'Delete this task',
     'Supprimer cette tâche ?': 'Delete this task?',
@@ -852,9 +790,7 @@
 
     // ---- Flux calendrier des échéances (4 septembre 2026) ----
     'Calendrier': 'Calendar',
-    "Les dates de clôture de tes sous-projets peuvent apparaître dans Apple Calendar ou Google Agenda. Tu obtiens une adresse à laquelle ton calendrier s'abonne, en lecture seule : il la relit tout seul de temps en temps.": 'Your sub-project closing dates can show up in Apple Calendar or Google Calendar. You get an address your calendar subscribes to, read-only: it re-reads it on its own from time to time.',
     'Créer mon lien de calendrier': 'Create my calendar link',
-    "Cette adresse vaut mot de passe : qui l'a voit les noms de tes sous-projets et leurs dates. Ne la publie nulle part. Si elle t'échappe, régénère-la — l'ancienne cesse aussitôt de fonctionner.": 'This address is as good as a password: anyone who has it sees your sub-project names and dates. Do not publish it anywhere. If it gets out, regenerate it — the old one stops working at once.',
     "Copier l'adresse": 'Copy the address',
     'Régénérer': 'Regenerate',
     'Désactiver': 'Turn off',
@@ -868,7 +804,6 @@
     'Dernière lecture par un calendrier : ': 'Last read by a calendar: ',
     'Ajouter à Apple Calendar': 'Add to Apple Calendar',
     'Ajouter à Google Agenda': 'Add to Google Calendar',
-    "Sur un autre calendrier (Outlook ou autre), copie l'adresse ci-dessous puis choisis « S'abonner à un calendrier » ou « Ajouter un calendrier à partir d'une adresse Internet », et colle-la.": 'On another calendar app (Outlook or other), copy the address below then choose “Subscribe to a calendar” or “Add a calendar from an internet address”, and paste it in.',
 
     // ----- Détail par sous-projet dans les statistiques (4 septembre 2026) -----
     // Chantier « Chrono — sous-projets », second passage.
@@ -886,8 +821,6 @@
     // Décalage de version entre index.html et app.js (6 septembre 2026).
     "L'application vient d'être mise à jour. Recharge la page.":
       'The app was just updated. Please reload the page.',
-    'Temps de {name}': '{name}’s time',
-    'Aucun temps enregistré sur cette période.': 'No time recorded in this period.',
     'Chargement...': 'Loading...',
     // Message renvoyé par server/routes/subprojectstats.js
     // ('Activité invalide.' est déjà traduite plus haut — pas de doublon).
