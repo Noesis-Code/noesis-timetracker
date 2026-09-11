@@ -200,7 +200,17 @@ input[type=time]:focus, select:focus, textarea:focus {
 #onboarding {
   height: 100vh;
   height: 100dvh;
-  overflow: hidden;
+  /* 12 septembre 2026 (Design) : overflow:hidden coupait sans recours
+     l'écran d'instructions « Ajoute Noèsis à ton écran d'accueil »
+     (#onbInstallPwa, navigateur uniquement — voir isStandaloneMode() dans
+     app.js), plus haut que la fenêtre visible sur certains téléphones —
+     texte tronqué en bas, aucun moyen de faire défiler pour le lire en
+     entier. overflow-y:auto ne change rien quand le contenu tient déjà
+     (connexion/création de compte, cas normal) : aucun défilement n'apparaît
+     alors, faute de dépassement. Barre de défilement déjà masquée partout
+     par la règle générale plus haut dans ce fichier. */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   align-items: center;
   justify-content: center;
