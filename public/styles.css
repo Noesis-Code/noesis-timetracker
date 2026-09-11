@@ -251,6 +251,14 @@ input[type=time]:focus, select:focus, textarea:focus {
    action/un état "sélectionné" (aucune nouvelle variable de couleur). */
 .switchLink a { color: var(--purple); text-decoration: none; }
 .switchLink a:hover { text-decoration: underline; }
+/* 11 septembre 2026 (demande d'Emilien) : écran "ajoute Noèsis à ton écran
+   d'accueil", affiché à la place de la création/recherche de profil tant que
+   l'app n'est pas ouverte en mode autonome (raccourci). Voir
+   isStandaloneMode()/showOnbInstallPwa() dans app.js. */
+.onbInstallIcon { display: flex; justify-content: center; margin-bottom: 12px; }
+.onbInstallSteps { text-align: left; margin: 14px 0; padding-left: 22px; color: var(--text); font-size: 14px; line-height: 1.6; }
+.onbInstallSteps li { margin-bottom: 8px; }
+.onbInstallSteps li:last-child { margin-bottom: 0; }
 .userList { max-height: 220px; overflow-y: auto; text-align: left; margin-bottom: 8px; }
 /* Les 3 règles ::-webkit-scrollbar dédiées à .userList (barre grise fine
    visible) ont été retirées le 3 septembre 2026 : la règle générale plus
@@ -520,7 +528,36 @@ input[type=time]:focus, select:focus, textarea:focus {
   position: fixed; bottom: 0; left: 0; right: 0; display: flex;
   background: var(--card); border-top: 1px solid var(--border);
   box-shadow: var(--shadow-tabbar);
-  padding: 6px 0 max(6px, env(safe-area-inset-bottom)); z-index: 10;
+  padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+  /* ⚠️ 11 septembre 2026, demande d'Emilien : « je souhaite que la barre
+     basse des volets soit en avant-plan toujours par défaut. Jamais rien
+     ne passe au-dessus de cette barre, sauf une nouvelle fenêtre qui la
+     recouvre complètement. »
+
+     Elle était à 10, comme .topbar, donc SOUS les menus flottants à 20
+     (.statsPeriodMenu, .notifPanel) : le menu « ⋮ » du Graphique passait
+     par-dessus, ce qui est le comportement normal de ces valeurs, pas un
+     accident d'affichage.
+
+     50 est choisi pour tenir la règle dans les DEUX sens :
+       · au-dessus de tout ce qui flotte (20 et moins) ;
+       · en dessous de tout ce qui recouvre l'écran en entier — page
+         Activité et Réglages (90), fenêtres et confirmations (100),
+         visionneuse d'image (200), écran de chargement (9999, en ligne
+         dans index.html). Ceux-là doivent continuer de la masquer.
+     Tout nouvel élément flottant reste donc sous 50, et toute nouvelle
+     fenêtre pleine page se place à 90 ou au-dessus.
+
+     ⚠️ .topbar reste à 10 : les panneaux de la barre du haut
+     (Invitations, Abonnés, Réglages) s'ancrent sous elle et doivent la
+     recouvrir. Seule la barre du BAS est concernée par cette demande.
+
+     Conséquence assumée et signalée à Emilien : un menu « ⋮ » ouvert tout
+     près du bas de l'écran est désormais partiellement caché derrière la
+     barre. Le faire s'ouvrir vers le haut quand la place manque touche
+     setupStatsPeriodMenu, partagée par les trois discussions
+     Statistiques — écarté volontairement de ce chantier. */
+  z-index: 50;
   transition: transform var(--transition-fast);
 }
 /* 6 septembre 2026 (Design) : Emilien signale, sur iPhone 16 précisément,
@@ -1494,6 +1531,17 @@ body.scrollLock { overflow: hidden; }
 #profileSettingsPanel .sectionTitle:nth-child(2) { margin-top: 4px; }
 #profileSettingsPanel .shareActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 
+/* QR code de partage (11 septembre 2026, demande d'Emilien) — fond blanc fixe
+   quel que soit le thème : le SVG généré par public/qrcode.js dessine ses
+   modules en noir sur blanc en dur (nécessaire à la lisibilité par un
+   lecteur de QR code, y compris en thème sombre), donc le cadre autour doit
+   rester blanc lui aussi plutôt que --card, sous peine d'un liseré visible. */
+.shareQr {
+  margin-top: 12px; padding: 12px; background: #fff; border-radius: var(--radius-md);
+  width: fit-content; max-width: 220px;
+}
+.shareQr svg { display: block; width: 100%; height: auto; }
+
 /* Menu des Réglages : une ligne cliquable par section, contenu replié en
    dessous. Tout est porté par #profileSettingsPanel — zone CSS de la
    discussion Paramètres — et réutilise les variables globales de Design sans
@@ -1959,6 +2007,20 @@ body.scrollLock { overflow: hidden; }
   width: 100%; box-sizing: border-box;
   padding-right: 92px; min-height: 56px;
   background: var(--card); color: var(--text);
+  /* 11 septembre 2026 (signalement d'Emilien : sur iPhone 12, le curseur de
+     saisie apparaît SOUS la bulle, dans les discussions des activités).
+     Cause confirmée en lisant app.js : mountMessageThread() applique à ce
+     textarea le même agrandissement automatique en JS (pollAutoGrow(), qui
+     recalcule height=scrollHeight à chaque frappe) qu'aux composeurs
+     .pollAutoGrow — mais SANS lui donner les propriétés CSS que porte cette
+     classe (voir .pollAutoGrow plus bas). Sans resize:none/overflow:hidden/
+     line-height fixe, le recalcul JS de la hauteur et le rendu natif du
+     curseur par WebKit divergent progressivement — plus visible sur les
+     moteurs WebKit plus anciens (iOS non mis à jour), d'où l'écart signalé
+     spécifiquement sur iPhone 12. Mêmes propriétés que .pollAutoGrow,
+     dupliquées ici plutôt que d'ajouter la classe en HTML (qui aurait aussi
+     apporté min-height:0 et margin-bottom:0, non voulus pour ce composeur). */
+  resize: none; overflow: hidden; line-height: 1.35;
 }
 /* ⚠️ Bouton centré verticalement dans la zone de saisie (demande d'Emilien :
    « le bouton envoyer [...] centré entre le haut et le bas de la zone
@@ -3935,3 +3997,51 @@ button { -webkit-user-select: none; user-select: none; }
    Corrige du meme coup l'ouverture de n'importe quelle autre modale depuis
    cette page. */
 #activityPage { z-index: 90; }
+
+/* ===== 11 septembre 2026 (signalement d'Emilien) : sur iPhone 14 et sur
+   iPhone 12 non mis à jour, au lancement de l'app, le cadre noir du haut
+   monte trop haut et déborde sur la caméra avant / l'encoche. =====
+
+   Diagnostic : `apple-mobile-web-app-status-bar-style` (index.html) vaut
+   "black-translucent" — la barre de statut d'iOS est transparente et
+   superposée au contenu, donc c'est UNIQUEMENT env(safe-area-inset-top) qui
+   protège le contenu de l'encoche/de la caméra. Or WebKit a une longue
+   histoire de bugs sur ces valeurs (retournées à 0, ou pas mises à jour) en
+   mode standalone (app ajoutée à l'écran d'accueil), en particulier sur des
+   versions d'iOS qui n'ont pas reçu les correctifs ultérieurs d'Apple — ce
+   qui correspond exactement aux appareils cités : iPhone 14 (encoche) et
+   iPhone 12 "non mis à jour" (encoche). Quand env(safe-area-inset-top) vaut
+   0 au lieu de ~47px, `max(14px, env(...))` retombe sur le plancher de 14px
+   — pensé pour Android/bureau, sans encoche — et le bandeau remonte dans la
+   zone physique de la caméra.
+
+   Correctif, dans le même esprit (déjà validé sur ce projet) que celui de la
+   barre du bas sur iPhone 16 : ne jamais faire confiance à env() seul sur
+   iOS standalone, et imposer par-dessus un plancher généreux qui couvre
+   l'encoche même quand env() est mal remonté. Sans risque de régression :
+   - `@supports (-webkit-touch-callout: none)` ne reconnaît QUE WebKit/Safari
+     (jamais Chrome/Blink ni Firefox) ;
+   - `@media (display-mode: standalone)` ne s'applique QUE dans l'app
+     installée (jamais un onglet Safari ordinaire, jamais Android, jamais le
+     bureau).
+   47px couvre la hauteur d'encoche standard (iPhone X à 14, iPhone SE
+   excepté) ; sur les modèles où env() fonctionne correctement (Dynamic
+   Island, ~59px), max() choisit la vraie valeur, plus grande — rien ne
+   change pour eux. Les 4 autres endroits du fichier qui lisent
+   env(safe-area-inset-top) partagent exactement la même fragilité
+   (croix de fermeture des réglages, bandeau des réglages, croix de la
+   visionneuse d'image, en-tête d'une activité) : même correctif appliqué par
+   précaution, même si le signalement d'Emilien ne visait explicitement que
+   le bandeau du haut.
+
+   Aucun appareil physique disponible pour confirmer visuellement ce
+   correctif — à revalider auprès d'Emilien sur un iPhone 12/14 réel. */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    .topbar { padding-top: max(47px, env(safe-area-inset-top)); }
+    #profileSettingsPanel.settingsPanel #settingsCloseBtn { top: max(47px, env(safe-area-inset-top)); }
+    #profileSettingsPanel.settingsPanel > .subpageHeader { padding-top: max(47px, env(safe-area-inset-top)); }
+    .imageViewerClose { top: max(47px, env(safe-area-inset-top)); }
+    .activityPageHeader { padding-top: max(47px, env(safe-area-inset-top)); }
+  }
+}

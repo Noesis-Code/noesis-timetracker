@@ -37,6 +37,20 @@
   var DICT = {
     // ---- Onboarding ----
     'TimeTracker partagé': 'Shared TimeTracker',
+    // 11 septembre 2026 (écran "ajoute Noèsis à ton écran d'accueil",
+    // affiché tant que l'app n'est pas ouverte en mode autonome).
+    "Ajoute Noèsis à ton écran d'accueil": 'Add Noèsis to your home screen',
+    "Pour créer ou retrouver ton profil, ajoute d'abord Noèsis à ton écran d'accueil — ça ne prend que quelques secondes, et l'app s'ouvrira ensuite comme une vraie application.": "To create or find your profile, first add Noèsis to your home screen — it only takes a few seconds, and the app will then open like a real application.",
+    "Une fois l'icône ajoutée, ouvre Noèsis à partir d'elle — cet écran ne s'affichera plus.": "Once the icon is added, open Noèsis from it — this screen won't appear again.",
+    "Touche l'icône Partager (le carré avec la flèche vers le haut) en bas de l'écran.": 'Tap the Share icon (the square with an arrow pointing up) at the bottom of the screen.',
+    "Fais défiler les options et touche « Sur l'écran d'accueil ».": "Scroll down the options and tap “Add to Home Screen”.",
+    'Touche « Ajouter » en haut à droite.': 'Tap “Add” in the top right corner.',
+    'Touche le menu ⋮ (trois points) en haut à droite du navigateur.': 'Tap the ⋮ menu (three dots) in the top right of the browser.',
+    "Touche « Ajouter à l'écran d'accueil » (ou « Installer l'application »).": 'Tap “Add to Home screen” (or “Install app”).',
+    'Confirme en touchant « Ajouter » ou « Installer ».': 'Confirm by tapping “Add” or “Install”.',
+    "Clique sur l'icône d'installation (⊕) dans la barre d'adresse, à droite.": 'Click the install icon (⊕) in the address bar, on the right.',
+    'Clique sur « Installer ».': 'Click “Install”.',
+    "Noèsis s'ouvre dans sa propre fenêtre, accessible depuis ton bureau ou ton menu de démarrage.": 'Noèsis opens in its own window, accessible from your desktop or start menu.',
     'Tape ton nom complet...': 'Type your full name...',
     'Tape au moins 3 caractères de ton nom complet pour retrouver ton profil.': 'Type at least 3 characters of your full name to find your profile.',
     "Comment veux-tu qu'on t'appelle ?": 'What should we call you?',
@@ -459,18 +473,14 @@
     'Langue mise à jour.': 'Language updated.',
 
     // ---- Partage (30 août 2026, rétabli le 1er septembre après une
-    // réécriture du dictionnaire qui l'avait fait disparaître) ----
+    // réécriture du dictionnaire qui l'avait fait disparaître ; revu le
+    // 11 septembre 2026 — adresse détectée automatiquement, QR code, plus
+    // aucune saisie manuelle : les anciennes entrées de saisie/enregistrement
+    // d'adresse retirées avec elles) ----
     'Partage': 'Sharing',
-    "Indique l'adresse à laquelle l'app est accessible depuis un autre appareil. Elle est mémorisée sur cet appareil uniquement, et sert aux deux boutons ci-dessous.": 'Enter the address where the app can be reached from another device. It is stored on this device only, and is used by the two buttons below.',
-    'https://mon-adresse-noesis.fr': 'https://my-noesis-address.com',
-    "Enregistrer l'adresse": 'Save the address',
     "Partager l'app": 'Share the app',
     'Partager mon profil': 'Share my profile',
-    'Adresse enregistrée.': 'Address saved.',
-    'Adresse enregistrée. Attention : elle est locale, elle ne fonctionnera que depuis ton réseau.': 'Address saved. Careful: it is a local address, it will only work from your own network.',
-    'Adresse effacée.': 'Address cleared.',
-    'Adresse invalide — elle doit ressembler à https://exemple.fr': 'Invalid address — it should look like https://example.com',
-    "Renseigne d'abord l'adresse publique de l'app ci-dessus.": 'Enter the public address of the app above first.',
+    'Adresse locale : ce lien et ce QR code ne fonctionneront que depuis ton réseau.': 'Local address: this link and this QR code will only work from your own network.',
     'Partagé.': 'Shared.',
     'Copié — tu peux le coller où tu veux.': 'Copied — paste it wherever you like.',
     'Impossible de copier automatiquement — sélectionne le texte à la main.': 'Could not copy automatically — select the text by hand.',

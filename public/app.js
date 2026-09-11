@@ -566,9 +566,92 @@
     if (typeof window.hideBootSplash === 'function') window.hideBootSplash();
   }
 
+  // ⚠️ 11 septembre 2026 (demande d'Emilien) : tant que Noèsis tourne dans
+  // un onglet de navigateur "classique" (pas encore ajoutée à l'écran
+  // d'accueil), l'écran d'onboarding ne doit montrer QUE les étapes pour
+  // créer le raccourci — jamais la création de profil ni la recherche
+  // d'un profil existant. `display-mode: standalone` couvre Chrome/Edge/
+  // Android (desktop et mobile) une fois l'app installée/ajoutée à
+  // l'écran d'accueil ; `navigator.standalone` est le seul signal
+  // équivalent sur Safari iOS (qui n'implémente pas display-mode pour les
+  // PWA ajoutées à l'écran d'accueil). Il n'existe aucun événement fiable
+  // "le raccourci vient d'être créé" — cette détection se refait à CHAQUE
+  // chargement de page, ce qui est exactement le comportement voulu : le
+  // message d'installation reste tant que l'app n'a pas été relancée
+  // depuis son icône, et disparaît définitivement dès que c'est le cas.
+  function isStandaloneMode() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+  }
+
+  // Détecte la plateforme pour afficher les bonnes étapes ("Ajouter à
+  // l'écran d'accueil" diffère radicalement entre Safari iOS, Chrome
+  // Android et un navigateur de bureau). iPadOS 13+ se fait passer pour un
+  // Mac dans le user-agent — on le distingue via maxTouchPoints, seul
+  // signal fiable dans ce cas.
+  function detectInstallPlatform() {
+    var ua = window.navigator.userAgent || '';
+    var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    var isIPadOSAsMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+    if (isIOS || isIPadOSAsMac) return 'ios';
+    if (/Android/.test(ua)) return 'android';
+    return 'desktop';
+  }
+
+  var ONB_INSTALL_STEPS = {
+    ios: [
+      "Touche l'icône Partager (le carré avec la flèche vers le haut) en bas de l'écran.",
+      "Fais défiler les options et touche « Sur l'écran d'accueil ».",
+      "Touche « Ajouter » en haut à droite."
+    ],
+    android: [
+      'Touche le menu ⋮ (trois points) en haut à droite du navigateur.',
+      "Touche « Ajouter à l'écran d'accueil » (ou « Installer l'application »).",
+      'Confirme en touchant « Ajouter » ou « Installer ».'
+    ],
+    desktop: [
+      "Clique sur l'icône d'installation (⊕) dans la barre d'adresse, à droite.",
+      "Clique sur « Installer ».",
+      "Noèsis s'ouvre dans sa propre fenêtre, accessible depuis ton bureau ou ton menu de démarrage."
+    ]
+  };
+
+  function renderOnbInstallSteps() {
+    var list = $('onbInstallSteps');
+    if (!list) return;
+    var platform = detectInstallPlatform();
+    var steps = ONB_INSTALL_STEPS[platform] || ONB_INSTALL_STEPS.desktop;
+    list.innerHTML = '';
+    steps.forEach(function (step) {
+      var li = document.createElement('li');
+      li.textContent = t(step);
+      list.appendChild(li);
+    });
+  }
+
+  // Bascule l'écran d'onboarding sur les étapes d'installation du
+  // raccourci, en masquant toutes les autres étapes (création de profil,
+  // recherche d'un profil existant, code PIN, activités) — voir
+  // isStandaloneMode() ci-dessus pour le contexte de cette demande.
+  function showOnbInstallPwa() {
+    $('onbCreate').classList.add('hidden');
+    $('onbExisting').classList.add('hidden');
+    $('onbPinStep').classList.add('hidden');
+    $('onbActivities').classList.add('hidden');
+    $('onbMsg').textContent = '';
+    renderOnbInstallSteps();
+    $('onbInstallPwa').classList.remove('hidden');
+  }
+
   function showOnboarding() {
     $('onboarding').classList.remove('hidden');
     $('app').classList.add('hidden');
+    if (!isStandaloneMode()) {
+      showOnbInstallPwa();
+      dismissBootSplash();
+      return;
+    }
+    $('onbInstallPwa').classList.add('hidden');
     // Premier lancement (aucun profil connu) : c'est l'affichage de
     // l'onboarding, et non showApp(), qui marque la fin du "chargement" —
     // il n'y a rien d'autre à attendre à ce stade.
@@ -994,6 +1077,13 @@
   var pendingPinUser = null;
 
   function showOnbPinStep(user) {
+    // Garde-fou : cette fonction est aussi appelée directement (hors clic
+    // sur une carte de résultat de recherche) par le flux de
+    // revérification de session au démarrage — voir plus bas,
+    // `showOnboarding(); showOnbPinStep(match);`. Si l'app n'est pas
+    // encore en mode autonome (raccourci), l'écran d'installation doit
+    // rester affiché plutôt que de laisser passer l'étape code PIN.
+    if (!isStandaloneMode()) { showOnbInstallPwa(); return; }
     pendingPinUser = user;
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.add('hidden');
@@ -11286,58 +11376,65 @@
   });
 
   // ----- Partage (adresse publique de l'app + invitation par pseudo) -----
-  // L'adresse est mémorisée sur CET appareil uniquement (localStorage), pas
-  // côté serveur : l'app étant destinée à être publique, un réglage partagé
-  // laisserait n'importe qui remplacer le lien envoyé par tout le monde.
-  // Tant qu'aucune adresse n'est saisie, les deux boutons ne partagent rien
-  // et le disent — l'adresse de la page ouverte (localhost) ne servirait à
-  // personne d'autre tant que Noèsis n'est pas déployée.
-  var SHARE_URL_KEY = 'noesis_share_url';
-
-  function loadShareUrl() {
-    try { return localStorage.getItem(SHARE_URL_KEY) || ''; } catch (e) { return ''; }
-  }
-  function storeShareUrl(url) {
-    try { if (url) localStorage.setItem(SHARE_URL_KEY, url); else localStorage.removeItem(SHARE_URL_KEY); } catch (e) { /* ignore */ }
-  }
-  function renderShareSettings() {
-    var input = $('shareUrlInput');
-    if (!input) return;
-    input.value = loadShareUrl();
-    $('shareMsg').textContent = '';
+  // ⚠️ 11 septembre 2026, demande d'Emilien : « je souhaite que l'utilisateur
+  // n'ait pas besoin de rentrer l'URL [...] qu'elle soit automatiquement
+  // rentrée [...] supprimer le bouton enregistrer l'adresse [...] ajouter un
+  // QR code ». Ancienne justification de la saisie manuelle (commentaire
+  // d'origine, 30 août 2026) : « Noèsis n'est pas encore déployée, l'adresse
+  // de la page ouverte (localhost) ne servirait à personne d'autre ». Cette
+  // condition ne tient plus depuis le déploiement en production le 30 août
+  // 2026 (adresse stable, voir noesis-timetracker-deploiement.md) : l'adresse
+  // partagée est désormais TOUJOURS celle de la page réellement ouverte
+  // (location.origin), plus jamais tapée à la main ni mémorisée. Toujours
+  // rien de stocké côté serveur ni entre profils — même principe de
+  // confidentialité que l'ancien mécanisme (voir la politique de
+  // confidentialité, section 4.4), simplement sans plus rien à retenir : il
+  // n'y a plus qu'UNE seule adresse possible, celle sur laquelle on se
+  // trouve.
+  function currentShareUrl() {
+    return (location.origin || '').replace(/\/+$/, '');
   }
 
-  // Accepte une saisie sans protocole ("noesis.exemple.fr") en préfixant
-  // https://. Renvoie null si l'adresse reste inexploitable. La validation
-  // est volontairement stricte sur le nom d'hôte : new URL() accepte des
-  // choses très surprenantes (une phrase avec des espaces devient un hôte
-  // suivi d'un chemin), et une adresse fausse ne se verrait qu'au moment où
-  // le destinataire clique sur le lien.
-  function normalizeShareUrl(raw) {
-    var v = (raw || '').trim();
-    if (!v) return '';
-    if (/\s/.test(v)) return null;
-    if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
-    try {
-      var u = new URL(v);
-      var host = u.hostname;
-      if (!host || !/^[a-z0-9.\-]+$/i.test(host)) return null;
-      // Un nom d'hôte sans point n'est valable que sur le poste lui-même
-      // (localhost) : partout ailleurs c'est une faute de frappe.
-      if (host.indexOf('.') === -1 && host !== 'localhost') return null;
-      return u.href.replace(/\/+$/, '');
-    } catch (e) { return null; }
-  }
-
-  // Une adresse locale (localhost, 127.0.0.1, réseau privé) reste utile
-  // entre deux appareils du même wifi, mais pas au-delà : on l'accepte en
-  // le signalant plutôt que de la refuser.
+  // Une adresse locale (localhost, 127.0.0.1, réseau privé) reste utile entre
+  // deux appareils du même wifi, mais pas au-delà : on le signale plutôt que
+  // de le cacher, pour ne pas laisser croire qu'un lien partagé depuis chez
+  // soi fonctionnera pour tout le monde.
   function isLocalShareUrl(url) {
     try {
       var h = new URL(url).hostname;
       return h === 'localhost' || h === '127.0.0.1' || h === '::1' ||
         /^192\.168\./.test(h) || /^10\./.test(h) || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(h);
     } catch (e) { return false; }
+  }
+
+  // QR code (11 septembre 2026, demande d'Emilien) — généré ENTIÈREMENT dans
+  // le navigateur via public/qrcode.js (bibliothèque tierce vendue
+  // localement, voir l'en-tête de ce fichier) : aucune adresse envoyée à un
+  // service tiers, fonctionne hors ligne comme le reste de l'app (voir
+  // sw.js, où ce fichier est ajouté à l'enveloppe SHELL). typeNumber à 0
+  // laisse la bibliothèque choisir automatiquement la plus petite taille de
+  // QR qui contient l'adresse.
+  function renderShareQrCode(url) {
+    var box = $('shareQrCode');
+    if (!box) return;
+    box.innerHTML = '';
+    if (typeof qrcode !== 'function' || !url) return;
+    try {
+      var qr = qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      box.innerHTML = qr.createSvgTag({ scalable: true });
+    } catch (e) { /* dégradation silencieuse : les boutons de partage restent utilisables sans QR code */ }
+  }
+
+  function renderShareSettings() {
+    var box = $('shareQrCode');
+    if (!box) return;
+    var url = currentShareUrl();
+    renderShareQrCode(url);
+    $('shareMsg').textContent = isLocalShareUrl(url)
+      ? t('Adresse locale : ce lien et ce QR code ne fonctionneront que depuis ton réseau.')
+      : '';
   }
 
   function legacyCopy(text) {
@@ -11387,39 +11484,12 @@
     copyShareText(text);
   }
 
-  function shareUrlOrWarn() {
-    var url = loadShareUrl();
-    if (!url) {
-      $('shareMsg').textContent = t("Renseigne d'abord l'adresse publique de l'app ci-dessus.");
-      return null;
-    }
-    return url;
-  }
-
-  $('shareUrlSaveBtn').addEventListener('click', function () {
-    var normalized = normalizeShareUrl($('shareUrlInput').value);
-    if (normalized === null) {
-      $('shareMsg').textContent = t('Adresse invalide — elle doit ressembler à https://exemple.fr');
-      return;
-    }
-    storeShareUrl(normalized);
-    $('shareUrlInput').value = normalized;
-    if (!normalized) { $('shareMsg').textContent = t('Adresse effacée.'); return; }
-    $('shareMsg').textContent = isLocalShareUrl(normalized)
-      ? t('Adresse enregistrée. Attention : elle est locale, elle ne fonctionnera que depuis ton réseau.')
-      : t('Adresse enregistrée.');
-  });
-
   $('shareAppBtn').addEventListener('click', function () {
-    var url = shareUrlOrWarn();
-    if (!url) return;
-    shareOrCopy(t('Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}', { url: url }));
+    shareOrCopy(t('Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}', { url: currentShareUrl() }));
   });
 
   $('shareProfileBtn').addEventListener('click', function () {
-    var url = shareUrlOrWarn();
-    if (!url) return;
-    shareOrCopy(t("Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.", { url: url, pseudo: profile.name }));
+    shareOrCopy(t("Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.", { url: currentShareUrl(), pseudo: profile.name }));
   });
 
   // ----- Supprimer mon compte (zone "danger" tout en bas de Réglages) -----

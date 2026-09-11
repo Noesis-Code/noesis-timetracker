@@ -478,6 +478,29 @@
       <button id="onbActivitiesContinue" class="btn btn-primary" disabled>Continuer</button>
     </div>
 
+    <!-- 11 septembre 2026 (demande d'Emilien) : tant que l'app n'est pas
+         ouverte en mode "installé" (raccourci ajouté à l'écran d'accueil),
+         ni la création de profil ni la recherche d'un profil existant ne
+         doivent être accessibles — seules les étapes d'installation du
+         raccourci s'affichent. Détection via isStandaloneMode() dans
+         app.js (display-mode: standalone / navigator.standalone), pas
+         d'événement fiable pour "raccourci vient d'être créé" : la
+         bascule se refait à chaque chargement, donc l'écran disparaît
+         définitivement dès que l'app est lancée depuis son icône. -->
+    <div id="onbInstallPwa" class="hidden">
+      <div class="onbInstallIcon" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="56" height="56" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="6" width="52" height="52" rx="14" fill="var(--purple)" opacity="0.12"/>
+          <path d="M32 16v22M32 38l-9-9M32 38l9-9" stroke="var(--purple)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="17" y="44" width="30" height="6" rx="3" fill="var(--purple)"/>
+        </svg>
+      </div>
+      <p class="lead">Ajoute Noèsis à ton écran d'accueil</p>
+      <p class="hint">Pour créer ou retrouver ton profil, ajoute d'abord Noèsis à ton écran d'accueil — ça ne prend que quelques secondes, et l'app s'ouvrira ensuite comme une vraie application.</p>
+      <ol id="onbInstallSteps" class="onbInstallSteps"></ol>
+      <p class="hint">Une fois l'icône ajoutée, ouvre Noèsis à partir d'elle — cet écran ne s'affichera plus.</p>
+    </div>
+
     <p id="onbMsg" class="msg"></p>
   </div>
 </div>
@@ -2987,18 +3010,23 @@
             </div>
 
 
-            <!-- Partage (30 août 2026, demande d'Emilien) : envoyer l'app à
-                 quelqu'un, ou s'inviter soi-même en donnant son pseudo.
-                 L'adresse publique est SAISIE À LA MAIN et mémorisée sur CET
-                 appareil (localStorage), pas déduite de la page ouverte :
-                 Noèsis n'est pas encore déployée, l'adresse actuelle
-                 (localhost) ne fonctionnerait chez personne d'autre.
-                 Volontairement pas un réglage partagé côté serveur non plus :
-                 sur une app ouverte à tous, n'importe qui pourrait alors
-                 remplacer le lien que tout le monde envoie. Le champ utilise
-                 type="text" + inputmode="url" (et non type="url") pour hériter
-                 de la mise en forme existante de .settingsCard sans toucher au
-                 CSS générique, qui appartient à Design. -->
+            <!-- Partage (30 août 2026, demande d'Emilien ; revu le
+                 11 septembre 2026) : envoyer l'app à quelqu'un, ou s'inviter
+                 soi-même en donnant son pseudo. L'adresse partagée n'est PLUS
+                 saisie à la main depuis le 11 septembre 2026 (demande
+                 d'Emilien) : Noèsis est déployée sur une adresse publique
+                 stable depuis le 30 août 2026 (voir
+                 noesis-timetracker-deploiement.md), donc l'adresse de la
+                 page réellement ouverte (location.origin, voir app.js
+                 currentShareUrl()) est fiable — plus rien à taper, plus rien
+                 à mémoriser. #shareQrCode reçoit le QR code correspondant,
+                 généré localement dans le navigateur (public/qrcode.js,
+                 aucun service tiers). Toujours pas de réglage partagé côté
+                 serveur : sur une app ouverte à tous, n'importe qui pourrait
+                 sinon remplacer le lien que tout le monde envoie — mais ce
+                 risque n'existe plus vraiment ici puisqu'il n'y a plus qu'une
+                 seule adresse possible à partager, celle sur laquelle on se
+                 trouve. -->
             <div class="settingsSection">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
                 <span class="sectionTitle">Partage</span>
@@ -3006,12 +3034,11 @@
               </button>
               <div class="settingsSectionBody hidden">
             <div class="settingsCard">
-              <input type="text" inputmode="url" id="shareUrlInput" placeholder="https://mon-adresse-noesis.fr" autocomplete="off">
-              <button id="shareUrlSaveBtn" class="btn btn-primary btn-small">Enregistrer l'adresse</button>
               <div class="shareActions">
                 <button id="shareAppBtn" class="iconBtn">Partager l'app</button>
                 <button id="shareProfileBtn" class="iconBtn">Partager mon profil</button>
               </div>
+              <div id="shareQrCode" class="shareQr" aria-hidden="true"></div>
               <p id="shareMsg" class="msg"></p>
             </div>
               </div>
@@ -3426,6 +3453,7 @@
      et server/lib/theme.js (même source, consommée côté serveur via require). -->
 <script src="/theme-palette.js"></script>
 <script src="/i18n.js"></script>
+<script src="/qrcode.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
