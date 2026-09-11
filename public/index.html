@@ -452,8 +452,26 @@
       <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPin" placeholder="Choisis un code (4 à 6 chiffres)" maxlength="6" autocomplete="off">
       <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinConfirm" placeholder="Confirme le code" maxlength="6" autocomplete="off">
       <p class="hint">Ce code te sera redemandé si tu récupères ce profil depuis un autre appareil — retiens-le bien.</p>
-      <p class="switchLink"><a href="#" id="onbLegalTermsLink">Lire les conditions d'utilisation avant de créer ton profil</a></p>
-      <button class="btn btn-primary" id="onbCreateBtn">Créer mon profil</button>
+      <!-- 11 septembre 2026, demande directe d'Emilien : le simple lien de
+           lecture des CGU (7 septembre 2026, voir plus bas dans ce fichier)
+           ne suffisait pas à formaliser un consentement — n'importe qui
+           pouvait créer un compte sans jamais cocher ni ouvrir quoi que ce
+           soit. Ajout d'une case à cocher OBLIGATOIRE : le bouton "Créer mon
+           profil" reste désactivé (attribut `disabled` posé ici, retiré par
+           app.js au clic sur la case) tant qu'elle n'est pas cochée, et le
+           clic est de toute façon re-vérifié côté client dans le
+           gestionnaire de #onbCreateBtn (voir app.js) avant tout appel à
+           POST /api/profile. Le lien #onbLegalTermsLink est conservé tel
+           quel à l'intérieur du texte de la case, pour ouvrir #legalTermsModal
+           sans cocher automatiquement la case (voir app.js : preventDefault
+           + stopPropagation sur ce lien précis). -->
+      <p class="onbLegalCheck">
+        <label for="onbLegalTermsCheckbox">
+          <input type="checkbox" id="onbLegalTermsCheckbox">
+          <span>J'ai lu et j'accepte les <a href="#" id="onbLegalTermsLink">conditions d'utilisation</a>.</span>
+        </label>
+      </p>
+      <button class="btn btn-primary" id="onbCreateBtn" disabled>Créer mon profil</button>
       <p class="switchLink"><a href="#" id="onbSwitchToExisting">J'ai déjà un profil sur cette app</a></p>
     </div>
 

@@ -274,7 +274,16 @@
     'Télécharger mes données': 'Download my data',
     "Conditions d'utilisation": 'Terms of use',
     "Lire les conditions d'utilisation": 'Read the terms of use',
-    "Lire les conditions d'utilisation avant de créer ton profil": 'Read the terms of use before creating your profile',
+    // Case à cocher obligatoire à la création de compte (11 septembre 2026,
+    // demande directe d'Emilien, remplace l'ancien lien seul juste au-dessus
+    // — "Lire les conditions d'utilisation avant de créer ton profil" — qui
+    // n'imposait aucun consentement formel). Le texte de la case est réparti
+    // sur trois nœuds de texte distincts (avant/dans/après le lien
+    // #onbLegalTermsLink) : translateStaticDom() traduit nœud par nœud, donc
+    // chaque fragment a besoin de sa propre clé — voir public/index.html.
+    "J'ai lu et j'accepte les": 'I have read and accept the',
+    "conditions d'utilisation": 'terms of use',
+    "Tu dois accepter les conditions d'utilisation avant de créer ton profil.": 'You must accept the terms of use before creating your profile.',
     // Documents légaux (10 septembre 2026, demande directe d'Emilien) :
     // sous-section déroulante regroupant politique de confidentialité,
     // mentions légales et conditions d'utilisation (auparavant seule, à part).

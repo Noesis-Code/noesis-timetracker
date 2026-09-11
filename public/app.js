@@ -999,7 +999,25 @@
   var ONB_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   var ONB_PHONE_RE = /^[0-9+()\-\s]{6,30}$/;
 
+  // 11 septembre 2026, demande directe d'Emilien : le simple lien de lecture
+  // des CGU (#onbLegalTermsLink, 7 septembre 2026) ne formalisait aucun
+  // consentement — rien n'empêchait de créer un compte sans jamais l'ouvrir
+  // ni le lire. Ajout d'une case à cocher OBLIGATOIRE (#onbLegalTermsCheckbox,
+  // voir public/index.html) : le bouton reste désactivé tant qu'elle n'est
+  // pas cochée (`onbUpdateCreateBtnState` ci-dessous), ET la vérification est
+  // refaite ici, dans le gestionnaire de clic lui-même, en défense en
+  // profondeur — au cas où l'attribut `disabled` aurait été retiré par un
+  // autre moyen (ex. un profil restauré depuis un ancien état de page).
+  function onbUpdateCreateBtnState() {
+    $('onbCreateBtn').disabled = !$('onbLegalTermsCheckbox').checked;
+  }
+  $('onbLegalTermsCheckbox').addEventListener('change', onbUpdateCreateBtnState);
+
   $('onbCreateBtn').addEventListener('click', function () {
+    if (!$('onbLegalTermsCheckbox').checked) {
+      $('onbMsg').textContent = t('Tu dois accepter les conditions d\'utilisation avant de créer ton profil.');
+      return;
+    }
     var name = $('onbName').value.trim();
     if (!name) { $('onbMsg').textContent = t('Indique un prénom ou un pseudo.'); return; }
     var lastName = $('onbLastName').value.trim();

@@ -272,6 +272,21 @@ input[type=time]:focus, select:focus, textarea:focus {
    action/un état "sélectionné" (aucune nouvelle variable de couleur). */
 .switchLink a { color: var(--purple); text-decoration: none; }
 .switchLink a:hover { text-decoration: underline; }
+/* 11 septembre 2026 (demande d'Emilien) : case à cocher obligatoire
+   d'acceptation des CGU, juste avant le bouton de création de compte — voir
+   #onbLegalTermsCheckbox/#onbCreateBtn dans app.js. Même famille visuelle que
+   .switchLink (taille de police, lien violet), mais en ligne avec la case à
+   cocher plutôt qu'en lien seul. */
+.onbLegalCheck { font-size: 13px; margin-top: 16px; text-align: left; }
+.onbLegalCheck label {
+  display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
+  color: var(--text-light);
+}
+.onbLegalCheck input[type=checkbox] {
+  margin-top: 2px; width: 16px; height: 16px; flex: 0 0 auto; cursor: pointer;
+}
+.onbLegalCheck a { color: var(--purple); text-decoration: none; }
+.onbLegalCheck a:hover { text-decoration: underline; }
 /* 11 septembre 2026 (demande d'Emilien) : écran "ajoute Noèsis à ton écran
    d'accueil", affiché à la place de la création/recherche de profil tant que
    l'app n'est pas ouverte en mode autonome (raccourci). Voir
