@@ -613,7 +613,7 @@
       'Touche les trois petits points (⋯) pour faire apparaître le bouton Partager.',
       'Touche le bouton Partager.',
       "Fais défiler les options et touche « Ajouter à l'écran d'accueil ».",
-      'Touche « Valider » en haut à droite.'
+      'Touche « Ajouter » en haut à droite.'
     ],
     android: [
       ONB_INSTALL_COMMON_FIRST_STEP,

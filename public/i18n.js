@@ -46,7 +46,7 @@
     'Touche les trois petits points (⋯) pour faire apparaître le bouton Partager.': 'Tap the three dots (⋯) to reveal the Share button.',
     'Touche le bouton Partager.': 'Tap the Share button.',
     "Fais défiler les options et touche « Ajouter à l'écran d'accueil ».": "Scroll down the options and tap “Add to Home Screen”.",
-    'Touche « Valider » en haut à droite.': 'Tap “Confirm” in the top right corner.',
+    'Touche « Ajouter » en haut à droite.': 'Tap “Add” in the top right corner.',
     'Touche le menu ⋮ (trois points) en haut à droite du navigateur.': 'Tap the ⋮ menu (three dots) in the top right of the browser.',
     "Touche « Ajouter à l'écran d'accueil » (ou « Installer l'application »).": 'Tap “Add to Home screen” (or “Install app”).',
     'Confirme en touchant « Ajouter » ou « Installer ».': 'Confirm by tapping “Add” or “Install”.',
