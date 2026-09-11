@@ -97,20 +97,6 @@
    à la hauteur du document (donc ni à #app{min-height:100dvh} ni à
    refreshScrollLock()). */
 #bootSplash.bootSplashDone { opacity: 0; pointer-events: none; }
-/* 6 septembre 2026 (Design) : même bande visible que sur .tabbar (voir le
-   commentaire équivalent dans styles.css) signalée par Emilien sur iPhone 16
-   au démarrage de l'app. Même stratégie "tous les modèles" : un débordement
-   généreux (+24px au-delà de env(safe-area-inset-bottom), qui peut ne pas
-   être fiable ici selon l'hypothèse retenue) plutôt qu'une correspondance
-   exacte — invisible et sans effet si #bootSplash couvrait déjà tout
-   l'écran, comble la bande sinon, quel que soit l'appareil. */
-#bootSplash::after {
-  content: '';
-  position: absolute;
-  top: 100%; left: 0; right: 0;
-  height: calc(env(safe-area-inset-bottom, 0px) + 24px);
-  background: #000000;
-}
 
 #bootSplash svg {
   display: block;

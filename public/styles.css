@@ -560,36 +560,6 @@ input[type=time]:focus, select:focus, textarea:focus {
   z-index: 50;
   transition: transform var(--transition-fast);
 }
-/* 6 septembre 2026 (Design) : Emilien signale, sur iPhone 16 précisément,
-   une fine bande visible sous la barre d'icônes (et au même endroit sur
-   #bootSplash ci-dessous — même symptôme, même correctif). `.tabbar` a
-   pourtant déjà `bottom: 0` et réserve `env(safe-area-inset-bottom)` en
-   padding : en théorie, rien ne devrait dépasser en dessous. Hypothèse
-   retenue (non vérifiable sans l'appareil) : WebKit positionne parfois un
-   élément `position: fixed; bottom: 0` d'une PWA installée légèrement
-   AU-DESSUS du bord physique réel sur certains modèles/versions récentes,
-   laissant la hauteur de la zone de sécurité non peinte — ce qui découvre
-   le fond de <body> (var(--bg), plus clair que le noir de .topbar/html en
-   thème sombre) à cet endroit précis.
-   Stratégie "tous les modèles" (suite à la question d'Emilien) : ne pas
-   chercher à reproduire exactement env(safe-area-inset-bottom) (qui suppose
-   que le navigateur le rapporte ET l'applique correctement — exactement ce
-   qui est mis en doute ici) mais DÉBORDER largement au-delà de toute valeur
-   réaliste (34-35px au maximum connu sur les iPhone à Face ID actuels) :
-   +24px de marge. Ce débordement ne coûte rien et ne peut rien casser : si
-   .tabbar couvre déjà correctement le bord réel de l'écran (tous les
-   iPhone à bouton Home, tout Android, et si l'hypothèse WebKit est fausse
-   même sur iPhone 16), ce prolongement tombe simplement hors de l'écran
-   visible, invisible. `env(..., 0px)` renvoie 0 sur les appareils sans zone
-   de sécurité (repli natif du navigateur) : aucune branche par appareil à
-   écrire à la main, le calcul s'adapte de lui-même. */
-.tabbar::after {
-  content: '';
-  position: absolute;
-  top: 100%; left: 0; right: 0;
-  height: calc(env(safe-area-inset-bottom, 0px) + 24px);
-  background: inherit;
-}
 /* ⚠️ 3 septembre 2026 (Design), suite : une première tentative recalculait
    la position de .tabbar via --keyboard-inset (mesurée en JS avec l'API
    VisualViewport) pour la recoller juste au-dessus du clavier — insuffisant
