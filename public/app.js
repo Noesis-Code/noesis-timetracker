@@ -1008,6 +1008,11 @@
   // refaite ici, dans le gestionnaire de clic lui-même, en défense en
   // profondeur — au cas où l'attribut `disabled` aurait été retiré par un
   // autre moyen (ex. un profil restauré depuis un ancien état de page).
+  // Mise à jour du 11 septembre 2026 (nuit, suite), même demande d'Emilien :
+  // une seule case couvre désormais À LA FOIS les CGU ET la politique de
+  // confidentialité (#onbPrivacyPolicyLink, ajouté dans le texte de la case
+  // — voir public/index.html) ; aucune case distincte par document, la
+  // décision d'Emilien étant un consentement unique aux deux.
   function onbUpdateCreateBtnState() {
     $('onbCreateBtn').disabled = !$('onbLegalTermsCheckbox').checked;
   }
@@ -1015,7 +1020,7 @@
 
   $('onbCreateBtn').addEventListener('click', function () {
     if (!$('onbLegalTermsCheckbox').checked) {
-      $('onbMsg').textContent = t('Tu dois accepter les conditions d\'utilisation avant de créer ton profil.');
+      $('onbMsg').textContent = t('Tu dois accepter les conditions d\'utilisation et la politique de confidentialité avant de créer ton profil.');
       return;
     }
     var name = $('onbName').value.trim();
@@ -6573,6 +6578,16 @@
     onbLegalTermsLink.addEventListener('click', function (e) {
       e.preventDefault();
       $('legalTermsModal').classList.remove('hidden');
+    });
+  }
+  // 11 septembre 2026 (nuit, suite), même case à cocher que ci-dessus, second
+  // lien : ouvre #privacyPolicyModal sans cocher automatiquement la case —
+  // même patron exact que onbLegalTermsLink juste au-dessus.
+  var onbPrivacyPolicyLink = $('onbPrivacyPolicyLink');
+  if (onbPrivacyPolicyLink) {
+    onbPrivacyPolicyLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      $('privacyPolicyModal').classList.remove('hidden');
     });
   }
   $('legalTermsModalClose').addEventListener('click', function () {

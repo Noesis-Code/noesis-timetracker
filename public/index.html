@@ -461,14 +461,22 @@
            app.js au clic sur la case) tant qu'elle n'est pas cochée, et le
            clic est de toute façon re-vérifié côté client dans le
            gestionnaire de #onbCreateBtn (voir app.js) avant tout appel à
-           POST /api/profile. Le lien #onbLegalTermsLink est conservé tel
-           quel à l'intérieur du texte de la case, pour ouvrir #legalTermsModal
-           sans cocher automatiquement la case (voir app.js : preventDefault
-           + stopPropagation sur ce lien précis). -->
+           POST /api/profile.
+           **Mise à jour du 11 septembre 2026 (nuit, suite), même demande
+           d'Emilien** : le consentement couvre désormais aussi la politique
+           de confidentialité, pas seulement les CGU — un second lien,
+           #onbPrivacyPolicyLink, est ajouté dans le texte de la case, sur le
+           même modèle exact que #onbLegalTermsLink. Les deux liens ouvrent
+           leur modale respective (#legalTermsModal / #privacyPolicyModal)
+           sans cocher automatiquement la case : cliquer sur un lien imbriqué
+           dans un <label> ne déclenche pas nativement la case associée
+           (comportement standard du navigateur), donc app.js n'a besoin que
+           d'un simple preventDefault sur chacun des deux liens, sans
+           stopPropagation. -->
       <p class="onbLegalCheck">
         <label for="onbLegalTermsCheckbox">
           <input type="checkbox" id="onbLegalTermsCheckbox">
-          <span>J'ai lu et j'accepte les <a href="#" id="onbLegalTermsLink">conditions d'utilisation</a>.</span>
+          <span>J'ai lu et j'accepte les <a href="#" id="onbLegalTermsLink">conditions d'utilisation</a> et la <a href="#" id="onbPrivacyPolicyLink">politique de confidentialité</a>.</span>
         </label>
       </p>
       <button class="btn btn-primary" id="onbCreateBtn" disabled>Créer mon profil</button>
@@ -3322,7 +3330,7 @@
      bas, en-tête fixe + corps défilant, placé au niveau du <body>, hors de
      #app et #onboarding). ⚠️ Aucun mandat sur le fond juridique : le texte
      ci-dessous est repris tel quel depuis
-     noesis-timetracker-conformite-loi25.md (section 1, version 3.1 — en
+     noesis-timetracker-conformite-loi25.md (section 1, version 3.2 — en
      vigueur le 11 septembre 2026). **Mise à jour du 11 septembre 2026** :
      remplacement de « En bref », de la section 4.1 et d'un paragraphe de la
      section 7 (version 2.9) — deux écarts trouvés entre le texte publié le
@@ -3349,9 +3357,25 @@
      tableau détaillé de l'historique des versions (section 9 du document
      source) n'est pas reproduit ici : le texte lui-même précise qu'il est
      "conservé et peut être communiqué sur demande", ce que couvre déjà
-     l'adresse de contact indiquée. Toute mise à jour du FOND doit passer par
-     noesis-timetracker-conformite-loi25.md (discussion Légal) puis être
-     reportée ici à l'identique. -->
+     l'adresse de contact indiquée.
+     **Mise à jour du 11 septembre 2026 (nuit, suite), version 3.2** : Emilien
+     a proposé lui-même une reformulation de la section 4.1, plus précise sur
+     un point que la version 3.1 (la « première recherche », exacte, n'est
+     plus manuellement accessible depuis aucune page de l'application depuis
+     le 10 septembre 2026 — vérifié sur `public/app.js`, ligne ~12368 — elle
+     n'est donc plus décrite comme une action possible pour un visiteur).
+     Trois imprécisions du brouillon d'Emilien ont été corrigées avant
+     intégration (prénom/pseudonyme plutôt que nom de famille pour le
+     formulaire Aide et suggestions ; nombre de pièces jointes plutôt qu'une
+     distinction de type qui n'existe pas dans le code ; durée réelle de
+     conservation chez Resend, 30 jours). Une nouvelle section 4.5 est ajoutée
+     pour décrire Resend, le sous-traitant d'envoi de courriels du formulaire
+     Aide et suggestions — recommandé depuis le 8 septembre 2026
+     (`noesis-timetracker-registre-traitements.md`) mais jamais encore
+     mentionné dans cette politique. Détail complet dans
+     noesis-timetracker-conformite-loi25.md, section 2. Toute mise à jour du
+     FOND doit passer par noesis-timetracker-conformite-loi25.md (discussion
+     Légal) puis être reportée ici à l'identique. -->
 <div id="privacyPolicyModal" class="communityMembersModal hidden">
   <div class="communityMembersModalCard legalTermsModalCard">
     <div class="communityMembersModalHeader">
@@ -3359,14 +3383,14 @@
       <button type="button" class="menuBtn" id="privacyPolicyModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
-      <p class="hint">Version 3.1 — en vigueur le 11 septembre 2026.</p>
+      <p class="hint">Version 3.2 — en vigueur le 11 septembre 2026.</p>
 
       <h3>À qui s'adresse ce service</h3>
       <p>Noèsis TimeTracker est offert aux personnes résidant au Canada. Le service n'est pas proposé aux résidents de l'Union européenne ni d'autres territoires, et il n'y est pas promu. Si vous n'êtes pas au Canada, ce service ne vous est pas destiné.</p>
 
       <h3>En bref</h3>
       <p>Noèsis TimeTracker est une application qui vous permet de chronométrer vos activités et d'en suivre les totaux. Pour fonctionner, elle a besoin de savoir qui vous êtes et de conserver ce que vous chronométrez.</p>
-      <p>Nous collectons le minimum : votre nom, votre numéro de téléphone, une adresse courriel, et ce que vous enregistrez vous-même dans l'application. Nous ne vendons rien, nous ne partageons rien avec des annonceurs, et il n'y a aucune publicité ni aucun traceur publicitaire. Votre identité minimale (prénom, nom de famille, photo, nombre de projets) est repérable par les autres membres inscrits, dès la création de votre compte — c'est la fonction d'annuaire de base de l'application. Elle peut aussi apparaître sur l'écran de connexion, même à une personne qui n'a pas de compte : soit parce qu'elle connaît déjà votre prénom et votre nom de famille exacts, soit, depuis le 10 septembre 2026, parce qu'elle a tapé au moins 3 caractères de votre nom dans la recherche libre de cet écran (jusqu'à 5 résultats affichés, prénom et nom de famille complets). <strong>Tout le reste</strong> — vos activités, vos totaux, vos notes — est <strong>privé par défaut</strong>. Rien n'est visible par les autres tant que vous ne le décidez pas. Votre numéro de téléphone et votre adresse courriel ne sont jamais visibles par défaut : vous pouvez choisir de partager l'un, l'autre, ou les deux avec vos abonnés acceptés, chacun restant désactivé tant que vous ne l'activez pas vous-même. Vous pouvez supprimer votre compte à tout moment : tout est alors effacé. Vos renseignements sont hébergés aux Pays-Bas, chez notre fournisseur d'infrastructure.</p>
+      <p>Nous collectons le minimum : votre nom, votre numéro de téléphone, une adresse courriel, et ce que vous enregistrez vous-même dans l'application. Nous ne vendons rien, nous ne partageons rien avec des annonceurs, et il n'y a aucune publicité ni aucun traceur publicitaire. Votre prénom et votre nom de famille peuvent être vus par n'importe qui — même sans compte Noèsis, même sans être connecté : il suffit de taper au moins 3 caractères d'un nom sur l'écran de connexion pour voir apparaître jusqu'à 5 identités complètes. Une fois connecté à son propre compte, tout autre membre inscrit peut aussi voir votre photo de profil, le nombre de projets que vous suivez, et ce que vous recherchez (si vous l'indiquez) — c'est la fonction d'annuaire de base de l'application. <strong>Tout le reste</strong> — vos activités, vos totaux, vos notes — est <strong>privé par défaut</strong>. Rien n'est visible par les autres tant que vous ne le décidez pas. Votre numéro de téléphone et votre adresse courriel ne sont jamais visibles par défaut : vous pouvez choisir de partager l'un, l'autre, ou les deux avec vos abonnés acceptés, chacun restant désactivé tant que vous ne l'activez pas vous-même. Vous pouvez supprimer votre compte à tout moment : tout est alors effacé. Vos renseignements sont hébergés aux Pays-Bas, chez notre fournisseur d'infrastructure.</p>
       <p>Le reste de ce document détaille chacun de ces points.</p>
 
       <h3>1. Qui est responsable de vos renseignements</h3>
@@ -3400,11 +3424,10 @@
       <p><strong>Vous pouvez le retirer à tout moment</strong> en supprimant votre compte (section 6). Le retrait n'a pas d'effet rétroactif sur ce qui a été fait avant, mais il met fin au traitement pour l'avenir.</p>
 
       <h3>4. Qui peut voir vos renseignements</h3>
-      <p><strong>4.1 Les autres utilisateurs.</strong> Votre identité minimale est repérable par tout autre utilisateur inscrit et connecté, dès la création de votre compte : votre prénom, votre nom de famille, votre photo de profil, le nombre de projets que vous suivez et ce que vous recherchez (si vous l'indiquez). C'est la fonction d'annuaire de base de l'application, nécessaire pour que d'autres personnes puissent vous retrouver — elle ne dépend d'aucun geste de votre part et vous ne pouvez pas vous en retirer autrement qu'en supprimant votre compte.</p>
-      <p>Cette même identité (prénom et nom de famille) peut aussi apparaître sur l'écran de connexion, avant même qu'une personne soit identifiée dans l'application et même si elle n'a pas de compte Noèsis — de deux façons distinctes.</p>
-      <p>La première sert à confirmer un compte existant avant de saisir un code PIN : on y cherche un prénom ET un nom de famille exacts ; si les deux correspondent à un seul compte, ce prénom et ce nom s'affichent. Cette recherche ne fonctionne que si la personne qui la fait connaît déjà les deux, exactement — elle ne permet de parcourir aucune liste de comptes, et ne révèle jamais un prénom ou un nom que vous n'auriez pas vous-même déjà fourni pour trouver votre propre compte.</p>
-      <p><strong>La seconde, ajoutée le 10 septembre 2026, est une recherche libre (façon « ctrl+f »), proposée sur ce même écran.</strong> Dès qu'une suite d'<strong>au moins 3 caractères</strong> est tapée, quiconque visite l'écran de connexion — avec ou sans compte Noèsis — voit s'afficher le prénom et le nom de famille complets de toute personne dont le nom (prénom et nom de famille réunis) contient cette suite de caractères, jusqu'à <strong>5 résultats</strong>. Contrairement à la première recherche, il n'est donc pas nécessaire de connaître à l'avance le prénom et le nom complets d'une personne pour que son identité apparaisse de cette façon : un fragment de 3 caractères suffit. Cette recherche libre ne montre jamais que le prénom et le nom de famille — ni votre photo, ni votre numéro de téléphone, ni votre adresse courriel, ni rien d'autre de votre compte n'y apparaît.</p>
-      <p><strong>Votre numéro de téléphone et votre adresse courriel ne sont jamais visibles par défaut.</strong> Vous pouvez cependant choisir, dans Réglages → Identité, de partager votre adresse courriel et/ou votre numéro de téléphone — les deux, l'un ou l'autre, indépendamment — avec les personnes qui vous suivent et dont vous avez accepté la demande d'abonnement. Tant que vous n'avez pas activé ce partage pour un canal donné, personne d'autre que vous ne voit ce renseignement par ce canal ; si vous vous désabonnez d'une personne ou qu'elle se désabonne de vous, l'accès à ce contact disparaît avec le reste de ce que permet l'abonnement.</p>
+      <p><strong>4.1 Les autres utilisateurs.</strong> <strong>Votre prénom et votre nom de famille peuvent être vus par n'importe qui, même sans compte Noèsis et sans être connecté.</strong> L'écran de connexion propose une recherche ouverte à tout visiteur : dès qu'au moins <strong>3 caractères</strong> sont tapés, le prénom et le nom de famille complets de toute personne correspondante s'affichent, jusqu'à <strong>5 résultats</strong> à la fois. Il n'est pas nécessaire de connaître à l'avance l'identité complète de quelqu'un pour la voir apparaître ainsi de cette façon : un fragment quelconque, deviné ou tapé au hasard, suffit. Cette recherche ne montre jamais que le prénom et le nom de famille — ni votre photo, ni votre numéro de téléphone, ni votre adresse courriel, ni rien d'autre de votre compte n'y apparaît.</p>
+      <p>Une route technique distincte, non affichée dans l'interface, existe en parallèle : elle sert uniquement à ce que l'application reconnaisse automatiquement, sur l'appareil où vous avez déjà créé votre compte, que ce compte existe toujours, à partir du prénom et du nom de famille déjà enregistrés sur cet appareil. Elle reste techniquement accessible en dehors de l'application, sans authentification, à quiconque connaît déjà votre prénom et votre nom de famille exacts, mais aucun bouton ni champ de l'application n'y mène, et elle ne permet pas de deviner une identité qu'on ne connaît pas déjà.</p>
+      <p><strong>Une fois connecté à son propre compte, tout autre utilisateur inscrit peut aussi voir</strong>, en plus de votre prénom et de votre nom de famille : votre photo de profil, le nombre de projets que vous suivez, et ce que vous recherchez (si vous l'indiquez). C'est la fonction d'annuaire de base de l'application, nécessaire pour que d'autres personnes puissent vous retrouver — elle ne dépend d'aucun geste de votre part et vous ne pouvez pas vous en retirer autrement qu'en supprimant votre compte.</p>
+      <p><strong>Votre numéro de téléphone et votre adresse courriel, eux, ne sont jamais visibles par défaut.</strong> Vous pouvez cependant choisir, dans Réglages → Identité, de partager votre adresse courriel et/ou votre numéro de téléphone — les deux, l'un ou l'autre, indépendamment — avec les personnes qui vous suivent et dont vous avez accepté la demande d'abonnement. Tant que vous n'avez pas activé ce partage pour un canal donné, personne d'autre que vous ne voit ce renseignement par ce canal ; si vous vous désabonnez d'une personne ou qu'elle se désabonne de vous, l'accès à ce contact disparaît avec le reste de ce que permet l'abonnement.</p>
       <p>Tout le reste reste privé par défaut. Vos activités, vos totaux, vos sessions chronométrées, vos notes, le détail de vos projets et vos publications ne sont visibles par personne d'autre tant que vous n'avez pas posé, vous-même, l'un des gestes volontaires suivants : (1) inviter quelqu'un à partager une activité — cette personne voit alors le nom de l'activité, votre prénom et le temps que vous y consacrez, pour cette activité seulement, jamais vos autres activités ni vos notes personnelles ; (2) accepter la demande d'abonnement de quelqu'un — cette personne peut alors consulter vos statistiques, le détail de vos projets et vos publications, et, si vous l'avez activé, votre courriel et/ou votre téléphone (voir ci-dessus) ; (3) écrire dans une discussion d'activité partagée — vos messages sont lus par les autres membres de cette activité. Vous pouvez revenir sur chacun de ces choix à tout moment.</p>
       <p><strong>4.2 Notre fournisseur d'hébergement.</strong> L'application et sa base de données sont hébergées chez <strong>Railway Corporation</strong>, dans un centre de données situé à <strong>Amsterdam, aux Pays-Bas</strong>. Railway agit uniquement comme prestataire technique : il héberge, il n'exploite pas. Il est tenu par ses propres conditions d'utilisation et sa politique de confidentialité publiques, qui lui imposent des obligations de confidentialité et de sécurité, et il n'a pas le droit d'utiliser vos renseignements à ses propres fins. Une démarche est en cours pour formaliser ces engagements dans une entente écrite spécifique à notre relation avec cet hébergeur.</p>
       <p>Puisque cet hébergement se situe hors du Québec, nous avons réalisé au préalable une évaluation des facteurs relatifs à la vie privée, comme la loi l'exige. Vous pouvez en demander le résumé à l'adresse indiquée à la section 1. Les Pays-Bas relèvent du Règlement général sur la protection des données de l'Union européenne, un cadre juridique reconnu comme offrant un niveau de protection élevé — supérieur, sur plusieurs points, à ce qu'exige la loi québécoise.</p>
@@ -3414,6 +3437,7 @@
       <p class="hint">Cette adresse doit être traitée comme un mot de passe. Toute personne qui l'obtient peut lire les noms de vos sous-projets et leurs dates, sans avoir à se connecter. Ne la publiez nulle part.</p>
       <p>Vous gardez la main à tout moment, depuis Profil → Réglages → Calendrier : régénérer l'adresse, désactiver le calendrier, ou supprimer votre compte (l'adresse est alors détruite avec le reste).</p>
       <p><strong>4.4 Personne d'autre.</strong> Nous ne vendons pas vos renseignements. Nous ne les louons pas. Nous ne les communiquons à aucun annonceur, courtier de données ou partenaire commercial. Nous ne les communiquerions à une autorité publique que si la loi nous y obligeait, et nous vous en informerions dans la mesure où la loi nous le permet.</p>
+      <p><strong>4.5 Notre service d'envoi de courriels, si vous utilisez « Aide et suggestions ».</strong> Le formulaire « Aide et suggestions » du panneau Réglages vous permet d'envoyer un message libre à l'équipe de Noèsis, avec jusqu'à <strong>deux pièces jointes optionnelles</strong> (photo ou document, sans distinction entre les deux). Ce message — accompagné de votre <strong>prénom (ou pseudonyme)</strong> déjà associé à votre profil — est transmis par courriel, à l'aide de <strong>Resend</strong>, un sous-traitant américain d'envoi de courriels, à l'adresse compagnie.noesis@gmail.com. Resend conserve le contenu de ce courriel et les journaux d'envoi jusqu'à <strong>30 jours</strong> pendant que notre compte y reste actif, et les supprime au plus tard <strong>90 jours</strong> après sa fermeture. Comme pour les notes (section 2.2), évitez d'y inscrire des renseignements sensibles que vous ne voudriez pas voir transiter par ce canal, ni conserver, même temporairement, chez ce sous-traitant.</p>
 
       <h3>5. Combien de temps nous les conservons</h3>
       <p>Tant que votre compte existe, vos renseignements sont conservés — c'est ce qui vous permet de consulter votre historique.</p>
@@ -3437,7 +3461,7 @@
       <p><strong>Chiffrement en transit.</strong> Toutes les communications entre votre appareil et l'application passent par HTTPS.</p>
       <p><strong>Codes PIN irréversibles.</strong> Votre code PIN (4 à 6 chiffres) est transformé par une fonction cryptographique salée (scrypt) ; même nous ne pouvons pas le lire.</p>
       <p><strong>Cloisonnement des comptes.</strong> Le serveur vérifie votre identité à chaque requête à partir d'une session signée. Il n'est pas possible d'accéder aux renseignements d'un autre compte en modifiant une adresse.</p>
-      <p><strong>Confidentialité par défaut.</strong> Tous les réglages de visibilité sont au maximum de protection à la création du compte, à l'exception de votre identité minimale (section 4.1) qui reste repérable par tout autre membre inscrit, et repérable sur l'écran de connexion soit par quiconque connaît déjà votre prénom et votre nom de famille exacts, soit, depuis le 10 septembre 2026, par quiconque tape au moins 3 caractères de votre nom dans la recherche libre de cet écran — avec ou sans compte Noèsis — le partage de votre courriel et de votre téléphone, eux, comme le reste et les fonctions qui communiquent quelque chose à l'extérieur, comme le calendrier de la section 4.3, restent éteints tant que vous ne les activez pas.</p>
+      <p><strong>Confidentialité par défaut.</strong> Tous les réglages de visibilité sont au maximum de protection à la création du compte, à l'exception de votre identité minimale (section 4.1) : votre prénom et votre nom de famille sont repérables par n'importe qui sur l'écran de connexion, sans compte requis, dès que 3 caractères d'un nom y sont tapés, et le reste de votre identité minimale (photo, nombre de projets, ce que vous recherchez) l'est par tout autre membre inscrit une fois connecté. Le partage de votre courriel et de votre téléphone, eux, comme le reste et les fonctions qui communiquent quelque chose à l'extérieur, comme le calendrier de la section 4.3, restent éteints tant que vous ne les activez pas.</p>
       <p><strong>Adresses de calendrier imprévisibles et révocables.</strong> L'adresse décrite à la section 4.3 est tirée au hasard sur 256 bits, ce qui la rend impossible à deviner, et vous pouvez la remplacer ou la supprimer à tout moment.</p>
       <p><strong>Accès restreint.</strong> Seuls les responsables désignés à la section 1 ont accès à l'infrastructure.</p>
       <p>Aucun système n'est parfaitement sûr. En cas d'incident présentant un risque de préjudice sérieux, nous en informerons la Commission d'accès à l'information et les personnes touchées, comme la loi l'exige.</p>

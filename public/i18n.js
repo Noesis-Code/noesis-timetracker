@@ -278,12 +278,19 @@
     // demande directe d'Emilien, remplace l'ancien lien seul juste au-dessus
     // — "Lire les conditions d'utilisation avant de créer ton profil" — qui
     // n'imposait aucun consentement formel). Le texte de la case est réparti
-    // sur trois nœuds de texte distincts (avant/dans/après le lien
-    // #onbLegalTermsLink) : translateStaticDom() traduit nœud par nœud, donc
-    // chaque fragment a besoin de sa propre clé — voir public/index.html.
+    // sur plusieurs nœuds de texte distincts (avant/dans/entre/après les deux
+    // liens #onbLegalTermsLink et #onbPrivacyPolicyLink) : translateStaticDom()
+    // traduit nœud par nœud, donc chaque fragment a besoin de sa propre clé —
+    // voir public/index.html. Mise à jour du 11 septembre 2026 (nuit, suite) :
+    // la case couvre désormais aussi la politique de confidentialité, d'où
+    // les clés "et la" et "politique de confidentialité" (minuscule, distincte
+    // de la clé "Politique de confidentialité" déjà utilisée ailleurs comme
+    // titre) ajoutées pour le nœud de texte intermédiaire et le second lien.
     "J'ai lu et j'accepte les": 'I have read and accept the',
     "conditions d'utilisation": 'terms of use',
-    "Tu dois accepter les conditions d'utilisation avant de créer ton profil.": 'You must accept the terms of use before creating your profile.',
+    "et la": 'and the',
+    "politique de confidentialité": 'privacy policy',
+    "Tu dois accepter les conditions d'utilisation et la politique de confidentialité avant de créer ton profil.": 'You must accept the terms of use and the privacy policy before creating your profile.',
     // Documents légaux (10 septembre 2026, demande directe d'Emilien) :
     // sous-section déroulante regroupant politique de confidentialité,
     // mentions légales et conditions d'utilisation (auparavant seule, à part).
