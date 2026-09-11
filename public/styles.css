@@ -336,6 +336,31 @@ input[type=time]:focus, select:focus, textarea:focus {
   padding-top: var(--topbar-h, 56px);
   padding-bottom: 88px;
 }
+/* 11 septembre 2026 (nuit), même cause et même correctif que
+   #onboarding::after et #bootSplash::after (voir plus haut / index.html) :
+   #app aussi est mesuré en 100dvh, et sur certains iPhone cette hauteur
+   s'arrête quelques pixels au-dessus du bord physique réel de l'écran en
+   PWA installée — ce qui découvre le fond de <body> (var(--bg), plus
+   sombre que .tabbar) juste sous la barre d'onglets, malgré son propre
+   padding-bottom calé sur env(safe-area-inset-bottom). Signalé par Emilien
+   après le déploiement du correctif ci-dessus : la bande avait réapparu
+   précisément « sous le volet » une fois connecté — .tabbar n'était donc
+   pas seule en cause, #app lui-même l'était aussi et n'avait jamais reçu ce
+   correctif. Couleur alignée sur var(--card) (celle de .tabbar, pas
+   var(--bg)) pour que l'extension se fonde dans la barre plutôt que dans le
+   fond de la page. position:fixed, même z-index que .tabbar (50) : reste
+   au-dessus du contenu mais sous les fenêtres pleine page (90+). */
+#app::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
+  height: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  background: var(--card);
+  pointer-events: none;
+  z-index: 50;
+}
 /* Pourquoi 100dvh en plus de 100vh (volet Design, 3 septembre 2026) :
    piste distincte des trois correctifs de « volet figé » précédents (barre
    de défilement, touchmove). Sur mobile, Safari (et Chrome Android) affiche
