@@ -418,7 +418,19 @@ function planningForActivity(activityId) {
   const activity = db.prepare('SELECT id, name, ownerId FROM activities WHERE id = ?').get(activityId);
   const plan = ensurePlan(activityId);
   const currentPeriodNumber = periodNumberForDate(plan.startDate, todayLocal());
-  ensurePeriodsUpTo(activityId, currentPeriodNumber, plan.startDate);
+  // 13 septembre 2026 (correction, demande d'Emilien) : on matérialise tout
+  // le CYCLE de 13 périodes en cours, pas seulement les périodes jusqu'à
+  // aujourd'hui. Avant ce correctif, seule la période 1 avait une ligne en
+  // base — la bande de tendance (13 blocs) et les flèches ‹/› du planning
+  // affichaient bien les 13 cases, mais les périodes futures n'existaient
+  // nulle part, donc goalPeriodByNumber() renvoyait null pour elles et le
+  // bouton "suivant" restait désactivé dès la période 1. ensurePeriodRow()
+  // ne fait que poser les dates de la période (aucun texte d'objectif,
+  // aucune suggestion) : matérialiser une période à l'avance ne viole donc
+  // pas la règle verrouillée « aucune génération automatique d'objectif ».
+  const cycleIndexForCurrent = Math.floor((currentPeriodNumber - 1) / PERIODS_PER_CYCLE) + 1;
+  const cycleLastPeriodNumber = cycleIndexForCurrent * PERIODS_PER_CYCLE;
+  ensurePeriodsUpTo(activityId, cycleLastPeriodNumber, plan.startDate);
   carryOverWeekly(activityId, plan.startDate);
   postBilanIfDue(activity, plan.startDate);
 
