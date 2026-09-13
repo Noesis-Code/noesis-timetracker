@@ -302,21 +302,6 @@ input[type=time]:focus, select:focus, textarea:focus {
    action/un état "sélectionné" (aucune nouvelle variable de couleur). */
 .switchLink a { color: var(--purple); text-decoration: none; }
 .switchLink a:hover { text-decoration: underline; }
-/* 11 septembre 2026 (demande d'Emilien) : case à cocher obligatoire
-   d'acceptation des CGU, juste avant le bouton de création de compte — voir
-   #onbLegalTermsCheckbox/#onbCreateBtn dans app.js. Même famille visuelle que
-   .switchLink (taille de police, lien violet), mais en ligne avec la case à
-   cocher plutôt qu'en lien seul. */
-.onbLegalCheck { font-size: 13px; margin-top: 16px; text-align: left; }
-.onbLegalCheck label {
-  display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
-  color: var(--text-light);
-}
-.onbLegalCheck input[type=checkbox] {
-  margin-top: 2px; width: 16px; height: 16px; flex: 0 0 auto; cursor: pointer;
-}
-.onbLegalCheck a { color: var(--purple); text-decoration: none; }
-.onbLegalCheck a:hover { text-decoration: underline; }
 /* 11 septembre 2026 (demande d'Emilien) : écran "ajoute Noèsis à ton écran
    d'accueil", affiché à la place de la création/recherche de profil tant que
    l'app n'est pas ouverte en mode autonome (raccourci). Voir
@@ -2417,10 +2402,18 @@ body.scrollLock { overflow: hidden; }
    ouvrir le profil ») — posée par renderSearchResults (app.js) UNIQUEMENT
    quand isDiscovery est vrai ; une recherche active par nom/filtre reprend
    .activitiesList (lignes détaillées, inchangées). */
-.discoveryCircles { display: flex; flex-wrap: wrap; gap: 14px; }
+/* ⚠️ 12 septembre 2026, demande d'Emilien : « une seule ligne de profils
+   que l'on peut faire défiler de gauche à droite [...] les profils ne se
+   superposent pas sur deux lignes » — flex-wrap: wrap laissait les ronds
+   en trop passer à la ligne suivante (et se chevaucher visuellement avec
+   le message d'exploration en dessous). Remplacé par flex-wrap: nowrap +
+   défilement horizontal natif, même idiome que .chartScroll (scrollbar
+   native, non masquée, pour rester cohérent avec le reste du projet). */
+.discoveryCircles { display: flex; flex-wrap: nowrap; gap: 14px; overflow-x: auto; }
 .discoveryCircleBtn {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   width: 56px; padding: 0; border: none; background: none; cursor: pointer;
+  flex-shrink: 0;
 }
 /* .smallAvatar (générique, définie plus bas) reste à 34px partout ailleurs —
    agrandie ICI seulement, par imbrication, sans toucher la classe elle-même. */
