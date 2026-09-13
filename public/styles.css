@@ -4085,3 +4085,87 @@ button { -webkit-user-select: none; user-select: none; }
     .activityPageHeader { padding-top: max(47px, env(safe-area-inset-top)); }
   }
 }
+
+/* ===== Objectifs (planning annuel) — Chantier 1, 12 septembre 2026 =====
+   Nouvel onglet #activityPageTabGoals dans #activityPageSectionSwitch,
+   nouveau bloc #activityGoalsBlock (voir renderActivityGoals dans app.js).
+   Réutilise volontairement .periodBtn/.periodSwitch (bascule de section),
+   .menuBtn (‹/›), .sectionTitle, .hint/.msg, .card/--shadow-card : rien de
+   nouveau n'est inventé pour ce qui existe déjà ailleurs dans l'app. */
+
+/* Bandeau des 13 blocs du cycle (tendance + archive consultable, cadré avec
+   Emilien) : une rangée qui défile horizontalement plutôt que de se tasser,
+   pour que chaque bloc reste cliquable confortablement même sur mobile. */
+.goalsTrendRow {
+  display: flex; gap: 5px; overflow-x: auto; padding: 2px 2px 10px;
+  margin-bottom: 4px; -webkit-overflow-scrolling: touch;
+}
+.goalsTrendBlock {
+  flex: 0 0 auto; width: 16px; height: 22px; padding: 0; border: none;
+  border-radius: 4px; background: var(--track-bg); cursor: pointer;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+.goalsTrendBlock:active { transform: scale(0.9); }
+.goalsTrendBlock.active { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--purple); }
+.goalsTrendBlock.current:not(.active) { box-shadow: 0 0 0 2px var(--purple); }
+.goalsTrendBlock.goalStatusAtteint { background: var(--green); }
+.goalsTrendBlock.goalStatusPartiel { background: #f0ad4e; }
+.goalsTrendBlock.goalStatusNonAtteint { background: var(--red); }
+.goalsTrendBlockEmpty { opacity: 0.4; cursor: default; }
+.goalsTrendBlockEmpty:active { transform: none; }
+
+/* Navigation période précédente/suivante — même schéma que les autres
+   "‹ titre ›" de l'app (voir #chronoHistoryHeader), .menuBtn inchangé. */
+.goalsPeriodNav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 14px;
+}
+.goalsPeriodNavLabel { flex: 1; min-width: 0; text-align: center; }
+.goalsPeriodNavLabel .sectionTitle { margin: 0; }
+.goalsPeriodDates { margin: 2px 0 0; font-size: 12px; color: var(--text-light); }
+
+/* Cartes objectif (grand objectif + 4 semaines) — habillage carte standard
+   (.card/--shadow-card, comme .statsSection) pour bien les distinguer du
+   fond de la page. */
+.goalCard {
+  background: var(--card); border-radius: var(--radius-lg); padding: 14px;
+  box-shadow: var(--shadow-card); margin-bottom: 14px;
+}
+.goalMainCard { border: 1px solid var(--purple); }
+.goalCardLabel { font-weight: bold; margin: 0 0 8px; font-size: 14px; }
+.goalsWeeklyLabel { margin: 0 0 10px; }
+.goalCard textarea {
+  width: 100%; box-sizing: border-box; padding: 10px; font: inherit;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg, transparent); color: var(--text); resize: vertical;
+}
+.goalCard textarea:focus {
+  outline: none; border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
+}
+.goalEstimateHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; }
+.goalActualHint { font-size: 12px; color: var(--text); margin: 6px 0 0; font-weight: bold; }
+.goalCarriedHint { font-size: 12px; color: var(--purple); margin: 0 0 6px; }
+.goalBilanHint { text-align: center; font-size: 13px; color: var(--text-light); margin: 4px 0 0; }
+
+.goalStatusRow { display: flex; gap: 6px; margin-top: 8px; }
+.goalStatusBtn {
+  flex: 1; padding: 7px 4px; font-size: 12px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text-light); border-radius: var(--radius-sm);
+  cursor: pointer; transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+@media (hover: hover) {
+  .goalStatusBtn:hover:not(.active) { background: var(--hover-bg); }
+}
+.goalStatusBtn.active { color: white; border-color: transparent; }
+.goalStatusBtn.goalStatusAtteint.active { background: var(--green); }
+.goalStatusBtn.goalStatusPartiel.active { background: #f0ad4e; }
+.goalStatusBtn.goalStatusNonAtteint.active { background: var(--red); }
+
+/* 4 cartes semaine côte à côte sur grand écran, empilées sur mobile — même
+   seuil que le reste de l'app (voir .pieChartArea max-width: 220px, etc.). */
+.goalsWeeklyList { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.goalsWeeklyList .goalCard { margin-bottom: 0; }
+@media (max-width: 420px) {
+  .goalsWeeklyList { grid-template-columns: 1fr; }
+}

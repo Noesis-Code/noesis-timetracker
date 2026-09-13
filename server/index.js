@@ -157,6 +157,10 @@ app.use('/api', require('./routes/subprojects'));
 // sous-projets », 4 septembre 2026). Volontairement hors du préfixe /stats/*,
 // qui appartient à server/routes/stats.js.
 app.use('/api', require('./routes/subprojectstats'));
+// Planning d'objectifs annuel (Chantier 1 de la feuille de route produit,
+// 12 septembre 2026) — 13 périodes de 4 semaines par activité, voir
+// server/lib/goals.js.
+app.use('/api', require('./routes/goals'));
 app.use('/api', require('./routes/history'));
 app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/push'));
@@ -244,6 +248,13 @@ app.listen(PORT, HOST, () => {
   // configuré (clés VAPID), et rien non plus si NOESIS_DUE_REMINDERS=0.
   // Voir server/lib/duereminders.js.
   require('./lib/duereminders').startDueReminders();
+
+  // Planning d'objectifs annuel : report automatique des objectifs
+  // hebdomadaires non atteints + publication AUTOMATIQUE du bilan de fin de
+  // période dans le fil de discussion (décision d'Emilien, 12 septembre
+  // 2026 — pas de bouton "Partager"). Démarré après l'écoute, même principe
+  // que les rappels d'échéance ci-dessus. Voir server/lib/goals.js.
+  require('./lib/goals').startGoalsSweep();
 
   // Sauvegarde chiffrée hors site (Cloudflare R2). Démarrée APRÈS l'écoute,
   // comme les rappels d'échéance ci-dessus : la première copie a lieu 2

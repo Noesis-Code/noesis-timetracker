@@ -751,6 +751,74 @@ CREATE TABLE IF NOT EXISTS sub_project_due_reminders (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_sub_project_due_reminder
   ON sub_project_due_reminders(subProjectId, userId, closesAt, daysBefore);
+
+-- ===================== PLANNING D'OBJECTIFS ANNUEL (12 septembre 2026) =====================
+-- Chantier 1 de la feuille de route produit — voir server/lib/goals.js pour
+-- toute la logique et les règles cadrées avec Emilien (propre à chaque
+-- activité, jamais à la personne ; objectifs hebdomadaires toujours fixés
+-- par l'utilisateur, jamais décomposés automatiquement).
+--
+-- Une seule ligne par activité, jamais recréée : le jour où l'utilisateur
+-- crée son premier objectif sur cette activité devient le jour 1 de son
+-- cycle de 13 périodes de 4 semaines.
+CREATE TABLE IF NOT EXISTS activity_goal_plans (
+  activityId INTEGER PRIMARY KEY REFERENCES activities(id) ON DELETE CASCADE,
+  startDate TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+
+-- Une période de 4 semaines. periodNumber est la séquence continue de
+-- l'activité (1, 2, 3...) ; periodIndexInCycle (1 à 13) et cycleIndex (1,
+-- 2...) sont dérivés une fois à l'écriture, pour l'affichage. Le grand
+-- objectif de la période vit directement sur cette ligne : un seul par
+-- période, par construction.
+CREATE TABLE IF NOT EXISTS goal_periods (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  periodNumber INTEGER NOT NULL,
+  cycleIndex INTEGER NOT NULL,
+  periodIndexInCycle INTEGER NOT NULL,
+  startDate TEXT NOT NULL,
+  endDate TEXT NOT NULL,
+  mainGoalText TEXT NOT NULL DEFAULT '',
+  mainGoalEstimateMinutes INTEGER,
+  mainGoalEstimateSource TEXT,
+  mainGoalEstimateConfidence REAL,
+  mainGoalStatus TEXT,
+  -- Rempli une seule fois, quand le bilan automatique de cette période a été
+  -- publié dans le fil de discussion de l'activité (envoi AUTOMATIQUE,
+  -- décision d'Emilien du 12 septembre 2026, pas un bouton "Partager") —
+  -- empêche un balayage ultérieur de le republier.
+  bilanPostedAt TEXT,
+  createdAt TEXT NOT NULL,
+  UNIQUE(activityId, periodNumber)
+);
+CREATE INDEX IF NOT EXISTS idx_goal_periods_activity ON goal_periods(activityId, periodNumber);
+
+-- 3 objectifs hebdomadaires par période, chacun rattaché à une semaine
+-- précise (1 à 4) de sa période. Fixés INDÉPENDAMMENT par l'utilisateur — ce
+-- projet ne génère jamais leur texte à partir du grand objectif.
+--
+-- Report automatique (12 septembre 2026) : un objectif non atteint à la fin
+-- de sa semaine se déplace vers la semaine suivante plutôt que de simplement
+-- disparaître. carriedOverFromId/carriedToId tracent ce déplacement dans les
+-- deux sens plutôt qu'une mutation en place, pour que l'historique du bilan
+-- reste lisible (l'ancien objectif reste visible, marqué non atteint, avec
+-- un lien vers celui qui le poursuit).
+CREATE TABLE IF NOT EXISTS goal_weekly (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  periodId INTEGER NOT NULL REFERENCES goal_periods(id) ON DELETE CASCADE,
+  weekIndex INTEGER NOT NULL,
+  text TEXT NOT NULL DEFAULT '',
+  estimateMinutes INTEGER,
+  estimateSource TEXT,
+  estimateConfidence REAL,
+  status TEXT,
+  carriedOverFromId INTEGER REFERENCES goal_weekly(id),
+  carriedToId INTEGER REFERENCES goal_weekly(id),
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_goal_weekly_period ON goal_weekly(periodId, weekIndex);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================

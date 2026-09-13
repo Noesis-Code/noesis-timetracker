@@ -3988,6 +3988,7 @@
     var stats = $('communityActivityMembersPart');
     var soloStats = $('activitySoloStatsBlock');
     var disc = $('communityDiscussionBlock');
+    var goalsBlock = $('activityGoalsBlock');
     // #subProjectDetail (le sous-projet ouvert) n'a pas besoin d'être traité
     // ici : il est soit DANS une ligne de #subProjectsList, soit sur son ancre
     // — dans les deux cas à l'intérieur de ce qu'on masque ou montre.
@@ -4002,6 +4003,12 @@
     // le contexte de l'autre.
     if (soloStats) soloStats.classList.toggle('hidden', name !== 'stats' || currentActivityIsShared);
     if (disc) disc.classList.toggle('hidden', name !== 'disc' || !currentActivityIsShared);
+    // Objectifs (Chantier 1, 12 septembre 2026) : à la différence de
+    // Statistiques/Discussion ci-dessus, cette section ne dépend NI du
+    // partage NI des sous-projets — le planning est propre à CHAQUE
+    // ACTIVITÉ, partagée ou solo (cadrage d'Emilien, voir server/lib/goals.js).
+    if (goalsBlock) goalsBlock.classList.toggle('hidden', name !== 'goals');
+    if (name === 'goals') loadActivityGoals();
     // Les données ne sont demandées qu'au moment où la section devient visible :
     // un camembert dessiné dans un bloc masqué n'a aucune dimension (même
     // piège que le défilement du fil et le cadrage du graphique, plus bas).
@@ -4114,7 +4121,12 @@
     var showStats = isShared || activityHasSubProjects(a);
     $('activityPageTabStats').classList.toggle('hidden', !showStats);
     $('activityPageTabDisc').classList.toggle('hidden', !isShared);
-    $('activityPageSectionSwitch').classList.toggle('hidden', !showStats);
+    // Objectifs (Chantier 1, 12 septembre 2026) : toujours visible, partagée
+    // ou solo, avec ou sans sous-projet — c'est ce qui garantit que le
+    // sélecteur lui-même reste toujours affiché (au moins deux sections :
+    // Sous-projets + Objectifs), contrairement à avant où il pouvait rester
+    // masqué pour une activité solo sans sous-projet.
+    $('activityPageSectionSwitch').classList.remove('hidden');
 
     // Une activité partagée sans sous-projet ouvre sur Statistiques : sa
     // section par défaut n'aurait rien à montrer (règle d'Emilien du
@@ -4169,6 +4181,289 @@
 
   document.querySelectorAll('#activityPageSectionSwitch .periodBtn').forEach(function (b) {
     b.addEventListener('click', function () { setActivityPageSection(b.dataset.section); });
+  });
+
+  // ===================== OBJECTIFS (planning annuel) =====================
+  // Chantier 1 de la feuille de route produit (12 septembre 2026), voir
+  // server/lib/goals.js pour toute la logique serveur et les règles cadrées
+  // avec Emilien. Deux principes qui gouvernent tout ce qui suit :
+  //   1. Propre à CETTE activité (partagée ou solo) — chargé/affiché sans
+  //      condition de partage ni de sous-projets, contrairement aux sections
+  //      Statistiques/Discussion ci-dessus (voir setActivityPageSection).
+  //   2. Les 3 objectifs hebdomadaires sont TOUJOURS saisis par l'utilisateur
+  //      lui-même : ce fichier n'écrit jamais leur texte à sa place, il ne
+  //      fait qu'afficher une estimation de TEMPS suggérée pour un texte déjà
+  //      écrit (voir formatEstimateHint) — jamais le contenu de l'objectif.
+  var currentGoalsPlanning = null;
+  var currentGoalsViewPeriodNumber = null;
+
+  var GOAL_STATUS_ORDER = ['non_atteint', 'partiel', 'atteint'];
+  var GOAL_STATUS_LABELS = {
+    non_atteint: 'Non atteint',
+    partiel: 'Partiel',
+    atteint: 'Atteint',
+  };
+
+  function goalStatusClass(status) {
+    if (status === 'atteint') return 'goalStatusAtteint';
+    if (status === 'partiel') return 'goalStatusPartiel';
+    if (status === 'non_atteint') return 'goalStatusNonAtteint';
+    return '';
+  }
+
+  function goalPeriodByNumber(data, n) {
+    var periods = (data && data.periods) || [];
+    for (var i = 0; i < periods.length; i++) {
+      if (periods[i].periodNumber === n) return periods[i];
+    }
+    return null;
+  }
+
+  function formatGoalHours(minutes) {
+    if (minutes == null) return null;
+    var h = Math.round((minutes / 60) * 10) / 10;
+    return (h === Math.round(h) ? h : h.toFixed(1)) + 'h';
+  }
+
+  // Estimation SUGGÉRÉE (par similarité avec des objectifs passés de cette
+  // même activité) — jamais imposée, l'utilisateur reste libre de saisir la
+  // sienne en tête de l'objectif s'il préfère (aucun champ dédié en v1, le
+  // texte de l'objectif reste le seul qui compte : voir setWeekly/setMainGoal
+  // côté serveur, qui ne font QUE suggérer une durée, jamais un texte).
+  function formatEstimateHint(minutes, source, confidence) {
+    if (minutes == null) {
+      return t('Pas encore assez d’historique pour suggérer une durée.');
+    }
+    var label = t('Estimation suggérée') + ' : ' + formatGoalHours(minutes);
+    if (source === 'similarity' || source === 'similarity-fallback') {
+      var pct = confidence != null ? Math.round(confidence * 100) : null;
+      label += ' (' + t('confiance') + (pct != null ? ' ' + pct + '%' : '') + ')';
+    }
+    return label;
+  }
+
+  function formatActualHint(estimateMinutes, actualMinutes, accuracy) {
+    var real = t('Réel') + ' : ' + formatGoalHours(actualMinutes);
+    if (estimateMinutes == null || accuracy == null) return real;
+    return real + ' — ' + t('justesse') + ' ' + Math.round(accuracy * 100) + '%';
+  }
+
+  function formatGoalPeriodDates(start, end) {
+    return subProjectDueLabel(start) + ' – ' + subProjectDueLabel(end);
+  }
+
+  function renderGoalStatusButtons(container, current, onPick) {
+    container.innerHTML = '';
+    GOAL_STATUS_ORDER.forEach(function (status) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'goalStatusBtn ' + goalStatusClass(status) + (current === status ? ' active' : '');
+      btn.textContent = t(GOAL_STATUS_LABELS[status]);
+      btn.addEventListener('click', function () { onPick(status); });
+      container.appendChild(btn);
+    });
+  }
+
+  function saveMainGoalText(periodNumber, text) {
+    api('PUT', '/api/activities/' + currentCommunityActivityId + '/goals/periods/' + periodNumber + '/main', { text: text })
+      .then(loadActivityGoals)
+      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+  }
+
+  function saveMainGoalStatus(periodNumber, status) {
+    api('PUT', '/api/activities/' + currentCommunityActivityId + '/goals/periods/' + periodNumber + '/main-status', { status: status })
+      .then(loadActivityGoals)
+      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+  }
+
+  function saveWeeklyText(periodNumber, weekIndex, text) {
+    api('PUT', '/api/activities/' + currentCommunityActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text })
+      .then(loadActivityGoals)
+      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+  }
+
+  function saveWeeklyStatus(weeklyId, status) {
+    api('PUT', '/api/activities/' + currentCommunityActivityId + '/goals/weekly/' + weeklyId + '/status', { status: status })
+      .then(loadActivityGoals)
+      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+  }
+
+  // Les 13 blocs du CYCLE contenant la période affichée — sert à la fois de
+  // tableau de bord de tendance (couleur = statut du grand objectif) et
+  // d'archive consultable (clic = navigation), comme cadré avec Emilien.
+  function renderGoalsTrend() {
+    var row = $('activityGoalsTrendRow');
+    if (!row || !currentGoalsPlanning) return;
+    row.innerHTML = '';
+    var viewPeriod = goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber);
+    var cycleIndex = viewPeriod ? viewPeriod.cycleIndex : 1;
+    var byIndex = {};
+    currentGoalsPlanning.periods.forEach(function (p) {
+      if (p.cycleIndex === cycleIndex) byIndex[p.periodIndexInCycle] = p;
+    });
+    for (var i = 1; i <= 13; i++) {
+      var p = byIndex[i];
+      var block = document.createElement('button');
+      block.type = 'button';
+      block.className = 'goalsTrendBlock';
+      if (p) {
+        block.classList.add(goalStatusClass(p.mainGoalStatus) || 'goalStatusNone');
+        if (p.isCurrent) block.classList.add('current');
+        if (p.periodNumber === currentGoalsViewPeriodNumber) block.classList.add('active');
+        block.title = t('Période') + ' ' + i;
+        block.addEventListener('click', (function (num) {
+          return function () { currentGoalsViewPeriodNumber = num; renderActivityGoals(); };
+        })(p.periodNumber));
+      } else {
+        block.classList.add('goalsTrendBlockEmpty');
+        block.disabled = true;
+        block.title = t('Pas encore commencée');
+      }
+      row.appendChild(block);
+    }
+  }
+
+  function renderGoalsWeeklyList(period) {
+    var box = $('activityGoalsWeeklyList');
+    box.innerHTML = '';
+    for (var weekIndex = 1; weekIndex <= 4; weekIndex += 1) {
+      (function (weekIndex) {
+        var w = null;
+        for (var i = 0; i < period.weeklies.length; i++) {
+          if (period.weeklies[i].weekIndex === weekIndex) { w = period.weeklies[i]; break; }
+        }
+
+        var card = document.createElement('div');
+        card.className = 'goalCard goalWeeklyCard';
+
+        var label = document.createElement('p');
+        label.className = 'goalCardLabel';
+        label.textContent = t('Semaine') + ' ' + weekIndex;
+        card.appendChild(label);
+
+        if (w && w.carriedOverFromId) {
+          var carriedHint = document.createElement('p');
+          carriedHint.className = 'goalCarriedHint';
+          carriedHint.textContent = t('Reporté automatiquement depuis une semaine précédente, non atteinte.');
+          card.appendChild(carriedHint);
+        }
+
+        var input = document.createElement('textarea');
+        input.rows = 2;
+        input.maxLength = 300;
+        input.placeholder = t('Objectif de cette semaine (optionnel)');
+        input.value = w ? w.text : '';
+        input.addEventListener('blur', function () {
+          var value = input.value.trim();
+          if (!w && !value) return;
+          if (w && value === w.text) return;
+          saveWeeklyText(period.periodNumber, weekIndex, value);
+        });
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); input.blur(); }
+        });
+        card.appendChild(input);
+
+        var estimateHint = document.createElement('p');
+        estimateHint.className = 'goalEstimateHint';
+        estimateHint.textContent = w ? formatEstimateHint(w.estimateMinutes, w.estimateSource, w.estimateConfidence) : '';
+        card.appendChild(estimateHint);
+
+        if (w) {
+          var statusRow = document.createElement('div');
+          statusRow.className = 'goalStatusRow';
+          card.appendChild(statusRow);
+          renderGoalStatusButtons(statusRow, w.status, function (status) { saveWeeklyStatus(w.id, status); });
+
+          if (w.actualMinutes != null) {
+            var actual = document.createElement('p');
+            actual.className = 'goalActualHint';
+            actual.textContent = formatActualHint(w.estimateMinutes, w.actualMinutes, w.accuracy);
+            card.appendChild(actual);
+          }
+        }
+
+        box.appendChild(card);
+      })(weekIndex);
+    }
+  }
+
+  function renderActivityGoals() {
+    if (!currentGoalsPlanning) return;
+    renderGoalsTrend();
+
+    var period = goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber);
+    $('activityGoalsPrevBtn').disabled = !goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber - 1);
+    $('activityGoalsNextBtn').disabled = !goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber + 1);
+    if (!period) return;
+
+    var title = t('Période') + ' ' + period.periodIndexInCycle;
+    if (period.cycleIndex > 1) title += ' · ' + t('Année') + ' ' + period.cycleIndex;
+    if (period.isCurrent) title += ' · ' + t('En cours');
+    $('activityGoalsPeriodTitle').textContent = title;
+    $('activityGoalsPeriodDates').textContent = formatGoalPeriodDates(period.startDate, period.endDate);
+
+    var mainInput = $('activityGoalsMainInput');
+    mainInput.value = period.mainGoalText || '';
+    mainInput.onblur = function () {
+      var value = mainInput.value.trim();
+      if (value === (period.mainGoalText || '')) return;
+      saveMainGoalText(period.periodNumber, value);
+    };
+    mainInput.onkeydown = function (e) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); mainInput.blur(); }
+    };
+
+    $('activityGoalsMainEstimate').textContent = formatEstimateHint(period.mainGoalEstimateMinutes, period.mainGoalEstimateSource, period.mainGoalEstimateConfidence);
+    renderGoalStatusButtons($('activityGoalsMainStatus'), period.mainGoalStatus, function (status) {
+      saveMainGoalStatus(period.periodNumber, status);
+    });
+
+    var actualEl = $('activityGoalsMainActual');
+    if (period.actualMinutes != null) {
+      actualEl.textContent = formatActualHint(period.mainGoalEstimateMinutes, period.actualMinutes, period.accuracy);
+      actualEl.classList.remove('hidden');
+    } else {
+      actualEl.classList.add('hidden');
+    }
+
+    renderGoalsWeeklyList(period);
+
+    var bilan = $('activityGoalsBilan');
+    if (period.isPast && period.weeklies.length) {
+      var doneCount = period.weeklies.filter(function (w) { return w.status === 'atteint'; }).length;
+      var text = doneCount + '/' + period.weeklies.length + ' ' + t('objectif(s) hebdomadaire(s) atteint(s).');
+      if (currentActivityIsShared && period.bilanPostedAt) text += ' ' + t('Bilan publié automatiquement dans le fil de discussion.');
+      bilan.textContent = text;
+      bilan.classList.remove('hidden');
+    } else {
+      bilan.classList.add('hidden');
+    }
+
+    $('activityGoalsMsg').textContent = '';
+  }
+
+  function loadActivityGoals() {
+    var activityId = currentCommunityActivityId;
+    if (!activityId) return;
+    api('GET', '/api/activities/' + activityId + '/goals').then(function (data) {
+      currentGoalsPlanning = data;
+      if (currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(data, currentGoalsViewPeriodNumber)) {
+        currentGoalsViewPeriodNumber = data.currentPeriodNumber;
+      }
+      renderActivityGoals();
+    }).catch(function (err) {
+      var msg = $('activityGoalsMsg');
+      if (msg) msg.textContent = err.message;
+    });
+  }
+
+  $('activityGoalsPrevBtn').addEventListener('click', function () {
+    if (currentGoalsViewPeriodNumber > 1) { currentGoalsViewPeriodNumber -= 1; renderActivityGoals(); }
+  });
+  $('activityGoalsNextBtn').addEventListener('click', function () {
+    currentGoalsViewPeriodNumber += 1;
+    renderActivityGoals();
   });
 
   // ===================== SOUS-PROJETS D'UNE ACTIVITÉ =====================

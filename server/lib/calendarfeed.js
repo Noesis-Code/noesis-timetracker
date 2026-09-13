@@ -160,6 +160,39 @@ function activitiesForUser(userId) {
 // Un sous-projet supprimé, lui, disparaît du flux au rafraîchissement suivant
 // sans rien à faire : le calendrier est reconstruit à chaque lecture, il n'y a
 // aucun état à nettoyer.
+// ⚠️ CONTRAT AVEC « PLANNING D'OBJECTIFS » (server/lib/goals.js, 12 septembre
+// 2026) : réutilise ce même flux plutôt que d'en dupliquer un (décision
+// prise au cadrage avec Emilien) — même minimisation stricte que pour les
+// sous-projets ci-dessus (nom de l'activité, libellé de la période, date ;
+// JAMAIS le texte de l'objectif lui-même, qui peut être personnel). Lu
+// directement dans goal_periods plutôt qu'en import circulaire vers
+// goals.js (qui, lui, dépend de server/db.js et de lib/community.js — pas de
+// ce fichier).
+function goalPeriodEventsForUser(userId) {
+  const events = [];
+  const rows = db.prepare(`
+    SELECT gp.id, a.name AS activityName, gp.periodIndexInCycle, gp.endDate
+    FROM goal_periods gp
+    JOIN activities a ON a.id = gp.activityId
+    JOIN activity_members m ON m.activityId = gp.activityId
+    WHERE m.userId = ? AND a.active = 1
+      AND (gp.mainGoalText != '' OR EXISTS (SELECT 1 FROM goal_weekly w WHERE w.periodId = gp.id AND w.text != ''))
+  `).all(userId);
+
+  for (const r of rows) {
+    const end = addDay(r.endDate);
+    if (!end) continue;
+    events.push({
+      uid: 'goalperiod-' + r.id + '@noesis',
+      startDate: r.endDate,
+      endDate: end,
+      summary: 'Bilan — Période ' + r.periodIndexInCycle + ' (' + r.activityName + ')',
+      description: 'Activité : ' + r.activityName,
+    });
+  }
+  return events;
+}
+
 function eventsForUser(userId) {
   const events = [];
   for (const activity of activitiesForUser(userId)) {
@@ -185,6 +218,7 @@ function eventsForUser(userId) {
       });
     }
   }
+  events.push(...goalPeriodEventsForUser(userId));
   // Tri par date puis par identifiant : le flux d'un même état est toujours
   // identique octet pour octet, ce qui évite de faire croire à un changement
   // à chaque relecture.

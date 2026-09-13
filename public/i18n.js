@@ -872,6 +872,32 @@
     ' sous-projet clôturé': ' closed sub-project',
     ' sous-projets clôturés': ' closed sub-projects',
     ' — afficher': ' — show',
+
+    // ---- Objectifs (planning annuel) — Chantier 1, 12 septembre 2026 ----
+    // 'Semaine' et 'Année' existent déjà plus haut (Statistiques) et sont
+    // réutilisées telles quelles : DICT est un dictionnaire à plat, une
+    // même clé française sert partout où le texte est identique.
+    'Objectifs': 'Goals',
+    'Période précédente': 'Previous period',
+    'Période suivante': 'Next period',
+    'Grand objectif de la période': 'Main goal for the period',
+    "Qu'est-ce que tu veux accomplir sur ces 4 semaines ?": 'What do you want to achieve over these 4 weeks?',
+    'Objectifs hebdomadaires — choisis 3 semaines sur 4': 'Weekly goals — pick 3 weeks out of 4',
+    'Non atteint': 'Not met',
+    'Partiel': 'Partial',
+    'Atteint': 'Met',
+    'Pas encore assez d’historique pour suggérer une durée.': 'Not enough history yet to suggest a duration.',
+    'Estimation suggérée': 'Suggested estimate',
+    'confiance': 'confidence',
+    'Réel': 'Actual',
+    'justesse': 'accuracy',
+    'Période': 'Period',
+    'Pas encore commencée': 'Not started yet',
+    'Reporté automatiquement depuis une semaine précédente, non atteinte.': 'Automatically carried over from a previous, unmet week.',
+    'Objectif de cette semaine (optionnel)': 'This week’s goal (optional)',
+    'En cours': 'Current',
+    'objectif(s) hebdomadaire(s) atteint(s).': 'weekly goal(s) met.',
+    'Bilan publié automatiquement dans le fil de discussion.': 'Recap automatically posted to the discussion thread.',
   };
 
   // ------------------- Messages contenant une valeur variable -------------
