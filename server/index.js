@@ -176,6 +176,13 @@ app.use('/api', require('./routes/feedback'));
 // pour toute route non-API, et un lecteur de calendrier recevrait alors du
 // HTML au lieu du flux.
 app.use('/api', require('./routes/calendar'));
+// TimeTracker Entreprise — Module Horaires (Jacopo), cadrage 12-13 septembre
+// 2026 (noesis-timetracker-entreprise-jacopo-horaires.md). Chantier B2B
+// séparé du produit central : branche/PR dédiée (horaires-jacopo), voir
+// noesis-timetracker-deploiement.md. requireAuth est posé DANS
+// routes/enterprises.js (router.use), pas ici : aucune vue publique dans ce
+// module, contrairement au reste de l'app.
+app.use('/api', require('./routes/enterprises'));
 
 // Le service worker ne doit JAMAIS être servi depuis le cache du navigateur :
 // c'est lui qui pilote la mise à jour de l'app sur les téléphones installés.
