@@ -4080,11 +4080,15 @@ button { -webkit-user-select: none; user-select: none; }
 }
 
 /* ===== Objectifs (planning annuel) — Chantier 1, 12 septembre 2026 =====
-   Nouvel onglet #activityPageTabGoals dans #activityPageSectionSwitch,
-   nouveau bloc #activityGoalsBlock (voir renderActivityGoals dans app.js).
-   Réutilise volontairement .periodBtn/.periodSwitch (bascule de section),
-   .menuBtn (‹/›), .sectionTitle, .hint/.msg, .card/--shadow-card : rien de
-   nouveau n'est inventé pour ce qui existe déjà ailleurs dans l'app. */
+   #activityGoalsBlock (voir renderActivityGoals dans app.js) — vivait à
+   l'origine dans #activityPageSectionSwitch (section de la page d'activité),
+   déplacé le 13 septembre 2026 dans #tab-goals, son propre onglet de la
+   barre du bas (voir plus bas dans ce fichier, section « Volet Objectifs —
+   devenu un onglet à part entière »). Toutes les classes ci-dessous restent
+   inchangées par ce déplacement — seul leur CONTENEUR a changé. Réutilise
+   volontairement .menuBtn (‹/›), .sectionTitle, .hint/.msg, .card/
+   --shadow-card : rien de nouveau n'est inventé pour ce qui existe déjà
+   ailleurs dans l'app. */
 
 /* Bandeau des 13 blocs du cycle (tendance + archive consultable, cadré avec
    Emilien) : une rangée qui défile horizontalement plutôt que de se tasser,
@@ -4162,3 +4166,40 @@ button { -webkit-user-select: none; user-select: none; }
 @media (max-width: 420px) {
   .goalsWeeklyList { grid-template-columns: 1fr; }
 }
+
+/* ===== Volet Objectifs — devenu un onglet à part entière, 13 septembre 2026 =====
+   Emilien est revenu sur l'emplacement du 12 septembre (section dans la page
+   d'activité) : Objectifs vit désormais dans #tab-goals, au même niveau que
+   #tab-chrono/#tab-stats/#tab-community/#tab-activity — voir index.html et
+   loadGoalsTab()/openGoalsForActivity()/bindGoalsSwipe() dans app.js. Tout
+   le CSS de la carte de période/semaines ci-dessus (.goalCard, .goalsTrendRow,
+   etc.) est réutilisé sans changement ; il ne manquait qu'un habillage pour
+   le nouveau sélecteur d'activité par balayage. */
+.goalsActivitySwitcher { display: flex; flex-direction: column; gap: 14px; }
+/* .goalsActivityHeader réutilise le gabarit visuel de .activityPageHeader
+   (pastille + nom, même taille de police) mais neutralise ici son padding
+   "encoche" (pensé pour une modale plein écran collée au haut de l'écran,
+   voir la règle .activityPageHeader { padding-top: max(...) } plus haut) :
+   ce bloc-ci est une carte au fil d'un onglet normal, sous la barre du haut
+   déjà inset-safe. Même règle de spécificité que ces deux-là (une seule
+   classe) : celle-ci l'emporte simplement parce qu'elle est déclarée après,
+   pas besoin de !important. */
+.goalsActivityHeader {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  /* touch-action: pan-y plutôt que none — un balayage vertical (défilement
+     normal de la page) doit continuer à fonctionner si le doigt part
+     légèrement en biais ; seul le geste HORIZONTAL est intercepté par
+     bindGoalsSwipe() (voir app.js, qui compare dx à dy avant d'agir). */
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Icône de marque (monogramme "N" de Noèsis, repris de #bootSplash) du
+   bouton Objectifs — seul bouton REMPLI de .tabbar, volontairement, pour se
+   distinguer des icônes au trait des quatre autres (voir le commentaire dans
+   index.html, juste avant ce bouton). */
+.tabIconBrand svg { fill: currentColor; }

@@ -878,6 +878,10 @@
     // réutilisées telles quelles : DICT est un dictionnaire à plat, une
     // même clé française sert partout où le texte est identique.
     'Objectifs': 'Goals',
+    // Ajoutée le 13 septembre 2026 : Objectifs devient un volet à part
+    // entière (voir #tab-goals) — état vide quand aucune activité n'existe
+    // encore (#goalsNoActivityHint dans index.html).
+    'Ajoute une activité pour commencer à te fixer des objectifs.': 'Add an activity to start setting yourself goals.',
     'Période précédente': 'Previous period',
     'Période suivante': 'Next period',
     'Grand objectif de la période': 'Main goal for the period',

@@ -1295,6 +1295,7 @@
     else {
       if (tab === 'community') loadCommunity();
       else if (tab === 'activity') loadActivityTab();
+      else if (tab === 'goals') loadGoalsTab();
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
@@ -3988,7 +3989,6 @@
     var stats = $('communityActivityMembersPart');
     var soloStats = $('activitySoloStatsBlock');
     var disc = $('communityDiscussionBlock');
-    var goalsBlock = $('activityGoalsBlock');
     // #subProjectDetail (le sous-projet ouvert) n'a pas besoin d'être traité
     // ici : il est soit DANS une ligne de #subProjectsList, soit sur son ancre
     // — dans les deux cas à l'intérieur de ce qu'on masque ou montre.
@@ -4003,12 +4003,6 @@
     // le contexte de l'autre.
     if (soloStats) soloStats.classList.toggle('hidden', name !== 'stats' || currentActivityIsShared);
     if (disc) disc.classList.toggle('hidden', name !== 'disc' || !currentActivityIsShared);
-    // Objectifs (Chantier 1, 12 septembre 2026) : à la différence de
-    // Statistiques/Discussion ci-dessus, cette section ne dépend NI du
-    // partage NI des sous-projets — le planning est propre à CHAQUE
-    // ACTIVITÉ, partagée ou solo (cadrage d'Emilien, voir server/lib/goals.js).
-    if (goalsBlock) goalsBlock.classList.toggle('hidden', name !== 'goals');
-    if (name === 'goals') loadActivityGoals();
     // Les données ne sont demandées qu'au moment où la section devient visible :
     // un camembert dessiné dans un bloc masqué n'a aucune dimension (même
     // piège que le défilement du fil et le cadrage du graphique, plus bas).
@@ -4121,12 +4115,13 @@
     var showStats = isShared || activityHasSubProjects(a);
     $('activityPageTabStats').classList.toggle('hidden', !showStats);
     $('activityPageTabDisc').classList.toggle('hidden', !isShared);
-    // Objectifs (Chantier 1, 12 septembre 2026) : toujours visible, partagée
-    // ou solo, avec ou sans sous-projet — c'est ce qui garantit que le
-    // sélecteur lui-même reste toujours affiché (au moins deux sections :
-    // Sous-projets + Objectifs), contrairement à avant où il pouvait rester
-    // masqué pour une activité solo sans sous-projet.
-    $('activityPageSectionSwitch').classList.remove('hidden');
+    // ⚠️ Sélecteur masqué en entier pour une activité NON partagée sans
+    // sous-projet : elle n'a alors ni statistiques (personne à comparer) ni
+    // fil (personne à qui parler), donc une seule section (Sous-projets) —
+    // un sélecteur à un seul bouton est du bruit (revenu à ce comportement
+    // le 13 septembre 2026, Objectifs n'étant plus une section d'activité —
+    // voir #tab-goals).
+    $('activityPageSectionSwitch').classList.toggle('hidden', !showStats && !isShared);
 
     // Une activité partagée sans sous-projet ouvre sur Statistiques : sa
     // section par défaut n'aurait rien à montrer (règle d'Emilien du
@@ -4196,6 +4191,16 @@
   //      écrit (voir formatEstimateHint) — jamais le contenu de l'objectif.
   var currentGoalsPlanning = null;
   var currentGoalsViewPeriodNumber = null;
+  // Objectifs est devenu son propre volet le 13 septembre 2026 (n'est plus
+  // une section de la page d'activité) : il a donc besoin de savoir
+  // lui-même QUELLE activité regarder, une à la fois, indépendamment de
+  // currentCommunityActivityId (qui reste celle ouverte dans la page
+  // d'activité, potentiellement différente ou vide). currentGoalsActivityIndex
+  // indexe dans activitiesCache, la même liste et le même ordre que l'onglet
+  // Activité — voir openGoalsForActivity()/loadGoalsTab() plus bas.
+  var currentGoalsActivityId = '';
+  var currentGoalsActivityIndex = 0;
+  var currentGoalsActivityIsShared = false;
 
   var GOAL_STATUS_ORDER = ['non_atteint', 'partiel', 'atteint'];
   var GOAL_STATUS_LABELS = {
@@ -4265,25 +4270,25 @@
   }
 
   function saveMainGoalText(periodNumber, text) {
-    api('PUT', '/api/activities/' + currentCommunityActivityId + '/goals/periods/' + periodNumber + '/main', { text: text })
+    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', { text: text })
       .then(loadActivityGoals)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
   function saveMainGoalStatus(periodNumber, status) {
-    api('PUT', '/api/activities/' + currentCommunityActivityId + '/goals/periods/' + periodNumber + '/main-status', { status: status })
+    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main-status', { status: status })
       .then(loadActivityGoals)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
   function saveWeeklyText(periodNumber, weekIndex, text) {
-    api('PUT', '/api/activities/' + currentCommunityActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text })
+    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text })
       .then(loadActivityGoals)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
   function saveWeeklyStatus(weeklyId, status) {
-    api('PUT', '/api/activities/' + currentCommunityActivityId + '/goals/weekly/' + weeklyId + '/status', { status: status })
+    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/status', { status: status })
       .then(loadActivityGoals)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
@@ -4433,7 +4438,7 @@
     if (period.isPast && period.weeklies.length) {
       var doneCount = period.weeklies.filter(function (w) { return w.status === 'atteint'; }).length;
       var text = doneCount + '/' + period.weeklies.length + ' ' + t('objectif(s) hebdomadaire(s) atteint(s).');
-      if (currentActivityIsShared && period.bilanPostedAt) text += ' ' + t('Bilan publié automatiquement dans le fil de discussion.');
+      if (currentGoalsActivityIsShared && period.bilanPostedAt) text += ' ' + t('Bilan publié automatiquement dans le fil de discussion.');
       bilan.textContent = text;
       bilan.classList.remove('hidden');
     } else {
@@ -4444,9 +4449,14 @@
   }
 
   function loadActivityGoals() {
-    var activityId = currentCommunityActivityId;
+    var activityId = currentGoalsActivityId;
     if (!activityId) return;
     api('GET', '/api/activities/' + activityId + '/goals').then(function (data) {
+      // Garde-fou : l'activité affichée peut avoir changé (balayage) pendant
+      // que cette requête était en vol — une réponse en retard pour
+      // l'ANCIENNE activité ne doit jamais écraser ce qui est déjà affiché
+      // pour la nouvelle (même principe que loadActivityDetail() ailleurs).
+      if (activityId !== currentGoalsActivityId) return;
       currentGoalsPlanning = data;
       if (currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(data, currentGoalsViewPeriodNumber)) {
         currentGoalsViewPeriodNumber = data.currentPeriodNumber;
@@ -4465,6 +4475,81 @@
     currentGoalsViewPeriodNumber += 1;
     renderActivityGoals();
   });
+
+  // ===================== VOLET OBJECTIFS — sélecteur d'activité =====================
+  // 13 septembre 2026 (demande d'Emilien) : Objectifs n'est plus une section
+  // de la page d'activité, c'est son propre onglet de la barre du bas — une
+  // seule activité affichée à la fois, la première de activitiesCache à
+  // l'ouverture, puis on en change en balayant horizontalement le nom de
+  // l'activité (glissement, voir bindGoalsSwipe() plus bas, même mécanisme
+  // touchstart/touchend que le retour tactile de Réglages, 10 septembre 2026).
+  function openGoalsForActivity(index) {
+    var list = activitiesCache || [];
+    if (!list.length) {
+      $('goalsNoActivityHint').classList.remove('hidden');
+      $('goalsActivitySwitcher').classList.add('hidden');
+      return;
+    }
+    $('goalsNoActivityHint').classList.add('hidden');
+    $('goalsActivitySwitcher').classList.remove('hidden');
+
+    // Glissement circulaire : après la dernière activité on revient à la
+    // première, et inversement avant la première on revient à la dernière
+    // (demande explicite d'Emilien).
+    var n = list.length;
+    currentGoalsActivityIndex = ((index % n) + n) % n;
+    var a = list[currentGoalsActivityIndex];
+
+    currentGoalsActivityId = String(a.id);
+    currentGoalsActivityIsShared = a.membersCount > 1;
+    // Repart de la période en cours à chaque changement d'activité : la
+    // période affichée pour l'activité précédente n'a aucune raison d'être
+    // pertinente pour la nouvelle (même principe que loadActivityDetail()
+    // qui réinitialise systématiquement ses propres filtres).
+    currentGoalsViewPeriodNumber = null;
+
+    $('goalsActivityDot').style.background = a.color;
+    $('goalsActivityName').textContent = a.name;
+
+    loadActivityGoals();
+  }
+
+  function loadGoalsTab() {
+    if (!profile) return;
+    // activitiesCache est déjà tenu à jour par l'onglet Activité/le Chrono
+    // (refreshActivities()) — pas de rechargement systématique ici pour ne
+    // pas ralentir l'ouverture du volet, seulement s'il n'a jamais été
+    // rempli (première ouverture de session sur ce volet en particulier).
+    var ready = activitiesCache && activitiesCache.length ? Promise.resolve(activitiesCache) : refreshActivities();
+    ready.then(function () { openGoalsForActivity(currentGoalsActivityIndex); });
+  }
+
+  // Balayage horizontal sur le nom de l'activité — mêmes seuils que le
+  // geste de retour tactile de Réglages (10 septembre 2026, ≥60px, plus
+  // horizontal que vertical) pour rester cohérent dans toute l'app.
+  (function bindGoalsSwipe() {
+    var header = $('goalsActivityHeader');
+    if (!header) return;
+    var startX = null;
+    var startY = null;
+    header.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, { passive: true });
+    header.addEventListener('touchend', function (e) {
+      if (startX == null) return;
+      var touch = e.changedTouches[0];
+      var dx = touch.clientX - startX;
+      var dy = touch.clientY - startY;
+      startX = null;
+      startY = null;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
+      // Droite → gauche (dx négatif) : activité SUIVANTE.
+      // Gauche → droite (dx positif) : activité PRÉCÉDENTE.
+      openGoalsForActivity(currentGoalsActivityIndex + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+  })();
 
   // ===================== SOUS-PROJETS D'UNE ACTIVITÉ =====================
   // Discussion "Sous-projets" (3 septembre 2026). Découper une activité en

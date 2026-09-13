@@ -1944,48 +1944,6 @@
                c'est son écran. -->
           <p id="soloStatsMsg" class="msg"></p>
         </div>
-
-        <!-- ===================== OBJECTIFS (planning annuel) =====================
-             Chantier 1 de la feuille de route produit (12 septembre 2026,
-             server/lib/goals.js) : 13 périodes de 4 semaines par cycle, un
-             grand objectif par période, 3 objectifs hebdomadaires par
-             période — toujours saisis par l'utilisateur lui-même, jamais
-             décomposés automatiquement à partir du grand objectif (voir
-             noesis-timetracker-feuille-de-route-produit.md — la génération
-             automatique d'un plan reste le différenciateur de l'offre
-             payante MANAGER). Propre à CETTE activité, partagée ou solo :
-             contrairement aux blocs ci-dessus, ni le partage ni la présence
-             de sous-projets ne conditionnent son affichage. -->
-        <div id="activityGoalsBlock" class="hidden">
-          <!-- 13 blocs du cycle en cours, cliquables (double comme archive
-               consultable ET tableau de bord de tendance, cadré avec
-               Emilien). Un bloc grisé = période pas encore atteinte par le
-               plan, jamais créée côté serveur. -->
-          <div class="goalsTrendRow" id="activityGoalsTrendRow"></div>
-
-          <div class="goalsPeriodNav">
-            <button type="button" class="menuBtn" id="activityGoalsPrevBtn" aria-label="Période précédente">‹</button>
-            <div class="goalsPeriodNavLabel">
-              <p class="sectionTitle" id="activityGoalsPeriodTitle"></p>
-              <p class="goalsPeriodDates" id="activityGoalsPeriodDates"></p>
-            </div>
-            <button type="button" class="menuBtn" id="activityGoalsNextBtn" aria-label="Période suivante">›</button>
-          </div>
-
-          <div class="goalCard goalMainCard">
-            <p class="goalCardLabel">Grand objectif de la période</p>
-            <textarea id="activityGoalsMainInput" rows="2" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
-            <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
-            <div class="goalStatusRow" id="activityGoalsMainStatus"></div>
-            <p class="goalActualHint hidden" id="activityGoalsMainActual"></p>
-          </div>
-
-          <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires — choisis 3 semaines sur 4</p>
-          <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
-
-          <p class="goalBilanHint hidden" id="activityGoalsBilan"></p>
-          <p id="activityGoalsMsg" class="msg"></p>
-        </div>
       </div>
 
       <!-- Page (modale) listant tous les membres d'une activité partagée
@@ -2060,6 +2018,81 @@
             <button type="button" id="deleteActivityPurgeBtn" class="iconBtn danger">Supprimer les anciens enregistrements</button>
           </div>
           <p id="deleteActivityModalMsg" class="msg"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ONGLET OBJECTIFS =====================
+         13 septembre 2026, demande d'Emilien (revient sur l'emplacement
+         cadré le 12 septembre) : Objectifs n'est plus une section DANS la
+         fenêtre d'une activité (Sous-projets y reste seul, tel qu'avant le
+         chantier du 12 septembre — voir #activityPageSectionSwitch
+         ci-dessus, revenu à 3 boutons). C'est désormais un volet à part
+         entière de la barre du bas, comme Chrono/Stats/Communauté/Activité.
+         « En quelque sorte le paramétrage du volet objectif » (Emilien) :
+         un seul volet, une activité affichée à la fois — la première de la
+         liste des activités à l'ouverture, puis on en change en balayant le
+         nom de l'activité horizontalement (glissement demandé par Emilien,
+         voir bindGoalsSwipe() dans app.js) :
+           · glissement droite → gauche : activité SUIVANTE dans la liste ;
+           · glissement gauche → droite : activité PRÉCÉDENTE, avec retour à
+             la DERNIÈRE de la liste si on est déjà sur la première.
+         Chaque activité garde son propre plan (règle verrouillée du 12
+         septembre, inchangée : le planning reste propre à CHAQUE ACTIVITÉ,
+         jamais global à la personne — voir server/lib/goals.js) ; ce volet
+         ne fait que changer QUELLE activité on regarde, il ne fusionne rien.
+         Le contenu affiché par activité (bande de tendance des 13 périodes,
+         navigation période, grand objectif, 4 semaines, bilan) est
+         RIGOUREUSEMENT le même qu'avant ce chantier — seul son emplacement
+         a changé, voir server/lib/goals.js (backend inchangé) et les
+         fonctions de rendu déjà existantes dans app.js (renderActivityGoals
+         et consorts, simplement retargetées sur currentGoalsActivityId au
+         lieu de currentCommunityActivityId). -->
+    <section id="tab-goals" class="tab hidden">
+      <div class="sectionTitleRow">
+        <p class="sectionTitle">Objectifs</p>
+      </div>
+
+      <p id="goalsNoActivityHint" class="hint hidden">Ajoute une activité pour commencer à te fixer des objectifs.</p>
+
+      <div id="goalsActivitySwitcher" class="goalsActivitySwitcher hidden">
+        <!-- Zone balayée horizontalement (touchstart/touchend, même mécanisme
+             que le retour tactile de Réglages, 10 septembre 2026) pour
+             changer d'activité — voir bindGoalsSwipe() dans app.js. -->
+        <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
+          <span class="dot" id="goalsActivityDot"></span>
+          <span class="activityPageName" id="goalsActivityName"></span>
+        </div>
+
+        <div id="activityGoalsBlock">
+          <!-- 13 blocs du cycle en cours, cliquables (double comme archive
+               consultable ET tableau de bord de tendance, cadré avec
+               Emilien). Un bloc grisé = période pas encore atteinte par le
+               plan, jamais créée côté serveur. -->
+          <div class="goalsTrendRow" id="activityGoalsTrendRow"></div>
+
+          <div class="goalsPeriodNav">
+            <button type="button" class="menuBtn" id="activityGoalsPrevBtn" aria-label="Période précédente">‹</button>
+            <div class="goalsPeriodNavLabel">
+              <p class="sectionTitle" id="activityGoalsPeriodTitle"></p>
+              <p class="goalsPeriodDates" id="activityGoalsPeriodDates"></p>
+            </div>
+            <button type="button" class="menuBtn" id="activityGoalsNextBtn" aria-label="Période suivante">›</button>
+          </div>
+
+          <div class="goalCard goalMainCard">
+            <p class="goalCardLabel">Grand objectif de la période</p>
+            <textarea id="activityGoalsMainInput" rows="2" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
+            <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
+            <div class="goalStatusRow" id="activityGoalsMainStatus"></div>
+            <p class="goalActualHint hidden" id="activityGoalsMainActual"></p>
+          </div>
+
+          <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires — choisis 3 semaines sur 4</p>
+          <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
+
+          <p class="goalBilanHint hidden" id="activityGoalsBilan"></p>
+          <p id="activityGoalsMsg" class="msg"></p>
         </div>
       </div>
     </section>
@@ -2728,12 +2761,6 @@
             <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Sous-projets</button>
             <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
             <button type="button" class="periodBtn" id="activityPageTabDisc" data-section="disc">Discussion</button>
-            <!-- Objectifs (Chantier 1 de la feuille de route produit, 12
-                 septembre 2026) : jamais masqué, contrairement aux trois
-                 boutons ci-dessus — le planning est propre à CHAQUE ACTIVITÉ
-                 (partagée ou solo, avec ou sans sous-projet), voir
-                 server/lib/goals.js et setActivityPageSection() dans app.js. -->
-            <button type="button" class="periodBtn" id="activityPageTabGoals" data-section="goals">Objectifs</button>
           </div>
           <div id="activityPageBody"></div>
         </div>
@@ -3215,6 +3242,26 @@
         </svg>
       </span>
       <span class="tabLabel">Stats</span>
+    </button>
+    <!-- Objectifs (13 septembre 2026, demande d'Emilien : retiré de la page
+         d'activité — voir l'ancien encart juste avant #activityGoalsBlock,
+         devenu #tab-goals — et déplacé ici, au milieu de la barre, comme
+         volet à part entière plutôt que section d'une activité). Icône =
+         le monogramme "N" de Noèsis, repris tel quel de #bootSplash (mêmes
+         polygones, juste remis à l'échelle d'un viewBox 24×24 et dépouillés
+         de leurs classes d'animation) plutôt qu'un nouveau tracé au trait :
+         c'est délibérément le seul bouton REMPLI de la barre, pour se
+         distinguer des icônes-contour des quatre autres (marque de l'app,
+         pas juste un pictogramme de fonctionnalité). -->
+    <button class="tabBtn" data-tab="goals" aria-label="Objectifs">
+      <span class="tabIcon tabIconBrand">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+          <polygon points="4.00,4.83 6.77,9.30 6.77,20.00 4.03,20.00"/>
+          <polygon points="4.24,4.00 6.93,4.00 13.40,14.86 13.40,19.26"/>
+          <polygon points="13.93,4.00 15.53,4.00 16.68,4.64 16.75,20.00 13.96,20.00"/>
+        </svg>
+      </span>
+      <span class="tabLabel">Objectifs</span>
     </button>
     <button class="tabBtn" data-tab="community" aria-label="Communauté">
       <span class="tabIcon">
