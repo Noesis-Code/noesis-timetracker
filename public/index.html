@@ -2069,11 +2069,26 @@
               déménage ICI depuis #goalsDetailPage — elle appartient à la
               vue d'ensemble (page 1), pas au détail d'une période ;
             - 3 catégories par activité (Entreprise/Communauté/Produit),
-              chacune son propre plan/cycle/arbre — #goalsCategoryTabs choisit
-              laquelle est affichée (currentGoalsCategory, app.js) ;
-            - vue « Répartition » (#goalsViewToggle) : bascule l'arbre pour
+              chacune son propre plan/cycle/arbre.
+            - vue « Répartition » (#goalsViewToggle) : bascule la grille pour
               une vue groupée par membre de l'activité, croisant les 3
-              catégories (renderGoalsDistribution(), app.js). -->
+              catégories (renderGoalsDistribution(), app.js).
+
+           14 septembre 2026 (troisième passage, demande d'Emilien : « je
+           souhaite qu'il y ait 3 arbres visibles [...] que l'on puisse les
+           comparer ») : les 3 catégories ne se consultent plus l'une après
+           l'autre par onglet (#goalsCategoryTabs, retiré) — elles sont
+           TOUJOURS TOUTES LES TROIS visibles ensemble, dans une grille à une
+           ligne par période et une colonne par catégorie (Entreprise /
+           Communauté / Produit, dans cet ordre fixe), alignées par numéro de
+           période — cadré avec Emilien par AskUserQuestion avant ce chantier.
+           Construite par renderGoalsGrid() (app.js) à partir des 3 plannings
+           déjà chargés ensemble (reloadGoalsAll(), un seul appel à
+           GET /activities/:id/goals/all — la vue Répartition en avait de
+           toute façon besoin). Une cellule de période sans objectif
+           périodique (mainGoalText vide) ne montre qu'un simple TRAIT
+           cliquable, sans bulle (règle explicite d'Emilien) — voir
+           .goalsGridCell--empty, styles.css. -->
       <div id="goalsActivitySwitcher" class="goalsActivitySwitcher hidden">
         <!-- Nom de l'activité CENTRÉ, flèches ‹/› cliquables de part et
              d'autre (en plus du balayage tactile déjà en place,
@@ -2088,37 +2103,57 @@
           <button type="button" class="menuBtn goalsSwipeBtn" id="goalsNextActivityBtn" aria-label="Activité suivante">›</button>
         </div>
 
-        <div class="goalsCategoryTabs" id="goalsCategoryTabs">
-          <button type="button" class="goalsCategoryTab" data-category="entreprise">Entreprise</button>
-          <button type="button" class="goalsCategoryTab" data-category="communaute">Communauté</button>
-          <button type="button" class="goalsCategoryTab" data-category="produit">Produit</button>
-        </div>
-
         <div class="goalsViewToggle" id="goalsViewToggle">
           <button type="button" class="goalsViewToggleBtn" data-view="tree">Arbre</button>
           <button type="button" class="goalsViewToggleBtn" data-view="distribution">Répartition</button>
         </div>
 
-        <!-- 13 blocs du cycle en cours de la catégorie affichée, cliquables
-             (double usage : archive consultable ET tableau de bord de
-             tendance, cadré avec Emilien le 12 septembre). Un bloc grisé =
-             période pas encore atteinte par le plan, jamais créée côté
-             serveur. Déménagé ici depuis #goalsDetailPage le 14 septembre
-             2026 (voir commentaire ci-dessus) — même id, même fonction de
-             rendu (renderActivityGoalsTrend, app.js). -->
-        <div class="goalsTrendRow" id="activityGoalsTrendRow"></div>
+        <!-- 14 septembre 2026 (troisième passage, demande d'Emilien : « je
+             souhaite que la barre avec les différents points par période se
+             bloque en haut de l'écran lorsque je défile vers le bas »).
+             #goalsFixedBar regroupe les en-têtes de colonnes ET la bande de
+             tendance : les deux doivent rester visibles ensemble pendant le
+             défilement de la grille, sinon les points ne renseigneraient plus
+             sur QUELLE colonne on regarde. TOUJOURS position: fixed (jamais
+             sticky — bug WebKit iOS déjà documenté deux fois dans ce projet
+             pour .topbar et #communitySearchBar, voir styles.css), masqué
+             avec .goalsGrid en vue Répartition (renderGoalsViewToggle(),
+             app.js — n'a de sens que pour la grille). #goalsGrid récupère
+             l'espace perdu par ce passage en fixed via un padding-top dédié à
+             --goals-fixedbar-h (même principe que --topbar-h/
+             --community-searchbar-h), mesurée par
+             syncGoalsFixedBarHeightVar() (app.js). -->
+        <div class="goalsFixedBar" id="goalsFixedBar">
+          <!-- En-têtes des 3 colonnes de la grille — simple repère visuel,
+               jamais de logique propre. -->
+          <div class="goalsGridHead" id="goalsGridHead">
+            <span class="goalsGridHeadCell goalsCategoryTag-entreprise">Entreprise</span>
+            <span class="goalsGridHeadCell goalsCategoryTag-communaute">Communauté</span>
+            <span class="goalsGridHeadCell goalsCategoryTag-produit">Produit</span>
+          </div>
 
-        <!-- Arbre des grands objectifs de l'activité/catégorie affichée, un
-             nœud par période du cycle en cours (currentGoalsPlanning.periods
-             — aucun appel serveur dédié). Construit entièrement par
-             renderGoalsTree() (app.js) : rien de statique ici. -->
-        <div id="goalsTree" class="goalsTree"></div>
+          <!-- 13 points du cycle en cours (un par période, toutes catégories
+               confondues — les 3 catégories partagent la même numérotation de
+               ligne dans la grille même si chacune a démarré son plan à sa
+               propre date, voir renderGoalsGrid()). L'anneau violet actif
+               suit la ligne verticalement centrée à l'écran
+               (updateGoalsTrendFromScroll(), app.js) et un clic sur un point
+               fait défiler la grille jusqu'à centrer sa période
+               (scrollGoalsGridToPeriod()). -->
+          <div class="goalsTrendRow" id="activityGoalsTrendRow"></div>
+        </div>
+
+        <!-- Grille de comparaison des 3 catégories : une ligne par période du
+             cycle en cours, 3 cellules par ligne (Entreprise/Communauté/
+             Produit). Construite entièrement par renderGoalsGrid() (app.js) :
+             rien de statique ici. -->
+        <div id="goalsGrid" class="goalsGrid"></div>
 
         <!-- Vue « Répartition » (14 septembre 2026) : liste, par membre de
              l'activité, les objectifs hebdomadaires de la période en cours
              qui lui sont assignés, toutes catégories confondues — construite
              par renderGoalsDistribution() (app.js) à partir des 3 plannings
-             (GET /activities/:id/goals/all). Alterne avec #goalsTree,
+             (GET /activities/:id/goals/all). Alterne avec #goalsGrid,
              jamais les deux visibles à la fois (goalsViewToggle ci-dessus). -->
         <div id="goalsDistribution" class="goalsDistribution hidden"></div>
       </div>
@@ -2824,11 +2859,23 @@
             </div>
 
             <div class="goalCard goalMainCard">
-              <p class="goalCardLabel">Grand objectif de la période</p>
+              <p class="goalCardLabel">Objectif périodique</p>
               <textarea id="activityGoalsMainInput" rows="2" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
               <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
               <div class="goalStatusRow" id="activityGoalsMainStatus"></div>
               <p class="goalActualHint hidden" id="activityGoalsMainActual"></p>
+              <!-- 14 septembre 2026 (demande d'Emilien) : « en dessous des
+                   grands objectifs [...] le nom des membres de l'activité qui
+                   travaillent sur l'objectif périodique. Plusieurs
+                   utilisateurs peuvent travailler sur un objectif
+                   périodique » — contrairement aux objectifs hebdomadaires
+                   (un seul <select> assigné, .goalAssigneeSelect ci-dessous),
+                   ici une puce cliquable PAR MEMBRE de l'activité, cochée ou
+                   non — construites par renderGoalsMainAssignees() (app.js) à
+                   partir de currentGoalsPlanning.members et
+                   period.assignees. -->
+              <div class="goalAssigneesLabel" id="activityGoalsMainAssigneesLabel">Travaillent sur cet objectif</div>
+              <div class="goalAssignees" id="activityGoalsMainAssignees"></div>
             </div>
 
             <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires — choisis 3 semaines sur 4</p>
@@ -3327,25 +3374,30 @@
          c'est délibérément le seul bouton REMPLI de la barre, pour se
          distinguer des icônes-contour des quatre autres (marque de l'app,
          pas juste un pictogramme de fonctionnalité). -->
-    <!-- 14 septembre 2026, demande d'Emilien : couleur reprise TELLE QUELLE
-         du dégradé du logo (#bootSplash, voir bsL/bsD juste en tête de ce
-         fichier — <linearGradient> locale plutôt qu'un fichier externe, ce
-         monogramme EST déjà le logo) plutôt que currentColor (qui suivait
-         l'état actif/inactif comme les 4 autres icônes) ; icône légèrement
-         agrandie (.tabBtnGoals, styles.css) ; libellé "Objectifs" retiré
-         sous l'icône, seul bouton de la barre dans ce cas. -->
+    <!-- 14 septembre 2026, demande d'Emilien (quatrième passage : « je
+         souhaite qu'il reprenne la forme du n du générique et du logo de
+         l'application ») : les 3 polygones approximatifs precedents
+         (silhouette de N « inventée » pour l'icône d'onglet) sont remplacés
+         par les 6 polygones EXACTS du monogramme du bootSplash (#bootSplash,
+         bsL/bsD, voir tout en tête de ce fichier) — même géométrie au pixel
+         près, recadrée avec un viewBox serré sur sa boîte englobante (163 242
+         519 641, ~20px de marge de chaque côté de bsL/bsD, hors .bsC/.bsS/
+         .bsW propres à l'animation du bootSplash) plutôt qu'étirée dans un
+         viewBox 0 0 24 24 générique. Couleurs en fill DIRECT par polygone
+         (#8772C7 = .bsL, #46397D = .bsD) plutôt qu'un dégradé linéaire : le
+         bootSplash lui-même n'utilise pas de dégradé, chaque facette a sa
+         couleur plate. Icône légèrement agrandie (.tabBtnGoals, styles.css) ;
+         libellé "Objectifs" retiré sous l'icône, seul bouton de la barre
+         dans ce cas. -->
     <button class="tabBtn tabBtnGoals" data-tab="goals" aria-label="Objectifs">
       <span class="tabIcon tabIconBrand">
-        <svg viewBox="0 0 24 24" fill="url(#goalsTabIconGrad)" aria-hidden="true" focusable="false">
-          <defs>
-            <linearGradient id="goalsTabIconGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#8772C7"/>
-              <stop offset="100%" stop-color="#46397D"/>
-            </linearGradient>
-          </defs>
-          <polygon points="4.00,4.83 6.77,9.30 6.77,20.00 4.03,20.00"/>
-          <polygon points="4.24,4.00 6.93,4.00 13.40,14.86 13.40,19.26"/>
-          <polygon points="13.93,4.00 15.53,4.00 16.68,4.64 16.75,20.00 13.96,20.00"/>
+        <svg viewBox="163 242 519 641" aria-hidden="true" focusable="false">
+          <polygon fill="#8772C7" points="183,293 287,461 287,616 183,675"/>
+          <polygon fill="#46397D" points="287,628 287,863 184,863 184,687"/>
+          <polygon fill="#8772C7" points="192,262 293,262 468,557 367,555"/>
+          <polygon fill="#46397D" points="374,565 475,568 536,670 536,835"/>
+          <polygon fill="#8772C7" points="556,262 616,262 659,286 661,616 556,673"/>
+          <polygon fill="#46397D" points="661,629 662,863 557,863 556,686"/>
         </svg>
       </span>
     </button>

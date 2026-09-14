@@ -4205,16 +4205,31 @@
   // 14 septembre 2026 (second passage, demande d'Emilien) : 3 plannings
   // indépendants par activité — un par catégorie fixe, les 3 sous-catégories
   // identifiées pour structurer une entreprise (reprises du concept CRM
-  // historique, voir server/lib/goals.js). currentGoalsCategory choisit
-  // lequel des 3 est actuellement chargé dans currentGoalsPlanning.
-  // currentGoalsView bascule la page 1 entre l'arbre (une seule catégorie) et
-  // la vue "Répartition" (les 3 catégories croisées par membre de
-  // l'activité) — currentGoalsAllPlannings ne sert qu'à cette seconde vue.
+  // historique, voir server/lib/goals.js).
+  //
+  // Troisième passage, même jour (« je souhaite qu'il y ait 3 arbres
+  // visibles [...] que l'on puisse les comparer ») : la page 1 ne bascule
+  // plus d'une catégorie à l'autre par onglet — les 3 sont TOUJOURS TOUTES
+  // LES TROIS chargées ensemble dans currentGoalsAllPlannings (un seul appel
+  // à /goals/all, voir reloadGoalsAll() plus bas) et affichées côte à côte
+  // dans une grille (renderGoalsGrid()). currentGoalsCategory ne désigne
+  // plus « la catégorie affichée sur la page 1 » mais « la catégorie
+  // actuellement ouverte sur la PAGE 2 » (détail d'une période précise,
+  // choisie en cliquant une cellule de la grille — voir openGoalsDetail()) ;
+  // currentGoalsPlanning reste le planning de CETTE seule catégorie, pour
+  // tout ce que la page 2 affiche/édite (inchangé). currentGoalsView bascule
+  // toujours la page 1 entre la grille et la vue "Répartition" (les 3
+  // catégories croisées par membre de l'activité, déjà croisées dans
+  // currentGoalsAllPlannings — plus besoin d'un appel séparé pour cette
+  // vue). currentGoalsGridActivePeriodIndex (1 à 13) suit la ligne de la
+  // grille actuellement centrée à l'écran, pour la bande de tendance fixe
+  // (voir updateGoalsTrendFromScroll() plus bas).
   var GOALS_CATEGORIES = ['entreprise', 'communaute', 'produit'];
   var GOALS_CATEGORY_LABELS = { entreprise: 'Entreprise', communaute: 'Communauté', produit: 'Produit' };
   var currentGoalsCategory = 'entreprise';
   var currentGoalsView = 'tree';
   var currentGoalsAllPlannings = null;
+  var currentGoalsGridActivePeriodIndex = 1;
 
   var GOAL_STATUS_ORDER = ['non_atteint', 'partiel', 'atteint'];
   var GOAL_STATUS_LABELS = {
@@ -4285,25 +4300,25 @@
 
   function saveMainGoalText(periodNumber, text) {
     api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', { text: text, category: currentGoalsCategory })
-      .then(loadActivityGoals)
+      .then(reloadGoalsAll)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
   function saveMainGoalStatus(periodNumber, status) {
     api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main-status', { status: status, category: currentGoalsCategory })
-      .then(loadActivityGoals)
+      .then(reloadGoalsAll)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
   function saveWeeklyText(periodNumber, weekIndex, text) {
     api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text, category: currentGoalsCategory })
-      .then(loadActivityGoals)
+      .then(reloadGoalsAll)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
   function saveWeeklyStatus(weeklyId, status) {
     api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/status', { status: status })
-      .then(loadActivityGoals)
+      .then(reloadGoalsAll)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
@@ -4313,43 +4328,130 @@
   // "Répartition", renderGoalsDistribution() plus bas.
   function saveWeeklyAssignee(weeklyId, userId) {
     api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/assignee', { userId: userId || null })
-      .then(loadActivityGoals)
+      .then(reloadGoalsAll)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
-  // Les 13 blocs du CYCLE contenant la période affichée — sert à la fois de
-  // tableau de bord de tendance (couleur = statut du grand objectif) et
-  // d'archive consultable (clic = navigation), comme cadré avec Emilien.
+  // 14 septembre 2026 (troisième passage, demande d'Emilien) : remplace la
+  // liste COMPLÈTE des membres travaillant sur l'objectif périodique de
+  // cette période — contrairement à saveWeeklyAssignee ci-dessus (UN SEUL
+  // membre), PLUSIEURS peuvent être cochés à la fois (voir
+  // renderGoalsMainAssignees() plus bas et server/lib/goals.js,
+  // setPeriodAssignees).
+  function saveMainGoalAssignees(periodNumber, userIds) {
+    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/assignees', { userIds: userIds, category: currentGoalsCategory })
+      .then(reloadGoalsAll)
+      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+  }
+
+  // ===================== BANDE DE TENDANCE FIXE — position + clic =====================
+  // 14 septembre 2026 (troisième passage, demande d'Emilien) : « je souhaite
+  // que la barre [...] se bloque en haut de l'écran lorsque je défile [...]
+  // et que dépendamment où je me situe [...] le contour violet change de
+  // place [...] si je clique sur un point [...] l'écran défile jusqu'à
+  // afficher la période correspondante au milieu de l'écran ». Les 13 points
+  // ne portent plus une couleur de statut par catégorie (3 catégories
+  // partagent désormais le même point — une seule couleur n'aurait plus de
+  // sens) : ils sont neutres, un point = une LIGNE de la grille (donc une
+  // période, toutes catégories confondues), et seul le point ACTIF (anneau
+  // violet) change, selon la ligne verticalement centrée à l'écran (voir
+  // updateGoalsTrendFromScroll()) ou selon le point cliqué (voir
+  // scrollGoalsGridToPeriod()).
   function renderGoalsTrend() {
     var row = $('activityGoalsTrendRow');
-    if (!row || !currentGoalsPlanning) return;
+    if (!row) return;
     row.innerHTML = '';
-    var viewPeriod = goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber);
-    var cycleIndex = viewPeriod ? viewPeriod.cycleIndex : 1;
-    var byIndex = {};
-    currentGoalsPlanning.periods.forEach(function (p) {
-      if (p.cycleIndex === cycleIndex) byIndex[p.periodIndexInCycle] = p;
-    });
     for (var i = 1; i <= 13; i++) {
-      var p = byIndex[i];
       var block = document.createElement('button');
       block.type = 'button';
-      block.className = 'goalsTrendBlock';
-      if (p) {
-        block.classList.add(goalStatusClass(p.mainGoalStatus) || 'goalStatusNone');
-        if (p.isCurrent) block.classList.add('current');
-        if (p.periodNumber === currentGoalsViewPeriodNumber) block.classList.add('active');
-        block.title = t('Période') + ' ' + i;
-        block.addEventListener('click', (function (num) {
-          return function () { currentGoalsViewPeriodNumber = num; renderActivityGoals(); };
-        })(p.periodNumber));
-      } else {
-        block.classList.add('goalsTrendBlockEmpty');
-        block.disabled = true;
-        block.title = t('Pas encore commencée');
-      }
+      block.className = 'goalsTrendBlock' + (i === currentGoalsGridActivePeriodIndex ? ' active' : '');
+      block.title = t('Période') + ' ' + i;
+      block.addEventListener('click', (function (periodIndex) {
+        return function () { scrollGoalsGridToPeriod(periodIndex); };
+      })(i));
       row.appendChild(block);
     }
+  }
+
+  // Change seulement la classe "active" (jamais de reconstruction du DOM) —
+  // appelée à chaque défilement, doit rester bon marché.
+  function setGoalsTrendActiveIndex(periodIndex) {
+    if (periodIndex === currentGoalsGridActivePeriodIndex) return;
+    currentGoalsGridActivePeriodIndex = periodIndex;
+    var row = $('activityGoalsTrendRow');
+    if (!row) return;
+    Array.prototype.forEach.call(row.children, function (block, idx) {
+      block.classList.toggle('active', idx + 1 === periodIndex);
+    });
+  }
+
+  // Hauteur réelle de #goalsFixedBar (en-têtes + bande de tendance, toujours
+  // position: fixed — voir styles.css) rendue à #goalsGrid via
+  // --goals-fixedbar-h, même principe que --topbar-h/--community-searchbar-h
+  // ailleurs dans ce fichier.
+  function syncGoalsFixedBarHeightVar() {
+    var barEl = $('goalsFixedBar');
+    if (!barEl) return;
+    document.documentElement.style.setProperty('--goals-fixedbar-h', barEl.offsetHeight + 'px');
+  }
+  window.addEventListener('resize', syncGoalsFixedBarHeightVar);
+  window.addEventListener('orientationchange', syncGoalsFixedBarHeightVar);
+
+  // Détermine quelle ligne de la grille est le plus près du milieu de la
+  // zone visible (sous #goalsFixedBar, dont la hauteur varie selon
+  // l'appareil) et met à jour le point actif de la bande de tendance en
+  // conséquence — appelée à chaque défilement de la fenêtre (#app n'est PAS
+  // un conteneur de défilement indépendant dans ce projet : c'est toujours
+  // la fenêtre entière qui défile, voir .topbar/.tabbar déjà en position:
+  // fixed relative au viewport).
+  var goalsScrollTickPending = false;
+  function updateGoalsTrendFromScroll() {
+    goalsScrollTickPending = false;
+    var tab = $('tab-goals');
+    if (!tab || tab.classList.contains('hidden')) return;
+    if (currentGoalsView !== 'tree') return;
+    var detailPage = $('goalsDetailPage');
+    if (detailPage && !detailPage.classList.contains('hidden')) return;
+    var grid = $('goalsGrid');
+    if (!grid) return;
+    var rows = grid.querySelectorAll('.goalsGridRow');
+    if (!rows.length) return;
+    var fixedBar = $('goalsFixedBar');
+    var topOffset = fixedBar ? fixedBar.getBoundingClientRect().bottom : 0;
+    var viewportMid = topOffset + (window.innerHeight - topOffset) / 2;
+    var closestIndex = 1;
+    var closestDist = Infinity;
+    Array.prototype.forEach.call(rows, function (rowEl, idx) {
+      var rect = rowEl.getBoundingClientRect();
+      var mid = (rect.top + rect.bottom) / 2;
+      var dist = Math.abs(mid - viewportMid);
+      if (dist < closestDist) { closestDist = dist; closestIndex = idx + 1; }
+    });
+    setGoalsTrendActiveIndex(closestIndex);
+  }
+
+  function onGoalsWindowScroll() {
+    if (goalsScrollTickPending) return;
+    goalsScrollTickPending = true;
+    window.requestAnimationFrame(updateGoalsTrendFromScroll);
+  }
+  window.addEventListener('scroll', onGoalsWindowScroll, { passive: true });
+
+  // Clic sur un point de la bande : fait défiler la FENÊTRE (jamais un
+  // conteneur local, voir commentaire ci-dessus) jusqu'à centrer verticalement
+  // la ligne de cette période, sous #goalsFixedBar.
+  function scrollGoalsGridToPeriod(periodIndex) {
+    var grid = $('goalsGrid');
+    if (!grid) return;
+    var row = grid.querySelector('.goalsGridRow[data-period-index="' + periodIndex + '"]');
+    if (!row) return;
+    var fixedBar = $('goalsFixedBar');
+    var topOffset = fixedBar ? fixedBar.getBoundingClientRect().bottom : 0;
+    var rect = row.getBoundingClientRect();
+    var rowMid = rect.top + rect.height / 2;
+    var viewportMid = topOffset + (window.innerHeight - topOffset) / 2;
+    window.scrollBy({ top: rowMid - viewportMid, behavior: 'smooth' });
+    setGoalsTrendActiveIndex(periodIndex);
   }
 
   function renderGoalsWeeklyList(period) {
@@ -4449,7 +4551,6 @@
 
   function renderActivityGoals() {
     if (!currentGoalsPlanning) return;
-    renderGoalsTrend();
 
     var period = goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber);
     $('activityGoalsPrevBtn').disabled = !goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber - 1);
@@ -4486,6 +4587,7 @@
       actualEl.classList.add('hidden');
     }
 
+    renderGoalsMainAssignees(period);
     renderGoalsWeeklyList(period);
 
     var bilan = $('activityGoalsBilan');
@@ -4502,32 +4604,75 @@
     $('activityGoalsMsg').textContent = '';
   }
 
-  function loadActivityGoals() {
+  // 14 septembre 2026 (troisième passage, demande d'Emilien) : « en dessous
+  // des grands objectifs [...] le nom des membres de l'activité qui
+  // travaillent sur l'objectif périodique. Plusieurs utilisateurs peuvent
+  // travailler sur un objectif périodique ». Une puce cliquable PAR MEMBRE de
+  // l'activité (cochée = travaille dessus) — contrairement à
+  // renderGoalsWeeklyList ci-dessus (un <select>, un seul assigné), un clic
+  // envoie toujours la liste COMPLÈTE des membres cochés (saveMainGoalAssignees).
+  function renderGoalsMainAssignees(period) {
+    var box = $('activityGoalsMainAssignees');
+    if (!box) return;
+    box.innerHTML = '';
+    var members = (currentGoalsPlanning && currentGoalsPlanning.members) || [];
+    var assignedIds = (period.assignees || []).map(function (a) { return a.id; });
+    members.forEach(function (m) {
+      var active = assignedIds.indexOf(m.id) !== -1;
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'goalAssigneeChip' + (active ? ' active' : '');
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = m.color;
+      chip.appendChild(dot);
+      chip.appendChild(document.createTextNode(m.name));
+      chip.addEventListener('click', function () {
+        var nextIds = active
+          ? assignedIds.filter(function (id) { return id !== m.id; })
+          : assignedIds.concat([m.id]);
+        saveMainGoalAssignees(period.periodNumber, nextIds);
+      });
+      box.appendChild(chip);
+    });
+  }
+
+  // ===================== OBJECTIFS — chargement des 3 catégories =====================
+  // 14 septembre 2026 (troisième passage, demande d'Emilien) : remplace
+  // loadActivityGoals()/loadGoalsDistribution() — la grille de la page 1 a
+  // désormais besoin des 3 catégories À LA FOIS (comparaison côte à côte),
+  // exactement comme la vue Répartition en avait déjà besoin ; un seul appel
+  // à /goals/all sert donc maintenant les DEUX vues de la page 1 ET, si elle
+  // est ouverte, la page 2 (détail d'une seule catégorie, currentGoalsCategory)
+  // — plus besoin de l'ancien GET /goals?category= séparé.
+  function reloadGoalsAll() {
     var activityId = currentGoalsActivityId;
-    var category = currentGoalsCategory;
-    if (!activityId) return;
-    api('GET', '/api/activities/' + activityId + '/goals?category=' + encodeURIComponent(category)).then(function (data) {
-      // Garde-fou : l'activité OU la catégorie affichée peuvent avoir changé
-      // (balayage, changement d'onglet catégorie) pendant que cette requête
-      // était en vol — une réponse en retard ne doit jamais écraser ce qui
-      // est déjà affiché pour la sélection actuelle (même principe que
+    if (!activityId) return Promise.resolve();
+    return api('GET', '/api/activities/' + activityId + '/goals/all').then(function (data) {
+      // Garde-fou : l'activité affichée peut avoir changé (balayage) pendant
+      // que cette requête était en vol — une réponse en retard ne doit
+      // jamais écraser ce qui est déjà affiché (même principe que
       // loadActivityDetail() ailleurs).
-      if (activityId !== currentGoalsActivityId || category !== currentGoalsCategory) return;
-      currentGoalsPlanning = data;
-      if (currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(data, currentGoalsViewPeriodNumber)) {
-        currentGoalsViewPeriodNumber = data.currentPeriodNumber;
+      if (activityId !== currentGoalsActivityId) return;
+      currentGoalsAllPlannings = data;
+      var byCategory = data.byCategory || {};
+
+      // Page 1, vue grille : toujours à jour, les 3 catégories.
+      renderGoalsGrid();
+      // Page 1, vue Répartition : déjà croisée dans currentGoalsAllPlannings,
+      // rafraîchie seulement si effectivement ouverte.
+      if (currentGoalsView === 'distribution') renderGoalsDistribution();
+
+      // Page 2 (détail) : ne se rafraîchit que si elle est ouverte, pour la
+      // seule catégorie qu'elle affiche (currentGoalsCategory) — même garde-
+      // fou qu'avant (ne pas recalculer ce qu'on ne regarde pas).
+      var detailPlanning = byCategory[currentGoalsCategory];
+      if (!detailPlanning) return;
+      currentGoalsPlanning = detailPlanning;
+      if (currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(detailPlanning, currentGoalsViewPeriodNumber)) {
+        currentGoalsViewPeriodNumber = detailPlanning.currentPeriodNumber;
       }
-      // 14 septembre 2026 : Objectifs a deux pages désormais (voir plus bas).
-      // L'arbre (page 1) se rafraîchit toujours ; le détail d'une période
-      // (page 2) ne se rafraîchit en plus que s'il est effectivement ouvert
-      // — pas la peine de recalculer son rendu pendant qu'on ne le regarde
-      // pas (même principe que le reste de l'app : ne rendre que ce qui est
-      // visible).
-      renderGoalsTree();
       if (!$('goalsDetailPage').classList.contains('hidden')) renderActivityGoals();
-      // La vue Répartition croise les 3 catégories : si elle est ouverte, la
-      // recharger aussi (elle ne suit pas currentGoalsPlanning seul).
-      if (currentGoalsView === 'distribution') loadGoalsDistribution();
     }).catch(function (err) {
       var msg = $('activityGoalsMsg');
       if (msg) msg.textContent = err.message;
@@ -4542,66 +4687,98 @@
     renderActivityGoals();
   });
 
-  // ===================== OBJECTIFS — PAGE 1 : ARBRE DES GRANDS OBJECTIFS =====================
-  // 14 septembre 2026, demande d'Emilien : « la première [page], on voit
-  // uniquement le nom des grands objectifs qui s'enchaînent comme un arbre
-  // de façon esthétique. Et quand on clique sur un grand objectif, alors on
-  // bifurque sur une nouvelle page qui nous détaille [la période] ». Un nœud
-  // par période du cycle en cours de l'activité affichée, dans l'ordre
-  // chronologique — mêmes données que currentGoalsPlanning.periods, déjà
-  // chargées pour la bande de tendance de la page 2 : aucun nouvel appel
-  // serveur pour cette page.
-  function renderGoalsTree() {
-    var tree = $('goalsTree');
-    if (!tree || !currentGoalsPlanning) return;
-    tree.innerHTML = '';
-    var periods = currentGoalsPlanning.periods || [];
-    periods.forEach(function (p) {
-      var node = document.createElement('button');
-      node.type = 'button';
-      node.className = 'goalsTreeNode' + (p.isCurrent ? ' current' : '');
+  // ===================== OBJECTIFS — PAGE 1 : GRILLE COMPARATIVE =====================
+  // 14 septembre 2026 (troisième passage, demande d'Emilien, cadré par
+  // AskUserQuestion avant ce chantier) : « je souhaite qu'il y ait 3 arbres
+  // visibles 1. entreprise 2. produits et 3. communautés [...] que l'on
+  // puisse les comparer [...] une grille alignée par période ». Remplace
+  // l'ancien renderGoalsTree() (une seule catégorie, choisie par onglet) —
+  // une LIGNE par période du cycle en cours (13 lignes), une COLONNE par
+  // catégorie (même ordre que #goalsGridHead dans index.html). Les 3
+  // catégories partagent la même numérotation de LIGNE (periodIndexInCycle,
+  // 1 à 13) même si chacune a démarré son propre plan à sa propre date —
+  // c'est justement ce qui les rend comparables d'un coup d'œil.
+  //
+  // Règle explicite d'Emilien pour une cellule sans objectif périodique
+  // écrit : « juste un trait qui passe dans la période mais qu'il n'y ait
+  // pas de bulle » — voir .goalsGridCell--empty, styles.css. Chaque cellule
+  // (pleine ou vide) reste cliquable : elle ouvre la page 2 pour CETTE
+  // (catégorie, période) — inchangée, confirmé par Emilien (AskUserQuestion).
+  function renderGoalsGrid() {
+    var grid = $('goalsGrid');
+    if (!grid || !currentGoalsAllPlannings) return;
+    grid.innerHTML = '';
+    var byCategory = currentGoalsAllPlannings.byCategory || {};
 
-      var label = document.createElement('p');
-      label.className = 'goalsTreeNodeLabel';
-      var labelText = t('Période') + ' ' + p.periodIndexInCycle;
-      if (p.cycleIndex > 1) labelText += ' · ' + t('Année') + ' ' + p.cycleIndex;
-      if (p.isCurrent) labelText += ' · ' + t('En cours');
-      var dot = document.createElement('span');
-      dot.className = 'goalsTreeNodeDot' + (goalStatusClass(p.mainGoalStatus) ? ' ' + goalStatusClass(p.mainGoalStatus) : '');
-      label.appendChild(dot);
-      label.appendChild(document.createTextNode(labelText));
-      node.appendChild(label);
-
-      var text = document.createElement('p');
-      if (p.mainGoalText) {
-        text.className = 'goalsTreeNodeText';
-        text.textContent = p.mainGoalText;
-      } else {
-        text.className = 'goalsTreeNodeText goalsTreeNodeEmpty';
-        text.textContent = t('Aucun grand objectif défini pour l’instant — clique pour en ajouter un.');
-      }
-      node.appendChild(text);
-
-      node.addEventListener('click', function () { openGoalsDetail(p.periodNumber); });
-      tree.appendChild(node);
+    // Index par catégorie : periodIndexInCycle (1-13) → période, limité au
+    // CYCLE EN COURS de cette catégorie (planningForActivity renvoie
+    // l'historique complet, tous cycles confondus — même construction que
+    // l'ancienne renderGoalsTrend()).
+    var indexByCategory = {};
+    GOALS_CATEGORIES.forEach(function (category) {
+      indexByCategory[category] = {};
+      var planning = byCategory[category];
+      if (!planning) return;
+      var current = goalPeriodByNumber(planning, planning.currentPeriodNumber);
+      var cycleIndex = current ? current.cycleIndex : 1;
+      (planning.periods || []).forEach(function (p) {
+        if (p.cycleIndex === cycleIndex) indexByCategory[category][p.periodIndexInCycle] = p;
+      });
     });
+
+    for (var i = 1; i <= 13; i += 1) {
+      (function (periodIndex) {
+        var row = document.createElement('div');
+        row.className = 'goalsGridRow';
+        row.setAttribute('data-period-index', String(periodIndex));
+
+        var label = document.createElement('div');
+        label.className = 'goalsGridRowLabel';
+        label.textContent = String(periodIndex);
+        row.appendChild(label);
+
+        GOALS_CATEGORIES.forEach(function (category) {
+          var p = indexByCategory[category][periodIndex];
+          var cell = document.createElement('button');
+          cell.type = 'button';
+          cell.title = t(GOALS_CATEGORY_LABELS[category]) + ' — ' + t('Période') + ' ' + periodIndex;
+
+          if (p && p.mainGoalText) {
+            cell.className = 'goalsGridCell goalsGridCell--filled' + (p.isCurrent ? ' current' : '');
+            var dot = document.createElement('span');
+            dot.className = 'goalsGridCellDot' + (goalStatusClass(p.mainGoalStatus) ? ' ' + goalStatusClass(p.mainGoalStatus) : '');
+            cell.appendChild(dot);
+            var txt = document.createElement('p');
+            txt.className = 'goalsGridCellText';
+            txt.textContent = p.mainGoalText;
+            cell.appendChild(txt);
+          } else {
+            cell.className = 'goalsGridCell goalsGridCell--empty' + (p && p.isCurrent ? ' current' : '');
+            var line = document.createElement('span');
+            line.className = 'goalsGridLine';
+            cell.appendChild(line);
+          }
+
+          if (p) {
+            cell.addEventListener('click', (function (category, periodNumber) {
+              return function () { openGoalsDetail(category, periodNumber); };
+            })(category, p.periodNumber));
+          } else {
+            cell.disabled = true;
+          }
+          row.appendChild(cell);
+        });
+
+        grid.appendChild(row);
+      })(i);
+    }
+
+    renderGoalsTrend();
+    syncGoalsFixedBarHeightVar();
+    window.requestAnimationFrame(updateGoalsTrendFromScroll);
   }
 
-  // ===================== OBJECTIFS — PAGE 1 : ONGLETS DE CATÉGORIE =====================
-  // 14 septembre 2026, demande d'Emilien : « incorporer les trois
-  // sous-catégories [...] pour structurer correctement une entreprise :
-  // l'entreprise, la communauté, et le produit ». Un plan/cycle/arbre
-  // entièrement séparé par catégorie (voir server/lib/goals.js) — ces onglets
-  // choisissent laquelle est actuellement chargée dans currentGoalsPlanning.
-  function renderGoalsCategoryTabs() {
-    var tabs = $('goalsCategoryTabs');
-    if (!tabs) return;
-    Array.prototype.forEach.call(tabs.querySelectorAll('.goalsCategoryTab'), function (btn) {
-      btn.classList.toggle('active', btn.getAttribute('data-category') === currentGoalsCategory);
-    });
-  }
-
-  // Bascule la page 1 entre l'arbre (une seule catégorie) et la vue
+  // Bascule la page 1 entre la grille (3 catégories comparées) et la vue
   // "Répartition" (les 3 catégories croisées par membre) — voir demande
   // d'Emilien : « que les différentes tâches [...] selon les différentes
   // catégories [...] puissent être visibles et réparties selon les
@@ -4613,26 +4790,15 @@
         btn.classList.toggle('active', btn.getAttribute('data-view') === currentGoalsView);
       });
     }
-    var tree = $('goalsTree');
+    var grid = $('goalsGrid');
     var distribution = $('goalsDistribution');
-    var trendRow = $('activityGoalsTrendRow');
-    if (tree) tree.classList.toggle('hidden', currentGoalsView !== 'tree');
+    var fixedBar = $('goalsFixedBar');
+    if (grid) grid.classList.toggle('hidden', currentGoalsView !== 'tree');
     if (distribution) distribution.classList.toggle('hidden', currentGoalsView !== 'distribution');
-    // La bande de tendance des 13 périodes n'a de sens que pour l'arbre d'une
-    // seule catégorie à la fois — masquée en vue Répartition.
-    if (trendRow) trendRow.classList.toggle('hidden', currentGoalsView !== 'tree');
+    // La bande de tendance + en-têtes de colonnes n'ont de sens que pour la
+    // grille — masqués ensemble en vue Répartition.
+    if (fixedBar) fixedBar.classList.toggle('hidden', currentGoalsView !== 'tree');
   }
-
-  Array.prototype.forEach.call(($('goalsCategoryTabs') || { querySelectorAll: function () { return []; } }).querySelectorAll('.goalsCategoryTab'), function (btn) {
-    btn.addEventListener('click', function () {
-      var category = btn.getAttribute('data-category');
-      if (!category || category === currentGoalsCategory) return;
-      currentGoalsCategory = category;
-      currentGoalsViewPeriodNumber = null;
-      renderGoalsCategoryTabs();
-      loadActivityGoals();
-    });
-  });
 
   Array.prototype.forEach.call(($('goalsViewToggle') || { querySelectorAll: function () { return []; } }).querySelectorAll('.goalsViewToggleBtn'), function (btn) {
     btn.addEventListener('click', function () {
@@ -4640,26 +4806,13 @@
       if (!view || view === currentGoalsView) return;
       currentGoalsView = view;
       renderGoalsViewToggle();
-      if (view === 'distribution') loadGoalsDistribution();
+      // currentGoalsAllPlannings est déjà chargé pour les DEUX vues (voir
+      // reloadGoalsAll ci-dessus) : jamais de nouvel appel serveur ici, juste
+      // un rendu différent des mêmes données déjà en mémoire.
+      if (view === 'distribution') renderGoalsDistribution();
+      if (view === 'tree') window.requestAnimationFrame(updateGoalsTrendFromScroll);
     });
   });
-
-  // Les 3 plannings de l'activité affichée en un seul appel
-  // (GET /activities/:id/goals/all) — sert uniquement à la vue Répartition,
-  // qui croise les catégories ; l'arbre, lui, ne charge jamais que la
-  // catégorie sélectionnée (loadActivityGoals).
-  function loadGoalsDistribution() {
-    var activityId = currentGoalsActivityId;
-    if (!activityId) return;
-    var box = $('goalsDistribution');
-    api('GET', '/api/activities/' + activityId + '/goals/all').then(function (data) {
-      if (activityId !== currentGoalsActivityId) return;
-      currentGoalsAllPlannings = data;
-      renderGoalsDistribution();
-    }).catch(function (err) {
-      if (box) box.textContent = err.message;
-    });
-  }
 
   // Groupe, pour la période EN COURS de chacune des 3 catégories, les
   // objectifs hebdomadaires déjà écrits (texte non vide) par membre assigné
@@ -4753,14 +4906,26 @@
   }
 
   // ===================== OBJECTIFS — PAGE 2 : DÉTAIL D'UNE PÉRIODE =====================
-  // Reprend TEL QUEL le contenu qui vivait avant ce chantier directement
+  // Reprend l'essentiel du contenu qui vivait avant ce chantier directement
   // dans #tab-goals (renderActivityGoals() et tout ce qu'elle appelle,
-  // aucun changement) — seule sa présentation change : une page plein écran
-  // séparée (#goalsDetailPage, même motif que #activityPage), plutôt
-  // qu'affichée d'emblée sous l'arbre.
-  function openGoalsDetail(periodNumber) {
+  // inchangé — confirmé par Emilien, AskUserQuestion, avant ce chantier) :
+  // une page plein écran séparée (#goalsDetailPage, même motif que
+  // #activityPage), ouverte au clic sur une cellule de la grille de la
+  // page 1.
+  //
+  // 14 septembre 2026 (troisième passage) : prend désormais AUSSI la
+  // catégorie en paramètre — une cellule de la grille appartient à une
+  // colonne précise (Entreprise/Communauté/Produit), il n'y a plus un seul
+  // onglet de catégorie pour le déterminer implicitement. currentGoalsPlanning
+  // vient directement de currentGoalsAllPlannings (déjà chargé pour la
+  // grille) : aucun nouvel appel serveur pour ouvrir cette page.
+  function openGoalsDetail(category, periodNumber) {
+    currentGoalsCategory = category;
     currentGoalsViewPeriodNumber = periodNumber;
-    $('goalsDetailTitle').textContent = $('goalsActivityName').textContent;
+    var byCategory = (currentGoalsAllPlannings && currentGoalsAllPlannings.byCategory) || {};
+    currentGoalsPlanning = byCategory[category] || null;
+    if (!currentGoalsPlanning) return;
+    $('goalsDetailTitle').textContent = $('goalsActivityName').textContent + ' · ' + t(GOALS_CATEGORY_LABELS[category]);
     $('goalsDetailPage').classList.remove('hidden');
     $('goalsDetailScroll').scrollTop = 0;
     renderActivityGoals();
@@ -4797,7 +4962,7 @@
     }
     $('goalsNoActivityHint').classList.add('hidden');
     $('goalsActivitySwitcher').classList.remove('hidden');
-    // Changer d'activité revient toujours à l'arbre — le détail resterait
+    // Changer d'activité revient toujours à la grille — le détail resterait
     // sinon ouvert sur une période qui appartient à l'ancienne activité.
     closeGoalsDetail();
 
@@ -4813,20 +4978,22 @@
     // Repart de la période en cours à chaque changement d'activité : la
     // période affichée pour l'activité précédente n'a aucune raison d'être
     // pertinente pour la nouvelle (même principe que loadActivityDetail()
-    // qui réinitialise systématiquement ses propres filtres). Idem pour la
-    // catégorie (toujours "Entreprise" en entrant sur une activité) et la
-    // vue (toujours l'arbre, jamais la Répartition de l'activité précédente).
+    // qui réinitialise systématiquement ses propres filtres). currentGoalsCategory
+    // ne désigne plus qu'une catégorie de PAGE 2 par défaut (jamais ouverte
+    // tant qu'aucune cellule n'a été cliquée) ; la vue (toujours la grille,
+    // jamais la Répartition de l'activité précédente) et la ligne active de
+    // la bande de tendance repartent aussi de zéro.
     currentGoalsViewPeriodNumber = null;
     currentGoalsCategory = 'entreprise';
     currentGoalsView = 'tree';
     currentGoalsAllPlannings = null;
-    renderGoalsCategoryTabs();
+    currentGoalsGridActivePeriodIndex = 1;
     renderGoalsViewToggle();
 
     $('goalsActivityDot').style.background = a.color;
     $('goalsActivityName').textContent = a.name;
 
-    loadActivityGoals();
+    reloadGoalsAll();
   }
 
   function loadGoalsTab() {

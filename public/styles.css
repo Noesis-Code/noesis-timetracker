@@ -4098,17 +4098,47 @@ button { -webkit-user-select: none; user-select: none; }
    --shadow-card : rien de nouveau n'est inventé pour ce qui existe déjà
    ailleurs dans l'app. */
 
-/* Bandeau des 13 blocs du cycle (tendance + archive consultable, cadré avec
-   Emilien) : 14 septembre 2026, demande d'Emilien — les cases prennent
-   désormais TOUTE LA LARGEUR de l'écran (flex:1 chacune) au lieu d'une
-   rangée fixe qui défilait horizontalement ; le défilement (overflow-x/
-   -webkit-overflow-scrolling) est donc retiré, il n'y a plus rien à faire
-   défiler. Padding horizontal porté à 6px (au lieu de 2px) : c'est ce qui
-   causait le rectangle violet de sélection coupé net quand il tombait sur
-   la case la plus à gauche — son anneau (box-shadow) déborde de 4px du bloc
-   et n'avait que 2px de marge pour respirer avant le bord de la rangée. */
+/* ===== Bande de tendance + en-têtes de colonnes — TOUJOURS FIXE, 14
+   septembre 2026 (troisième passage, demande d'Emilien : « je souhaite que
+   la barre avec les différents points par période se bloque en haut de
+   l'écran lorsque je défile vers le bas [...] et je souhaite que
+   dépendamment où je me situe [...] le contour violet change de place »).
+
+   #goalsFixedBar (en-têtes de colonnes + bande de tendance) reprend TROIS
+   FOIS le même motif déjà éprouvé dans ce fichier pour .topbar et
+   #communitySearchBar : `position: fixed` (jamais `sticky` — le rebond
+   élastique du défilement sur iOS/WebKit peut faire flotter/décoller un
+   élément sticky, bug déjà documenté deux fois dans ce fichier), posé juste
+   sous .topbar (`top: var(--topbar-h)`), largeur pleine écran (`left`/
+   `right`, pas héritée du flux), et l'espace qu'il perd en sortant du flux
+   est rendu à #goalsGrid via un padding-top dédié (--goals-fixedbar-h,
+   mesurée par syncGoalsFixedBarHeightVar(), app.js) — même principe que
+   --topbar-h sur #app et --community-searchbar-h sur #tab-community. z-index
+   sous .topbar/.tabbar (10) mais au-dessus de la grille, qui défile dessous.
+   Masqué avec #goalsGrid en vue Répartition (n'a de sens que pour la
+   grille), même règle que .goalsGrid ci-dessous. */
+.goalsFixedBar {
+  position: fixed; top: var(--topbar-h, 56px); left: 0; right: 0; z-index: 9;
+  background: var(--bg); padding: 8px 16px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.goalsGridHead {
+  display: flex; gap: 6px; margin-bottom: 6px;
+}
+.goalsGridHeadCell {
+  flex: 1 1 0; min-width: 0; text-align: center; padding: 4px 2px;
+  border-radius: var(--radius-sm, 8px); color: #fff;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+/* Les cases prennent TOUTE LA LARGEUR de l'écran (flex:1 chacune, demande
+   d'Emilien du 14 septembre) — pas de défilement horizontal. Padding
+   horizontal porté à 6px (au lieu de 2px) : c'est ce qui causait le
+   rectangle violet de sélection coupé net quand il tombait sur la case la
+   plus à gauche — son anneau (box-shadow) déborde de 4px du bloc et n'avait
+   que 2px de marge pour respirer avant le bord de la rangée. */
 .goalsTrendRow {
-  display: flex; gap: 4px; padding: 6px 6px 10px; margin-bottom: 4px;
+  display: flex; gap: 4px; padding: 6px 6px 4px;
 }
 .goalsTrendBlock {
   flex: 1 1 0; min-width: 0; height: 22px; padding: 0; border: none;
@@ -4116,19 +4146,14 @@ button { -webkit-user-select: none; user-select: none; }
   transition: transform var(--transition-fast), opacity var(--transition-fast);
 }
 .goalsTrendBlock:active { transform: scale(0.9); }
-/* Un seul indicateur, qui SUIT TOUJOURS la période affichée (demande
-   d'Emilien, 14 septembre 2026) — l'ancien double indicateur (anneau fin
-   "aujourd'hui" + anneau épais "période affichée", pouvant apparaître l'un
-   sans l'autre selon le cas) est retiré : plus simple, jamais deux
-   informations à interpréter à la fois. La classe "current" continue d'être
-   posée par renderGoalsTrend() (app.js, inoffensif) mais n'a plus de style
-   propre ici. */
+/* Un seul indicateur, qui SUIT TOUJOURS la ligne verticalement centrée à
+   l'écran (updateGoalsTrendFromScroll(), app.js) — jamais deux informations
+   à interpréter à la fois. Les 13 points sont désormais NEUTRES (retiré :
+   une couleur de statut par point n'aurait plus de sens depuis que 3
+   catégories partagent la même ligne, voir renderGoalsTrend(), app.js) — un
+   point = une ligne de la grille, jamais un statut ni une catégorie
+   particulière. */
 .goalsTrendBlock.active { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--purple); }
-.goalsTrendBlock.goalStatusAtteint { background: var(--green); }
-.goalsTrendBlock.goalStatusPartiel { background: #f0ad4e; }
-.goalsTrendBlock.goalStatusNonAtteint { background: var(--red); }
-.goalsTrendBlockEmpty { opacity: 0.4; cursor: default; }
-.goalsTrendBlockEmpty:active { transform: none; }
 
 /* Navigation période précédente/suivante — même schéma que les autres
    "‹ titre ›" de l'app (voir #chronoHistoryHeader), .menuBtn inchangé. */
@@ -4231,34 +4256,12 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .goalsSwipeBtn { flex-shrink: 0; }
 
-/* ===== Onglets de catégorie — page 1 d'Objectifs, 14 septembre 2026 (second
-   passage) =====
-   Demande d'Emilien : « incorporer les trois sous-catégories [...] pour
-   structurer correctement une entreprise : l'entreprise, la communauté, et
-   le produit ». 3 plannings totalement indépendants (voir
-   server/lib/goals.js) ; ces onglets choisissent lequel est chargé. Même
-   gabarit "pilule à segments" que .goalsViewToggle juste en dessous, pour
-   rester cohérents visuellement — une seule feuille de règles partagée via
-   la classe commune .goalsTabsRow n'aurait rien simplifié ici (3 boutons vs
-   2, largeurs différentes), dupliqué volontairement plutôt que forcé dans un
-   sélecteur commun artificiel. */
-.goalsCategoryTabs {
-  display: flex; gap: 6px; padding: 4px;
-  background: var(--track-bg); border-radius: var(--radius-md);
-}
-.goalsCategoryTab {
-  flex: 1; padding: 8px 6px; border: none; border-radius: var(--radius-sm, 8px);
-  background: transparent; color: var(--text-light);
-  font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.goalsCategoryTab.active {
-  background: var(--card); color: var(--purple); box-shadow: var(--shadow-card);
-}
-
-/* Bascule Arbre / Répartition — même gabarit que .goalsCategoryTabs
-   ci-dessus, volontairement identique (paire de vues plutôt que triplet de
-   catégories, sémantique différente donc classe séparée). */
+/* ===== Bascule Arbre / Répartition, page 1 d'Objectifs =====
+   14 septembre 2026 (troisième passage, demande d'Emilien) : les onglets de
+   catégorie (.goalsCategoryTabs, qui vivaient ici) sont retirés — les 3
+   catégories sont désormais TOUJOURS TOUTES LES TROIS visibles ensemble
+   dans une grille comparative (#goalsGrid plus bas) plutôt que choisies une
+   à la fois par onglet. Seule cette bascule Arbre/Répartition subsiste. */
 .goalsViewToggle {
   display: flex; gap: 6px; padding: 4px;
   background: var(--track-bg); border-radius: var(--radius-md);
@@ -4324,64 +4327,91 @@ button { -webkit-user-select: none; user-select: none; }
   background: var(--card); color: var(--text);
 }
 
-/* ===== Arbre des grands objectifs — page 1 d'Objectifs, 14 septembre 2026 =====
-   Demande d'Emilien : « la première [page], on voit uniquement le nom des
-   grands objectifs qui s'enchaînent comme un arbre de façon esthétique ».
-   Rendu ici en chaîne verticale à cartes alternées gauche/droite (motif
-   "roadmap de niveaux"), reliées par une ligne centrale continue — approche
-   volontairement simple (pas de tracé SVG courbe calculé au pixel près) :
-   robuste à n'importe quelle largeur d'écran et à n'importe quel nombre de
-   périodes, sans dépendance JS de mesure/redimensionnement. Confirmation
-   visuelle d'Emilien à prévoir une fois en usage réel, comme pour tout
-   changement d'habillage de ce projet. */
-.goalsTree {
-  position: relative;
-  display: flex; flex-direction: column;
-  padding: 8px 4px 28px;
+/* ===== Assignation de l'objectif périodique (ex-« grand objectif ») à
+   PLUSIEURS membres — 14 septembre 2026 (troisième passage), demande
+   d'Emilien : « en dessous des grands objectifs [...] le nom des membres de
+   l'activité qui travaillent sur l'objectif périodique. Plusieurs
+   utilisateurs peuvent travailler sur un objectif périodique ». Contrairement
+   à .goalAssigneeSelect ci-dessus (UN SEUL <select>, objectif hebdomadaire),
+   ici une puce cliquable PAR MEMBRE, cochée ou non (goal_period_assignees,
+   many-to-many) — voir renderGoalsMainAssignees(), app.js. */
+.goalAssigneesLabel { font-size: 12px; color: var(--text-light); margin: 12px 0 6px; }
+.goalAssignees { display: flex; flex-wrap: wrap; gap: 6px; }
+.goalAssigneeChip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px 5px 6px; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--card); color: var(--text-light);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
-/* Ligne centrale, DERRIÈRE les cartes (z-index 0 contre 1) — un seul trait
-   continu plutôt qu'un segment par paire de nœuds : plus simple, et rien à
-   recalculer si une période n'a pas encore de nœud (voir .goalsTreeNodeEmpty
-   plus bas, qui reste sur le tracé comme les autres). */
-.goalsTree::before {
-  content: ''; position: absolute; top: 22px; bottom: 22px; left: 50%;
-  width: 2px; background: var(--border); transform: translateX(-50%);
-  z-index: 0;
+.goalAssigneeChip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.goalAssigneeChip.active {
+  background: var(--purple); color: #fff; border-color: transparent;
 }
-.goalsTreeNode {
-  position: relative; z-index: 1;
-  display: block; width: 74%; max-width: 320px;
-  margin: 0 0 20px; padding: 12px 14px;
-  border: 2px solid var(--track-bg); border-radius: var(--radius-lg);
-  background: var(--card); box-shadow: var(--shadow-card);
-  text-align: left; cursor: pointer;
+.goalAssigneeChip.active .dot { background: #fff; }
+
+/* ===== Grille comparative des 3 catégories — page 1 d'Objectifs, 14
+   septembre 2026 (troisième passage) =====
+   Remplace l'ancien "arbre" en chaîne (une seule catégorie à la fois,
+   .goalsTreeNode — retiré) : demande explicite d'Emilien, cadrée par
+   AskUserQuestion avant ce chantier — « je souhaite qu'il y ait 3 arbres
+   visibles [...] que l'on puisse les comparer [...] une grille alignée par
+   période ». Une LIGNE par période du cycle en cours (13 lignes), une
+   COLONNE par catégorie (Entreprise/Communauté/Produit, même ordre que
+   #goalsGridHead) — voir renderGoalsGrid(), app.js.
+   padding-top récupère l'espace de #goalsFixedBar (toujours fixed, voir plus
+   haut dans ce fichier), pas de dépendance à --topbar-h ici : #goalsFixedBar
+   s'en charge déjà pour lui-même. */
+.goalsGrid {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: calc(var(--goals-fixedbar-h, 84px) + 10px) 4px 24px;
+}
+.goalsGridRow { display: flex; align-items: stretch; gap: 6px; }
+.goalsGridRowLabel {
+  flex: 0 0 24px; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: var(--text-light);
+}
+/* Chaque cellule est un <button> cliquable (ouvre la page 2, détail de CETTE
+   période pour CETTE catégorie — voir openGoalsDetail(category, periodNumber)
+   dans app.js), qu'elle ait ou non un objectif périodique déjà écrit. */
+.goalsGridCell {
+  flex: 1 1 0; min-width: 0; border: none; background: transparent;
+  padding: 0; cursor: pointer; text-align: left;
   transition: transform var(--transition-fast);
 }
-.goalsTreeNode:active { transform: scale(0.97); }
-.goalsTreeNode:nth-child(odd) { align-self: flex-start; margin-left: 2%; }
-.goalsTreeNode:nth-child(even) { align-self: flex-end; margin-right: 2%; }
-/* Repère de statut (même code couleur que la bande de tendance de la page 2
-   — .goalStatusAtteint/Partiel/NonAtteint déjà définies plus haut, réutilisées
-   telles quelles, aucune nouvelle couleur inventée) + petit repère "période
-   en cours", même principe que .goalsTrendBlock.active. */
-.goalsTreeNode.current { border-color: var(--purple); }
-.goalsTreeNodeDot {
-  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-  margin-right: 6px; background: var(--track-bg); vertical-align: middle;
+.goalsGridCell:active { transform: scale(0.96); }
+/* Objectif périodique déjà écrit pour cette (période, catégorie) : bulle
+   pleine, même code couleur de statut que la bande de tendance
+   (.goalStatusAtteint/Partiel/NonAtteint, déjà définies plus haut). */
+.goalsGridCell--filled {
+  display: flex; flex-direction: column; gap: 2px;
+  min-height: 48px; padding: 8px 10px;
+  border: 2px solid var(--track-bg); border-radius: var(--radius-md);
+  background: var(--card); box-shadow: var(--shadow-card);
 }
-.goalsTreeNodeDot.goalStatusAtteint { background: var(--green); }
-.goalsTreeNodeDot.goalStatusPartiel { background: #f0ad4e; }
-.goalsTreeNodeDot.goalStatusNonAtteint { background: var(--red); }
-.goalsTreeNodeLabel {
-  font-size: 12px; color: var(--text-light); font-weight: 600;
-  margin: 0 0 4px;
+.goalsGridCell--filled.current { border-color: var(--purple); }
+.goalsGridCellDot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--track-bg); flex-shrink: 0;
 }
-.goalsTreeNodeText {
-  font-size: 14px; line-height: 1.35; margin: 0;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+.goalsGridCellDot.goalStatusAtteint { background: var(--green); }
+.goalsGridCellDot.goalStatusPartiel { background: #f0ad4e; }
+.goalsGridCellDot.goalStatusNonAtteint { background: var(--red); }
+.goalsGridCellText {
+  font-size: 12px; line-height: 1.3; margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.goalsTreeNodeText.goalsTreeNodeEmpty { color: var(--text-light); font-style: italic; }
+/* Aucun objectif périodique pour cette (période, catégorie) — règle
+   explicite d'Emilien : « juste un trait qui passe dans la période mais
+   qu'il n'y ait pas de bulle ». Reste cliquable (ouvre la page 2 pour en
+   ajouter un), juste sans habillage de carte. */
+.goalsGridCell--empty {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 8px 4px;
+}
+.goalsGridLine { display: block; width: 100%; height: 2px; background: var(--border); border-radius: 1px; }
+.goalsGridCell--empty.current .goalsGridLine { background: var(--purple); height: 3px; }
 
 /* ===== Objectifs — page 2 (détail d'une période), 14 septembre 2026 =====
    Reprend le même motif que #activityPage (page plein écran hors de toute
@@ -4402,14 +4432,19 @@ button { -webkit-user-select: none; user-select: none; }
    bouton Objectifs — seul bouton REMPLI de .tabbar, volontairement, pour se
    distinguer des icônes au trait des quatre autres (voir le commentaire dans
    index.html, juste avant ce bouton).
-   ⚠️ 14 septembre 2026, demande d'Emilien : couleur fixe reprise du dégradé
-   du logo (linearGradient #goalsTabIconGrad, défini en ligne dans
+   ⚠️ 14 septembre 2026, demande d'Emilien : couleur fixe reprise TELLE
+   QUELLE des deux tons plats du logo (fill direct par polygone, #8772C7/
+   #46397D — mêmes couleurs que .bsL/.bsD de #bootSplash — posé en ligne dans
    index.html juste à côté de ce bouton) plutôt que currentColor — l'icône ne
    doit plus changer de couleur selon l'état actif/inactif comme les 4
-   autres, elle reste la marque de l'app en toute circonstance. Ne PAS
-   remettre `fill: currentColor` ici : ça écraserait l'attribut `fill` posé
-   sur le <svg> lui-même (une règle CSS l'emporte toujours sur un attribut
-   de présentation), et l'icône redeviendrait grise/violette selon l'onglet
+   autres, elle reste la marque de l'app en toute circonstance.
+   ⚠️ Quatrième passage, même jour (« je souhaite qu'il reprenne la forme du
+   n du générique et du logo ») : les polygones eux-mêmes sont désormais EXACTEMENT
+   ceux du bootSplash (même géométrie, viewBox recadré serré dessus) — plus
+   une silhouette approximative dessinée pour un viewBox 24×24 générique. Ne
+   PAS remettre `fill: currentColor` ici : ça écraserait le `fill` posé sur
+   chaque <polygon> (une règle CSS l'emporte toujours sur un attribut de
+   présentation), et l'icône redeviendrait grise/violette selon l'onglet
    actif au lieu de garder ses deux tons violets fixes. */
 /* Icône légèrement agrandie par rapport aux 4 icônes au trait (24px) —
    demande d'Emilien du même jour, « grossis-le légèrement ». */
