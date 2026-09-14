@@ -25,23 +25,18 @@ const express = require('express');
 
 // Pas d'activités par défaut : chaque déploiement démarre vide, à chacun
 // de créer ses activités (à l'initialisation puis dans Paramètres).
-const db = require('./db');
-
-// 11 septembre 2026 (demande d'Emilien) : sur l'environnement de TEST
-// Railway (PR staging -> main) uniquement — jamais en production, jamais en
-// local — on repeuple la base avec des profils/activités FICTIFS, y compris
-// un compte de test persistant pour Emilien lui-même, sans qu'aucune vraie
-// donnée d'utilisateur n'y transite. ⚠️ Revu le même jour (deuxième
-// cadrage) : ce seed ne s'exécute plus qu'UNE SEULE FOIS, uniquement si la
-// base est vide au démarrage — les données (dont le compte d'Emilien)
-// survivent désormais aux redéploiements de `staging`, elles ne sont plus
-// effacées à chaque push. Voir server/lib/seed-staging.js pour le détail
-// (portée, garde-fous, cadrage fait avec Emilien).
-require('./lib/seed-staging').seedStagingData(db);
+require('./db');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 const app = express();
+
+// Webhook Stripe (parcours d'achat, Offre 1) — DOIT être monté AVANT
+// express.json() plus bas : sa vérification de signature a besoin des
+// octets bruts du corps de la requête (express.raw(), posé dans le routeur
+// lui-même), que express.json() aurait déjà consommés sinon. Voir
+// server/routes/stripewebhook.js pour le détail.
+app.use('/api', require('./routes/stripewebhook'));
 
 // Derrière le proxy d'un hébergeur (Railway, Render...), req.protocol et
 // req.ip reflètent le proxy et non le visiteur tant qu'on ne fait pas
@@ -157,6 +152,14 @@ app.use('/api', require('./routes/subprojects'));
 // sous-projets », 4 septembre 2026). Volontairement hors du préfixe /stats/*,
 // qui appartient à server/routes/stats.js.
 app.use('/api', require('./routes/subprojectstats'));
+// Parcours d'achat de l'Offre 1 (8 septembre 2026) : démarrage du paiement
+// (crée la Stripe Checkout Session) — la confirmation, elle, arrive par
+// webhook et est montée à part, tout en haut de ce fichier (voir plus haut).
+app.use('/api', require('./routes/offercheckout'));
+// Formulaires persistants de l'Offre 1 (9 septembre 2026) — indépendants du
+// paiement, lus/écrits aussi bien pendant le parcours d'achat qu'après,
+// depuis Réglages ou depuis le raccourci au-dessus des sous-projets épinglés.
+app.use('/api', require('./routes/offerforms'));
 app.use('/api', require('./routes/history'));
 app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/push'));
@@ -249,4 +252,9 @@ app.listen(PORT, HOST, () => {
   // comme les rappels d'échéance ci-dessus : la première copie a lieu 2
   // minutes après le démarrage, jamais immédiatement.
   startBackupSchedule();
+
+  // Abonnement Offre 1 (9 septembre 2026) : régénération mensuelle des
+  // feuilles de route + révélation différée des tâches de remplacement.
+  // Voir server/lib/subscriptioncron.js.
+  require('./lib/subscriptioncron').startSubscriptionCron();
 });

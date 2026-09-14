@@ -157,7 +157,7 @@ function progressForActivity(userId, activityId) {
 function subProjectsForActivity(activityId, includeClosed) {
   return db.prepare(`
     SELECT sp.id, sp.activityId, sp.name, sp.description, sp.createdBy, sp.position, sp.createdAt,
-           sp.closesAt,
+           sp.closesAt, sp.pinned,
            CASE WHEN ${OPEN_ONLY} THEN 0 ELSE 1 END AS closed,
            u.name AS createdByName,
            (SELECT COUNT(*) FROM sub_project_items i
@@ -173,7 +173,7 @@ function subProjectsForActivity(activityId, includeClosed) {
     FROM sub_projects sp
     LEFT JOIN users u ON u.id = sp.createdBy
     WHERE sp.activityId = ? ${includeClosed ? '' : 'AND ' + OPEN_ONLY}
-    ORDER BY sp.position ASC, sp.id ASC
+    ORDER BY sp.pinned DESC, sp.position ASC, sp.id ASC
   `).all(activityId).map((r) => ({
     id: r.id,
     activityId: r.activityId,
@@ -184,6 +184,7 @@ function subProjectsForActivity(activityId, includeClosed) {
     position: r.position,
     createdAt: r.createdAt,
     closesAt: r.closesAt || null,
+    pinned: r.pinned === 1,
     closed: r.closed === 1,
     done: r.done,
     total: r.total,
@@ -225,14 +226,20 @@ function normalizeClosesAt(value) {
   return v;
 }
 
-function createSubProject(activityId, userId, name, description, closesAt) {
+// `pinned` n'est JAMAIS passé par server/routes/subprojects.js (aucune route
+// publique ne lit req.body.pinned) : seul le code serveur qui traite un
+// paiement Stripe peut créer un sous-projet épinglé. Paramètre positionnel
+// plutôt qu'un objet fields, pour rester cohérent avec le reste de cette
+// fonction — et parce qu'ajouter une seconde voie de création (fields) pour
+// un seul appelant interne serait de la sur-ingénierie.
+function createSubProject(activityId, userId, name, description, closesAt, pinned) {
   const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_projects WHERE activityId = ?')
     .get(activityId).pos;
   const info = db.prepare(`
-    INSERT INTO sub_projects (activityId, name, description, createdBy, position, createdAt, closesAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sub_projects (activityId, name, description, createdBy, position, createdAt, closesAt, pinned)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(activityId, name, description || '', userId, next, new Date().toISOString(),
-    normalizeClosesAt(closesAt));
+    normalizeClosesAt(closesAt), pinned ? 1 : 0);
   // ⚠️ AUCUNE section créée automatiquement : « je souhaite qu'il n'y ait pas
   // de section vide par défaut » (Emilien). Le sous-projet naît vide et se
   // remplit par le bouton "Ajouter".
@@ -366,10 +373,16 @@ function sectionsForSubProject(subProjectId, viewerId) {
 
 // ===================== TODOLIST (dans une section 'tasks') =====================
 
+// ⚠️ replacementRevealedAt est sélectionné ici (colonne interne à l'abonnement
+// Offre 1, voir server/lib/subprojectqueue.js) uniquement pour que
+// server/routes/subprojects.js puisse en dériver `awaitingRenewal` sans
+// reproduire cette requête — jamais renvoyé tel quel au client (voir la route,
+// qui le retire après calcul). Vaut toujours NULL sur un sous-projet créé à la
+// main.
 function itemsForSection(sectionId) {
   return db.prepare(`
     SELECT i.id, i.sectionId, i.subProjectId, i.label, i.done, i.doneBy, i.doneAt, i.position, i.createdAt,
-           u.name AS doneByName
+           i.replacementRevealedAt, u.name AS doneByName
     FROM sub_project_items i
     LEFT JOIN users u ON u.id = i.doneBy
     WHERE i.sectionId = ?
@@ -485,19 +498,12 @@ function deletePollsForSubProject(subProjectId) {
 // les deux reviennent au même — et retirer la section sans effacer ce que les
 // membres se sont écrit devient possible.
 
-// LEFT JOIN (9 septembre 2026, correction du sur-effacement — voir
-// server/db.js et noesis-timetracker-conformite-loi25.md, section 6bis) :
-// userId peut désormais être NULL (compte de l'auteur du message supprimé,
-// ON DELETE SET NULL — le message survit, comme sub_project_items.doneBy).
-// Un JOIN simple ferait disparaître ces messages du fil plutôt que de se
-// contenter de masquer userName/userColor ; public/app.js affiche "Compte
-// supprimé" quand userName est absent.
 function messagesForSubProject(subProjectId) {
   return db.prepare(`
     SELECT m.id, m.subProjectId, m.userId, m.body, m.createdAt,
            u.name AS userName, u.color AS userColor
     FROM sub_project_messages m
-    LEFT JOIN users u ON u.id = m.userId
+    JOIN users u ON u.id = m.userId
     WHERE m.subProjectId = ?
     ORDER BY m.createdAt ASC, m.id ASC
   `).all(subProjectId);
@@ -512,7 +518,7 @@ function postSubProjectMessage(subProjectId, userId, body) {
     SELECT m.id, m.subProjectId, m.userId, m.body, m.createdAt,
            u.name AS userName, u.color AS userColor
     FROM sub_project_messages m
-    LEFT JOIN users u ON u.id = m.userId
+    JOIN users u ON u.id = m.userId
     WHERE m.id = ?
   `).get(info.lastInsertRowid);
 }
