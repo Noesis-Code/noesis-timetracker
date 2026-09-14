@@ -4461,7 +4461,14 @@
       if (currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(data, currentGoalsViewPeriodNumber)) {
         currentGoalsViewPeriodNumber = data.currentPeriodNumber;
       }
-      renderActivityGoals();
+      // 14 septembre 2026 : Objectifs a deux pages désormais (voir plus bas).
+      // L'arbre (page 1) se rafraîchit toujours ; le détail d'une période
+      // (page 2) ne se rafraîchit en plus que s'il est effectivement ouvert
+      // — pas la peine de recalculer son rendu pendant qu'on ne le regarde
+      // pas (même principe que le reste de l'app : ne rendre que ce qui est
+      // visible).
+      renderGoalsTree();
+      if (!$('goalsDetailPage').classList.contains('hidden')) renderActivityGoals();
     }).catch(function (err) {
       var msg = $('activityGoalsMsg');
       if (msg) msg.textContent = err.message;
@@ -4476,13 +4483,87 @@
     renderActivityGoals();
   });
 
+  // ===================== OBJECTIFS — PAGE 1 : ARBRE DES GRANDS OBJECTIFS =====================
+  // 14 septembre 2026, demande d'Emilien : « la première [page], on voit
+  // uniquement le nom des grands objectifs qui s'enchaînent comme un arbre
+  // de façon esthétique. Et quand on clique sur un grand objectif, alors on
+  // bifurque sur une nouvelle page qui nous détaille [la période] ». Un nœud
+  // par période du cycle en cours de l'activité affichée, dans l'ordre
+  // chronologique — mêmes données que currentGoalsPlanning.periods, déjà
+  // chargées pour la bande de tendance de la page 2 : aucun nouvel appel
+  // serveur pour cette page.
+  function renderGoalsTree() {
+    var tree = $('goalsTree');
+    if (!tree || !currentGoalsPlanning) return;
+    tree.innerHTML = '';
+    var periods = currentGoalsPlanning.periods || [];
+    periods.forEach(function (p) {
+      var node = document.createElement('button');
+      node.type = 'button';
+      node.className = 'goalsTreeNode' + (p.isCurrent ? ' current' : '');
+
+      var label = document.createElement('p');
+      label.className = 'goalsTreeNodeLabel';
+      var labelText = t('Période') + ' ' + p.periodIndexInCycle;
+      if (p.cycleIndex > 1) labelText += ' · ' + t('Année') + ' ' + p.cycleIndex;
+      if (p.isCurrent) labelText += ' · ' + t('En cours');
+      var dot = document.createElement('span');
+      dot.className = 'goalsTreeNodeDot' + (goalStatusClass(p.mainGoalStatus) ? ' ' + goalStatusClass(p.mainGoalStatus) : '');
+      label.appendChild(dot);
+      label.appendChild(document.createTextNode(labelText));
+      node.appendChild(label);
+
+      var text = document.createElement('p');
+      if (p.mainGoalText) {
+        text.className = 'goalsTreeNodeText';
+        text.textContent = p.mainGoalText;
+      } else {
+        text.className = 'goalsTreeNodeText goalsTreeNodeEmpty';
+        text.textContent = t('Aucun grand objectif défini pour l’instant — clique pour en ajouter un.');
+      }
+      node.appendChild(text);
+
+      node.addEventListener('click', function () { openGoalsDetail(p.periodNumber); });
+      tree.appendChild(node);
+    });
+  }
+
+  // ===================== OBJECTIFS — PAGE 2 : DÉTAIL D'UNE PÉRIODE =====================
+  // Reprend TEL QUEL le contenu qui vivait avant ce chantier directement
+  // dans #tab-goals (renderActivityGoals() et tout ce qu'elle appelle,
+  // aucun changement) — seule sa présentation change : une page plein écran
+  // séparée (#goalsDetailPage, même motif que #activityPage), plutôt
+  // qu'affichée d'emblée sous l'arbre.
+  function openGoalsDetail(periodNumber) {
+    currentGoalsViewPeriodNumber = periodNumber;
+    $('goalsDetailTitle').textContent = $('goalsActivityName').textContent;
+    $('goalsDetailPage').classList.remove('hidden');
+    $('goalsDetailScroll').scrollTop = 0;
+    renderActivityGoals();
+  }
+
+  function closeGoalsDetail() {
+    $('goalsDetailPage').classList.add('hidden');
+  }
+
+  $('goalsDetailBack').addEventListener('click', closeGoalsDetail);
+  // Clic sur le fond, hors de la carte : referme — même motif que
+  // #activityPage/#viewProfileModal (le test sur e.target évite de refermer
+  // sur un clic qui vient d'un élément intérieur et a juste remonté).
+  $('goalsDetailPage').addEventListener('click', function (e) {
+    if (e.target === $('goalsDetailPage')) closeGoalsDetail();
+  });
+
   // ===================== VOLET OBJECTIFS — sélecteur d'activité =====================
   // 13 septembre 2026 (demande d'Emilien) : Objectifs n'est plus une section
   // de la page d'activité, c'est son propre onglet de la barre du bas — une
   // seule activité affichée à la fois, la première de activitiesCache à
   // l'ouverture, puis on en change en balayant horizontalement le nom de
   // l'activité (glissement, voir bindGoalsSwipe() plus bas, même mécanisme
-  // touchstart/touchend que le retour tactile de Réglages, 10 septembre 2026).
+  // touchstart/touchend que le retour tactile de Réglages, 10 septembre 2026)
+  // — ou, 14 septembre 2026, en tapant l'une des deux flèches ‹/› ajoutées de
+  // part et d'autre du nom (même changement d'activité, juste un second
+  // moyen d'y accéder pour les appareils sans geste tactile).
   function openGoalsForActivity(index) {
     var list = activitiesCache || [];
     if (!list.length) {
@@ -4492,6 +4573,9 @@
     }
     $('goalsNoActivityHint').classList.add('hidden');
     $('goalsActivitySwitcher').classList.remove('hidden');
+    // Changer d'activité revient toujours à l'arbre — le détail resterait
+    // sinon ouvert sur une période qui appartient à l'ancienne activité.
+    closeGoalsDetail();
 
     // Glissement circulaire : après la dernière activité on revient à la
     // première, et inversement avant la première on revient à la dernière
@@ -4523,6 +4607,13 @@
     var ready = activitiesCache && activitiesCache.length ? Promise.resolve(activitiesCache) : refreshActivities();
     ready.then(function () { openGoalsForActivity(currentGoalsActivityIndex); });
   }
+
+  $('goalsPrevActivityBtn').addEventListener('click', function () {
+    openGoalsForActivity(currentGoalsActivityIndex - 1);
+  });
+  $('goalsNextActivityBtn').addEventListener('click', function () {
+    openGoalsForActivity(currentGoalsActivityIndex + 1);
+  });
 
   // Balayage horizontal sur le nom de l'activité — mêmes seuils que le
   // geste de retour tactile de Réglages (10 septembre 2026, ≥60px, plus

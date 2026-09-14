@@ -2055,45 +2055,34 @@
 
       <p id="goalsNoActivityHint" class="hint hidden">Ajoute une activité pour commencer à te fixer des objectifs.</p>
 
+      <!-- ⚠️ 14 septembre 2026, demande d'Emilien : ce volet devient une
+           PAGE 1 (celle-ci) qui ne montre que le nom des grands objectifs,
+           enchaînés en arbre esthétique — le détail d'une période (bande de
+           tendance, grand objectif, 4 semaines, bilan — RIEN de changé
+           là-dedans) part sur une PAGE 2 séparée, #goalsDetailPage
+           (déclarée plus bas dans ce fichier, hors de toute section .tab,
+           même motif que #activityPage), ouverte au clic sur un nœud de
+           l'arbre — voir openGoalsDetail()/renderGoalsTree() dans app.js. -->
       <div id="goalsActivitySwitcher" class="goalsActivitySwitcher hidden">
-        <!-- Zone balayée horizontalement (touchstart/touchend, même mécanisme
-             que le retour tactile de Réglages, 10 septembre 2026) pour
-             changer d'activité — voir bindGoalsSwipe() dans app.js. -->
+        <!-- Nom de l'activité CENTRÉ, flèches ‹/› cliquables de part et
+             d'autre (en plus du balayage tactile déjà en place,
+             touchstart/touchend sur toute la zone — voir bindGoalsSwipe()
+             dans app.js) : indique visuellement qu'on peut aussi glisser. -->
         <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
-          <span class="dot" id="goalsActivityDot"></span>
-          <span class="activityPageName" id="goalsActivityName"></span>
+          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevActivityBtn" aria-label="Activité précédente">‹</button>
+          <div class="goalsActivityNameWrap">
+            <span class="dot" id="goalsActivityDot"></span>
+            <span class="activityPageName" id="goalsActivityName"></span>
+          </div>
+          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsNextActivityBtn" aria-label="Activité suivante">›</button>
         </div>
 
-        <div id="activityGoalsBlock">
-          <!-- 13 blocs du cycle en cours, cliquables (double comme archive
-               consultable ET tableau de bord de tendance, cadré avec
-               Emilien). Un bloc grisé = période pas encore atteinte par le
-               plan, jamais créée côté serveur. -->
-          <div class="goalsTrendRow" id="activityGoalsTrendRow"></div>
-
-          <div class="goalsPeriodNav">
-            <button type="button" class="menuBtn" id="activityGoalsPrevBtn" aria-label="Période précédente">‹</button>
-            <div class="goalsPeriodNavLabel">
-              <p class="sectionTitle" id="activityGoalsPeriodTitle"></p>
-              <p class="goalsPeriodDates" id="activityGoalsPeriodDates"></p>
-            </div>
-            <button type="button" class="menuBtn" id="activityGoalsNextBtn" aria-label="Période suivante">›</button>
-          </div>
-
-          <div class="goalCard goalMainCard">
-            <p class="goalCardLabel">Grand objectif de la période</p>
-            <textarea id="activityGoalsMainInput" rows="2" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
-            <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
-            <div class="goalStatusRow" id="activityGoalsMainStatus"></div>
-            <p class="goalActualHint hidden" id="activityGoalsMainActual"></p>
-          </div>
-
-          <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires — choisis 3 semaines sur 4</p>
-          <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
-
-          <p class="goalBilanHint hidden" id="activityGoalsBilan"></p>
-          <p id="activityGoalsMsg" class="msg"></p>
-        </div>
+        <!-- Arbre des grands objectifs de l'activité affichée, un nœud par
+             période du cycle en cours (mêmes données que la bande de
+             tendance d'avant ce chantier, currentGoalsPlanning.periods —
+             aucun nouvel appel serveur). Construit entièrement par
+             renderGoalsTree() (app.js) : rien de statique ici. -->
+        <div id="goalsTree" class="goalsTree"></div>
       </div>
     </section>
 
@@ -2767,6 +2756,57 @@
       </div>
     </div>
 
+    <!-- ===================== OBJECTIFS — PAGE 2 (détail d'une période) =====================
+         14 septembre 2026, demande d'Emilien : reprend TEL QUEL le contenu qui
+         vivait avant ce chantier directement dans #tab-goals (bande de
+         tendance des 13 périodes, navigation ‹/›, grand objectif, 4 objectifs
+         hebdomadaires, bilan — mêmes ids, mêmes fonctions de rendu dans
+         app.js, aucune ne change) — seul son emplacement change : atteinte
+         désormais en cliquant un nœud de l'arbre de #tab-goals plutôt
+         qu'affichée d'emblée. Même motif que #activityPage juste au-dessus
+         (page plein écran, hors de toute section .tab pour survivre à un
+         changement d'onglet, ✕ remplacée par ‹ « retour à l'arbre »). -->
+    <div id="goalsDetailPage" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="activityPageHeader">
+          <button type="button" class="menuBtn" id="goalsDetailBack" aria-label="Retour à l'arbre des objectifs">‹</button>
+          <span class="activityPageName" id="goalsDetailTitle"></span>
+        </div>
+        <div id="goalsDetailScroll">
+          <div id="activityGoalsBlock">
+            <!-- 13 blocs du cycle en cours, cliquables (double comme archive
+                 consultable ET tableau de bord de tendance, cadré avec
+                 Emilien). Un bloc grisé = période pas encore atteinte par le
+                 plan, jamais créée côté serveur. -->
+            <div class="goalsTrendRow" id="activityGoalsTrendRow"></div>
+
+            <div class="goalsPeriodNav">
+              <button type="button" class="menuBtn" id="activityGoalsPrevBtn" aria-label="Période précédente">‹</button>
+              <div class="goalsPeriodNavLabel">
+                <p class="sectionTitle" id="activityGoalsPeriodTitle"></p>
+                <p class="goalsPeriodDates" id="activityGoalsPeriodDates"></p>
+              </div>
+              <button type="button" class="menuBtn" id="activityGoalsNextBtn" aria-label="Période suivante">›</button>
+            </div>
+
+            <div class="goalCard goalMainCard">
+              <p class="goalCardLabel">Grand objectif de la période</p>
+              <textarea id="activityGoalsMainInput" rows="2" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
+              <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
+              <div class="goalStatusRow" id="activityGoalsMainStatus"></div>
+              <p class="goalActualHint hidden" id="activityGoalsMainActual"></p>
+            </div>
+
+            <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires — choisis 3 semaines sur 4</p>
+            <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
+
+            <p class="goalBilanHint hidden" id="activityGoalsBilan"></p>
+            <p id="activityGoalsMsg" class="msg"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Réglages (#profileSettingsPanel) déplacé ici le 9 septembre 2026 (demande d'Emilien, fenêtre plein écran) : il vivait jusque-là imbriqué dans .topbar (.settingsWrap > .identityHeader > #topbarProfile > .topbar), qui établit sa PROPRE zone d'empilement (position: fixed + z-index) — un enfant aussi profondément imbriqué ne peut pas, avec son seul z-index, se peindre au-dessus d'un AUTRE enfant direct de #app comme .tabbar : c'est la position de .topbar elle-même (z-index 10) qui aurait été comparée à .tabbar (z-index 10 aussi), pas celle du panneau, et .tabbar (déclarée après .topbar dans le document) l'aurait donc emporté et serait restée visible par-dessus. Déplacé ici, comme #activityPage juste au-dessus (même principe, voir son propre commentaire plus bas dans ce fichier) : enfant direct de <main>, qui ne crée aucune zone d'empilement propre — son z-index (90, styles.css) se compare alors directement à celui de .topbar/.tabbar (10 chacune) et l'emporte réellement. Le bouton "⚙️" (#profileSettingsBtn), lui, reste à sa place dans .identityHeader — seul le PANNEAU a bougé, showProfileSettings()/closeSettingsPanel() (app.js) continuent de le cibler par id, inchangés. -->
 <div id="profileSettingsPanel" class="notifPanel settingsPanel hidden">
             <button type="button" id="settingsCloseBtn" class="menuBtn" aria-label="Fermer">←</button>
@@ -3253,15 +3293,27 @@
          c'est délibérément le seul bouton REMPLI de la barre, pour se
          distinguer des icônes-contour des quatre autres (marque de l'app,
          pas juste un pictogramme de fonctionnalité). -->
-    <button class="tabBtn" data-tab="goals" aria-label="Objectifs">
+    <!-- 14 septembre 2026, demande d'Emilien : couleur reprise TELLE QUELLE
+         du dégradé du logo (#bootSplash, voir bsL/bsD juste en tête de ce
+         fichier — <linearGradient> locale plutôt qu'un fichier externe, ce
+         monogramme EST déjà le logo) plutôt que currentColor (qui suivait
+         l'état actif/inactif comme les 4 autres icônes) ; icône légèrement
+         agrandie (.tabBtnGoals, styles.css) ; libellé "Objectifs" retiré
+         sous l'icône, seul bouton de la barre dans ce cas. -->
+    <button class="tabBtn tabBtnGoals" data-tab="goals" aria-label="Objectifs">
       <span class="tabIcon tabIconBrand">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+        <svg viewBox="0 0 24 24" fill="url(#goalsTabIconGrad)" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="goalsTabIconGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#8772C7"/>
+              <stop offset="100%" stop-color="#46397D"/>
+            </linearGradient>
+          </defs>
           <polygon points="4.00,4.83 6.77,9.30 6.77,20.00 4.03,20.00"/>
           <polygon points="4.24,4.00 6.93,4.00 13.40,14.86 13.40,19.26"/>
           <polygon points="13.93,4.00 15.53,4.00 16.68,4.64 16.75,20.00 13.96,20.00"/>
         </svg>
       </span>
-      <span class="tabLabel">Objectifs</span>
     </button>
     <button class="tabBtn" data-tab="community" aria-label="Communauté">
       <span class="tabIcon">
