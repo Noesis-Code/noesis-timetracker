@@ -14,3 +14,5 @@ data/*.db-wal
 # cette ligne couvre le cas local uniquement, ne doit jamais être commité :
 # quiconque le lit peut forger un témoin pour n'importe quel profil.
 data/session-secret
+
+offre1-code
