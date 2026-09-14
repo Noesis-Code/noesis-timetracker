@@ -2057,12 +2057,23 @@
 
       <!-- ⚠️ 14 septembre 2026, demande d'Emilien : ce volet devient une
            PAGE 1 (celle-ci) qui ne montre que le nom des grands objectifs,
-           enchaînés en arbre esthétique — le détail d'une période (bande de
-           tendance, grand objectif, 4 semaines, bilan — RIEN de changé
-           là-dedans) part sur une PAGE 2 séparée, #goalsDetailPage
-           (déclarée plus bas dans ce fichier, hors de toute section .tab,
-           même motif que #activityPage), ouverte au clic sur un nœud de
-           l'arbre — voir openGoalsDetail()/renderGoalsTree() dans app.js. -->
+           enchaînés en arbre esthétique — le détail d'une période (grand
+           objectif, 4 semaines, bilan) part sur une PAGE 2 séparée,
+           #goalsDetailPage (déclarée plus bas dans ce fichier, hors de toute
+           section .tab, même motif que #activityPage), ouverte au clic sur
+           un nœud de l'arbre — voir openGoalsDetail()/renderGoalsTree() dans
+           app.js.
+
+           14 septembre 2026 (second passage, demande d'Emilien) :
+            - la bande de tendance des 13 périodes (#activityGoalsTrendRow)
+              déménage ICI depuis #goalsDetailPage — elle appartient à la
+              vue d'ensemble (page 1), pas au détail d'une période ;
+            - 3 catégories par activité (Entreprise/Communauté/Produit),
+              chacune son propre plan/cycle/arbre — #goalsCategoryTabs choisit
+              laquelle est affichée (currentGoalsCategory, app.js) ;
+            - vue « Répartition » (#goalsViewToggle) : bascule l'arbre pour
+              une vue groupée par membre de l'activité, croisant les 3
+              catégories (renderGoalsDistribution(), app.js). -->
       <div id="goalsActivitySwitcher" class="goalsActivitySwitcher hidden">
         <!-- Nom de l'activité CENTRÉ, flèches ‹/› cliquables de part et
              d'autre (en plus du balayage tactile déjà en place,
@@ -2077,12 +2088,39 @@
           <button type="button" class="menuBtn goalsSwipeBtn" id="goalsNextActivityBtn" aria-label="Activité suivante">›</button>
         </div>
 
-        <!-- Arbre des grands objectifs de l'activité affichée, un nœud par
-             période du cycle en cours (mêmes données que la bande de
-             tendance d'avant ce chantier, currentGoalsPlanning.periods —
-             aucun nouvel appel serveur). Construit entièrement par
+        <div class="goalsCategoryTabs" id="goalsCategoryTabs">
+          <button type="button" class="goalsCategoryTab" data-category="entreprise">Entreprise</button>
+          <button type="button" class="goalsCategoryTab" data-category="communaute">Communauté</button>
+          <button type="button" class="goalsCategoryTab" data-category="produit">Produit</button>
+        </div>
+
+        <div class="goalsViewToggle" id="goalsViewToggle">
+          <button type="button" class="goalsViewToggleBtn" data-view="tree">Arbre</button>
+          <button type="button" class="goalsViewToggleBtn" data-view="distribution">Répartition</button>
+        </div>
+
+        <!-- 13 blocs du cycle en cours de la catégorie affichée, cliquables
+             (double usage : archive consultable ET tableau de bord de
+             tendance, cadré avec Emilien le 12 septembre). Un bloc grisé =
+             période pas encore atteinte par le plan, jamais créée côté
+             serveur. Déménagé ici depuis #goalsDetailPage le 14 septembre
+             2026 (voir commentaire ci-dessus) — même id, même fonction de
+             rendu (renderActivityGoalsTrend, app.js). -->
+        <div class="goalsTrendRow" id="activityGoalsTrendRow"></div>
+
+        <!-- Arbre des grands objectifs de l'activité/catégorie affichée, un
+             nœud par période du cycle en cours (currentGoalsPlanning.periods
+             — aucun appel serveur dédié). Construit entièrement par
              renderGoalsTree() (app.js) : rien de statique ici. -->
         <div id="goalsTree" class="goalsTree"></div>
+
+        <!-- Vue « Répartition » (14 septembre 2026) : liste, par membre de
+             l'activité, les objectifs hebdomadaires de la période en cours
+             qui lui sont assignés, toutes catégories confondues — construite
+             par renderGoalsDistribution() (app.js) à partir des 3 plannings
+             (GET /activities/:id/goals/all). Alterne avec #goalsTree,
+             jamais les deux visibles à la fois (goalsViewToggle ci-dessus). -->
+        <div id="goalsDistribution" class="goalsDistribution hidden"></div>
       </div>
     </section>
 
@@ -2758,14 +2796,16 @@
 
     <!-- ===================== OBJECTIFS — PAGE 2 (détail d'une période) =====================
          14 septembre 2026, demande d'Emilien : reprend TEL QUEL le contenu qui
-         vivait avant ce chantier directement dans #tab-goals (bande de
-         tendance des 13 périodes, navigation ‹/›, grand objectif, 4 objectifs
-         hebdomadaires, bilan — mêmes ids, mêmes fonctions de rendu dans
-         app.js, aucune ne change) — seul son emplacement change : atteinte
-         désormais en cliquant un nœud de l'arbre de #tab-goals plutôt
-         qu'affichée d'emblée. Même motif que #activityPage juste au-dessus
-         (page plein écran, hors de toute section .tab pour survivre à un
-         changement d'onglet, ✕ remplacée par ‹ « retour à l'arbre »). -->
+         vivait avant ce chantier directement dans #tab-goals (navigation ‹/›,
+         grand objectif, 4 objectifs hebdomadaires, bilan — mêmes ids, mêmes
+         fonctions de rendu dans app.js, aucune ne change) — seul son
+         emplacement change : atteinte désormais en cliquant un nœud de
+         l'arbre de #tab-goals plutôt qu'affichée d'emblée. Même motif que
+         #activityPage juste au-dessus (page plein écran, hors de toute
+         section .tab pour survivre à un changement d'onglet, ✕ remplacée par
+         ‹ « retour à l'arbre »). La bande de tendance des 13 périodes
+         (#activityGoalsTrendRow) a déménagé sur la PAGE 1 (#tab-goals,
+         second passage du 14 septembre) — elle n'est plus ici. -->
     <div id="goalsDetailPage" class="communityMembersModal hidden">
       <div class="communityMembersModalCard">
         <div class="activityPageHeader">
@@ -2774,12 +2814,6 @@
         </div>
         <div id="goalsDetailScroll">
           <div id="activityGoalsBlock">
-            <!-- 13 blocs du cycle en cours, cliquables (double comme archive
-                 consultable ET tableau de bord de tendance, cadré avec
-                 Emilien). Un bloc grisé = période pas encore atteinte par le
-                 plan, jamais créée côté serveur. -->
-            <div class="goalsTrendRow" id="activityGoalsTrendRow"></div>
-
             <div class="goalsPeriodNav">
               <button type="button" class="menuBtn" id="activityGoalsPrevBtn" aria-label="Période précédente">‹</button>
               <div class="goalsPeriodNavLabel">

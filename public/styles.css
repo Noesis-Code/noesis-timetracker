@@ -4231,6 +4231,99 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .goalsSwipeBtn { flex-shrink: 0; }
 
+/* ===== Onglets de catégorie — page 1 d'Objectifs, 14 septembre 2026 (second
+   passage) =====
+   Demande d'Emilien : « incorporer les trois sous-catégories [...] pour
+   structurer correctement une entreprise : l'entreprise, la communauté, et
+   le produit ». 3 plannings totalement indépendants (voir
+   server/lib/goals.js) ; ces onglets choisissent lequel est chargé. Même
+   gabarit "pilule à segments" que .goalsViewToggle juste en dessous, pour
+   rester cohérents visuellement — une seule feuille de règles partagée via
+   la classe commune .goalsTabsRow n'aurait rien simplifié ici (3 boutons vs
+   2, largeurs différentes), dupliqué volontairement plutôt que forcé dans un
+   sélecteur commun artificiel. */
+.goalsCategoryTabs {
+  display: flex; gap: 6px; padding: 4px;
+  background: var(--track-bg); border-radius: var(--radius-md);
+}
+.goalsCategoryTab {
+  flex: 1; padding: 8px 6px; border: none; border-radius: var(--radius-sm, 8px);
+  background: transparent; color: var(--text-light);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.goalsCategoryTab.active {
+  background: var(--card); color: var(--purple); box-shadow: var(--shadow-card);
+}
+
+/* Bascule Arbre / Répartition — même gabarit que .goalsCategoryTabs
+   ci-dessus, volontairement identique (paire de vues plutôt que triplet de
+   catégories, sémantique différente donc classe séparée). */
+.goalsViewToggle {
+  display: flex; gap: 6px; padding: 4px;
+  background: var(--track-bg); border-radius: var(--radius-md);
+}
+.goalsViewToggleBtn {
+  flex: 1; padding: 8px 6px; border: none; border-radius: var(--radius-sm, 8px);
+  background: transparent; color: var(--text-light);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.goalsViewToggleBtn.active {
+  background: var(--card); color: var(--purple); box-shadow: var(--shadow-card);
+}
+
+/* ===== Vue "Répartition" — page 1 d'Objectifs, 14 septembre 2026 =====
+   Demande d'Emilien : « que les différentes tâches à effectuer selon les
+   différentes catégories [...] puissent être visibles et réparties selon
+   les différents membres de l'activité ». Une carte par membre (et une pour
+   "Non assigné" s'il y a des tâches sans responsable), listant les objectifs
+   hebdomadaires EN COURS des 3 catégories qui lui sont assignés — voir
+   renderGoalsDistribution() dans app.js. */
+.goalsDistribution { display: flex; flex-direction: column; gap: 10px; }
+.goalsDistributionMember {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--card); padding: 12px 14px;
+}
+.goalsDistributionMemberHeader {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 600; margin-bottom: 8px;
+}
+.goalsDistributionMemberHeader .dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.goalsDistributionTasks { display: flex; flex-direction: column; gap: 6px; }
+.goalsDistributionTask {
+  display: flex; align-items: baseline; gap: 8px; font-size: 14px;
+}
+.goalsDistributionTaskDone .goalsDistributionTaskText {
+  color: var(--text-light); text-decoration: line-through;
+}
+.goalsDistributionTag {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 2px 7px;
+  border-radius: 999px; color: #fff; white-space: nowrap;
+}
+/* Une couleur fixe par catégorie, distincte des couleurs de statut
+   (vert/orange/rouge, déjà prises par .goalStatusAtteint etc.) pour ne
+   jamais se confondre avec un état d'avancement. */
+.goalsCategoryTag-entreprise { background: #674ea9; }
+.goalsCategoryTag-communaute { background: #2f9e6a; }
+.goalsCategoryTag-produit { background: #d17d2e; }
+.goalsDistributionTaskText { flex: 1; min-width: 0; }
+
+/* Assignation d'un objectif hebdomadaire à un membre de l'activité (14
+   septembre 2026, demande d'Emilien) — sous le statut, dans chaque carte
+   .goalWeeklyCard de la page 2. */
+.goalAssigneeRow {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+}
+.goalAssigneeLabel { font-size: 12px; color: var(--text-light); flex-shrink: 0; }
+.goalAssigneeSelect {
+  flex: 1; min-width: 0; font-size: 13px; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
+  background: var(--card); color: var(--text);
+}
+
 /* ===== Arbre des grands objectifs — page 1 d'Objectifs, 14 septembre 2026 =====
    Demande d'Emilien : « la première [page], on voit uniquement le nom des
    grands objectifs qui s'enchaînent comme un arbre de façon esthétique ».

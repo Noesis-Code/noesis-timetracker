@@ -4202,6 +4202,20 @@
   var currentGoalsActivityIndex = 0;
   var currentGoalsActivityIsShared = false;
 
+  // 14 septembre 2026 (second passage, demande d'Emilien) : 3 plannings
+  // indépendants par activité — un par catégorie fixe, les 3 sous-catégories
+  // identifiées pour structurer une entreprise (reprises du concept CRM
+  // historique, voir server/lib/goals.js). currentGoalsCategory choisit
+  // lequel des 3 est actuellement chargé dans currentGoalsPlanning.
+  // currentGoalsView bascule la page 1 entre l'arbre (une seule catégorie) et
+  // la vue "Répartition" (les 3 catégories croisées par membre de
+  // l'activité) — currentGoalsAllPlannings ne sert qu'à cette seconde vue.
+  var GOALS_CATEGORIES = ['entreprise', 'communaute', 'produit'];
+  var GOALS_CATEGORY_LABELS = { entreprise: 'Entreprise', communaute: 'Communauté', produit: 'Produit' };
+  var currentGoalsCategory = 'entreprise';
+  var currentGoalsView = 'tree';
+  var currentGoalsAllPlannings = null;
+
   var GOAL_STATUS_ORDER = ['non_atteint', 'partiel', 'atteint'];
   var GOAL_STATUS_LABELS = {
     non_atteint: 'Non atteint',
@@ -4270,25 +4284,35 @@
   }
 
   function saveMainGoalText(periodNumber, text) {
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', { text: text })
+    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', { text: text, category: currentGoalsCategory })
       .then(loadActivityGoals)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
   function saveMainGoalStatus(periodNumber, status) {
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main-status', { status: status })
+    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main-status', { status: status, category: currentGoalsCategory })
       .then(loadActivityGoals)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
   function saveWeeklyText(periodNumber, weekIndex, text) {
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text })
+    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text, category: currentGoalsCategory })
       .then(loadActivityGoals)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
   function saveWeeklyStatus(weeklyId, status) {
     api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/status', { status: status })
+      .then(loadActivityGoals)
+      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+  }
+
+  // 14 septembre 2026 (demande d'Emilien) : confie (ou retire, userId null)
+  // UN membre de l'activité à cet objectif hebdomadaire, pour que le travail
+  // de chaque catégorie se répartisse visiblement — voir la vue
+  // "Répartition", renderGoalsDistribution() plus bas.
+  function saveWeeklyAssignee(weeklyId, userId) {
+    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/assignee', { userId: userId || null })
       .then(loadActivityGoals)
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
@@ -4386,6 +4410,36 @@
             actual.textContent = formatActualHint(w.estimateMinutes, w.actualMinutes, w.accuracy);
             card.appendChild(actual);
           }
+
+          // Assignation (14 septembre 2026, demande d'Emilien) : UN membre de
+          // l'activité par tâche — jamais le grand objectif, toujours
+          // collectif (voir server/lib/goals.js). Liste des membres déjà
+          // fournie par planningForActivity (currentGoalsPlanning.members),
+          // aucun appel serveur dédié.
+          var assigneeRow = document.createElement('div');
+          assigneeRow.className = 'goalAssigneeRow';
+          var assigneeLabel = document.createElement('span');
+          assigneeLabel.className = 'goalAssigneeLabel';
+          assigneeLabel.textContent = t('Assigné à');
+          assigneeRow.appendChild(assigneeLabel);
+          var assigneeSelect = document.createElement('select');
+          assigneeSelect.className = 'goalAssigneeSelect';
+          var noneOpt = document.createElement('option');
+          noneOpt.value = '';
+          noneOpt.textContent = t('Non assigné');
+          assigneeSelect.appendChild(noneOpt);
+          ((currentGoalsPlanning && currentGoalsPlanning.members) || []).forEach(function (m) {
+            var opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.name;
+            if (w.assignedUserId === m.id) opt.selected = true;
+            assigneeSelect.appendChild(opt);
+          });
+          assigneeSelect.addEventListener('change', function () {
+            saveWeeklyAssignee(w.id, assigneeSelect.value || null);
+          });
+          assigneeRow.appendChild(assigneeSelect);
+          card.appendChild(assigneeRow);
         }
 
         box.appendChild(card);
@@ -4450,13 +4504,15 @@
 
   function loadActivityGoals() {
     var activityId = currentGoalsActivityId;
+    var category = currentGoalsCategory;
     if (!activityId) return;
-    api('GET', '/api/activities/' + activityId + '/goals').then(function (data) {
-      // Garde-fou : l'activité affichée peut avoir changé (balayage) pendant
-      // que cette requête était en vol — une réponse en retard pour
-      // l'ANCIENNE activité ne doit jamais écraser ce qui est déjà affiché
-      // pour la nouvelle (même principe que loadActivityDetail() ailleurs).
-      if (activityId !== currentGoalsActivityId) return;
+    api('GET', '/api/activities/' + activityId + '/goals?category=' + encodeURIComponent(category)).then(function (data) {
+      // Garde-fou : l'activité OU la catégorie affichée peuvent avoir changé
+      // (balayage, changement d'onglet catégorie) pendant que cette requête
+      // était en vol — une réponse en retard ne doit jamais écraser ce qui
+      // est déjà affiché pour la sélection actuelle (même principe que
+      // loadActivityDetail() ailleurs).
+      if (activityId !== currentGoalsActivityId || category !== currentGoalsCategory) return;
       currentGoalsPlanning = data;
       if (currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(data, currentGoalsViewPeriodNumber)) {
         currentGoalsViewPeriodNumber = data.currentPeriodNumber;
@@ -4469,6 +4525,9 @@
       // visible).
       renderGoalsTree();
       if (!$('goalsDetailPage').classList.contains('hidden')) renderActivityGoals();
+      // La vue Répartition croise les 3 catégories : si elle est ouverte, la
+      // recharger aussi (elle ne suit pas currentGoalsPlanning seul).
+      if (currentGoalsView === 'distribution') loadGoalsDistribution();
     }).catch(function (err) {
       var msg = $('activityGoalsMsg');
       if (msg) msg.textContent = err.message;
@@ -4525,6 +4584,171 @@
 
       node.addEventListener('click', function () { openGoalsDetail(p.periodNumber); });
       tree.appendChild(node);
+    });
+  }
+
+  // ===================== OBJECTIFS — PAGE 1 : ONGLETS DE CATÉGORIE =====================
+  // 14 septembre 2026, demande d'Emilien : « incorporer les trois
+  // sous-catégories [...] pour structurer correctement une entreprise :
+  // l'entreprise, la communauté, et le produit ». Un plan/cycle/arbre
+  // entièrement séparé par catégorie (voir server/lib/goals.js) — ces onglets
+  // choisissent laquelle est actuellement chargée dans currentGoalsPlanning.
+  function renderGoalsCategoryTabs() {
+    var tabs = $('goalsCategoryTabs');
+    if (!tabs) return;
+    Array.prototype.forEach.call(tabs.querySelectorAll('.goalsCategoryTab'), function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-category') === currentGoalsCategory);
+    });
+  }
+
+  // Bascule la page 1 entre l'arbre (une seule catégorie) et la vue
+  // "Répartition" (les 3 catégories croisées par membre) — voir demande
+  // d'Emilien : « que les différentes tâches [...] selon les différentes
+  // catégories [...] puissent être visibles et réparties selon les
+  // différents membres de l'activité ».
+  function renderGoalsViewToggle() {
+    var wrap = $('goalsViewToggle');
+    if (wrap) {
+      Array.prototype.forEach.call(wrap.querySelectorAll('.goalsViewToggleBtn'), function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-view') === currentGoalsView);
+      });
+    }
+    var tree = $('goalsTree');
+    var distribution = $('goalsDistribution');
+    var trendRow = $('activityGoalsTrendRow');
+    if (tree) tree.classList.toggle('hidden', currentGoalsView !== 'tree');
+    if (distribution) distribution.classList.toggle('hidden', currentGoalsView !== 'distribution');
+    // La bande de tendance des 13 périodes n'a de sens que pour l'arbre d'une
+    // seule catégorie à la fois — masquée en vue Répartition.
+    if (trendRow) trendRow.classList.toggle('hidden', currentGoalsView !== 'tree');
+  }
+
+  Array.prototype.forEach.call(($('goalsCategoryTabs') || { querySelectorAll: function () { return []; } }).querySelectorAll('.goalsCategoryTab'), function (btn) {
+    btn.addEventListener('click', function () {
+      var category = btn.getAttribute('data-category');
+      if (!category || category === currentGoalsCategory) return;
+      currentGoalsCategory = category;
+      currentGoalsViewPeriodNumber = null;
+      renderGoalsCategoryTabs();
+      loadActivityGoals();
+    });
+  });
+
+  Array.prototype.forEach.call(($('goalsViewToggle') || { querySelectorAll: function () { return []; } }).querySelectorAll('.goalsViewToggleBtn'), function (btn) {
+    btn.addEventListener('click', function () {
+      var view = btn.getAttribute('data-view');
+      if (!view || view === currentGoalsView) return;
+      currentGoalsView = view;
+      renderGoalsViewToggle();
+      if (view === 'distribution') loadGoalsDistribution();
+    });
+  });
+
+  // Les 3 plannings de l'activité affichée en un seul appel
+  // (GET /activities/:id/goals/all) — sert uniquement à la vue Répartition,
+  // qui croise les catégories ; l'arbre, lui, ne charge jamais que la
+  // catégorie sélectionnée (loadActivityGoals).
+  function loadGoalsDistribution() {
+    var activityId = currentGoalsActivityId;
+    if (!activityId) return;
+    var box = $('goalsDistribution');
+    api('GET', '/api/activities/' + activityId + '/goals/all').then(function (data) {
+      if (activityId !== currentGoalsActivityId) return;
+      currentGoalsAllPlannings = data;
+      renderGoalsDistribution();
+    }).catch(function (err) {
+      if (box) box.textContent = err.message;
+    });
+  }
+
+  // Groupe, pour la période EN COURS de chacune des 3 catégories, les
+  // objectifs hebdomadaires déjà écrits (texte non vide) par membre assigné
+  // — un membre sans aucune tâche assignée n'apparaît pas, une tâche sans
+  // assigné rejoint le groupe "Non assigné" plutôt que de disparaître.
+  function renderGoalsDistribution() {
+    var box = $('goalsDistribution');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!currentGoalsAllPlannings) return;
+
+    var byCategory = currentGoalsAllPlannings.byCategory || {};
+    var members = [];
+    GOALS_CATEGORIES.forEach(function (category) {
+      if (members.length) return;
+      var planning = byCategory[category];
+      if (planning && planning.members && planning.members.length) members = planning.members;
+    });
+
+    var groups = {};
+    function groupFor(userId) {
+      var key = userId || '';
+      if (!groups[key]) {
+        var member = null;
+        for (var i = 0; i < members.length; i++) { if (members[i].id === userId) { member = members[i]; break; } }
+        groups[key] = { member: member, tasks: [] };
+      }
+      return groups[key];
+    }
+
+    GOALS_CATEGORIES.forEach(function (category) {
+      var planning = byCategory[category];
+      if (!planning) return;
+      var current = goalPeriodByNumber(planning, planning.currentPeriodNumber);
+      if (!current) return;
+      (current.weeklies || []).forEach(function (w) {
+        if (!w.text) return;
+        groupFor(w.assignedUserId).tasks.push({ category: category, text: w.text, status: w.status });
+      });
+    });
+
+    var orderedKeys = members.map(function (m) { return m.id; });
+    Object.keys(groups).forEach(function (key) { if (orderedKeys.indexOf(key) === -1) orderedKeys.push(key); });
+
+    var hasAny = orderedKeys.some(function (k) { return groups[k] && groups[k].tasks.length; });
+    if (!hasAny) {
+      var empty = document.createElement('p');
+      empty.className = 'hint';
+      empty.textContent = t('Aucune tâche en cours cette période, dans aucune catégorie.');
+      box.appendChild(empty);
+      return;
+    }
+
+    orderedKeys.forEach(function (key) {
+      var g = groups[key];
+      if (!g || !g.tasks.length) return;
+
+      var card = document.createElement('div');
+      card.className = 'goalsDistributionMember';
+
+      var header = document.createElement('div');
+      header.className = 'goalsDistributionMemberHeader';
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = g.member ? g.member.color : '#8a8a8a';
+      header.appendChild(dot);
+      var name = document.createElement('span');
+      name.textContent = g.member ? g.member.name : t('Non assigné');
+      header.appendChild(name);
+      card.appendChild(header);
+
+      var list = document.createElement('div');
+      list.className = 'goalsDistributionTasks';
+      g.tasks.forEach(function (task) {
+        var row = document.createElement('div');
+        row.className = 'goalsDistributionTask' + (task.status === 'atteint' ? ' goalsDistributionTaskDone' : '');
+        var tag = document.createElement('span');
+        tag.className = 'goalsDistributionTag goalsCategoryTag-' + task.category;
+        tag.textContent = t(GOALS_CATEGORY_LABELS[task.category]);
+        row.appendChild(tag);
+        var txt = document.createElement('span');
+        txt.className = 'goalsDistributionTaskText';
+        txt.textContent = task.text;
+        row.appendChild(txt);
+        list.appendChild(row);
+      });
+      card.appendChild(list);
+
+      box.appendChild(card);
     });
   }
 
@@ -4589,8 +4813,15 @@
     // Repart de la période en cours à chaque changement d'activité : la
     // période affichée pour l'activité précédente n'a aucune raison d'être
     // pertinente pour la nouvelle (même principe que loadActivityDetail()
-    // qui réinitialise systématiquement ses propres filtres).
+    // qui réinitialise systématiquement ses propres filtres). Idem pour la
+    // catégorie (toujours "Entreprise" en entrant sur une activité) et la
+    // vue (toujours l'arbre, jamais la Répartition de l'activité précédente).
     currentGoalsViewPeriodNumber = null;
+    currentGoalsCategory = 'entreprise';
+    currentGoalsView = 'tree';
+    currentGoalsAllPlannings = null;
+    renderGoalsCategoryTabs();
+    renderGoalsViewToggle();
 
     $('goalsActivityDot').style.background = a.color;
     $('goalsActivityName').textContent = a.name;

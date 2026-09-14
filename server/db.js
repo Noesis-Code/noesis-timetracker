@@ -35,6 +35,27 @@ const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
+// 14 septembre 2026 — doit tourner AVANT le gros bloc CREATE TABLE/INDEX
+// ci-dessous, pas dans la section "MIGRATIONS LÉGÈRES" plus bas (trop tard) :
+// sur une base créée par une version antérieure du schéma (activity_goal_plans
+// sans colonne category), les `CREATE TABLE IF NOT EXISTS` de ces 3 tables ne
+// font rien (les tables existent déjà) mais les `CREATE INDEX IF NOT EXISTS`
+// qui les suivent, eux, essaient bel et bien de créer un index sur la
+// colonne `category` — qui n'existe pas encore sur l'ancienne table — et font
+// planter le démarrage du serveur avant même d'atteindre la section de
+// migrations. On détecte donc et on nettoie ICI, avant le gros bloc, pour que
+// ce même bloc puisse ensuite recréer les 3 tables au nouveau schéma en un
+// seul passage. Reset volontaire (décision d'Emilien, confirmée par
+// AskUserQuestion) : aucune donnée réelle d'utilisateur sur ce volet à ce
+// jour (jamais poussé au-delà de `staging`).
+(function migrateGoalsCategorySchema() {
+  const exists = (table) => !!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(table);
+  const hasColumn = (table, column) => db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
+  if (exists('activity_goal_plans') && !hasColumn('activity_goal_plans', 'category')) {
+    db.exec('DROP TABLE IF EXISTS goal_weekly; DROP TABLE IF EXISTS goal_periods; DROP TABLE IF EXISTS activity_goal_plans;');
+  }
+})();
+
 db.exec(`
 -- pin : hash salé ("salt:hash") du code à 4-6 chiffres du profil, NULL tant
 -- qu'il n'en a pas encore défini un (comptes créés avant cette protection).
@@ -758,23 +779,35 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_sub_project_due_reminder
 -- activité, jamais à la personne ; objectifs hebdomadaires toujours fixés
 -- par l'utilisateur, jamais décomposés automatiquement).
 --
--- Une seule ligne par activité, jamais recréée : le jour où l'utilisateur
--- crée son premier objectif sur cette activité devient le jour 1 de son
--- cycle de 13 périodes de 4 semaines.
+-- 14 septembre 2026 (deuxième passage, demande d'Emilien, cadré par
+-- AskUserQuestion) : le planning n'est plus UN par activité mais TROIS, un
+-- par catégorie fixe (entreprise / communaute / produit — les 3
+-- sous-catégories identifiées pour structurer une entreprise, reprises du
+-- concept CRM historique Entreprise/Produit/Communauté, voir
+-- noesis-timetracker-contexte-technique.md « Origine »). Chaque catégorie a
+-- son propre cycle de 13 périodes, sa propre bande de tendance, son propre
+-- arbre — trois plannings indépendants plutôt qu'un seul avec une étiquette.
+--
+-- Une seule ligne par (activité, catégorie), jamais recréée : le jour où
+-- l'utilisateur crée son premier objectif sur cette activité pour cette
+-- catégorie devient le jour 1 du cycle de 13 périodes de cette catégorie.
 CREATE TABLE IF NOT EXISTS activity_goal_plans (
-  activityId INTEGER PRIMARY KEY REFERENCES activities(id) ON DELETE CASCADE,
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  category TEXT NOT NULL CHECK(category IN ('entreprise','communaute','produit')),
   startDate TEXT NOT NULL,
-  createdAt TEXT NOT NULL
+  createdAt TEXT NOT NULL,
+  PRIMARY KEY (activityId, category)
 );
 
--- Une période de 4 semaines. periodNumber est la séquence continue de
--- l'activité (1, 2, 3...) ; periodIndexInCycle (1 à 13) et cycleIndex (1,
--- 2...) sont dérivés une fois à l'écriture, pour l'affichage. Le grand
--- objectif de la période vit directement sur cette ligne : un seul par
--- période, par construction.
+-- Une période de 4 semaines, propre à une (activité, catégorie).
+-- periodNumber est la séquence continue de cette catégorie (1, 2, 3...) ;
+-- periodIndexInCycle (1 à 13) et cycleIndex (1, 2...) sont dérivés une fois
+-- à l'écriture, pour l'affichage. Le grand objectif de la période vit
+-- directement sur cette ligne : un seul par période, par construction.
 CREATE TABLE IF NOT EXISTS goal_periods (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  category TEXT NOT NULL CHECK(category IN ('entreprise','communaute','produit')),
   periodNumber INTEGER NOT NULL,
   cycleIndex INTEGER NOT NULL,
   periodIndexInCycle INTEGER NOT NULL,
@@ -791,20 +824,28 @@ CREATE TABLE IF NOT EXISTS goal_periods (
   -- empêche un balayage ultérieur de le republier.
   bilanPostedAt TEXT,
   createdAt TEXT NOT NULL,
-  UNIQUE(activityId, periodNumber)
+  UNIQUE(activityId, category, periodNumber)
 );
-CREATE INDEX IF NOT EXISTS idx_goal_periods_activity ON goal_periods(activityId, periodNumber);
+CREATE INDEX IF NOT EXISTS idx_goal_periods_activity ON goal_periods(activityId, category, periodNumber);
 
 -- 3 objectifs hebdomadaires par période, chacun rattaché à une semaine
 -- précise (1 à 4) de sa période. Fixés INDÉPENDAMMENT par l'utilisateur — ce
 -- projet ne génère jamais leur texte à partir du grand objectif.
+--
+-- assignedUserId (14 septembre 2026, demande d'Emilien) : un objectif
+-- hebdomadaire peut être confié à UN membre de l'activité, pour répartir le
+-- travail par personne à travers les 3 catégories. Le grand objectif de
+-- période, lui, reste collectif (pas de colonne d'assignation sur
+-- goal_periods) — même principe que Sous-projets : le plan appartient à
+-- l'activité, seules ses tâches se répartissent.
 --
 -- Report automatique (12 septembre 2026) : un objectif non atteint à la fin
 -- de sa semaine se déplace vers la semaine suivante plutôt que de simplement
 -- disparaître. carriedOverFromId/carriedToId tracent ce déplacement dans les
 -- deux sens plutôt qu'une mutation en place, pour que l'historique du bilan
 -- reste lisible (l'ancien objectif reste visible, marqué non atteint, avec
--- un lien vers celui qui le poursuit).
+-- un lien vers celui qui le poursuit). Un objectif reporté garde son
+-- assignedUserId d'origine (copié à la création de la copie reportée).
 CREATE TABLE IF NOT EXISTS goal_weekly (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   periodId INTEGER NOT NULL REFERENCES goal_periods(id) ON DELETE CASCADE,
@@ -814,11 +855,13 @@ CREATE TABLE IF NOT EXISTS goal_weekly (
   estimateSource TEXT,
   estimateConfidence REAL,
   status TEXT,
+  assignedUserId TEXT REFERENCES users(id) ON DELETE SET NULL,
   carriedOverFromId INTEGER REFERENCES goal_weekly(id),
   carriedToId INTEGER REFERENCES goal_weekly(id),
   createdAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_goal_weekly_period ON goal_weekly(periodId, weekIndex);
+CREATE INDEX IF NOT EXISTS idx_goal_weekly_assignee ON goal_weekly(assignedUserId);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================
@@ -833,6 +876,18 @@ function tableExists(table) {
 }
 function genToken() {
   return crypto.randomBytes(9).toString('base64url');
+}
+
+// Filet de sécurité résiduel pour le passage aux 3 catégories du volet
+// Objectifs (voir migrateGoalsCategorySchema() tout en haut du fichier, qui
+// fait le vrai travail de reset AVANT le gros bloc CREATE TABLE/INDEX) : si
+// jamais goal_weekly existe déjà au nouveau schéma (colonne category
+// présente) mais sans assignedUserId — ne devrait pas arriver en pratique,
+// les deux colonnes étant pousées ensemble — on l'ajoute proprement plutôt
+// que de planter.
+if (tableExists('goal_weekly') && !columnExists('goal_weekly', 'assignedUserId')) {
+  db.exec('ALTER TABLE goal_weekly ADD COLUMN assignedUserId TEXT REFERENCES users(id) ON DELETE SET NULL');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_goal_weekly_assignee ON goal_weekly(assignedUserId)');
 }
 
 if (!columnExists('users', 'pin')) {
