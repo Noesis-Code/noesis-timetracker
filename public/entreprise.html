@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Espace entreprise — TimeTracker</title>
+<meta name="description" content="Gestion des horaires d'entreprise — TimeTracker.">
+<link rel="stylesheet" href="/styles.css">
+<!-- TimeTracker Entreprise — Module Horaires (Jacopo), écran gestionnaire.
+     Page volontairement SÉPARÉE de index.html/app.js (l'app personnelle) :
+     un gestionnaire d'entreprise cliente (ex. Jacopo) n'est pas forcément un
+     utilisateur de TimeTracker à titre personnel (cadrage du 12-13 septembre
+     2026, voir noesis-timetracker-entreprise-jacopo-horaires.md) — il n'a
+     donc aucune raison de passer par les 5 onglets de l'app personnelle.
+     Réutilise styles.css (variables de couleur, .btn/.iconBtn/.msg, styles
+     de formulaire) pour rester visuellement cohérente, sans toucher à
+     app.js/index.html : risque zéro de régression sur l'app existante.
+     Authentification : même système de session que le reste de TimeTracker
+     (cookie posé par server/lib/session.js) — voir entreprise.js pour la
+     vérification au chargement. -->
+<style>
+  /* Styles propres à cette page uniquement — le reste (boutons, champs,
+     couleurs) vient de styles.css pour rester cohérent avec le reste de
+     TimeTracker. */
+  body { margin: 0; padding: 16px; padding-bottom: 48px; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    max-width: 900px; margin-left: auto; margin-right: auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .entHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .entHeaderMeta { font-size: 13px; color: var(--text-light); }
+  .card { background: var(--card); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-card); margin-bottom: 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > * { margin: 0; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .tabBtn { background: none; border: none; padding: 10px 14px; font-size: 14px; color: var(--text-light); cursor: pointer; border-bottom: 2px solid transparent; }
+  .tabBtn.active { color: var(--text); border-bottom-color: var(--purple); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-light); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--track-bg); color: var(--text); }
+  .pill.ok { background: rgba(76,175,80,0.18); color: var(--green); }
+  .pill.warn { background: rgba(231,76,60,0.15); color: var(--red); }
+  .banner { padding: 12px 14px; border-radius: var(--radius-md); background: rgba(231,76,60,0.12); color: var(--text); font-size: 14px; margin-bottom: 16px; }
+  .banner.info { background: rgba(52,152,219,0.12); }
+  .dayCol { background: var(--card); border-radius: var(--radius-md); padding: 10px; margin-bottom: 10px; }
+  .dayColHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .dayColHead strong { font-size: 13px; }
+  .shiftRow { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .shiftRow:last-child { border-bottom: none; }
+  .shiftAdd { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .shiftAdd select, .shiftAdd input { padding: 6px; font-size: 13px; width: auto; }
+  .smallBtn { padding: 6px 10px; font-size: 12px; }
+  .linkBtn { background: none; border: none; color: var(--blue); cursor: pointer; padding: 0; font-size: 13px; }
+  .hidden { display: none !important; }
+  a.btn { text-decoration: none; display: inline-block; text-align: center; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+  input[type=text], input[type=number], input[type=date], input[type=time] { width: 100%; }
+  form.inlineForm { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+  form.inlineForm > div { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-light); }
+  form.inlineForm input { min-width: 120px; }
+</style>
+</head>
+<body>
+
+<div id="gate" class="card">
+  <p id="gateMsg">Vérification de ta session…</p>
+</div>
+
+<div id="app" class="hidden">
+
+  <div class="entHeader">
+    <div>
+      <h1 id="entName">Espace entreprise</h1>
+      <div class="entHeaderMeta" id="entMeta"></div>
+    </div>
+    <div class="row">
+      <select id="enterpriseSwitch" class="hidden"></select>
+      <button type="button" id="logoutLink" class="linkBtn">Retour à TimeTracker</button>
+    </div>
+  </div>
+
+  <div id="subBanner" class="banner hidden"></div>
+
+  <!-- Aucune entreprise : création libre-service (cadrage 12-13 sept. 2026) -->
+  <div id="createEnterpriseCard" class="card hidden">
+    <h2>Créer ton entreprise</h2>
+    <p class="msg">Tu deviens automatiquement gestionnaire principal.</p>
+    <form id="createEnterpriseForm" class="inlineForm">
+      <div style="flex:1; min-width:200px;">
+        <label for="newEnterpriseName">Nom de l'entreprise</label>
+        <input type="text" id="newEnterpriseName" maxlength="120" required>
+      </div>
+      <button type="submit" class="btn btn-primary smallBtn">Créer</button>
+    </form>
+    <p id="createEnterpriseMsg" class="msg"></p>
+  </div>
+
+  <div id="dashboard" class="hidden">
+    <div class="tabs">
+      <button type="button" class="tabBtn active" data-tab="managers">Gestionnaires</button>
+      <button type="button" class="tabBtn" data-tab="employees">Employés</button>
+      <button type="button" class="tabBtn" data-tab="schedules">Horaires</button>
+    </div>
+
+    <!-- ===== Gestionnaires ===== -->
+    <section id="tabManagers" class="tabPane card">
+      <h2>Gestionnaires</h2>
+      <table>
+        <thead><tr><th>Nom</th><th>Rôle</th><th>Permissions</th><th></th></tr></thead>
+        <tbody id="managersBody"></tbody>
+      </table>
+      <div id="addManagerBlock" class="hidden" style="margin-top:16px;">
+        <h2 style="font-size:14px;">Ajouter un gestionnaire secondaire</h2>
+        <p class="msg">La personne doit déjà avoir un profil TimeTracker (nom exact).</p>
+        <form id="addManagerForm" class="inlineForm">
+          <div style="flex:1; min-width:160px;">
+            <label for="newManagerName">Nom du profil</label>
+            <input type="text" id="newManagerName" required>
+          </div>
+          <label class="checkLabel"><input type="checkbox" id="permSchedules"> <span>Gérer les horaires</span></label>
+          <label class="checkLabel"><input type="checkbox" id="permExport"> <span>Exporter</span></label>
+          <label class="checkLabel"><input type="checkbox" id="permEmployees"> <span>Gérer les employés</span></label>
+          <label class="checkLabel"><input type="checkbox" id="permLaborCost"> <span>Voir le coût</span></label>
+          <button type="submit" class="btn btn-primary smallBtn">Ajouter</button>
+        </form>
+        <p id="addManagerMsg" class="msg"></p>
+      </div>
+    </section>
+
+    <!-- ===== Employés ===== -->
+    <section id="tabEmployees" class="tabPane card hidden">
+      <h2>Employés</h2>
+      <div id="employeesLocked" class="banner hidden"></div>
+      <div id="employeesContent" class="hidden">
+        <label class="checkLabel" style="margin-bottom:10px; display:inline-flex;">
+          <input type="checkbox" id="showInactiveEmployees"> <span>Afficher les employés inactifs</span>
+        </label>
+        <table>
+          <thead><tr><th>Nom</th><th>Poste</th><th>Niveau</th><th>Taux horaire</th><th>Actif</th><th></th></tr></thead>
+          <tbody id="employeesBody"></tbody>
+        </table>
+        <div id="addEmployeeBlock" class="hidden" style="margin-top:16px;">
+          <h2 style="font-size:14px;">Ajouter un employé</h2>
+          <form id="addEmployeeForm" class="inlineForm">
+            <div><label for="newEmpName">Nom</label><input type="text" id="newEmpName" required></div>
+            <div><label for="newEmpPosition">Poste</label><input type="text" id="newEmpPosition"></div>
+            <div><label for="newEmpLevel">Niveau</label><input type="text" id="newEmpLevel"></div>
+            <div><label for="newEmpRate">Taux horaire ($)</label><input type="number" id="newEmpRate" min="0" step="0.01"></div>
+            <button type="submit" class="btn btn-primary smallBtn">Ajouter</button>
+          </form>
+          <p id="addEmployeeMsg" class="msg"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Horaires ===== -->
+    <section id="tabSchedules" class="tabPane card hidden">
+      <h2>Horaires</h2>
+      <div id="schedulesLocked" class="banner hidden"></div>
+      <div id="schedulesContent" class="hidden">
+        <div class="row" style="margin-bottom:16px;">
+          <div>
+            <label for="weekPicker" style="font-size:12px; color:var(--text-light); display:block;">Choisir une semaine</label>
+            <input type="date" id="weekPicker">
+          </div>
+          <span id="weekRangeLabel" class="entHeaderMeta"></span>
+        </div>
+
+        <div id="scheduleBox" class="hidden">
+          <div class="row" style="justify-content: space-between; margin-bottom:12px;">
+            <span id="scheduleStatus" class="pill"></span>
+            <div class="row">
+              <span id="laborCostLabel" class="entHeaderMeta hidden"></span>
+              <a id="exportLink" href="#" class="btn btn-primary smallBtn hidden">Exporter en CSV</a>
+            </div>
+          </div>
+          <div id="daysGrid"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="/entreprise.js"></script>
+</body>
+</html>
