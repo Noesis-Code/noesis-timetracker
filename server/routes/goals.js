@@ -182,4 +182,30 @@ router.put('/activities/:id/goals/weekly/:weeklyId/assignee', (req, res) => {
   }
 });
 
+// 14 septembre 2026 — remplace la liste complète des membres travaillant sur
+// l'objectif périodique (ex-« grand objectif ») d'une période. Contrairement
+// à l'assignation hebdomadaire ci-dessus (une seule personne), plusieurs
+// membres peuvent être cochés à la fois : le client envoie toujours la liste
+// entière (userIds), pas un ajout/retrait unitaire.
+router.put('/activities/:id/goals/periods/:periodNumber/assignees', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const periodNumber = Number(req.params.periodNumber);
+  if (!periodNumber || periodNumber < 1) return res.status(400).json({ error: 'Période invalide.' });
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  const userIds = Array.isArray(req.body.userIds) ? req.body.userIds : [];
+
+  try {
+    const category = resolveCategory(req.body.category);
+    const assignees = goals.setPeriodAssignees(activityId, category, periodNumber, userIds);
+    res.json({ ok: true, assignees });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 module.exports = router;

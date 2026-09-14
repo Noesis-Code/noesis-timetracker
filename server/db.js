@@ -862,6 +862,20 @@ CREATE TABLE IF NOT EXISTS goal_weekly (
 );
 CREATE INDEX IF NOT EXISTS idx_goal_weekly_period ON goal_weekly(periodId, weekIndex);
 CREATE INDEX IF NOT EXISTS idx_goal_weekly_assignee ON goal_weekly(assignedUserId);
+
+-- 14 septembre 2026 (troisième passage, demande d'Emilien) : plusieurs
+-- membres de l'activité peuvent travailler sur un même objectif périodique
+-- (ex-« grand objectif ») — contrairement à l'objectif hebdomadaire, qui
+-- reste à UN SEUL assigné (assignedUserId ci-dessus). D'où une table de
+-- jointure plutôt qu'une colonne : table neuve, jamais présente dans un
+-- schéma antérieur, donc CREATE TABLE IF NOT EXISTS suffit ici (pas besoin
+-- de passer par migrateGoalsCategorySchema()).
+CREATE TABLE IF NOT EXISTS goal_period_assignees (
+  periodId INTEGER NOT NULL REFERENCES goal_periods(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  PRIMARY KEY (periodId, userId)
+);
+CREATE INDEX IF NOT EXISTS idx_goal_period_assignees_period ON goal_period_assignees(periodId);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================

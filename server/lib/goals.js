@@ -393,7 +393,7 @@ function buildBilanText(activityName, category, period, weeklies) {
   const categoryLabel = CATEGORY_LABELS[category] || category;
   lines.push('📊 Bilan automatique — ' + categoryLabel + ' — Période ' + period.periodIndexInCycle + ' (' + period.startDate + ' – ' + period.endDate + ')');
   if (period.mainGoalText) {
-    lines.push('Grand objectif : « ' + period.mainGoalText + ' » — ' + statusLabel(period.mainGoalStatus));
+    lines.push('Objectif périodique : « ' + period.mainGoalText + ' » — ' + statusLabel(period.mainGoalStatus));
   }
   lines.push(doneCount + ' objectif(s) hebdomadaire(s) sur ' + weeklies.length + ' atteint(s).');
   if (estH != null) {
@@ -498,6 +498,7 @@ function planningForActivity(activityId, category) {
       return {
         ...p,
         weeklies,
+        assignees: periodAssigneesFor(p.id),
         actualMinutes,
         accuracy: accuracyScore(p.mainGoalEstimateMinutes, actualMinutes),
         isCurrent: p.periodNumber === currentPeriodNumber,
@@ -608,6 +609,46 @@ function setWeeklyAssignee(activityId, weeklyId, userId) {
 }
 
 // ---------------------------------------------------------------------------
+// Assignation de l'objectif périodique (ex-« grand objectif ») — 14 septembre
+// 2026, troisième passage, demande d'Emilien : contrairement à l'objectif
+// hebdomadaire (UN SEUL assigné, ci-dessus), PLUSIEURS membres de l'activité
+// peuvent travailler sur un même objectif périodique. Remplace toujours la
+// liste complète (plus simple côté client : une case à cocher par membre)
+// plutôt que d'ajouter/retirer un par un.
+function periodAssigneesFor(periodId) {
+  return db.prepare(`
+    SELECT u.id AS id, u.name AS name, m.color AS color
+    FROM goal_period_assignees a
+    JOIN users u ON u.id = a.userId
+    JOIN goal_periods p ON p.id = a.periodId
+    JOIN activity_members m ON m.activityId = p.activityId AND m.userId = a.userId
+    WHERE a.periodId = ?
+    ORDER BY m.position, m.joinedAt
+  `).all(periodId);
+}
+
+function setPeriodAssignees(activityId, category, periodNumber, userIds) {
+  assertCategory(category);
+  const plan = ensurePlan(activityId, category);
+  ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
+  const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
+    .get(activityId, category, periodNumber);
+
+  const ids = Array.isArray(userIds) ? userIds : [];
+  const cleanIds = [...new Set(ids.map((id) => String(id)))];
+  cleanIds.forEach((userId) => {
+    const member = db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId);
+    if (!member) throw Object.assign(new Error("Ce membre n'appartient pas à cette activité."), { statusCode: 400 });
+  });
+
+  db.prepare('DELETE FROM goal_period_assignees WHERE periodId = ?').run(period.id);
+  const insert = db.prepare('INSERT INTO goal_period_assignees (periodId, userId) VALUES (?, ?)');
+  cleanIds.forEach((userId) => insert.run(period.id, userId));
+
+  return periodAssigneesFor(period.id);
+}
+
+// ---------------------------------------------------------------------------
 // Balayage global — ENVOI AUTOMATIQUE du bilan (décision d'Emilien, 12
 // septembre 2026) : ne doit pas dépendre de l'ouverture de l'app par
 // quelqu'un. Même principe que server/lib/duereminders.js (minuteur démarré
@@ -674,6 +715,8 @@ module.exports = {
   setWeekly,
   setWeeklyStatus,
   setWeeklyAssignee,
+  periodAssigneesFor,
+  setPeriodAssignees,
   runGoalsSweepAll,
   startGoalsSweep,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
