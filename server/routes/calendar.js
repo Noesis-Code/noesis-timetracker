@@ -102,6 +102,27 @@ router.get('/activities/:id/goals-days', (req, res) => {
   }
 });
 
+// Tâche du jour (15 septembre 2026, discussion "Objectifs — D") : ajoute une
+// tâche pour un jour précis d'une période, voir feed.createDayTask() pour la
+// logique complète (sous-projet "catégorie" auto-créé, interaction avec le
+// moteur d'auto-planification Offre1 de C).
+router.post('/activities/:id/goals-days/task', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const category = typeof req.body.category === 'string' ? req.body.category : '';
+  const isoDate = typeof req.body.isoDate === 'string' ? req.body.isoDate : '';
+  const label = typeof req.body.label === 'string' ? req.body.label : '';
+
+  try {
+    res.status(201).json(feed.createDayTask(userId, activityId, category, isoDate, label));
+  } catch (err) {
+    if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+    console.error('[calendar]', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 // ----- Le flux lui-même -----
 //
 // Le suffixe '.ics' n'est pas décoratif : plusieurs lecteurs (Apple en tête)

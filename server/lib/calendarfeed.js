@@ -26,8 +26,19 @@
 
 const crypto = require('crypto');
 const db = require('../db');
-const { subProjectsForActivity } = require('./subprojects');
+const subprojects = require('./subprojects');
+const { subProjectsForActivity } = subprojects;
 const { buildCalendar } = require('./ical');
+// Chantier Objectifs — D (tâche du jour, 15 septembre 2026) : requis
+// uniquement pour valider une catégorie contre les catégories réelles de
+// l'activité (isValidCategoryForActivity/categoriesForActivity) et déclencher
+// le moteur d'auto-planification après création d'une tâche — même précédent
+// que server/lib/subprojects.js (chantier C), qui importe déjà goals.js pour
+// la même raison. Le contrat "jamais le texte d'un objectif" plus haut ne
+// concerne que le flux .ics lu par un tiers ; ceci reste une écriture
+// authentifiée par session, jamais exposée au flux .ics.
+const goals = require('./goals');
+const goalsauto = require('./goalsauto');
 
 // ===================== L'INTERRUPTEUR SERVEUR =====================
 // Lu à chaque appel plutôt que mis en cache au démarrage : c'est une garde de
@@ -247,13 +258,13 @@ function buildFeedForUser(userId, now) {
 // reste de ce volet : cette fonction ne renvoie QUE des minutes agrégées par
 // jour, jamais le texte d'un objectif.
 //
-// ⚠️ PAS D'IMPORT DE server/lib/goals.js, à dessein — même contrat que
-// goalPeriodEventsForUser() ci-dessus : goals.js appartient aux discussions
-// B/C (Catégories & Offre1 / Logique métier), ce fichier à D. Le contrôle
-// d'accès (assertActivityMember) est donc une copie volontaire, à
+// ⚠️ Le contrôle d'accès (assertActivityMember) reste une copie volontaire, à
 // l'identique, de requireMembership() dans server/routes/goals.js plutôt
-// qu'un import de ce fichier-là non plus.
-const GOAL_CATEGORIES = new Set(['entreprise', 'communaute', 'produit']);
+// qu'un import de ce fichier-là — seule la validation de catégorie importe
+// désormais goals.js (voir le require en tête de fichier), pour rester
+// correcte sur une activité aux catégories personnalisées (chantier Objectifs
+// — B, 15 septembre 2026) : un Set figé aux 3 catégories historiques
+// rejetterait à tort toute catégorie personnalisée valide.
 
 function assertActivityMember(userId, activityId) {
   const activity = db.prepare('SELECT id FROM activities WHERE id = ?').get(activityId);
@@ -277,9 +288,31 @@ function todayLocalDay() {
 // hypothèse remise en cause : elle évite une boucle infinie si jamais
 // startDate/endDate étaient un jour incohérents, sans dépendre d'une
 // constante partagée avec goals.js.
+// Tâches du jour déjà créées (voir createDayTask ci-dessous) pour une
+// (activité, catégorie), groupées par dueDate — utilisé UNIQUEMENT pour
+// peupler la vue calendrier d'une période, jamais le flux .ics. Traverse
+// sub_projects/sub_project_items directement (comme goalPeriodEventsForUser
+// plus haut vis-à-vis de goal_periods) plutôt que d'ajouter une fonction dans
+// subprojects.js qui n'a pas de raison de connaître dueDate.
+function dayTasksByDate(activityId, category, startDate, endDate) {
+  const rows = db.prepare(`
+    SELECT i.id, i.label, i.done, i.dueDate
+    FROM sub_project_items i
+    JOIN sub_projects sp ON sp.id = i.subProjectId
+    WHERE sp.activityId = ? AND sp.goalCategory = ? AND i.dueDate BETWEEN ? AND ?
+    ORDER BY i.position ASC, i.id ASC
+  `).all(activityId, category, startDate, endDate);
+  const byDate = {};
+  rows.forEach((r) => {
+    if (!byDate[r.dueDate]) byDate[r.dueDate] = [];
+    byDate[r.dueDate].push({ id: r.id, label: r.label, done: !!r.done });
+  });
+  return byDate;
+}
+
 function periodDaysForUser(userId, activityId, category, periodNumber) {
   assertActivityMember(userId, activityId);
-  if (!GOAL_CATEGORIES.has(category)) {
+  if (!goals.isValidCategoryForActivity(activityId, category)) {
     throw Object.assign(new Error('Catégorie invalide.'), { statusCode: 400 });
   }
   const period = db.prepare(`
@@ -296,6 +329,7 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
   `).all(activityId, period.startDate, period.endDate);
   const secondsByDay = {};
   rows.forEach((r) => { secondsByDay[r.isoDate] = r.seconds; });
+  const tasksByDay = dayTasksByDate(activityId, category, period.startDate, period.endDate);
 
   const today = todayLocalDay();
   const days = [];
@@ -309,6 +343,7 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
       weekIndex: weekIndex,
       actualMinutes: Math.round((secondsByDay[cursor] || 0) / 60),
       isToday: cursor === today,
+      tasks: tasksByDay[cursor] || [],
     });
     dayInWeek += 1;
     if (dayInWeek === 7) { dayInWeek = 0; weekIndex += 1; }
@@ -317,6 +352,102 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
   }
 
   return { periodId: period.id, startDate: period.startDate, endDate: period.endDate, days };
+}
+
+// ===================== TÂCHE DU JOUR (15 septembre 2026, discussion
+// "Objectifs — D") =====================
+// Demande d'Emilien : « lorsqu'on clique sur une journée, [...] ajouter la
+// tâche à réaliser sur celle-ci [...] transmise [...] dans la section
+// sous-projet de la fenêtre activité, sous la catégorie appropriée ». Cadré
+// avec Emilien : (1) réutilise sub_projects.goalCategory déjà posé par le
+// chantier C plutôt qu'un champ dédié ; (2) la tâche doit pouvoir être reprise
+// par le moteur d'auto-planification Offre1 de C si l'activité l'a activé —
+// d'où plannedUserId = l'auteur de la tâche, et l'appel à
+// goalsauto.onSubProjectItemChanged() en toute fin, exactement comme le fait
+// déjà server/routes/subprojects.js pour une tâche créée via le formulaire
+// classique.
+//
+// Le flux .ics (eventsForUser ci-dessus) N'EST PAS étendu à ces tâches : il
+// reste sur sa minimisation d'origine (nom du sous-projet, pas des tâches).
+// Un abonné Apple/Google voit donc déjà la catégorie ("Entreprise", etc.) au
+// prochain rafraîchissement du flux existant dès que le sous-projet porte une
+// échéance — la tâche elle-même n'a pas de date de clôture propre à exposer.
+
+// Sous-projet "catégorie" : le premier sous-projet ouvert de l'activité déjà
+// rattaché à cette catégorie (créé par ce flux ou posé manuellement via
+// PUT /api/sub-projects/:id, chantier C), sinon un nouveau, nommé d'après le
+// libellé de la catégorie. Requête directe plutôt qu'un ajout de fonction
+// dans subprojects.js : lecture étroite, à usage unique, qui n'a pas sa place
+// dans son contrat public.
+function findCategorySubProjectId(activityId, category) {
+  const row = db.prepare(`
+    SELECT sp.id FROM sub_projects sp
+    WHERE sp.activityId = ? AND sp.goalCategory = ?
+      AND (sp.closesAt IS NULL OR sp.closesAt >= date('now','localtime'))
+    ORDER BY sp.position ASC, sp.id ASC
+    LIMIT 1
+  `).get(activityId, category);
+  return row ? row.id : null;
+}
+
+function categoryLabel(activityId, category) {
+  const active = goals.categoriesForActivity(activityId) || [];
+  const found = active.find((c) => c.key === category);
+  return found ? found.label : category;
+}
+
+function findOrCreateCategorySubProject(activityId, userId, category) {
+  const existingId = findCategorySubProjectId(activityId, category);
+  if (existingId) return subprojects.getSubProject(existingId);
+
+  const created = subprojects.createSubProject(activityId, userId, categoryLabel(activityId, category), '', null);
+  return subprojects.updateSubProject(created.id, { goalCategory: category });
+}
+
+// Un sous-projet neuf n'a aucune section (choix d'Emilien, voir
+// subprojects.js) : la première tâche du jour en ouvre une, les suivantes la
+// réutilisent.
+function ensureTasksSection(subProjectId, userId) {
+  const existing = db.prepare(`
+    SELECT id, subProjectId FROM sub_project_sections
+    WHERE subProjectId = ? AND kind = 'tasks'
+    ORDER BY position ASC, id ASC LIMIT 1
+  `).get(subProjectId);
+  if (existing) return existing;
+  return subprojects.createSection(subProjectId, userId, 'tasks', '');
+}
+
+function createDayTask(userId, activityId, category, isoDate, label) {
+  assertActivityMember(userId, activityId);
+  if (!goals.isValidCategoryForActivity(activityId, category)) {
+    throw Object.assign(new Error('Catégorie invalide.'), { statusCode: 400 });
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) {
+    throw Object.assign(new Error('Date invalide.'), { statusCode: 400 });
+  }
+  const clean = typeof label === 'string' ? label.trim() : '';
+  if (!clean) throw Object.assign(new Error('Intitulé de la tâche requis.'), { statusCode: 400 });
+  if (clean.length > 300) throw Object.assign(new Error('Intitulé trop long (300 caractères maximum).'), { statusCode: 400 });
+
+  const subProject = findOrCreateCategorySubProject(activityId, userId, category);
+  const section = ensureTasksSection(subProject.id, userId);
+  const item = subprojects.createItem(section, clean, { dueDate: isoDate, plannedUserId: userId });
+
+  // Interaction demandée par Emilien avec le moteur Offre1 de C : si actif
+  // sur cette activité/catégorie, cette tâche fraîchement créée (déjà
+  // plannedUserId = userId ci-dessus) peut être reprise dans le prochain
+  // objectif hebdomadaire composé automatiquement — jamais bloquant.
+  const auto = goalsauto.onSubProjectItemChanged(activityId, category);
+
+  return {
+    id: item.id,
+    label: item.label,
+    done: item.done,
+    dueDate: item.dueDate,
+    subProjectId: subProject.id,
+    subProjectName: subProject.name,
+    autoPlanned: auto.processed > 0,
+  };
 }
 
 module.exports = {
@@ -332,4 +463,5 @@ module.exports = {
   eventsForUser,
   buildFeedForUser,
   periodDaysForUser,
+  createDayTask,
 };

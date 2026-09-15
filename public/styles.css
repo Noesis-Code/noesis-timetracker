@@ -3952,6 +3952,71 @@ button { -webkit-user-select: none; user-select: none; }
 /* Déjà clôturé : visible seulement via « afficher les sous-projets clôturés ». */
 .subProjectDue.closed { opacity: 0.55; }
 
+/* ===== Lien Sous-projets → Objectifs (15 septembre 2026, chantier Objectifs
+   — C : moteur d'auto-planification, gratuit, jamais gaté — voir
+   server/lib/goalsauto.js et noesis-timetracker-offre1-definition.md pour la
+   distinction avec la « vraie » Offre 1, chantier séparé porté par A).
+   Mêmes conventions visuelles que .subProjectDue / .subProjectDueEditor
+   juste au-dessus : un bouton-pastille dans l'en-tête, un éditeur en ligne
+   entière plus bas s'il est ouvert. */
+.subProjectGoalCategoryBtn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.subProjectGoalCategoryBtn.unset {
+  border-style: dashed;
+  color: var(--text-light);
+}
+.subProjectGoalCategoryEditor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.subProjectGoalCategorySelect {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--card);
+  color: var(--text);
+}
+.subProjectGoalCategoryActions { flex: 1 1 100%; }
+.subProjectGoalCategoryHint { flex: 1 1 100%; margin: 0; }
+
+/* Membre prévu pour une tâche (même volet) : petit sélecteur discret dans la
+   ligne de la tâche, visible seulement quand son sous-projet est rattaché à
+   une catégorie Objectifs. */
+.subProjectItemPlannedSelect {
+  flex: 0 0 auto;
+  max-width: 112px;
+  font-size: 11px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text-light);
+}
+.subProjectItemAutoBadge {
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
 /* ---- Éditeur de la date de clôture (4 septembre 2026)
    Une ligne entière sous l'en-tête plutôt qu'un panneau flottant : rien à
    positionner dans un conteneur qui défile ET qui colle. */
@@ -4201,6 +4266,56 @@ button { -webkit-user-select: none; user-select: none; }
 .goalsCalendarMinutes { flex-shrink: 0; width: 48px; text-align: right; color: var(--text); font-weight: 600; }
 .goalsCalendarMinutes.empty { color: var(--text-light); font-weight: 400; }
 
+/* ===== Fusion calendrier ↔ objectifs hebdo / tâche du jour, 15 septembre
+   2026 (soir, discussion "Objectifs — D") : demande d'Emilien — les 4 cartes
+   hebdo restent un mécanisme à part (renderGoalsWeeklyList, inchangé) mais ne
+   s'affichent plus en continu ; le dernier jour de chaque semaine les ouvre
+   ici (.goalsWeekEditorWrap). Chaque jour permet aussi d'ajouter une tâche
+   ponctuelle, transmise à Sous-projets (server/lib/calendarfeed.js). */
+.goalsWeekEditorWrap { margin-bottom: 14px; }
+.goalsWeekEditorHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.goalsWeekEditorHead .goalsWeeklyLabel { margin: 0; }
+.goalsWeekEditorCloseBtn {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; line-height: 1; color: var(--text-light);
+}
+
+.goalsCalendarWeekBadge.clickable { cursor: pointer; color: var(--purple); background: rgba(var(--purple-rgb), 0.14); }
+.goalsCalendarWeekBadge.clickable:hover { background: rgba(var(--purple-rgb), 0.22); }
+.goalsCalendarRow.weekEnd { border-bottom: 1px dashed var(--border); }
+
+.goalsCalendarAddTaskBtn {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; line-height: 1; color: var(--text-light);
+  background: var(--track-bg);
+}
+.goalsCalendarAddTaskBtn:hover { color: var(--text); background: var(--border); }
+
+.goalsCalendarTaskAdd {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px 6px 28px; background: var(--card);
+}
+.goalsCalendarTaskAdd input {
+  flex: 1; min-width: 0; font-size: 13px; padding: 5px 8px;
+}
+.goalsCalendarTaskAdd .msg { flex-basis: 100%; margin: 0; }
+
+.goalsCalendarTaskRow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px 5px 28px; background: var(--card); font-size: 12.5px;
+}
+.goalsCalendarTaskCheck {
+  flex-shrink: 0; width: 18px; height: 18px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--card);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--green); line-height: 1;
+}
+.goalsCalendarTaskRow.done .goalsCalendarTaskCheck { background: rgba(76, 175, 80, 0.18); border-color: var(--green); }
+.goalsCalendarTaskLabel { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
+.goalsCalendarTaskRow.done .goalsCalendarTaskLabel { color: var(--text-light); text-decoration: line-through; }
+
 /* ===== Volet Objectifs — devenu un onglet à part entière, 13 septembre 2026 =====
    Emilien est revenu sur l'emplacement du 12 septembre (section dans la page
    d'activité) : Objectifs vit désormais dans #tab-goals, au même niveau que
@@ -4209,6 +4324,12 @@ button { -webkit-user-select: none; user-select: none; }
    le CSS de la carte de période/semaines ci-dessus (.goalCard, etc.) est
    réutilisé sans changement ; il ne manquait qu'un habillage pour le nouveau
    sélecteur d'activité par balayage. */
+/* 15 septembre 2026 (7e passage, demande d'Emilien — « retirer complètement
+   le titre ») : le bandeau de titre "Objectifs" (.sectionTitleRow) est
+   retiré, pas seulement réduit — le nom de l'activité (.goalsActivityHeader)
+   remonte directement en haut de l'onglet ; ce padding-top réduit compense
+   l'espace laissé par le titre disparu sans coller le nom au bord de l'écran. */
+#tab-goals { padding-top: 6px; }
 .goalsActivitySwitcher { display: flex; flex-direction: column; gap: 14px; }
 /* .goalsActivityHeader réutilise le gabarit visuel de .activityPageHeader
    (pastille + nom, même taille de police) mais neutralise ici son padding
@@ -4246,63 +4367,13 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .goalsSwipeBtn { flex-shrink: 0; }
 
-/* ===== Bascule Arbre / Répartition, page 1 d'Objectifs =====
-   14 septembre 2026 (troisième passage, demande d'Emilien) : les onglets de
-   catégorie (.goalsCategoryTabs, qui vivaient ici) sont retirés — les 3
-   catégories sont désormais TOUJOURS TOUTES LES TROIS visibles ensemble
-   dans une grille comparative (#goalsGrid plus bas) plutôt que choisies une
-   à la fois par onglet. Seule cette bascule Arbre/Répartition subsiste. */
-.goalsViewToggle {
-  display: flex; gap: 6px; padding: 4px;
-  background: var(--track-bg); border-radius: var(--radius-md);
-}
-.goalsViewToggleBtn {
-  flex: 1; padding: 8px 6px; border: none; border-radius: var(--radius-sm, 8px);
-  background: transparent; color: var(--text-light);
-  font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.goalsViewToggleBtn.active {
-  background: var(--card); color: var(--purple); box-shadow: var(--shadow-card);
-}
-
-/* ===== Vue "Répartition" — page 1 d'Objectifs, 14 septembre 2026 =====
-   Demande d'Emilien : « que les différentes tâches à effectuer selon les
-   différentes catégories [...] puissent être visibles et réparties selon
-   les différents membres de l'activité ». Une carte par membre (et une pour
-   "Non assigné" s'il y a des tâches sans responsable), listant les objectifs
-   hebdomadaires EN COURS des 3 catégories qui lui sont assignés — voir
-   renderGoalsDistribution() dans app.js. */
-.goalsDistribution { display: flex; flex-direction: column; gap: 10px; }
-.goalsDistributionMember {
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--card); padding: 12px 14px;
-}
-.goalsDistributionMemberHeader {
-  display: flex; align-items: center; gap: 8px;
-  font-weight: 600; margin-bottom: 8px;
-}
-.goalsDistributionMemberHeader .dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-}
-.goalsDistributionTasks { display: flex; flex-direction: column; gap: 6px; }
-.goalsDistributionTask {
-  display: flex; align-items: baseline; gap: 8px; font-size: 14px;
-}
-.goalsDistributionTaskDone .goalsDistributionTaskText {
-  color: var(--text-light); text-decoration: line-through;
-}
-.goalsDistributionTag {
-  flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 2px 7px;
-  border-radius: 999px; color: #fff; white-space: nowrap;
-}
-/* Une couleur fixe par catégorie, distincte des couleurs de statut
-   (vert/orange/rouge, déjà prises par .goalStatusAtteint etc.) pour ne
-   jamais se confondre avec un état d'avancement. */
-.goalsCategoryTag-entreprise { background: #674ea9; }
-.goalsCategoryTag-communaute { background: #2f9e6a; }
-.goalsCategoryTag-produit { background: #d17d2e; }
-.goalsDistributionTaskText { flex: 1; min-width: 0; }
+/* 15 septembre 2026 (7e passage, demande d'Emilien — « un seul mode : la
+   grille (arbre) ») : la bascule Arbre/Répartition (.goalsViewToggle*) et la
+   vue "Répartition" (.goalsDistribution*, .goalsCategoryTag-*) sont retirées
+   entièrement, pas seulement masquées — #goalsViewToggle et #goalsDistribution
+   n'existent plus dans index.html, et plus aucun code JS ne les référence
+   (renderGoalsViewToggle()/renderGoalsDistribution() supprimées d'app.js).
+   La grille (ex-vue "Arbre") est désormais le seul mode de la page 1. */
 
 /* Assignation d'un objectif hebdomadaire à un membre de l'activité (14
    septembre 2026, demande d'Emilien) — sous le statut, dans chaque carte
@@ -4402,7 +4473,14 @@ button { -webkit-user-select: none; user-select: none; }
   border: 2px solid var(--track-bg); border-radius: var(--radius-md);
   background: var(--card); box-shadow: var(--shadow-card);
 }
-.goalsGridCell--filled.current { border-color: var(--purple); }
+/* 15 septembre 2026 (7e passage) : une catégorie personnalisée applique sa
+   couleur en style INLINE (cell.style.borderColor, voir renderGoalsGrid()
+   dans app.js — bordure jamais un aplat, demande explicite d'Emilien), ce
+   qui prend le pas sur border-color: var(--purple) ci-dessous pour la
+   période courante. box-shadow (jamais écrasé par ce style inline) prend le
+   relais pour que "current" reste visible même sur une case de couleur
+   personnalisée. */
+.goalsGridCell--filled.current { border-color: var(--purple); box-shadow: 0 0 0 2px var(--purple), var(--shadow-card); }
 .goalsGridCellDot {
   display: inline-block; width: 7px; height: 7px; border-radius: 50%;
   background: var(--track-bg); flex-shrink: 0;
@@ -4434,6 +4512,65 @@ button { -webkit-user-select: none; user-select: none; }
   background: var(--track-bg); opacity: 0.32;
 }
 .goalsGridCell--empty.current { opacity: 0.55; }
+
+/* ===== Gestion des catégories d'objectifs — fenêtre activité, 15 septembre
+   2026 (7e passage, demande d'Emilien : « je souhaite que la fenêtre
+   activité soit les réglages du volet objectif ») =====
+   #activityGoalsCategoriesBlock, dans #activityPage — voir
+   loadActivityGoalsCategories()/renderActivityGoalsCategoriesPanel() dans
+   app.js. Une ligne par catégorie active (1 à MAX_CUSTOM_CATEGORIES) ; les 3
+   catégories fixes historiques (avant personnalisation) réutilisent la même
+   ligne en lecture seule (.activityGoalsCategoryRow--fixed, sans boutons). */
+.activityGoalsCategoriesList {
+  display: flex; flex-direction: column; gap: 8px; margin: 10px 0;
+}
+.activityGoalsCategoryRow {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--card); padding: 8px 10px;
+  position: relative;
+}
+.activityGoalsCategoryRow--fixed { opacity: 0.85; }
+.activityGoalsCategoryReorder {
+  border: none; background: transparent; color: var(--text-light);
+  font-size: 12px; line-height: 1; padding: 4px; cursor: pointer; flex-shrink: 0;
+}
+.activityGoalsCategoryReorder:disabled { opacity: 0.3; cursor: default; }
+.activityGoalsCategoryDot {
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.activityGoalsCategoryNameInput {
+  flex: 1; min-width: 0; font-size: 14px; padding: 6px 8px;
+  border: 1px solid transparent; border-radius: var(--radius-sm, 8px);
+  background: transparent; color: var(--text);
+}
+.activityGoalsCategoryNameInput:focus {
+  border-color: var(--border); background: var(--track-bg);
+}
+.activityGoalsCategoryNameInput--static { padding: 6px 8px; }
+.activityGoalsCategoryColorBtn {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--border); cursor: pointer; padding: 0;
+}
+/* Palette flottante ancrée à droite de la ligne — même motif que les autres
+   menus contextuels ponctuels de ce fichier (position absolute + z-index),
+   au-dessus des lignes voisines de la liste. */
+.activityGoalsCategorySwatches {
+  position: absolute; z-index: 5; top: 100%; right: 8px; margin-top: 4px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-card);
+  padding: 8px;
+}
+.activityGoalsCategoryAddWrap {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 10px 0;
+}
+.activityGoalsCategoryAddWrap input {
+  flex: 1; min-width: 120px; font-size: 14px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
+  background: var(--card); color: var(--text);
+}
 
 /* ===== Rail tactile du bord gauche — remplace la bande de 13 points +
    en-têtes fixes, 15 septembre 2026 (5e passage) =====

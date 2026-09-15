@@ -3989,6 +3989,12 @@
     var stats = $('communityActivityMembersPart');
     var soloStats = $('activitySoloStatsBlock');
     var disc = $('communityDiscussionBlock');
+    // 15 septembre 2026 (demande d'Emilien — « je souhaite que la fenêtre
+    // activité soit les réglages du volet objectif ») : nouvelle section
+    // "gérer mes catégories", disponible que l'activité soit solo ou
+    // partagée (contrairement à stats/disc, jamais conditionnée par
+    // currentActivityIsShared).
+    var goalsCats = $('activityGoalsCategoriesBlock');
     // #subProjectDetail (le sous-projet ouvert) n'a pas besoin d'être traité
     // ici : il est soit DANS une ligne de #subProjectsList, soit sur son ancre
     // — dans les deux cas à l'intérieur de ce qu'on masque ou montre.
@@ -4003,10 +4009,12 @@
     // le contexte de l'autre.
     if (soloStats) soloStats.classList.toggle('hidden', name !== 'stats' || currentActivityIsShared);
     if (disc) disc.classList.toggle('hidden', name !== 'disc' || !currentActivityIsShared);
+    if (goalsCats) goalsCats.classList.toggle('hidden', name !== 'goals');
     // Les données ne sont demandées qu'au moment où la section devient visible :
     // un camembert dessiné dans un bloc masqué n'a aucune dimension (même
     // piège que le défilement du fil et le cadrage du graphique, plus bas).
     if (name === 'stats' && !currentActivityIsShared) loadSoloSubProjectStats();
+    if (name === 'goals') loadActivityGoalsCategories(currentCommunityActivityId);
 
     // ----- Mode conversation (3 septembre 2026, demande d'Emilien) -----
     // « lorsque le clavier n'est pas activé, la zone pour écrire se situe tout
@@ -4115,13 +4123,12 @@
     var showStats = isShared || activityHasSubProjects(a);
     $('activityPageTabStats').classList.toggle('hidden', !showStats);
     $('activityPageTabDisc').classList.toggle('hidden', !isShared);
-    // ⚠️ Sélecteur masqué en entier pour une activité NON partagée sans
-    // sous-projet : elle n'a alors ni statistiques (personne à comparer) ni
-    // fil (personne à qui parler), donc une seule section (Sous-projets) —
-    // un sélecteur à un seul bouton est du bruit (revenu à ce comportement
-    // le 13 septembre 2026, Objectifs n'étant plus une section d'activité —
-    // voir #tab-goals).
-    $('activityPageSectionSwitch').classList.toggle('hidden', !showStats && !isShared);
+    // 15 septembre 2026 (7e passage, demande d'Emilien — « je souhaite que la
+    // fenêtre activité soit les réglages du volet objectif ») : le sélecteur
+    // n'est plus jamais masqué en entier, même pour une activité NON partagée
+    // sans sous-projet — la section "Objectifs" (gérer mes catégories) y est
+    // toujours disponible, contrairement à Statistiques/Discussion qui,
+    // elles, restent conditionnées ci-dessus.
 
     // Une activité partagée sans sous-projet ouvre sur Statistiques : sa
     // section par défaut n'aurait rien à montrer (règle d'Emilien du
@@ -4165,6 +4172,195 @@
     var a = currentActivityRecord();
     if (!a) return;
     openCommunityMembersModal(a.id, a.name, { activity: a, solo: !currentActivityIsShared });
+  });
+
+  // ===================== OBJECTIFS — GESTION DES CATÉGORIES (15 septembre 2026) =====================
+  // « je souhaite que la fenêtre activité soit les réglages du volet
+  // objectif » (Emilien) : ce panneau vit dans #activityPage (nouvelle
+  // section "Objectifs", voir setActivityPageSection ci-dessus et
+  // #activityGoalsCategoriesBlock dans index.html) plutôt que dans #tab-goals
+  // lui-même, qui reste une pure vue de consultation/planification.
+  //
+  // Deux états, cadrés avec Emilien (voir server/lib/goals.js) :
+  //  · NON personnalisée : les 3 catégories fixes historiques, affichées en
+  //    lecture seule + un seul bouton "Personnaliser mes catégories" (table
+  //    rase à l'activation, ne reprend rien des 3 fixes) ;
+  //  · personnalisée : 1 à MAX_CUSTOM_CATEGORIES (5) catégories, chacune
+  //    éditable (nom, couleur) et retirable (jamais la dernière), plus un
+  //    formulaire d'ajout tant que le plafond n'est pas atteint.
+  var currentActivityGoalsCategories = [];
+  var currentActivityGoalsMax = 5;
+
+  function loadActivityGoalsCategories(activityId) {
+    if (!activityId) return;
+    var msg = $('activityGoalsCategoriesMsg');
+    if (msg) msg.textContent = '';
+    api('GET', '/api/activities/' + activityId + '/goals/categories').then(function (data) {
+      // Garde-fou : l'activité affichée a pu changer (fermeture/réouverture
+      // rapide) pendant que cette requête était en vol — même principe que
+      // reloadGoalsAll()/loadActivityDetail() ailleurs dans ce fichier.
+      if (String(activityId) !== String(currentCommunityActivityId)) return;
+      renderActivityGoalsCategoriesPanel(data);
+    }).catch(function (err) {
+      if (msg) msg.textContent = err.message;
+    });
+  }
+
+  // Reconstruit le panneau ET, si la grille de la page 1 (#tab-goals) affiche
+  // actuellement CETTE MÊME activité, rafraîchit ses colonnes — sans ce
+  // second appel, une catégorie ajoutée/renommée/retirée depuis la fenêtre
+  // activité n'apparaîtrait qu'au prochain changement d'activité dans
+  // l'onglet Objectifs.
+  function activityGoalsCategoriesRefresh(activityId) {
+    loadActivityGoalsCategories(activityId);
+    if (String(activityId) === String(currentGoalsActivityId)) reloadGoalsAll();
+  }
+
+  function renderActivityGoalsCategoriesPanel(data) {
+    currentActivityGoalsCategories = data.categories || [];
+    currentActivityGoalsMax = data.maxCategories || 5;
+
+    var activateWrap = $('activityGoalsCategoryActivateWrap');
+    var addWrap = $('activityGoalsCategoryAddWrap');
+    var list = $('activityGoalsCategoriesList');
+    if (activateWrap) activateWrap.classList.toggle('hidden', !!data.customized);
+    if (addWrap) addWrap.classList.toggle('hidden', !data.customized || currentActivityGoalsCategories.length >= currentActivityGoalsMax);
+    if (!list) return;
+
+    list.innerHTML = '';
+    currentActivityGoalsCategories.forEach(function (c, index) {
+      var row = document.createElement('div');
+      row.className = 'activityGoalsCategoryRow' + (c.custom ? '' : ' activityGoalsCategoryRow--fixed');
+
+      if (c.custom) {
+        var upBtn = document.createElement('button');
+        upBtn.type = 'button'; upBtn.className = 'activityGoalsCategoryReorder'; upBtn.textContent = '▲';
+        upBtn.title = t('Monter'); upBtn.setAttribute('aria-label', t('Monter'));
+        upBtn.disabled = index === 0;
+        upBtn.addEventListener('click', function () { moveActivityGoalsCategory(index, -1); });
+        row.appendChild(upBtn);
+
+        var downBtn = document.createElement('button');
+        downBtn.type = 'button'; downBtn.className = 'activityGoalsCategoryReorder'; downBtn.textContent = '▼';
+        downBtn.title = t('Descendre'); downBtn.setAttribute('aria-label', t('Descendre'));
+        downBtn.disabled = index === currentActivityGoalsCategories.length - 1;
+        downBtn.addEventListener('click', function () { moveActivityGoalsCategory(index, 1); });
+        row.appendChild(downBtn);
+      }
+
+      var dot = document.createElement('span');
+      dot.className = 'activityGoalsCategoryDot';
+      dot.style.background = c.color || '#8a8a8a';
+      row.appendChild(dot);
+
+      if (c.custom) {
+        var nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'activityGoalsCategoryNameInput';
+        nameInput.value = c.label;
+        nameInput.maxLength = 40;
+        nameInput.addEventListener('change', function () {
+          var val = nameInput.value.trim();
+          if (!val) { nameInput.value = c.label; return; }
+          renameActivityGoalsCategory(c.key, val, c.color);
+        });
+        row.appendChild(nameInput);
+
+        var swatchBtn = document.createElement('button');
+        swatchBtn.type = 'button';
+        swatchBtn.className = 'activityGoalsCategoryColorBtn';
+        swatchBtn.style.background = c.color;
+        swatchBtn.title = t('Changer la couleur');
+        swatchBtn.setAttribute('aria-label', t('Changer la couleur'));
+        row.appendChild(swatchBtn);
+
+        var swatchesBox = document.createElement('div');
+        swatchesBox.className = 'activityGoalsCategorySwatches hidden';
+        renderColorSwatches(swatchesBox, c.color, function (color) {
+          swatchesBox.classList.add('hidden');
+          if (color !== c.color) renameActivityGoalsCategory(c.key, nameInput.value.trim() || c.label, color);
+        }, true);
+        swatchBtn.addEventListener('click', function () { swatchesBox.classList.toggle('hidden'); });
+        row.appendChild(swatchesBox);
+
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'iconBtn';
+        removeBtn.textContent = '✕';
+        removeBtn.title = t('Retirer cette catégorie');
+        removeBtn.setAttribute('aria-label', t('Retirer cette catégorie'));
+        removeBtn.disabled = currentActivityGoalsCategories.length <= 1;
+        removeBtn.addEventListener('click', function () {
+          if (!confirm(t('Retirer cette catégorie ? Son historique reste consultable mais elle ne recevra plus de nouveaux objectifs.'))) return;
+          removeActivityGoalsCategory(c.key);
+        });
+        row.appendChild(removeBtn);
+      } else {
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'activityGoalsCategoryNameInput activityGoalsCategoryNameInput--static';
+        nameSpan.textContent = t(c.label);
+        row.appendChild(nameSpan);
+      }
+
+      list.appendChild(row);
+    });
+  }
+
+  // Réordonnancement manuel via ▲▼ (même motif que moveProject plus haut :
+  // échange avec le voisin, puis on renvoie la liste ENTIÈRE des clés dans
+  // le nouvel ordre — le serveur réécrit position = index, voir PUT
+  // .../goals/categories-reorder).
+  function moveActivityGoalsCategory(index, direction) {
+    var target = index + direction;
+    if (target < 0 || target >= currentActivityGoalsCategories.length) return;
+    var reordered = currentActivityGoalsCategories.slice();
+    var tmp = reordered[index]; reordered[index] = reordered[target]; reordered[target] = tmp;
+    var keys = reordered.map(function (c) { return c.key; });
+    var activityId = currentCommunityActivityId;
+    api('PUT', '/api/activities/' + activityId + '/goals/categories-reorder', { keys: keys })
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
+  }
+
+  function renameActivityGoalsCategory(key, label, color) {
+    var activityId = currentCommunityActivityId;
+    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + key, { label: label, color: color })
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
+  }
+
+  function removeActivityGoalsCategory(key) {
+    var activityId = currentCommunityActivityId;
+    api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + key)
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
+  }
+
+  $('activityGoalsCategoryActivateBtn').addEventListener('click', function () {
+    var activityId = currentCommunityActivityId;
+    if (!activityId) return;
+    var palette = PALETTES[currentTheme];
+    api('POST', '/api/activities/' + activityId + '/goals/categories/activate', { label: t('Catégorie 1'), color: palette[0] })
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
+  });
+
+  var newActivityGoalsCategoryColor = PALETTES[currentTheme][0];
+  renderColorSwatches($('activityGoalsCategoryAddSwatches'), null, function (color) { newActivityGoalsCategoryColor = color; }, true);
+
+  $('activityGoalsCategoryAddBtn').addEventListener('click', function () {
+    var activityId = currentCommunityActivityId;
+    if (!activityId) return;
+    var input = $('activityGoalsCategoryAddInput');
+    var label = (input.value || '').trim();
+    var msg = $('activityGoalsCategoriesMsg');
+    if (!label) { if (msg) msg.textContent = t('Nom de catégorie requis.'); return; }
+    api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label, color: newActivityGoalsCategoryColor })
+      .then(function () {
+        input.value = '';
+        activityGoalsCategoriesRefresh(activityId);
+      })
+      .catch(function (err) { if (msg) msg.textContent = err.message; });
   });
 
   // Clic sur le fond noir, hors de la carte : referme, comme la page de visite
@@ -4217,16 +4413,39 @@
   // actuellement ouverte sur la PAGE 2 » (détail d'une période précise,
   // choisie en cliquant une cellule de la grille — voir openGoalsDetail()) ;
   // currentGoalsPlanning reste le planning de CETTE seule catégorie, pour
-  // tout ce que la page 2 affiche/édite (inchangé). currentGoalsView bascule
-  // toujours la page 1 entre la grille et la vue "Répartition" (les 3
-  // catégories croisées par membre de l'activité, déjà croisées dans
-  // currentGoalsAllPlannings — plus besoin d'un appel séparé pour cette
-  // vue).
+  // tout ce que la page 2 affiche/édite (inchangé). (La vue "Répartition"
+  // qui bascule ensuite mentionnée ici a depuis été retirée entièrement —
+  // voir le commentaire juste en dessous, 7e passage.)
   var GOALS_CATEGORIES = ['entreprise', 'communaute', 'produit'];
   var GOALS_CATEGORY_LABELS = { entreprise: 'Entreprise', communaute: 'Communauté', produit: 'Produit' };
   var currentGoalsCategory = 'entreprise';
-  var currentGoalsView = 'tree';
   var currentGoalsAllPlannings = null;
+
+  // 15 septembre 2026 (7e passage, discussion Objectifs — B, cadré avec
+  // Emilien par AskUserQuestion : catégories personnalisables par activité) :
+  // GOALS_CATEGORIES/GOALS_CATEGORY_LABELS restent le REPLI pour une
+  // activité qui n'a jamais activé la personnalisation (3 catégories fixes
+  // historiques) — activeGoalsCategories() est désormais la source unique
+  // pour tout rendu (grille, en-tête, page 2), qu'elle renvoie ces 3-ci ou
+  // les 1 à 5 catégories personnalisées de l'activité en cours
+  // (currentGoalsAllPlannings.categories, posé par reloadGoalsAll() à partir
+  // de GET .../goals/all). currentGoalsView/renderGoalsViewToggle()/
+  // renderGoalsDistribution() (vue "Répartition") sont retirés entièrement
+  // (demande d'Emilien : « un seul mode : la grille (arbre) »).
+  function activeGoalsCategories() {
+    if (currentGoalsAllPlannings && currentGoalsAllPlannings.categories) return currentGoalsAllPlannings.categories;
+    return GOALS_CATEGORIES.map(function (k) { return { key: k, label: GOALS_CATEGORY_LABELS[k], color: null, custom: false }; });
+  }
+
+  // Résout le libellé d'une catégorie (fixe OU personnalisée, active OU
+  // gelée) — nécessaire pour openGoalsDetail() : une cellule de la grille
+  // peut renvoyer vers une catégorie qui n'est plus active (frozenCategories)
+  // si l'utilisateur y accède via une notification/un lien ancien.
+  function goalsCategoryLabel(key) {
+    var pools = activeGoalsCategories().concat((currentGoalsAllPlannings && currentGoalsAllPlannings.frozenCategories) || []);
+    for (var i = 0; i < pools.length; i++) { if (pools[i].key === key) return pools[i].label; }
+    return GOALS_CATEGORY_LABELS[key] || key;
+  }
   // 15 septembre 2026 (discussion D — Calendrier & intégrations) : numéro de
   // requête pour le calendrier de la page 2 (garde-fou anti-réponse-en-retard,
   // voir loadGoalsCalendarDays()/closeGoalsDetail() plus bas).
@@ -4325,8 +4544,8 @@
 
   // 14 septembre 2026 (demande d'Emilien) : confie (ou retire, userId null)
   // UN membre de l'activité à cet objectif hebdomadaire, pour que le travail
-  // de chaque catégorie se répartisse visiblement — voir la vue
-  // "Répartition", renderGoalsDistribution() plus bas.
+  // de chaque catégorie soit assigné visiblement (la vue "Répartition" qui
+  // exploitait aussi ce champ a été retirée le 15 septembre 2026, 7e passage).
   function saveWeeklyAssignee(weeklyId, userId) {
     api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/assignee', { userId: userId || null })
       .then(reloadGoalsAll)
@@ -4385,7 +4604,10 @@
   // un défilement manuel jusque-là est sans conséquence, cette valeur ne fait
   // que réserver une marge de sécurité en haut du rail.
   function syncGoalsScrubZoneTopVar() {
-    var toggle = $('goalsViewToggle');
+    // goalsViewToggle (Arbre/Répartition) a été retiré ; goalsGridHead
+    // (l'en-tête de colonnes de la grille) est maintenant le dernier élément
+    // fixe au-dessus de la zone de défilement, donc la même mesure part de lui.
+    var toggle = $('goalsGridHead');
     if (!toggle) return;
     var bottom = toggle.getBoundingClientRect().bottom;
     if (bottom > 0) document.documentElement.style.setProperty('--goals-scrubzone-top', Math.round(bottom + 14) + 'px');
@@ -4393,17 +4615,18 @@
   window.addEventListener('resize', syncGoalsScrubZoneTopVar);
   window.addEventListener('orientationchange', syncGoalsScrubZoneTopVar);
 
-  // Masque le rail tactile hors de la vue Arbre (Répartition, page 2 ouverte)
-  // — appelée par renderGoalsViewToggle()/openGoalsDetail()/
-  // closeGoalsDetail(). Le cas "onglet Objectifs pas actif" et "aucune
-  // activité chargée" sont déjà couverts sans code dédié : #goalsScrubZone
-  // vit À L'INTÉRIEUR de #goalsActivitySwitcher/#tab-goals (voir index.html),
-  // `.hidden`/`.tab.hidden` la masquent donc automatiquement avec le reste.
+  // Masque le rail tactile quand la page 2 (détail) est ouverte — appelée par
+  // openGoalsDetail()/closeGoalsDetail(). Le cas "onglet Objectifs pas actif"
+  // et "aucune activité chargée" sont déjà couverts sans code dédié :
+  // #goalsScrubZone vit À L'INTÉRIEUR de #goalsActivitySwitcher/#tab-goals
+  // (voir index.html), `.hidden`/`.tab.hidden` la masquent donc
+  // automatiquement avec le reste. Un seul mode grille désormais, donc plus
+  // de condition sur currentGoalsView ici.
   function updateGoalsScrubVisibility() {
     var zone = $('goalsScrubZone');
     if (!zone) return;
     var detailPage = $('goalsDetailPage');
-    var visible = currentGoalsView === 'tree' && (!detailPage || detailPage.classList.contains('hidden'));
+    var visible = !detailPage || detailPage.classList.contains('hidden');
     zone.classList.toggle('hidden', !visible);
     if (!visible) hideGoalsScrub();
   }
@@ -4602,7 +4825,12 @@
     }
 
     renderGoalsMainAssignees(period);
-    renderGoalsWeeklyList(period);
+    // 15 septembre 2026 (discussion "Objectifs — D") : les 4 cartes hebdo ne
+    // s'affichent plus en permanence — voir openGoalsWeekEditor()/
+    // closeGoalsWeekEditor() plus bas, déclenchées depuis le calendrier.
+    // Un changement de période/catégorie referme l'éditeur s'il était ouvert
+    // sur une semaine qui n'a plus de sens ici.
+    closeGoalsWeekEditor();
 
     var bilan = $('activityGoalsBilan');
     if (period.isPast && period.weeklies.length) {
@@ -4679,7 +4907,7 @@
         // activité (ou s'être refermée) pendant que cette requête était en
         // vol — même principe que reloadGoalsAll() plus haut.
         if (requestId !== goalsCalendarRequestId) return;
-        renderGoalsCalendarDays(data.days || []);
+        renderGoalsCalendarDays(data.days || [], period);
       })
       .catch(function () {
         if (requestId !== goalsCalendarRequestId) return;
@@ -4687,13 +4915,115 @@
       });
   }
 
-  function renderGoalsCalendarDays(days) {
+  // ----- Éditeur d'objectif hebdomadaire, ouvert depuis le calendrier -----
+  // 15 septembre 2026 (discussion "Objectifs — D") : réutilise
+  // renderGoalsWeeklyList(period) telle quelle (les 4 cartes, avec estimation/
+  // statut/assignation — rien de cette logique ne change), mais n'en affiche
+  // qu'UNE — celle de la semaine cliquée — le temps que l'éditeur est ouvert.
+  function openGoalsWeekEditor(period, weekIndex) {
+    var wrap = $('activityGoalsWeekEditorWrap');
+    if (!wrap) return;
+    renderGoalsWeeklyList(period);
+    var label = wrap.querySelector('.goalsWeeklyLabel');
+    if (label) label.textContent = t('Objectif — semaine') + ' ' + weekIndex;
+    var cards = $('activityGoalsWeeklyList').children;
+    var target = null;
+    for (var i = 0; i < cards.length; i++) {
+      var isTarget = i === (weekIndex - 1);
+      cards[i].classList.toggle('hidden', !isTarget);
+      if (isTarget) target = cards[i];
+    }
+    wrap.classList.remove('hidden');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      var ta = target.querySelector('textarea');
+      if (ta) ta.focus();
+    }
+  }
+
+  function closeGoalsWeekEditor() {
+    var wrap = $('activityGoalsWeekEditorWrap');
+    if (wrap) wrap.classList.add('hidden');
+  }
+
+  (function bindGoalsWeekEditorClose() {
+    var btn = $('activityGoalsWeekEditorClose');
+    if (btn) btn.addEventListener('click', closeGoalsWeekEditor);
+  })();
+
+  // ----- Tâche du jour, ajoutée depuis le calendrier -----
+  // 15 septembre 2026 (discussion "Objectifs — D") : POST .../goals-days/task
+  // (server/lib/calendarfeed.js#createDayTask) — crée (ou réutilise) le
+  // sous-projet "catégorie" de l'activité et y ajoute la tâche, rattachée à ce
+  // jour précis. Recharge le calendrier de la période plutôt que d'insérer la
+  // tâche à la main côté client : la réponse peut avoir été absorbée par le
+  // moteur d'auto-planification Offre1 (autoPlanned), le calendrier reste la
+  // source de vérité.
+  function addGoalsDayTask(period, isoDate, label) {
+    return api('POST', '/api/activities/' + currentGoalsActivityId + '/goals-days/task', {
+      category: currentGoalsCategory,
+      isoDate: isoDate,
+      label: label,
+    })
+      .then(function () { loadGoalsCalendarDays(period); })
+      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; throw err; });
+  }
+
+  function toggleGoalsDayTask(period, itemId, done) {
+    return api('PUT', '/api/sub-project-items/' + itemId, { done: done })
+      .then(function () { loadGoalsCalendarDays(period); })
+      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+  }
+
+  // Même motif que le formulaire d'ajout de tâche des sous-projets
+  // (buildTasksSection() plus bas dans ce fichier) : un champ texte + un
+  // bouton, Entrée soumet — repliable ici puisqu'il y en a un par jour.
+  function buildGoalsCalendarAddForm(period, day) {
+    var wrap = document.createElement('div');
+    wrap.className = 'goalsCalendarTaskAdd hidden';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 300;
+    input.placeholder = t('Tâche pour ce jour...');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'iconBtn';
+    btn.textContent = t('Ajouter');
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+
+    function submit() {
+      var label = input.value.trim();
+      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
+      msg.textContent = '';
+      btn.disabled = true;
+      addGoalsDayTask(period, day.date, label).catch(function () {}).then(function () { btn.disabled = false; });
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    });
+
+    wrap.appendChild(input);
+    wrap.appendChild(btn);
+    wrap.appendChild(msg);
+    return wrap;
+  }
+
+  function renderGoalsCalendarDays(days, period) {
     var box = $('activityGoalsCalendarList');
     if (!box) return;
     box.innerHTML = '';
-    days.forEach(function (day) {
+    days.forEach(function (day, idx) {
+      // "Dernier jour de la semaine" au sens du volet Objectifs (bloc de 7
+      // jours depuis le début de la période, pas forcément un dimanche
+      // calendaire — la période ne démarre pas nécessairement un lundi) :
+      // demande d'Emilien « objectifs de semaine mis en évidence chaque
+      // dimanche » — c'est ce jour-repère qui ouvre l'éditeur ci-dessus.
+      var isWeekEnd = !days[idx + 1] || days[idx + 1].weekIndex !== day.weekIndex;
+
       var row = document.createElement('div');
-      row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '');
+      row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '') + (isWeekEnd ? ' weekEnd' : '');
 
       var dateEl = document.createElement('span');
       dateEl.className = 'goalsCalendarDate';
@@ -4701,8 +5031,12 @@
       row.appendChild(dateEl);
 
       var weekEl = document.createElement('span');
-      weekEl.className = 'goalsCalendarWeekBadge';
+      weekEl.className = 'goalsCalendarWeekBadge' + (isWeekEnd ? ' clickable' : '');
       weekEl.textContent = 'S' + day.weekIndex;
+      if (isWeekEnd) {
+        weekEl.title = t('Objectif de cette semaine');
+        weekEl.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
+      }
       row.appendChild(weekEl);
 
       var minutesEl = document.createElement('span');
@@ -4710,7 +5044,42 @@
       minutesEl.textContent = day.actualMinutes ? formatGoalHours(day.actualMinutes) : '—';
       row.appendChild(minutesEl);
 
+      var addForm = buildGoalsCalendarAddForm(period, day);
+      var addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'goalsCalendarAddTaskBtn';
+      addBtn.textContent = '+';
+      addBtn.title = t('Ajouter une tâche ce jour');
+      addBtn.addEventListener('click', function () {
+        addForm.classList.toggle('hidden');
+        if (!addForm.classList.contains('hidden')) {
+          var inp = addForm.querySelector('input');
+          if (inp) inp.focus();
+        }
+      });
+      row.appendChild(addBtn);
+
       box.appendChild(row);
+      box.appendChild(addForm);
+
+      (day.tasks || []).forEach(function (task) {
+        var taskRow = document.createElement('div');
+        taskRow.className = 'goalsCalendarTaskRow' + (task.done ? ' done' : '');
+        var check = document.createElement('button');
+        check.type = 'button';
+        check.className = 'goalsCalendarTaskCheck';
+        check.textContent = task.done ? '✓' : '';
+        check.title = task.done ? t('Marquer non faite') : t('Marquer faite');
+        check.addEventListener('click', function () { toggleGoalsDayTask(period, task.id, !task.done); });
+        taskRow.appendChild(check);
+
+        var taskLabel = document.createElement('span');
+        taskLabel.className = 'goalsCalendarTaskLabel';
+        taskLabel.textContent = task.label;
+        taskRow.appendChild(taskLabel);
+
+        box.appendChild(taskRow);
+      });
     });
   }
 
@@ -4742,11 +5111,10 @@
       currentGoalsAllPlannings = data;
       var byCategory = data.byCategory || {};
 
-      // Page 1, vue grille : toujours à jour, les 3 catégories.
+      // Page 1, vue grille (seul mode désormais) : toujours à jour, l'en-tête
+      // de colonnes puis les cellules, pour les catégories actives.
+      renderGoalsGridHead();
       renderGoalsGrid();
-      // Page 1, vue Répartition : déjà croisée dans currentGoalsAllPlannings,
-      // rafraîchie seulement si effectivement ouverte.
-      if (currentGoalsView === 'distribution') renderGoalsDistribution();
 
       // Page 2 (détail) : ne se rafraîchit que si elle est ouverte, pour la
       // seule catégorie qu'elle affiche (currentGoalsCategory) — même garde-
@@ -4790,32 +5158,49 @@
   // cellule (pleine ou vide) reste cliquable : elle ouvre la page 2 pour
   // CETTE (catégorie, période) — inchangée, confirmé par Emilien
   // (AskUserQuestion).
+  // 15 septembre 2026 (7e passage, demande d'Emilien — "un seul mode : la
+  // grille") : l'en-tête de colonnes n'est plus statique (3 <span> fixes dans
+  // index.html) — il reflète activeGoalsCategories(), donc de 1 à 5 colonnes
+  // selon les catégories personnalisées de l'activité affichée. Appelée par
+  // reloadGoalsAll() avant renderGoalsGrid(), et lors du changement d'activité.
+  function renderGoalsGridHead() {
+    var head = $('goalsGridHead');
+    if (!head) return;
+    head.innerHTML = '';
+    activeGoalsCategories().forEach(function (c) {
+      var span = document.createElement('span');
+      span.textContent = t(c.label);
+      head.appendChild(span);
+    });
+  }
+
   function renderGoalsGrid() {
     var grid = $('goalsGrid');
     if (!grid || !currentGoalsAllPlannings) return;
     grid.innerHTML = '';
     var byCategory = currentGoalsAllPlannings.byCategory || {};
+    var categories = activeGoalsCategories();
 
     // Index par catégorie : periodIndexInCycle (1-13) → période, limité au
     // CYCLE EN COURS de cette catégorie (planningForActivity renvoie
     // l'historique complet, tous cycles confondus — même construction que
     // l'ancienne renderGoalsTrend()).
     var indexByCategory = {};
-    GOALS_CATEGORIES.forEach(function (category) {
-      indexByCategory[category] = {};
-      var planning = byCategory[category];
+    categories.forEach(function (c) {
+      indexByCategory[c.key] = {};
+      var planning = byCategory[c.key];
       if (!planning) return;
       var current = goalPeriodByNumber(planning, planning.currentPeriodNumber);
       var cycleIndex = current ? current.cycleIndex : 1;
       (planning.periods || []).forEach(function (p) {
-        if (p.cycleIndex === cycleIndex) indexByCategory[category][p.periodIndexInCycle] = p;
+        if (p.cycleIndex === cycleIndex) indexByCategory[c.key][p.periodIndexInCycle] = p;
       });
     });
 
     // Info période (numéro + dates) pour le rail tactile — voir
     // showGoalsScrub() plus haut. Une seule date "représentative" par
     // période : celle de la première catégorie qui a une période à cet
-    // index (les 3 catégories peuvent avoir démarré leur cycle à des dates
+    // index (les catégories peuvent avoir démarré leur cycle à des dates
     // différentes, voir commentaire au-dessus de indexByCategory).
     currentGoalsPeriodInfo = [];
 
@@ -4826,11 +5211,11 @@
         row.setAttribute('data-period-index', String(periodIndex));
 
         var repPeriod = null;
-        GOALS_CATEGORIES.forEach(function (category) {
-          var p = indexByCategory[category][periodIndex];
+        categories.forEach(function (c) {
+          var p = indexByCategory[c.key][periodIndex];
           var cell = document.createElement('button');
           cell.type = 'button';
-          cell.title = t(GOALS_CATEGORY_LABELS[category]) + ' — ' + t('Période') + ' ' + periodIndex;
+          cell.title = t(c.label) + ' — ' + t('Période') + ' ' + periodIndex;
           if (p && !repPeriod) repPeriod = p;
 
           if (p && p.mainGoalText) {
@@ -4842,6 +5227,11 @@
             txt.className = 'goalsGridCellText';
             txt.textContent = p.mainGoalText;
             cell.appendChild(txt);
+            // Couleur de catégorie personnalisée = bordure de la cellule
+            // remplie, jamais un aplat (demande explicite d'Emilien) — les
+            // catégories fixes (custom: false) n'ont pas de couleur propre
+            // et gardent la bordure par défaut de .goalsGridCell--filled.
+            if (c.color) cell.style.borderColor = c.color;
           } else {
             // Aucun objectif périodique pour cette (période, catégorie) —
             // pavé fantôme + trait de continuité, revu le 15 septembre 2026
@@ -4852,7 +5242,7 @@
           if (p) {
             cell.addEventListener('click', (function (category, periodNumber) {
               return function () { openGoalsDetail(category, periodNumber); };
-            })(category, p.periodNumber));
+            })(c.key, p.periodNumber));
           } else {
             cell.disabled = true;
           }
@@ -4868,133 +5258,11 @@
     window.requestAnimationFrame(syncGoalsScrubZoneTopVar);
   }
 
-  // Bascule la page 1 entre la grille (3 catégories comparées) et la vue
-  // "Répartition" (les 3 catégories croisées par membre) — voir demande
-  // d'Emilien : « que les différentes tâches [...] selon les différentes
-  // catégories [...] puissent être visibles et réparties selon les
-  // différents membres de l'activité ».
-  function renderGoalsViewToggle() {
-    var wrap = $('goalsViewToggle');
-    if (wrap) {
-      Array.prototype.forEach.call(wrap.querySelectorAll('.goalsViewToggleBtn'), function (btn) {
-        btn.classList.toggle('active', btn.getAttribute('data-view') === currentGoalsView);
-      });
-    }
-    var grid = $('goalsGrid');
-    var distribution = $('goalsDistribution');
-    var head = $('goalsGridHead');
-    if (grid) grid.classList.toggle('hidden', currentGoalsView !== 'tree');
-    if (distribution) distribution.classList.toggle('hidden', currentGoalsView !== 'distribution');
-    // Les en-têtes de colonnes + le rail tactile n'ont de sens que pour la
-    // grille — masqués ensemble en vue Répartition (le rail via
-    // updateGoalsScrubVisibility(), qui lit currentGoalsView).
-    if (head) head.classList.toggle('hidden', currentGoalsView !== 'tree');
-    updateGoalsScrubVisibility();
-  }
-
-  Array.prototype.forEach.call(($('goalsViewToggle') || { querySelectorAll: function () { return []; } }).querySelectorAll('.goalsViewToggleBtn'), function (btn) {
-    btn.addEventListener('click', function () {
-      var view = btn.getAttribute('data-view');
-      if (!view || view === currentGoalsView) return;
-      currentGoalsView = view;
-      renderGoalsViewToggle();
-      // currentGoalsAllPlannings est déjà chargé pour les DEUX vues (voir
-      // reloadGoalsAll ci-dessus) : jamais de nouvel appel serveur ici, juste
-      // un rendu différent des mêmes données déjà en mémoire.
-      if (view === 'distribution') renderGoalsDistribution();
-    });
-  });
-
-  // Groupe, pour la période EN COURS de chacune des 3 catégories, les
-  // objectifs hebdomadaires déjà écrits (texte non vide) par membre assigné
-  // — un membre sans aucune tâche assignée n'apparaît pas, une tâche sans
-  // assigné rejoint le groupe "Non assigné" plutôt que de disparaître.
-  function renderGoalsDistribution() {
-    var box = $('goalsDistribution');
-    if (!box) return;
-    box.innerHTML = '';
-    if (!currentGoalsAllPlannings) return;
-
-    var byCategory = currentGoalsAllPlannings.byCategory || {};
-    var members = [];
-    GOALS_CATEGORIES.forEach(function (category) {
-      if (members.length) return;
-      var planning = byCategory[category];
-      if (planning && planning.members && planning.members.length) members = planning.members;
-    });
-
-    var groups = {};
-    function groupFor(userId) {
-      var key = userId || '';
-      if (!groups[key]) {
-        var member = null;
-        for (var i = 0; i < members.length; i++) { if (members[i].id === userId) { member = members[i]; break; } }
-        groups[key] = { member: member, tasks: [] };
-      }
-      return groups[key];
-    }
-
-    GOALS_CATEGORIES.forEach(function (category) {
-      var planning = byCategory[category];
-      if (!planning) return;
-      var current = goalPeriodByNumber(planning, planning.currentPeriodNumber);
-      if (!current) return;
-      (current.weeklies || []).forEach(function (w) {
-        if (!w.text) return;
-        groupFor(w.assignedUserId).tasks.push({ category: category, text: w.text, status: w.status });
-      });
-    });
-
-    var orderedKeys = members.map(function (m) { return m.id; });
-    Object.keys(groups).forEach(function (key) { if (orderedKeys.indexOf(key) === -1) orderedKeys.push(key); });
-
-    var hasAny = orderedKeys.some(function (k) { return groups[k] && groups[k].tasks.length; });
-    if (!hasAny) {
-      var empty = document.createElement('p');
-      empty.className = 'hint';
-      empty.textContent = t('Aucune tâche en cours cette période, dans aucune catégorie.');
-      box.appendChild(empty);
-      return;
-    }
-
-    orderedKeys.forEach(function (key) {
-      var g = groups[key];
-      if (!g || !g.tasks.length) return;
-
-      var card = document.createElement('div');
-      card.className = 'goalsDistributionMember';
-
-      var header = document.createElement('div');
-      header.className = 'goalsDistributionMemberHeader';
-      var dot = document.createElement('span');
-      dot.className = 'dot';
-      dot.style.background = g.member ? g.member.color : '#8a8a8a';
-      header.appendChild(dot);
-      var name = document.createElement('span');
-      name.textContent = g.member ? g.member.name : t('Non assigné');
-      header.appendChild(name);
-      card.appendChild(header);
-
-      var list = document.createElement('div');
-      list.className = 'goalsDistributionTasks';
-      g.tasks.forEach(function (task) {
-        var row = document.createElement('div');
-        row.className = 'goalsDistributionTask' + (task.status === 'atteint' ? ' goalsDistributionTaskDone' : '');
-        var tag = document.createElement('span');
-        tag.className = 'goalsDistributionTag goalsCategoryTag-' + task.category;
-        tag.textContent = t(GOALS_CATEGORY_LABELS[task.category]);
-        row.appendChild(tag);
-        var txt = document.createElement('span');
-        txt.className = 'goalsDistributionTaskText';
-        txt.textContent = task.text;
-        row.appendChild(txt);
-        list.appendChild(row);
-      });
-      card.appendChild(list);
-
-      box.appendChild(card);
-    });
-  }
+  // 15 septembre 2026 (7e passage, demande d'Emilien — "un seul mode : la
+  // grille (arbre)") : renderGoalsViewToggle()/renderGoalsDistribution() et
+  // la vue "Répartition" sont retirés entièrement, pas seulement masqués —
+  // #goalsViewToggle et #goalsDistribution n'existent plus dans index.html.
+  // La grille (ex-vue "Arbre") est désormais le seul mode de la page 1.
 
   // ===================== OBJECTIFS — PAGE 2 : DÉTAIL D'UNE PÉRIODE =====================
   // Reprend l'essentiel du contenu qui vivait avant ce chantier directement
@@ -5016,7 +5284,7 @@
     var byCategory = (currentGoalsAllPlannings && currentGoalsAllPlannings.byCategory) || {};
     currentGoalsPlanning = byCategory[category] || null;
     if (!currentGoalsPlanning) return;
-    $('goalsDetailTitle').textContent = $('goalsActivityName').textContent + ' · ' + t(GOALS_CATEGORY_LABELS[category]);
+    $('goalsDetailTitle').textContent = $('goalsActivityName').textContent + ' · ' + t(goalsCategoryLabel(category));
     $('goalsDetailPage').classList.remove('hidden');
     $('goalsDetailScroll').scrollTop = 0;
     renderActivityGoals();
@@ -5031,6 +5299,7 @@
     // loadGoalsCalendarDays() plus haut) : une réponse en retard ne doit
     // jamais peindre une liste de jours après que la page 2 s'est refermée.
     goalsCalendarRequestId += 1;
+    closeGoalsWeekEditor();
     updateGoalsScrubVisibility();
   }
 
@@ -5079,13 +5348,11 @@
     // pertinente pour la nouvelle (même principe que loadActivityDetail()
     // qui réinitialise systématiquement ses propres filtres). currentGoalsCategory
     // ne désigne plus qu'une catégorie de PAGE 2 par défaut (jamais ouverte
-    // tant qu'aucune cellule n'a été cliquée) ; la vue (toujours la grille,
-    // jamais la Répartition de l'activité précédente) repart aussi de zéro.
+    // tant qu'aucune cellule n'a été cliquée). Seul mode désormais : la
+    // grille — plus de currentGoalsView à réinitialiser.
     currentGoalsViewPeriodNumber = null;
     currentGoalsCategory = 'entreprise';
-    currentGoalsView = 'tree';
     currentGoalsAllPlannings = null;
-    renderGoalsViewToggle();
 
     $('goalsActivityDot').style.background = a.color;
     $('goalsActivityName').textContent = a.name;
@@ -5312,6 +5579,17 @@
   // aucun). Un seul à la fois : rouvrir l'éditeur ailleurs referme le premier.
   var subProjectDueEditingId = '';
 
+  // Même mécanique, pour le rattachement à une catégorie Objectifs (15
+  // septembre 2026, chantier Objectifs — C : lien Sous-projets → Objectifs,
+  // gratuit — voir server/lib/goalsauto.js).
+  var subProjectGoalCategoryEditingId = '';
+
+  // Membres de l'activité du sous-projet actuellement ouvert, pour le
+  // sélecteur "membre prévu" de chaque tâche (buildTaskPlannedMemberPicker
+  // plus bas). Chargés une fois par ouverture de sous-projet, dans
+  // loadSubProjectDetail — jamais un appel par tâche.
+  var subProjectDetailMembers = [];
+
   // Éditeur de la date de clôture d'un sous-projet (4 septembre 2026).
   //
   // Trois issues, et c'est volontairement tout : enregistrer une nouvelle date,
@@ -5393,6 +5671,89 @@
     hint.textContent = t('Le sous-projet reste visible le jour de sa clôture et disparaît le lendemain. Rien n\'est supprimé.');
     box.appendChild(hint);
 
+    return box;
+  }
+
+  // ---- Éditeur du rattachement à une catégorie Objectifs (15 septembre
+  // 2026, chantier Objectifs — C) ----
+  //
+  // Même schéma que buildSubProjectDueEditor juste au-dessus : une ligne
+  // entière sous l'en-tête, pas un panneau flottant. Rattacher un sous-projet
+  // à une catégorie active de l'activité fait que ses tâches — une fois un
+  // membre PRÉVU assigné (voir buildTaskPlannedMemberPicker) — sont classées
+  // automatiquement dans le planning hebdomadaire de ce membre, dans cette
+  // catégorie (server/lib/goalsauto.js). Gratuit, jamais gaté — revalidé
+  // avec Emilien le 15 septembre 2026 (soir) : ce mécanisme n'est PAS
+  // l'Offre 1 (voir noesis-timetracker-offre1-definition.md, chantier
+  // distinct porté par la discussion A).
+  function buildSubProjectGoalCategoryEditor(sub) {
+    var box = document.createElement('div');
+    box.className = 'subProjectGoalCategoryEditor';
+    box.addEventListener('click', function (e) { e.stopPropagation(); });
+
+    var select = document.createElement('select');
+    select.className = 'subProjectGoalCategorySelect';
+    select.disabled = true;
+    var noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = t('Aucune (pas de lien avec Objectifs)');
+    select.appendChild(noneOpt);
+    box.appendChild(select);
+
+    var hint = document.createElement('p');
+    hint.className = 'hint subProjectGoalCategoryHint';
+    hint.textContent = t('Chargement des catégories…');
+    box.appendChild(hint);
+
+    // Chargé à l'ouverture de l'éditeur plutôt que tenu en cache : les
+    // catégories d'une activité changent rarement, mais ce n'est jamais
+    // cet écran-ci qui les modifie (voir la discussion Objectifs — B) — pas
+    // de risque à revérifier à chaque ouverture.
+    api('GET', '/api/activities/' + sub.activityId + '/goals/categories?userId=' + profile.id)
+      .then(function (data) {
+        (data.categories || []).forEach(function (c) {
+          var opt = document.createElement('option');
+          opt.value = c.key;
+          opt.textContent = c.label;
+          if (sub.goalCategory === c.key) opt.selected = true;
+          select.appendChild(opt);
+        });
+        select.disabled = false;
+        hint.textContent = t('Les tâches de ce sous-projet, une fois un membre prévu assigné, seront placées automatiquement dans le planning hebdomadaire Objectifs de ce membre.');
+      })
+      .catch(function () { hint.textContent = t('Impossible de charger les catégories Objectifs.'); });
+
+    var actions = document.createElement('div');
+    actions.className = 'rowActions subProjectGoalCategoryActions';
+
+    var ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'iconBtn';
+    ok.textContent = t('Enregistrer');
+    ok.addEventListener('click', function () {
+      ok.disabled = true;
+      api('PUT', '/api/sub-projects/' + sub.id, { userId: profile.id, name: sub.name, goalCategory: select.value })
+        .then(function () {
+          subProjectGoalCategoryEditingId = '';
+          loadSubProjects();
+          if (String(sub.id) === String(currentSubProjectId)) loadSubProjectDetail();
+        })
+        .catch(function (err) { alert(err.message); })
+        .then(function () { ok.disabled = false; });
+    });
+    actions.appendChild(ok);
+
+    var cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'iconBtn';
+    cancel.textContent = t('Annuler');
+    cancel.addEventListener('click', function () {
+      subProjectGoalCategoryEditingId = '';
+      renderSubProjectsList(lastSubProjectsData);
+    });
+    actions.appendChild(cancel);
+
+    box.appendChild(actions);
     return box;
   }
 
@@ -5565,6 +5926,26 @@
         : sub.percent + '% · ' + sub.done + '/' + sub.total;
       header.appendChild(badge);
 
+      // ----- Rattachement à une catégorie Objectifs (15 septembre 2026,
+      // chantier Objectifs — C) -----
+      // Même mécanique bouton + éditeur que la date de clôture ci-dessus :
+      // le bouton reste visible que la ligne soit ouverte ou non (comme la
+      // date), l'éditeur s'ouvre en ligne entière plus bas.
+      var goalCatBtn = document.createElement('button');
+      goalCatBtn.type = 'button';
+      goalCatBtn.className = 'meta subProjectGoalCategoryBtn' + (sub.goalCategory ? '' : ' unset');
+      goalCatBtn.textContent = sub.goalCategory ? t('Objectifs ✓') : t('Objectifs');
+      goalCatBtn.title = sub.goalCategory
+        ? t('Rattaché aux Objectifs — toucher pour modifier')
+        : t('Non rattaché aux Objectifs — toucher pour lier');
+      goalCatBtn.setAttribute('aria-label', goalCatBtn.title);
+      goalCatBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        subProjectGoalCategoryEditingId = (String(subProjectGoalCategoryEditingId) === String(sub.id)) ? '' : String(sub.id);
+        renderSubProjectsList(lastSubProjectsData);
+      });
+      header.appendChild(goalCatBtn);
+
       // ----- En-tête COLLANT (demande d'Emilien, 3 septembre 2026) -----
       // Le nom, la croix de fermeture et l'unique barre large restent en haut
       // de l'écran tant qu'on fait défiler le contenu du sous-projet ouvert :
@@ -5609,6 +5990,10 @@
       // positionner.
       if (String(subProjectDueEditingId) === String(sub.id)) {
         row.appendChild(buildSubProjectDueEditor(sub));
+      }
+
+      if (String(subProjectGoalCategoryEditingId) === String(sub.id)) {
+        row.appendChild(buildSubProjectGoalCategoryEditor(sub));
       }
 
       if (sub.description) {
@@ -5972,11 +6357,25 @@
   function loadSubProjectDetail() {
     if (!profile || !currentSubProjectId) return;
     var id = currentSubProjectId;
-    api('GET', '/api/sub-projects/' + id + '?userId=' + profile.id)
-      .then(function (data) {
+    var activityId = currentCommunityActivityId;
+    // Chargé EN PARALLÈLE avec la liste des membres de l'activité (15
+    // septembre 2026, chantier Objectifs — C) : sert au sélecteur "membre
+    // prévu" de chaque tâche (buildTaskPlannedMemberPicker) — un seul appel
+    // par ouverture de sous-projet, jamais un par tâche. La route dédiée
+    // (/goals/members) fonctionne aussi sur une activité SOLO, contrairement
+    // à /api/community/activity-members (réservée aux activités partagées) —
+    // le repli sur une liste vide en cas d'échec n'empêche jamais d'afficher
+    // le reste du sous-projet.
+    Promise.all([
+      api('GET', '/api/sub-projects/' + id + '?userId=' + profile.id),
+      api('GET', '/api/activities/' + activityId + '/goals/members?userId=' + profile.id)
+        .catch(function () { return { members: [] }; }),
+    ])
+      .then(function (results) {
         if (String(id) !== String(currentSubProjectId)) return;
-        subProjectDetailData = data;
-        renderSubProjectDetail(data);
+        subProjectDetailData = results[0];
+        subProjectDetailMembers = results[1].members || [];
+        renderSubProjectDetail(subProjectDetailData);
       })
       .catch(function () { /* sous-projet supprimé entre-temps */ });
   }
@@ -5999,7 +6398,7 @@
     var box = $('subProjectSections');
     box.innerHTML = '';
     data.sections.forEach(function (sec) {
-      if (sec.kind === 'tasks') box.appendChild(buildTasksSection(sec));
+      if (sec.kind === 'tasks') box.appendChild(buildTasksSection(sec, data.subProject));
     });
 
     // ⚠️ 4 septembre 2026 (Activité solo) : sur une activité non partagée,
@@ -6095,7 +6494,12 @@
   }
 
   // ----- Section "tâches" -----
-  function buildTasksSection(sec) {
+  // `subProject` (15 septembre 2026, chantier Objectifs — C) : transmis
+  // jusqu'à buildTaskRow pour savoir si CE sous-projet est rattaché à une
+  // catégorie Objectifs — le sélecteur "membre prévu" d'une tâche ne
+  // s'affiche que dans ce cas (sinon il n'aurait aucun effet, autant ne rien
+  // montrer).
+  function buildTasksSection(sec, subProject) {
     var wrap = document.createElement('div');
     wrap.className = 'subProjectSection subProjectTasksSection';
     wrap.dataset.sectionId = sec.id;
@@ -6108,7 +6512,7 @@
 
     var list = document.createElement('div');
     list.className = 'subProjectItems';
-    sec.items.forEach(function (item) { list.appendChild(buildTaskRow(item)); });
+    sec.items.forEach(function (item) { list.appendChild(buildTaskRow(item, subProject)); });
     wrap.appendChild(list);
 
     if (!sec.items.length) {
@@ -6210,7 +6614,42 @@
     if (last < str.length) node.appendChild(document.createTextNode(str.slice(last)));
   }
 
-  function buildTaskRow(item) {
+  // ---- Sélecteur "membre prévu" d'une tâche (15 septembre 2026, chantier
+  // Objectifs — C) ----
+  // Distinct de doneBy (qui a réellement coché) : plannedUserId dit QUI doit
+  // normalement la faire, et sert à la caser dans le planning hebdomadaire de
+  // ce membre (server/lib/goalsauto.js, capacité par membre). Liste des
+  // membres déjà chargée par loadSubProjectDetail (subProjectDetailMembers) —
+  // aucun appel serveur par tâche.
+  function buildTaskPlannedMemberPicker(item) {
+    var select = document.createElement('select');
+    select.className = 'subProjectItemPlannedSelect';
+    select.title = t('Membre prévu pour cette tâche (planning Objectifs)');
+    var noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = t('Non prévu');
+    select.appendChild(noneOpt);
+    subProjectDetailMembers.forEach(function (m) {
+      var opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      if (item.plannedUserId != null && String(item.plannedUserId) === String(m.id)) opt.selected = true;
+      select.appendChild(opt);
+    });
+    // Ne doit ni cocher la tâche, ni ouvrir/fermer le sous-projet — même
+    // garde que les liens cliquables d'une tâche (appendLinkified) et que
+    // l'éditeur de clôture (buildSubProjectDueEditor).
+    select.addEventListener('click', function (e) { e.stopPropagation(); });
+    select.addEventListener('change', function () {
+      select.disabled = true;
+      api('PUT', '/api/sub-project-items/' + item.id, { userId: profile.id, plannedUserId: select.value || null })
+        .then(function () { loadSubProjectDetail(); })
+        .catch(function (err) { select.disabled = false; alert(err.message); });
+    });
+    return select;
+  }
+
+  function buildTaskRow(item, subProject) {
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (item.done ? ' done' : '');
 
@@ -6239,6 +6678,20 @@
     // d'Emilien, 7 septembre 2026). Voir appendLinkified : jamais innerHTML.
     appendLinkified(label, item.label);
     row.appendChild(label);
+
+    // Lien Sous-projets → Objectifs (15 septembre 2026, chantier Objectifs —
+    // C) : seulement affiché quand CE sous-projet est rattaché à une
+    // catégorie Objectifs — sinon le sélecteur n'aurait aucun effet.
+    if (subProject && subProject.goalCategory) {
+      if (item.goalAutoGenerated) {
+        var autoBadge = document.createElement('span');
+        autoBadge.className = 'meta subProjectItemAutoBadge';
+        autoBadge.textContent = '🗓️';
+        autoBadge.title = t('Déjà casée dans le planning hebdomadaire Objectifs');
+        row.appendChild(autoBadge);
+      }
+      row.appendChild(buildTaskPlannedMemberPicker(item));
+    }
 
     // Sur une activité partagée, savoir QUI a coché évite le « c'est moi qui
     // l'ai fait ». Rien n'est affiché quand c'est soi-même.
