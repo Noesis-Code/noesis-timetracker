@@ -78,6 +78,30 @@ router.delete('/calendar/feed', guardEnabled, (req, res) => {
   res.json(stateFor(req, null));
 });
 
+// ----- Vue calendrier d'une période d'objectif (page 2 du volet Objectifs,
+// 15 septembre 2026, discussion "Objectifs — D : Calendrier & intégrations")
+// -----
+//
+// Authentifiée par SESSION (userId), comme le reste de l'app — contrairement
+// au flux .ics ci-dessous, qui n'a que le jeton. Toute la logique (contrôle
+// d'accès inclus) vit dans feed.periodDaysForUser() ; ce handler ne fait que
+// la forme HTTP, même découpage que /activities/:id/goals (routes/goals.js).
+router.get('/activities/:id/goals-days', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const category = typeof req.query.category === 'string' ? req.query.category : '';
+  const periodNumber = Number(req.query.periodNumber);
+
+  try {
+    res.json(feed.periodDaysForUser(userId, activityId, category, periodNumber));
+  } catch (err) {
+    if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+    console.error('[calendar]', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 // ----- Le flux lui-même -----
 //
 // Le suffixe '.ics' n'est pas décoratif : plusieurs lecteurs (Apple en tête)

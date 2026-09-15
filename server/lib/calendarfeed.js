@@ -234,6 +234,91 @@ function buildFeedForUser(userId, now) {
   });
 }
 
+// ===================== VUE CALENDRIER D'UNE PÉRIODE D'OBJECTIF (15 septembre
+// 2026, discussion "Objectifs — D : Calendrier & intégrations") =====================
+// Demande d'Emilien : « intégrer un calendrier au volet objectif (page 2 du
+// volet Objectifs) [...] chaque ligne représente 1 jour ». Contrairement au
+// flux .ics ci-dessus (lu par un serveur tiers, sans session), cette
+// fonction sert une route authentifiée par SESSION (server/routes/calendar.js,
+// GET /activities/:id/goals-days), appelée uniquement par l'app pour un
+// membre de l'activité qui regarde déjà sa propre page 2 — la minimisation
+// stricte du flux .ics ne s'applique donc pas ici de la même façon (rien ne
+// sort vers un tiers). On reste malgré tout prudent par cohérence avec le
+// reste de ce volet : cette fonction ne renvoie QUE des minutes agrégées par
+// jour, jamais le texte d'un objectif.
+//
+// ⚠️ PAS D'IMPORT DE server/lib/goals.js, à dessein — même contrat que
+// goalPeriodEventsForUser() ci-dessus : goals.js appartient aux discussions
+// B/C (Catégories & Offre1 / Logique métier), ce fichier à D. Le contrôle
+// d'accès (assertActivityMember) est donc une copie volontaire, à
+// l'identique, de requireMembership() dans server/routes/goals.js plutôt
+// qu'un import de ce fichier-là non plus.
+const GOAL_CATEGORIES = new Set(['entreprise', 'communaute', 'produit']);
+
+function assertActivityMember(userId, activityId) {
+  const activity = db.prepare('SELECT id FROM activities WHERE id = ?').get(activityId);
+  if (!activity) throw Object.assign(new Error('Activité introuvable.'), { statusCode: 404 });
+  const membership = db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId);
+  if (!membership) throw Object.assign(new Error("Tu n'es pas membre de cette activité."), { statusCode: 403 });
+}
+
+// Jour local du serveur (America/Toronto, voir server/index.js) — même
+// construction que todayLocal() dans server/lib/duereminders.js, dupliquée
+// ici plutôt qu'importée pour la même raison qu'ailleurs dans ce fichier.
+function todayLocalDay() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+// 28 jours (4 semaines) par période, par construction du volet Objectifs —
+// voir PERIOD_DAYS/WEEKS_PER_PERIOD dans server/lib/goals.js (non importés
+// ici, voir plus haut). La borne `guard` est un filet de sécurité, pas une
+// hypothèse remise en cause : elle évite une boucle infinie si jamais
+// startDate/endDate étaient un jour incohérents, sans dépendre d'une
+// constante partagée avec goals.js.
+function periodDaysForUser(userId, activityId, category, periodNumber) {
+  assertActivityMember(userId, activityId);
+  if (!GOAL_CATEGORIES.has(category)) {
+    throw Object.assign(new Error('Catégorie invalide.'), { statusCode: 400 });
+  }
+  const period = db.prepare(`
+    SELECT id, startDate, endDate FROM goal_periods
+    WHERE activityId = ? AND category = ? AND periodNumber = ?
+  `).get(activityId, category, periodNumber);
+  if (!period) throw Object.assign(new Error('Période introuvable.'), { statusCode: 404 });
+
+  const rows = db.prepare(`
+    SELECT isoDate, COALESCE(SUM(durationSeconds), 0) AS seconds
+    FROM time_entries
+    WHERE activityId = ? AND isoDate BETWEEN ? AND ?
+    GROUP BY isoDate
+  `).all(activityId, period.startDate, period.endDate);
+  const secondsByDay = {};
+  rows.forEach((r) => { secondsByDay[r.isoDate] = r.seconds; });
+
+  const today = todayLocalDay();
+  const days = [];
+  let cursor = period.startDate;
+  let dayInWeek = 0;
+  let weekIndex = 1;
+  let guard = 0;
+  while (cursor && cursor <= period.endDate && guard < 60) {
+    days.push({
+      date: cursor,
+      weekIndex: weekIndex,
+      actualMinutes: Math.round((secondsByDay[cursor] || 0) / 60),
+      isToday: cursor === today,
+    });
+    dayInWeek += 1;
+    if (dayInWeek === 7) { dayInWeek = 0; weekIndex += 1; }
+    cursor = addDay(cursor);
+    guard += 1;
+  }
+
+  return { periodId: period.id, startDate: period.startDate, endDate: period.endDate, days };
+}
+
 module.exports = {
   isFeedEnabled,
   generateToken,
@@ -246,4 +331,5 @@ module.exports = {
   activitiesForUser,
   eventsForUser,
   buildFeedForUser,
+  periodDaysForUser,
 };

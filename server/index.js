@@ -256,6 +256,13 @@ app.listen(PORT, HOST, () => {
   // que les rappels d'échéance ci-dessus. Voir server/lib/goals.js.
   require('./lib/goals').startGoalsSweep();
 
+  // Rappels avant la fin d'une période d'objectif (15 septembre 2026,
+  // discussion "Objectifs — D : Calendrier & intégrations") : 3 jours avant,
+  // puis la veille — même mécanisme que les rappels d'échéance de
+  // sous-projets ci-dessus. Démarré après l'écoute, même principe. Voir
+  // server/lib/goalreminders.js.
+  require('./lib/goalreminders').startGoalReminders();
+
   // Sauvegarde chiffrée hors site (Cloudflare R2). Démarrée APRÈS l'écoute,
   // comme les rappels d'échéance ci-dessus : la première copie a lieu 2
   // minutes après le démarrage, jamais immédiatement.

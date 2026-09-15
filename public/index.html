@@ -2897,6 +2897,17 @@
             <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires — choisis 3 semaines sur 4</p>
             <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
 
+            <!-- 15 septembre 2026 (discussion "Objectifs — D : Calendrier &
+                 intégrations"), demande d'Emilien : « intégrer un calendrier
+                 au volet objectif (page 2) [...] chaque ligne représente 1
+                 jour ». Une ligne par jour de la période (28), semaine (S1 à
+                 S4) + temps réel pointé ce jour-là — voir
+                 loadGoalsCalendarDays()/renderGoalsCalendarDays() (app.js) et
+                 GET .../goals-days (server/lib/calendarfeed.js,
+                 server/routes/calendar.js). -->
+            <p class="goalCardLabel goalsCalendarLabel">Calendrier de la période</p>
+            <div id="activityGoalsCalendarList" class="goalsCalendarList"></div>
+
             <p class="goalBilanHint hidden" id="activityGoalsBilan"></p>
             <p id="activityGoalsMsg" class="msg"></p>
           </div>
