@@ -647,11 +647,9 @@
   // recherche d'un profil existant, code PIN, activités) — voir
   // isStandaloneMode() ci-dessus pour le contexte de cette demande.
   function showOnbInstallPwa() {
-    $('onbWelcome').classList.add('hidden');
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.add('hidden');
     $('onbPinStep').classList.add('hidden');
-    $('onbTheme').classList.add('hidden');
     $('onbActivities').classList.add('hidden');
     $('onbMsg').textContent = '';
     renderOnbInstallSteps();
@@ -667,26 +665,11 @@
       return;
     }
     $('onbInstallPwa').classList.add('hidden');
-    // 15 septembre 2026 (chantier "Onboarding à la iPhone") : repart
-    // toujours de l'écran de bienvenue quand l'installation est déjà
-    // faite — showOnboarding() peut être ré-appelée après un abandon de
-    // profil (voir plus bas, `clearProfile(); ... showOnboarding();`).
-    $('onbWelcome').classList.remove('hidden');
-    $('onbCreate').classList.add('hidden');
-    $('onbExisting').classList.add('hidden');
-    $('onbPinStep').classList.add('hidden');
-    $('onbTheme').classList.add('hidden');
-    $('onbActivities').classList.add('hidden');
     // Premier lancement (aucun profil connu) : c'est l'affichage de
     // l'onboarding, et non showApp(), qui marque la fin du "chargement" —
     // il n'y a rien d'autre à attendre à ce stade.
     dismissBootSplash();
   }
-
-  $('onbWelcomeStart').addEventListener('click', function () {
-    $('onbWelcome').classList.add('hidden');
-    $('onbCreate').classList.remove('hidden');
-  });
 
   // Mesure la hauteur réelle de .topbar (marge de sécurité iOS/Android
   // comprise) et l'expose en variable CSS --topbar-h, consommée par #app
@@ -997,12 +980,7 @@
     autoSubscribePushOnLogin();
     api('GET', '/api/activities?userId=' + profile.id).then(function (acts) {
       if (acts.length === 0) {
-        // 15 septembre 2026 (chantier "Onboarding à la iPhone") : le choix
-        // du thème s'intercale désormais avant la création des activités
-        // (voir showOnboardingThemeStep ci-dessous) — même condition de
-        // déclenchement qu'avant (0 activité = profil encore en cours
-        // d'onboarding), rien ne change pour un profil qui en a déjà.
-        showOnboardingThemeStep();
+        showOnboardingActivitiesStep();
       } else {
         showApp();
       }
@@ -1154,7 +1132,6 @@
     // rester affiché plutôt que de laisser passer l'étape code PIN.
     if (!isStandaloneMode()) { showOnbInstallPwa(); return; }
     pendingPinUser = user;
-    $('onbWelcome').classList.add('hidden');
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.add('hidden');
     $('onbPinStep').classList.remove('hidden');
@@ -1220,91 +1197,15 @@
     }
   });
 
-  // ----- Étape "Choisis ton thème" (15 septembre 2026, chantier
-  // "Onboarding à la iPhone") : intercalée entre le code PIN et la
-  // création des activités. Réutilise #onbThemeSwitch (mêmes classes
-  // .themeSwitch/.themeBtn que Réglages > Apparence, voir renderThemeSwitch
-  // ~L9169) ; met à jour le thème tout de suite (PUT /api/profile/:id),
-  // exactement comme dans Réglages, pour que la palette d'activités de
-  // l'étape suivante soit déjà la bonne.
-  function showOnboardingThemeStep() {
-    $('onbWelcome').classList.add('hidden');
-    $('onbCreate').classList.add('hidden');
-    $('onbExisting').classList.add('hidden');
-    $('onbPinStep').classList.add('hidden');
-    $('onbTheme').classList.remove('hidden');
-    $('onbMsg').textContent = '';
-    document.querySelectorAll('#onbThemeSwitch .themeBtn').forEach(function (btn) {
-      btn.classList.toggle('active', btn.dataset.themeChoice === currentTheme);
-    });
-  }
-  document.querySelectorAll('#onbThemeSwitch .themeBtn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var chosen = btn.dataset.themeChoice;
-      document.querySelectorAll('#onbThemeSwitch .themeBtn').forEach(function (b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      if (chosen === currentTheme) return;
-      api('PUT', '/api/profile/' + profile.id, { theme: chosen })
-        .then(function (p) { saveProfile(p); })
-        .catch(function (err) { $('onbMsg').textContent = err.message; });
-    });
-  });
-  $('onbThemeContinue').addEventListener('click', function () {
-    showOnboardingActivitiesStep();
-  });
-
   // ----- Étape "Crée tes activités" -----
-  // 15 septembre 2026 (chantier "Onboarding à la iPhone", clarification
-  // d'Emilien : "Oui, ajouter des suggestions rapides") : une poignée
-  // d'activités courantes, en un tap, pour ne pas laisser un formulaire
-  // vide face à quelqu'un qui découvre l'app. La création manuelle reste
-  // disponible, repliée derrière #onbToggleCustomActivity pour garder
-  // l'étape compacte (.onboarding-card ne défile jamais, voir styles.css).
-  var ONB_ACTIVITY_SUGGESTIONS = ['Travail', 'Études', 'Famille', 'Sport', 'Loisirs', 'Bénévolat'];
   var onbNewActivityColor = PALETTES[currentTheme][0];
-
-  function renderOnbActivitySuggestions() {
-    var box = $('onbActivitySuggestions');
-    box.innerHTML = '';
-    var already = onbCreatedActivities.map(function (a) { return a.name; });
-    var palette = PALETTES[currentTheme];
-    ONB_ACTIVITY_SUGGESTIONS.forEach(function (name, i) {
-      if (already.indexOf(name) !== -1) return;
-      var chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'onbSuggestionChip';
-      chip.textContent = t(name);
-      chip.addEventListener('click', function () {
-        chip.disabled = true;
-        api('POST', '/api/activities', { name: name, color: palette[i % palette.length], userId: profile.id })
-          .then(function (a) {
-            onbCreatedActivities.push(a);
-            renderOnbActivityList(onbCreatedActivities);
-            renderOnbActivitySuggestions();
-          })
-          .catch(function (err) { $('onbMsg').textContent = err.message; chip.disabled = false; });
-      });
-      box.appendChild(chip);
-    });
-  }
-
-  $('onbToggleCustomActivity').addEventListener('click', function (e) {
-    e.preventDefault();
-    $('onbNewActivityCard').classList.toggle('hidden');
-  });
-
   function showOnboardingActivitiesStep() {
-    $('onbWelcome').classList.add('hidden');
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.add('hidden');
     $('onbPinStep').classList.add('hidden');
-    $('onbTheme').classList.add('hidden');
     $('onbActivities').classList.remove('hidden');
     $('onbMsg').textContent = '';
-    onbCreatedActivities = [];
     renderOnbActivityList([]);
-    renderOnbActivitySuggestions();
-    $('onbNewActivityCard').classList.add('hidden');
     onbNewActivityColor = PALETTES[currentTheme][0];
     renderColorSwatches($('onbNewActivitySwatches'), onbNewActivityColor, function (c) { onbNewActivityColor = c; });
   }
@@ -1325,6 +1226,7 @@
     $('onbActivitiesContinue').disabled = list.length === 0;
   }
 
+  var onbCreatedActivities = [];
   $('onbNewActivitySave').addEventListener('click', function () {
     var name = $('onbNewActivityName').value.trim();
     if (!name) return;
@@ -1334,7 +1236,6 @@
     }).then(function (a) {
       onbCreatedActivities.push(a);
       renderOnbActivityList(onbCreatedActivities);
-      renderOnbActivitySuggestions();
       $('onbNewActivityName').value = '';
       $('onbMsg').textContent = '';
     }).catch(function (err) { $('onbMsg').textContent = err.message; })
@@ -1342,129 +1243,8 @@
   });
 
   $('onbActivitiesContinue').addEventListener('click', function () {
-    // 15 septembre 2026 (chantier "Onboarding à la iPhone", clarification
-    // d'Emilien : "Premier lancement + rejouable") : le mini-tour se
-    // déclenche automatiquement ici, une seule fois, à la toute fin de
-    // l'onboarding — aucun flag "déjà vu" à maintenir, puisque ce chemin
-    // n'est emprunté qu'une fois par profil (showOnboardingActivitiesStep
-    // n'est atteinte que quand le profil a 0 activité, voir
-    // proceedAfterProfile). showApp() n'est appelée qu'à la fermeture du
-    // tour (bouton "Passer" ou dernière carte), jamais avant.
-    openHelpTour(showApp);
+    showApp();
   });
-
-  // ===================== MINI-TOUR DE BIENVENUE =====================
-  // 15 septembre 2026 (chantier "Onboarding à la iPhone", demande directe
-  // d'Emilien : "je souhaite que ce mini tour explique le fondement de
-  // l'application, explique les besoins profonds auxquels cette
-  // application répond"). Chaque carte associe un besoin humain concret à
-  // l'onglet qui y répond — jamais une simple description fonctionnelle.
-  // `brand: true` réutilise le monogramme "N" (mêmes polygones que
-  // .tabBtnGoals/#onbWelcome) plutôt qu'une icône générique, pour les
-  // cartes qui parlent de l'app dans son ensemble ou de l'onglet Objectifs
-  // (qui réutilise déjà ce même monogramme comme icône d'onglet).
-  var HELP_TOUR_BRAND_ICON = '<svg viewBox="163 242 519 641" focusable="false">' +
-    '<polygon fill="#8772C7" points="183,293 287,461 287,616 183,675"/>' +
-    '<polygon fill="#46397D" points="287,628 287,863 184,863 184,687"/>' +
-    '<polygon fill="#8772C7" points="192,262 293,262 468,557 367,555"/>' +
-    '<polygon fill="#46397D" points="374,565 475,568 536,670 536,835"/>' +
-    '<polygon fill="#8772C7" points="556,262 616,262 659,286 661,616 556,673"/>' +
-    '<polygon fill="#46397D" points="661,629 662,863 557,863 556,686"/>' +
-    '</svg>';
-  var HELP_TOUR_CARDS = [
-    {
-      title: 'Pourquoi Noèsis existe',
-      text: "On ne peut pas vraiment gérer ce qu'on ne voit pas. La plupart d'entre nous sentons que notre temps nous échappe, sans jamais savoir précisément où il part. Noèsis rend ton temps visible, pour que tes choix redeviennent les tiens.",
-      icon: HELP_TOUR_BRAND_ICON
-    },
-    {
-      title: 'Chrono — le geste le plus simple',
-      text: "Un tap suffit pour démarrer ou arrêter. Moins la mesure demande d'effort, plus elle reflète ta vraie journée — pas une reconstitution approximative faite le soir venu.",
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><line x1="12" y1="13" x2="12" y2="9"/><line x1="12" y1="13" x2="15" y2="15"/><line x1="10" y1="2" x2="14" y2="2"/></svg>'
-    },
-    {
-      title: 'Statistiques — voir avant de juger',
-      text: "Les chiffres ne mentent pas, mais ils n'accusent pas non plus. Tes statistiques existent pour t'informer, jamais pour te culpabiliser : vois-les comme une carte, pas comme une note.",
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,17 9,10 13,14 21,5"/></svg>'
-    },
-    {
-      title: 'Objectifs — donner une direction au temps',
-      text: "Suivre son temps sans savoir pourquoi finit par lasser. Fixe-toi des objectifs qui comptent vraiment pour toi : le temps suivi prend alors un sens, pas seulement une mesure.",
-      icon: HELP_TOUR_BRAND_ICON
-    },
-    {
-      title: 'Communauté — avancer avec les tiens',
-      text: "Certains efforts se tiennent mieux à plusieurs. Communauté te permet de partager ton avancement avec les personnes qui comptent pour toi, pour vous encourager mutuellement plutôt que de rester seul face à tes chiffres.",
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/><line x1="9" y1="12" x2="15" y2="12"/></svg>'
-    },
-    {
-      title: 'Activité — ton fil du temps',
-      text: "Un journal complet de ce que tu as accompli, activité par activité. De quoi te rendre compte, avec le recul, de tout ce que tu as réellement fait — souvent plus que tu ne le crois.",
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>'
-    }
-  ];
-  var helpTourIndex = 0;
-  var helpTourOnDone = null;
-
-  function renderHelpTourDots() {
-    var dots = $('helpTourDots');
-    dots.innerHTML = '';
-    HELP_TOUR_CARDS.forEach(function (c, i) {
-      var d = document.createElement('span');
-      d.className = 'helpTourDot' + (i === helpTourIndex ? ' active' : '');
-      dots.appendChild(d);
-    });
-  }
-
-  function renderHelpTourCard() {
-    var card = HELP_TOUR_CARDS[helpTourIndex];
-    $('helpTourIcon').innerHTML = card.icon;
-    $('helpTourTitle').textContent = t(card.title);
-    $('helpTourText').textContent = t(card.text);
-    $('helpTourNext').textContent = (helpTourIndex === HELP_TOUR_CARDS.length - 1) ? t('Terminer') : t('Suivant');
-    renderHelpTourDots();
-  }
-
-  // `onDone` : callback appelé à la fermeture du tour, quelle qu'en soit
-  // la raison ("Passer" ou dernière carte) — `showApp` pendant
-  // l'onboarding, `null` quand rejoué depuis Réglages > Aide (l'app est
-  // déjà affichée, rien à faire de plus).
-  function openHelpTour(onDone) {
-    helpTourIndex = 0;
-    helpTourOnDone = onDone || null;
-    renderHelpTourCard();
-    $('helpTourModal').classList.remove('hidden');
-  }
-
-  function closeHelpTour() {
-    $('helpTourModal').classList.add('hidden');
-    var cb = helpTourOnDone;
-    helpTourOnDone = null;
-    if (cb) cb();
-  }
-
-  $('helpTourNext').addEventListener('click', function () {
-    if (helpTourIndex < HELP_TOUR_CARDS.length - 1) {
-      helpTourIndex++;
-      renderHelpTourCard();
-    } else {
-      closeHelpTour();
-    }
-  });
-  $('helpTourSkip').addEventListener('click', function (e) {
-    e.preventDefault();
-    closeHelpTour();
-  });
-
-  // Rejouer le tour à tout moment depuis Réglages > Aide (voir
-  // public/index.html, #reviewTourBtn) : même moteur, `onDone` à null
-  // puisque l'app est déjà affichée derrière la modale.
-  var reviewTourBtn = $('reviewTourBtn');
-  if (reviewTourBtn) {
-    reviewTourBtn.addEventListener('click', function () {
-      openHelpTour(null);
-    });
-  }
 
   // ===================== NAVIGATION ONGLETS =====================
   var tabButtons = document.querySelectorAll('.tabBtn');
@@ -3373,33 +3153,8 @@
     });
   }
 
-  // ⚠️ 14 septembre 2026 (à la demande d'Emilien, « je voulais justement
-  // utiliser le même pattern ») : ce rendu (SVG + crosshair/infobulle au
-  // survol) portait trois implémentations quasi identiques — ici, et dans
-  // renderActivityChart (page d'une activité partagée) et
-  // renderViewProfileChart (page de visite d'un profil). Réunifiées en une
-  // seule fonction, suivant exactement le même principe déjà appliqué au
-  // Chrono↔Sous-projets le 5 septembre 2026 (voir chartIds/SP_CHART_IDS
-  // ci-dessus) : ce qui varie par appelant (ids DOM, axe des séries via
-  // `buildSeries`, dimensions) passe par `idsIn`, le reste — tracé, étiquettes
-  // éclaircies selon densité, survol, légende, recadrage sur les dernières
-  // données — ne vit plus qu'ici. Les trois appelants gardent leurs valeurs
-  // par défaut d'origine (largeur minimale, dépendance à `box.clientWidth`,
-  // hauteur/paddings) via ces options, pour un rendu visuellement inchangé —
-  // sauf l'éclaircissement des étiquettes en cas de forte densité, qui
-  // n'existait jusqu'ici que sur l'onglet Statistiques canonique et s'applique
-  // désormais aux trois (aucune des deux autres implémentations ne l'avait :
-  // un vrai écart créé par la duplication, corrigé au passage).
   function renderChart(days, idsIn) {
     var C = chartIds(idsIn);
-    var opts = idsIn || {};
-    var buildSeries = opts.buildSeries || buildChartSeries;
-    var minWidthFloor = opts.minWidthFloor != null ? opts.minWidthFloor : 280;
-    var useClientWidth = opts.useClientWidth !== false;
-    var height = opts.height || 180;
-    var padTop = opts.padTop != null ? opts.padTop : 14;
-    var padBottom = opts.padBottom != null ? opts.padBottom : 26;
-
     var box = $(C.box);
     box.innerHTML = '';
     var hasData = days && days.length > 0;
@@ -3416,16 +3171,17 @@
     // toujours dessinés, le graphique s'élargit avec l'historique et défile
     // horizontalement nativement dans .chartScroll (styles.css) au besoin.
     var padSide = 8;
-    var minWidth = useClientWidth ? Math.max(minWidthFloor, box.clientWidth || minWidthFloor) : minWidthFloor;
+    var minWidth = Math.max(280, box.clientWidth || 280);
     var width = Math.max(minWidth, padSide * 2 + CHART_DAY_SPACING * total);
     var innerW = width - padSide * 2;
     var stepW = innerW / total;
 
     function xFor(i) { return padSide + stepW * (i + 0.5); }
 
-    var series = buildSeries(sorted);
+    var series = buildChartSeries(sorted);
     var maxSeconds = sorted.reduce(function (m, d) { return Math.max(m, d.totalSeconds); }, 0) || 1;
 
+    var height = 180, padTop = 14, padBottom = 26;
     var plotH = height - padTop - padBottom;
 
     function yFor(seconds) { return padTop + plotH - (seconds / maxSeconds) * plotH; }
@@ -4465,15 +4221,12 @@
   // toujours la page 1 entre la grille et la vue "Répartition" (les 3
   // catégories croisées par membre de l'activité, déjà croisées dans
   // currentGoalsAllPlannings — plus besoin d'un appel séparé pour cette
-  // vue). currentGoalsGridActivePeriodIndex (1 à 13) suit la ligne de la
-  // grille actuellement centrée à l'écran, pour la bande de tendance fixe
-  // (voir updateGoalsTrendFromScroll() plus bas).
+  // vue).
   var GOALS_CATEGORIES = ['entreprise', 'communaute', 'produit'];
   var GOALS_CATEGORY_LABELS = { entreprise: 'Entreprise', communaute: 'Communauté', produit: 'Produit' };
   var currentGoalsCategory = 'entreprise';
   var currentGoalsView = 'tree';
   var currentGoalsAllPlannings = null;
-  var currentGoalsGridActivePeriodIndex = 1;
 
   var GOAL_STATUS_ORDER = ['non_atteint', 'partiel', 'atteint'];
   var GOAL_STATUS_LABELS = {
@@ -4588,115 +4341,128 @@
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
-  // ===================== BANDE DE TENDANCE FIXE — position + clic =====================
-  // 14 septembre 2026 (troisième passage, demande d'Emilien) : « je souhaite
-  // que la barre [...] se bloque en haut de l'écran lorsque je défile [...]
-  // et que dépendamment où je me situe [...] le contour violet change de
-  // place [...] si je clique sur un point [...] l'écran défile jusqu'à
-  // afficher la période correspondante au milieu de l'écran ». Les 13 points
-  // ne portent plus une couleur de statut par catégorie (3 catégories
-  // partagent désormais le même point — une seule couleur n'aurait plus de
-  // sens) : ils sont neutres, un point = une LIGNE de la grille (donc une
-  // période, toutes catégories confondues), et seul le point ACTIF (anneau
-  // violet) change, selon la ligne verticalement centrée à l'écran (voir
-  // updateGoalsTrendFromScroll()) ou selon le point cliqué (voir
-  // scrollGoalsGridToPeriod()).
-  function renderGoalsTrend() {
-    var row = $('activityGoalsTrendRow');
-    if (!row) return;
-    row.innerHTML = '';
-    for (var i = 1; i <= 13; i++) {
-      var block = document.createElement('button');
-      block.type = 'button';
-      block.className = 'goalsTrendBlock' + (i === currentGoalsGridActivePeriodIndex ? ' active' : '');
-      block.title = t('Période') + ' ' + i;
-      block.addEventListener('click', (function (periodIndex) {
-        return function () { scrollGoalsGridToPeriod(periodIndex); };
-      })(i));
-      row.appendChild(block);
+  // ===================== RAIL TACTILE DU BORD GAUCHE =====================
+  // 15 septembre 2026 (5e passage, demande d'Emilien) : remplace l'ancienne
+  // bande de tendance TOUJOURS visible (renderGoalsTrend()/
+  // setGoalsTrendActiveIndex()/syncGoalsFixedBarHeightVar()/
+  // updateGoalsTrendFromScroll()/scrollGoalsGridToPeriod(), retirées) — « je
+  // souhaite changer le système des points périodiques. Je souhaite les
+  // mettre sur la verticale à gauche, de même que le numéro de la période et
+  // la date. Et je souhaite qu'il s'affiche uniquement lorsque l'utilisateur
+  // appuie et fait défiler ». currentGoalsPeriodInfo (rempli par
+  // renderGoalsGrid()) retient, pour chaque période 1-13, un numéro + une
+  // plage de dates représentative (celle de la première catégorie qui a
+  // effectivement démarré un plan pour cette période — les 3 catégories
+  // peuvent avoir commencé leur cycle à des dates différentes, il n'existe
+  // pas de date "canonique" unique par période, voir renderGoalsGrid()).
+  var currentGoalsPeriodInfo = [];
+  var goalsScrubDots = [];
+  var goalsScrubbing = false;
+
+  function renderGoalsScrub() {
+    var rail = $('goalsScrubRail');
+    if (!rail) return;
+    rail.innerHTML = '';
+    goalsScrubDots = [];
+    for (var i = 0; i < 13; i++) {
+      var dot = document.createElement('div');
+      dot.className = 'goalsScrubDot';
+      rail.appendChild(dot);
+      goalsScrubDots.push(dot);
     }
   }
 
-  // Change seulement la classe "active" (jamais de reconstruction du DOM) —
-  // appelée à chaque défilement, doit rester bon marché.
-  function setGoalsTrendActiveIndex(periodIndex) {
-    if (periodIndex === currentGoalsGridActivePeriodIndex) return;
-    currentGoalsGridActivePeriodIndex = periodIndex;
-    var row = $('activityGoalsTrendRow');
-    if (!row) return;
-    Array.prototype.forEach.call(row.children, function (block, idx) {
-      block.classList.toggle('active', idx + 1 === periodIndex);
-    });
+  // Hauteur du bloc au-dessus de la grille (en-tête d'activité + bascule
+  // Arbre/Répartition + en-têtes de colonnes) à ne pas recouvrir, exposée en
+  // --goals-scrubzone-top — même principe que --topbar-h/--goals-fixedbar-h
+  // (ex.) ailleurs dans ce fichier. Mesurée au moment où la grille se (re)
+  // construit, donc typiquement page défilée tout en haut (getBoundingClientRect
+  // est relatif au viewport, pas au document) ; une légère imprécision après
+  // un défilement manuel jusque-là est sans conséquence, cette valeur ne fait
+  // que réserver une marge de sécurité en haut du rail.
+  function syncGoalsScrubZoneTopVar() {
+    var toggle = $('goalsViewToggle');
+    if (!toggle) return;
+    var bottom = toggle.getBoundingClientRect().bottom;
+    if (bottom > 0) document.documentElement.style.setProperty('--goals-scrubzone-top', Math.round(bottom + 14) + 'px');
   }
+  window.addEventListener('resize', syncGoalsScrubZoneTopVar);
+  window.addEventListener('orientationchange', syncGoalsScrubZoneTopVar);
 
-  // Hauteur réelle de #goalsFixedBar (en-têtes + bande de tendance, toujours
-  // position: fixed — voir styles.css) rendue à #goalsGrid via
-  // --goals-fixedbar-h, même principe que --topbar-h/--community-searchbar-h
-  // ailleurs dans ce fichier.
-  function syncGoalsFixedBarHeightVar() {
-    var barEl = $('goalsFixedBar');
-    if (!barEl) return;
-    document.documentElement.style.setProperty('--goals-fixedbar-h', barEl.offsetHeight + 'px');
-  }
-  window.addEventListener('resize', syncGoalsFixedBarHeightVar);
-  window.addEventListener('orientationchange', syncGoalsFixedBarHeightVar);
-
-  // Détermine quelle ligne de la grille est le plus près du milieu de la
-  // zone visible (sous #goalsFixedBar, dont la hauteur varie selon
-  // l'appareil) et met à jour le point actif de la bande de tendance en
-  // conséquence — appelée à chaque défilement de la fenêtre (#app n'est PAS
-  // un conteneur de défilement indépendant dans ce projet : c'est toujours
-  // la fenêtre entière qui défile, voir .topbar/.tabbar déjà en position:
-  // fixed relative au viewport).
-  var goalsScrollTickPending = false;
-  function updateGoalsTrendFromScroll() {
-    goalsScrollTickPending = false;
-    var tab = $('tab-goals');
-    if (!tab || tab.classList.contains('hidden')) return;
-    if (currentGoalsView !== 'tree') return;
+  // Masque le rail tactile hors de la vue Arbre (Répartition, page 2 ouverte)
+  // — appelée par renderGoalsViewToggle()/openGoalsDetail()/
+  // closeGoalsDetail(). Le cas "onglet Objectifs pas actif" et "aucune
+  // activité chargée" sont déjà couverts sans code dédié : #goalsScrubZone
+  // vit À L'INTÉRIEUR de #goalsActivitySwitcher/#tab-goals (voir index.html),
+  // `.hidden`/`.tab.hidden` la masquent donc automatiquement avec le reste.
+  function updateGoalsScrubVisibility() {
+    var zone = $('goalsScrubZone');
+    if (!zone) return;
     var detailPage = $('goalsDetailPage');
-    if (detailPage && !detailPage.classList.contains('hidden')) return;
+    var visible = currentGoalsView === 'tree' && (!detailPage || detailPage.classList.contains('hidden'));
+    zone.classList.toggle('hidden', !visible);
+    if (!visible) hideGoalsScrub();
+  }
+
+  function goalsPeriodFromY(clientY) {
+    var zone = $('goalsScrubZone');
+    var rect = zone.getBoundingClientRect();
+    var frac = (clientY - rect.top) / rect.height;
+    return Math.min(12, Math.max(0, Math.round(frac * 12)));
+  }
+
+  // Affiche le rail + l'étiquette à la hauteur du doigt, et fait défiler la
+  // FENÊTRE (jamais un conteneur local — #app n'est pas indépendamment
+  // défilant dans ce projet, voir .topbar/.tabbar déjà en position: fixed
+  // relative au viewport) jusqu'à centrer la période visée, sous le même
+  // motif que l'ancienne scrollGoalsGridToPeriod() qu'elle remplace.
+  function showGoalsScrub(clientY) {
+    var idx = goalsPeriodFromY(clientY);
+    var info = currentGoalsPeriodInfo[idx];
+    goalsScrubDots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
+    var label = $('goalsScrubLabel');
+    var rail = $('goalsScrubRail');
+    if (!label || !rail || !goalsScrubDots[idx]) return;
+    label.innerHTML = info
+      ? '<b>' + t('Période') + ' ' + (idx + 1) + '</b>' + formatGoalPeriodDates(info.startDate, info.endDate)
+      : '<b>' + t('Période') + ' ' + (idx + 1) + '</b>';
+    var dotRect = goalsScrubDots[idx].getBoundingClientRect();
+    label.style.top = (dotRect.top + dotRect.height / 2) + 'px';
+    rail.classList.add('show');
+    label.classList.add('show');
+
     var grid = $('goalsGrid');
-    if (!grid) return;
-    var rows = grid.querySelectorAll('.goalsGridRow');
-    if (!rows.length) return;
-    var fixedBar = $('goalsFixedBar');
-    var topOffset = fixedBar ? fixedBar.getBoundingClientRect().bottom : 0;
-    var viewportMid = topOffset + (window.innerHeight - topOffset) / 2;
-    var closestIndex = 1;
-    var closestDist = Infinity;
-    Array.prototype.forEach.call(rows, function (rowEl, idx) {
-      var rect = rowEl.getBoundingClientRect();
-      var mid = (rect.top + rect.bottom) / 2;
-      var dist = Math.abs(mid - viewportMid);
-      if (dist < closestDist) { closestDist = dist; closestIndex = idx + 1; }
+    var row = grid && grid.querySelector('.goalsGridRow[data-period-index="' + (idx + 1) + '"]');
+    if (row) {
+      var rect = row.getBoundingClientRect();
+      var rowMid = rect.top + rect.height / 2;
+      window.scrollBy({ top: rowMid - window.innerHeight / 2 });
+    }
+  }
+
+  function hideGoalsScrub() {
+    var rail = $('goalsScrubRail');
+    var label = $('goalsScrubLabel');
+    if (rail) rail.classList.remove('show');
+    if (label) label.classList.remove('show');
+  }
+
+  (function bindGoalsScrub() {
+    var zone = $('goalsScrubZone');
+    if (!zone) return;
+    zone.addEventListener('pointerdown', function (e) {
+      goalsScrubbing = true;
+      zone.setPointerCapture(e.pointerId);
+      showGoalsScrub(e.clientY);
     });
-    setGoalsTrendActiveIndex(closestIndex);
-  }
-
-  function onGoalsWindowScroll() {
-    if (goalsScrollTickPending) return;
-    goalsScrollTickPending = true;
-    window.requestAnimationFrame(updateGoalsTrendFromScroll);
-  }
-  window.addEventListener('scroll', onGoalsWindowScroll, { passive: true });
-
-  // Clic sur un point de la bande : fait défiler la FENÊTRE (jamais un
-  // conteneur local, voir commentaire ci-dessus) jusqu'à centrer verticalement
-  // la ligne de cette période, sous #goalsFixedBar.
-  function scrollGoalsGridToPeriod(periodIndex) {
-    var grid = $('goalsGrid');
-    if (!grid) return;
-    var row = grid.querySelector('.goalsGridRow[data-period-index="' + periodIndex + '"]');
-    if (!row) return;
-    var fixedBar = $('goalsFixedBar');
-    var topOffset = fixedBar ? fixedBar.getBoundingClientRect().bottom : 0;
-    var rect = row.getBoundingClientRect();
-    var rowMid = rect.top + rect.height / 2;
-    var viewportMid = topOffset + (window.innerHeight - topOffset) / 2;
-    window.scrollBy({ top: rowMid - viewportMid, behavior: 'smooth' });
-    setGoalsTrendActiveIndex(periodIndex);
-  }
+    zone.addEventListener('pointermove', function (e) {
+      if (!goalsScrubbing) return;
+      showGoalsScrub(e.clientY);
+    });
+    function endGoalsScrub() { goalsScrubbing = false; hideGoalsScrub(); }
+    zone.addEventListener('pointerup', endGoalsScrub);
+    zone.addEventListener('pointercancel', endGoalsScrub);
+  })();
 
   function renderGoalsWeeklyList(period) {
     var box = $('activityGoalsWeeklyList');
@@ -4970,22 +4736,26 @@
       });
     });
 
+    // Info période (numéro + dates) pour le rail tactile — voir
+    // showGoalsScrub() plus haut. Une seule date "représentative" par
+    // période : celle de la première catégorie qui a une période à cet
+    // index (les 3 catégories peuvent avoir démarré leur cycle à des dates
+    // différentes, voir commentaire au-dessus de indexByCategory).
+    currentGoalsPeriodInfo = [];
+
     for (var i = 1; i <= 13; i += 1) {
       (function (periodIndex) {
         var row = document.createElement('div');
         row.className = 'goalsGridRow';
         row.setAttribute('data-period-index', String(periodIndex));
 
-        var label = document.createElement('div');
-        label.className = 'goalsGridRowLabel';
-        label.textContent = String(periodIndex);
-        row.appendChild(label);
-
+        var repPeriod = null;
         GOALS_CATEGORIES.forEach(function (category) {
           var p = indexByCategory[category][periodIndex];
           var cell = document.createElement('button');
           cell.type = 'button';
           cell.title = t(GOALS_CATEGORY_LABELS[category]) + ' — ' + t('Période') + ' ' + periodIndex;
+          if (p && !repPeriod) repPeriod = p;
 
           if (p && p.mainGoalText) {
             cell.className = 'goalsGridCell goalsGridCell--filled' + (p.isCurrent ? ' current' : '');
@@ -4997,10 +4767,11 @@
             txt.textContent = p.mainGoalText;
             cell.appendChild(txt);
           } else {
+            // Aucun objectif périodique pour cette (période, catégorie) —
+            // règle revue le 15 septembre 2026 (5e passage) : plus aucun
+            // habillage (pas même un trait), voir .goalsGridCell--empty,
+            // styles.css.
             cell.className = 'goalsGridCell goalsGridCell--empty' + (p && p.isCurrent ? ' current' : '');
-            var line = document.createElement('span');
-            line.className = 'goalsGridLine';
-            cell.appendChild(line);
           }
 
           if (p) {
@@ -5012,14 +4783,14 @@
           }
           row.appendChild(cell);
         });
+        currentGoalsPeriodInfo[periodIndex - 1] = repPeriod ? { startDate: repPeriod.startDate, endDate: repPeriod.endDate } : null;
 
         grid.appendChild(row);
       })(i);
     }
 
-    renderGoalsTrend();
-    syncGoalsFixedBarHeightVar();
-    window.requestAnimationFrame(updateGoalsTrendFromScroll);
+    renderGoalsScrub();
+    window.requestAnimationFrame(syncGoalsScrubZoneTopVar);
   }
 
   // Bascule la page 1 entre la grille (3 catégories comparées) et la vue
@@ -5036,12 +4807,14 @@
     }
     var grid = $('goalsGrid');
     var distribution = $('goalsDistribution');
-    var fixedBar = $('goalsFixedBar');
+    var head = $('goalsGridHead');
     if (grid) grid.classList.toggle('hidden', currentGoalsView !== 'tree');
     if (distribution) distribution.classList.toggle('hidden', currentGoalsView !== 'distribution');
-    // La bande de tendance + en-têtes de colonnes n'ont de sens que pour la
-    // grille — masqués ensemble en vue Répartition.
-    if (fixedBar) fixedBar.classList.toggle('hidden', currentGoalsView !== 'tree');
+    // Les en-têtes de colonnes + le rail tactile n'ont de sens que pour la
+    // grille — masqués ensemble en vue Répartition (le rail via
+    // updateGoalsScrubVisibility(), qui lit currentGoalsView).
+    if (head) head.classList.toggle('hidden', currentGoalsView !== 'tree');
+    updateGoalsScrubVisibility();
   }
 
   Array.prototype.forEach.call(($('goalsViewToggle') || { querySelectorAll: function () { return []; } }).querySelectorAll('.goalsViewToggleBtn'), function (btn) {
@@ -5054,7 +4827,6 @@
       // reloadGoalsAll ci-dessus) : jamais de nouvel appel serveur ici, juste
       // un rendu différent des mêmes données déjà en mémoire.
       if (view === 'distribution') renderGoalsDistribution();
-      if (view === 'tree') window.requestAnimationFrame(updateGoalsTrendFromScroll);
     });
   });
 
@@ -5173,10 +4945,14 @@
     $('goalsDetailPage').classList.remove('hidden');
     $('goalsDetailScroll').scrollTop = 0;
     renderActivityGoals();
+    // Page 2 ouverte : le rail tactile de la page 1 n'a plus lieu d'être
+    // atteignable derrière elle (15 septembre 2026, 5e passage).
+    updateGoalsScrubVisibility();
   }
 
   function closeGoalsDetail() {
     $('goalsDetailPage').classList.add('hidden');
+    updateGoalsScrubVisibility();
   }
 
   $('goalsDetailBack').addEventListener('click', closeGoalsDetail);
@@ -5225,13 +5001,11 @@
     // qui réinitialise systématiquement ses propres filtres). currentGoalsCategory
     // ne désigne plus qu'une catégorie de PAGE 2 par défaut (jamais ouverte
     // tant qu'aucune cellule n'a été cliquée) ; la vue (toujours la grille,
-    // jamais la Répartition de l'activité précédente) et la ligne active de
-    // la bande de tendance repartent aussi de zéro.
+    // jamais la Répartition de l'activité précédente) repart aussi de zéro.
     currentGoalsViewPeriodNumber = null;
     currentGoalsCategory = 'entreprise';
     currentGoalsView = 'tree';
     currentGoalsAllPlannings = null;
-    currentGoalsGridActivePeriodIndex = 1;
     renderGoalsViewToggle();
 
     $('goalsActivityDot').style.background = a.color;
@@ -7117,19 +6891,171 @@
     return series;
   }
 
-  // 14 septembre 2026 : rendu réunifié dans renderChart (voir son commentaire
-  // plus haut) — cette fonction ne fait plus que lui passer l'axe par membre
-  // (buildActivityChartSeries) et les ids/dimensions propres à cette page.
-  // Largeur/hauteur inchangées (mêmes 320/180/14/26/false qu'avant l'unification).
-  var ACTIVITY_CHART_IDS = {
-    box: 'communityActivityChart', wrap: 'communityActivityChartWrap',
-    legend: 'communityActivityChartLegend', tooltip: 'caChartTooltip',
-    emptyHint: 'communityActivityChartEmptyHint',
-    buildSeries: buildActivityChartSeries,
-    minWidthFloor: 320, useClientWidth: false,
-  };
+  function renderActivityChartLegend(series) {
+    var legend = $('communityActivityChartLegend');
+    legend.innerHTML = '';
+    series.forEach(function (s) {
+      var row = document.createElement('div');
+      row.className = 'chartLegendRow' + (s.isTotal ? ' chartLegendTotal' : '');
+      var dot = document.createElement('span');
+      dot.className = 'chartLegendDot';
+      dot.style.background = s.color;
+      var label = document.createElement('span');
+      label.className = 'chartLegendLabel';
+      label.textContent = s.name;
+      row.appendChild(dot); row.appendChild(label);
+      legend.appendChild(row);
+    });
+  }
+
   function renderActivityChart(days) {
-    renderChart(days, ACTIVITY_CHART_IDS);
+    var box = $('communityActivityChart');
+    box.innerHTML = '';
+    var hasData = days && days.length > 0;
+    $('communityActivityChartEmptyHint').classList.toggle('hidden', hasData);
+    $('communityActivityChartLegend').innerHTML = '';
+    $('caChartTooltip').classList.add('hidden');
+    if (!hasData) return;
+
+    var sorted = days.slice().sort(function (a, b) { return a.isoDate < b.isoDate ? -1 : 1; });
+    var series = buildActivityChartSeries(sorted);
+    var maxSeconds = sorted.reduce(function (m, d) { return Math.max(m, d.totalSeconds); }, 0) || 1;
+
+    var width = Math.max(320, sorted.length * 56);
+    var height = 180, padTop = 14, padBottom = 26, padSide = 8;
+    var plotH = height - padTop - padBottom;
+    var stepW = (width - padSide * 2) / sorted.length;
+
+    function xFor(i) { return padSide + stepW * (i + 0.5); }
+    function yFor(seconds) { return padTop + plotH - (seconds / maxSeconds) * plotH; }
+
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+    svg.setAttribute('class', 'chartSvg');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.width = width + 'px';
+    svg.style.height = height + 'px';
+
+    var baseline = document.createElementNS(svgNS, 'line');
+    baseline.setAttribute('x1', 0); baseline.setAttribute('x2', width);
+    baseline.setAttribute('y1', height - padBottom); baseline.setAttribute('y2', height - padBottom);
+    baseline.setAttribute('class', 'chartAxisLine');
+    svg.appendChild(baseline);
+
+    var ordered = series.slice().sort(function (a, b) { return (a.isTotal ? 1 : 0) - (b.isTotal ? 1 : 0); });
+
+    ordered.forEach(function (s) {
+      var points = s.values.map(function (v, i) { return { x: xFor(i), y: yFor(v) }; });
+      var pathD = points.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p.x + ',' + p.y; }).join(' ');
+      var line = document.createElementNS(svgNS, 'path');
+      line.setAttribute('d', pathD);
+      line.setAttribute('class', 'chartLine' + (s.isTotal ? ' chartLineTotal' : ''));
+      line.style.stroke = s.color;
+      svg.appendChild(line);
+
+      points.forEach(function (p) {
+        var dot = document.createElementNS(svgNS, 'circle');
+        dot.setAttribute('cx', p.x); dot.setAttribute('cy', p.y); dot.setAttribute('r', 4);
+        dot.setAttribute('class', 'chartDot');
+        dot.style.fill = s.color;
+        svg.appendChild(dot);
+      });
+    });
+
+    sorted.forEach(function (d, i) {
+      var x = xFor(i);
+      var label = document.createElementNS(svgNS, 'text');
+      label.setAttribute('x', x); label.setAttribute('y', height - 8);
+      label.setAttribute('class', 'chartAxisLabel');
+      label.setAttribute('text-anchor', 'middle');
+      label.textContent = dayChartLabel(d, true);
+      svg.appendChild(label);
+    });
+
+    var crosshair = document.createElementNS(svgNS, 'line');
+    crosshair.setAttribute('y1', padTop); crosshair.setAttribute('y2', height - padBottom);
+    crosshair.setAttribute('class', 'chartCrosshair hidden');
+    svg.appendChild(crosshair);
+
+    var hoverLayer = document.createElementNS(svgNS, 'rect');
+    hoverLayer.setAttribute('x', 0); hoverLayer.setAttribute('y', 0);
+    hoverLayer.setAttribute('width', width); hoverLayer.setAttribute('height', height);
+    hoverLayer.setAttribute('class', 'chartHoverLayer');
+    svg.appendChild(hoverLayer);
+
+    var tooltip = $('caChartTooltip');
+    var wrapEl = $('communityActivityChartWrap');
+
+    function showTooltipAt(i) {
+      var d = sorted[i];
+      crosshair.setAttribute('x1', xFor(i)); crosshair.setAttribute('x2', xFor(i));
+      crosshair.classList.remove('hidden');
+
+      tooltip.innerHTML = '';
+      var dateEl = document.createElement('div');
+      dateEl.className = 'chartTooltipDate';
+      dateEl.textContent = dayChartLabel(d);
+      tooltip.appendChild(dateEl);
+
+      ordered.slice().reverse().forEach(function (s) {
+        var row = document.createElement('div');
+        row.className = 'chartTooltipRow';
+        var dot = document.createElement('span');
+        dot.className = 'chartTooltipDot';
+        dot.style.background = s.color;
+        var label = document.createElement('span');
+        label.className = 'chartTooltipLabel';
+        label.textContent = s.name;
+        var value = document.createElement('span');
+        value.className = 'chartTooltipValue';
+        value.textContent = formatHM(s.values[i]);
+        row.appendChild(dot); row.appendChild(label); row.appendChild(value);
+        tooltip.appendChild(row);
+      });
+
+      var svgRect = svg.getBoundingClientRect();
+      var wrapRect = wrapEl.getBoundingClientRect();
+      var px = svgRect.left - wrapRect.left + (xFor(i) / width) * svgRect.width;
+      var py = svgRect.top - wrapRect.top + (yFor(d.totalSeconds) / height) * svgRect.height;
+      tooltip.style.left = px + 'px';
+      tooltip.style.top = (py - 10) + 'px';
+      tooltip.classList.remove('hidden');
+    }
+
+    function hideTooltip() {
+      crosshair.classList.add('hidden');
+      tooltip.classList.add('hidden');
+    }
+
+    function indexFromEvent(evt) {
+      var rect = svg.getBoundingClientRect();
+      var relX = ((evt.clientX - rect.left) / rect.width) * width;
+      var i = Math.round((relX - padSide) / stepW - 0.5);
+      if (i < 0) i = 0;
+      if (i > sorted.length - 1) i = sorted.length - 1;
+      return i;
+    }
+
+    hoverLayer.addEventListener('pointermove', function (evt) { showTooltipAt(indexFromEvent(evt)); });
+    hoverLayer.addEventListener('pointerenter', function (evt) { showTooltipAt(indexFromEvent(evt)); });
+    hoverLayer.addEventListener('pointerleave', hideTooltip);
+
+    box.appendChild(svg);
+    renderActivityChartLegend(series);
+
+    // ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que graphique
+    // montre par défaut les derniers enregistrements ». Le graphique couvrant
+    // désormais TOUTE l'histoire de l'activité, la vue s'ouvrait sur son
+    // début — c'est-à-dire sur les points les plus anciens, les moins utiles.
+    // On se cale donc sur la fin de la piste après chaque rendu. Repris tel
+    // quel de renderChart (onglet Statistiques), qui le fait depuis le
+    // 1er septembre : simple repositionnement de scrollLeft, aucun mécanisme
+    // de geste ni de zoom.
+    var chartScrollWrap = box.parentElement;
+    if (chartScrollWrap && chartScrollWrap.classList.contains('chartScroll')) {
+      chartScrollWrap.scrollLeft = chartScrollWrap.scrollWidth;
+    }
   }
 
   // ----- Plein écran retiré le 3 septembre 2026 (Activité — général),
@@ -10715,22 +10641,209 @@
     loadViewProfileStats();
   });
 
-  // 14 septembre 2026 : rendu réunifié dans renderChart (voir son commentaire
-  // plus haut, au-dessus de sa définition) — cette page utilise le même axe
-  // par activité que l'onglet Statistiques (buildChartSeries, inchangé), donc
-  // seuls les ids/dimensions propres à cette page lui sont passés. Hauteur et
-  // paddings plus compacts qu'ailleurs (160/12/24 au lieu de 180/14/26) et
-  // largeur minimale sans dépendance à box.clientWidth : valeurs reprises
-  // telles quelles de l'ancienne implémentation pour un rendu inchangé.
-  var VIEW_PROFILE_CHART_IDS = {
-    box: 'viewProfileChart', wrap: 'viewProfileChartWrap',
-    legend: 'viewProfileChartLegend', tooltip: 'viewProfileChartTooltip',
-    emptyHint: 'viewProfileChartEmptyHint',
-    height: 160, padTop: 12, padBottom: 24,
-    minWidthFloor: 280, useClientWidth: false,
-  };
+  // Graphique de la page de visite — fonction distincte de renderChart
+  // (l'onglet Statistiques), et non un appel à celle-ci : renderChart écrit en
+  // dur ses deux conteneurs (#statsChart, #statsChartWrap, #chartTooltip,
+  // #statsChartLegend) et appartient à une autre discussion. Même situation,
+  // même choix et même code que renderCommunityActivityChart pour la page
+  // d'une activité (#caChartTooltip) : ces trois graphiques sont des jumeaux
+  // assumés. Ce qui EST réellement partageable l'est : buildChartSeries
+  // (séries), dayChartLabel (étiquettes) et formatHM (durées).
+  //
+  // ⚠️ 4 septembre 2026, demande d'Emilien : « je souhaite que lorsque un
+  // utilisateur fait défiler son doigt sur les statistiques du profil d'un
+  // autre utilisateur, les données en heure s'affichent exactement comme sur
+  // le volet statistique ». Cette fonction se contentait auparavant d'un
+  // <title> SVG natif sur chaque point (infobulle du système, une seule série
+  // à la fois, et qui ne se déclenche pas au glissé du doigt). Elle a
+  // désormais le MÊME crosshair + la MÊME infobulle listant toutes les séries
+  // du jour survolé que renderChart — code repris ligne pour ligne, pour que
+  // le comportement soit strictement identique des deux côtés.
   function renderViewProfileChart(days) {
-    renderChart(days, VIEW_PROFILE_CHART_IDS);
+    var box = $('viewProfileChart');
+    var legendBox = $('viewProfileChartLegend');
+    box.innerHTML = '';
+    legendBox.innerHTML = '';
+    $('viewProfileChartTooltip').classList.add('hidden');
+    var hasData = days && days.length > 0;
+    $('viewProfileChartEmptyHint').classList.toggle('hidden', hasData);
+    if (!hasData) return;
+
+    var sorted = days.slice().sort(function (a, b) { return a.isoDate < b.isoDate ? -1 : 1; });
+    var series = buildChartSeries(sorted);
+    var maxSeconds = sorted.reduce(function (m, d) { return Math.max(m, d.totalSeconds); }, 0) || 1;
+
+    var width = Math.max(280, 56 * sorted.length);
+    var height = 160, padTop = 12, padBottom = 24, padSide = 8;
+    var plotH = height - padTop - padBottom;
+    var innerW = width - padSide * 2;
+    // `stepW` = largeur réelle d'une colonne. Nommée ici parce que
+    // indexFromEvent (plus bas) s'en sert pour retrouver le jour sous le
+    // doigt — exactement la même formule que dans renderChart.
+    var stepW = innerW / sorted.length;
+    function xFor(i) { return padSide + stepW * (i + 0.5); }
+    function yFor(seconds) { return padTop + plotH - (seconds / maxSeconds) * plotH; }
+
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+    svg.setAttribute('class', 'chartSvg');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.width = width + 'px';
+    svg.style.height = height + 'px';
+
+    var baseline = document.createElementNS(svgNS, 'line');
+    baseline.setAttribute('x1', 0); baseline.setAttribute('x2', width);
+    baseline.setAttribute('y1', height - padBottom); baseline.setAttribute('y2', height - padBottom);
+    baseline.setAttribute('class', 'chartAxisLine');
+    svg.appendChild(baseline);
+
+    // Total dessiné en dernier, donc au-dessus des courbes d'activité :
+    // c'est la synthèse, elle doit rester lisible (même choix que renderChart).
+    var ordered = series.slice().sort(function (a, b) { return (a.isTotal ? 1 : 0) - (b.isTotal ? 1 : 0); });
+    ordered.forEach(function (s) {
+      var points = s.values.map(function (v, i) { return { x: xFor(i), y: yFor(v) }; });
+      var line = document.createElementNS(svgNS, 'path');
+      line.setAttribute('d', points.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p.x + ',' + p.y; }).join(' '));
+      line.setAttribute('class', 'chartLine' + (s.isTotal ? ' chartLineTotal' : ''));
+      line.style.stroke = s.color;
+      svg.appendChild(line);
+
+      points.forEach(function (p) {
+        var dot = document.createElementNS(svgNS, 'circle');
+        dot.setAttribute('cx', p.x); dot.setAttribute('cy', p.y); dot.setAttribute('r', 4);
+        dot.setAttribute('class', 'chartDot');
+        dot.style.fill = s.color;
+        // ⚠️ Le <title> SVG qui vivait ici a été RETIRÉ le 4 septembre 2026 :
+        // il déclenchait l'infobulle native du navigateur (une seule série,
+        // apparition retardée, jamais au glissé du doigt) par-dessus la
+        // nouvelle infobulle. L'onglet Statistiques n'en a pas non plus.
+        svg.appendChild(dot);
+      });
+    });
+
+    sorted.forEach(function (d, i) {
+      var label = document.createElementNS(svgNS, 'text');
+      label.setAttribute('x', xFor(i)); label.setAttribute('y', height - 8);
+      label.setAttribute('class', 'chartAxisLabel');
+      label.setAttribute('text-anchor', 'middle');
+      label.textContent = dayChartLabel(d, true);
+      svg.appendChild(label);
+    });
+
+    // ----- Survol : crosshair vertical + infobulle listant CHAQUE série au
+    // jour survolé ou touché (4 septembre 2026, demande d'Emilien). Repris
+    // ligne pour ligne de renderChart (onglet Statistiques) — c'est le but :
+    // « exactement comme sur le volet statistique ». -----
+    var crosshair = document.createElementNS(svgNS, 'line');
+    crosshair.setAttribute('y1', padTop); crosshair.setAttribute('y2', height - padBottom);
+    crosshair.setAttribute('class', 'chartCrosshair hidden');
+    svg.appendChild(crosshair);
+
+    // Rectangle transparent posé EN DERNIER, donc au-dessus de tout : c'est
+    // lui qui reçoit le doigt, et non chaque point un par un — on n'a pas à
+    // viser un point de 4px de rayon pour lire la journée.
+    var hoverLayer = document.createElementNS(svgNS, 'rect');
+    hoverLayer.setAttribute('x', 0); hoverLayer.setAttribute('y', 0);
+    hoverLayer.setAttribute('width', width); hoverLayer.setAttribute('height', height);
+    hoverLayer.setAttribute('class', 'chartHoverLayer');
+    svg.appendChild(hoverLayer);
+
+    var tooltip = $('viewProfileChartTooltip');
+    var wrapEl = $('viewProfileChartWrap');
+
+    function showTooltipAt(i) {
+      var d = sorted[i];
+      crosshair.setAttribute('x1', xFor(i)); crosshair.setAttribute('x2', xFor(i));
+      crosshair.classList.remove('hidden');
+
+      tooltip.innerHTML = '';
+      var dateEl = document.createElement('div');
+      dateEl.className = 'chartTooltipDate';
+      dateEl.textContent = dayChartLabel(d);
+      tooltip.appendChild(dateEl);
+
+      // `ordered` est trié Total en dernier (pour le dessiner par-dessus) :
+      // on le relit à l'envers pour que le Total soit en TÊTE de l'infobulle,
+      // comme dans l'onglet Statistiques.
+      ordered.slice().reverse().forEach(function (s) {
+        var row = document.createElement('div');
+        row.className = 'chartTooltipRow';
+        var dot = document.createElement('span');
+        dot.className = 'chartTooltipDot';
+        dot.style.background = s.color;
+        var label = document.createElement('span');
+        label.className = 'chartTooltipLabel';
+        label.textContent = s.name;
+        var value = document.createElement('span');
+        value.className = 'chartTooltipValue';
+        value.textContent = formatHM(s.values[i]);
+        row.appendChild(dot); row.appendChild(label); row.appendChild(value);
+        tooltip.appendChild(row);
+      });
+
+      // Positionnée par rapport à .chartWrap (pas .chartScroll, qui défile
+      // horizontalement), pour ne jamais être coupée par le scroll.
+      var svgRect = svg.getBoundingClientRect();
+      var wrapRect = wrapEl.getBoundingClientRect();
+      var px = svgRect.left - wrapRect.left + (xFor(i) / width) * svgRect.width;
+      var py = svgRect.top - wrapRect.top + (yFor(d.totalSeconds) / height) * svgRect.height;
+      tooltip.style.left = px + 'px';
+      tooltip.style.top = (py - 10) + 'px';
+      tooltip.classList.remove('hidden');
+    }
+
+    function hideTooltip() {
+      crosshair.classList.add('hidden');
+      tooltip.classList.add('hidden');
+    }
+
+    function indexFromEvent(evt) {
+      var rect = svg.getBoundingClientRect();
+      var relX = ((evt.clientX - rect.left) / rect.width) * width;
+      var i = Math.round((relX - padSide) / stepW - 0.5);
+      if (i < 0) i = 0;
+      if (i > sorted.length - 1) i = sorted.length - 1;
+      return i;
+    }
+
+    hoverLayer.addEventListener('pointermove', function (evt) { showTooltipAt(indexFromEvent(evt)); });
+    hoverLayer.addEventListener('pointerenter', function (evt) { showTooltipAt(indexFromEvent(evt)); });
+    hoverLayer.addEventListener('pointerleave', function () { hideTooltip(); });
+
+    box.appendChild(svg);
+
+    series.forEach(function (s) {
+      var row = document.createElement('div');
+      row.className = 'chartLegendRow' + (s.isTotal ? ' chartLegendTotal' : '');
+      var dot = document.createElement('span');
+      dot.className = 'chartLegendDot';
+      dot.style.background = s.color;
+      var label = document.createElement('span');
+      label.className = 'chartLegendLabel';
+      label.textContent = s.name;
+      row.appendChild(dot); row.appendChild(label);
+      legendBox.appendChild(row);
+    });
+
+    // 4-5 septembre 2026, demande d'Emilien : « je souhaite que la section
+    // graphique affiche les derniers enregistrements par défaut » — même
+    // demande, mêmes mots, que celle du 3 septembre déjà traitée pour
+    // l'onglet Statistiques (voir renderChart, plus haut dans ce fichier :
+    // « par défaut, la section graphique doit afficher les six dernières
+    // données du calendrier »). Repris à l'identique ici : le graphique de la
+    // page de visite n'a lui non plus aucun zoom, chaque point garde un
+    // espacement fixe, et le défilement horizontal de .chartScroll est
+    // simplement replacé sur son bord droit (les données les plus récentes,
+    // sorted étant trié du plus ancien au plus récent) à CHAQUE rendu —
+    // premier chargement d'un profil ou changement de granularité
+    // (Jour/Semaine/Mois) — plutôt que de laisser le navigateur conserver la
+    // position d'un défilement précédent, y compris celui laissé sur le
+    // profil précédemment visité.
+    var viewProfileChartScrollWrap = box.parentElement;
+    if (viewProfileChartScrollWrap && viewProfileChartScrollWrap.classList.contains('chartScroll')) {
+      viewProfileChartScrollWrap.scrollLeft = viewProfileChartScrollWrap.scrollWidth;
+    }
   }
 
   // ----- Messages "Communauté" du profil visité (abonnés acceptés) -----

@@ -440,35 +440,7 @@
     <h1>Noèsis</h1>
     <p class="subtitle">TimeTracker partagé</p>
 
-    <!-- 15 septembre 2026 (chantier "Onboarding à la iPhone", demande
-         d'Emilien) : premier écran vu par tout nouveau profil, avant même
-         la saisie du nom. Objectif explicite d'Emilien : que ce mini-tour
-         "explique le fondement de l'application, explique les besoins
-         profonds auxquels cette application répond" — pas une simple
-         description fonctionnelle. Réutilise le monogramme "N" à 6
-         polygones (mêmes couleurs #8772C7/#46397D, même viewBox) déjà
-         utilisé pour l'icône de l'onglet Objectifs (.tabBtnGoals plus bas
-         dans ce fichier), pour ancrer visuellement l'app dès la première
-         seconde plutôt que d'introduire un nouveau visuel. Bouton
-         #onbWelcomeStart : simple avance d'écran (aucun appel réseau),
-         géré dans app.js. -->
-    <div id="onbWelcome">
-      <div class="onbIconWrap" aria-hidden="true">
-        <svg viewBox="163 242 519 641" focusable="false">
-          <polygon fill="#8772C7" points="183,293 287,461 287,616 183,675"/>
-          <polygon fill="#46397D" points="287,628 287,863 184,863 184,687"/>
-          <polygon fill="#8772C7" points="192,262 293,262 468,557 367,555"/>
-          <polygon fill="#46397D" points="374,565 475,568 536,670 536,835"/>
-          <polygon fill="#8772C7" points="556,262 616,262 659,286 661,616 556,673"/>
-          <polygon fill="#46397D" points="661,629 662,863 557,863 556,686"/>
-        </svg>
-      </div>
-      <p class="lead">Bienvenue sur Noèsis</p>
-      <p class="hint">Le temps est la seule ressource qu'on ne récupère jamais. Noèsis existe pour t'aider à voir où passe le tien — pas pour te surveiller, mais pour t'aider à avancer, seul ou avec les tiens, vers ce qui compte vraiment pour toi.</p>
-      <button class="btn btn-primary" id="onbWelcomeStart">Commencer</button>
-    </div>
-
-    <div id="onbCreate" class="hidden">
+    <div id="onbCreate">
       <p class="lead">Comment veux-tu qu'on t'appelle ?</p>
       <input type="text" id="onbName" placeholder="Prénom ou pseudo" maxlength="40" autocomplete="off">
       <!-- Identité complète demandée dès la création du profil (29 août
@@ -536,32 +508,11 @@
       <p class="switchLink"><a href="#" id="onbPinCancel">Retour</a></p>
     </div>
 
-    <!-- 15 septembre 2026 (chantier "Onboarding à la iPhone") : choix du
-         thème déplacé avant la création des activités pour que
-         PALETTES[currentTheme] (app.js) reflète déjà le bon thème au
-         moment où les suggestions/swatches d'activités se dessinent.
-         Réutilise tel quel .themeSwitch/.themeBtn (Réglages > Apparence,
-         voir plus bas dans ce fichier) : mêmes classes, aucun style
-         dupliqué. #onbThemeContinue avance sans appel réseau propre — le
-         thème est déjà sauvegardé via PUT /api/profile/:id au clic sur un
-         .themeBtn, comme dans Réglages. -->
-    <div id="onbTheme" class="hidden">
-      <p class="lead">Choisis ton thème</p>
-      <p class="hint">Tu pourras en changer à tout moment dans Réglages.</p>
-      <div class="themeSwitch" id="onbThemeSwitch">
-        <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
-        <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
-      </div>
-      <button id="onbThemeContinue" class="btn btn-primary">Continuer</button>
-    </div>
-
     <div id="onbActivities" class="hidden">
       <p class="lead">Crée tes activités</p>
-      <p class="hint">Une activité, c'est un projet, un rôle, une part de ta vie que tu veux suivre dans le temps. Choisis-en une ou deux pour commencer — tu pourras en ajouter/modifier plus tard dans Activité.</p>
+      <p class="hint">Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Activité.</p>
       <div id="onbActivityList" class="activitiesList"></div>
-      <div id="onbActivitySuggestions" class="onbSuggestions"></div>
-      <p class="switchLink"><a href="#" id="onbToggleCustomActivity">+ Créer une activité personnalisée</a></p>
-      <div id="onbNewActivityCard" class="entryCard hidden">
+      <div class="entryCard">
         <input type="text" id="onbNewActivityName" placeholder="Nom de l'activité">
         <p class="colorPickLabel">Couleur</p>
         <div id="onbNewActivitySwatches" class="colorSwatches"></div>
@@ -594,30 +545,6 @@
     </div>
 
     <p id="onbMsg" class="msg"></p>
-  </div>
-</div>
-
-<!-- 15 septembre 2026 (chantier "Onboarding à la iPhone", demande
-     d'Emilien) : mini-tour de 5 cartes (fondement de l'app, puis un
-     survol de chacun des 4 onglets + Objectifs), affiché automatiquement
-     après la création du premier profil, et rejouable à tout moment
-     depuis Réglages > Aide > #reviewTourBtn (voir app.js: openHelpTour).
-     Frère direct de #onboarding/#app (jamais un enfant de l'un des deux)
-     pour éviter la leçon déjà tirée ailleurs dans ce projet : une modale
-     imbriquée dans une section portant .hidden disparaît avec elle,
-     quel que soit son propre z-index (voir noesis-timetracker-profil.md).
-     Réutilise .onboarding-card telle quelle (même règle "jamais de
-     scroll interne", voir styles.css) plutôt que de dupliquer son CSS. -->
-<div id="helpTourModal" class="helpTourModal hidden" role="dialog" aria-modal="true">
-  <div class="onboarding-card helpTourCard">
-    <div id="helpTourDots" class="helpTourDots"></div>
-    <div id="helpTourIcon" class="onbIconWrap helpTourIcon" aria-hidden="true"></div>
-    <p id="helpTourTitle" class="lead"></p>
-    <p id="helpTourText" class="hint"></p>
-    <div class="helpTourActions">
-      <a href="#" id="helpTourSkip" class="switchLink">Passer</a>
-      <button id="helpTourNext" class="btn btn-primary">Suivant</button>
-    </div>
   </div>
 </div>
 
@@ -2181,45 +2108,41 @@
           <button type="button" class="goalsViewToggleBtn" data-view="distribution">Répartition</button>
         </div>
 
-        <!-- 14 septembre 2026 (troisième passage, demande d'Emilien : « je
-             souhaite que la barre avec les différents points par période se
-             bloque en haut de l'écran lorsque je défile vers le bas »).
-             #goalsFixedBar regroupe les en-têtes de colonnes ET la bande de
-             tendance : les deux doivent rester visibles ensemble pendant le
-             défilement de la grille, sinon les points ne renseigneraient plus
-             sur QUELLE colonne on regarde. TOUJOURS position: fixed (jamais
-             sticky — bug WebKit iOS déjà documenté deux fois dans ce projet
-             pour .topbar et #communitySearchBar, voir styles.css), masqué
-             avec .goalsGrid en vue Répartition (renderGoalsViewToggle(),
-             app.js — n'a de sens que pour la grille). #goalsGrid récupère
-             l'espace perdu par ce passage en fixed via un padding-top dédié à
-             --goals-fixedbar-h (même principe que --topbar-h/
-             --community-searchbar-h), mesurée par
-             syncGoalsFixedBarHeightVar() (app.js). -->
-        <div class="goalsFixedBar" id="goalsFixedBar">
-          <!-- En-têtes des 3 colonnes de la grille — simple repère visuel,
-               jamais de logique propre. -->
-          <div class="goalsGridHead" id="goalsGridHead">
-            <span class="goalsGridHeadCell goalsCategoryTag-entreprise">Entreprise</span>
-            <span class="goalsGridHeadCell goalsCategoryTag-communaute">Communauté</span>
-            <span class="goalsGridHeadCell goalsCategoryTag-produit">Produit</span>
-          </div>
-
-          <!-- 13 points du cycle en cours (un par période, toutes catégories
-               confondues — les 3 catégories partagent la même numérotation de
-               ligne dans la grille même si chacune a démarré son plan à sa
-               propre date, voir renderGoalsGrid()). L'anneau violet actif
-               suit la ligne verticalement centrée à l'écran
-               (updateGoalsTrendFromScroll(), app.js) et un clic sur un point
-               fait défiler la grille jusqu'à centrer sa période
-               (scrollGoalsGridToPeriod()). -->
-          <div class="goalsTrendRow" id="activityGoalsTrendRow"></div>
+        <!-- ⚠️ 15 septembre 2026 (5e passage, demande d'Emilien — mockup
+             validé par itérations successives) : #goalsFixedBar (en-têtes +
+             bande de points, TOUJOURS position: fixed) est RETIRÉ. Deux
+             raisons cumulées d'Emilien : (1) « je souhaite que le nom des
+             catégories défile [...] de même que les arbres » — les en-têtes
+             de colonnes ne doivent plus rester bloqués en haut de l'écran,
+             ils défilent maintenant avec la grille comme un simple en-tête ;
+             (2) la bande de 13 points, plus le numéro/date de période
+             toujours affichés, cède la place à un rail tactile sur le bord
+             gauche de l'écran qui ne s'affiche qu'au toucher — voir
+             #goalsScrubZone plus bas, et renderGoalsScrub()/
+             showGoalsScrub()/hideGoalsScrub() dans app.js. Avec la bande de
+             points partie, --goals-fixedbar-h et syncGoalsFixedBarHeightVar()
+             (app.js) sont retirés aussi ; #goalsGrid n'a plus besoin d'un
+             padding-top calculé pour compenser un bloc fixe. -->
+        <!-- En-têtes des 3 colonnes de la grille — simple repère visuel,
+             jamais de logique propre. Aligné sur les mêmes colonnes que
+             #goalsGrid juste en dessous (même largeur, même écart) — demande
+             d'Emilien du 15 septembre : « je souhaite que les catégories
+             soient alignées avec les lignes ». Défile avec le contenu, ne
+             reste plus fixe. -->
+        <div class="goalsGridHead" id="goalsGridHead">
+          <span class="goalsGridHeadCell goalsCategoryTag-entreprise">Entreprise</span>
+          <span class="goalsGridHeadCell goalsCategoryTag-communaute">Communauté</span>
+          <span class="goalsGridHeadCell goalsCategoryTag-produit">Produit</span>
         </div>
 
         <!-- Grille de comparaison des 3 catégories : une ligne par période du
              cycle en cours, 3 cellules par ligne (Entreprise/Communauté/
              Produit). Construite entièrement par renderGoalsGrid() (app.js) :
-             rien de statique ici. -->
+             rien de statique ici. Le repère de numéro/date de période, qui
+             vivait auparavant dans une colonne à gauche de chaque ligne
+             (.goalsGridRowLabel, retirée), a migré dans le rail tactile
+             #goalsScrubZone ci-dessous — les 3 colonnes de catégories
+             occupent maintenant toute la largeur. -->
         <div id="goalsGrid" class="goalsGrid"></div>
 
         <!-- Vue « Répartition » (14 septembre 2026) : liste, par membre de
@@ -2229,6 +2152,26 @@
              (GET /activities/:id/goals/all). Alterne avec #goalsGrid,
              jamais les deux visibles à la fois (goalsViewToggle ci-dessus). -->
         <div id="goalsDistribution" class="goalsDistribution hidden"></div>
+
+        <!-- Rail tactile du bord gauche (5e passage, 15 septembre 2026,
+             demande d'Emilien : « je souhaite les mettre sur la verticale à
+             gauche [...] et je souhaite qu'il s'affiche uniquement lorsque
+             l'utilisateur appuie et fait défiler »). Invisible par défaut
+             (opacity, voir styles.css) ; appuyer dessus ET glisser fait
+             apparaître, à la hauteur du doigt, les 13 points de période +
+             le numéro/date correspondants, et fait défiler la page jusqu'à
+             cette période — voir showGoalsScrub()/hideGoalsScrub() (app.js).
+             Placée À L'INTÉRIEUR de #goalsActivitySwitcher (et non de
+             #goalsGrid) : `.hidden` sur ce conteneur (aucune activité
+             chargée) la masque déjà sans logique dédiée ; `.tab.hidden` sur
+             #tab-goals fait de même en dehors de cet onglet. Pour la vue
+             Répartition et la page 2 (détail), voir en plus
+             updateGoalsScrubVisibility() (app.js), appelée par
+             renderGoalsViewToggle()/openGoalsDetail()/closeGoalsDetail(). -->
+        <div class="goalsScrubZone" id="goalsScrubZone">
+          <div class="goalsScrubRail" id="goalsScrubRail"></div>
+        </div>
+        <div class="goalsScrubLabel" id="goalsScrubLabel"></div>
       </div>
     </section>
 
@@ -3155,24 +3098,6 @@
               </div>
             </div>
 
-
-            <!-- Aide (15 septembre 2026, chantier "Onboarding à la iPhone",
-                 demande d'Emilien) : permet de rejouer le mini-tour de
-                 bienvenue affiché au premier lancement, sans dépendre
-                 d'un quelconque flag "déjà vu" — reviewTourBtn appelle
-                 openHelpTour(null) dans app.js, exactement le même
-                 moteur que celui lancé après la création du profil. -->
-            <div class="settingsGroup">
-              <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                <span class="sectionTitle">Aide</span>
-                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-              </button>
-              <div class="settingsGroupBody hidden">
-              <div class="settingsFlat">
-                <button type="button" id="reviewTourBtn" class="iconBtn">Revoir le tour de bienvenue</button>
-              </div>
-              </div>
-            </div>
 
             <!-- Affichage (anciennement « Préférences d'affichage », renommé le 9
                  septembre 2026, puis groupe accordéon fusionné le même jour —

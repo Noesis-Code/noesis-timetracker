@@ -325,43 +325,6 @@ input[type=time]:focus, select:focus, textarea:focus {
 .userChip:active { transform: scale(0.99); }
 .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
 
-/* ===== Onboarding "à la iPhone" (15 septembre 2026, chantier "Onboarding
-   à la iPhone", demande d'Emilien) : écran de bienvenue, suggestions
-   d'activités et mini-tour. Réutilise .onboarding-card/.lead/.hint/
-   .switchLink/.btn-primary tels quels (Design) — rien ci-dessous ne
-   redéfinit un style déjà existant. ===== */
-.onbIconWrap { display: flex; justify-content: center; margin-bottom: 14px; }
-.onbIconWrap svg { width: 64px; height: 64px; }
-.onbSuggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 4px; }
-.onbSuggestionChip {
-  padding: 8px 16px; border: 1px solid var(--border); background: var(--card);
-  color: var(--text); border-radius: 999px; cursor: pointer; font-size: 14px;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
-}
-.onbSuggestionChip:hover:not(:disabled) { background: var(--hover-bg); border-color: var(--purple); }
-.onbSuggestionChip:disabled { opacity: 0.5; cursor: default; }
-
-/* Mini-tour de bienvenue (#helpTourModal, public/index.html) : frère
-   direct de #onboarding/#app dans le document, jamais un enfant de l'un
-   des deux (voir le commentaire sur cette modale dans index.html).
-   z-index au-dessus de tout le reste de l'app, y compris .imageViewer
-   (200) : le tour peut être rejoué par-dessus n'importe quel écran
-   depuis Réglages > Aide. */
-.helpTourModal {
-  position: fixed; inset: 0; z-index: 210;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex; align-items: center; justify-content: center;
-  padding: 24px;
-}
-.helpTourCard { text-align: center; }
-.helpTourIcon svg { width: 56px; height: 56px; }
-.helpTourDots { display: flex; justify-content: center; gap: 6px; margin-bottom: 18px; }
-.helpTourDot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
-.helpTourDot.active { background: var(--purple); width: 18px; border-radius: 4px; }
-.helpTourActions { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
-.helpTourActions .btn { width: auto; margin-top: 0; padding-left: 28px; padding-right: 28px; }
-.helpTourActions .switchLink { margin-top: 0; }
-
 /* ===== Palette de couleurs d'activités (pastilles) ===== */
 .colorPickLabel { font-size: 14px; color: var(--text-light); margin: 0 0 8px; text-align: left; }
 .colorSwatches { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
@@ -4135,62 +4098,25 @@ button { -webkit-user-select: none; user-select: none; }
    --shadow-card : rien de nouveau n'est inventé pour ce qui existe déjà
    ailleurs dans l'app. */
 
-/* ===== Bande de tendance + en-têtes de colonnes — TOUJOURS FIXE, 14
-   septembre 2026 (troisième passage, demande d'Emilien : « je souhaite que
-   la barre avec les différents points par période se bloque en haut de
-   l'écran lorsque je défile vers le bas [...] et je souhaite que
-   dépendamment où je me situe [...] le contour violet change de place »).
-
-   #goalsFixedBar (en-têtes de colonnes + bande de tendance) reprend TROIS
-   FOIS le même motif déjà éprouvé dans ce fichier pour .topbar et
-   #communitySearchBar : `position: fixed` (jamais `sticky` — le rebond
-   élastique du défilement sur iOS/WebKit peut faire flotter/décoller un
-   élément sticky, bug déjà documenté deux fois dans ce fichier), posé juste
-   sous .topbar (`top: var(--topbar-h)`), largeur pleine écran (`left`/
-   `right`, pas héritée du flux), et l'espace qu'il perd en sortant du flux
-   est rendu à #goalsGrid via un padding-top dédié (--goals-fixedbar-h,
-   mesurée par syncGoalsFixedBarHeightVar(), app.js) — même principe que
-   --topbar-h sur #app et --community-searchbar-h sur #tab-community. z-index
-   sous .topbar/.tabbar (10) mais au-dessus de la grille, qui défile dessous.
-   Masqué avec #goalsGrid en vue Répartition (n'a de sens que pour la
-   grille), même règle que .goalsGrid ci-dessous. */
-.goalsFixedBar {
-  position: fixed; top: var(--topbar-h, 56px); left: 0; right: 0; z-index: 9;
-  background: var(--bg); padding: 8px 16px 6px;
-  border-bottom: 1px solid var(--border);
-}
+/* ===== En-têtes de colonnes — défile avec le contenu, 15 septembre 2026
+   (5e passage). Remplace l'ancien #goalsFixedBar (`position: fixed`, TOUJOURS
+   visible en haut de l'écran) : demande explicite d'Emilien, « je souhaite
+   que le nom des catégories défile [...] de même que les arbres ». La bande
+   de 13 points qui vivait à côté (#activityGoalsTrendRow, .goalsTrendRow/
+   .goalsTrendBlock ci-dessous, retirés) a migré vers un rail tactile sur le
+   bord gauche de l'écran, caché par défaut — voir #goalsScrubZone plus bas.
+   Alignée sur les mêmes colonnes que .goalsGrid en dessous (même gap, même
+   padding horizontal) — demande d'Emilien : « je souhaite que les catégories
+   soient alignées avec les lignes ». */
 .goalsGridHead {
-  display: flex; gap: 6px; margin-bottom: 6px;
+  display: flex; gap: 6px; padding: 10px 4px 6px; margin-bottom: 0;
 }
 .goalsGridHeadCell {
-  flex: 1 1 0; min-width: 0; text-align: center; padding: 4px 2px;
-  border-radius: var(--radius-sm, 8px); color: #fff;
+  flex: 1 1 0; min-width: 0; text-align: center; padding: 6px 4px;
+  border-radius: 999px; color: #fff;
   font-size: 11px; font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
-/* Les cases prennent TOUTE LA LARGEUR de l'écran (flex:1 chacune, demande
-   d'Emilien du 14 septembre) — pas de défilement horizontal. Padding
-   horizontal porté à 6px (au lieu de 2px) : c'est ce qui causait le
-   rectangle violet de sélection coupé net quand il tombait sur la case la
-   plus à gauche — son anneau (box-shadow) déborde de 4px du bloc et n'avait
-   que 2px de marge pour respirer avant le bord de la rangée. */
-.goalsTrendRow {
-  display: flex; gap: 4px; padding: 6px 6px 4px;
-}
-.goalsTrendBlock {
-  flex: 1 1 0; min-width: 0; height: 22px; padding: 0; border: none;
-  border-radius: 4px; background: var(--track-bg); cursor: pointer;
-  transition: transform var(--transition-fast), opacity var(--transition-fast);
-}
-.goalsTrendBlock:active { transform: scale(0.9); }
-/* Un seul indicateur, qui SUIT TOUJOURS la ligne verticalement centrée à
-   l'écran (updateGoalsTrendFromScroll(), app.js) — jamais deux informations
-   à interpréter à la fois. Les 13 points sont désormais NEUTRES (retiré :
-   une couleur de statut par point n'aurait plus de sens depuis que 3
-   catégories partagent la même ligne, voir renderGoalsTrend(), app.js) — un
-   point = une ligne de la grille, jamais un statut ni une catégorie
-   particulière. */
-.goalsTrendBlock.active { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--purple); }
 
 /* Navigation période précédente/suivante — même schéma que les autres
    "‹ titre ›" de l'app (voir #chronoHistoryHeader), .menuBtn inchangé. */
@@ -4253,9 +4179,9 @@ button { -webkit-user-select: none; user-select: none; }
    d'activité) : Objectifs vit désormais dans #tab-goals, au même niveau que
    #tab-chrono/#tab-stats/#tab-community/#tab-activity — voir index.html et
    loadGoalsTab()/openGoalsForActivity()/bindGoalsSwipe() dans app.js. Tout
-   le CSS de la carte de période/semaines ci-dessus (.goalCard, .goalsTrendRow,
-   etc.) est réutilisé sans changement ; il ne manquait qu'un habillage pour
-   le nouveau sélecteur d'activité par balayage. */
+   le CSS de la carte de période/semaines ci-dessus (.goalCard, etc.) est
+   réutilisé sans changement ; il ne manquait qu'un habillage pour le nouveau
+   sélecteur d'activité par balayage. */
 .goalsActivitySwitcher { display: flex; flex-direction: column; gap: 14px; }
 /* .goalsActivityHeader réutilise le gabarit visuel de .activityPageHeader
    (pastille + nom, même taille de police) mais neutralise ici son padding
@@ -4396,18 +4322,21 @@ button { -webkit-user-select: none; user-select: none; }
    période ». Une LIGNE par période du cycle en cours (13 lignes), une
    COLONNE par catégorie (Entreprise/Communauté/Produit, même ordre que
    #goalsGridHead) — voir renderGoalsGrid(), app.js.
-   padding-top récupère l'espace de #goalsFixedBar (toujours fixed, voir plus
-   haut dans ce fichier), pas de dépendance à --topbar-h ici : #goalsFixedBar
-   s'en charge déjà pour lui-même. */
+   15 septembre 2026 (5e passage) : padding-top redevient une simple valeur
+   fixe — #goalsFixedBar (toujours fixed) est retiré, plus rien à compenser
+   au-dessus de la grille. Lignes nettement plus espacées (gap 8px → 16px,
+   cellules plus hautes) : demande d'Emilien, « je souhaite que les périodes,
+   les lignes soient plus espacées afin que je puisse réellement descendre
+   tout en bas, jusqu'à la 13e activité ». Padding bas généreux pour la même
+   raison (pouvoir vraiment faire défiler la 13e période loin de la barre du
+   bas). Colonne de numéro de période à gauche (.goalsGridRowLabel) retirée :
+   le repère de période a migré dans le rail tactile #goalsScrubZone — les 3
+   colonnes de catégories occupent maintenant toute la largeur. */
 .goalsGrid {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: calc(var(--goals-fixedbar-h, 84px) + 10px) 4px 24px;
+  display: flex; flex-direction: column; gap: 16px;
+  padding: 6px 4px 220px;
 }
 .goalsGridRow { display: flex; align-items: stretch; gap: 6px; }
-.goalsGridRowLabel {
-  flex: 0 0 24px; display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; color: var(--text-light);
-}
 /* Chaque cellule est un <button> cliquable (ouvre la page 2, détail de CETTE
    période pour CETTE catégorie — voir openGoalsDetail(category, periodNumber)
    dans app.js), qu'elle ait ou non un objectif périodique déjà écrit. */
@@ -4422,7 +4351,7 @@ button { -webkit-user-select: none; user-select: none; }
    (.goalStatusAtteint/Partiel/NonAtteint, déjà définies plus haut). */
 .goalsGridCell--filled {
   display: flex; flex-direction: column; gap: 2px;
-  min-height: 48px; padding: 8px 10px;
+  min-height: 54px; padding: 10px 12px;
   border: 2px solid var(--track-bg); border-radius: var(--radius-md);
   background: var(--card); box-shadow: var(--shadow-card);
 }
@@ -4440,15 +4369,58 @@ button { -webkit-user-select: none; user-select: none; }
   overflow: hidden;
 }
 /* Aucun objectif périodique pour cette (période, catégorie) — règle
-   explicite d'Emilien : « juste un trait qui passe dans la période mais
-   qu'il n'y ait pas de bulle ». Reste cliquable (ouvre la page 2 pour en
-   ajouter un), juste sans habillage de carte. */
+   d'Emilien REVUE le 15 septembre 2026 (5e passage) : « supprime les lignes
+   horizontales où il n'y a pas de bulle » remplace l'ancienne règle du 14
+   septembre (« juste un trait [...] mais qu'il n'y ait pas de bulle ») —
+   .goalsGridLine et son marquage .current sont retirés, une cellule vide ne
+   montre plus RIEN, pas même un trait. Reste cliquable (ouvre la page 2 pour
+   en ajouter un) ; min-height réduite (24px, pas 54px) puisqu'il n'y a plus
+   rien à montrer dedans — seul l'espacement entre lignes (gap, ci-dessus)
+   continue de faire respirer la grille. */
 .goalsGridCell--empty {
-  display: flex; align-items: center; justify-content: center;
-  min-height: 48px; padding: 8px 4px;
+  min-height: 24px;
 }
-.goalsGridLine { display: block; width: 100%; height: 2px; background: var(--border); border-radius: 1px; }
-.goalsGridCell--empty.current .goalsGridLine { background: var(--purple); height: 3px; }
+
+/* ===== Rail tactile du bord gauche — remplace la bande de 13 points +
+   en-têtes fixes, 15 septembre 2026 (5e passage) =====
+   Demande d'Emilien : « je souhaite changer le système des points
+   périodiques. Je souhaite les mettre sur la verticale à gauche, de même
+   que le numéro de la période et la date. Et je souhaite qu'il s'affiche
+   uniquement lorsque l'utilisateur appuie et fait défiler ». #goalsScrubZone
+   est une bande tactile FIXE (position: fixed — même raison qu'ailleurs dans
+   ce fichier : jamais sticky, bug de rebond élastique iOS/WebKit déjà
+   documenté deux fois) le long du bord gauche de l'écran, INVISIBLE par
+   défaut (elle ne capte le toucher qu'à cet endroit précis, rien d'autre
+   n'est masqué). --goals-scrubzone-top (mesurée par
+   syncGoalsScrubZoneTopVar(), app.js, même principe que --topbar-h/
+   --goals-fixedbar-h ex.) évite de recouvrir l'en-tête d'activité et la
+   bascule Arbre/Répartition juste au-dessus de la grille ; --tabbar-h évite
+   de recouvrir la barre du bas. z-index au-dessus de la grille mais sous
+   .topbar/.tabbar et #goalsDetailPage (page 2), qui la masquent
+   explicitement le temps qu'ils sont ouverts — voir
+   updateGoalsScrubVisibility(), app.js. */
+.goalsScrubZone {
+  position: fixed; left: 0; z-index: 8;
+  top: var(--goals-scrubzone-top, 220px); bottom: var(--tabbar-h, 60px);
+  width: 32px; touch-action: none;
+}
+.goalsScrubRail {
+  position: absolute; left: 10px; top: 8px; bottom: 8px; width: 12px;
+  display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+  opacity: 0; transition: opacity var(--transition-fast); pointer-events: none;
+}
+.goalsScrubRail.show { opacity: 1; }
+.goalsScrubDot { width: 5px; height: 5px; border-radius: 50%; background: var(--track-bg); }
+.goalsScrubDot.active { width: 8px; height: 8px; background: var(--purple); }
+.goalsScrubLabel {
+  position: fixed; left: 38px; top: 0; transform: translate(0, -50%);
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
+  padding: 6px 10px; font-size: 11px; line-height: 1.3; color: var(--text-light);
+  white-space: nowrap; box-shadow: var(--shadow-card); z-index: 8;
+  opacity: 0; transition: opacity var(--transition-fast); pointer-events: none;
+}
+.goalsScrubLabel.show { opacity: 1; }
+.goalsScrubLabel b { display: block; color: var(--text); font-size: 12px; font-weight: 700; }
 
 /* ===== Objectifs — page 2 (détail d'une période), 14 septembre 2026 =====
    Reprend le même motif que #activityPage (page plein écran hors de toute
