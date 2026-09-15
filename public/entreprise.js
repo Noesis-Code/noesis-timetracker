@@ -70,15 +70,80 @@
   function checkSession() {
     return api('GET', '/api/session/me').then(function (data) {
       if (!data.userId) {
-        el('gate').innerHTML =
-          '<p>Tu n\'es pas connecté.</p>' +
-          '<p class="msg">Connecte-toi d\'abord sur la page d\'accueil de TimeTracker, puis reviens sur cette page (garde-la en favori).</p>' +
-          '<a class="btn btn-primary smallBtn" href="/">Aller à la connexion</a>';
+        el('gateMsg').classList.add('hidden');
+        el('loginBox').classList.remove('hidden');
         return false;
       }
       el('gate').classList.add('hidden');
       el('app').classList.remove('hidden');
       return true;
+    });
+  }
+
+  function afterLogin() {
+    el('gate').classList.add('hidden');
+    el('app').classList.remove('hidden');
+    bindEvents();
+    loadEnterprises();
+  }
+
+  function bindLoginEvents() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-logintab]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var tab = btn.getAttribute('data-logintab');
+        Array.prototype.forEach.call(document.querySelectorAll('[data-logintab]'), function (b) {
+          b.classList.toggle('active', b === btn);
+        });
+        el('loginExisting').classList.toggle('hidden', tab !== 'existing');
+        el('loginNew').classList.toggle('hidden', tab !== 'new');
+      });
+    });
+
+    var foundUserId = null;
+
+    el('findProfileForm').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      el('pinForm').classList.add('hidden');
+      foundUserId = null;
+      var name = el('findFirstName').value.trim();
+      var lastName = el('findLastName').value.trim();
+      api('GET', '/api/users?name=' + encodeURIComponent(name) + '&lastName=' + encodeURIComponent(lastName))
+        .then(function (matches) {
+          if (!matches.length) {
+            el('findProfileMsg').textContent = 'Aucun profil trouvé avec ce prénom et ce nom de famille.';
+            return;
+          }
+          var u = matches[0];
+          if (!u.hasPin) {
+            el('findProfileMsg').textContent = "Ce profil n'a pas encore de code — contacte-nous pour le récupérer.";
+            return;
+          }
+          foundUserId = u.id;
+          el('findProfileMsg').textContent = 'Profil trouvé — entre ton code.';
+          el('pinForm').classList.remove('hidden');
+          el('pinInput').focus();
+        })
+        .catch(function (e) { el('findProfileMsg').textContent = e.message; });
+    });
+
+    el('pinForm').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      if (!foundUserId) return;
+      api('POST', '/api/profile/' + foundUserId + '/verify-pin', { pin: el('pinInput').value.trim() })
+        .then(afterLogin)
+        .catch(function (e) { el('findProfileMsg').textContent = e.message; });
+    });
+
+    el('createProfileForm').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      api('POST', '/api/profile', {
+        name: el('newFirstName').value.trim(),
+        lastName: el('newLastName').value.trim(),
+        phone: el('newPhone').value.trim(),
+        email: el('newEmail').value.trim(),
+        pin: el('newPin').value.trim(),
+      }).then(afterLogin)
+        .catch(function (e) { el('createProfileMsg').textContent = e.message; });
     });
   }
 
@@ -480,9 +545,8 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     checkSession().then(function (ok) {
-      if (!ok) return;
-      bindEvents();
-      loadEnterprises();
+      if (ok) { bindEvents(); loadEnterprises(); }
+      else { bindLoginEvents(); }
     });
   });
 })();

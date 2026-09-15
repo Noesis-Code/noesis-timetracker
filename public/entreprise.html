@@ -65,6 +65,50 @@
 
 <div id="gate" class="card">
   <p id="gateMsg">Vérification de ta session…</p>
+
+  <!-- Connexion propre à cette page, sans passer par l'onboarding de l'app
+       personnelle (index.html/app.js) : celui-ci exige d'avoir installé
+       l'app sur l'écran d'accueil avant de pouvoir se connecter
+       (isStandaloneMode(), voir public/app.js) — utile pour l'app grand
+       public, mais bloquant pour un gestionnaire d'entreprise qui n'a aucune
+       raison d'installer une PWA personnelle. Utilise directement les mêmes
+       routes que app.js (POST /api/profile, /profile/:id/verify-pin) : même
+       compte, même mot de passe, juste sans le détour par l'installation.
+       Ajouté le 15 septembre 2026 après un test réel sur iPhone (Safari) : un
+       profil créé DANS l'app installée sur l'écran d'accueil ne partage pas
+       son témoin de session avec Safari normal (stockages isolés côté iOS) —
+       ce formulaire évite ce problème en gardant tout sur une seule page. -->
+  <div id="loginBox" class="hidden">
+    <div class="tabs">
+      <button type="button" class="tabBtn active" data-logintab="existing">J'ai déjà un profil</button>
+      <button type="button" class="tabBtn" data-logintab="new">Créer un profil</button>
+    </div>
+
+    <div id="loginExisting">
+      <form id="findProfileForm" class="inlineForm">
+        <div><label for="findFirstName">Prénom</label><input type="text" id="findFirstName" required></div>
+        <div><label for="findLastName">Nom de famille</label><input type="text" id="findLastName" required></div>
+        <button type="submit" class="btn btn-primary smallBtn">Trouver mon profil</button>
+      </form>
+      <p id="findProfileMsg" class="msg"></p>
+      <form id="pinForm" class="inlineForm hidden" style="margin-top:12px;">
+        <div><label for="pinInput">Code (4 à 6 chiffres)</label><input type="password" inputmode="numeric" pattern="[0-9]*" id="pinInput" maxlength="6" required></div>
+        <button type="submit" class="btn btn-primary smallBtn">Se connecter</button>
+      </form>
+    </div>
+
+    <div id="loginNew" class="hidden">
+      <form id="createProfileForm" class="inlineForm">
+        <div><label for="newFirstName">Prénom</label><input type="text" id="newFirstName" required></div>
+        <div><label for="newLastName">Nom de famille</label><input type="text" id="newLastName" required></div>
+        <div><label for="newPhone">Téléphone</label><input type="tel" id="newPhone" required></div>
+        <div><label for="newEmail">Email</label><input type="email" id="newEmail" required></div>
+        <div><label for="newPin">Code (4 à 6 chiffres)</label><input type="password" inputmode="numeric" pattern="[0-9]*" id="newPin" maxlength="6" required></div>
+        <button type="submit" class="btn btn-primary smallBtn">Créer mon profil</button>
+      </form>
+      <p id="createProfileMsg" class="msg"></p>
+    </div>
+  </div>
 </div>
 
 <div id="app" class="hidden">
