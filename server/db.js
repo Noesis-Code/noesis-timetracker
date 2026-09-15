@@ -876,6 +876,72 @@ CREATE TABLE IF NOT EXISTS goal_period_assignees (
   PRIMARY KEY (periodId, userId)
 );
 CREATE INDEX IF NOT EXISTS idx_goal_period_assignees_period ON goal_period_assignees(periodId);
+
+-- 15 septembre 2026 (discussion "Objectifs — D : Calendrier & intégrations") :
+-- rappels push avant la fin d'une période d'objectif — 3 jours avant, puis
+-- la veille (demande d'Emilien : « mêmes seuils que sous-projets »). Mémoire
+-- des rappels déjà envoyés, même structure/même raisonnement EXACTEMENT que
+-- sub_project_due_reminders ci-dessus (voir server/lib/duereminders.js) :
+-- la clé porte la DATE DE FIN (une période recalculée réarme les rappels) et
+-- la PERSONNE (qui rejoint l'activité après coup reçoit quand même le sien).
+-- Table neuve, jamais présente dans un schéma antérieur : CREATE TABLE IF
+-- NOT EXISTS suffit, comme goal_period_assignees ci-dessus (pas besoin de
+-- migrateGoalsCategorySchema()). Voir server/lib/goalreminders.js.
+CREATE TABLE IF NOT EXISTS goal_period_due_reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  periodId INTEGER NOT NULL REFERENCES goal_periods(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endDate TEXT NOT NULL,
+  daysBefore INTEGER NOT NULL,
+  sentAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_goal_period_due_reminder
+  ON goal_period_due_reminders(periodId, userId, endDate, daysBefore);
+
+-- 15 septembre 2026 (discussion Objectifs — B, cadré avec Emilien via
+-- AskUserQuestion — voir noesis-timetracker-objectifs.md) : catégories
+-- personnalisables PAR ACTIVITÉ. Gratuit pour tous (Offre1 reste
+-- l'accompagnement humain, pas un verrou technique) — plafond à 3
+-- catégories maximum par activité.
+--
+-- Une activité SANS AUCUNE ligne ici continue d'utiliser les 3 catégories
+-- fixes historiques (CATEGORIES/CATEGORY_LABELS dans server/lib/goals.js)
+-- sans aucun changement de comportement — c'est le cas de toute activité
+-- tant que personne n'a explicitement activé la personnalisation dessus.
+--
+-- Activer la personnalisation (POST .../goals/categories/activate) est
+-- TABLE RASE : ça ne reprend RIEN des 3 catégories fixes, l'activité repart
+-- sur 1 seule catégorie personnalisée. Les périodes déjà créées sous les
+-- anciennes catégories fixes restent en base et consultables, mais gelées
+-- (plus jamais actives pour cette activité) — voir frozenCategoriesForActivity
+-- dans server/lib/goals.js.
+--
+-- key : identifiant court et stable, unique PAR ACTIVITÉ seulement (pas
+-- globalement) — jamais réutilisé pour cette activité même après un retrait
+-- (retrait = removedAt posé, jamais de suppression physique de la ligne :
+-- même principe de gel que le reste du projet pour ne jamais faire hériter
+-- une nouvelle catégorie de l'historique figé d'une catégorie retirée qui
+-- porterait la même clé). C'est ce "key" qui est stocké tel quel dans
+-- activity_goal_plans.category / goal_periods.category une fois la
+-- personnalisation activée — voir la migration goalsCategoryCheckStillHardcoded()
+-- plus bas qui retire la contrainte CHECK figée à exactement 3 valeurs sur
+-- ces deux tables, remplacée par une validation applicative par activité.
+-- color : couleur choisie dans l'une des deux palettes de thème existantes
+-- (server/lib/theme.js), comme pour les couleurs d'activité — pas de
+-- ré-appariement par thème pour chaque visiteur (nuance connue, signalée
+-- dans noesis-timetracker-objectifs.md, non demandée par Emilien).
+CREATE TABLE IF NOT EXISTS activity_goal_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  label TEXT NOT NULL,
+  color TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL,
+  removedAt TEXT,
+  UNIQUE(activityId, key)
+);
+CREATE INDEX IF NOT EXISTS idx_activity_goal_categories_activity ON activity_goal_categories(activityId, removedAt, position);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================
@@ -1362,6 +1428,87 @@ if (profileProjectsStillHasSplitDescription()) {
     db.exec('DROP TABLE profile_projects');
     db.exec('ALTER TABLE profile_projects_rebuild RENAME TO profile_projects');
     db.exec('CREATE INDEX IF NOT EXISTS idx_profile_projects_user ON profile_projects(userId, position)');
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+}
+
+// 15 septembre 2026 (discussion Objectifs — B) — la contrainte CHECK figée à
+// exactement 3 valeurs ('entreprise','communaute','produit') sur
+// activity_goal_plans.category et goal_periods.category empêcherait toute
+// activité personnalisée (voir activity_goal_categories ci-dessus) d'utiliser
+// une clé de catégorie différente. Même principe de reconstruction de table
+// que activitiesNameStillGloballyUnique/profileProjectsStillHasSplitDescription
+// ci-dessus (SQLite ne permet pas de retirer une CHECK par ALTER TABLE) —
+// goal_periods.id est préservé explicitement à la reconstruction : goal_weekly
+// et goal_period_assignees le référencent par clé étrangère (ON DELETE
+// CASCADE), même précaution que pour activities.id plus haut. Validation
+// désormais entièrement côté application (server/lib/goals.js, par activité) :
+// les 3 catégories fixes restent le préréglage pour toute activité n'ayant
+// aucune ligne dans activity_goal_categories, sinon ses propres catégories
+// actives (+ tout ce qui a déjà un plan démarré, pour l'historique gelé).
+function goalsCategoryCheckStillHardcoded() {
+  var row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='activity_goal_plans'").get();
+  return !!(row && row.sql && /CHECK\s*\(\s*category/i.test(row.sql));
+}
+
+if (goalsCategoryCheckStillHardcoded()) {
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec('BEGIN');
+  try {
+    db.exec(`
+      CREATE TABLE activity_goal_plans_rebuild (
+        activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+        category TEXT NOT NULL,
+        startDate TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        PRIMARY KEY (activityId, category)
+      )
+    `);
+    db.exec(`
+      INSERT INTO activity_goal_plans_rebuild (activityId, category, startDate, createdAt)
+      SELECT activityId, category, startDate, createdAt FROM activity_goal_plans
+    `);
+    db.exec('DROP TABLE activity_goal_plans');
+    db.exec('ALTER TABLE activity_goal_plans_rebuild RENAME TO activity_goal_plans');
+
+    db.exec(`
+      CREATE TABLE goal_periods_rebuild (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+        category TEXT NOT NULL,
+        periodNumber INTEGER NOT NULL,
+        cycleIndex INTEGER NOT NULL,
+        periodIndexInCycle INTEGER NOT NULL,
+        startDate TEXT NOT NULL,
+        endDate TEXT NOT NULL,
+        mainGoalText TEXT NOT NULL DEFAULT '',
+        mainGoalEstimateMinutes INTEGER,
+        mainGoalEstimateSource TEXT,
+        mainGoalEstimateConfidence REAL,
+        mainGoalStatus TEXT,
+        bilanPostedAt TEXT,
+        createdAt TEXT NOT NULL,
+        UNIQUE(activityId, category, periodNumber)
+      )
+    `);
+    db.exec(`
+      INSERT INTO goal_periods_rebuild
+        (id, activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate,
+         mainGoalText, mainGoalEstimateMinutes, mainGoalEstimateSource, mainGoalEstimateConfidence,
+         mainGoalStatus, bilanPostedAt, createdAt)
+      SELECT id, activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate,
+         mainGoalText, mainGoalEstimateMinutes, mainGoalEstimateSource, mainGoalEstimateConfidence,
+         mainGoalStatus, bilanPostedAt, createdAt
+      FROM goal_periods
+    `);
+    db.exec('DROP TABLE goal_periods');
+    db.exec('ALTER TABLE goal_periods_rebuild RENAME TO goal_periods');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_goal_periods_activity ON goal_periods(activityId, category, periodNumber)');
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');

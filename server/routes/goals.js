@@ -32,14 +32,17 @@ function handleGoalsError(res, err) {
   return res.status(500).json({ error: 'Erreur serveur.' });
 }
 
-// Catégorie par défaut si absente de la requête (compatibilité, ne devrait
-// pas arriver côté client à jour, qui la fournit toujours) : 'entreprise'.
-function resolveCategory(raw) {
-  const category = typeof raw === 'string' && raw ? raw : 'entreprise';
-  if (!goals.isValidCategory(category)) {
-    throw Object.assign(new Error('Catégorie invalide.'), { statusCode: 400 });
-  }
-  return category;
+// 15 septembre 2026 (discussion Objectifs — B) : la catégorie par défaut
+// n'est plus 'entreprise' en dur — une activité personnalisée peut très bien
+// ne plus l'avoir comme catégorie active. Sans catégorie fournie, on retombe
+// sur la première catégorie ACTIVE de l'activité (fixe ou personnalisée) ;
+// la validation elle-même (active pour une écriture, active-ou-gelée pour
+// une lecture) est faite par server/lib/goals.js, par activité — ce fichier
+// ne fait plus que résoudre la valeur brute reçue.
+function resolveCategory(activityId, raw) {
+  if (typeof raw === 'string' && raw) return raw;
+  const active = goals.categoriesForActivity(activityId);
+  return active.length ? active[0].key : 'entreprise';
 }
 
 router.get('/activities/:id/goals', (req, res) => {
@@ -51,7 +54,7 @@ router.get('/activities/:id/goals', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const category = resolveCategory(req.query.category);
+    const category = resolveCategory(activityId, req.query.category);
     res.json(goals.planningForActivity(activityId, category));
   } catch (err) {
     handleGoalsError(res, err);
@@ -71,11 +74,25 @@ router.get('/activities/:id/goals/all', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
+    // 15 septembre 2026 (discussion Objectifs — B) : `categories` n'est plus
+    // la liste fixe de 3 chaînes, mais les catégories ACTIVES de l'activité
+    // (fixes tant qu'elle n'est pas personnalisée, sinon ses propres
+    // catégories, jusqu'à 3 — voir noesis-timetracker-objectifs.md). Pour
+    // une activité non personnalisée, `categories` porte encore exactement
+    // les 3 clés historiques ('entreprise'/'communaute'/'produit') : le
+    // client actuel (public/app.js, `GOALS_CATEGORIES` codé en dur) continue
+    // donc de fonctionner à l'identique tant que la discussion A n'a pas
+    // adapté son affichage à un nombre variable de catégories. `byCategory`
+    // couvre aussi les catégories GELÉES (`frozenCategories`, historique
+    // d'une table rase ou d'un retrait) pour ne perdre l'accès à aucune
+    // donnée déjà écrite.
+    const active = goals.categoriesForActivity(activityId);
+    const frozen = goals.frozenCategoriesForActivity(activityId);
     const byCategory = {};
-    goals.CATEGORIES.forEach((category) => {
-      byCategory[category] = goals.planningForActivity(activityId, category);
+    active.concat(frozen).forEach((c) => {
+      byCategory[c.key] = goals.planningForActivity(activityId, c.key);
     });
-    res.json({ categories: goals.CATEGORIES, byCategory });
+    res.json({ categories: active, frozenCategories: frozen, byCategory });
   } catch (err) {
     handleGoalsError(res, err);
   }
@@ -95,7 +112,7 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
   if (text.length > 500) return res.status(400).json({ error: 'Texte trop long (500 caractères maximum).' });
 
   try {
-    const category = resolveCategory(req.body.category);
+    const category = resolveCategory(activityId, req.body.category);
     const estimate = goals.setMainGoal(activityId, category, periodNumber, text);
     res.json({ ok: true, estimate });
   } catch (err) {
@@ -113,7 +130,7 @@ router.put('/activities/:id/goals/periods/:periodNumber/main-status', (req, res)
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const category = resolveCategory(req.body.category);
+    const category = resolveCategory(activityId, req.body.category);
     goals.setMainGoalStatus(activityId, category, periodNumber, req.body.status);
     res.json({ ok: true });
   } catch (err) {
@@ -137,7 +154,7 @@ router.put('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (req
   if (text.length > 300) return res.status(400).json({ error: 'Texte trop long (300 caractères maximum).' });
 
   try {
-    const category = resolveCategory(req.body.category);
+    const category = resolveCategory(activityId, req.body.category);
     const result = goals.setWeekly(activityId, category, periodNumber, weekIndex, text);
     res.json({ ok: true, ...result });
   } catch (err) {
@@ -200,9 +217,125 @@ router.put('/activities/:id/goals/periods/:periodNumber/assignees', (req, res) =
   const userIds = Array.isArray(req.body.userIds) ? req.body.userIds : [];
 
   try {
-    const category = resolveCategory(req.body.category);
+    const category = resolveCategory(activityId, req.body.category);
     const assignees = goals.setPeriodAssignees(activityId, category, periodNumber, userIds);
     res.json({ ok: true, assignees });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 15 septembre 2026 (discussion Objectifs — B) — gestion des catégories
+// personnalisables par activité. Cadré avec Emilien (AskUserQuestion, voir
+// noesis-timetracker-objectifs.md) : gratuit pour tous, par activité, 3
+// catégories maximum, table rase à l'activation, retrait toujours possible
+// tant qu'il en reste au moins une. Périmètre serveur uniquement — l'UI
+// (emplacement du point d'entrée, adaptation de l'arbre/de la grille
+// comparative à 1-3 catégories) revient à la discussion A.
+//
+// ⚠️ La route de réordonnancement est nommée `/goals/categories-reorder`
+// (et non `/goals/categories/reorder`) pour éviter le piège Express déjà
+// rencontré ailleurs dans ce projet (server/routes/profile.js, section
+// Projets) : une route `/categories/:key` déclarée avant `/categories/reorder`
+// intercepterait "reorder" comme valeur de `:key`.
+
+router.get('/activities/:id/goals/categories', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    res.json({
+      customized: goals.isCustomized(activityId),
+      categories: goals.categoriesForActivity(activityId),
+      frozenCategories: goals.frozenCategoriesForActivity(activityId),
+      maxCategories: goals.MAX_CUSTOM_CATEGORIES,
+    });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.post('/activities/:id/goals/categories/activate', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const categories = goals.activateCustomCategories(activityId, req.body.label, req.body.color);
+    res.json({ ok: true, categories });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.post('/activities/:id/goals/categories', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const categories = goals.addCategory(activityId, req.body.label, req.body.color);
+    res.json({ ok: true, categories });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.put('/activities/:id/goals/categories/:key', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const categories = goals.renameCategory(activityId, req.params.key, req.body.label, req.body.color);
+    res.json({ ok: true, categories });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.delete('/activities/:id/goals/categories/:key', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const categories = goals.removeCategory(activityId, req.params.key);
+    res.json({ ok: true, categories });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.put('/activities/:id/goals/categories-reorder', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  const keys = Array.isArray(req.body.keys) ? req.body.keys : [];
+  try {
+    const categories = goals.reorderCategories(activityId, keys);
+    res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);
   }

@@ -40,6 +40,7 @@
 
 const db = require('../db');
 const { postActivityMessage } = require('./community');
+const { paletteFor, isInPalette } = require('./theme');
 
 const PERIOD_DAYS = 28;
 const WEEK_DAYS = 7;
@@ -58,6 +59,221 @@ function assertCategory(category) {
   if (!isValidCategory(category)) {
     throw Object.assign(new Error('Catégorie invalide.'), { statusCode: 400 });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Catégories personnalisables PAR ACTIVITÉ — cadré avec Emilien le 15
+// septembre 2026 (AskUserQuestion, voir noesis-timetracker-objectifs.md).
+// Résumé des règles verrouillées par ce cadrage :
+//  - Gratuit pour tous, aucun lien avec un verrou Offre1 (Offre1 reste
+//    l'accompagnement humain pour aider à bien les définir).
+//  - Par activité (jamais global à la personne), cohérent avec la règle 1 en
+//    tête de fichier.
+//  - Plafond à 3 catégories personnalisées maximum (MAX_CUSTOM_CATEGORIES).
+//  - Activer la personnalisation est TABLE RASE : ne reprend rien des 3
+//    catégories fixes ci-dessus, l'activité repart sur 1 seule catégorie.
+//  - Une catégorie retirée est GELÉE (removedAt posé), jamais supprimée pour
+//    de bon : son historique reste lisible, sa clé n'est jamais réutilisée.
+//  - Champs : nom + couleur (palette du thème existante), pas d'icône.
+//
+// Périmètre de ce chantier (discussion B) : ce fichier + le schéma + les
+// routes API. L'UI de gestion (emplacement du point d'entrée, adaptation de
+// l'arbre/de la grille comparative à 1-3 catégories au lieu de 3 fixes) est
+// à la charge de la discussion A — voir le contrat ci-dessous.
+const MAX_CUSTOM_CATEGORIES = 3;
+
+// Lignes ACTIVES (non gelées) de activity_goal_categories, dans l'ordre
+// d'affichage. Une activité qui n'a jamais activé la personnalisation a
+// toujours 0 ligne ici, active ou non.
+function activeCategoryRows(activityId) {
+  return db.prepare('SELECT * FROM activity_goal_categories WHERE activityId = ? AND removedAt IS NULL ORDER BY position, id')
+    .all(activityId);
+}
+
+function isCustomized(activityId) {
+  return activeCategoryRows(activityId).length > 0;
+}
+
+// Catégories ACTIVES d'une activité, sous une forme unique quel que soit le
+// mode : [{ key, label, color, custom }]. `color` vaut null pour les 3
+// catégories fixes historiques — elles n'ont jamais eu de couleur propre en
+// base, l'UI existante les distingue par un style CSS fixe (zone A).
+function categoriesForActivity(activityId) {
+  const rows = activeCategoryRows(activityId);
+  if (rows.length) {
+    return rows.map((r) => ({ key: r.key, label: r.label, color: r.color, custom: true }));
+  }
+  return CATEGORIES.map((key) => ({ key, label: CATEGORY_LABELS[key], color: null, custom: false }));
+}
+
+function isValidCategoryForActivity(activityId, category) {
+  return categoriesForActivity(activityId).some((c) => c.key === category);
+}
+
+function assertCategoryForActivity(activityId, category) {
+  if (!isValidCategoryForActivity(activityId, category)) {
+    throw Object.assign(new Error('Catégorie invalide pour cette activité.'), { statusCode: 400 });
+  }
+}
+
+// Un plan a déjà été démarré pour cette (activité, catégorie) — la table
+// activity_goal_plans n'a jamais de ligne supprimée, elle est donc la trace
+// fiable de tout ce qu'une activité a un jour eu comme catégorie, active ou
+// gelée depuis (table rase, ou catégorie personnalisée retirée).
+function hasPlanForCategory(activityId, category) {
+  return !!db.prepare('SELECT 1 FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, category);
+}
+
+// Une catégorie est LISIBLE (peut être affichée/consultée) si elle est
+// active, OU si un plan a déjà existé pour elle — c'est ce second cas qui
+// permet de continuer à consulter l'historique gelé après une table rase ou
+// un retrait, sans jamais permettre d'y écrire du nouveau contenu (voir
+// assertCategoryForActivity ci-dessus, réservé aux écritures).
+function isReadableCategory(activityId, category) {
+  return isValidCategoryForActivity(activityId, category) || hasPlanForCategory(activityId, category);
+}
+
+function assertReadableCategory(activityId, category) {
+  if (!isReadableCategory(activityId, category)) {
+    throw Object.assign(new Error('Catégorie invalide.'), { statusCode: 400 });
+  }
+}
+
+// Catégories GELÉES d'une activité : celles qui ont un plan démarré mais ne
+// font plus partie de la liste active — soit les 3 catégories fixes
+// historiques une fois la personnalisation activée (table rase), soit une
+// catégorie personnalisée retirée depuis (removedAt renseigné). Fourni pour
+// que la discussion A puisse, si elle le souhaite, offrir une vue "historique"
+// sans que ce chantier-ci ait à en décider la présentation.
+function frozenCategoriesForActivity(activityId) {
+  const activeKeys = new Set(categoriesForActivity(activityId).map((c) => c.key));
+  const plans = db.prepare('SELECT DISTINCT category FROM activity_goal_plans WHERE activityId = ?').all(activityId);
+  const frozenKeys = plans.map((p) => p.category).filter((key) => !activeKeys.has(key));
+
+  return frozenKeys.map((key) => {
+    if (CATEGORIES.includes(key)) {
+      return { key, label: CATEGORY_LABELS[key], color: null, custom: false, frozen: true };
+    }
+    const row = db.prepare('SELECT * FROM activity_goal_categories WHERE activityId = ? AND key = ?').get(activityId, key);
+    return row
+      ? { key: row.key, label: row.label, color: row.color, custom: true, frozen: true }
+      : { key, label: key, color: null, custom: true, frozen: true };
+  });
+}
+
+function assertCategoryLabel(label) {
+  const clean = String(label || '').trim();
+  if (!clean) throw Object.assign(new Error('Nom de catégorie requis.'), { statusCode: 400 });
+  if (clean.length > 40) throw Object.assign(new Error('Nom trop long (40 caractères maximum).'), { statusCode: 400 });
+  return clean;
+}
+
+function assertCategoryColor(color) {
+  if (!isInPalette(color, 'dark') && !isInPalette(color, 'light')) {
+    throw Object.assign(new Error('Couleur invalide.'), { statusCode: 400 });
+  }
+  return color;
+}
+
+// Clé courte et stable, unique PAR ACTIVITÉ (pas globalement) — dérivée du
+// nombre TOTAL de lignes déjà créées pour cette activité, gelées comprises,
+// pour ne jamais réutiliser une clé déjà portée par une catégorie retirée
+// (voir le commentaire sur activity_goal_categories dans server/db.js).
+function nextCategoryKey(activityId) {
+  const row = db.prepare('SELECT COUNT(*) AS n FROM activity_goal_categories WHERE activityId = ?').get(activityId);
+  return 'c' + (row.n + 1);
+}
+
+// Active la personnalisation sur cette activité — TABLE RASE (cadré avec
+// Emilien) : ne reprend RIEN des 3 catégories fixes. Idempotent : si déjà
+// personnalisée, renvoie simplement la liste actuelle sans rien recréer (même
+// convention que ensurePlan plus bas dans ce fichier).
+function activateCustomCategories(activityId, label, color) {
+  if (isCustomized(activityId)) return categoriesForActivity(activityId);
+
+  const cleanLabel = assertCategoryLabel(label || 'Catégorie 1');
+  const cleanColor = assertCategoryColor(color || paletteFor('dark')[0]);
+
+  const key = nextCategoryKey(activityId);
+  const createdAt = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt)
+    VALUES (?, ?, ?, ?, 0, ?)
+  `).run(activityId, key, cleanLabel, cleanColor, createdAt);
+  return categoriesForActivity(activityId);
+}
+
+// Ajoute une catégorie personnalisée — l'activité doit déjà être
+// personnalisée (activer d'abord). Plafond à MAX_CUSTOM_CATEGORIES.
+function addCategory(activityId, label, color) {
+  const existing = activeCategoryRows(activityId);
+  if (!existing.length) {
+    throw Object.assign(new Error("Active d'abord la personnalisation des catégories sur cette activité."), { statusCode: 400 });
+  }
+  if (existing.length >= MAX_CUSTOM_CATEGORIES) {
+    throw Object.assign(new Error(MAX_CUSTOM_CATEGORIES + ' catégories maximum par activité.'), { statusCode: 400 });
+  }
+  const cleanLabel = assertCategoryLabel(label);
+  const cleanColor = assertCategoryColor(color);
+  const key = nextCategoryKey(activityId);
+  const createdAt = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(activityId, key, cleanLabel, cleanColor, existing.length, createdAt);
+  return categoriesForActivity(activityId);
+}
+
+// Renomme/recolore une catégorie personnalisée ACTIVE (jamais une gelée —
+// modifier l'étiquette d'une catégorie retirée n'a pas de sens, son propos
+// est justement de rester figée).
+function renameCategory(activityId, key, label, color) {
+  const row = activeCategoryRows(activityId).find((r) => r.key === key);
+  if (!row) throw Object.assign(new Error('Catégorie introuvable.'), { statusCode: 404 });
+  const cleanLabel = assertCategoryLabel(label);
+  const cleanColor = assertCategoryColor(color);
+  db.prepare('UPDATE activity_goal_categories SET label = ?, color = ? WHERE activityId = ? AND key = ?')
+    .run(cleanLabel, cleanColor, activityId, key);
+  return categoriesForActivity(activityId);
+}
+
+// Retire (gèle) une catégorie personnalisée — jamais la dernière restante
+// (minimum 1, cadré avec Emilien). Les périodes/objectifs déjà créés sous
+// cette catégorie restent en base, consultables via frozenCategoriesForActivity,
+// mais ne comptent plus parmi les catégories actives — même principe que la
+// table rase à l'activation.
+function removeCategory(activityId, key) {
+  const existing = activeCategoryRows(activityId);
+  const row = existing.find((r) => r.key === key);
+  if (!row) throw Object.assign(new Error('Catégorie introuvable.'), { statusCode: 404 });
+  if (existing.length <= 1) {
+    throw Object.assign(new Error('Impossible de retirer la dernière catégorie.'), { statusCode: 400 });
+  }
+  db.prepare('UPDATE activity_goal_categories SET removedAt = ? WHERE activityId = ? AND key = ?')
+    .run(new Date().toISOString(), activityId, key);
+
+  // Renumérote les positions des catégories actives restantes pour qu'elles
+  // restent contiguës (0..n-1) après le retrait.
+  activeCategoryRows(activityId).forEach((r, i) => {
+    if (r.position !== i) db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i, r.id);
+  });
+  return categoriesForActivity(activityId);
+}
+
+// Réordonne les catégories actives — le client envoie la liste complète des
+// clés dans le nouvel ordre (même convention que setPeriodAssignees plus bas :
+// remplacement complet plutôt qu'un déplacement unitaire).
+function reorderCategories(activityId, keys) {
+  const existing = activeCategoryRows(activityId);
+  const existingKeys = new Set(existing.map((r) => r.key));
+  const cleanKeys = Array.isArray(keys) ? keys.filter((k) => existingKeys.has(k)) : [];
+  if (cleanKeys.length !== existing.length || new Set(cleanKeys).size !== existing.length) {
+    throw Object.assign(new Error('Liste de catégories invalide.'), { statusCode: 400 });
+  }
+  cleanKeys.forEach((key, i) => {
+    db.prepare('UPDATE activity_goal_categories SET position = ? WHERE activityId = ? AND key = ?').run(i, activityId, key);
+  });
+  return categoriesForActivity(activityId);
 }
 
 // ---------------------------------------------------------------------------
@@ -464,7 +680,7 @@ function postBilanIfDue(activity, category, planStartDate) {
 // renvoie l'état complet du planning de cette (activité, catégorie), plus la
 // liste des membres de l'activité (pour l'assignation et la répartition).
 function planningForActivity(activityId, category) {
-  assertCategory(category);
+  assertReadableCategory(activityId, category);
   const activity = db.prepare('SELECT id, name, ownerId FROM activities WHERE id = ?').get(activityId);
   const plan = ensurePlan(activityId, category);
   const currentPeriodNumber = periodNumberForDate(plan.startDate, todayLocal());
@@ -523,7 +739,7 @@ function weekIsOver(periodStart, weekIndex) {
 // Écritures
 
 function setMainGoal(activityId, category, periodNumber, text) {
-  assertCategory(category);
+  assertCategoryForActivity(activityId, category);
   const plan = ensurePlan(activityId, category);
   ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
   const cleanText = String(text || '').trim();
@@ -537,7 +753,7 @@ function setMainGoal(activityId, category, periodNumber, text) {
 }
 
 function setMainGoalStatus(activityId, category, periodNumber, status) {
-  assertCategory(category);
+  assertCategoryForActivity(activityId, category);
   if (!STATUSES.includes(status)) throw Object.assign(new Error('Statut invalide.'), { statusCode: 400 });
   db.prepare('UPDATE goal_periods SET mainGoalStatus = ? WHERE activityId = ? AND category = ? AND periodNumber = ?')
     .run(status, activityId, category, periodNumber);
@@ -549,7 +765,7 @@ function setMainGoalStatus(activityId, category, periodNumber, status) {
 // pas gêner le report automatique qui, lui, peut avoir besoin de chercher une
 // semaine libre au-delà de la 4e (voir carryOverWeekly).
 function setWeekly(activityId, category, periodNumber, weekIndex, text) {
-  assertCategory(category);
+  assertCategoryForActivity(activityId, category);
   const plan = ensurePlan(activityId, category);
   ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
   const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);
@@ -628,7 +844,7 @@ function periodAssigneesFor(periodId) {
 }
 
 function setPeriodAssignees(activityId, category, periodNumber, userIds) {
-  assertCategory(category);
+  assertCategoryForActivity(activityId, category);
   const plan = ensurePlan(activityId, category);
   ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
   const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
@@ -719,6 +935,19 @@ module.exports = {
   setPeriodAssignees,
   runGoalsSweepAll,
   startGoalsSweep,
+  // Catégories personnalisables par activité (15 septembre 2026, discussion
+  // Objectifs — B, cadré avec Emilien — voir noesis-timetracker-objectifs.md).
+  MAX_CUSTOM_CATEGORIES,
+  isCustomized,
+  categoriesForActivity,
+  frozenCategoriesForActivity,
+  isValidCategoryForActivity,
+  isReadableCategory,
+  activateCustomCategories,
+  addCategory,
+  renameCategory,
+  removeCategory,
+  reorderCategories,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
   weekBounds,
