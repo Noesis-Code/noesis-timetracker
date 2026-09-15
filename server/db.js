@@ -751,6 +751,154 @@ CREATE TABLE IF NOT EXISTS sub_project_due_reminders (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_sub_project_due_reminder
   ON sub_project_due_reminders(subProjectId, userId, closesAt, daysBefore);
+
+-- ===================== ENTREPRISE — MODULE HORAIRES (Jacopo) =====================
+-- Chantier B2B "TimeTracker Entreprise" (cadrage 12-13 septembre 2026, voir
+-- noesis-timetracker-entreprise-jacopo-horaires.md), premier module concret :
+-- un GESTIONNAIRE d'entreprise cliente (jamais les employés eux-mêmes, qui
+-- n'ont aucun accès à l'app) monte l'horaire de la semaine dans TimeTracker,
+-- puis l'exporte pour le ressaisir dans Dayforce (format d'export encore à
+-- confirmer avec l'administrateur Dayforce de Jacopo).
+--
+-- Modèle totalement SÉPARÉ de celui des activités personnelles ci-dessus
+-- (activities/activity_members/time_entries) : une entreprise cliente n'est
+-- PAS une activité, ses employés ne sont PAS des membres TimeTracker. Le lien
+-- entre les deux mondes est OPTIONNEL et à bascule (cadrage), jamais une
+-- contrainte de schéma — aucune colonne ici ne référence activities.
+--
+-- Authentification : un gestionnaire reste un compte 'users' ordinaire,
+-- authentifié par le système de session existant (server/lib/session.js).
+-- Le "lien optionnel" du cadrage porte sur le CROISEMENT avec les
+-- fonctionnalités du profil personnel (activités, communauté), jamais sur le
+-- mécanisme de connexion lui-même — voir server/lib/enterprises.js.
+--
+-- createdBy est ici volontairement en ON DELETE SET NULL (pas CASCADE comme
+-- sub_projects.createdBy) : une entreprise cliente est une donnée qui
+-- appartient à Jacopo/au client, pas à la personne qui l'a créée dans l'app —
+-- supprimer le compte du gestionnaire qui a créé l'entreprise ne doit jamais
+-- effacer ses employés ni ses horaires. C'est enterprise_managers ci-dessous,
+-- pas cette colonne, qui porte le vrai contrôle d'accès.
+CREATE TABLE IF NOT EXISTS enterprises (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  -- Abonnement payant (chantier "Paiement et abonnements", décidé le
+  -- 12-13 septembre 2026 comme un chantier SÉPARÉ, hors périmètre ici) : la
+  -- création d'entreprise sera à terme conditionnée à un abonnement actif.
+  -- En attendant que ce chantier existe, activé manuellement pour Jacopo via
+  -- scripts/activate-enterprise.js — voir ce script. DEFAULT 0 : une
+  -- entreprise nouvellement créée n'a PAS accès aux employés/horaires tant
+  -- que son abonnement n'a pas été activé, exactement le comportement visé
+  -- une fois le vrai paiement branché (seul le déclencheur changera).
+  subscriptionActive INTEGER NOT NULL DEFAULT 0,
+  createdBy TEXT REFERENCES users(id) ON DELETE SET NULL,
+  createdAt TEXT NOT NULL
+);
+
+-- Rattachement d'un gestionnaire à une entreprise cliente, AVEC ses
+-- permissions (cadrage : un principal + un ou plusieurs secondaires, le
+-- principal choisit ce que chaque secondaire peut faire). role='principal'
+-- n'est PAS qu'une étiquette : c'est ce que server/lib/enterprises.js vérifie
+-- pour réserver la gestion des accès (ajouter/retirer un gestionnaire) au
+-- seul principal — action volontairement NON représentée par une colonne
+-- can* ci-dessous, donc jamais délégable même en cochant toutes les cases.
+--
+-- Un compte peut être rattaché à PLUSIEURS entreprises clientes (cadrage) :
+-- d'où une table de liaison propre plutôt qu'une colonne enterpriseId sur
+-- users. ON DELETE CASCADE des deux côtés : supprimer l'entreprise ou le
+-- compte du gestionnaire nettoie le rattachement sans laisser de ligne
+-- orpheline — contrairement à enterprises.createdBy plus haut, un
+-- rattachement n'a aucun sens à conserver une fois l'une des deux extrémités
+-- disparue.
+--
+-- ⚠️ Limite connue, assumée pour ce premier passage (à revoir si Emilien
+-- juge que ça pose un vrai risque en pratique) : rien n'empêche aujourd'hui
+-- la suppression du compte de l'UNIQUE principal d'une entreprise, ce qui la
+-- laisserait sans personne habilitée à gérer les accès. Même famille de
+-- compromis que activities.ownerId (aucune protection au niveau schéma) —
+-- à traiter, le cas échéant, côté route de suppression de compte plutôt
+-- qu'ici, sur le modèle du transfert de paternité déjà fait pour
+-- sub_projects.createdBy.
+CREATE TABLE IF NOT EXISTS enterprise_managers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  enterpriseId INTEGER NOT NULL REFERENCES enterprises(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'secondary',
+  canManageSchedules INTEGER NOT NULL DEFAULT 0,
+  canExportSchedules INTEGER NOT NULL DEFAULT 0,
+  canManageEmployees INTEGER NOT NULL DEFAULT 0,
+  canViewLaborCost INTEGER NOT NULL DEFAULT 0,
+  addedBy TEXT REFERENCES users(id) ON DELETE SET NULL,
+  addedAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_enterprise_manager ON enterprise_managers(enterpriseId, userId);
+CREATE INDEX IF NOT EXISTS idx_enterprise_managers_user ON enterprise_managers(userId);
+
+-- Fiche employé de l'entreprise cliente — objet PERSISTANT réutilisé d'une
+-- semaine à l'autre (cadrage : contrairement aux disponibilités et besoins en
+-- personnel, saisis à neuf à chaque horaire). Aucun rapport avec 'users' :
+-- un employé de Jacopo n'a et n'aura jamais de compte TimeTracker, conforme
+-- au cadrage ("seuls les gestionnaires utilisent l'outil").
+--
+-- hourlyRate : nullable — sert uniquement à l'estimation de coût de
+-- main-d'œuvre (permission canViewLaborCost), pas à la paie réelle. Donnée
+-- de l'entreprise cliente sur SES employés : à documenter dans le registre
+-- des traitements Loi 25 (noesis-timetracker-registre-traitements.md) une
+-- fois ce module en ligne — minimisation déjà respectée : nom, poste, niveau,
+-- taux horaire, rien de plus (pas de NAS, pas de coordonnées personnelles).
+CREATE TABLE IF NOT EXISTS enterprise_employees (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  enterpriseId INTEGER NOT NULL REFERENCES enterprises(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  position TEXT NOT NULL DEFAULT '',
+  level TEXT NOT NULL DEFAULT '',
+  hourlyRate REAL,
+  -- Un employé qui quitte n'est jamais supprimé (il reste référencé par les
+  -- horaires passés) : 'active = 0' le retire seulement des listes de
+  -- construction d'un nouvel horaire, à l'identique du traitement de
+  -- 'activities.active'.
+  active INTEGER NOT NULL DEFAULT 1,
+  createdBy TEXT REFERENCES users(id) ON DELETE SET NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_enterprise_employees_enterprise ON enterprise_employees(enterpriseId, active);
+
+-- Un horaire = une semaine pour une entreprise cliente. weekStart est le
+-- lundi de la semaine ('YYYY-MM-DD'), même convention que le reste de l'app
+-- pour les dates locales (voir isoDateOf dans lib/dates.js). L'index unique
+-- empêche deux horaires pour la même semaine — on MODIFIE l'existant plutôt
+-- que d'en recréer un, cohérent avec l'usage (un seul horaire "vivant" par
+-- semaine).
+CREATE TABLE IF NOT EXISTS enterprise_schedules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  enterpriseId INTEGER NOT NULL REFERENCES enterprises(id) ON DELETE CASCADE,
+  weekStart TEXT NOT NULL,
+  -- 'draft' tant que le gestionnaire construit l'horaire, 'exported' dès le
+  -- premier export réussi (n'empêche pas de le modifier ni de le
+  -- réexporter ensuite — sert seulement d'indicateur visuel côté écran).
+  status TEXT NOT NULL DEFAULT 'draft',
+  createdBy TEXT REFERENCES users(id) ON DELETE SET NULL,
+  createdAt TEXT NOT NULL,
+  exportedAt TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_enterprise_schedule_week ON enterprise_schedules(enterpriseId, weekStart);
+
+-- Un quart assigné : un employé, un jour, une plage horaire, un poste. Le
+-- poste (position) est répété ici plutôt que déduit de enterprise_employees
+-- CAR un employé polyvalent peut être affecté à un poste différent de son
+-- poste habituel selon les besoins de la semaine (cadrage implicite : les
+-- besoins en personnel sont saisis PAR POSTE, pas seulement par personne).
+CREATE TABLE IF NOT EXISTS enterprise_shifts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scheduleId INTEGER NOT NULL REFERENCES enterprise_schedules(id) ON DELETE CASCADE,
+  employeeId INTEGER NOT NULL REFERENCES enterprise_employees(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  startTime TEXT NOT NULL,
+  endTime TEXT NOT NULL,
+  position TEXT NOT NULL DEFAULT '',
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_enterprise_shifts_schedule ON enterprise_shifts(scheduleId, date);
+CREATE INDEX IF NOT EXISTS idx_enterprise_shifts_employee ON enterprise_shifts(employeeId);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================
