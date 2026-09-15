@@ -325,6 +325,43 @@ input[type=time]:focus, select:focus, textarea:focus {
 .userChip:active { transform: scale(0.99); }
 .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
 
+/* ===== Onboarding "à la iPhone" (15 septembre 2026, chantier "Onboarding
+   à la iPhone", demande d'Emilien) : écran de bienvenue, suggestions
+   d'activités et mini-tour. Réutilise .onboarding-card/.lead/.hint/
+   .switchLink/.btn-primary tels quels (Design) — rien ci-dessous ne
+   redéfinit un style déjà existant. ===== */
+.onbIconWrap { display: flex; justify-content: center; margin-bottom: 14px; }
+.onbIconWrap svg { width: 64px; height: 64px; }
+.onbSuggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 4px; }
+.onbSuggestionChip {
+  padding: 8px 16px; border: 1px solid var(--border); background: var(--card);
+  color: var(--text); border-radius: 999px; cursor: pointer; font-size: 14px;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.onbSuggestionChip:hover:not(:disabled) { background: var(--hover-bg); border-color: var(--purple); }
+.onbSuggestionChip:disabled { opacity: 0.5; cursor: default; }
+
+/* Mini-tour de bienvenue (#helpTourModal, public/index.html) : frère
+   direct de #onboarding/#app dans le document, jamais un enfant de l'un
+   des deux (voir le commentaire sur cette modale dans index.html).
+   z-index au-dessus de tout le reste de l'app, y compris .imageViewer
+   (200) : le tour peut être rejoué par-dessus n'importe quel écran
+   depuis Réglages > Aide. */
+.helpTourModal {
+  position: fixed; inset: 0; z-index: 210;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.helpTourCard { text-align: center; }
+.helpTourIcon svg { width: 56px; height: 56px; }
+.helpTourDots { display: flex; justify-content: center; gap: 6px; margin-bottom: 18px; }
+.helpTourDot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+.helpTourDot.active { background: var(--purple); width: 18px; border-radius: 4px; }
+.helpTourActions { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+.helpTourActions .btn { width: auto; margin-top: 0; padding-left: 28px; padding-right: 28px; }
+.helpTourActions .switchLink { margin-top: 0; }
+
 /* ===== Palette de couleurs d'activités (pastilles) ===== */
 .colorPickLabel { font-size: 14px; color: var(--text-light); margin: 0 0 8px; text-align: left; }
 .colorSwatches { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }

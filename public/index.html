@@ -440,7 +440,35 @@
     <h1>Noèsis</h1>
     <p class="subtitle">TimeTracker partagé</p>
 
-    <div id="onbCreate">
+    <!-- 15 septembre 2026 (chantier "Onboarding à la iPhone", demande
+         d'Emilien) : premier écran vu par tout nouveau profil, avant même
+         la saisie du nom. Objectif explicite d'Emilien : que ce mini-tour
+         "explique le fondement de l'application, explique les besoins
+         profonds auxquels cette application répond" — pas une simple
+         description fonctionnelle. Réutilise le monogramme "N" à 6
+         polygones (mêmes couleurs #8772C7/#46397D, même viewBox) déjà
+         utilisé pour l'icône de l'onglet Objectifs (.tabBtnGoals plus bas
+         dans ce fichier), pour ancrer visuellement l'app dès la première
+         seconde plutôt que d'introduire un nouveau visuel. Bouton
+         #onbWelcomeStart : simple avance d'écran (aucun appel réseau),
+         géré dans app.js. -->
+    <div id="onbWelcome">
+      <div class="onbIconWrap" aria-hidden="true">
+        <svg viewBox="163 242 519 641" focusable="false">
+          <polygon fill="#8772C7" points="183,293 287,461 287,616 183,675"/>
+          <polygon fill="#46397D" points="287,628 287,863 184,863 184,687"/>
+          <polygon fill="#8772C7" points="192,262 293,262 468,557 367,555"/>
+          <polygon fill="#46397D" points="374,565 475,568 536,670 536,835"/>
+          <polygon fill="#8772C7" points="556,262 616,262 659,286 661,616 556,673"/>
+          <polygon fill="#46397D" points="661,629 662,863 557,863 556,686"/>
+        </svg>
+      </div>
+      <p class="lead">Bienvenue sur Noèsis</p>
+      <p class="hint">Le temps est la seule ressource qu'on ne récupère jamais. Noèsis existe pour t'aider à voir où passe le tien — pas pour te surveiller, mais pour t'aider à avancer, seul ou avec les tiens, vers ce qui compte vraiment pour toi.</p>
+      <button class="btn btn-primary" id="onbWelcomeStart">Commencer</button>
+    </div>
+
+    <div id="onbCreate" class="hidden">
       <p class="lead">Comment veux-tu qu'on t'appelle ?</p>
       <input type="text" id="onbName" placeholder="Prénom ou pseudo" maxlength="40" autocomplete="off">
       <!-- Identité complète demandée dès la création du profil (29 août
@@ -508,11 +536,32 @@
       <p class="switchLink"><a href="#" id="onbPinCancel">Retour</a></p>
     </div>
 
+    <!-- 15 septembre 2026 (chantier "Onboarding à la iPhone") : choix du
+         thème déplacé avant la création des activités pour que
+         PALETTES[currentTheme] (app.js) reflète déjà le bon thème au
+         moment où les suggestions/swatches d'activités se dessinent.
+         Réutilise tel quel .themeSwitch/.themeBtn (Réglages > Apparence,
+         voir plus bas dans ce fichier) : mêmes classes, aucun style
+         dupliqué. #onbThemeContinue avance sans appel réseau propre — le
+         thème est déjà sauvegardé via PUT /api/profile/:id au clic sur un
+         .themeBtn, comme dans Réglages. -->
+    <div id="onbTheme" class="hidden">
+      <p class="lead">Choisis ton thème</p>
+      <p class="hint">Tu pourras en changer à tout moment dans Réglages.</p>
+      <div class="themeSwitch" id="onbThemeSwitch">
+        <button type="button" data-theme-choice="light" class="themeBtn">☀️ Clair</button>
+        <button type="button" data-theme-choice="dark" class="themeBtn">🌙 Sombre</button>
+      </div>
+      <button id="onbThemeContinue" class="btn btn-primary">Continuer</button>
+    </div>
+
     <div id="onbActivities" class="hidden">
       <p class="lead">Crée tes activités</p>
-      <p class="hint">Choisis les activités que tu veux suivre, et une couleur pour chacune. Tu pourras en ajouter/modifier plus tard dans Activité.</p>
+      <p class="hint">Une activité, c'est un projet, un rôle, une part de ta vie que tu veux suivre dans le temps. Choisis-en une ou deux pour commencer — tu pourras en ajouter/modifier plus tard dans Activité.</p>
       <div id="onbActivityList" class="activitiesList"></div>
-      <div class="entryCard">
+      <div id="onbActivitySuggestions" class="onbSuggestions"></div>
+      <p class="switchLink"><a href="#" id="onbToggleCustomActivity">+ Créer une activité personnalisée</a></p>
+      <div id="onbNewActivityCard" class="entryCard hidden">
         <input type="text" id="onbNewActivityName" placeholder="Nom de l'activité">
         <p class="colorPickLabel">Couleur</p>
         <div id="onbNewActivitySwatches" class="colorSwatches"></div>
@@ -545,6 +594,30 @@
     </div>
 
     <p id="onbMsg" class="msg"></p>
+  </div>
+</div>
+
+<!-- 15 septembre 2026 (chantier "Onboarding à la iPhone", demande
+     d'Emilien) : mini-tour de 5 cartes (fondement de l'app, puis un
+     survol de chacun des 4 onglets + Objectifs), affiché automatiquement
+     après la création du premier profil, et rejouable à tout moment
+     depuis Réglages > Aide > #reviewTourBtn (voir app.js: openHelpTour).
+     Frère direct de #onboarding/#app (jamais un enfant de l'un des deux)
+     pour éviter la leçon déjà tirée ailleurs dans ce projet : une modale
+     imbriquée dans une section portant .hidden disparaît avec elle,
+     quel que soit son propre z-index (voir noesis-timetracker-profil.md).
+     Réutilise .onboarding-card telle quelle (même règle "jamais de
+     scroll interne", voir styles.css) plutôt que de dupliquer son CSS. -->
+<div id="helpTourModal" class="helpTourModal hidden" role="dialog" aria-modal="true">
+  <div class="onboarding-card helpTourCard">
+    <div id="helpTourDots" class="helpTourDots"></div>
+    <div id="helpTourIcon" class="onbIconWrap helpTourIcon" aria-hidden="true"></div>
+    <p id="helpTourTitle" class="lead"></p>
+    <p id="helpTourText" class="hint"></p>
+    <div class="helpTourActions">
+      <a href="#" id="helpTourSkip" class="switchLink">Passer</a>
+      <button id="helpTourNext" class="btn btn-primary">Suivant</button>
+    </div>
   </div>
 </div>
 
@@ -3082,6 +3155,24 @@
               </div>
             </div>
 
+
+            <!-- Aide (15 septembre 2026, chantier "Onboarding à la iPhone",
+                 demande d'Emilien) : permet de rejouer le mini-tour de
+                 bienvenue affiché au premier lancement, sans dépendre
+                 d'un quelconque flag "déjà vu" — reviewTourBtn appelle
+                 openHelpTour(null) dans app.js, exactement le même
+                 moteur que celui lancé après la création du profil. -->
+            <div class="settingsGroup">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Aide</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsGroupBody hidden">
+              <div class="settingsFlat">
+                <button type="button" id="reviewTourBtn" class="iconBtn">Revoir le tour de bienvenue</button>
+              </div>
+              </div>
+            </div>
 
             <!-- Affichage (anciennement « Préférences d'affichage », renommé le 9
                  septembre 2026, puis groupe accordéon fusionné le même jour —
