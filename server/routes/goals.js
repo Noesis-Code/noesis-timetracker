@@ -98,6 +98,27 @@ router.get('/activities/:id/goals/all', (req, res) => {
   }
 });
 
+// 15 septembre 2026 (chantier Objectifs — C, lien Sous-projets → Objectifs) —
+// liste seule des membres de l'activité (même source que planningForActivity,
+// membersForActivity), pour le sélecteur "membre prévu" d'une tâche
+// Sous-projets sans charger tout un planning. Fonctionne aussi sur une
+// activité SOLO (aucune condition "partagée", contrairement à
+// GET /api/community/activity-members).
+router.get('/activities/:id/goals/members', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    res.json({ members: goals.membersForActivity(activityId) });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });

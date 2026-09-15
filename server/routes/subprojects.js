@@ -150,6 +150,11 @@ router.get('/sub-projects/:id', (req, res) => {
       description: subProject.description,
       createdBy: subProject.createdBy,
       canRemove: canRemove(userId, subProject.createdBy, subProject.activityId),
+      // 15 septembre 2026 (chantier Objectifs — C) : rattachement à une
+      // catégorie Objectifs — lu par public/app.js pour l'éditeur dédié et
+      // pour savoir s'il faut afficher le sélecteur "membre prévu" de
+      // chaque tâche.
+      goalCategory: subProject.goalCategory || null,
     },
     // Sert à griser l'option "Discussion" du bouton "Ajouter" : une seule
     // discussion par sous-projet (règle tenue aussi par un index unique
@@ -176,7 +181,16 @@ router.put('/sub-projects/:id', (req, res) => {
   }
 
   try {
-    res.json(sp.updateSubProject(access.subProject.id, req.body));
+    const updated = sp.updateSubProject(access.subProject.id, req.body);
+    // Chantier Objectifs — C, 15 septembre 2026 : rattacher (ou changer) la
+    // catégorie Objectifs d'un sous-projet doit reclasser tout de suite les
+    // tâches déjà en attente avec un membre prévu, sans attendre qu'une
+    // tâche soit elle-même créée/modifiée (règle « temps réel » cadrée avec
+    // Emilien) — jamais bloquant pour cette réponse HTTP.
+    if (updated && updated.goalCategory) {
+      goalsauto.onSubProjectItemChanged(updated.activityId, updated.goalCategory);
+    }
+    res.json(updated);
   } catch (err) {
     handleSubProjectsError(res, err);
   }
