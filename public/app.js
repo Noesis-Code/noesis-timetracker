@@ -4227,6 +4227,10 @@
   var currentGoalsCategory = 'entreprise';
   var currentGoalsView = 'tree';
   var currentGoalsAllPlannings = null;
+  // 15 septembre 2026 (discussion D — Calendrier & intégrations) : numéro de
+  // requête pour le calendrier de la page 2 (garde-fou anti-réponse-en-retard,
+  // voir loadGoalsCalendarDays()/closeGoalsDetail() plus bas).
+  var goalsCalendarRequestId = 0;
 
   var GOAL_STATUS_ORDER = ['non_atteint', 'partiel', 'atteint'];
   var GOAL_STATUS_LABELS = {
@@ -4612,6 +4616,7 @@
     }
 
     $('activityGoalsMsg').textContent = '';
+    loadGoalsCalendarDays(period);
   }
 
   // 14 septembre 2026 (troisième passage, demande d'Emilien) : « en dessous
@@ -4645,6 +4650,76 @@
       });
       box.appendChild(chip);
     });
+  }
+
+  // ===================== OBJECTIFS — PAGE 2 : CALENDRIER DE LA PÉRIODE =====================
+  // 15 septembre 2026, discussion "Objectifs — D : Calendrier & intégrations",
+  // demande d'Emilien : « intégrer un calendrier au volet objectif (page 2)
+  // [...] chaque ligne représente 1 jour ». Une ligne par jour de la
+  // période (28), avec sa semaine (S1 à S4, même découpage que les 4 cartes
+  // hebdomadaires ci-dessus) et le temps RÉEL pointé ce jour-là sur
+  // l'activité — même donnée que .goalActualHint (formatGoalHours), mais
+  // jour par jour plutôt qu'agrégée sur toute la période.
+  //
+  // Chargé par un appel dédié (GET .../goals-days, server/lib/calendarfeed.js
+  // — chantier D, ne touche pas server/lib/goals.js, partagé par B/C) plutôt
+  // que mêlé à reloadGoalsAll()/GET .../goals/all : cette liste ne concerne
+  // que la période actuellement ouverte en page 2, inutile de la recalculer
+  // à chaque changement d'activité.
+  function loadGoalsCalendarDays(period) {
+    var box = $('activityGoalsCalendarList');
+    if (!box || !period) return;
+    var requestId = ++goalsCalendarRequestId;
+    var activityId = currentGoalsActivityId;
+    var category = currentGoalsCategory;
+    var periodNumber = period.periodNumber;
+    api('GET', '/api/activities/' + activityId + '/goals-days?category=' + encodeURIComponent(category) + '&periodNumber=' + periodNumber)
+      .then(function (data) {
+        // Garde-fou : la page 2 peut avoir changé de période/catégorie/
+        // activité (ou s'être refermée) pendant que cette requête était en
+        // vol — même principe que reloadGoalsAll() plus haut.
+        if (requestId !== goalsCalendarRequestId) return;
+        renderGoalsCalendarDays(data.days || []);
+      })
+      .catch(function () {
+        if (requestId !== goalsCalendarRequestId) return;
+        box.innerHTML = '';
+      });
+  }
+
+  function renderGoalsCalendarDays(days) {
+    var box = $('activityGoalsCalendarList');
+    if (!box) return;
+    box.innerHTML = '';
+    days.forEach(function (day) {
+      var row = document.createElement('div');
+      row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '');
+
+      var dateEl = document.createElement('span');
+      dateEl.className = 'goalsCalendarDate';
+      dateEl.textContent = calendarDayLabel(day.date);
+      row.appendChild(dateEl);
+
+      var weekEl = document.createElement('span');
+      weekEl.className = 'goalsCalendarWeekBadge';
+      weekEl.textContent = 'S' + day.weekIndex;
+      row.appendChild(weekEl);
+
+      var minutesEl = document.createElement('span');
+      minutesEl.className = 'goalsCalendarMinutes' + (day.actualMinutes ? '' : ' empty');
+      minutesEl.textContent = day.actualMinutes ? formatGoalHours(day.actualMinutes) : '—';
+      row.appendChild(minutesEl);
+
+      box.appendChild(row);
+    });
+  }
+
+  // Même piège de fuseau que subProjectDueLabel() plus bas : 'T00:00:00'
+  // force une lecture en heure LOCALE plutôt qu'UTC.
+  function calendarDayLabel(isoDay) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(isoDay || ''))) return '';
+    var d = new Date(isoDay + 'T00:00:00');
+    return d.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
   }
 
   // ===================== OBJECTIFS — chargement des 3 catégories =====================
@@ -4709,11 +4784,12 @@
   // 1 à 13) même si chacune a démarré son propre plan à sa propre date —
   // c'est justement ce qui les rend comparables d'un coup d'œil.
   //
-  // Règle explicite d'Emilien pour une cellule sans objectif périodique
-  // écrit : « juste un trait qui passe dans la période mais qu'il n'y ait
-  // pas de bulle » — voir .goalsGridCell--empty, styles.css. Chaque cellule
-  // (pleine ou vide) reste cliquable : elle ouvre la page 2 pour CETTE
-  // (catégorie, période) — inchangée, confirmé par Emilien (AskUserQuestion).
+  // Cellule sans objectif périodique écrit : 6e passage (15 septembre 2026)
+  // — pavé fantôme + trait de continuité entre périodes, voir
+  // .goalsGridCell--empty et .goalsGridCell::before, styles.css. Chaque
+  // cellule (pleine ou vide) reste cliquable : elle ouvre la page 2 pour
+  // CETTE (catégorie, période) — inchangée, confirmé par Emilien
+  // (AskUserQuestion).
   function renderGoalsGrid() {
     var grid = $('goalsGrid');
     if (!grid || !currentGoalsAllPlannings) return;
@@ -4768,9 +4844,8 @@
             cell.appendChild(txt);
           } else {
             // Aucun objectif périodique pour cette (période, catégorie) —
-            // règle revue le 15 septembre 2026 (5e passage) : plus aucun
-            // habillage (pas même un trait), voir .goalsGridCell--empty,
-            // styles.css.
+            // pavé fantôme + trait de continuité, revu le 15 septembre 2026
+            // (6e passage), voir .goalsGridCell--empty, styles.css.
             cell.className = 'goalsGridCell goalsGridCell--empty' + (p && p.isCurrent ? ' current' : '');
           }
 
@@ -4952,6 +5027,10 @@
 
   function closeGoalsDetail() {
     $('goalsDetailPage').classList.add('hidden');
+    // Invalide toute requête de calendrier de période encore en vol (voir
+    // loadGoalsCalendarDays() plus haut) : une réponse en retard ne doit
+    // jamais peindre une liste de jours après que la page 2 s'est refermée.
+    goalsCalendarRequestId += 1;
     updateGoalsScrubVisibility();
   }
 
@@ -5011,7 +5090,12 @@
     $('goalsActivityDot').style.background = a.color;
     $('goalsActivityName').textContent = a.name;
 
-    reloadGoalsAll();
+    // Renvoie la promesse (15 septembre 2026, discussion D) : permet à
+    // openGoalsPeriodFromNotification() de n'ouvrir la page 2 qu'une fois
+    // les données chargées, sans dupliquer reloadGoalsAll() — ne change
+    // rien pour les appelants existants, qui ignoraient déjà la valeur de
+    // retour.
+    return reloadGoalsAll();
   }
 
   function loadGoalsTab() {
@@ -5022,6 +5106,29 @@
     // rempli (première ouverture de session sur ce volet en particulier).
     var ready = activitiesCache && activitiesCache.length ? Promise.resolve(activitiesCache) : refreshActivities();
     ready.then(function () { openGoalsForActivity(currentGoalsActivityIndex); });
+  }
+
+  // Rappel de fin de période (server/lib/goalreminders.js, 15 septembre
+  // 2026, discussion D) : ouvre l'onglet Objectifs directement sur la bonne
+  // activité puis la page 2 de la bonne période, appelée depuis
+  // openTabFromNotification() ci-dessous. Attend la même promesse que
+  // loadGoalsTab() (activitiesCache déjà prêt ou refreshActivities()) avant
+  // de choisir l'activité : comme switchTab('goals') déclenche déjà
+  // loadGoalsTab() (qui ouvre l'activité par défaut), on s'enregistre APRÈS
+  // lui pour que notre choix soit le dernier appliqué plutôt que le premier
+  // — même ordre d'exécution des microtâches que l'enregistrement des deux
+  // `.then()`, voir l'appel dans openTabFromNotification().
+  function openGoalsPeriodFromNotification(activityId, category, periodNumber) {
+    var ready = activitiesCache && activitiesCache.length ? Promise.resolve(activitiesCache) : refreshActivities();
+    ready.then(function (list) {
+      var idx = -1;
+      (list || []).forEach(function (a, i) { if (idx === -1 && String(a.id) === String(activityId)) idx = i; });
+      if (idx === -1) return;
+      var loaded = openGoalsForActivity(idx);
+      if (loaded && loaded.then && category && periodNumber) {
+        loaded.then(function () { openGoalsDetail(category, periodNumber); });
+      }
+    });
   }
 
   $('goalsPrevActivityBtn').addEventListener('click', function () {
@@ -9157,6 +9264,21 @@
       openNotifPanelForNotification();
       loadFollowRequests();
       focusWhenReady('#followRequestsList');
+      return;
+    }
+
+    // Rappel de fin de période d'objectif (15 septembre 2026,
+    // server/lib/goalreminders.js, discussion "Objectifs — D : Calendrier &
+    // intégrations") : ouvre l'onglet Objectifs sur l'activité concernée
+    // puis directement la page 2 de la période — voir
+    // openGoalsPeriodFromNotification() plus haut, qui attend que
+    // l'activité soit chargée avant d'ouvrir le détail.
+    if (target === 'goalperiod') {
+      var goalActivityId = params.get('activityId');
+      var goalCategory = params.get('category');
+      var goalPeriodNumber = Number(params.get('periodNumber'));
+      switchTab('goals');
+      if (goalActivityId) openGoalsPeriodFromNotification(goalActivityId, goalCategory, goalPeriodNumber);
       return;
     }
 

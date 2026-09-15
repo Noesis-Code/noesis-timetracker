@@ -4174,6 +4174,33 @@ button { -webkit-user-select: none; user-select: none; }
   .goalsWeeklyList { grid-template-columns: 1fr; }
 }
 
+/* ===== Calendrier de la période — page 2 d'Objectifs, 15 septembre 2026 =====
+   Discussion "Objectifs — D : Calendrier & intégrations", demande
+   d'Emilien : « intégrer un calendrier au volet objectif [...] chaque ligne
+   représente 1 jour ». Une ligne par jour de la période (28 lignes, 4
+   semaines) : date, semaine (S1 à S4, même découpage que .goalsWeeklyList
+   ci-dessus) et temps réel pointé ce jour-là sur l'activité — minutes
+   agrégées seulement, jamais le texte d'un objectif (voir
+   server/lib/calendarfeed.js). */
+.goalsCalendarLabel { margin: 0 0 10px; }
+.goalsCalendarList {
+  display: flex; flex-direction: column; gap: 1px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  overflow: hidden; margin-bottom: 14px; background: var(--border);
+}
+.goalsCalendarRow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px; background: var(--card); font-size: 13px;
+}
+.goalsCalendarRow.today { background: rgba(var(--purple-rgb), 0.1); font-weight: 600; }
+.goalsCalendarDate { flex: 1; min-width: 0; color: var(--text); text-transform: capitalize; }
+.goalsCalendarWeekBadge {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-light);
+  background: var(--track-bg); border-radius: 999px; padding: 2px 8px;
+}
+.goalsCalendarMinutes { flex-shrink: 0; width: 48px; text-align: right; color: var(--text); font-weight: 600; }
+.goalsCalendarMinutes.empty { color: var(--text-light); font-weight: 400; }
+
 /* ===== Volet Objectifs — devenu un onglet à part entière, 13 septembre 2026 =====
    Emilien est revenu sur l'emplacement du 12 septembre (section dans la page
    d'activité) : Objectifs vit désormais dans #tab-goals, au même niveau que
@@ -4341,11 +4368,31 @@ button { -webkit-user-select: none; user-select: none; }
    période pour CETTE catégorie — voir openGoalsDetail(category, periodNumber)
    dans app.js), qu'elle ait ou non un objectif périodique déjà écrit. */
 .goalsGridCell {
+  position: relative;
   flex: 1 1 0; min-width: 0; border: none; background: transparent;
   padding: 0; cursor: pointer; text-align: left;
   transition: transform var(--transition-fast);
 }
 .goalsGridCell:active { transform: scale(0.96); }
+/* 15 septembre 2026 (6e passage) : trait de continuité entre les périodes,
+   demandé par Emilien après le retrait total du 5e passage — « je souhaite
+   que l'on puisse quand même voir [...] des traits entre les périodes ».
+   Segment vertical centré dans CHAQUE cellule (pleine ou vide), qui déborde
+   dans le gap entre lignes (16px, .goalsGrid) de moitié (8px) de chaque
+   côté pour rejoindre exactement le segment de la cellule voisine du même
+   rang (même catégorie) — une ligne continue par colonne, du haut en bas
+   de l'arbre. Derrière le contenu (z-index -1) : invisible sous une
+   cellule pleine (fond opaque .goalsGridCell--filled), visible par
+   transparence sous une cellule vide. Pas de trait au-dessus de la 1ère
+   période ni en dessous de la 13e (rien à relier). */
+.goalsGridCell::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  left: 50%; top: -8px; bottom: -8px; width: 2px;
+  transform: translateX(-50%);
+  background: var(--track-bg);
+}
+.goalsGridRow:first-child .goalsGridCell::before { top: 50%; }
+.goalsGridRow:last-child .goalsGridCell::before { bottom: 50%; }
 /* Objectif périodique déjà écrit pour cette (période, catégorie) : bulle
    pleine, même code couleur de statut que la bande de tendance
    (.goalStatusAtteint/Partiel/NonAtteint, déjà définies plus haut). */
@@ -4368,18 +4415,25 @@ button { -webkit-user-select: none; user-select: none; }
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
-/* Aucun objectif périodique pour cette (période, catégorie) — règle
-   d'Emilien REVUE le 15 septembre 2026 (5e passage) : « supprime les lignes
-   horizontales où il n'y a pas de bulle » remplace l'ancienne règle du 14
-   septembre (« juste un trait [...] mais qu'il n'y ait pas de bulle ») —
-   .goalsGridLine et son marquage .current sont retirés, une cellule vide ne
-   montre plus RIEN, pas même un trait. Reste cliquable (ouvre la page 2 pour
-   en ajouter un) ; min-height réduite (24px, pas 54px) puisqu'il n'y a plus
-   rien à montrer dedans — seul l'espacement entre lignes (gap, ci-dessus)
-   continue de faire respirer la grille. */
+/* Aucun objectif périodique pour cette (période, catégorie).
+   15 septembre 2026 (6e passage) : le 5e passage retirait TOUT habillage
+   (« pas même un trait ») — Emilien revient dessus : « je souhaite que
+   lorsque l'utilisateur n'a pas encore rentré ses objectif périodique, je
+   souhaite que l'on puisse quand même voir l'ombre de l'arbre, des tâches
+   plus sombres au niveau des objectifs périodiques ». Cellule vide = un
+   pavé « fantôme » discret (fond neutre --track-bg à faible opacité, mêmes
+   coins arrondis qu'une bulle pleine) plutôt qu'un vide total — suggère la
+   forme sans donner l'impression qu'il y a déjà du contenu. min-height
+   INCHANGÉE (24px, pas 54px) : la demande d'espacement du 5e passage
+   (« je puisse réellement descendre tout en bas, jusqu'à la 13e activité »)
+   reste prioritaire, seule l'habillage visuel revient, pas la hauteur.
+   Le trait de continuité (.goalsGridCell::before, ci-dessus) passe DERRIÈRE
+   ce pavé et reste visible par transparence. */
 .goalsGridCell--empty {
-  min-height: 24px;
+  min-height: 24px; border-radius: var(--radius-md);
+  background: var(--track-bg); opacity: 0.32;
 }
+.goalsGridCell--empty.current { opacity: 0.55; }
 
 /* ===== Rail tactile du bord gauche — remplace la bande de 13 points +
    en-têtes fixes, 15 septembre 2026 (5e passage) =====
