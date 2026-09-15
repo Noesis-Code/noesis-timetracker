@@ -69,18 +69,25 @@ function assertCategory(category) {
 //    l'accompagnement humain pour aider à bien les définir).
 //  - Par activité (jamais global à la personne), cohérent avec la règle 1 en
 //    tête de fichier.
-//  - Plafond à 3 catégories personnalisées maximum (MAX_CUSTOM_CATEGORIES).
+//  - Plafond à 5 catégories personnalisées maximum (MAX_CUSTOM_CATEGORIES) —
+//    révisé le 15 septembre 2026 (soir) : 3 au cadrage du matin, relevé à 5
+//    sur demande explicite d'Emilien le soir même (revalidation directe, pas
+//    une réouverture silencieuse — voir noesis-timetracker-objectifs.md).
 //  - Activer la personnalisation est TABLE RASE : ne reprend rien des 3
 //    catégories fixes ci-dessus, l'activité repart sur 1 seule catégorie.
 //  - Une catégorie retirée est GELÉE (removedAt posé), jamais supprimée pour
 //    de bon : son historique reste lisible, sa clé n'est jamais réutilisée.
-//  - Champs : nom + couleur (palette du thème existante), pas d'icône.
+//  - Champs : nom + couleur (palette du thème existante), pas d'icône ;
+//    affichée en BORDURE de case, jamais en remplissage (précision directe
+//    d'Emilien).
 //
-// Périmètre de ce chantier (discussion B) : ce fichier + le schéma + les
-// routes API. L'UI de gestion (emplacement du point d'entrée, adaptation de
-// l'arbre/de la grille comparative à 1-3 catégories au lieu de 3 fixes) est
-// à la charge de la discussion A — voir le contrat ci-dessous.
-const MAX_CUSTOM_CATEGORIES = 3;
+// Périmètre de ce chantier (discussion B) : depuis le 15 septembre 2026
+// (soir), backend ET UI de bout en bout (plus de renvoi vers la discussion
+// A — Emilien : « passer par une autre discussion pour pousser la
+// visualisation d'une première discussion n'est pas optimal »). Voir
+// noesis-timetracker-objectifs.md, section « Principe retenu pour
+// l'organisation des discussions ».
+const MAX_CUSTOM_CATEGORIES = 5;
 
 // Lignes ACTIVES (non gelées) de activity_goal_categories, dans l'ordre
 // d'affichage. Une activité qui n'a jamais activé la personnalisation a
@@ -956,4 +963,16 @@ module.exports = {
   accuracyScore,
   buildBilanText,
   addDays,
+  // Exportés pour server/lib/goalsauto.js (chantier Objectifs — C,
+  // auto-planification Offre1, 15 septembre 2026) — mêmes fonctions
+  // internes, pas de doublon, pour éviter de réimplémenter la gestion des
+  // périodes/semaines dans un second fichier.
+  WEEKS_PER_PERIOD,
+  tokenize,
+  jaccard,
+  actualSecondsForRange,
+  ensurePlan,
+  ensurePeriodRow,
+  ensurePeriodsUpTo,
+  weeklyForPeriod,
 };

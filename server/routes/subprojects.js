@@ -18,6 +18,9 @@
 const express = require('express');
 const db = require('../db');
 const sp = require('../lib/subprojects');
+// Chantier Objectifs — C (auto-planification Offre1, 15 septembre 2026) :
+// déclenché après création/modification d'une tâche, jamais bloquant.
+const goalsauto = require('../lib/goalsauto');
 
 const MAX_NAME_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 2000;
@@ -28,6 +31,15 @@ const MAX_ITEM_LABEL_LENGTH = 300;
 const MAX_MESSAGE_LENGTH = 2000;
 
 const router = express.Router();
+
+// Même forme que handleGoalsError dans server/routes/goals.js — les
+// fonctions de server/lib/subprojects.js qui valident une catégorie/un
+// membre (goalCategory, plannedUserId) lancent une erreur { statusCode }.
+function handleSubProjectsError(res, err) {
+  if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+  console.error('[sous-projets]', err);
+  return res.status(500).json({ error: 'Erreur serveur.' });
+}
 
 function str(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -163,7 +175,11 @@ router.put('/sub-projects/:id', (req, res) => {
     return res.status(400).json({ error: 'Description trop longue (2000 caractères maximum).' });
   }
 
-  res.json(sp.updateSubProject(access.subProject.id, req.body));
+  try {
+    res.json(sp.updateSubProject(access.subProject.id, req.body));
+  } catch (err) {
+    handleSubProjectsError(res, err);
+  }
 });
 
 router.delete('/sub-projects/:id', (req, res) => {
@@ -263,7 +279,17 @@ router.post('/sub-project-sections/:id/items', (req, res) => {
     return res.status(400).json({ error: 'Intitulé trop long (300 caractères maximum).' });
   }
 
-  res.status(201).json(sp.createItem(access.section, label));
+  const created = sp.createItem(access.section, label);
+
+  // Chantier Objectifs — C : une tâche neuve n'a jamais de plannedUserId à
+  // la création (voir server/lib/subprojects.js), donc rien à reclasser
+  // tout de suite — l'appel reste inoffensif et couvre le cas où un futur
+  // changement donnerait un plannedUserId dès la création.
+  if (access.subProject.goalCategory) {
+    goalsauto.onSubProjectItemChanged(access.subProject.activityId, access.subProject.goalCategory);
+  }
+
+  res.status(201).json(created);
 });
 
 router.put('/sub-project-sections/:id/items/reorder', (req, res) => {
@@ -293,7 +319,22 @@ router.put('/sub-project-items/:id', (req, res) => {
     return res.status(400).json({ error: 'Intitulé trop long (300 caractères maximum).' });
   }
 
-  res.json(sp.updateItem(item.id, req.body, userId));
+  let updated;
+  try {
+    updated = sp.updateItem(item.id, req.body, userId);
+  } catch (err) {
+    return handleSubProjectsError(res, err);
+  }
+
+  // Chantier Objectifs — C : re-tente le classement automatique de cette
+  // catégorie si Offre1 est actif sur l'activité (goalsauto vérifie
+  // lui-même l'activation — jamais bloquant pour cette réponse HTTP, voir
+  // server/lib/goalsauto.js).
+  if (access.subProject.goalCategory) {
+    goalsauto.onSubProjectItemChanged(access.subProject.activityId, access.subProject.goalCategory);
+  }
+
+  res.json(updated);
 });
 
 router.delete('/sub-project-items/:id', (req, res) => {

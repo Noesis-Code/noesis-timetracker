@@ -22,6 +22,11 @@
 // ce que la règle R6 protège — Général n'a rien à adapter.
 
 const db = require('../db');
+// Chantier Objectifs — C (auto-planification Offre1, 15 septembre 2026) :
+// utilisé uniquement pour valider goalCategory contre les catégories réelles
+// de l'activité — aucune boucle de dépendance, goals.js ne require jamais
+// ce fichier.
+const goals = require('./goals');
 
 const SECTION_KINDS = ['tasks', 'poll', 'discussion'];
 
@@ -248,8 +253,29 @@ function updateSubProject(subProjectId, fields) {
   // invalide : on RETIRE l'échéance — c'est ce qui permet de faire revenir un
   // sous-projet clôturé par erreur.
   const closesAt = 'closesAt' in fields ? normalizeClosesAt(fields.closesAt) : current.closesAt;
-  db.prepare('UPDATE sub_projects SET name = ?, description = ?, closesAt = ? WHERE id = ?')
-    .run(name, description, closesAt, subProjectId);
+
+  // goalCategory (chantier Objectifs — C, auto-planification Offre1, 15
+  // septembre 2026) : absent du corps => on n'y touche pas ; vide/invalide
+  // => on RETIRE le rattachement (même convention que closesAt ci-dessus) ;
+  // sinon doit être une catégorie Objectifs valide pour CETTE activité
+  // (fixe ou personnalisée — voir server/lib/goals.js). Peut lancer une
+  // erreur { statusCode } — à catcher côté route, comme partout ailleurs
+  // dans ce projet où goals.js est appelé.
+  let goalCategory = current.goalCategory;
+  if ('goalCategory' in fields) {
+    const clean = typeof fields.goalCategory === 'string' ? fields.goalCategory.trim() : '';
+    if (!clean) {
+      goalCategory = null;
+    } else {
+      if (!goals.isValidCategoryForActivity(current.activityId, clean)) {
+        throw Object.assign(new Error('Catégorie invalide pour cette activité.'), { statusCode: 400 });
+      }
+      goalCategory = clean;
+    }
+  }
+
+  db.prepare('UPDATE sub_projects SET name = ?, description = ?, closesAt = ?, goalCategory = ? WHERE id = ?')
+    .run(name, description, closesAt, goalCategory, subProjectId);
   return getSubProject(subProjectId);
 }
 
@@ -424,8 +450,37 @@ function updateItem(itemId, fields, userId) {
       doneAt = null;
     }
   }
-  db.prepare('UPDATE sub_project_items SET label = ?, done = ?, doneBy = ?, doneAt = ? WHERE id = ?')
-    .run(label, done, doneBy, doneAt, itemId);
+
+  // plannedUserId (chantier Objectifs — C, auto-planification Offre1, 15
+  // septembre 2026) : membre PRÉVU pour faire la tâche, distinct de doneBy
+  // ci-dessus (qui note qui l'a réellement cochée). Absent du corps => on
+  // n'y touche pas ; vide/null => on retire l'assignation prévue ; sinon
+  // doit être membre de l'activité qui porte ce sous-projet.
+  let plannedUserId = current.plannedUserId;
+  if ('plannedUserId' in fields) {
+    const clean = fields.plannedUserId ? String(fields.plannedUserId) : null;
+    if (clean) {
+      const subProject = getSubProject(current.subProjectId);
+      const isMember = subProject && !!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?')
+        .get(subProject.activityId, clean);
+      if (!isMember) {
+        throw Object.assign(new Error("Ce membre n'appartient pas à cette activité."), { statusCode: 400 });
+      }
+    }
+    plannedUserId = clean;
+  }
+
+  // Le libellé change ET la tâche était déjà regroupée dans un objectif
+  // généré automatiquement (goalWeeklyId posé) : on la libère pour qu'elle
+  // soit reclassée au prochain passage du moteur — son ancien texte ne doit
+  // pas rester attaché à un objectif qu'elle ne décrit plus.
+  let goalWeeklyId = current.goalWeeklyId;
+  if (label !== current.label && goalWeeklyId != null) {
+    goalWeeklyId = null;
+  }
+
+  db.prepare('UPDATE sub_project_items SET label = ?, done = ?, doneBy = ?, doneAt = ?, plannedUserId = ?, goalWeeklyId = ? WHERE id = ?')
+    .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, itemId);
   return getItem(itemId);
 }
 
