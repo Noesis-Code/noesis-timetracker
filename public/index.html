@@ -1591,8 +1591,13 @@
                catégorie, avant de retirer vraiment les sous-projets
                (demande explicite d'Emilien, à confirmer avant ce passage-
                là). -->
+          <!-- ⚠️ 16 septembre 2026 (11e passage) : le texte explicatif à côté
+               du « + » retiré sur demande d'Emilien (« supprime les textes
+               automatiques ») — #subProjectsEmptyHint reste dans le DOM
+               (masqué, pas supprimé, contenu vidé) au cas où un appelant JS
+               le référence encore ailleurs. -->
           <div class="sectionTitleRow subProjectsHeadRow">
-            <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet à afficher — pour ajouter des tâches, utilise les catégories d'objectifs ci-dessus.</p>
+            <p id="subProjectsEmptyHint" class="hint hidden"></p>
             <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter une catégorie">+</button>
           </div>
 
@@ -2009,32 +2014,22 @@
              toujours des catégories Objectifs. Construit par
              renderActivityGoalsCategoriesPanel() (app.js) à partir de
              GET /activities/:id/goals/categories — jamais statique ici. -->
+        <!-- ⚠️ 16 septembre 2026 (11e passage), demande d'Emilien : titre
+             "Catégories d'objectifs", texte explicatif et bulle "Nouvelle
+             catégorie" + bouton "Ajouter" retirés — le « + » de la ligne
+             au-dessus (#addSubProjectBtn) crée maintenant directement une
+             catégorie (nom par défaut, aussitôt renommable sur place, voir
+             son handler dans app.js). #activityGoalsCategoryAddWrap/Input/Btn
+             retirés du DOM (masqués nulle part ailleurs : plus référencés
+             que par du code désormais mort dans app.js, laissé en place par
+             prudence — voir commentaire à cet endroit). Les flèches ▲▼ de
+             réordonnancement sont retirées de chaque ligne (renderActivityGoalsCategoriesPanel(),
+             app.js) au profit d'un appui long sur la ligne pour glisser-
+             déposer, même geste que pour réordonner les activités
+             (bindActivityLongPress/bindActivityDrag) — voir
+             bindCategoryLongPress/startCategoryDrag, app.js. -->
         <div id="activityGoalsCategoriesBlock">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Catégories d'objectifs</p>
-          </div>
-          <p class="hint">Personnalise les catégories d'objectifs de cette activité (1 par défaut, jusqu'à 5 au total). Une nuance de la couleur de l'activité entoure chaque case de l'arbre, dans l'onglet Objectifs — jamais en remplissage, jamais choisie à la main (16 septembre 2026, couleur 100% automatique).</p>
-
-          <!-- 16 septembre 2026 (8e passage) : plus de bouton "Personnaliser
-               mes catégories" — une activité a TOUJOURS au moins une
-               catégorie (par défaut si rien n'a encore été créé), chaque
-               ligne ci-dessous est directement éditable (renommer/retirer/
-               réordonner), ce qui matérialise la catégorie par défaut au
-               besoin côté serveur (voir server/lib/goals.js,
-               ensureDefaultCategory). #activityGoalsCategoryActivateWrap a
-               été retiré avec sa fonction JS (renderActivityGoalsCategoriesPanel,
-               app.js). -->
           <div id="activityGoalsCategoriesList" class="activityGoalsCategoriesList"></div>
-
-          <!-- Masqué dès que le plafond (maxCategories, actuellement 5) est
-               atteint. Plus de sélecteur de couleur pour la nouvelle
-               catégorie (#activityGoalsCategoryAddSwatches, retiré — couleur
-               100% automatique). -->
-          <div id="activityGoalsCategoryAddWrap" class="activityGoalsCategoryAddWrap hidden">
-            <input type="text" id="activityGoalsCategoryAddInput" placeholder="Nouvelle catégorie" maxlength="60">
-            <button type="button" class="iconBtn" id="activityGoalsCategoryAddBtn">Ajouter</button>
-          </div>
-
           <p id="activityGoalsCategoriesMsg" class="msg"></p>
         </div>
       </div>

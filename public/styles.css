@@ -4834,8 +4834,12 @@ button { -webkit-user-select: none; user-select: none; }
    plus seul (ancien 4e bouton "Objectifs" du sélecteur) — il apparaît
    maintenant À LA SUITE de la liste des sous-projets, dans la section
    fusionnée "Tâches" (#activitySubProjectsBlock puis ce bloc, dans cet
-   ordre du DOM). Séparateur ajouté pour ne pas souder les deux visuellement. */
-#activityGoalsCategoriesBlock { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+   ordre du DOM). 16 septembre 2026 (11e passage), demande d'Emilien
+   (« supprime la barre horizontale entre le + et le titre ») : le
+   séparateur posé ci-dessus est retiré — le titre qu'il séparait a lui
+   aussi été retiré du DOM par le même passage, la ligne n'a plus de
+   raison d'être. */
+#activityGoalsCategoriesBlock { margin-top: 8px; }
 .activityGoalsCategoriesList {
   display: flex; flex-direction: column; gap: 8px; margin: 10px 0;
 }
@@ -4844,7 +4848,13 @@ button { -webkit-user-select: none; user-select: none; }
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--card); padding: 8px 10px;
   position: relative;
+  touch-action: none;
 }
+/* 16 septembre 2026 (11e passage) : appui long + glisser pour réordonner,
+   même habillage visuel que .activityRow.dragging (réordonnancement des
+   activités) — voir bindCategoryLongPress/startCategoryDrag, app.js. */
+.activityGoalsCategoryRow.dragging { opacity: 0.75; border-color: var(--purple); z-index: 2; }
+#activityGoalsCategoriesList.dragging .activityGoalsCategoryRow:not(.dragging) { transition: transform 0.16s ease; }
 .activityGoalsCategoryReorder {
   border: none; background: transparent; color: var(--text-light);
   font-size: 12px; line-height: 1; padding: 4px; cursor: pointer; flex-shrink: 0;

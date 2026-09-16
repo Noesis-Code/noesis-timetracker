@@ -4346,23 +4346,16 @@
     if (!list) return;
 
     list.innerHTML = '';
+    // 16 septembre 2026 (11e passage), demande d'Emilien : les flèches ▲▼
+    // sont retirées — le réordonnancement se fait désormais par appui long
+    // sur la ligne puis glisser, même geste que pour les activités (voir
+    // bindCategoryLongPress/startCategoryDrag plus bas, inspirés tels quels
+    // de bindActivityLongPress/bindActivityDrag). row.dataset.categoryKey
+    // porte la clé utilisée par PUT .../goals/categories-reorder.
     currentActivityGoalsCategories.forEach(function (c, index) {
       var row = document.createElement('div');
       row.className = 'activityGoalsCategoryRow';
-
-      var upBtn = document.createElement('button');
-      upBtn.type = 'button'; upBtn.className = 'activityGoalsCategoryReorder'; upBtn.textContent = '▲';
-      upBtn.title = t('Monter'); upBtn.setAttribute('aria-label', t('Monter'));
-      upBtn.disabled = index === 0;
-      upBtn.addEventListener('click', function () { moveActivityGoalsCategory(index, -1); });
-      row.appendChild(upBtn);
-
-      var downBtn = document.createElement('button');
-      downBtn.type = 'button'; downBtn.className = 'activityGoalsCategoryReorder'; downBtn.textContent = '▼';
-      downBtn.title = t('Descendre'); downBtn.setAttribute('aria-label', t('Descendre'));
-      downBtn.disabled = index === currentActivityGoalsCategories.length - 1;
-      downBtn.addEventListener('click', function () { moveActivityGoalsCategory(index, 1); });
-      row.appendChild(downBtn);
+      row.dataset.categoryKey = c.key;
 
       // currentActivityColor (pas currentGoalsActivityColor) : ce panneau vit
       // dans la fenêtre RÉGLAGES de l'activité (#communityActivityDetail,
@@ -4399,6 +4392,12 @@
         removeActivityGoalsCategory(c.key);
       });
       row.appendChild(removeBtn);
+
+      // Appui long pour réordonner (demande d'Emilien, 11e passage) — exclut
+      // le champ de nom et le bouton ✕ pour ne pas gêner le renommage/la
+      // suppression au toucher : sans ça, un appui un peu long dans le champ
+      // pour placer le curseur risquerait de déclencher un glissé.
+      bindCategoryLongPress(row, nameInput, removeBtn);
 
       list.appendChild(row);
 
@@ -4461,25 +4460,151 @@
       .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
 
+  // 16 septembre 2026 (11e passage), demande d'Emilien : la bulle "Nouvelle
+  // catégorie" + bouton "Ajouter" (#activityGoalsCategoryAddWrap) est retirée
+  // d'index.html — cette logique de création est extraite dans une fonction
+  // réutilisable, appelée directement par le « + » (#addSubProjectBtn, voir
+  // plus bas) avec un nom par défaut plutôt que par une saisie préalable.
+  function createActivityGoalsCategory(activityId, label) {
+    var msg = $('activityGoalsCategoriesMsg');
+    if (!label) { if (msg) msg.textContent = t('Nom de catégorie requis.'); return; }
+    api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) { if (msg) msg.textContent = err.message; });
+  }
+
   // 16 septembre 2026 (8e passage) : plus de bouton "Personnaliser mes
   // catégories" (#activityGoalsCategoryActivateBtn, retiré d'index.html) ni
   // de sélecteur de couleur pour la nouvelle catégorie
   // (#activityGoalsCategoryAddSwatches, retiré aussi) — voir le commentaire
-  // de renderActivityGoalsCategoriesPanel() plus haut.
-  $('activityGoalsCategoryAddBtn').addEventListener('click', function () {
-    var activityId = currentCommunityActivityId;
-    if (!activityId) return;
-    var input = $('activityGoalsCategoryAddInput');
-    var label = (input.value || '').trim();
-    var msg = $('activityGoalsCategoriesMsg');
-    if (!label) { if (msg) msg.textContent = t('Nom de catégorie requis.'); return; }
-    api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
-      .then(function () {
-        input.value = '';
-        activityGoalsCategoriesRefresh(activityId);
-      })
-      .catch(function (err) { if (msg) msg.textContent = err.message; });
-  });
+  // de renderActivityGoalsCategoriesPanel() plus haut. **11e passage : le
+  // bouton #activityGoalsCategoryAddBtn lui-même a été retiré d'index.html
+  // (voir createActivityGoalsCategory() ci-dessus) — cet écouteur reste dans
+  // le code mais gardé par un test d'existence pour ne rien casser si
+  // l'élément n'est plus là.**
+  if ($('activityGoalsCategoryAddBtn')) {
+    $('activityGoalsCategoryAddBtn').addEventListener('click', function () {
+      var activityId = currentCommunityActivityId;
+      if (!activityId) return;
+      var input = $('activityGoalsCategoryAddInput');
+      var label = (input.value || '').trim();
+      createActivityGoalsCategory(activityId, label);
+      if (input) input.value = '';
+    });
+  }
+
+  // Appui long sur une catégorie pour la réordonner par glisser-déposer —
+  // même mécanique que bindActivityLongPress/bindActivityDrag (16 septembre
+  // 2026, réordonnancement des activités), adaptée à
+  // #activityGoalsCategoriesList/.activityGoalsCategoryRow. Contrairement aux
+  // activités, il n'y a pas de "mode édition" séparé à entrer d'abord : la
+  // ligne est TOUJOURS éditable (nom, ✕), donc l'appui long démarre le
+  // glissé directement, dans le même geste tactile (le doigt ne se lève
+  // jamais entre l'appui et le glissé). excludeEls (nameInput, removeBtn)
+  // : un pointerdown qui démarre SUR ces éléments ne déclenche pas le
+  // minuteur, pour ne pas gêner le renommage/la suppression au toucher.
+  var categoryLongPressTimer = null;
+  function bindCategoryLongPress(row, nameInputEl, removeBtnEl) {
+    function cancel() {
+      if (categoryLongPressTimer) { clearTimeout(categoryLongPressTimer); categoryLongPressTimer = null; }
+      row.removeEventListener('pointermove', onMove);
+      row.removeEventListener('pointerup', onUp);
+      row.removeEventListener('pointercancel', onUp);
+      row.removeEventListener('pointerleave', onUp);
+    }
+    var startX = 0, startY = 0, pointerId = null;
+    function onMove(e) {
+      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
+    }
+    function onUp() { cancel(); }
+    row.addEventListener('pointerdown', function (e) {
+      if (e.target === nameInputEl || e.target === removeBtnEl) return;
+      startX = e.clientX; startY = e.clientY; pointerId = e.pointerId;
+      row.addEventListener('pointermove', onMove);
+      row.addEventListener('pointerup', onUp);
+      row.addEventListener('pointercancel', onUp);
+      row.addEventListener('pointerleave', onUp);
+      categoryLongPressTimer = setTimeout(function () {
+        cancel();
+        startCategoryDrag(row, pointerId, startX, startY);
+      }, 500);
+    });
+  }
+
+  // Glissé effectif, démarré par bindCategoryLongPress ci-dessus sur le
+  // MÊME pointeur (le doigt n'a pas été relevé) — copié de bindActivityDrag
+  // (même mécanique de décalage visuel des voisins), persistance sur PUT
+  // .../goals/categories-reorder (clés, pas des ids, voir
+  // moveActivityGoalsCategory plus haut pour le même appel).
+  function startCategoryDrag(row, pointerId, startY0) {
+    var box = $('activityGoalsCategoriesList');
+    var rows = Array.prototype.slice.call(box.querySelectorAll('.activityGoalsCategoryRow'));
+    var mids = rows.map(function (el) {
+      var r = el.getBoundingClientRect();
+      return r.top + r.height / 2;
+    });
+    var fromIndex = rows.indexOf(row);
+    if (fromIndex < 0) return;
+    var startY = startY0;
+    var targetIndex = fromIndex;
+    var step = row.getBoundingClientRect().height +
+      parseFloat(getComputedStyle(box).rowGap || getComputedStyle(box).gap || 0) || 0;
+
+    try { row.setPointerCapture(pointerId); } catch (e) { /* déjà relâché entre-temps : on abandonne le glissé */ return; }
+    row.classList.add('dragging');
+    box.classList.add('dragging');
+
+    function layoutGap() {
+      for (var i = 0; i < rows.length; i++) {
+        if (i === fromIndex) continue;
+        var shift = 0;
+        if (targetIndex > fromIndex && i > fromIndex && i <= targetIndex) shift = -step;
+        else if (targetIndex < fromIndex && i >= targetIndex && i < fromIndex) shift = step;
+        rows[i].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+      }
+    }
+
+    function onMove(ev) {
+      if (ev.pointerId !== pointerId) return;
+      row.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
+      var idx = 0;
+      for (var i = 0; i < mids.length; i++) {
+        if (ev.clientY > mids[i]) idx = i;
+      }
+      if (idx !== targetIndex) { targetIndex = idx; layoutGap(); }
+    }
+
+    function onUp(ev) {
+      if (ev.pointerId !== pointerId) return;
+      row.removeEventListener('pointermove', onMove);
+      row.removeEventListener('pointerup', onUp);
+      row.removeEventListener('pointercancel', onUp);
+      row.classList.remove('dragging');
+      box.classList.remove('dragging');
+      row.style.transform = '';
+      rows.forEach(function (el) { el.style.transform = ''; });
+
+      if (targetIndex !== fromIndex) {
+        var ordered = rows.slice();
+        ordered.splice(fromIndex, 1);
+        ordered.splice(targetIndex, 0, row);
+        ordered.forEach(function (el) { box.appendChild(el); });
+        var keys = ordered.map(function (el) { return el.dataset.categoryKey; });
+        var activityId = currentCommunityActivityId;
+        api('PUT', '/api/activities/' + activityId + '/goals/categories-reorder', { keys: keys })
+          .then(function () { activityGoalsCategoriesRefresh(activityId); })
+          .catch(function (err) {
+            var msg = $('activityGoalsCategoriesMsg');
+            if (msg) msg.textContent = err.message;
+            activityGoalsCategoriesRefresh(activityId);
+          });
+      }
+    }
+
+    row.addEventListener('pointermove', onMove);
+    row.addEventListener('pointerup', onUp);
+    row.addEventListener('pointercancel', onUp);
+  }
 
   // Clic sur le fond noir, hors de la carte : referme, comme la page de visite
   // d'un profil. Le test sur e.target évite de refermer quand le clic vient
@@ -5585,7 +5710,11 @@
     whenElementReady('#activitiesList .activityRow[data-activity-id="' + activityId + '"] .activityRowHeader', function (header) {
       header.click();
       setActivityPageSection('sub');
-      focusWhenReady('#activityGoalsCategoryAddWrap');
+      // 16 septembre 2026 (11e passage, C) : #activityGoalsCategoryAddWrap a
+      // été retiré (demande d'Emilien, même passage) — le « + »
+      // (#addSubProjectBtn) est désormais l'unique point d'ajout de
+      // catégorie dans cet écran, c'est lui qu'on pointe.
+      focusWhenReady('#addSubProjectBtn');
     });
   }
 
@@ -7320,15 +7449,21 @@
   // suivant qui reprendra les fonctionnalités des sous-projets (tâches,
   // discussion) pour les appliquer à la catégorie, avant de retirer
   // vraiment les sous-projets.
+  // **11e passage : crée directement une catégorie avec un nom par défaut
+  // (plus de formulaire intermédiaire, #activityGoalsCategoryAddWrap retiré
+  // d'index.html) — voir createActivityGoalsCategory() plus haut.**
   $('addSubProjectBtn').addEventListener('click', function () {
-    var wrap = $('activityGoalsCategoryAddWrap');
+    var activityId = currentCommunityActivityId;
+    if (!activityId) return;
     var msg = $('activityGoalsCategoriesMsg');
-    if (wrap && wrap.classList.contains('hidden')) {
-      if (msg) msg.textContent = t('Maximum de catégories atteint (5).');
+    if (currentActivityGoalsCategories.length >= currentActivityGoalsMax) {
+      if (msg) msg.textContent = t('Maximum de catégories atteint ({max}).', { max: currentActivityGoalsMax });
       return;
     }
-    var input = $('activityGoalsCategoryAddInput');
-    if (input) input.focus();
+    // Nom par défaut, aussitôt renommable en tapant sur la ligne créée (le
+    // champ de nom de chaque catégorie est toujours éditable) — pas de
+    // formulaire intermédiaire, conformément à la demande d'Emilien.
+    createActivityGoalsCategory(activityId, t('Nouvelle catégorie'));
   });
   $('newSubProjectCancel').addEventListener('click', closeNewSubProjectForm);
   $('newSubProjectSave').addEventListener('click', createSubProject);
