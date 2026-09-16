@@ -4800,6 +4800,13 @@
     $('activityGoalsPeriodTitle').textContent = title;
     $('activityGoalsPeriodDates').textContent = formatGoalPeriodDates(period.startDate, period.endDate);
 
+    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // le nom de la catégorie se place désormais ici (en dessous de la
+    // période, au-dessus du titre de l'objectif périodique) — il a déménagé
+    // depuis #goalsDetailTitle, voir openGoalsDetail() plus bas.
+    var catLabelEl = $('activityGoalsCategoryLabel');
+    if (catLabelEl) catLabelEl.textContent = t(goalsCategoryLabel(currentGoalsCategory));
+
     var mainInput = $('activityGoalsMainInput');
     mainInput.value = period.mainGoalText || '';
     mainInput.onblur = function () {
@@ -4812,19 +4819,31 @@
     };
 
     $('activityGoalsMainEstimate').textContent = formatEstimateHint(period.mainGoalEstimateMinutes, period.mainGoalEstimateSource, period.mainGoalEstimateConfidence);
-    renderGoalStatusButtons($('activityGoalsMainStatus'), period.mainGoalStatus, function (status) {
-      saveMainGoalStatus(period.periodNumber, status);
-    });
 
-    var actualEl = $('activityGoalsMainActual');
-    if (period.actualMinutes != null) {
-      actualEl.textContent = formatActualHint(period.mainGoalEstimateMinutes, period.actualMinutes, period.accuracy);
-      actualEl.classList.remove('hidden');
-    } else {
-      actualEl.classList.add('hidden');
+    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // « réduire la section de l'objectif périodique au titre, au nombre
+    // d'heures à réaliser estimées et à une visualisation de l'avancement
+    // total » — remplace les boutons de statut manuel et les puces
+    // d'assignation (retirés de cette carte, voir index.html) par une seule
+    // barre (temps réel / estimation), même pattern que la barre unique des
+    // sous-projets (.subProjectProgressTrack/Fill, renderSubProjectsList()
+    // plus bas dans ce fichier).
+    var mainProgressFill = $('activityGoalsMainProgressFill');
+    var mainProgressPct = $('activityGoalsMainProgressPct');
+    if (mainProgressFill && mainProgressPct) {
+      if (period.mainGoalEstimateMinutes) {
+        var mainPct = Math.max(0, Math.min(100, Math.round(((period.actualMinutes || 0) / period.mainGoalEstimateMinutes) * 100)));
+        mainProgressFill.style.width = mainPct + '%';
+        mainProgressPct.textContent = mainPct + '%';
+      } else {
+        // Pas encore d'estimation : rien à comparer — barre vide plutôt que
+        // trompeuse (même principe que R1, sous-projets : c'est l'absence
+        // d'estimation qui décide, jamais l'absence de temps réel).
+        mainProgressFill.style.width = '0%';
+        mainProgressPct.textContent = period.actualMinutes ? formatGoalHours(period.actualMinutes) : '';
+      }
     }
 
-    renderGoalsMainAssignees(period);
     // 15 septembre 2026 (discussion "Objectifs — D") : les 4 cartes hebdo ne
     // s'affichent plus en permanence — voir openGoalsWeekEditor()/
     // closeGoalsWeekEditor() plus bas, déclenchées depuis le calendrier.
@@ -4987,7 +5006,12 @@
     input.placeholder = t('Tâche pour ce jour...');
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'iconBtn';
+    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // « la case doit être beaucoup plus grande [...] la largeur de l'écran
+    // avec seulement une place pour le bouton ajouter » — classe dédiée
+    // (plus .iconBtn, réutilisée telle quelle ailleurs dans ce fichier) pour
+    // pouvoir agrandir ce bouton précis sans toucher au reste de l'app.
+    btn.className = 'goalsCalendarTaskAddBtn';
     btn.textContent = t('Ajouter');
     var msg = document.createElement('p');
     msg.className = 'msg';
@@ -5014,6 +5038,13 @@
     var box = $('activityGoalsCalendarList');
     if (!box) return;
     box.innerHTML = '';
+    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // « chaque dimanche entouré par la couleur dédiée à la catégorie » —
+    // même source que renderGoalsGrid() (activeGoalsCategories()[].color,
+    // null pour les 3 catégories fixes historiques, qui gardent alors
+    // l'accent violet déjà utilisé partout ailleurs sur cette page).
+    var goalsCal = activeGoalsCategories().filter(function (c) { return c.key === currentGoalsCategory; })[0];
+    var goalsCalCatColor = (goalsCal && goalsCal.color) || 'var(--purple)';
     days.forEach(function (day, idx) {
       // "Dernier jour de la semaine" au sens du volet Objectifs (bloc de 7
       // jours depuis le début de la période, pas forcément un dimanche
@@ -5024,6 +5055,7 @@
 
       var row = document.createElement('div');
       row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '') + (isWeekEnd ? ' weekEnd' : '');
+      if (isWeekEnd) row.style.borderColor = goalsCalCatColor;
 
       var dateEl = document.createElement('span');
       dateEl.className = 'goalsCalendarDate';
@@ -5047,8 +5079,14 @@
       var addForm = buildGoalsCalendarAddForm(period, day);
       var addBtn = document.createElement('button');
       addBtn.type = 'button';
+      // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+      // « retire le symbole - à côté du + et centre le + au milieu du
+      // cercle » — le "-" perçu était la bordure en pointillés de la ligne
+      // "fin de semaine" juste avant ce bouton (retirée ci-dessus au profit
+      // d'une bordure pleine, couleur catégorie) ; le "+" lui-même passe
+      // d'un glyphe texte (mal centré selon les polices) à deux barres CSS
+      // (::before/::after, voir styles.css), centrées par construction.
       addBtn.className = 'goalsCalendarAddTaskBtn';
-      addBtn.textContent = '+';
       addBtn.title = t('Ajouter une tâche ce jour');
       addBtn.addEventListener('click', function () {
         addForm.classList.toggle('hidden');
@@ -5058,6 +5096,45 @@
         }
       });
       row.appendChild(addBtn);
+
+      if (isWeekEnd) {
+        // « je souhaite qu'il soit clairement marqué que ce soit l'objectif
+        // hebdomadaire à réaliser [...] un avancement hebdomadaire sur la
+        // case du dimanche » — ligne complète (flex-basis: 100%, même motif
+        // que .goalsCalendarTaskAdd .msg) DANS la même case bordée que
+        // ci-dessus, pas une ligne séparée. w.status === 'atteint' l'emporte
+        // toujours sur le calcul minutes/estimation (cohérent avec le badge
+        // de statut ailleurs sur cette page, .goalStatusBtn.active) ; du
+        // temps réel sans estimation compte comme entamé (barre pleine)
+        // plutôt que vide, qui suggérerait à tort qu'aucun travail n'a été
+        // fait.
+        var w = null;
+        for (var wi = 0; wi < period.weeklies.length; wi++) {
+          if (period.weeklies[wi].weekIndex === day.weekIndex) { w = period.weeklies[wi]; break; }
+        }
+        var weekProgress = document.createElement('div');
+        weekProgress.className = 'goalsCalendarWeekProgress';
+        var weekProgressLabel = document.createElement('span');
+        weekProgressLabel.className = 'goalsCalendarWeekProgressLabel';
+        weekProgressLabel.style.color = goalsCalCatColor;
+        weekProgressLabel.textContent = t('Objectif de la semaine à réaliser');
+        weekProgress.appendChild(weekProgressLabel);
+        var weekProgressTrack = document.createElement('div');
+        weekProgressTrack.className = 'goalsCalendarWeekProgressTrack';
+        var weekProgressFill = document.createElement('div');
+        weekProgressFill.className = 'goalsCalendarWeekProgressFill';
+        var weekPct = 0;
+        if (w) {
+          if (w.status === 'atteint') weekPct = 100;
+          else if (w.estimateMinutes) weekPct = Math.max(0, Math.min(100, Math.round(((w.actualMinutes || 0) / w.estimateMinutes) * 100)));
+          else if (w.actualMinutes) weekPct = 100;
+        }
+        weekProgressFill.style.width = weekPct + '%';
+        weekProgressFill.style.background = goalsCalCatColor;
+        weekProgressTrack.appendChild(weekProgressFill);
+        weekProgress.appendChild(weekProgressTrack);
+        row.appendChild(weekProgress);
+      }
 
       box.appendChild(row);
       box.appendChild(addForm);
@@ -5284,7 +5361,12 @@
     var byCategory = (currentGoalsAllPlannings && currentGoalsAllPlannings.byCategory) || {};
     currentGoalsPlanning = byCategory[category] || null;
     if (!currentGoalsPlanning) return;
-    $('goalsDetailTitle').textContent = $('goalsActivityName').textContent + ' · ' + t(goalsCategoryLabel(category));
+    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // « tout en haut sur l'entête de l'application se trouve uniquement le
+    // nom de l'activité » — la catégorie, affichée ici jusque-là (« Activité
+    // · Catégorie »), déménage plus bas (.goalsCategoryLabel, voir
+    // renderActivityGoals()) et n'apparaît donc plus dans ce titre.
+    $('goalsDetailTitle').textContent = $('goalsActivityName').textContent;
     $('goalsDetailPage').classList.remove('hidden');
     $('goalsDetailScroll').scrollTop = 0;
     renderActivityGoals();

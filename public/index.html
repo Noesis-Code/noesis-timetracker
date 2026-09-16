@@ -2917,24 +2917,35 @@
               <button type="button" class="menuBtn" id="activityGoalsNextBtn" aria-label="Période suivante">›</button>
             </div>
 
+            <!-- 15 septembre 2026 (discussion "Objectifs — D"), demande
+                 d'Emilien : hiérarchie d'en-tête revue — activité seule tout
+                 en haut (#goalsDetailTitle, .activityPageHeader plus haut
+                 dans ce fichier), période juste au-dessus (.goalsPeriodNav),
+                 catégorie ICI (entre la période et le titre de l'objectif
+                 périodique), objectif périodique en dernier. Rempli par
+                 renderActivityGoals() (app.js) à partir de
+                 currentGoalsCategory. -->
+            <p class="goalsCategoryLabel" id="activityGoalsCategoryLabel"></p>
+
+            <!-- 15 septembre 2026 (discussion "Objectifs — D"), demande
+                 d'Emilien : « réduire la section de l'objectif périodique au
+                 titre, au nombre d'heures à réaliser estimées et à une
+                 visualisation de l'avancement total ». Statut manuel
+                 (.goalStatusRow, réutilisé tel quel par les cartes
+                 hebdomadaires — renderGoalsWeeklyList() ci-dessous, inchangé)
+                 et puces d'assignation (renderGoalsMainAssignees(), retirée)
+                 ne s'affichent plus ici — remplacés par la seule barre
+                 d'avancement ci-dessous (temps réel / estimation, même
+                 pattern que la barre unique des sous-projets,
+                 .subProjectProgressTrack/Fill dans ce même fichier). -->
             <div class="goalCard goalMainCard">
               <p class="goalCardLabel">Objectif périodique</p>
               <textarea id="activityGoalsMainInput" rows="2" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
               <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
-              <div class="goalStatusRow" id="activityGoalsMainStatus"></div>
-              <p class="goalActualHint hidden" id="activityGoalsMainActual"></p>
-              <!-- 14 septembre 2026 (demande d'Emilien) : « en dessous des
-                   grands objectifs [...] le nom des membres de l'activité qui
-                   travaillent sur l'objectif périodique. Plusieurs
-                   utilisateurs peuvent travailler sur un objectif
-                   périodique » — contrairement aux objectifs hebdomadaires
-                   (un seul <select> assigné, .goalAssigneeSelect ci-dessous),
-                   ici une puce cliquable PAR MEMBRE de l'activité, cochée ou
-                   non — construites par renderGoalsMainAssignees() (app.js) à
-                   partir de currentGoalsPlanning.members et
-                   period.assignees. -->
-              <div class="goalAssigneesLabel" id="activityGoalsMainAssigneesLabel">Travaillent sur cet objectif</div>
-              <div class="goalAssignees" id="activityGoalsMainAssignees"></div>
+              <div class="goalMainProgressRow">
+                <div class="goalMainProgressTrack"><div class="goalMainProgressFill" id="activityGoalsMainProgressFill"></div></div>
+                <span class="goalMainProgressPct" id="activityGoalsMainProgressPct"></span>
+              </div>
             </div>
 
             <!-- 15 septembre 2026 (discussion "Objectifs — D") — révisé

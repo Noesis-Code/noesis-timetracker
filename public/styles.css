@@ -4193,6 +4193,18 @@ button { -webkit-user-select: none; user-select: none; }
 .goalsPeriodNavLabel .sectionTitle { margin: 0; }
 .goalsPeriodDates { margin: 2px 0 0; font-size: 12px; color: var(--text-light); }
 
+/* 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+   nom de la catégorie, entre la période (.goalsPeriodNav ci-dessus) et le
+   titre de l'objectif périodique (.goalMainCard ci-dessous) — voir
+   renderActivityGoals() (app.js) pour le contenu, #goalsDetailTitle
+   (.activityPageHeader, plus haut dans ce fichier) pour l'activité seule
+   tout en haut. */
+.goalsCategoryLabel {
+  text-align: center; font-size: 12px; font-weight: 700;
+  color: var(--text-light); text-transform: uppercase; letter-spacing: 0.03em;
+  margin: 0 0 10px;
+}
+
 /* Cartes objectif (grand objectif + 4 semaines) — habillage carte standard
    (.card/--shadow-card, comme .statsSection) pour bien les distinguer du
    fond de la page. */
@@ -4202,6 +4214,26 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .goalMainCard { border: 1px solid var(--purple); }
 .goalCardLabel { font-weight: bold; margin: 0 0 8px; font-size: 14px; }
+
+/* 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+   « réduire la section de l'objectif périodique [...] à une visualisation
+   de l'avancement total » — remplace les boutons de statut/puces
+   d'assignation retirés de .goalMainCard (index.html) ; même pattern que
+   l'UNIQUE barre large des sous-projets (.subProjectProgressTrack/Fill,
+   plus bas dans ce fichier) plutôt qu'une nouvelle convention visuelle. */
+.goalMainProgressRow { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.goalMainProgressTrack {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: var(--track-bg); overflow: hidden;
+}
+.goalMainProgressFill {
+  height: 100%; width: 0; border-radius: 3px;
+  background: var(--purple); transition: width 0.2s ease;
+}
+.goalMainProgressPct {
+  flex-shrink: 0; min-width: 34px; text-align: right;
+  font-size: 12px; font-weight: 700; color: var(--text-light);
+}
 .goalsWeeklyLabel { margin: 0 0 10px; }
 .goalCard textarea {
   width: 100%; box-sizing: border-box; padding: 10px; font: inherit;
@@ -4283,22 +4315,74 @@ button { -webkit-user-select: none; user-select: none; }
 
 .goalsCalendarWeekBadge.clickable { cursor: pointer; color: var(--purple); background: rgba(var(--purple-rgb), 0.14); }
 .goalsCalendarWeekBadge.clickable:hover { background: rgba(var(--purple-rgb), 0.22); }
-.goalsCalendarRow.weekEnd { border-bottom: 1px dashed var(--border); }
-
-.goalsCalendarAddTaskBtn {
-  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; line-height: 1; color: var(--text-light);
-  background: var(--track-bg);
+/* 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+   « chaque dimanche entouré par la couleur dédiée à la catégorie » —
+   remplace l'ancienne bordure pointillée grise (border-bottom uniquement)
+   par un contour complet, couleur posée en style inline par catégorie
+   (renderGoalsCalendarDays(), app.js — même convention que
+   .goalsGridCell--filled, cell.style.borderColor). flex-wrap permet à
+   .goalsCalendarWeekProgress ci-dessous de passer à la ligne DANS cette
+   même case bordée (même motif que .goalsCalendarTaskAdd .msg plus bas). */
+.goalsCalendarRow.weekEnd {
+  flex-wrap: wrap; border: 2px solid var(--purple); border-radius: var(--radius-md);
 }
+
+/* « je souhaite qu'il soit clairement marqué que ce soit l'objectif
+   hebdomadaire à réaliser [...] un avancement hebdomadaire sur la case du
+   dimanche » — libellé + barre unique (même pattern que
+   .subProjectProgressTrack/Fill), couleur catégorie posée en style inline. */
+.goalsCalendarWeekProgress { flex-basis: 100%; margin-top: 6px; }
+.goalsCalendarWeekProgressLabel {
+  display: block; font-size: 11px; font-weight: 700; margin-bottom: 4px;
+}
+.goalsCalendarWeekProgressTrack {
+  height: 5px; border-radius: 3px; background: var(--track-bg); overflow: hidden;
+}
+.goalsCalendarWeekProgressFill {
+  height: 100%; width: 0; border-radius: 3px; transition: width 0.2s ease;
+}
+
+/* 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+   « retire le symbole - à côté du + et centre le + au milieu du cercle » —
+   le "-" perçu était la bordure pointillée ci-dessus (retirée) ; le "+"
+   lui-même passe d'un glyphe texte (centrage optique imparfait selon les
+   polices, voir line-height) à deux barres CSS (::before/::after),
+   centrées par construction plutôt que par la métrique d'une police. */
+.goalsCalendarAddTaskBtn {
+  position: relative; flex-shrink: 0; width: 22px; height: 22px;
+  border: none; padding: 0; border-radius: 50%; cursor: pointer;
+  color: var(--text-light); background: var(--track-bg);
+}
+.goalsCalendarAddTaskBtn::before,
+.goalsCalendarAddTaskBtn::after {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  background: currentColor; transform: translate(-50%, -50%);
+}
+.goalsCalendarAddTaskBtn::before { width: 10px; height: 2px; }
+.goalsCalendarAddTaskBtn::after { width: 2px; height: 10px; }
 .goalsCalendarAddTaskBtn:hover { color: var(--text); background: var(--border); }
 
+/* 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+   « la case soit beaucoup plus grande [...] la largeur de l'écran avec
+   seulement une place pour le bouton ajouter » — indentation (28px, sous le
+   badge de semaine) retirée, la case reprend toute la largeur de la liste ;
+   champ et bouton agrandis (cible tactile confortable), .msg (erreur) seule
+   autre chose que ce champ+bouton, invisible tant qu'elle est vide. */
 .goalsCalendarTaskAdd {
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 12px 6px 28px; background: var(--card);
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 12px; background: var(--card);
 }
 .goalsCalendarTaskAdd input {
-  flex: 1; min-width: 0; font-size: 13px; padding: 5px 8px;
+  flex: 1; min-width: 0; font-size: 16px; padding: 12px 14px;
+  border-radius: var(--radius-md);
+}
+.goalsCalendarTaskAddBtn {
+  flex-shrink: 0; padding: 12px 22px; font-size: 15px; font-weight: 600;
+  border: none; border-radius: var(--radius-md);
+  background: var(--purple); color: #fff; cursor: pointer;
+}
+@media (hover: hover) {
+  .goalsCalendarTaskAddBtn:hover { background: var(--purple-dark, var(--purple)); }
 }
 .goalsCalendarTaskAdd .msg { flex-basis: 100%; margin: 0; }
 
