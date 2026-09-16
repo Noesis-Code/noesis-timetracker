@@ -1574,7 +1574,20 @@
                reste en `flex-end`, donc le « + » ne bouge pas quand
                l'indication est masquée (cas normal, dès qu'un sous-projet
                existe). -->
-          <div class="sectionTitleRow subProjectsHeadRow">
+          <!-- ⚠️ 16 septembre 2026 (9e passage, demande explicite d'Emilien —
+               « il semble qu'il y ait confusion ») : ce bloc reste dans le DOM
+               (masqué, pas supprimé) mais son « + » n'est plus visible. Il y
+               avait DEUX « + » à l'écran (celui-ci pour créer un sous-projet,
+               et celui de #activityGoalsCategoriesBlock plus bas pour créer
+               une catégorie) — c'était la source exacte de la confusion
+               qu'il a signalée : « à chaque fois que je clique sur +, ça me
+               crée une catégorie d'objectifs » décrit le comportement QU'IL
+               VEUT, pas celui qui existait. Un seul « + » reste maintenant
+               visible dans la section Tâches, celui des catégories. Rien
+               n'est supprimé côté JS (addSubProjectBtn garde son écouteur,
+               #newSubProjectCard existe toujours) : un sous-projet existant
+               reste visible et éditable dans #subProjectsList en dessous. -->
+          <div class="sectionTitleRow subProjectsHeadRow hidden">
             <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.</p>
             <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter un sous-projet">+</button>
           </div>
