@@ -4469,8 +4469,23 @@ button { -webkit-user-select: none; user-select: none; }
    badge de semaine) retirée, la case reprend toute la largeur de la liste ;
    champ et bouton agrandis (cible tactile confortable), .msg (erreur) seule
    autre chose que ce champ+bouton, invisible tant qu'elle est vide. */
+/* 16 septembre 2026 (discussion "Objectifs — D") — BUG trouvé en reproduisant
+   la mise en page dans un navigateur réel (widths mesurées via
+   getBoundingClientRect) plutôt qu'à l'oeil : `.goalsCalendarTaskAdd .msg`
+   ci-dessous porte flex-basis: 100% (pour passer à la ligne quand un message
+   d'erreur apparaît, même motif que .goalsCalendarWeekProgress plus haut),
+   mais CE conteneur n'avait pas flex-wrap: wrap — sans repli à la ligne, ce
+   flex-basis: 100% entre en concurrence avec le champ ET le bouton sur la
+   MÊME ligne. Le champ (flex-basis: 0%, flex: 1 ci-dessous) n'obtient alors
+   aucun espace : le total des flex-basis dépasse la largeur disponible, donc
+   le moteur réduit au lieu d'agrandir, et un flex-basis de 0% ne réduit
+   jamais (facteur de réduction nul) — le champ retombe à son padding seul
+   (~32px, un carré), quel que soit flex: 1. Signalé par Emilien (« la bulle
+   d'écriture qui ne permet pas d'afficher les mots ») ; reproduit à
+   l'identique en injectant ce même balisage dans le CSS déployé sur staging,
+   confirmé résolu par le seul ajout de flex-wrap: wrap ci-dessous. */
 .goalsCalendarTaskAdd {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
   padding: 14px 12px; background: var(--card);
 }
 .goalsCalendarTaskAdd input {
