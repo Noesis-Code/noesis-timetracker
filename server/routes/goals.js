@@ -249,11 +249,16 @@ router.put('/activities/:id/goals/periods/:periodNumber/assignees', (req, res) =
 // ---------------------------------------------------------------------------
 // 15 septembre 2026 (discussion Objectifs — B) — gestion des catégories
 // personnalisables par activité. Cadré avec Emilien (AskUserQuestion, voir
-// noesis-timetracker-objectifs.md) : gratuit pour tous, par activité, 3
-// catégories maximum, table rase à l'activation, retrait toujours possible
-// tant qu'il en reste au moins une. Périmètre serveur uniquement — l'UI
-// (emplacement du point d'entrée, adaptation de l'arbre/de la grille
-// comparative à 1-3 catégories) revient à la discussion A.
+// noesis-timetracker-objectifs.md) : gratuit pour tous, par activité, 5
+// catégories maximum, retrait toujours possible tant qu'il en reste au moins
+// une.
+//
+// 16 septembre 2026 (8e passage) : plus d'étape "activer" séparée — une
+// activité a toujours au moins une catégorie (par défaut, synthétique tant
+// que rien n'a été écrit — voir server/lib/goals.js, ensureDefaultCategory),
+// donc POST .../categories/activate a disparu ; POST .../categories et PUT
+// .../categories/:key n'acceptent plus de couleur (couleur 100% automatique
+// côté client, voir même fichier).
 //
 // ⚠️ La route de réordonnancement est nommée `/goals/categories-reorder`
 // (et non `/goals/categories/reorder`) pour éviter le piège Express déjà
@@ -281,22 +286,6 @@ router.get('/activities/:id/goals/categories', (req, res) => {
   }
 });
 
-router.post('/activities/:id/goals/categories/activate', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.params.id);
-
-  const check = requireMembership(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  try {
-    const categories = goals.activateCustomCategories(activityId, req.body.label, req.body.color);
-    res.json({ ok: true, categories });
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
 router.post('/activities/:id/goals/categories', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
@@ -306,7 +295,7 @@ router.post('/activities/:id/goals/categories', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const categories = goals.addCategory(activityId, req.body.label, req.body.color);
+    const categories = goals.addCategory(activityId, req.body.label);
     res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);
@@ -322,7 +311,7 @@ router.put('/activities/:id/goals/categories/:key', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const categories = goals.renameCategory(activityId, req.params.key, req.body.label, req.body.color);
+    const categories = goals.renameCategory(activityId, req.params.key, req.body.label);
     res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);
