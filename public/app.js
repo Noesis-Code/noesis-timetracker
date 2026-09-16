@@ -4925,10 +4925,11 @@
         var card = document.createElement('div');
         card.className = 'goalCard goalWeeklyCard';
         // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-        // même couleur de contour que la carte objectif périodique
-        // (.goalMainCard), toutes deux à la nuance de la catégorie —
-        // currentGoalsCategoryColor() ci-dessus.
-        card.style.borderColor = currentGoalsCategoryColor();
+        // « l'objectif périodique en avant, les hebdomadaires en second
+        // plan » — les 4 semaines n'ont plus de bordure individuelle
+        // (styles.css, .goalsWeeklyList), donc plus de couleur de contour à
+        // poser ici ; seule .activityGoalsMainCard (renderActivityGoals())
+        // garde currentGoalsCategoryColor().
 
         var label = document.createElement('p');
         label.className = 'goalCardLabel';
@@ -5287,6 +5288,23 @@
       dateEl.textContent = calendarDayLabel(day.date);
       row.appendChild(dateEl);
 
+      // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+      // « décale le numéro des semaines plus vers la droite » — ordre
+      // d'ajout inversé avec les minutes (weekEl après minutesEl au lieu
+      // d'avant) : dateEl garde flex:1 et pousse tout le reste à droite dans
+      // l'ordre où il est ajouté, donc le badge "S1"-"S4" se retrouve
+      // maintenant juste avant le bouton "+", plus loin de la date.
+      var minutesEl = document.createElement('span');
+      minutesEl.className = 'goalsCalendarMinutes' + (day.actualMinutes ? '' : ' empty');
+      // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+      // « supprime le petit bouton - à côté du + [...] il ne sert à rien » —
+      // ce n'était pas un bouton mais ce tiret cadratin affiché à la place
+      // des minutes quand un jour n'a aucun temps pointé ; retiré (case
+      // simplement vide), la largeur fixe de .goalsCalendarMinutes
+      // (styles.css) garde l'alignement des jours qui ONT du temps pointé.
+      minutesEl.textContent = day.actualMinutes ? formatGoalHours(day.actualMinutes) : '';
+      row.appendChild(minutesEl);
+
       var weekEl = document.createElement('span');
       weekEl.className = 'goalsCalendarWeekBadge' + (isWeekEnd ? ' clickable' : '');
       weekEl.textContent = 'S' + day.weekIndex;
@@ -5295,11 +5313,6 @@
         weekEl.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
       }
       row.appendChild(weekEl);
-
-      var minutesEl = document.createElement('span');
-      minutesEl.className = 'goalsCalendarMinutes' + (day.actualMinutes ? '' : ' empty');
-      minutesEl.textContent = day.actualMinutes ? formatGoalHours(day.actualMinutes) : '—';
-      row.appendChild(minutesEl);
 
       var addForm = buildGoalsCalendarAddForm(period, day);
       var addBtn = document.createElement('button');

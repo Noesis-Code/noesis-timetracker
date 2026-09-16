@@ -4304,11 +4304,16 @@ button { -webkit-user-select: none; user-select: none; }
    posée en style inline par catégorie (currentGoalsCategoryColor(), app.js —
    même convention que .goalsGridCell--filled/cell.style.borderColor) ;
    var(--purple) ci-dessous reste le repli AVANT que le JS ne s'exécute
-   (premier rendu, un instant avant renderActivityGoals()). Même règle pour
-   .goalWeeklyCard, ajoutée ici pour la première fois (pas de bordure propre
-   jusqu'ici) — demande d'Emilien : « la couleur qui encadre l'objectif
-   périodique ET les objectifs hebdomadaires ». */
-.goalMainCard, .goalWeeklyCard { border: 1px solid var(--purple); }
+   (premier rendu, un instant avant renderActivityGoals()).
+   ⚠️ 16 septembre 2026 (même discussion, passage suivant) : .goalWeeklyCard
+   RETIRÉ de cette règle — demande d'Emilien « que l'objectif périodique soit
+   en avant par rapport à l'objectif hebdomadaire [...] qu'ils passent en
+   second plan », choix retenu parmi 3 propositions : liste compacte type
+   calendrier (voir bloc .goalsWeeklyList plus bas, qui porte maintenant SA
+   PROPRE bordure unique autour des 4 semaines, comme .goalsCalendarList).
+   app.js (renderGoalsWeeklyList()) ne pose donc plus card.style.borderColor
+   sur chaque semaine, seule la carte périodique garde ce traitement. */
+.goalMainCard { border: 1px solid var(--purple); }
 .goalCardLabel { font-weight: bold; margin: 0 0 8px; font-size: 14px; }
 
 /* 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
@@ -4359,13 +4364,41 @@ button { -webkit-user-select: none; user-select: none; }
 .goalStatusBtn.goalStatusPartiel.active { background: #f0ad4e; }
 .goalStatusBtn.goalStatusNonAtteint.active { background: var(--red); }
 
-/* 4 cartes semaine côte à côte sur grand écran, empilées sur mobile — même
-   seuil que le reste de l'app (voir .pieChartArea max-width: 220px, etc.). */
-.goalsWeeklyList { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.goalsWeeklyList .goalCard { margin-bottom: 0; }
-@media (max-width: 420px) {
-  .goalsWeeklyList { grid-template-columns: 1fr; }
+/* 16 septembre 2026 (discussion "Objectifs — D") — REMPLACE la grille 2x2 de
+   4 cartes élevées (bordure + ombre, même poids visuel que l'objectif
+   périodique) par une liste compacte, un seul cadre autour des 4 semaines —
+   même motif que .goalsCalendarList juste en dessous (colonne flex, séparateurs
+   de 1px via le fond, pas d'ombre/bordure individuelle par semaine). Demande
+   d'Emilien : « je souhaite réduire chaque espace de la semaine afin que
+   l'objectif périodique soit en avant [...] ils prennent trop de place [...]
+   qu'ils passent en second plan » — choisi parmi 3 propositions (cartes
+   allégées / liste compacte / bande de puces). margin-bottom agrandi (20px
+   au lieu de 0 avant ce passage) : « je souhaite la décoller un petit peu de
+   la section du calendrier ». */
+.goalsWeeklyList {
+  display: flex; flex-direction: column; gap: 1px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  overflow: hidden; margin-bottom: 20px; background: var(--border);
 }
+.goalsWeeklyList .goalWeeklyCard {
+  background: var(--card); border: none; border-radius: 0;
+  box-shadow: none; margin-bottom: 0; padding: 10px 12px;
+}
+/* Éléments internes resserrés (texte plus petit, marges réduites) pour que
+   chaque semaine tienne dans une ligne compacte plutôt qu'une carte pleine —
+   fonctionnalité inchangée (texte, estimation, statut, assignation), juste
+   moins d'air autour. */
+.goalsWeeklyList .goalCardLabel {
+  font-size: 11px; font-weight: 700; color: var(--text-light);
+  text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 4px;
+}
+.goalsWeeklyList textarea { font-size: 13px; padding: 6px 8px; }
+.goalsWeeklyList .goalEstimateHint,
+.goalsWeeklyList .goalActualHint { margin-top: 4px; }
+.goalsWeeklyList .goalStatusRow { margin-top: 6px; gap: 4px; }
+.goalsWeeklyList .goalStatusBtn { padding: 4px 2px; font-size: 11px; }
+.goalsWeeklyList .goalAssigneeRow { margin-top: 6px; gap: 6px; }
+.goalsWeeklyList .goalAssigneeSelect { font-size: 12px; padding: 4px 6px; }
 
 /* ===== Calendrier de la période — page 2 d'Objectifs, 15 septembre 2026 =====
    Discussion "Objectifs — D : Calendrier & intégrations", demande
