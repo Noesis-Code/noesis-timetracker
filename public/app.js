@@ -4223,12 +4223,24 @@
     if (!activityId) return;
     var msg = $('activityGoalsCategoriesMsg');
     if (msg) msg.textContent = '';
-    api('GET', '/api/activities/' + activityId + '/goals/categories').then(function (data) {
+    // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
+    // d'Emilien : « [l'objectif] se répertorie [...] sous l'objectif dans la
+    // fenêtre des activités section tâches » — /goals/all est le MÊME point
+    // d'entrée que reloadGoalsAll() (onglet Objectifs), rappelé ici en
+    // parallèle pour cette même activité afin de lire les textes hebdomadaires
+    // déjà saisis (period.weeklies[].text) sans dupliquer la logique côté
+    // serveur. .catch(() => null) : une activité qui n'a encore aucune
+    // catégorie lisible ici ne doit pas empêcher l'affichage du panneau
+    // catégories lui-même, seulement priver ce second bloc de contenu.
+    Promise.all([
+      api('GET', '/api/activities/' + activityId + '/goals/categories'),
+      api('GET', '/api/activities/' + activityId + '/goals/all').catch(function () { return null; }),
+    ]).then(function (results) {
       // Garde-fou : l'activité affichée a pu changer (fermeture/réouverture
       // rapide) pendant que cette requête était en vol — même principe que
       // reloadGoalsAll()/loadActivityDetail() ailleurs dans ce fichier.
       if (String(activityId) !== String(currentCommunityActivityId)) return;
-      renderActivityGoalsCategoriesPanel(data);
+      renderActivityGoalsCategoriesPanel(results[0], results[1]);
     }).catch(function (err) {
       if (msg) msg.textContent = err.message;
     });
@@ -4258,9 +4270,15 @@
   // uniquement possible pour la toute première catégorie d'une activité
   // neuve, jamais encore renommée/complétée d'une 2e) — le serveur absorbe
   // la différence, ce panneau n'a plus à la distinguer visuellement.
-  function renderActivityGoalsCategoriesPanel(data) {
+  function renderActivityGoalsCategoriesPanel(data, planningData) {
     currentActivityGoalsCategories = data.categories || [];
     currentActivityGoalsMax = data.maxCategories || 5;
+    // 16 septembre 2026 (discussion "Objectifs — D", 5e passage) — voir
+    // loadActivityGoalsCategories() ci-dessus : planningData peut être null
+    // (requête /goals/all échouée ou pas encore de plan pour une catégorie
+    // toute neuve) — dans ce cas byCategoryPlanning reste vide et aucune
+    // ligne ne perd sa liste de semaines, elle est simplement absente.
+    var byCategoryPlanning = (planningData && planningData.byCategory) || {};
 
     var addWrap = $('activityGoalsCategoryAddWrap');
     var list = $('activityGoalsCategoriesList');
@@ -4323,6 +4341,33 @@
       row.appendChild(removeBtn);
 
       list.appendChild(row);
+
+      // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
+      // d'Emilien : « [l'objectif] se répertorie [...] sous l'objectif dans
+      // la fenêtre des activités section tâches » — sous CHAQUE catégorie
+      // (pas dans une liste à part), les objectifs hebdomadaires déjà saisis
+      // (period.weeklies[].text) de la période EN COURS de cette catégorie.
+      // Lecture seule ici : la saisie/modification reste dans le volet
+      // Objectifs de la barre du bas (openGoalsWeekEditor()), jamais dupliquée.
+      var planning = byCategoryPlanning[c.key];
+      var currentPeriod = null;
+      if (planning) {
+        for (var pi = 0; pi < (planning.periods || []).length; pi++) {
+          if (planning.periods[pi].periodNumber === planning.currentPeriodNumber) { currentPeriod = planning.periods[pi]; break; }
+        }
+      }
+      var weeklyTexts = currentPeriod ? (currentPeriod.weeklies || []).filter(function (w) { return w.text; }) : [];
+      if (weeklyTexts.length) {
+        var weeklyWrap = document.createElement('div');
+        weeklyWrap.className = 'activityGoalsCategoryWeeklySummary';
+        weeklyTexts.forEach(function (w) {
+          var line = document.createElement('p');
+          line.className = 'activityGoalsCategoryWeeklySummaryLine';
+          line.textContent = t('Semaine') + ' ' + w.weekIndex + ' — ' + w.text;
+          weeklyWrap.appendChild(line);
+        });
+        list.appendChild(weeklyWrap);
+      }
     });
   }
 
@@ -4718,21 +4763,91 @@
     if (label) label.classList.remove('show');
   }
 
+  // 16 septembre 2026 (9e passage), demande d'Emilien : « je souhaite que le
+  // rail périodique s'affiche peu importe où je touche l'écran, tant que je
+  // maintiens appuyé » — remplace l'ancienne zone dédiée de 32px sur le bord
+  // gauche (#goalsScrubZone, seule zone qui répondait au toucher) par une
+  // détection d'APPUI LONG sur toute la surface de la grille
+  // (#goalsGridScroll, en-tête + lignes de période). #goalsScrubZone/
+  // #goalsScrubRail restent des éléments PUREMENT VISUELS (positionnés fixe
+  // sur le bord gauche, voir styles.css) — goalsPeriodFromY() continue de se
+  // baser sur leur rect pour la correspondance verticale doigt→période, ce
+  // qui n'a pas changé, seule la SOURCE des événements pointer change.
+  //
+  // Un simple pointerdown partout sur la grille casserait le clic normal sur
+  // une cellule (ouvre le détail de la période, openGoalsDetail()) et le
+  // swipe horizontal de pagination au-delà de 2 catégories (8e passage) :
+  // d'où un DÉLAI avant activation (GOALS_SCRUB_HOLD_MS) plutôt qu'une
+  // activation immédiate. Un mouvement significatif avant l'écoulement de ce
+  // délai annule la tentative (c'est un scroll/swipe, pas un appui maintenu).
+  // Une fois activé, le clic qui suivrait le relâchement est avalé
+  // (goalsScrubJustEnded) pour ne pas ouvrir accidentellement le détail de la
+  // période sous le doigt.
+  var GOALS_SCRUB_HOLD_MS = 220;
+  var GOALS_SCRUB_MOVE_CANCEL_PX = 10;
+
   (function bindGoalsScrub() {
-    var zone = $('goalsScrubZone');
-    if (!zone) return;
-    zone.addEventListener('pointerdown', function (e) {
+    var surface = $('goalsGridScroll');
+    if (!surface) return;
+    var holdTimer = null;
+    var startX = 0, startY = 0, activePointerId = null;
+    var justEnded = false;
+
+    function clearHoldTimer() {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    }
+
+    function activateScrub(clientY) {
       goalsScrubbing = true;
-      zone.setPointerCapture(e.pointerId);
-      showGoalsScrub(e.clientY);
+      showGoalsScrub(clientY);
+    }
+
+    surface.addEventListener('pointerdown', function (e) {
+      clearHoldTimer();
+      startX = e.clientX; startY = e.clientY; activePointerId = e.pointerId;
+      holdTimer = setTimeout(function () {
+        holdTimer = null;
+        try { surface.setPointerCapture(activePointerId); } catch (err) { /* déjà relâché */ }
+        activateScrub(startY);
+      }, GOALS_SCRUB_HOLD_MS);
     });
-    zone.addEventListener('pointermove', function (e) {
-      if (!goalsScrubbing) return;
-      showGoalsScrub(e.clientY);
-    });
-    function endGoalsScrub() { goalsScrubbing = false; hideGoalsScrub(); }
-    zone.addEventListener('pointerup', endGoalsScrub);
-    zone.addEventListener('pointercancel', endGoalsScrub);
+    surface.addEventListener('pointermove', function (e) {
+      if (goalsScrubbing) {
+        e.preventDefault();
+        showGoalsScrub(e.clientY);
+        return;
+      }
+      if (!holdTimer) return;
+      // Mouvement avant activation : distingue un vrai appui maintenu
+      // (immobile) d'un scroll/swipe en cours — n'annule PAS le scroll natif
+      // lui-même (aucun preventDefault ici tant que le rail n'est pas actif).
+      var dx = e.clientX - startX, dy = e.clientY - startY;
+      if ((dx * dx + dy * dy) > (GOALS_SCRUB_MOVE_CANCEL_PX * GOALS_SCRUB_MOVE_CANCEL_PX)) clearHoldTimer();
+    }, { passive: false });
+    function endGoalsScrub(e) {
+      clearHoldTimer();
+      if (goalsScrubbing) {
+        goalsScrubbing = false;
+        hideGoalsScrub();
+        justEnded = true;
+        // Un seul clic « avalé » par appui long terminé — le prochain clic
+        // normal (nouvel appui bref sur une cellule) doit fonctionner sans
+        // délai supplémentaire.
+        setTimeout(function () { justEnded = false; }, 0);
+      }
+      if (activePointerId != null) {
+        try { surface.releasePointerCapture(activePointerId); } catch (err) { /* déjà relâché */ }
+      }
+      activePointerId = null;
+    }
+    surface.addEventListener('pointerup', endGoalsScrub);
+    surface.addEventListener('pointercancel', endGoalsScrub);
+    // Capture-phase : intercepte le clic issu du relâchement d'un appui long
+    // AVANT qu'il n'atteigne le bouton .goalsGridCell dessous (ouvrirait sinon
+    // le détail de la période qui était sous le doigt à la fin du geste).
+    surface.addEventListener('click', function (e) {
+      if (justEnded) { e.preventDefault(); e.stopPropagation(); justEnded = false; }
+    }, true);
   })();
 
   function renderGoalsWeeklyList(period) {
@@ -5014,10 +5129,23 @@
       if (isTarget) target = cards[i];
     }
     wrap.classList.remove('hidden');
+    // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
+    // d'Emilien : « qu'une bulle s'affiche en haut » — l'ancien
+    // scrollIntoView({block:'center'}) pouvait finir en partie masqué par le
+    // clavier virtuel sur mobile (capture d'écran fournie). .goalsWeekEditorWrap
+    // passe en position: fixed pendant que .hidden est retiré (styles.css) ;
+    // le top exact est lu en direct sur la hauteur réelle de l'en-tête de
+    // cette page (#goalsDetailPage, .activityPageHeader — varie avec
+    // env(safe-area-inset-top) sur les téléphones à encoche) plutôt que codé
+    // en dur, même principe que syncTopbarHeightVar() ailleurs dans ce
+    // fichier. { preventScroll: true } : le focus() du textarea ne doit plus
+    // déclencher le défilement du navigateur, la bulle fixe s'en charge déjà.
+    var header = wrap.closest('.communityMembersModalCard');
+    header = header ? header.querySelector('.activityPageHeader') : null;
+    wrap.style.top = (header ? Math.round(header.getBoundingClientRect().bottom) : 16) + 'px';
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       var ta = target.querySelector('textarea');
-      if (ta) ta.focus();
+      if (ta) ta.focus({ preventScroll: true });
     }
   }
 
@@ -5185,7 +5313,13 @@
         weekProgressLabel.type = 'button';
         weekProgressLabel.className = 'goalsCalendarWeekProgressLabel';
         weekProgressLabel.style.color = goalsCalCatColor;
-        weekProgressLabel.textContent = t('Objectif de la semaine à réaliser');
+        // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
+        // d'Emilien : « l'objectif s'écrit également dans le calendrier au
+        // niveau du dimanche » — une fois un texte saisi (w.text, via
+        // openGoalsWeekEditor()/saveWeeklyText()), il remplace le libellé
+        // générique ici ; tant qu'aucun texte n'est saisi, le libellé reste
+        // l'invite à cliquer, inchangée.
+        weekProgressLabel.textContent = (w && w.text) ? w.text : t('Objectif de la semaine à réaliser');
         weekProgressLabel.title = t('Objectif de cette semaine');
         weekProgressLabel.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
         weekProgress.appendChild(weekProgressLabel);
@@ -5329,11 +5463,24 @@
   // horizontalement — même principe que la Feuille de temps (défilement
   // natif, `overflow-x: auto`, jamais un geste JS dédié). Voir renderGoalsGrid()
   // juste en dessous pour la même bascule sur chaque ligne de la grille.
+  // 16 septembre 2026 (9e passage), demande d'Emilien : « je souhaite que le
+  // titre de la catégorie la plus à droite soit un peu plus courte pour
+  // laisser place à un + sur sa droite [...] cela me permet de rajouter des
+  // catégories directement depuis le volet objectif ». Le bouton + est un
+  // enfant flex SUPPLÉMENTAIRE de largeur FIXE (.goalsGridHeadAddBtn,
+  // flex: 0 0 auto) ajouté après les badges de catégorie (flex: 1 1 0,
+  // inchangés) — flexbox réduit alors automatiquement la largeur de TOUTES
+  // les catégories (donc en particulier la plus à droite) pour lui laisser
+  // la place, sans calcul manuel. N'apparaît que sous le plafond
+  // (maxCategories, posé par /goals/all — voir server/routes/goals.js) :
+  // au plafond, ajouter n'a plus de sens, même garde que le formulaire
+  // d'ajout du panneau de gestion (fenêtre activité, activityGoalsCategoryAddWrap).
   function renderGoalsGridHead() {
     var head = $('goalsGridHead');
     if (!head) return;
     head.innerHTML = '';
     var categories = activeGoalsCategories();
+    var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
     head.classList.toggle('goalsGridHead--paged', categories.length > 2);
     categories.forEach(function (c, index) {
       var span = document.createElement('span');
@@ -5344,7 +5491,80 @@
       span.style.color = readableTextOn(shade);
       head.appendChild(span);
     });
+    if (categories.length < maxCategories) {
+      var addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'goalsGridHeadAddBtn';
+      addBtn.textContent = '+';
+      addBtn.title = t('Ajouter une catégorie');
+      addBtn.setAttribute('aria-label', t('Ajouter une catégorie'));
+      addBtn.addEventListener('click', function () { toggleGoalsQuickAddCategory(addBtn); });
+      head.appendChild(addBtn);
+    }
   }
+
+  // ===================== AJOUT RAPIDE D'UNE CATÉGORIE (volet Objectifs) =====
+  // 16 septembre 2026 (9e passage) : jusqu'ici, ajouter une catégorie exigeait
+  // d'ouvrir la fenêtre de l'activité (section Tâches, panneau « gérer mes
+  // catégories », 7e passage) — Emilien veut pouvoir le faire SANS quitter le
+  // volet Objectifs. Petite bulle flottante (même convention que
+  // .goalsWeekEditorWrap : position: fixed, jamais sticky — bug de rebond
+  // élastique iOS/WebKit déjà documenté), positionnée en JS sous le bouton +
+  // qui l'ouvre (comme .goalsScrubLabel plus haut) plutôt qu'un offset CSS
+  // fixe, puisque sa position dépend du nombre de catégories déjà affichées.
+  // Réutilise la MÊME route que le panneau de gestion (POST .../categories)
+  // et, en cas de succès, rafraîchit les DEUX surfaces via
+  // activityGoalsCategoriesRefresh() (déjà symétrique : rafraîchit le
+  // panneau de la fenêtre activité ET cette grille si c'est la même
+  // activité) — aucune duplication de logique de rafraîchissement.
+  function toggleGoalsQuickAddCategory(anchorBtn) {
+    var wrap = $('goalsQuickAddCategory');
+    if (!wrap) return;
+    if (!wrap.classList.contains('hidden')) { closeGoalsQuickAddCategory(); return; }
+    var rect = anchorBtn.getBoundingClientRect();
+    wrap.style.top = Math.round(rect.bottom + 8) + 'px';
+    wrap.style.right = Math.round(window.innerWidth - rect.right) + 'px';
+    wrap.classList.remove('hidden');
+    var msg = $('goalsQuickAddCategoryMsg');
+    if (msg) msg.textContent = '';
+    var input = $('goalsQuickAddCategoryInput');
+    if (input) { input.value = ''; input.focus(); }
+  }
+
+  function closeGoalsQuickAddCategory() {
+    var wrap = $('goalsQuickAddCategory');
+    if (wrap) wrap.classList.add('hidden');
+  }
+
+  function submitGoalsQuickAddCategory() {
+    var input = $('goalsQuickAddCategoryInput');
+    var msg = $('goalsQuickAddCategoryMsg');
+    var label = input ? input.value.trim() : '';
+    if (!label) { if (msg) msg.textContent = t('Nom de catégorie requis.'); return; }
+    var activityId = currentGoalsActivityId;
+    if (!activityId) return;
+    api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label }).then(function () {
+      closeGoalsQuickAddCategory();
+      activityGoalsCategoriesRefresh(activityId);
+    }).catch(function (err) {
+      if (msg) msg.textContent = err.message;
+    });
+  }
+
+  (function bindGoalsQuickAddCategory() {
+    var confirmBtn = $('goalsQuickAddCategoryConfirmBtn');
+    var cancelBtn = $('goalsQuickAddCategoryCancelBtn');
+    var input = $('goalsQuickAddCategoryInput');
+    if (confirmBtn) confirmBtn.addEventListener('click', submitGoalsQuickAddCategory);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeGoalsQuickAddCategory);
+    if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitGoalsQuickAddCategory(); });
+  })();
+  // Referme au clic n'importe où en dehors de la bulle ou du bouton + qui
+  // l'ouvre — même mécanisme que .statsPeriodMenuWrap plus haut dans ce
+  // fichier.
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.goalsQuickAddCategory') && !e.target.closest('.goalsGridHeadAddBtn')) closeGoalsQuickAddCategory();
+  });
 
   function renderGoalsGrid() {
     var grid = $('goalsGrid');

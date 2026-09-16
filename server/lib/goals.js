@@ -431,6 +431,68 @@ function ensurePlan(activityId, category) {
 }
 
 // ---------------------------------------------------------------------------
+// Réalignement rétroactif ponctuel (16 septembre 2026, discussion Objectifs —
+// D, 6ᵉ passage) — sur demande explicite d'Emilien, après qu'il a vu l'effet
+// pratique du choix « nouveaux plans seulement » du 3ᵉ passage (voir
+// noesis-timetracker-chantiers-en-cours.md, encart D 5ᵉ/6ᵉ passage) :
+// mostRecentMonday() ci-dessus ne s'applique qu'aux plans créés à partir de ce
+// changement — un plan démarré avant garde son ancien repère tant que cette
+// fonction n'est pas appelée explicitement (jamais automatiquement, jamais
+// depuis une route HTTP — réservée à scripts/realign-goals-monday.js, lancé à
+// la main par Emilien pour le ou les plans concernés).
+//
+// Décale UNIQUEMENT le plan visé et TOUTES ses périodes déjà matérialisées
+// (goal_periods.startDate/endDate, posées une fois pour toutes à la création
+// de chaque période — voir ensurePeriodRow — jamais recalculées depuis
+// plan.startDate par la suite, d'où la nécessité de les reprendre une par une
+// ici plutôt que de se contenter de changer plan.startDate) du même delta
+// CONSTANT (0 à -6 jours, jamais plus) que celui qui ramènerait la date de
+// départ du plan à son lundi. Ne touche JAMAIS periodNumber, mainGoalText, le
+// statut, les objectifs hebdomadaires eux-mêmes (texte/estimation/assignation)
+// ni goal_weekly — seules les fenêtres de dates (stockées sur goal_periods,
+// lues en direct pour goal_weekly via weekBounds) se déplacent.
+//
+// Risque expliqué à Emilien et accepté par lui avant tout code
+// (`AskUserQuestion`) : actualMinutes n'est jamais stocké, toujours recalculé
+// à la volée depuis ces dates (actualSecondsForRange) — le temps déjà
+// chronométré aux abords d'une frontière de semaine/période peut donc se
+// retrouver comptabilisé dans une période/semaine adjacente après ce décalage.
+// Idempotent : un plan déjà démarré un lundi n'est pas modifié (delta = 0,
+// aucune écriture).
+function realignPlanToMonday(activityId, category) {
+  const plan = getPlan(activityId, category);
+  if (!plan) return null;
+  const newStart = mostRecentMonday(plan.startDate);
+  if (newStart === plan.startDate) {
+    return { changed: false, deltaDays: 0, periodsShifted: 0 };
+  }
+  const delta = daysBetween(plan.startDate, newStart);
+  db.prepare('UPDATE activity_goal_plans SET startDate = ? WHERE activityId = ? AND category = ?')
+    .run(newStart, activityId, category);
+  const periods = db.prepare('SELECT id, startDate, endDate FROM goal_periods WHERE activityId = ? AND category = ?')
+    .all(activityId, category);
+  const updatePeriod = db.prepare('UPDATE goal_periods SET startDate = ?, endDate = ? WHERE id = ?');
+  periods.forEach((p) => {
+    updatePeriod.run(addDays(p.startDate, delta), addDays(p.endDate, delta), p.id);
+  });
+  return { changed: true, deltaDays: delta, periodsShifted: periods.length, oldStartDate: plan.startDate, newStartDate: newStart };
+}
+
+// Liste, pour un usage en script CLI uniquement, tous les plans dont le
+// repère n'est pas (encore) un lundi — jamais appelée depuis une route HTTP.
+function plansNeedingRealignment() {
+  const plans = db.prepare(`
+    SELECT p.activityId AS activityId, p.category AS category, p.startDate AS startDate, a.name AS activityName
+    FROM activity_goal_plans p
+    JOIN activities a ON a.id = p.activityId
+    ORDER BY a.name, p.category
+  `).all();
+  return plans
+    .filter((p) => mostRecentMonday(p.startDate) !== p.startDate)
+    .map((p) => ({ ...p, wouldBecome: mostRecentMonday(p.startDate) }));
+}
+
+// ---------------------------------------------------------------------------
 // Membres de l'activité — pour l'assignation des objectifs hebdomadaires et
 // la vue de répartition côté client. Toujours renvoyé avec le planning
 // (planningForActivity) plutôt que par un nouvel appel séparé.
@@ -1052,4 +1114,11 @@ module.exports = {
   ensurePeriodRow,
   ensurePeriodsUpTo,
   weeklyForPeriod,
+  // Réalignement rétroactif ponctuel (16 septembre 2026, discussion Objectifs
+  // — D, 6ᵉ passage) — réservées à scripts/realign-goals-monday.js, jamais
+  // exposées via une route HTTP.
+  realignPlanToMonday,
+  plansNeedingRealignment,
+  mostRecentMonday,
+  getPlan,
 };

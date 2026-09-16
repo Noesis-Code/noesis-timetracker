@@ -4182,14 +4182,49 @@ button { -webkit-user-select: none; user-select: none; }
    style inline (readableTextOn(), app.js) puisque certaines nuances très
    claires rendraient un texte blanc fixe illisible. */
 .goalsGridHead {
-  display: flex; gap: 10px; padding: 10px 4px 6px; margin-bottom: 0;
+  display: flex; align-items: center; gap: 10px; padding: 10px 4px 6px; margin-bottom: 0;
 }
+/* 16 septembre 2026 (9e passage), demande d'Emilien : « je souhaite que les
+   bulles des titres de catégories soient rectangulaires et ressemblent aux
+   boutons du nom de l'activité en haut de la page » — border-radius passe de
+   999px (pilule) à var(--radius-lg), même rayon que .activityChoiceBtn (les
+   gros boutons rectangulaires de choix d'activité, Chrono) : même famille
+   visuelle, pas une nouvelle convention. */
 .goalsGridHeadCell {
   flex: 1 1 0; min-width: 0; text-align: center; padding: 6px 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-lg);
   font-size: 11px; font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
+/* Bouton + à droite des catégories — largeur FIXE (flex: 0 0 auto), voir le
+   commentaire de renderGoalsGridHead() (app.js) : sa présence réduit d'elle-
+   même la largeur des .goalsGridHeadCell flexibles ci-dessus, en particulier
+   la plus à droite, sans calcul manuel de largeur. */
+.goalsGridHeadAddBtn {
+  flex: 0 0 32px; width: 32px; height: 32px; padding: 0;
+  border: none; border-radius: var(--radius-md); background: var(--track-bg);
+  color: var(--text); font-size: 18px; font-weight: 700; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.goalsGridHeadAddBtn:active { transform: scale(0.92); }
+/* Bulle d'ajout rapide de catégorie, ouverte par .goalsGridHeadAddBtn —
+   même convention que .goalsWeekEditorWrap (position: fixed, jamais sticky,
+   bug de rebond élastique iOS/WebKit déjà documenté) ; positionnée en JS
+   (toggleGoalsQuickAddCategory(), app.js) sous le bouton qui l'ouvre, comme
+   .goalsScrubLabel plus bas, plutôt qu'un offset codé en dur ici. */
+.goalsQuickAddCategory {
+  position: fixed; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-elevated);
+  padding: 10px; max-width: min(320px, calc(100vw - 24px));
+}
+.goalsQuickAddCategory.hidden { display: none; }
+.goalsQuickAddCategory input {
+  flex: 1; min-width: 140px; font-size: 14px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
+  background: var(--card); color: var(--text);
+}
+.goalsQuickAddCategoryMsg { flex: 1 0 100%; color: var(--red); font-size: 12px; margin: 0; }
 /* Au-delà de 2 catégories (classe posée par renderGoalsGridHead(), app.js) :
    chaque badge occupe une demi-largeur FIXE plutôt que de toutes se
    partager la largeur disponible — les catégories suivantes débordent alors
@@ -4328,7 +4363,25 @@ button { -webkit-user-select: none; user-select: none; }
    s'affichent plus en continu ; le dernier jour de chaque semaine les ouvre
    ici (.goalsWeekEditorWrap). Chaque jour permet aussi d'ajouter une tâche
    ponctuelle, transmise à Sous-projets (server/lib/calendarfeed.js). */
-.goalsWeekEditorWrap { margin-bottom: 14px; }
+/* 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
+   d'Emilien : « qu'une bulle s'affiche en haut » plutôt que le défilement
+   inline d'avant (scrollIntoView, pouvait finir masqué par le clavier
+   virtuel — capture d'écran fournie par Emilien). position: fixed n'a
+   d'effet que pendant que .hidden (display: none) est retiré par
+   openGoalsWeekEditor() (app.js), qui pose aussi `top` en direct sur la
+   hauteur réelle de l'en-tête de la page (76px ci-dessous : repli avant que
+   ce calcul ne s'exécute, valeur approximative du même en-tête sans encoche).
+   #goalsDetailPage/.communityMembersModalCard n'ont ni transform ni filter
+   (vérifié) : ce position: fixed s'ancre donc bien à la fenêtre, pas à une
+   carte ancêtre. */
+.goalsWeekEditorWrap {
+  position: fixed; top: 76px; left: 12px; right: 12px; z-index: 15;
+  max-width: 480px; margin: 0 auto;
+  max-height: calc(100vh - 92px); overflow-y: auto;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-elevated);
+  padding: 14px;
+}
 .goalsWeekEditorHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .goalsWeekEditorHead .goalsWeeklyLabel { margin: 0; }
 .goalsWeekEditorCloseBtn {
@@ -4336,6 +4389,14 @@ button { -webkit-user-select: none; user-select: none; }
   display: flex; align-items: center; justify-content: center;
   font-size: 18px; line-height: 1; color: var(--text-light);
 }
+/* La bulle n'affiche jamais qu'UNE seule carte à la fois (les 3 autres
+   restent .hidden, voir openGoalsWeekEditor()) — sans cette règle, la carte
+   visible ne prenait qu'UNE des deux colonnes de .goalsWeeklyList
+   (grid-template-columns: repeat(2, 1fr) plus haut), donc seulement la
+   moitié de la largeur de la bulle : c'est très exactement le « je souhaite
+   qu'elle soit plus large » qu'Emilien signale, avant même la question de
+   hauteur (rows) déjà traitée au passage précédent. */
+.goalsWeekEditorWrap .goalsWeeklyList { grid-template-columns: 1fr; }
 
 .goalsCalendarWeekBadge.clickable { cursor: pointer; color: var(--purple); background: rgba(var(--purple-rgb), 0.14); }
 .goalsCalendarWeekBadge.clickable:hover { background: rgba(var(--purple-rgb), 0.22); }
@@ -4556,8 +4617,15 @@ button { -webkit-user-select: none; user-select: none; }
    défilement inertiel correct sur iOS/WebKit (même précaution qu'ailleurs
    dans ce fichier, voir .tsGrid). */
 .goalsGridScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* 16 septembre 2026 (9e passage) : gap encore élargi, 16px → 32px — demande
+   d'Emilien, « je souhaite véritablement qu'il y ait beaucoup plus d'espace
+   entre chaque bulle » (le premier élargissement du 8e passage, 6px → 10px,
+   concernait en réalité l'écart HORIZONTAL entre catégories, pas l'écart
+   VERTICAL entre périodes qui préoccupait Emilien ici). .goalsGridCell::before
+   ci-dessous étend son trait de -16px de chaque côté (moitié du nouveau
+   gap) pour continuer à rejoindre exactement la cellule voisine. */
 .goalsGrid {
-  display: flex; flex-direction: column; gap: 16px;
+  display: flex; flex-direction: column; gap: 32px;
   padding: 6px 4px 220px;
 }
 /* Gap élargi de 6px à 10px (16 septembre 2026, 8e passage, demande
@@ -4588,11 +4656,21 @@ button { -webkit-user-select: none; user-select: none; }
    cellule pleine (fond opaque .goalsGridCell--filled), visible par
    transparence sous une cellule vide. Pas de trait au-dessus de la 1ère
    période ni en dessous de la 13e (rien à relier). */
+/* 16 septembre 2026 (9e passage), demande d'Emilien : « je souhaite
+   également rajouter des pointillés au milieu de chaque bulle pour séparer
+   les périodes » — le trait de continuité (6e passage) devient en
+   POINTILLÉS (border-left dashed plutôt qu'un aplat de background) : mieux
+   visible comme séparateur de périodes maintenant que le gap vertical est
+   large (32px, voir .goalsGrid ci-dessus) plutôt que comme un simple trait
+   de liaison continu. -16px de chaque côté (moitié du gap de 32px, au lieu
+   de -8px/16px avant) pour continuer à rejoindre exactement la cellule
+   voisine du même rang, sans changement du reste de son comportement (passe
+   derrière le contenu, invisible sous une cellule pleine). */
 .goalsGridCell::before {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
-  left: 50%; top: -8px; bottom: -8px; width: 2px;
+  left: 50%; top: -16px; bottom: -16px; width: 0;
+  border-left: 2px dashed var(--track-bg);
   transform: translateX(-50%);
-  background: var(--track-bg);
 }
 .goalsGridRow:first-child .goalsGridCell::before { top: 50%; }
 .goalsGridRow:last-child .goalsGridCell::before { bottom: 50%; }
@@ -4689,6 +4767,19 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryNameInput:focus {
   border-color: var(--border); background: var(--track-bg);
 }
+/* 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
+   d'Emilien : « [l'objectif] se répertorie [...] sous l'objectif dans la
+   fenêtre des activités section tâches » — lecture seule, juste sous la
+   ligne de sa catégorie (renderActivityGoalsCategoriesPanel(), app.js) ;
+   léger retrait + bordure gauche pour rattacher visuellement ce bloc à la
+   ligne au-dessus sans reprendre l'habillage carte de .activityGoalsCategoryRow. */
+.activityGoalsCategoryWeeklySummary {
+  margin: -4px 0 4px 34px; padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+.activityGoalsCategoryWeeklySummaryLine {
+  font-size: 12px; color: var(--text-light); margin: 4px 0;
+}
 .activityGoalsCategoryAddWrap {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin: 10px 0;
@@ -4704,23 +4795,28 @@ button { -webkit-user-select: none; user-select: none; }
    Demande d'Emilien : « je souhaite changer le système des points
    périodiques. Je souhaite les mettre sur la verticale à gauche, de même
    que le numéro de la période et la date. Et je souhaite qu'il s'affiche
-   uniquement lorsque l'utilisateur appuie et fait défiler ». #goalsScrubZone
-   est une bande tactile FIXE (position: fixed — même raison qu'ailleurs dans
-   ce fichier : jamais sticky, bug de rebond élastique iOS/WebKit déjà
-   documenté deux fois) le long du bord gauche de l'écran, INVISIBLE par
-   défaut (elle ne capte le toucher qu'à cet endroit précis, rien d'autre
-   n'est masqué). --goals-scrubzone-top (mesurée par
-   syncGoalsScrubZoneTopVar(), app.js, même principe que --topbar-h/
-   --goals-fixedbar-h ex.) évite de recouvrir l'en-tête d'activité et la
-   bascule Arbre/Répartition juste au-dessus de la grille ; --tabbar-h évite
-   de recouvrir la barre du bas. z-index au-dessus de la grille mais sous
-   .topbar/.tabbar et #goalsDetailPage (page 2), qui la masquent
-   explicitement le temps qu'ils sont ouverts — voir
-   updateGoalsScrubVisibility(), app.js. */
+   uniquement lorsque l'utilisateur appuie et fait défiler ». --goals-
+   scrubzone-top (mesurée par syncGoalsScrubZoneTopVar(), app.js, même
+   principe que --topbar-h/--goals-fixedbar-h ex.) évite de recouvrir
+   l'en-tête d'activité et la bascule Arbre/Répartition juste au-dessus de la
+   grille ; --tabbar-h évite de recouvrir la barre du bas. z-index au-dessus
+   de la grille mais sous .topbar/.tabbar et #goalsDetailPage (page 2), qui
+   la masquent explicitement le temps qu'ils sont ouverts — voir
+   updateGoalsScrubVisibility(), app.js.
+   16 septembre 2026 (9e passage), demande d'Emilien : « je souhaite que le
+   rail périodique s'affiche peu importe où je touche l'écran, tant que je
+   maintiens appuyé » — #goalsScrubZone n'est plus la zone tactile elle-même
+   (elle ne captait le toucher que sur une bande de 32px), elle reste
+   uniquement le POSITIONNEMENT VISUEL du rail + de l'étiquette (fixe sur le
+   bord gauche). `pointer-events: none` : ne capte plus jamais rien, laisse
+   tout le toucher traverser jusqu'à #goalsGridScroll en dessous, où
+   bindGoalsScrub() (app.js) écoute désormais un appui maintenu sur TOUTE la
+   grille. goalsPeriodFromY() (app.js) continue d'utiliser son rect pour la
+   correspondance verticale doigt→période — cette géométrie n'a pas changé. */
 .goalsScrubZone {
-  position: fixed; left: 0; z-index: 8;
+  position: fixed; left: 0; z-index: 8; pointer-events: none;
   top: var(--goals-scrubzone-top, 220px); bottom: var(--tabbar-h, 60px);
-  width: 32px; touch-action: none;
+  width: 32px;
 }
 .goalsScrubRail {
   position: absolute; left: 10px; top: 8px; bottom: 8px; width: 12px;
