@@ -40,7 +40,6 @@
 
 const db = require('../db');
 const { postActivityMessage } = require('./community');
-const { paletteFor, isInPalette } = require('./theme');
 
 const PERIOD_DAYS = 28;
 const WEEK_DAYS = 7;
@@ -73,13 +72,38 @@ function assertCategory(category) {
 //    révisé le 15 septembre 2026 (soir) : 3 au cadrage du matin, relevé à 5
 //    sur demande explicite d'Emilien le soir même (revalidation directe, pas
 //    une réouverture silencieuse — voir noesis-timetracker-objectifs.md).
-//  - Activer la personnalisation est TABLE RASE : ne reprend rien des 3
-//    catégories fixes ci-dessus, l'activité repart sur 1 seule catégorie.
 //  - Une catégorie retirée est GELÉE (removedAt posé), jamais supprimée pour
 //    de bon : son historique reste lisible, sa clé n'est jamais réutilisée.
-//  - Champs : nom + couleur (palette du thème existante), pas d'icône ;
-//    affichée en BORDURE de case, jamais en remplissage (précision directe
-//    d'Emilien).
+//
+// 16 septembre 2026 (8ᵉ passage, discussion Objectifs — B) — RÉVISION de deux
+// points du cadrage ci-dessus, tranchée par AskUserQuestion avant tout code :
+//  - Il n'existe plus d'état « non personnalisé, 3 catégories fixes » vs
+//    « personnalisé, table rase » : Emilien a répondu « Pas de catégorie
+//    fixe » à la question de cadrage sur le nom de la catégorie par défaut —
+//    toute activité a désormais TOUJOURS au moins 1 catégorie active, une
+//    catégorie par défaut générique et synthétique ("Catégorie 1", clé `c1`,
+//    voir DEFAULT_CATEGORY_KEY/DEFAULT_CATEGORY_LABEL plus bas), entièrement
+//    renommable comme n'importe quelle autre. Le concept d'« activation »
+//    (activateCustomCategories) disparaît, remplacé par une matérialisation
+//    paresseuse : categoriesForActivity() SYNTHÉTISE cette catégorie par
+//    défaut à la lecture, sans jamais écrire en base ; seule une écriture de
+//    GESTION de catégorie (ajout/renommage/retrait/réordonnancement) la
+//    matérialise réellement, via ensureDefaultCategory() ci-dessous. Les
+//    écritures de PLAN/OBJECTIF (setMainGoal, setWeekly, etc.) n'ont jamais
+//    besoin de matérialiser quoi que ce soit : la clé de catégorie est un
+//    TEXT libre sur activity_goal_plans/goal_periods, sans FK vers
+//    activity_goal_categories.
+//  - Couleur 100% AUTOMATIQUE : Emilien a répondu « Oui, couleur 100%
+//    automatique (recommandé) » à la question de cadrage sur la couleur —
+//    citation directe : « il existe jusqu'à cinq nuances utilisées pour les
+//    statistiques, utilisent les mêmes pour les objectifs ». Le champ couleur
+//    manuel (stockage + sélecteur) est entièrement retiré ; la couleur de
+//    chaque catégorie est calculée CÔTÉ CLIENT, par son rang dans la liste
+//    active, en réutilisant le mécanisme des 5 nuances déjà employé pour les
+//    sous-projets en Statistiques (`subProjectShade()`, public/app.js) —
+//    aucune couleur n'est plus stockée ni validée ici (assertCategoryColor
+//    supprimée). La colonne `color` de activity_goal_categories reste en
+//    base, simplement inutilisée (aucune migration nécessaire).
 //
 // Périmètre de ce chantier (discussion B) : depuis le 15 septembre 2026
 // (soir), backend ET UI de bout en bout (plus de renvoi vers la discussion
@@ -88,6 +112,14 @@ function assertCategory(category) {
 // noesis-timetracker-objectifs.md, section « Principe retenu pour
 // l'organisation des discussions ».
 const MAX_CUSTOM_CATEGORIES = 5;
+
+// Catégorie par défaut, synthétique et générique — matérialisée seulement au
+// premier besoin d'écriture de gestion (voir ensureDefaultCategory), jamais
+// au premier besoin de lecture (voir categoriesForActivity). Entièrement
+// renommable ensuite comme toute autre catégorie (renameCategory ne fait
+// aucune distinction entre elle et une catégorie ajoutée par la suite).
+const DEFAULT_CATEGORY_KEY = 'c1';
+const DEFAULT_CATEGORY_LABEL = 'Catégorie 1';
 
 // Lignes ACTIVES (non gelées) de activity_goal_categories, dans l'ordre
 // d'affichage. Une activité qui n'a jamais activé la personnalisation a
@@ -101,16 +133,17 @@ function isCustomized(activityId) {
   return activeCategoryRows(activityId).length > 0;
 }
 
-// Catégories ACTIVES d'une activité, sous une forme unique quel que soit le
-// mode : [{ key, label, color, custom }]. `color` vaut null pour les 3
-// catégories fixes historiques — elles n'ont jamais eu de couleur propre en
-// base, l'UI existante les distingue par un style CSS fixe (zone A).
+// Catégories ACTIVES d'une activité, sous une forme unique : [{ key, label,
+// custom }] — plus de champ `color` (8ᵉ passage, couleur 100% automatique,
+// calculée côté client par rang). LECTURE PURE : quand aucune ligne active
+// n'existe encore, synthétise la catégorie par défaut SANS rien écrire en
+// base (voir ensureDefaultCategory pour le seul point d'écriture réel).
 function categoriesForActivity(activityId) {
   const rows = activeCategoryRows(activityId);
   if (rows.length) {
-    return rows.map((r) => ({ key: r.key, label: r.label, color: r.color, custom: true }));
+    return rows.map((r) => ({ key: r.key, label: r.label, custom: true }));
   }
-  return CATEGORIES.map((key) => ({ key, label: CATEGORY_LABELS[key], color: null, custom: false }));
+  return [{ key: DEFAULT_CATEGORY_KEY, label: DEFAULT_CATEGORY_LABEL, custom: false }];
 }
 
 function isValidCategoryForActivity(activityId, category) {
@@ -159,13 +192,28 @@ function frozenCategoriesForActivity(activityId) {
 
   return frozenKeys.map((key) => {
     if (CATEGORIES.includes(key)) {
-      return { key, label: CATEGORY_LABELS[key], color: null, custom: false, frozen: true };
+      return { key, label: CATEGORY_LABELS[key], custom: false, frozen: true };
     }
     const row = db.prepare('SELECT * FROM activity_goal_categories WHERE activityId = ? AND key = ?').get(activityId, key);
     return row
-      ? { key: row.key, label: row.label, color: row.color, custom: true, frozen: true }
-      : { key, label: key, color: null, custom: true, frozen: true };
+      ? { key: row.key, label: row.label, custom: true, frozen: true }
+      : { key, label: key, custom: true, frozen: true };
   });
+}
+
+// Libellé le plus fiable pour une catégorie DONNÉE d'une activité — corrige
+// un bug préexistant de résolution de libellé pour les catégories
+// personnalisées : CATEGORY_LABELS ne couvre que les 3 clés fixes
+// historiques, une catégorie personnalisée (active OU gelée) affichait donc
+// sa clé brute (ex. "c1") au lieu de son nom lisible dans buildBilanText.
+// Cherche d'abord parmi les catégories actives, puis parmi les gelées, avant
+// de retomber sur CATEGORY_LABELS puis, en dernier recours, la clé brute.
+function categoryLabelFor(activityId, category) {
+  const active = categoriesForActivity(activityId).find((c) => c.key === category);
+  if (active) return active.label;
+  const frozen = frozenCategoriesForActivity(activityId).find((c) => c.key === category);
+  if (frozen) return frozen.label;
+  return CATEGORY_LABELS[category] || category;
 }
 
 function assertCategoryLabel(label) {
@@ -173,13 +221,6 @@ function assertCategoryLabel(label) {
   if (!clean) throw Object.assign(new Error('Nom de catégorie requis.'), { statusCode: 400 });
   if (clean.length > 40) throw Object.assign(new Error('Nom trop long (40 caractères maximum).'), { statusCode: 400 });
   return clean;
-}
-
-function assertCategoryColor(color) {
-  if (!isInPalette(color, 'dark') && !isInPalette(color, 'light')) {
-    throw Object.assign(new Error('Couleur invalide.'), { statusCode: 400 });
-  }
-  return color;
 }
 
 // Clé courte et stable, unique PAR ACTIVITÉ (pas globalement) — dérivée du
@@ -191,66 +232,66 @@ function nextCategoryKey(activityId) {
   return 'c' + (row.n + 1);
 }
 
-// Active la personnalisation sur cette activité — TABLE RASE (cadré avec
-// Emilien) : ne reprend RIEN des 3 catégories fixes. Idempotent : si déjà
-// personnalisée, renvoie simplement la liste actuelle sans rien recréer (même
-// convention que ensurePlan plus bas dans ce fichier).
-function activateCustomCategories(activityId, label, color) {
-  if (isCustomized(activityId)) return categoriesForActivity(activityId);
-
-  const cleanLabel = assertCategoryLabel(label || 'Catégorie 1');
-  const cleanColor = assertCategoryColor(color || paletteFor('dark')[0]);
+// 8ᵉ passage (16 septembre 2026) : remplace activateCustomCategories.
+// Matérialise la catégorie par défaut EN BASE si aucune catégorie active
+// n'existe encore pour cette activité — seul point d'écriture réel de la
+// matérialisation paresseuse décrite plus haut (categoriesForActivity ne
+// fait que la LIRE/synthétiser, jamais l'écrire). Idempotent : si des
+// catégories actives existent déjà, les renvoie telles quelles sans rien
+// créer (même convention que ensurePlan plus bas dans ce fichier). Appelée
+// en tête de toute écriture de GESTION de catégorie (addCategory,
+// renameCategory, removeCategory, reorderCategories) — jamais depuis une
+// écriture de plan/objectif, qui n'en a pas besoin (clé TEXT libre).
+function ensureDefaultCategory(activityId) {
+  const existing = activeCategoryRows(activityId);
+  if (existing.length) return existing;
 
   const key = nextCategoryKey(activityId);
   const createdAt = new Date().toISOString();
   db.prepare(`
     INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt)
-    VALUES (?, ?, ?, ?, 0, ?)
-  `).run(activityId, key, cleanLabel, cleanColor, createdAt);
-  return categoriesForActivity(activityId);
+    VALUES (?, ?, ?, '', 0, ?)
+  `).run(activityId, key, DEFAULT_CATEGORY_LABEL, createdAt);
+  return activeCategoryRows(activityId);
 }
 
-// Ajoute une catégorie personnalisée — l'activité doit déjà être
-// personnalisée (activer d'abord). Plafond à MAX_CUSTOM_CATEGORIES.
-function addCategory(activityId, label, color) {
-  const existing = activeCategoryRows(activityId);
-  if (!existing.length) {
-    throw Object.assign(new Error("Active d'abord la personnalisation des catégories sur cette activité."), { statusCode: 400 });
-  }
+// Ajoute une catégorie personnalisée. Plafond à MAX_CUSTOM_CATEGORIES —
+// compté APRÈS matérialisation de la catégorie par défaut le cas échéant,
+// pour qu'une activité qui n'a encore rien ne se retrouve jamais avec 2
+// catégories d'un coup (la par-défaut + celle-ci) sans passer par le plafond.
+function addCategory(activityId, label) {
+  const existing = ensureDefaultCategory(activityId);
   if (existing.length >= MAX_CUSTOM_CATEGORIES) {
     throw Object.assign(new Error(MAX_CUSTOM_CATEGORIES + ' catégories maximum par activité.'), { statusCode: 400 });
   }
   const cleanLabel = assertCategoryLabel(label);
-  const cleanColor = assertCategoryColor(color);
   const key = nextCategoryKey(activityId);
   const createdAt = new Date().toISOString();
   db.prepare(`
     INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(activityId, key, cleanLabel, cleanColor, existing.length, createdAt);
+    VALUES (?, ?, ?, '', ?, ?)
+  `).run(activityId, key, cleanLabel, existing.length, createdAt);
   return categoriesForActivity(activityId);
 }
 
-// Renomme/recolore une catégorie personnalisée ACTIVE (jamais une gelée —
-// modifier l'étiquette d'une catégorie retirée n'a pas de sens, son propos
-// est justement de rester figée).
-function renameCategory(activityId, key, label, color) {
-  const row = activeCategoryRows(activityId).find((r) => r.key === key);
+// Renomme une catégorie ACTIVE (jamais une gelée — modifier l'étiquette
+// d'une catégorie retirée n'a pas de sens, son propos est justement de
+// rester figée). Plus de couleur à recevoir (8ᵉ passage, automatique).
+function renameCategory(activityId, key, label) {
+  const row = ensureDefaultCategory(activityId).find((r) => r.key === key);
   if (!row) throw Object.assign(new Error('Catégorie introuvable.'), { statusCode: 404 });
   const cleanLabel = assertCategoryLabel(label);
-  const cleanColor = assertCategoryColor(color);
-  db.prepare('UPDATE activity_goal_categories SET label = ?, color = ? WHERE activityId = ? AND key = ?')
-    .run(cleanLabel, cleanColor, activityId, key);
+  db.prepare('UPDATE activity_goal_categories SET label = ? WHERE activityId = ? AND key = ?')
+    .run(cleanLabel, activityId, key);
   return categoriesForActivity(activityId);
 }
 
 // Retire (gèle) une catégorie personnalisée — jamais la dernière restante
 // (minimum 1, cadré avec Emilien). Les périodes/objectifs déjà créés sous
 // cette catégorie restent en base, consultables via frozenCategoriesForActivity,
-// mais ne comptent plus parmi les catégories actives — même principe que la
-// table rase à l'activation.
+// mais ne comptent plus parmi les catégories actives.
 function removeCategory(activityId, key) {
-  const existing = activeCategoryRows(activityId);
+  const existing = ensureDefaultCategory(activityId);
   const row = existing.find((r) => r.key === key);
   if (!row) throw Object.assign(new Error('Catégorie introuvable.'), { statusCode: 404 });
   if (existing.length <= 1) {
@@ -271,7 +312,7 @@ function removeCategory(activityId, key) {
 // clés dans le nouvel ordre (même convention que setPeriodAssignees plus bas :
 // remplacement complet plutôt qu'un déplacement unitaire).
 function reorderCategories(activityId, keys) {
-  const existing = activeCategoryRows(activityId);
+  const existing = ensureDefaultCategory(activityId);
   const existingKeys = new Set(existing.map((r) => r.key));
   const cleanKeys = Array.isArray(keys) ? keys.filter((k) => existingKeys.has(k)) : [];
   if (cleanKeys.length !== existing.length || new Set(cleanKeys).size !== existing.length) {
@@ -318,6 +359,30 @@ function addDays(isoDay, n) {
   return d.toISOString().slice(0, 10);
 }
 
+// 16 septembre 2026 (discussion Objectifs — D, 3ᵉ passage, sur demande directe
+// d'Emilien : « je souhaite que l'objectif hebdomadaire soit fixé le dimanche
+// et non le lundi », cadré par AskUserQuestion avant tout code, option retenue
+// « nouveaux plans seulement »). weekBounds()/periodBounds() restent un pur
+// décalage depuis planStartDate (aucune logique calendaire dans ces deux
+// fonctions, volontairement inchangées : partagées avec B et la fenêtre de
+// capacité 8 semaines de C, qui suppose des semaines de 7 jours uniformes).
+// Ramène isoDay au lundi de sa semaine calendaire (convention ISO, jour 1 =
+// lundi) : un plan qui démarre un lundi voit chacune de ses semaines de 7
+// jours se terminer un vrai dimanche calendaire — exactement le jour déjà
+// traité comme « dernier jour de semaine / dimanche » côté UI (voir encart
+// (12)). N'affecte QUE les plans créés à partir de maintenant, via ensurePlan
+// ci-dessous : les plans déjà actifs gardent leur startDate existant, non
+// retouché (ensurePlan reste par ailleurs strictement idempotent).
+function mostRecentMonday(isoDay) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDay || ''));
+  if (!m) return isoDay;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  const dow = d.getUTCDay(); // 0 = dimanche .. 6 = samedi
+  const back = dow === 0 ? 6 : dow - 1;
+  d.setUTCDate(d.getUTCDate() - back);
+  return d.toISOString().slice(0, 10);
+}
+
 function periodBounds(planStartDate, periodNumber) {
   const start = addDays(planStartDate, (periodNumber - 1) * PERIOD_DAYS);
   const end = addDays(planStartDate, periodNumber * PERIOD_DAYS - 1);
@@ -355,7 +420,10 @@ function getPlan(activityId, category) {
 function ensurePlan(activityId, category) {
   const existing = getPlan(activityId, category);
   if (existing) return existing;
-  const startDate = todayLocal();
+  // 16 septembre 2026 : lundi de la semaine en cours plutôt que le jour exact
+  // d'activation — voir le commentaire de mostRecentMonday() ci-dessus. Ne
+  // s'applique qu'à cette toute première création du plan (idempotent).
+  const startDate = mostRecentMonday(todayLocal());
   const createdAt = new Date().toISOString();
   db.prepare('INSERT INTO activity_goal_plans (activityId, category, startDate, createdAt) VALUES (?, ?, ?, ?)')
     .run(activityId, category, startDate, createdAt);
@@ -613,7 +681,10 @@ function buildBilanText(activityName, category, period, weeklies) {
   const realH = (actualMinutes / 60).toFixed(1);
 
   const lines = [];
-  const categoryLabel = CATEGORY_LABELS[category] || category;
+  // 8ᵉ passage : categoryLabelFor() plutôt que CATEGORY_LABELS[category] —
+  // corrige le libellé affiché pour une catégorie personnalisée (active ou
+  // gelée), qui affichait auparavant sa clé brute (voir categoryLabelFor).
+  const categoryLabel = categoryLabelFor(period.activityId, category);
   lines.push('📊 Bilan automatique — ' + categoryLabel + ' — Période ' + period.periodIndexInCycle + ' (' + period.startDate + ' – ' + period.endDate + ')');
   if (period.mainGoalText) {
     lines.push('Objectif périodique : « ' + period.mainGoalText + ' » — ' + statusLabel(period.mainGoalStatus));
@@ -944,13 +1015,19 @@ module.exports = {
   startGoalsSweep,
   // Catégories personnalisables par activité (15 septembre 2026, discussion
   // Objectifs — B, cadré avec Emilien — voir noesis-timetracker-objectifs.md).
+  // 8ᵉ passage (16 septembre 2026) : activateCustomCategories remplacée par
+  // ensureDefaultCategory ; DEFAULT_CATEGORY_KEY/LABEL et categoryLabelFor
+  // ajoutés (catégorie par défaut générique, couleur 100% automatique).
   MAX_CUSTOM_CATEGORIES,
+  DEFAULT_CATEGORY_KEY,
+  DEFAULT_CATEGORY_LABEL,
   isCustomized,
   categoriesForActivity,
   frozenCategoriesForActivity,
+  categoryLabelFor,
   isValidCategoryForActivity,
   isReadableCategory,
-  activateCustomCategories,
+  ensureDefaultCategory,
   addCategory,
   renameCategory,
   removeCategory,

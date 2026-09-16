@@ -1966,22 +1966,25 @@
           <div class="sectionTitleRow">
             <p class="sectionTitle">Catégories d'objectifs</p>
           </div>
-          <p class="hint">Personnalise les catégories d'objectifs de cette activité (1 par défaut, jusqu'à 5 au total). La couleur choisie entoure chaque case de l'arbre, dans l'onglet Objectifs — jamais en remplissage.</p>
+          <p class="hint">Personnalise les catégories d'objectifs de cette activité (1 par défaut, jusqu'à 5 au total). Une nuance de la couleur de l'activité entoure chaque case de l'arbre, dans l'onglet Objectifs — jamais en remplissage, jamais choisie à la main (16 septembre 2026, couleur 100% automatique).</p>
 
-          <!-- Activité pas encore personnalisée : les 3 catégories fixes
-               historiques (Entreprise/Communauté/Produit) restent affichées
-               en lecture seule, un seul bouton lance la personnalisation
-               (table rase — voir server/lib/goals.js, activateCustomCategories). -->
-          <div id="activityGoalsCategoryActivateWrap" class="hidden">
-            <button type="button" class="iconBtn" id="activityGoalsCategoryActivateBtn">Personnaliser mes catégories</button>
-          </div>
-
+          <!-- 16 septembre 2026 (8e passage) : plus de bouton "Personnaliser
+               mes catégories" — une activité a TOUJOURS au moins une
+               catégorie (par défaut si rien n'a encore été créé), chaque
+               ligne ci-dessous est directement éditable (renommer/retirer/
+               réordonner), ce qui matérialise la catégorie par défaut au
+               besoin côté serveur (voir server/lib/goals.js,
+               ensureDefaultCategory). #activityGoalsCategoryActivateWrap a
+               été retiré avec sa fonction JS (renderActivityGoalsCategoriesPanel,
+               app.js). -->
           <div id="activityGoalsCategoriesList" class="activityGoalsCategoriesList"></div>
 
-          <!-- Masqué dès que le plafond (maxCategories, actuellement 5) est atteint. -->
+          <!-- Masqué dès que le plafond (maxCategories, actuellement 5) est
+               atteint. Plus de sélecteur de couleur pour la nouvelle
+               catégorie (#activityGoalsCategoryAddSwatches, retiré — couleur
+               100% automatique). -->
           <div id="activityGoalsCategoryAddWrap" class="activityGoalsCategoryAddWrap hidden">
             <input type="text" id="activityGoalsCategoryAddInput" placeholder="Nouvelle catégorie" maxlength="60">
-            <div id="activityGoalsCategoryAddSwatches" class="colorSwatches compact"></div>
             <button type="button" class="iconBtn" id="activityGoalsCategoryAddBtn">Ajouter</button>
           </div>
 
@@ -2182,17 +2185,36 @@
              GET .../goals/all), plus les 3 catégories fixes historiques pour
              une activité non personnalisée. Rempli par
              renderGoalsGridHead() (app.js), jamais statique. -->
-        <div class="goalsGridHead" id="goalsGridHead"></div>
+        <!-- 16 septembre 2026 (8e passage), demande d'Emilien : « au-delà de
+             deux catégories, les catégories suivantes n'apparaissent pas
+             directement [...] il faut swiper de gauche à droite [...] le
+             même principe que pour la feuille de temps ». #goalsGridScroll
+             enveloppe l'en-tête ET la grille pour qu'ils défilent
+             horizontalement ENSEMBLE (une seule barre de défilement, jamais
+             deux qui se désynchroniseraient) — même mécanisme que la Feuille
+             de temps (.tsGrid, styles.css) : `overflow-x: auto` natif,
+             aucun geste JS dédié. Hauteur non contrainte (pas d'overflow-y
+             propre) : le défilement VERTICAL de la page continue de
+             fonctionner normalement au travers de ce conteneur, seul l'axe
+             horizontal y est capturé — voir styles.css pour le détail. Sans
+             effet quand il y a 1 ou 2 catégories (elles tiennent déjà dans
+             la largeur, .goalsGridHead--paged/.goalsGridRow--paged ne sont
+             posées par app.js qu'au-delà de 2 — voir renderGoalsGridHead()/
+             renderGoalsGrid()). -->
+        <div id="goalsGridScroll" class="goalsGridScroll">
+          <div class="goalsGridHead" id="goalsGridHead"></div>
 
-        <!-- Grille de comparaison des 3 catégories : une ligne par période du
-             cycle en cours, 3 cellules par ligne (Entreprise/Communauté/
-             Produit). Construite entièrement par renderGoalsGrid() (app.js) :
-             rien de statique ici. Le repère de numéro/date de période, qui
-             vivait auparavant dans une colonne à gauche de chaque ligne
-             (.goalsGridRowLabel, retirée), a migré dans le rail tactile
-             #goalsScrubZone ci-dessous — les 3 colonnes de catégories
-             occupent maintenant toute la largeur. -->
-        <div id="goalsGrid" class="goalsGrid"></div>
+          <!-- Grille de comparaison des catégories : une ligne par période du
+               cycle en cours, une cellule par catégorie active (1 à 5).
+               Construite entièrement par renderGoalsGrid() (app.js) : rien de
+               statique ici. Le repère de numéro/date de période, qui vivait
+               auparavant dans une colonne à gauche de chaque ligne
+               (.goalsGridRowLabel, retirée), a migré dans le rail tactile
+               #goalsScrubZone ci-dessous — les colonnes de catégories
+               occupent maintenant toute la largeur (ou une demi-largeur
+               chacune au-delà de 2, voir #goalsGridScroll ci-dessus). -->
+          <div id="goalsGrid" class="goalsGrid"></div>
+        </div>
 
         <!-- Rail tactile du bord gauche (5e passage, 15 septembre 2026,
              demande d'Emilien : « je souhaite les mettre sur la verticale à

@@ -4173,15 +4173,31 @@ button { -webkit-user-select: none; user-select: none; }
    Alignée sur les mêmes colonnes que .goalsGrid en dessous (même gap, même
    padding horizontal) — demande d'Emilien : « je souhaite que les catégories
    soient alignées avec les lignes ». */
+/* 16 septembre 2026 (8e passage) : gap élargi de 6px à 10px (demande
+   d'Emilien, « je souhaite que les bulles [...] soient plus espacées ») —
+   .goalsGridRow ci-dessous reprend la même valeur (déjà commenté : mêmes
+   colonnes, même écart). Couleur (`background`) posée en style inline par
+   renderGoalsGridHead() (app.js, nuance automatique de la couleur de
+   l'activité) : `color: #fff` fixe retiré, le texte suit désormais aussi un
+   style inline (readableTextOn(), app.js) puisque certaines nuances très
+   claires rendraient un texte blanc fixe illisible. */
 .goalsGridHead {
-  display: flex; gap: 6px; padding: 10px 4px 6px; margin-bottom: 0;
+  display: flex; gap: 10px; padding: 10px 4px 6px; margin-bottom: 0;
 }
 .goalsGridHeadCell {
   flex: 1 1 0; min-width: 0; text-align: center; padding: 6px 4px;
-  border-radius: 999px; color: #fff;
+  border-radius: 999px;
   font-size: 11px; font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
+/* Au-delà de 2 catégories (classe posée par renderGoalsGridHead(), app.js) :
+   chaque badge occupe une demi-largeur FIXE plutôt que de toutes se
+   partager la largeur disponible — les catégories suivantes débordent alors
+   hors du conteneur #goalsGridScroll (styles.css plus bas), accessibles en
+   balayant horizontalement. `flex: 0 0 ...` (shrink à 0) : sans ça, flexbox
+   réduirait quand même chaque base sous la contrainte de largeur du
+   conteneur au lieu de laisser déborder. */
+.goalsGridHead--paged .goalsGridHeadCell { flex: 0 0 calc(50% - 5px); min-width: 0; }
 
 /* Navigation période précédente/suivante — même schéma que les autres
    "‹ titre ›" de l'app (voir #chronoHistoryHeader), .menuBtn inchangé. */
@@ -4529,11 +4545,28 @@ button { -webkit-user-select: none; user-select: none; }
    bas). Colonne de numéro de période à gauche (.goalsGridRowLabel) retirée :
    le repère de période a migré dans le rail tactile #goalsScrubZone — les 3
    colonnes de catégories occupent maintenant toute la largeur. */
+/* 16 septembre 2026 (8e passage) : voir le commentaire au-dessus de
+   #goalsGridScroll dans index.html. `overflow-x: auto` seul (overflow-y non
+   posé) : le conteneur ne prend PAS de hauteur propre (pas de height/
+   max-height), donc rien à faire déborder verticalement — le défilement de
+   la PAGE continue de fonctionner normalement à travers lui, seul l'axe
+   horizontal capture le geste quand le contenu (en-tête + grille) dépasse
+   sa largeur (au-delà de 2 catégories, voir .goalsGridHead--paged/
+   .goalsGridRow--paged). -webkit-overflow-scrolling: touch pour un
+   défilement inertiel correct sur iOS/WebKit (même précaution qu'ailleurs
+   dans ce fichier, voir .tsGrid). */
+.goalsGridScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .goalsGrid {
   display: flex; flex-direction: column; gap: 16px;
   padding: 6px 4px 220px;
 }
-.goalsGridRow { display: flex; align-items: stretch; gap: 6px; }
+/* Gap élargi de 6px à 10px (16 septembre 2026, 8e passage, demande
+   d'Emilien) — même valeur que .goalsGridHead ci-dessus (colonnes
+   alignées). .goalsGridRow--paged : même bascule en demi-largeur fixe que
+   .goalsGridHead--paged au-delà de 2 catégories, posée par renderGoalsGrid()
+   (app.js) sur chaque ligne. */
+.goalsGridRow { display: flex; align-items: stretch; gap: 10px; }
+.goalsGridRow--paged .goalsGridCell { flex: 0 0 calc(50% - 5px); min-width: 0; }
 /* Chaque cellule est un <button> cliquable (ouvre la page 2, détail de CETTE
    période pour CETTE catégorie — voir openGoalsDetail(category, periodNumber)
    dans app.js), qu'elle ait ou non un objectif périodique déjà écrit. */
@@ -4617,9 +4650,13 @@ button { -webkit-user-select: none; user-select: none; }
    activité soit les réglages du volet objectif ») =====
    #activityGoalsCategoriesBlock, dans #activityPage — voir
    loadActivityGoalsCategories()/renderActivityGoalsCategoriesPanel() dans
-   app.js. Une ligne par catégorie active (1 à MAX_CUSTOM_CATEGORIES) ; les 3
-   catégories fixes historiques (avant personnalisation) réutilisent la même
-   ligne en lecture seule (.activityGoalsCategoryRow--fixed, sans boutons). */
+   app.js. Une ligne par catégorie active (1 à MAX_CUSTOM_CATEGORIES),
+   TOUJOURS éditable (16 septembre 2026, 8e passage : plus de ligne "fixe"
+   en lecture seule — une activité a toujours au moins une catégorie, réelle
+   ou par défaut, jamais un état "pas encore personnalisée" à distinguer
+   visuellement). Plus de sélecteur de couleur par ligne (couleur 100%
+   automatique, même passage) : .activityGoalsCategoryColorBtn/
+   Swatches retirés avec leur usage dans app.js. */
 /* 16 septembre 2026 (discussion Objectifs — C) : ce panneau ne s'affiche
    plus seul (ancien 4e bouton "Objectifs" du sélecteur) — il apparaît
    maintenant À LA SUITE de la liste des sous-projets, dans la section
@@ -4635,7 +4672,6 @@ button { -webkit-user-select: none; user-select: none; }
   background: var(--card); padding: 8px 10px;
   position: relative;
 }
-.activityGoalsCategoryRow--fixed { opacity: 0.85; }
 .activityGoalsCategoryReorder {
   border: none; background: transparent; color: var(--text-light);
   font-size: 12px; line-height: 1; padding: 4px; cursor: pointer; flex-shrink: 0;
@@ -4652,20 +4688,6 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .activityGoalsCategoryNameInput:focus {
   border-color: var(--border); background: var(--track-bg);
-}
-.activityGoalsCategoryNameInput--static { padding: 6px 8px; }
-.activityGoalsCategoryColorBtn {
-  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
-  border: 1px solid var(--border); cursor: pointer; padding: 0;
-}
-/* Palette flottante ancrée à droite de la ligne — même motif que les autres
-   menus contextuels ponctuels de ce fichier (position absolute + z-index),
-   au-dessus des lignes voisines de la liste. */
-.activityGoalsCategorySwatches {
-  position: absolute; z-index: 5; top: 100%; right: 8px; margin-top: 4px;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-card);
-  padding: 8px;
 }
 .activityGoalsCategoryAddWrap {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

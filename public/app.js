@@ -2402,6 +2402,22 @@
     return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
   }
 
+  // 16 septembre 2026 (Objectifs — B, 8e passage) : couleur de texte lisible
+  // sur un fond de nuance calculée (subProjectShade() plus bas) — utilisée
+  // pour les badges de catégorie de la grille d'Objectifs (renderGoalsGridHead()).
+  // Différent de textColorForTheme (plus haut) : celle-ci suppose un fond
+  // toujours issu de la palette contrainte par thème (8 couleurs, toujours
+  // assez sombre en thème sombre / assez claire en thème clair pour un texte
+  // fixe). Les nuances de subProjectShade() couvrent au contraire une bande
+  // de clarté volontairement large (L* 22 à 90, voir son commentaire) pour
+  // rester distinguables entre elles — certaines sont donc bien plus claires
+  // que ce que textColorForTheme suppose. Seuil à mi-bande (56) plutôt que
+  // 50 : la couleur d'origine de l'activité, souvent dans les tons moyens à
+  // foncés d'un thème sombre, reste alors du côté "texte blanc" comme avant.
+  function readableTextOn(hex) {
+    return labLightness(hex) > 56 ? '#222222' : '#ffffff';
+  }
+
   // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que tu crées pour
   // chaque couleur d'activité 5 nuances distinguables à l'œil nu ».
   //
@@ -4228,91 +4244,83 @@
     if (String(activityId) === String(currentGoalsActivityId)) reloadGoalsAll();
   }
 
+  // 16 septembre 2026 (8e passage, demande d'Emilien, couleur 100%
+  // automatique) : plus de pastille de couleur ni de sélecteur de couleur
+  // dans ce panneau — la couleur d'une catégorie n'est plus choisie, elle se
+  // calcule à l'affichage (nuance de la couleur de l'activité, voir
+  // renderGoalsGridHead()/renderGoalsGrid()). Plus de bouton "Personnaliser
+  // mes catégories" non plus (#activityGoalsCategoryActivateWrap, retiré
+  // d'index.html) : une activité a toujours au moins une catégorie —
+  // renommer/ajouter/retirer/réordonner la matérialise au besoin côté
+  // serveur (ensureDefaultCategory(), server/lib/goals.js), donc CHAQUE ligne
+  // est éditable de la même façon, qu'elle soit déjà réellement enregistrée
+  // (c.custom === true) ou encore purement synthétique (c.custom === false,
+  // uniquement possible pour la toute première catégorie d'une activité
+  // neuve, jamais encore renommée/complétée d'une 2e) — le serveur absorbe
+  // la différence, ce panneau n'a plus à la distinguer visuellement.
   function renderActivityGoalsCategoriesPanel(data) {
     currentActivityGoalsCategories = data.categories || [];
     currentActivityGoalsMax = data.maxCategories || 5;
 
-    var activateWrap = $('activityGoalsCategoryActivateWrap');
     var addWrap = $('activityGoalsCategoryAddWrap');
     var list = $('activityGoalsCategoriesList');
-    if (activateWrap) activateWrap.classList.toggle('hidden', !!data.customized);
-    if (addWrap) addWrap.classList.toggle('hidden', !data.customized || currentActivityGoalsCategories.length >= currentActivityGoalsMax);
+    if (addWrap) addWrap.classList.toggle('hidden', currentActivityGoalsCategories.length >= currentActivityGoalsMax);
     if (!list) return;
 
     list.innerHTML = '';
     currentActivityGoalsCategories.forEach(function (c, index) {
       var row = document.createElement('div');
-      row.className = 'activityGoalsCategoryRow' + (c.custom ? '' : ' activityGoalsCategoryRow--fixed');
+      row.className = 'activityGoalsCategoryRow';
 
-      if (c.custom) {
-        var upBtn = document.createElement('button');
-        upBtn.type = 'button'; upBtn.className = 'activityGoalsCategoryReorder'; upBtn.textContent = '▲';
-        upBtn.title = t('Monter'); upBtn.setAttribute('aria-label', t('Monter'));
-        upBtn.disabled = index === 0;
-        upBtn.addEventListener('click', function () { moveActivityGoalsCategory(index, -1); });
-        row.appendChild(upBtn);
+      var upBtn = document.createElement('button');
+      upBtn.type = 'button'; upBtn.className = 'activityGoalsCategoryReorder'; upBtn.textContent = '▲';
+      upBtn.title = t('Monter'); upBtn.setAttribute('aria-label', t('Monter'));
+      upBtn.disabled = index === 0;
+      upBtn.addEventListener('click', function () { moveActivityGoalsCategory(index, -1); });
+      row.appendChild(upBtn);
 
-        var downBtn = document.createElement('button');
-        downBtn.type = 'button'; downBtn.className = 'activityGoalsCategoryReorder'; downBtn.textContent = '▼';
-        downBtn.title = t('Descendre'); downBtn.setAttribute('aria-label', t('Descendre'));
-        downBtn.disabled = index === currentActivityGoalsCategories.length - 1;
-        downBtn.addEventListener('click', function () { moveActivityGoalsCategory(index, 1); });
-        row.appendChild(downBtn);
-      }
+      var downBtn = document.createElement('button');
+      downBtn.type = 'button'; downBtn.className = 'activityGoalsCategoryReorder'; downBtn.textContent = '▼';
+      downBtn.title = t('Descendre'); downBtn.setAttribute('aria-label', t('Descendre'));
+      downBtn.disabled = index === currentActivityGoalsCategories.length - 1;
+      downBtn.addEventListener('click', function () { moveActivityGoalsCategory(index, 1); });
+      row.appendChild(downBtn);
 
+      // currentActivityColor (pas currentGoalsActivityColor) : ce panneau vit
+      // dans la fenêtre RÉGLAGES de l'activité (#communityActivityDetail,
+      // currentCommunityActivityId), pas forcément l'activité actuellement
+      // affichée dans l'onglet Objectifs — même variable que
+      // spColorFor()/subProjectShade() pour les sous-projets de cette même
+      // fenêtre (voir openActivityPage()).
       var dot = document.createElement('span');
       dot.className = 'activityGoalsCategoryDot';
-      dot.style.background = c.color || '#8a8a8a';
+      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
       row.appendChild(dot);
 
-      if (c.custom) {
-        var nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.className = 'activityGoalsCategoryNameInput';
-        nameInput.value = c.label;
-        nameInput.maxLength = 40;
-        nameInput.addEventListener('change', function () {
-          var val = nameInput.value.trim();
-          if (!val) { nameInput.value = c.label; return; }
-          renameActivityGoalsCategory(c.key, val, c.color);
-        });
-        row.appendChild(nameInput);
+      var nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'activityGoalsCategoryNameInput';
+      nameInput.value = c.label;
+      nameInput.maxLength = 40;
+      nameInput.addEventListener('change', function () {
+        var val = nameInput.value.trim();
+        if (!val) { nameInput.value = c.label; return; }
+        renameActivityGoalsCategory(c.key, val);
+      });
+      row.appendChild(nameInput);
 
-        var swatchBtn = document.createElement('button');
-        swatchBtn.type = 'button';
-        swatchBtn.className = 'activityGoalsCategoryColorBtn';
-        swatchBtn.style.background = c.color;
-        swatchBtn.title = t('Changer la couleur');
-        swatchBtn.setAttribute('aria-label', t('Changer la couleur'));
-        row.appendChild(swatchBtn);
-
-        var swatchesBox = document.createElement('div');
-        swatchesBox.className = 'activityGoalsCategorySwatches hidden';
-        renderColorSwatches(swatchesBox, c.color, function (color) {
-          swatchesBox.classList.add('hidden');
-          if (color !== c.color) renameActivityGoalsCategory(c.key, nameInput.value.trim() || c.label, color);
-        }, true);
-        swatchBtn.addEventListener('click', function () { swatchesBox.classList.toggle('hidden'); });
-        row.appendChild(swatchesBox);
-
-        var removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'iconBtn';
-        removeBtn.textContent = '✕';
-        removeBtn.title = t('Retirer cette catégorie');
-        removeBtn.setAttribute('aria-label', t('Retirer cette catégorie'));
-        removeBtn.disabled = currentActivityGoalsCategories.length <= 1;
-        removeBtn.addEventListener('click', function () {
-          if (!confirm(t('Retirer cette catégorie ? Son historique reste consultable mais elle ne recevra plus de nouveaux objectifs.'))) return;
-          removeActivityGoalsCategory(c.key);
-        });
-        row.appendChild(removeBtn);
-      } else {
-        var nameSpan = document.createElement('span');
-        nameSpan.className = 'activityGoalsCategoryNameInput activityGoalsCategoryNameInput--static';
-        nameSpan.textContent = t(c.label);
-        row.appendChild(nameSpan);
-      }
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'iconBtn';
+      removeBtn.textContent = '✕';
+      removeBtn.title = t('Retirer cette catégorie');
+      removeBtn.setAttribute('aria-label', t('Retirer cette catégorie'));
+      removeBtn.disabled = currentActivityGoalsCategories.length <= 1;
+      removeBtn.addEventListener('click', function () {
+        if (!confirm(t('Retirer cette catégorie ? Son historique reste consultable mais elle ne recevra plus de nouveaux objectifs.'))) return;
+        removeActivityGoalsCategory(c.key);
+      });
+      row.appendChild(removeBtn);
 
       list.appendChild(row);
     });
@@ -4334,9 +4342,9 @@
       .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
 
-  function renameActivityGoalsCategory(key, label, color) {
+  function renameActivityGoalsCategory(key, label) {
     var activityId = currentCommunityActivityId;
-    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + key, { label: label, color: color })
+    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + key, { label: label })
       .then(function () { activityGoalsCategoriesRefresh(activityId); })
       .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
@@ -4348,18 +4356,11 @@
       .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
 
-  $('activityGoalsCategoryActivateBtn').addEventListener('click', function () {
-    var activityId = currentCommunityActivityId;
-    if (!activityId) return;
-    var palette = PALETTES[currentTheme];
-    api('POST', '/api/activities/' + activityId + '/goals/categories/activate', { label: t('Catégorie 1'), color: palette[0] })
-      .then(function () { activityGoalsCategoriesRefresh(activityId); })
-      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
-  });
-
-  var newActivityGoalsCategoryColor = PALETTES[currentTheme][0];
-  renderColorSwatches($('activityGoalsCategoryAddSwatches'), null, function (color) { newActivityGoalsCategoryColor = color; }, true);
-
+  // 16 septembre 2026 (8e passage) : plus de bouton "Personnaliser mes
+  // catégories" (#activityGoalsCategoryActivateBtn, retiré d'index.html) ni
+  // de sélecteur de couleur pour la nouvelle catégorie
+  // (#activityGoalsCategoryAddSwatches, retiré aussi) — voir le commentaire
+  // de renderActivityGoalsCategoriesPanel() plus haut.
   $('activityGoalsCategoryAddBtn').addEventListener('click', function () {
     var activityId = currentCommunityActivityId;
     if (!activityId) return;
@@ -4367,7 +4368,7 @@
     var label = (input.value || '').trim();
     var msg = $('activityGoalsCategoriesMsg');
     if (!label) { if (msg) msg.textContent = t('Nom de catégorie requis.'); return; }
-    api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label, color: newActivityGoalsCategoryColor })
+    api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
       .then(function () {
         input.value = '';
         activityGoalsCategoriesRefresh(activityId);
@@ -4409,6 +4410,12 @@
   var currentGoalsActivityId = '';
   var currentGoalsActivityIndex = 0;
   var currentGoalsActivityIsShared = false;
+  // 16 septembre 2026 (8e passage) : couleur de L'ACTIVITÉ affichée, posée
+  // par openGoalsForActivity() — source de base pour les nuances
+  // automatiques des badges de catégorie (subProjectShade(), voir
+  // renderGoalsGridHead()/renderGoalsGrid() plus bas, couleur 100%
+  // automatique, plus aucune couleur choisie/stockée par catégorie).
+  var currentGoalsActivityColor = '';
 
   // 14 septembre 2026 (second passage, demande d'Emilien) : 3 plannings
   // indépendants par activité — un par catégorie fixe, les 3 sous-catégories
@@ -4465,11 +4472,23 @@
   // objectif périodique (.goalMainCard), les cartes hebdomadaires
   // (.goalWeeklyCard) et le calendrier (renderGoalsCalendarDays()), pour que
   // les 3 restent identiques par construction plutôt que par 3 calculs
-  // séparés. Violet par défaut pour les 3 catégories fixes historiques (pas
-  // de couleur propre, `color: null`) — même repli que renderGoalsGrid().
+  // séparés.
+  // ⚠️ 16 septembre 2026 (8e passage, discussion Objectifs — B, débordement
+  // sur cette fonction de D — même fichier, aucune ligne en commun,
+  // détecté au device_list_dir juste avant écriture) : `c.color` a disparu
+  // du serveur le même jour (couleur 100% automatique, cadré séparément avec
+  // Emilien — voir server/lib/goals.js). Adaptée pour rester fonctionnelle :
+  // même mécanisme que renderGoalsGridHead()/renderGoalsGrid() (nuance de
+  // subProjectShade() à partir de currentGoalsActivityColor et du RANG de la
+  // catégorie), plus aucun repli violet nécessaire — chaque catégorie, y
+  // compris la catégorie par défaut seule, a désormais toujours sa propre
+  // nuance calculée.
   function currentGoalsCategoryColor() {
-    var cat = activeGoalsCategories().filter(function (c) { return c.key === currentGoalsCategory; })[0];
-    return (cat && cat.color) || 'var(--purple)';
+    var categories = activeGoalsCategories();
+    var index = -1;
+    for (var i = 0; i < categories.length; i++) { if (categories[i].key === currentGoalsCategory) { index = i; break; } }
+    if (index === -1) return 'var(--purple)';
+    return subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
   }
   // 15 septembre 2026 (discussion D — Calendrier & intégrations) : numéro de
   // requête pour le calendrier de la page 2 (garde-fou anti-réponse-en-retard,
@@ -5291,13 +5310,38 @@
   // index.html) — il reflète activeGoalsCategories(), donc de 1 à 5 colonnes
   // selon les catégories personnalisées de l'activité affichée. Appelée par
   // reloadGoalsAll() avant renderGoalsGrid(), et lors du changement d'activité.
+  // 16 septembre 2026 (8e passage, demande d'Emilien) : nom de catégorie
+  // CENTRÉ et encadré dans un cadre coloré — une NUANCE de la couleur de
+  // l'activité, une nuance différente par catégorie, même mécanisme que les
+  // 5 nuances des sous-projets (subProjectShade(), plus haut dans ce
+  // fichier) plutôt qu'une nouvelle échelle de couleurs. Couleur 100%
+  // automatique (cadré avec Emilien, AskUserQuestion) : plus de champ
+  // `color` côté serveur, tout se calcule ici à partir de
+  // currentGoalsActivityColor + le rang (position) de la catégorie.
+  // `span.className` était manquant avant ce passage (bug latent : la classe
+  // .goalsGridHeadCell existait déjà en CSS mais ne s'appliquait jamais,
+  // faute d'être posée ici) — corrigé au passage.
+  //
+  // Au-delà de 2 catégories, .goalsGridHead--paged (posée ici) fixe la
+  // largeur de chaque badge à une demi-largeur du conteneur plutôt que de
+  // toutes les faire tenir : les catégories suivantes débordent alors dans
+  // #goalsGridScroll (index.html/styles.css), accessibles en balayant
+  // horizontalement — même principe que la Feuille de temps (défilement
+  // natif, `overflow-x: auto`, jamais un geste JS dédié). Voir renderGoalsGrid()
+  // juste en dessous pour la même bascule sur chaque ligne de la grille.
   function renderGoalsGridHead() {
     var head = $('goalsGridHead');
     if (!head) return;
     head.innerHTML = '';
-    activeGoalsCategories().forEach(function (c) {
+    var categories = activeGoalsCategories();
+    head.classList.toggle('goalsGridHead--paged', categories.length > 2);
+    categories.forEach(function (c, index) {
       var span = document.createElement('span');
+      span.className = 'goalsGridHeadCell';
       span.textContent = t(c.label);
+      var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+      span.style.background = shade;
+      span.style.color = readableTextOn(shade);
       head.appendChild(span);
     });
   }
@@ -5335,11 +5379,11 @@
     for (var i = 1; i <= 13; i += 1) {
       (function (periodIndex) {
         var row = document.createElement('div');
-        row.className = 'goalsGridRow';
+        row.className = 'goalsGridRow' + (categories.length > 2 ? ' goalsGridRow--paged' : '');
         row.setAttribute('data-period-index', String(periodIndex));
 
         var repPeriod = null;
-        categories.forEach(function (c) {
+        categories.forEach(function (c, index) {
           var p = indexByCategory[c.key][periodIndex];
           var cell = document.createElement('button');
           cell.type = 'button';
@@ -5355,11 +5399,13 @@
             txt.className = 'goalsGridCellText';
             txt.textContent = p.mainGoalText;
             cell.appendChild(txt);
-            // Couleur de catégorie personnalisée = bordure de la cellule
-            // remplie, jamais un aplat (demande explicite d'Emilien) — les
-            // catégories fixes (custom: false) n'ont pas de couleur propre
-            // et gardent la bordure par défaut de .goalsGridCell--filled.
-            if (c.color) cell.style.borderColor = c.color;
+            // Bordure de la cellule remplie = même nuance que le badge de
+            // catégorie ci-dessus (renderGoalsGridHead()), jamais un aplat
+            // (demande explicite d'Emilien) — couleur 100% automatique
+            // désormais pour TOUTE catégorie, fixe ou personnalisée (16
+            // septembre 2026, 8e passage : il n'y a plus de distinction
+            // "couleur propre ou non", plus de champ `color` côté serveur).
+            cell.style.borderColor = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
           } else {
             // Aucun objectif périodique pour cette (période, catégorie) —
             // pavé fantôme + trait de continuité, revu le 15 septembre 2026
@@ -5487,6 +5533,7 @@
     currentGoalsCategory = 'entreprise';
     currentGoalsAllPlannings = null;
 
+    currentGoalsActivityColor = a.color;
     $('goalsActivityDot').style.background = a.color;
     $('goalsActivityName').textContent = a.name;
 
