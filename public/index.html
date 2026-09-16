@@ -1950,9 +1950,14 @@
              souhaite que « la fenêtre activité soit les réglages du volet
              objectif » — ce bloc vit ici, dans #communityActivityDetail
              (déplacé dans #activityPageBody à l'exécution par
-             attachActivityDetail(), exactement comme les 3 blocs ci-dessus),
-             comme 4e section du sélecteur (#activityPageTabGoals,
-             data-section="goals"). TOUJOURS visible, contrairement à
+             attachActivityDetail(), exactement comme les blocs voisins).
+             **16 septembre 2026 (discussion Objectifs — C, sur demande
+             directe d'Emilien)** : n'est plus une section séparée du
+             sélecteur (l'ancien 4e bouton "Objectifs"/data-section="goals" a
+             été retiré, voir #activityPageSectionSwitch plus haut) — ce
+             panneau s'affiche désormais AVEC la section "sub" (Tâches,
+             ex-Sous-projets), juste au-dessus de la liste. TOUJOURS visible
+             dès que "Tâches" est sélectionné, contrairement à
              Statistiques/Discussion : une activité, seule ou partagée, a
              toujours des catégories Objectifs. Construit par
              renderActivityGoalsCategoriesPanel() (app.js) à partir de
@@ -2870,18 +2875,21 @@
                activités, sous leur forme d'origine. buildActivitySettingsPanel()
                (public/app.js), écrite pour ce menu, sert désormais à les
                construire là-bas — c'est le seul reste utile de ce passage. -->
+          <!-- 16 septembre 2026 (discussion Objectifs — C, sur demande directe
+               d'Emilien : « fusionner dans la fenêtre des activités les
+               sections sous-projet et objectif ») : le 4e bouton "Objectifs"
+               (data-section="goals", ajouté le 15 septembre nuit par B) est
+               retiré d'ici. #activityGoalsCategoriesBlock (plus bas) n'est
+               plus une section séparée du sélecteur — il s'affiche désormais
+               AVEC la section "sub", au-dessus de la liste des sous-projets.
+               "Sous-projets" renommé "Tâches" à la même occasion. Le volet
+               Objectifs de la barre du bas (onglet dédié, plus bas dans ce
+               fichier) n'est pas concerné — Emilien l'a explicitement demandé
+               inchangé. -->
           <div class="periodSwitch" id="activityPageSectionSwitch">
-            <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Sous-projets</button>
+            <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Tâches</button>
             <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
             <button type="button" class="periodBtn" id="activityPageTabDisc" data-section="disc">Discussion</button>
-            <!-- 15 septembre 2026 (nuit, discussion Objectifs — B) : « je
-                 souhaite que la fenêtre activité soit les réglages du volet
-                 objectif » (Emilien) — 4e section, TOUJOURS visible (jamais
-                 masquée comme Statistiques/Discussion) : une activité, seule
-                 ou partagée, a toujours des catégories Objectifs à gérer.
-                 Voir #activityGoalsCategoriesBlock plus bas et
-                 renderActivityGoalsCategoriesPanel() (app.js). -->
-            <button type="button" class="periodBtn" id="activityPageTabGoals" data-section="goals">Objectifs</button>
           </div>
           <div id="activityPageBody"></div>
         </div>

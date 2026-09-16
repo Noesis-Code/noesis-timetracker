@@ -3974,11 +3974,19 @@
     return !!(a && a.progress && a.progress.subProjectCount > 0);
   }
 
-  // Affiche l'une des trois sections. Elles ne sont ni déplacées ni
-  // reconstruites : ce sont les trois parties déjà existantes de
+  // Affiche l'une des trois sections du sélecteur. Elles ne sont ni
+  // déplacées ni reconstruites : ce sont les parties déjà existantes de
   // #communityActivityDetail, simplement masquées ou montrées. C'est ce qui
   // permet de ne rien casser chez "Sous-projets" ni dans les statistiques par
   // activité — leur code ne sait même pas que ce sélecteur existe.
+  // ⚠️ 16 septembre 2026 (discussion Objectifs — C, sur demande directe
+  // d'Emilien : « fusionner dans la fenêtre des activités les sections
+  // sous-projet et objectif ») : la section "sub" (Tâches) affiche
+  // maintenant DEUX blocs à la fois — #activitySubProjectsBlock ET
+  // #activityGoalsCategoriesBlock (catégories d'objectifs, ex-4e bouton
+  // "Objectifs"/data-section="goals", retiré du sélecteur). Le volet
+  // Objectifs de la barre du bas (switchTab('goals'), namespace différent,
+  // sans lien avec activityPageSection) n'est pas concerné.
   function setActivityPageSection(name) {
     activityPageSection = name;
     document.querySelectorAll('#activityPageSectionSwitch .periodBtn').forEach(function (b) {
@@ -3990,10 +3998,12 @@
     var soloStats = $('activitySoloStatsBlock');
     var disc = $('communityDiscussionBlock');
     // 15 septembre 2026 (demande d'Emilien — « je souhaite que la fenêtre
-    // activité soit les réglages du volet objectif ») : nouvelle section
-    // "gérer mes catégories", disponible que l'activité soit solo ou
-    // partagée (contrairement à stats/disc, jamais conditionnée par
-    // currentActivityIsShared).
+    // activité soit les réglages du volet objectif ») : "gérer mes
+    // catégories", disponible que l'activité soit solo ou partagée
+    // (contrairement à stats/disc, jamais conditionnée par
+    // currentActivityIsShared). **16 septembre 2026 (C) : fusionné dans la
+    // section "sub" (Tâches) au lieu d'être son propre bouton — voir le
+    // commentaire au-dessus de cette fonction.**
     var goalsCats = $('activityGoalsCategoriesBlock');
     // #subProjectDetail (le sous-projet ouvert) n'a pas besoin d'être traité
     // ici : il est soit DANS une ligne de #subProjectsList, soit sur son ancre
@@ -4009,12 +4019,14 @@
     // le contexte de l'autre.
     if (soloStats) soloStats.classList.toggle('hidden', name !== 'stats' || currentActivityIsShared);
     if (disc) disc.classList.toggle('hidden', name !== 'disc' || !currentActivityIsShared);
-    if (goalsCats) goalsCats.classList.toggle('hidden', name !== 'goals');
+    // Fusionné avec "sub" (Tâches) le 16 septembre 2026 — voir le commentaire
+    // au-dessus de cette fonction : plus de section "goals" séparée.
+    if (goalsCats) goalsCats.classList.toggle('hidden', name !== 'sub');
     // Les données ne sont demandées qu'au moment où la section devient visible :
     // un camembert dessiné dans un bloc masqué n'a aucune dimension (même
     // piège que le défilement du fil et le cadrage du graphique, plus bas).
     if (name === 'stats' && !currentActivityIsShared) loadSoloSubProjectStats();
-    if (name === 'goals') loadActivityGoalsCategories(currentCommunityActivityId);
+    if (name === 'sub') loadActivityGoalsCategories(currentCommunityActivityId);
 
     // ----- Mode conversation (3 septembre 2026, demande d'Emilien) -----
     // « lorsque le clavier n'est pas activé, la zone pour écrire se situe tout

@@ -4605,6 +4605,12 @@ button { -webkit-user-select: none; user-select: none; }
    app.js. Une ligne par catégorie active (1 à MAX_CUSTOM_CATEGORIES) ; les 3
    catégories fixes historiques (avant personnalisation) réutilisent la même
    ligne en lecture seule (.activityGoalsCategoryRow--fixed, sans boutons). */
+/* 16 septembre 2026 (discussion Objectifs — C) : ce panneau ne s'affiche
+   plus seul (ancien 4e bouton "Objectifs" du sélecteur) — il apparaît
+   maintenant À LA SUITE de la liste des sous-projets, dans la section
+   fusionnée "Tâches" (#activitySubProjectsBlock puis ce bloc, dans cet
+   ordre du DOM). Séparateur ajouté pour ne pas souder les deux visuellement. */
+#activityGoalsCategoriesBlock { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
 .activityGoalsCategoriesList {
   display: flex; flex-direction: column; gap: 8px; margin: 10px 0;
 }

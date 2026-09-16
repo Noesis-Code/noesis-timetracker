@@ -71,6 +71,38 @@
     'Valider': 'Confirm',
     'Retour': 'Back',
     'Crée tes activités': 'Create your activities',
+    // ---- Onboarding "à la iPhone" (15 septembre 2026, chantier
+    // "Onboarding à la iPhone") : écran de bienvenue, choix du thème,
+    // suggestions d'activités et mini-tour de 6 cartes. ----
+    'Bienvenue sur Noèsis': 'Welcome to Noèsis',
+    "Le temps est la seule ressource qu'on ne récupère jamais. Noèsis existe pour t'aider à voir où passe le tien — pas pour te surveiller, mais pour t'aider à avancer, seul ou avec les tiens, vers ce qui compte vraiment pour toi.": "Time is the one resource you never get back. Noèsis exists to help you see where yours goes — not to watch over you, but to help you move forward, alone or with the people around you, toward what truly matters to you.",
+    'Commencer': 'Get started',
+    'Choisis ton thème': 'Choose your theme',
+    'Tu pourras en changer à tout moment dans Réglages.': 'You can change this anytime in Settings.',
+    "Une activité, c'est un projet, un rôle, une part de ta vie que tu veux suivre dans le temps. Choisis-en une ou deux pour commencer — tu pourras en ajouter/modifier plus tard dans Activité.": "An activity is a project, a role, a part of your life you want to track over time. Pick one or two to start — you can add or edit them later in Activity.",
+    '+ Créer une activité personnalisée': '+ Create a custom activity',
+    'Travail': 'Work',
+    'Études': 'Studies',
+    'Famille': 'Family',
+    'Loisirs': 'Leisure',
+    'Bénévolat': 'Volunteering',
+    'Passer': 'Skip',
+    'Suivant': 'Next',
+    'Terminer': 'Done',
+    'Aide': 'Help',
+    'Revoir le tour de bienvenue': 'Replay the welcome tour',
+    'Pourquoi Noèsis existe': 'Why Noèsis exists',
+    "On ne peut pas vraiment gérer ce qu'on ne voit pas. La plupart d'entre nous sentons que notre temps nous échappe, sans jamais savoir précisément où il part. Noèsis rend ton temps visible, pour que tes choix redeviennent les tiens.": "You can't really manage what you can't see. Most of us feel our time slipping away without ever knowing exactly where it goes. Noèsis makes your time visible, so your choices become yours again.",
+    'Chrono — le geste le plus simple': 'Chrono — the simplest gesture',
+    "Un tap suffit pour démarrer ou arrêter. Moins la mesure demande d'effort, plus elle reflète ta vraie journée — pas une reconstitution approximative faite le soir venu.": "One tap is all it takes to start or stop. The less effort tracking takes, the more it reflects your real day — not a rough reconstruction made at the end of it.",
+    'Statistiques — voir avant de juger': 'Statistics — see before you judge',
+    "Les chiffres ne mentent pas, mais ils n'accusent pas non plus. Tes statistiques existent pour t'informer, jamais pour te culpabiliser : vois-les comme une carte, pas comme une note.": "Numbers don't lie, but they don't accuse either. Your stats are there to inform you, never to make you feel guilty — think of them as a map, not a grade.",
+    'Objectifs — donner une direction au temps': 'Goals — giving time a direction',
+    "Suivre son temps sans savoir pourquoi finit par lasser. Fixe-toi des objectifs qui comptent vraiment pour toi : le temps suivi prend alors un sens, pas seulement une mesure.": "Tracking time without knowing why gets tiring. Set goals that truly matter to you, and the time you track gains meaning — not just a measurement.",
+    'Communauté — avancer avec les tiens': 'Community — moving forward together',
+    "Certains efforts se tiennent mieux à plusieurs. Communauté te permet de partager ton avancement avec les personnes qui comptent pour toi, pour vous encourager mutuellement plutôt que de rester seul face à tes chiffres.": "Some efforts are easier to sustain together. Community lets you share your progress with the people who matter to you, so you can encourage each other instead of facing your numbers alone.",
+    'Activité — ton fil du temps': 'Activity — your timeline',
+    "Un journal complet de ce que tu as accompli, activité par activité. De quoi te rendre compte, avec le recul, de tout ce que tu as réellement fait — souvent plus que tu ne le crois.": "A complete log of what you've accomplished, activity by activity. Enough to realize, in hindsight, everything you actually got done — often more than you think.",
     // Variante "dans Activité" : le texte HTML actuel dit désormais "Activité"
     // (renommage du volet de gestion des activités survenu après l'écriture
     // de la clé ci-dessus, qui est donc orpheline) — clé ci-dessus gardée
@@ -652,7 +684,9 @@
     // Titre de la section Statistiques d'une activité : jamais traduit
     // jusqu'ici, alors qu'il s'affiche pour tout compte en anglais.
     'Statistiques et activités des membres': 'Member statistics and activity',
-    'Sous-projets': 'Sub-projects',
+    // 'Sous-projets' retiré le 16 septembre 2026 (discussion Objectifs — C) :
+    // c'était la seule traduction de ce texte, remplacé par "Tâches" sur le
+    // bouton de la fenêtre activité (clé 'Tâches' déjà présente plus bas).
     'Ajouter un sous-projet': 'Add a sub-project',
     'Nom du sous-projet': 'Sub-project name',
     'Ex. Refonte du site': 'E.g. Website redesign',
