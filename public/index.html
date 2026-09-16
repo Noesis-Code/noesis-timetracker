@@ -2946,9 +2946,17 @@
                  d'avancement ci-dessous (temps réel / estimation, même
                  pattern que la barre unique des sous-projets,
                  .subProjectProgressTrack/Fill dans ce même fichier). -->
-            <div class="goalCard goalMainCard">
+            <div class="goalCard goalMainCard" id="activityGoalsMainCard">
               <p class="goalCardLabel">Objectif périodique</p>
-              <textarea id="activityGoalsMainInput" rows="2" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
+              <!-- 16 septembre 2026 (discussion "Objectifs — D"), demande
+                   d'Emilien : « la zone de texte [...] moins grande [...]
+                   mais plus longue afin qu'on puisse voir le mot qu'on
+                   écrit » — 1 ligne (pleine largeur, déjà width:100% dans
+                   .goalCard textarea) plutôt que 2, le texte défile
+                   horizontalement en tapant au lieu de retourner à la ligne
+                   dans une boîte haute. Même changement sur la zone
+                   hebdomadaire (renderGoalsWeeklyList(), app.js). -->
+              <textarea id="activityGoalsMainInput" rows="1" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
               <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
               <div class="goalMainProgressRow">
                 <div class="goalMainProgressTrack"><div class="goalMainProgressFill" id="activityGoalsMainProgressFill"></div></div>

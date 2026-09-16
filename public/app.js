@@ -4458,6 +4458,19 @@
     for (var i = 0; i < pools.length; i++) { if (pools[i].key === key) return pools[i].label; }
     return GOALS_CATEGORY_LABELS[key] || key;
   }
+  // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien : « la
+  // couleur qui encadre l'objectif périodique et les objectifs hebdomadaires
+  // soit la même nuance [...] que la couleur choisie [...] pour la
+  // catégorie » — source unique de cette couleur, réutilisée par la carte
+  // objectif périodique (.goalMainCard), les cartes hebdomadaires
+  // (.goalWeeklyCard) et le calendrier (renderGoalsCalendarDays()), pour que
+  // les 3 restent identiques par construction plutôt que par 3 calculs
+  // séparés. Violet par défaut pour les 3 catégories fixes historiques (pas
+  // de couleur propre, `color: null`) — même repli que renderGoalsGrid().
+  function currentGoalsCategoryColor() {
+    var cat = activeGoalsCategories().filter(function (c) { return c.key === currentGoalsCategory; })[0];
+    return (cat && cat.color) || 'var(--purple)';
+  }
   // 15 septembre 2026 (discussion D — Calendrier & intégrations) : numéro de
   // requête pour le calendrier de la page 2 (garde-fou anti-réponse-en-retard,
   // voir loadGoalsCalendarDays()/closeGoalsDetail() plus bas).
@@ -4715,6 +4728,11 @@
 
         var card = document.createElement('div');
         card.className = 'goalCard goalWeeklyCard';
+        // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+        // même couleur de contour que la carte objectif périodique
+        // (.goalMainCard), toutes deux à la nuance de la catégorie —
+        // currentGoalsCategoryColor() ci-dessus.
+        card.style.borderColor = currentGoalsCategoryColor();
 
         var label = document.createElement('p');
         label.className = 'goalCardLabel';
@@ -4728,8 +4746,12 @@
           card.appendChild(carriedHint);
         }
 
+        // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+        // « la zone de texte [...] moins grande [...] mais plus longue » —
+        // 1 ligne pleine largeur plutôt que 2, même changement que
+        // #activityGoalsMainInput (index.html).
         var input = document.createElement('textarea');
-        input.rows = 2;
+        input.rows = 1;
         input.maxLength = 300;
         input.placeholder = t('Objectif de cette semaine (optionnel)');
         input.value = w ? w.text : '';
@@ -4818,6 +4840,14 @@
     // depuis #goalsDetailTitle, voir openGoalsDetail() plus bas.
     var catLabelEl = $('activityGoalsCategoryLabel');
     if (catLabelEl) catLabelEl.textContent = t(goalsCategoryLabel(currentGoalsCategory));
+
+    // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // « la couleur qui encadre l'objectif périodique [...] soit la même
+    // nuance [...] attribuée à la catégorie » — remplace le violet fixe de
+    // .goalMainCard (styles.css) par la couleur de la catégorie courante,
+    // même source que le calendrier ci-dessous (currentGoalsCategoryColor()).
+    var mainCardEl = $('activityGoalsMainCard');
+    if (mainCardEl) mainCardEl.style.borderColor = currentGoalsCategoryColor();
 
     var mainInput = $('activityGoalsMainInput');
     mainInput.value = period.mainGoalText || '';
@@ -5052,11 +5082,11 @@
     box.innerHTML = '';
     // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
     // « chaque dimanche entouré par la couleur dédiée à la catégorie » —
-    // même source que renderGoalsGrid() (activeGoalsCategories()[].color,
-    // null pour les 3 catégories fixes historiques, qui gardent alors
-    // l'accent violet déjà utilisé partout ailleurs sur cette page).
-    var goalsCal = activeGoalsCategories().filter(function (c) { return c.key === currentGoalsCategory; })[0];
-    var goalsCalCatColor = (goalsCal && goalsCal.color) || 'var(--purple)';
+    // 16 septembre 2026 : calcul déplacé dans currentGoalsCategoryColor()
+    // ci-dessus (réutilisée aussi par .goalMainCard/.goalWeeklyCard) plutôt
+    // que recalculé ici, pour que les 3 endroits restent identiques par
+    // construction.
+    var goalsCalCatColor = currentGoalsCategoryColor();
     days.forEach(function (day, idx) {
       // "Dernier jour de la semaine" au sens du volet Objectifs (bloc de 7
       // jours depuis le début de la période, pas forcément un dimanche
@@ -5126,10 +5156,19 @@
         }
         var weekProgress = document.createElement('div');
         weekProgress.className = 'goalsCalendarWeekProgress';
-        var weekProgressLabel = document.createElement('span');
+        // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+        // « cliquer sur objectif de la semaine à réaliser [...] rentrer
+        // manuellement l'objectif » — <button> plutôt que <span> (même
+        // motif que le badge "S1"-"S4" ci-dessus, weekEl), ouvre le même
+        // éditeur (openGoalsWeekEditor(), déjà la saisie manuelle du texte
+        // hebdomadaire, textarea de renderGoalsWeeklyList()).
+        var weekProgressLabel = document.createElement('button');
+        weekProgressLabel.type = 'button';
         weekProgressLabel.className = 'goalsCalendarWeekProgressLabel';
         weekProgressLabel.style.color = goalsCalCatColor;
         weekProgressLabel.textContent = t('Objectif de la semaine à réaliser');
+        weekProgressLabel.title = t('Objectif de cette semaine');
+        weekProgressLabel.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
         weekProgress.appendChild(weekProgressLabel);
         var weekProgressTrack = document.createElement('div');
         weekProgressTrack.className = 'goalsCalendarWeekProgressTrack';
