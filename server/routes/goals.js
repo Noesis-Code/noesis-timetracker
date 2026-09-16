@@ -92,7 +92,12 @@ router.get('/activities/:id/goals/all', (req, res) => {
     active.concat(frozen).forEach((c) => {
       byCategory[c.key] = goals.planningForActivity(activityId, c.key);
     });
-    res.json({ categories: active, frozenCategories: frozen, byCategory });
+    // 16 septembre 2026 (9e passage) : maxCategories ajouté ici aussi (déjà
+    // renvoyé par GET .../goals/categories) — le nouveau bouton « + » du
+    // volet Objectifs (renderGoalsGridHead(), app.js) doit savoir si le
+    // plafond est atteint SANS requête séparée, ce point d'entrée étant déjà
+    // celui que reloadGoalsAll() appelle à chaque ouverture/rafraîchissement.
+    res.json({ categories: active, frozenCategories: frozen, byCategory, maxCategories: goals.MAX_CUSTOM_CATEGORIES });
   } catch (err) {
     handleGoalsError(res, err);
   }

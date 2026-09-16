@@ -2216,6 +2216,21 @@
           <div id="goalsGrid" class="goalsGrid"></div>
         </div>
 
+        <!-- Ajout rapide d'une catégorie directement depuis ce volet (9e
+             passage, 16 septembre 2026, demande d'Emilien : « cela me
+             permet de rajouter des catégories directement depuis le volet
+             objectif »), ouvert par le bouton + de renderGoalsGridHead()
+             (app.js), positionné en JS (toggleGoalsQuickAddCategory()) sous
+             ce bouton. Même route/logique que le formulaire d'ajout du
+             panneau de gestion (fenêtre activité, section Tâches) — voir
+             submitGoalsQuickAddCategory(). -->
+        <div id="goalsQuickAddCategory" class="goalsQuickAddCategory hidden">
+          <input type="text" id="goalsQuickAddCategoryInput" placeholder="Nouvelle catégorie" maxlength="60">
+          <button type="button" class="iconBtn" id="goalsQuickAddCategoryConfirmBtn">Ajouter</button>
+          <button type="button" class="iconBtn" id="goalsQuickAddCategoryCancelBtn">Annuler</button>
+          <p id="goalsQuickAddCategoryMsg" class="goalsQuickAddCategoryMsg"></p>
+        </div>
+
         <!-- Rail tactile du bord gauche (5e passage, 15 septembre 2026,
              demande d'Emilien : « je souhaite les mettre sur la verticale à
              gauche [...] et je souhaite qu'il s'affiche uniquement lorsque
