@@ -4392,7 +4392,12 @@ button { -webkit-user-select: none; user-select: none; }
   font-size: 11px; font-weight: 700; color: var(--text-light);
   text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 4px;
 }
-.goalsWeeklyList textarea { font-size: 13px; padding: 6px 8px; }
+/* 16 septembre 2026 (12e passage), demande d'Emilien : « réduit les textes
+   d'écriture des objectifs hebdomadaires, divise-le par 0,33 » — 13px × 0,33
+   ≈ 4px, appliqué tel quel ci-dessous. ⚠️ À très peu de chose près la
+   limite de lisibilité sur la plupart des écrans — à confirmer par Emilien
+   une fois vu en vrai, avant de considérer ce réglage définitif. */
+.goalsWeeklyList textarea { font-size: 4px; padding: 6px 8px; }
 .goalsWeeklyList .goalEstimateHint,
 .goalsWeeklyList .goalActualHint { margin-top: 4px; }
 .goalsWeeklyList .goalStatusRow { margin-top: 6px; gap: 4px; }

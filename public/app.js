@@ -4720,6 +4720,24 @@
     if (index === -1) return 'var(--purple)';
     return subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
   }
+
+  // 16 septembre 2026 (12e passage) : teinte de fond à partir de la couleur
+  // de catégorie, pour rendre cette couleur "plus présente" sur un fond de
+  // carte sans toucher au texte (demande d'Emilien, .goalMainCard). Gère les
+  // deux formes que renvoie currentGoalsCategoryColor() : un hex #rrggbb
+  // (cas normal, converti en rgba avec l'opacité voulue) ou son repli
+  // littéral 'var(--purple)' (catégorie introuvable) — --purple-rgb existe
+  // déjà (voir .goalCard textarea:focus un peu plus bas dans ce fichier/
+  // styles.css) précisément pour ce genre de conversion.
+  function categoryColorTint(colorValue, alpha) {
+    if (colorValue && colorValue.charAt(0) === '#' && colorValue.length >= 7) {
+      var r = parseInt(colorValue.slice(1, 3), 16);
+      var g = parseInt(colorValue.slice(3, 5), 16);
+      var b = parseInt(colorValue.slice(5, 7), 16);
+      return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    }
+    return 'rgba(var(--purple-rgb), ' + alpha + ')';
+  }
   // 15 septembre 2026 (discussion D — Calendrier & intégrations) : numéro de
   // requête pour le calendrier de la page 2 (garde-fou anti-réponse-en-retard,
   // voir loadGoalsCalendarDays()/closeGoalsDetail() plus bas).
@@ -5040,6 +5058,17 @@
   function renderGoalsWeeklyList(period) {
     var box = $('activityGoalsWeeklyList');
     box.innerHTML = '';
+    // 16 septembre 2026 (12e passage), demande d'Emilien : « les objectifs
+    // hebdomadaires [...] entourés par la même nuance de couleur attribuée à
+    // la catégorie » — même source que mainCardEl plus bas
+    // (currentGoalsCategoryColor()), posée sur le cadre UNIQUE qui entoure
+    // les 4 semaines (.goalsWeeklyList) plutôt que sur chaque semaine
+    // individuellement : ce cadre partagé est un choix délibéré antérieur
+    // (voir styles.css, commentaire au-dessus de .goalsWeeklyList) pour que
+    // l'objectif périodique reste au premier plan — je le conserve, je ne
+    // fais que le colorer. Le fond gris entre les semaines (séparateurs de
+    // 1px) reste neutre, seul le contour extérieur change.
+    box.style.borderColor = currentGoalsCategoryColor();
     for (var weekIndex = 1; weekIndex <= 4; weekIndex += 1) {
       (function (weekIndex) {
         var w = null;
@@ -5169,7 +5198,20 @@
     // .goalMainCard (styles.css) par la couleur de la catégorie courante,
     // même source que le calendrier ci-dessous (currentGoalsCategoryColor()).
     var mainCardEl = $('activityGoalsMainCard');
-    if (mainCardEl) mainCardEl.style.borderColor = currentGoalsCategoryColor();
+    if (mainCardEl) {
+      var mainCatColor = currentGoalsCategoryColor();
+      mainCardEl.style.borderColor = mainCatColor;
+      // 16 septembre 2026 (12e passage), demande d'Emilien : « la couleur
+      // plus présente au niveau du gris entre le bord de la section et le
+      // texte d'écriture [...] conserve la couleur actuelle des textes » —
+      // le fond gris neutre de .goalCard (var(--card)) est remplacé par une
+      // teinte de la couleur de catégorie ; le texte n'est pas touché, il
+      // garde var(--text)/var(--text-light) posés par .goalCard/.goalCard
+      // textarea. Voir categoryColorTint() plus bas : gère aussi bien un hex
+      // (#rrggbb, cas normal) que le repli 'var(--purple)' (currentGoalsCategoryColor(),
+      // catégorie introuvable dans la liste active).
+      mainCardEl.style.background = categoryColorTint(mainCatColor, 0.14);
+    }
 
     var mainInput = $('activityGoalsMainInput');
     mainInput.value = period.mainGoalText || '';
