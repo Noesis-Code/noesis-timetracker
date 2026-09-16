@@ -2047,6 +2047,30 @@ body.scrollLock { overflow: hidden; }
      apporté min-height:0 et margin-bottom:0, non voulus pour ce composeur). */
   resize: none; overflow: hidden; line-height: 1.35;
 }
+/* 16 septembre 2026 (discussion "Objectifs — C", 4e passage), demande
+   d'Emilien : « lorsque j'écris, le pointeur se positionne en bas de la
+   case, or je souhaite qu'il se positionne au niveau de l'écriture
+   "écrire aux membres..." ».
+   Cause : #communityDiscussionInput est la SEULE instance de
+   mountMessageThread() (app.js) à ne porter ni .pollAutoGrow ni son
+   min-height:0 — volontairement, voir le commentaire du 11 septembre 2026
+   juste au-dessus (« non voulus pour ce composeur »), qui laisse donc
+   min-height:56px (~2 lignes) s'appliquer. Au repos, le champ est donc
+   deux fois plus haut que le texte du placeholder (1 ligne) : le
+   placeholder reste ancré en haut de la case, mais le curseur, lui, se
+   positionne au premier caractère du contenu — qui, sur certains moteurs
+   mobiles, se rend au bas de cette réserve de hauteur plutôt qu'à sa
+   hauteur de ligne réelle (même divergence WebKit que le 11 septembre,
+   ici révélée par un min-height plus généreux que le contenu).
+   #subProjectMessageInput et #profileDiscussionCommunityInput, les deux
+   AUTRES composeurs de mountMessageThread(), portent déjà .pollAutoGrow
+   (donc min-height:0) et n'ont jamais fait l'objet de ce signalement —
+   même correctif ici, ciblé sur cet id seul plutôt que sur la classe
+   partagée .chatComposerRow textarea (qui touche aussi le composeur de
+   sous-projet, non concerné) : la case au repos retrouve la hauteur d'une
+   seule ligne, exactement celle du placeholder, donc plus aucun écart
+   possible entre les deux. */
+#communityDiscussionInput { min-height: 0; }
 /* ⚠️ Bouton centré verticalement dans la zone de saisie (demande d'Emilien :
    « le bouton envoyer [...] centré entre le haut et le bas de la zone
    texte »). `top: 50%` + translation plutôt que `bottom` : la hauteur du

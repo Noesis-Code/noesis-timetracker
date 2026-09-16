@@ -2,7 +2,37 @@
 <html lang="fr" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<!-- 16 septembre 2026 (discussion "Objectifs — C", 4e passage), demande
+     d'Emilien : « quand le clavier sort je souhaite que les barres du haut
+     [...] restent en haut de l'écran, je ne veux pas que la bulle monte
+     jusqu'en haut ». #activityPage (et les autres pages plein écran,
+     position:fixed;inset:0) anchrent leur en-tête HORS de leur zone
+     défilante (#activityPageScroll) — donc déjà "épinglé" en layout normal.
+     Le problème n'est pas cette structure : c'est que, SANS
+     interactive-widget=resizes-content, le navigateur mobile ne redimensionne
+     PAS le viewport quand le clavier s'ouvre — il le fait seulement PANNER
+     (déplacer la zone visible) pour garder le champ actif au-dessus du
+     clavier. Un élément position:fixed;inset:0 reste ancré au viewport de
+     LAYOUT (inchangé), donc la zone visible réellement montrée à l'écran
+     glisse dessus — c'est ce qui donne l'impression que "la bulle monte".
+     `resizes-content` fait RÉELLEMENT rétrécir le viewport (donc 100%/100dvh)
+     à l'ouverture du clavier plutôt que de faire panner la page : l'en-tête
+     (flex:0 0 auto, hors de la zone défilante) reste visible en haut, et
+     #activityPageScroll (flex:1 1 auto) absorbe seul la réduction de hauteur.
+     ⚠️ Portée VOLONTAIREMENT globale (la balise viewport ne peut pas être
+     scopée à une seule page) : agit sur TOUT champ texte de l'app, pas
+     seulement le composeur de discussion d'activité visé par la demande.
+     Support : Chrome/Android depuis 2023, Safari iOS depuis la version 17.4
+     (mars 2024) — les navigateurs plus anciens ignorent silencieusement le
+     mot-clé inconnu et gardent leur comportement actuel (aucune régression
+     possible sur eux). Ce projet avait précédemment abandonné une mesure
+     dynamique en JS de la hauteur de clavier (VisualViewport, 3 septembre
+     2026, voir .tabbar/.tabbarHidden plus bas dans app.js) faute de
+     fiabilité — ceci est une approche différente, déclarative, qui ne mesure
+     rien : à REVALIDER PAR EMILIEN SUR UN VRAI TÉLÉPHONE avant de considérer
+     ce point clos, aucun appareil physique disponible dans cette session
+     pour le confirmer visuellement. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Noèsis — TimeTracker</title>
 
 <!-- ===================== PWA (volet Déploiement / Mobile, 30 août 2026) =====
