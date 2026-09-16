@@ -817,6 +817,66 @@
     })();
   }
 
+  // 16 septembre 2026 (Design) : Emilien a signalé, après le passage
+  // précédent (ajout de `interactive-widget=resizes-content` à la balise
+  // viewport, index.html), que le problème reste présent par endroits — et a
+  // tranché que ce n'est PAS du cas par cas : « je souhaite toujours que
+  // l'entête de l'application reste fixe quand j'ouvre le clavier et que les
+  // données defilent en dessous ». `resizes-content` DEVRAIT suffire à lui
+  // seul (le navigateur redimensionne alors réellement le viewport de mise
+  // en page, donc .topbar — position:fixed;top:0 — n'a structurellement plus
+  // de raison de bouger), mais son support dépend de la version du
+  // navigateur (Safari iOS 17.4+, Chrome/Android 2023+) et n'a pas pu être
+  // confirmé sur l'appareil d'Emilien. Ce correctif ne dépend pas de ce
+  // support : il compense DIRECTEMENT, en JS, l'écart entre le viewport
+  // visuel (`window.visualViewport`) et le viewport de mise en page pendant
+  // qu'un champ texte a le focus. Si `resizes-content` est actif et honoré,
+  // cet écart (`visualViewport.offsetTop`) vaut 0 et rien ne change ; s'il
+  // ne l'est pas (navigateur trop ancien, ou tout autre cas de panning), la
+  // .topbar est translatée exactement de la distance dont la page a
+  // "panné", annulant l'effet de flottement quelle que soit sa cause
+  // précise — sans hypothèse sur pourquoi le panning a eu lieu, juste sur le
+  // fait qu'il ait eu lieu. `visualViewport.offsetTop` est un signal de
+  // POSITION (où est le coin supérieur gauche du viewport visuel), pas de
+  // hauteur de clavier — ce n'est pas la même mesure que celle abandonnée
+  // aux onzième/douzième passages pour `.tabbar` (`visualViewport.height`,
+  // rendue peu fiable par les barres d'accessoires du clavier) : rien
+  // n'indique que ce signal-ci souffre du même défaut, mais à confirmer par
+  // Emilien sur son téléphone comme tout correctif clavier/viewport de ce
+  // journal.
+  if (_isCoarsePointer && window.visualViewport) {
+    (function () {
+      var topbarEl = document.querySelector('.topbar');
+      if (!topbarEl) return;
+      var vv = window.visualViewport;
+      var pinned = false;
+      var unpinTimer = null;
+      function syncTopbarPin() {
+        if (!pinned) return;
+        topbarEl.style.transform = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
+      }
+      document.addEventListener('focusin', function (e) {
+        if (!_isTextInputEl(e.target)) return;
+        if (unpinTimer) { clearTimeout(unpinTimer); unpinTimer = null; }
+        pinned = true;
+        syncTopbarPin();
+      }, true);
+      document.addEventListener('focusout', function (e) {
+        if (!_isTextInputEl(e.target)) return;
+        // Même délai d'absorption que le mécanisme tabbarHidden ci-dessus,
+        // pour la même raison (passage d'un champ à l'autre dans un même
+        // formulaire sans réinitialiser la position entre les deux).
+        unpinTimer = setTimeout(function () {
+          if (_isTextInputEl(document.activeElement)) return;
+          pinned = false;
+          topbarEl.style.transform = '';
+        }, 80);
+      }, true);
+      vv.addEventListener('resize', syncTopbarPin);
+      vv.addEventListener('scroll', syncTopbarPin);
+    })();
+  }
+
   // 3 septembre 2026, suite (Design) : Emilien souhaite qu'un volet dont le
   // contenu tient déjà entièrement dans l'écran (ex. Chrono, Activité selon
   // ce qu'ils contiennent à l'instant) ne présente AUCUN mouvement au
@@ -5020,12 +5080,14 @@
       }
     }
 
-    // 15 septembre 2026 (discussion "Objectifs — D") : les 4 cartes hebdo ne
-    // s'affichent plus en permanence — voir openGoalsWeekEditor()/
-    // closeGoalsWeekEditor() plus bas, déclenchées depuis le calendrier.
-    // Un changement de période/catégorie referme l'éditeur s'il était ouvert
-    // sur une semaine qui n'a plus de sens ici.
-    closeGoalsWeekEditor();
+    // 16 septembre 2026 (discussion "Objectifs — D", 7e passage) : retour à
+    // un affichage PERMANENT des 4 cartes hebdomadaires (défait la fusion du
+    // 15 septembre soir, qui les masquait derrière une bulle ouverte depuis
+    // le calendrier) — demande explicite d'Emilien, « reprends la version
+    // précédente [...] une sorte de sommaire [...] qui affiche tous les
+    // objectifs hebdomadaires de la période ». Rendues à chaque période
+    // affichée, comme le reste de cette fonction.
+    renderGoalsWeeklyList(period);
 
     var bilan = $('activityGoalsBilan');
     if (period.isPast && period.weeklies.length) {
@@ -5110,54 +5172,26 @@
       });
   }
 
-  // ----- Éditeur d'objectif hebdomadaire, ouvert depuis le calendrier -----
-  // 15 septembre 2026 (discussion "Objectifs — D") : réutilise
-  // renderGoalsWeeklyList(period) telle quelle (les 4 cartes, avec estimation/
-  // statut/assignation — rien de cette logique ne change), mais n'en affiche
-  // qu'UNE — celle de la semaine cliquée — le temps que l'éditeur est ouvert.
+  // ----- Aller à la carte hebdomadaire correspondante, depuis le calendrier -----
+  // 16 septembre 2026 (discussion "Objectifs — D", 7e passage) : les 4 cartes
+  // hebdomadaires (renderGoalsWeeklyList(), inchangée) sont de nouveau
+  // PERMANENTES entre l'objectif périodique et le calendrier (voir
+  // renderActivityGoals() plus haut) — sur demande explicite d'Emilien, qui
+  // a écarté la bulle flottante introduite au passage précédent (« ce n'est
+  // pas ce que j'ai demandé [...] reprends la version précédente »). Un clic
+  // sur le badge "S1"-"S4" ou le libellé du calendrier ne fait donc plus
+  // apparaître ni disparaître quoi que ce soit : il fait simplement défiler
+  // jusqu'à la carte de cette semaine, déjà visible dans le sommaire
+  // au-dessus, puis y place le focus.
   function openGoalsWeekEditor(period, weekIndex) {
-    var wrap = $('activityGoalsWeekEditorWrap');
-    if (!wrap) return;
-    renderGoalsWeeklyList(period);
-    var label = wrap.querySelector('.goalsWeeklyLabel');
-    if (label) label.textContent = t('Objectif — semaine') + ' ' + weekIndex;
-    var cards = $('activityGoalsWeeklyList').children;
-    var target = null;
-    for (var i = 0; i < cards.length; i++) {
-      var isTarget = i === (weekIndex - 1);
-      cards[i].classList.toggle('hidden', !isTarget);
-      if (isTarget) target = cards[i];
-    }
-    wrap.classList.remove('hidden');
-    // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
-    // d'Emilien : « qu'une bulle s'affiche en haut » — l'ancien
-    // scrollIntoView({block:'center'}) pouvait finir en partie masqué par le
-    // clavier virtuel sur mobile (capture d'écran fournie). .goalsWeekEditorWrap
-    // passe en position: fixed pendant que .hidden est retiré (styles.css) ;
-    // le top exact est lu en direct sur la hauteur réelle de l'en-tête de
-    // cette page (#goalsDetailPage, .activityPageHeader — varie avec
-    // env(safe-area-inset-top) sur les téléphones à encoche) plutôt que codé
-    // en dur, même principe que syncTopbarHeightVar() ailleurs dans ce
-    // fichier. { preventScroll: true } : le focus() du textarea ne doit plus
-    // déclencher le défilement du navigateur, la bulle fixe s'en charge déjà.
-    var header = wrap.closest('.communityMembersModalCard');
-    header = header ? header.querySelector('.activityPageHeader') : null;
-    wrap.style.top = (header ? Math.round(header.getBoundingClientRect().bottom) : 16) + 'px';
-    if (target) {
-      var ta = target.querySelector('textarea');
-      if (ta) ta.focus({ preventScroll: true });
-    }
+    var list = $('activityGoalsWeeklyList');
+    if (!list) return;
+    var target = list.children[weekIndex - 1];
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    var ta = target.querySelector('textarea');
+    if (ta) ta.focus();
   }
-
-  function closeGoalsWeekEditor() {
-    var wrap = $('activityGoalsWeekEditorWrap');
-    if (wrap) wrap.classList.add('hidden');
-  }
-
-  (function bindGoalsWeekEditorClose() {
-    var btn = $('activityGoalsWeekEditorClose');
-    if (btn) btn.addEventListener('click', closeGoalsWeekEditor);
-  })();
 
   // ----- Tâche du jour, ajoutée depuis le calendrier -----
   // 15 septembre 2026 (discussion "Objectifs — D") : POST .../goals-days/task
@@ -5507,9 +5541,9 @@
   // 16 septembre 2026 (9e passage) : jusqu'ici, ajouter une catégorie exigeait
   // d'ouvrir la fenêtre de l'activité (section Tâches, panneau « gérer mes
   // catégories », 7e passage) — Emilien veut pouvoir le faire SANS quitter le
-  // volet Objectifs. Petite bulle flottante (même convention que
-  // .goalsWeekEditorWrap : position: fixed, jamais sticky — bug de rebond
-  // élastique iOS/WebKit déjà documenté), positionnée en JS sous le bouton +
+  // volet Objectifs. Petite bulle flottante (position: fixed, jamais sticky —
+  // bug de rebond élastique iOS/WebKit déjà documenté), positionnée en JS
+  // sous le bouton +
   // qui l'ouvre (comme .goalsScrubLabel plus haut) plutôt qu'un offset CSS
   // fixe, puisque sa position dépend du nombre de catégories déjà affichées.
   // Réutilise la MÊME route que le panneau de gestion (POST .../categories)
@@ -5698,7 +5732,6 @@
     // loadGoalsCalendarDays() plus haut) : une réponse en retard ne doit
     // jamais peindre une liste de jours après que la page 2 s'est refermée.
     goalsCalendarRequestId += 1;
-    closeGoalsWeekEditor();
     updateGoalsScrubVisibility();
   }
 

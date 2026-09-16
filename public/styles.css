@@ -4204,19 +4204,34 @@ button { -webkit-user-select: none; user-select: none; }
    renderGoalsGridHead() (app.js, nuance automatique de la couleur de
    l'activité) : `color: #fff` fixe retiré, le texte suit désormais aussi un
    style inline (readableTextOn(), app.js) puisque certaines nuances très
-   claires rendraient un texte blanc fixe illisible. */
+   claires rendraient un texte blanc fixe illisible.
+   16 septembre 2026 (10e passage), demande d'Emilien : « laisse plus
+   d'espace entre les catégories et la première bulle de l'arbre » —
+   margin-bottom passe de 0 à 18px pour détacher visiblement l'en-tête de
+   catégories de la grille de périodes juste en dessous (.goalsGrid,
+   son propre gap de 32px entre périodes reste inchangé, seule la
+   transition en-tête → 1ère ligne gagne de l'espace). */
 .goalsGridHead {
-  display: flex; align-items: center; gap: 10px; padding: 10px 4px 6px; margin-bottom: 0;
+  display: flex; align-items: center; gap: 10px; padding: 10px 4px 6px; margin-bottom: 18px;
 }
 /* 16 septembre 2026 (9e passage), demande d'Emilien : « je souhaite que les
    bulles des titres de catégories soient rectangulaires et ressemblent aux
    boutons du nom de l'activité en haut de la page » — border-radius passe de
-   999px (pilule) à var(--radius-lg), même rayon que .activityChoiceBtn (les
-   gros boutons rectangulaires de choix d'activité, Chrono) : même famille
-   visuelle, pas une nouvelle convention. */
+   999px (pilule) à un coin arrondi, même famille visuelle que
+   .activityChoiceBtn (les gros boutons rectangulaires de choix d'activité,
+   Chrono), sans reprendre exactement son var(--radius-lg) : ce badge ne fait
+   qu'environ 28px de haut (padding 6px + texte 11px) contre ~56px pour
+   .activityChoiceBtn (padding 18px + texte 17px) — appliquer les mêmes 14px
+   à une hauteur deux fois moindre revient géométriquement à un rayon égal à
+   la moitié de la hauteur, donc EXACTEMENT une pilule (vérifié à l'écran,
+   16 septembre 2026, 10e passage : le badge restait visuellement une pilule
+   malgré ce changement). var(--radius-sm) (8px, environ 28% de la hauteur)
+   se voit clairement comme un coin de rectangle plutôt qu'un demi-cercle,
+   tout en gardant le même arrondi « doux » que le reste de l'app (déjà
+   utilisé par .goalStatusBtn, bouton compact similaire). */
 .goalsGridHeadCell {
   flex: 1 1 0; min-width: 0; text-align: center; padding: 6px 4px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   font-size: 11px; font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
@@ -4232,8 +4247,8 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .goalsGridHeadAddBtn:active { transform: scale(0.92); }
 /* Bulle d'ajout rapide de catégorie, ouverte par .goalsGridHeadAddBtn —
-   même convention que .goalsWeekEditorWrap (position: fixed, jamais sticky,
-   bug de rebond élastique iOS/WebKit déjà documenté) ; positionnée en JS
+   position: fixed, jamais sticky (bug de rebond élastique iOS/WebKit déjà
+   documenté) ; positionnée en JS
    (toggleGoalsQuickAddCategory(), app.js) sous le bouton qui l'ouvre, comme
    .goalsScrubLabel plus bas, plutôt qu'un offset codé en dur ici. */
 .goalsQuickAddCategory {
@@ -4381,46 +4396,18 @@ button { -webkit-user-select: none; user-select: none; }
 .goalsCalendarMinutes { flex-shrink: 0; width: 48px; text-align: right; color: var(--text); font-weight: 600; }
 .goalsCalendarMinutes.empty { color: var(--text-light); font-weight: 400; }
 
-/* ===== Fusion calendrier ↔ objectifs hebdo / tâche du jour, 15 septembre
-   2026 (soir, discussion "Objectifs — D") : demande d'Emilien — les 4 cartes
-   hebdo restent un mécanisme à part (renderGoalsWeeklyList, inchangé) mais ne
-   s'affichent plus en continu ; le dernier jour de chaque semaine les ouvre
-   ici (.goalsWeekEditorWrap). Chaque jour permet aussi d'ajouter une tâche
-   ponctuelle, transmise à Sous-projets (server/lib/calendarfeed.js). */
-/* 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
-   d'Emilien : « qu'une bulle s'affiche en haut » plutôt que le défilement
-   inline d'avant (scrollIntoView, pouvait finir masqué par le clavier
-   virtuel — capture d'écran fournie par Emilien). position: fixed n'a
-   d'effet que pendant que .hidden (display: none) est retiré par
-   openGoalsWeekEditor() (app.js), qui pose aussi `top` en direct sur la
-   hauteur réelle de l'en-tête de la page (76px ci-dessous : repli avant que
-   ce calcul ne s'exécute, valeur approximative du même en-tête sans encoche).
-   #goalsDetailPage/.communityMembersModalCard n'ont ni transform ni filter
-   (vérifié) : ce position: fixed s'ancre donc bien à la fenêtre, pas à une
-   carte ancêtre. */
-.goalsWeekEditorWrap {
-  position: fixed; top: 76px; left: 12px; right: 12px; z-index: 15;
-  max-width: 480px; margin: 0 auto;
-  max-height: calc(100vh - 92px); overflow-y: auto;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-elevated);
-  padding: 14px;
-}
-.goalsWeekEditorHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.goalsWeekEditorHead .goalsWeeklyLabel { margin: 0; }
-.goalsWeekEditorCloseBtn {
-  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; line-height: 1; color: var(--text-light);
-}
-/* La bulle n'affiche jamais qu'UNE seule carte à la fois (les 3 autres
-   restent .hidden, voir openGoalsWeekEditor()) — sans cette règle, la carte
-   visible ne prenait qu'UNE des deux colonnes de .goalsWeeklyList
-   (grid-template-columns: repeat(2, 1fr) plus haut), donc seulement la
-   moitié de la largeur de la bulle : c'est très exactement le « je souhaite
-   qu'elle soit plus large » qu'Emilien signale, avant même la question de
-   hauteur (rows) déjà traitée au passage précédent. */
-.goalsWeekEditorWrap .goalsWeeklyList { grid-template-columns: 1fr; }
+/* ===== Calendrier ↔ objectifs hebdo / tâche du jour =====
+   15 septembre 2026 (soir) → 16 septembre 2026 (7e passage) : la fusion du
+   15 septembre (soir), qui masquait les 4 cartes hebdomadaires derrière une
+   bulle ouverte depuis le dernier jour de chaque semaine, est défaite sur
+   demande explicite d'Emilien (« ce n'est pas ce que j'ai demandé [...]
+   reprends la version précédente [...] une sorte de sommaire »). Les 4
+   cartes (renderGoalsWeeklyList, inchangée) sont de nouveau permanentes,
+   juste au-dessus (.goalsWeeklyList) — un clic sur le badge "S1"-"S4" ou le
+   libellé ci-dessous se contente désormais d'y faire défiler la page
+   (openGoalsWeekEditor(), app.js), sans bulle ni position: fixed. Chaque
+   jour permet par ailleurs d'ajouter une tâche ponctuelle, transmise à
+   Sous-projets (server/lib/calendarfeed.js) — inchangé. */
 
 .goalsCalendarWeekBadge.clickable { cursor: pointer; color: var(--purple); background: rgba(var(--purple-rgb), 0.14); }
 .goalsCalendarWeekBadge.clickable:hover { background: rgba(var(--purple-rgb), 0.22); }

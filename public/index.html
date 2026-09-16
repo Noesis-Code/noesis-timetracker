@@ -3031,21 +3031,23 @@
               </div>
             </div>
 
-            <!-- 15 septembre 2026 (discussion "Objectifs — D") — révisé
-                 : les 4 cartes hebdomadaires restent le même mécanisme
-                 qu'avant (renderGoalsWeeklyList() dans app.js, inchangée),
-                 mais ne s'affichent plus en permanence — fusionnées avec le
-                 calendrier ci-dessous : un clic sur le dernier jour d'une
-                 semaine (mis en évidence, badge "S1"-"S4") ouvre ici la carte
-                 de CETTE semaine. Fermé par défaut, ouvert/rempli par
-                 openGoalsWeekEditor(). -->
-            <div id="activityGoalsWeekEditorWrap" class="goalsWeekEditorWrap hidden">
-              <div class="goalsWeekEditorHead">
-                <p class="goalCardLabel goalsWeeklyLabel">Objectif de la semaine</p>
-                <button type="button" id="activityGoalsWeekEditorClose" class="iconBtn goalsWeekEditorCloseBtn" aria-label="Fermer">&times;</button>
-              </div>
-              <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
-            </div>
+            <!-- 16 septembre 2026 (discussion "Objectifs — D", 7e passage) —
+                 retour à l'affichage PERMANENT des 4 cartes hebdomadaires
+                 entre l'objectif périodique et le calendrier, sur demande
+                 explicite d'Emilien après avoir vu la bulle flottante du
+                 passage précédent (« ce n'est pas ce que j'ai demandé [...]
+                 reprends la version précédente [...] une sorte de sommaire
+                 [...] qui affiche tous les objectifs hebdomadaires de la
+                 période »). Défait la fusion du 15 septembre (soir) qui les
+                 masquait derrière un clic sur le calendrier — celui-ci fait
+                 maintenant défiler jusqu'à la carte concernée plutôt que
+                 d'ouvrir quoi que ce soit (openGoalsWeekEditor(), app.js).
+                 renderGoalsWeeklyList() elle-même est inchangée : ces 4
+                 cartes ont toujours servi de sommaire de la période (texte,
+                 estimation, statut, assignation), seule leur visibilité
+                 permanente est restaurée ici. -->
+            <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires</p>
+            <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
 
             <!-- 15 septembre 2026 (discussion "Objectifs — D : Calendrier &
                  intégrations"), demande d'Emilien : « intégrer un calendrier
