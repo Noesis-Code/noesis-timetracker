@@ -4827,49 +4827,44 @@
   // rail périodique s'affiche peu importe où je touche l'écran, tant que je
   // maintiens appuyé » — remplace l'ancienne zone dédiée de 32px sur le bord
   // gauche (#goalsScrubZone, seule zone qui répondait au toucher) par une
-  // détection d'APPUI LONG sur toute la surface de la grille
-  // (#goalsGridScroll, en-tête + lignes de période). #goalsScrubZone/
-  // #goalsScrubRail restent des éléments PUREMENT VISUELS (positionnés fixe
-  // sur le bord gauche, voir styles.css) — goalsPeriodFromY() continue de se
-  // baser sur leur rect pour la correspondance verticale doigt→période, ce
-  // qui n'a pas changé, seule la SOURCE des événements pointer change.
+  // détection sur toute la surface de la grille (#goalsGridScroll, en-tête +
+  // lignes de période). #goalsScrubZone/#goalsScrubRail restent des éléments
+  // PUREMENT VISUELS (positionnés fixe sur le bord gauche, voir styles.css)
+  // — goalsPeriodFromY() continue de se baser sur leur rect pour la
+  // correspondance verticale doigt→période, ce qui n'a pas changé, seule la
+  // SOURCE des événements pointer change.
   //
-  // Un simple pointerdown partout sur la grille casserait le clic normal sur
-  // une cellule (ouvre le détail de la période, openGoalsDetail()) et le
-  // swipe horizontal de pagination au-delà de 2 catégories (8e passage) :
-  // d'où un DÉLAI avant activation (GOALS_SCRUB_HOLD_MS) plutôt qu'une
-  // activation immédiate. Un mouvement significatif avant l'écoulement de ce
-  // délai annule la tentative (c'est un scroll/swipe, pas un appui maintenu).
-  // Une fois activé, le clic qui suivrait le relâchement est avalé
-  // (goalsScrubJustEnded) pour ne pas ouvrir accidentellement le détail de la
-  // période sous le doigt.
-  var GOALS_SCRUB_HOLD_MS = 220;
-  var GOALS_SCRUB_MOVE_CANCEL_PX = 10;
+  // 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que
+  // le rail périodique n'apparaisse pas lorsque je reste fixe, mais qu'il
+  // apparaisse uniquement lorsque mon doigt bouge de haut en bas sur
+  // l'écran » — le 9e passage activait le rail après un DÉLAI d'appui
+  // immobile (GOALS_SCRUB_HOLD_MS) ; Emilien signale que ce n'est pas ce
+  // qu'il voulait : un appui qui reste fixe ne doit JAMAIS afficher le
+  // rail, seul un vrai glissement vertical doit l'activer — plus de minuteur
+  // du tout, l'activation se décide uniquement à la DISTANCE parcourue une
+  // fois qu'elle tranche clairement entre vertical (rail) et horizontal
+  // (swipe de pagination entre catégories, 8e passage, jamais concerné).
+  // En dessous du seuil GOALS_SCRUB_MOVE_PX, rien n'est encore tranché — le
+  // clic normal (ouvre le détail de la période, openGoalsDetail()) reste
+  // donc intact pour un simple tap, immobile par définition. Une fois activé,
+  // le clic qui suivrait le relâchement est avalé (goalsScrubJustEnded) pour
+  // ne pas ouvrir accidentellement le détail de la période sous le doigt.
+  var GOALS_SCRUB_MOVE_PX = 14;
 
   (function bindGoalsScrub() {
     var surface = $('goalsGridScroll');
     if (!surface) return;
-    var holdTimer = null;
+    var tracking = false, decided = false;
     var startX = 0, startY = 0, activePointerId = null;
     var justEnded = false;
 
-    function clearHoldTimer() {
-      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
-    }
-
-    function activateScrub(clientY) {
-      goalsScrubbing = true;
-      showGoalsScrub(clientY);
+    function reset() {
+      tracking = false; decided = false; activePointerId = null;
     }
 
     surface.addEventListener('pointerdown', function (e) {
-      clearHoldTimer();
+      tracking = true; decided = false;
       startX = e.clientX; startY = e.clientY; activePointerId = e.pointerId;
-      holdTimer = setTimeout(function () {
-        holdTimer = null;
-        try { surface.setPointerCapture(activePointerId); } catch (err) { /* déjà relâché */ }
-        activateScrub(startY);
-      }, GOALS_SCRUB_HOLD_MS);
     });
     surface.addEventListener('pointermove', function (e) {
       if (goalsScrubbing) {
@@ -4877,32 +4872,39 @@
         showGoalsScrub(e.clientY);
         return;
       }
-      if (!holdTimer) return;
-      // Mouvement avant activation : distingue un vrai appui maintenu
-      // (immobile) d'un scroll/swipe en cours — n'annule PAS le scroll natif
-      // lui-même (aucun preventDefault ici tant que le rail n'est pas actif).
+      if (!tracking || decided) return;
       var dx = e.clientX - startX, dy = e.clientY - startY;
-      if ((dx * dx + dy * dy) > (GOALS_SCRUB_MOVE_CANCEL_PX * GOALS_SCRUB_MOVE_CANCEL_PX)) clearHoldTimer();
+      // Pas encore assez de mouvement dans un sens ou l'autre pour trancher
+      // entre glissement vertical (rail) et swipe horizontal (pagination) —
+      // reste en attente, ne touche à rien tant que ça bouge peu (c'est
+      // peut-être un simple tap en train de se faire).
+      if (Math.abs(dy) < GOALS_SCRUB_MOVE_PX && Math.abs(dx) < GOALS_SCRUB_MOVE_PX) return;
+      decided = true;
+      if (Math.abs(dy) <= Math.abs(dx)) return; // horizontal dominant : swipe de pagination, on laisse filer
+      // Vertical dominant : c'est un glissement haut/bas, on prend la main.
+      try { surface.setPointerCapture(activePointerId); } catch (err) { /* déjà relâché */ }
+      goalsScrubbing = true;
+      e.preventDefault();
+      showGoalsScrub(e.clientY);
     }, { passive: false });
     function endGoalsScrub(e) {
-      clearHoldTimer();
       if (goalsScrubbing) {
         goalsScrubbing = false;
         hideGoalsScrub();
         justEnded = true;
-        // Un seul clic « avalé » par appui long terminé — le prochain clic
-        // normal (nouvel appui bref sur une cellule) doit fonctionner sans
-        // délai supplémentaire.
+        // Un seul clic « avalé » par glissement terminé — le prochain clic
+        // normal (nouveau tap sur une cellule) doit fonctionner sans délai
+        // supplémentaire.
         setTimeout(function () { justEnded = false; }, 0);
       }
       if (activePointerId != null) {
         try { surface.releasePointerCapture(activePointerId); } catch (err) { /* déjà relâché */ }
       }
-      activePointerId = null;
+      reset();
     }
     surface.addEventListener('pointerup', endGoalsScrub);
     surface.addEventListener('pointercancel', endGoalsScrub);
-    // Capture-phase : intercepte le clic issu du relâchement d'un appui long
+    // Capture-phase : intercepte le clic issu du relâchement d'un glissement
     // AVANT qu'il n'atteigne le bouton .goalsGridCell dessous (ouvrirait sinon
     // le détail de la période qui était sous le doigt à la fin du geste).
     surface.addEventListener('click', function (e) {
@@ -5525,80 +5527,76 @@
       span.style.color = readableTextOn(shade);
       head.appendChild(span);
     });
+    // 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que
+    // le bouton + ne s'affiche plus à droite des catégories, mais qu'il
+    // s'affiche au milieu d'une nouvelle page lorsque je défile sur la
+    // droite » — le petit bouton carré du 9e passage (.goalsGridHeadAddBtn,
+    // réduisait la largeur des vraies catégories pour se loger à côté
+    // d'elles) est remplacé par une case DE LA TAILLE D'UNE PAGE ENTIÈRE
+    // (.goalsGridHeadCell--add), ajoutée après les vraies catégories mais
+    // jamais visible à côté d'elles : sa largeur exacte est posée par
+    // syncGoalsAddSlotWidths() (appelée après ce rendu, voir plus bas) une
+    // fois le DOM en place, pas ici (getBoundingClientRect() ici donnerait
+    // la largeur d'AVANT l'ajout de cette case, donc fausse).
     if (categories.length < maxCategories) {
-      var addBtn = document.createElement('button');
-      addBtn.type = 'button';
-      addBtn.className = 'goalsGridHeadAddBtn';
-      addBtn.textContent = '+';
-      addBtn.title = t('Ajouter une catégorie');
-      addBtn.setAttribute('aria-label', t('Ajouter une catégorie'));
-      addBtn.addEventListener('click', function () { toggleGoalsQuickAddCategory(addBtn); });
-      head.appendChild(addBtn);
+      var addCell = document.createElement('button');
+      addCell.type = 'button';
+      addCell.className = 'goalsGridHeadCell--add';
+      addCell.title = t('Ajouter une catégorie');
+      addCell.setAttribute('aria-label', t('Ajouter une catégorie'));
+      addCell.addEventListener('click', goToGoalsCategorySettings);
+      head.appendChild(addCell);
     }
+    window.requestAnimationFrame(syncGoalsAddSlotWidths);
   }
 
-  // ===================== AJOUT RAPIDE D'UNE CATÉGORIE (volet Objectifs) =====
-  // 16 septembre 2026 (9e passage) : jusqu'ici, ajouter une catégorie exigeait
-  // d'ouvrir la fenêtre de l'activité (section Tâches, panneau « gérer mes
-  // catégories », 7e passage) — Emilien veut pouvoir le faire SANS quitter le
-  // volet Objectifs. Petite bulle flottante (position: fixed, jamais sticky —
-  // bug de rebond élastique iOS/WebKit déjà documenté), positionnée en JS
-  // sous le bouton +
-  // qui l'ouvre (comme .goalsScrubLabel plus haut) plutôt qu'un offset CSS
-  // fixe, puisque sa position dépend du nombre de catégories déjà affichées.
-  // Réutilise la MÊME route que le panneau de gestion (POST .../categories)
-  // et, en cas de succès, rafraîchit les DEUX surfaces via
-  // activityGoalsCategoriesRefresh() (déjà symétrique : rafraîchit le
-  // panneau de la fenêtre activité ET cette grille si c'est la même
-  // activité) — aucune duplication de logique de rafraîchissement.
-  function toggleGoalsQuickAddCategory(anchorBtn) {
-    var wrap = $('goalsQuickAddCategory');
-    if (!wrap) return;
-    if (!wrap.classList.contains('hidden')) { closeGoalsQuickAddCategory(); return; }
-    var rect = anchorBtn.getBoundingClientRect();
-    wrap.style.top = Math.round(rect.bottom + 8) + 'px';
-    wrap.style.right = Math.round(window.innerWidth - rect.right) + 'px';
-    wrap.classList.remove('hidden');
-    var msg = $('goalsQuickAddCategoryMsg');
-    if (msg) msg.textContent = '';
-    var input = $('goalsQuickAddCategoryInput');
-    if (input) { input.value = ''; input.focus(); }
-  }
-
-  function closeGoalsQuickAddCategory() {
-    var wrap = $('goalsQuickAddCategory');
-    if (wrap) wrap.classList.add('hidden');
-  }
-
-  function submitGoalsQuickAddCategory() {
-    var input = $('goalsQuickAddCategoryInput');
-    var msg = $('goalsQuickAddCategoryMsg');
-    var label = input ? input.value.trim() : '';
-    if (!label) { if (msg) msg.textContent = t('Nom de catégorie requis.'); return; }
+  // ===================== PAGE « + » (ajout de catégorie, volet Objectifs) ===
+  // 16 septembre 2026 (9e passage) : une bulle flottante locale permettait
+  // d'ajouter une catégorie sans quitter le volet Objectifs. 16 septembre
+  // 2026 (11e passage), Emilien change d'avis sur la FORME (pas le fond) :
+  // « je clique simplement n'importe où sur une nouvelle page qui est vide
+  // [...] et cela me renvoie aux paramètres pour créer une catégorie » — la
+  // bulle locale (.goalsQuickAddCategory, ses champs et ses handlers) est
+  // retirée entièrement, remplacée par une redirection vers le panneau de
+  // gestion existant (fenêtre activité, section Tâches, 7e passage) :
+  // AUCUNE nouvelle UI d'ajout créée ici, seulement une navigation vers
+  // celle qui existe déjà. Même mécanisme de « rejoue le clic qu'une
+  // personne aurait fait » que les redirections depuis une notification
+  // (voir plus bas dans ce fichier, whenElementReady/focusWhenReady autour
+  // de `if (target === 'activity')`) plutôt que de reconstruire les
+  // arguments d'openActivityPage().
+  function goToGoalsCategorySettings() {
     var activityId = currentGoalsActivityId;
     if (!activityId) return;
-    api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label }).then(function () {
-      closeGoalsQuickAddCategory();
-      activityGoalsCategoriesRefresh(activityId);
-    }).catch(function (err) {
-      if (msg) msg.textContent = err.message;
+    switchTab('activity');
+    whenElementReady('#activitiesList .activityRow[data-activity-id="' + activityId + '"] .activityRowHeader', function (header) {
+      header.click();
+      setActivityPageSection('sub');
+      focusWhenReady('#activityGoalsCategoryAddWrap');
     });
   }
 
-  (function bindGoalsQuickAddCategory() {
-    var confirmBtn = $('goalsQuickAddCategoryConfirmBtn');
-    var cancelBtn = $('goalsQuickAddCategoryCancelBtn');
-    var input = $('goalsQuickAddCategoryInput');
-    if (confirmBtn) confirmBtn.addEventListener('click', submitGoalsQuickAddCategory);
-    if (cancelBtn) cancelBtn.addEventListener('click', closeGoalsQuickAddCategory);
-    if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitGoalsQuickAddCategory(); });
-  })();
-  // Referme au clic n'importe où en dehors de la bulle ou du bouton + qui
-  // l'ouvre — même mécanisme que .statsPeriodMenuWrap plus haut dans ce
-  // fichier.
-  document.addEventListener('click', function (e) {
-    if (!e.target.closest('.goalsQuickAddCategory') && !e.target.closest('.goalsGridHeadAddBtn')) closeGoalsQuickAddCategory();
-  });
+  // Largeur de la (ou des) case(s) « page + » — voir le commentaire de
+  // renderGoalsGridHead() ci-dessus : toujours EXACTEMENT une largeur de
+  // page pleine (celle, visible, de #goalsGridScroll), jamais un pourcentage
+  // flex qui se résoudrait de façon imprévisible dans ce conteneur (sa
+  // propre largeur dépend déjà de son contenu débordant, overflow-x: auto).
+  // Appelée après CHAQUE rendu de l'en-tête et de la grille (elle peut créer
+  // ou détruire des .goalsGridHeadCell--add/.goalsGridCell--add à tout
+  // moment) et au redimensionnement (rotation d'écran) — même schéma que
+  // syncGoalsScrubZoneTopVar() plus haut.
+  function syncGoalsAddSlotWidths() {
+    var scroll = $('goalsGridScroll');
+    if (!scroll) return;
+    var w = scroll.clientWidth;
+    if (!w) return;
+    document.querySelectorAll('.goalsGridHeadCell--add, .goalsGridCell--add').forEach(function (el) {
+      el.style.flex = '0 0 ' + w + 'px';
+      el.style.width = w + 'px';
+    });
+  }
+  window.addEventListener('resize', syncGoalsAddSlotWidths);
+  window.addEventListener('orientationchange', syncGoalsAddSlotWidths);
 
   function renderGoalsGrid() {
     var grid = $('goalsGrid');
@@ -5606,6 +5604,15 @@
     grid.innerHTML = '';
     var byCategory = currentGoalsAllPlannings.byCategory || {};
     var categories = activeGoalsCategories();
+    // 16 septembre 2026 (11e passage) : même garde que renderGoalsGridHead()
+    // ci-dessus — la colonne « page + » (voir plus bas dans cette fonction)
+    // n'existe que sous le plafond de catégories, jamais au-delà.
+    var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
+    var showAddSlot = categories.length < maxCategories;
+    // Repère visuel vers le MILIEU du cycle (13 périodes) pour n'y placer le
+    // signe + qu'une seule fois — « je souhaite qu'il s'affiche au milieu
+    // d'une nouvelle page », voir .goalsGridCell--addCenter, styles.css.
+    var addCenterPeriodIndex = 7;
 
     // Index par catégorie : periodIndexInCycle (1-13) → période, limité au
     // CYCLE EN COURS de cette catégorie (planningForActivity renvoie
@@ -5678,12 +5685,28 @@
         });
         currentGoalsPeriodInfo[periodIndex - 1] = repPeriod ? { startDate: repPeriod.startDate, endDate: repPeriod.endDate } : null;
 
+        // 16 septembre 2026 (11e passage) : colonne « page + », une case par
+        // ligne de période — voir le commentaire de .goalsGridHeadCell--add,
+        // styles.css. Cliquable comme n'importe quelle vraie cellule (donc
+        // PAS disabled, à la différence d'une cellule vide sans période),
+        // toutes redirigent vers le même endroit.
+        if (showAddSlot) {
+          var addCell = document.createElement('button');
+          addCell.type = 'button';
+          addCell.title = t('Ajouter une catégorie');
+          addCell.className = 'goalsGridCell goalsGridCell--add' + (periodIndex === addCenterPeriodIndex ? ' goalsGridCell--addCenter' : '');
+          if (periodIndex === addCenterPeriodIndex) addCell.textContent = '+';
+          addCell.addEventListener('click', goToGoalsCategorySettings);
+          row.appendChild(addCell);
+        }
+
         grid.appendChild(row);
       })(i);
     }
 
     renderGoalsScrub();
     window.requestAnimationFrame(syncGoalsScrubZoneTopVar);
+    window.requestAnimationFrame(syncGoalsAddSlotWidths);
   }
 
   // 15 septembre 2026 (7e passage, demande d'Emilien — "un seul mode : la
@@ -7273,18 +7296,26 @@
     $('newSubProjectMsg').textContent = '';
   }
 
+  // 16 septembre 2026 (10e passage, demande explicite d'Emilien) : ce « + »
+  // ne crée plus de sous-projet — « sous-projet n'existe plus, c'est
+  // catégorie qu'on crée » (fusion en cours des sous-projets dans les
+  // catégories d'objectifs). Il redirige vers EXACTEMENT le même chemin que
+  // le bouton "Ajouter" de #activityGoalsCategoriesBlock (même validation,
+  // même appel API POST .../goals/categories, même rafraîchissement) au lieu
+  // de dupliquer cette logique. #newSubProjectCard et closeNewSubProjectForm
+  // restent dans le code (masqués, pas supprimés) le temps du passage
+  // suivant qui reprendra les fonctionnalités des sous-projets (tâches,
+  // discussion) pour les appliquer à la catégorie, avant de retirer
+  // vraiment les sous-projets.
   $('addSubProjectBtn').addEventListener('click', function () {
-    var card = $('newSubProjectCard');
-    if (card.classList.contains('hidden')) {
-      // ⭐ Réciproque de la règle ci-dessus : créer referme le sous-projet
-      // ouvert. selectSubProject('') redessine la liste, donc on ouvre le
-      // formulaire APRÈS.
-      if (currentSubProjectId) selectSubProject('');
-      card.classList.remove('hidden');
-      $('newSubProjectName').focus();
-    } else {
-      closeNewSubProjectForm();
+    var wrap = $('activityGoalsCategoryAddWrap');
+    var msg = $('activityGoalsCategoriesMsg');
+    if (wrap && wrap.classList.contains('hidden')) {
+      if (msg) msg.textContent = t('Maximum de catégories atteint (5).');
+      return;
     }
+    var input = $('activityGoalsCategoryAddInput');
+    if (input) input.focus();
   });
   $('newSubProjectCancel').addEventListener('click', closeNewSubProjectForm);
   $('newSubProjectSave').addEventListener('click', createSubProject);

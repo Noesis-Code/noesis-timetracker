@@ -1574,22 +1574,26 @@
                reste en `flex-end`, donc le « + » ne bouge pas quand
                l'indication est masquée (cas normal, dès qu'un sous-projet
                existe). -->
-          <!-- ⚠️ 16 septembre 2026 (9e passage, demande explicite d'Emilien —
-               « il semble qu'il y ait confusion ») : ce bloc reste dans le DOM
-               (masqué, pas supprimé) mais son « + » n'est plus visible. Il y
-               avait DEUX « + » à l'écran (celui-ci pour créer un sous-projet,
-               et celui de #activityGoalsCategoriesBlock plus bas pour créer
-               une catégorie) — c'était la source exacte de la confusion
-               qu'il a signalée : « à chaque fois que je clique sur +, ça me
-               crée une catégorie d'objectifs » décrit le comportement QU'IL
-               VEUT, pas celui qui existait. Un seul « + » reste maintenant
-               visible dans la section Tâches, celui des catégories. Rien
-               n'est supprimé côté JS (addSubProjectBtn garde son écouteur,
-               #newSubProjectCard existe toujours) : un sous-projet existant
-               reste visible et éditable dans #subProjectsList en dessous. -->
-          <div class="sectionTitleRow subProjectsHeadRow hidden">
-            <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.</p>
-            <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter un sous-projet">+</button>
+          <!-- ⚠️ 16 septembre 2026 (10e passage, correction d'un mauvais
+               correctif posé puis annulé dans la même journée) : Emilien
+               veut GARDER ce « + », visible, à cet endroit — je l'avais
+               masqué à tort en supposant qu'il gênait, ce qu'il n'a jamais
+               dit. Sa demande réelle, telle qu'il l'a formulée : « sous-
+               projet n'existe plus, c'est catégorie qu'on crée ». Ce même
+               « + » ne doit donc plus ouvrir la création d'un sous-projet —
+               il crée une catégorie d'objectifs (voir le handler de
+               #addSubProjectBtn dans app.js, qui réutilise le même appel API
+               que le bouton "Ajouter" de #activityGoalsCategoriesBlock plus
+               bas). #newSubProjectCard reste dans le DOM (masqué, pas
+               supprimé) : plus atteignable depuis cet écran, en attendant le
+               passage suivant qui reprendra les fonctionnalités des sous-
+               projets (tâches, discussion) pour les appliquer à la
+               catégorie, avant de retirer vraiment les sous-projets
+               (demande explicite d'Emilien, à confirmer avant ce passage-
+               là). -->
+          <div class="sectionTitleRow subProjectsHeadRow">
+            <p id="subProjectsEmptyHint" class="hint hidden">Aucun sous-projet à afficher — pour ajouter des tâches, utilise les catégories d'objectifs ci-dessus.</p>
+            <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter une catégorie">+</button>
           </div>
 
           <!-- Avancement global de l'activité, en anneau (demande d'Emilien,
@@ -2259,20 +2263,16 @@
           <div id="goalsGrid" class="goalsGrid"></div>
         </div>
 
-        <!-- Ajout rapide d'une catégorie directement depuis ce volet (9e
-             passage, 16 septembre 2026, demande d'Emilien : « cela me
-             permet de rajouter des catégories directement depuis le volet
-             objectif »), ouvert par le bouton + de renderGoalsGridHead()
-             (app.js), positionné en JS (toggleGoalsQuickAddCategory()) sous
-             ce bouton. Même route/logique que le formulaire d'ajout du
-             panneau de gestion (fenêtre activité, section Tâches) — voir
-             submitGoalsQuickAddCategory(). -->
-        <div id="goalsQuickAddCategory" class="goalsQuickAddCategory hidden">
-          <input type="text" id="goalsQuickAddCategoryInput" placeholder="Nouvelle catégorie" maxlength="60">
-          <button type="button" class="iconBtn" id="goalsQuickAddCategoryConfirmBtn">Ajouter</button>
-          <button type="button" class="iconBtn" id="goalsQuickAddCategoryCancelBtn">Annuler</button>
-          <p id="goalsQuickAddCategoryMsg" class="goalsQuickAddCategoryMsg"></p>
-        </div>
+        <!-- L'ajout rapide de catégorie (9e passage) vivait ici, dans une
+             bulle flottante locale (#goalsQuickAddCategory, retirée). 16
+             septembre 2026 (11e passage), demande d'Emilien : le bouton +
+             devient une « page + » directement dans #goalsGridScroll/
+             #goalsGrid ci-dessus (.goalsGridHeadCell--add/.goalsGridCell--add,
+             voir renderGoalsGridHead()/renderGoalsGrid(), app.js), qui
+             renvoie au panneau de gestion existant (fenêtre activité,
+             section Tâches, 7e passage) plutôt que d'ouvrir un formulaire
+             local — voir goToGoalsCategorySettings(), app.js. Plus aucun
+             élément propre à ajouter ici. -->
 
         <!-- Rail tactile du bord gauche (5e passage, 15 septembre 2026,
              demande d'Emilien : « je souhaite les mettre sur la verticale à

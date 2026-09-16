@@ -4235,35 +4235,33 @@ button { -webkit-user-select: none; user-select: none; }
   font-size: 11px; font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
-/* Bouton + à droite des catégories — largeur FIXE (flex: 0 0 auto), voir le
-   commentaire de renderGoalsGridHead() (app.js) : sa présence réduit d'elle-
-   même la largeur des .goalsGridHeadCell flexibles ci-dessus, en particulier
-   la plus à droite, sans calcul manuel de largeur. */
-.goalsGridHeadAddBtn {
-  flex: 0 0 32px; width: 32px; height: 32px; padding: 0;
-  border: none; border-radius: var(--radius-md); background: var(--track-bg);
-  color: var(--text); font-size: 18px; font-weight: 700; line-height: 1;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
+/* 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que le
+   bouton + ne s'affiche plus à droite des catégories, mais qu'il s'affiche
+   au milieu d'une nouvelle page lorsque je défile sur la droite [...] je
+   clique simplement n'importe où sur une nouvelle page qui est vide [...]
+   et cela me renvoie aux paramètres pour créer une catégorie » — remplace
+   entièrement .goalsGridHeadAddBtn (petit bouton carré collé à droite du
+   dernier badge) et la bulle .goalsQuickAddCategory (formulaire local,
+   retirés). La nouvelle « page + » est une case de MÊME FAMILLE que
+   .goalsGridHeadCell mais construite à part (elle n'hérite pas de son
+   flex: 1 1 0/paged) : sa largeur est pilotée en JS (syncGoalsAddSlotWidths(),
+   app.js), posée en pixels exacts égaux à la largeur VISIBLE de
+   #goalsGridScroll — jamais un pourcentage/flex-basis ici, qui se
+   résoudrait de façon imprévisible dans un conteneur flex dont la largeur
+   propre dépend déjà de son contenu (overflow-x: auto). Résultat : cette
+   case occupe toujours exactement UNE page pleine largeur, qu'il y ait 1 ou
+   4 catégories réelles avant elle — jamais visible à côté d'une catégorie,
+   seulement en balayant au-delà de la dernière. Contour en pointillés
+   (jamais un aplat de couleur comme les vraies catégories) pour signaler
+   clairement « case vide », pas une catégorie personnalisée. */
+.goalsGridHeadCell--add {
+  flex: 0 0 auto; min-width: 0; text-align: center; padding: 6px 4px;
+  border: 2px dashed var(--track-bg); border-radius: var(--radius-sm);
+  color: var(--text-light); background: transparent; cursor: pointer;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
 }
-.goalsGridHeadAddBtn:active { transform: scale(0.92); }
-/* Bulle d'ajout rapide de catégorie, ouverte par .goalsGridHeadAddBtn —
-   position: fixed, jamais sticky (bug de rebond élastique iOS/WebKit déjà
-   documenté) ; positionnée en JS
-   (toggleGoalsQuickAddCategory(), app.js) sous le bouton qui l'ouvre, comme
-   .goalsScrubLabel plus bas, plutôt qu'un offset codé en dur ici. */
-.goalsQuickAddCategory {
-  position: fixed; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-elevated);
-  padding: 10px; max-width: min(320px, calc(100vw - 24px));
-}
-.goalsQuickAddCategory.hidden { display: none; }
-.goalsQuickAddCategory input {
-  flex: 1; min-width: 140px; font-size: 14px; padding: 8px 10px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
-  background: var(--card); color: var(--text);
-}
-.goalsQuickAddCategoryMsg { flex: 1 0 100%; color: var(--red); font-size: 12px; margin: 0; }
+.goalsGridHeadCell--add:active { transform: scale(0.96); }
 /* Au-delà de 2 catégories (classe posée par renderGoalsGridHead(), app.js) :
    chaque badge occupe une demi-largeur FIXE plutôt que de toutes se
    partager la largeur disponible — les catégories suivantes débordent alors
@@ -4644,7 +4642,22 @@ button { -webkit-user-select: none; user-select: none; }
    alignées). .goalsGridRow--paged : même bascule en demi-largeur fixe que
    .goalsGridHead--paged au-delà de 2 catégories, posée par renderGoalsGrid()
    (app.js) sur chaque ligne. */
-.goalsGridRow { display: flex; align-items: stretch; gap: 10px; }
+/* 16 septembre 2026 (11e passage) : position: relative + ::before ajoutés
+   pour le séparateur HORIZONTAL en pointillés entre périodes, demande
+   d'Emilien (« je souhaite rajouter des lignes pointillées horizontales
+   entre chaque bulle de chaque période » — à ne pas confondre avec le trait
+   VERTICAL de continuité, .goalsGridCell::before plus bas, qui redevient
+   plein au même passage : il y avait confusion sur lequel des deux devait
+   être en pointillés). Positionné à -16px (moitié du gap de 32px,
+   .goalsGrid) pour tomber exactement au milieu de l'écart avec la ligne du
+   dessus ; absent sur la 1ère ligne (rien au-dessus). Toute la largeur de
+   la ligne (left/right: 0), donc visible sous TOUTES les colonnes à la
+   fois plutôt qu'une par catégorie. */
+.goalsGridRow { display: flex; align-items: stretch; gap: 10px; position: relative; }
+.goalsGridRow:not(:first-child)::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -16px;
+  border-top: 2px dashed var(--track-bg); pointer-events: none;
+}
 .goalsGridRow--paged .goalsGridCell { flex: 0 0 calc(50% - 5px); min-width: 0; }
 /* Chaque cellule est un <button> cliquable (ouvre la page 2, détail de CETTE
    période pour CETTE catégorie — voir openGoalsDetail(category, periodNumber)
@@ -4667,20 +4680,20 @@ button { -webkit-user-select: none; user-select: none; }
    cellule pleine (fond opaque .goalsGridCell--filled), visible par
    transparence sous une cellule vide. Pas de trait au-dessus de la 1ère
    période ni en dessous de la 13e (rien à relier). */
-/* 16 septembre 2026 (9e passage), demande d'Emilien : « je souhaite
-   également rajouter des pointillés au milieu de chaque bulle pour séparer
-   les périodes » — le trait de continuité (6e passage) devient en
-   POINTILLÉS (border-left dashed plutôt qu'un aplat de background) : mieux
-   visible comme séparateur de périodes maintenant que le gap vertical est
-   large (32px, voir .goalsGrid ci-dessus) plutôt que comme un simple trait
-   de liaison continu. -16px de chaque côté (moitié du gap de 32px, au lieu
-   de -8px/16px avant) pour continuer à rejoindre exactement la cellule
-   voisine du même rang, sans changement du reste de son comportement (passe
-   derrière le contenu, invisible sous une cellule pleine). */
+/* 16 septembre 2026 (9e passage) : passé en pointillés un temps (border-left
+   dashed), puis 16 septembre 2026 (11e passage) — Emilien précise qu'il y a
+   eu confusion : « je souhaite que le trait qui relie les bulles des arbres
+   soit Plein » — ce trait de LIAISON reste donc solide comme à l'origine
+   (6e passage). Les pointillés séparateurs de périodes demandés au 9e
+   passage existent bel et bien, mais HORIZONTALEMENT (.goalsGridRow::before
+   ci-dessus), pas ici. -16px de chaque côté (moitié du gap de 32px,
+   .goalsGrid) pour continuer à rejoindre exactement la cellule voisine du
+   même rang, sans changement du reste de son comportement (passe derrière
+   le contenu, invisible sous une cellule pleine). */
 .goalsGridCell::before {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
   left: 50%; top: -16px; bottom: -16px; width: 0;
-  border-left: 2px dashed var(--track-bg);
+  border-left: 2px solid var(--track-bg);
   transform: translateX(-50%);
 }
 .goalsGridRow:first-child .goalsGridCell::before { top: 50%; }
@@ -4733,6 +4746,29 @@ button { -webkit-user-select: none; user-select: none; }
   background: var(--track-bg); opacity: 0.32;
 }
 .goalsGridCell--empty.current { opacity: 0.55; }
+
+/* 16 septembre 2026 (11e passage) : colonne "page +" — voir le commentaire
+   au-dessus de .goalsGridHeadCell--add, styles.css, et de
+   renderGoalsGrid()/syncGoalsAddSlotWidths(), app.js. 13 cases par ligne de
+   période, toutes cliquables (ramènent aux réglages de catégorie), en
+   pointillés pour signaler « page vide » plutôt qu'une vraie période sans
+   objectif (.goalsGridCell--empty, aplat plein, ci-dessus). Pas de trait de
+   continuité (.goalsGridCell::before désactivé ici) : cette colonne ne
+   représente aucune catégorie réelle, relier ses cases n'aurait pas de
+   sens. */
+.goalsGridCell--add {
+  min-height: 24px; border: 2px dashed var(--track-bg);
+  border-radius: var(--radius-md); background: transparent;
+}
+.goalsGridCell--add::before { display: none; }
+/* Le signe + n'apparaît qu'une fois, sur la période du milieu du cycle
+   (13 périodes → repère visuel vers la 7e) plutôt qu'en haut de page : « je
+   souhaite qu'il s'affiche au milieu d'une nouvelle page » — cette case
+   prend la hauteur d'une bulle pleine (54px) pour l'accueillir confortablement. */
+.goalsGridCell--addCenter {
+  min-height: 54px; display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 300; line-height: 1; color: var(--text-light);
+}
 
 /* ===== Gestion des catégories d'objectifs — fenêtre activité, 15 septembre
    2026 (7e passage, demande d'Emilien : « je souhaite que la fenêtre
