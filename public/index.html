@@ -1532,9 +1532,21 @@
           <!-- Composeur : le bouton "Envoyer" vit DANS la zone de saisie, à droite
                (demande d'Emilien). .chatComposerRow le pose en absolu par-dessus le
                textarea, qui lui réserve la place par un padding à droite. -->
+          <!-- 17 septembre 2026 (Design, correctif définitif du curseur signalé
+               le 16 septembre) : rows="2" → rows="1". Le `min-height:0` posé sur
+               #communityDiscussionInput (styles.css) neutralise la contrainte CSS
+               mais PAS la hauteur intrinsèque qu'un <textarea rows="2"> réserve
+               nativement pour du contenu vide — pollAutoGrow() ne fait que suivre
+               cette hauteur (scrollHeight), il ne la réduit jamais sous elle. Le
+               champ restait donc haut de 2 lignes au repos malgré le correctif du
+               16, plaçant le curseur natif hors de la ligne du placeholder — même
+               mécanisme déjà résolu pour #communityMyPostsInput le 6 septembre
+               (voir son commentaire, plus haut dans ce fichier) : rows="1" aligne
+               la hauteur intrinsèque sur le placeholder d'une ligne, pollAutoGrow
+               ne fait plus qu'agrandir, jamais réduire. -->
           <div class="discussionComposer chatComposer">
             <div class="chatComposerRow">
-              <textarea id="communityDiscussionInput" rows="2" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
+              <textarea id="communityDiscussionInput" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
               <button type="button" id="communityDiscussionSendBtn" class="iconBtn">Envoyer</button>
             </div>
             <p id="communityDiscussionMsg" class="msg"></p>
@@ -1802,8 +1814,17 @@
                   <!-- 6 septembre 2026 : .pollAutoGrow ajoutée (agrandissement
                        automatique, voir la note de communityMyPostsInput,
                        plus haut) — décision confirmée par Emilien d'étendre le
-                       comportement aux trois champs de mountMessageThread. -->
-                  <textarea id="subProjectMessageInput" class="pollAutoGrow" rows="2" maxlength="2000" placeholder="Écrire dans ce sous-projet..."></textarea>
+                       comportement aux trois champs de mountMessageThread.
+                       17 septembre 2026 : rows="2" → rows="1", même correctif
+                       que #communityDiscussionInput et
+                       #profileDiscussionCommunityInput ce jour (voir le
+                       commentaire de #communityDiscussionInput, plus haut
+                       dans ce fichier) — ce champ n'avait pas encore fait
+                       l'objet du signalement, mais partage exactement la même
+                       cause structurelle (rows="2" + pollAutoGrow), donc
+                       corrigé en même temps plutôt que d'attendre un
+                       signalement séparé. -->
+                  <textarea id="subProjectMessageInput" class="pollAutoGrow" rows="1" maxlength="2000" placeholder="Écrire dans ce sous-projet..."></textarea>
                   <button type="button" id="subProjectMessageSendBtn" class="iconBtn">Envoyer</button>
                 </div>
                 <p id="subProjectMessageMsg" class="msg"></p>
@@ -2372,8 +2393,14 @@
                  aux membres » sur les deux volets) — ne touche PAS
                  communityDiscussionInput (Activité, texte similaire par
                  coïncidence, zone différente, hors périmètre de cette
-                 demande). -->
-            <textarea id="profileDiscussionCommunityInput" class="pollAutoGrow" rows="2" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
+                 demande).
+                 17 septembre 2026 : rows="2" → rows="1", même correctif que
+                 #communityDiscussionInput ce jour (voir son commentaire,
+                 plus haut) — .pollAutoGrow donne déjà min-height:0 ici, mais
+                 ne change rien à la hauteur intrinsèque réservée par
+                 rows="2" pour un contenu vide, d'où le même écart de
+                 positionnement du curseur au repos. -->
+            <textarea id="profileDiscussionCommunityInput" class="pollAutoGrow" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
             <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
             <div class="rowActions">
               <!-- "+" des sondages, à gauche du trombone — même déplacement que
@@ -3596,15 +3623,26 @@
          couleur plate. Icône légèrement agrandie (.tabBtnGoals, styles.css) ;
          libellé "Objectifs" retiré sous l'icône, seul bouton de la barre
          dans ce cas. -->
+    <!-- 17 septembre 2026, demande d'Emilien (cinquième passage, avec logo
+         Noèsis officiel joint en référence) : le polygone .bsS du bootSplash
+         (l'éclat/le petit fanion triangulaire en haut à droite du N) avait été
+         exclu du passage précédent en le supposant propre à l'animation —
+         erreur confirmée en comparant au logo statique officiel de l'app
+         (public/icons/icon-512.png), qui l'inclut bel et bien de façon
+         permanente. Il est donc ajouté ici tel quel (mêmes coordonnées et
+         couleur que .bsS, #674EA9), et le viewBox est élargi pour l'englober
+         avec la même marge ~20px (163 242 519 641 → 163 131 586 752, calculé
+         sur la boîte englobante réunie de bsL/bsD/bsS : x 183–729, y 151–863). -->
     <button class="tabBtn tabBtnGoals" data-tab="goals" aria-label="Objectifs">
       <span class="tabIcon tabIconBrand">
-        <svg viewBox="163 242 519 641" aria-hidden="true" focusable="false">
+        <svg viewBox="163 131 586 752" aria-hidden="true" focusable="false">
           <polygon fill="#8772C7" points="183,293 287,461 287,616 183,675"/>
           <polygon fill="#46397D" points="287,628 287,863 184,863 184,687"/>
           <polygon fill="#8772C7" points="192,262 293,262 468,557 367,555"/>
           <polygon fill="#46397D" points="374,565 475,568 536,670 536,835"/>
           <polygon fill="#8772C7" points="556,262 616,262 659,286 661,616 556,673"/>
           <polygon fill="#46397D" points="661,629 662,863 557,863 556,686"/>
+          <polygon fill="#674EA9" points="729,151 612,186 635,253 708,287"/>
         </svg>
       </span>
     </button>

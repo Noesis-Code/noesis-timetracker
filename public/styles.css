@@ -5069,6 +5069,25 @@ button { -webkit-user-select: none; user-select: none; }
   margin: 2px 0 8px 34px; padding-left: 10px;
   border-left: 2px solid var(--border);
 }
+/* 17 septembre 2026 (discussion C, bulle IA de classement automatique) —
+   voir buildCategoryAutoTaskBubble()/renderActivityGoalsCategoriesPanel(),
+   app.js. Bordure en pointillés (au lieu de la bordure pleine de
+   .activityGoalsCategoryRow) pour marquer visuellement que cette bulle,
+   tout en bas de #activityGoalsCategoriesList, n'appartient à AUCUNE
+   catégorie précise — à la différence de chaque ligne au-dessus d'elle.
+   .subProjectItemAdd (input + bouton "Ajouter") réutilisé tel quel. */
+.activityGoalsCategoryAutoTaskBubble {
+  border: 1px dashed var(--border); border-radius: var(--radius-md);
+  background: var(--card); padding: 10px; margin-top: 2px;
+}
+/* Tâches déjà envoyées à l'IA depuis cette bulle mais pas encore ré-affichées
+   sous leur vraie catégorie (categoryAutoTaskPending, app.js) — reste ici
+   jusqu'au prochain rechargement réel des données, demande explicite
+   d'Emilien (voir le commentaire de categoryAutoTaskPending). */
+.activityGoalsCategoryAutoTaskPending {
+  margin-top: 6px; display: flex; flex-direction: column; gap: 2px;
+}
+.activityGoalsCategoryAutoTaskPendingRow { margin: 0; }
 .activityGoalsCategoryAddWrap {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin: 10px 0;

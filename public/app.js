@@ -4300,6 +4300,13 @@
       // rapide) pendant que cette requête était en vol — même principe que
       // reloadGoalsAll()/loadActivityDetail() ailleurs dans ce fichier.
       if (String(activityId) !== String(currentCommunityActivityId)) return;
+      // 17 septembre 2026 (bulle IA de classement automatique) : un
+      // rechargement RÉEL des données signifie que les tâches ajoutées via
+      // la bulle "auto-task" depuis le dernier appel sont maintenant
+      // correctement filées sous leur catégorie côté serveur (tasksByCategory
+      // ci-dessus) — la zone neutre peut être vidée. Voir le commentaire de
+      // categoryAutoTaskPending, plus bas dans ce fichier.
+      categoryAutoTaskPending = [];
       renderActivityGoalsCategoriesPanel(results[0], results[1]);
     }).catch(function (err) {
       if (msg) msg.textContent = err.message;
@@ -4429,6 +4436,97 @@
     add.appendChild(btn);
     wrap.appendChild(add);
     wrap.appendChild(msg);
+    return wrap;
+  }
+
+  // 17 septembre 2026 (discussion C, cadré avec Emilien via AskUserQuestion,
+  // citation directe : « lorsqu'on clique sur le plus, on ajoute
+  // automatiquement une catégorie, mais je souhaite rajouter en bas une
+  // bulle spéciale automatique pour ajouter une tâche. La tâche, après, va
+  // s'ajouter automatiquement grâce à une IA dans l'une des catégories
+  // créées. ») — bulle sous TOUTES les catégories (#activityGoalsCategoriesList,
+  // tout en bas, voir renderActivityGoalsCategoriesPanel), pas liée à une
+  // catégorie précise : POST .../goals/categories/auto-task
+  // (server/lib/goalstaskclassify.js) choisit toujours la catégorie la plus
+  // probable, jamais de blocage ni de confirmation demandée.
+  //
+  // Réponse d'Emilien (3e question) : « la tâche fraîchement ajoutée [...]
+  // reste visible en dessous de la catégorie [lire : sous la bulle] jusqu'au
+  // rafraîchissement de la page lorsque je sors de la page tâche et que j'y
+  // reviens — à ce moment-là la tâche est rangée dans la catégorie. » Donc
+  // PAS de bascule immédiate sous sa vraie catégorie : après un ajout réussi,
+  // seul un rendu depuis le CACHE (lastActivityGoalsCategoriesData, inchangé)
+  // est déclenché, jamais activityGoalsCategoriesRefresh/loadActivityGoalsCategories
+  // — la tâche reste listée ici, dans cette zone neutre, tant qu'aucun
+  // rechargement réel des données n'a eu lieu. categoryAutoTaskPending est
+  // vidé au seul endroit où un tel rechargement réel se produit : dans
+  // loadActivityGoalsCategories() (voir plus haut dans ce fichier), déclenché
+  // entre autres chaque fois qu'on rouvre la section Tâches (voir l'appel
+  // sur name === 'sub', plus bas).
+  var categoryAutoTaskPending = [];
+
+  function buildCategoryAutoTaskBubble(activityId) {
+    var wrap = document.createElement('div');
+    wrap.className = 'activityGoalsCategoryAutoTaskBubble';
+
+    var hint = document.createElement('p');
+    hint.className = 'meta';
+    hint.textContent = t('Ajoute une tâche sans choisir de catégorie : une IA la classe automatiquement.');
+    wrap.appendChild(hint);
+
+    var add = document.createElement('div');
+    add.className = 'subProjectItemAdd';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 300;
+    input.placeholder = t('Nouvelle tâche...');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'iconBtn';
+    btn.textContent = t('Ajouter');
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+
+    function submit() {
+      var label = input.value.trim();
+      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
+      msg.textContent = '';
+      btn.disabled = true;
+      api('POST', '/api/activities/' + activityId + '/goals/categories/auto-task', { userId: profile.id, label: label })
+        .then(function (item) {
+          input.value = '';
+          categoryAutoTaskPending.push({
+            label: label,
+            categoryLabel: (item && item.categoryLabel) || (item && item.categoryKey) || '',
+          });
+          // Rendu depuis le cache, volontairement PAS un rafraîchissement
+          // réseau — voir le commentaire au-dessus de categoryAutoTaskPending.
+          renderActivityGoalsCategoriesPanel(lastActivityGoalsCategoriesData, lastActivityGoalsPlanningData);
+        })
+        .catch(function (err) { msg.textContent = err.message; })
+        .then(function () { btn.disabled = false; });
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    });
+    add.appendChild(input);
+    add.appendChild(btn);
+    wrap.appendChild(add);
+    wrap.appendChild(msg);
+
+    if (categoryAutoTaskPending.length) {
+      var pendingList = document.createElement('div');
+      pendingList.className = 'activityGoalsCategoryAutoTaskPending';
+      categoryAutoTaskPending.forEach(function (p) {
+        var row = document.createElement('p');
+        row.className = 'meta activityGoalsCategoryAutoTaskPendingRow';
+        row.textContent = '✓ ' + p.label + (p.categoryLabel ? ' — ' + t('rangée dans') + ' ' + p.categoryLabel : '');
+        pendingList.appendChild(row);
+      });
+      wrap.appendChild(pendingList);
+    }
+
     return wrap;
   }
 
@@ -4698,6 +4796,15 @@
         list.appendChild(weeklyWrap);
       }
     });
+
+    // Bulle spéciale d'ajout de tâche par IA, tout en bas de la liste — pas
+    // liée à une catégorie précise, donc hors du forEach ci-dessus. Absente
+    // en mode édition (même règle que les tâches/résumé hebdo, masqués eux
+    // aussi pendant l'édition) et si l'activité n'a encore aucune catégorie
+    // (rien à classer).
+    if (!activityGoalsCategoriesEditMode && currentActivityGoalsCategories.length) {
+      list.appendChild(buildCategoryAutoTaskBubble(activityIdForTasks));
+    }
   }
 
   function renameActivityGoalsCategory(key, label) {
