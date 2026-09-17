@@ -5210,7 +5210,11 @@
       // textarea. Voir categoryColorTint() plus bas : gère aussi bien un hex
       // (#rrggbb, cas normal) que le repli 'var(--purple)' (currentGoalsCategoryColor(),
       // catégorie introuvable dans la liste active).
-      mainCardEl.style.background = categoryColorTint(mainCatColor, 0.14);
+      // 16 septembre 2026 (13e passage) : opacité relevée de 0.14 à 0.30 —
+      // « je souhaite que la couleur [...] soit plus prononcée, plus vive,
+      // pour qu'elle ressorte plus ». Toujours un fond semi-transparent (pas
+      // une couleur pleine), le texte n'est donc pas re-touché ici non plus.
+      mainCardEl.style.background = categoryColorTint(mainCatColor, 0.30);
     }
 
     var mainInput = $('activityGoalsMainInput');
@@ -5698,13 +5702,39 @@
     var categories = activeGoalsCategories();
     var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
     head.classList.toggle('goalsGridHead--paged', categories.length > 2);
+    // 16 septembre 2026 (discussion "Objectifs — Arbre périodique"), demande
+    // d'Emilien : « si aucune catégorie n'a encore été attribuée à
+    // l'activité, l'arbre soit tout de même présent avec une seule branche
+    // [ce qui est déjà le cas, categoriesForActivity() synthétise "Catégorie
+    // 1" côté serveur sans écriture] mais ajouter un plus à la place de
+    // catégorie. La catégorie 1, par défaut, ne me plaît pas. » — quand la
+    // seule catégorie active est cette catégorie factice (c.custom === false,
+    // jamais vrai pour une catégorie créée/renommée par l'utilisateur, voir
+    // categoriesForActivity(), server/lib/goals.js), son badge devient un
+    // bouton « + » (même habillage que la case "page +" ci-dessous,
+    // .goalsGridHeadCell--defaultAdd, styles.css) plutôt que le libellé
+    // coloré "Catégorie 1" — cliquer dessus ouvre directement les réglages
+    // de catégorie de cette activité (goToGoalsCategorySettings(), plus bas
+    // dans ce fichier), pour créer une VRAIE première catégorie.
+    var onlyDefaultCategory = categories.length === 1 && categories[0].custom === false;
     categories.forEach(function (c, index) {
-      var span = document.createElement('span');
-      span.className = 'goalsGridHeadCell';
-      span.textContent = t(c.label);
-      var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-      span.style.background = shade;
-      span.style.color = readableTextOn(shade);
+      var span;
+      if (onlyDefaultCategory) {
+        span = document.createElement('button');
+        span.type = 'button';
+        span.className = 'goalsGridHeadCell goalsGridHeadCell--defaultAdd';
+        span.textContent = '+';
+        span.title = t('Ajouter une catégorie');
+        span.setAttribute('aria-label', t('Ajouter une catégorie'));
+        span.addEventListener('click', goToGoalsCategorySettings);
+      } else {
+        span = document.createElement('span');
+        span.className = 'goalsGridHeadCell';
+        span.textContent = t(c.label);
+        var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+        span.style.background = shade;
+        span.style.color = readableTextOn(shade);
+      }
       head.appendChild(span);
     });
     // 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que
@@ -5715,7 +5745,7 @@
     // d'elles) est remplacé par une case DE LA TAILLE D'UNE PAGE ENTIÈRE
     // (.goalsGridHeadCell--add), ajoutée après les vraies catégories mais
     // jamais visible à côté d'elles : sa largeur exacte est posée par
-    // syncGoalsAddSlotWidths() (appelée après ce rendu, voir plus bas) une
+    // syncGoalsGridWidths() (appelée après ce rendu, voir plus bas) une
     // fois le DOM en place, pas ici (getBoundingClientRect() ici donnerait
     // la largeur d'AVANT l'ajout de cette case, donc fausse).
     if (categories.length < maxCategories) {
@@ -5727,7 +5757,7 @@
       addCell.addEventListener('click', goToGoalsCategorySettings);
       head.appendChild(addCell);
     }
-    window.requestAnimationFrame(syncGoalsAddSlotWidths);
+    window.requestAnimationFrame(syncGoalsGridWidths);
   }
 
   // ===================== PAGE « + » (ajout de catégorie, volet Objectifs) ===
@@ -5769,7 +5799,53 @@
   // ou détruire des .goalsGridHeadCell--add/.goalsGridCell--add à tout
   // moment) et au redimensionnement (rotation d'écran) — même schéma que
   // syncGoalsScrubZoneTopVar() plus haut.
-  function syncGoalsAddSlotWidths() {
+  // ⚠️ 16 septembre 2026 (discussion "Objectifs — Arbre périodique") :
+  // renommée syncGoalsAddSlotWidths() → syncGoalsGridWidths(), qui fait
+  // maintenant CE calcul ET la correction ci-dessous dans le même passage
+  // (l'ordre compte : la largeur des lignes doit être mesurée APRÈS avoir
+  // posé la largeur des cases "page +", sinon scrollWidth ne les compte pas
+  // encore). BUG corrigé : le séparateur horizontal en pointillés
+  // (.goalsGridRow::before, styles.css, left/right: 0 à l'origine) ne
+  // rejoignait pas le bord réel du contenu débordant (case "page +", ou
+  // catégories paginées au-delà de 2) — right: 0 s'arrête au bord de la
+  // boîte PROPRE de .goalsGridRow, qui NE S'AGRANDIT PAS d'elle-même pour
+  // ses enfants qui débordent. Signalé par Emilien : « je souhaite que les
+  // lignes horizontales entre les bulles s'étirent tout du long lorsque
+  // l'on rajoute une catégorie [...] que la barre horizontale continue ».
+  // ⚠️ PREMIER ESSAI (abandonné, gardé en commentaire dans styles.css pour
+  // ne pas répéter l'erreur) : fixer .goalsGridRow LUI-MÊME en style.width
+  // explicite — casse .goalsGridRow--paged .goalsGridCell (styles.css),
+  // dont le calc(50% - 5px) se résout contre la largeur de LA LIGNE, donc
+  // s'élargir avec elle bien au-delà d'une demi-page. Fixe retenu : la
+  // variable CSS --goalsRowFullWidth est posée sur chaque .goalsGridRow
+  // (scrollWidth de #goalsGridScroll une fois les cases "page +"
+  // dimensionnées ci-dessus, identique pour toutes les lignes) et
+  // consommée UNIQUEMENT par le ::before décoratif (position: absolute, ne
+  // participe à aucun calc% d'enfant) — la ligne elle-même garde sa largeur
+  // naturelle, ses cellules paginées restent correctement dimensionnées, et
+  // seul le trait pointillé s'étire jusqu'au bord réel du contenu. Sans
+  // effet visuel quand rien ne déborde (repli à 100%, styles.css).
+  // ⚠️ 16 septembre 2026 (même passage) : SECOND bug découvert au même
+  // endroit, plus grave — repéré en testant l'état par défaut (1 seule
+  // catégorie, voir le « + » ci-dessus). Avec 1 OU 2 vraies catégories
+  // (jamais paginées, .goalsGridHeadCell/.goalsGridCell restent en CSS
+  // flex: 1 1 0 pour se partager PROPORTIONNELLEMENT la largeur de la
+  // ligne), la case "page +" voisine est fixée à une pleine page
+  // (flex: 0 0 <w>px, sans jamais rétrécir) — dans une ligne qui ne fait
+  // ELLE-MÊME qu'une page de large, ce voisin à largeur FIXE absorbe
+  // presque tout l'espace, ne laissant presque rien aux vraies catégories
+  // (flex: 1 1 0 se réduit vers son flex-basis de 0 sous cette contrainte).
+  // Constaté : une catégorie unique réduite à ~12px de large au lieu de
+  // remplir la ligne. Corrigé en fixant ICI, en JS, la largeur des vraies
+  // catégories à leur part naturelle de la page visible (celle qu'elles
+  // auraient sans la case "page +" à côté), en flex: 0 0 <part>px plutôt
+  // que 1 1 0 — deux voisins à largeur fixe ne se volent alors plus
+  // d'espace l'un l'autre. Uniquement sous le seuil de pagination
+  // (categories.length <= 2) : au-delà, .goalsGridHeadCell--paged/
+  // .goalsGridRow--paged (styles.css) fixent déjà leurs cellules en
+  // calc(50% - 5px), qui est DÉJÀ une largeur fixe (pas proportionnelle),
+  // donc déjà à l'abri de ce problème.
+  function syncGoalsGridWidths() {
     var scroll = $('goalsGridScroll');
     if (!scroll) return;
     var w = scroll.clientWidth;
@@ -5778,9 +5854,31 @@
       el.style.flex = '0 0 ' + w + 'px';
       el.style.width = w + 'px';
     });
+
+    var categories = activeGoalsCategories();
+    var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
+    var showAddSlot = categories.length < maxCategories;
+    var isPaged = categories.length > 2;
+    if (showAddSlot && !isPaged && categories.length > 0) {
+      var gap = 10;
+      var each = Math.max(0, (w - gap * (categories.length - 1)) / categories.length);
+      document.querySelectorAll('.goalsGridHeadCell:not(.goalsGridHeadCell--add)').forEach(function (el) {
+        el.style.flex = '0 0 ' + each + 'px';
+        el.style.width = each + 'px';
+      });
+      document.querySelectorAll('.goalsGridCell:not(.goalsGridCell--add)').forEach(function (el) {
+        el.style.flex = '0 0 ' + each + 'px';
+        el.style.width = each + 'px';
+      });
+    }
+
+    var fullWidth = scroll.scrollWidth;
+    document.querySelectorAll('.goalsGridRow').forEach(function (row) {
+      row.style.setProperty('--goalsRowFullWidth', fullWidth + 'px');
+    });
   }
-  window.addEventListener('resize', syncGoalsAddSlotWidths);
-  window.addEventListener('orientationchange', syncGoalsAddSlotWidths);
+  window.addEventListener('resize', syncGoalsGridWidths);
+  window.addEventListener('orientationchange', syncGoalsGridWidths);
 
   function renderGoalsGrid() {
     var grid = $('goalsGrid');
@@ -5837,9 +5935,13 @@
 
           if (p && p.mainGoalText) {
             cell.className = 'goalsGridCell goalsGridCell--filled' + (p.isCurrent ? ' current' : '');
-            var dot = document.createElement('span');
-            dot.className = 'goalsGridCellDot' + (goalStatusClass(p.mainGoalStatus) ? ' ' + goalStatusClass(p.mainGoalStatus) : '');
-            cell.appendChild(dot);
+            // 16 septembre 2026 (discussion "Objectifs — Arbre périodique") :
+            // le petit point de statut (.goalsGridCellDot, en haut à gauche
+            // de la bulle) est retiré — demande d'Emilien, « supprimer le
+            // petit point [...] qui est inutile ». goalStatusClass(p.mainGoalStatus)
+            // n'est donc plus utilisé ICI (il reste défini/utilisé ailleurs,
+            // ex. la bande de tendance) ; rien ne remplace ce point dans
+            // l'arbre, dans un but d'allègement visuel.
             var txt = document.createElement('p');
             txt.className = 'goalsGridCellText';
             txt.textContent = p.mainGoalText;
@@ -5890,7 +5992,7 @@
 
     renderGoalsScrub();
     window.requestAnimationFrame(syncGoalsScrubZoneTopVar);
-    window.requestAnimationFrame(syncGoalsAddSlotWidths);
+    window.requestAnimationFrame(syncGoalsGridWidths);
   }
 
   // 15 septembre 2026 (7e passage, demande d'Emilien — "un seul mode : la

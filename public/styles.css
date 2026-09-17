@@ -4262,6 +4262,26 @@ button { -webkit-user-select: none; user-select: none; }
   display: flex; align-items: center; justify-content: center;
 }
 .goalsGridHeadCell--add:active { transform: scale(0.96); }
+/* 16 septembre 2026 (discussion "Objectifs — Arbre périodique") : catégorie
+   PAR DÉFAUT (unique, jamais encore personnalisée — categoriesForActivity(),
+   server/lib/goals.js, la synthétise sans écriture pour qu'une activité
+   garde toujours au moins une branche dans l'arbre). Demande d'Emilien : le
+   libellé "Catégorie 1" « ne me plaît pas. Je supprime le [...] ajouter un
+   plus à la place de catégorie » — même habillage en pointillés que la case
+   "page +" ci-dessus (même sens : « aucune vraie catégorie ici »), mais
+   flex: 1 1 0 (pas 0 0 auto) : il n'y a ici qu'UNE seule colonne au total,
+   elle doit remplir toute la largeur de l'en-tête comme un .goalsGridHeadCell
+   normal, pas se limiter à une page pleine réservée pour plus tard. Posée
+   par renderGoalsGridHead() (app.js) uniquement quand categories.length===1
+   && c.custom===false ; sinon le badge coloré habituel reste inchangé.
+   Même redirection au clic que la case "page +" (goToGoalsCategorySettings()). */
+.goalsGridHeadCell--defaultAdd {
+  flex: 1 1 0; min-width: 0; text-align: center; padding: 6px 4px;
+  border: 2px dashed var(--track-bg); border-radius: var(--radius-sm);
+  color: var(--text-light); background: transparent !important; cursor: pointer;
+  font-size: 11px; font-weight: 700;
+}
+.goalsGridHeadCell--defaultAdd:active { transform: scale(0.96); }
 /* Au-delà de 2 catégories (classe posée par renderGoalsGridHead(), app.js) :
    chaque badge occupe une demi-largeur FIXE plutôt que de toutes se
    partager la largeur disponible — les catégories suivantes débordent alors
@@ -4392,12 +4412,14 @@ button { -webkit-user-select: none; user-select: none; }
   font-size: 11px; font-weight: 700; color: var(--text-light);
   text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 4px;
 }
-/* 16 septembre 2026 (12e passage), demande d'Emilien : « réduit les textes
-   d'écriture des objectifs hebdomadaires, divise-le par 0,33 » — 13px × 0,33
-   ≈ 4px, appliqué tel quel ci-dessous. ⚠️ À très peu de chose près la
-   limite de lisibilité sur la plupart des écrans — à confirmer par Emilien
-   une fois vu en vrai, avant de considérer ce réglage définitif. */
-.goalsWeeklyList textarea { font-size: 4px; padding: 6px 8px; }
+/* 16 septembre 2026 (13e passage), demande d'Emilien : REVERT du 12e passage
+   ci-dessus (le 4px issu de « divise-le par 0,33 » lu comme une réduction de
+   taille de texte) — « le texte lui-même était bon, c'est le cadre de la
+   zone de texte que je souhaite réduire de moitié ». Texte remis à 13px (la
+   taille du 11e passage, jamais remise en cause depuis), et c'est le
+   padding — le cadre autour du texte, pas le texte — qui est divisé par 2
+   (6px 8px → 3px 4px). */
+.goalsWeeklyList textarea { font-size: 13px; padding: 3px 4px; }
 .goalsWeeklyList .goalEstimateHint,
 .goalsWeeklyList .goalActualHint { margin-top: 4px; }
 .goalsWeeklyList .goalStatusRow { margin-top: 6px; gap: 4px; }
@@ -4683,11 +4705,15 @@ button { -webkit-user-select: none; user-select: none; }
    d'Emilien, « je souhaite véritablement qu'il y ait beaucoup plus d'espace
    entre chaque bulle » (le premier élargissement du 8e passage, 6px → 10px,
    concernait en réalité l'écart HORIZONTAL entre catégories, pas l'écart
-   VERTICAL entre périodes qui préoccupait Emilien ici). .goalsGridCell::before
-   ci-dessous étend son trait de -16px de chaque côté (moitié du nouveau
-   gap) pour continuer à rejoindre exactement la cellule voisine. */
+   VERTICAL entre périodes qui préoccupait Emilien ici).
+   16 septembre 2026 (discussion "Objectifs — Arbre périodique") : élargi
+   encore, 32px → 44px — même demande répétée (« ajouter plus d'espace entre
+   2 bulles périodiques »). .goalsGridRow::before et .goalsGridCell::before
+   ci-dessous étendent chacun leur trait de -22px de chaque côté (moitié du
+   nouveau gap, au lieu de -16px) pour continuer à tomber exactement au
+   milieu de l'écart / rejoindre la cellule voisine. */
 .goalsGrid {
-  display: flex; flex-direction: column; gap: 32px;
+  display: flex; flex-direction: column; gap: 44px;
   padding: 6px 4px 220px;
 }
 /* Gap élargi de 6px à 10px (16 septembre 2026, 8e passage, demande
@@ -4701,14 +4727,40 @@ button { -webkit-user-select: none; user-select: none; }
    entre chaque bulle de chaque période » — à ne pas confondre avec le trait
    VERTICAL de continuité, .goalsGridCell::before plus bas, qui redevient
    plein au même passage : il y avait confusion sur lequel des deux devait
-   être en pointillés). Positionné à -16px (moitié du gap de 32px,
-   .goalsGrid) pour tomber exactement au milieu de l'écart avec la ligne du
-   dessus ; absent sur la 1ère ligne (rien au-dessus). Toute la largeur de
-   la ligne (left/right: 0), donc visible sous TOUTES les colonnes à la
-   fois plutôt qu'une par catégorie. */
+   être en pointillés). Positionné à -22px (moitié du gap de 44px,
+   .goalsGrid — -16px/32px avant le passage suivant) pour tomber exactement
+   au milieu de l'écart avec la ligne du dessus ; absent sur la 1ère ligne
+   (rien au-dessus). Toute la largeur de la ligne (left/right: 0), donc
+   visible sous TOUTES les colonnes à la fois plutôt qu'une par catégorie.
+   ⚠️ 16 septembre 2026 (discussion "Objectifs — Arbre périodique") : ce
+   left/right: 0 ne suffisait PAS à couvrir la largeur réelle dès qu'une
+   ligne déborde de la largeur visible (catégories paginées au-delà de 2, ou
+   la colonne "page +" du 11e passage) — right: 0 s'arrête au bord de la
+   boîte PROPRE de .goalsGridRow (celle-ci ne s'agrandit pas d'elle-même
+   pour ses enfants qui débordent), pas au bord réel du contenu qui déborde.
+   Signalé par Emilien : « je souhaite que les lignes horizontales [...]
+   s'étirent tout du long lorsque l'on rajoute une catégorie [...] que la
+   barre horizontale continue ».
+   Remplacé par left: 0 + width: var(--goalsRowFullWidth, 100%) : la variable
+   CSS est posée en JS sur CHAQUE .goalsGridRow par syncGoalsGridWidths()
+   (app.js, ex-syncGoalsAddSlotWidths()), égale à la largeur réelle
+   (scrollWidth) de #goalsGridScroll une fois les cases "page +"
+   dimensionnées — 100% en repli tant qu'elle n'est pas encore posée (1er
+   rendu) ou quand rien ne déborde. ⚠️ PREMIER ESSAI (abandonné) : fixer
+   `.goalsGridRow` lui-même en style.width explicite plutôt que seulement ce
+   pseudo-élément — CASSAIT .goalsGridRow--paged .goalsGridCell juste
+   en-dessous, dont le calc(50% - 5px) se résout contre la largeur de LA
+   LIGNE ELLE-MÊME : l'élargir gonflait alors ces cellules bien au-delà
+   d'une demi-page (reproduit et confirmé par capture Playwright avant
+   correction — offsetWidth de la ligne à 2497px, dernier enfant projeté à
+   x=5037px). Poser la largeur UNIQUEMENT sur ce ::before (position:absolute,
+   ne participe à aucun calc% d'un enfant) contourne le problème : la ligne
+   garde sa largeur naturelle (donc des demi-pages correctement dimensionnées),
+   seul le trait décoratif s'étire jusqu'au bord réel du contenu. */
 .goalsGridRow { display: flex; align-items: stretch; gap: 10px; position: relative; }
 .goalsGridRow:not(:first-child)::before {
-  content: ''; position: absolute; left: 0; right: 0; top: -16px;
+  content: ''; position: absolute; left: 0; top: -22px;
+  width: var(--goalsRowFullWidth, 100%);
   border-top: 2px dashed var(--track-bg); pointer-events: none;
 }
 .goalsGridRow--paged .goalsGridCell { flex: 0 0 calc(50% - 5px); min-width: 0; }
@@ -4739,13 +4791,15 @@ button { -webkit-user-select: none; user-select: none; }
    soit Plein » — ce trait de LIAISON reste donc solide comme à l'origine
    (6e passage). Les pointillés séparateurs de périodes demandés au 9e
    passage existent bel et bien, mais HORIZONTALEMENT (.goalsGridRow::before
-   ci-dessus), pas ici. -16px de chaque côté (moitié du gap de 32px,
-   .goalsGrid) pour continuer à rejoindre exactement la cellule voisine du
-   même rang, sans changement du reste de son comportement (passe derrière
-   le contenu, invisible sous une cellule pleine). */
+   ci-dessus), pas ici. -22px de chaque côté (moitié du gap de 44px,
+   .goalsGrid — 16 septembre 2026, discussion "Objectifs — Arbre
+   périodique" ; -16px/32px avant ce passage) pour continuer à rejoindre
+   exactement la cellule voisine du même rang, sans changement du reste de
+   son comportement (passe derrière le contenu, invisible sous une cellule
+   pleine). */
 .goalsGridCell::before {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
-  left: 50%; top: -16px; bottom: -16px; width: 0;
+  left: 50%; top: -22px; bottom: -22px; width: 0;
   border-left: 2px solid var(--track-bg);
   transform: translateX(-50%);
 }
@@ -4760,21 +4814,22 @@ button { -webkit-user-select: none; user-select: none; }
   border: 2px solid var(--track-bg); border-radius: var(--radius-md);
   background: var(--card); box-shadow: var(--shadow-card);
 }
-/* 15 septembre 2026 (7e passage) : une catégorie personnalisée applique sa
-   couleur en style INLINE (cell.style.borderColor, voir renderGoalsGrid()
-   dans app.js — bordure jamais un aplat, demande explicite d'Emilien), ce
-   qui prend le pas sur border-color: var(--purple) ci-dessous pour la
-   période courante. box-shadow (jamais écrasé par ce style inline) prend le
-   relais pour que "current" reste visible même sur une case de couleur
-   personnalisée. */
-.goalsGridCell--filled.current { border-color: var(--purple); box-shadow: 0 0 0 2px var(--purple), var(--shadow-card); }
-.goalsGridCellDot {
-  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--track-bg); flex-shrink: 0;
-}
-.goalsGridCellDot.goalStatusAtteint { background: var(--green); }
-.goalsGridCellDot.goalStatusPartiel { background: #f0ad4e; }
-.goalsGridCellDot.goalStatusNonAtteint { background: var(--red); }
+/* ⚠️ 16 septembre 2026 (discussion "Objectifs — Arbre périodique") : le
+   contour violet + halo (.current, ci-dessous auparavant) qui distinguait la
+   période EN COURS est retiré — demande d'Emilien : « je souhaite supprimer
+   le contour violet qui apparaît sur le contour de la période en cours. Pas
+   nécessaire. » La période courante n'a donc plus de traitement de bordure
+   distinct ; elle garde sa couleur de catégorie normale (cell.style.borderColor,
+   posée par renderGoalsGrid(), app.js — voir commentaire du 7e passage
+   ci-dessus, laissé pour le contexte de cette couleur). La classe "current"
+   reste posée en JS (utile ailleurs, ex. .goalsGridCell--empty.current
+   ci-dessous), seule cette règle-ci est retirée.
+   16 septembre 2026 (même passage) : le petit point de statut en haut à
+   gauche de la bulle (.goalsGridCellDot, span créé dans renderGoalsGrid(),
+   app.js) est retiré aussi — demande d'Emilien : « supprimer le petit point
+   [...] qui est inutile ». Le statut (atteint/partiel/non atteint) reste
+   visible ailleurs (page détail, bande de tendance) ; rien ne le remplace
+   ici, dans un but d'allègement visuel de l'arbre. */
 .goalsGridCellText {
   font-size: 12px; line-height: 1.3; margin: 0;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
