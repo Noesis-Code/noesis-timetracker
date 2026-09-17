@@ -12,6 +12,11 @@
 const express = require('express');
 const db = require('../db');
 const goals = require('../lib/goals');
+const goalsauto = require('../lib/goalsauto');
+const goalsdailyauto = require('../lib/goalsdailyauto');
+// Chantier Objectifs — C (fusion sous-projet → catégorie, section Tâches,
+// 17 septembre 2026) — voir server/lib/goalstasks.js.
+const goalstasks = require('../lib/goalstasks');
 
 const router = express.Router();
 
@@ -285,6 +290,13 @@ router.get('/activities/:id/goals/categories', (req, res) => {
       categories: goals.categoriesForActivity(activityId),
       frozenCategories: goals.frozenCategoriesForActivity(activityId),
       maxCategories: goals.MAX_CUSTOM_CATEGORIES,
+      // 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) :
+      // les tâches de chaque catégorie ACTIVE, agrégées depuis tous les
+      // sous-projets qui lui sont rattachés — voir server/lib/goalstasks.js.
+      // Bundlé ici plutôt qu'un appel séparé par catégorie : ce point
+      // d'entrée est déjà celui que loadActivityGoalsCategories() appelle à
+      // chaque ouverture/rafraîchissement du panneau (public/app.js).
+      tasksByCategory: goalstasks.tasksByCategoryForActivity(activityId),
     });
   } catch (err) {
     handleGoalsError(res, err);
@@ -351,6 +363,110 @@ router.put('/activities/:id/goals/categories-reorder', (req, res) => {
   try {
     const categories = goals.reorderCategories(activityId, keys);
     res.json({ ok: true, categories });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) :
+// ajoute une tâche directement depuis la catégorie — voir
+// server/lib/goalstasks.js pour la matérialisation paresseuse du sous-projet
+// "domicile" qui la reçoit réellement. Le toggle (coché/pas coché) et la
+// suppression réutilisent tels quels PUT/DELETE /api/sub-project-items/:id
+// (server/routes/subprojects.js) : une tâche créée ici n'est en rien
+// différente d'une tâche créée depuis un sous-projet.
+router.post('/activities/:id/goals/categories/:key/tasks', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  if (!goals.isValidCategoryForActivity(activityId, req.params.key)) {
+    return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
+  }
+
+  try {
+    const item = goalstasks.addCategoryTask(activityId, userId, req.params.key, req.body.label);
+    res.status(201).json(item);
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 17 septembre 2026 (discussion A — Offre1, cadré avec Emilien) : ajustement
+// manuel de la capacité hebdomadaire utilisée par le moteur d'auto-
+// planification (server/lib/goalsauto.js) — voir le commentaire de
+// goal_capacity_overrides dans server/db.js. Portée (activité, catégorie,
+// membre COURANT) : chaque membre ajuste sa propre capacité, jamais celle
+// d'un autre membre de l'activité.
+router.get('/activities/:id/goals/capacity', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const category = resolveCategory(activityId, req.query.category);
+    if (!goals.isValidCategoryForActivity(activityId, category)) {
+      return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
+    }
+    const override = goalsauto.getCapacityOverrideMinutes(activityId, category, userId);
+    const computed = goalsauto.capacityMinutesForMember(activityId, category, userId);
+    res.json({ override, computed });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// weeklyMinutes: null, '' ou absent retire l'ajustement manuel (retour au
+// calcul automatique) ; sinon pose/remplace la valeur (REMPLACE le calcul
+// auto tant qu'elle est active, ne l'additionne ni ne le plafonne).
+router.put('/activities/:id/goals/capacity', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const category = resolveCategory(activityId, req.body.category);
+    if (!goals.isValidCategoryForActivity(activityId, category)) {
+      return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
+    }
+    if (req.body.weeklyMinutes === null || req.body.weeklyMinutes === '' || req.body.weeklyMinutes === undefined) {
+      goalsauto.clearCapacityOverride(activityId, category, userId);
+      return res.json({ ok: true, override: null });
+    }
+    const result = goalsauto.setCapacityOverrideMinutes(activityId, category, userId, req.body.weeklyMinutes);
+    res.json({ ok: true, override: result.weeklyMinutes });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// 17 septembre 2026 (discussion A — Offre1, cadré avec Emilien) : génère la
+// feuille de route jour par jour d'un objectif hebdomadaire déjà rempli par
+// goalsauto.js — voir server/lib/goalsdailyauto.js. Jamais automatique,
+// toujours à la demande explicite d'un membre (coût par appel IA).
+router.post('/activities/:id/goals/weekly/:weeklyId/daily-plan', async (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const weeklyId = Number(req.params.weeklyId);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const result = await goalsdailyauto.generateDailyPlanForWeekly(activityId, weeklyId, userId);
+    res.json({ ok: true, ...result });
   } catch (err) {
     handleGoalsError(res, err);
   }
