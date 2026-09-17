@@ -853,9 +853,35 @@
       var vv = window.visualViewport;
       var pinned = false;
       var unpinTimer = null;
+      // 17 septembre 2026 (Design, 30e passage) : Emilien a confirmé, après
+      // déploiement réel de ce mécanisme (28e/29e passages), que l'en-tête
+      // continue à disparaître EN APP INSTALLÉE (PWA sur l'écran d'accueil)
+      // — jamais reproduit ni signalé en onglet Safari. Cause trouvée par
+      // recherche documentée, pas par hypothèse : bug WebKit connu et non
+      // corrigé à ce jour, spécifique au mode standalone (bugs.webkit.org,
+      // ticket 237851, « visualViewport.offsetTop is sometimes 0 when soft
+      // keyboard is open on web app mode ») — `visualViewport.offsetTop`
+      // peut être lu à 0 exactement au moment où l'événement resize/scroll
+      // se déclenche, alors que la vraie valeur n'est disponible qu'une
+      // fois le prochain rendu passé. Avec l'ancien code (lecture
+      // synchrone dans le callback), ce 0 lu par erreur appliquait
+      // `translateY(0)` au lieu du vrai décalage : la .topbar restait donc
+      // au sommet du viewport de mise en page pendant que le viewport
+      // visuel avait déjà "panné" plus bas — visuellement, elle sort de
+      // l'écran, exactement le symptôme "l'entête disparaît". Correctif
+      // documenté par ce même rapport de bug (et repris par plusieurs
+      // articles sur ce bug précis) : lire `vv.offsetTop` seulement après
+      // deux `requestAnimationFrame` imbriqués ("avant le prochain paint
+      // qui suit le prochain paint"), jamais de façon synchrone dans le
+      // callback resize/scroll lui-même.
       function syncTopbarPin() {
         if (!pinned) return;
-        topbarEl.style.transform = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            if (!pinned) return;
+            topbarEl.style.transform = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
+          });
+        });
       }
       document.addEventListener('focusin', function (e) {
         if (!_isTextInputEl(e.target)) return;
@@ -2101,15 +2127,15 @@
     // doit suivre le camembert d'où part l'appui, pas la grille.
     // Filtre d'ouverture sur LA FENÊTRE DE CE CAMEMBERT : demandé ici, et le
     // camembert est repeint quand la réponse arrive (l'appel est réentrant,
-    // voir ensureSubProjectGate).
+    // voir ensureCategoryGate).
     var bStart = breakdown.start;
     var bEnd = breakdown.end;
-    ensureSubProjectGate(bStart, bEnd, function () { renderPieBreakdown(data); });
+    ensureCategoryGate(bStart, bEnd, function () { renderPieBreakdown(data); });
     renderPie(breakdown.activities || [], breakdown.totalSeconds, {
-      canTap: function (a) { return spCanOpen(a.activityId, bStart, bEnd); },
+      canTap: function (a) { return csCanOpen(a.activityId, bStart, bEnd); },
       onActivityTap: function (a) {
         if (!bStart || !bEnd) return;
-        openSubProjectStats({
+        openCategoryStats({
           activityId: a.activityId, name: a.name,
           // La couleur de l'activité est déjà à l'écran : on la transmet pour
           // que la barre de la fenêtre soit teintée dès l'ouverture, sans
@@ -2138,7 +2164,7 @@
     // la réponse. Les cases viennent d'être réécrites en innerHTML juste
     // au-dessus (loadTimesheet), il n'y a donc pas d'écouteur à reposer.
     if (lastStatsGridRange) {
-      ensureSubProjectGate(lastStatsGridRange.from, lastStatsGridRange.to, applyGridGate);
+      ensureCategoryGate(lastStatsGridRange.from, lastStatsGridRange.to, applyGridGate);
       applyGridGate();
     }
     // Désynchronisé : la grille continue de se rafraîchir normalement, elle
@@ -2613,29 +2639,31 @@
   // ----- La fenêtre -----
   // Elle reprend la structure du volet Statistiques : une Feuille de temps,
   // puis une Répartition qui la résume. Les deux sortent d'UN SEUL appel
-  // (GET /api/sub-project-timesheet) — c'est ce qui rend leur synchronisation
+  // (GET /api/category-timesheet) — c'est ce qui rend leur synchronisation
   // impossible à casser : elles ne peuvent pas parler de deux périodes
   // différentes puisqu'elles viennent de la même réponse.
   //
-  // `subProjectStatsToken` est la garde anti-réponse-en-vol : deux appuis
+  // `categoryStatsToken` est la garde anti-réponse-en-vol : deux appuis
   // rapprochés sur deux activités ne doivent pas laisser la réponse la plus
   // lente peindre par-dessus la plus récente.
-  var subProjectStatsToken = 0;
-  var spCtx = null;              // { activityId, memberId, name }
-  var spPeriod = 'week';         // 'week' | 'month'
-  var spWeekOffset = 0;
-  var spMonthOffset = 0;
-  var spTodayMode = false;       // Répartition désynchronisée sur la journée
+  var categoryStatsToken = 0;
+  var csCtx = null;              // { activityId, memberId, name }
+  var csPeriod = 'week';         // 'week' | 'month'
+  var csWeekOffset = 0;
+  var csMonthOffset = 0;
+  var csTodayMode = false;       // Répartition désynchronisée sur la journée
   // Granularité du Graphique de la fenêtre. Volontairement INDÉPENDANTE de
-  // spPeriod : dans le volet Statistiques aussi, le Graphique couvre tout
+  // csPeriod : dans le volet Statistiques aussi, le Graphique couvre tout
   // l'historique et ne suit pas les flèches ‹ › de la Feuille de temps.
-  var spChartGranularity = 'day'; // 'day' | 'week' | 'month'
-  var spLastData = null;         // dernière réponse, pour resynchroniser sans refetch
+  var csChartGranularity = 'day'; // 'day' | 'week' | 'month'
+  var csLastData = null;         // dernière réponse, pour resynchroniser sans refetch
   // Fenêtre de jours réellement affichée par la grille du volet Statistiques.
   var lastStatsGridRange = null;
   // ----- Filtre d'ouverture (4 septembre 2026, demande d'Emilien : « je
   // souhaite que les activités qui n'ont pas encore enregistré de sous-projets
-  // dans chrono, n'ont pas l'option et ne s'ouvrent pas ») -----
+  // dans chrono, n'ont pas l'option et ne s'ouvrent pas » — 17 septembre 2026,
+  // suppression totale des sous-projets : même filtre, désormais sur le temps
+  // rattaché à une catégorie plutôt qu'à un sous-projet) -----
   //
   // La liste est calculée SUR LA PÉRIODE AFFICHÉE (sa réponse à la question du
   // 4 septembre : « Sur la période affichée (recommandé) ») : une activité dont
@@ -2648,48 +2676,48 @@
   // l'autre. Le cache n'est jamais vidé : sur la durée d'une session, les
   // fenêtres consultées se comptent en dizaines, et une entrée périmée ne peut
   // que rendre cliquable une activité qui l'était il y a une minute.
-  var spGateCache = {};      // "from|to" -> [activityId]
+  var csGateCache = {};      // "from|to" -> [activityId]
   // "from|to" -> tableau des rappels à jouer quand la réponse arrivera. Une
   // même fenêtre est demandée par PLUSIEURS peintures (la grille et le
   // camembert, dans cet ordre) : un simple drapeau ferait perdre le rappel de
   // la seconde, qui ne se repeindrait jamais.
-  var spGateInFlight = {};
+  var csGateInFlight = {};
 
-  function spGateIds(from, to) {
+  function csGateIds(from, to) {
     if (!from || !to) return null;
     var key = from + '|' + to;
-    return Object.prototype.hasOwnProperty.call(spGateCache, key) ? spGateCache[key] : null;
+    return Object.prototype.hasOwnProperty.call(csGateCache, key) ? csGateCache[key] : null;
   }
 
   // `after` n'est rappelé QUE si la liste vient d'arriver : une fenêtre déjà
   // connue sort tout de suite, ce qui rend l'appel réentrant sans risque (une
   // peinture peut demander le filtre, et le filtre redemander la peinture).
-  function ensureSubProjectGate(from, to, after) {
+  function ensureCategoryGate(from, to, after) {
     if (!profile || !from || !to) return;
     var key = from + '|' + to;
-    if (Object.prototype.hasOwnProperty.call(spGateCache, key)) return;
-    if (spGateInFlight[key]) {
+    if (Object.prototype.hasOwnProperty.call(csGateCache, key)) return;
+    if (csGateInFlight[key]) {
       // Requête déjà partie pour cette fenêtre : on s'ajoute à sa file plutôt
       // que d'en lancer une seconde.
-      if (after) spGateInFlight[key].push(after);
+      if (after) csGateInFlight[key].push(after);
       return;
     }
-    spGateInFlight[key] = after ? [after] : [];
-    api('GET', '/api/sub-project-stats/activities?userId=' + profile.id
+    csGateInFlight[key] = after ? [after] : [];
+    api('GET', '/api/category-stats/activities?userId=' + profile.id
       + '&from=' + from + '&to=' + to).then(function (data) {
-      var waiting = spGateInFlight[key] || [];
-      delete spGateInFlight[key];
-      spGateCache[key] = (data && data.activityIds) || [];
+      var waiting = csGateInFlight[key] || [];
+      delete csGateInFlight[key];
+      csGateCache[key] = (data && data.activityIds) || [];
       waiting.forEach(function (fn) { fn(); });
     }).catch(function () {
-      delete spGateInFlight[key];
+      delete csGateInFlight[key];
       // Rien en cache : pas d'affordance plutôt qu'une fausse, et la prochaine
       // peinture redemandera.
     });
   }
 
-  function spCanOpen(activityId, from, to) {
-    var ids = spGateIds(from, to);
+  function csCanOpen(activityId, from, to) {
+    var ids = csGateIds(from, to);
     return !!ids && ids.indexOf(Number(activityId)) !== -1;
   }
 
@@ -2704,7 +2732,7 @@
       var el = $(id);
       if (!el) return;
       Array.prototype.forEach.call(el.querySelectorAll('[data-activity-id]'), function (cell) {
-        var ok = !!r && spCanOpen(cell.getAttribute('data-activity-id'), r.from, r.to);
+        var ok = !!r && csCanOpen(cell.getAttribute('data-activity-id'), r.from, r.to);
         cell.classList.toggle('tsSlot-tappable', ok);
       });
     });
@@ -2725,31 +2753,31 @@
   // erreur technique sous les yeux de quelqu'un qui n'y peut rien. Le
   // rechargement remet forcément les deux fichiers en phase (voir le bloc de
   // mise à jour en tête d'index.html, qui compare l'empreinte /api/version).
-  var SUB_PROJECT_STATS_REQUIRED_IDS = [
-    'subProjectStatsModal', 'subProjectStatsTitle', 'subProjectStatsClose',
-    'subProjectStatsScroll', 'subProjectStatsMsg',
-    'spTimesheetBlock', 'spTsGrid', 'spTsCalendar', 'spTsFrozenCol',
-    'spPieBlock', 'subProjectStatsPie',
-    'spChartBlock', 'spChart', 'spChartLegend',
+  var CATEGORY_STATS_REQUIRED_IDS = [
+    'categoryStatsModal', 'categoryStatsTitle', 'categoryStatsClose',
+    'categoryStatsScroll', 'categoryStatsMsg',
+    'csTimesheetBlock', 'csTsGrid', 'csTsCalendar', 'csTsFrozenCol',
+    'csPieBlock', 'categoryStatsPie',
+    'csChartBlock', 'csChart', 'csChartLegend',
   ];
 
-  function subProjectStatsMarkupMissing() {
-    return SUB_PROJECT_STATS_REQUIRED_IDS.filter(function (id) { return !$(id); });
+  function categoryStatsMarkupMissing() {
+    return CATEGORY_STATS_REQUIRED_IDS.filter(function (id) { return !$(id); });
   }
 
-  function openSubProjectStats(opts) {
+  function openCategoryStats(opts) {
     if (!profile || !opts || !opts.activityId) return;
 
-    var missing = subProjectStatsMarkupMissing();
+    var missing = categoryStatsMarkupMissing();
     if (missing.length) {
-      console.warn('[Noesis] Fenêtre sous-projets : balisage absent (' + missing.join(', ')
+      console.warn('[Noesis] Fenêtre catégories : balisage absent (' + missing.join(', ')
         + ') — index.html et app.js ne sont pas de la même version.');
       // On n'ouvre PAS une fenêtre à moitié construite. Si le message a sa
       // place dans le document, on s'en sert ; sinon la console suffit, mieux
       // vaut ne rien faire qu'afficher une erreur technique.
-      if ($('subProjectStatsMsg')) {
-        $('subProjectStatsMsg').textContent = t("L'application vient d'être mise à jour. Recharge la page.");
-        if ($('subProjectStatsModal')) $('subProjectStatsModal').classList.remove('hidden');
+      if ($('categoryStatsMsg')) {
+        $('categoryStatsMsg').textContent = t("L'application vient d'être mise à jour. Recharge la page.");
+        if ($('categoryStatsModal')) $('categoryStatsModal').classList.remove('hidden');
       }
       return;
     }
@@ -2758,22 +2786,22 @@
     // cliquable par accident (rattrapage DOM pas encore passé, cache arrivé
     // entre-temps), une activité sans temps rattaché sur la fenêtre d'où part
     // l'appui n'ouvre rien.
-    if (!spCanOpen(opts.activityId, opts.from, opts.to)) return;
-    spCtx = { activityId: Number(opts.activityId), memberId: opts.memberId || null, name: opts.name || '' };
-    spPeriod = 'week';
-    spWeekOffset = 0;
-    spMonthOffset = 0;
-    spTodayMode = false;
-    spLastData = null;
-    spChartGranularity = 'day';
-    syncSpTodayBtn();
-    syncPeriodMenuActive($('spTsPeriodMenu'), 'week');
-    syncPeriodMenuActive($('spChartPeriodMenu'), 'day');
-    $('subProjectStatsModal').classList.remove('hidden');
+    if (!csCanOpen(opts.activityId, opts.from, opts.to)) return;
+    csCtx = { activityId: Number(opts.activityId), memberId: opts.memberId || null, name: opts.name || '' };
+    csPeriod = 'week';
+    csWeekOffset = 0;
+    csMonthOffset = 0;
+    csTodayMode = false;
+    csLastData = null;
+    csChartGranularity = 'day';
+    syncCsTodayBtn();
+    syncPeriodMenuActive($('csTsPeriodMenu'), 'week');
+    syncPeriodMenuActive($('csChartPeriodMenu'), 'day');
+    $('categoryStatsModal').classList.remove('hidden');
     // La zone défilante repart du haut : sans ça, ouvrir une seconde activité
     // afficherait sa fenêtre à la position laissée par la précédente.
-    if ($('subProjectStatsScroll')) $('subProjectStatsScroll').scrollTop = 0;
-    $('subProjectStatsTitle').textContent = spCtx.name;
+    if ($('categoryStatsScroll')) $('categoryStatsScroll').scrollTop = 0;
+    $('categoryStatsTitle').textContent = csCtx.name;
     // ⚠️ 6 septembre 2026, Emilien : « il y a un délai entre le moment où la
     // fenêtre s'ouvre et où la barre du haut se colore ; je souhaite que dès
     // que la fenêtre s'ouvre, la barre soit déjà colorée ».
@@ -2784,7 +2812,7 @@
     // de la grille sur laquelle on vient d'appuyer. L'appelant la transmet
     // maintenant dans `opts.color`, et on peint tout de suite.
     //
-    // `renderSubProjectStats` repeindra ensuite avec `data.baseColor`. Ce n'est
+    // `renderCategoryStats` repeindra ensuite avec `data.baseColor`. Ce n'est
     // pas redondant : sur une activité partagée dont on regarde le temps d'un
     // AUTRE membre, la couleur de référence est la sienne, pas celle qu'on a
     // sous le doigt. Les deux coïncident dans le cas courant — on regarde son
@@ -2793,68 +2821,68 @@
     //
     // Sans couleur transmise, on repart du neutre : ouvrir une seconde
     // activité ne doit pas afficher un instant la couleur de la précédente.
-    paintSubProjectStatsHeader(opts.color || null);
-    loadSubProjectStats();
-    loadSubProjectChart();
+    paintCategoryStatsHeader(opts.color || null);
+    loadCategoryStats();
+    loadCategoryChart();
   }
 
-  function closeSubProjectStats() {
-    subProjectStatsToken++;   // toute réponse encore en vol devient périmée
-    subProjectChartToken++;
-    spCtx = null;
-    $('subProjectStatsModal').classList.add('hidden');
+  function closeCategoryStats() {
+    categoryStatsToken++;   // toute réponse encore en vol devient périmée
+    categoryChartToken++;
+    csCtx = null;
+    $('categoryStatsModal').classList.add('hidden');
   }
 
-  function loadSubProjectStats() {
-    if (!profile || !spCtx) return;
-    var token = ++subProjectStatsToken;
-    $('subProjectStatsMsg').textContent = t('Chargement...');
+  function loadCategoryStats() {
+    if (!profile || !csCtx) return;
+    var token = ++categoryStatsToken;
+    $('categoryStatsMsg').textContent = t('Chargement...');
 
-    var url = '/api/sub-project-timesheet?userId=' + profile.id
-      + '&activityId=' + spCtx.activityId
-      + '&period=' + spPeriod
-      + (spPeriod === 'month' ? '&monthOffset=' + spMonthOffset : '&weekOffset=' + spWeekOffset)
-      + (spCtx.memberId ? '&memberId=' + encodeURIComponent(spCtx.memberId) : '');
+    var url = '/api/category-timesheet?userId=' + profile.id
+      + '&activityId=' + csCtx.activityId
+      + '&period=' + csPeriod
+      + (csPeriod === 'month' ? '&monthOffset=' + csMonthOffset : '&weekOffset=' + csWeekOffset)
+      + (csCtx.memberId ? '&memberId=' + encodeURIComponent(csCtx.memberId) : '');
 
     api('GET', url).then(function (data) {
-      if (token !== subProjectStatsToken) return;
-      $('subProjectStatsMsg').textContent = '';
-      spLastData = data;
-      renderSubProjectStats(data);
+      if (token !== categoryStatsToken) return;
+      $('categoryStatsMsg').textContent = '';
+      csLastData = data;
+      renderCategoryStats(data);
     }).catch(function (err) {
-      if (token !== subProjectStatsToken) return;
-      $('subProjectStatsMsg').textContent = err.message;
+      if (token !== categoryStatsToken) return;
+      $('categoryStatsMsg').textContent = err.message;
     });
   }
 
   // Nom complet, avec repli si le nom de famille manque.
-  function subProjectStatsFullName(name, lastName) {
+  function categoryStatsFullName(name, lastName) {
     return lastName ? (name + ' ' + lastName) : (name || '');
   }
 
   // Couleur d'une case ou d'une part : la couleur de l'activité pour le temps
-  // NON rattaché, une nuance de celle-ci pour chaque sous-projet.
+  // NON rattaché, une nuance de celle-ci pour chaque catégorie.
   // `fallbackRank` (6 septembre 2026) : le rang de nuance porté par la part
   // elle-même (`shadeIndex`), utilisé quand la réponse ne contient pas la
-  // table `shadeBySubProject`.
+  // table `shadeByCategory`.
   //
   // ⚠️ Pourquoi ce repli existe : les trois réponses du serveur ne portent PAS
-  // le rang de la même façon. /sub-project-timesheet et /sub-project-chart
-  // envoient la table complète `shadeBySubProject` (la grille et le graphique
+  // le rang de la même façon. /category-timesheet et /category-chart
+  // envoient la table complète `shadeByCategory` (la grille et le graphique
   // doivent colorer des cases dont ils n'ont pas la part sous la main), tandis
-  // que /sub-project-stats — celle du mode « Aujourd'hui » et de la page solo —
+  // que /category-stats — celle du mode « Aujourd'hui » et de la page solo —
   // met un `shadeIndex` sur CHAQUE part et pas de table. Sans ce repli, le rang
   // était introuvable, `subProjectShade(base, null, ...)` renvoyait la couleur
-  // de base, et TOUS les sous-projets ressortaient de la couleur de l'activité
+  // de base, et TOUTES les catégories ressortaient de la couleur de l'activité
   // — exactement ce qu'Emilien a vu en appuyant sur « Aujourd'hui ».
   //
   // Les deux sources donnent le même rang (`shadeRanks` côté serveur, position
-  // parmi tous les sous-projets de l'activité, clôturés compris) : le repli ne
-  // peut donc pas produire une couleur différente de la table, il comble juste
-  // son absence. La règle de couleur reste unique, ici.
-  function spColorFor(data, subProjectId, fallbackRank) {
-    if (subProjectId === null || subProjectId === undefined) return data.baseColor;
-    var rank = data.shadeBySubProject ? data.shadeBySubProject[subProjectId] : undefined;
+  // parmi toutes les catégories de l'activité, retirées comprises) : le repli
+  // ne peut donc pas produire une couleur différente de la table, il comble
+  // juste son absence. La règle de couleur reste unique, ici.
+  function categoryColorFor(data, category, fallbackRank) {
+    if (category === null || category === undefined) return data.baseColor;
+    var rank = data.shadeByCategory ? data.shadeByCategory[category] : undefined;
     if (rank === undefined || rank === null) rank = fallbackRank;
     return subProjectShade(data.baseColor, rank === undefined ? null : rank, data.shadeCount);
   }
@@ -2863,7 +2891,7 @@
   // supérieure soit de la même couleur que l'activité ». La barre d'en-tête de
   // la fenêtre prend donc la couleur que CE membre a choisie pour cette
   // activité — la même que sa part dans le camembert d'où l'on vient, et la
-  // même que celle réservée au temps « Sans sous-projet » à l'intérieur.
+  // même que celle réservée au temps « Sans catégorie » à l'intérieur.
   //
   // Le texte suit textColorForTheme, comme les boutons d'activité du Chrono :
   // les couleurs d'activité viennent d'une palette contrainte par thème (voir
@@ -2875,56 +2903,56 @@
   // normalement le fond d'une carte et une bordure grise, devient transparent
   // avec une bordure de la couleur du texte. Sans ça il resterait une petite
   // boîte pâle posée sur la barre colorée.
-  function paintSubProjectStatsHeader(color) {
-    var bar = $('subProjectStatsModal').querySelector('.viewProfileIdentity');
+  function paintCategoryStatsHeader(color) {
+    var bar = $('categoryStatsModal').querySelector('.viewProfileIdentity');
     if (!bar) return;
     bar.classList.toggle('tinted', !!color);
     bar.style.background = color || '';
     bar.style.color = color ? textColorForTheme(currentTheme) : '';
   }
 
-  function renderSubProjectStats(data) {
+  function renderCategoryStats(data) {
     // ⚠️ 6 septembre 2026 : « supprimer l'inscription temps tout en haut ».
     // La ligne « Mon temps » / « Temps de X » a disparu. Sur une activité
     // partagée, l'information qu'elle portait — on regarde le temps d'UNE
     // personne, pas le total de l'activité — reste indispensable : elle passe
     // dans le titre lui-même, et seulement quand ce n'est PAS son propre temps.
     // Chez soi, le titre est le seul nom de l'activité, comme demandé.
-    $('subProjectStatsTitle').textContent = data.isSelf
+    $('categoryStatsTitle').textContent = data.isSelf
       ? (data.activityName || '')
       : (data.activityName || '') + ' · '
-        + subProjectStatsFullName(data.memberName, data.memberLastName);
-    paintSubProjectStatsHeader(data.baseColor);
+        + categoryStatsFullName(data.memberName, data.memberLastName);
+    paintCategoryStatsHeader(data.baseColor);
 
     // ----- La grille, dessinée par les fonctions de la Feuille de temps -----
     var ids = {
-      grid: 'spTsGrid', calendar: 'spTsCalendar', frozen: 'spTsFrozenCol',
-      weekLabel: 'spTsWeekLabel', prevBtn: 'spTsPrevWeek', nextBtn: 'spTsNextWeek',
-      emptyHint: 'spTsEmptyHint',
-      colorOf: function (slot) { return spColorFor(data, slot.subProjectId); },
+      grid: 'csTsGrid', calendar: 'csTsCalendar', frozen: 'csTsFrozenCol',
+      weekLabel: 'csTsWeekLabel', prevBtn: 'csTsPrevWeek', nextBtn: 'csTsNextWeek',
+      emptyHint: 'csTsEmptyHint',
+      colorOf: function (slot) { return categoryColorFor(data, slot.category); },
       tappable: false,
     };
     if (data.period === 'month') renderTimesheetMonth(data, ids);
     else renderTimesheetWeek(data, ids);
 
     // ----- La répartition, synchronisée sur la grille ci-dessus -----
-    if (!spTodayMode) renderSubProjectPie(data.breakdown, data.label, data);
+    if (!csTodayMode) renderCategoryPie(data.breakdown, data.label, data);
   }
 
-  function renderSubProjectPie(breakdown, label, data) {
-    var parts = (breakdown && breakdown.subProjects) || [];
-    $('spStatsLabel').textContent = label ? t(label) : '';
+  function renderCategoryPie(breakdown, label, data) {
+    var parts = (breakdown && breakdown.categories) || [];
+    $('csStatsLabel').textContent = label ? t(label) : '';
 
     var colored = parts.map(function (p) {
       return {
-        name: p.subProjectId === null
-          ? t('Sans sous-projet')
-          : (p.name || t('Sous-projet')) + (p.closed ? ' (' + t('clôturé') + ')' : ''),
+        name: p.category === null
+          ? t('Sans catégorie')
+          : (p.name || t('Catégorie')) + (p.frozen ? ' (' + t('retirée') + ')' : ''),
         seconds: p.seconds,
         percent: p.percent,
         // Le rang de la part est passé en repli : en mode « Aujourd'hui »,
-        // c'est le seul endroit où il se trouve (voir spColorFor).
-        color: spColorFor(data, p.subProjectId, p.shadeIndex),
+        // c'est le seul endroit où il se trouve (voir categoryColorFor).
+        color: categoryColorFor(data, p.category, p.shadeIndex),
       };
     });
 
@@ -2934,8 +2962,8 @@
     // souhaite que la légende ne soit affichée qu'une seule fois »).
     // Sans `onActivityTap` : on est déjà au niveau le plus fin.
     renderPie(colored, breakdown ? breakdown.totalSeconds : 0, {
-      wrap: 'subProjectStatsPie',
-      emptyHint: 'subProjectStatsPieEmptyHint',
+      wrap: 'categoryStatsPie',
+      emptyHint: 'categoryStatsPieEmptyHint',
     });
   }
 
@@ -2943,92 +2971,127 @@
   // Même mécanisme que #statsPieTodayBtn dans le volet Statistiques : la
   // grille continue de vivre sa vie, seule la répartition se recale sur la
   // journée en cours. Un second appui resynchronise, sans redemander au
-  // serveur une réponse déjà reçue (spLastData).
-  function syncSpTodayBtn() {
-    var btn = $('spPieTodayBtn');
+  // serveur une réponse déjà reçue (csLastData).
+  function syncCsTodayBtn() {
+    var btn = $('csPieTodayBtn');
     if (!btn) return;
-    btn.classList.toggle('active', spTodayMode);
-    btn.setAttribute('aria-pressed', spTodayMode ? 'true' : 'false');
+    btn.classList.toggle('active', csTodayMode);
+    btn.setAttribute('aria-pressed', csTodayMode ? 'true' : 'false');
   }
 
-  function loadSpToday() {
-    if (!profile || !spCtx) return;
-    var token = subProjectStatsToken;
+  function loadCsToday() {
+    if (!profile || !csCtx) return;
+    var token = categoryStatsToken;
     var today = toDateValue(new Date());
-    var url = '/api/sub-project-stats?userId=' + profile.id
-      + '&activityId=' + spCtx.activityId + '&from=' + today + '&to=' + today
-      + (spCtx.memberId ? '&memberId=' + encodeURIComponent(spCtx.memberId) : '');
+    var url = '/api/category-stats?userId=' + profile.id
+      + '&activityId=' + csCtx.activityId + '&from=' + today + '&to=' + today
+      + (csCtx.memberId ? '&memberId=' + encodeURIComponent(csCtx.memberId) : '');
     api('GET', url).then(function (data) {
       // L'utilisateur a pu re-cliquer (ou fermer) pendant la requête : ne rien
       // peindre si le mode n'est plus actif, sinon une réponse tardive
       // écraserait la répartition resynchronisée.
-      if (!spTodayMode || token !== subProjectStatsToken) return;
-      renderSubProjectPie(data, "Aujourd'hui", data);
-    }).catch(function (err) { $('subProjectStatsMsg').textContent = err.message; });
+      if (!csTodayMode || token !== categoryStatsToken) return;
+      renderCategoryPie(data, "Aujourd'hui", data);
+    }).catch(function (err) { $('categoryStatsMsg').textContent = err.message; });
   }
 
-  $('spPieTodayBtn').addEventListener('click', function () {
-    spTodayMode = !spTodayMode;
-    syncSpTodayBtn();
-    if (spTodayMode) loadSpToday();
-    else if (spLastData) renderSubProjectPie(spLastData.breakdown, spLastData.label, spLastData);
+  $('csPieTodayBtn').addEventListener('click', function () {
+    csTodayMode = !csTodayMode;
+    syncCsTodayBtn();
+    if (csTodayMode) loadCsToday();
+    else if (csLastData) renderCategoryPie(csLastData.breakdown, csLastData.label, csLastData);
   });
 
-  $('spTsPrevWeek').addEventListener('click', function () {
-    if (spPeriod === 'month') spMonthOffset += 1; else spWeekOffset += 1;
-    loadSubProjectStats();
+  $('csTsPrevWeek').addEventListener('click', function () {
+    if (csPeriod === 'month') csMonthOffset += 1; else csWeekOffset += 1;
+    loadCategoryStats();
   });
-  $('spTsNextWeek').addEventListener('click', function () {
-    if (spPeriod === 'month') { if (spMonthOffset === 0) return; spMonthOffset -= 1; }
-    else { if (spWeekOffset === 0) return; spWeekOffset -= 1; }
-    loadSubProjectStats();
+  $('csTsNextWeek').addEventListener('click', function () {
+    if (csPeriod === 'month') { if (csMonthOffset === 0) return; csMonthOffset -= 1; }
+    else { if (csWeekOffset === 0) return; csWeekOffset -= 1; }
+    loadCategoryStats();
   });
-  setupStatsPeriodMenu($('spTsPeriodBtn'), $('spTsPeriodMenu'), function (period) {
-    spPeriod = period === 'month' ? 'month' : 'week';
-    spWeekOffset = 0;
-    spMonthOffset = 0;
-    loadSubProjectStats();
+  setupStatsPeriodMenu($('csTsPeriodBtn'), $('csTsPeriodMenu'), function (period) {
+    csPeriod = period === 'month' ? 'month' : 'week';
+    csWeekOffset = 0;
+    csMonthOffset = 0;
+    loadCategoryStats();
   });
 
-  // ============ STATISTIQUES D'UNE ACTIVITÉ SOLO, PAR SOUS-PROJET ============
+  // ============ STATISTIQUES D'UNE ACTIVITÉ SOLO, PAR CATÉGORIE ============
   // Discussion « Activité solo », 5 septembre 2026. Demande d'Emilien :
   // « lorsqu'un sous-projet a été créé, une section statistique apparaît comme
   // pour les activités partagées [...] cette statistique montre les
   // statistiques de l'activité par sous-projets. »
   //
-  // ⚠️ Ce que cette section NE fait pas, et c'est le point de conception :
-  // elle ne réutilise PAS renderSubProjectStats (la fenêtre flottante du
-  // chantier « Chrono — sous-projets »). Celle-ci dessine désormais une grille
-  // de Feuille de temps complète en plus du camembert, avec son propre état
-  // (spCtx, spTodayMode, ses offsets de semaine) — s'y accrocher rendrait
-  // cette section dépendante d'un écran qui bouge vite, et l'y faire entrer
-  // demanderait de le paramétrer de bout en bout. Les deux écrans partagent ce
-  // qui est STABLE : la route, subProjectShade et renderPie. Rien d'autre.
+  // 17 septembre 2026 (suppression totale des sous-projets) : la section
+  // affiche désormais la répartition par CATÉGORIE Objectifs, et non plus par
+  // sous-projet. Conséquence directe sur son affordance d'ouverture — voir
+  // syncSoloStatsTab ci-dessous.
   //
-  // ⚠️ Le temps enregistré SANS sous-projet forme sa propre part. Le choix d'un
-  // sous-projet au démarrage du chrono est optionnel et c'est le cas normal :
-  // masquer cette part donnerait un camembert dont les tranches ne font pas le
-  // total affiché juste au-dessus.
+  // ⚠️ Ce que cette section NE fait pas, et c'est le point de conception :
+  // elle ne réutilise PAS renderCategoryStats (la fenêtre flottante du
+  // chantier « Chrono — sous-projets », devenu « Chrono — catégories »).
+  // Celle-ci dessine désormais une grille de Feuille de temps complète en plus
+  // du camembert, avec son propre état (csCtx, csTodayMode, ses offsets de
+  // semaine) — s'y accrocher rendrait cette section dépendante d'un écran qui
+  // bouge vite, et l'y faire entrer demanderait de le paramétrer de bout en
+  // bout. Les deux écrans partagent ce qui est STABLE : la route,
+  // subProjectShade et renderPie. Rien d'autre.
+  //
+  // ⚠️ Le temps enregistré SANS catégorie forme sa propre part. Le
+  // rattachement à une catégorie au démarrage du chrono est optionnel et
+  // c'est le cas normal : masquer cette part donnerait un camembert dont les
+  // tranches ne font pas le total affiché juste au-dessus.
   var currentSoloStatsPeriod = 'week';
 
-  // La section n'existe qu'à partir du premier sous-projet. Appelée à chaque
-  // rendu de la liste des sous-projets, donc juste après une création comme
-  // après une suppression.
+  // 17 septembre 2026 : l'ancienne affordance (« la section n'existe qu'à
+  // partir du premier sous-projet ») n'a plus de sens — une catégorie existe
+  // TOUJOURS (au moins la catégorie par défaut, voir goals.js), le Chrono ne
+  // propose d'ailleurs plus que des catégories depuis la suppression des
+  // sous-projets. La section apparaît donc désormais dès que l'activité a du
+  // temps RATTACHÉ À UNE CATÉGORIE, déjà enregistré — même condition, adaptée,
+  // que le filtre d'ouverture de la fenêtre flottante (csCanOpen ci-dessus) :
+  // une section qui s'ouvre doit toujours avoir quelque chose à montrer.
+  // Appelée depuis loadActivityPage() (recherche "syncSoloStatsTab" pour son
+  // appelant), pas depuis le rendu de la liste des sous-projets comme avant —
+  // ce rendu-là n'a plus aucun rapport avec cette section.
   function syncSoloStatsTab(has) {
     $('activityPageTabStats').classList.toggle('hidden', !has);
     $('activityPageSectionSwitch').classList.toggle('hidden', !has);
-    // Le dernier sous-projet vient d'être supprimé alors qu'on regardait les
+    // La dernière catégorie de temps de l'activité a disparu (rare, mais
+    // possible après une modification d'historique) alors qu'on regardait les
     // statistiques : on ne laisse pas l'écran sur une section qui n'existe plus.
     if (!has && activityPageSection === 'stats') setActivityPageSection('sub');
   }
 
-  function renderSoloSubProjectPie(data) {
-    var parts = data.subProjects || [];
+  // Vérifie, à l'ouverture de la page d'une activité SOLO, si elle a du temps
+  // rattaché à une catégorie — réutilise le même filtre que la fenêtre
+  // flottante (/api/category-stats/activities), sur une plage large plutôt
+  // que sur la fenêtre affichée par une grille (il n'y en a pas ici) : cette
+  // page ne s'intéresse qu'à « est-ce qu'il existe quelque chose à montrer,
+  // un jour donné », pas à une période précise.
+  function refreshSoloStatsAvailability(activityId) {
+    if (!profile || !activityId) return;
+    api('GET', '/api/category-stats/activities?userId=' + profile.id
+      + '&from=2000-01-01&to=' + toDateValue(new Date()))
+      .then(function (data) {
+        // Garde anti-réponse-en-vol : l'activité regardée a pu changer pendant
+        // la requête.
+        if (String(activityId) !== String(currentCommunityActivityId)) return;
+        var ids = (data && data.activityIds) || [];
+        syncSoloStatsTab(ids.indexOf(Number(activityId)) !== -1);
+      })
+      .catch(function () {});
+  }
+
+  function renderSoloCategoryPie(data) {
+    var parts = data.categories || [];
     var colored = parts.map(function (p) {
       return {
-        name: p.subProjectId === null
-          ? t('Sans sous-projet')
-          : (p.name || t('Sous-projet')) + (p.closed ? ' (' + t('clôturé') + ')' : ''),
+        name: p.category === null
+          ? t('Sans catégorie')
+          : (p.name || t('Catégorie')) + (p.frozen ? ' (' + t('retirée') + ')' : ''),
         seconds: p.seconds,
         percent: p.percent,
         color: subProjectShade(data.baseColor, p.shadeIndex, data.shadeCount),
@@ -3047,11 +3110,11 @@
   // serveur, qui convertit la période. La même source que partout ailleurs,
   // plutôt qu'un second calcul de dates en JS qui divergerait au premier
   // changement de règle.
-  function loadSoloSubProjectStats() {
+  function loadSoloCategoryStats() {
     if (!profile || !currentCommunityActivityId) return;
     var activityId = currentCommunityActivityId;
     $('soloStatsMsg').textContent = '';
-    api('GET', '/api/sub-project-stats?userId=' + profile.id
+    api('GET', '/api/category-stats?userId=' + profile.id
       + '&activityId=' + encodeURIComponent(activityId)
       + '&period=' + currentSoloStatsPeriod)
       .then(function (data) {
@@ -3059,14 +3122,14 @@
         // la requête (même motif que loadSubProjects et loadDiscussion).
         if (String(activityId) !== String(currentCommunityActivityId)) return;
         $('soloStatsLabel').textContent = t(data.periodLabel || '');
-        renderSoloSubProjectPie(data);
+        renderSoloCategoryPie(data);
       })
       .catch(function (err) { $('soloStatsMsg').textContent = err.message; });
   }
 
   setupStatsPeriodMenu($('soloStatsPeriodBtn'), $('soloStatsPeriodMenu'), function (period) {
     currentSoloStatsPeriod = period;
-    loadSoloSubProjectStats();
+    loadSoloCategoryStats();
   });
 
   // ----- Section Graphique de la fenêtre (5 septembre 2026) -----
@@ -3074,23 +3137,24 @@
   // buildChartSeries du volet Statistiques qui dessinent, l'infobulle au doigt
   // et le recentrage sur les données les plus récentes compris. Le seul code
   // propre à cette section est l'ADAPTATEUR ci-dessous, qui rhabille les
-  // points « par sous-projet » du serveur dans la forme que buildChartSeries
+  // points « par catégorie » du serveur dans la forme que buildChartSeries
   // attend — ce qui évite de toucher à cette fonction-là, partagée avec la
   // page de visite d'un profil.
-  var subProjectChartToken = 0;
+  var categoryChartToken = 0;
 
-  // `subProjects` (serveur) -> `activities` (forme attendue par
+  // `categories` (serveur) -> `activities` (forme attendue par
   // buildChartSeries). L'identité d'une série doit rester STABLE d'un point à
-  // l'autre : 'sp<id>' pour un sous-projet, 'none' pour le temps non rattaché
-  // — un `null` ferait fusionner toutes les séries sans identifiant.
-  function spChartPoints(data) {
+  // l'autre : la clé de catégorie elle-même pour une catégorie, 'none' pour
+  // le temps non rattaché — un `null` ferait fusionner toutes les séries sans
+  // identifiant.
+  function categoryChartPoints(data) {
     return (data.points || []).map(function (p) {
       return Object.assign({}, p, {
-        activities: (p.subProjects || []).map(function (e) {
+        activities: (p.categories || []).map(function (e) {
           return {
-            activityId: e.subProjectId === null ? 'none' : 'sp' + e.subProjectId,
-            name: e.subProjectId === null ? t('Sans sous-projet') : (e.name || t('Sous-projet')),
-            color: spColorFor(data, e.subProjectId),
+            activityId: e.category === null ? 'none' : e.category,
+            name: e.category === null ? t('Sans catégorie') : (e.name || t('Catégorie')),
+            color: categoryColorFor(data, e.category),
             seconds: e.seconds,
           };
         }),
@@ -3098,53 +3162,53 @@
     });
   }
 
-  var SP_CHART_IDS = {
-    box: 'spChart', wrap: 'spChartWrap', legend: 'spChartLegend',
-    tooltip: 'spChartTooltip', emptyHint: 'spChartEmptyHint',
+  var CATEGORY_CHART_IDS = {
+    box: 'csChart', wrap: 'csChartWrap', legend: 'csChartLegend',
+    tooltip: 'csChartTooltip', emptyHint: 'csChartEmptyHint',
   };
 
-  function loadSubProjectChart() {
-    if (!profile || !spCtx) return;
-    var token = ++subProjectChartToken;
-    var url = '/api/sub-project-chart?userId=' + profile.id
-      + '&activityId=' + spCtx.activityId
-      + '&granularity=' + spChartGranularity
-      + (spCtx.memberId ? '&memberId=' + encodeURIComponent(spCtx.memberId) : '');
+  function loadCategoryChart() {
+    if (!profile || !csCtx) return;
+    var token = ++categoryChartToken;
+    var url = '/api/category-chart?userId=' + profile.id
+      + '&activityId=' + csCtx.activityId
+      + '&granularity=' + csChartGranularity
+      + (csCtx.memberId ? '&memberId=' + encodeURIComponent(csCtx.memberId) : '');
 
     api('GET', url).then(function (data) {
-      if (token !== subProjectChartToken) return;
-      renderChart(spChartPoints(data), SP_CHART_IDS);
+      if (token !== categoryChartToken) return;
+      renderChart(categoryChartPoints(data), CATEGORY_CHART_IDS);
     }).catch(function () {
-      if (token !== subProjectChartToken) return;
+      if (token !== categoryChartToken) return;
       // Un graphique en échec ne doit pas emporter la fenêtre : la grille et
       // la répartition, servies par un autre appel, restent affichées.
-      renderChart([], SP_CHART_IDS);
+      renderChart([], CATEGORY_CHART_IDS);
     });
   }
 
-  setupStatsPeriodMenu($('spChartPeriodBtn'), $('spChartPeriodMenu'), function (g) {
-    spChartGranularity = g === 'week' || g === 'month' ? g : 'day';
-    loadSubProjectChart();
+  setupStatsPeriodMenu($('csChartPeriodBtn'), $('csChartPeriodMenu'), function (g) {
+    csChartGranularity = g === 'week' || g === 'month' ? g : 'day';
+    loadCategoryChart();
   });
 
-  $('subProjectStatsClose').addEventListener('click', closeSubProjectStats);
-  $('subProjectStatsModal').addEventListener('click', function (e) {
+  $('categoryStatsClose').addEventListener('click', closeCategoryStats);
+  $('categoryStatsModal').addEventListener('click', function (e) {
     // Appui sur le fond (hors de la carte) = fermeture, comme les autres
     // fenêtres flottantes de l'app.
-    if (e.target === this) closeSubProjectStats();
+    if (e.target === this) closeCategoryStats();
   });
 
   // ----- Zone d'appui n° 1 : les cases colorées de la Feuille de temps -----
   // Écouteur DÉLÉGUÉ sur les deux conteneurs, posé une seule fois : la grille
   // est réécrite en innerHTML à chaque rendu, un écouteur par case serait
   // reposé des centaines de fois (672 cases en vue Semaine).
-  function bindTimesheetSubProjectTap(containerId) {
+  function bindTimesheetCategoryTap(containerId) {
     var el = $(containerId);
     if (!el) return;
     el.addEventListener('click', function (e) {
       var slot = e.target.closest('[data-activity-id]');
       if (!slot || !lastStatsGridRange) return;
-      openSubProjectStats({
+      openCategoryStats({
         activityId: Number(slot.getAttribute('data-activity-id')),
         name: slot.getAttribute('data-activity-name') || '',
         // La case EST peinte de la couleur de l'activité : on la relit sur
@@ -3157,8 +3221,8 @@
       });
     });
   }
-  bindTimesheetSubProjectTap('tsGrid');
-  bindTimesheetSubProjectTap('tsCalendar');
+  bindTimesheetCategoryTap('tsGrid');
+  bindTimesheetCategoryTap('tsCalendar');
 
   // ----- Section Graphique : une courbe d'évolution par activité sur la
   // période sélectionnée, plus une courbe Total agrégeant toutes les
@@ -3600,7 +3664,7 @@
       // ensuite, la liste arrivant du serveur après cette peinture.
       canTap: (ids && ids.canTap) || function (slot) {
         return !!lastStatsGridRange
-          && spCanOpen(slot.activityId, lastStatsGridRange.from, lastStatsGridRange.to);
+          && csCanOpen(slot.activityId, lastStatsGridRange.from, lastStatsGridRange.to);
       },
     };
   }
@@ -3648,10 +3712,10 @@
         var slotLabel = pad(Math.floor(i / 4)) + ':' + pad((i % 4) * 15);
         if (slot) {
           // data-activity-id/-name : cible de l'appui qui ouvre le détail par
-          // sous-projet (4 septembre 2026). Des attributs plutôt qu'un
-          // écouteur par case — la grille en compte 672 en vue Semaine et est
-          // réécrite en innerHTML à chaque rendu.
-          var slotName = slot.name || t('Sans sous-projet');
+          // catégorie (4 septembre 2026, converti le 17 septembre 2026). Des
+          // attributs plutôt qu'un écouteur par case — la grille en compte
+          // 672 en vue Semaine et est réécrite en innerHTML à chaque rendu.
+          var slotName = slot.name || t('Sans catégorie');
           // ⚠️ Les attributs data-* restent posés sur TOUTES les cases dès que
           // la grille est cliquable : ils sont la prise d'applyGridGate, qui
           // repasse poser la classe quand la liste des activités ouvrables
@@ -3730,7 +3794,7 @@
         day.slots.forEach(function (slot, i) {
           var slotLabel = pad(i * 2) + 'h-' + pad(i * 2 + 2) + 'h';
           if (slot) {
-            var calName = slot.name || t('Sans sous-projet');
+            var calName = slot.name || t('Sans catégorie');
             html += '<div class="tsCalSlot' + (I.tappable && I.canTap(slot) ? ' tsSlot-tappable' : '')
               + '"' + (I.tappable ? ' data-activity-id="' + slot.activityId + '" data-activity-name="' + escapeHtml(calName) + '"' : '')
               + ' style="background:' + I.colorOf(slot)
@@ -4091,10 +4155,6 @@
   // supplémentaire, aucune latence au clic, et surtout aucun second calcul.
   var activityPageSection = 'sub';
 
-  function activityHasSubProjects(a) {
-    return !!(a && a.progress && a.progress.subProjectCount > 0);
-  }
-
   // Affiche l'une des trois sections du sélecteur. Elles ne sont ni
   // déplacées ni reconstruites : ce sont les parties déjà existantes de
   // #communityActivityDetail, simplement masquées ou montrées. C'est ce qui
@@ -4155,7 +4215,7 @@
     // Les données ne sont demandées qu'au moment où la section devient visible :
     // un camembert dessiné dans un bloc masqué n'a aucune dimension (même
     // piège que le défilement du fil et le cadrage du graphique, plus bas).
-    if (name === 'stats' && !currentActivityIsShared) loadSoloSubProjectStats();
+    if (name === 'stats' && !currentActivityIsShared) loadSoloCategoryStats();
     if (name === 'sub') loadActivityGoalsCategories(currentCommunityActivityId);
 
     // ----- Mode conversation (3 septembre 2026, demande d'Emilien) -----
@@ -4251,20 +4311,25 @@
     currentActivityColor = a.color || '';
 
     // ⚠️ 5 septembre 2026, second passage — une activité SOLO a elle aussi
-    // une section Statistiques, mais seulement à partir de son premier
-    // sous-projet (Emilien : « lorsqu'un sous-projet a été créé, une section
-    // statistique apparaît [...] Il y a alors 2 sections »). Sans sous-projet,
-    // il n'y a rien à répartir : le sélecteur disparaît avec elle plutôt que
-    // de n'offrir qu'un bouton « Sous-projets » qui ne mène nulle part.
+    // une section Statistiques, mais seulement à partir du moment où elle a du
+    // temps rattaché à une catégorie. Sans ça, il n'y a rien à répartir : le
+    // sélecteur disparaît avec elle plutôt que de n'offrir qu'un onglet
+    // « Statistiques » qui ne mène nulle part.
     //
-    // ⚠️ Cette valeur est calculée ici à partir de a.progress (donnée déjà
-    // chargée, aucune requête), puis RECALCULÉE à l'arrivée des sous-projets par
-    // syncSoloStatsTab() : créer le tout premier sous-projet depuis cette page
-    // doit faire apparaître la section sans qu'on ait à refermer et rouvrir.
-    // La Discussion, elle, reste strictement réservée au partagé.
-    var showStats = isShared || activityHasSubProjects(a);
+    // 17 septembre 2026 (suppression totale des sous-projets) : cette
+    // condition portait auparavant sur a.progress.subProjectCount (donnée déjà
+    // chargée, aucune requête) — elle porte maintenant sur du temps RATTACHÉ À
+    // UNE CATÉGORIE, qui n'est pas une donnée synchrone disponible ici. On
+    // ouvre donc d'abord fermé (comme avant pour une activité toute neuve),
+    // puis refreshSoloStatsAvailability() ci-dessous corrige sans délai
+    // perceptible via le même filtre que la fenêtre flottante
+    // (/api/category-stats/activities, csCanOpen) — même principe que
+    // l'ancienne « RECALCULÉE à l'arrivée des sous-projets ». La Discussion,
+    // elle, reste strictement réservée au partagé.
+    var showStats = isShared;
     $('activityPageTabStats').classList.toggle('hidden', !showStats);
     $('activityPageTabDisc').classList.toggle('hidden', !isShared);
+    if (!isShared) refreshSoloStatsAvailability(a.id);
     // 15 septembre 2026 (7e passage, demande d'Emilien — « je souhaite que la
     // fenêtre activité soit les réglages du volet objectif ») : le sélecteur
     // n'est plus jamais masqué en entier, même pour une activité NON partagée
@@ -4837,7 +4902,7 @@
       // dans la fenêtre RÉGLAGES de l'activité (#communityActivityDetail,
       // currentCommunityActivityId), pas forcément l'activité actuellement
       // affichée dans l'onglet Objectifs — même variable que
-      // spColorFor()/subProjectShade() pour les sous-projets de cette même
+      // categoryColorFor()/subProjectShade() pour les sous-projets de cette même
       // fenêtre (voir openActivityPage()).
       var dot = document.createElement('span');
       dot.className = 'activityGoalsCategoryDot';
@@ -7148,10 +7213,11 @@
     box.classList.toggle('editing', subProjectsEditMode);
     $('subProjectsEmptyHint').classList.toggle('hidden', data.subProjects.length > 0);
 
-    // ⭐ 5 septembre 2026 (Activité solo) : la section Statistiques d'une
-    // activité solo n'existe qu'à partir du premier sous-projet, et c'est ce
-    // rendu — le seul à connaître leur nombre réel — qui le sait.
-    if (!currentActivityIsShared) syncSoloStatsTab(data.subProjects.length > 0);
+    // ⭐ 17 septembre 2026 (suppression totale des sous-projets) : la section
+    // Statistiques d'une activité solo ne dépend plus du nombre de
+    // sous-projets — voir refreshSoloStatsAvailability(), appelée depuis
+    // openActivityPage() plutôt que depuis ce rendu-ci, qui n'a plus aucun
+    // rapport avec elle.
 
     renderActivityProgressRing(data.progress);
 
