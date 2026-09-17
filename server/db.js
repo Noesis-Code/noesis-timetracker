@@ -1604,6 +1604,29 @@ if (columnExists('time_entries', 'subProjectId')) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_entries_subproject ON time_entries(subProjectId)');
 }
 
+// ⚠️ 17 septembre 2026 (suppression totale des sous-projets, demande
+// d'Emilien, citation directe : « je souhaite supprimer complètement les
+// sous-projets de l'application [...] c'est les catégories qui remplacent
+// et qui prennent les fonctions des sous-projets [...] ils sont visibles
+// dans le chrono. ») — goalCategory REMPLACE subProjectId ci-dessus comme
+// rattachement du Chrono : les colonnes subProjectId restent en base
+// (« masque, ne supprime pas », rien ne les lit plus côté Chrono/Stats
+// depuis ce chantier) mais goalCategory est désormais la SEULE écrite/lue
+// par server/lib/entrycategory.js (server/routes/timer.js et history.js).
+// Même convention que sub_projects.goalCategory ci-dessus : clé TEXT libre,
+// validée en application (isValidCategoryForActivity/isReadableCategory,
+// server/lib/goals.js), jamais par une CHECK figée. NULL = temps non
+// rattaché à une catégorie, cas normal, le choix reste optionnel.
+if (tableExists('time_entries') && !columnExists('time_entries', 'goalCategory')) {
+  db.exec('ALTER TABLE time_entries ADD COLUMN goalCategory TEXT');
+}
+if (tableExists('running_timers') && !columnExists('running_timers', 'goalCategory')) {
+  db.exec('ALTER TABLE running_timers ADD COLUMN goalCategory TEXT');
+}
+if (columnExists('time_entries', 'goalCategory')) {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_entries_goalcategory ON time_entries(activityId, goalCategory)');
+}
+
 // ----- Correction du sur-effacement à la suppression d'un compte -----
 // (9 septembre 2026 — voir noesis-timetracker-conformite-loi25.md, section
 // 6bis, et les commentaires sur les colonnes polls.authorId et

@@ -17,6 +17,9 @@ const goalsdailyauto = require('../lib/goalsdailyauto');
 // Chantier Objectifs — C (fusion sous-projet → catégorie, section Tâches,
 // 17 septembre 2026) — voir server/lib/goalstasks.js.
 const goalstasks = require('../lib/goalstasks');
+// Chantier Objectifs — C (bulle IA de classement automatique, 17 septembre
+// 2026) — voir server/lib/goalstaskclassify.js.
+const goalstaskclassify = require('../lib/goalstaskclassify');
 
 const router = express.Router();
 
@@ -391,6 +394,57 @@ router.post('/activities/:id/goals/categories/:key/tasks', (req, res) => {
   try {
     const item = goalstasks.addCategoryTask(activityId, userId, req.params.key, req.body.label);
     res.status(201).json(item);
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 17 septembre 2026 (discussion C, cadré avec Emilien via AskUserQuestion,
+// citation directe : « La tâche, après, va s'ajouter automatiquement grâce à
+// une IA dans l'une des catégories créées ») : ajoute une tâche SANS
+// catégorie choisie — une IA choisit la catégorie la plus probable parmi
+// celles de l'activité, toujours une catégorie choisie, jamais de blocage ni
+// de confirmation demandée (voir server/lib/goalstaskclassify.js).
+// Fonctionnalité gratuite, non conditionnée à l'offre payante (Emilien :
+// « Cela ne correspond pas à l'offre 1 »). Pas de piège de route Express ici
+// (voir le commentaire au-dessus de GET .../categories) : "auto-task" est un
+// segment littéral, jamais confondu avec un :key, et aucune autre route
+// POST n'a la même forme.
+router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const item = await goalstaskclassify.addTaskWithAutoCategory(activityId, userId, req.body.label);
+    res.status(201).json(item);
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 17 septembre 2026 (maquette approuvée par Emilien, citation directe :
+// « Je souhaite ajouter une option pour changer manuellement les tâches de
+// catégorie. ») — reclassement manuel d'une tâche déjà existante, à côté du
+// classement automatique de la route ci-dessus. Toute la logique (garde
+// d'activité + déplacement réel) vit dans goalstasks.js#moveCategoryTask —
+// cette route ne fait que vérifier la session et relayer.
+router.put('/activities/:id/goals/tasks/:itemId/category', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const item = goalstasks.moveCategoryTask(activityId, userId, Number(req.params.itemId), req.body.categoryKey);
+    res.json(item);
   } catch (err) {
     handleGoalsError(res, err);
   }

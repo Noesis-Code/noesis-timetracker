@@ -2491,7 +2491,7 @@ body.scrollLock { overflow: hidden; }
    demande d'Emilien : « je souhaite que la barre supérieure avec marqué
    condition de utilisation et la croix pour fermer les conditions
    d'utilisation reste fixe et que le texte défile en dessous »). Même
-   mécanisme que #viewProfileModal/#subProjectStatsModal plus haut dans ce
+   mécanisme que #viewProfileModal/#categoryStatsModal plus haut dans ce
    fichier (voir leur commentaire) : la carte passe en colonne flex sans
    padding, l'en-tête devient une zone fixe (flex: 0 0 auto) et le corps du
    texte prend le reste de la hauteur en défilant seul — la croix ne peut
@@ -2888,11 +2888,11 @@ button { -webkit-user-select: none; user-select: none; }
    défilement était portée par un ID (#viewProfileScroll), pas par la classe :
    elle ne s'appliquait donc qu'à la page de visite d'un profil. */
 #viewProfileModal .communityMembersModalCard,
-#subProjectStatsModal .communityMembersModalCard {
+#categoryStatsModal .communityMembersModalCard {
   display: flex; flex-direction: column; padding: 0; overflow: hidden;
 }
 #viewProfileScroll,
-#subProjectStatsScroll {
+#categoryStatsScroll {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
   /* Le rebond de cette zone ne se propage pas à la page derrière la modale. */
   overscroll-behavior: contain;
@@ -2923,26 +2923,26 @@ button { -webkit-user-select: none; user-select: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 #viewProfileModalClose,
-#subProjectStatsClose { flex-shrink: 0; }
+#categoryStatsClose { flex-shrink: 0; }
 
 /* Barre supérieure de la fenêtre de détail, teintée de la couleur de
    l'activité (6 septembre 2026, demande d'Emilien : « je souhaite que la barre
    supérieure soit de la même couleur que l'activité »). Le fond et la couleur
-   du texte sont posés en ligne par paintSubProjectStatsHeader — ils dépendent
+   du texte sont posés en ligne par paintCategoryStatsHeader — ils dépendent
    de la couleur choisie par le membre, ils ne peuvent pas vivre dans la
    feuille de style. Ne restent ici que les conséquences, qui elles sont
    fixes. */
-#subProjectStatsModal .viewProfileIdentity.tinted {
+#categoryStatsModal .viewProfileIdentity.tinted {
   border-bottom-color: rgba(0, 0, 0, 0.2);
 }
 /* Le bouton de fermeture s'efface au profit de la couleur d'activité : fond
    transparent, bordure et glyphe dans la couleur du texte de la barre. */
-#subProjectStatsModal .viewProfileIdentity.tinted #subProjectStatsClose {
+#categoryStatsModal .viewProfileIdentity.tinted #categoryStatsClose {
   background: transparent;
   border-color: currentColor;
   color: inherit;
 }
-#subProjectStatsModal .viewProfileIdentity.tinted #subProjectStatsClose:hover {
+#categoryStatsModal .viewProfileIdentity.tinted #categoryStatsClose:hover {
   background: rgba(255, 255, 255, 0.18);
 }
 

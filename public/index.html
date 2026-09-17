@@ -949,17 +949,17 @@
              immédiatement — le « démarrage en un clic » du 27 août 2026 est
              conservé —, et le choix se fait ici, une fois la session lancée.
              Ne rien choisir est le cas normal et ne bloque rien.
-             Le bloc reste masqué tant que l'activité n'a aucun sous-projet
-             ouvert à proposer ; un sous-projet clôturé n'y apparaît jamais,
-             sauf s'il est déjà celui de la session en cours (sinon ouvrir la
-             liste suffirait à effacer un rattachement existant).
-             ⚠️ Le temps rattaché n'entre JAMAIS dans le pourcentage
-             d'avancement d'un sous-projet, qui reste calculé uniquement sur
-             les cases cochées de sa todolist. -->
-        <div id="chronoSubProjectWrap" class="chronoSubProjectWrap hidden">
-          <label class="stopFieldLabel" for="chronoSubProjectSelect">Sous-projet (facultatif)</label>
-          <select id="chronoSubProjectSelect" class="subProjectSelect"></select>
-          <p id="chronoSubProjectMsg" class="msg"></p>
+             17 septembre 2026 (suppression totale des sous-projets, demande
+             d'Emilien : « je souhaite que les catégories remplacent les
+             sous-projets dans le chrono [...] on peut choisir la catégorie
+             à laquelle elle appartient. ») — remplace le sélecteur de
+             sous-projet : la liste vient désormais des catégories Objectifs
+             de l'activité (toujours au moins une, jamais vide, voir
+             server/lib/goals.js#categoriesForActivity). -->
+        <div id="chronoCategoryWrap" class="chronoSubProjectWrap hidden">
+          <label class="stopFieldLabel" for="chronoCategorySelect">Catégorie (facultatif)</label>
+          <select id="chronoCategorySelect" class="subProjectSelect"></select>
+          <p id="chronoCategoryMsg" class="msg"></p>
         </div>
 
         <button id="stopBtn" class="chronoBtn chronoBtn-stop">STOP</button>
@@ -993,13 +993,15 @@
               <input type="date" id="stopEndDateInput" class="stopDateInput">
               <input type="time" id="stopEndTimeInput" step="1" class="stopTimeInput">
             </div>
-            <!-- Dernière chance de corriger le sous-projet avant que la
+            <!-- Dernière chance de corriger la catégorie avant que la
                  session ne soit enregistrée (demande d'Emilien). Masqué s'il
                  n'y a rien à proposer — et dans ce cas le STOP n'envoie pas
-                 le champ du tout, pour ne jamais détacher par omission. -->
-            <div id="stopSubProjectWrap" class="hidden">
-              <p class="stopFieldLabel">Sous-projet</p>
-              <select id="stopSubProjectSelect" class="subProjectSelect"></select>
+                 le champ du tout, pour ne jamais détacher par omission.
+                 17 septembre 2026 : remplace le sous-projet, voir le
+                 commentaire de #chronoCategoryWrap plus haut. -->
+            <div id="stopCategoryWrap" class="hidden">
+              <p class="stopFieldLabel">Catégorie</p>
+              <select id="stopCategorySelect" class="subProjectSelect"></select>
             </div>
             <p id="stopDurationLabel" class="meta"></p>
             <p id="stopConfirmMsg" class="msg"></p>
@@ -1608,9 +1610,20 @@
                automatiques ») — #subProjectsEmptyHint reste dans le DOM
                (masqué, pas supprimé, contenu vidé) au cas où un appelant JS
                le référence encore ailleurs. -->
-          <div class="sectionTitleRow subProjectsHeadRow">
+          <!-- 17 septembre 2026 (discussion Objectifs — C, demande explicite
+               d'Emilien : « supprimer complètement les sous-projets [...]
+               c'est les catégories qui remplacent ») : #activitySubProjectsBlock
+               entier est désormais masqué en permanence (voir app.js,
+               setActivityPageSection) — cette ligne ne sert donc plus à rien
+               d'affiché, seul son bouton comptait encore : il a déménagé dans
+               #activityGoalsCategoriesBlock, juste au-dessus de la liste des
+               catégories (voir plus bas), conformément à la maquette validée.
+               Rien n'est supprimé ici (masque, ne supprime pas) : le temps que
+               la bascule chrono/stats/discussion/sondages/rappels soit
+               terminée et vérifiée (voir chantiers-en-cours.md), ce bloc reste
+               en place, invisible. -->
+          <div class="sectionTitleRow subProjectsHeadRow hidden">
             <p id="subProjectsEmptyHint" class="hint hidden"></p>
-            <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter une catégorie">+</button>
           </div>
 
           <!-- Avancement global de l'activité, en anneau (demande d'Emilien,
@@ -1887,15 +1900,19 @@
              ligne de titre de la Répartition : il filtre la Répartition ET le
              Graphique, qui sont servis par un seul appel. Le mettre dans un
              seul des deux en-têtes ferait croire qu'il n'agit que là.
-             Le bloc reste caché tant que l'activité n'a aucun sous-projet :
-             un menu à une seule entrée n'apprend rien.
+             Le bloc reste caché tant que l'activité n'a qu'une seule
+             catégorie : un menu à une seule entrée n'apprend rien.
              Aucune Feuille de temps ici : demande explicite d'Emilien du
-             4 septembre (« pas de feuille de temps »). -->
-        <div id="caSubProjectFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
-          <button type="button" class="caSubProjectBtn" id="caSubProjectBtn" aria-haspopup="true">
-            <span id="caSubProjectBtnLabel">Tous les sous-projets</span>
+             4 septembre (« pas de feuille de temps »).
+             17 septembre 2026 (suppression totale des sous-projets, demande
+             d'Emilien : « [les catégories] sont visibles dans le stat
+             lorsque tu cliques sur une stat. ») — le filtre porte désormais
+             sur les catégories Objectifs de l'activité. -->
+        <div id="caCategoryFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
+          <button type="button" class="caSubProjectBtn" id="caCategoryBtn" aria-haspopup="true">
+            <span id="caCategoryBtnLabel">Toutes les catégories</span>
           </button>
-          <div class="statsPeriodMenu caSubProjectMenu hidden" id="caSubProjectMenu"></div>
+          <div class="statsPeriodMenu caSubProjectMenu hidden" id="caCategoryMenu"></div>
         </div>
 
         <div id="communityActivityPieBlock" class="statsSection">
@@ -1968,27 +1985,31 @@
              sous-projets et statistique. Et je souhaite que cette statistique
              montre les statistiques de l'activité par sous-projets. »
 
+             17 septembre 2026 (suppression totale des sous-projets) : cette
+             section affiche désormais la répartition par CATÉGORIE Objectifs
+             (voir refreshSoloStatsAvailability()/syncSoloStatsTab() dans
+             app.js pour la nouvelle condition d'apparition).
+
              ⚠️ Bloc DISTINCT de #communityActivityMembersPart, et c'est le point
              de conception de cette section : celui-là compare les MEMBRES entre
              eux — ce qui n'a aucun sens à un seul membre — et s'appuie sur des
              routes qui refusent une activité solo (checkSharedActivityAccess
-             exige >= 2 membres). Ici l'axe de comparaison est le SOUS-PROJET.
+             exige >= 2 membres). Ici l'axe de comparaison est la CATÉGORIE.
 
              ⚠️ Rien n'est recalculé ici. Les données viennent de
-             GET /api/sub-project-stats (chantier « Chrono — sous-projets »),
-             dont la garde d'accès est « membre de l'activité » SANS seuil de
-             partage : elle fonctionne donc telle quelle en solo, et
-             checkSharedActivityAccess n'a pas eu à être touché. Le camembert est
-             dessiné par renderPie (Répartition) et les nuances par
-             subProjectShade — les deux appelés tels quels.
+             GET /api/category-stats, dont la garde d'accès est « membre de
+             l'activité » SANS seuil de partage : elle fonctionne donc telle
+             quelle en solo, et checkSharedActivityAccess n'a pas eu à être
+             touché. Le camembert est dessiné par renderPie (Répartition) et
+             les nuances par subProjectShade — les deux appelés tels quels.
 
-             ⚠️ Le temps enregistré SANS sous-projet forme sa propre part : le
-             choix d'un sous-projet au chrono est optionnel, et masquer cette
-             part donnerait un camembert dont les tranches ne font pas le total
-             affiché juste au-dessus. -->
+             ⚠️ Le temps enregistré SANS catégorie forme sa propre part : le
+             rattachement à une catégorie au chrono est optionnel, et masquer
+             cette part donnerait un camembert dont les tranches ne font pas le
+             total affiché juste au-dessus. -->
         <div id="activitySoloStatsBlock" class="statsSection hidden">
           <div class="sectionTitleRow">
-            <p class="sectionTitle">Par sous-projet</p>
+            <p class="sectionTitle">Par catégorie</p>
             <div class="statsPeriodMenuWrap" id="soloStatsPeriodWrap">
               <button type="button" class="menuBtn" id="soloStatsPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="soloStatsPeriodMenu">
@@ -2011,10 +2032,10 @@
                pourcentage, pastille de couleur). En ajouter une seconde
                affichait les mêmes trois lignes deux fois de suite — constaté à
                la capture, pas par une assertion.
-               ⚠️ À SIGNALER À « Chrono — sous-projets » : la fenêtre flottante
-               #subProjectStatsModal a exactement le même doublon
-               (#subProjectStatsList sous #subProjectStatsPie). Non corrigé ici,
-               c'est son écran. -->
+               ⚠️ La fenêtre flottante #categoryStatsModal a exactement le
+               même doublon potentiel — renderPie() y dessine aussi sa propre
+               légende, voir renderCategoryPie(). Non corrigé ici, c'est son
+               écran. -->
           <p id="soloStatsMsg" class="msg"></p>
         </div>
 
@@ -2050,6 +2071,19 @@
              (bindActivityLongPress/bindActivityDrag) — voir
              bindCategoryLongPress/startCategoryDrag, app.js. -->
         <div id="activityGoalsCategoriesBlock">
+          <!-- 17 septembre 2026 (discussion Objectifs — C, maquette validée
+               par Emilien) : bulle d'ajout de tâche par IA, tout en haut,
+               AU-DESSUS des catégories — construite par
+               buildCategoryAutoTaskBubble() (app.js), qui vide/remplit ce
+               conteneur à chaque rendu du panneau, séparément de la liste des
+               catégories elle-même. -->
+          <div id="activityGoalsCategoryAutoTaskWrap"></div>
+          <!-- Le "+" (déménagé depuis #activitySubProjectsBlock ci-dessus) :
+               entre la bulle et les catégories, puisqu'il correspond à
+               l'ajout d'une CATÉGORIE, pas d'une tâche. -->
+          <div class="activityGoalsCategoryAddRow">
+            <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter une catégorie">+</button>
+          </div>
           <div id="activityGoalsCategoriesList" class="activityGoalsCategoriesList"></div>
           <p id="activityGoalsCategoriesMsg" class="msg"></p>
         </div>
@@ -2518,14 +2552,18 @@
          depuis Profil ou depuis Communauté. #communityMembersModal, plus
          haut, n'a pas ce problème : il ne s'ouvre jamais que depuis
          l'intérieur de #tab-activity, qui est donc forcément déjà visible. -->
-    <!-- ===== DÉTAIL PAR SOUS-PROJET (4 septembre 2026, « Chrono — sous-projets ») =====
-         Demande d'Emilien : « l'appli permet d'observer les stat par sous
-         projet lorsque l'utilisateur appuie rapidement sur la couleur de
-         l'activité dans feuille de temps ou répartition. Alors une fenêtre
-         identique à la fenêtre qui permet d'observer les autres utilisateurs
-         dans communauté s'ouvre. » D'où la reprise telle quelle des classes
-         .communityMembersModal / .communityMembersModalCard de
-         #viewProfileModal juste en dessous — aucune classe n'est redéfinie.
+    <!-- ===== DÉTAIL PAR CATÉGORIE (4 septembre 2026, « Chrono — sous-projets » ;
+         convertie aux catégories Objectifs le 17 septembre 2026, suppression
+         totale des sous-projets) =====
+         Demande d'Emilien (formulée à l'origine pour les sous-projets, reprise
+         à l'identique pour les catégories qui les remplacent) : « l'appli
+         permet d'observer les stat par sous projet lorsque l'utilisateur
+         appuie rapidement sur la couleur de l'activité dans feuille de temps
+         ou répartition. Alors une fenêtre identique à la fenêtre qui permet
+         d'observer les autres utilisateurs dans communauté s'ouvre. » D'où la
+         reprise telle quelle des classes .communityMembersModal /
+         .communityMembersModalCard de #viewProfileModal juste en dessous —
+         aucune classe n'est redéfinie.
 
          ⚠️ Placée en FRÈRE direct des sections .tab, jamais à l'intérieur de
          l'une d'elles : `.hidden { display:none !important }` posé sur une
@@ -2535,31 +2573,31 @@
 
          ⚠️ Le GRAPHIQUE n'ouvre PAS cette fenêtre (précision d'Emilien) : il
          garde son appui qui affiche le nombre d'heures enregistrées. -->
-    <div id="subProjectStatsModal" class="communityMembersModal hidden">
+    <div id="categoryStatsModal" class="communityMembersModal hidden">
       <div class="communityMembersModalCard">
         <div class="viewProfileIdentity">
-          <span class="identityName" id="subProjectStatsTitle"></span>
-          <button type="button" class="menuBtn" id="subProjectStatsClose" aria-label="Fermer">✕</button>
+          <span class="identityName" id="categoryStatsTitle"></span>
+          <button type="button" class="menuBtn" id="categoryStatsClose" aria-label="Fermer">✕</button>
         </div>
-        <div id="subProjectStatsScroll" class="viewProfileScroll">
+        <div id="categoryStatsScroll" class="viewProfileScroll">
           <!-- Feuille de temps — MÊME structure que #statsTimesheetBlock du
                volet Statistiques (demande d'Emilien du 4 septembre 2026 :
                « le même visuel et les mêmes fonctionnalités »). Elle est
                dessinée par renderTimesheetWeek/renderTimesheetMonth, les
                fonctions de la Feuille de temps elles-mêmes, appelées avec ces
                ids-ci — aucune seconde implémentation. Seule la COULEUR des
-               cases change : une nuance par sous-projet au lieu de la couleur
+               cases change : une nuance par catégorie au lieu de la couleur
                de l'activité. -->
-          <div id="spTimesheetBlock" class="statsSection timesheetBlock">
+          <div id="csTimesheetBlock" class="statsSection timesheetBlock">
             <div class="sectionTitleRow">
               <p class="sectionTitle">Feuille de temps</p>
               <div class="timesheetNav">
-                <button type="button" class="iconBtn" id="spTsPrevWeek" aria-label="Période précédente">‹</button>
-                <span class="meta" id="spTsWeekLabel"></span>
-                <button type="button" class="iconBtn" id="spTsNextWeek" aria-label="Période suivante">›</button>
-                <div class="statsPeriodMenuWrap" id="spTsPeriodWrap">
-                  <button type="button" class="menuBtn" id="spTsPeriodBtn" aria-label="Choisir la période">⋮</button>
-                  <div class="statsPeriodMenu hidden" id="spTsPeriodMenu">
+                <button type="button" class="iconBtn" id="csTsPrevWeek" aria-label="Période précédente">‹</button>
+                <span class="meta" id="csTsWeekLabel"></span>
+                <button type="button" class="iconBtn" id="csTsNextWeek" aria-label="Période suivante">›</button>
+                <div class="statsPeriodMenuWrap" id="csTsPeriodWrap">
+                  <button type="button" class="menuBtn" id="csTsPeriodBtn" aria-label="Choisir la période">⋮</button>
+                  <div class="statsPeriodMenu hidden" id="csTsPeriodMenu">
                     <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
                     <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
                   </div>
@@ -2567,33 +2605,33 @@
               </div>
             </div>
             <div class="timesheetFrame">
-              <div id="spTsFrozenCol" class="tsFrozenCol hidden"></div>
+              <div id="csTsFrozenCol" class="tsFrozenCol hidden"></div>
               <div class="timesheetScroll">
-                <div id="spTsGrid" class="timesheetGrid"></div>
-                <div id="spTsCalendar" class="tsCalendar hidden"></div>
+                <div id="csTsGrid" class="timesheetGrid"></div>
+                <div id="csTsCalendar" class="tsCalendar hidden"></div>
               </div>
             </div>
-            <p id="spTsEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+            <p id="csTsEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
           </div>
 
           <!-- Répartition — MÊME structure que #statsPieBlock, bouton
                « Aujourd'hui » compris : elle résume exactement la fenêtre de
                jours que la grille ci-dessus affiche, et « Aujourd'hui » la
                désynchronise sur la seule journée en cours. -->
-          <div id="spPieBlock" class="statsSection">
+          <div id="csPieBlock" class="statsSection">
             <div class="sectionTitleRow">
               <p class="sectionTitle">Répartition</p>
-              <button id="spPieTodayBtn" type="button" class="iconBtn" aria-pressed="false">Aujourd'hui</button>
+              <button id="csPieTodayBtn" type="button" class="iconBtn" aria-pressed="false">Aujourd'hui</button>
             </div>
             <div class="statsSummary">
-              <p class="statsLabel" id="spStatsLabel"></p>
-              <!-- #spStatsTotal retiré le 6 septembre 2026 (doublon avec le
-                   centre du camembert) — voir #statsPieBlock. Retiré aussi
-                   de SUB_PROJECT_STATS_REQUIRED_IDS dans app.js, sans quoi
+              <p class="statsLabel" id="csStatsLabel"></p>
+              <!-- Total retiré le 6 septembre 2026 (doublon avec le centre du
+                   camembert) — voir #statsPieBlock. Absent, volontairement,
+                   de CATEGORY_STATS_REQUIRED_IDS dans app.js, sans quoi
                    la modale se croirait cassée. -->
             </div>
-            <div id="subProjectStatsPie" class="pieWrap"></div>
-            <p id="subProjectStatsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+            <div id="categoryStatsPie" class="pieWrap"></div>
+            <p id="categoryStatsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
           </div>
 
           <!-- Graphique — MÊME structure que #statsChartBlock (5 septembre
@@ -2609,29 +2647,29 @@
                ne se recale PAS sur les flèches ‹ › de la Feuille de temps,
                contrairement à la Répartition juste au-dessus. C'est le
                comportement du volet Stats, dont Emilien demande la reprise. -->
-          <div id="spChartBlock" class="statsSection">
+          <div id="csChartBlock" class="statsSection">
             <div class="sectionTitleRow">
               <p class="sectionTitle">Graphique</p>
-              <div class="statsPeriodMenuWrap" id="spChartPeriodWrap">
-                <button type="button" class="menuBtn" id="spChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
-                <div class="statsPeriodMenu hidden" id="spChartPeriodMenu">
+              <div class="statsPeriodMenuWrap" id="csChartPeriodWrap">
+                <button type="button" class="menuBtn" id="csChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la granularité">⋮</button>
+                <div class="statsPeriodMenu hidden" id="csChartPeriodMenu">
                   <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
                   <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
                   <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
                 </div>
               </div>
             </div>
-            <div class="chartWrap" id="spChartWrap">
+            <div class="chartWrap" id="csChartWrap">
               <div class="chartScroll">
-                <div id="spChart" class="chartSvgWrap"></div>
+                <div id="csChart" class="chartSvgWrap"></div>
               </div>
-              <div id="spChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
+              <div id="csChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
             </div>
-            <div id="spChartLegend" class="chartLegend"></div>
-            <p id="spChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+            <div id="csChartLegend" class="chartLegend"></div>
+            <p id="csChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
           </div>
 
-          <p id="subProjectStatsMsg" class="msg"></p>
+          <p id="categoryStatsMsg" class="msg"></p>
         </div>
       </div>
     </div>
