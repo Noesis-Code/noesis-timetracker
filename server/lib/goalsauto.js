@@ -38,10 +38,12 @@ const goals = require('./goals');
 
 // Fenêtre glissante utilisée pour estimer la capacité hebdomadaire d'un
 // membre — cadré avec Emilien le 15 septembre 2026 (8 dernières semaines
-// TERMINÉES). En repli, sans historique pour ce membre dans cette catégorie :
-// moyenne des 8 dernières semaines glissantes (calendaires) de l'ENSEMBLE des
+// TERMINÉES), RÉDUITE à 4 semaines le 17 septembre 2026 à la demande
+// d'Emilien (une fenêtre plus courte réagit plus vite à un changement récent
+// de rythme). En repli, sans historique pour ce membre dans cette catégorie :
+// moyenne des 4 dernières semaines glissantes (calendaires) de l'ENSEMBLE des
 // membres actifs de l'activité (même cadrage).
-const RECENT_WEEKS_WINDOW = 8;
+const RECENT_WEEKS_WINDOW = 4;
 
 // Même seuil de similarité que estimateForGoal dans goals.js, pour rester
 // cohérent avec le reste du moteur d'estimation.
@@ -107,7 +109,7 @@ function recentWeeklyMinutesForUser(activityId, category, userId, limit) {
   return minutes;
 }
 
-// Repli sans historique (cadré avec Emilien) : moyenne, sur les 8 dernières
+// Repli sans historique (cadré avec Emilien) : moyenne, sur les 4 dernières
 // semaines calendaires glissantes, du temps réel chronométré sur l'activité
 // ENTIÈRE (le chrono n'est jamais scindé par catégorie dans ce projet — voir
 // actualSecondsForRange dans goals.js), divisé par le nombre de membres
@@ -123,7 +125,50 @@ function fallbackCapacityMinutes(activityId) {
   return Math.max(1, Math.round(totalMinutes / RECENT_WEEKS_WINDOW / memberCount));
 }
 
+// ---------------------------------------------------------------------------
+// Ajustement manuel de la capacité (17 septembre 2026, discussion A —
+// Offre1, cadré avec Emilien) — voir le commentaire de goal_capacity_overrides
+// dans server/db.js pour le cas d'usage. REMPLACE le calcul automatique
+// ci-dessus tant qu'il est actif (pas un plancher, pas d'expiration) :
+// simple et prévisible, à la charge de l'utilisateur de le retirer quand la
+// situation redevient normale.
+
+function getCapacityOverrideMinutes(activityId, category, userId) {
+  const row = db.prepare(
+    'SELECT weeklyMinutes FROM goal_capacity_overrides WHERE activityId = ? AND category = ? AND userId = ?'
+  ).get(activityId, category, userId);
+  return row ? row.weeklyMinutes : null;
+}
+
+function setCapacityOverrideMinutes(activityId, category, userId, weeklyMinutes) {
+  const minutes = Math.round(Number(weeklyMinutes));
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    throw Object.assign(new Error('Capacité invalide (minutes par semaine positives requises).'), { statusCode: 400 });
+  }
+  const updatedAt = new Date().toISOString();
+  const existing = db.prepare(
+    'SELECT 1 FROM goal_capacity_overrides WHERE activityId = ? AND category = ? AND userId = ?'
+  ).get(activityId, category, userId);
+  if (existing) {
+    db.prepare(
+      'UPDATE goal_capacity_overrides SET weeklyMinutes = ?, updatedAt = ? WHERE activityId = ? AND category = ? AND userId = ?'
+    ).run(minutes, updatedAt, activityId, category, userId);
+  } else {
+    db.prepare(
+      'INSERT INTO goal_capacity_overrides (activityId, category, userId, weeklyMinutes, updatedAt) VALUES (?, ?, ?, ?, ?)'
+    ).run(activityId, category, userId, minutes, updatedAt);
+  }
+  return { activityId, category, userId, weeklyMinutes: minutes, updatedAt };
+}
+
+function clearCapacityOverride(activityId, category, userId) {
+  db.prepare('DELETE FROM goal_capacity_overrides WHERE activityId = ? AND category = ? AND userId = ?')
+    .run(activityId, category, userId);
+}
+
 function capacityMinutesForMember(activityId, category, userId) {
+  const override = getCapacityOverrideMinutes(activityId, category, userId);
+  if (override != null) return override;
   const history = recentWeeklyMinutesForUser(activityId, category, userId, RECENT_WEEKS_WINDOW);
   if (history.length) {
     return Math.max(1, Math.round(history.reduce((s, m) => s + m, 0) / history.length));
@@ -311,6 +356,9 @@ module.exports = {
   activateOffre1,
   deactivateOffre1,
   capacityMinutesForMember,
+  getCapacityOverrideMinutes,
+  setCapacityOverrideMinutes,
+  clearCapacityOverride,
   reorganizeCategory,
   onSubProjectItemChanged,
 };

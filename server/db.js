@@ -1751,4 +1751,30 @@ if (tableExists('sub_project_items') && !columnExists('sub_project_items', 'dueD
   db.exec('ALTER TABLE sub_project_items ADD COLUMN dueDate TEXT');
 }
 
+// goal_capacity_overrides (17 septembre 2026, discussion A — Offre1, cadré
+// avec Emilien) : capacité hebdomadaire manuelle, par (activité, catégorie,
+// membre), qui REMPLACE le calcul automatique de goalsauto.js
+// (capacityMinutesForMember, moyenne glissante sur RECENT_WEEKS_WINDOW
+// semaines terminées) tant qu'elle est active. Répond au cas d'une activité
+// volontairement mise de côté (ex. concentration temporaire sur une autre
+// activité) : la moyenne récente tomberait près de zéro alors que la
+// capacité réelle au retour reste normale — l'utilisateur pose alors une
+// valeur explicite plutôt que de subir le calcul historique. Absence de
+// ligne pour ce (activité, catégorie, membre) = comportement historique
+// inchangé (calcul automatique). `category` en TEXT libre, pas de CHECK
+// figée : même raisonnement que sub_projects.goalCategory, une activité peut
+// avoir des catégories personnalisées (voir activity_goal_categories).
+// Table neuve, jamais présente dans un schéma antérieur : CREATE TABLE IF
+// NOT EXISTS suffit ici.
+db.exec(`
+CREATE TABLE IF NOT EXISTS goal_capacity_overrides (
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  category TEXT NOT NULL,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  weeklyMinutes INTEGER NOT NULL,
+  updatedAt TEXT NOT NULL,
+  PRIMARY KEY (activityId, category, userId)
+);
+`);
+
 module.exports = db;
