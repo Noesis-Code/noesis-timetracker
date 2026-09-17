@@ -27,6 +27,7 @@
   --shadow-elevated: 0 12px 30px rgba(0, 0, 0, 0.25);
   --shadow-topbar: 0 2px 10px rgba(0, 0, 0, 0.12);
   --shadow-tabbar: 0 -2px 10px rgba(0, 0, 0, 0.06);
+  --shadow-badge: 0 3px 8px rgba(0, 0, 0, 0.18);
   --transition-fast: 0.15s ease;
 }
 
@@ -49,6 +50,7 @@
   --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.5);
   --shadow-topbar: 0 2px 14px rgba(0, 0, 0, 0.4);
   --shadow-tabbar: 0 -2px 14px rgba(0, 0, 0, 0.4);
+  --shadow-badge: 0 3px 10px rgba(0, 0, 0, 0.45);
 }
 
 * { box-sizing: border-box; }
@@ -4235,6 +4237,28 @@ button { -webkit-user-select: none; user-select: none; }
   font-size: 11px; font-weight: 700; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
+/* 17 septembre 2026 (discussion "Objectifs — Titres des catégories"), demande
+   d'Emilien : « le titre de la catégorie ressort plus en avant » — agrandi
+   (padding/police), majuscules espacées, ombre portée (--shadow-badge
+   ci-dessus, déjà théméifiée clair/sombre comme --shadow-card) et double
+   liseré (bordure + anneau intérieur, couleur posée en JS ci-dessus, voir
+   renderGoalsGridHead()). Exclut explicitement .goalsGridHeadCell--defaultAdd
+   (case "+" en pointillés, discussion "Objectifs — Arbre périodique", 16
+   septembre) : ce badge reste inchangé à l'identique, seules les vraies
+   catégories personnalisées reçoivent ce traitement. outline-offset négatif
+   loge l'anneau intérieur SOUS la bordure, à l'intérieur du padding existant,
+   sans toucher au texte ni au overflow:ellipsis ci-dessus. */
+.goalsGridHeadCell:not(.goalsGridHeadCell--defaultAdd) {
+  padding: 10px 8px;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid;
+  outline: 1.5px solid;
+  outline-offset: -4px;
+  box-shadow: var(--shadow-badge);
+}
 /* 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que le
    bouton + ne s'affiche plus à droite des catégories, mais qu'il s'affiche
    au milieu d'une nouvelle page lorsque je défile sur la droite [...] je
@@ -4320,20 +4344,21 @@ button { -webkit-user-select: none; user-select: none; }
   background: var(--card); border-radius: var(--radius-lg); padding: 14px;
   box-shadow: var(--shadow-card); margin-bottom: 14px;
 }
-/* 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien : couleur
-   posée en style inline par catégorie (currentGoalsCategoryColor(), app.js —
-   même convention que .goalsGridCell--filled/cell.style.borderColor) ;
-   var(--purple) ci-dessous reste le repli AVANT que le JS ne s'exécute
-   (premier rendu, un instant avant renderActivityGoals()).
-   ⚠️ 16 septembre 2026 (même discussion, passage suivant) : .goalWeeklyCard
-   RETIRÉ de cette règle — demande d'Emilien « que l'objectif périodique soit
-   en avant par rapport à l'objectif hebdomadaire [...] qu'ils passent en
-   second plan », choix retenu parmi 3 propositions : liste compacte type
-   calendrier (voir bloc .goalsWeeklyList plus bas, qui porte maintenant SA
-   PROPRE bordure unique autour des 4 semaines, comme .goalsCalendarList).
-   app.js (renderGoalsWeeklyList()) ne pose donc plus card.style.borderColor
-   sur chaque semaine, seule la carte périodique garde ce traitement. */
-.goalMainCard { border: 1px solid var(--purple); }
+/* 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+   « bandeau plein largeur » — remplace la bordure fixe (16 septembre) puis
+   le fond teinté (12e/13e passages, categoryColorTint()) par un fond PLEIN
+   de la couleur de catégorie (currentGoalsCategoryColor(), posée en style
+   inline par renderActivityGoals(), app.js — même convention que
+   .goalsGridCell--filled/cell.style.borderColor). Le texte n'est plus fixe
+   (var(--text)/var(--text-light)) : il suit `color`, posé en style inline
+   sur .goalMainCard par readableTextOn() (app.js), donc `inherit`/
+   `currentColor` ci-dessous plutôt qu'une couleur figée. */
+.goalMainCard {
+  border: none; padding: 14px 16px 12px;
+}
+.goalMainCard .goalCardLabel {
+  text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.75; font-size: 11px;
+}
 .goalCardLabel { font-weight: bold; margin: 0 0 8px; font-size: 14px; }
 
 /* 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
@@ -4344,17 +4369,24 @@ button { -webkit-user-select: none; user-select: none; }
    plus bas dans ce fichier) plutôt qu'une nouvelle convention visuelle. */
 .goalMainProgressRow { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .goalMainProgressTrack {
-  flex: 1; height: 6px; border-radius: 3px;
+  flex: 1; height: 4px; border-radius: 2px;
   background: var(--track-bg); overflow: hidden;
 }
 .goalMainProgressFill {
-  height: 100%; width: 0; border-radius: 3px;
+  height: 100%; width: 0; border-radius: 2px;
   background: var(--purple); transition: width 0.2s ease;
 }
+/* Bandeau plein largeur (17 septembre 2026) : le fond de la piste est posé
+   en style inline par renderActivityGoals() (app.js, contraste selon
+   readableTextOn()) ; la barre elle-même suit `currentColor` pour rester
+   lisible sur n'importe quelle nuance de catégorie plutôt que le violet fixe
+   ci-dessus (qui reste le repli hors de .goalMainCard, inchangé ailleurs). */
+#activityGoalsMainCard .goalMainProgressFill { background: currentColor; }
 .goalMainProgressPct {
   flex-shrink: 0; min-width: 34px; text-align: right;
   font-size: 12px; font-weight: 700; color: var(--text-light);
 }
+#activityGoalsMainCard .goalMainProgressPct { color: inherit; opacity: 0.85; }
 .goalsWeeklyLabel { margin: 0 0 10px; }
 .goalCard textarea {
   width: 100%; box-sizing: border-box; padding: 10px; font: inherit;
@@ -4365,24 +4397,69 @@ button { -webkit-user-select: none; user-select: none; }
   outline: none; border-color: var(--purple);
   box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
 }
+/* Bandeau plein largeur (17 septembre 2026) : le texte de la carte
+   périodique (label, saisie, estimation) suit désormais `color` posé en
+   style inline sur .goalMainCard (readableTextOn(), app.js) plutôt que
+   var(--text)/var(--text-light) figés — sinon illisible sur certaines
+   nuances de catégorie (fond clair + texte clair fixe, par exemple). */
+.goalMainCard textarea {
+  background: transparent; border: none; border-radius: 0; padding: 2px 0;
+  color: inherit; font-size: 15px; font-weight: 600;
+}
+.goalMainCard textarea:focus { outline: none; box-shadow: none; }
+.goalMainCard textarea::placeholder { color: inherit; opacity: 0.65; }
 .goalEstimateHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; }
-.goalActualHint { font-size: 12px; color: var(--text); margin: 6px 0 0; font-weight: bold; }
-.goalCarriedHint { font-size: 12px; color: var(--purple); margin: 0 0 6px; }
+.goalMainCard .goalEstimateHint { color: inherit; opacity: 0.75; }
 .goalBilanHint { text-align: center; font-size: 13px; color: var(--text-light); margin: 4px 0 0; }
 
-.goalStatusRow { display: flex; gap: 6px; margin-top: 8px; }
-.goalStatusBtn {
-  flex: 1; padding: 7px 4px; font-size: 12px; border: 1px solid var(--border);
+/* 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
+   d'Emilien : ajustement manuel de la capacité hebdomadaire utilisée par
+   l'auto-planification (server/lib/goalsauto.js) — voir renderGoalsCapacity()
+   dans app.js. Reprend le poids visuel discret de .goalEstimateHint
+   ci-dessus (même famille : sous la barre d'avancement de l'objectif
+   périodique), pas une carte séparée. */
+.goalCapacityRow {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 10px 0 0; font-size: 12px;
+}
+.goalCapacityLine { margin: 0; flex: 1; min-width: 0; }
+.goalCapacityLabel { color: var(--text-light); }
+.goalCapacityValue { color: var(--text); font-weight: bold; }
+.goalCapacityTag {
+  display: inline-block; margin-left: 6px; padding: 1px 7px;
+  border-radius: 999px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.02em; color: var(--text-light); background: var(--hover-bg);
+}
+.goalCapacityTag.manual { color: white; background: var(--purple); }
+.goalCapacityEditBtn, .goalCapacityClearBtn, .goalCapacitySaveBtn, .goalCapacityCancelBtn {
+  padding: 4px 9px; font-size: 11px; border: 1px solid var(--border);
   background: var(--card); color: var(--text-light); border-radius: var(--radius-sm);
   cursor: pointer; transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
 }
 @media (hover: hover) {
-  .goalStatusBtn:hover:not(.active) { background: var(--hover-bg); }
+  .goalCapacityEditBtn:hover, .goalCapacityClearBtn:hover, .goalCapacityCancelBtn:hover { background: var(--hover-bg); }
 }
-.goalStatusBtn.active { color: white; border-color: transparent; }
-.goalStatusBtn.goalStatusAtteint.active { background: var(--green); }
-.goalStatusBtn.goalStatusPartiel.active { background: #f0ad4e; }
-.goalStatusBtn.goalStatusNonAtteint.active { background: var(--red); }
+.goalCapacitySaveBtn { border-color: var(--purple); color: var(--purple); }
+@media (hover: hover) {
+  .goalCapacitySaveBtn:hover { background: rgba(var(--purple-rgb), 0.12); }
+}
+.goalCapacityEditRow { display: flex; align-items: center; gap: 6px; width: 100%; }
+.goalCapacityInput {
+  width: 90px; padding: 5px 7px; font-size: 12px; font: inherit;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg, transparent); color: var(--text);
+}
+.goalCapacityInput:focus {
+  outline: none; border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
+}
+
+/* 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+   « bandeau plein largeur » — .goalStatusRow/.goalStatusBtn (3 boutons de
+   statut texte par semaine) sont retirées, remplacées par .goalWeeklyDot
+   (point de couleur unique, cycle au clic) — voir plus bas, section
+   .goalsWeeklyList. */
 
 /* 16 septembre 2026 (discussion "Objectifs — D") — REMPLACE la grille 2x2 de
    4 cartes élevées (bordure + ombre, même poids visuel que l'objectif
@@ -4400,32 +4477,61 @@ button { -webkit-user-select: none; user-select: none; }
   border: 1px solid var(--border); border-radius: var(--radius-md);
   overflow: hidden; margin-bottom: 20px; background: var(--border);
 }
+/* 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+   « bandeau plein largeur » — chaque semaine devient UNE LIGNE (flex-wrap
+   pour absorber le texte temporaire du bouton feuille de route ci-dessous
+   sans casser la mise en page) plutôt qu'une carte de ~6 lignes : badge
+   "S1"-"S4" + texte toujours visible/éditable + point de statut + sélecteur
+   d'assignation compact. Fonctionnalité inchangée (texte, statut,
+   assignation, feuille de route jour par jour), seule la présentation
+   change — voir renderGoalsWeeklyList(), app.js. */
 .goalsWeeklyList .goalWeeklyCard {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
   background: var(--card); border: none; border-radius: 0;
-  box-shadow: none; margin-bottom: 0; padding: 10px 12px;
+  box-shadow: none; margin-bottom: 0; padding: 8px 10px;
 }
-/* Éléments internes resserrés (texte plus petit, marges réduites) pour que
-   chaque semaine tienne dans une ligne compacte plutôt qu'une carte pleine —
-   fonctionnalité inchangée (texte, estimation, statut, assignation), juste
-   moins d'air autour. */
-.goalsWeeklyList .goalCardLabel {
-  font-size: 11px; font-weight: 700; color: var(--text-light);
-  text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 4px;
+.goalWeeklyBadge {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-light);
+  background: var(--track-bg); border-radius: 999px; padding: 2px 8px;
 }
-/* 16 septembre 2026 (13e passage), demande d'Emilien : REVERT du 12e passage
-   ci-dessus (le 4px issu de « divise-le par 0,33 » lu comme une réduction de
-   taille de texte) — « le texte lui-même était bon, c'est le cadre de la
-   zone de texte que je souhaite réduire de moitié ». Texte remis à 13px (la
-   taille du 11e passage, jamais remise en cause depuis), et c'est le
-   padding — le cadre autour du texte, pas le texte — qui est divisé par 2
-   (6px 8px → 3px 4px). */
-.goalsWeeklyList textarea { font-size: 13px; padding: 3px 4px; }
-.goalsWeeklyList .goalEstimateHint,
-.goalsWeeklyList .goalActualHint { margin-top: 4px; }
-.goalsWeeklyList .goalStatusRow { margin-top: 6px; gap: 4px; }
-.goalsWeeklyList .goalStatusBtn { padding: 4px 2px; font-size: 11px; }
-.goalsWeeklyList .goalAssigneeRow { margin-top: 6px; gap: 6px; }
-.goalsWeeklyList .goalAssigneeSelect { font-size: 12px; padding: 4px 6px; }
+.goalsWeeklyList .goalWeeklyText {
+  flex: 1; min-width: 80px; font-size: 13px; padding: 2px 0;
+  border: none; border-radius: 0; background: transparent; color: var(--text);
+  resize: none;
+}
+.goalsWeeklyList .goalWeeklyText:focus {
+  outline: none; box-shadow: none; border-bottom: 1px solid var(--purple);
+}
+.goalWeeklyDot {
+  flex-shrink: 0; width: 10px; height: 10px; padding: 0; margin: 0;
+  border: none; border-radius: 50%; background: var(--track-bg); cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+.goalWeeklyDot.goalStatusAtteint { background: var(--green); }
+.goalWeeklyDot.goalStatusPartiel { background: #f0ad4e; }
+.goalWeeklyDot.goalStatusNonAtteint { background: var(--red); }
+.goalWeeklyAssignSelect {
+  flex-shrink: 0; max-width: 78px; font-size: 11px; padding: 3px 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--track-bg); color: var(--text-light);
+}
+
+/* 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
+   d'Emilien : « proposer de créer une feuille de route au jour le jour en
+   fonction des tâches hebdomadaires » — bouton réduit à une icône compacte
+   en fin de ligne (17 septembre, discussion "Objectifs — D", bandeau plein
+   largeur) plutôt qu'un bouton pleine largeur sous la carte ; générateur
+   (generateDailyPlan(), app.js) inchangé, seule la présentation change. */
+.goalWeeklyDailyPlanBtn {
+  flex-shrink: 0; padding: 3px 5px; font-size: 13px; line-height: 1;
+  border: none; border-radius: var(--radius-sm); background: transparent;
+  color: var(--text-light); cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+@media (hover: hover) {
+  .goalWeeklyDailyPlanBtn:hover:not(:disabled) { background: var(--hover-bg); }
+}
+.goalWeeklyDailyPlanBtn:disabled { opacity: 0.6; cursor: default; }
 
 /* ===== Calendrier de la période — page 2 d'Objectifs, 15 septembre 2026 =====
    Discussion "Objectifs — D : Calendrier & intégrations", demande
@@ -4636,24 +4742,18 @@ button { -webkit-user-select: none; user-select: none; }
    La grille (ex-vue "Arbre") est désormais le seul mode de la page 1. */
 
 /* Assignation d'un objectif hebdomadaire à un membre de l'activité (14
-   septembre 2026, demande d'Emilien) — sous le statut, dans chaque carte
-   .goalWeeklyCard de la page 2. */
-.goalAssigneeRow {
-  display: flex; align-items: center; gap: 8px; margin-top: 8px;
-}
-.goalAssigneeLabel { font-size: 12px; color: var(--text-light); flex-shrink: 0; }
-.goalAssigneeSelect {
-  flex: 1; min-width: 0; font-size: 13px; padding: 6px 8px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
-  background: var(--card); color: var(--text);
-}
+   septembre 2026, demande d'Emilien). 17 septembre 2026 (bandeau plein
+   largeur) : .goalAssigneeRow/.goalAssigneeLabel/.goalAssigneeSelect
+   (ligne dédiée sous le statut) retirées, remplacées par
+   .goalWeeklyAssignSelect (sélecteur seul, dans la ligne compacte — voir
+   section .goalsWeeklyList plus haut). */
 
 /* ===== Assignation de l'objectif périodique (ex-« grand objectif ») à
    PLUSIEURS membres — 14 septembre 2026 (troisième passage), demande
    d'Emilien : « en dessous des grands objectifs [...] le nom des membres de
    l'activité qui travaillent sur l'objectif périodique. Plusieurs
    utilisateurs peuvent travailler sur un objectif périodique ». Contrairement
-   à .goalAssigneeSelect ci-dessus (UN SEUL <select>, objectif hebdomadaire),
+   à .goalWeeklyAssignSelect (UN SEUL <select>, objectif hebdomadaire),
    ici une puce cliquable PAR MEMBRE, cochée ou non (goal_period_assignees,
    many-to-many) — voir renderGoalsMainAssignees(), app.js. */
 .goalAssigneesLabel { font-size: 12px; color: var(--text-light); margin: 12px 0 6px; }
@@ -4700,7 +4800,16 @@ button { -webkit-user-select: none; user-select: none; }
    .goalsGridRow--paged). -webkit-overflow-scrolling: touch pour un
    défilement inertiel correct sur iOS/WebKit (même précaution qu'ailleurs
    dans ce fichier, voir .tsGrid). */
-.goalsGridScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* 17 septembre 2026 (discussion "Objectifs — Rail périodique") : décalage
+   horizontal pour laisser la place au rail périodique désormais PERMANENT
+   (#goalsScrubZone, voir plus bas — il ne s'affiche plus seulement au
+   toucher). Largeur de la grille et de son en-tête INCHANGÉE (aucun calcul
+   de largeur touché ici, ni dans renderGoalsGridHead()/renderGoalsGrid()) —
+   seul ce conteneur commun est décalé vers la droite ; le reste de l'onglet
+   (#goalsActivitySwitcher, .goalsActivityHeader) n'est pas concerné, demande
+   explicite d'Emilien limitée à « l'arbre ». 44px = largeur de la zone du
+   rail (40px, voir .goalsScrubZone) + une petite marge visuelle. */
+.goalsGridScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 44px; }
 /* 16 septembre 2026 (9e passage) : gap encore élargi, 16px → 32px — demande
    d'Emilien, « je souhaite véritablement qu'il y ait beaucoup plus d'espace
    entre chaque bulle » (le premier élargissement du 8e passage, 6px → 10px,
@@ -4951,15 +5060,6 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryWeeklySummaryLine {
   font-size: 12px; color: var(--text-light); margin: 4px 0;
 }
-/* 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) — même
-   retrait/bordure que .activityGoalsCategoryWeeklySummary ci-dessus, pour
-   rattacher visuellement ce bloc à sa ligne de catégorie. Contenu interne
-   (.subProjectItems/.subProjectItemAdd) réutilisé tel quel depuis un
-   sous-projet, aucun style dupliqué. */
-.activityGoalsCategoryTasksBlock {
-  margin: 2px 0 8px 34px; padding-left: 10px;
-  border-left: 2px solid var(--border);
-}
 .activityGoalsCategoryAddWrap {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin: 10px 0;
@@ -4993,21 +5093,43 @@ button { -webkit-user-select: none; user-select: none; }
    bindGoalsScrub() (app.js) écoute désormais un appui maintenu sur TOUTE la
    grille. goalsPeriodFromY() (app.js) continue d'utiliser son rect pour la
    correspondance verticale doigt→période — cette géométrie n'a pas changé. */
+/* 17 septembre 2026 (discussion "Objectifs — Rail périodique") : le rail
+   passe d'un geste tactile (appui + glissement, 9e/11e passages ci-dessus,
+   code retiré de bindGoalsScrub() dans app.js) à un rail PERMANENT piloté
+   par le défilement de la page — demande d'Emilien : toujours visible tant
+   qu'on est sur la grille, la période "active" (pastille agrandie + numéro
+   + étiquette) suit désormais quelle ligne .goalsGridRow est la plus proche
+   du centre de l'écran, recalculée à chaque défilement (voir bindGoalsScrub()
+   app.js, écouteur de scroll sur window plutôt que pointerdown/move sur
+   #goalsGridScroll). #goalsScrubZone reste purement visuelle
+   (pointer-events: none, hérité par .goalsScrubRail/.goalsScrubDot — aucune
+   des deux ne redéfinit cette propriété). Largeur 32→40px : la pastille
+   active passe à 28px de diamètre (contre 8px avant) pour accueillir le
+   numéro de la période en chiffres, elle a donc besoin d'un peu plus de
+   place sans toucher .goalsGridScroll (margin-left, plus haut dans ce
+   fichier, resynchronisée avec cette nouvelle largeur). */
 .goalsScrubZone {
   position: fixed; left: 0; z-index: 8; pointer-events: none;
   top: var(--goals-scrubzone-top, 220px); bottom: var(--tabbar-h, 60px);
-  width: 32px;
+  width: 40px;
 }
 .goalsScrubRail {
-  position: absolute; left: 10px; top: 8px; bottom: 8px; width: 12px;
+  position: absolute; inset: 8px 0;
   display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-  opacity: 0; transition: opacity var(--transition-fast); pointer-events: none;
 }
-.goalsScrubRail.show { opacity: 1; }
-.goalsScrubDot { width: 5px; height: 5px; border-radius: 50%; background: var(--track-bg); }
-.goalsScrubDot.active { width: 8px; height: 8px; background: var(--purple); }
+.goalsScrubDot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--track-bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  transition: width var(--transition-fast), height var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+/* Couleur de fond + du chiffre affectées en JS (showGoalsScrub(), app.js) à
+   partir de currentGoalsActivityColor/readableTextOn() — même mécanisme que
+   les autres pastilles de catégorie de cet onglet — donc pas de background
+   figé ici, seule la taille est fixée par cette classe. */
+.goalsScrubDot.active { width: 28px; height: 28px; }
 .goalsScrubLabel {
-  position: fixed; left: 38px; top: 0; transform: translate(0, -50%);
+  position: fixed; left: 44px; top: 0; transform: translate(0, -50%);
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
   padding: 6px 10px; font-size: 11px; line-height: 1.3; color: var(--text-light);
   white-space: nowrap; box-shadow: var(--shadow-card); z-index: 8;

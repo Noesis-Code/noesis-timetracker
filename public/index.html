@@ -3013,14 +3013,17 @@
             <!-- 15 septembre 2026 (discussion "Objectifs — D"), demande
                  d'Emilien : « réduire la section de l'objectif périodique au
                  titre, au nombre d'heures à réaliser estimées et à une
-                 visualisation de l'avancement total ». Statut manuel
-                 (.goalStatusRow, réutilisé tel quel par les cartes
-                 hebdomadaires — renderGoalsWeeklyList() ci-dessous, inchangé)
-                 et puces d'assignation (renderGoalsMainAssignees(), retirée)
-                 ne s'affichent plus ici — remplacés par la seule barre
-                 d'avancement ci-dessous (temps réel / estimation, même
-                 pattern que la barre unique des sous-projets,
-                 .subProjectProgressTrack/Fill dans ce même fichier). -->
+                 visualisation de l'avancement total ». Statut manuel (à
+                 l'origine .goalStatusRow, devenu .goalWeeklyDot le 17
+                 septembre 2026 dans les cartes hebdomadaires ci-dessous —
+                 renderGoalsWeeklyList()) et puces d'assignation
+                 (renderGoalsMainAssignees(), retirée) ne s'affichent plus
+                 ici — remplacés par la seule barre d'avancement ci-dessous
+                 (temps réel / estimation, même pattern que la barre unique
+                 des sous-projets, .subProjectProgressTrack/Fill dans ce
+                 même fichier). 17 septembre 2026 : cette carte devient un
+                 bandeau plein largeur de la couleur de catégorie (voir
+                 renderActivityGoals(), app.js). -->
             <div class="goalCard goalMainCard" id="activityGoalsMainCard">
               <p class="goalCardLabel">Objectif périodique</p>
               <!-- 16 septembre 2026 (discussion "Objectifs — D"), demande
@@ -3037,6 +3040,15 @@
                 <div class="goalMainProgressTrack"><div class="goalMainProgressFill" id="activityGoalsMainProgressFill"></div></div>
                 <span class="goalMainProgressPct" id="activityGoalsMainProgressPct"></span>
               </div>
+              <!-- 17 septembre 2026 (discussion "Objectifs — A : Offre1"),
+                   demande d'Emilien : pouvoir ajuster manuellement la
+                   capacité hebdomadaire utilisée par l'auto-planification
+                   (server/lib/goalsauto.js), pour couvrir le cas d'une
+                   activité volontairement mise de côté un temps (la moyenne
+                   sur l'historique récent tomberait sinon près de zéro).
+                   Contenu entièrement construit par renderGoalsCapacity()
+                   (app.js) — vide au chargement. -->
+              <div class="goalCapacityRow" id="activityGoalsCapacity"></div>
             </div>
 
             <!-- 16 septembre 2026 (discussion "Objectifs — D", 7e passage) —
@@ -3050,10 +3062,13 @@
                  masquait derrière un clic sur le calendrier — celui-ci fait
                  maintenant défiler jusqu'à la carte concernée plutôt que
                  d'ouvrir quoi que ce soit (openGoalsWeekEditor(), app.js).
-                 renderGoalsWeeklyList() elle-même est inchangée : ces 4
-                 cartes ont toujours servi de sommaire de la période (texte,
-                 estimation, statut, assignation), seule leur visibilité
-                 permanente est restaurée ici. -->
+                 Ces 4 cartes ont toujours servi de sommaire de la période
+                 (texte, statut, assignation), seule leur visibilité
+                 permanente est restaurée ici. 17 septembre 2026 (bandeau
+                 plein largeur) : renderGoalsWeeklyList() (app.js) rend
+                 désormais chaque semaine en UNE LIGNE compacte plutôt qu'une
+                 carte, fonctionnalité inchangée — voir son commentaire de
+                 fonction. -->
             <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires</p>
             <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
 
