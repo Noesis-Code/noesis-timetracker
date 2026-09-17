@@ -4278,14 +4278,44 @@ button { -webkit-user-select: none; user-select: none; }
    seulement en balayant au-delà de la dernière. Contour en pointillés
    (jamais un aplat de couleur comme les vraies catégories) pour signaler
    clairement « case vide », pas une catégorie personnalisée. */
+/* 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie", reprise du
+   scope figé le 16 septembre — voir noesis-timetracker-objectifs.md,
+   "Révision du 16 septembre 2026", point 4) : refonte complète sur maquette
+   validée par Emilien ("modèle B") — la case d'en-tête et les 13 cases de
+   grille (.goalsGridCell--add plus bas) ne sont plus 14 cadres en
+   pointillés indépendants, mais LES SEGMENTS D'UNE SEULE boîte continue
+   (même couleur — la nuance qu'aurait la PROCHAINE catégorie,
+   subProjectShade(currentGoalsActivityColor, categories.length,
+   SUB_PROJECT_SHADE_COUNT), posée en JS via la variable CSS
+   --goalsAddAccent sur chaque case, repli sur var(--track-bg) si absente).
+   Cette case d'en-tête est le "capuchon" HAUT de la boîte (coins arrondis
+   hauts, bordure gauche/droite/haute) ; son ::after ci-dessous prolonge la
+   bordure gauche/droite à travers l'écart de 18px avec la 1ère ligne
+   (.goalsGridHead { margin-bottom: 18px }) pour que la boîte reste continue
+   malgré le changement de conteneur DOM (goalsGridHead → goalsGrid). Le
+   contenu visuel (avant un simple cadre plein-largeur) devient une petite
+   pastille en pointillés centrée (.goalsGridHeadCellAddPill plus bas),
+   fidèle à la maquette — la largeur/le point de clic restent inchangés
+   (toujours pilotés par syncGoalsGridWidths()/goToGoalsCategorySettings()). */
 .goalsGridHeadCell--add {
-  flex: 0 0 auto; min-width: 0; text-align: center; padding: 6px 4px;
-  border: 2px dashed var(--track-bg); border-radius: var(--radius-sm);
-  color: var(--text-light); background: transparent; cursor: pointer;
-  font-size: 11px; font-weight: 700;
+  flex: 0 0 auto; min-width: 0; min-height: 46px; padding: 0;
   display: flex; align-items: center; justify-content: center;
+  position: relative; background: transparent; cursor: pointer;
+  border: 2px dashed var(--goalsAddAccent, var(--track-bg)); border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
-.goalsGridHeadCell--add:active { transform: scale(0.96); }
+.goalsGridHeadCell--add:active { transform: scale(0.98); }
+.goalsGridHeadCell--add::after {
+  content: ''; position: absolute; left: -2px; right: -2px; bottom: -18px; height: 18px;
+  border-left: 2px dashed var(--goalsAddAccent, var(--track-bg));
+  border-right: 2px dashed var(--goalsAddAccent, var(--track-bg));
+  pointer-events: none;
+}
+.goalsGridHeadCellAddPill {
+  display: block; width: 64px; height: 22px; border-radius: 999px;
+  border: 1.5px dashed var(--goalsAddAccent, var(--track-bg));
+  box-shadow: var(--shadow-badge); pointer-events: none;
+}
 /* 16 septembre 2026 (discussion "Objectifs — Arbre périodique") : catégorie
    PAR DÉFAUT (unique, jamais encore personnalisée — categoriesForActivity(),
    server/lib/goals.js, la synthétise sans écriture pour qu'une activité
@@ -4810,6 +4840,16 @@ button { -webkit-user-select: none; user-select: none; }
    explicite d'Emilien limitée à « l'arbre ». 44px = largeur de la zone du
    rail (40px, voir .goalsScrubZone) + une petite marge visuelle. */
 .goalsGridScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 44px; }
+/* 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : nouveau
+   cas "0 catégorie" (activeGoalsCategories() vide — état transitoire avant
+   chargement, ou toutes catégories gelées) — demande d'Emilien : verrouiller
+   le défilement horizontal à EXACTEMENT une page, aucun balayage possible
+   dans un sens ni dans l'autre. Dans ce cas la seule colonne présente est
+   déjà la case d'ajout (largeur = scroll.clientWidth, syncGoalsGridWidths())
+   donc scrollWidth === clientWidth en théorie — cette classe (posée en JS,
+   renderGoalsGridHead()) coupe aussi tout rebond élastique/overscroll
+   résiduel (iOS) qui pourrait sinon laisser deviner un contenu au-delà. */
+.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
 /* 16 septembre 2026 (9e passage) : gap encore élargi, 16px → 32px — demande
    d'Emilien, « je souhaite véritablement qu'il y ait beaucoup plus d'espace
    entre chaque bulle » (le premier élargissement du 8e passage, 6px → 10px,
@@ -4906,14 +4946,34 @@ button { -webkit-user-select: none; user-select: none; }
    exactement la cellule voisine du même rang, sans changement du reste de
    son comportement (passe derrière le contenu, invisible sous une cellule
    pleine). */
+/* 17 septembre 2026 (discussion "Objectifs — Arbre périodique") : le trait de
+   continuité ci-dessus (un seul ::before par cellule, de -22px à -22px) est
+   scindé en deux moitiés indépendantes — ::before pour la moitié HAUTE (vers
+   la période précédente), ::after pour la moitié BASSE (vers la période
+   suivante) — chacune coupée exactement au milieu de la cellule (50%), pour
+   pouvoir les colorer différemment. Demande d'Emilien : « je souhaite que les
+   lignes verticales qui relient deux bulles [...] se colorent de la même
+   nuance utilisée pour les bulles, uniquement si la bulle supérieure et la
+   bulle inférieure ont été remplies ». Couleur lue depuis une variable CSS
+   posée en JS par cellule (--goalsCellLineUpColor/--goalsCellLineDownColor,
+   renderGoalsGrid(), app.js) uniquement quand la bulle voisine concernée est
+   elle aussi remplie ; repli sur var(--track-bg) (couleur neutre d'origine)
+   dans tous les autres cas — variable absente = comportement identique à
+   avant ce passage. */
 .goalsGridCell::before {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
-  left: 50%; top: -22px; bottom: -22px; width: 0;
-  border-left: 2px solid var(--track-bg);
+  left: 50%; top: -22px; bottom: 50%; width: 0;
+  border-left: 2px solid var(--goalsCellLineUpColor, var(--track-bg));
+  transform: translateX(-50%);
+}
+.goalsGridCell::after {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  left: 50%; top: 50%; bottom: -22px; width: 0;
+  border-left: 2px solid var(--goalsCellLineDownColor, var(--track-bg));
   transform: translateX(-50%);
 }
 .goalsGridRow:first-child .goalsGridCell::before { top: 50%; }
-.goalsGridRow:last-child .goalsGridCell::before { bottom: 50%; }
+.goalsGridRow:last-child .goalsGridCell::after { bottom: 50%; }
 /* Objectif périodique déjà écrit pour cette (période, catégorie) : bulle
    pleine, même code couleur de statut que la bande de tendance
    (.goalStatusAtteint/Partiel/NonAtteint, déjà définies plus haut). */
@@ -4979,18 +5039,66 @@ button { -webkit-user-select: none; user-select: none; }
    continuité (.goalsGridCell::before désactivé ici) : cette colonne ne
    représente aucune catégorie réelle, relier ses cases n'aurait pas de
    sens. */
+/* 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : refonte
+   sur maquette validée ("modèle B") — voir le commentaire détaillé au-dessus
+   de .goalsGridHeadCell--add, styles.css. Chacune des 13 cases devient un
+   SEGMENT de la même boîte continue que la case d'en-tête (bordure gauche/
+   droite dans --goalsAddAccent, prolongée à travers les écarts de 44px du
+   dessus/dessous par ::before/::after ci-dessous — même principe que
+   .goalsGridCell::before/::after pour le trait de continuité des vraies
+   catégories, mais ici ce sont DEUX traits pleine hauteur de case (gauche +
+   droite), pas un trait unique centré) ; PAS de bordure haute/basse propre
+   (posée uniquement sur la 1ère ligne — capuchon d'en-tête, son ::after — et
+   la 13e ligne juste en dessous). Le séparateur horizontal en pointillés
+   entre 2 périodes (.goalsGridRow::before, plus haut, pleine largeur de
+   ligne) reste inchangé et traverse déjà cette colonne, aucun ajout
+   nécessaire ici pour lui. Chaque case reçoit en plus un "pavé fantôme"
+   INSÉRÉ (.goalsGridCellAddGhost, span enfant posé par renderGoalsGrid(),
+   app.js) : fond --track-bg PLEIN + ombre --shadow-card réelle (pas une
+   simple opacité comme .goalsGridCell--empty) pour ressembler à une vraie
+   carte, en retrait (inset) du cadre en pointillés — fidèle à la maquette. */
 .goalsGridCell--add {
-  min-height: 24px; border: 2px dashed var(--track-bg);
-  border-radius: var(--radius-md); background: transparent;
+  min-height: 54px; border-radius: 0; background: transparent; padding: 0;
+  position: relative; display: flex; align-items: center; justify-content: center;
+  border-left: 2px dashed var(--goalsAddAccent, var(--track-bg));
+  border-right: 2px dashed var(--goalsAddAccent, var(--track-bg));
 }
-.goalsGridCell--add::before { display: none; }
-/* Le signe + n'apparaît qu'une fois, sur la période du milieu du cycle
-   (13 périodes → repère visuel vers la 7e) plutôt qu'en haut de page : « je
-   souhaite qu'il s'affiche au milieu d'une nouvelle page » — cette case
-   prend la hauteur d'une bulle pleine (54px) pour l'accueillir confortablement. */
-.goalsGridCell--addCenter {
-  min-height: 54px; display: flex; align-items: center; justify-content: center;
-  font-size: 28px; font-weight: 300; line-height: 1; color: var(--text-light);
+.goalsGridCell--add::before, .goalsGridCell--add::after {
+  content: ''; position: absolute; left: -2px; right: -2px; height: 22px; pointer-events: none;
+  border-left: 2px dashed var(--goalsAddAccent, var(--track-bg));
+  border-right: 2px dashed var(--goalsAddAccent, var(--track-bg));
+}
+.goalsGridCell--add::before { top: -22px; }
+.goalsGridCell--add::after { bottom: -22px; }
+.goalsGridRow:first-child .goalsGridCell--add::before { display: none; }
+.goalsGridRow:last-child .goalsGridCell--add {
+  border-bottom: 2px dashed var(--goalsAddAccent, var(--track-bg));
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.goalsGridRow:last-child .goalsGridCell--add::after { display: none; }
+.goalsGridCellAddGhost {
+  position: absolute; inset: 8px 14px; border-radius: var(--radius-lg);
+  background: var(--track-bg); box-shadow: var(--shadow-card); pointer-events: none;
+}
+/* Le "+" et son libellé n'apparaissent qu'une fois, sur la période du milieu
+   du cycle (13 périodes → repère visuel vers la 7e, addCenterPeriodIndex,
+   app.js) plutôt que répétés sur les 13 cases — « je souhaite qu'il
+   s'affiche au milieu d'une nouvelle page » (16 septembre, hérité tel quel).
+   Posés PAR-DESSUS le pavé fantôme (z-index implicite : les deux viennent
+   après lui dans le DOM), au centre de la case grâce au flex du bouton
+   parent (.goalsGridCell--add ci-dessus) — la case du milieu restant la
+   même hauteur (54px) que les 12 autres, ce centrage vertical reste très
+   proche du centre visuel de la boîte entière (en-tête + 13 cases). */
+.goalsGridCell--addCenter { flex-direction: column; gap: 8px; }
+.goalsGridCellAddIcon {
+  position: relative; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--goalsAddAccent, var(--purple)); color: var(--bg);
+  font-size: 20px; font-weight: 300; line-height: 1; pointer-events: none;
+}
+.goalsGridCellAddLabel {
+  position: relative; font-size: 13px; font-weight: 700; color: var(--text);
+  text-align: center; white-space: nowrap; pointer-events: none;
 }
 
 /* ===== Gestion des catégories d'objectifs — fenêtre activité, 15 septembre
@@ -5024,6 +5132,21 @@ button { -webkit-user-select: none; user-select: none; }
   background: var(--card); padding: 8px 10px;
   position: relative;
   touch-action: none;
+}
+/* 17 septembre 2026 (maquette approuvée) : la ligne se replie/déplie au clic
+   simple (bindCategoryOpenToggle, app.js) — pas en mode édition, où le clic
+   ne fait rien (renommer/glisser/supprimer passent par leurs propres
+   contrôles). */
+.activityGoalsCategoryRow:not(.editing) { cursor: pointer; }
+/* Nombre de tâches + chevron replié/déplié — purement visuels, le clic porte
+   sur la ligne entière. */
+.activityGoalsCategoryCount {
+  flex-shrink: 0; font-size: 11px; color: var(--text-light);
+  background: var(--track-bg); border-radius: 999px; padding: 2px 8px;
+}
+.activityGoalsCategoryChevron {
+  flex-shrink: 0; color: var(--text-light); font-size: 12px; width: 14px;
+  text-align: center;
 }
 /* 16 septembre 2026 (11e passage) : appui long + glisser pour réordonner,
    même habillage visuel que .activityRow.dragging (réordonnancement des
@@ -5069,17 +5192,37 @@ button { -webkit-user-select: none; user-select: none; }
   margin: 2px 0 8px 34px; padding-left: 10px;
   border-left: 2px solid var(--border);
 }
-/* 17 septembre 2026 (discussion C, bulle IA de classement automatique) —
-   voir buildCategoryAutoTaskBubble()/renderActivityGoalsCategoriesPanel(),
-   app.js. Bordure en pointillés (au lieu de la bordure pleine de
-   .activityGoalsCategoryRow) pour marquer visuellement que cette bulle,
-   tout en bas de #activityGoalsCategoriesList, n'appartient à AUCUNE
-   catégorie précise — à la différence de chaque ligne au-dessus d'elle.
-   .subProjectItemAdd (input + bouton "Ajouter") réutilisé tel quel. */
+/* 17 septembre 2026 (discussion C, bulle IA de classement automatique —
+   maquette approuvée par Emilien, citation directe : « Prends exemple sur
+   la bulle d'écriture dans la section discussion » + « je souhaite le
+   remplacer par un bouton ajouter comme pour la discussion ») — voir
+   buildCategoryAutoTaskBubble()/renderActivityGoalsCategoriesPanel(),
+   app.js. Repris À L'IDENTIQUE du gabarit .chatComposerRow (textarea +
+   bouton "Ajouter" DANS la bulle, en absolute, plutôt que le bloc
+   .subProjectItemAdd — retiré, cette bulle n'en dépend plus). Bordure en
+   pointillés (au lieu de la bordure pleine de .activityGoalsCategoryRow)
+   pour marquer visuellement que cette bulle, désormais AU-DESSUS des
+   catégories (#activityGoalsCategoryAutoTaskWrap, voir index.html),
+   n'appartient à AUCUNE catégorie précise. */
 .activityGoalsCategoryAutoTaskBubble {
-  border: 1px dashed var(--border); border-radius: var(--radius-md);
-  background: var(--card); padding: 10px; margin-top: 2px;
+  position: relative;
+  border: 1px dashed var(--border); border-radius: var(--radius-lg, var(--radius-md));
+  background: var(--card);
 }
+.activityGoalsCategoryAutoTaskBubble textarea {
+  display: block; width: 100%; box-sizing: border-box;
+  resize: none; overflow: hidden; line-height: 1.35;
+  border: none; outline: none; background: transparent; color: var(--text);
+  font-family: inherit; font-size: 15px;
+  padding: 14px 92px 14px 12px; min-height: 68px;
+  border-radius: var(--radius-lg, var(--radius-md));
+}
+.activityGoalsCategoryAutoTaskBubble .iconBtn {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  padding: 6px 12px;
+}
+.activityGoalsCategoryAutoTaskBubble .msg { padding: 0 10px 8px; margin: 0; }
+.activityGoalsCategoryAutoTaskBubble .msg:empty { display: none; padding: 0; }
 /* Tâches déjà envoyées à l'IA depuis cette bulle mais pas encore ré-affichées
    sous leur vraie catégorie (categoryAutoTaskPending, app.js) — reste ici
    jusqu'au prochain rechargement réel des données, demande explicite
@@ -5088,6 +5231,25 @@ button { -webkit-user-select: none; user-select: none; }
   margin-top: 6px; display: flex; flex-direction: column; gap: 2px;
 }
 .activityGoalsCategoryAutoTaskPendingRow { margin: 0; }
+/* 17 septembre 2026 (maquette approuvée, citation directe : « je souhaite
+   que le + soit entre la bulle de l'écriture de la nouvelle tâche et les
+   différentes catégories, puisque le + correspond à l'ajout d'une
+   catégorie. ») — ligne dédiée au "+" (#addSubProjectBtn, .menuBtn),
+   alignée à droite comme dans la maquette, entre
+   #activityGoalsCategoryAutoTaskWrap et #activityGoalsCategoriesList
+   (voir index.html). */
+.activityGoalsCategoryAddRow {
+  display: flex; justify-content: flex-end; margin: 8px 0;
+}
+/* Sélecteur compact de reclassement manuel, à côté de la case à cocher de
+   chaque tâche (buildCategoryTaskRow, app.js) — demande d'Emilien : « Je
+   souhaite ajouter une option pour changer manuellement les tâches de
+   catégorie. » */
+.activityGoalsCategoryTaskMove {
+  flex-shrink: 0; max-width: 110px; font-size: 11px; color: var(--text-light);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px); padding: 3px 4px;
+}
 .activityGoalsCategoryAddWrap {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin: 10px 0;
@@ -5136,9 +5298,16 @@ button { -webkit-user-select: none; user-select: none; }
    numéro de la période en chiffres, elle a donc besoin d'un peu plus de
    place sans toucher .goalsGridScroll (margin-left, plus haut dans ce
    fichier, resynchronisée avec cette nouvelle largeur). */
+/* 17 septembre 2026 (suite du 14e passage) : marge basse resserrée — demande
+   d'Emilien, « le rail [...] moins bas en bas ». bottom collait exactement
+   au bord haut réel de .tabbar (--tabbar-h, mesurée par syncTabbarHeightVar(),
+   app.js — safe-area-inset-bottom inclus, jamais une valeur figée) ; +6px
+   ajoutés pour laisser une petite marge visuelle avant la barre du bas,
+   même valeur que la marge haute resserrée de syncGoalsScrubZoneTopVar()
+   ci-dessus (app.js). */
 .goalsScrubZone {
   position: fixed; left: 0; z-index: 8; pointer-events: none;
-  top: var(--goals-scrubzone-top, 220px); bottom: var(--tabbar-h, 60px);
+  top: var(--goals-scrubzone-top, 220px); bottom: calc(var(--tabbar-h, 60px) + 6px);
   width: 40px;
 }
 .goalsScrubRail {

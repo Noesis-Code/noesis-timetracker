@@ -7,14 +7,15 @@
   var activitiesCache = [];
   var timerInterval = null;
   var timerStartMs = null;
-  // Rattachement OPTIONNEL de la session en cours à un sous-projet
-  // (4 septembre 2026, chantier « Chrono — sous-projets »). null = aucun
-  // sous-projet, et c'est le cas normal. `chronoRunningActivityId` sert de
-  // garde anti-réponse-en-vol : la liste des sous-projets arrive de façon
-  // asynchrone, et on ne veut pas peupler le sélecteur avec ceux d'une
+  // Rattachement OPTIONNEL de la session en cours à une CATÉGORIE Objectifs
+  // (17 septembre 2026, suppression totale des sous-projets — remplace le
+  // rattachement sous-projet du 4 septembre 2026). null = aucune catégorie,
+  // et c'est le cas normal. `chronoRunningActivityId` sert de garde
+  // anti-réponse-en-vol : la liste des catégories arrive de façon
+  // asynchrone, et on ne veut pas peupler le sélecteur avec celles d'une
   // activité qu'on vient de quitter (même motif que viewProfileUserId).
   var chronoRunningActivityId = null;
-  var chronoRunningSubProject = null;
+  var chronoRunningCategory = null;
   // Périodes indépendantes par section de Statistiques — 30 août 2026, sur
   // demande d'Emilien : plus de sélecteur global (#statsPeriodSwitch), chaque
   // section choisit sa propre période via son menu "⋮" (voir plus bas).
@@ -66,11 +67,12 @@
   // donc devenues DEUX variables indépendantes. La Répartition accepte en
   // plus 'day' ("Aujourd'hui") ; le Graphique non, il tracerait un point.
   var currentActivityPiePeriod = 'week';
-  // Filtre par sous-projet de la section Statistiques d'une activité
-  // (4 septembre 2026, « Chrono — sous-projets »). '' = tout le temps de
-  // l'activité — valeur de départ, donc comportement d'avant ce chantier ;
-  // 'none' = temps non rattaché ; sinon l'id d'un sous-projet.
-  var currentActivitySubProject = '';
+  // Filtre par catégorie de la section Statistiques d'une activité
+  // (4 septembre 2026, « Chrono — sous-projets » ; converti le 17 septembre
+  // 2026 à la catégorie Objectifs). '' = tout le temps de l'activité —
+  // valeur de départ, donc comportement d'avant ce chantier ; 'none' = temps
+  // non rattaché ; sinon la clé d'une catégorie.
+  var currentActivityCategory = '';
   // ⚠️ Second passage du 3 septembre : ce n'est plus une période mais une
   // GRANULARITÉ (jour / semaine / mois), le graphique couvrant toujours toute
   // l'histoire de l'activité — alignement sur le Graphique de l'onglet
@@ -1468,86 +1470,88 @@
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   }
 
-  // ===================== CHRONO → SOUS-PROJET (rattachement optionnel) =====================
-  // Décision d'Emilien du 3 septembre 2026 (« choix optionnel au démarrage du
-  // chrono »), précisée le 4 : le clic sur une activité DÉMARRE toujours le
-  // chrono immédiatement — le « démarrage en un clic » du 27 août 2026 n'est
-  // pas repris. Le sélecteur apparaît juste sous le chronomètre, une fois la
-  // session lancée, et uniquement si l'activité a des sous-projets ouverts.
-  // Ne rien choisir reste le cas normal et ne coûte aucun geste.
-  //
-  // ⚠️ Le temps rattaché ne compte JAMAIS dans l'avancement d'un sous-projet
-  // (contrat R1-R6) : celui-ci vient uniquement des cases cochées. Rien ici ne
-  // lit ni n'écrit un pourcentage.
-  function fetchChronoSubProjects(activityId) {
-    // Les sous-projets clôturés sont exclus par défaut côté serveur : un
-    // sous-projet clôturé ne doit plus apparaître dans le sélecteur.
-    // Le .catch garantit qu'une panne des sous-projets ne bloque jamais le
+  // ===================== CHRONO → CATÉGORIE (rattachement optionnel) =====================
+  // 17 septembre 2026 (suppression totale des sous-projets, cadré avec
+  // Emilien via AskUserQuestion, citation directe : « je souhaite que les
+  // catégories remplacent les sous-projets dans le chrono. C'est-à-dire que
+  // lorsqu'on lance le chrono [...] on peut choisir la catégorie à laquelle
+  // elle appartient. ») — REMPLACE ENTIÈREMENT le sélecteur de sous-projet
+  // du Chrono (décision d'Emilien du 3-4 septembre 2026, conservée pour le
+  // reste : le clic sur une activité démarre toujours le chrono
+  // immédiatement, le sélecteur apparaît juste sous le chronomètre une fois
+  // la session lancée). Ne rien choisir reste le cas normal et ne coûte
+  // aucun geste — une activité a toujours au moins une catégorie
+  // (server/lib/goals.js#categoriesForActivity), donc le sélecteur est
+  // désormais TOUJOURS proposé (à la différence des sous-projets, absents
+  // par défaut).
+  function fetchChronoCategories(activityId) {
+    // Le .catch garantit qu'une panne d'Objectifs ne bloque jamais le
     // Chrono — même principe que le flux Suivi vis-à-vis des sondages.
-    return api('GET', '/api/activities/' + activityId + '/sub-projects?userId=' + profile.id)
-      .then(function (data) { return (data && data.subProjects) || []; })
+    return api('GET', '/api/activities/' + activityId + '/goals/categories?userId=' + profile.id)
+      .then(function (data) { return (data && data.categories) || []; })
       .catch(function () { return []; });
   }
 
-  // `current` est le rattachement DÉJÀ en place (ou null). S'il ne figure plus
-  // dans la liste (sous-projet clôturé depuis, par exemple), il est quand même
-  // proposé, épinglé en fin de liste et marqué — sans quoi le simple fait
-  // d'ouvrir le sélecteur suffirait à effacer un rattachement existant.
-  function fillSubProjectSelect(sel, list, current) {
-    var currentId = current && current.id ? Number(current.id) : null;
+  // `current` est le rattachement DÉJÀ en place ({key, label, frozen} ou
+  // null). S'il ne figure plus dans la liste active (catégorie retirée
+  // depuis), il est quand même proposé, épinglé en fin de liste et marqué —
+  // sans quoi le simple fait d'ouvrir le sélecteur suffirait à effacer un
+  // rattachement existant (même principe que fillSubProjectSelect avant lui).
+  function fillCategorySelect(sel, list, current) {
+    var currentKey = current && current.key ? String(current.key) : null;
     sel.innerHTML = '';
     var none = document.createElement('option');
     none.value = '';
-    none.textContent = t('Aucun sous-projet');
+    none.textContent = t('Aucune catégorie');
     sel.appendChild(none);
     var found = false;
-    list.forEach(function (s) {
+    list.forEach(function (c) {
       var o = document.createElement('option');
-      o.value = String(s.id);
-      o.textContent = s.name;
-      if (currentId && Number(s.id) === currentId) found = true;
+      o.value = String(c.key);
+      o.textContent = c.label;
+      if (currentKey && String(c.key) === currentKey) found = true;
       sel.appendChild(o);
     });
-    if (currentId && !found) {
+    if (currentKey && !found) {
       var kept = document.createElement('option');
-      kept.value = String(currentId);
-      kept.textContent = (current.name || t('Sous-projet')) + ' (' + t('clôturé') + ')';
+      kept.value = currentKey;
+      kept.textContent = (current.label || t('Catégorie')) + ' (' + t('retirée') + ')';
       sel.appendChild(kept);
     }
-    sel.value = currentId ? String(currentId) : '';
+    sel.value = currentKey ? currentKey : '';
   }
 
-  function renderChronoSubProjectSelector(activity, subProject) {
-    var wrap = $('chronoSubProjectWrap');
-    $('chronoSubProjectMsg').textContent = '';
+  function renderChronoCategorySelector(activity, category) {
+    var wrap = $('chronoCategoryWrap');
+    $('chronoCategoryMsg').textContent = '';
     wrap.classList.add('hidden');
     // Rend une promesse (au lieu de ne rien rendre) pour que l'appelant
     // puisse attendre que le sélecteur soit peuplé — voir enterRunning().
     if (!activity) return Promise.resolve();
-    return fetchChronoSubProjects(activity.id).then(function (list) {
+    return fetchChronoCategories(activity.id).then(function (list) {
       // Garde anti-réponse-en-vol : l'activité a pu changer entre-temps.
       if (chronoRunningActivityId !== activity.id) return;
-      if (!list.length && !(subProject && subProject.id)) return;
-      fillSubProjectSelect($('chronoSubProjectSelect'), list, subProject);
+      if (!list.length && !(category && category.key)) return;
+      fillCategorySelect($('chronoCategorySelect'), list, category);
       wrap.classList.remove('hidden');
     });
   }
 
-  function enterRunning(activity, startTimeIso, subProject) {
+  function enterRunning(activity, startTimeIso, category) {
     $('runningActivityLabel').textContent = activity.name;
     $('runningActivityLabel').style.backgroundColor = activity.color;
     $('runningActivityLabel').style.color = textColorForTheme(currentTheme);
     chronoRunningActivityId = activity.id;
-    chronoRunningSubProject = subProject || null;
-    var subProjectsReady = renderChronoSubProjectSelector(activity, chronoRunningSubProject);
+    chronoRunningCategory = category || null;
+    var categoriesReady = renderChronoCategorySelector(activity, chronoRunningCategory);
     startLiveTimer(startTimeIso);
     closeStopConfirm();
     showChronoBlock('chronoRunning');
     // Rendue pour que l'appelant puisse attendre que TOUT le bloc "chrono en
-    // cours" soit peint, sélecteur de sous-projet compris (voir showApp() :
+    // cours" soit peint, sélecteur de catégorie compris (voir showApp() :
     // l'écran de chargement ne s'efface pas avant). Les autres appelants
     // ignorent simplement la valeur de retour, comme avant.
-    return subProjectsReady;
+    return categoriesReady;
   }
 
   // Rend sa promesse depuis le 4 septembre 2026 : showApp() attend qu'elle
@@ -1560,28 +1564,28 @@
       if (!data.running) {
         stopLiveTimer();
         chronoRunningActivityId = null;
-        chronoRunningSubProject = null;
+        chronoRunningCategory = null;
         renderActivityGrid();
         showChronoBlock('chronoIdle');
         return;
       }
-      return enterRunning(data.activity, data.startTime, data.subProject);
+      return enterRunning(data.activity, data.startTime, data.category);
     }).catch(function () { showChronoBlock('chronoIdle'); });
   }
 
   // Le choix est écrit sur le CHRONO EN COURS côté serveur, pas gardé dans
   // l'écran : il survit donc à un rechargement de page ou à un changement
   // d'appareil, exactement comme l'activité et l'heure de démarrage.
-  $('chronoSubProjectSelect').addEventListener('change', function () {
-    var value = this.value ? Number(this.value) : null;
-    $('chronoSubProjectMsg').textContent = '';
-    api('POST', '/api/timer/sub-project', { userId: profile.id, subProjectId: value })
-      .then(function (data) { chronoRunningSubProject = data.subProject || null; })
+  $('chronoCategorySelect').addEventListener('change', function () {
+    var value = this.value || null;
+    $('chronoCategoryMsg').textContent = '';
+    api('POST', '/api/timer/category', { userId: profile.id, category: value })
+      .then(function (data) { chronoRunningCategory = data.category || null; })
       .catch(function (err) {
-        $('chronoSubProjectMsg').textContent = err.message;
+        $('chronoCategoryMsg').textContent = err.message;
         // Le serveur a refusé : on remet le sélecteur sur ce qu'il porte
         // vraiment, plutôt que de laisser l'écran mentir sur l'état réel.
-        this.value = chronoRunningSubProject ? String(chronoRunningSubProject.id) : '';
+        this.value = chronoRunningCategory ? String(chronoRunningCategory.key) : '';
       }.bind(this));
   });
 
@@ -1592,7 +1596,7 @@
   function startActivity(activity) {
     $('chronoStatus').textContent = '';
     api('POST', '/api/timer/start', { userId: profile.id, activityId: activity.id })
-      .then(function (data) { enterRunning(data.activity, data.startTime, data.subProject); })
+      .then(function (data) { enterRunning(data.activity, data.startTime, data.category); })
       .catch(function (err) { $('chronoStatus').textContent = err.message; });
   }
 
@@ -1663,18 +1667,18 @@
 
   function openStopConfirm() {
     $('stopConfirmMsg').textContent = '';
-    // Dernière chance de corriger le sous-projet avant d'enregistrer (demande
+    // Dernière chance de corriger la catégorie avant d'enregistrer (demande
     // d'Emilien). Le bloc reste masqué s'il n'y a rien à proposer — et dans ce
     // cas le STOP n'envoie PAS le champ, pour ne jamais effacer par omission
     // un rattachement que l'écran n'a pas pu afficher.
-    $('stopSubProjectWrap').classList.add('hidden');
+    $('stopCategoryWrap').classList.add('hidden');
     if (chronoRunningActivityId) {
       (function (activityId) {
-        fetchChronoSubProjects(activityId).then(function (list) {
+        fetchChronoCategories(activityId).then(function (list) {
           if (chronoRunningActivityId !== activityId) return;
-          if (!list.length && !chronoRunningSubProject) return;
-          fillSubProjectSelect($('stopSubProjectSelect'), list, chronoRunningSubProject);
-          $('stopSubProjectWrap').classList.remove('hidden');
+          if (!list.length && !chronoRunningCategory) return;
+          fillCategorySelect($('stopCategorySelect'), list, chronoRunningCategory);
+          $('stopCategoryWrap').classList.remove('hidden');
         });
       })(chronoRunningActivityId);
     }
@@ -1719,16 +1723,16 @@
       endTime: endDate.toISOString(),
     };
     // Champ envoyé UNIQUEMENT si le sélecteur a pu être affiché. Absent, le
-    // serveur garde le sous-projet choisi pendant la session — c'est
+    // serveur garde la catégorie choisie pendant la session — c'est
     // volontairement l'inverse d'un `null` implicite, qui détacherait.
-    if (!$('stopSubProjectWrap').classList.contains('hidden')) {
-      stopPayload.subProjectId = $('stopSubProjectSelect').value ? Number($('stopSubProjectSelect').value) : null;
+    if (!$('stopCategoryWrap').classList.contains('hidden')) {
+      stopPayload.category = $('stopCategorySelect').value || null;
     }
     api('POST', '/api/timer/stop', stopPayload)
       .then(function (data) {
         stopLiveTimer();
         chronoRunningActivityId = null;
-        chronoRunningSubProject = null;
+        chronoRunningCategory = null;
         $('chronoStatus').textContent = t(data.message) + ' (' + data.elapsed + ')';
         renderActivityGrid();
         showChronoBlock('chronoIdle');
@@ -1780,10 +1784,12 @@
 
     var metaLine = document.createElement('div');
     metaLine.className = 'meta';
-    // Le sous-projet rattaché s'affiche À CÔTÉ de la durée, jamais mêlé à
-    // elle : c'est un classement, pas une mesure.
+    // La catégorie rattachée s'affiche À CÔTÉ de la durée, jamais mêlée à
+    // elle : c'est un classement, pas une mesure. (17 septembre 2026 :
+    // remplace le sous-projet, entry.categoryLabel au lieu de
+    // entry.subProjectName — voir decorateWithCategory, server/routes/history.js.)
     function metaText() {
-      return timeRangeLabel() + (entry.subProjectName ? ' · ' + entry.subProjectName : '');
+      return timeRangeLabel() + (entry.categoryLabel ? ' · ' + entry.categoryLabel : '');
     }
     metaLine.textContent = metaText();
     card.appendChild(metaLine);
@@ -1872,13 +1878,15 @@
       '<input type="datetime-local" class="historyEditStart" step="1">' +
       '<p class="stopFieldLabel">' + t('Heure de fin') + '</p>' +
       '<input type="datetime-local" class="historyEditEnd" step="1">' +
-      // Corriger le sous-projet d'une session déjà enregistrée — y compris
+      // Corriger la catégorie d'une session déjà enregistrée — y compris
       // d'une session ANTÉRIEURE à ce chantier, donc sans rattachement
-      // (arbitrage d'Emilien : « oui, toutes les sessions »). Masqué tant que
-      // l'activité de la session n'a aucun sous-projet à proposer.
-      '<div class="historyEditSubProjectWrap hidden">' +
-        '<p class="stopFieldLabel">' + t('Sous-projet') + '</p>' +
-        '<select class="historyEditSubProject subProjectSelect"></select>' +
+      // (arbitrage d'Emilien : « oui, toutes les sessions »). Toujours
+      // proposé : une activité a toujours au moins une catégorie (17
+      // septembre 2026, remplace le sous-projet — voir le commentaire de
+      // #chronoCategoryWrap plus haut dans ce fichier).
+      '<div class="historyEditCategoryWrap hidden">' +
+        '<p class="stopFieldLabel">' + t('Catégorie') + '</p>' +
+        '<select class="historyEditCategory subProjectSelect"></select>' +
       '</div>' +
       '<p class="historyEditMsg msg"></p>' +
       '<div class="rowActions">' +
@@ -1892,21 +1900,21 @@
     var editMsg = editFields.querySelector('.historyEditMsg');
     var saveBtn = editFields.querySelector('.historyEditSave');
     var cancelBtn = editFields.querySelector('.historyEditCancel');
-    var subWrap = editFields.querySelector('.historyEditSubProjectWrap');
-    var subSelect = editFields.querySelector('.historyEditSubProject');
+    var categoryWrap = editFields.querySelector('.historyEditCategoryWrap');
+    var categorySelect = editFields.querySelector('.historyEditCategory');
 
     editBtn.addEventListener('click', function () {
       editMsg.textContent = '';
       startInput.value = toDatetimeLocalValue(entry.startTime);
       endInput.value = toDatetimeLocalValue(entry.endTime);
-      subWrap.classList.add('hidden');
-      fetchChronoSubProjects(entry.activityId).then(function (list) {
-        var current = entry.subProjectId
-          ? { id: entry.subProjectId, name: entry.subProjectName }
+      categoryWrap.classList.add('hidden');
+      fetchChronoCategories(entry.activityId).then(function (list) {
+        var current = entry.goalCategory
+          ? { key: entry.goalCategory, label: entry.categoryLabel }
           : null;
         if (!list.length && !current) return;
-        fillSubProjectSelect(subSelect, list, current);
-        subWrap.classList.remove('hidden');
+        fillCategorySelect(categorySelect, list, current);
+        categoryWrap.classList.remove('hidden');
       });
       editFields.classList.remove('hidden');
       actions.classList.add('hidden');
@@ -1935,8 +1943,8 @@
       };
       // Même règle qu'au STOP : champ envoyé seulement si le sélecteur a pu
       // être affiché, pour ne jamais détacher par omission.
-      if (!subWrap.classList.contains('hidden')) {
-        payload.subProjectId = subSelect.value ? Number(subSelect.value) : null;
+      if (!categoryWrap.classList.contains('hidden')) {
+        payload.category = categorySelect.value || null;
       }
       api('PUT', '/api/history/' + entry.id, payload)
         .then(function () { onChanged(); })
@@ -3994,10 +4002,10 @@
     // que l'ouverture de l'onglet Statistiques.
     currentActivityPiePeriod = 'week';
     currentActivityChartGranularity = 'day';
-    // Le filtre par sous-projet repart lui aussi de zéro : les sous-projets de
-    // l'activité précédente n'existent pas ici, et laisser un id en place
-    // filtrerait sur un sous-projet qui n'appartient pas à cette activité.
-    currentActivitySubProject = '';
+    // Le filtre par catégorie repart lui aussi de zéro : les catégories de
+    // l'activité précédente n'existent pas ici, et laisser une clé en place
+    // filtrerait sur une catégorie qui n'appartient pas à cette activité.
+    currentActivityCategory = '';
     syncActivityPeriodMenus();
     // Nouvelle activité : on repart d'un fil vide côté affichage, sinon la
     // signature du fil précédent empêcherait le premier rendu (et le
@@ -4038,7 +4046,7 @@
     activityDetailEl().classList.remove('hidden');
     if (shouldScroll) activityDetailEl().scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-    loadActivitySubProjectFilter(currentCommunityActivityId);
+    loadActivityCategoryFilter(currentCommunityActivityId);
     loadActivityStats(currentCommunityActivityId);
     loadDiscussion(true);
     startDiscussionPolling();
@@ -4121,8 +4129,17 @@
     // #subProjectDetail (le sous-projet ouvert) n'a pas besoin d'être traité
     // ici : il est soit DANS une ligne de #subProjectsList, soit sur son ancre
     // — dans les deux cas à l'intérieur de ce qu'on masque ou montre.
-    if (sub) sub.classList.toggle('hidden', name !== 'sub');
-    if (anchor) anchor.classList.toggle('hidden', name !== 'sub');
+    // 17 septembre 2026 (discussion Objectifs — C, demande explicite
+    // d'Emilien : « supprimer complètement les sous-projets [...] c'est les
+    // catégories qui remplacent ») : #activitySubProjectsBlock et son ancre
+    // restent désormais TOUJOURS masqués, quelle que soit la section — masque,
+    // ne supprime pas : le code et les données restent intacts (filet de
+    // sécurité, voir chantiers-en-cours.md) le temps que chrono/stats/
+    // discussion/sondages/rappels soient basculés sur les catégories, mais
+    // l'écran ne montre plus jamais cette liste (son seul élément encore
+    // utile, le "+", a déménagé dans #activityGoalsCategoriesBlock).
+    if (sub) sub.classList.add('hidden');
+    if (anchor) anchor.classList.add('hidden');
     // Une activité non partagée n'a ni statistiques ni fil, quelle que soit la
     // section demandée : le partage a toujours le dernier mot.
     if (stats) stats.classList.toggle('hidden', name !== 'stats' || !currentActivityIsShared);
@@ -4386,7 +4403,15 @@
   // assumée pour cette passe, signalée à Emilien — affecter un membre prévu
   // à une tâche créée depuis une catégorie reste possible en ouvrant son
   // sous-projet "domicile" depuis Sous-projets.
-  function buildCategoryTaskRow(item, activityId) {
+  // 17 septembre 2026 (3e correction, demande d'Emilien, citation directe) :
+  // « Je souhaite ajouter une option pour changer manuellement les tâches de
+  // catégorie. » — sélecteur compact à droite de chaque tâche, en plus du
+  // classement automatique par IA de la bulle : PUT
+  // .../goals/tasks/:itemId/category (server/lib/goalstasks.js#moveCategoryTask),
+  // qui déplace réellement la tâche vers le sous-projet "domicile" de la
+  // nouvelle catégorie (même mécanique que tout le reste de ce fichier,
+  // jamais de nouveau modèle de données).
+  function buildCategoryTaskRow(item, activityId, categoryKey) {
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (item.done ? ' done' : '');
 
@@ -4414,6 +4439,27 @@
       row.appendChild(autoBadge);
     }
 
+    var moveSelect = document.createElement('select');
+    moveSelect.className = 'activityGoalsCategoryTaskMove';
+    moveSelect.setAttribute('aria-label', t('Changer de catégorie'));
+    currentActivityGoalsCategories.forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c.key;
+      opt.textContent = c.label;
+      if (c.key === categoryKey) opt.selected = true;
+      moveSelect.appendChild(opt);
+    });
+    moveSelect.addEventListener('click', function (e) { e.stopPropagation(); });
+    moveSelect.addEventListener('change', function () {
+      var newKey = moveSelect.value;
+      if (newKey === categoryKey) return;
+      moveSelect.disabled = true;
+      api('PUT', '/api/activities/' + activityId + '/goals/tasks/' + item.id + '/category', { userId: profile.id, categoryKey: newKey })
+        .then(function () { activityGoalsCategoriesRefresh(activityId); })
+        .catch(function (err) { alert(err.message); moveSelect.value = categoryKey; moveSelect.disabled = false; });
+    });
+    row.appendChild(moveSelect);
+
     var del = document.createElement('button');
     del.type = 'button';
     del.className = 'discussionMsgDelete';
@@ -4430,49 +4476,31 @@
   }
 
   // Bloc de tâches d'une catégorie — liste (agrégée côté serveur depuis tous
-  // les sous-projets rattachés, voir server/lib/goalstasks.js) + ajout.
-  // Mêmes classes que buildTasksSection/subProjectItemAdd (plus haut dans ce
-  // fichier) pour un rendu visuel identique, sans dupliquer le CSS.
+  // les sous-projets rattachés, voir server/lib/goalstasks.js), affichée
+  // seulement quand la catégorie est dépliée (voir
+  // renderActivityGoalsCategoriesPanel/activityGoalsCategoriesOpen).
+  // 17 septembre 2026 (3e correction, demande explicite d'Emilien) :
+  // « Supprime l'option d'ajouter une tâche directement dans la
+  // catégorie. » — le champ d'ajout par catégorie a disparu, tout passe
+  // désormais par la bulle IA unique en haut du panneau
+  // (buildCategoryAutoTaskBubble). Mêmes classes que buildTasksSection
+  // (plus haut dans ce fichier) pour un rendu visuel identique, sans
+  // dupliquer le CSS.
   function buildCategoryTasksBlock(activityId, categoryKey, tasks) {
     var wrap = document.createElement('div');
     wrap.className = 'activityGoalsCategoryTasksBlock';
 
     var itemsList = document.createElement('div');
     itemsList.className = 'subProjectItems';
-    (tasks || []).forEach(function (item) { itemsList.appendChild(buildCategoryTaskRow(item, activityId)); });
+    (tasks || []).forEach(function (item) { itemsList.appendChild(buildCategoryTaskRow(item, activityId, categoryKey)); });
     wrap.appendChild(itemsList);
 
-    var add = document.createElement('div');
-    add.className = 'subProjectItemAdd';
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 300;
-    input.placeholder = t('Ajouter une tâche...');
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'iconBtn';
-    btn.textContent = t('Ajouter');
-    var msg = document.createElement('p');
-    msg.className = 'msg';
-
-    function submit() {
-      var label = input.value.trim();
-      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
-      msg.textContent = '';
-      btn.disabled = true;
-      api('POST', '/api/activities/' + activityId + '/goals/categories/' + categoryKey + '/tasks', { userId: profile.id, label: label })
-        .then(function () { input.value = ''; activityGoalsCategoriesRefresh(activityId); })
-        .catch(function (err) { msg.textContent = err.message; })
-        .then(function () { btn.disabled = false; });
+    if (!(tasks || []).length) {
+      var empty = document.createElement('p');
+      empty.className = 'msg';
+      empty.textContent = t('Aucune tâche dans cette catégorie.');
+      wrap.appendChild(empty);
     }
-    btn.addEventListener('click', submit);
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); submit(); }
-    });
-    add.appendChild(input);
-    add.appendChild(btn);
-    wrap.appendChild(add);
-    wrap.appendChild(msg);
     return wrap;
   }
 
@@ -4502,36 +4530,39 @@
   // sur name === 'sub', plus bas).
   var categoryAutoTaskPending = [];
 
+  // 17 septembre 2026 (maquette approuvée par Emilien, citation directe :
+  // « Prends exemple sur la bulle d'écriture dans la section discussion »
+  // + « je souhaite le remplacer par un bouton ajouter comme pour la
+  // discussion ») — même gabarit que .chatComposerRow : un seul champ
+  // (textarea, plus de paragraphe d'explication séparé au-dessus — le
+  // placeholder porte l'explication) et le bouton "Ajouter" posé À
+  // L'INTÉRIEUR de la bulle (.iconBtn, positionné en absolute), jamais un
+  // bloc .subProjectItemAdd distinct.
   function buildCategoryAutoTaskBubble(activityId) {
     var wrap = document.createElement('div');
     wrap.className = 'activityGoalsCategoryAutoTaskBubble';
 
-    var hint = document.createElement('p');
-    hint.className = 'meta';
-    hint.textContent = t('Ajoute une tâche sans choisir de catégorie : une IA la classe automatiquement.');
-    wrap.appendChild(hint);
+    var textarea = document.createElement('textarea');
+    textarea.rows = 2;
+    textarea.maxLength = 300;
+    textarea.placeholder = t('Nouvelle tâche… une IA choisit sa catégorie');
 
-    var add = document.createElement('div');
-    add.className = 'subProjectItemAdd';
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 300;
-    input.placeholder = t('Nouvelle tâche...');
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'iconBtn';
     btn.textContent = t('Ajouter');
+
     var msg = document.createElement('p');
     msg.className = 'msg';
 
     function submit() {
-      var label = input.value.trim();
+      var label = textarea.value.trim();
       if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
       msg.textContent = '';
       btn.disabled = true;
       api('POST', '/api/activities/' + activityId + '/goals/categories/auto-task', { userId: profile.id, label: label })
         .then(function (item) {
-          input.value = '';
+          textarea.value = '';
           categoryAutoTaskPending.push({
             label: label,
             categoryLabel: (item && item.categoryLabel) || (item && item.categoryKey) || '',
@@ -4544,12 +4575,11 @@
         .then(function () { btn.disabled = false; });
     }
     btn.addEventListener('click', submit);
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    textarea.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
     });
-    add.appendChild(input);
-    add.appendChild(btn);
-    wrap.appendChild(add);
+    wrap.appendChild(textarea);
+    wrap.appendChild(btn);
     wrap.appendChild(msg);
 
     if (categoryAutoTaskPending.length) {
@@ -4588,6 +4618,16 @@
   var lastActivityGoalsCategoriesData = null;
   var lastActivityGoalsPlanningData = null;
 
+  // 17 septembre 2026 (maquette approuvée, citation directe : « je souhaite
+  // que les catégories, par défaut, n'affichent pas les tâches ajoutées, et
+  // qu'elle les affiche uniquement lorsqu'on clique dessus. Ça déploie
+  // l'ensemble des tâches avec des petites case à cocher à gauche. ») —
+  // repliées par défaut (clé absente = false), une catégorie dépliée à la
+  // fois n'est PAS imposé : chaque clé garde son propre état indépendant.
+  // Le clic simple (bindCategoryOpenToggle) bascule l'affichage ; l'appui
+  // long (bindCategoryLongPress, inchangé) reste réservé au mode édition.
+  var activityGoalsCategoriesOpen = {};
+
   function enterCategoriesEditMode() {
     if (activityGoalsCategoriesEditMode || !lastActivityGoalsCategoriesData) return;
     activityGoalsCategoriesEditMode = true;
@@ -4624,6 +4664,19 @@
         cancel();
         enterCategoriesEditMode();
       }, 500);
+    });
+  }
+
+  // Clic simple (pas l'appui long, réservé au mode édition) : déplie/replie
+  // les tâches de cette catégorie. `e.stopPropagation()` sur le clic
+  // n'est pas nécessaire ici (la ligne elle-même est la cible), mais le
+  // clic est ignoré pendant l'édition et pendant qu'un appui long est en
+  // cours d'évaluation (cancel() l'aurait sinon laissé filer).
+  function bindCategoryOpenToggle(row, key) {
+    row.addEventListener('click', function () {
+      if (activityGoalsCategoriesEditMode) return;
+      activityGoalsCategoriesOpen[key] = !activityGoalsCategoriesOpen[key];
+      renderActivityGoalsCategoriesPanel(lastActivityGoalsCategoriesData, lastActivityGoalsPlanningData);
     });
   }
 
@@ -4796,15 +4849,33 @@
       nameLabel.textContent = c.label;
       row.appendChild(nameLabel);
 
+      // Repliée par défaut (maquette approuvée) : badge du nombre de tâches
+      // + chevron, tous deux purement visuels — le clic porte sur la ligne
+      // entière (bindCategoryOpenToggle).
+      var isOpen = !!activityGoalsCategoriesOpen[c.key];
+      var tasksForCat = tasksByCategory[c.key] || [];
+      var countBadge = document.createElement('span');
+      countBadge.className = 'activityGoalsCategoryCount';
+      countBadge.textContent = String(tasksForCat.length);
+      row.appendChild(countBadge);
+
+      var chevron = document.createElement('span');
+      chevron.className = 'activityGoalsCategoryChevron';
+      chevron.textContent = isOpen ? '▾' : '▸';
+      row.appendChild(chevron);
+
       bindCategoryLongPress(row);
+      bindCategoryOpenToggle(row, c.key);
 
       list.appendChild(row);
 
-      // 17 septembre 2026 (fusion sous-projet → catégorie) — le bloc de
-      // tâches de cette catégorie, juste sous sa ligne de nom : c'est
-      // désormais ICI qu'on ajoute/coche/supprime une tâche, plus depuis un
-      // sous-projet séparé (voir buildCategoryTasksBlock ci-dessus).
-      list.appendChild(buildCategoryTasksBlock(activityIdForTasks, c.key, tasksByCategory[c.key]));
+      // 17 septembre 2026 (fusion sous-projet → catégorie, maquette
+      // approuvée) — le bloc de tâches de cette catégorie, juste sous sa
+      // ligne de nom, affiché SEULEMENT si la catégorie est dépliée : c'est
+      // désormais ICI qu'on coche/déplace/supprime une tâche (plus l'ajout,
+      // retiré — voir buildCategoryTasksBlock ci-dessus), plus depuis un
+      // sous-projet séparé.
+      if (isOpen) list.appendChild(buildCategoryTasksBlock(activityIdForTasks, c.key, tasksForCat));
 
       // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
       // d'Emilien : « [l'objectif] se répertorie [...] sous l'objectif dans
@@ -4834,13 +4905,18 @@
       }
     });
 
-    // Bulle spéciale d'ajout de tâche par IA, tout en bas de la liste — pas
-    // liée à une catégorie précise, donc hors du forEach ci-dessus. Absente
-    // en mode édition (même règle que les tâches/résumé hebdo, masqués eux
+    // Bulle spéciale d'ajout de tâche par IA — maquette approuvée : AU-DESSUS
+    // des catégories, dans son propre conteneur (#activityGoalsCategoryAutoTaskWrap,
+    // voir index.html), pas dans #activityGoalsCategoriesList. Absente en
+    // mode édition (même règle que les tâches/résumé hebdo, masqués eux
     // aussi pendant l'édition) et si l'activité n'a encore aucune catégorie
     // (rien à classer).
-    if (!activityGoalsCategoriesEditMode && currentActivityGoalsCategories.length) {
-      list.appendChild(buildCategoryAutoTaskBubble(activityIdForTasks));
+    var autoTaskWrap = $('activityGoalsCategoryAutoTaskWrap');
+    if (autoTaskWrap) {
+      autoTaskWrap.innerHTML = '';
+      if (!activityGoalsCategoriesEditMode && currentActivityGoalsCategories.length) {
+        autoTaskWrap.appendChild(buildCategoryAutoTaskBubble(activityIdForTasks));
+      }
     }
   }
 
@@ -5227,7 +5303,12 @@
     var toggle = $('goalsGridHead');
     if (!toggle) return;
     var bottom = toggle.getBoundingClientRect().bottom;
-    if (bottom > 0) document.documentElement.style.setProperty('--goals-scrubzone-top', Math.round(bottom + 14) + 'px');
+    // 17 septembre 2026 (suite du 14e passage) : marge resserrée de 14px à
+    // 6px — demande d'Emilien, « le rail [...] plus haut en haut » — même
+    // petite marge de sécurité (6px) que celle déjà utilisée ailleurs dans
+    // l'onglet Objectifs (ex. .goalsGridHeadCell, padding 6px), au lieu
+    // d'une valeur propre à cette zone.
+    if (bottom > 0) document.documentElement.style.setProperty('--goals-scrubzone-top', Math.round(bottom + 6) + 'px');
   }
   window.addEventListener('resize', syncGoalsScrubZoneTopVar);
   window.addEventListener('orientationchange', syncGoalsScrubZoneTopVar);
@@ -5264,6 +5345,21 @@
     if (!grid) return 0;
     var rows = grid.querySelectorAll('.goalsGridRow');
     if (!rows.length) return 0;
+    // 17 septembre 2026 (suite du 14e passage) : bug réel signalé par
+    // Emilien — les périodes 1 et 13 ne devenaient jamais "actives". Cause :
+    // la comparaison "ligne dont le centre est le plus proche du milieu de
+    // l'écran" ne peut matériellement JAMAIS désigner la 1ère ou la 13e
+    // ligne tant que la page ne peut pas défiler assez loin pour que leur
+    // propre centre atteigne littéralement ce milieu — en haut de page,
+    // c'est presque toujours une ligne intermédiaire qui gagne (le contenu
+    // au-dessus de la 1ère ligne, même minime, suffit à décaler son centre
+    // au-dessus du milieu du viewport), symétriquement en bas de page.
+    // Cas de bord traités explicitement, AVANT le calcul de distance
+    // habituel (inchangé pour tout le reste du défilement) : tout en haut
+    // de la page → période 1, tout en bas → période 13.
+    var doc = document.documentElement;
+    if (window.scrollY <= 2) return 0;
+    if (window.innerHeight + window.scrollY >= doc.scrollHeight - 2) return rows.length - 1;
     var target = window.innerHeight / 2;
     var bestIdx = 0, bestDist = Infinity;
     rows.forEach(function (row, i) {
@@ -6182,6 +6278,14 @@
     // de catégorie de cette activité (goToGoalsCategorySettings(), plus bas
     // dans ce fichier), pour créer une VRAIE première catégorie.
     var onlyDefaultCategory = categories.length === 1 && categories[0].custom === false;
+    // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
+    // nouveau cas "0 catégorie" (categories vide — état transitoire avant
+    // chargement, ou toutes gelées) — demande d'Emilien : verrouiller le
+    // défilement horizontal de #goalsGridScroll à exactement une page (voir
+    // .goalsGridScroll--locked, styles.css). Sans effet dès qu'au moins une
+    // catégorie (même la catégorie factice par défaut) est active.
+    var gridScrollEl = $('goalsGridScroll');
+    if (gridScrollEl) gridScrollEl.classList.toggle('goalsGridScroll--locked', categories.length === 0);
     categories.forEach(function (c, index) {
       var span;
       if (onlyDefaultCategory) {
@@ -6231,6 +6335,14 @@
       addCell.className = 'goalsGridHeadCell--add';
       addCell.title = t('Ajouter une catégorie');
       addCell.setAttribute('aria-label', t('Ajouter une catégorie'));
+      // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
+      // couleur de la boîte continue (capuchon d'en-tête + 13 cases,
+      // styles.css) — la nuance qu'aurait la PROCHAINE catégorie créée,
+      // même fonction que les vraies catégories/bulles remplies.
+      addCell.style.setProperty('--goalsAddAccent', subProjectShade(currentGoalsActivityColor, categories.length, SUB_PROJECT_SHADE_COUNT));
+      var addPill = document.createElement('span');
+      addPill.className = 'goalsGridHeadCellAddPill';
+      addCell.appendChild(addPill);
       addCell.addEventListener('click', goToGoalsCategorySettings);
       head.appendChild(addCell);
     }
@@ -6486,8 +6598,26 @@
           var addCell = document.createElement('button');
           addCell.type = 'button';
           addCell.title = t('Ajouter une catégorie');
+          addCell.setAttribute('aria-label', t('Ajouter une catégorie'));
           addCell.className = 'goalsGridCell goalsGridCell--add' + (periodIndex === addCenterPeriodIndex ? ' goalsGridCell--addCenter' : '');
-          if (periodIndex === addCenterPeriodIndex) addCell.textContent = '+';
+          // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
+          // même couleur que le capuchon d'en-tête (voir renderGoalsGridHead()
+          // ci-dessus) — les 13 cases + l'en-tête forment une seule boîte
+          // continue à la même nuance, sur maquette validée ("modèle B").
+          addCell.style.setProperty('--goalsAddAccent', subProjectShade(currentGoalsActivityColor, categories.length, SUB_PROJECT_SHADE_COUNT));
+          var addGhost = document.createElement('span');
+          addGhost.className = 'goalsGridCellAddGhost';
+          addCell.appendChild(addGhost);
+          if (periodIndex === addCenterPeriodIndex) {
+            var addIcon = document.createElement('span');
+            addIcon.className = 'goalsGridCellAddIcon';
+            addIcon.textContent = '+';
+            var addLabel = document.createElement('span');
+            addLabel.className = 'goalsGridCellAddLabel';
+            addLabel.textContent = t('Ajouter une catégorie');
+            addCell.appendChild(addIcon);
+            addCell.appendChild(addLabel);
+          }
           addCell.addEventListener('click', goToGoalsCategorySettings);
           row.appendChild(addCell);
         }
@@ -8441,59 +8571,59 @@
   // Remet les deux menus sur leur période courante. Nécessaire à chaque
   // nouvelle sélection d'activité : les menus gardent sinon la coche de
   // l'activité précédente, alors que les variables, elles, sont réinitialisées.
-  // ----- Filtre par sous-projet (4 septembre 2026, demande d'Emilien) -----
+  // ----- Filtre par catégorie (4 septembre 2026, demande d'Emilien ; converti
+  // le 17 septembre 2026 du sous-projet à la catégorie Objectifs — citation
+  // directe : « [les catégories] sont visibles dans le stat lorsque tu
+  // cliques sur une stat. ») -----
   // « je souhaite que les membres d'une activité puissent comparer entre eux
-  // leurs enregistrements globaux (cette fonction existe déjà), ainsi que leurs
-  // enregistrements par sous-projet (à faire) » — d'où un filtre, et non une
-  // fenêtre par membre : la comparaison entre membres reste à l'écran, elle est
-  // simplement restreinte à un sous-projet.
+  // leurs enregistrements globaux (cette fonction existe déjà), ainsi que
+  // leurs enregistrements par catégorie » — d'où un filtre, et non une
+  // fenêtre par membre : la comparaison entre membres reste à l'écran, elle
+  // est simplement restreinte à une catégorie.
   //
   // Trois familles de valeurs, exactement celles que la route accepte :
   //   ''      : tout le temps de l'activité (paramètre non envoyé)
-  //   'none'  : le temps NON rattaché à un sous-projet
-  //   <id>    : ce sous-projet
+  //   'none'  : le temps NON rattaché à une catégorie
+  //   <clé>   : cette catégorie
   // Le camembert ET le graphique suivent, puisqu'un seul appel les sert.
-  //
-  // ⚠️ Les sous-projets viennent de fetchChronoSubProjects, donc de la route de
-  // la discussion « Sous-projets » : les clôturés sont exclus par le serveur, et
-  // une panne de leur côté renvoie une liste vide plutôt qu'une erreur. Le
-  // filtre disparaît alors, la comparaison globale continue de fonctionner.
-  function loadActivitySubProjectFilter(activityId) {
-    var wrap = $('caSubProjectFilterWrap');
-    var menu = $('caSubProjectMenu');
+  // Utilise fetchChronoCategories (Chrono, plus haut dans ce fichier) — même
+  // source que le sélecteur du Chrono, aucune duplication.
+  function loadActivityCategoryFilter(activityId) {
+    var wrap = $('caCategoryFilterWrap');
+    var menu = $('caCategoryMenu');
     if (!wrap || !menu || !profile || !activityId) return;
     wrap.classList.add('hidden');
     menu.innerHTML = '';
-    fetchChronoSubProjects(activityId).then(function (list) {
+    fetchChronoCategories(activityId).then(function (list) {
       // Garde anti-réponse-en-vol : l'activité a pu changer entre-temps.
       if (String(activityId) !== String(currentCommunityActivityId)) return;
-      if (!list.length) return; // aucun sous-projet : rien à filtrer, rien à montrer
-      var options = [{ value: '', label: t('Tous les sous-projets') },
-                     { value: 'none', label: t('Sans sous-projet') }];
-      list.forEach(function (sp) {
-        options.push({ value: String(sp.id), label: sp.name || t('Sous-projet') });
+      if (list.length <= 1) return; // une seule catégorie : rien à filtrer, rien à montrer
+      var options = [{ value: '', label: t('Toutes les catégories') },
+                     { value: 'none', label: t('Sans catégorie') }];
+      list.forEach(function (c) {
+        options.push({ value: String(c.key), label: c.label || t('Catégorie') });
       });
       options.forEach(function (o) {
         var b = document.createElement('button');
         b.type = 'button';
-        b.className = 'statsPeriodMenuItem' + (o.value === currentActivitySubProject ? ' active' : '');
-        b.setAttribute('data-sub-project', o.value);
+        b.className = 'statsPeriodMenuItem' + (o.value === currentActivityCategory ? ' active' : '');
+        b.setAttribute('data-category', o.value);
         b.textContent = o.label;
         menu.appendChild(b);
       });
-      syncActivitySubProjectBtn();
+      syncActivityCategoryBtn();
       wrap.classList.remove('hidden');
     });
   }
 
-  function syncActivitySubProjectBtn() {
-    var menu = $('caSubProjectMenu');
-    var label = $('caSubProjectBtnLabel');
+  function syncActivityCategoryBtn() {
+    var menu = $('caCategoryMenu');
+    var label = $('caCategoryBtnLabel');
     if (!menu || !label) return;
-    var active = menu.querySelector('[data-sub-project="' + currentActivitySubProject + '"]');
-    label.textContent = active ? active.textContent : t('Tous les sous-projets');
+    var active = menu.querySelector('[data-category="' + currentActivityCategory + '"]');
+    label.textContent = active ? active.textContent : t('Toutes les catégories');
     menu.querySelectorAll('.statsPeriodMenuItem').forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-sub-project') === currentActivitySubProject);
+      b.classList.toggle('active', b.getAttribute('data-category') === currentActivityCategory);
     });
   }
 
@@ -8502,21 +8632,21 @@
   // posée sur le document). Le helper lui-même n'est pas réutilisable ici : il
   // câble les entrées UNE FOIS au démarrage, alors que celles-ci sont
   // reconstruites à chaque activité. D'où un écouteur DÉLÉGUÉ sur le menu.
-  $('caSubProjectBtn').addEventListener('click', function (e) {
+  $('caCategoryBtn').addEventListener('click', function (e) {
     e.stopPropagation();
-    var menu = $('caSubProjectMenu');
+    var menu = $('caCategoryMenu');
     var willOpen = menu.classList.contains('hidden');
     closeAllStatsPeriodMenus();
     if (willOpen) menu.classList.remove('hidden');
   });
-  $('caSubProjectMenu').addEventListener('click', function (e) {
+  $('caCategoryMenu').addEventListener('click', function (e) {
     var item = e.target.closest('.statsPeriodMenuItem');
     if (!item) return;
     this.classList.add('hidden');
-    var value = item.getAttribute('data-sub-project') || '';
-    if (value === currentActivitySubProject) return;
-    currentActivitySubProject = value;
-    syncActivitySubProjectBtn();
+    var value = item.getAttribute('data-category') || '';
+    if (value === currentActivityCategory) return;
+    currentActivityCategory = value;
+    syncActivityCategoryBtn();
     if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
   });
 
@@ -8536,11 +8666,12 @@
       '&activityId=' + activityId +
       '&period=' + currentActivityPiePeriod +
       '&chartGranularity=' + currentActivityChartGranularity +
-      // Filtre par sous-projet (4 septembre 2026). Vide = tout le temps de
-      // l'activité, comportement d'avant ce chantier : le paramètre n'est
+      // Filtre par catégorie (4 septembre 2026 ; converti le 17 septembre
+      // 2026 du sous-projet à la catégorie Objectifs). Vide = tout le temps
+      // de l'activité, comportement d'avant ce chantier : le paramètre n'est
       // alors pas envoyé du tout, et le serveur ne change rien à sa requête.
-      (currentActivitySubProject
-        ? '&subProject=' + encodeURIComponent(currentActivitySubProject) : '');
+      (currentActivityCategory
+        ? '&category=' + encodeURIComponent(currentActivityCategory) : '');
     api('GET', url).then(function (data) {
       if (String(activityId) !== String(currentCommunityActivityId)) return; // sélection changée entre-temps
       var block = data.breakdown;
@@ -8589,12 +8720,13 @@
   // activité (ce qui est le cas pour le volet stat) mais grâce à un bouton et
   // des options pour sélectionner le sous-projet que l'on désire observer ».
   // Le paramètre a donc été retiré, et la fonction est revenue exactement à ce
-  // qu'elle était : le filtre vit désormais au-dessus (#caSubProjectBtn), il
-  // change ce que le serveur renvoie, pas ce que cette fonction dessine.
-  // La comparaison entre MEMBRES est ainsi conservée à l'identique, sous-projet
-  // par sous-projet — ce qu'Emilien demandait (« comparer entre eux leurs
-  // enregistrements globaux […] ainsi que leurs enregistrements par
-  // sous-projet »), et qu'une fenêtre par membre ne permettait pas.
+  // qu'elle était : le filtre vit désormais au-dessus (#caCategoryBtn, 17
+  // septembre 2026 : remplace #caSubProjectBtn), il change ce que le serveur
+  // renvoie, pas ce que cette fonction dessine. La comparaison entre MEMBRES
+  // est ainsi conservée à l'identique, catégorie par catégorie — ce
+  // qu'Emilien demandait (« comparer entre eux leurs enregistrements
+  // globaux […] ainsi que leurs enregistrements par catégorie »), et qu'une
+  // fenêtre par membre ne permettait pas.
   function renderActivityPie(members, totalSeconds) {
     var wrap = $('communityActivityPie');
     wrap.innerHTML = '';
