@@ -4951,6 +4951,15 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryWeeklySummaryLine {
   font-size: 12px; color: var(--text-light); margin: 4px 0;
 }
+/* 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) — même
+   retrait/bordure que .activityGoalsCategoryWeeklySummary ci-dessus, pour
+   rattacher visuellement ce bloc à sa ligne de catégorie. Contenu interne
+   (.subProjectItems/.subProjectItemAdd) réutilisé tel quel depuis un
+   sous-projet, aucun style dupliqué. */
+.activityGoalsCategoryTasksBlock {
+  margin: 2px 0 8px 34px; padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
 .activityGoalsCategoryAddWrap {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin: 10px 0;
