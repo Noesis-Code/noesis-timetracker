@@ -4831,10 +4831,16 @@ button { -webkit-user-select: none; user-select: none; }
    visible ailleurs (page détail, bande de tendance) ; rien ne le remplace
    ici, dans un but d'allègement visuel de l'arbre. */
 .goalsGridCellText {
-  font-size: 12px; line-height: 1.3; margin: 0;
+  font-size: 12px; line-height: 1.3; margin: 0; font-weight: 600;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* 17 septembre 2026 (discussion "Objectifs — Arbre périodique") : couleur du
+   texte (var(--bg), posée en JS par renderGoalsGrid(), app.js) désormais
+   identique au fond d'écran plutôt qu'une couleur de contraste calculée —
+   effet "texte gravé" demandé par Emilien, voir commentaire détaillé dans
+   app.js. font-weight relevé à 600 (était non défini, donc 400 par défaut)
+   pour que les lettres se détachent nettement sur l'aplat de couleur. */
 /* Aucun objectif périodique pour cette (période, catégorie).
    15 septembre 2026 (6e passage) : le 5e passage retirait TOUT habillage
    (« pas même un trait ») — Emilien revient dessus : « je souhaite que

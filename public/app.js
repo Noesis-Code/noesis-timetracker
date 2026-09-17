@@ -5946,13 +5946,29 @@
             txt.className = 'goalsGridCellText';
             txt.textContent = p.mainGoalText;
             cell.appendChild(txt);
-            // Bordure de la cellule remplie = même nuance que le badge de
-            // catégorie ci-dessus (renderGoalsGridHead()), jamais un aplat
-            // (demande explicite d'Emilien) — couleur 100% automatique
-            // désormais pour TOUTE catégorie, fixe ou personnalisée (16
-            // septembre 2026, 8e passage : il n'y a plus de distinction
-            // "couleur propre ou non", plus de champ `color` côté serveur).
-            cell.style.borderColor = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+            // 17 septembre 2026 (discussion "Objectifs — Arbre périodique") :
+            // changement de plan d'Emilien sur le fond des bulles remplies
+            // (revient sur les 5 maquettes A-E proposées au 12e passage,
+            // encore non tranchées) — citation exacte : « je souhaite que
+            // les bulles de l'arbre, lorsqu'elles sont remplies, prennent
+            // totalement la nuance de la couleur attribuée à la catégorie
+            // et que l'écriture garde la couleur identique du fond d'écran.
+            // je souhaite qu'on ait l'impression qu'on a creusé les lettres
+            // à travers la bulle. » — effet "texte gravé" : la bulle est
+            // remplie en APLAT de la nuance automatique de la catégorie
+            // (même fonction subProjectShade() que le badge d'en-tête,
+            // jamais une simple bordure comme avant ce passage), le texte
+            // prend exactement la couleur du fond d'écran (var(--bg), PAS
+            // readableTextOn() — Emilien veut la couleur du fond, pas un
+            // simple contraste lisible) pour donner l'impression que les
+            // lettres sont creusées à même la bulle plutôt qu'écrites
+            // dessus. La bordure reprend la même nuance que le fond (plus
+            // aucun contour visible, bulle pleine comme la maquette de
+            // référence envoyée par Emilien).
+            var filledShade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+            cell.style.background = filledShade;
+            cell.style.borderColor = filledShade;
+            txt.style.color = 'var(--bg)';
           } else {
             // Aucun objectif périodique pour cette (période, catégorie) —
             // pavé fantôme + trait de continuité, revu le 15 septembre 2026
