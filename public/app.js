@@ -4340,7 +4340,19 @@
     // Une activité partagée sans sous-projet ouvre sur Statistiques : sa
     // section par défaut n'aurait rien à montrer (règle d'Emilien du
     // 3 septembre). En solo, Sous-projets est la seule section possible.
-    setActivityPageSection(isShared && !activityHasSubProjects(a) ? 'stats' : 'sub');
+    //
+    // 18 septembre 2026 : `activityHasSubProjects` n'existe plus depuis la
+    // suppression totale des sous-projets (17 septembre) — chaque appel sur
+    // une activité PARTAGÉE (isShared === true) levait un ReferenceError, qui
+    // interrompait toute la fonction avant l'affichage de la page
+    // (`$('activityPage').classList.remove('hidden')` plus bas n'était jamais
+    // atteint) : aucune activité partagée ne s'ouvrait plus au clic, d'où
+    // Statistiques/Discussion en apparence disparues. Correctif minimal
+    // documenté ici, pas une hypothèse sur la nouvelle règle : on ouvre
+    // désormais systématiquement sur "Tâches" ('sub'), comme c'était déjà le
+    // cas en solo — à ajuster si Emilien précise la condition qui remplace
+    // « avait des sous-projets » dans le nouveau modèle (catégories/tâches).
+    setActivityPageSection('sub');
 
     $('activityPage').classList.remove('hidden');
     // La zone défilante repart du haut : rouvrir une activité ne doit pas
