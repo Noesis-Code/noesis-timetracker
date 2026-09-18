@@ -5,6 +5,13 @@
 
 const db = require('../db');
 const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR } = require('./dates');
+// 17 septembre 2026 (suppression totale des sous-projets, chantier Chrono) :
+// nécessaire pour catégoryLabelFor(), qui résout le libellé affichable d'une
+// catégorie (active, gelée, ou clé brute en dernier recours) — la même
+// fonction que celle utilisée pour le Chrono et l'historique
+// (server/lib/entrycategory.js), pour qu'un même rattachement s'affiche
+// toujours avec le même libellé partout dans l'app.
+const goals = require('./goals');
 
 // Note (1er septembre 2026) : `breakdownForUser` vivait ici — la répartition
 // par activité sur une PÉRIODE nommée ('week'/'month'/'year' via periodRange).
@@ -156,36 +163,36 @@ function totalRangeForUser(userId, refDate, activityId) {
 // deux granularités, sans rien connaître du découpage calendaire.
 //
 // ⚠️ 5 septembre 2026 (chantier « Chrono — sous-projets », débordement
-// signalé) : quatrième paramètre OPTIONNEL `opts`, INERTE PAR DÉFAUT.
+// signalé), converti le 17 septembre 2026 (suppression totale des
+// sous-projets) : quatrième paramètre OPTIONNEL `opts`, INERTE PAR DÉFAUT.
 //   - absent : comportement strictement inchangé (un point par jour/semaine/
 //     mois, une série par ACTIVITÉ sous la clé `activities`) ;
-//   - `{ activityId, groupBySubProject: true }` : le même découpage
+//   - `{ activityId, groupByCategory: true }` : le même découpage
 //     calendaire, les mêmes libellés, la même complétion des jours vides —
-//     mais restreint à UNE activité et ventilé par SOUS-PROJET, sous la clé
-//     `subProjects`. La clé change de nom parce que les entrées changent de
-//     nature (`subProjectId` au lieu de `activityId`/`color`) : réutiliser
-//     `activities` ferait passer un sous-projet pour une activité au premier
-//     appelant distrait.
+//     mais restreint à UNE activité et ventilé par CATÉGORIE Objectifs, sous
+//     la clé `categories`. La clé change de nom parce que les entrées
+//     changent de nature (`category`/`name` au lieu de `activityId`/`color`) :
+//     réutiliser `activities` ferait passer une catégorie pour une activité
+//     au premier appelant distrait.
 // C'est la même discipline que computeSlotsForDays/timesheetForUser plus bas :
 // une seule implémentation du découpage, pour que la fenêtre de détail par
-// sous-projet ne puisse jamais dériver du Graphique dont Emilien demande
+// catégorie ne puisse jamais dériver du Graphique dont Emilien demande
 // « les mêmes fonctions ».
 function chartBreakdownForUser(userId, granularity, refDate, opts) {
   const o = opts || {};
-  const bySubProject = !!o.groupBySubProject;
+  const byCategory = !!o.groupByCategory;
   const activityId = o.activityId ? Number(o.activityId) : null;
-  const groupKey = bySubProject ? 'subProjects' : 'activities';
+  const groupKey = byCategory ? 'categories' : 'activities';
   const { start, end } = totalRangeForUser(userId, refDate, activityId);
 
-  const rows = bySubProject
+  const rows = byCategory
     ? db.prepare(`
       SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek,
-             t.subProjectId AS subProjectId, sp.name AS name,
+             t.goalCategory AS category,
              SUM(t.durationSeconds) AS seconds
       FROM time_entries t
-      LEFT JOIN sub_projects sp ON sp.id = t.subProjectId
       WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
-      GROUP BY t.isoDate, t.subProjectId
+      GROUP BY t.isoDate, t.goalCategory
       ORDER BY t.isoDate ASC, seconds DESC
     `).all(userId, activityId, start, end)
     : db.prepare(`
@@ -200,10 +207,12 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
     `).all(userId, start, end);
 
   // Identité et forme d'une entrée de point, selon le mode. Le reste de la
-  // fonction ne connaît plus la différence.
-  const keyOf = (r) => (bySubProject ? (r.subProjectId === null ? 'none' : 'sp' + r.subProjectId) : r.activityId);
-  const entryOf = (r) => (bySubProject
-    ? { subProjectId: r.subProjectId === null ? null : r.subProjectId, name: r.name || null, seconds: r.seconds }
+  // fonction ne connaît plus la différence. Le libellé d'une catégorie passe
+  // par goals.categoryLabelFor() (active → gelée → repli sur la clé brute) —
+  // pas de JOIN SQL pour ça, la même fonction que le Chrono et l'historique.
+  const keyOf = (r) => (byCategory ? (r.category === null ? 'none' : r.category) : r.activityId);
+  const entryOf = (r) => (byCategory
+    ? { category: r.category === null ? null : r.category, name: r.category === null ? null : goals.categoryLabelFor(activityId, r.category), seconds: r.seconds }
     : { activityId: r.activityId, name: r.activity, color: r.color, seconds: r.seconds });
 
   if (granularity !== 'week' && granularity !== 'month') {
@@ -318,29 +327,29 @@ const MONTH_SLOT_MINUTES = 120;
 // réutilisé tel quel par timesheetMonthForUser ci-dessous, avec un
 // slotMinutes différent.
 // ⚠️ 4 septembre 2026 (chantier « Chrono — sous-projets », débordement
-// signalé) : paramètre `opts` OPTIONNEL, par défaut inerte.
-//   opts absent                                  → comportement d'avant, à la ligne près ;
-//   opts = { activityId, groupBySubProject: true } → même grille, mais restreinte
-//     à UNE activité et découpée par SOUS-PROJET au lieu de par activité.
+// signalé), converti le 17 septembre 2026 (suppression totale des
+// sous-projets) : paramètre `opts` OPTIONNEL, par défaut inerte.
+//   opts absent                                → comportement d'avant, à la ligne près ;
+//   opts = { activityId, groupByCategory: true } → même grille, mais restreinte
+//     à UNE activité et découpée par CATÉGORIE Objectifs au lieu de par activité.
 //
 // Pourquoi un paramètre plutôt qu'une copie de cette fonction : la fenêtre de
-// détail par sous-projet doit se comporter EXACTEMENT comme la Feuille de
+// détail par catégorie doit se comporter EXACTEMENT comme la Feuille de
 // temps du volet Statistiques (demande d'Emilien : « le même visuel et les
 // mêmes fonctionnalités »). Une copie divergerait au premier ajustement — le
 // projet en a déjà l'exemple avec la copie parallèle de l'onglet Activité.
 // Ici, les deux partagent littéralement le même code de découpe en créneaux.
 function computeSlotsForDays(userId, days, slotMinutes, opts) {
-  const bySubProject = !!(opts && opts.groupBySubProject);
+  const byCategory = !!(opts && opts.groupByCategory);
   const onlyActivityId = opts && opts.activityId ? Number(opts.activityId) : null;
   const slotsPerDay = Math.round((24 * 60) / slotMinutes);
   const start = isoDateOf(days[0]);
   const end = isoDateOf(days[days.length - 1]);
 
-  const rows = bySubProject
+  const rows = byCategory
     ? db.prepare(`
-        SELECT t.startTime, t.endTime, t.subProjectId, sp.name AS subProjectName
+        SELECT t.startTime, t.endTime, t.goalCategory AS category
         FROM time_entries t
-        LEFT JOIN sub_projects sp ON sp.id = t.subProjectId
         WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
       `).all(userId, onlyActivityId, start, end)
     : db.prepare(`
@@ -386,15 +395,15 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
 
         const bucket = overlap[dayIndex][s];
         // Même mécanisme de départage (le plus de secondes gagne le créneau),
-        // seule la CLÉ change : l'activité, ou le sous-projet à l'intérieur
+        // seule la CLÉ change : l'activité, ou la catégorie à l'intérieur
         // d'une activité. `none` est le temps non rattaché — une valeur à part
         // entière, jamais un trou.
-        const key = bySubProject
-          ? (r.subProjectId === null || r.subProjectId === undefined ? 'none' : 'sp' + r.subProjectId)
+        const key = byCategory
+          ? (r.category === null || r.category === undefined ? 'none' : r.category)
           : r.activityId;
         if (!bucket[key]) {
-          bucket[key] = bySubProject
-            ? { seconds: 0, subProjectId: r.subProjectId === undefined ? null : r.subProjectId, name: r.subProjectName || null }
+          bucket[key] = byCategory
+            ? { seconds: 0, category: r.category === undefined ? null : r.category, name: r.category ? goals.categoryLabelFor(onlyActivityId, r.category) : null }
             : { seconds: 0, name: r.activity, color: r.color, activityId: r.activityId };
         }
         bucket[key].seconds += seconds;
@@ -408,8 +417,8 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
       if (candidates.length === 0) return null;
       candidates.sort((a, b) => b.seconds - a.seconds);
       const best = candidates[0];
-      return bySubProject
-        ? { subProjectId: best.subProjectId, name: best.name }
+      return byCategory
+        ? { category: best.category, name: best.name }
         : { activityId: best.activityId, name: best.name, color: best.color };
     });
     return { isoDate: isoDateOf(d), dayOfWeek: dayNameOf(d), slots };

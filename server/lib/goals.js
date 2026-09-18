@@ -179,6 +179,27 @@ function assertReadableCategory(activityId, category) {
   }
 }
 
+// 17 septembre 2026 (suppression totale des sous-projets, chantier Chrono —
+// server/lib/entrycategory.js) : PLUS LARGE qu'isReadableCategory ci-dessus.
+// isReadableCategory exige qu'un PLAN Objectifs ait déjà démarré pour cette
+// catégorie — hors de propos pour un simple rattachement de temps : une
+// catégorie tout juste créée, jamais utilisée pour un plan hebdomadaire mais
+// déjà choisie une fois dans le Chrono, puis retirée, doit rester un
+// rattachement AFFICHABLE (même principe que « masque, ne supprime pas » —
+// activity_goal_categories ne perd jamais de ligne, seul removedAt se pose).
+// Couvre les 4 cas : active, catégorie fixe historique (CATEGORIES),
+// catégorie avec un plan (même ensemble qu'isReadableCategory), ou
+// simplement une ligne existante (active ou retirée) dans
+// activity_goal_categories — le seul endroit de ce fichier qui interroge
+// cette table hors gestion de catégorie elle-même, précisément parce que ce
+// cas-ci (retirée sans jamais avoir eu de plan) n'est couvert par aucune des
+// fonctions existantes ci-dessus.
+function categoryEverExisted(activityId, category) {
+  if (isReadableCategory(activityId, category)) return true;
+  if (CATEGORIES.includes(category)) return true;
+  return !!db.prepare('SELECT 1 FROM activity_goal_categories WHERE activityId = ? AND key = ?').get(activityId, category);
+}
+
 // Catégories GELÉES d'une activité : celles qui ont un plan démarré mais ne
 // font plus partie de la liste active — soit les 3 catégories fixes
 // historiques une fois la personnalisation activée (table rase), soit une
@@ -213,6 +234,20 @@ function categoryLabelFor(activityId, category) {
   if (active) return active.label;
   const frozen = frozenCategoriesForActivity(activityId).find((c) => c.key === category);
   if (frozen) return frozen.label;
+  // 17 septembre 2026 (suppression totale des sous-projets, bug trouvé par un
+  // smoke test du chantier Statistiques) : une catégorie retirée SANS avoir
+  // jamais eu de plan Objectifs (créée puis utilisée seulement pour du temps
+  // chronométré, comme le permet categoryEverExisted ci-dessus) n'apparaît ni
+  // dans les actives ni dans frozenCategoriesForActivity (qui ne regarde que
+  // activity_goal_plans) — mais sa ligne existe toujours dans
+  // activity_goal_categories, gelée, jamais supprimée. Sans ce repli, son
+  // libellé retombait sur sa clé brute ("c2" au lieu de "Vente") dès qu'elle
+  // sortait de la liste active — y compris dans l'historique du Chrono
+  // (server/lib/entrycategory.js, categorySummary, qui appelle cette fonction
+  // après avoir déjà confirmé categoryEverExisted). Même principe que
+  // categoryEverExisted : dernier repli avant la clé brute.
+  const row = db.prepare('SELECT label FROM activity_goal_categories WHERE activityId = ? AND key = ?').get(activityId, category);
+  if (row) return row.label;
   return CATEGORY_LABELS[category] || category;
 }
 
@@ -1089,6 +1124,7 @@ module.exports = {
   categoryLabelFor,
   isValidCategoryForActivity,
   isReadableCategory,
+  categoryEverExisted,
   ensureDefaultCategory,
   addCategory,
   renameCategory,
