@@ -61,7 +61,13 @@ function toIso(unixSeconds) {
 // (l'événement checkout.session.completed peut arriver deux fois avant que
 // stripe_webhook_events n'ait enregistré la première, très improbable mais
 // pas impossible).
-function upsertSubscriptionRow({ activityId, userId, stripeCustomerId, stripeSubscriptionId, subscription }) {
+// parentalConsentAt/Method : NULL pour l'immense majorité des lignes
+// (souscripteur majeur) — posées seulement quand metadata en porte, c'est-
+// à-dire quand server/routes/offercheckout.js a bien vérifié un consentement
+// confirmé avant de créer la session (point 5 du volet Légal, 14 septembre
+// 2026). Jamais réécrites par l'UPDATE de relivraison (ON CONFLICT) : posées
+// une seule fois, à la création de l'abonnement, comme createdAt.
+function upsertSubscriptionRow({ activityId, userId, stripeCustomerId, stripeSubscriptionId, subscription, parentalConsentAt, parentalConsentMethod }) {
   const priceId = subscription.items && subscription.items.data && subscription.items.data[0] && subscription.items.data[0].price
     ? subscription.items.data[0].price.id
     : '';
@@ -71,13 +77,13 @@ function upsertSubscriptionRow({ activityId, userId, stripeCustomerId, stripeSub
 
   db.prepare(`
     INSERT INTO activity_subscriptions
-      (activityId, userId, stripeCustomerId, stripeSubscriptionId, stripePriceId, status, currentPeriodStart, currentPeriodEnd, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (activityId, userId, stripeCustomerId, stripeSubscriptionId, stripePriceId, status, currentPeriodStart, currentPeriodEnd, createdAt, parentalConsentAt, parentalConsentMethod)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(stripeSubscriptionId) DO UPDATE SET
       status = excluded.status,
       currentPeriodStart = excluded.currentPeriodStart,
       currentPeriodEnd = excluded.currentPeriodEnd
-  `).run(activityId, userId, stripeCustomerId, stripeSubscriptionId, priceId, subscription.status, periodStart, periodEnd, now);
+  `).run(activityId, userId, stripeCustomerId, stripeSubscriptionId, priceId, subscription.status, periodStart, periodEnd, now, parentalConsentAt || null, parentalConsentMethod || null);
 }
 
 async function handleCheckoutCompleted(session) {
@@ -92,6 +98,12 @@ async function handleCheckoutCompleted(session) {
     console.error('[stripe webhook] checkout.session.completed sans activityId/userId en metadata — session', session.id);
     return;
   }
+  // Voir server/routes/offercheckout.js : posées uniquement pour un
+  // souscripteur de 16-17 ans dont le représentant légal a confirmé son
+  // consentement avant que cette session ne soit créée (point 5 du volet
+  // Légal) — absentes pour un majeur.
+  const parentalConsentAt = (session.metadata && session.metadata.parentalConsentAt) || null;
+  const parentalConsentMethod = (session.metadata && session.metadata.parentalConsentMethod) || null;
 
   // Réutilisation du client Stripe pour une future activité de la même
   // personne (voir server/lib/stripe.js::createCheckoutSession) — posé
@@ -110,6 +122,8 @@ async function handleCheckoutCompleted(session) {
     stripeCustomerId: session.customer,
     stripeSubscriptionId: session.subscription,
     subscription,
+    parentalConsentAt,
+    parentalConsentMethod,
   });
 
   await offerdelivery.activateActivitySubscription(activityId, userId);

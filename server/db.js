@@ -835,6 +835,34 @@ CREATE INDEX IF NOT EXISTS idx_activity_subscriptions_activity ON activity_subsc
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_activity_subscription_live ON activity_subscriptions(activityId, userId)
   WHERE status IN ('active', 'past_due', 'trialing', 'incomplete');
 
+-- Requêtes de consentement parental en attente, pour un souscripteur de
+-- 16-17 ans à l'Offre 1 (point 5 du volet Légal du chantier paiement/
+-- abonnements, cadré le 13 septembre 2026, codé le 14 — voir
+-- server/lib/parentalconsent.js). Une ligne par tentative de souscription
+-- déclarée comme mineure : le token n'est JAMAIS renvoyé à l'acheteur,
+-- seulement au représentant légal, par courriel. Distincte de
+-- activity_subscriptions : cette table existe même si l'abonnement Stripe
+-- n'a jamais lieu (représentant légal qui ne confirme jamais).
+--
+-- Volontairement PAS de colonne téléphone/adresse/pièce d'identité pour le
+-- représentant légal — minimisation Loi 25 (point 2 du volet Légal) : seuls
+-- le nom et le courriel sont nécessaires au mécanisme retenu (Option A du
+-- cadrage : lien de confirmation par courriel, pas de vérification
+-- d'identité — cohérent avec l'absence de vérification d'identité déjà
+-- pratiquée ailleurs dans l'application).
+CREATE TABLE IF NOT EXISTS parental_consent_requests (
+  token TEXT PRIMARY KEY,
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  guardianName TEXT NOT NULL,
+  guardianEmail TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  expiresAt TEXT NOT NULL,
+  confirmedAt TEXT,
+  consumedAt TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_parental_consent_requests_activity_user ON parental_consent_requests(activityId, userId);
+
 -- Cycle mensuel PAR ACTIVITÉ (pool partagé, 9 septembre 2026) : remplace
 -- l'ancien activity_subscriptions.lastRoadmapGeneratedAt, qui n'avait de sens
 -- que tant qu'une activité portait AU PLUS UN abonnement. Le rythme de
@@ -1422,6 +1450,20 @@ if (tableExists('sub_projects') && !columnExists('sub_projects', 'renewalsUsedTh
     db.exec(`CREATE UNIQUE INDEX uniq_activity_subscription_live ON activity_subscriptions(activityId, userId)
       WHERE status IN ('active', 'past_due', 'trialing', 'incomplete')`);
   }
+}
+
+// ----- Abonnements : consentement parental pour un souscripteur mineur de
+// 16-17 ans (point 5 du volet Légal du chantier paiement/abonnements, cadré
+// le 13 septembre 2026, codé le 14) -----
+// NULL pour un abonné majeur (immense majorité des lignes) — posé uniquement
+// quand metadata.parentalConsentAt est présent sur la session Stripe à
+// l'origine de l'abonnement (voir server/routes/stripewebhook.js), lui-même
+// copié depuis parental_consent_requests.confirmedAt au moment où
+// POST /api/offer/checkout crée la session une fois le consentement confirmé
+// (voir server/routes/offercheckout.js et server/lib/parentalconsent.js).
+if (tableExists('activity_subscriptions') && !columnExists('activity_subscriptions', 'parentalConsentAt')) {
+  db.exec('ALTER TABLE activity_subscriptions ADD COLUMN parentalConsentAt TEXT');
+  db.exec('ALTER TABLE activity_subscriptions ADD COLUMN parentalConsentMethod TEXT');
 }
 
 // Rétro-remplissage de activity_billing_cycles (table neuve) pour toute

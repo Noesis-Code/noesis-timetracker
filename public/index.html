@@ -2861,6 +2861,32 @@
               </div>
                 </div>
               </div>
+
+              <!-- Offre 1 (abonnement payant, 20 $/mois par activité) — ajoutée
+                   le 14 septembre 2026, premier branchement du front sur
+                   server/routes/offercheckout.js (POST /offer/checkout, GET
+                   /offer/subscriptions). La modale de souscription elle-même
+                   (#offer1CheckoutModal) vit plus bas dans ce fichier, avec les
+                   autres modales de Réglages ; ouverte par #offer1CheckoutOpenBtn
+                   (voir loadOffer1SubscribedSection/openOffer1CheckoutModal,
+                   app.js). L'édition des formulaires d'une activité déjà
+                   abonnée (server/routes/offerforms.js) n'est PAS construite
+                   ici — hors périmètre de ce passage, volontairement laissée
+                   de côté. -->
+              <div class="settingsSection">
+                <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                  <span class="sectionTitle">Offre 1</span>
+                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+                </button>
+                <div class="settingsSectionBody hidden">
+              <div class="settingsCard">
+                <p class="hint">Formulaires d'identification et analyse régénérée tous les six mois, par activité — 20 $/mois, résiliable à tout moment.</p>
+                <div id="offer1SubscribedList" class="activitiesList"></div>
+                <p id="offer1SubscribedEmptyHint" class="hint hidden">Aucun abonnement actif pour l'instant.</p>
+                <button type="button" id="offer1CheckoutOpenBtn" class="iconBtn">Souscrire à l'Offre 1</button>
+              </div>
+                </div>
+              </div>
               <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
                    2026, demande d'Emilien) : suppression définitive du compte,
                    confirmée par le code PIN du profil (même mécanisme que la
@@ -3510,6 +3536,56 @@
 
       <h3>Langue</h3>
       <p>Cette application et ses documents contractuels sont offerts en français. Une version anglaise est disponible à titre de commodité ; en cas de divergence, la version française prévaut.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Souscription à l'Offre 1 (14 septembre 2026) — ouverte depuis Réglages >
+     Offre 1 (#offer1CheckoutOpenBtn, voir plus haut dans ce fichier). Le
+     choix "16-17 ans" déclenche le consentement parental : un lien de
+     confirmation envoyé par courriel au représentant légal (voir
+     server/lib/parentalconsent.js), PAS une case à cocher au moment de la
+     souscription — ce point diverge encore du texte des CGU (article 4.2 /
+     6.1 ci-dessus, #legalTermsModal), qui anticipait un autre mécanisme et
+     reste à corriger (volet Légal, pas fait ici). POST /offer/checkout
+     (server/routes/offercheckout.js) sert deux fois de suite pour un
+     mineur : un premier appel envoie le courriel (202, réponse "en
+     attente"), un second — rejoué par #offer1CheckoutRecheckBtn — reprend
+     une fois le représentant légal confirmé (201, redirection Stripe). -->
+<div id="offer1CheckoutModal" class="communityMembersModal hidden">
+  <div class="communityMembersModalCard">
+    <div class="communityMembersModalHeader">
+      <p class="sectionTitle">Souscrire à l'Offre 1</p>
+      <button type="button" class="menuBtn" id="offer1CheckoutModalClose" aria-label="Fermer">✕</button>
+    </div>
+
+    <div id="offer1CheckoutForm">
+      <p class="hint">20 $/mois, par activité, résiliable à tout moment.</p>
+
+      <p class="hint">Activité</p>
+      <select id="offer1ActivitySelect"></select>
+      <input type="text" id="offer1NewActivityName" placeholder="Nom de la nouvelle activité" maxlength="60" class="hidden">
+
+      <div class="rowActions">
+        <label><input type="radio" name="offer1Age" value="adult" checked> J'ai 18 ans ou plus</label>
+        <label><input type="radio" name="offer1Age" value="minor"> J'ai 16 ou 17 ans</label>
+      </div>
+
+      <div id="offer1GuardianFields" class="hidden">
+        <p class="hint">La loi québécoise (art. 157 du Code civil du Québec) exige le consentement de ton représentant légal pour cet abonnement. Un courriel de confirmation lui sera envoyé — l'abonnement ne débute qu'une fois ce consentement confirmé.</p>
+        <input type="text" id="offer1GuardianName" placeholder="Nom du représentant légal" maxlength="80">
+        <input type="email" id="offer1GuardianEmail" placeholder="Courriel du représentant légal" maxlength="120">
+      </div>
+
+      <button type="button" id="offer1CheckoutSubmitBtn" class="iconBtn">Continuer vers le paiement</button>
+      <p id="offer1CheckoutMsg" class="msg"></p>
+    </div>
+
+    <div id="offer1CheckoutPending" class="hidden">
+      <p class="hint">Un courriel a été envoyé à <strong id="offer1PendingEmail"></strong> pour recueillir le consentement de ton représentant légal.</p>
+      <p class="hint">Ce lien expire le <span id="offer1PendingExpiry"></span>. Reviens ici une fois qu'il ou elle aura confirmé.</p>
+      <button type="button" id="offer1CheckoutRecheckBtn" class="iconBtn">Vérifier maintenant</button>
+      <p id="offer1CheckoutPendingMsg" class="msg"></p>
     </div>
   </div>
 </div>

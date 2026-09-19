@@ -15,14 +15,30 @@
 // le sont ICI plutôt qu'au moment du webhook : un échec après paiement est
 // bien plus coûteux à rattraper (remboursement, message au client) qu'un 400
 // avant même d'arriver chez Stripe.
+//
+// ⚠️ Consentement parental (14 septembre 2026, point 5 du volet Légal) :
+// aucune date de naissance n'est collectée ailleurs dans l'application (voir
+// noesis-timetracker-conformite-loi25.md, section 2.1) — l'âge est donc
+// auto-déclaré ICI, au moment précis de la souscription, jamais à
+// l'inscription générale (minimisation). Un souscripteur qui se déclare
+// mineur (16-17 ans, seul cas pertinent : le compte lui-même exige déjà 16
+// ans minimum) ne peut PAS obtenir de Stripe Checkout Session tant que son
+// représentant légal n'a pas confirmé son consentement par courriel — voir
+// server/lib/parentalconsent.js et server/routes/parentalconsent.js (route
+// publique de confirmation). La déclaration reste non vérifiée par pièce
+// d'identité, comme l'âge minimum de 16 ans lui-même — pas un risque nouveau
+// introduit par ce mécanisme.
 const express = require('express');
 const crypto = require('node:crypto');
 const db = require('../db');
 const sp = require('../lib/subprojects');
 const stripe = require('../lib/stripe');
+const parentalconsent = require('../lib/parentalconsent');
 const { requireAuth } = require('../lib/session');
 
 const MAX_ACTIVITY_NAME_LENGTH = 120; // même plafond que server/routes/activities.js
+const AGE_DECLARATIONS = new Set(['adult', 'minor']);
+const OFFER1_PRICE_LABEL = '20 $/mois'; // libellé humain pour le courriel de consentement — jamais une valeur lue depuis Stripe
 
 const router = express.Router();
 
@@ -111,12 +127,61 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
     return res.status(503).json({ error: "Paiement indisponible : STRIPE_OFFER1_PRICE_ID n'est pas configurée." });
   }
 
+  // Déclaration d'âge — binaire et auto-déclarée, jamais une date de
+  // naissance (voir l'en-tête de ce fichier). Validée avant toute création
+  // d'activité ou d'appel Stripe, comme le reste des vérifications ci-dessus.
+  const ageDeclaration = str(req.body.ageDeclaration);
+  if (!AGE_DECLARATIONS.has(ageDeclaration)) {
+    return res.status(400).json({ error: "ageDeclaration requis : 'adult' ou 'minor'." });
+  }
+  let guardianName = '';
+  let guardianEmail = '';
+  if (ageDeclaration === 'minor') {
+    guardianName = str(req.body.guardianName);
+    guardianEmail = str(req.body.guardianEmail).toLowerCase();
+    if (!guardianName) return res.status(400).json({ error: 'Nom du représentant légal requis.' });
+    if (!guardianEmail || !guardianEmail.includes('@')) {
+      return res.status(400).json({ error: 'Courriel du représentant légal invalide.' });
+    }
+  }
+
   const resolved = resolveActivityChoice(userId, req.body.activityChoice);
   if (resolved.error) return res.status(400).json({ error: resolved.error });
   const activityId = resolved.activityId;
 
   if (alreadySubscribed(activityId, userId)) {
     return res.status(409).json({ error: 'Tu es déjà abonné à l\'Offre 1 pour cette activité.' });
+  }
+
+  // Si mineur : pas de Checkout Session tant que le représentant légal n'a
+  // pas confirmé (voir server/lib/parentalconsent.js). Ce même endpoint est
+  // fait pour être rappelé une seconde fois par le client une fois le
+  // courriel confirmé — createOrReuse ne renvoie alors PAS un nouveau
+  // courriel, juste la requête déjà confirmée, et on poursuit normalement
+  // ci-dessous vers la création de la session.
+  let parentalConsentAt;
+  let parentalConsentMethod;
+  let consentToken;
+  if (ageDeclaration === 'minor') {
+    let request;
+    try {
+      request = await parentalconsent.createOrReuse({
+        req, activityId, userId, guardianName, guardianEmail, priceLabel: OFFER1_PRICE_LABEL,
+      });
+    } catch (e) {
+      return res.status(502).json({ error: `Impossible d'envoyer le courriel de consentement : ${e.message}` });
+    }
+    if (!request.confirmedAt) {
+      return res.status(202).json({
+        pendingParentalConsent: true,
+        guardianEmail: request.guardianEmail,
+        expiresAt: request.expiresAt,
+        message: `Un courriel a été envoyé à ${request.guardianEmail} pour recueillir le consentement de ton représentant légal. Reviens ici une fois qu'il ou elle aura confirmé.`,
+      });
+    }
+    parentalConsentAt = request.confirmedAt;
+    parentalConsentMethod = 'confirmation-email-representant-legal';
+    consentToken = request.token;
   }
 
   // URLs de retour : toujours reconstruites depuis l'origine de LA REQUÊTE
@@ -141,12 +206,23 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
       // webhook ne peut donc pas le déduire de activities.ownerId. Les deux
       // valeurs sont de petits identifiants, largement sous les 500
       // caractères par valeur imposés par Stripe — pas d'indirection
-      // nécessaire (voir l'en-tête de ce fichier).
-      metadata: { activityId: String(activityId), userId },
+      // nécessaire (voir l'en-tête de ce fichier). parentalConsentAt/Method
+      // ne sont posées QUE si un consentement a bien été confirmé ci-dessus
+      // — jamais pour un majeur, jamais avant confirmation.
+      metadata: {
+        activityId: String(activityId),
+        userId,
+        ...(parentalConsentAt ? { parentalConsentAt, parentalConsentMethod } : {}),
+      },
     });
   } catch (e) {
     return res.status(502).json({ error: e.message });
   }
+
+  // Consommé seulement une fois la session Stripe effectivement créée — si
+  // stripe.createCheckoutSession() avait échoué ci-dessus, le consentement
+  // reste réutilisable pour un nouvel essai (pas besoin de reconfirmer).
+  if (consentToken) parentalconsent.consume(consentToken);
 
   res.status(201).json({ url: session.url });
 });

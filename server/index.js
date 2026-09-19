@@ -156,6 +156,11 @@ app.use('/api', require('./routes/subprojectstats'));
 // (crée la Stripe Checkout Session) — la confirmation, elle, arrive par
 // webhook et est montée à part, tout en haut de ce fichier (voir plus haut).
 app.use('/api', require('./routes/offercheckout'));
+// Confirmation du consentement parental (14 septembre 2026, point 5 du volet
+// Légal du chantier paiement/abonnements) — route PUBLIQUE, sans req.userId :
+// le représentant légal n'a pas de compte TimeTracker, voir l'en-tête de
+// server/routes/parentalconsent.js.
+app.use('/api', require('./routes/parentalconsent'));
 // Formulaires persistants de l'Offre 1 (9 septembre 2026) — indépendants du
 // paiement, lus/écrits aussi bien pendant le parcours d'achat qu'après,
 // depuis Réglages ou depuis le raccourci au-dessus des sous-projets épinglés.
