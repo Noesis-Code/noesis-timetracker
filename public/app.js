@@ -10727,6 +10727,7 @@
     $('profileSettingsBtn').classList.add('active');
     renderNotificationsSection();
     refreshCalendarFeedSection();
+    loadOffer1SubscribedSection();
   }
   // Le bouton "⚙️" a vécu dans .topbar du 31 août au 2 septembre 2026
   // (demande d'Emilien), accessible depuis n'importe quel onglet — puis
@@ -15096,6 +15097,180 @@
     if (e.target === this) closeMergeActivityModal();
   });
 
+  // ===================== OFFRE 1 : SOUSCRIPTION =====================
+  // Premier branchement du front sur server/routes/offercheckout.js (14
+  // septembre 2026) — jusqu'ici, POST /offer/checkout et GET
+  // /offer/subscriptions existaient côté serveur (9 septembre) sans aucun
+  // appelant dans l'app. Volontairement limité à la souscription elle-même :
+  // l'édition des 4 formulaires d'une activité déjà abonnée (server/routes/
+  // offerforms.js) n'est pas construite ici.
+  //
+  // Le corps envoyé à POST /offer/checkout ne contient jamais d'identifiant
+  // d'activité ou d'utilisateur autre que ceux choisis dans CETTE modale —
+  // l'authentification elle-même reste entièrement portée par le témoin de
+  // session (requireAuth / req.userId côté serveur), jamais par une valeur
+  // du corps.
+  var offer1LastSubmitBody = null; // rejoué tel quel par #offer1CheckoutRecheckBtn — jamais reconstruit depuis des champs entre-temps masqués/vidés
+
+  function loadOffer1SubscribedSection() {
+    if (!profile) return;
+    api('GET', '/api/offer/subscriptions?userId=' + profile.id).then(function (rows) {
+      var box = $('offer1SubscribedList');
+      box.innerHTML = '';
+      (rows || []).forEach(function (row) {
+        var line = document.createElement('p');
+        line.className = 'meta';
+        line.textContent = row.activityName;
+        box.appendChild(line);
+      });
+      $('offer1SubscribedEmptyHint').classList.toggle('hidden', !!(rows && rows.length));
+    }).catch(function () { /* hors-ligne : la section reste telle quelle */ });
+  }
+
+  function populateOffer1ActivitySelect(activities, subscribedActivityIds) {
+    var sel = $('offer1ActivitySelect');
+    sel.innerHTML = '';
+    (activities || [])
+      .filter(function (a) { return subscribedActivityIds.indexOf(a.id) === -1; })
+      .forEach(function (a) {
+        var opt = document.createElement('option');
+        opt.value = String(a.id);
+        opt.textContent = a.name;
+        sel.appendChild(opt);
+      });
+    var newOpt = document.createElement('option');
+    newOpt.value = '__new__';
+    newOpt.textContent = t('— Nouvelle activité —');
+    sel.appendChild(newOpt);
+  }
+
+  function resetOffer1CheckoutModal() {
+    offer1LastSubmitBody = null;
+    $('offer1CheckoutForm').classList.remove('hidden');
+    $('offer1CheckoutPending').classList.add('hidden');
+    $('offer1CheckoutMsg').textContent = '';
+    $('offer1CheckoutPendingMsg').textContent = '';
+    $('offer1NewActivityName').value = '';
+    $('offer1NewActivityName').classList.add('hidden');
+    $('offer1GuardianName').value = '';
+    $('offer1GuardianEmail').value = '';
+    $('offer1GuardianFields').classList.add('hidden');
+    var adultRadio = document.querySelector('input[name="offer1Age"][value="adult"]');
+    if (adultRadio) adultRadio.checked = true;
+    $('offer1CheckoutSubmitBtn').disabled = false;
+  }
+
+  function openOffer1CheckoutModal() {
+    if (!profile) return;
+    resetOffer1CheckoutModal();
+    $('offer1CheckoutModal').classList.remove('hidden');
+    $('offer1CheckoutMsg').textContent = t('Chargement…');
+    Promise.all([
+      api('GET', '/api/activities?all=1&userId=' + profile.id),
+      api('GET', '/api/offer/subscriptions?userId=' + profile.id),
+    ]).then(function (res) {
+      var activities = res[0] || [];
+      var subscribedIds = (res[1] || []).map(function (s) { return s.activityId; });
+      populateOffer1ActivitySelect(activities, subscribedIds);
+      $('offer1CheckoutMsg').textContent = '';
+    }).catch(function (err) {
+      $('offer1CheckoutMsg').textContent = err.message;
+    });
+  }
+
+  function closeOffer1CheckoutModal() {
+    $('offer1CheckoutModal').classList.add('hidden');
+  }
+
+  function showOffer1Pending(data) {
+    $('offer1CheckoutForm').classList.add('hidden');
+    $('offer1CheckoutPending').classList.remove('hidden');
+    $('offer1PendingEmail').textContent = data.guardianEmail || '';
+    $('offer1PendingExpiry').textContent = data.expiresAt
+      ? new Date(data.expiresAt).toLocaleDateString('fr-CA') : '';
+    $('offer1CheckoutPendingMsg').textContent = '';
+  }
+
+  function submitOffer1Checkout() {
+    var activityChoice;
+    var selected = $('offer1ActivitySelect').value;
+    if (selected === '__new__') {
+      activityChoice = { newActivityName: $('offer1NewActivityName').value.trim() };
+    } else {
+      activityChoice = { activityId: Number(selected) };
+    }
+    var ageRadio = document.querySelector('input[name="offer1Age"]:checked');
+    var ageDeclaration = ageRadio ? ageRadio.value : 'adult';
+    var body = { activityChoice: activityChoice, ageDeclaration: ageDeclaration };
+    if (ageDeclaration === 'minor') {
+      body.guardianName = $('offer1GuardianName').value.trim();
+      body.guardianEmail = $('offer1GuardianEmail').value.trim();
+    }
+    offer1LastSubmitBody = body;
+
+    $('offer1CheckoutSubmitBtn').disabled = true;
+    $('offer1CheckoutMsg').textContent = '';
+    api('POST', '/api/offer/checkout', body)
+      .then(function (data) {
+        if (data && data.pendingParentalConsent) { showOffer1Pending(data); return; }
+        if (data && data.url) { window.location.href = data.url; return; }
+      })
+      .catch(function (err) {
+        $('offer1CheckoutMsg').textContent = err.message;
+      })
+      .finally(function () { $('offer1CheckoutSubmitBtn').disabled = false; });
+  }
+
+  // Rejoue exactement le même corps que la soumission initiale — createOrReuse
+  // (server/lib/parentalconsent.js) ne renvoie pas un second courriel tant que
+  // la demande précédente est encore valide, confirmée ou non.
+  function recheckOffer1Checkout() {
+    if (!offer1LastSubmitBody) return;
+    $('offer1CheckoutRecheckBtn').disabled = true;
+    $('offer1CheckoutPendingMsg').textContent = '';
+    api('POST', '/api/offer/checkout', offer1LastSubmitBody)
+      .then(function (data) {
+        if (data && data.url) { window.location.href = data.url; return; }
+        $('offer1CheckoutPendingMsg').textContent = t("Toujours en attente de confirmation du représentant légal.");
+      })
+      .catch(function (err) {
+        $('offer1CheckoutPendingMsg').textContent = err.message;
+      })
+      .finally(function () { $('offer1CheckoutRecheckBtn').disabled = false; });
+  }
+
+  $('offer1CheckoutOpenBtn').addEventListener('click', openOffer1CheckoutModal);
+  $('offer1CheckoutModalClose').addEventListener('click', closeOffer1CheckoutModal);
+  $('offer1CheckoutModal').addEventListener('click', function (e) {
+    if (e.target === this) closeOffer1CheckoutModal(); // clic sur le fond
+  });
+  $('offer1ActivitySelect').addEventListener('change', function () {
+    $('offer1NewActivityName').classList.toggle('hidden', this.value !== '__new__');
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="offer1Age"]'), function (radio) {
+    radio.addEventListener('change', function () {
+      $('offer1GuardianFields').classList.toggle('hidden', this.value !== 'minor');
+    });
+  });
+  $('offer1CheckoutSubmitBtn').addEventListener('click', submitOffer1Checkout);
+  $('offer1CheckoutRecheckBtn').addEventListener('click', recheckOffer1Checkout);
+
+  // Retour de Stripe Checkout (?achat=succes|annule, voir successPath/
+  // cancelPath dans server/routes/offercheckout.js) — vérifié une seule fois
+  // au démarrage de l'app (refreshProfileAndEnter), puis l'URL est nettoyée
+  // pour qu'un rechargement de page ne réaffiche pas le message.
+  function handleOffer1ReturnParams() {
+    var params = new URLSearchParams(location.search);
+    var achat = params.get('achat');
+    if (achat !== 'succes' && achat !== 'annule') return;
+    alert(achat === 'succes'
+      ? t("Abonnement à l'Offre 1 activé. Merci !")
+      : t('Paiement annulé — aucun abonnement créé.'));
+    params.delete('achat');
+    var qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+  }
+
   // ===================== SUPPRESSION D'UNE ACTIVITÉ =====================
   // Deux confirm() natifs enchaînés posaient la question en "OK / Annuler" :
   // il fallait lire le texte pour savoir laquelle des deux touches supprimait
@@ -15301,6 +15476,7 @@
       if (langChanged) location.reload();
     }).catch(function () { /* hors-ligne ou profil supprimé : on garde la version locale */ });
     showApp();
+    handleOffer1ReturnParams();
   }
 
   // ===================== DÉMARRAGE =====================

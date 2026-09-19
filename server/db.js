@@ -84,13 +84,12 @@ db.exec(`
 -- connaît pas). Validation légère (format, pas de vérification réelle —
 -- aucun envoi de SMS/email de confirmation) côté serveur, voir
 -- EMAIL_RE/PHONE_RE dans server/routes/profile.js.
--- lang : langue de l'interface pour ce profil, 'fr' (défaut depuis le
--- 9 septembre 2026 — chantier « Français par défaut » de l'échéance du
--- 11 septembre, changement de la valeur retenue le 29 août 2026, qui était
--- 'en' ; la Charte de la langue française donne au consommateur québécois
--- le droit d'être servi en français, et Noèsis cible d'abord des résidents
--- du Québec) ou 'en'. Réglage strictement par profil, comme theme : jamais
--- global, jamais déduit de la langue du navigateur. La traduction elle-même
+-- lang : langue de l'interface pour ce profil, 'en' (défaut, demande
+-- d'Emilien du 29 août 2026) ou 'fr'. Réglage strictement par profil, comme
+-- theme : jamais global, jamais déduit de la langue du navigateur. Les
+-- profils qui existaient AVANT l'ajout de cette colonne sont basculés en
+-- 'fr' une seule fois par la migration plus bas, pour qu'ils ne se
+-- retrouvent pas en anglais du jour au lendemain. La traduction elle-même
 -- est entièrement côté client (public/i18n.js) : le serveur continue de
 -- répondre en français et ses messages sont traduits à l'affichage.
 -- contactShareEmail / contactSharePhone (7 septembre 2026, demande
@@ -122,9 +121,15 @@ CREATE TABLE IF NOT EXISTS users (
   theme TEXT NOT NULL DEFAULT 'dark',
   shareProfile INTEGER NOT NULL DEFAULT 0,
   avatar TEXT,
-  lang TEXT NOT NULL DEFAULT 'fr',
+  lang TEXT NOT NULL DEFAULT 'en',
   contactShareEmail INTEGER NOT NULL DEFAULT 0,
-  contactSharePhone INTEGER NOT NULL DEFAULT 0
+  contactSharePhone INTEGER NOT NULL DEFAULT 0,
+  -- Abonnement Offre 1 (9 septembre 2026) : id du CLIENT Stripe de cette
+  -- personne, posé au premier abonnement d'une de ses activités et réutilisé
+  -- pour les suivantes — évite de créer un client Stripe en double si la
+  -- même personne abonne plusieurs activités. NULL tant qu'aucun abonnement
+  -- n'a jamais été pris.
+  stripeCustomerId TEXT
 );
 
 -- Une activité appartient à son créateur (ownerId). Le nom n'est PAS unique
@@ -465,21 +470,6 @@ CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(use
 -- time_entries ET running_timers. Voulu par Emilien, mais renvoyé à un
 -- chantier conjoint avec Chrono et les trois discussions Statistiques — voir
 -- noesis-timetracker-sous-projets-cadrage.md §7.
---
--- createdBy reste NOT NULL + ON DELETE CASCADE (corrigé le 9 septembre 2026,
--- sur-effacement — voir noesis-timetracker-conformite-loi25.md, section
--- 6bis) : supprimer le compte de la personne qui a créé un sous-projet
--- supprimait le sous-projet ENTIER, y compris les tâches cochées par
--- d'autres membres, le fil de discussion et les échéances, même si
--- l'activité restait partagée par des personnes actives — un défaut de
--- PATERNITÉ traité comme une CASCADE. Pas de changement de schéma ici : au
--- lieu d'un ON DELETE SET NULL (createdBy sert aussi de droit de
--- suppression, une valeur NULL n'aurait aucun sens), server/routes/
--- profile.js (DELETE /profile/:id) transfère la paternité au membre restant
--- le plus ancien de l'activité AVANT la suppression du compte, exactement
--- comme activities.ownerId plus haut. La cascade ne s'applique donc plus
--- que si l'activité n'a plus aucun membre restant pour hériter du
--- sous-projet — auquel cas plus personne n'est affecté par sa disparition.
 CREATE TABLE IF NOT EXISTS sub_projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
@@ -498,9 +488,36 @@ CREATE TABLE IF NOT EXISTS sub_projects (
   -- coûter le contenu d'un sous-projet, et une échéance dépassée n'est pas la
   -- même chose qu'une décision de supprimer. La liste expose closedCount et
   -- accepte ?includeClosed=1 pour les rouvrir.
-  closesAt TEXT
+  closesAt TEXT,
+  -- ÉPINGLAGE (parcours d'achat, 8 septembre 2026) : les sous-projets générés
+  -- automatiquement après un paiement Stripe restent figés en haut de la
+  -- liste, avant tous les sous-projets créés à la main. Jamais posé par
+  -- l'utilisateur — aucune route publique ne l'expose, seul le code qui
+  -- traite un paiement le met à 1.
+  pinned INTEGER NOT NULL DEFAULT 0,
+  -- SLOT (abonnement Offre 1, 9 septembre 2026) : 0/1/2 pour les 3
+  -- sous-projets générés par un abonnement, NULL pour tout sous-projet créé
+  -- à la main. Identifiant STABLE et volontairement DISTINCT de 'position' :
+  -- position peut être changée par un membre (glisser-déposer), alors que la
+  -- régénération mensuelle (server/lib/offerdelivery.js) doit toujours
+  -- retrouver "le sous-projet #2" de l'abonnement sans dépendre d'un ordre
+  -- que le client a pu modifier depuis.
+  slot INTEGER,
+  -- QUOTA DE RENOUVELLEMENT (modèle pool partagé, 9 septembre 2026) : nombre
+  -- de remplacements déjà consommés sur la période en cours pour CE pôle
+  -- (slot). N'a de sens que si slot IS NOT NULL. Initialisé à
+  -- REVEAL_BATCH_SIZE à l'activation (les tâches initiales comptent dans le
+  -- palier de base), remis à 0 à chaque rollover mensuel de
+  -- activity_billing_cycles — voir server/lib/offerquota.js, seul module qui
+  -- lit/écrit cette colonne.
+  renewalsUsedThisPeriod INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS idx_sub_projects_activity ON sub_projects(activityId, position);
+CREATE INDEX IF NOT EXISTS idx_sub_projects_activity ON sub_projects(activityId, pinned, position);
+-- ⚠️ L'index unique sur (activityId, slot) N'EST PAS déclaré ici : sur une
+-- base déjà créée par une version antérieure, 'slot' n'existe pas encore à
+-- ce stade (ajoutée par ALTER dans les migrations plus bas, même motif que
+-- sectionId/closesAt ci-dessus) — le déclarer ici ferait échouer TOUT
+-- démarrage sur une base existante. Voir les migrations légères, plus bas.
 
 -- La todolist d'un sous-projet. C'est la SEULE source de l'avancement : le
 -- pourcentage n'est jamais stocké, il est dérivé à la lecture
@@ -521,7 +538,16 @@ CREATE TABLE IF NOT EXISTS sub_project_items (
   doneBy TEXT REFERENCES users(id) ON DELETE SET NULL,
   doneAt TEXT,
   position INTEGER NOT NULL DEFAULT 0,
-  createdAt TEXT NOT NULL
+  createdAt TEXT NOT NULL,
+  -- REMPLACEMENT DIFFÉRÉ (abonnement Offre 1, 9 septembre 2026) : posé quand
+  -- le remplaçant d'une tâche COCHÉE a été révélé depuis le backlog
+  -- (sub_project_item_queue), pour ne jamais la remplacer deux fois. Reste
+  -- NULL tant que doneAt a moins de 24h, ou que le backlog était vide au
+  -- moment du dernier passage du cron (server/lib/subscriptioncron.js) — dans
+  -- ce dernier cas, le prochain passage retente automatiquement dès que le
+  -- backlog est réalimenté, sans logique de rattrapage séparée. N'a aucun
+  -- sens sur une tâche non cochée.
+  replacementRevealedAt TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_sub_project_items_sp ON sub_project_items(subProjectId, position);
 
@@ -536,20 +562,10 @@ CREATE INDEX IF NOT EXISTS idx_sub_project_items_sp ON sub_project_items(subProj
 -- Pas de pièces jointes ni de suivi des non-lus en V1, contrairement à
 -- activity_messages : à ajouter si Emilien le demande, plutôt que d'avoir
 -- deux mécanismes à moitié faits.
--- userId (corrigé le 9 septembre 2026, sur-effacement — voir
--- noesis-timetracker-conformite-loi25.md, section 6bis) : NOT NULL +
--- ON DELETE CASCADE jusqu'ici, donc un message du fil de discussion d'un
--- sous-projet disparaissait si son auteur supprimait son compte, alors que
--- les tâches cochées par d'autres (sub_project_items.doneBy) survivent déjà
--- dans ce même sous-projet. Choix d'Emilien : même traitement que doneBy —
--- ON DELETE SET NULL, le message reste, il perd seulement son auteur.
--- server/lib/subprojects.js utilise un LEFT JOIN sur userId pour ne jamais
--- faire disparaître ces messages des requêtes ; public/app.js affiche
--- "Compte supprimé" quand userName est absent.
 CREATE TABLE IF NOT EXISTS sub_project_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   subProjectId INTEGER NOT NULL REFERENCES sub_projects(id) ON DELETE CASCADE,
-  userId TEXT REFERENCES users(id) ON DELETE SET NULL,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   body TEXT NOT NULL,
   createdAt TEXT NOT NULL
 );
@@ -590,12 +606,6 @@ CREATE INDEX IF NOT EXISTS idx_sub_project_messages_sp ON sub_project_messages(s
 -- poll_votes plus bas), accrochés au sous-projet par (scope='subproject',
 -- scopeId=sub_projects.id). Aucune deuxième implémentation de sondage n'a été
 -- écrite ici.
---
--- createdBy reste NOT NULL + ON DELETE CASCADE, même correctif et même
--- raisonnement que sub_projects.createdBy ci-dessus (9 septembre 2026, voir
--- noesis-timetracker-conformite-loi25.md, section 6bis) : server/routes/
--- profile.js transfère la paternité d'une section au membre restant le plus
--- ancien de l'activité du sous-projet avant la suppression du compte.
 CREATE TABLE IF NOT EXISTS sub_project_sections (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   subProjectId INTEGER NOT NULL REFERENCES sub_projects(id) ON DELETE CASCADE,
@@ -610,6 +620,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_sub_project_one_discussion
   ON sub_project_sections(subProjectId) WHERE kind = 'discussion';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sub_project_one_poll
   ON sub_project_sections(subProjectId) WHERE kind = 'poll';
+
+-- Backlog de tâches PAS ENCORE révélées d'une section 'tasks' (abonnement
+-- Offre 1, 9 septembre 2026). La régénération mensuelle REMPLACE le contenu
+-- de cette table pour une section donnée (tout supprimer, tout réinsérer) —
+-- jamais les sub_project_items déjà visibles, cochés ou non. Le cron horaire
+-- de révélation (server/lib/subscriptioncron.js) consomme cette file dans
+-- l'ordre de 'position' à chaque remplacement de tâche cochée.
+CREATE TABLE IF NOT EXISTS sub_project_item_queue (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sectionId INTEGER NOT NULL REFERENCES sub_project_sections(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sub_project_item_queue_section ON sub_project_item_queue(sectionId, position);
 
 -- ===================== SONDAGES (3 septembre 2026) =====================
 -- Discussion "Sondages" (11ᵉ discussion). Trois tables NEUVES, purement
@@ -655,30 +680,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_sub_project_one_poll
 -- ⚠️ Ce bloc est un littéral de gabarit JavaScript : aucun accent grave ne
 -- doit apparaître dans ces commentaires SQL, il refermerait la chaîne et le
 -- fichier entier cesserait d'être valide (erreur commise et rattrapée ici).
---
--- authorId (corrigé le 9 septembre 2026, sur-effacement — voir
--- noesis-timetracker-conformite-loi25.md, section 6bis) : NOT NULL +
--- ON DELETE CASCADE jusqu'ici, donc supprimer le compte de l'auteur d'un
--- sondage supprimait le sondage ENTIER, y compris les votes et les noms des
--- AUTRES votants — un défaut de PATERNITÉ traité comme une CASCADE, alors que
--- activities.ownerId (plus haut) montre déjà le bon traitement pour ce genre
--- de colonne. Deux cas, deux devenirs (choix d'Emilien) :
---  - scope 'subproject' (sondage rattaché à une activité partagée) :
---    server/routes/profile.js (DELETE /profile/:id) transfère la paternité au
---    membre restant le plus ancien de l'activité AVANT la suppression du
---    compte, sur le modèle exact d'activities.ownerId — authorId ne devient
---    donc NULL ici que si l'activité n'a plus aucun membre restant.
---  - scope 'profile' (sondage personnel, publié sur la page de quelqu'un) :
---    aucune activité, donc aucun "membre restant" à qui transférer — authorId
---    passe directement à NULL via ON DELETE SET NULL ci-dessous, le sondage
---    et les votes des AUTRES survivent, l'auteur affiché devient "Compte
---    supprimé" (public/app.js). server/lib/polls.js utilise un LEFT JOIN sur
---    authorId pour ne jamais faire disparaître ces sondages des requêtes.
 CREATE TABLE IF NOT EXISTS polls (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   scope TEXT NOT NULL,
   scopeId TEXT NOT NULL,
-  authorId TEXT REFERENCES users(id) ON DELETE SET NULL,
+  authorId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   question TEXT NOT NULL,
   multiChoice INTEGER NOT NULL DEFAULT 0,
   anonymous INTEGER NOT NULL DEFAULT 0,
@@ -942,6 +948,148 @@ CREATE TABLE IF NOT EXISTS activity_goal_categories (
   UNIQUE(activityId, key)
 );
 CREATE INDEX IF NOT EXISTS idx_activity_goal_categories_activity ON activity_goal_categories(activityId, removedAt, position);
+
+-- ===================== ABONNEMENT — OFFRE 1 (9 septembre 2026) =====
+-- Pivot du 9 septembre : achat ponctuel -> abonnement Stripe récurrent PAR
+-- ACTIVITÉ (20$/mois, prix unique). L'ancienne table offer_checkouts (voir
+-- git log si besoin) existait pour contourner la limite de metadata Stripe
+-- (50 clés / 500 caractères) quand les réponses de formulaire devaient
+-- transiter par la Checkout Session. Elle disparaît (DROP dans les
+-- migrations plus bas) : les formulaires sont maintenant des ressources
+-- PERSISTANTES (activity_forms / client_profile_forms ci-dessous), jamais
+-- transportées par le paiement — seul un activityId (un entier) tient en
+-- metadata, sans indirection nécessaire.
+--
+-- Les 3 formulaires PAR ACTIVITÉ : Découverte du projet, Moyens de
+-- réalisation, Stratégie de développement. Jamais recréés — un client les
+-- modifie, il ne les "resoumet" jamais de zéro. 'kind' générique plutôt que
+-- 3 tables séparées, même logique que sub_project_sections.kind plus haut.
+-- Contenu de 'answers' volontairement non structuré (questions encore
+-- provisoires côté client au 9 septembre 2026).
+CREATE TABLE IF NOT EXISTS activity_forms (
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  answers TEXT NOT NULL DEFAULT '{}',
+  updatedBy TEXT REFERENCES users(id) ON DELETE SET NULL,
+  updatedAt TEXT NOT NULL,
+  PRIMARY KEY (activityId, kind)
+);
+
+-- Le 4e formulaire, Profil client : UN SEUL par personne, partagé entre
+-- TOUTES ses activités abonnées (pas un par activité, contrairement aux
+-- trois ci-dessus).
+CREATE TABLE IF NOT EXISTS client_profile_forms (
+  userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  answers TEXT NOT NULL DEFAULT '{}',
+  updatedAt TEXT NOT NULL
+);
+
+-- Un abonnement Stripe par (activité, personne) depuis le pivot "pool
+-- partagé" ci-dessous. 'status' reflète tel quel le statut Stripe
+-- (active/past_due/canceled/incomplete/trialing...) — jamais réinterprété
+-- ici, pour rester synchronisable d'un simple copier des événements webhook
+-- sans traduction.
+--
+-- ⚠️ Ne porte PLUS lastRoadmapGeneratedAt (retiré du schéma de base ici, mais
+-- pas migré hors des bases existantes — voir columnExists plus bas) : cette
+-- notion n'a de sens qu'à l'échelle de l'ACTIVITÉ depuis que plusieurs
+-- personnes peuvent y être abonnées en parallèle, elle vit désormais dans
+-- activity_billing_cycles, juste en dessous.
+--
+-- Index unique PARTIEL plutôt que UNIQUE brut sur (activityId, userId) :
+-- permet de garder l'historique si quelqu'un se désabonne puis se réabonne,
+-- tout en garantissant qu'une MÊME PERSONNE n'a jamais deux abonnements
+-- "vivants" en même temps sur la MÊME activité — même technique que
+-- uniq_invite_pending plus haut.
+--
+-- ⚠️ Pivot "pool partagé" (9 septembre 2026) : cet index portait auparavant
+-- sur (activityId) seul, une activité ne pouvant avoir qu'UN SEUL abonnement
+-- vivant. Désormais plusieurs membres d'une même activité peuvent s'abonner
+-- en parallèle (chacun ajoute son propre incrément au budget de
+-- renouvellement, voir server/lib/offerquota.js) — seule la RÉPÉTITION par la
+-- même personne sur la même activité reste interdite. Voir la migration
+-- plus bas pour une base déjà créée avec l'ancien index.
+CREATE TABLE IF NOT EXISTS activity_subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  stripeCustomerId TEXT NOT NULL,
+  stripeSubscriptionId TEXT NOT NULL UNIQUE,
+  stripePriceId TEXT NOT NULL,
+  status TEXT NOT NULL,
+  currentPeriodStart TEXT,
+  currentPeriodEnd TEXT,
+  createdAt TEXT NOT NULL,
+  canceledAt TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_activity_subscriptions_activity ON activity_subscriptions(activityId);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_activity_subscription_live ON activity_subscriptions(activityId, userId)
+  WHERE status IN ('active', 'past_due', 'trialing', 'incomplete');
+
+-- Requêtes de consentement parental en attente, pour un souscripteur de
+-- 16-17 ans à l'Offre 1 (point 5 du volet Légal du chantier paiement/
+-- abonnements, cadré le 13 septembre 2026, codé le 14 — voir
+-- server/lib/parentalconsent.js). Une ligne par tentative de souscription
+-- déclarée comme mineure : le token n'est JAMAIS renvoyé à l'acheteur,
+-- seulement au représentant légal, par courriel. Distincte de
+-- activity_subscriptions : cette table existe même si l'abonnement Stripe
+-- n'a jamais lieu (représentant légal qui ne confirme jamais).
+--
+-- Volontairement PAS de colonne téléphone/adresse/pièce d'identité pour le
+-- représentant légal — minimisation Loi 25 (point 2 du volet Légal) : seuls
+-- le nom et le courriel sont nécessaires au mécanisme retenu (Option A du
+-- cadrage : lien de confirmation par courriel, pas de vérification
+-- d'identité — cohérent avec l'absence de vérification d'identité déjà
+-- pratiquée ailleurs dans l'application).
+CREATE TABLE IF NOT EXISTS parental_consent_requests (
+  token TEXT PRIMARY KEY,
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  guardianName TEXT NOT NULL,
+  guardianEmail TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  expiresAt TEXT NOT NULL,
+  confirmedAt TEXT,
+  consumedAt TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_parental_consent_requests_activity_user ON parental_consent_requests(activityId, userId);
+
+-- Cycle mensuel PAR ACTIVITÉ (pool partagé, 9 septembre 2026) : remplace
+-- l'ancien activity_subscriptions.lastRoadmapGeneratedAt, qui n'avait de sens
+-- que tant qu'une activité portait AU PLUS UN abonnement. Le rythme de
+-- régénération/reset de quota est désormais une propriété de l'ACTIVITÉ, pas
+-- d'un abonnement individuel — chaque abonné a sa propre date de facturation
+-- Stripe, mais un seul cycle de feuille de route/quota pour tout le monde.
+--
+-- cycleStart/cycleEnd ne sont JAMAIS lus depuis Stripe : posés à l'activation
+-- (cycleEnd = +1 mois), puis ré-ancrés sur le moment RÉEL de chaque
+-- régénération réussie (cycleStart = now, cycleEnd = now + 1 mois) plutôt que
+-- calculés en cascade depuis l'ancien cycleEnd — voir
+-- server/lib/offerquota.js::advanceCycle. Ça évite un rattrapage en rafale
+-- (plusieurs régénérations la même nuit) si une activité reste gelée
+-- (liveSubscriberCount = 0, voir dueActivities) plusieurs mois avant qu'un
+-- nouvel abonné ne la réactive.
+CREATE TABLE IF NOT EXISTS activity_billing_cycles (
+  activityId INTEGER PRIMARY KEY REFERENCES activities(id) ON DELETE CASCADE,
+  cycleStart TEXT NOT NULL,
+  cycleEnd TEXT NOT NULL,
+  lastRoadmapGeneratedAt TEXT
+);
+
+-- Idempotence des webhooks Stripe, À LA MANIÈRE RECOMMANDÉE PAR STRIPE
+-- LUI-MÊME : dédoublonner sur l'id de l'ÉVÉNEMENT (garanti unique par
+-- Stripe), pas sur un objet métier "en cours de traitement" comme le faisait
+-- l'ancien offer_checkouts.claimForProcessing. Couvre tous les types
+-- d'événements qu'on écoute désormais (checkout.session.completed,
+-- invoice.paid, customer.subscription.updated/deleted), pas seulement le
+-- paiement initial.
+CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  receivedAt TEXT NOT NULL,
+  processedAt TEXT,
+  error TEXT
+);
 `);
 
 // ===================== MIGRATIONS LÉGÈRES =====================
@@ -996,17 +1144,37 @@ if (!columnExists('users', 'email')) {
   db.exec('ALTER TABLE users ADD COLUMN email TEXT');
 }
 
+// Unicité de l'email (parcours d'achat, 8 septembre 2026) : un paiement
+// Stripe doit se relier à UN SEUL compte, or rien n'empêchait jusqu'ici deux
+// profils de partager la même adresse. Index PARTIEL (WHERE email IS NOT
+// NULL AND email != '') pour ne jamais bloquer les comptes sans email
+// (obligatoire seulement depuis le 29 août 2026, voir plus haut) ; COLLATE
+// NOCASE pour que A@b.com et a@b.com comptent comme le même compte.
+//
+// Enveloppé dans un try/catch, volontairement : si des doublons existent
+// déjà en base (aucune contrainte ne les a empêchés jusqu'ici), on ne veut
+// pas empêcher le serveur de démarrer pour autant — l'index n'est alors
+// simplement pas posé, avec un avertissement en log, en attendant un
+// nettoyage manuel des doublons.
+try {
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_email
+    ON users(email COLLATE NOCASE) WHERE email IS NOT NULL AND email != ''
+  `);
+} catch (e) {
+  console.warn('[migration] index unique users.email non posé (doublons existants ?) :', e && e.message);
+}
+
 // Langue de l'interface (voir le commentaire sur la colonne plus haut).
-// Sur une base qui ne connaît pas encore cette colonne, l'ajouter avec
-// DEFAULT 'fr' suffit désormais à couvrir tous les cas : les profils déjà
-// existants ET les profils créés après démarrent en français, cohérent
-// avec le nouveau défaut retenu le 9 septembre 2026 (chantier « Français
-// par défaut »). Avant cette date, ce bloc ajoutait la colonne en 'en' puis
-// rebasculait explicitement les profils existants en 'fr' (le défaut de
-// l'époque était l'anglais) — cette étape supplémentaire n'a plus lieu
-// d'être, les deux valeurs étant désormais identiques.
+// Le backfill vers 'fr' est DANS le bloc de création de la colonne, et
+// nulle part ailleurs : il ne doit s'exécuter qu'une seule fois, au tout
+// premier démarrage suivant cette mise à jour, pour les profils qui
+// existaient déjà (Emilien, Gaspard). Un profil créé APRÈS démarre en 'en'
+// (défaut de la colonne + INSERT explicite dans POST /profile) et ne doit
+// évidemment jamais être rebasculé en français à chaque redémarrage.
 if (!columnExists('users', 'lang')) {
-  db.exec("ALTER TABLE users ADD COLUMN lang TEXT NOT NULL DEFAULT 'fr'");
+  db.exec("ALTER TABLE users ADD COLUMN lang TEXT NOT NULL DEFAULT 'en'");
+  db.exec("UPDATE users SET lang = 'fr'");
 }
 
 // contactShareEmail / contactSharePhone (voir le commentaire sur ces
@@ -1018,6 +1186,9 @@ if (!columnExists('users', 'contactShareEmail')) {
 }
 if (!columnExists('users', 'contactSharePhone')) {
   db.exec('ALTER TABLE users ADD COLUMN contactSharePhone INTEGER NOT NULL DEFAULT 0');
+}
+if (!columnExists('users', 'stripeCustomerId')) {
+  db.exec('ALTER TABLE users ADD COLUMN stripeCustomerId TEXT');
 }
 
 // Déconnexion de tous les appareils (7 septembre 2026, discussion "Sécurité
@@ -1077,7 +1248,7 @@ if (usersNameStillGloballyUnique()) {
         theme TEXT NOT NULL DEFAULT 'dark',
         shareProfile INTEGER NOT NULL DEFAULT 0,
         avatar TEXT,
-        lang TEXT NOT NULL DEFAULT 'fr',
+        lang TEXT NOT NULL DEFAULT 'en',
         contactShareEmail INTEGER NOT NULL DEFAULT 0,
         contactSharePhone INTEGER NOT NULL DEFAULT 0,
         sessionEpoch INTEGER NOT NULL DEFAULT 0
@@ -1107,28 +1278,6 @@ if (usersNameStillGloballyUnique()) {
 // créés avant le 29 août 2026 (Emilien, Gaspard) peuvent être dans ce cas :
 // tout profil créé depuis exige un nom de famille non vide (POST /profile).
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_name_lastname ON users(name COLLATE NOCASE, lastName COLLATE NOCASE)');
-
-// Notifications "Communauté" (10 septembre 2026, refonte de la section
-// Notifications de Réglages, demande d'Emilien) : bascule PAR PROFIL — pas
-// par appareil comme push_subscriptions — pour recevoir ou non les
-// notifications des nouveaux messages "Communauté" des profils suivis. Voir
-// aussi activity_members.notifyEnabled plus bas pour l'équivalent par
-// activité. DEFAULT 1 : purement additive, ne change rien pour un profil
-// déjà abonné aux notifications avant ce déploiement. Les invitations,
-// demandes de suivi et notifications de l'application elle-même restent
-// toujours actives et n'ont pas de colonne — voir server/lib/push.js.
-// ⚠️ Placée APRÈS le rebuild de "users" ci-dessus (usersNameStillGloballyUnique)
-// et non juste après sessionEpoch : ce rebuild recopie les colonnes vers une
-// table neuve via une liste EXPLICITE (CREATE TABLE users_rebuild / INSERT
-// INTO users_rebuild) qui ne connaît pas les colonnes ajoutées après elle —
-// une migration placée avant lui serait donc appliquée puis immédiatement
-// perdue sur toute base où ce rebuild a encore lieu (dont une base neuve : le
-// CREATE TABLE IF NOT EXISTS users tout en haut de ce fichier a toujours
-// l'ancienne contrainte UNIQUE sur name). Les migrations plus bas dans ce
-// fichier (ex. "polls.anonymous") suivent déjà cette même règle.
-if (!columnExists('users', 'communityNotifyEnabled')) {
-  db.exec('ALTER TABLE users ADD COLUMN communityNotifyEnabled INTEGER NOT NULL DEFAULT 1');
-}
 
 // Vote anonyme (3 septembre 2026, demande d'Emilien). Migration purement
 // additive, comme toutes celles de ce bloc : DEFAULT 0, donc tout sondage créé
@@ -1195,20 +1344,6 @@ if (!columnExists('activity_members', 'position')) {
     setMemberPosition.run(posIndex, m.activityId, m.userId);
     posIndex++;
   });
-}
-
-// Notifications par activité (10 septembre 2026, refonte de la section
-// Notifications de Réglages, demande d'Emilien) : chaque membre choisit s'il
-// reçoit les notifications de nouveaux messages de CETTE activité — remplace
-// l'ancien on/off unique par appareil (pushToggleBtn). PERSONNEL comme
-// position/color juste au-dessus : n'affecte que les notifications reçues
-// par ce membre, pas celles des autres. DEFAULT 1, purement additive : un
-// membre déjà abonné aux notifications avant ce déploiement continue de
-// recevoir celles de toutes ses activités tant qu'il n'en désactive pas une
-// explicitement. Voir server/lib/push.js (notifyActivityMessage) et
-// server/routes/activities.js.
-if (!columnExists('activity_members', 'notifyEnabled')) {
-  db.exec('ALTER TABLE activity_members ADD COLUMN notifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
 if (!columnExists('running_timers', 'activityId')) {
   db.exec('ALTER TABLE running_timers ADD COLUMN activityId INTEGER REFERENCES activities(id)');
@@ -1548,6 +1683,112 @@ if (tableExists('sub_project_items') && tableExists('sub_project_sections')) {
 // sous-projets déjà créés restent sans échéance.
 if (tableExists('sub_projects') && !columnExists('sub_projects', 'closesAt')) {
   db.exec('ALTER TABLE sub_projects ADD COLUMN closesAt TEXT');
+}
+
+// ----- Sous-projets : épinglage (parcours d'achat, 8 septembre 2026) -----
+// Les 3 sous-projets générés automatiquement à l'issue d'un achat doivent
+// rester figés en haut de la liste, avant tous les sous-projets créés à la
+// main. 0/1 comme les autres booléens de ce fichier ; jamais posé par
+// l'utilisateur lui-même (aucune route publique ne l'expose) — seul le code
+// serveur qui traite un paiement Stripe le met à 1.
+//
+// L'index existant (activityId, position) ne suffit plus à trier "épinglés
+// d'abord" efficacement : on le refait avec `pinned` en tête. DROP puis
+// CREATE plutôt que IF NOT EXISTS seul, qui n'aurait rien changé à un index
+// du même nom déjà en place — les deux dans le même bloc, déclenchés une
+// seule fois, en même temps que l'ajout de la colonne.
+if (tableExists('sub_projects') && !columnExists('sub_projects', 'pinned')) {
+  db.exec('ALTER TABLE sub_projects ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
+  db.exec('DROP INDEX IF EXISTS idx_sub_projects_activity');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_sub_projects_activity ON sub_projects(activityId, pinned, position)');
+}
+
+// ----- Sous-projets : slot (abonnement Offre 1, 9 septembre 2026) -----
+// Identifiant stable des 3 sous-projets d'un abonnement, distinct de
+// `position` (modifiable par glisser-déposer) — voir le commentaire de la
+// colonne dans le schéma de base plus haut. L'index unique référence `slot`,
+// donc doit être créé APRÈS l'ALTER, jamais avant, sur une base existante.
+if (tableExists('sub_projects') && !columnExists('sub_projects', 'slot')) {
+  db.exec('ALTER TABLE sub_projects ADD COLUMN slot INTEGER');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uniq_sub_projects_activity_slot ON sub_projects(activityId, slot) WHERE slot IS NOT NULL');
+}
+
+// ----- Sous-projets : quota de renouvellement par pôle (pool partagé, 9
+// septembre 2026) — voir le commentaire de la colonne dans le schéma de base.
+if (tableExists('sub_projects') && !columnExists('sub_projects', 'renewalsUsedThisPeriod')) {
+  db.exec('ALTER TABLE sub_projects ADD COLUMN renewalsUsedThisPeriod INTEGER NOT NULL DEFAULT 0');
+}
+
+// ----- Abonnements : plusieurs abonnés par activité (pool partagé, 9
+// septembre 2026) -----
+// Sur une base créée avant ce pivot, uniq_activity_subscription_live porte
+// encore sur (activityId) seul — `CREATE UNIQUE INDEX IF NOT EXISTS` du bloc
+// de base ne le corrige JAMAIS tout seul puisque l'index existe déjà sous ce
+// nom. On compare son SQL stocké plutôt qu'un simple columnExists (qui ne
+// dit rien d'un index) : s'il ne mentionne pas encore `userId`, c'est
+// l'ancienne définition — on le recrée sur la nouvelle colonne.
+{
+  const existingIndexSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'uniq_activity_subscription_live'").get();
+  if (existingIndexSql && existingIndexSql.sql && existingIndexSql.sql.indexOf('userId') === -1) {
+    db.exec('DROP INDEX uniq_activity_subscription_live');
+    db.exec(`CREATE UNIQUE INDEX uniq_activity_subscription_live ON activity_subscriptions(activityId, userId)
+      WHERE status IN ('active', 'past_due', 'trialing', 'incomplete')`);
+  }
+}
+
+// ----- Abonnements : consentement parental pour un souscripteur mineur de
+// 16-17 ans (point 5 du volet Légal du chantier paiement/abonnements, cadré
+// le 13 septembre 2026, codé le 14) -----
+// NULL pour un abonné majeur (immense majorité des lignes) — posé uniquement
+// quand metadata.parentalConsentAt est présent sur la session Stripe à
+// l'origine de l'abonnement (voir server/routes/stripewebhook.js), lui-même
+// copié depuis parental_consent_requests.confirmedAt au moment où
+// POST /api/offer/checkout crée la session une fois le consentement confirmé
+// (voir server/routes/offercheckout.js et server/lib/parentalconsent.js).
+if (tableExists('activity_subscriptions') && !columnExists('activity_subscriptions', 'parentalConsentAt')) {
+  db.exec('ALTER TABLE activity_subscriptions ADD COLUMN parentalConsentAt TEXT');
+  db.exec('ALTER TABLE activity_subscriptions ADD COLUMN parentalConsentMethod TEXT');
+}
+
+// Rétro-remplissage de activity_billing_cycles (table neuve) pour toute
+// activité DÉJÀ activée avant ce pivot (au moins un sous-projet à slot posé)
+// — sans cette ligne, dueActivities() (server/lib/offerquota.js) ne la
+// verrait jamais et sa feuille de route ne serait plus jamais régénérée.
+// Reprend l'ancien activity_subscriptions.lastRoadmapGeneratedAt comme
+// cycleStart quand il existe (une régénération avait déjà eu lieu sous
+// l'ancien modèle par-abonnement), sinon `now` — jamais une date Stripe,
+// cohérent avec le choix de ne plus dépendre des périodes Stripe pour ce
+// cycle. Best-effort : une activité qui atterrit un jour ou deux plus tôt/tard
+// sur son prochain cycle après cette migration ponctuelle n'a aucune
+// conséquence pratique.
+if (tableExists('sub_projects') && tableExists('activity_billing_cycles')) {
+  const hasLegacyColumn = tableExists('activity_subscriptions') && columnExists('activity_subscriptions', 'lastRoadmapGeneratedAt');
+  const activatedActivities = db.prepare(`
+    SELECT DISTINCT activityId FROM sub_projects
+    WHERE slot IS NOT NULL
+      AND activityId NOT IN (SELECT activityId FROM activity_billing_cycles)
+  `).all();
+  const legacyStart = hasLegacyColumn
+    ? db.prepare('SELECT MAX(lastRoadmapGeneratedAt) AS at FROM activity_subscriptions WHERE activityId = ?')
+    : null;
+  const insertCycle = db.prepare(`
+    INSERT INTO activity_billing_cycles (activityId, cycleStart, cycleEnd, lastRoadmapGeneratedAt)
+    VALUES (?, ?, datetime(?, '+1 month'), ?)
+  `);
+  for (const row of activatedActivities) {
+    const legacy = legacyStart ? legacyStart.get(row.activityId) : null;
+    const cycleStart = (legacy && legacy.at) || new Date().toISOString();
+    insertCycle.run(row.activityId, cycleStart, cycleStart, legacy && legacy.at ? legacy.at : null);
+  }
+}
+
+// ----- Tâches : remplacement différé (abonnement Offre 1, 9 septembre 2026) -----
+// Voir le commentaire de la colonne dans le schéma de base : marque qu'une
+// tâche cochée a déjà reçu son remplaçant depuis le backlog, pour que le
+// cron horaire (server/lib/subscriptioncron.js) ne la remplace jamais deux
+// fois.
+if (tableExists('sub_project_items') && !columnExists('sub_project_items', 'replacementRevealedAt')) {
+  db.exec('ALTER TABLE sub_project_items ADD COLUMN replacementRevealedAt TEXT');
 }
 
 // Un sous-projet qui a déjà des messages avait forcément sa discussion avant
