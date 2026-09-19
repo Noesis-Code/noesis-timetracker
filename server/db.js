@@ -1800,4 +1800,36 @@ CREATE TABLE IF NOT EXISTS goal_capacity_overrides (
 );
 `);
 
+// parentKey (18 septembre 2026, « Évolution et modification fondamentale des
+// sous-projets. Changement de nom pour Pôle au lieu de catégorie. Et
+// insertion des secteurs à l'intérieur des pôles. », cadré avec Emilien —
+// voir noesis-timetracker-objectifs.md, encart « Pôles & secteurs ») :
+// second niveau OPTIONNEL sous une ligne de activity_goal_categories.
+//   - NULL (comportement de toute ligne existant avant ce chantier, jamais
+//     retouché) = la ligne est un PÔLE — l'ancienne « catégorie », inchangée
+//     dans son rôle (Chrono, Tâches, Statistiques).
+//   - la clé d'un pôle de la MÊME activité = la ligne est un SECTEUR de ce
+//     pôle, sélectionnable au Chrono en plus de son pôle (le temps se
+//     rattache alors au secteur), visible en Répartition comme une part de
+//     camembert séparée mais dans la MÊME nuance que son pôle — jamais dans
+//     les Tâches, la Feuille de temps, le Graphique ni la légende de
+//     Répartition, qui restent strictement au niveau pôle (voir
+//     server/lib/goals.js, server/lib/stats.js, server/lib/categorystats.js).
+// Profondeur strictement limitée à 1 niveau, validée EN APPLICATION
+// (server/lib/goals.js) au moment de la création d'un secteur : un secteur
+// ne peut jamais lui-même être visé comme parent — jamais une CHECK figée,
+// même raisonnement que le reste de cette table (clé libre validée par
+// activité, pas par contrainte SQL). Additif et rétrocompatible à 100 % :
+// une ligne déjà existante reste un pôle (NULL) sans aucune migration de
+// données ; toute lecture qui ignore cette colonne (code non encore mis à
+// jour) continue de voir des lignes de niveau plat, comme avant.
+// Retrait d'un pôle : cascade automatique — voir removeCategory,
+// server/lib/goals.js — qui gèle (removedAt) tous les secteurs actifs de ce
+// pôle en même temps que lui (« masque, ne supprime pas », comme partout
+// ailleurs). Retrait d'un secteur : aucun minimum requis, contrairement au
+// pôle (minimum 1 pôle actif par activité, règle historique inchangée).
+if (tableExists('activity_goal_categories') && !columnExists('activity_goal_categories', 'parentKey')) {
+  db.exec('ALTER TABLE activity_goal_categories ADD COLUMN parentKey TEXT');
+}
+
 module.exports = db;

@@ -129,6 +129,55 @@ function addCategoryTask(activityId, userId, categoryKey, label) {
   return Object.assign({}, item, { subProjectId: subProject.id, subProjectName: subProject.name, sectionId: section.id });
 }
 
+// 17 septembre 2026 (maquette approuvée, citation directe : « Je souhaite
+// ajouter une option pour changer manuellement les tâches de catégorie. »)
+// — déplace une tâche existante vers le sous-projet "domicile" d'une autre
+// catégorie de la MÊME activité. Même principe que tout le reste de ce
+// fichier : aucun nouveau modèle de données, la tâche change simplement de
+// sectionId/subProjectId vers ceux de la section 'tasks' du sous-projet
+// domicile visé (matérialisé au besoin par ensureCategoryTaskSection,
+// exactement comme addCategoryTask ci-dessus).
+function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
+  if (!goals.isValidCategoryForActivity(activityId, newCategoryKey)) {
+    throw Object.assign(new Error('Catégorie invalide pour cette activité.'), { statusCode: 400 });
+  }
+
+  const item = subprojects.getItemRaw(itemId);
+  if (!item) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
+
+  // Cohérence activité / tâche, validée ICI côté serveur — même garde que
+  // resolveSubProjectId (server/lib/entrysubproject.js) pour le Chrono :
+  // sans elle, un identifiant de tâche d'une autre activité pourrait être
+  // déplacé par appel direct à cette route.
+  const currentSubProject = subprojects.getSubProject(item.subProjectId);
+  if (!currentSubProject || Number(currentSubProject.activityId) !== Number(activityId)) {
+    throw Object.assign(new Error("Cette tâche n'appartient pas à cette activité."), { statusCode: 400 });
+  }
+
+  const { subProject: targetSubProject, section: targetSection } = ensureCategoryTaskSection(activityId, userId, newCategoryKey);
+
+  if (Number(item.sectionId) === Number(targetSection.id)) {
+    return subprojects.getItem(itemId); // déjà dans cette catégorie : rien à faire
+  }
+
+  const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_items WHERE sectionId = ?')
+    .get(targetSection.id).pos;
+  db.prepare('UPDATE sub_project_items SET subProjectId = ?, sectionId = ?, position = ? WHERE id = ?')
+    .run(targetSubProject.id, targetSection.id, next, item.id);
+
+  // Re-tente le classement automatique (Offre1) sur les DEUX catégories
+  // concernées — jamais bloquant, même principe qu'ailleurs dans ce fichier.
+  const oldCategoryKey = currentSubProject.goalCategory;
+  try {
+    if (oldCategoryKey) goalsauto.onSubProjectItemChanged(activityId, oldCategoryKey);
+    goalsauto.onSubProjectItemChanged(activityId, newCategoryKey);
+  } catch (e) {
+    // non bloquant
+  }
+
+  return subprojects.getItem(item.id);
+}
+
 module.exports = {
   subProjectsForCategory,
   ensureHomeSubProject,
@@ -136,4 +185,5 @@ module.exports = {
   tasksForCategory,
   tasksByCategoryForActivity,
   addCategoryTask,
+  moveCategoryTask,
 };

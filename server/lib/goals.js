@@ -138,8 +138,15 @@ function isCustomized(activityId) {
 // calculée côté client par rang). LECTURE PURE : quand aucune ligne active
 // n'existe encore, synthétise la catégorie par défaut SANS rien écrire en
 // base (voir ensureDefaultCategory pour le seul point d'écriture réel).
+//
+// 18 septembre 2026 (« Pôles & secteurs », voir le commentaire de
+// activity_goal_categories.parentKey dans server/db.js) : ne renvoie QUE les
+// PÔLES (parentKey NULL) — Tâches, Feuille de temps, Graphique et légende de
+// Répartition restent strictement au niveau pôle, exactement comme avant ce
+// chantier. Un secteur n'apparaît jamais ici ; voir secteursForPole()
+// ci-dessous pour les lire explicitement.
 function categoriesForActivity(activityId) {
-  const rows = activeCategoryRows(activityId);
+  const rows = activeCategoryRows(activityId).filter((r) => !r.parentKey);
   if (rows.length) {
     return rows.map((r) => ({ key: r.key, label: r.label, custom: true }));
   }
@@ -290,22 +297,51 @@ function ensureDefaultCategory(activityId) {
   return activeCategoryRows(activityId);
 }
 
-// Ajoute une catégorie personnalisée. Plafond à MAX_CUSTOM_CATEGORIES —
-// compté APRÈS matérialisation de la catégorie par défaut le cas échéant,
-// pour qu'une activité qui n'a encore rien ne se retrouve jamais avec 2
-// catégories d'un coup (la par-défaut + celle-ci) sans passer par le plafond.
-function addCategory(activityId, label) {
+// Ajoute une catégorie personnalisée — un PÔLE par défaut (comportement
+// historique, strictement inchangé pour tout appelant existant qui n'envoie
+// pas de 3ᵉ argument), ou un SECTEUR de `parentKey` si ce 3ᵉ argument est
+// fourni (18 septembre 2026, « Pôles & secteurs »).
+//
+// Plafond à MAX_CUSTOM_CATEGORIES — compté UNIQUEMENT parmi les PÔLES (un
+// secteur ne compte jamais dans ce plafond, aucune limite propre ne lui a été
+// demandée) — après matérialisation de la catégorie par défaut le cas
+// échéant, pour qu'une activité qui n'a encore rien ne se retrouve jamais
+// avec 2 pôles d'un coup (le par-défaut + celui-ci) sans passer par le
+// plafond.
+function addCategory(activityId, label, parentKey) {
   const existing = ensureDefaultCategory(activityId);
-  if (existing.length >= MAX_CUSTOM_CATEGORIES) {
-    throw Object.assign(new Error(MAX_CUSTOM_CATEGORIES + ' catégories maximum par activité.'), { statusCode: 400 });
-  }
   const cleanLabel = assertCategoryLabel(label);
   const key = nextCategoryKey(activityId);
   const createdAt = new Date().toISOString();
+
+  if (parentKey) {
+    // ---- Secteur -----------------------------------------------------
+    // Le pôle visé doit être ACTIF et être lui-même un pôle (parentKey NULL)
+    // — profondeur strictement limitée à 1 niveau, un secteur ne peut jamais
+    // être le parent d'un autre secteur (cadré avec Emilien le 18 septembre
+    // 2026). Validée ici, en application, jamais par une CHECK SQL — même
+    // convention que le reste de cette table.
+    const pole = existing.find((r) => r.key === parentKey && !r.parentKey);
+    if (!pole) {
+      throw Object.assign(new Error('Pôle introuvable pour ce secteur.'), { statusCode: 404 });
+    }
+    const siblingCount = existing.filter((r) => r.parentKey === parentKey).length;
+    db.prepare(`
+      INSERT INTO activity_goal_categories (activityId, key, label, color, position, parentKey, createdAt)
+      VALUES (?, ?, ?, '', ?, ?, ?)
+    `).run(activityId, key, cleanLabel, siblingCount, parentKey, createdAt);
+    return secteursForPole(activityId, parentKey);
+  }
+
+  // ---- Pôle (comportement historique, inchangé) -----------------------
+  const poleCount = existing.filter((r) => !r.parentKey).length;
+  if (poleCount >= MAX_CUSTOM_CATEGORIES) {
+    throw Object.assign(new Error(MAX_CUSTOM_CATEGORIES + ' catégories maximum par activité.'), { statusCode: 400 });
+  }
   db.prepare(`
     INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt)
     VALUES (?, ?, ?, '', ?, ?)
-  `).run(activityId, key, cleanLabel, existing.length, createdAt);
+  `).run(activityId, key, cleanLabel, poleCount, createdAt);
   return categoriesForActivity(activityId);
 }
 
@@ -321,33 +357,71 @@ function renameCategory(activityId, key, label) {
   return categoriesForActivity(activityId);
 }
 
-// Retire (gèle) une catégorie personnalisée — jamais la dernière restante
+// Retire (gèle) une catégorie personnalisée — jamais le dernier PÔLE restant
 // (minimum 1, cadré avec Emilien). Les périodes/objectifs déjà créés sous
 // cette catégorie restent en base, consultables via frozenCategoriesForActivity,
 // mais ne comptent plus parmi les catégories actives.
+//
+// 18 septembre 2026 (« Pôles & secteurs ») : se branche désormais selon le
+// niveau de `key`.
+//  - SECTEUR (parentKey renseigné) : aucun minimum requis — citation directe
+//    d'Emilien, « un secteur, lui, peut être retiré sans minimum ». Gèle
+//    uniquement cette ligne, jamais son pôle.
+//  - PÔLE (parentKey NULL) : minimum 1 pôle ACTIF restant, compté ici parmi
+//    les pôles seulement (un secteur ne compte jamais dans ce minimum) ; son
+//    retrait gèle EN CASCADE tous ses secteurs actifs — « Retrait : retirer
+//    un pôle gèle automatiquement (cascade) tous ses secteurs actifs »,
+//    « masque, ne supprime pas » comme partout ailleurs dans l'app.
 function removeCategory(activityId, key) {
   const existing = ensureDefaultCategory(activityId);
   const row = existing.find((r) => r.key === key);
   if (!row) throw Object.assign(new Error('Catégorie introuvable.'), { statusCode: 404 });
-  if (existing.length <= 1) {
-    throw Object.assign(new Error('Impossible de retirer la dernière catégorie.'), { statusCode: 400 });
+  const now = new Date().toISOString();
+
+  if (row.parentKey) {
+    // ---- Secteur -----------------------------------------------------
+    db.prepare('UPDATE activity_goal_categories SET removedAt = ? WHERE activityId = ? AND key = ?')
+      .run(now, activityId, key);
+    // Renumérote les secteurs actifs restants du MÊME pôle pour qu'ils
+    // restent contigus — jamais les autres pôles/secteurs.
+    existing.filter((r) => r.parentKey === row.parentKey && r.key !== key).forEach((r, i) => {
+      if (r.position !== i) db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i, r.id);
+    });
+    return secteursForPole(activityId, row.parentKey);
+  }
+
+  // ---- Pôle --------------------------------------------------------------
+  const poleRows = existing.filter((r) => !r.parentKey);
+  if (poleRows.length <= 1) {
+    throw Object.assign(new Error('Impossible de retirer le dernier pôle.'), { statusCode: 400 });
   }
   db.prepare('UPDATE activity_goal_categories SET removedAt = ? WHERE activityId = ? AND key = ?')
-    .run(new Date().toISOString(), activityId, key);
+    .run(now, activityId, key);
 
-  // Renumérote les positions des catégories actives restantes pour qu'elles
-  // restent contiguës (0..n-1) après le retrait.
-  activeCategoryRows(activityId).forEach((r, i) => {
+  // Cascade : gèle tous les secteurs actifs de ce pôle en même temps que lui.
+  existing.filter((r) => r.parentKey === key).forEach((r) => {
+    db.prepare('UPDATE activity_goal_categories SET removedAt = ? WHERE id = ?').run(now, r.id);
+  });
+
+  // Renumérote les positions des PÔLES actifs restants pour qu'ils restent
+  // contigus (0..n-1) après le retrait — jamais les secteurs, qui gardent
+  // leur propre séquence par pôle.
+  activeCategoryRows(activityId).filter((r) => !r.parentKey).forEach((r, i) => {
     if (r.position !== i) db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i, r.id);
   });
   return categoriesForActivity(activityId);
 }
 
-// Réordonne les catégories actives — le client envoie la liste complète des
-// clés dans le nouvel ordre (même convention que setPeriodAssignees plus bas :
+// Réordonne les PÔLES actifs — le client envoie la liste complète des clés
+// dans le nouvel ordre (même convention que setPeriodAssignees plus bas :
 // remplacement complet plutôt qu'un déplacement unitaire).
+//
+// 18 septembre 2026 (« Pôles & secteurs ») : `existing` est désormais filtré
+// aux pôles seulement (comportement strictement inchangé tant qu'aucun
+// secteur n'existe) — réordonner les secteurs d'un pôle est un besoin séparé,
+// pas encore exposé (voir secteursForPole ci-dessous pour les lire).
 function reorderCategories(activityId, keys) {
-  const existing = ensureDefaultCategory(activityId);
+  const existing = ensureDefaultCategory(activityId).filter((r) => !r.parentKey);
   const existingKeys = new Set(existing.map((r) => r.key));
   const cleanKeys = Array.isArray(keys) ? keys.filter((k) => existingKeys.has(k)) : [];
   if (cleanKeys.length !== existing.length || new Set(cleanKeys).size !== existing.length) {
@@ -357,6 +431,75 @@ function reorderCategories(activityId, keys) {
     db.prepare('UPDATE activity_goal_categories SET position = ? WHERE activityId = ? AND key = ?').run(i, activityId, key);
   });
   return categoriesForActivity(activityId);
+}
+
+// ---------------------------------------------------------------------------
+// Secteurs (18 septembre 2026, « Évolution et modification fondamentale des
+// sous-projets. Changement de nom pour Pôle au lieu de catégorie. Et
+// insertion des secteurs à l'intérieur des pôles. ») — voir le commentaire de
+// activity_goal_categories.parentKey dans server/db.js pour le schéma complet
+// et noesis-timetracker-objectifs.md pour le cadrage détaillé.
+//
+// Périmètre de ce chantier (« Secteur d'abord, renommage interne séparément »,
+// choisi par Emilien) : la MÉCANIQUE (schéma + ce fichier + les points de
+// lecture/écriture du Chrono et des Statistiques) est posée maintenant, avec
+// des libellés visibles « Pôle »/« Secteur » côté API. L'EXPOSITION complète
+// (routes HTTP dédiées de gestion, et le frontend public/app.js/i18n.js/
+// styles.css qui permettrait de créer/afficher un secteur à l'écran) reste un
+// chantier séparé — server/routes/goals.js n'est pas touché ici. Les
+// fonctions ci-dessous sont donc déjà prêtes à être appelées par ce futur
+// chantier, et rendent dès maintenant le Chrono/les Statistiques capables de
+// lire/valider un secteur s'il en existait un.
+
+// Secteurs ACTIFS d'un pôle donné, dans l'ordre d'affichage — aucun minimum
+// requis (un pôle sans aucun secteur est le cas normal, y compris pour
+// toujours, tant que personne n'en crée).
+function secteursForPole(activityId, poleKey) {
+  return activeCategoryRows(activityId)
+    .filter((r) => r.parentKey === poleKey)
+    .map((r) => ({ key: r.key, label: r.label, parentKey: r.parentKey }));
+}
+
+// `key` est-il un secteur ACTIF de cette activité, dont le pôle parent est
+// lui-même actif ? (Le second test protège contre une incohérence si une
+// ligne était un jour corrompue à la main — en fonctionnement normal, retirer
+// un pôle gèle déjà tous ses secteurs en cascade, voir removeCategory.)
+function isValidSecteurForActivity(activityId, key) {
+  const row = activeCategoryRows(activityId).find((r) => r.key === key);
+  if (!row || !row.parentKey) return false;
+  return isValidCategoryForActivity(activityId, row.parentKey);
+}
+
+// `key` est-elle une catégorie ATTACHABLE, pôle OU secteur ? — c'est ce test-
+// ci, et non isValidCategoryForActivity seule, que le Chrono doit utiliser
+// pour une NOUVELLE attache (server/lib/entrycategory.js) depuis que le
+// rattachement à un secteur est possible.
+function isValidCategoryOrSecteurForActivity(activityId, key) {
+  return isValidCategoryForActivity(activityId, key) || isValidSecteurForActivity(activityId, key);
+}
+
+// Le parentKey BRUT d'une ligne (pôle ou secteur, active ou gelée) — null si
+// `key` est un pôle, une des 3 clés fixes historiques (CATEGORIES), ou une
+// clé inconnue. Sert à annoter une réponse API (categorySummary,
+// categoryBreakdownForRange) sans que l'appelant ait à interroger la table
+// lui-même.
+function parentKeyFor(activityId, key) {
+  if (!key) return null;
+  const row = db.prepare('SELECT parentKey FROM activity_goal_categories WHERE activityId = ? AND key = ?').get(activityId, key);
+  return row ? row.parentKey || null : null;
+}
+
+// Replie `key` sur son PÔLE : elle-même si `key` est déjà un pôle (ou une clé
+// hors du système de personnalisation — une des 3 catégories fixes
+// historiques, une clé inconnue, null/undefined), la clé de son pôle parent
+// si `key` désigne un secteur. Utilisé partout où l'affichage doit rester
+// strictement au niveau pôle même si le temps a été rattaché à un secteur —
+// Feuille de temps et Graphique (server/lib/stats.js), jamais la Répartition
+// elle-même qui affiche le détail secteur (server/lib/categorystats.js).
+function resolveToPole(activityId, key) {
+  if (key === null || key === undefined || key === '') return key;
+  const row = db.prepare('SELECT parentKey FROM activity_goal_categories WHERE activityId = ? AND key = ?').get(activityId, key);
+  return row && row.parentKey ? row.parentKey : key;
 }
 
 // ---------------------------------------------------------------------------
@@ -1130,6 +1273,14 @@ module.exports = {
   renameCategory,
   removeCategory,
   reorderCategories,
+  // Secteurs (18 septembre 2026, « Pôles & secteurs » — voir le commentaire
+  // au-dessus de secteursForPole dans ce fichier). Mécanique prête, pas
+  // encore exposée par une route HTTP dédiée (chantier séparé).
+  secteursForPole,
+  isValidSecteurForActivity,
+  isValidCategoryOrSecteurForActivity,
+  parentKeyFor,
+  resolveToPole,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
   weekBounds,

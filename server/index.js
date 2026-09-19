@@ -153,10 +153,12 @@ app.use('/api', require('./routes/community'));
 // Sous-projets d'une activité (découpage, todolist, fil par sous-projet,
 // avancement) — discussion "Sous-projets", 3 septembre 2026.
 app.use('/api', require('./routes/subprojects'));
-// Détail par sous-projet du temps d'une activité (chantier « Chrono —
-// sous-projets », 4 septembre 2026). Volontairement hors du préfixe /stats/*,
-// qui appartient à server/routes/stats.js.
-app.use('/api', require('./routes/subprojectstats'));
+// Détail par catégorie Objectifs du temps d'une activité (chantier « Chrono —
+// sous-projets », 4 septembre 2026 ; converti le 17 septembre 2026,
+// suppression totale des sous-projets — voir server/routes/categorystats.js,
+// qui remplace server/routes/subprojectstats.js). Volontairement hors du
+// préfixe /stats/*, qui appartient à server/routes/stats.js.
+app.use('/api', require('./routes/categorystats'));
 // Planning d'objectifs annuel (Chantier 1 de la feuille de route produit,
 // 12 septembre 2026) — 13 périodes de 4 semaines par activité, voir
 // server/lib/goals.js.

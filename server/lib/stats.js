@@ -185,7 +185,7 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
   const groupKey = byCategory ? 'categories' : 'activities';
   const { start, end } = totalRangeForUser(userId, refDate, activityId);
 
-  const rows = byCategory
+  let rows = byCategory
     ? db.prepare(`
       SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek,
              t.goalCategory AS category,
@@ -205,6 +205,32 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
       GROUP BY t.isoDate, a.id
       ORDER BY t.isoDate ASC, seconds DESC
     `).all(userId, start, end);
+
+  // 18 septembre 2026 (« Pôles & secteurs ») : le Graphique reste strictement
+  // au niveau pôle (jamais de détail secteur affiché ici, contrairement à la
+  // Répartition — voir server/lib/categorystats.js). Le SQL ci-dessus groupe
+  // par la clé BRUTE de time_entries.goalCategory, qui peut désormais être
+  // celle d'un secteur ; on replie donc chaque ligne sur son pôle
+  // (goals.resolveToPole, no-op tant qu'aucun secteur n'existe) puis on
+  // RE-fusionne les lignes du même jour qui tombent alors sur le même pôle
+  // (deux secteurs d'un même pôle, ou un secteur et son pôle utilisés le même
+  // jour) avant tout regroupement en points plus bas.
+  if (byCategory) {
+    const merged = new Map();
+    rows.forEach((r) => {
+      const resolved = r.category === null ? null : goals.resolveToPole(activityId, r.category);
+      const mapKey = r.isoDate + '|' + (resolved === null ? 'none' : resolved);
+      if (!merged.has(mapKey)) {
+        merged.set(mapKey, { isoDate: r.isoDate, dayOfWeek: r.dayOfWeek, category: resolved, seconds: 0 });
+      }
+      merged.get(mapKey).seconds += r.seconds;
+    });
+    // Même ordre que le SQL d'origine (isoDate ASC, seconds DESC) — dont
+    // dépendent les deux branches plus bas (elles ne re-trient jamais elles-
+    // mêmes les entrées d'un jour/panier, voir leurs commentaires).
+    rows = Array.from(merged.values())
+      .sort((a, b) => (a.isoDate === b.isoDate ? b.seconds - a.seconds : (a.isoDate < b.isoDate ? -1 : 1)));
+  }
 
   // Identité et forme d'une entrée de point, selon le mode. Le reste de la
   // fonction ne connaît plus la différence. Le libellé d'une catégorie passe
@@ -360,6 +386,21 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
     LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
     WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
   `).all(userId, start, end);
+
+  // 18 septembre 2026 (« Pôles & secteurs ») : la Feuille de temps par
+  // catégorie reste strictement au niveau pôle (jamais de détail secteur,
+  // contrairement à la Répartition — voir server/lib/categorystats.js). Un
+  // rattachement fait à un secteur (t.goalCategory = clé du secteur) est
+  // donc replié sur son pôle ICI, avant tout découpage en créneaux — no-op
+  // tant qu'aucun secteur n'existe pour l'activité (goals.resolveToPole
+  // renvoie alors la clé telle quelle).
+  if (byCategory) {
+    rows.forEach((r) => {
+      if (r.category !== null && r.category !== undefined) {
+        r.category = goals.resolveToPole(onlyActivityId, r.category);
+      }
+    });
+  }
 
   // overlap[dayIndex][slotIndex] = { activityId: { seconds, name, color } } —
   // accumule le nombre de secondes couvertes par chaque activité dans ce

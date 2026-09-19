@@ -11,6 +11,10 @@ const { notifyActivityMessage } = require('../lib/push');
 // periodRange est déjà la source de ces libellés partout ailleurs — aucune
 // ligne de server/lib/period.js n'est modifiée, elle est seulement appelée.
 const { periodRange } = require('../lib/period');
+// 17 septembre 2026 (suppression totale des sous-projets) : ?subProject= du
+// filtre de comparaison entre membres devient ?category=, validée contre les
+// catégories RÉELLES de l'activité — voir GET /community/activity-stats.
+const goals = require('../lib/goals');
 
 // Longueur maximale d'un message du fil de discussion : généreuse pour une
 // conversation, mais bornée — le corps de requête d'Express est certes déjà
@@ -193,21 +197,24 @@ router.get('/community/activity-stats', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   const refDate = req.query.date || null;
-  const rawSubProject = req.query.subProject;
-  let subProjectFilter = (rawSubProject === undefined || rawSubProject === '' || rawSubProject === 'all')
+  // 17 septembre 2026 (suppression totale des sous-projets, remplace le
+  // filtre ?subProject= ci-dessous) : ?category= filtre la comparaison entre
+  // membres sur UNE catégorie Objectifs.
+  const rawCategory = req.query.category;
+  let categoryFilter = (rawCategory === undefined || rawCategory === '' || rawCategory === 'all')
     ? null
-    : String(rawSubProject);
+    : String(rawCategory);
   // ⚠️ Trois familles de valeurs et TROIS SEULEMENT : null (tout le temps de
-  // l'activité), 'none' (temps non rattaché) et un id entier. Une valeur
-  // fantaisiste ('abc') donnerait NaN dans le paramètre lié plus bas, donc une
-  // comparaison qui n'est jamais vraie : le camembert se viderait en silence
-  // au lieu de dire ce qui ne va pas. On refuse explicitement.
-  if (subProjectFilter !== null && subProjectFilter !== 'none') {
-    const n = Number(subProjectFilter);
-    if (!Number.isInteger(n) || n <= 0) {
-      return res.status(400).json({ error: 'Sous-projet invalide.' });
+  // l'activité), 'none' (temps non rattaché) et une clé de catégorie
+  // RÉELLE de cette activité (active ou déjà utilisée — categoryEverExisted,
+  // même tolérance que le Chrono, voir server/lib/entrycategory.js). Une
+  // valeur fantaisiste donnerait un filtre qui ne correspond à rien, donc un
+  // camembert vide en silence au lieu de dire ce qui ne va pas — on refuse
+  // explicitement, même principe que l'ancien contrôle d'id entier.
+  if (categoryFilter !== null && categoryFilter !== 'none') {
+    if (!goals.categoryEverExisted(activityId, categoryFilter)) {
+      return res.status(400).json({ error: 'Catégorie invalide.' });
     }
-    subProjectFilter = String(n);
   }
 
   // ⚠️ 3 septembre 2026 (Activité — général) — DEUX périodes indépendantes.
@@ -243,16 +250,16 @@ router.get('/community/activity-stats', (req, res) => {
 
   res.json({
     activityName: check.activity.name,
-    // ⚠️ 4 septembre 2026 (chantier « Chrono — sous-projets », débordement
-    // signalé) : ?subProject= filtre la comparaison entre membres sur UN
-    // sous-projet. Absent, rien ne change. 'none' = le temps non rattaché.
-    // Le camembert et le graphique reçoivent le MÊME filtre : les deux
-    // sections de cette page doivent comparer les mêmes enregistrements.
-    subProject: subProjectFilter,
-    breakdown: activityBreakdownForUser(activityId, period, refDate, subProjectFilter),
+    // ⚠️ 17 septembre 2026 (remplace ?subProject=) : ?category= filtre la
+    // comparaison entre membres sur UNE catégorie. Absent, rien ne change.
+    // 'none' = le temps non rattaché. Le camembert et le graphique reçoivent
+    // le MÊME filtre : les deux sections de cette page doivent comparer les
+    // mêmes enregistrements.
+    category: categoryFilter,
+    breakdown: activityBreakdownForUser(activityId, period, refDate, categoryFilter),
     chartGranularity,
     chartLabel: activityTotalRange(activityId, refDate).label,
-    dailyBreakdown: activityChartBreakdownForUser(activityId, chartGranularity, refDate, subProjectFilter),
+    dailyBreakdown: activityChartBreakdownForUser(activityId, chartGranularity, refDate, categoryFilter),
   });
 });
 

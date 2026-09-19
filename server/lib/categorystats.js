@@ -87,16 +87,29 @@ function checkAccess(callerId, activityId, memberId) {
 // "c1" — voir goals.categoriesForActivity) retombe sur cette liste
 // synthétique, pour donner malgré tout un rang stable à la seule catégorie
 // qui puisse exister.
+//
+// 18 septembre 2026 (« Pôles & secteurs ») : le rang ne porte QUE sur les
+// PÔLES (parentKey NULL) — `count`, transmis au client comme le nombre de
+// nuances possibles (subProjectShade(color, index, count)), ne doit jamais
+// varier selon qu'un pôle a ou non des secteurs. Un secteur HÉRITE toujours
+// du rang de son pôle parent — même nuance exacte, jamais une nuance à part
+// (« part de camembert séparée MAIS de la MÊME couleur que son pôle » —
+// seul un petit espace physique les distingue, affichage réservé au
+// chantier frontend séparé).
 function shadeRanks(activityId) {
   const rows = db.prepare(
-    'SELECT key FROM activity_goal_categories WHERE activityId = ? ORDER BY position ASC, id ASC'
+    'SELECT key, parentKey FROM activity_goal_categories WHERE activityId = ? ORDER BY position ASC, id ASC'
   ).all(activityId);
-  if (rows.length) {
+  const poleRows = rows.filter((r) => !r.parentKey);
+  if (poleRows.length) {
     const ranks = new Map();
-    rows.forEach((r, i) => ranks.set(r.key, i));
-    return { ranks, count: rows.length };
+    poleRows.forEach((r, i) => ranks.set(r.key, i));
+    rows.filter((r) => r.parentKey).forEach((r) => {
+      if (ranks.has(r.parentKey)) ranks.set(r.key, ranks.get(r.parentKey));
+    });
+    return { ranks, count: poleRows.length };
   }
-  const synth = goals.categoriesForActivity(activityId);
+  const synth = goals.categoriesForActivity(activityId); // pôles uniquement
   const ranks = new Map();
   synth.forEach((c, i) => ranks.set(c.key, i));
   return { ranks, count: synth.length };
@@ -136,16 +149,35 @@ function categoryBreakdownForRange(userId, activityId, startIso, endIso) {
 
   const { ranks, count } = shadeRanks(Number(activityId));
 
-  const parts = Array.from(buckets.values()).map((b) => ({
-    category: b.category,
-    name: b.category ? goals.categoryLabelFor(Number(activityId), b.category) : null,
-    // « Gelée » remplace « clôturée » (qui était une notion de sous-projet,
-    // avec une date d'échéance) : une catégorie n'a pas d'échéance, elle est
-    // active ou retirée (gelée).
-    frozen: b.category ? !goals.isValidCategoryForActivity(Number(activityId), b.category) : false,
-    shadeIndex: b.category !== null && ranks.has(b.category) ? ranks.get(b.category) : null,
-    seconds: Math.round(b.seconds),
-  })).sort((a, b) => b.seconds - a.seconds);
+  // 18 septembre 2026 (« Pôles & secteurs ») : un secteur forme ICI sa propre
+  // part (sa clé est distincte de celle de son pôle dans time_entries.goalCategory,
+  // le regroupement par clé brute ci-dessus les sépare déjà) — c'est
+  // volontaire, c'est le camembert de la Répartition qui doit montrer le
+  // détail secteur. `parentKey` (ajouté, ignoré sans risque par tout client
+  // qui ne le connaît pas encore) permet au futur chantier frontend de
+  // regrouper les parts par pôle pour la LÉGENDE, qui doit rester au niveau
+  // pôle — jamais le camembert lui-même. `shadeIndex` vient de shadeRanks
+  // ci-dessus, qui fait déjà hériter un secteur du rang de son pôle : même
+  // nuance des deux côtés, sans rien de plus à faire ici.
+  const parts = Array.from(buckets.values()).map((b) => {
+    const parentKey = b.category ? goals.parentKeyFor(Number(activityId), b.category) : null;
+    const frozen = b.category
+      ? (parentKey
+        ? !goals.isValidSecteurForActivity(Number(activityId), b.category)
+        : !goals.isValidCategoryForActivity(Number(activityId), b.category))
+      : false;
+    return {
+      category: b.category,
+      name: b.category ? goals.categoryLabelFor(Number(activityId), b.category) : null,
+      // « Gelée » remplace « clôturée » (qui était une notion de sous-projet,
+      // avec une date d'échéance) : une catégorie n'a pas d'échéance, elle est
+      // active ou retirée (gelée) — testée au bon niveau (pôle ou secteur).
+      frozen,
+      parentKey,
+      shadeIndex: b.category !== null && ranks.has(b.category) ? ranks.get(b.category) : null,
+      seconds: Math.round(b.seconds),
+    };
+  }).sort((a, b) => b.seconds - a.seconds);
 
   // Total recalculé APRÈS arrondi de chaque part, pour que la somme des parts
   // affichées soit exactement le total affiché — même précaution que

@@ -302,29 +302,31 @@ function unreadMessageCountsForUser(userId) {
 // l'activité sont pris en compte (jointure sur activity_members).
 
 // ⚠️ 4 septembre 2026 (chantier « Chrono — sous-projets », débordement
-// signalé) : quatrième paramètre OPTIONNEL `subProjectFilter`, par défaut
-// inerte. Demande d'Emilien : « je souhaite que les membres d'une activité
-// puissent comparer entre eux leurs enregistrements globaux (cette fonction
-// existe déjà), ainsi que leurs enregistrements par sous-projet (à faire) ».
+// signalé), converti le 17 septembre 2026 (suppression totale des
+// sous-projets) à la CATÉGORIE Objectifs : quatrième paramètre OPTIONNEL
+// `categoryFilter`, par défaut inerte. Demande d'Emilien : « je souhaite que
+// les membres d'une activité puissent comparer entre eux leurs
+// enregistrements globaux (cette fonction existe déjà), ainsi que leurs
+// enregistrements par catégorie ».
 //
 //   absent / null   → tous les enregistrements, comportement d'avant ;
-//   un identifiant  → seulement le temps rattaché à CE sous-projet ;
+//   une clé          → seulement le temps rattaché à CETTE catégorie ;
 //   'none'          → seulement le temps NON rattaché.
 //
 // Le filtre est posé dans le ON du LEFT JOIN, pas dans le WHERE : un membre
-// qui n'a rien enregistré sur ce sous-projet doit rester dans la comparaison
-// avec 0, sinon il disparaîtrait de la liste des membres — or c'est
-// justement une information (« lui n'y a pas touché »).
-function activityBreakdownForUser(activityId, period, refDate, subProjectFilter) {
+// qui n'a rien enregistré sur cette catégorie doit rester dans la
+// comparaison avec 0, sinon il disparaîtrait de la liste des membres — or
+// c'est justement une information (« lui n'y a pas touché »).
+function activityBreakdownForUser(activityId, period, refDate, categoryFilter) {
   const { start, end, label } = periodRange(period, refDate);
 
   let joinExtra = '';
   const joinArgs = [];
-  if (subProjectFilter === 'none') {
-    joinExtra = ' AND t.subProjectId IS NULL';
-  } else if (subProjectFilter !== undefined && subProjectFilter !== null && subProjectFilter !== '') {
-    joinExtra = ' AND t.subProjectId = ?';
-    joinArgs.push(Number(subProjectFilter));
+  if (categoryFilter === 'none') {
+    joinExtra = ' AND t.goalCategory IS NULL';
+  } else if (categoryFilter !== undefined && categoryFilter !== null && categoryFilter !== '') {
+    joinExtra = ' AND t.goalCategory = ?';
+    joinArgs.push(String(categoryFilter));
   }
 
   const rows = db.prepare(`
@@ -375,20 +377,21 @@ function activityTotalRange(activityId, refDate) {
 }
 
 // ⚠️ 4 septembre 2026 (chantier « Chrono — sous-projets », débordement
-// signalé) : quatrième paramètre OPTIONNEL `subProjectFilter`, mêmes valeurs
-// et même sémantique que pour activityBreakdownForUser ci-dessus. Le
-// graphique suit le même filtre que le camembert — les deux sections de cette
-// page comparent les mêmes enregistrements, sinon elles se contrediraient.
-function activityChartBreakdownForUser(activityId, granularity, refDate, subProjectFilter) {
+// signalé), converti le 17 septembre 2026 à la catégorie Objectifs :
+// quatrième paramètre OPTIONNEL `categoryFilter`, mêmes valeurs et même
+// sémantique que pour activityBreakdownForUser ci-dessus. Le graphique suit
+// le même filtre que le camembert — les deux sections de cette page
+// comparent les mêmes enregistrements, sinon elles se contrediraient.
+function activityChartBreakdownForUser(activityId, granularity, refDate, categoryFilter) {
   const { start, end } = activityTotalRange(activityId, refDate);
 
   let whereExtra = '';
   const extraArgs = [];
-  if (subProjectFilter === 'none') {
-    whereExtra = ' AND t.subProjectId IS NULL';
-  } else if (subProjectFilter !== undefined && subProjectFilter !== null && subProjectFilter !== '') {
-    whereExtra = ' AND t.subProjectId = ?';
-    extraArgs.push(Number(subProjectFilter));
+  if (categoryFilter === 'none') {
+    whereExtra = ' AND t.goalCategory IS NULL';
+  } else if (categoryFilter !== undefined && categoryFilter !== null && categoryFilter !== '') {
+    whereExtra = ' AND t.goalCategory = ?';
+    extraArgs.push(String(categoryFilter));
   }
 
   const rows = db.prepare(`

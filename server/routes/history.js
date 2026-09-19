@@ -4,24 +4,26 @@ const { isoDateOf, dayNameOf } = require('../lib/dates');
 const { periodRange } = require('../lib/period');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 // Même validation que le Chrono, au même endroit — voir l'en-tête du module.
-const { resolveSubProjectId, subProjectSummary } = require('../lib/entrysubproject');
+// Remplace resolveSubProjectId/subProjectSummary (entrysubproject.js, 17
+// septembre 2026, suppression totale des sous-projets).
+const { resolveCategoryKey, categorySummary } = require('../lib/entrycategory');
 
 const router = express.Router();
 
-// Nom du sous-projet rattaché, pour l'afficher sur la carte d'historique.
-// Un cache local à la requête suffit : une semaine d'enregistrements pointe
-// en pratique une poignée de sous-projets, et on passe par la fonction de
-// "Sous-projets" plutôt que par un JOIN sur sa table.
-function decorateWithSubProject(rows) {
+// Catégorie rattachée, pour l'afficher sur la carte d'historique. Un cache
+// local à la requête suffit : une semaine d'enregistrements pointe en
+// pratique une poignée de catégories, et on passe par la fonction de
+// "Objectifs" plutôt que par un JOIN.
+function decorateWithCategory(rows) {
   const cache = new Map();
   rows.forEach((row) => {
-    if (!row.subProjectId) { row.subProjectName = null; return; }
-    if (!cache.has(row.subProjectId)) {
-      cache.set(row.subProjectId, subProjectSummary(row.activityId, row.subProjectId));
+    if (!row.goalCategory) { row.categoryLabel = null; return; }
+    if (!cache.has(row.goalCategory)) {
+      cache.set(row.goalCategory, categorySummary(row.activityId, row.goalCategory));
     }
-    const summary = cache.get(row.subProjectId);
-    row.subProjectName = summary ? summary.name : null;
-    row.subProjectClosed = summary ? summary.closed : false;
+    const summary = cache.get(row.goalCategory);
+    row.categoryLabel = summary ? summary.label : null;
+    row.categoryFrozen = summary ? summary.frozen : false;
   });
   return rows;
 }
@@ -46,14 +48,14 @@ router.get('/history', (req, res) => {
 
   const rows = db.prepare(`
     SELECT t.id, t.activityId, a.name AS activity, t.note, t.startTime, t.endTime,
-           t.durationSeconds, t.isoDate, t.dayOfWeek, t.subProjectId
+           t.durationSeconds, t.isoDate, t.dayOfWeek, t.goalCategory
     FROM time_entries t
     JOIN activities a ON a.id = t.activityId
     WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
     ORDER BY t.startTime DESC
   `).all(userId, start, end);
 
-  decorateWithSubProject(rows);
+  decorateWithCategory(rows);
 
   // Pièces jointes de note (photo, document) — voir panneau "Historique" du
   // Chrono. Dataset borné à une semaine, une requête par entrée reste
@@ -87,17 +89,17 @@ router.post('/history', (req, res) => {
   }
   const durationSeconds = Math.round((endTime - startTime) / 1000);
 
-  const resolved = resolveSubProjectId(userId, activity.id, req.body.subProjectId, null);
+  const resolved = resolveCategoryKey(activity.id, req.body.category, null);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   // isoDate/dayOfWeek dans le fuseau du téléphone de la personne (voir
   // server/routes/timer.js pour le même changement et son raisonnement).
-  const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, subProjectId)
+  const info = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(userId, activity.id, (req.body.note || '').trim(), startTime.toISOString(), endTime.toISOString(),
-      durationSeconds, isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.subProjectId);
+      durationSeconds, isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.categoryKey);
 
-  res.status(201).json({ id: info.lastInsertRowid, subProjectId: resolved.subProjectId });
+  res.status(201).json({ id: info.lastInsertRowid, category: categorySummary(activity.id, resolved.categoryKey) });
 });
 
 router.put('/history/:id', (req, res) => {
@@ -119,19 +121,19 @@ router.put('/history/:id', (req, res) => {
 
   // Le rattachement courant ne « suit » l'enregistrement que si l'activité ne
   // change pas : déplacer une session vers une AUTRE activité détache
-  // automatiquement son sous-projet, qui n'appartient pas à la nouvelle. Sans
+  // automatiquement sa catégorie, qui n'appartient pas à la nouvelle. Sans
   // cette ligne, une modification d'activité laisserait un rattachement
   // incohérent que plus rien ne rattraperait.
-  const carried = Number(entry.activityId) === Number(activity.id) ? entry.subProjectId : null;
-  const resolved = resolveSubProjectId(req.userId, activity.id, req.body.subProjectId, carried);
+  const carried = Number(entry.activityId) === Number(activity.id) ? entry.goalCategory : null;
+  const resolved = resolveCategoryKey(activity.id, req.body.category, carried);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
-  db.prepare(`UPDATE time_entries SET activityId = ?, note = ?, startTime = ?, endTime = ?, durationSeconds = ?, isoDate = ?, dayOfWeek = ?, subProjectId = ?
+  db.prepare(`UPDATE time_entries SET activityId = ?, note = ?, startTime = ?, endTime = ?, durationSeconds = ?, isoDate = ?, dayOfWeek = ?, goalCategory = ?
               WHERE id = ?`)
     .run(activity.id, note, startTime.toISOString(), endTime.toISOString(), durationSeconds,
-      isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.subProjectId, entry.id);
+      isoDateOf(startTime, req.timezone), dayNameOf(startTime, req.timezone), resolved.categoryKey, entry.id);
 
-  res.json({ message: 'Enregistrement mis à jour.', subProjectId: resolved.subProjectId });
+  res.json({ message: 'Enregistrement mis à jour.', category: categorySummary(activity.id, resolved.categoryKey) });
 });
 
 // Ajoute une pièce jointe directement sur un enregistrement déjà validé,
