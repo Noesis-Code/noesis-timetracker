@@ -21,6 +21,8 @@ const sp = require('../lib/subprojects');
 // Chantier Objectifs — C (auto-planification Offre1, 15 septembre 2026) :
 // déclenché après création/modification d'une tâche, jamais bloquant.
 const goalsauto = require('../lib/goalsauto');
+const offerquota = require('../lib/offerquota');
+const subprojectqueue = require('../lib/subprojectqueue');
 
 const MAX_NAME_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 2000;
@@ -142,6 +144,21 @@ router.get('/sub-projects/:id', (req, res) => {
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
   const subProject = access.subProject;
+  const sections = sp.sectionsForSubProject(subProject.id, userId);
+  // Carte "Plafond atteint" (modèle pool partagé, 9 septembre 2026) : décidé
+  // au niveau de CHAQUE tâche cochée, pas d'une bannière globale dès que le
+  // pôle est plafonné — voir server/lib/subprojectqueue.js::pendingReplacementState.
+  // `replacementRevealedAt` (interne à l'abonnement) ne quitte jamais cette
+  // route : seul le champ dérivé `awaitingRenewal` ('capped' | null) est
+  // renvoyé au client.
+  sections.forEach((sec) => {
+    if (sec.kind !== 'tasks') return;
+    sec.items.forEach((item) => {
+      item.awaitingRenewal = subprojectqueue.pendingReplacementState(item);
+      delete item.replacementRevealedAt;
+    });
+  });
+
   res.json({
     subProject: {
       id: subProject.id,
@@ -149,12 +166,19 @@ router.get('/sub-projects/:id', (req, res) => {
       name: subProject.name,
       description: subProject.description,
       createdBy: subProject.createdBy,
+      pinned: !!subProject.pinned,
       canRemove: canRemove(userId, subProject.createdBy, subProject.activityId),
       // 15 septembre 2026 (chantier Objectifs — C) : rattachement à une
       // catégorie Objectifs — lu par public/app.js pour l'éditeur dédié et
       // pour savoir s'il faut afficher le sélecteur "membre prévu" de
       // chaque tâche.
       goalCategory: subProject.goalCategory || null,
+      // Pôle d'un abonnement Offre 1 (modèle pool partagé, 9 septembre 2026) :
+      // null pour tout sous-projet créé à la main (subProject.slot IS NULL) —
+      // voir server/lib/offerquota.js. `nextRenewalAt` alimente la date de la
+      // carte "Plafond atteint" (dont l'AFFICHAGE, lui, se décide tâche par
+      // tâche via `awaitingRenewal` ci-dessous, pas via `capped` ici).
+      poleQuota: offerquota.poleQuotaInfo(subProject.id),
     },
     // Sert à griser l'option "Discussion" du bouton "Ajouter" : une seule
     // discussion par sous-projet (règle tenue aussi par un index unique
@@ -164,7 +188,7 @@ router.get('/sub-projects/:id', (req, res) => {
     // section de sondages par sous-projet (les sondages sont scopés au
     // sous-projet par le socle commun, deux sections montreraient la même liste).
     hasPolls: sp.hasPollSection(subProject.id),
-    sections: sp.sectionsForSubProject(subProject.id, userId),
+    sections: sections,
   });
 });
 
