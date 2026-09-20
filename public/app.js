@@ -884,17 +884,71 @@
   // clavier avant de se stabiliser — la lecture de vv.offsetTop différée de
   // deux requestAnimationFrame (nécessaire contre le bug WebKit 237851, voir
   // plus bas) crée un délai perceptible où l'élément reste non compensé avant
-  // de se corriger d'un coup. Réduit (jamais éliminé, la source du délai —
-  // le bug 237851 lui-même — restant nécessaire à contourner) par une
-  // application SYNCHRONE immédiate en plus de la correction différée : dans
-  // l'immense majorité des cas la lecture immédiate est déjà correcte (le
-  // bug ne se déclenche qu'à l'instant précis de l'événement resize/scroll,
-  // pas toujours), donc l'élément suit sans latence visible ; la correction
-  // différée ne se voit alors qu'en cas de lecture erronée.
+  // de se corriger d'un coup.
+  //
+  // 20 septembre 2026 (Design), 3e correction du jour — nouveau retour
+  // d'Emilien après déploiement du 2e correctif (celui qui pince la page
+  // PLEIN ÉCRAN entière au lieu du seul en-tête) : le saut reste perceptible
+  // (« aucun mouvement » attendu, comme c'est déjà le cas en Communauté/
+  // Profil/section Tâches), les pastilles Tâches/Statistiques/Discussion
+  // apparaissent et disparaissent, et surtout — régression bien plus grave —
+  // en section Discussion le clavier ouvert fait disparaître à la fois les
+  // bulles du fil ET le composeur : plus aucun moyen d'écrire.
+  //
+  // Cause de cette régression, trouvée en relisant la CSS de #activityPage/
+  // #goalsDetailPage (.communityMembersModal, position:fixed;inset:0) : le
+  // 2e correctif ne compensait que la POSITION (translateY) de la page
+  // plein écran, jamais sa HAUTEUR. Or `inset:0` donne à cette page 100 % du
+  // viewport de mise en page (le viewport NON réduit par le clavier, tant
+  // que `resizes-content` n'est pas honoré — même bug que celui compensé
+  // plus haut) : sa hauteur réelle reste donc celle de l'écran plein, clavier
+  // fermé, même quand le clavier est ouvert. #activityPageScroll.chatMode
+  // (mode conversation, voir plus bas dans ce fichier) construit sa chaîne
+  // flex — en-tête fixe, liste de messages qui grandit, composeur collé en
+  // bas — à l'intérieur de CETTE hauteur non réduite : le composeur se colle
+  // donc au bas d'une page bien plus haute que ce qui est réellement visible
+  // à l'écran une fois le clavier ouvert, et se retrouve de fait hors-écran,
+  // sous la ligne visible — exactement le symptôme rapporté (composeur et
+  // bulles du haut du fil disparus, un grand vide au-dessus). Correctif :
+  // en plus de translateY(vv.offsetTop), fixer explicitement la HAUTEUR de
+  // la page plein écran à `vv.height` (hauteur du viewport VISUEL, donc déjà
+  // réduite par le clavier) pendant qu'elle est pincée. `inset:0` pose
+  // top:0/right:0/bottom:0/left:0 ; poser une hauteur explicite alors que
+  // top ET bottom sont déjà fixés est un cas sur-contraint que la CSS résout
+  // en ignorant `bottom` — la page garde donc son sommet en place et prend
+  // exactement la hauteur demandée. Combinée à translateY(vv.offsetTop), la
+  // page occupe alors exactement la portion du viewport de mise en page qui
+  // correspond au viewport visuel actuellement affiché : la chaîne flex de
+  // chatMode se recalcule sur cette hauteur réduite, et le composeur reste
+  // collé au bas de ce qui est RÉELLEMENT visible. #topbar n'a pas ce besoin
+  // — barre fine à hauteur intrinsèque, jamais étirée à 100 % du viewport —
+  // et garde donc la seule translation.
+  //
+  // Pour le saut et le scintillement des pastilles, cause distincte mais de
+  // même famille — un problème de FRÉQUENCE de correction, pas de calcul :
+  // l'ancien mécanisme ne recalculait qu'aux événements `resize`/`scroll` du
+  // viewport visuel (discrets, pas nécessairement un par image du panoramique
+  // natif que fait le navigateur pour amener le champ actif au-dessus du
+  // clavier), avec en plus un délai de deux `requestAnimationFrame` avant la
+  // valeur corrigée. Le résultat : la page pincée peut rester en retard sur
+  // le panoramique natif puis "rattraper" d'un coup — perçu comme un saut ; et
+  // les pastilles du sélecteur, juste sous l'en-tête, dans la même page
+  // translatée, subissent le même à-coup au ras du bord visible, ce qui peut
+  // se lire comme une disparition/réapparition plutôt qu'un simple
+  // mouvement (hypothèse la plus probable, à confirmer par Emilien après ce
+  // correctif — aucun autre code ne masque #activityPageSectionSwitch selon
+  // l'état du clavier ou du focus). Remplacé par une boucle
+  // `requestAnimationFrame` continue, active tant qu'un champ texte a le
+  // focus : elle relit et réapplique vv.offsetTop/vv.height à CHAQUE image
+  // plutôt qu'à chaque événement, donc suit le panoramique natif image par
+  // image (plus de rattrapage tardif) et absorbe le bug WebKit 237851 en un
+  // seul rafraîchissement (~16 ms, imperceptible) au lieu d'un délai de deux
+  // images fixé à l'avance.
   if (_isCoarsePointer && window.visualViewport) {
     (function () {
-      var pinTargets = document.querySelectorAll('#topbar, #activityPage, #goalsDetailPage');
-      if (!pinTargets.length) return;
+      var pinBars = document.querySelectorAll('#topbar');
+      var pinPages = document.querySelectorAll('#activityPage, #goalsDetailPage');
+      if (!pinBars.length && !pinPages.length) return;
       var vv = window.visualViewport;
       var pinned = false;
       var unpinTimer = null;
@@ -906,40 +960,31 @@
       // corrigé à ce jour, spécifique au mode standalone (bugs.webkit.org,
       // ticket 237851, « visualViewport.offsetTop is sometimes 0 when soft
       // keyboard is open on web app mode ») — `visualViewport.offsetTop`
-      // peut être lu à 0 exactement au moment où l'événement resize/scroll
-      // se déclenche, alors que la vraie valeur n'est disponible qu'une
-      // fois le prochain rendu passé. Avec l'ancien code (lecture
-      // synchrone dans le callback), ce 0 lu par erreur appliquait
-      // `translateY(0)` au lieu du vrai décalage : la .topbar restait donc
-      // au sommet du viewport de mise en page pendant que le viewport
-      // visuel avait déjà "panné" plus bas — visuellement, elle sort de
-      // l'écran, exactement le symptôme "l'entête disparaît". Correctif
-      // documenté par ce même rapport de bug (et repris par plusieurs
-      // articles sur ce bug précis) : lire `vv.offsetTop` seulement après
-      // deux `requestAnimationFrame` imbriqués ("avant le prochain paint
-      // qui suit le prochain paint"), jamais de façon synchrone dans le
-      // callback resize/scroll lui-même.
+      // peut être lu à 0 par erreur à certains instants. La boucle rAF
+      // continue (voir pinLoop plus bas) absorbe ce cas sans code dédié :
+      // une lecture à 0 par erreur ne dure jamais plus d'une image.
       function applyPin() {
-        var y = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
-        for (var i = 0; i < pinTargets.length; i++) {
-          if (pinTargets[i].getClientRects().length) pinTargets[i].style.transform = y;
+        var yT = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
+        var h = Math.round(vv.height) + 'px';
+        for (var i = 0; i < pinBars.length; i++) {
+          if (pinBars[i].getClientRects().length) pinBars[i].style.transform = yT;
+        }
+        for (var i = 0; i < pinPages.length; i++) {
+          if (pinPages[i].getClientRects().length) {
+            pinPages[i].style.transform = yT;
+            pinPages[i].style.height = h;
+          }
         }
       }
-      function syncTopbarPin() {
+      function pinLoop() {
         if (!pinned) return;
         applyPin();
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () {
-            if (!pinned) return;
-            applyPin();
-          });
-        });
+        requestAnimationFrame(pinLoop);
       }
       document.addEventListener('focusin', function (e) {
         if (!_isTextInputEl(e.target)) return;
         if (unpinTimer) { clearTimeout(unpinTimer); unpinTimer = null; }
-        pinned = true;
-        syncTopbarPin();
+        if (!pinned) { pinned = true; pinLoop(); }
       }, true);
       document.addEventListener('focusout', function (e) {
         if (!_isTextInputEl(e.target)) return;
@@ -949,11 +994,13 @@
         unpinTimer = setTimeout(function () {
           if (_isTextInputEl(document.activeElement)) return;
           pinned = false;
-          for (var i = 0; i < pinTargets.length; i++) pinTargets[i].style.transform = '';
+          for (var i = 0; i < pinBars.length; i++) pinBars[i].style.transform = '';
+          for (var i = 0; i < pinPages.length; i++) {
+            pinPages[i].style.transform = '';
+            pinPages[i].style.height = '';
+          }
         }, 80);
       }, true);
-      vv.addEventListener('resize', syncTopbarPin);
-      vv.addEventListener('scroll', syncTopbarPin);
     })();
   }
 
