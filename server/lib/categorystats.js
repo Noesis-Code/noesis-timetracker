@@ -84,7 +84,7 @@ function checkAccess(callerId, activityId, memberId) {
 //
 // Une activité jamais gérée depuis Objectifs (aucune ligne matérialisée,
 // seulement du temps chronométré avec la catégorie par défaut synthétique
-// "c1" — voir goals.categoriesForActivity) retombe sur cette liste
+// "c1" — voir goals.polesForActivity) retombe sur cette liste
 // synthétique, pour donner malgré tout un rang stable à la seule catégorie
 // qui puisse exister.
 //
@@ -109,7 +109,7 @@ function shadeRanks(activityId) {
     });
     return { ranks, count: poleRows.length };
   }
-  const synth = goals.categoriesForActivity(activityId); // pôles uniquement
+  const synth = goals.polesForActivity(activityId); // pôles uniquement
   const ranks = new Map();
   synth.forEach((c, i) => ranks.set(c.key, i));
   return { ranks, count: synth.length };
@@ -164,11 +164,11 @@ function categoryBreakdownForRange(userId, activityId, startIso, endIso) {
     const frozen = b.category
       ? (parentKey
         ? !goals.isValidSecteurForActivity(Number(activityId), b.category)
-        : !goals.isValidCategoryForActivity(Number(activityId), b.category))
+        : !goals.isValidPoleForActivity(Number(activityId), b.category))
       : false;
     return {
       category: b.category,
-      name: b.category ? goals.categoryLabelFor(Number(activityId), b.category) : null,
+      name: b.category ? goals.poleOrSecteurLabelFor(Number(activityId), b.category) : null,
       // « Gelée » remplace « clôturée » (qui était une notion de sous-projet,
       // avec une date d'échéance) : une catégorie n'a pas d'échéance, elle est
       // active ou retirée (gelée) — testée au bon niveau (pôle ou secteur).
