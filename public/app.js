@@ -1627,7 +1627,7 @@
     sel.innerHTML = '';
     var none = document.createElement('option');
     none.value = '';
-    none.textContent = t('Aucune catégorie');
+    none.textContent = t('Aucun pôle');
     sel.appendChild(none);
     var found = false;
     list.forEach(function (c) {
@@ -1636,11 +1636,32 @@
       o.textContent = c.label;
       if (currentKey && String(c.key) === currentKey) found = true;
       sel.appendChild(o);
+      // 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
+      // « Pôles & secteurs », exposition) : GET .../goals/categories renvoie
+      // désormais un champ additif `secteurs` par pôle (server/routes/goals.js)
+      // — regroupés ici dans un <optgroup> juste après l'option du pôle
+      // lui-même, pour que le Chrono puisse rattacher le temps au pôle ENTIER
+      // (option ci-dessus) OU à l'un de ses secteurs (option du groupe),
+      // conformément à noesis-timetracker-poles-secteurs.md (« secteur...
+      // sélectionnable au Chrono »). Rien ne change tant qu'aucun secteur
+      // n'existe pour un pôle donné (c.secteurs vide ou absent).
+      if (c.secteurs && c.secteurs.length) {
+        var grp = document.createElement('optgroup');
+        grp.label = c.label;
+        c.secteurs.forEach(function (s) {
+          var so = document.createElement('option');
+          so.value = String(s.key);
+          so.textContent = s.label;
+          if (currentKey && String(s.key) === currentKey) found = true;
+          grp.appendChild(so);
+        });
+        sel.appendChild(grp);
+      }
     });
     if (currentKey && !found) {
       var kept = document.createElement('option');
       kept.value = currentKey;
-      kept.textContent = (current.label || t('Catégorie')) + ' (' + t('retirée') + ')';
+      kept.textContent = (current.label || t('Pôle')) + ' (' + t('retirée') + ')';
       sel.appendChild(kept);
     }
     sel.value = currentKey ? currentKey : '';
@@ -2010,7 +2031,7 @@
       // septembre 2026, remplace le sous-projet — voir le commentaire de
       // #chronoCategoryWrap plus haut dans ce fichier).
       '<div class="historyEditCategoryWrap hidden">' +
-        '<p class="stopFieldLabel">' + t('Catégorie') + '</p>' +
+        '<p class="stopFieldLabel">' + t('Pôle') + '</p>' +
         '<select class="historyEditCategory subProjectSelect"></select>' +
       '</div>' +
       '<p class="historyEditMsg msg"></p>' +
@@ -3045,8 +3066,8 @@
     var colored = parts.map(function (p) {
       return {
         name: p.category === null
-          ? t('Sans catégorie')
-          : (p.name || t('Catégorie')) + (p.frozen ? ' (' + t('retirée') + ')' : ''),
+          ? t('Sans pôle')
+          : (p.name || t('Pôle')) + (p.frozen ? ' (' + t('retirée') + ')' : ''),
         seconds: p.seconds,
         percent: p.percent,
         // Le rang de la part est passé en repli : en mode « Aujourd'hui »,
@@ -3189,8 +3210,8 @@
     var colored = parts.map(function (p) {
       return {
         name: p.category === null
-          ? t('Sans catégorie')
-          : (p.name || t('Catégorie')) + (p.frozen ? ' (' + t('retirée') + ')' : ''),
+          ? t('Sans pôle')
+          : (p.name || t('Pôle')) + (p.frozen ? ' (' + t('retirée') + ')' : ''),
         seconds: p.seconds,
         percent: p.percent,
         color: subProjectShade(data.baseColor, p.shadeIndex, data.shadeCount),
@@ -3252,7 +3273,7 @@
         activities: (p.categories || []).map(function (e) {
           return {
             activityId: e.category === null ? 'none' : e.category,
-            name: e.category === null ? t('Sans catégorie') : (e.name || t('Catégorie')),
+            name: e.category === null ? t('Sans pôle') : (e.name || t('Pôle')),
             color: categoryColorFor(data, e.category),
             seconds: e.seconds,
           };
@@ -3814,7 +3835,7 @@
           // catégorie (4 septembre 2026, converti le 17 septembre 2026). Des
           // attributs plutôt qu'un écouteur par case — la grille en compte
           // 672 en vue Semaine et est réécrite en innerHTML à chaque rendu.
-          var slotName = slot.name || t('Sans catégorie');
+          var slotName = slot.name || t('Sans pôle');
           // ⚠️ Les attributs data-* restent posés sur TOUTES les cases dès que
           // la grille est cliquable : ils sont la prise d'applyGridGate, qui
           // repasse poser la classe quand la liste des activités ouvrables
@@ -3893,7 +3914,7 @@
         day.slots.forEach(function (slot, i) {
           var slotLabel = pad(i * 2) + 'h-' + pad(i * 2 + 2) + 'h';
           if (slot) {
-            var calName = slot.name || t('Sans catégorie');
+            var calName = slot.name || t('Sans pôle');
             html += '<div class="tsCalSlot' + (I.tappable && I.canTap(slot) ? ' tsSlot-tappable' : '')
               + '"' + (I.tappable ? ' data-activity-id="' + slot.activityId + '" data-activity-name="' + escapeHtml(calName) + '"' : '')
               + ' style="background:' + I.colorOf(slot)
@@ -4617,7 +4638,7 @@
 
     var moveSelect = document.createElement('select');
     moveSelect.className = 'activityGoalsCategoryTaskMove';
-    moveSelect.setAttribute('aria-label', t('Changer de catégorie'));
+    moveSelect.setAttribute('aria-label', t('Changer de pôle'));
     currentActivityGoalsCategories.forEach(function (c) {
       var opt = document.createElement('option');
       opt.value = c.key;
@@ -4674,7 +4695,7 @@
     if (!(tasks || []).length) {
       var empty = document.createElement('p');
       empty.className = 'msg';
-      empty.textContent = t('Aucune tâche dans cette catégorie.');
+      empty.textContent = t('Aucune tâche dans ce pôle.');
       wrap.appendChild(empty);
     }
     return wrap;
@@ -4721,7 +4742,7 @@
     var textarea = document.createElement('textarea');
     textarea.rows = 2;
     textarea.maxLength = 300;
-    textarea.placeholder = t('Nouvelle tâche… une IA choisit sa catégorie');
+    textarea.placeholder = t('Nouvelle tâche… une IA choisit son pôle');
 
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -4971,7 +4992,7 @@
       if (activityGoalsCategoriesEditMode) {
         var handle = document.createElement('span');
         handle.className = 'subProjectDragHandle';
-        handle.setAttribute('aria-label', t('Déplacer cette catégorie'));
+        handle.setAttribute('aria-label', t('Déplacer ce pôle'));
         handle.textContent = '≡';
         bindCategoryDrag(handle, row);
         row.appendChild(handle);
@@ -4996,11 +5017,11 @@
         del.type = 'button';
         del.className = 'subProjectDeleteX';
         del.textContent = '✕';
-        del.setAttribute('aria-label', t('Retirer cette catégorie'));
+        del.setAttribute('aria-label', t('Retirer ce pôle'));
         del.disabled = currentActivityGoalsCategories.length <= 1;
         del.addEventListener('click', function (e) {
           e.stopPropagation();
-          if (!confirm(t('Retirer cette catégorie ? Son historique reste consultable mais elle ne recevra plus de nouveaux objectifs.'))) return;
+          if (!confirm(t('Retirer ce pôle ? Son historique reste consultable mais il ne recevra plus de nouveaux objectifs.'))) return;
           removeActivityGoalsCategory(c.key);
         });
         row.appendChild(del);
@@ -5044,6 +5065,13 @@
       bindCategoryOpenToggle(row, c.key);
 
       list.appendChild(row);
+
+      // 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
+      // « Pôles & secteurs ») — les secteurs de ce pôle, juste sous sa ligne
+      // de nom et AVANT le bloc de tâches, affichés seulement si le pôle est
+      // déplié (même règle que buildCategoryTasksBlock juste en dessous) :
+      // c'est ici qu'on crée/renomme/retire/réordonne un secteur.
+      if (isOpen) list.appendChild(buildPoleSecteursBlock(activityIdForTasks, c));
 
       // 17 septembre 2026 (fusion sous-projet → catégorie, maquette
       // approuvée) — le bloc de tâches de cette catégorie, juste sous sa
@@ -5117,10 +5145,149 @@
   // plus bas) avec un nom par défaut plutôt que par une saisie préalable.
   function createActivityGoalsCategory(activityId, label) {
     var msg = $('activityGoalsCategoriesMsg');
-    if (!label) { if (msg) msg.textContent = t('Nom de catégorie requis.'); return; }
+    if (!label) { if (msg) msg.textContent = t('Nom de pôle requis.'); return; }
     api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
       .then(function () { activityGoalsCategoriesRefresh(activityId); })
       .catch(function (err) { if (msg) msg.textContent = err.message; });
+  }
+
+  // 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
+  // « Pôles & secteurs », exposition) : gestion des secteurs d'un pôle —
+  // créer/renommer/retirer/réordonner. Même mécanique d'appel que les
+  // fonctions pôle ci-dessus (renameActivityGoalsCategory/removeActivityGoalsCategory/
+  // createActivityGoalsCategory), sur les 5 nouvelles routes de
+  // server/routes/goals.js (GET/POST .../categories/:key/secteurs,
+  // PUT/DELETE .../categories/:key/secteurs/:secteurKey, PUT
+  // .../categories/:key/secteurs-reorder). Un secteur n'a pas de minimum
+  // (contrairement au pôle) : pas de garde côté client sur le dernier
+  // secteur, le serveur ne la pose pas non plus (voir
+  // noesis-timetracker-poles-secteurs.md).
+  function createPoleSecteur(activityId, poleKey, label) {
+    var msg = $('activityGoalsCategoriesMsg');
+    if (!label) { if (msg) msg.textContent = t('Nom de secteur requis.'); return Promise.resolve(); }
+    return api('POST', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs', { label: label })
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) { if (msg) msg.textContent = err.message; });
+  }
+
+  function renamePoleSecteur(activityId, poleKey, secteurKey, label) {
+    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey, { label: label })
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
+  }
+
+  function removePoleSecteur(activityId, poleKey, secteurKey) {
+    api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey)
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
+  }
+
+  // `secteurs` : la liste ACTUELLE de ce pôle (currentActivityGoalsCategories,
+  // pas une copie tenue à part) — reconstruit les clés dans le nouvel ordre
+  // puis les envoie toutes, même convention que reorderActivityGoalsCategories
+  // (à réutiliser telle quelle si elle existe plus bas, sinon même schéma
+  // qu'ici : POST/PUT envoient toujours la liste ordonnée complète des clés).
+  function reorderPoleSecteur(activityId, poleKey, secteurs, fromIndex, toIndex) {
+    var keys = secteurs.map(function (s) { return s.key; });
+    var moved = keys.splice(fromIndex, 1)[0];
+    keys.splice(toIndex, 0, moved);
+    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs-reorder', { keys: keys })
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
+  }
+
+  // Bloc de secteurs d'un pôle — affiché SEULEMENT quand le pôle est déplié
+  // (isOpen, même règle que buildCategoryTasksBlock), juste au-dessus des
+  // tâches. Pas de glisser-déposer (bindCategoryDrag, réservé aux pôles) :
+  // deux boutons ↑/↓ suffisent pour une liste courte de secteurs et évitent
+  // de dupliquer cette mécanique pour une nouvelle portée d'éléments.
+  function buildPoleSecteursBlock(activityId, pole) {
+    var wrap = document.createElement('div');
+    wrap.className = 'activityGoalsSecteursBlock';
+
+    var secteurs = pole.secteurs || [];
+    secteurs.forEach(function (s, index) {
+      var row = document.createElement('div');
+      row.className = 'activityGoalsSecteurRow';
+
+      var nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'activityGoalsSecteurNameInput';
+      nameInput.maxLength = 40;
+      nameInput.value = s.label;
+      (function (s, nameInput) {
+        function commitName() {
+          var value = nameInput.value.trim();
+          if (!value || value === s.label) { nameInput.value = s.label; return; }
+          renamePoleSecteur(activityId, pole.key, s.key, value);
+        }
+        nameInput.addEventListener('click', function (e) { e.stopPropagation(); });
+        nameInput.addEventListener('blur', commitName);
+        nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); } });
+      })(s, nameInput);
+      row.appendChild(nameInput);
+
+      if (index > 0) {
+        var up = document.createElement('button');
+        up.type = 'button';
+        up.className = 'iconBtn activityGoalsSecteurMoveBtn';
+        up.textContent = '↑';
+        up.setAttribute('aria-label', t('Monter ce secteur'));
+        up.addEventListener('click', function (e) { e.stopPropagation(); reorderPoleSecteur(activityId, pole.key, secteurs, index, index - 1); });
+        row.appendChild(up);
+      }
+      if (index < secteurs.length - 1) {
+        var down = document.createElement('button');
+        down.type = 'button';
+        down.className = 'iconBtn activityGoalsSecteurMoveBtn';
+        down.textContent = '↓';
+        down.setAttribute('aria-label', t('Descendre ce secteur'));
+        down.addEventListener('click', function (e) { e.stopPropagation(); reorderPoleSecteur(activityId, pole.key, secteurs, index, index + 1); });
+        row.appendChild(down);
+      }
+
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'subProjectDeleteX';
+      del.textContent = '✕';
+      del.setAttribute('aria-label', t('Retirer ce secteur'));
+      del.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (!confirm(t('Retirer ce secteur ? Son historique reste consultable.'))) return;
+        removePoleSecteur(activityId, pole.key, s.key);
+      });
+      row.appendChild(del);
+
+      wrap.appendChild(row);
+    });
+
+    var addRow = document.createElement('div');
+    addRow.className = 'activityGoalsSecteurAddRow';
+    addRow.addEventListener('click', function (e) { e.stopPropagation(); });
+    var addInput = document.createElement('input');
+    addInput.type = 'text';
+    addInput.className = 'activityGoalsSecteurNameInput';
+    addInput.maxLength = 40;
+    addInput.placeholder = t('Nouveau secteur…');
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'iconBtn';
+    addBtn.textContent = t('Ajouter');
+    addBtn.addEventListener('click', function () {
+      var label = addInput.value.trim();
+      if (!label) return;
+      addBtn.disabled = true;
+      createPoleSecteur(activityId, pole.key, label).then(function () {
+        addInput.value = '';
+        addBtn.disabled = false;
+      });
+    });
+    addInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } });
+    addRow.appendChild(addInput);
+    addRow.appendChild(addBtn);
+    wrap.appendChild(addRow);
+
+    return wrap;
   }
 
   // 16 septembre 2026 (8e passage) : plus de bouton "Personnaliser mes
@@ -7315,7 +7482,7 @@
 
     var hint = document.createElement('p');
     hint.className = 'hint subProjectGoalCategoryHint';
-    hint.textContent = t('Chargement des catégories…');
+    hint.textContent = t('Chargement des pôles…');
     box.appendChild(hint);
 
     // Chargé à l'ouverture de l'éditeur plutôt que tenu en cache : les
@@ -7334,7 +7501,7 @@
         select.disabled = false;
         hint.textContent = t('Les tâches de ce sous-projet, une fois un membre prévu assigné, seront placées automatiquement dans le planning hebdomadaire Objectifs de ce membre.');
       })
-      .catch(function () { hint.textContent = t('Impossible de charger les catégories Objectifs.'); });
+      .catch(function () { hint.textContent = t('Impossible de charger les pôles Objectifs.'); });
 
     var actions = document.createElement('div');
     actions.className = 'rowActions subProjectGoalCategoryActions';
@@ -8473,13 +8640,13 @@
     if (!activityId) return;
     var msg = $('activityGoalsCategoriesMsg');
     if (currentActivityGoalsCategories.length >= currentActivityGoalsMax) {
-      if (msg) msg.textContent = t('Maximum de catégories atteint ({max}).', { max: currentActivityGoalsMax });
+      if (msg) msg.textContent = t('Maximum de pôles atteint ({max}).', { max: currentActivityGoalsMax });
       return;
     }
     // Nom par défaut, aussitôt renommable en tapant sur la ligne créée (le
     // champ de nom de chaque catégorie est toujours éditable) — pas de
     // formulaire intermédiaire, conformément à la demande d'Emilien.
-    createActivityGoalsCategory(activityId, t('Nouvelle catégorie'));
+    createActivityGoalsCategory(activityId, t('Nouveau pôle'));
   });
   $('newSubProjectCancel').addEventListener('click', closeNewSubProjectForm);
   $('newSubProjectSave').addEventListener('click', createSubProject);
@@ -8834,10 +9001,10 @@
       // Garde anti-réponse-en-vol : l'activité a pu changer entre-temps.
       if (String(activityId) !== String(currentCommunityActivityId)) return;
       if (list.length <= 1) return; // une seule catégorie : rien à filtrer, rien à montrer
-      var options = [{ value: '', label: t('Toutes les catégories') },
-                     { value: 'none', label: t('Sans catégorie') }];
+      var options = [{ value: '', label: t('Tous les pôles') },
+                     { value: 'none', label: t('Sans pôle') }];
       list.forEach(function (c) {
-        options.push({ value: String(c.key), label: c.label || t('Catégorie') });
+        options.push({ value: String(c.key), label: c.label || t('Pôle') });
       });
       options.forEach(function (o) {
         var b = document.createElement('button');
@@ -8857,7 +9024,7 @@
     var label = $('caCategoryBtnLabel');
     if (!menu || !label) return;
     var active = menu.querySelector('[data-category="' + currentActivityCategory + '"]');
-    label.textContent = active ? active.textContent : t('Toutes les catégories');
+    label.textContent = active ? active.textContent : t('Tous les pôles');
     menu.querySelectorAll('.statsPeriodMenuItem').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-category') === currentActivityCategory);
     });

@@ -5250,6 +5250,33 @@ button { -webkit-user-select: none; user-select: none; }
   margin: 2px 0 8px 34px; padding-left: 10px;
   border-left: 2px solid var(--border);
 }
+/* 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
+   « Pôles & secteurs ») — les secteurs d'un pôle, même retrait/bordure que
+   .activityGoalsCategoryTasksBlock juste au-dessus (buildPoleSecteursBlock(),
+   app.js) : rattaché visuellement à sa ligne de pôle, affiché seulement
+   quand celle-ci est dépliée, juste AVANT le bloc de tâches. */
+.activityGoalsSecteursBlock {
+  margin: 2px 0 4px 34px; padding-left: 10px;
+  border-left: 2px solid var(--border);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.activityGoalsSecteurRow {
+  display: flex; align-items: center; gap: 6px;
+}
+.activityGoalsSecteurNameInput {
+  flex: 1 1 auto; min-width: 0; font-size: 13px; padding: 5px 7px;
+  border: 1px solid transparent; border-radius: var(--radius-sm, 8px);
+  background: transparent; color: var(--text);
+}
+.activityGoalsSecteurNameInput:focus {
+  border-color: var(--border); background: var(--track-bg);
+}
+.activityGoalsSecteurMoveBtn {
+  flex: 0 0 auto; padding: 2px 6px; font-size: 12px;
+}
+.activityGoalsSecteurAddRow {
+  display: flex; align-items: center; gap: 6px; margin-top: 2px;
+}
 /* 17 septembre 2026 (discussion C, bulle IA de classement automatique —
    maquette approuvée par Emilien, citation directe : « Prends exemple sur
    la bulle d'écriture dans la section discussion » + « je souhaite le

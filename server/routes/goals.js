@@ -49,7 +49,7 @@ function handleGoalsError(res, err) {
 // ne fait plus que résoudre la valeur brute reçue.
 function resolveCategory(activityId, raw) {
   if (typeof raw === 'string' && raw) return raw;
-  const active = goals.categoriesForActivity(activityId);
+  const active = goals.polesForActivity(activityId);
   return active.length ? active[0].key : 'entreprise';
 }
 
@@ -94,8 +94,8 @@ router.get('/activities/:id/goals/all', (req, res) => {
     // couvre aussi les catégories GELÉES (`frozenCategories`, historique
     // d'une table rase ou d'un retrait) pour ne perdre l'accès à aucune
     // donnée déjà écrite.
-    const active = goals.categoriesForActivity(activityId);
-    const frozen = goals.frozenCategoriesForActivity(activityId);
+    const active = goals.polesForActivity(activityId);
+    const frozen = goals.frozenPolesForActivity(activityId);
     const byCategory = {};
     active.concat(frozen).forEach((c) => {
       byCategory[c.key] = goals.planningForActivity(activityId, c.key);
@@ -105,7 +105,7 @@ router.get('/activities/:id/goals/all', (req, res) => {
     // volet Objectifs (renderGoalsGridHead(), app.js) doit savoir si le
     // plafond est atteint SANS requête séparée, ce point d'entrée étant déjà
     // celui que reloadGoalsAll() appelle à chaque ouverture/rafraîchissement.
-    res.json({ categories: active, frozenCategories: frozen, byCategory, maxCategories: goals.MAX_CUSTOM_CATEGORIES });
+    res.json({ categories: active, frozenCategories: frozen, byCategory, maxCategories: goals.MAX_CUSTOM_POLES });
   } catch (err) {
     handleGoalsError(res, err);
   }
@@ -288,11 +288,21 @@ router.get('/activities/:id/goals/categories', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
+    // 20 septembre 2026 (« Pôles & secteurs », exposition) : chaque pôle
+    // porte désormais aussi `secteurs` (champ AJOUTÉ, ignoré sans risque par
+    // tout client qui ne le connaît pas encore — même convention que
+    // `parentKey` sur categorySummary/categoryBreakdownForRange) pour que le
+    // panneau de gestion affiche/gère les secteurs d'un pôle sans requête
+    // séparée par pôle.
+    const categories = goals.polesForActivity(activityId).map((p) => ({
+      ...p,
+      secteurs: goals.secteursForPole(activityId, p.key),
+    }));
     res.json({
       customized: goals.isCustomized(activityId),
-      categories: goals.categoriesForActivity(activityId),
-      frozenCategories: goals.frozenCategoriesForActivity(activityId),
-      maxCategories: goals.MAX_CUSTOM_CATEGORIES,
+      categories,
+      frozenCategories: goals.frozenPolesForActivity(activityId),
+      maxCategories: goals.MAX_CUSTOM_POLES,
       // 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) :
       // les tâches de chaque catégorie ACTIVE, agrégées depuis tous les
       // sous-projets qui lui sont rattachés — voir server/lib/goalstasks.js.
@@ -315,7 +325,7 @@ router.post('/activities/:id/goals/categories', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const categories = goals.addCategory(activityId, req.body.label);
+    const categories = goals.addPoleOrSecteur(activityId, req.body.label);
     res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);
@@ -331,7 +341,7 @@ router.put('/activities/:id/goals/categories/:key', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const categories = goals.renameCategory(activityId, req.params.key, req.body.label);
+    const categories = goals.renamePoleOrSecteur(activityId, req.params.key, req.body.label);
     res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);
@@ -347,7 +357,7 @@ router.delete('/activities/:id/goals/categories/:key', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const categories = goals.removeCategory(activityId, req.params.key);
+    const categories = goals.removePoleOrSecteur(activityId, req.params.key);
     res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);
@@ -364,8 +374,116 @@ router.put('/activities/:id/goals/categories-reorder', (req, res) => {
 
   const keys = Array.isArray(req.body.keys) ? req.body.keys : [];
   try {
-    const categories = goals.reorderCategories(activityId, keys);
+    const categories = goals.reorderPoles(activityId, keys);
     res.json({ ok: true, categories });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Secteurs (20 septembre 2026, discussion Objectifs — Logique métier,
+// chantier « Pôles & secteurs » — mécanique posée le 18 septembre par ce même
+// fichier goals.js, voir noesis-timetracker-poles-secteurs.md). Un secteur
+// est une subdivision optionnelle d'UN pôle (activity_goal_categories.parentKey)
+// — mêmes garanties que les routes pôle ci-dessus (retrait = gel, jamais
+// suppression) mais SANS minimum (« un secteur, lui, peut être retiré sans
+// minimum »). Même convention de nommage pour éviter le piège Express déjà
+// documenté sur ce fichier (`/secteurs-reorder`, jamais `/secteurs/reorder`,
+// pour ne jamais risquer qu'une route `/secteurs/:secteurKey` déclarée avant
+// n'intercepte "reorder" comme valeur de :secteurKey).
+
+router.get('/activities/:id/goals/categories/:key/secteurs', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    res.json({ secteurs: goals.secteursForPole(activityId, req.params.key) });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.post('/activities/:id/goals/categories/:key/secteurs', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    // goals.addPoleOrSecteur lève déjà une 404 « Pôle introuvable pour ce
+    // secteur. » si :key n'est pas un pôle actif de cette activité — aucune
+    // vérification redondante nécessaire ici.
+    const secteurs = goals.addPoleOrSecteur(activityId, req.body.label, req.params.key);
+    res.json({ ok: true, secteurs });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// `secteurKey` doit appartenir au pôle `:key` de l'URL — goals.js valide/gère
+// pôles et secteurs par la même fonction générique (renamePoleOrSecteur,
+// removePoleOrSecteur ci-dessous), sans regarder le pôle parent ; ce garde
+// évite qu'une URL incohérente (bon secteur, mauvais pôle dans le chemin)
+// réussisse silencieusement.
+function assertSecteurBelongsToPole(activityId, poleKey, secteurKey) {
+  if (goals.parentKeyFor(activityId, secteurKey) !== poleKey) {
+    throw Object.assign(new Error('Secteur introuvable pour ce pôle.'), { statusCode: 404 });
+  }
+}
+
+router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    const secteurs = goals.renamePoleOrSecteur(activityId, req.params.secteurKey, req.body.label);
+    res.json({ ok: true, secteurs });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.delete('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    const secteurs = goals.removePoleOrSecteur(activityId, req.params.secteurKey);
+    res.json({ ok: true, secteurs });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.put('/activities/:id/goals/categories/:key/secteurs-reorder', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  const keys = Array.isArray(req.body.keys) ? req.body.keys : [];
+  try {
+    const secteurs = goals.reorderSecteurs(activityId, req.params.key, keys);
+    res.json({ ok: true, secteurs });
   } catch (err) {
     handleGoalsError(res, err);
   }
@@ -387,8 +505,8 @@ router.post('/activities/:id/goals/categories/:key/tasks', (req, res) => {
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
-  if (!goals.isValidCategoryForActivity(activityId, req.params.key)) {
-    return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
+  if (!goals.isValidPoleForActivity(activityId, req.params.key)) {
+    return res.status(400).json({ error: 'Pôle invalide pour cette activité.' });
   }
 
   try {
@@ -467,8 +585,8 @@ router.get('/activities/:id/goals/capacity', (req, res) => {
 
   try {
     const category = resolveCategory(activityId, req.query.category);
-    if (!goals.isValidCategoryForActivity(activityId, category)) {
-      return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
+    if (!goals.isValidPoleForActivity(activityId, category)) {
+      return res.status(400).json({ error: 'Pôle invalide pour cette activité.' });
     }
     const override = goalsauto.getCapacityOverrideMinutes(activityId, category, userId);
     const computed = goalsauto.capacityMinutesForMember(activityId, category, userId);
@@ -491,8 +609,8 @@ router.put('/activities/:id/goals/capacity', (req, res) => {
 
   try {
     const category = resolveCategory(activityId, req.body.category);
-    if (!goals.isValidCategoryForActivity(activityId, category)) {
-      return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
+    if (!goals.isValidPoleForActivity(activityId, category)) {
+      return res.status(400).json({ error: 'Pôle invalide pour cette activité.' });
     }
     if (req.body.weeklyMinutes === null || req.body.weeklyMinutes === '' || req.body.weeklyMinutes === undefined) {
       goalsauto.clearCapacityOverride(activityId, category, userId);

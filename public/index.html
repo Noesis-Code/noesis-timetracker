@@ -957,7 +957,7 @@
              de l'activité (toujours au moins une, jamais vide, voir
              server/lib/goals.js#categoriesForActivity). -->
         <div id="chronoCategoryWrap" class="chronoSubProjectWrap hidden">
-          <label class="stopFieldLabel" for="chronoCategorySelect">Catégorie (facultatif)</label>
+          <label class="stopFieldLabel" for="chronoCategorySelect">Pôle ou secteur (facultatif)</label>
           <select id="chronoCategorySelect" class="subProjectSelect"></select>
           <p id="chronoCategoryMsg" class="msg"></p>
         </div>
@@ -1000,7 +1000,7 @@
                  17 septembre 2026 : remplace le sous-projet, voir le
                  commentaire de #chronoCategoryWrap plus haut. -->
             <div id="stopCategoryWrap" class="hidden">
-              <p class="stopFieldLabel">Catégorie</p>
+              <p class="stopFieldLabel">Pôle ou secteur</p>
               <select id="stopCategorySelect" class="subProjectSelect"></select>
             </div>
             <p id="stopDurationLabel" class="meta"></p>
@@ -1910,7 +1910,7 @@
              sur les catégories Objectifs de l'activité. -->
         <div id="caCategoryFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
           <button type="button" class="caSubProjectBtn" id="caCategoryBtn" aria-haspopup="true">
-            <span id="caCategoryBtnLabel">Toutes les catégories</span>
+            <span id="caCategoryBtnLabel">Tous les pôles</span>
           </button>
           <div class="statsPeriodMenu caSubProjectMenu hidden" id="caCategoryMenu"></div>
         </div>
@@ -2009,7 +2009,7 @@
              total affiché juste au-dessus. -->
         <div id="activitySoloStatsBlock" class="statsSection hidden">
           <div class="sectionTitleRow">
-            <p class="sectionTitle">Par catégorie</p>
+            <p class="sectionTitle">Par pôle</p>
             <div class="statsPeriodMenuWrap" id="soloStatsPeriodWrap">
               <button type="button" class="menuBtn" id="soloStatsPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="soloStatsPeriodMenu">
@@ -2082,7 +2082,7 @@
                entre la bulle et les catégories, puisqu'il correspond à
                l'ajout d'une CATÉGORIE, pas d'une tâche. -->
           <div class="activityGoalsCategoryAddRow">
-            <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter une catégorie">+</button>
+            <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter un pôle">+</button>
           </div>
           <div id="activityGoalsCategoriesList" class="activityGoalsCategoriesList"></div>
           <p id="activityGoalsCategoriesMsg" class="msg"></p>
