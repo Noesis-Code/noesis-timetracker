@@ -846,10 +846,31 @@
   // n'indique que ce signal-ci souffre du même défaut, mais à confirmer par
   // Emilien sur son téléphone comme tout correctif clavier/viewport de ce
   // journal.
+  // 20 septembre 2026 (Design) : Emilien a signalé, captures à l'appui, que
+  // le même symptôme (l'en-tête disparaît/passe sous la barre d'état pendant
+  // que le clavier est ouvert) se reproduit sur la page détail d'une période
+  // d'Objectifs (#goalsDetailPage, en tapant dans un objectif hebdomadaire) —
+  // écran jamais couvert par le correctif .topbar des 28e/29e/30e passages
+  // ci-dessous, pour une raison structurelle simple : #goalsDetailPage (comme
+  // #activityPage, même gabarit) est une page PLEIN ÉCRAN qui masque .topbar
+  // pendant qu'elle est ouverte — elle a son propre en-tête (.activityPageHeader),
+  // lui aussi position:fixed (hérité de .communityMembersModal, inset:0), donc
+  // exposé au même bug WebKit (visualViewport qui panne sans que l'élément
+  // fixed ne suive). Généralisé plutôt que dupliqué : le mécanisme ci-dessous
+  // pince désormais TOUT en-tête position:fixed actuellement visible parmi
+  // .topbar et les .activityPageHeader de #activityPage/#goalsDetailPage (les
+  // seules pages plein écran de ce type) — jamais celui de
+  // #goalsActivitySwitcher (page 1, .tab normale, pas position:fixed, suit
+  // déjà correctement le panning comme tout contenu en flux normal, une
+  // translation ici serait un DOUBLE décalage). getClientRects().length sert
+  // de test de visibilité (pas offsetParent, toujours nul sur un élément
+  // fixed quel que soit son état — piège déjà documenté pour #goalsScrubZone).
   if (_isCoarsePointer && window.visualViewport) {
     (function () {
-      var topbarEl = document.querySelector('.topbar');
-      if (!topbarEl) return;
+      var pinTargets = document.querySelectorAll(
+        '#topbar, #activityPage .activityPageHeader, #goalsDetailPage .activityPageHeader'
+      );
+      if (!pinTargets.length) return;
       var vv = window.visualViewport;
       var pinned = false;
       var unpinTimer = null;
@@ -879,7 +900,10 @@
         requestAnimationFrame(function () {
           requestAnimationFrame(function () {
             if (!pinned) return;
-            topbarEl.style.transform = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
+            var y = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
+            for (var i = 0; i < pinTargets.length; i++) {
+              if (pinTargets[i].getClientRects().length) pinTargets[i].style.transform = y;
+            }
           });
         });
       }
@@ -897,7 +921,7 @@
         unpinTimer = setTimeout(function () {
           if (_isTextInputEl(document.activeElement)) return;
           pinned = false;
-          topbarEl.style.transform = '';
+          for (var i = 0; i < pinTargets.length; i++) pinTargets[i].style.transform = '';
         }, 80);
       }, true);
       vv.addEventListener('resize', syncTopbarPin);
