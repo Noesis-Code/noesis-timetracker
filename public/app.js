@@ -846,30 +846,54 @@
   // n'indique que ce signal-ci souffre du même défaut, mais à confirmer par
   // Emilien sur son téléphone comme tout correctif clavier/viewport de ce
   // journal.
-  // 20 septembre 2026 (Design) : Emilien a signalé, captures à l'appui, que
-  // le même symptôme (l'en-tête disparaît/passe sous la barre d'état pendant
-  // que le clavier est ouvert) se reproduit sur la page détail d'une période
-  // d'Objectifs (#goalsDetailPage, en tapant dans un objectif hebdomadaire) —
-  // écran jamais couvert par le correctif .topbar des 28e/29e/30e passages
-  // ci-dessous, pour une raison structurelle simple : #goalsDetailPage (comme
-  // #activityPage, même gabarit) est une page PLEIN ÉCRAN qui masque .topbar
-  // pendant qu'elle est ouverte — elle a son propre en-tête (.activityPageHeader),
-  // lui aussi position:fixed (hérité de .communityMembersModal, inset:0), donc
-  // exposé au même bug WebKit (visualViewport qui panne sans que l'élément
-  // fixed ne suive). Généralisé plutôt que dupliqué : le mécanisme ci-dessous
-  // pince désormais TOUT en-tête position:fixed actuellement visible parmi
-  // .topbar et les .activityPageHeader de #activityPage/#goalsDetailPage (les
-  // seules pages plein écran de ce type) — jamais celui de
-  // #goalsActivitySwitcher (page 1, .tab normale, pas position:fixed, suit
-  // déjà correctement le panning comme tout contenu en flux normal, une
-  // translation ici serait un DOUBLE décalage). getClientRects().length sert
-  // de test de visibilité (pas offsetParent, toujours nul sur un élément
-  // fixed quel que soit son état — piège déjà documenté pour #goalsScrubZone).
+  // 20 septembre 2026 (Design), 2e correction du jour — deux retours d'Emilien
+  // après déploiement du 1er correctif (qui ne pinçait que .topbar) :
+  // (1) le même symptôme (en-tête qui sort de l'écran pendant que le clavier
+  //     est ouvert) se reproduit sur #goalsDetailPage (page détail d'une
+  //     période d'Objectifs) — jamais couvert par le 1er correctif ;
+  // (2) régression constatée sur cet écran : l'en-tête y devient TRANSPARENT
+  //     (le texte de la liste en dessous se voit à travers) pendant que le
+  //     clavier est ouvert.
+  // Cause des deux, ET du 1er correctif lui-même ayant introduit (2) :
+  // #goalsDetailPage / #activityPage (même gabarit, .communityMembersModal)
+  // sont des pages PLEIN ÉCRAN en position:fixed;inset:0 — exposées au même
+  // bug WebKit que .topbar (le viewport visuel panne sans que l'élément fixed
+  // ne suive). Le 1er correctif ne pinçait QUE leur .activityPageHeader (un
+  // simple enfant flex, PAS lui-même position:fixed) sans toucher au
+  // conteneur plein écran qui, lui, continuait de panner de façon compensée
+  // nulle part — l'en-tête (translaté seul) se retrouvait donc DÉSYNCHRONISÉ
+  // du reste de la page (resté en place), les deux blocs se chevauchant
+  // partiellement : l'en-tête n'a pas de fond opaque qui lui soit propre (il
+  // hérite du fond de la carte), donc le contenu de la liste — qui, lui,
+  // n'avait pas bougé — se voyait au travers de la zone où l'en-tête venait
+  // d'être déplacé. Correctif : pincer le conteneur PLEIN ÉCRAN entier
+  // (#activityPage, #goalsDetailPage), pas seulement son en-tête — en-tête et
+  // contenu se déplacent alors ENSEMBLE, comme un seul bloc rigide, exactement
+  // comme .topbar (élément unique, pas de composition tête+corps). Ceci
+  // corrige aussi, par le même mécanisme, un 3e symptôme signalé le même jour
+  // (curseur du composeur de Discussion qui rendait plus bas que la zone de
+  // saisie) : ce composeur vit lui aussi dans #activityPage, donc partageait
+  // la même absence de compensation avant ce passage-ci.
+  // Jamais #goalsActivitySwitcher (page 1 d'Objectifs, .tab normale, pas
+  // position:fixed — suit déjà le panning comme tout contenu en flux normal,
+  // le pincer serait un DOUBLE décalage). getClientRects().length sert de
+  // test de visibilité (pas offsetParent, toujours nul sur un élément fixed
+  // quel que soit son état — piège déjà documenté pour #goalsScrubZone).
+  //
+  // 3e retour du même jour : l'en-tête « fait un saut » à l'ouverture du
+  // clavier avant de se stabiliser — la lecture de vv.offsetTop différée de
+  // deux requestAnimationFrame (nécessaire contre le bug WebKit 237851, voir
+  // plus bas) crée un délai perceptible où l'élément reste non compensé avant
+  // de se corriger d'un coup. Réduit (jamais éliminé, la source du délai —
+  // le bug 237851 lui-même — restant nécessaire à contourner) par une
+  // application SYNCHRONE immédiate en plus de la correction différée : dans
+  // l'immense majorité des cas la lecture immédiate est déjà correcte (le
+  // bug ne se déclenche qu'à l'instant précis de l'événement resize/scroll,
+  // pas toujours), donc l'élément suit sans latence visible ; la correction
+  // différée ne se voit alors qu'en cas de lecture erronée.
   if (_isCoarsePointer && window.visualViewport) {
     (function () {
-      var pinTargets = document.querySelectorAll(
-        '#topbar, #activityPage .activityPageHeader, #goalsDetailPage .activityPageHeader'
-      );
+      var pinTargets = document.querySelectorAll('#topbar, #activityPage, #goalsDetailPage');
       if (!pinTargets.length) return;
       var vv = window.visualViewport;
       var pinned = false;
@@ -895,15 +919,19 @@
       // deux `requestAnimationFrame` imbriqués ("avant le prochain paint
       // qui suit le prochain paint"), jamais de façon synchrone dans le
       // callback resize/scroll lui-même.
+      function applyPin() {
+        var y = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
+        for (var i = 0; i < pinTargets.length; i++) {
+          if (pinTargets[i].getClientRects().length) pinTargets[i].style.transform = y;
+        }
+      }
       function syncTopbarPin() {
         if (!pinned) return;
+        applyPin();
         requestAnimationFrame(function () {
           requestAnimationFrame(function () {
             if (!pinned) return;
-            var y = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
-            for (var i = 0; i < pinTargets.length; i++) {
-              if (pinTargets[i].getClientRects().length) pinTargets[i].style.transform = y;
-            }
+            applyPin();
           });
         });
       }
