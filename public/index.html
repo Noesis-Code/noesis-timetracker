@@ -2299,6 +2299,16 @@
              posées par app.js qu'au-delà de 2 — voir renderGoalsGridHead()/
              renderGoalsGrid()). -->
         <div id="goalsGridScroll" class="goalsGridScroll">
+          <!-- 20 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
+               contour unique en pointillés de la zone "ajouter un secteur"
+               (en-tête + 13 cases), remplace les bordures par case
+               (styles.css, .goalsGridAddOutline) — positionné/dimensionné en
+               JS par positionGoalsAddOutline() (app.js), appelée depuis
+               syncGoalsGridWidths(). Premier enfant pour rester sous le
+               reste du contenu dans l'ordre de peinture normal (pas de
+               z-index dédié nécessaire, display:none par défaut tant que
+               positionGoalsAddOutline() ne l'active pas). -->
+          <div id="goalsGridAddOutline" class="goalsGridAddOutline"></div>
           <div class="goalsGridHead" id="goalsGridHead"></div>
 
           <!-- Grille de comparaison des catégories : une ligne par période du

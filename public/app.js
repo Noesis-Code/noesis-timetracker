@@ -6357,48 +6357,39 @@
   // (maxCategories, posé par /goals/all — voir server/routes/goals.js) :
   // au plafond, ajouter n'a plus de sens, même garde que le formulaire
   // d'ajout du panneau de gestion (fenêtre activité, activityGoalsCategoryAddWrap).
+  // 20 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : plus
+  // aucune catégorie réelle active — categories vide (état transitoire avant
+  // chargement, ou toutes gelées) OU l'unique catégorie active est encore la
+  // catégorie factice synthétisée côté serveur sans écriture (c.custom ===
+  // false, jamais vrai pour une catégorie créée/renommée par l'utilisateur,
+  // voir categoriesForActivity(), server/lib/goals.js). Remplace l'ancien
+  // traitement séparé "0 catégorie" (verrouillage du défilement) et "1
+  // catégorie factice" (.goalsGridHeadCell--defaultAdd, 16 septembre) par UN
+  // SEUL état unifié — demande d'Emilien, « si une activité n'a aucun pôle,
+  // je souhaite que cette présentation [la boîte "ajouter un secteur"] soit
+  // directement sur la première page sans swiper » : dans les deux cas, il
+  // n'y a rien à montrer à côté, donc la case d'ajout prend toute la page 1.
+  function goalsHasNoRealCategory(categories) {
+    return categories.length === 0 || (categories.length === 1 && categories[0].custom === false);
+  }
+
   function renderGoalsGridHead() {
     var head = $('goalsGridHead');
     if (!head) return;
     head.innerHTML = '';
     var categories = activeGoalsCategories();
     var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
-    head.classList.toggle('goalsGridHead--paged', categories.length > 2);
-    // 16 septembre 2026 (discussion "Objectifs — Arbre périodique"), demande
-    // d'Emilien : « si aucune catégorie n'a encore été attribuée à
-    // l'activité, l'arbre soit tout de même présent avec une seule branche
-    // [ce qui est déjà le cas, categoriesForActivity() synthétise "Catégorie
-    // 1" côté serveur sans écriture] mais ajouter un plus à la place de
-    // catégorie. La catégorie 1, par défaut, ne me plaît pas. » — quand la
-    // seule catégorie active est cette catégorie factice (c.custom === false,
-    // jamais vrai pour une catégorie créée/renommée par l'utilisateur, voir
-    // categoriesForActivity(), server/lib/goals.js), son badge devient un
-    // bouton « + » (même habillage que la case "page +" ci-dessous,
-    // .goalsGridHeadCell--defaultAdd, styles.css) plutôt que le libellé
-    // coloré "Catégorie 1" — cliquer dessus ouvre directement les réglages
-    // de catégorie de cette activité (goToGoalsCategorySettings(), plus bas
-    // dans ce fichier), pour créer une VRAIE première catégorie.
-    var onlyDefaultCategory = categories.length === 1 && categories[0].custom === false;
+    var hasNoRealCategory = goalsHasNoRealCategory(categories);
+    head.classList.toggle('goalsGridHead--paged', !hasNoRealCategory && categories.length > 2);
     // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
-    // nouveau cas "0 catégorie" (categories vide — état transitoire avant
-    // chargement, ou toutes gelées) — demande d'Emilien : verrouiller le
-    // défilement horizontal de #goalsGridScroll à exactement une page (voir
-    // .goalsGridScroll--locked, styles.css). Sans effet dès qu'au moins une
-    // catégorie (même la catégorie factice par défaut) est active.
+    // verrouiller le défilement horizontal de #goalsGridScroll à exactement
+    // une page (voir .goalsGridScroll--locked, styles.css) tant qu'il n'y a
+    // aucune catégorie réelle — voir goalsHasNoRealCategory() ci-dessus.
     var gridScrollEl = $('goalsGridScroll');
-    if (gridScrollEl) gridScrollEl.classList.toggle('goalsGridScroll--locked', categories.length === 0);
-    categories.forEach(function (c, index) {
-      var span;
-      if (onlyDefaultCategory) {
-        span = document.createElement('button');
-        span.type = 'button';
-        span.className = 'goalsGridHeadCell goalsGridHeadCell--defaultAdd';
-        span.textContent = '+';
-        span.title = t('Ajouter une catégorie');
-        span.setAttribute('aria-label', t('Ajouter une catégorie'));
-        span.addEventListener('click', goToGoalsCategorySettings);
-      } else {
-        span = document.createElement('span');
+    if (gridScrollEl) gridScrollEl.classList.toggle('goalsGridScroll--locked', hasNoRealCategory);
+    if (!hasNoRealCategory) {
+      categories.forEach(function (c, index) {
+        var span = document.createElement('span');
         span.className = 'goalsGridHeadCell';
         span.textContent = t(c.label);
         var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
@@ -6406,19 +6397,18 @@
         // demande d'Emilien : « je laisse la couleur noire à l'intérieur et
         // mets le titre de la catégorie en couleur » — fond transparent (la
         // page se voit au travers, thème clair ou sombre), texte et liseré
-        // (bordure + anneau, .goalsGridHeadCell:not(--defaultAdd) ci-dessous,
-        // styles.css) dans displayColor. Remplace le texte noir/blanc
-        // (readableTextOn) et le liseré noir/blanc translucide du passage
-        // précédent, devenus sans objet : il n'y a plus de fond rempli dont
-        // dériver un contraste.
+        // (bordure + anneau, .goalsGridHeadCell ci-dessous, styles.css) dans
+        // displayColor. Remplace le texte noir/blanc (readableTextOn) et le
+        // liseré noir/blanc translucide du passage précédent, devenus sans
+        // objet : il n'y a plus de fond rempli dont dériver un contraste.
         var displayColor = eclairciPourLisibilite(shade);
         span.style.background = 'transparent';
         span.style.color = displayColor;
         span.style.borderColor = displayColor;
         span.style.outlineColor = displayColor;
-      }
-      head.appendChild(span);
-    });
+        head.appendChild(span);
+      });
+    }
     // 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que
     // le bouton + ne s'affiche plus à droite des catégories, mais qu'il
     // s'affiche au milieu d'une nouvelle page lorsque je défile sur la
@@ -6430,22 +6420,25 @@
     // syncGoalsGridWidths() (appelée après ce rendu, voir plus bas) une
     // fois le DOM en place, pas ici (getBoundingClientRect() ici donnerait
     // la largeur d'AVANT l'ajout de cette case, donc fausse).
-    if (categories.length < maxCategories) {
+    if (hasNoRealCategory || categories.length < maxCategories) {
       var addCell = document.createElement('button');
       addCell.type = 'button';
       addCell.className = 'goalsGridHeadCell--add';
-      addCell.title = t('Ajouter une catégorie');
-      addCell.setAttribute('aria-label', t('Ajouter une catégorie'));
+      addCell.title = t('Ajouter un secteur');
+      addCell.setAttribute('aria-label', t('Ajouter un secteur'));
       // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
-      // couleur de la boîte continue (capuchon d'en-tête + 13 cases,
-      // styles.css) — la nuance qu'aurait la PROCHAINE catégorie créée,
-      // même fonction que les vraies catégories/bulles remplies.
-      addCell.style.setProperty('--goalsAddAccent', subProjectShade(currentGoalsActivityColor, categories.length, SUB_PROJECT_SHADE_COUNT));
-      var addPill = document.createElement('span');
-      addPill.className = 'goalsGridHeadCellAddPill';
-      addCell.appendChild(addPill);
+      // couleur du contour continu (#goalsGridAddOutline, styles.css,
+      // positionGoalsAddOutline() plus bas) — la nuance qu'aurait la
+      // PROCHAINE catégorie créée, même fonction que les vraies
+      // catégories/bulles remplies. hasNoRealCategory : aucune vraie
+      // catégorie avant cette case, donc index 0 (comme la toute première
+      // catégorie qui serait créée).
+      var addAccent = subProjectShade(currentGoalsActivityColor, hasNoRealCategory ? 0 : categories.length, SUB_PROJECT_SHADE_COUNT);
+      addCell.style.setProperty('--goalsAddAccent', addAccent);
       addCell.addEventListener('click', goToGoalsCategorySettings);
       head.appendChild(addCell);
+      var outlineEl = $('goalsGridAddOutline');
+      if (outlineEl) outlineEl.style.setProperty('--goalsAddAccent', addAccent);
     }
     window.requestAnimationFrame(syncGoalsGridWidths);
   }
@@ -6535,20 +6528,64 @@
   // .goalsGridRow--paged (styles.css) fixent déjà leurs cellules en
   // calc(50% - 5px), qui est DÉJÀ une largeur fixe (pas proportionnelle),
   // donc déjà à l'abri de ce problème.
+  // 20 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
+  // positionne/dimensionne #goalsGridAddOutline (styles.css) — le contour en
+  // pointillés UNIQUE de la boîte "ajouter un secteur" (en-tête + 13 cases),
+  // qui remplace les bordures par case (ne peut donc plus avoir de coupure
+  // de jonction, demande d'Emilien). Appelée depuis syncGoalsGridWidths()
+  // (donc après chaque re-rendu/redimensionnement) plutôt que posée une
+  // seule fois : la case d'ajout peut apparaître/disparaître/changer de
+  // largeur à tout moment (nombre de catégories, pagination, rotation
+  // d'écran). Coordonnées en px absolus relatifs à #goalsGridScroll (déjà
+  // position: relative, styles.css) : la soustraction de deux
+  // getBoundingClientRect() pris au même instant annule le décalage de
+  // défilement commun (horizontal ET vertical), donc correcte quel que soit
+  // le scroll en cours — pas besoin de recalculer au défilement lui-même.
+  function positionGoalsAddOutline() {
+    var outline = $('goalsGridAddOutline');
+    var scroll = $('goalsGridScroll');
+    var head = $('goalsGridHead');
+    var grid = $('goalsGrid');
+    var addHeadCell = document.querySelector('.goalsGridHeadCell--add');
+    if (!outline || !scroll || !head || !grid) return;
+    if (!addHeadCell) { outline.style.display = 'none'; return; }
+    var scrollRect = scroll.getBoundingClientRect();
+    var addRect = addHeadCell.getBoundingClientRect();
+    var headRect = head.getBoundingClientRect();
+    var gridRect = grid.getBoundingClientRect();
+    outline.style.display = 'block';
+    outline.style.left = (addRect.left - scrollRect.left + scroll.scrollLeft) + 'px';
+    outline.style.width = addRect.width + 'px';
+    outline.style.top = (headRect.top - scrollRect.top) + 'px';
+    outline.style.height = Math.max(0, gridRect.bottom - headRect.top) + 'px';
+  }
+
   function syncGoalsGridWidths() {
     var scroll = $('goalsGridScroll');
     if (!scroll) return;
     var w = scroll.clientWidth;
     if (!w) return;
-    document.querySelectorAll('.goalsGridHeadCell--add, .goalsGridCell--add').forEach(function (el) {
-      el.style.flex = '0 0 ' + w + 'px';
-      el.style.width = w + 'px';
-    });
-
     var categories = activeGoalsCategories();
     var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
-    var showAddSlot = categories.length < maxCategories;
-    var isPaged = categories.length > 2;
+    var hasNoRealCategory = goalsHasNoRealCategory(categories);
+    // 20 septembre 2026 : quand il n'y a aucune catégorie réelle, la case
+    // d'ajout occupe toute la largeur disponible (flex: 1 1 0, comme une
+    // catégorie normale seule) plutôt qu'une largeur fixe — demande
+    // d'Emilien, « directement sur la première page sans swiper » (rien à
+    // paginer, une seule case visible).
+    if (hasNoRealCategory) {
+      document.querySelectorAll('.goalsGridHeadCell--add, .goalsGridCell--add').forEach(function (el) {
+        el.style.flex = '1 1 0'; el.style.width = '';
+      });
+    } else {
+      document.querySelectorAll('.goalsGridHeadCell--add, .goalsGridCell--add').forEach(function (el) {
+        el.style.flex = '0 0 ' + w + 'px';
+        el.style.width = w + 'px';
+      });
+    }
+
+    var showAddSlot = !hasNoRealCategory && categories.length < maxCategories;
+    var isPaged = !hasNoRealCategory && categories.length > 2;
     if (showAddSlot && !isPaged && categories.length > 0) {
       var gap = 10;
       var each = Math.max(0, (w - gap * (categories.length - 1)) / categories.length);
@@ -6562,10 +6599,22 @@
       });
     }
 
+    // 20 septembre 2026 : le séparateur horizontal de période
+    // (.goalsGridRow::before, styles.css) ne doit plus traverser la case
+    // "ajouter un secteur" — demande d'Emilien, « supprime [...] les lignes
+    // pointillées horizontale dans cette zone ». Sa largeur s'arrête donc au
+    // bord réel des catégories (fullWidth - largeur de la case d'ajout - le
+    // gap qui la précède), plutôt que la largeur totale du contenu qui
+    // inclut cette case — ce calcul reste correct quel que soit le nombre de
+    // catégories réelles (les écarts entre elles s'annulent dans l'algèbre).
+    // hasNoRealCategory : aucune catégorie réelle, donc rien à séparer, 0.
     var fullWidth = scroll.scrollWidth;
+    var categoriesWidth = hasNoRealCategory ? 0 : (showAddSlot ? Math.max(0, fullWidth - w - 10) : fullWidth);
     document.querySelectorAll('.goalsGridRow').forEach(function (row) {
-      row.style.setProperty('--goalsRowFullWidth', fullWidth + 'px');
+      row.style.setProperty('--goalsRowFullWidth', categoriesWidth + 'px');
     });
+
+    positionGoalsAddOutline();
   }
   window.addEventListener('resize', syncGoalsGridWidths);
   window.addEventListener('orientationchange', syncGoalsGridWidths);
@@ -6580,7 +6629,8 @@
     // ci-dessus — la colonne « page + » (voir plus bas dans cette fonction)
     // n'existe que sous le plafond de catégories, jamais au-delà.
     var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
-    var showAddSlot = categories.length < maxCategories;
+    var hasNoRealCategory = goalsHasNoRealCategory(categories);
+    var showAddSlot = hasNoRealCategory || categories.length < maxCategories;
     // Repère visuel vers le MILIEU du cycle (13 périodes) pour n'y placer le
     // signe + qu'une seule fois — « je souhaite qu'il s'affiche au milieu
     // d'une nouvelle page », voir .goalsGridCell--addCenter, styles.css.
@@ -6612,11 +6662,11 @@
     for (var i = 1; i <= 13; i += 1) {
       (function (periodIndex) {
         var row = document.createElement('div');
-        row.className = 'goalsGridRow' + (categories.length > 2 ? ' goalsGridRow--paged' : '');
+        row.className = 'goalsGridRow' + (!hasNoRealCategory && categories.length > 2 ? ' goalsGridRow--paged' : '');
         row.setAttribute('data-period-index', String(periodIndex));
 
         var repPeriod = null;
-        categories.forEach(function (c, index) {
+        if (!hasNoRealCategory) categories.forEach(function (c, index) {
           var p = indexByCategory[c.key][periodIndex];
           var cell = document.createElement('button');
           cell.type = 'button';
@@ -6661,17 +6711,23 @@
             txt.style.color = 'var(--bg)';
 
             // 17 septembre 2026 (discussion "Objectifs — Arbre périodique") :
-            // trait vertical de continuité coloré à la nuance de la catégorie,
-            // uniquement quand la bulle du dessus (période précédente) ET la
-            // bulle du dessous (période suivante) sont TOUTES LES DEUX
-            // remplies — demande d'Emilien. .goalsGridCell::before/::after
-            // (styles.css) portent chacun une moitié du trait (vers le haut /
-            // vers le bas) et lisent ces variables, avec repli sur
-            // var(--track-bg) si absentes (bulle voisine vide ou inexistante).
+            // trait vertical de continuité coloré à la nuance de la
+            // catégorie, uniquement quand la bulle du dessus (période
+            // précédente) est elle aussi remplie — demande d'Emilien.
+            // 20 septembre 2026 : ancien schéma à DEUX éléments/variables
+            // (.goalsGridCell::before pour la moitié haute + ::after pour la
+            // moitié basse, chacun lisant sa propre variable) remplacé par UN
+            // SEUL élément par écart, entièrement possédé par la cellule DU
+            // BAS (.goalsGridCell::before, styles.css, désormais couvre tout
+            // l'écart de 44px) — Emilien signalait une coupure visible au
+            // point de jonction entre les deux anciens éléments ; un seul
+            // élément supprime cette jonction. Variable renommée
+            // --goalsCellLineColor (remplace les deux précédentes), posée
+            // uniquement quand la période PRÉCÉDENTE est remplie (c'est elle
+            // qui possède visuellement l'écart au-dessus de cette cellule) ;
+            // repli sur var(--track-bg) sinon, comportement neutre inchangé.
             var prevP = indexByCategory[c.key][periodIndex - 1];
-            var nextP = indexByCategory[c.key][periodIndex + 1];
-            if (prevP && prevP.mainGoalText) cell.style.setProperty('--goalsCellLineUpColor', filledShade);
-            if (nextP && nextP.mainGoalText) cell.style.setProperty('--goalsCellLineDownColor', filledShade);
+            if (prevP && prevP.mainGoalText) cell.style.setProperty('--goalsCellLineColor', filledShade);
           } else {
             // Aucun objectif périodique pour cette (période, catégorie) —
             // pavé fantôme + trait de continuité, revu le 15 septembre 2026
@@ -6698,24 +6754,27 @@
         if (showAddSlot) {
           var addCell = document.createElement('button');
           addCell.type = 'button';
-          addCell.title = t('Ajouter une catégorie');
-          addCell.setAttribute('aria-label', t('Ajouter une catégorie'));
+          addCell.title = t('Ajouter un secteur');
+          addCell.setAttribute('aria-label', t('Ajouter un secteur'));
           addCell.className = 'goalsGridCell goalsGridCell--add' + (periodIndex === addCenterPeriodIndex ? ' goalsGridCell--addCenter' : '');
           // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
-          // même couleur que le capuchon d'en-tête (voir renderGoalsGridHead()
-          // ci-dessus) — les 13 cases + l'en-tête forment une seule boîte
-          // continue à la même nuance, sur maquette validée ("modèle B").
-          addCell.style.setProperty('--goalsAddAccent', subProjectShade(currentGoalsActivityColor, categories.length, SUB_PROJECT_SHADE_COUNT));
-          var addGhost = document.createElement('span');
-          addGhost.className = 'goalsGridCellAddGhost';
-          addCell.appendChild(addGhost);
+          // même couleur que le contour continu de l'en-tête (voir
+          // renderGoalsGridHead() ci-dessus) — les 13 cases + l'en-tête
+          // forment une seule boîte continue à la même nuance.
+          // 20 septembre 2026 : plus de pavé « fantôme » propre à chaque
+          // case (.goalsGridCellAddGhost retiré) — demande d'Emilien,
+          // « supprime les arbre » (l'impression de vraies bulles dans une
+          // page censée être vide) ; seul le contour unique
+          // (#goalsGridAddOutline, positionGoalsAddOutline()) + le « + »
+          // subsistent dans cette zone.
+          addCell.style.setProperty('--goalsAddAccent', subProjectShade(currentGoalsActivityColor, hasNoRealCategory ? 0 : categories.length, SUB_PROJECT_SHADE_COUNT));
           if (periodIndex === addCenterPeriodIndex) {
             var addIcon = document.createElement('span');
             addIcon.className = 'goalsGridCellAddIcon';
             addIcon.textContent = '+';
             var addLabel = document.createElement('span');
             addLabel.className = 'goalsGridCellAddLabel';
-            addLabel.textContent = t('Ajouter une catégorie');
+            addLabel.textContent = t('Ajouter un secteur');
             addCell.appendChild(addIcon);
             addCell.appendChild(addLabel);
           }

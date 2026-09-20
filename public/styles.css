@@ -4242,13 +4242,14 @@ button { -webkit-user-select: none; user-select: none; }
    (padding/police), majuscules espacées, ombre portée (--shadow-badge
    ci-dessus, déjà théméifiée clair/sombre comme --shadow-card) et double
    liseré (bordure + anneau intérieur, couleur posée en JS ci-dessus, voir
-   renderGoalsGridHead()). Exclut explicitement .goalsGridHeadCell--defaultAdd
-   (case "+" en pointillés, discussion "Objectifs — Arbre périodique", 16
-   septembre) : ce badge reste inchangé à l'identique, seules les vraies
-   catégories personnalisées reçoivent ce traitement. outline-offset négatif
-   loge l'anneau intérieur SOUS la bordure, à l'intérieur du padding existant,
-   sans toucher au texte ni au overflow:ellipsis ci-dessus. */
-.goalsGridHeadCell:not(.goalsGridHeadCell--defaultAdd) {
+   renderGoalsGridHead()). outline-offset négatif loge l'anneau intérieur SOUS
+   la bordure, à l'intérieur du padding existant, sans toucher au texte ni au
+   overflow:ellipsis ci-dessus. 20 septembre 2026 : le qualificatif
+   :not(.goalsGridHeadCell--defaultAdd) est retiré — cette classe n'existe
+   plus (voir commentaire de .goalsGridHeadCell--add plus haut), et cette
+   règle ne s'applique de toute façon jamais à .goalsGridHeadCell--add
+   (classe indépendante, jamais combinée avec .goalsGridHeadCell). */
+.goalsGridHeadCell {
   padding: 10px 8px;
   font-size: 14px;
   border-radius: var(--radius-md);
@@ -4297,45 +4298,39 @@ button { -webkit-user-select: none; user-select: none; }
    pastille en pointillés centrée (.goalsGridHeadCellAddPill plus bas),
    fidèle à la maquette — la largeur/le point de clic restent inchangés
    (toujours pilotés par syncGoalsGridWidths()/goToGoalsCategorySettings()). */
+/* 20 septembre 2026 : la case d'en-tête "ajouter un secteur" perd toute
+   bordure/pastille propre — Emilien signale que le pointillé de cette boîte
+   n'était pas continu à ses jonctions (case d'en-tête / 13 cases de ligne)
+   et demande « qu'il n'y ait plus que les pointillés colorés qui font le
+   tour [...] et le + ». Remplacé par UN SEUL contour, #goalsGridAddOutline
+   (voir plus bas dans ce fichier et positionGoalsAddOutline(), app.js),
+   positionné par-dessus l'en-tête + les 13 lignes : un unique border ne peut
+   pas avoir de coupure de jonction puisqu'il n'y a plus qu'une seule boîte.
+   Cette case reste uniquement la zone cliquable (transparente, sans bordure
+   propre) — même redirection qu'avant (goToGoalsCategorySettings()).
+   20 septembre 2026 (suite) : l'ancienne case "Catégorie 1" par défaut
+   (.goalsGridHeadCell--defaultAdd, 16 septembre) est retirée — demande
+   d'Emilien, « si une activité n'a aucun pôle, je souhaite que cette
+   présentation [la boîte "ajouter un secteur"] soit directement sur la
+   première page sans swiper ». Quand l'activité n'a encore aucune vraie
+   catégorie (categories.length===0, ou l'unique catégorie factice
+   c.custom===false — voir hasNoRealCategory, renderGoalsGridHead()/
+   renderGoalsGrid(), app.js), CETTE case (.goalsGridHeadCell--add) est
+   posée en pleine largeur (flex: 1 1 0, syncGoalsGridWidths()) à la place
+   d'une catégorie réelle, plutôt que reléguée à une page qu'il faudrait
+   atteindre en balayant — même case, même comportement, juste plus large. */
 .goalsGridHeadCell--add {
   flex: 0 0 auto; min-width: 0; min-height: 46px; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  position: relative; background: transparent; cursor: pointer;
-  border: 2px dashed var(--goalsAddAccent, var(--track-bg)); border-bottom: none;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  position: relative; background: transparent; border: none; cursor: pointer;
+  /* 20 septembre 2026 : .goalsGridHeadCell (base, plus haut) pose un
+     outline/box-shadow pour l'apparence "badge" des vraies catégories —
+     border: none seul ne les efface pas (outline est une propriété séparée
+     de border), d'où un rectangle plein résiduel visible malgré le contour
+     unique voulu (#goalsGridAddOutline). Effacés explicitement ici. */
+  outline: none; box-shadow: none;
 }
 .goalsGridHeadCell--add:active { transform: scale(0.98); }
-.goalsGridHeadCell--add::after {
-  content: ''; position: absolute; left: -2px; right: -2px; bottom: -18px; height: 18px;
-  border-left: 2px dashed var(--goalsAddAccent, var(--track-bg));
-  border-right: 2px dashed var(--goalsAddAccent, var(--track-bg));
-  pointer-events: none;
-}
-.goalsGridHeadCellAddPill {
-  display: block; width: 64px; height: 22px; border-radius: 999px;
-  border: 1.5px dashed var(--goalsAddAccent, var(--track-bg));
-  box-shadow: var(--shadow-badge); pointer-events: none;
-}
-/* 16 septembre 2026 (discussion "Objectifs — Arbre périodique") : catégorie
-   PAR DÉFAUT (unique, jamais encore personnalisée — categoriesForActivity(),
-   server/lib/goals.js, la synthétise sans écriture pour qu'une activité
-   garde toujours au moins une branche dans l'arbre). Demande d'Emilien : le
-   libellé "Catégorie 1" « ne me plaît pas. Je supprime le [...] ajouter un
-   plus à la place de catégorie » — même habillage en pointillés que la case
-   "page +" ci-dessus (même sens : « aucune vraie catégorie ici »), mais
-   flex: 1 1 0 (pas 0 0 auto) : il n'y a ici qu'UNE seule colonne au total,
-   elle doit remplir toute la largeur de l'en-tête comme un .goalsGridHeadCell
-   normal, pas se limiter à une page pleine réservée pour plus tard. Posée
-   par renderGoalsGridHead() (app.js) uniquement quand categories.length===1
-   && c.custom===false ; sinon le badge coloré habituel reste inchangé.
-   Même redirection au clic que la case "page +" (goToGoalsCategorySettings()). */
-.goalsGridHeadCell--defaultAdd {
-  flex: 1 1 0; min-width: 0; text-align: center; padding: 6px 4px;
-  border: 2px dashed var(--track-bg); border-radius: var(--radius-sm);
-  color: var(--text-light); background: transparent !important; cursor: pointer;
-  font-size: 11px; font-weight: 700;
-}
-.goalsGridHeadCell--defaultAdd:active { transform: scale(0.96); }
 /* Au-delà de 2 catégories (classe posée par renderGoalsGridHead(), app.js) :
    chaque badge occupe une demi-largeur FIXE plutôt que de toutes se
    partager la largeur disponible — les catégories suivantes débordent alors
@@ -4838,8 +4833,32 @@ button { -webkit-user-select: none; user-select: none; }
    seul ce conteneur commun est décalé vers la droite ; le reste de l'onglet
    (#goalsActivitySwitcher, .goalsActivityHeader) n'est pas concerné, demande
    explicite d'Emilien limitée à « l'arbre ». 44px = largeur de la zone du
-   rail (40px, voir .goalsScrubZone) + une petite marge visuelle. */
-.goalsGridScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 44px; }
+   rail (40px, voir .goalsScrubZone) + une petite marge visuelle.
+   20 septembre 2026 : 44px → 36px, suivant la largeur réduite du rail
+   (40px → 32px, voir .goalsScrubZone plus bas) — même formule (largeur du
+   rail + 4px). position: relative ajouté : sert désormais aussi d'ancrage
+   à #goalsGridAddOutline (contour de la boîte "ajouter un secteur", plus
+   bas), positionné en px absolus relatifs à ce conteneur.
+   20 septembre 2026 (bis, diagnostic approfondi "trait coloré coupé au
+   milieu") : isolation: isolate ajouté. Cause racine trouvée en bissectant
+   styles.css entier (script maison, ~830 blocs) : la règle `html {
+   background: #000000; }` (31 août 2026, plus bas) fait que le fond du
+   <body> n'est PAS promu sur le canevas (spécifique à html, cf. propagation
+   HTML5/CSS du fond) — il se peint alors comme un descendant normal du
+   contexte d'empilement RACINE, ce qui, dans l'ordre de peinture CSS2.1
+   Annexe E, arrive APRÈS les descendants à z-index négatif de CE MÊME
+   contexte. Le connecteur coloré (.goalsGridCell::before, z-index:-1, voir
+   plus bas) — comme .goalsGridScroll/.goalsGrid/.goalsGridRow/.goalsGridCell
+   ne créent aucun contexte d'empilement propre — remontait donc jusqu'à la
+   racine et pouvait se faire recouvrir par du contenu normal peint après
+   lui plus haut dans le document. isolation: isolate fait de ce conteneur
+   (déjà position: relative) un contexte d'empilement local : le connecteur
+   ne remonte plus au-delà, il se peint dans l'ordre local (avant le
+   contenu normal de CE conteneur seulement), donc jamais recouvert par le
+   fond de <body> ni par rien en dehors de #goalsGridScroll. Vérifié par
+   rendu headless (Playwright + échantillonnage pixel) sur le fichier
+   styles.css complet, pas seulement un extrait isolé. */
+.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 36px; }
 /* 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : nouveau
    cas "0 catégorie" (activeGoalsCategories() vide — état transitoire avant
    chargement, ou toutes catégories gelées) — demande d'Emilien : verrouiller
@@ -4848,7 +4867,11 @@ button { -webkit-user-select: none; user-select: none; }
    déjà la case d'ajout (largeur = scroll.clientWidth, syncGoalsGridWidths())
    donc scrollWidth === clientWidth en théorie — cette classe (posée en JS,
    renderGoalsGridHead()) coupe aussi tout rebond élastique/overscroll
-   résiduel (iOS) qui pourrait sinon laisser deviner un contenu au-delà. */
+   résiduel (iOS) qui pourrait sinon laisser deviner un contenu au-delà.
+   20 septembre 2026 : posée aussi quand l'activité n'a qu'une unique
+   catégorie FACTICE (goalsHasNoRealCategory(), app.js) — demande d'Emilien,
+   la boîte "ajouter un secteur" doit être directement sur la première page
+   dans ce cas aussi, pas seulement quand la liste est littéralement vide. */
 .goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
 /* 16 septembre 2026 (9e passage) : gap encore élargi, 16px → 32px — demande
    d'Emilien, « je souhaite véritablement qu'il y ait beaucoup plus d'espace
@@ -4907,8 +4930,17 @@ button { -webkit-user-select: none; user-select: none; }
    garde sa largeur naturelle (donc des demi-pages correctement dimensionnées),
    seul le trait décoratif s'étire jusqu'au bord réel du contenu. */
 .goalsGridRow { display: flex; align-items: stretch; gap: 10px; position: relative; }
+/* 20 septembre 2026 : z-index -2, sous les traits verticaux de continuité
+   colorés (.goalsGridCell::before/::after, z-index -1, plus bas) — demande
+   d'Emilien, « le trait coloré n'a pas de coupure au milieu ». Sans z-index
+   explicite, ce séparateur (positionné exactement au milieu de l'écart de
+   44px, comme les deux moitiés du trait vertical) peignait par-dessus leur
+   jonction et coupait visuellement le trait coloré au point exact où les
+   deux bulles se rejoignent. -2 le repousse derrière : le trait coloré,
+   quand il existe, reste continu par-dessus ; les pointillés neutres restent
+   visibles partout ailleurs (aucune cellule colorée à cet endroit). */
 .goalsGridRow:not(:first-child)::before {
-  content: ''; position: absolute; left: 0; top: -22px;
+  content: ''; position: absolute; left: 0; top: -22px; z-index: -2;
   width: var(--goalsRowFullWidth, 100%);
   border-top: 2px dashed var(--track-bg); pointer-events: none;
 }
@@ -4947,33 +4979,47 @@ button { -webkit-user-select: none; user-select: none; }
    son comportement (passe derrière le contenu, invisible sous une cellule
    pleine). */
 /* 17 septembre 2026 (discussion "Objectifs — Arbre périodique") : le trait de
-   continuité ci-dessus (un seul ::before par cellule, de -22px à -22px) est
-   scindé en deux moitiés indépendantes — ::before pour la moitié HAUTE (vers
-   la période précédente), ::after pour la moitié BASSE (vers la période
-   suivante) — chacune coupée exactement au milieu de la cellule (50%), pour
-   pouvoir les colorer différemment. Demande d'Emilien : « je souhaite que les
-   lignes verticales qui relient deux bulles [...] se colorent de la même
-   nuance utilisée pour les bulles, uniquement si la bulle supérieure et la
-   bulle inférieure ont été remplies ». Couleur lue depuis une variable CSS
-   posée en JS par cellule (--goalsCellLineUpColor/--goalsCellLineDownColor,
-   renderGoalsGrid(), app.js) uniquement quand la bulle voisine concernée est
-   elle aussi remplie ; repli sur var(--track-bg) (couleur neutre d'origine)
-   dans tous les autres cas — variable absente = comportement identique à
-   avant ce passage. */
+   continuité ci-dessus (un seul ::before par cellule, de -22px à -22px) a
+   été scindé en deux moitiés indépendantes — ::before pour la moitié HAUTE,
+   ::after pour la moitié BASSE, chacune coupée exactement au milieu de la
+   cellule (50%) — pour pouvoir les colorer indépendamment (variables
+   --goalsCellLineUpColor/--goalsCellLineDownColor, renderGoalsGrid(),
+   app.js) selon que la bulle du dessus et/ou celle du dessous étaient
+   remplies.
+   20 septembre 2026 : ce découpage en deux est retiré — demande d'Emilien,
+   « le trait coloré n'a pas de coupure au milieu ». Diagnostic (vérifié par
+   capture de pixels, navigateur headless) : le point de jonction entre les
+   deux moitiés (une par CELLULE différente — le ::after de la bulle du
+   dessus et le ::before de la bulle du dessous, deux éléments DOM séparés)
+   laisse un interstice de quelques pixels au rendu, même quand la géométrie
+   CSS calculée est parfaitement exacte (rendu à part de deux bordures
+   distinctes qui s'aboutent, pas un vrai défaut de calcul). La condition
+   demandée par Emilien (« uniquement si la bulle supérieure ET la bulle
+   inférieure ont été remplies ») est de toute façon un OU logique symétrique
+   par écart, pas vraiment deux couleurs indépendantes — un seul trait par
+   écart (drawn par la cellule du BAS, ::before uniquement, couvrant tout
+   l'écart de 44px et rien d'autre, jamais le corps d'une cellule) suffit et
+   supprime le point de jonction entièrement puisqu'il n'y a plus qu'UN SEUL
+   élément par écart. Variable renommée --goalsCellLineColor (remplace les
+   deux precedentes), posée uniquement quand la période précédente ET la
+   période courante sont toutes deux remplies (voir renderGoalsGrid()) ;
+   repli sur var(--track-bg) sinon, comportement neutre inchangé. */
 .goalsGridCell::before {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
-  left: 50%; top: -22px; bottom: 50%; width: 0;
-  border-left: 2px solid var(--goalsCellLineUpColor, var(--track-bg));
+  left: 50%; top: -44px; height: 44px; width: 0;
+  border-left: 2px solid var(--goalsCellLineColor, var(--track-bg));
   transform: translateX(-50%);
 }
-.goalsGridCell::after {
-  content: ''; position: absolute; z-index: -1; pointer-events: none;
-  left: 50%; top: 50%; bottom: -22px; width: 0;
-  border-left: 2px solid var(--goalsCellLineDownColor, var(--track-bg));
-  transform: translateX(-50%);
-}
-.goalsGridRow:first-child .goalsGridCell::before { top: 50%; }
-.goalsGridRow:last-child .goalsGridCell::after { bottom: 50%; }
+.goalsGridRow:first-child .goalsGridCell::before { display: none; }
+/* 20 septembre 2026 : la case "ajouter un secteur" (.goalsGridCell--add,
+   plus bas) ne représente aucune catégorie réelle — relier ses cases par ce
+   trait n'aurait pas de sens et contredirait la demande d'Emilien de ne
+   garder QUE le contour en pointillés + le « + » dans cette zone (aucun
+   autre trait). --goalsCellLineColor n'y est jamais posée (renderGoalsGrid()
+   ne le fait que pour les vraies catégories), donc ce trait s'y affichait
+   quand même dans la couleur de repli var(--track-bg) — désactivé
+   explicitement ici. */
+.goalsGridCell--add::before { display: none; }
 /* Objectif périodique déjà écrit pour cette (période, catégorie) : bulle
    pleine, même code couleur de statut que la bande de tendance
    (.goalStatusAtteint/Partiel/NonAtteint, déjà définies plus haut). */
@@ -5039,56 +5085,31 @@ button { -webkit-user-select: none; user-select: none; }
    continuité (.goalsGridCell::before désactivé ici) : cette colonne ne
    représente aucune catégorie réelle, relier ses cases n'aurait pas de
    sens. */
-/* 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : refonte
-   sur maquette validée ("modèle B") — voir le commentaire détaillé au-dessus
-   de .goalsGridHeadCell--add, styles.css. Chacune des 13 cases devient un
-   SEGMENT de la même boîte continue que la case d'en-tête (bordure gauche/
-   droite dans --goalsAddAccent, prolongée à travers les écarts de 44px du
-   dessus/dessous par ::before/::after ci-dessous — même principe que
-   .goalsGridCell::before/::after pour le trait de continuité des vraies
-   catégories, mais ici ce sont DEUX traits pleine hauteur de case (gauche +
-   droite), pas un trait unique centré) ; PAS de bordure haute/basse propre
-   (posée uniquement sur la 1ère ligne — capuchon d'en-tête, son ::after — et
-   la 13e ligne juste en dessous). Le séparateur horizontal en pointillés
-   entre 2 périodes (.goalsGridRow::before, plus haut, pleine largeur de
-   ligne) reste inchangé et traverse déjà cette colonne, aucun ajout
-   nécessaire ici pour lui. Chaque case reçoit en plus un "pavé fantôme"
-   INSÉRÉ (.goalsGridCellAddGhost, span enfant posé par renderGoalsGrid(),
-   app.js) : fond --track-bg PLEIN + ombre --shadow-card réelle (pas une
-   simple opacité comme .goalsGridCell--empty) pour ressembler à une vraie
-   carte, en retrait (inset) du cadre en pointillés — fidèle à la maquette. */
+/* 20 septembre 2026 : cette case redevient une simple zone cliquable
+   transparente, sans bordure ni "pavé fantôme" propres — Emilien demande de
+   retirer le pavé fantôme (qui donnait l'impression d'un arbre/de vraies
+   bulles dans une page censée être vide) et de ne garder que le contour en
+   pointillés qui fait le tour de l'ensemble en-tête+13 cases, désormais un
+   unique élément (#goalsGridAddOutline, plus bas) plutôt que des segments de
+   bordure par case. Le séparateur horizontal de période
+   (.goalsGridRow::before, plus haut) ne traverse plus cette colonne
+   (--goalsRowFullWidth s'arrête au bord réel des catégories,
+   syncGoalsGridWidths(), app.js) — demande explicite d'Emilien de retirer
+   les pointillés horizontaux de cette zone. */
 .goalsGridCell--add {
-  min-height: 54px; border-radius: 0; background: transparent; padding: 0;
+  min-height: 54px; border: none; background: transparent; padding: 0;
   position: relative; display: flex; align-items: center; justify-content: center;
-  border-left: 2px dashed var(--goalsAddAccent, var(--track-bg));
-  border-right: 2px dashed var(--goalsAddAccent, var(--track-bg));
-}
-.goalsGridCell--add::before, .goalsGridCell--add::after {
-  content: ''; position: absolute; left: -2px; right: -2px; height: 22px; pointer-events: none;
-  border-left: 2px dashed var(--goalsAddAccent, var(--track-bg));
-  border-right: 2px dashed var(--goalsAddAccent, var(--track-bg));
-}
-.goalsGridCell--add::before { top: -22px; }
-.goalsGridCell--add::after { bottom: -22px; }
-.goalsGridRow:first-child .goalsGridCell--add::before { display: none; }
-.goalsGridRow:last-child .goalsGridCell--add {
-  border-bottom: 2px dashed var(--goalsAddAccent, var(--track-bg));
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-}
-.goalsGridRow:last-child .goalsGridCell--add::after { display: none; }
-.goalsGridCellAddGhost {
-  position: absolute; inset: 8px 14px; border-radius: var(--radius-lg);
-  background: var(--track-bg); box-shadow: var(--shadow-card); pointer-events: none;
 }
 /* Le "+" et son libellé n'apparaissent qu'une fois, sur la période du milieu
    du cycle (13 périodes → repère visuel vers la 7e, addCenterPeriodIndex,
    app.js) plutôt que répétés sur les 13 cases — « je souhaite qu'il
    s'affiche au milieu d'une nouvelle page » (16 septembre, hérité tel quel).
-   Posés PAR-DESSUS le pavé fantôme (z-index implicite : les deux viennent
-   après lui dans le DOM), au centre de la case grâce au flex du bouton
-   parent (.goalsGridCell--add ci-dessus) — la case du milieu restant la
-   même hauteur (54px) que les 12 autres, ce centrage vertical reste très
-   proche du centre visuel de la boîte entière (en-tête + 13 cases). */
+   Au centre de la case grâce au flex du bouton parent (.goalsGridCell--add
+   ci-dessus) — la case du milieu restant la même hauteur (54px) que les 12
+   autres, ce centrage vertical reste très proche du centre visuel de la
+   boîte entière (en-tête + 13 cases). Libellé « Ajouter un secteur » depuis
+   le 20 septembre 2026 (t('Ajouter un secteur'), app.js — demande directe
+   d'Emilien, remplace « Ajouter une catégorie »). */
 .goalsGridCell--addCenter { flex-direction: column; gap: 8px; }
 .goalsGridCellAddIcon {
   position: relative; width: 34px; height: 34px; border-radius: 50%;
@@ -5099,6 +5120,19 @@ button { -webkit-user-select: none; user-select: none; }
 .goalsGridCellAddLabel {
   position: relative; font-size: 13px; font-weight: 700; color: var(--text);
   text-align: center; white-space: nowrap; pointer-events: none;
+}
+/* 20 septembre 2026 : contour unique de la boîte « ajouter un secteur »,
+   voir le commentaire de .goalsGridHeadCell--add plus haut. Positionné/
+   dimensionné en JS par positionGoalsAddOutline() (app.js, appelée depuis
+   syncGoalsGridWidths()) pour couvrir exactement l'en-tête + les 13 lignes,
+   à l'intérieur de #goalsGridScroll (position: relative, voir plus haut) —
+   défile avec le contenu comme un enfant normal, pas besoin de recalcul au
+   scroll. pointer-events: none : purement décoratif, les clics passent aux
+   boutons .goalsGridHeadCell--add/.goalsGridCell--add en dessous. */
+.goalsGridAddOutline {
+  position: absolute; display: none; pointer-events: none;
+  border: 2px dashed var(--goalsAddAccent, var(--track-bg));
+  border-radius: var(--radius-lg);
 }
 
 /* ===== Gestion des catégories d'objectifs — fenêtre activité, 15 septembre
@@ -5305,10 +5339,17 @@ button { -webkit-user-select: none; user-select: none; }
    ajoutés pour laisser une petite marge visuelle avant la barre du bas,
    même valeur que la marge haute resserrée de syncGoalsScrubZoneTopVar()
    ci-dessus (app.js). */
+/* 20 septembre 2026 : largeur réduite 40px → 32px — demande d'Emilien, « la
+   barre [...] moins large [...] moins épaisse ». left reste à 0 (rail
+   toujours calé sur le bord gauche) : réduire la largeur revient donc à
+   rogner le bord DROIT du rail, exactement le sens demandé. 32px reste
+   suffisant pour la pastille active de 28px (.goalsScrubDot.active) avec
+   2px de marge de chaque côté. #goalsGridScroll (margin-left) et
+   .goalsScrubLabel (left) suivent la même valeur +4px, voir plus bas. */
 .goalsScrubZone {
   position: fixed; left: 0; z-index: 8; pointer-events: none;
   top: var(--goals-scrubzone-top, 220px); bottom: calc(var(--tabbar-h, 60px) + 6px);
-  width: 40px;
+  width: 32px;
 }
 .goalsScrubRail {
   position: absolute; inset: 8px 0;
@@ -5326,7 +5367,7 @@ button { -webkit-user-select: none; user-select: none; }
    figé ici, seule la taille est fixée par cette classe. */
 .goalsScrubDot.active { width: 28px; height: 28px; }
 .goalsScrubLabel {
-  position: fixed; left: 44px; top: 0; transform: translate(0, -50%);
+  position: fixed; left: 36px; top: 0; transform: translate(0, -50%);
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
   padding: 6px 10px; font-size: 11px; line-height: 1.3; color: var(--text-light);
   white-space: nowrap; box-shadow: var(--shadow-card); z-index: 8;
