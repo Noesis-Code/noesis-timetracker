@@ -4839,6 +4839,12 @@ button { -webkit-user-select: none; user-select: none; }
    rail + 4px). position: relative ajouté : sert désormais aussi d'ancrage
    à #goalsGridAddOutline (contour de la boîte "ajouter un secteur", plus
    bas), positionné en px absolus relatifs à ce conteneur.
+   20 septembre 2026 (suite, même jour) : 36px → 32px — le tampon de +4px
+   est retiré (demande d'Emilien : espace point du rail→grille identique à
+   l'espace point→bord gauche de l'écran, bande totale pas plus large).
+   32px = exactement la largeur de .goalsScrubZone, sans marge
+   supplémentaire — voir le commentaire détaillé sur .goalsScrubZone
+   plus bas pour le calcul complet.
    20 septembre 2026 (bis, diagnostic approfondi "trait coloré coupé au
    milieu") : isolation: isolate ajouté. Cause racine trouvée en bissectant
    styles.css entier (script maison, ~830 blocs) : la règle `html {
@@ -4858,7 +4864,7 @@ button { -webkit-user-select: none; user-select: none; }
    fond de <body> ni par rien en dehors de #goalsGridScroll. Vérifié par
    rendu headless (Playwright + échantillonnage pixel) sur le fichier
    styles.css complet, pas seulement un extrait isolé. */
-.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 36px; }
+.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 32px; }
 /* 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : nouveau
    cas "0 catégorie" (activeGoalsCategories() vide — état transitoire avant
    chargement, ou toutes catégories gelées) — demande d'Emilien : verrouiller
@@ -5010,6 +5016,24 @@ button { -webkit-user-select: none; user-select: none; }
   border-left: 2px solid var(--goalsCellLineColor, var(--track-bg));
   transform: translateX(-50%);
 }
+/* 20 septembre 2026 : petit espace visible entre le haut du trait et la
+   bulle du dessus, signalé par Emilien (« il y a présentement un petit
+   espace entre la bulle du haut et la ligne »). Cause : ce ::before est
+   positionné (top/height) par rapport à la boîte de PADDING de sa propre
+   cellule (.goalsGridCell, position: relative) — pour un élément positionné
+   en absolute, le containing block est TOUJOURS la boîte de padding de
+   l'ancêtre positionné, jamais sa boîte de bordure, quel que soit
+   box-sizing. Or .goalsGridCell--filled a une bordure de 2px
+   (border: 2px solid ..., ci-dessous) : sa boîte de padding démarre donc
+   2px plus bas que son bord visible réel. Résultat, quand c'est la cellule
+   DU BAS qui est remplie (celle qui possède ce ::before) : top: -44px se
+   cale 2px trop bas par rapport au bord visible, laissant exactement ces
+   2px de vide en haut du trait, juste sous la bulle du dessus — jamais en
+   bas (le bord de la cellule remplie masque cette extrémité-là). Une
+   cellule vide (.goalsGridCell--empty) n'a pas de bordure, donc pas ce
+   décalage : uniquement corrigé ici pour --filled, en élargissant top/
+   height de la largeur de bordure (2px) pour compenser exactement. */
+.goalsGridCell--filled::before { top: -46px; height: 46px; }
 .goalsGridRow:first-child .goalsGridCell::before { display: none; }
 /* 20 septembre 2026 : la case "ajouter un secteur" (.goalsGridCell--add,
    plus bas) ne représente aucune catégorie réelle — relier ses cases par ce
@@ -5344,8 +5368,22 @@ button { -webkit-user-select: none; user-select: none; }
    toujours calé sur le bord gauche) : réduire la largeur revient donc à
    rogner le bord DROIT du rail, exactement le sens demandé. 32px reste
    suffisant pour la pastille active de 28px (.goalsScrubDot.active) avec
-   2px de marge de chaque côté. #goalsGridScroll (margin-left) et
-   .goalsScrubLabel (left) suivent la même valeur +4px, voir plus bas. */
+   2px de marge de chaque côté. */
+/* 20 septembre 2026 (suite, même jour) : marge tampon de +4px entre la zone
+   et #goalsGridScroll/.goalsScrubLabel retirée — demande d'Emilien : garder
+   l'espace point→bord gauche de l'écran inchangé, mais rendre l'espace
+   point→grille (droite) IDENTIQUE à ce même espace gauche, sans que la bande
+   totale ne s'élargisse. Les points sont centrés (align-items: center) dans
+   .goalsScrubRail sur toute la largeur de .goalsScrubZone (32px, left: 0) :
+   au repos (pastille 6px), l'espace point→bord gauche et point→bord droit
+   de la zone sont déjà strictement égaux (13px chacun) par construction du
+   centrage flex — seul le +4px ajouté historiquement (14e passage, « petite
+   marge visuelle ») avant la grille cassait cette symétrie côté droit
+   (17px au lieu de 13px). #goalsGridScroll (margin-left) et .goalsScrubLabel
+   (left) passent donc de 36px (32+4) à 32px pile (= largeur de la zone,
+   plus aucun tampon) : espace point→grille désormais égal à l'espace
+   point→bord gauche (13px des deux côtés), bande totale réduite de 36px à
+   32px (jamais plus large qu'avant). */
 .goalsScrubZone {
   position: fixed; left: 0; z-index: 8; pointer-events: none;
   top: var(--goals-scrubzone-top, 220px); bottom: calc(var(--tabbar-h, 60px) + 6px);
@@ -5367,7 +5405,7 @@ button { -webkit-user-select: none; user-select: none; }
    figé ici, seule la taille est fixée par cette classe. */
 .goalsScrubDot.active { width: 28px; height: 28px; }
 .goalsScrubLabel {
-  position: fixed; left: 36px; top: 0; transform: translate(0, -50%);
+  position: fixed; left: 32px; top: 0; transform: translate(0, -50%);
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
   padding: 6px 10px; font-size: 11px; line-height: 1.3; color: var(--text-light);
   white-space: nowrap; box-shadow: var(--shadow-card); z-index: 8;
