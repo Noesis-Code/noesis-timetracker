@@ -278,8 +278,8 @@ function updateSubProject(subProjectId, fields) {
     if (!clean) {
       goalCategory = null;
     } else {
-      if (!goals.isValidCategoryForActivity(current.activityId, clean)) {
-        throw Object.assign(new Error('Catégorie invalide pour cette activité.'), { statusCode: 400 });
+      if (!goals.isValidPoleForActivity(current.activityId, clean)) {
+        throw Object.assign(new Error('Pôle invalide pour cette activité.'), { statusCode: 400 });
       }
       goalCategory = clean;
     }

@@ -64,8 +64,8 @@ function resolveCategoryKey(activityId, raw, current) {
     // goals.js) : une catégorie jamais utilisée pour un plan Objectifs mais
     // déjà choisie une fois dans le Chrono doit rester affichable même après
     // son retrait.
-    if (!goals.categoryEverExisted(activityId, key)) {
-      return { error: { status: 400, body: { error: 'Catégorie invalide pour cette activité.' } } };
+    if (!goals.poleOrSecteurEverExisted(activityId, key)) {
+      return { error: { status: 400, body: { error: 'Pôle ou secteur invalide pour cette activité.' } } };
     }
     return { categoryKey: key };
   }
@@ -79,8 +79,8 @@ function resolveCategoryKey(activityId, raw, current) {
   // rattacher le temps à un PÔLE ou à un SECTEUR de ce pôle (« sélectionnable
   // au Chrono, le temps se rattache alors au secteur, pas seulement au
   // pôle »). Rien ne change tant qu'aucun secteur n'existe pour l'activité.
-  if (!goals.isValidCategoryOrSecteurForActivity(activityId, key)) {
-    return { error: { status: 400, body: { error: 'Catégorie invalide pour cette activité.' } } };
+  if (!goals.isValidPoleOrSecteurForActivity(activityId, key)) {
+    return { error: { status: 400, body: { error: 'Pôle ou secteur invalide pour cette activité.' } } };
   }
   return { categoryKey: key };
 }
@@ -99,14 +99,14 @@ function resolveCategoryKey(activityId, raw, current) {
 // (réservée aux pôles).
 function categorySummary(activityId, categoryKey) {
   if (!categoryKey) return null;
-  if (!goals.categoryEverExisted(activityId, categoryKey)) return null;
+  if (!goals.poleOrSecteurEverExisted(activityId, categoryKey)) return null;
   const parentKey = goals.parentKeyFor(activityId, categoryKey);
   return {
     key: categoryKey,
-    label: goals.categoryLabelFor(activityId, categoryKey),
+    label: goals.poleOrSecteurLabelFor(activityId, categoryKey),
     frozen: parentKey
       ? !goals.isValidSecteurForActivity(activityId, categoryKey)
-      : !goals.isValidCategoryForActivity(activityId, categoryKey),
+      : !goals.isValidPoleForActivity(activityId, categoryKey),
     parentKey,
   };
 }

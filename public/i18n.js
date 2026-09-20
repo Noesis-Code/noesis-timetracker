@@ -936,6 +936,37 @@
     'En cours': 'Current',
     'objectif(s) hebdomadaire(s) atteint(s).': 'weekly goal(s) met.',
     'Bilan publié automatiquement dans le fil de discussion.': 'Recap automatically posted to the discussion thread.',
+
+    // ---- 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
+    // « Pôles & secteurs ») — renommage « catégorie » -> « pôle » côté
+    // affichage + nouvelles chaînes de gestion des secteurs. Ne touche PAS
+    // 'Catégorie'/'Catégorie / secteur (optionnel)' plus haut (feature
+    // "Projets" du Profil, sans rapport — voir buildCategoryDropdown, app.js).
+    'Aucun pôle': 'No division',
+    'Pôle': 'Division',
+    'Pôle ou secteur (facultatif)': 'Division or sector (optional)',
+    'Pôle ou secteur': 'Division or sector',
+    'Tous les pôles': 'All divisions',
+    'Sans pôle': 'No division',
+    'Par pôle': 'By division',
+    'Changer de pôle': 'Change division',
+    'Aucune tâche dans ce pôle.': 'No tasks in this division.',
+    'Nouvelle tâche… une IA choisit son pôle': 'New task… an AI picks its division',
+    'Déplacer ce pôle': 'Move this division',
+    'Retirer ce pôle': 'Remove this division',
+    'Retirer ce pôle ? Son historique reste consultable mais il ne recevra plus de nouveaux objectifs.': 'Remove this division? Its history stays available but it will no longer receive new goals.',
+    'Nom de pôle requis.': 'Division name required.',
+    'Chargement des pôles…': 'Loading divisions…',
+    'Impossible de charger les pôles Objectifs.': 'Unable to load Goals divisions.',
+    'Maximum de pôles atteint ({max}).': 'Maximum number of divisions reached ({max}).',
+    'Nouveau pôle': 'New division',
+    'Ajouter un pôle': 'Add a division',
+    'Nom de secteur requis.': 'Sector name required.',
+    'Monter ce secteur': 'Move this sector up',
+    'Descendre ce secteur': 'Move this sector down',
+    'Retirer ce secteur': 'Remove this sector',
+    'Retirer ce secteur ? Son historique reste consultable.': 'Remove this sector? Its history stays available.',
+    'Nouveau secteur…': 'New sector…',
   };
 
   // ------------------- Messages contenant une valeur variable -------------
