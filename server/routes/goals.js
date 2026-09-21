@@ -290,7 +290,15 @@ router.get('/activities/:id/goals/categories', (req, res) => {
   try {
     res.json({
       customized: goals.isCustomized(activityId),
-      categories: goals.categoriesForActivity(activityId),
+      // 20 septembre 2026 (exposition « Pôles & secteurs ») : chaque pôle
+      // porte désormais un champ additif `secteurs` (tableau, potentiellement
+      // vide) — changement rétrocompatible, aucun champ existant retiré ni
+      // renommé. `categoriesForActivity` ne renvoie que les pôles (voir son
+      // commentaire dans server/lib/goals.js), donc jamais de doublon ici.
+      categories: goals.categoriesForActivity(activityId).map((c) => ({
+        ...c,
+        secteurs: goals.secteursForPole(activityId, c.key),
+      })),
       frozenCategories: goals.frozenCategoriesForActivity(activityId),
       maxCategories: goals.MAX_CUSTOM_CATEGORIES,
       // 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) :
@@ -366,6 +374,108 @@ router.put('/activities/:id/goals/categories-reorder', (req, res) => {
   try {
     const categories = goals.reorderCategories(activityId, keys);
     res.json({ ok: true, categories });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Secteurs (20 septembre 2026, exposition HTTP — mécanique posée le 18
+// septembre par server/lib/goals.js, voir noesis-timetracker-poles-secteurs.md).
+// `:key` ci-dessous désigne toujours le PÔLE parent, jamais un secteur —
+// server/lib/goals.js refuse la création d'un secteur sous un secteur
+// (profondeur 1 niveau). Même remarque que pour /goals/categories-reorder
+// plus haut : la route de réordonnancement est nommée
+// `/categories/:key/secteurs-reorder` (segment littéral séparé de `/secteurs`)
+// pour ne jamais risquer qu'Express l'avale comme une clé `:secteurKey`.
+
+// `secteurKey` appartient-il bien au pôle `poleKey` de l'URL ? Sans ce garde,
+// une requête pourrait renommer/retirer un secteur d'un AUTRE pôle en visant
+// une URL /categories/:key/secteurs/:secteurKey avec un `:key` qui ne
+// correspond pas à son vrai parent — parentKeyFor donne la réponse exacte.
+function assertSecteurBelongsToPole(activityId, poleKey, secteurKey) {
+  if (goals.parentKeyFor(activityId, secteurKey) !== poleKey) {
+    throw Object.assign(new Error('Secteur introuvable pour ce pôle.'), { statusCode: 404 });
+  }
+}
+
+router.get('/activities/:id/goals/categories/:key/secteurs', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    res.json({ secteurs: goals.secteursForPole(activityId, req.params.key) });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.post('/activities/:id/goals/categories/:key/secteurs', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const secteurs = goals.addCategory(activityId, req.body.label, req.params.key);
+    res.json({ ok: true, secteurs });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.put('/activities/:id/goals/categories/:key/secteurs-reorder', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  const keys = Array.isArray(req.body.keys) ? req.body.keys : [];
+  try {
+    const secteurs = goals.reorderSecteurs(activityId, req.params.key, keys);
+    res.json({ ok: true, secteurs });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    const secteurs = goals.renameCategory(activityId, req.params.secteurKey, req.body.label);
+    res.json({ ok: true, secteurs });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.delete('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    const secteurs = goals.removeCategory(activityId, req.params.secteurKey);
+    res.json({ ok: true, secteurs });
   } catch (err) {
     handleGoalsError(res, err);
   }

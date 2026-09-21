@@ -348,13 +348,19 @@ function addCategory(activityId, label, parentKey) {
 // Renomme une catégorie ACTIVE (jamais une gelée — modifier l'étiquette
 // d'une catégorie retirée n'a pas de sens, son propos est justement de
 // rester figée). Plus de couleur à recevoir (8ᵉ passage, automatique).
+//
+// 20 septembre 2026 (exposition « Pôles & secteurs ») : se branche désormais
+// selon le niveau de `key`, même principe que removeCategory ci-dessous —
+// renommer un SECTEUR doit renvoyer la liste de ses frères (secteursForPole),
+// jamais la liste des pôles (qui ne contient pas les secteurs, voir
+// categoriesForActivity plus haut).
 function renameCategory(activityId, key, label) {
   const row = ensureDefaultCategory(activityId).find((r) => r.key === key);
   if (!row) throw Object.assign(new Error('Catégorie introuvable.'), { statusCode: 404 });
   const cleanLabel = assertCategoryLabel(label);
   db.prepare('UPDATE activity_goal_categories SET label = ? WHERE activityId = ? AND key = ?')
     .run(cleanLabel, activityId, key);
-  return categoriesForActivity(activityId);
+  return row.parentKey ? secteursForPole(activityId, row.parentKey) : categoriesForActivity(activityId);
 }
 
 // Retire (gèle) une catégorie personnalisée — jamais le dernier PÔLE restant
@@ -438,18 +444,21 @@ function reorderCategories(activityId, keys) {
 // sous-projets. Changement de nom pour Pôle au lieu de catégorie. Et
 // insertion des secteurs à l'intérieur des pôles. ») — voir le commentaire de
 // activity_goal_categories.parentKey dans server/db.js pour le schéma complet
-// et noesis-timetracker-objectifs.md pour le cadrage détaillé.
+// et noesis-timetracker-objectifs.md/noesis-timetracker-poles-secteurs.md
+// pour le cadrage détaillé.
 //
-// Périmètre de ce chantier (« Secteur d'abord, renommage interne séparément »,
-// choisi par Emilien) : la MÉCANIQUE (schéma + ce fichier + les points de
-// lecture/écriture du Chrono et des Statistiques) est posée maintenant, avec
-// des libellés visibles « Pôle »/« Secteur » côté API. L'EXPOSITION complète
-// (routes HTTP dédiées de gestion, et le frontend public/app.js/i18n.js/
-// styles.css qui permettrait de créer/afficher un secteur à l'écran) reste un
-// chantier séparé — server/routes/goals.js n'est pas touché ici. Les
-// fonctions ci-dessous sont donc déjà prêtes à être appelées par ce futur
-// chantier, et rendent dès maintenant le Chrono/les Statistiques capables de
-// lire/valider un secteur s'il en existait un.
+// 18 septembre 2026 (« Secteur d'abord, renommage interne séparément »,
+// choisi par Emilien) : seule la MÉCANIQUE (schéma + ce fichier + les points
+// de lecture/écriture du Chrono et des Statistiques) avait été posée à cette
+// date, sans exposition HTTP ni frontend.
+//
+// 20 septembre 2026 : EXPOSITION — server/routes/goals.js porte désormais les
+// routes de gestion d'un secteur (créer/renommer/retirer/réordonner, sous
+// /activities/:id/goals/categories/:key/secteurs*), et addCategory/
+// renameCategory/removeCategory ci-dessus gèrent déjà les deux niveaux. Cette
+// section garde secteursForPole/isValidSecteurForActivity/
+// isValidCategoryOrSecteurForActivity/parentKeyFor/resolveToPole, complétée
+// par reorderSecteurs ci-dessous (réordonnancement, absent jusqu'ici).
 
 // Secteurs ACTIFS d'un pôle donné, dans l'ordre d'affichage — aucun minimum
 // requis (un pôle sans aucun secteur est le cas normal, y compris pour
@@ -458,6 +467,28 @@ function secteursForPole(activityId, poleKey) {
   return activeCategoryRows(activityId)
     .filter((r) => r.parentKey === poleKey)
     .map((r) => ({ key: r.key, label: r.label, parentKey: r.parentKey }));
+}
+
+// Réordonne les SECTEURS actifs d'un pôle donné — même convention que
+// reorderCategories (le client envoie la liste complète des clés dans le
+// nouvel ordre, remplacement complet plutôt qu'un déplacement unitaire), mais
+// restreinte aux secteurs de CE pôle : chaque pôle a sa propre séquence de
+// positions pour ses secteurs, indépendante des autres pôles et des pôles
+// eux-mêmes (voir addCategory : siblingCount compté par pôle).
+function reorderSecteurs(activityId, poleKey, keys) {
+  const pole = activeCategoryRows(activityId).find((r) => r.key === poleKey && !r.parentKey);
+  if (!pole) throw Object.assign(new Error('Pôle introuvable.'), { statusCode: 404 });
+
+  const existing = activeCategoryRows(activityId).filter((r) => r.parentKey === poleKey);
+  const existingKeys = new Set(existing.map((r) => r.key));
+  const cleanKeys = Array.isArray(keys) ? keys.filter((k) => existingKeys.has(k)) : [];
+  if (cleanKeys.length !== existing.length || new Set(cleanKeys).size !== existing.length) {
+    throw Object.assign(new Error('Liste de secteurs invalide.'), { statusCode: 400 });
+  }
+  cleanKeys.forEach((key, i) => {
+    db.prepare('UPDATE activity_goal_categories SET position = ? WHERE activityId = ? AND key = ?').run(i, activityId, key);
+  });
+  return secteursForPole(activityId, poleKey);
 }
 
 // `key` est-il un secteur ACTIF de cette activité, dont le pôle parent est
@@ -1274,13 +1305,14 @@ module.exports = {
   removeCategory,
   reorderCategories,
   // Secteurs (18 septembre 2026, « Pôles & secteurs » — voir le commentaire
-  // au-dessus de secteursForPole dans ce fichier). Mécanique prête, pas
-  // encore exposée par une route HTTP dédiée (chantier séparé).
+  // au-dessus de secteursForPole dans ce fichier). Exposés par
+  // server/routes/goals.js depuis le 20 septembre 2026.
   secteursForPole,
   isValidSecteurForActivity,
   isValidCategoryOrSecteurForActivity,
   parentKeyFor,
   resolveToPole,
+  reorderSecteurs,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
   weekBounds,
