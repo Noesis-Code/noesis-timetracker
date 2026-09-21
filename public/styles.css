@@ -4865,9 +4865,11 @@ button { -webkit-user-select: none; user-select: none; }
    rendu headless (Playwright + échantillonnage pixel) sur le fichier
    styles.css complet, pas seulement un extrait isolé. */
 /* 21 septembre 2026 : margin-left resynchronisée avec la nouvelle largeur de
-   .goalsScrubZone (32px→24px) — voir le commentaire détaillé au-dessus de
-   .goalsScrubZone plus bas dans ce fichier pour le diagnostic complet. */
-.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 24px; }
+   .goalsScrubZone (32px→24px, puis 24px→12px le même jour, sur demande
+   d'Emilien de diminuer « quasiment de moitié » à nouveau) — voir le
+   commentaire détaillé au-dessus de .goalsScrubZone plus bas dans ce
+   fichier pour le diagnostic complet. */
+.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 12px; }
 /* 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : nouveau
    cas "0 catégorie" (activeGoalsCategories() vide — état transitoire avant
    chargement, ou toutes catégories gelées) — demande d'Emilien : verrouiller
@@ -5427,7 +5429,9 @@ button { -webkit-user-select: none; user-select: none; }
    staging a été revérifié à plusieurs reprises, y compris après un tout
    nouveau déploiement d'une autre discussion survenu entretemps, et
    contient bien le CSS attendu à chaque fois. Le problème était donc bien
-   la MAGNITUDE du changement, pas un problème de déploiement/cache.
+   la MAGNITUDE du changement, pas un problème de déploiement/cache —
+   confirmé par Emilien après ce passage (« il me semble que la largeur [...]
+   a été diminuée [...] elle semble moins présente »).
    Cette fois, la largeur de zone elle-même (pas seulement un tampon
    résiduel) passe de 32px à 24px : l'espace point→bord (résultat du
    centrage flex de .goalsScrubRail, inchangé) passe de 13px à 9px de
@@ -5439,11 +5443,27 @@ button { -webkit-user-select: none; user-select: none; }
    déborderait de la zone si sa taille n'était pas réduite en proportion.
    Elle passe donc de 28px à 22px (même marge de 2px de chaque côté que
    l'ancienne convention, préservée), toujours assez grande pour afficher
-   un numéro de période à deux chiffres à 11px sans le comprimer. */
+   un numéro de période à deux chiffres à 11px sans le comprimer.
+   ---
+   21 septembre 2026 (suite, même jour) : Emilien confirme l'amélioration
+   perçue et demande de « diminuer quasiment de moitié » à nouveau. Largeur
+   de zone : 24px → 12px (espace point→bord au repos : 9px → 3px chacun,
+   pastille 6px inchangée). Choix délibéré cette fois-ci : la pastille ACTIVE
+   (22px, ci-dessus) N'EST PAS réduite davantage — un chiffre à deux
+   caractères lisible à 11px a besoin d'environ 20px de diamètre minimum,
+   la comprimer sous 12px la rendrait illisible. Elle DÉBORDE donc
+   volontairement de la zone de 12px pendant le défilement (environ 5px de
+   chaque côté, .goalsScrubZone n'ayant pas de overflow:hidden — jamais
+   posé, vérifié) : élément purement décoratif (pointer-events: none), état
+   transitoire seulement pendant le geste de scroll, ce débordement est
+   sans conséquence fonctionnelle. Si ce débordement visuel gêne Emilien à
+   l'usage réel, prochain ajustement possible : réduire la police du chiffre
+   et/ou passer à un seul chiffre + suffixe, plutôt que de re-comprimer la
+   zone au repos qui est le vrai objet de la demande initiale. */
 .goalsScrubZone {
   position: fixed; left: 0; z-index: 8; pointer-events: none;
   top: var(--goals-scrubzone-top, 220px); bottom: calc(var(--tabbar-h, 60px) + 6px);
-  width: 24px;
+  width: 12px;
 }
 .goalsScrubRail {
   position: absolute; inset: 8px 0;
@@ -5461,7 +5481,7 @@ button { -webkit-user-select: none; user-select: none; }
    figé ici, seule la taille est fixée par cette classe. */
 .goalsScrubDot.active { width: 22px; height: 22px; }
 .goalsScrubLabel {
-  position: fixed; left: 24px; top: 0; transform: translate(0, -50%);
+  position: fixed; left: 12px; top: 0; transform: translate(0, -50%);
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
   padding: 6px 10px; font-size: 11px; line-height: 1.3; color: var(--text-light);
   white-space: nowrap; box-shadow: var(--shadow-card); z-index: 8;
