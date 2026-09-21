@@ -4864,7 +4864,10 @@ button { -webkit-user-select: none; user-select: none; }
    fond de <body> ni par rien en dehors de #goalsGridScroll. Vérifié par
    rendu headless (Playwright + échantillonnage pixel) sur le fichier
    styles.css complet, pas seulement un extrait isolé. */
-.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 32px; }
+/* 21 septembre 2026 : margin-left resynchronisée avec la nouvelle largeur de
+   .goalsScrubZone (32px→24px) — voir le commentaire détaillé au-dessus de
+   .goalsScrubZone plus bas dans ce fichier pour le diagnostic complet. */
+.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 24px; }
 /* 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : nouveau
    cas "0 catégorie" (activeGoalsCategories() vide — état transitoire avant
    chargement, ou toutes catégories gelées) — demande d'Emilien : verrouiller
@@ -5411,10 +5414,36 @@ button { -webkit-user-select: none; user-select: none; }
    plus aucun tampon) : espace point→grille désormais égal à l'espace
    point→bord gauche (13px des deux côtés), bande totale réduite de 36px à
    32px (jamais plus large qu'avant). */
+/* 21 septembre 2026 (discussion "Objectifs — Rail périodique") : bande
+   resserrée une seconde fois, plus franchement cette fois. Le correctif du
+   17e passage (ci-dessus, 36px→32px) ne retirait qu'un tampon de +4px déjà
+   quasi invisible à l'œil nu sur un téléphone réel — Emilien a rapporté
+   « toujours aucune modification perceptible » après l'avoir vu déployé.
+   Diagnostic mené avant de recoder : le cache n'est PAS en cause ici — lu
+   directement public/sw.js, styles.css est servi en stratégie RÉSEAU
+   D'ABORD (networkFirst(), jamais cacheFirst), et le serveur répond avec
+   `Cache-Control: no-cache` + ETag (revalidation systématique, jamais un
+   200 silencieusement périmé) ; le contenu réellement servi en direct sur
+   staging a été revérifié à plusieurs reprises, y compris après un tout
+   nouveau déploiement d'une autre discussion survenu entretemps, et
+   contient bien le CSS attendu à chaque fois. Le problème était donc bien
+   la MAGNITUDE du changement, pas un problème de déploiement/cache.
+   Cette fois, la largeur de zone elle-même (pas seulement un tampon
+   résiduel) passe de 32px à 24px : l'espace point→bord (résultat du
+   centrage flex de .goalsScrubRail, inchangé) passe de 13px à 9px de
+   chaque côté au repos, une réduction environ deux fois plus marquée que
+   celle du 17e passage. Contrainte technique à respecter en resserrant
+   encore : la pastille ACTIVE (.goalsScrubDot.active, chiffre de période
+   affiché pendant le défilement) faisait 28px avec seulement 2px de marge
+   dans l'ancienne zone de 32px (14e passage) — sous 24px, cette pastille
+   déborderait de la zone si sa taille n'était pas réduite en proportion.
+   Elle passe donc de 28px à 22px (même marge de 2px de chaque côté que
+   l'ancienne convention, préservée), toujours assez grande pour afficher
+   un numéro de période à deux chiffres à 11px sans le comprimer. */
 .goalsScrubZone {
   position: fixed; left: 0; z-index: 8; pointer-events: none;
   top: var(--goals-scrubzone-top, 220px); bottom: calc(var(--tabbar-h, 60px) + 6px);
-  width: 32px;
+  width: 24px;
 }
 .goalsScrubRail {
   position: absolute; inset: 8px 0;
@@ -5430,9 +5459,9 @@ button { -webkit-user-select: none; user-select: none; }
    partir de currentGoalsActivityColor/readableTextOn() — même mécanisme que
    les autres pastilles de catégorie de cet onglet — donc pas de background
    figé ici, seule la taille est fixée par cette classe. */
-.goalsScrubDot.active { width: 28px; height: 28px; }
+.goalsScrubDot.active { width: 22px; height: 22px; }
 .goalsScrubLabel {
-  position: fixed; left: 32px; top: 0; transform: translate(0, -50%);
+  position: fixed; left: 24px; top: 0; transform: translate(0, -50%);
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
   padding: 6px 10px; font-size: 11px; line-height: 1.3; color: var(--text-light);
   white-space: nowrap; box-shadow: var(--shadow-card); z-index: 8;
