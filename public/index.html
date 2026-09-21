@@ -2251,15 +2251,23 @@
              explicite d'Emilien : « On ne change pas l'arbre. Cependant, les
              secteurs deviennent les pôles. Et les pôles, on les insère comme
              des boutons au-dessus des secteurs et en dessous du nom de
-             l'activité. » — barre de boutons de pôles, un par pôle actif,
-             positionnée ici (sous #goalsActivityHeader ci-dessus, au-dessus
-             de #goalsGridScroll/#goalsGrid plus bas qui affichent désormais
-             les SECTEURS du pôle sélectionné). Remplie par
-             renderGoalsPoleTabBar() (app.js) ; masquée (.hidden) tant
-             qu'aucun pôle réel n'existe (activité jamais personnalisée), cas
-             où la grille continue d'afficher les pôles eux-mêmes, strictement
-             comme avant ce chantier — voir goalsPoles()/
-             activeGoalsCategories(), app.js. -->
+             l'activité. » — sélecteur de pôles, positionné ici (sous
+             #goalsActivityHeader ci-dessus, au-dessus de #goalsGridScroll/
+             #goalsGrid plus bas qui affichent désormais les SECTEURS du pôle
+             sélectionné). REMPLACÉ le jour même par un menu déroulant plein
+             largeur (nouvelle demande d'Emilien : « je souhaite que les
+             pôles ne soient plus des boutons successifs, mais un menu
+             déroulant [...] qui pousse les secteurs des arbres vers le
+             bas ») — id/classe conservés tels quels (`goalsPoleTabBar`)
+             malgré le nom hérité de l'ancienne barre de boutons, contenu
+             entièrement reconstruit par renderGoalsPoleDropdown() (app.js) :
+             un bouton déclencheur pleine largeur + la liste des pôles juste
+             en dessous DANS LE FLUX (jamais un overlay), ce qui pousse
+             mécaniquement ce qui suit vers le bas à l'ouverture. Masqué
+             (.hidden) tant qu'aucun pôle réel n'existe (activité jamais
+             personnalisée), cas où la grille continue d'afficher les pôles
+             eux-mêmes, strictement comme avant ce chantier — voir
+             goalsPoles()/activeGoalsCategories(), app.js. -->
         <div id="goalsPoleTabBar" class="goalsPoleTabBar hidden"></div>
 
         <!-- ⚠️ 15 septembre 2026 (nuit, demande directe d'Emilien) : un seul

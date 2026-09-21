@@ -1320,6 +1320,20 @@ textarea {
 }
 .pieCenterValue { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.3px; }
 .pieCenterLabel { font-size: 11px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.4px; }
+/* 21 septembre 2026 — `ids.tapReveal` (public/app.js, renderPie) : le centre
+   du donut affiche le nom de la tranche pressée (pôle seul, ou « pôle ·
+   secteur ») à la place de « total » ; ce nom peut largement dépasser
+   « total » en longueur, d'où la troncature — le trou central fait ~54 % du
+   diamètre du camembert (rInner/rOuter), 108px ménage une marge de chaque
+   côté pour un camembert affiché à sa largeur max (220px). */
+.pieCenterLabel--tapped {
+  max-width: 108px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: normal;
+}
 .pieLegend { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .pieLegendRow { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .pieLegendDot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
@@ -4758,40 +4772,76 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .goalsSwipeBtn { flex-shrink: 0; }
 
-/* ===== Barre de boutons de pôles — 21 septembre 2026, « Secteurs dans
-   l'arbre périodique », demande explicite d'Emilien : « On ne change pas
-   l'arbre. Cependant, les secteurs deviennent les pôles. Et les pôles, on
-   les insère comme des boutons au-dessus des secteurs et en dessous du nom
-   de l'activité. » Un bouton par pôle actif, même gabarit de pilule que
-   .goalAssigneeChip ci-dessus (repris tel quel comme point de départ visuel)
-   mais coloré par pôle via subProjectShade() (app.js, même mécanisme que les
-   badges .goalsGridHeadCell) plutôt qu'une seule couleur fixe — le pôle
-   SÉLECTIONNÉ reçoit un fond plein (sa nuance), les autres restent en
-   contour seul. Remplie par renderGoalsPoleTabBar() (app.js) ; #goalsPoleTabBar
-   (index.html) porte `.hidden` tant qu'aucun pôle réel n'existe encore (voir
-   le commentaire à côté de ce div dans index.html). */
+/* ===== Sélecteur de pôles — 21 septembre 2026, « Secteurs dans l'arbre
+   périodique ». D'abord une barre de boutons-pilules (matin, demande
+   d'Emilien : « On ne change pas l'arbre. Cependant, les secteurs
+   deviennent les pôles [...] »), remplacée LE JOUR MÊME par un menu
+   déroulant (nouvelle demande d'Emilien : « je souhaite que les pôles ne
+   soient plus des boutons successifs, mais un menu déroulant qui prend
+   l'ensemble de la largeur de l'écran et qui, lorsqu'il se déroule, pousse
+   les secteurs des arbres vers le bas »). Dropdown "maison" EN FLUX NORMAL
+   (position: static partout ci-dessous, jamais d'overlay/position absolue)
+   — même principe que .categoryDropdown plus haut dans ce fichier
+   (voir buildCategoryDropdown(), app.js) : la liste d'options
+   (.goalsPoleDropdownMenu) suit le bouton déclencheur
+   (.goalsPoleDropdownTrigger) dans le DOM, donc pousse mécaniquement
+   #goalsGridScroll (juste en dessous, index.html) vers le bas à
+   l'ouverture — exactement l'effet demandé, gratuit avec ce positionnement,
+   sans z-index ni calcul JS. #goalsPoleTabBar (id conservé tel quel côté
+   index.html/app.js malgré le nom hérité de l'ancienne barre de boutons)
+   porte `.hidden` tant qu'aucun pôle réel n'existe encore, et `.open`
+   pendant que le menu est déplié (posée par renderGoalsPoleDropdown(),
+   app.js — sans effet visuel propre ici, seulement un accroche pour
+   .goalsPoleDropdownArrow ci-dessous). Couleur par pôle via
+   subProjectShade() (app.js, même mécanisme que les badges
+   .goalsGridHeadCell) — jamais une seule couleur fixe. */
 .goalsPoleTabBar {
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  gap: 8px;
-  padding-bottom: 2px;
+  width: 100%;
 }
-.goalsPoleTab {
-  flex: 0 0 auto;
-  padding: 7px 14px;
+.goalsPoleDropdownTrigger {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; box-sizing: border-box;
+  padding: 10px 12px;
   border: 1.5px solid var(--border);
-  border-radius: 999px;
-  background: transparent;
-  font-size: 13px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  text-align: left; cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
-.goalsPoleTab--active { border-width: 1.5px; }
+.goalsPoleTabBar.open .goalsPoleDropdownTrigger { background: var(--hover-bg); }
+.goalsPoleDropdownDot {
+  flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%;
+}
+.goalsPoleDropdownLabel {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.goalsPoleDropdownArrow {
+  flex-shrink: 0; font-size: 12px; color: var(--text-light);
+  transition: transform var(--transition-fast);
+}
+.goalsPoleTabBar.open .goalsPoleDropdownArrow { transform: rotate(180deg); }
+/* Options empilées verticalement (jamais en ligne comme l'ancienne barre de
+   boutons) — chacune prend toute la largeur, comme demandé ("l'ensemble de
+   la largeur de l'écran"). Pas de max-height/scroll ici contrairement à
+   .categoryDropdownMenu : au plus 5 pôles (MAX_CUSTOM_CATEGORIES,
+   server/lib/goals.js), toujours visibles d'un coup sans défilement. */
+.goalsPoleDropdownMenu {
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.goalsPoleDropdownOption {
+  padding: 10px 12px;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background-color var(--transition-fast);
+}
+.goalsPoleDropdownOption:last-child { border-bottom: none; }
+.goalsPoleDropdownOption:not(.active):hover { background: var(--hover-bg); }
 
 /* 15 septembre 2026 (7e passage, demande d'Emilien — « un seul mode : la
    grille (arbre) ») : la bascule Arbre/Répartition (.goalsViewToggle*) et la
@@ -5173,13 +5223,25 @@ button { -webkit-user-select: none; user-select: none; }
    du cycle (13 périodes → repère visuel vers la 7e, addCenterPeriodIndex,
    app.js) plutôt que répétés sur les 13 cases — « je souhaite qu'il
    s'affiche au milieu d'une nouvelle page » (16 septembre, hérité tel quel).
-   Au centre de la case grâce au flex du bouton parent (.goalsGridCell--add
-   ci-dessus) — la case du milieu restant la même hauteur (54px) que les 12
-   autres, ce centrage vertical reste très proche du centre visuel de la
-   boîte entière (en-tête + 13 cases). Libellé « Ajouter un secteur » depuis
-   le 20 septembre 2026 (t('Ajouter un secteur'), app.js — demande directe
-   d'Emilien, remplace « Ajouter une catégorie »). */
-.goalsGridCell--addCenter { flex-direction: column; gap: 8px; }
+   Libellé « Ajouter un secteur » depuis le 20 septembre 2026
+   (t('Ajouter un secteur'), app.js — demande directe d'Emilien, remplace
+   « Ajouter une catégorie »).
+   21 septembre 2026 : jusqu'ici centrés par le flex du bouton parent
+   (.goalsGridCell--add, justify-content: center) — donc centrés sur la
+   largeur de la CASE, pas sur la largeur réelle de l'écran (décalées l'une
+   de l'autre par margin-left de #goalsGridScroll, place pour le rail
+   tactile). Demande d'Emilien : rester centré sur l'écran tout en restant
+   à équidistance des deux bords pointillés. Contenu déplacé dans un
+   wrapper .goalsGridCellAddContent en position absolute, dont le "left"
+   est calculé en JS (positionGoalsAddCenterContent(), app.js) plutôt que
+   par le flex du bouton — top: 50%/translateY(-50%) reprend le centrage
+   vertical qu'assurait auparavant justify-content sur le bouton. */
+.goalsGridCellAddContent {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  pointer-events: none;
+}
 .goalsGridCellAddIcon {
   position: relative; width: 34px; height: 34px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;

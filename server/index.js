@@ -190,6 +190,11 @@ app.use('/api', require('./routes/feedback'));
 // pour toute route non-API, et un lecteur de calendrier recevrait alors du
 // HTML au lieu du flux.
 app.use('/api', require('./routes/calendar'));
+// Suggestion quotidienne (21 septembre 2026) — capacité du jour + sélection
+// de tâches, notification matinale déclenchée par
+// server/lib/dailysuggestioncron.js (démarré plus bas). Segment neuf et
+// indépendant, voir server/lib/dailysuggestion.js.
+app.use('/api', require('./routes/dailysuggestion'));
 
 // Le service worker ne doit JAMAIS être servi depuis le cache du navigateur :
 // c'est lui qui pilote la mise à jour de l'app sur les téléphones installés.
@@ -282,4 +287,9 @@ app.listen(PORT, HOST, () => {
   // feuilles de route + révélation différée des tâches de remplacement.
   // Voir server/lib/subscriptioncron.js.
   require('./lib/subscriptioncron').startSubscriptionCron();
+
+  // Suggestion quotidienne (21 septembre 2026) : notification matinale à
+  // heure fixe, démarrée après l'écoute comme les autres tâches planifiées
+  // ci-dessus. Voir server/lib/dailysuggestioncron.js.
+  require('./lib/dailysuggestioncron').startDailySuggestionCron();
 });

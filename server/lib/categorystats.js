@@ -109,7 +109,17 @@ function shadeRanks(activityId) {
     });
     return { ranks, count: poleRows.length };
   }
-  const synth = goals.polesForActivity(activityId); // pôles uniquement
+  // 21 septembre 2026 (Statistiques — Pôles & secteurs) : corrigé de
+  // `goals.polesForActivity`, jamais exporté par server/lib/goals.js (nom
+  // resté d'une passe du 20 septembre annoncée « TERMINÉE » mais qui n'a en
+  // réalité jamais atteint `staging` ni le disque réel — voir
+  // noesis-timetracker-deploiement.md, encart du 21 septembre). La fonction
+  // réellement exportée sous la convention en place sur ce dépôt est
+  // `categoriesForActivity` (pôles uniquement, comme documenté ci-dessus).
+  // Avant ce correctif, tout appel de categoryBreakdownForRange sur une
+  // activité sans AUCUNE ligne dans activity_goal_categories levait un
+  // TypeError (« goals.polesForActivity is not a function »).
+  const synth = goals.categoriesForActivity(activityId); // pôles uniquement
   const ranks = new Map();
   synth.forEach((c, i) => ranks.set(c.key, i));
   return { ranks, count: synth.length };
@@ -159,21 +169,40 @@ function categoryBreakdownForRange(userId, activityId, startIso, endIso) {
   // pôle — jamais le camembert lui-même. `shadeIndex` vient de shadeRanks
   // ci-dessus, qui fait déjà hériter un secteur du rang de son pôle : même
   // nuance des deux côtés, sans rien de plus à faire ici.
+  // 21 septembre 2026 (Statistiques — Pôles & secteurs) — deux correctifs :
+  //   1. `goals.isValidPoleForActivity`/`goals.poleOrSecteurLabelFor`
+  //      n'existent nulle part dans server/lib/goals.js (même cause que le
+  //      correctif de `synth` ci-dessus, voir son commentaire) — remplacés
+  //      par les fonctions réellement exportées, `isValidCategoryForActivity`
+  //      (identique pour un pôle : elle ne teste QUE les pôles) et
+  //      `categoryLabelFor` (couvre pôle ET secteur, actif ou gelé — voir son
+  //      commentaire dans goals.js). Avant ce correctif, la moindre part avec
+  //      une catégorie non nulle faisait échouer TOUTE la Répartition/le
+  //      détail par catégorie (TypeError) dès qu'une activité avait du temps
+  //      rattaché — c'est-à-dire l'usage normal de cet écran.
+  //   2. `parentName` (nouveau champ additif, ignoré sans risque par tout
+  //      client qui ne le connaît pas encore) : le libellé du PÔLE parent
+  //      d'une part de secteur. Nécessaire côté frontend pour regrouper les
+  //      parts d'un même pôle à la légende (qui doit rester au niveau pôle,
+  //      jamais secteur) même quand ce pôle n'a lui-même AUCUN temps direct —
+  //      auquel cas son propre nom n'existe dans aucune autre part de cette
+  //      réponse.
   const parts = Array.from(buckets.values()).map((b) => {
     const parentKey = b.category ? goals.parentKeyFor(Number(activityId), b.category) : null;
     const frozen = b.category
       ? (parentKey
         ? !goals.isValidSecteurForActivity(Number(activityId), b.category)
-        : !goals.isValidPoleForActivity(Number(activityId), b.category))
+        : !goals.isValidCategoryForActivity(Number(activityId), b.category))
       : false;
     return {
       category: b.category,
-      name: b.category ? goals.poleOrSecteurLabelFor(Number(activityId), b.category) : null,
+      name: b.category ? goals.categoryLabelFor(Number(activityId), b.category) : null,
       // « Gelée » remplace « clôturée » (qui était une notion de sous-projet,
       // avec une date d'échéance) : une catégorie n'a pas d'échéance, elle est
       // active ou retirée (gelée) — testée au bon niveau (pôle ou secteur).
       frozen,
       parentKey,
+      parentName: parentKey ? goals.categoryLabelFor(Number(activityId), parentKey) : null,
       shadeIndex: b.category !== null && ranks.has(b.category) ? ranks.get(b.category) : null,
       seconds: Math.round(b.seconds),
     };

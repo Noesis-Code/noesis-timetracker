@@ -64,7 +64,7 @@ function resolveCategoryKey(activityId, raw, current) {
     // goals.js) : une catégorie jamais utilisée pour un plan Objectifs mais
     // déjà choisie une fois dans le Chrono doit rester affichable même après
     // son retrait.
-    if (!goals.poleOrSecteurEverExisted(activityId, key)) {
+    if (!goals.categoryEverExisted(activityId, key)) {
       return { error: { status: 400, body: { error: 'Pôle ou secteur invalide pour cette activité.' } } };
     }
     return { categoryKey: key };
@@ -79,7 +79,24 @@ function resolveCategoryKey(activityId, raw, current) {
   // rattacher le temps à un PÔLE ou à un SECTEUR de ce pôle (« sélectionnable
   // au Chrono, le temps se rattache alors au secteur, pas seulement au
   // pôle »). Rien ne change tant qu'aucun secteur n'existe pour l'activité.
-  if (!goals.isValidPoleOrSecteurForActivity(activityId, key)) {
+  //
+  // 21 septembre 2026 (discussion Chrono — Pôles & secteurs, correctif) :
+  // ce fichier appelait jusqu'ici goals.isValidPoleOrSecteurForActivity/
+  // goals.poleOrSecteurEverExisted/goals.poleOrSecteurLabelFor/
+  // goals.isValidPoleForActivity — des noms issus d'un renommage
+  // catégorie→pôle qui n'a jamais atteint le goals.js réellement déployé sur
+  // `staging` (voir noesis-timetracker-poles-secteurs.md/-deploiement.md,
+  // 20-21 septembre 2026 : le renommage interne a été abandonné en cours de
+  // route, goals.js a gardé ses noms d'origine). Résultat : TOUTE sélection
+  // d'un pôle ou secteur au Chrono levait une TypeError serveur (« ... is not
+  // a function »), donc une réponse HTML 500 au lieu de JSON — le client
+  // échouait à `JSON.parse` cette page d'erreur et affichait un message de
+  // navigateur cryptique (« The string did not match the expected pattern »
+  // sur WebKit/Safari) avant de remettre le sélecteur sur « Aucun pôle ».
+  // Corrigé en revenant aux noms réellement exportés par goals.js (mêmes
+  // fonctions, déjà compatibles secteurs — voir leurs commentaires dans
+  // goals.js).
+  if (!goals.isValidCategoryOrSecteurForActivity(activityId, key)) {
     return { error: { status: 400, body: { error: 'Pôle ou secteur invalide pour cette activité.' } } };
   }
   return { categoryKey: key };
@@ -99,14 +116,14 @@ function resolveCategoryKey(activityId, raw, current) {
 // (réservée aux pôles).
 function categorySummary(activityId, categoryKey) {
   if (!categoryKey) return null;
-  if (!goals.poleOrSecteurEverExisted(activityId, categoryKey)) return null;
+  if (!goals.categoryEverExisted(activityId, categoryKey)) return null;
   const parentKey = goals.parentKeyFor(activityId, categoryKey);
   return {
     key: categoryKey,
-    label: goals.poleOrSecteurLabelFor(activityId, categoryKey),
+    label: goals.categoryLabelFor(activityId, categoryKey),
     frozen: parentKey
       ? !goals.isValidSecteurForActivity(activityId, categoryKey)
-      : !goals.isValidPoleForActivity(activityId, categoryKey),
+      : !goals.isValidCategoryForActivity(activityId, categoryKey),
     parentKey,
   };
 }

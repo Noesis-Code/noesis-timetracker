@@ -2393,9 +2393,20 @@
   // conteneurs, plutôt que d'en recopier une seconde version — même principe
   // que mountProfilePostsComposer(ids), déjà utilisé pour partager le
   // composeur de messages entre Profil et Communauté.
+  // `ids.legend` (21 septembre 2026, Statistiques — Pôles & secteurs) :
+  // liste OPTIONNELLE et DISTINCTE de `activities` pour la légende seule.
+  // Absente — comportement strictement inchangé pour tout appelant existant
+  // (Répartition de l'onglet Statistiques, page de visite d'un profil) : les
+  // tranches ET la légende viennent de `activities`, une ligne par entrée.
+  // Présente (Répartition par pôle/secteur d'une activité) : les tranches
+  // restent une par part de `activities` (un secteur y reste une tranche
+  // séparée, même couleur que son pôle), mais la légende se dessine à partir
+  // de `ids.legend`, regroupée au niveau pôle — jamais de détail secteur à la
+  // légende (voir groupCategoryPartsByPole, plus bas dans ce fichier).
   function renderPie(activities, totalSeconds, ids) {
     var wrapId = (ids && ids.wrap) || 'statsPie';
     var emptyHintId = (ids && ids.emptyHint) || 'statsPieEmptyHint';
+    var legendItems = (ids && ids.legend) || activities;
     var wrap = $(wrapId);
     wrap.innerHTML = '';
     $(emptyHintId).classList.toggle('hidden', activities.length > 0);
@@ -2410,6 +2421,22 @@
     svg.setAttribute('class', 'pieSvg');
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', t('Répartition du temps par activité'));
+
+    // Centre du donut — créé AVANT les tranches (21 septembre 2026, voir
+    // `ids.tapReveal` plus bas) : une tranche appuyée y affiche son propre nom
+    // + temps à la place du total, le temps de la pression ; les écouteurs
+    // posés sur chaque tranche doivent donc pouvoir s'y référer par fermeture.
+    var centerVal = document.createElement('span');
+    centerVal.className = 'pieCenterValue';
+    centerVal.textContent = formatHM(totalSeconds);
+    var centerLabel = document.createElement('span');
+    centerLabel.className = 'pieCenterLabel';
+    centerLabel.textContent = 'total';
+    var restoreCenterTotal = function () {
+      centerVal.textContent = formatHM(totalSeconds);
+      centerLabel.textContent = 'total';
+      centerLabel.classList.remove('pieCenterLabel--tapped');
+    };
 
     var angle = -Math.PI / 2; // départ à midi, sens horaire
     activities.forEach(function (a) {
@@ -2433,6 +2460,31 @@
         path.setAttribute('class', 'pieSlice pieSlice-tappable');
         path.addEventListener('click', function () { ids.onActivityTap(a); });
       }
+      // `ids.tapReveal` (21 septembre 2026, Statistiques — Répartition par
+      // catégorie, demande d'Emilien) : une pression sur une tranche affiche
+      // SON temps au centre du donut, à la place du total, tant que le doigt
+      // (ou le bouton de la souris) reste dessus — relâcher restaure le
+      // total. Sert à révéler le temps d'un SECTEUR sans jamais l'ajouter à
+      // la légende, qui reste au niveau pôle (voir groupCategoryPartsByPole) :
+      // « le temps passé par secteur n'est pas marqué en bas [...] mais il
+      // s'affiche lorsque j'appuie sur la section avec mon doigt. » Écouteurs
+      // `pointer*` (et non `click`) pour un affichage qui suit la pression
+      // elle-même plutôt qu'un état à bascule ; jamais combiné avec
+      // `onActivityTap` par aucun appelant actuel, les deux pourraient
+      // cohabiter sans conflit si besoin un jour (un seul `click`, des
+      // `pointer*` distincts).
+      if (ids && ids.tapReveal) {
+        path.classList.add('pieSlice-tappable');
+        var reveal = function () {
+          centerVal.textContent = formatHM(a.seconds);
+          centerLabel.textContent = a.name;
+          centerLabel.classList.add('pieCenterLabel--tapped');
+        };
+        path.addEventListener('pointerdown', reveal);
+        path.addEventListener('pointerup', restoreCenterTotal);
+        path.addEventListener('pointercancel', restoreCenterTotal);
+        path.addEventListener('pointerleave', restoreCenterTotal);
+      }
       svg.appendChild(path);
       angle += sweep;
     });
@@ -2443,12 +2495,6 @@
 
     var center = document.createElement('div');
     center.className = 'pieCenter';
-    var centerVal = document.createElement('span');
-    centerVal.className = 'pieCenterValue';
-    centerVal.textContent = formatHM(totalSeconds);
-    var centerLabel = document.createElement('span');
-    centerLabel.className = 'pieCenterLabel';
-    centerLabel.textContent = 'total';
     center.appendChild(centerVal);
     center.appendChild(centerLabel);
     chartArea.appendChild(center);
@@ -2458,7 +2504,7 @@
     // jamais pour identifier une part (voir dataviz : legend obligatoire).
     var legend = document.createElement('div');
     legend.className = 'pieLegend';
-    activities.forEach(function (a) {
+    legendItems.forEach(function (a) {
       var row = document.createElement('div');
       row.className = 'pieLegendRow';
       var dot = document.createElement('span');
@@ -3059,15 +3105,103 @@
     if (!csTodayMode) renderCategoryPie(data.breakdown, data.label, data);
   }
 
+  // ===================== PÔLES & SECTEURS — CAMEMBERT/LÉGENDE =====================
+  // 21 septembre 2026, segment Statistiques : « chaque secteur doit apparaître
+  // comme une part de camembert séparée, de la même couleur que son pôle
+  // parent » (noesis-timetracker-poles-secteurs.md), et rappel du même doc —
+  // la légende, elle, reste STRICTEMENT au niveau pôle (jamais le détail
+  // secteur, exactement comme l'Objectifs/la Feuille de temps/le Graphique).
+  //
+  // Reçoit les parts « à plat » telles que categoryBreakdownForRange les
+  // renvoie (une part par pôle OU par secteur, `parentKey`/`parentName`
+  // additifs posés par le serveur) et produit, à partir de la MÊME source
+  // (jamais deux calculs qui pourraient diverger) :
+  //   - `slices` : les mêmes parts, réordonnées pour que toutes celles d'un
+  //     même pôle (son propre temps direct s'il existe + chacun de ses
+  //     secteurs) soient CONTIGUËS dans le camembert — sinon la tranche d'un
+  //     AUTRE pôle pourrait s'intercaler entre deux tranches de même couleur,
+  //     cassant la lecture du regroupement visuel. Le petit espace physique
+  //     entre deux parts (déjà dessiné par `gap` dans renderPie, entre TOUTE
+  //     paire de tranches consécutives) suffit à distinguer un secteur de son
+  //     pôle sans rien ajouter au tracé lui-même.
+  //   - `legend` : une entrée par PÔLE (son temps direct + tous ses secteurs
+  //     additionnés) plus la part « Sans pôle » — jamais une ligne par
+  //     secteur. Le pourcentage de chaque ligne est recalculé sur le temps
+  //     total du groupe plutôt que sommé depuis les pourcentages déjà
+  //     arrondis de chaque part, pour éviter un écart d'arrondi cumulé.
+  // Les groupes restent triés par temps total décroissant, comme le tri par
+  // part avant ce chantier — comportement inchangé tant qu'aucune part n'a de
+  // `parentKey` (toute activité qui n'utilise pas encore les secteurs).
+  function groupCategoryPartsByPole(colored, totalSeconds) {
+    var order = [];
+    var groups = {};
+    colored.forEach(function (c) {
+      var groupKey = c.parentKey || c.category || 'none';
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
+          // Une part de secteur peut arriver avant celle de son pôle (l'ordre
+          // d'entrée suit le tri par temps décroissant du serveur, pas la
+          // hiérarchie) — le nom du pôle depuis `parentName` sert de premier
+          // repli ; la branche `!c.parentKey` plus bas le remplace par le nom
+          // exact de la part-pôle elle-même dès qu'elle apparaît, y compris
+          // pour reprendre son éventuel suffixe « (retirée) ».
+          name: c.parentKey ? (c.parentName || t('Pôle')) : c.ownName,
+          color: c.color,
+          seconds: 0,
+          parts: [],
+        };
+        order.push(groupKey);
+      }
+      var g = groups[groupKey];
+      g.parts.push(c);
+      g.seconds += c.seconds;
+      if (!c.parentKey) { g.name = c.ownName; g.color = c.color; }
+    });
+    order.sort(function (ka, kb) { return groups[kb].seconds - groups[ka].seconds; });
+
+    var slices = [];
+    order.forEach(function (key) {
+      var g = groups[key];
+      // Au sein d'un même groupe : le temps direct du pôle d'abord (s'il
+      // existe), puis ses secteurs par temps décroissant — ordre purement
+      // visuel, ces parts étant de toute façon indiscernables à la seule
+      // couleur.
+      g.parts.sort(function (a, b) {
+        if (!a.parentKey !== !b.parentKey) return a.parentKey ? 1 : -1;
+        return b.seconds - a.seconds;
+      });
+      slices = slices.concat(g.parts);
+    });
+
+    var legend = order.map(function (key) {
+      var g = groups[key];
+      return {
+        name: g.name,
+        color: g.color,
+        seconds: g.seconds,
+        percent: totalSeconds > 0 ? Math.round((g.seconds / totalSeconds) * 100) : 0,
+      };
+    });
+    return { slices: slices, legend: legend };
+  }
+
   function renderCategoryPie(breakdown, label, data) {
     var parts = (breakdown && breakdown.categories) || [];
     $('csStatsLabel').textContent = label ? t(label) : '';
 
     var colored = parts.map(function (p) {
+      var ownName = (p.category === null ? t('Sans pôle') : (p.name || t('Pôle')))
+        + (p.frozen ? ' (' + t('retirée') + ')' : '');
       return {
-        name: p.category === null
-          ? t('Sans pôle')
-          : (p.name || t('Pôle')) + (p.frozen ? ' (' + t('retirée') + ')' : ''),
+        category: p.category,
+        parentKey: p.parentKey,
+        parentName: p.parentName,
+        ownName: ownName,
+        // Nom affiché au survol de LA TRANCHE (infobulle SVG, `renderPie`) :
+        // « <pôle> · <secteur> » pour une part de secteur — jamais affiché à
+        // la légende (voir groupCategoryPartsByPole ci-dessus), seulement ici
+        // où chaque secteur reste une tranche à part.
+        name: p.parentKey ? ((p.parentName || t('Pôle')) + ' · ' + ownName) : ownName,
         seconds: p.seconds,
         percent: p.percent,
         // Le rang de la part est passé en repli : en mode « Aujourd'hui »,
@@ -3075,15 +3209,24 @@
         color: categoryColorFor(data, p.category, p.shadeIndex),
       };
     });
+    var totalSeconds = breakdown ? breakdown.totalSeconds : 0;
+    var grouped = groupCategoryPartsByPole(colored, totalSeconds);
 
     // Le camembert est dessiné par renderPie, la fonction de la Répartition,
-    // appelée telle quelle : mêmes proportions, même trou central, et SA
-    // légende — la seule de cette fenêtre (4 septembre 2026, Emilien : « je
-    // souhaite que la légende ne soit affichée qu'une seule fois »).
-    // Sans `onActivityTap` : on est déjà au niveau le plus fin.
-    renderPie(colored, breakdown ? breakdown.totalSeconds : 0, {
+    // appelée telle quelle : mêmes proportions, même trou central. Sa légende
+    // (4 septembre 2026, Emilien : « je souhaite que la légende ne soit
+    // affichée qu'une seule fois ») vient désormais de `grouped.legend`
+    // (regroupée par pôle), les tranches de `grouped.slices` (une par pôle OU
+    // secteur, réordonnées pour rester contiguës par pôle).
+    // Sans `onActivityTap` : on est déjà au niveau le plus fin. `tapReveal`
+    // (21 septembre 2026) : une pression sur une tranche affiche son temps au
+    // centre du donut — seul moyen de voir le temps d'un secteur précis,
+    // puisque la légende ci-dessus reste groupée par pôle.
+    renderPie(grouped.slices, totalSeconds, {
       wrap: 'categoryStatsPie',
       emptyHint: 'categoryStatsPieEmptyHint',
+      legend: grouped.legend,
+      tapReveal: true,
     });
   }
 
@@ -3208,19 +3351,31 @@
   function renderSoloCategoryPie(data) {
     var parts = data.categories || [];
     var colored = parts.map(function (p) {
+      var ownName = (p.category === null ? t('Sans pôle') : (p.name || t('Pôle')))
+        + (p.frozen ? ' (' + t('retirée') + ')' : '');
       return {
-        name: p.category === null
-          ? t('Sans pôle')
-          : (p.name || t('Pôle')) + (p.frozen ? ' (' + t('retirée') + ')' : ''),
+        category: p.category,
+        parentKey: p.parentKey,
+        parentName: p.parentName,
+        ownName: ownName,
+        // Voir renderCategoryPie/groupCategoryPartsByPole : même distinction
+        // « nom de tranche (pôle · secteur) » vs « nom de légende (pôle
+        // seul) » ici, sur la même donnée de secteurs.
+        name: p.parentKey ? ((p.parentName || t('Pôle')) + ' · ' + ownName) : ownName,
         seconds: p.seconds,
         percent: p.percent,
         color: subProjectShade(data.baseColor, p.shadeIndex, data.shadeCount),
       };
     });
+    var grouped = groupCategoryPartsByPole(colored, data.totalSeconds);
     // renderPie pose sa propre légende dans son wrap : aucune seconde liste
     // n'est dessinée ici, sans quoi les mêmes lignes s'afficheraient deux fois.
-    renderPie(colored, data.totalSeconds, {
+    // `tapReveal` : voir renderCategoryPie — même mécanisme de révélation du
+    // temps d'un secteur par pression, ici pour la page d'activité solo.
+    renderPie(grouped.slices, data.totalSeconds, {
       wrap: 'soloStatsPie', emptyHint: 'soloStatsPieEmptyHint',
+      legend: grouped.legend,
+      tapReveal: true,
     });
   }
 
@@ -5399,6 +5554,22 @@
   var currentGoalsSelectedPoleKey = '';
   var currentGoalsGridColumns = null;
   var currentGoalsMaxSecteurs = 10;
+  // 21 septembre 2026 (même chantier, suite le jour même — demande
+  // d'Emilien : « je souhaite que les pôles ne soient plus des boutons
+  // successifs, mais un menu déroulant qui prend l'ensemble de la largeur
+  // de l'écran et qui, lorsqu'il se déroule, pousse les secteurs des arbres
+  // vers le bas ») — état ouvert/fermé du menu déroulant de pôles (voir
+  // renderGoalsPoleDropdown() plus bas). Remplace la barre de boutons
+  // horizontaux du même jour (matin) par un composant "maison" en flux
+  // normal, même principe que buildCategoryDropdown() plus loin dans ce
+  // fichier (jamais d'overlay/position absolue : la liste d'options suit le
+  // bouton déclencheur dans le DOM, donc pousse mécaniquement #goalsGridScroll
+  // vers le bas à l'ouverture, sans z-index ni calcul de position à gérer).
+  var currentGoalsPoleDropdownOpen = false;
+  // Écouteur "clic en dehors du menu" actuellement posé (ou null) — voir
+  // renderGoalsPoleDropdown() plus bas, qui le retire/repose à chaque appel
+  // pour n'en avoir jamais plus d'un actif à la fois.
+  var goalsPoleDropdownDocClickHandler = null;
 
   // 15 septembre 2026 (7e passage, discussion Objectifs — B, cadré avec
   // Emilien par AskUserQuestion : catégories personnalisables par activité) :
@@ -5415,7 +5586,7 @@
   // catégories fixes historiques si l'activité n'a jamais activé la
   // personnalisation) — c'était le corps entier d'activeGoalsCategories()
   // avant ce chantier ; conservée à l'identique pour la nouvelle barre de
-  // boutons de pôles (renderGoalsPoleTabBar() plus bas) et comme source de
+  // boutons de pôles (renderGoalsPoleDropdown() plus bas) et comme source de
   // repli quand aucun pôle réel n'existe encore (voir activeGoalsCategories()
   // juste en dessous).
   function goalsPoles() {
@@ -6585,13 +6756,13 @@
       if (!goalsHasNoRealCategory(poles)) {
         var stillValid = poles.some(function (p) { return p.key === currentGoalsSelectedPoleKey; });
         if (!stillValid) currentGoalsSelectedPoleKey = poles[0].key;
-        renderGoalsPoleTabBar();
+        renderGoalsPoleDropdown();
         return reloadGoalsGridForPole(currentGoalsSelectedPoleKey);
       }
 
       currentGoalsSelectedPoleKey = '';
       currentGoalsGridColumns = null;
-      renderGoalsPoleTabBar();
+      renderGoalsPoleDropdown();
 
       // Page 1, vue grille (seul mode désormais) : toujours à jour, l'en-tête
       // de colonnes puis les cellules, pour les catégories actives.
@@ -6613,7 +6784,7 @@
   // `currentGoalsAllPlannings.byCategory[c.key]` — les trouve sans qu'aucune
   // ligne de cette fonction n'ait à bouger. Appelée par reloadGoalsAll() ci-
   // dessus (chargement/rafraîchissement de l'onglet) et par le clic sur un
-  // bouton de la barre de pôles (renderGoalsPoleTabBar()).
+  // bouton de la barre de pôles (renderGoalsPoleDropdown()).
   function reloadGoalsGridForPole(poleKey) {
     var activityId = currentGoalsActivityId;
     if (!activityId || !poleKey) return Promise.resolve();
@@ -6639,52 +6810,118 @@
   }
 
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande
-  // explicite d'Emilien : « les pôles, on les insère comme des boutons
-  // au-dessus des secteurs et en dessous du nom de l'activité ») — barre de
-  // boutons de pôles, un par pôle ACTIF (jamais un secteur), même langage
-  // visuel que les badges de catégorie de la grille (subProjectShade() à
-  // partir de currentGoalsActivityColor et du RANG du pôle dans la liste,
-  // même index qu'utiliseraient renderGoalsGridHead()/renderGoalsGrid() pour
-  // ce même pôle s'il redevenait une colonne). Masquée entièrement tant
-  // qu'aucun pôle réel n'existe (goalsHasNoRealCategory) — dans ce cas la
-  // grille affiche encore les pôles eux-mêmes, une barre de sélection
-  // n'aurait pas de sens. #goalsPoleTabBar : index.html, entre
-  // #goalsActivityHeader (nom de l'activité) et #goalsGridScroll (la grille)
-  // — position demandée par Emilien.
-  function renderGoalsPoleTabBar() {
-    var bar = $('goalsPoleTabBar');
-    if (!bar) return;
+  // explicite d'Emilien LE MATIN : « les pôles, on les insère comme des
+  // boutons au-dessus des secteurs et en dessous du nom de l'activité »),
+  // puis remplacée LE JOUR MÊME (demande directe d'Emilien) : « je souhaite
+  // que les pôles ne soient plus des boutons successifs, mais un menu
+  // déroulant qui prend l'ensemble de la largeur de l'écran et qui, lorsqu'il
+  // se déroule, pousse les secteurs des arbres vers le bas pour montrer les
+  // différentes options. » Dropdown "maison" EN FLUX (jamais d'overlay/
+  // position absolue — même principe que buildCategoryDropdown() plus loin
+  // dans ce fichier) : la liste d'options suit le bouton déclencheur dans le
+  // DOM, donc pousse mécaniquement #goalsGridScroll (juste en dessous dans
+  // index.html) vers le bas à l'ouverture, sans z-index ni calcul de
+  // position — exactement le comportement demandé, gratuit avec ce
+  // positionnement. Un bouton par pôle ACTIF (jamais un secteur) dans le
+  // menu déroulé, même langage visuel que les badges de catégorie de la
+  // grille (subProjectShade() à partir de currentGoalsActivityColor et du
+  // RANG du pôle dans la liste, même index qu'utiliseraient
+  // renderGoalsGridHead()/renderGoalsGrid() pour ce même pôle s'il
+  // redevenait une colonne). Masqué entièrement tant qu'aucun pôle réel
+  // n'existe (goalsHasNoRealCategory) — dans ce cas la grille affiche encore
+  // les pôles eux-mêmes, un sélecteur n'aurait pas de sens. #goalsPoleTabBar
+  // (id conservé tel quel, index.html) : entre #goalsActivityHeader (nom de
+  // l'activité) et #goalsGridScroll (la grille) — position demandée par
+  // Emilien.
+  //
+  // Reconstruit entièrement à chaque appel (jamais construit une seule fois
+  // puis muté, contrairement à buildCategoryDropdown) : cette fonction est
+  // appelée depuis plusieurs points (rechargement de l'onglet, changement de
+  // pôle) et doit refléter à chaque fois la liste de pôles/la sélection à
+  // jour. goalsPoleDropdownDocClickHandler (variable de fermeture, déclarée
+  // avec les autres états de ce chantier) retire systématiquement l'écouteur
+  // "clic en dehors" précédent avant d'en reposer un seul nouveau si le menu
+  // est ouvert — jamais plusieurs écouteurs empilés d'un rendu à l'autre.
+  function renderGoalsPoleDropdown() {
+    var wrap = $('goalsPoleTabBar');
+    if (!wrap) return;
+    if (goalsPoleDropdownDocClickHandler) {
+      document.removeEventListener('click', goalsPoleDropdownDocClickHandler, true);
+      goalsPoleDropdownDocClickHandler = null;
+    }
     var poles = goalsPoles();
     if (goalsHasNoRealCategory(poles)) {
-      bar.innerHTML = '';
-      bar.classList.add('hidden');
+      wrap.innerHTML = '';
+      wrap.classList.add('hidden');
+      currentGoalsPoleDropdownOpen = false;
       return;
     }
-    bar.classList.remove('hidden');
-    bar.innerHTML = '';
+    wrap.classList.remove('hidden');
+    wrap.classList.toggle('open', currentGoalsPoleDropdownOpen);
+    wrap.innerHTML = '';
+
+    var currentIndex = -1;
+    poles.forEach(function (p, i) { if (p.key === currentGoalsSelectedPoleKey) currentIndex = i; });
+    var currentShade = subProjectShade(currentGoalsActivityColor, currentIndex !== -1 ? currentIndex : 0, SUB_PROJECT_SHADE_COUNT);
+
+    var trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'goalsPoleDropdownTrigger';
+    trigger.style.borderColor = currentShade;
+    var dot = document.createElement('span');
+    dot.className = 'goalsPoleDropdownDot';
+    dot.style.background = currentShade;
+    var label = document.createElement('span');
+    label.className = 'goalsPoleDropdownLabel';
+    label.style.color = currentShade;
+    label.textContent = currentIndex !== -1 ? t(poles[currentIndex].label) : '';
+    var arrow = document.createElement('span');
+    arrow.className = 'goalsPoleDropdownArrow';
+    arrow.textContent = '▾';
+    trigger.appendChild(dot);
+    trigger.appendChild(label);
+    trigger.appendChild(arrow);
+    trigger.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      currentGoalsPoleDropdownOpen = !currentGoalsPoleDropdownOpen;
+      renderGoalsPoleDropdown();
+    });
+    wrap.appendChild(trigger);
+
+    var menu = document.createElement('div');
+    menu.className = 'goalsPoleDropdownMenu' + (currentGoalsPoleDropdownOpen ? '' : ' hidden');
     poles.forEach(function (p, index) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
+      var opt = document.createElement('div');
       var active = p.key === currentGoalsSelectedPoleKey;
-      btn.className = 'goalsPoleTab' + (active ? ' goalsPoleTab--active' : '');
-      btn.textContent = t(p.label);
+      opt.className = 'goalsPoleDropdownOption' + (active ? ' active' : '');
+      opt.textContent = t(p.label);
       var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
       if (active) {
-        btn.style.background = shade;
-        btn.style.borderColor = shade;
-        btn.style.color = readableTextOn(shade);
+        opt.style.background = shade;
+        opt.style.color = readableTextOn(shade);
       } else {
-        btn.style.borderColor = shade;
-        btn.style.color = shade;
+        opt.style.color = shade;
       }
-      btn.addEventListener('click', function () {
-        if (currentGoalsSelectedPoleKey === p.key) return;
+      opt.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        currentGoalsPoleDropdownOpen = false;
+        var changed = currentGoalsSelectedPoleKey !== p.key;
         currentGoalsSelectedPoleKey = p.key;
-        renderGoalsPoleTabBar();
-        reloadGoalsGridForPole(p.key);
+        renderGoalsPoleDropdown();
+        if (changed) reloadGoalsGridForPole(p.key);
       });
-      bar.appendChild(btn);
+      menu.appendChild(opt);
     });
+    wrap.appendChild(menu);
+
+    if (currentGoalsPoleDropdownOpen) {
+      goalsPoleDropdownDocClickHandler = function (ev) {
+        if (wrap.contains(ev.target)) return;
+        currentGoalsPoleDropdownOpen = false;
+        renderGoalsPoleDropdown();
+      };
+      document.addEventListener('click', goalsPoleDropdownDocClickHandler, true);
+    }
   }
 
   $('activityGoalsPrevBtn').addEventListener('click', function () {
@@ -6952,6 +7189,37 @@
     outline.style.height = Math.max(0, gridRect.bottom - headRect.top) + 'px';
   }
 
+  // 21 septembre 2026, demande d'Emilien : « je souhaite que le signe +
+  // et l'écriture "ajouter un secteur" soit toujours au milieu de l'écran
+  // par rapport à la longueur du téléphone [...] cependant, cela doit
+  // rester à équidistance entre les deux lignes pointillées verticales. »
+  // Jusqu'ici, .goalsGridCellAddIcon/Label étaient centrés par le flex du
+  // bouton parent (.goalsGridCell--add, justify-content: center) — donc
+  // centrés sur la largeur de la CASE (= clientWidth de #goalsGridScroll,
+  // syncGoalsGridWidths() plus bas), pas sur la largeur réelle de l'écran.
+  // #goalsGridScroll est décalé par margin-left (place pour le rail
+  // tactile, discussion "Objectifs — Rail périodique") sans compensation
+  // symétrique à droite : centrer dans la case décale donc visuellement le
+  // "+" par rapport au vrai milieu du téléphone.
+  // Calcul : position du milieu de l'écran (window.innerWidth / 2)
+  // convertie en coordonnée LOCALE à la case (relative à son propre bord
+  // gauche, cellRect.left) — cette case fait exactement la largeur du
+  // viewport de #goalsGridScroll dès qu'elle est la page actuellement
+  // visible, donc ce calcul tombe juste dès qu'elle est swipée en vue.
+  // Borné à [20, largeur-20] pour ne jamais atteindre le contour en
+  // pointillés (#goalsGridAddOutline) même dans un cas extrême — répond à
+  // la seconde partie de la demande (équidistance des deux bords).
+  function positionGoalsAddCenterContent() {
+    var cell = document.querySelector('.goalsGridCell--addCenter');
+    var content = cell && cell.querySelector('.goalsGridCellAddContent');
+    if (!cell || !content) return;
+    var cellRect = cell.getBoundingClientRect();
+    if (!cellRect.width) return;
+    var target = (window.innerWidth / 2) - cellRect.left;
+    target = Math.max(20, Math.min(cellRect.width - 20, target));
+    content.style.left = target + 'px';
+  }
+
   function syncGoalsGridWidths() {
     var scroll = $('goalsGridScroll');
     if (!scroll) return;
@@ -7007,9 +7275,33 @@
     });
 
     positionGoalsAddOutline();
+    positionGoalsAddCenterContent();
   }
   window.addEventListener('resize', syncGoalsGridWidths);
   window.addEventListener('orientationchange', syncGoalsGridWidths);
+  // 21 septembre 2026 : le défilement horizontal de #goalsGridScroll
+  // (balayage entre catégories/case d'ajout) ne déclenche ni resize ni
+  // re-rendu — sans ceci, positionGoalsAddCenterContent() ne recalculerait
+  // qu'au prochain rendu/redimensionnement, donc pas pendant le balayage
+  // lui-même ("toujours au milieu de l'écran" pendant le geste, pas
+  // seulement une fois arrivé). #goalsGridScroll est un élément statique
+  // d'index.html (jamais recréé par innerHTML=''), donc un seul écouteur
+  // posé ici au chargement du script suffit, jamais dupliqué. rAF-throttlé
+  // (même patron que le rail vertical, bindGoalsScrub() plus haut) pour ne
+  // pas recalculer plus d'une fois par frame pendant un balayage rapide.
+  (function () {
+    var scrollEl = $('goalsGridScroll');
+    if (!scrollEl) return;
+    var scheduled = false;
+    scrollEl.addEventListener('scroll', function () {
+      if (scheduled) return;
+      scheduled = true;
+      window.requestAnimationFrame(function () {
+        scheduled = false;
+        positionGoalsAddCenterContent();
+      });
+    }, { passive: true });
+  })();
 
   function renderGoalsGrid() {
     var grid = $('goalsGrid');
@@ -7161,14 +7453,25 @@
           // subsistent dans cette zone.
           addCell.style.setProperty('--goalsAddAccent', subProjectShade(currentGoalsActivityColor, hasNoRealCategory ? 0 : categories.length, SUB_PROJECT_SHADE_COUNT));
           if (periodIndex === addCenterPeriodIndex) {
+            // 21 septembre 2026, demande d'Emilien : le "+"/libellé doivent
+            // rester centrés sur la largeur réelle du téléphone (pas sur la
+            // largeur de la case), tout en restant à équidistance des deux
+            // bords pointillés — voir .goalsGridCellAddContent (styles.css)
+            // et positionGoalsAddCenterContent() plus bas, qui calcule le
+            // "left" de ce wrapper. Contenu déplacé du bouton lui-même
+            // (centré par flex, .goalsGridCell--add) vers ce wrapper en
+            // position:absolute, positionné en JS.
+            var addContent = document.createElement('span');
+            addContent.className = 'goalsGridCellAddContent';
             var addIcon = document.createElement('span');
             addIcon.className = 'goalsGridCellAddIcon';
             addIcon.textContent = '+';
             var addLabel = document.createElement('span');
             addLabel.className = 'goalsGridCellAddLabel';
             addLabel.textContent = t('Ajouter un secteur');
-            addCell.appendChild(addIcon);
-            addCell.appendChild(addLabel);
+            addContent.appendChild(addIcon);
+            addContent.appendChild(addLabel);
+            addCell.appendChild(addContent);
           }
           addCell.addEventListener('click', goToGoalsCategorySettings);
           row.appendChild(addCell);
@@ -7289,6 +7592,7 @@
     // cette activité (ou sur goalsPoles() si elle n'en a aucun).
     currentGoalsSelectedPoleKey = '';
     currentGoalsGridColumns = null;
+    currentGoalsPoleDropdownOpen = false;
 
     currentGoalsActivityColor = a.color;
     $('goalsActivityDot').style.background = a.color;

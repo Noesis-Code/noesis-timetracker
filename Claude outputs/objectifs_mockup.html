@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Objectifs — esquisse</title>
+<style>
+  :root {
+    --bg: #15171b; --card: #1f2229; --text: #eef0f2; --text-light: #9a9ea6;
+    --border: #33363d; --purple: #674EA7; --purple-dark: #4a3980;
+    --radius-sm: 8px; --radius-md: 10px;
+    --cat1: #674EA7; --cat2: #2e9e6f; --cat3: #c8862f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  .note {
+    max-width: 420px; margin: 0 auto; padding: 14px 16px 0;
+    font-size: 12.5px; color: var(--text-light); line-height: 1.5;
+  }
+  .phone {
+    max-width: 420px; margin: 14px auto 60px; border: 1px solid var(--border);
+    border-radius: 20px; overflow: hidden; background: var(--bg);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+  }
+  .scrollArea { height: 640px; overflow-y: auto; position: relative; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    background: linear-gradient(160deg, var(--purple) 0%, var(--purple-dark) 100%);
+    color: #fff; padding: 14px 16px; font-weight: 700; font-size: 16px;
+  }
+
+  .activitySwitcher {
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    padding: 10px 16px; font-size: 15px; font-weight: 600;
+  }
+  .activitySwitcher button {
+    background: none; border: none; color: var(--text-light); font-size: 20px; cursor: pointer;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--cat1); display: inline-block; margin-right: 6px; }
+
+  /* Bloc fixe : seulement la barre des points + la date courante. Les bulles
+     de catégorie n'en font plus partie — elles défilent avec les arbres. */
+  .fixedCluster {
+    position: sticky; top: 46px; z-index: 20;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: 10px 16px 12px;
+  }
+  .trendRow { display: flex; justify-content: center; gap: 9px; padding: 0 2px 12px; }
+  .trendDot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); position: relative; }
+  .trendDot.active { background: var(--purple); }
+  .trendDot.active::after {
+    content: ''; position: absolute; inset: -4px; border: 2px solid var(--purple); border-radius: 50%;
+  }
+
+  /* En-tête : bulles de catégorie centrées, en groupe compact — plus alignées
+     colonne par colonne sur les arbres. Défile avec le contenu (pas fixe),
+     juste sous le bloc fixe (points + date). */
+  .headRow {
+    display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
+    padding: 14px 16px 4px;
+  }
+  .catBubble {
+    text-align: center; padding: 6px 12px; border-radius: 999px; font-size: 10.5px;
+    font-weight: 600; color: #fff;
+  }
+  .catBubble.c1 { background: var(--cat1); }
+  .catBubble.c2 { background: var(--cat2); }
+  .catBubble.c3 { background: var(--cat3); }
+
+  /* Corps : 3 colonnes de catégories, plus de colonne de points à gauche.
+     Une SEULE ligne verticale par catégorie, qui relie entre eux tous les
+     objectifs périodiques de cette catégorie — aucune autre ligne, aucun
+     séparateur entre colonnes. Padding haut/bas généreux et fixe (pas calculé
+     en JS) + lignes plus espacées, pour que la 1ère et la 13e période aient
+     elles aussi une vraie chance d'atteindre le milieu de l'écran. */
+  .periodsGrid {
+    display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 8px;
+    position: relative; padding: 140px 16px 170px;
+  }
+  /* Segments dessinés en JS une fois la mise en page connue : uniquement entre
+     le bas d'une bulle et le haut de la suivante DE LA MÊME catégorie — jamais
+     par-dessus une bulle, jamais devant/derrière une période vide. */
+  .catLineSeg { position: absolute; width: 2px; opacity: 0.55; z-index: 0; }
+  .catLineSeg.c1 { background: var(--cat1); }
+  .catLineSeg.c2 { background: var(--cat2); }
+  .catLineSeg.c3 { background: var(--cat3); }
+
+  /* Bandeau fixe : période + dates de la ligne actuellement au milieu de
+     l'écran. Sous la barre des points, au-dessus des bulles de catégorie. */
+  .currentPeriodBar {
+    text-align: center; font-size: 11.5px; color: var(--text-light);
+    padding: 0 0 10px;
+  }
+  .currentPeriodBar b { color: var(--purple); font-weight: 700; margin-right: 6px; }
+
+  .goalCell {
+    display: flex; align-items: center; padding: 22px 0; position: relative; z-index: 1;
+  }
+  .goalBubble {
+    display: block; padding: 7px 9px; border-radius: var(--radius-sm); font-size: 11px;
+    line-height: 1.3; color: var(--text); width: 100%;
+  }
+  .goalBubble.c1 { background: rgba(103,78,167,0.28); border: 1px solid var(--cat1); }
+  .goalBubble.c2 { background: rgba(46,158,111,0.24); border: 1px solid var(--cat2); }
+  .goalBubble.c3 { background: rgba(200,134,47,0.24); border: 1px solid var(--cat3); }
+  .goalLine {
+    display: block; width: 100%; height: 1px; background: var(--border); opacity: 0.9;
+  }
+</style>
+</head>
+<body>
+<div class="note">
+  V9 : plus de points à gauche des lignes (colonne retirée, les 3 arbres prennent
+  toute la largeur). Nouvelle solution pour P1/P13 : au lieu d'un padding calculé
+  en JS, un padding fixe en haut/bas de la liste + des lignes nettement plus
+  espacées — plus simple, plus prévisible.
+</div>
+<div class="phone">
+  <div class="scrollArea" id="scrollArea">
+    <div class="topbar">Noèsis</div>
+    <div class="activitySwitcher">
+      <button>‹</button>
+      <span><span class="dot"></span>Développement Noèsis</span>
+      <button>›</button>
+    </div>
+    <div class="fixedCluster">
+      <div class="trendRow" id="trendRow"></div>
+      <div class="currentPeriodBar" id="currentPeriodBar"></div>
+    </div>
+    <div class="headRow">
+      <span class="catBubble c1">Entreprise</span>
+      <span class="catBubble c2">Communauté</span>
+      <span class="catBubble c3">Produit</span>
+    </div>
+    <div class="periodsGrid" id="periodsGrid"></div>
+  </div>
+</div>
+<script>
+  const N = 13;
+  const grid = document.getElementById('periodsGrid');
+  const trendRow = document.getElementById('trendRow');
+  const classes = ['c1', 'c2', 'c3'];
+  const texts = [
+    ["Lancer la V2 du module Objectifs", "", "Boucler l'audit sécurité", "Refonte du profil", "", "Migrer vers Postgres", "Stabiliser les notifications", "", "Nettoyer la dette technique", "Ouvrir l'API publique", "", "Revue de perf globale", "Bilan annuel produit"],
+    ["Recruter 3 activités partenaires", "Sondage satisfaction membres", "", "Relancer les profils inactifs", "", "Événement communauté Q4", "", "Programme de parrainage", "", "Refonte du fil Communauté", "Campagne de recommandation", "", "Rétro annuelle communauté"],
+    ["", "Sortir le mode hors-ligne", "Widget écran d'accueil", "", "Export PDF des statistiques", "", "Intégration calendrier v2", "Mode sombre auto", "", "Raccourcis clavier", "", "Recherche globale", "Bilan produit annuel"]
+  ];
+  const months = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+  function fmt(d) { return d.getDate() + ' ' + months[d.getMonth()]; }
+  const start = new Date(2026, 8, 14);
+
+  for (let i = 0; i < N; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'trendDot' + (i === 2 ? ' active' : '');
+    trendRow.appendChild(dot);
+  }
+
+  // bubbleEls[ci] recense, dans l'ordre, les bulles réellement présentes pour
+  // la catégorie ci — c'est cette liste (et seulement elle) qui sert ensuite
+  // à tracer les segments : jamais sur une période vide, jamais avant la
+  // première bulle ni après la dernière.
+  const bubbleEls = [[], [], []];
+
+  // Plus de colonne de points à gauche. rowEls retient, pour chaque période,
+  // une de ses 3 cellules — toutes partagent la même ligne de grille, donc
+  // son rectangle représente exactement la ligne entière. periodInfo sert au
+  // bandeau fixe, qui affiche la période au milieu de l'écran.
+  const rowEls = [];
+  const periodInfo = [];
+
+  for (let i = 0; i < N; i++) {
+    const rowStart = new Date(start); rowStart.setDate(rowStart.getDate() + i*28);
+    const rowEnd = new Date(rowStart); rowEnd.setDate(rowEnd.getDate() + 27);
+    const row = i + 1;
+    periodInfo.push({ label: `P${i+1}`, range: `${fmt(rowStart)} – ${fmt(rowEnd)}` });
+
+    classes.forEach((cls, ci) => {
+      const cell = document.createElement('div');
+      cell.className = 'goalCell';
+      cell.style.gridColumn = String(ci + 1);
+      cell.style.gridRow = String(row);
+      const text = texts[ci][i];
+      // Période sans objectif pour cette catégorie : la cellule reste
+      // entièrement vide, plus aucun trait horizontal — seules les bulles
+      // et les segments qui les relient restent visibles.
+      if (text) {
+        const bubble = document.createElement('span');
+        bubble.className = 'goalBubble ' + cls;
+        bubble.textContent = text;
+        cell.appendChild(bubble);
+        bubbleEls[ci].push(bubble);
+      }
+      grid.appendChild(cell);
+      if (ci === 0) rowEls.push(cell);
+    });
+  }
+
+  const periodBar = document.getElementById('currentPeriodBar');
+  const scrollArea = document.getElementById('scrollArea');
+
+  // Mise en page connue (padding haut/bas fixe, lignes plus espacées — plus
+  // de calcul JS) : on relie chaque bulle au bas de la précédente, un
+  // segment par paire consécutive DE LA MÊME catégorie, rien d'autre.
+  requestAnimationFrame(() => {
+    const gridRect = grid.getBoundingClientRect();
+    bubbleEls.forEach((list, ci) => {
+      for (let k = 0; k < list.length - 1; k++) {
+        const a = list[k].getBoundingClientRect();
+        const b = list[k + 1].getBoundingClientRect();
+        const seg = document.createElement('div');
+        seg.className = 'catLineSeg ' + classes[ci];
+        seg.style.left = (a.left + a.width / 2 - gridRect.left - 1) + 'px';
+        seg.style.top = (a.bottom - gridRect.top) + 'px';
+        seg.style.height = Math.max(0, b.top - a.bottom) + 'px';
+        grid.appendChild(seg);
+      }
+    });
+    updateCurrentPeriod();
+  });
+
+  // Bandeau fixe : détecte, au scroll, quelle ligne se trouve au milieu de
+  // la zone visible et n'affiche que la date de celle-là.
+  function updateCurrentPeriod() {
+    const areaRect = scrollArea.getBoundingClientRect();
+    const centerY = areaRect.top + areaRect.height / 2;
+    let closest = 0, closestDist = Infinity;
+    rowEls.forEach((rowEl, i) => {
+      const r = rowEl.getBoundingClientRect();
+      const dist = Math.abs((r.top + r.height / 2) - centerY);
+      if (dist < closestDist) { closestDist = dist; closest = i; }
+    });
+    periodBar.innerHTML = `<b>${periodInfo[closest].label}</b>${periodInfo[closest].range}`;
+  }
+  scrollArea.addEventListener('scroll', updateCurrentPeriod, { passive: true });
+</script>
+</body>
+</html>

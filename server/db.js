@@ -2073,4 +2073,43 @@ if (tableExists('activity_goal_categories') && !columnExists('activity_goal_cate
   db.exec('ALTER TABLE activity_goal_categories ADD COLUMN parentKey TEXT');
 }
 
+// ===================== SUGGESTION QUOTIDIENNE =====================
+// Segment neuf et indépendant (21 septembre 2026, cadré avec Emilien — voir
+// server/lib/dailysuggestion.js pour toute la logique). Deux tables neuves,
+// jamais présentes dans un schéma antérieur : CREATE TABLE IF NOT EXISTS
+// suffit pour les deux.
+
+// Réglage déclaré par l'utilisateur : capacité de travail visée par jour, en
+// minutes. Une seule ligne par utilisateur (PRIMARY KEY = userId) ; absence
+// de ligne = valeur par défaut DEFAULT_DECLARED_MINUTES (voir
+// server/lib/dailysuggestion.js), pas de valeur figée ici pour ne garder
+// qu'un seul endroit où la changer.
+//
+// Suggestion déjà calculée pour un utilisateur, un jour donné (fuseau serveur
+// — voir DEFAULT_TIMEZONE dans server/lib/dailysuggestion.js). Un index
+// unique (userId, isoDate) rend le calcul idempotent : le cron du matin et un
+// premier appel de route le même jour tombent sur la même ligne plutôt que de
+// recalculer (et donc potentiellement changer) la liste en cours de journée.
+// itemsJson : tableau sérialisé des tâches retenues (voir le format documenté
+// en tête de server/lib/dailysuggestion.js) — pas de table normalisée, cette
+// liste n'est jamais interrogée autrement que dans son ensemble, pour un
+// (userId, isoDate) déjà connu.
+db.exec(`
+CREATE TABLE IF NOT EXISTS daily_suggestion_settings (
+  userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  declaredMinutes INTEGER NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS daily_suggestions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  isoDate TEXT NOT NULL,
+  capacityMinutes INTEGER NOT NULL,
+  itemsJson TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_suggestions_user_date ON daily_suggestions(userId, isoDate);
+`);
+
 module.exports = db;
