@@ -113,6 +113,13 @@ function assertCategory(category) {
 // l'organisation des discussions ».
 const MAX_CUSTOM_CATEGORIES = 5;
 
+// 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : plafond des
+// secteurs actifs PAR PÔLE, cadré avec Emilien (« maximum 5 pôles et maximum
+// 10 secteurs par pôle »). Jusqu'ici aucune limite propre n'était posée sur
+// les secteurs (voir le commentaire au-dessus d'addCategory) — appliqué dans
+// la branche secteur d'addCategory, ci-dessous.
+const MAX_SECTEURS_PER_POLE = 10;
+
 // Catégorie par défaut, synthétique et générique — matérialisée seulement au
 // premier besoin d'écriture de gestion (voir ensureDefaultCategory), jamais
 // au premier besoin de lecture (voir categoriesForActivity). Entièrement
@@ -176,8 +183,17 @@ function hasPlanForCategory(activityId, category) {
 // permet de continuer à consulter l'historique gelé après une table rase ou
 // un retrait, sans jamais permettre d'y écrire du nouveau contenu (voir
 // assertCategoryForActivity ci-dessus, réservé aux écritures).
+// 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
+// SECTEURS (isValidCategoryOrSecteurForActivity, définie plus bas dans ce
+// fichier — hoisting de déclaration de fonction, aucun souci d'ordre) pour
+// qu'un secteur tout juste créé, jamais encore utilisé pour un plan, reste
+// lisible/initialisable (planningForActivity ci-dessous) — même principe que
+// pour un pôle. Ne touche PAS isValidCategoryForActivity elle-même (toujours
+// strictement pôle), donc aucun effet sur assertCategoryForActivity ni sur
+// les appelants qui en dépendent ailleurs (Tâches, Feuille de temps,
+// Graphique, légende de Répartition).
 function isReadableCategory(activityId, category) {
-  return isValidCategoryForActivity(activityId, category) || hasPlanForCategory(activityId, category);
+  return isValidCategoryOrSecteurForActivity(activityId, category) || hasPlanForCategory(activityId, category);
 }
 
 function assertReadableCategory(activityId, category) {
@@ -326,6 +342,9 @@ function addCategory(activityId, label, parentKey) {
       throw Object.assign(new Error('Pôle introuvable pour ce secteur.'), { statusCode: 404 });
     }
     const siblingCount = existing.filter((r) => r.parentKey === parentKey).length;
+    if (siblingCount >= MAX_SECTEURS_PER_POLE) {
+      throw Object.assign(new Error(MAX_SECTEURS_PER_POLE + ' secteurs maximum par pôle.'), { statusCode: 400 });
+    }
     db.prepare(`
       INSERT INTO activity_goal_categories (activityId, key, label, color, position, parentKey, createdAt)
       VALUES (?, ?, ?, '', ?, ?, ?)
@@ -507,6 +526,29 @@ function isValidSecteurForActivity(activityId, key) {
 // rattachement à un secteur est possible.
 function isValidCategoryOrSecteurForActivity(activityId, key) {
   return isValidCategoryForActivity(activityId, key) || isValidSecteurForActivity(activityId, key);
+}
+
+function assertCategoryOrSecteurForActivity(activityId, category) {
+  if (!isValidCategoryOrSecteurForActivity(activityId, category)) {
+    throw Object.assign(new Error('Catégorie ou secteur invalide pour cette activité.'), { statusCode: 400 });
+  }
+}
+
+// 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande explicite
+// d'Emilien : « On ne change pas l'arbre. Cependant, les secteurs deviennent
+// les pôles. ») — colonnes de la grille périodique existante
+// (renderGoalsGrid()/renderGoalsGridHead(), public/app.js, INCHANGÉES) pour
+// UN pôle donné : ses secteurs actifs si il en a, sinon LUI-MÊME comme seule
+// colonne de repli (mockup « EmptyState » validé par Emilien) — pour ne
+// jamais perdre l'accès à un objectif déjà posé au niveau pôle tant qu'aucun
+// secteur n'a été créé. Forme identique à categoriesForActivity
+// (`{key,label,...}`) pour rester consommable telle quelle par
+// activeGoalsCategories()/renderGoalsGrid() côté client.
+function gridColumnsForPole(activityId, poleKey) {
+  const secteurs = secteursForPole(activityId, poleKey);
+  if (secteurs.length) return secteurs;
+  const pole = categoriesForActivity(activityId).find((c) => c.key === poleKey);
+  return pole ? [pole] : [];
 }
 
 // Le parentKey BRUT d'une ligne (pôle ou secteur, active ou gelée) — null si
@@ -1088,7 +1130,13 @@ function weekIsOver(periodStart, weekIndex) {
 // Écritures
 
 function setMainGoal(activityId, category, periodNumber, text) {
-  assertCategoryForActivity(activityId, category);
+  // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
+  // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
+  // désormais être posé directement sur un secteur, plus seulement sur un
+  // pôle. N'affecte QUE ces 4 écritures de plan ; assertCategoryForActivity
+  // elle-même reste strictement pôle et continue de gater tout le reste
+  // (gestion de catégorie, Tâches, Feuille de temps, Graphique, Répartition).
+  assertCategoryOrSecteurForActivity(activityId, category);
   const plan = ensurePlan(activityId, category);
   ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
   const cleanText = String(text || '').trim();
@@ -1102,7 +1150,13 @@ function setMainGoal(activityId, category, periodNumber, text) {
 }
 
 function setMainGoalStatus(activityId, category, periodNumber, status) {
-  assertCategoryForActivity(activityId, category);
+  // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
+  // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
+  // désormais être posé directement sur un secteur, plus seulement sur un
+  // pôle. N'affecte QUE ces 4 écritures de plan ; assertCategoryForActivity
+  // elle-même reste strictement pôle et continue de gater tout le reste
+  // (gestion de catégorie, Tâches, Feuille de temps, Graphique, Répartition).
+  assertCategoryOrSecteurForActivity(activityId, category);
   if (!STATUSES.includes(status)) throw Object.assign(new Error('Statut invalide.'), { statusCode: 400 });
   db.prepare('UPDATE goal_periods SET mainGoalStatus = ? WHERE activityId = ? AND category = ? AND periodNumber = ?')
     .run(status, activityId, category, periodNumber);
@@ -1114,7 +1168,13 @@ function setMainGoalStatus(activityId, category, periodNumber, status) {
 // pas gêner le report automatique qui, lui, peut avoir besoin de chercher une
 // semaine libre au-delà de la 4e (voir carryOverWeekly).
 function setWeekly(activityId, category, periodNumber, weekIndex, text) {
-  assertCategoryForActivity(activityId, category);
+  // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
+  // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
+  // désormais être posé directement sur un secteur, plus seulement sur un
+  // pôle. N'affecte QUE ces 4 écritures de plan ; assertCategoryForActivity
+  // elle-même reste strictement pôle et continue de gater tout le reste
+  // (gestion de catégorie, Tâches, Feuille de temps, Graphique, Répartition).
+  assertCategoryOrSecteurForActivity(activityId, category);
   const plan = ensurePlan(activityId, category);
   ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
   const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);
@@ -1193,7 +1253,13 @@ function periodAssigneesFor(periodId) {
 }
 
 function setPeriodAssignees(activityId, category, periodNumber, userIds) {
-  assertCategoryForActivity(activityId, category);
+  // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
+  // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
+  // désormais être posé directement sur un secteur, plus seulement sur un
+  // pôle. N'affecte QUE ces 4 écritures de plan ; assertCategoryForActivity
+  // elle-même reste strictement pôle et continue de gater tout le reste
+  // (gestion de catégorie, Tâches, Feuille de temps, Graphique, Répartition).
+  assertCategoryOrSecteurForActivity(activityId, category);
   const plan = ensurePlan(activityId, category);
   ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
   const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
@@ -1290,6 +1356,7 @@ module.exports = {
   // ensureDefaultCategory ; DEFAULT_CATEGORY_KEY/LABEL et categoryLabelFor
   // ajoutés (catégorie par défaut générique, couleur 100% automatique).
   MAX_CUSTOM_CATEGORIES,
+  MAX_SECTEURS_PER_POLE,
   DEFAULT_CATEGORY_KEY,
   DEFAULT_CATEGORY_LABEL,
   isCustomized,
@@ -1313,6 +1380,11 @@ module.exports = {
   parentKeyFor,
   resolveToPole,
   reorderSecteurs,
+  // Secteurs dans l'arbre périodique (21 septembre 2026 — voir le commentaire
+  // au-dessus de gridColumnsForPole dans ce fichier). Exposés par
+  // server/routes/goals.js.
+  assertCategoryOrSecteurForActivity,
+  gridColumnsForPole,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
   weekBounds,

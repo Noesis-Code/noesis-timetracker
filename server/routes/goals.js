@@ -111,6 +111,46 @@ router.get('/activities/:id/goals/all', (req, res) => {
   }
 });
 
+// 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande explicite
+// d'Emilien : « On ne change pas l'arbre. Cependant, les secteurs deviennent
+// les pôles. ») — colonnes de la grille (#goalsGrid/#goalsGridHead,
+// public/app.js, INCHANGÉES) pour UN SEUL pôle : ses secteurs actifs, ou lui-
+// même en repli s'il n'en a aucun (goals.gridColumnsForPole). Même forme que
+// GET .../goals/all (`byCategory` clé par clé de colonne) pour que
+// renderGoalsGrid()/renderGoalsGridHead() n'aient rien à changer — seule la
+// SOURCE des données change côté client (activeGoalsCategories()). Le
+// sélecteur de pôle lui-même (la nouvelle barre de boutons) continue de
+// s'appuyer sur GET .../goals/all (`categories`, strictement pôle,
+// inchangée) : cette route-ci ne renvoie que ce qu'il faut pour UNE grille.
+router.get('/activities/:id/goals/all-for-pole', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const poleKey = resolveCategory(activityId, req.query.poleKey);
+    if (!goals.isValidCategoryForActivity(activityId, poleKey)) {
+      return res.status(400).json({ error: 'Pôle invalide pour cette activité.' });
+    }
+    const columns = goals.gridColumnsForPole(activityId, poleKey);
+    const byCategory = {};
+    columns.forEach((c) => {
+      byCategory[c.key] = goals.planningForActivity(activityId, c.key);
+    });
+    res.json({
+      poleKey,
+      columns,
+      byCategory,
+      maxSecteurs: goals.MAX_SECTEURS_PER_POLE,
+    });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 // 15 septembre 2026 (chantier Objectifs — C, lien Sous-projets → Objectifs) —
 // liste seule des membres de l'activité (même source que planningForActivity,
 // membersForActivity), pour le sélecteur "membre prévu" d'une tâche
@@ -577,7 +617,10 @@ router.get('/activities/:id/goals/capacity', (req, res) => {
 
   try {
     const category = resolveCategory(activityId, req.query.category);
-    if (!goals.isValidCategoryForActivity(activityId, category)) {
+    // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
+    // secteurs — la capacité peut désormais être ajustée pour un secteur,
+    // pas seulement pour un pôle.
+    if (!goals.isValidCategoryOrSecteurForActivity(activityId, category)) {
       return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
     }
     const override = goalsauto.getCapacityOverrideMinutes(activityId, category, userId);
@@ -601,7 +644,10 @@ router.put('/activities/:id/goals/capacity', (req, res) => {
 
   try {
     const category = resolveCategory(activityId, req.body.category);
-    if (!goals.isValidCategoryForActivity(activityId, category)) {
+    // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
+    // secteurs — la capacité peut désormais être ajustée pour un secteur,
+    // pas seulement pour un pôle.
+    if (!goals.isValidCategoryOrSecteurForActivity(activityId, category)) {
       return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
     }
     if (req.body.weeklyMinutes === null || req.body.weeklyMinutes === '' || req.body.weeklyMinutes === undefined) {

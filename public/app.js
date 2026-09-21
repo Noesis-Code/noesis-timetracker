@@ -5383,6 +5383,23 @@
   var currentGoalsCategory = 'entreprise';
   var currentGoalsAllPlannings = null;
 
+  // 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande
+  // explicite d'Emilien : « On ne change pas l'arbre. Cependant, les
+  // secteurs deviennent les pôles. Et les pôles, on les insère comme des
+  // boutons au-dessus des secteurs et en dessous du nom de l'activité. ») —
+  // pôle actuellement sélectionné pour la barre de boutons/la grille (repli
+  // sur le premier pôle réel à chaque (re)chargement, voir reloadGoalsAll()
+  // plus bas), et colonnes de la grille pour CE pôle (ses secteurs actifs,
+  // ou lui-même en repli s'il n'en a aucun — GET .../goals/all-for-pole,
+  // server/routes/goals.js, goals.gridColumnsForPole côté serveur). Tant
+  // qu'aucun pôle réel n'existe encore, ces deux variables restent vides/
+  // nulles et la grille continue d'afficher les pôles eux-mêmes, strictement
+  // comme avant ce chantier (voir goalsPoles()/activeGoalsCategories() juste
+  // en dessous).
+  var currentGoalsSelectedPoleKey = '';
+  var currentGoalsGridColumns = null;
+  var currentGoalsMaxSecteurs = 10;
+
   // 15 septembre 2026 (7e passage, discussion Objectifs — B, cadré avec
   // Emilien par AskUserQuestion : catégories personnalisables par activité) :
   // GOALS_CATEGORIES/GOALS_CATEGORY_LABELS restent le REPLI pour une
@@ -5394,9 +5411,32 @@
   // de GET .../goals/all). currentGoalsView/renderGoalsViewToggle()/
   // renderGoalsDistribution() (vue "Répartition") sont retirés entièrement
   // (demande d'Emilien : « un seul mode : la grille (arbre) »).
-  function activeGoalsCategories() {
+  // Liste des PÔLES actifs de l'activité affichée (repli sur les 3
+  // catégories fixes historiques si l'activité n'a jamais activé la
+  // personnalisation) — c'était le corps entier d'activeGoalsCategories()
+  // avant ce chantier ; conservée à l'identique pour la nouvelle barre de
+  // boutons de pôles (renderGoalsPoleTabBar() plus bas) et comme source de
+  // repli quand aucun pôle réel n'existe encore (voir activeGoalsCategories()
+  // juste en dessous).
+  function goalsPoles() {
     if (currentGoalsAllPlannings && currentGoalsAllPlannings.categories) return currentGoalsAllPlannings.categories;
     return GOALS_CATEGORIES.map(function (k) { return { key: k, label: GOALS_CATEGORY_LABELS[k], color: null, custom: false }; });
+  }
+
+  // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : SEULE la
+  // SOURCE de données change ici — renderGoalsGridHead()/renderGoalsGrid()
+  // (plus bas) restent identiques à avant ce chantier, demande explicite
+  // d'Emilien (« on ne change pas l'arbre »). Une fois un pôle réel
+  // sélectionné et ses colonnes chargées (currentGoalsGridColumns, posé par
+  // reloadGoalsGridForPole() plus bas), la grille affiche les SECTEURS de ce
+  // pôle (ou le pôle lui-même en repli s'il n'a aucun secteur) au lieu des
+  // pôles eux-mêmes. Tant que ça n'a jamais été le cas (aucun pôle réel,
+  // currentGoalsGridColumns encore vide/nul), repli strictement inchangé sur
+  // goalsPoles() ci-dessus — comportement identique à l'ancienne
+  // activeGoalsCategories() pour toute activité non personnalisée.
+  function activeGoalsCategories() {
+    if (currentGoalsGridColumns && currentGoalsGridColumns.length) return currentGoalsGridColumns;
+    return goalsPoles();
   }
 
   // Résout le libellé d'une catégorie (fixe OU personnalisée, active OU
@@ -6504,6 +6544,24 @@
   // à /goals/all sert donc maintenant les DEUX vues de la page 1 ET, si elle
   // est ouverte, la page 2 (détail d'une seule catégorie, currentGoalsCategory)
   // — plus besoin de l'ancien GET /goals?category= séparé.
+  // Page 2 (détail) : ne se rafraîchit que si elle est ouverte, pour la
+  // seule catégorie qu'elle affiche (currentGoalsCategory, pôle OU secteur
+  // depuis le 21 septembre 2026) — même garde-fou qu'avant (ne pas
+  // recalculer ce qu'on ne regarde pas). Factorisée hors de reloadGoalsAll()
+  // pour être appelée aussi depuis reloadGoalsGridForPole() ci-dessous (page
+  // 2 ouverte sur un secteur, dont le planning n'arrive que par CET appel-
+  // ci, pas par /goals/all).
+  function refreshGoalsDetailPageIfOpen() {
+    var byCategory = (currentGoalsAllPlannings && currentGoalsAllPlannings.byCategory) || {};
+    var detailPlanning = byCategory[currentGoalsCategory];
+    if (!detailPlanning) return;
+    currentGoalsPlanning = detailPlanning;
+    if (currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(detailPlanning, currentGoalsViewPeriodNumber)) {
+      currentGoalsViewPeriodNumber = detailPlanning.currentPeriodNumber;
+    }
+    if (!$('goalsDetailPage').classList.contains('hidden')) renderActivityGoals();
+  }
+
   function reloadGoalsAll() {
     var activityId = currentGoalsActivityId;
     if (!activityId) return Promise.resolve();
@@ -6514,26 +6572,118 @@
       // loadActivityDetail() ailleurs).
       if (activityId !== currentGoalsActivityId) return;
       currentGoalsAllPlannings = data;
-      var byCategory = data.byCategory || {};
+
+      // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : dès qu'un
+      // premier pôle RÉEL existe (personnalisation activée), la grille
+      // affiche désormais ses secteurs plutôt que les pôles eux-mêmes — voir
+      // activeGoalsCategories()/reloadGoalsGridForPole(). Tant qu'aucun pôle
+      // réel n'existe (activité jamais personnalisée), comportement
+      // STRICTEMENT inchangé : la barre de boutons de pôles reste masquée et
+      // la grille affiche directement goalsPoles() (repli d'
+      // activeGoalsCategories()), exactement comme avant ce chantier.
+      var poles = goalsPoles();
+      if (!goalsHasNoRealCategory(poles)) {
+        var stillValid = poles.some(function (p) { return p.key === currentGoalsSelectedPoleKey; });
+        if (!stillValid) currentGoalsSelectedPoleKey = poles[0].key;
+        renderGoalsPoleTabBar();
+        return reloadGoalsGridForPole(currentGoalsSelectedPoleKey);
+      }
+
+      currentGoalsSelectedPoleKey = '';
+      currentGoalsGridColumns = null;
+      renderGoalsPoleTabBar();
 
       // Page 1, vue grille (seul mode désormais) : toujours à jour, l'en-tête
       // de colonnes puis les cellules, pour les catégories actives.
       renderGoalsGridHead();
       renderGoalsGrid();
-
-      // Page 2 (détail) : ne se rafraîchit que si elle est ouverte, pour la
-      // seule catégorie qu'elle affiche (currentGoalsCategory) — même garde-
-      // fou qu'avant (ne pas recalculer ce qu'on ne regarde pas).
-      var detailPlanning = byCategory[currentGoalsCategory];
-      if (!detailPlanning) return;
-      currentGoalsPlanning = detailPlanning;
-      if (currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(detailPlanning, currentGoalsViewPeriodNumber)) {
-        currentGoalsViewPeriodNumber = detailPlanning.currentPeriodNumber;
-      }
-      if (!$('goalsDetailPage').classList.contains('hidden')) renderActivityGoals();
+      refreshGoalsDetailPageIfOpen();
     }).catch(function (err) {
       var msg = $('activityGoalsMsg');
       if (msg) msg.textContent = err.message;
+    });
+  }
+
+  // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : charge les
+  // colonnes de la grille pour UN SEUL pôle (GET .../goals/all-for-pole,
+  // server/routes/goals.js) — ses secteurs actifs, ou lui-même en repli s'il
+  // n'en a aucun (goals.gridColumnsForPole, serveur). Fusionne les plannings
+  // reçus dans currentGoalsAllPlannings.byCategory (plutôt que dans un objet
+  // séparé) précisément pour que renderGoalsGrid() — INCHANGÉE, elle lit
+  // `currentGoalsAllPlannings.byCategory[c.key]` — les trouve sans qu'aucune
+  // ligne de cette fonction n'ait à bouger. Appelée par reloadGoalsAll() ci-
+  // dessus (chargement/rafraîchissement de l'onglet) et par le clic sur un
+  // bouton de la barre de pôles (renderGoalsPoleTabBar()).
+  function reloadGoalsGridForPole(poleKey) {
+    var activityId = currentGoalsActivityId;
+    if (!activityId || !poleKey) return Promise.resolve();
+    return api('GET', '/api/activities/' + activityId + '/goals/all-for-pole?poleKey=' + encodeURIComponent(poleKey)).then(function (data) {
+      // Même garde-fou que reloadGoalsAll() : activité changée, ou pôle
+      // changé de nouveau (clic rapide sur un autre bouton) pendant que cette
+      // requête était en vol.
+      if (activityId !== currentGoalsActivityId || poleKey !== currentGoalsSelectedPoleKey) return;
+      currentGoalsGridColumns = data.columns || [];
+      currentGoalsMaxSecteurs = data.maxSecteurs || currentGoalsMaxSecteurs;
+      if (currentGoalsAllPlannings) {
+        currentGoalsAllPlannings.byCategory = currentGoalsAllPlannings.byCategory || {};
+        var fetched = data.byCategory || {};
+        Object.keys(fetched).forEach(function (k) { currentGoalsAllPlannings.byCategory[k] = fetched[k]; });
+      }
+      renderGoalsGridHead();
+      renderGoalsGrid();
+      refreshGoalsDetailPageIfOpen();
+    }).catch(function (err) {
+      var msg = $('activityGoalsMsg');
+      if (msg) msg.textContent = err.message;
+    });
+  }
+
+  // 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande
+  // explicite d'Emilien : « les pôles, on les insère comme des boutons
+  // au-dessus des secteurs et en dessous du nom de l'activité ») — barre de
+  // boutons de pôles, un par pôle ACTIF (jamais un secteur), même langage
+  // visuel que les badges de catégorie de la grille (subProjectShade() à
+  // partir de currentGoalsActivityColor et du RANG du pôle dans la liste,
+  // même index qu'utiliseraient renderGoalsGridHead()/renderGoalsGrid() pour
+  // ce même pôle s'il redevenait une colonne). Masquée entièrement tant
+  // qu'aucun pôle réel n'existe (goalsHasNoRealCategory) — dans ce cas la
+  // grille affiche encore les pôles eux-mêmes, une barre de sélection
+  // n'aurait pas de sens. #goalsPoleTabBar : index.html, entre
+  // #goalsActivityHeader (nom de l'activité) et #goalsGridScroll (la grille)
+  // — position demandée par Emilien.
+  function renderGoalsPoleTabBar() {
+    var bar = $('goalsPoleTabBar');
+    if (!bar) return;
+    var poles = goalsPoles();
+    if (goalsHasNoRealCategory(poles)) {
+      bar.innerHTML = '';
+      bar.classList.add('hidden');
+      return;
+    }
+    bar.classList.remove('hidden');
+    bar.innerHTML = '';
+    poles.forEach(function (p, index) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      var active = p.key === currentGoalsSelectedPoleKey;
+      btn.className = 'goalsPoleTab' + (active ? ' goalsPoleTab--active' : '');
+      btn.textContent = t(p.label);
+      var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+      if (active) {
+        btn.style.background = shade;
+        btn.style.borderColor = shade;
+        btn.style.color = readableTextOn(shade);
+      } else {
+        btn.style.borderColor = shade;
+        btn.style.color = shade;
+      }
+      btn.addEventListener('click', function () {
+        if (currentGoalsSelectedPoleKey === p.key) return;
+        currentGoalsSelectedPoleKey = p.key;
+        renderGoalsPoleTabBar();
+        reloadGoalsGridForPole(p.key);
+      });
+      bar.appendChild(btn);
     });
   }
 
@@ -7132,6 +7282,13 @@
     currentGoalsViewPeriodNumber = null;
     currentGoalsCategory = 'entreprise';
     currentGoalsAllPlannings = null;
+    // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : le pôle
+    // sélectionné et les colonnes de la grille n'ont aucune raison d'être
+    // pertinents pour la nouvelle activité — repartent à vide, comme le
+    // reste ci-dessus ; reloadGoalsAll() retombe sur le premier pôle réel de
+    // cette activité (ou sur goalsPoles() si elle n'en a aucun).
+    currentGoalsSelectedPoleKey = '';
+    currentGoalsGridColumns = null;
 
     currentGoalsActivityColor = a.color;
     $('goalsActivityDot').style.background = a.color;

@@ -4758,6 +4758,41 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .goalsSwipeBtn { flex-shrink: 0; }
 
+/* ===== Barre de boutons de pôles — 21 septembre 2026, « Secteurs dans
+   l'arbre périodique », demande explicite d'Emilien : « On ne change pas
+   l'arbre. Cependant, les secteurs deviennent les pôles. Et les pôles, on
+   les insère comme des boutons au-dessus des secteurs et en dessous du nom
+   de l'activité. » Un bouton par pôle actif, même gabarit de pilule que
+   .goalAssigneeChip ci-dessus (repris tel quel comme point de départ visuel)
+   mais coloré par pôle via subProjectShade() (app.js, même mécanisme que les
+   badges .goalsGridHeadCell) plutôt qu'une seule couleur fixe — le pôle
+   SÉLECTIONNÉ reçoit un fond plein (sa nuance), les autres restent en
+   contour seul. Remplie par renderGoalsPoleTabBar() (app.js) ; #goalsPoleTabBar
+   (index.html) porte `.hidden` tant qu'aucun pôle réel n'existe encore (voir
+   le commentaire à côté de ce div dans index.html). */
+.goalsPoleTabBar {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+.goalsPoleTab {
+  flex: 0 0 auto;
+  padding: 7px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.goalsPoleTab--active { border-width: 1.5px; }
+
 /* 15 septembre 2026 (7e passage, demande d'Emilien — « un seul mode : la
    grille (arbre) ») : la bascule Arbre/Répartition (.goalsViewToggle*) et la
    vue "Répartition" (.goalsDistribution*, .goalsCategoryTag-*) sont retirées
@@ -5488,9 +5523,37 @@ button { -webkit-user-select: none; user-select: none; }
    s'élargit pas d'un seul pixel) — seul le calcul de centrage est corrigé
    pour tenir compte des 4px de padding déjà là. Le point au repos se
    retrouve donc centré à x=8 (milieu réel de la bande de 16px) au lieu de
-   x=6 (milieu d'une sous-zone de 12px qui n'était pas toute la bande). */
+   x=6 (milieu d'une sous-zone de 12px qui n'était pas toute la bande).
+   ---
+   21 septembre 2026 (suite, même jour, 4e ajustement) : Emilien signale que
+   ça ne suffit toujours pas — les points restent visuellement à gauche.
+   Cette fois vérifié en rendant réellement visible l'élément #goalsScrubZone
+   du DOM de production (pas une reconstitution synthétique) : la vraie
+   cause n'était PAS dans .goalsScrubZone/.goalsScrubRail (ce calcul-là
+   était juste), mais en AMONT — #content (conteneur racine de TOUS les
+   onglets, hors du scope de cette discussion, jamais touché) applique
+   `padding-left: max(5%, env(safe-area-inset-left))`, ce qui décale TOUT
+   le contenu visible (#tab-goals, #goalsGridScroll, etc.) de cette valeur
+   avant même le margin-left de 12px déjà pris en compte. Or .goalsScrubZone
+   est en `position: fixed` avec `left: 0` — un élément fixed n'hérite
+   JAMAIS du padding d'un ancêtre, il se positionne par rapport à l'écran
+   entier, PAS par rapport à la zone de contenu visible. Concrètement : la
+   grille commence à `5% + 12px + 4px` du bord réel de l'écran, mais le
+   rail (zone + points) commençait lui à `0 + 16px` — les deux bandes ne
+   se recouvraient même pas, d'où l'impression de points "à l'extrême
+   gauche" par rapport à la vraie bande noire (qui, elle, commence après
+   le pourcentage de #content, pas au bord de l'écran). Correctif : `left`
+   de .goalsScrubZone passe de 0 à `max(5%, env(safe-area-inset-left))` —
+   EXACTEMENT la même expression que #content (lue directement dans son
+   CSS, jamais un chiffre deviné), pour que la zone démarre pile où le
+   contenu visible démarre réellement, quelle que soit la largeur d'écran
+   ou l'encoche/l'île dynamique du téléphone. width reste à 16px (couvre
+   toujours le tampon de 12px + 4px identifié au 3e ajustement). Vérifié
+   en injectant ces valeurs exactes par-dessus le DOM de production réel
+   (pas seulement relues) avant écriture : point centré à x=32.09 pour une
+   bande réelle de 24.09 à 40.09 — exactement le milieu. */
 .goalsScrubZone {
-  position: fixed; left: 0; z-index: 8; pointer-events: none;
+  position: fixed; left: max(5%, env(safe-area-inset-left)); z-index: 8; pointer-events: none;
   top: var(--goals-scrubzone-top, 220px); bottom: calc(var(--tabbar-h, 60px) + 6px);
   width: 16px;
 }
@@ -5509,8 +5572,16 @@ button { -webkit-user-select: none; user-select: none; }
    les autres pastilles de catégorie de cet onglet — donc pas de background
    figé ici, seule la taille est fixée par cette classe. */
 .goalsScrubDot.active { width: 22px; height: 22px; }
+/* 21 septembre 2026 (4e ajustement, même jour) : left recalculé pour
+   partir du même point de départ que .goalsScrubZone ci-dessus
+   (max(5%, env(safe-area-inset-left)) — voir son commentaire détaillé),
+   plus sa largeur de 16px pour arriver exactement là où la grille devient
+   visible. +8px supplémentaires ajoutés sur demande d'Emilien : « décolle
+   légèrement la section flottante qui indique la période et la date du
+   point rouge » — l'étiquette touchait jusqu'ici la pastille active sans
+   aucun espace, ce petit espace évite qu'elle ait l'air soudée au point. */
 .goalsScrubLabel {
-  position: fixed; left: 16px; top: 0; transform: translate(0, -50%);
+  position: fixed; left: calc(max(5%, env(safe-area-inset-left)) + 16px + 8px); top: 0; transform: translate(0, -50%);
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
   padding: 6px 10px; font-size: 11px; line-height: 1.3; color: var(--text-light);
   white-space: nowrap; box-shadow: var(--shadow-card); z-index: 8;
