@@ -3890,6 +3890,156 @@ button { -webkit-user-select: none; user-select: none; }
   display: none;
 }
 
+/* ===================== SÉLECTEUR PÔLE/SECTEUR — Chrono (21 septembre 2026)
+   =====================
+   Demande directe d'Emilien : « Je souhaite que ce soit un vrai menu
+   déroulant et pas simplement un menu flottant comme il existe actuellement
+   [...] Le menu déroulant ne passe pas par-dessus le bouton stop. » —
+   remplace le <select> natif de #chronoCategoryWrap/#stopCategoryWrap : le
+   panneau (.categoryPickerPanel) est un <div> en flux normal, jamais
+   position:absolute/fixed, pour qu'il pousse réellement le bouton STOP vers
+   le bas quand il s'ouvre, plutôt qu'une couche flottante par-dessus. Voir
+   createCategoryPicker() dans app.js. */
+.categoryPicker {
+  width: 100%;
+}
+
+.categoryPickerBtn {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text);
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.categoryPickerChevron {
+  color: var(--text-light);
+  flex: none;
+}
+
+/* Panneau en FLUX NORMAL (pas de position absolue) — c'est ce qui pousse
+   #stopBtn vers le bas quand il s'ouvre, exactement comme demandé. */
+.categoryPickerPanel {
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.categoryPickerBack {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-light);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.categoryPickerRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.categoryPickerRow:last-child {
+  border-bottom: none;
+}
+
+.categoryPickerRowMain {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  cursor: pointer;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* « Cela encadre en violet les secteurs sélectionnés » — cadre inséré
+   (box-shadow, pas de border) pour ne décaler aucun texte au moment de la
+   sélection. */
+.categoryPickerRow--selected {
+  box-shadow: inset 0 0 0 2px var(--purple);
+  border-radius: var(--radius-sm);
+}
+
+.categoryPickerVisualiserBtn {
+  flex: none;
+  margin: 0 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--purple);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--purple);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ===================== FENÊTRE « VISUALISER » — TÂCHES D'UN SECTEUR
+   (21 septembre 2026) =====================
+   #secteurTasksModal reprend .communityMembersModal/.communityMembersModalCard
+   telles quelles (aucune redéfinition ici) — seul le contenu interne
+   (regroupement par jour) a ses propres classes, ci-dessous. */
+.secteurTasksDay {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.secteurTasksDay:last-child {
+  border-bottom: none;
+}
+
+.secteurTasksDayLabel {
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.secteurTasksTaskRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.secteurTasksAddRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.secteurTasksAddRow #secteurTasksAddInput {
+  flex: 1;
+  min-width: 140px;
+}
+
+.secteurTasksAddRow #secteurTasksAddDay {
+  flex: none;
+  width: auto;
+}
+
 .historyEditSubProjectWrap {
   margin-top: 4px;
 }
@@ -5613,11 +5763,34 @@ button { -webkit-user-select: none; user-select: none; }
    toujours le tampon de 12px + 4px identifié au 3e ajustement). Vérifié
    en injectant ces valeurs exactes par-dessus le DOM de production réel
    (pas seulement relues) avant écriture : point centré à x=32.09 pour une
-   bande réelle de 24.09 à 40.09 — exactement le milieu. */
+   bande réelle de 24.09 à 40.09 — exactement le milieu.
+   ---
+   21 septembre 2026 (suite, même jour, 5e ajustement) : Emilien envoie une
+   capture d'écran réelle — les points sont maintenant TROP à droite.
+   Erreur de raisonnement au 4e ajustement, trouvée en rejouant le test sur
+   le DOM réel à la largeur d'écran exacte (393px, capture d'Emilien) :
+   #content n'a pas de fond propre, donc sa zone de padding (max(5%, ...),
+   ~19.6px sur cet écran) est VISUELLEMENT INDISSOCIABLE du fond de page —
+   pour l'œil d'Emilien, la bande noire commence au vrai bord de l'écran
+   (x=0), pas après le padding de #content. En décalant `left` de
+   .goalsScrubZone À l'intérieur de ce padding (4e ajustement), le point
+   se retrouvait centré seulement dans la MOITIÉ DROITE de la bande
+   réellement visible (centre obtenu : x=27.6 sur cet écran, alors que le
+   vrai milieu de la bande 0→35.6 est x=17.8) — d'où "trop à droite".
+   Correctif : `left` revient à 0 (vrai bord d'écran, comme avant le 4e
+   ajustement), mais `width` grandit pour couvrir toute la bande réelle :
+   au lieu de 16px fixes, `calc(max(5%, env(safe-area-inset-left)) + 16px)`
+   — la même valeur totale que "left+width" du 4e ajustement, simplement
+   ramenée à 0+total plutôt que padding+16. Le bord DROIT de la zone (et
+   donc la position de .goalsScrubLabel, calculée à partir de ce même
+   bord, inchangée ci-dessous) ne bouge pas d'un pixel — seul le point de
+   départ du centrage change. Revérifié par injection sur le DOM réel à
+   393px (largeur de l'écran d'Emilien) avant écriture : centre du point
+   à x=17.81, milieu réel de la bande à x=17.82 — quasi exact. */
 .goalsScrubZone {
-  position: fixed; left: max(5%, env(safe-area-inset-left)); z-index: 8; pointer-events: none;
+  position: fixed; left: 0; z-index: 8; pointer-events: none;
   top: var(--goals-scrubzone-top, 220px); bottom: calc(var(--tabbar-h, 60px) + 6px);
-  width: 16px;
+  width: calc(max(5%, env(safe-area-inset-left)) + 16px);
 }
 .goalsScrubRail {
   position: absolute; inset: 8px 0;

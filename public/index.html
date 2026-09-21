@@ -956,9 +956,17 @@
              sous-projet : la liste vient désormais des catégories Objectifs
              de l'activité (toujours au moins une, jamais vide, voir
              server/lib/goals.js#categoriesForActivity). -->
+        <!-- 21 septembre 2026 (demande directe d'Emilien : « Je souhaite que
+             ce soit un vrai menu déroulant [...] Le menu déroulant ne passe
+             pas par-dessus le bouton stop. ») — remplace le <select> natif
+             (menu flottant hors-flux sur mobile) par un widget en div qui
+             s'étend dans le flux normal du document : voir
+             createCategoryPicker() dans app.js, qui pousse #stopBtn vers le
+             bas quand il s'ouvre puisqu'il occupe une place réelle dans la
+             page plutôt qu'une couche flottante par-dessus. -->
         <div id="chronoCategoryWrap" class="chronoSubProjectWrap hidden">
-          <label class="stopFieldLabel" for="chronoCategorySelect">Pôle ou secteur (facultatif)</label>
-          <select id="chronoCategorySelect" class="subProjectSelect"></select>
+          <label class="stopFieldLabel">Pôle ou secteur (facultatif)</label>
+          <div id="chronoCategoryPicker" class="categoryPicker"></div>
           <p id="chronoCategoryMsg" class="msg"></p>
         </div>
 
@@ -1001,7 +1009,7 @@
                  commentaire de #chronoCategoryWrap plus haut. -->
             <div id="stopCategoryWrap" class="hidden">
               <p class="stopFieldLabel">Pôle ou secteur</p>
-              <select id="stopCategorySelect" class="subProjectSelect"></select>
+              <div id="stopCategoryPicker" class="categoryPicker"></div>
             </div>
             <p id="stopDurationLabel" class="meta"></p>
             <p id="stopConfirmMsg" class="msg"></p>
@@ -2703,6 +2711,46 @@
           </div>
 
           <p id="categoryStatsMsg" class="msg"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TÂCHES HEBDOMADAIRES D'UN SECTEUR — « visualiser » (21 septembre
+         2026, demande directe d'Emilien : « lorsque je clique dessus, cela
+         ouvre une fenêtre qui me donne l'ensemble des tâches hebdomadaires à
+         réaliser pour le secteur. La fenêtre qui s'ouvre est copiée sur le
+         modèle de la fenêtre des profils des autres utilisateurs. Elle
+         indique la journée et les tâches avec une option pour les cocher. »)
+         Ouverte depuis createCategoryPicker() (app.js) au clic sur le bouton
+         « Visualiser » d'un secteur, jamais depuis une autre entrée. Même
+         reprise telle quelle de .communityMembersModal/.communityMembersModalCard/
+         .viewProfileIdentity que #categoryStatsModal ci-dessus — mêmes
+         raisons, même piège (placée en frère direct des sections .tab).
+         Le contenu (7 jours, lundi→dimanche, tâches déjà datées cette
+         semaine) vient de GET .../goals/categories/:key/tasks/week — voir
+         server/lib/goalstasks.js#tasksForCategoryThisWeek. Cocher une case ici
+         appelle PUT /api/sub-project-items/:id, LE MÊME endpoint générique
+         que la section Tâches et le volet Objectifs : c'est littéralement la
+         même ligne en base, donc l'état cochée/pas cochée est déjà partagé
+         sans mécanisme de synchronisation supplémentaire. -->
+    <div id="secteurTasksModal" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="viewProfileIdentity">
+          <span class="identityName" id="secteurTasksTitle"></span>
+          <button type="button" class="menuBtn" id="secteurTasksClose" aria-label="Fermer">✕</button>
+        </div>
+        <div id="secteurTasksScroll" class="viewProfileScroll">
+          <div id="secteurTasksDays"></div>
+          <!-- Ajout rapide d'une tâche déjà datée dans cette semaine, sans
+               quitter la fenêtre — seul point d'entrée pour créer une tâche
+               rattachée directement à un secteur (voir POST
+               .../categories/:key/tasks, dueDate désormais accepté). -->
+          <div class="secteurTasksAddRow">
+            <input type="text" id="secteurTasksAddInput" placeholder="Nouvelle tâche…" maxlength="300">
+            <select id="secteurTasksAddDay" class="subProjectSelect"></select>
+            <button type="button" id="secteurTasksAddBtn" class="iconBtn">Ajouter</button>
+          </div>
+          <p id="secteurTasksMsg" class="msg"></p>
         </div>
       </div>
     </div>

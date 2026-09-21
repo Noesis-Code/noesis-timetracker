@@ -39,6 +39,19 @@ const goals = require('./goals');
 const subprojects = require('./subprojects');
 const goalsauto = require('./goalsauto');
 
+// 21 septembre 2026 (Chrono — sélecteur pôle/secteur, fenêtre « visualiser »,
+// demande directe d'Emilien) — dupliqué depuis goals.js#todayLocal (même
+// convention que ce fichier documente déjà pour daysBetween/addDays côté
+// server/lib/goals.js : un utilitaire de date minuscule, dupliqué plutôt
+// qu'importé, pour ne pas alourdir la dépendance).
+function todayLocal(now) {
+  const d = now instanceof Date ? now : new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+const WEEKDAY_LABELS_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
 // Sous-projets d'une activité déjà rattachés à cette catégorie, les plus
 // anciens en premier (id croissant) — y COMPRIS clôturés : un sous-projet
 // fermé garde ses tâches lisibles ici (masque, ne supprime pas) ; seul
@@ -103,9 +116,49 @@ function tasksForCategory(activityId, categoryKey) {
 function tasksByCategoryForActivity(activityId) {
   const out = {};
   goals.categoriesForActivity(activityId).forEach((c) => {
-    out[c.key] = tasksForCategory(activityId, c.key);
+    let tasks = tasksForCategory(activityId, c.key);
+    // 21 septembre 2026 (Chrono — sélecteur pôle/secteur) : une tâche peut
+    // désormais être rattachée directement à un secteur (voir
+    // addCategoryTask ci-dessous et isValidCategoryOrSecteurForActivity côté
+    // goals.js) — ses tâches remontent ICI dans le tableau de son PÔLE, pour
+    // que la section Tâches (qui n'affiche que par pôle) continue de tout
+    // montrer au même endroit sans changement côté UI. Sans incidence sur les
+    // données existantes : avant ce chantier, aucune tâche ne pouvait porter
+    // une clé de secteur.
+    (goals.secteursForPole(activityId, c.key) || []).forEach((s) => {
+      tasks = tasks.concat(tasksForCategory(activityId, s.key));
+    });
+    out[c.key] = tasks;
   });
   return out;
+}
+
+// 21 septembre 2026 (Chrono — fenêtre « visualiser » d'un secteur, cadré avec
+// Emilien via AskUserQuestion : « seulement les tâches déjà datées cette
+// semaine ») — tâches du secteur (ou du pôle, la fonction est générique) dont
+// dueDate tombe dans la semaine calendaire courante (lundi-dimanche, même
+// convention que goals.js#mostRecentMonday), groupées par jour. Un jour sans
+// tâche datée n'apparaît PAS dans le résultat (le gabarit HTML, calqué sur la
+// fenêtre profil, affiche lui-même les 7 jours et laisse les absents vides).
+function tasksForCategoryThisWeek(activityId, categoryKey) {
+  const monday = goals.mostRecentMonday(todayLocal());
+  const days = [];
+  for (let i = 0; i < 7; i += 1) days.push(goals.addDays(monday, i));
+
+  const byDay = {};
+  days.forEach((day) => { byDay[day] = []; });
+
+  tasksForCategory(activityId, categoryKey).forEach((task) => {
+    if (task.dueDate && Object.prototype.hasOwnProperty.call(byDay, task.dueDate)) {
+      byDay[task.dueDate].push(task);
+    }
+  });
+
+  return days.map((day, i) => ({
+    date: day,
+    weekday: WEEKDAY_LABELS_FR[new Date(day + 'T00:00:00Z').getUTCDay()],
+    tasks: byDay[day],
+  }));
 }
 
 // Ajoute une tâche : toujours dans le sous-projet domicile de la catégorie
@@ -113,13 +166,25 @@ function tasksByCategoryForActivity(activityId) {
 // point d'ajout depuis la catégorie reste un seul endroit d'écriture stable.
 // Déclenche le moteur d'auto-planification, comme toute création de tâche
 // Sous-projets déjà liée à une catégorie (voir server/routes/subprojects.js).
-function addCategoryTask(activityId, userId, categoryKey, label) {
+function addCategoryTask(activityId, userId, categoryKey, label, extra) {
   const clean = String(label || '').trim();
   if (!clean) throw Object.assign(new Error('Intitulé de la tâche requis.'), { statusCode: 400 });
   if (clean.length > 300) throw Object.assign(new Error('Intitulé trop long (300 caractères maximum).'), { statusCode: 400 });
 
+  // 21 septembre 2026 (Chrono — fenêtre « visualiser ») : dueDate optionnel,
+  // même validation de format que server/routes/subprojects.js#updateItem
+  // (regex AAAA-MM-JJ), pour que la tâche créée depuis cette fenêtre
+  // apparaisse immédiatement dans le bon jour sans aller-retour supplémentaire.
+  const cleanExtra = {};
+  if (extra && extra.dueDate !== undefined && extra.dueDate !== null && extra.dueDate !== '') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(extra.dueDate))) {
+      throw Object.assign(new Error('Date d\'échéance invalide.'), { statusCode: 400 });
+    }
+    cleanExtra.dueDate = String(extra.dueDate);
+  }
+
   const { subProject, section } = ensureCategoryTaskSection(activityId, userId, categoryKey);
-  const item = subprojects.createItem(section, clean);
+  const item = subprojects.createItem(section, clean, cleanExtra);
   try {
     goalsauto.onSubProjectItemChanged(activityId, categoryKey);
   } catch (e) {
@@ -184,6 +249,7 @@ module.exports = {
   ensureCategoryTaskSection,
   tasksForCategory,
   tasksByCategoryForActivity,
+  tasksForCategoryThisWeek,
   addCategoryTask,
   moveCategoryTask,
 };

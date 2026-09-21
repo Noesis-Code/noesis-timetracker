@@ -1667,6 +1667,190 @@
     sel.value = currentKey ? currentKey : '';
   }
 
+  // 21 septembre 2026 (demande directe d'Emilien : « Je souhaite que ce soit
+  // un vrai menu déroulant et pas simplement un menu flottant [...] Le menu
+  // déroulant sort. Par défaut, il est sélectionné : Aucun pôle sélectionné
+  // pour cet enregistrement. Lorsque je clique sur le bouton, le menu
+  // déroulant sort et cela pousse le bouton stop vers le bas. [...] lorsque
+  // je sélectionne le pôle, s'affiche [...] tous les différents secteurs
+  // [...] Cela encadre en violet les secteurs sélectionnés. [...] un bouton à
+  // droite de chaque secteur avec marqué visualiser. ») — widget en div qui
+  // s'étend dans le flux du document (voir #categoryPicker dans styles.css :
+  // aucun position:absolute/fixed sur le panneau, contrairement à un <select>
+  // natif) plutôt qu'un second <select>. `list` a la même forme que pour
+  // fillCategorySelect ci-dessus ([{key,label,secteurs:[{key,label}]}]) —
+  // même source de données (fetchChronoCategories), aucun changement côté
+  // serveur nécessaire pour ce widget-ci.
+  //
+  // Cliquer un secteur COMMIT et ferme (rattache le temps à ce secteur
+  // précis). Cliquer un pôle qui a des secteurs rattache le temps au pôle
+  // ENTIER *immédiatement* (comportement inchangé du <select> natif — un pôle
+  // reste sélectionnable seul) tout en affichant ses secteurs juste après,
+  // pour affiner sans rouvrir le menu. « Visualiser » (secteur uniquement)
+  // ouvre #secteurTasksModal — voir openSecteurTasksModal plus bas — sans
+  // jamais déclencher le commit du rattachement (stopPropagation).
+  function createCategoryPicker(container, onCommit, onVisualiser) {
+    var state = { list: [], current: null, open: false, drill: null };
+
+    function poleOf(secteurKey) {
+      for (var i = 0; i < state.list.length; i++) {
+        var secteurs = state.list[i].secteurs || [];
+        for (var j = 0; j < secteurs.length; j++) {
+          if (String(secteurs[j].key) === String(secteurKey)) return state.list[i];
+        }
+      }
+      return null;
+    }
+
+    function labelFor(key) {
+      if (!key) return null;
+      for (var i = 0; i < state.list.length; i++) {
+        var c = state.list[i];
+        if (String(c.key) === String(key)) return c.label;
+        var secteurs = c.secteurs || [];
+        for (var j = 0; j < secteurs.length; j++) {
+          if (String(secteurs[j].key) === String(key)) return c.label + ' · ' + secteurs[j].label;
+        }
+      }
+      return null;
+    }
+
+    function close() {
+      state.open = false;
+      state.drill = null;
+      render();
+    }
+
+    function commit(key) {
+      state.current = key ? String(key) : null;
+      close();
+      onCommit(state.current);
+    }
+
+    // Cliquer un pôle qui a des secteurs : ATTACHE le pôle immédiatement
+    // (même geste qu'avant) ET affiche ses secteurs pour affiner sans
+    // rouvrir le menu.
+    function commitPoleAndDrill(pole) {
+      state.current = String(pole.key);
+      state.drill = pole;
+      onCommit(state.current);
+      render();
+    }
+
+    function buildRow(label, rowValue, secteur, pole) {
+      var row = document.createElement('div');
+      row.className = 'categoryPickerRow';
+      var isSelected = rowValue === null ? state.current === null : state.current === String(rowValue);
+      if (isSelected) row.classList.add('categoryPickerRow--selected');
+
+      var main = document.createElement('button');
+      main.type = 'button';
+      main.className = 'categoryPickerRowMain';
+      main.textContent = label;
+      main.addEventListener('click', function () {
+        if (pole && pole.secteurs && pole.secteurs.length) {
+          commitPoleAndDrill(pole);
+          return;
+        }
+        commit(rowValue);
+      });
+      row.appendChild(main);
+
+      if (secteur) {
+        var visBtn = document.createElement('button');
+        visBtn.type = 'button';
+        visBtn.className = 'categoryPickerVisualiserBtn';
+        visBtn.textContent = t('Visualiser');
+        visBtn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          onVisualiser(secteur.key, secteur.label, state.drill.label);
+        });
+        row.appendChild(visBtn);
+      }
+
+      return row;
+    }
+
+    function render() {
+      container.innerHTML = '';
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'categoryPickerBtn';
+      btn.setAttribute('aria-expanded', state.open ? 'true' : 'false');
+      var labelSpan = document.createElement('span');
+      labelSpan.textContent = labelFor(state.current) || t('Aucun pôle sélectionné pour cet enregistrement');
+      var chevron = document.createElement('span');
+      chevron.className = 'categoryPickerChevron';
+      chevron.setAttribute('aria-hidden', 'true');
+      chevron.textContent = '▾';
+      btn.appendChild(labelSpan);
+      btn.appendChild(chevron);
+      btn.addEventListener('click', function () {
+        if (state.open) { close(); return; }
+        // Ouverture : si la sélection en cours est un secteur, entrer
+        // directement dans la liste de ses secteurs (évite un clic
+        // supplémentaire pour revoir sa propre sélection en surbrillance).
+        state.drill = state.current ? poleOf(state.current) : null;
+        state.open = true;
+        render();
+      });
+      container.appendChild(btn);
+
+      if (!state.open) return;
+
+      var panel = document.createElement('div');
+      panel.className = 'categoryPickerPanel';
+
+      if (state.drill) {
+        var back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'categoryPickerBack';
+        back.textContent = '← ' + t('Tous les pôles');
+        back.addEventListener('click', function () { state.drill = null; render(); });
+        panel.appendChild(back);
+
+        panel.appendChild(buildRow(t('Aucun secteur sélectionné pour cet enregistrement'), state.drill.key, null));
+        (state.drill.secteurs || []).forEach(function (s) {
+          panel.appendChild(buildRow(s.label, s.key, s));
+        });
+      } else {
+        panel.appendChild(buildRow(t('Aucun pôle sélectionné pour cet enregistrement'), null, null));
+        state.list.forEach(function (c) {
+          panel.appendChild(buildRow(c.label, c.key, null, c));
+        });
+      }
+
+      container.appendChild(panel);
+    }
+
+    return {
+      setList: function (list, current) {
+        state.list = list || [];
+        state.current = current && current.key ? String(current.key) : null;
+        state.open = false;
+        state.drill = null;
+        render();
+      },
+      setCurrentKey: function (key) {
+        state.current = key ? String(key) : null;
+        if (!state.open) render();
+      },
+    };
+  }
+
+  var chronoCategoryPicker = createCategoryPicker($('chronoCategoryPicker'), function (value) {
+    $('chronoCategoryMsg').textContent = '';
+    api('POST', '/api/timer/category', { userId: profile.id, category: value })
+      .then(function (data) { chronoRunningCategory = data.category || null; })
+      .catch(function (err) {
+        $('chronoCategoryMsg').textContent = err.message;
+        // Le serveur a refusé : on remet le widget sur ce qu'il porte
+        // vraiment, plutôt que de laisser l'écran mentir sur l'état réel.
+        chronoCategoryPicker.setCurrentKey(chronoRunningCategory ? chronoRunningCategory.key : null);
+      });
+  }, openSecteurTasksModal);
+
   function renderChronoCategorySelector(activity, category) {
     var wrap = $('chronoCategoryWrap');
     $('chronoCategoryMsg').textContent = '';
@@ -1678,7 +1862,7 @@
       // Garde anti-réponse-en-vol : l'activité a pu changer entre-temps.
       if (chronoRunningActivityId !== activity.id) return;
       if (!list.length && !(category && category.key)) return;
-      fillCategorySelect($('chronoCategorySelect'), list, category);
+      chronoCategoryPicker.setList(list, category);
       wrap.classList.remove('hidden');
     });
   }
@@ -1719,21 +1903,9 @@
     }).catch(function () { showChronoBlock('chronoIdle'); });
   }
 
-  // Le choix est écrit sur le CHRONO EN COURS côté serveur, pas gardé dans
-  // l'écran : il survit donc à un rechargement de page ou à un changement
-  // d'appareil, exactement comme l'activité et l'heure de démarrage.
-  $('chronoCategorySelect').addEventListener('change', function () {
-    var value = this.value || null;
-    $('chronoCategoryMsg').textContent = '';
-    api('POST', '/api/timer/category', { userId: profile.id, category: value })
-      .then(function (data) { chronoRunningCategory = data.category || null; })
-      .catch(function (err) {
-        $('chronoCategoryMsg').textContent = err.message;
-        // Le serveur a refusé : on remet le sélecteur sur ce qu'il porte
-        // vraiment, plutôt que de laisser l'écran mentir sur l'état réel.
-        this.value = chronoRunningCategory ? String(chronoRunningCategory.key) : '';
-      }.bind(this));
-  });
+  // 21 septembre 2026 : le choix se fait désormais via chronoCategoryPicker
+  // (voir sa création plus haut, juste avant renderChronoCategorySelector) —
+  // même appel POST /api/timer/category qu'avant, seul le déclencheur change.
 
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && profile) syncChronoStatus();
@@ -1811,6 +1983,17 @@
     $('stopDurationLabel').textContent = t('Durée : {duration}', { duration: durationLabel });
   }
 
+  // 21 septembre 2026 : même widget que le sélecteur du chrono en cours
+  // (createCategoryPicker), mais son commit ne fait qu'écrire
+  // stopCategoryPickerValue — la valeur choisie n'est envoyée qu'à la
+  // validation du récapitulatif (stopConfirmBtn ci-dessous), jamais tout de
+  // suite, contrairement au sélecteur du chrono en cours qui appelle
+  // /api/timer/category immédiatement.
+  var stopCategoryPickerValue = null;
+  var stopCategoryPicker = createCategoryPicker($('stopCategoryPicker'), function (value) {
+    stopCategoryPickerValue = value;
+  }, openSecteurTasksModal);
+
   function openStopConfirm() {
     $('stopConfirmMsg').textContent = '';
     // Dernière chance de corriger la catégorie avant d'enregistrer (demande
@@ -1818,12 +2001,13 @@
     // cas le STOP n'envoie PAS le champ, pour ne jamais effacer par omission
     // un rattachement que l'écran n'a pas pu afficher.
     $('stopCategoryWrap').classList.add('hidden');
+    stopCategoryPickerValue = chronoRunningCategory ? chronoRunningCategory.key : null;
     if (chronoRunningActivityId) {
       (function (activityId) {
         fetchChronoCategories(activityId).then(function (list) {
           if (chronoRunningActivityId !== activityId) return;
           if (!list.length && !chronoRunningCategory) return;
-          fillCategorySelect($('stopCategorySelect'), list, chronoRunningCategory);
+          stopCategoryPicker.setList(list, chronoRunningCategory);
           $('stopCategoryWrap').classList.remove('hidden');
         });
       })(chronoRunningActivityId);
@@ -1872,7 +2056,7 @@
     // serveur garde la catégorie choisie pendant la session — c'est
     // volontairement l'inverse d'un `null` implicite, qui détacherait.
     if (!$('stopCategoryWrap').classList.contains('hidden')) {
-      stopPayload.category = $('stopCategorySelect').value || null;
+      stopPayload.category = stopCategoryPickerValue || null;
     }
     api('POST', '/api/timer/stop', stopPayload)
       .then(function (data) {
@@ -1893,6 +2077,138 @@
         $('stopConfirmBtn').disabled = false;
         $('stopCancelBtn').disabled = false;
       });
+  });
+
+  // ===================== TÂCHES HEBDOMADAIRES D'UN SECTEUR (« visualiser ») =====================
+  // 21 septembre 2026, demande directe d'Emilien : « un bouton [...] marqué
+  // visualiser [...] ouvre une fenêtre qui me donne l'ensemble des tâches
+  // hebdomadaires à réaliser pour le secteur [...] copiée sur le modèle de la
+  // fenêtre des profils [...] indique la journée et les tâches avec une
+  // option pour les cocher [...] Lorsque je coche la case cela se répercute
+  // également dans la fenêtre des activités section "tâche" et dans le volet
+  // objectif. » — voir #secteurTasksModal dans index.html. Ouverte
+  // uniquement depuis createCategoryPicker() (chrono en cours ou récapitulatif
+  // d'arrêt), jamais d'autre entrée. La case à cocher appelle le MÊME
+  // PUT /api/sub-project-items/:id que buildCategoryTaskRow ci-dessus : c'est
+  // la même ligne en base que celle affichée dans la section Tâches
+  // (activityGoalsCategoriesRefresh) et dans le calendrier du volet Objectifs
+  // (server/lib/calendarfeed.js, générique sur goalCategory) — aucune
+  // synchronisation supplémentaire à écrire, la répercussion demandée est déjà
+  // automatique dès que ces deux écrans se rechargent.
+  var secteurTasksModalActivityId = null;
+  var secteurTasksModalKey = null;
+
+  function openSecteurTasksModal(secteurKey, secteurLabel, poleLabel) {
+    if (!chronoRunningActivityId) return;
+    secteurTasksModalActivityId = chronoRunningActivityId;
+    secteurTasksModalKey = secteurKey;
+    $('secteurTasksTitle').textContent = poleLabel + ' · ' + secteurLabel;
+    $('secteurTasksMsg').textContent = '';
+    $('secteurTasksAddInput').value = '';
+    $('secteurTasksModal').classList.remove('hidden');
+    loadSecteurTasksModal();
+  }
+
+  function closeSecteurTasksModal() {
+    $('secteurTasksModal').classList.add('hidden');
+    secteurTasksModalActivityId = null;
+    secteurTasksModalKey = null;
+  }
+
+  function loadSecteurTasksModal() {
+    var activityId = secteurTasksModalActivityId;
+    var key = secteurTasksModalKey;
+    if (!activityId || !key) return;
+    api('GET', '/api/activities/' + activityId + '/goals/categories/' + key + '/tasks/week?userId=' + profile.id)
+      .then(function (data) {
+        if (secteurTasksModalActivityId !== activityId || secteurTasksModalKey !== key) return; // réponse en vol
+        renderSecteurTasksModal(data.days || []);
+      })
+      .catch(function (err) { $('secteurTasksMsg').textContent = err.message; });
+  }
+
+  function renderSecteurTasksModal(days) {
+    var wrap = $('secteurTasksDays');
+    wrap.innerHTML = '';
+    var daySelect = $('secteurTasksAddDay');
+    daySelect.innerHTML = '';
+
+    days.forEach(function (day) {
+      var opt = document.createElement('option');
+      opt.value = day.date;
+      opt.textContent = day.weekday;
+      daySelect.appendChild(opt);
+
+      var block = document.createElement('div');
+      block.className = 'secteurTasksDay';
+
+      var dayLabel = document.createElement('p');
+      dayLabel.className = 'secteurTasksDayLabel';
+      dayLabel.textContent = day.weekday;
+      block.appendChild(dayLabel);
+
+      if (!day.tasks.length) {
+        var empty = document.createElement('p');
+        empty.className = 'hint';
+        empty.textContent = t('Rien de prévu.');
+        block.appendChild(empty);
+      }
+
+      day.tasks.forEach(function (item) {
+        var row = document.createElement('div');
+        row.className = 'secteurTasksTaskRow subProjectItem' + (item.done ? ' done' : '');
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = item.done;
+        cb.addEventListener('change', function () {
+          cb.disabled = true;
+          // Même endpoint générique que la section Tâches (buildCategoryTaskRow
+          // ci-dessus) : c'est la même ligne en base, donc la case cochée ici
+          // se répercute d'elle-même dans la section Tâches et le volet
+          // Objectifs dès qu'ils se rechargent.
+          api('PUT', '/api/sub-project-items/' + item.id, { userId: profile.id, done: cb.checked })
+            .then(function () {
+              row.classList.toggle('done', cb.checked);
+              cb.disabled = false;
+              activityGoalsCategoriesRefresh(secteurTasksModalActivityId);
+            })
+            .catch(function (err) { cb.checked = !cb.checked; alert(err.message); cb.disabled = false; });
+        });
+        row.appendChild(cb);
+
+        var label = document.createElement('span');
+        label.className = 'subProjectItemLabel';
+        appendLinkified(label, item.label);
+        row.appendChild(label);
+
+        block.appendChild(row);
+      });
+
+      wrap.appendChild(block);
+    });
+  }
+
+  $('secteurTasksClose').addEventListener('click', closeSecteurTasksModal);
+
+  $('secteurTasksAddBtn').addEventListener('click', function () {
+    var label = $('secteurTasksAddInput').value.trim();
+    if (!label) return;
+    var activityId = secteurTasksModalActivityId;
+    var key = secteurTasksModalKey;
+    if (!activityId || !key) return;
+    $('secteurTasksAddBtn').disabled = true;
+    api('POST', '/api/activities/' + activityId + '/goals/categories/' + key + '/tasks', {
+      label: label,
+      dueDate: $('secteurTasksAddDay').value || null,
+    })
+      .then(function () {
+        $('secteurTasksAddInput').value = '';
+        loadSecteurTasksModal();
+        activityGoalsCategoriesRefresh(activityId);
+      })
+      .catch(function (err) { $('secteurTasksMsg').textContent = err.message; })
+      .finally(function () { $('secteurTasksAddBtn').disabled = false; });
   });
 
   // buildHistoryCard(entry, onDeleted) a été retirée le 4 septembre 2026 en

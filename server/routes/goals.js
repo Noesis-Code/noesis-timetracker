@@ -537,13 +537,42 @@ router.post('/activities/:id/goals/categories/:key/tasks', (req, res) => {
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
-  if (!goals.isValidCategoryForActivity(activityId, req.params.key)) {
+  // 21 septembre 2026 (Chrono — sélecteur pôle/secteur, cadré avec Emilien via
+  // AskUserQuestion : « Oui, au secteur ») : une tâche peut désormais être
+  // rattachée directement à un secteur, pas seulement à son pôle — même garde
+  // que capacity ci-dessus.
+  if (!goals.isValidCategoryOrSecteurForActivity(activityId, req.params.key)) {
     return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
   }
 
   try {
-    const item = goalstasks.addCategoryTask(activityId, userId, req.params.key, req.body.label);
+    const item = goalstasks.addCategoryTask(activityId, userId, req.params.key, req.body.label, { dueDate: req.body.dueDate });
     res.status(201).json(item);
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// 21 septembre 2026 (Chrono — fenêtre « visualiser » d'un secteur) : tâches
+// déjà datées (dueDate) cette semaine pour ce pôle OU ce secteur, groupées par
+// jour — voir server/lib/goalstasks.js#tasksForCategoryThisWeek. Lecture
+// seule, jamais de création ici (la fenêtre crée via la route POST
+// ci-dessus, avec dueDate).
+router.get('/activities/:id/goals/categories/:key/tasks/week', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  if (!goals.isValidCategoryOrSecteurForActivity(activityId, req.params.key)) {
+    return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
+  }
+
+  try {
+    const days = goalstasks.tasksForCategoryThisWeek(activityId, req.params.key);
+    res.json({ days });
   } catch (err) {
     handleGoalsError(res, err);
   }
