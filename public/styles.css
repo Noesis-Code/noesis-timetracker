@@ -4107,6 +4107,20 @@ button { -webkit-user-select: none; user-select: none; }
   cursor: pointer;
 }
 
+/* 22 septembre 2026 (soir) — le highlight de tap par defaut du navigateur
+   (rectangle semi-transparent cale sur la boite englobante de l'element,
+   jamais sur la forme reelle d'une tranche de camembert) devient visible
+   avec la selection au CLIC ajoutee plus tot le 22 septembre : les
+   ecouteurs pointerdown/pointerup du tapReveal (retire) n'en declenchaient
+   pas, un ecouteur click en declenche un. Signale par Emilien (petit
+   rectangle noir transparent au clic sur un pole). .tsSlot-tappable n'est
+   pas concernee : la grille de la Feuille de temps est deja faite de
+   rectangles, le highlight par defaut s'y confond avec la case elle-meme. */
+.pieSlice-tappable,
+.pieLegendRow-tappable {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .pieLegendRow-tappable {
   border-radius: var(--radius-sm);
 }
@@ -5585,38 +5599,45 @@ button { -webkit-user-select: none; user-select: none; }
    d'écriture » — min-height assorti aux 4 lignes désormais posées sur le
    <textarea> (app.js, buildCategoryAutoTaskBubble) ; (2) « un effet visuel,
    un mouvement lumineux sur le cadre » — la bordure pointillée statique
-   devient un anneau lumineux tournant (conic-gradient + rotation, ::before
-   séparé du fond pour ne pas gêner le texte/bouton), qui remplace la
-   bordure statique plutôt que s'y ajouter : c'est désormais LUI qui porte
-   la signification « bulle spéciale, hors catégorie » documentée plus haut
+   devient un anneau lumineux tournant, qui remplace la bordure statique
+   plutôt que s'y ajouter : c'est désormais LUI qui porte la signification
+   « bulle spéciale, hors catégorie » documentée plus haut
    (buildCategoryAutoTaskBubble()) — plus visible qu'un simple pointillé, et
-   cohérent avec le caractère IA de cette bulle. Technique CSS standard
-   (« anneau dégradé animé ») : ::before légèrement plus grand que la bulle,
-   rempli d'un conic-gradient, dont seul un anneau de 1.5px reste visible via
-   un double masque en soustraction (mask-composite: exclude) ; seule la
-   ROTATION est animée (transform), jamais le dégradé recalculé image par
-   image — coût de rendu négligeable, contrairement à une animation de
-   `background-position`. Repli silencieux sans anneau (mais bulle et
-   bordure `--card` intactes) sur un moteur trop ancien pour
-   `mask-composite`. Non revalidé visuellement sur appareil réel — aucun
-   appareil physique disponible dans cette session. */
+   cohérent avec le caractère IA de cette bulle.
+   CORRECTIF, même jour, retour direct d'Emilien avec capture d'écran :
+   « L'effet visuel [...] ne me convient pas du tout [...] un fuseau
+   lumineux qui se déplace le long du cadre [...] Il suit la périphérie
+   du cadre. » La première implémentation (ci-dessus, conic-gradient +
+   double masque `mask-composite: exclude`) laissait fuir le dégradé hors
+   de l'anneau — visible sur la capture comme un trait diagonal traversant
+   toute la bulle au lieu de rester confiné au contour : le masquage par
+   soustraction n'a pas été validé sur son moteur de rendu réel (implémenté
+   sans appareil physique disponible, cf. note ci-dessus).
+   Remplacé par une technique plus robuste, SANS masque : le ::before est
+   simplement plus grand que la bulle (inset négatif) et placé DERRIÈRE le
+   fond opaque de la bulle (z-index négatif + `isolation: isolate` sur la
+   bulle pour garantir ce contexte d'empilement) — seul le liseré qui
+   dépasse du fond opaque peut donc être visible, il est mécaniquement
+   impossible qu'il déborde au centre, quelle que soit la forme du cadre.
+   Le dégradé conique reste un arc étroit à bords doux (le « fuseau »), en
+   rotation continue (seul `transform` est animé, jamais le dégradé
+   recalculé image par image) : l'impression est celle d'un point lumineux
+   qui parcourt le pourtour du cadre. Repli silencieux (bulle et fond
+   `--card` intacts, sans anneau) sur un moteur sans `isolation`. */
 .activityGoalsCategoryAutoTaskBubble {
   position: relative;
+  isolation: isolate;
   border-radius: var(--radius-lg, var(--radius-md));
   background: var(--card);
 }
 .activityGoalsCategoryAutoTaskBubble::before {
   content: '';
-  position: absolute; inset: -2px; z-index: 0;
+  position: absolute; inset: -2px; z-index: -1;
   border-radius: inherit;
-  padding: 1.5px;
   background: conic-gradient(from 0deg,
-    transparent 0deg, transparent 240deg,
-    var(--purple) 285deg, #c9b8ee 300deg, var(--purple) 315deg,
-    transparent 360deg);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+    transparent 0deg, transparent 255deg,
+    var(--purple) 297deg,
+    transparent 340deg, transparent 360deg);
   animation: activityGoalsAutoTaskGlow 3.4s linear infinite;
   pointer-events: none;
 }
