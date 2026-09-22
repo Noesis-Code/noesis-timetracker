@@ -5571,8 +5571,20 @@
   // L'INTÉRIEUR de la bulle (.iconBtn, positionné en absolute), jamais un
   // bloc .subProjectItemAdd distinct.
   function buildCategoryAutoTaskBubble(activityId) {
+    // 22 septembre 2026, demande directe d'Emilien : « je ne souhaite pas
+    // que le message de validation ou d'erreur soit affiché dans la bulle
+    // d'écriture [...] un message juste en dessous. » — `outer` porte donc
+    // désormais le dataset (activityId/pendingCount, voir l'appelant) et
+    // contient DEUX éléments frères : `wrap` (la bulle bordée : zone de
+    // texte + bouton + point lumineux, inchangée) et `pendingList`
+    // (✓/✗ de classement), ce dernier ajouté APRÈS `wrap` plutôt que dedans
+    // — voir plus bas.
+    var outer = document.createElement('div');
+    outer.className = 'activityGoalsCategoryAutoTaskWrapOuter';
+
     var wrap = document.createElement('div');
     wrap.className = 'activityGoalsCategoryAutoTaskBubble';
+    outer.appendChild(wrap);
 
     // 22 septembre 2026 (Emilien, demande directe : « un point lumineux qui
     // ne se décroche pas du périmètre »). Après deux techniques CSS ratées
@@ -5693,6 +5705,10 @@
           row.classList.add('isFailed');
           row.textContent = '✗ ' + p.label + ' — ' + t('non ajoutée') + (p.error ? ' : ' + p.error : '');
         } else {
+          // 22 septembre 2026, demande directe d'Emilien : « le signe validé
+          // [soit] en vert » — voir .isFailed (rouge) déjà existant, même
+          // patron.
+          row.classList.add('isSuccess');
           row.textContent = '✓ ' + p.label + (p.categoryLabel ? ' — ' + t('rangée dans') + ' ' + p.categoryLabel : '');
         }
         pendingList.appendChild(row);
@@ -5707,7 +5723,9 @@
           pendingList.appendChild(objRow);
         }
       });
-      wrap.appendChild(pendingList);
+      // Hors de `wrap` : la ligne ✓/✗ n'est plus dans la bulle d'écriture
+      // (demande d'Emilien), affichée juste en dessous.
+      outer.appendChild(pendingList);
     }
 
     // 22 septembre 2026 (capture hors ligne) : zone « À classer » — tâches
@@ -5729,7 +5747,7 @@
       wrap.appendChild(offlineZone);
     }
 
-    return wrap;
+    return outer;
   }
 
   // 17 septembre 2026 (2e correction, demande d'Emilien, citation directe) :

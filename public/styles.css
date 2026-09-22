@@ -5785,7 +5785,6 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryAutoTaskBubble textarea,
 .activityGoalsCategoryAutoTaskBubble .iconBtn,
 .activityGoalsCategoryAutoTaskBubble .msg,
-.activityGoalsCategoryAutoTaskBubble .activityGoalsCategoryAutoTaskPending,
 .activityGoalsCategoryAutoTaskBubble .activityGoalsCategoryAutoTaskOffline {
   position: relative; z-index: 1;
 }
@@ -5803,14 +5802,29 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .activityGoalsCategoryAutoTaskBubble .msg { padding: 0 10px 8px; margin: 0; }
 .activityGoalsCategoryAutoTaskBubble .msg:empty { display: none; padding: 0; }
+/* 22 septembre 2026, demande directe d'Emilien : « je ne souhaite pas que le
+   message de validation ou d'erreur soit affiché dans la bulle d'écriture
+   [...] un message juste en dessous. » — conteneur des DEUX enfants frères
+   retournés par buildCategoryAutoTaskBubble() : la bulle bordée
+   (.activityGoalsCategoryAutoTaskBubble) et cette liste ✓/✗, désormais HORS
+   de la bulle plutôt que dedans. Rien de visuel propre à lui (pas de fond,
+   pas de bordure) — seul l'espacement entre les deux enfants compte. */
+.activityGoalsCategoryAutoTaskWrapOuter {
+  display: flex; flex-direction: column; gap: 6px;
+}
 /* Tâches déjà envoyées à l'IA depuis cette bulle mais pas encore ré-affichées
    sous leur vraie catégorie (categoryAutoTaskPending, app.js) — reste ici
    jusqu'au prochain rechargement réel des données, demande explicite
    d'Emilien (voir le commentaire de categoryAutoTaskPending). */
 .activityGoalsCategoryAutoTaskPending {
-  margin-top: 6px; display: flex; flex-direction: column; gap: 2px;
+  padding: 0 10px; display: flex; flex-direction: column; gap: 2px;
 }
 .activityGoalsCategoryAutoTaskPendingRow { margin: 0; }
+/* 22 septembre 2026, demande directe d'Emilien : « le signe validé [...] en
+   vert et le signe échec ou erreur en rouge. » Toute la ligne prend la
+   couleur (même convention que .isFailed, déjà en place) plutôt que le seul
+   caractère ✓/✗, pour rester lisible d'un coup d'œil. */
+.activityGoalsCategoryAutoTaskPendingRow.isSuccess { color: var(--green); }
 /* 22 septembre 2026 (capture hors ligne) : tâche envoyée au retour du
    réseau mais refusée par le serveur (activité quittée, etc.). */
 .activityGoalsCategoryAutoTaskPendingRow.isFailed { color: var(--red); }
