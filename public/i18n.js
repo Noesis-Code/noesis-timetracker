@@ -952,6 +952,11 @@
     'Changer de pôle': 'Change division',
     'Aucune tâche dans ce pôle.': 'No tasks in this division.',
     'Nouvelle tâche… une IA choisit son pôle': 'New task… an AI picks its division',
+    // 22 sept. 2026 — capture hors ligne (zone « À classer »)
+    'À classer': 'To sort',
+    'en attente de connexion': 'waiting for connection',
+    'non ajoutée': 'not added',
+    'Hors ligne — connecte-toi à internet pour continuer.': 'Offline — connect to the internet to continue.',
     'Déplacer ce pôle': 'Move this division',
     'Retirer ce pôle': 'Remove this division',
     'Retirer ce pôle ? Son historique reste consultable mais il ne recevra plus de nouveaux objectifs.': 'Remove this division? Its history stays available but it will no longer receive new goals.',
