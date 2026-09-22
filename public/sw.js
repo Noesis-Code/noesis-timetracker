@@ -37,7 +37,14 @@
  * un service worker n'a accès ni à public/i18n.js ni à la langue du profil.
  */
 
-const CACHE_VERSION = 'noesis-v4';
+// 22 septembre 2026 (capture hors ligne) : v4 → v5 pour ajouter
+// '/offline-queue.js' au cache existant.
+const CACHE_VERSION = 'noesis-v5';
+
+// File d'attente des tâches capturées hors ligne (voir l'en-tête de
+// public/offline-queue.js). Chargée ici pour que Background Sync puisse la
+// vider même quand l'app n'est plus au premier plan.
+try { importScripts('/offline-queue.js'); } catch (e) { /* file absente : la page videra la file elle-même */ }
 
 // Enveloppe de l'app : ce qu'il faut pour qu'elle s'affiche sans réseau.
 // ⚠️ '/qrcode.js' ajouté le 11 septembre 2026 (QR code de la section
@@ -51,6 +58,7 @@ const SHELL = [
   '/app.js',
   '/i18n.js',
   '/qrcode.js',
+  '/offline-queue.js',
   '/offline.html',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
@@ -138,7 +146,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request).catch(
         () =>
-          new Response(JSON.stringify({ error: 'Hors ligne — connecte-toi à internet pour continuer.' }), {
+          // offline: true — lu par api() dans app.js pour reconnaître une
+          // coupure réseau (capture de tâche mise en file d'attente).
+          new Response(JSON.stringify({ error: 'Hors ligne — connecte-toi à internet pour continuer.', offline: true }), {
             status: 503,
             headers: { 'Content-Type': 'application/json; charset=utf-8' },
           })
@@ -153,6 +163,28 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(networkFirst(request, '/offline.html'));
+});
+
+/* ===================== CAPTURE HORS LIGNE — BACKGROUND SYNC =====================
+ * (22 septembre 2026 — voir l'en-tête de public/offline-queue.js)
+ *
+ * La page enregistre le tag SYNC_TAG quand une tâche est mise en file ; le
+ * navigateur déclenche 'sync' dès que le réseau revient (même app en
+ * arrière-plan). Si l'envoi s'arrête en cours (réseau/5xx), on rejette la
+ * promesse : le navigateur reprogramme lui-même un nouvel essai.
+ * Les fenêtres ouvertes sont prévenues du résultat pour mettre à jour la
+ * zone « À classer ».
+ */
+self.addEventListener('sync', (event) => {
+  if (!self.NoesisAutoTaskQueue || event.tag !== self.NoesisAutoTaskQueue.SYNC_TAG) return;
+  event.waitUntil(
+    self.NoesisAutoTaskQueue.flush().then((result) =>
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+        list.forEach((client) => client.postMessage({ type: 'AUTOTASK_SYNCED', result }));
+        if (result.stopped) throw new Error('Envoi interrompu — nouvel essai plus tard');
+      })
+    )
+  );
 });
 
 /* ===================== NOTIFICATIONS PUSH =====================

@@ -223,14 +223,23 @@
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
     }
+    // 22 septembre 2026 (capture hors ligne) : une coupure réseau est
+    // désormais marquée `err.offline = true` — échec brut de fetch (pas de
+    // service worker) ou réponse 503 `{ offline: true }` fabriquée par
+    // public/sw.js. Message d'erreur inchangé pour tous les autres appelants.
     return fetch(url, opts).then(function (r) {
       return r.json().then(function (data) {
         if (!r.ok) {
           if (data.needsLogin) handleSessionLost();
-          throw new Error(t(data.error || 'Erreur serveur'));
+          var apiErr = new Error(t(data.error || 'Erreur serveur'));
+          if (data.offline) apiErr.offline = true;
+          throw apiErr;
         }
         return data;
       });
+    }, function (netErr) {
+      netErr.offline = true;
+      throw netErr;
     });
   }
 
@@ -5464,6 +5473,95 @@
   // sur name === 'sub', plus bas).
   var categoryAutoTaskPending = [];
 
+  // ----- Capture hors ligne (22 septembre 2026) -----
+  // Voir l'en-tête de public/offline-queue.js pour les décisions d'Emilien.
+  // Hors ligne, l'IA ne peut pas choisir le pôle/secteur : la tâche est mise
+  // en file d'attente (IndexedDB) et affichée dans une zone « À classer » de
+  // la bulle de capture (categoryAutoTaskOffline = copie en mémoire de la
+  // file). Au retour du réseau, elle est envoyée à la même route auto-task
+  // qu'en ligne, puis passe dans categoryAutoTaskPending (« ✓ rangée
+  // dans… »), exactement comme une capture en ligne.
+  //
+  // Une seule voie d'envoi à la fois (jamais de doublon) : Background Sync
+  // si le navigateur l'offre (le service worker vide la file et nous
+  // prévient par message AUTOTASK_SYNCED), sinon la page elle-même, à
+  // l'événement 'online' et au chargement.
+  var categoryAutoTaskOffline = [];
+  var autoTaskQueue = window.NoesisAutoTaskQueue || null;
+
+  function rerenderAutoTaskBubbleFromCache() {
+    if (!lastActivityGoalsCategoriesData || !currentCommunityActivityId) return;
+    renderActivityGoalsCategoriesPanel(lastActivityGoalsCategoriesData, lastActivityGoalsPlanningData);
+  }
+
+  function reloadOfflineAutoTasks() {
+    if (!autoTaskQueue) return Promise.resolve();
+    return autoTaskQueue.list().then(function (items) {
+      categoryAutoTaskOffline = items.sort(function (a, b) { return a.id - b.id; });
+      rerenderAutoTaskBubbleFromCache();
+    }).catch(function () { /* IndexedDB indisponible : rien à afficher */ });
+  }
+
+  function backgroundSyncRegistration() {
+    if (!('serviceWorker' in navigator) || !('SyncManager' in window)) return Promise.resolve(null);
+    return navigator.serviceWorker.ready.then(function (reg) {
+      return reg && reg.sync ? reg : null;
+    }).catch(function () { return null; });
+  }
+
+  function applyAutoTaskSyncResult(result) {
+    if (!result) return reloadOfflineAutoTasks();
+    (result.synced || []).forEach(function (s) {
+      categoryAutoTaskPending.push({ activityId: String(s.activityId), label: s.label, categoryLabel: s.categoryLabel || '' });
+    });
+    (result.failed || []).forEach(function (f) {
+      categoryAutoTaskPending.push({ activityId: String(f.activityId), label: f.label, failed: true, error: f.error || '' });
+    });
+    return reloadOfflineAutoTasks();
+  }
+
+  function syncOfflineAutoTasks() {
+    if (!autoTaskQueue) return;
+    backgroundSyncRegistration().then(function (reg) {
+      if (reg) {
+        // Déclenché tout de suite par le navigateur si le réseau est là.
+        return reg.sync.register(autoTaskQueue.SYNC_TAG).catch(function () {
+          return autoTaskQueue.flush().then(applyAutoTaskSyncResult);
+        });
+      }
+      if (navigator.onLine === false) return;
+      return autoTaskQueue.flush().then(applyAutoTaskSyncResult);
+    }).catch(function () { /* nouvel essai au prochain 'online' ou chargement */ });
+  }
+
+  function enqueueOfflineAutoTask(activityId, label) {
+    if (!autoTaskQueue) return Promise.reject(new Error(t('Hors ligne — connecte-toi à internet pour continuer.')));
+    return autoTaskQueue.add({ activityId: activityId, label: label, tz: clientTimezone }).then(function () {
+      return reloadOfflineAutoTasks();
+    }).then(function () {
+      syncOfflineAutoTasks();
+    });
+  }
+
+  if (autoTaskQueue) {
+    window.addEventListener('online', syncOfflineAutoTasks);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', function (event) {
+        if (event.data && event.data.type === 'AUTOTASK_SYNCED') applyAutoTaskSyncResult(event.data.result);
+      });
+    }
+    reloadOfflineAutoTasks().then(syncOfflineAutoTasks);
+  }
+
+  // Signature de ce que la bulle affiche pour une activité (voir
+  // autoTaskBubbleUpToDate plus bas) : tâches classées + file hors ligne.
+  function autoTaskBubbleSignature(activityId) {
+    var id = String(activityId);
+    var pending = categoryAutoTaskPending.filter(function (p) { return !p.activityId || p.activityId === id; }).length;
+    var offline = categoryAutoTaskOffline.filter(function (o) { return o.activityId === id; }).length;
+    return pending + '/' + offline;
+  }
+
   // 17 septembre 2026 (maquette approuvée par Emilien, citation directe :
   // « Prends exemple sur la bulle d'écriture dans la section discussion »
   // + « je souhaite le remplacer par un bouton ajouter comme pour la
@@ -5536,12 +5634,36 @@
       if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
       msg.textContent = '';
       btn.disabled = true;
+      // Hors ligne connu d'avance : directement en file, sans attendre
+      // l'échec réseau.
+      if (navigator.onLine === false && autoTaskQueue) {
+        enqueueOfflineAutoTask(activityId, label)
+          .then(function () { textarea.value = ''; })
+          .catch(function (err) { msg.textContent = err.message; })
+          .then(function () { btn.disabled = false; });
+        return;
+      }
       api('POST', '/api/activities/' + activityId + '/goals/categories/auto-task', { userId: profile.id, label: label })
+        .catch(function (err) {
+          // Coupure découverte à l'envoi : même mise en file.
+          if (!err.offline || !autoTaskQueue) throw err;
+          return enqueueOfflineAutoTask(activityId, label).then(function () {
+            textarea.value = '';
+            return { queuedOffline: true };
+          });
+        })
         .then(function (item) {
+          if (item && item.queuedOffline) return;
           textarea.value = '';
           categoryAutoTaskPending.push({
+            activityId: String(activityId),
             label: label,
             categoryLabel: (item && item.categoryLabel) || (item && item.categoryKey) || '',
+            // 22 septembre 2026 (Capture — tâche libre) : rattachement
+            // SUGGÉRÉ à l'objectif hebdomadaire en cours (server/lib/
+            // goalstaskclassify.js#suggestWeeklyObjective) — jamais
+            // persisté, simple indication affichée une fois ici.
+            suggestedObjectiveText: (item && item.suggestedObjective && item.suggestedObjective.text) || '',
           });
           // Rendu depuis le cache, volontairement PAS un rafraîchissement
           // réseau — voir le commentaire au-dessus de categoryAutoTaskPending.
@@ -5558,16 +5680,53 @@
     wrap.appendChild(btn);
     wrap.appendChild(msg);
 
-    if (categoryAutoTaskPending.length) {
+    var pendingHere = categoryAutoTaskPending.filter(function (p) { return !p.activityId || p.activityId === String(activityId); });
+    if (pendingHere.length) {
       var pendingList = document.createElement('div');
       pendingList.className = 'activityGoalsCategoryAutoTaskPending';
-      categoryAutoTaskPending.forEach(function (p) {
+      pendingHere.forEach(function (p) {
         var row = document.createElement('p');
         row.className = 'meta activityGoalsCategoryAutoTaskPendingRow';
-        row.textContent = '✓ ' + p.label + (p.categoryLabel ? ' — ' + t('rangée dans') + ' ' + p.categoryLabel : '');
+        if (p.failed) {
+          // 22 septembre 2026 (capture hors ligne) : envoyée au retour du
+          // réseau mais refusée par le serveur (activité quittée, etc.).
+          row.classList.add('isFailed');
+          row.textContent = '✗ ' + p.label + ' — ' + t('non ajoutée') + (p.error ? ' : ' + p.error : '');
+        } else {
+          row.textContent = '✓ ' + p.label + (p.categoryLabel ? ' — ' + t('rangée dans') + ' ' + p.categoryLabel : '');
+        }
         pendingList.appendChild(row);
+        // 22 septembre 2026 (Capture — tâche libre) : suggestion d'objectif —
+        // ligne à part, jamais fusionnée avec la ligne de classement, pour
+        // rester lisible comme une indication distincte et facultative
+        // (jamais un tag posé, voir le commentaire au-dessus de submit()).
+        if (p.suggestedObjectiveText) {
+          var objRow = document.createElement('p');
+          objRow.className = 'meta activityGoalsCategoryAutoTaskPendingObjective';
+          objRow.textContent = '↳ ' + t('contribue peut-être à') + ' : « ' + p.suggestedObjectiveText + ' »';
+          pendingList.appendChild(objRow);
+        }
       });
       wrap.appendChild(pendingList);
+    }
+
+    // 22 septembre 2026 (capture hors ligne) : zone « À classer » — tâches
+    // en file d'attente, pas encore classées faute de réseau.
+    var offlineHere = categoryAutoTaskOffline.filter(function (o) { return o.activityId === String(activityId); });
+    if (offlineHere.length) {
+      var offlineZone = document.createElement('div');
+      offlineZone.className = 'activityGoalsCategoryAutoTaskOffline';
+      var offlineTitle = document.createElement('p');
+      offlineTitle.className = 'activityGoalsCategoryAutoTaskOfflineTitle';
+      offlineTitle.textContent = t('À classer') + ' (' + offlineHere.length + ')';
+      offlineZone.appendChild(offlineTitle);
+      offlineHere.forEach(function (o) {
+        var row = document.createElement('p');
+        row.className = 'meta activityGoalsCategoryAutoTaskOfflineRow';
+        row.textContent = '⏳ ' + o.label + ' — ' + t('en attente de connexion');
+        offlineZone.appendChild(row);
+      });
+      wrap.appendChild(offlineZone);
     }
 
     return wrap;
@@ -5908,14 +6067,14 @@
       var existingAutoTaskBubble = autoTaskWrap.firstElementChild;
       var autoTaskBubbleUpToDate = existingAutoTaskBubble &&
         existingAutoTaskBubble.dataset.activityId === String(activityIdForTasks) &&
-        existingAutoTaskBubble.dataset.pendingCount === String(categoryAutoTaskPending.length);
+        existingAutoTaskBubble.dataset.pendingCount === autoTaskBubbleSignature(activityIdForTasks);
       if (!shouldShowAutoTaskBubble) {
         if (existingAutoTaskBubble) autoTaskWrap.innerHTML = '';
       } else if (!autoTaskBubbleUpToDate) {
         autoTaskWrap.innerHTML = '';
         var autoTaskBubble = buildCategoryAutoTaskBubble(activityIdForTasks);
         autoTaskBubble.dataset.activityId = String(activityIdForTasks);
-        autoTaskBubble.dataset.pendingCount = String(categoryAutoTaskPending.length);
+        autoTaskBubble.dataset.pendingCount = autoTaskBubbleSignature(activityIdForTasks);
         autoTaskWrap.appendChild(autoTaskBubble);
       }
     }

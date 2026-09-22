@@ -5732,7 +5732,8 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryAutoTaskBubble textarea,
 .activityGoalsCategoryAutoTaskBubble .iconBtn,
 .activityGoalsCategoryAutoTaskBubble .msg,
-.activityGoalsCategoryAutoTaskBubble .activityGoalsCategoryAutoTaskPending {
+.activityGoalsCategoryAutoTaskBubble .activityGoalsCategoryAutoTaskPending,
+.activityGoalsCategoryAutoTaskBubble .activityGoalsCategoryAutoTaskOffline {
   position: relative; z-index: 1;
 }
 .activityGoalsCategoryAutoTaskBubble textarea {
@@ -5757,6 +5758,30 @@ button { -webkit-user-select: none; user-select: none; }
   margin-top: 6px; display: flex; flex-direction: column; gap: 2px;
 }
 .activityGoalsCategoryAutoTaskPendingRow { margin: 0; }
+/* 22 septembre 2026 (capture hors ligne) : tâche envoyée au retour du
+   réseau mais refusée par le serveur (activité quittée, etc.). */
+.activityGoalsCategoryAutoTaskPendingRow.isFailed { color: var(--red); }
+/* Zone « À classer » : tâches capturées hors ligne, en file d'attente
+   (IndexedDB) tant que l'IA ne peut pas choisir leur pôle/secteur — voir
+   categoryAutoTaskOffline, app.js, et public/offline-queue.js. */
+.activityGoalsCategoryAutoTaskOffline {
+  margin: 6px 10px 10px; padding: 8px 10px;
+  border: 1px dashed var(--border); border-radius: var(--radius-sm, 8px);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.activityGoalsCategoryAutoTaskOfflineTitle {
+  margin: 0 0 2px; font-size: 12px; font-weight: 600; color: var(--text-light);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.activityGoalsCategoryAutoTaskOfflineRow { margin: 0; }
+/* 22 septembre 2026 (Capture — tâche libre, rattachement suggéré à
+   l'objectif hebdomadaire) : ligne secondaire, sous la ligne de classement —
+   italique et légèrement en retrait pour rester clairement une SUGGESTION,
+   jamais une décision, jamais un tag posé (voir suggestWeeklyObjective,
+   server/lib/goalstaskclassify.js). */
+.activityGoalsCategoryAutoTaskPendingObjective {
+  margin: 0 0 0 14px; font-style: italic; opacity: .85;
+}
 /* 17 septembre 2026 (maquette approuvée, citation directe : « je souhaite
    que le + soit entre la bulle de l'écriture de la nouvelle tâche et les
    différentes catégories, puisque le + correspond à l'ajout d'une
