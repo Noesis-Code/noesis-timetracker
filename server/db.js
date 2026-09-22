@@ -2114,13 +2114,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_suggestions_user_date ON daily_sugge
 
 // ---------------------------------------------------------------------------
 // notifyEnabled / communityNotifyEnabled (chantier Notifications, 10 septembre
-// 2026) — migration ajoutée le 21 septembre 2026, segment « Paramètres &
+// 2026) — migration ajoutée le 22 septembre 2026, segment « Paramètres &
 // Profil ». Les deux colonnes étaient lues et écrites par
 // server/routes/activities.js (serializeActivity, PUT /activities/:id) et
 // server/routes/profile.js (POST /profile, GET/PUT /profile/:id, PUT
 // /profile/:id/notify-community) depuis le 10 septembre, mais aucune
-// migration ne les avait jamais créées : « no such column » cassait l'onglet
-// Activité en entier (création ET chargement de la liste) ainsi que la
+// migration ne les avait jamais créées : « no such column » dès qu'une base
+// neuve sert ces routes — création et chargement de la liste d'activités,
 // consultation du profil public d'un membre.
 //
 // Purement additives : aucune migration de données, aucune ligne retouchée.
@@ -2146,4 +2146,4 @@ if (!columnExists('users', 'communityNotifyEnabled')) {
   db.exec('ALTER TABLE users ADD COLUMN communityNotifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
 
-module.exports = db;
+module.exports = db;

@@ -3256,6 +3256,57 @@
     return out;
   }
 
+  // 22 septembre 2026, demande directe d'Emilien : « les pôles ne possèdent
+  // pas de couleur ni d'icône ni de motif. Et c'est les secteurs auxquels on
+  // attribue automatiquement une des 10 nuances. » Fonction DISTINCTE de
+  // subProjectShade() ci-dessus, volontairement : son paramètre `count` est
+  // mort (toujours SUB_PROJECT_SHADE_COUNT=5, voir son commentaire ci-dessus)
+  // — cette fonction-ci a son propre nombre de nuances (SECTEUR_SHADE_COUNT
+  // = 10), scindé du système à 5 nuances partagé par Chrono/Statistiques/la
+  // grille périodique d'Objectifs, qui reste inchangé (ni ce fichier, ni
+  // subProjectShade/SUB_PROJECT_SHADE_COUNT ne sont touchés par ce chantier).
+  // Même algorithme (bande de clarté CIE L* 22–90, écart minimal 11 avec la
+  // base) simplement redivisé en 10 rangs au lieu de 5 : les nuances
+  // adjacentes sont donc mécaniquement plus proches (ΔE plus faible) —
+  // conséquence directe de doubler la résolution, pas un réglage à part.
+  var SECTEUR_SHADE_COUNT = 10;
+  var secteurShadeCache = {};
+  function secteurShade(baseHex, index) {
+    if (index === null || index === undefined) return baseHex;
+    var hsl = hexToHsl(baseHex);
+    if (!hsl) return baseHex;
+
+    var rank = ((Number(index) % SECTEUR_SHADE_COUNT) + SECTEUR_SHADE_COUNT) % SECTEUR_SHADE_COUNT;
+    var cacheKey = baseHex + '|' + rank;
+    if (secteurShadeCache[cacheKey]) return secteurShadeCache[cacheKey];
+
+    var LO = 22, HI = 90;
+    var GAP = 11;
+    var s = hsl.s;
+    var lBase = labLightness(baseHex);
+
+    var upLen = Math.max(0, HI - Math.max(lBase + GAP, LO));
+    var loLen = Math.max(0, Math.min(lBase - GAP, HI) - LO);
+    var total = upLen + loLen;
+
+    var target;
+    if (total <= 0) {
+      target = lBase >= (HI + LO) / 2 ? LO : HI;
+    } else {
+      var d = (rank / (SECTEUR_SHADE_COUNT - 1)) * total;
+      target = d <= upLen ? HI - d : Math.min(lBase - GAP, HI) - (d - upLen);
+    }
+
+    var lo2 = 0, hi2 = 1;
+    for (var k2 = 0; k2 < 28; k2++) {
+      var mid2 = (lo2 + hi2) / 2;
+      if (labLightness(hslToHex(hsl.h, s, mid2)) < target) lo2 = mid2; else hi2 = mid2;
+    }
+    var out2 = hslToHex(hsl.h, s, (lo2 + hi2) / 2);
+    secteurShadeCache[cacheKey] = out2;
+    return out2;
+  }
+
   // ----- La fenêtre -----
   // Elle reprend la structure du volet Statistiques : une Feuille de temps,
   // puis une Répartition qui la résume. Les deux sortent d'UN SEUL appel
@@ -5758,17 +5809,13 @@
         return; // en édition : ni tâches, ni résumé hebdo (même règle que Sous-projets)
       }
 
-      // currentActivityColor (pas currentGoalsActivityColor) : ce panneau vit
-      // dans la fenêtre RÉGLAGES de l'activité (#communityActivityDetail,
-      // currentCommunityActivityId), pas forcément l'activité actuellement
-      // affichée dans l'onglet Objectifs — même variable que
-      // categoryColorFor()/subProjectShade() pour les sous-projets de cette même
-      // fenêtre (voir openActivityPage()).
-      var dot = document.createElement('span');
-      dot.className = 'activityGoalsCategoryDot';
-      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-      row.appendChild(dot);
-
+      // 22 septembre 2026, demande directe d'Emilien : « les pôles ne
+      // possèdent pas de couleur ni d'icône ni de motif. » Le point coloré
+      // du pôle (subProjectShade(currentActivityColor, index, ...)) est
+      // retiré ici — seule l'activité garde sa couleur pleine (inchangée
+      // ailleurs dans l'app) ; ce sont désormais les SECTEURS qui reçoivent
+      // une nuance automatique, voir buildPoleSecteursBlock()/secteurShade()
+      // plus bas.
       var nameLabel = document.createElement('span');
       nameLabel.className = 'activityRowName';
       nameLabel.textContent = c.label;
@@ -5959,6 +6006,18 @@
     secteurs.forEach(function (s, index) {
       var row = document.createElement('div');
       row.className = 'activityGoalsSecteurRow';
+
+      // 22 septembre 2026, demande directe d'Emilien : le secteur reçoit
+      // désormais la couleur automatique (les pôles n'en ont plus, voir le
+      // retrait de .activityGoalsCategoryDot ci-dessus) — une des 10 nuances
+      // de secteurShade(), par rang au sein de CE pôle (pas de l'activité
+      // entière : deux pôles peuvent donc réutiliser les mêmes nuances pour
+      // leurs premiers secteurs, seuls les secteurs d'un même pôle doivent
+      // se distinguer entre eux).
+      var dot = document.createElement('span');
+      dot.className = 'activityGoalsSecteurDot';
+      dot.style.background = secteurShade(currentActivityColor, index);
+      row.appendChild(dot);
 
       var nameInput = document.createElement('input');
       nameInput.type = 'text';

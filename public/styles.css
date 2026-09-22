@@ -5582,10 +5582,10 @@ button { -webkit-user-select: none; user-select: none; }
   font-size: 12px; line-height: 1; padding: 4px; cursor: pointer; flex-shrink: 0;
 }
 .activityGoalsCategoryReorder:disabled { opacity: 0.3; cursor: default; }
-.activityGoalsCategoryDot {
-  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
-  border: 1px solid var(--border);
-}
+/* 22 septembre 2026 : .activityGoalsCategoryDot (point coloré du pôle)
+   retiré — les pôles n'ont plus de couleur, voir renderActivityGoalsCategoriesPanel()
+   dans app.js. .activityGoalsSecteurDot ci-dessous, plus bas dans ce fichier,
+   le remplace au niveau du secteur. */
 .activityGoalsCategoryNameInput {
   flex: 1; min-width: 0; font-size: 14px; padding: 6px 8px;
   border: 1px solid transparent; border-radius: var(--radius-sm, 8px);
@@ -5621,6 +5621,16 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .activityGoalsSecteurRow {
   display: flex; align-items: center; gap: 6px;
+}
+/* 22 septembre 2026, demande directe d'Emilien : « les pôles ne possèdent
+   pas de couleur ni d'icône ni de motif. Et c'est les secteurs auxquels on
+   attribue automatiquement une des 10 nuances. » Remplace
+   .activityGoalsCategoryDot (retiré juste au-dessus dans ce fichier) — même
+   forme, légèrement plus petit pour rester cohérent avec l'indentation d'un
+   secteur sous son pôle. Couleur posée en JS (secteurShade(), app.js). */
+.activityGoalsSecteurDot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--border);
 }
 .activityGoalsSecteurNameInput {
   flex: 1 1 auto; min-width: 0; font-size: 13px; padding: 5px 7px;
@@ -5744,6 +5754,15 @@ button { -webkit-user-select: none; user-select: none; }
   border-radius: var(--radius-lg, var(--radius-md));
   background: var(--card);
 }
+/* 22 septembre 2026, demande directe d'Emilien : « garder uniquement un
+   fuseau [...] enlever l'ombre du fuseau qui se déplace indépendamment [...]
+   plus brillant et augmente légèrement sa vitesse. » Le `filter:
+   drop-shadow` est retiré : il recalcule une copie floutée du tracé à
+   chaque frame, perçue comme une seconde forme qui traîne indépendamment du
+   trait — exactement le symptôme décrit. Pour la luminosité, une seule
+   forme reste : le trait lui-même est éclairci (mélange de var(--purple)
+   avec du blanc, ~30%, calculé en dur — pas de zone noire, pas de seconde
+   couche), sans filtre. Vitesse 7s → 6s (linéaire, légèrement plus rapide). */
 .activityGoalsCategoryAutoTaskGlow {
   position: absolute;
   inset: 0;
@@ -5752,14 +5771,13 @@ button { -webkit-user-select: none; user-select: none; }
   z-index: 2;
   pointer-events: none;
   overflow: visible;
-  filter: drop-shadow(0 0 3px var(--purple));
 }
 .activityGoalsCategoryAutoTaskGlow rect {
   fill: none;
-  stroke: var(--purple);
-  stroke-width: 3px;
+  stroke: #9583C1;
+  stroke-width: 3.5px;
   stroke-linecap: round;
-  animation: activityGoalsAutoTaskGlow 7s linear infinite;
+  animation: activityGoalsAutoTaskGlow 6s linear infinite;
 }
 @keyframes activityGoalsAutoTaskGlow {
   to { stroke-dashoffset: var(--glowPerimeter, 0px); }
