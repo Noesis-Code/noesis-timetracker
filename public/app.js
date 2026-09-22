@@ -1771,7 +1771,12 @@
           commitPoleAndDrill(pole);
           return;
         }
-        if (state.drill) {
+        // 22 septembre 2026, demande d'Emilien : un pôle SANS secteur (donc
+        // affiché ici avec `secteur` = lui-même et son bouton Visualiser, voir
+        // l'appel buildRow(..., c, c) plus bas) doit rester ouvert et se
+        // teinter en violet exactement comme un secteur — pas seulement quand
+        // on est déjà drillé (state.drill).
+        if (state.drill || secteur) {
           commitStay(rowValue);
           return;
         }
@@ -2164,6 +2169,13 @@
   // jamais négatif (voir updateSecteurTasksWeekNav), sans plafond vers
   // l'avenir.
   var secteurTasksWeekOffset = 0;
+  // 22 septembre 2026, demande d'Emilien : « l'objectif de la semaine [...]
+  // de la même nuance de couleur que celle attribuée au pôle ou au secteur »
+  // — mémorisée ici pour que renderSecteurTasksModal() (rappelée à chaque
+  // changement de semaine, bien après openSecteurTasksModal()) puisse
+  // teinter #secteurTasksObjective avec la même nuance que l'entête, sans
+  // recalculer subProjectShade().
+  var secteurTasksModalColor = null;
 
   // 22 septembre 2026, demande d'Emilien : « l'entête [...] reste fixe et
   // qu'elle soit de la couleur du secteur attribué au secteur » — même
@@ -2196,9 +2208,10 @@
     // propre) — même convention que partout ailleurs dans l'app (dots de
     // catégorie, badges du volet Objectifs) : poleIndex est le rang du pôle
     // parent dans la liste, transmis par createCategoryPicker.
-    paintSecteurTasksHeader(chronoRunningActivityColor
+    secteurTasksModalColor = chronoRunningActivityColor
       ? subProjectShade(chronoRunningActivityColor, poleIndex, SUB_PROJECT_SHADE_COUNT)
-      : null);
+      : null;
+    paintSecteurTasksHeader(secteurTasksModalColor);
     $('secteurTasksMsg').textContent = '';
     $('secteurTasksModal').classList.remove('hidden');
     loadSecteurTasksModal();
@@ -2208,6 +2221,7 @@
     $('secteurTasksModal').classList.add('hidden');
     secteurTasksModalActivityId = null;
     secteurTasksModalKey = null;
+    secteurTasksModalColor = null;
   }
 
   // Le bouton "semaine précédente" se désactive dès la semaine courante — « pas
@@ -2248,6 +2262,11 @@
     var objectiveEl = $('secteurTasksObjective');
     objectiveEl.textContent = weeklyObjective ? (t('Objectif de la semaine') + ' : ' + weeklyObjective) : '';
     objectiveEl.classList.toggle('hidden', !weeklyObjective);
+    // 22 septembre 2026, demande d'Emilien : même nuance que l'entête
+    // (secteurTasksModalColor, calculée une fois dans openSecteurTasksModal).
+    objectiveEl.style.background = secteurTasksModalColor || '';
+    objectiveEl.style.borderColor = secteurTasksModalColor || '';
+    objectiveEl.style.color = secteurTasksModalColor ? readableTextOn(secteurTasksModalColor) : '';
 
     var wrap = $('secteurTasksDays');
     wrap.innerHTML = '';

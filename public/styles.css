@@ -5599,50 +5599,62 @@ button { -webkit-user-select: none; user-select: none; }
    d'écriture » — min-height assorti aux 4 lignes désormais posées sur le
    <textarea> (app.js, buildCategoryAutoTaskBubble) ; (2) « un effet visuel,
    un mouvement lumineux sur le cadre » — la bordure pointillée statique
-   devient un anneau lumineux tournant, qui remplace la bordure statique
+   devient un point lumineux tournant, qui remplace la bordure statique
    plutôt que s'y ajouter : c'est désormais LUI qui porte la signification
    « bulle spéciale, hors catégorie » documentée plus haut
    (buildCategoryAutoTaskBubble()) — plus visible qu'un simple pointillé, et
    cohérent avec le caractère IA de cette bulle.
-   CORRECTIF, même jour, retour direct d'Emilien avec capture d'écran :
-   « L'effet visuel [...] ne me convient pas du tout [...] un fuseau
-   lumineux qui se déplace le long du cadre [...] Il suit la périphérie
-   du cadre. » La première implémentation (ci-dessus, conic-gradient +
-   double masque `mask-composite: exclude`) laissait fuir le dégradé hors
-   de l'anneau — visible sur la capture comme un trait diagonal traversant
-   toute la bulle au lieu de rester confiné au contour : le masquage par
-   soustraction n'a pas été validé sur son moteur de rendu réel (implémenté
-   sans appareil physique disponible, cf. note ci-dessus).
-   Remplacé par une technique plus robuste, SANS masque : le ::before est
-   simplement plus grand que la bulle (inset négatif) et placé DERRIÈRE le
-   fond opaque de la bulle (z-index négatif + `isolation: isolate` sur la
-   bulle pour garantir ce contexte d'empilement) — seul le liseré qui
-   dépasse du fond opaque peut donc être visible, il est mécaniquement
-   impossible qu'il déborde au centre, quelle que soit la forme du cadre.
-   Le dégradé conique reste un arc étroit à bords doux (le « fuseau »), en
-   rotation continue (seul `transform` est animé, jamais le dégradé
-   recalculé image par image) : l'impression est celle d'un point lumineux
-   qui parcourt le pourtour du cadre. Repli silencieux (bulle et fond
-   `--card` intacts, sans anneau) sur un moteur sans `isolation`. */
+   DEUX CORRECTIFS SUCCESSIFS, même jour, sur retours directs d'Emilien.
+   1er retour (avec capture d'écran) : « [...] un fuseau lumineux qui se
+   déplace le long du cadre [...] Il suit la périphérie du cadre. » —
+   la toute première version (conic-gradient + double masque
+   `mask-composite: exclude`) laissait fuir le dégradé hors de l'anneau
+   (trait diagonal visible sur la capture). Remplacée par un ::before plus
+   grand que la bulle et caché derrière son fond opaque (z-index négatif) :
+   corrigeait la fuite, mais restait un ARC conique (angle depuis le centre
+   de la bulle), pas un déplacement fidèle le long du périmètre réel — un
+   rectangle large et bas déforme fortement la correspondance angle/position.
+   2e retour, plus précis : « Juste un point avec un fuseau derrière pour
+   représenter la vitesse qui sillonne la périphérie du cadre. Il est juste
+   positionné sur le cadre [...] Il tourne dans le sens d'une aiguille d'une
+   montre [...] uniquement sur la ligne périmètre. » — remplacé par la
+   technique CSS faite pour ça, `offset-path`, qui fait suivre à un élément
+   le contour RÉEL d'une boîte (angles arrondis compris), quelle que soit sa
+   forme : plus aucune approximation géométrique. `offset-path: border-box`
+   sur le ::before (élément désormais petit, pas plus grand que la bulle)
+   trace exactement le bord de la bulle (son conteneur, `position: relative`
+   ci-dessous) ; `offset-anchor: 100% 50%` place le point lumineux (bord
+   droit du dégradé radial) EXACTEMENT sur cette ligne ; `offset-rotate` en
+   son mode par défaut (`auto`) réoriente l'élément à chaque instant selon
+   la tangente du tracé, si bien que le fuseau (dégradé radial qui s'éteint
+   vers la gauche de l'élément) reste toujours orienté à l'opposé du sens de
+   déplacement, y compris dans les angles. Sens de rotation non vérifiable
+   depuis cette session (aucun navigateur réel disponible ici) : si le sens
+   observé est inverse de celui d'une aiguille de montre, `animation-
+   direction: reverse;` sur `activityGoalsAutoTaskGlow` ci-dessous suffit à
+   l'inverser — seule ligne à ajouter, rien d'autre à toucher. Repli
+   silencieux (bulle et fond `--card` intacts, sans point lumineux) sur un
+   moteur sans `offset-path`. */
 .activityGoalsCategoryAutoTaskBubble {
   position: relative;
-  isolation: isolate;
   border-radius: var(--radius-lg, var(--radius-md));
   background: var(--card);
 }
 .activityGoalsCategoryAutoTaskBubble::before {
   content: '';
-  position: absolute; inset: -2px; z-index: -1;
-  border-radius: inherit;
-  background: conic-gradient(from 0deg,
-    transparent 0deg, transparent 255deg,
-    var(--purple) 297deg,
-    transparent 340deg, transparent 360deg);
+  position: absolute;
+  z-index: 2;
+  width: 30px;
+  aspect-ratio: 2.4 / 1;
+  border-radius: 999px;
+  background: radial-gradient(100% 100% at right, var(--purple), transparent 70%);
+  offset-path: border-box;
+  offset-anchor: 100% 50%;
   animation: activityGoalsAutoTaskGlow 3.4s linear infinite;
   pointer-events: none;
 }
 @keyframes activityGoalsAutoTaskGlow {
-  to { transform: rotate(360deg); }
+  to { offset-distance: 100%; }
 }
 .activityGoalsCategoryAutoTaskBubble textarea,
 .activityGoalsCategoryAutoTaskBubble .iconBtn,
