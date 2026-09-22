@@ -2808,21 +2808,20 @@
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', t('Répartition du temps par activité'));
 
-    // Centre du donut — créé AVANT les tranches (21 septembre 2026, voir
-    // `ids.tapReveal` plus bas) : une tranche appuyée y affiche son propre nom
-    // + temps à la place du total, le temps de la pression ; les écouteurs
-    // posés sur chaque tranche doivent donc pouvoir s'y référer par fermeture.
+    // Centre du donut — total par défaut, ou `ids.centerOverride` ({ value,
+    // label }, 22 septembre 2026 — voir `ids.onGroupTap` plus bas) affiché à
+    // la place quand un pôle est sélectionné en Répartition par catégorie.
     var centerVal = document.createElement('span');
     centerVal.className = 'pieCenterValue';
-    centerVal.textContent = formatHM(totalSeconds);
     var centerLabel = document.createElement('span');
     centerLabel.className = 'pieCenterLabel';
-    centerLabel.textContent = 'total';
-    var restoreCenterTotal = function () {
+    if (ids && ids.centerOverride) {
+      centerVal.textContent = ids.centerOverride.value;
+      centerLabel.textContent = ids.centerOverride.label || '';
+    } else {
       centerVal.textContent = formatHM(totalSeconds);
       centerLabel.textContent = 'total';
-      centerLabel.classList.remove('pieCenterLabel--tapped');
-    };
+    }
 
     var angle = -Math.PI / 2; // départ à midi, sens horaire
     activities.forEach(function (a) {
@@ -2846,30 +2845,18 @@
         path.setAttribute('class', 'pieSlice pieSlice-tappable');
         path.addEventListener('click', function () { ids.onActivityTap(a); });
       }
-      // `ids.tapReveal` (21 septembre 2026, Statistiques — Répartition par
-      // catégorie, demande d'Emilien) : une pression sur une tranche affiche
-      // SON temps au centre du donut, à la place du total, tant que le doigt
-      // (ou le bouton de la souris) reste dessus — relâcher restaure le
-      // total. Sert à révéler le temps d'un SECTEUR sans jamais l'ajouter à
-      // la légende, qui reste au niveau pôle (voir groupCategoryPartsByPole) :
-      // « le temps passé par secteur n'est pas marqué en bas [...] mais il
-      // s'affiche lorsque j'appuie sur la section avec mon doigt. » Écouteurs
-      // `pointer*` (et non `click`) pour un affichage qui suit la pression
-      // elle-même plutôt qu'un état à bascule ; jamais combiné avec
-      // `onActivityTap` par aucun appelant actuel, les deux pourraient
-      // cohabiter sans conflit si besoin un jour (un seul `click`, des
-      // `pointer*` distincts).
-      if (ids && ids.tapReveal) {
+      // `ids.onGroupTap` (22 septembre 2026, Statistiques — Répartition par
+      // catégorie, demande d'Emilien — remplace le `tapReveal` du 21
+      // septembre) : cliquer une tranche sélectionne son GROUPE (son pôle —
+      // `a.groupKey`, posé par groupCategoryPartsByPole sur chaque part).
+      // La sélection est à bascule (même groupe recliqué → désélection) et
+      // c'est l'appelant (renderGroupedCategoryPie) qui redessine ensuite le
+      // centre et la légende en fonction — cette fonction ne fait que
+      // relayer le clic, elle ne connaît rien du regroupement. Jamais combiné
+      // avec `onActivityTap` par aucun appelant actuel.
+      if (ids && ids.onGroupTap) {
         path.classList.add('pieSlice-tappable');
-        var reveal = function () {
-          centerVal.textContent = formatHM(a.seconds);
-          centerLabel.textContent = a.name;
-          centerLabel.classList.add('pieCenterLabel--tapped');
-        };
-        path.addEventListener('pointerdown', reveal);
-        path.addEventListener('pointerup', restoreCenterTotal);
-        path.addEventListener('pointercancel', restoreCenterTotal);
-        path.addEventListener('pointerleave', restoreCenterTotal);
+        path.addEventListener('click', function () { ids.onGroupTap(a.groupKey); });
       }
       svg.appendChild(path);
       angle += sweep;
@@ -2915,6 +2902,18 @@
         row.setAttribute('role', 'button');
         row.setAttribute('tabindex', '0');
         row.addEventListener('click', function () { ids.onActivityTap(a); });
+      }
+      // `ids.onGroupTap` : une ligne de légende EN AFFICHAGE PAR DÉFAUT (un
+      // pôle, `a.groupKey` posé par groupCategoryPartsByPole) est cliquable
+      // au même titre que sa tranche — cible plus facile à viser au doigt.
+      // Une ligne de la légende par SECTEUR (après sélection d'un pôle) n'a
+      // pas de `groupKey` : il n'y a rien de plus fin à sélectionner, elle
+      // reste inerte.
+      if (ids && ids.onGroupTap && a.groupKey != null) {
+        row.classList.add('pieLegendRow-tappable');
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+        row.addEventListener('click', function () { ids.onGroupTap(a.groupKey); });
       }
       legend.appendChild(row);
     });
@@ -3209,6 +3208,10 @@
   // l'historique et ne suit pas les flèches ‹ › de la Feuille de temps.
   var csChartGranularity = 'day'; // 'day' | 'week' | 'month'
   var csLastData = null;         // dernière réponse, pour resynchroniser sans refetch
+  // Pôle sélectionné dans la Répartition par catégorie de CETTE fenêtre (22
+  // septembre 2026) — voir renderGroupedCategoryPie. `{ key: null }` : aucune
+  // sélection, affichage par défaut.
+  var csDrilldownSelection = { key: null };
   // Fenêtre de jours réellement affichée par la grille du volet Statistiques.
   var lastStatsGridRange = null;
   // ----- Filtre d'ouverture (4 septembre 2026, demande d'Emilien : « je
@@ -3523,8 +3526,14 @@
     var groups = {};
     colored.forEach(function (c) {
       var groupKey = c.parentKey || c.category || 'none';
+      // 22 septembre 2026 (sélection d'un pôle, voir renderGroupedCategoryPie
+      // plus bas) : posé directement sur la part/tranche, pour que renderPie
+      // puisse relayer le clic d'une tranche sans rien connaître du
+      // regroupement lui-même.
+      c.groupKey = groupKey;
       if (!groups[groupKey]) {
         groups[groupKey] = {
+          groupKey: groupKey,
           // Une part de secteur peut arriver avant celle de son pôle (l'ordre
           // d'entrée suit le tri par temps décroissant du serveur, pas la
           // hiérarchie) — le nom du pôle depuis `parentName` sert de premier
@@ -3562,13 +3571,83 @@
     var legend = order.map(function (key) {
       var g = groups[key];
       return {
+        groupKey: g.groupKey,
         name: g.name,
         color: g.color,
         seconds: g.seconds,
         percent: totalSeconds > 0 ? Math.round((g.seconds / totalSeconds) * 100) : 0,
+        // Exposé pour la sélection d'un pôle (22 septembre 2026) : ses
+        // propres parts (son temps direct éventuel + chacun de ses secteurs),
+        // pour construire le détail par secteur sans recalculer quoi que ce
+        // soit — toujours la même source que les tranches et la ligne
+        // ci-dessus, jamais un second calcul qui pourrait diverger.
+        parts: g.parts,
       };
     });
     return { slices: slices, legend: legend };
+  }
+
+  // Sélection d'un pôle en Répartition par catégorie (22 septembre 2026,
+  // demande d'Emilien, remplace le `tapReveal` du 21 septembre) : « lorsque
+  // je clique sur un pôle [...] au milieu, il ne s'affiche uniquement le
+  // temps du pôle sans le nom. Et en bas, au lieu d'avoir toutes les heures
+  // par pôle, il ne s'affiche que les heures par secteur du pôle
+  // sélectionné. » Un second clic sur le même pôle (sa tranche — la légende
+  // par secteur, elle, n'est plus cliquable, voir renderPie) désélectionne
+  // et revient à l'affichage par défaut.
+  //
+  // `selection` est un petit objet `{ key }` mutable, propre à CHAQUE écran
+  // (une instance pour la fenêtre flottante, une pour la page d'activité
+  // solo — voir csDrilldownSelection/soloDrilldownSelection plus bas) : les
+  // deux écrans partagent cette fonction mais jamais leur état de sélection.
+  //
+  // ⚠️ Le camembert lui-même (les tranches) NE CHANGE PAS avec la sélection —
+  // seuls le centre et la légende du bas sont concernés, Emilien ne demande
+  // rien de plus.
+  function renderGroupedCategoryPie(pieIds, colored, totalSeconds, selection) {
+    var grouped = groupCategoryPartsByPole(colored, totalSeconds);
+    var selected = null;
+    if (selection.key != null) {
+      selected = grouped.legend.filter(function (g) { return g.groupKey === selection.key; })[0] || null;
+      // La clé sélectionnée peut ne plus exister (nouvelle période, nouvelle
+      // activité, pôle retiré entre-temps) : on oublie silencieusement plutôt
+      // que d'afficher une sélection fantôme.
+      if (!selected) selection.key = null;
+    }
+
+    var legendItems = grouped.legend;
+    var centerOverride = null;
+    if (selected) {
+      // Détail par SECTEUR du pôle sélectionné : sa propre liste `parts`
+      // (temps direct du pôle éventuel + chacun de ses secteurs), jamais
+      // recalculée depuis autre chose que ce que le camembert affiche déjà.
+      // Le temps direct du pôle (non rattaché à un secteur précis) garde une
+      // ligne à part — masquer ce temps ferait que les lignes affichées ne
+      // totaliseraient plus le temps du pôle montré au centre.
+      legendItems = selected.parts.map(function (p) {
+        return {
+          name: p.parentKey ? p.ownName : t('Sans secteur'),
+          color: p.color,
+          seconds: p.seconds,
+          percent: selected.seconds > 0 ? Math.round((p.seconds / selected.seconds) * 100) : 0,
+        };
+      }).sort(function (a, b) { return b.seconds - a.seconds; });
+      // « uniquement le temps du pôle sans le nom » : la valeur seule, le
+      // libellé du centre (normalement « total ») est vidé plutôt que
+      // remplacé par le nom du pôle.
+      centerOverride = { value: formatHM(selected.seconds), label: '' };
+    }
+
+    renderPie(grouped.slices, totalSeconds, {
+      wrap: pieIds.wrap,
+      emptyHint: pieIds.emptyHint,
+      legend: legendItems,
+      centerOverride: centerOverride,
+      onGroupTap: function (groupKey) {
+        selection.key = selection.key === groupKey ? null : groupKey;
+        renderGroupedCategoryPie(pieIds, colored, totalSeconds, selection);
+      },
+    });
   }
 
   function renderCategoryPie(breakdown, label, data) {
@@ -3596,24 +3675,18 @@
       };
     });
     var totalSeconds = breakdown ? breakdown.totalSeconds : 0;
-    var grouped = groupCategoryPartsByPole(colored, totalSeconds);
-
+    // Nouvelle donnée (nouvelle période, bascule « Aujourd'hui », nouvelle
+    // activité) : on repart toujours de l'affichage par défaut plutôt que de
+    // garder une sélection qui pourrait ne plus avoir de sens.
+    csDrilldownSelection.key = null;
     // Le camembert est dessiné par renderPie, la fonction de la Répartition,
-    // appelée telle quelle : mêmes proportions, même trou central. Sa légende
-    // (4 septembre 2026, Emilien : « je souhaite que la légende ne soit
-    // affichée qu'une seule fois ») vient désormais de `grouped.legend`
-    // (regroupée par pôle), les tranches de `grouped.slices` (une par pôle OU
-    // secteur, réordonnées pour rester contiguës par pôle).
-    // Sans `onActivityTap` : on est déjà au niveau le plus fin. `tapReveal`
-    // (21 septembre 2026) : une pression sur une tranche affiche son temps au
-    // centre du donut — seul moyen de voir le temps d'un secteur précis,
-    // puisque la légende ci-dessus reste groupée par pôle.
-    renderPie(grouped.slices, totalSeconds, {
-      wrap: 'categoryStatsPie',
-      emptyHint: 'categoryStatsPieEmptyHint',
-      legend: grouped.legend,
-      tapReveal: true,
-    });
+    // appelée telle quelle : mêmes proportions, même trou central. Centre et
+    // légende du bas sont gérés par renderGroupedCategoryPie ci-dessus — voir
+    // son commentaire (sélection d'un pôle, 22 septembre 2026).
+    renderGroupedCategoryPie(
+      { wrap: 'categoryStatsPie', emptyHint: 'categoryStatsPieEmptyHint' },
+      colored, totalSeconds, csDrilldownSelection
+    );
   }
 
   // ----- Bouton « Aujourd'hui » : désynchronise la répartition -----
@@ -3693,6 +3766,10 @@
   // c'est le cas normal : masquer cette part donnerait un camembert dont les
   // tranches ne font pas le total affiché juste au-dessus.
   var currentSoloStatsPeriod = 'week';
+  // Pôle sélectionné dans la Répartition par catégorie de CETTE section (22
+  // septembre 2026) — propre à la page d'activité solo, jamais partagée avec
+  // csDrilldownSelection (fenêtre flottante) — voir renderGroupedCategoryPie.
+  var soloDrilldownSelection = { key: null };
 
   // 17 septembre 2026 : l'ancienne affordance (« la section n'existe qu'à
   // partir du premier sous-projet ») n'a plus de sens — une catégorie existe
@@ -3753,16 +3830,15 @@
         color: subProjectShade(data.baseColor, p.shadeIndex, data.shadeCount),
       };
     });
-    var grouped = groupCategoryPartsByPole(colored, data.totalSeconds);
-    // renderPie pose sa propre légende dans son wrap : aucune seconde liste
-    // n'est dessinée ici, sans quoi les mêmes lignes s'afficheraient deux fois.
-    // `tapReveal` : voir renderCategoryPie — même mécanisme de révélation du
-    // temps d'un secteur par pression, ici pour la page d'activité solo.
-    renderPie(grouped.slices, data.totalSeconds, {
-      wrap: 'soloStatsPie', emptyHint: 'soloStatsPieEmptyHint',
-      legend: grouped.legend,
-      tapReveal: true,
-    });
+    // Nouvelle donnée (nouvelle période, nouvelle activité) : on repart de
+    // l'affichage par défaut — voir renderCategoryPie.
+    soloDrilldownSelection.key = null;
+    // Centre et légende du bas gérés par renderGroupedCategoryPie (sélection
+    // d'un pôle, 22 septembre 2026) — voir son commentaire.
+    renderGroupedCategoryPie(
+      { wrap: 'soloStatsPie', emptyHint: 'soloStatsPieEmptyHint' },
+      colored, data.totalSeconds, soloDrilldownSelection
+    );
   }
 
   // ⚠️ Pourquoi `period` et non `from`/`to` : la fenêtre flottante s'ouvre

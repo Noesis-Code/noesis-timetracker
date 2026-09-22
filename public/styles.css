@@ -1320,20 +1320,6 @@ textarea {
 }
 .pieCenterValue { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.3px; }
 .pieCenterLabel { font-size: 11px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.4px; }
-/* 21 septembre 2026 — `ids.tapReveal` (public/app.js, renderPie) : le centre
-   du donut affiche le nom de la tranche pressée (pôle seul, ou « pôle ·
-   secteur ») à la place de « total » ; ce nom peut largement dépasser
-   « total » en longueur, d'où la troncature — le trou central fait ~54 % du
-   diamètre du camembert (rInner/rOuter), 108px ménage une marge de chaque
-   côté pour un camembert affiché à sa largeur max (220px). */
-.pieCenterLabel--tapped {
-  max-width: 108px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-transform: none;
-  letter-spacing: normal;
-}
 .pieLegend { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .pieLegendRow { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .pieLegendDot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
