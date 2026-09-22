@@ -2112,4 +2112,38 @@ CREATE TABLE IF NOT EXISTS daily_suggestions (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_suggestions_user_date ON daily_suggestions(userId, isoDate);
 `);
 
-module.exports = db;
+// ---------------------------------------------------------------------------
+// notifyEnabled / communityNotifyEnabled (chantier Notifications, 10 septembre
+// 2026) — migration ajoutée le 21 septembre 2026, segment « Paramètres &
+// Profil ». Les deux colonnes étaient lues et écrites par
+// server/routes/activities.js (serializeActivity, PUT /activities/:id) et
+// server/routes/profile.js (POST /profile, GET/PUT /profile/:id, PUT
+// /profile/:id/notify-community) depuis le 10 septembre, mais aucune
+// migration ne les avait jamais créées : « no such column » cassait l'onglet
+// Activité en entier (création ET chargement de la liste) ainsi que la
+// consultation du profil public d'un membre.
+//
+// Purement additives : aucune migration de données, aucune ligne retouchée.
+//
+// DEFAULT 1 pour les deux, et non 0 : le code qui les lit considère déjà
+// l'absence de réglage comme « notifications activées » — serializeActivity
+// dit explicitement « traité comme activé, par cohérence avec le DEFAULT 1 de
+// la colonne », et POST /profile renvoie communityNotifyEnabled: true à la
+// création sans jamais insérer la colonne (elle ne peut donc valoir true que
+// par son DEFAULT). Mettre 0 ici couperait silencieusement les notifications
+// de tout le monde, y compris des comptes qui en reçoivent aujourd'hui.
+//
+// ⚠️ Placées ICI, en toute fin de fichier, et non à côté des autres
+// migrations « users » plus haut : la reconstruction de la table users
+// (usersNameStillGloballyUnique) recopie une liste de colonnes ÉCRITE EN DUR
+// et s'exécute après elles — une colonne ajoutée avant ce bloc serait reperdue
+// au passage. C'est exactement ce qui arrive aujourd'hui à stripeCustomerId
+// (voir le signalement au segment Offre 1 / Abonnement & Paiement).
+if (!columnExists('activity_members', 'notifyEnabled')) {
+  db.exec('ALTER TABLE activity_members ADD COLUMN notifyEnabled INTEGER NOT NULL DEFAULT 1');
+}
+if (!columnExists('users', 'communityNotifyEnabled')) {
+  db.exec('ALTER TABLE users ADD COLUMN communityNotifyEnabled INTEGER NOT NULL DEFAULT 1');
+}
+
+module.exports = db;
