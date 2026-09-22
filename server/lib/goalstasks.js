@@ -50,6 +50,20 @@ function todayLocal(now) {
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
 
+// 22 septembre 2026 (fenêtre « visualiser », navigation entre semaines) —
+// dupliqué depuis goals.js#daysBetween, même convention que todayLocal()
+// juste au-dessus : un utilitaire de date minuscule, dupliqué plutôt
+// qu'exporté, pour ne pas alourdir la dépendance vers goals.js.
+function daysBetween(fromDay, toDay) {
+  const parse = (s) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ''));
+    return m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+  };
+  const a = parse(fromDay), b = parse(toDay);
+  if (a === null || b === null) return null;
+  return Math.round((b - a) / 86400000);
+}
+
 const WEEKDAY_LABELS_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
 // Sous-projets d'une activité déjà rattachés à cette catégorie, les plus
@@ -140,8 +154,17 @@ function tasksByCategoryForActivity(activityId) {
 // convention que goals.js#mostRecentMonday), groupées par jour. Un jour sans
 // tâche datée n'apparaît PAS dans le résultat (le gabarit HTML, calqué sur la
 // fenêtre profil, affiche lui-même les 7 jours et laisse les absents vides).
-function tasksForCategoryThisWeek(activityId, categoryKey) {
-  const monday = goals.mostRecentMonday(todayLocal());
+//
+// 22 septembre 2026, demande d'Emilien : « ajouter une flèche pour faire
+// défiler les semaines [...] voir les tâches des semaines futures. Pas
+// passées [...] uniquement futur. » — `weekOffset` (0 = semaine courante, 1 =
+// semaine suivante, etc.) décale la semaine calculée d'autant de fois 7 jours
+// ; la route appelante (server/routes/goals.js) est seule responsable de
+// refuser un décalage négatif, cette fonction se contente de l'appliquer tel
+// quel.
+function tasksForCategoryThisWeek(activityId, categoryKey, weekOffset) {
+  const offset = Number(weekOffset) || 0;
+  const monday = goals.addDays(goals.mostRecentMonday(todayLocal()), offset * 7);
   const days = [];
   for (let i = 0; i < 7; i += 1) days.push(goals.addDays(monday, i));
 
@@ -159,6 +182,32 @@ function tasksForCategoryThisWeek(activityId, categoryKey) {
     weekday: WEEKDAY_LABELS_FR[new Date(day + 'T00:00:00Z').getUTCDay()],
     tasks: byDay[day],
   }));
+}
+
+// 22 septembre 2026, demande d'Emilien : « ajouter en haut de la liste des
+// tâches, les objectifs hebdomadaires pour chaque semaine » — texte de
+// l'objectif hebdomadaire (goal_weekly, volet Objectifs) déjà fixé pour la
+// semaine affichée dans la fenêtre « visualiser », pour ce même pôle/secteur.
+// Composé uniquement à partir de fonctions déjà exportées par goals.js
+// (ensurePlan/periodNumberForDate/ensurePeriodRow), exactement comme le reste
+// de ce fichier compose déjà subprojects.js — aucun changement dans goals.js.
+// Lecture seule : ensurePlan/ensurePeriodRow créent le plan/la période au
+// besoin (mêmes fonctions idempotentes que le volet Objectifs lui-même),
+// mais ne créent jamais l'objectif hebdomadaire — une semaine sans objectif
+// écrit renvoie simplement une chaîne vide.
+function weeklyObjectiveForWeek(activityId, categoryKey, weekOffset) {
+  const offset = Number(weekOffset) || 0;
+  const monday = goals.addDays(goals.mostRecentMonday(todayLocal()), offset * 7);
+  const plan = goals.ensurePlan(activityId, categoryKey);
+  const periodNumber = goals.periodNumberForDate(plan.startDate, monday);
+  const period = goals.ensurePeriodRow(activityId, categoryKey, periodNumber, plan.startDate);
+  const weekIndex = Math.floor(daysBetween(period.startDate, monday) / 7) + 1;
+  // Même requête que goals.js#setWeekly (ignore les entrées reportées
+  // automatiquement — carriedOverFromId — qui ne sont jamais l'objectif
+  // "actif" de leur semaine d'origine).
+  const row = db.prepare('SELECT text FROM goal_weekly WHERE periodId = ? AND weekIndex = ? AND carriedOverFromId IS NULL')
+    .get(period.id, weekIndex);
+  return row ? row.text : '';
 }
 
 // Ajoute une tâche : toujours dans le sous-projet domicile de la catégorie
@@ -250,6 +299,7 @@ module.exports = {
   tasksForCategory,
   tasksByCategoryForActivity,
   tasksForCategoryThisWeek,
+  weeklyObjectiveForWeek,
   addCategoryTask,
   moveCategoryTask,
 };

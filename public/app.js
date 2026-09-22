@@ -16,6 +16,11 @@
   // activité qu'on vient de quitter (même motif que viewProfileUserId).
   var chronoRunningActivityId = null;
   var chronoRunningCategory = null;
+  // 22 septembre 2026 : couleur de base de l'activité en cours, mémorisée
+  // pour teinter l'en-tête de #secteurTasksModal (subProjectShade() a besoin
+  // de cette couleur de départ pour recalculer la nuance du secteur — voir
+  // openSecteurTasksModal).
+  var chronoRunningActivityColor = null;
   // Périodes indépendantes par section de Statistiques — 30 août 2026, sur
   // demande d'Emilien : plus de sélecteur global (#statsPeriodSwitch), chaque
   // section choisit sa propre période via son menu "⋮" (voir plus bas).
@@ -1727,6 +1732,20 @@
       onCommit(state.current);
     }
 
+    // 22 septembre 2026, demande directe d'Emilien : « lorsque je clique sur
+    // un secteur [...] toute la case soit coloriée en violet, mais [...] je
+    // souhaite qu'on reste sur la page [...] c'est un menu fixe où on
+    // sélectionne. On peut revenir en arrière, on sélectionne. » — le choix
+    // d'un secteur (ou « Aucun secteur ») attache la valeur exactement comme
+    // avant (onCommit), mais ne referme plus le panneau : seule la
+    // surbrillance change, la liste des secteurs reste affichée pour changer
+    // d'avis ou revenir en arrière sans rouvrir le menu.
+    function commitStay(key) {
+      state.current = key ? String(key) : null;
+      render();
+      onCommit(state.current);
+    }
+
     // Cliquer un pôle qui a des secteurs : ATTACHE le pôle immédiatement
     // (même geste qu'avant) ET affiche ses secteurs pour affiner sans
     // rouvrir le menu.
@@ -1752,18 +1771,46 @@
           commitPoleAndDrill(pole);
           return;
         }
+        // 22 septembre 2026, demande d'Emilien : un pôle SANS secteur (donc
+        // affiché ici avec `secteur` = lui-même et son bouton Visualiser, voir
+        // l'appel buildRow(..., c, c) plus bas) doit rester ouvert et se
+        // teinter en violet exactement comme un secteur — pas seulement quand
+        // on est déjà drillé (state.drill).
+        if (state.drill || secteur) {
+          commitStay(rowValue);
+          return;
+        }
         commit(rowValue);
       });
       row.appendChild(main);
 
-      if (secteur) {
+      // 22 septembre 2026, demande d'Emilien : « on enlève l'option pour
+      // visualiser les tâches des pôles ou des secteurs » à l'étape Arrêt —
+      // `stopCategoryPicker` instancie désormais ce widget avec `onVisualiser`
+      // à `null` (voir plus bas) ; le bouton ne doit alors pas apparaître du
+      // tout dans ce contexte, tout en restant inchangé pour le sélecteur du
+      // Chrono en cours (`chronoCategoryPicker`, `onVisualiser` toujours
+      // `openSecteurTasksModal`).
+      if (secteur && onVisualiser) {
         var visBtn = document.createElement('button');
         visBtn.type = 'button';
         visBtn.className = 'categoryPickerVisualiserBtn';
         visBtn.textContent = t('Visualiser');
         visBtn.addEventListener('click', function (ev) {
           ev.stopPropagation();
-          onVisualiser(secteur.key, secteur.label, state.drill.label);
+          // 22 septembre 2026, demande d'Emilien : « lorsque l'utilisateur
+          // n'a créé que des pôles [...] et n'a pas créé de secteur [...]
+          // alors automatiquement le bouton visualiser [...] s'applique à
+          // l'identique pour les pôles que pour les secteurs » — deux
+          // contextes possibles ici : drillé sur les secteurs d'un pôle
+          // (state.drill posé, comportement du 21 septembre, inchangé), ou
+          // pôle SANS secteur affiché directement au niveau racine (voir
+          // l'appel buildRow(..., c, c) plus bas) — `pole` porte alors ce
+          // même pôle et sert de repli.
+          var owningPole = state.drill || pole;
+          var poleIndex = state.list.indexOf(owningPole);
+          var poleLabel = owningPole ? owningPole.label : secteur.label;
+          onVisualiser(secteur.key, secteur.label, poleLabel, poleIndex);
         });
         row.appendChild(visBtn);
       }
@@ -1774,30 +1821,40 @@
     function render() {
       container.innerHTML = '';
 
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'categoryPickerBtn';
-      btn.setAttribute('aria-expanded', state.open ? 'true' : 'false');
-      var labelSpan = document.createElement('span');
-      labelSpan.textContent = labelFor(state.current) || t('Aucun pôle sélectionné pour cet enregistrement');
-      var chevron = document.createElement('span');
-      chevron.className = 'categoryPickerChevron';
-      chevron.setAttribute('aria-hidden', 'true');
-      chevron.textContent = '▾';
-      btn.appendChild(labelSpan);
-      btn.appendChild(chevron);
-      btn.addEventListener('click', function () {
-        if (state.open) { close(); return; }
-        // Ouverture : si la sélection en cours est un secteur, entrer
-        // directement dans la liste de ses secteurs (évite un clic
-        // supplémentaire pour revoir sa propre sélection en surbrillance).
-        state.drill = state.current ? poleOf(state.current) : null;
-        state.open = true;
-        render();
-      });
-      container.appendChild(btn);
-
-      if (!state.open) return;
+      // 22 septembre 2026, demande d'Emilien (capture d'écran à l'appui) :
+      // « supprimer la case supérieure avec l'inscription du pôle » — sur
+      // ses deux captures, le libellé du pôle apparaissait À LA FOIS dans ce
+      // bouton fermé ET en surbrillance dans la liste rouverte juste en
+      // dessous (violet plein, voir .categoryPickerRow--selected) : pure
+      // redondance. Ce bouton ne s'affiche donc plus qu'à l'état FERMÉ ; une
+      // fois le panneau ouvert, la liste elle-même (avec sa ligne en
+      // surbrillance et, si drillé, le bouton « ← Tous les pôles ») est le
+      // seul affichage — recliquer la ligne déjà sélectionnée referme
+      // (commit()/close()), exactement comme choisir une nouvelle valeur.
+      if (!state.open) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'categoryPickerBtn';
+        btn.setAttribute('aria-expanded', 'false');
+        var labelSpan = document.createElement('span');
+        labelSpan.textContent = labelFor(state.current) || t('Aucun pôle sélectionné...');
+        var chevron = document.createElement('span');
+        chevron.className = 'categoryPickerChevron';
+        chevron.setAttribute('aria-hidden', 'true');
+        chevron.textContent = '▾';
+        btn.appendChild(labelSpan);
+        btn.appendChild(chevron);
+        btn.addEventListener('click', function () {
+          // Ouverture : si la sélection en cours est un secteur, entrer
+          // directement dans la liste de ses secteurs (évite un clic
+          // supplémentaire pour revoir sa propre sélection en surbrillance).
+          state.drill = state.current ? poleOf(state.current) : null;
+          state.open = true;
+          render();
+        });
+        container.appendChild(btn);
+        return;
+      }
 
       var panel = document.createElement('div');
       panel.className = 'categoryPickerPanel';
@@ -1810,14 +1867,28 @@
         back.addEventListener('click', function () { state.drill = null; render(); });
         panel.appendChild(back);
 
-        panel.appendChild(buildRow(t('Aucun secteur sélectionné pour cet enregistrement'), state.drill.key, null));
+        panel.appendChild(buildRow(t('Aucun secteur sélectionné...'), state.drill.key, null));
         (state.drill.secteurs || []).forEach(function (s) {
           panel.appendChild(buildRow(s.label, s.key, s));
         });
       } else {
-        panel.appendChild(buildRow(t('Aucun pôle sélectionné pour cet enregistrement'), null, null));
+        panel.appendChild(buildRow(t('Aucun pôle sélectionné...'), null, null));
         state.list.forEach(function (c) {
-          panel.appendChild(buildRow(c.label, c.key, null, c));
+          // 22 septembre 2026, demande d'Emilien : « lorsque l'utilisateur
+          // n'a créé que des pôles [...] et n'a pas créé de secteur [...]
+          // alors automatiquement le bouton visualiser et tout le mécanisme
+          // [...] s'applique à l'identique pour les pôles que pour les
+          // secteurs. Si 1 pôle n'a pas de secteur mais que les autres en
+          // ont alors le bouton visualiser apparaît uniquement pour ce
+          // pôle. » — un pôle sans secteur ne drille jamais (ci-dessus,
+          // pole.secteurs vide), ses tâches sont donc directement les
+          // siennes : il reçoit le bouton Visualiser comme une ligne de
+          // secteur (buildRow(..., c, c) — `c` sert à la fois de "secteur"
+          // pour le bouton et de "pole" pour le clic). Un pôle QUI A des
+          // secteurs garde son comportement inchangé (pas de bouton ici, il
+          // drille — le bouton apparaît sur SES secteurs une fois drillé).
+          var hasSecteurs = c.secteurs && c.secteurs.length;
+          panel.appendChild(buildRow(c.label, c.key, hasSecteurs ? null : c, c));
         });
       }
 
@@ -1873,6 +1944,7 @@
     $('runningActivityLabel').style.color = textColorForTheme(currentTheme);
     chronoRunningActivityId = activity.id;
     chronoRunningCategory = category || null;
+    chronoRunningActivityColor = activity.color;
     var categoriesReady = renderChronoCategorySelector(activity, chronoRunningCategory);
     startLiveTimer(startTimeIso);
     closeStopConfirm();
@@ -1895,6 +1967,7 @@
         stopLiveTimer();
         chronoRunningActivityId = null;
         chronoRunningCategory = null;
+        chronoRunningActivityColor = null;
         renderActivityGrid();
         showChronoBlock('chronoIdle');
         return;
@@ -1990,9 +2063,12 @@
   // suite, contrairement au sélecteur du chrono en cours qui appelle
   // /api/timer/category immédiatement.
   var stopCategoryPickerValue = null;
+  // 22 septembre 2026, demande d'Emilien : plus de bouton/mécanisme
+  // Visualiser à l'étape Arrêt — `onVisualiser` à `null` (voir la garde
+  // correspondante dans buildRow ci-dessus).
   var stopCategoryPicker = createCategoryPicker($('stopCategoryPicker'), function (value) {
     stopCategoryPickerValue = value;
-  }, openSecteurTasksModal);
+  }, null);
 
   function openStopConfirm() {
     $('stopConfirmMsg').textContent = '';
@@ -2063,6 +2139,7 @@
         stopLiveTimer();
         chronoRunningActivityId = null;
         chronoRunningCategory = null;
+        chronoRunningActivityColor = null;
         $('chronoStatus').textContent = t(data.message) + ' (' + data.elapsed + ')';
         renderActivityGrid();
         showChronoBlock('chronoIdle');
@@ -2097,14 +2174,55 @@
   // automatique dès que ces deux écrans se rechargent.
   var secteurTasksModalActivityId = null;
   var secteurTasksModalKey = null;
+  // 22 septembre 2026, demande d'Emilien : « ajouter une flèche pour faire
+  // défiler les semaines [...] uniquement futur » — 0 = semaine courante,
+  // jamais négatif (voir updateSecteurTasksWeekNav), sans plafond vers
+  // l'avenir.
+  var secteurTasksWeekOffset = 0;
+  // 22 septembre 2026, demande d'Emilien : « l'objectif de la semaine [...]
+  // de la même nuance de couleur que celle attribuée au pôle ou au secteur »
+  // — mémorisée ici pour que renderSecteurTasksModal() (rappelée à chaque
+  // changement de semaine, bien après openSecteurTasksModal()) puisse
+  // teinter #secteurTasksObjective avec la même nuance que l'entête, sans
+  // recalculer subProjectShade().
+  var secteurTasksModalColor = null;
 
-  function openSecteurTasksModal(secteurKey, secteurLabel, poleLabel) {
+  // 22 septembre 2026, demande d'Emilien : « l'entête [...] reste fixe et
+  // qu'elle soit de la couleur du secteur attribué au secteur » — même
+  // principe que paintCategoryStatsHeader() plus bas dans ce fichier (barre
+  // .viewProfileIdentity teintée en ligne, classe `tinted` pour le bouton de
+  // fermeture), mais readableTextOn() plutôt que textColorForTheme() : la
+  // couleur ici vient de subProjectShade() (bande de clarté volontairement
+  // large, voir son commentaire), pas de la palette contrainte par thème des
+  // couleurs d'activité — textColorForTheme() supposerait à tort un fond
+  // toujours assez sombre/clair.
+  function paintSecteurTasksHeader(color) {
+    var bar = $('secteurTasksModal').querySelector('.viewProfileIdentity');
+    if (!bar) return;
+    bar.classList.toggle('tinted', !!color);
+    bar.style.background = color || '';
+    bar.style.color = color ? readableTextOn(color) : '';
+  }
+
+  function openSecteurTasksModal(secteurKey, secteurLabel, poleLabel, poleIndex) {
     if (!chronoRunningActivityId) return;
     secteurTasksModalActivityId = chronoRunningActivityId;
     secteurTasksModalKey = secteurKey;
-    $('secteurTasksTitle').textContent = poleLabel + ' · ' + secteurLabel;
+    secteurTasksWeekOffset = 0;
+    // 22 septembre 2026 : un pôle sans secteur se visualise désormais comme
+    // un secteur (voir buildRow/render ci-dessus, createCategoryPicker) —
+    // poleLabel et secteurLabel sont alors identiques ; éviter d'afficher
+    // deux fois le même nom.
+    $('secteurTasksTitle').textContent = (poleLabel === secteurLabel) ? secteurLabel : (poleLabel + ' · ' + secteurLabel);
+    // Les secteurs partagent la nuance de leur PÔLE parent (jamais un index
+    // propre) — même convention que partout ailleurs dans l'app (dots de
+    // catégorie, badges du volet Objectifs) : poleIndex est le rang du pôle
+    // parent dans la liste, transmis par createCategoryPicker.
+    secteurTasksModalColor = chronoRunningActivityColor
+      ? subProjectShade(chronoRunningActivityColor, poleIndex, SUB_PROJECT_SHADE_COUNT)
+      : null;
+    paintSecteurTasksHeader(secteurTasksModalColor);
     $('secteurTasksMsg').textContent = '';
-    $('secteurTasksAddInput').value = '';
     $('secteurTasksModal').classList.remove('hidden');
     loadSecteurTasksModal();
   }
@@ -2113,32 +2231,57 @@
     $('secteurTasksModal').classList.add('hidden');
     secteurTasksModalActivityId = null;
     secteurTasksModalKey = null;
+    secteurTasksModalColor = null;
+  }
+
+  // Le bouton "semaine précédente" se désactive dès la semaine courante — « pas
+  // passées [...] uniquement futur » — mais "semaine suivante" n'a pas de
+  // plafond.
+  function updateSecteurTasksWeekNav() {
+    $('secteurTasksPrevWeek').disabled = secteurTasksWeekOffset <= 0;
   }
 
   function loadSecteurTasksModal() {
     var activityId = secteurTasksModalActivityId;
     var key = secteurTasksModalKey;
+    var weekOffset = secteurTasksWeekOffset;
     if (!activityId || !key) return;
-    api('GET', '/api/activities/' + activityId + '/goals/categories/' + key + '/tasks/week?userId=' + profile.id)
+    updateSecteurTasksWeekNav();
+    api('GET', '/api/activities/' + activityId + '/goals/categories/' + key + '/tasks/week?userId=' + profile.id + '&weekOffset=' + weekOffset)
       .then(function (data) {
-        if (secteurTasksModalActivityId !== activityId || secteurTasksModalKey !== key) return; // réponse en vol
-        renderSecteurTasksModal(data.days || []);
+        // Réponse en vol : le secteur affiché OU la semaine demandée ont pu
+        // changer entre-temps (clic rapide sur les flèches).
+        if (secteurTasksModalActivityId !== activityId || secteurTasksModalKey !== key || secteurTasksWeekOffset !== weekOffset) return;
+        renderSecteurTasksModal(data.days || [], data.weeklyObjective || '');
       })
       .catch(function (err) { $('secteurTasksMsg').textContent = err.message; });
   }
 
-  function renderSecteurTasksModal(days) {
+  function renderSecteurTasksModal(days, weeklyObjective) {
+    // Étiquette de la semaine affichée (JJ/MM au JJ/MM) — sans elle, les
+    // flèches de navigation n'ont aucun repère visuel de la semaine montrée.
+    if (days.length) {
+      var wkStart = new Date(days[0].date + 'T00:00:00Z');
+      var wkEnd = new Date(days[days.length - 1].date + 'T00:00:00Z');
+      var fmt = { day: '2-digit', month: '2-digit' };
+      $('secteurTasksWeekLabel').textContent = wkStart.toLocaleDateString(dateLocale(), fmt) + ' – ' + wkEnd.toLocaleDateString(dateLocale(), fmt);
+    }
+
+    // 22 septembre 2026, demande d'Emilien : « ajouter en haut de la liste
+    // des tâches, les objectifs hebdomadaires pour chaque semaine ».
+    var objectiveEl = $('secteurTasksObjective');
+    objectiveEl.textContent = weeklyObjective ? (t('Objectif de la semaine') + ' : ' + weeklyObjective) : '';
+    objectiveEl.classList.toggle('hidden', !weeklyObjective);
+    // 22 septembre 2026, demande d'Emilien : même nuance que l'entête
+    // (secteurTasksModalColor, calculée une fois dans openSecteurTasksModal).
+    objectiveEl.style.background = secteurTasksModalColor || '';
+    objectiveEl.style.borderColor = secteurTasksModalColor || '';
+    objectiveEl.style.color = secteurTasksModalColor ? readableTextOn(secteurTasksModalColor) : '';
+
     var wrap = $('secteurTasksDays');
     wrap.innerHTML = '';
-    var daySelect = $('secteurTasksAddDay');
-    daySelect.innerHTML = '';
 
     days.forEach(function (day) {
-      var opt = document.createElement('option');
-      opt.value = day.date;
-      opt.textContent = day.weekday;
-      daySelect.appendChild(opt);
-
       var block = document.createElement('div');
       block.className = 'secteurTasksDay';
 
@@ -2191,24 +2334,20 @@
 
   $('secteurTasksClose').addEventListener('click', closeSecteurTasksModal);
 
-  $('secteurTasksAddBtn').addEventListener('click', function () {
-    var label = $('secteurTasksAddInput').value.trim();
-    if (!label) return;
-    var activityId = secteurTasksModalActivityId;
-    var key = secteurTasksModalKey;
-    if (!activityId || !key) return;
-    $('secteurTasksAddBtn').disabled = true;
-    api('POST', '/api/activities/' + activityId + '/goals/categories/' + key + '/tasks', {
-      label: label,
-      dueDate: $('secteurTasksAddDay').value || null,
-    })
-      .then(function () {
-        $('secteurTasksAddInput').value = '';
-        loadSecteurTasksModal();
-        activityGoalsCategoriesRefresh(activityId);
-      })
-      .catch(function (err) { $('secteurTasksMsg').textContent = err.message; })
-      .finally(function () { $('secteurTasksAddBtn').disabled = false; });
+  // 22 septembre 2026, demande d'Emilien : « ajouter une flèche pour faire
+  // défiler les semaines [...] uniquement futur » — remplace l'ancien bloc
+  // d'ajout de tâche (« je souhaite supprimer la possibilité d'ajouter une
+  // nouvelle tâche »), retiré ci-dessus de renderSecteurTasksModal et de
+  // #secteurTasksScroll (index.html).
+  $('secteurTasksPrevWeek').addEventListener('click', function () {
+    if (secteurTasksWeekOffset <= 0) return;
+    secteurTasksWeekOffset -= 1;
+    loadSecteurTasksModal();
+  });
+
+  $('secteurTasksNextWeek').addEventListener('click', function () {
+    secteurTasksWeekOffset += 1;
+    loadSecteurTasksModal();
   });
 
   // buildHistoryCard(entry, onDeleted) a été retirée le 4 septembre 2026 en
@@ -2738,21 +2877,20 @@
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', t('Répartition du temps par activité'));
 
-    // Centre du donut — créé AVANT les tranches (21 septembre 2026, voir
-    // `ids.tapReveal` plus bas) : une tranche appuyée y affiche son propre nom
-    // + temps à la place du total, le temps de la pression ; les écouteurs
-    // posés sur chaque tranche doivent donc pouvoir s'y référer par fermeture.
+    // Centre du donut — total par défaut, ou `ids.centerOverride` ({ value,
+    // label }, 22 septembre 2026 — voir `ids.onGroupTap` plus bas) affiché à
+    // la place quand un pôle est sélectionné en Répartition par catégorie.
     var centerVal = document.createElement('span');
     centerVal.className = 'pieCenterValue';
-    centerVal.textContent = formatHM(totalSeconds);
     var centerLabel = document.createElement('span');
     centerLabel.className = 'pieCenterLabel';
-    centerLabel.textContent = 'total';
-    var restoreCenterTotal = function () {
+    if (ids && ids.centerOverride) {
+      centerVal.textContent = ids.centerOverride.value;
+      centerLabel.textContent = ids.centerOverride.label || '';
+    } else {
       centerVal.textContent = formatHM(totalSeconds);
       centerLabel.textContent = 'total';
-      centerLabel.classList.remove('pieCenterLabel--tapped');
-    };
+    }
 
     var angle = -Math.PI / 2; // départ à midi, sens horaire
     activities.forEach(function (a) {
@@ -2776,30 +2914,18 @@
         path.setAttribute('class', 'pieSlice pieSlice-tappable');
         path.addEventListener('click', function () { ids.onActivityTap(a); });
       }
-      // `ids.tapReveal` (21 septembre 2026, Statistiques — Répartition par
-      // catégorie, demande d'Emilien) : une pression sur une tranche affiche
-      // SON temps au centre du donut, à la place du total, tant que le doigt
-      // (ou le bouton de la souris) reste dessus — relâcher restaure le
-      // total. Sert à révéler le temps d'un SECTEUR sans jamais l'ajouter à
-      // la légende, qui reste au niveau pôle (voir groupCategoryPartsByPole) :
-      // « le temps passé par secteur n'est pas marqué en bas [...] mais il
-      // s'affiche lorsque j'appuie sur la section avec mon doigt. » Écouteurs
-      // `pointer*` (et non `click`) pour un affichage qui suit la pression
-      // elle-même plutôt qu'un état à bascule ; jamais combiné avec
-      // `onActivityTap` par aucun appelant actuel, les deux pourraient
-      // cohabiter sans conflit si besoin un jour (un seul `click`, des
-      // `pointer*` distincts).
-      if (ids && ids.tapReveal) {
+      // `ids.onGroupTap` (22 septembre 2026, Statistiques — Répartition par
+      // catégorie, demande d'Emilien — remplace le `tapReveal` du 21
+      // septembre) : cliquer une tranche sélectionne son GROUPE (son pôle —
+      // `a.groupKey`, posé par groupCategoryPartsByPole sur chaque part).
+      // La sélection est à bascule (même groupe recliqué → désélection) et
+      // c'est l'appelant (renderGroupedCategoryPie) qui redessine ensuite le
+      // centre et la légende en fonction — cette fonction ne fait que
+      // relayer le clic, elle ne connaît rien du regroupement. Jamais combiné
+      // avec `onActivityTap` par aucun appelant actuel.
+      if (ids && ids.onGroupTap) {
         path.classList.add('pieSlice-tappable');
-        var reveal = function () {
-          centerVal.textContent = formatHM(a.seconds);
-          centerLabel.textContent = a.name;
-          centerLabel.classList.add('pieCenterLabel--tapped');
-        };
-        path.addEventListener('pointerdown', reveal);
-        path.addEventListener('pointerup', restoreCenterTotal);
-        path.addEventListener('pointercancel', restoreCenterTotal);
-        path.addEventListener('pointerleave', restoreCenterTotal);
+        path.addEventListener('click', function () { ids.onGroupTap(a.groupKey); });
       }
       svg.appendChild(path);
       angle += sweep;
@@ -2845,6 +2971,18 @@
         row.setAttribute('role', 'button');
         row.setAttribute('tabindex', '0');
         row.addEventListener('click', function () { ids.onActivityTap(a); });
+      }
+      // `ids.onGroupTap` : une ligne de légende EN AFFICHAGE PAR DÉFAUT (un
+      // pôle, `a.groupKey` posé par groupCategoryPartsByPole) est cliquable
+      // au même titre que sa tranche — cible plus facile à viser au doigt.
+      // Une ligne de la légende par SECTEUR (après sélection d'un pôle) n'a
+      // pas de `groupKey` : il n'y a rien de plus fin à sélectionner, elle
+      // reste inerte.
+      if (ids && ids.onGroupTap && a.groupKey != null) {
+        row.classList.add('pieLegendRow-tappable');
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+        row.addEventListener('click', function () { ids.onGroupTap(a.groupKey); });
       }
       legend.appendChild(row);
     });
@@ -3139,6 +3277,10 @@
   // l'historique et ne suit pas les flèches ‹ › de la Feuille de temps.
   var csChartGranularity = 'day'; // 'day' | 'week' | 'month'
   var csLastData = null;         // dernière réponse, pour resynchroniser sans refetch
+  // Pôle sélectionné dans la Répartition par catégorie de CETTE fenêtre (22
+  // septembre 2026) — voir renderGroupedCategoryPie. `{ key: null }` : aucune
+  // sélection, affichage par défaut.
+  var csDrilldownSelection = { key: null };
   // Fenêtre de jours réellement affichée par la grille du volet Statistiques.
   var lastStatsGridRange = null;
   // ----- Filtre d'ouverture (4 septembre 2026, demande d'Emilien : « je
@@ -3453,8 +3595,14 @@
     var groups = {};
     colored.forEach(function (c) {
       var groupKey = c.parentKey || c.category || 'none';
+      // 22 septembre 2026 (sélection d'un pôle, voir renderGroupedCategoryPie
+      // plus bas) : posé directement sur la part/tranche, pour que renderPie
+      // puisse relayer le clic d'une tranche sans rien connaître du
+      // regroupement lui-même.
+      c.groupKey = groupKey;
       if (!groups[groupKey]) {
         groups[groupKey] = {
+          groupKey: groupKey,
           // Une part de secteur peut arriver avant celle de son pôle (l'ordre
           // d'entrée suit le tri par temps décroissant du serveur, pas la
           // hiérarchie) — le nom du pôle depuis `parentName` sert de premier
@@ -3492,13 +3640,83 @@
     var legend = order.map(function (key) {
       var g = groups[key];
       return {
+        groupKey: g.groupKey,
         name: g.name,
         color: g.color,
         seconds: g.seconds,
         percent: totalSeconds > 0 ? Math.round((g.seconds / totalSeconds) * 100) : 0,
+        // Exposé pour la sélection d'un pôle (22 septembre 2026) : ses
+        // propres parts (son temps direct éventuel + chacun de ses secteurs),
+        // pour construire le détail par secteur sans recalculer quoi que ce
+        // soit — toujours la même source que les tranches et la ligne
+        // ci-dessus, jamais un second calcul qui pourrait diverger.
+        parts: g.parts,
       };
     });
     return { slices: slices, legend: legend };
+  }
+
+  // Sélection d'un pôle en Répartition par catégorie (22 septembre 2026,
+  // demande d'Emilien, remplace le `tapReveal` du 21 septembre) : « lorsque
+  // je clique sur un pôle [...] au milieu, il ne s'affiche uniquement le
+  // temps du pôle sans le nom. Et en bas, au lieu d'avoir toutes les heures
+  // par pôle, il ne s'affiche que les heures par secteur du pôle
+  // sélectionné. » Un second clic sur le même pôle (sa tranche — la légende
+  // par secteur, elle, n'est plus cliquable, voir renderPie) désélectionne
+  // et revient à l'affichage par défaut.
+  //
+  // `selection` est un petit objet `{ key }` mutable, propre à CHAQUE écran
+  // (une instance pour la fenêtre flottante, une pour la page d'activité
+  // solo — voir csDrilldownSelection/soloDrilldownSelection plus bas) : les
+  // deux écrans partagent cette fonction mais jamais leur état de sélection.
+  //
+  // ⚠️ Le camembert lui-même (les tranches) NE CHANGE PAS avec la sélection —
+  // seuls le centre et la légende du bas sont concernés, Emilien ne demande
+  // rien de plus.
+  function renderGroupedCategoryPie(pieIds, colored, totalSeconds, selection) {
+    var grouped = groupCategoryPartsByPole(colored, totalSeconds);
+    var selected = null;
+    if (selection.key != null) {
+      selected = grouped.legend.filter(function (g) { return g.groupKey === selection.key; })[0] || null;
+      // La clé sélectionnée peut ne plus exister (nouvelle période, nouvelle
+      // activité, pôle retiré entre-temps) : on oublie silencieusement plutôt
+      // que d'afficher une sélection fantôme.
+      if (!selected) selection.key = null;
+    }
+
+    var legendItems = grouped.legend;
+    var centerOverride = null;
+    if (selected) {
+      // Détail par SECTEUR du pôle sélectionné : sa propre liste `parts`
+      // (temps direct du pôle éventuel + chacun de ses secteurs), jamais
+      // recalculée depuis autre chose que ce que le camembert affiche déjà.
+      // Le temps direct du pôle (non rattaché à un secteur précis) garde une
+      // ligne à part — masquer ce temps ferait que les lignes affichées ne
+      // totaliseraient plus le temps du pôle montré au centre.
+      legendItems = selected.parts.map(function (p) {
+        return {
+          name: p.parentKey ? p.ownName : t('Sans secteur'),
+          color: p.color,
+          seconds: p.seconds,
+          percent: selected.seconds > 0 ? Math.round((p.seconds / selected.seconds) * 100) : 0,
+        };
+      }).sort(function (a, b) { return b.seconds - a.seconds; });
+      // « uniquement le temps du pôle sans le nom » : la valeur seule, le
+      // libellé du centre (normalement « total ») est vidé plutôt que
+      // remplacé par le nom du pôle.
+      centerOverride = { value: formatHM(selected.seconds), label: '' };
+    }
+
+    renderPie(grouped.slices, totalSeconds, {
+      wrap: pieIds.wrap,
+      emptyHint: pieIds.emptyHint,
+      legend: legendItems,
+      centerOverride: centerOverride,
+      onGroupTap: function (groupKey) {
+        selection.key = selection.key === groupKey ? null : groupKey;
+        renderGroupedCategoryPie(pieIds, colored, totalSeconds, selection);
+      },
+    });
   }
 
   function renderCategoryPie(breakdown, label, data) {
@@ -3526,24 +3744,18 @@
       };
     });
     var totalSeconds = breakdown ? breakdown.totalSeconds : 0;
-    var grouped = groupCategoryPartsByPole(colored, totalSeconds);
-
+    // Nouvelle donnée (nouvelle période, bascule « Aujourd'hui », nouvelle
+    // activité) : on repart toujours de l'affichage par défaut plutôt que de
+    // garder une sélection qui pourrait ne plus avoir de sens.
+    csDrilldownSelection.key = null;
     // Le camembert est dessiné par renderPie, la fonction de la Répartition,
-    // appelée telle quelle : mêmes proportions, même trou central. Sa légende
-    // (4 septembre 2026, Emilien : « je souhaite que la légende ne soit
-    // affichée qu'une seule fois ») vient désormais de `grouped.legend`
-    // (regroupée par pôle), les tranches de `grouped.slices` (une par pôle OU
-    // secteur, réordonnées pour rester contiguës par pôle).
-    // Sans `onActivityTap` : on est déjà au niveau le plus fin. `tapReveal`
-    // (21 septembre 2026) : une pression sur une tranche affiche son temps au
-    // centre du donut — seul moyen de voir le temps d'un secteur précis,
-    // puisque la légende ci-dessus reste groupée par pôle.
-    renderPie(grouped.slices, totalSeconds, {
-      wrap: 'categoryStatsPie',
-      emptyHint: 'categoryStatsPieEmptyHint',
-      legend: grouped.legend,
-      tapReveal: true,
-    });
+    // appelée telle quelle : mêmes proportions, même trou central. Centre et
+    // légende du bas sont gérés par renderGroupedCategoryPie ci-dessus — voir
+    // son commentaire (sélection d'un pôle, 22 septembre 2026).
+    renderGroupedCategoryPie(
+      { wrap: 'categoryStatsPie', emptyHint: 'categoryStatsPieEmptyHint' },
+      colored, totalSeconds, csDrilldownSelection
+    );
   }
 
   // ----- Bouton « Aujourd'hui » : désynchronise la répartition -----
@@ -3623,6 +3835,10 @@
   // c'est le cas normal : masquer cette part donnerait un camembert dont les
   // tranches ne font pas le total affiché juste au-dessus.
   var currentSoloStatsPeriod = 'week';
+  // Pôle sélectionné dans la Répartition par catégorie de CETTE section (22
+  // septembre 2026) — propre à la page d'activité solo, jamais partagée avec
+  // csDrilldownSelection (fenêtre flottante) — voir renderGroupedCategoryPie.
+  var soloDrilldownSelection = { key: null };
 
   // 17 septembre 2026 : l'ancienne affordance (« la section n'existe qu'à
   // partir du premier sous-projet ») n'a plus de sens — une catégorie existe
@@ -3683,16 +3899,15 @@
         color: subProjectShade(data.baseColor, p.shadeIndex, data.shadeCount),
       };
     });
-    var grouped = groupCategoryPartsByPole(colored, data.totalSeconds);
-    // renderPie pose sa propre légende dans son wrap : aucune seconde liste
-    // n'est dessinée ici, sans quoi les mêmes lignes s'afficheraient deux fois.
-    // `tapReveal` : voir renderCategoryPie — même mécanisme de révélation du
-    // temps d'un secteur par pression, ici pour la page d'activité solo.
-    renderPie(grouped.slices, data.totalSeconds, {
-      wrap: 'soloStatsPie', emptyHint: 'soloStatsPieEmptyHint',
-      legend: grouped.legend,
-      tapReveal: true,
-    });
+    // Nouvelle donnée (nouvelle période, nouvelle activité) : on repart de
+    // l'affichage par défaut — voir renderCategoryPie.
+    soloDrilldownSelection.key = null;
+    // Centre et légende du bas gérés par renderGroupedCategoryPie (sélection
+    // d'un pôle, 22 septembre 2026) — voir son commentaire.
+    renderGroupedCategoryPie(
+      { wrap: 'soloStatsPie', emptyHint: 'soloStatsPieEmptyHint' },
+      colored, data.totalSeconds, soloDrilldownSelection
+    );
   }
 
   // ⚠️ Pourquoi `period` et non `from`/`to` : la fenêtre flottante s'ouvre
@@ -5210,8 +5425,50 @@
     var wrap = document.createElement('div');
     wrap.className = 'activityGoalsCategoryAutoTaskBubble';
 
+    // 22 septembre 2026 (Emilien, demande directe : « un point lumineux qui
+    // ne se décroche pas du périmètre »). Après deux techniques CSS ratées
+    // (mask-composite: exclude, puis isolation+z-index:-1 — voir le
+    // commentaire au-dessus de .activityGoalsCategoryAutoTaskBubble dans
+    // styles.css), le contour est tracé en SVG : le <rect> est dimensionné
+    // ici sur la VRAIE taille de la bulle (layoutGlow, ré-appelé à chaque
+    // redimensionnement via ResizeObserver), et le trait animé
+    // (stroke-dasharray/-dashoffset, longueur exacte via getTotalLength())
+    // épouse donc littéralement le contour — il ne peut pas s'en détacher
+    // ni couper un virage, quelle que soit la longueur de la traînée.
+    var glowSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    glowSvg.setAttribute('class', 'activityGoalsCategoryAutoTaskGlow');
+    glowSvg.setAttribute('aria-hidden', 'true');
+    var glowRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    glowSvg.appendChild(glowRect);
+    wrap.appendChild(glowSvg);
+    function layoutGlow() {
+      var w = wrap.offsetWidth, h = wrap.offsetHeight;
+      if (!w || !h) return;
+      glowSvg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+      var rx = 13;
+      glowRect.setAttribute('x', 1);
+      glowRect.setAttribute('y', 1);
+      glowRect.setAttribute('width', Math.max(0, w - 2));
+      glowRect.setAttribute('height', Math.max(0, h - 2));
+      glowRect.setAttribute('rx', rx);
+      glowRect.setAttribute('ry', rx);
+      var perim = glowRect.getTotalLength ? glowRect.getTotalLength() : 2 * (w + h);
+      var dash = perim * 0.3;
+      glowRect.style.strokeDasharray = dash + ' ' + Math.max(0, perim - dash);
+      glowSvg.style.setProperty('--glowPerimeter', (-perim) + 'px');
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(layoutGlow).observe(wrap);
+    } else {
+      setTimeout(layoutGlow, 0);
+    }
+
     var textarea = document.createElement('textarea');
-    textarea.rows = 2;
+    // 22 septembre 2026, demande directe d'Emilien : « agrandir la zone
+    // d'écriture ». 2 → 4 lignes visibles (min-height assorti dans
+    // styles.css) — même bulle, plus de place pour écrire une tâche avant
+    // de faire défiler.
+    textarea.rows = 4;
     textarea.maxLength = 300;
     textarea.placeholder = t('Nouvelle tâche… une IA choisit son pôle');
 
@@ -5552,32 +5809,25 @@
       // sous-projet séparé.
       if (isOpen) list.appendChild(buildCategoryTasksBlock(activityIdForTasks, c.key, tasksForCat));
 
-      // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
-      // d'Emilien : « [l'objectif] se répertorie [...] sous l'objectif dans
-      // la fenêtre des activités section tâches » — sous CHAQUE catégorie
-      // (pas dans une liste à part), les objectifs hebdomadaires déjà saisis
-      // (period.weeklies[].text) de la période EN COURS de cette catégorie.
-      // Lecture seule ici : la saisie/modification reste dans le volet
-      // Objectifs de la barre du bas (openGoalsWeekEditor()), jamais dupliquée.
-      var planning = byCategoryPlanning[c.key];
-      var currentPeriod = null;
-      if (planning) {
-        for (var pi = 0; pi < (planning.periods || []).length; pi++) {
-          if (planning.periods[pi].periodNumber === planning.currentPeriodNumber) { currentPeriod = planning.periods[pi]; break; }
-        }
-      }
-      var weeklyTexts = currentPeriod ? (currentPeriod.weeklies || []).filter(function (w) { return w.text; }) : [];
-      if (weeklyTexts.length) {
-        var weeklyWrap = document.createElement('div');
-        weeklyWrap.className = 'activityGoalsCategoryWeeklySummary';
-        weeklyTexts.forEach(function (w) {
-          var line = document.createElement('p');
-          line.className = 'activityGoalsCategoryWeeklySummaryLine';
-          line.textContent = t('Semaine') + ' ' + w.weekIndex + ' — ' + w.text;
-          weeklyWrap.appendChild(line);
-        });
-        list.appendChild(weeklyWrap);
-      }
+      // ⚠️ 22 septembre 2026, demande directe d'Emilien : « supprimer les
+      // objectifs hebdomadaires sous les pôles. » — le résumé lecture-seule
+      // des objectifs hebdomadaires de la période en cours (posé le
+      // 16 septembre 2026, voir l'historique ci-dessous) est RETIRÉ de cette
+      // section. La saisie/modification elle-même reste inchangée, dans le
+      // volet Objectifs de la barre du bas (openGoalsWeekEditor()) — rien de
+      // supprimé côté données ni côté ce volet-là, seulement cet affichage
+      // dupliqué ici. `byCategoryPlanning`/`planningData` (chargés par
+      // loadActivityGoalsCategories() plus haut) n'ont plus de lecteur dans
+      // cette fonction mais sont volontairement laissés en place (repli
+      // possible pour le futur système pôles/secteurs/objectifs/IA en
+      // discussion avec Emilien) plutôt que de toucher au chargement des
+      // données pour un simple retrait d'affichage.
+      //
+      // Historique (retiré) : 16 septembre 2026 (discussion "Objectifs — D",
+      // 5e passage), demande d'Emilien : « [l'objectif] se répertorie [...]
+      // sous l'objectif dans la fenêtre des activités section tâches » —
+      // affichait sous CHAQUE catégorie les objectifs hebdomadaires déjà
+      // saisis (period.weeklies[].text) de la période en cours.
     });
 
     // Bulle spéciale d'ajout de tâche par IA — maquette approuvée : AU-DESSUS
@@ -5586,11 +5836,40 @@
     // mode édition (même règle que les tâches/résumé hebdo, masqués eux
     // aussi pendant l'édition) et si l'activité n'a encore aucune catégorie
     // (rien à classer).
+    // 22 septembre 2026, demande directe d'Emilien : « lorsque je clique sur
+    // un pôle, le point [lumineux] autour de la [...] zone d'écriture pour
+    // l'IA ne soit pas affecté et ne recharge pas [...] qu'il continue son
+    // cours comme si rien n'était [...] pas affecté par les chargements des
+    // pôles et des secteurs. » — cette fonction est appelée pour toutes
+    // sortes de raisons qui n'ont RIEN à voir avec la bulle IA elle-même
+    // (déplier/replier un pôle via bindCategoryOpenToggle, créer/renommer/
+    // retirer/réordonner un secteur via buildPoleSecteursBlock, etc.) :
+    // avant ce correctif, `autoTaskWrap.innerHTML = ''` la détruisait et la
+    // reconstruisait à CHAQUE appel, quelle qu'en soit la cause — ce qui
+    // repartait de zéro l'animation CSS du point lumineux (::before,
+    // styles.css, offset-path) et effaçait au passage tout brouillon en
+    // cours de saisie dans le <textarea>. Reconstruite désormais seulement
+    // quand une des deux choses qu'elle doit refléter a réellement changé :
+    // sa visibilité (mode édition, ou plus aucun pôle) et la liste des
+    // tâches en attente de re-catégorisation (categoryAutoTaskPending,
+    // affichée DANS la bulle) — comparées via deux attributs `data-*` posés
+    // sur la bulle à sa construction. Dans tous les autres cas (dont le clic
+    // sur un pôle), la bulle existante n'est ni touchée ni reconstruite.
     var autoTaskWrap = $('activityGoalsCategoryAutoTaskWrap');
     if (autoTaskWrap) {
-      autoTaskWrap.innerHTML = '';
-      if (!activityGoalsCategoriesEditMode && currentActivityGoalsCategories.length) {
-        autoTaskWrap.appendChild(buildCategoryAutoTaskBubble(activityIdForTasks));
+      var shouldShowAutoTaskBubble = !activityGoalsCategoriesEditMode && currentActivityGoalsCategories.length > 0;
+      var existingAutoTaskBubble = autoTaskWrap.firstElementChild;
+      var autoTaskBubbleUpToDate = existingAutoTaskBubble &&
+        existingAutoTaskBubble.dataset.activityId === String(activityIdForTasks) &&
+        existingAutoTaskBubble.dataset.pendingCount === String(categoryAutoTaskPending.length);
+      if (!shouldShowAutoTaskBubble) {
+        if (existingAutoTaskBubble) autoTaskWrap.innerHTML = '';
+      } else if (!autoTaskBubbleUpToDate) {
+        autoTaskWrap.innerHTML = '';
+        var autoTaskBubble = buildCategoryAutoTaskBubble(activityIdForTasks);
+        autoTaskBubble.dataset.activityId = String(activityIdForTasks);
+        autoTaskBubble.dataset.pendingCount = String(categoryAutoTaskPending.length);
+        autoTaskWrap.appendChild(autoTaskBubble);
       }
     }
   }

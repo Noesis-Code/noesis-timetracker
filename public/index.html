@@ -2767,16 +2767,20 @@
           <button type="button" class="menuBtn" id="secteurTasksClose" aria-label="Fermer">✕</button>
         </div>
         <div id="secteurTasksScroll" class="viewProfileScroll">
-          <div id="secteurTasksDays"></div>
-          <!-- Ajout rapide d'une tâche déjà datée dans cette semaine, sans
-               quitter la fenêtre — seul point d'entrée pour créer une tâche
-               rattachée directement à un secteur (voir POST
-               .../categories/:key/tasks, dueDate désormais accepté). -->
-          <div class="secteurTasksAddRow">
-            <input type="text" id="secteurTasksAddInput" placeholder="Nouvelle tâche…" maxlength="300">
-            <select id="secteurTasksAddDay" class="subProjectSelect"></select>
-            <button type="button" id="secteurTasksAddBtn" class="iconBtn">Ajouter</button>
+          <!-- 22 septembre 2026, demande d'Emilien : « ajouter une flèche
+               pour faire défiler les semaines [...] voir les tâches des
+               semaines futures. Pas passées [...] uniquement futur. » —
+               remplace l'ancien bloc d'ajout de tâche (retiré à la même
+               date : « je souhaite supprimer la possibilité d'ajouter une
+               nouvelle tâche »). -->
+          <div class="secteurTasksWeekNav">
+            <button type="button" class="iconBtn" id="secteurTasksPrevWeek" aria-label="Semaine précédente">←</button>
+            <span id="secteurTasksWeekLabel" class="secteurTasksWeekLabel"></span>
+            <button type="button" class="iconBtn" id="secteurTasksNextWeek" aria-label="Semaine suivante">→</button>
           </div>
+          <!-- Objectif hebdomadaire (goal_weekly) de la semaine affichée. -->
+          <p id="secteurTasksObjective" class="secteurTasksObjective hidden"></p>
+          <div id="secteurTasksDays"></div>
           <p id="secteurTasksMsg" class="msg"></p>
         </div>
       </div>

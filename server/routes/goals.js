@@ -556,8 +556,19 @@ router.post('/activities/:id/goals/categories/:key/tasks', (req, res) => {
 // 21 septembre 2026 (Chrono — fenêtre « visualiser » d'un secteur) : tâches
 // déjà datées (dueDate) cette semaine pour ce pôle OU ce secteur, groupées par
 // jour — voir server/lib/goalstasks.js#tasksForCategoryThisWeek. Lecture
-// seule, jamais de création ici (la fenêtre crée via la route POST
-// ci-dessus, avec dueDate).
+// seule (la route POST d'ajout ci-dessus reste en place, mais n'est plus
+// appelée depuis cette fenêtre — voir public/app.js#openSecteurTasksModal,
+// 22 septembre 2026 : « je souhaite supprimer la possibilité d'ajouter une
+// nouvelle tâche »).
+//
+// 22 septembre 2026, demande d'Emilien : « ajouter une flèche pour faire
+// défiler les semaines [...] voir les tâches des semaines futures. Pas
+// passées [...] uniquement futur. » — weekOffset (0 = semaine courante)
+// accepté en query, jamais négatif : une valeur invalide ou négative retombe
+// silencieusement sur 0 plutôt que de renvoyer une erreur, pour qu'un lien
+// mal formé affiche simplement la semaine courante. La réponse porte aussi
+// l'objectif hebdomadaire de cette même semaine (« ajouter en haut de la
+// liste des tâches, les objectifs hebdomadaires »).
 router.get('/activities/:id/goals/categories/:key/tasks/week', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
@@ -570,9 +581,13 @@ router.get('/activities/:id/goals/categories/:key/tasks/week', (req, res) => {
     return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
   }
 
+  const rawOffset = Number(req.query.weekOffset);
+  const weekOffset = Number.isFinite(rawOffset) && rawOffset > 0 ? Math.floor(rawOffset) : 0;
+
   try {
-    const days = goalstasks.tasksForCategoryThisWeek(activityId, req.params.key);
-    res.json({ days });
+    const days = goalstasks.tasksForCategoryThisWeek(activityId, req.params.key, weekOffset);
+    const weeklyObjective = goalstasks.weeklyObjectiveForWeek(activityId, req.params.key, weekOffset);
+    res.json({ days, weeklyObjective, weekOffset });
   } catch (err) {
     handleGoalsError(res, err);
   }
