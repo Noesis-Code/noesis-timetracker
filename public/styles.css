@@ -5648,28 +5648,56 @@ button { -webkit-user-select: none; user-select: none; }
    une amorce claire (`#f3ecff`) à la toute pointe pour un point plus
    éclatant ; `box-shadow` ajoutée pour un halo diffus (luminosité perçue,
    pas seulement la couleur du tracé) ; durée de l'animation 3.4s → 7s. */
+/* 22 septembre 2026, 3e correctif de ce même effet, retour direct
+   d'Emilien : « le point lumineux doit serpenter. Doit suivre le périmètre
+   comme un serpent. Jamais il ne doit décoller du périmètre [...] je ne
+   souhaite pas qu'il y ait de zone noire derrière. Simplement le fuseau
+   lumineux. Il reste uniquement sur la couleur violette, pas de blanc. »
+   Le correctif précédent (`offset-path: border-box` + élément rigide de
+   34% de large) plaçait bien son ANCRAGE exactement sur le contour, mais
+   l'élément lui-même restait un rectangle RIGIDE : `offset-rotate`
+   l'oriente tout entier selon la tangente au point d'ancrage, il ne se
+   COURBE pas le long de sa propre longueur — dans un angle arrondi (rayon
+   bien plus petit que 34% de la largeur de la bulle), un fuseau aussi long
+   coupe donc l'angle au lieu de le suivre : il « décolle » visiblement du
+   contour, exactement le défaut signalé. Un dégradé blanc→violet ajouté au
+   passage précédent pour la luminosité créait aussi, par contraste sur le
+   thème sombre, l'impression d'une zone plus terne juste derrière le point
+   (la « zone noire »).
+   Retour à la technique en ANNEAU du tout premier correctif (mais avec son
+   masquage robuste, PAS le double masque `mask-composite: exclude` qui
+   fuyait) : le ::before est plus grand que la bulle et caché derrière son
+   fond opaque (`z-index: -1` + `isolation: isolate`) — seule la portion qui
+   dépasse peut être visible, elle épouse donc MÉCANIQUEMENT le contour réel
+   de la bulle, angles arrondis compris, à N'IMPORTE quelle longueur : c'est
+   littéralement une portion de l'anneau du contour, elle ne peut pas s'en
+   détacher. Arc élargi à environ un tiers du tour (130° sur 360°, contre un
+   arc étroit au tout premier essai), dégradé UNIQUEMENT dans les teintes de
+   `--purple` (aucun arrêt blanc), sans `box-shadow` (source probable de la
+   « zone noire » : sa forme suit tout le rectangle de l'ancien élément,
+   pas le dégradé réellement visible à l'intérieur). */
 .activityGoalsCategoryAutoTaskBubble {
   position: relative;
+  isolation: isolate;
   border-radius: var(--radius-lg, var(--radius-md));
   background: var(--card);
 }
 .activityGoalsCategoryAutoTaskBubble::before {
   content: '';
   position: absolute;
-  z-index: 2;
-  width: 34%;
-  height: 14px;
-  border-radius: 999px;
-  background: radial-gradient(100% 100% at right,
-    #f3ecff 0%, var(--purple) 30%, var(--purple) 55%, transparent 96%);
-  box-shadow: 0 0 12px 3px var(--purple);
-  offset-path: border-box;
-  offset-anchor: 100% 50%;
+  inset: -2px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg,
+    transparent 0deg, transparent 225deg,
+    var(--purple) 255deg,
+    var(--purple) 350deg,
+    transparent 356deg, transparent 360deg);
   animation: activityGoalsAutoTaskGlow 7s linear infinite;
   pointer-events: none;
 }
 @keyframes activityGoalsAutoTaskGlow {
-  to { offset-distance: 100%; }
+  to { transform: rotate(360deg); }
 }
 .activityGoalsCategoryAutoTaskBubble textarea,
 .activityGoalsCategoryAutoTaskBubble .iconBtn,
