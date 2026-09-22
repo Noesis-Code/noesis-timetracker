@@ -1786,7 +1786,19 @@
         visBtn.textContent = t('Visualiser');
         visBtn.addEventListener('click', function (ev) {
           ev.stopPropagation();
-          onVisualiser(secteur.key, secteur.label, state.drill.label, state.list.indexOf(state.drill));
+          // 22 septembre 2026, demande d'Emilien : « lorsque l'utilisateur
+          // n'a créé que des pôles [...] et n'a pas créé de secteur [...]
+          // alors automatiquement le bouton visualiser [...] s'applique à
+          // l'identique pour les pôles que pour les secteurs » — deux
+          // contextes possibles ici : drillé sur les secteurs d'un pôle
+          // (state.drill posé, comportement du 21 septembre, inchangé), ou
+          // pôle SANS secteur affiché directement au niveau racine (voir
+          // l'appel buildRow(..., c, c) plus bas) — `pole` porte alors ce
+          // même pôle et sert de repli.
+          var owningPole = state.drill || pole;
+          var poleIndex = state.list.indexOf(owningPole);
+          var poleLabel = owningPole ? owningPole.label : secteur.label;
+          onVisualiser(secteur.key, secteur.label, poleLabel, poleIndex);
         });
         row.appendChild(visBtn);
       }
@@ -1797,30 +1809,40 @@
     function render() {
       container.innerHTML = '';
 
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'categoryPickerBtn';
-      btn.setAttribute('aria-expanded', state.open ? 'true' : 'false');
-      var labelSpan = document.createElement('span');
-      labelSpan.textContent = labelFor(state.current) || t('Aucun pôle sélectionné...');
-      var chevron = document.createElement('span');
-      chevron.className = 'categoryPickerChevron';
-      chevron.setAttribute('aria-hidden', 'true');
-      chevron.textContent = '▾';
-      btn.appendChild(labelSpan);
-      btn.appendChild(chevron);
-      btn.addEventListener('click', function () {
-        if (state.open) { close(); return; }
-        // Ouverture : si la sélection en cours est un secteur, entrer
-        // directement dans la liste de ses secteurs (évite un clic
-        // supplémentaire pour revoir sa propre sélection en surbrillance).
-        state.drill = state.current ? poleOf(state.current) : null;
-        state.open = true;
-        render();
-      });
-      container.appendChild(btn);
-
-      if (!state.open) return;
+      // 22 septembre 2026, demande d'Emilien (capture d'écran à l'appui) :
+      // « supprimer la case supérieure avec l'inscription du pôle » — sur
+      // ses deux captures, le libellé du pôle apparaissait À LA FOIS dans ce
+      // bouton fermé ET en surbrillance dans la liste rouverte juste en
+      // dessous (violet plein, voir .categoryPickerRow--selected) : pure
+      // redondance. Ce bouton ne s'affiche donc plus qu'à l'état FERMÉ ; une
+      // fois le panneau ouvert, la liste elle-même (avec sa ligne en
+      // surbrillance et, si drillé, le bouton « ← Tous les pôles ») est le
+      // seul affichage — recliquer la ligne déjà sélectionnée referme
+      // (commit()/close()), exactement comme choisir une nouvelle valeur.
+      if (!state.open) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'categoryPickerBtn';
+        btn.setAttribute('aria-expanded', 'false');
+        var labelSpan = document.createElement('span');
+        labelSpan.textContent = labelFor(state.current) || t('Aucun pôle sélectionné...');
+        var chevron = document.createElement('span');
+        chevron.className = 'categoryPickerChevron';
+        chevron.setAttribute('aria-hidden', 'true');
+        chevron.textContent = '▾';
+        btn.appendChild(labelSpan);
+        btn.appendChild(chevron);
+        btn.addEventListener('click', function () {
+          // Ouverture : si la sélection en cours est un secteur, entrer
+          // directement dans la liste de ses secteurs (évite un clic
+          // supplémentaire pour revoir sa propre sélection en surbrillance).
+          state.drill = state.current ? poleOf(state.current) : null;
+          state.open = true;
+          render();
+        });
+        container.appendChild(btn);
+        return;
+      }
 
       var panel = document.createElement('div');
       panel.className = 'categoryPickerPanel';
@@ -1840,7 +1862,21 @@
       } else {
         panel.appendChild(buildRow(t('Aucun pôle sélectionné...'), null, null));
         state.list.forEach(function (c) {
-          panel.appendChild(buildRow(c.label, c.key, null, c));
+          // 22 septembre 2026, demande d'Emilien : « lorsque l'utilisateur
+          // n'a créé que des pôles [...] et n'a pas créé de secteur [...]
+          // alors automatiquement le bouton visualiser et tout le mécanisme
+          // [...] s'applique à l'identique pour les pôles que pour les
+          // secteurs. Si 1 pôle n'a pas de secteur mais que les autres en
+          // ont alors le bouton visualiser apparaît uniquement pour ce
+          // pôle. » — un pôle sans secteur ne drille jamais (ci-dessus,
+          // pole.secteurs vide), ses tâches sont donc directement les
+          // siennes : il reçoit le bouton Visualiser comme une ligne de
+          // secteur (buildRow(..., c, c) — `c` sert à la fois de "secteur"
+          // pour le bouton et de "pole" pour le clic). Un pôle QUI A des
+          // secteurs garde son comportement inchangé (pas de bouton ici, il
+          // drille — le bouton apparaît sur SES secteurs une fois drillé).
+          var hasSecteurs = c.secteurs && c.secteurs.length;
+          panel.appendChild(buildRow(c.label, c.key, hasSecteurs ? null : c, c));
         });
       }
 
@@ -2151,7 +2187,11 @@
     secteurTasksModalActivityId = chronoRunningActivityId;
     secteurTasksModalKey = secteurKey;
     secteurTasksWeekOffset = 0;
-    $('secteurTasksTitle').textContent = poleLabel + ' · ' + secteurLabel;
+    // 22 septembre 2026 : un pôle sans secteur se visualise désormais comme
+    // un secteur (voir buildRow/render ci-dessus, createCategoryPicker) —
+    // poleLabel et secteurLabel sont alors identiques ; éviter d'afficher
+    // deux fois le même nom.
+    $('secteurTasksTitle').textContent = (poleLabel === secteurLabel) ? secteurLabel : (poleLabel + ' · ' + secteurLabel);
     // Les secteurs partagent la nuance de leur PÔLE parent (jamais un index
     // propre) — même convention que partout ailleurs dans l'app (dots de
     // catégorie, badges du volet Objectifs) : poleIndex est le rang du pôle
