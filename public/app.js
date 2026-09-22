@@ -1784,7 +1784,14 @@
       });
       row.appendChild(main);
 
-      if (secteur) {
+      // 22 septembre 2026, demande d'Emilien : « on enlève l'option pour
+      // visualiser les tâches des pôles ou des secteurs » à l'étape Arrêt —
+      // `stopCategoryPicker` instancie désormais ce widget avec `onVisualiser`
+      // à `null` (voir plus bas) ; le bouton ne doit alors pas apparaître du
+      // tout dans ce contexte, tout en restant inchangé pour le sélecteur du
+      // Chrono en cours (`chronoCategoryPicker`, `onVisualiser` toujours
+      // `openSecteurTasksModal`).
+      if (secteur && onVisualiser) {
         var visBtn = document.createElement('button');
         visBtn.type = 'button';
         visBtn.className = 'categoryPickerVisualiserBtn';
@@ -2056,9 +2063,12 @@
   // suite, contrairement au sélecteur du chrono en cours qui appelle
   // /api/timer/category immédiatement.
   var stopCategoryPickerValue = null;
+  // 22 septembre 2026, demande d'Emilien : plus de bouton/mécanisme
+  // Visualiser à l'étape Arrêt — `onVisualiser` à `null` (voir la garde
+  // correspondante dans buildRow ci-dessus).
   var stopCategoryPicker = createCategoryPicker($('stopCategoryPicker'), function (value) {
     stopCategoryPickerValue = value;
-  }, openSecteurTasksModal);
+  }, null);
 
   function openStopConfirm() {
     $('stopConfirmMsg').textContent = '';
