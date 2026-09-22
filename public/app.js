@@ -16,6 +16,11 @@
   // activité qu'on vient de quitter (même motif que viewProfileUserId).
   var chronoRunningActivityId = null;
   var chronoRunningCategory = null;
+  // 22 septembre 2026 : couleur de base de l'activité en cours, mémorisée
+  // pour teinter l'en-tête de #secteurTasksModal (subProjectShade() a besoin
+  // de cette couleur de départ pour recalculer la nuance du secteur — voir
+  // openSecteurTasksModal).
+  var chronoRunningActivityColor = null;
   // Périodes indépendantes par section de Statistiques — 30 août 2026, sur
   // demande d'Emilien : plus de sélecteur global (#statsPeriodSwitch), chaque
   // section choisit sa propre période via son menu "⋮" (voir plus bas).
@@ -1727,6 +1732,20 @@
       onCommit(state.current);
     }
 
+    // 22 septembre 2026, demande directe d'Emilien : « lorsque je clique sur
+    // un secteur [...] toute la case soit coloriée en violet, mais [...] je
+    // souhaite qu'on reste sur la page [...] c'est un menu fixe où on
+    // sélectionne. On peut revenir en arrière, on sélectionne. » — le choix
+    // d'un secteur (ou « Aucun secteur ») attache la valeur exactement comme
+    // avant (onCommit), mais ne referme plus le panneau : seule la
+    // surbrillance change, la liste des secteurs reste affichée pour changer
+    // d'avis ou revenir en arrière sans rouvrir le menu.
+    function commitStay(key) {
+      state.current = key ? String(key) : null;
+      render();
+      onCommit(state.current);
+    }
+
     // Cliquer un pôle qui a des secteurs : ATTACHE le pôle immédiatement
     // (même geste qu'avant) ET affiche ses secteurs pour affiner sans
     // rouvrir le menu.
@@ -1752,6 +1771,10 @@
           commitPoleAndDrill(pole);
           return;
         }
+        if (state.drill) {
+          commitStay(rowValue);
+          return;
+        }
         commit(rowValue);
       });
       row.appendChild(main);
@@ -1763,7 +1786,7 @@
         visBtn.textContent = t('Visualiser');
         visBtn.addEventListener('click', function (ev) {
           ev.stopPropagation();
-          onVisualiser(secteur.key, secteur.label, state.drill.label);
+          onVisualiser(secteur.key, secteur.label, state.drill.label, state.list.indexOf(state.drill));
         });
         row.appendChild(visBtn);
       }
@@ -1779,7 +1802,7 @@
       btn.className = 'categoryPickerBtn';
       btn.setAttribute('aria-expanded', state.open ? 'true' : 'false');
       var labelSpan = document.createElement('span');
-      labelSpan.textContent = labelFor(state.current) || t('Aucun pôle sélectionné pour cet enregistrement');
+      labelSpan.textContent = labelFor(state.current) || t('Aucun pôle sélectionné...');
       var chevron = document.createElement('span');
       chevron.className = 'categoryPickerChevron';
       chevron.setAttribute('aria-hidden', 'true');
@@ -1810,12 +1833,12 @@
         back.addEventListener('click', function () { state.drill = null; render(); });
         panel.appendChild(back);
 
-        panel.appendChild(buildRow(t('Aucun secteur sélectionné pour cet enregistrement'), state.drill.key, null));
+        panel.appendChild(buildRow(t('Aucun secteur sélectionné...'), state.drill.key, null));
         (state.drill.secteurs || []).forEach(function (s) {
           panel.appendChild(buildRow(s.label, s.key, s));
         });
       } else {
-        panel.appendChild(buildRow(t('Aucun pôle sélectionné pour cet enregistrement'), null, null));
+        panel.appendChild(buildRow(t('Aucun pôle sélectionné...'), null, null));
         state.list.forEach(function (c) {
           panel.appendChild(buildRow(c.label, c.key, null, c));
         });
@@ -1873,6 +1896,7 @@
     $('runningActivityLabel').style.color = textColorForTheme(currentTheme);
     chronoRunningActivityId = activity.id;
     chronoRunningCategory = category || null;
+    chronoRunningActivityColor = activity.color;
     var categoriesReady = renderChronoCategorySelector(activity, chronoRunningCategory);
     startLiveTimer(startTimeIso);
     closeStopConfirm();
@@ -1895,6 +1919,7 @@
         stopLiveTimer();
         chronoRunningActivityId = null;
         chronoRunningCategory = null;
+        chronoRunningActivityColor = null;
         renderActivityGrid();
         showChronoBlock('chronoIdle');
         return;
@@ -2063,6 +2088,7 @@
         stopLiveTimer();
         chronoRunningActivityId = null;
         chronoRunningCategory = null;
+        chronoRunningActivityColor = null;
         $('chronoStatus').textContent = t(data.message) + ' (' + data.elapsed + ')';
         renderActivityGrid();
         showChronoBlock('chronoIdle');
@@ -2097,14 +2123,43 @@
   // automatique dès que ces deux écrans se rechargent.
   var secteurTasksModalActivityId = null;
   var secteurTasksModalKey = null;
+  // 22 septembre 2026, demande d'Emilien : « ajouter une flèche pour faire
+  // défiler les semaines [...] uniquement futur » — 0 = semaine courante,
+  // jamais négatif (voir updateSecteurTasksWeekNav), sans plafond vers
+  // l'avenir.
+  var secteurTasksWeekOffset = 0;
 
-  function openSecteurTasksModal(secteurKey, secteurLabel, poleLabel) {
+  // 22 septembre 2026, demande d'Emilien : « l'entête [...] reste fixe et
+  // qu'elle soit de la couleur du secteur attribué au secteur » — même
+  // principe que paintCategoryStatsHeader() plus bas dans ce fichier (barre
+  // .viewProfileIdentity teintée en ligne, classe `tinted` pour le bouton de
+  // fermeture), mais readableTextOn() plutôt que textColorForTheme() : la
+  // couleur ici vient de subProjectShade() (bande de clarté volontairement
+  // large, voir son commentaire), pas de la palette contrainte par thème des
+  // couleurs d'activité — textColorForTheme() supposerait à tort un fond
+  // toujours assez sombre/clair.
+  function paintSecteurTasksHeader(color) {
+    var bar = $('secteurTasksModal').querySelector('.viewProfileIdentity');
+    if (!bar) return;
+    bar.classList.toggle('tinted', !!color);
+    bar.style.background = color || '';
+    bar.style.color = color ? readableTextOn(color) : '';
+  }
+
+  function openSecteurTasksModal(secteurKey, secteurLabel, poleLabel, poleIndex) {
     if (!chronoRunningActivityId) return;
     secteurTasksModalActivityId = chronoRunningActivityId;
     secteurTasksModalKey = secteurKey;
+    secteurTasksWeekOffset = 0;
     $('secteurTasksTitle').textContent = poleLabel + ' · ' + secteurLabel;
+    // Les secteurs partagent la nuance de leur PÔLE parent (jamais un index
+    // propre) — même convention que partout ailleurs dans l'app (dots de
+    // catégorie, badges du volet Objectifs) : poleIndex est le rang du pôle
+    // parent dans la liste, transmis par createCategoryPicker.
+    paintSecteurTasksHeader(chronoRunningActivityColor
+      ? subProjectShade(chronoRunningActivityColor, poleIndex, SUB_PROJECT_SHADE_COUNT)
+      : null);
     $('secteurTasksMsg').textContent = '';
-    $('secteurTasksAddInput').value = '';
     $('secteurTasksModal').classList.remove('hidden');
     loadSecteurTasksModal();
   }
@@ -2115,30 +2170,49 @@
     secteurTasksModalKey = null;
   }
 
+  // Le bouton "semaine précédente" se désactive dès la semaine courante — « pas
+  // passées [...] uniquement futur » — mais "semaine suivante" n'a pas de
+  // plafond.
+  function updateSecteurTasksWeekNav() {
+    $('secteurTasksPrevWeek').disabled = secteurTasksWeekOffset <= 0;
+  }
+
   function loadSecteurTasksModal() {
     var activityId = secteurTasksModalActivityId;
     var key = secteurTasksModalKey;
+    var weekOffset = secteurTasksWeekOffset;
     if (!activityId || !key) return;
-    api('GET', '/api/activities/' + activityId + '/goals/categories/' + key + '/tasks/week?userId=' + profile.id)
+    updateSecteurTasksWeekNav();
+    api('GET', '/api/activities/' + activityId + '/goals/categories/' + key + '/tasks/week?userId=' + profile.id + '&weekOffset=' + weekOffset)
       .then(function (data) {
-        if (secteurTasksModalActivityId !== activityId || secteurTasksModalKey !== key) return; // réponse en vol
-        renderSecteurTasksModal(data.days || []);
+        // Réponse en vol : le secteur affiché OU la semaine demandée ont pu
+        // changer entre-temps (clic rapide sur les flèches).
+        if (secteurTasksModalActivityId !== activityId || secteurTasksModalKey !== key || secteurTasksWeekOffset !== weekOffset) return;
+        renderSecteurTasksModal(data.days || [], data.weeklyObjective || '');
       })
       .catch(function (err) { $('secteurTasksMsg').textContent = err.message; });
   }
 
-  function renderSecteurTasksModal(days) {
+  function renderSecteurTasksModal(days, weeklyObjective) {
+    // Étiquette de la semaine affichée (JJ/MM au JJ/MM) — sans elle, les
+    // flèches de navigation n'ont aucun repère visuel de la semaine montrée.
+    if (days.length) {
+      var wkStart = new Date(days[0].date + 'T00:00:00Z');
+      var wkEnd = new Date(days[days.length - 1].date + 'T00:00:00Z');
+      var fmt = { day: '2-digit', month: '2-digit' };
+      $('secteurTasksWeekLabel').textContent = wkStart.toLocaleDateString(dateLocale(), fmt) + ' – ' + wkEnd.toLocaleDateString(dateLocale(), fmt);
+    }
+
+    // 22 septembre 2026, demande d'Emilien : « ajouter en haut de la liste
+    // des tâches, les objectifs hebdomadaires pour chaque semaine ».
+    var objectiveEl = $('secteurTasksObjective');
+    objectiveEl.textContent = weeklyObjective ? (t('Objectif de la semaine') + ' : ' + weeklyObjective) : '';
+    objectiveEl.classList.toggle('hidden', !weeklyObjective);
+
     var wrap = $('secteurTasksDays');
     wrap.innerHTML = '';
-    var daySelect = $('secteurTasksAddDay');
-    daySelect.innerHTML = '';
 
     days.forEach(function (day) {
-      var opt = document.createElement('option');
-      opt.value = day.date;
-      opt.textContent = day.weekday;
-      daySelect.appendChild(opt);
-
       var block = document.createElement('div');
       block.className = 'secteurTasksDay';
 
@@ -2191,24 +2265,20 @@
 
   $('secteurTasksClose').addEventListener('click', closeSecteurTasksModal);
 
-  $('secteurTasksAddBtn').addEventListener('click', function () {
-    var label = $('secteurTasksAddInput').value.trim();
-    if (!label) return;
-    var activityId = secteurTasksModalActivityId;
-    var key = secteurTasksModalKey;
-    if (!activityId || !key) return;
-    $('secteurTasksAddBtn').disabled = true;
-    api('POST', '/api/activities/' + activityId + '/goals/categories/' + key + '/tasks', {
-      label: label,
-      dueDate: $('secteurTasksAddDay').value || null,
-    })
-      .then(function () {
-        $('secteurTasksAddInput').value = '';
-        loadSecteurTasksModal();
-        activityGoalsCategoriesRefresh(activityId);
-      })
-      .catch(function (err) { $('secteurTasksMsg').textContent = err.message; })
-      .finally(function () { $('secteurTasksAddBtn').disabled = false; });
+  // 22 septembre 2026, demande d'Emilien : « ajouter une flèche pour faire
+  // défiler les semaines [...] uniquement futur » — remplace l'ancien bloc
+  // d'ajout de tâche (« je souhaite supprimer la possibilité d'ajouter une
+  // nouvelle tâche »), retiré ci-dessus de renderSecteurTasksModal et de
+  // #secteurTasksScroll (index.html).
+  $('secteurTasksPrevWeek').addEventListener('click', function () {
+    if (secteurTasksWeekOffset <= 0) return;
+    secteurTasksWeekOffset -= 1;
+    loadSecteurTasksModal();
+  });
+
+  $('secteurTasksNextWeek').addEventListener('click', function () {
+    secteurTasksWeekOffset += 1;
+    loadSecteurTasksModal();
   });
 
   // buildHistoryCard(entry, onDeleted) a été retirée le 4 septembre 2026 en
@@ -5211,7 +5281,11 @@
     wrap.className = 'activityGoalsCategoryAutoTaskBubble';
 
     var textarea = document.createElement('textarea');
-    textarea.rows = 2;
+    // 22 septembre 2026, demande directe d'Emilien : « agrandir la zone
+    // d'écriture ». 2 → 4 lignes visibles (min-height assorti dans
+    // styles.css) — même bulle, plus de place pour écrire une tâche avant
+    // de faire défiler.
+    textarea.rows = 4;
     textarea.maxLength = 300;
     textarea.placeholder = t('Nouvelle tâche… une IA choisit son pôle');
 
@@ -5552,32 +5626,25 @@
       // sous-projet séparé.
       if (isOpen) list.appendChild(buildCategoryTasksBlock(activityIdForTasks, c.key, tasksForCat));
 
-      // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
-      // d'Emilien : « [l'objectif] se répertorie [...] sous l'objectif dans
-      // la fenêtre des activités section tâches » — sous CHAQUE catégorie
-      // (pas dans une liste à part), les objectifs hebdomadaires déjà saisis
-      // (period.weeklies[].text) de la période EN COURS de cette catégorie.
-      // Lecture seule ici : la saisie/modification reste dans le volet
-      // Objectifs de la barre du bas (openGoalsWeekEditor()), jamais dupliquée.
-      var planning = byCategoryPlanning[c.key];
-      var currentPeriod = null;
-      if (planning) {
-        for (var pi = 0; pi < (planning.periods || []).length; pi++) {
-          if (planning.periods[pi].periodNumber === planning.currentPeriodNumber) { currentPeriod = planning.periods[pi]; break; }
-        }
-      }
-      var weeklyTexts = currentPeriod ? (currentPeriod.weeklies || []).filter(function (w) { return w.text; }) : [];
-      if (weeklyTexts.length) {
-        var weeklyWrap = document.createElement('div');
-        weeklyWrap.className = 'activityGoalsCategoryWeeklySummary';
-        weeklyTexts.forEach(function (w) {
-          var line = document.createElement('p');
-          line.className = 'activityGoalsCategoryWeeklySummaryLine';
-          line.textContent = t('Semaine') + ' ' + w.weekIndex + ' — ' + w.text;
-          weeklyWrap.appendChild(line);
-        });
-        list.appendChild(weeklyWrap);
-      }
+      // ⚠️ 22 septembre 2026, demande directe d'Emilien : « supprimer les
+      // objectifs hebdomadaires sous les pôles. » — le résumé lecture-seule
+      // des objectifs hebdomadaires de la période en cours (posé le
+      // 16 septembre 2026, voir l'historique ci-dessous) est RETIRÉ de cette
+      // section. La saisie/modification elle-même reste inchangée, dans le
+      // volet Objectifs de la barre du bas (openGoalsWeekEditor()) — rien de
+      // supprimé côté données ni côté ce volet-là, seulement cet affichage
+      // dupliqué ici. `byCategoryPlanning`/`planningData` (chargés par
+      // loadActivityGoalsCategories() plus haut) n'ont plus de lecteur dans
+      // cette fonction mais sont volontairement laissés en place (repli
+      // possible pour le futur système pôles/secteurs/objectifs/IA en
+      // discussion avec Emilien) plutôt que de toucher au chargement des
+      // données pour un simple retrait d'affichage.
+      //
+      // Historique (retiré) : 16 septembre 2026 (discussion "Objectifs — D",
+      // 5e passage), demande d'Emilien : « [l'objectif] se répertorie [...]
+      // sous l'objectif dans la fenêtre des activités section tâches » —
+      // affichait sous CHAQUE catégorie les objectifs hebdomadaires déjà
+      // saisis (period.weeklies[].text) de la période en cours.
     });
 
     // Bulle spéciale d'ajout de tâche par IA — maquette approuvée : AU-DESSUS
