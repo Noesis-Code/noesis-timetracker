@@ -7384,6 +7384,27 @@
       head.appendChild(addCell);
       var outlineEl = $('goalsGridAddOutline');
       if (outlineEl) outlineEl.style.setProperty('--goalsAddAccent', addAccent);
+      // 21 septembre 2026 : "+"/libellé désormais un élément UNIQUE et
+      // indépendant de toute période précise (#goalsGridAddContent,
+      // index.html) — plus dupliqué dans le bouton d'une période donnée
+      // (voir renderGoalsGrid() ci-dessous). Peuplé une seule fois ici
+      // (icône/libellé jamais recréés ensuite, élément statique jamais
+      // vidé par innerHTML=''), positionné par positionGoalsAddCenterContent()
+      // (plus bas) appelée depuis syncGoalsGridWidths().
+      var addContentEl = $('goalsGridAddContent');
+      if (addContentEl) {
+        addContentEl.style.setProperty('--goalsAddAccent', addAccent);
+        if (!addContentEl.firstChild) {
+          var addIconEl = document.createElement('span');
+          addIconEl.className = 'goalsGridCellAddIcon';
+          addIconEl.textContent = '+';
+          var addLabelEl = document.createElement('span');
+          addLabelEl.className = 'goalsGridCellAddLabel';
+          addLabelEl.textContent = t('Ajouter un secteur');
+          addContentEl.appendChild(addIconEl);
+          addContentEl.appendChild(addLabelEl);
+        }
+      }
     }
     window.requestAnimationFrame(syncGoalsGridWidths);
   }
@@ -7505,35 +7526,49 @@
     outline.style.height = Math.max(0, gridRect.bottom - headRect.top) + 'px';
   }
 
-  // 21 septembre 2026, demande d'Emilien : « je souhaite que le signe +
-  // et l'écriture "ajouter un secteur" soit toujours au milieu de l'écran
-  // par rapport à la longueur du téléphone [...] cependant, cela doit
-  // rester à équidistance entre les deux lignes pointillées verticales. »
-  // Jusqu'ici, .goalsGridCellAddIcon/Label étaient centrés par le flex du
-  // bouton parent (.goalsGridCell--add, justify-content: center) — donc
-  // centrés sur la largeur de la CASE (= clientWidth de #goalsGridScroll,
-  // syncGoalsGridWidths() plus bas), pas sur la largeur réelle de l'écran.
-  // #goalsGridScroll est décalé par margin-left (place pour le rail
-  // tactile, discussion "Objectifs — Rail périodique") sans compensation
-  // symétrique à droite : centrer dans la case décale donc visuellement le
-  // "+" par rapport au vrai milieu du téléphone.
-  // Calcul : position du milieu de l'écran (window.innerWidth / 2)
-  // convertie en coordonnée LOCALE à la case (relative à son propre bord
-  // gauche, cellRect.left) — cette case fait exactement la largeur du
-  // viewport de #goalsGridScroll dès qu'elle est la page actuellement
-  // visible, donc ce calcul tombe juste dès qu'elle est swipée en vue.
-  // Borné à [20, largeur-20] pour ne jamais atteindre le contour en
-  // pointillés (#goalsGridAddOutline) même dans un cas extrême — répond à
-  // la seconde partie de la demande (équidistance des deux bords).
+  // 21 septembre 2026, demande d'Emilien — v2, sens inverse de la version
+  // précédente de cette fonction : « les modifications [...] sont
+  // exactement l'inverse de ce que j'ai demandé. Le bouton [...] se
+  // décale de gauche à droite, mais ne se décale pas de haut en bas. [...]
+  // je souhaite qu'elle se décale de haut en bas pour qu'elle soit
+  // toujours centrée sur l'écran [...] mais qu'elle soit fixe de gauche à
+  // droite. » #goalsGridAddContent est désormais un élément UNIQUE,
+  // position: absolute enfant direct de #goalsGridScroll (comme
+  // #goalsGridAddOutline), plus dupliqué dans le bouton d'une période
+  // précise (l'ancienne 7e, qui sortait de l'écran en scrollant — cause
+  // du bug « ne se décale pas de haut en bas »).
+  // - HORIZONTAL (fixe, équidistant des deux bords pointillés) : centre de
+  //   la boîte en coordonnée LOCALE, exactement comme positionGoalsAddOutline()
+  //   (outlineLeft + outlineWidth/2) — cette coordonnée inclut déjà
+  //   scroll.scrollLeft, donc défile normalement avec le contenu horizontal,
+  //   aucun recalcul au scroll nécessaire (contrairement à la v1, qui
+  //   suivait par erreur le défilement horizontal — écouteur retiré, voir
+  //   plus bas).
+  // - VERTICAL (mobile, toujours au milieu de l'écran) : milieu du
+  //   VIEWPORT (window.innerHeight / 2) converti en coordonnée LOCALE
+  //   (relative au bord haut ACTUEL de #goalsGridScroll à l'écran,
+  //   scrollRect.top) — recalculé à chaque défilement de la PAGE (window),
+  //   pas de #goalsGridScroll qui ne défile qu'à l'horizontale (voir
+  //   l'écouteur window 'scroll' ajouté plus bas, même patron que le rail
+  //   vertical). Borné à [top+20, top+hauteur-20] pour ne jamais dépasser
+  //   la boîte (#goalsGridAddOutline) même en haut/bas de page.
   function positionGoalsAddCenterContent() {
-    var cell = document.querySelector('.goalsGridCell--addCenter');
-    var content = cell && cell.querySelector('.goalsGridCellAddContent');
-    if (!cell || !content) return;
-    var cellRect = cell.getBoundingClientRect();
-    if (!cellRect.width) return;
-    var target = (window.innerWidth / 2) - cellRect.left;
-    target = Math.max(20, Math.min(cellRect.width - 20, target));
-    content.style.left = target + 'px';
+    var content = $('goalsGridAddContent');
+    var outline = $('goalsGridAddOutline');
+    var scroll = $('goalsGridScroll');
+    if (!content || !outline || !scroll) return;
+    if (outline.style.display === 'none') { content.style.display = 'none'; return; }
+    var outlineLeft = parseFloat(outline.style.left) || 0;
+    var outlineWidth = parseFloat(outline.style.width) || 0;
+    var outlineTop = parseFloat(outline.style.top) || 0;
+    var outlineHeight = parseFloat(outline.style.height) || 0;
+    if (!outlineWidth || !outlineHeight) { content.style.display = 'none'; return; }
+    var scrollRect = scroll.getBoundingClientRect();
+    var desiredTop = (window.innerHeight / 2) - scrollRect.top;
+    desiredTop = Math.max(outlineTop + 20, Math.min(outlineTop + outlineHeight - 20, desiredTop));
+    content.style.display = 'flex';
+    content.style.left = (outlineLeft + outlineWidth / 2) + 'px';
+    content.style.top = desiredTop + 'px';
   }
 
   function syncGoalsGridWidths() {
@@ -7595,21 +7630,17 @@
   }
   window.addEventListener('resize', syncGoalsGridWidths);
   window.addEventListener('orientationchange', syncGoalsGridWidths);
-  // 21 septembre 2026 : le défilement horizontal de #goalsGridScroll
-  // (balayage entre catégories/case d'ajout) ne déclenche ni resize ni
-  // re-rendu — sans ceci, positionGoalsAddCenterContent() ne recalculerait
-  // qu'au prochain rendu/redimensionnement, donc pas pendant le balayage
-  // lui-même ("toujours au milieu de l'écran" pendant le geste, pas
-  // seulement une fois arrivé). #goalsGridScroll est un élément statique
-  // d'index.html (jamais recréé par innerHTML=''), donc un seul écouteur
-  // posé ici au chargement du script suffit, jamais dupliqué. rAF-throttlé
-  // (même patron que le rail vertical, bindGoalsScrub() plus haut) pour ne
-  // pas recalculer plus d'une fois par frame pendant un balayage rapide.
+  // 21 septembre 2026 : le défilement VERTICAL de la page ne déclenche ni
+  // resize ni re-rendu — sans ceci, positionGoalsAddCenterContent() ne
+  // recalculerait qu'au prochain rendu/redimensionnement, donc le "+"
+  // resterait figé pendant que l'utilisateur fait défiler la page (c'est
+  // exactement le bug signalé par Emilien : « ne se décale pas de haut en
+  // bas »). Écouteur posé une seule fois au chargement du script.
+  // rAF-throttlé (même patron que le rail vertical plus haut) pour ne pas
+  // recalculer plus d'une fois par frame pendant un défilement rapide.
   (function () {
-    var scrollEl = $('goalsGridScroll');
-    if (!scrollEl) return;
     var scheduled = false;
-    scrollEl.addEventListener('scroll', function () {
+    window.addEventListener('scroll', function () {
       if (scheduled) return;
       scheduled = true;
       window.requestAnimationFrame(function () {
@@ -7631,10 +7662,12 @@
     var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
     var hasNoRealCategory = goalsHasNoRealCategory(categories);
     var showAddSlot = hasNoRealCategory || categories.length < maxCategories;
-    // Repère visuel vers le MILIEU du cycle (13 périodes) pour n'y placer le
-    // signe + qu'une seule fois — « je souhaite qu'il s'affiche au milieu
-    // d'une nouvelle page », voir .goalsGridCell--addCenter, styles.css.
-    var addCenterPeriodIndex = 7;
+    // 21 septembre 2026 : le "+"/libellé ne sont plus dupliqués sur une
+    // période précise (ex-addCenterPeriodIndex = 7) — voir
+    // #goalsGridAddContent (index.html/styles.css) et
+    // positionGoalsAddCenterContent() (plus haut), désormais un élément
+    // UNIQUE et indépendant de toute période, qui reste au milieu de
+    // l'écran quel que soit le défilement.
 
     // Index par catégorie : periodIndexInCycle (1-13) → période, limité au
     // CYCLE EN COURS de cette catégorie (planningForActivity renvoie
@@ -7756,7 +7789,7 @@
           addCell.type = 'button';
           addCell.title = t('Ajouter un secteur');
           addCell.setAttribute('aria-label', t('Ajouter un secteur'));
-          addCell.className = 'goalsGridCell goalsGridCell--add' + (periodIndex === addCenterPeriodIndex ? ' goalsGridCell--addCenter' : '');
+          addCell.className = 'goalsGridCell goalsGridCell--add';
           // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
           // même couleur que le contour continu de l'en-tête (voir
           // renderGoalsGridHead() ci-dessus) — les 13 cases + l'en-tête
@@ -7766,29 +7799,10 @@
           // « supprime les arbre » (l'impression de vraies bulles dans une
           // page censée être vide) ; seul le contour unique
           // (#goalsGridAddOutline, positionGoalsAddOutline()) + le « + »
-          // subsistent dans cette zone.
+          // (#goalsGridAddContent, désormais un élément unique — voir
+          // renderGoalsGridHead()/positionGoalsAddCenterContent() — plus
+          // dupliqué ici sur une période précise) subsistent dans cette zone.
           addCell.style.setProperty('--goalsAddAccent', subProjectShade(currentGoalsActivityColor, hasNoRealCategory ? 0 : categories.length, SUB_PROJECT_SHADE_COUNT));
-          if (periodIndex === addCenterPeriodIndex) {
-            // 21 septembre 2026, demande d'Emilien : le "+"/libellé doivent
-            // rester centrés sur la largeur réelle du téléphone (pas sur la
-            // largeur de la case), tout en restant à équidistance des deux
-            // bords pointillés — voir .goalsGridCellAddContent (styles.css)
-            // et positionGoalsAddCenterContent() plus bas, qui calcule le
-            // "left" de ce wrapper. Contenu déplacé du bouton lui-même
-            // (centré par flex, .goalsGridCell--add) vers ce wrapper en
-            // position:absolute, positionné en JS.
-            var addContent = document.createElement('span');
-            addContent.className = 'goalsGridCellAddContent';
-            var addIcon = document.createElement('span');
-            addIcon.className = 'goalsGridCellAddIcon';
-            addIcon.textContent = '+';
-            var addLabel = document.createElement('span');
-            addLabel.className = 'goalsGridCellAddLabel';
-            addLabel.textContent = t('Ajouter un secteur');
-            addContent.appendChild(addIcon);
-            addContent.appendChild(addLabel);
-            addCell.appendChild(addContent);
-          }
           addCell.addEventListener('click', goToGoalsCategorySettings);
           row.appendChild(addCell);
         }

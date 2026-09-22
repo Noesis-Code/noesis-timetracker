@@ -2340,6 +2340,20 @@
                z-index dédié nécessaire, display:none par défaut tant que
                positionGoalsAddOutline() ne l'active pas). -->
           <div id="goalsGridAddOutline" class="goalsGridAddOutline"></div>
+          <!-- 21 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
+               "+"/libellé « Ajouter un secteur » — élément UNIQUE et
+               indépendant de toute période précise (avant : dupliqué dans
+               le bouton de la 7e période, .goalsGridCell--addCenter,
+               retirée). Peuplé une seule fois par renderGoalsGridHead()
+               (app.js), repositionné par positionGoalsAddCenterContent() :
+               fixe horizontalement au centre de la boîte (comme
+               #goalsGridAddOutline, défile avec le contenu comme un enfant
+               normal), recalculé verticalement au défilement de la PAGE
+               pour rester au milieu de l'écran, borné pour ne jamais
+               dépasser la boîte — demande d'Emilien, « je souhaite qu'elle
+               se décale de haut en bas [...] mais qu'elle soit fixe de
+               gauche à droite ». -->
+          <div id="goalsGridAddContent" class="goalsGridCellAddContent"></div>
           <div class="goalsGridHead" id="goalsGridHead"></div>
 
           <!-- Grille de comparaison des catégories : une ligne par période du

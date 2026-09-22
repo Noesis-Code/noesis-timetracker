@@ -5369,27 +5369,33 @@ button { -webkit-user-select: none; user-select: none; }
   min-height: 54px; border: none; background: transparent; padding: 0;
   position: relative; display: flex; align-items: center; justify-content: center;
 }
-/* Le "+" et son libellé n'apparaissent qu'une fois, sur la période du milieu
-   du cycle (13 périodes → repère visuel vers la 7e, addCenterPeriodIndex,
-   app.js) plutôt que répétés sur les 13 cases — « je souhaite qu'il
-   s'affiche au milieu d'une nouvelle page » (16 septembre, hérité tel quel).
-   Libellé « Ajouter un secteur » depuis le 20 septembre 2026
-   (t('Ajouter un secteur'), app.js — demande directe d'Emilien, remplace
-   « Ajouter une catégorie »).
-   21 septembre 2026 : jusqu'ici centrés par le flex du bouton parent
-   (.goalsGridCell--add, justify-content: center) — donc centrés sur la
-   largeur de la CASE, pas sur la largeur réelle de l'écran (décalées l'une
-   de l'autre par margin-left de #goalsGridScroll, place pour le rail
-   tactile). Demande d'Emilien : rester centré sur l'écran tout en restant
-   à équidistance des deux bords pointillés. Contenu déplacé dans un
-   wrapper .goalsGridCellAddContent en position absolute, dont le "left"
-   est calculé en JS (positionGoalsAddCenterContent(), app.js) plutôt que
-   par le flex du bouton — top: 50%/translateY(-50%) reprend le centrage
-   vertical qu'assurait auparavant justify-content sur le bouton. */
+/* Le "+" et son libellé — élément UNIQUE et indépendant de toute période
+   précise (#goalsGridAddContent, index.html), plus dupliqué dans la case
+   d'une période donnée (ancienne .goalsGridCell--addCenter sur la 7e
+   période, retirée le 21 septembre 2026, voir plus bas). Libellé « Ajouter
+   un secteur » depuis le 20 septembre 2026 (t('Ajouter un secteur'),
+   app.js — demande directe d'Emilien, remplace « Ajouter une catégorie »).
+   21 septembre 2026 : deux demandes successives d'Emilien sur cette case,
+   dans des sens opposés — v1, centré sur la largeur de la CASE (flex du
+   bouton .goalsGridCell--add) au lieu de la largeur réelle de l'écran
+   (décalage dû au margin-left de #goalsGridScroll, place pour le rail
+   tactile) ; v2 (celle-ci, après qu'Emilien a constaté « c'est exactement
+   l'inverse de ce que j'ai demandé ») — HORIZONTAL désormais fixe, centré
+   sur la boîte (équidistant des deux bords pointillés, comme v1 le
+   faisait déjà nativement) ; VERTICAL désormais mobile, recalculé au
+   défilement de la PAGE pour rester au milieu de l'écran (au lieu d'être
+   figé sur la 7e période, qui sort de l'écran en scrollant). Élément
+   position: absolute, enfant direct de #goalsGridScroll (même parent que
+   #goalsGridAddOutline, pas un bouton .goalsGridCell--add particulier) :
+   top/left sont désormais tous deux calculés en JS
+   (positionGoalsAddCenterContent(), app.js) comme le CENTRE visé (d'où
+   translate(-50%, -50%) sur les deux axes, pas seulement l'axe vertical).
+   display: none par défaut (comme #goalsGridAddOutline) tant que
+   positionGoalsAddCenterContent() n'a pas calculé une position valide. */
 .goalsGridCellAddContent {
-  position: absolute; top: 50%; left: 50%;
+  position: absolute; display: none;
   transform: translate(-50%, -50%);
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  flex-direction: column; align-items: center; gap: 8px;
   pointer-events: none;
 }
 .goalsGridCellAddIcon {
