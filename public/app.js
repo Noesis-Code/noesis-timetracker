@@ -5425,6 +5425,44 @@
     var wrap = document.createElement('div');
     wrap.className = 'activityGoalsCategoryAutoTaskBubble';
 
+    // 22 septembre 2026 (Emilien, demande directe : « un point lumineux qui
+    // ne se décroche pas du périmètre »). Après deux techniques CSS ratées
+    // (mask-composite: exclude, puis isolation+z-index:-1 — voir le
+    // commentaire au-dessus de .activityGoalsCategoryAutoTaskBubble dans
+    // styles.css), le contour est tracé en SVG : le <rect> est dimensionné
+    // ici sur la VRAIE taille de la bulle (layoutGlow, ré-appelé à chaque
+    // redimensionnement via ResizeObserver), et le trait animé
+    // (stroke-dasharray/-dashoffset, longueur exacte via getTotalLength())
+    // épouse donc littéralement le contour — il ne peut pas s'en détacher
+    // ni couper un virage, quelle que soit la longueur de la traînée.
+    var glowSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    glowSvg.setAttribute('class', 'activityGoalsCategoryAutoTaskGlow');
+    glowSvg.setAttribute('aria-hidden', 'true');
+    var glowRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    glowSvg.appendChild(glowRect);
+    wrap.appendChild(glowSvg);
+    function layoutGlow() {
+      var w = wrap.offsetWidth, h = wrap.offsetHeight;
+      if (!w || !h) return;
+      glowSvg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+      var rx = 13;
+      glowRect.setAttribute('x', 1);
+      glowRect.setAttribute('y', 1);
+      glowRect.setAttribute('width', Math.max(0, w - 2));
+      glowRect.setAttribute('height', Math.max(0, h - 2));
+      glowRect.setAttribute('rx', rx);
+      glowRect.setAttribute('ry', rx);
+      var perim = glowRect.getTotalLength ? glowRect.getTotalLength() : 2 * (w + h);
+      var dash = perim * 0.3;
+      glowRect.style.strokeDasharray = dash + ' ' + Math.max(0, perim - dash);
+      glowSvg.style.setProperty('--glowPerimeter', (-perim) + 'px');
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(layoutGlow).observe(wrap);
+    } else {
+      setTimeout(layoutGlow, 0);
+    }
+
     var textarea = document.createElement('textarea');
     // 22 septembre 2026, demande directe d'Emilien : « agrandir la zone
     // d'écriture ». 2 → 4 lignes visibles (min-height assorti dans

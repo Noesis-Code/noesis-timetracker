@@ -5664,40 +5664,52 @@ button { -webkit-user-select: none; user-select: none; }
    passage précédent pour la luminosité créait aussi, par contraste sur le
    thème sombre, l'impression d'une zone plus terne juste derrière le point
    (la « zone noire »).
-   Retour à la technique en ANNEAU du tout premier correctif (mais avec son
-   masquage robuste, PAS le double masque `mask-composite: exclude` qui
-   fuyait) : le ::before est plus grand que la bulle et caché derrière son
-   fond opaque (`z-index: -1` + `isolation: isolate`) — seule la portion qui
-   dépasse peut être visible, elle épouse donc MÉCANIQUEMENT le contour réel
-   de la bulle, angles arrondis compris, à N'IMPORTE quelle longueur : c'est
-   littéralement une portion de l'anneau du contour, elle ne peut pas s'en
-   détacher. Arc élargi à environ un tiers du tour (130° sur 360°, contre un
-   arc étroit au tout premier essai), dégradé UNIQUEMENT dans les teintes de
-   `--purple` (aucun arrêt blanc), sans `box-shadow` (source probable de la
-   « zone noire » : sa forme suit tout le rectangle de l'ancien élément,
-   pas le dégradé réellement visible à l'intérieur). */
+   L'ANNEAU en `z-index: -1` + `isolation: isolate` (correctif précédent)
+   reposait sur l'hypothèse que le fond de la bulle est parfaitement opaque
+   et masque tout ce qui dépasse. Sur l'appareil d'Emilien ça n'a pas tenu :
+   au lieu d'un mince anneau, un GROS polygone violet (la part de
+   conic-gradient entre 255° et 350°, non masquée) s'affichait par-dessus
+   la bulle, débordant largement (capture d'écran fournie) — régression
+   franche, sans lien avec la préférence de style exprimée juste avant.
+   22 septembre 2026 (deuxième correctif du jour) : abandon des techniques
+   CSS qui reposent sur un masquage/empilement (fragiles, deux échecs sur
+   deux essais). Le contour est maintenant tracé en SVG
+   (.activityGoalsCategoryAutoTaskGlow, voir buildCategoryAutoTaskBubble/
+   layoutGlow dans app.js) : un <rect> dimensionné en JS sur la taille RÉELLE
+   de la bulle, avec stroke-dasharray/stroke-dashoffset animés sur une
+   longueur calculée via getTotalLength(). Le trait est littéralement une
+   portion du tracé du rectangle arrondi — aucun masquage, aucune couche à
+   cacher derrière quoi que ce soit, donc rien à faire fuir : il ne peut pas
+   se détacher du contour ni couper un virage, à aucune longueur de
+   traînée. `stroke-linecap: round` donne le bout arrondi = le « point » ;
+   le reste du trait = le « fuseau ». Violet uniquement (aucun arrêt blanc),
+   `filter: drop-shadow` pour la luminosité au lieu de `box-shadow` (suit la
+   forme réelle du trait, pas un rectangle englobant — pas de « zone
+   noire »). */
 .activityGoalsCategoryAutoTaskBubble {
   position: relative;
-  isolation: isolate;
   border-radius: var(--radius-lg, var(--radius-md));
   background: var(--card);
 }
-.activityGoalsCategoryAutoTaskBubble::before {
-  content: '';
+.activityGoalsCategoryAutoTaskGlow {
   position: absolute;
-  inset: -2px;
-  z-index: -1;
-  border-radius: inherit;
-  background: conic-gradient(from 0deg,
-    transparent 0deg, transparent 225deg,
-    var(--purple) 255deg,
-    var(--purple) 350deg,
-    transparent 356deg, transparent 360deg);
-  animation: activityGoalsAutoTaskGlow 7s linear infinite;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
   pointer-events: none;
+  overflow: visible;
+  filter: drop-shadow(0 0 3px var(--purple));
+}
+.activityGoalsCategoryAutoTaskGlow rect {
+  fill: none;
+  stroke: var(--purple);
+  stroke-width: 3px;
+  stroke-linecap: round;
+  animation: activityGoalsAutoTaskGlow 7s linear infinite;
 }
 @keyframes activityGoalsAutoTaskGlow {
-  to { transform: rotate(360deg); }
+  to { stroke-dashoffset: var(--glowPerimeter, 0px); }
 }
 .activityGoalsCategoryAutoTaskBubble textarea,
 .activityGoalsCategoryAutoTaskBubble .iconBtn,
