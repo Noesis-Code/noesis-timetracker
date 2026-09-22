@@ -2340,32 +2340,45 @@
                z-index dédié nécessaire, display:none par défaut tant que
                positionGoalsAddOutline() ne l'active pas). -->
           <div id="goalsGridAddOutline" class="goalsGridAddOutline"></div>
-          <!-- 21 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
-               "+"/libellé « Ajouter un secteur » — élément UNIQUE et
-               indépendant de toute période précise (avant : dupliqué dans
-               le bouton de la 7e période, .goalsGridCell--addCenter,
-               retirée). Peuplé une seule fois par renderGoalsGridHead()
-               (app.js), repositionné par positionGoalsAddCenterContent() :
-               fixe horizontalement au centre de la boîte (comme
-               #goalsGridAddOutline, défile avec le contenu comme un enfant
-               normal), recalculé verticalement au défilement de la PAGE
-               pour rester au milieu de l'écran, borné pour ne jamais
-               dépasser la boîte — demande d'Emilien, « je souhaite qu'elle
-               se décale de haut en bas [...] mais qu'elle soit fixe de
-               gauche à droite ». -->
-          <div id="goalsGridAddContent" class="goalsGridCellAddContent"></div>
-          <div class="goalsGridHead" id="goalsGridHead"></div>
+          <!-- 22 septembre 2026 (discussion "Objectifs — Arbre périodique"),
+               v3 — Emilien signale un sautillement (« lorsque je fais défiler
+               vers le haut ou vers le bas ») avec la v2 (positionnement
+               vertical recalculé en JS à chaque événement 'scroll', voir
+               l'historique dans app.js) : un scroll rapide/inertiel a
+               toujours un cadre de retard sur le rendu natif. Remplacé par du
+               CSS pur (position: sticky), géré par le moteur de rendu, donc
+               plus aucun sautillement possible — et qui borne AUTOMATIQUEMENT
+               le "+" à l'intérieur de #goalsGridColumnsWrap (jamais au-dessus
+               ni en dessous), sans les calculs manuels [top+20, top+hauteur-20]
+               de la v2. #goalsGridColumnsWrap enveloppe désormais l'en-tête ET
+               la grille : c'est SA hauteur totale (en-tête + 13 lignes) qui
+               sert de bornes au sticky, exactement l'équivalent du contour
+               #goalsGridAddOutline. #goalsGridAddStickyAnchor (hauteur 0,
+               position: sticky; top: 50%, styles.css) est le point qui reste
+               fixé au milieu de l'écran pendant le défilement puis se
+               relâche naturellement aux deux bords du conteneur ; le "+"/
+               libellé (#goalsGridAddContent) reste positionné en absolute à
+               l'intérieur de cette ancre, seul le LEFT est encore calculé en
+               JS (positionGoalsAddCenterContent(), app.js — fixe
+               horizontalement au centre de la boîte, inchangé depuis la v2),
+               plus aucun calcul de TOP ni d'écouteur 'scroll' nécessaire. -->
+          <div class="goalsGridColumnsWrap" id="goalsGridColumnsWrap">
+            <div class="goalsGridAddStickyAnchor" id="goalsGridAddStickyAnchor">
+              <div id="goalsGridAddContent" class="goalsGridCellAddContent"></div>
+            </div>
+            <div class="goalsGridHead" id="goalsGridHead"></div>
 
-          <!-- Grille de comparaison des catégories : une ligne par période du
-               cycle en cours, une cellule par catégorie active (1 à 5).
-               Construite entièrement par renderGoalsGrid() (app.js) : rien de
-               statique ici. Le repère de numéro/date de période, qui vivait
-               auparavant dans une colonne à gauche de chaque ligne
-               (.goalsGridRowLabel, retirée), a migré dans le rail tactile
-               #goalsScrubZone ci-dessous — les colonnes de catégories
-               occupent maintenant toute la largeur (ou une demi-largeur
-               chacune au-delà de 2, voir #goalsGridScroll ci-dessus). -->
-          <div id="goalsGrid" class="goalsGrid"></div>
+            <!-- Grille de comparaison des catégories : une ligne par période du
+                 cycle en cours, une cellule par catégorie active (1 à 5).
+                 Construite entièrement par renderGoalsGrid() (app.js) : rien de
+                 statique ici. Le repère de numéro/date de période, qui vivait
+                 auparavant dans une colonne à gauche de chaque ligne
+                 (.goalsGridRowLabel, retirée), a migré dans le rail tactile
+                 #goalsScrubZone ci-dessous — les colonnes de catégories
+                 occupent maintenant toute la largeur (ou une demi-largeur
+                 chacune au-delà de 2, voir #goalsGridScroll ci-dessus). -->
+            <div id="goalsGrid" class="goalsGrid"></div>
+          </div>
         </div>
 
         <!-- L'ajout rapide de catégorie (9e passage) vivait ici, dans une

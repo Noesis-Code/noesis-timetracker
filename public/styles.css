@@ -5429,25 +5429,78 @@ button { -webkit-user-select: none; user-select: none; }
    dans des sens opposés — v1, centré sur la largeur de la CASE (flex du
    bouton .goalsGridCell--add) au lieu de la largeur réelle de l'écran
    (décalage dû au margin-left de #goalsGridScroll, place pour le rail
-   tactile) ; v2 (celle-ci, après qu'Emilien a constaté « c'est exactement
-   l'inverse de ce que j'ai demandé ») — HORIZONTAL désormais fixe, centré
-   sur la boîte (équidistant des deux bords pointillés, comme v1 le
-   faisait déjà nativement) ; VERTICAL désormais mobile, recalculé au
-   défilement de la PAGE pour rester au milieu de l'écran (au lieu d'être
-   figé sur la 7e période, qui sort de l'écran en scrollant). Élément
-   position: absolute, enfant direct de #goalsGridScroll (même parent que
-   #goalsGridAddOutline, pas un bouton .goalsGridCell--add particulier) :
-   top/left sont désormais tous deux calculés en JS
-   (positionGoalsAddCenterContent(), app.js) comme le CENTRE visé (d'où
-   translate(-50%, -50%) sur les deux axes, pas seulement l'axe vertical).
-   display: none par défaut (comme #goalsGridAddOutline) tant que
-   positionGoalsAddCenterContent() n'a pas calculé une position valide. */
+   tactile) ; v2, HORIZONTAL désormais fixe, centré sur la boîte (équidistant
+   des deux bords pointillés, comme v1 le faisait déjà nativement) ;
+   VERTICAL désormais mobile, recalculé au défilement de la PAGE pour
+   rester au milieu de l'écran (au lieu d'être figé sur la 7e période, qui
+   sort de l'écran en scrollant) — mais recalcul en JS sur l'événement
+   'scroll', donc toujours un cadre de retard sur le défilement natif :
+   Emilien signale un sautillement lors d'un défilement rapide/inertiel.
+   22 septembre 2026, v3 (celle-ci) : le calcul VERTICAL en JS est retiré
+   entièrement, remplacé par du CSS pur — cet élément est désormais un
+   enfant absolute de #goalsGridAddStickyAnchor (index.html), lui-même
+   position: sticky (voir plus bas), qui fait tout le travail vertical côté
+   moteur de rendu (aucun sautillement possible, bornage automatique par la
+   hauteur de #goalsGridColumnsWrap). Seul le LEFT reste calculé en JS
+   (positionGoalsAddCenterContent(), app.js, inchangé depuis la v2) ; top: 0
+   fixe + translate(-50%, -50%) centre l'élément exactement sur le point
+   fixé par l'ancre. display: none par défaut (comme #goalsGridAddOutline)
+   tant que positionGoalsAddCenterContent() n'a pas calculé un left valide. */
 .goalsGridCellAddContent {
-  position: absolute; display: none;
+  position: absolute; display: none; top: 0;
   transform: translate(-50%, -50%);
   flex-direction: column; align-items: center; gap: 8px;
   pointer-events: none;
 }
+/* 22 septembre 2026 (discussion "Objectifs — Arbre périodique", v3) :
+   ancre du centrage vertical sticky de #goalsGridAddContent — recette
+   standard « sticky centré » : hauteur 0 (n'ajoute donc AUCUNE hauteur à
+   #goalsGridColumnsWrap, ne pousse ni l'en-tête ni la grille), position:
+   sticky; top: 50% fait que ce point reste fixé au milieu de l'écran
+   pendant le défilement, puis se relâche naturellement dès que le haut ou
+   le bas de #goalsGridColumnsWrap (son bloc englobant pour le sticky)
+   atteint ce point — jamais au-delà, donc jamais hors de la boîte
+   #goalsGridAddOutline qui couvre le même en-tête + les mêmes 13 lignes.
+   pointer-events: none : purement décoratif (l'ancre elle-même n'a pas de
+   contenu visible), le "+" cliquable est le bouton .goalsGridCell--add
+   correspondant, en dessous.
+   22 septembre 2026, v4 (même jour) : capture d'écran d'Emilien à l'appui,
+   « je souhaite que sa hauteur maximale s'arrête au moment où les
+   pointillés de la page est toujours en plein écran avant de pouvoir
+   percevoir les titres et les pôles » — au repos (page non défilée), le
+   haut de la boîte est bien plus bas que le milieu de l'écran (en-tête +
+   sélecteur de pôle au-dessus), donc se coller à 50% de l'écran DÈS le
+   repos plaçait le "+" trop haut dans la boîte, avant même qu'elle ne
+   remplisse l'écran. margin-top: 50vh (+ margin-bottom: -50vh pour ne
+   RIEN ajouter à la hauteur totale de #goalsGridColumnsWrap, donc ne pousse
+   toujours ni l'en-tête ni la grille) retarde le point de bascule : tant
+   que le haut de la boîte n'a pas atteint le haut de l'écran, l'ancre suit
+   le flux normal du document (défilement natif, aucun sautillement) et
+   reste sous le milieu de l'écran ; PILE au moment où la boîte remplit
+   l'écran (son haut atteint le haut de l'écran), la position statique de
+   l'ancre croise exactement 50% de l'écran — c'est à cet instant précis
+   que le sticky prend le relais, sans saut ni discontinuité (calcul exact :
+   la valeur ajoutée par margin-top est la même que celle qui fait
+   coïncider les deux repères). Unité vh (pas %, qui se résoudrait contre
+   la hauteur du bloc englobant, pas celle de l'écran) : purement CSS,
+   recalculé nativement par le navigateur au redimensionnement, aucun JS. */
+.goalsGridAddStickyAnchor {
+  position: sticky; top: 50%; height: 0; pointer-events: none;
+  margin-top: 50vh; margin-bottom: -50vh;
+}
+/* Enveloppe l'en-tête (#goalsGridHead) ET la grille (#goalsGrid) — sa
+   hauteur totale (en-tête + 13 lignes de période) sert de borne au sticky
+   ci-dessus (position: relative requis : bloc englobant du sticky, comme
+   pour tout position: absolute classique). display: flow-root (v4,
+   22 septembre 2026) : établit un contexte de formatage de bloc, faute de
+   quoi le margin-top: 50vh de #goalsGridAddStickyAnchor (son premier
+   enfant) « fuirait » par collapsing de marges et décalerait CE conteneur
+   lui-même (donc l'en-tête et la grille avec) au lieu de rester interne à
+   l'ancre — bug classique de marges CSS, pas une question de mise en page
+   visible avant qu'on ajoute ce margin-top. N'affecte sinon aucune mise en
+   page existante : simple conteneur transparent, mêmes enfants qu'avant
+   leur regroupement (22 septembre 2026). */
+.goalsGridColumnsWrap { position: relative; display: flow-root; }
 .goalsGridCellAddIcon {
   position: relative; width: 34px; height: 34px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;

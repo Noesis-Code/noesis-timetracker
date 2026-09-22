@@ -8039,44 +8039,23 @@
   //   (outlineLeft + outlineWidth/2) — cette coordonnée inclut déjà
   //   scroll.scrollLeft, donc défile normalement avec le contenu horizontal,
   //   aucun recalcul au scroll nécessaire (contrairement à la v1, qui
-  //   suivait par erreur le défilement horizontal — écouteur retiré, voir
-  //   plus bas).
-  // - VERTICAL (mobile, toujours au milieu de l'écran) : milieu du
-  //   VIEWPORT (window.innerHeight / 2) converti en coordonnée LOCALE
-  //   (relative au bord haut ACTUEL de #goalsGridScroll à l'écran,
-  //   scrollRect.top) — recalculé à chaque défilement de la PAGE (window),
-  //   pas de #goalsGridScroll qui ne défile qu'à l'horizontale (voir
-  //   l'écouteur window 'scroll' ajouté plus bas, même patron que le rail
-  //   vertical). Borné à [top+20, top+hauteur-20] pour ne jamais dépasser
-  //   la boîte (#goalsGridAddOutline) même en haut/bas de page.
+  //   suivait par erreur le défilement horizontal).
+  // - VERTICAL : 22 septembre 2026, v3 — entièrement retiré d'ici. Emilien
+  //   signalait un sautillement au défilement avec le recalcul en JS sur
+  //   l'événement 'scroll' (v2, un cadre de retard sur le rendu natif,
+  //   surtout en défilement inertiel) ; le centrage + le bornage sont
+  //   désormais gérés par du CSS pur (#goalsGridAddStickyAnchor, position:
+  //   sticky, styles.css/index.html), sans aucun JS ni écouteur 'scroll'.
   function positionGoalsAddCenterContent() {
     var content = $('goalsGridAddContent');
     var outline = $('goalsGridAddOutline');
-    var scroll = $('goalsGridScroll');
-    if (!content || !outline || !scroll) return;
+    if (!content || !outline) return;
     if (outline.style.display === 'none') { content.style.display = 'none'; return; }
     var outlineLeft = parseFloat(outline.style.left) || 0;
     var outlineWidth = parseFloat(outline.style.width) || 0;
-    var outlineTop = parseFloat(outline.style.top) || 0;
-    var outlineHeight = parseFloat(outline.style.height) || 0;
-    if (!outlineWidth || !outlineHeight) { content.style.display = 'none'; return; }
-    var scrollRect = scroll.getBoundingClientRect();
-    // 22 septembre 2026 : Emilien souhaite que le « + »/« Ajouter un secteur »
-    // ne puisse jamais monter plus haut que sa position par défaut (page non
-    // défilée) — « au-delà, il se bloque et il n'est plus au milieu de
-    // l'écran ». `restTop` recalcule cette position de repos indépendamment
-    // du défilement en cours (en neutralisant window.scrollY), ce qui sert de
-    // plafond : en défilement normal desiredTop est toujours >= restTop
-    // (aucun effet), mais lors d'un rebond élastique en haut de page (iOS),
-    // ce plafond empêche l'élément de dépasser sa position de repos.
-    var pageScrollY = window.scrollY || window.pageYOffset || 0;
-    var restTop = (window.innerHeight / 2) - (scrollRect.top + pageScrollY);
-    var minTop = Math.max(outlineTop + 20, restTop);
-    var desiredTop = (window.innerHeight / 2) - scrollRect.top;
-    desiredTop = Math.max(minTop, Math.min(outlineTop + outlineHeight - 20, desiredTop));
+    if (!outlineWidth) { content.style.display = 'none'; return; }
     content.style.display = 'flex';
     content.style.left = (outlineLeft + outlineWidth / 2) + 'px';
-    content.style.top = desiredTop + 'px';
   }
 
   function syncGoalsGridWidths() {
@@ -8138,25 +8117,14 @@
   }
   window.addEventListener('resize', syncGoalsGridWidths);
   window.addEventListener('orientationchange', syncGoalsGridWidths);
-  // 21 septembre 2026 : le défilement VERTICAL de la page ne déclenche ni
-  // resize ni re-rendu — sans ceci, positionGoalsAddCenterContent() ne
-  // recalculerait qu'au prochain rendu/redimensionnement, donc le "+"
-  // resterait figé pendant que l'utilisateur fait défiler la page (c'est
-  // exactement le bug signalé par Emilien : « ne se décale pas de haut en
-  // bas »). Écouteur posé une seule fois au chargement du script.
-  // rAF-throttlé (même patron que le rail vertical plus haut) pour ne pas
-  // recalculer plus d'une fois par frame pendant un défilement rapide.
-  (function () {
-    var scheduled = false;
-    window.addEventListener('scroll', function () {
-      if (scheduled) return;
-      scheduled = true;
-      window.requestAnimationFrame(function () {
-        scheduled = false;
-        positionGoalsAddCenterContent();
-      });
-    }, { passive: true });
-  })();
+  // 22 septembre 2026, v3 : l'écouteur 'scroll' qui recalculait le TOP de
+  // #goalsGridAddContent à chaque défilement de la page (v2, 21 septembre)
+  // est retiré — Emilien signalait un sautillement (toujours un cadre de
+  // retard sur le rendu natif en défilement rapide/inertiel). Le centrage
+  // vertical est désormais purement CSS (#goalsGridAddStickyAnchor,
+  // position: sticky, styles.css) : plus aucun recalcul au scroll
+  // nécessaire, seul syncGoalsGridWidths() (resize/orientation/re-rendu,
+  // ci-dessus) recalcule encore le LEFT horizontal.
 
   function renderGoalsGrid() {
     var grid = $('goalsGrid');
