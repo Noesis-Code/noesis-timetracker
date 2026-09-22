@@ -13,8 +13,8 @@ Le module Horaires (client Jacopo) est un produit séparé, hors TimeTracker —
 - Dépôt : https://github.com/Noesis-Code/noesis-timetracker.git
 - Branche d'intégration : `staging` — jamais de commit direct sur `main`.
 - Chaque segment travaille sur sa propre branche depuis `staging` à jour (ex. `emilien/<segment>`), fusionnée vers `staging` une fois le chantier prêt.
-- `staging` EST directement l'environnement de test — déployé automatiquement sur `https://web-staging-6d1b.up.railway.app` à chaque push, il n'existe pas d'« application Teste » distincte.
-- **20 septembre 2026 — décision d'Émilien : ne plus demander de confirmation avant un push sur `staging`.** Pousser directement une fois le chantier prêt et testé (bac à sable local). *(Ancienne règle retirée : la question « ATTENTION, envoyons-nous le code sur l'application Teste ? » ne se pose plus.)*
+- `staging` est l'environnement de test : déployé automatiquement sur `https://web-staging-6d1b.up.railway.app` à chaque push.
+- **20 septembre 2026 — décision d'Émilien : ne plus demander de confirmation avant un push sur `staging`.** Pousser directement une fois le chantier prêt et vérifié en bac à sable local. Aucune question de confirmation, sous aucune formulation.
 - Fusion `staging` → `main` : toujours faite par Émilien lui-même après avoir testé l'URL Railway — aucune conversation ne fusionne elle-même.
 
 ## Cartographie des segments
@@ -50,7 +50,7 @@ Hors segmentation : Horaires / client Jacopo (produit séparé, hors TimeTracker
 
 - Ne jamais toucher aux fichiers d'un autre segment. Si une demande déborde du périmètre, le signaler à Émilien plutôt que d'y toucher — elle doit passer par Aiguillage.
 - Travailler sur sa propre branche dédiée (`emilien/<segment>`, créée depuis `staging` à jour) — jamais de commit direct sur `staging`, encore moins sur `main`.
-- Une fois le chantier prêt et testé, pousser directement vers `staging` — **plus de question de confirmation à poser avant ce push** (décision d'Émilien, 20 septembre 2026 : il n'existe pas d'« application Teste » séparée, voir `noesis-timetracker-deploiement.md`).
+- Une fois le chantier prêt et vérifié, pousser directement vers `staging` — **aucune question de confirmation à poser avant ce push** (décision d'Émilien, 20 septembre 2026, voir `noesis-timetracker-deploiement.md`).
 - Ne jamais fusionner soi-même vers `main` — c'est Émilien qui teste sur Railway et merge.
 - **Les 5 segments Objectifs partageant physiquement `public/app.js`/`public/index.html`/`public/styles.css` sans séparation par fichier (Arbre périodique, Rail périodique, Tâches, Calendrier & intégrations, Planification IA) suivent un protocole obligatoire, en plus des règles ci-dessus : `device_list_dir` juste avant chaque écriture (pas seulement se fier à une lecture antérieure), re-stage + comparaison SHA-256 juste après chaque `device_commit_files`, sans exception. Objectifs — Logique métier ne touche plus ces fichiers depuis le 20 sept. 2026 (resserré à la logique pure, voir sa ligne ci-dessus). Détail complet et historique des incidents : `noesis-timetracker-objectifs.md`.**
 - **`server/lib/goals.js` et `server/routes/goals.js` sont partagés entre Objectifs — Logique métier et Objectifs — Tâches (découpés par fonction/route, voir leurs lignes ci-dessus) : jamais de réécriture de fichier entier, relire les fonctions de l'autre segment avant d'écrire, `device_list_dir` avant chaque écriture.**
