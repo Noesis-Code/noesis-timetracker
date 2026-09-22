@@ -7564,8 +7564,19 @@
     var outlineHeight = parseFloat(outline.style.height) || 0;
     if (!outlineWidth || !outlineHeight) { content.style.display = 'none'; return; }
     var scrollRect = scroll.getBoundingClientRect();
+    // 22 septembre 2026 : Emilien souhaite que le « + »/« Ajouter un secteur »
+    // ne puisse jamais monter plus haut que sa position par défaut (page non
+    // défilée) — « au-delà, il se bloque et il n'est plus au milieu de
+    // l'écran ». `restTop` recalcule cette position de repos indépendamment
+    // du défilement en cours (en neutralisant window.scrollY), ce qui sert de
+    // plafond : en défilement normal desiredTop est toujours >= restTop
+    // (aucun effet), mais lors d'un rebond élastique en haut de page (iOS),
+    // ce plafond empêche l'élément de dépasser sa position de repos.
+    var pageScrollY = window.scrollY || window.pageYOffset || 0;
+    var restTop = (window.innerHeight / 2) - (scrollRect.top + pageScrollY);
+    var minTop = Math.max(outlineTop + 20, restTop);
     var desiredTop = (window.innerHeight / 2) - scrollRect.top;
-    desiredTop = Math.max(outlineTop + 20, Math.min(outlineTop + outlineHeight - 20, desiredTop));
+    desiredTop = Math.max(minTop, Math.min(outlineTop + outlineHeight - 20, desiredTop));
     content.style.display = 'flex';
     content.style.left = (outlineLeft + outlineWidth / 2) + 'px';
     content.style.top = desiredTop + 'px';
@@ -15707,7 +15718,25 @@
       // L'activité affichée n'existe plus : sa page n'a plus rien à montrer.
       $('activityPage').classList.add('hidden');
     } else if (currentCommunityActivityId) {
-      currentActivityIsShared = !!shared[String(currentCommunityActivityId)];
+      // 22 septembre 2026 (Objectifs — Tâches, signalement direct d'Emilien :
+      // « les sections discussion et statistiques qui disparaissent [...]
+      // parce que l'activité est partagée ») — bug réel trouvé : `shared`
+      // vient de GET /api/community, dont l'échec retombe sur une liste VIDE
+      // dans loadSettingsActivities (`.catch(() => ({ activities: [] })`) —
+      // un simple aléa réseau/serveur suffisait donc à effacer À TORT le
+      // partage d'une activité pourtant bien partagée, et avec lui ses
+      // sections Discussion/Statistiques (setActivityPageSection : « le
+      // partage a toujours le dernier mot »). `acts` (GET /api/activities)
+      // n'est lui jamais réduit à une liste vide de cette façon (si cet appel
+      // échoue, Promise.all rejette et renderActivitiesSettings n'est même
+      // pas appelée) et porte déjà `membersCount` par activité — déjà la
+      // source de vérité utilisée par openActivityPage. On l'utilise ici en
+      // repli, en OU logique : ne sert jamais à DÉGRADER un partage confirmé
+      // par `shared`, seulement à ne pas perdre un partage réel que `shared`
+      // aurait manqué au prochain rafraîchissement.
+      var actForCurrent = (acts || []).filter(function (x) { return String(x.id) === String(currentCommunityActivityId); })[0];
+      currentActivityIsShared = !!shared[String(currentCommunityActivityId)]
+        || !!(actForCurrent && actForCurrent.membersCount > 1);
     }
 
     // Mémorisé pour la boîte de fusion (qui doit proposer les AUTRES activités
