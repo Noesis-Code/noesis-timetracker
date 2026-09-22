@@ -5634,7 +5634,20 @@ button { -webkit-user-select: none; user-select: none; }
    direction: reverse;` sur `activityGoalsAutoTaskGlow` ci-dessous suffit à
    l'inverser — seule ligne à ajouter, rien d'autre à toucher. Repli
    silencieux (bulle et fond `--card` intacts, sans point lumineux) sur un
-   moteur sans `offset-path`. */
+   moteur sans `offset-path`.
+   RÉGLAGES, même jour, Emilien confirme le principe (« La direction et le
+   chemin parcouru par le point [sont] très bon[s] ») et demande 3 ajustements
+   : plus lent, le fuseau beaucoup plus long (« quasiment un tiers du
+   périmètre »), plus brillant. `width` passe de 30px fixes à 34% (relatif à
+   la largeur de la bulle — CSS n'a aucun moyen d'exprimer une fraction du
+   PÉRIMÈTRE réel, la largeur est l'approximation la plus proche pour une
+   bulle large et basse où l'essentiel du tour est sur les bords horizontaux
+   ; à ajuster si Emilien juge que ça ne fait toujours pas un tiers visuel
+   une fois testé) ; dégradé radial réécrit avec un palier quasi-opaque
+   (`var(--purple) 30% à 55%`) au lieu de s'éteindre presque aussitôt, plus
+   une amorce claire (`#f3ecff`) à la toute pointe pour un point plus
+   éclatant ; `box-shadow` ajoutée pour un halo diffus (luminosité perçue,
+   pas seulement la couleur du tracé) ; durée de l'animation 3.4s → 7s. */
 .activityGoalsCategoryAutoTaskBubble {
   position: relative;
   border-radius: var(--radius-lg, var(--radius-md));
@@ -5644,13 +5657,15 @@ button { -webkit-user-select: none; user-select: none; }
   content: '';
   position: absolute;
   z-index: 2;
-  width: 30px;
-  aspect-ratio: 2.4 / 1;
+  width: 34%;
+  height: 14px;
   border-radius: 999px;
-  background: radial-gradient(100% 100% at right, var(--purple), transparent 70%);
+  background: radial-gradient(100% 100% at right,
+    #f3ecff 0%, var(--purple) 30%, var(--purple) 55%, transparent 96%);
+  box-shadow: 0 0 12px 3px var(--purple);
   offset-path: border-box;
   offset-anchor: 100% 50%;
-  animation: activityGoalsAutoTaskGlow 3.4s linear infinite;
+  animation: activityGoalsAutoTaskGlow 7s linear infinite;
   pointer-events: none;
 }
 @keyframes activityGoalsAutoTaskGlow {

@@ -5788,11 +5788,40 @@
     // mode édition (même règle que les tâches/résumé hebdo, masqués eux
     // aussi pendant l'édition) et si l'activité n'a encore aucune catégorie
     // (rien à classer).
+    // 22 septembre 2026, demande directe d'Emilien : « lorsque je clique sur
+    // un pôle, le point [lumineux] autour de la [...] zone d'écriture pour
+    // l'IA ne soit pas affecté et ne recharge pas [...] qu'il continue son
+    // cours comme si rien n'était [...] pas affecté par les chargements des
+    // pôles et des secteurs. » — cette fonction est appelée pour toutes
+    // sortes de raisons qui n'ont RIEN à voir avec la bulle IA elle-même
+    // (déplier/replier un pôle via bindCategoryOpenToggle, créer/renommer/
+    // retirer/réordonner un secteur via buildPoleSecteursBlock, etc.) :
+    // avant ce correctif, `autoTaskWrap.innerHTML = ''` la détruisait et la
+    // reconstruisait à CHAQUE appel, quelle qu'en soit la cause — ce qui
+    // repartait de zéro l'animation CSS du point lumineux (::before,
+    // styles.css, offset-path) et effaçait au passage tout brouillon en
+    // cours de saisie dans le <textarea>. Reconstruite désormais seulement
+    // quand une des deux choses qu'elle doit refléter a réellement changé :
+    // sa visibilité (mode édition, ou plus aucun pôle) et la liste des
+    // tâches en attente de re-catégorisation (categoryAutoTaskPending,
+    // affichée DANS la bulle) — comparées via deux attributs `data-*` posés
+    // sur la bulle à sa construction. Dans tous les autres cas (dont le clic
+    // sur un pôle), la bulle existante n'est ni touchée ni reconstruite.
     var autoTaskWrap = $('activityGoalsCategoryAutoTaskWrap');
     if (autoTaskWrap) {
-      autoTaskWrap.innerHTML = '';
-      if (!activityGoalsCategoriesEditMode && currentActivityGoalsCategories.length) {
-        autoTaskWrap.appendChild(buildCategoryAutoTaskBubble(activityIdForTasks));
+      var shouldShowAutoTaskBubble = !activityGoalsCategoriesEditMode && currentActivityGoalsCategories.length > 0;
+      var existingAutoTaskBubble = autoTaskWrap.firstElementChild;
+      var autoTaskBubbleUpToDate = existingAutoTaskBubble &&
+        existingAutoTaskBubble.dataset.activityId === String(activityIdForTasks) &&
+        existingAutoTaskBubble.dataset.pendingCount === String(categoryAutoTaskPending.length);
+      if (!shouldShowAutoTaskBubble) {
+        if (existingAutoTaskBubble) autoTaskWrap.innerHTML = '';
+      } else if (!autoTaskBubbleUpToDate) {
+        autoTaskWrap.innerHTML = '';
+        var autoTaskBubble = buildCategoryAutoTaskBubble(activityIdForTasks);
+        autoTaskBubble.dataset.activityId = String(activityIdForTasks);
+        autoTaskBubble.dataset.pendingCount = String(categoryAutoTaskPending.length);
+        autoTaskWrap.appendChild(autoTaskBubble);
       }
     }
   }
