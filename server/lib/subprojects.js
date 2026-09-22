@@ -278,8 +278,21 @@ function updateSubProject(subProjectId, fields) {
     if (!clean) {
       goalCategory = null;
     } else {
-      if (!goals.isValidPoleForActivity(current.activityId, clean)) {
-        throw Object.assign(new Error('Pôle invalide pour cette activité.'), { statusCode: 400 });
+      // 22 septembre 2026 (Capture — tâche libre, bug trouvé en testant sur
+      // staging) : appelait `goals.isValidPoleForActivity`, une fonction qui
+      // n'a jamais existé dans goals.js réellement déployé — même famille de
+      // bug que l'encart (37) de chantiers-en-cours.md (renommage
+      // catégorie→pôle jamais allé jusqu'au bout). Chaque premier ajout de
+      // tâche dans un pôle/secteur passe par ici (ensureHomeSubProject,
+      // goalstasks.js) : plantait en TypeError, jamais en production avant
+      // ce test (aucun secteur n'avait encore reçu sa toute première tâche).
+      // Corrigé vers le nom réellement exporté, déjà utilisé ailleurs pour ce
+      // même besoin (server/routes/goals.js, route manuelle d'ajout de
+      // tâche) — accepte pôle ET secteur, cohérent avec « Secteurs dans
+      // l'arbre périodique » (21 sept.) qui permet de rattacher une tâche
+      // directement à un secteur.
+      if (!goals.isValidCategoryOrSecteurForActivity(current.activityId, clean)) {
+        throw Object.assign(new Error('Pôle ou secteur invalide pour cette activité.'), { statusCode: 400 });
       }
       goalCategory = clean;
     }
