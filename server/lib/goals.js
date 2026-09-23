@@ -1405,6 +1405,10 @@ module.exports = {
   ensurePeriodRow,
   ensurePeriodsUpTo,
   weeklyForPeriod,
+  // Exportée pour server/lib/goalsdailypriority.js (Brief B, liste
+  // quotidienne priorisée, 22 septembre 2026) — même fonction interne que
+  // ci-dessus, pas de doublon.
+  daysBetween,
   // Réalignement rétroactif ponctuel (16 septembre 2026, discussion Objectifs
   // — D, 6ᵉ passage) — réservées à scripts/realign-goals-monday.js, jamais
   // exposées via une route HTTP.

@@ -14,6 +14,9 @@ const db = require('../db');
 const goals = require('../lib/goals');
 const goalsauto = require('../lib/goalsauto');
 const goalsdailyauto = require('../lib/goalsdailyauto');
+// Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
+// priorisées, voir server/lib/goalsdailypriority.js.
+const goalsdailypriority = require('../lib/goalsdailypriority');
 // Chantier Objectifs — C (fusion sous-projet → catégorie, section Tâches,
 // 17 septembre 2026) — voir server/lib/goalstasks.js.
 const goalstasks = require('../lib/goalstasks');
@@ -721,6 +724,30 @@ router.post('/activities/:id/goals/weekly/:weeklyId/daily-plan', async (req, res
   try {
     const result = await goalsdailyauto.generateDailyPlanForWeekly(activityId, weeklyId, userId);
     res.json({ ok: true, ...result });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
+// priorisées, voir server/lib/goalsdailypriority.js. Toujours une
+// PROPOSITION à valider par l'utilisateur (règle verrouillée) — cette route
+// ne fait que CALCULER, jamais n'applique ni n'écrit quoi que ce soit ;
+// aucune persistance ce chantier-ci (la surface de validation/ajustement
+// revient à Objectifs — Planification IA, voir le commentaire de tête de
+// goalsdailypriority.js). Couvre toute l'activité, tous pôles/secteurs
+// confondus (le planning reste propre à l'activité, jamais global à la
+// personne — règle 1 de goals.js).
+router.get('/activities/:id/goals/daily-priority', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    res.json(goalsdailypriority.computeDailyPriorityList(activityId, userId));
   } catch (err) {
     handleGoalsError(res, err);
   }

@@ -9,6 +9,28 @@
 // voir categoryAutoTaskPending dans public/app.js, rien à faire ici côté
 // serveur pour ce point.
 //
+// 22 septembre 2026 (« Capture — tâche libre », brief « Objectifs — Tâches »,
+// cadré avec Emilien via AskUserQuestion) — deux ajouts :
+//  1. La classification choisit désormais aussi un SECTEUR quand le pôle en a
+//     (buildClassificationCandidates ci-dessous) — jusqu'ici elle s'arrêtait
+//     au pôle (categoriesForActivity() exclut les secteurs par construction,
+//     voir son commentaire dans goals.js). Un seul appel modèle, liste
+//     aplatie pôle+secteurs, cohérent avec « Secteurs dans l'arbre
+//     périodique » (21 sept) qui permet déjà de poser un objectif directement
+//     sur un secteur.
+//  2. suggestWeeklyObjective() : rattachement SUGGÉRÉ (jamais persisté, donc
+//     jamais imposé) à l'objectif hebdomadaire en cours du pôle/secteur
+//     classé — signal cadré avec Emilien : « Combinaison des deux »
+//     (correspondance structurelle d'abord — même clé, semaine en cours —
+//     puis, si le secteur ET son pôle ont chacun un objectif cette semaine,
+//     départage par similarité de mots). Réutilise
+//     goalstasks.weeklyObjectiveForWeek (déjà utilisée par la fenêtre
+//     « visualiser » d'un secteur/pôle) et tokenize/jaccard (déjà utilisées
+//     par goalsauto.js pour l'estimation par similarité) — rien de dupliqué,
+//     rien de nouveau en base : la suggestion n'est JAMAIS écrite nulle part,
+//     seulement renvoyée une fois dans la réponse de cet ajout précis (voir
+//     addTaskWithAutoCategory ci-dessous).
+//
 // Même patron d'appel IA que server/lib/goalsdailyauto.js (voir son
 // commentaire de tête pour le contexte complet : fetch() natif, aucune
 // dépendance npm ajoutée, repli déterministe si la clé API est absente,
@@ -19,11 +41,10 @@
 // d'entrée HTTP, pas la logique de validation — ici on choisit UNE
 // catégorie parmi une liste, pas une date par tâche.
 //
-// Repli déterministe : la PREMIÈRE catégorie active de l'activité (même
-// ordre que resolveCategory() dans server/routes/goals.js) si la clé API
-// est absente, s'il n'y a qu'une seule catégorie (inutile d'appeler l'IA),
-// si l'appel échoue/expire, ou si la réponse ne correspond à aucune clé de
-// catégorie existante — jamais de blocage de la création de la tâche.
+// Repli déterministe : le PREMIER candidat (pôle ou secteur) de l'activité
+// si la clé API est absente, s'il n'y a qu'un seul candidat (inutile
+// d'appeler l'IA), si l'appel échoue/expire, ou si la réponse ne correspond
+// à aucune clé candidate — jamais de blocage de la création de la tâche.
 
 const goals = require('./goals');
 const goalstasks = require('./goalstasks');
@@ -46,6 +67,26 @@ function configured() {
 
 function modelName() {
   return process.env.NOESIS_TASK_CATEGORY_MODEL || DEFAULT_MODEL;
+}
+
+// Liste aplatie des candidats de classement pour une activité : les secteurs
+// d'un pôle quand il en a (label "Pôle → Secteur", pour que le modèle voie le
+// pôle parent sans qu'on lui fournisse une arborescence), sinon le pôle
+// lui-même — jamais les deux pour un même pôle (pas de doublon de candidat).
+// Même forme {key,label} que categoriesForActivity(), pour que buildPrompt/
+// extractKey ci-dessous n'aient rien à savoir du pôle/secteur.
+function buildClassificationCandidates(activityId) {
+  const poles = goals.categoriesForActivity(activityId);
+  const out = [];
+  poles.forEach((pole) => {
+    const secteurs = goals.secteursForPole(activityId, pole.key);
+    if (secteurs.length) {
+      secteurs.forEach((s) => out.push({ key: s.key, label: pole.label + ' → ' + s.label }));
+    } else {
+      out.push({ key: pole.key, label: pole.label });
+    }
+  });
+  return out;
 }
 
 function buildPrompt(label, categories) {
@@ -110,12 +151,12 @@ async function callModel(prompt) {
   }
 }
 
-// Choisit toujours une catégorie parmi celles de l'activité — ne lève
-// jamais pour une panne IA : repli sur la première catégorie active dans
-// tous les cas d'échec (clé absente, une seule catégorie, appel qui
-// échoue/expire, réponse inexploitable).
+// Choisit toujours une catégorie (pôle OU secteur) parmi celles de
+// l'activité — ne lève jamais pour une panne IA : repli sur le premier
+// candidat dans tous les cas d'échec (clé absente, un seul candidat, appel
+// qui échoue/expire, réponse inexploitable).
 async function classifyCategory(activityId, label) {
-  const categories = goals.categoriesForActivity(activityId);
+  const categories = buildClassificationCandidates(activityId);
   if (!categories.length) {
     throw Object.assign(new Error('Aucune catégorie sur cette activité.'), { statusCode: 400 });
   }
@@ -134,12 +175,60 @@ async function classifyCategory(activityId, label) {
   }
 }
 
+// Rattachement SUGGÉRÉ (jamais persisté — voir le commentaire de tête) à
+// l'objectif hebdomadaire en cours du pôle/secteur classé. Deux niveaux
+// possibles pour une même tâche classée dans un secteur : l'objectif du
+// secteur lui-même, et celui de son pôle parent (un objectif peut être posé
+// aux deux niveaux indépendamment depuis « Secteurs dans l'arbre
+// périodique »). Signal « Combinaison » cadré avec Emilien :
+//  - 0 objectif cette semaine aux deux niveaux → aucune suggestion (null).
+//  - 1 seul → c'est la suggestion, aucun calcul de plus.
+//  - 2 (secteur ET pôle ont chacun le leur) → départagés par similarité de
+//    mots avec l'intitulé de la tâche (tokenize/jaccard, déjà utilisées par
+//    goalsauto.js pour l'estimation par similarité) ; égalité parfaite →
+//    le niveau le plus précis (le secteur classé lui-même) l'emporte.
+// Ne lève jamais : un pôle/secteur qui n'a encore aucun plan Objectifs
+// matérialisé voit simplement weeklyObjectiveForWeek renvoyer '' (même
+// comportement que la fenêtre « visualiser » qui l'utilise déjà).
+function suggestWeeklyObjective(activityId, categoryKey, taskLabel) {
+  const parentKey = goals.parentKeyFor(activityId, categoryKey);
+  const candidates = [];
+  const ownText = goalstasks.weeklyObjectiveForWeek(activityId, categoryKey, 0);
+  if (ownText) candidates.push({ key: categoryKey, text: ownText });
+  if (parentKey) {
+    const poleText = goalstasks.weeklyObjectiveForWeek(activityId, parentKey, 0);
+    if (poleText) candidates.push({ key: parentKey, text: poleText });
+  }
+  if (!candidates.length) return null;
+  if (candidates.length === 1) {
+    return {
+      key: candidates[0].key,
+      categoryLabel: goals.categoryLabelFor(activityId, candidates[0].key),
+      text: candidates[0].text,
+    };
+  }
+  const taskTokens = new Set(goals.tokenize(taskLabel));
+  let best = candidates[0];
+  let bestScore = goals.jaccard(taskTokens, new Set(goals.tokenize(best.text)));
+  for (let i = 1; i < candidates.length; i += 1) {
+    const score = goals.jaccard(taskTokens, new Set(goals.tokenize(candidates[i].text)));
+    if (score > bestScore) { best = candidates[i]; bestScore = score; }
+  }
+  return {
+    key: best.key,
+    categoryLabel: goals.categoryLabelFor(activityId, best.key),
+    text: best.text,
+  };
+}
+
 // Point d'entrée unique appelé par la route : classe puis crée la tâche dans
 // la catégorie choisie, en réutilisant addCategoryTask telle quelle (même
 // mécanique de sous-projet "domicile" et de déclenchement de
 // goalsauto.onSubProjectItemChanged — voir server/lib/goalstasks.js) : une
 // tâche ajoutée ici n'est en rien différente d'une tâche ajoutée directement
-// depuis une catégorie précise.
+// depuis une catégorie précise. Ajoute désormais aussi suggestedObjective
+// (voir suggestWeeklyObjective ci-dessus) — jamais bloquant, jamais écrit en
+// base : une simple indication renvoyée au client pour cet ajout précis.
 async function addTaskWithAutoCategory(activityId, userId, label) {
   const clean = String(label || '').trim();
   if (!clean) throw Object.assign(new Error('Intitulé de la tâche requis.'), { statusCode: 400 });
@@ -147,12 +236,20 @@ async function addTaskWithAutoCategory(activityId, userId, label) {
 
   const { key, usedAi, aiError } = await classifyCategory(activityId, clean);
   const item = goalstasks.addCategoryTask(activityId, userId, key, clean);
-  const category = goals.categoriesForActivity(activityId).find((c) => c.key === key);
+  let suggestedObjective = null;
+  try {
+    suggestedObjective = suggestWeeklyObjective(activityId, key, clean);
+  } catch (e) {
+    // Jamais bloquant pour la création de la tâche elle-même — même principe
+    // que goalsauto.onSubProjectItemChanged ailleurs dans ce projet.
+    suggestedObjective = null;
+  }
   return Object.assign({}, item, {
     categoryKey: key,
-    categoryLabel: category ? category.label : key,
+    categoryLabel: goals.categoryLabelFor(activityId, key),
     usedAi,
     aiError,
+    suggestedObjective,
   });
 }
 
@@ -160,5 +257,6 @@ module.exports = {
   configured,
   modelName,
   classifyCategory,
+  suggestWeeklyObjective,
   addTaskWithAutoCategory,
 };
