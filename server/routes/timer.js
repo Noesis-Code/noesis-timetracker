@@ -77,7 +77,20 @@ router.post('/timer/start', (req, res) => {
   const resolved = resolveCategoryKey(activity.id, req.body.category, null);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
-  const startTime = new Date().toISOString();
+  // 23 septembre 2026 (chrono hors ligne) : un chrono démarré sans réseau
+  // arrive ici plus tard avec SON heure de départ (voir flushOfflineChrono,
+  // public/app.js). Facultatif : absent, rien ne change. Refusé s'il est
+  // invalide ou dans le futur (1 min de tolérance d'horloge), ou plus vieux
+  // que 7 jours.
+  let startTime = new Date().toISOString();
+  if (req.body.startTime !== undefined) {
+    const parsed = new Date(req.body.startTime);
+    const now = Date.now();
+    if (isNaN(parsed.getTime()) || parsed.getTime() > now + 60 * 1000 || parsed.getTime() < now - 7 * 24 * 3600 * 1000) {
+      return res.status(400).json({ error: 'Heure de début invalide.' });
+    }
+    startTime = parsed.toISOString();
+  }
   db.prepare('INSERT INTO running_timers (userId, activityId, startTime, note, goalCategory) VALUES (?, ?, ?, ?, ?)')
     .run(user.id, activity.id, startTime, '', resolved.categoryKey);
   res.json({

@@ -1565,9 +1565,157 @@
   function refreshActivities() {
     return api('GET', '/api/activities?userId=' + profile.id).then(function (acts) {
       activitiesCache = acts;
+      offlineStoreSet('activities', acts);
       return acts;
+    }, function (err) {
+      // 23 septembre 2026 (chrono hors ligne) : sans réseau, on reprend la
+      // dernière liste connue pour pouvoir quand même lancer un chrono.
+      var cached = err && err.offline ? offlineStoreGet('activities') : null;
+      if (!cached) throw err;
+      activitiesCache = cached;
+      return cached;
     });
   }
+
+  // ===================== CHRONO HORS LIGNE (23 septembre 2026) =====================
+  // Cadré avec Emilien via AskUserQuestion : démarrer ET arrêter un chrono
+  // sans réseau, synchronisés au retour du réseau ; en cas de conflit (un
+  // chrono tourne déjà côté serveur, lancé depuis un autre appareil), on
+  // GARDE celui du serveur — rien n'est jamais écrasé.
+  //
+  // Tout est stocké dans localStorage, par profil (une seule page écrit/lit,
+  // le service worker n'intervient pas ici) :
+  //   activities        dernière liste d'activités (grille du Chrono) ;
+  //   cats:<activityId> derniers pôles/secteurs connus (sélecteur) ;
+  //   chrono            un seul enregistrement :
+  //     { origin: 'offline' | 'server', activity: {id,name,color},
+  //       startTime, category: {key,label}|null,
+  //       stop: null | { startTime, endTime, category? } }
+  //   origin 'offline' = démarré sans réseau (inconnu du serveur) ;
+  //   origin 'server'  = copie du chrono en cours côté serveur, gardée pour
+  //   l'afficher et pouvoir l'ARRÊTER si l'appli est rouverte hors ligne.
+  //
+  // Synchronisation (flushOfflineChrono), au retour du réseau / au
+  // chargement / au retour au premier plan :
+  //   offline, en cours  → POST /timer/start avec son startTime (sauf si un
+  //                        chrono tourne déjà côté serveur : abandonné,
+  //                        message) ;
+  //   offline, arrêté    → POST /history (session terminée, comme une saisie
+  //                        manuelle) ;
+  //   server, arrêté     → POST /timer/stop SEULEMENT si le serveur a encore
+  //                        exactement ce chrono ; sinon il a déjà été arrêté
+  //                        ailleurs (et donc enregistré) : message, rien envoyé.
+  function offlineStoreKey(name) { return 'noesis-offline:' + (profile ? profile.id : '') + ':' + name; }
+  function offlineStoreGet(name) {
+    try { var raw = localStorage.getItem(offlineStoreKey(name)); return raw ? JSON.parse(raw) : null; }
+    catch (e) { return null; }
+  }
+  function offlineStoreSet(name, value) {
+    try {
+      if (value === null || value === undefined) localStorage.removeItem(offlineStoreKey(name));
+      else localStorage.setItem(offlineStoreKey(name), JSON.stringify(value));
+    } catch (e) { /* stockage indisponible : pas de mode hors ligne */ }
+  }
+  function loadOfflineChrono() { return offlineStoreGet('chrono'); }
+  function saveOfflineChrono(rec) { offlineStoreSet('chrono', rec); }
+  function offlineChronoHasPending(rec) { return !!rec && (rec.origin === 'offline' || !!rec.stop); }
+
+  function formatClock(iso) {
+    var d = new Date(iso);
+    return pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function startOfflineChrono(activity) {
+    var rec = {
+      origin: 'offline',
+      activity: { id: activity.id, name: activity.name, color: activity.color },
+      startTime: new Date().toISOString(),
+      category: null,
+      stop: null,
+    };
+    saveOfflineChrono(rec);
+    enterRunning(rec.activity, rec.startTime, null);
+    $('chronoStatus').textContent = t('Hors ligne — le chrono sera synchronisé au retour du réseau.');
+  }
+
+  // Rend une promesse : true si plus rien n'est en attente, false si on
+  // n'a pas pu joindre le serveur (nouvel essai plus tard).
+  var offlineChronoFlushing = null;
+  function flushOfflineChrono() {
+    if (offlineChronoFlushing) return offlineChronoFlushing;
+    var rec = loadOfflineChrono();
+    if (!offlineChronoHasPending(rec)) return Promise.resolve(true);
+    var notes = [];
+    function done() { saveOfflineChrono(null); return true; }
+    function toHistory(start, end, category) {
+      var body = { userId: profile.id, activityId: rec.activity.id, startTime: start, endTime: end };
+      if (category !== undefined) body.category = category;
+      return api('POST', '/api/history', body).catch(function (err) {
+        // Pôle/secteur retiré entre-temps : on enregistre quand même, sans.
+        if (err.offline || category === undefined || category === null) throw err;
+        delete body.category;
+        return api('POST', '/api/history', body);
+      });
+    }
+    offlineChronoFlushing = api('GET', '/api/timer/status?userId=' + profile.id).then(function (status) {
+      if (rec.origin === 'offline' && rec.stop) {
+        var cat = rec.stop.category !== undefined ? rec.stop.category : (rec.category ? rec.category.key : undefined);
+        return toHistory(rec.stop.startTime, rec.stop.endTime, cat).then(function () {
+          notes.push(t('Session hors ligne enregistrée ({activity}).', { activity: rec.activity.name }));
+          return done();
+        });
+      }
+      if (rec.origin === 'offline') {
+        if (status.running) {
+          notes.push(t('Un chrono tournait déjà sur un autre appareil : ton chrono hors ligne ({activity}, {time}) n\'a pas été repris.',
+            { activity: rec.activity.name, time: formatClock(rec.startTime) }));
+          return done();
+        }
+        var startBody = { userId: profile.id, activityId: rec.activity.id, startTime: rec.startTime };
+        if (rec.category && rec.category.key) startBody.category = rec.category.key;
+        return api('POST', '/api/timer/start', startBody).catch(function (err) {
+          if (err.offline || !startBody.category) throw err;
+          delete startBody.category;
+          return api('POST', '/api/timer/start', startBody);
+        }).then(function (data) {
+          if (data && data.alreadyRunning) {
+            notes.push(t('Un chrono tournait déjà sur un autre appareil : ton chrono hors ligne ({activity}, {time}) n\'a pas été repris.',
+              { activity: rec.activity.name, time: formatClock(rec.startTime) }));
+          }
+          return done();
+        });
+      }
+      // origin 'server', arrêté hors ligne.
+      var same = status.running && status.activity && String(status.activity.id) === String(rec.activity.id) &&
+        new Date(status.startTime).getTime() === new Date(rec.startTime).getTime();
+      if (!same) {
+        notes.push(t('Ce chrono avait déjà été arrêté sur un autre appareil : ton arrêt hors ligne n\'a pas été appliqué.'));
+        return done();
+      }
+      var stopBody = { userId: profile.id, startTime: rec.stop.startTime, endTime: rec.stop.endTime };
+      if (rec.stop.category !== undefined) stopBody.category = rec.stop.category;
+      return api('POST', '/api/timer/stop', stopBody).then(function () {
+        notes.push(t('Arrêt hors ligne synchronisé ({activity}).', { activity: rec.activity.name }));
+        return done();
+      });
+    }).catch(function (err) {
+      if (err && err.offline) return false;
+      // Refus définitif du serveur (activité supprimée, heures invalides…) :
+      // on ne bloque pas l'appli indéfiniment.
+      notes.push(t('Chrono hors ligne non synchronisé : {error}', { error: err.message }));
+      return done();
+    }).then(function (ok) {
+      offlineChronoFlushing = null;
+      if (notes.length) $('chronoStatus').textContent = notes.join(' ');
+      if (ok && !$('chronoHistoryPanel').classList.contains('hidden')) loadChronoHistory();
+      return ok;
+    });
+    return offlineChronoFlushing;
+  }
+
+  window.addEventListener('online', function () {
+    if (profile && offlineChronoHasPending(loadOfflineChrono())) syncChronoStatus();
+  });
 
   // ===================== CHRONO =====================
   function showChronoBlock(which) {
@@ -1626,9 +1774,15 @@
   function fetchChronoCategories(activityId) {
     // Le .catch garantit qu'une panne d'Objectifs ne bloque jamais le
     // Chrono — même principe que le flux Suivi vis-à-vis des sondages.
+    // 23 septembre 2026 (chrono hors ligne) : dernière liste connue gardée
+    // par activité, pour pouvoir choisir un pôle/secteur sans réseau.
     return api('GET', '/api/activities/' + activityId + '/goals/categories?userId=' + profile.id)
-      .then(function (data) { return (data && data.categories) || []; })
-      .catch(function () { return []; });
+      .then(function (data) {
+        var list = (data && data.categories) || [];
+        offlineStoreSet('cats:' + activityId, list);
+        return list;
+      })
+      .catch(function () { return offlineStoreGet('cats:' + activityId) || []; });
   }
 
   // `current` est le rattachement DÉJÀ en place ({key, label, frozen} ou
@@ -1921,6 +2075,15 @@
 
   var chronoCategoryPicker = createCategoryPicker($('chronoCategoryPicker'), function (value) {
     $('chronoCategoryMsg').textContent = '';
+    // 23 septembre 2026 : chrono démarré hors ligne — inconnu du serveur,
+    // le choix est gardé localement et envoyé avec le démarrage.
+    var offlineRec = loadOfflineChrono();
+    if (offlineRec && offlineRec.origin === 'offline' && !offlineRec.stop) {
+      offlineRec.category = value ? { key: value, label: '' } : null;
+      saveOfflineChrono(offlineRec);
+      chronoRunningCategory = offlineRec.category;
+      return;
+    }
     api('POST', '/api/timer/category', { userId: profile.id, category: value })
       .then(function (data) { chronoRunningCategory = data.category || null; })
       .catch(function (err) {
@@ -1970,19 +2133,54 @@
   // s'ouvre sur la grille des activités puis bascule sur le chronomètre une
   // fois la réponse arrivée — c'est exactement le clignotement signalé par
   // Emilien (« voir les activités lorsque le chrono est déjà lancé »).
+  function showChronoIdle() {
+    stopLiveTimer();
+    chronoRunningActivityId = null;
+    chronoRunningCategory = null;
+    chronoRunningActivityColor = null;
+    renderActivityGrid();
+    showChronoBlock('chronoIdle');
+  }
+
+  // 23 septembre 2026 (chrono hors ligne) : affiche l'état LOCAL tant que
+  // la synchronisation n'a pas pu se faire.
+  function showLocalChrono(rec) {
+    if (!rec || rec.stop) {
+      showChronoIdle();
+      if (rec && rec.stop) $('chronoStatus').textContent = t('Session enregistrée hors ligne — elle sera synchronisée au retour du réseau.');
+      return;
+    }
+    var ready = enterRunning(rec.activity, rec.startTime, rec.category);
+    $('chronoStatus').textContent = t('Hors ligne — le chrono sera synchronisé au retour du réseau.');
+    return ready;
+  }
+
   function syncChronoStatus() {
+    var rec = loadOfflineChrono();
+    if (offlineChronoHasPending(rec)) {
+      return flushOfflineChrono().then(function (ok) {
+        if (!ok) return showLocalChrono(loadOfflineChrono());
+        return syncChronoStatusFromServer();
+      });
+    }
+    return syncChronoStatusFromServer();
+  }
+
+  function syncChronoStatusFromServer() {
     return api('GET', '/api/timer/status?userId=' + profile.id).then(function (data) {
       if (!data.running) {
-        stopLiveTimer();
-        chronoRunningActivityId = null;
-        chronoRunningCategory = null;
-        chronoRunningActivityColor = null;
-        renderActivityGrid();
-        showChronoBlock('chronoIdle');
+        saveOfflineChrono(null);
+        showChronoIdle();
         return;
       }
+      // Copie locale du chrono serveur (voir CHRONO HORS LIGNE plus haut).
+      saveOfflineChrono({ origin: 'server', activity: data.activity, startTime: data.startTime, category: data.category || null, stop: null });
       return enterRunning(data.activity, data.startTime, data.category);
-    }).catch(function () { showChronoBlock('chronoIdle'); });
+    }).catch(function (err) {
+      var rec = err && err.offline ? loadOfflineChrono() : null;
+      if (rec) return showLocalChrono(rec);
+      showChronoBlock('chronoIdle');
+    });
   }
 
   // 21 septembre 2026 : le choix se fait désormais via chronoCategoryPicker
@@ -1995,9 +2193,17 @@
 
   function startActivity(activity) {
     $('chronoStatus').textContent = '';
+    // 23 septembre 2026 : sans réseau, démarrage local (voir CHRONO HORS LIGNE).
+    if (navigator.onLine === false) { startOfflineChrono(activity); return; }
     api('POST', '/api/timer/start', { userId: profile.id, activityId: activity.id })
-      .then(function (data) { enterRunning(data.activity, data.startTime, data.category); })
-      .catch(function (err) { $('chronoStatus').textContent = err.message; });
+      .then(function (data) {
+        saveOfflineChrono({ origin: 'server', activity: data.activity, startTime: data.startTime, category: data.category || null, stop: null });
+        enterRunning(data.activity, data.startTime, data.category);
+      })
+      .catch(function (err) {
+        if (err.offline) { startOfflineChrono(activity); return; }
+        $('chronoStatus').textContent = err.message;
+      });
   }
 
   // STOP n'enregistre plus directement la session : il affiche d'abord un
@@ -2143,8 +2349,36 @@
     if (!$('stopCategoryWrap').classList.contains('hidden')) {
       stopPayload.category = stopCategoryPickerValue || null;
     }
+    // 23 septembre 2026 (chrono hors ligne) : arrêt gardé localement quand
+    // le serveur est injoignable (ou que le chrono n'y existe pas encore).
+    function stopLocally() {
+      var rec = loadOfflineChrono();
+      if (!rec) {
+        rec = {
+          origin: 'server',
+          activity: { id: chronoRunningActivityId, name: $('runningActivityLabel').textContent, color: chronoRunningActivityColor },
+          startTime: new Date(timerStartMs).toISOString(),
+          category: chronoRunningCategory,
+          stop: null,
+        };
+      }
+      rec.stop = { startTime: stopPayload.startTime, endTime: stopPayload.endTime };
+      if (stopPayload.category !== undefined) rec.stop.category = stopPayload.category;
+      saveOfflineChrono(rec);
+      closeStopConfirm();
+      showLocalChrono(rec);
+      flushOfflineChrono().then(function (ok) { if (ok) syncChronoStatusFromServer(); });
+    }
+    var localRec = loadOfflineChrono();
+    if (localRec && localRec.origin === 'offline') {
+      stopLocally();
+      $('stopConfirmBtn').disabled = false;
+      $('stopCancelBtn').disabled = false;
+      return;
+    }
     api('POST', '/api/timer/stop', stopPayload)
       .then(function (data) {
+        saveOfflineChrono(null);
         stopLiveTimer();
         chronoRunningActivityId = null;
         chronoRunningCategory = null;
@@ -2158,7 +2392,10 @@
         // refermer/rouvrir le panneau.
         if (!$('chronoHistoryPanel').classList.contains('hidden')) loadChronoHistory();
       })
-      .catch(function (err) { $('stopConfirmMsg').textContent = err.message; })
+      .catch(function (err) {
+        if (err.offline) { stopLocally(); return; }
+        $('stopConfirmMsg').textContent = err.message;
+      })
       .finally(function () {
         $('stopConfirmBtn').disabled = false;
         $('stopCancelBtn').disabled = false;
