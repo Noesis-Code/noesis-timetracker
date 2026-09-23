@@ -1707,6 +1707,7 @@
     }).then(function (ok) {
       offlineChronoFlushing = null;
       if (notes.length) $('chronoStatus').textContent = notes.join(' ');
+      else if (ok) $('chronoStatus').textContent = '';
       if (ok && !$('chronoHistoryPanel').classList.contains('hidden')) loadChronoHistory();
       return ok;
     });
