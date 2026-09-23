@@ -4694,6 +4694,22 @@ button { -webkit-user-select: none; user-select: none; }
   box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
 }
 
+/* 22 septembre 2026 (discussion "Objectifs — Logique métier") — liste
+   quotidienne, voir renderGoalsDailyPriority() dans app.js. Même famille
+   visuelle que .goalCapacityRow ci-dessus (carte séparée, pas de nouveau
+   système de couleurs). */
+.dailyPriorityCard { margin-top: 10px; }
+.dailyPriorityList { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.dailyPriorityItem {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); font-size: 13px; cursor: pointer;
+}
+.dailyPriorityCheck { flex: none; }
+.dailyPriorityLabel { flex: 1; min-width: 0; }
+.dailyPriorityMeta { color: var(--text-light); font-size: 11px; white-space: nowrap; }
+.dailyPriorityEmpty { color: var(--text-light); font-size: 12px; margin: 6px 0 0; }
+
 /* 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
    « bandeau plein largeur » — .goalStatusRow/.goalStatusBtn (3 boutons de
    statut texte par semaine) sont retirées, remplacées par .goalWeeklyDot

@@ -3228,6 +3228,19 @@
               <div class="goalCapacityRow" id="activityGoalsCapacity"></div>
             </div>
 
+            <!-- 22 septembre 2026 (discussion "Objectifs — Logique métier") :
+                 liste quotidienne de tâches priorisées, consomme GET
+                 /activities/:id/goals/daily-priority
+                 (server/lib/goalsdailypriority.js) — toujours une
+                 proposition en lecture seule, jamais appliquée
+                 automatiquement. Contenu entièrement construit par
+                 renderGoalsDailyPriority() (app.js) — vide au chargement,
+                 même pattern que .goalCapacityRow juste au-dessus. -->
+            <div class="goalCard dailyPriorityCard" id="activityGoalsDailyPriorityCard">
+              <p class="goalCardLabel">Aujourd'hui</p>
+              <div class="dailyPriorityList" id="activityGoalsDailyPriorityList"></div>
+            </div>
+
             <!-- 16 septembre 2026 (discussion "Objectifs — D", 7e passage) —
                  retour à l'affichage PERMANENT des 4 cartes hebdomadaires
                  entre l'objectif périodique et le calendrier, sur demande

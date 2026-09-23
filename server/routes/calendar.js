@@ -19,6 +19,7 @@
 
 const express = require('express');
 const feed = require('../lib/calendarfeed');
+const externalcalendar = require('../lib/externalcalendar');
 
 const router = express.Router();
 
@@ -121,6 +122,39 @@ router.post('/activities/:id/goals-days/task', (req, res) => {
     console.error('[calendar]', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
+});
+
+// ----- Calendrier externe en LECTURE (22 septembre 2026, brief "Objectifs —
+// Logique métier", cadré avec Emilien : source = flux ICS externe, portée =
+// heures occupées uniquement, jamais le contenu des événements) -----
+//
+// Symétrique de la section "Gestion de son propre flux" ci-dessus, mais dans
+// l'autre sens : ici Noèsis LIT un calendrier externe plutôt que d'en
+// produire un. Toute la logique vit dans server/lib/externalcalendar.js ; ce
+// handler ne fait que la forme HTTP, même découpage que le reste du fichier.
+// Placées AVANT la route catch-all '/calendar/:file' ci-dessous (Express
+// évalue les routes dans l'ordre déclaré) pour ne pas être happées par elle.
+router.get('/calendar/external', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const sub = externalcalendar.getSubscription(userId);
+  res.json({ icsUrl: sub ? sub.icsUrl : null });
+});
+
+router.put('/calendar/external', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const icsUrl = String(req.body.icsUrl || '').trim();
+  if (!/^https?:\/\//i.test(icsUrl)) return res.status(400).json({ error: 'URL invalide.' });
+  externalcalendar.setSubscription(userId, icsUrl);
+  res.json({ ok: true });
+});
+
+router.delete('/calendar/external', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  externalcalendar.removeSubscription(userId);
+  res.json({ ok: true });
 });
 
 // ----- Le flux lui-même -----

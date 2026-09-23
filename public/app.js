@@ -7074,6 +7074,11 @@
     // plus bas.
     renderGoalsCapacity();
 
+    // 22 septembre 2026 (discussion "Objectifs — Logique métier") : liste
+    // quotidienne de tâches priorisées — voir renderGoalsDailyPriority()
+    // plus bas.
+    renderGoalsDailyPriority();
+
     // 16 septembre 2026 (discussion "Objectifs — D", 7e passage) : retour à
     // un affichage PERMANENT des 4 cartes hebdomadaires (défait la fusion du
     // 15 septembre soir, qui les masquait derrière une bulle ouverte depuis
@@ -7255,6 +7260,79 @@
         renderGoalsCapacity();
       })
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+  }
+
+  // ===================== OBJECTIFS — PAGE 2 : LISTE QUOTIDIENNE =====================
+  // 22 septembre 2026 (discussion "Objectifs — Logique métier") : liste
+  // quotidienne de tâches priorisées, calcul fait côté serveur
+  // (server/lib/goalsdailypriority.js) — GET
+  // /activities/:id/goals/daily-priority, toujours une PROPOSITION en
+  // lecture seule, jamais appliquée automatiquement (voir renderGoalsCapacity()
+  // ci-dessus pour le même principe côté capacité). Coche une tâche =
+  // sub_project_items.done (PUT /api/sub-project-items/:id, endpoint déjà
+  // existant, aucun ajout serveur nécessaire) ; la liste se recalcule et la
+  // tâche suivante prend automatiquement la place libérée, jamais de cache
+  // côté client. Report/swipe volontairement PAS inclus ici — pas de
+  // persistance décidée à ce stade (nécessiterait une table dans
+  // server/db.js, à cadrer séparément), voir
+  // noesis-timetracker-chantiers-en-cours.md (encart 48).
+  var goalsDailyPriorityRequestId = 0;
+
+  function renderGoalsDailyPriority() {
+    var box = $('activityGoalsDailyPriorityList');
+    if (!box) return;
+    var activityId = currentGoalsActivityId;
+    if (!activityId) { box.innerHTML = ''; return; }
+    var requestId = ++goalsDailyPriorityRequestId;
+    api('GET', '/api/activities/' + activityId + '/goals/daily-priority')
+      .then(function (data) {
+        if (requestId !== goalsDailyPriorityRequestId) return;
+        renderGoalsDailyPriorityList(box, data.items || []);
+      })
+      .catch(function () {
+        if (requestId !== goalsDailyPriorityRequestId) return;
+        box.innerHTML = '';
+      });
+  }
+
+  function renderGoalsDailyPriorityList(box, items) {
+    box.innerHTML = '';
+    var today = items.filter(function (it) { return it.selected; });
+    if (!today.length) {
+      var empty = document.createElement('p');
+      empty.className = 'dailyPriorityEmpty';
+      empty.textContent = t('Rien de proposé pour aujourd’hui.');
+      box.appendChild(empty);
+      return;
+    }
+    today.forEach(function (task) {
+      var row = document.createElement('label');
+      row.className = 'dailyPriorityItem';
+      var check = document.createElement('input');
+      check.type = 'checkbox';
+      check.className = 'dailyPriorityCheck';
+      check.addEventListener('change', function () {
+        if (!check.checked) return;
+        check.disabled = true;
+        api('PUT', '/api/sub-project-items/' + task.id, { done: true })
+          .then(renderGoalsDailyPriority)
+          .catch(function (err) {
+            check.disabled = false;
+            check.checked = false;
+            $('activityGoalsMsg').textContent = err.message;
+          });
+      });
+      var text = document.createElement('span');
+      text.className = 'dailyPriorityLabel';
+      text.textContent = task.label;
+      var meta = document.createElement('span');
+      meta.className = 'dailyPriorityMeta';
+      meta.textContent = t(goalsCategoryLabel(task.poleKey)) + ' · ' + formatGoalHours(task.estimatedMinutes);
+      row.appendChild(check);
+      row.appendChild(text);
+      row.appendChild(meta);
+      box.appendChild(row);
+    });
   }
 
   // ===================== OBJECTIFS — PAGE 2 : CALENDRIER DE LA PÉRIODE =====================
