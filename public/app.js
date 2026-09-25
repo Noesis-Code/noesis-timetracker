@@ -167,6 +167,8 @@
     renderIdentityHeader();
   }
   function clearProfile() {
+    // 25 septembre 2026 : aucune donnée hors ligne ne survit à la déconnexion.
+    clearOfflineData();
     profile = null;
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
   }
@@ -217,6 +219,400 @@
   } catch (e) { /* ignore — repli serveur sur le fuseau par défaut */ }
 
   function api(method, url, body) {
+    // 25 septembre 2026 (consultation et modifications hors ligne) : voir le
+    // bloc « DONNÉES HORS LIGNE » juste en dessous. Toutes les lectures (GET)
+    // passent par une copie locale ; certaines écritures (pôles/secteurs)
+    // sont mises en file d'attente sans réseau.
+    if (method === 'GET') {
+      return apiNetwork(method, url, body).then(function (data) {
+        offlineCachePut(url, data);
+        setOfflineDataBanner(null);
+        return data;
+      }, function (err) {
+        if (!err || !err.offline) throw err;
+        return offlineCacheGet(url).then(function (entry) {
+          if (!entry) throw err;
+          setOfflineDataBanner(entry.savedAt);
+          return entry.data;
+        });
+      });
+    }
+    var write = matchOfflineWrite(method, url);
+    if (write) {
+      if (navigator.onLine === false) return queueOfflineWrite(method, url, body, write);
+      return apiNetwork(method, url, body).catch(function (err) {
+        if (err && err.offline) return queueOfflineWrite(method, url, body, write);
+        throw err;
+      });
+    }
+    return apiNetwork(method, url, body);
+  }
+
+  // ===================== DONNÉES HORS LIGNE (25 septembre 2026) =====================
+  // Cadré avec Emilien via AskUserQuestion :
+  //  - LECTURE : copie automatique dans l'appli de chaque réponse GET réussie
+  //    (IndexedDB « noesis-api-cache », une entrée par profil + adresse, sans
+  //    userId/markRead dans la clé). Hors ligne, la copie est servie et un
+  //    bandeau indique « Données hors ligne du … ». Discussions : TEXTE
+  //    UNIQUEMENT (rectification d'Emilien) — toute pièce jointe/image
+  //    (`attachments`, chaînes `data:`) est retirée avant d'être gardée.
+  //  - PRÉCHARGEMENT LÉGER (preloadOfflineData) au démarrage en ligne :
+  //    activités, fenêtre Activité (pôles/secteurs, Objectifs, discussion,
+  //    stats de la période par défaut), Statistiques/Feuille de temps par
+  //    défaut. Tout écran ouvert en ligne est aussi gardé.
+  //  - ÉCRITURE : pôles et secteurs — ajouter, renommer, retirer,
+  //    réordonner — possibles hors ligne. Appliqués tout de suite à la copie
+  //    locale (l'écran montre le changement), mis en file (localStorage),
+  //    envoyés au retour du réseau. Conflit (le pôle/secteur a changé
+  //    ailleurs entre-temps) : la dernière modification demande
+  //    confirmation (« … a été modifié pendant que tu étais hors ligne.
+  //    Souhaites-tu appliquer tes modifications hors ligne ? »).
+  // Effacé à la déconnexion (clearProfile) : rien ne reste sur l'appareil.
+  var OFFLINE_CACHE_DB = 'noesis-api-cache';
+
+  function offlineCacheKey(url) {
+    var parts = String(url).split('?');
+    var params = (parts[1] || '').split('&').filter(function (p) {
+      var k = p.split('=')[0];
+      return p && k !== 'userId' && k !== 'markRead';
+    }).sort();
+    return (profile ? profile.id : '') + '|' + parts[0] + (params.length ? '?' + params.join('&') : '');
+  }
+
+  function offlineCacheDb() {
+    return new Promise(function (resolve, reject) {
+      if (!window.indexedDB) { reject(new Error('IndexedDB indisponible')); return; }
+      var req = indexedDB.open(OFFLINE_CACHE_DB, 1);
+      req.onupgradeneeded = function () { req.result.createObjectStore('responses'); };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  // Texte uniquement : pièces jointes et images (data:) retirées.
+  function stripOfflineMedia(value) {
+    if (typeof value === 'string') return value.indexOf('data:') === 0 ? null : value;
+    if (Array.isArray(value)) return value.map(stripOfflineMedia);
+    if (value && typeof value === 'object') {
+      var out = {};
+      Object.keys(value).forEach(function (k) {
+        out[k] = k === 'attachments' && Array.isArray(value[k]) ? [] : stripOfflineMedia(value[k]);
+      });
+      return out;
+    }
+    return value;
+  }
+
+  function offlineCachePut(url, data) {
+    if (!profile) return Promise.resolve();
+    var key = offlineCacheKey(url);
+    var entry = { savedAt: Date.now(), data: stripOfflineMedia(data) };
+    return offlineCacheDb().then(function (db) {
+      return new Promise(function (resolve) {
+        var tx = db.transaction('responses', 'readwrite');
+        tx.objectStore('responses').put(entry, key);
+        tx.oncomplete = tx.onerror = tx.onabort = function () { db.close(); resolve(); };
+      });
+    }).catch(function () { /* pas de copie : rien de grave */ });
+  }
+
+  function offlineCacheGet(url) {
+    if (!profile) return Promise.resolve(null);
+    var key = offlineCacheKey(url);
+    return offlineCacheDb().then(function (db) {
+      return new Promise(function (resolve) {
+        var tx = db.transaction('responses', 'readonly');
+        var req = tx.objectStore('responses').get(key);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { resolve(null); };
+        tx.oncomplete = function () { db.close(); };
+      });
+    }).catch(function () { return null; });
+  }
+
+  // Modifie une copie locale en place (modifications hors ligne).
+  function offlineCacheUpdate(url, fn) {
+    return offlineCacheGet(url).then(function (entry) {
+      if (!entry) return null;
+      fn(entry.data);
+      var key = offlineCacheKey(url);
+      return offlineCacheDb().then(function (db) {
+        return new Promise(function (resolve) {
+          var tx = db.transaction('responses', 'readwrite');
+          tx.objectStore('responses').put(entry, key);
+          tx.oncomplete = tx.onerror = tx.onabort = function () { db.close(); resolve(entry.data); };
+        });
+      });
+    }).catch(function () { return null; });
+  }
+
+  function clearOfflineData() {
+    try { indexedDB.deleteDatabase(OFFLINE_CACHE_DB); } catch (e) { /* ignore */ }
+    try {
+      Object.keys(localStorage).forEach(function (k) { if (k.indexOf('noesis-offline:') === 0) localStorage.removeItem(k); });
+    } catch (e) { /* ignore */ }
+  }
+
+  // ----- Bandeau hors ligne (données affichées + modifications en attente) -----
+  var offlineBannerState = { savedAt: null, note: '', noteTimer: null };
+  function renderOfflineBanner() {
+    var el = document.getElementById('offlineBanner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'offlineBanner';
+      el.className = 'offlineBanner hidden';
+      el.setAttribute('role', 'status');
+      document.body.appendChild(el);
+    }
+    var lines = [];
+    if (offlineBannerState.savedAt) {
+      var d = new Date(offlineBannerState.savedAt);
+      lines.push(t('Hors ligne — données enregistrées du {date}', {
+        date: pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()),
+      }));
+    }
+    var pending = loadOfflineWrites().length;
+    if (pending) lines.push(t('{n} modification(s) en attente — la synchronisation se fera au retour du réseau.', { n: pending }));
+    if (offlineBannerState.note) lines.push(offlineBannerState.note);
+    el.textContent = lines.join('\n');
+    el.classList.toggle('hidden', !lines.length);
+  }
+  function setOfflineDataBanner(savedAt) {
+    if (savedAt === null && offlineBannerState.savedAt === null) return;
+    // Plusieurs écrans peuvent servir des copies d'âges différents : on
+    // affiche la plus ancienne.
+    offlineBannerState.savedAt = savedAt === null ? null
+      : (offlineBannerState.savedAt ? Math.min(offlineBannerState.savedAt, savedAt) : savedAt);
+    renderOfflineBanner();
+  }
+  function setOfflineBannerNote(note) {
+    offlineBannerState.note = note || '';
+    if (offlineBannerState.noteTimer) clearTimeout(offlineBannerState.noteTimer);
+    if (note) offlineBannerState.noteTimer = setTimeout(function () { setOfflineBannerNote(''); }, 10000);
+    renderOfflineBanner();
+  }
+
+  // ----- Modifications hors ligne : pôles et secteurs -----
+  var OFFLINE_WRITE_PATTERNS = [
+    { re: /^\/api\/activities\/(\d+)\/goals\/categories$/, method: 'POST', kind: 'addPole' },
+    { re: /^\/api\/activities\/(\d+)\/goals\/categories-reorder$/, method: 'PUT', kind: 'reorderPoles' },
+    { re: /^\/api\/activities\/(\d+)\/goals\/categories\/([^\/?]+)\/secteurs$/, method: 'POST', kind: 'addSecteur' },
+    { re: /^\/api\/activities\/(\d+)\/goals\/categories\/([^\/?]+)\/secteurs-reorder$/, method: 'PUT', kind: 'reorderSecteurs' },
+    { re: /^\/api\/activities\/(\d+)\/goals\/categories\/([^\/?]+)\/secteurs\/([^\/?]+)$/, method: 'PUT', kind: 'renameSecteur' },
+    { re: /^\/api\/activities\/(\d+)\/goals\/categories\/([^\/?]+)\/secteurs\/([^\/?]+)$/, method: 'DELETE', kind: 'removeSecteur' },
+    { re: /^\/api\/activities\/(\d+)\/goals\/categories\/([^\/?]+)$/, method: 'PUT', kind: 'renamePole' },
+    { re: /^\/api\/activities\/(\d+)\/goals\/categories\/([^\/?]+)$/, method: 'DELETE', kind: 'removePole' },
+  ];
+  function matchOfflineWrite(method, url) {
+    var path = String(url).split('?')[0];
+    for (var i = 0; i < OFFLINE_WRITE_PATTERNS.length; i++) {
+      var p = OFFLINE_WRITE_PATTERNS[i];
+      if (p.method !== method) continue;
+      var m = path.match(p.re);
+      if (m && m[2] !== 'auto-task') return { kind: p.kind, activityId: m[1], poleKey: m[2] || null, secteurKey: m[3] || null };
+    }
+    return null;
+  }
+  function loadOfflineWrites() { return offlineStoreGet('writes') || []; }
+  function saveOfflineWrites(list) { offlineStoreSet('writes', list && list.length ? list : null); }
+  function categoriesUrl(activityId) { return '/api/activities/' + activityId + '/goals/categories'; }
+
+  function findCategoryEntity(doc, key) {
+    var cats = (doc && doc.categories) || [];
+    for (var i = 0; i < cats.length; i++) {
+      if (String(cats[i].key) === String(key)) return { type: 'pole', entity: cats[i], list: cats, index: i };
+      var secs = cats[i].secteurs || [];
+      for (var j = 0; j < secs.length; j++) {
+        if (String(secs[j].key) === String(key)) return { type: 'secteur', entity: secs[j], list: secs, index: j, pole: cats[i] };
+      }
+    }
+    return null;
+  }
+
+  function reorderByKeys(list, keys) {
+    var byKey = {};
+    list.forEach(function (x) { byKey[String(x.key)] = x; });
+    var out = keys.map(function (k) { return byKey[String(k)]; }).filter(Boolean);
+    list.forEach(function (x) { if (out.indexOf(x) === -1) out.push(x); });
+    list.length = 0;
+    Array.prototype.push.apply(list, out);
+  }
+
+  function queueOfflineWrite(method, url, body, w) {
+    var op = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), method: method, url: url, body: body || null,
+      kind: w.kind, activityId: w.activityId, at: Date.now(), before: null, tmpKey: null };
+    if (w.kind === 'addPole' || w.kind === 'addSecteur') op.tmpKey = 'tmp-' + op.id;
+    return offlineCacheUpdate(categoriesUrl(w.activityId), function (doc) {
+      var cats = doc.categories || (doc.categories = []);
+      var targetKey = w.secteurKey || w.poleKey;
+      var found = targetKey ? findCategoryEntity(doc, targetKey) : null;
+      if (found) op.before = { label: found.entity.label, type: found.type };
+      var label = body && typeof body.label === 'string' ? body.label.trim() : '';
+      if (w.kind === 'addPole') cats.push({ key: op.tmpKey, label: label, secteurs: [] });
+      else if (w.kind === 'addSecteur' && found) (found.entity.secteurs || (found.entity.secteurs = [])).push({ key: op.tmpKey, label: label, parentKey: w.poleKey });
+      else if ((w.kind === 'renamePole' || w.kind === 'renameSecteur') && found) found.entity.label = label;
+      else if ((w.kind === 'removePole' || w.kind === 'removeSecteur') && found) found.list.splice(found.index, 1);
+      else if (w.kind === 'reorderPoles') { op.before = { order: cats.map(function (c) { return String(c.key); }) }; reorderByKeys(cats, (body && body.keys) || []); }
+      else if (w.kind === 'reorderSecteurs' && found) {
+        op.before = { order: (found.entity.secteurs || []).map(function (s) { return String(s.key); }) };
+        reorderByKeys(found.entity.secteurs || [], (body && body.keys) || []);
+      }
+    }).then(function () {
+      var list = loadOfflineWrites();
+      list.push(op);
+      saveOfflineWrites(list);
+      renderOfflineBanner();
+      registerOfflineWritesListener();
+      return { ok: true, queuedOffline: true };
+    });
+  }
+
+  // Envoi au retour du réseau, dans l'ordre de saisie.
+  var offlineWritesFlushing = null;
+  function flushOfflineWrites() {
+    if (offlineWritesFlushing) return offlineWritesFlushing;
+    var ops = loadOfflineWrites();
+    if (!ops.length || !profile) return Promise.resolve(true);
+    var tmpMap = {};
+    var fresh = {};
+    var notes = [];
+    var touched = {};
+    function resolveTmp(s) {
+      return String(s).replace(/tmp-[0-9]+-[a-z0-9]+/g, function (k) { return tmpMap[k] || k; });
+    }
+    function freshDoc(activityId) {
+      if (fresh[activityId]) return Promise.resolve(fresh[activityId]);
+      return apiNetwork('GET', categoriesUrl(activityId)).then(function (doc) { fresh[activityId] = doc; return doc; });
+    }
+    function typeLabel(type) { return type === 'secteur' ? t('secteur') : t('pôle'); }
+    function step(i) {
+      if (i >= ops.length) return Promise.resolve(true);
+      var op = ops[i];
+      var url = resolveTmp(op.url);
+      var body = op.body ? JSON.parse(resolveTmp(JSON.stringify(op.body))) : undefined;
+      var w = matchOfflineWrite(op.method, url) || {};
+      var targetKey = w.secteurKey || w.poleKey;
+      function remove() { var rest = loadOfflineWrites().filter(function (o) { return o.id !== op.id; }); saveOfflineWrites(rest); }
+      return freshDoc(op.activityId).then(function (doc) {
+        var needsCheck = targetKey && !/^tmp-/.test(targetKey) && op.kind !== 'addPole';
+        if (needsCheck && op.kind !== 'addSecteur') {
+          var cur = findCategoryEntity(doc, targetKey);
+          if (op.kind === 'reorderPoles' || op.kind === 'reorderSecteurs') {
+            var order = op.kind === 'reorderPoles'
+              ? (doc.categories || []).map(function (c) { return String(c.key); })
+              : (cur && cur.entity.secteurs ? cur.entity.secteurs.map(function (s) { return String(s.key); }) : []);
+            if (op.before && op.before.order && order.join(',') !== op.before.order.join(',') &&
+                !window.confirm(t('L\'ordre a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?'))) {
+              return 'skip';
+            }
+          } else if (!cur) {
+            notes.push(t('Le {type} « {label} » a été retiré ailleurs : ta modification hors ligne est ignorée.',
+              { type: typeLabel(op.before && op.before.type), label: (op.before && op.before.label) || targetKey }));
+            return 'skip';
+          } else if (op.before && cur.entity.label !== op.before.label &&
+              !window.confirm(t('Le {type} « {label} » a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?',
+                { type: typeLabel(cur.type), label: cur.entity.label }))) {
+            return 'skip';
+          }
+        } else if (op.kind === 'reorderPoles' && op.before && op.before.order) {
+          var ord = (doc.categories || []).map(function (c) { return String(c.key); });
+          if (ord.join(',') !== op.before.order.map(resolveTmp).join(',') &&
+              !window.confirm(t('L\'ordre a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?'))) {
+            return 'skip';
+          }
+        }
+        return apiNetwork(op.method, url, body).then(function (res) {
+          if (op.tmpKey) {
+            // Nouvelle clé attribuée par le serveur : la seule entrée de même
+            // libellé absente de l'état précédent.
+            var before = op.kind === 'addPole' ? (doc.categories || [])
+              : (((findCategoryEntity(doc, w.poleKey) || {}).entity || {}).secteurs || []);
+            var known = {};
+            before.forEach(function (x) { known[String(x.key)] = true; });
+            var after = (res && (res.categories || res.secteurs)) || [];
+            var label = body && body.label ? String(body.label).trim() : '';
+            var created = after.filter(function (x) { return !known[String(x.key)] && String(x.label).trim() === label; })[0] ||
+              after.filter(function (x) { return !known[String(x.key)]; })[0];
+            if (created) tmpMap[op.tmpKey] = String(created.key);
+          }
+          delete fresh[op.activityId];
+          return 'sent';
+        });
+      }).then(function (result) {
+        touched[op.activityId] = true;
+        remove();
+        return step(i + 1);
+      }, function (err) {
+        if (err && err.offline) return false;
+        notes.push(t('Modification hors ligne non appliquée : {error}', { error: err.message }));
+        touched[op.activityId] = true;
+        remove();
+        return step(i + 1);
+      });
+    }
+    offlineWritesFlushing = step(0).then(function (ok) {
+      offlineWritesFlushing = null;
+      if (ok && !notes.length) notes.push(t('Modifications hors ligne synchronisées.'));
+      setOfflineBannerNote(notes.join(' '));
+      Object.keys(touched).forEach(function (activityId) {
+        if (String(activityId) === String(currentCommunityActivityId)) activityGoalsCategoriesRefresh(activityId);
+        else if (String(activityId) === String(currentGoalsActivityId)) reloadGoalsAll();
+      });
+      return ok;
+    }, function () { offlineWritesFlushing = null; return false; });
+    return offlineWritesFlushing;
+  }
+
+  var offlineWritesListening = false;
+  function registerOfflineWritesListener() {
+    if (offlineWritesListening) return;
+    offlineWritesListening = true;
+    window.addEventListener('online', function () { if (profile) flushOfflineWrites(); });
+  }
+
+  // Préchargement léger (au démarrage en ligne) : ce qu'il faut pour
+  // consulter l'essentiel sans réseau. Lectures seulement, erreurs ignorées ;
+  // chaque réponse est gardée par api() elle-même. `markRead=0` : précharger
+  // la discussion ne doit jamais marquer ses messages comme lus.
+  function preloadOfflineData() {
+    if (!profile || navigator.onLine === false) return;
+    var id = profile.id;
+    var today = toDateValue(new Date());
+    var urls = [
+      '/api/stats/today?userId=' + id,
+      '/api/stats?userId=' + id + '&granularity=day',
+      '/api/stats/timesheet?userId=' + id + '&period=week&weekOffset=0',
+      '/api/stats/timesheet?userId=' + id + '&period=month&monthOffset=0',
+      '/api/activities?all=1&userId=' + id,
+      '/api/community?userId=' + id,
+      '/api/category-stats/activities?userId=' + id + '&from=2000-01-01&to=' + today,
+    ];
+    (activitiesCache || []).forEach(function (a) {
+      urls.push('/api/activities/' + a.id + '/goals/categories');
+      urls.push('/api/activities/' + a.id + '/goals/all');
+      urls.push('/api/activities/' + a.id + '/sub-projects?userId=' + id);
+      urls.push('/api/category-stats?userId=' + id + '&activityId=' + encodeURIComponent(a.id) + '&period=week');
+      urls.push('/api/community/activity-messages?userId=' + id + '&activityId=' + a.id + '&markRead=0');
+    });
+    var i = 0;
+    function next() {
+      if (i >= urls.length || !profile) return;
+      var url = urls[i++];
+      api('GET', url).then(function (data) {
+        // Arbres périodiques de l'onglet Objectifs : un par pôle.
+        var m = url.match(/^\/api\/activities\/(\d+)\/goals\/categories$/);
+        if (m && data && data.categories) {
+          data.categories.forEach(function (c) {
+            urls.push('/api/activities/' + m[1] + '/goals/all-for-pole?poleKey=' + encodeURIComponent(c.key));
+          });
+        }
+      }).catch(function () { /* ignoré */ }).then(next);
+    }
+    // 2 files en parallèle pour ne pas encombrer le démarrage.
+    next(); next();
+  }
+
+  function apiNetwork(method, url, body) {
     var opts = { method: method, headers: {} };
     if (clientTimezone) opts.headers['X-Client-Tz'] = clientTimezone;
     if (body !== undefined) {
@@ -1151,6 +1547,13 @@
       // activités et basculait ensuite sur le chronomètre en cours.
       return syncChronoStatus();
     }).then(dismissBootSplash, dismissBootSplash);
+    // 25 septembre 2026 (données hors ligne) : modifications en attente
+    // envoyées d'abord, puis préchargement léger (voir DONNÉES HORS LIGNE).
+    registerOfflineWritesListener();
+    renderOfflineBanner();
+    refreshActivities().catch(function () {}).then(function () {
+      return flushOfflineWrites();
+    }).then(function () { setTimeout(preloadOfflineData, 2000); });
     // Ouverture depuis une notification alors que l'app était fermée : on
     // arrive sur /?notif=community ou /?notif=profile (voir server/lib/push.js
     // et notificationclick dans public/sw.js).
@@ -5979,7 +6382,7 @@
       offlineHere.forEach(function (o) {
         var row = document.createElement('p');
         row.className = 'meta activityGoalsCategoryAutoTaskOfflineRow';
-        row.textContent = '⏳ ' + o.label + ' — ' + t('en attente de connexion');
+        row.textContent = '⏳ ' + o.label + ' — ' + t('la synchronisation se fera au retour du réseau');
         offlineZone.appendChild(row);
       });
       wrap.appendChild(offlineZone);
@@ -6289,6 +6692,35 @@
         });
         row.appendChild(del);
 
+        // 25 septembre 2026 (Aiguillage, « Coordination inter-secteurs de
+        // l'IA », Brief 2, cadré avec Emilien via AskUserQuestion) :
+        // description/contexte optionnelle du pôle — 200 caractères maximum,
+        // dans ce même bloc d'édition (pas d'emplacement séparé), toujours
+        // en dernier enfant de `row` pour passer sur sa propre ligne (voir
+        // .activityGoalsCategoryRow.editing/.activityGoalsCategoryDescriptionInput,
+        // styles.css : flex-wrap + flex-basis 100%, `row` reste l'unique
+        // élément glissé par bindCategoryDrag, sa hauteur mesurée
+        // dynamiquement inclut cette ligne). Commit indépendant du nom :
+        // envoie toujours le label courant pour ne jamais l'écraser (label
+        // requis côté serveur, voir renameCategory, server/lib/goals.js).
+        var descInput = document.createElement('input');
+        descInput.type = 'text';
+        descInput.className = 'activityGoalsCategoryDescriptionInput';
+        descInput.maxLength = 200;
+        descInput.value = c.description || '';
+        descInput.placeholder = t('Description (optionnel) — aide l’IA à repérer les liens pertinents entre secteurs');
+        descInput.addEventListener('click', function (e) { e.stopPropagation(); });
+        (function (c, input, descInput) {
+          function commitDescription() {
+            var value = descInput.value.trim();
+            if (value === (c.description || '')) return;
+            renameActivityGoalsCategory(c.key, input.value.trim() || c.label, value);
+          }
+          descInput.addEventListener('blur', commitDescription);
+          descInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); descInput.blur(); } });
+        })(c, input, descInput);
+        row.appendChild(descInput);
+
         // 25 septembre 2026, mode édition unique partagé pôle+secteur : le
         // pôle et son bloc secteurs (édition) forment désormais un seul
         // groupe déplaçable ensemble — voir bindCategoryDrag() plus haut,
@@ -6325,6 +6757,20 @@
       chevron.className = 'activityGoalsCategoryChevron';
       chevron.textContent = isOpen ? '▾' : '▸';
       row.appendChild(chevron);
+
+      // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA »,
+      // décision d'Emilien) : la description, quand elle existe, reste
+      // visible même hors mode édition — pas seulement un signal invisible
+      // pour l'IA. Réutilise la classe générique .meta (déjà utilisée
+      // ailleurs pour du texte secondaire) + .activityGoalsCategoryRow
+      // passe en flex-wrap (styles.css) pour la faire passer sur sa propre
+      // ligne, sous le nom.
+      if (c.description) {
+        var descCaption = document.createElement('span');
+        descCaption.className = 'meta activityGoalsCategoryDescriptionCaption';
+        descCaption.textContent = c.description;
+        row.appendChild(descCaption);
+      }
 
       bindCategoryLongPress(row);
       bindCategoryOpenToggle(row, c.key);
@@ -6416,9 +6862,16 @@
     return addRow;
   }
 
-  function renameActivityGoalsCategory(key, label) {
+  // 25 septembre 2026 (Aiguillage, « Coordination inter-secteurs de l'IA »,
+  // Brief 2) : `description` devient un 3ᵉ argument optionnel — omis (comme
+  // par tout appelant existant, ex. commitName ci-dessous), le corps envoyé
+  // au serveur ne porte pas le champ et renameCategory (server/lib/goals.js)
+  // laisse la colonne intacte.
+  function renameActivityGoalsCategory(key, label, description) {
     var activityId = currentCommunityActivityId;
-    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + key, { label: label })
+    var body = { label: label };
+    if (description !== undefined) body.description = description;
+    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + key, body)
       .then(function () { activityGoalsCategoriesRefresh(activityId); })
       .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
@@ -6470,8 +6923,12 @@
       .catch(function (err) { if (msg) msg.textContent = err.message; });
   }
 
-  function renamePoleSecteur(activityId, poleKey, secteurKey, label) {
-    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey, { label: label })
+  // 25 septembre 2026 : même ajout de `description` optionnelle que
+  // renameActivityGoalsCategory ci-dessus.
+  function renamePoleSecteur(activityId, poleKey, secteurKey, label, description) {
+    var body = { label: label };
+    if (description !== undefined) body.description = description;
+    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey, body)
       .then(function () { activityGoalsCategoriesRefresh(activityId); })
       .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
@@ -6538,6 +6995,16 @@
       nameLabel.className = 'activityRowName';
       nameLabel.textContent = s.label;
       row.appendChild(nameLabel);
+
+      // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA »),
+      // même principe que la ligne pôle ci-dessus : description visible même
+      // hors édition.
+      if (s.description) {
+        var secDescCaption = document.createElement('span');
+        secDescCaption.className = 'meta activityGoalsSecteurDescriptionCaption';
+        secDescCaption.textContent = s.description;
+        row.appendChild(secDescCaption);
+      }
 
       bindCategoryLongPress(row);
       wrap.appendChild(row);
@@ -6624,6 +7091,28 @@
         removePoleSecteur(activityId, pole.key, s.key);
       });
       row.appendChild(del);
+
+      // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA »),
+      // même principe que la ligne pôle en édition ci-dessus (voir son
+      // commentaire pour le détail du layout/commit) — dernier enfant de
+      // `row` pour passer sur sa propre ligne.
+      var descInput = document.createElement('input');
+      descInput.type = 'text';
+      descInput.className = 'activityGoalsSecteurDescriptionInput';
+      descInput.maxLength = 200;
+      descInput.value = s.description || '';
+      descInput.placeholder = t('Description (optionnel) — aide l’IA à repérer les liens pertinents entre secteurs');
+      descInput.addEventListener('click', function (e) { e.stopPropagation(); });
+      (function (s, input, descInput) {
+        function commitDescription() {
+          var value = descInput.value.trim();
+          if (value === (s.description || '')) return;
+          renamePoleSecteur(activityId, pole.key, s.key, input.value.trim() || s.label, value);
+        }
+        descInput.addEventListener('blur', commitDescription);
+        descInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); descInput.blur(); } });
+      })(s, input, descInput);
+      row.appendChild(descInput);
 
       wrap.appendChild(row);
     });

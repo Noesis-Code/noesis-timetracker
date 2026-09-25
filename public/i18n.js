@@ -957,6 +957,17 @@
     'en attente de connexion': 'waiting for connection',
     'non ajoutée': 'not added',
     'Hors ligne — connecte-toi à internet pour continuer.': 'Offline — connect to the internet to continue.',
+    // 25 sept. 2026 — données hors ligne
+    'la synchronisation se fera au retour du réseau': 'will sync when you are back online',
+    'Hors ligne — données enregistrées du {date}': 'Offline — data saved on {date}',
+    '{n} modification(s) en attente — la synchronisation se fera au retour du réseau.': '{n} change(s) pending — will sync when you are back online.',
+    'secteur': 'sector',
+    'pôle': 'division',
+    'L\'ordre a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?': 'The order was changed while you were offline. Apply your offline changes?',
+    'Le {type} « {label} » a été retiré ailleurs : ta modification hors ligne est ignorée.': 'The {type} “{label}” was removed elsewhere: your offline change was ignored.',
+    'Le {type} « {label} » a été modifié pendant que tu étais hors ligne. Souhaites-tu appliquer tes modifications hors ligne ?': 'The {type} “{label}” was changed while you were offline. Apply your offline changes?',
+    'Modification hors ligne non appliquée : {error}': 'Offline change not applied: {error}',
+    'Modifications hors ligne synchronisées.': 'Offline changes synced.',
     // 23 sept. 2026 — chrono hors ligne
     'Hors ligne — le chrono sera synchronisé au retour du réseau.': 'Offline — the timer will sync when you are back online.',
     'Session enregistrée hors ligne — elle sera synchronisée au retour du réseau.': 'Session saved offline — it will sync when you are back online.',

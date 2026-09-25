@@ -5567,12 +5567,25 @@ button { -webkit-user-select: none; user-select: none; }
   display: flex; flex-direction: column; gap: 8px; margin: 10px 0;
 }
 .activityGoalsCategoryRow {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--card); padding: 8px 10px;
   position: relative;
   touch-action: none;
 }
+/* 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») :
+   flex-basis 100% force ces deux éléments (caption lecture seule / champ
+   d'édition de la description) sur leur propre ligne, sous handle/nom/croix
+   — .activityGoalsCategoryRow ci-dessus passe en flex-wrap pour cet usage
+   seul, sans effet sur son layout existant tant qu'aucune description n'est
+   présente. */
+.activityGoalsCategoryDescriptionCaption { flex: 1 1 100%; margin-top: 2px; }
+.activityGoalsCategoryDescriptionInput {
+  flex: 1 1 100%; min-width: 0; font-size: 13px; padding: 5px 7px; margin-top: 2px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
+  background: var(--track-bg); color: var(--text);
+}
+.activityGoalsCategoryDescriptionInput:focus { border-color: var(--purple); }
 /* 17 septembre 2026 (maquette approuvée) : la ligne se replie/déplie au clic
    simple (bindCategoryOpenToggle, app.js) — pas en mode édition, où le clic
    ne fait rien (renommer/glisser/supprimer passent par leurs propres
@@ -5641,8 +5654,18 @@ button { -webkit-user-select: none; user-select: none; }
   display: flex; flex-direction: column; gap: 4px;
 }
 .activityGoalsSecteurRow {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
 }
+/* 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») —
+   même principe que .activityGoalsCategoryDescriptionCaption/...Input
+   ci-dessus, pour un secteur. */
+.activityGoalsSecteurDescriptionCaption { flex: 1 1 100%; margin-top: 1px; padding-left: 16px; }
+.activityGoalsSecteurDescriptionInput {
+  flex: 1 1 100%; min-width: 0; font-size: 12px; padding: 4px 6px; margin-top: 1px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
+  background: var(--track-bg); color: var(--text);
+}
+.activityGoalsSecteurDescriptionInput:focus { border-color: var(--purple); }
 /* 22 septembre 2026, demande directe d'Emilien : « les pôles ne possèdent
    pas de couleur ni d'icône ni de motif. Et c'est les secteurs auxquels on
    attribue automatiquement une des 10 nuances. » Remplace
@@ -6163,3 +6186,17 @@ button { -webkit-user-select: none; user-select: none; }
 /* Icône légèrement agrandie par rapport aux 4 icônes au trait (24px) —
    demande d'Emilien du même jour, « grossis-le légèrement ». */
 .tabBtnGoals .tabIcon svg { width: 28px; height: 28px; }
+
+/* 25 septembre 2026 (données hors ligne) : bandeau discret au-dessus de la
+   barre d'onglets — données affichées depuis la copie locale et/ou
+   modifications en attente de synchronisation (renderOfflineBanner, app.js). */
+.offlineBanner {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--tabbar-h, 64px) + 8px);
+  max-width: min(92vw, 520px); padding: 6px 12px;
+  background: var(--card); color: var(--text-light);
+  border: 1px dashed var(--border); border-radius: var(--radius-sm, 8px);
+  font-size: 12px; line-height: 1.35; text-align: center; white-space: pre-line;
+  box-shadow: var(--shadow-tabbar); pointer-events: none;
+  z-index: 250; /* au-dessus des fenêtres (Activité : 100) */
+}
