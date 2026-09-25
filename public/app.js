@@ -6071,15 +6071,92 @@
     });
   }
 
-  // Glisser-déposer à la poignée, identique à bindSubProjectDrag (plus haut)
-  // adapté à #activityGoalsCategoriesList/.activityGoalsCategoryRow et à
-  // PUT .../goals/categories-reorder (clés, pas des ids).
-  function bindCategoryDrag(handle, row) {
+  // 25 septembre 2026, demande directe d'Emilien (mode édition unique
+  // partagé pôle+secteur, voir renderActivityGoalsCategoriesPanel()) : la
+  // poignée d'un pôle ne déplace plus seulement sa ligne
+  // (.activityGoalsCategoryRow) mais tout son GROUPE
+  // (.activityGoalsCategoryEditGroup — la ligne du pôle ET son bloc secteurs
+  // en édition, désormais interleavés en mode édition). Opérer sur les
+  // lignes seules aurait laissé les blocs secteurs à leur ancienne position
+  // DOM après un glisser-déposer de pôle (repéré et corrigé avant écriture,
+  // voir claude/noesis-timetracker-taches-categories-reference-discussion-c.md).
+  // PUT .../goals/categories-reorder (clés, pas des ids) — inchangé.
+  function bindCategoryDrag(handle, groupEl) {
     handle.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       e.stopPropagation();
       var box = $('activityGoalsCategoriesList');
-      var rows = Array.prototype.slice.call(box.querySelectorAll('.activityGoalsCategoryRow'));
+      var groups = Array.prototype.slice.call(box.querySelectorAll('.activityGoalsCategoryEditGroup'));
+      var mids = groups.map(function (el) {
+        var r = el.getBoundingClientRect();
+        return r.top + r.height / 2;
+      });
+      var fromIndex = groups.indexOf(groupEl);
+      var startY = e.clientY;
+      var targetIndex = fromIndex;
+      var step = groupEl.getBoundingClientRect().height +
+        parseFloat(getComputedStyle(box).rowGap || getComputedStyle(box).gap || 0) || 0;
+
+      handle.setPointerCapture(e.pointerId);
+      groupEl.classList.add('dragging');
+      box.classList.add('dragging');
+
+      function layoutGap() {
+        for (var i = 0; i < groups.length; i++) {
+          if (i === fromIndex) continue;
+          var shift = 0;
+          if (targetIndex > fromIndex && i > fromIndex && i <= targetIndex) shift = -step;
+          else if (targetIndex < fromIndex && i >= targetIndex && i < fromIndex) shift = step;
+          groups[i].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+        }
+      }
+
+      function onMove(ev) {
+        groupEl.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
+        var idx = 0;
+        for (var i = 0; i < mids.length; i++) {
+          if (ev.clientY > mids[i]) idx = i;
+        }
+        if (idx !== targetIndex) { targetIndex = idx; layoutGap(); }
+      }
+
+      function onUp() {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        groupEl.classList.remove('dragging');
+        box.classList.remove('dragging');
+        groupEl.style.transform = '';
+        groups.forEach(function (el) { el.style.transform = ''; });
+
+        if (targetIndex !== fromIndex) {
+          var ordered = groups.slice();
+          ordered.splice(fromIndex, 1);
+          ordered.splice(targetIndex, 0, groupEl);
+          ordered.forEach(function (el) { box.appendChild(el); });
+          var activityId = currentCommunityActivityId;
+          api('PUT', '/api/activities/' + activityId + '/goals/categories-reorder', {
+            keys: ordered.map(function (el) { return el.dataset.categoryKey; }),
+          }).catch(function (err) { alert(err.message); activityGoalsCategoriesRefresh(activityId); });
+        }
+      }
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
+    });
+  }
+
+  // 25 septembre 2026 : glisser-déposer d'un SECTEUR au sein de son pôle,
+  // même mécanique que bindCategoryDrag mais scopée au conteneur `container`
+  // (le bloc secteurs de CE pôle uniquement, jamais toute la liste) — le
+  // drop appelle reorderPoleSecteur() déjà existante (rafraîchissement/
+  // gestion d'erreur déjà géré là, rien dupliqué ici).
+  function bindSecteurDrag(handle, row, container, activityId, poleKey, secteurs) {
+    handle.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var rows = Array.prototype.slice.call(container.querySelectorAll('.activityGoalsSecteurRow'));
       var mids = rows.map(function (el) {
         var r = el.getBoundingClientRect();
         return r.top + r.height / 2;
@@ -6088,11 +6165,11 @@
       var startY = e.clientY;
       var targetIndex = fromIndex;
       var step = row.getBoundingClientRect().height +
-        parseFloat(getComputedStyle(box).rowGap || getComputedStyle(box).gap || 0) || 0;
+        parseFloat(getComputedStyle(container).rowGap || getComputedStyle(container).gap || 0) || 0;
 
       handle.setPointerCapture(e.pointerId);
       row.classList.add('dragging');
-      box.classList.add('dragging');
+      container.classList.add('dragging');
 
       function layoutGap() {
         for (var i = 0; i < rows.length; i++) {
@@ -6118,19 +6195,12 @@
         handle.removeEventListener('pointerup', onUp);
         handle.removeEventListener('pointercancel', onUp);
         row.classList.remove('dragging');
-        box.classList.remove('dragging');
+        container.classList.remove('dragging');
         row.style.transform = '';
         rows.forEach(function (el) { el.style.transform = ''; });
 
         if (targetIndex !== fromIndex) {
-          var ordered = rows.slice();
-          ordered.splice(fromIndex, 1);
-          ordered.splice(targetIndex, 0, row);
-          ordered.forEach(function (el) { box.appendChild(el); });
-          var activityId = currentCommunityActivityId;
-          api('PUT', '/api/activities/' + activityId + '/goals/categories-reorder', {
-            keys: ordered.map(function (el) { return el.dataset.categoryKey; }),
-          }).catch(function (err) { alert(err.message); activityGoalsCategoriesRefresh(activityId); });
+          reorderPoleSecteur(activityId, poleKey, secteurs, fromIndex, targetIndex);
         }
       }
 
@@ -6145,7 +6215,9 @@
     lastActivityGoalsPlanningData = planningData;
     currentActivityGoalsCategories = data.categories || [];
     currentActivityGoalsMax = data.maxCategories || 5;
-    var tasksByCategory = data.tasksByCategory || {};
+    // 25 septembre 2026 : data.tasksByCategory n'est plus consommé ici (plus
+    // aucune tâche affichée dans cette section) — la donnée reste renvoyée
+    // par le serveur pour d'autres lecteurs, simplement plus lue ici.
     var activityIdForTasks = currentCommunityActivityId;
     // 16 septembre 2026 (discussion "Objectifs — D", 5e passage) — voir
     // loadActivityGoalsCategories() ci-dessus : planningData peut être null
@@ -6154,9 +6226,7 @@
     // ligne ne perd sa liste de semaines, elle est simplement absente.
     var byCategoryPlanning = (planningData && planningData.byCategory) || {};
 
-    var addWrap = $('activityGoalsCategoryAddWrap');
     var list = $('activityGoalsCategoriesList');
-    if (addWrap) addWrap.classList.toggle('hidden', currentActivityGoalsCategories.length >= currentActivityGoalsMax);
     if (!list) return;
 
     list.innerHTML = '';
@@ -6188,7 +6258,6 @@
         handle.className = 'subProjectDragHandle';
         handle.setAttribute('aria-label', t('Déplacer ce pôle'));
         handle.textContent = '≡';
-        bindCategoryDrag(handle, row);
         row.appendChild(handle);
 
         var input = document.createElement('input');
@@ -6220,7 +6289,17 @@
         });
         row.appendChild(del);
 
-        list.appendChild(row);
+        // 25 septembre 2026, mode édition unique partagé pôle+secteur : le
+        // pôle et son bloc secteurs (édition) forment désormais un seul
+        // groupe déplaçable ensemble — voir bindCategoryDrag() plus haut,
+        // section « piège de layout » du doc de référence Discussion C.
+        var group = document.createElement('div');
+        group.className = 'activityGoalsCategoryEditGroup';
+        group.dataset.categoryKey = c.key;
+        group.appendChild(row);
+        group.appendChild(buildPoleSecteursEditBlock(activityIdForTasks, c));
+        bindCategoryDrag(handle, group);
+        list.appendChild(group);
         return; // en édition : ni tâches, ni résumé hebdo (même règle que Sous-projets)
       }
 
@@ -6236,15 +6315,11 @@
       nameLabel.textContent = c.label;
       row.appendChild(nameLabel);
 
-      // Repliée par défaut (maquette approuvée) : badge du nombre de tâches
-      // + chevron, tous deux purement visuels — le clic porte sur la ligne
-      // entière (bindCategoryOpenToggle).
+      // Repliée par défaut (maquette approuvée) : chevron purement visuel —
+      // le clic porte sur la ligne entière (bindCategoryOpenToggle). Le
+      // badge du nombre de tâches a été retiré le 25 septembre 2026 (cette
+      // section ne montre plus aucune tâche, voir plus bas).
       var isOpen = !!activityGoalsCategoriesOpen[c.key];
-      var tasksForCat = tasksByCategory[c.key] || [];
-      var countBadge = document.createElement('span');
-      countBadge.className = 'activityGoalsCategoryCount';
-      countBadge.textContent = String(tasksForCat.length);
-      row.appendChild(countBadge);
 
       var chevron = document.createElement('span');
       chevron.className = 'activityGoalsCategoryChevron';
@@ -6263,13 +6338,14 @@
       // c'est ici qu'on crée/renomme/retire/réordonne un secteur.
       if (isOpen) list.appendChild(buildPoleSecteursBlock(activityIdForTasks, c));
 
-      // 17 septembre 2026 (fusion sous-projet → catégorie, maquette
-      // approuvée) — le bloc de tâches de cette catégorie, juste sous sa
-      // ligne de nom, affiché SEULEMENT si la catégorie est dépliée : c'est
-      // désormais ICI qu'on coche/déplace/supprime une tâche (plus l'ajout,
-      // retiré — voir buildCategoryTasksBlock ci-dessus), plus depuis un
-      // sous-projet séparé.
-      if (isOpen) list.appendChild(buildCategoryTasksBlock(activityIdForTasks, c.key, tasksForCat));
+      // ⚠️ 25 septembre 2026, demande directe d'Emilien : la section ne sert
+      // plus qu'à paramétrer pôles/secteurs — le bloc de tâches (case à
+      // cocher/reclassement/suppression, buildCategoryTasksBlock ci-dessus)
+      // n'est plus affiché ici. Fonction laissée intacte, inutilisée depuis
+      // cette section : voir
+      // claude/noesis-timetracker-taches-categories-reference-discussion-c.md
+      // (Discussion C — Objectifs — Logique métier — doit la reprendre à
+      // l'identique dans le volet Objectifs).
 
       // ⚠️ 22 septembre 2026, demande directe d'Emilien : « supprimer les
       // objectifs hebdomadaires sous les pôles. » — le résumé lecture-seule
@@ -6292,48 +6368,52 @@
       // saisis (period.weeklies[].text) de la période en cours.
     });
 
-    // Bulle spéciale d'ajout de tâche par IA — maquette approuvée : AU-DESSUS
-    // des catégories, dans son propre conteneur (#activityGoalsCategoryAutoTaskWrap,
-    // voir index.html), pas dans #activityGoalsCategoriesList. Absente en
-    // mode édition (même règle que les tâches/résumé hebdo, masqués eux
-    // aussi pendant l'édition) et si l'activité n'a encore aucune catégorie
-    // (rien à classer).
-    // 22 septembre 2026, demande directe d'Emilien : « lorsque je clique sur
-    // un pôle, le point [lumineux] autour de la [...] zone d'écriture pour
-    // l'IA ne soit pas affecté et ne recharge pas [...] qu'il continue son
-    // cours comme si rien n'était [...] pas affecté par les chargements des
-    // pôles et des secteurs. » — cette fonction est appelée pour toutes
-    // sortes de raisons qui n'ont RIEN à voir avec la bulle IA elle-même
-    // (déplier/replier un pôle via bindCategoryOpenToggle, créer/renommer/
-    // retirer/réordonner un secteur via buildPoleSecteursBlock, etc.) :
-    // avant ce correctif, `autoTaskWrap.innerHTML = ''` la détruisait et la
-    // reconstruisait à CHAQUE appel, quelle qu'en soit la cause — ce qui
-    // repartait de zéro l'animation CSS du point lumineux (::before,
-    // styles.css, offset-path) et effaçait au passage tout brouillon en
-    // cours de saisie dans le <textarea>. Reconstruite désormais seulement
-    // quand une des deux choses qu'elle doit refléter a réellement changé :
-    // sa visibilité (mode édition, ou plus aucun pôle) et la liste des
-    // tâches en attente de re-catégorisation (categoryAutoTaskPending,
-    // affichée DANS la bulle) — comparées via deux attributs `data-*` posés
-    // sur la bulle à sa construction. Dans tous les autres cas (dont le clic
-    // sur un pôle), la bulle existante n'est ni touchée ni reconstruite.
-    var autoTaskWrap = $('activityGoalsCategoryAutoTaskWrap');
-    if (autoTaskWrap) {
-      var shouldShowAutoTaskBubble = !activityGoalsCategoriesEditMode && currentActivityGoalsCategories.length > 0;
-      var existingAutoTaskBubble = autoTaskWrap.firstElementChild;
-      var autoTaskBubbleUpToDate = existingAutoTaskBubble &&
-        existingAutoTaskBubble.dataset.activityId === String(activityIdForTasks) &&
-        existingAutoTaskBubble.dataset.pendingCount === autoTaskBubbleSignature(activityIdForTasks);
-      if (!shouldShowAutoTaskBubble) {
-        if (existingAutoTaskBubble) autoTaskWrap.innerHTML = '';
-      } else if (!autoTaskBubbleUpToDate) {
-        autoTaskWrap.innerHTML = '';
-        var autoTaskBubble = buildCategoryAutoTaskBubble(activityIdForTasks);
-        autoTaskBubble.dataset.activityId = String(activityIdForTasks);
-        autoTaskBubble.dataset.pendingCount = autoTaskBubbleSignature(activityIdForTasks);
-        autoTaskWrap.appendChild(autoTaskBubble);
-      }
+    // ⚠️ 25 septembre 2026, demande directe d'Emilien : la bulle d'ajout de
+    // tâche par IA (#activityGoalsCategoryAutoTaskWrap, buildCategoryAutoTaskBubble()
+    // ci-dessus) est retirée de cette section — « transférée dans le volet
+    // objectif », Discussion C briefée pour la reconstruire là-bas. Le
+    // conteneur #activityGoalsCategoryAutoTaskWrap est retiré d'index.html ;
+    // la fonction et son infra (categoryAutoTaskPending, file hors ligne)
+    // restent intactes dans ce fichier, inutilisées depuis cette section —
+    // voir claude/noesis-timetracker-taches-categories-reference-discussion-c.md.
+    // À la place : la bulle texte + bouton « Ajouter » d'un nouveau pôle,
+    // même gabarit que l'ajout d'un secteur (buildPoleSecteursBlock), tout
+    // en bas de la liste des pôles — remplace l'ancien « + »
+    // (#addSubProjectBtn, retiré d'index.html, voir plus bas).
+    if (!activityGoalsCategoriesEditMode) {
+      list.appendChild(buildAddPoleRow(activityIdForTasks));
     }
+  }
+
+  // 25 septembre 2026 : bulle d'ajout de pôle, même gabarit que
+  // .activityGoalsSecteurAddRow (buildPoleSecteursBlock ci-dessus) —
+  // remplace l'ancien « + » (#addSubProjectBtn).
+  function buildAddPoleRow(activityId) {
+    var addRow = document.createElement('div');
+    addRow.className = 'activityGoalsCategoryAddRow';
+    var addInput = document.createElement('input');
+    addInput.type = 'text';
+    addInput.id = 'activityGoalsCategoryAddInput';
+    addInput.className = 'activityGoalsCategoryNameInput';
+    addInput.maxLength = 40;
+    addInput.placeholder = t('Nouveau pôle…');
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'iconBtn';
+    addBtn.textContent = t('Ajouter');
+    addBtn.addEventListener('click', function () {
+      var label = addInput.value.trim();
+      if (!label) return;
+      addBtn.disabled = true;
+      createActivityGoalsCategory(activityId, label).then(function () {
+        addInput.value = '';
+        addBtn.disabled = false;
+      });
+    });
+    addInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } });
+    addRow.appendChild(addInput);
+    addRow.appendChild(addBtn);
+    return addRow;
   }
 
   function renameActivityGoalsCategory(key, label) {
@@ -6353,12 +6433,20 @@
   // 16 septembre 2026 (11e passage), demande d'Emilien : la bulle "Nouvelle
   // catégorie" + bouton "Ajouter" (#activityGoalsCategoryAddWrap) est retirée
   // d'index.html — cette logique de création est extraite dans une fonction
-  // réutilisable, appelée directement par le « + » (#addSubProjectBtn, voir
-  // plus bas) avec un nom par défaut plutôt que par une saisie préalable.
+  // réutilisable. **25 septembre 2026 : appelée désormais par
+  // buildAddPoleRow() (bulle texte + bouton, en bas de la liste des pôles,
+  // remplace le « + » #addSubProjectBtn) — le garde du plafond de pôles
+  // (auparavant seulement dans l'écouteur du « + ») est centralisé ici, et
+  // la fonction renvoie désormais sa promesse pour que l'appelant puisse
+  // réinitialiser son champ une fois l'ajout terminé.**
   function createActivityGoalsCategory(activityId, label) {
     var msg = $('activityGoalsCategoriesMsg');
-    if (!label) { if (msg) msg.textContent = t('Nom de pôle requis.'); return; }
-    api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
+    if (!label) { if (msg) msg.textContent = t('Nom de pôle requis.'); return Promise.resolve(); }
+    if (currentActivityGoalsCategories.length >= currentActivityGoalsMax) {
+      if (msg) msg.textContent = t('Maximum de pôles atteint ({max}).', { max: currentActivityGoalsMax });
+      return Promise.resolve();
+    }
+    return api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
       .then(function () { activityGoalsCategoriesRefresh(activityId); })
       .catch(function (err) { if (msg) msg.textContent = err.message; });
   }
@@ -6413,6 +6501,18 @@
   // tâches. Pas de glisser-déposer (bindCategoryDrag, réservé aux pôles) :
   // deux boutons ↑/↓ suffisent pour une liste courte de secteurs et évitent
   // de dupliquer cette mécanique pour une nouvelle portée d'éléments.
+  // 25 septembre 2026, demande directe d'Emilien : les secteurs perdent ici
+  // leurs flèches ▲▼/croix de suppression (mode toujours-éditable) au profit
+  // du même mécanisme que les pôles — appui long pour entrer dans le mode
+  // édition PARTAGÉ (voir renderActivityGoalsCategoriesPanel/bindCategoryLongPress,
+  // le flag activityGoalsCategoriesEditMode est unique, pas par pôle). En
+  // mode normal (ici), un secteur est donc désormais une simple ligne en
+  // lecture seule ; l'édition (renommer/réordonner/retirer) se fait dans
+  // buildPoleSecteursEditBlock() ci-dessous, affichée à la place quand
+  // activityGoalsCategoriesEditMode est actif (voir le groupe de pôle qui
+  // l'appelle). Le clic pour déplier/replier un pôle (Q2, AskUserQuestion du
+  // 25 septembre) reste inchangé : cette fonction n'est appelée que si le
+  // pôle est déjà déplié (isOpen), comme avant.
   function buildPoleSecteursBlock(activityId, pole) {
     var wrap = document.createElement('div');
     wrap.className = 'activityGoalsSecteursBlock';
@@ -6434,54 +6534,12 @@
       dot.style.background = secteurShade(currentActivityColor, index);
       row.appendChild(dot);
 
-      var nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.className = 'activityGoalsSecteurNameInput';
-      nameInput.maxLength = 40;
-      nameInput.value = s.label;
-      (function (s, nameInput) {
-        function commitName() {
-          var value = nameInput.value.trim();
-          if (!value || value === s.label) { nameInput.value = s.label; return; }
-          renamePoleSecteur(activityId, pole.key, s.key, value);
-        }
-        nameInput.addEventListener('click', function (e) { e.stopPropagation(); });
-        nameInput.addEventListener('blur', commitName);
-        nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); } });
-      })(s, nameInput);
-      row.appendChild(nameInput);
+      var nameLabel = document.createElement('span');
+      nameLabel.className = 'activityRowName';
+      nameLabel.textContent = s.label;
+      row.appendChild(nameLabel);
 
-      if (index > 0) {
-        var up = document.createElement('button');
-        up.type = 'button';
-        up.className = 'iconBtn activityGoalsSecteurMoveBtn';
-        up.textContent = '↑';
-        up.setAttribute('aria-label', t('Monter ce secteur'));
-        up.addEventListener('click', function (e) { e.stopPropagation(); reorderPoleSecteur(activityId, pole.key, secteurs, index, index - 1); });
-        row.appendChild(up);
-      }
-      if (index < secteurs.length - 1) {
-        var down = document.createElement('button');
-        down.type = 'button';
-        down.className = 'iconBtn activityGoalsSecteurMoveBtn';
-        down.textContent = '↓';
-        down.setAttribute('aria-label', t('Descendre ce secteur'));
-        down.addEventListener('click', function (e) { e.stopPropagation(); reorderPoleSecteur(activityId, pole.key, secteurs, index, index + 1); });
-        row.appendChild(down);
-      }
-
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'subProjectDeleteX';
-      del.textContent = '✕';
-      del.setAttribute('aria-label', t('Retirer ce secteur'));
-      del.addEventListener('click', function (e) {
-        e.stopPropagation();
-        if (!confirm(t('Retirer ce secteur ? Son historique reste consultable.'))) return;
-        removePoleSecteur(activityId, pole.key, s.key);
-      });
-      row.appendChild(del);
-
+      bindCategoryLongPress(row);
       wrap.appendChild(row);
     });
 
@@ -6510,6 +6568,65 @@
     addRow.appendChild(addInput);
     addRow.appendChild(addBtn);
     wrap.appendChild(addRow);
+
+    return wrap;
+  }
+
+  // 25 septembre 2026 : version ÉDITION du bloc secteurs d'un pôle — appelée
+  // uniquement depuis le groupe de pôle en mode édition
+  // (renderActivityGoalsCategoriesPanel). Même gabarit que la ligne pôle en
+  // édition (poignée/champ de nom/croix, classes .subProjectDragHandle/
+  // .subProjectNameInput/.subProjectDeleteX déjà existantes — aucune
+  // nouvelle classe CSS nécessaire ici). Pas de minimum de secteurs
+  // (contrairement au pôle) : pas de garde sur la dernière croix, comme
+  // avant ce passage.
+  function buildPoleSecteursEditBlock(activityId, pole) {
+    var wrap = document.createElement('div');
+    wrap.className = 'activityGoalsSecteursBlock';
+
+    var secteurs = pole.secteurs || [];
+    secteurs.forEach(function (s) {
+      var row = document.createElement('div');
+      row.className = 'activityGoalsSecteurRow editing';
+      row.dataset.secteurKey = s.key;
+
+      var handle = document.createElement('span');
+      handle.className = 'subProjectDragHandle';
+      handle.setAttribute('aria-label', t('Déplacer ce secteur'));
+      handle.textContent = '≡';
+      bindSecteurDrag(handle, row, wrap, activityId, pole.key, secteurs);
+      row.appendChild(handle);
+
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'subProjectNameInput';
+      input.maxLength = 40;
+      input.value = s.label;
+      (function (s, input) {
+        function commitName() {
+          var value = input.value.trim();
+          if (!value || value === s.label) { input.value = s.label; return; }
+          renamePoleSecteur(activityId, pole.key, s.key, value);
+        }
+        input.addEventListener('blur', commitName);
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+      })(s, input);
+      row.appendChild(input);
+
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'subProjectDeleteX';
+      del.textContent = '✕';
+      del.setAttribute('aria-label', t('Retirer ce secteur'));
+      del.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (!confirm(t('Retirer ce secteur ? Son historique reste consultable.'))) return;
+        removePoleSecteur(activityId, pole.key, s.key);
+      });
+      row.appendChild(del);
+
+      wrap.appendChild(row);
+    });
 
     return wrap;
   }
@@ -8262,11 +8379,11 @@
     whenElementReady('#activitiesList .activityRow[data-activity-id="' + activityId + '"] .activityRowHeader', function (header) {
       header.click();
       setActivityPageSection('sub');
-      // 16 septembre 2026 (11e passage, C) : #activityGoalsCategoryAddWrap a
-      // été retiré (demande d'Emilien, même passage) — le « + »
-      // (#addSubProjectBtn) est désormais l'unique point d'ajout de
-      // catégorie dans cet écran, c'est lui qu'on pointe.
-      focusWhenReady('#addSubProjectBtn');
+      // 25 septembre 2026 : le « + » (#addSubProjectBtn) est retiré,
+      // remplacé par la bulle texte + bouton « Ajouter » en bas de la liste
+      // des pôles (buildAddPoleRow(), #activityGoalsCategoryAddInput) —
+      // c'est désormais ce champ qu'on pointe.
+      focusWhenReady('#activityGoalsCategoryAddInput');
     });
   }
 
@@ -10222,33 +10339,12 @@
     $('newSubProjectMsg').textContent = '';
   }
 
-  // 16 septembre 2026 (10e passage, demande explicite d'Emilien) : ce « + »
-  // ne crée plus de sous-projet — « sous-projet n'existe plus, c'est
-  // catégorie qu'on crée » (fusion en cours des sous-projets dans les
-  // catégories d'objectifs). Il redirige vers EXACTEMENT le même chemin que
-  // le bouton "Ajouter" de #activityGoalsCategoriesBlock (même validation,
-  // même appel API POST .../goals/categories, même rafraîchissement) au lieu
-  // de dupliquer cette logique. #newSubProjectCard et closeNewSubProjectForm
-  // restent dans le code (masqués, pas supprimés) le temps du passage
-  // suivant qui reprendra les fonctionnalités des sous-projets (tâches,
-  // discussion) pour les appliquer à la catégorie, avant de retirer
-  // vraiment les sous-projets.
-  // **11e passage : crée directement une catégorie avec un nom par défaut
-  // (plus de formulaire intermédiaire, #activityGoalsCategoryAddWrap retiré
-  // d'index.html) — voir createActivityGoalsCategory() plus haut.**
-  $('addSubProjectBtn').addEventListener('click', function () {
-    var activityId = currentCommunityActivityId;
-    if (!activityId) return;
-    var msg = $('activityGoalsCategoriesMsg');
-    if (currentActivityGoalsCategories.length >= currentActivityGoalsMax) {
-      if (msg) msg.textContent = t('Maximum de pôles atteint ({max}).', { max: currentActivityGoalsMax });
-      return;
-    }
-    // Nom par défaut, aussitôt renommable en tapant sur la ligne créée (le
-    // champ de nom de chaque catégorie est toujours éditable) — pas de
-    // formulaire intermédiaire, conformément à la demande d'Emilien.
-    createActivityGoalsCategory(activityId, t('Nouveau pôle'));
-  });
+  // 25 septembre 2026, demande directe d'Emilien : le « + » (#addSubProjectBtn)
+  // est retiré d'index.html, remplacé par buildAddPoleRow() (bulle texte +
+  // bouton « Ajouter », en bas de la liste des pôles, même gabarit que
+  // l'ajout d'un secteur) — voir renderActivityGoalsCategoriesPanel()/
+  // createActivityGoalsCategory() plus haut. #newSubProjectCard et
+  // closeNewSubProjectForm restent dans le code (masqués, pas supprimés).
   $('newSubProjectCancel').addEventListener('click', closeNewSubProjectForm);
   $('newSubProjectSave').addEventListener('click', createSubProject);
 

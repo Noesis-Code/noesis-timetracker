@@ -5578,21 +5578,26 @@ button { -webkit-user-select: none; user-select: none; }
    ne fait rien (renommer/glisser/supprimer passent par leurs propres
    contrôles). */
 .activityGoalsCategoryRow:not(.editing) { cursor: pointer; }
-/* Nombre de tâches + chevron replié/déplié — purement visuels, le clic porte
-   sur la ligne entière. */
-.activityGoalsCategoryCount {
-  flex-shrink: 0; font-size: 11px; color: var(--text-light);
-  background: var(--track-bg); border-radius: 999px; padding: 2px 8px;
-}
+/* 25 septembre 2026 : .activityGoalsCategoryCount (badge du nombre de
+   tâches) retiré — cette section n'affiche plus aucune tâche, voir
+   claude/noesis-timetracker-taches-categories-reference-discussion-c.md. */
 .activityGoalsCategoryChevron {
   flex-shrink: 0; color: var(--text-light); font-size: 12px; width: 14px;
   text-align: center;
 }
 /* 16 septembre 2026 (11e passage) : appui long + glisser pour réordonner,
    même habillage visuel que .activityRow.dragging (réordonnancement des
-   activités) — voir bindCategoryLongPress/startCategoryDrag, app.js. */
-.activityGoalsCategoryRow.dragging { opacity: 0.75; border-color: var(--purple); z-index: 2; }
-#activityGoalsCategoriesList.dragging .activityGoalsCategoryRow:not(.dragging) { transition: transform 0.16s ease; }
+   activités) — voir bindCategoryLongPress/startCategoryDrag, app.js.
+   25 septembre 2026 : mode édition partagé pôle+secteur — la ligne de pôle
+   ET son bloc secteurs (édition) forment désormais un groupe déplaçable
+   ensemble (.activityGoalsCategoryEditGroup, app.js/bindCategoryDrag),
+   remplace les règles .activityGoalsCategoryRow.dragging ci-dessous. */
+.activityGoalsCategoryEditGroup {
+  display: flex; flex-direction: column; gap: 2px; touch-action: none;
+}
+.activityGoalsCategoryEditGroup.dragging { opacity: 0.75; z-index: 2; }
+.activityGoalsCategoryEditGroup.dragging .activityGoalsCategoryRow { border-color: var(--purple); }
+#activityGoalsCategoriesList.dragging .activityGoalsCategoryEditGroup:not(.dragging) { transition: transform 0.16s ease; }
 .activityGoalsCategoryReorder {
   border: none; background: transparent; color: var(--text-light);
   font-size: 12px; line-height: 1; padding: 4px; cursor: pointer; flex-shrink: 0;
@@ -5656,9 +5661,10 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsSecteurNameInput:focus {
   border-color: var(--border); background: var(--track-bg);
 }
-.activityGoalsSecteurMoveBtn {
-  flex: 0 0 auto; padding: 2px 6px; font-size: 12px;
-}
+/* 25 septembre 2026 : .activityGoalsSecteurMoveBtn (flèches ▲▼) retiré — le
+   réordonnancement d'un secteur passe désormais par le même mécanisme
+   d'appui long + glisser que les pôles, voir bindSecteurDrag()/
+   buildPoleSecteursEditBlock() dans app.js. */
 .activityGoalsSecteurAddRow {
   display: flex; align-items: center; gap: 6px; margin-top: 2px;
 }
@@ -5765,6 +5771,12 @@ button { -webkit-user-select: none; user-select: none; }
    `filter: drop-shadow` pour la luminosité au lieu de `box-shadow` (suit la
    forme réelle du trait, pas un rectangle englobant — pas de « zone
    noire »). */
+/* ⚠️ 25 septembre 2026, demande directe d'Emilien : cette bulle est retirée
+   de la section Tâches/Catégories de la fenêtre Activité (« à transférer
+   dans le volet objectif », Discussion C briefée pour la reconstruire
+   là-bas). Ce bloc CSS reste en place, inutilisé depuis cette section, pour
+   que cette discussion le reprenne à l'identique — voir
+   claude/noesis-timetracker-taches-categories-reference-discussion-c.md. */
 .activityGoalsCategoryAutoTaskBubble {
   position: relative;
   border-radius: var(--radius-lg, var(--radius-md));
@@ -5865,15 +5877,13 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryAutoTaskPendingObjective {
   margin: 0 0 0 14px; font-style: italic; opacity: .85;
 }
-/* 17 septembre 2026 (maquette approuvée, citation directe : « je souhaite
-   que le + soit entre la bulle de l'écriture de la nouvelle tâche et les
-   différentes catégories, puisque le + correspond à l'ajout d'une
-   catégorie. ») — ligne dédiée au "+" (#addSubProjectBtn, .menuBtn),
-   alignée à droite comme dans la maquette, entre
-   #activityGoalsCategoryAutoTaskWrap et #activityGoalsCategoriesList
-   (voir index.html). */
+/* 25 septembre 2026, demande directe d'Emilien : le "+" (#addSubProjectBtn)
+   est retiré, remplacé par une bulle texte + bouton "Ajouter" tout en bas de
+   la liste des pôles (buildAddPoleRow(), app.js) — même gabarit que
+   .activityGoalsSecteurAddRow. Layout passé d'un bouton seul aligné à droite
+   à une rangée champ+bouton. */
 .activityGoalsCategoryAddRow {
-  display: flex; justify-content: flex-end; margin: 8px 0;
+  display: flex; align-items: center; gap: 8px; margin: 8px 0;
 }
 /* Sélecteur compact de reclassement manuel, à côté de la case à cocher de
    chaque tâche (buildCategoryTaskRow, app.js) — demande d'Emilien : « Je

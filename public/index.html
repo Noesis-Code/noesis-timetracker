@@ -2064,34 +2064,35 @@
              toujours des catégories Objectifs. Construit par
              renderActivityGoalsCategoriesPanel() (app.js) à partir de
              GET /activities/:id/goals/categories — jamais statique ici. -->
-        <!-- ⚠️ 16 septembre 2026 (11e passage), demande d'Emilien : titre
-             "Catégories d'objectifs", texte explicatif et bulle "Nouvelle
-             catégorie" + bouton "Ajouter" retirés — le « + » de la ligne
-             au-dessus (#addSubProjectBtn) crée maintenant directement une
-             catégorie (nom par défaut, aussitôt renommable sur place, voir
-             son handler dans app.js). #activityGoalsCategoryAddWrap/Input/Btn
-             retirés du DOM (masqués nulle part ailleurs : plus référencés
-             que par du code désormais mort dans app.js, laissé en place par
-             prudence — voir commentaire à cet endroit). Les flèches ▲▼ de
-             réordonnancement sont retirées de chaque ligne (renderActivityGoalsCategoriesPanel(),
-             app.js) au profit d'un appui long sur la ligne pour glisser-
-             déposer, même geste que pour réordonner les activités
-             (bindActivityLongPress/bindActivityDrag) — voir
-             bindCategoryLongPress/startCategoryDrag, app.js. -->
+        <!-- ⚠️ 25 septembre 2026, demande directe d'Emilien : cette section
+             devient un pur panneau de paramétrage pôles/secteurs — plus rien
+             d'autre. Deux retraits par rapport aux passages précédents (voir
+             l'historique plus bas dans ce commentaire) :
+              1. La bulle d'ajout de tâche par IA (#activityGoalsCategoryAutoTaskWrap,
+                 buildCategoryAutoTaskBubble() app.js) est retirée d'ici — « à
+                 transférer dans le volet objectif », Discussion C (Objectifs
+                 — Logique métier) a déjà été briefée pour la reconstruire
+                 là-bas. Le code de cette bulle reste en place dans app.js
+                 (inutilisé depuis cette section) pour que cette discussion
+                 puisse le reprendre à l'identique.
+              2. Le "+" (#addSubProjectBtn) est retiré, remplacé par une
+                 bulle texte + bouton "Ajouter" en bas de la liste des pôles
+                 (buildAddPoleRow(), app.js) — même gabarit que l'ajout d'un
+                 secteur, construite par renderActivityGoalsCategoriesPanel(),
+                 pas statique ici.
+             Les tâches elles-mêmes (case à cocher/reclassement/suppression,
+             ex-buildCategoryTasksBlock) sont retirées de cette section pour
+             la même raison — voir
+             claude/noesis-timetracker-taches-categories-reference-discussion-c.md.
+             Historique : 16 septembre 2026 (11e passage), titre "Catégories
+             d'objectifs", texte explicatif et bulle "Nouvelle catégorie" +
+             bouton "Ajouter" (#activityGoalsCategoryAddWrap/Input/Btn)
+             d'abord retirés au profit d'un "+" à nom par défaut ; les
+             flèches ▲▼ de réordonnancement des pôles retirées au profit d'un
+             appui long (bindCategoryLongPress/bindCategoryDrag, app.js) —
+             ce même appui long couvre désormais aussi les secteurs (voir
+             bindSecteurDrag/buildPoleSecteursEditBlock, app.js). -->
         <div id="activityGoalsCategoriesBlock">
-          <!-- 17 septembre 2026 (discussion Objectifs — C, maquette validée
-               par Emilien) : bulle d'ajout de tâche par IA, tout en haut,
-               AU-DESSUS des catégories — construite par
-               buildCategoryAutoTaskBubble() (app.js), qui vide/remplit ce
-               conteneur à chaque rendu du panneau, séparément de la liste des
-               catégories elle-même. -->
-          <div id="activityGoalsCategoryAutoTaskWrap"></div>
-          <!-- Le "+" (déménagé depuis #activitySubProjectsBlock ci-dessus) :
-               entre la bulle et les catégories, puisqu'il correspond à
-               l'ajout d'une CATÉGORIE, pas d'une tâche. -->
-          <div class="activityGoalsCategoryAddRow">
-            <button type="button" id="addSubProjectBtn" class="menuBtn" aria-label="Ajouter un pôle">+</button>
-          </div>
           <div id="activityGoalsCategoriesList" class="activityGoalsCategoriesList"></div>
           <p id="activityGoalsCategoriesMsg" class="msg"></p>
         </div>
@@ -3138,8 +3139,14 @@
                Objectifs de la barre du bas (onglet dédié, plus bas dans ce
                fichier) n'est pas concerné — Emilien l'a explicitement demandé
                inchangé. -->
+          <!-- ⚠️ 25 septembre 2026, demande directe d'Emilien : onglet
+               renommé "Tâches" → "Catégories" — la section ne sert plus qu'à
+               paramétrer les pôles/secteurs (voir #activityGoalsCategoriesBlock
+               plus bas). id/data-section restent "sub" (inchangés, pour ne
+               pas casser les liens profonds existants type
+               setActivityPageSection('sub')). -->
           <div class="periodSwitch" id="activityPageSectionSwitch">
-            <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Tâches</button>
+            <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Catégories</button>
             <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
             <button type="button" class="periodBtn" id="activityPageTabDisc" data-section="disc">Discussion</button>
           </div>
