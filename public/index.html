@@ -3472,6 +3472,15 @@
                 </label>
                 <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
                 <p id="settingsMsg" class="msg"></p>
+                <!-- « Déconnexion » (26 septembre 2026, demande d'Emilien) : placé
+                     ici, sous « Enregistrer », après deux emplacements précédents
+                     écartés le même jour — le bandeau « Réglages » (dont la place
+                     revient à la croix de fermeture), puis la sous-section
+                     Sécurité. C'est bien la fin du formulaire d'identité : on
+                     enregistre son profil, puis on quitte.
+                     Id et classe inchangés depuis l'origine : son écouteur dans
+                     app.js n'a jamais bougé, quel que soit l'emplacement. -->
+                <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
               </div>
               </div>
               <!-- "Abonnés & Abonnements" a quitté Réglages le 1er septembre 2026
@@ -3505,15 +3514,13 @@
                    (table `sessions`), hors périmètre retenu pour l'échéance du
                    11 septembre : cette carte se limite donc à une révocation
                    GLOBALE, immédiate, de tous les appareils à la fois. -->
-              <!-- « Déconnexion » (26 septembre 2026, demande d'Emilien) : descendu
-                   du bandeau « Réglages », dont la place revient à la croix de
-                   fermeture. Posé ici plutôt qu'ailleurs dans le groupe : c'est le
-                   voisin immédiat de « Se déconnecter de tous les appareils »
-                   ci-dessous — même geste, portée différente (cet appareil / tous).
-                   Id et classe inchangés : son écouteur dans app.js n'a pas bougé. -->
-              <div class="settingsCard">
-                <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
-              </div>
+              <!-- ⚠️ « Déconnexion » a brièvement vécu ICI le 26 septembre 2026, entre
+                   son départ du bandeau « Réglages » et sa place actuelle : Emilien
+                   l'a fait remonter le jour même dans Identité, sous le bouton
+                   « Enregistrer » (voir son nouvel emplacement plus haut). Ne pas
+                   le redescendre ici en croyant le rapprocher de son voisin
+                   « Se déconnecter de tous les appareils » : ce rapprochement a été
+                   essayé et écarté. -->
               <div class="settingsCard">
                 <button id="settingsLogoutAllBtn" class="iconBtn danger">Se déconnecter de tous les appareils</button>
                 <p id="settingsLogoutAllMsg" class="msg"></p>
