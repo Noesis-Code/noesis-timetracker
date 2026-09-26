@@ -231,6 +231,10 @@ function addCategoryTask(activityId, userId, categoryKey, label, extra) {
     }
     cleanExtra.dueDate = String(extra.dueDate);
   }
+  // 25 septembre 2026 (badges « non vu », restructuration du volet Objectifs) :
+  // simple passe-plat vers subprojects.createItem — voir son commentaire pour
+  // le détail (posé uniquement par le chemin de capture libre par IA).
+  if (extra && extra.autoCaptured) cleanExtra.autoCaptured = true;
 
   const { subProject, section } = ensureCategoryTaskSection(activityId, userId, categoryKey);
   const item = subprojects.createItem(section, clean, cleanExtra);
@@ -292,6 +296,60 @@ function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
   return subprojects.getItem(item.id);
 }
 
+// ---------------------------------------------------------------------------
+// 25 septembre 2026 (badges « non vu », restructuration du volet Objectifs en
+// 3 pages — demande directe d'Emilien, « je souhaite que des points
+// apparaissent avec le nombre de tâches ajoutées [...] et lorsque
+// l'utilisateur clique dessus [...] les points disparaissent [...] un
+// badge [...] montre uniquement les NOUVELLES tâches ajoutées », jamais un
+// compteur cumulatif) — compte, pour badge violet, les tâches autoCaptured=1
+// pas encore vues (seenAt NULL) d'une activité.
+//  - total : toutes catégories confondues (badge de la page 1, par activité).
+//  - byCategory : détaillé PAR CLÉ (pôle ET secteur comptés séparément, sous
+//    leur propre clé — badge de la page 2, sur chaque nœud de l'arbre
+//    périodique). Différent de tasksByCategoryForActivity (qui remonte les
+//    tâches de secteur dans le tableau de leur pôle pour l'affichage par
+//    pôle de la section Catégories) : ici chaque nœud de l'arbre a besoin de
+//    son propre compte, secteur compris.
+function unseenCountsForActivity(activityId) {
+  const rows = db.prepare(`
+    SELECT sp.goalCategory AS category, COUNT(*) AS cnt
+    FROM sub_project_items i
+    JOIN sub_project_sections s ON s.id = i.sectionId
+    JOIN sub_projects sp ON sp.id = s.subProjectId
+    WHERE sp.activityId = ? AND s.kind = 'tasks' AND i.autoCaptured = 1 AND i.seenAt IS NULL AND sp.goalCategory IS NOT NULL
+    GROUP BY sp.goalCategory
+  `).all(activityId);
+  const byCategory = {};
+  let total = 0;
+  rows.forEach((r) => { byCategory[r.category] = r.cnt; total += r.cnt; });
+  return { total, byCategory };
+}
+
+// Pose seenAt = maintenant sur toutes les tâches autoCaptured non vues d'une
+// activité — `categoryKey` omis (page 1 : ouvrir une activité entière) ou
+// fourni (page 2 : ouvrir un seul nœud pôle/secteur de l'arbre périodique).
+// Idempotent (WHERE ... seenAt IS NULL) : rouvrir une liste déjà vue ne fait
+// rien de plus.
+function markCategoriesSeen(activityId, categoryKey) {
+  const params = [new Date().toISOString(), activityId];
+  let sql = `
+    UPDATE sub_project_items
+    SET seenAt = ?
+    WHERE autoCaptured = 1 AND seenAt IS NULL AND id IN (
+      SELECT i.id FROM sub_project_items i
+      JOIN sub_project_sections s ON s.id = i.sectionId
+      JOIN sub_projects sp ON sp.id = s.subProjectId
+      WHERE sp.activityId = ? AND s.kind = 'tasks'`;
+  if (categoryKey) {
+    sql += ' AND sp.goalCategory = ?';
+    params.push(categoryKey);
+  }
+  sql += ')';
+  const info = db.prepare(sql).run(...params);
+  return { updated: info.changes };
+}
+
 module.exports = {
   subProjectsForCategory,
   ensureHomeSubProject,
@@ -302,4 +360,7 @@ module.exports = {
   weeklyObjectiveForWeek,
   addCategoryTask,
   moveCategoryTask,
+  // Badges « non vu » (25 septembre 2026, volet Objectifs page 1/2/3).
+  unseenCountsForActivity,
+  markCategoriesSeen,
 };

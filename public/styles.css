@@ -5797,9 +5797,12 @@ button { -webkit-user-select: none; user-select: none; }
 /* ⚠️ 25 septembre 2026, demande directe d'Emilien : cette bulle est retirée
    de la section Tâches/Catégories de la fenêtre Activité (« à transférer
    dans le volet objectif », Discussion C briefée pour la reconstruire
-   là-bas). Ce bloc CSS reste en place, inutilisé depuis cette section, pour
-   que cette discussion le reprenne à l'identique — voir
-   claude/noesis-timetracker-taches-categories-reference-discussion-c.md. */
+   là-bas). Reprise EXACTEMENT à l'identique le même jour par la nouvelle
+   page 1 du volet Objectifs (#goalsCaptureBubbleWrap, buildGoalsCaptureBubble()
+   dans app.js) — ce bloc CSS et .activityGoalsCategoryAutoTaskGlow juste en
+   dessous servent donc À NOUVEAU, sans aucun changement, plus jamais depuis
+   la section Tâches/Catégories elle-même. Voir claude/noesis-timetracker-
+   taches-categories-reference-discussion-c.md pour l'historique complet. */
 .activityGoalsCategoryAutoTaskBubble {
   position: relative;
   border-radius: var(--radius-lg, var(--radius-md));
@@ -5900,6 +5903,75 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryAutoTaskPendingObjective {
   margin: 0 0 0 14px; font-style: italic; opacity: .85;
 }
+/* ===== Volet Objectifs — page 1 (capture), 25 septembre 2026 =====
+   Restructuration du volet Objectifs en 3 pages, demande directe d'Emilien —
+   voir le commentaire de #goalsCapturePage dans index.html et de la section
+   "VOLET OBJECTIFS — PAGE 1 : CAPTURE" dans app.js. Écran par défaut affiché
+   dès l'ouverture de l'onglet, avant même le choix d'une activité. */
+.goalsCapturePage {
+  display: flex; flex-direction: column; gap: 14px;
+}
+.goalsCapturePage.hidden { display: none; }
+/* Puces d'activité à sélection multiple + double fonction (zone de texte
+   vide + clic → navigue vers la page 2 de cette activité plutôt que de la
+   sélectionner) — voir renderGoalsCaptureActivities(), app.js. */
+.goalsCaptureActivities {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.goalsCaptureActivityChip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--card);
+  color: var(--text); font-size: 14px; font-family: inherit;
+  cursor: pointer; position: relative;
+}
+.goalsCaptureActivityChip .dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.goalsCaptureActivityChip.selected {
+  border-color: var(--purple); background: rgba(103, 78, 167, 0.12);
+}
+.goalsCaptureActivityChipName { flex-shrink: 0; }
+/* Badge violet « non vu » — jamais un compteur cumulatif (se vide dès que
+   l'utilisateur visite la liste concernée, voir server/lib/goalstasks.js#
+   unseenCountsForActivity et markCategoriesSeen). Réutilisé tel quel pour le
+   badge du sélecteur de pôles (.goalsPoleDropdownBadge ci-dessous). */
+.goalsCaptureBadge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px; background: var(--purple); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 1;
+}
+.goalsCaptureBubbleWrap { display: flex; flex-direction: column; }
+/* 26 septembre 2026, retour direct d'Emilien : le badge de la Page 2 quitte
+   le menu déroulant de pôle pour l'arbre périodique lui-même
+   (.goalsGridHeadCell, voir renderGoalsGridHead(), app.js) — même style que
+   .goalsCaptureBadge, posé dans le coin supérieur droit de chaque case de
+   pôle/secteur. Règle ADDITIVE sur .goalsGridHeadCell (déjà déclarée plus
+   haut dans ce fichier, aucune propriété en commun avec celle-ci — ajoute
+   seulement `position: relative`, nécessaire pour positionner ce badge).
+   Inset (top/right: 2px, pas -6px) pour rester DANS les bords de la case :
+   .goalsGridHeadCell a `overflow: hidden` (ellipsis du libellé, ligne
+   ci-dessus) qui rognerait un badge positionné hors de sa boîte. */
+.goalsGridHeadCell { position: relative; }
+.goalsGridHeadBadge {
+  position: absolute; top: 2px; right: 2px; transform: scale(0.85);
+  transform-origin: top right;
+}
+/* Point violet par tâche, page 3 (calendrier) — demande directe d'Emilien :
+   « un petit point violet à droite des tâches nouvellement ajoutées [...]
+   une fois qu'elles sont visualisées, hop, le point disparaît. » Voir
+   renderGoalsCalendarDays(), app.js (task.unseen, posé par le serveur). */
+.goalsCalendarTaskUnseenDot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--purple); margin-left: 6px; flex-shrink: 0;
+}
+/* Bouton de retour de la page 2 vers la page 1 (#goalsBackToCaptureBtn,
+   index.html) — réutilise .menuBtn tel quel, même motif que .goalsSwipeBtn
+   juste au-dessus ; seul un petit espace le sépare de la flèche "précédente"
+   qui le suit immédiatement. */
+#goalsBackToCaptureBtn { flex-shrink: 0; margin-right: 4px; }
+
 /* 25 septembre 2026, demande directe d'Emilien : le "+" (#addSubProjectBtn)
    est retiré, remplacé par une bulle texte + bouton "Ajouter" tout en bas de
    la liste des pôles (buildAddPoleRow(), app.js) — même gabarit que

@@ -6203,40 +6203,22 @@
     return pending + '/' + offline;
   }
 
-  // 17 septembre 2026 (maquette approuvée par Emilien, citation directe :
-  // « Prends exemple sur la bulle d'écriture dans la section discussion »
-  // + « je souhaite le remplacer par un bouton ajouter comme pour la
-  // discussion ») — même gabarit que .chatComposerRow : un seul champ
-  // (textarea, plus de paragraphe d'explication séparé au-dessus — le
-  // placeholder porte l'explication) et le bouton "Ajouter" posé À
-  // L'INTÉRIEUR de la bulle (.iconBtn, positionné en absolute), jamais un
-  // bloc .subProjectItemAdd distinct.
-  function buildCategoryAutoTaskBubble(activityId) {
-    // 22 septembre 2026, demande directe d'Emilien : « je ne souhaite pas
-    // que le message de validation ou d'erreur soit affiché dans la bulle
-    // d'écriture [...] un message juste en dessous. » — `outer` porte donc
-    // désormais le dataset (activityId/pendingCount, voir l'appelant) et
-    // contient DEUX éléments frères : `wrap` (la bulle bordée : zone de
-    // texte + bouton + point lumineux, inchangée) et `pendingList`
-    // (✓/✗ de classement), ce dernier ajouté APRÈS `wrap` plutôt que dedans
-    // — voir plus bas.
-    var outer = document.createElement('div');
-    outer.className = 'activityGoalsCategoryAutoTaskWrapOuter';
-
-    var wrap = document.createElement('div');
-    wrap.className = 'activityGoalsCategoryAutoTaskBubble';
-    outer.appendChild(wrap);
-
-    // 22 septembre 2026 (Emilien, demande directe : « un point lumineux qui
-    // ne se décroche pas du périmètre »). Après deux techniques CSS ratées
-    // (mask-composite: exclude, puis isolation+z-index:-1 — voir le
-    // commentaire au-dessus de .activityGoalsCategoryAutoTaskBubble dans
-    // styles.css), le contour est tracé en SVG : le <rect> est dimensionné
-    // ici sur la VRAIE taille de la bulle (layoutGlow, ré-appelé à chaque
-    // redimensionnement via ResizeObserver), et le trait animé
-    // (stroke-dasharray/-dashoffset, longueur exacte via getTotalLength())
-    // épouse donc littéralement le contour — il ne peut pas s'en détacher
-    // ni couper un virage, quelle que soit la longueur de la traînée.
+  // 22 septembre 2026 (Emilien, demande directe : « un point lumineux qui ne
+  // se décroche pas du périmètre »). Après deux techniques CSS ratées
+  // (mask-composite: exclude, puis isolation+z-index:-1 — voir le commentaire
+  // au-dessus de .activityGoalsCategoryAutoTaskBubble dans styles.css), le
+  // contour est tracé en SVG : le <rect> est dimensionné ici sur la VRAIE
+  // taille de la bulle (layoutGlow, ré-appelé à chaque redimensionnement via
+  // ResizeObserver), et le trait animé (stroke-dasharray/-dashoffset,
+  // longueur exacte via getTotalLength()) épouse donc littéralement le
+  // contour — il ne peut pas s'en détacher ni couper un virage, quelle que
+  // soit la longueur de la traînée.
+  // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages) :
+  // extraite de buildCategoryAutoTaskBubble() (inchangée par ailleurs) pour
+  // être réutilisée telle quelle par buildGoalsCaptureBubble() (nouvelle
+  // bulle de la page 1) — même effet visuel, un seul endroit à corriger si
+  // jamais un 5e correctif est nécessaire.
+  function attachAutoTaskGlow(wrap) {
     var glowSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     glowSvg.setAttribute('class', 'activityGoalsCategoryAutoTaskGlow');
     glowSvg.setAttribute('aria-hidden', 'true');
@@ -6264,6 +6246,33 @@
     } else {
       setTimeout(layoutGlow, 0);
     }
+  }
+
+  // 17 septembre 2026 (maquette approuvée par Emilien, citation directe :
+  // « Prends exemple sur la bulle d'écriture dans la section discussion »
+  // + « je souhaite le remplacer par un bouton ajouter comme pour la
+  // discussion ») — même gabarit que .chatComposerRow : un seul champ
+  // (textarea, plus de paragraphe d'explication séparé au-dessus — le
+  // placeholder porte l'explication) et le bouton "Ajouter" posé À
+  // L'INTÉRIEUR de la bulle (.iconBtn, positionné en absolute), jamais un
+  // bloc .subProjectItemAdd distinct.
+  function buildCategoryAutoTaskBubble(activityId) {
+    // 22 septembre 2026, demande directe d'Emilien : « je ne souhaite pas
+    // que le message de validation ou d'erreur soit affiché dans la bulle
+    // d'écriture [...] un message juste en dessous. » — `outer` porte donc
+    // désormais le dataset (activityId/pendingCount, voir l'appelant) et
+    // contient DEUX éléments frères : `wrap` (la bulle bordée : zone de
+    // texte + bouton + point lumineux, inchangée) et `pendingList`
+    // (✓/✗ de classement), ce dernier ajouté APRÈS `wrap` plutôt que dedans
+    // — voir plus bas.
+    var outer = document.createElement('div');
+    outer.className = 'activityGoalsCategoryAutoTaskWrapOuter';
+
+    var wrap = document.createElement('div');
+    wrap.className = 'activityGoalsCategoryAutoTaskBubble';
+    outer.appendChild(wrap);
+
+    attachAutoTaskGlow(wrap);
 
     var textarea = document.createElement('textarea');
     // 22 septembre 2026, demande directe d'Emilien : « agrandir la zone
@@ -7921,7 +7930,13 @@
     // 22 septembre 2026 (discussion "Objectifs — Logique métier") : liste
     // quotidienne de tâches priorisées — voir renderGoalsDailyPriority()
     // plus bas.
-    renderGoalsDailyPriority();
+    // ⚠️ 25 septembre 2026, demande directe d'Emilien (restructuration du
+    // volet Objectifs en 3 pages) : ce résumé du jour dans le détail de
+    // période fait désormais doublon avec la page 3 (calendrier, seule
+    // responsable de la liste complète et détaillée à présent) — appel
+    // retiré, carte masquée dans index.html (#activityGoalsDailyPriorityCard),
+    // fonction laissée intacte (masque, ne supprime pas).
+    // renderGoalsDailyPriority();
 
     // 16 septembre 2026 (discussion "Objectifs — D", 7e passage) : retour à
     // un affichage PERMANENT des 4 cartes hebdomadaires (défait la fusion du
@@ -8447,6 +8462,31 @@
         taskLabel.textContent = task.label;
         taskRow.appendChild(taskLabel);
 
+        // 25 septembre 2026 (badges « non vu », restructuration du volet
+        // Objectifs en 3 pages), demande directe d'Emilien : « dans le
+        // calendrier, il y ait un petit point violet à droite des tâches
+        // nouvellement ajoutées [...] une fois qu'elles sont visualisées, hop,
+        // le point disparaît. » — `task.unseen` vient du serveur (voir
+        // server/lib/calendarfeed.js#dayTasksByDate). Le simple fait
+        // d'afficher cette ligne EST déjà « visualiser » la tâche (elle est
+        // sous les yeux de l'utilisateur dans le calendrier) : la marquer vue
+        // dès l'affichage plutôt que d'attendre un clic dédié, cohérent avec
+        // le badge de la page 1/2 qui se vide, lui, à l'OUVERTURE de la
+        // liste — ici la liste EST déjà ouverte en permanence (le calendrier
+        // ne se déplie pas comme un pôle/secteur). Optimiste côté UI (le
+        // point disparaît tout de suite) ; jamais bloquant si l'appel échoue
+        // (retentera au prochain chargement du calendrier, le point restant
+        // simplement visible jusque-là).
+        if (task.unseen) {
+          var dot = document.createElement('span');
+          dot.className = 'goalsCalendarTaskUnseenDot';
+          dot.title = t('Nouvelle tâche ajoutée automatiquement');
+          taskRow.appendChild(dot);
+          api('POST', '/api/activities/' + currentGoalsActivityId + '/goals/tasks/' + task.id + '/mark-seen')
+            .then(function () { dot.remove(); })
+            .catch(function () { /* pas bloquant — le point réapparaîtra au prochain chargement */ });
+        }
+
         box.appendChild(taskRow);
       });
     });
@@ -8655,6 +8695,13 @@
       } else {
         opt.style.color = shade;
       }
+      // 26 septembre 2026 (retour direct d'Emilien après l'encart 53) :
+      // le badge violet « non vu » de la Page 2 quitte ce menu déroulant —
+      // il vit désormais sur l'arbre périodique lui-même
+      // (.goalsGridHeadCell, voir renderGoalsGridHead() ci-dessous), qui
+      // est le vrai emplacement des « objectifs périodiques » demandé. Ce
+      // menu reste un simple sélecteur, sans badge, pour ne pas dupliquer
+      // la même information à deux endroits de la même page.
       opt.addEventListener('click', function (ev) {
         ev.stopPropagation();
         currentGoalsPoleDropdownOpen = false;
@@ -8788,6 +8835,28 @@
         span.style.color = displayColor;
         span.style.borderColor = displayColor;
         span.style.outlineColor = displayColor;
+        // 26 septembre 2026 (retour direct d'Emilien après l'encart 53) :
+        // badge violet « non vu » posé ICI, sur l'arbre périodique
+        // lui-même — c'est le vrai emplacement des « objectifs
+        // périodiques » demandé, pas le menu déroulant de pôle (voir
+        // renderGoalsPoleDropdown() ci-dessus, badge retiré de là).
+        // `c.key` est déjà correctement scopé par activeGoalsCategories()
+        // selon le niveau affiché : les pôles eux-mêmes tant qu'aucun
+        // pôle réel n'a été choisi (vue comparative), ou les secteurs du
+        // pôle sélectionné une fois qu'on y est entré (21 septembre 2026,
+        // « Secteurs dans l'arbre périodique ») — donc ce même badge
+        // couvre pôle ET secteur sans code supplémentaire, contrairement
+        // à la simplification notée dans l'encart 53 (agrégation par
+        // secteur pas faite) : elle n'était pas nécessaire, la bonne clé
+        // était déjà disponible ici.
+        var headBadges = goalsCaptureBadges[currentGoalsActivityId];
+        var headCount = headBadges && headBadges.byCategory ? (headBadges.byCategory[c.key] || 0) : 0;
+        if (headCount > 0) {
+          var headBadge = document.createElement('span');
+          headBadge.className = 'goalsCaptureBadge goalsGridHeadBadge';
+          headBadge.textContent = String(headCount);
+          span.appendChild(headBadge);
+        }
         head.appendChild(span);
       });
     }
@@ -9270,6 +9339,16 @@
     // Page 2 ouverte : le rail tactile de la page 1 n'a plus lieu d'être
     // atteignable derrière elle (15 septembre 2026, 5e passage).
     updateGoalsScrubVisibility();
+    // 25 septembre 2026 (badges « non vu », restructuration du volet
+    // Objectifs en 3 pages) : ouvrir ce nœud précis de l'arbre périodique
+    // (pôle ou secteur) le marque vu — vide son badge (renderGoalsGridHead(),
+    // voir plus haut dans ce fichier, 26 septembre : déplacé depuis le menu
+    // déroulant) au prochain rechargement des badges.
+    if (currentGoalsActivityId) {
+      api('POST', '/api/activities/' + currentGoalsActivityId + '/goals/categories/' + encodeURIComponent(category) + '/mark-seen')
+        .then(loadGoalsCaptureBadges)
+        .catch(function () {});
+    }
   }
 
   function closeGoalsDetail() {
@@ -9352,14 +9431,243 @@
     return reloadGoalsAll();
   }
 
+  // ===================== VOLET OBJECTIFS — PAGE 1 : CAPTURE =====================
+  // 25 septembre 2026 (discussion Objectifs — Logique métier), restructuration
+  // en 3 pages sur demande directe d'Emilien — voir le commentaire de
+  // #goalsCapturePage dans index.html pour la spécification complète. Cette
+  // page devient l'écran par défaut de l'onglet Objectifs, avant même le
+  // choix d'une activité ; la grille/l'arbre périodique historique de cet
+  // onglet (#goalsActivitySwitcher, tout le code ci-dessus dans ce fichier)
+  // devient la page 2, atteinte uniquement depuis ici.
+  //
+  // Sélection multi-activités pour la capture — jamais persistée, remise à
+  // vide à chaque fois qu'on RE-montre cette page (ouverture de l'onglet,
+  // retour depuis la page 2) : repartir d'une sélection vide plutôt que de
+  // se souvenir d'un choix qui datait potentiellement d'une session précédente.
+  var goalsCaptureSelectedActivityIds = [];
+  // {activityId: {total, byCategory}} — voir GET /api/goals/capture/badges
+  // (server/routes/goals.js). Rempli par loadGoalsCaptureBadges(), consommé
+  // par renderGoalsCaptureActivities() (badge par activité, page 1) — le
+  // détail byCategory sert, lui, à la page 2 (badge par nœud de l'arbre
+  // périodique, voir renderGoalsGrid() plus haut dans ce fichier, laissé
+  // pour un futur passage si besoin d'affiner : le total par activité suffit
+  // à ce stade pour le badge de la page 1 lui-même).
+  var goalsCaptureBadges = {};
+
+  function loadGoalsCaptureBadges() {
+    return api('GET', '/api/goals/capture/badges')
+      .then(function (data) {
+        goalsCaptureBadges = (data && data.activities) || {};
+        renderGoalsCaptureActivities();
+      })
+      .catch(function () { /* pas bloquant — les badges resteront simplement à jour au prochain chargement */ });
+  }
+
+  function toggleGoalsCaptureActivitySelection(activityId) {
+    var id = String(activityId);
+    var idx = goalsCaptureSelectedActivityIds.indexOf(id);
+    if (idx === -1) goalsCaptureSelectedActivityIds.push(id); else goalsCaptureSelectedActivityIds.splice(idx, 1);
+    renderGoalsCaptureActivities();
+  }
+
+  // Double fonction demandée par Emilien (voir #goalsCapturePage,
+  // index.html) : zone de texte VIDE + clic sur une activité → navigue
+  // directement sur sa page 2, plutôt que de la sélectionner pour la
+  // capture. Le contenu réel du texte (pas seulement sa présence) tranche à
+  // chaque clic, jamais un mode figé au chargement de la page — l'utilisateur
+  // peut très bien commencer à sélectionner des activités, tout effacer, puis
+  // cliquer à nouveau pour naviguer.
+  function renderGoalsCaptureActivities() {
+    var box = $('goalsCaptureActivities');
+    if (!box) return;
+    box.innerHTML = '';
+    var list = activitiesCache || [];
+    list.forEach(function (a) {
+      var id = String(a.id);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'goalsCaptureActivityChip' + (goalsCaptureSelectedActivityIds.indexOf(id) !== -1 ? ' selected' : '');
+
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = a.color;
+      btn.appendChild(dot);
+
+      var name = document.createElement('span');
+      name.className = 'goalsCaptureActivityChipName';
+      name.textContent = a.name;
+      btn.appendChild(name);
+
+      // Badge violet « non vu » — jamais un compteur cumulatif, voir
+      // server/lib/goalstasks.js#unseenCountsForActivity.
+      var badgeInfo = goalsCaptureBadges[a.id] || goalsCaptureBadges[id];
+      if (badgeInfo && badgeInfo.total > 0) {
+        var badge = document.createElement('span');
+        badge.className = 'goalsCaptureBadge';
+        badge.textContent = String(badgeInfo.total);
+        btn.appendChild(badge);
+      }
+
+      btn.addEventListener('click', function () {
+        var wrap = $('goalsCaptureBubbleWrap');
+        var textarea = wrap ? wrap.querySelector('textarea') : null;
+        var hasText = textarea && textarea.value.trim();
+        if (hasText) toggleGoalsCaptureActivitySelection(id);
+        else showGoalsPolesPage(a.id);
+      });
+
+      box.appendChild(btn);
+    });
+  }
+
+  // Nouvelle bulle de capture de la page 1 — même gabarit visuel qu'à
+  // l'identique dans buildCategoryAutoTaskBubble()/attachAutoTaskGlow() plus
+  // haut (demande explicite d'Emilien, « reprend exactement à l'identique »),
+  // mais dispatchée sur PLUSIEURS activités à la fois (POST /api/goals/capture,
+  // server/lib/goalstaskclassify.js#captureTaskForActivities) au lieu d'une
+  // seule (POST .../categories/auto-task, route à part, inchangée). Pas de
+  // file hors ligne ici (capture hors ligne, territoire d'une autre
+  // discussion, scopé à l'ancien point d'entrée de la section Catégories —
+  // voir claude/noesis-timetracker-taches-categories-reference-discussion-c.md) :
+  // cette nouvelle bulle demande une connexion réseau, limite assumée et
+  // documentée plutôt que cachée.
+  function buildGoalsCaptureBubble() {
+    var outer = document.createElement('div');
+    outer.className = 'activityGoalsCategoryAutoTaskWrapOuter';
+
+    var wrap = document.createElement('div');
+    wrap.className = 'activityGoalsCategoryAutoTaskBubble';
+    outer.appendChild(wrap);
+
+    attachAutoTaskGlow(wrap);
+
+    var textarea = document.createElement('textarea');
+    textarea.rows = 4;
+    textarea.maxLength = 300;
+    textarea.placeholder = t('Nouvelle tâche… choisis une ou plusieurs activités puis écris');
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'iconBtn';
+    btn.textContent = t('Ajouter');
+
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+
+    function submit() {
+      var label = textarea.value.trim();
+      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
+      if (!goalsCaptureSelectedActivityIds.length) { msg.textContent = t('Sélectionne au moins une activité.'); return; }
+      msg.textContent = '';
+      btn.disabled = true;
+      api('POST', '/api/goals/capture', { userId: profile.id, label: label, activityIds: goalsCaptureSelectedActivityIds })
+        .then(function (data) {
+          textarea.value = '';
+          goalsCaptureSelectedActivityIds = [];
+          var results = (data && data.results) || [];
+          var pending = document.createElement('div');
+          pending.className = 'activityGoalsCategoryAutoTaskPending';
+          results.forEach(function (r) {
+            var activityName = '';
+            (activitiesCache || []).forEach(function (a) { if (String(a.id) === String(r.activityId)) activityName = a.name; });
+            var row = document.createElement('p');
+            row.className = 'meta activityGoalsCategoryAutoTaskPendingRow';
+            if (r.ok) {
+              row.classList.add('isSuccess');
+              row.textContent = '✓ ' + label + ' — ' + (activityName || '') + (r.categoryLabel ? ' · ' + r.categoryLabel : '') + (r.dueDate ? ' · ' + calendarDayLabel(r.dueDate) : '');
+            } else {
+              row.classList.add('isFailed');
+              row.textContent = '✗ ' + label + ' — ' + (activityName || '') + ' : ' + (r.error || t('non ajoutée'));
+            }
+            pending.appendChild(row);
+          });
+          var wrapEl = $('goalsCaptureBubbleWrap');
+          if (wrapEl) {
+            var oldPending = wrapEl.querySelector('.activityGoalsCategoryAutoTaskPending');
+            if (oldPending) oldPending.remove();
+            wrapEl.appendChild(pending);
+          }
+          renderGoalsCaptureActivities();
+          loadGoalsCaptureBadges();
+        })
+        .catch(function (err) { msg.textContent = err.message; })
+        .then(function () { btn.disabled = false; });
+    }
+    btn.addEventListener('click', submit);
+    textarea.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+    });
+    // Sélectionner/désélectionner une activité doit rafraîchir l'affichage
+    // « sélectionnée » des puces sans perdre le texte déjà écrit — pas de
+    // dépendance particulière ici, renderGoalsCaptureActivities() lit
+    // toujours goalsCaptureSelectedActivityIds au moment où elle est
+    // rappelée par toggleGoalsCaptureActivitySelection().
+    wrap.appendChild(textarea);
+    wrap.appendChild(btn);
+    wrap.appendChild(msg);
+
+    return outer;
+  }
+
+  function renderGoalsCaptureBubble() {
+    var wrapEl = $('goalsCaptureBubbleWrap');
+    if (!wrapEl) return;
+    wrapEl.innerHTML = '';
+    wrapEl.appendChild(buildGoalsCaptureBubble());
+  }
+
+  // Écran par défaut de l'onglet Objectifs — voir le commentaire de tête de
+  // cette section. Repart d'une sélection vide et rafraîchit les badges à
+  // chaque fois (l'utilisateur peut revenir ici après avoir vu/ajouté des
+  // tâches ailleurs).
+  function showGoalsCapturePage() {
+    var list = activitiesCache || [];
+    if (!list.length) {
+      $('goalsCapturePage').classList.add('hidden');
+      $('goalsActivitySwitcher').classList.add('hidden');
+      $('goalsNoActivityHint').classList.remove('hidden');
+      return;
+    }
+    $('goalsNoActivityHint').classList.add('hidden');
+    $('goalsActivitySwitcher').classList.add('hidden');
+    closeGoalsDetail();
+    $('goalsCapturePage').classList.remove('hidden');
+    goalsCaptureSelectedActivityIds = [];
+    renderGoalsCaptureBubble();
+    renderGoalsCaptureActivities();
+    loadGoalsCaptureBadges();
+  }
+
+  // Navigue vers la page 2 (pôles + arbre périodique) d'une activité précise
+  // — depuis un clic sur une puce d'activité de la page 1 (texte vide) ou le
+  // bouton « retour » de la page 2 en sens inverse (voir
+  // #goalsBackToCaptureBtn ci-dessous). Marque l'activité entière comme vue
+  // (mark-seen) : l'utilisateur vient d'y entrer, même principe que « visiter
+  // une liste la vide de son badge » demandé par Emilien.
+  function showGoalsPolesPage(activityId) {
+    $('goalsCapturePage').classList.add('hidden');
+    var list = activitiesCache || [];
+    var idx = -1;
+    list.forEach(function (a, i) { if (idx === -1 && String(a.id) === String(activityId)) idx = i; });
+    if (idx === -1) idx = currentGoalsActivityIndex;
+    openGoalsForActivity(idx);
+    api('POST', '/api/activities/' + activityId + '/goals/categories/mark-seen').catch(function () {});
+  }
+
   function loadGoalsTab() {
     if (!profile) return;
     // activitiesCache est déjà tenu à jour par l'onglet Activité/le Chrono
     // (refreshActivities()) — pas de rechargement systématique ici pour ne
     // pas ralentir l'ouverture du volet, seulement s'il n'a jamais été
     // rempli (première ouverture de session sur ce volet en particulier).
+    // ⚠️ 25 septembre 2026 (restructuration en 3 pages, demande directe
+    // d'Emilien) : montre désormais la page 1 (capture) par défaut, jamais
+    // plus directement la grille d'une activité — openGoalsForActivity()
+    // n'est appelée que depuis showGoalsPolesPage() (clic sur une activité,
+    // texte vide) ou openGoalsPeriodFromNotification() (lien profond d'une
+    // notification, ci-dessous, inchangé).
     var ready = activitiesCache && activitiesCache.length ? Promise.resolve(activitiesCache) : refreshActivities();
-    ready.then(function () { openGoalsForActivity(currentGoalsActivityIndex); });
+    ready.then(function () { showGoalsCapturePage(); });
   }
 
   // Rappel de fin de période (server/lib/goalreminders.js, 15 septembre
@@ -9368,11 +9676,15 @@
   // openTabFromNotification() ci-dessous. Attend la même promesse que
   // loadGoalsTab() (activitiesCache déjà prêt ou refreshActivities()) avant
   // de choisir l'activité : comme switchTab('goals') déclenche déjà
-  // loadGoalsTab() (qui ouvre l'activité par défaut), on s'enregistre APRÈS
-  // lui pour que notre choix soit le dernier appliqué plutôt que le premier
-  // — même ordre d'exécution des microtâches que l'enregistrement des deux
-  // `.then()`, voir l'appel dans openTabFromNotification().
+  // loadGoalsTab() (qui ouvre désormais la page 1 par défaut), on
+  // s'enregistre APRÈS lui pour que notre choix soit le dernier appliqué
+  // plutôt que le premier — même ordre d'exécution des microtâches que
+  // l'enregistrement des deux `.then()`, voir l'appel dans
+  // openTabFromNotification(). Referme explicitement la page 1 : un lien
+  // profond de notification doit atterrir directement sur la période visée,
+  // jamais sur l'écran de capture.
   function openGoalsPeriodFromNotification(activityId, category, periodNumber) {
+    $('goalsCapturePage').classList.add('hidden');
     var ready = activitiesCache && activitiesCache.length ? Promise.resolve(activitiesCache) : refreshActivities();
     ready.then(function (list) {
       var idx = -1;
@@ -9385,6 +9697,11 @@
     });
   }
 
+  // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages) —
+  // voir le commentaire du bouton dans index.html.
+  $('goalsBackToCaptureBtn').addEventListener('click', function () {
+    showGoalsCapturePage();
+  });
   $('goalsPrevActivityBtn').addEventListener('click', function () {
     openGoalsForActivity(currentGoalsActivityIndex - 1);
   });

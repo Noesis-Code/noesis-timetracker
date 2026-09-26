@@ -23,6 +23,13 @@ const goalstasks = require('../lib/goalstasks');
 // Chantier Objectifs — C (bulle IA de classement automatique, 17 septembre
 // 2026) — voir server/lib/goalstaskclassify.js.
 const goalstaskclassify = require('../lib/goalstaskclassify');
+// 25 septembre 2026 (restructuration du volet Objectifs en 3 pages, demande
+// directe d'Emilien) — badges « non vu » et capture multi-activités, voir
+// server/lib/goalstasks.js (compteurs) et server/lib/goalstaskclassify.js
+// (dispatch multi-activités). subprojects requis ICI seulement pour la garde
+// d'appartenance de POST .../tasks/:itemId/mark-seen, même pattern que
+// moveCategoryTask (goalstasks.js) juste au-dessus dans ce fichier.
+const subprojects = require('../lib/subprojects');
 
 const router = express.Router();
 
@@ -647,6 +654,127 @@ router.put('/activities/:id/goals/tasks/:itemId/category', (req, res) => {
   try {
     const item = goalstasks.moveCategoryTask(activityId, userId, Number(req.params.itemId), req.body.categoryKey);
     res.json(item);
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 25 septembre 2026 (restructuration du volet Objectifs en 3 pages, demande
+// directe d'Emilien) — nouvelle bulle de capture de la page 1 : UNE tâche
+// texte, dispatchée indépendamment dans CHAQUE activité sélectionnée (voir
+// server/lib/goalstaskclassify.js#captureTaskForActivities). Route à part de
+// POST .../categories/auto-task (inchangée, gardée pour tout appelant qui
+// resterait scopé à une seule activité) : celle-ci n'est PAS scopée à une
+// activité dans son URL, la sélection se fait entièrement dans le corps.
+// requireMembership vérifié ICI, activité par activité, avant tout appel à
+// la lib (qui ne fait aucune vérification de droits elle-même) — une
+// activité refusée n'empêche jamais les autres de réussir, même principe
+// « jamais bloquant » que le reste de ce fichier.
+router.post('/goals/capture', async (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const rawIds = Array.isArray(req.body.activityIds) ? req.body.activityIds : [];
+  if (!rawIds.length) return res.status(400).json({ error: 'Au moins une activité doit être sélectionnée.' });
+
+  const denied = [];
+  const allowed = [];
+  rawIds.forEach((rawId) => {
+    const activityId = Number(rawId);
+    const check = requireMembership(userId, activityId);
+    if (check.error) denied.push({ activityId, ok: false, error: check.error.body.error });
+    else allowed.push(activityId);
+  });
+
+  try {
+    const ok = allowed.length ? await goalstaskclassify.captureTaskForActivities(allowed, userId, req.body.label) : [];
+    res.status(201).json({ results: denied.concat(ok) });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// 25 septembre 2026 (badges « non vu ») : compte, pour CHAQUE activité dont
+// l'utilisateur est membre, les tâches autoCaptured pas encore vues — appelé
+// par la page 1 (badge par activité) ET la page 2 (badge par nœud de l'arbre
+// périodique, via byCategory). Pas scopée à une activité dans son URL, même
+// raisonnement que la route ci-dessus.
+router.get('/goals/capture/badges', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  try {
+    const activities = db.prepare(`
+      SELECT a.id FROM activities a
+      JOIN activity_members m ON m.activityId = a.id
+      WHERE m.userId = ? AND a.active = 1
+      ORDER BY a.id
+    `).all(userId);
+    const out = {};
+    activities.forEach((a) => { out[a.id] = goalstasks.unseenCountsForActivity(a.id); });
+    res.json({ activities: out });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// 25 septembre 2026 (badges « non vu ») : pose seenAt sur toutes les tâches
+// autoCaptured non vues d'une activité entière (page 1, ouvrir une activité)
+// — jamais bloquant si rien n'était à marquer (idempotent, voir
+// goalstasks.js#markCategoriesSeen).
+router.post('/activities/:id/goals/categories/mark-seen', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    res.json(goalstasks.markCategoriesSeen(activityId));
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// 25 septembre 2026 (badges « non vu ») : même geste, scopé à UN SEUL nœud
+// pôle/secteur de l'arbre périodique (page 2, ouvrir un pôle ou un secteur).
+router.post('/activities/:id/goals/categories/:key/mark-seen', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    res.json(goalstasks.markCategoriesSeen(activityId, req.params.key));
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// 25 septembre 2026 (badges « non vu ») : pose seenAt sur UNE tâche précise
+// (page 3, calendrier — point violet à droite d'une tâche nouvellement
+// ajoutée, qui disparaît une fois la tâche ouverte/visualisée). Même garde
+// d'appartenance que moveCategoryTask ci-dessus : sans elle, un identifiant
+// de tâche d'une autre activité pourrait être marqué vu par appel direct à
+// cette route.
+router.post('/activities/:id/goals/tasks/:itemId/mark-seen', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    const item = subprojects.getItemRaw(Number(req.params.itemId));
+    if (!item) return res.status(404).json({ error: 'Tâche introuvable.' });
+    const subProject = subprojects.getSubProject(item.subProjectId);
+    if (!subProject || Number(subProject.activityId) !== Number(activityId)) {
+      return res.status(400).json({ error: "Cette tâche n'appartient pas à cette activité." });
+    }
+    res.json(subprojects.markItemSeen(item.id));
   } catch (err) {
     handleGoalsError(res, err);
   }

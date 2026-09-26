@@ -2169,4 +2169,28 @@ if (!columnExists('users', 'communityNotifyEnabled')) {
   db.exec('ALTER TABLE users ADD COLUMN communityNotifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
 
+// ---------------------------------------------------------------------------
+// autoCaptured / seenAt (25 septembre 2026, discussion Objectifs — Logique
+// métier — restructuration du volet Objectifs en 3 pages, demande directe
+// d'Emilien) : `autoCaptured` marque une tâche née de la nouvelle bulle de
+// saisie libre par IA de la page 1 du volet Objectifs (même mécanisme que
+// l'ancienne bulle de la section Tâches, voir
+// claude/noesis-timetracker-taches-categories-reference-discussion-c.md —
+// jamais posé à 1 pour une tâche créée par un autre chemin : formulaire
+// Sous-projets classique, calendrier de période avec date choisie à la main
+// — server/lib/calendarfeed.js#createDayTask). `seenAt` (NULL = non vue) sert
+// au badge violet « tâches non vues » demandé par Emilien : posé au moment où
+// l'utilisateur ouvre effectivement la liste où cette tâche apparaît (une
+// activité sur la page 1, un pôle/secteur sur la page 2, une tâche précise du
+// calendrier sur la page 3) — jamais un compteur cumulatif, un compteur
+// « non vu / vu » qui se vide en consultant. N'a de sens que pour une tâche
+// autoCaptured=1 ; reste NULL (donc ignorée par les compteurs, voir
+// server/lib/goalstasks.js#unseenCountsForActivity) sur toute autre tâche.
+if (!columnExists('sub_project_items', 'autoCaptured')) {
+  db.exec('ALTER TABLE sub_project_items ADD COLUMN autoCaptured INTEGER NOT NULL DEFAULT 0');
+}
+if (!columnExists('sub_project_items', 'seenAt')) {
+  db.exec('ALTER TABLE sub_project_items ADD COLUMN seenAt TEXT');
+}
+
 module.exports = db;

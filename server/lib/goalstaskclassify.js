@@ -48,6 +48,10 @@
 
 const goals = require('./goals');
 const goalstasks = require('./goalstasks');
+// 25 septembre 2026 (restructuration du volet Objectifs en 3 pages, demande
+// directe d'Emilien) — placement automatique jour par jour, capacité
+// croisée entre activités, voir son commentaire de tête.
+const goalscaptureplace = require('./goalscaptureplace');
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_API_VERSION = '2023-06-01';
@@ -235,7 +239,11 @@ async function addTaskWithAutoCategory(activityId, userId, label) {
   if (clean.length > 300) throw Object.assign(new Error('Intitulé trop long (300 caractères maximum).'), { statusCode: 400 });
 
   const { key, usedAi, aiError } = await classifyCategory(activityId, clean);
-  const item = goalstasks.addCategoryTask(activityId, userId, key, clean);
+  // 25 septembre 2026 (badges « non vu », restructuration du volet Objectifs
+  // en 3 pages) : toute tâche créée par CE chemin (classification IA, jamais
+  // le formulaire de catégorie classique) est marquée autoCaptured — voir
+  // server/lib/subprojects.js#createItem et goalstasks.js#unseenCountsForActivity.
+  const item = goalstasks.addCategoryTask(activityId, userId, key, clean, { autoCaptured: true });
   let suggestedObjective = null;
   try {
     suggestedObjective = suggestWeeklyObjective(activityId, key, clean);
@@ -253,10 +261,58 @@ async function addTaskWithAutoCategory(activityId, userId, label) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// 25 septembre 2026 (restructuration du volet Objectifs en 3 pages, demande
+// directe d'Emilien) — point d'entrée de la NOUVELLE bulle de capture de la
+// page 1 : « double fonctionnalité des boutons activités [...] possibilité
+// de sélectionner plusieurs activités lorsque l'utilisateur écrit une tâche,
+// la tâche sera répertoriée alors dans l'ensemble des activités
+// sélectionnées ». Une SEULE tâche texte, dispatchée indépendamment dans
+// CHAQUE activité choisie — classée séparément dans chacune (chaque activité
+// a ses propres pôles/secteurs, donc sa propre classification), jamais une
+// classification partagée entre activités. Puis, pour chaque tâche ainsi
+// créée, placement automatique sur le calendrier (voir
+// server/lib/goalscaptureplace.js) — sauf demande explicite contraire du
+// client (`opts.skipAutoPlace`, prévu pour un futur bouton « laisser non
+// daté », non exposé aujourd'hui par l'UI mais gardé pour ne pas fermer la
+// porte). Une activité qui échoue (classification, droits, etc.) n'empêche
+// JAMAIS les autres de réussir — même principe « jamais bloquant » que le
+// reste de ce fichier ; chaque résultat porte son propre statut.
+async function captureTaskForActivities(activityIds, userId, label, opts) {
+  const ids = Array.from(new Set((activityIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id))));
+  if (!ids.length) {
+    throw Object.assign(new Error('Au moins une activité doit être sélectionnée.'), { statusCode: 400 });
+  }
+  const skipAutoPlace = !!(opts && opts.skipAutoPlace);
+
+  const results = [];
+  for (const activityId of ids) {
+    try {
+      const item = await addTaskWithAutoCategory(activityId, userId, label);
+      let placedDate = null;
+      if (!skipAutoPlace) {
+        try {
+          placedDate = goalscaptureplace.autoPlaceTask(userId, activityId, item.categoryKey, item.id, label);
+        } catch (e) {
+          // Jamais bloquant pour la capture elle-même — la tâche reste
+          // simplement non datée, visible dans sa catégorie comme toute
+          // tâche sans dueDate.
+          placedDate = null;
+        }
+      }
+      results.push(Object.assign({}, item, { activityId, ok: true, dueDate: placedDate || item.dueDate || null }));
+    } catch (err) {
+      results.push({ activityId, ok: false, error: err.message || 'Erreur serveur.' });
+    }
+  }
+  return results;
+}
+
 module.exports = {
   configured,
   modelName,
   classifyCategory,
   suggestWeeklyObjective,
   addTaskWithAutoCategory,
+  captureTaskForActivities,
 };

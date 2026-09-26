@@ -2209,6 +2209,36 @@
            d'autant). Le nom de l'activité (#goalsActivityHeader, plus bas)
            remonte donc directement en haut de la page. -->
 
+      <!-- 25 septembre 2026 (discussion Objectifs — Logique métier),
+           restructuration du volet Objectifs en 3 pages sur demande directe
+           d'Emilien : #goalsCapturePage devient l'écran par défaut affiché
+           dès l'ouverture de l'onglet Objectifs, AVANT même le choix d'une
+           activité — reprend à l'identique la bulle de capture libre par IA
+           qui vivait jusqu'ici dans la section Tâches/Catégories de la
+           fenêtre Activité (retirée de là le 25 septembre 2026 par la
+           discussion Objectifs — Tâches, voir claude/noesis-timetracker-
+           taches-categories-reference-discussion-c.md), PLUS un sélecteur
+           d'activités à SÉLECTION MULTIPLE (une tâche écrite ici est
+           répertoriée dans TOUTES les activités sélectionnées). Double
+           fonction des boutons d'activité (voir renderGoalsCaptureActivities()
+           dans app.js) : zone de texte vide + clic sur une activité → navigue
+           directement sur la page 2 (pôles + arbre périodique) de CETTE
+           activité, plutôt que de la sélectionner pour la capture. Badge
+           violet par activité (tâches capturées pas encore vues, voir
+           server/lib/goalstasks.js#unseenCountsForActivity) — jamais un
+           compteur cumulatif : se vide dès que l'utilisateur ouvre
+           effectivement l'activité (page 2) ou une de ses catégories.
+           Page 2 = le contenu historique de cet onglet
+           (#goalsActivitySwitcher et tout ce qu'il contient, INCHANGÉ, juste
+           affiché DERRIÈRE celle-ci désormais — voir showGoalsCapturePage()/
+           showGoalsPolesPage() dans app.js) ; page 3 = #goalsDetailPage
+           (calendrier, objectif hebdomadaire, secteur, plus bas dans ce
+           fichier). -->
+      <div id="goalsCapturePage" class="goalsCapturePage">
+        <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
+        <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
+      </div>
+
       <p id="goalsNoActivityHint" class="hint hidden">Ajoute une activité pour commencer à te fixer des objectifs.</p>
 
       <!-- ⚠️ 14 septembre 2026, demande d'Emilien : ce volet devient une
@@ -2248,6 +2278,13 @@
              touchstart/touchend sur toute la zone — voir bindGoalsSwipe()
              dans app.js) : indique visuellement qu'on peut aussi glisser. -->
         <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
+          <!-- 25 septembre 2026 (restructuration du volet Objectifs en 3
+               pages) : retour vers #goalsCapturePage (page 1) — cette page
+               (page 2, pôles + arbre périodique) n'est plus l'écran par
+               défaut de l'onglet, elle a donc besoin d'un chemin de retour
+               explicite. Voir showGoalsCapturePage()/showGoalsPolesPage()
+               dans app.js. -->
+          <button type="button" class="menuBtn" id="goalsBackToCaptureBtn" aria-label="Retour à la capture">‹</button>
           <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevActivityBtn" aria-label="Activité précédente">‹</button>
           <div class="goalsActivityNameWrap">
             <span class="dot" id="goalsActivityDot"></span>
@@ -3242,8 +3279,20 @@
                  proposition en lecture seule, jamais appliquée
                  automatiquement. Contenu entièrement construit par
                  renderGoalsDailyPriority() (app.js) — vide au chargement,
-                 même pattern que .goalCapacityRow juste au-dessus. -->
-            <div class="goalCard dailyPriorityCard" id="activityGoalsDailyPriorityCard">
+                 même pattern que .goalCapacityRow juste au-dessus.
+                 ⚠️ 25 septembre 2026, demande directe d'Emilien (restructuration
+                 du volet Objectifs en 3 pages) : « s'il veut voir tous les
+                 détails, cette liste est véritablement présente de manière
+                 fixe longtemps à l'avance, UNIQUEMENT dans la section
+                 calendrier » — ce résumé du jour, ici, dans le détail de
+                 période, fait doublon avec la vue calendrier désormais
+                 responsable de la liste complète (page 3) et avec Chrono/la
+                 notification du matin (inchangés, déjà en place). MASQUÉ,
+                 pas retiré (renderGoalsDailyPriority() reste intacte côté
+                 app.js, plus jamais appelée depuis renderActivityGoals() —
+                 voir son commentaire) : la route GET .../daily-priority elle-
+                 même reste utilisée telle quelle par Chrono. -->
+            <div class="goalCard dailyPriorityCard hidden" id="activityGoalsDailyPriorityCard">
               <p class="goalCardLabel">Aujourd'hui</p>
               <div class="dailyPriorityList" id="activityGoalsDailyPriorityList"></div>
             </div>

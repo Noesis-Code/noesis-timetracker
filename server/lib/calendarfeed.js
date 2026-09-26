@@ -296,7 +296,7 @@ function todayLocalDay() {
 // subprojects.js qui n'a pas de raison de connaître dueDate.
 function dayTasksByDate(activityId, category, startDate, endDate) {
   const rows = db.prepare(`
-    SELECT i.id, i.label, i.done, i.dueDate
+    SELECT i.id, i.label, i.done, i.dueDate, i.autoCaptured, i.seenAt
     FROM sub_project_items i
     JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND sp.goalCategory = ? AND i.dueDate BETWEEN ? AND ?
@@ -305,7 +305,13 @@ function dayTasksByDate(activityId, category, startDate, endDate) {
   const byDate = {};
   rows.forEach((r) => {
     if (!byDate[r.dueDate]) byDate[r.dueDate] = [];
-    byDate[r.dueDate].push({ id: r.id, label: r.label, done: !!r.done });
+    // 25 septembre 2026 (badges « non vu », restructuration du volet
+    // Objectifs en 3 pages) : `unseen` — point violet par tâche demandé par
+    // Emilien pour la page 3 (calendrier), calculé ici plutôt que renvoyer
+    // autoCaptured/seenAt bruts : seule une tâche autoCaptured ET pas encore
+    // vue doit afficher le point, le client n'a pas besoin de recalculer
+    // cette règle lui-même.
+    byDate[r.dueDate].push({ id: r.id, label: r.label, done: !!r.done, unseen: !!r.autoCaptured && !r.seenAt });
   });
   return byDate;
 }
