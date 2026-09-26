@@ -548,6 +548,61 @@ function reorderSecteurs(activityId, poleKey, keys) {
   return secteursForPole(activityId, poleKey);
 }
 
+// 26 septembre 2026, demande directe d'Emilien (« je souhaite qu'on puisse
+// bouger un secteur d'un pôle à un autre. Et je souhaite que à chaque
+// mouvement, les pôles et les secteurs se décalent pour laisser la place au
+// secteur ») : déplace un secteur ACTIF de `poleKey` (son pôle actuel, revérifié
+// ici plutôt que supposé) vers `targetPoleKey` (un autre pôle ACTIF de la même
+// activité), en l'insérant à `targetIndex` parmi les secteurs de ce pôle
+// cible — jamais un simple ajout en fin de liste. Plafond MAX_SECTEURS_PER_POLE
+// appliqué au pôle CIBLE, même limite que addCategory ; si `poleKey ===
+// targetPoleKey`, traité comme un simple réordonnancement (cas normalement
+// jamais atteint depuis le client, qui appelle reorderPoleSecteur pour ce cas,
+// mais géré ici pour rester correct si jamais appelé directement). Le pôle
+// SOURCE retrouve une séquence de positions contiguë après le départ du
+// secteur (même renumérotation que removeCategory pour un secteur) ; aucune
+// vérification de profondeur supplémentaire nécessaire : `targetPole` exige
+// déjà `parentKey` NULL, donc un secteur ne peut jamais atterrir sous un autre
+// secteur.
+function moveSecteurToPole(activityId, poleKey, secteurKey, targetPoleKey, targetIndex) {
+  const existing = ensureDefaultCategory(activityId);
+  const row = existing.find((r) => r.key === secteurKey && r.parentKey === poleKey);
+  if (!row) throw Object.assign(new Error('Secteur introuvable pour ce pôle.'), { statusCode: 404 });
+  const targetPole = existing.find((r) => r.key === targetPoleKey && !r.parentKey);
+  if (!targetPole) throw Object.assign(new Error('Pôle cible introuvable.'), { statusCode: 404 });
+
+  const targetSiblings = existing.filter((r) => r.parentKey === targetPoleKey && r.key !== secteurKey);
+  const idx = Math.max(0, Math.min(Number(targetIndex) || 0, targetSiblings.length));
+
+  if (poleKey === targetPoleKey) {
+    targetSiblings.splice(idx, 0, row);
+    targetSiblings.forEach((r, i) => {
+      if (r.position !== i) db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i, r.id);
+    });
+    return categoriesForActivity(activityId);
+  }
+
+  if (targetSiblings.length >= MAX_SECTEURS_PER_POLE) {
+    throw Object.assign(new Error(MAX_SECTEURS_PER_POLE + ' secteurs maximum par pôle.'), { statusCode: 400 });
+  }
+
+  db.prepare('UPDATE activity_goal_categories SET parentKey = ? WHERE activityId = ? AND key = ?')
+    .run(targetPoleKey, activityId, secteurKey);
+
+  // Renumérote le pôle SOURCE (contigu après le départ du secteur).
+  existing.filter((r) => r.parentKey === poleKey && r.key !== secteurKey).forEach((r, i) => {
+    db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i, r.id);
+  });
+
+  // Insère dans le pôle CIBLE à `idx`, renumérote toute sa séquence.
+  targetSiblings.splice(idx, 0, row);
+  targetSiblings.forEach((r, i) => {
+    db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i, r.id);
+  });
+
+  return categoriesForActivity(activityId);
+}
+
 // `key` est-il un secteur ACTIF de cette activité, dont le pôle parent est
 // lui-même actif ? (Le second test protège contre une incohérence si une
 // ligne était un jour corrompue à la main — en fonctionnement normal, retirer
@@ -1418,6 +1473,7 @@ module.exports = {
   parentKeyFor,
   resolveToPole,
   reorderSecteurs,
+  moveSecteurToPole,
   // Secteurs dans l'arbre périodique (21 septembre 2026 — voir le commentaire
   // au-dessus de gridColumnsForPole dans ce fichier). Exposés par
   // server/routes/goals.js.

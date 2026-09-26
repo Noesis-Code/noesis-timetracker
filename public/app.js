@@ -5723,7 +5723,21 @@
     // un camembert dessiné dans un bloc masqué n'a aucune dimension (même
     // piège que le défilement du fil et le cadrage du graphique, plus bas).
     if (name === 'stats' && !currentActivityIsShared) loadSoloCategoryStats();
-    if (name === 'sub') loadActivityGoalsCategories(currentCommunityActivityId);
+    // 26 septembre 2026, demande directe d'Emilien : « par défaut, lorsqu'on
+    // arrive sur la section catégorie, tous les pôles soient enroulés [...]
+    // même si on les a déployé et qu'on part et qu'on revient » — l'état
+    // déplié/replié (activityGoalsCategoriesOpen, déclaré plus bas dans ce
+    // fichier) ne doit donc jamais survivre à une arrivée sur cette section.
+    // Réinitialisé ICI (à chaque (re)sélection de l'onglet), jamais dans
+    // loadActivityGoalsCategories()/renderActivityGoalsCategoriesPanel() —
+    // ces deux-là sont aussi appelées après une simple mutation (renommer/
+    // créer/retirer/déplacer un pôle ou un secteur, via
+    // activityGoalsCategoriesRefresh), où un pôle en cours de consultation
+    // ne doit surtout pas se replier tout seul.
+    if (name === 'sub') {
+      activityGoalsCategoriesOpen = {};
+      loadActivityGoalsCategories(currentCommunityActivityId);
+    }
 
     // ----- Mode conversation (3 septembre 2026, demande d'Emilien) -----
     // « lorsque le clavier n'est pas activé, la zone pour écrire se situe tout
@@ -6498,6 +6512,23 @@
       e.preventDefault();
       e.stopPropagation();
       var box = $('activityGoalsCategoriesList');
+
+      // 26 septembre 2026, demande directe d'Emilien (captures d'écran à
+      // l'appui, superposition visible pendant le déplacement) : « je
+      // souhaite que lorsque l'utilisateur déplace un pôle les secteurs ne
+      // soient plus visibles pendant le mouvement afin qu'il n'y ait plus de
+      // superposition ». Cause du chevauchement : `step` (ci-dessous) est UNE
+      // seule valeur (la hauteur du groupe glissé) appliquée à TOUS les
+      // autres groupes par layoutGap() — or deux pôles n'ont pas la même
+      // hauteur dès qu'ils n'ont pas le même nombre de secteurs. Masquer les
+      // blocs secteurs de TOUS les groupes AVANT de mesurer (voir
+      // `#activityGoalsCategoriesList.dragging .activityGoalsSecteursBlock`,
+      // styles.css) réduit chaque groupe à sa seule ligne de pôle — hauteurs
+      // à nouveau homogènes, `step` redevient valable pour tout le monde. La
+      // classe est ajoutée ICI, avant `groups`/`mids`/`step`, précisément
+      // pour que ces mesures reflètent déjà les secteurs masqués.
+      box.classList.add('dragging');
+
       var groups = Array.prototype.slice.call(box.querySelectorAll('.activityGoalsCategoryEditGroup'));
       var mids = groups.map(function (el) {
         var r = el.getBoundingClientRect();
@@ -6511,7 +6542,6 @@
 
       handle.setPointerCapture(e.pointerId);
       groupEl.classList.add('dragging');
-      box.classList.add('dragging');
 
       function layoutGap() {
         for (var i = 0; i < groups.length; i++) {
@@ -6559,47 +6589,136 @@
     });
   }
 
-  // 25 septembre 2026 : glisser-déposer d'un SECTEUR au sein de son pôle,
-  // même mécanique que bindCategoryDrag mais scopée au conteneur `container`
-  // (le bloc secteurs de CE pôle uniquement, jamais toute la liste) — le
-  // drop appelle reorderPoleSecteur() déjà existante (rafraîchissement/
-  // gestion d'erreur déjà géré là, rien dupliqué ici).
-  function bindSecteurDrag(handle, row, container, activityId, poleKey, secteurs) {
+  // 26 septembre 2026, demande directe d'Emilien : « je souhaite qu'on puisse
+  // bouger un secteur d'un pôle à un autre. Et je souhaite que à chaque
+  // mouvement, les pôles et les secteurs se décalent pour laisser la place au
+  // secteur » — remplace la version du 25 septembre (scopée au SEUL bloc
+  // secteurs de son pôle d'origine) : opère désormais sur TOUS les blocs
+  // secteurs de la liste entière (un par pôle, `.activityGoalsSecteursBlock`,
+  // reconnus par `wrap.dataset.poleKey` posé par buildPoleSecteursEditBlock),
+  // pour permettre un dépôt dans N'IMPORTE QUEL pôle, y compris un pôle sans
+  // aucun secteur (`min-height` réservée pendant le geste, voir
+  // `#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteursBlock`,
+  // styles.css — sans cette hauteur minimale un bloc vide n'aurait aucune
+  // zone à survoler pour le cibler).
+  //
+  // `row` ne quitte JAMAIS le DOM pendant le geste (sauf au tout dernier
+  // moment, dans onUp, s'il change réellement de pôle) : comme
+  // bindCategoryDrag, tout l'effet visuel pendant le glisser vient de
+  // `transform`, jamais d'un déplacement réel — mesures (`snapshot`, mids,
+  // rects) prises UNE SEULE FOIS au départ, jamais recalculées en cours de
+  // geste (un recalcul contre des éléments déjà translatés se serait
+  // rétro-influencé lui-même, source d'instabilité).
+  //
+  // Cas particulier non trivial : le pôle D'ORIGINE. `row` y reste
+  // physiquement présent tout du long — ses propres voisins doivent donc soit
+  // rester immobiles (si la cible du moment EST ce pôle, au même index qu'à
+  // l'origine : rien n'a changé, le trou est déjà occupé par `row`
+  // lui-même), soit se resserrer pour combler le trou qu'il laisse dès que la
+  // cible du moment est ailleurs (targetEntry !== originEntry) OU à un autre
+  // index dans CE MÊME pôle — relayout() calcule ce cas comme « row a
+  // virtuellement quitté sa place d'origine vers `effectiveIdx` », qui vaut
+  // l'index cible réel si on est encore dans ce pôle, ou la toute fin de la
+  // liste sinon (row considéré parti pour de bon) — même mathématique dans
+  // les deux cas, un seul chemin de code.
+  function bindSecteurDrag(handle, row, activityId, pole, secteur) {
     handle.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       e.stopPropagation();
-      var rows = Array.prototype.slice.call(container.querySelectorAll('.activityGoalsSecteurRow'));
-      var mids = rows.map(function (el) {
-        var r = el.getBoundingClientRect();
-        return r.top + r.height / 2;
+      var list = $('activityGoalsCategoriesList');
+      list.classList.add('secteursDragging');
+
+      function rowsOf(wrap) {
+        return Array.prototype.slice.call(wrap.querySelectorAll('.activityGoalsSecteurRow'))
+          .filter(function (el) { return el !== row; });
+      }
+
+      var wraps = Array.prototype.slice.call(list.querySelectorAll('.activityGoalsSecteursBlock'));
+      var snapshot = wraps.map(function (wrap) {
+        var siblings = rowsOf(wrap);
+        return {
+          wrap: wrap,
+          poleKey: wrap.dataset.poleKey,
+          wrapRect: wrap.getBoundingClientRect(),
+          siblings: siblings,
+          mids: siblings.map(function (el) {
+            var r = el.getBoundingClientRect();
+            return r.top + r.height / 2;
+          }),
+        };
       });
-      var fromIndex = rows.indexOf(row);
+
+      var originPoleKey = pole.key;
+      var originEntry = snapshot.filter(function (s) { return s.poleKey === originPoleKey; })[0];
+      // Index d'origine parmi les FRÈRES (row exclu) — égal, par construction,
+      // à l'index de `secteur` dans `pole.secteurs` (les frères avant `row`
+      // gardent le même compte que dans la liste complète, voir le
+      // commentaire ci-dessus).
+      var originIndex = pole.secteurs.indexOf(secteur);
       var startY = e.clientY;
-      var targetIndex = fromIndex;
       var step = row.getBoundingClientRect().height +
-        parseFloat(getComputedStyle(container).rowGap || getComputedStyle(container).gap || 0) || 0;
+        (parseFloat(getComputedStyle(originEntry.wrap).rowGap || getComputedStyle(originEntry.wrap).gap || 0) || 0);
+
+      var activeEntry = originEntry;
+      var activeIndex = originIndex;
 
       handle.setPointerCapture(e.pointerId);
       row.classList.add('dragging');
-      container.classList.add('dragging');
 
-      function layoutGap() {
-        for (var i = 0; i < rows.length; i++) {
-          if (i === fromIndex) continue;
+      function relayout(targetEntry, idx) {
+        snapshot.forEach(function (entry) {
+          if (entry === originEntry || entry === targetEntry) return;
+          entry.siblings.forEach(function (el) { el.style.transform = ''; });
+        });
+
+        var effectiveIdx = (targetEntry === originEntry) ? idx : originEntry.siblings.length;
+        originEntry.siblings.forEach(function (el, i) {
           var shift = 0;
-          if (targetIndex > fromIndex && i > fromIndex && i <= targetIndex) shift = -step;
-          else if (targetIndex < fromIndex && i >= targetIndex && i < fromIndex) shift = step;
-          rows[i].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+          if (effectiveIdx > originIndex && i >= originIndex && i < effectiveIdx) shift = -step;
+          else if (effectiveIdx < originIndex && i >= effectiveIdx && i < originIndex) shift = step;
+          el.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+        });
+
+        if (targetEntry !== originEntry) {
+          targetEntry.siblings.forEach(function (el, i) {
+            el.style.transform = i >= idx ? 'translateY(' + step + 'px)' : '';
+          });
         }
+
+        snapshot.forEach(function (entry) {
+          entry.wrap.classList.toggle('secteurDropTarget', entry === targetEntry);
+        });
+      }
+
+      relayout(activeEntry, activeIndex);
+
+      function nearestEntry(clientY) {
+        var best = null, bestDist = Infinity;
+        snapshot.forEach(function (entry) {
+          var r = entry.wrapRect;
+          var dist = clientY < r.top ? r.top - clientY : (clientY > r.bottom ? clientY - r.bottom : 0);
+          if (dist < bestDist) { bestDist = dist; best = entry; }
+        });
+        return best || originEntry;
+      }
+
+      function indexForEntry(entry, clientY) {
+        var idx = 0;
+        for (var i = 0; i < entry.mids.length; i++) {
+          if (clientY > entry.mids[i]) idx = i + 1;
+        }
+        return idx;
       }
 
       function onMove(ev) {
         row.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
-        var idx = 0;
-        for (var i = 0; i < mids.length; i++) {
-          if (ev.clientY > mids[i]) idx = i;
+        var targetEntry = nearestEntry(ev.clientY);
+        var idx = indexForEntry(targetEntry, ev.clientY);
+        if (targetEntry !== activeEntry || idx !== activeIndex) {
+          activeEntry = targetEntry;
+          activeIndex = idx;
+          relayout(activeEntry, activeIndex);
         }
-        if (idx !== targetIndex) { targetIndex = idx; layoutGap(); }
       }
 
       function onUp() {
@@ -6607,12 +6726,26 @@
         handle.removeEventListener('pointerup', onUp);
         handle.removeEventListener('pointercancel', onUp);
         row.classList.remove('dragging');
-        container.classList.remove('dragging');
+        list.classList.remove('secteursDragging');
         row.style.transform = '';
-        rows.forEach(function (el) { el.style.transform = ''; });
+        snapshot.forEach(function (entry) {
+          entry.siblings.forEach(function (el) { el.style.transform = ''; });
+          entry.wrap.classList.remove('secteurDropTarget');
+        });
 
-        if (targetIndex !== fromIndex) {
-          reorderPoleSecteur(activityId, poleKey, secteurs, fromIndex, targetIndex);
+        if (activeEntry.poleKey === originPoleKey) {
+          if (activeIndex !== originIndex) {
+            reorderPoleSecteur(activityId, originPoleKey, pole.secteurs, originIndex, activeIndex);
+          }
+        } else {
+          // Réinsère `row` dans le DOM du pôle CIBLE avant l'appel réseau —
+          // sans ça, `row` resterait visible dans son ancien pôle (retombé à
+          // sa place naturelle, transform effacé juste au-dessus) jusqu'à ce
+          // que activityGoalsCategoriesRefresh() reconstruise tout le
+          // panneau, plusieurs centaines de ms plus tard : un aller-retour
+          // visuel évitable.
+          activeEntry.wrap.insertBefore(row, activeEntry.siblings[activeIndex] || null);
+          movePoleSecteurToPole(activityId, originPoleKey, secteur.key, activeEntry.poleKey, activeIndex);
         }
       }
 
@@ -6840,6 +6973,32 @@
     }
   }
 
+  // 26 septembre 2026, bug signalé par Emilien (captures d'écran à l'appui) :
+  // « lorsque je clique sur ajouter un nouveau pôle et que j'ai cinq pôles
+  // [...] je ne parviens plus à voir la zone d'écriture. Elle est masquée
+  // [...] pas présent lorsque j'ai moins de 5 pôles. » — au plafond, la liste
+  // est assez longue pour que cette bulle d'ajout (tout en bas) se retrouve
+  // sous la ligne visible une fois le clavier ouvert : #activityPage est déjà
+  // correctement rétréci à vv.height (voir le mécanisme de pincement plus
+  // haut dans ce fichier, focusin sur #topbar/#activityPage/#goalsDetailPage)
+  // mais rien ne fait ensuite défiler CE champ précis dans cette zone
+  // réduite. Les 2 `requestAnimationFrame` imbriqués (plutôt qu'un délai fixe
+  // en `setTimeout`) laissent ce pincement s'appliquer avant de mesurer où
+  // faire défiler — même contournement que celui déjà documenté plus haut
+  // pour le bug WebKit 237851 (offsetTop parfois lu à 0 sur la 1ère image).
+  // Même bulle pour un pôle ET pour un secteur (buildPoleSecteursBlock plus
+  // haut) : un pôle proche de son plafond de secteurs (10) subirait
+  // exactement le même symptôme.
+  function scrollAddInputIntoView(el) {
+    el.addEventListener('focus', function () {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      });
+    });
+  }
+
   // 25 septembre 2026 : bulle d'ajout de pôle, même gabarit que
   // .activityGoalsSecteurAddRow (buildPoleSecteursBlock ci-dessus) —
   // remplace l'ancien « + » (#addSubProjectBtn).
@@ -6852,6 +7011,7 @@
     addInput.className = 'activityGoalsCategoryNameInput';
     addInput.maxLength = 40;
     addInput.placeholder = t('Nouveau pôle…');
+    scrollAddInputIntoView(addInput);
     var addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.className = 'iconBtn';
@@ -6962,6 +7122,25 @@
       .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
 
+  // 26 septembre 2026, demande directe d'Emilien : déplace un secteur d'un
+  // pôle vers UN AUTRE (bindSecteurDrag ci-dessous) — PUT .../secteurs/:secteurKey/move,
+  // server/lib/goals.js#moveSecteurToPole. `fromPoleKey` reste dans l'URL
+  // (même convention que renamePoleSecteur/removePoleSecteur ci-dessus,
+  // vérifié serveur-side par assertSecteurBelongsToPole) ; `targetPoleKey`/
+  // `targetIndex` dans le corps.
+  function movePoleSecteurToPole(activityId, fromPoleKey, secteurKey, targetPoleKey, targetIndex) {
+    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + fromPoleKey + '/secteurs/' + secteurKey + '/move', {
+      targetPoleKey: targetPoleKey,
+      targetIndex: targetIndex,
+    })
+      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .catch(function (err) {
+        var msg = $('activityGoalsCategoriesMsg');
+        if (msg) msg.textContent = err.message;
+        activityGoalsCategoriesRefresh(activityId); // remet le DOM en ordre après un rejet serveur
+      });
+  }
+
   // Bloc de secteurs d'un pôle — affiché SEULEMENT quand le pôle est déplié
   // (isOpen, même règle que buildCategoryTasksBlock), juste au-dessus des
   // tâches. Pas de glisser-déposer (bindCategoryDrag, réservé aux pôles) :
@@ -7027,6 +7206,7 @@
     addInput.className = 'activityGoalsSecteurNameInput';
     addInput.maxLength = 40;
     addInput.placeholder = t('Nouveau secteur…');
+    scrollAddInputIntoView(addInput);
     var addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.className = 'iconBtn';
@@ -7059,6 +7239,10 @@
   function buildPoleSecteursEditBlock(activityId, pole) {
     var wrap = document.createElement('div');
     wrap.className = 'activityGoalsSecteursBlock';
+    // 26 septembre 2026 : porte le pôle propriétaire de CE bloc — bindSecteurDrag
+    // en a besoin pour reconnaître, au moment du dépôt, dans quel pôle un
+    // secteur a atterri (déplacement cross-pôle, voir son commentaire).
+    wrap.dataset.poleKey = pole.key;
 
     var secteurs = pole.secteurs || [];
     secteurs.forEach(function (s) {
@@ -7070,7 +7254,7 @@
       handle.className = 'subProjectDragHandle';
       handle.setAttribute('aria-label', t('Déplacer ce secteur'));
       handle.textContent = '≡';
-      bindSecteurDrag(handle, row, wrap, activityId, pole.key, secteurs);
+      bindSecteurDrag(handle, row, activityId, pole, s);
       row.appendChild(handle);
 
       var input = document.createElement('input');

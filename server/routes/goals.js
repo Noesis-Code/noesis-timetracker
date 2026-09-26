@@ -500,6 +500,36 @@ router.put('/activities/:id/goals/categories/:key/secteurs-reorder', (req, res) 
   }
 });
 
+// 26 septembre 2026, demande directe d'Emilien : déplacer un secteur d'un
+// pôle à un autre (glisser-déposer cross-pôle, voir bindSecteurDrag/app.js).
+// `:key` reste le pôle SOURCE (même convention que les routes ci-dessus) —
+// `assertSecteurBelongsToPole` protège contre une URL qui viserait un secteur
+// d'un autre pôle que celui indiqué. `targetPoleKey`/`targetIndex` dans le
+// corps (jamais dans l'URL : ce n'est pas une ressource identifiée par eux,
+// seulement des paramètres de la mutation).
+router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey/move', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    const categories = goals.moveSecteurToPole(
+      activityId,
+      req.params.key,
+      req.params.secteurKey,
+      req.body.targetPoleKey,
+      req.body.targetIndex,
+    );
+    res.json({ ok: true, categories });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });

@@ -5566,12 +5566,23 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoriesList {
   display: flex; flex-direction: column; gap: 8px; margin: 10px 0;
 }
+/* 26 septembre 2026, bug signalé par Emilien (« je ne peux pas faire défiler
+   l'écran [...] lorsque j'appuie longtemps pour modifier les pôles et les
+   secteurs ») : `touch-action: none` était posé ici, sur la ligne ENTIÈRE —
+   alors que le reste de ce fichier réserve toujours cette propriété à la
+   seule POIGNÉE de glisser-déposer (.subProjectDragHandle,
+   .activityDragHandle), justement pour que « le reste de la ligne et la page
+   continuent de défiler normalement » (commentaire déjà présent plus haut
+   dans app.js, au-dessus de bindCategoryLongPress). Posée sur la ligne
+   entière, elle bloquait tout défilement tactile dès qu'un doigt touchait une
+   ligne de pôle, mode édition ou non — retirée ici, la poignée
+   (.subProjectDragHandle, déjà touch-action:none) reste seule responsable de
+   capturer le geste de glisser-déposer. */
 .activityGoalsCategoryRow {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--card); padding: 8px 10px;
   position: relative;
-  touch-action: none;
 }
 /* 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») :
    flex-basis 100% force ces deux éléments (caption lecture seule / champ
@@ -5605,12 +5616,23 @@ button { -webkit-user-select: none; user-select: none; }
    ET son bloc secteurs (édition) forment désormais un groupe déplaçable
    ensemble (.activityGoalsCategoryEditGroup, app.js/bindCategoryDrag),
    remplace les règles .activityGoalsCategoryRow.dragging ci-dessous. */
+/* 26 septembre 2026 : même correctif que .activityGoalsCategoryRow ci-dessus
+   (touch-action: none retiré du groupe entier, laissé à la seule poignée). */
 .activityGoalsCategoryEditGroup {
-  display: flex; flex-direction: column; gap: 2px; touch-action: none;
+  display: flex; flex-direction: column; gap: 2px;
 }
 .activityGoalsCategoryEditGroup.dragging { opacity: 0.75; z-index: 2; }
 .activityGoalsCategoryEditGroup.dragging .activityGoalsCategoryRow { border-color: var(--purple); }
 #activityGoalsCategoriesList.dragging .activityGoalsCategoryEditGroup:not(.dragging) { transition: transform 0.16s ease; }
+/* 26 septembre 2026, demande directe d'Emilien : secteurs masqués pendant le
+   déplacement d'un pôle (bindCategoryDrag, app.js — voir son commentaire pour
+   la raison exacte : des groupes de hauteurs différentes faussaient le calcul
+   de décalage `step`, d'où la superposition visible sur les captures
+   d'Emilien). `display: none` plutôt qu'`opacity`/`visibility` : ces groupes
+   doivent aussi perdre leur hauteur, pas seulement leur visibilité, sinon le
+   problème de hauteurs hétérogènes qu'on cherche justement à éliminer
+   resterait entier. */
+#activityGoalsCategoriesList.dragging .activityGoalsSecteursBlock { display: none; }
 .activityGoalsCategoryReorder {
   border: none; background: transparent; color: var(--text-light);
   font-size: 12px; line-height: 1; padding: 4px; cursor: pointer; flex-shrink: 0;
@@ -5653,15 +5675,48 @@ button { -webkit-user-select: none; user-select: none; }
   border-left: 2px solid var(--border);
   display: flex; flex-direction: column; gap: 4px;
 }
+/* 26 septembre 2026, déplacement d'un secteur d'un pôle à un autre
+   (bindSecteurDrag, app.js) : pendant ce geste précis, chaque bloc secteurs
+   reçoit une hauteur minimale — même un pôle sans AUCUN secteur (bloc
+   normalement vide, hauteur nulle) doit rester une cible survolable, sinon il
+   n'y aurait tout simplement rien à viser pour y déposer un secteur.
+   `secteurDropTarget` (posé/retiré en JS sur le bloc actuellement visé)
+   donne un repère visuel pendant le geste, utile en particulier pour ces
+   pôles vides qui n'ont sinon aucun contenu à regarder. */
+#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteursBlock { min-height: 34px; }
+#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteursBlock.secteurDropTarget {
+  outline: 1px dashed var(--purple); outline-offset: 2px; border-radius: var(--radius-sm, 8px);
+}
+#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteurRow:not(.dragging) {
+  transition: transform 0.16s ease;
+}
 .activityGoalsSecteurRow {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.activityGoalsSecteurRow.dragging {
+  opacity: 0.85; background: var(--track-bg); border-radius: var(--radius-sm, 8px);
+  z-index: 2; position: relative;
 }
 /* 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») —
    même principe que .activityGoalsCategoryDescriptionCaption/...Input
    ci-dessus, pour un secteur. */
 .activityGoalsSecteurDescriptionCaption { flex: 1 1 100%; margin-top: 1px; padding-left: 16px; }
+/* 26 septembre 2026, retour direct d'Emilien (capture d'écran à l'appui) :
+   « je souhaite que la bulle de description [...] soit collée au secteur
+   afin qu'on comprenne mieux que c'est la description du secteur » — la
+   caption (ci-dessus) était déjà indentée de 16px (padding-left, invisible
+   sur un <span> sans bordure propre), mais ce champ D'ÉDITION, lui, a une
+   bordure/fond visibles : un simple padding-left aurait seulement décalé le
+   PLACEHOLDER, pas la boîte elle-même, laissant son cadre flush au bord de
+   la ligne — donc visuellement rattaché au PÔLE plutôt qu'au secteur.
+   `flex-basis: calc(100% - 16px)` + `margin-left: 16px` (plutôt que
+   `flex: 1 1 100%` + `margin-left`, qui aurait fait déborder la ligne à
+   droite, box-sizing:border-box n'excluant pas les marges du calcul flex)
+   décale la boîte ENTIÈRE de 16px, alignée sous le nom du secteur, exactement
+   comme sa caption en lecture seule. */
 .activityGoalsSecteurDescriptionInput {
-  flex: 1 1 100%; min-width: 0; font-size: 12px; padding: 4px 6px; margin-top: 1px;
+  flex: 1 1 calc(100% - 16px); margin-left: 16px;
+  min-width: 0; font-size: 12px; padding: 4px 6px; margin-top: 1px;
   border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
   background: var(--track-bg); color: var(--text);
 }
@@ -5675,6 +5730,17 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsSecteurDot {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
   border: 1px solid var(--border);
+}
+/* 26 septembre 2026, demande directe d'Emilien : « je souhaite que les croix
+   pour supprimer les secteurs ne soient pas encadrées dans un carré
+   contrairement aux pôles, afin qu'on puisse mieux distinguer les pôles des
+   secteurs. » .subProjectDeleteX (partagée avec Sous-projets et la croix de
+   pôle, server/lib intact, NE PAS la modifier globalement) garde son cadre
+   partout ailleurs — seule sa version DANS une ligne de secteur en édition
+   perd bordure et fond, par spécificité de sélecteur plutôt qu'une nouvelle
+   classe. */
+.activityGoalsSecteurRow.editing .subProjectDeleteX {
+  border: none; background: none; width: auto; height: auto; padding: 4px;
 }
 .activityGoalsSecteurNameInput {
   flex: 1 1 auto; min-width: 0; font-size: 13px; padding: 5px 7px;
