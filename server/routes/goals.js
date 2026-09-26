@@ -17,6 +17,10 @@ const goalsauto = require('../lib/goalsauto');
 // server/lib/goalsweeklyauto.js pour le cadrage complet) : déclenché ici,
 // jamais depuis l'intérieur de goals.js#setMainGoal (qui reste pur/sans IA).
 const goalsweeklyauto = require('../lib/goalsweeklyauto');
+// 26 septembre 2026 (discussion C, moteur cross-secteur — voir
+// server/lib/crosssectorinference.js pour le cadrage complet) : chaîné après
+// goalsweeklyauto ci-dessous, jamais un hook indépendant.
+const crosssectorinference = require('../lib/crosssectorinference');
 const goalsdailyauto = require('../lib/goalsdailyauto');
 // Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
 // priorisées, voir server/lib/goalsdailypriority.js.
@@ -209,15 +213,15 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
     // décision de non-écrasement et le repli silencieux si l'IA n'est pas
     // configurée ou si rien n'est à remplir).
     //
-    // Point de coordination (tranché avec le remplissage hebdomadaire) : le
-    // futur moteur d'inférence cross-secteur (« Coordination inter-secteurs »,
-    // même déclencheur setMainGoal, pas encore codé) se CHAÎNERA ici via un
-    // .then() sur la promesse ci-dessous — jamais un second .catch()
-    // indépendant posé en parallèle. Exemple :
-    //   goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber)
-    //     .then(() => crossSecteur.evaluateForPeriod(activityId, category, periodNumber))
-    //     .catch(() => {});
-    goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber).catch(() => {});
+    // Point de coordination (tranché avec le remplissage hebdomadaire, voir
+    // server/lib/goalsweeklyauto.js) : le moteur d'inférence cross-secteur
+    // (« Coordination inter-secteurs », même déclencheur setMainGoal) est
+    // CHAÎNÉ ici via .then() — jamais un second .catch() indépendant posé en
+    // parallèle, pour ne jamais avoir deux appels IA concurrents sur le même
+    // événement.
+    goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber)
+      .then(() => crosssectorinference.evaluateCrossSectorLinks(activityId, category, { type: 'main_goal', text, periodNumber }))
+      .catch(() => {});
   } catch (err) {
     handleGoalsError(res, err);
   }

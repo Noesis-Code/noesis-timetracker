@@ -52,6 +52,12 @@ const goalstasks = require('./goalstasks');
 // directe d'Emilien) — placement automatique jour par jour, capacité
 // croisée entre activités, voir son commentaire de tête.
 const goalscaptureplace = require('./goalscaptureplace');
+// 26 septembre 2026 (« Coordination inter-secteurs de l'IA », Brief 1 codé
+// par Discussion C) — second déclencheur (tâche libre), contrat confirmé
+// avec Objectifs — Tâches (voir le commentaire d'en-tête de
+// crosssectorinference.js pour le cadrage complet). Fire-and-forget,
+// n'affecte jamais la réponse de capture elle-même.
+const crosssectorinference = require('./crosssectorinference');
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_API_VERSION = '2023-06-01';
@@ -301,6 +307,10 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
         }
       }
       results.push(Object.assign({}, item, { activityId, ok: true, dueDate: placedDate || item.dueDate || null }));
+      // 26 septembre 2026 : second déclencheur du moteur cross-secteur —
+      // jamais awaité, jamais bloquant pour la capture (voir le require
+      // ci-dessus).
+      crosssectorinference.suggestCrossSectorLinks(activityId, item.categoryKey, { type: 'task', text: label, itemId: item.id }).catch(() => {});
     } catch (err) {
       results.push({ activityId, ok: false, error: err.message || 'Erreur serveur.' });
     }
