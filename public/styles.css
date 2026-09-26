@@ -5684,10 +5684,23 @@ button { -webkit-user-select: none; user-select: none; }
   font-size: 12px; line-height: 1; padding: 4px; cursor: pointer; flex-shrink: 0;
 }
 .activityGoalsCategoryReorder:disabled { opacity: 0.3; cursor: default; }
-/* 22 septembre 2026 : .activityGoalsCategoryDot (point coloré du pôle)
-   retiré — les pôles n'ont plus de couleur, voir renderActivityGoalsCategoriesPanel()
-   dans app.js. .activityGoalsSecteurDot ci-dessous, plus bas dans ce fichier,
-   le remplace au niveau du secteur. */
+/* 22 septembre 2026 : .activityGoalsCategoryDot (point coloré du pôle) avait
+   été retiré ici — les pôles n'avaient alors plus de couleur, voir
+   renderActivityGoalsCategoriesPanel() dans app.js.
+   26 septembre 2026, demande directe d'Emilien (maquette « Hybride »
+   validée, Artifact « Mode réorganisation — Pôles vs Secteurs ») :
+   revirement — la couleur revient au PÔLE sous forme d'une pastille ronde
+   (comme les puces du volet Activités, PAS un carré ni une barre), les
+   secteurs restant sans couleur (voir .activityGoalsSecteurDot ci-dessous,
+   toujours masquée). La règle avait été entièrement supprimée le 22
+   septembre (pas seulement masquée) ; il s'agit donc ici d'une NOUVELLE
+   règle, pas d'une restauration. Couleur posée en JS
+   (subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT),
+   app.js) — même système déjà utilisé pour les sous-projets/Chrono. Utilisée
+   dans les deux modes (édition et normal) de renderActivityGoalsCategoriesPanel(). */
+.activityGoalsCategoryDot {
+  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
+}
 .activityGoalsCategoryNameInput {
   flex: 1; min-width: 0; font-size: 14px; padding: 6px 8px;
   border: 1px solid transparent; border-radius: var(--radius-sm, 8px);
@@ -5780,7 +5793,13 @@ button { -webkit-user-select: none; user-select: none; }
    attribue automatiquement une des 10 nuances. » Remplace
    .activityGoalsCategoryDot (retiré juste au-dessus dans ce fichier) — même
    forme, légèrement plus petit pour rester cohérent avec l'indentation d'un
-   secteur sous son pôle. Couleur posée en JS (secteurShade(), app.js). */
+   secteur sous son pôle. Couleur posée en JS (secteurShade(), app.js).
+   26 septembre 2026, demande directe d'Emilien : revirement de cette
+   décision — « les secteurs n'ont plus de couleur, uniquement les pôles ont
+   une des cinq nuances de couleur attribuées ». La création du point dans
+   buildPoleSecteursBlock() (app.js) a été retirée ; la règle ci-dessous
+   reste dans la feuille de style (masquée, jamais supprimée, par convention
+   du projet) mais ne s'applique plus à rien tant que ce revirement tient. */
 .activityGoalsSecteurDot {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
   border: 1px solid var(--border);
@@ -6042,16 +6061,18 @@ button { -webkit-user-select: none; user-select: none; }
    vide + clic → navigue vers la page 2 de cette activité plutôt que de la
    sélectionner) — voir renderGoalsCaptureActivities(), app.js. */
 /* 26 septembre 2026, demande directe d'Emilien (page 1, points a-c) : les
-   puces passent sous la bulle (voir index.html), en colonne superposée
-   plutôt qu'alignées en ligne — chaque puce prend systématiquement la même
-   largeur que la zone d'écriture IA (100% du conteneur commun), le
-   chevauchement se fait donc verticalement. Aucun z-index nécessaire :
-   l'ordre naturel du DOM suffit déjà (une puce plus bas dans la liste est
-   peinte après, donc par-dessus le bas de celle du dessus) — seul un
-   margin-top négatif crée le chevauchement, la première puce garde le sien
-   à 0 pour ne pas être rognée par rien au-dessus d'elle. */
+   puces passent sous la bulle (voir index.html), EMPILÉES verticalement
+   (« superposées et non pas alignées ») plutôt qu'alignées en ligne — chaque
+   puce prend systématiquement la même largeur que la zone d'écriture IA
+   (100% du conteneur commun, même parent flex que .goalsCaptureBubbleWrap).
+   ⚠️ Correctif du même jour : la première version chevauchait les puces par
+   un margin-top négatif (effet « jeu de cartes en éventail ») — ce n'était
+   pas ce qu'Emilien demandait ; « superposées » qualifie ici l'empilement
+   vertical par opposition à l'alignement en ligne, pas un chevauchement
+   visuel entre puces. Remplacé par un simple espacement vertical régulier
+   (gap), aucune puce n'en recouvre une autre. */
 .goalsCaptureActivities {
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; gap: 8px;
 }
 .goalsCaptureActivityChip {
   display: flex; align-items: center; gap: 6px;
@@ -6060,11 +6081,6 @@ button { -webkit-user-select: none; user-select: none; }
   border: 1px solid var(--border); background: var(--card);
   color: var(--text); font-size: 14px; font-family: inherit;
   cursor: pointer; position: relative;
-  margin-top: -12px;
-}
-.goalsCaptureActivities.awaitingChoice .goalsCaptureActivityChip,
-.goalsCaptureActivityChip:first-child {
-  margin-top: 0;
 }
 .goalsCaptureActivityChip .dot {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;

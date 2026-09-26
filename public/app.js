@@ -5732,8 +5732,19 @@
     // créer/retirer/déplacer un pôle ou un secteur, via
     // activityGoalsCategoriesRefresh), où un pôle en cours de consultation
     // ne doit surtout pas se replier tout seul.
+    // 26 septembre 2026 (2e correction, même demande) : le premier correctif
+    // ne réinitialisait que le déplié/replié, pas le mode édition
+    // (activityGoalsCategoriesEditMode, déclaré plus bas). Or cette fonction
+    // s'exécute aussi bien quand on change d'onglet ET qu'on revient sur
+    // Catégories, que — via openActivityPage(), qui appelle toujours
+    // setActivityPageSection('sub') — quand on quitte complètement la page
+    // et qu'on y revient : les deux scénarios décrits par Emilien passent
+    // donc par ce même point. Flag remis à plat directement (plutôt que
+    // d'appeler exitCategoriesEditMode(), qui déclenche son propre rechargement
+    // redondant avec celui juste en dessous).
     if (name === 'sub') {
       activityGoalsCategoriesOpen = {};
+      activityGoalsCategoriesEditMode = false;
       loadActivityGoalsCategories(currentCommunityActivityId);
     }
 
@@ -6825,12 +6836,29 @@
       row.className = 'activityGoalsCategoryRow' + (activityGoalsCategoriesEditMode ? ' editing' : '');
       row.dataset.categoryKey = c.key;
 
+      // 26 septembre 2026, demande directe d'Emilien : revirement du 22
+      // septembre ci-dessous — la couleur revient au niveau du PÔLE (une des
+      // cinq nuances de subProjectShade(), déjà utilisé ailleurs pour les
+      // sous-projets/Chrono), les secteurs restant désormais sans couleur
+      // (voir buildPoleSecteursBlock() plus bas, point coloré retiré le même
+      // jour). Forme validée par Emilien sur maquette (Artifact « Mode
+      // réorganisation — Pôles vs Secteurs », option Hybride) : une pastille
+      // ronde, comme les puces du volet Activités — pas une barre ni un
+      // carré. Même élément affiché en mode édition ET en mode normal (voir
+      // les deux points d'insertion ci-dessous), toujours au même rang que
+      // dans la liste affichée (pas un ordre global toutes activités
+      // confondues).
+      var dot = document.createElement('span');
+      dot.className = 'activityGoalsCategoryDot';
+      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+
       if (activityGoalsCategoriesEditMode) {
         var handle = document.createElement('span');
         handle.className = 'subProjectDragHandle';
         handle.setAttribute('aria-label', t('Déplacer ce pôle'));
         handle.textContent = '≡';
         row.appendChild(handle);
+        row.appendChild(dot);
 
         var input = document.createElement('input');
         input.type = 'text';
@@ -6904,13 +6932,11 @@
         return; // en édition : ni tâches, ni résumé hebdo (même règle que Sous-projets)
       }
 
-      // 22 septembre 2026, demande directe d'Emilien : « les pôles ne
-      // possèdent pas de couleur ni d'icône ni de motif. » Le point coloré
-      // du pôle (subProjectShade(currentActivityColor, index, ...)) est
-      // retiré ici — seule l'activité garde sa couleur pleine (inchangée
-      // ailleurs dans l'app) ; ce sont désormais les SECTEURS qui reçoivent
-      // une nuance automatique, voir buildPoleSecteursBlock()/secteurShade()
-      // plus bas.
+      // 26 septembre 2026 : revirement du 22 septembre ci-dessus — la
+      // pastille colorée du pôle est réaffichée ici (voir la création de
+      // `dot` en tête de boucle), ce sont désormais les secteurs qui
+      // n'ont plus de couleur (buildPoleSecteursBlock() plus bas).
+      row.appendChild(dot);
       var nameLabel = document.createElement('span');
       nameLabel.className = 'activityRowName';
       nameLabel.textContent = c.label;
@@ -7194,17 +7220,15 @@
       var row = document.createElement('div');
       row.className = 'activityGoalsSecteurRow';
 
-      // 22 septembre 2026, demande directe d'Emilien : le secteur reçoit
-      // désormais la couleur automatique (les pôles n'en ont plus, voir le
-      // retrait de .activityGoalsCategoryDot ci-dessus) — une des 10 nuances
-      // de secteurShade(), par rang au sein de CE pôle (pas de l'activité
-      // entière : deux pôles peuvent donc réutiliser les mêmes nuances pour
-      // leurs premiers secteurs, seuls les secteurs d'un même pôle doivent
-      // se distinguer entre eux).
-      var dot = document.createElement('span');
-      dot.className = 'activityGoalsSecteurDot';
-      dot.style.background = secteurShade(currentActivityColor, index);
-      row.appendChild(dot);
+      // 26 septembre 2026, demande directe d'Emilien : revirement de la
+      // décision du 22 septembre ci-dessus — « les secteurs n'ont plus de
+      // couleur, uniquement les pôles ont une des cinq nuances de couleur
+      // attribuées ». Le point (secteurShade(), 10 nuances) est donc retiré
+      // ici ; la coloration des pôles eux-mêmes (system des 5 nuances,
+      // subProjectShade(), déjà utilisé ailleurs pour les sous-projets)
+      // n'est PAS ajoutée à cette vue lecture seule dans ce correctif —
+      // elle attend le choix d'Emilien parmi les maquettes du mode édition
+      // (voir claude/noesis-timetracker-poles-secteurs.md).
 
       var nameLabel = document.createElement('span');
       nameLabel.className = 'activityRowName';
