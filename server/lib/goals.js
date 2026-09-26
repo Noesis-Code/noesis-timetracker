@@ -555,6 +555,65 @@ function reorderSecteurs(activityId, poleKey, keys) {
   return secteursForPole(activityId, poleKey);
 }
 
+// 26 septembre 2026 (Objectifs — Tâches, panneau « gérer mes catégories ») —
+// déplace un secteur ACTIF d'un pôle à un autre, à une position donnée parmi
+// les secteurs du pôle cible (demande explicite d'Emilien : glisser-déposer
+// cross-pole, avec décalage des frères aux deux extrémités du mouvement).
+// `poleKey === targetPoleKey` retombe sur un simple réordonnancement (même
+// esprit que reorderSecteurs, mais un déplacement unitaire plutôt que le
+// remplacement complet de la séquence — c'est reorderPoleSecteur, côté
+// client, qui appelle reorderSecteurs pour ce cas ; movePoleSecteurToPole,
+// côté client, n'appelle CETTE fonction-ci que pour un changement de pôle
+// réel, mais elle reste correcte aussi dans le cas même-pôle, au cas où).
+//
+// ⚠️ RÉINTRODUITE le 26 septembre 2026 après avoir disparu de ce fichier :
+// une écriture concurrente d'une autre discussion (partie du même après-midi,
+// cross-sector inference) a réécrit goals.js/routes/goals.js à partir d'une
+// copie antérieure au premier ajout de cette fonction (25/26 septembre), la
+// faisant disparaître silencieusement — bug de régression signalé par
+// Emilien (« Je ne peux plus déplacer un secteur dans un autre pôle »),
+// diagnostiqué par device_list_dir (mtime de goals.js/routes/goals.js
+// postérieur à ma dernière écriture connue, moveSecteurToPole absente du
+// fichier réel) plutôt que supposé. Voir noesis-timetracker-chantiers-en-cours.md
+// pour le détail complet de l'incident et la coordination avec cette autre
+// discussion.
+function moveSecteurToPole(activityId, poleKey, secteurKey, targetPoleKey, targetIndex) {
+  const existing = ensureDefaultCategory(activityId);
+  const row = existing.find((r) => r.key === secteurKey && r.parentKey === poleKey);
+  if (!row) throw Object.assign(new Error('Secteur introuvable pour ce pôle.'), { statusCode: 404 });
+  const targetPole = existing.find((r) => r.key === targetPoleKey && !r.parentKey);
+  if (!targetPole) throw Object.assign(new Error('Pôle cible introuvable.'), { statusCode: 404 });
+
+  const targetSiblings = existing.filter((r) => r.parentKey === targetPoleKey && r.key !== secteurKey);
+  const idx = Math.max(0, Math.min(Number(targetIndex) || 0, targetSiblings.length));
+
+  if (poleKey === targetPoleKey) {
+    targetSiblings.splice(idx, 0, row);
+    targetSiblings.forEach((r, i) => {
+      if (r.position !== i) db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i, r.id);
+    });
+    return categoriesForActivity(activityId);
+  }
+
+  if (targetSiblings.length >= MAX_SECTEURS_PER_POLE) {
+    throw Object.assign(new Error(MAX_SECTEURS_PER_POLE + ' secteurs maximum par pôle.'), { statusCode: 400 });
+  }
+
+  db.prepare('UPDATE activity_goal_categories SET parentKey = ? WHERE activityId = ? AND key = ?')
+    .run(targetPoleKey, activityId, secteurKey);
+
+  existing.filter((r) => r.parentKey === poleKey && r.key !== secteurKey).forEach((r, i) => {
+    db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i, r.id);
+  });
+
+  targetSiblings.splice(idx, 0, row);
+  targetSiblings.forEach((r, i) => {
+    db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i, r.id);
+  });
+
+  return categoriesForActivity(activityId);
+}
+
 // `key` est-il un secteur ACTIF de cette activité, dont le pôle parent est
 // lui-même actif ? (Le second test protège contre une incohérence si une
 // ligne était un jour corrompue à la main — en fonctionnement normal, retirer
@@ -1425,6 +1484,7 @@ module.exports = {
   parentKeyFor,
   resolveToPole,
   reorderSecteurs,
+  moveSecteurToPole,
   // Secteurs dans l'arbre périodique (21 septembre 2026 — voir le commentaire
   // au-dessus de gridColumnsForPole dans ce fichier). Exposés par
   // server/routes/goals.js.

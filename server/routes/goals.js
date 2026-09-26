@@ -523,6 +523,32 @@ router.put('/activities/:id/goals/categories/:key/secteurs-reorder', (req, res) 
   }
 });
 
+// 26 septembre 2026 (panneau « gérer mes catégories », déplacement d'un
+// secteur d'un pôle à un autre) — ⚠️ RÉINTRODUITE le même jour après avoir
+// disparu de ce fichier lors d'une écriture concurrente d'une autre
+// discussion partie d'une copie antérieure ; voir le commentaire au-dessus
+// de moveSecteurToPole dans server/lib/goals.js et
+// noesis-timetracker-chantiers-en-cours.md pour le détail de l'incident.
+router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey/move', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    const categories = goals.moveSecteurToPole(
+      activityId, req.params.key, req.params.secteurKey,
+      req.body.targetPoleKey, req.body.targetIndex,
+    );
+    res.json({ ok: true, categories });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
