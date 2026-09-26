@@ -3817,6 +3817,26 @@
     return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
   }
 
+  // 26 septembre 2026, demande directe d'Emilien (page 1, puces d'activité
+  // au repos) : « on conserve le plein assourdi » — une couleur d'activité
+  // MÉLANGÉE avec le fond de carte du thème actif (55% couleur / 45% fond),
+  // même patron de mélange que eclairciPourLisibilite() ci-dessus mais vers
+  // une cible fixe (le fond de carte) plutôt que vers blanc/noir. Les deux
+  // fonds (#1f2229 sombre, #ffffff clair) sont ceux de --card dans
+  // styles.css — dupliqués ici en dur pour la même raison que
+  // readableTextOn()/textColorForTheme() : palette contrainte par thème, pas
+  // besoin de lire la variable CSS depuis JS.
+  function mutedActivityColor(hex) {
+    var card = currentTheme === 'light' ? '#ffffff' : '#1f2229';
+    var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    var r2 = parseInt(card.slice(1, 3), 16), g2 = parseInt(card.slice(3, 5), 16), b2 = parseInt(card.slice(5, 7), 16);
+    var amount = 0.45;
+    r = Math.round(r + (r2 - r) * amount);
+    g = Math.round(g + (g2 - g) * amount);
+    b = Math.round(b + (b2 - b) * amount);
+    return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+  }
+
   // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que tu crées pour
   // chaque couleur d'activité 5 nuances distinguables à l'œil nu ».
   //
@@ -5732,19 +5752,8 @@
     // créer/retirer/déplacer un pôle ou un secteur, via
     // activityGoalsCategoriesRefresh), où un pôle en cours de consultation
     // ne doit surtout pas se replier tout seul.
-    // 26 septembre 2026 (2e correction, même demande) : le premier correctif
-    // ne réinitialisait que le déplié/replié, pas le mode édition
-    // (activityGoalsCategoriesEditMode, déclaré plus bas). Or cette fonction
-    // s'exécute aussi bien quand on change d'onglet ET qu'on revient sur
-    // Catégories, que — via openActivityPage(), qui appelle toujours
-    // setActivityPageSection('sub') — quand on quitte complètement la page
-    // et qu'on y revient : les deux scénarios décrits par Emilien passent
-    // donc par ce même point. Flag remis à plat directement (plutôt que
-    // d'appeler exitCategoriesEditMode(), qui déclenche son propre rechargement
-    // redondant avec celui juste en dessous).
     if (name === 'sub') {
       activityGoalsCategoriesOpen = {};
-      activityGoalsCategoriesEditMode = false;
       loadActivityGoalsCategories(currentCommunityActivityId);
     }
 
@@ -6245,7 +6254,20 @@
     var glowSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     glowSvg.setAttribute('class', 'activityGoalsCategoryAutoTaskGlow');
     glowSvg.setAttribute('aria-hidden', 'true');
+    // 26 septembre 2026, demande directe d'Emilien (page 1) : « je souhaite
+    // que le fuseau passe directement sur le contour [...] à l'endroit même
+    // du contour, et que le contour ait la largeur du fuseau. Seule la
+    // couleur différente montre le mouvement. » — le contour fixe n'est
+    // plus une bordure CSS séparée (voir styles.css) : c'est un second
+    // <rect>, à la géométrie STRICTEMENT IDENTIQUE au <rect> animé
+    // (posée une seule fois pour les deux, ci-dessous, dans layoutGlow()),
+    // dessiné en dessous. Les deux sont garantis superposés au pixel près
+    // par construction — seule leur couleur (CSS) diffère.
+    var baseRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    baseRect.setAttribute('class', 'autoTaskGlowBase');
     var glowRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    glowRect.setAttribute('class', 'autoTaskGlowMove');
+    glowSvg.appendChild(baseRect);
     glowSvg.appendChild(glowRect);
     wrap.appendChild(glowSvg);
     function layoutGlow() {
@@ -6253,12 +6275,14 @@
       if (!w || !h) return;
       glowSvg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
       var rx = 13;
-      glowRect.setAttribute('x', 1);
-      glowRect.setAttribute('y', 1);
-      glowRect.setAttribute('width', Math.max(0, w - 2));
-      glowRect.setAttribute('height', Math.max(0, h - 2));
-      glowRect.setAttribute('rx', rx);
-      glowRect.setAttribute('ry', rx);
+      [baseRect, glowRect].forEach(function (r) {
+        r.setAttribute('x', 1);
+        r.setAttribute('y', 1);
+        r.setAttribute('width', Math.max(0, w - 2));
+        r.setAttribute('height', Math.max(0, h - 2));
+        r.setAttribute('rx', rx);
+        r.setAttribute('ry', rx);
+      });
       var perim = glowRect.getTotalLength ? glowRect.getTotalLength() : 2 * (w + h);
       var dash = perim * 0.3;
       glowRect.style.strokeDasharray = dash + ' ' + Math.max(0, perim - dash);
@@ -6836,29 +6860,12 @@
       row.className = 'activityGoalsCategoryRow' + (activityGoalsCategoriesEditMode ? ' editing' : '');
       row.dataset.categoryKey = c.key;
 
-      // 26 septembre 2026, demande directe d'Emilien : revirement du 22
-      // septembre ci-dessous — la couleur revient au niveau du PÔLE (une des
-      // cinq nuances de subProjectShade(), déjà utilisé ailleurs pour les
-      // sous-projets/Chrono), les secteurs restant désormais sans couleur
-      // (voir buildPoleSecteursBlock() plus bas, point coloré retiré le même
-      // jour). Forme validée par Emilien sur maquette (Artifact « Mode
-      // réorganisation — Pôles vs Secteurs », option Hybride) : une pastille
-      // ronde, comme les puces du volet Activités — pas une barre ni un
-      // carré. Même élément affiché en mode édition ET en mode normal (voir
-      // les deux points d'insertion ci-dessous), toujours au même rang que
-      // dans la liste affichée (pas un ordre global toutes activités
-      // confondues).
-      var dot = document.createElement('span');
-      dot.className = 'activityGoalsCategoryDot';
-      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-
       if (activityGoalsCategoriesEditMode) {
         var handle = document.createElement('span');
         handle.className = 'subProjectDragHandle';
         handle.setAttribute('aria-label', t('Déplacer ce pôle'));
         handle.textContent = '≡';
         row.appendChild(handle);
-        row.appendChild(dot);
 
         var input = document.createElement('input');
         input.type = 'text';
@@ -6932,11 +6939,13 @@
         return; // en édition : ni tâches, ni résumé hebdo (même règle que Sous-projets)
       }
 
-      // 26 septembre 2026 : revirement du 22 septembre ci-dessus — la
-      // pastille colorée du pôle est réaffichée ici (voir la création de
-      // `dot` en tête de boucle), ce sont désormais les secteurs qui
-      // n'ont plus de couleur (buildPoleSecteursBlock() plus bas).
-      row.appendChild(dot);
+      // 22 septembre 2026, demande directe d'Emilien : « les pôles ne
+      // possèdent pas de couleur ni d'icône ni de motif. » Le point coloré
+      // du pôle (subProjectShade(currentActivityColor, index, ...)) est
+      // retiré ici — seule l'activité garde sa couleur pleine (inchangée
+      // ailleurs dans l'app) ; ce sont désormais les SECTEURS qui reçoivent
+      // une nuance automatique, voir buildPoleSecteursBlock()/secteurShade()
+      // plus bas.
       var nameLabel = document.createElement('span');
       nameLabel.className = 'activityRowName';
       nameLabel.textContent = c.label;
@@ -7220,15 +7229,17 @@
       var row = document.createElement('div');
       row.className = 'activityGoalsSecteurRow';
 
-      // 26 septembre 2026, demande directe d'Emilien : revirement de la
-      // décision du 22 septembre ci-dessus — « les secteurs n'ont plus de
-      // couleur, uniquement les pôles ont une des cinq nuances de couleur
-      // attribuées ». Le point (secteurShade(), 10 nuances) est donc retiré
-      // ici ; la coloration des pôles eux-mêmes (system des 5 nuances,
-      // subProjectShade(), déjà utilisé ailleurs pour les sous-projets)
-      // n'est PAS ajoutée à cette vue lecture seule dans ce correctif —
-      // elle attend le choix d'Emilien parmi les maquettes du mode édition
-      // (voir claude/noesis-timetracker-poles-secteurs.md).
+      // 22 septembre 2026, demande directe d'Emilien : le secteur reçoit
+      // désormais la couleur automatique (les pôles n'en ont plus, voir le
+      // retrait de .activityGoalsCategoryDot ci-dessus) — une des 10 nuances
+      // de secteurShade(), par rang au sein de CE pôle (pas de l'activité
+      // entière : deux pôles peuvent donc réutiliser les mêmes nuances pour
+      // leurs premiers secteurs, seuls les secteurs d'un même pôle doivent
+      // se distinguer entre eux).
+      var dot = document.createElement('span');
+      dot.className = 'activityGoalsSecteurDot';
+      dot.style.background = secteurShade(currentActivityColor, index);
+      row.appendChild(dot);
 
       var nameLabel = document.createElement('span');
       nameLabel.className = 'activityRowName';
@@ -7473,6 +7484,14 @@
   var currentGoalsSelectedPoleKey = '';
   var currentGoalsGridColumns = null;
   var currentGoalsMaxSecteurs = 10;
+  // 26 septembre 2026 (page 2, point d) : rang du pôle actuellement affiché
+  // dans goalsPoles() — même rôle que currentGoalsActivityIndex mais pour le
+  // balayage/les flèches de #goalsActivityHeader, qui naviguent désormais
+  // les pôles plutôt que les activités. Tenu à jour par
+  // renderGoalsPoleSwitcher() (repli sur l'index du pôle sélectionné) et par
+  // openGoalsForPole() (navigation circulaire, mêmes règles que
+  // openGoalsForActivity()).
+  var currentGoalsPoleIndex = 0;
   // 21 septembre 2026 (même chantier, suite le jour même — demande
   // d'Emilien : « je souhaite que les pôles ne soient plus des boutons
   // successifs, mais un menu déroulant qui prend l'ensemble de la largeur
@@ -8797,13 +8816,13 @@
       if (!goalsHasNoRealCategory(poles)) {
         var stillValid = poles.some(function (p) { return p.key === currentGoalsSelectedPoleKey; });
         if (!stillValid) currentGoalsSelectedPoleKey = poles[0].key;
-        renderGoalsPoleDropdown();
+        renderGoalsPoleSwitcher();
         return reloadGoalsGridForPole(currentGoalsSelectedPoleKey);
       }
 
       currentGoalsSelectedPoleKey = '';
       currentGoalsGridColumns = null;
-      renderGoalsPoleDropdown();
+      renderGoalsPoleSwitcher();
 
       // Page 1, vue grille (seul mode désormais) : toujours à jour, l'en-tête
       // de colonnes puis les cellules, pour les catégories actives.
@@ -8850,126 +8869,56 @@
     });
   }
 
-  // 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande
-  // explicite d'Emilien LE MATIN : « les pôles, on les insère comme des
-  // boutons au-dessus des secteurs et en dessous du nom de l'activité »),
-  // puis remplacée LE JOUR MÊME (demande directe d'Emilien) : « je souhaite
-  // que les pôles ne soient plus des boutons successifs, mais un menu
-  // déroulant qui prend l'ensemble de la largeur de l'écran et qui, lorsqu'il
-  // se déroule, pousse les secteurs des arbres vers le bas pour montrer les
-  // différentes options. » Dropdown "maison" EN FLUX (jamais d'overlay/
-  // position absolue — même principe que buildCategoryDropdown() plus loin
-  // dans ce fichier) : la liste d'options suit le bouton déclencheur dans le
-  // DOM, donc pousse mécaniquement #goalsGridScroll (juste en dessous dans
-  // index.html) vers le bas à l'ouverture, sans z-index ni calcul de
-  // position — exactement le comportement demandé, gratuit avec ce
-  // positionnement. Un bouton par pôle ACTIF (jamais un secteur) dans le
-  // menu déroulé, même langage visuel que les badges de catégorie de la
-  // grille (subProjectShade() à partir de currentGoalsActivityColor et du
-  // RANG du pôle dans la liste, même index qu'utiliseraient
-  // renderGoalsGridHead()/renderGoalsGrid() pour ce même pôle s'il
-  // redevenait une colonne). Masqué entièrement tant qu'aucun pôle réel
-  // n'existe (goalsHasNoRealCategory) — dans ce cas la grille affiche encore
-  // les pôles eux-mêmes, un sélecteur n'aurait pas de sens. #goalsPoleTabBar
-  // (id conservé tel quel, index.html) : entre #goalsActivityHeader (nom de
-  // l'activité) et #goalsGridScroll (la grille) — position demandée par
-  // Emilien.
-  //
-  // Reconstruit entièrement à chaque appel (jamais construit une seule fois
-  // puis muté, contrairement à buildCategoryDropdown) : cette fonction est
-  // appelée depuis plusieurs points (rechargement de l'onglet, changement de
-  // pôle) et doit refléter à chaque fois la liste de pôles/la sélection à
-  // jour. goalsPoleDropdownDocClickHandler (variable de fermeture, déclarée
-  // avec les autres états de ce chantier) retire systématiquement l'écouteur
-  // "clic en dehors" précédent avant d'en reposer un seul nouveau si le menu
-  // est ouvert — jamais plusieurs écouteurs empilés d'un rendu à l'autre.
-  function renderGoalsPoleDropdown() {
-    var wrap = $('goalsPoleTabBar');
-    if (!wrap) return;
-    if (goalsPoleDropdownDocClickHandler) {
-      document.removeEventListener('click', goalsPoleDropdownDocClickHandler, true);
-      goalsPoleDropdownDocClickHandler = null;
-    }
+  // 26 septembre 2026, demande directe d'Emilien (page 2, point d) : « je
+  // souhaite que le pôle remplace le nom actuel de l'activité [...] on
+  // reprend la même fonctionnalité utilisée pour les activités, mais à la
+  // place, c'est le pôle qui peut swiper de gauche à droite ou avec les
+  // flèches [...] je souhaite donc que le point coloré prenne la nuance du
+  // pôle, une des cinq nuances disponibles. » Remplace le menu déroulant du
+  // 21 septembre (renderGoalsPoleDropdown(), #goalsPoleTabBar, retirés) :
+  // #goalsActivityHeader n'est plus le nom de l'activité (déplacé dans
+  // #goalsActivityPlainRow, voir openGoalsForActivity() ci-dessus et
+  // index.html) mais le sélecteur de pôle lui-même, avec la même mécanique
+  // ‹/›/balayage qu'avant (mêmes boutons/le même bloc DOM, juste
+  // retargetés — voir les écouteurs #goalsPrevPoleBtn/#goalsNextPoleBtn et
+  // bindGoalsSwipe() plus bas). Masqué tant qu'aucun pôle réel n'existe
+  // (goalsHasNoRealCategory), exactement comme l'ancien menu déroulant — la
+  // grille affiche alors encore goalsPoles() en repli, un sélecteur n'aurait
+  // pas de sens.
+  function renderGoalsPoleSwitcher() {
+    var header = $('goalsActivityHeader');
+    if (!header) return;
     var poles = goalsPoles();
     if (goalsHasNoRealCategory(poles)) {
-      wrap.innerHTML = '';
-      wrap.classList.add('hidden');
-      currentGoalsPoleDropdownOpen = false;
+      header.classList.add('hidden');
       return;
     }
-    wrap.classList.remove('hidden');
-    wrap.classList.toggle('open', currentGoalsPoleDropdownOpen);
-    wrap.innerHTML = '';
+    header.classList.remove('hidden');
+    var index = -1;
+    poles.forEach(function (p, i) { if (p.key === currentGoalsSelectedPoleKey) index = i; });
+    if (index === -1) index = 0;
+    currentGoalsPoleIndex = index;
+    var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+    var dot = $('goalsPoleDot');
+    if (dot) dot.style.background = shade;
+    var name = $('goalsPoleName');
+    if (name) name.textContent = t(poles[index].label);
+  }
 
-    var currentIndex = -1;
-    poles.forEach(function (p, i) { if (p.key === currentGoalsSelectedPoleKey) currentIndex = i; });
-    var currentShade = subProjectShade(currentGoalsActivityColor, currentIndex !== -1 ? currentIndex : 0, SUB_PROJECT_SHADE_COUNT);
-
-    var trigger = document.createElement('button');
-    trigger.type = 'button';
-    trigger.className = 'goalsPoleDropdownTrigger';
-    trigger.style.borderColor = currentShade;
-    var dot = document.createElement('span');
-    dot.className = 'goalsPoleDropdownDot';
-    dot.style.background = currentShade;
-    var label = document.createElement('span');
-    label.className = 'goalsPoleDropdownLabel';
-    label.style.color = currentShade;
-    label.textContent = currentIndex !== -1 ? t(poles[currentIndex].label) : '';
-    var arrow = document.createElement('span');
-    arrow.className = 'goalsPoleDropdownArrow';
-    arrow.textContent = '▾';
-    trigger.appendChild(dot);
-    trigger.appendChild(label);
-    trigger.appendChild(arrow);
-    trigger.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      currentGoalsPoleDropdownOpen = !currentGoalsPoleDropdownOpen;
-      renderGoalsPoleDropdown();
-    });
-    wrap.appendChild(trigger);
-
-    var menu = document.createElement('div');
-    menu.className = 'goalsPoleDropdownMenu' + (currentGoalsPoleDropdownOpen ? '' : ' hidden');
-    poles.forEach(function (p, index) {
-      var opt = document.createElement('div');
-      var active = p.key === currentGoalsSelectedPoleKey;
-      opt.className = 'goalsPoleDropdownOption' + (active ? ' active' : '');
-      opt.textContent = t(p.label);
-      var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-      if (active) {
-        opt.style.background = shade;
-        opt.style.color = readableTextOn(shade);
-      } else {
-        opt.style.color = shade;
-      }
-      // 26 septembre 2026 (retour direct d'Emilien après l'encart 53) :
-      // le badge violet « non vu » de la Page 2 quitte ce menu déroulant —
-      // il vit désormais sur l'arbre périodique lui-même
-      // (.goalsGridHeadCell, voir renderGoalsGridHead() ci-dessous), qui
-      // est le vrai emplacement des « objectifs périodiques » demandé. Ce
-      // menu reste un simple sélecteur, sans badge, pour ne pas dupliquer
-      // la même information à deux endroits de la même page.
-      opt.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        currentGoalsPoleDropdownOpen = false;
-        var changed = currentGoalsSelectedPoleKey !== p.key;
-        currentGoalsSelectedPoleKey = p.key;
-        renderGoalsPoleDropdown();
-        if (changed) reloadGoalsGridForPole(p.key);
-      });
-      menu.appendChild(opt);
-    });
-    wrap.appendChild(menu);
-
-    if (currentGoalsPoleDropdownOpen) {
-      goalsPoleDropdownDocClickHandler = function (ev) {
-        if (wrap.contains(ev.target)) return;
-        currentGoalsPoleDropdownOpen = false;
-        renderGoalsPoleDropdown();
-      };
-      document.addEventListener('click', goalsPoleDropdownDocClickHandler, true);
-    }
+  // Navigation circulaire entre pôles (mêmes règles que
+  // openGoalsForActivity() : après le dernier pôle on revient au premier, et
+  // inversement) — appelée par les flèches ‹/› et par bindGoalsSwipe()
+  // ci-dessous.
+  function openGoalsForPole(index) {
+    var poles = goalsPoles();
+    if (!poles.length) return;
+    var n = poles.length;
+    var normalized = ((index % n) + n) % n;
+    var p = poles[normalized];
+    var changed = currentGoalsSelectedPoleKey !== p.key;
+    currentGoalsSelectedPoleKey = p.key;
+    renderGoalsPoleSwitcher();
+    if (changed) reloadGoalsGridForPole(p.key);
   }
 
   $('activityGoalsPrevBtn').addEventListener('click', function () {
@@ -9064,11 +9013,24 @@
     // aucune catégorie réelle — voir goalsHasNoRealCategory() ci-dessus.
     var gridScrollEl = $('goalsGridScroll');
     if (gridScrollEl) gridScrollEl.classList.toggle('goalsGridScroll--locked', hasNoRealCategory);
+    // 26 septembre 2026, demande directe d'Emilien (page 2, point f) : « si
+    // l'utilisateur n'a pas créé de secteur pour son pôle, mais a un arbre
+    // périodique, alors pas de titre du secteur. Le titre du pôle ne se
+    // répète pas 2 fois pour remplacer le titre du secteur inexistant. » —
+    // c'est exactement le repli de gridColumnsForPole() côté serveur
+    // (server/lib/goals.js) : quand un pôle n'a aucun secteur, sa seule
+    // « colonne » est le pôle LUI-MÊME (même clé que
+    // currentGoalsSelectedPoleKey) — déjà nommé une fois par le sélecteur de
+    // pôle ci-dessus (#goalsPoleName). Détectable ici sans rien changer côté
+    // serveur : une seule colonne, dont la clé est celle du pôle sélectionné.
+    var isPoleFallbackColumn = !!currentGoalsSelectedPoleKey
+      && categories.length === 1
+      && categories[0].key === currentGoalsSelectedPoleKey;
     if (!hasNoRealCategory) {
       categories.forEach(function (c, index) {
         var span = document.createElement('span');
         span.className = 'goalsGridHeadCell';
-        span.textContent = t(c.label);
+        span.textContent = isPoleFallbackColumn ? '' : t(c.label);
         var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
         // 17 septembre 2026 (discussion "Objectifs — Titres des catégories"),
         // demande d'Emilien : « je laisse la couleur noire à l'intérieur et
@@ -9087,7 +9049,13 @@
         // badge violet « non vu » posé ICI, sur l'arbre périodique
         // lui-même — c'est le vrai emplacement des « objectifs
         // périodiques » demandé, pas le menu déroulant de pôle (voir
-        // renderGoalsPoleDropdown() ci-dessus, badge retiré de là).
+        // renderGoalsPoleSwitcher() ci-dessus, jamais de badge sur le
+        // sélecteur de pôle). ⚠️ 26 septembre 2026 : Emilien demande de
+        // déplacer ce badge encore une fois, directement sur la période où
+        // la tâche a été appliquée plutôt qu'ici sur le titre — reporté,
+        // nécessite un nouveau signal serveur (quelle période précise) que
+        // goalsCaptureBadges n'expose pas encore ; ce badge-ci reste donc en
+        // l'état pour l'instant, voir l'encart de suivi.
         // `c.key` est déjà correctement scopé par activeGoalsCategories()
         // selon le niveau affiché : les pôles eux-mêmes tant qu'aucun
         // pôle réel n'a été choisi (vue comparative), ou les secteurs du
@@ -9119,7 +9087,20 @@
     // syncGoalsGridWidths() (appelée après ce rendu, voir plus bas) une
     // fois le DOM en place, pas ici (getBoundingClientRect() ici donnerait
     // la largeur d'AVANT l'ajout de cette case, donc fausse).
-    if (hasNoRealCategory || categories.length < maxCategories) {
+    //
+    // 26 septembre 2026, demande directe d'Emilien (page 2, point e) : « je
+    // souhaite supprimer la possibilité d'ajouter un secteur sur cette page
+    // [...] la page ne peut pas aller plus loin que les secteurs déjà
+    // disponibles. » Cette case sert deux usages différents selon le niveau
+    // affiché : ajouter le tout PREMIER pôle (hasNoRealCategory, hors
+    // périmètre de cette demande — aucun secteur n'existe encore à ce
+    // niveau) ou ajouter un SECTEUR une fois entré dans un pôle
+    // (currentGoalsGridColumns rempli par reloadGoalsGridForPole() — c'est
+    // ce second cas, et lui seul, qu'Emilien demande de retirer). Repli
+    // conservé partout ailleurs (réglages de l'activité, section
+    // Tâches/Catégories) pour ajouter un secteur.
+    var viewingPoleSectors = !!(currentGoalsGridColumns && currentGoalsGridColumns.length);
+    if (!viewingPoleSectors && (hasNoRealCategory || categories.length < maxCategories)) {
       var addCell = document.createElement('button');
       addCell.type = 'button';
       addCell.className = 'goalsGridHeadCell--add';
@@ -9339,7 +9320,14 @@
       });
     }
 
-    var showAddSlot = !hasNoRealCategory && categories.length < maxCategories;
+    // 26 septembre 2026 (page 2, point e) : même condition que dans
+    // renderGoalsGridHead() ci-dessus — pas de case d'ajout tant qu'on
+    // regarde les secteurs d'un pôle déjà sélectionné. Sans ce même garde-
+    // fou ici, ce calcul réserverait quand même la largeur d'une case qui
+    // n'existe plus dans le DOM (categoriesWidth/chaque catégorie trop
+    // étroite de la largeur d'une case absente).
+    var viewingPoleSectors = !!(currentGoalsGridColumns && currentGoalsGridColumns.length);
+    var showAddSlot = !hasNoRealCategory && !viewingPoleSectors && categories.length < maxCategories;
     var isPaged = !hasNoRealCategory && categories.length > 2;
     if (showAddSlot && !isPaged && categories.length > 0) {
       var gap = 10;
@@ -9394,7 +9382,12 @@
     // n'existe que sous le plafond de catégories, jamais au-delà.
     var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
     var hasNoRealCategory = goalsHasNoRealCategory(categories);
-    var showAddSlot = hasNoRealCategory || categories.length < maxCategories;
+    // 26 septembre 2026 (page 2, point e) : même garde-fou que
+    // renderGoalsGridHead()/syncGoalsGridWidths() ci-dessus — pas de colonne
+    // « page + » (ajouter un secteur) tant qu'on regarde les secteurs d'un
+    // pôle déjà sélectionné.
+    var viewingPoleSectors = !!(currentGoalsGridColumns && currentGoalsGridColumns.length);
+    var showAddSlot = !viewingPoleSectors && (hasNoRealCategory || categories.length < maxCategories);
     // 21 septembre 2026 : le "+"/libellé ne sont plus dupliqués sur une
     // période précise (ex-addCenterPeriodIndex = 7) — voir
     // #goalsGridAddContent (index.html/styles.css) et
@@ -9668,7 +9661,11 @@
     currentGoalsPoleDropdownOpen = false;
 
     currentGoalsActivityColor = a.color;
-    $('goalsActivityDot').style.background = a.color;
+    // 26 septembre 2026, demande directe d'Emilien (page 2, point a) : le
+    // nom de l'activité s'affiche désormais seul, « rien d'autre » — plus de
+    // pastille de couleur à côté (#goalsActivityDot retiré d'index.html,
+    // voir #goalsActivityPlainRow) ; la pastille qui reste sur cette page
+    // (#goalsPoleDot) est celle du pôle, posée par renderGoalsPoleSwitcher().
     $('goalsActivityName').textContent = a.name;
 
     // Renvoie la promesse (15 septembre 2026, discussion D) : permet à
@@ -9736,15 +9733,30 @@
     if (!box) return;
     box.innerHTML = '';
     var list = activitiesCache || [];
+    // 26 septembre 2026, décisions finales d'Emilien (3 messages, dont un
+    // artefact de maquette validé) sur l'apparence des puces, jamais
+    // mélangées : « au repos [...] on prend le plein assourdi » (option A),
+    // « lorsque l'utilisateur écrit [...] je souhaite conserver l'option C
+    // en train d'écrire », et « lorsqu'il sélectionne une activité après
+    // avoir écrit, l'activité se colore de sa couleur » — un état de plus,
+    // propre à la sélection en train d'écrire, qu'aucune des 3 options de
+    // la maquette ne couvrait telle quelle. Une puce ne peut être
+    // sélectionnée QUE si du texte a déjà été écrit (sinon un clic navigue
+    // directement vers la page 2, voir plus bas) — donc « sélectionnée » et
+    // « au repos » ne se combinent jamais en pratique, mais le code ne
+    // suppose pas cet invariant : il teste explicitement `typing`.
+    var bubbleWrapEl = $('goalsCaptureBubbleWrap');
+    var textareaEl = bubbleWrapEl ? bubbleWrapEl.querySelector('textarea') : null;
+    var typing = !!(textareaEl && textareaEl.value.trim());
     list.forEach(function (a) {
       var id = String(a.id);
+      var isSelected = goalsCaptureSelectedActivityIds.indexOf(id) !== -1;
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'goalsCaptureActivityChip' + (goalsCaptureSelectedActivityIds.indexOf(id) !== -1 ? ' selected' : '');
+      btn.className = 'goalsCaptureActivityChip' + (isSelected ? ' selected' : '');
 
       var dot = document.createElement('span');
       dot.className = 'dot';
-      dot.style.background = a.color;
       btn.appendChild(dot);
 
       var name = document.createElement('span');
@@ -9762,19 +9774,34 @@
         btn.appendChild(badge);
       }
 
-      // 26 septembre 2026, demande directe d'Emilien (page 1, point c) :
-      // couleur PLEINE de l'activité, même convention que les boutons
-      // d'activité du Chrono (voir paintCategoryStatsHeader() plus haut :
-      // fond = a.color, texte = textColorForTheme — palette contrainte par
-      // thème, lisible par construction, pas de calcul de contraste par
-      // couleur). Suspendue en mode « attente de choix d'activité » (point
-      // e) : la puce redevient neutre, seul le point ci-dessus reste coloré.
-      if (goalsCaptureAwaitingActivityChoice) {
-        btn.style.background = '';
-        btn.style.color = '';
-      } else {
+      // Mode « attente de choix d'activité » (point e, encart 59) : traité
+      // comme l'état « en train d'écrire, pas sélectionnée » sur toutes les
+      // puces tant qu'aucune n'est choisie — même rendu, rien de plus à
+      // inventer pour lui.
+      if (goalsCaptureAwaitingActivityChoice || (typing && !isSelected)) {
+        // Option C — badge discret : fond et liseré neutres, point en
+        // anneau creux dans la couleur de l'activité.
+        btn.style.background = 'var(--card)';
+        btn.style.borderColor = 'var(--border)';
+        btn.style.color = 'var(--text)';
+        dot.style.background = 'var(--card)';
+        dot.style.border = '2px solid ' + a.color;
+      } else if (typing && isSelected) {
+        // Sélectionnée après avoir écrit : couleur pleine et vive, comme au
+        // Chrono — c'est la couleur elle-même qui signale la sélection.
         btn.style.background = a.color;
+        btn.style.borderColor = a.color;
         btn.style.color = textColorForTheme(currentTheme);
+        dot.style.background = a.color;
+        dot.style.border = 'none';
+      } else {
+        // Au repos — option A, plein assourdi.
+        var muted = mutedActivityColor(a.color);
+        btn.style.background = muted;
+        btn.style.borderColor = muted;
+        btn.style.color = textColorForTheme(currentTheme);
+        dot.style.background = a.color;
+        dot.style.border = 'none';
       }
 
       btn.addEventListener('click', function () {
@@ -9894,6 +9921,11 @@
     textarea.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
     });
+    // 26 septembre 2026, demande directe d'Emilien : l'apparence des puces
+    // doit changer EN DIRECT selon que la zone de texte est vide ou non
+    // (voir renderGoalsCaptureActivities(), état « en train d'écrire ») —
+    // pas seulement à l'ouverture de la page ou après l'envoi.
+    textarea.addEventListener('input', function () { renderGoalsCaptureActivities(); });
     // Sélectionner/désélectionner une activité doit rafraîchir l'affichage
     // « sélectionnée » des puces sans perdre le texte déjà écrit — pas de
     // dépendance particulière ici, renderGoalsCaptureActivities() lit
@@ -10002,14 +10034,20 @@
   $('goalsBackToCaptureBtn').addEventListener('click', function () {
     showGoalsCapturePage();
   });
-  $('goalsPrevActivityBtn').addEventListener('click', function () {
-    openGoalsForActivity(currentGoalsActivityIndex - 1);
+  // 26 septembre 2026, demande directe d'Emilien (page 2, point d) : ces
+  // flèches et ce balayage naviguaient entre ACTIVITÉS — elles naviguent
+  // désormais entre PÔLES (#goalsActivityHeader est le sélecteur de pôle,
+  // voir renderGoalsPoleSwitcher()/openGoalsForPole() plus haut ; changer
+  // d'activité depuis cette page n'est plus possible, voir le commentaire
+  // d'index.html sur #goalsActivityPlainRow).
+  $('goalsPrevPoleBtn').addEventListener('click', function () {
+    openGoalsForPole(currentGoalsPoleIndex - 1);
   });
-  $('goalsNextActivityBtn').addEventListener('click', function () {
-    openGoalsForActivity(currentGoalsActivityIndex + 1);
+  $('goalsNextPoleBtn').addEventListener('click', function () {
+    openGoalsForPole(currentGoalsPoleIndex + 1);
   });
 
-  // Balayage horizontal sur le nom de l'activité — mêmes seuils que le
+  // Balayage horizontal sur le sélecteur de pôle — mêmes seuils que le
   // geste de retour tactile de Réglages (10 septembre 2026, ≥60px, plus
   // horizontal que vertical) pour rester cohérent dans toute l'app.
   (function bindGoalsSwipe() {
@@ -10030,9 +10068,9 @@
       startX = null;
       startY = null;
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
-      // Droite → gauche (dx négatif) : activité SUIVANTE.
-      // Gauche → droite (dx positif) : activité PRÉCÉDENTE.
-      openGoalsForActivity(currentGoalsActivityIndex + (dx < 0 ? 1 : -1));
+      // Droite → gauche (dx négatif) : pôle SUIVANT.
+      // Gauche → droite (dx positif) : pôle PRÉCÉDENT.
+      openGoalsForPole(currentGoalsPoleIndex + (dx < 0 ? 1 : -1));
     }, { passive: true });
   })();
 
@@ -15135,20 +15173,12 @@
       var header = document.createElement('div');
       header.className = 'activityRowHeader clickable';
 
-      var nameSpan = document.createElement('span');
-      nameSpan.className = 'activityRowName';
-      nameSpan.textContent = p.name;
-      header.appendChild(nameSpan);
-
-      var badges = buildSeekingBadges(p.seeking, false);
-      if (badges) header.appendChild(badges);
-
       // Poignée de glissement (26 septembre 2026) — remplace les ▲▼. Même
       // caractère « ≡ » et même classe .activityDragHandle que les Activités :
       // aucun style à écrire, et le geste se reconnaît d'une liste à l'autre.
-      // Placée à la fin de l'en-tête, là où étaient les deux boutons, plutôt
-      // qu'au début comme chez les Activités : la colonne de gauche est ici
-      // occupée par le nom du projet, qu'on lit en premier.
+      // ⭐ Placée À GAUCHE du nom, comme chez les Activités (demande d'Emilien,
+      // 26 septembre 2026 — elle était d'abord en fin d'en-tête, là où
+      // vivaient les ▲▼).
       var handle = document.createElement('span');
       handle.className = 'activityDragHandle';
       handle.setAttribute('aria-label', t('Déplacer ce projet'));
@@ -15158,6 +15188,14 @@
         bindProjectDrag(handle, row);
         header.appendChild(handle);
       }
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'activityRowName';
+      nameSpan.textContent = p.name;
+      header.appendChild(nameSpan);
+
+      var badges = buildSeekingBadges(p.seeking, false);
+      if (badges) header.appendChild(badges);
 
       row.appendChild(header);
 
@@ -17766,7 +17804,7 @@
       // par le bouton « Membres » d'Activité solo), et une croix « ✕ » qui
       // ouvre la même modale de suppression qu'avant (#deleteActivityModal,
       // garder/purger l'historique — inchangée). Glisser-déposer : voir
-      // bindActivityDrag, copié tel quel de bindSubProjectDrag.
+      // bindActivityDrag.
       if (activitiesEditMode) {
         var handle = document.createElement('span');
         handle.className = 'activityDragHandle';
@@ -17995,12 +18033,22 @@
     loadSettingsActivities();
   }
 
-  // Glisser-déposer d'une ligne d'activité, à la poignée — copié tel quel de
-  // bindSubProjectDrag (même mécanique, même piège évité : voir son
-  // commentaire). Seule différence : persistance sur PUT /api/activities/
-  // reorder (ordre PERSONNEL, sans activityId à transmettre), et
-  // rafraîchissement du Chrono ensuite, puisque sa grille suit désormais le
-  // même ordre que ce volet.
+  // Glisser-déposer d'une ligne d'activité, à la poignée — copié à l'origine
+  // de bindSubProjectDrag (retirée le 26 septembre 2026 avec l'écran
+  // #subProjectsList, masqué depuis le 17 septembre ; son explication du piège
+  // est reprise ci-dessous). Persistance sur PUT /api/activities/reorder
+  // (ordre PERSONNEL, sans activityId à transmettre), et rafraîchissement du
+  // Chrono ensuite, puisque sa grille suit désormais le même ordre que ce
+  // volet.
+  //
+  // ⚠️ La ligne n'est PAS déplacée dans le DOM pendant le geste, et ce n'est
+  // pas un détail de style : réinsérer un nœud (insertBefore) RELÂCHE la
+  // capture du pointeur posée dessus, et le glissement s'arrête net au premier
+  // déplacement. C'est exactement ce qui s'est produit à la première version
+  // (sous-projets), trouvé par la suite Playwright (assertion 12.8). On se
+  // contente donc de translater visuellement la ligne tirée — et d'écarter les
+  // voisines, toujours par `transform` — et on ne réordonne le DOM, puis le
+  // serveur, qu'UNE fois, au relâchement.
   function bindActivityDrag(handle, row) {
     handle.addEventListener('pointerdown', function (e) {
       e.preventDefault();

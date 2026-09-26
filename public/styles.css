@@ -5946,12 +5946,18 @@ button { -webkit-user-select: none; user-select: none; }
   position: relative;
   border-radius: var(--radius-lg, var(--radius-md));
   background: var(--card);
-  /* 26 septembre 2026, demande directe d'Emilien (page 1, point d) : contour
-     violet fixe — le mouvement du fuseau (.activityGoalsCategoryAutoTaskGlow
-     ci-dessous, #9583C1) reste une teinte DIFFÉRENTE de ce contour statique
-     pour que le mouvement reste perceptible dessus, jamais confondu avec le
-     trait fixe. */
-  border: 1.5px solid var(--purple);
+  /* 26 septembre 2026, demande directe d'Emilien (page 1) : plus de `border`
+     CSS ici — Emilien a signalé que le contour fixe (alors 1.5px, une
+     bordure CSS séparée) et le fuseau animé (3.5px, un <rect> SVG à part)
+     « passaient à côté » l'un de l'autre plutôt que de coïncider (« je
+     souhaite qu'il passe sur le contour, à l'endroit même du contour, et
+     que le contour ait la largeur du fuseau »). Le contour vit désormais
+     ENTIÈREMENT dans .activityGoalsCategoryAutoTaskGlow juste en dessous :
+     deux <rect> SVG aux géométries strictement identiques (posées ensemble,
+     une seule fois, par layoutGlow() dans attachAutoTaskGlow(), app.js) —
+     un fixe, un animé — garantis superposés au pixel près par construction.
+     Contour et mouvement sont donc littéralement le même trait, seule la
+     couleur diffère pour montrer le mouvement. */
 }
 /* 22 septembre 2026, demande directe d'Emilien : « garder uniquement un
    fuseau [...] enlever l'ombre du fuseau qui se déplace indépendamment [...]
@@ -5971,7 +5977,19 @@ button { -webkit-user-select: none; user-select: none; }
   pointer-events: none;
   overflow: visible;
 }
-.activityGoalsCategoryAutoTaskGlow rect {
+/* 26 septembre 2026, demande directe d'Emilien : contour fixe et fuseau
+   animé sont désormais deux <rect> à la géométrie IDENTIQUE (voir le
+   commentaire de .activityGoalsCategoryAutoTaskBubble ci-dessus) — seule la
+   couleur les distingue, l'un statique (var(--purple)), l'autre animé et
+   plus clair (#9583C1) pour rester visible en mouvement par-dessus. Même
+   largeur de trait (3.5px) pour les deux : la largeur du contour est
+   désormais, par construction, toujours celle du fuseau. */
+.autoTaskGlowBase {
+  fill: none;
+  stroke: var(--purple);
+  stroke-width: 3.5px;
+}
+.autoTaskGlowMove {
   fill: none;
   stroke: #9583C1;
   stroke-width: 3.5px;
@@ -6083,7 +6101,7 @@ button { -webkit-user-select: none; user-select: none; }
   cursor: pointer; position: relative;
 }
 .goalsCaptureActivityChip .dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
 }
 .goalsCaptureActivityChip.selected {
   border-color: var(--purple); box-shadow: 0 0 0 1.5px var(--purple) inset;
