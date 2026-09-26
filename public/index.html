@@ -3200,14 +3200,18 @@
          emplacement change : atteinte désormais en cliquant un nœud de
          l'arbre de #tab-goals plutôt qu'affichée d'emblée. Même motif que
          #activityPage juste au-dessus (page plein écran, hors de toute
-         section .tab pour survivre à un changement d'onglet, ✕ remplacée par
-         ‹ « retour à l'arbre »). La bande de tendance des 13 périodes
+         section .tab pour survivre à un changement d'onglet).
+         26 septembre 2026, audit UX : le ‹ de retour (qui avait remplacé le ✕
+         le 14 septembre) redevient ✕, pour uniformiser avec #activityPageClose
+         et le bouton de fermeture de Réglages — même id, même gestionnaire de
+         clic (closeGoalsDetail), le clic sur le fond (#goalsDetailPage) reste
+         inchangé. La bande de tendance des 13 périodes
          (#activityGoalsTrendRow) a déménagé sur la PAGE 1 (#tab-goals,
          second passage du 14 septembre) — elle n'est plus ici. -->
     <div id="goalsDetailPage" class="communityMembersModal hidden">
       <div class="communityMembersModalCard">
         <div class="activityPageHeader">
-          <button type="button" class="menuBtn" id="goalsDetailBack" aria-label="Retour à l'arbre des objectifs">‹</button>
+          <button type="button" class="menuBtn" id="goalsDetailBack" aria-label="Fermer">✕</button>
           <span class="activityPageName" id="goalsDetailTitle"></span>
         </div>
         <div id="goalsDetailScroll">
