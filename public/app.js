@@ -7492,22 +7492,10 @@
   // openGoalsForPole() (navigation circulaire, mêmes règles que
   // openGoalsForActivity()).
   var currentGoalsPoleIndex = 0;
-  // 21 septembre 2026 (même chantier, suite le jour même — demande
-  // d'Emilien : « je souhaite que les pôles ne soient plus des boutons
-  // successifs, mais un menu déroulant qui prend l'ensemble de la largeur
-  // de l'écran et qui, lorsqu'il se déroule, pousse les secteurs des arbres
-  // vers le bas ») — état ouvert/fermé du menu déroulant de pôles (voir
-  // renderGoalsPoleDropdown() plus bas). Remplace la barre de boutons
-  // horizontaux du même jour (matin) par un composant "maison" en flux
-  // normal, même principe que buildCategoryDropdown() plus loin dans ce
-  // fichier (jamais d'overlay/position absolue : la liste d'options suit le
-  // bouton déclencheur dans le DOM, donc pousse mécaniquement #goalsGridScroll
-  // vers le bas à l'ouverture, sans z-index ni calcul de position à gérer).
-  var currentGoalsPoleDropdownOpen = false;
-  // Écouteur "clic en dehors du menu" actuellement posé (ou null) — voir
-  // renderGoalsPoleDropdown() plus bas, qui le retire/repose à chaque appel
-  // pour n'en avoir jamais plus d'un actif à la fois.
-  var goalsPoleDropdownDocClickHandler = null;
+  // ⚠️ 26 septembre 2026 : currentGoalsPoleDropdownOpen/goalsPoleDropdownDocClickHandler
+  // (menu déroulant de pôles, 21 septembre 2026) retirées — le sélecteur de
+  // pôle est désormais intégré au cadre d'en-tête (renderGoalsPoleSwitcher()/
+  // openGoalsForPole() plus bas), plus de menu déroulant à ouvrir/fermer.
 
   // 15 septembre 2026 (7e passage, discussion Objectifs — B, cadré avec
   // Emilien par AskUserQuestion : catégories personnalisables par activité) :
@@ -9088,58 +9076,28 @@
     // fois le DOM en place, pas ici (getBoundingClientRect() ici donnerait
     // la largeur d'AVANT l'ajout de cette case, donc fausse).
     //
-    // 26 septembre 2026, demande directe d'Emilien (page 2, point e) : « je
-    // souhaite supprimer la possibilité d'ajouter un secteur sur cette page
-    // [...] la page ne peut pas aller plus loin que les secteurs déjà
-    // disponibles. » Cette case sert deux usages différents selon le niveau
-    // affiché : ajouter le tout PREMIER pôle (hasNoRealCategory, hors
-    // périmètre de cette demande — aucun secteur n'existe encore à ce
-    // niveau) ou ajouter un SECTEUR une fois entré dans un pôle
-    // (currentGoalsGridColumns rempli par reloadGoalsGridForPole() — c'est
-    // ce second cas, et lui seul, qu'Emilien demande de retirer). Repli
-    // conservé partout ailleurs (réglages de l'activité, section
-    // Tâches/Catégories) pour ajouter un secteur.
-    var viewingPoleSectors = !!(currentGoalsGridColumns && currentGoalsGridColumns.length);
-    if (!viewingPoleSectors && (hasNoRealCategory || categories.length < maxCategories)) {
-      var addCell = document.createElement('button');
-      addCell.type = 'button';
-      addCell.className = 'goalsGridHeadCell--add';
-      addCell.title = t('Ajouter un secteur');
-      addCell.setAttribute('aria-label', t('Ajouter un secteur'));
-      // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
-      // couleur du contour continu (#goalsGridAddOutline, styles.css,
-      // positionGoalsAddOutline() plus bas) — la nuance qu'aurait la
-      // PROCHAINE catégorie créée, même fonction que les vraies
-      // catégories/bulles remplies. hasNoRealCategory : aucune vraie
-      // catégorie avant cette case, donc index 0 (comme la toute première
-      // catégorie qui serait créée).
-      var addAccent = subProjectShade(currentGoalsActivityColor, hasNoRealCategory ? 0 : categories.length, SUB_PROJECT_SHADE_COUNT);
-      addCell.style.setProperty('--goalsAddAccent', addAccent);
-      addCell.addEventListener('click', goToGoalsCategorySettings);
-      head.appendChild(addCell);
-      var outlineEl = $('goalsGridAddOutline');
-      if (outlineEl) outlineEl.style.setProperty('--goalsAddAccent', addAccent);
-      // 21 septembre 2026 : "+"/libellé désormais un élément UNIQUE et
-      // indépendant de toute période précise (#goalsGridAddContent,
-      // index.html) — plus dupliqué dans le bouton d'une période donnée
-      // (voir renderGoalsGrid() ci-dessous). Peuplé une seule fois ici
-      // (icône/libellé jamais recréés ensuite, élément statique jamais
-      // vidé par innerHTML=''), positionné par positionGoalsAddCenterContent()
-      // (plus bas) appelée depuis syncGoalsGridWidths().
-      var addContentEl = $('goalsGridAddContent');
-      if (addContentEl) {
-        addContentEl.style.setProperty('--goalsAddAccent', addAccent);
-        if (!addContentEl.firstChild) {
-          var addIconEl = document.createElement('span');
-          addIconEl.className = 'goalsGridCellAddIcon';
-          addIconEl.textContent = '+';
-          var addLabelEl = document.createElement('span');
-          addLabelEl.className = 'goalsGridCellAddLabel';
-          addLabelEl.textContent = t('Ajouter un secteur');
-          addContentEl.appendChild(addIconEl);
-          addContentEl.appendChild(addLabelEl);
-        }
-      }
+    // 26 septembre 2026, demande directe d'Emilien (Objectifs — Arbre
+    // périodique, restructuration Page 2, maquette approuvée « C'est bon,
+    // code. », point 4) : « je souhaite qu'il n'y ait plus de possibilité
+    // d'ajouter un secteur ni même un pôle dans cette section. L'ajout se
+    // fait uniquement dans la fenêtre des activités, section Catégories. »
+    // — élargit et remplace la version plus étroite ci-dessus (« page 2,
+    // point e », qui ne retirait la case que pour l'ajout d'un SECTEUR une
+    // fois entré dans un pôle, en la gardant pour le tout premier pôle via
+    // hasNoRealCategory) : la case « + »
+    // (.goalsGridHeadCell--add/.goalsGridCell--add,
+    // #goalsGridAddOutline/#goalsGridAddContent) n'est plus créée du tout
+    // sur cette page, dans AUCUN état — voir aussi renderGoalsGrid()/
+    // syncGoalsGridWidths() ci-dessous, même retrait. goToGoalsCategorySettings()
+    // reste utilisée ailleurs (panneau Catégories), simplement plus
+    // référencée depuis cette grille. À la place, quand aucun pôle réel
+    // n'existe encore, un simple message renvoie vers ce panneau plutôt
+    // qu'une case cliquable.
+    if (hasNoRealCategory) {
+      var emptyMsg = document.createElement('p');
+      emptyMsg.className = 'goalsGridHeadEmpty';
+      emptyMsg.textContent = t('Aucun pôle pour le moment — ajoutez-en un depuis la fenêtre de l’activité, section Catégories.');
+      head.appendChild(emptyMsg);
     }
     window.requestAnimationFrame(syncGoalsGridWidths);
   }
@@ -9320,14 +9278,13 @@
       });
     }
 
-    // 26 septembre 2026 (page 2, point e) : même condition que dans
-    // renderGoalsGridHead() ci-dessus — pas de case d'ajout tant qu'on
-    // regarde les secteurs d'un pôle déjà sélectionné. Sans ce même garde-
-    // fou ici, ce calcul réserverait quand même la largeur d'une case qui
-    // n'existe plus dans le DOM (categoriesWidth/chaque catégorie trop
-    // étroite de la largeur d'une case absente).
-    var viewingPoleSectors = !!(currentGoalsGridColumns && currentGoalsGridColumns.length);
-    var showAddSlot = !hasNoRealCategory && !viewingPoleSectors && categories.length < maxCategories;
+    // 26 septembre 2026, demande directe d'Emilien (Objectifs — Arbre
+    // périodique, restructuration Page 2, point 4) : plus aucune case
+    // d'ajout créée sur cette page (secteur OU tout premier pôle) — élargit
+    // la version plus étroite ci-dessus (« page 2, point e »). Toujours
+    // false : aucun espace ne doit plus être réservé pour une case qui
+    // n'existe plus dans le DOM.
+    var showAddSlot = false;
     var isPaged = !hasNoRealCategory && categories.length > 2;
     if (showAddSlot && !isPaged && categories.length > 0) {
       var gap = 10;
@@ -9382,12 +9339,14 @@
     // n'existe que sous le plafond de catégories, jamais au-delà.
     var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
     var hasNoRealCategory = goalsHasNoRealCategory(categories);
-    // 26 septembre 2026 (page 2, point e) : même garde-fou que
-    // renderGoalsGridHead()/syncGoalsGridWidths() ci-dessus — pas de colonne
-    // « page + » (ajouter un secteur) tant qu'on regarde les secteurs d'un
-    // pôle déjà sélectionné.
-    var viewingPoleSectors = !!(currentGoalsGridColumns && currentGoalsGridColumns.length);
-    var showAddSlot = !viewingPoleSectors && (hasNoRealCategory || categories.length < maxCategories);
+    // 26 septembre 2026, demande directe d'Emilien (Objectifs — Arbre
+    // périodique, restructuration Page 2, point 4) : la colonne « page + »
+    // ne s'affiche plus JAMAIS sur cette page (secteur OU tout premier
+    // pôle) — élargit la version plus étroite ci-dessus (« page 2, point
+    // e »). Toujours false : aucune case créée plus bas dans cette
+    // fonction (voir le bloc `if (showAddSlot)` ci-dessous, jamais
+    // atteint).
+    var showAddSlot = false;
     // 21 septembre 2026 : le "+"/libellé ne sont plus dupliqués sur une
     // période précise (ex-addCenterPeriodIndex = 7) — voir
     // #goalsGridAddContent (index.html/styles.css) et
@@ -9505,33 +9464,11 @@
         });
         currentGoalsPeriodInfo[periodIndex - 1] = repPeriod ? { startDate: repPeriod.startDate, endDate: repPeriod.endDate } : null;
 
-        // 16 septembre 2026 (11e passage) : colonne « page + », une case par
-        // ligne de période — voir le commentaire de .goalsGridHeadCell--add,
-        // styles.css. Cliquable comme n'importe quelle vraie cellule (donc
-        // PAS disabled, à la différence d'une cellule vide sans période),
-        // toutes redirigent vers le même endroit.
-        if (showAddSlot) {
-          var addCell = document.createElement('button');
-          addCell.type = 'button';
-          addCell.title = t('Ajouter un secteur');
-          addCell.setAttribute('aria-label', t('Ajouter un secteur'));
-          addCell.className = 'goalsGridCell goalsGridCell--add';
-          // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
-          // même couleur que le contour continu de l'en-tête (voir
-          // renderGoalsGridHead() ci-dessus) — les 13 cases + l'en-tête
-          // forment une seule boîte continue à la même nuance.
-          // 20 septembre 2026 : plus de pavé « fantôme » propre à chaque
-          // case (.goalsGridCellAddGhost retiré) — demande d'Emilien,
-          // « supprime les arbre » (l'impression de vraies bulles dans une
-          // page censée être vide) ; seul le contour unique
-          // (#goalsGridAddOutline, positionGoalsAddOutline()) + le « + »
-          // (#goalsGridAddContent, désormais un élément unique — voir
-          // renderGoalsGridHead()/positionGoalsAddCenterContent() — plus
-          // dupliqué ici sur une période précise) subsistent dans cette zone.
-          addCell.style.setProperty('--goalsAddAccent', subProjectShade(currentGoalsActivityColor, hasNoRealCategory ? 0 : categories.length, SUB_PROJECT_SHADE_COUNT));
-          addCell.addEventListener('click', goToGoalsCategorySettings);
-          row.appendChild(addCell);
-        }
+        // 26 septembre 2026 : colonne « page + » retirée définitivement de
+        // cette page (voir le commentaire au-dessus de `showAddSlot`,
+        // toujours false désormais) — bloc conservé en commentaire pour
+        // mémoire, plus jamais exécuté (showAddSlot === false).
+        // if (showAddSlot) { ... case "+" ... }
 
         grid.appendChild(row);
       })(i);
@@ -9658,7 +9595,6 @@
     // cette activité (ou sur goalsPoles() si elle n'en a aucun).
     currentGoalsSelectedPoleKey = '';
     currentGoalsGridColumns = null;
-    currentGoalsPoleDropdownOpen = false;
 
     currentGoalsActivityColor = a.color;
     // 26 septembre 2026, demande directe d'Emilien (page 2, point a) : le

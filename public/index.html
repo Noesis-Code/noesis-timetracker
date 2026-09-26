@@ -2206,8 +2206,9 @@
            — l'onglet s'identifie déjà par son icône dans la barre du bas, ce
            titre répétait une information déjà visible. Espace repris en
            tête de page, voir #tab-goals dans styles.css (padding-top réduit
-           d'autant). Le nom de l'activité (#goalsActivityHeader, plus bas)
-           remonte donc directement en haut de la page. -->
+           d'autant). Le nom de l'activité (.goalsActivityPlainRow, plus bas
+           — restructuration du 26 septembre 2026, voir plus loin) remonte
+           donc directement en haut de la page. -->
 
       <!-- 25 septembre 2026 (discussion Objectifs — Logique métier),
            restructuration du volet Objectifs en 3 pages sur demande directe
@@ -2284,48 +2285,67 @@
            cliquable, sans bulle (règle explicite d'Emilien) — voir
            .goalsGridCell--empty, styles.css. -->
       <div id="goalsActivitySwitcher" class="goalsActivitySwitcher hidden">
-        <!-- Nom de l'activité CENTRÉ, flèches ‹/› cliquables de part et
-             d'autre (en plus du balayage tactile déjà en place,
-             touchstart/touchend sur toute la zone — voir bindGoalsSwipe()
-             dans app.js) : indique visuellement qu'on peut aussi glisser. -->
-        <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
-          <!-- 25 septembre 2026 (restructuration du volet Objectifs en 3
-               pages) : retour vers #goalsCapturePage (page 1) — cette page
-               (page 2, pôles + arbre périodique) n'est plus l'écran par
-               défaut de l'onglet, elle a donc besoin d'un chemin de retour
-               explicite. Voir showGoalsCapturePage()/showGoalsPolesPage()
-               dans app.js. -->
+        <!-- 26 septembre 2026 (discussion Objectifs — Arbre périodique),
+             restructuration de la page 2 sur demande directe d'Emilien
+             (maquette approuvée, « C'est bon, code. »), 6 points :
+             1. Le nom de l'activité quitte le cadre encadré pour une simple
+                ligne de titre (.goalsActivityPlainRow ci-dessous), flèche de
+                retour vers la page 1 à sa gauche (#goalsBackToCaptureBtn,
+                déplacé ici depuis l'ancien #goalsActivityHeader). Plus aucun
+                changement d'activité possible depuis la page 2 : il faut
+                repasser par la page 1 (#goalsCapturePage) — les anciens
+                #goalsPrevActivityBtn/#goalsNextActivityBtn et le balayage
+                tactile associé sont retirés (voir bindGoalsSwipe(), app.js).
+             2. Le cadre existant (.activityPageHeader/#goalsActivityHeader,
+                CONSERVÉ tel quel — même classes, même mise en avant visuelle,
+                demande explicite d'Emilien de le garder plutôt que de le
+                supprimer) affiche désormais le PÔLE sélectionné (point coloré
+                + nom, sa nuance attitrée — subProjectShade()) au lieu de
+                l'activité, avec les mêmes flèches ‹/› + balayage tactile,
+                mais pour naviguer de pôle en pôle, circulairement — voir
+                renderGoalsPoleSwitcher()/openGoalsForPole(), app.js.
+                Remplace l'ancien menu déroulant #goalsPoleTabBar (barre de
+                boutons puis menu déroulant, 21 septembre 2026), retiré
+                entièrement.
+             3. Masqué entièrement (comme l'était #goalsPoleTabBar) tant
+                qu'aucun pôle réel n'existe pour l'activité — la grille
+                affiche alors directement goalsPoles() (repli habituel
+                d'activeGoalsCategories()), inchangé.
+             4. Plus aucune possibilité d'ajouter un secteur NI un pôle
+                depuis cette page — la case « + »/page d'ajout
+                (.goalsGridHeadCell--add/.goalsGridCell--add) est retirée
+                sans condition de renderGoalsGridHead()/renderGoalsGrid()
+                (app.js) : tout ajout se fait désormais uniquement depuis la
+                fenêtre d'activité, section Catégories
+                (goToGoalsCategorySettings() y reste utilisable, simplement
+                plus référencée depuis cette grille).
+             5. Un pôle sans aucun secteur continue de s'afficher comme une
+                colonne unique (lui-même) — repli déjà géré côté serveur par
+                gridColumnsForPole(), aucun code client supplémentaire.
+             6. Badge violet « non vu » (.goalsGridHeadBadge) inchangé dans
+                son mécanisme mais repositionné en CSS pour ne plus être
+                coupé par overflow:hidden — voir .goalsGridHeadBadge,
+                styles.css. -->
+        <div class="goalsActivityPlainRow" id="goalsActivityPlainRow">
           <button type="button" class="menuBtn" id="goalsBackToCaptureBtn" aria-label="Retour à la capture">‹</button>
-          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevActivityBtn" aria-label="Activité précédente">‹</button>
-          <div class="goalsActivityNameWrap">
-            <span class="dot" id="goalsActivityDot"></span>
-            <span class="activityPageName" id="goalsActivityName"></span>
-          </div>
-          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsNextActivityBtn" aria-label="Activité suivante">›</button>
+          <span class="goalsActivityPlainName" id="goalsActivityName"></span>
         </div>
 
-        <!-- 21 septembre 2026 (« Secteurs dans l'arbre périodique »), demande
-             explicite d'Emilien : « On ne change pas l'arbre. Cependant, les
-             secteurs deviennent les pôles. Et les pôles, on les insère comme
-             des boutons au-dessus des secteurs et en dessous du nom de
-             l'activité. » — sélecteur de pôles, positionné ici (sous
-             #goalsActivityHeader ci-dessus, au-dessus de #goalsGridScroll/
-             #goalsGrid plus bas qui affichent désormais les SECTEURS du pôle
-             sélectionné). REMPLACÉ le jour même par un menu déroulant plein
-             largeur (nouvelle demande d'Emilien : « je souhaite que les
-             pôles ne soient plus des boutons successifs, mais un menu
-             déroulant [...] qui pousse les secteurs des arbres vers le
-             bas ») — id/classe conservés tels quels (`goalsPoleTabBar`)
-             malgré le nom hérité de l'ancienne barre de boutons, contenu
-             entièrement reconstruit par renderGoalsPoleDropdown() (app.js) :
-             un bouton déclencheur pleine largeur + la liste des pôles juste
-             en dessous DANS LE FLUX (jamais un overlay), ce qui pousse
-             mécaniquement ce qui suit vers le bas à l'ouverture. Masqué
-             (.hidden) tant qu'aucun pôle réel n'existe (activité jamais
-             personnalisée), cas où la grille continue d'afficher les pôles
-             eux-mêmes, strictement comme avant ce chantier — voir
-             goalsPoles()/activeGoalsCategories(), app.js. -->
-        <div id="goalsPoleTabBar" class="goalsPoleTabBar hidden"></div>
+        <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
+          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevPoleBtn" aria-label="Pôle précédent">‹</button>
+          <div class="goalsActivityNameWrap">
+            <span class="dot" id="goalsPoleDot"></span>
+            <span class="activityPageName" id="goalsPoleName"></span>
+          </div>
+          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsNextPoleBtn" aria-label="Pôle suivant">›</button>
+        </div>
+
+        <!-- ⚠️ 26 septembre 2026 : le menu déroulant de pôles qui vivait ici
+             depuis le 21 septembre 2026 (#goalsPoleTabBar,
+             renderGoalsPoleDropdown()) est RETIRÉ — remplacé par le
+             sélecteur intégré au cadre ci-dessus (voir le commentaire en
+             tête de ce bloc). Historique conservé dans
+             noesis-timetracker-chantiers-en-cours.md plutôt que retapé ici. -->
 
         <!-- ⚠️ 15 septembre 2026 (nuit, demande directe d'Emilien) : un seul
              mode reste sur la page 1 — la grille (arbre). Le bouton bascule

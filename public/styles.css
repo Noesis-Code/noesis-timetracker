@@ -5034,76 +5034,30 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .goalsSwipeBtn { flex-shrink: 0; }
 
-/* ===== Sélecteur de pôles — 21 septembre 2026, « Secteurs dans l'arbre
-   périodique ». D'abord une barre de boutons-pilules (matin, demande
-   d'Emilien : « On ne change pas l'arbre. Cependant, les secteurs
-   deviennent les pôles [...] »), remplacée LE JOUR MÊME par un menu
-   déroulant (nouvelle demande d'Emilien : « je souhaite que les pôles ne
-   soient plus des boutons successifs, mais un menu déroulant qui prend
-   l'ensemble de la largeur de l'écran et qui, lorsqu'il se déroule, pousse
-   les secteurs des arbres vers le bas »). Dropdown "maison" EN FLUX NORMAL
-   (position: static partout ci-dessous, jamais d'overlay/position absolue)
-   — même principe que .categoryDropdown plus haut dans ce fichier
-   (voir buildCategoryDropdown(), app.js) : la liste d'options
-   (.goalsPoleDropdownMenu) suit le bouton déclencheur
-   (.goalsPoleDropdownTrigger) dans le DOM, donc pousse mécaniquement
-   #goalsGridScroll (juste en dessous, index.html) vers le bas à
-   l'ouverture — exactement l'effet demandé, gratuit avec ce positionnement,
-   sans z-index ni calcul JS. #goalsPoleTabBar (id conservé tel quel côté
-   index.html/app.js malgré le nom hérité de l'ancienne barre de boutons)
-   porte `.hidden` tant qu'aucun pôle réel n'existe encore, et `.open`
-   pendant que le menu est déplié (posée par renderGoalsPoleDropdown(),
-   app.js — sans effet visuel propre ici, seulement un accroche pour
-   .goalsPoleDropdownArrow ci-dessous). Couleur par pôle via
-   subProjectShade() (app.js, même mécanisme que les badges
-   .goalsGridHeadCell) — jamais une seule couleur fixe. */
-.goalsPoleTabBar {
-  width: 100%;
-}
-.goalsPoleDropdownTrigger {
+/* ⚠️ 26 septembre 2026 : le menu déroulant de pôles (.goalsPoleTabBar/
+   .goalsPoleDropdown*, 21 septembre 2026) est retiré — remplacé par le
+   sélecteur intégré au cadre d'en-tête existant (.goalsActivityHeader,
+   voir renderGoalsPoleSwitcher()/openGoalsForPole(), app.js, et
+   .goalsActivityPlainRow ci-dessous pour le nouveau titre d'activité en
+   ligne simple). Historique conservé dans
+   noesis-timetracker-chantiers-en-cours.md plutôt que retapé ici. */
+
+/* ===== Page 2 (Objectifs — Arbre périodique), restructuration du 26
+   septembre 2026 sur demande directe d'Emilien (maquette approuvée,
+   « C'est bon, code. »), point 1 : le nom de l'activité quitte le cadre
+   encadré pour une simple ligne de titre, flèche de retour vers la page 1
+   à sa gauche (#goalsBackToCaptureBtn, index.html). Réutilise .menuBtn
+   (bouton retour, déjà défini ailleurs dans ce fichier) — seule la ligne
+   elle-même et le nom sont propres à ce bloc. */
+.goalsActivityPlainRow {
   display: flex; align-items: center; gap: 8px;
-  width: 100%; box-sizing: border-box;
-  padding: 10px 12px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--card);
-  font-family: inherit; font-size: 14px; font-weight: 700;
-  text-align: left; cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  padding: 4px 0 10px;
 }
-.goalsPoleTabBar.open .goalsPoleDropdownTrigger { background: var(--hover-bg); }
-.goalsPoleDropdownDot {
-  flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%;
-}
-.goalsPoleDropdownLabel {
+.goalsActivityPlainName {
   flex: 1 1 auto; min-width: 0;
+  font-size: 15px; font-weight: 700;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.goalsPoleDropdownArrow {
-  flex-shrink: 0; font-size: 12px; color: var(--text-light);
-  transition: transform var(--transition-fast);
-}
-.goalsPoleTabBar.open .goalsPoleDropdownArrow { transform: rotate(180deg); }
-/* Options empilées verticalement (jamais en ligne comme l'ancienne barre de
-   boutons) — chacune prend toute la largeur, comme demandé ("l'ensemble de
-   la largeur de l'écran"). Pas de max-height/scroll ici contrairement à
-   .categoryDropdownMenu : au plus 5 pôles (MAX_CUSTOM_CATEGORIES,
-   server/lib/goals.js), toujours visibles d'un coup sans défilement. */
-.goalsPoleDropdownMenu {
-  margin-top: 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-.goalsPoleDropdownOption {
-  padding: 10px 12px;
-  font-size: 14px; font-weight: 700;
-  cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  transition: background-color var(--transition-fast);
-}
-.goalsPoleDropdownOption:last-child { border-bottom: none; }
-.goalsPoleDropdownOption:not(.active):hover { background: var(--hover-bg); }
 
 /* 15 septembre 2026 (7e passage, demande d'Emilien — « un seul mode : la
    grille (arbre) ») : la bascule Arbre/Répartition (.goalsViewToggle*) et la
@@ -6114,7 +6068,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* Badge violet « non vu » — jamais un compteur cumulatif (se vide dès que
    l'utilisateur visite la liste concernée, voir server/lib/goalstasks.js#
    unseenCountsForActivity et markCategoriesSeen). Réutilisé tel quel pour le
-   badge du sélecteur de pôles (.goalsPoleDropdownBadge ci-dessous). */
+   badge de l'arbre périodique (.goalsGridHeadBadge plus bas). */
 .goalsCaptureBadge {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 18px; height: 18px; padding: 0 5px;
@@ -6125,17 +6079,28 @@ button { -webkit-user-select: none; user-select: none; }
 /* 26 septembre 2026, retour direct d'Emilien : le badge de la Page 2 quitte
    le menu déroulant de pôle pour l'arbre périodique lui-même
    (.goalsGridHeadCell, voir renderGoalsGridHead(), app.js) — même style que
-   .goalsCaptureBadge, posé dans le coin supérieur droit de chaque case de
-   pôle/secteur. Règle ADDITIVE sur .goalsGridHeadCell (déjà déclarée plus
-   haut dans ce fichier, aucune propriété en commun avec celle-ci — ajoute
-   seulement `position: relative`, nécessaire pour positionner ce badge).
-   Inset (top/right: 2px, pas -6px) pour rester DANS les bords de la case :
-   .goalsGridHeadCell a `overflow: hidden` (ellipsis du libellé, ligne
-   ci-dessus) qui rognerait un badge positionné hors de sa boîte. */
+   .goalsCaptureBadge. Règle ADDITIVE sur .goalsGridHeadCell (déjà déclarée
+   plus haut dans ce fichier, aucune propriété en commun avec celle-ci).
+   ⚠️ Correction directe d'Emilien (même jour) : « je souhaite que le point
+   violet lors de l'ajout d'une tâche soit plus centré et plus proche du nom
+   du secteur dans lequel il y a un ajout. Je souhaite qu'il ne soit pas en
+   haut à droite et coupé. » — le positionnement en coin (position:
+   absolute, ci-dessus, retiré) était coupé par `overflow: hidden` de
+   .goalsGridHeadCell (ellipsis du libellé). Remplacé par un flux inline
+   juste après le texte du libellé (span.textContent puis appendChild, voir
+   renderGoalsGridHead(), app.js) — jamais rogné, toujours à côté du nom. */
 .goalsGridHeadCell { position: relative; }
 .goalsGridHeadBadge {
-  position: absolute; top: 2px; right: 2px; transform: scale(0.85);
-  transform-origin: top right;
+  display: inline-flex; vertical-align: middle;
+  margin-left: 5px; transform: scale(0.85);
+}
+/* 26 septembre 2026, restructuration Page 2, point 4 : plus aucune case
+   d'ajout sur cette page — quand aucun pôle réel n'existe encore, un simple
+   message renvoie vers le panneau Catégories plutôt qu'une case cliquable
+   (voir renderGoalsGridHead(), app.js). */
+.goalsGridHeadEmpty {
+  flex: 1 1 auto; text-align: center; color: var(--text-light);
+  font-size: 13px; padding: 24px 12px; margin: 0;
 }
 /* Point violet par tâche, page 3 (calendrier) — demande directe d'Emilien :
    « un petit point violet à droite des tâches nouvellement ajoutées [...]
