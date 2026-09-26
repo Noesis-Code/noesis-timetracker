@@ -936,6 +936,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_goal_period_due_reminder
 -- (server/lib/theme.js), comme pour les couleurs d'activité — pas de
 -- ré-appariement par thème pour chaque visiteur (nuance connue, signalée
 -- dans noesis-timetracker-objectifs.md, non demandée par Emilien).
+--
+-- description : colonne ajoutée le 25 septembre 2026 par ALTER TABLE plus
+-- bas dans ce fichier (voir son commentaire) — absente de ce CREATE TABLE
+-- d'origine pour ne pas retoucher une définition déjà en production, même
+-- convention que parentKey ci-dessous.
 CREATE TABLE IF NOT EXISTS activity_goal_categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
@@ -2071,6 +2076,24 @@ CREATE TABLE IF NOT EXISTS goal_capacity_overrides (
 // pôle (minimum 1 pôle actif par activité, règle historique inchangée).
 if (tableExists('activity_goal_categories') && !columnExists('activity_goal_categories', 'parentKey')) {
   db.exec('ALTER TABLE activity_goal_categories ADD COLUMN parentKey TEXT');
+}
+
+// description (25 septembre 2026, Aiguillage — « Coordination inter-secteurs
+// de l'IA », Brief 2 pour Objectifs — Tâches / Tâche - Pôles & secteurs,
+// cadré avec Emilien via AskUserQuestion) : champ texte libre OPTIONNEL, 200
+// caractères maximum (validé en application dans server/lib/goals.js,
+// assertCategoryDescription), disponible aussi bien sur un PÔLE que sur un
+// SECTEUR. Sert de grounding au moteur d'inférence cross-secteur développé
+// par Objectifs — Logique métier (server/lib/<lib à venir>) pour mieux juger
+// un lien plausible entre deux secteurs d'une même activité — ce moteur doit
+// fonctionner même si la colonne est vide (repli sur le seul label). Décision
+// d'Emilien, 25 septembre 2026 : visible aussi côté utilisateur dans le
+// panneau « gérer mes catégories » — pas seulement un signal invisible pour
+// l'IA. Additif et rétrocompatible à 100 % : NULL pour toute ligne existante,
+// aucune migration de données. Voir
+// noesis-timetracker-coordination-inter-secteurs.md.
+if (tableExists('activity_goal_categories') && !columnExists('activity_goal_categories', 'description')) {
+  db.exec('ALTER TABLE activity_goal_categories ADD COLUMN description TEXT');
 }
 
 // ===================== SUGGESTION QUOTIDIENNE =====================

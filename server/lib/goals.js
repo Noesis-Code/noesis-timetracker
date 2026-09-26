@@ -155,9 +155,13 @@ function isCustomized(activityId) {
 function categoriesForActivity(activityId) {
   const rows = activeCategoryRows(activityId).filter((r) => !r.parentKey);
   if (rows.length) {
-    return rows.map((r) => ({ key: r.key, label: r.label, custom: true }));
+    // 25 septembre 2026 : `description` ajouté au bout — voir
+    // assertCategoryDescription ci-dessus et le commentaire de la colonne
+    // dans server/db.js. '' si jamais renseignée (jamais NULL exposé tel
+    // quel au client).
+    return rows.map((r) => ({ key: r.key, label: r.label, custom: true, description: r.description || '' }));
   }
-  return [{ key: DEFAULT_CATEGORY_KEY, label: DEFAULT_CATEGORY_LABEL, custom: false }];
+  return [{ key: DEFAULT_CATEGORY_KEY, label: DEFAULT_CATEGORY_LABEL, custom: false, description: '' }];
 }
 
 function isValidCategoryForActivity(activityId, category) {
@@ -281,6 +285,23 @@ function assertCategoryLabel(label) {
   return clean;
 }
 
+// 25 septembre 2026 (Aiguillage, « Coordination inter-secteurs de l'IA »,
+// Brief 2, cadré avec Emilien via AskUserQuestion) : description/contexte
+// optionnelle d'un pôle OU d'un secteur — 200 caractères maximum (décision
+// d'Emilien, 25 septembre 2026), jamais requise (repli sur '' comme color
+// ci-dessus, jamais NULL une fois écrite par cette fonction). Lue par le
+// moteur d'inférence cross-secteur de Objectifs — Logique métier, voir
+// noesis-timetracker-coordination-inter-secteurs.md — mais aussi affichée
+// côté utilisateur (categoriesForActivity/secteursForPole plus bas), donc
+// validée ici comme tout autre champ texte de ce fichier.
+function assertCategoryDescription(description) {
+  const clean = String(description || '').trim();
+  if (clean.length > 200) {
+    throw Object.assign(new Error('Description trop longue (200 caractères maximum).'), { statusCode: 400 });
+  }
+  return clean;
+}
+
 // Clé courte et stable, unique PAR ACTIVITÉ (pas globalement) — dérivée du
 // nombre TOTAL de lignes déjà créées pour cette activité, gelées comprises,
 // pour ne jamais réutiliser une clé déjà portée par une catégorie retirée
@@ -373,12 +394,27 @@ function addCategory(activityId, label, parentKey) {
 // renommer un SECTEUR doit renvoyer la liste de ses frères (secteursForPole),
 // jamais la liste des pôles (qui ne contient pas les secteurs, voir
 // categoriesForActivity plus haut).
-function renameCategory(activityId, key, label) {
+//
+// 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») :
+// `description` devient un 4ᵉ argument OPTIONNEL — `undefined` (tout appelant
+// existant qui n'envoie que 3 arguments, ou une requête qui ne porte pas ce
+// champ dans son corps) laisse la colonne intacte ; une chaîne (y compris
+// vide, pour l'effacer) la met à jour EN MÊME TEMPS que le label, dans la
+// même écriture. `label` reste TOUJOURS requis, même quand seule la
+// description change (voir buildDescriptionInput côté client, app.js, qui
+// renvoie systématiquement le label courant).
+function renameCategory(activityId, key, label, description) {
   const row = ensureDefaultCategory(activityId).find((r) => r.key === key);
   if (!row) throw Object.assign(new Error('Catégorie introuvable.'), { statusCode: 404 });
   const cleanLabel = assertCategoryLabel(label);
-  db.prepare('UPDATE activity_goal_categories SET label = ? WHERE activityId = ? AND key = ?')
-    .run(cleanLabel, activityId, key);
+  if (description === undefined) {
+    db.prepare('UPDATE activity_goal_categories SET label = ? WHERE activityId = ? AND key = ?')
+      .run(cleanLabel, activityId, key);
+  } else {
+    const cleanDescription = assertCategoryDescription(description);
+    db.prepare('UPDATE activity_goal_categories SET label = ?, description = ? WHERE activityId = ? AND key = ?')
+      .run(cleanLabel, cleanDescription, activityId, key);
+  }
   return row.parentKey ? secteursForPole(activityId, row.parentKey) : categoriesForActivity(activityId);
 }
 
@@ -485,7 +521,9 @@ function reorderCategories(activityId, keys) {
 function secteursForPole(activityId, poleKey) {
   return activeCategoryRows(activityId)
     .filter((r) => r.parentKey === poleKey)
-    .map((r) => ({ key: r.key, label: r.label, parentKey: r.parentKey }));
+    // 25 septembre 2026 : `description` ajouté, même convention que
+    // categoriesForActivity ci-dessus.
+    .map((r) => ({ key: r.key, label: r.label, parentKey: r.parentKey, description: r.description || '' }));
 }
 
 // Réordonne les SECTEURS actifs d'un pôle donné — même convention que

@@ -382,7 +382,10 @@ router.put('/activities/:id/goals/categories/:key', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const categories = goals.renameCategory(activityId, req.params.key, req.body.label);
+    // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») :
+    // description optionnelle transmise telle quelle — undefined si absente
+    // du corps, voir le commentaire de renameCategory (server/lib/goals.js).
+    const categories = goals.renameCategory(activityId, req.params.key, req.body.label, req.body.description);
     res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);
@@ -500,7 +503,9 @@ router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, r
 
   try {
     assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
-    const secteurs = goals.renameCategory(activityId, req.params.secteurKey, req.body.label);
+    // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») :
+    // même ajout que la route pôle ci-dessus.
+    const secteurs = goals.renameCategory(activityId, req.params.secteurKey, req.body.label, req.body.description);
     res.json({ ok: true, secteurs });
   } catch (err) {
     handleGoalsError(res, err);
