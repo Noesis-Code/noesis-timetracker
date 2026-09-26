@@ -10396,7 +10396,6 @@
         handle.className = 'subProjectDragHandle';
         handle.setAttribute('aria-label', t('Déplacer ce sous-projet'));
         handle.textContent = '≡';
-        bindSubProjectDrag(handle, row);
         header.appendChild(handle);
 
         var input = document.createElement('input');
@@ -10709,99 +10708,6 @@
   function exitSubProjectsEditMode() {
     subProjectsEditMode = false;
     loadSubProjects();
-  }
-
-  // Glisser-déposer d'une ligne, à la poignée.
-  //
-  // ⚠️ La ligne n'est PAS déplacée dans le DOM pendant le geste, et ce n'est
-  // pas un détail de style : réinsérer un nœud (insertBefore) RELÂCHE la
-  // capture du pointeur posée dessus, et le glissement s'arrête net au premier
-  // déplacement. C'est exactement ce qui s'est produit à la première version,
-  // trouvé par la suite Playwright (assertion 12.8). On se contente donc de
-  // translater visuellement la ligne tirée, et on ne réordonne le DOM — puis
-  // le serveur — qu'UNE fois, au relâchement.
-  function bindSubProjectDrag(handle, row) {
-    handle.addEventListener('pointerdown', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var box = $('subProjectsList');
-      var rows = Array.prototype.slice.call(box.querySelectorAll('.subProjectRow'));
-      // Positions figées au DÉBUT du geste : elles ne bougent plus, puisque
-      // rien n'est réordonné en cours de route.
-      var mids = rows.map(function (el) {
-        var r = el.getBoundingClientRect();
-        return r.top + r.height / 2;
-      });
-      var fromIndex = rows.indexOf(row);
-      var startY = e.clientY;
-      var targetIndex = fromIndex;
-      // Hauteur d'un « cran » : la ligne tirée, écart compris. C'est de
-      // combien les voisines doivent s'écarter pour ouvrir la place. En mode
-      // édition les lignes sont toutes réduites à leur en-tête, donc de même
-      // hauteur : une seule mesure suffit.
-      var step = row.getBoundingClientRect().height +
-        parseFloat(getComputedStyle(box).rowGap || getComputedStyle(box).gap || 0) || 0;
-
-      handle.setPointerCapture(e.pointerId);
-      row.classList.add('dragging');
-      box.classList.add('dragging');
-
-      // ⭐ Les voisines S'ÉCARTENT pendant le geste (demande d'Emilien,
-      // 3 septembre 2026) : on voit la place où le sous-projet va tomber au
-      // lieu de deviner. Toujours par `transform`, jamais en touchant le DOM —
-      // même raison qu'au-dessus, réinsérer un nœud relâcherait la capture du
-      // pointeur et arrêterait le glissement.
-      function layoutGap() {
-        for (var i = 0; i < rows.length; i++) {
-          if (i === fromIndex) continue;
-          var shift = 0;
-          // On descend : tout ce qu'on a dépassé remonte d'un cran.
-          if (targetIndex > fromIndex && i > fromIndex && i <= targetIndex) shift = -step;
-          // On monte : tout ce qu'on a dépassé descend d'un cran.
-          else if (targetIndex < fromIndex && i >= targetIndex && i < fromIndex) shift = step;
-          rows[i].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
-        }
-      }
-
-      function onMove(ev) {
-        row.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
-        // La cible est la première ligne dont on a dépassé le milieu.
-        var idx = 0;
-        for (var i = 0; i < mids.length; i++) {
-          if (ev.clientY > mids[i]) idx = i;
-        }
-        if (idx !== targetIndex) { targetIndex = idx; layoutGap(); }
-      }
-
-      function onUp() {
-        handle.removeEventListener('pointermove', onMove);
-        handle.removeEventListener('pointerup', onUp);
-        handle.removeEventListener('pointercancel', onUp);
-        row.classList.remove('dragging');
-        box.classList.remove('dragging');
-        row.style.transform = '';
-        // Les décalages visuels sont annulés AVANT le réordonnancement réel :
-        // sans ça, les lignes garderaient leur translation par-dessus leur
-        // nouvelle position et tout paraîtrait décalé d'un cran.
-        rows.forEach(function (el) { el.style.transform = ''; });
-
-        if (targetIndex !== fromIndex) {
-          var ordered = rows.slice();
-          ordered.splice(fromIndex, 1);
-          ordered.splice(targetIndex, 0, row);
-          ordered.forEach(function (el) { box.appendChild(el); });
-          api('PUT', '/api/sub-projects/reorder', {
-            userId: profile.id,
-            activityId: currentCommunityActivityId,
-            ids: ordered.map(function (el) { return Number(el.dataset.subProjectId); }),
-          }).catch(function (err) { alert(err.message); loadSubProjects(); });
-        }
-      }
-
-      handle.addEventListener('pointermove', onMove);
-      handle.addEventListener('pointerup', onUp);
-      handle.addEventListener('pointercancel', onUp);
-    });
   }
 
   // Résumé de ce que contient un sous-projet quand il n'a aucune tâche —

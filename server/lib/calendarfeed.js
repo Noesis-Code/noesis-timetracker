@@ -288,20 +288,36 @@ function todayLocalDay() {
 // hypothèse remise en cause : elle évite une boucle infinie si jamais
 // startDate/endDate étaient un jour incohérents, sans dépendre d'une
 // constante partagée avec goals.js.
-// Tâches du jour déjà créées (voir createDayTask ci-dessous) pour une
-// (activité, catégorie), groupées par dueDate — utilisé UNIQUEMENT pour
-// peupler la vue calendrier d'une période, jamais le flux .ics. Traverse
-// sub_projects/sub_project_items directement (comme goalPeriodEventsForUser
-// plus haut vis-à-vis de goal_periods) plutôt que d'ajouter une fonction dans
-// subprojects.js qui n'a pas de raison de connaître dueDate.
-function dayTasksByDate(activityId, category, startDate, endDate) {
+// Tâches du jour déjà créées (voir createDayTask ci-dessous), groupées par
+// dueDate — utilisé UNIQUEMENT pour peupler la vue calendrier d'une période,
+// jamais le flux .ics. Traverse sub_projects/sub_project_items directement
+// (comme goalPeriodEventsForUser plus haut vis-à-vis de goal_periods) plutôt
+// que d'ajouter une fonction dans subprojects.js qui n'a pas de raison de
+// connaître dueDate.
+//
+// ⚠️ 26 septembre 2026, correctif d'un bug signalé par Emilien (« tâche
+// capturée via la bulle IA, plus visible sur la page 3 ») : cette fonction
+// filtrait auparavant sur `sp.goalCategory = category` (une seule
+// catégorie, celle actuellement ouverte en page 2/3). Or la capture libre
+// (page 1) classe chaque tâche par IA dans N'IMPORTE QUEL pôle/secteur de
+// l'activité (server/lib/goalstaskclassify.js), indépendamment de celui
+// affiché — une tâche classée ailleurs disparaissait donc silencieusement du
+// calendrier, alors qu'elle avait bien une dueDate valide (confirmé :
+// goalscaptureplace.js#autoPlaceTask en pose toujours une). Corrigé en
+// retirant le filtre de catégorie : la fenêtre de dates (startDate/endDate)
+// de la période actuellement ouverte reste le seul filtre, mais TOUTES les
+// tâches de l'activité tombant dans cette fenêtre s'affichent désormais,
+// quel que soit leur pôle/secteur — chaque tâche porte sa propre catégorie
+// (`category`) pour que le client puisse signaler celles qui n'appartiennent
+// pas au secteur actuellement affiché (voir renderGoalsCalendarDays, app.js).
+function dayTasksByDate(activityId, startDate, endDate) {
   const rows = db.prepare(`
-    SELECT i.id, i.label, i.done, i.dueDate, i.autoCaptured, i.seenAt
+    SELECT i.id, i.label, i.done, i.dueDate, i.autoCaptured, i.seenAt, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_projects sp ON sp.id = i.subProjectId
-    WHERE sp.activityId = ? AND sp.goalCategory = ? AND i.dueDate BETWEEN ? AND ?
+    WHERE sp.activityId = ? AND i.dueDate BETWEEN ? AND ?
     ORDER BY i.position ASC, i.id ASC
-  `).all(activityId, category, startDate, endDate);
+  `).all(activityId, startDate, endDate);
   const byDate = {};
   rows.forEach((r) => {
     if (!byDate[r.dueDate]) byDate[r.dueDate] = [];
@@ -311,7 +327,7 @@ function dayTasksByDate(activityId, category, startDate, endDate) {
     // autoCaptured/seenAt bruts : seule une tâche autoCaptured ET pas encore
     // vue doit afficher le point, le client n'a pas besoin de recalculer
     // cette règle lui-même.
-    byDate[r.dueDate].push({ id: r.id, label: r.label, done: !!r.done, unseen: !!r.autoCaptured && !r.seenAt });
+    byDate[r.dueDate].push({ id: r.id, label: r.label, done: !!r.done, unseen: !!r.autoCaptured && !r.seenAt, category: r.category });
   });
   return byDate;
 }
@@ -335,7 +351,7 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
   `).all(activityId, period.startDate, period.endDate);
   const secondsByDay = {};
   rows.forEach((r) => { secondsByDay[r.isoDate] = r.seconds; });
-  const tasksByDay = dayTasksByDate(activityId, category, period.startDate, period.endDate);
+  const tasksByDay = dayTasksByDate(activityId, period.startDate, period.endDate);
 
   const today = todayLocalDay();
   const days = [];

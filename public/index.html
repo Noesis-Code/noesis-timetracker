@@ -2234,19 +2234,9 @@
            showGoalsPolesPage() dans app.js) ; page 3 = #goalsDetailPage
            (calendrier, objectif hebdomadaire, secteur, plus bas dans ce
            fichier). -->
-      <!-- 26 septembre 2026, demande directe d'Emilien (page 1, point a) :
-           les puces d'activité passent SOUS la bulle d'écriture IA (ordre
-           inversé par rapport au 25 septembre) — voir renderGoalsCaptureActivities()/
-           buildGoalsCaptureBubble(), app.js. -->
       <div id="goalsCapturePage" class="goalsCapturePage">
-        <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
-        <!-- 26 septembre 2026, demande directe d'Emilien (page 1, point e) :
-             invite affichée entre la bulle et les puces quand on clique
-             « Ajouter » sans avoir choisi d'activité — voir submit(),
-             buildGoalsCaptureBubble(), app.js. Masquée par défaut, jamais
-             affichée en même temps qu'un message d'erreur de la bulle. -->
-        <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
         <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
+        <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
       </div>
 
       <p id="goalsNoActivityHint" class="hint hidden">Ajoute une activité pour commencer à te fixer des objectifs.</p>
@@ -3357,18 +3347,7 @@
 
     <!-- Réglages (#profileSettingsPanel) déplacé ici le 9 septembre 2026 (demande d'Emilien, fenêtre plein écran) : il vivait jusque-là imbriqué dans .topbar (.settingsWrap > .identityHeader > #topbarProfile > .topbar), qui établit sa PROPRE zone d'empilement (position: fixed + z-index) — un enfant aussi profondément imbriqué ne peut pas, avec son seul z-index, se peindre au-dessus d'un AUTRE enfant direct de #app comme .tabbar : c'est la position de .topbar elle-même (z-index 10) qui aurait été comparée à .tabbar (z-index 10 aussi), pas celle du panneau, et .tabbar (déclarée après .topbar dans le document) l'aurait donc emporté et serait restée visible par-dessus. Déplacé ici, comme #activityPage juste au-dessus (même principe, voir son propre commentaire plus bas dans ce fichier) : enfant direct de <main>, qui ne crée aucune zone d'empilement propre — son z-index (90, styles.css) se compare alors directement à celui de .topbar/.tabbar (10 chacune) et l'emporte réellement. Le bouton "⚙️" (#profileSettingsBtn), lui, reste à sa place dans .identityHeader — seul le PANNEAU a bougé, showProfileSettings()/closeSettingsPanel() (app.js) continuent de le cibler par id, inchangés. -->
 <div id="profileSettingsPanel" class="notifPanel settingsPanel hidden">
-            <!-- 26 septembre 2026, demande d'Emilien (« remplacer flèche desktop
-                 + swipe tactile par une croix ✕ + clic sur le fond, même mécanisme
-                 qu'Activité ») : le contenu du panneau vit désormais dans une CARTE,
-                 et le panneau lui-même devient la surface « en dehors » qui
-                 l'entoure — exactement le montage de #activityPage
-                 (.communityMembersModal > .communityMembersModalCard).
-                 La carte est plafonnée à 480px comme le reste de l'app : sur
-                 ordinateur il reste donc de part et d'autre une zone réellement
-                 cliquable, qui referme (voir app.js). Sur téléphone elle occupe
-                 toute la largeur et ce geste devient sans objet — même situation
-                 qu'Activité aujourd'hui. -->
-            <div class="settingsPanelCard">
+            <button type="button" id="settingsCloseBtn" class="menuBtn" aria-label="Fermer">←</button>
             <!-- En-tête "Réglages"/Déconnexion : FIXE en haut du panneau depuis le
                  10 septembre 2026 (demande d'Emilien : « je souhaite que le titre
                  réglage et le bouton pour déconnexion reste fixe en haut du
@@ -3386,15 +3365,7 @@
                  transparaître. -->
             <div class="subpageHeader">
               <p class="sectionTitle subpageTitle">Réglages</p>
-              <!-- ⚠️ 26 septembre 2026 : cette croix remplace le « ← » flottant
-                   (position: absolute en haut à gauche) ET le balayage tactile
-                   gauche → droite, tous deux retirés. Elle vit DANS le bandeau, à
-                   droite du titre, comme #activityPageClose dans
-                   .activityPageHeader. « Déconnexion » a quitté ce bandeau pour
-                   lui laisser la place : il est descendu dans Compte et
-                   sécurité > Sécurité, juste au-dessus de « Se déconnecter de
-                   tous les appareils », son voisin naturel. -->
-              <button type="button" id="settingsCloseBtn" class="menuBtn" aria-label="Fermer">✕</button>
+              <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
             </div>
             <!-- Le contenu défilant (sections/groupes) est isolé dans
                  #profileSettingsScroll, séparé du bouton "←" ET du bandeau
@@ -3496,15 +3467,6 @@
                    (table `sessions`), hors périmètre retenu pour l'échéance du
                    11 septembre : cette carte se limite donc à une révocation
                    GLOBALE, immédiate, de tous les appareils à la fois. -->
-              <!-- « Déconnexion » (26 septembre 2026, demande d'Emilien) : descendu
-                   du bandeau « Réglages », dont la place revient à la croix de
-                   fermeture. Posé ici plutôt qu'ailleurs dans le groupe : c'est le
-                   voisin immédiat de « Se déconnecter de tous les appareils »
-                   ci-dessous — même geste, portée différente (cet appareil / tous).
-                   Id et classe inchangés : son écouteur dans app.js n'a pas bougé. -->
-              <div class="settingsCard">
-                <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
-              </div>
               <div class="settingsCard">
                 <button id="settingsLogoutAllBtn" class="iconBtn danger">Se déconnecter de tous les appareils</button>
                 <p id="settingsLogoutAllMsg" class="msg"></p>
@@ -3861,7 +3823,6 @@
               </div>
             </div>
                       </div>
-            </div>
           </div>
 
   </main>
