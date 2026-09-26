@@ -2234,9 +2234,20 @@
            showGoalsPolesPage() dans app.js) ; page 3 = #goalsDetailPage
            (calendrier, objectif hebdomadaire, secteur, plus bas dans ce
            fichier). -->
+      <!-- 26 septembre 2026, demande directe d'Emilien (page 1, points a/e) :
+           bulle EN PREMIER (puces sous la bulle, plus au-dessus), puis
+           l'invite de choix d'activité (masquée par défaut, affichée par
+           submit() dans buildGoalsCaptureBubble() — voir app.js — quand
+           « Ajouter » est cliqué sans activité sélectionnée), puis les
+           puces d'activité elles-mêmes. ⚠️ Ce bloc avait été reverti à son
+           ancien ordre (2 éléments, sans l'invite) par une écriture
+           concurrente entre l'écriture initiale et ce correctif — réappliqué
+           ici, voir l'encart correspondant de noesis-timetracker-chantiers-
+           en-cours.md pour le détail de l'incident. -->
       <div id="goalsCapturePage" class="goalsCapturePage">
-        <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
+        <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
+        <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
       </div>
 
       <p id="goalsNoActivityHint" class="hint hidden">Ajoute une activité pour commencer à te fixer des objectifs.</p>
