@@ -5683,7 +5683,15 @@ button { -webkit-user-select: none; user-select: none; }
    `secteurDropTarget` (posé/retiré en JS sur le bloc actuellement visé)
    donne un repère visuel pendant le geste, utile en particulier pour ces
    pôles vides qui n'ont sinon aucun contenu à regarder. */
-#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteursBlock { min-height: 34px; }
+#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteursBlock {
+  min-height: 34px;
+  /* 26 septembre 2026 : la hauteur RÉELLE du bloc (posée en JS, voir
+     bindSecteurDrag/relayout) s'anime en même temps que les transforms de
+     ses lignes, pour que la zone en pointillé se rétrécisse/s'agrandisse
+     visuellement au même rythme et que les pôles suivants se décalent sans
+     à-coup — plus de secteur qui disparaît sous le pôle suivant. */
+  transition: height 0.16s ease;
+}
 #activityGoalsCategoriesList.secteursDragging .activityGoalsSecteursBlock.secteurDropTarget {
   outline: 1px dashed var(--purple); outline-offset: 2px; border-radius: var(--radius-sm, 8px);
 }

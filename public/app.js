@@ -6666,9 +6666,19 @@
       row.classList.add('dragging');
 
       function relayout(targetEntry, idx) {
+        // 26 septembre 2026 : au-delà du décalage (transform) des lignes à
+        // l'intérieur d'un bloc, le bloc `.activityGoalsSecteursBlock`
+        // lui-même doit changer de hauteur RÉELLE (pas juste un transform,
+        // qui ne modifie jamais le flux du document) pour que les pôles
+        // suivants, eux, se décalent réellement — sinon une ligne poussée
+        // vers le bas par transform dépasse la boîte de son bloc et se
+        // superpose au pôle suivant (bug signalé par Emilien, captures
+        // d'écran à l'appui). `entry.wrapRect.height` (mesurée une seule
+        // fois au début du geste) sert de référence stable.
         snapshot.forEach(function (entry) {
           if (entry === originEntry || entry === targetEntry) return;
           entry.siblings.forEach(function (el) { el.style.transform = ''; });
+          entry.wrap.style.height = '';
         });
 
         var effectiveIdx = (targetEntry === originEntry) ? idx : originEntry.siblings.length;
@@ -6679,10 +6689,28 @@
           el.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
         });
 
+        if (targetEntry === originEntry) {
+          // Simple réordonnancement interne : le nombre de secteurs de ce
+          // pôle ne change jamais pendant le geste, donc sa hauteur reste
+          // naturelle (le secteur glissé lui-même n'a jamais quitté ce bloc).
+          originEntry.wrap.style.height = '';
+        } else {
+          // `row` reste physiquement dans le DOM de `originEntry` jusqu'au
+          // dépôt (voir onUp) — le bloc d'origine se rétrécit visuellement
+          // comme si le secteur l'avait déjà quitté, pour que les pôles
+          // suivants remontent et referment l'espace laissé vacant.
+          originEntry.wrap.style.height = Math.max(0, originEntry.wrapRect.height - step) + 'px';
+        }
+
         if (targetEntry !== originEntry) {
           targetEntry.siblings.forEach(function (el, i) {
             el.style.transform = i >= idx ? 'translateY(' + step + 'px)' : '';
           });
+          // Symétrique : le bloc cible s'agrandit comme si le secteur y
+          // était déjà inséré, pour que les pôles suivants descendent et
+          // laissent vraiment la place — plus de secteur qui disparaît
+          // sous le pôle suivant.
+          targetEntry.wrap.style.height = (targetEntry.wrapRect.height + step) + 'px';
         }
 
         snapshot.forEach(function (entry) {
@@ -6731,6 +6759,7 @@
         snapshot.forEach(function (entry) {
           entry.siblings.forEach(function (el) { el.style.transform = ''; });
           entry.wrap.classList.remove('secteurDropTarget');
+          entry.wrap.style.height = '';
         });
 
         if (activeEntry.poleKey === originPoleKey) {

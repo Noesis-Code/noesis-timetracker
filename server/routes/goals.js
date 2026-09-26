@@ -13,6 +13,10 @@ const express = require('express');
 const db = require('../db');
 const goals = require('../lib/goals');
 const goalsauto = require('../lib/goalsauto');
+// 26 septembre 2026 (discussion C, remplissage IA hebdomadaire — voir
+// server/lib/goalsweeklyauto.js pour le cadrage complet) : déclenché ici,
+// jamais depuis l'intérieur de goals.js#setMainGoal (qui reste pur/sans IA).
+const goalsweeklyauto = require('../lib/goalsweeklyauto');
 const goalsdailyauto = require('../lib/goalsdailyauto');
 // Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
 // priorisées, voir server/lib/goalsdailypriority.js.
@@ -199,6 +203,21 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
     const category = resolveCategory(activityId, req.body.category);
     const estimate = goals.setMainGoal(activityId, category, periodNumber, text);
     res.json({ ok: true, estimate });
+    // 26 septembre 2026 : déclenché APRÈS la réponse HTTP, jamais awaité —
+    // « fire-and-forget », la proposition IA arrive en tâche de fond (voir
+    // server/lib/goalsweeklyauto.js pour le cadrage complet, y compris la
+    // décision de non-écrasement et le repli silencieux si l'IA n'est pas
+    // configurée ou si rien n'est à remplir).
+    //
+    // Point de coordination (tranché avec le remplissage hebdomadaire) : le
+    // futur moteur d'inférence cross-secteur (« Coordination inter-secteurs »,
+    // même déclencheur setMainGoal, pas encore codé) se CHAÎNERA ici via un
+    // .then() sur la promesse ci-dessous — jamais un second .catch()
+    // indépendant posé en parallèle. Exemple :
+    //   goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber)
+    //     .then(() => crossSecteur.evaluateForPeriod(activityId, category, periodNumber))
+    //     .catch(() => {});
+    goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber).catch(() => {});
   } catch (err) {
     handleGoalsError(res, err);
   }
@@ -495,36 +514,6 @@ router.put('/activities/:id/goals/categories/:key/secteurs-reorder', (req, res) 
   try {
     const secteurs = goals.reorderSecteurs(activityId, req.params.key, keys);
     res.json({ ok: true, secteurs });
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
-// 26 septembre 2026, demande directe d'Emilien : déplacer un secteur d'un
-// pôle à un autre (glisser-déposer cross-pôle, voir bindSecteurDrag/app.js).
-// `:key` reste le pôle SOURCE (même convention que les routes ci-dessus) —
-// `assertSecteurBelongsToPole` protège contre une URL qui viserait un secteur
-// d'un autre pôle que celui indiqué. `targetPoleKey`/`targetIndex` dans le
-// corps (jamais dans l'URL : ce n'est pas une ressource identifiée par eux,
-// seulement des paramètres de la mutation).
-router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey/move', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.params.id);
-
-  const check = requireMembership(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  try {
-    assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
-    const categories = goals.moveSecteurToPole(
-      activityId,
-      req.params.key,
-      req.params.secteurKey,
-      req.body.targetPoleKey,
-      req.body.targetIndex,
-    );
-    res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);
   }
