@@ -429,6 +429,7 @@
     "Aucune activité pour l'instant — ajoute la première ci-dessous.": 'No activity yet — add your first one below.',
     'Glisse pour réordonner, touche le nom ou la couleur pour les modifier.': 'Drag to reorder, tap the name or the colour to change them.',
     'Déplacer cette activité': 'Move this activity',
+    'Déplacer ce projet': 'Move this project',
     'Changer la couleur': 'Change the colour',
     'Supprimer cette activité': 'Delete this activity',
     'Fusionner cette activité': 'Merge this activity',
@@ -622,8 +623,9 @@
     'Aucun détail supplémentaire pour ce projet.': 'No further details for this project.',
     'Le nom du projet est requis.': 'The project name is required.',
     'Supprimer ce projet ?': 'Delete this project?',
-    'Monter': 'Move up',
-    'Descendre': 'Move down',
+    // 'Monter'/'Descendre' retirées le 26 septembre 2026 : elles ne servaient
+    // qu'aux boutons ▲▼ de réordonnancement des projets, remplacés par le
+    // glisser-déposer à la poignée (voir bindProjectDrag, app.js).
     'Partenaires': 'Partners',
     'Clients': 'Clients',
     'Financement': 'Funding',

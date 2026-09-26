@@ -1120,22 +1120,20 @@
   window.addEventListener('resize', syncTabbarHeightVar);
   window.addEventListener('orientationchange', syncTabbarHeightVar);
 
-  // ⚠️ RESTAURÉE le 10 septembre 2026 (voir la note de collision dans
-  // noesis-timetracker-profil.md). Cette fonction avait disparu d'app.js entre
-  // deux écritures concurrentes, alors que TROIS règles de styles.css
-  // dépendent toujours de la variable qu'elle pose (--settings-header-h,
-  // scroll-padding-top et padding du panneau Réglages) : sans elle, le
-  // bandeau fixe "Réglages"/Déconnexion recouvre le haut du contenu dès que
-  // sa hauteur réelle diffère du repli de 56px. Territoire Paramètres —
-  // remise à l'identique, pas réécrite.
-  function syncSettingsHeaderHeightVar() {
-    var panel = $('profileSettingsPanel');
-    var header = panel && panel.querySelector('.subpageHeader');
-    if (!panel || !header || panel.classList.contains('hidden')) return;
-    document.documentElement.style.setProperty('--settings-header-h', header.offsetHeight + 'px');
-  }
-  window.addEventListener('resize', syncSettingsHeaderHeightVar);
-  window.addEventListener('orientationchange', syncSettingsHeaderHeightVar);
+  // ⚠️ syncSettingsHeaderHeightVar() et la variable --settings-header-h ont été
+  // RETIRÉES le 26 septembre 2026, en même temps que le passage du panneau
+  // Réglages à une carte flex (voir styles.css). Elles existaient pour une
+  // seule raison : le bandeau "Réglages" était posé EN SURIMPRESSION de la zone
+  // défilante (position: absolute), qui devait donc réserver en padding la
+  // hauteur exacte du bandeau — variable selon la langue et la taille de
+  // police système, d'où la mesure en JS. Le bandeau est désormais un FRÈRE de
+  // cette zone dans le flux de la carte : il ne recouvre plus rien, et plus
+  // aucune règle CSS ne lit cette variable.
+  //
+  // Cette fonction avait déjà disparu une fois par accident (collision
+  // d'écritures du 10 septembre 2026, voir noesis-timetracker-profil.md) puis
+  // été restaurée. Ce retrait-ci est DELIBÉRÉ : ne pas la réintroduire sans
+  // remettre d'abord le bandeau en position absolue.
 
   // 3 septembre 2026 (demande d'Emilien : « je souhaite que la section
   // flottante dans communauté [...] soit une prolongation de la barre du
@@ -8675,6 +8673,19 @@
         taskLabel.textContent = task.label;
         taskRow.appendChild(taskLabel);
 
+        // 26 septembre 2026, correctif du bug « tâche capturée absente du
+        // calendrier » (voir server/lib/calendarfeed.js#dayTasksByDate) : le
+        // calendrier montre désormais les tâches de TOUTE l'activité, pas
+        // seulement du secteur actuellement ouvert — une tâche classée par
+        // l'IA dans un AUTRE secteur porte donc ce petit repère pour rester
+        // compréhensible (jamais confondue avec une tâche du secteur affiché).
+        if (task.category && task.category !== currentGoalsCategory) {
+          var otherCat = document.createElement('span');
+          otherCat.className = 'goalsCalendarTaskOtherCategory';
+          otherCat.textContent = goalsCategoryLabel(task.category);
+          taskRow.appendChild(otherCat);
+        }
+
         // 25 septembre 2026 (badges « non vu », restructuration du volet
         // Objectifs en 3 pages), demande directe d'Emilien : « dans le
         // calendrier, il y ait un petit point violet à droite des tâches
@@ -9658,6 +9669,12 @@
   // retour depuis la page 2) : repartir d'une sélection vide plutôt que de
   // se souvenir d'un choix qui datait potentiellement d'une session précédente.
   var goalsCaptureSelectedActivityIds = [];
+  // 26 septembre 2026, demande directe d'Emilien (page 1, point e) : vrai
+  // tant que l'utilisateur a cliqué « Ajouter » sans avoir choisi d'activité
+  // — les puces perdent leur couleur pleine (gardent le point) et l'invite
+  // #goalsCaptureActivityPrompt est visible, jusqu'à ce qu'au moins une
+  // activité soit sélectionnée. Jamais persisté au-delà de cet aller-retour.
+  var goalsCaptureAwaitingActivityChoice = false;
   // {activityId: {total, byCategory}} — voir GET /api/goals/capture/badges
   // (server/routes/goals.js). Rempli par loadGoalsCaptureBadges(), consommé
   // par renderGoalsCaptureActivities() (badge par activité, page 1) — le
@@ -9721,12 +9738,40 @@
         btn.appendChild(badge);
       }
 
+      // 26 septembre 2026, demande directe d'Emilien (page 1, point c) :
+      // couleur PLEINE de l'activité, même convention que les boutons
+      // d'activité du Chrono (voir paintCategoryStatsHeader() plus haut :
+      // fond = a.color, texte = textColorForTheme — palette contrainte par
+      // thème, lisible par construction, pas de calcul de contraste par
+      // couleur). Suspendue en mode « attente de choix d'activité » (point
+      // e) : la puce redevient neutre, seul le point ci-dessus reste coloré.
+      if (goalsCaptureAwaitingActivityChoice) {
+        btn.style.background = '';
+        btn.style.color = '';
+      } else {
+        btn.style.background = a.color;
+        btn.style.color = textColorForTheme(currentTheme);
+      }
+
       btn.addEventListener('click', function () {
         var wrap = $('goalsCaptureBubbleWrap');
         var textarea = wrap ? wrap.querySelector('textarea') : null;
         var hasText = textarea && textarea.value.trim();
-        if (hasText) toggleGoalsCaptureActivitySelection(id);
-        else showGoalsPolesPage(a.id);
+        if (hasText) {
+          toggleGoalsCaptureActivitySelection(id);
+          // Une activité vient d'être choisie pendant l'attente (point e) :
+          // referme l'invite, restaure la couleur pleine des puces. Le texte
+          // reste dans la bulle — un nouveau clic sur « Ajouter » complète
+          // l'envoi, aucun envoi automatique implicite ici.
+          if (goalsCaptureAwaitingActivityChoice && goalsCaptureSelectedActivityIds.length) {
+            goalsCaptureAwaitingActivityChoice = false;
+            var promptEl = $('goalsCaptureActivityPrompt');
+            if (promptEl) promptEl.classList.add('hidden');
+            renderGoalsCaptureActivities();
+          }
+        } else {
+          showGoalsPolesPage(a.id);
+        }
       });
 
       box.appendChild(btn);
@@ -9770,7 +9815,22 @@
     function submit() {
       var label = textarea.value.trim();
       if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
-      if (!goalsCaptureSelectedActivityIds.length) { msg.textContent = t('Sélectionne au moins une activité.'); return; }
+      if (!goalsCaptureSelectedActivityIds.length) {
+        // 26 septembre 2026, demande directe d'Emilien (page 1, point e) :
+        // plus un simple message d'erreur dans la bulle — le clavier se
+        // referme et une invite apparaît entre la bulle et les puces (voir
+        // renderGoalsCaptureActivities() pour la sortie de ce mode).
+        textarea.blur();
+        msg.textContent = '';
+        goalsCaptureAwaitingActivityChoice = true;
+        var promptEl = $('goalsCaptureActivityPrompt');
+        if (promptEl) promptEl.classList.remove('hidden');
+        renderGoalsCaptureActivities();
+        return;
+      }
+      goalsCaptureAwaitingActivityChoice = false;
+      var promptElDone = $('goalsCaptureActivityPrompt');
+      if (promptElDone) promptElDone.classList.add('hidden');
       msg.textContent = '';
       btn.disabled = true;
       api('POST', '/api/goals/capture', { userId: profile.id, label: label, activityIds: goalsCaptureSelectedActivityIds })
@@ -9846,6 +9906,9 @@
     closeGoalsDetail();
     $('goalsCapturePage').classList.remove('hidden');
     goalsCaptureSelectedActivityIds = [];
+    goalsCaptureAwaitingActivityChoice = false;
+    var promptElReset = $('goalsCaptureActivityPrompt');
+    if (promptElReset) promptElReset.classList.add('hidden');
     renderGoalsCaptureBubble();
     renderGoalsCaptureActivities();
     loadGoalsCaptureBadges();
@@ -13748,11 +13811,6 @@
     renderShareSettings();
     var settingsPanelEl = $('profileSettingsPanel');
     settingsPanelEl.classList.remove('hidden');
-    // Mesure la hauteur réelle du bandeau "Réglages"/Déconnexion, fixe depuis
-    // le 10 septembre 2026 (voir styles.css) — après remove('hidden') pour
-    // qu'offsetHeight soit correct. Appel RESTAURÉ le 10 septembre, voir la
-    // note au-dessus de syncSettingsHeaderHeightVar.
-    syncSettingsHeaderHeightVar();
     // Plein écran avec glissement droite → gauche à l'ouverture (9 septembre
     // 2026, demande d'Emilien) : .hidden vient d'être retiré (le panneau
     // redevient affiché, hors écran à droite — voir styles.css) ; on force
@@ -13783,44 +13841,36 @@
     else closeSettingsPanel();
   });
 
-  // Plein écran (9 septembre 2026) : la fenêtre couvre tout l'écran, il n'y a
-  // donc plus de "clic en dehors" atteignable pour la refermer — bouton "←"
-  // dédié dans son en-tête (voir index.html), symétrique du glissement
-  // d'ouverture.
+  // Croix de fermeture (26 septembre 2026, demande d'Emilien : « remplacer
+  // flèche desktop + swipe tactile par une croix ✕ + clic sur le fond, même
+  // mécanisme qu'Activité »). Elle a pris la place du « ← » flottant, dans le
+  // bandeau plutôt qu'en surimpression — voir index.html et styles.css.
+  // L'écouteur, lui, est rigoureusement le même qu'avant.
   $('settingsCloseBtn').addEventListener('click', closeSettingsPanel);
 
-  // Geste de retour tactile (9 septembre 2026, demande d'Emilien) : sur un
-  // appareil à pointeur tactile, on referme Réglages en glissant simplement
-  // de gauche à droite sur le panneau — le bouton "←" (masqué sur ces
-  // appareils, voir styles.css, @media (pointer: coarse)) devient inutile.
-  // "Détection simple" plutôt qu'un suivi du doigt en direct (comme discuté
-  // avec Emilien) : on mesure juste le déplacement total entre touchstart et
-  // touchend, et on déclenche closeSettingsPanel() s'il ressemble à un
-  // balayage horizontal vers la droite — cette fonction anime déjà
-  // exactement le bon sens de glissement (droite, voir plus haut), rien à
-  // réanimer ici.
-  (function () {
-    var panel = $('profileSettingsPanel');
-    var startX = null, startY = null, tracking = false;
-    var MIN_DISTANCE = 60; // px — évite de déclencher sur un simple tapotement
-    var MAX_VERTICAL_RATIO = 0.5; // le geste doit rester majoritairement horizontal
-    panel.addEventListener('touchstart', function (e) {
-      if (panel.classList.contains('hidden') || e.touches.length !== 1) { tracking = false; return; }
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      tracking = true;
-    }, { passive: true });
-    panel.addEventListener('touchend', function (e) {
-      if (!tracking) return;
-      tracking = false;
-      if (panel.classList.contains('hidden') || !e.changedTouches.length) return;
-      var dx = e.changedTouches[0].clientX - startX;
-      var dy = e.changedTouches[0].clientY - startY;
-      if (dx < MIN_DISTANCE) return;
-      if (Math.abs(dy) > Math.abs(dx) * MAX_VERTICAL_RATIO) return;
-      closeSettingsPanel();
-    }, { passive: true });
-  })();
+  // Clic sur la zone « en dehors » qui entoure la carte : referme, comme
+  // #activityPage (voir son propre écouteur, même forme exacte). Le test
+  // `e.target === panel` est indispensable : sans lui, n'importe quel clic
+  // à l'intérieur de la carte remonterait jusqu'ici et refermerait le panneau
+  // qu'on vient d'ouvrir.
+  //
+  // ⚠️ Ce geste n'est atteignable que sur écran large : la carte est plafonnée
+  // à 480px, il reste donc des marges cliquables de part et d'autre. Sur
+  // téléphone elle occupe toute la largeur et rien ne dépasse — la croix est
+  // alors le seul moyen de fermeture, d'où le retrait de son ancien masquage
+  // sur pointeur tactile (styles.css). Activité vit exactement la même
+  // situation depuis le 3 septembre 2026.
+  $('profileSettingsPanel').addEventListener('click', function (e) {
+    if (e.target === $('profileSettingsPanel')) closeSettingsPanel();
+  });
+
+  // ⚠️ Le geste de retour tactile (balayage gauche → droite sur le panneau,
+  // 9 septembre 2026) a été RETIRÉ le 26 septembre 2026 à la demande d'Emilien,
+  // en même temps que le « ← » qu'il remplaçait au doigt. La croix du bandeau
+  // le remplace sur tous les appareils — un seul geste à apprendre, le même
+  // que pour fermer une activité. Ses écouteurs touchstart/touchend sur
+  // #profileSettingsPanel sont supprimés, pas neutralisés : le panneau ne
+  // capte plus aucun événement tactile de son côté.
 
   // Referme le panneau des Réglages au clic n'importe où en dehors de lui (ou
   // de son icône) — même mécanisme que le panneau des invitations. Devenu
@@ -14617,7 +14667,7 @@
   // Voir le commentaire au-dessus de #projectsList/#newProjectCard dans
   // index.html, et profile_projects / SEEKING_TAGS dans server/db.js et
   // server/routes/profile.js. Gestion complète ici (ajout, modification,
-  // suppression, réordonnancement manuel #projectMoveBtn) ; la même donnée
+  // suppression, réordonnancement par glisser-déposer) ; la même donnée
   // est consultée en lecture seule par les abonnés depuis #viewProfileModal
   // (voir openProfileViewModal, plus bas dans ce fichier).
   //
@@ -14932,30 +14982,106 @@
     return frag;
   }
 
-  // Dernière liste de SES PROPRES projets chargée depuis le serveur —
-  // utilisée par moveProject() pour recalculer l'ordre localement avant de
-  // le renvoyer en entier (voir PUT /profile/projects/reorder).
-  var currentProjects = [];
-
   function loadProfileProjects() {
     if (!profile) return;
     api('GET', '/api/profile/' + profile.id + '/projects?viewerId=' + profile.id).then(renderProjectsList);
   }
 
-  // Réordonnancement manuel via ▲▼ (pas de glisser-déposer : plus fiable
-  // sur mobile sans bibliothèque tierce, et l'app n'en utilise déjà aucune
-  // ailleurs). Échange le projet à `index` avec son voisin, puis renvoie la
-  // liste ENTIÈRE des ids dans le nouvel ordre — le serveur réécrit
-  // position = index dans ce tableau (voir PUT /profile/projects/reorder).
-  function moveProject(index, direction) {
-    var target = index + direction;
-    if (target < 0 || target >= currentProjects.length) return;
-    var reordered = currentProjects.slice();
-    var tmp = reordered[index]; reordered[index] = reordered[target]; reordered[target] = tmp;
-    var orderedIds = reordered.map(function (p) { return p.id; });
-    api('PUT', '/api/profile/projects/reorder', { userId: profile.id, orderedIds: orderedIds })
-      .then(renderProjectsList)
-      .catch(function (err) { alert(err.message); });
+  // ⚠️ 26 septembre 2026, demande d'Emilien : les deux boutons ▲▼ sont
+  // remplacés par le glisser-déposer à la poignée déjà utilisé ailleurs dans
+  // l'app (Pôles, Secteurs, Activités, Sous-projets). moveProject() est donc
+  // retirée avec eux — le commentaire qu'elle portait (« pas de
+  // glisser-déposer : plus fiable sur mobile ») datait du 1er septembre, avant
+  // que bindSubProjectDrag n'existe et ne fasse la preuve du contraire.
+  //
+  // Copiée de bindActivityDrag (même mécanique au pixel près, mêmes pièges
+  // évités — voir son commentaire). Deux différences seulement : la liste
+  // ciblée (#projectsList) et la route de persistance
+  // (PUT /api/profile/projects/reorder, qui attend `orderedIds`).
+  //
+  // Contrairement aux Activités, AUCUN mode édition à ouvrir : la poignée est
+  // toujours visible, exactement là où vivaient les ▲▼ (choix d'Emilien au
+  // cadrage) — ce panneau EST déjà l'espace de gestion des projets, y ajouter
+  // un appui long n'aurait fait qu'une étape de plus.
+  function bindProjectDrag(handle, row) {
+    // ⚠️ Trouvé par le test, pas à l'œil : `pointerdown` et `click` sont deux
+    // événements DISTINCTS. Arrêter le premier (plus bas) n'empêche pas le
+    // second de remonter jusqu'à .activityRowHeader.clickable, qui déplie le
+    // projet — un simple tapotement sur la poignée, sans glisser, ouvrait donc
+    // le panneau d'édition. Les Activités n'ont pas ce problème : leur en-tête
+    // n'est pas cliquable en mode édition, seul moment où leur poignée existe.
+    // Ici la poignée est toujours là, il faut donc neutraliser le clic aussi.
+    handle.addEventListener('click', function (e) { e.stopPropagation(); });
+    handle.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      // Sans ceci, le pointerdown remonte jusqu'à l'en-tête de la ligne, qui
+      // déplie le projet : on ouvrirait le panneau en commençant à glisser.
+      e.stopPropagation();
+      var box = $('projectsList');
+      var rows = Array.prototype.slice.call(box.querySelectorAll('.activityRow'));
+      var mids = rows.map(function (el) {
+        var r = el.getBoundingClientRect();
+        return r.top + r.height / 2;
+      });
+      var fromIndex = rows.indexOf(row);
+      var startY = e.clientY;
+      var targetIndex = fromIndex;
+      var step = row.getBoundingClientRect().height +
+        parseFloat(getComputedStyle(box).rowGap || getComputedStyle(box).gap || 0) || 0;
+
+      handle.setPointerCapture(e.pointerId);
+      row.classList.add('dragging');
+      box.classList.add('dragging');
+
+      function layoutGap() {
+        for (var i = 0; i < rows.length; i++) {
+          if (i === fromIndex) continue;
+          var shift = 0;
+          if (targetIndex > fromIndex && i > fromIndex && i <= targetIndex) shift = -step;
+          else if (targetIndex < fromIndex && i >= targetIndex && i < fromIndex) shift = step;
+          rows[i].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+        }
+      }
+
+      function onMove(ev) {
+        row.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
+        var idx = 0;
+        for (var i = 0; i < mids.length; i++) {
+          if (ev.clientY > mids[i]) idx = i;
+        }
+        if (idx !== targetIndex) { targetIndex = idx; layoutGap(); }
+      }
+
+      function onUp() {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        row.classList.remove('dragging');
+        box.classList.remove('dragging');
+        row.style.transform = '';
+        rows.forEach(function (el) { el.style.transform = ''; });
+
+        if (targetIndex !== fromIndex) {
+          var ordered = rows.slice();
+          ordered.splice(fromIndex, 1);
+          ordered.splice(targetIndex, 0, row);
+          // Réordonne le DOM tout de suite : le résultat est visible sans
+          // attendre l'aller-retour serveur. renderProjectsList() rendra
+          // ensuite la liste faisant autorité (elle rafraîchit aussi la bande
+          // de pastilles de la barre supérieure, qui suit le même ordre).
+          ordered.forEach(function (el) { box.appendChild(el); });
+          api('PUT', '/api/profile/projects/reorder', {
+            userId: profile.id,
+            orderedIds: ordered.map(function (el) { return Number(el.dataset.projectId); }),
+          }).then(renderProjectsList)
+            .catch(function (err) { alert(err.message); loadProfileProjects(); });
+        }
+      }
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
+    });
   }
 
   // ===================== PROJETS DANS LA BARRE SUPÉRIEURE (4 sept. 2026) =====================
@@ -15058,7 +15184,6 @@
   });
 
   function renderProjectsList(list) {
-    currentProjects = list;
     // Bande compacte de la barre supérieure (4 septembre 2026) : rendue à
     // partir de la MÊME liste, dans la même passe — aucune requête de plus, et
     // aucun risque que les deux affichages divergent.
@@ -15088,19 +15213,21 @@
       var badges = buildSeekingBadges(p.seeking, false);
       if (badges) header.appendChild(badges);
 
-      var upBtn = document.createElement('button');
-      upBtn.type = 'button'; upBtn.className = 'projectMoveBtn'; upBtn.textContent = '▲';
-      upBtn.title = t('Monter'); upBtn.setAttribute('aria-label', t('Monter'));
-      upBtn.disabled = index === 0;
-      upBtn.addEventListener('click', function (e) { e.stopPropagation(); moveProject(index, -1); });
-      header.appendChild(upBtn);
-
-      var downBtn = document.createElement('button');
-      downBtn.type = 'button'; downBtn.className = 'projectMoveBtn'; downBtn.textContent = '▼';
-      downBtn.title = t('Descendre'); downBtn.setAttribute('aria-label', t('Descendre'));
-      downBtn.disabled = index === list.length - 1;
-      downBtn.addEventListener('click', function (e) { e.stopPropagation(); moveProject(index, 1); });
-      header.appendChild(downBtn);
+      // Poignée de glissement (26 septembre 2026) — remplace les ▲▼. Même
+      // caractère « ≡ » et même classe .activityDragHandle que les Activités :
+      // aucun style à écrire, et le geste se reconnaît d'une liste à l'autre.
+      // Placée à la fin de l'en-tête, là où étaient les deux boutons, plutôt
+      // qu'au début comme chez les Activités : la colonne de gauche est ici
+      // occupée par le nom du projet, qu'on lit en premier.
+      var handle = document.createElement('span');
+      handle.className = 'activityDragHandle';
+      handle.setAttribute('aria-label', t('Déplacer ce projet'));
+      handle.textContent = '≡';
+      // Une seule ligne : rien à réordonner, une poignée n'aurait aucun sens.
+      if (list.length > 1) {
+        bindProjectDrag(handle, row);
+        header.appendChild(handle);
+      }
 
       row.appendChild(header);
 

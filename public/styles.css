@@ -1697,33 +1697,61 @@ body.scrollLock { overflow: hidden; }
   transition: transform 280ms ease;
 }
 #profileSettingsPanel.settingsPanel.open { transform: translateX(0); }
+/* 26 septembre 2026 (demande d'Emilien, « même mécanisme qu'Activité ») : le
+   panneau ne porte plus le contenu directement, il CENTRE une carte de 480px
+   — comme #activityPage centre .communityMembersModalCard. Tout ce qui
+   dépasse de la carte (sur écran large uniquement) est la zone « en dehors »,
+   cliquable pour refermer (app.js). Le fond reste var(--bg) et non un noir
+   translucide : Activité a fait le même choix le 3 septembre (« une PAGE, pas
+   une feuille qui remonte du bas »), on ne s'en écarte pas ici.
+   align-items: stretch pour que la carte prenne toute la hauteur. */
+#profileSettingsPanel.settingsPanel {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  /* ⚠️ Trouvé par le test sur téléphone, pas à l'œil : .notifPanel pose un
+     padding de 12px que ce bloc n'écrasait pas. Invisible tant que les enfants
+     étaient en position: absolute — mais avec la carte en flux, il laissait
+     une bande de 12px tout autour, de la même couleur que le reste donc
+     indiscernable, ET cliquable : un doigt posé au bord de l'écran refermait
+     Réglages sans qu'on comprenne pourquoi. À zéro, la carte occupe vraiment
+     toute la largeur sur téléphone et la zone « en dehors » n'existe que là
+     où elle a un sens : sur écran large, de part et d'autre des 480px. */
+  padding: 0;
+}
+/* La carte reprend le rôle que le panneau tenait jusqu'ici : colonne flex,
+   bandeau fixe en haut (flex: 0 0 auto) + zone défilante qui absorbe le
+   reste. Ce montage en flux remplace les deux `position: absolute` d'avant
+   (bandeau et zone défilante étaient tous deux positionnés par rapport au
+   panneau) — le bandeau reste tout aussi fixe, mais sans qu'aucune hauteur
+   n'ait plus besoin d'être mesurée en JS puis recopiée en padding : c'est le
+   flux qui s'en charge. Voir la note sur --settings-header-h, retirée du
+   même coup, dans app.js. */
+#profileSettingsPanel.settingsPanel > .settingsPanelCard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg);
+}
 @media (prefers-reduced-motion: reduce) {
   #profileSettingsPanel.settingsPanel { transition-duration: 0.01ms; }
 }
-/* Bouton "←" : voir le commentaire complet ci-dessus. Enfant direct de
-   #profileSettingsPanel (pas de #profileSettingsScroll), positionné par
-   rapport à lui — #profileSettingsPanel ne défilant plus lui-même, une
-   simple absolute suffit, insensible par construction au défilement de
-   #profileSettingsScroll à côté. */
+/* 26 septembre 2026 : le « ← » flottant est devenu une ✕ DANS le bandeau
+   (voir index.html). Plus aucun positionnement absolu ni réservation d'espace
+   à prévoir ailleurs : c'est un simple élément de flux, poussé à droite du
+   titre, comme #activityPageClose dans .activityPageHeader. */
 #profileSettingsPanel.settingsPanel #settingsCloseBtn {
-  position: absolute;
-  top: max(12px, env(safe-area-inset-top));
-  left: max(12px, env(safe-area-inset-left));
-  z-index: 2;
+  flex-shrink: 0;
+  margin-left: auto;
 }
-/* Geste de retour tactile (9 septembre 2026, demande d'Emilien) : sur un
-   appareil à pointeur tactile, Réglages se referme désormais par un
-   glissement gauche → droite sur le panneau (voir app.js, écouteurs
-   touchstart/touchend sur #profileSettingsPanel) — le bouton "←" devient
-   redondant et disparaît pour ces appareils. Il reste affiché sur
-   ordinateur/souris (pointer: fine) : c'est là le SEUL moyen de refermer
-   le panneau, plein écran, sans souris ni geste tactile équivalent. Reprend
-   le même test (pointer: coarse) déjà utilisé ailleurs dans ce fichier et
-   dans app.js (_isCoarsePointer) pour distinguer les deux familles
-   d'appareils. */
-@media (pointer: coarse) {
-  #profileSettingsPanel.settingsPanel #settingsCloseBtn { display: none; }
-}
+/* ⚠️ Le masquage de ce bouton sur pointeur tactile (@media (pointer: coarse),
+   9 septembre 2026) a été RETIRÉ le 26 septembre 2026 : il n'avait de sens que
+   tant qu'un balayage gauche → droite prenait le relais au doigt. Ce balayage
+   est supprimé (demande d'Emilien) — la croix est donc le seul moyen de
+   fermeture au doigt et doit rester visible partout. */
 /* En-tête "Réglages"/Déconnexion FIXE en haut du panneau (10 septembre 2026,
    demande d'Emilien — voir le commentaire "Pourquoi le panneau est coupé en
    DEUX boîtes" plus haut pour le pourquoi de cette sortie de
@@ -1736,37 +1764,48 @@ body.scrollLock { overflow: hidden; }
    dessous disparaît visuellement sous ce bandeau plutôt que de transparaître.
    padding-left réutilise la même colonne de 44px que .settingsSectionHeader
    ci-dessous, pour ne jamais chevaucher "←" sur pointer: fine. */
-#profileSettingsPanel.settingsPanel > .subpageHeader {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  z-index: 1;
+/* 26 septembre 2026 : le bandeau n'est plus positionné en absolute par
+   rapport au panneau, c'est le PREMIER ÉLÉMENT DE FLUX de la carte
+   (flex: 0 0 auto) — exactement .activityPageHeader dans #activityPage. Il
+   reste tout aussi fixe pendant le défilement, puisque c'est la zone
+   à côté qui défile et non la carte. Deux bénefices collatéraux : plus besoin
+   de mesurer sa hauteur en JS pour la recopier en padding
+   (--settings-header-h, retirée), et plus de colonne de 44px à réserver à
+   gauche pour un bouton flottant qui n'existe plus.
+   border-bottom comme .activityPageHeader : sans lui, le contenu qui défile
+   passe sous le titre sans qu'on voie où s'arrête l'en-tête. */
+#profileSettingsPanel.settingsPanel > .settingsPanelCard > .subpageHeader {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
   background: var(--bg);
+  border-bottom: 1px solid var(--border);
   padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 12px
-           calc(max(12px, env(safe-area-inset-left)) + 44px);
+           max(12px, env(safe-area-inset-left));
 }
-/* scroll-padding-top et padding-top calés sur la hauteur RÉELLE du bandeau
-   ci-dessus (--settings-header-h, mesurée en JS — voir
-   syncSettingsHeaderHeightVar dans app.js, même patron que
-   --topbar-h/--community-searchbar-h ailleurs dans ce fichier) plutôt que sur
-   un nombre codé en dur : le texte du bandeau peut changer de hauteur selon
-   la langue ou la taille de police du système. 56px de repli tant que la
-   variable n'a pas encore été posée par JS (avant la première ouverture du
-   panneau). +8px de respiration, comme le reste du panneau. Avec le
-   défilement « cran par cran », N'IMPORTE QUEL élément de premier niveau —
-   section autonome OU groupe fusionné — peut se retrouver aligné tout en
-   haut de cette zone une fois ouvert : scroll-padding-top (et non le
-   padding-top du conteneur, qui n'influence que la position AVANT tout
-   défilement) pousse l'élément ouvert sous le bandeau fixe, quel qu'il
-   soit. */
+/* ⚠️ 26 septembre 2026 — ce bloc calait autrefois scroll-padding-top et
+   padding-top sur la hauteur RÉELLE du bandeau, mesurée en JS
+   (--settings-header-h / syncSettingsHeaderHeightVar), parce que le bandeau
+   était posé EN SURIMPRESSION de cette zone : sans ce dégagement, il recouvrait
+   l'élément amené en haut par le défilement cran par cran. Depuis le passage
+   à la carte flex (voir plus haut), le bandeau est un frère de cette zone et
+   non plus un calque au-dessus : il ne peut plus rien recouvrir, la mesure JS
+   et la variable ont donc été retirées des deux fichiers. Ne pas les
+   réintroduire sans remettre d'abord le bandeau en position absolue.
+   Le défilement cran par cran, lui, est inchangé. */
 #profileSettingsScroll {
-  position: absolute;
-  inset: 0;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
-  scroll-padding-top: calc(var(--settings-header-h, 56px) + 8px);
+  /* 8px de respiration suffisent désormais : le bandeau n'est plus au-dessus
+     de cette zone mais À CÔTÉ d'elle dans le flux de la carte, il ne peut donc
+     plus recouvrir l'élément amené en haut par le défilement cran par cran. */
+  scroll-padding-top: 8px;
   overscroll-behavior: contain;
-  padding: calc(var(--settings-header-h, 56px) + 8px) max(12px, env(safe-area-inset-right))
+  padding: 8px max(12px, env(safe-area-inset-right))
            max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 #profileSettingsScroll .settingsSection,
@@ -1808,7 +1847,12 @@ body.scrollLock { overflow: hidden; }
    dessus de #profileSettingsScroll pour le pourquoi de ces 44px — .settingsSectionHeader
    est déjà l'en-tête partagé des sections ET des groupes fusionnés (voir
    app.js), un seul sélecteur couvre donc les deux cas sans rien dupliquer. */
-#profileSettingsScroll .settingsSectionHeader { padding-left: 44px; }
+/* ⚠️ padding-left ramené à 16px le 26 septembre 2026 : les 44px réservaient la
+   colonne du bouton « ← » flottant, qui n'existe plus (croix dans le bandeau).
+   Sans ce retour, tous les titres de section resteraient décalés vers la
+   droite pour un bouton absent. 16px = la valeur du padding de la règle
+   ci-dessus, donc alignement identique à droite et à gauche. */
+#profileSettingsScroll .settingsSectionHeader { padding-left: 16px; }
 #profileSettingsPanel .settingsSectionHeader .sectionTitle { margin: 0; }
 #profileSettingsPanel .settingsSectionChevron {
   color: var(--text-light); font-size: 13px; flex-shrink: 0;
@@ -2720,13 +2764,16 @@ body.scrollLock { overflow: hidden; }
    plus fiable sur mobile sans bibliothèque tierce). Pastilles carrées comme
    .menuBtn, mais plus petites : posées à côté de lui dans
    .activityRowHeader, jamais seules. */
-.projectMoveBtn {
-  flex-shrink: 0; width: 26px; height: 26px; padding: 0; line-height: 1;
-  font-size: 13px; border: 1px solid var(--border); background: var(--card);
-  color: var(--text); border-radius: var(--radius-sm); cursor: pointer;
-}
-.projectMoveBtn:hover { background: var(--hover-bg); }
-.projectMoveBtn:disabled { opacity: 0.3; cursor: default; }
+/* ⚠️ .projectMoveBtn (les deux boutons ▲▼ de réordonnancement d'un projet)
+   a été RETIRÉE le 26 septembre 2026, demande d'Emilien : le glisser-déposer à
+   la poignée la remplace (voir bindProjectDrag dans app.js). La poignée
+   réutilise .activityDragHandle, déjà définie plus haut pour les Activités —
+   aucun style propre aux projets à écrire.
+   Seule règle nécessaire ici : l'animation des lignes qui s'écartent pendant
+   le glissement, jumelle de celle de #activitiesList ci-dessus. La ligne
+   déplacée, elle, est déjà couverte par .activityRow.dragging, que les projets
+   partagent puisqu'ils utilisent la même classe de ligne. */
+#projectsList.dragging .activityRow:not(.dragging) { transition: transform 0.16s ease; }
 
 /* Champ "étiquette : valeur" de la vue détail d'un projet (description
    complète, lien, date de début, catégorie) — chez soi (panneau d'édition)
@@ -4385,8 +4432,7 @@ button { -webkit-user-select: none; user-select: none; }
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .topbar { padding-top: max(47px, env(safe-area-inset-top)); }
-    #profileSettingsPanel.settingsPanel #settingsCloseBtn { top: max(47px, env(safe-area-inset-top)); }
-    #profileSettingsPanel.settingsPanel > .subpageHeader { padding-top: max(47px, env(safe-area-inset-top)); }
+    #profileSettingsPanel.settingsPanel > .settingsPanelCard > .subpageHeader { padding-top: max(47px, env(safe-area-inset-top)); }
     .imageViewerClose { top: max(47px, env(safe-area-inset-top)); }
     .activityPageHeader { padding-top: max(47px, env(safe-area-inset-top)); }
   }
@@ -5881,6 +5927,12 @@ button { -webkit-user-select: none; user-select: none; }
   position: relative;
   border-radius: var(--radius-lg, var(--radius-md));
   background: var(--card);
+  /* 26 septembre 2026, demande directe d'Emilien (page 1, point d) : contour
+     violet fixe — le mouvement du fuseau (.activityGoalsCategoryAutoTaskGlow
+     ci-dessous, #9583C1) reste une teinte DIFFÉRENTE de ce contour statique
+     pour que le mouvement reste perceptible dessus, jamais confondu avec le
+     trait fixe. */
+  border: 1.5px solid var(--purple);
 }
 /* 22 septembre 2026, demande directe d'Emilien : « garder uniquement un
    fuseau [...] enlever l'ombre du fuseau qui se déplace indépendamment [...]
@@ -5989,23 +6041,42 @@ button { -webkit-user-select: none; user-select: none; }
 /* Puces d'activité à sélection multiple + double fonction (zone de texte
    vide + clic → navigue vers la page 2 de cette activité plutôt que de la
    sélectionner) — voir renderGoalsCaptureActivities(), app.js. */
+/* 26 septembre 2026, demande directe d'Emilien (page 1, points a-c) : les
+   puces passent sous la bulle (voir index.html), en colonne superposée
+   plutôt qu'alignées en ligne — chaque puce prend systématiquement la même
+   largeur que la zone d'écriture IA (100% du conteneur commun), le
+   chevauchement se fait donc verticalement. Aucun z-index nécessaire :
+   l'ordre naturel du DOM suffit déjà (une puce plus bas dans la liste est
+   peinte après, donc par-dessus le bas de celle du dessus) — seul un
+   margin-top négatif crée le chevauchement, la première puce garde le sien
+   à 0 pour ne pas être rognée par rien au-dessus d'elle. */
 .goalsCaptureActivities {
-  display: flex; flex-wrap: wrap; gap: 8px;
+  display: flex; flex-direction: column;
 }
 .goalsCaptureActivityChip {
   display: flex; align-items: center; gap: 6px;
+  width: 100%; box-sizing: border-box;
   padding: 8px 12px; border-radius: 999px;
   border: 1px solid var(--border); background: var(--card);
   color: var(--text); font-size: 14px; font-family: inherit;
   cursor: pointer; position: relative;
+  margin-top: -12px;
+}
+.goalsCaptureActivities.awaitingChoice .goalsCaptureActivityChip,
+.goalsCaptureActivityChip:first-child {
+  margin-top: 0;
 }
 .goalsCaptureActivityChip .dot {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
 }
 .goalsCaptureActivityChip.selected {
-  border-color: var(--purple); background: rgba(103, 78, 167, 0.12);
+  border-color: var(--purple); box-shadow: 0 0 0 1.5px var(--purple) inset;
 }
 .goalsCaptureActivityChipName { flex-shrink: 0; }
+/* 26 septembre 2026, demande directe d'Emilien (page 1, point e) : invite
+   affichée entre la bulle et les puces quand « Ajouter » est cliqué sans
+   activité choisie — voir submit(), buildGoalsCaptureBubble(), app.js. */
+.goalsCaptureActivityPrompt.hidden { display: none; }
 /* Badge violet « non vu » — jamais un compteur cumulatif (se vide dès que
    l'utilisateur visite la liste concernée, voir server/lib/goalstasks.js#
    unseenCountsForActivity et markCategoriesSeen). Réutilisé tel quel pour le
@@ -6039,6 +6110,15 @@ button { -webkit-user-select: none; user-select: none; }
 .goalsCalendarTaskUnseenDot {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   background: var(--purple); margin-left: 6px; flex-shrink: 0;
+}
+/* 26 septembre 2026, correctif « tâche capturée absente du calendrier » —
+   repère de secteur/pôle d'origine sur une tâche affichée dans un autre
+   secteur que celui actuellement ouvert (voir server/lib/calendarfeed.js#
+   dayTasksByDate, renderGoalsCalendarDays() app.js). */
+.goalsCalendarTaskOtherCategory {
+  flex-shrink: 0; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: var(--card-alt, var(--bg)); border: 1px solid var(--border);
+  color: var(--text-light); font-size: 11px; white-space: nowrap;
 }
 /* Bouton de retour de la page 2 vers la page 1 (#goalsBackToCaptureBtn,
    index.html) — réutilise .menuBtn tel quel, même motif que .goalsSwipeBtn
