@@ -646,16 +646,21 @@ input[type=time]:focus, select:focus, textarea:focus {
      setupStatsPeriodMenu, partagée par les trois discussions
      Statistiques — écarté volontairement de ce chantier. */
   z-index: 50;
+  transition: transform var(--transition-fast);
 }
-/* ⚠️ 3 septembre 2026 (Design) : positionnement via --keyboard-inset, puis
-   masquage complet (.tabbarHidden) tant qu'un champ texte avait le focus —
-   les deux approches abandonnées. RETIRÉ le 27 septembre 2026 (demande
-   d'Emilien : la barre ne doit plus jamais disparaître ni bouger hors de
-   tout contrôle) : .tabbar rejoint désormais le pincement continu déjà
-   utilisé pour #topbar/#activityPage/#goalsDetailPage (app.js,
-   pinBottomBars) — plus de transition CSS sur transform ici (retirée avec
-   ce mécanisme : elle aurait amorti/retardé chaque frame du pincement), et
-   plus de classe .tabbarHidden. */
+/* ⚠️ 3 septembre 2026 (Design), suite : une première tentative recalculait
+   la position de .tabbar via --keyboard-inset (mesurée en JS avec l'API
+   VisualViewport) pour la recoller juste au-dessus du clavier — insuffisant
+   dans certains contextes (composeur de sondage, où le clavier ajoute sa
+   propre barre d'accessoires), la mesure n'étant pas fiable partout,
+   surtout en PWA installée. Remplacé par un masquage complet : app.js pose
+   cette classe sur .tabbar tant qu'un champ texte a le focus (écrans
+   tactiles uniquement), et la retire au blur — plus rien à positionner
+   pendant que le clavier est ouvert, donc plus rien qui puisse flotter. */
+.tabbar.tabbarHidden {
+  transform: translateY(100%);
+  pointer-events: none;
+}
 .tabBtn {
   position: relative;
   flex: 1; background: none; border: none; padding: 10px 2px 8px;
@@ -2788,11 +2793,7 @@ body.scrollLock { overflow: hidden; }
 .hint { font-size: 13px; color: var(--text-light); margin: 0 0 10px; line-height: 1.5; }
 
 @media (min-width: 700px) {
-  /* 27 septembre 2026 (Design) : transform: translateX(-50%) remplacé par
-     margin-left (moitié de max-width, -320px) — .tabbar utilise désormais
-     transform en JS pour le pincement continu (voir app.js, pinBottomBars),
-     et les deux usages de transform seraient entrés en conflit. */
-  .tabbar { max-width: 640px; left: 50%; margin-left: -320px; border-radius: 16px 16px 0 0; }
+  .tabbar { max-width: 640px; left: 50%; transform: translateX(-50%); border-radius: 16px 16px 0 0; }
 }
 
 
@@ -3157,32 +3158,6 @@ button { -webkit-user-select: none; user-select: none; }
   flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
   /* Le rebond de cette zone ne se propage pas à la page derrière. */
   overscroll-behavior: contain;
-}
-/* 27 septembre 2026, demande d'Emilien (bug clavier persistant, capture à
-   l'appui, section Catégories) : « le nom des sections reste fixe [...] les
-   catégories défilent sous le nom des sections [...] jusqu'à ce que la zone
-   d'écriture se positionne juste au-dessus du clavier. » Jusqu'ici
-   #activityPageSectionSwitch (Catégories/Statistiques/Discussion) défilait
-   AVEC #activityPageBody, les deux dans la même zone #activityPageScroll —
-   le sélecteur remontait donc hors de vue en même temps que la liste des
-   pôles, au lieu de rester au repère fixe qu'Emilien attend. `position:
-   sticky` le colle au sommet de SA zone de défilement (#activityPageScroll,
-   déjà pincée à `vv.height` pendant le clavier, voir app.js) — même motif
-   déjà validé par Emilien pour .subProjectSticky.open plus bas dans ce
-   fichier, pas de nouvelle mécanique. Marge négative LATÉRALE + padding
-   horizontal restauré : le sélecteur couvre toute la largeur de la carte
-   (sinon le contenu défilerait visiblement dans les 16px de padding gauche/
-   droite de #activityPageScroll) ; padding-bottom remplace le
-   margin-bottom:16px de .periodSwitch (généique), neutralisé ici par
-   `margin: 0 -16px`. Fond opaque nécessaire : le contenu défile SOUS lui.
-   ⚠️ Exclu de .chatMode (:not) : ce mode construit sa PROPRE chaîne de
-   défilement (#communityDiscussionList) où #activityPageScroll ne défile
-   plus lui-même (overflow-y:hidden) — un `sticky` y serait sans effet, mais
-   autant l'exclure explicitement plutôt que de laisser au hasard. */
-#activityPageScroll:not(.chatMode) #activityPageSectionSwitch {
-  position: sticky; top: 0; z-index: 3;
-  background: var(--bg);
-  margin: 0 -16px; padding: 0 16px 16px;
 }
 .activityPageHeader {
   display: flex; align-items: center; gap: 10px;
@@ -4720,29 +4695,6 @@ button { -webkit-user-select: none; user-select: none; }
 .goalMainCard textarea::placeholder { color: inherit; opacity: 0.65; }
 .goalEstimateHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; }
 .goalMainCard .goalEstimateHint { color: inherit; opacity: 0.75; }
-
-/* 27 septembre 2026 (discussion "B. Objectifs — Calendrier & intégrations"),
-   demande d'Emilien : rendre plus attirante l'invite "objectif périodique"
-   (le textarea ci-dessus, inchangé) tant qu'aucun texte n'est encore
-   enregistré pour la période — bouton "Enregistrer" explicite, même famille
-   visuelle que .goalCapacitySaveBtn plus bas (propre fond `var(--card)`
-   plutôt que `inherit`, pour rester lisible quelle que soit la nuance de
-   catégorie posée en fond sur .goalMainCard, cf. son commentaire plus haut).
-   #activityGoalsMainEmptyHint suit au contraire `.goalEstimateHint`
-   (`inherit`) : simple texte sans fond propre, à même le bandeau coloré. */
-.goalMainSaveRow { display: flex; justify-content: flex-end; margin-top: 8px; }
-.goalMainSaveBtn {
-  padding: 7px 16px; font-size: 13px; font-weight: 600;
-  border: 1px solid var(--purple); color: var(--purple); background: var(--card);
-  border-radius: var(--radius-sm); cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-@media (hover: hover) {
-  .goalMainSaveBtn:hover { background: rgba(var(--purple-rgb), 0.12); }
-}
-.goalMainEmptyHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; opacity: 0.85; }
-.goalMainCard .goalMainEmptyHint { color: inherit; opacity: 0.85; }
-
 .goalBilanHint { text-align: center; font-size: 13px; color: var(--text-light); margin: 4px 0 0; }
 
 /* 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
@@ -5082,30 +5034,76 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .goalsSwipeBtn { flex-shrink: 0; }
 
-/* ⚠️ 26 septembre 2026 : le menu déroulant de pôles (.goalsPoleTabBar/
-   .goalsPoleDropdown*, 21 septembre 2026) est retiré — remplacé par le
-   sélecteur intégré au cadre d'en-tête existant (.goalsActivityHeader,
-   voir renderGoalsPoleSwitcher()/openGoalsForPole(), app.js, et
-   .goalsActivityPlainRow ci-dessous pour le nouveau titre d'activité en
-   ligne simple). Historique conservé dans
-   noesis-timetracker-chantiers-en-cours.md plutôt que retapé ici. */
-
-/* ===== Page 2 (Objectifs — Arbre périodique), restructuration du 26
-   septembre 2026 sur demande directe d'Emilien (maquette approuvée,
-   « C'est bon, code. »), point 1 : le nom de l'activité quitte le cadre
-   encadré pour une simple ligne de titre, flèche de retour vers la page 1
-   à sa gauche (#goalsBackToCaptureBtn, index.html). Réutilise .menuBtn
-   (bouton retour, déjà défini ailleurs dans ce fichier) — seule la ligne
-   elle-même et le nom sont propres à ce bloc. */
-.goalsActivityPlainRow {
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 0 10px;
+/* ===== Sélecteur de pôles — 21 septembre 2026, « Secteurs dans l'arbre
+   périodique ». D'abord une barre de boutons-pilules (matin, demande
+   d'Emilien : « On ne change pas l'arbre. Cependant, les secteurs
+   deviennent les pôles [...] »), remplacée LE JOUR MÊME par un menu
+   déroulant (nouvelle demande d'Emilien : « je souhaite que les pôles ne
+   soient plus des boutons successifs, mais un menu déroulant qui prend
+   l'ensemble de la largeur de l'écran et qui, lorsqu'il se déroule, pousse
+   les secteurs des arbres vers le bas »). Dropdown "maison" EN FLUX NORMAL
+   (position: static partout ci-dessous, jamais d'overlay/position absolue)
+   — même principe que .categoryDropdown plus haut dans ce fichier
+   (voir buildCategoryDropdown(), app.js) : la liste d'options
+   (.goalsPoleDropdownMenu) suit le bouton déclencheur
+   (.goalsPoleDropdownTrigger) dans le DOM, donc pousse mécaniquement
+   #goalsGridScroll (juste en dessous, index.html) vers le bas à
+   l'ouverture — exactement l'effet demandé, gratuit avec ce positionnement,
+   sans z-index ni calcul JS. #goalsPoleTabBar (id conservé tel quel côté
+   index.html/app.js malgré le nom hérité de l'ancienne barre de boutons)
+   porte `.hidden` tant qu'aucun pôle réel n'existe encore, et `.open`
+   pendant que le menu est déplié (posée par renderGoalsPoleDropdown(),
+   app.js — sans effet visuel propre ici, seulement un accroche pour
+   .goalsPoleDropdownArrow ci-dessous). Couleur par pôle via
+   subProjectShade() (app.js, même mécanisme que les badges
+   .goalsGridHeadCell) — jamais une seule couleur fixe. */
+.goalsPoleTabBar {
+  width: 100%;
 }
-.goalsActivityPlainName {
+.goalsPoleDropdownTrigger {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  text-align: left; cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.goalsPoleTabBar.open .goalsPoleDropdownTrigger { background: var(--hover-bg); }
+.goalsPoleDropdownDot {
+  flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%;
+}
+.goalsPoleDropdownLabel {
   flex: 1 1 auto; min-width: 0;
-  font-size: 15px; font-weight: 700;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.goalsPoleDropdownArrow {
+  flex-shrink: 0; font-size: 12px; color: var(--text-light);
+  transition: transform var(--transition-fast);
+}
+.goalsPoleTabBar.open .goalsPoleDropdownArrow { transform: rotate(180deg); }
+/* Options empilées verticalement (jamais en ligne comme l'ancienne barre de
+   boutons) — chacune prend toute la largeur, comme demandé ("l'ensemble de
+   la largeur de l'écran"). Pas de max-height/scroll ici contrairement à
+   .categoryDropdownMenu : au plus 5 pôles (MAX_CUSTOM_CATEGORIES,
+   server/lib/goals.js), toujours visibles d'un coup sans défilement. */
+.goalsPoleDropdownMenu {
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.goalsPoleDropdownOption {
+  padding: 10px 12px;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background-color var(--transition-fast);
+}
+.goalsPoleDropdownOption:last-child { border-bottom: none; }
+.goalsPoleDropdownOption:not(.active):hover { background: var(--hover-bg); }
 
 /* 15 septembre 2026 (7e passage, demande d'Emilien — « un seul mode : la
    grille (arbre) ») : la bascule Arbre/Répartition (.goalsViewToggle*) et la
@@ -6116,7 +6114,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* Badge violet « non vu » — jamais un compteur cumulatif (se vide dès que
    l'utilisateur visite la liste concernée, voir server/lib/goalstasks.js#
    unseenCountsForActivity et markCategoriesSeen). Réutilisé tel quel pour le
-   badge de l'arbre périodique (.goalsGridHeadBadge plus bas). */
+   badge du sélecteur de pôles (.goalsPoleDropdownBadge ci-dessous). */
 .goalsCaptureBadge {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 18px; height: 18px; padding: 0 5px;
@@ -6127,28 +6125,17 @@ button { -webkit-user-select: none; user-select: none; }
 /* 26 septembre 2026, retour direct d'Emilien : le badge de la Page 2 quitte
    le menu déroulant de pôle pour l'arbre périodique lui-même
    (.goalsGridHeadCell, voir renderGoalsGridHead(), app.js) — même style que
-   .goalsCaptureBadge. Règle ADDITIVE sur .goalsGridHeadCell (déjà déclarée
-   plus haut dans ce fichier, aucune propriété en commun avec celle-ci).
-   ⚠️ Correction directe d'Emilien (même jour) : « je souhaite que le point
-   violet lors de l'ajout d'une tâche soit plus centré et plus proche du nom
-   du secteur dans lequel il y a un ajout. Je souhaite qu'il ne soit pas en
-   haut à droite et coupé. » — le positionnement en coin (position:
-   absolute, ci-dessus, retiré) était coupé par `overflow: hidden` de
-   .goalsGridHeadCell (ellipsis du libellé). Remplacé par un flux inline
-   juste après le texte du libellé (span.textContent puis appendChild, voir
-   renderGoalsGridHead(), app.js) — jamais rogné, toujours à côté du nom. */
+   .goalsCaptureBadge, posé dans le coin supérieur droit de chaque case de
+   pôle/secteur. Règle ADDITIVE sur .goalsGridHeadCell (déjà déclarée plus
+   haut dans ce fichier, aucune propriété en commun avec celle-ci — ajoute
+   seulement `position: relative`, nécessaire pour positionner ce badge).
+   Inset (top/right: 2px, pas -6px) pour rester DANS les bords de la case :
+   .goalsGridHeadCell a `overflow: hidden` (ellipsis du libellé, ligne
+   ci-dessus) qui rognerait un badge positionné hors de sa boîte. */
 .goalsGridHeadCell { position: relative; }
 .goalsGridHeadBadge {
-  display: inline-flex; vertical-align: middle;
-  margin-left: 5px; transform: scale(0.85);
-}
-/* 26 septembre 2026, restructuration Page 2, point 4 : plus aucune case
-   d'ajout sur cette page — quand aucun pôle réel n'existe encore, un simple
-   message renvoie vers le panneau Catégories plutôt qu'une case cliquable
-   (voir renderGoalsGridHead(), app.js). */
-.goalsGridHeadEmpty {
-  flex: 1 1 auto; text-align: center; color: var(--text-light);
-  font-size: 13px; padding: 24px 12px; margin: 0;
+  position: absolute; top: 2px; right: 2px; transform: scale(0.85);
+  transform-origin: top right;
 }
 /* Point violet par tâche, page 3 (calendrier) — demande directe d'Emilien :
    « un petit point violet à droite des tâches nouvellement ajoutées [...]
