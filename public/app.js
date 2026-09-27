@@ -8238,9 +8238,23 @@
     // dans commitMainGoalText() pour que les deux déclencheurs partagent
     // strictement la même logique (pas de duplication, pas de dérive future
     // entre les deux chemins).
+    // 27 septembre 2026 (discussion "C. Objectifs — Page 1 / Logique métier"),
+    // bug réel trouvé en investiguant le rapport d'Emilien (2 PUT .../main
+    // identiques à la même milliseconde, 16:26:49 UTC) : cliquer sur
+    // "Enregistrer" pendant que le textarea a encore le focus déclenche
+    // D'ABORD le blur (le clic déplace le focus vers le bouton) PUIS le
+    // click — les deux appelaient commitMainGoalText(), qui comparait
+    // toujours à period.mainGoalText (figé depuis le dernier rendu, jamais
+    // mis à jour entre les deux appels) : les deux passaient le garde-fou et
+    // envoyaient chacun leur propre écriture. Corrigé en comparant/mettant à
+    // jour une valeur locale SYNCHRONE dès le premier appel, avant même la
+    // réponse serveur — le second appel (blur ou click, peu importe l'ordre)
+    // voit alors la valeur déjà "committée" et s'arrête.
+    var lastCommittedMainGoalText = period.mainGoalText || '';
     var commitMainGoalText = function () {
       var value = mainInput.value.trim();
-      if (value === (period.mainGoalText || '')) return;
+      if (value === lastCommittedMainGoalText) return;
+      lastCommittedMainGoalText = value;
       saveMainGoalText(period.periodNumber, value);
     };
     mainInput.onblur = commitMainGoalText;

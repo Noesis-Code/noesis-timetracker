@@ -182,15 +182,37 @@ function parseWeeklyGoals(text, requestedWeeks) {
 // remplies — jamais bloquant pour la requête HTTP qui a déjà répondu au
 // moment où ceci s'exécute.
 async function generateForPeriod(activityId, userId, category, periodNumber) {
+  // 27 septembre 2026 (discussion "C. Objectifs — Page 1 / Logique métier"),
+  // demande explicite d'Emilien après un signalement (« les objectifs
+  // hebdomadaires ne se sont pas remplis ») : journaliser l'issue de CHAQUE
+  // appel (lancé / ignoré+raison / réussi+nombre / échoué), jamais visible
+  // jusqu'ici (le fire-and-forget de server/routes/goals.js n'avait aucune
+  // trace en cas de skip silencieux, et le seul console.warn existant ne
+  // couvrait que l'échec). logCtx identifie l'appel dans les logs Railway
+  // pour corréler avec un double envoi éventuel côté client (voir le
+  // correctif du même jour sur public/app.js#commitMainGoalText).
+  const logCtx = 'activité ' + activityId + ' / ' + category + ' / période ' + periodNumber;
+  console.log('[objectifs][remplissage IA hebdomadaire] appelé (' + logCtx + ')');
   try {
-    if (!aiConfigured()) return { skipped: 'ai-not-configured' };
+    if (!aiConfigured()) {
+      console.log('[objectifs][remplissage IA hebdomadaire] ignoré (' + logCtx + ') : ai-not-configured');
+      return { skipped: 'ai-not-configured' };
+    }
 
     const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
       .get(activityId, category, periodNumber);
-    if (!period || !period.mainGoalText || !period.mainGoalText.trim()) return { skipped: 'no-main-goal' };
+    if (!period || !period.mainGoalText || !period.mainGoalText.trim()) {
+      console.log('[objectifs][remplissage IA hebdomadaire] ignoré (' + logCtx + ') : no-main-goal');
+      return { skipped: 'no-main-goal' };
+    }
 
     const emptyWeeks = emptyWeekIndexes(period.id);
-    if (!emptyWeeks.length) return { skipped: 'no-empty-week' };
+    if (!emptyWeeks.length) {
+      console.log('[objectifs][remplissage IA hebdomadaire] ignoré (' + logCtx + ') : no-empty-week');
+      return { skipped: 'no-empty-week' };
+    }
+
+    console.log('[objectifs][remplissage IA hebdomadaire] lancé (' + logCtx + ') : ' + emptyWeeks.length + ' semaine(s) vide(s) [' + emptyWeeks.join(',') + ']');
 
     const catInfo = goals.categoriesForActivity(activityId).find((c) => c.key === category)
       || { label: goals.categoryLabelFor(activityId, category), description: '' };
@@ -224,9 +246,10 @@ async function generateForPeriod(activityId, userId, category, periodNumber) {
       written += 1;
     });
 
+    console.log('[objectifs][remplissage IA hebdomadaire] réussi (' + logCtx + ') : ' + written + '/' + proposals.length + ' semaine(s) écrite(s) (sur ' + emptyWeeks.length + ' vide(s) au départ — un écart signale une saisie manuelle ou un autre appel concurrent survenu pendant l\'aller-retour IA)');
     return { written, proposed: proposals.length, emptyWeeks: emptyWeeks.length };
   } catch (err) {
-    console.warn('[objectifs][remplissage IA hebdomadaire] échoué pour l\'activité ' + activityId + ' / ' + category + ' / période ' + periodNumber + ' :', err && err.message);
+    console.warn('[objectifs][remplissage IA hebdomadaire] échoué (' + logCtx + ') :', err && err.message);
     return { error: true };
   }
 }
