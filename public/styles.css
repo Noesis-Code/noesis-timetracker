@@ -4725,20 +4725,24 @@ button { -webkit-user-select: none; user-select: none; }
    demande d'Emilien : rendre plus attirante l'invite "objectif périodique"
    (le textarea ci-dessus, inchangé) tant qu'aucun texte n'est encore
    enregistré pour la période — bouton "Enregistrer" explicite, même famille
-   visuelle que .goalCapacitySaveBtn plus bas (propre fond `var(--card)`
-   plutôt que `inherit`, pour rester lisible quelle que soit la nuance de
-   catégorie posée en fond sur .goalMainCard, cf. son commentaire plus haut).
+   visuelle que .goalCapacitySaveBtn plus bas (propre fond, pour rester
+   lisible quelle que soit la nuance de catégorie posée en fond sur
+   .goalMainCard, cf. son commentaire plus haut).
+   Correctif du même jour, sur retour direct d'Emilien après visualisation :
+   fond `var(--card)` (opaque, teinte du thème) remplacé par une teinte
+   PÂLE et distincte du cadre — rgba(var(--purple-rgb), 0.16) — plutôt
+   qu'un fond neutre confondu avec .goalMainCard.
    #activityGoalsMainEmptyHint suit au contraire `.goalEstimateHint`
    (`inherit`) : simple texte sans fond propre, à même le bandeau coloré. */
 .goalMainSaveRow { display: flex; justify-content: flex-end; margin-top: 8px; }
 .goalMainSaveBtn {
   padding: 7px 16px; font-size: 13px; font-weight: 600;
-  border: 1px solid var(--purple); color: var(--purple); background: var(--card);
+  border: 1px solid var(--purple); color: var(--purple); background: rgba(var(--purple-rgb), 0.16);
   border-radius: var(--radius-sm); cursor: pointer;
   transition: background-color var(--transition-fast);
 }
 @media (hover: hover) {
-  .goalMainSaveBtn:hover { background: rgba(var(--purple-rgb), 0.12); }
+  .goalMainSaveBtn:hover { background: rgba(var(--purple-rgb), 0.26); }
 }
 .goalMainEmptyHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; opacity: 0.85; }
 .goalMainCard .goalMainEmptyHint { color: inherit; opacity: 0.85; }
