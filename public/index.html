@@ -3236,14 +3236,19 @@
          le 14 septembre) redevient ✕, pour uniformiser avec #activityPageClose
          et le bouton de fermeture de Réglages — même id, même gestionnaire de
          clic (closeGoalsDetail), le clic sur le fond (#goalsDetailPage) reste
-         inchangé. La bande de tendance des 13 périodes
+         inchangé. 27 septembre 2026 (Design, mandat « Cohérence
+         d'interaction ») : position également corrigée — la croix est
+         désormais le DERNIER enfant de .activityPageHeader (à droite du
+         titre), comme #activityPageClose/#settingsCloseBtn ; oubli du passage
+         du 26 septembre, qui n'avait changé que le glyphe, pas la position.
+         La bande de tendance des 13 périodes
          (#activityGoalsTrendRow) a déménagé sur la PAGE 1 (#tab-goals,
          second passage du 14 septembre) — elle n'est plus ici. -->
     <div id="goalsDetailPage" class="communityMembersModal hidden">
       <div class="communityMembersModalCard">
         <div class="activityPageHeader">
-          <button type="button" class="menuBtn" id="goalsDetailBack" aria-label="Fermer">✕</button>
           <span class="activityPageName" id="goalsDetailTitle"></span>
+          <button type="button" class="menuBtn" id="goalsDetailBack" aria-label="Fermer">✕</button>
         </div>
         <div id="goalsDetailScroll">
           <div id="activityGoalsBlock">
@@ -3291,20 +3296,45 @@
                    dans une boîte haute. Même changement sur la zone
                    hebdomadaire (renderGoalsWeeklyList(), app.js). -->
               <textarea id="activityGoalsMainInput" rows="1" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
-              <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
-              <div class="goalMainProgressRow">
-                <div class="goalMainProgressTrack"><div class="goalMainProgressFill" id="activityGoalsMainProgressFill"></div></div>
-                <span class="goalMainProgressPct" id="activityGoalsMainProgressPct"></span>
+
+              <!-- 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
+                   intégrations"), demande d'Emilien : conserver et rendre
+                   plus attirante l'invite déjà existante (ce textarea,
+                   inchangé) tant qu'aucun objectif périodique n'est
+                   renseigné pour CETTE période précise (pas pour l'activité
+                   entière — la page 3 continue d'exister, seul son contenu
+                   se réduit) — bouton "Enregistrer" explicite en PLUS de
+                   l'enregistrement au blur (mainInput.onblur, inchangé,
+                   app.js), et texte d'accompagnement. Le reste de la carte
+                   (#activityGoalsMainMeta) et la suite de la page
+                   (#activityGoalsPeriodBody, plus bas) n'ont rien à montrer
+                   tant qu'aucun texte n'est saisi — masqués/révélés par
+                   hasMainGoal dans renderActivityGoals() (app.js), la
+                   révélation se faisant automatiquement au prochain rendu
+                   après l'enregistrement (reloadGoalsAll() →
+                   refreshGoalsDetailPageIfOpen() → renderActivityGoals()),
+                   sans code supplémentaire ici. -->
+              <div class="goalMainSaveRow">
+                <button type="button" class="goalMainSaveBtn" id="activityGoalsMainSaveBtn">Enregistrer</button>
               </div>
-              <!-- 17 septembre 2026 (discussion "Objectifs — A : Offre1"),
-                   demande d'Emilien : pouvoir ajuster manuellement la
-                   capacité hebdomadaire utilisée par l'auto-planification
-                   (server/lib/goalsauto.js), pour couvrir le cas d'une
-                   activité volontairement mise de côté un temps (la moyenne
-                   sur l'historique récent tomberait sinon près de zéro).
-                   Contenu entièrement construit par renderGoalsCapacity()
-                   (app.js) — vide au chargement. -->
-              <div class="goalCapacityRow" id="activityGoalsCapacity"></div>
+              <p class="goalMainEmptyHint" id="activityGoalsMainEmptyHint">Les objectifs hebdomadaires te seront ensuite proposés automatiquement.</p>
+
+              <div id="activityGoalsMainMeta">
+                <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
+                <div class="goalMainProgressRow">
+                  <div class="goalMainProgressTrack"><div class="goalMainProgressFill" id="activityGoalsMainProgressFill"></div></div>
+                  <span class="goalMainProgressPct" id="activityGoalsMainProgressPct"></span>
+                </div>
+                <!-- 17 septembre 2026 (discussion "Objectifs — A : Offre1"),
+                     demande d'Emilien : pouvoir ajuster manuellement la
+                     capacité hebdomadaire utilisée par l'auto-planification
+                     (server/lib/goalsauto.js), pour couvrir le cas d'une
+                     activité volontairement mise de côté un temps (la moyenne
+                     sur l'historique récent tomberait sinon près de zéro).
+                     Contenu entièrement construit par renderGoalsCapacity()
+                     (app.js) — vide au chargement. -->
+                <div class="goalCapacityRow" id="activityGoalsCapacity"></div>
+              </div>
             </div>
 
             <!-- 22 septembre 2026 (discussion "Objectifs — Logique métier") :
@@ -3350,24 +3380,33 @@
                  désormais chaque semaine en UNE LIGNE compacte plutôt qu'une
                  carte, fonctionnalité inchangée — voir son commentaire de
                  fonction. -->
-            <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires</p>
-            <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
+            <!-- 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
+                 intégrations") : les objectifs hebdomadaires et le
+                 calendrier n'ont de sens qu'une fois l'objectif périodique
+                 renseigné pour cette période — masqués/révélés avec
+                 #activityGoalsMainMeta ci-dessus par hasMainGoal dans
+                 renderActivityGoals() (app.js), voir le commentaire sur
+                 .goalMainSaveRow plus haut. -->
+            <div id="activityGoalsPeriodBody">
+              <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires</p>
+              <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
 
-            <!-- 15 septembre 2026 (discussion "Objectifs — D : Calendrier &
-                 intégrations"), demande d'Emilien : « intégrer un calendrier
-                 au volet objectif (page 2) [...] chaque ligne représente 1
-                 jour ». Une ligne par jour de la période (28), semaine (S1 à
-                 S4) + temps réel pointé ce jour-là — voir
-                 loadGoalsCalendarDays()/renderGoalsCalendarDays() (app.js) et
-                 GET .../goals-days (server/lib/calendarfeed.js,
-                 server/routes/calendar.js). Révisé le 15 septembre 2026 (soir) :
-                 le dernier jour de chaque semaine ouvre l'éditeur d'objectif
-                 hebdomadaire ci-dessus (badge "S1"-"S4" cliquable), et chaque
-                 jour permet d'ajouter une tâche ponctuelle (bouton "+"),
-                 transmise à la section Sous-projets de l'activité sous la
-                 catégorie courante — voir POST .../goals-days/task. -->
-            <p class="goalCardLabel goalsCalendarLabel">Calendrier de la période</p>
-            <div id="activityGoalsCalendarList" class="goalsCalendarList"></div>
+              <!-- 15 septembre 2026 (discussion "Objectifs — D : Calendrier &
+                   intégrations"), demande d'Emilien : « intégrer un calendrier
+                   au volet objectif (page 2) [...] chaque ligne représente 1
+                   jour ». Une ligne par jour de la période (28), semaine (S1 à
+                   S4) + temps réel pointé ce jour-là — voir
+                   loadGoalsCalendarDays()/renderGoalsCalendarDays() (app.js) et
+                   GET .../goals-days (server/lib/calendarfeed.js,
+                   server/routes/calendar.js). Révisé le 15 septembre 2026 (soir) :
+                   le dernier jour de chaque semaine ouvre l'éditeur d'objectif
+                   hebdomadaire ci-dessus (badge "S1"-"S4" cliquable), et chaque
+                   jour permet d'ajouter une tâche ponctuelle (bouton "+"),
+                   transmise à la section Sous-projets de l'activité sous la
+                   catégorie courante — voir POST .../goals-days/task. -->
+              <p class="goalCardLabel goalsCalendarLabel">Calendrier de la période</p>
+              <div id="activityGoalsCalendarList" class="goalsCalendarList"></div>
+            </div>
 
             <p class="goalBilanHint hidden" id="activityGoalsBilan"></p>
             <p id="activityGoalsMsg" class="msg"></p>

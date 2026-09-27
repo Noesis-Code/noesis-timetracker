@@ -646,21 +646,16 @@ input[type=time]:focus, select:focus, textarea:focus {
      setupStatsPeriodMenu, partagée par les trois discussions
      Statistiques — écarté volontairement de ce chantier. */
   z-index: 50;
-  transition: transform var(--transition-fast);
 }
-/* ⚠️ 3 septembre 2026 (Design), suite : une première tentative recalculait
-   la position de .tabbar via --keyboard-inset (mesurée en JS avec l'API
-   VisualViewport) pour la recoller juste au-dessus du clavier — insuffisant
-   dans certains contextes (composeur de sondage, où le clavier ajoute sa
-   propre barre d'accessoires), la mesure n'étant pas fiable partout,
-   surtout en PWA installée. Remplacé par un masquage complet : app.js pose
-   cette classe sur .tabbar tant qu'un champ texte a le focus (écrans
-   tactiles uniquement), et la retire au blur — plus rien à positionner
-   pendant que le clavier est ouvert, donc plus rien qui puisse flotter. */
-.tabbar.tabbarHidden {
-  transform: translateY(100%);
-  pointer-events: none;
-}
+/* ⚠️ 3 septembre 2026 (Design) : positionnement via --keyboard-inset, puis
+   masquage complet (.tabbarHidden) tant qu'un champ texte avait le focus —
+   les deux approches abandonnées. RETIRÉ le 27 septembre 2026 (demande
+   d'Emilien : la barre ne doit plus jamais disparaître ni bouger hors de
+   tout contrôle) : .tabbar rejoint désormais le pincement continu déjà
+   utilisé pour #topbar/#activityPage/#goalsDetailPage (app.js,
+   pinBottomBars) — plus de transition CSS sur transform ici (retirée avec
+   ce mécanisme : elle aurait amorti/retardé chaque frame du pincement), et
+   plus de classe .tabbarHidden. */
 .tabBtn {
   position: relative;
   flex: 1; background: none; border: none; padding: 10px 2px 8px;
@@ -2793,7 +2788,11 @@ body.scrollLock { overflow: hidden; }
 .hint { font-size: 13px; color: var(--text-light); margin: 0 0 10px; line-height: 1.5; }
 
 @media (min-width: 700px) {
-  .tabbar { max-width: 640px; left: 50%; transform: translateX(-50%); border-radius: 16px 16px 0 0; }
+  /* 27 septembre 2026 (Design) : transform: translateX(-50%) remplacé par
+     margin-left (moitié de max-width, -320px) — .tabbar utilise désormais
+     transform en JS pour le pincement continu (voir app.js, pinBottomBars),
+     et les deux usages de transform seraient entrés en conflit. */
+  .tabbar { max-width: 640px; left: 50%; margin-left: -320px; border-radius: 16px 16px 0 0; }
 }
 
 
@@ -4695,6 +4694,29 @@ button { -webkit-user-select: none; user-select: none; }
 .goalMainCard textarea::placeholder { color: inherit; opacity: 0.65; }
 .goalEstimateHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; }
 .goalMainCard .goalEstimateHint { color: inherit; opacity: 0.75; }
+
+/* 27 septembre 2026 (discussion "B. Objectifs — Calendrier & intégrations"),
+   demande d'Emilien : rendre plus attirante l'invite "objectif périodique"
+   (le textarea ci-dessus, inchangé) tant qu'aucun texte n'est encore
+   enregistré pour la période — bouton "Enregistrer" explicite, même famille
+   visuelle que .goalCapacitySaveBtn plus bas (propre fond `var(--card)`
+   plutôt que `inherit`, pour rester lisible quelle que soit la nuance de
+   catégorie posée en fond sur .goalMainCard, cf. son commentaire plus haut).
+   #activityGoalsMainEmptyHint suit au contraire `.goalEstimateHint`
+   (`inherit`) : simple texte sans fond propre, à même le bandeau coloré. */
+.goalMainSaveRow { display: flex; justify-content: flex-end; margin-top: 8px; }
+.goalMainSaveBtn {
+  padding: 7px 16px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--purple); color: var(--purple); background: var(--card);
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+@media (hover: hover) {
+  .goalMainSaveBtn:hover { background: rgba(var(--purple-rgb), 0.12); }
+}
+.goalMainEmptyHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; opacity: 0.85; }
+.goalMainCard .goalMainEmptyHint { color: inherit; opacity: 0.85; }
+
 .goalBilanHint { text-align: center; font-size: 13px; color: var(--text-light); margin: 4px 0 0; }
 
 /* 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande

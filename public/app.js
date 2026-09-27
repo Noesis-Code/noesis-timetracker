@@ -1191,41 +1191,14 @@
     }, { capture: true, passive: true });
   }
 
-  // ⚠️ 3 septembre 2026 (Design), suite : la mesure de --keyboard-inset via
-  // VisualViewport (tentée juste avant, voir historique dans le journal du
-  // volet) ne suffisait pas dans tous les contextes — Emilien a reproduit le
-  // "flottement" de .tabbar sur le composeur de sondage, où le clavier
-  // ajoute sa propre barre d'accessoires (texte prédictif + une rangée de
-  // navigation ↑↓✓) au-dessus des touches : selon le navigateur/contexte,
-  // `visualViewport.height` ne reflète pas toujours fidèlement la hauteur
-  // totale réellement couverte (clavier + ces barres additionnelles), en
-  // particulier en PWA installée où le support de cette API est connu pour
-  // être inégal. Plutôt que de continuer à ajuster une position calculée
-  // dont la fiabilité dépend du navigateur, solution plus robuste — masquer
-  // .tabbar entièrement tant qu'un champ texte a le focus, et la remontrer
-  // dès que ce n'est plus le cas. Il n'y a alors plus rien à positionner
-  // pendant que le clavier est ouvert, donc plus rien qui puisse flotter.
-  if (_isCoarsePointer) {
-    (function () {
-      var tabbarEl = document.querySelector('.tabbar');
-      if (!tabbarEl) return;
-      var hideTimer = null;
-      document.addEventListener('focusin', function (e) {
-        if (!_isTextInputEl(e.target)) return;
-        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-        tabbarEl.classList.add('tabbarHidden');
-      }, true);
-      document.addEventListener('focusout', function (e) {
-        if (!_isTextInputEl(e.target)) return;
-        // Court délai pour absorber le passage d'un champ à l'autre dans un
-        // même formulaire (focusout puis focusin quasi immédiat) sans
-        // laisser la barre réapparaître puis disparaître entre les deux.
-        hideTimer = setTimeout(function () {
-          if (!_isTextInputEl(document.activeElement)) tabbarEl.classList.remove('tabbarHidden');
-        }, 80);
-      }, true);
-    })();
-  }
+  // ⚠️ 3 septembre 2026 (Design) : masquage complet de .tabbar tant qu'un
+  // champ texte avait le focus (voir historique dans le journal du volet) —
+  // RETIRÉ le 27 septembre 2026, sur demande d'Emilien (« la barre des
+  // volets disparaît » pendant un réordonnancement de projets — un focus
+  // résiduel pouvait laisser la classe posée sans clavier visiblement
+  // ouvert). .tabbar rejoint désormais le pincement continu ci-dessous
+  // (pinBottomBars), comme #topbar/#activityPage/#goalsDetailPage — plus
+  // jamais masquée ni déplacée hors de tout contrôle.
 
   // 16 septembre 2026 (Design) : Emilien a signalé, après le passage
   // précédent (ajout de `interactive-widget=resizes-content` à la balise
@@ -1356,7 +1329,14 @@
     (function () {
       var pinBars = document.querySelectorAll('#topbar');
       var pinPages = document.querySelectorAll('#activityPage, #goalsDetailPage');
-      if (!pinBars.length && !pinPages.length) return;
+      // 27 septembre 2026 (Design) : .tabbar rejoint ce pincement continu, en
+      // remplacement du masquage complet (.tabbarHidden, retiré ci-dessus) —
+      // ancrée en BAS (pas en haut comme #topbar), sa formule de compensation
+      // diffère : translateY(vv.offsetTop + vv.height − hauteur du document)
+      // plutôt que translateY(vv.offsetTop), pour la remonter au-dessus du
+      // clavier plutôt que la pousser dans le mauvais sens.
+      var pinBottomBars = document.querySelectorAll('.tabbar');
+      if (!pinBars.length && !pinPages.length && !pinBottomBars.length) return;
       var vv = window.visualViewport;
       var pinned = false;
       var unpinTimer = null;
@@ -1374,6 +1354,7 @@
       function applyPin() {
         var yT = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
         var h = Math.round(vv.height) + 'px';
+        var yB = 'translateY(' + Math.round(vv.offsetTop + vv.height - document.documentElement.clientHeight) + 'px)';
         for (var i = 0; i < pinBars.length; i++) {
           if (pinBars[i].getClientRects().length) pinBars[i].style.transform = yT;
         }
@@ -1382,6 +1363,9 @@
             pinPages[i].style.transform = yT;
             pinPages[i].style.height = h;
           }
+        }
+        for (var i = 0; i < pinBottomBars.length; i++) {
+          if (pinBottomBars[i].getClientRects().length) pinBottomBars[i].style.transform = yB;
         }
       }
       function pinLoop() {
@@ -1407,6 +1391,7 @@
             pinPages[i].style.transform = '';
             pinPages[i].style.height = '';
           }
+          for (var i = 0; i < pinBottomBars.length; i++) pinBottomBars[i].style.transform = '';
         }, 80);
       }, true);
     })();
@@ -8128,14 +8113,45 @@
 
     var mainInput = $('activityGoalsMainInput');
     mainInput.value = period.mainGoalText || '';
-    mainInput.onblur = function () {
+    // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
+    // intégrations"), demande d'Emilien : garder l'enregistrement au blur
+    // (inchangé) ET ajouter un bouton "Enregistrer" explicite — factorisé
+    // dans commitMainGoalText() pour que les deux déclencheurs partagent
+    // strictement la même logique (pas de duplication, pas de dérive future
+    // entre les deux chemins).
+    var commitMainGoalText = function () {
       var value = mainInput.value.trim();
       if (value === (period.mainGoalText || '')) return;
       saveMainGoalText(period.periodNumber, value);
     };
+    mainInput.onblur = commitMainGoalText;
     mainInput.onkeydown = function (e) {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); mainInput.blur(); }
     };
+    var mainSaveBtn = $('activityGoalsMainSaveBtn');
+    if (mainSaveBtn) mainSaveBtn.onclick = commitMainGoalText;
+
+    // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
+    // intégrations"), demande d'Emilien (confirmée après question posée) :
+    // « le déclencheur est bien une réduction de la page 3 si aucun objectif
+    // périodique n'a été rempli pour cette période précise et non pour
+    // l'activité entière » — l'invite (déjà existante, ce textarea) reste
+    // toujours visible ; c'est le reste de la carte (#activityGoalsMainMeta :
+    // estimation, barre d'avancement, capacité) et la suite de la page
+    // (#activityGoalsPeriodBody : objectifs hebdomadaires, calendrier) qui se
+    // masquent tant qu'aucun texte n'est enregistré pour CETTE période —
+    // aucune donnée serveur nouvelle, period.mainGoalText est déjà chargé
+    // avec la période courante. Révélation automatique au prochain rendu
+    // après l'enregistrement (saveMainGoalText → reloadGoalsAll →
+    // refreshGoalsDetailPageIfOpen → renderActivityGoals, plus bas dans ce
+    // fichier) — aucun câblage supplémentaire nécessaire pour ça.
+    var hasMainGoal = !!(period.mainGoalText && period.mainGoalText.trim());
+    var mainEmptyHint = $('activityGoalsMainEmptyHint');
+    if (mainEmptyHint) mainEmptyHint.classList.toggle('hidden', hasMainGoal);
+    var mainMetaBox = $('activityGoalsMainMeta');
+    if (mainMetaBox) mainMetaBox.classList.toggle('hidden', !hasMainGoal);
+    var periodBodyBox = $('activityGoalsPeriodBody');
+    if (periodBodyBox) periodBodyBox.classList.toggle('hidden', !hasMainGoal);
 
     $('activityGoalsMainEstimate').textContent = formatEstimateHint(period.mainGoalEstimateMinutes, period.mainGoalEstimateSource, period.mainGoalEstimateConfidence);
 
