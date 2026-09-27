@@ -3816,30 +3816,14 @@
     return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
   }
 
-  // 27 septembre 2026, demande directe d'Emilien (page 1, puces d'activité
-  // au repos) : « les couleurs des activités sont trop sombres » — remplace
-  // le plein assourdi du 26 septembre (mutedActivityColor, retirée) par un
-  // fond pastel clair, option 2 de l'artefact soumis à Emilien (« je choisis
-  // l'option 2 »). Fond = couleur de l'activité éclaircie vers le blanc ;
-  // texte = couleur de l'activité assombrie vers le noir, pour rester lisible
-  // sur un fond clair quel que soit le thème — d'où deux fonctions séparées
-  // plutôt qu'un seul mélange plus textColorForTheme() comme avant.
-  function pastelActivityColor(hex) {
-    var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-    var amount = 0.78;
-    r = Math.round(r + (255 - r) * amount);
-    g = Math.round(g + (255 - g) * amount);
-    b = Math.round(b + (255 - b) * amount);
-    return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
-  }
-  function pastelActivityTextColor(hex) {
-    var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-    var amount = 0.72;
-    r = Math.round(r * (1 - amount));
-    g = Math.round(g * (1 - amount));
-    b = Math.round(b * (1 - amount));
-    return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
-  }
+  // ⚠️ 27 septembre 2026 : pastelActivityColor()/pastelActivityTextColor()
+  // (fond pastel clair au repos, option 2 choisie la veille) retirées le
+  // même jour — retour à la couleur pleine de l'activité sur demande directe
+  // d'Emilien, voir renderGoalsCaptureActivities() plus bas (état « au
+  // repos »). Avant elles, mutedActivityColor() (26 septembre, « plein
+  // assourdi ») avait déjà été retirée de la même façon — l'historique
+  // complet de ces 3 tentatives reste dans `noesis-timetracker-chantiers-
+  // en-cours.md`, encarts 63/67.
 
   // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que tu crées pour
   // chaque couleur d'activité 5 nuances distinguables à l'œil nu ».
@@ -9755,18 +9739,22 @@
     if (!box) return;
     box.innerHTML = '';
     var list = activitiesCache || [];
-    // 26 septembre 2026, décisions finales d'Emilien (3 messages, dont un
-    // artefact de maquette validé) sur l'apparence des puces, jamais
-    // mélangées : « au repos [...] on prend le plein assourdi » (option A),
-    // « lorsque l'utilisateur écrit [...] je souhaite conserver l'option C
-    // en train d'écrire », et « lorsqu'il sélectionne une activité après
-    // avoir écrit, l'activité se colore de sa couleur » — un état de plus,
-    // propre à la sélection en train d'écrire, qu'aucune des 3 options de
-    // la maquette ne couvrait telle quelle. Une puce ne peut être
-    // sélectionnée QUE si du texte a déjà été écrit (sinon un clic navigue
-    // directement vers la page 2, voir plus bas) — donc « sélectionnée » et
-    // « au repos » ne se combinent jamais en pratique, mais le code ne
-    // suppose pas cet invariant : il teste explicitement `typing`.
+    // 27 septembre 2026, dernière révision d'Emilien sur l'apparence des
+    // puces (remplace l'état « au repos » pastel de la veille) : « la
+    // couleur des activités ne soit plus pastel, mais leur couleur [...]
+    // choisie par l'utilisateur » (au repos, plein) ; « retirer le point
+    // coloré lorsqu'aucune activité a été écrite » (au repos, pas de point,
+    // redondant avec la bulle déjà colorée) ; et pour la sélection en train
+    // d'écrire, « que ce ne soit plus la case au complet qui soit colorée,
+    // mais le point coloré qui se comble et le contour de la bulle qui
+    // apparaisse aux couleurs de l'activité — prendre modèle sur l'option 1
+    // contour discret ». L'état « en train d'écrire, pas sélectionnée »
+    // (option C, badge discret) est inchangé depuis le 26 septembre. Une
+    // puce ne peut être sélectionnée QUE si du texte a déjà été écrit (sinon
+    // un clic navigue directement vers la page 2, voir plus bas) — donc
+    // « sélectionnée » et « au repos » ne se combinent jamais en pratique,
+    // mais le code ne suppose pas cet invariant : il teste explicitement
+    // `typing`.
     var bubbleWrapEl = $('goalsCaptureBubbleWrap');
     var textareaEl = bubbleWrapEl ? bubbleWrapEl.querySelector('textarea') : null;
     var typing = !!(textareaEl && textareaEl.value.trim());
@@ -9779,11 +9767,50 @@
 
       var dot = document.createElement('span');
       dot.className = 'dot';
-      btn.appendChild(dot);
 
       var name = document.createElement('span');
       name.className = 'goalsCaptureActivityChipName';
       name.textContent = a.name;
+
+      // Mode « attente de choix d'activité » (point e, encart 59) : traité
+      // comme l'état « en train d'écrire, pas sélectionnée » sur toutes les
+      // puces tant qu'aucune n'est choisie — même rendu, rien de plus à
+      // inventer pour lui.
+      var showDot = true;
+      if (goalsCaptureAwaitingActivityChoice || (typing && !isSelected)) {
+        // Option C — badge discret : fond et liseré neutres, point en
+        // anneau creux dans la couleur de l'activité.
+        btn.style.background = 'var(--card)';
+        btn.style.borderColor = 'var(--border)';
+        btn.style.color = 'var(--text)';
+        dot.style.background = 'var(--card)';
+        dot.style.border = '2px solid ' + a.color;
+      } else if (typing && isSelected) {
+        // 27 septembre 2026, demande d'Emilien : « le point coloré qui se
+        // comble et le contour de la bulle qui apparaisse aux couleurs de
+        // l'activité [...] prendre modèle sur l'option 1 contour discret »
+        // — fond neutre (comme l'état « pas sélectionnée » ci-dessus), le
+        // contour ET le point plein (au lieu de l'anneau creux) signalent la
+        // sélection, plus la bulle entière.
+        btn.style.background = 'var(--card)';
+        btn.style.borderColor = a.color;
+        btn.style.color = 'var(--text)';
+        dot.style.background = a.color;
+        dot.style.border = 'none';
+      } else {
+        // Au repos — 27 septembre 2026, demande d'Emilien : « la couleur des
+        // activités ne soit plus pastel, mais leur couleur [...] choisie par
+        // l'utilisateur » (retour à la couleur pleine, remplace le pastel de
+        // la veille). Le point est retiré : « retirer le point coloré
+        // lorsqu'aucune activité a été écrite » — redondant avec la bulle
+        // déjà colorée dans son ensemble.
+        btn.style.background = a.color;
+        btn.style.borderColor = a.color;
+        btn.style.color = textColorForTheme(currentTheme);
+        showDot = false;
+      }
+
+      if (showDot) btn.appendChild(dot);
       btn.appendChild(name);
 
       // Badge violet « non vu » — jamais un compteur cumulatif, voir
@@ -9794,38 +9821,6 @@
         badge.className = 'goalsCaptureBadge';
         badge.textContent = String(badgeInfo.total);
         btn.appendChild(badge);
-      }
-
-      // Mode « attente de choix d'activité » (point e, encart 59) : traité
-      // comme l'état « en train d'écrire, pas sélectionnée » sur toutes les
-      // puces tant qu'aucune n'est choisie — même rendu, rien de plus à
-      // inventer pour lui.
-      if (goalsCaptureAwaitingActivityChoice || (typing && !isSelected)) {
-        // Option C — badge discret : fond et liseré neutres, point en
-        // anneau creux dans la couleur de l'activité.
-        btn.style.background = 'var(--card)';
-        btn.style.borderColor = 'var(--border)';
-        btn.style.color = 'var(--text)';
-        dot.style.background = 'var(--card)';
-        dot.style.border = '2px solid ' + a.color;
-      } else if (typing && isSelected) {
-        // Sélectionnée après avoir écrit : couleur pleine et vive, comme au
-        // Chrono — c'est la couleur elle-même qui signale la sélection.
-        btn.style.background = a.color;
-        btn.style.borderColor = a.color;
-        btn.style.color = textColorForTheme(currentTheme);
-        dot.style.background = a.color;
-        dot.style.border = 'none';
-      } else {
-        // Au repos — option 2 (pastel clair), choix d'Emilien le 27
-        // septembre. Fond ET texte dédiés (pastelActivityColor/
-        // pastelActivityTextColor ci-dessus), plus textColorForTheme() ici.
-        var pastelBg = pastelActivityColor(a.color);
-        btn.style.background = pastelBg;
-        btn.style.borderColor = pastelBg;
-        btn.style.color = pastelActivityTextColor(a.color);
-        dot.style.background = a.color;
-        dot.style.border = 'none';
       }
 
       btn.addEventListener('click', function () {

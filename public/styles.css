@@ -6136,8 +6136,13 @@ button { -webkit-user-select: none; user-select: none; }
 /* 27 septembre 2026, demande d'Emilien : « le point violet [...] soit
    positionné toujours au même endroit, à droite dans la bulle » — le nom
    prend tout l'espace restant (flex:1) pour pousser le badge, quand présent,
-   contre le bord droit quelle que soit la longueur du nom. */
-.goalsCaptureActivityChipName { flex: 1; }
+   contre le bord droit quelle que soit la longueur du nom.
+   ⚠️ Même jour, demande complémentaire : « le titre de l'activité ne soit
+   pas centré [...] mais à gauche » — .goalsCaptureActivityChip est un
+   <button>, dont le style par défaut du navigateur centre le texte ;
+   text-align:left corrige ce nom (et, en cascade, le contenu du point/badge,
+   sans effet sur eux). */
+.goalsCaptureActivityChipName { flex: 1; text-align: left; }
 /* 26 septembre 2026, demande directe d'Emilien (page 1, point e) : invite
    affichée entre la bulle et les puces quand « Ajouter » est cliqué sans
    activité choisie — voir submit(), buildGoalsCaptureBubble(), app.js. */
