@@ -6051,6 +6051,22 @@ button { -webkit-user-select: none; user-select: none; }
 /* 22 septembre 2026 (capture hors ligne) : tâche envoyée au retour du
    réseau mais refusée par le serveur (activité quittée, etc.). */
 .activityGoalsCategoryAutoTaskPendingRow.isFailed { color: var(--red); }
+/* 27 septembre 2026, demande d'Emilien (page 1, bulle de capture multi-
+   activités) : « trop de couleurs [...] les messages de validation » — seule
+   l'icône reste colorée, le texte de la ligne redevient neutre. Classe
+   ADDITIVE goalsCaptureResultRow (posée par buildGoalsCaptureBubble(),
+   app.js, en plus de isSuccess/isFailed), scopée à CETTE bulle uniquement :
+   3 classes pour l'emporter sur les 2 règles .isSuccess/.isFailed
+   ci-dessus quel que soit l'ordre des règles dans la feuille de style,
+   sans les modifier — elles restent utilisées telles quelles par
+   buildCategoryAutoTaskBubble() plus bas, hors de ce périmètre. */
+.activityGoalsCategoryAutoTaskPendingRow.goalsCaptureResultRow.isSuccess,
+.activityGoalsCategoryAutoTaskPendingRow.goalsCaptureResultRow.isFailed {
+  color: var(--text-light);
+}
+.goalsCaptureResultIcon { font-weight: 700; }
+.goalsCaptureResultRow.isSuccess .goalsCaptureResultIcon { color: var(--green); }
+.goalsCaptureResultRow.isFailed .goalsCaptureResultIcon { color: var(--red); }
 /* Zone « À classer » : tâches capturées hors ligne, en file d'attente
    (IndexedDB) tant que l'IA ne peut pas choisir leur pôle/secteur — voir
    categoryAutoTaskOffline, app.js, et public/offline-queue.js. */
@@ -6109,10 +6125,19 @@ button { -webkit-user-select: none; user-select: none; }
 .goalsCaptureActivityChip .dot {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
 }
+/* 27 septembre 2026, demande d'Emilien : « je souhaite que les activités
+   n'aient pas de contour violet, seule la bulle se colore » — l'ancien
+   contour .selected (ci-dessous, retiré) est redondant avec la couleur
+   pleine déjà posée en JS (renderGoalsCaptureActivities(), état « en train
+   d'écrire ET sélectionnée »), qui est le seul signal de sélection désormais.
 .goalsCaptureActivityChip.selected {
   border-color: var(--purple); box-shadow: 0 0 0 1.5px var(--purple) inset;
-}
-.goalsCaptureActivityChipName { flex-shrink: 0; }
+} */
+/* 27 septembre 2026, demande d'Emilien : « le point violet [...] soit
+   positionné toujours au même endroit, à droite dans la bulle » — le nom
+   prend tout l'espace restant (flex:1) pour pousser le badge, quand présent,
+   contre le bord droit quelle que soit la longueur du nom. */
+.goalsCaptureActivityChipName { flex: 1; }
 /* 26 septembre 2026, demande directe d'Emilien (page 1, point e) : invite
    affichée entre la bulle et les puces quand « Ajouter » est cliqué sans
    activité choisie — voir submit(), buildGoalsCaptureBubble(), app.js. */

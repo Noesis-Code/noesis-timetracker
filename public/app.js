@@ -3816,23 +3816,28 @@
     return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
   }
 
-  // 26 septembre 2026, demande directe d'Emilien (page 1, puces d'activité
-  // au repos) : « on conserve le plein assourdi » — une couleur d'activité
-  // MÉLANGÉE avec le fond de carte du thème actif (55% couleur / 45% fond),
-  // même patron de mélange que eclairciPourLisibilite() ci-dessus mais vers
-  // une cible fixe (le fond de carte) plutôt que vers blanc/noir. Les deux
-  // fonds (#1f2229 sombre, #ffffff clair) sont ceux de --card dans
-  // styles.css — dupliqués ici en dur pour la même raison que
-  // readableTextOn()/textColorForTheme() : palette contrainte par thème, pas
-  // besoin de lire la variable CSS depuis JS.
-  function mutedActivityColor(hex) {
-    var card = currentTheme === 'light' ? '#ffffff' : '#1f2229';
+  // 27 septembre 2026, demande directe d'Emilien (page 1, puces d'activité
+  // au repos) : « les couleurs des activités sont trop sombres » — remplace
+  // le plein assourdi du 26 septembre (mutedActivityColor, retirée) par un
+  // fond pastel clair, option 2 de l'artefact soumis à Emilien (« je choisis
+  // l'option 2 »). Fond = couleur de l'activité éclaircie vers le blanc ;
+  // texte = couleur de l'activité assombrie vers le noir, pour rester lisible
+  // sur un fond clair quel que soit le thème — d'où deux fonctions séparées
+  // plutôt qu'un seul mélange plus textColorForTheme() comme avant.
+  function pastelActivityColor(hex) {
     var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-    var r2 = parseInt(card.slice(1, 3), 16), g2 = parseInt(card.slice(3, 5), 16), b2 = parseInt(card.slice(5, 7), 16);
-    var amount = 0.45;
-    r = Math.round(r + (r2 - r) * amount);
-    g = Math.round(g + (g2 - g) * amount);
-    b = Math.round(b + (b2 - b) * amount);
+    var amount = 0.78;
+    r = Math.round(r + (255 - r) * amount);
+    g = Math.round(g + (255 - g) * amount);
+    b = Math.round(b + (255 - b) * amount);
+    return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+  }
+  function pastelActivityTextColor(hex) {
+    var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    var amount = 0.72;
+    r = Math.round(r * (1 - amount));
+    g = Math.round(g * (1 - amount));
+    b = Math.round(b * (1 - amount));
     return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
   }
 
@@ -9812,11 +9817,13 @@
         dot.style.background = a.color;
         dot.style.border = 'none';
       } else {
-        // Au repos — option A, plein assourdi.
-        var muted = mutedActivityColor(a.color);
-        btn.style.background = muted;
-        btn.style.borderColor = muted;
-        btn.style.color = textColorForTheme(currentTheme);
+        // Au repos — option 2 (pastel clair), choix d'Emilien le 27
+        // septembre. Fond ET texte dédiés (pastelActivityColor/
+        // pastelActivityTextColor ci-dessus), plus textColorForTheme() ici.
+        var pastelBg = pastelActivityColor(a.color);
+        btn.style.background = pastelBg;
+        btn.style.borderColor = pastelBg;
+        btn.style.color = pastelActivityTextColor(a.color);
         dot.style.background = a.color;
         dot.style.border = 'none';
       }
@@ -9827,14 +9834,15 @@
         var hasText = textarea && textarea.value.trim();
         if (hasText) {
           toggleGoalsCaptureActivitySelection(id);
-          // Une activité vient d'être choisie pendant l'attente (point e) :
-          // referme l'invite, restaure la couleur pleine des puces. Le texte
-          // reste dans la bulle — un nouveau clic sur « Ajouter » complète
-          // l'envoi, aucun envoi automatique implicite ici.
+          // 27 septembre 2026, demande directe d'Emilien : « je souhaite que
+          // le message 'quelle activité pour cette tâche' ne disparaisse pas
+          // lorsque je choisis une activité » — on sort seulement du mode
+          // « attente » (pour que la puce choisie reprenne sa couleur
+          // pleine, voir renderGoalsCaptureActivities()), sans masquer
+          // l'invite elle-même : elle ne se ferme désormais que sur un envoi
+          // réussi (submit() plus bas), plus au premier choix d'activité.
           if (goalsCaptureAwaitingActivityChoice && goalsCaptureSelectedActivityIds.length) {
             goalsCaptureAwaitingActivityChoice = false;
-            var promptEl = $('goalsCaptureActivityPrompt');
-            if (promptEl) promptEl.classList.add('hidden');
             renderGoalsCaptureActivities();
           }
         } else {
@@ -9870,7 +9878,10 @@
     var textarea = document.createElement('textarea');
     textarea.rows = 4;
     textarea.maxLength = 300;
-    textarea.placeholder = t('Nouvelle tâche… choisis une ou plusieurs activités puis écris');
+    // 27 septembre 2026, demande d'Emilien : garder un texte proche de
+    // l'ancien plutôt que la formulation « Nouvelle tâche… choisis une ou
+    // plusieurs activités », avec des points de suspension à la fin.
+    textarea.placeholder = t('Écris une nouvelle tâche, l\'IA l\'organise dans tes projets...');
 
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -9913,12 +9924,28 @@
             (activitiesCache || []).forEach(function (a) { if (String(a.id) === String(r.activityId)) activityName = a.name; });
             var row = document.createElement('p');
             row.className = 'meta activityGoalsCategoryAutoTaskPendingRow';
+            // 27 septembre 2026, demande d'Emilien : « il y a beaucoup trop
+            // de couleurs sur cette page [...] les messages de validation »
+            // — seule l'icône ✓/✗ reste colorée (goalsCaptureResultIcon,
+            // styles.css), le texte de la ligne redevient neutre. Classe
+            // additive goalsCaptureResultRow, scopée à CETTE bulle : la base
+            // .activityGoalsCategoryAutoTaskPendingRow.isSuccess/isFailed
+            // (toute la ligne colorée) reste inchangée pour
+            // buildCategoryAutoTaskBubble() plus bas, hors de ce périmètre.
             if (r.ok) {
-              row.classList.add('isSuccess');
-              row.textContent = '✓ ' + label + ' — ' + (activityName || '') + (r.categoryLabel ? ' · ' + r.categoryLabel : '') + (r.dueDate ? ' · ' + calendarDayLabel(r.dueDate) : '');
+              row.classList.add('isSuccess', 'goalsCaptureResultRow');
+              var iconOk = document.createElement('span');
+              iconOk.className = 'goalsCaptureResultIcon';
+              iconOk.textContent = '✓';
+              row.appendChild(iconOk);
+              row.appendChild(document.createTextNode(' ' + label + ' — ' + (activityName || '') + (r.categoryLabel ? ' · ' + r.categoryLabel : '') + (r.dueDate ? ' · ' + calendarDayLabel(r.dueDate) : '')));
             } else {
-              row.classList.add('isFailed');
-              row.textContent = '✗ ' + label + ' — ' + (activityName || '') + ' : ' + (r.error || t('non ajoutée'));
+              row.classList.add('isFailed', 'goalsCaptureResultRow');
+              var iconFail = document.createElement('span');
+              iconFail.className = 'goalsCaptureResultIcon';
+              iconFail.textContent = '✗';
+              row.appendChild(iconFail);
+              row.appendChild(document.createTextNode(' ' + label + ' — ' + (activityName || '') + ' : ' + (r.error || t('non ajoutée'))));
             }
             pending.appendChild(row);
           });
