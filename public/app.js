@@ -7685,9 +7685,70 @@
   // la vue compacte ; l'avancement agrégé reste visible sur le bandeau de
   // l'objectif périodique ci-dessus.
 
+  // 27 septembre 2026 (discussion "B. Objectifs — Calendrier & intégrations"),
+  // bug signalé par Emilien (relayé, puis confirmé sans reproduction côté
+  // serveur à l'encart 72 du journal de chantiers — le déclenchement IA est
+  // bien câblé et s'exécute) : « les objectifs hebdomadaires ne se sont pas
+  // mis par défaut [...] il a fallu marquer un premier objectif hebdomadaire
+  // pour que les autres se génèrent ». Cause réelle : PUT .../periods/:n/main
+  // (server/routes/goals.js) répond IMMÉDIATEMENT, et ne lance le remplissage
+  // IA (server/lib/goalsweeklyauto.js) qu'EN FIRE-AND-FORGET juste après —
+  // donc quelques secondes plus tard, hors de la réponse HTTP. Le
+  // `reloadGoalsAll()` déclenché ci-dessous par `saveMainGoalText()` arrive
+  // donc systématiquement trop tôt pour les voir ; saisir un premier
+  // objectif hebdomadaire à la main déclenchait son propre rechargement
+  // (saveWeeklyText → reloadGoalsAll) qui, lui, arrivait après coup — d'où
+  // l'impression trompeuse que cette saisie manuelle était nécessaire pour
+  // « débloquer » les autres. Corrigé en relançant quelques rechargements
+  // espacés le temps que le serveur ait fini, SANS JAMAIS écraser une saisie
+  // hebdomadaire en cours (garde sur document.activeElement ci-dessous) — si
+  // Emilien est en train d'écrire dans une des 4 zones au moment d'une
+  // relance, ce tour est sauté (aucun rendu, aucune donnée touchée) et
+  // reporté à la tentative suivante plutôt que d'annuler le suivi.
+  var GOALS_WEEKLY_AUTOFILL_POLL_DELAYS_MS = [2500, 4000, 6000, 8000]; // ~20 s au total, 4 tentatives
+
+  function goalsWeeklyHasAnyText(period) {
+    return !!(period && period.weeklies && period.weeklies.some(function (w) { return w.text && w.text.trim(); }));
+  }
+
+  function maybeScheduleGoalsWeeklyAutoFillPoll(activityId, category, periodNumber, attemptIndex) {
+    if (attemptIndex >= GOALS_WEEKLY_AUTOFILL_POLL_DELAYS_MS.length) return;
+    // Contexte encore valide (activité/catégorie toujours celles visées) et
+    // rien à attendre si une semaine a déjà du texte (remplissage IA déjà
+    // arrivé, ou saisie manuelle entre-temps) — mêmes gardes que
+    // reloadGoalsAll()/reloadGoalsGridForPole() plus bas dans ce fichier.
+    if (activityId !== currentGoalsActivityId || category !== currentGoalsCategory) return;
+    var period = currentGoalsPlanning && goalPeriodByNumber(currentGoalsPlanning, periodNumber);
+    if (goalsWeeklyHasAnyText(period)) return;
+
+    setTimeout(function () {
+      if (activityId !== currentGoalsActivityId || category !== currentGoalsCategory) return;
+
+      var weeklyListBox = $('activityGoalsWeeklyList');
+      var active = document.activeElement;
+      if (active && weeklyListBox && weeklyListBox.contains(active)) {
+        maybeScheduleGoalsWeeklyAutoFillPoll(activityId, category, periodNumber, attemptIndex + 1);
+        return;
+      }
+
+      reloadGoalsAll().then(function () {
+        maybeScheduleGoalsWeeklyAutoFillPoll(activityId, category, periodNumber, attemptIndex + 1);
+      });
+    }, GOALS_WEEKLY_AUTOFILL_POLL_DELAYS_MS[attemptIndex]);
+  }
+
   function saveMainGoalText(periodNumber, text) {
+    var pollActivityId = currentGoalsActivityId;
+    var pollCategory = currentGoalsCategory;
     api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', { text: text, category: currentGoalsCategory })
       .then(reloadGoalsAll)
+      .then(function () {
+        // Rien à attendre si l'objectif périodique vient d'être vidé : le
+        // remplissage IA ne se déclenche que sur un texte non vide
+        // (server/lib/goalsweeklyauto.js, repli silencieux "no-main-goal").
+        if (!text || !text.trim()) return;
+        maybeScheduleGoalsWeeklyAutoFillPoll(pollActivityId, pollCategory, periodNumber, 0);
+      })
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
