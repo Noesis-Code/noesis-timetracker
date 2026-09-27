@@ -334,9 +334,21 @@ function dayTasksByDate(activityId, startDate, endDate) {
 
 function periodDaysForUser(userId, activityId, category, periodNumber) {
   assertActivityMember(userId, activityId);
-  if (!goals.isValidCategoryForActivity(activityId, category)) {
-    throw Object.assign(new Error('Catégorie invalide.'), { statusCode: 400 });
-  }
+  // 27 septembre 2026 (discussion "B. Objectifs — Calendrier & intégrations"),
+  // bug signalé par Emilien (« le calendrier n'est pas visible » après avoir
+  // enregistré un objectif périodique) — reproduit sur staging, tracé jusqu'ici :
+  // ce contrôle utilisait encore isValidCategoryForActivity SEULE (pôles
+  // uniquement), jamais mis à jour depuis le 21 septembre 2026 (« Secteurs
+  // dans l'arbre périodique »), qui a rendu les SECTEURS valides comme
+  // catégorie porteuse d'objectifs — server/lib/goals.js prévoit déjà
+  // isValidCategoryOrSecteurForActivity()/assertCategoryOrSecteurForActivity()
+  // pour ça (utilisée depuis par setMainGoal() et consorts, et par le Chrono
+  // via entrycategory.js) ; ce fichier ne l'avait jamais adoptée. Toute
+  // période appartenant à un SECTEUR (le cas normal aujourd'hui, pas
+  // l'exception) était donc rejetée ici avec « Catégorie invalide. » (400),
+  // empêchant le calendrier de charger le moindre jour — masqué, jamais
+  // visible côté page 3, quel que soit l'état de l'objectif périodique.
+  goals.assertCategoryOrSecteurForActivity(activityId, category);
   const period = db.prepare(`
     SELECT id, startDate, endDate FROM goal_periods
     WHERE activityId = ? AND category = ? AND periodNumber = ?
@@ -441,9 +453,18 @@ function ensureTasksSection(subProjectId, userId) {
 
 function createDayTask(userId, activityId, category, isoDate, label) {
   assertActivityMember(userId, activityId);
-  if (!goals.isValidCategoryForActivity(activityId, category)) {
-    throw Object.assign(new Error('Catégorie invalide.'), { statusCode: 400 });
-  }
+  // 27 septembre 2026 (discussion "B. Objectifs — Calendrier & intégrations"),
+  // même correctif que periodDaysForUser ci-dessus, même cause : ce contrôle
+  // utilisait isValidCategoryForActivity SEULE (pôles uniquement), jamais mis
+  // à jour depuis le 21 septembre 2026 (« Secteurs dans l'arbre périodique »).
+  // Conséquence concrète ici : le bouton « + » d'ajout de tâche quotidienne
+  // (public/app.js, goalsCalendarAddTaskBtn) échouait avec « Catégorie
+  // invalide. » (400) pour toute période appartenant à un SECTEUR — c'est-à-
+  // dire le cas normal aujourd'hui. On adopte
+  // goals.assertCategoryOrSecteurForActivity() (déjà exportée par
+  // server/lib/goals.js, déjà utilisée par setMainGoal() et par le Chrono via
+  // entrycategory.js) pour accepter pôles ET secteurs.
+  goals.assertCategoryOrSecteurForActivity(activityId, category);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) {
     throw Object.assign(new Error('Date invalide.'), { statusCode: 400 });
   }
