@@ -1354,7 +1354,21 @@
       function applyPin() {
         var yT = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
         var h = Math.round(vv.height) + 'px';
-        var yB = 'translateY(' + Math.round(vv.offsetTop + vv.height - document.documentElement.clientHeight) + 'px)';
+        // ⚠️ 27 septembre 2026 (Design) : Emilien a signalé (capture à l'appui)
+        // que .tabbar restait « coupée en bas, fixe en tout temps » — cause
+        // trouvée par lecture directe, pas hypothèse : sur certains composeurs
+        // (« Écrire aux membres... » de la Communauté), `visualViewport.height`
+        // ne se remet pas à jour de façon fiable à l'ouverture du clavier alors
+        // que `document.documentElement.clientHeight`, lui, se réduit — l'écart
+        // devient POSITIF au lieu de rester ≤ 0, ce qui pousse la barre vers le
+        // BAS (hors de l'écran) au lieu de la remonter au-dessus du clavier. Or
+        // cette formule n'a de sens que pour REMONTER la barre, jamais pour la
+        // descendre. Bornée à [-320px, 0px] (-320px couvre largement la plus
+        // haute barre d'accessoires de clavier connue sur ce produit).
+        var deltaB = Math.round(vv.offsetTop + vv.height - document.documentElement.clientHeight);
+        if (deltaB > 0) deltaB = 0;
+        if (deltaB < -320) deltaB = -320;
+        var yB = 'translateY(' + deltaB + 'px)';
         for (var i = 0; i < pinBars.length; i++) {
           if (pinBars[i].getClientRects().length) pinBars[i].style.transform = yT;
         }
@@ -7062,13 +7076,41 @@
   // #activityPageSectionSwitch en sticky (styles.css, même date) : sans lui,
   // ce même calcul aurait aussi fait défiler le sélecteur de section hors de
   // vue avec la liste, ce qu'Emilien a explicitement demandé d'éviter.
+  // 27 septembre 2026, 2e passage — Emilien : toujours visible, alors que
+  // les deux correctifs ci-dessus sont bien en place. Cause trouvée par
+  // lecture, pas hypothèse : le double `requestAnimationFrame` s'exécute
+  // ~32 ms après le focus — largement AVANT que le clavier n'ait fini son
+  // animation d'ouverture. `#activityPage` (pincé par pinBottomBars/
+  // pinPages plus haut dans ce fichier, boucle rAF continue tant qu'un
+  // champ garde le focus) n'a donc pas encore atteint sa hauteur finale
+  // (`vv.height`) au moment où `scrollIntoView` calcule sa cible : le calcul
+  // se fige sur une zone visible encore trop grande (clavier pas ou peu
+  // ouvert), et la bulle se retrouve de nouveau sous le clavier une fois
+  // celui-ci stabilisé quelques images plus tard — sans qu'aucun nouveau
+  // scroll ne vienne alors corriger la position déjà figée. Corrigé en
+  // réécoutant `visualViewport.resize` (déclenché par le navigateur pendant
+  // ET/ou à la fin de l'animation du clavier, potentiellement plusieurs
+  // fois) tant que ce champ garde le focus, refaisant le même
+  // `scrollIntoView` à chaque déclenchement — la position converge donc
+  // vers la bonne cible quelle que soit la durée réelle de l'animation du
+  // clavier, au lieu de parier sur un délai fixe de 2 images.
   function scrollAddInputIntoView(el) {
+    function doScroll() {
+      el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
     el.addEventListener('focus', function () {
       requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        });
+        requestAnimationFrame(doScroll);
       });
+      if (_isCoarsePointer && window.visualViewport) {
+        var vv = window.visualViewport;
+        vv.addEventListener('resize', doScroll);
+        var stopWatching = function () {
+          vv.removeEventListener('resize', doScroll);
+          el.removeEventListener('blur', stopWatching);
+        };
+        el.addEventListener('blur', stopWatching);
+      }
     });
   }
 
