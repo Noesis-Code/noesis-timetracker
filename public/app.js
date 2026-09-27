@@ -1354,21 +1354,6 @@
       function applyPin() {
         var yT = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
         var h = Math.round(vv.height) + 'px';
-        // ⚠️ 27 septembre 2026 (Design) : Emilien a signalé (capture à l'appui)
-        // que .tabbar restait « coupée en bas, fixe en tout temps » — cause
-        // trouvée par lecture directe, pas hypothèse : sur certains composeurs
-        // (« Écrire aux membres... » de la Communauté), `visualViewport.height`
-        // ne se remet pas à jour de façon fiable à l'ouverture du clavier alors
-        // que `document.documentElement.clientHeight`, lui, se réduit — l'écart
-        // devient POSITIF au lieu de rester ≤ 0, ce qui pousse la barre vers le
-        // BAS (hors de l'écran) au lieu de la remonter au-dessus du clavier. Or
-        // cette formule n'a de sens que pour REMONTER la barre, jamais pour la
-        // descendre. Bornée à [-320px, 0px] (-320px couvre largement la plus
-        // haute barre d'accessoires de clavier connue sur ce produit).
-        var deltaB = Math.round(vv.offsetTop + vv.height - document.documentElement.clientHeight);
-        if (deltaB > 0) deltaB = 0;
-        if (deltaB < -320) deltaB = -320;
-        var yB = 'translateY(' + deltaB + 'px)';
         for (var i = 0; i < pinBars.length; i++) {
           if (pinBars[i].getClientRects().length) pinBars[i].style.transform = yT;
         }
@@ -1378,19 +1363,38 @@
             pinPages[i].style.height = h;
           }
         }
-        for (var i = 0; i < pinBottomBars.length; i++) {
-          if (pinBottomBars[i].getClientRects().length) pinBottomBars[i].style.transform = yB;
-        }
+        // pinBottomBars (.tabbar) n'a plus sa place ici : voir plus bas, elle
+        // ne se repositionne plus en continu — elle se masque/réapparaît une
+        // seule fois par transition de focus (27 septembre 2026, suite).
       }
       function pinLoop() {
         if (!pinned) return;
         applyPin();
         requestAnimationFrame(pinLoop);
       }
+      // ⚠️ 27 septembre 2026, suite (Design) : Emilien a testé le pincement
+      // borné ci-dessus (formule remontant .tabbar au-dessus du clavier,
+      // bornée à [-320px,0px] pour ne plus jamais la pousser hors écran par
+      // le bas) sur `staging` et a vu la barre remonter PAR-DESSUS le clavier
+      // au lieu de disparaître — pas le comportement voulu : « quand le
+      // clavier est déployé, la barre doit disparaître complètement [...]
+      // elle réapparaît à la fermeture du clavier », sur TOUS les champs de
+      // saisie. `pinBottomBars` abandonne donc tout calcul de position pour
+      // .tabbar (aucun `transform`, plus besoin de la boucle rAF pour elle) :
+      // elle se masque intégralement (`display:none`) dès qu'un champ texte
+      // prend le focus, et réapparaît selon le MÊME minuteur de 80ms que
+      // pinBars/pinPages ci-dessus, pour rester scopée au même déclencheur
+      // document-wide (`focusin`/`focusout` + `_isTextInputEl`) que le reste
+      // de ce mécanisme — pas une IIFE séparée avec sa propre écoute comme
+      // l'ancien `.tabbarHidden` (retiré le 27 septembre plus haut), dont le
+      // bug d'origine (la barre restait masquée sans clavier visible pendant
+      // un réordonnancement de projets) tenait justement à cette écoute
+      // dupliquée et non partagée avec le reste du pincement.
       document.addEventListener('focusin', function (e) {
         if (!_isTextInputEl(e.target)) return;
         if (unpinTimer) { clearTimeout(unpinTimer); unpinTimer = null; }
         if (!pinned) { pinned = true; pinLoop(); }
+        for (var i = 0; i < pinBottomBars.length; i++) pinBottomBars[i].style.display = 'none';
       }, true);
       document.addEventListener('focusout', function (e) {
         if (!_isTextInputEl(e.target)) return;
@@ -1405,7 +1409,7 @@
             pinPages[i].style.transform = '';
             pinPages[i].style.height = '';
           }
-          for (var i = 0; i < pinBottomBars.length; i++) pinBottomBars[i].style.transform = '';
+          for (var i = 0; i < pinBottomBars.length; i++) pinBottomBars[i].style.display = '';
         }, 80);
       }, true);
     })();
