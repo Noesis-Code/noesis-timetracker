@@ -6852,6 +6852,16 @@
         handle.textContent = '≡';
         row.appendChild(handle);
 
+        // 26 septembre 2026, retour d'Emilien sur la maquette « Hybride » :
+        // le point coloré du pôle est réintroduit (revirement par rapport
+        // au 22 septembre, voir commentaire équivalent en mode normal
+        // ci-dessous) — même nuance que la ligne en lecture seule, pour ne
+        // pas changer d'identité visuelle entre les deux modes.
+        var dotEdit = document.createElement('span');
+        dotEdit.className = 'activityGoalsCategoryDot';
+        dotEdit.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+        row.appendChild(dotEdit);
+
         var input = document.createElement('input');
         input.type = 'text';
         input.className = 'subProjectNameInput';
@@ -6925,12 +6935,16 @@
       }
 
       // 22 septembre 2026, demande directe d'Emilien : « les pôles ne
-      // possèdent pas de couleur ni d'icône ni de motif. » Le point coloré
-      // du pôle (subProjectShade(currentActivityColor, index, ...)) est
-      // retiré ici — seule l'activité garde sa couleur pleine (inchangée
-      // ailleurs dans l'app) ; ce sont désormais les SECTEURS qui reçoivent
-      // une nuance automatique, voir buildPoleSecteursBlock()/secteurShade()
-      // plus bas.
+      // possèdent pas de couleur ni d'icône ni de motif. » — revirement le
+      // 26 septembre 2026 (maquette « Hybride » validée par Emilien) : le
+      // point coloré du pôle est réintroduit ici, en plus de la nuance déjà
+      // portée par les SECTEURS (buildPoleSecteursBlock()/secteurShade()
+      // plus bas, inchangée) — les deux coexistent désormais.
+      var dot = document.createElement('span');
+      dot.className = 'activityGoalsCategoryDot';
+      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+      row.appendChild(dot);
+
       var nameLabel = document.createElement('span');
       nameLabel.className = 'activityRowName';
       nameLabel.textContent = c.label;
@@ -7036,11 +7050,21 @@
   // Même bulle pour un pôle ET pour un secteur (buildPoleSecteursBlock plus
   // haut) : un pôle proche de son plafond de secteurs (10) subirait
   // exactement le même symptôme.
+  // 27 septembre 2026, retour d'Emilien (bug persistant, capture à l'appui) :
+  // « il faut [...] que les catégories défilent [...] jusqu'à ce que la zone
+  // d'écriture se positionne juste au-dessus du clavier » — `block: 'center'`
+  // centrait le champ au milieu de la zone visible (déjà réduite à vv.height,
+  // voir plus haut), pas juste au-dessus du clavier comme demandé ici.
+  // `block: 'end'` aligne le bas du champ sur le bas de cette zone visible,
+  // c'est-à-dire exactement la ligne du clavier. Complété par le passage de
+  // #activityPageSectionSwitch en sticky (styles.css, même date) : sans lui,
+  // ce même calcul aurait aussi fait défiler le sélecteur de section hors de
+  // vue avec la liste, ce qu'Emilien a explicitement demandé d'éviter.
   function scrollAddInputIntoView(el) {
     el.addEventListener('focus', function () {
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.scrollIntoView({ behavior: 'smooth', block: 'end' });
         });
       });
     });

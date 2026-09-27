@@ -3158,6 +3158,32 @@ button { -webkit-user-select: none; user-select: none; }
   /* Le rebond de cette zone ne se propage pas à la page derrière. */
   overscroll-behavior: contain;
 }
+/* 27 septembre 2026, demande d'Emilien (bug clavier persistant, capture à
+   l'appui, section Catégories) : « le nom des sections reste fixe [...] les
+   catégories défilent sous le nom des sections [...] jusqu'à ce que la zone
+   d'écriture se positionne juste au-dessus du clavier. » Jusqu'ici
+   #activityPageSectionSwitch (Catégories/Statistiques/Discussion) défilait
+   AVEC #activityPageBody, les deux dans la même zone #activityPageScroll —
+   le sélecteur remontait donc hors de vue en même temps que la liste des
+   pôles, au lieu de rester au repère fixe qu'Emilien attend. `position:
+   sticky` le colle au sommet de SA zone de défilement (#activityPageScroll,
+   déjà pincée à `vv.height` pendant le clavier, voir app.js) — même motif
+   déjà validé par Emilien pour .subProjectSticky.open plus bas dans ce
+   fichier, pas de nouvelle mécanique. Marge négative LATÉRALE + padding
+   horizontal restauré : le sélecteur couvre toute la largeur de la carte
+   (sinon le contenu défilerait visiblement dans les 16px de padding gauche/
+   droite de #activityPageScroll) ; padding-bottom remplace le
+   margin-bottom:16px de .periodSwitch (généique), neutralisé ici par
+   `margin: 0 -16px`. Fond opaque nécessaire : le contenu défile SOUS lui.
+   ⚠️ Exclu de .chatMode (:not) : ce mode construit sa PROPRE chaîne de
+   défilement (#communityDiscussionList) où #activityPageScroll ne défile
+   plus lui-même (overflow-y:hidden) — un `sticky` y serait sans effet, mais
+   autant l'exclure explicitement plutôt que de laisser au hasard. */
+#activityPageScroll:not(.chatMode) #activityPageSectionSwitch {
+  position: sticky; top: 0; z-index: 3;
+  background: var(--bg);
+  margin: 0 -16px; padding: 0 16px 16px;
+}
 .activityPageHeader {
   display: flex; align-items: center; gap: 10px;
   flex: 0 0 auto;
