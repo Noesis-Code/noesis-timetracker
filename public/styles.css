@@ -8,10 +8,12 @@
   --grey: #CCCCCC;
   --bg: #f5f5f7;
   --card: #ffffff;
-  /* --bg-raised (28 septembre 2026, suite) : nuance dédiée aux "barres" qui
-     doivent rester distinguables du fond SANS ligne de séparation (voir son
-     usage sur .tabbar/#app::after plus bas) — inchangée en thème clair
-     (identique à --card, comportement d'avant ce chantier). */
+  /* --bg-raised (28 septembre 2026, suite) : nuance initialement conçue
+     pour distinguer une "barre" du fond SANS ligne de séparation.
+     ⚠️ .tabbar/#app::after ne l'utilisent plus depuis le même jour (2e
+     revu : Emilien veut AUCUNE différence perceptible avec le fond, voir
+     leurs commentaires) — variable conservée pour un futur besoin de ce
+     type. Inchangée en thème clair (identique à --card). */
   --bg-raised: #ffffff;
   --text: #333333;
   --text-light: #777777;
@@ -55,12 +57,17 @@
      la barre visible entre la barre des volets et l'écran [...] et cette
      barre en haut [...] entre la zone de texte pour rechercher ou publier
      et la page [...] pas de barre, avec une nuance de noir plus clair »).
-     Remplace les traits nets (border-top de .tabbar, border-bottom de
-     #communitySearchBar) : la distinction entre ces barres et le fond pur
-     (var(--bg), #000000) se fait désormais par une nuance de noir LÉGÈREMENT
-     plus claire, jamais par une ligne. Volontairement plus sombre que
-     --card (qui reste la nuance des cartes ordinaires à l'intérieur d'un
-     volet, non concernées par cette demande). */
+     Introduite pour remplacer les traits nets (border-top de .tabbar,
+     border-bottom de #communitySearchBar) par une nuance de noir LÉGÈREMENT
+     plus claire que le fond pur (var(--bg), #000000), jamais par une ligne.
+     ⚠️ 2e revu le même jour : Emilien précise ne vouloir AUCUNE différence
+     perceptible entre .tabbar et le fond (« que les icônes [...] semblent
+     flotter [...] de façon libre ») — .tabbar/#app::after sont donc
+     repassées à var(--bg) strictement (voir leurs commentaires), --bg-raised
+     n'est plus utilisée QUE comme référence de valeur (littérale, #121214)
+     par #communitySearchBar, qui elle reste volontairement distincte du
+     fond (zone de recherche/publication, pas une barre de navigation) —
+     variable conservée, pas de trait, plus sombre que --card. */
   --bg-raised: #121214;
   --text: #eef0f2;
   --text-light: #9a9ea6;
@@ -419,12 +426,14 @@ input[type=time]:focus, select:focus, textarea:focus {
    var(--bg)) pour que l'extension se fonde dans la barre plutôt que dans le
    fond de la page. position:fixed, même z-index que .tabbar (50) : reste
    au-dessus du contenu mais sous les fenêtres pleine page (90+).
-   ⚠️ 28 septembre 2026, suite : réalignée sur var(--bg-raised) — .tabbar
-   n'utilise plus var(--card) depuis ce même jour (voir son commentaire),
-   puis plus var(--bg) non plus (voir plus haut) ; ce filler doit suivre la
-   nuance RÉELLEMENT utilisée par .tabbar à chaque fois, pas une valeur
-   figée, pour ne jamais rouvrir la bande visible que ce correctif a
-   justement pour but d'éliminer. */
+   ⚠️ 28 septembre 2026, suite : réalignée sur var(--bg-raised), puis (2e
+   revu le même jour) de nouveau sur var(--bg) — .tabbar n'utilise plus
+   var(--card) depuis ce même jour (voir son commentaire), est passée par
+   var(--bg-raised), puis Emilien a demandé l'absence totale de différence
+   perceptible avec le fond ; ce filler doit suivre la nuance RÉELLEMENT
+   utilisée par .tabbar à chaque fois, pas une valeur figée, pour ne jamais
+   rouvrir la bande visible que ce correctif a justement pour but
+   d'éliminer. */
 #app::after {
   content: '';
   position: fixed;
@@ -432,7 +441,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   right: 0;
   bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
   height: calc(env(safe-area-inset-bottom, 0px) + 24px);
-  background: var(--bg-raised);
+  background: var(--bg);
   pointer-events: none;
   z-index: 50;
 }
@@ -652,13 +661,21 @@ input[type=time]:focus, select:focus, textarea:focus {
      du bas prend désormais la même nuance de noir que l'entête et le reste
      de l'app, au lieu de la nuance "carte" qui la distinguait jusqu'ici.
      ⚠️ Revu le même jour, suite : le trait net (border-top) qui restait la
-     SEULE distinction visible entre la barre et l'écran a été jugé "barre
-     visible" à supprimer par Emilien — remplacé par var(--bg-raised), une
-     nuance de noir légèrement plus claire que le fond (var(--bg)) plutôt
-     qu'une ligne. Voir #app::after plus haut, réaligné sur cette même
-     nuance pour rester raccord sous la barre (zone d'encoche iPhone). */
-  background: var(--bg-raised);
-  box-shadow: var(--shadow-tabbar);
+     SEULE distinction visible a été jugé "barre visible" à supprimer par
+     Emilien — remplacé un temps par var(--bg-raised) (nuance légèrement
+     plus claire que le fond).
+     ⚠️⚠️ Revu une 2e fois le même jour : Emilien précise qu'il ne veut
+     aucune différence perceptible, pas même une nuance plus claire — « je
+     souhaite que les icônes des volets semblent flotter sur la page de
+     façon libre » — donc retour à var(--bg) strictement identique au fond
+     de la page, ET retrait du box-shadow (une ombre, même discrète, reste
+     une séparation visible qui contredit "flotter librement"). Voir
+     #app::after plus haut, réaligné sur ce même var(--bg) pour rester
+     raccord sous la barre (zone d'encoche iPhone). --bg-raised n'est plus
+     utilisée ici mais reste définie (voir sa déclaration) : #communitySearchBar
+     s'en inspire toujours en valeur littérale, et elle reste disponible si
+     un futur élément a besoin d'une nuance "élevée mais pas carte". */
+  background: var(--bg);
   padding: 6px 0 max(6px, env(safe-area-inset-bottom));
   /* ⚠️ 11 septembre 2026, demande d'Emilien : « je souhaite que la barre
      basse des volets soit en avant-plan toujours par défaut. Jamais rien
