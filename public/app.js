@@ -6842,12 +6842,6 @@
         input.className = 'subProjectNameInput';
         input.maxLength = 40;
         input.value = c.label;
-        // 28 septembre 2026 (retour d'Emilien, capture à l'appui : ce champ de
-        // RENOMMAGE de pôle n'avait jamais reçu le correctif clavier posé le
-        // 27 septembre sur les champs d'AJOUT — scrollAddInputIntoView() est
-        // générique (n'importe quel champ), seuls ses 2 sites d'appel
-        // existants étaient limités à l'ajout. Même traitement ici.
-        scrollAddInputIntoView(input);
         (function (c, input) {
           function commitName() {
             var value = input.value.trim();
@@ -6890,10 +6884,6 @@
         descInput.value = c.description || '';
         descInput.placeholder = t('Description (optionnel) — aide l’IA à repérer les liens pertinents entre secteurs');
         descInput.addEventListener('click', function (e) { e.stopPropagation(); });
-        // 28 septembre 2026 : même correctif clavier que le champ de nom
-        // ci-dessus (voir son commentaire) — ce champ aussi défile sous le
-        // clavier au focus.
-        scrollAddInputIntoView(descInput);
         (function (c, input, descInput) {
           function commitDescription() {
             var value = descInput.value.trim();
@@ -7345,10 +7335,6 @@
       input.className = 'subProjectNameInput';
       input.maxLength = 40;
       input.value = s.label;
-      // 28 septembre 2026 : même correctif clavier que le champ de nom de
-      // pôle (renderActivityGoalsCategoriesPanel, voir son commentaire) —
-      // scrollAddInputIntoView() est générique, jamais branchée ici jusqu'ici.
-      scrollAddInputIntoView(input);
       (function (s, input) {
         function commitName() {
           var value = input.value.trim();
@@ -7383,9 +7369,6 @@
       descInput.value = s.description || '';
       descInput.placeholder = t('Description (optionnel) — aide l’IA à repérer les liens pertinents entre secteurs');
       descInput.addEventListener('click', function (e) { e.stopPropagation(); });
-      // 28 septembre 2026 : même correctif clavier que le champ de nom
-      // ci-dessus (voir son commentaire).
-      scrollAddInputIntoView(descInput);
       (function (s, input, descInput) {
         function commitDescription() {
           var value = descInput.value.trim();
@@ -9792,202 +9775,57 @@
 
   // 28 septembre 2026 (backlog encart 71 du 27 septembre : « historique de
   // tâches, même modèle que le Chrono », signalé par Emilien comme absent) —
-  // puis DEUX refontes le même jour. La première (retirée) reconstruisait le
-  // panneau de mémoire : bouton dédié avec chevron, blocs par jour. Emilien a
-  // corrigé point par point, captures d'écran du panneau Historique RÉEL du
-  // Chrono à l'appui : « ce n'est pas le même bouton que pour chrono. Il
-  // n'est pas centré, il n'a pas la même forme, pas la même couleur. Pareil
-  // pour les flèches [...] je ne t'ai jamais demandé d'avoir les jours de la
-  // semaine. Je souhaite juste avoir l'enregistrement des activités par
-  // semaine [...] puisqu'il n'y a pas d'activité visible [...] il n'y a
-  // aucun bouton supprimer ou modifier [...] Sers-toi de cette base ». Cette
-  // 2e version REPREND LITTÉRALEMENT le gabarit de #chronoHistorySection —
-  // voir buildChronoHistoryEntry()/loadChronoHistory()/renderChronoHistory()/
-  // chronoHistoryWeekLabel() plus haut dans ce fichier, laissées strictement
-  // inchangées, dont les fonctions ci-dessous sont des variantes quasi
-  // identiques adaptées aux tâches (pas de plage horaire/durée, un libellé
-  // au lieu d'une note, pas de pièces jointes). Même convention d'offset que
-  // Chrono (0 = semaine courante, un décalage positif recule dans le passé,
-  // jamais l'avenir — voir server/routes/goals.js) et même chargement
-  // paresseux (seulement à l'ouverture du panneau, pas à chaque affichage de
-  // la page 1 — voir showGoalsCapturePage() qui se contente de réinitialiser
-  // l'état, repliée et sur la semaine courante, sans requête réseau).
-  var goalsTasksHistoryWeekOffset = 0;
-
-  // Même algorithme que chronoHistoryWeekLabel() ci-dessus (mondayOf() côté
-  // serveur) — étiquette cohérente avec la semaine réellement demandée à
-  // l'API.
-  function goalsTasksHistoryWeekLabel(offset) {
-    var ref = new Date();
-    ref.setDate(ref.getDate() - offset * 7);
-    var day = ref.getDay();
-    var diff = day === 0 ? -6 : 1 - day;
-    var monday = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + diff);
-    var sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    if (offset === 0) return t('Cette semaine');
-    var fmt = function (d) { return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); };
-    return fmt(monday) + ' – ' + fmt(sunday);
-  }
-
+  // journal en LECTURE SEULE des tâches capturées par la bulle ci-dessus,
+  // TOUTES ACTIVITÉS confondues (voir GET /api/goals/tasks/history,
+  // server/lib/goalstasks.js#tasksHistoryForUser).
   function loadGoalsTasksHistory() {
-    var weekOffset = goalsTasksHistoryWeekOffset;
-    return api('GET', '/api/goals/tasks/history?weekOffset=' + weekOffset)
-      .then(function (data) {
-        // Réponse en vol : l'utilisateur a pu changer de semaine entre-temps
-        // (clic rapide sur les flèches) — même garde que loadSecteurTasksModal.
-        if (weekOffset !== goalsTasksHistoryWeekOffset) return;
-        renderGoalsTasksHistory((data && data.tasks) || []);
-      })
-      .catch(function () { /* pas bloquant — l'historique restera simplement à jour au prochain essai */ });
+    return api('GET', '/api/goals/tasks/history')
+      .then(function (data) { renderGoalsTasksHistory((data && data.tasks) || []); })
+      .catch(function () { /* pas bloquant — l'historique restera simplement à jour au prochain chargement */ });
   }
 
+  // Même gabarit que buildCategoryTaskRow (checkbox + subProjectItemLabel,
+  // appendLinkified — jamais innerHTML) mais SANS aucun contrôle interactif
+  // (case désactivée, pas de sélecteur de catégorie, pas de suppression) :
+  // ce n'est pas un écran d'action, seulement un rappel chronologique de ce
+  // qui a été capturé — comme le panneau Historique du Chrono ne permet pas
+  // de modifier une entrée passée.
   function renderGoalsTasksHistory(tasks) {
+    var section = $('goalsTasksHistorySection');
     var box = $('goalsTasksHistoryList');
-    if (!box) return;
+    if (!section || !box) return;
     box.innerHTML = '';
-    tasks.forEach(function (task) { box.appendChild(buildGoalsTasksHistoryRow(task, loadGoalsTasksHistory)); });
-    var emptyHint = $('goalsTasksHistoryEmptyHint');
-    if (emptyHint) emptyHint.classList.toggle('hidden', tasks.length > 0);
-    var labelEl = $('goalsTasksHistoryWeekLabel');
-    if (labelEl) labelEl.textContent = goalsTasksHistoryWeekLabel(goalsTasksHistoryWeekOffset);
-    var nextBtn = $('goalsTasksHistoryNextWeek');
-    if (nextBtn) nextBtn.disabled = goalsTasksHistoryWeekOffset === 0;
-  }
+    if (!tasks.length) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    tasks.forEach(function (task) {
+      var row = document.createElement('div');
+      row.className = 'goalsTasksHistoryItem' + (task.done ? ' done' : '');
 
-  // Même carte que buildChronoHistoryEntry() ci-dessus (.historyEntry,
-  // .rowTop/.actName/.dot, .meta, .note, .actions, .historyEditFields) — une
-  // tâche n'a ni plage horaire ni durée ni pièces jointes, donc pas
-  // d'équivalent à timeRangeLabel()/attachBox ici. La case à cocher de
-  // Chrono n'existe PAS dans cette carte (demande explicite d'Emilien :
-  // « qu'on ne puisse pas cocher la tâche dans l'historique ») — remplacée
-  // par un simple indice texte, dans le coin où Chrono affiche sa durée.
-  function buildGoalsTasksHistoryRow(task, onChanged) {
-    var card = document.createElement('div');
-    card.className = 'historyEntry';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = task.done;
+      cb.disabled = true;
+      row.appendChild(cb);
 
-    var activity = activitiesCache.find(function (a) { return String(a.id) === String(task.activityId); }) || { name: task.activityName, color: '#CCCCCC' };
+      var body = document.createElement('div');
+      body.className = 'goalsTasksHistoryItemBody';
 
-    var top = document.createElement('div');
-    top.className = 'rowTop';
-    var actName = document.createElement('span');
-    actName.className = 'actName';
-    var dot = document.createElement('span');
-    dot.className = 'dot';
-    dot.style.background = activity.color;
-    actName.appendChild(dot);
-    actName.appendChild(document.createTextNode(activity.name || task.activityName || ''));
-    top.appendChild(actName);
-    var doneMeta = document.createElement('span');
-    doneMeta.className = 'meta';
-    doneMeta.textContent = task.done ? ('✓ ' + t('Cochée')) : t('Non cochée');
-    top.appendChild(doneMeta);
-    card.appendChild(top);
+      var label = document.createElement('div');
+      label.className = 'goalsTasksHistoryItemLabel';
+      appendLinkified(label, task.label);
+      body.appendChild(label);
 
-    var metaLine = document.createElement('div');
-    metaLine.className = 'meta';
-    var dateLabel = task.createdAt
-      ? new Date(task.createdAt).toLocaleDateString(dateLocale(), { weekday: 'long', day: '2-digit', month: '2-digit' })
-      : '';
-    metaLine.textContent = [dateLabel, task.categoryLabel].filter(Boolean).join(' · ');
-    card.appendChild(metaLine);
+      var meta = document.createElement('div');
+      meta.className = 'goalsTasksHistoryItemMeta';
+      var metaParts = [task.activityName, task.categoryLabel].filter(Boolean);
+      if (task.createdAt) {
+        metaParts.push(new Date(task.createdAt).toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit' }));
+      }
+      meta.textContent = metaParts.join(' · ');
+      body.appendChild(meta);
 
-    var noteEl = document.createElement('div');
-    noteEl.className = 'note';
-    noteEl.textContent = task.label;
-    card.appendChild(noteEl);
-
-    var actions = document.createElement('div');
-    actions.className = 'actions';
-    var editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.className = 'iconBtn';
-    editBtn.textContent = t('Modifier');
-    var delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'iconBtn danger';
-    delBtn.textContent = t('Supprimer');
-    actions.appendChild(editBtn);
-    actions.appendChild(delBtn);
-    card.appendChild(actions);
-
-    var editFields = document.createElement('div');
-    editFields.className = 'historyEditFields hidden';
-    editFields.innerHTML =
-      '<p class="stopFieldLabel">' + t('Tâche') + '</p>' +
-      '<input type="text" class="historyEditTaskLabel" maxlength="300">' +
-      '<p class="historyEditMsg msg"></p>' +
-      '<div class="rowActions">' +
-        '<button type="button" class="iconBtn historyEditCancel">' + t('Annuler') + '</button>' +
-        '<button type="button" class="iconBtn historyEditSave">' + t('Enregistrer') + '</button>' +
-      '</div>';
-    card.appendChild(editFields);
-
-    var labelInput = editFields.querySelector('.historyEditTaskLabel');
-    var editMsg = editFields.querySelector('.historyEditMsg');
-    var saveBtn = editFields.querySelector('.historyEditSave');
-    var cancelBtn = editFields.querySelector('.historyEditCancel');
-
-    editBtn.addEventListener('click', function () {
-      editMsg.textContent = '';
-      labelInput.value = task.label;
-      editFields.classList.remove('hidden');
-      actions.classList.add('hidden');
-    });
-    cancelBtn.addEventListener('click', function () {
-      editFields.classList.add('hidden');
-      actions.classList.remove('hidden');
-    });
-    saveBtn.addEventListener('click', function () {
-      var value = labelInput.value.trim();
-      if (!value) { editMsg.textContent = t('Intitulé requis.'); return; }
-      saveBtn.disabled = true;
-      cancelBtn.disabled = true;
-      api('PUT', '/api/sub-project-items/' + task.id, { userId: profile.id, label: value })
-        .then(onChanged)
-        .catch(function (err) {
-          editMsg.textContent = err.message;
-          saveBtn.disabled = false;
-          cancelBtn.disabled = false;
-        });
-    });
-
-    delBtn.addEventListener('click', function () {
-      if (!confirm(t('Supprimer définitivement cette tâche ?'))) return;
-      api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + profile.id).then(onChanged).catch(function (err) { alert(err.message); });
-    });
-
-    return card;
-  }
-
-  // Toute la ligne d'en-tête ("Historique") est cliquable pour déplier/
-  // replier le panneau — c'est elle-même le bouton, sans aucun chevron à
-  // côté, exactement comme $('chronoHistoryHeader') ci-dessus (demande
-  // d'Emilien, corrigée le 28 septembre : « il n'est pas centré, il n'a pas
-  // la même forme, pas la même couleur » — la bulle dédiée de la 1ère
-  // version est retirée au profit de .sectionTitleRow/.sectionTitle,
-  // classes génériques déjà utilisées par Chrono).
-  var goalsTasksHistoryHeaderEl = $('goalsTasksHistoryHeader');
-  if (goalsTasksHistoryHeaderEl) {
-    goalsTasksHistoryHeaderEl.addEventListener('click', function () {
-      var opening = $('goalsTasksHistoryPanel').classList.contains('hidden');
-      $('goalsTasksHistoryPanel').classList.toggle('hidden', !opening);
-      if (opening) { goalsTasksHistoryWeekOffset = 0; loadGoalsTasksHistory(); }
-    });
-  }
-  var goalsTasksHistoryPrevBtn = $('goalsTasksHistoryPrevWeek');
-  if (goalsTasksHistoryPrevBtn) {
-    goalsTasksHistoryPrevBtn.addEventListener('click', function () {
-      goalsTasksHistoryWeekOffset += 1;
-      loadGoalsTasksHistory();
-    });
-  }
-  var goalsTasksHistoryNextBtn = $('goalsTasksHistoryNextWeek');
-  if (goalsTasksHistoryNextBtn) {
-    goalsTasksHistoryNextBtn.addEventListener('click', function () {
-      if (goalsTasksHistoryWeekOffset === 0) return;
-      goalsTasksHistoryWeekOffset -= 1;
-      loadGoalsTasksHistory();
+      row.appendChild(body);
+      box.appendChild(row);
     });
   }
 
@@ -10258,10 +10096,7 @@
   // Écran par défaut de l'onglet Objectifs — voir le commentaire de tête de
   // cette section. Repart d'une sélection vide et rafraîchit les badges à
   // chaque fois (l'utilisateur peut revenir ici après avoir vu/ajouté des
-  // tâches ailleurs). Le panneau Historique, lui, repart REPLIÉ et sur la
-  // semaine courante mais n'est PAS rechargé ici (chargement paresseux,
-  // seulement à l'ouverture — voir le câblage de #goalsTasksHistoryHeader) :
-  // pas besoin d'une requête réseau tant que l'utilisateur ne l'a pas ouvert.
+  // tâches ailleurs).
   function showGoalsCapturePage() {
     var list = activitiesCache || [];
     if (!list.length) {
@@ -10281,9 +10116,7 @@
     renderGoalsCaptureBubble();
     renderGoalsCaptureActivities();
     loadGoalsCaptureBadges();
-    goalsTasksHistoryWeekOffset = 0;
-    var histPanel = $('goalsTasksHistoryPanel');
-    if (histPanel) histPanel.classList.add('hidden');
+    loadGoalsTasksHistory();
   }
 
   // Navigue vers la page 2 (pôles + arbre périodique) d'une activité précise
@@ -10362,7 +10195,7 @@
   // proposé par Tâche - Pôles & secteurs (converge sur leur version, plus
   // simple qu'une première proposition de ma part) :
   //   { done, total, percent, groups: [
-  //       { key, poleKey, label, isPole, description, done, total, percent,
+  //       { key, poleKey, label, isPole, done, total, percent,
   //         tasks: [{ id, label, done, dueDate, position, autoCaptured }] }
   //   ] }
   // isPole=true : pôle SANS secteur (aucune imbrication, rendu à plat,
@@ -10378,29 +10211,13 @@
   // vide (juste #goalsTasksEmptyHint, texte par défaut du HTML), sans erreur
   // visible pour Emilien.
   //
-  // ⚠️ Case à cocher ET croix de suppression : réutilisent TELLES QUELLES
-  // PUT/DELETE /api/sub-project-items/:id (mêmes routes que buildTaskRow()
-  // plus haut), en supposant que les tâches de catégorie Objectifs sont des
-  // lignes de la même table sub_project_items (mêmes champs
-  // id/label/done/dueDate/position/autoCaptured) simplement rattachées par
-  // une clé de catégorie/pôle/secteur plutôt que par un subProjectId.
-  // Hypothèse signalée à Tâche - Pôles & secteurs pour confirmation/
-  // correction — à ajuster ici si les routes réelles diffèrent.
-  //
-  // ⚠️ 28 septembre 2026, demande directe d'Emilien : « je souhaite que dans
-  // tâches, les secteurs apparaissent exactement dans le même format que la
-  // section actuelle sous projet [...] Prends comme modèle le code de la
-  // section sous-projet du main actuel ». buildGoalsTasksGroup()/
-  // buildGoalsTaskRow() ci-dessous réutilisent donc littéralement le gabarit
-  // visuel d'un sous-projet (.subProjectRow, voir renderSubProjectsList()/
-  // buildTaskRow() plus haut) : nom + badge %/compte, description (si le
-  // pôle/secteur en a une, attribuée via la fenêtre d'activité, section
-  // Catégories — champ `description` désormais réclamé dans le contrat
-  // ci-dessus), barre d'avancement, puis les tâches avec case à cocher +
-  // croix de suppression rouge. La zone d'avancement global (plus bas)
-  // réutilise de même .activityProgressCard (Sous-projets) au lieu d'un
-  // gabarit propre — voir le commentaire à côté de #goalsTasksProgressWrap,
-  // index.html.
+  // ⚠️ Case à cocher : réutilise TEL QUEL PUT /api/sub-project-items/:id
+  // (même route que buildTaskRow() plus haut), en supposant que les tâches
+  // de catégorie Objectifs sont des lignes de la même table sub_project_items
+  // (mêmes champs id/label/done/dueDate/position/autoCaptured) simplement
+  // rattachées par une clé de catégorie/pôle/secteur plutôt que par un
+  // subProjectId. Hypothèse signalée à Tâche - Pôles & secteurs pour
+  // confirmation/correction — à ajuster ici si la route réelle diffère.
   function setGoalsPage2Mode(mode) {
     currentGoalsPage2Mode = mode;
     var tasksBtn = $('goalsPage2ModeTasksBtn');
@@ -10443,9 +10260,7 @@
       wrap.classList.add('hidden');
     } else {
       wrap.classList.remove('hidden');
-      // r=19, identique à renderActivityProgressRing() (Sous-projets) — voir
-      // le commentaire à côté de #goalsTasksProgressWrap, index.html.
-      var circumference = 2 * Math.PI * 19;
+      var circumference = 2 * Math.PI * 26;
       var fill = $('goalsTasksProgressRingFill');
       fill.style.strokeDasharray = circumference.toFixed(2);
       fill.style.strokeDashoffset = (circumference * (1 - data.percent / 100)).toFixed(2);
@@ -10466,86 +10281,79 @@
     emptyHint.classList.toggle('hidden', groups.length > 0);
   }
 
-  // Gabarit repris tel quel d'une ligne sous-projet (.subProjectRow, voir
-  // renderSubProjectsList() plus haut) — demande explicite d'Emilien, voir
-  // le commentaire en tête de section. Un pôle sans secteur (g.isPole) reste
-  // toujours déplié (pas de chevron, pas de clic sur l'en-tête) ; un secteur
-  // est un accordéon replié par défaut, état retenu dans
-  // currentGoalsTasksOpenGroups le temps de rester sur cet écran.
   function buildGoalsTasksGroup(g) {
-    var row = document.createElement('div');
-    row.className = 'activityRow subProjectRow goalsTasksGroup' + (g.isPole ? ' goalsTasksGroupFlat' : '')
-      + (!g.isPole && currentGoalsTasksOpenGroups[g.key] ? ' open' : '');
-    row.dataset.groupKey = g.key;
+    var wrap = document.createElement('div');
+    wrap.className = 'goalsTasksGroup' + (g.isPole ? ' goalsTasksGroupFlat' : '');
+    wrap.dataset.groupKey = g.key;
 
-    var isOpen = g.isPole || !!currentGoalsTasksOpenGroups[g.key];
+    var body = document.createElement('div');
+    body.className = 'goalsTasksGroupBody';
 
-    var header = document.createElement('div');
-    header.className = 'activityRowHeader subProjectRowHeader';
-
-    if (!g.isPole) {
+    if (g.isPole) {
+      // Pôle sans secteur : pas de repli possible, toujours déplié — en-tête
+      // purement informatif (voir .goalsTasksGroupFlatHead, styles.css).
+      var flatHead = document.createElement('div');
+      flatHead.className = 'goalsTasksGroupFlatHead';
+      var flatLabel = document.createElement('span');
+      flatLabel.className = 'goalsTasksGroupLabel';
+      flatLabel.textContent = g.label;
+      flatHead.appendChild(flatLabel);
+      var flatCount = document.createElement('span');
+      flatCount.className = 'goalsTasksGroupCount meta';
+      flatCount.textContent = g.done + '/' + g.total;
+      flatHead.appendChild(flatCount);
+      wrap.appendChild(flatHead);
+    } else {
+      // Secteur : accordéon, replié par défaut, état retenu par clé de
+      // groupe le temps de rester sur cet écran (currentGoalsTasksOpenGroups).
+      var open = !!currentGoalsTasksOpenGroups[g.key];
+      var head = document.createElement('div');
+      head.className = 'goalsTasksGroupHead';
       var chevron = document.createElement('span');
       chevron.className = 'goalsTasksGroupChevron';
       chevron.textContent = '›';
-      header.appendChild(chevron);
-    }
-
-    var name = document.createElement('span');
-    name.className = 'activityRowName';
-    name.textContent = g.label;
-    header.appendChild(name);
-
-    var badge = document.createElement('span');
-    badge.className = 'meta subProjectBadge';
-    badge.textContent = g.percent === null || g.percent === undefined
-      ? t('Aucune tâche')
-      : g.percent + '% · ' + g.done + '/' + g.total;
-    header.appendChild(badge);
-
-    row.appendChild(header);
-
-    if (!g.isPole) {
-      header.addEventListener('click', function () {
-        currentGoalsTasksOpenGroups[g.key] = !currentGoalsTasksOpenGroups[g.key];
-        renderGoalsTasksOverview(currentGoalsTasksOverview);
+      head.appendChild(chevron);
+      var label = document.createElement('span');
+      label.className = 'goalsTasksGroupLabel';
+      label.textContent = g.label;
+      head.appendChild(label);
+      var count = document.createElement('span');
+      count.className = 'goalsTasksGroupCount meta';
+      count.textContent = g.done + '/' + g.total;
+      head.appendChild(count);
+      head.addEventListener('click', function () {
+        var nowOpen = body.classList.toggle('hidden') === false;
+        wrap.classList.toggle('open', nowOpen);
+        currentGoalsTasksOpenGroups[g.key] = nowOpen;
       });
+      wrap.appendChild(head);
+      body.classList.toggle('hidden', !open);
+      wrap.classList.toggle('open', open);
     }
 
-    // Description du pôle/secteur (attribuée via la fenêtre d'activité,
-    // section Catégories) — demande explicite d'Emilien, affichée seulement
-    // si présente, même gabarit que .subProjectRowDesc.
-    if (g.description) {
-      var desc = document.createElement('p');
-      desc.className = 'meta subProjectRowDesc';
-      desc.textContent = g.description;
-      row.appendChild(desc);
-    }
-
-    var track = document.createElement('div');
-    track.className = 'subProjectProgressTrack subProjectRowTrack';
+    var bar = document.createElement('div');
+    bar.className = 'goalsTasksGroupBar';
     var barFill = document.createElement('div');
-    barFill.className = 'subProjectProgressFill';
+    barFill.className = 'goalsTasksGroupBarFill';
     barFill.style.width = (g.percent || 0) + '%';
-    track.appendChild(barFill);
-    row.appendChild(track);
+    bar.appendChild(barFill);
+    body.appendChild(bar);
 
-    if (isOpen) {
-      var items = document.createElement('div');
-      items.className = 'subProjectItems';
-      (g.tasks || []).forEach(function (task) { items.appendChild(buildGoalsTaskRow(task)); });
-      row.appendChild(items);
+    var items = document.createElement('div');
+    items.className = 'subProjectItems';
+    (g.tasks || []).forEach(function (task) { items.appendChild(buildGoalsTaskRow(task)); });
+    body.appendChild(items);
 
-      if (!g.tasks || !g.tasks.length) {
-        var hint = document.createElement('p');
-        hint.className = 'hint';
-        hint.textContent = t('Aucune tâche — ajoute la première ci-dessous.');
-        row.appendChild(hint);
-      }
-
-      appendGoalsTaskAddRow(row, g.key);
+    if (!g.tasks || !g.tasks.length) {
+      var hint = document.createElement('p');
+      hint.className = 'hint';
+      hint.textContent = t('Aucune tâche — ajoute la première ci-dessous.');
+      body.appendChild(hint);
     }
 
-    return row;
+    appendGoalsTaskAddRow(body, g.key);
+    wrap.appendChild(body);
+    return wrap;
   }
 
   function buildGoalsTaskRow(task) {
@@ -10567,30 +10375,9 @@
     var label = document.createElement('span');
     label.className = 'subProjectItemLabel';
     // Mêmes précautions que buildTaskRow() : jamais innerHTML, le texte peut
-    // venir d'un autre membre de l'activité partagée. Répond aussi à la
-    // demande d'Emilien « insérer dans les tâches des liens sur lesquels on
-    // peut directement cliquer » — déjà satisfaite par appendLinkified().
+    // venir d'un autre membre de l'activité partagée.
     appendLinkified(label, task.label);
     row.appendChild(label);
-
-    // 28 septembre 2026, demande directe d'Emilien : « en dessous les tâches
-    // avec une croix rouge pour les supprimer » — même gabarit que la croix
-    // de suppression déjà utilisée ailleurs (.discussionMsgDelete),
-    // confirmation native puis DELETE /api/sub-project-items/:id (voir
-    // l'hypothèse de route signalée en tête de section).
-    var del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'discussionMsgDelete';
-    del.textContent = '✕';
-    del.title = t('Supprimer cette tâche');
-    del.setAttribute('aria-label', t('Supprimer cette tâche'));
-    del.addEventListener('click', function () {
-      if (!confirm(t('Supprimer cette tâche ?'))) return;
-      api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + profile.id)
-        .then(function () { loadGoalsTasksOverview(); })
-        .catch(function (err) { alert(err.message); });
-    });
-    row.appendChild(del);
 
     return row;
   }
