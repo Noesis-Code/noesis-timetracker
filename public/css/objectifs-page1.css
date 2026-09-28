@@ -56,3 +56,53 @@
 }
 
 .goalsCaptureBubbleWrap { display: flex; flex-direction: column; }
+
+/* 28 septembre 2026, 2e retour d'Emilien le même jour (captures d'écran du
+   panneau Historique RÉEL du Chrono à l'appui) : le bouton "Historique" de
+   la page 1 doit être « encadré et centré exactement comme dans la page
+   chrono, avec la même distance entre le bouton et les activités ». Copie
+   EXACTE des propriétés de #chronoHistoryHeader (public/styles.css,
+   commentaire "Historique modifiable (Chrono)") — jamais une redéfinition
+   de .sectionTitleRow/.sectionTitle/.historyHeaderClickable elles-mêmes
+   (propriété de Design, partagées avec tout le reste de l'app). */
+#goalsTasksHistoryHeader {
+  margin-top: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); padding: 10px 20px;
+  display: flex; justify-content: center; width: fit-content;
+  margin-left: auto; margin-right: auto;
+  transition: background-color var(--transition-fast);
+}
+#goalsTasksHistoryHeader:hover { background: var(--hover-bg); }
+#goalsTasksHistoryHeader .sectionTitle { margin: 0; }
+/* .goalsCapturePage espace tous ses enfants directs de 14px (flex gap) —
+   #chronoHistoryHeader, lui, n'est qu'à 4px de ce qui le précède (pas un
+   contexte flex-gap). Un margin-top négatif ramène l'écart net entre les
+   puces d'activité et ce bouton à 4px, même distance que Chrono, sans
+   toucher au gap de 14px qui sépare les AUTRES éléments de cette page
+   (bulle, invite, puces) entre eux. */
+#goalsTasksHistorySection { margin-top: -10px; }
+#goalsTasksHistoryPanel { margin-top: 10px; }
+
+/* 28 septembre 2026 (réaffectation activité/pôle/secteur/période/semaine/
+   jour depuis l'Historique, demande d'Emilien) — les 5 sélecteurs héritent
+   déjà du thème générique input/select de styles.css (Design, non touché
+   ici) ; seule la mise en page verticale + le petit libellé au-dessus de
+   chacun sont propres à cette page. */
+.historyReassign {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.historyReassignLabel {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: -2px;
+}
+.historyReassign select {
+  width: 100%;
+  box-sizing: border-box;
+}
+.historyReassignGoals {
+  margin-top: 2px;
+}

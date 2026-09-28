@@ -208,13 +208,59 @@
   }
 
 
-  // Même carte que buildChronoHistoryEntry() ci-dessus (.historyEntry,
-  // .rowTop/.actName/.dot, .meta, .note, .actions, .historyEditFields) — une
-  // tâche n'a ni plage horaire ni durée ni pièces jointes, donc pas
-  // d'équivalent à timeRangeLabel()/attachBox ici. La case à cocher de
-  // Chrono n'existe PAS dans cette carte (demande explicite d'Emilien :
-  // « qu'on ne puisse pas cocher la tâche dans l'historique ») — remplacée
-  // par un simple indice texte, dans le coin où Chrono affiche sa durée.
+  // 28 septembre 2026 (2e retour d'Emilien le même jour, captures d'écran du
+  // panneau Historique RÉEL du Chrono à l'appui) — refonte du contenu de la
+  // carte, citation directe : « Uniquement la couleur de l'activité sans le
+  // nom de l'activité, avec le pôle, le secteur, l'objectif périodique (s'il
+  // y a), le l'objectif hebdomadaire et la journée où la nouvelle tâche a
+  // été rangée. On y marque aussi la date à laquelle la tâche a été écrite.
+  // On garde l'information non cochée à haut à droite, les boutons modifier,
+  // supprimer [...] lorsqu'on clique sur modifier, on puisse modifier [...]
+  // la tâche, mais pas besoin de marquer deux fois la tâche [...] Une seule
+  // fois suffit. On peut directement la modifier dessus. » Toujours
+  // .historyEntry/.rowTop/.dot/.meta/.actions/.historyEditFields (gabarit
+  // Chrono), mais .actName ne porte plus que le point coloré (pôle/secteur/
+  // objectifs/jour vivent désormais dans leurs propres lignes .meta,
+  // alimentées par server/lib/goalstasks.js#tasksHistoryForWeek — poleLabel/
+  // secteurLabel/periodGoalText/weeklyGoalText, nouveaux ce passage-ci). La
+  // case à cocher de Chrono n'existe toujours PAS dans cette carte (demande
+  // explicite, inchangée) — remplacée par le même indice texte qu'avant,
+  // dans le coin où Chrono affiche sa durée.
+  //
+  // 28 septembre 2026 (réaffectation depuis l'Historique) — dupliqué depuis
+  // server/lib/goals.js#addDays, même convention déjà documentée en tête de
+  // server/lib/goalstasks.js : un utilitaire de date minuscule, dupliqué
+  // plutôt qu'exposé sur window.TMT, pour ne pas alourdir la dépendance vers
+  // app.js pour un seul appelant. Base UTC (comme le serveur) pour que le
+  // calcul du jour choisi corresponde exactement à periodBounds/weekBounds
+  // côté server/lib/goals.js.
+  function addDaysISO(isoDay, n) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDay || ''));
+    if (!m) return isoDay;
+    var d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    d.setUTCDate(d.getUTCDate() + n);
+    var p = function (x) { return String(x).padStart(2, '0'); };
+    return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate());
+  }
+
+  // 28 septembre 2026, MÊME message d'Emilien, dernier point : « je souhaite
+  // qu'on puisse modifier l'endroit où il a été rangé, c'est-à-dire
+  // l'activité, le pôle, le secteur, l'objectif périodique, l'objectif
+  // hebdomadaire et le jour. » Question de cadrage posée avant de coder
+  // cette partie (AskUserQuestion, voir noesis-timetracker-chantiers-en-
+  // cours.md) : l'objectif périodique/hebdomadaire ne sont PAS des valeurs
+  // qu'on choisit séparément (ils découlent du jour — période/semaine s'en
+  // déduisent, voir server/lib/goals.js#periodNumberForDate) — la seule
+  // vraie question était la GRANULARITÉ de navigation pour choisir ce jour.
+  // Réponse d'Emilien : « Trois sélecteurs distincts » (période → semaine →
+  // jour, plutôt qu'un simple sélecteur de date) — implémenté ci-dessous.
+  // Activité et pôle/secteur restent deux sélecteurs séparés en plus (pas
+  // couverts par la question, mais explicitement demandés). Nouvelle route
+  // dédiée PUT /api/goals/tasks/:id/reassign (server/lib/goalstasks.js#
+  // reassignHistoryTask) — jamais moveCategoryTask elle-même (territoire du
+  // segment Objectifs — Tâches, voir son commentaire) : cette route-ci sort
+  // délibérément du scope d'une seule activité, ce que moveCategoryTask ne
+  // permet pas.
   function buildGoalsTasksHistoryRow(task, onChanged) {
     var card = document.createElement('div');
     card.className = 'historyEntry';
@@ -229,7 +275,6 @@
     dot.className = 'dot';
     dot.style.background = activity.color;
     actName.appendChild(dot);
-    actName.appendChild(document.createTextNode(activity.name || task.activityName || ''));
     top.appendChild(actName);
     var doneMeta = document.createElement('span');
     doneMeta.className = 'meta';
@@ -237,14 +282,49 @@
     top.appendChild(doneMeta);
     card.appendChild(top);
 
-    var metaLine = document.createElement('div');
-    metaLine.className = 'meta';
-    var dateLabel = task.createdAt
-      ? new Date(task.createdAt).toLocaleDateString(dateLocale(), { weekday: 'long', day: '2-digit', month: '2-digit' })
-      : '';
-    metaLine.textContent = [dateLabel, task.categoryLabel].filter(Boolean).join(' · ');
-    card.appendChild(metaLine);
+    // Ligne 1 — pôle › secteur (secteur seulement si la tâche est rangée
+    // dans un secteur, pas directement sur le pôle).
+    var placeLine = document.createElement('div');
+    placeLine.className = 'meta';
+    placeLine.textContent = [task.poleLabel, task.secteurLabel].filter(Boolean).join(' › ');
+    card.appendChild(placeLine);
 
+    // Ligne 2 — objectif périodique, seulement « s'il y a » (texte non vide).
+    if (task.periodGoalText) {
+      var periodLine = document.createElement('div');
+      periodLine.className = 'meta';
+      periodLine.textContent = t('Objectif périodique') + ' : ' + task.periodGoalText;
+      card.appendChild(periodLine);
+    }
+
+    // Ligne 3 — objectif hebdomadaire, même principe (vide = omis, jamais un
+    // "—" vide affiché pour rien).
+    if (task.weeklyGoalText) {
+      var weeklyLine = document.createElement('div');
+      weeklyLine.className = 'meta';
+      weeklyLine.textContent = t('Objectif hebdomadaire') + ' : ' + task.weeklyGoalText;
+      card.appendChild(weeklyLine);
+    }
+
+    // Ligne 4 — jour où la tâche a été rangée (dueDate — le jour de
+    // planification réel, distinct de la date d'écriture ci-dessous) + date
+    // à laquelle la tâche a été écrite (createdAt, déjà affichée avant ce
+    // passage). calendarDayLabel() déjà utilisée ailleurs dans ce fichier
+    // (résultats de la bulle de capture) pour le même format de date.
+    var dayLine = document.createElement('div');
+    dayLine.className = 'meta';
+    var writtenLabel = task.createdAt
+      ? new Date(task.createdAt).toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit' })
+      : '';
+    dayLine.textContent = [
+      task.dueDate ? calendarDayLabel(task.dueDate) : '',
+      writtenLabel ? (t('Écrit le') + ' ' + writtenLabel) : '',
+    ].filter(Boolean).join(' · ');
+    card.appendChild(dayLine);
+
+    // Texte de la tâche — affiché en lecture seule, remplacé par le champ
+    // éditable au clic sur Modifier (jamais les deux en même temps, voir
+    // plus bas : « une seule fois suffit »).
     var noteEl = document.createElement('div');
     noteEl.className = 'note';
     noteEl.textContent = task.label;
@@ -264,11 +344,26 @@
     actions.appendChild(delBtn);
     card.appendChild(actions);
 
+    // Champ d'édition — remplace noteEl à l'écran (jamais affiché en même
+    // temps que lui), pré-rempli avec le texte actuel : on modifie
+    // directement "dessus", sans le revoir une seconde fois ailleurs.
     var editFields = document.createElement('div');
     editFields.className = 'historyEditFields hidden';
     editFields.innerHTML =
-      '<p class="stopFieldLabel">' + t('Tâche') + '</p>' +
       '<input type="text" class="historyEditTaskLabel" maxlength="300">' +
+      '<div class="historyReassign">' +
+        '<label class="historyReassignLabel">' + t('Activité') + '</label>' +
+        '<select class="historyEditActivity"></select>' +
+        '<label class="historyReassignLabel">' + t('Pôle / secteur') + '</label>' +
+        '<select class="historyEditCategory"></select>' +
+        '<label class="historyReassignLabel">' + t('Période') + '</label>' +
+        '<select class="historyEditPeriod"></select>' +
+        '<label class="historyReassignLabel">' + t('Semaine') + '</label>' +
+        '<select class="historyEditWeek"></select>' +
+        '<label class="historyReassignLabel">' + t('Jour') + '</label>' +
+        '<select class="historyEditDay"></select>' +
+        '<p class="historyReassignGoals meta"></p>' +
+      '</div>' +
       '<p class="historyEditMsg msg"></p>' +
       '<div class="rowActions">' +
         '<button type="button" class="iconBtn historyEditCancel">' + t('Annuler') + '</button>' +
@@ -280,29 +375,229 @@
     var editMsg = editFields.querySelector('.historyEditMsg');
     var saveBtn = editFields.querySelector('.historyEditSave');
     var cancelBtn = editFields.querySelector('.historyEditCancel');
+    var activitySelect = editFields.querySelector('.historyEditActivity');
+    var categorySelect = editFields.querySelector('.historyEditCategory');
+    var periodSelect = editFields.querySelector('.historyEditPeriod');
+    var weekSelect = editFields.querySelector('.historyEditWeek');
+    var daySelect = editFields.querySelector('.historyEditDay');
+    var goalsPreview = editFields.querySelector('.historyReassignGoals');
+
+    // Périodes de l'activité/catégorie actuellement affichée dans les
+    // sélecteurs (GET .../goals?category=, réponse de
+    // server/lib/goals.js#planningForActivity) — jamais transmises telles
+    // quelles à l'enregistrement, seulement pour construire les libellés et
+    // calculer le jour final (periodStart + décalages, même formule que
+    // server/lib/goals.js#periodBounds/weekBounds).
+    var reassignPeriods = [];
+
+    function selectedPeriod() {
+      var n = Number(periodSelect.value);
+      var found = null;
+      reassignPeriods.forEach(function (p) { if (p.periodNumber === n) found = p; });
+      return found;
+    }
+
+    function weekBoundsLocal(periodStart, weekIndex) {
+      var start = addDaysISO(periodStart, (weekIndex - 1) * 7);
+      return { start: start, end: addDaysISO(start, 6) };
+    }
+
+    function optionsHaveValue(select, value) {
+      return Array.prototype.some.call(select.options, function (o) { return o.value === String(value); });
+    }
+
+    function populateWeekOptions() {
+      var period = selectedPeriod();
+      weekSelect.innerHTML = '';
+      if (!period) return;
+      for (var w = 1; w <= 4; w += 1) {
+        var b = weekBoundsLocal(period.startDate, w);
+        var opt = document.createElement('option');
+        opt.value = String(w);
+        opt.textContent = t('Semaine') + ' ' + w + ' (' + calendarDayLabel(b.start) + ' – ' + calendarDayLabel(b.end) + ')';
+        weekSelect.appendChild(opt);
+      }
+    }
+
+    function populateDayOptions() {
+      var period = selectedPeriod();
+      daySelect.innerHTML = '';
+      if (!period) return;
+      var weekIndex = Number(weekSelect.value) || 1;
+      var b = weekBoundsLocal(period.startDate, weekIndex);
+      for (var i = 0; i < 7; i += 1) {
+        var day = addDaysISO(b.start, i);
+        var opt = document.createElement('option');
+        opt.value = day;
+        opt.textContent = calendarDayLabel(day);
+        daySelect.appendChild(opt);
+      }
+    }
+
+    function updateGoalsPreview() {
+      var period = selectedPeriod();
+      if (!period) { goalsPreview.textContent = ''; return; }
+      var weekIndex = Number(weekSelect.value) || 1;
+      var weekly = (period.weeklies || []).filter(function (w) { return w.weekIndex === weekIndex; })[0];
+      goalsPreview.textContent = [
+        t('Objectif périodique') + ' : ' + (period.mainGoalText || t('aucun')),
+        t('Objectif hebdomadaire') + ' : ' + ((weekly && weekly.text) || t('aucun')),
+      ].join(' · ');
+    }
+
+    // Charge les 13+ périodes de l'activité/catégorie choisie et positionne
+    // période/semaine/jour sur `isoDayToMatch` s'il tombe dedans, sinon sur
+    // la période en cours (currentPeriodNumber, déjà calculée côté serveur)
+    // + semaine 1. Jamais bloquant pour la sélection catégorie/activité
+    // elle-même : une période non matérialisée pour cette combinaison n'est
+    // simplement pas dans la liste (comportement normal, voir
+    // ensurePeriodsUpTo côté serveur).
+    function loadPlanningFor(activityId, categoryKey, isoDayToMatch) {
+      return api('GET', '/api/activities/' + activityId + '/goals?category=' + encodeURIComponent(categoryKey))
+        .then(function (data) {
+          reassignPeriods = data.periods || [];
+          periodSelect.innerHTML = '';
+          reassignPeriods.forEach(function (p) {
+            var opt = document.createElement('option');
+            opt.value = String(p.periodNumber);
+            opt.textContent = t('Période') + ' ' + p.periodNumber + ' (' + calendarDayLabel(p.startDate) + ' – ' + calendarDayLabel(p.endDate) + ')';
+            periodSelect.appendChild(opt);
+          });
+          var targetPeriodNumber = data.currentPeriodNumber;
+          if (isoDayToMatch) {
+            reassignPeriods.forEach(function (p) {
+              if (isoDayToMatch >= p.startDate && isoDayToMatch <= p.endDate) targetPeriodNumber = p.periodNumber;
+            });
+          }
+          if (optionsHaveValue(periodSelect, targetPeriodNumber)) periodSelect.value = String(targetPeriodNumber);
+          populateWeekOptions();
+          var targetWeekIndex = 1;
+          var period = selectedPeriod();
+          if (isoDayToMatch && period) {
+            for (var w = 1; w <= 4; w += 1) {
+              var b = weekBoundsLocal(period.startDate, w);
+              if (isoDayToMatch >= b.start && isoDayToMatch <= b.end) targetWeekIndex = w;
+            }
+          }
+          if (optionsHaveValue(weekSelect, targetWeekIndex)) weekSelect.value = String(targetWeekIndex);
+          populateDayOptions();
+          if (isoDayToMatch && optionsHaveValue(daySelect, isoDayToMatch)) daySelect.value = isoDayToMatch;
+          updateGoalsPreview();
+        });
+    }
+
+    // Pôles (sélectionnables directement) et secteurs (regroupés sous leur
+    // pôle en <optgroup>, jamais le pôle lui-même s'il a des secteurs — même
+    // garde-fou que server/lib/goalstasks.js#addCategoryTask : « un pôle qui
+    // a des secteurs ne peut pas recevoir ses propres tâches »).
+    function loadCategoriesFor(activityId, categoryKeyToMatch) {
+      return api('GET', '/api/activities/' + activityId + '/goals/categories')
+        .then(function (data) {
+          categorySelect.innerHTML = '';
+          var firstLeafKey = null;
+          (data.categories || []).forEach(function (pole) {
+            if (!pole.secteurs || pole.secteurs.length === 0) {
+              var opt = document.createElement('option');
+              opt.value = pole.key;
+              opt.textContent = pole.label;
+              categorySelect.appendChild(opt);
+              if (!firstLeafKey) firstLeafKey = pole.key;
+            } else {
+              var group = document.createElement('optgroup');
+              group.label = pole.label;
+              pole.secteurs.forEach(function (secteur) {
+                var secOpt = document.createElement('option');
+                secOpt.value = secteur.key;
+                secOpt.textContent = secteur.label;
+                group.appendChild(secOpt);
+                if (!firstLeafKey) firstLeafKey = secteur.key;
+              });
+              categorySelect.appendChild(group);
+            }
+          });
+          var target = categoryKeyToMatch && optionsHaveValue(categorySelect, categoryKeyToMatch) ? categoryKeyToMatch : firstLeafKey;
+          if (target) categorySelect.value = target;
+        });
+    }
+
+    function populateActivityOptions() {
+      activitySelect.innerHTML = '';
+      TMT.getActivitiesCache().forEach(function (a) {
+        var opt = document.createElement('option');
+        opt.value = String(a.id);
+        opt.textContent = a.name;
+        activitySelect.appendChild(opt);
+      });
+    }
+
+    periodSelect.addEventListener('change', function () { populateWeekOptions(); populateDayOptions(); updateGoalsPreview(); });
+    weekSelect.addEventListener('change', function () { populateDayOptions(); updateGoalsPreview(); });
+    daySelect.addEventListener('change', updateGoalsPreview);
+    categorySelect.addEventListener('change', function () {
+      var keepDay = daySelect.value || null;
+      loadPlanningFor(activitySelect.value, categorySelect.value, keepDay)
+        .catch(function (err) { editMsg.textContent = err.message; });
+    });
+    activitySelect.addEventListener('change', function () {
+      loadCategoriesFor(activitySelect.value, null)
+        .then(function () { return loadPlanningFor(activitySelect.value, categorySelect.value, null); })
+        .catch(function (err) { editMsg.textContent = err.message; });
+    });
 
     editBtn.addEventListener('click', function () {
       editMsg.textContent = '';
       labelInput.value = task.label;
-      editFields.classList.remove('hidden');
+      noteEl.classList.add('hidden');
       actions.classList.add('hidden');
+      editFields.classList.remove('hidden');
+      labelInput.focus();
+      goalsPreview.textContent = t('Chargement…');
+      populateActivityOptions();
+      if (optionsHaveValue(activitySelect, task.activityId)) activitySelect.value = String(task.activityId);
+      loadCategoriesFor(activitySelect.value, task.categoryKey)
+        .then(function () { return loadPlanningFor(activitySelect.value, categorySelect.value, task.dueDate); })
+        .catch(function (err) { editMsg.textContent = err.message; });
     });
     cancelBtn.addEventListener('click', function () {
       editFields.classList.add('hidden');
+      noteEl.classList.remove('hidden');
       actions.classList.remove('hidden');
     });
     saveBtn.addEventListener('click', function () {
       var value = labelInput.value.trim();
       if (!value) { editMsg.textContent = t('Intitulé requis.'); return; }
+      var newActivityId = Number(activitySelect.value);
+      var newCategoryKey = categorySelect.value;
+      var newDueDate = daySelect.value || null;
+      if (!newActivityId || !newCategoryKey || !newDueDate) {
+        editMsg.textContent = t('Sélection incomplète.');
+        return;
+      }
       saveBtn.disabled = true;
       cancelBtn.disabled = true;
-      api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, label: value })
-        .then(onChanged)
-        .catch(function (err) {
-          editMsg.textContent = err.message;
-          saveBtn.disabled = false;
-          cancelBtn.disabled = false;
+      editMsg.textContent = '';
+
+      var steps = [];
+      if (value !== task.label) {
+        steps.push(function () { return api('PUT', '/api/sub-project-items/' + task.id, { label: value }); });
+      }
+      var placeChanged = String(newActivityId) !== String(task.activityId) || newCategoryKey !== task.categoryKey || newDueDate !== task.dueDate;
+      if (placeChanged) {
+        steps.push(function () {
+          return api('PUT', '/api/goals/tasks/' + task.id + '/reassign', {
+            activityId: newActivityId,
+            categoryKey: newCategoryKey,
+            dueDate: newDueDate,
+          });
         });
+      }
+      var chain = Promise.resolve();
+      steps.forEach(function (step) { chain = chain.then(step); });
+      chain.then(onChanged).catch(function (err) {
+        editMsg.textContent = err.message;
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+      });
     });
 
     delBtn.addEventListener('click', function () {
@@ -316,11 +611,18 @@
 
   // Toute la ligne d'en-tête ("Historique") est cliquable pour déplier/
   // replier le panneau — c'est elle-même le bouton, sans aucun chevron à
-  // côté, exactement comme $('chronoHistoryHeader') ci-dessus (demande
-  // d'Emilien, corrigée le 28 septembre : « il n'est pas centré, il n'a pas
-  // la même forme, pas la même couleur » — la bulle dédiée de la 1ère
-  // version est retirée au profit de .sectionTitleRow/.sectionTitle,
-  // classes génériques déjà utilisées par Chrono).
+  // côté, exactement comme #chronoHistoryHeader. ⚠️ 28 septembre 2026,
+  // nouveau retour d'Emilien le même jour, captures d'écran à l'appui :
+  // « il n'est pas centré, il n'a pas la même forme, pas la même couleur » —
+  // les classes génériques .sectionTitleRow/.sectionTitle/.historyHeaderClickable
+  // (seules utilisées jusqu'ici) ne suffisaient PAS : #chronoHistoryHeader
+  // porte en réalité un style propre à son ID (bordure, fond, centré, largeur
+  // ajustée à son contenu — voir styles.css, commentaire "Historique
+  // modifiable (Chrono)") que .sectionTitleRow/.sectionTitle seules ne
+  // donnent pas. #goalsTasksHistoryHeader reçoit désormais la même règle
+  // ID-à-ID dans public/css/objectifs-page1.css (copie exacte des
+  // propriétés de #chronoHistoryHeader, jamais une redéfinition des classes
+  // génériques elles-mêmes — toujours propriété de Design).
   var goalsTasksHistoryHeaderEl = $('goalsTasksHistoryHeader');
 
   if (goalsTasksHistoryHeaderEl) {

@@ -307,6 +307,85 @@ function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
   return subprojects.getItem(item.id);
 }
 
+// 28 septembre 2026 (C. Objectifs — Page 1, panneau Historique, 3e demande
+// d'Emilien le même jour, citation directe : « je souhaite qu'on puisse
+// modifier l'endroit où il a été rangé, c'est-à-dire l'activité, le pôle,
+// le secteur, l'objectif périodique, l'objectif hebdomadaire et le jour »)
+// — généralise moveCategoryTask ci-dessus au cas où la nouvelle catégorie
+// appartient à une AUTRE activité que celle d'origine, et pose en même temps
+// le nouveau jour (dueDate) : objectif périodique/hebdomadaire ne sont
+// JAMAIS des valeurs posées directement sur la tâche (voir le commentaire de
+// tasksHistoryForWeek ci-dessous) — seul le jour choisi détermine, à la
+// lecture, dans quelle période/semaine la tâche apparaît.
+// ⚠️ Territoire partagé avec le segment Objectifs — Tâches (déplacement de
+// tâche entre catégories, voir noesis-timetracker-segments.md) : fonction
+// VOLONTAIREMENT séparée de moveCategoryTask (jamais modifiée, toujours
+// utilisée telle quelle par sa propre route .../tasks/:itemId/category,
+// scopée à une seule activité) pour ne jamais changer son comportement ni
+// entrer en collision avec elle — seule la nouvelle route dédiée ci-dessous
+// (server/routes/goals.js) appelle cette fonction-ci. Signalé dans le
+// journal du projet pour visibilité côté Objectifs — Tâches.
+function reassignHistoryTask(userId, itemId, newActivityId, newCategoryKey, newDueDate) {
+  const item = subprojects.getItemRaw(itemId);
+  if (!item) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
+
+  const currentSubProject = subprojects.getSubProject(item.subProjectId);
+  if (!currentSubProject) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
+  const oldActivityId = currentSubProject.activityId;
+  const oldCategoryKey = currentSubProject.goalCategory;
+
+  // L'appartenance à l'ANCIENNE activité est déjà garantie par la provenance
+  // de la tâche (l'historique n'affiche que celles de l'utilisateur courant,
+  // via activity_members — voir tasksHistoryForWeek) : seule l'appartenance
+  // à la NOUVELLE activité reste à vérifier ici, même garde que
+  // moveCategoryTask pour la catégorie elle-même.
+  const isMember = !!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?')
+    .get(newActivityId, userId);
+  if (!isMember) throw Object.assign(new Error("Tu n'es pas membre de cette activité."), { statusCode: 403 });
+
+  if (!goals.isValidCategoryOrSecteurForActivity(newActivityId, newCategoryKey)) {
+    throw Object.assign(new Error('Catégorie invalide pour cette activité.'), { statusCode: 400 });
+  }
+  // Même garde-fou que addCategoryTask ci-dessus (27 sept. 2026) : un pôle
+  // qui a des secteurs ne reçoit pas de tâche directe.
+  if (goals.parentKeyFor(newActivityId, newCategoryKey) === null && goals.secteursForPole(newActivityId, newCategoryKey).length > 0) {
+    throw Object.assign(new Error('Ce pôle a des secteurs : choisissez-en un.'), { statusCode: 400 });
+  }
+
+  // dueDate : absent => on n'y touche pas (même convention que updateItem,
+  // server/lib/subprojects.js) ; vide/null => on la retire ; sinon doit être
+  // un jour valide.
+  let cleanDueDate = item.dueDate;
+  if (newDueDate !== undefined) {
+    if (newDueDate === null || newDueDate === '') {
+      cleanDueDate = null;
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(String(newDueDate))) {
+      cleanDueDate = String(newDueDate);
+    } else {
+      throw Object.assign(new Error('Date invalide.'), { statusCode: 400 });
+    }
+  }
+
+  const { subProject: targetSubProject, section: targetSection } = ensureCategoryTaskSection(newActivityId, userId, newCategoryKey);
+
+  const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_items WHERE sectionId = ?')
+    .get(targetSection.id).pos;
+  db.prepare('UPDATE sub_project_items SET subProjectId = ?, sectionId = ?, position = ?, dueDate = ? WHERE id = ?')
+    .run(targetSubProject.id, targetSection.id, next, cleanDueDate, item.id);
+
+  // Re-tente le classement automatique (Offre1) sur les DEUX bouts,
+  // ancien ET nouveau — même principe « jamais bloquant » que
+  // moveCategoryTask ci-dessus.
+  try {
+    if (oldCategoryKey) goalsauto.onSubProjectItemChanged(oldActivityId, oldCategoryKey);
+    goalsauto.onSubProjectItemChanged(newActivityId, newCategoryKey);
+  } catch (e) {
+    // non bloquant
+  }
+
+  return subprojects.getItem(item.id);
+}
+
 // ---------------------------------------------------------------------------
 // 25 septembre 2026 (badges « non vu », restructuration du volet Objectifs en
 // 3 pages — demande directe d'Emilien, « je souhaite que des points
@@ -540,6 +619,9 @@ module.exports = {
   weeklyObjectiveForWeek,
   addCategoryTask,
   moveCategoryTask,
+  // Réaffectation complète depuis le panneau Historique (28 septembre 2026,
+  // C. Objectifs — Page 1) — activité/pôle/secteur/jour en un seul appel.
+  reassignHistoryTask,
   // Écran Tâches par défaut de la Page 2 (28 septembre 2026).
   tasksOverviewForActivity,
   // Badges « non vu » (25 septembre 2026, volet Objectifs page 1/2/3).

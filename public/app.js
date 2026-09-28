@@ -1348,6 +1348,51 @@
       var vv = window.visualViewport;
       var pinned = false;
       var unpinTimer = null;
+      // 🆕 28 septembre 2026 (3e passage, bug clavier — Emilien, capture à
+      // l'appui : grand vide persistant entre le champ et le clavier malgré
+      // le correctif du 28 septembre (.activityPageScrollKbRunway)) —
+      // DIAGNOSTIC TEMPORAIRE, à retirer dès que la cause sera confirmée par
+      // capture. Chaque chiffre du mécanisme de pincement, affiché en direct
+      // à l'écran (jamais dans la console : rien de tel qu'un vrai
+      // inspecteur distant sur ce téléphone) pour cesser de deviner. Aucune
+      // logique existante modifiée — lecture seule, ce bloc ne fait
+      // qu'afficher ce qu'applyPin() calcule déjà.
+      var kbDebugHud = null;
+      function updateKbDebugHud() {
+        if (!kbDebugHud) {
+          kbDebugHud = document.createElement('div');
+          kbDebugHud.id = 'kbDebugHud';
+          kbDebugHud.style.cssText = 'position:fixed;left:4px;top:4px;z-index:99999;' +
+            'background:rgba(0,0,0,0.85);color:#7CFF7C;font:10px/1.4 monospace;' +
+            'padding:6px 8px;border-radius:6px;white-space:pre;pointer-events:none;';
+          document.body.appendChild(kbDebugHud);
+        }
+        var scroller = document.getElementById('activityPageScroll');
+        var docH = document.documentElement.clientHeight;
+        var lines = [
+          'vv.height=' + Math.round(vv.height),
+          'vv.offsetTop=' + Math.round(vv.offsetTop),
+          'doc.clientHeight=' + docH,
+          'keyboardOpen=' + ((docH - vv.height) > 100),
+        ];
+        if (scroller) {
+          var r = scroller.getBoundingClientRect();
+          lines.push('scroller.class+=' + (scroller.classList.contains('activityPageScrollKbRunway') ? 'runway' : 'NONE'));
+          lines.push('scroller.rect.bottom=' + Math.round(r.bottom));
+          lines.push('scroller.clientH=' + scroller.clientHeight);
+          lines.push('scroller.scrollH=' + scroller.scrollHeight);
+          lines.push('scroller.scrollTop=' + Math.round(scroller.scrollTop));
+        } else {
+          lines.push('scroller=INTROUVABLE (#activityPageScroll)');
+        }
+        var active = document.activeElement;
+        if (active && _isTextInputEl(active)) {
+          var ar = active.getBoundingClientRect();
+          lines.push('champ.rect.bottom=' + Math.round(ar.bottom));
+          lines.push('gap(champ→vv.bottom)=' + Math.round((vv.offsetTop + vv.height) - ar.bottom));
+        }
+        kbDebugHud.textContent = lines.join('\n');
+      }
       // 17 septembre 2026 (Design, 30e passage) : Emilien a confirmé, après
       // déploiement réel de ce mécanisme (28e/29e passages), que l'en-tête
       // continue à disparaître EN APP INSTALLÉE (PWA sur l'écran d'accueil)
@@ -1392,6 +1437,7 @@
             pinBottomBars[i].style.display = keyboardOpen ? 'none' : '';
           }
         }
+        updateKbDebugHud();
       }
       function pinLoop() {
         if (!pinned) return;
@@ -1421,6 +1467,8 @@
           // réafficher explicitement plutôt que de compter sur une dernière
           // frame d'applyPin() qui pourrait ne jamais s'exécuter.
           for (var i = 0; i < pinBottomBars.length; i++) pinBottomBars[i].style.display = '';
+          if (kbDebugHud) kbDebugHud.remove();
+          kbDebugHud = null;
         }, 80);
       }, true);
     })();

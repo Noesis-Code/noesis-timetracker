@@ -732,6 +732,40 @@ router.put('/activities/:id/goals/tasks/:itemId/category', (req, res) => {
   }
 });
 
+// 28 septembre 2026 (C. Objectifs — Page 1, panneau Historique, 3e demande
+// d'Emilien le même jour) — réaffectation complète (activité/pôle/secteur/
+// jour) d'une tâche depuis l'Historique. Jamais scopée à une seule activité
+// dans son URL, à la différence de la route ci-dessus (Objectifs — Tâches,
+// fenêtre Activité, toujours la même activité) : ici, changer d'activité est
+// justement le but. Toute la logique (garde de la nouvelle activité +
+// déplacement + jour) vit dans goalstasks.js#reassignHistoryTask, fonction
+// dédiée, jamais moveCategoryTask elle-même — cette route ne fait que
+// vérifier la session et relayer. Corps attendu : { activityId, categoryKey,
+// dueDate? } — dueDate absent => on n'y touche pas (voir le commentaire de
+// reassignHistoryTask).
+router.put('/goals/tasks/:itemId/reassign', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const newActivityId = Number(req.body.activityId);
+  if (!newActivityId) return res.status(400).json({ error: 'activityId requis.' });
+  if (typeof req.body.categoryKey !== 'string' || !req.body.categoryKey) {
+    return res.status(400).json({ error: 'categoryKey requis.' });
+  }
+
+  try {
+    const item = goalstasks.reassignHistoryTask(
+      userId,
+      Number(req.params.itemId),
+      newActivityId,
+      req.body.categoryKey,
+      'dueDate' in req.body ? req.body.dueDate : undefined,
+    );
+    res.json(item);
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages, demande
 // directe d'Emilien) — nouvelle bulle de capture de la page 1 : UNE tâche
