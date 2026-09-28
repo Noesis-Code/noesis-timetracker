@@ -1519,6 +1519,21 @@
   function buildGoalsTaskRow(task) {
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (task.done ? ' done' : '');
+    // 28 septembre 2026, demande de Notifications (coordination, voir
+    // noesis-timetracker-notifications-deep-link.md) : repère cette ligne
+    // pour le halo de la notification « Tâches quotidiennes »
+    // (?notif=dailypriority&activityId=X&taskId=T) — Notifications réutilise
+    // le mécanisme déjà en place ailleurs dans l'app (focusWhenReady() +
+    // .notifHighlight, app.js), qui cible un élément par sélecteur CSS.
+    // ⚠️ Signalé dans le journal (chantiers-en-cours.md) mais PAS encore
+    // résolu par ce seul attribut : un groupe secteur est fermé par défaut
+    // (voir buildGoalsTasksGroup() ci-dessus, isOpen) et ne rend ses tâches
+    // dans le DOM QUE quand il est déplié — data-task-id seul est donc muet
+    // sur une tâche rangée dans un secteur encore fermé au moment où
+    // focusWhenReady() la cherche. Attend confirmation de Notifications sur
+    // le contrat proposé avant d'aller plus loin (rien construit de plus
+    // ici pour l'instant, pas de présomption unilatérale).
+    row.dataset.taskId = String(task.id);
 
     var cb = document.createElement('input');
     cb.type = 'checkbox';

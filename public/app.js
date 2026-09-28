@@ -3046,58 +3046,114 @@
   // avec la section "Mes notes" — voir le commentaire juste au-dessus). Les
   // deux fonctions étaient indépendantes : la suppression de l'une n'a rien
   // changé à celle-ci.
+  // 28 septembre 2026 (suite, même jour) — demande directe d'Emilien :
+  // « appliquer à l'historique des enregistrements du Chrono le même
+  // principe que celui qu'on vient d'appliquer à l'Historique de la page
+  // Objectifs [...] adapte le principe aux champs propres au Chrono ». Ce
+  // gabarit compact (grouper par jour + ligne resserrée avec actions en
+  // icônes) a d'abord été construit pour C. Objectifs — PAGE 1
+  // (renderGoalsTasksHistory/buildGoalsTasksHistoryRow, public/js/
+  // objectifs-page1.js, encart « suite (9)/(11) » de
+  // noesis-timetracker-chantiers-en-cours.md) — RÉUTILISÉ ici tel quel,
+  // jamais recopié : les classes .historyDayHeader/.historyDayList/
+  // .historyEntryCompact/.historyRowTop/.historyRowLabel/.historyRowIconBtn/
+  // .historyRowMeta vivent dans public/css/objectifs-page1.css mais sont
+  // chargées EN MÊME TEMPS que ce fichier (tous les CSS/JS de index.html
+  // sont chargés sans condition, jamais par onglet) — aucune classe n'est
+  // dupliquée ici. Adapté aux champs propres au Chrono (absents côté
+  // Objectifs, qui n'a ni plage horaire ni pièce jointe, et dont les tâches
+  // n'ont pas de "note" séparée) : plage horaire + durée, note, pièces
+  // jointes déjà attachées — tous conservés, réagencés en ligne compacte.
+  // `.historyEntry` (l'ANCIEN gabarit plein format, boutons Modifier/
+  // Supprimer pleine largeur) N'EST PAS touché : cette fonction n'émet plus
+  // cette classe, mais elle reste utilisée telle quelle par le flux "En ce
+  // moment" de Communauté (voir styles.css, ~ligne 886) — un autre
+  // appelant, un autre territoire.
+  var CHRONO_HISTORY_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
+  var CHRONO_HISTORY_DELETE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
+
   function buildChronoHistoryEntry(entry, onChanged) {
-    var card = document.createElement('div');
-    card.className = 'historyEntry';
+    var row = document.createElement('div');
+    row.className = 'historyEntryCompact';
 
     var activity = activitiesCache.find(function (a) { return a.id === entry.activityId; }) || { name: entry.activity, color: '#CCCCCC' };
 
+    // Plage horaire seule (HH:MM → HH:MM) : le jour est désormais porté une
+    // seule fois par l'en-tête de groupe (.historyDayHeader, voir
+    // renderChronoHistory) — avant ce chantier, chaque carte répétait sa
+    // propre date en toutes lettres.
     function timeRangeLabel() {
       var s = new Date(entry.startTime), e = new Date(entry.endTime);
-      var dl = s.toLocaleDateString(dateLocale(), { weekday: 'long', day: '2-digit', month: '2-digit' });
-      var tl = pad(s.getHours()) + ':' + pad(s.getMinutes()) + ' → ' + pad(e.getHours()) + ':' + pad(e.getMinutes());
-      return dl + ' · ' + tl;
+      return pad(s.getHours()) + ':' + pad(s.getMinutes()) + ' → ' + pad(e.getHours()) + ':' + pad(e.getMinutes());
     }
+
+    // `display` (comme côté Objectifs) : tout ce qui se voit en lecture,
+    // remplacé par `editFields` pendant l'édition — jamais les deux affichés
+    // en même temps. Pas de style dédié (`.historyRowDisplay`, simple
+    // conteneur), même convention que le gabarit d'origine.
+    var display = document.createElement('div');
+    display.className = 'historyRowDisplay';
 
     var top = document.createElement('div');
-    top.className = 'rowTop';
-    top.innerHTML = '<span class="actName"><span class="dot" style="background:' + activity.color + '"></span>' + escapeHtml(entry.activity) + '</span>' +
-      '<span class="meta">' + formatHM(entry.durationSeconds) + '</span>';
-    card.appendChild(top);
+    top.className = 'historyRowTop';
+    var dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = activity.color;
+    top.appendChild(dot);
+
+    var label = document.createElement('span');
+    label.className = 'historyRowLabel';
+    label.textContent = entry.activity;
+    top.appendChild(label);
+
+    var duration = document.createElement('span');
+    duration.className = 'meta';
+    duration.textContent = formatHM(entry.durationSeconds);
+    top.appendChild(duration);
+
+    var editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'historyRowIconBtn';
+    editBtn.setAttribute('aria-label', t('Modifier'));
+    editBtn.innerHTML = CHRONO_HISTORY_EDIT_ICON;
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'historyRowIconBtn danger';
+    delBtn.setAttribute('aria-label', t('Supprimer'));
+    delBtn.innerHTML = CHRONO_HISTORY_DELETE_ICON;
+    top.appendChild(editBtn);
+    top.appendChild(delBtn);
+    display.appendChild(top);
 
     var metaLine = document.createElement('div');
-    metaLine.className = 'meta';
-    // La catégorie rattachée s'affiche À CÔTÉ de la durée, jamais mêlée à
-    // elle : c'est un classement, pas une mesure. (17 septembre 2026 :
-    // remplace le sous-projet, entry.categoryLabel au lieu de
+    metaLine.className = 'historyRowMeta';
+    // La catégorie rattachée s'affiche À CÔTÉ de la plage horaire, jamais
+    // mêlée à elle : c'est un classement, pas une mesure. (17 septembre
+    // 2026 : remplace le sous-projet, entry.categoryLabel au lieu de
     // entry.subProjectName — voir decorateWithCategory, server/routes/history.js.)
-    function metaText() {
-      return timeRangeLabel() + (entry.categoryLabel ? ' · ' + entry.categoryLabel : '');
-    }
-    metaLine.textContent = metaText();
-    card.appendChild(metaLine);
+    metaLine.textContent = timeRangeLabel() + (entry.categoryLabel ? ' · ' + entry.categoryLabel : '');
+    display.appendChild(metaLine);
 
     if (entry.note) {
       var noteEl = document.createElement('div');
       noteEl.className = 'note';
       noteEl.textContent = entry.note;
-      card.appendChild(noteEl);
+      display.appendChild(noteEl);
     }
 
-    // 28 septembre 2026, demande d'Emilien : « supprimer l'icône épingle avec
-    // la possibilité d'insérer des photos [...] dans les activités
-    // enregistrées. C'est inutile. Et relié à rien. » — le bouton trombone
-    // (ouvrant le sélecteur de fichier natif : photothèque/appareil
-    // photo/fichiers), l'input caché et l'envoi (`POST
-    // /api/history/:id/attachments`) sont retirés de cette carte. Des pièces
+    // 28 septembre 2026 (passage précédent), demande d'Emilien : « supprimer
+    // l'icône épingle avec la possibilité d'insérer des photos [...] dans les
+    // activités enregistrées. C'est inutile. Et relié à rien. » — le bouton
+    // trombone, l'input caché et l'envoi (`POST /api/history/:id/attachments`)
+    // avaient déjà été retirés de cette carte à ce moment-là. Des pièces
     // jointes déjà attachées avant ce retrait (s'il en existe) restent
     // affichées ci-dessous, consultables et supprimables (`attachBox`,
-    // inchangé) — seule la possibilité d'en AJOUTER de nouvelles disparaît.
-    // La route serveur elle-même n'est pas touchée (convention du projet :
-    // masquer côté client, ne pas supprimer côté serveur).
+    // inchangé) — seule la possibilité d'en AJOUTER de nouvelles reste
+    // absente. La route serveur elle-même n'est pas touchée (convention du
+    // projet : masquer côté client, ne pas supprimer côté serveur).
     var attachBox = document.createElement('div');
     attachBox.className = 'attachmentList';
-    card.appendChild(attachBox);
+    display.appendChild(attachBox);
 
     function refreshEntryAttachments() {
       renderAttachmentList(attachBox, entry.attachments, function (removedId) {
@@ -3107,17 +3163,7 @@
     }
     refreshEntryAttachments();
 
-    var actions = document.createElement('div');
-    actions.className = 'actions';
-    var editBtn = document.createElement('button');
-    editBtn.className = 'iconBtn';
-    editBtn.textContent = t('Modifier');
-    var delBtn = document.createElement('button');
-    delBtn.className = 'iconBtn danger';
-    delBtn.textContent = t('Supprimer');
-    actions.appendChild(editBtn);
-    actions.appendChild(delBtn);
-    card.appendChild(actions);
+    row.appendChild(display);
 
     var editFields = document.createElement('div');
     editFields.className = 'historyEditFields hidden';
@@ -3141,7 +3187,7 @@
         '<button type="button" class="iconBtn historyEditCancel">' + t('Annuler') + '</button>' +
         '<button type="button" class="iconBtn historyEditSave">' + t('Enregistrer') + '</button>' +
       '</div>';
-    card.appendChild(editFields);
+    row.appendChild(editFields);
 
     var startInput = editFields.querySelector('.historyEditStart');
     var endInput = editFields.querySelector('.historyEditEnd');
@@ -3164,12 +3210,18 @@
         fillCategorySelect(categorySelect, list, current);
         categoryWrap.classList.remove('hidden');
       });
+      // Même bascule que buildGoalsTasksHistoryRow (Objectifs) : `display`
+      // masqué, `editFields` affiché, `.isEditing` pour l'encadré visuel —
+      // remplace l'ancienne bascule editFields/actions (boutons pleine
+      // largeur, retirés de cette carte).
+      row.classList.add('isEditing');
+      display.classList.add('hidden');
       editFields.classList.remove('hidden');
-      actions.classList.add('hidden');
     });
     cancelBtn.addEventListener('click', function () {
+      row.classList.remove('isEditing');
       editFields.classList.add('hidden');
-      actions.classList.remove('hidden');
+      display.classList.remove('hidden');
     });
     saveBtn.addEventListener('click', function () {
       var newStart = new Date(startInput.value);
@@ -3208,7 +3260,7 @@
       api('DELETE', '/api/history/' + entry.id + '?userId=' + profile.id).then(onChanged).catch(function (err) { alert(err.message); });
     });
 
-    return card;
+    return row;
   }
 
   // Même algorithme que mondayOf() côté serveur (server/lib/dates.js) — lundi
@@ -3235,10 +3287,38 @@
     api('GET', '/api/history?userId=' + profile.id + '&period=week&date=' + isoRef).then(renderChronoHistory);
   }
 
+  // 28 septembre 2026 (suite, même jour) — demande directe d'Emilien : même
+  // principe de regroupement que renderGoalsTasksHistory (Objectifs — Page
+  // 1) : un en-tête de jour (.historyDayHeader) une seule fois, puis les
+  // enregistrements de ce jour dans une liste compacte (.historyDayList)
+  // juste en dessous — jamais de nouvelle requête réseau, un simple
+  // regroupement de la réponse déjà chargée. Regroupé sur entry.isoDate
+  // (toujours renseigné par le serveur, voir server/routes/history.js) —
+  // l'ordre des groupes suit l'ordre d'arrivée des entrées, déjà trié par
+  // le serveur (ORDER BY t.startTime DESC), donc déjà par jour décroissant.
   function renderChronoHistory(entries) {
     var box = $('historyList');
     box.innerHTML = '';
-    entries.forEach(function (entry) { box.appendChild(buildChronoHistoryEntry(entry, loadChronoHistory)); });
+    var groups = [];
+    var groupByDay = {};
+    entries.forEach(function (entry) {
+      var key = entry.isoDate || '';
+      if (!groupByDay[key]) {
+        groupByDay[key] = { day: key, entries: [] };
+        groups.push(groupByDay[key]);
+      }
+      groupByDay[key].entries.push(entry);
+    });
+    groups.forEach(function (group) {
+      var header = document.createElement('div');
+      header.className = 'historyDayHeader';
+      header.textContent = group.day ? calendarDayLabel(group.day) : '';
+      box.appendChild(header);
+      var list = document.createElement('div');
+      list.className = 'historyDayList';
+      group.entries.forEach(function (entry) { list.appendChild(buildChronoHistoryEntry(entry, loadChronoHistory)); });
+      box.appendChild(list);
+    });
     $('historyEmptyHint').classList.toggle('hidden', entries.length > 0);
     $('historyWeekLabel').textContent = chronoHistoryWeekLabel(currentHistoryWeekOffset);
     $('historyNextWeek').disabled = currentHistoryWeekOffset === 0;
@@ -11869,6 +11949,84 @@
     whenElementReady(selector, function (el) { focusElement(el); }, tries);
   }
 
+  // 28 septembre 2026 (discussion Notifications, décisions d'Emilien — voir
+  // noesis-timetracker-notifications-deep-link.md) : cible précise d'abord,
+  // puis repli sur un conteneur si elle n'apparaît pas (élément traité
+  // entre-temps depuis un autre appareil, publication trop ancienne...).
+  // Le repli n'est tenté qu'une fois la cible précise abandonnée (~4 s).
+  function focusWhenReadyOr(selector, fallbackSelector) {
+    var tries = 40;
+    (function poll() {
+      var el = document.querySelector(selector);
+      if (el) { focusElement(el); return; }
+      if (tries-- <= 0) { if (fallbackSelector) focusWhenReady(fallbackSelector, 10); return; }
+      setTimeout(poll, 100);
+    })();
+  }
+
+  // Ouvre une activité précise du volet Objectifs depuis une notification.
+  // switchTab('goals') déclenche loadGoalsTab(), qui affiche la Page 1 une
+  // fois la liste des activités chargée. Au démarrage à froid (cache vide),
+  // loadGoalsTab() et openGoalsPeriodFromNotification() lançaient chacune
+  // leur propre refreshActivities() : si la seconde répondait la première,
+  // la Page 1 s'affichait PAR-DESSUS l'activité ouverte (constaté en bac à
+  // sable le 28 sept. 2026). On attend donc que la liste soit en cache —
+  // la Page 1 a alors déjà été posée par loadGoalsTab() — avant d'ouvrir
+  // l'activité, qui passe ainsi toujours en dernier.
+  function openGoalsActivityFromNotification(activityId, category, periodNumber) {
+    var tries = 60;
+    (function poll() {
+      var list = TMT.getActivitiesCache && TMT.getActivitiesCache();
+      if (list && list.length) {
+        setTimeout(function () { TMT.openGoalsPeriodFromNotification(activityId, category, periodNumber); }, 0);
+        return;
+      }
+      if (tries-- > 0) setTimeout(poll, 100);
+    })();
+  }
+
+  // Tâche visée par le rappel de 6 h, dans l'écran Tâches de la Page 2
+  // (public/js/objectifs-page2.js, E. Objectifs — PAGE 2). Un groupe secteur
+  // y est REPLIÉ par défaut et ne rend ses tâches qu'une fois déplié : on
+  // retrouve donc d'abord le groupe qui contient la tâche (même route en
+  // lecture que l'écran lui-même, tasks/overview), puis on rejoue le clic
+  // sur son en-tête — même principe que les branches 'activity'/'subproject'
+  // (rejouer le geste de la personne plutôt que manipuler l'état interne
+  // d'un autre segment) — et enfin on surligne la ligne [data-task-id].
+  function focusGoalsTaskFromNotification(activityId, taskId) {
+    api('GET', '/api/activities/' + activityId + '/goals/tasks/overview').then(function (data) {
+      var group = null;
+      ((data && data.groups) || []).forEach(function (g) {
+        if (group) return;
+        (g.tasks || []).forEach(function (task) { if (String(task.id) === String(taskId)) group = g; });
+      });
+      var taskSel = '#goalsTasksGroups [data-task-id="' + taskId + '"]';
+      if (!group) { focusWhenReady('#goalsTasksGroups', 20); return; }
+      var groupSel = '#goalsTasksGroups .goalsTasksGroup[data-group-key="' + (window.CSS && CSS.escape ? CSS.escape(String(group.key)) : String(group.key)) + '"]';
+      var tries = 40;
+      (function poll() {
+        var row = String(TMT.currentGoalsActivityId) === String(activityId) ? document.querySelector(groupSel) : null;
+        if (!row) {
+          if (tries-- > 0) setTimeout(poll, 100);
+          return;
+        }
+        if (!group.isPole && !row.classList.contains('open')) {
+          var header = row.querySelector('.subProjectRowHeader');
+          if (header) header.click();
+        }
+        focusWhenReadyOr(taskSel, groupSel);
+      })();
+    }).catch(function () { /* hors ligne ou route indisponible : on reste sur l'écran Tâches */ });
+  }
+
+  // Identifiant issu de l'adresse d'une notification (entier ou UUID de
+  // profil), filtré avant d'être injecté dans un sélecteur CSS — jamais de
+  // texte arbitraire (guillemets, crochets...).
+  function notifIdParam(params, name) {
+    var v = String(params.get(name) || '');
+    return /^[A-Za-z0-9-]{1,64}$/.test(v) ? v : null;
+  }
+
   function focusElement(el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     // Halo violet bref : dans un fil de vingt messages, sans ça on ne sait pas
@@ -11954,9 +12112,28 @@
       return;
     }
 
+    // Publication (28 septembre 2026, décision d'Emilien — discussion
+    // Notifications) : on atterrit sur le PROFIL DE L'AUTEUR, onglet
+    // Publications, sa nouvelle publication surlignée — plus sur le flux
+    // Suivi de Communauté. authorId est ajouté à l'adresse par
+    // server/lib/push.js#notifyCommunityPost ; data-post-id est posé par
+    // Paramètres & Profil dans buildViewProfilePostCard() (contrat entre
+    // segments). Sans authorId (notification reçue avant cette mise à
+    // jour) : ancien comportement, flux Suivi de Communauté.
     if (target === 'post') {
-      var postId = params.get('postId');
+      var postId = notifIdParam(params, 'postId');
+      var postAuthorId = notifIdParam(params, 'authorId');
       switchTab('community');
+      if (postAuthorId && profile && String(postAuthorId) !== String(profile.id)) {
+        // Nom/couleur inconnus ici : l'en-tête se complète dès la réponse de
+        // /profile/:id/public (renderViewProfileIdentity). Si /public répond
+        // après le passage sur Publications, openProfileViewModal rattrape
+        // déjà ce cas (chargement des publications dans son .then()).
+        openProfileViewModal(postAuthorId, '', null);
+        setViewProfileSection('messages');
+        if (postId) focusWhenReadyOr('#viewProfilePostsList [data-post-id="' + postId + '"]', '#viewProfileMessagesSection');
+        return;
+      }
       if (postId) focusWhenReady('#followingFeed [data-post-id="' + postId + '"]');
       return;
     }
@@ -11968,10 +12145,36 @@
       return;
     }
 
+    // Demande de suivi (28 septembre 2026, décision d'Emilien) : la demande
+    // PRÉCISE est surlignée — followId ajouté par push.js, data-follow-id
+    // posé par Paramètres & Profil dans renderFollowRequests(). Repli sur la
+    // liste entière si la ligne n'existe plus (demande déjà traitée
+    // ailleurs) ou si followId est absent (ancienne notification).
     if (target === 'follow') {
+      var followId = notifIdParam(params, 'followId');
       openNotifPanelForNotification();
       loadFollowRequests();
-      focusWhenReady('#followRequestsList');
+      if (followId) focusWhenReadyOr('#followRequestsList [data-follow-id="' + followId + '"]', '#followRequestsList');
+      else focusWhenReady('#followRequestsList');
+      return;
+    }
+
+    // Tâches quotidiennes — rappel de 6 h (28 septembre 2026, décision
+    // d'Emilien). Jusqu'ici ?notif=dailypriority n'était pas géré : le clic
+    // ouvrait l'app sans rien faire. Destination : Objectifs, Page 2 de
+    // l'activité qui contient la tâche la plus urgente (activityId/taskId
+    // ajoutés à l'adresse par server/lib/dailysuggestioncron.js — C.
+    // Objectifs — PAGE 1), écran Tâches (vue par défaut de la Page 2),
+    // tâche surlignée. Même chemin que 'goalperiod' pour ouvrir l'activité
+    // (openGoalsActivityFromNotification, sans période → reste sur Tâches).
+    // Sans activityId : onglet Objectifs, Page 1 (liste des activités).
+    if (target === 'dailypriority') {
+      var dailyActivityId = notifIdParam(params, 'activityId');
+      var dailyTaskId = notifIdParam(params, 'taskId');
+      switchTab('goals');
+      if (!dailyActivityId) return;
+      openGoalsActivityFromNotification(dailyActivityId, null, null);
+      if (dailyTaskId) focusGoalsTaskFromNotification(dailyActivityId, dailyTaskId);
       return;
     }
 
@@ -11986,7 +12189,7 @@
       var goalCategory = params.get('category');
       var goalPeriodNumber = Number(params.get('periodNumber'));
       switchTab('goals');
-      if (goalActivityId) TMT.openGoalsPeriodFromNotification(goalActivityId, goalCategory, goalPeriodNumber);
+      if (goalActivityId) openGoalsActivityFromNotification(goalActivityId, goalCategory, goalPeriodNumber);
       return;
     }
 

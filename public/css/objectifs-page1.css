@@ -109,6 +109,75 @@
   width: 100%;
   box-sizing: border-box;
 }
+.historyReassign input[type="date"] {
+  width: 100%;
+  box-sizing: border-box;
+}
 .historyReassignGoals {
   margin-top: 2px;
+}
+
+/* 28 septembre 2026, suite (9) — demande directe d'Emilien, maquettes Design
+ * à l'appui (Option B « groupé par jour » + édition « Où / Quand ») :
+ * - le formulaire Activité/Pôle-secteur passe de 2 lignes empilées à 1 seule
+ *   ligne "Où", d'où .historyReassignRow (flex, les 2 select se partagent la
+ *   largeur) ;
+ * - la liste de l'Historique n'est plus une suite de cartes .historyEntry
+ *   (gabarit du Chrono, pas touché) mais un regroupement par jour : un en-tête
+ *   (.historyDayHeader) au-dessus d'une liste de lignes compactes
+ *   (.historyDayList > .historyEntryCompact), séparées par un simple filet —
+ *   jamais de carte/ombre par tâche, exactement la densité de la maquette
+ *   approuvée. .isEditing donne à la ligne en cours d'édition un cadre
+ *   propre, pour qu'elle se distingue visuellement des lignes de lecture
+ *   autour d'elle pendant qu'on la modifie.
+ */
+.historyReassignRow {
+  display: flex;
+  gap: 8px;
+}
+.historyReassignRow select {
+  flex: 1;
+  min-width: 0;
+}
+
+.historyDayHeader {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+  color: var(--text-light); padding: 4px 4px 6px;
+}
+.historyDayHeader:not(:first-child) { margin-top: 14px; }
+
+.historyDayList { display: flex; flex-direction: column; }
+
+.historyEntryCompact {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.historyDayList .historyEntryCompact:last-child { border-bottom: none; }
+.historyEntryCompact.isEditing {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 12px; margin: 2px 0;
+}
+
+.historyRowTop { display: flex; align-items: center; gap: 8px; }
+.historyRowTop .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box; }
+
+.historyRowLabel {
+  flex-grow: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.historyRowDone { font-size: 12px; color: var(--green); flex-shrink: 0; }
+
+.historyRowIconBtn {
+  width: 26px; height: 26px; flex-shrink: 0; border: none; background: transparent; border-radius: var(--radius-sm);
+  color: var(--text-light); display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.historyRowIconBtn:hover { background: var(--hover-bg); color: var(--text); }
+.historyRowIconBtn.danger:hover { color: var(--red); }
+
+.historyRowMeta {
+  font-size: 11px; color: var(--text-light); padding-left: 16px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }

@@ -182,7 +182,15 @@ function sendToUsers(userIds, payload) {
 //   /?notif=post&postId=77                        → la publication 77 dans le
 //                                                   flux Suivi de Communauté
 //   /?notif=invite                                → le panneau Invitations
-//   /?notif=follow                                → le panneau Demandes de suivi
+//   /?notif=follow&followId=9                     → la demande de suivi 9 dans
+//                                                   le panneau Demandes de suivi
+//
+// 28 septembre 2026 (discussion Notifications, décisions d'Emilien) : une
+// publication porte aussi &authorId=.. et ouvre le PROFIL de l'auteur,
+// onglet Publications (plus le flux Suivi) ; le rappel de 6 h
+// (dailysuggestioncron.js) est attendu sous la forme
+// /?notif=dailypriority&activityId=..&taskId=.. (écran Tâches, Page 2).
+// Voir noesis-timetracker-notifications-deep-link.md.
 //
 // Les anciennes adresses (`notif=community`/`notif=profile`) restent comprises
 // par le client : un téléphone qui n'a pas encore rechargé la nouvelle version
@@ -258,7 +266,10 @@ function notifyCommunityPost(authorId, postBody, postId) {
         // Un tag par auteur : deux publications d'affilée de la même personne
         // se remplacent au lieu d'empiler deux lignes, comme pour un fil.
         tag: 'community-post-' + authorId,
-        url: '/?notif=post&postId=' + postId,
+        // authorId (28 septembre 2026, décision d'Emilien — discussion
+        // Notifications) : le clic ouvre désormais le profil de l'auteur,
+        // onglet Publications, voir openTabFromNotification (app.js).
+        url: '/?notif=post&postId=' + postId + '&authorId=' + authorId,
       });
     });
   } catch (err) {
@@ -291,11 +302,20 @@ function notifyFollowRequest(toUserId, fromUserId) {
     const from = db.prepare('SELECT name FROM users WHERE id = ?').get(fromUserId);
     if (!from) return;
     const t = textsFor(toUserId);
+    // 28 septembre 2026 (décisions d'Emilien — discussion Notifications) :
+    // - followId dans l'adresse : le clic surligne LA demande concernée
+    //   (data-follow-id, posé par Paramètres & Profil dans
+    //   renderFollowRequests). Retrouvé ici plutôt que passé par
+    //   routes/follows.js : l'appelant n'a rien à changer. Appelé juste après
+    //   l'INSERT, la demande en attente la plus récente est donc celle-ci.
+    // - tag propre au demandeur : deux demandes de personnes différentes
+    //   s'affichent chacune, au lieu que la seconde remplace la première.
+    const pending = db.prepare("SELECT id FROM follows WHERE followerId = ? AND followeeId = ? AND status = 'pending' ORDER BY id DESC LIMIT 1").get(fromUserId, toUserId);
     sendToUsers([toUserId], {
       title: t.followTitle,
       body: t.followBody(from.name),
-      tag: 'follow-request',
-      url: '/?notif=follow',
+      tag: 'follow-request-' + fromUserId,
+      url: '/?notif=follow' + (pending ? '&followId=' + pending.id : ''),
     });
   } catch (err) {
     console.warn('[push] notifyFollowRequest :', err.message);
