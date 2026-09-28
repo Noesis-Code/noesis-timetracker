@@ -377,6 +377,19 @@ function addCategory(activityId, label, parentKey) {
       INSERT INTO activity_goal_categories (activityId, key, label, color, position, parentKey, createdAt)
       VALUES (?, ?, ?, '', ?, ?, ?)
     `).run(activityId, key, cleanLabel, siblingCount, parentKey, createdAt);
+
+    // 27 septembre 2026 (demande d'Emilien, chantier « Tâches quotidiennes
+    // intégrées à la Page 2 ») : un pôle qui reçoit un secteur ne peut plus
+    // recevoir ses propres tâches/objectif en direct (voir le refus posé dans
+    // addCategoryTask, server/lib/goalstasks.js) — tout ce que le pôle portait
+    // déjà en direct doit donc basculer automatiquement sur ce secteur, pour
+    // ne rien perdre. `siblingCount === 0` ci-dessus veut dire que ce secteur
+    // est le PREMIER du pôle : à partir du deuxième, le pôle n'a plus rien en
+    // direct à migrer (déjà basculé une fois pour toutes à la création du
+    // premier). Voir migratePoleDirectDataToSecteur ci-dessous.
+    if (siblingCount === 0) {
+      migratePoleDirectDataToSecteur(activityId, parentKey, key);
+    }
     return secteursForPole(activityId, parentKey);
   }
 
@@ -390,6 +403,40 @@ function addCategory(activityId, label, parentKey) {
     VALUES (?, ?, ?, '', ?, ?)
   `).run(activityId, key, cleanLabel, poleCount, createdAt);
   return categoriesForActivity(activityId);
+}
+
+// 27 septembre 2026 (demande d'Emilien, chantier « Tâches quotidiennes
+// intégrées à la Page 2 ») — bascule tout ce qu'un pôle portait EN DIRECT
+// (tâches + arbre périodique) vers le secteur qui vient d'être créé sous
+// lui. Appelée UNIQUEMENT par addCategory ci-dessus, au moment précis où un
+// pôle reçoit son tout premier secteur. Simple réaffectation de clé : les
+// lignes elles-mêmes ne bougent pas, seule leur colonne de rattachement
+// change — goal_weekly/goal_period_assignees suivent automatiquement,
+// rattachés à goal_periods.id (jamais à la clé de catégorie directement).
+//
+// Tâches : server/lib/goalstasks.js ne pose goalCategory que sur
+// sub_projects (jamais sur sub_project_items) — un seul UPDATE déplace donc
+// TOUS les sous-projets déjà rattachés au pôle (son "domicile" et tout autre
+// sous-projet qui y serait rattaché), tâches comprises, historique intact
+// (ids, dueDate, position, coché ou non).
+//
+// Arbre périodique : activity_goal_plans a pour clé primaire
+// (activityId, category) — le secteur vient d'être créé, aucune ligne n'y
+// existe encore, la réaffectation ne peut donc jamais entrer en collision.
+// goal_periods n'a pas cette contrainte mais suit la même logique.
+//
+// Volontairement SANS transaction explicite (BEGIN/COMMIT) : même
+// convention que le reste des écritures multi-lignes de ce fichier
+// (removeCategory ci-dessus, par exemple, gèle plusieurs lignes en cascade
+// de la même façon) — trois UPDATE indépendants, chacun sur une clé déjà
+// validée par addCategory avant l'appel.
+function migratePoleDirectDataToSecteur(activityId, poleKey, secteurKey) {
+  db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE activityId = ? AND goalCategory = ?')
+    .run(secteurKey, activityId, poleKey);
+  db.prepare('UPDATE activity_goal_plans SET category = ? WHERE activityId = ? AND category = ?')
+    .run(secteurKey, activityId, poleKey);
+  db.prepare('UPDATE goal_periods SET category = ? WHERE activityId = ? AND category = ?')
+    .run(secteurKey, activityId, poleKey);
 }
 
 // Renomme une catégorie ACTIVE (jamais une gelée — modifier l'étiquette

@@ -220,6 +220,17 @@ function addCategoryTask(activityId, userId, categoryKey, label, extra) {
   if (!clean) throw Object.assign(new Error('Intitulé de la tâche requis.'), { statusCode: 400 });
   if (clean.length > 300) throw Object.assign(new Error('Intitulé trop long (300 caractères maximum).'), { statusCode: 400 });
 
+  // 27 septembre 2026 (demande d'Emilien : « Un pôle qui a des secteurs ne
+  // peut pas recevoir ses propres tâches en plus de celles des secteurs. »)
+  // — goals.parentKeyFor renvoie null pour un pôle (jamais pour un secteur),
+  // donc ce refus ne s'applique jamais à un categoryKey qui désigne déjà un
+  // secteur. categoryKey est déjà validé (pôle ou secteur actif de cette
+  // activité) par l'appelant via goals.assertCategoryOrSecteurForActivity
+  // avant d'arriver ici, donc null ne peut désigner qu'un pôle à ce stade.
+  if (goals.parentKeyFor(activityId, categoryKey) === null && goals.secteursForPole(activityId, categoryKey).length > 0) {
+    throw Object.assign(new Error('Ce pôle a des secteurs : ajoutez la tâche à l\'un d\'eux.'), { statusCode: 400 });
+  }
+
   // 21 septembre 2026 (Chrono — fenêtre « visualiser ») : dueDate optionnel,
   // même validation de format que server/routes/subprojects.js#updateItem
   // (regex AAAA-MM-JJ), pour que la tâche créée depuis cette fenêtre
