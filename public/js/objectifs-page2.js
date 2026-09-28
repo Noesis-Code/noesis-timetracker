@@ -1345,6 +1345,17 @@
 
   $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
 
+  // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages) — voir
+  // le commentaire du bouton dans index.html. Déplacé ici depuis
+  // objectifs-page1.js le 28 septembre 2026 (correctif régression c10fce8) :
+  // #goalsBackToCaptureBtn est injecté par CETTE page (page 2), donc son
+  // écouteur doit être posé ici — un $('goalsBackToCaptureBtn') au niveau
+  // supérieur d'un autre fichier de page s'exécute avant que ce HTML-ci
+  // existe, selon l'ordre de chargement des <script> dans index.html.
+  $('goalsBackToCaptureBtn').addEventListener('click', function () {
+    TMT.showGoalsCapturePage();
+  });
+
 
   function loadGoalsTasksOverview() {
     var activityId = TMT.currentGoalsActivityId;

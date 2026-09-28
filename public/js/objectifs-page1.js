@@ -758,15 +758,15 @@
   }
 
 
-  // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages) —
-  // voir le commentaire du bouton dans index.html.
-  $('goalsBackToCaptureBtn').addEventListener('click', function () {
-    showGoalsCapturePage();
-  });
-
   // Points d'entrée appelés depuis app.js (switchTab()/openTabFromNotification()
-  // et loadGoalsCaptureBadges(), restée côté app.js — voir son en-tête TMT).
+  // et loadGoalsCaptureBadges(), restée côté app.js — voir son en-tête TMT), et
+  // depuis objectifs-page2.js (bouton #goalsBackToCaptureBtn — 28 septembre 2026,
+  // correctif régression c10fce8 : ce bouton est injecté par la page 2, donc son
+  // écouteur doit vivre là-bas, pas ici — un $('goalsBackToCaptureBtn') posé au
+  // niveau supérieur de CE fichier s'exécute avant que la page 2 ait inséré son
+  // HTML, puisque objectifs-page1.js charge en premier).
   TMT.loadGoalsTab = loadGoalsTab;
   TMT.openGoalsPeriodFromNotification = openGoalsPeriodFromNotification;
   TMT.renderGoalsCaptureActivities = renderGoalsCaptureActivities;
+  TMT.showGoalsCapturePage = showGoalsCapturePage;
 })();
