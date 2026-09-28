@@ -2331,6 +2331,66 @@
           <span class="goalsActivityPlainName" id="goalsActivityName"></span>
         </div>
 
+        <!-- 27 septembre 2026, chantier « Tâches quotidiennes intégrées à la
+             Page 2 » (Aiguillage, maquette approuvée par Emilien dans le
+             canvas Design partagé — voir claude/noesis-timetracker-taches-
+             quotidiennes-page2.md, Script 1). Bascule à 2 segments Tâches/
+             Objectifs — Tâches par défaut à l'arrivée sur cette page, comme
+             demandé. Même gabarit visuel que #communityModeSwitch
+             (Rechercher/Publier, Communauté) : classes distinctes
+             (.goalsPage2Mode*) pour ne jamais coupler les deux bascules,
+             mais couleurs identiques à celles de la maquette de ce chantier
+             précis (#9088F2 actif), pas --purple générique — voir
+             styles.css. #goalsObjectifsView (ci-dessous) enveloppe tout le
+             contenu historique de cette page (sélecteur de pôle + arbre
+             périodique + rail tactile), inchangé, simplement montré/masqué
+             comme un bloc entier par setGoalsPage2Mode() (app.js) selon le
+             segment actif. #goalsTasksView est le nouvel écran par défaut,
+             voir plus bas. -->
+        <div class="goalsPage2ModeSwitch" id="goalsPage2ModeSwitch">
+          <button type="button" class="goalsPage2ModeBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
+          <button type="button" class="goalsPage2ModeBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
+        </div>
+
+        <!-- Écran « Tâches » (nouveau, 27 septembre 2026) : avancement
+             global (anneau, même patron que #activityProgressWrap des
+             Sous-projets — voir plus haut dans ce fichier — mais valeurs
+             propres à cette maquette, r=26/épaisseur 7px) puis une liste de
+             groupes, un par secteur (accordéon replié par défaut, jamais de
+             point de couleur — les secteurs n'ont pas de couleur, règle déjà
+             en vigueur) ou par pôle sans secteur (affiché à plat, sans
+             chevron). Construit entièrement par renderGoalsTasksOverview()/
+             buildGoalsTasksGroup() (app.js) à partir de
+             GET /api/activities/:id/goals/tasks/overview (contrat calé avec
+             Tâche - Pôles & secteurs, voir le doc cité ci-dessus) — rien de
+             statique ici au-delà de ces 3 conteneurs vides. Aucun
+             réordonnancement manuel nulle part sur cet écran (demande
+             explicite d'Emilien), ni sélecteur de pôle (portée = toute
+             l'activité, à la différence de #goalsObjectifsView). -->
+        <div id="goalsTasksView" class="goalsTasksView">
+          <div id="goalsTasksProgressWrap" class="goalsTasksProgressCard hidden">
+            <svg class="goalsTasksProgressRing" viewBox="0 0 60 60" aria-hidden="true">
+              <circle class="goalsTasksProgressRingBg" cx="30" cy="30" r="26"></circle>
+              <circle id="goalsTasksProgressRingFill" class="goalsTasksProgressRingFill" cx="30" cy="30" r="26"></circle>
+            </svg>
+            <span id="goalsTasksProgressPercent" class="goalsTasksProgressPercent">0%</span>
+            <div class="goalsTasksProgressText">
+              <p class="goalsTasksProgressTitle">Avancement global</p>
+              <p id="goalsTasksProgressCount" class="meta"></p>
+            </div>
+          </div>
+          <div id="goalsTasksGroups" class="goalsTasksGroups"></div>
+          <p id="goalsTasksEmptyHint" class="hint hidden"></p>
+        </div>
+
+        <!-- Contenu historique de la page 2 (sélecteur de pôle + arbre
+             périodique + rail tactile), désormais derrière le segment
+             « Objectifs » de la bascule ci-dessus — voir le commentaire
+             juste au-dessus. RIEN n'est modifié à l'intérieur de ce bloc par
+             ce chantier, seul l'enrobage (id="goalsObjectifsView", classe
+             hidden par défaut puisque « Tâches » est le segment actif au
+             départ) est nouveau. -->
+        <div id="goalsObjectifsView" class="hidden">
         <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
           <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevPoleBtn" aria-label="Pôle précédent">‹</button>
           <div class="goalsActivityNameWrap">
@@ -2479,6 +2539,8 @@
           <div class="goalsScrubRail" id="goalsScrubRail"></div>
         </div>
         <div class="goalsScrubLabel" id="goalsScrubLabel"></div>
+        </div>
+        <!-- fin #goalsObjectifsView -->
       </div>
     </section>
 

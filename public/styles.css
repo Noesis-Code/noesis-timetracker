@@ -5111,6 +5111,132 @@ button { -webkit-user-select: none; user-select: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* ===== Volet Objectifs — Page 2 : écran « Tâches » (27 septembre 2026,
+   chantier « Tâches quotidiennes intégrées à la Page 2 », Aiguillage —
+   maquette approuvée par Emilien dans le canvas Design partagé, voir
+   claude/noesis-timetracker-taches-quotidiennes-page2.md). Couleurs propres
+   à CETTE maquette (#9088F2 / #2A2A31 / #9A98A2) — volontairement
+   distinctes de --purple (#674EA7, palette générique) : reprises telles
+   quelles du mockup approuvé, jamais une substitution de palette. ===== */
+
+/* Bascule à 2 segments Tâches/Objectifs — même gabarit que
+   .communityModeSwitch/.communityModeBtn (Rechercher/Publier, Communauté),
+   classes propres pour ne jamais coupler les deux bascules entre elles. */
+.goalsPage2ModeSwitch {
+  display: flex; gap: 4px; margin: 4px 0 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px;
+}
+.goalsPage2ModeBtn {
+  flex: 1; padding: 9px 8px; border: none;
+  background: transparent; color: #9A98A2; border-radius: 999px;
+  cursor: pointer; font-size: 14px; font-weight: 600;
+  transition: background-color var(--transition-fast), color var(--transition-fast),
+    box-shadow var(--transition-fast), transform 0.12s ease;
+}
+.goalsPage2ModeBtn.active {
+  background: #9088F2; color: #fff;
+  box-shadow: 0 2px 8px rgba(144, 136, 242, 0.45);
+}
+.goalsPage2ModeBtn:active { transform: scale(0.97); }
+@media (hover: hover) {
+  .goalsPage2ModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: #fff; }
+}
+
+/* Avancement global — même patron que .activityProgressCard (Sous-projets,
+   plus haut dans ce fichier) : anneau SVG en `stroke-dasharray`, pourcentage
+   posé PAR-DESSUS (jamais un <text> SVG, qui tournerait avec le
+   rotate(-90deg)). Dimensions propres à la maquette de ce chantier
+   (r=26, épaisseur 7px) — plus grand que l'anneau des Sous-projets (r=19). */
+.goalsTasksProgressCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 14px;
+  padding: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.goalsTasksProgressRing {
+  flex: 0 0 auto;
+  width: 60px;
+  height: 60px;
+  transform: rotate(-90deg);
+}
+.goalsTasksProgressRingBg,
+.goalsTasksProgressRingFill {
+  fill: none;
+  stroke-width: 7;
+}
+.goalsTasksProgressRingBg { stroke: #2A2A31; }
+.goalsTasksProgressRingFill {
+  stroke: #9088F2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease;
+}
+.goalsTasksProgressPercent {
+  position: absolute;
+  left: 14px;
+  width: 60px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.goalsTasksProgressText { min-width: 0; }
+.goalsTasksProgressTitle { margin: 0 0 2px; font-weight: 600; }
+.goalsTasksProgressText .meta { margin: 0; }
+
+/* Groupes (un par secteur, ou par pôle sans secteur) — jamais de point de
+   couleur (règle déjà en vigueur : seuls les pôles ont une nuance, jamais
+   les secteurs), jamais de poignée de glisser-déposer (aucun
+   réordonnancement manuel sur cet écran, demande explicite d'Emilien). */
+.goalsTasksGroups { display: flex; flex-direction: column; gap: 8px; }
+
+.goalsTasksGroup {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  overflow: hidden;
+}
+/* En-tête cliquable (secteur, accordéon replié par défaut — demande
+   explicite d'Emilien). */
+.goalsTasksGroupHead {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px; border: none; background: transparent; color: inherit;
+  cursor: pointer; text-align: left; font: inherit;
+}
+.goalsTasksGroupChevron {
+  flex: 0 0 auto; display: inline-block; transition: transform 0.15s ease;
+  color: var(--muted);
+}
+.goalsTasksGroup.open .goalsTasksGroupChevron { transform: rotate(90deg); }
+.goalsTasksGroupLabel {
+  flex: 1 1 auto; min-width: 0; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.goalsTasksGroupCount { flex: 0 0 auto; margin: 0; }
+/* En-tête à plat (pôle sans secteur — pas de bouton, pas de chevron, jamais
+   replié : « aucun menu déroulant dans ce cas », demande d'Emilien). */
+.goalsTasksGroupFlatHead {
+  display: flex; align-items: center; gap: 8px; padding: 12px 14px 0;
+}
+.goalsTasksGroupFlatHead .goalsTasksGroupLabel { font-weight: 600; }
+
+.goalsTasksGroupBody { padding: 0 14px 14px; }
+.goalsTasksGroupBody.hidden { display: none; }
+
+.goalsTasksGroupBar {
+  height: 4px; border-radius: 999px; background: #2A2A31; margin: 0 0 10px;
+  overflow: hidden;
+}
+.goalsTasksGroupBarFill {
+  height: 100%; background: #9088F2; border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
 /* 15 septembre 2026 (7e passage, demande d'Emilien — « un seul mode : la
    grille (arbre) ») : la bascule Arbre/Répartition (.goalsViewToggle*) et la
    vue "Répartition" (.goalsDistribution*, .goalsCategoryTag-*) sont retirées
