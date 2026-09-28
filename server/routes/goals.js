@@ -770,6 +770,22 @@ router.get('/goals/capture/badges', (req, res) => {
 // autoCaptured non vues d'une activité entière (page 1, ouvrir une activité)
 // — jamais bloquant si rien n'était à marquer (idempotent, voir
 // goalstasks.js#markCategoriesSeen).
+// 28 septembre 2026 (C. Objectifs — Page 1, backlog encart 71 du 27
+// septembre : « historique de tâches, même modèle que le Chrono », signalé
+// par Emilien comme absent) — historique CROISÉ, toutes activités
+// confondues, des tâches capturées par la bulle IA (autoCaptured=1
+// uniquement). Pas scopée à une activité dans son URL, même raisonnement que
+// /goals/capture/badges ci-dessus.
+router.get('/goals/tasks/history', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  try {
+    res.json({ tasks: goalstasks.tasksHistoryForUser(userId) });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 router.post('/activities/:id/goals/categories/mark-seen', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });

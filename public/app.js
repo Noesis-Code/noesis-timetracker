@@ -9808,6 +9808,62 @@
       .catch(function () { /* pas bloquant — les badges resteront simplement à jour au prochain chargement */ });
   }
 
+  // 28 septembre 2026 (backlog encart 71 du 27 septembre : « historique de
+  // tâches, même modèle que le Chrono », signalé par Emilien comme absent) —
+  // journal en LECTURE SEULE des tâches capturées par la bulle ci-dessus,
+  // TOUTES ACTIVITÉS confondues (voir GET /api/goals/tasks/history,
+  // server/lib/goalstasks.js#tasksHistoryForUser).
+  function loadGoalsTasksHistory() {
+    return api('GET', '/api/goals/tasks/history')
+      .then(function (data) { renderGoalsTasksHistory((data && data.tasks) || []); })
+      .catch(function () { /* pas bloquant — l'historique restera simplement à jour au prochain chargement */ });
+  }
+
+  // Même gabarit que buildCategoryTaskRow (checkbox + subProjectItemLabel,
+  // appendLinkified — jamais innerHTML) mais SANS aucun contrôle interactif
+  // (case désactivée, pas de sélecteur de catégorie, pas de suppression) :
+  // ce n'est pas un écran d'action, seulement un rappel chronologique de ce
+  // qui a été capturé — comme le panneau Historique du Chrono ne permet pas
+  // de modifier une entrée passée.
+  function renderGoalsTasksHistory(tasks) {
+    var section = $('goalsTasksHistorySection');
+    var box = $('goalsTasksHistoryList');
+    if (!section || !box) return;
+    box.innerHTML = '';
+    if (!tasks.length) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    tasks.forEach(function (task) {
+      var row = document.createElement('div');
+      row.className = 'goalsTasksHistoryItem' + (task.done ? ' done' : '');
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = task.done;
+      cb.disabled = true;
+      row.appendChild(cb);
+
+      var body = document.createElement('div');
+      body.className = 'goalsTasksHistoryItemBody';
+
+      var label = document.createElement('div');
+      label.className = 'goalsTasksHistoryItemLabel';
+      appendLinkified(label, task.label);
+      body.appendChild(label);
+
+      var meta = document.createElement('div');
+      meta.className = 'goalsTasksHistoryItemMeta';
+      var metaParts = [task.activityName, task.categoryLabel].filter(Boolean);
+      if (task.createdAt) {
+        metaParts.push(new Date(task.createdAt).toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit' }));
+      }
+      meta.textContent = metaParts.join(' · ');
+      body.appendChild(meta);
+
+      row.appendChild(body);
+      box.appendChild(row);
+    });
+  }
+
   function toggleGoalsCaptureActivitySelection(activityId) {
     var id = String(activityId);
     var idx = goalsCaptureSelectedActivityIds.indexOf(id);
@@ -10095,6 +10151,7 @@
     renderGoalsCaptureBubble();
     renderGoalsCaptureActivities();
     loadGoalsCaptureBadges();
+    loadGoalsTasksHistory();
   }
 
   // Navigue vers la page 2 (pôles + arbre périodique) d'une activité précise

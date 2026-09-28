@@ -361,6 +361,50 @@ function markCategoriesSeen(activityId, categoryKey) {
   return { updated: info.changes };
 }
 
+// ---------------------------------------------------------------------------
+// 28 septembre 2026 (C. Objectifs — Page 1, backlog encart 71 du 27
+// septembre : « historique de tâches, même modèle que le Chrono » — signalé
+// par Emilien comme absent, jamais codé jusqu'ici) — historique CROISÉ,
+// TOUTES ACTIVITÉS confondues, des tâches capturées par la bulle IA de la
+// page 1 (autoCaptured = 1 UNIQUEMENT — pas une tâche ajoutée manuellement
+// depuis une catégorie ou le Chrono, cohérent avec le rôle de capture propre
+// à cette page). Complétées ET en attente (pas seulement un journal du fait,
+// confirmé avec Emilien) — plus récentes en premier. Lecture seule : aucune
+// écriture, ce fichier n'en fait déjà que trop pour ne pas en avoir une de
+// plus (voir addCategoryTask/moveCategoryTask ci-dessus pour les écritures).
+const TASKS_HISTORY_LIMIT = 200;
+function tasksHistoryForUser(userId) {
+  const rows = db.prepare(`
+    SELECT i.id, i.label, i.done, i.doneAt, i.dueDate, i.createdAt,
+           sp.activityId, sp.goalCategory AS category, a.name AS activityName
+    FROM sub_project_items i
+    JOIN sub_project_sections s ON s.id = i.sectionId
+    JOIN sub_projects sp ON sp.id = s.subProjectId
+    JOIN activities a ON a.id = sp.activityId
+    JOIN activity_members m ON m.activityId = sp.activityId
+    WHERE m.userId = ? AND s.kind = 'tasks' AND i.autoCaptured = 1 AND sp.goalCategory IS NOT NULL
+    ORDER BY i.createdAt DESC, i.id DESC
+    LIMIT ?
+  `).all(userId, TASKS_HISTORY_LIMIT);
+  return rows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    done: !!r.done,
+    doneAt: r.doneAt,
+    dueDate: r.dueDate,
+    createdAt: r.createdAt,
+    activityId: r.activityId,
+    activityName: r.activityName,
+    categoryKey: r.category,
+    // categoryLabelFor ne lève jamais pour une clé encore valide au moment de
+    // la capture mais retirée depuis (pôle/secteur supprimé) — voir son
+    // propre commentaire dans goals.js ; une tâche historique garde son
+    // libellé de capture dans ce cas plutôt que de faire échouer tout
+    // l'historique pour une seule ligne.
+    categoryLabel: goals.categoryLabelFor(r.activityId, r.category),
+  }));
+}
+
 module.exports = {
   subProjectsForCategory,
   ensureHomeSubProject,
@@ -374,4 +418,6 @@ module.exports = {
   // Badges « non vu » (25 septembre 2026, volet Objectifs page 1/2/3).
   unseenCountsForActivity,
   markCategoriesSeen,
+  // Historique de tâches (28 septembre 2026, backlog encart 71).
+  tasksHistoryForUser,
 };

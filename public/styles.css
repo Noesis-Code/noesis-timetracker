@@ -3417,6 +3417,52 @@ button { -webkit-user-select: none; user-select: none; }
   color: var(--text-light);
 }
 
+/* 28 septembre 2026 (historique de tâches, Page 1 du volet Objectifs,
+   backlog encart 71) — même gabarit que .subProjectItem ci-dessus
+   (checkbox + libellé) mais LECTURE SEULE (case désactivée, aucun contrôle)
+   + une ligne .meta par tâche (activité · pôle/secteur · date). */
+.goalsTasksHistoryTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-light);
+  margin: 18px 0 6px;
+}
+
+.goalsTasksHistoryItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 6px;
+}
+
+.goalsTasksHistoryItem input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+}
+
+.goalsTasksHistoryItemBody {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.goalsTasksHistoryItemLabel {
+  overflow-wrap: anywhere;
+}
+
+.goalsTasksHistoryItem.done .goalsTasksHistoryItemLabel {
+  text-decoration: line-through;
+  color: var(--text-light);
+}
+
+.goalsTasksHistoryItemMeta {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
 .subProjectItemWho {
   flex: 0 0 auto;
   white-space: nowrap;
