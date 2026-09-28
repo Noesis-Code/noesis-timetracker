@@ -1,0 +1,266 @@
+/* Noèsis TimeTracker — Objectifs, PAGE 2 (grille périodique / écran « tâches »)
+ *
+ * 28 septembre 2026 — chantier de restructuration (demande d'Emilien) :
+ * extrait de public/styles.css pour que les 3 pages du volet Objectifs
+ * puissent être modifiées en parallèle sans jamais se marcher dessus.
+ * Déplacement PUR — aucune règle changée, seulement son fichier. Les classes
+ * encore utilisées par une AUTRE page (ex. .goalsCaptureBadge, réutilisée
+ * par la page 2) fonctionnent sans rien dupliquer : les 3 fichiers sont
+ * chargés en même temps que styles.css (voir index.html), donc toute règle
+ * s'applique quel que soit le fichier qui la déclare.
+ */
+
+.goalsGridHead {
+  display: flex; align-items: center; gap: 10px; padding: 10px 4px 6px; margin-bottom: 18px;
+}
+
+.goalsGridHeadCell {
+  flex: 1 1 0; min-width: 0; text-align: center; padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+
+.goalsGridHeadCell {
+  padding: 10px 8px;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid;
+  outline: 1.5px solid;
+  outline-offset: -4px;
+  box-shadow: var(--shadow-badge);
+}
+
+.goalsGridHeadCell--add {
+  flex: 0 0 auto; min-width: 0; min-height: 46px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; background: transparent; border: none; cursor: pointer;
+  /* 20 septembre 2026 : .goalsGridHeadCell (base, plus haut) pose un
+     outline/box-shadow pour l'apparence "badge" des vraies catégories —
+     border: none seul ne les efface pas (outline est une propriété séparée
+     de border), d'où un rectangle plein résiduel visible malgré le contour
+     unique voulu (#goalsGridAddOutline). Effacés explicitement ici. */
+  outline: none; box-shadow: none;
+}
+
+.goalsGridHeadCell--add:active { transform: scale(0.98); }
+
+.goalsGridHead--paged .goalsGridHeadCell { flex: 0 0 calc(50% - 5px); min-width: 0; }
+
+.goalsActivitySwitcher { display: flex; flex-direction: column; gap: 14px; }
+
+.goalsActivityHeader {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  /* touch-action: pan-y plutôt que none — un balayage vertical (défilement
+     normal de la page) doit continuer à fonctionner si le doigt part
+     légèrement en biais ; seul le geste HORIZONTAL est intercepté par
+     bindGoalsSwipe() (voir app.js, qui compare dx à dy avant d'agir). */
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.goalsActivityNameWrap {
+  flex: 1; min-width: 0; display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+}
+
+.goalsActivityHeader .activityPageName {
+  flex: 0 1 auto; text-align: center;
+}
+
+.goalsSwipeBtn { flex-shrink: 0; }
+
+.goalsActivityPlainRow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0 10px;
+}
+
+.goalsActivityPlainName {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 15px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.goalsPage2ModeSwitch {
+  display: flex; gap: 4px; margin: 4px 0 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.goalsPage2ModeBtn {
+  flex: 1; padding: 9px 8px; border: none;
+  background: transparent; color: #9A98A2; border-radius: 999px;
+  cursor: pointer; font-size: 14px; font-weight: 600;
+  transition: background-color var(--transition-fast), color var(--transition-fast),
+    box-shadow var(--transition-fast), transform 0.12s ease;
+}
+
+.goalsPage2ModeBtn.active {
+  background: #9088F2; color: #fff;
+  box-shadow: 0 2px 8px rgba(144, 136, 242, 0.45);
+}
+
+.goalsPage2ModeBtn:active { transform: scale(0.97); }
+
+.goalsTasksGroups { display: flex; flex-direction: column; gap: 10px; }
+
+
+.goalsTasksGroupChevron {
+  flex: 0 0 auto; display: inline-block; transition: transform 0.15s ease;
+  color: var(--muted);
+}
+
+.goalsTasksGroup.open .goalsTasksGroupChevron { transform: rotate(90deg); }
+
+.goalsTasksGroupFlat .subProjectRowHeader { cursor: default; }
+
+.goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 12px; }
+
+.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
+
+.goalsGrid {
+  display: flex; flex-direction: column; gap: 44px;
+  padding: 6px 4px 220px;
+}
+
+.goalsGridRow { display: flex; align-items: stretch; gap: 10px; position: relative; }
+
+.goalsGridRow:not(:first-child)::before {
+  content: ''; position: absolute; left: 0; top: -22px; z-index: -2;
+  width: var(--goalsRowFullWidth, 100%);
+  border-top: 2px dashed var(--track-bg); pointer-events: none;
+}
+
+.goalsGridRow--paged .goalsGridCell { flex: 0 0 calc(50% - 5px); min-width: 0; }
+
+.goalsGridCell {
+  position: relative;
+  flex: 1 1 0; min-width: 0; border: none; background: transparent;
+  padding: 0; cursor: pointer; text-align: left;
+  transition: transform var(--transition-fast);
+}
+
+.goalsGridCell:active { transform: scale(0.96); }
+
+.goalsGridCell::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  left: 50%; top: -44px; height: 44px; width: 0;
+  border-left: 2px solid var(--goalsCellLineColor, var(--track-bg));
+  transform: translateX(-50%);
+}
+
+.goalsGridCell--filled::before { top: -46px; height: 46px; }
+
+.goalsGridRow:first-child .goalsGridCell::before { display: none; }
+
+.goalsGridCell--add::before { display: none; }
+
+.goalsGridCell--filled {
+  display: flex; flex-direction: column; gap: 2px;
+  min-height: 54px; padding: 10px 12px;
+  border: 2px solid var(--track-bg); border-radius: var(--radius-md);
+  background: var(--card); box-shadow: var(--shadow-card);
+}
+
+.goalsGridCellText {
+  font-size: 12px; line-height: 1.3; margin: 0; font-weight: 600;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.goalsGridCell--empty {
+  min-height: 24px; border-radius: var(--radius-md);
+  background: var(--track-bg); opacity: 0.32;
+}
+
+.goalsGridCell--empty.current { opacity: 0.55; }
+
+.goalsGridCell--add {
+  min-height: 54px; border: none; background: transparent; padding: 0;
+  position: relative; display: flex; align-items: center; justify-content: center;
+}
+
+.goalsGridCellAddContent {
+  position: absolute; display: none; top: 0;
+  transform: translate(-50%, -50%);
+  flex-direction: column; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+
+.goalsGridAddStickyAnchor {
+  position: sticky; top: 50%; height: 0; pointer-events: none;
+  margin-top: 50vh; margin-bottom: -50vh;
+}
+
+.goalsGridColumnsWrap { position: relative; display: flow-root; }
+
+.goalsGridCellAddIcon {
+  position: relative; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--goalsAddAccent, var(--purple)); color: var(--bg);
+  font-size: 20px; font-weight: 300; line-height: 1; pointer-events: none;
+}
+
+.goalsGridCellAddLabel {
+  position: relative; font-size: 13px; font-weight: 700; color: var(--text);
+  text-align: center; white-space: nowrap; pointer-events: none;
+}
+
+.goalsGridAddOutline {
+  position: absolute; display: none; pointer-events: none;
+  border: 2px dashed var(--goalsAddAccent, var(--track-bg));
+  border-radius: var(--radius-lg);
+}
+
+.goalsGridHeadCell { position: relative; }
+
+.goalsGridHeadBadge {
+  display: inline-flex; vertical-align: middle;
+  margin-left: 5px; transform: scale(0.85);
+}
+
+.goalsGridHeadEmpty {
+  flex: 1 1 auto; text-align: center; color: var(--text-light);
+  font-size: 13px; padding: 24px 12px; margin: 0;
+}
+
+#goalsBackToCaptureBtn { flex-shrink: 0; margin-right: 4px; }
+
+.goalsScrubZone {
+  position: fixed; left: 0; z-index: 8; pointer-events: none;
+  top: var(--goals-scrubzone-top, 220px); bottom: calc(var(--tabbar-h, 60px) + 6px);
+  width: calc(max(5%, env(safe-area-inset-left)) + 16px);
+}
+
+.goalsScrubRail {
+  position: absolute; inset: 8px 0;
+  display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+}
+
+.goalsScrubDot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--track-bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  transition: width var(--transition-fast), height var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+.goalsScrubDot.active { width: 22px; height: 22px; }
+
+.goalsScrubLabel {
+  position: fixed; left: calc(max(5%, env(safe-area-inset-left)) + 16px + 8px); top: 0; transform: translate(0, -50%);
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
+  padding: 6px 10px; font-size: 11px; line-height: 1.3; color: var(--text-light);
+  white-space: nowrap; box-shadow: var(--shadow-card); z-index: 8;
+  opacity: 0; transition: opacity var(--transition-fast); pointer-events: none;
+}
+
+.goalsScrubLabel.show { opacity: 1; }
+
+.goalsScrubLabel b { display: block; color: var(--text); font-size: 12px; font-weight: 700; }

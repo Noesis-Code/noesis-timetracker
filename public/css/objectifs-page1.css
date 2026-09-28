@@ -1,0 +1,58 @@
+/* Noèsis TimeTracker — Objectifs, PAGE 1 (capture)
+ *
+ * 28 septembre 2026 — chantier de restructuration (demande d'Emilien) :
+ * extrait de public/styles.css pour que les 3 pages du volet Objectifs
+ * puissent être modifiées en parallèle sans jamais se marcher dessus.
+ * Déplacement PUR — aucune règle changée, seulement son fichier. Les classes
+ * encore utilisées par une AUTRE page (ex. .goalsCaptureBadge, réutilisée
+ * par la page 2) fonctionnent sans rien dupliquer : les 3 fichiers sont
+ * chargés en même temps que styles.css (voir index.html), donc toute règle
+ * s'applique quel que soit le fichier qui la déclare.
+ */
+
+.activityGoalsCategoryAutoTaskPendingRow.goalsCaptureResultRow.isSuccess,
+.activityGoalsCategoryAutoTaskPendingRow.goalsCaptureResultRow.isFailed {
+  color: var(--text-light);
+}
+
+.goalsCaptureResultIcon { font-weight: 700; }
+
+.goalsCaptureResultRow.isSuccess .goalsCaptureResultIcon { color: var(--green); }
+
+.goalsCaptureResultRow.isFailed .goalsCaptureResultIcon { color: var(--red); }
+
+.goalsCapturePage {
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+.goalsCapturePage.hidden { display: none; }
+
+.goalsCaptureActivities {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.goalsCaptureActivityChip {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; box-sizing: border-box;
+  padding: 8px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--card);
+  color: var(--text); font-size: 14px; font-family: inherit;
+  cursor: pointer; position: relative;
+}
+
+.goalsCaptureActivityChip .dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
+}
+
+.goalsCaptureActivityChipName { flex: 1; text-align: left; }
+
+.goalsCaptureActivityPrompt.hidden { display: none; }
+
+.goalsCaptureBadge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px; background: var(--purple); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 1;
+}
+
+.goalsCaptureBubbleWrap { display: flex; flex-direction: column; }

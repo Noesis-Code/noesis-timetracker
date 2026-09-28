@@ -37,9 +37,12 @@
  * un service worker n'a accès ni à public/i18n.js ni à la langue du profil.
  */
 
-// 22 septembre 2026 (capture hors ligne) : v4 → v5 pour ajouter
-// '/offline-queue.js' au cache existant.
-const CACHE_VERSION = 'noesis-v5';
+// 28 septembre 2026 (chantier de restructuration du volet Objectifs,
+// demande d'Emilien) : v5 → v6 pour ajouter les 6 nouveaux fichiers
+// objectifs-page1/2/3.js et .css (seul ajout permis par ce chantier — voir
+// noesis-timetracker-chantiers-en-cours.md). Rien d'autre ne change dans ce
+// fichier.
+const CACHE_VERSION = 'noesis-v6';
 
 // File d'attente des tâches capturées hors ligne (voir l'en-tête de
 // public/offline-queue.js). Chargée ici pour que Background Sync puisse la
@@ -56,6 +59,12 @@ const SHELL = [
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/js/objectifs-page1.js',
+  '/js/objectifs-page2.js',
+  '/js/objectifs-page3.js',
+  '/css/objectifs-page1.css',
+  '/css/objectifs-page2.css',
+  '/css/objectifs-page3.css',
   '/i18n.js',
   '/qrcode.js',
   '/offline-queue.js',

@@ -1,0 +1,375 @@
+/* Noèsis TimeTracker — Objectifs, PAGE 3 (détail d'une période)
+ *
+ * 28 septembre 2026 — chantier de restructuration (demande d'Emilien) :
+ * extrait de public/styles.css pour que les 3 pages du volet Objectifs
+ * puissent être modifiées en parallèle sans jamais se marcher dessus.
+ * Déplacement PUR — aucune règle changée, seulement son fichier. Les classes
+ * encore utilisées par une AUTRE page (ex. .goalsCaptureBadge, réutilisée
+ * par la page 2) fonctionnent sans rien dupliquer : les 3 fichiers sont
+ * chargés en même temps que styles.css (voir index.html), donc toute règle
+ * s'applique quel que soit le fichier qui la déclare.
+ */
+
+#goalsDetailScroll {
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.goalsPeriodNav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 14px;
+}
+
+.goalsPeriodNavLabel { flex: 1; min-width: 0; text-align: center; }
+
+.goalsPeriodNavLabel .sectionTitle { margin: 0; }
+
+.goalsPeriodDates { margin: 2px 0 0; font-size: 12px; color: var(--text-light); }
+
+.goalsCategoryLabel {
+  text-align: center; font-size: 12px; font-weight: 700;
+  color: var(--text-light); text-transform: uppercase; letter-spacing: 0.03em;
+  margin: 0 0 10px;
+}
+
+.goalCard {
+  background: var(--card); border-radius: var(--radius-lg); padding: 14px;
+  box-shadow: var(--shadow-card); margin-bottom: 14px;
+}
+
+.goalMainCard {
+  border: none; padding: 14px 16px 12px;
+}
+
+.goalMainCard .goalCardLabel {
+  text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.75; font-size: 11px;
+}
+
+.goalCardLabel { font-weight: bold; margin: 0 0 8px; font-size: 14px; }
+
+.goalMainProgressRow { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+
+.goalMainProgressTrack {
+  flex: 1; height: 4px; border-radius: 2px;
+  background: var(--track-bg); overflow: hidden;
+}
+
+.goalMainProgressFill {
+  height: 100%; width: 0; border-radius: 2px;
+  background: var(--purple); transition: width 0.2s ease;
+}
+
+#activityGoalsMainCard .goalMainProgressFill { background: currentColor; }
+
+.goalMainProgressPct {
+  flex-shrink: 0; min-width: 34px; text-align: right;
+  font-size: 12px; font-weight: 700; color: var(--text-light);
+}
+
+#activityGoalsMainCard .goalMainProgressPct { color: inherit; opacity: 0.85; }
+
+.goalsWeeklyLabel { margin: 0 0 10px; }
+
+.goalCard textarea {
+  width: 100%; box-sizing: border-box; padding: 10px; font: inherit;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg, transparent); color: var(--text); resize: vertical;
+}
+
+.goalCard textarea:focus {
+  outline: none; border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
+}
+
+.goalMainCard textarea {
+  background: transparent; border: none; border-radius: 0; padding: 2px 0;
+  color: inherit; font-size: 15px; font-weight: 600;
+}
+
+.goalMainCard textarea:focus { outline: none; box-shadow: none; }
+
+.goalMainCard textarea::placeholder { color: inherit; opacity: 0.65; }
+
+.goalEstimateHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; }
+
+.goalMainCard .goalEstimateHint { color: inherit; opacity: 0.75; }
+
+.goalMainSaveRow { display: flex; justify-content: flex-end; margin-top: 8px; }
+
+.goalMainSaveBtn {
+  padding: 7px 16px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--purple); color: var(--purple); background: rgba(var(--purple-rgb), 0.16);
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.goalMainEmptyHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; opacity: 0.85; }
+
+.goalMainCard .goalMainEmptyHint { color: inherit; opacity: 0.85; }
+
+
+.goalBilanHint { text-align: center; font-size: 13px; color: var(--text-light); margin: 4px 0 0; }
+
+.goalCapacityRow {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 10px 0 0; font-size: 12px;
+}
+
+.goalCapacityLine { margin: 0; flex: 1; min-width: 0; }
+
+.goalCapacityLabel { color: var(--text-light); }
+
+.goalCapacityValue { color: var(--text); font-weight: bold; }
+
+.goalCapacityTag {
+  display: inline-block; margin-left: 6px; padding: 1px 7px;
+  border-radius: 999px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.02em; color: var(--text-light); background: var(--hover-bg);
+}
+
+.goalCapacityTag.manual { color: white; background: var(--purple); }
+
+.goalCapacityEditBtn, .goalCapacityClearBtn, .goalCapacitySaveBtn, .goalCapacityCancelBtn {
+  padding: 4px 9px; font-size: 11px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text-light); border-radius: var(--radius-sm);
+  cursor: pointer; transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.goalCapacitySaveBtn { border-color: var(--purple); color: var(--purple); }
+
+.goalCapacityEditRow { display: flex; align-items: center; gap: 6px; width: 100%; }
+
+.goalCapacityInput {
+  width: 90px; padding: 5px 7px; font-size: 12px; font: inherit;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg, transparent); color: var(--text);
+}
+
+.goalCapacityInput:focus {
+  outline: none; border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(var(--purple-rgb), 0.18);
+}
+
+.dailyPriorityCard { margin-top: 10px; }
+
+.dailyPriorityList { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+
+.dailyPriorityItem {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); font-size: 13px; cursor: pointer;
+}
+
+.dailyPriorityCheck { flex: none; }
+
+.dailyPriorityLabel { flex: 1; min-width: 0; }
+
+.dailyPriorityMeta { color: var(--text-light); font-size: 11px; white-space: nowrap; }
+
+.dailyPriorityEmpty { color: var(--text-light); font-size: 12px; margin: 6px 0 0; }
+
+.goalsWeeklyList {
+  display: flex; flex-direction: column; gap: 1px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  overflow: hidden; margin-bottom: 20px; background: var(--border);
+}
+
+.goalsWeeklyList .goalWeeklyCard {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  background: var(--card); border: none; border-radius: 0;
+  box-shadow: none; margin-bottom: 0; padding: 8px 10px;
+}
+
+.goalWeeklyBadge {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-light);
+  background: var(--track-bg); border-radius: 999px; padding: 2px 8px;
+}
+
+.goalsWeeklyList .goalWeeklyText {
+  flex: 1; min-width: 80px; font-size: 13px; padding: 2px 0;
+  border: none; border-radius: 0; background: transparent; color: var(--text);
+  resize: none;
+}
+
+.goalsWeeklyList .goalWeeklyText:focus {
+  outline: none; box-shadow: none; border-bottom: 1px solid var(--purple);
+}
+
+.goalWeeklyDot {
+  flex-shrink: 0; width: 10px; height: 10px; padding: 0; margin: 0;
+  border: none; border-radius: 50%; background: var(--track-bg); cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.goalWeeklyDot.goalStatusAtteint { background: var(--green); }
+
+.goalWeeklyDot.goalStatusPartiel { background: #f0ad4e; }
+
+.goalWeeklyDot.goalStatusNonAtteint { background: var(--red); }
+
+.goalWeeklyAssignSelect {
+  flex-shrink: 0; max-width: 78px; font-size: 11px; padding: 3px 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--track-bg); color: var(--text-light);
+}
+
+.goalWeeklyDailyPlanBtn {
+  flex-shrink: 0; padding: 3px 5px; font-size: 13px; line-height: 1;
+  border: none; border-radius: var(--radius-sm); background: transparent;
+  color: var(--text-light); cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.goalWeeklyDailyPlanBtn:disabled { opacity: 0.6; cursor: default; }
+
+.goalsCalendarLabel { margin: 0 0 10px; }
+
+.goalsCalendarList {
+  display: flex; flex-direction: column; gap: 1px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  overflow: hidden; margin-bottom: 14px; background: var(--border);
+}
+
+.goalsCalendarRow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px; background: var(--card); font-size: 13px;
+}
+
+.goalsCalendarRow.today { background: rgba(var(--purple-rgb), 0.1); font-weight: 600; }
+
+.goalsCalendarDate { flex: 1; min-width: 0; color: var(--text); text-transform: capitalize; }
+
+.goalsCalendarWeekBadge {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-light);
+  background: var(--track-bg); border-radius: 999px; padding: 2px 8px;
+}
+
+.goalsCalendarMinutes { flex-shrink: 0; width: 48px; text-align: right; color: var(--text); font-weight: 600; }
+
+.goalsCalendarMinutes.empty { color: var(--text-light); font-weight: 400; }
+
+
+.goalsCalendarWeekBadge.clickable { cursor: pointer; color: var(--purple); background: rgba(var(--purple-rgb), 0.14); }
+
+.goalsCalendarWeekBadge.clickable:hover { background: rgba(var(--purple-rgb), 0.22); }
+
+.goalsCalendarRow.weekEnd {
+  flex-wrap: wrap; border: 2px solid var(--purple); border-radius: var(--radius-md);
+}
+
+.goalsCalendarWeekProgress { flex-basis: 100%; margin-top: 6px; }
+
+.goalsCalendarWeekProgressLabel {
+  display: block; width: 100%; text-align: left;
+  font: inherit; font-size: 11px; font-weight: 700; margin: 0 0 4px;
+  padding: 0; border: none; background: transparent; cursor: pointer;
+}
+
+.goalsCalendarWeekProgressTrack {
+  height: 5px; border-radius: 3px; background: var(--track-bg); overflow: hidden;
+}
+
+.goalsCalendarWeekProgressFill {
+  height: 100%; width: 0; border-radius: 3px; transition: width 0.2s ease;
+}
+
+.goalsCalendarAddTaskBtn {
+  position: relative; flex-shrink: 0; width: 22px; height: 22px;
+  border: none; padding: 0; border-radius: 50%; cursor: pointer;
+  color: var(--text-light); background: var(--track-bg);
+}
+
+.goalsCalendarAddTaskBtn::before,
+.goalsCalendarAddTaskBtn::after {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  background: currentColor; transform: translate(-50%, -50%);
+}
+
+.goalsCalendarAddTaskBtn::before { width: 10px; height: 2px; }
+
+.goalsCalendarAddTaskBtn::after { width: 2px; height: 10px; }
+
+.goalsCalendarAddTaskBtn:hover { color: var(--text); background: var(--border); }
+
+.goalsCalendarTaskAdd {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding: 14px 12px; background: var(--card);
+}
+
+.goalsCalendarTaskAdd input {
+  flex: 1; min-width: 0; font-size: 16px; padding: 12px 14px;
+  border-radius: var(--radius-md);
+}
+
+.goalsCalendarTaskAddBtn {
+  flex-shrink: 0; padding: 12px 22px; font-size: 15px; font-weight: 600;
+  border: none; border-radius: var(--radius-md);
+  background: var(--purple); color: #fff; cursor: pointer;
+}
+
+.goalsCalendarTaskAdd .msg { flex-basis: 100%; margin: 0; }
+
+
+.goalsCalendarTaskRow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px 5px 28px; background: var(--card); font-size: 12.5px;
+}
+
+.goalsCalendarTaskCheck {
+  flex-shrink: 0; width: 18px; height: 18px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--card);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--green); line-height: 1;
+}
+
+.goalsCalendarTaskRow.done .goalsCalendarTaskCheck { background: rgba(76, 175, 80, 0.18); border-color: var(--green); }
+
+.goalsCalendarTaskLabel { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
+
+.goalsCalendarTaskRow.done .goalsCalendarTaskLabel { color: var(--text-light); text-decoration: line-through; }
+
+.goalAssigneesLabel { font-size: 12px; color: var(--text-light); margin: 12px 0 6px; }
+
+.goalAssignees { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.goalAssigneeChip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px 5px 6px; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--card); color: var(--text-light);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.goalAssigneeChip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.goalAssigneeChip.active {
+  background: var(--purple); color: #fff; border-color: transparent;
+}
+
+.goalAssigneeChip.active .dot { background: #fff; }
+
+.goalsCalendarTaskUnseenDot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--purple); margin-left: 6px; flex-shrink: 0;
+}
+
+.goalsCalendarTaskOtherCategory {
+  flex-shrink: 0; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: var(--card-alt, var(--bg)); border: 1px solid var(--border);
+  color: var(--text-light); font-size: 11px; white-space: nowrap;
+}
+
+#goalsDetailPage { align-items: stretch; background: var(--bg); }
+
+#goalsDetailPage .communityMembersModalCard {
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  height: 100%; max-height: 100%;
+  border-radius: 0; box-shadow: none;
+}
+
+#goalsDetailScroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
+  overscroll-behavior: contain;
+}

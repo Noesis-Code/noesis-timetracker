@@ -1,6 +1,14 @@
 (function () {
   'use strict';
 
+  // Espace de noms partagé entre app.js et les fichiers Objectifs
+  // (objectifs-page1.js/-page2.js/-page3.js, public/js/) — chantier de
+  // restructuration du 28 septembre 2026 (demande d'Emilien) : chaque page
+  // du volet Objectifs a désormais son propre fichier JS/CSS, chargé par
+  // index.html ; ce qu'elles doivent encore partager (fonctions utilitaires,
+  // état en cours) passe par ici plutôt que par une variable de ce fichier.
+  window.TMT = window.TMT || {};
+
   // ===================== ÉTAT / STOCKAGE PROFIL =====================
   var STORAGE_KEY = 'noesis_profile';
   var profile = null; // { id, name, color, theme }
@@ -556,7 +564,7 @@
       setOfflineBannerNote(notes.join(' '));
       Object.keys(touched).forEach(function (activityId) {
         if (String(activityId) === String(currentCommunityActivityId)) activityGoalsCategoriesRefresh(activityId);
-        else if (String(activityId) === String(currentGoalsActivityId)) reloadGoalsAll();
+        else if (String(activityId) === String(TMT.currentGoalsActivityId)) reloadGoalsAll();
       });
       return ok;
     }, function () { offlineWritesFlushing = null; return false; });
@@ -1903,7 +1911,7 @@
     else {
       if (tab === 'community') loadCommunity();
       else if (tab === 'activity') loadActivityTab();
-      else if (tab === 'goals') loadGoalsTab();
+      else if (tab === 'goals') TMT.loadGoalsTab();
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
@@ -5961,7 +5969,7 @@
   // l'onglet Objectifs.
   function activityGoalsCategoriesRefresh(activityId) {
     loadActivityGoalsCategories(activityId);
-    if (String(activityId) === String(currentGoalsActivityId)) reloadGoalsAll();
+    if (String(activityId) === String(TMT.currentGoalsActivityId)) reloadGoalsAll();
   }
 
   // 16 septembre 2026 (8e passage, demande d'Emilien, couleur 100%
@@ -6265,6 +6273,9 @@
       setTimeout(layoutGlow, 0);
     }
   }
+
+  window.TMT.attachAutoTaskGlow = attachAutoTaskGlow;
+
 
   // 17 septembre 2026 (maquette approuvée par Emilien, citation directe :
   // « Prends exemple sur la bulle d'écriture dans la section discussion »
@@ -7465,27 +7476,31 @@
   //      lui-même : ce fichier n'écrit jamais leur texte à sa place, il ne
   //      fait qu'afficher une estimation de TEMPS suggérée pour un texte déjà
   //      écrit (voir formatEstimateHint) — jamais le contenu de l'objectif.
-  var currentGoalsPlanning = null;
-  var currentGoalsViewPeriodNumber = null;
+
+  TMT.currentGoalsPlanning = null;
+
+  TMT.currentGoalsViewPeriodNumber = null;
+
   // Objectifs est devenu son propre volet le 13 septembre 2026 (n'est plus
   // une section de la page d'activité) : il a donc besoin de savoir
   // lui-même QUELLE activité regarder, une à la fois, indépendamment de
   // currentCommunityActivityId (qui reste celle ouverte dans la page
-  // d'activité, potentiellement différente ou vide). currentGoalsActivityIndex
+  // d'activité, potentiellement différente ou vide). TMT.currentGoalsActivityIndex
   // indexe dans activitiesCache, la même liste et le même ordre que l'onglet
   // Activité — voir openGoalsForActivity()/loadGoalsTab() plus bas.
-  var currentGoalsActivityId = '';
-  var currentGoalsActivityIndex = 0;
-  var currentGoalsActivityIsShared = false;
-  var currentGoalsPage2Mode = 'tasks';
-  var currentGoalsTasksOverview = null;
-  var currentGoalsTasksOpenGroups = {};
+  TMT.currentGoalsActivityId = '';
+
+  TMT.currentGoalsActivityIndex = 0;
+
+  TMT.currentGoalsActivityIsShared = false;
+
   // 16 septembre 2026 (8e passage) : couleur de L'ACTIVITÉ affichée, posée
   // par openGoalsForActivity() — source de base pour les nuances
   // automatiques des badges de catégorie (subProjectShade(), voir
   // renderGoalsGridHead()/renderGoalsGrid() plus bas, couleur 100%
   // automatique, plus aucune couleur choisie/stockée par catégorie).
-  var currentGoalsActivityColor = '';
+  TMT.currentGoalsActivityColor = '';
+
 
   // 14 septembre 2026 (second passage, demande d'Emilien) : 3 plannings
   // indépendants par activité — un par catégorie fixe, les 3 sous-catégories
@@ -7495,20 +7510,24 @@
   // Troisième passage, même jour (« je souhaite qu'il y ait 3 arbres
   // visibles [...] que l'on puisse les comparer ») : la page 1 ne bascule
   // plus d'une catégorie à l'autre par onglet — les 3 sont TOUJOURS TOUTES
-  // LES TROIS chargées ensemble dans currentGoalsAllPlannings (un seul appel
+  // LES TROIS chargées ensemble dans TMT.currentGoalsAllPlannings (un seul appel
   // à /goals/all, voir reloadGoalsAll() plus bas) et affichées côte à côte
-  // dans une grille (renderGoalsGrid()). currentGoalsCategory ne désigne
+  // dans une grille (renderGoalsGrid()). TMT.currentGoalsCategory ne désigne
   // plus « la catégorie affichée sur la page 1 » mais « la catégorie
   // actuellement ouverte sur la PAGE 2 » (détail d'une période précise,
   // choisie en cliquant une cellule de la grille — voir openGoalsDetail()) ;
-  // currentGoalsPlanning reste le planning de CETTE seule catégorie, pour
+  // TMT.currentGoalsPlanning reste le planning de CETTE seule catégorie, pour
   // tout ce que la page 2 affiche/édite (inchangé). (La vue "Répartition"
   // qui bascule ensuite mentionnée ici a depuis été retirée entièrement —
   // voir le commentaire juste en dessous, 7e passage.)
-  var GOALS_CATEGORIES = ['entreprise', 'communaute', 'produit'];
-  var GOALS_CATEGORY_LABELS = { entreprise: 'Entreprise', communaute: 'Communauté', produit: 'Produit' };
-  var currentGoalsCategory = 'entreprise';
-  var currentGoalsAllPlannings = null;
+  TMT.GOALS_CATEGORIES = ['entreprise', 'communaute', 'produit'];
+
+  TMT.GOALS_CATEGORY_LABELS = { entreprise: 'Entreprise', communaute: 'Communauté', produit: 'Produit' };
+
+  TMT.currentGoalsCategory = 'entreprise';
+
+  TMT.currentGoalsAllPlannings = null;
+
 
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande
   // explicite d'Emilien : « On ne change pas l'arbre. Cependant, les
@@ -7523,17 +7542,21 @@
   // nulles et la grille continue d'afficher les pôles eux-mêmes, strictement
   // comme avant ce chantier (voir goalsPoles()/activeGoalsCategories() juste
   // en dessous).
-  var currentGoalsSelectedPoleKey = '';
-  var currentGoalsGridColumns = null;
-  var currentGoalsMaxSecteurs = 10;
+  TMT.currentGoalsSelectedPoleKey = '';
+
+  TMT.currentGoalsGridColumns = null;
+
+  TMT.currentGoalsMaxSecteurs = 10;
+
   // 26 septembre 2026 (page 2, point d) : rang du pôle actuellement affiché
-  // dans goalsPoles() — même rôle que currentGoalsActivityIndex mais pour le
+  // dans goalsPoles() — même rôle que TMT.currentGoalsActivityIndex mais pour le
   // balayage/les flèches de #goalsActivityHeader, qui naviguent désormais
   // les pôles plutôt que les activités. Tenu à jour par
   // renderGoalsPoleSwitcher() (repli sur l'index du pôle sélectionné) et par
   // openGoalsForPole() (navigation circulaire, mêmes règles que
   // openGoalsForActivity()).
-  var currentGoalsPoleIndex = 0;
+  TMT.currentGoalsPoleIndex = 0;
+
   // ⚠️ 26 septembre 2026 : currentGoalsPoleDropdownOpen/goalsPoleDropdownDocClickHandler
   // (menu déroulant de pôles, 21 septembre 2026) retirées — le sélecteur de
   // pôle est désormais intégré au cadre d'en-tête (renderGoalsPoleSwitcher()/
@@ -7541,12 +7564,12 @@
 
   // 15 septembre 2026 (7e passage, discussion Objectifs — B, cadré avec
   // Emilien par AskUserQuestion : catégories personnalisables par activité) :
-  // GOALS_CATEGORIES/GOALS_CATEGORY_LABELS restent le REPLI pour une
+  // TMT.GOALS_CATEGORIES/TMT.GOALS_CATEGORY_LABELS restent le REPLI pour une
   // activité qui n'a jamais activé la personnalisation (3 catégories fixes
   // historiques) — activeGoalsCategories() est désormais la source unique
   // pour tout rendu (grille, en-tête, page 2), qu'elle renvoie ces 3-ci ou
   // les 1 à 5 catégories personnalisées de l'activité en cours
-  // (currentGoalsAllPlannings.categories, posé par reloadGoalsAll() à partir
+  // (TMT.currentGoalsAllPlannings.categories, posé par reloadGoalsAll() à partir
   // de GET .../goals/all). currentGoalsView/renderGoalsViewToggle()/
   // renderGoalsDistribution() (vue "Répartition") sont retirés entièrement
   // (demande d'Emilien : « un seul mode : la grille (arbre) »).
@@ -7558,86 +7581,31 @@
   // repli quand aucun pôle réel n'existe encore (voir activeGoalsCategories()
   // juste en dessous).
   function goalsPoles() {
-    if (currentGoalsAllPlannings && currentGoalsAllPlannings.categories) return currentGoalsAllPlannings.categories;
-    return GOALS_CATEGORIES.map(function (k) { return { key: k, label: GOALS_CATEGORY_LABELS[k], color: null, custom: false }; });
+    if (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.categories) return TMT.currentGoalsAllPlannings.categories;
+    return TMT.GOALS_CATEGORIES.map(function (k) { return { key: k, label: TMT.GOALS_CATEGORY_LABELS[k], color: null, custom: false }; });
   }
+
+  window.TMT.goalsPoles = goalsPoles;
+
 
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : SEULE la
   // SOURCE de données change ici — renderGoalsGridHead()/renderGoalsGrid()
   // (plus bas) restent identiques à avant ce chantier, demande explicite
   // d'Emilien (« on ne change pas l'arbre »). Une fois un pôle réel
-  // sélectionné et ses colonnes chargées (currentGoalsGridColumns, posé par
+  // sélectionné et ses colonnes chargées (TMT.currentGoalsGridColumns, posé par
   // reloadGoalsGridForPole() plus bas), la grille affiche les SECTEURS de ce
   // pôle (ou le pôle lui-même en repli s'il n'a aucun secteur) au lieu des
   // pôles eux-mêmes. Tant que ça n'a jamais été le cas (aucun pôle réel,
-  // currentGoalsGridColumns encore vide/nul), repli strictement inchangé sur
+  // TMT.currentGoalsGridColumns encore vide/nul), repli strictement inchangé sur
   // goalsPoles() ci-dessus — comportement identique à l'ancienne
   // activeGoalsCategories() pour toute activité non personnalisée.
   function activeGoalsCategories() {
-    if (currentGoalsGridColumns && currentGoalsGridColumns.length) return currentGoalsGridColumns;
+    if (TMT.currentGoalsGridColumns && TMT.currentGoalsGridColumns.length) return TMT.currentGoalsGridColumns;
     return goalsPoles();
   }
 
-  // Résout le libellé d'une catégorie (fixe OU personnalisée, active OU
-  // gelée) — nécessaire pour openGoalsDetail() : une cellule de la grille
-  // peut renvoyer vers une catégorie qui n'est plus active (frozenCategories)
-  // si l'utilisateur y accède via une notification/un lien ancien.
-  function goalsCategoryLabel(key) {
-    var pools = activeGoalsCategories().concat((currentGoalsAllPlannings && currentGoalsAllPlannings.frozenCategories) || []);
-    for (var i = 0; i < pools.length; i++) { if (pools[i].key === key) return pools[i].label; }
-    return GOALS_CATEGORY_LABELS[key] || key;
-  }
-  // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien : « la
-  // couleur qui encadre l'objectif périodique et les objectifs hebdomadaires
-  // soit la même nuance [...] que la couleur choisie [...] pour la
-  // catégorie » — source unique de cette couleur, réutilisée par la carte
-  // objectif périodique (.goalMainCard), les cartes hebdomadaires
-  // (.goalWeeklyCard) et le calendrier (renderGoalsCalendarDays()), pour que
-  // les 3 restent identiques par construction plutôt que par 3 calculs
-  // séparés.
-  // ⚠️ 16 septembre 2026 (8e passage, discussion Objectifs — B, débordement
-  // sur cette fonction de D — même fichier, aucune ligne en commun,
-  // détecté au device_list_dir juste avant écriture) : `c.color` a disparu
-  // du serveur le même jour (couleur 100% automatique, cadré séparément avec
-  // Emilien — voir server/lib/goals.js). Adaptée pour rester fonctionnelle :
-  // même mécanisme que renderGoalsGridHead()/renderGoalsGrid() (nuance de
-  // subProjectShade() à partir de currentGoalsActivityColor et du RANG de la
-  // catégorie), plus aucun repli violet nécessaire — chaque catégorie, y
-  // compris la catégorie par défaut seule, a désormais toujours sa propre
-  // nuance calculée.
-  function currentGoalsCategoryColor() {
-    var categories = activeGoalsCategories();
-    var index = -1;
-    for (var i = 0; i < categories.length; i++) { if (categories[i].key === currentGoalsCategory) { index = i; break; } }
-    if (index === -1) return 'var(--purple)';
-    return subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-  }
+  window.TMT.activeGoalsCategories = activeGoalsCategories;
 
-  // 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-  // « bandeau plein largeur » — categoryColorTint() (teinte de fond légère,
-  // 12e/13e passages) est retirée, remplacée par un fond PLEIN de la couleur
-  // de catégorie sur .goalMainCard (voir renderActivityGoals() plus bas) ;
-  // la lisibilité du texte est assurée par readableTextOn() (fonction déjà
-  // existante — voir plus haut dans ce fichier, utilisée jusqu'ici pour les
-  // badges de catégorie de la grille), pas une nouvelle fonction dupliquée.
-  // 15 septembre 2026 (discussion D — Calendrier & intégrations) : numéro de
-  // requête pour le calendrier de la page 2 (garde-fou anti-réponse-en-retard,
-  // voir loadGoalsCalendarDays()/closeGoalsDetail() plus bas).
-  var goalsCalendarRequestId = 0;
-
-  var GOAL_STATUS_ORDER = ['non_atteint', 'partiel', 'atteint'];
-  var GOAL_STATUS_LABELS = {
-    non_atteint: 'Non atteint',
-    partiel: 'Partiel',
-    atteint: 'Atteint',
-  };
-
-  function goalStatusClass(status) {
-    if (status === 'atteint') return 'goalStatusAtteint';
-    if (status === 'partiel') return 'goalStatusPartiel';
-    if (status === 'non_atteint') return 'goalStatusNonAtteint';
-    return '';
-  }
 
   function goalPeriodByNumber(data, n) {
     var periods = (data && data.periods) || [];
@@ -7647,1253 +7615,15 @@
     return null;
   }
 
-  function formatGoalHours(minutes) {
-    if (minutes == null) return null;
-    var h = Math.round((minutes / 60) * 10) / 10;
-    return (h === Math.round(h) ? h : h.toFixed(1)) + 'h';
-  }
+  window.TMT.goalPeriodByNumber = goalPeriodByNumber;
 
-  // Estimation SUGGÉRÉE (par similarité avec des objectifs passés de cette
-  // même activité) — jamais imposée, l'utilisateur reste libre de saisir la
-  // sienne en tête de l'objectif s'il préfère (aucun champ dédié en v1, le
-  // texte de l'objectif reste le seul qui compte : voir setWeekly/setMainGoal
-  // côté serveur, qui ne font QUE suggérer une durée, jamais un texte).
-  function formatEstimateHint(minutes, source, confidence) {
-    if (minutes == null) {
-      return t('Pas encore assez d’historique pour suggérer une durée.');
-    }
-    var label = t('Estimation suggérée') + ' : ' + formatGoalHours(minutes);
-    if (source === 'similarity' || source === 'similarity-fallback') {
-      var pct = confidence != null ? Math.round(confidence * 100) : null;
-      label += ' (' + t('confiance') + (pct != null ? ' ' + pct + '%' : '') + ')';
-    }
-    return label;
-  }
 
   function formatGoalPeriodDates(start, end) {
     return subProjectDueLabel(start) + ' – ' + subProjectDueLabel(end);
   }
 
-  // 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-  // « bandeau plein largeur » — formatActualHint()/renderGoalStatusButtons()
-  // (3 boutons de statut texte par semaine, .goalStatusRow/.goalStatusBtn)
-  // sont retirées, remplacées par un simple point de couleur cliquable
-  // (.goalWeeklyDot, cycle non atteint → partiel → atteint) dans chaque
-  // ligne compacte — voir renderGoalsWeeklyList() plus bas. L'heure réelle/
-  // estimée par semaine (formatActualHint) n'a plus d'affichage dédié dans
-  // la vue compacte ; l'avancement agrégé reste visible sur le bandeau de
-  // l'objectif périodique ci-dessus.
+  window.TMT.formatGoalPeriodDates = formatGoalPeriodDates;
 
-  // 27 septembre 2026 (discussion "B. Objectifs — Calendrier & intégrations"),
-  // bug signalé par Emilien (relayé, puis confirmé sans reproduction côté
-  // serveur à l'encart 72 du journal de chantiers — le déclenchement IA est
-  // bien câblé et s'exécute) : « les objectifs hebdomadaires ne se sont pas
-  // mis par défaut [...] il a fallu marquer un premier objectif hebdomadaire
-  // pour que les autres se génèrent ». Cause réelle : PUT .../periods/:n/main
-  // (server/routes/goals.js) répond IMMÉDIATEMENT, et ne lance le remplissage
-  // IA (server/lib/goalsweeklyauto.js) qu'EN FIRE-AND-FORGET juste après —
-  // donc quelques secondes plus tard, hors de la réponse HTTP. Le
-  // `reloadGoalsAll()` déclenché ci-dessous par `saveMainGoalText()` arrive
-  // donc systématiquement trop tôt pour les voir ; saisir un premier
-  // objectif hebdomadaire à la main déclenchait son propre rechargement
-  // (saveWeeklyText → reloadGoalsAll) qui, lui, arrivait après coup — d'où
-  // l'impression trompeuse que cette saisie manuelle était nécessaire pour
-  // « débloquer » les autres. Corrigé en relançant quelques rechargements
-  // espacés le temps que le serveur ait fini, SANS JAMAIS écraser une saisie
-  // hebdomadaire en cours (garde sur document.activeElement ci-dessous) — si
-  // Emilien est en train d'écrire dans une des 4 zones au moment d'une
-  // relance, ce tour est sauté (aucun rendu, aucune donnée touchée) et
-  // reporté à la tentative suivante plutôt que d'annuler le suivi.
-  var GOALS_WEEKLY_AUTOFILL_POLL_DELAYS_MS = [2500, 4000, 6000, 8000]; // ~20 s au total, 4 tentatives
-
-  function goalsWeeklyHasAnyText(period) {
-    return !!(period && period.weeklies && period.weeklies.some(function (w) { return w.text && w.text.trim(); }));
-  }
-
-  function maybeScheduleGoalsWeeklyAutoFillPoll(activityId, category, periodNumber, attemptIndex) {
-    if (attemptIndex >= GOALS_WEEKLY_AUTOFILL_POLL_DELAYS_MS.length) return;
-    // Contexte encore valide (activité/catégorie toujours celles visées) et
-    // rien à attendre si une semaine a déjà du texte (remplissage IA déjà
-    // arrivé, ou saisie manuelle entre-temps) — mêmes gardes que
-    // reloadGoalsAll()/reloadGoalsGridForPole() plus bas dans ce fichier.
-    if (activityId !== currentGoalsActivityId || category !== currentGoalsCategory) return;
-    var period = currentGoalsPlanning && goalPeriodByNumber(currentGoalsPlanning, periodNumber);
-    if (goalsWeeklyHasAnyText(period)) return;
-
-    setTimeout(function () {
-      if (activityId !== currentGoalsActivityId || category !== currentGoalsCategory) return;
-
-      var weeklyListBox = $('activityGoalsWeeklyList');
-      var active = document.activeElement;
-      if (active && weeklyListBox && weeklyListBox.contains(active)) {
-        maybeScheduleGoalsWeeklyAutoFillPoll(activityId, category, periodNumber, attemptIndex + 1);
-        return;
-      }
-
-      reloadGoalsAll().then(function () {
-        maybeScheduleGoalsWeeklyAutoFillPoll(activityId, category, periodNumber, attemptIndex + 1);
-      });
-    }, GOALS_WEEKLY_AUTOFILL_POLL_DELAYS_MS[attemptIndex]);
-  }
-
-  function saveMainGoalText(periodNumber, text) {
-    var pollActivityId = currentGoalsActivityId;
-    var pollCategory = currentGoalsCategory;
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', { text: text, category: currentGoalsCategory })
-      .then(reloadGoalsAll)
-      .then(function () {
-        // Rien à attendre si l'objectif périodique vient d'être vidé : le
-        // remplissage IA ne se déclenche que sur un texte non vide
-        // (server/lib/goalsweeklyauto.js, repli silencieux "no-main-goal").
-        if (!text || !text.trim()) return;
-        maybeScheduleGoalsWeeklyAutoFillPoll(pollActivityId, pollCategory, periodNumber, 0);
-      })
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
-  function saveMainGoalStatus(periodNumber, status) {
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main-status', { status: status, category: currentGoalsCategory })
-      .then(reloadGoalsAll)
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
-  function saveWeeklyText(periodNumber, weekIndex, text) {
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text, category: currentGoalsCategory })
-      .then(reloadGoalsAll)
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
-  function saveWeeklyStatus(weeklyId, status) {
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/status', { status: status })
-      .then(reloadGoalsAll)
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
-  // 14 septembre 2026 (demande d'Emilien) : confie (ou retire, userId null)
-  // UN membre de l'activité à cet objectif hebdomadaire, pour que le travail
-  // de chaque catégorie soit assigné visiblement (la vue "Répartition" qui
-  // exploitait aussi ce champ a été retirée le 15 septembre 2026, 7e passage).
-  function saveWeeklyAssignee(weeklyId, userId) {
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/assignee', { userId: userId || null })
-      .then(reloadGoalsAll)
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
-  // 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
-  // d'Emilien : déclenche la répartition jour par jour des tâches de cette
-  // semaine (server/lib/goalsdailyauto.js) — voir le bouton dans
-  // renderGoalsWeeklyList() ci-dessus. Désactive le bouton pendant l'appel
-  // (peut prendre quelques secondes côté IA) puis rafraîchit tout
-  // (reloadGoalsAll — les nouvelles dueDate doivent apparaître dans le
-  // calendrier de la période, chargé par la même fonction) une fois terminé.
-  function generateDailyPlan(weeklyId, btn, period) {
-    var originalLabel = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = t('Génération en cours…');
-    $('activityGoalsMsg').textContent = '';
-    api('POST', '/api/activities/' + currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/daily-plan', {})
-      .then(function (data) {
-        var msg;
-        if (!data.total) {
-          msg = t('Aucune tâche à dater sur cette semaine (déjà planifiée ou vide).');
-        } else {
-          msg = data.assigned + '/' + data.total + ' ' + t('tâche(s) datée(s)') + ' — '
-            + (data.usedAi ? t('via IA') : t('répartition automatique'));
-          if (data.aiError) msg += ' (' + t('IA indisponible, repli automatique utilisé') + ')';
-        }
-        $('activityGoalsMsg').textContent = msg;
-        return reloadGoalsAll();
-      })
-      .catch(function (err) {
-        btn.disabled = false;
-        btn.textContent = originalLabel;
-        $('activityGoalsMsg').textContent = err.message;
-      });
-  }
-
-  // 14 septembre 2026 (troisième passage, demande d'Emilien) : remplace la
-  // liste COMPLÈTE des membres travaillant sur l'objectif périodique de
-  // cette période — contrairement à saveWeeklyAssignee ci-dessus (UN SEUL
-  // membre), PLUSIEURS peuvent être cochés à la fois (voir
-  // renderGoalsMainAssignees() plus bas et server/lib/goals.js,
-  // setPeriodAssignees).
-  function saveMainGoalAssignees(periodNumber, userIds) {
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/periods/' + periodNumber + '/assignees', { userIds: userIds, category: currentGoalsCategory })
-      .then(reloadGoalsAll)
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
-  // ===================== RAIL TACTILE DU BORD GAUCHE =====================
-  // 15 septembre 2026 (5e passage, demande d'Emilien) : remplace l'ancienne
-  // bande de tendance TOUJOURS visible (renderGoalsTrend()/
-  // setGoalsTrendActiveIndex()/syncGoalsFixedBarHeightVar()/
-  // updateGoalsTrendFromScroll()/scrollGoalsGridToPeriod(), retirées) — « je
-  // souhaite changer le système des points périodiques. Je souhaite les
-  // mettre sur la verticale à gauche, de même que le numéro de la période et
-  // la date. Et je souhaite qu'il s'affiche uniquement lorsque l'utilisateur
-  // appuie et fait défiler ». currentGoalsPeriodInfo (rempli par
-  // renderGoalsGrid()) retient, pour chaque période 1-13, un numéro + une
-  // plage de dates représentative (celle de la première catégorie qui a
-  // effectivement démarré un plan pour cette période — les 3 catégories
-  // peuvent avoir commencé leur cycle à des dates différentes, il n'existe
-  // pas de date "canonique" unique par période, voir renderGoalsGrid()).
-  var currentGoalsPeriodInfo = [];
-  var goalsScrubDots = [];
-  var goalsScrubActiveIndex = -1;
-
-  // 17 septembre 2026 (discussion "Objectifs — Rail périodique"), demande
-  // d'Emilien : le rail cesse d'être un geste tactile déclenché à la demande
-  // (9e/11e passages ci-dessous, conservés en historique) pour devenir un
-  // rail PERMANENT, toujours visible tant que la grille est affichée, dont
-  // la période "active" suit désormais le DÉFILEMENT de la page — plus
-  // aucune détection d'appui/glissement (pointerdown/pointermove/pointerup,
-  // seuil GOALS_SCRUB_MOVE_PX) : voir bindGoalsScrub() plus bas, entièrement
-  // réécrite en écouteur de scroll.
-  function renderGoalsScrub() {
-    var rail = $('goalsScrubRail');
-    if (!rail) return;
-    rail.innerHTML = '';
-    goalsScrubDots = [];
-    for (var i = 0; i < 13; i++) {
-      var dot = document.createElement('div');
-      dot.className = 'goalsScrubDot';
-      rail.appendChild(dot);
-      goalsScrubDots.push(dot);
-    }
-    // Le rail étant permanent, dès que la grille est (re)construite il doit
-    // refléter tout de suite la période la plus proche du centre de l'écran
-    // — sans attendre un premier événement de scroll, sinon aucune pastille
-    // n'apparaît agrandie tant que l'utilisateur n'a pas défilé une première
-    // fois. goalsScrubTick (forward-déclarée plus bas, assignée par
-    // bindGoalsScrub()) fait ce calcul ; requestAnimationFrame le temps que
-    // la grille tout juste injectée ait sa géométrie posée.
-    goalsScrubActiveIndex = -1;
-    window.requestAnimationFrame(function () { goalsScrubTick(true); });
-  }
-
-  // Hauteur du bloc au-dessus de la grille (en-tête d'activité + bascule
-  // Arbre/Répartition + en-têtes de colonnes) à ne pas recouvrir, exposée en
-  // --goals-scrubzone-top — même principe que --topbar-h/--goals-fixedbar-h
-  // (ex.) ailleurs dans ce fichier. Mesurée au moment où la grille se (re)
-  // construit, donc typiquement page défilée tout en haut (getBoundingClientRect
-  // est relatif au viewport, pas au document) ; une légère imprécision après
-  // un défilement manuel jusque-là est sans conséquence, cette valeur ne fait
-  // que réserver une marge de sécurité en haut du rail.
-  function syncGoalsScrubZoneTopVar() {
-    // goalsViewToggle (Arbre/Répartition) a été retiré ; goalsGridHead
-    // (l'en-tête de colonnes de la grille) est maintenant le dernier élément
-    // fixe au-dessus de la zone de défilement, donc la même mesure part de lui.
-    var toggle = $('goalsGridHead');
-    if (!toggle) return;
-    var bottom = toggle.getBoundingClientRect().bottom;
-    // 17 septembre 2026 (suite du 14e passage) : marge resserrée de 14px à
-    // 6px — demande d'Emilien, « le rail [...] plus haut en haut » — même
-    // petite marge de sécurité (6px) que celle déjà utilisée ailleurs dans
-    // l'onglet Objectifs (ex. .goalsGridHeadCell, padding 6px), au lieu
-    // d'une valeur propre à cette zone.
-    if (bottom > 0) document.documentElement.style.setProperty('--goals-scrubzone-top', Math.round(bottom + 6) + 'px');
-  }
-  window.addEventListener('resize', syncGoalsScrubZoneTopVar);
-  window.addEventListener('orientationchange', syncGoalsScrubZoneTopVar);
-
-  // Masque le rail quand la page 2 (détail) est ouverte — appelée par
-  // openGoalsDetail()/closeGoalsDetail(). Le cas "onglet Objectifs pas actif"
-  // et "aucune activité chargée" sont déjà couverts sans code dédié :
-  // #goalsScrubZone vit À L'INTÉRIEUR de #goalsActivitySwitcher/#tab-goals
-  // (voir index.html), `.hidden`/`.tab.hidden` la masquent donc
-  // automatiquement avec le reste. Un seul mode grille désormais, donc plus
-  // de condition sur currentGoalsView ici. 17 septembre 2026 : au retour sur
-  // la page 1 (closeGoalsDetail()), on redéclenche immédiatement
-  // goalsScrubTick() — hideGoalsScrub() avait effacé l'état "actif" pendant
-  // que la page 2 était ouverte, il ne faut pas attendre un nouveau scroll
-  // pour le faire réapparaître.
-  function updateGoalsScrubVisibility() {
-    var zone = $('goalsScrubZone');
-    if (!zone) return;
-    var detailPage = $('goalsDetailPage');
-    var visible = !detailPage || detailPage.classList.contains('hidden');
-    zone.classList.toggle('hidden', !visible);
-    if (!visible) hideGoalsScrub();
-    else goalsScrubTick(true);
-  }
-
-  // 17 septembre 2026 : repérage par ligne .goalsGridRow réellement affichée
-  // à l'écran (plus par la position verticale d'un doigt sur
-  // #goalsScrubZone, ce dernier n'ayant de toute façon jamais capté le
-  // toucher — voir le commentaire du 9e passage resté sur bindGoalsScrub).
-  // Renvoie l'index (0-12) de la ligne dont le CENTRE vertical est le plus
-  // proche du centre du viewport.
-  function goalsPeriodFromY() {
-    var grid = $('goalsGrid');
-    if (!grid) return 0;
-    var rows = grid.querySelectorAll('.goalsGridRow');
-    if (!rows.length) return 0;
-    // 17 septembre 2026 (suite du 14e passage) : bug réel signalé par
-    // Emilien — les périodes 1 et 13 ne devenaient jamais "actives". Cause :
-    // la comparaison "ligne dont le centre est le plus proche du milieu de
-    // l'écran" ne peut matériellement JAMAIS désigner la 1ère ou la 13e
-    // ligne tant que la page ne peut pas défiler assez loin pour que leur
-    // propre centre atteigne littéralement ce milieu — en haut de page,
-    // c'est presque toujours une ligne intermédiaire qui gagne (le contenu
-    // au-dessus de la 1ère ligne, même minime, suffit à décaler son centre
-    // au-dessus du milieu du viewport), symétriquement en bas de page.
-    // Cas de bord traités explicitement, AVANT le calcul de distance
-    // habituel (inchangé pour tout le reste du défilement) : tout en haut
-    // de la page → période 1, tout en bas → période 13.
-    var doc = document.documentElement;
-    if (window.scrollY <= 2) return 0;
-    if (window.innerHeight + window.scrollY >= doc.scrollHeight - 2) return rows.length - 1;
-    var target = window.innerHeight / 2;
-    var bestIdx = 0, bestDist = Infinity;
-    rows.forEach(function (row, i) {
-      var rect = row.getBoundingClientRect();
-      var mid = rect.top + rect.height / 2;
-      var dist = Math.abs(mid - target);
-      if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-    });
-    return bestIdx;
-  }
-
-  // Affiche l'état "actif" du rail pour l'index de période donné : agrandit
-  // sa pastille (28px, voir .goalsScrubDot.active, styles.css) à la couleur
-  // de l'activité courante avec le numéro de la période inscrit dedans dans
-  // une teinte lisible dessus (readableTextOn(), même logique que les autres
-  // badges de cet onglet — voir renderGoalsGridHead()), et positionne
-  // l'étiquette en vis-à-vis. Ne fait plus défiler la fenêtre (l'ancien
-  // window.scrollBy() est retiré : c'est maintenant le scroll qui pilote le
-  // rail, plus l'inverse).
-  function showGoalsScrub(idx) {
-    goalsScrubActiveIndex = idx;
-    var info = currentGoalsPeriodInfo[idx];
-    var activeColor = currentGoalsActivityColor || '';
-    var textColor = activeColor ? readableTextOn(activeColor) : '';
-    goalsScrubDots.forEach(function (d, i) {
-      var isActive = i === idx;
-      d.classList.toggle('active', isActive);
-      d.style.background = isActive ? activeColor : '';
-      d.style.color = isActive ? textColor : '';
-      d.textContent = isActive ? String(i + 1) : '';
-    });
-    var label = $('goalsScrubLabel');
-    if (!label || !goalsScrubDots[idx]) return;
-    label.innerHTML = info
-      ? '<b>' + t('Période') + ' ' + (idx + 1) + '</b>' + formatGoalPeriodDates(info.startDate, info.endDate)
-      : '<b>' + t('Période') + ' ' + (idx + 1) + '</b>';
-    var dotRect = goalsScrubDots[idx].getBoundingClientRect();
-    label.style.top = (dotRect.top + dotRect.height / 2) + 'px';
-    label.classList.add('show');
-  }
-
-  // Le rail (points) reste affiché en permanence — seul l'état ÉPHÉMÈRE
-  // (pastille agrandie + numéro + étiquette) est masqué ici, après 700ms
-  // d'immobilité du défilement (voir bindGoalsScrub()).
-  function hideGoalsScrub() {
-    var label = $('goalsScrubLabel');
-    if (label) label.classList.remove('show');
-    goalsScrubDots.forEach(function (d) {
-      d.classList.remove('active');
-      d.style.background = '';
-      d.style.color = '';
-      d.textContent = '';
-    });
-    goalsScrubActiveIndex = -1;
-  }
-
-  // goalsScrubTick est déclarée en `var` ici (et non `function` interne à
-  // l'IIFE ci-dessous) car renderGoalsScrub() et updateGoalsScrubVisibility(),
-  // définies plus haut dans ce fichier, doivent pouvoir la déclencher
-  // immédiatement après un rebuild de grille ou une réouverture de la page 1,
-  // sans attendre un premier événement de scroll — l'IIFE lui donne sa
-  // vraie implémentation à l'exécution (hoisting : cette déclaration `var`
-  // est visible dès le chargement du script, la fonction assignée seulement
-  // une fois l'IIFE exécutée, ce qui est déjà le cas avant tout appel réel
-  // puisque bindGoalsScrub() s'exécute à la même passe que la définition des
-  // fonctions ci-dessus).
-  var goalsScrubTick = function () {};
-
-  // 17 septembre 2026 (discussion "Objectifs — Rail périodique"), demande
-  // d'Emilien : remplace entièrement le geste tactile à seuil de distance
-  // (9e/11e passages, historique ci-dessus sur showGoalsScrub/hideGoalsScrub)
-  // par une simple écoute du défilement de la FENÊTRE (jamais un conteneur
-  // local, même raisonnement que l'ancien window.scrollBy() qu'elle
-  // remplace), throttlée par requestAnimationFrame — motif déjà utilisé
-  // ailleurs dans ce fichier pour les écouteurs de scroll coûteux.
-  (function bindGoalsScrub() {
-    var ticking = false;
-    var hideTimer = null;
-
-    function tick(force) {
-      var zone = $('goalsScrubZone');
-      // getClientRects().length === 0 couvre à la fois "onglet Objectifs pas
-      // actif" (.tab.hidden, ancêtre en display:none) et "page 2 ouverte"
-      // (#goalsScrubZone masqué par updateGoalsScrubVisibility(), sa propre
-      // classe .hidden) — dans les deux cas, aucun calcul de géométrie n'a de
-      // sens. offsetParent ne convient PAS ici : #goalsScrubZone est en
-      // position: fixed, et un élément fixed a un offsetParent toujours nul
-      // (spécification CSSOM), qu'il soit affiché ou non — getClientRects()
-      // reste vide uniquement quand l'élément (ou un ancêtre) est réellement
-      // display: none.
-      if (!zone || zone.getClientRects().length === 0) return;
-      var idx = goalsPeriodFromY();
-      if (force || idx !== goalsScrubActiveIndex) showGoalsScrub(idx);
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(hideGoalsScrub, 700);
-    }
-    goalsScrubTick = tick;
-
-    window.addEventListener('scroll', function () {
-      if (ticking) return;
-      ticking = true;
-      window.requestAnimationFrame(function () {
-        tick(false);
-        ticking = false;
-      });
-    }, { passive: true });
-  })();
-
-  // 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-  // « bandeau plein largeur » — remplace la carte par semaine (label +
-  // texte + estimation + 3 boutons de statut + ligne d'assignation, ~6
-  // lignes chacune) par UNE LIGNE COMPACTE par semaine : badge "S1"-"S4"
-  // (même style que .goalsCalendarWeekBadge), texte TOUJOURS visible et
-  // éditable (contrainte déjà posée le 16 septembre, 5e→7e passages : jamais
-  // masqué derrière un clic), point de statut coloré cliquable qui fait
-  // défiler le cycle non atteint → partiel → atteint (remplace les 3
-  // boutons texte), sélecteur d'assignation compact (natif, inchangé dans
-  // son principe — pas de nouveau composant avatar/popover, pour rester
-  // dans les changements déjà confirmés par Emilien plutôt qu'introduire un
-  // nouveau mécanisme d'interaction sans validation préalable). L'estimation
-  // et le "Reporté automatiquement" par semaine n'ont plus de ligne dédiée
-  // (retirés de la vue compacte, l'avancement agrégé reste sur le bandeau
-  // périodique ci-dessus) — le report reste visible en survol (title). Le
-  // bouton "feuille de route jour par jour" (17 septembre, discussion
-  // "Objectifs — A : Offre1", generateDailyPlan() ci-dessus) est conservé
-  // TEL QUEL fonctionnellement, seulement réduit à une icône compacte en
-  // fin de ligne (.goalWeeklyDailyPlanBtn) — la ligne repasse en
-  // flex-wrap si son texte temporaire ("Génération en cours…") ne tient
-  // plus, plutôt que de casser la mise en page.
-  function renderGoalsWeeklyList(period) {
-    var box = $('activityGoalsWeeklyList');
-    box.innerHTML = '';
-    // 16 septembre 2026 (12e passage), demande d'Emilien : « les objectifs
-    // hebdomadaires [...] entourés par la même nuance de couleur attribuée à
-    // la catégorie » — même source que mainCardEl plus haut
-    // (currentGoalsCategoryColor()), posée sur le cadre UNIQUE qui entoure
-    // les 4 semaines (.goalsWeeklyList), inchangé par ce passage.
-    box.style.borderColor = currentGoalsCategoryColor();
-    for (var weekIndex = 1; weekIndex <= 4; weekIndex += 1) {
-      (function (weekIndex) {
-        var w = null;
-        for (var i = 0; i < period.weeklies.length; i++) {
-          if (period.weeklies[i].weekIndex === weekIndex) { w = period.weeklies[i]; break; }
-        }
-
-        var row = document.createElement('div');
-        row.className = 'goalCard goalWeeklyCard';
-        if (w && w.carriedOverFromId) {
-          row.title = t('Reporté automatiquement depuis une semaine précédente, non atteinte.');
-        }
-
-        var badge = document.createElement('span');
-        badge.className = 'goalWeeklyBadge';
-        badge.textContent = 'S' + weekIndex;
-        row.appendChild(badge);
-
-        var input = document.createElement('textarea');
-        input.className = 'goalWeeklyText';
-        input.rows = 1;
-        input.maxLength = 300;
-        input.placeholder = t('Objectif de cette semaine (optionnel)');
-        input.value = w ? w.text : '';
-        input.addEventListener('blur', function () {
-          var value = input.value.trim();
-          if (!w && !value) return;
-          if (w && value === w.text) return;
-          saveWeeklyText(period.periodNumber, weekIndex, value);
-        });
-        input.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); input.blur(); }
-        });
-        row.appendChild(input);
-
-        if (w) {
-          var dot = document.createElement('button');
-          dot.type = 'button';
-          dot.className = 'goalWeeklyDot ' + goalStatusClass(w.status);
-          dot.title = t(GOAL_STATUS_LABELS[w.status] || GOAL_STATUS_LABELS.non_atteint);
-          dot.addEventListener('click', function () {
-            var idx = GOAL_STATUS_ORDER.indexOf(w.status);
-            var next = GOAL_STATUS_ORDER[(idx + 1) % GOAL_STATUS_ORDER.length];
-            saveWeeklyStatus(w.id, next);
-          });
-          row.appendChild(dot);
-
-          // Assignation (14 septembre 2026, demande d'Emilien) : UN membre de
-          // l'activité par tâche — jamais le grand objectif, toujours
-          // collectif (voir server/lib/goals.js). Liste des membres déjà
-          // fournie par planningForActivity (currentGoalsPlanning.members),
-          // aucun appel serveur dédié. Sélecteur natif compact, inchangé
-          // dans son principe (voir commentaire de fonction ci-dessus).
-          var assignSelect = document.createElement('select');
-          assignSelect.className = 'goalWeeklyAssignSelect';
-          var noneOpt = document.createElement('option');
-          noneOpt.value = '';
-          noneOpt.textContent = '—';
-          assignSelect.appendChild(noneOpt);
-          ((currentGoalsPlanning && currentGoalsPlanning.members) || []).forEach(function (m) {
-            var opt = document.createElement('option');
-            opt.value = m.id;
-            opt.textContent = m.name;
-            if (w.assignedUserId === m.id) opt.selected = true;
-            assignSelect.appendChild(opt);
-          });
-          assignSelect.addEventListener('change', function () {
-            saveWeeklyAssignee(w.id, assignSelect.value || null);
-          });
-          row.appendChild(assignSelect);
-
-          // 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
-          // d'Emilien : « proposer de créer une feuille de route au jour le
-          // jour en fonction des tâches hebdomadaires ». Répartit les tâches
-          // déjà rattachées à CETTE semaine (goal_weekly) sur les jours de la
-          // semaine en posant leur dueDate (server/lib/goalsdailyauto.js) —
-          // elles apparaissent alors automatiquement dans le calendrier de la
-          // période ci-dessous (mécanisme existant, aucun nouvel écran).
-          // generateDailyPlan() (ci-dessus) inchangée : ce bouton est
-          // seulement réduit à une icône (voir commentaire de fonction).
-          var dailyPlanBtn = document.createElement('button');
-          dailyPlanBtn.type = 'button';
-          dailyPlanBtn.className = 'goalWeeklyDailyPlanBtn';
-          dailyPlanBtn.textContent = '📅';
-          dailyPlanBtn.title = t('Générer la feuille de route jour par jour');
-          dailyPlanBtn.setAttribute('aria-label', t('Générer la feuille de route jour par jour'));
-          dailyPlanBtn.addEventListener('click', function () {
-            generateDailyPlan(w.id, dailyPlanBtn, period);
-          });
-          row.appendChild(dailyPlanBtn);
-        }
-
-        box.appendChild(row);
-      })(weekIndex);
-    }
-  }
-
-  function renderActivityGoals() {
-    if (!currentGoalsPlanning) return;
-
-    var period = goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber);
-    $('activityGoalsPrevBtn').disabled = !goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber - 1);
-    $('activityGoalsNextBtn').disabled = !goalPeriodByNumber(currentGoalsPlanning, currentGoalsViewPeriodNumber + 1);
-    if (!period) return;
-
-    var title = t('Période') + ' ' + period.periodIndexInCycle;
-    if (period.cycleIndex > 1) title += ' · ' + t('Année') + ' ' + period.cycleIndex;
-    if (period.isCurrent) title += ' · ' + t('En cours');
-    $('activityGoalsPeriodTitle').textContent = title;
-    $('activityGoalsPeriodDates').textContent = formatGoalPeriodDates(period.startDate, period.endDate);
-
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-    // le nom de la catégorie se place désormais ici (en dessous de la
-    // période, au-dessus du titre de l'objectif périodique) — il a déménagé
-    // depuis #goalsDetailTitle, voir openGoalsDetail() plus bas.
-    var catLabelEl = $('activityGoalsCategoryLabel');
-    if (catLabelEl) catLabelEl.textContent = t(goalsCategoryLabel(currentGoalsCategory));
-
-    // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-    // « la couleur qui encadre l'objectif périodique [...] soit la même
-    // nuance [...] attribuée à la catégorie » — remplace le violet fixe de
-    // .goalMainCard (styles.css) par la couleur de la catégorie courante,
-    // même source que le calendrier ci-dessous (currentGoalsCategoryColor()).
-    // 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-    // « bandeau plein largeur » — remplace le fond teinté (12e/13e passages,
-    // categoryColorTint(), retirée) par un fond PLEIN de la couleur de
-    // catégorie sur toute la carte périodique ; la couleur de texte n'est
-    // plus fixe (var(--text)/var(--text-light)) mais calculée par
-    // readableTextOn() (déjà utilisée pour les badges de catégorie de la
-    // grille — même fonction, pas de doublon) pour rester lisible quelle que
-    // soit la nuance. .goalMainCard/.goalMainCard textarea/.goalEstimateHint
-    // (styles.css) passent à `color: inherit` pour suivre cette couleur
-    // posée ici en style inline sur la carte ; la bordure violette fixe du
-    // 12e passage disparaît avec elle, le bandeau la remplace.
-    var mainCardEl = $('activityGoalsMainCard');
-    var mainProgressTrackEl = mainCardEl && mainCardEl.querySelector('.goalMainProgressTrack');
-    if (mainCardEl) {
-      var mainCatColor = currentGoalsCategoryColor();
-      var mainTextColor = readableTextOn(mainCatColor);
-      mainCardEl.style.background = mainCatColor;
-      mainCardEl.style.color = mainTextColor;
-      if (mainProgressTrackEl) {
-        mainProgressTrackEl.style.background = mainTextColor === '#ffffff'
-          ? 'rgba(255, 255, 255, 0.25)'
-          : 'rgba(0, 0, 0, 0.18)';
-      }
-    }
-
-    var mainInput = $('activityGoalsMainInput');
-    mainInput.value = period.mainGoalText || '';
-    // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
-    // intégrations"), demande d'Emilien : garder l'enregistrement au blur
-    // (inchangé) ET ajouter un bouton "Enregistrer" explicite — factorisé
-    // dans commitMainGoalText() pour que les deux déclencheurs partagent
-    // strictement la même logique (pas de duplication, pas de dérive future
-    // entre les deux chemins).
-    // 27 septembre 2026 (discussion "C. Objectifs — Page 1 / Logique métier"),
-    // bug réel trouvé en investiguant le rapport d'Emilien (2 PUT .../main
-    // identiques à la même milliseconde, 16:26:49 UTC) : cliquer sur
-    // "Enregistrer" pendant que le textarea a encore le focus déclenche
-    // D'ABORD le blur (le clic déplace le focus vers le bouton) PUIS le
-    // click — les deux appelaient commitMainGoalText(), qui comparait
-    // toujours à period.mainGoalText (figé depuis le dernier rendu, jamais
-    // mis à jour entre les deux appels) : les deux passaient le garde-fou et
-    // envoyaient chacun leur propre écriture. Corrigé en comparant/mettant à
-    // jour une valeur locale SYNCHRONE dès le premier appel, avant même la
-    // réponse serveur — le second appel (blur ou click, peu importe l'ordre)
-    // voit alors la valeur déjà "committée" et s'arrête.
-    var lastCommittedMainGoalText = period.mainGoalText || '';
-    var commitMainGoalText = function () {
-      var value = mainInput.value.trim();
-      if (value === lastCommittedMainGoalText) return;
-      lastCommittedMainGoalText = value;
-      saveMainGoalText(period.periodNumber, value);
-    };
-    mainInput.onblur = commitMainGoalText;
-    mainInput.onkeydown = function (e) {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); mainInput.blur(); }
-    };
-    var mainSaveBtn = $('activityGoalsMainSaveBtn');
-    if (mainSaveBtn) mainSaveBtn.onclick = commitMainGoalText;
-
-    // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
-    // intégrations"), demande d'Emilien (confirmée après question posée) :
-    // « le déclencheur est bien une réduction de la page 3 si aucun objectif
-    // périodique n'a été rempli pour cette période précise et non pour
-    // l'activité entière » — l'invite (déjà existante, ce textarea) reste
-    // toujours visible ; c'est le reste de la carte (#activityGoalsMainMeta :
-    // estimation, barre d'avancement, capacité) et la suite de la page
-    // (#activityGoalsPeriodBody : objectifs hebdomadaires, calendrier) qui se
-    // masquent tant qu'aucun texte n'est enregistré pour CETTE période —
-    // aucune donnée serveur nouvelle, period.mainGoalText est déjà chargé
-    // avec la période courante. Révélation automatique au prochain rendu
-    // après l'enregistrement (saveMainGoalText → reloadGoalsAll →
-    // refreshGoalsDetailPageIfOpen → renderActivityGoals, plus bas dans ce
-    // fichier) — aucun câblage supplémentaire nécessaire pour ça.
-    var hasMainGoal = !!(period.mainGoalText && period.mainGoalText.trim());
-    var mainEmptyHint = $('activityGoalsMainEmptyHint');
-    if (mainEmptyHint) mainEmptyHint.classList.toggle('hidden', hasMainGoal);
-    var mainMetaBox = $('activityGoalsMainMeta');
-    if (mainMetaBox) mainMetaBox.classList.toggle('hidden', !hasMainGoal);
-    var periodBodyBox = $('activityGoalsPeriodBody');
-    if (periodBodyBox) periodBodyBox.classList.toggle('hidden', !hasMainGoal);
-
-    $('activityGoalsMainEstimate').textContent = formatEstimateHint(period.mainGoalEstimateMinutes, period.mainGoalEstimateSource, period.mainGoalEstimateConfidence);
-
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-    // « réduire la section de l'objectif périodique au titre, au nombre
-    // d'heures à réaliser estimées et à une visualisation de l'avancement
-    // total » — remplace les boutons de statut manuel et les puces
-    // d'assignation (retirés de cette carte, voir index.html) par une seule
-    // barre (temps réel / estimation), même pattern que la barre unique des
-    // sous-projets (.subProjectProgressTrack/Fill, renderSubProjectsList()
-    // plus bas dans ce fichier).
-    var mainProgressFill = $('activityGoalsMainProgressFill');
-    var mainProgressPct = $('activityGoalsMainProgressPct');
-    if (mainProgressFill && mainProgressPct) {
-      if (period.mainGoalEstimateMinutes) {
-        var mainPct = Math.max(0, Math.min(100, Math.round(((period.actualMinutes || 0) / period.mainGoalEstimateMinutes) * 100)));
-        mainProgressFill.style.width = mainPct + '%';
-        mainProgressPct.textContent = mainPct + '%';
-      } else {
-        // Pas encore d'estimation : rien à comparer — barre vide plutôt que
-        // trompeuse (même principe que R1, sous-projets : c'est l'absence
-        // d'estimation qui décide, jamais l'absence de temps réel).
-        mainProgressFill.style.width = '0%';
-        mainProgressPct.textContent = period.actualMinutes ? formatGoalHours(period.actualMinutes) : '';
-      }
-    }
-
-    // 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
-    // d'Emilien : ajustement manuel de la capacité hebdomadaire utilisée par
-    // l'auto-planification (server/lib/goalsauto.js) — voir renderGoalsCapacity()
-    // plus bas.
-    renderGoalsCapacity();
-
-    // 22 septembre 2026 (discussion "Objectifs — Logique métier") : liste
-    // quotidienne de tâches priorisées — voir renderGoalsDailyPriority()
-    // plus bas.
-    // ⚠️ 25 septembre 2026, demande directe d'Emilien (restructuration du
-    // volet Objectifs en 3 pages) : ce résumé du jour dans le détail de
-    // période fait désormais doublon avec la page 3 (calendrier, seule
-    // responsable de la liste complète et détaillée à présent) — appel
-    // retiré, carte masquée dans index.html (#activityGoalsDailyPriorityCard),
-    // fonction laissée intacte (masque, ne supprime pas).
-    // renderGoalsDailyPriority();
-
-    // 16 septembre 2026 (discussion "Objectifs — D", 7e passage) : retour à
-    // un affichage PERMANENT des 4 cartes hebdomadaires (défait la fusion du
-    // 15 septembre soir, qui les masquait derrière une bulle ouverte depuis
-    // le calendrier) — demande explicite d'Emilien, « reprends la version
-    // précédente [...] une sorte de sommaire [...] qui affiche tous les
-    // objectifs hebdomadaires de la période ». Rendues à chaque période
-    // affichée, comme le reste de cette fonction.
-    renderGoalsWeeklyList(period);
-
-    var bilan = $('activityGoalsBilan');
-    if (period.isPast && period.weeklies.length) {
-      var doneCount = period.weeklies.filter(function (w) { return w.status === 'atteint'; }).length;
-      var text = doneCount + '/' + period.weeklies.length + ' ' + t('objectif(s) hebdomadaire(s) atteint(s).');
-      if (currentGoalsActivityIsShared && period.bilanPostedAt) text += ' ' + t('Bilan publié automatiquement dans le fil de discussion.');
-      bilan.textContent = text;
-      bilan.classList.remove('hidden');
-    } else {
-      bilan.classList.add('hidden');
-    }
-
-    $('activityGoalsMsg').textContent = '';
-    loadGoalsCalendarDays(period);
-  }
-
-  // 14 septembre 2026 (troisième passage, demande d'Emilien) : « en dessous
-  // des grands objectifs [...] le nom des membres de l'activité qui
-  // travaillent sur l'objectif périodique. Plusieurs utilisateurs peuvent
-  // travailler sur un objectif périodique ». Une puce cliquable PAR MEMBRE de
-  // l'activité (cochée = travaille dessus) — contrairement à
-  // renderGoalsWeeklyList ci-dessus (un <select>, un seul assigné), un clic
-  // envoie toujours la liste COMPLÈTE des membres cochés (saveMainGoalAssignees).
-  function renderGoalsMainAssignees(period) {
-    var box = $('activityGoalsMainAssignees');
-    if (!box) return;
-    box.innerHTML = '';
-    var members = (currentGoalsPlanning && currentGoalsPlanning.members) || [];
-    var assignedIds = (period.assignees || []).map(function (a) { return a.id; });
-    members.forEach(function (m) {
-      var active = assignedIds.indexOf(m.id) !== -1;
-      var chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'goalAssigneeChip' + (active ? ' active' : '');
-      var dot = document.createElement('span');
-      dot.className = 'dot';
-      dot.style.background = m.color;
-      chip.appendChild(dot);
-      chip.appendChild(document.createTextNode(m.name));
-      chip.addEventListener('click', function () {
-        var nextIds = active
-          ? assignedIds.filter(function (id) { return id !== m.id; })
-          : assignedIds.concat([m.id]);
-        saveMainGoalAssignees(period.periodNumber, nextIds);
-      });
-      box.appendChild(chip);
-    });
-  }
-
-  // ===================== OBJECTIFS — PAGE 2 : CAPACITÉ HEBDOMADAIRE =====================
-  // 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
-  // d'Emilien : pouvoir ajuster manuellement la capacité hebdomadaire que
-  // l'auto-planification (server/lib/goalsauto.js) lui attribue — cas d'une
-  // activité volontairement mise de côté un temps : la moyenne calculée sur
-  // l'historique récent (RECENT_WEEKS_WINDOW, réduite à 4 semaines le même
-  // jour) tomberait sinon près de zéro, alors qu'Emilien resterait
-  // disponible plusieurs heures par jour dès qu'il s'y remet. Cadré avec lui
-  // (AskUserQuestion) : l'ajustement REMPLACE le calcul automatique (jamais
-  // un plancher, jamais d'expiration), et porte sur SA capacité à lui pour
-  // CETTE activité et CETTE catégorie — même granularité que
-  // goalsauto.capacityMinutesForMember (activityId, category, userId=session).
-  // GET/PUT /api/activities/:id/goals/capacity (server/routes/goals.js).
-  var goalsCapacityRequestId = 0;
-  var goalsCapacityEditing = false;
-
-  function renderGoalsCapacity() {
-    var box = $('activityGoalsCapacity');
-    if (!box) return;
-    var activityId = currentGoalsActivityId;
-    var category = currentGoalsCategory;
-    if (!activityId) { box.innerHTML = ''; return; }
-    var requestId = ++goalsCapacityRequestId;
-    api('GET', '/api/activities/' + activityId + '/goals/capacity?category=' + encodeURIComponent(category))
-      .then(function (data) {
-        // Garde-fou : la page 2 peut avoir changé de période/catégorie/
-        // activité pendant que cette requête était en vol — même principe
-        // que loadGoalsCalendarDays() plus bas.
-        if (requestId !== goalsCapacityRequestId) return;
-        renderGoalsCapacityBox(box, data.override, data.computed);
-      })
-      .catch(function () {
-        if (requestId !== goalsCapacityRequestId) return;
-        box.innerHTML = '';
-      });
-  }
-
-  function renderGoalsCapacityBox(box, override, computed) {
-    box.innerHTML = '';
-    var minutes = override != null ? override : computed;
-
-    var line = document.createElement('p');
-    line.className = 'goalCapacityLine';
-    var label = document.createElement('span');
-    label.className = 'goalCapacityLabel';
-    label.textContent = t('Capacité hebdomadaire') + ' : ';
-    line.appendChild(label);
-    var value = document.createElement('span');
-    value.className = 'goalCapacityValue';
-    value.textContent = minutes ? formatGoalHours(minutes) + '/' + t('semaine') : t('Pas encore assez d’historique.');
-    line.appendChild(value);
-    var tag = document.createElement('span');
-    tag.className = 'goalCapacityTag' + (override != null ? ' manual' : '');
-    tag.textContent = override != null ? t('ajusté manuellement') : t('calculé automatiquement');
-    line.appendChild(tag);
-    box.appendChild(line);
-
-    if (!goalsCapacityEditing) {
-      var editBtn = document.createElement('button');
-      editBtn.type = 'button';
-      editBtn.className = 'goalCapacityEditBtn';
-      editBtn.textContent = t('Ajuster');
-      editBtn.addEventListener('click', function () {
-        goalsCapacityEditing = true;
-        renderGoalsCapacityBox(box, override, computed);
-      });
-      box.appendChild(editBtn);
-      if (override != null) {
-        var clearBtn = document.createElement('button');
-        clearBtn.type = 'button';
-        clearBtn.className = 'goalCapacityClearBtn';
-        clearBtn.textContent = t('Revenir au calcul automatique');
-        clearBtn.addEventListener('click', function () { saveCapacityOverride(null); });
-        box.appendChild(clearBtn);
-      }
-      return;
-    }
-
-    var editRow = document.createElement('div');
-    editRow.className = 'goalCapacityEditRow';
-    var input = document.createElement('input');
-    input.type = 'number';
-    input.min = '0';
-    input.step = '0.5';
-    input.className = 'goalCapacityInput';
-    input.placeholder = t('Heures/semaine');
-    if (override != null) input.value = String(Math.round((override / 60) * 10) / 10);
-    editRow.appendChild(input);
-
-    var saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'goalCapacitySaveBtn';
-    saveBtn.textContent = t('Enregistrer');
-    saveBtn.addEventListener('click', function () {
-      var hours = parseFloat(String(input.value).replace(',', '.'));
-      if (!hours || hours <= 0) {
-        $('activityGoalsMsg').textContent = t('Indique un nombre d’heures par semaine supérieur à 0.');
-        return;
-      }
-      saveCapacityOverride(Math.round(hours * 60));
-    });
-    editRow.appendChild(saveBtn);
-
-    var cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.className = 'goalCapacityCancelBtn';
-    cancelBtn.textContent = t('Annuler');
-    cancelBtn.addEventListener('click', function () {
-      goalsCapacityEditing = false;
-      renderGoalsCapacityBox(box, override, computed);
-    });
-    editRow.appendChild(cancelBtn);
-
-    box.appendChild(editRow);
-    input.focus();
-  }
-
-  function saveCapacityOverride(weeklyMinutes) {
-    api('PUT', '/api/activities/' + currentGoalsActivityId + '/goals/capacity', { category: currentGoalsCategory, weeklyMinutes: weeklyMinutes })
-      .then(function () {
-        goalsCapacityEditing = false;
-        renderGoalsCapacity();
-      })
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
-  // ===================== OBJECTIFS — PAGE 2 : LISTE QUOTIDIENNE =====================
-  // 22 septembre 2026 (discussion "Objectifs — Logique métier") : liste
-  // quotidienne de tâches priorisées, calcul fait côté serveur
-  // (server/lib/goalsdailypriority.js) — GET
-  // /activities/:id/goals/daily-priority, toujours une PROPOSITION en
-  // lecture seule, jamais appliquée automatiquement (voir renderGoalsCapacity()
-  // ci-dessus pour le même principe côté capacité). Coche une tâche =
-  // sub_project_items.done (PUT /api/sub-project-items/:id, endpoint déjà
-  // existant, aucun ajout serveur nécessaire) ; la liste se recalcule et la
-  // tâche suivante prend automatiquement la place libérée, jamais de cache
-  // côté client. Report/swipe volontairement PAS inclus ici — pas de
-  // persistance décidée à ce stade (nécessiterait une table dans
-  // server/db.js, à cadrer séparément), voir
-  // noesis-timetracker-chantiers-en-cours.md (encart 48).
-  var goalsDailyPriorityRequestId = 0;
-
-  function renderGoalsDailyPriority() {
-    var box = $('activityGoalsDailyPriorityList');
-    if (!box) return;
-    var activityId = currentGoalsActivityId;
-    if (!activityId) { box.innerHTML = ''; return; }
-    var requestId = ++goalsDailyPriorityRequestId;
-    api('GET', '/api/activities/' + activityId + '/goals/daily-priority')
-      .then(function (data) {
-        if (requestId !== goalsDailyPriorityRequestId) return;
-        renderGoalsDailyPriorityList(box, data.items || []);
-      })
-      .catch(function () {
-        if (requestId !== goalsDailyPriorityRequestId) return;
-        box.innerHTML = '';
-      });
-  }
-
-  function renderGoalsDailyPriorityList(box, items) {
-    box.innerHTML = '';
-    var today = items.filter(function (it) { return it.selected; });
-    if (!today.length) {
-      var empty = document.createElement('p');
-      empty.className = 'dailyPriorityEmpty';
-      empty.textContent = t('Rien de proposé pour aujourd’hui.');
-      box.appendChild(empty);
-      return;
-    }
-    today.forEach(function (task) {
-      var row = document.createElement('label');
-      row.className = 'dailyPriorityItem';
-      var check = document.createElement('input');
-      check.type = 'checkbox';
-      check.className = 'dailyPriorityCheck';
-      check.addEventListener('change', function () {
-        if (!check.checked) return;
-        check.disabled = true;
-        api('PUT', '/api/sub-project-items/' + task.id, { done: true })
-          .then(renderGoalsDailyPriority)
-          .catch(function (err) {
-            check.disabled = false;
-            check.checked = false;
-            $('activityGoalsMsg').textContent = err.message;
-          });
-      });
-      var text = document.createElement('span');
-      text.className = 'dailyPriorityLabel';
-      text.textContent = task.label;
-      var meta = document.createElement('span');
-      meta.className = 'dailyPriorityMeta';
-      meta.textContent = t(goalsCategoryLabel(task.poleKey)) + ' · ' + formatGoalHours(task.estimatedMinutes);
-      row.appendChild(check);
-      row.appendChild(text);
-      row.appendChild(meta);
-      box.appendChild(row);
-    });
-  }
-
-  // ===================== OBJECTIFS — PAGE 2 : CALENDRIER DE LA PÉRIODE =====================
-  // 15 septembre 2026, discussion "Objectifs — D : Calendrier & intégrations",
-  // demande d'Emilien : « intégrer un calendrier au volet objectif (page 2)
-  // [...] chaque ligne représente 1 jour ». Une ligne par jour de la
-  // période (28), avec sa semaine (S1 à S4, même découpage que les 4 cartes
-  // hebdomadaires ci-dessus) et le temps RÉEL pointé ce jour-là sur
-  // l'activité — même donnée que le temps réel de la période (formatGoalHours), mais
-  // jour par jour plutôt qu'agrégée sur toute la période.
-  //
-  // Chargé par un appel dédié (GET .../goals-days, server/lib/calendarfeed.js
-  // — chantier D, ne touche pas server/lib/goals.js, partagé par B/C) plutôt
-  // que mêlé à reloadGoalsAll()/GET .../goals/all : cette liste ne concerne
-  // que la période actuellement ouverte en page 2, inutile de la recalculer
-  // à chaque changement d'activité.
-  function loadGoalsCalendarDays(period) {
-    var box = $('activityGoalsCalendarList');
-    if (!box || !period) return;
-    var requestId = ++goalsCalendarRequestId;
-    var activityId = currentGoalsActivityId;
-    var category = currentGoalsCategory;
-    var periodNumber = period.periodNumber;
-    api('GET', '/api/activities/' + activityId + '/goals-days?category=' + encodeURIComponent(category) + '&periodNumber=' + periodNumber)
-      .then(function (data) {
-        // Garde-fou : la page 2 peut avoir changé de période/catégorie/
-        // activité (ou s'être refermée) pendant que cette requête était en
-        // vol — même principe que reloadGoalsAll() plus haut.
-        if (requestId !== goalsCalendarRequestId) return;
-        renderGoalsCalendarDays(data.days || [], period);
-      })
-      .catch(function () {
-        if (requestId !== goalsCalendarRequestId) return;
-        box.innerHTML = '';
-      });
-  }
-
-  // ----- Aller à la carte hebdomadaire correspondante, depuis le calendrier -----
-  // 16 septembre 2026 (discussion "Objectifs — D", 7e passage) : les 4 cartes
-  // hebdomadaires (renderGoalsWeeklyList(), inchangée) sont de nouveau
-  // PERMANENTES entre l'objectif périodique et le calendrier (voir
-  // renderActivityGoals() plus haut) — sur demande explicite d'Emilien, qui
-  // a écarté la bulle flottante introduite au passage précédent (« ce n'est
-  // pas ce que j'ai demandé [...] reprends la version précédente »). Un clic
-  // sur le badge "S1"-"S4" ou le libellé du calendrier ne fait donc plus
-  // apparaître ni disparaître quoi que ce soit : il fait simplement défiler
-  // jusqu'à la carte de cette semaine, déjà visible dans le sommaire
-  // au-dessus, puis y place le focus.
-  function openGoalsWeekEditor(period, weekIndex) {
-    var list = $('activityGoalsWeeklyList');
-    if (!list) return;
-    var target = list.children[weekIndex - 1];
-    if (!target) return;
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    var ta = target.querySelector('textarea');
-    if (ta) ta.focus();
-  }
-
-  // ----- Tâche du jour, ajoutée depuis le calendrier -----
-  // 15 septembre 2026 (discussion "Objectifs — D") : POST .../goals-days/task
-  // (server/lib/calendarfeed.js#createDayTask) — crée (ou réutilise) le
-  // sous-projet "catégorie" de l'activité et y ajoute la tâche, rattachée à ce
-  // jour précis. Recharge le calendrier de la période plutôt que d'insérer la
-  // tâche à la main côté client : la réponse peut avoir été absorbée par le
-  // moteur d'auto-planification Offre1 (autoPlanned), le calendrier reste la
-  // source de vérité.
-  function addGoalsDayTask(period, isoDate, label) {
-    return api('POST', '/api/activities/' + currentGoalsActivityId + '/goals-days/task', {
-      category: currentGoalsCategory,
-      isoDate: isoDate,
-      label: label,
-    })
-      .then(function () { loadGoalsCalendarDays(period); })
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; throw err; });
-  }
-
-  function toggleGoalsDayTask(period, itemId, done) {
-    return api('PUT', '/api/sub-project-items/' + itemId, { done: done })
-      .then(function () { loadGoalsCalendarDays(period); })
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
-  // Même motif que le formulaire d'ajout de tâche des sous-projets
-  // (buildTasksSection() plus bas dans ce fichier) : un champ texte + un
-  // bouton, Entrée soumet — repliable ici puisqu'il y en a un par jour.
-  function buildGoalsCalendarAddForm(period, day) {
-    var wrap = document.createElement('div');
-    wrap.className = 'goalsCalendarTaskAdd hidden';
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 300;
-    input.placeholder = t('Tâche pour ce jour...');
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-    // « la case doit être beaucoup plus grande [...] la largeur de l'écran
-    // avec seulement une place pour le bouton ajouter » — classe dédiée
-    // (plus .iconBtn, réutilisée telle quelle ailleurs dans ce fichier) pour
-    // pouvoir agrandir ce bouton précis sans toucher au reste de l'app.
-    btn.className = 'goalsCalendarTaskAddBtn';
-    btn.textContent = t('Ajouter');
-    var msg = document.createElement('p');
-    msg.className = 'msg';
-
-    function submit() {
-      var label = input.value.trim();
-      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
-      msg.textContent = '';
-      btn.disabled = true;
-      addGoalsDayTask(period, day.date, label).catch(function () {}).then(function () { btn.disabled = false; });
-    }
-    btn.addEventListener('click', submit);
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); submit(); }
-    });
-
-    wrap.appendChild(input);
-    wrap.appendChild(btn);
-    wrap.appendChild(msg);
-    return wrap;
-  }
-
-  function renderGoalsCalendarDays(days, period) {
-    var box = $('activityGoalsCalendarList');
-    if (!box) return;
-    box.innerHTML = '';
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-    // « chaque dimanche entouré par la couleur dédiée à la catégorie » —
-    // 16 septembre 2026 : calcul déplacé dans currentGoalsCategoryColor()
-    // ci-dessus (réutilisée aussi par .goalMainCard/.goalWeeklyCard) plutôt
-    // que recalculé ici, pour que les 3 endroits restent identiques par
-    // construction.
-    var goalsCalCatColor = currentGoalsCategoryColor();
-    days.forEach(function (day, idx) {
-      // "Dernier jour de la semaine" au sens du volet Objectifs (bloc de 7
-      // jours depuis le début de la période, pas forcément un dimanche
-      // calendaire — la période ne démarre pas nécessairement un lundi) :
-      // demande d'Emilien « objectifs de semaine mis en évidence chaque
-      // dimanche » — c'est ce jour-repère qui ouvre l'éditeur ci-dessus.
-      var isWeekEnd = !days[idx + 1] || days[idx + 1].weekIndex !== day.weekIndex;
-
-      var row = document.createElement('div');
-      row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '') + (isWeekEnd ? ' weekEnd' : '');
-      if (isWeekEnd) row.style.borderColor = goalsCalCatColor;
-
-      var dateEl = document.createElement('span');
-      dateEl.className = 'goalsCalendarDate';
-      dateEl.textContent = calendarDayLabel(day.date);
-      row.appendChild(dateEl);
-
-      // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-      // « décale le numéro des semaines plus vers la droite » — ordre
-      // d'ajout inversé avec les minutes (weekEl après minutesEl au lieu
-      // d'avant) : dateEl garde flex:1 et pousse tout le reste à droite dans
-      // l'ordre où il est ajouté, donc le badge "S1"-"S4" se retrouve
-      // maintenant juste avant le bouton "+", plus loin de la date.
-      var minutesEl = document.createElement('span');
-      minutesEl.className = 'goalsCalendarMinutes' + (day.actualMinutes ? '' : ' empty');
-      // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-      // « supprime le petit bouton - à côté du + [...] il ne sert à rien » —
-      // ce n'était pas un bouton mais ce tiret cadratin affiché à la place
-      // des minutes quand un jour n'a aucun temps pointé ; retiré (case
-      // simplement vide), la largeur fixe de .goalsCalendarMinutes
-      // (styles.css) garde l'alignement des jours qui ONT du temps pointé.
-      minutesEl.textContent = day.actualMinutes ? formatGoalHours(day.actualMinutes) : '';
-      row.appendChild(minutesEl);
-
-      var weekEl = document.createElement('span');
-      weekEl.className = 'goalsCalendarWeekBadge' + (isWeekEnd ? ' clickable' : '');
-      weekEl.textContent = 'S' + day.weekIndex;
-      if (isWeekEnd) {
-        weekEl.title = t('Objectif de cette semaine');
-        weekEl.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
-      }
-      row.appendChild(weekEl);
-
-      var addForm = buildGoalsCalendarAddForm(period, day);
-      var addBtn = document.createElement('button');
-      addBtn.type = 'button';
-      // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-      // « retire le symbole - à côté du + et centre le + au milieu du
-      // cercle » — le "-" perçu était la bordure en pointillés de la ligne
-      // "fin de semaine" juste avant ce bouton (retirée ci-dessus au profit
-      // d'une bordure pleine, couleur catégorie) ; le "+" lui-même passe
-      // d'un glyphe texte (mal centré selon les polices) à deux barres CSS
-      // (::before/::after, voir styles.css), centrées par construction.
-      addBtn.className = 'goalsCalendarAddTaskBtn';
-      addBtn.title = t('Ajouter une tâche ce jour');
-      addBtn.addEventListener('click', function () {
-        addForm.classList.toggle('hidden');
-        if (!addForm.classList.contains('hidden')) {
-          var inp = addForm.querySelector('input');
-          if (inp) inp.focus();
-        }
-      });
-      row.appendChild(addBtn);
-
-      if (isWeekEnd) {
-        // « je souhaite qu'il soit clairement marqué que ce soit l'objectif
-        // hebdomadaire à réaliser [...] un avancement hebdomadaire sur la
-        // case du dimanche » — ligne complète (flex-basis: 100%, même motif
-        // que .goalsCalendarTaskAdd .msg) DANS la même case bordée que
-        // ci-dessus, pas une ligne séparée. w.status === 'atteint' l'emporte
-        // toujours sur le calcul minutes/estimation (cohérent avec le badge
-        // de statut ailleurs sur cette page, .goalWeeklyDot.goalStatusAtteint) ; du
-        // temps réel sans estimation compte comme entamé (barre pleine)
-        // plutôt que vide, qui suggérerait à tort qu'aucun travail n'a été
-        // fait.
-        var w = null;
-        for (var wi = 0; wi < period.weeklies.length; wi++) {
-          if (period.weeklies[wi].weekIndex === day.weekIndex) { w = period.weeklies[wi]; break; }
-        }
-        var weekProgress = document.createElement('div');
-        weekProgress.className = 'goalsCalendarWeekProgress';
-        // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-        // « cliquer sur objectif de la semaine à réaliser [...] rentrer
-        // manuellement l'objectif » — <button> plutôt que <span> (même
-        // motif que le badge "S1"-"S4" ci-dessus, weekEl), ouvre le même
-        // éditeur (openGoalsWeekEditor(), déjà la saisie manuelle du texte
-        // hebdomadaire, textarea de renderGoalsWeeklyList()).
-        var weekProgressLabel = document.createElement('button');
-        weekProgressLabel.type = 'button';
-        weekProgressLabel.className = 'goalsCalendarWeekProgressLabel';
-        weekProgressLabel.style.color = goalsCalCatColor;
-        // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
-        // d'Emilien : « l'objectif s'écrit également dans le calendrier au
-        // niveau du dimanche » — une fois un texte saisi (w.text, via
-        // openGoalsWeekEditor()/saveWeeklyText()), il remplace le libellé
-        // générique ici ; tant qu'aucun texte n'est saisi, le libellé reste
-        // l'invite à cliquer, inchangée.
-        weekProgressLabel.textContent = (w && w.text) ? w.text : t('Objectif de la semaine à réaliser');
-        weekProgressLabel.title = t('Objectif de cette semaine');
-        weekProgressLabel.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
-        weekProgress.appendChild(weekProgressLabel);
-        var weekProgressTrack = document.createElement('div');
-        weekProgressTrack.className = 'goalsCalendarWeekProgressTrack';
-        var weekProgressFill = document.createElement('div');
-        weekProgressFill.className = 'goalsCalendarWeekProgressFill';
-        var weekPct = 0;
-        if (w) {
-          if (w.status === 'atteint') weekPct = 100;
-          else if (w.estimateMinutes) weekPct = Math.max(0, Math.min(100, Math.round(((w.actualMinutes || 0) / w.estimateMinutes) * 100)));
-          else if (w.actualMinutes) weekPct = 100;
-        }
-        weekProgressFill.style.width = weekPct + '%';
-        weekProgressFill.style.background = goalsCalCatColor;
-        weekProgressTrack.appendChild(weekProgressFill);
-        weekProgress.appendChild(weekProgressTrack);
-        row.appendChild(weekProgress);
-      }
-
-      box.appendChild(row);
-      box.appendChild(addForm);
-
-      (day.tasks || []).forEach(function (task) {
-        var taskRow = document.createElement('div');
-        taskRow.className = 'goalsCalendarTaskRow' + (task.done ? ' done' : '');
-        var check = document.createElement('button');
-        check.type = 'button';
-        check.className = 'goalsCalendarTaskCheck';
-        check.textContent = task.done ? '✓' : '';
-        check.title = task.done ? t('Marquer non faite') : t('Marquer faite');
-        check.addEventListener('click', function () { toggleGoalsDayTask(period, task.id, !task.done); });
-        taskRow.appendChild(check);
-
-        var taskLabel = document.createElement('span');
-        taskLabel.className = 'goalsCalendarTaskLabel';
-        taskLabel.textContent = task.label;
-        taskRow.appendChild(taskLabel);
-
-        // 26 septembre 2026, correctif du bug « tâche capturée absente du
-        // calendrier » (voir server/lib/calendarfeed.js#dayTasksByDate) : le
-        // calendrier montre désormais les tâches de TOUTE l'activité, pas
-        // seulement du secteur actuellement ouvert — une tâche classée par
-        // l'IA dans un AUTRE secteur porte donc ce petit repère pour rester
-        // compréhensible (jamais confondue avec une tâche du secteur affiché).
-        if (task.category && task.category !== currentGoalsCategory) {
-          var otherCat = document.createElement('span');
-          otherCat.className = 'goalsCalendarTaskOtherCategory';
-          otherCat.textContent = goalsCategoryLabel(task.category);
-          taskRow.appendChild(otherCat);
-        }
-
-        // 25 septembre 2026 (badges « non vu », restructuration du volet
-        // Objectifs en 3 pages), demande directe d'Emilien : « dans le
-        // calendrier, il y ait un petit point violet à droite des tâches
-        // nouvellement ajoutées [...] une fois qu'elles sont visualisées, hop,
-        // le point disparaît. » — `task.unseen` vient du serveur (voir
-        // server/lib/calendarfeed.js#dayTasksByDate). Le simple fait
-        // d'afficher cette ligne EST déjà « visualiser » la tâche (elle est
-        // sous les yeux de l'utilisateur dans le calendrier) : la marquer vue
-        // dès l'affichage plutôt que d'attendre un clic dédié, cohérent avec
-        // le badge de la page 1/2 qui se vide, lui, à l'OUVERTURE de la
-        // liste — ici la liste EST déjà ouverte en permanence (le calendrier
-        // ne se déplie pas comme un pôle/secteur). Optimiste côté UI (le
-        // point disparaît tout de suite) ; jamais bloquant si l'appel échoue
-        // (retentera au prochain chargement du calendrier, le point restant
-        // simplement visible jusque-là).
-        if (task.unseen) {
-          var dot = document.createElement('span');
-          dot.className = 'goalsCalendarTaskUnseenDot';
-          dot.title = t('Nouvelle tâche ajoutée automatiquement');
-          taskRow.appendChild(dot);
-          api('POST', '/api/activities/' + currentGoalsActivityId + '/goals/tasks/' + task.id + '/mark-seen')
-            .then(function () { dot.remove(); })
-            .catch(function () { /* pas bloquant — le point réapparaîtra au prochain chargement */ });
-        }
-
-        box.appendChild(taskRow);
-      });
-    });
-  }
 
   // Même piège de fuseau que subProjectDueLabel() plus bas : 'T00:00:00'
   // force une lecture en heure LOCALE plutôt qu'UTC.
@@ -8903,42 +7633,46 @@
     return d.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
   }
 
+  window.TMT.calendarDayLabel = calendarDayLabel;
+
+
   // ===================== OBJECTIFS — chargement des 3 catégories =====================
   // 14 septembre 2026 (troisième passage, demande d'Emilien) : remplace
   // loadActivityGoals()/loadGoalsDistribution() — la grille de la page 1 a
   // désormais besoin des 3 catégories À LA FOIS (comparaison côte à côte),
   // exactement comme la vue Répartition en avait déjà besoin ; un seul appel
   // à /goals/all sert donc maintenant les DEUX vues de la page 1 ET, si elle
-  // est ouverte, la page 2 (détail d'une seule catégorie, currentGoalsCategory)
+  // est ouverte, la page 2 (détail d'une seule catégorie, TMT.currentGoalsCategory)
   // — plus besoin de l'ancien GET /goals?category= séparé.
   // Page 2 (détail) : ne se rafraîchit que si elle est ouverte, pour la
-  // seule catégorie qu'elle affiche (currentGoalsCategory, pôle OU secteur
+  // seule catégorie qu'elle affiche (TMT.currentGoalsCategory, pôle OU secteur
   // depuis le 21 septembre 2026) — même garde-fou qu'avant (ne pas
   // recalculer ce qu'on ne regarde pas). Factorisée hors de reloadGoalsAll()
   // pour être appelée aussi depuis reloadGoalsGridForPole() ci-dessous (page
   // 2 ouverte sur un secteur, dont le planning n'arrive que par CET appel-
   // ci, pas par /goals/all).
   function refreshGoalsDetailPageIfOpen() {
-    var byCategory = (currentGoalsAllPlannings && currentGoalsAllPlannings.byCategory) || {};
-    var detailPlanning = byCategory[currentGoalsCategory];
+    var byCategory = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.byCategory) || {};
+    var detailPlanning = byCategory[TMT.currentGoalsCategory];
     if (!detailPlanning) return;
-    currentGoalsPlanning = detailPlanning;
-    if (currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(detailPlanning, currentGoalsViewPeriodNumber)) {
-      currentGoalsViewPeriodNumber = detailPlanning.currentPeriodNumber;
+    TMT.currentGoalsPlanning = detailPlanning;
+    if (TMT.currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(detailPlanning, TMT.currentGoalsViewPeriodNumber)) {
+      TMT.currentGoalsViewPeriodNumber = detailPlanning.currentPeriodNumber;
     }
-    if (!$('goalsDetailPage').classList.contains('hidden')) renderActivityGoals();
+    if (!$('goalsDetailPage').classList.contains('hidden')) TMT.renderActivityGoals();
   }
 
+
   function reloadGoalsAll() {
-    var activityId = currentGoalsActivityId;
+    var activityId = TMT.currentGoalsActivityId;
     if (!activityId) return Promise.resolve();
     return api('GET', '/api/activities/' + activityId + '/goals/all').then(function (data) {
       // Garde-fou : l'activité affichée peut avoir changé (balayage) pendant
       // que cette requête était en vol — une réponse en retard ne doit
       // jamais écraser ce qui est déjà affiché (même principe que
       // loadActivityDetail() ailleurs).
-      if (activityId !== currentGoalsActivityId) return;
-      currentGoalsAllPlannings = data;
+      if (activityId !== TMT.currentGoalsActivityId) return;
+      TMT.currentGoalsAllPlannings = data;
 
       // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : dès qu'un
       // premier pôle RÉEL existe (personnalisation activée), la grille
@@ -8949,55 +7683,58 @@
       // la grille affiche directement goalsPoles() (repli d'
       // activeGoalsCategories()), exactement comme avant ce chantier.
       var poles = goalsPoles();
-      if (!goalsHasNoRealCategory(poles)) {
-        var stillValid = poles.some(function (p) { return p.key === currentGoalsSelectedPoleKey; });
-        if (!stillValid) currentGoalsSelectedPoleKey = poles[0].key;
-        renderGoalsPoleSwitcher();
-        return reloadGoalsGridForPole(currentGoalsSelectedPoleKey);
+      if (!TMT.goalsHasNoRealCategory(poles)) {
+        var stillValid = poles.some(function (p) { return p.key === TMT.currentGoalsSelectedPoleKey; });
+        if (!stillValid) TMT.currentGoalsSelectedPoleKey = poles[0].key;
+        TMT.renderGoalsPoleSwitcher();
+        return reloadGoalsGridForPole(TMT.currentGoalsSelectedPoleKey);
       }
 
-      currentGoalsSelectedPoleKey = '';
-      currentGoalsGridColumns = null;
-      renderGoalsPoleSwitcher();
+      TMT.currentGoalsSelectedPoleKey = '';
+      TMT.currentGoalsGridColumns = null;
+      TMT.renderGoalsPoleSwitcher();
 
       // Page 1, vue grille (seul mode désormais) : toujours à jour, l'en-tête
       // de colonnes puis les cellules, pour les catégories actives.
-      renderGoalsGridHead();
-      renderGoalsGrid();
+      TMT.renderGoalsGridHead();
+      TMT.renderGoalsGrid();
       refreshGoalsDetailPageIfOpen();
     }).catch(function (err) {
       var msg = $('activityGoalsMsg');
       if (msg) msg.textContent = err.message;
     });
   }
+
+  window.TMT.reloadGoalsAll = reloadGoalsAll;
+
 
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : charge les
   // colonnes de la grille pour UN SEUL pôle (GET .../goals/all-for-pole,
   // server/routes/goals.js) — ses secteurs actifs, ou lui-même en repli s'il
   // n'en a aucun (goals.gridColumnsForPole, serveur). Fusionne les plannings
-  // reçus dans currentGoalsAllPlannings.byCategory (plutôt que dans un objet
+  // reçus dans TMT.currentGoalsAllPlannings.byCategory (plutôt que dans un objet
   // séparé) précisément pour que renderGoalsGrid() — INCHANGÉE, elle lit
-  // `currentGoalsAllPlannings.byCategory[c.key]` — les trouve sans qu'aucune
+  // `TMT.currentGoalsAllPlannings.byCategory[c.key]` — les trouve sans qu'aucune
   // ligne de cette fonction n'ait à bouger. Appelée par reloadGoalsAll() ci-
   // dessus (chargement/rafraîchissement de l'onglet) et par le clic sur un
   // bouton de la barre de pôles (renderGoalsPoleDropdown()).
   function reloadGoalsGridForPole(poleKey) {
-    var activityId = currentGoalsActivityId;
+    var activityId = TMT.currentGoalsActivityId;
     if (!activityId || !poleKey) return Promise.resolve();
     return api('GET', '/api/activities/' + activityId + '/goals/all-for-pole?poleKey=' + encodeURIComponent(poleKey)).then(function (data) {
       // Même garde-fou que reloadGoalsAll() : activité changée, ou pôle
       // changé de nouveau (clic rapide sur un autre bouton) pendant que cette
       // requête était en vol.
-      if (activityId !== currentGoalsActivityId || poleKey !== currentGoalsSelectedPoleKey) return;
-      currentGoalsGridColumns = data.columns || [];
-      currentGoalsMaxSecteurs = data.maxSecteurs || currentGoalsMaxSecteurs;
-      if (currentGoalsAllPlannings) {
-        currentGoalsAllPlannings.byCategory = currentGoalsAllPlannings.byCategory || {};
+      if (activityId !== TMT.currentGoalsActivityId || poleKey !== TMT.currentGoalsSelectedPoleKey) return;
+      TMT.currentGoalsGridColumns = data.columns || [];
+      TMT.currentGoalsMaxSecteurs = data.maxSecteurs || TMT.currentGoalsMaxSecteurs;
+      if (TMT.currentGoalsAllPlannings) {
+        TMT.currentGoalsAllPlannings.byCategory = TMT.currentGoalsAllPlannings.byCategory || {};
         var fetched = data.byCategory || {};
-        Object.keys(fetched).forEach(function (k) { currentGoalsAllPlannings.byCategory[k] = fetched[k]; });
+        Object.keys(fetched).forEach(function (k) { TMT.currentGoalsAllPlannings.byCategory[k] = fetched[k]; });
       }
-      renderGoalsGridHead();
-      renderGoalsGrid();
+      TMT.renderGoalsGridHead();
+      TMT.renderGoalsGrid();
       refreshGoalsDetailPageIfOpen();
     }).catch(function (err) {
       var msg = $('activityGoalsMsg');
@@ -9005,784 +7742,8 @@
     });
   }
 
-  // 26 septembre 2026, demande directe d'Emilien (page 2, point d) : « je
-  // souhaite que le pôle remplace le nom actuel de l'activité [...] on
-  // reprend la même fonctionnalité utilisée pour les activités, mais à la
-  // place, c'est le pôle qui peut swiper de gauche à droite ou avec les
-  // flèches [...] je souhaite donc que le point coloré prenne la nuance du
-  // pôle, une des cinq nuances disponibles. » Remplace le menu déroulant du
-  // 21 septembre (renderGoalsPoleDropdown(), #goalsPoleTabBar, retirés) :
-  // #goalsActivityHeader n'est plus le nom de l'activité (déplacé dans
-  // #goalsActivityPlainRow, voir openGoalsForActivity() ci-dessus et
-  // index.html) mais le sélecteur de pôle lui-même, avec la même mécanique
-  // ‹/›/balayage qu'avant (mêmes boutons/le même bloc DOM, juste
-  // retargetés — voir les écouteurs #goalsPrevPoleBtn/#goalsNextPoleBtn et
-  // bindGoalsSwipe() plus bas). Masqué tant qu'aucun pôle réel n'existe
-  // (goalsHasNoRealCategory), exactement comme l'ancien menu déroulant — la
-  // grille affiche alors encore goalsPoles() en repli, un sélecteur n'aurait
-  // pas de sens.
-  function renderGoalsPoleSwitcher() {
-    var header = $('goalsActivityHeader');
-    if (!header) return;
-    var poles = goalsPoles();
-    if (goalsHasNoRealCategory(poles)) {
-      header.classList.add('hidden');
-      return;
-    }
-    header.classList.remove('hidden');
-    var index = -1;
-    poles.forEach(function (p, i) { if (p.key === currentGoalsSelectedPoleKey) index = i; });
-    if (index === -1) index = 0;
-    currentGoalsPoleIndex = index;
-    var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-    var dot = $('goalsPoleDot');
-    if (dot) dot.style.background = shade;
-    var name = $('goalsPoleName');
-    if (name) name.textContent = t(poles[index].label);
-  }
+  window.TMT.reloadGoalsGridForPole = reloadGoalsGridForPole;
 
-  // Navigation circulaire entre pôles (mêmes règles que
-  // openGoalsForActivity() : après le dernier pôle on revient au premier, et
-  // inversement) — appelée par les flèches ‹/› et par bindGoalsSwipe()
-  // ci-dessous.
-  function openGoalsForPole(index) {
-    var poles = goalsPoles();
-    if (!poles.length) return;
-    var n = poles.length;
-    var normalized = ((index % n) + n) % n;
-    var p = poles[normalized];
-    var changed = currentGoalsSelectedPoleKey !== p.key;
-    currentGoalsSelectedPoleKey = p.key;
-    renderGoalsPoleSwitcher();
-    if (changed) reloadGoalsGridForPole(p.key);
-  }
-
-  $('activityGoalsPrevBtn').addEventListener('click', function () {
-    if (currentGoalsViewPeriodNumber > 1) { currentGoalsViewPeriodNumber -= 1; renderActivityGoals(); }
-  });
-  $('activityGoalsNextBtn').addEventListener('click', function () {
-    currentGoalsViewPeriodNumber += 1;
-    renderActivityGoals();
-  });
-
-  // ===================== OBJECTIFS — PAGE 1 : GRILLE COMPARATIVE =====================
-  // 14 septembre 2026 (troisième passage, demande d'Emilien, cadré par
-  // AskUserQuestion avant ce chantier) : « je souhaite qu'il y ait 3 arbres
-  // visibles 1. entreprise 2. produits et 3. communautés [...] que l'on
-  // puisse les comparer [...] une grille alignée par période ». Remplace
-  // l'ancien renderGoalsTree() (une seule catégorie, choisie par onglet) —
-  // une LIGNE par période du cycle en cours (13 lignes), une COLONNE par
-  // catégorie (même ordre que #goalsGridHead dans index.html). Les 3
-  // catégories partagent la même numérotation de LIGNE (periodIndexInCycle,
-  // 1 à 13) même si chacune a démarré son propre plan à sa propre date —
-  // c'est justement ce qui les rend comparables d'un coup d'œil.
-  //
-  // Cellule sans objectif périodique écrit : 6e passage (15 septembre 2026)
-  // — pavé fantôme + trait de continuité entre périodes, voir
-  // .goalsGridCell--empty et .goalsGridCell::before, styles.css. Chaque
-  // cellule (pleine ou vide) reste cliquable : elle ouvre la page 2 pour
-  // CETTE (catégorie, période) — inchangée, confirmé par Emilien
-  // (AskUserQuestion).
-  // 15 septembre 2026 (7e passage, demande d'Emilien — "un seul mode : la
-  // grille") : l'en-tête de colonnes n'est plus statique (3 <span> fixes dans
-  // index.html) — il reflète activeGoalsCategories(), donc de 1 à 5 colonnes
-  // selon les catégories personnalisées de l'activité affichée. Appelée par
-  // reloadGoalsAll() avant renderGoalsGrid(), et lors du changement d'activité.
-  // 16 septembre 2026 (8e passage, demande d'Emilien) : nom de catégorie
-  // CENTRÉ et encadré dans un cadre coloré — une NUANCE de la couleur de
-  // l'activité, une nuance différente par catégorie, même mécanisme que les
-  // 5 nuances des sous-projets (subProjectShade(), plus haut dans ce
-  // fichier) plutôt qu'une nouvelle échelle de couleurs. Couleur 100%
-  // automatique (cadré avec Emilien, AskUserQuestion) : plus de champ
-  // `color` côté serveur, tout se calcule ici à partir de
-  // currentGoalsActivityColor + le rang (position) de la catégorie.
-  // `span.className` était manquant avant ce passage (bug latent : la classe
-  // .goalsGridHeadCell existait déjà en CSS mais ne s'appliquait jamais,
-  // faute d'être posée ici) — corrigé au passage.
-  //
-  // Au-delà de 2 catégories, .goalsGridHead--paged (posée ici) fixe la
-  // largeur de chaque badge à une demi-largeur du conteneur plutôt que de
-  // toutes les faire tenir : les catégories suivantes débordent alors dans
-  // #goalsGridScroll (index.html/styles.css), accessibles en balayant
-  // horizontalement — même principe que la Feuille de temps (défilement
-  // natif, `overflow-x: auto`, jamais un geste JS dédié). Voir renderGoalsGrid()
-  // juste en dessous pour la même bascule sur chaque ligne de la grille.
-  // 16 septembre 2026 (9e passage), demande d'Emilien : « je souhaite que le
-  // titre de la catégorie la plus à droite soit un peu plus courte pour
-  // laisser place à un + sur sa droite [...] cela me permet de rajouter des
-  // catégories directement depuis le volet objectif ». Le bouton + est un
-  // enfant flex SUPPLÉMENTAIRE de largeur FIXE (.goalsGridHeadAddBtn,
-  // flex: 0 0 auto) ajouté après les badges de catégorie (flex: 1 1 0,
-  // inchangés) — flexbox réduit alors automatiquement la largeur de TOUTES
-  // les catégories (donc en particulier la plus à droite) pour lui laisser
-  // la place, sans calcul manuel. N'apparaît que sous le plafond
-  // (maxCategories, posé par /goals/all — voir server/routes/goals.js) :
-  // au plafond, ajouter n'a plus de sens, même garde que le formulaire
-  // d'ajout du panneau de gestion (fenêtre activité, activityGoalsCategoryAddWrap).
-  // 20 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : plus
-  // aucune catégorie réelle active — categories vide (état transitoire avant
-  // chargement, ou toutes gelées) OU l'unique catégorie active est encore la
-  // catégorie factice synthétisée côté serveur sans écriture (c.custom ===
-  // false, jamais vrai pour une catégorie créée/renommée par l'utilisateur,
-  // voir categoriesForActivity(), server/lib/goals.js). Remplace l'ancien
-  // traitement séparé "0 catégorie" (verrouillage du défilement) et "1
-  // catégorie factice" (.goalsGridHeadCell--defaultAdd, 16 septembre) par UN
-  // SEUL état unifié — demande d'Emilien, « si une activité n'a aucun pôle,
-  // je souhaite que cette présentation [la boîte "ajouter un secteur"] soit
-  // directement sur la première page sans swiper » : dans les deux cas, il
-  // n'y a rien à montrer à côté, donc la case d'ajout prend toute la page 1.
-  function goalsHasNoRealCategory(categories) {
-    return categories.length === 0 || (categories.length === 1 && categories[0].custom === false);
-  }
-
-  function renderGoalsGridHead() {
-    var head = $('goalsGridHead');
-    if (!head) return;
-    head.innerHTML = '';
-    var categories = activeGoalsCategories();
-    var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
-    var hasNoRealCategory = goalsHasNoRealCategory(categories);
-    head.classList.toggle('goalsGridHead--paged', !hasNoRealCategory && categories.length > 2);
-    // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
-    // verrouiller le défilement horizontal de #goalsGridScroll à exactement
-    // une page (voir .goalsGridScroll--locked, styles.css) tant qu'il n'y a
-    // aucune catégorie réelle — voir goalsHasNoRealCategory() ci-dessus.
-    var gridScrollEl = $('goalsGridScroll');
-    if (gridScrollEl) gridScrollEl.classList.toggle('goalsGridScroll--locked', hasNoRealCategory);
-    // 26 septembre 2026, demande directe d'Emilien (page 2, point f) : « si
-    // l'utilisateur n'a pas créé de secteur pour son pôle, mais a un arbre
-    // périodique, alors pas de titre du secteur. Le titre du pôle ne se
-    // répète pas 2 fois pour remplacer le titre du secteur inexistant. » —
-    // c'est exactement le repli de gridColumnsForPole() côté serveur
-    // (server/lib/goals.js) : quand un pôle n'a aucun secteur, sa seule
-    // « colonne » est le pôle LUI-MÊME (même clé que
-    // currentGoalsSelectedPoleKey) — déjà nommé une fois par le sélecteur de
-    // pôle ci-dessus (#goalsPoleName). Détectable ici sans rien changer côté
-    // serveur : une seule colonne, dont la clé est celle du pôle sélectionné.
-    var isPoleFallbackColumn = !!currentGoalsSelectedPoleKey
-      && categories.length === 1
-      && categories[0].key === currentGoalsSelectedPoleKey;
-    if (!hasNoRealCategory) {
-      categories.forEach(function (c, index) {
-        var span = document.createElement('span');
-        span.className = 'goalsGridHeadCell';
-        span.textContent = isPoleFallbackColumn ? '' : t(c.label);
-        var shade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-        // 17 septembre 2026 (discussion "Objectifs — Titres des catégories"),
-        // demande d'Emilien : « je laisse la couleur noire à l'intérieur et
-        // mets le titre de la catégorie en couleur » — fond transparent (la
-        // page se voit au travers, thème clair ou sombre), texte et liseré
-        // (bordure + anneau, .goalsGridHeadCell ci-dessous, styles.css) dans
-        // displayColor. Remplace le texte noir/blanc (readableTextOn) et le
-        // liseré noir/blanc translucide du passage précédent, devenus sans
-        // objet : il n'y a plus de fond rempli dont dériver un contraste.
-        var displayColor = eclairciPourLisibilite(shade);
-        span.style.background = 'transparent';
-        span.style.color = displayColor;
-        span.style.borderColor = displayColor;
-        span.style.outlineColor = displayColor;
-        // 26 septembre 2026 (retour direct d'Emilien après l'encart 53) :
-        // badge violet « non vu » posé ICI, sur l'arbre périodique
-        // lui-même — c'est le vrai emplacement des « objectifs
-        // périodiques » demandé, pas le menu déroulant de pôle (voir
-        // renderGoalsPoleSwitcher() ci-dessus, jamais de badge sur le
-        // sélecteur de pôle). ⚠️ 26 septembre 2026 : Emilien demande de
-        // déplacer ce badge encore une fois, directement sur la période où
-        // la tâche a été appliquée plutôt qu'ici sur le titre — reporté,
-        // nécessite un nouveau signal serveur (quelle période précise) que
-        // goalsCaptureBadges n'expose pas encore ; ce badge-ci reste donc en
-        // l'état pour l'instant, voir l'encart de suivi.
-        // `c.key` est déjà correctement scopé par activeGoalsCategories()
-        // selon le niveau affiché : les pôles eux-mêmes tant qu'aucun
-        // pôle réel n'a été choisi (vue comparative), ou les secteurs du
-        // pôle sélectionné une fois qu'on y est entré (21 septembre 2026,
-        // « Secteurs dans l'arbre périodique ») — donc ce même badge
-        // couvre pôle ET secteur sans code supplémentaire, contrairement
-        // à la simplification notée dans l'encart 53 (agrégation par
-        // secteur pas faite) : elle n'était pas nécessaire, la bonne clé
-        // était déjà disponible ici.
-        var headBadges = goalsCaptureBadges[currentGoalsActivityId];
-        var headCount = headBadges && headBadges.byCategory ? (headBadges.byCategory[c.key] || 0) : 0;
-        if (headCount > 0) {
-          var headBadge = document.createElement('span');
-          headBadge.className = 'goalsCaptureBadge goalsGridHeadBadge';
-          headBadge.textContent = String(headCount);
-          span.appendChild(headBadge);
-        }
-        head.appendChild(span);
-      });
-    }
-    // 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que
-    // le bouton + ne s'affiche plus à droite des catégories, mais qu'il
-    // s'affiche au milieu d'une nouvelle page lorsque je défile sur la
-    // droite » — le petit bouton carré du 9e passage (.goalsGridHeadAddBtn,
-    // réduisait la largeur des vraies catégories pour se loger à côté
-    // d'elles) est remplacé par une case DE LA TAILLE D'UNE PAGE ENTIÈRE
-    // (.goalsGridHeadCell--add), ajoutée après les vraies catégories mais
-    // jamais visible à côté d'elles : sa largeur exacte est posée par
-    // syncGoalsGridWidths() (appelée après ce rendu, voir plus bas) une
-    // fois le DOM en place, pas ici (getBoundingClientRect() ici donnerait
-    // la largeur d'AVANT l'ajout de cette case, donc fausse).
-    //
-    // 26 septembre 2026, demande directe d'Emilien (Objectifs — Arbre
-    // périodique, restructuration Page 2, maquette approuvée « C'est bon,
-    // code. », point 4) : « je souhaite qu'il n'y ait plus de possibilité
-    // d'ajouter un secteur ni même un pôle dans cette section. L'ajout se
-    // fait uniquement dans la fenêtre des activités, section Catégories. »
-    // — élargit et remplace la version plus étroite ci-dessus (« page 2,
-    // point e », qui ne retirait la case que pour l'ajout d'un SECTEUR une
-    // fois entré dans un pôle, en la gardant pour le tout premier pôle via
-    // hasNoRealCategory) : la case « + »
-    // (.goalsGridHeadCell--add/.goalsGridCell--add,
-    // #goalsGridAddOutline/#goalsGridAddContent) n'est plus créée du tout
-    // sur cette page, dans AUCUN état — voir aussi renderGoalsGrid()/
-    // syncGoalsGridWidths() ci-dessous, même retrait. goToGoalsCategorySettings()
-    // reste utilisée ailleurs (panneau Catégories), simplement plus
-    // référencée depuis cette grille. À la place, quand aucun pôle réel
-    // n'existe encore, un simple message renvoie vers ce panneau plutôt
-    // qu'une case cliquable.
-    if (hasNoRealCategory) {
-      var emptyMsg = document.createElement('p');
-      emptyMsg.className = 'goalsGridHeadEmpty';
-      emptyMsg.textContent = t('Aucun pôle pour le moment — ajoutez-en un depuis la fenêtre de l’activité, section Catégories.');
-      head.appendChild(emptyMsg);
-    }
-    window.requestAnimationFrame(syncGoalsGridWidths);
-  }
-
-  // ===================== PAGE « + » (ajout de catégorie, volet Objectifs) ===
-  // 16 septembre 2026 (9e passage) : une bulle flottante locale permettait
-  // d'ajouter une catégorie sans quitter le volet Objectifs. 16 septembre
-  // 2026 (11e passage), Emilien change d'avis sur la FORME (pas le fond) :
-  // « je clique simplement n'importe où sur une nouvelle page qui est vide
-  // [...] et cela me renvoie aux paramètres pour créer une catégorie » — la
-  // bulle locale (.goalsQuickAddCategory, ses champs et ses handlers) est
-  // retirée entièrement, remplacée par une redirection vers le panneau de
-  // gestion existant (fenêtre activité, section Tâches, 7e passage) :
-  // AUCUNE nouvelle UI d'ajout créée ici, seulement une navigation vers
-  // celle qui existe déjà. Même mécanisme de « rejoue le clic qu'une
-  // personne aurait fait » que les redirections depuis une notification
-  // (voir plus bas dans ce fichier, whenElementReady/focusWhenReady autour
-  // de `if (target === 'activity')`) plutôt que de reconstruire les
-  // arguments d'openActivityPage().
-  function goToGoalsCategorySettings() {
-    var activityId = currentGoalsActivityId;
-    if (!activityId) return;
-    switchTab('activity');
-    whenElementReady('#activitiesList .activityRow[data-activity-id="' + activityId + '"] .activityRowHeader', function (header) {
-      header.click();
-      setActivityPageSection('sub');
-      // 25 septembre 2026 : le « + » (#addSubProjectBtn) est retiré,
-      // remplacé par la bulle texte + bouton « Ajouter » en bas de la liste
-      // des pôles (buildAddPoleRow(), #activityGoalsCategoryAddInput) —
-      // c'est désormais ce champ qu'on pointe.
-      focusWhenReady('#activityGoalsCategoryAddInput');
-    });
-  }
-
-  // Largeur de la (ou des) case(s) « page + » — voir le commentaire de
-  // renderGoalsGridHead() ci-dessus : toujours EXACTEMENT une largeur de
-  // page pleine (celle, visible, de #goalsGridScroll), jamais un pourcentage
-  // flex qui se résoudrait de façon imprévisible dans ce conteneur (sa
-  // propre largeur dépend déjà de son contenu débordant, overflow-x: auto).
-  // Appelée après CHAQUE rendu de l'en-tête et de la grille (elle peut créer
-  // ou détruire des .goalsGridHeadCell--add/.goalsGridCell--add à tout
-  // moment) et au redimensionnement (rotation d'écran) — même schéma que
-  // syncGoalsScrubZoneTopVar() plus haut.
-  // ⚠️ 16 septembre 2026 (discussion "Objectifs — Arbre périodique") :
-  // renommée syncGoalsAddSlotWidths() → syncGoalsGridWidths(), qui fait
-  // maintenant CE calcul ET la correction ci-dessous dans le même passage
-  // (l'ordre compte : la largeur des lignes doit être mesurée APRÈS avoir
-  // posé la largeur des cases "page +", sinon scrollWidth ne les compte pas
-  // encore). BUG corrigé : le séparateur horizontal en pointillés
-  // (.goalsGridRow::before, styles.css, left/right: 0 à l'origine) ne
-  // rejoignait pas le bord réel du contenu débordant (case "page +", ou
-  // catégories paginées au-delà de 2) — right: 0 s'arrête au bord de la
-  // boîte PROPRE de .goalsGridRow, qui NE S'AGRANDIT PAS d'elle-même pour
-  // ses enfants qui débordent. Signalé par Emilien : « je souhaite que les
-  // lignes horizontales entre les bulles s'étirent tout du long lorsque
-  // l'on rajoute une catégorie [...] que la barre horizontale continue ».
-  // ⚠️ PREMIER ESSAI (abandonné, gardé en commentaire dans styles.css pour
-  // ne pas répéter l'erreur) : fixer .goalsGridRow LUI-MÊME en style.width
-  // explicite — casse .goalsGridRow--paged .goalsGridCell (styles.css),
-  // dont le calc(50% - 5px) se résout contre la largeur de LA LIGNE, donc
-  // s'élargir avec elle bien au-delà d'une demi-page. Fixe retenu : la
-  // variable CSS --goalsRowFullWidth est posée sur chaque .goalsGridRow
-  // (scrollWidth de #goalsGridScroll une fois les cases "page +"
-  // dimensionnées ci-dessus, identique pour toutes les lignes) et
-  // consommée UNIQUEMENT par le ::before décoratif (position: absolute, ne
-  // participe à aucun calc% d'enfant) — la ligne elle-même garde sa largeur
-  // naturelle, ses cellules paginées restent correctement dimensionnées, et
-  // seul le trait pointillé s'étire jusqu'au bord réel du contenu. Sans
-  // effet visuel quand rien ne déborde (repli à 100%, styles.css).
-  // ⚠️ 16 septembre 2026 (même passage) : SECOND bug découvert au même
-  // endroit, plus grave — repéré en testant l'état par défaut (1 seule
-  // catégorie, voir le « + » ci-dessus). Avec 1 OU 2 vraies catégories
-  // (jamais paginées, .goalsGridHeadCell/.goalsGridCell restent en CSS
-  // flex: 1 1 0 pour se partager PROPORTIONNELLEMENT la largeur de la
-  // ligne), la case "page +" voisine est fixée à une pleine page
-  // (flex: 0 0 <w>px, sans jamais rétrécir) — dans une ligne qui ne fait
-  // ELLE-MÊME qu'une page de large, ce voisin à largeur FIXE absorbe
-  // presque tout l'espace, ne laissant presque rien aux vraies catégories
-  // (flex: 1 1 0 se réduit vers son flex-basis de 0 sous cette contrainte).
-  // Constaté : une catégorie unique réduite à ~12px de large au lieu de
-  // remplir la ligne. Corrigé en fixant ICI, en JS, la largeur des vraies
-  // catégories à leur part naturelle de la page visible (celle qu'elles
-  // auraient sans la case "page +" à côté), en flex: 0 0 <part>px plutôt
-  // que 1 1 0 — deux voisins à largeur fixe ne se volent alors plus
-  // d'espace l'un l'autre. Uniquement sous le seuil de pagination
-  // (categories.length <= 2) : au-delà, .goalsGridHeadCell--paged/
-  // .goalsGridRow--paged (styles.css) fixent déjà leurs cellules en
-  // calc(50% - 5px), qui est DÉJÀ une largeur fixe (pas proportionnelle),
-  // donc déjà à l'abri de ce problème.
-  // 20 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
-  // positionne/dimensionne #goalsGridAddOutline (styles.css) — le contour en
-  // pointillés UNIQUE de la boîte "ajouter un secteur" (en-tête + 13 cases),
-  // qui remplace les bordures par case (ne peut donc plus avoir de coupure
-  // de jonction, demande d'Emilien). Appelée depuis syncGoalsGridWidths()
-  // (donc après chaque re-rendu/redimensionnement) plutôt que posée une
-  // seule fois : la case d'ajout peut apparaître/disparaître/changer de
-  // largeur à tout moment (nombre de catégories, pagination, rotation
-  // d'écran). Coordonnées en px absolus relatifs à #goalsGridScroll (déjà
-  // position: relative, styles.css) : la soustraction de deux
-  // getBoundingClientRect() pris au même instant annule le décalage de
-  // défilement commun (horizontal ET vertical), donc correcte quel que soit
-  // le scroll en cours — pas besoin de recalculer au défilement lui-même.
-  function positionGoalsAddOutline() {
-    var outline = $('goalsGridAddOutline');
-    var scroll = $('goalsGridScroll');
-    var head = $('goalsGridHead');
-    var grid = $('goalsGrid');
-    var addHeadCell = document.querySelector('.goalsGridHeadCell--add');
-    if (!outline || !scroll || !head || !grid) return;
-    if (!addHeadCell) { outline.style.display = 'none'; return; }
-    var scrollRect = scroll.getBoundingClientRect();
-    var addRect = addHeadCell.getBoundingClientRect();
-    var headRect = head.getBoundingClientRect();
-    var gridRect = grid.getBoundingClientRect();
-    outline.style.display = 'block';
-    outline.style.left = (addRect.left - scrollRect.left + scroll.scrollLeft) + 'px';
-    outline.style.width = addRect.width + 'px';
-    outline.style.top = (headRect.top - scrollRect.top) + 'px';
-    outline.style.height = Math.max(0, gridRect.bottom - headRect.top) + 'px';
-  }
-
-  // 21 septembre 2026, demande d'Emilien — v2, sens inverse de la version
-  // précédente de cette fonction : « les modifications [...] sont
-  // exactement l'inverse de ce que j'ai demandé. Le bouton [...] se
-  // décale de gauche à droite, mais ne se décale pas de haut en bas. [...]
-  // je souhaite qu'elle se décale de haut en bas pour qu'elle soit
-  // toujours centrée sur l'écran [...] mais qu'elle soit fixe de gauche à
-  // droite. » #goalsGridAddContent est désormais un élément UNIQUE,
-  // position: absolute enfant direct de #goalsGridScroll (comme
-  // #goalsGridAddOutline), plus dupliqué dans le bouton d'une période
-  // précise (l'ancienne 7e, qui sortait de l'écran en scrollant — cause
-  // du bug « ne se décale pas de haut en bas »).
-  // - HORIZONTAL (fixe, équidistant des deux bords pointillés) : centre de
-  //   la boîte en coordonnée LOCALE, exactement comme positionGoalsAddOutline()
-  //   (outlineLeft + outlineWidth/2) — cette coordonnée inclut déjà
-  //   scroll.scrollLeft, donc défile normalement avec le contenu horizontal,
-  //   aucun recalcul au scroll nécessaire (contrairement à la v1, qui
-  //   suivait par erreur le défilement horizontal).
-  // - VERTICAL : 22 septembre 2026, v3 — entièrement retiré d'ici. Emilien
-  //   signalait un sautillement au défilement avec le recalcul en JS sur
-  //   l'événement 'scroll' (v2, un cadre de retard sur le rendu natif,
-  //   surtout en défilement inertiel) ; le centrage + le bornage sont
-  //   désormais gérés par du CSS pur (#goalsGridAddStickyAnchor, position:
-  //   sticky, styles.css/index.html), sans aucun JS ni écouteur 'scroll'.
-  function positionGoalsAddCenterContent() {
-    var content = $('goalsGridAddContent');
-    var outline = $('goalsGridAddOutline');
-    if (!content || !outline) return;
-    if (outline.style.display === 'none') { content.style.display = 'none'; return; }
-    var outlineLeft = parseFloat(outline.style.left) || 0;
-    var outlineWidth = parseFloat(outline.style.width) || 0;
-    if (!outlineWidth) { content.style.display = 'none'; return; }
-    content.style.display = 'flex';
-    content.style.left = (outlineLeft + outlineWidth / 2) + 'px';
-  }
-
-  function syncGoalsGridWidths() {
-    var scroll = $('goalsGridScroll');
-    if (!scroll) return;
-    var w = scroll.clientWidth;
-    if (!w) return;
-    var categories = activeGoalsCategories();
-    var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
-    var hasNoRealCategory = goalsHasNoRealCategory(categories);
-    // 20 septembre 2026 : quand il n'y a aucune catégorie réelle, la case
-    // d'ajout occupe toute la largeur disponible (flex: 1 1 0, comme une
-    // catégorie normale seule) plutôt qu'une largeur fixe — demande
-    // d'Emilien, « directement sur la première page sans swiper » (rien à
-    // paginer, une seule case visible).
-    if (hasNoRealCategory) {
-      document.querySelectorAll('.goalsGridHeadCell--add, .goalsGridCell--add').forEach(function (el) {
-        el.style.flex = '1 1 0'; el.style.width = '';
-      });
-    } else {
-      document.querySelectorAll('.goalsGridHeadCell--add, .goalsGridCell--add').forEach(function (el) {
-        el.style.flex = '0 0 ' + w + 'px';
-        el.style.width = w + 'px';
-      });
-    }
-
-    // 26 septembre 2026, demande directe d'Emilien (Objectifs — Arbre
-    // périodique, restructuration Page 2, point 4) : plus aucune case
-    // d'ajout créée sur cette page (secteur OU tout premier pôle) — élargit
-    // la version plus étroite ci-dessus (« page 2, point e »). Toujours
-    // false : aucun espace ne doit plus être réservé pour une case qui
-    // n'existe plus dans le DOM.
-    var showAddSlot = false;
-    var isPaged = !hasNoRealCategory && categories.length > 2;
-    if (showAddSlot && !isPaged && categories.length > 0) {
-      var gap = 10;
-      var each = Math.max(0, (w - gap * (categories.length - 1)) / categories.length);
-      document.querySelectorAll('.goalsGridHeadCell:not(.goalsGridHeadCell--add)').forEach(function (el) {
-        el.style.flex = '0 0 ' + each + 'px';
-        el.style.width = each + 'px';
-      });
-      document.querySelectorAll('.goalsGridCell:not(.goalsGridCell--add)').forEach(function (el) {
-        el.style.flex = '0 0 ' + each + 'px';
-        el.style.width = each + 'px';
-      });
-    }
-
-    // 20 septembre 2026 : le séparateur horizontal de période
-    // (.goalsGridRow::before, styles.css) ne doit plus traverser la case
-    // "ajouter un secteur" — demande d'Emilien, « supprime [...] les lignes
-    // pointillées horizontale dans cette zone ». Sa largeur s'arrête donc au
-    // bord réel des catégories (fullWidth - largeur de la case d'ajout - le
-    // gap qui la précède), plutôt que la largeur totale du contenu qui
-    // inclut cette case — ce calcul reste correct quel que soit le nombre de
-    // catégories réelles (les écarts entre elles s'annulent dans l'algèbre).
-    // hasNoRealCategory : aucune catégorie réelle, donc rien à séparer, 0.
-    var fullWidth = scroll.scrollWidth;
-    var categoriesWidth = hasNoRealCategory ? 0 : (showAddSlot ? Math.max(0, fullWidth - w - 10) : fullWidth);
-    document.querySelectorAll('.goalsGridRow').forEach(function (row) {
-      row.style.setProperty('--goalsRowFullWidth', categoriesWidth + 'px');
-    });
-
-    positionGoalsAddOutline();
-    positionGoalsAddCenterContent();
-  }
-  window.addEventListener('resize', syncGoalsGridWidths);
-  window.addEventListener('orientationchange', syncGoalsGridWidths);
-  // 22 septembre 2026, v3 : l'écouteur 'scroll' qui recalculait le TOP de
-  // #goalsGridAddContent à chaque défilement de la page (v2, 21 septembre)
-  // est retiré — Emilien signalait un sautillement (toujours un cadre de
-  // retard sur le rendu natif en défilement rapide/inertiel). Le centrage
-  // vertical est désormais purement CSS (#goalsGridAddStickyAnchor,
-  // position: sticky, styles.css) : plus aucun recalcul au scroll
-  // nécessaire, seul syncGoalsGridWidths() (resize/orientation/re-rendu,
-  // ci-dessus) recalcule encore le LEFT horizontal.
-
-  function renderGoalsGrid() {
-    var grid = $('goalsGrid');
-    if (!grid || !currentGoalsAllPlannings) return;
-    grid.innerHTML = '';
-    var byCategory = currentGoalsAllPlannings.byCategory || {};
-    var categories = activeGoalsCategories();
-    // 16 septembre 2026 (11e passage) : même garde que renderGoalsGridHead()
-    // ci-dessus — la colonne « page + » (voir plus bas dans cette fonction)
-    // n'existe que sous le plafond de catégories, jamais au-delà.
-    var maxCategories = (currentGoalsAllPlannings && currentGoalsAllPlannings.maxCategories) || 5;
-    var hasNoRealCategory = goalsHasNoRealCategory(categories);
-    // 26 septembre 2026, demande directe d'Emilien (Objectifs — Arbre
-    // périodique, restructuration Page 2, point 4) : la colonne « page + »
-    // ne s'affiche plus JAMAIS sur cette page (secteur OU tout premier
-    // pôle) — élargit la version plus étroite ci-dessus (« page 2, point
-    // e »). Toujours false : aucune case créée plus bas dans cette
-    // fonction (voir le bloc `if (showAddSlot)` ci-dessous, jamais
-    // atteint).
-    var showAddSlot = false;
-    // 21 septembre 2026 : le "+"/libellé ne sont plus dupliqués sur une
-    // période précise (ex-addCenterPeriodIndex = 7) — voir
-    // #goalsGridAddContent (index.html/styles.css) et
-    // positionGoalsAddCenterContent() (plus haut), désormais un élément
-    // UNIQUE et indépendant de toute période, qui reste au milieu de
-    // l'écran quel que soit le défilement.
-
-    // Index par catégorie : periodIndexInCycle (1-13) → période, limité au
-    // CYCLE EN COURS de cette catégorie (planningForActivity renvoie
-    // l'historique complet, tous cycles confondus — même construction que
-    // l'ancienne renderGoalsTrend()).
-    var indexByCategory = {};
-    categories.forEach(function (c) {
-      indexByCategory[c.key] = {};
-      var planning = byCategory[c.key];
-      if (!planning) return;
-      var current = goalPeriodByNumber(planning, planning.currentPeriodNumber);
-      var cycleIndex = current ? current.cycleIndex : 1;
-      (planning.periods || []).forEach(function (p) {
-        if (p.cycleIndex === cycleIndex) indexByCategory[c.key][p.periodIndexInCycle] = p;
-      });
-    });
-
-    // Info période (numéro + dates) pour le rail tactile — voir
-    // showGoalsScrub() plus haut. Une seule date "représentative" par
-    // période : celle de la première catégorie qui a une période à cet
-    // index (les catégories peuvent avoir démarré leur cycle à des dates
-    // différentes, voir commentaire au-dessus de indexByCategory).
-    currentGoalsPeriodInfo = [];
-
-    for (var i = 1; i <= 13; i += 1) {
-      (function (periodIndex) {
-        var row = document.createElement('div');
-        row.className = 'goalsGridRow' + (!hasNoRealCategory && categories.length > 2 ? ' goalsGridRow--paged' : '');
-        row.setAttribute('data-period-index', String(periodIndex));
-
-        var repPeriod = null;
-        if (!hasNoRealCategory) categories.forEach(function (c, index) {
-          var p = indexByCategory[c.key][periodIndex];
-          var cell = document.createElement('button');
-          cell.type = 'button';
-          cell.title = t(c.label) + ' — ' + t('Période') + ' ' + periodIndex;
-          if (p && !repPeriod) repPeriod = p;
-
-          if (p && p.mainGoalText) {
-            cell.className = 'goalsGridCell goalsGridCell--filled' + (p.isCurrent ? ' current' : '');
-            // 16 septembre 2026 (discussion "Objectifs — Arbre périodique") :
-            // le petit point de statut (.goalsGridCellDot, en haut à gauche
-            // de la bulle) est retiré — demande d'Emilien, « supprimer le
-            // petit point [...] qui est inutile ». goalStatusClass(p.mainGoalStatus)
-            // n'est donc plus utilisé ICI (il reste défini/utilisé ailleurs,
-            // ex. la bande de tendance) ; rien ne remplace ce point dans
-            // l'arbre, dans un but d'allègement visuel.
-            var txt = document.createElement('p');
-            txt.className = 'goalsGridCellText';
-            txt.textContent = p.mainGoalText;
-            cell.appendChild(txt);
-            // 17 septembre 2026 (discussion "Objectifs — Arbre périodique") :
-            // changement de plan d'Emilien sur le fond des bulles remplies
-            // (revient sur les 5 maquettes A-E proposées au 12e passage,
-            // encore non tranchées) — citation exacte : « je souhaite que
-            // les bulles de l'arbre, lorsqu'elles sont remplies, prennent
-            // totalement la nuance de la couleur attribuée à la catégorie
-            // et que l'écriture garde la couleur identique du fond d'écran.
-            // je souhaite qu'on ait l'impression qu'on a creusé les lettres
-            // à travers la bulle. » — effet "texte gravé" : la bulle est
-            // remplie en APLAT de la nuance automatique de la catégorie
-            // (même fonction subProjectShade() que le badge d'en-tête,
-            // jamais une simple bordure comme avant ce passage), le texte
-            // prend exactement la couleur du fond d'écran (var(--bg), PAS
-            // readableTextOn() — Emilien veut la couleur du fond, pas un
-            // simple contraste lisible) pour donner l'impression que les
-            // lettres sont creusées à même la bulle plutôt qu'écrites
-            // dessus. La bordure reprend la même nuance que le fond (plus
-            // aucun contour visible, bulle pleine comme la maquette de
-            // référence envoyée par Emilien).
-            var filledShade = subProjectShade(currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-            cell.style.background = filledShade;
-            cell.style.borderColor = filledShade;
-            txt.style.color = 'var(--bg)';
-
-            // 17 septembre 2026 (discussion "Objectifs — Arbre périodique") :
-            // trait vertical de continuité coloré à la nuance de la
-            // catégorie, uniquement quand la bulle du dessus (période
-            // précédente) est elle aussi remplie — demande d'Emilien.
-            // 20 septembre 2026 : ancien schéma à DEUX éléments/variables
-            // (.goalsGridCell::before pour la moitié haute + ::after pour la
-            // moitié basse, chacun lisant sa propre variable) remplacé par UN
-            // SEUL élément par écart, entièrement possédé par la cellule DU
-            // BAS (.goalsGridCell::before, styles.css, désormais couvre tout
-            // l'écart de 44px) — Emilien signalait une coupure visible au
-            // point de jonction entre les deux anciens éléments ; un seul
-            // élément supprime cette jonction. Variable renommée
-            // --goalsCellLineColor (remplace les deux précédentes), posée
-            // uniquement quand la période PRÉCÉDENTE est remplie (c'est elle
-            // qui possède visuellement l'écart au-dessus de cette cellule) ;
-            // repli sur var(--track-bg) sinon, comportement neutre inchangé.
-            var prevP = indexByCategory[c.key][periodIndex - 1];
-            if (prevP && prevP.mainGoalText) cell.style.setProperty('--goalsCellLineColor', filledShade);
-          } else {
-            // Aucun objectif périodique pour cette (période, catégorie) —
-            // pavé fantôme + trait de continuité, revu le 15 septembre 2026
-            // (6e passage), voir .goalsGridCell--empty, styles.css.
-            cell.className = 'goalsGridCell goalsGridCell--empty' + (p && p.isCurrent ? ' current' : '');
-          }
-
-          if (p) {
-            cell.addEventListener('click', (function (category, periodNumber) {
-              return function () { openGoalsDetail(category, periodNumber); };
-            })(c.key, p.periodNumber));
-          } else {
-            cell.disabled = true;
-          }
-          row.appendChild(cell);
-        });
-        currentGoalsPeriodInfo[periodIndex - 1] = repPeriod ? { startDate: repPeriod.startDate, endDate: repPeriod.endDate } : null;
-
-        // 26 septembre 2026 : colonne « page + » retirée définitivement de
-        // cette page (voir le commentaire au-dessus de `showAddSlot`,
-        // toujours false désormais) — bloc conservé en commentaire pour
-        // mémoire, plus jamais exécuté (showAddSlot === false).
-        // if (showAddSlot) { ... case "+" ... }
-
-        grid.appendChild(row);
-      })(i);
-    }
-
-    renderGoalsScrub();
-    window.requestAnimationFrame(syncGoalsScrubZoneTopVar);
-    window.requestAnimationFrame(syncGoalsGridWidths);
-  }
-
-  // 15 septembre 2026 (7e passage, demande d'Emilien — "un seul mode : la
-  // grille (arbre)") : renderGoalsViewToggle()/renderGoalsDistribution() et
-  // la vue "Répartition" sont retirés entièrement, pas seulement masqués —
-  // #goalsViewToggle et #goalsDistribution n'existent plus dans index.html.
-  // La grille (ex-vue "Arbre") est désormais le seul mode de la page 1.
-
-  // ===================== OBJECTIFS — PAGE 2 : DÉTAIL D'UNE PÉRIODE =====================
-  // Reprend l'essentiel du contenu qui vivait avant ce chantier directement
-  // dans #tab-goals (renderActivityGoals() et tout ce qu'elle appelle,
-  // inchangé — confirmé par Emilien, AskUserQuestion, avant ce chantier) :
-  // une page plein écran séparée (#goalsDetailPage, même motif que
-  // #activityPage), ouverte au clic sur une cellule de la grille de la
-  // page 1.
-  //
-  // 14 septembre 2026 (troisième passage) : prend désormais AUSSI la
-  // catégorie en paramètre — une cellule de la grille appartient à une
-  // colonne précise (Entreprise/Communauté/Produit), il n'y a plus un seul
-  // onglet de catégorie pour le déterminer implicitement. currentGoalsPlanning
-  // vient directement de currentGoalsAllPlannings (déjà chargé pour la
-  // grille) : aucun nouvel appel serveur pour ouvrir cette page.
-  function openGoalsDetail(category, periodNumber) {
-    currentGoalsCategory = category;
-    currentGoalsViewPeriodNumber = periodNumber;
-    var byCategory = (currentGoalsAllPlannings && currentGoalsAllPlannings.byCategory) || {};
-    currentGoalsPlanning = byCategory[category] || null;
-    if (!currentGoalsPlanning) return;
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-    // « tout en haut sur l'entête de l'application se trouve uniquement le
-    // nom de l'activité » — la catégorie, affichée ici jusque-là (« Activité
-    // · Catégorie »), déménage plus bas (.goalsCategoryLabel, voir
-    // renderActivityGoals()) et n'apparaît donc plus dans ce titre.
-    $('goalsDetailTitle').textContent = $('goalsActivityName').textContent;
-    $('goalsDetailPage').classList.remove('hidden');
-    $('goalsDetailScroll').scrollTop = 0;
-    renderActivityGoals();
-    // Page 2 ouverte : le rail tactile de la page 1 n'a plus lieu d'être
-    // atteignable derrière elle (15 septembre 2026, 5e passage).
-    updateGoalsScrubVisibility();
-    // 25 septembre 2026 (badges « non vu », restructuration du volet
-    // Objectifs en 3 pages) : ouvrir ce nœud précis de l'arbre périodique
-    // (pôle ou secteur) le marque vu — vide son badge (renderGoalsGridHead(),
-    // voir plus haut dans ce fichier, 26 septembre : déplacé depuis le menu
-    // déroulant) au prochain rechargement des badges.
-    if (currentGoalsActivityId) {
-      api('POST', '/api/activities/' + currentGoalsActivityId + '/goals/categories/' + encodeURIComponent(category) + '/mark-seen')
-        .then(loadGoalsCaptureBadges)
-        .catch(function () {});
-    }
-  }
-
-  function closeGoalsDetail() {
-    $('goalsDetailPage').classList.add('hidden');
-    // Invalide toute requête de calendrier de période encore en vol (voir
-    // loadGoalsCalendarDays() plus haut) : une réponse en retard ne doit
-    // jamais peindre une liste de jours après que la page 2 s'est refermée.
-    goalsCalendarRequestId += 1;
-    updateGoalsScrubVisibility();
-  }
-
-  $('goalsDetailBack').addEventListener('click', closeGoalsDetail);
-  // Clic sur le fond, hors de la carte : referme — même motif que
-  // #activityPage/#viewProfileModal (le test sur e.target évite de refermer
-  // sur un clic qui vient d'un élément intérieur et a juste remonté).
-  $('goalsDetailPage').addEventListener('click', function (e) {
-    if (e.target === $('goalsDetailPage')) closeGoalsDetail();
-  });
-
-  // ===================== VOLET OBJECTIFS — sélecteur d'activité =====================
-  // 13 septembre 2026 (demande d'Emilien) : Objectifs n'est plus une section
-  // de la page d'activité, c'est son propre onglet de la barre du bas — une
-  // seule activité affichée à la fois, la première de activitiesCache à
-  // l'ouverture, puis on en change en balayant horizontalement le nom de
-  // l'activité (glissement, voir bindGoalsSwipe() plus bas, même mécanisme
-  // touchstart/touchend que le retour tactile de Réglages, 10 septembre 2026)
-  // — ou, 14 septembre 2026, en tapant l'une des deux flèches ‹/› ajoutées de
-  // part et d'autre du nom (même changement d'activité, juste un second
-  // moyen d'y accéder pour les appareils sans geste tactile).
-  function openGoalsForActivity(index) {
-    var list = activitiesCache || [];
-    if (!list.length) {
-      $('goalsNoActivityHint').classList.remove('hidden');
-      $('goalsActivitySwitcher').classList.add('hidden');
-      return;
-    }
-    $('goalsNoActivityHint').classList.add('hidden');
-    $('goalsActivitySwitcher').classList.remove('hidden');
-    // Changer d'activité revient toujours à la grille — le détail resterait
-    // sinon ouvert sur une période qui appartient à l'ancienne activité.
-    closeGoalsDetail();
-
-    // Glissement circulaire : après la dernière activité on revient à la
-    // première, et inversement avant la première on revient à la dernière
-    // (demande explicite d'Emilien).
-    var n = list.length;
-    currentGoalsActivityIndex = ((index % n) + n) % n;
-    var a = list[currentGoalsActivityIndex];
-
-    currentGoalsActivityId = String(a.id);
-    currentGoalsActivityIsShared = a.membersCount > 1;
-    // Repart de la période en cours à chaque changement d'activité : la
-    // période affichée pour l'activité précédente n'a aucune raison d'être
-    // pertinente pour la nouvelle (même principe que loadActivityDetail()
-    // qui réinitialise systématiquement ses propres filtres). currentGoalsCategory
-    // ne désigne plus qu'une catégorie de PAGE 2 par défaut (jamais ouverte
-    // tant qu'aucune cellule n'a été cliquée). Seul mode désormais : la
-    // grille — plus de currentGoalsView à réinitialiser.
-    currentGoalsViewPeriodNumber = null;
-    currentGoalsCategory = 'entreprise';
-    currentGoalsAllPlannings = null;
-    // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : le pôle
-    // sélectionné et les colonnes de la grille n'ont aucune raison d'être
-    // pertinents pour la nouvelle activité — repartent à vide, comme le
-    // reste ci-dessus ; reloadGoalsAll() retombe sur le premier pôle réel de
-    // cette activité (ou sur goalsPoles() si elle n'en a aucun).
-    currentGoalsSelectedPoleKey = '';
-    currentGoalsGridColumns = null;
-    currentGoalsTasksOverview = null;
-    currentGoalsTasksOpenGroups = {};
-
-    currentGoalsActivityColor = a.color;
-    // 26 septembre 2026, demande directe d'Emilien (page 2, point a) : le
-    // nom de l'activité s'affiche désormais seul, « rien d'autre » — plus de
-    // pastille de couleur à côté (#goalsActivityDot retiré d'index.html,
-    // voir #goalsActivityPlainRow) ; la pastille qui reste sur cette page
-    // (#goalsPoleDot) est celle du pôle, posée par renderGoalsPoleSwitcher().
-    $('goalsActivityName').textContent = a.name;
-
-    // Renvoie la promesse (15 septembre 2026, discussion D) : permet à
-    // openGoalsPeriodFromNotification() de n'ouvrir la page 2 qu'une fois
-    // les données chargées, sans dupliquer reloadGoalsAll() — ne change
-    // rien pour les appelants existants, qui ignoraient déjà la valeur de
-    // retour.
-    setGoalsPage2Mode('tasks');
-    return reloadGoalsAll();
-  }
-
-  // ===================== VOLET OBJECTIFS — PAGE 1 : CAPTURE =====================
-  // 25 septembre 2026 (discussion Objectifs — Logique métier), restructuration
-  // en 3 pages sur demande directe d'Emilien — voir le commentaire de
-  // #goalsCapturePage dans index.html pour la spécification complète. Cette
-  // page devient l'écran par défaut de l'onglet Objectifs, avant même le
-  // choix d'une activité ; la grille/l'arbre périodique historique de cet
-  // onglet (#goalsActivitySwitcher, tout le code ci-dessus dans ce fichier)
-  // devient la page 2, atteinte uniquement depuis ici.
-  //
-  // Sélection multi-activités pour la capture — jamais persistée, remise à
-  // vide à chaque fois qu'on RE-montre cette page (ouverture de l'onglet,
-  // retour depuis la page 2) : repartir d'une sélection vide plutôt que de
-  // se souvenir d'un choix qui datait potentiellement d'une session précédente.
-  var goalsCaptureSelectedActivityIds = [];
-  // 26 septembre 2026, demande directe d'Emilien (page 1, point e) : vrai
-  // tant que l'utilisateur a cliqué « Ajouter » sans avoir choisi d'activité
-  // — les puces perdent leur couleur pleine (gardent le point) et l'invite
-  // #goalsCaptureActivityPrompt est visible, jusqu'à ce qu'au moins une
-  // activité soit sélectionnée. Jamais persisté au-delà de cet aller-retour.
-  var goalsCaptureAwaitingActivityChoice = false;
   // {activityId: {total, byCategory}} — voir GET /api/goals/capture/badges
   // (server/routes/goals.js). Rempli par loadGoalsCaptureBadges(), consommé
   // par renderGoalsCaptureActivities() (badge par activité, page 1) — le
@@ -9790,896 +7751,22 @@
   // périodique, voir renderGoalsGrid() plus haut dans ce fichier, laissé
   // pour un futur passage si besoin d'affiner : le total par activité suffit
   // à ce stade pour le badge de la page 1 lui-même).
-  var goalsCaptureBadges = {};
+  TMT.goalsCaptureBadges = {};
+
 
   function loadGoalsCaptureBadges() {
     return api('GET', '/api/goals/capture/badges')
       .then(function (data) {
-        goalsCaptureBadges = (data && data.activities) || {};
-        renderGoalsCaptureActivities();
+        TMT.goalsCaptureBadges = (data && data.activities) || {};
+        TMT.renderGoalsCaptureActivities();
       })
       .catch(function () { /* pas bloquant — les badges resteront simplement à jour au prochain chargement */ });
   }
 
-  // 28 septembre 2026 (backlog encart 71 du 27 septembre : « historique de
-  // tâches, même modèle que le Chrono », signalé par Emilien comme absent) —
-  // puis DEUX refontes le même jour. La première (retirée) reconstruisait le
-  // panneau de mémoire : bouton dédié avec chevron, blocs par jour. Emilien a
-  // corrigé point par point, captures d'écran du panneau Historique RÉEL du
-  // Chrono à l'appui : « ce n'est pas le même bouton que pour chrono. Il
-  // n'est pas centré, il n'a pas la même forme, pas la même couleur. Pareil
-  // pour les flèches [...] je ne t'ai jamais demandé d'avoir les jours de la
-  // semaine. Je souhaite juste avoir l'enregistrement des activités par
-  // semaine [...] puisqu'il n'y a pas d'activité visible [...] il n'y a
-  // aucun bouton supprimer ou modifier [...] Sers-toi de cette base ». Cette
-  // 2e version REPREND LITTÉRALEMENT le gabarit de #chronoHistorySection —
-  // voir buildChronoHistoryEntry()/loadChronoHistory()/renderChronoHistory()/
-  // chronoHistoryWeekLabel() plus haut dans ce fichier, laissées strictement
-  // inchangées, dont les fonctions ci-dessous sont des variantes quasi
-  // identiques adaptées aux tâches (pas de plage horaire/durée, un libellé
-  // au lieu d'une note, pas de pièces jointes). Même convention d'offset que
-  // Chrono (0 = semaine courante, un décalage positif recule dans le passé,
-  // jamais l'avenir — voir server/routes/goals.js) et même chargement
-  // paresseux (seulement à l'ouverture du panneau, pas à chaque affichage de
-  // la page 1 — voir showGoalsCapturePage() qui se contente de réinitialiser
-  // l'état, repliée et sur la semaine courante, sans requête réseau).
-  var goalsTasksHistoryWeekOffset = 0;
+  window.TMT.loadGoalsCaptureBadges = loadGoalsCaptureBadges;
 
-  // Même algorithme que chronoHistoryWeekLabel() ci-dessus (mondayOf() côté
-  // serveur) — étiquette cohérente avec la semaine réellement demandée à
-  // l'API.
-  function goalsTasksHistoryWeekLabel(offset) {
-    var ref = new Date();
-    ref.setDate(ref.getDate() - offset * 7);
-    var day = ref.getDay();
-    var diff = day === 0 ? -6 : 1 - day;
-    var monday = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + diff);
-    var sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    if (offset === 0) return t('Cette semaine');
-    var fmt = function (d) { return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); };
-    return fmt(monday) + ' – ' + fmt(sunday);
-  }
 
-  function loadGoalsTasksHistory() {
-    var weekOffset = goalsTasksHistoryWeekOffset;
-    return api('GET', '/api/goals/tasks/history?weekOffset=' + weekOffset)
-      .then(function (data) {
-        // Réponse en vol : l'utilisateur a pu changer de semaine entre-temps
-        // (clic rapide sur les flèches) — même garde que loadSecteurTasksModal.
-        if (weekOffset !== goalsTasksHistoryWeekOffset) return;
-        renderGoalsTasksHistory((data && data.tasks) || []);
-      })
-      .catch(function () { /* pas bloquant — l'historique restera simplement à jour au prochain essai */ });
-  }
 
-  function renderGoalsTasksHistory(tasks) {
-    var box = $('goalsTasksHistoryList');
-    if (!box) return;
-    box.innerHTML = '';
-    tasks.forEach(function (task) { box.appendChild(buildGoalsTasksHistoryRow(task, loadGoalsTasksHistory)); });
-    var emptyHint = $('goalsTasksHistoryEmptyHint');
-    if (emptyHint) emptyHint.classList.toggle('hidden', tasks.length > 0);
-    var labelEl = $('goalsTasksHistoryWeekLabel');
-    if (labelEl) labelEl.textContent = goalsTasksHistoryWeekLabel(goalsTasksHistoryWeekOffset);
-    var nextBtn = $('goalsTasksHistoryNextWeek');
-    if (nextBtn) nextBtn.disabled = goalsTasksHistoryWeekOffset === 0;
-  }
-
-  // Même carte que buildChronoHistoryEntry() ci-dessus (.historyEntry,
-  // .rowTop/.actName/.dot, .meta, .note, .actions, .historyEditFields) — une
-  // tâche n'a ni plage horaire ni durée ni pièces jointes, donc pas
-  // d'équivalent à timeRangeLabel()/attachBox ici. La case à cocher de
-  // Chrono n'existe PAS dans cette carte (demande explicite d'Emilien :
-  // « qu'on ne puisse pas cocher la tâche dans l'historique ») — remplacée
-  // par un simple indice texte, dans le coin où Chrono affiche sa durée.
-  function buildGoalsTasksHistoryRow(task, onChanged) {
-    var card = document.createElement('div');
-    card.className = 'historyEntry';
-
-    var activity = activitiesCache.find(function (a) { return String(a.id) === String(task.activityId); }) || { name: task.activityName, color: '#CCCCCC' };
-
-    var top = document.createElement('div');
-    top.className = 'rowTop';
-    var actName = document.createElement('span');
-    actName.className = 'actName';
-    var dot = document.createElement('span');
-    dot.className = 'dot';
-    dot.style.background = activity.color;
-    actName.appendChild(dot);
-    actName.appendChild(document.createTextNode(activity.name || task.activityName || ''));
-    top.appendChild(actName);
-    var doneMeta = document.createElement('span');
-    doneMeta.className = 'meta';
-    doneMeta.textContent = task.done ? ('✓ ' + t('Cochée')) : t('Non cochée');
-    top.appendChild(doneMeta);
-    card.appendChild(top);
-
-    var metaLine = document.createElement('div');
-    metaLine.className = 'meta';
-    var dateLabel = task.createdAt
-      ? new Date(task.createdAt).toLocaleDateString(dateLocale(), { weekday: 'long', day: '2-digit', month: '2-digit' })
-      : '';
-    metaLine.textContent = [dateLabel, task.categoryLabel].filter(Boolean).join(' · ');
-    card.appendChild(metaLine);
-
-    var noteEl = document.createElement('div');
-    noteEl.className = 'note';
-    noteEl.textContent = task.label;
-    card.appendChild(noteEl);
-
-    var actions = document.createElement('div');
-    actions.className = 'actions';
-    var editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.className = 'iconBtn';
-    editBtn.textContent = t('Modifier');
-    var delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'iconBtn danger';
-    delBtn.textContent = t('Supprimer');
-    actions.appendChild(editBtn);
-    actions.appendChild(delBtn);
-    card.appendChild(actions);
-
-    var editFields = document.createElement('div');
-    editFields.className = 'historyEditFields hidden';
-    editFields.innerHTML =
-      '<p class="stopFieldLabel">' + t('Tâche') + '</p>' +
-      '<input type="text" class="historyEditTaskLabel" maxlength="300">' +
-      '<p class="historyEditMsg msg"></p>' +
-      '<div class="rowActions">' +
-        '<button type="button" class="iconBtn historyEditCancel">' + t('Annuler') + '</button>' +
-        '<button type="button" class="iconBtn historyEditSave">' + t('Enregistrer') + '</button>' +
-      '</div>';
-    card.appendChild(editFields);
-
-    var labelInput = editFields.querySelector('.historyEditTaskLabel');
-    var editMsg = editFields.querySelector('.historyEditMsg');
-    var saveBtn = editFields.querySelector('.historyEditSave');
-    var cancelBtn = editFields.querySelector('.historyEditCancel');
-
-    editBtn.addEventListener('click', function () {
-      editMsg.textContent = '';
-      labelInput.value = task.label;
-      editFields.classList.remove('hidden');
-      actions.classList.add('hidden');
-    });
-    cancelBtn.addEventListener('click', function () {
-      editFields.classList.add('hidden');
-      actions.classList.remove('hidden');
-    });
-    saveBtn.addEventListener('click', function () {
-      var value = labelInput.value.trim();
-      if (!value) { editMsg.textContent = t('Intitulé requis.'); return; }
-      saveBtn.disabled = true;
-      cancelBtn.disabled = true;
-      api('PUT', '/api/sub-project-items/' + task.id, { userId: profile.id, label: value })
-        .then(onChanged)
-        .catch(function (err) {
-          editMsg.textContent = err.message;
-          saveBtn.disabled = false;
-          cancelBtn.disabled = false;
-        });
-    });
-
-    delBtn.addEventListener('click', function () {
-      if (!confirm(t('Supprimer définitivement cette tâche ?'))) return;
-      api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + profile.id).then(onChanged).catch(function (err) { alert(err.message); });
-    });
-
-    return card;
-  }
-
-  // Toute la ligne d'en-tête ("Historique") est cliquable pour déplier/
-  // replier le panneau — c'est elle-même le bouton, sans aucun chevron à
-  // côté, exactement comme $('chronoHistoryHeader') ci-dessus (demande
-  // d'Emilien, corrigée le 28 septembre : « il n'est pas centré, il n'a pas
-  // la même forme, pas la même couleur » — la bulle dédiée de la 1ère
-  // version est retirée au profit de .sectionTitleRow/.sectionTitle,
-  // classes génériques déjà utilisées par Chrono).
-  var goalsTasksHistoryHeaderEl = $('goalsTasksHistoryHeader');
-  if (goalsTasksHistoryHeaderEl) {
-    goalsTasksHistoryHeaderEl.addEventListener('click', function () {
-      var opening = $('goalsTasksHistoryPanel').classList.contains('hidden');
-      $('goalsTasksHistoryPanel').classList.toggle('hidden', !opening);
-      if (opening) { goalsTasksHistoryWeekOffset = 0; loadGoalsTasksHistory(); }
-    });
-  }
-  var goalsTasksHistoryPrevBtn = $('goalsTasksHistoryPrevWeek');
-  if (goalsTasksHistoryPrevBtn) {
-    goalsTasksHistoryPrevBtn.addEventListener('click', function () {
-      goalsTasksHistoryWeekOffset += 1;
-      loadGoalsTasksHistory();
-    });
-  }
-  var goalsTasksHistoryNextBtn = $('goalsTasksHistoryNextWeek');
-  if (goalsTasksHistoryNextBtn) {
-    goalsTasksHistoryNextBtn.addEventListener('click', function () {
-      if (goalsTasksHistoryWeekOffset === 0) return;
-      goalsTasksHistoryWeekOffset -= 1;
-      loadGoalsTasksHistory();
-    });
-  }
-
-  function toggleGoalsCaptureActivitySelection(activityId) {
-    var id = String(activityId);
-    var idx = goalsCaptureSelectedActivityIds.indexOf(id);
-    if (idx === -1) goalsCaptureSelectedActivityIds.push(id); else goalsCaptureSelectedActivityIds.splice(idx, 1);
-    renderGoalsCaptureActivities();
-  }
-
-  // Double fonction demandée par Emilien (voir #goalsCapturePage,
-  // index.html) : zone de texte VIDE + clic sur une activité → navigue
-  // directement sur sa page 2, plutôt que de la sélectionner pour la
-  // capture. Le contenu réel du texte (pas seulement sa présence) tranche à
-  // chaque clic, jamais un mode figé au chargement de la page — l'utilisateur
-  // peut très bien commencer à sélectionner des activités, tout effacer, puis
-  // cliquer à nouveau pour naviguer.
-  function renderGoalsCaptureActivities() {
-    var box = $('goalsCaptureActivities');
-    if (!box) return;
-    box.innerHTML = '';
-    var list = activitiesCache || [];
-    // 27 septembre 2026, dernière révision d'Emilien sur l'apparence des
-    // puces (remplace l'état « au repos » pastel de la veille) : « la
-    // couleur des activités ne soit plus pastel, mais leur couleur [...]
-    // choisie par l'utilisateur » (au repos, plein) ; « retirer le point
-    // coloré lorsqu'aucune activité a été écrite » (au repos, pas de point,
-    // redondant avec la bulle déjà colorée) ; et pour la sélection en train
-    // d'écrire, « que ce ne soit plus la case au complet qui soit colorée,
-    // mais le point coloré qui se comble et le contour de la bulle qui
-    // apparaisse aux couleurs de l'activité — prendre modèle sur l'option 1
-    // contour discret ». L'état « en train d'écrire, pas sélectionnée »
-    // (option C, badge discret) est inchangé depuis le 26 septembre. Une
-    // puce ne peut être sélectionnée QUE si du texte a déjà été écrit (sinon
-    // un clic navigue directement vers la page 2, voir plus bas) — donc
-    // « sélectionnée » et « au repos » ne se combinent jamais en pratique,
-    // mais le code ne suppose pas cet invariant : il teste explicitement
-    // `typing`.
-    var bubbleWrapEl = $('goalsCaptureBubbleWrap');
-    var textareaEl = bubbleWrapEl ? bubbleWrapEl.querySelector('textarea') : null;
-    var typing = !!(textareaEl && textareaEl.value.trim());
-    list.forEach(function (a) {
-      var id = String(a.id);
-      var isSelected = goalsCaptureSelectedActivityIds.indexOf(id) !== -1;
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'goalsCaptureActivityChip' + (isSelected ? ' selected' : '');
-
-      var dot = document.createElement('span');
-      dot.className = 'dot';
-
-      var name = document.createElement('span');
-      name.className = 'goalsCaptureActivityChipName';
-      name.textContent = a.name;
-
-      // Mode « attente de choix d'activité » (point e, encart 59) : traité
-      // comme l'état « en train d'écrire, pas sélectionnée » sur toutes les
-      // puces tant qu'aucune n'est choisie — même rendu, rien de plus à
-      // inventer pour lui.
-      var showDot = true;
-      if (goalsCaptureAwaitingActivityChoice || (typing && !isSelected)) {
-        // Option C — badge discret : fond et liseré neutres, point en
-        // anneau creux dans la couleur de l'activité.
-        btn.style.background = 'var(--card)';
-        btn.style.borderColor = 'var(--border)';
-        btn.style.color = 'var(--text)';
-        dot.style.background = 'var(--card)';
-        dot.style.border = '2px solid ' + a.color;
-      } else if (typing && isSelected) {
-        // 27 septembre 2026, demande d'Emilien : « le point coloré qui se
-        // comble et le contour de la bulle qui apparaisse aux couleurs de
-        // l'activité [...] prendre modèle sur l'option 1 contour discret »
-        // — fond neutre (comme l'état « pas sélectionnée » ci-dessus), le
-        // contour ET le point plein (au lieu de l'anneau creux) signalent la
-        // sélection, plus la bulle entière.
-        btn.style.background = 'var(--card)';
-        btn.style.borderColor = a.color;
-        btn.style.color = 'var(--text)';
-        dot.style.background = a.color;
-        dot.style.border = 'none';
-      } else {
-        // Au repos — 27 septembre 2026, demande d'Emilien : « la couleur des
-        // activités ne soit plus pastel, mais leur couleur [...] choisie par
-        // l'utilisateur » (retour à la couleur pleine, remplace le pastel de
-        // la veille). Le point est retiré : « retirer le point coloré
-        // lorsqu'aucune activité a été écrite » — redondant avec la bulle
-        // déjà colorée dans son ensemble.
-        btn.style.background = a.color;
-        btn.style.borderColor = a.color;
-        btn.style.color = textColorForTheme(currentTheme);
-        showDot = false;
-      }
-
-      if (showDot) btn.appendChild(dot);
-      btn.appendChild(name);
-
-      // Badge violet « non vu » — jamais un compteur cumulatif, voir
-      // server/lib/goalstasks.js#unseenCountsForActivity.
-      var badgeInfo = goalsCaptureBadges[a.id] || goalsCaptureBadges[id];
-      if (badgeInfo && badgeInfo.total > 0) {
-        var badge = document.createElement('span');
-        badge.className = 'goalsCaptureBadge';
-        badge.textContent = String(badgeInfo.total);
-        btn.appendChild(badge);
-      }
-
-      btn.addEventListener('click', function () {
-        var wrap = $('goalsCaptureBubbleWrap');
-        var textarea = wrap ? wrap.querySelector('textarea') : null;
-        var hasText = textarea && textarea.value.trim();
-        if (hasText) {
-          toggleGoalsCaptureActivitySelection(id);
-          // 27 septembre 2026, demande directe d'Emilien : « je souhaite que
-          // le message 'quelle activité pour cette tâche' ne disparaisse pas
-          // lorsque je choisis une activité » — on sort seulement du mode
-          // « attente » (pour que la puce choisie reprenne sa couleur
-          // pleine, voir renderGoalsCaptureActivities()), sans masquer
-          // l'invite elle-même : elle ne se ferme désormais que sur un envoi
-          // réussi (submit() plus bas), plus au premier choix d'activité.
-          if (goalsCaptureAwaitingActivityChoice && goalsCaptureSelectedActivityIds.length) {
-            goalsCaptureAwaitingActivityChoice = false;
-            renderGoalsCaptureActivities();
-          }
-        } else {
-          showGoalsPolesPage(a.id);
-        }
-      });
-
-      box.appendChild(btn);
-    });
-  }
-
-  // Nouvelle bulle de capture de la page 1 — même gabarit visuel qu'à
-  // l'identique dans buildCategoryAutoTaskBubble()/attachAutoTaskGlow() plus
-  // haut (demande explicite d'Emilien, « reprend exactement à l'identique »),
-  // mais dispatchée sur PLUSIEURS activités à la fois (POST /api/goals/capture,
-  // server/lib/goalstaskclassify.js#captureTaskForActivities) au lieu d'une
-  // seule (POST .../categories/auto-task, route à part, inchangée). Pas de
-  // file hors ligne ici (capture hors ligne, territoire d'une autre
-  // discussion, scopé à l'ancien point d'entrée de la section Catégories —
-  // voir claude/noesis-timetracker-taches-categories-reference-discussion-c.md) :
-  // cette nouvelle bulle demande une connexion réseau, limite assumée et
-  // documentée plutôt que cachée.
-  function buildGoalsCaptureBubble() {
-    var outer = document.createElement('div');
-    outer.className = 'activityGoalsCategoryAutoTaskWrapOuter';
-
-    var wrap = document.createElement('div');
-    wrap.className = 'activityGoalsCategoryAutoTaskBubble';
-    outer.appendChild(wrap);
-
-    attachAutoTaskGlow(wrap);
-
-    var textarea = document.createElement('textarea');
-    textarea.rows = 4;
-    textarea.maxLength = 300;
-    // 27 septembre 2026, demande d'Emilien : garder un texte proche de
-    // l'ancien plutôt que la formulation « Nouvelle tâche… choisis une ou
-    // plusieurs activités », avec des points de suspension à la fin.
-    textarea.placeholder = t('Écris une nouvelle tâche, l\'IA l\'organise dans tes projets...');
-
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'iconBtn';
-    btn.textContent = t('Ajouter');
-
-    var msg = document.createElement('p');
-    msg.className = 'msg';
-
-    function submit() {
-      var label = textarea.value.trim();
-      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
-      if (!goalsCaptureSelectedActivityIds.length) {
-        // 26 septembre 2026, demande directe d'Emilien (page 1, point e) :
-        // plus un simple message d'erreur dans la bulle — le clavier se
-        // referme et une invite apparaît entre la bulle et les puces (voir
-        // renderGoalsCaptureActivities() pour la sortie de ce mode).
-        textarea.blur();
-        msg.textContent = '';
-        goalsCaptureAwaitingActivityChoice = true;
-        var promptEl = $('goalsCaptureActivityPrompt');
-        if (promptEl) promptEl.classList.remove('hidden');
-        renderGoalsCaptureActivities();
-        return;
-      }
-      goalsCaptureAwaitingActivityChoice = false;
-      var promptElDone = $('goalsCaptureActivityPrompt');
-      if (promptElDone) promptElDone.classList.add('hidden');
-      msg.textContent = '';
-      btn.disabled = true;
-      api('POST', '/api/goals/capture', { userId: profile.id, label: label, activityIds: goalsCaptureSelectedActivityIds })
-        .then(function (data) {
-          textarea.value = '';
-          goalsCaptureSelectedActivityIds = [];
-          var results = (data && data.results) || [];
-          var pending = document.createElement('div');
-          pending.className = 'activityGoalsCategoryAutoTaskPending';
-          results.forEach(function (r) {
-            var activityName = '';
-            (activitiesCache || []).forEach(function (a) { if (String(a.id) === String(r.activityId)) activityName = a.name; });
-            var row = document.createElement('p');
-            row.className = 'meta activityGoalsCategoryAutoTaskPendingRow';
-            // 27 septembre 2026, demande d'Emilien : « il y a beaucoup trop
-            // de couleurs sur cette page [...] les messages de validation »
-            // — seule l'icône ✓/✗ reste colorée (goalsCaptureResultIcon,
-            // styles.css), le texte de la ligne redevient neutre. Classe
-            // additive goalsCaptureResultRow, scopée à CETTE bulle : la base
-            // .activityGoalsCategoryAutoTaskPendingRow.isSuccess/isFailed
-            // (toute la ligne colorée) reste inchangée pour
-            // buildCategoryAutoTaskBubble() plus bas, hors de ce périmètre.
-            if (r.ok) {
-              row.classList.add('isSuccess', 'goalsCaptureResultRow');
-              var iconOk = document.createElement('span');
-              iconOk.className = 'goalsCaptureResultIcon';
-              iconOk.textContent = '✓';
-              row.appendChild(iconOk);
-              row.appendChild(document.createTextNode(' ' + label + ' — ' + (activityName || '') + (r.categoryLabel ? ' · ' + r.categoryLabel : '') + (r.dueDate ? ' · ' + calendarDayLabel(r.dueDate) : '')));
-            } else {
-              row.classList.add('isFailed', 'goalsCaptureResultRow');
-              var iconFail = document.createElement('span');
-              iconFail.className = 'goalsCaptureResultIcon';
-              iconFail.textContent = '✗';
-              row.appendChild(iconFail);
-              row.appendChild(document.createTextNode(' ' + label + ' — ' + (activityName || '') + ' : ' + (r.error || t('non ajoutée'))));
-            }
-            pending.appendChild(row);
-          });
-          var wrapEl = $('goalsCaptureBubbleWrap');
-          if (wrapEl) {
-            var oldPending = wrapEl.querySelector('.activityGoalsCategoryAutoTaskPending');
-            if (oldPending) oldPending.remove();
-            wrapEl.appendChild(pending);
-          }
-          renderGoalsCaptureActivities();
-          loadGoalsCaptureBadges();
-        })
-        .catch(function (err) { msg.textContent = err.message; })
-        .then(function () { btn.disabled = false; });
-    }
-    btn.addEventListener('click', submit);
-    textarea.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
-    });
-    // 26 septembre 2026, demande directe d'Emilien : l'apparence des puces
-    // doit changer EN DIRECT selon que la zone de texte est vide ou non
-    // (voir renderGoalsCaptureActivities(), état « en train d'écrire ») —
-    // pas seulement à l'ouverture de la page ou après l'envoi.
-    textarea.addEventListener('input', function () { renderGoalsCaptureActivities(); });
-    // Sélectionner/désélectionner une activité doit rafraîchir l'affichage
-    // « sélectionnée » des puces sans perdre le texte déjà écrit — pas de
-    // dépendance particulière ici, renderGoalsCaptureActivities() lit
-    // toujours goalsCaptureSelectedActivityIds au moment où elle est
-    // rappelée par toggleGoalsCaptureActivitySelection().
-    wrap.appendChild(textarea);
-    wrap.appendChild(btn);
-    wrap.appendChild(msg);
-
-    return outer;
-  }
-
-  function renderGoalsCaptureBubble() {
-    var wrapEl = $('goalsCaptureBubbleWrap');
-    if (!wrapEl) return;
-    wrapEl.innerHTML = '';
-    wrapEl.appendChild(buildGoalsCaptureBubble());
-  }
-
-  // Écran par défaut de l'onglet Objectifs — voir le commentaire de tête de
-  // cette section. Repart d'une sélection vide et rafraîchit les badges à
-  // chaque fois (l'utilisateur peut revenir ici après avoir vu/ajouté des
-  // tâches ailleurs). Le panneau Historique, lui, repart REPLIÉ et sur la
-  // semaine courante mais n'est PAS rechargé ici (chargement paresseux,
-  // seulement à l'ouverture — voir le câblage de #goalsTasksHistoryHeader) :
-  // pas besoin d'une requête réseau tant que l'utilisateur ne l'a pas ouvert.
-  function showGoalsCapturePage() {
-    var list = activitiesCache || [];
-    if (!list.length) {
-      $('goalsCapturePage').classList.add('hidden');
-      $('goalsActivitySwitcher').classList.add('hidden');
-      $('goalsNoActivityHint').classList.remove('hidden');
-      return;
-    }
-    $('goalsNoActivityHint').classList.add('hidden');
-    $('goalsActivitySwitcher').classList.add('hidden');
-    closeGoalsDetail();
-    $('goalsCapturePage').classList.remove('hidden');
-    goalsCaptureSelectedActivityIds = [];
-    goalsCaptureAwaitingActivityChoice = false;
-    var promptElReset = $('goalsCaptureActivityPrompt');
-    if (promptElReset) promptElReset.classList.add('hidden');
-    renderGoalsCaptureBubble();
-    renderGoalsCaptureActivities();
-    loadGoalsCaptureBadges();
-    goalsTasksHistoryWeekOffset = 0;
-    var histPanel = $('goalsTasksHistoryPanel');
-    if (histPanel) histPanel.classList.add('hidden');
-  }
-
-  // Navigue vers la page 2 (pôles + arbre périodique) d'une activité précise
-  // — depuis un clic sur une puce d'activité de la page 1 (texte vide) ou le
-  // bouton « retour » de la page 2 en sens inverse (voir
-  // #goalsBackToCaptureBtn ci-dessous). Marque l'activité entière comme vue
-  // (mark-seen) : l'utilisateur vient d'y entrer, même principe que « visiter
-  // une liste la vide de son badge » demandé par Emilien.
-  function showGoalsPolesPage(activityId) {
-    $('goalsCapturePage').classList.add('hidden');
-    var list = activitiesCache || [];
-    var idx = -1;
-    list.forEach(function (a, i) { if (idx === -1 && String(a.id) === String(activityId)) idx = i; });
-    if (idx === -1) idx = currentGoalsActivityIndex;
-    openGoalsForActivity(idx);
-    api('POST', '/api/activities/' + activityId + '/goals/categories/mark-seen').catch(function () {});
-  }
-
-  function loadGoalsTab() {
-    if (!profile) return;
-    // activitiesCache est déjà tenu à jour par l'onglet Activité/le Chrono
-    // (refreshActivities()) — pas de rechargement systématique ici pour ne
-    // pas ralentir l'ouverture du volet, seulement s'il n'a jamais été
-    // rempli (première ouverture de session sur ce volet en particulier).
-    // ⚠️ 25 septembre 2026 (restructuration en 3 pages, demande directe
-    // d'Emilien) : montre désormais la page 1 (capture) par défaut, jamais
-    // plus directement la grille d'une activité — openGoalsForActivity()
-    // n'est appelée que depuis showGoalsPolesPage() (clic sur une activité,
-    // texte vide) ou openGoalsPeriodFromNotification() (lien profond d'une
-    // notification, ci-dessous, inchangé).
-    var ready = activitiesCache && activitiesCache.length ? Promise.resolve(activitiesCache) : refreshActivities();
-    ready.then(function () { showGoalsCapturePage(); });
-  }
-
-  // Rappel de fin de période (server/lib/goalreminders.js, 15 septembre
-  // 2026, discussion D) : ouvre l'onglet Objectifs directement sur la bonne
-  // activité puis la page 2 de la bonne période, appelée depuis
-  // openTabFromNotification() ci-dessous. Attend la même promesse que
-  // loadGoalsTab() (activitiesCache déjà prêt ou refreshActivities()) avant
-  // de choisir l'activité : comme switchTab('goals') déclenche déjà
-  // loadGoalsTab() (qui ouvre désormais la page 1 par défaut), on
-  // s'enregistre APRÈS lui pour que notre choix soit le dernier appliqué
-  // plutôt que le premier — même ordre d'exécution des microtâches que
-  // l'enregistrement des deux `.then()`, voir l'appel dans
-  // openTabFromNotification(). Referme explicitement la page 1 : un lien
-  // profond de notification doit atterrir directement sur la période visée,
-  // jamais sur l'écran de capture.
-  function openGoalsPeriodFromNotification(activityId, category, periodNumber) {
-    $('goalsCapturePage').classList.add('hidden');
-    var ready = activitiesCache && activitiesCache.length ? Promise.resolve(activitiesCache) : refreshActivities();
-    ready.then(function (list) {
-      var idx = -1;
-      (list || []).forEach(function (a, i) { if (idx === -1 && String(a.id) === String(activityId)) idx = i; });
-      if (idx === -1) return;
-      var loaded = openGoalsForActivity(idx);
-      if (loaded && loaded.then && category && periodNumber) {
-        loaded.then(function () { openGoalsDetail(category, periodNumber); });
-      }
-    });
-  }
-
-  // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages) —
-  // voir le commentaire du bouton dans index.html.
-  $('goalsBackToCaptureBtn').addEventListener('click', function () {
-    showGoalsCapturePage();
-  });
-
-  // ===================== VOLET OBJECTIFS — PAGE 2 : ÉCRAN « TÂCHES » =====================
-  // 27 septembre 2026, chantier « Tâches quotidiennes intégrées à la Page 2 »
-  // (routé par Aiguillage, coordonné avec Tâche - Pôles & secteurs sur le
-  // contrat de données). Page 2 s'ouvre désormais par défaut sur cet écran
-  // (bascule 2 segments, gabarit .communityModeSwitch) plutôt que directement
-  // sur l'arbre périodique (#goalsObjectifsView, inchangé, juste enveloppé).
-  //
-  // ⚠️ Contrat de données : GET /api/activities/:id/goals/tasks/overview,
-  // proposé par Tâche - Pôles & secteurs (converge sur leur version, plus
-  // simple qu'une première proposition de ma part) :
-  //   { done, total, percent, groups: [
-  //       { key, poleKey, label, isPole, description, done, total, percent,
-  //         tasks: [{ id, label, done, dueDate, position, autoCaptured }] }
-  //   ] }
-  // isPole=true : pôle SANS secteur (aucune imbrication, rendu à plat,
-  // toujours déplié). isPole=false : secteur (rendu en accordéon, replié par
-  // défaut, état retenu dans currentGoalsTasksOpenGroups). Un pôle AVEC
-  // secteurs ne peut pas posséder ses propres tâches (confirmé par Emilien,
-  // 27 septembre 2026) — n'apparaît donc jamais lui-même dans "groups", seuls
-  // ses secteurs y figurent.
-  //
-  // ⚠️ Cette route n'existe pas encore côté serveur au moment de cette
-  // écriture — l'appel échoue silencieusement (.catch vide) tant que
-  // Tâche - Pôles & secteurs n'a pas déployé son côté : l'écran reste alors
-  // vide (juste #goalsTasksEmptyHint, texte par défaut du HTML), sans erreur
-  // visible pour Emilien.
-  //
-  // ⚠️ Case à cocher ET croix de suppression : réutilisent TELLES QUELLES
-  // PUT/DELETE /api/sub-project-items/:id (mêmes routes que buildTaskRow()
-  // plus haut), en supposant que les tâches de catégorie Objectifs sont des
-  // lignes de la même table sub_project_items (mêmes champs
-  // id/label/done/dueDate/position/autoCaptured) simplement rattachées par
-  // une clé de catégorie/pôle/secteur plutôt que par un subProjectId.
-  // Hypothèse signalée à Tâche - Pôles & secteurs pour confirmation/
-  // correction — à ajuster ici si les routes réelles diffèrent.
-  //
-  // ⚠️ 28 septembre 2026, demande directe d'Emilien : « je souhaite que dans
-  // tâches, les secteurs apparaissent exactement dans le même format que la
-  // section actuelle sous projet [...] Prends comme modèle le code de la
-  // section sous-projet du main actuel ». buildGoalsTasksGroup()/
-  // buildGoalsTaskRow() ci-dessous réutilisent donc littéralement le gabarit
-  // visuel d'un sous-projet (.subProjectRow, voir renderSubProjectsList()/
-  // buildTaskRow() plus haut) : nom + badge %/compte, description (si le
-  // pôle/secteur en a une, attribuée via la fenêtre d'activité, section
-  // Catégories — champ `description` désormais réclamé dans le contrat
-  // ci-dessus), barre d'avancement, puis les tâches avec case à cocher +
-  // croix de suppression rouge. La zone d'avancement global (plus bas)
-  // réutilise de même .activityProgressCard (Sous-projets) au lieu d'un
-  // gabarit propre — voir le commentaire à côté de #goalsTasksProgressWrap,
-  // index.html.
-  function setGoalsPage2Mode(mode) {
-    currentGoalsPage2Mode = mode;
-    var tasksBtn = $('goalsPage2ModeTasksBtn');
-    var goalsBtn = $('goalsPage2ModeGoalsBtn');
-    if (tasksBtn) tasksBtn.classList.toggle('active', mode === 'tasks');
-    if (goalsBtn) goalsBtn.classList.toggle('active', mode === 'goals');
-    var tasksView = $('goalsTasksView');
-    var objectifsView = $('goalsObjectifsView');
-    if (tasksView) tasksView.classList.toggle('hidden', mode !== 'tasks');
-    if (objectifsView) objectifsView.classList.toggle('hidden', mode !== 'goals');
-    if (mode === 'tasks') loadGoalsTasksOverview();
-  }
-  $('goalsPage2ModeTasksBtn').addEventListener('click', function () { setGoalsPage2Mode('tasks'); });
-  $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
-
-  function loadGoalsTasksOverview() {
-    var activityId = currentGoalsActivityId;
-    if (!activityId) return;
-    api('GET', '/api/activities/' + activityId + '/goals/tasks/overview')
-      .then(function (data) {
-        // L'utilisateur a pu changer d'activité ou de pôle pendant l'aller-
-        // retour serveur — ignorer une réponse devenue obsolète (même garde
-        // que reloadGoalsAll() ailleurs dans ce fichier).
-        if (String(activityId) !== String(currentGoalsActivityId)) return;
-        currentGoalsTasksOverview = data;
-        renderGoalsTasksOverview(data);
-      })
-      .catch(function () {
-        // Route pas encore en ligne côté serveur, ou hors-ligne : l'écran
-        // reste tel quel (voir le commentaire en tête de section).
-      });
-  }
-
-  function renderGoalsTasksOverview(data) {
-    var wrap = $('goalsTasksProgressWrap');
-    // Règle R1 (même principe que renderActivityProgressRing()) : jamais de
-    // « 0% » trompeur avant le premier chargement réel — l'anneau reste
-    // masqué tant que percent est null/undefined.
-    if (!data || data.percent === null || data.percent === undefined) {
-      wrap.classList.add('hidden');
-    } else {
-      wrap.classList.remove('hidden');
-      // r=19, identique à renderActivityProgressRing() (Sous-projets) — voir
-      // le commentaire à côté de #goalsTasksProgressWrap, index.html.
-      var circumference = 2 * Math.PI * 19;
-      var fill = $('goalsTasksProgressRingFill');
-      fill.style.strokeDasharray = circumference.toFixed(2);
-      fill.style.strokeDashoffset = (circumference * (1 - data.percent / 100)).toFixed(2);
-      $('goalsTasksProgressPercent').textContent = data.percent + '%';
-      $('goalsTasksProgressCount').textContent =
-        data.done + ' / ' + data.total + t(' tâches complétées');
-    }
-
-    var list = $('goalsTasksGroups');
-    list.innerHTML = '';
-    var groups = (data && data.groups) || [];
-    groups.forEach(function (g) { list.appendChild(buildGoalsTasksGroup(g)); });
-
-    var emptyHint = $('goalsTasksEmptyHint');
-    emptyHint.textContent = groups.length
-      ? ''
-      : t('Aucun pôle pour le moment — ajoutez-en un depuis la fenêtre de l’activité, section Catégories.');
-    emptyHint.classList.toggle('hidden', groups.length > 0);
-  }
-
-  // Gabarit repris tel quel d'une ligne sous-projet (.subProjectRow, voir
-  // renderSubProjectsList() plus haut) — demande explicite d'Emilien, voir
-  // le commentaire en tête de section. Un pôle sans secteur (g.isPole) reste
-  // toujours déplié (pas de chevron, pas de clic sur l'en-tête) ; un secteur
-  // est un accordéon replié par défaut, état retenu dans
-  // currentGoalsTasksOpenGroups le temps de rester sur cet écran.
-  function buildGoalsTasksGroup(g) {
-    var row = document.createElement('div');
-    row.className = 'activityRow subProjectRow goalsTasksGroup' + (g.isPole ? ' goalsTasksGroupFlat' : '')
-      + (!g.isPole && currentGoalsTasksOpenGroups[g.key] ? ' open' : '');
-    row.dataset.groupKey = g.key;
-
-    var isOpen = g.isPole || !!currentGoalsTasksOpenGroups[g.key];
-
-    var header = document.createElement('div');
-    header.className = 'activityRowHeader subProjectRowHeader';
-
-    if (!g.isPole) {
-      var chevron = document.createElement('span');
-      chevron.className = 'goalsTasksGroupChevron';
-      chevron.textContent = '›';
-      header.appendChild(chevron);
-    }
-
-    var name = document.createElement('span');
-    name.className = 'activityRowName';
-    name.textContent = g.label;
-    header.appendChild(name);
-
-    var badge = document.createElement('span');
-    badge.className = 'meta subProjectBadge';
-    badge.textContent = g.percent === null || g.percent === undefined
-      ? t('Aucune tâche')
-      : g.percent + '% · ' + g.done + '/' + g.total;
-    header.appendChild(badge);
-
-    row.appendChild(header);
-
-    if (!g.isPole) {
-      header.addEventListener('click', function () {
-        currentGoalsTasksOpenGroups[g.key] = !currentGoalsTasksOpenGroups[g.key];
-        renderGoalsTasksOverview(currentGoalsTasksOverview);
-      });
-    }
-
-    // Description du pôle/secteur (attribuée via la fenêtre d'activité,
-    // section Catégories) — demande explicite d'Emilien, affichée seulement
-    // si présente, même gabarit que .subProjectRowDesc.
-    if (g.description) {
-      var desc = document.createElement('p');
-      desc.className = 'meta subProjectRowDesc';
-      desc.textContent = g.description;
-      row.appendChild(desc);
-    }
-
-    var track = document.createElement('div');
-    track.className = 'subProjectProgressTrack subProjectRowTrack';
-    var barFill = document.createElement('div');
-    barFill.className = 'subProjectProgressFill';
-    barFill.style.width = (g.percent || 0) + '%';
-    track.appendChild(barFill);
-    row.appendChild(track);
-
-    if (isOpen) {
-      var items = document.createElement('div');
-      items.className = 'subProjectItems';
-      (g.tasks || []).forEach(function (task) { items.appendChild(buildGoalsTaskRow(task)); });
-      row.appendChild(items);
-
-      if (!g.tasks || !g.tasks.length) {
-        var hint = document.createElement('p');
-        hint.className = 'hint';
-        hint.textContent = t('Aucune tâche — ajoute la première ci-dessous.');
-        row.appendChild(hint);
-      }
-
-      appendGoalsTaskAddRow(row, g.key);
-    }
-
-    return row;
-  }
-
-  function buildGoalsTaskRow(task) {
-    var row = document.createElement('div');
-    row.className = 'subProjectItem' + (task.done ? ' done' : '');
-
-    var cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = !!task.done;
-    cb.addEventListener('change', function () {
-      cb.disabled = true;
-      api('PUT', '/api/sub-project-items/' + task.id, { userId: profile.id, done: cb.checked })
-        .then(function () { loadGoalsTasksOverview(); })
-        .catch(function (err) { cb.checked = !cb.checked; alert(err.message); })
-        .then(function () { cb.disabled = false; });
-    });
-    row.appendChild(cb);
-
-    var label = document.createElement('span');
-    label.className = 'subProjectItemLabel';
-    // Mêmes précautions que buildTaskRow() : jamais innerHTML, le texte peut
-    // venir d'un autre membre de l'activité partagée. Répond aussi à la
-    // demande d'Emilien « insérer dans les tâches des liens sur lesquels on
-    // peut directement cliquer » — déjà satisfaite par appendLinkified().
-    appendLinkified(label, task.label);
-    row.appendChild(label);
-
-    // 28 septembre 2026, demande directe d'Emilien : « en dessous les tâches
-    // avec une croix rouge pour les supprimer » — même gabarit que la croix
-    // de suppression déjà utilisée ailleurs (.discussionMsgDelete),
-    // confirmation native puis DELETE /api/sub-project-items/:id (voir
-    // l'hypothèse de route signalée en tête de section).
-    var del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'discussionMsgDelete';
-    del.textContent = '✕';
-    del.title = t('Supprimer cette tâche');
-    del.setAttribute('aria-label', t('Supprimer cette tâche'));
-    del.addEventListener('click', function () {
-      if (!confirm(t('Supprimer cette tâche ?'))) return;
-      api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + profile.id)
-        .then(function () { loadGoalsTasksOverview(); })
-        .catch(function (err) { alert(err.message); });
-    });
-    row.appendChild(del);
-
-    return row;
-  }
-
-  function appendGoalsTaskAddRow(parent, groupKey) {
-    var add = document.createElement('div');
-    add.className = 'subProjectItemAdd';
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 300;
-    input.placeholder = t('Ajouter une tâche...');
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'iconBtn';
-    btn.textContent = t('Ajouter');
-    var msg = document.createElement('p');
-    msg.className = 'msg';
-
-    function submit() {
-      var label = input.value.trim();
-      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
-      msg.textContent = '';
-      btn.disabled = true;
-      api('POST', '/api/activities/' + currentGoalsActivityId + '/goals/categories/' + groupKey + '/tasks',
-        { userId: profile.id, label: label })
-        .then(function () { input.value = ''; loadGoalsTasksOverview(); })
-        .catch(function (err) { msg.textContent = err.message; })
-        .then(function () { btn.disabled = false; });
-    }
-    btn.addEventListener('click', submit);
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); submit(); }
-    });
-
-    add.appendChild(input);
-    add.appendChild(btn);
-    parent.appendChild(add);
-    parent.appendChild(msg);
-  }
-  // 26 septembre 2026, demande directe d'Emilien (page 2, point d) : ces
-  // flèches et ce balayage naviguaient entre ACTIVITÉS — elles naviguent
-  // désormais entre PÔLES (#goalsActivityHeader est le sélecteur de pôle,
-  // voir renderGoalsPoleSwitcher()/openGoalsForPole() plus haut ; changer
-  // d'activité depuis cette page n'est plus possible, voir le commentaire
-  // d'index.html sur #goalsActivityPlainRow).
-  $('goalsPrevPoleBtn').addEventListener('click', function () {
-    openGoalsForPole(currentGoalsPoleIndex - 1);
-  });
-  $('goalsNextPoleBtn').addEventListener('click', function () {
-    openGoalsForPole(currentGoalsPoleIndex + 1);
-  });
-
-  // Balayage horizontal sur le sélecteur de pôle — mêmes seuils que le
-  // geste de retour tactile de Réglages (10 septembre 2026, ≥60px, plus
-  // horizontal que vertical) pour rester cohérent dans toute l'app.
-  (function bindGoalsSwipe() {
-    var header = $('goalsActivityHeader');
-    if (!header) return;
-    var startX = null;
-    var startY = null;
-    header.addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1) return;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-    }, { passive: true });
-    header.addEventListener('touchend', function (e) {
-      if (startX == null) return;
-      var touch = e.changedTouches[0];
-      var dx = touch.clientX - startX;
-      var dy = touch.clientY - startY;
-      startX = null;
-      startY = null;
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
-      // Droite → gauche (dx négatif) : pôle SUIVANT.
-      // Gauche → droite (dx positif) : pôle PRÉCÉDENT.
-      openGoalsForPole(currentGoalsPoleIndex + (dx < 0 ? 1 : -1));
-    }, { passive: true });
-  })();
 
   // ===================== SOUS-PROJETS D'UNE ACTIVITÉ =====================
   // Discussion "Sous-projets" (3 septembre 2026). Découper une activité en
@@ -14870,7 +11957,7 @@
       var goalCategory = params.get('category');
       var goalPeriodNumber = Number(params.get('periodNumber'));
       switchTab('goals');
-      if (goalActivityId) openGoalsPeriodFromNotification(goalActivityId, goalCategory, goalPeriodNumber);
+      if (goalActivityId) TMT.openGoalsPeriodFromNotification(goalActivityId, goalCategory, goalPeriodNumber);
       return;
     }
 
@@ -19374,4 +16461,36 @@
     applyLang('fr'); // français par défaut depuis le 9 sept. 2026 (chantier « Français par défaut », Charte de la langue française) pour un tout nouveau compte
     showOnboarding();
   }
+
+  // ===================== window.TMT — export des utilitaires généraux =====================
+  // 28 septembre 2026 (chantier de restructuration Objectifs, demande
+  // d'Emilien) : objectifs-page1.js/-page2.js/-page3.js tournent chacun dans
+  // leur propre IIFE (aucune fermeture partagée avec app.js) et ont besoin
+  // de certains utilitaires généraux d'app.js. Placé en toute fin de
+  // fichier (après TOUTES les déclarations, y compris `var profile`/
+  // `activitiesCache`/`currentTheme` réassignées ailleurs) : les fonctions
+  // ci-dessous sont hissées (function declarations) donc leur export peut se
+  // faire ici sans risque d'ordre ; les 3 accesseurs getProfile()/
+  // getActivitiesCache()/getCurrentTheme() lisent la variable fermée par
+  // cette IIFE à CHAQUE appel (pas une copie figée au chargement), donc
+  // restent à jour même après connexion/déconnexion ou changement de thème.
+  window.TMT.$ = $;
+  window.TMT.api = api;
+  window.TMT.pad = pad;
+  window.TMT.dateLocale = dateLocale;
+  window.TMT.refreshActivities = refreshActivities;
+  window.TMT.textColorForTheme = textColorForTheme;
+  window.TMT.subProjectShade = subProjectShade;
+  window.TMT.SUB_PROJECT_SHADE_COUNT = SUB_PROJECT_SHADE_COUNT;
+  window.TMT.eclairciPourLisibilite = eclairciPourLisibilite;
+  window.TMT.readableTextOn = readableTextOn;
+  window.TMT.appendLinkified = appendLinkified;
+  window.TMT.switchTab = switchTab;
+  window.TMT.whenElementReady = whenElementReady;
+  window.TMT.focusWhenReady = focusWhenReady;
+  window.TMT.setActivityPageSection = setActivityPageSection;
+  window.TMT.getProfile = function () { return profile; };
+  window.TMT.getActivitiesCache = function () { return activitiesCache; };
+  window.TMT.getCurrentTheme = function () { return currentTheme; };
+
 })();
