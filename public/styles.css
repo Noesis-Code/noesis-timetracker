@@ -63,11 +63,14 @@
      ⚠️ 2e revu le même jour : Emilien précise ne vouloir AUCUNE différence
      perceptible entre .tabbar et le fond (« que les icônes [...] semblent
      flotter [...] de façon libre ») — .tabbar/#app::after sont donc
-     repassées à var(--bg) strictement (voir leurs commentaires), --bg-raised
-     n'est plus utilisée QUE comme référence de valeur (littérale, #121214)
-     par #communitySearchBar, qui elle reste volontairement distincte du
-     fond (zone de recherche/publication, pas une barre de navigation) —
-     variable conservée, pas de trait, plus sombre que --card. */
+     repassées à var(--bg) strictement (voir leurs commentaires).
+     ⚠️ 3e revu le même jour : #communitySearchBar, qui restait sur cette
+     nuance (#121214, en littéral), est à son tour repassée au noir pur
+     (#000000) — Emilien voulait la même absence de différence là aussi.
+     --bg-raised n'a donc plus AUCUN consommateur actif dans ce fichier ;
+     conservée telle quelle (définition + valeur) au cas où un futur élément
+     aurait besoin d'une nuance "élevée mais pas carte", plutôt que
+     supprimée, pour ne pas effacer la trace de ce raisonnement. */
   --bg-raised: #121214;
   --text: #eef0f2;
   --text-light: #9a9ea6;
@@ -2366,11 +2369,12 @@ body.scrollLock { overflow: hidden; }
    flux de #content) pour occuper toute la largeur de l'écran, exactement
    comme .topbar, dont cette barre devient visuellement le prolongement :
    fond noir (pas var(--card) — sinon elle resterait une carte
-   blanche/grise ordinaire ; ⚠️ 28 septembre 2026, suite : #121214, une
-   nuance légèrement plus claire que le noir pur de .topbar plutôt que #000
-   identique — voir le commentaire juste au-dessus de la règle plus bas,
-   remplace le border-bottom net d'origine, devenu la "barre visible" à
-   supprimer), texte blanc, coins carrés (pas de border-radius, sinon
+   blanche/grise ordinaire ; ⚠️ 28 septembre 2026, suite : passée un temps par
+   #121214, une nuance légèrement plus claire que le noir pur, le temps de
+   remplacer le border-bottom net d'origine — puis, la même journée, ramenée
+   à #000000 identique à .topbar, Emilien ayant demandé l'absence totale de
+   différence perceptible ; voir le commentaire juste au-dessus de la règle
+   plus bas), texte blanc, coins carrés (pas de border-radius, sinon
    "prolongement" et "carte" se contrediraient). Rien à ajouter
    pour rester posée sous .topbar (elle est déjà collée juste en dessous via
    `top: var(--topbar-h)`) — c'est `#tab-community` qui récupère l'espace
@@ -2385,19 +2389,27 @@ body.scrollLock { overflow: hidden; }
    .tabbar/#app::after ci-dessus) : le border-bottom net posé le 3 septembre
    (« qu'elle se termine par un trait net ») est désormais la "barre
    visible" qu'Emilien veut supprimer, entre cette zone et le fil en
-   dessous. Remplacé par un fond LÉGÈREMENT plus clair que le noir pur
-   (#121214, même valeur littérale que var(--bg-raised) en thème sombre —
-   codée en dur et non via la variable, comme #000000 avant elle, puisque
-   cet élément reste volontairement noir quel que soit le thème, voir plus
-   bas). Plus de ligne : la distinction avec le fil qui défile dessous
-   (var(--bg), #000000 pur) se fait uniquement par cette nuance. */
+   dessous. Remplacé un temps par un fond LÉGÈREMENT plus clair que le noir
+   pur (#121214).
+   ⚠️⚠️ Revu le même jour (nouvelle demande, décrivant cette zone comme
+   « où se trouvent les boutons recherche et publier et la zone
+   écriture ») : Emilien remarque que #121214 reste visiblement plus clair
+   que le fond et demande la même nuance stricte que le fond de page
+   (var(--bg)), le volet (.tabbar, repassée à var(--bg) le même jour) ET
+   l'entête (.topbar, #000000) — #000000 littéral ici aussi (et non
+   var(--bg), qui vaut #f5f5f7 en thème clair : cet élément reste
+   volontairement noir quel que soit le thème, voir plus bas, donc une
+   valeur codée en dur reste le bon choix, seule sa VALEUR change). Plus de
+   ligne, plus de nuance distincte : cette zone est désormais visuellement
+   confondue avec le reste de l'app, seuls son contenu (icônes/texte)
+   restent visibles. */
 #communitySearchBar {
   position: fixed;
   top: var(--topbar-h, 56px);
   left: 0;
   right: 0;
   z-index: 9;
-  background: #121214;
+  background: #000000;
   color: #ffffff;
   border-radius: 0;
   box-shadow: none;
@@ -3324,6 +3336,15 @@ button { -webkit-user-select: none; user-select: none; }
    app.js) : une piste de défilement toujours suffisante, quelle que soit la
    longueur de la liste, jamais visible hors de ce moment précis. */
 #activityPageScroll.activityPageScrollKbRunway { padding-bottom: 60vh; }
+/* 🆕 28 septembre 2026, 4e passage (diagnostic chiffré à l'appui) : la piste
+   ci-dessus (EN BAS) n'aide que les champs proches de la FIN de la liste —
+   pour un champ proche du DÉBUT, il n'y a pas assez de contenu AU-DESSUS
+   pour défiler vers le haut. .activityPageScrollKbTopSpacer est un bloc
+   inséré/retiré en JS (scrollAddInputIntoView(), app.js) en tête de
+   #activityPageBody, avec une hauteur calculée au pixel près (jamais plus
+   que le manque réel) — jamais de largeur/hauteur par défaut ici, tout est
+   posé inline en JS au moment précis où c'est nécessaire. */
+.activityPageScrollKbTopSpacer { flex: 0 0 auto; width: 100%; height: 0; }
 .activityPageHeader {
   display: flex; align-items: center; gap: 10px;
   flex: 0 0 auto;
