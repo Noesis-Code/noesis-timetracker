@@ -975,6 +975,25 @@ textarea {
 .iconBtn.danger { color: var(--red); border-color: var(--red); }
 .iconBtn:disabled { opacity: 0.35; cursor: default; transform: none; }
 
+/* 28 septembre 2026 (suite, même jour) — demande directe d'Emilien : le
+   panneau Historique du Chrono (buildChronoHistoryEntry, public/app.js)
+   adopte le même gabarit compact que celui construit pour l'Historique de
+   la page Objectifs (regroupement par jour + ligne resserrée avec actions
+   en icônes) : .historyDayHeader/.historyDayList/.historyEntryCompact/
+   .historyRowTop/.historyRowLabel/.historyRowIconBtn/.historyRowMeta
+   (public/css/objectifs-page1.css, chargé en même temps que ce fichier —
+   voir index.html) sont RÉUTILISÉES telles quelles, rien à dupliquer ici.
+   Seule pièce manquante : la note d'un enregistrement (champ propre au
+   Chrono, absent côté Objectifs) n'avait de style que scopé sous
+   .historyEntry (l'ancien gabarit plein format, juste au-dessus — toujours
+   utilisé tel quel par le flux "En ce moment" de Communauté, donc non
+   touché) — copie exacte de cette règle, seulement re-scopée sous le
+   nouveau conteneur. */
+.historyEntryCompact .note {
+  font-size: 13px; color: var(--text); white-space: pre-wrap;
+  overflow-wrap: anywhere; word-break: break-word; max-width: 100%;
+}
+
 /* ===== Stats / Communauté ===== */
 .periodSwitch { display: flex; gap: 8px; margin-bottom: 16px; }
 .periodBtn {
