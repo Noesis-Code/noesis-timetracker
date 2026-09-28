@@ -15399,6 +15399,11 @@
     // Ici la poignée est toujours là, il faut donc neutraliser le clic aussi.
     handle.addEventListener('click', function (e) { e.stopPropagation(); });
     handle.addEventListener('pointerdown', function (e) {
+      // 28 septembre 2026 (Design) : voir anyProjectRowExpanded()/
+      // updateProjectDragHandlesState() plus bas — le glissement est
+      // désactivé tant qu'un projet est déplié, à la racine du bug du
+      // clavier qui clignote une milliseconde pendant le geste.
+      if (handle.classList.contains('dragDisabled')) return;
       e.preventDefault();
       // Sans ceci, le pointerdown remonte jusqu'à l'en-tête de la ligne, qui
       // déplie le projet : on ouvrirait le panneau en commençant à glisser.
@@ -15468,6 +15473,52 @@
       handle.addEventListener('pointerup', onUp);
       handle.addEventListener('pointercancel', onUp);
     });
+  }
+
+  // 28 septembre 2026 (Design, mandat transverse « Cohérence d'interaction »)
+  // — Retour d'Emilien après le correctif du clavier qui clignote pendant un
+  // réordonnancement (voir l'encart Design du 27 septembre, `keyboardOpen`
+  // dans applyPin()) : la cause profonde restait qu'un champ texte du
+  // panneau déplié d'un projet peut brièvement reprendre le focus au tout
+  // début du geste de glissement, assez pour que le clavier réel s'ouvre puis
+  // se referme aussitôt. Plutôt que de continuer à traquer chaque scénario,
+  // Emilien propose de couper le geste à la racine : le glissement n'est
+  // possible QUE quand aucun projet n'est déplié — il confirme n'avoir jamais
+  // vu ce bug quand les deux sont repliés. Portée : Projets uniquement (Profil)
+  // — les Activités ne sont draggables qu'en mode édition dédié
+  // (activitiesEditMode), qui n'a pas de panneau dépliable concurrent, donc
+  // pas concernées.
+  //
+  // `.activitySettingsPanel` sert aussi au panneau imbriqué "+ Ajouter des
+  // détails" (projectMoreDetails) : querySelector() s'arrête au premier
+  // trouvé dans l'ordre du document, toujours le panneau EXTÉRIEUR (ajouté à
+  // `row` avant que `moreDetails` ne soit ajouté DANS ce panneau) — même
+  // hypothèse déjà faite par openProjectsPanel plus bas, reprise ici.
+  function anyProjectRowExpanded() {
+    var listBox = $('projectsList');
+    if (!listBox) return false;
+    var rows = listBox.querySelectorAll('.activityRow');
+    for (var i = 0; i < rows.length; i++) {
+      var panel = rows[i].querySelector('.activitySettingsPanel');
+      if (panel && !panel.classList.contains('hidden')) return true;
+    }
+    return false;
+  }
+
+  // Recalcule l'état (activée/désactivée) de CHAQUE poignée de la liste — à
+  // appeler après tout dépliage/repliage d'un projet, pas seulement au rendu
+  // initial : l'état peut changer sans nouveau rendu (clic sur l'en-tête,
+  // ouverture directe depuis une pastille de la barre supérieure).
+  function updateProjectDragHandlesState() {
+    var listBox = $('projectsList');
+    if (!listBox) return;
+    var disabled = anyProjectRowExpanded();
+    var handles = listBox.querySelectorAll('.activityDragHandle');
+    for (var i = 0; i < handles.length; i++) {
+      handles[i].classList.toggle('dragDisabled', disabled);
+      handles[i].setAttribute('aria-disabled', disabled ? 'true' : 'false');
+      handles[i].title = disabled ? t('Replie les projets pour pouvoir les réordonner') : '';
+    }
   }
 
   // ===================== PROJETS DANS LA BARRE SUPÉRIEURE (4 sept. 2026) =====================
@@ -15545,6 +15596,7 @@
       panel.classList.toggle('hidden', !match);
       if (match) target = row;
     });
+    updateProjectDragHandlesState();
     // Défilement calé À LA MAIN dans le panneau plutôt que par
     // scrollIntoView() : celui-ci fait défiler TOUS les ancêtres qui le
     // peuvent, y compris la bande horizontale de la barre supérieure — la
@@ -15727,10 +15779,15 @@
       // Clic sur la ligne (hors ▲▼, qui isolent leur propre clic) :
       // ouvre/referme le panneau d'édition — même principe que le clic sur
       // une activité SOLO dans #tab-activity (renderActivitiesSettings).
-      header.addEventListener('click', function () { panel.classList.toggle('hidden'); });
+      header.addEventListener('click', function () {
+        panel.classList.toggle('hidden');
+        updateProjectDragHandlesState();
+      });
 
       box.appendChild(row);
     });
+
+    updateProjectDragHandlesState();
   }
 
   // Le "+" vit désormais dans la bande de la barre supérieure (4 septembre

@@ -2693,6 +2693,10 @@ body.scrollLock { overflow: hidden; }
 .activityRow.dragging { opacity: 0.75; border-color: var(--purple); z-index: 2; position: relative; }
 #activitiesList.dragging .activityRow:not(.dragging) { transition: transform 0.16s ease; }
 .activityDragHandle { flex: 0 0 auto; padding: 4px 8px; color: var(--text-light); font-size: 1.1rem; line-height: 1; cursor: grab; touch-action: none; user-select: none; }
+/* 28 septembre 2026 (Design) : glissement des Projets désactivé tant qu'un
+   projet est déplié (voir anyProjectRowExpanded()/updateProjectDragHandlesState()
+   dans app.js) — poignée visible mais estompée, curseur "interdit". */
+.activityDragHandle.dragDisabled { opacity: 0.35; cursor: not-allowed; }
 .activityColorDot { flex: 0 0 auto; width: 20px; height: 20px; padding: 0; border: 1px solid var(--border); border-radius: 50%; cursor: pointer; }
 .activityNameInput { flex: 1 1 auto; min-width: 0; }
 .activityMergeBtn { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); font-size: 0.95rem; line-height: 1; cursor: pointer; }
