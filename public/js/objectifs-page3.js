@@ -156,25 +156,24 @@
                  #activityGoalsMainMeta ci-dessus par hasMainGoal dans
                  renderActivityGoals() (app.js), voir le commentaire sur
                  .goalMainSaveRow plus haut. -->
+            <!-- 28 septembre 2026 (discussion "B. Objectifs — Calendrier &
+                 intégrations"), demande d'Emilien : fusion des objectifs
+                 hebdomadaires et du calendrier de la période — la section
+                 "Calendrier de la période" séparée qui vivait ici (une ligne
+                 par jour de la période, 28 lignes à plat) est retirée ; ses 7
+                 jours par semaine (temps réel pointé, tâche ponctuelle via
+                 bouton "+", objectif hebdomadaire sur le dernier jour du
+                 bloc) vivent désormais DANS #activityGoalsWeeklyList,
+                 juste en dessous de la carte de LEUR semaine
+                 (goalWeekDaysPanel1-4, un chevron par carte les déplie/replie
+                 — voir renderGoalsWeeklyList()/loadGoalsCalendarDays()/
+                 renderGoalsCalendarDays() plus bas). Le badge "S1"-"S4"
+                 cliquable par jour (ancien mécanisme de renvoi vers la carte
+                 hebdomadaire) disparaît avec elle : redondant maintenant que
+                 le jour est déjà affiché sous sa propre semaine. -->
             <div id="activityGoalsPeriodBody">
               <p class="goalCardLabel goalsWeeklyLabel">Objectifs hebdomadaires</p>
               <div id="activityGoalsWeeklyList" class="goalsWeeklyList"></div>
-
-              <!-- 15 septembre 2026 (discussion "Objectifs — D : Calendrier &
-                   intégrations"), demande d'Emilien : « intégrer un calendrier
-                   au volet objectif (page 2) [...] chaque ligne représente 1
-                   jour ». Une ligne par jour de la période (28), semaine (S1 à
-                   S4) + temps réel pointé ce jour-là — voir
-                   loadGoalsCalendarDays()/renderGoalsCalendarDays() (app.js) et
-                   GET .../goals-days (server/lib/calendarfeed.js,
-                   server/routes/calendar.js). Révisé le 15 septembre 2026 (soir) :
-                   le dernier jour de chaque semaine ouvre l'éditeur d'objectif
-                   hebdomadaire ci-dessus (badge "S1"-"S4" cliquable), et chaque
-                   jour permet d'ajouter une tâche ponctuelle (bouton "+"),
-                   transmise à la section Sous-projets de l'activité sous la
-                   catégorie courante — voir POST .../goals-days/task. -->
-              <p class="goalCardLabel goalsCalendarLabel">Calendrier de la période</p>
-              <div id="activityGoalsCalendarList" class="goalsCalendarList"></div>
             </div>
 
             <p class="goalBilanHint hidden" id="activityGoalsBilan"></p>
@@ -463,6 +462,21 @@
   // fin de ligne (.goalWeeklyDailyPlanBtn) — la ligne repasse en
   // flex-wrap si son texte temporaire ("Génération en cours…") ne tient
   // plus, plutôt que de casser la mise en page.
+  // 28 septembre 2026 (discussion "B. Objectifs — Calendrier &
+  // intégrations"), demande d'Emilien : fusionner objectifs hebdomadaires et
+  // calendrier — un chevron par carte déplie ses 7 jours (goalWeekDaysPanelN,
+  // rempli par renderGoalsCalendarDays() plus bas) juste en dessous, au lieu
+  // de renvoyer vers la section "Calendrier de la période" séparée, retirée
+  // (voir le commentaire au-dessus du gabarit HTML, en tête de ce fichier).
+  // Plusieurs semaines peuvent rester dépliées en même temps (confirmé par
+  // Emilien). goalsOpenWeekIndexes retient cet état ouvert/fermé PAR SEMAINE
+  // à travers les re-rendus complets de cette liste (renderGoalsWeeklyList()
+  // est rappelée à chaque renderActivityGoals(), y compris par le
+  // rafraîchissement auto-hebdomadaire silencieux — voir
+  // maybeScheduleGoalsWeeklyAutoFillPoll() plus haut dans ce fichier) : sans
+  // ça, ce rafraîchissement replierait une semaine qu'Emilien vient d'ouvrir.
+  var goalsOpenWeekIndexes = {};
+
   function renderGoalsWeeklyList(period) {
     var box = $('activityGoalsWeeklyList');
     box.innerHTML = '';
@@ -481,6 +495,12 @@
 
         var row = document.createElement('div');
         row.className = 'goalCard goalWeeklyCard';
+        // 28 septembre 2026 : id stable, requis par openGoalsWeekEditor()
+        // plus bas — #activityGoalsWeeklyList contient désormais aussi les
+        // panneaux de jours (goalWeekDaysPanelN, un par semaine) intercalés
+        // entre les cartes, donc `list.children[weekIndex - 1]` (ancien
+        // repérage par position) ne désignerait plus la bonne carte.
+        row.id = 'goalWeekCard' + weekIndex;
         if (w && w.carriedOverFromId) {
           row.title = t('Reporté automatiquement depuis une semaine précédente, non atteinte.');
         }
@@ -564,7 +584,37 @@
           row.appendChild(dailyPlanBtn);
         }
 
+        // 28 septembre 2026 : chevron de dépliage des jours de cette semaine
+        // — voir le commentaire de fonction plus haut. Bouton DÉDIÉ (plutôt
+        // que la ligne entière cliquable) pour ne jamais interférer avec le
+        // clic/focus du textarea, du sélecteur d'assignation ou de la
+        // pastille de statut juste à côté — toujours ajouté, que la semaine
+        // ait déjà un texte (w non nul) ou non : du temps réel/des tâches
+        // ponctuelles peuvent exister sur n'importe quel jour de la période
+        // indépendamment de la saisie d'un objectif hebdomadaire.
+        var isOpen = !!goalsOpenWeekIndexes[weekIndex];
+        var expandBtn = document.createElement('button');
+        expandBtn.type = 'button';
+        expandBtn.className = 'goalWeeklyExpandBtn' + (isOpen ? ' open' : '');
+        expandBtn.textContent = '⌄';
+        expandBtn.title = t('Afficher/masquer les jours de cette semaine');
+        expandBtn.setAttribute('aria-label', t('Afficher/masquer les jours de cette semaine'));
+        expandBtn.addEventListener('click', function () {
+          var panel = $('goalWeekDaysPanel' + weekIndex);
+          if (!panel) return;
+          var opening = panel.classList.contains('hidden');
+          panel.classList.toggle('hidden', !opening);
+          expandBtn.classList.toggle('open', opening);
+          goalsOpenWeekIndexes[weekIndex] = opening;
+        });
+        row.appendChild(expandBtn);
+
         box.appendChild(row);
+
+        var daysPanel = document.createElement('div');
+        daysPanel.className = 'goalWeekDaysPanel' + (isOpen ? '' : ' hidden');
+        daysPanel.id = 'goalWeekDaysPanel' + weekIndex;
+        box.appendChild(daysPanel);
       })(weekIndex);
     }
   }
@@ -1001,8 +1051,7 @@
   // que la période actuellement ouverte en page 2, inutile de la recalculer
   // à chaque changement d'activité.
   function loadGoalsCalendarDays(period) {
-    var box = $('activityGoalsCalendarList');
-    if (!box || !period) return;
+    if (!period) return;
     var requestId = ++goalsCalendarRequestId;
     var activityId = TMT.currentGoalsActivityId;
     var category = TMT.currentGoalsCategory;
@@ -1017,7 +1066,13 @@
       })
       .catch(function () {
         if (requestId !== goalsCalendarRequestId) return;
-        box.innerHTML = '';
+        // 28 septembre 2026 : plus une seule liste à plat
+        // (#activityGoalsCalendarList, retirée) mais 4 panneaux par semaine
+        // (goalWeekDaysPanel1-4) — vidés individuellement en cas d'échec.
+        for (var wi = 1; wi <= 4; wi++) {
+          var panel = $('goalWeekDaysPanel' + wi);
+          if (panel) panel.innerHTML = '';
+        }
       });
   }
 
@@ -1033,11 +1088,23 @@
   // apparaître ni disparaître quoi que ce soit : il fait simplement défiler
   // jusqu'à la carte de cette semaine, déjà visible dans le sommaire
   // au-dessus, puis y place le focus.
+  // 28 septembre 2026 : repérage par id stable (#goalWeekCardN, voir
+  // renderGoalsWeeklyList()) plutôt que par position dans les enfants de la
+  // liste — #activityGoalsWeeklyList contient désormais aussi les panneaux
+  // de jours intercalés entre les cartes. Ouvre aussi le panneau de la
+  // semaine visée s'il était replié (fusion objectifs hebdomadaires/
+  // calendrier), avant de défiler — sinon la carte défilée vers pourrait
+  // rester masquée par son propre panneau fermé au-dessus d'elle.
   function openGoalsWeekEditor(period, weekIndex) {
-    var list = $('activityGoalsWeeklyList');
-    if (!list) return;
-    var target = list.children[weekIndex - 1];
+    var target = $('goalWeekCard' + weekIndex);
     if (!target) return;
+    var panel = $('goalWeekDaysPanel' + weekIndex);
+    var expandBtn = target.querySelector('.goalWeeklyExpandBtn');
+    if (panel && panel.classList.contains('hidden')) {
+      panel.classList.remove('hidden');
+      if (expandBtn) expandBtn.classList.add('open');
+      goalsOpenWeekIndexes[weekIndex] = true;
+    }
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     var ta = target.querySelector('textarea');
     if (ta) ta.focus();
@@ -1111,10 +1178,19 @@
   }
 
 
+  // 28 septembre 2026 (discussion "B. Objectifs — Calendrier &
+  // intégrations"), demande d'Emilien : fusion objectifs hebdomadaires +
+  // calendrier — cette fonction ne remplit plus une seule liste à plat
+  // (#activityGoalsCalendarList, retirée) mais un panneau PAR SEMAINE
+  // (goalWeekDaysPanelN, créé vide par renderGoalsWeeklyList()). Les jours
+  // reçus du serveur restent en ordre chronologique (inchangé,
+  // server/lib/calendarfeed.js) ; c'est seulement l'ORDRE D'AFFICHAGE dans
+  // chaque panneau qui est inversé, sur demande explicite d'Emilien : « le
+  // dimanche est au-dessus, puis samedi [...] jusqu'à lundi » — le dernier
+  // jour du bloc de 7 (« dimanche » au sens du volet Objectifs, voir
+  // isWeekEnd plus bas, pas forcément un dimanche calendaire) en premier,
+  // jusqu'au premier jour (« lundi ») en dernier.
   function renderGoalsCalendarDays(days, period) {
-    var box = $('activityGoalsCalendarList');
-    if (!box) return;
-    box.innerHTML = '';
     // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
     // « chaque dimanche entouré par la couleur dédiée à la catégorie » —
     // 16 septembre 2026 : calcul déplacé dans currentGoalsCategoryColor()
@@ -1122,182 +1198,178 @@
     // que recalculé ici, pour que les 3 endroits restent identiques par
     // construction.
     var goalsCalCatColor = currentGoalsCategoryColor();
+
+    // Regroupe les jours par semaine (1 à 4) en conservant, pour chacun,
+    // s'il est le dernier jour de son bloc de 7 ("dimanche" au sens du volet
+    // Objectifs — voir commentaire de fonction) : ce calcul dépend de
+    // l'ordre CHRONOLOGIQUE d'origine (day suivant dans le tableau reçu du
+    // serveur), donc fait ICI, avant toute inversion d'affichage plus bas.
+    var byWeek = {};
     days.forEach(function (day, idx) {
-      // "Dernier jour de la semaine" au sens du volet Objectifs (bloc de 7
-      // jours depuis le début de la période, pas forcément un dimanche
-      // calendaire — la période ne démarre pas nécessairement un lundi) :
-      // demande d'Emilien « objectifs de semaine mis en évidence chaque
-      // dimanche » — c'est ce jour-repère qui ouvre l'éditeur ci-dessus.
       var isWeekEnd = !days[idx + 1] || days[idx + 1].weekIndex !== day.weekIndex;
+      var bucket = byWeek[day.weekIndex] || (byWeek[day.weekIndex] = []);
+      bucket.push({ day: day, isWeekEnd: isWeekEnd });
+    });
 
-      var row = document.createElement('div');
-      row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '') + (isWeekEnd ? ' weekEnd' : '');
-      if (isWeekEnd) row.style.borderColor = goalsCalCatColor;
+    Object.keys(byWeek).forEach(function (weekIndexKey) {
+      var weekIndex = Number(weekIndexKey);
+      var panel = $('goalWeekDaysPanel' + weekIndex);
+      if (!panel) return;
+      panel.innerHTML = '';
 
-      var dateEl = document.createElement('span');
-      dateEl.className = 'goalsCalendarDate';
-      dateEl.textContent = calendarDayLabel(day.date);
-      row.appendChild(dateEl);
+      // .slice() avant .reverse() : jamais .reverse() seul, qui muterait
+      // byWeek[weekIndex] et inverserait aussi tout autre usage éventuel de
+      // ce tableau — sans risque réel aujourd'hui (aucun autre usage), gardé
+      // par prudence.
+      byWeek[weekIndex].slice().reverse().forEach(function (entry) {
+        var day = entry.day;
+        var isWeekEnd = entry.isWeekEnd;
 
-      // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-      // « décale le numéro des semaines plus vers la droite » — ordre
-      // d'ajout inversé avec les minutes (weekEl après minutesEl au lieu
-      // d'avant) : dateEl garde flex:1 et pousse tout le reste à droite dans
-      // l'ordre où il est ajouté, donc le badge "S1"-"S4" se retrouve
-      // maintenant juste avant le bouton "+", plus loin de la date.
-      var minutesEl = document.createElement('span');
-      minutesEl.className = 'goalsCalendarMinutes' + (day.actualMinutes ? '' : ' empty');
-      // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-      // « supprime le petit bouton - à côté du + [...] il ne sert à rien » —
-      // ce n'était pas un bouton mais ce tiret cadratin affiché à la place
-      // des minutes quand un jour n'a aucun temps pointé ; retiré (case
-      // simplement vide), la largeur fixe de .goalsCalendarMinutes
-      // (styles.css) garde l'alignement des jours qui ONT du temps pointé.
-      minutesEl.textContent = day.actualMinutes ? formatGoalHours(day.actualMinutes) : '';
-      row.appendChild(minutesEl);
+        var row = document.createElement('div');
+        row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '') + (isWeekEnd ? ' weekEnd' : '');
+        if (isWeekEnd) row.style.borderColor = goalsCalCatColor;
 
-      var weekEl = document.createElement('span');
-      weekEl.className = 'goalsCalendarWeekBadge' + (isWeekEnd ? ' clickable' : '');
-      weekEl.textContent = 'S' + day.weekIndex;
-      if (isWeekEnd) {
-        weekEl.title = t('Objectif de cette semaine');
-        weekEl.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
-      }
-      row.appendChild(weekEl);
+        var dateEl = document.createElement('span');
+        dateEl.className = 'goalsCalendarDate';
+        dateEl.textContent = calendarDayLabel(day.date);
+        row.appendChild(dateEl);
 
-      var addForm = buildGoalsCalendarAddForm(period, day);
-      var addBtn = document.createElement('button');
-      addBtn.type = 'button';
-      // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-      // « retire le symbole - à côté du + et centre le + au milieu du
-      // cercle » — le "-" perçu était la bordure en pointillés de la ligne
-      // "fin de semaine" juste avant ce bouton (retirée ci-dessus au profit
-      // d'une bordure pleine, couleur catégorie) ; le "+" lui-même passe
-      // d'un glyphe texte (mal centré selon les polices) à deux barres CSS
-      // (::before/::after, voir styles.css), centrées par construction.
-      addBtn.className = 'goalsCalendarAddTaskBtn';
-      addBtn.title = t('Ajouter une tâche ce jour');
-      addBtn.addEventListener('click', function () {
-        addForm.classList.toggle('hidden');
-        if (!addForm.classList.contains('hidden')) {
-          var inp = addForm.querySelector('input');
-          if (inp) inp.focus();
-        }
-      });
-      row.appendChild(addBtn);
+        var minutesEl = document.createElement('span');
+        minutesEl.className = 'goalsCalendarMinutes' + (day.actualMinutes ? '' : ' empty');
+        minutesEl.textContent = day.actualMinutes ? formatGoalHours(day.actualMinutes) : '';
+        row.appendChild(minutesEl);
 
-      if (isWeekEnd) {
-        // « je souhaite qu'il soit clairement marqué que ce soit l'objectif
-        // hebdomadaire à réaliser [...] un avancement hebdomadaire sur la
-        // case du dimanche » — ligne complète (flex-basis: 100%, même motif
-        // que .goalsCalendarTaskAdd .msg) DANS la même case bordée que
-        // ci-dessus, pas une ligne séparée. w.status === 'atteint' l'emporte
-        // toujours sur le calcul minutes/estimation (cohérent avec le badge
-        // de statut ailleurs sur cette page, .goalWeeklyDot.goalStatusAtteint) ; du
-        // temps réel sans estimation compte comme entamé (barre pleine)
-        // plutôt que vide, qui suggérerait à tort qu'aucun travail n'a été
-        // fait.
-        var w = null;
-        for (var wi = 0; wi < period.weeklies.length; wi++) {
-          if (period.weeklies[wi].weekIndex === day.weekIndex) { w = period.weeklies[wi]; break; }
-        }
-        var weekProgress = document.createElement('div');
-        weekProgress.className = 'goalsCalendarWeekProgress';
-        // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-        // « cliquer sur objectif de la semaine à réaliser [...] rentrer
-        // manuellement l'objectif » — <button> plutôt que <span> (même
-        // motif que le badge "S1"-"S4" ci-dessus, weekEl), ouvre le même
-        // éditeur (openGoalsWeekEditor(), déjà la saisie manuelle du texte
-        // hebdomadaire, textarea de renderGoalsWeeklyList()).
-        var weekProgressLabel = document.createElement('button');
-        weekProgressLabel.type = 'button';
-        weekProgressLabel.className = 'goalsCalendarWeekProgressLabel';
-        weekProgressLabel.style.color = goalsCalCatColor;
-        // 16 septembre 2026 (discussion "Objectifs — D", 5e passage), demande
-        // d'Emilien : « l'objectif s'écrit également dans le calendrier au
-        // niveau du dimanche » — une fois un texte saisi (w.text, via
-        // openGoalsWeekEditor()/saveWeeklyText()), il remplace le libellé
-        // générique ici ; tant qu'aucun texte n'est saisi, le libellé reste
-        // l'invite à cliquer, inchangée.
-        weekProgressLabel.textContent = (w && w.text) ? w.text : t('Objectif de la semaine à réaliser');
-        weekProgressLabel.title = t('Objectif de cette semaine');
-        weekProgressLabel.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
-        weekProgress.appendChild(weekProgressLabel);
-        var weekProgressTrack = document.createElement('div');
-        weekProgressTrack.className = 'goalsCalendarWeekProgressTrack';
-        var weekProgressFill = document.createElement('div');
-        weekProgressFill.className = 'goalsCalendarWeekProgressFill';
-        var weekPct = 0;
-        if (w) {
-          if (w.status === 'atteint') weekPct = 100;
-          else if (w.estimateMinutes) weekPct = Math.max(0, Math.min(100, Math.round(((w.actualMinutes || 0) / w.estimateMinutes) * 100)));
-          else if (w.actualMinutes) weekPct = 100;
-        }
-        weekProgressFill.style.width = weekPct + '%';
-        weekProgressFill.style.background = goalsCalCatColor;
-        weekProgressTrack.appendChild(weekProgressFill);
-        weekProgress.appendChild(weekProgressTrack);
-        row.appendChild(weekProgress);
-      }
+        // 28 septembre 2026 : le badge "S1"-"S4" cliquable (weekEl) est
+        // retiré ici — chaque jour vit déjà dans le panneau de SA semaine
+        // (fusion objectifs hebdomadaires/calendrier), le répéter par jour
+        // n'apporte plus rien. .goalsCalendarWeekBadge (styles.css) reste
+        // sinon inutilisée par cette page — laissée en l'état, sans risque.
 
-      box.appendChild(row);
-      box.appendChild(addForm);
+        var addForm = buildGoalsCalendarAddForm(period, day);
+        var addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'goalsCalendarAddTaskBtn';
+        addBtn.title = t('Ajouter une tâche ce jour');
+        addBtn.addEventListener('click', function () {
+          addForm.classList.toggle('hidden');
+          if (!addForm.classList.contains('hidden')) {
+            var inp = addForm.querySelector('input');
+            if (inp) inp.focus();
+          }
+        });
+        row.appendChild(addBtn);
 
-      (day.tasks || []).forEach(function (task) {
-        var taskRow = document.createElement('div');
-        taskRow.className = 'goalsCalendarTaskRow' + (task.done ? ' done' : '');
-        var check = document.createElement('button');
-        check.type = 'button';
-        check.className = 'goalsCalendarTaskCheck';
-        check.textContent = task.done ? '✓' : '';
-        check.title = task.done ? t('Marquer non faite') : t('Marquer faite');
-        check.addEventListener('click', function () { toggleGoalsDayTask(period, task.id, !task.done); });
-        taskRow.appendChild(check);
-
-        var taskLabel = document.createElement('span');
-        taskLabel.className = 'goalsCalendarTaskLabel';
-        taskLabel.textContent = task.label;
-        taskRow.appendChild(taskLabel);
-
-        // 26 septembre 2026, correctif du bug « tâche capturée absente du
-        // calendrier » (voir server/lib/calendarfeed.js#dayTasksByDate) : le
-        // calendrier montre désormais les tâches de TOUTE l'activité, pas
-        // seulement du secteur actuellement ouvert — une tâche classée par
-        // l'IA dans un AUTRE secteur porte donc ce petit repère pour rester
-        // compréhensible (jamais confondue avec une tâche du secteur affiché).
-        if (task.category && task.category !== TMT.currentGoalsCategory) {
-          var otherCat = document.createElement('span');
-          otherCat.className = 'goalsCalendarTaskOtherCategory';
-          otherCat.textContent = goalsCategoryLabel(task.category);
-          taskRow.appendChild(otherCat);
+        if (isWeekEnd) {
+          // « je souhaite qu'il soit clairement marqué que ce soit l'objectif
+          // hebdomadaire à réaliser [...] un avancement hebdomadaire sur la
+          // case du dimanche » — ligne complète (flex-basis: 100%, même
+          // motif que .goalsCalendarTaskAdd .msg) DANS la même case bordée
+          // que ci-dessus, pas une ligne séparée. w.status === 'atteint'
+          // l'emporte toujours sur le calcul minutes/estimation (cohérent
+          // avec le badge de statut ailleurs sur cette page,
+          // .goalWeeklyDot.goalStatusAtteint) ; du temps réel sans
+          // estimation compte comme entamé (barre pleine) plutôt que vide,
+          // qui suggérerait à tort qu'aucun travail n'a été fait.
+          var w = null;
+          for (var wi = 0; wi < period.weeklies.length; wi++) {
+            if (period.weeklies[wi].weekIndex === day.weekIndex) { w = period.weeklies[wi]; break; }
+          }
+          var weekProgress = document.createElement('div');
+          weekProgress.className = 'goalsCalendarWeekProgress';
+          // 16 septembre 2026 (discussion "Objectifs — D"), demande
+          // d'Emilien : « cliquer sur objectif de la semaine à réaliser
+          // [...] rentrer manuellement l'objectif » — ouvre le même éditeur
+          // (openGoalsWeekEditor(), la saisie manuelle du texte
+          // hebdomadaire, textarea de renderGoalsWeeklyList() juste
+          // au-dessus de ce panneau).
+          var weekProgressLabel = document.createElement('button');
+          weekProgressLabel.type = 'button';
+          weekProgressLabel.className = 'goalsCalendarWeekProgressLabel';
+          weekProgressLabel.style.color = goalsCalCatColor;
+          // 16 septembre 2026 (discussion "Objectifs — D", 5e passage),
+          // demande d'Emilien : « l'objectif s'écrit également dans le
+          // calendrier au niveau du dimanche » — une fois un texte saisi
+          // (w.text, via openGoalsWeekEditor()/saveWeeklyText()), il
+          // remplace le libellé générique ici ; tant qu'aucun texte n'est
+          // saisi, le libellé reste l'invite à cliquer, inchangée.
+          weekProgressLabel.textContent = (w && w.text) ? w.text : t('Objectif de la semaine à réaliser');
+          weekProgressLabel.title = t('Objectif de cette semaine');
+          weekProgressLabel.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
+          weekProgress.appendChild(weekProgressLabel);
+          var weekProgressTrack = document.createElement('div');
+          weekProgressTrack.className = 'goalsCalendarWeekProgressTrack';
+          var weekProgressFill = document.createElement('div');
+          weekProgressFill.className = 'goalsCalendarWeekProgressFill';
+          var weekPct = 0;
+          if (w) {
+            if (w.status === 'atteint') weekPct = 100;
+            else if (w.estimateMinutes) weekPct = Math.max(0, Math.min(100, Math.round(((w.actualMinutes || 0) / w.estimateMinutes) * 100)));
+            else if (w.actualMinutes) weekPct = 100;
+          }
+          weekProgressFill.style.width = weekPct + '%';
+          weekProgressFill.style.background = goalsCalCatColor;
+          weekProgressTrack.appendChild(weekProgressFill);
+          weekProgress.appendChild(weekProgressTrack);
+          row.appendChild(weekProgress);
         }
 
-        // 25 septembre 2026 (badges « non vu », restructuration du volet
-        // Objectifs en 3 pages), demande directe d'Emilien : « dans le
-        // calendrier, il y ait un petit point violet à droite des tâches
-        // nouvellement ajoutées [...] une fois qu'elles sont visualisées, hop,
-        // le point disparaît. » — `task.unseen` vient du serveur (voir
-        // server/lib/calendarfeed.js#dayTasksByDate). Le simple fait
-        // d'afficher cette ligne EST déjà « visualiser » la tâche (elle est
-        // sous les yeux de l'utilisateur dans le calendrier) : la marquer vue
-        // dès l'affichage plutôt que d'attendre un clic dédié, cohérent avec
-        // le badge de la page 1/2 qui se vide, lui, à l'OUVERTURE de la
-        // liste — ici la liste EST déjà ouverte en permanence (le calendrier
-        // ne se déplie pas comme un pôle/secteur). Optimiste côté UI (le
-        // point disparaît tout de suite) ; jamais bloquant si l'appel échoue
-        // (retentera au prochain chargement du calendrier, le point restant
-        // simplement visible jusque-là).
-        if (task.unseen) {
-          var dot = document.createElement('span');
-          dot.className = 'goalsCalendarTaskUnseenDot';
-          dot.title = t('Nouvelle tâche ajoutée automatiquement');
-          taskRow.appendChild(dot);
-          api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/tasks/' + task.id + '/mark-seen')
-            .then(function () { dot.remove(); })
-            .catch(function () { /* pas bloquant — le point réapparaîtra au prochain chargement */ });
-        }
+        panel.appendChild(row);
+        panel.appendChild(addForm);
 
-        box.appendChild(taskRow);
+        (day.tasks || []).forEach(function (task) {
+          var taskRow = document.createElement('div');
+          taskRow.className = 'goalsCalendarTaskRow' + (task.done ? ' done' : '');
+          var check = document.createElement('button');
+          check.type = 'button';
+          check.className = 'goalsCalendarTaskCheck';
+          check.textContent = task.done ? '✓' : '';
+          check.title = task.done ? t('Marquer non faite') : t('Marquer faite');
+          check.addEventListener('click', function () { toggleGoalsDayTask(period, task.id, !task.done); });
+          taskRow.appendChild(check);
+
+          var taskLabel = document.createElement('span');
+          taskLabel.className = 'goalsCalendarTaskLabel';
+          taskLabel.textContent = task.label;
+          taskRow.appendChild(taskLabel);
+
+          // 26 septembre 2026, correctif du bug « tâche capturée absente du
+          // calendrier » (voir server/lib/calendarfeed.js#dayTasksByDate) :
+          // le calendrier montre désormais les tâches de TOUTE l'activité,
+          // pas seulement du secteur actuellement ouvert — une tâche classée
+          // par l'IA dans un AUTRE secteur porte donc ce petit repère pour
+          // rester compréhensible (jamais confondue avec une tâche du
+          // secteur affiché).
+          if (task.category && task.category !== TMT.currentGoalsCategory) {
+            var otherCat = document.createElement('span');
+            otherCat.className = 'goalsCalendarTaskOtherCategory';
+            otherCat.textContent = goalsCategoryLabel(task.category);
+            taskRow.appendChild(otherCat);
+          }
+
+          // 25 septembre 2026 (badges « non vu », restructuration du volet
+          // Objectifs en 3 pages), demande directe d'Emilien : « dans le
+          // calendrier, il y ait un petit point violet à droite des tâches
+          // nouvellement ajoutées [...] une fois qu'elles sont visualisées,
+          // hop, le point disparaît. » — `task.unseen` vient du serveur
+          // (voir server/lib/calendarfeed.js#dayTasksByDate). Le simple fait
+          // d'afficher cette ligne EST déjà « visualiser » la tâche (elle
+          // est sous les yeux de l'utilisateur dans le calendrier) : la
+          // marquer vue dès l'affichage plutôt que d'attendre un clic dédié.
+          // Optimiste côté UI (le point disparaît tout de suite) ; jamais
+          // bloquant si l'appel échoue (retentera au prochain chargement du
+          // calendrier, le point restant simplement visible jusque-là).
+          if (task.unseen) {
+            var dot = document.createElement('span');
+            dot.className = 'goalsCalendarTaskUnseenDot';
+            dot.title = t('Nouvelle tâche ajoutée automatiquement');
+            taskRow.appendChild(dot);
+            api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/tasks/' + task.id + '/mark-seen')
+              .then(function () { dot.remove(); })
+              .catch(function () { /* pas bloquant — le point réapparaîtra au prochain chargement */ });
+          }
+
+          panel.appendChild(taskRow);
+        });
       });
     });
   }

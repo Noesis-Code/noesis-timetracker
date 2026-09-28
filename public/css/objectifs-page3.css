@@ -224,13 +224,31 @@
 
 .goalWeeklyDailyPlanBtn:disabled { opacity: 0.6; cursor: default; }
 
-.goalsCalendarLabel { margin: 0 0 10px; }
+/* 28 septembre 2026 (discussion "B. Objectifs — Calendrier &
+   intégrations"), demande d'Emilien : fusion objectifs hebdomadaires +
+   calendrier — .goalsCalendarLabel/.goalsCalendarList (l'ancienne section
+   "Calendrier de la période" séparée) sont retirées avec le gabarit HTML qui
+   les utilisait (objectifs-page3.js) ; .goalsCalendarRow et tout ce qui suit
+   restent utilisées telles quelles, désormais à l'intérieur de
+   .goalWeekDaysPanel ci-dessous plutôt que de l'ancien conteneur à plat. */
 
-.goalsCalendarList {
-  display: flex; flex-direction: column; gap: 1px;
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  overflow: hidden; margin-bottom: 14px; background: var(--border);
+.goalWeeklyExpandBtn {
+  flex-shrink: 0; width: 26px; height: 26px; padding: 0; margin-left: auto;
+  border: none; border-radius: 50%; background: transparent;
+  color: var(--text-light); cursor: pointer; font-size: 15px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
 }
+
+.goalWeeklyExpandBtn:hover { background: var(--track-bg); }
+
+.goalWeeklyExpandBtn.open { transform: rotate(180deg); }
+
+.goalWeekDaysPanel {
+  display: flex; flex-direction: column; gap: 1px; background: var(--border);
+}
+
+.goalWeekDaysPanel.hidden { display: none; }
 
 .goalsCalendarRow {
   display: flex; align-items: center; gap: 10px;

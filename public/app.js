@@ -7256,8 +7256,57 @@
   // vers la bonne cible quelle que soit la durée réelle de l'animation du
   // clavier, au lieu de parier sur un délai fixe de 2 images.
   function scrollAddInputIntoView(el) {
+    // 28 septembre 2026, 4e passage — diagnostic chiffré (HUD temporaire
+    // posé plus haut dans ce fichier) sur le champ RÉEL en cause : sur un
+    // champ situé PRÈS DU DÉBUT de la liste (peu de contenu au-dessus),
+    // scrollTop restait bloqué à 0 alors que scrollHeight/clientHeight
+    // montraient de la place plus bas — logique une fois qu'on y pense :
+    // ramener CE champ en bas de la zone visible réduite par le clavier
+    // demanderait de défiler VERS LE HAUT au-delà du tout début du
+    // contenu, ce qui n'existe pas. La marge posée le 28 septembre
+    // (.activityPageScrollKbRunway, EN BAS) ne pouvait donc aider que les
+    // champs proches de la FIN d'une liste (ex. « Nouveau pôle »), jamais
+    // ceux proches du début (ex. un « Nouveau secteur » sous le 1er pôle).
+    // Corrigé en calculant l'écart réel avec visualViewport plutôt que de
+    // faire confiance à scrollIntoView (qui juge selon la propre hauteur
+    // du conteneur, laquelle ne correspondait pas à la zone réellement
+    // visible sous le clavier dans les mesures relevées) : si défiler
+    // suffit, on pose scrollTop directement, SANS animation — le HUD a
+    // aussi montré scrollTop figé à 0 malgré scrollIntoView({smooth}),
+    // cause probable : la boucle qui repince #activityPage à chaque image
+    // tant que le clavier est ouvert (pinLoop, plus haut dans ce fichier)
+    // interrompt l'animation avant qu'elle n'ait pu avancer. Si défiler ne
+    // suffit pas (champ trop proche du début de liste), on ajoute
+    // EXACTEMENT le manque en piste au-dessus du contenu — jamais plus —
+    // pour ne créer un saut visuel que quand c'est réellement nécessaire.
     function doScroll() {
-      el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      var scroller = el.closest('#activityPageScroll');
+      if (!scroller || !_isCoarsePointer || !window.visualViewport) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        return;
+      }
+      var body = scroller.querySelector('#activityPageBody') || scroller;
+      var spacer = body.querySelector('.activityPageScrollKbTopSpacer');
+      if (spacer) spacer.style.height = '0px';
+      var vv = window.visualViewport;
+      var vvBottom = vv.offsetTop + vv.height;
+      var rect = el.getBoundingClientRect();
+      var gap = vvBottom - rect.bottom;
+      if (Math.abs(gap) < 2) return;
+      var maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      var target = scroller.scrollTop - gap;
+      if (target < 0) {
+        var deficit = -target;
+        if (!spacer) {
+          spacer = document.createElement('div');
+          spacer.className = 'activityPageScrollKbTopSpacer';
+          body.insertBefore(spacer, body.firstChild);
+        }
+        spacer.style.height = Math.ceil(deficit + 6) + 'px';
+        scroller.scrollTop = 0;
+      } else {
+        scroller.scrollTop = Math.min(target, maxScroll);
+      }
     }
     el.addEventListener('focus', function () {
       // 28 septembre 2026 (2e retour d'Emilien, captures à l'appui) : le
@@ -7280,7 +7329,14 @@
       }
       function stopWatching() {
         if (_isCoarsePointer && window.visualViewport) window.visualViewport.removeEventListener('resize', doScroll);
-        if (scroller) scroller.classList.remove('activityPageScrollKbRunway');
+        if (scroller) {
+          scroller.classList.remove('activityPageScrollKbRunway');
+          // Piste du haut (voir doScroll ci-dessus) : purement temporaire,
+          // ne doit jamais rester une fois le champ quitté.
+          var body = scroller.querySelector('#activityPageBody') || scroller;
+          var spacer = body.querySelector('.activityPageScrollKbTopSpacer');
+          if (spacer) spacer.remove();
+        }
         el.removeEventListener('blur', stopWatching);
       }
       el.addEventListener('blur', stopWatching);

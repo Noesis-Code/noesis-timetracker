@@ -10,20 +10,26 @@
  * s'applique quel que soit le fichier qui la déclare.
  */
 
+/* ⚠️ 28 septembre 2026, revirement direct d'Emilien (capture à l'appui) :
+   « par défaut, le rail périodique est encore trop espacé [...] je souhaite
+   que le rail soit toujours plus resserré en dessous des boutons tâches et
+   objectifs ». Remplace la réponse du même jour à la question de
+   clarification posée plus tôt (« on garde le format actuel à ce niveau »,
+   voir l'encart « suite (13) » du journal) — vu en pratique sur un pôle AVEC
+   secteurs (bulles TEST/T 0.1 visibles), l'espacement large ne lui convient
+   plus du tout : il veut désormais le rendu resserré EN TOUT TEMPS, que le
+   pôle ait des secteurs ou non, pas seulement dans le cas sans secteur
+   (isPoleFallbackColumn, renderGoalsGridHead(), plus bas). Les bulles de
+   secteur restent affichées (jamais retiré, seule leur espace autour change) :
+   padding vertical et marge du conteneur ramenés à zéro, exactement la valeur
+   que portait jusqu'ici la seule règle #goalsGridHead:empty (suite (8)) pour
+   le cas sans secteur — cette règle disparaît, son padding/marge devient la
+   valeur de BASE, plus une exception ; le petit espacement restant sous la
+   bascule Tâches/Objectifs vient uniquement de la marge basse de
+   .goalsPage2ModeSwitch (14px, plus haut dans ce fichier), inchangée. Padding
+   horizontal (4px) conservé pour que les bulles ne touchent pas le bord. */
 .goalsGridHead {
-  display: flex; align-items: center; gap: 10px; padding: 10px 4px 6px; margin-bottom: 18px;
-}
-
-/* 28 septembre 2026, demande directe d'Emilien : quand le pôle sélectionné
-   n'a aucun secteur, renderGoalsGridHead() (objectifs-page2.js) ne crée plus
-   AUCUN .goalsGridHeadCell pour cette colonne unique (isPoleFallbackColumn) —
-   #goalsGridHead se retrouve alors sans enfant, et cette règle ramène son
-   padding/marge à zéro pour que l'arbre périodique remonte directement sous
-   la bascule Tâches/Objectifs, sans bulle vide ni espace réservé. N'a aucun
-   effet dans le cas normal (au moins une colonne réelle, donc jamais vide). */
-.goalsGridHead:empty {
-  padding: 0;
-  margin-bottom: 0;
+  display: flex; align-items: center; gap: 10px; padding: 0 4px; margin-bottom: 0;
 }
 
 .goalsGridHeadCell {
