@@ -7092,18 +7092,30 @@
       el.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
     el.addEventListener('focus', function () {
+      // 28 septembre 2026 (2e retour d'Emilien, captures à l'appui) : le
+      // champ remontait bien un peu, mais restait loin au-dessus du clavier
+      // dès que la liste de pôles/secteurs était courte. Cause : `scrollIntoView`
+      // ne peut jamais faire défiler au-delà du débordement RÉEL du
+      // conteneur — sur une liste courte, #activityPageScroll n'a
+      // simplement pas assez de contenu sous le champ pour le pousser
+      // jusqu'au bas de la zone visible réduite par le clavier. Une marge de
+      // défilement temporaire (classe posée au focus, retirée au blur) donne
+      // toujours assez de « piste » pour atteindre le bas, quelle que soit
+      // la longueur de la liste — voir styles.css, .activityPageScrollKbRunway.
+      var scroller = el.closest('#activityPageScroll');
+      if (scroller) scroller.classList.add('activityPageScrollKbRunway');
       requestAnimationFrame(function () {
         requestAnimationFrame(doScroll);
       });
       if (_isCoarsePointer && window.visualViewport) {
-        var vv = window.visualViewport;
-        vv.addEventListener('resize', doScroll);
-        var stopWatching = function () {
-          vv.removeEventListener('resize', doScroll);
-          el.removeEventListener('blur', stopWatching);
-        };
-        el.addEventListener('blur', stopWatching);
+        window.visualViewport.addEventListener('resize', doScroll);
       }
+      function stopWatching() {
+        if (_isCoarsePointer && window.visualViewport) window.visualViewport.removeEventListener('resize', doScroll);
+        if (scroller) scroller.classList.remove('activityPageScrollKbRunway');
+        el.removeEventListener('blur', stopWatching);
+      }
+      el.addEventListener('blur', stopWatching);
     });
   }
 

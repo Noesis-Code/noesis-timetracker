@@ -3201,7 +3201,22 @@ button { -webkit-user-select: none; user-select: none; }
   background: var(--bg);
   margin: 0 -16px; padding: 0 16px 16px;
   will-change: transform;
+  /* 🆕 28 septembre 2026 (2e retour d'Emilien) : la bande transparente reste
+     visible malgré will-change seul. Renfort : une transform réellement
+     posée (pas seulement « annoncée ») force le calque de composition de
+     façon plus fiable que will-change seul sur certains moteurs — même
+     combinaison classique que sur .subProjectSticky.open ci-dessous. */
+  transform: translateZ(0);
 }
+/* 🆕 28 septembre 2026 (2e retour d'Emilien, captures à l'appui) : quand la
+   liste de pôles/secteurs est courte, #activityPageScroll n'a pas assez de
+   contenu à faire défiler pour amener un champ focus jusqu'au bas de la
+   zone visible réduite par le clavier — scrollIntoView() est borné par le
+   débordement RÉEL du conteneur, il ne peut pas inventer de l'espace.
+   Classe posée/retirée en JS au focus/blur (scrollAddInputIntoView(),
+   app.js) : une piste de défilement toujours suffisante, quelle que soit la
+   longueur de la liste, jamais visible hors de ce moment précis. */
+#activityPageScroll.activityPageScrollKbRunway { padding-bottom: 60vh; }
 .activityPageHeader {
   display: flex; align-items: center; gap: 10px;
   flex: 0 0 auto;
@@ -3357,6 +3372,9 @@ button { -webkit-user-select: none; user-select: none; }
      Appliqué préventivement ici aussi, sur demande explicite d'Emilien
      d'étendre la règle à toutes les sections de la feuille d'activité. */
   will-change: transform;
+  /* 🆕 28 septembre 2026 : même renfort que #activityPageSectionSwitch
+     ci-dessus (will-change seul insuffisant sur l'appareil d'Emilien). */
+  transform: translateZ(0);
 }
 
 /* Le bouton "Sortir" ne s'affiche que sur le sous-projet ouvert : il est

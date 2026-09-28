@@ -108,51 +108,6 @@
       </div>
 
       <p id="goalsNoActivityHint" class="hint hidden">Ajoute une activité pour commencer à te fixer des objectifs.</p>
-      <div id="goalsCapturePage" class="goalsCapturePage">
-        <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
-        <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
-        <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
-        <!-- 28 septembre 2026 (backlog encart 71, puis DEUX refontes le même
-             jour). La première refonte (bouton .goalsTasksHistoryToggle avec
-             chevron, blocs par jour #goalsTasksHistoryDays) a été corrigée
-             point par point par Emilien, captures d'écran du panneau RÉEL du
-             Chrono à l'appui : « pas le même bouton [...] pas centré, pas la
-             même forme, pas la même couleur [...] pareil pour les flèches
-             [...] je ne t'ai jamais demandé d'avoir les jours de la semaine
-             [...] par semaine, pas par jour [...] aucun bouton
-             supprimer/modifier ». Cette 2e version REPREND LITTÉRALEMENT le
-             gabarit de #chronoHistorySection (voir plus haut dans ce
-             fichier) plutôt que de le réinterpréter — mêmes classes
-             génériques (.sectionTitleRow/.historyHeaderClickable/
-             .sectionTitle/.historyNav/.iconBtn/.meta/.hint), même
-             comportement (toute la ligne d'en-tête est le bouton, sans
-             chevron ; flèche "suivante" désactivée à la semaine courante,
-             jamais de semaine future). Portée inchangée : TOUTES ACTIVITÉS
-             confondues, tâches autoCaptured=1 uniquement, groupées par
-             semaine de CAPTURE (createdAt — pas dueDate, qui peut tomber
-             dans une semaine future via l'auto-placement et faisait à tort
-             disparaître des tâches pourtant récentes). Voir GET
-             /api/goals/tasks/history, server/lib/goalstasks.js#
-             tasksHistoryForWeek, et loadGoalsTasksHistory()/
-             renderGoalsTasksHistory()/buildGoalsTasksHistoryRow() dans
-             app.js. -->
-        <div id="goalsTasksHistorySection">
-          <div class="sectionTitleRow historyHeaderClickable" id="goalsTasksHistoryHeader">
-            <p class="sectionTitle">Historique</p>
-          </div>
-          <div id="goalsTasksHistoryPanel" class="hidden">
-            <div class="historyNav">
-              <button id="goalsTasksHistoryPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
-              <span id="goalsTasksHistoryWeekLabel" class="meta"></span>
-              <button id="goalsTasksHistoryNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
-            </div>
-            <div id="goalsTasksHistoryList"></div>
-            <p id="goalsTasksHistoryEmptyHint" class="hint hidden">Aucune tâche capturée cette semaine.</p>
-          </div>
-        </div>
-      </div>
-
-      <p id="goalsNoActivityHint" class="hint hidden">Ajoute une activité pour commencer à te fixer des objectifs.</p>
 `);
 
   var $ = TMT.$, api = TMT.api, pad = TMT.pad, dateLocale = TMT.dateLocale,
