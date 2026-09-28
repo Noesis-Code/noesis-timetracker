@@ -3182,11 +3182,25 @@ button { -webkit-user-select: none; user-select: none; }
    ⚠️ Exclu de .chatMode (:not) : ce mode construit sa PROPRE chaîne de
    défilement (#communityDiscussionList) où #activityPageScroll ne défile
    plus lui-même (overflow-y:hidden) — un `sticky` y serait sans effet, mais
-   autant l'exclure explicitement plutôt que de laisser au hasard. */
+   autant l'exclure explicitement plutôt que de laisser au hasard.
+
+   🆕 28 septembre 2026, retour d'Emilien avec capture d'écran : une ligne de
+   pôle scrollée (« Test 2 ») restait visible dans une fine bande TRANSPARENTE
+   entre l'en-tête de l'activité et ce sélecteur, alors que le sélecteur est
+   bien en `position: sticky` avec un fond opaque. Même bug de rendu iOS déjà
+   rencontré et corrigé le 30 août 2026 sur .tsCorner/.tsDayLabel/
+   .tsCalCorner/.tsCalWeekLabel (Feuille de temps, plus haut dans ce fichier) :
+   Safari iOS peint parfois un élément `sticky` sans lui donner son propre
+   calque de composition, laissant une fenêtre d'une frame (voire plus, en
+   scroll rapide) où le contenu dessous n'est pas encore recouvert malgré un
+   fond CSS opaque. Même correctif exact que ces 4 règles : `will-change:
+   transform` force ce sélecteur sur son propre calque, peinture opaque
+   garantie plutôt que de compter sur le fond CSS seul. */
 #activityPageScroll:not(.chatMode) #activityPageSectionSwitch {
   position: sticky; top: 0; z-index: 3;
   background: var(--bg);
   margin: 0 -16px; padding: 0 16px 16px;
+  will-change: transform;
 }
 .activityPageHeader {
   display: flex; align-items: center; gap: 10px;
@@ -3335,6 +3349,14 @@ button { -webkit-user-select: none; user-select: none; }
      filet en bas qui la sépare du contenu qui glisse dessous. */
   border-radius: 0;
   border-bottom: 1px solid var(--border);
+  /* 🆕 28 septembre 2026 : même correctif que #activityPageSectionSwitch
+     (voir son commentaire, plus haut dans ce fichier) — ce bloc vit dans la
+     MÊME zone de défilement (#activityPageScroll) et repose sur le même
+     motif fond-opaque-sur-sticky, donc exposé au même bug de rendu iOS
+     (bande transparente laissant passer le contenu qui défile dessous).
+     Appliqué préventivement ici aussi, sur demande explicite d'Emilien
+     d'étendre la règle à toutes les sections de la feuille d'activité. */
+  will-change: transform;
 }
 
 /* Le bouton "Sortir" ne s'affiche que sur le sous-projet ouvert : il est
@@ -3422,113 +3444,28 @@ button { -webkit-user-select: none; user-select: none; }
 }
 
 /* 28 septembre 2026 (historique de tâches, Page 1 du volet Objectifs,
-   backlog encart 71 puis refonte le même jour, demande explicite d'Emilien :
-   « véritablement copier le modèle chrono [...] classées par semaine avec
-   les deux flèches [...] modifier la tâche ou [...] supprimer [...]
-   cependant [...] qu'on ne puisse pas cocher la tâche dans l'historique
-   [...] un indice pour indiquer [...] si elle a été cochée » — bouton
-   togglable + navigation semaine (réutilise .secteurTasksDay*/
-   .secteurTasksWeekNav*/.iconBtn, déjà thémées, voir le panneau Historique
-   du Chrono) ; case à cocher retirée, remplacée par un indice lecture seule
-   .goalsTasksHistoryItemDone ; libellé éditable en place (input toujours
-   visible, committé au blur — même convention que le renommage de pôle,
-   aucun prompt()) ; suppression via le bouton générique
-   .discussionMsgDelete. */
-.goalsTasksHistoryToggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 4px;
-  margin-top: 12px;
-  border: none;
-  border-top: 1px solid var(--border);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-}
-
-.goalsTasksHistoryToggleChevron {
-  flex: 0 0 auto;
-  display: inline-block;
-  color: var(--text-light);
-}
-
-.goalsTasksHistoryToggleLabel {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-light);
-}
-
-.goalsTasksHistoryPanel.hidden { display: none; }
-
-.goalsTasksHistoryItem {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 6px 4px;
-  border-radius: 6px;
-}
-
-/* Indice lecture seule (jamais interactif ici) — coché ailleurs dans l'app
-   (Chrono, Sous-projets, section Tâches du volet Objectifs) → pastille
-   pleine avec coche ; sinon pastille vide, même gabarit. */
-.goalsTasksHistoryItemDone {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  color: transparent;
-}
-
-.goalsTasksHistoryItem.done .goalsTasksHistoryItemDone {
-  background: var(--purple);
-  border-color: var(--purple);
-  color: #fff;
-}
-
-.goalsTasksHistoryItemBody {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.goalsTasksHistoryItemLabelInput {
-  display: block;
+   backlog encart 71 puis DEUX refontes le même jour). Première refonte :
+   panneau maison (classes .goalsTasksHistory* ci-dessus, retirées) inspiré
+   du panneau Historique du Chrono mais reconstruit de mémoire plutôt que
+   copié. Emilien a corrigé point par point, captures d'écran du panneau
+   RÉEL de Chrono à l'appui (« sers-toi de cette base ») : bouton pas centré,
+   pas la même forme, pas la même couleur ; flèches trop grosses ; jours de
+   la semaine non demandés (juste « par semaine ») ; aucun bouton
+   modifier/supprimer visible. Cette 2e refonte RÉUTILISE LITTÉRALEMENT le
+   gabarit du Chrono plutôt que de le réinterpréter : #goalsTasksHistorySection
+   reprend exactement le HTML de #chronoHistorySection (.sectionTitleRow
+   .historyHeaderClickable + .sectionTitle « Historique » comme SEUL bouton,
+   .historyNav + .iconBtn pour les flèches ‹/›, .meta pour l'étiquette de
+   semaine) et chaque tâche est une .historyEntry — MÊME classe que les
+   sessions du Chrono (.rowTop/.actName/.dot/.meta/.note/.actions/.iconBtn/
+   .iconBtn.danger/.historyEditFields/.rowActions/.stopFieldLabel/.msg, tous
+   déjà thémés, voir buildChronoHistoryEntry() dans app.js) : AUCUNE classe
+   .goalsTasksHistoryItem* n'est plus nécessaire. Seul ajout propre à cette
+   page : le champ texte de l'intitulé en mode édition (pas de
+   input[type=datetime-local] ici, une tâche n'a pas d'heure). */
+.historyEditTaskLabel {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  padding: 2px 4px;
-  margin: -2px -4px;
-  overflow-wrap: anywhere;
-}
-
-.goalsTasksHistoryItemLabelInput:focus {
-  border-color: var(--border);
-  outline: none;
-}
-
-.goalsTasksHistoryItem.done .goalsTasksHistoryItemLabelInput {
-  text-decoration: line-through;
-  color: var(--text-light);
-}
-
-.goalsTasksHistoryItemMeta {
-  font-size: 12px;
-  color: var(--text-light);
-  margin-top: 2px;
 }
 
 .subProjectItemWho {
@@ -5258,98 +5195,28 @@ button { -webkit-user-select: none; user-select: none; }
   .goalsPage2ModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: #fff; }
 }
 
-/* Avancement global — même patron que .activityProgressCard (Sous-projets,
-   plus haut dans ce fichier) : anneau SVG en `stroke-dasharray`, pourcentage
-   posé PAR-DESSUS (jamais un <text> SVG, qui tournerait avec le
-   rotate(-90deg)). Dimensions propres à la maquette de ce chantier
-   (r=26, épaisseur 7px) — plus grand que l'anneau des Sous-projets (r=19). */
-.goalsTasksProgressCard {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 0 0 14px;
-  padding: 14px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.goalsTasksProgressRing {
-  flex: 0 0 auto;
-  width: 60px;
-  height: 60px;
-  transform: rotate(-90deg);
-}
-.goalsTasksProgressRingBg,
-.goalsTasksProgressRingFill {
-  fill: none;
-  stroke-width: 7;
-}
-.goalsTasksProgressRingBg { stroke: #2A2A31; }
-.goalsTasksProgressRingFill {
-  stroke: #9088F2;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.3s ease;
-}
-.goalsTasksProgressPercent {
-  position: absolute;
-  left: 14px;
-  width: 60px;
-  text-align: center;
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-.goalsTasksProgressText { min-width: 0; }
-.goalsTasksProgressTitle { margin: 0 0 2px; font-weight: 600; }
-.goalsTasksProgressText .meta { margin: 0; }
+/* 28 septembre 2026, demande directe d'Emilien : « je souhaite que dans
+   tâches, il y ait une zone avancement identique à la zone d'avancement
+   actuelle dans le main section sous projet [...] Prends comme modèle le
+   code de la section sous-projet du main actuel » — la carte d'avancement
+   et les groupes ci-dessous réutilisent donc LITTÉRALEMENT les classes de
+   .activityProgressCard/.activityRow/.subProjectRow (Sous-projets, plus haut
+   dans ce fichier) au lieu d'un gabarit dédié : plus de r=26/60×60/#9088F2
+   propres à cette maquette (retirés), l'anneau est désormais pixel pour
+   pixel celui des Sous-projets (r=19, épaisseur 5, viewBox 44×44,
+   var(--purple)/var(--track-bg)). Seules les 2 règles ci-dessous restent
+   spécifiques à cet écran : le petit chevron d'accordéon (les lignes
+   sous-projet n'en ont pas besoin, elles ouvrent une page dédiée) et le
+   curseur par défaut sur un groupe à plat (pôle sans secteur, jamais
+   repliable — demande explicite d'Emilien). */
+.goalsTasksGroups { display: flex; flex-direction: column; gap: 10px; }
 
-/* Groupes (un par secteur, ou par pôle sans secteur) — jamais de point de
-   couleur (règle déjà en vigueur : seuls les pôles ont une nuance, jamais
-   les secteurs), jamais de poignée de glisser-déposer (aucun
-   réordonnancement manuel sur cet écran, demande explicite d'Emilien). */
-.goalsTasksGroups { display: flex; flex-direction: column; gap: 8px; }
-
-.goalsTasksGroup {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--card);
-  overflow: hidden;
-}
-/* En-tête cliquable (secteur, accordéon replié par défaut — demande
-   explicite d'Emilien). */
-.goalsTasksGroupHead {
-  width: 100%; display: flex; align-items: center; gap: 8px;
-  padding: 12px 14px; border: none; background: transparent; color: inherit;
-  cursor: pointer; text-align: left; font: inherit;
-}
 .goalsTasksGroupChevron {
   flex: 0 0 auto; display: inline-block; transition: transform 0.15s ease;
   color: var(--muted);
 }
 .goalsTasksGroup.open .goalsTasksGroupChevron { transform: rotate(90deg); }
-.goalsTasksGroupLabel {
-  flex: 1 1 auto; min-width: 0; font-weight: 600;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.goalsTasksGroupCount { flex: 0 0 auto; margin: 0; }
-/* En-tête à plat (pôle sans secteur — pas de bouton, pas de chevron, jamais
-   replié : « aucun menu déroulant dans ce cas », demande d'Emilien). */
-.goalsTasksGroupFlatHead {
-  display: flex; align-items: center; gap: 8px; padding: 12px 14px 0;
-}
-.goalsTasksGroupFlatHead .goalsTasksGroupLabel { font-weight: 600; }
-
-.goalsTasksGroupBody { padding: 0 14px 14px; }
-.goalsTasksGroupBody.hidden { display: none; }
-
-.goalsTasksGroupBar {
-  height: 4px; border-radius: 999px; background: #2A2A31; margin: 0 0 10px;
-  overflow: hidden;
-}
-.goalsTasksGroupBarFill {
-  height: 100%; background: #9088F2; border-radius: inherit;
-  transition: width 0.3s ease;
-}
+.goalsTasksGroupFlat .subProjectRowHeader { cursor: default; }
 
 /* 15 septembre 2026 (7e passage, demande d'Emilien — « un seul mode : la
    grille (arbre) ») : la bascule Arbre/Répartition (.goalsViewToggle*) et la
@@ -6353,29 +6220,30 @@ button { -webkit-user-select: none; user-select: none; }
    (gap), aucune puce n'en recouvre une autre. */
 /* 28 septembre 2026, demande d'Emilien : « donner aux bulles les activités
    une forme plus rectangulaire. Dans le même style que dans la page chrono
-   mais en moins large » — passe d'une pile pleine largeur de pilules
-   (border-radius:999px) à une ligne de puces qui s'enroule (flex-wrap),
-   chacune large seulement de son contenu (« moins large » que les gros
-   boutons pleine largeur de Chrono, .activityChoiceBtn ci-dessus). Le
-   rectangle réutilise littéralement var(--radius-lg), le même rayon que
-   .activityChoiceBtn (« même style que Chrono ») : à la hauteur de cette
-   puce (~41px avec le padding ci-dessous), c'est nettement moins de la
-   moitié de la hauteur, donc un coin de rectangle clairement visible et non
-   une pilule (même logique déjà vérifiée à l'écran pour .goalsGridHeadCell,
-   16 septembre 2026 — voir son commentaire plus bas dans ce fichier). */
+   mais en moins large » — PREMIÈRE tentative (retirée) : disposition changée
+   en ligne qui s'enroule (flex-wrap), largeur automatique. Correction directe
+   d'Emilien le même jour : « je ne t'ai jamais demandé de changer la
+   disposition des activités. Je souhaite qu'elle reste superposée, garder
+   le même format qu'avant. Simplement modifier légèrement la forme des
+   bulles » — la disposition empilée pleine largeur (flex-direction:column,
+   width:100%) est restaurée à l'identique ; SEUL le rayon change
+   (999px → var(--radius-sm)). var(--radius-lg) avait été essayé d'abord
+   mais, à la hauteur de cette puce (~33px), un rayon aussi grand reste
+   perçu comme une pilule (même piège déjà rencontré et documenté sur
+   .goalsGridHeadCell, 16 septembre 2026, voir son commentaire plus bas) —
+   var(--radius-sm) (8px, ~24% de la hauteur) se lit sans ambiguïté comme un
+   coin de rectangle. */
 .goalsCaptureActivities {
-  display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px;
+  display: flex; flex-direction: column; gap: 8px;
 }
 .goalsCaptureActivityChip {
   display: flex; align-items: center; gap: 6px;
-  width: auto; box-sizing: border-box;
-  padding: 12px 16px; border-radius: var(--radius-lg);
+  width: 100%; box-sizing: border-box;
+  padding: 8px 12px; border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: var(--card);
-  color: var(--text); font-size: 14px; font-weight: bold; font-family: inherit;
+  color: var(--text); font-size: 14px; font-family: inherit;
   cursor: pointer; position: relative;
-  transition: transform var(--transition-fast);
 }
-.goalsCaptureActivityChip:active { transform: scale(0.98); }
 .goalsCaptureActivityChip .dot {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
 }

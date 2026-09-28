@@ -364,32 +364,36 @@ function markCategoriesSeen(activityId, categoryKey) {
 // ---------------------------------------------------------------------------
 // 28 septembre 2026 (C. Objectifs — Page 1, backlog encart 71 du 27
 // septembre : « historique de tâches, même modèle que le Chrono » — signalé
-// par Emilien comme absent, jamais codé jusqu'ici ; puis, même jour, suite :
-// « je souhaite véritablement copier le modèle chrono [...] les tâches sont
-// classées par semaine avec les deux flèches pour changer de semaine » —
-// remplace la première version (liste plate, « dernières 200 »,
-// tasksHistoryForUser, retirée) par une version groupée par JOUR au sein
-// d'une semaine calendaire, même gabarit que tasksForCategoryThisWeek
-// ci-dessus (Chrono), mais historique CROISÉ, TOUTES ACTIVITÉS confondues,
-// des tâches capturées par la bulle IA de la page 1 (autoCaptured = 1
-// UNIQUEMENT — pas une tâche ajoutée manuellement depuis une catégorie ou le
-// Chrono, cohérent avec le rôle de capture propre à cette page).
-// Complétées ET en attente (pas seulement un journal du fait, confirmé avec
-// Emilien). Contrairement à Chrono (weekOffset jamais négatif, « uniquement
-// futur »), un historique est par nature rétrospectif : cette fonction
-// applique le décalage tel quel, dans les deux sens — c'est la route
-// appelante (server/routes/goals.js) qui décide de ne PAS le brider, à la
-// différence de sa cousine goals.js#tasksForCategoryThisWeek. Lecture seule :
-// aucune écriture, ce fichier n'en fait déjà que trop pour ne pas en avoir
-// une de plus (voir addCategoryTask/moveCategoryTask ci-dessus).
+// par Emilien comme absent, jamais codé jusqu'ici) — puis DEUX refontes le
+// même jour. La première (retirée) groupait par JOUR sur une semaine filtrée
+// par dueDate, sur le modèle de tasksForCategoryThisWeek (Chrono, fenêtre
+// "visualiser" d'un secteur). Emilien a corrigé, captures d'écran du panneau
+// Historique RÉEL du Chrono à l'appui (« sers-toi de cette base ») : pas de
+// jours, « juste... par semaine » ; et surtout, la semaine courante
+// n'affichait presque rien de visible côté client — la vraie cause : filtrer
+// sur dueDate est le mauvais repère temporel pour un historique. dueDate est
+// une date de PLANIFICATION posée par l'auto-placement
+// (goalscaptureplace.js#autoPlaceTask, fenêtre de 14 jours) : une tâche
+// capturée aujourd'hui peut très bien avoir une dueDate la semaine
+// PROCHAINE, donc absente de "cette semaine". Cette 2e version filtre sur
+// createdAt (date de CAPTURE) — exactement le repère que le panneau
+// Historique du Chrono utilise lui aussi pour ses propres sessions (voir
+// server/routes/history.js, jamais une date planifiée). Liste PLATE (plus de
+// jours), triée la plus récente en premier — comme le confirme Emilien :
+// « les enregistrements sont classés du plus récent au moins récent par
+// semaine ». weekOffset = nombre de semaines AVANT la semaine courante (0 =
+// semaine courante), jamais négatif — même convention que
+// currentHistoryWeekOffset côté Chrono (public/app.js) : un historique ne
+// montre jamais l'avenir. Toujours historique CROISÉ, TOUTES ACTIVITÉS
+// confondues, des tâches capturées par la bulle IA (autoCaptured = 1
+// UNIQUEMENT). Lecture seule : aucune écriture, ce fichier n'en fait déjà
+// que trop pour ne pas en avoir une de plus (voir addCategoryTask/
+// moveCategoryTask ci-dessus).
 function tasksHistoryForWeek(userId, weekOffset) {
-  const offset = Number(weekOffset) || 0;
-  const monday = goals.addDays(goals.mostRecentMonday(todayLocal()), offset * 7);
-  const days = [];
-  for (let i = 0; i < 7; i += 1) days.push(goals.addDays(monday, i));
-
-  const byDay = {};
-  days.forEach((day) => { byDay[day] = []; });
+  const offset = Number(weekOffset) > 0 ? Math.floor(Number(weekOffset)) : 0;
+  const monday = goals.addDays(goals.mostRecentMonday(todayLocal()), -offset * 7);
+  const weekStart = monday + 'T00:00:00.000Z';
+  const weekEnd = goals.addDays(monday, 7) + 'T00:00:00.000Z';
 
   const rows = db.prepare(`
     SELECT i.id, i.label, i.done, i.doneAt, i.dueDate, i.createdAt,
@@ -400,35 +404,26 @@ function tasksHistoryForWeek(userId, weekOffset) {
     JOIN activities a ON a.id = sp.activityId
     JOIN activity_members m ON m.activityId = sp.activityId
     WHERE m.userId = ? AND s.kind = 'tasks' AND i.autoCaptured = 1 AND sp.goalCategory IS NOT NULL
-      AND i.dueDate >= ? AND i.dueDate <= ?
-    ORDER BY i.dueDate ASC, i.createdAt ASC, i.id ASC
-  `).all(userId, monday, days[6]);
+      AND i.createdAt >= ? AND i.createdAt < ?
+    ORDER BY i.createdAt DESC, i.id DESC
+  `).all(userId, weekStart, weekEnd);
 
-  rows.forEach((r) => {
-    if (!Object.prototype.hasOwnProperty.call(byDay, r.dueDate)) return;
-    byDay[r.dueDate].push({
-      id: r.id,
-      label: r.label,
-      done: !!r.done,
-      doneAt: r.doneAt,
-      dueDate: r.dueDate,
-      createdAt: r.createdAt,
-      activityId: r.activityId,
-      activityName: r.activityName,
-      categoryKey: r.category,
-      // categoryLabelFor ne lève jamais pour une clé encore valide au moment
-      // de la capture mais retirée depuis (pôle/secteur supprimé) — voir son
-      // propre commentaire dans goals.js ; une tâche historique garde son
-      // libellé de capture dans ce cas plutôt que de faire échouer tout
-      // l'historique pour une seule ligne.
-      categoryLabel: goals.categoryLabelFor(r.activityId, r.category),
-    });
-  });
-
-  return days.map((day) => ({
-    date: day,
-    weekday: WEEKDAY_LABELS_FR[new Date(day + 'T00:00:00Z').getUTCDay()],
-    tasks: byDay[day],
+  return rows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    done: !!r.done,
+    doneAt: r.doneAt,
+    dueDate: r.dueDate,
+    createdAt: r.createdAt,
+    activityId: r.activityId,
+    activityName: r.activityName,
+    categoryKey: r.category,
+    // categoryLabelFor ne lève jamais pour une clé encore valide au moment
+    // de la capture mais retirée depuis (pôle/secteur supprimé) — voir son
+    // propre commentaire dans goals.js ; une tâche historique garde son
+    // libellé de capture dans ce cas plutôt que de faire échouer tout
+    // l'historique pour une seule ligne.
+    categoryLabel: goals.categoryLabelFor(r.activityId, r.category),
   }));
 }
 

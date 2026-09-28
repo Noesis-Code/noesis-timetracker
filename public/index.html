@@ -2249,28 +2249,42 @@
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
         <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
         <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
-        <!-- 28 septembre 2026 (backlog encart 71, puis refonte demandée le même
-             jour : « véritablement copier le modèle chrono [...] classées par
-             semaine avec les deux flèches [...] modifier la tâche ou [...]
-             supprimer [...] qu'on ne puisse pas cocher [...] un indice pour
-             indiquer si elle a été cochée ») — panneau repliable (bouton
-             togglable), TOUTES ACTIVITÉS confondues, structuré par semaine
-             (voir GET /api/goals/tasks/history, server/lib/
-             goalstasks.js#tasksHistoryForWeek). Toujours visible (le panneau,
-             lui, est replié par défaut) — voir loadGoalsTasksHistory()/
-             renderGoalsTasksHistory()/buildGoalsTasksHistoryRow() dans app.js. -->
-        <div id="goalsTasksHistorySection" class="goalsTasksHistorySection">
-          <button type="button" class="goalsTasksHistoryToggle" id="goalsTasksHistoryToggle">
-            <span class="goalsTasksHistoryToggleChevron" id="goalsTasksHistoryChevron">▸</span>
-            <span class="goalsTasksHistoryToggleLabel">Historique</span>
-          </button>
-          <div id="goalsTasksHistoryPanel" class="goalsTasksHistoryPanel hidden">
-            <div class="secteurTasksWeekNav">
-              <button type="button" class="iconBtn" id="goalsTasksHistoryPrevWeek" aria-label="Semaine précédente">←</button>
-              <span id="goalsTasksHistoryWeekLabel" class="secteurTasksWeekLabel"></span>
-              <button type="button" class="iconBtn" id="goalsTasksHistoryNextWeek" aria-label="Semaine suivante">→</button>
+        <!-- 28 septembre 2026 (backlog encart 71, puis DEUX refontes le même
+             jour). La première refonte (bouton .goalsTasksHistoryToggle avec
+             chevron, blocs par jour #goalsTasksHistoryDays) a été corrigée
+             point par point par Emilien, captures d'écran du panneau RÉEL du
+             Chrono à l'appui : « pas le même bouton [...] pas centré, pas la
+             même forme, pas la même couleur [...] pareil pour les flèches
+             [...] je ne t'ai jamais demandé d'avoir les jours de la semaine
+             [...] par semaine, pas par jour [...] aucun bouton
+             supprimer/modifier ». Cette 2e version REPREND LITTÉRALEMENT le
+             gabarit de #chronoHistorySection (voir plus haut dans ce
+             fichier) plutôt que de le réinterpréter — mêmes classes
+             génériques (.sectionTitleRow/.historyHeaderClickable/
+             .sectionTitle/.historyNav/.iconBtn/.meta/.hint), même
+             comportement (toute la ligne d'en-tête est le bouton, sans
+             chevron ; flèche "suivante" désactivée à la semaine courante,
+             jamais de semaine future). Portée inchangée : TOUTES ACTIVITÉS
+             confondues, tâches autoCaptured=1 uniquement, groupées par
+             semaine de CAPTURE (createdAt — pas dueDate, qui peut tomber
+             dans une semaine future via l'auto-placement et faisait à tort
+             disparaître des tâches pourtant récentes). Voir GET
+             /api/goals/tasks/history, server/lib/goalstasks.js#
+             tasksHistoryForWeek, et loadGoalsTasksHistory()/
+             renderGoalsTasksHistory()/buildGoalsTasksHistoryRow() dans
+             app.js. -->
+        <div id="goalsTasksHistorySection">
+          <div class="sectionTitleRow historyHeaderClickable" id="goalsTasksHistoryHeader">
+            <p class="sectionTitle">Historique</p>
+          </div>
+          <div id="goalsTasksHistoryPanel" class="hidden">
+            <div class="historyNav">
+              <button id="goalsTasksHistoryPrevWeek" type="button" class="iconBtn" aria-label="Semaine précédente">‹</button>
+              <span id="goalsTasksHistoryWeekLabel" class="meta"></span>
+              <button id="goalsTasksHistoryNextWeek" type="button" class="iconBtn" aria-label="Semaine suivante">›</button>
             </div>
-            <div id="goalsTasksHistoryDays"></div>
+            <div id="goalsTasksHistoryList"></div>
+            <p id="goalsTasksHistoryEmptyHint" class="hint hidden">Aucune tâche capturée cette semaine.</p>
           </div>
         </div>
       </div>
@@ -2355,6 +2369,24 @@
           <span class="goalsActivityPlainName" id="goalsActivityName"></span>
         </div>
 
+        <!-- 28 septembre 2026, demande directe d'Emilien : le cadre du pôle
+             sélectionné (#goalsActivityHeader) remonte ICI, entre la flèche
+             de retour et la bascule Tâches/Objectifs — il reste désormais
+             TOUJOURS VISIBLE, qu'on soit dans l'écran Tâches ou Objectifs, au
+             lieu de vivre uniquement dans #goalsObjectifsView (26 septembre).
+             Aucun changement JS requis : renderGoalsPoleSwitcher(),
+             openGoalsForPole(), bindGoalsSwipe() et les écouteurs de
+             #goalsPrevPoleBtn/#goalsNextPoleBtn (app.js) ciblent tous cet
+             élément par son id, sans hypothèse sur son parent DOM. -->
+        <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
+          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevPoleBtn" aria-label="Pôle précédent">‹</button>
+          <div class="goalsActivityNameWrap">
+            <span class="dot" id="goalsPoleDot"></span>
+            <span class="activityPageName" id="goalsPoleName"></span>
+          </div>
+          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsNextPoleBtn" aria-label="Pôle suivant">›</button>
+        </div>
+
         <!-- 27 septembre 2026, chantier « Tâches quotidiennes intégrées à la
              Page 2 » (Aiguillage, maquette approuvée par Emilien dans le
              canvas Design partagé — voir claude/noesis-timetracker-taches-
@@ -2376,30 +2408,37 @@
           <button type="button" class="goalsPage2ModeBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
         </div>
 
-        <!-- Écran « Tâches » (nouveau, 27 septembre 2026) : avancement
-             global (anneau, même patron que #activityProgressWrap des
-             Sous-projets — voir plus haut dans ce fichier — mais valeurs
-             propres à cette maquette, r=26/épaisseur 7px) puis une liste de
-             groupes, un par secteur (accordéon replié par défaut, jamais de
-             point de couleur — les secteurs n'ont pas de couleur, règle déjà
-             en vigueur) ou par pôle sans secteur (affiché à plat, sans
-             chevron). Construit entièrement par renderGoalsTasksOverview()/
-             buildGoalsTasksGroup() (app.js) à partir de
-             GET /api/activities/:id/goals/tasks/overview (contrat calé avec
-             Tâche - Pôles & secteurs, voir le doc cité ci-dessus) — rien de
-             statique ici au-delà de ces 3 conteneurs vides. Aucun
-             réordonnancement manuel nulle part sur cet écran (demande
-             explicite d'Emilien), ni sélecteur de pôle (portée = toute
-             l'activité, à la différence de #goalsObjectifsView). -->
+        <!-- Écran « Tâches » — 27 septembre 2026 (création), refondu le 28
+             septembre 2026 sur demande directe d'Emilien : « je souhaite que
+             dans tâches, il y ait une zone avancement identique à la zone
+             d'avancement actuelle dans le main section sous projet [...]
+             Prends comme modèle le code de la section sous-projet du main
+             actuel ». La carte d'avancement réutilise donc littéralement les
+             classes de #activityProgressWrap (Sous-projets, plus haut dans ce
+             fichier) — .activityProgressCard/.activityProgressRing* — au lieu
+             d'un gabarit propre (r=19/épaisseur 5, viewBox 44×44, identique
+             pixel pour pixel, plus de r=26/60×60). Chaque groupe (secteur ou
+             pôle sans secteur) reprend de même le format exact d'une ligne
+             sous-projet (.subProjectRow) — voir buildGoalsTasksGroup()/
+             buildGoalsTaskRow(), app.js. Construit entièrement par
+             renderGoalsTasksOverview()/buildGoalsTasksGroup() (app.js) à
+             partir de GET /api/activities/:id/goals/tasks/overview (contrat
+             calé avec Tâche - Pôles & secteurs, voir le doc cité ci-dessus —
+             un champ `description` par groupe est désormais aussi réclamé,
+             voir cet encart plus bas). Aucun réordonnancement manuel nulle
+             part sur cet écran (demande explicite d'Emilien), ni sélecteur de
+             pôle (portée = toute l'activité, à la différence de
+             #goalsObjectifsView — le cadre de pôle juste au-dessus, lui,
+             reste visible mais n'est pas une navigation propre à cet écran). -->
         <div id="goalsTasksView" class="goalsTasksView">
-          <div id="goalsTasksProgressWrap" class="goalsTasksProgressCard hidden">
-            <svg class="goalsTasksProgressRing" viewBox="0 0 60 60" aria-hidden="true">
-              <circle class="goalsTasksProgressRingBg" cx="30" cy="30" r="26"></circle>
-              <circle id="goalsTasksProgressRingFill" class="goalsTasksProgressRingFill" cx="30" cy="30" r="26"></circle>
+          <div id="goalsTasksProgressWrap" class="activityProgressCard hidden">
+            <svg class="activityProgressRing" viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="activityProgressRingBg" cx="22" cy="22" r="19"></circle>
+              <circle id="goalsTasksProgressRingFill" class="activityProgressRingFill" cx="22" cy="22" r="19"></circle>
             </svg>
-            <span id="goalsTasksProgressPercent" class="goalsTasksProgressPercent">0%</span>
-            <div class="goalsTasksProgressText">
-              <p class="goalsTasksProgressTitle">Avancement global</p>
+            <span id="goalsTasksProgressPercent" class="activityProgressPercent">0%</span>
+            <div class="activityProgressText">
+              <p class="activityProgressTitle">Avancement global</p>
               <p id="goalsTasksProgressCount" class="meta"></p>
             </div>
           </div>
@@ -2407,22 +2446,17 @@
           <p id="goalsTasksEmptyHint" class="hint hidden"></p>
         </div>
 
-        <!-- Contenu historique de la page 2 (sélecteur de pôle + arbre
-             périodique + rail tactile), désormais derrière le segment
-             « Objectifs » de la bascule ci-dessus — voir le commentaire
-             juste au-dessus. RIEN n'est modifié à l'intérieur de ce bloc par
-             ce chantier, seul l'enrobage (id="goalsObjectifsView", classe
-             hidden par défaut puisque « Tâches » est le segment actif au
-             départ) est nouveau. -->
+        <!-- Contenu historique de la page 2 (arbre périodique + rail
+             tactile), désormais derrière le segment « Objectifs » de la
+             bascule ci-dessus — voir le commentaire juste au-dessus. RIEN
+             n'est modifié à l'intérieur de ce bloc par ce chantier, seul
+             l'enrobage (id="goalsObjectifsView", classe hidden par défaut
+             puisque « Tâches » est le segment actif au départ) est nouveau.
+             ⚠️ 28 septembre 2026 : #goalsActivityHeader (cadre du pôle) est
+             SORTI d'ici — déplacé plus haut, juste après
+             #goalsActivityPlainRow, pour rester visible dans les deux
+             segments (voir le commentaire à son nouvel emplacement). -->
         <div id="goalsObjectifsView" class="hidden">
-        <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
-          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevPoleBtn" aria-label="Pôle précédent">‹</button>
-          <div class="goalsActivityNameWrap">
-            <span class="dot" id="goalsPoleDot"></span>
-            <span class="activityPageName" id="goalsPoleName"></span>
-          </div>
-          <button type="button" class="menuBtn goalsSwipeBtn" id="goalsNextPoleBtn" aria-label="Pôle suivant">›</button>
-        </div>
 
         <!-- ⚠️ 26 septembre 2026 : le menu déroulant de pôles qui vivait ici
              depuis le 21 septembre 2026 (#goalsPoleTabBar,

@@ -772,24 +772,27 @@ router.get('/goals/capture/badges', (req, res) => {
 // goalstasks.js#markCategoriesSeen).
 // 28 septembre 2026 (C. Objectifs — Page 1, backlog encart 71 du 27
 // septembre : « historique de tâches, même modèle que le Chrono », signalé
-// par Emilien comme absent ; puis, même jour, suite : « je souhaite
-// véritablement copier le modèle chrono [...] classées par semaine avec les
-// deux flèches pour changer de semaine ») — historique CROISÉ, toutes
-// activités confondues, des tâches capturées par la bulle IA (autoCaptured=1
-// uniquement), groupé par jour au sein de la semaine demandée. Pas scopée à
-// une activité dans son URL, même raisonnement que /goals/capture/badges
-// ci-dessus. weekOffset n'est PAS bridé au signe positif ici — à la
-// différence de .../tasks/week un peu plus haut (Chrono, « uniquement
-// futur ») : un historique est par nature rétrospectif, la navigation est
-// libre dans les deux sens.
+// par Emilien comme absent) — puis DEUX refontes le même jour, la seconde
+// corrigeant la première sur captures d'écran du panneau Historique RÉEL du
+// Chrono (« sers-toi de cette base ») : liste PLATE par semaine (plus de
+// jours), filtrée sur createdAt (date de capture — pas dueDate, voir le
+// commentaire de goalstasks.js#tasksHistoryForWeek). weekOffset EST bridé au
+// signe positif ici, à la différence de la version précédente : même
+// convention que .../tasks/week un peu plus haut (Chrono, « uniquement
+// futur ») mais dans l'autre sens — 0 = semaine courante, un décalage
+// positif recule dans le PASSÉ, jamais l'avenir (un historique n'en montre
+// jamais). Historique CROISÉ, toutes activités confondues, des tâches
+// capturées par la bulle IA (autoCaptured=1 uniquement). Pas scopée à une
+// activité dans son URL, même raisonnement que /goals/capture/badges
+// ci-dessus.
 router.get('/goals/tasks/history', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const rawOffset = Number(req.query.weekOffset);
-  const weekOffset = Number.isFinite(rawOffset) ? Math.trunc(rawOffset) : 0;
+  const weekOffset = Number.isFinite(rawOffset) && rawOffset > 0 ? Math.floor(rawOffset) : 0;
   try {
-    const days = goalstasks.tasksHistoryForWeek(userId, weekOffset);
-    res.json({ days, weekOffset });
+    const tasks = goalstasks.tasksHistoryForWeek(userId, weekOffset);
+    res.json({ tasks, weekOffset });
   } catch (err) {
     handleGoalsError(res, err);
   }
