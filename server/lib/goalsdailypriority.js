@@ -277,10 +277,49 @@ function anyDailyPriorityForUser(userId) {
   return false;
 }
 
+// 28 septembre 2026 — décision d'Emilien relayée par Notifications (voir
+// noesis-timetracker-notifications-deep-link.md, « Décisions d'Emilien »,
+// cas 4) : la notification du matin doit pointer sur l'activité qui contient
+// la tâche la plus urgente, X et T « devant venir de computeDailyPriorityList,
+// la même source que la liste elle-même » — jamais un calcul séparé, règle
+// verrouillée le 22 sept. contre la désynchronisation notif/liste (bug réel
+// de la V1, voir l'en-tête de ce fichier). Remplace anyDailyPriorityForUser
+// comme unique source pour dailysuggestioncron.js : un seul passage sur les
+// activités actives de l'utilisateur, au lieu de deux (l'ancien « y a-t-il
+// quelque chose » puis un second calcul pour savoir quoi) — voir son appel
+// dans dailysuggestioncron.js#runDailySuggestionSweep.
+//
+// Chaque tâche n'est comparable qu'AU SEIN de son activité — capacityMinutes
+// et tous les signaux de computeDailyPriorityList sont scopés à une seule
+// activité, il n'existe aucune normalisation croisée entre activités (même
+// limite déjà documentée pour le signal 5, plus haut). En l'absence d'un tel
+// signal, on prend la tâche la plus urgente (items[0], toujours .selected
+// puisque le budget garde au moins la première — voir computeDailyPriorityList)
+// de CHAQUE activité, puis on retient celle dont le score est le plus élevé
+// parmi ces candidates — meilleur choix disponible avec les données déjà
+// calculées, jamais un tri des scores bruts de toutes les tâches confondues.
+function mostUrgentTaskForUser(userId) {
+  const activityIds = activeActivitiesForUser(userId);
+  let best = null;
+  for (const activityId of activityIds) {
+    try {
+      const result = computeDailyPriorityList(activityId, userId);
+      const top = result.items[0];
+      if (top && top.selected && (!best || top.score > best.task.score)) {
+        best = { activityId, task: top };
+      }
+    } catch (e) {
+      // une activité en échec ne doit jamais bloquer les autres
+    }
+  }
+  return best ? { activityId: best.activityId, taskId: best.task.id } : null;
+}
+
 module.exports = {
   WEIGHT_TEMPS, WEIGHT_SECTEUR, WEIGHT_URGENCE, WEIGHT_POSITION, WEIGHT_SYNC,
   SECTEUR_HISTORY_DAYS, ACTIVITY_HISTORY_DAYS,
   pendingTasksForActivity, recentDailyMinutesForCategory, goalPressureForPole,
   deadlineScoreForTask, positionScoreForTask, historicalAverageMinutesPerDayForActivity,
   computeDailyPriorityList, activeActivitiesForUser, anyDailyPriorityForUser,
+  mostUrgentTaskForUser,
 };

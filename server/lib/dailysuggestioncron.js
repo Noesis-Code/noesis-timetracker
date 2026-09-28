@@ -56,18 +56,34 @@ function allUserIds() {
 // aujourd'hui sur au moins une de ses activités — une activité en échec ne
 // doit jamais bloquer les autres (même principe que l'ancien
 // runDailySuggestionSweep, V1, 21 sept. 2026).
+//
+// 28 septembre 2026 — décision d'Emilien relayée par Notifications (voir
+// noesis-timetracker-notifications-deep-link.md, cas 4) : l'adresse pointe
+// désormais sur l'activité qui contient la tâche la plus urgente, calculée
+// par goalsdailypriority.mostUrgentTaskForUser — MÊME SOURCE que la liste
+// elle-même (computeDailyPriorityList), jamais un calcul séparé, pour ne
+// jamais désynchroniser la notification de la vraie liste (règle verrouillée
+// le 22 sept. contre le bug réel de la V1, voir l'en-tête de ce fichier). Un
+// seul appel remplace l'ancien anyDailyPriorityForUser : mostUrgentTaskForUser
+// renvoie null quand il n'y a rien à proposer (mêmes garanties, un passage
+// de calcul en moins). Repli sur l'ancienne adresse générique si aucune
+// tâche urgente n'est trouvée malgré tout (garde défensive, ne devrait pas
+// arriver en pratique) — côté client, Notifications replie déjà cette
+// adresse sur la Page 1 des Objectifs quand activityId est absent.
 function runDailySuggestionSweep() {
   const userIds = allUserIds();
   let notified = 0;
   for (const userId of userIds) {
     try {
-      if (!goalsdailypriority.anyDailyPriorityForUser(userId)) continue; // rien à proposer : pas de notification vide
+      const urgent = goalsdailypriority.mostUrgentTaskForUser(userId);
+      if (!urgent) continue; // rien à proposer : pas de notification vide
       const t = textsFor(userId);
+      const url = '/?notif=dailypriority&activityId=' + urgent.activityId + '&taskId=' + urgent.taskId;
       push.sendToUsers([userId], {
         title: t.title,
         body: t.body,
         tag: 'daily-suggestion',
-        url: '/?notif=dailypriority',
+        url: url,
       });
       notified += 1;
     } catch (e) {
