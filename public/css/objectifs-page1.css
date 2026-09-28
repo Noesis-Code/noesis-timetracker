@@ -74,13 +74,19 @@
 }
 #goalsTasksHistoryHeader:hover { background: var(--hover-bg); }
 #goalsTasksHistoryHeader .sectionTitle { margin: 0; }
-/* .goalsCapturePage espace tous ses enfants directs de 14px (flex gap) —
-   #chronoHistoryHeader, lui, n'est qu'à 4px de ce qui le précède (pas un
-   contexte flex-gap). Un margin-top négatif ramène l'écart net entre les
-   puces d'activité et ce bouton à 4px, même distance que Chrono, sans
-   toucher au gap de 14px qui sépare les AUTRES éléments de cette page
-   (bulle, invite, puces) entre eux. */
-#goalsTasksHistorySection { margin-top: -10px; }
+/* 28 septembre 2026, 3e retour d'Emilien : « décoller légèrement le bouton
+   historique des activités [...] même espace que dans le chrono ». Chrono
+   lui-même est passé par CE MÊME palier avant d'arriver à son 4px actuel —
+   voir public/styles.css, commentaire "Historique modifiable (Chrono)" :
+   « éloignée de 24px, réduit une première fois à 10px, puis à 4px ». Le
+   4px collé à des puces d'activité pleine largeur (plus denses visuellement
+   qu'un simple chronomètre) se lisait trop serré ici — on revient donc à ce
+   palier intermédiaire de Chrono, 10px net, plutôt qu'inventer une valeur.
+   .goalsCapturePage espace tous ses enfants directs de 14px (flex gap) : un
+   margin-top négatif de -4px (au lieu de -10px) ramène l'écart net à
+   14 - 4 = 10px, sans toucher au gap de 14px qui sépare les AUTRES éléments
+   de cette page (bulle, invite, puces) entre eux. */
+#goalsTasksHistorySection { margin-top: -4px; }
 #goalsTasksHistoryPanel { margin-top: 10px; }
 
 /* 28 septembre 2026 (réaffectation activité/pôle/secteur/période/semaine/

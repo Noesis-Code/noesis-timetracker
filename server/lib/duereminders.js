@@ -128,10 +128,26 @@ function membersOf(activityId) {
 
 // Renvoie { sent, skipped } — les compteurs servent aux tests et au journal de
 // démarrage, rien d'autre n'en dépend.
+//
+// ⚠️ 28 septembre 2026, décision d'Emilien (discussion Notifications —
+// cartographie clic → destination, voir
+// noesis-timetracker-notifications-deep-link.md, point 5) : la section
+// Sous-projets est masquée depuis le 17 septembre 2026 (remplacée par les
+// Pôles/Secteurs) — sa cible n'existe plus dans l'interface. L'ENVOI de ce
+// rappel est donc désactivé ci-dessous ; la branche client `subproject`
+// reste en place dans public/app.js pour les notifications déjà reçues
+// avant cette date. Le reste de ce fichier n'a pas changé et reste
+// réutilisable si un mécanisme équivalent renaît un jour sur les
+// Pôles/Secteurs.
+const SUBPROJECT_REMINDERS_DISABLED = true;
+
 function runDueReminders(now) {
-  // Push non configuré : on ne fait RIEN, et surtout on n'enregistre rien.
-  // Voir l'avertissement en tête de fichier.
-  if (!push.pushEnabled()) return { sent: 0, skipped: 0, disabled: true };
+  // Push non configuré, OU rappels de sous-projet désactivés (voir ci-dessus) :
+  // dans les deux cas on ne fait RIEN, et surtout on n'enregistre rien.
+  // Voir aussi l'avertissement en tête de fichier.
+  if (!push.pushEnabled() || SUBPROJECT_REMINDERS_DISABLED) {
+    return { sent: 0, skipped: 0, disabled: true };
+  }
 
   const today = todayLocal(now);
   let sent = 0, skipped = 0;

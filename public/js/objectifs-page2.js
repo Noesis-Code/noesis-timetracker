@@ -745,11 +745,25 @@
     var isPoleFallbackColumn = !!TMT.currentGoalsSelectedPoleKey
       && categories.length === 1
       && categories[0].key === TMT.currentGoalsSelectedPoleKey;
-    if (!hasNoRealCategory) {
+    // 28 septembre 2026, demande directe d'Emilien (captures à l'appui) :
+    // « dans la section objectif, lorsqu'aucun secteur n'a été rempli, je
+    // souhaite que la bulle où se trouve normalement du secteur n'apparaisse
+    // pas [...] l'arbre périodique se rapproche des boutons ». isPoleFallbackColumn
+    // (ci-dessus, 26 septembre) supprimait déjà le TEXTE de cette unique
+    // colonne (pas de titre en double avec #goalsPoleName) mais continuait à
+    // créer le <span class="goalsGridHeadCell"> — un badge encadré/souligné
+    // (voir styles.css) qui restait visible, vide, exactement la « bulle »
+    // signalée. Ne plus le créer DU TOUT dans ce cas précis (jamais dans le
+    // cas normal, plusieurs colonnes ou colonne réellement nommée) laisse
+    // #goalsGridHead sans enfant, et .goalsGridHead:empty (styles.css) réduit
+    // alors son padding/marge à zéro — l'arbre se retrouve directement sous
+    // la bascule Tâches/Objectifs, sans espace réservé pour une bulle qui
+    // n'aurait rien à montrer.
+    if (!hasNoRealCategory && !isPoleFallbackColumn) {
       categories.forEach(function (c, index) {
         var span = document.createElement('span');
         span.className = 'goalsGridHeadCell';
-        span.textContent = isPoleFallbackColumn ? '' : t(c.label);
+        span.textContent = t(c.label);
         var shade = subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
         // 17 septembre 2026 (discussion "Objectifs — Titres des catégories"),
         // demande d'Emilien : « je laisse la couleur noire à l'intérieur et
@@ -1528,13 +1542,19 @@
     row.appendChild(label);
 
     // 28 septembre 2026, demande directe d'Emilien : « en dessous les tâches
-    // avec une croix rouge pour les supprimer » — même gabarit que la croix
-    // de suppression déjà utilisée ailleurs (.discussionMsgDelete),
-    // confirmation native puis DELETE /api/sub-project-items/:id (voir
-    // l'hypothèse de route signalée en tête de section).
+    // avec une croix rouge pour les supprimer », précisée le même jour :
+    // « je souhaite que la croix [...] soit rouge, dans le même style que la
+    // croix pour supprimer les secteurs dans la feuille des activités » —
+    // .subProjectDeleteX (styles.css), déjà cadrée/bordée en rouge plein,
+    // PAS .discussionMsgDelete (gris, rouge seulement au survol, gabarit
+    // initial de ce passage). Classe partagée avec Sous-projets/la feuille
+    // d'activité (croix de secteur, buildPoleSecteursBlock, app.js) —
+    // réutilisée telle quelle, jamais modifiée ici. Confirmation native puis
+    // DELETE /api/sub-project-items/:id (voir l'hypothèse de route signalée
+    // en tête de section).
     var del = document.createElement('button');
     del.type = 'button';
-    del.className = 'discussionMsgDelete';
+    del.className = 'subProjectDeleteX';
     del.textContent = '✕';
     del.title = t('Supprimer cette tâche');
     del.setAttribute('aria-label', t('Supprimer cette tâche'));

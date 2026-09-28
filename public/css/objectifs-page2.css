@@ -14,6 +14,18 @@
   display: flex; align-items: center; gap: 10px; padding: 10px 4px 6px; margin-bottom: 18px;
 }
 
+/* 28 septembre 2026, demande directe d'Emilien : quand le pôle sélectionné
+   n'a aucun secteur, renderGoalsGridHead() (objectifs-page2.js) ne crée plus
+   AUCUN .goalsGridHeadCell pour cette colonne unique (isPoleFallbackColumn) —
+   #goalsGridHead se retrouve alors sans enfant, et cette règle ramène son
+   padding/marge à zéro pour que l'arbre périodique remonte directement sous
+   la bascule Tâches/Objectifs, sans bulle vide ni espace réservé. N'a aucun
+   effet dans le cas normal (au moins une colonne réelle, donc jamais vide). */
+.goalsGridHead:empty {
+  padding: 0;
+  margin-bottom: 0;
+}
+
 .goalsGridHeadCell {
   flex: 1 1 0; min-width: 0; text-align: center; padding: 6px 4px;
   border-radius: var(--radius-sm);
@@ -94,22 +106,40 @@
   padding: 4px;
 }
 
+/* 28 septembre 2026, demande directe d'Emilien : « je souhaite également que
+   les deux boutons tâche et objectif soient de la même couleur que ceux de
+   recherche et publier dans le volet communauté » — mêmes valeurs EXACTES
+   que .communityModeBtn/.communityModeBtn.active (styles.css), jamais cette
+   classe elle-même touchée (partagée avec Communauté) : couleur inactive
+   rgba(255,255,255,0.75) au lieu du gris #9A98A2 propre à cette page, actif
+   en var(--purple) (au lieu du violet plus clair #9088F2 choisi initialement
+   pour cette page) avec la même ombre rgba(103,78,169,0.5), + le même survol
+   souris. Le conteneur .goalsPage2ModeSwitch (piste translucide, padding)
+   était déjà identique à .communityModeSwitch, inchangé. */
 .goalsPage2ModeBtn {
   flex: 1; padding: 9px 8px; border: none;
-  background: transparent; color: #9A98A2; border-radius: 999px;
+  background: transparent; color: rgba(255, 255, 255, 0.75); border-radius: 999px;
   cursor: pointer; font-size: 14px; font-weight: 600;
   transition: background-color var(--transition-fast), color var(--transition-fast),
     box-shadow var(--transition-fast), transform 0.12s ease;
 }
 
 .goalsPage2ModeBtn.active {
-  background: #9088F2; color: #fff;
-  box-shadow: 0 2px 8px rgba(144, 136, 242, 0.45);
+  background: var(--purple); color: #fff;
+  box-shadow: 0 2px 8px rgba(103, 78, 169, 0.5);
 }
 
 .goalsPage2ModeBtn:active { transform: scale(0.97); }
 
-.goalsTasksGroups { display: flex; flex-direction: column; gap: 10px; }
+@media (hover: hover) {
+  .goalsPage2ModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: #fff; }
+}
+
+/* 28 septembre 2026, demande directe d'Emilien : « je dois resserrer les
+   bulles des différents secteurs » — 10px -> 8px, même échelle que le
+   gap:8px interne de .activityRow (Design) plutôt qu'un intervalle propre à
+   cette page. */
+.goalsTasksGroups { display: flex; flex-direction: column; gap: 8px; }
 
 
 .goalsTasksGroupChevron {
@@ -120,6 +150,19 @@
 .goalsTasksGroup.open .goalsTasksGroupChevron { transform: rotate(90deg); }
 
 .goalsTasksGroupFlat .subProjectRowHeader { cursor: default; }
+
+/* 28 septembre 2026, demande directe d'Emilien : « surtout en dessous de
+   "Ajouter une tâche", il y a un espace en trop ». Cause trouvée par lecture
+   du Design (styles.css) : .msg (message d'erreur de appendGoalsTaskAddRow,
+   réutilisée telle quelle) réserve min-height:18px MÊME VIDE — .subProjectItemAdd
+   lui-même (styles.css, partagé avec Sous-projets) n'est pas en cause, donc
+   pas touché. Même correctif déjà appliqué ailleurs dans ce projet pour le
+   même symptôme (.chatComposer .msg:empty, .activityGoalsCategoryAutoTaskBubble
+   .msg:empty, toutes deux dans styles.css) : masquer la ligne quand elle est
+   vide, jamais modifier .msg elle-même (générique, utilisée partout). Marge
+   au-dessus du bloc d'ajout resserrée par la même occasion (8px -> 6px). */
+.goalsTasksGroup .subProjectItemAdd { margin-top: 6px; }
+.goalsTasksGroup .msg:empty { display: none; }
 
 .goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 12px; }
 
