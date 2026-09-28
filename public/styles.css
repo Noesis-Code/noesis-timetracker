@@ -35,7 +35,16 @@
    posé par public/app.js selon le thème du profil connecté. Voir aussi
    server/lib/theme.js pour les palettes de couleurs d'activités associées. */
 :root[data-theme="dark"] {
-  --bg: #15171b;
+  /* --bg alignée sur le noir pur de .topbar (#000000, voir plus bas) le
+     28 septembre 2026, demande d'Emilien : « le fond de l'application soit
+     noir de la même nuance que l'entête [...] pour tous les volets, pour
+     toutes les fenêtres, pour tout » — moins de nuances de fond distinctes,
+     rendu plus simple. --bg pilotant déjà la quasi-totalité des fonds de
+     volets/fenêtres/panneaux de l'app (var(--bg), utilisée dans tout le
+     fichier), ce seul changement suffit à couvrir "tout" sans variante par
+     écran. --card (cartes/éléments à l'intérieur d'un volet) reste distincte
+     pour conserver leur détachement visuel du fond, inchangée ici. */
+  --bg: #000000;
   --card: #1f2229;
   --text: #eef0f2;
   --text-light: #9a9ea6;
@@ -68,9 +77,11 @@
    en PWA installée. Ce fond <html> est un filet de sécurité pour les cas
    intermédiaires (rebond de défilement iOS façon "élastique", angle mort
    d'un navigateur qui ignore temporairement le thème) : sans lui, un
-   défilement élastique découvrirait var(--bg) (gris clair/anthracite) sous
-   la topbar ; avec lui, c'est du noir, cohérent avec la topbar juste en
-   dessous quoi qu'il arrive. */
+   défilement élastique découvrirait var(--bg) sous la topbar ; avec lui,
+   c'est du noir, cohérent avec la topbar juste en dessous quoi qu'il
+   arrive. Depuis le 28 septembre 2026, var(--bg) EST elle-même ce même
+   noir (#000000, voir plus haut) — ce filet <html> reste néanmoins en
+   place pour le thème clair, où --bg diffère toujours du noir. */
 html { background: #000000; }
 
 /* 2 septembre 2026, deuxième passage, suite (Design) : .topbar continuait à
@@ -614,7 +625,11 @@ input[type=time]:focus, select:focus, textarea:focus {
 
 .tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; display: flex;
-  background: var(--card); border-top: 1px solid var(--border);
+  /* background alignée sur var(--bg) plutôt que var(--card) le 28 septembre
+     2026 (demande d'Emilien, même chantier que --bg ci-dessus) : la barre
+     du bas prend désormais la même nuance de noir que l'entête et le reste
+     de l'app, au lieu de la nuance "carte" qui la distinguait jusqu'ici. */
+  background: var(--bg); border-top: 1px solid var(--border);
   box-shadow: var(--shadow-tabbar);
   padding: 6px 0 max(6px, env(safe-area-inset-bottom));
   /* ⚠️ 11 septembre 2026, demande d'Emilien : « je souhaite que la barre
