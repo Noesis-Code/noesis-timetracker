@@ -2249,17 +2249,29 @@
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
         <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
         <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
-        <!-- 28 septembre 2026 (backlog encart 71 du 27 septembre : « historique
-             de tâches, même modèle que le Chrono », signalé par Emilien comme
-             absent) — journal en LECTURE SEULE des tâches capturées par la
-             bulle ci-dessus, TOUTES ACTIVITÉS confondues, les plus récentes en
-             premier (voir GET /api/goals/tasks/history, server/lib/
-             goalstasks.js#tasksHistoryForUser). Masqué tant qu'aucune tâche
-             n'a jamais été capturée — voir loadGoalsTasksHistory()/
-             renderGoalsTasksHistory() dans app.js. -->
-        <div id="goalsTasksHistorySection" class="goalsTasksHistorySection hidden">
-          <p class="goalsTasksHistoryTitle">Historique</p>
-          <div id="goalsTasksHistoryList" class="goalsTasksHistoryList"></div>
+        <!-- 28 septembre 2026 (backlog encart 71, puis refonte demandée le même
+             jour : « véritablement copier le modèle chrono [...] classées par
+             semaine avec les deux flèches [...] modifier la tâche ou [...]
+             supprimer [...] qu'on ne puisse pas cocher [...] un indice pour
+             indiquer si elle a été cochée ») — panneau repliable (bouton
+             togglable), TOUTES ACTIVITÉS confondues, structuré par semaine
+             (voir GET /api/goals/tasks/history, server/lib/
+             goalstasks.js#tasksHistoryForWeek). Toujours visible (le panneau,
+             lui, est replié par défaut) — voir loadGoalsTasksHistory()/
+             renderGoalsTasksHistory()/buildGoalsTasksHistoryRow() dans app.js. -->
+        <div id="goalsTasksHistorySection" class="goalsTasksHistorySection">
+          <button type="button" class="goalsTasksHistoryToggle" id="goalsTasksHistoryToggle">
+            <span class="goalsTasksHistoryToggleChevron" id="goalsTasksHistoryChevron">▸</span>
+            <span class="goalsTasksHistoryToggleLabel">Historique</span>
+          </button>
+          <div id="goalsTasksHistoryPanel" class="goalsTasksHistoryPanel hidden">
+            <div class="secteurTasksWeekNav">
+              <button type="button" class="iconBtn" id="goalsTasksHistoryPrevWeek" aria-label="Semaine précédente">←</button>
+              <span id="goalsTasksHistoryWeekLabel" class="secteurTasksWeekLabel"></span>
+              <button type="button" class="iconBtn" id="goalsTasksHistoryNextWeek" aria-label="Semaine suivante">→</button>
+            </div>
+            <div id="goalsTasksHistoryDays"></div>
+          </div>
         </div>
       </div>
 

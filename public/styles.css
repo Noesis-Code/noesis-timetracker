@@ -3422,15 +3422,47 @@ button { -webkit-user-select: none; user-select: none; }
 }
 
 /* 28 septembre 2026 (historique de tâches, Page 1 du volet Objectifs,
-   backlog encart 71) — même gabarit que .subProjectItem ci-dessus
-   (checkbox + libellé) mais LECTURE SEULE (case désactivée, aucun contrôle)
-   + une ligne .meta par tâche (activité · pôle/secteur · date). */
-.goalsTasksHistoryTitle {
+   backlog encart 71 puis refonte le même jour, demande explicite d'Emilien :
+   « véritablement copier le modèle chrono [...] classées par semaine avec
+   les deux flèches [...] modifier la tâche ou [...] supprimer [...]
+   cependant [...] qu'on ne puisse pas cocher la tâche dans l'historique
+   [...] un indice pour indiquer [...] si elle a été cochée » — bouton
+   togglable + navigation semaine (réutilise .secteurTasksDay*/
+   .secteurTasksWeekNav*/.iconBtn, déjà thémées, voir le panneau Historique
+   du Chrono) ; case à cocher retirée, remplacée par un indice lecture seule
+   .goalsTasksHistoryItemDone ; libellé éditable en place (input toujours
+   visible, committé au blur — même convention que le renommage de pôle,
+   aucun prompt()) ; suppression via le bouton générique
+   .discussionMsgDelete. */
+.goalsTasksHistoryToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 4px;
+  margin-top: 12px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.goalsTasksHistoryToggleChevron {
+  flex: 0 0 auto;
+  display: inline-block;
+  color: var(--text-light);
+}
+
+.goalsTasksHistoryToggleLabel {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-light);
-  margin: 18px 0 6px;
 }
+
+.goalsTasksHistoryPanel.hidden { display: none; }
 
 .goalsTasksHistoryItem {
   display: flex;
@@ -3440,11 +3472,28 @@ button { -webkit-user-select: none; user-select: none; }
   border-radius: 6px;
 }
 
-.goalsTasksHistoryItem input[type="checkbox"] {
+/* Indice lecture seule (jamais interactif ici) — coché ailleurs dans l'app
+   (Chrono, Sous-projets, section Tâches du volet Objectifs) → pastille
+   pleine avec coche ; sinon pastille vide, même gabarit. */
+.goalsTasksHistoryItemDone {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
-  margin: 2px 0 0;
+  margin-top: 2px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: transparent;
+}
+
+.goalsTasksHistoryItem.done .goalsTasksHistoryItemDone {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #fff;
 }
 
 .goalsTasksHistoryItemBody {
@@ -3452,11 +3501,26 @@ button { -webkit-user-select: none; user-select: none; }
   min-width: 0;
 }
 
-.goalsTasksHistoryItemLabel {
+.goalsTasksHistoryItemLabelInput {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 2px 4px;
+  margin: -2px -4px;
   overflow-wrap: anywhere;
 }
 
-.goalsTasksHistoryItem.done .goalsTasksHistoryItemLabel {
+.goalsTasksHistoryItemLabelInput:focus {
+  border-color: var(--border);
+  outline: none;
+}
+
+.goalsTasksHistoryItem.done .goalsTasksHistoryItemLabelInput {
   text-decoration: line-through;
   color: var(--text-light);
 }
@@ -6287,17 +6351,31 @@ button { -webkit-user-select: none; user-select: none; }
    vertical par opposition à l'alignement en ligne, pas un chevauchement
    visuel entre puces. Remplacé par un simple espacement vertical régulier
    (gap), aucune puce n'en recouvre une autre. */
+/* 28 septembre 2026, demande d'Emilien : « donner aux bulles les activités
+   une forme plus rectangulaire. Dans le même style que dans la page chrono
+   mais en moins large » — passe d'une pile pleine largeur de pilules
+   (border-radius:999px) à une ligne de puces qui s'enroule (flex-wrap),
+   chacune large seulement de son contenu (« moins large » que les gros
+   boutons pleine largeur de Chrono, .activityChoiceBtn ci-dessus). Le
+   rectangle réutilise littéralement var(--radius-lg), le même rayon que
+   .activityChoiceBtn (« même style que Chrono ») : à la hauteur de cette
+   puce (~41px avec le padding ci-dessous), c'est nettement moins de la
+   moitié de la hauteur, donc un coin de rectangle clairement visible et non
+   une pilule (même logique déjà vérifiée à l'écran pour .goalsGridHeadCell,
+   16 septembre 2026 — voir son commentaire plus bas dans ce fichier). */
 .goalsCaptureActivities {
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px;
 }
 .goalsCaptureActivityChip {
   display: flex; align-items: center; gap: 6px;
-  width: 100%; box-sizing: border-box;
-  padding: 8px 12px; border-radius: 999px;
+  width: auto; box-sizing: border-box;
+  padding: 12px 16px; border-radius: var(--radius-lg);
   border: 1px solid var(--border); background: var(--card);
-  color: var(--text); font-size: 14px; font-family: inherit;
+  color: var(--text); font-size: 14px; font-weight: bold; font-family: inherit;
   cursor: pointer; position: relative;
+  transition: transform var(--transition-fast);
 }
+.goalsCaptureActivityChip:active { transform: scale(0.98); }
 .goalsCaptureActivityChip .dot {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
 }

@@ -364,16 +364,33 @@ function markCategoriesSeen(activityId, categoryKey) {
 // ---------------------------------------------------------------------------
 // 28 septembre 2026 (C. Objectifs — Page 1, backlog encart 71 du 27
 // septembre : « historique de tâches, même modèle que le Chrono » — signalé
-// par Emilien comme absent, jamais codé jusqu'ici) — historique CROISÉ,
-// TOUTES ACTIVITÉS confondues, des tâches capturées par la bulle IA de la
-// page 1 (autoCaptured = 1 UNIQUEMENT — pas une tâche ajoutée manuellement
-// depuis une catégorie ou le Chrono, cohérent avec le rôle de capture propre
-// à cette page). Complétées ET en attente (pas seulement un journal du fait,
-// confirmé avec Emilien) — plus récentes en premier. Lecture seule : aucune
-// écriture, ce fichier n'en fait déjà que trop pour ne pas en avoir une de
-// plus (voir addCategoryTask/moveCategoryTask ci-dessus pour les écritures).
-const TASKS_HISTORY_LIMIT = 200;
-function tasksHistoryForUser(userId) {
+// par Emilien comme absent, jamais codé jusqu'ici ; puis, même jour, suite :
+// « je souhaite véritablement copier le modèle chrono [...] les tâches sont
+// classées par semaine avec les deux flèches pour changer de semaine » —
+// remplace la première version (liste plate, « dernières 200 »,
+// tasksHistoryForUser, retirée) par une version groupée par JOUR au sein
+// d'une semaine calendaire, même gabarit que tasksForCategoryThisWeek
+// ci-dessus (Chrono), mais historique CROISÉ, TOUTES ACTIVITÉS confondues,
+// des tâches capturées par la bulle IA de la page 1 (autoCaptured = 1
+// UNIQUEMENT — pas une tâche ajoutée manuellement depuis une catégorie ou le
+// Chrono, cohérent avec le rôle de capture propre à cette page).
+// Complétées ET en attente (pas seulement un journal du fait, confirmé avec
+// Emilien). Contrairement à Chrono (weekOffset jamais négatif, « uniquement
+// futur »), un historique est par nature rétrospectif : cette fonction
+// applique le décalage tel quel, dans les deux sens — c'est la route
+// appelante (server/routes/goals.js) qui décide de ne PAS le brider, à la
+// différence de sa cousine goals.js#tasksForCategoryThisWeek. Lecture seule :
+// aucune écriture, ce fichier n'en fait déjà que trop pour ne pas en avoir
+// une de plus (voir addCategoryTask/moveCategoryTask ci-dessus).
+function tasksHistoryForWeek(userId, weekOffset) {
+  const offset = Number(weekOffset) || 0;
+  const monday = goals.addDays(goals.mostRecentMonday(todayLocal()), offset * 7);
+  const days = [];
+  for (let i = 0; i < 7; i += 1) days.push(goals.addDays(monday, i));
+
+  const byDay = {};
+  days.forEach((day) => { byDay[day] = []; });
+
   const rows = db.prepare(`
     SELECT i.id, i.label, i.done, i.doneAt, i.dueDate, i.createdAt,
            sp.activityId, sp.goalCategory AS category, a.name AS activityName
@@ -383,25 +400,35 @@ function tasksHistoryForUser(userId) {
     JOIN activities a ON a.id = sp.activityId
     JOIN activity_members m ON m.activityId = sp.activityId
     WHERE m.userId = ? AND s.kind = 'tasks' AND i.autoCaptured = 1 AND sp.goalCategory IS NOT NULL
-    ORDER BY i.createdAt DESC, i.id DESC
-    LIMIT ?
-  `).all(userId, TASKS_HISTORY_LIMIT);
-  return rows.map((r) => ({
-    id: r.id,
-    label: r.label,
-    done: !!r.done,
-    doneAt: r.doneAt,
-    dueDate: r.dueDate,
-    createdAt: r.createdAt,
-    activityId: r.activityId,
-    activityName: r.activityName,
-    categoryKey: r.category,
-    // categoryLabelFor ne lève jamais pour une clé encore valide au moment de
-    // la capture mais retirée depuis (pôle/secteur supprimé) — voir son
-    // propre commentaire dans goals.js ; une tâche historique garde son
-    // libellé de capture dans ce cas plutôt que de faire échouer tout
-    // l'historique pour une seule ligne.
-    categoryLabel: goals.categoryLabelFor(r.activityId, r.category),
+      AND i.dueDate >= ? AND i.dueDate <= ?
+    ORDER BY i.dueDate ASC, i.createdAt ASC, i.id ASC
+  `).all(userId, monday, days[6]);
+
+  rows.forEach((r) => {
+    if (!Object.prototype.hasOwnProperty.call(byDay, r.dueDate)) return;
+    byDay[r.dueDate].push({
+      id: r.id,
+      label: r.label,
+      done: !!r.done,
+      doneAt: r.doneAt,
+      dueDate: r.dueDate,
+      createdAt: r.createdAt,
+      activityId: r.activityId,
+      activityName: r.activityName,
+      categoryKey: r.category,
+      // categoryLabelFor ne lève jamais pour une clé encore valide au moment
+      // de la capture mais retirée depuis (pôle/secteur supprimé) — voir son
+      // propre commentaire dans goals.js ; une tâche historique garde son
+      // libellé de capture dans ce cas plutôt que de faire échouer tout
+      // l'historique pour une seule ligne.
+      categoryLabel: goals.categoryLabelFor(r.activityId, r.category),
+    });
+  });
+
+  return days.map((day) => ({
+    date: day,
+    weekday: WEEKDAY_LABELS_FR[new Date(day + 'T00:00:00Z').getUTCDay()],
+    tasks: byDay[day],
   }));
 }
 
@@ -418,6 +445,7 @@ module.exports = {
   // Badges « non vu » (25 septembre 2026, volet Objectifs page 1/2/3).
   unseenCountsForActivity,
   markCategoriesSeen,
-  // Historique de tâches (28 septembre 2026, backlog encart 71).
-  tasksHistoryForUser,
+  // Historique de tâches (28 septembre 2026, backlog encart 71 puis refonte
+  // par semaine le même jour).
+  tasksHistoryForWeek,
 };

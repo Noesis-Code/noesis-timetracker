@@ -772,15 +772,24 @@ router.get('/goals/capture/badges', (req, res) => {
 // goalstasks.js#markCategoriesSeen).
 // 28 septembre 2026 (C. Objectifs — Page 1, backlog encart 71 du 27
 // septembre : « historique de tâches, même modèle que le Chrono », signalé
-// par Emilien comme absent) — historique CROISÉ, toutes activités
-// confondues, des tâches capturées par la bulle IA (autoCaptured=1
-// uniquement). Pas scopée à une activité dans son URL, même raisonnement que
-// /goals/capture/badges ci-dessus.
+// par Emilien comme absent ; puis, même jour, suite : « je souhaite
+// véritablement copier le modèle chrono [...] classées par semaine avec les
+// deux flèches pour changer de semaine ») — historique CROISÉ, toutes
+// activités confondues, des tâches capturées par la bulle IA (autoCaptured=1
+// uniquement), groupé par jour au sein de la semaine demandée. Pas scopée à
+// une activité dans son URL, même raisonnement que /goals/capture/badges
+// ci-dessus. weekOffset n'est PAS bridé au signe positif ici — à la
+// différence de .../tasks/week un peu plus haut (Chrono, « uniquement
+// futur ») : un historique est par nature rétrospectif, la navigation est
+// libre dans les deux sens.
 router.get('/goals/tasks/history', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const rawOffset = Number(req.query.weekOffset);
+  const weekOffset = Number.isFinite(rawOffset) ? Math.trunc(rawOffset) : 0;
   try {
-    res.json({ tasks: goalstasks.tasksHistoryForUser(userId) });
+    const days = goalstasks.tasksHistoryForWeek(userId, weekOffset);
+    res.json({ days, weekOffset });
   } catch (err) {
     handleGoalsError(res, err);
   }

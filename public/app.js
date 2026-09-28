@@ -3056,62 +3056,28 @@
       card.appendChild(noteEl);
     }
 
-    // Pièces jointes de cette session (déjà rattachées, voir GET /history) —
-    // consultables, supprimables, et on peut en ajouter de nouvelles ici même
-    // après validation (même limite MAX_NOTE_ATTACHMENTS que côté serveur).
-    // `entry.attachments` est tenu à jour localement après chaque
-    // ajout/suppression pour ne pas recharger toute la semaine.
+    // 28 septembre 2026, demande d'Emilien : « supprimer l'icône épingle avec
+    // la possibilité d'insérer des photos [...] dans les activités
+    // enregistrées. C'est inutile. Et relié à rien. » — le bouton trombone
+    // (ouvrant le sélecteur de fichier natif : photothèque/appareil
+    // photo/fichiers), l'input caché et l'envoi (`POST
+    // /api/history/:id/attachments`) sont retirés de cette carte. Des pièces
+    // jointes déjà attachées avant ce retrait (s'il en existe) restent
+    // affichées ci-dessous, consultables et supprimables (`attachBox`,
+    // inchangé) — seule la possibilité d'en AJOUTER de nouvelles disparaît.
+    // La route serveur elle-même n'est pas touchée (convention du projet :
+    // masquer côté client, ne pas supprimer côté serveur).
     var attachBox = document.createElement('div');
     attachBox.className = 'attachmentList';
-    // Bouton de pièce jointe (30 août 2026), reconstruite ici en DOM
-    // puisque cette carte est générée dynamiquement (même structure que le
-    // bouton équivalent de buildPostCard, dans mountProfilePostsComposer,
-    // plus bas). Trombone (SVG, même
-    // style que les icônes de la barre d'onglets) déplacé dans .actions, à
-    // gauche de "Modifier"/"Supprimer" (30 août 2026, demande d'Emilien) ;
-    // ouvre directement le sélecteur de fichier natif du téléphone, sans menu
-    // Photo/Document intermédiaire (même demande, passage suivant).
-    var attachMenuWrap = document.createElement('div');
-    attachMenuWrap.className = 'attachmentMenuWrap';
-    var attachMenuBtn = document.createElement('button');
-    attachMenuBtn.type = 'button'; attachMenuBtn.className = 'menuBtn attachMenuIconBtn';
-    attachMenuBtn.setAttribute('aria-label', t('Ajouter une pièce jointe'));
-    attachMenuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
-    var attachInput = document.createElement('input');
-    attachInput.type = 'file'; attachInput.className = 'hidden';
-    attachMenuWrap.appendChild(attachMenuBtn);
-    attachMenuWrap.appendChild(attachInput);
-    var attachMsg = document.createElement('p');
-    attachMsg.className = 'meta attachmentMsg';
     card.appendChild(attachBox);
-    card.appendChild(attachMsg);
 
     function refreshEntryAttachments() {
       renderAttachmentList(attachBox, entry.attachments, function (removedId) {
         entry.attachments = (entry.attachments || []).filter(function (a) { return a.id !== removedId; });
         refreshEntryAttachments();
       });
-      attachMenuBtn.disabled = (entry.attachments || []).length >= MAX_NOTE_ATTACHMENTS;
     }
     refreshEntryAttachments();
-
-    function uploadEntryAttachment(fileName, mimeType, dataUrl) {
-      attachMsg.textContent = t('Envoi...');
-      api('POST', '/api/history/' + entry.id + '/attachments', { userId: profile.id, fileName: fileName, mimeType: mimeType, dataUrl: dataUrl })
-        .then(function (att) {
-          entry.attachments = (entry.attachments || []).concat([att]);
-          refreshEntryAttachments();
-          attachMsg.textContent = '';
-        })
-        .catch(function (err) { attachMsg.textContent = err.message; });
-    }
-
-    attachMenuBtn.addEventListener('click', function () { attachInput.click(); });
-    attachInput.addEventListener('change', function () {
-      var file = this.files[0];
-      this.value = '';
-      handleAttachmentFilePick(file, attachMsg, uploadEntryAttachment);
-    });
 
     var actions = document.createElement('div');
     actions.className = 'actions';
@@ -3121,7 +3087,6 @@
     var delBtn = document.createElement('button');
     delBtn.className = 'iconBtn danger';
     delBtn.textContent = t('Supprimer');
-    actions.appendChild(attachMenuWrap);
     actions.appendChild(editBtn);
     actions.appendChild(delBtn);
     card.appendChild(actions);
@@ -9809,58 +9774,163 @@
   }
 
   // 28 septembre 2026 (backlog encart 71 du 27 septembre : « historique de
-  // tâches, même modèle que le Chrono », signalé par Emilien comme absent) —
-  // journal en LECTURE SEULE des tâches capturées par la bulle ci-dessus,
-  // TOUTES ACTIVITÉS confondues (voir GET /api/goals/tasks/history,
-  // server/lib/goalstasks.js#tasksHistoryForUser).
+  // tâches, même modèle que le Chrono », signalé par Emilien comme absent ;
+  // puis, même jour, suite : « je souhaite véritablement copier le modèle
+  // chrono [...] classées par semaine avec les deux flèches [...] modifier
+  // la tâche ou [...] supprimer [...] qu'on ne puisse pas cocher la tâche
+  // dans l'historique [...] un indice pour indiquer [...] si elle a été
+  // cochée ») — panneau repliable (bouton togglable), structuré par jour au
+  // sein d'une semaine navigable dans les deux sens (contrairement à Chrono,
+  // jamais bridé : un historique est par nature rétrospectif — voir
+  // server/routes/goals.js). Chargé PARESSEUSEMENT, seulement à l'ouverture
+  // du panneau (pas à chaque affichage de la page 1) : voir showGoalsCapturePage()
+  // qui se contente de réinitialiser l'état (replié, semaine courante) sans
+  // requête réseau.
+  var goalsTasksHistoryOpen = false;
+  var goalsTasksHistoryWeekOffset = 0;
+
   function loadGoalsTasksHistory() {
-    return api('GET', '/api/goals/tasks/history')
-      .then(function (data) { renderGoalsTasksHistory((data && data.tasks) || []); })
-      .catch(function () { /* pas bloquant — l'historique restera simplement à jour au prochain chargement */ });
+    var weekOffset = goalsTasksHistoryWeekOffset;
+    return api('GET', '/api/goals/tasks/history?weekOffset=' + weekOffset)
+      .then(function (data) {
+        // Réponse en vol : l'utilisateur a pu changer de semaine entre-temps
+        // (clic rapide sur les flèches) — même garde que loadSecteurTasksModal.
+        if (weekOffset !== goalsTasksHistoryWeekOffset) return;
+        renderGoalsTasksHistory((data && data.days) || []);
+      })
+      .catch(function () { /* pas bloquant — l'historique restera simplement à jour au prochain essai */ });
   }
 
-  // Même gabarit que buildCategoryTaskRow (checkbox + subProjectItemLabel,
-  // appendLinkified — jamais innerHTML) mais SANS aucun contrôle interactif
-  // (case désactivée, pas de sélecteur de catégorie, pas de suppression) :
-  // ce n'est pas un écran d'action, seulement un rappel chronologique de ce
-  // qui a été capturé — comme le panneau Historique du Chrono ne permet pas
-  // de modifier une entrée passée.
-  function renderGoalsTasksHistory(tasks) {
-    var section = $('goalsTasksHistorySection');
-    var box = $('goalsTasksHistoryList');
-    if (!section || !box) return;
-    box.innerHTML = '';
-    if (!tasks.length) { section.classList.add('hidden'); return; }
-    section.classList.remove('hidden');
-    tasks.forEach(function (task) {
-      var row = document.createElement('div');
-      row.className = 'goalsTasksHistoryItem' + (task.done ? ' done' : '');
+  // Même gabarit que renderSecteurTasksModal (blocs par jour, étiquette de
+  // semaine JJ/MM – JJ/MM) mais case à cocher retirée (demande explicite
+  // d'Emilien) : chaque ligne montre un indice lecture seule
+  // (.goalsTasksHistoryItemDone) plutôt qu'une case cochable, un libellé
+  // éditable en place et un bouton de suppression — voir
+  // buildGoalsTasksHistoryRow() ci-dessous.
+  function renderGoalsTasksHistory(days) {
+    var wrap = $('goalsTasksHistoryDays');
+    var labelEl = $('goalsTasksHistoryWeekLabel');
+    if (!wrap) return;
+    if (labelEl && days.length) {
+      var wkStart = new Date(days[0].date + 'T00:00:00Z');
+      var wkEnd = new Date(days[days.length - 1].date + 'T00:00:00Z');
+      var fmt = { day: '2-digit', month: '2-digit' };
+      labelEl.textContent = wkStart.toLocaleDateString(dateLocale(), fmt) + ' – ' + wkEnd.toLocaleDateString(dateLocale(), fmt);
+    }
+    wrap.innerHTML = '';
+    days.forEach(function (day) {
+      var block = document.createElement('div');
+      block.className = 'secteurTasksDay';
 
-      var cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = task.done;
-      cb.disabled = true;
-      row.appendChild(cb);
+      var dayLabel = document.createElement('p');
+      dayLabel.className = 'secteurTasksDayLabel';
+      dayLabel.textContent = day.weekday;
+      block.appendChild(dayLabel);
 
-      var body = document.createElement('div');
-      body.className = 'goalsTasksHistoryItemBody';
-
-      var label = document.createElement('div');
-      label.className = 'goalsTasksHistoryItemLabel';
-      appendLinkified(label, task.label);
-      body.appendChild(label);
-
-      var meta = document.createElement('div');
-      meta.className = 'goalsTasksHistoryItemMeta';
-      var metaParts = [task.activityName, task.categoryLabel].filter(Boolean);
-      if (task.createdAt) {
-        metaParts.push(new Date(task.createdAt).toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit' }));
+      if (!day.tasks.length) {
+        var empty = document.createElement('p');
+        empty.className = 'hint';
+        empty.textContent = t('Rien de prévu.');
+        block.appendChild(empty);
       }
-      meta.textContent = metaParts.join(' · ');
-      body.appendChild(meta);
 
-      row.appendChild(body);
-      box.appendChild(row);
+      day.tasks.forEach(function (task) {
+        block.appendChild(buildGoalsTasksHistoryRow(task));
+      });
+
+      wrap.appendChild(block);
+    });
+  }
+
+  // Une ligne de l'historique : indice de coché en lecture seule (JAMAIS de
+  // case à cocher ici, demande explicite d'Emilien — cocher se fait ailleurs,
+  // Chrono/section Tâches/Sous-projets, jamais depuis ce panneau), libellé
+  // modifiable (input toujours visible, committé au blur/Entrée — même
+  // convention que renameActivityGoalsCategory, aucun prompt()) et
+  // suppression (même endpoint générique que buildCategoryTaskRow).
+  function buildGoalsTasksHistoryRow(task) {
+    var row = document.createElement('div');
+    row.className = 'goalsTasksHistoryItem' + (task.done ? ' done' : '');
+
+    var doneEl = document.createElement('span');
+    doneEl.className = 'goalsTasksHistoryItemDone';
+    doneEl.textContent = task.done ? '✓' : '';
+    doneEl.title = task.done ? t('Cochée') : t('Non cochée');
+    row.appendChild(doneEl);
+
+    var body = document.createElement('div');
+    body.className = 'goalsTasksHistoryItemBody';
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'goalsTasksHistoryItemLabelInput';
+    input.maxLength = 300;
+    input.value = task.label;
+    (function (task, input) {
+      function commitLabel() {
+        var value = input.value.trim();
+        if (!value || value === task.label) { input.value = task.label; return; }
+        input.disabled = true;
+        api('PUT', '/api/sub-project-items/' + task.id, { userId: profile.id, label: value })
+          .then(function () { task.label = value; input.disabled = false; })
+          .catch(function (err) { input.value = task.label; input.disabled = false; alert(err.message); });
+      }
+      input.addEventListener('blur', commitLabel);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+    })(task, input);
+    body.appendChild(input);
+
+    var meta = document.createElement('div');
+    meta.className = 'goalsTasksHistoryItemMeta';
+    var metaParts = [task.activityName, task.categoryLabel].filter(Boolean);
+    meta.textContent = metaParts.join(' · ');
+    body.appendChild(meta);
+
+    row.appendChild(body);
+
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'discussionMsgDelete';
+    del.textContent = '✕';
+    del.title = t('Supprimer cette tâche');
+    del.addEventListener('click', function () {
+      if (!confirm(t('Supprimer cette tâche ?'))) return;
+      api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + profile.id)
+        .then(function () { row.remove(); })
+        .catch(function (err) { alert(err.message); });
+    });
+    row.appendChild(del);
+
+    return row;
+  }
+
+  // Câblage une seule fois (au chargement du script), même principe que
+  // $('secteurTasksClose').addEventListener(...) plus haut dans ce fichier.
+  var goalsTasksHistoryToggleBtn = $('goalsTasksHistoryToggle');
+  if (goalsTasksHistoryToggleBtn) {
+    goalsTasksHistoryToggleBtn.addEventListener('click', function () {
+      goalsTasksHistoryOpen = !goalsTasksHistoryOpen;
+      var panel = $('goalsTasksHistoryPanel');
+      var chevron = $('goalsTasksHistoryChevron');
+      if (panel) panel.classList.toggle('hidden', !goalsTasksHistoryOpen);
+      if (chevron) chevron.textContent = goalsTasksHistoryOpen ? '▾' : '▸';
+      if (goalsTasksHistoryOpen) loadGoalsTasksHistory();
+    });
+  }
+
+  var goalsTasksHistoryPrevBtn = $('goalsTasksHistoryPrevWeek');
+  if (goalsTasksHistoryPrevBtn) {
+    goalsTasksHistoryPrevBtn.addEventListener('click', function () {
+      goalsTasksHistoryWeekOffset -= 1;
+      loadGoalsTasksHistory();
+    });
+  }
+
+  var goalsTasksHistoryNextBtn = $('goalsTasksHistoryNextWeek');
+  if (goalsTasksHistoryNextBtn) {
+    goalsTasksHistoryNextBtn.addEventListener('click', function () {
+      goalsTasksHistoryWeekOffset += 1;
+      loadGoalsTasksHistory();
     });
   }
 
@@ -10131,7 +10201,10 @@
   // Écran par défaut de l'onglet Objectifs — voir le commentaire de tête de
   // cette section. Repart d'une sélection vide et rafraîchit les badges à
   // chaque fois (l'utilisateur peut revenir ici après avoir vu/ajouté des
-  // tâches ailleurs).
+  // tâches ailleurs). Le panneau Historique, lui, repart REPLIÉ et sur la
+  // semaine courante mais n'est PAS rechargé ici (chargement paresseux,
+  // seulement à l'ouverture — voir le câblage de #goalsTasksHistoryToggle) :
+  // pas besoin d'une requête réseau tant que l'utilisateur ne l'a pas ouvert.
   function showGoalsCapturePage() {
     var list = activitiesCache || [];
     if (!list.length) {
@@ -10151,7 +10224,12 @@
     renderGoalsCaptureBubble();
     renderGoalsCaptureActivities();
     loadGoalsCaptureBadges();
-    loadGoalsTasksHistory();
+    goalsTasksHistoryOpen = false;
+    goalsTasksHistoryWeekOffset = 0;
+    var histPanel = $('goalsTasksHistoryPanel');
+    if (histPanel) histPanel.classList.add('hidden');
+    var histChevron = $('goalsTasksHistoryChevron');
+    if (histChevron) histChevron.textContent = '▸';
   }
 
   // Navigue vers la page 2 (pôles + arbre périodique) d'une activité précise
