@@ -333,7 +333,17 @@
       setActivityPageSection = TMT.setActivityPageSection,
       goalsPoles = TMT.goalsPoles, activeGoalsCategories = TMT.activeGoalsCategories,
       formatGoalPeriodDates = TMT.formatGoalPeriodDates,
-      reloadGoalsAll = TMT.reloadGoalsAll, reloadGoalsGridForPole = TMT.reloadGoalsGridForPole;
+      reloadGoalsAll = TMT.reloadGoalsAll, reloadGoalsGridForPole = TMT.reloadGoalsGridForPole,
+      // 28 septembre 2026 — correctif BUG CRITIQUE signalé par B. Objectifs —
+      // Calendrier & intégrations (voir noesis-timetracker-chantiers-en-cours.md) :
+      // renderGoalsGrid() (plus bas) utilisait goalPeriodByNumber SANS l'aliaser
+      // depuis TMT, contrairement à objectifs-page3.js (même alias, ligne ~190).
+      // ReferenceError synchrone dans le .then() de reloadGoalsGridForPole()
+      // (app.js) → refreshGoalsDetailPageIfOpen() jamais atteint → la Page 3 ET
+      // la grille de cette page ne se rafraîchissaient plus JAMAIS pour toute
+      // activité à pôle réel (cas normal). Un seul alias manquant, aucun autre
+      // changement.
+      goalPeriodByNumber = TMT.goalPeriodByNumber;
 
   var currentGoalsPage2Mode = 'tasks';
 

@@ -658,6 +658,30 @@ router.get('/activities/:id/goals/categories/:key/tasks/week', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// 28 septembre 2026 (chantier « Tâches quotidiennes intégrées à la Page 2 »,
+// routé par Aiguillage — contrat calé avec E. Objectifs — PAGE 2, voir
+// noesis-timetracker-taches-quotidiennes-page2.md) — agrégat global + liste
+// plate de groupes (secteurs, ou pôles sans secteur) pour le nouvel écran
+// Tâches par défaut de la Page 2. Lecture seule ; toute la logique vit dans
+// server/lib/goalstasks.js#tasksOverviewForActivity — cette route ne fait
+// que vérifier la session/l'appartenance et relayer, même principe que
+// GET .../goals/all ci-dessus.
+router.get('/activities/:id/goals/tasks/overview', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+
+  try {
+    res.json(goalstasks.tasksOverviewForActivity(activityId));
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // 17 septembre 2026 (discussion C, cadré avec Emilien via AskUserQuestion,
 // citation directe : « La tâche, après, va s'ajouter automatiquement grâce à
 // une IA dans l'une des catégories créées ») : ajoute une tâche SANS

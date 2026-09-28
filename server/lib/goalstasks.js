@@ -408,23 +408,126 @@ function tasksHistoryForWeek(userId, weekOffset) {
     ORDER BY i.createdAt DESC, i.id DESC
   `).all(userId, weekStart, weekEnd);
 
-  return rows.map((r) => ({
-    id: r.id,
-    label: r.label,
-    done: !!r.done,
-    doneAt: r.doneAt,
-    dueDate: r.dueDate,
-    createdAt: r.createdAt,
-    activityId: r.activityId,
-    activityName: r.activityName,
-    categoryKey: r.category,
-    // categoryLabelFor ne lève jamais pour une clé encore valide au moment
-    // de la capture mais retirée depuis (pôle/secteur supprimé) — voir son
-    // propre commentaire dans goals.js ; une tâche historique garde son
-    // libellé de capture dans ce cas plutôt que de faire échouer tout
-    // l'historique pour une seule ligne.
-    categoryLabel: goals.categoryLabelFor(r.activityId, r.category),
-  }));
+  return rows.map((r) => {
+    // 28 septembre 2026 (retour d'Emilien, 2e demande le même jour : « avec
+    // le pôle, le secteur, l'objectif périodique (s'il y a), l'objectif
+    // hebdomadaire et la journée où la nouvelle tâche a été rangée ») —
+    // parentKeyFor renvoie null pour un pôle : r.category EST alors le pôle
+    // lui-même, sans secteur ; sinon r.category est la clé du secteur, dont
+    // le pôle parent est le résultat de parentKeyFor.
+    const parentKey = goals.parentKeyFor(r.activityId, r.category);
+    const poleKey = parentKey || r.category;
+    const secteurKey = parentKey ? r.category : null;
+
+    // Objectif périodique/hebdomadaire EN VIGUEUR pour la période/semaine où
+    // la tâche a été rangée (dueDate — voir le commentaire de tête de cette
+    // fonction sur pourquoi dueDate, pas createdAt, est le bon repère pour
+    // "où elle a été rangée"). Même composition que
+    // weeklyObjectiveForWeek() ci-dessus (ensurePlan/periodNumberForDate/
+    // ensurePeriodRow, idempotentes) plutôt qu'une nouvelle mécanique — sur
+    // le MÊME categoryKey que la tâche (pôle OU secteur : un objectif
+    // périodique/hebdomadaire peut être posé directement sur un secteur,
+    // voir assertCategoryOrSecteurForActivity). Une tâche pas encore
+    // auto-placée (dueDate NULL, cas rare mais possible entre la capture et
+    // le passage du planificateur) n'a simplement ni période ni semaine ni
+    // jour à afficher.
+    let periodGoalText = '';
+    let weeklyGoalText = '';
+    if (r.dueDate) {
+      const plan = goals.ensurePlan(r.activityId, r.category);
+      const periodNumber = goals.periodNumberForDate(plan.startDate, r.dueDate);
+      const period = goals.ensurePeriodRow(r.activityId, r.category, periodNumber, plan.startDate);
+      periodGoalText = period.mainGoalText || '';
+      const weekIndex = Math.floor(daysBetween(period.startDate, r.dueDate) / 7) + 1;
+      const weeklyRow = db.prepare('SELECT text FROM goal_weekly WHERE periodId = ? AND weekIndex = ? AND carriedOverFromId IS NULL')
+        .get(period.id, weekIndex);
+      weeklyGoalText = weeklyRow ? weeklyRow.text : '';
+    }
+
+    return {
+      id: r.id,
+      label: r.label,
+      done: !!r.done,
+      doneAt: r.doneAt,
+      dueDate: r.dueDate,
+      createdAt: r.createdAt,
+      activityId: r.activityId,
+      activityName: r.activityName,
+      categoryKey: r.category,
+      // categoryLabelFor ne lève jamais pour une clé encore valide au moment
+      // de la capture mais retirée depuis (pôle/secteur supprimé) — voir son
+      // propre commentaire dans goals.js ; une tâche historique garde son
+      // libellé de capture dans ce cas plutôt que de faire échouer tout
+      // l'historique pour une seule ligne.
+      categoryLabel: goals.categoryLabelFor(r.activityId, r.category),
+      poleKey,
+      poleLabel: goals.categoryLabelFor(r.activityId, poleKey),
+      secteurKey,
+      secteurLabel: secteurKey ? goals.categoryLabelFor(r.activityId, secteurKey) : null,
+      periodGoalText,
+      weeklyGoalText,
+    };
+  });
+}
+
+// 28 septembre 2026 (chantier « Tâches quotidiennes intégrées à la Page 2 »,
+// routé par Aiguillage — contrat calé avec E. Objectifs — PAGE 2, voir
+// noesis-timetracker-taches-quotidiennes-page2.md) — agrégat global (bulle
+// d'avancement) + liste plate de groupes (un secteur, OU un pôle qui n'a
+// aucun secteur — jamais les deux : depuis le 27 septembre, un pôle avec
+// secteurs ne peut plus recevoir de tâche directe, cf. le garde-fou dans
+// addCategoryTask ci-dessus, donc isPole n'est jamais true pour un pôle qui
+// a des secteurs, aucun cas « groupe orphelin » à gérer ici) pour l'écran
+// Tâches par défaut de la Page 2. Composée uniquement à partir de fonctions
+// déjà exportées (goals.categoriesForActivity/secteursForPole,
+// tasksForCategory ci-dessus) — aucune modification de goals.js/
+// subprojects.js. percentOf reprend la règle R1 déjà en vigueur dans
+// subprojects.js#percentOf : null (jamais 0) quand il n'y a rien à faire,
+// pour distinguer « rien à faire » de « rien fait ».
+function tasksOverviewForActivity(activityId) {
+  const percentOf = (done, total) => (total ? Math.round((done / total) * 100) : null);
+  const groups = [];
+  let doneTotal = 0;
+  let taskTotal = 0;
+
+  goals.categoriesForActivity(activityId).forEach((pole) => {
+    const secteurs = goals.secteursForPole(activityId, pole.key) || [];
+    const isPoleGroup = secteurs.length === 0;
+    const targets = isPoleGroup ? [pole] : secteurs;
+
+    targets.forEach((target) => {
+      const tasks = tasksForCategory(activityId, target.key);
+      const done = tasks.reduce((n, task) => n + (task.done ? 1 : 0), 0);
+      const total = tasks.length;
+      doneTotal += done;
+      taskTotal += total;
+      groups.push({
+        key: target.key,
+        poleKey: pole.key,
+        label: target.label,
+        isPole: isPoleGroup,
+        description: target.description || null,
+        done,
+        total,
+        percent: percentOf(done, total),
+        tasks: tasks.map((task) => ({
+          id: task.id,
+          label: task.label,
+          done: task.done,
+          dueDate: task.dueDate || null,
+          position: task.position,
+          autoCaptured: !!task.autoCaptured,
+        })),
+      });
+    });
+  });
+
+  return {
+    done: doneTotal,
+    total: taskTotal,
+    percent: percentOf(doneTotal, taskTotal),
+    groups,
+  };
 }
 
 module.exports = {
@@ -437,6 +540,8 @@ module.exports = {
   weeklyObjectiveForWeek,
   addCategoryTask,
   moveCategoryTask,
+  // Écran Tâches par défaut de la Page 2 (28 septembre 2026).
+  tasksOverviewForActivity,
   // Badges « non vu » (25 septembre 2026, volet Objectifs page 1/2/3).
   unseenCountsForActivity,
   markCategoriesSeen,
