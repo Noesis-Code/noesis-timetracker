@@ -1,53 +1,19 @@
-// Suggestion quotidienne — routes HTTP. Toute la logique de données vit dans
-// server/lib/dailysuggestion.js ; ce fichier ne fait que l'authentification,
-// la validation d'entrée et le codage des statuts HTTP — même découpage que
-// server/routes/subprojects.js / server/lib/subprojects.js.
+// Routes RETIRÉES le 22 septembre 2026 — la Suggestion quotidienne (V1,
+// 21 sept. 2026, jamais poussée en Git) est fusionnée dans le segment
+// Objectifs — Logique métier (décision explicite d'Emilien, voir
+// noesis-timetracker-chantiers-en-cours.md encart 46). Le calcul et la
+// sélection vivent désormais dans server/lib/goalsdailypriority.js, exposés
+// par GET /activities/:id/goals/daily-priority (server/routes/goals.js).
+//
+// /daily-suggestion/today et /daily-suggestion/settings sont retirées plutôt
+// que conservées avec une logique périmée : aucune UI ne les consommait (V1
+// jamais poussée), donc aucun risque de casser un usage réel. Fichier gardé
+// monté (server/index.js: app.use('/api', require('./routes/dailysuggestion')))
+// pour ne pas modifier index.js sans nécessité — un routeur vide n'expose
+// simplement plus aucune route sous cet ancien préfixe.
 
 const express = require('express');
-const db = require('../db');
-const dailysuggestion = require('../lib/dailysuggestion');
 
 const router = express.Router();
-
-function requireUser(req, res) {
-  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(req.userId);
-  if (!user) { res.status(404).json({ error: 'Profil introuvable. Réinitialise ton profil dans Paramètres.' }); return null; }
-  return user;
-}
-
-function handleError(res, err) {
-  if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
-  console.error('[suggestion-quotidienne]', err);
-  return res.status(500).json({ error: 'Erreur serveur.' });
-}
-
-// Suggestion du jour (calculée une seule fois par jour — voir l'index unique
-// de daily_suggestions dans server/db.js).
-router.get('/daily-suggestion/today', (req, res) => {
-  const user = requireUser(req, res);
-  if (!user) return;
-  try {
-    res.json(dailysuggestion.getOrGenerateTodaySuggestion(user.id));
-  } catch (err) {
-    handleError(res, err);
-  }
-});
-
-router.get('/daily-suggestion/settings', (req, res) => {
-  const user = requireUser(req, res);
-  if (!user) return;
-  res.json({ declaredMinutes: dailysuggestion.getDeclaredMinutes(user.id) });
-});
-
-router.put('/daily-suggestion/settings', (req, res) => {
-  const user = requireUser(req, res);
-  if (!user) return;
-  try {
-    const declaredMinutes = dailysuggestion.setDeclaredMinutes(user.id, req.body.declaredMinutes);
-    res.json({ declaredMinutes });
-  } catch (err) {
-    handleError(res, err);
-  }
-});
 
 module.exports = router;

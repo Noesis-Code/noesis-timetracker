@@ -1,37 +1,43 @@
-// Déclenchement de la notification matinale — Suggestion quotidienne (21
-// septembre 2026). Même principe que server/lib/subscriptioncron.js
-// (`node-cron` plutôt qu'un setInterval, déjà le choix du projet pour un job
-// planifié à heure fixe) mais fichier totalement séparé, propriété de ce
-// segment.
+// Notification matinale — FUSIONNÉE le 22 septembre 2026 dans le segment
+// Objectifs — Logique métier (décision explicite d'Emilien, voir
+// noesis-timetracker-chantiers-en-cours.md encart 46). Le calcul détaillé
+// (signaux, sélection, capacité) vit désormais entièrement dans
+// server/lib/goalsdailypriority.js — ce fichier ne fait plus que déclencher
+// un simple rappel quotidien, jamais le contenu de la liste elle-même.
+//
+// Choix cadré avec Emilien (22 sept.) : « toujours une LISTE à valider
+// chaque matin » — la notification ne fait donc plus qu'orienter vers
+// l'écran de liste (Objectifs — Planification IA) plutôt que d'en afficher
+// un aperçu en dur, pour ne jamais désynchroniser le contenu de la notif et
+// celui de la vraie liste (les deux étaient calculés séparément en V1).
+//
+// Conserve node-cron/push.js tels quels (V1, 21 septembre 2026) — seule la
+// source de la décision « y a-t-il quelque chose à notifier » change,
+// server/lib/goalsdailypriority.js#anyDailyPriorityForUser remplaçant
+// l'ancien calcul local de candidats de ce fichier.
 //
 // Sollicite l'infrastructure de push PARTAGÉE server/lib/push.js
-// (sendToUsers, déjà générique et utilisée par plusieurs segments) sans en
-// modifier une seule ligne — pas de coordination nécessaire pour ça. Ne
-// touche PAS server/lib/goalreminders.js (infrastructure de rappels
-// spécifique au segment Objectifs — Calendrier & intégrations).
+// (sendToUsers) sans en modifier une seule ligne. Ne touche PAS
+// server/lib/goalreminders.js (infrastructure de rappels spécifique au
+// segment Objectifs — Calendrier & intégrations).
 //
 // Pas de fuseau par utilisateur : aucun n'est stocké sur `users` (voir
 // server/db.js) — même limite déjà acceptée par subscriptioncron.js et
-// goal_period_due_reminders. Heure fixe, fuseau du serveur
-// (process.env.TZ, voir server/index.js).
+// goal_period_due_reminders. Heure fixe, fuseau du serveur (process.env.TZ).
 
 const db = require('../db');
 const cron = require('node-cron');
-const dailysuggestion = require('./dailysuggestion');
+const goalsdailypriority = require('./goalsdailypriority');
 const push = require('./push');
 
 const TEXTS = {
   fr: {
-    title: '☀️ Suggestion du jour',
-    body: (n, minutes) => (n === 1
-      ? `1 tâche suggérée pour aujourd'hui (~${minutes} min).`
-      : `${n} tâches suggérées pour aujourd'hui (~${minutes} min).`),
+    title: '☀️ Ta liste du jour est prête',
+    body: 'Ouvre Objectifs pour la voir et l’ajuster.',
   },
   en: {
-    title: '☀️ Today’s suggestion',
-    body: (n, minutes) => (n === 1
-      ? `1 task suggested for today (~${minutes} min).`
-      : `${n} tasks suggested for today (~${minutes} min).`),
+    title: '☀️ Your daily list is ready',
+    body: 'Open Goals to see it and adjust it.',
   },
 };
 
@@ -41,27 +47,27 @@ function textsFor(userId) {
 }
 
 // Tout utilisateur membre d'au moins une activité — même périmètre que
-// « toutes les activités de l'utilisateur » dans le cadrage (voir CLAUDE.md).
+// « toutes les activités de l'utilisateur » dans le cadrage d'origine.
 function allUserIds() {
   return db.prepare('SELECT DISTINCT userId FROM activity_members').all().map((r) => r.userId);
 }
 
-// Génère (idempotent) et notifie chaque utilisateur — une activité en échec
-// ne doit jamais bloquer les autres, même principe que
-// subscriptioncron.runMonthlyRegeneration.
+// Notifie chaque utilisateur ayant au moins une tâche sélectionnée
+// aujourd'hui sur au moins une de ses activités — une activité en échec ne
+// doit jamais bloquer les autres (même principe que l'ancien
+// runDailySuggestionSweep, V1, 21 sept. 2026).
 function runDailySuggestionSweep() {
   const userIds = allUserIds();
   let notified = 0;
   for (const userId of userIds) {
     try {
-      const result = dailysuggestion.getOrGenerateTodaySuggestion(userId);
-      if (!result.items.length) continue; // rien à suggérer : pas de notification vide
+      if (!goalsdailypriority.anyDailyPriorityForUser(userId)) continue; // rien à proposer : pas de notification vide
       const t = textsFor(userId);
       push.sendToUsers([userId], {
         title: t.title,
-        body: t.body(result.items.length, result.capacityMinutes),
+        body: t.body,
         tag: 'daily-suggestion',
-        url: '/?notif=dailysuggestion',
+        url: '/?notif=dailypriority',
       });
       notified += 1;
     } catch (e) {
@@ -73,15 +79,13 @@ function runDailySuggestionSweep() {
 
 let started = false;
 
-// Démarré depuis server/index.js, APRÈS l'écoute du port — même principe que
-// server/lib/subscriptioncron.js et server/lib/duereminders.js.
+// Démarré depuis server/index.js, APRÈS l'écoute du port — inchangé depuis
+// la V1 (21 sept. 2026).
 function startDailySuggestionCron() {
   if (started) return;
   started = true;
 
-  // Quotidien, 6h du matin (heure du serveur) — avant l'heure où Emilien
-  // commence typiquement sa journée, sans être si tôt que l'historique de la
-  // veille (utilisé par computeCapacityMinutes) risque d'être incomplet.
+  // Quotidien, 6h du matin (heure du serveur) — inchangé depuis la V1.
   cron.schedule('0 6 * * *', () => {
     try {
       runDailySuggestionSweep();
