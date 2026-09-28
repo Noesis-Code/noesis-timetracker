@@ -15,7 +15,27 @@ const { mondayOf, isoDateOf, isValidTimezone, localPartsOf } = require('./dates'
 // le client), "aujourd'hui"/"cette semaine"/... sont calculés dans CE
 // fuseau plutôt que dans celui du serveur.
 function periodRange(period, refDate, tz) {
-  const ref = refDate ? new Date(refDate) : new Date();
+  // 28 septembre 2026 — bug corrigé, signalé par Emilien : « après dimanche
+  // soir, je ne peux pas voir les enregistrements du lundi avant le mardi ».
+  // `new Date('2026-09-28')` (une chaîne AAAA-MM-JJ nue, sans heure) est
+  // interprétée par JS comme minuit **UTC**, pas minuit local — un piège
+  // classique. Minuit UTC un lundi correspond à dimanche ~20h à Toronto (UTC
+  // moins 4/5h) : `mondayOf`/`localPartsOf`, appelés plus bas avec `tz`,
+  // relisaient donc systématiquement la veille (dimanche) au lieu du jour
+  // réellement demandé. Un jour ordinaire, "hier" reste dans la même semaine
+  // calendaire lundi-dimanche — le décalage passait inaperçu. Mais un lundi,
+  // "hier" (dimanche) appartient à la semaine PRÉCÉDENTE : `mondayOf`
+  // ancrait alors la semaine "en cours" sur le lundi d'il y a 8 jours,
+  // excluant le lundi réel (aujourd'hui) de la plage retournée — jusqu'au
+  // lendemain (mardi), où le même décalage d'un jour retombe encore dans la
+  // semaine courante et cesse d'être visible. Reproduit et vérifié en bac à
+  // sable avant correctif (voir noesis-timetracker-chrono.md, 28 sept.).
+  // Correctif : ajouter une heure locale explicite force JS à interpréter la
+  // chaîne comme minuit LOCAL (fuseau du processus serveur, déjà fixé sur
+  // America/Toronto par server/index.js) plutôt que minuit UTC — comportement
+  // strictement inchangé quand `refDate` est absent (branche `new Date()`,
+  // non touchée).
+  const ref = refDate ? new Date(refDate + 'T00:00:00') : new Date();
   const hasTz = tz && isValidTimezone(tz);
 
   if (period === 'day') {
