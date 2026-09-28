@@ -835,11 +835,28 @@ textarea {
 .historyNav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .historyNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
 .historyEditFields { margin-top: 8px; text-align: left; }
-/* Même correctif de débordement que #stopConfirmPanel input[type=datetime-local]
-   ci-dessus (30 août 2026) — champs identiques, même bug Safari/iPhone. */
+/* 28 septembre 2026 (suite, même jour) — demande directe d'Emilien :
+   « resserrer la bulle des heures de début et des heures de fin afin
+   qu'elle soit centrée dans le cadre ». Jusqu'ici le champ s'étirait sur
+   toute la largeur du panneau (width:100%; max-width:100%) — même recette
+   déjà posée pour .pollFormRow input[type="date"] plus bas dans ce fichier
+   (3 septembre 2026, même symptôme : « la section clôture ne dépasse pas du
+   cadre [...] centrée ») : appearance:none fait perdre à l'input sa largeur
+   intrinsèque native (qui ignorait width:100%, d'où le correctif de
+   débordement d'origine, 30 août 2026), box-sizing:border-box garde le
+   padding À L'INTÉRIEUR de la largeur, max-width borne désormais le champ
+   bien avant les bords du cadre — ce qui rend le resserrement/centrage
+   visible plutôt que théorique — et display:block + margin:auto le centre
+   horizontalement. Seule la bulle est concernée : le libellé au-dessus
+   (.stopFieldLabel, "Heure de début"/"Heure de fin") n'est pas touché,
+   reste aligné à gauche comme avant. */
 .historyEditFields input[type=datetime-local] {
-  width: 100%; max-width: 100%; padding: 8px 6px; font-size: 14px; border: 1px solid var(--border);
+  appearance: none; -webkit-appearance: none;
+  width: 100%; max-width: 220px; min-width: 0;
+  display: block; margin: 0 auto;
+  padding: 8px 6px; font-size: 14px; border: 1px solid var(--border);
   border-radius: var(--radius-sm); box-sizing: border-box; background: var(--card); color: var(--text);
+  text-align: center;
 }
 .historyEditFields .rowActions { margin-top: 10px; }
 .historyEditMsg { margin: 8px 0 0; }
