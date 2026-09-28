@@ -1316,12 +1316,15 @@
   //       { key, poleKey, label, isPole, description, done, total, percent,
   //         tasks: [{ id, label, done, dueDate, position, autoCaptured }] }
   //   ] }
-  // isPole=true : pôle SANS secteur (aucune imbrication, rendu à plat,
-  // toujours déplié). isPole=false : secteur (rendu en accordéon, replié par
-  // défaut, état retenu dans currentGoalsTasksOpenGroups). Un pôle AVEC
-  // secteurs ne peut pas posséder ses propres tâches (confirmé par Emilien,
-  // 27 septembre 2026) — n'apparaît donc jamais lui-même dans "groups", seuls
-  // ses secteurs y figurent.
+  // isPole=true : pôle SANS secteur (aucune imbrication). isPole=false :
+  // secteur. Un pôle AVEC secteurs ne peut pas posséder ses propres tâches
+  // (confirmé par Emilien, 27 septembre 2026) — n'apparaît donc jamais
+  // lui-même dans "groups", seuls ses secteurs y figurent. ⚠️ 28 septembre
+  // 2026 : isPole ne pilote plus l'affichage de buildGoalsTasksGroup()
+  // ci-dessous — tout groupe (secteur ou pôle sans secteur) est désormais un
+  // accordéon replié par défaut, chevron, état retenu dans
+  // currentGoalsTasksOpenGroups (demande directe d'Emilien : « il y a
+  // présentement encore des secteurs qui ne sont pas enroulés »).
   //
   // ⚠️ Cette route n'existe pas encore côté serveur au moment de cette
   // écriture — l'appel échoue silencieusement (.catch vide) tant que
@@ -1435,27 +1438,32 @@
 
   // Gabarit repris tel quel d'une ligne sous-projet (.subProjectRow, voir
   // renderSubProjectsList() plus haut) — demande explicite d'Emilien, voir
-  // le commentaire en tête de section. Un pôle sans secteur (g.isPole) reste
-  // toujours déplié (pas de chevron, pas de clic sur l'en-tête) ; un secteur
-  // est un accordéon replié par défaut, état retenu dans
+  // le commentaire en tête de section. Tout groupe (secteur OU pôle sans
+  // secteur) est un accordéon replié par défaut, état retenu dans
   // currentGoalsTasksOpenGroups le temps de rester sur cet écran.
+  // ⚠️ 28 septembre 2026, demande directe d'Emilien (capture à l'appui) : « il
+  // y a présentement encore des secteurs qui ne sont pas enroulés » — un pôle
+  // sans secteur (g.isPole, voir le commentaire en tête de section) restait
+  // jusqu'ici TOUJOURS déplié, sans chevron (données 27 septembre, converties
+  // en choix d'affichage ce jour-là). Emilien veut désormais le même
+  // comportement replié/chevron pour ces groupes-là aussi — g.isPole ne sert
+  // donc plus qu'à distinguer la ligne dans le contrat de données, plus à
+  // choisir son rendu ici.
   function buildGoalsTasksGroup(g) {
     var row = document.createElement('div');
-    row.className = 'activityRow subProjectRow goalsTasksGroup' + (g.isPole ? ' goalsTasksGroupFlat' : '')
-      + (!g.isPole && currentGoalsTasksOpenGroups[g.key] ? ' open' : '');
+    row.className = 'activityRow subProjectRow goalsTasksGroup'
+      + (currentGoalsTasksOpenGroups[g.key] ? ' open' : '');
     row.dataset.groupKey = g.key;
 
-    var isOpen = g.isPole || !!currentGoalsTasksOpenGroups[g.key];
+    var isOpen = !!currentGoalsTasksOpenGroups[g.key];
 
     var header = document.createElement('div');
     header.className = 'activityRowHeader subProjectRowHeader';
 
-    if (!g.isPole) {
-      var chevron = document.createElement('span');
-      chevron.className = 'goalsTasksGroupChevron';
-      chevron.textContent = '›';
-      header.appendChild(chevron);
-    }
+    var chevron = document.createElement('span');
+    chevron.className = 'goalsTasksGroupChevron';
+    chevron.textContent = '›';
+    header.appendChild(chevron);
 
     var name = document.createElement('span');
     name.className = 'activityRowName';
@@ -1471,12 +1479,10 @@
 
     row.appendChild(header);
 
-    if (!g.isPole) {
-      header.addEventListener('click', function () {
-        currentGoalsTasksOpenGroups[g.key] = !currentGoalsTasksOpenGroups[g.key];
-        renderGoalsTasksOverview(currentGoalsTasksOverview);
-      });
-    }
+    header.addEventListener('click', function () {
+      currentGoalsTasksOpenGroups[g.key] = !currentGoalsTasksOpenGroups[g.key];
+      renderGoalsTasksOverview(currentGoalsTasksOverview);
+    });
 
     // Description du pôle/secteur (attribuée via la fenêtre d'activité,
     // section Catégories) — demande explicite d'Emilien, affichée seulement
@@ -1560,13 +1566,21 @@
     // avec une croix rouge pour les supprimer », précisée le même jour :
     // « je souhaite que la croix [...] soit rouge, dans le même style que la
     // croix pour supprimer les secteurs dans la feuille des activités » —
-    // .subProjectDeleteX (styles.css), déjà cadrée/bordée en rouge plein,
-    // PAS .discussionMsgDelete (gris, rouge seulement au survol, gabarit
-    // initial de ce passage). Classe partagée avec Sous-projets/la feuille
-    // d'activité (croix de secteur, buildPoleSecteursBlock, app.js) —
-    // réutilisée telle quelle, jamais modifiée ici. Confirmation native puis
-    // DELETE /api/sub-project-items/:id (voir l'hypothèse de route signalée
-    // en tête de section).
+    // .subProjectDeleteX (styles.css). Classe partagée avec Sous-projets/la
+    // feuille d'activité (croix de secteur, buildPoleSecteursBlock, app.js) —
+    // réutilisée telle quelle, jamais modifiée ici.
+    // ⚠️ 28 septembre 2026 (même jour, retour d'Emilien après capture) : « je
+    // souhaite que la croix pour supprimer une tâche ne soit pas encadrée » —
+    // .subProjectDeleteX cadrée/bordée reste la référence pour la croix de
+    // SECTEUR (feuille d'activité, demande initiale ci-dessus), mais pas pour
+    // celle-ci. Même technique déjà en place dans le Design pour un cas
+    // symétrique (.activityGoalsSecteurRow.editing .subProjectDeleteX,
+    // styles.css) : la classe partagée n'est pas touchée, seule sa variante
+    // DANS une ligne de tâche perd bordure/fond, par spécificité de sélecteur
+    // — voir .goalsTasksGroup .subProjectItem .subProjectDeleteX,
+    // objectifs-page2.css.
+    // Confirmation native puis DELETE /api/sub-project-items/:id (voir
+    // l'hypothèse de route signalée en tête de section).
     var del = document.createElement('button');
     del.type = 'button';
     del.className = 'subProjectDeleteX';

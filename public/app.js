@@ -1174,6 +1174,85 @@
     return !!el && (el.tagName === 'TEXTAREA' ||
       (el.tagName === 'INPUT' && ['text', 'search', 'tel', 'email', 'password', 'number', 'url', 'date', 'time'].indexOf(el.type) !== -1));
   }
+
+  // 🚧 28 septembre 2026 (discussion « Tâche - Pôles & secteurs », diagnostic
+  // clavier en cours avec Emilien) — DIAGNOSTIC TEMPORAIRE, 2e pose. Une
+  // première version (posée plus tôt le même jour, INTÉGRÉE au mécanisme de
+  // pincement plus bas dans ce fichier) a été retirée par erreur par une
+  // AUTRE discussion (Design), qui a interprété une capture d'Emilien montrant
+  // le HUD sur un AUTRE écran (Objectifs page 3) comme la preuve que le
+  // diagnostic était terminé — il ne l'était pas : sur l'écran réellement en
+  // cause (Catégories, champ « Nouveau pôle »), le HUD n'était JAMAIS apparu,
+  // ce qui est justement la donnée manquante. Voir noesis-timetracker-
+  // chantiers-en-cours.md pour la note de coordination qui accompagne cette
+  // 2e pose.
+  // ⚠️⚠️⚠️ NE PAS RETIRER CE BLOC sans l'accord explicite de la discussion
+  // « Tâche - Pôles & secteurs » — même si une capture montre le HUD ailleurs
+  // que sur l'écran Catégories : ça ne confirme rien tant que ce dernier
+  // écran n'a pas lui-même été capturé avec le HUD visible (ou confirmé
+  // absent, ce qui est déjà une donnée en soi).
+  // Volontairement DÉCOUPLÉ du mécanisme de pincement (pinBars/pinPages plus
+  // bas) : la 1re pose dépendait de `pinned`/`applyPin()`, donc si le
+  // mécanisme de pincement lui-même n'engage jamais pour un champ donné, le
+  // HUD ne pouvait pas le révéler (il restait simplement invisible, sans
+  // dire pourquoi). Cette version s'appuie sur son PROPRE écouteur
+  // `focusin`/`focusout` document-level, indépendant, pour distinguer
+  // « le focus n'a jamais atteint document » de « le focus a été reçu mais
+  // le pincement n'a pas suivi ».
+  if (_isCoarsePointer && window.visualViewport) {
+    (function () {
+      var vv = window.visualViewport;
+      var hud = null;
+      var raf = null;
+      function ensureHud() {
+        if (hud) return hud;
+        hud = document.createElement('div');
+        hud.id = 'kbDebugHud2';
+        hud.style.cssText = 'position:fixed;left:4px;top:4px;z-index:99999;' +
+          'background:rgba(0,0,0,0.9);color:#7CFF7C;font:10px/1.4 monospace;' +
+          'padding:6px 8px;border-radius:6px;white-space:pre;pointer-events:none;' +
+          'max-width:92vw;';
+        document.body.appendChild(hud);
+        return hud;
+      }
+      function tick(el) {
+        var scroller = document.getElementById('activityPageScroll');
+        var page = document.getElementById('activityPage');
+        var docH = document.documentElement.clientHeight;
+        var lines = [
+          '[HUD2] focusin reçu sur ' + el.tagName + (el.id ? '#' + el.id : '') + (el.className ? '.' + String(el.className).split(' ').join('.') : ''),
+          'vv.height=' + Math.round(vv.height) + ' vv.offsetTop=' + Math.round(vv.offsetTop),
+          'doc.clientHeight=' + docH + ' keyboardOpen=' + ((docH - vv.height) > 100),
+          'page.style.height=' + (page ? (page.style.height || '(vide)') : 'INTROUVABLE'),
+        ];
+        if (scroller) {
+          lines.push('scroller.class+=' + (scroller.classList.contains('activityPageScrollKbRunway') ? 'runway' : 'NONE'));
+          lines.push('scroller.clientH=' + scroller.clientHeight + ' scrollH=' + scroller.scrollHeight + ' scrollTop=' + Math.round(scroller.scrollTop));
+        } else {
+          lines.push('scroller=INTROUVABLE (#activityPageScroll)');
+        }
+        var r = el.getBoundingClientRect();
+        lines.push('champ.rect.bottom=' + Math.round(r.bottom) + ' gap(champ→vv.bottom)=' + Math.round((vv.offsetTop + vv.height) - r.bottom));
+        ensureHud().textContent = lines.join('\n');
+      }
+      document.addEventListener('focusin', function (e) {
+        if (!_isTextInputEl(e.target)) return;
+        var el = e.target;
+        tick(el);
+        function loop() { if (document.activeElement !== el) return; tick(el); raf = requestAnimationFrame(loop); }
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(loop);
+      }, true);
+      document.addEventListener('focusout', function (e) {
+        if (!_isTextInputEl(e.target)) return;
+        if (raf) { cancelAnimationFrame(raf); raf = null; }
+        // Laissé affiché 1.5s après la perte de focus (au lieu de disparaître
+        // instantanément) pour qu'Emilien ait le temps de faire la capture
+        // sans avoir à garder le clavier ouvert au moment exact du clic.
+        setTimeout(function () { if (!raf && hud) { hud.remove(); hud = null; } }, 1500);
+      }, true);
+    })();
+  }
   // ⚠️ 3 septembre 2026 (Design) : la première version de ce correctif
   // fermait le clavier au premier ÉVÉNEMENT `scroll` reçu pendant qu'un champ
   // avait le focus. Un ajustement à 600ms (voir historique dans le journal
@@ -16043,6 +16122,21 @@
   // voisines, toujours par `transform` — et on ne réordonne le DOM, puis le
   // serveur, qu'UNE fois, au relâchement.
   function bindActivityDrag(handle, row) {
+    // ⚠️ `pointerdown` et `click` sont deux événements DISTINCTS : arrêter le
+    // premier (juste en dessous) n'empêche pas le second de remonter jusqu'à
+    // l'en-tête. Défaut trouvé par le test sur bindProjectDrag le 26 septembre
+    // 2026 — un tapotement sur la poignée, sans glisser, ouvrait le projet.
+    //
+    // Ici, AUJOURD'HUI, il ne se manifeste pas : la poignée n'existe qu'en
+    // mode édition (`activitiesEditMode`, voir renderActivitiesSettings), et
+    // c'est précisément le seul cas où l'en-tête ne reçoit ni le `click` qui
+    // ouvre openActivityPage() ni la classe `clickable` — les deux sont posés
+    // dans la branche `else`. La ligne ci-dessous est donc une PRÉCAUTION, pas
+    // un correctif de bug visible : elle empêche le défaut de se réveiller le
+    // jour où cet en-tête redeviendra cliquable en édition, ou si la poignée
+    // devient permanente comme celle des projets. Routée par Aiguillage le
+    // 28 septembre 2026, faute de segment propriétaire du volet Activité.
+    handle.addEventListener('click', function (e) { e.stopPropagation(); });
     handle.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       e.stopPropagation();

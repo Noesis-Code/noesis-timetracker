@@ -149,7 +149,24 @@
 
 .goalsTasksGroup.open .goalsTasksGroupChevron { transform: rotate(90deg); }
 
-.goalsTasksGroupFlat .subProjectRowHeader { cursor: default; }
+/* 28 septembre 2026, demande directe d'Emilien : « il y a présentement
+   encore des secteurs qui ne sont pas enroulés » — un pôle sans secteur
+   restait jusqu'ici toujours déplié, sans chevron (.goalsTasksGroupFlat,
+   posée par buildGoalsTasksGroup() selon g.isPole). Devenu un accordéon
+   comme les autres (objectifs-page2.js, même jour) : plus aucune ligne ne
+   porte cette classe, règle retirée (elle ne faisait que neutraliser le
+   curseur de la poignée).
+
+   ⚠️ .subProjectRow.open (styles.css, partagée) retire son padding-top —
+   pensé pour l'en-tête COLLANT d'un sous-projet ouvert (compense le décalage
+   `top: 0`, voir le commentaire à côté dans styles.css) — mais .goalsTasksGroup
+   reprend aussi la classe .subProjectRow (gabarit visuel, voir le commentaire
+   en tête de buildGoalsTasksGroup()) sans jamais utiliser de en-tête collant
+   ici : le padding-top retombait donc à 0 en ouvrant un groupe, collant son
+   titre au bord et le donnant l'air presque coupé (retour direct d'Emilien,
+   capture à l'appui). Restauré ICI, scopé à .goalsTasksGroup uniquement —
+   .subProjectRow.open (styles.css) reste intact pour son usage d'origine. */
+.goalsTasksGroup.open { padding-top: 12px; }
 
 /* 28 septembre 2026, demande directe d'Emilien : « surtout en dessous de
    "Ajouter une tâche", il y a un espace en trop ». Cause trouvée par lecture
@@ -163,6 +180,23 @@
    au-dessus du bloc d'ajout resserrée par la même occasion (8px -> 6px). */
 .goalsTasksGroup .subProjectItemAdd { margin-top: 6px; }
 .goalsTasksGroup .msg:empty { display: none; }
+
+/* 28 septembre 2026, retour direct d'Emilien (même jour que la croix rouge
+   ci-dessus, capture à l'appui) : « je souhaite que la croix pour supprimer
+   une tâche ne soit pas encadrée ». .subProjectDeleteX (styles.css, cadrée/
+   bordée en rouge plein) reste la référence pour la croix de SECTEUR
+   (feuille d'activité) — seule sa variante dans une ligne de TÂCHE perd
+   bordure et fond ici, par spécificité de sélecteur plutôt qu'une nouvelle
+   classe ou une modification de la classe partagée — même technique déjà en
+   place dans le Design pour un cas symétrique
+   (.activityGoalsSecteurRow.editing .subProjectDeleteX, styles.css). */
+.goalsTasksGroup .subProjectItem .subProjectDeleteX {
+  border: none;
+  background: none;
+  width: auto;
+  height: auto;
+  padding: 4px;
+}
 
 .goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 12px; }
 

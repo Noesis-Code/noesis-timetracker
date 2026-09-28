@@ -8,6 +8,11 @@
   --grey: #CCCCCC;
   --bg: #f5f5f7;
   --card: #ffffff;
+  /* --bg-raised (28 septembre 2026, suite) : nuance dédiée aux "barres" qui
+     doivent rester distinguables du fond SANS ligne de séparation (voir son
+     usage sur .tabbar/#app::after plus bas) — inchangée en thème clair
+     (identique à --card, comportement d'avant ce chantier). */
+  --bg-raised: #ffffff;
   --text: #333333;
   --text-light: #777777;
   --border: #e0e0e0;
@@ -46,6 +51,17 @@
      pour conserver leur détachement visuel du fond, inchangée ici. */
   --bg: #000000;
   --card: #1f2229;
+  /* --bg-raised (28 septembre 2026, suite — demande d'Emilien : « supprimer
+     la barre visible entre la barre des volets et l'écran [...] et cette
+     barre en haut [...] entre la zone de texte pour rechercher ou publier
+     et la page [...] pas de barre, avec une nuance de noir plus clair »).
+     Remplace les traits nets (border-top de .tabbar, border-bottom de
+     #communitySearchBar) : la distinction entre ces barres et le fond pur
+     (var(--bg), #000000) se fait désormais par une nuance de noir LÉGÈREMENT
+     plus claire, jamais par une ligne. Volontairement plus sombre que
+     --card (qui reste la nuance des cartes ordinaires à l'intérieur d'un
+     volet, non concernées par cette demande). */
+  --bg-raised: #121214;
   --text: #eef0f2;
   --text-light: #9a9ea6;
   --border: #33363d;
@@ -402,7 +418,13 @@ input[type=time]:focus, select:focus, textarea:focus {
    correctif. Couleur alignée sur var(--card) (celle de .tabbar, pas
    var(--bg)) pour que l'extension se fonde dans la barre plutôt que dans le
    fond de la page. position:fixed, même z-index que .tabbar (50) : reste
-   au-dessus du contenu mais sous les fenêtres pleine page (90+). */
+   au-dessus du contenu mais sous les fenêtres pleine page (90+).
+   ⚠️ 28 septembre 2026, suite : réalignée sur var(--bg-raised) — .tabbar
+   n'utilise plus var(--card) depuis ce même jour (voir son commentaire),
+   puis plus var(--bg) non plus (voir plus haut) ; ce filler doit suivre la
+   nuance RÉELLEMENT utilisée par .tabbar à chaque fois, pas une valeur
+   figée, pour ne jamais rouvrir la bande visible que ce correctif a
+   justement pour but d'éliminer. */
 #app::after {
   content: '';
   position: fixed;
@@ -410,7 +432,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   right: 0;
   bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
   height: calc(env(safe-area-inset-bottom, 0px) + 24px);
-  background: var(--card);
+  background: var(--bg-raised);
   pointer-events: none;
   z-index: 50;
 }
@@ -628,8 +650,14 @@ input[type=time]:focus, select:focus, textarea:focus {
   /* background alignée sur var(--bg) plutôt que var(--card) le 28 septembre
      2026 (demande d'Emilien, même chantier que --bg ci-dessus) : la barre
      du bas prend désormais la même nuance de noir que l'entête et le reste
-     de l'app, au lieu de la nuance "carte" qui la distinguait jusqu'ici. */
-  background: var(--bg); border-top: 1px solid var(--border);
+     de l'app, au lieu de la nuance "carte" qui la distinguait jusqu'ici.
+     ⚠️ Revu le même jour, suite : le trait net (border-top) qui restait la
+     SEULE distinction visible entre la barre et l'écran a été jugé "barre
+     visible" à supprimer par Emilien — remplacé par var(--bg-raised), une
+     nuance de noir légèrement plus claire que le fond (var(--bg)) plutôt
+     qu'une ligne. Voir #app::after plus haut, réaligné sur cette même
+     nuance pour rester raccord sous la barre (zone d'encoche iPhone). */
+  background: var(--bg-raised);
   box-shadow: var(--shadow-tabbar);
   padding: 6px 0 max(6px, env(safe-area-inset-bottom));
   /* ⚠️ 11 septembre 2026, demande d'Emilien : « je souhaite que la barre
@@ -2320,11 +2348,13 @@ body.scrollLock { overflow: hidden; }
    demandée explicitement. `left`/`right` (et non plus une largeur héritée du
    flux de #content) pour occuper toute la largeur de l'écran, exactement
    comme .topbar, dont cette barre devient visuellement le prolongement :
-   fond noir identique (#000, pas var(--card) — sinon elle resterait une
-   carte blanche/grise ordinaire), texte blanc, coins carrés (pas de
-   border-radius, sinon "prolongement" et "carte" se contrediraient), et un
-   border-bottom net (« se termine par un trait net ») pour marquer la fin
-   nette de la zone noire, littéralement demandée par Emilien. Rien à ajouter
+   fond noir (pas var(--card) — sinon elle resterait une carte
+   blanche/grise ordinaire ; ⚠️ 28 septembre 2026, suite : #121214, une
+   nuance légèrement plus claire que le noir pur de .topbar plutôt que #000
+   identique — voir le commentaire juste au-dessus de la règle plus bas,
+   remplace le border-bottom net d'origine, devenu la "barre visible" à
+   supprimer), texte blanc, coins carrés (pas de border-radius, sinon
+   "prolongement" et "carte" se contrediraient). Rien à ajouter
    pour rester posée sous .topbar (elle est déjà collée juste en dessous via
    `top: var(--topbar-h)`) — c'est `#tab-community` qui récupère l'espace
    perdu par ce passage en `fixed` (la barre ne fait plus partie du flux),
@@ -2334,19 +2364,28 @@ body.scrollLock { overflow: hidden; }
    l'onglet Communauté, puis sur resize/orientationchange, comme pour
    --topbar-h). z-index sous celui de .topbar/.tabbar (10, jamais par-dessus
    eux) mais au-dessus du contenu normal du volet, qui défile dessous. */
+/* ⚠️ 28 septembre 2026, suite (demande d'Emilien, même chantier que
+   .tabbar/#app::after ci-dessus) : le border-bottom net posé le 3 septembre
+   (« qu'elle se termine par un trait net ») est désormais la "barre
+   visible" qu'Emilien veut supprimer, entre cette zone et le fil en
+   dessous. Remplacé par un fond LÉGÈREMENT plus clair que le noir pur
+   (#121214, même valeur littérale que var(--bg-raised) en thème sombre —
+   codée en dur et non via la variable, comme #000000 avant elle, puisque
+   cet élément reste volontairement noir quel que soit le thème, voir plus
+   bas). Plus de ligne : la distinction avec le fil qui défile dessous
+   (var(--bg), #000000 pur) se fait uniquement par cette nuance. */
 #communitySearchBar {
   position: fixed;
   top: var(--topbar-h, 56px);
   left: 0;
   right: 0;
   z-index: 9;
-  background: #000000;
+  background: #121214;
   color: #ffffff;
   border-radius: 0;
   box-shadow: none;
   margin-bottom: 0;
   padding: 12px 18px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 /* ⚠️ 3 septembre 2026, demande d'Emilien : « lorsque je clique sur le texte,
    cherchez un pseudo, les infos Noèsis et nom de l'utilisateur doivent
