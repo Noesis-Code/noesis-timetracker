@@ -1363,38 +1363,37 @@
             pinPages[i].style.height = h;
           }
         }
-        // pinBottomBars (.tabbar) n'a plus sa place ici : voir plus bas, elle
-        // ne se repositionne plus en continu — elle se masque/réapparaît une
-        // seule fois par transition de focus (27 septembre 2026, suite).
+        if (pinBottomBars.length) {
+          // ⚠️ 27 septembre 2026, encore un passage (Design) : masquer .tabbar
+          // sur simple FOCUS d'un champ texte (version précédente) reproduisait
+          // exactement le bug d'origine du 26 septembre (`.tabbarHidden`) — un
+          // champ d'un projet déplié garde le focus pendant un glisser-déposer
+          // (déplacer un nœud dans le DOM ne le fait PAS perdre le focus), donc
+          // la barre disparaissait sans qu'aucun clavier ne soit réellement
+          // affiché. Le focus seul n'est pas un signal fiable de « clavier
+          // ouvert ». Remplacé par un signal basé sur le viewport RÉEL : le
+          // clavier n'est considéré ouvert que si la hauteur visible a
+          // significativement rétréci par rapport à la hauteur du document —
+          // ce qui ne peut pas arriver pendant un simple réordonnancement,
+          // seulement quand un clavier virtuel est effectivement déployé.
+          // 100px de marge absorbe la barre d'adresse mobile/le safe-area/les
+          // arrondis, tout en restant bien en dessous d'un clavier réel
+          // (généralement 200-350px sur téléphone).
+          var keyboardOpen = (document.documentElement.clientHeight - vv.height) > 100;
+          for (var i = 0; i < pinBottomBars.length; i++) {
+            pinBottomBars[i].style.display = keyboardOpen ? 'none' : '';
+          }
+        }
       }
       function pinLoop() {
         if (!pinned) return;
         applyPin();
         requestAnimationFrame(pinLoop);
       }
-      // ⚠️ 27 septembre 2026, suite (Design) : Emilien a testé le pincement
-      // borné ci-dessus (formule remontant .tabbar au-dessus du clavier,
-      // bornée à [-320px,0px] pour ne plus jamais la pousser hors écran par
-      // le bas) sur `staging` et a vu la barre remonter PAR-DESSUS le clavier
-      // au lieu de disparaître — pas le comportement voulu : « quand le
-      // clavier est déployé, la barre doit disparaître complètement [...]
-      // elle réapparaît à la fermeture du clavier », sur TOUS les champs de
-      // saisie. `pinBottomBars` abandonne donc tout calcul de position pour
-      // .tabbar (aucun `transform`, plus besoin de la boucle rAF pour elle) :
-      // elle se masque intégralement (`display:none`) dès qu'un champ texte
-      // prend le focus, et réapparaît selon le MÊME minuteur de 80ms que
-      // pinBars/pinPages ci-dessus, pour rester scopée au même déclencheur
-      // document-wide (`focusin`/`focusout` + `_isTextInputEl`) que le reste
-      // de ce mécanisme — pas une IIFE séparée avec sa propre écoute comme
-      // l'ancien `.tabbarHidden` (retiré le 27 septembre plus haut), dont le
-      // bug d'origine (la barre restait masquée sans clavier visible pendant
-      // un réordonnancement de projets) tenait justement à cette écoute
-      // dupliquée et non partagée avec le reste du pincement.
       document.addEventListener('focusin', function (e) {
         if (!_isTextInputEl(e.target)) return;
         if (unpinTimer) { clearTimeout(unpinTimer); unpinTimer = null; }
         if (!pinned) { pinned = true; pinLoop(); }
-        for (var i = 0; i < pinBottomBars.length; i++) pinBottomBars[i].style.display = 'none';
       }, true);
       document.addEventListener('focusout', function (e) {
         if (!_isTextInputEl(e.target)) return;
@@ -1409,6 +1408,10 @@
             pinPages[i].style.transform = '';
             pinPages[i].style.height = '';
           }
+          // Filet de sécurité : si la boucle s'arrête pendant que .tabbar est
+          // masquée (ex. clavier fermé au même instant que le blur), la
+          // réafficher explicitement plutôt que de compter sur une dernière
+          // frame d'applyPin() qui pourrait ne jamais s'exécuter.
           for (var i = 0; i < pinBottomBars.length; i++) pinBottomBars[i].style.display = '';
         }, 80);
       }, true);
@@ -7481,6 +7484,9 @@
   var currentGoalsActivityId = '';
   var currentGoalsActivityIndex = 0;
   var currentGoalsActivityIsShared = false;
+  var currentGoalsPage2Mode = 'tasks';
+  var currentGoalsTasksOverview = null;
+  var currentGoalsTasksOpenGroups = {};
   // 16 septembre 2026 (8e passage) : couleur de L'ACTIVITÉ affichée, posée
   // par openGoalsForActivity() — source de base pour les nuances
   // automatiques des badges de catégorie (subProjectShade(), voir
@@ -9744,6 +9750,8 @@
     // cette activité (ou sur goalsPoles() si elle n'en a aucun).
     currentGoalsSelectedPoleKey = '';
     currentGoalsGridColumns = null;
+    currentGoalsTasksOverview = null;
+    currentGoalsTasksOpenGroups = {};
 
     currentGoalsActivityColor = a.color;
     // 26 septembre 2026, demande directe d'Emilien (page 2, point a) : le
@@ -9758,6 +9766,7 @@
     // les données chargées, sans dupliquer reloadGoalsAll() — ne change
     // rien pour les appelants existants, qui ignoraient déjà la valeur de
     // retour.
+    setGoalsPage2Mode('tasks');
     return reloadGoalsAll();
   }
 
@@ -10152,6 +10161,240 @@
   $('goalsBackToCaptureBtn').addEventListener('click', function () {
     showGoalsCapturePage();
   });
+
+  // ===================== VOLET OBJECTIFS — PAGE 2 : ÉCRAN « TÂCHES » =====================
+  // 27 septembre 2026, chantier « Tâches quotidiennes intégrées à la Page 2 »
+  // (routé par Aiguillage, coordonné avec Tâche - Pôles & secteurs sur le
+  // contrat de données). Page 2 s'ouvre désormais par défaut sur cet écran
+  // (bascule 2 segments, gabarit .communityModeSwitch) plutôt que directement
+  // sur l'arbre périodique (#goalsObjectifsView, inchangé, juste enveloppé).
+  //
+  // ⚠️ Contrat de données : GET /api/activities/:id/goals/tasks/overview,
+  // proposé par Tâche - Pôles & secteurs (converge sur leur version, plus
+  // simple qu'une première proposition de ma part) :
+  //   { done, total, percent, groups: [
+  //       { key, poleKey, label, isPole, done, total, percent,
+  //         tasks: [{ id, label, done, dueDate, position, autoCaptured }] }
+  //   ] }
+  // isPole=true : pôle SANS secteur (aucune imbrication, rendu à plat,
+  // toujours déplié). isPole=false : secteur (rendu en accordéon, replié par
+  // défaut, état retenu dans currentGoalsTasksOpenGroups). Un pôle AVEC
+  // secteurs ne peut pas posséder ses propres tâches (confirmé par Emilien,
+  // 27 septembre 2026) — n'apparaît donc jamais lui-même dans "groups", seuls
+  // ses secteurs y figurent.
+  //
+  // ⚠️ Cette route n'existe pas encore côté serveur au moment de cette
+  // écriture — l'appel échoue silencieusement (.catch vide) tant que
+  // Tâche - Pôles & secteurs n'a pas déployé son côté : l'écran reste alors
+  // vide (juste #goalsTasksEmptyHint, texte par défaut du HTML), sans erreur
+  // visible pour Emilien.
+  //
+  // ⚠️ Case à cocher : réutilise TEL QUEL PUT /api/sub-project-items/:id
+  // (même route que buildTaskRow() plus haut), en supposant que les tâches
+  // de catégorie Objectifs sont des lignes de la même table sub_project_items
+  // (mêmes champs id/label/done/dueDate/position/autoCaptured) simplement
+  // rattachées par une clé de catégorie/pôle/secteur plutôt que par un
+  // subProjectId. Hypothèse signalée à Tâche - Pôles & secteurs pour
+  // confirmation/correction — à ajuster ici si la route réelle diffère.
+  function setGoalsPage2Mode(mode) {
+    currentGoalsPage2Mode = mode;
+    var tasksBtn = $('goalsPage2ModeTasksBtn');
+    var goalsBtn = $('goalsPage2ModeGoalsBtn');
+    if (tasksBtn) tasksBtn.classList.toggle('active', mode === 'tasks');
+    if (goalsBtn) goalsBtn.classList.toggle('active', mode === 'goals');
+    var tasksView = $('goalsTasksView');
+    var objectifsView = $('goalsObjectifsView');
+    if (tasksView) tasksView.classList.toggle('hidden', mode !== 'tasks');
+    if (objectifsView) objectifsView.classList.toggle('hidden', mode !== 'goals');
+    if (mode === 'tasks') loadGoalsTasksOverview();
+  }
+  $('goalsPage2ModeTasksBtn').addEventListener('click', function () { setGoalsPage2Mode('tasks'); });
+  $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
+
+  function loadGoalsTasksOverview() {
+    var activityId = currentGoalsActivityId;
+    if (!activityId) return;
+    api('GET', '/api/activities/' + activityId + '/goals/tasks/overview')
+      .then(function (data) {
+        // L'utilisateur a pu changer d'activité ou de pôle pendant l'aller-
+        // retour serveur — ignorer une réponse devenue obsolète (même garde
+        // que reloadGoalsAll() ailleurs dans ce fichier).
+        if (String(activityId) !== String(currentGoalsActivityId)) return;
+        currentGoalsTasksOverview = data;
+        renderGoalsTasksOverview(data);
+      })
+      .catch(function () {
+        // Route pas encore en ligne côté serveur, ou hors-ligne : l'écran
+        // reste tel quel (voir le commentaire en tête de section).
+      });
+  }
+
+  function renderGoalsTasksOverview(data) {
+    var wrap = $('goalsTasksProgressWrap');
+    // Règle R1 (même principe que renderActivityProgressRing()) : jamais de
+    // « 0% » trompeur avant le premier chargement réel — l'anneau reste
+    // masqué tant que percent est null/undefined.
+    if (!data || data.percent === null || data.percent === undefined) {
+      wrap.classList.add('hidden');
+    } else {
+      wrap.classList.remove('hidden');
+      var circumference = 2 * Math.PI * 26;
+      var fill = $('goalsTasksProgressRingFill');
+      fill.style.strokeDasharray = circumference.toFixed(2);
+      fill.style.strokeDashoffset = (circumference * (1 - data.percent / 100)).toFixed(2);
+      $('goalsTasksProgressPercent').textContent = data.percent + '%';
+      $('goalsTasksProgressCount').textContent =
+        data.done + ' / ' + data.total + t(' tâches complétées');
+    }
+
+    var list = $('goalsTasksGroups');
+    list.innerHTML = '';
+    var groups = (data && data.groups) || [];
+    groups.forEach(function (g) { list.appendChild(buildGoalsTasksGroup(g)); });
+
+    var emptyHint = $('goalsTasksEmptyHint');
+    emptyHint.textContent = groups.length
+      ? ''
+      : t('Aucun pôle pour le moment — ajoutez-en un depuis la fenêtre de l’activité, section Catégories.');
+    emptyHint.classList.toggle('hidden', groups.length > 0);
+  }
+
+  function buildGoalsTasksGroup(g) {
+    var wrap = document.createElement('div');
+    wrap.className = 'goalsTasksGroup' + (g.isPole ? ' goalsTasksGroupFlat' : '');
+    wrap.dataset.groupKey = g.key;
+
+    var body = document.createElement('div');
+    body.className = 'goalsTasksGroupBody';
+
+    if (g.isPole) {
+      // Pôle sans secteur : pas de repli possible, toujours déplié — en-tête
+      // purement informatif (voir .goalsTasksGroupFlatHead, styles.css).
+      var flatHead = document.createElement('div');
+      flatHead.className = 'goalsTasksGroupFlatHead';
+      var flatLabel = document.createElement('span');
+      flatLabel.className = 'goalsTasksGroupLabel';
+      flatLabel.textContent = g.label;
+      flatHead.appendChild(flatLabel);
+      var flatCount = document.createElement('span');
+      flatCount.className = 'goalsTasksGroupCount meta';
+      flatCount.textContent = g.done + '/' + g.total;
+      flatHead.appendChild(flatCount);
+      wrap.appendChild(flatHead);
+    } else {
+      // Secteur : accordéon, replié par défaut, état retenu par clé de
+      // groupe le temps de rester sur cet écran (currentGoalsTasksOpenGroups).
+      var open = !!currentGoalsTasksOpenGroups[g.key];
+      var head = document.createElement('div');
+      head.className = 'goalsTasksGroupHead';
+      var chevron = document.createElement('span');
+      chevron.className = 'goalsTasksGroupChevron';
+      chevron.textContent = '›';
+      head.appendChild(chevron);
+      var label = document.createElement('span');
+      label.className = 'goalsTasksGroupLabel';
+      label.textContent = g.label;
+      head.appendChild(label);
+      var count = document.createElement('span');
+      count.className = 'goalsTasksGroupCount meta';
+      count.textContent = g.done + '/' + g.total;
+      head.appendChild(count);
+      head.addEventListener('click', function () {
+        var nowOpen = body.classList.toggle('hidden') === false;
+        wrap.classList.toggle('open', nowOpen);
+        currentGoalsTasksOpenGroups[g.key] = nowOpen;
+      });
+      wrap.appendChild(head);
+      body.classList.toggle('hidden', !open);
+      wrap.classList.toggle('open', open);
+    }
+
+    var bar = document.createElement('div');
+    bar.className = 'goalsTasksGroupBar';
+    var barFill = document.createElement('div');
+    barFill.className = 'goalsTasksGroupBarFill';
+    barFill.style.width = (g.percent || 0) + '%';
+    bar.appendChild(barFill);
+    body.appendChild(bar);
+
+    var items = document.createElement('div');
+    items.className = 'subProjectItems';
+    (g.tasks || []).forEach(function (task) { items.appendChild(buildGoalsTaskRow(task)); });
+    body.appendChild(items);
+
+    if (!g.tasks || !g.tasks.length) {
+      var hint = document.createElement('p');
+      hint.className = 'hint';
+      hint.textContent = t('Aucune tâche — ajoute la première ci-dessous.');
+      body.appendChild(hint);
+    }
+
+    appendGoalsTaskAddRow(body, g.key);
+    wrap.appendChild(body);
+    return wrap;
+  }
+
+  function buildGoalsTaskRow(task) {
+    var row = document.createElement('div');
+    row.className = 'subProjectItem' + (task.done ? ' done' : '');
+
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!task.done;
+    cb.addEventListener('change', function () {
+      cb.disabled = true;
+      api('PUT', '/api/sub-project-items/' + task.id, { userId: profile.id, done: cb.checked })
+        .then(function () { loadGoalsTasksOverview(); })
+        .catch(function (err) { cb.checked = !cb.checked; alert(err.message); })
+        .then(function () { cb.disabled = false; });
+    });
+    row.appendChild(cb);
+
+    var label = document.createElement('span');
+    label.className = 'subProjectItemLabel';
+    // Mêmes précautions que buildTaskRow() : jamais innerHTML, le texte peut
+    // venir d'un autre membre de l'activité partagée.
+    appendLinkified(label, task.label);
+    row.appendChild(label);
+
+    return row;
+  }
+
+  function appendGoalsTaskAddRow(parent, groupKey) {
+    var add = document.createElement('div');
+    add.className = 'subProjectItemAdd';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 300;
+    input.placeholder = t('Ajouter une tâche...');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'iconBtn';
+    btn.textContent = t('Ajouter');
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+
+    function submit() {
+      var label = input.value.trim();
+      if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
+      msg.textContent = '';
+      btn.disabled = true;
+      api('POST', '/api/activities/' + currentGoalsActivityId + '/goals/categories/' + groupKey + '/tasks',
+        { userId: profile.id, label: label })
+        .then(function () { input.value = ''; loadGoalsTasksOverview(); })
+        .catch(function (err) { msg.textContent = err.message; })
+        .then(function () { btn.disabled = false; });
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    });
+
+    add.appendChild(input);
+    add.appendChild(btn);
+    parent.appendChild(add);
+    parent.appendChild(msg);
+  }
   // 26 septembre 2026, demande directe d'Emilien (page 2, point d) : ces
   // flèches et ce balayage naviguaient entre ACTIVITÉS — elles naviguent
   // désormais entre PÔLES (#goalsActivityHeader est le sélecteur de pôle,
