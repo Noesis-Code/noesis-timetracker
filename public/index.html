@@ -3465,18 +3465,24 @@
          couleur que .bsS, #674EA9), et le viewBox est élargi pour l'englober
          avec la même marge ~20px (163 242 519 641 → 163 131 586 752, calculé
          sur la boîte englobante réunie de bsL/bsD/bsS : x 183–729, y 151–863). -->
-    <button class="tabBtn tabBtnGoals" data-tab="goals" aria-label="Objectifs">
-      <span class="tabIcon tabIconBrand">
-        <svg viewBox="163 131 586 752" aria-hidden="true" focusable="false">
-          <polygon fill="#8772C7" points="183,293 287,461 287,616 183,675"/>
-          <polygon fill="#46397D" points="287,628 287,863 184,863 184,687"/>
-          <polygon fill="#8772C7" points="192,262 293,262 468,557 367,555"/>
-          <polygon fill="#46397D" points="374,565 475,568 536,670 536,835"/>
-          <polygon fill="#8772C7" points="556,262 616,262 659,286 661,616 556,673"/>
-          <polygon fill="#46397D" points="661,629 662,863 557,863 556,686"/>
-          <polygon fill="#674EA9" points="729,151 612,186 635,253 708,287"/>
+    <!-- 29 septembre 2026, demande d'Emilien (barre des volets « Piste B »,
+         dock vitre) : l'icône du monogramme prend la même taille (26px) et la
+         même couleur (currentColor, suit l'état actif/inactif) que les 4 autres
+         icônes, et un libellé visible « Feuille de route » est ajouté sous elle.
+         aria-label="Objectifs" inchangé : seule l'étiquette affichée change. -->
+    <button class="tabBtn" data-tab="goals" aria-label="Objectifs">
+      <span class="tabIcon">
+        <svg viewBox="163 131 586 752" fill="currentColor" aria-hidden="true" focusable="false">
+          <polygon points="183,293 287,461 287,616 183,675"/>
+          <polygon points="287,628 287,863 184,863 184,687"/>
+          <polygon points="192,262 293,262 468,557 367,555"/>
+          <polygon points="374,565 475,568 536,670 536,835"/>
+          <polygon points="556,262 616,262 659,286 661,616 556,673"/>
+          <polygon points="661,629 662,863 557,863 556,686"/>
+          <polygon points="729,151 612,186 635,253 708,287"/>
         </svg>
       </span>
+      <span class="tabLabel">Feuille de route</span>
     </button>
     <button class="tabBtn" data-tab="community" aria-label="Communauté">
       <span class="tabIcon">

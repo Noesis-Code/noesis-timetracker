@@ -914,6 +914,8 @@
     // réutilisées telles quelles : DICT est un dictionnaire à plat, une
     // même clé française sert partout où le texte est identique.
     'Objectifs': 'Goals',
+    // 29 septembre 2026 : libellé visible sous l'icône Objectifs de la barre des volets.
+    'Feuille de route': 'Roadmap',
     // Ajoutée le 13 septembre 2026 : Objectifs devient un volet à part
     // entière (voir #tab-goals) — état vide quand aucune activité n'existe
     // encore (#goalsNoActivityHint dans index.html).
