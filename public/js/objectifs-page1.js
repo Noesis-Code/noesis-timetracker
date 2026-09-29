@@ -111,7 +111,7 @@
 `);
 
   var $ = TMT.$, api = TMT.api, pad = TMT.pad, dateLocale = TMT.dateLocale,
-      refreshActivities = TMT.refreshActivities, textColorForTheme = TMT.textColorForTheme,
+      refreshActivities = TMT.refreshActivities,
       attachAutoTaskGlow = TMT.attachAutoTaskGlow, calendarDayLabel = TMT.calendarDayLabel,
       loadGoalsCaptureBadges = TMT.loadGoalsCaptureBadges;
 
@@ -625,25 +625,30 @@
     if (!box) return;
     box.innerHTML = '';
     var list = TMT.getActivitiesCache() || [];
-    // 27 septembre 2026, dernière révision d'Emilien sur l'apparence des
-    // puces (remplace l'état « au repos » pastel de la veille) : « la
-    // couleur des activités ne soit plus pastel, mais leur couleur [...]
-    // choisie par l'utilisateur » (au repos, plein) ; « retirer le point
-    // coloré lorsqu'aucune activité a été écrite » (au repos, pas de point,
-    // redondant avec la bulle déjà colorée) ; et pour la sélection en train
-    // d'écrire, « que ce ne soit plus la case au complet qui soit colorée,
-    // mais le point coloré qui se comble et le contour de la bulle qui
-    // apparaisse aux couleurs de l'activité — prendre modèle sur l'option 1
-    // contour discret ». L'état « en train d'écrire, pas sélectionnée »
-    // (option C, badge discret) est inchangé depuis le 26 septembre. Une
-    // puce ne peut être sélectionnée QUE si du texte a déjà été écrit (sinon
-    // un clic navigue directement vers la page 2, voir plus bas) — donc
-    // « sélectionnée » et « au repos » ne se combinent jamais en pratique,
-    // mais le code ne suppose pas cet invariant : il teste explicitement
-    // `typing`.
-    var bubbleWrapEl = $('goalsCaptureBubbleWrap');
-    var textareaEl = bubbleWrapEl ? bubbleWrapEl.querySelector('textarea') : null;
-    var typing = !!(textareaEl && textareaEl.value.trim());
+    // 29 septembre 2026, nouvelle demande directe d'Emilien : « toujours
+    // trop de couleurs sur cette page 1 [...] retirer les couleurs des
+    // bulles et y appliquer le modèle de la fenêtre d'activité, c'est-à-dire
+    // bulle grise avec seulement le point coloré. Même format que [...] la
+    // bulle de l'IA, mais avec le point coloré, rempli. » Remplace les 3
+    // états colorés d'hier (fond plein au repos, anneau creux en train
+    // d'écrire, contour coloré sélectionnée — voir une lecture antérieure de
+    // ce fichier pour le détail) par un seul modèle repris du reste de
+    // l'app (.activityRowHeader/.activityPageHeader : bulle neutre + point
+    // plein, styles.css) et de la bulle de capture juste en dessous
+    // (.activityGoalsCategoryAutoTaskBubble, fond var(--card)) : bulle GRISE
+    // en toute circonstance, SEUL le point reste coloré, toujours plein
+    // (jamais en anneau creux). Toute la logique de style passe donc en CSS
+    // pur (objectifs-page1.css) ; plus besoin d'un contraste de texte
+    // calculé (`textColorForTheme`, retiré) puisque le fond est désormais
+    // constant. La sélection (nécessaire : détermine sur quelles activités
+    // la tâche sera envoyée) n'a plus de couleur propre pour se distinguer
+    // — « seulement le point coloré » l'exclut. Choix assumé, documenté ici
+    // plutôt que deviné en silence : .goalsCaptureActivityChip.selected
+    // épaissit/fonce simplement le contour neutre (var(--text) au lieu de
+    // var(--border)), aucune teinte. `typing`/`goalsCaptureAwaitingActivity
+    // Choice` ne pilotaient l'apparence de la puce QUE pour ces 3 anciens
+    // états — retirés d'ici, ils restent inchangés pour la logique de clic
+    // (sélection vs navigation, plus bas) et l'invite d'attente de choix.
     list.forEach(function (a) {
       var id = String(a.id);
       var isSelected = goalsCaptureSelectedActivityIds.indexOf(id) !== -1;
@@ -653,50 +658,13 @@
 
       var dot = document.createElement('span');
       dot.className = 'dot';
+      dot.style.background = a.color;
 
       var name = document.createElement('span');
       name.className = 'goalsCaptureActivityChipName';
       name.textContent = a.name;
 
-      // Mode « attente de choix d'activité » (point e, encart 59) : traité
-      // comme l'état « en train d'écrire, pas sélectionnée » sur toutes les
-      // puces tant qu'aucune n'est choisie — même rendu, rien de plus à
-      // inventer pour lui.
-      var showDot = true;
-      if (goalsCaptureAwaitingActivityChoice || (typing && !isSelected)) {
-        // Option C — badge discret : fond et liseré neutres, point en
-        // anneau creux dans la couleur de l'activité.
-        btn.style.background = 'var(--card)';
-        btn.style.borderColor = 'var(--border)';
-        btn.style.color = 'var(--text)';
-        dot.style.background = 'var(--card)';
-        dot.style.border = '2px solid ' + a.color;
-      } else if (typing && isSelected) {
-        // 27 septembre 2026, demande d'Emilien : « le point coloré qui se
-        // comble et le contour de la bulle qui apparaisse aux couleurs de
-        // l'activité [...] prendre modèle sur l'option 1 contour discret »
-        // — fond neutre (comme l'état « pas sélectionnée » ci-dessus), le
-        // contour ET le point plein (au lieu de l'anneau creux) signalent la
-        // sélection, plus la bulle entière.
-        btn.style.background = 'var(--card)';
-        btn.style.borderColor = a.color;
-        btn.style.color = 'var(--text)';
-        dot.style.background = a.color;
-        dot.style.border = 'none';
-      } else {
-        // Au repos — 27 septembre 2026, demande d'Emilien : « la couleur des
-        // activités ne soit plus pastel, mais leur couleur [...] choisie par
-        // l'utilisateur » (retour à la couleur pleine, remplace le pastel de
-        // la veille). Le point est retiré : « retirer le point coloré
-        // lorsqu'aucune activité a été écrite » — redondant avec la bulle
-        // déjà colorée dans son ensemble.
-        btn.style.background = a.color;
-        btn.style.borderColor = a.color;
-        btn.style.color = textColorForTheme(TMT.getCurrentTheme());
-        showDot = false;
-      }
-
-      if (showDot) btn.appendChild(dot);
+      btn.appendChild(dot);
       btn.appendChild(name);
 
       // Badge violet « non vu » — jamais un compteur cumulatif, voir
@@ -718,10 +686,10 @@
           // 27 septembre 2026, demande directe d'Emilien : « je souhaite que
           // le message 'quelle activité pour cette tâche' ne disparaisse pas
           // lorsque je choisis une activité » — on sort seulement du mode
-          // « attente » (pour que la puce choisie reprenne sa couleur
-          // pleine, voir renderGoalsCaptureActivities()), sans masquer
-          // l'invite elle-même : elle ne se ferme désormais que sur un envoi
-          // réussi (submit() plus bas), plus au premier choix d'activité.
+          // « attente » (pour que la puce choisie reprenne son rendu normal,
+          // voir renderGoalsCaptureActivities()), sans masquer l'invite
+          // elle-même : elle ne se ferme désormais que sur un envoi réussi
+          // (submit() plus bas), plus au premier choix d'activité.
           if (goalsCaptureAwaitingActivityChoice && goalsCaptureSelectedActivityIds.length) {
             goalsCaptureAwaitingActivityChoice = false;
             renderGoalsCaptureActivities();
