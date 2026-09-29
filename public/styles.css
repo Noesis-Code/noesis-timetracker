@@ -647,8 +647,27 @@ input[type=time]:focus, select:focus, textarea:focus {
 #profileProjectsPanel #projectsScroll { padding-top: 10px; }
 /* Les trois boutons se partagent la largeur à parts égales et tolèrent un
    libellé plus long (« Abonnements ») sans pousser les deux autres hors du
-   panneau, qui ne fait que 320px au plus. */
-#followsSwitch .periodBtn { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; }
+   panneau, qui ne fait que 320px au plus.
+   ⚠️ 28 septembre 2026, signalé par Emilien sur son iPhone (capture à
+   l'appui) : « le texte abonnement dans la cellule est écrit en trop grand et
+   dépasse sur la droite ». Mesuré en bac à sable, le débordement est réel et
+   ne dépend PAS de la largeur de l'écran — le panneau est plafonné à 320px
+   partout, donc chaque bouton dispose de 84,7px utiles et « Abonnements » en
+   écrit 86,4 à la police générique de 14px. Les deux voisins tiennent
+   largement (55,3px et 50,6px) : seul le libellé du milieu déborde, et il
+   débordait aussi bien sur ordinateur que sur téléphone.
+   12px ramène « Abonnements » à 74,1px et laisse ~10px de marge. 13px suffisait
+   en bac à sable (2,2px de marge) mais c'était trop juste pour tenir sur un
+   vrai iPhone, dont la police système est un peu plus large que celle du
+   navigateur de test : on préfère une marge qui absorbe cet écart plutôt
+   qu'une valeur qui passe de justesse ici et déborde encore là-bas. 12px est
+   une taille déjà courante dans l'app (.meta, pastilles) — rien d'illisible.
+   Porté par l'id : .periodBtn est GÉNÉRIQUE (bascule de période des Objectifs,
+   onglets de la page de visite d'un profil, sections de la fenêtre Activité)
+   et ne doit pas rétrécir ailleurs.
+   L'anglais est plus court (« Following »), le français est donc le cas le
+   pire — inutile de prévoir plus petit. */
+#followsSwitch .periodBtn { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; font-size: 12px; }
 /* #avatarMsg (message d'erreur du changement de photo) est vide dans
    l'immense majorité des cas, mais réservait quand même sa ligne — 28px de
    noir en bas d'une barre qui vient de gagner une troisième ligne. Il ne
