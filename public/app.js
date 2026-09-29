@@ -5503,87 +5503,31 @@
     $('communitySearchInput').value = '';
     communitySeekingFilter.length = 0;
     buildCommunitySeekingFilters();
-    // 6 septembre 2026 : la rangée (filtres ou boutons de publication, selon
-    // le mode) démarre repliée à l'ouverture de l'onglet — elle ne se déploie
-    // qu'au clic dans la zone de texte (voir collapseCommunitySearchBarRow,
-    // plus bas dans ce fichier). AVANT setCommunityMode() ci-dessous pour que
-    // sa mesure de hauteur tienne compte de l'état replié dès le départ.
+    // 6 septembre 2026 : la rangée de filtres démarre repliée à l'ouverture
+    // de l'onglet — elle ne se déploie qu'au clic dans la zone de texte (voir
+    // collapseCommunitySearchBarRow, plus bas dans ce fichier). AVANT
+    // syncCommunitySearchBarHeightVar (appelée par collapse…) pour que sa
+    // mesure de hauteur tienne compte de l'état replié dès le départ, et
+    // après buildCommunitySeekingFilters ci-dessus pour que cette hauteur
+    // inclue les filtres déjà rendus (ils peuvent passer sur 2 lignes selon
+    // la largeur de l'écran).
     collapseCommunitySearchBarRow();
-    // 5 septembre 2026 : l'onglet s'ouvre toujours en mode Rechercher (jamais
-    // en Publier) — setCommunityMode() mesure aussi --community-searchbar-h
-    // (voir sa définition plus bas), APRÈS buildCommunitySeekingFilters()
-    // ci-dessus pour que sa hauteur réelle inclue les filtres déjà rendus
-    // (ils peuvent passer sur 2 lignes selon la largeur de l'écran).
-    setCommunityMode('search');
     $('communitySearchResults').innerHTML = '';
     loadCommunityDiscovery();
-    // Zone "Publier" (fusionnée le 5 septembre 2026 dans #communitySearchBar,
-    // voir index.html) : mountProfilePostsComposer, plus bas dans ce
-    // fichier — communityDiscussionComposer est la seconde instance, celle du
-    // Profil (profileDiscussionComposer) restant inchangée.
-    communityDiscussionComposer.reset();
-    syncCommunitySendBtnVisibility();
-    // Sondages (3 septembre 2026, discussion "Sondages") : bloc jumeau de
-    // celui du Profil, même donnée — voir mountPolls plus bas.
-    communityPollsMount.reset();
     loadFollowingFeed();
   }
 
-  // ⚠️ 5 septembre 2026 (demande d'Emilien : « une seule sorte de texte pour
-  // rechercher ou pour publier [...] je clique alors sur un bouton pour
-  // sélectionner ce que je vais faire »). Bascule le mode de
-  // #communitySearchBar (voir index.html pour la structure fusionnée et
-  // styles.css pour .communitySearchOnly/.communityPublishOnly, montrés/masqués
-  // via la classe modePublish posée ici). Ne touche à AUCUN champ directement :
-  // seule la classe change, chaque mécanisme (recherche, composeur, sondages)
-  // garde son propre code de affichage/masquage inchangé (voir la note sur
-  // #communitySearchBar dans index.html).
-  function setCommunityMode(mode) {
-    var bar = $('communitySearchBar');
-    var isPublish = mode === 'publish';
-    bar.classList.toggle('modePublish', isPublish);
-    $('communityModeSearchBtn').classList.toggle('active', !isPublish);
-    $('communityModePublishBtn').classList.toggle('active', isPublish);
-    // Un sondage resté ouvert (formulaire visible) en quittant le mode
-    // Publier serait affiché sous un mode qui ne le montre plus — on le
-    // referme proprement via sa propre croix d'annulation (resetForm() côté
-    // mountPolls), plutôt que de le masquer en CSS sans réinitialiser son
-    // état interne.
-    if (!isPublish && !$('communityPollsForm').classList.contains('hidden')) {
-      $('communityPollsCancelBtn').click();
-    }
-    if (isPublish) syncCommunitySendBtnVisibility();
-    // La hauteur réelle de la barre change entre les deux modes (filtres vs.
-    // actions de publication) — voir syncCommunitySearchBarHeightVar plus haut.
-    syncCommunitySearchBarHeightVar();
-  }
-  $('communityModeSearchBtn').addEventListener('click', function () { setCommunityMode('search'); });
-  $('communityModePublishBtn').addEventListener('click', function () { setCommunityMode('publish'); });
-
   // ⚠️ 6 septembre 2026, demande d'Emilien : « les options partenaires,
-  // clients, financement [...] et + et épingles [...] se déploient et soient
-  // visibles uniquement lorsque l'utilisateur clique sur la zone de texte et
-  // qu'ils se replient (invisible) lorsque l'utilisateur clique en dehors de
-  // la zone noire de l'entête ». Uniquement Communauté (confirmé par
-  // Emilien — la rangée jumeau du Profil garde son affichage permanent).
-  // .searchBarExpanded sur #communitySearchBar pilote les deux rangées à la
-  // fois (une seule visible à un instant donné, déjà réglé par
-  // .communitySearchOnly/.communityPublishOnly) — voir styles.css. Le clic
-  // sur une étiquette de filtre (mousedown preventDefault, renderSeekingPicker)
-  // ne fait JAMAIS perdre le focus au champ, donc jamais collapse par
-  // mégarde ; un clic sur le "+"/le trombone est de toute façon À L'INTÉRIEUR
-  // de #communitySearchBar, donc ignoré par l'écouteur "en dehors" ci-dessous
-  // — même mécanisme que .followsWrap/.notifWrap/.settingsWrap plus loin dans
-  // ce fichier.
-  // ⚠️ Piège trouvé en testant (6 septembre 2026) : quitter le mode Publier
-  // alors qu'un sondage est resté ouvert déclenche
-  // `$('communityPollsCancelBtn').click()` (voir setCommunityMode, plus haut)
-  // — un clic SYNTHÉTIQUE (isTrusted === false), mais qui bouillonne quand
-  // même jusqu'à `document` puisque #communityPollsForm vit HORS de
-  // #communitySearchBar (carte séparée, plus bas dans le DOM). Sans garde,
-  // ce clic interne était pris pour un « clic en dehors » et repliait la
-  // rangée par erreur. D'où le filtre `e.isTrusted` ci-dessous : seul un
-  // clic humain réel peut replier la rangée.
+  // clients, financement [...] se déploient et soient visibles uniquement
+  // lorsque l'utilisateur clique sur la zone de texte et qu'ils se replient
+  // (invisible) lorsque l'utilisateur clique en dehors de la zone noire de
+  // l'entête ». .searchBarExpanded sur #communitySearchBar pilote
+  // #communitySeekingFilters — voir styles.css. Le clic sur une étiquette de
+  // filtre (mousedown preventDefault, renderSeekingPicker) ne fait JAMAIS
+  // perdre le focus au champ, donc jamais collapse par mégarde — même
+  // mécanisme que .followsWrap/.notifWrap/.settingsWrap plus loin dans ce
+  // fichier, garde `e.isTrusted` comprise (utile ailleurs sur ce projet pour
+  // ignorer un clic synthétique qui bouillonnerait jusqu'à `document`).
   function expandCommunitySearchBarRow() {
     $('communitySearchBar').classList.add('searchBarExpanded');
     syncCommunitySearchBarHeightVar();
@@ -5593,7 +5537,6 @@
     syncCommunitySearchBarHeightVar();
   }
   $('communitySearchInput').addEventListener('focus', expandCommunitySearchBarRow);
-  $('communityMyPostsInput').addEventListener('focus', expandCommunitySearchBarRow);
   document.addEventListener('click', function (e) {
     if (!e.isTrusted) return;
     if (!$('communitySearchBar').classList.contains('searchBarExpanded')) return;
@@ -5601,22 +5544,15 @@
     collapseCommunitySearchBarRow();
   });
 
-  // ⚠️ 5 septembre 2026 : icône d'envoi masquée tant que le champ est vide
-  // (confirmé par Emilien : « Entrée ou icône d'envoi [...] une icône
-  // d'envoi apparaît à côté du champ dès qu'il y a du texte »). Purement
-  // présentatif — le bouton reste câblé comme avant par mountMessageThread
-  // (cfg.ids.sendBtn), Entrée continue de fonctionner même icône masquée.
-  // Appelée à l'entrée en mode Publier (setCommunityMode), après un envoi
-  // réussi (onSent de communityDiscussionComposer, plus bas) et à chaque
-  // frappe (écouteur juste en dessous) — .value est remis à zéro par
-  // reset()/send() sans déclencher 'input', d'où ces rappels explicites.
-  function syncCommunitySendBtnVisibility() {
-    var input = $('communityMyPostsInput');
-    var btn = $('communityMyPostsSendBtn');
-    if (!input || !btn) return;
-    btn.classList.toggle('communitySendBtnHidden', !input.value.trim());
-  }
-  $('communityMyPostsInput').addEventListener('input', syncCommunitySendBtnVisibility);
+  // ⚠️ 29 septembre 2026 (épuration visuelle, demande d'Emilien : « le bouton
+  // Rechercher à l'intérieur de la zone texte »). La recherche reste live au
+  // fil de la frappe (voir l'écouteur 'input' plus bas, loadCommunityDiscovery) ;
+  // ce clic déclenche la même fonction tout de suite, pour qui tape puis
+  // clique plutôt que d'attendre le debounce de 250ms.
+  $('communitySearchBtn').addEventListener('click', function () {
+    clearTimeout(communitySearchDebounce);
+    loadCommunityDiscovery();
+  });
 
   // ----- Activité sélectionnée dans l'onglet Activité -----
   // Depuis le 30 août 2026 (fin de journée), il n'y a plus qu'UNE liste
@@ -12908,7 +12844,8 @@
       // en conservant mon clavier ouvert [...] le seul endroit où je peux
       // cliquer en dehors de mon clavier qui ne ferme pas mon clavier »).
       // preventDefault() sur mousedown bloque le blur implicite du champ
-      // texte actif juste avant (communitySearchInput/communityMyPostsInput)
+      // texte actif juste avant (communitySearchInput, seul champ de la
+      // barre depuis le retrait de Publier le 29 septembre 2026)
       // sans empêcher le click de se déclencher ensuite normalement —
       // technique standard pour une barre d'outils utilisable clavier
       // ouvert. Sans effet ailleurs où cette fonction est réutilisée (le
@@ -14338,17 +14275,21 @@
   // ----- Sous-partie "Communauté" (profile_posts) -----
   // Depuis le 1er septembre 2026 (demande d'Emilien : « créer une zone pour
   // écrire à sa communauté exactement comme il y a dans le profil [...] que
-  // les deux zones soient identiques »), ce composeur + ce fil existent à
+  // les deux zones soient identiques »), ce composeur + ce fil ont existé à
   // DEUX emplacements — la zone Discussion du Profil (#profileDiscussionBlock,
-  // ids profileDiscussion*) et la nouvelle zone de Communauté
+  // ids profileDiscussion*) et une zone jumelle dans Communauté
   // (#communityMyPostsBlock, ids communityMyPosts*) — pour la MÊME donnée
   // (toujours "mes" profile_posts, quel que soit l'endroit d'où on les
   // regarde). mountProfilePostsComposer(ids) fabrique une instance
   // indépendante (son propre état de pièces jointes "en attente") à partir
-  // d'un jeu d'ids DOM ; les deux instances sont ensuite gardées dans
-  // profilePostsComposers pour pouvoir se rafraîchir l'une l'autre après un
-  // envoi/suppression fait depuis n'importe laquelle des deux (voir
-  // refreshAllProfilePostsComposers, tout en bas).
+  // d'un jeu d'ids DOM ; chaque instance est ensuite gardée dans
+  // profilePostsComposers pour pouvoir rafraîchir les autres après un
+  // envoi/suppression fait depuis l'une d'elles (voir
+  // refreshAllProfilePostsComposers, tout en bas). ⚠️ 29 septembre 2026
+  // (épuration visuelle) : l'instance de Communauté a été retirée (demande
+  // d'Emilien de supprimer l'option Publier de cet onglet) — il ne reste
+  // donc plus qu'UNE instance (Profil), le mécanisme multi-instances ci-dessus
+  // restant inchangé pour autant qu'un futur chantier en ajoute une autre.
   var profilePostsComposers = [];
 
   // ===================== FIL DE DISCUSSION — FACTORY GÉNÉRIQUE =====================
@@ -14737,36 +14678,22 @@
   // ici apparaissent désormais dans le flux fusionné de la page de profil
   // (#profileDiscussionCommunityList, rendu par renderProfileFeed, plus bas
   // dans ce fichier), mêlés aux sondages, trié une seule fois pour les deux.
-  // Même principe que communityDiscussionComposer juste en dessous, qui a
-  // fait ce choix en premier (pour #followingFeed) le 3 septembre 2026 déjà —
-  // `onSent: renderProfileFeed` en est le pendant exact de son propre rappel.
+  // `onSent: renderProfileFeed` recharge le flux fusionné de la page de
+  // profil juste après un envoi.
   var profileDiscussionComposer = mountProfilePostsComposer({
     input: 'profileDiscussionCommunityInput', pendingList: 'profileDiscussionPendingList',
     attachBtn: 'profileDiscussionAttachBtn', attachInput: 'profileDiscussionAttachInput',
     sendBtn: 'profileDiscussionCommunitySendBtn', msg: 'profileDiscussionCommunityMsg',
   }, function () { renderProfileFeed(); });
-  // Seconde instance, #communityMyPostsBlock dans #tab-community (1er
-  // septembre 2026) — voir loadCommunity() plus haut, qui appelle
-  // communityDiscussionComposer.reset() à l'ouverture de l'onglet.
-  // Depuis le 3 septembre 2026, cette instance n'a plus de liste à elle : le
-  // message publié apparaît dans le flux d'actualité juste en dessous
-  // (#followingFeed), en violet plein. `list`/`emptyHint` sont donc absents —
-  // mountMessageThread le tolère explicitement (voir renderPosts).
-  var communityDiscussionComposer = mountProfilePostsComposer({
-    input: 'communityMyPostsInput', pendingList: 'communityMyPostsPendingList',
-    attachBtn: 'communityMyPostsAttachBtn', attachInput: 'communityMyPostsAttachInput',
-    sendBtn: 'communityMyPostsSendBtn', msg: 'communityMyPostsMsg',
-  }, function () {
-    // Recharge le flux puis amène le message tout juste publié à l'écran : il
-    // arrive en tête (le flux est trié du plus récent au plus ancien), mais
-    // d'autres blocs le séparent du composeur.
-    loadFollowingFeed();
-    focusWhenReady('#followingFeed .discussionMsg');
-    // 5 septembre 2026 : le champ vient d'être vidé par send() sans déclencher
-    // 'input' (valeur remise à zéro par code, pas par frappe) — l'icône
-    // d'envoi resterait visible sur un champ vide sans cet appel explicite.
-    syncCommunitySendBtnVisibility();
-  });
+  // ⚠️ 29 septembre 2026 (épuration visuelle, demande d'Emilien : « Dans
+  // Communauté, je souhaite supprimer l'option Publier ») : la seconde
+  // instance qui vivait ici (communityDiscussionComposer, montée sur
+  // #communityMyPostsBlock dans #tab-community depuis le 1er septembre 2026)
+  // est retirée avec les champs qui la portaient (communityMyPostsInput/
+  // AttachBtn/AttachInput/PendingList/SendBtn/Msg, voir index.html) —
+  // publier reste possible, mais uniquement depuis Profil (profileDiscussionComposer
+  // ci-dessus). Le flux "Suivi" (#followingFeed) continue de montrer ces
+  // publications, y compris les miennes, sans changement de son côté.
 
   // ===================== FLUX DU PROFIL — FUSIONNÉ (3 septembre 2026, huitième passage) =====================
   // Demande d'Emilien, verbatim : « Toutes les postes présents sur le profil
@@ -15568,21 +15495,15 @@
     return instance;
   }
 
-  var communityPollsMount = mountPolls({
-    scope: 'profile',
-    scopeId: function () { return profile && profile.id; },
-    // Volet Communauté : mes sondages en violet plein, comme mes messages.
-    mineStyle: 'feedMine',
-    root: 'communityPollsBlock', addBtn: 'communityPollsAddBtn', form: 'communityPollsForm',
-    question: 'communityPollsQuestion', optionsBox: 'communityPollsOptions',
-    addOptionBtn: 'communityPollsAddOptionBtn', optionsBtn: 'communityPollsOptionsBtn',
-    advanced: 'communityPollsAdvanced', multi: 'communityPollsMulti',
-    anonymous: 'communityPollsAnonymous', privacyHint: 'communityPollsPrivacyHint',
-    allowSuggestions: 'communityPollsAllowSuggestions', cancelBtn: 'communityPollsCancelBtn',
-    closesAt: 'communityPollsClosesAt', createBtn: 'communityPollsCreateBtn',
-    // Ni list ni emptyHint : plus de liste épinglée dans Communauté.
-    msg: 'communityPollsMsg',
-  });
+  // ⚠️ 29 septembre 2026 (épuration visuelle) : communityPollsMount, qui
+  // montait ici le formulaire de création de sondage de Communauté
+  // (#communityPollsBlock/#communityPollsForm), est retiré — son seul
+  // déclencheur ("+", communityPollsAddBtn) vivait dans le composeur
+  // "Publier" retiré au même chantier (voir la note sur communityDiscussionComposer,
+  // plus haut). Créer un sondage reste possible depuis Profil
+  // (profilePollsMount, ci-dessous) ; les sondages des personnes suivies
+  // (et les miens) continuent de défiler dans #followingFeed sans changement,
+  // ce mount n'ayant jamais eu de liste propre (voir son ancienne définition).
 
   var profilePollsMount = mountPolls({
     scope: 'profile',
