@@ -2813,6 +2813,29 @@
           </button>
           <button type="button" class="menuBtn" id="activityPageClose" aria-label="Fermer">✕</button>
         </div>
+        <!-- 🆕 29 septembre 2026, demande directe d'Emilien : ce sélecteur
+             appartient désormais à la barre du haut — déplacé hors de
+             #activityPageScroll (dont il était jusqu'ici le premier enfant,
+             en `position: sticky`) pour devenir frère de .activityPageHeader
+             et #activityPageScroll, tous deux enfants de .communityMembersModalCard.
+             Rendu visuel inchangé (même classes, mêmes boutons) ; ce qui
+             change, c'est qu'aucun contenu ne peut plus jamais défiler
+             derrière lui, puisqu'il n'est structurellement plus dans la
+             zone qui défile — élimine du même coup la bande transparente de
+             rendu iOS documentée les 27-28 septembre sur son ancienne
+             version `sticky` (styles.css, voir le commentaire retiré à
+             cette même date). -->
+        <!-- ⚠️ 25 septembre 2026, demande directe d'Emilien : onglet
+             renommé "Tâches" → "Catégories" — la section ne sert plus qu'à
+             paramétrer les pôles/secteurs (voir #activityGoalsCategoriesBlock
+             plus bas). id/data-section restent "sub" (inchangés, pour ne
+             pas casser les liens profonds existants type
+             setActivityPageSection('sub')). -->
+        <div class="periodSwitch" id="activityPageSectionSwitch">
+          <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Catégories</button>
+          <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
+          <button type="button" class="periodBtn" id="activityPageTabDisc" data-section="disc">Discussion</button>
+        </div>
         <div id="activityPageScroll">
           <!-- ⚠️ Le menu "☰" qui portait ici les réglages de l'activité a été
                retiré le 3 septembre 2026, à la demande d'Emilien : les réglages
@@ -2831,17 +2854,6 @@
                Objectifs de la barre du bas (onglet dédié, plus bas dans ce
                fichier) n'est pas concerné — Emilien l'a explicitement demandé
                inchangé. -->
-          <!-- ⚠️ 25 septembre 2026, demande directe d'Emilien : onglet
-               renommé "Tâches" → "Catégories" — la section ne sert plus qu'à
-               paramétrer les pôles/secteurs (voir #activityGoalsCategoriesBlock
-               plus bas). id/data-section restent "sub" (inchangés, pour ne
-               pas casser les liens profonds existants type
-               setActivityPageSection('sub')). -->
-          <div class="periodSwitch" id="activityPageSectionSwitch">
-            <button type="button" class="periodBtn active" id="activityPageTabSub" data-section="sub">Catégories</button>
-            <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
-            <button type="button" class="periodBtn" id="activityPageTabDisc" data-section="disc">Discussion</button>
-          </div>
           <div id="activityPageBody"></div>
         </div>
       </div>

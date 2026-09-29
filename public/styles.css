@@ -3207,51 +3207,26 @@ button { -webkit-user-select: none; user-select: none; }
   /* Le rebond de cette zone ne se propage pas à la page derrière. */
   overscroll-behavior: contain;
 }
-/* 27 septembre 2026, demande d'Emilien (bug clavier persistant, capture à
-   l'appui, section Catégories) : « le nom des sections reste fixe [...] les
-   catégories défilent sous le nom des sections [...] jusqu'à ce que la zone
-   d'écriture se positionne juste au-dessus du clavier. » Jusqu'ici
-   #activityPageSectionSwitch (Catégories/Statistiques/Discussion) défilait
-   AVEC #activityPageBody, les deux dans la même zone #activityPageScroll —
-   le sélecteur remontait donc hors de vue en même temps que la liste des
-   pôles, au lieu de rester au repère fixe qu'Emilien attend. `position:
-   sticky` le colle au sommet de SA zone de défilement (#activityPageScroll,
-   déjà pincée à `vv.height` pendant le clavier, voir app.js) — même motif
-   déjà validé par Emilien pour .subProjectSticky.open plus bas dans ce
-   fichier, pas de nouvelle mécanique. Marge négative LATÉRALE + padding
-   horizontal restauré : le sélecteur couvre toute la largeur de la carte
-   (sinon le contenu défilerait visiblement dans les 16px de padding gauche/
-   droite de #activityPageScroll) ; padding-bottom remplace le
-   margin-bottom:16px de .periodSwitch (générique), neutralisé ici par
-   `margin: 0 -16px`. Fond opaque nécessaire : le contenu défile SOUS lui.
-   ⚠️ Exclu de .chatMode (:not) : ce mode construit sa PROPRE chaîne de
-   défilement (#communityDiscussionList) où #activityPageScroll ne défile
-   plus lui-même (overflow-y:hidden) — un `sticky` y serait sans effet, mais
-   autant l'exclure explicitement plutôt que de laisser au hasard.
-
-   🆕 28 septembre 2026, retour d'Emilien avec capture d'écran : une ligne de
-   pôle scrollée (« Test 2 ») restait visible dans une fine bande TRANSPARENTE
-   entre l'en-tête de l'activité et ce sélecteur, alors que le sélecteur est
-   bien en `position: sticky` avec un fond opaque. Même bug de rendu iOS déjà
-   rencontré et corrigé le 30 août 2026 sur .tsCorner/.tsDayLabel/
-   .tsCalCorner/.tsCalWeekLabel (Feuille de temps, plus haut dans ce fichier) :
-   Safari iOS peint parfois un élément `sticky` sans lui donner son propre
-   calque de composition, laissant une fenêtre d'une frame (voire plus, en
-   scroll rapide) où le contenu dessous n'est pas encore recouvert malgré un
-   fond CSS opaque. Même correctif exact que ces 4 règles : `will-change:
-   transform` force ce sélecteur sur son propre calque, peinture opaque
-   garantie plutôt que de compter sur le fond CSS seul. */
-#activityPageScroll:not(.chatMode) #activityPageSectionSwitch {
-  position: sticky; top: 0; z-index: 3;
+/* 🆕 29 septembre 2026, demande directe d'Emilien : ce sélecteur
+   (Catégories/Statistiques/Discussion) est déplacé dans index.html pour
+   devenir frère de .activityPageHeader et #activityPageScroll, au lieu
+   d'être le premier enfant (en `position: sticky`) de ce dernier. Il n'a
+   donc plus besoin de se coller lui-même en défilant — il ne défile plus
+   du tout, structurellement hors de la zone concernée. Élimine au passage
+   la bande transparente de rendu iOS documentée les 27-28 septembre sur
+   l'ancienne version `sticky` (Safari peignait parfois l'élément sans son
+   propre calque de composition malgré `will-change`/`translateZ` — plus la
+   peine de contourner un bug de rendu sur un élément qui ne défile plus).
+   Même largeur pleine carte, même fond, même padding perçu (16px partout)
+   que la version précédente — seul le bas passe à 0 : le padding-top de
+   #activityPageScroll (16px, volontairement inchangé, lu par
+   pinSubProjectSticky() ailleurs dans app.js) fournit maintenant à lui
+   seul l'espacement avant #activityPageBody, plutôt que de s'additionner
+   au padding-bottom du sélecteur. */
+#activityPageSectionSwitch {
+  flex: 0 0 auto;
   background: var(--bg);
-  margin: 0 -16px; padding: 0 16px 16px;
-  will-change: transform;
-  /* 🆕 28 septembre 2026 (2e retour d'Emilien) : la bande transparente reste
-     visible malgré will-change seul. Renfort : une transform réellement
-     posée (pas seulement « annoncée ») force le calque de composition de
-     façon plus fiable que will-change seul sur certains moteurs — même
-     combinaison classique que sur .subProjectSticky.open ci-dessous. */
-  transform: translateZ(0);
+  padding: 16px 16px 0;
 }
 /* 🆕 28 septembre 2026 (2e retour d'Emilien, captures à l'appui) : quand la
    liste de pôles/secteurs est courte, #activityPageScroll n'a pas assez de
@@ -4500,6 +4475,16 @@ button { -webkit-user-select: none; user-select: none; }
   padding-left: max(16px, env(safe-area-inset-left));
   padding-right: max(16px, env(safe-area-inset-right));
   padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+/* 🆕 29 septembre 2026 : #activityPageSectionSwitch vivait jusqu'ici DANS
+   #activityPageScroll (marge négative annulant le padding du parent, puis
+   son propre padding fixe de 16px — l'inset d'encoche du parent se
+   propageait donc à lui par annulation/réapplication). Devenu frère de
+   #activityPageScroll (voir index.html), il a besoin de son propre inset
+   explicite pour rester aligné sur la même zone sûre. */
+#activityPageSectionSwitch {
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
 }
 /* Même précaution d'encoche pour #goalsDetailPage (page 2 d'Objectifs,
    14 septembre 2026) — même motif de page plein écran que #activityPage,
