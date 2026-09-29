@@ -4,16 +4,45 @@
  * extrait de public/app.js et public/index.html — voir l'en-tête de
  * objectifs-page1.js pour le contexte complet. Déplacement PUR.
  *
+ * ⚠️ 29 septembre 2026, chantier « Épuration visuelle » (Aiguillage, demande
+ * d'Emilien : « je souhaite que la page 2 soit une fenêtre dans le même
+ * style que la fenêtre des activités et que la page 3 ») : #goalsActivitySwitcher
+ * n'est plus injecté DANS #tab-goals (où il vivait, visible/masqué comme un
+ * bloc de la page 1 parmi d'autres) mais directement dans #content (<main>),
+ * comme #activityPage/#goalsDetailPage/#profileSettingsPanel — même motif,
+ * pas un nouveau : élément plein écran hors de toute section .tab, pour
+ * survivre à un changement d'onglet (voir le commentaire détaillé sur
+ * #activityPage, index.html, sur pourquoi un enfant DIRECT de <main> est
+ * nécessaire — une section .tab ou un de ses descendants ne peut pas se
+ * peindre au-dessus de .tabbar avec son seul z-index). Conséquence acceptée,
+ * cohérente avec ces 3 précédents : si l'utilisateur change d'onglet pendant
+ * que cette fenêtre est ouverte, elle reste ouverte par-dessus (switchTab(),
+ * app.js, ne ferme aucune de ces 3 fenêtres — jamais un comportement propre
+ * à cette page). L'id/les classes historiques de #goalsActivitySwitcher ne
+ * changent pas : objectifs-page1.js le cible encore par cet id seul
+ * (classList.add/remove('hidden')), sans jamais dépendre de son emplacement
+ * DOM — aucune modification requise de son côté. Seul le CONTENU interne
+ * change de forme (voir plus bas) : en-tête fixe titre+croix façon
+ * #activityPage, boutons Tâches/Objectifs façon onglets de la fenêtre
+ * d'activité (.periodSwitch/.periodBtn, styles.css, déjà réutilisés 3 fois
+ * sur ce projet — Abonnés/Abonnements, Statistiques/Publications,
+ * Catégories/Statistiques/Discussion), remplaçant la piste à 2 segments
+ * propre à cette page (.goalsPage2Mode*, retirée). Aucun fichier partagé
+ * touché (index.html/app.js/styles.css inchangés) : #content existe déjà en
+ * dur dans index.html, ce chantier ne fait que changer la CIBLE du
+ * insertAdjacentHTML ci-dessous.
+ *
  * Contenu : le balisage HTML de #goalsActivitySwitcher (arbre périodique,
- * écran « tâches », rail tactile) est injecté ici, dans #tab-goals, à la
- * SUITE du contenu de la page 1 (objectifs-page1.js s'exécute avant ce
- * fichier — voir l'ordre des <script> dans index.html).
+ * écran « tâches », rail tactile) est injecté ici, dans #content, à la SUITE
+ * de toute la structure statique d'index.html (objectifs-page1.js, qui
+ * injecte la page 1 dans #tab-goals, s'exécute avant ce fichier — voir
+ * l'ordre des <script> dans index.html).
  */
 (function () {
   'use strict';
   var TMT = window.TMT = window.TMT || {};
 
-  document.getElementById('tab-goals').insertAdjacentHTML('beforeend', `
+  document.getElementById('content').insertAdjacentHTML('beforeend', `
       <!-- ⚠️ 14 septembre 2026, demande d'Emilien : ce volet devient une
            PAGE 1 (celle-ci) qui ne montre que le nom des grands objectifs,
            enchaînés en arbre esthétique — le détail d'une période (grand
@@ -45,62 +74,40 @@
            périodique (mainGoalText vide) ne montre qu'un simple TRAIT
            cliquable, sans bulle (règle explicite d'Emilien) — voir
            .goalsGridCell--empty, styles.css. -->
-      <div id="goalsActivitySwitcher" class="goalsActivitySwitcher hidden">
-        <!-- 26 septembre 2026 (discussion Objectifs — Arbre périodique),
-             restructuration de la page 2 sur demande directe d'Emilien
-             (maquette approuvée, « C'est bon, code. »), 6 points :
-             1. Le nom de l'activité quitte le cadre encadré pour une simple
-                ligne de titre (.goalsActivityPlainRow ci-dessous), flèche de
-                retour vers la page 1 à sa gauche (#goalsBackToCaptureBtn,
-                déplacé ici depuis l'ancien #goalsActivityHeader). Plus aucun
-                changement d'activité possible depuis la page 2 : il faut
-                repasser par la page 1 (#goalsCapturePage) — les anciens
-                #goalsPrevActivityBtn/#goalsNextActivityBtn et le balayage
-                tactile associé sont retirés (voir bindGoalsSwipe(), app.js).
-             2. Le cadre existant (.activityPageHeader/#goalsActivityHeader,
-                CONSERVÉ tel quel — même classes, même mise en avant visuelle,
-                demande explicite d'Emilien de le garder plutôt que de le
-                supprimer) affiche désormais le PÔLE sélectionné (point coloré
-                + nom, sa nuance attitrée — subProjectShade()) au lieu de
-                l'activité, avec les mêmes flèches ‹/› + balayage tactile,
-                mais pour naviguer de pôle en pôle, circulairement — voir
-                renderGoalsPoleSwitcher()/openGoalsForPole(), app.js.
-                Remplace l'ancien menu déroulant #goalsPoleTabBar (barre de
-                boutons puis menu déroulant, 21 septembre 2026), retiré
-                entièrement.
-             3. Masqué entièrement (comme l'était #goalsPoleTabBar) tant
-                qu'aucun pôle réel n'existe pour l'activité — la grille
-                affiche alors directement goalsPoles() (repli habituel
-                d'activeGoalsCategories()), inchangé.
-             4. Plus aucune possibilité d'ajouter un secteur NI un pôle
-                depuis cette page — la case « + »/page d'ajout
-                (.goalsGridHeadCell--add/.goalsGridCell--add) est retirée
-                sans condition de renderGoalsGridHead()/renderGoalsGrid()
-                (app.js) : tout ajout se fait désormais uniquement depuis la
-                fenêtre d'activité, section Catégories
-                (goToGoalsCategorySettings() y reste utilisable, simplement
-                plus référencée depuis cette grille).
-             5. Un pôle sans aucun secteur continue de s'afficher comme une
-                colonne unique (lui-même) — repli déjà géré côté serveur par
-                gridColumnsForPole(), aucun code client supplémentaire.
-             6. Badge violet « non vu » (.goalsGridHeadBadge) inchangé dans
-                son mécanisme mais repositionné en CSS pour ne plus être
-                coupé par overflow:hidden — voir .goalsGridHeadBadge,
-                styles.css. -->
-        <div class="goalsActivityPlainRow" id="goalsActivityPlainRow">
-          <button type="button" class="menuBtn" id="goalsBackToCaptureBtn" aria-label="Retour à la capture">‹</button>
-          <span class="goalsActivityPlainName" id="goalsActivityName"></span>
+      <div id="goalsActivitySwitcher" class="goalsActivitySwitcher communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <!-- 29 septembre 2026, chantier « Épuration visuelle » : en-tête
+             fixe titre+croix, repris à l'identique du montage #activityPage
+             (.activityPageHeader nu, sans .goalsActivityHeader — cette
+             combinaison-là reste réservée au cadre du pôle plus bas,
+             INCHANGÉ). Remplace l'ancienne ligne .goalsActivityPlainRow
+             (flèche ‹ + nom simple, 26 septembre) : même id/même écouteur
+             pour #goalsBackToCaptureBtn (TMT.showGoalsCapturePage(),
+             inchangé plus bas dans ce fichier) et #goalsActivityName, seuls
+             le glyphe (‹ → ✕) et la position (après le titre, plus avant)
+             changent — même précédent déjà posé pour la croix de
+             #goalsDetailPage le 26 septembre (« uniformiser avec
+             #activityPageClose »). Fixe en haut (.activityPageHeader,
+             flex:0 0 auto, styles.css) pendant que le reste défile dans
+             #goalsActivitySwitcherScroll ci-dessous — même mécanique que
+             #activityPageHeader/#activityPageScroll. -->
+        <div class="activityPageHeader">
+          <span class="activityPageName" id="goalsActivityName"></span>
+          <button type="button" class="menuBtn" id="goalsBackToCaptureBtn" aria-label="Fermer">✕</button>
         </div>
+        <div id="goalsActivitySwitcherScroll">
 
         <!-- 28 septembre 2026, demande directe d'Emilien : le cadre du pôle
-             sélectionné (#goalsActivityHeader) remonte ICI, entre la flèche
-             de retour et la bascule Tâches/Objectifs — il reste désormais
-             TOUJOURS VISIBLE, qu'on soit dans l'écran Tâches ou Objectifs, au
-             lieu de vivre uniquement dans #goalsObjectifsView (26 septembre).
-             Aucun changement JS requis : renderGoalsPoleSwitcher(),
+             sélectionné (#goalsActivityHeader) remonte ICI, entre l'en-tête
+             fixe ci-dessus et la bascule Tâches/Objectifs — il reste
+             désormais TOUJOURS VISIBLE, qu'on soit dans l'écran Tâches ou
+             Objectifs, au lieu de vivre uniquement dans #goalsObjectifsView
+             (26 septembre). Aucun changement JS requis : renderGoalsPoleSwitcher(),
              openGoalsForPole(), bindGoalsSwipe() et les écouteurs de
              #goalsPrevPoleBtn/#goalsNextPoleBtn (app.js) ciblent tous cet
-             élément par son id, sans hypothèse sur son parent DOM. -->
+             élément par son id, sans hypothèse sur son parent DOM — INCHANGÉ
+             par le passage en fenêtre (29 septembre) : seul son ENVELOPPE
+             (#goalsActivitySwitcher/#goalsActivitySwitcherScroll) a bougé. -->
         <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
           <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevPoleBtn" aria-label="Pôle précédent">‹</button>
           <div class="goalsActivityNameWrap">
@@ -115,20 +122,29 @@
              canvas Design partagé — voir claude/noesis-timetracker-taches-
              quotidiennes-page2.md, Script 1). Bascule à 2 segments Tâches/
              Objectifs — Tâches par défaut à l'arrivée sur cette page, comme
-             demandé. Même gabarit visuel que #communityModeSwitch
-             (Rechercher/Publier, Communauté) : classes distinctes
-             (.goalsPage2Mode*) pour ne jamais coupler les deux bascules,
-             mais couleurs identiques à celles de la maquette de ce chantier
-             précis (#9088F2 actif), pas --purple générique — voir
-             styles.css. #goalsObjectifsView (ci-dessous) enveloppe tout le
-             contenu historique de cette page (sélecteur de pôle + arbre
-             périodique + rail tactile), inchangé, simplement montré/masqué
-             comme un bloc entier par setGoalsPage2Mode() (app.js) selon le
-             segment actif. #goalsTasksView est le nouvel écran par défaut,
-             voir plus bas. -->
-        <div class="goalsPage2ModeSwitch" id="goalsPage2ModeSwitch">
-          <button type="button" class="goalsPage2ModeBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
-          <button type="button" class="goalsPage2ModeBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
+             demandé.
+             ⚠️ 29 septembre 2026, chantier « Épuration visuelle », demande
+             directe d'Emilien : « je souhaite que les boutons pour choisir
+             la tâche ou l'objectif soient les mêmes que les boutons des
+             onglets de la fenêtre des activités » — remplace le gabarit du
+             28 septembre ci-dessus (piste pilule translucide, classes
+             .goalsPage2Mode*, retirées de objectifs-page2.css) par
+             .periodSwitch/.periodBtn (styles.css), le motif déjà réutilisé 3
+             fois sur ce projet (Abonnés/Abonnements, Statistiques/
+             Publications de la page de visite, Catégories/Statistiques/
+             Discussion de la fenêtre d'activité elle-même) — vérifié
+             directement réutilisable tel quel (mêmes ids/mêmes data-mode,
+             setGoalsPage2Mode() plus bas ne cible que des ids, jamais une
+             classe), aucune coordination Design nécessaire pour ce point.
+             #goalsObjectifsView (ci-dessous) enveloppe tout le contenu
+             historique de cette page (sélecteur de pôle + arbre périodique +
+             rail tactile), inchangé, simplement montré/masqué comme un bloc
+             entier par setGoalsPage2Mode() (plus bas dans ce fichier) selon
+             le segment actif. #goalsTasksView est le nouvel écran par
+             défaut, voir plus bas. -->
+        <div class="periodSwitch" id="goalsPage2ModeSwitch">
+          <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
+          <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
         </div>
 
         <!-- Écran « Tâches » — 27 septembre 2026 (création), refondu le 28
@@ -312,16 +328,33 @@
              cette période — voir showGoalsScrub()/hideGoalsScrub() (app.js).
              Placée À L'INTÉRIEUR de #goalsActivitySwitcher (et non de
              #goalsGrid) : \`.hidden\` sur ce conteneur (aucune activité
-             chargée) la masque déjà sans logique dédiée ; \`.tab.hidden\` sur
-             #tab-goals fait de même en dehors de cet onglet. Pour la page 2
-             (détail), voir en plus updateGoalsScrubVisibility() (app.js),
-             appelée par openGoalsDetail()/closeGoalsDetail(). -->
+             chargée) la masque déjà sans logique dédiée.
+             ⚠️ 29 septembre 2026 : la mention « \`.tab.hidden\` sur #tab-goals
+             fait de même en dehors de cet onglet » ci-dessus décrivait
+             l'ancien emplacement de #goalsActivitySwitcher (imbriqué dans
+             #tab-goals) — devenue fausse depuis le passage en fenêtre plein
+             écran (#goalsActivitySwitcher est maintenant un enfant direct de
+             #content, hors de toute section .tab, voir l'en-tête de ce
+             fichier) : changer d'onglet ne la masque plus automatiquement.
+             Sans conséquence pratique : \`.hidden\` sur #goalsActivitySwitcher
+             lui-même (son propre état ouvert/fermé, TMT.openGoalsForActivity()/
+             TMT.showGoalsCapturePage()) reste la SEULE condition dont dépend
+             sa visibilité, exactement comme #activityPage/#goalsDetailPage
+             ne se ferment pas non plus au changement d'onglet (switchTab(),
+             app.js) — comportement voulu, cohérent avec ces deux précédents,
+             pas une régression. Pour la page 2 (détail), voir en plus
+             updateGoalsScrubVisibility() (app.js), appelée par
+             openGoalsDetail()/closeGoalsDetail(). -->
         <div class="goalsScrubZone" id="goalsScrubZone">
           <div class="goalsScrubRail" id="goalsScrubRail"></div>
         </div>
         <div class="goalsScrubLabel" id="goalsScrubLabel"></div>
         </div>
         <!-- fin #goalsObjectifsView -->
+        </div>
+        <!-- fin #goalsActivitySwitcherScroll -->
+      </div>
+      <!-- fin .communityMembersModalCard -->
       </div>
 `);
 

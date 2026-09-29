@@ -82,7 +82,43 @@
 
 .goalsGridHead--paged .goalsGridHeadCell { flex: 0 0 calc(50% - 5px); min-width: 0; }
 
-.goalsActivitySwitcher { display: flex; flex-direction: column; gap: 14px; }
+/* ⚠️ 29 septembre 2026, chantier « Épuration visuelle » (demande d'Emilien :
+   « je souhaite que la page 2 soit une fenêtre dans le même style que la
+   fenêtre des activités et que la page 3 ») : #goalsActivitySwitcher cesse
+   d'être un simple bloc flex dans #tab-goals (ancienne règle ci-dessous,
+   retirée) pour devenir une fenêtre plein écran — même montage que
+   #activityPage (styles.css, .communityMembersModal/.communityMembersModalCard,
+   déjà réutilisé pour Réglages le 26 septembre). Classe .communityMembersModal
+   posée sur l'élément en HTML (objectifs-page2.js) : la règle générique
+   (styles.css) pose déjà position:fixed/inset:0/fond noir 50%/centrage —
+   seules les 2 dérogations "page plein écran, pas modale du bas" restent à
+   poser ICI, exactement les mêmes que #activityPage (styles.css) :
+   align-items:stretch/fond opaque sur le conteneur, et carte en colonne
+   flex pleine hauteur sans coins arrondis. L'ancien padding:16px unique de
+   .communityMembersModalCard (pensé pour une carte entièrement défilante)
+   est neutralisé par overflow:hidden ici — c'est #goalsActivitySwitcherScroll
+   qui porte désormais le padding et le défilement, exactement comme
+   #activityPageScroll pour #activityPage. */
+#goalsActivitySwitcher.communityMembersModal { align-items: stretch; background: var(--bg); }
+
+#goalsActivitySwitcher .communityMembersModalCard {
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  height: 100%; max-height: 100%;
+  border-radius: 0; box-shadow: none;
+}
+
+/* Reprend l'ancien display:flex/flex-direction:column/gap:14px de
+   .goalsActivitySwitcher (ci-dessus jusqu'au 28 septembre) : c'est
+   désormais la zone qui défile SOUS l'en-tête fixe (titre + croix,
+   .activityPageHeader, objectifs-page2.js), pas plus de nouvelle mise en
+   page que le simple déplacement de ces 3 déclarations. */
+#goalsActivitySwitcherScroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
+  overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+#goalsBackToCaptureBtn { flex-shrink: 0; }
 
 .goalsActivityHeader {
   padding: 14px 16px;
@@ -109,54 +145,18 @@
 
 .goalsSwipeBtn { flex-shrink: 0; }
 
-.goalsActivityPlainRow {
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 0 10px;
-}
+/* ⚠️ 29 septembre 2026, chantier « Épuration visuelle » : .goalsActivityPlainRow/
+   .goalsActivityPlainName (ligne de titre + flèche ‹, 26 septembre) et
+   .goalsPage2ModeSwitch/.goalsPage2ModeBtn* (piste pilule translucide, 27-28
+   septembre) sont retirées — plus aucune ligne du gabarit (objectifs-page2.js)
+   ne porte ces classes. La première est remplacée par l'en-tête fixe titre+croix
+   de la fenêtre (.activityPageHeader nu, styles.css, voir la nouvelle règle
+   #goalsActivitySwitcher plus haut) ; la seconde par .periodSwitch/.periodBtn
+   (styles.css, motif des onglets de la fenêtre d'activité, demande explicite
+   d'Emilien) — les deux réutilisent des classes déjà partagées, aucune reprise
+   propre à cette page n'est plus nécessaire ici.
 
-.goalsActivityPlainName {
-  flex: 1 1 auto; min-width: 0;
-  font-size: 15px; font-weight: 700;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-.goalsPage2ModeSwitch {
-  display: flex; gap: 4px; margin: 4px 0 14px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 4px;
-}
-
-/* 28 septembre 2026, demande directe d'Emilien : « je souhaite également que
-   les deux boutons tâche et objectif soient de la même couleur que ceux de
-   recherche et publier dans le volet communauté » — mêmes valeurs EXACTES
-   que .communityModeBtn/.communityModeBtn.active (styles.css), jamais cette
-   classe elle-même touchée (partagée avec Communauté) : couleur inactive
-   rgba(255,255,255,0.75) au lieu du gris #9A98A2 propre à cette page, actif
-   en var(--purple) (au lieu du violet plus clair #9088F2 choisi initialement
-   pour cette page) avec la même ombre rgba(103,78,169,0.5), + le même survol
-   souris. Le conteneur .goalsPage2ModeSwitch (piste translucide, padding)
-   était déjà identique à .communityModeSwitch, inchangé. */
-.goalsPage2ModeBtn {
-  flex: 1; padding: 9px 8px; border: none;
-  background: transparent; color: rgba(255, 255, 255, 0.75); border-radius: 999px;
-  cursor: pointer; font-size: 14px; font-weight: 600;
-  transition: background-color var(--transition-fast), color var(--transition-fast),
-    box-shadow var(--transition-fast), transform 0.12s ease;
-}
-
-.goalsPage2ModeBtn.active {
-  background: var(--purple); color: #fff;
-  box-shadow: 0 2px 8px rgba(103, 78, 169, 0.5);
-}
-
-.goalsPage2ModeBtn:active { transform: scale(0.97); }
-
-@media (hover: hover) {
-  .goalsPage2ModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: #fff; }
-}
-
-/* 28 septembre 2026, demande directe d'Emilien : « je dois resserrer les
+   28 septembre 2026, demande directe d'Emilien : « je dois resserrer les
    bulles des différents secteurs » — 10px -> 8px, même échelle que le
    gap:8px interne de .activityRow (Design) plutôt qu'un intervalle propre à
    cette page. */
@@ -329,7 +329,12 @@
   font-size: 13px; padding: 24px 12px; margin: 0;
 }
 
-#goalsBackToCaptureBtn { flex-shrink: 0; margin-right: 4px; }
+/* ⚠️ 29 septembre 2026 : ancienne règle #goalsBackToCaptureBtn (margin-right:4px,
+   pensée pour la flèche ‹ avant le titre) retirée — doublon avec la nouvelle
+   règle du même id plus haut (flex-shrink:0 seul), posée juste après la
+   nouvelle règle #goalsActivitySwitcherScroll : le bouton est désormais la
+   croix ✕ APRÈS le titre (dernier enfant de l'en-tête fixe), comme
+   #activityPageClose (styles.css, aucune marge propre non plus). */
 
 .goalsScrubZone {
   position: fixed; left: 0; z-index: 8; pointer-events: none;
