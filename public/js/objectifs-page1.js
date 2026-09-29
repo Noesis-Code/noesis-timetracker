@@ -625,30 +625,27 @@
     if (!box) return;
     box.innerHTML = '';
     var list = TMT.getActivitiesCache() || [];
-    // 29 septembre 2026, nouvelle demande directe d'Emilien : « toujours
-    // trop de couleurs sur cette page 1 [...] retirer les couleurs des
-    // bulles et y appliquer le modèle de la fenêtre d'activité, c'est-à-dire
-    // bulle grise avec seulement le point coloré. Même format que [...] la
-    // bulle de l'IA, mais avec le point coloré, rempli. » Remplace les 3
-    // états colorés d'hier (fond plein au repos, anneau creux en train
-    // d'écrire, contour coloré sélectionnée — voir une lecture antérieure de
-    // ce fichier pour le détail) par un seul modèle repris du reste de
-    // l'app (.activityRowHeader/.activityPageHeader : bulle neutre + point
-    // plein, styles.css) et de la bulle de capture juste en dessous
-    // (.activityGoalsCategoryAutoTaskBubble, fond var(--card)) : bulle GRISE
-    // en toute circonstance, SEUL le point reste coloré, toujours plein
-    // (jamais en anneau creux). Toute la logique de style passe donc en CSS
-    // pur (objectifs-page1.css) ; plus besoin d'un contraste de texte
-    // calculé (`textColorForTheme`, retiré) puisque le fond est désormais
-    // constant. La sélection (nécessaire : détermine sur quelles activités
-    // la tâche sera envoyée) n'a plus de couleur propre pour se distinguer
-    // — « seulement le point coloré » l'exclut. Choix assumé, documenté ici
-    // plutôt que deviné en silence : .goalsCaptureActivityChip.selected
-    // épaissit/fonce simplement le contour neutre (var(--text) au lieu de
-    // var(--border)), aucune teinte. `typing`/`goalsCaptureAwaitingActivity
-    // Choice` ne pilotaient l'apparence de la puce QUE pour ces 3 anciens
-    // états — retirés d'ici, ils restent inchangés pour la logique de clic
-    // (sélection vs navigation, plus bas) et l'invite d'attente de choix.
+    // 29 septembre 2026, demande directe d'Emilien : « trop de couleurs sur
+    // cette page 1 [...] bulle grise avec seulement le point coloré [...]
+    // le point coloré, rempli. » ⚠️ MÊME JOUR, correction directe d'Emilien
+    // après un premier essai trop large : « tu as changé le design des
+    // bulles [...] lorsque j'écris dans la zone de texte libre. Je ne t'ai
+    // jamais demandé de changer ça. Je veux conserver le point vide lorsque
+    // j'écris [...] et que lorsque je sélectionne une activité, le contour
+    // soit de la couleur de l'activité. » La demande initiale ne visait donc
+    // QUE l'état « au repos » (pas en train d'écrire) — les 2 états
+    // « en train d'écrire » (anneau creux si pas sélectionnée, contour +
+    // point pleins dans la couleur de l'activité si sélectionnée) sont
+    // restaurés à l'identique de ce qu'ils étaient avant ce chantier. Seul
+    // l'état « au repos » change : bulle neutre (base CSS de
+    // .goalsCaptureActivityChip, déjà grise) + point TOUJOURS plein, au lieu
+    // du fond plein coloré d'avant — plus besoin d'un contraste de texte
+    // calculé (`textColorForTheme`, retiré) pour CET état précis, le fond y
+    // étant désormais constant ; les 2 états d'écriture, eux, n'en avaient
+    // déjà jamais eu besoin.
+    var bubbleWrapEl = $('goalsCaptureBubbleWrap');
+    var textareaEl = bubbleWrapEl ? bubbleWrapEl.querySelector('textarea') : null;
+    var typing = !!(textareaEl && textareaEl.value.trim());
     list.forEach(function (a) {
       var id = String(a.id);
       var isSelected = goalsCaptureSelectedActivityIds.indexOf(id) !== -1;
@@ -658,11 +655,33 @@
 
       var dot = document.createElement('span');
       dot.className = 'dot';
-      dot.style.background = a.color;
 
       var name = document.createElement('span');
       name.className = 'goalsCaptureActivityChipName';
       name.textContent = a.name;
+
+      if (goalsCaptureAwaitingActivityChoice || (typing && !isSelected)) {
+        // En train d'écrire, pas sélectionnée — inchangé : anneau creux.
+        btn.style.background = 'var(--card)';
+        btn.style.borderColor = 'var(--border)';
+        btn.style.color = 'var(--text)';
+        dot.style.background = 'var(--card)';
+        dot.style.border = '2px solid ' + a.color;
+      } else if (typing && isSelected) {
+        // En train d'écrire, sélectionnée — inchangé : contour + point
+        // pleins dans la couleur de l'activité.
+        btn.style.background = 'var(--card)';
+        btn.style.borderColor = a.color;
+        btn.style.color = 'var(--text)';
+        dot.style.background = a.color;
+        dot.style.border = 'none';
+      } else {
+        // Au repos (pas en train d'écrire) — SEUL état touché par la
+        // demande du 29 septembre : bulle neutre (base CSS), point toujours
+        // plein.
+        dot.style.background = a.color;
+        dot.style.border = 'none';
+      }
 
       btn.appendChild(dot);
       btn.appendChild(name);

@@ -45,15 +45,17 @@
 }
 
 /* 29 septembre 2026, demande directe d'Emilien : « trop de couleurs [...]
- * bulle grise avec seulement le point coloré [...] même format que [...] la
- * bulle de l'IA ». La base ci-dessus (border: var(--border); background:
- * var(--card); color: var(--text)) était déjà ce gabarit neutre — jusqu'ici
- * masquée par des styles inline (objectifs-page1.js) qui coloraient tout le
- * fond/contour selon l'état ; ces overrides sont retirés, la base s'applique
- * donc désormais telle quelle en permanence, et le point (dot) reste
- * toujours plein (fini l'anneau creux). Seul .selected garde une
- * distinction, volontairement SANS teinte (contour neutre plus marqué,
- * jamais une couleur) pour respecter « seulement le point coloré ». */
+ * bulle grise avec seulement le point coloré ». ⚠️ MÊME JOUR, correction :
+ * cette demande ne visait QUE l'état « au repos » (pas en train d'écrire) —
+ * voir objectifs-page1.js#renderGoalsCaptureActivities() pour le détail des
+ * 3 états. Les 2 états « en train d'écrire » gardent leurs styles inline
+ * (anneau creux / contour+point colorés) posés en JS, qui priment donc sur
+ * la règle ci-dessous. .selected ne s'applique en pratique QUE dans le cas
+ * marginal où une puce reste sélectionnée après que le texte a été effacé
+ * (« au repos » + sélectionnée, cas non exclu par le code) : un contour
+ * neutre plus marqué (var(--text) au lieu de var(--border)), volontairement
+ * SANS teinte, cohérent avec l'esprit « seulement le point coloré » de
+ * l'état au repos. */
 .goalsCaptureActivityChip.selected { border-color: var(--text); }
 
 .goalsCaptureActivityChipName { flex: 1; text-align: left; }
