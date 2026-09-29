@@ -21,15 +21,30 @@
    pôle ait des secteurs ou non, pas seulement dans le cas sans secteur
    (isPoleFallbackColumn, renderGoalsGridHead(), plus bas). Les bulles de
    secteur restent affichées (jamais retiré, seule leur espace autour change) :
-   padding vertical et marge du conteneur ramenés à zéro, exactement la valeur
-   que portait jusqu'ici la seule règle #goalsGridHead:empty (suite (8)) pour
-   le cas sans secteur — cette règle disparaît, son padding/marge devient la
-   valeur de BASE, plus une exception ; le petit espacement restant sous la
-   bascule Tâches/Objectifs vient uniquement de la marge basse de
+   padding vertical du conteneur ramené à zéro, exactement la valeur que
+   portait jusqu'ici la seule règle #goalsGridHead:empty (suite (8)) pour le
+   cas sans secteur — cette règle disparaît, son padding devient la valeur de
+   BASE, plus une exception ; le petit espacement restant sous la bascule
+   Tâches/Objectifs vient uniquement de la marge basse de
    .goalsPage2ModeSwitch (14px, plus haut dans ce fichier), inchangée. Padding
-   horizontal (4px) conservé pour que les bulles ne touchent pas le bord. */
+   horizontal (4px) conservé pour que les bulles ne touchent pas le bord.
+
+   ⚠️ 29 septembre 2026, retour d'Emilien (2 points distincts sur l'onglet
+   Objectifs) : (1) le rail reste « trop espacé » à son goût malgré ce
+   correctif — PAS retouché encore une fois ici, voir la proposition de
+   nouveaux designs du rail (hors CSS, maquettes séparées) plutôt qu'un 3ᵉ
+   réglage à l'aveugle de cette même valeur ; (2) « la première bulle de la
+   première période est trop collée au titre du secteur » — symptôme
+   DISTINCT du (1), causé par CE correctif-ci : `margin-bottom` avait aussi
+   été mis à 0 la veille (suite (16)), or c'est cette marge-là, pas le padding
+   ci-dessus, qui séparait la bulle de secteur du premier nœud de l'arbre
+   (`.goalsGrid`, padding-top 6px seulement, plus bas dans ce fichier) — 6px
+   au total est effectivement trop peu. Restaurée ICI à 14px, la même valeur
+   que la marge de `.goalsPage2ModeSwitch` juste au-dessus (cohérence
+   visuelle), sans toucher au padding (0) qui, lui, correspond bien au point
+   (1) toujours en discussion. */
 .goalsGridHead {
-  display: flex; align-items: center; gap: 10px; padding: 0 4px; margin-bottom: 0;
+  display: flex; align-items: center; gap: 10px; padding: 0 4px; margin-bottom: 14px;
 }
 
 .goalsGridHeadCell {
