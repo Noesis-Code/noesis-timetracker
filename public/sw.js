@@ -42,7 +42,10 @@
 // objectifs-page1/2/3.js et .css (seul ajout permis par ce chantier — voir
 // noesis-timetracker-chantiers-en-cours.md). Rien d'autre ne change dans ce
 // fichier.
-const CACHE_VERSION = 'noesis-v6';
+// 29 septembre 2026 (scission de la Page 2 Objectifs en 2 fichiers exclusifs,
+// demande d'Emilien) : v6 → v7 ; objectifs-page2.js/.css remplacés par
+// objectifs-page2-taches.js/.css et objectifs-page2-objectif.js/.css.
+const CACHE_VERSION = 'noesis-v7';
 
 // File d'attente des tâches capturées hors ligne (voir l'en-tête de
 // public/offline-queue.js). Chargée ici pour que Background Sync puisse la
@@ -60,10 +63,12 @@ const SHELL = [
   '/styles.css',
   '/app.js',
   '/js/objectifs-page1.js',
-  '/js/objectifs-page2.js',
+  '/js/objectifs-page2-taches.js',
+  '/js/objectifs-page2-objectif.js',
   '/js/objectifs-page3.js',
   '/css/objectifs-page1.css',
-  '/css/objectifs-page2.css',
+  '/css/objectifs-page2-taches.css',
+  '/css/objectifs-page2-objectif.css',
   '/css/objectifs-page3.css',
   '/i18n.js',
   '/qrcode.js',

@@ -1,13 +1,11 @@
-/* Noèsis TimeTracker — Objectifs, PAGE 2 (grille périodique / écran « tâches »)
+/* Noèsis TimeTracker — Objectifs, PAGE 2 — onglet « OBJECTIFS » (arbre périodique)
  *
- * 28 septembre 2026 — chantier de restructuration (demande d'Emilien) :
- * extrait de public/styles.css pour que les 3 pages du volet Objectifs
- * puissent être modifiées en parallèle sans jamais se marcher dessus.
- * Déplacement PUR — aucune règle changée, seulement son fichier. Les classes
- * encore utilisées par une AUTRE page (ex. .goalsCaptureBadge, réutilisée
- * par la page 2) fonctionnent sans rien dupliquer : les 3 fichiers sont
- * chargés en même temps que styles.css (voir index.html), donc toute règle
- * s'applique quel que soit le fichier qui la déclare.
+ * 29 septembre 2026 — scission de objectifs-page2.css en 2 fichiers exclusifs,
+ * un par onglet (voir l'en-tête de js/objectifs-page2-taches.js). Déplacement
+ * PUR : aucune règle changée. Contient le cadre de pôle (.goalsActivityHeader,
+ * .goalsSwipeBtn), la grille (.goalsGrid*) et le rail tactile (.goalsScrub*).
+ * Historique antérieur à la scission conservé ci-dessous (ancien en-tête :
+ * extraction du 28 septembre 2026 depuis styles.css).
  */
 
 /* ⚠️ 28 septembre 2026, revirement direct d'Emilien (capture à l'appui) :
@@ -82,43 +80,6 @@
 
 .goalsGridHead--paged .goalsGridHeadCell { flex: 0 0 calc(50% - 5px); min-width: 0; }
 
-/* ⚠️ 29 septembre 2026, chantier « Épuration visuelle » (demande d'Emilien :
-   « je souhaite que la page 2 soit une fenêtre dans le même style que la
-   fenêtre des activités et que la page 3 ») : #goalsActivitySwitcher cesse
-   d'être un simple bloc flex dans #tab-goals (ancienne règle ci-dessous,
-   retirée) pour devenir une fenêtre plein écran — même montage que
-   #activityPage (styles.css, .communityMembersModal/.communityMembersModalCard,
-   déjà réutilisé pour Réglages le 26 septembre). Classe .communityMembersModal
-   posée sur l'élément en HTML (objectifs-page2.js) : la règle générique
-   (styles.css) pose déjà position:fixed/inset:0/fond noir 50%/centrage —
-   seules les 2 dérogations "page plein écran, pas modale du bas" restent à
-   poser ICI, exactement les mêmes que #activityPage (styles.css) :
-   align-items:stretch/fond opaque sur le conteneur, et carte en colonne
-   flex pleine hauteur sans coins arrondis. L'ancien padding:16px unique de
-   .communityMembersModalCard (pensé pour une carte entièrement défilante)
-   est neutralisé par overflow:hidden ici — c'est #goalsActivitySwitcherScroll
-   qui porte désormais le padding et le défilement, exactement comme
-   #activityPageScroll pour #activityPage. */
-#goalsActivitySwitcher.communityMembersModal { align-items: stretch; background: var(--bg); }
-
-#goalsActivitySwitcher .communityMembersModalCard {
-  display: flex; flex-direction: column; padding: 0; overflow: hidden;
-  height: 100%; max-height: 100%;
-  border-radius: 0; box-shadow: none;
-}
-
-/* Reprend l'ancien display:flex/flex-direction:column/gap:14px de
-   .goalsActivitySwitcher (ci-dessus jusqu'au 28 septembre) : c'est
-   désormais la zone qui défile SOUS l'en-tête fixe (titre + croix,
-   .activityPageHeader, objectifs-page2.js), pas plus de nouvelle mise en
-   page que le simple déplacement de ces 3 déclarations. */
-#goalsActivitySwitcherScroll {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
-  overscroll-behavior: contain;
-  display: flex; flex-direction: column; gap: 14px;
-}
-
-#goalsBackToCaptureBtn { flex-shrink: 0; }
 
 .goalsActivityHeader {
   padding: 14px 16px;
@@ -145,79 +106,6 @@
 
 .goalsSwipeBtn { flex-shrink: 0; }
 
-/* ⚠️ 29 septembre 2026, chantier « Épuration visuelle » : .goalsActivityPlainRow/
-   .goalsActivityPlainName (ligne de titre + flèche ‹, 26 septembre) et
-   .goalsPage2ModeSwitch/.goalsPage2ModeBtn* (piste pilule translucide, 27-28
-   septembre) sont retirées — plus aucune ligne du gabarit (objectifs-page2.js)
-   ne porte ces classes. La première est remplacée par l'en-tête fixe titre+croix
-   de la fenêtre (.activityPageHeader nu, styles.css, voir la nouvelle règle
-   #goalsActivitySwitcher plus haut) ; la seconde par .periodSwitch/.periodBtn
-   (styles.css, motif des onglets de la fenêtre d'activité, demande explicite
-   d'Emilien) — les deux réutilisent des classes déjà partagées, aucune reprise
-   propre à cette page n'est plus nécessaire ici.
-
-   28 septembre 2026, demande directe d'Emilien : « je dois resserrer les
-   bulles des différents secteurs » — 10px -> 8px, même échelle que le
-   gap:8px interne de .activityRow (Design) plutôt qu'un intervalle propre à
-   cette page. */
-.goalsTasksGroups { display: flex; flex-direction: column; gap: 8px; }
-
-
-.goalsTasksGroupChevron {
-  flex: 0 0 auto; display: inline-block; transition: transform 0.15s ease;
-  color: var(--muted);
-}
-
-.goalsTasksGroup.open .goalsTasksGroupChevron { transform: rotate(90deg); }
-
-/* 28 septembre 2026, demande directe d'Emilien : « il y a présentement
-   encore des secteurs qui ne sont pas enroulés » — un pôle sans secteur
-   restait jusqu'ici toujours déplié, sans chevron (.goalsTasksGroupFlat,
-   posée par buildGoalsTasksGroup() selon g.isPole). Devenu un accordéon
-   comme les autres (objectifs-page2.js, même jour) : plus aucune ligne ne
-   porte cette classe, règle retirée (elle ne faisait que neutraliser le
-   curseur de la poignée).
-
-   ⚠️ .subProjectRow.open (styles.css, partagée) retire son padding-top —
-   pensé pour l'en-tête COLLANT d'un sous-projet ouvert (compense le décalage
-   `top: 0`, voir le commentaire à côté dans styles.css) — mais .goalsTasksGroup
-   reprend aussi la classe .subProjectRow (gabarit visuel, voir le commentaire
-   en tête de buildGoalsTasksGroup()) sans jamais utiliser de en-tête collant
-   ici : le padding-top retombait donc à 0 en ouvrant un groupe, collant son
-   titre au bord et le donnant l'air presque coupé (retour direct d'Emilien,
-   capture à l'appui). Restauré ICI, scopé à .goalsTasksGroup uniquement —
-   .subProjectRow.open (styles.css) reste intact pour son usage d'origine. */
-.goalsTasksGroup.open { padding-top: 12px; }
-
-/* 28 septembre 2026, demande directe d'Emilien : « surtout en dessous de
-   "Ajouter une tâche", il y a un espace en trop ». Cause trouvée par lecture
-   du Design (styles.css) : .msg (message d'erreur de appendGoalsTaskAddRow,
-   réutilisée telle quelle) réserve min-height:18px MÊME VIDE — .subProjectItemAdd
-   lui-même (styles.css, partagé avec Sous-projets) n'est pas en cause, donc
-   pas touché. Même correctif déjà appliqué ailleurs dans ce projet pour le
-   même symptôme (.chatComposer .msg:empty, .activityGoalsCategoryAutoTaskBubble
-   .msg:empty, toutes deux dans styles.css) : masquer la ligne quand elle est
-   vide, jamais modifier .msg elle-même (générique, utilisée partout). Marge
-   au-dessus du bloc d'ajout resserrée par la même occasion (8px -> 6px). */
-.goalsTasksGroup .subProjectItemAdd { margin-top: 6px; }
-.goalsTasksGroup .msg:empty { display: none; }
-
-/* 28 septembre 2026, retour direct d'Emilien (même jour que la croix rouge
-   ci-dessus, capture à l'appui) : « je souhaite que la croix pour supprimer
-   une tâche ne soit pas encadrée ». .subProjectDeleteX (styles.css, cadrée/
-   bordée en rouge plein) reste la référence pour la croix de SECTEUR
-   (feuille d'activité) — seule sa variante dans une ligne de TÂCHE perd
-   bordure et fond ici, par spécificité de sélecteur plutôt qu'une nouvelle
-   classe ou une modification de la classe partagée — même technique déjà en
-   place dans le Design pour un cas symétrique
-   (.activityGoalsSecteurRow.editing .subProjectDeleteX, styles.css). */
-.goalsTasksGroup .subProjectItem .subProjectDeleteX {
-  border: none;
-  background: none;
-  width: auto;
-  height: auto;
-  padding: 4px;
-}
 
 .goalsGridScroll { position: relative; isolation: isolate; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-left: 12px; }
 
@@ -329,13 +217,6 @@
   font-size: 13px; padding: 24px 12px; margin: 0;
 }
 
-/* ⚠️ 29 septembre 2026 : ancienne règle #goalsBackToCaptureBtn (margin-right:4px,
-   pensée pour la flèche ‹ avant le titre) retirée — doublon avec la nouvelle
-   règle du même id plus haut (flex-shrink:0 seul), posée juste après la
-   nouvelle règle #goalsActivitySwitcherScroll : le bouton est désormais la
-   croix ✕ APRÈS le titre (dernier enfant de l'en-tête fixe), comme
-   #activityPageClose (styles.css, aucune marge propre non plus). */
-
 .goalsScrubZone {
   position: fixed; left: 0; z-index: 8; pointer-events: none;
   top: var(--goals-scrubzone-top, 220px); bottom: calc(var(--tabbar-h, 60px) + 6px);
@@ -367,3 +248,4 @@
 .goalsScrubLabel.show { opacity: 1; }
 
 .goalsScrubLabel b { display: block; color: var(--text); font-size: 12px; font-weight: 700; }
+
