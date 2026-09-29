@@ -379,7 +379,16 @@
   color: var(--text-light); font-size: 11px; white-space: nowrap;
 }
 
-#goalsDetailPage { align-items: stretch; background: var(--bg); }
+/* 29 septembre 2026 — régression signalée par Emilien, cause identifiée par
+   la discussion Page 2 : le commit b8b1779 (Page 2 devenue fenêtre plein
+   écran) injecte #goalsActivitySwitcher en fin de #content avec la même
+   classe .communityMembersModal (donc le même z-index:100, styles.css) que
+   #goalsDetailPage (cette page), plus haut dans le même <main>. À z-index
+   égal, l'ordre DOM tranche : la Page 2, injectée en dernier, recouvrait la
+   Page 3. La Page 3 doit toujours pouvoir s'ouvrir PAR-DESSUS la Page 2
+   (on y accède depuis elle) — override local, propre à ce fichier, aucun
+   changement ailleurs. */
+#goalsDetailPage { align-items: stretch; background: var(--bg); z-index: 101; }
 
 #goalsDetailPage .communityMembersModalCard {
   display: flex; flex-direction: column; padding: 0; overflow: hidden;
