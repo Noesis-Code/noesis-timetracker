@@ -825,6 +825,75 @@ input[type=time]:focus, select:focus, textarea:focus {
 .tabBtn.active .tabLabel { font-weight: 600; color: var(--purple); }
 :root[data-theme="dark"] .tabBtn.active .tabLabel { color: #cdbdf0; }
 
+/* ⚠️ 29 septembre 2026, demande d'Emilien (direction visuelle « Piste B »,
+   validée sur rendu du volet Chrono) — MATIÈRE « VERRE » commune à l'app :
+   1) un halo violet flou, discret, derrière le contenu en bas de l'écran
+      (#app::before) — c'est lui que le verre (dock, boutons) floute, ce qui
+      donne l'impression d'un fond plus lointain. Un seul halo, bas, atténué
+      (Emilien : « plus de noir »). z-index:-1 dans le contexte d'empilement
+      de <body> (isolation:isolate), donc AU-DESSUS du fond de <body> mais
+      SOUS tout le contenu ; ne crée aucun contexte d'empilement sur #content
+      (les fenêtres à z-index 90+ restent comparables au dock à 50). La teinte
+      est --purple-rgb (palette existante), pas une nouvelle couleur.
+   2) jetons --glass-* (fond translucide, liseré, ombre) réutilisables par
+      tout bouton/panneau « vitreux ». Thème sombre = blanc translucide sur
+      noir ; thème clair = blanc laiteux. */
+body { isolation: isolate; }
+#app::before {
+  content: '';
+  position: fixed; z-index: -1; pointer-events: none;
+  left: 50%; margin-left: -200px; bottom: -130px;
+  width: 400px; height: 400px; border-radius: 50%;
+  background: rgba(var(--purple-rgb), 0.16);
+  filter: blur(60px);
+}
+:root[data-theme="dark"] #app::before { background: rgba(var(--purple-rgb), 0.32); }
+:root {
+  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.3) 100%);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+:root[data-theme="dark"] {
+  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
+/* Barre du haut (état par défaut) : photo de profil à gauche (36px), réglages
+   à droite en carré de verre (36px, coins 12px). .topbar reste noire dans les
+   deux thèmes : le verre y est donc toujours le verre SOMBRE, en dur. */
+.topbarDefault .whoamiAvatar { width: 36px; height: 36px; font-size: 15px; font-weight: 600; }
+.topbarDefault .topIconBtn {
+  width: 36px; height: 36px; padding: 0; border-radius: 12px; color: #eef0f2;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+.topbarDefault .topIconBtn svg { width: 18px; height: 18px; }
+.topbarDefault .topIconBtn.active { color: #ffffff; }
+
+/* Volet Stats (Piste B, choisi par Emilien sur rendu) : les petits contrôles des
+   cartes — ‹ › (période), ⋮ (menus) et « Aujourd'hui » — deviennent vitreux,
+   comme « Historique » (jetons --glass-*). Portés par #tab-stats : .iconBtn et
+   .menuBtn restent génériques ailleurs (boutons d'envoi, etc.). Les cartes
+   elles-mêmes gardent leur fond plein. */
+#tab-stats .sectionTitleRow .iconBtn,
+#tab-stats .sectionTitleRow .menuBtn {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+:root:not([data-theme="dark"]) #tab-stats .sectionTitleRow .iconBtn,
+:root:not([data-theme="dark"]) #tab-stats .sectionTitleRow .menuBtn { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08); }
+
+/* Volet Chrono : question et boutons d'activité un peu plus aérés. Portés par
+   #chronoIdle/#activityButtons (les classes .stepLabel/.activityChoiceBtn
+   restent génériques ailleurs, ex. « Confirmer l'arrêt »). */
+#chronoIdle .stepLabel { font-size: 17px; font-weight: 600; }
+#activityButtons { gap: 14px; }
+#activityButtons .activityChoiceBtn { min-height: 58px; padding: 0 20px; border-radius: 16px; font-weight: 600; }
+
 /* ===== Chrono ===== */
 .chronoBlock { text-align: center; margin: 20px 0; }
 /* Le bloc "chrono en cours" prend un léger habillage de carte pour se
@@ -956,13 +1025,17 @@ textarea {
    rapprochement du bouton avec le chrono au-dessus (margin-top: 4px sur
    #chronoHistoryHeader, inchangé). */
 #chronoHistoryHeader {
-  margin-top: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--card); padding: 10px 20px;
+  margin-top: 4px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+  /* 29 septembre 2026 (Piste B) : bouton vitreux transparent (jetons --glass-*). */
+  background: var(--glass-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  padding: 10px 20px;
   display: flex; justify-content: center; width: fit-content;
   margin-left: auto; margin-right: auto;
   transition: background-color var(--transition-fast);
 }
-#chronoHistoryHeader:hover { background: var(--hover-bg); }
+#chronoHistoryHeader:hover { filter: brightness(1.12); }
+:root[data-theme="dark"] #chronoHistoryHeader { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24); }
 #chronoHistoryHeader .sectionTitle { margin: 0; }
 #chronoHistoryPanel { margin-top: 10px; }
 .historyNav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }

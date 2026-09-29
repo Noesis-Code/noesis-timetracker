@@ -594,9 +594,8 @@
          openProfile()/switchTab() dans app.js (voir syncTopbarHeightVar(),
          appelée à chaque bascule pour que --topbar-h reste juste). -->
     <div class="topbarDefault" id="topbarDefault">
-      <span class="brand">Noèsis</span>
-      <div class="topbarActions">
-        <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
+      <!-- 29 septembre 2026, demande d'Emilien (direction « Piste B ») : « Noèsis » retiré de cet état ; la photo de profil (#whoami) passe à gauche, les réglages (.settingsWrap, ex-.identityHeader) à droite en carré de verre. « Noèsis » reste affiché, centré, dans #topbarProfile. -->
+      <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
           <span class="whoamiAvatar" id="whoamiAvatar">
             <img id="whoamiAvatarImg" class="hidden" alt="">
             <span id="whoamiAvatarInitial"></span>
@@ -609,6 +608,18 @@
                attente, pas seulement les demandes de suivi. -->
           <span id="whoamiDot" class="notifDot hidden"></span>
         </button>
+      <div class="topbarActions">
+        <div class="settingsWrap">
+          <button id="profileSettingsBtn" class="topIconBtn" title="Réglages" aria-label="Réglages">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+          <!-- Le panneau #profileSettingsPanel lui-même a déménagé le 9
+               septembre 2026 (fenêtre plein écran) — voir le commentaire à
+               son nouvel emplacement, juste avant </main> plus bas dans ce
+               fichier. -->
+        </div>
       </div>
     </div>
 
@@ -797,17 +808,7 @@
              toute la largeur de `.topbar`, mais s'ouvre directement sous sa
              propre icône (`.notifWrap`/`.settingsWrap` en `position:
              relative`, voir styles.css). -->
-              <div class="settingsWrap">
-          <button id="profileSettingsBtn" class="topIconBtn" title="Réglages" aria-label="Réglages">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-          <!-- Le panneau #profileSettingsPanel lui-même a déménagé le 9
-               septembre 2026 (fenêtre plein écran) — voir le commentaire à
-               son nouvel emplacement, juste avant </main> plus bas dans ce
-               fichier. -->
-        </div>
+              <!-- 29 septembre 2026 (Design, direction « Piste B ») : .settingsWrap/#profileSettingsBtn a déménagé dans #topbarDefault (à droite, en carré de verre) — même id, mêmes écouteurs (showProfileSettings()/closeSettingsPanel() ciblent l'id, le « clic en dehors » repère .settingsWrap par ancêtre DOM : aucun changement app.js). -->
       </div>
       <!-- Projets (4 septembre 2026, demande d'Emilien : « déplacer les
            projets dans la zone du profil (une fois créé les projet n'affiche
