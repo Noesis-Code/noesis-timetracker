@@ -2453,115 +2453,25 @@ body.scrollLock { overflow: hidden; }
 #communitySearchInput {
   font-size: 16px;
 }
-/* ⚠️ 5 septembre 2026 : même correctif de zoom automatique Safari iOS que
-   #communitySearchInput ci-dessus, nécessaire depuis que ce champ vit dans
-   la même carte fixe #communitySearchBar (voir index.html — fusion
-   recherche/publication). Sans lui, le bug reviendrait dès qu'on tape en
-   mode Publier. */
-#communityMyPostsInput {
-  font-size: 16px;
-}
 #tab-community {
   padding-top: var(--community-searchbar-h, 74px);
 }
 
-/* ===== Fusion recherche/publication de #communitySearchBar (5 septembre
-   2026, demande d'Emilien : « une seule sorte de texte pour rechercher ou
-   pour publier [...] je clique sur un bouton pour sélectionner ce que je
-   vais faire »). Voir index.html pour la structure et app.js pour
-   setCommunityMode()/syncCommunitySendBtnVisibility(). ===== */
+/* ===== #communitySearchBar : zone de recherche seule (29 septembre 2026,
+   épuration visuelle, demande d'Emilien : « supprimer l'option Publier
+   [...] uniquement la zone texte avec le bouton Rechercher à l'intérieur de
+   la zone texte »). Remplace la fusion Rechercher/Publier du 5 septembre
+   2026 (segmented control .communityModeSwitch/.communityModeBtn,
+   composeur .communityComposerRow/.communitySendBtn, retirés) — historique
+   complet dans noesis-timetracker-communaute.md. ===== */
 
-/* Bouton à deux états (Rechercher/Publier) — style propre (pas de
-   modification de .periodBtn/.periodSwitch, génériques et réutilisées
-   ailleurs pour les bascules de période) mais même convention visuelle
-   "actif = fond violet plein" que le reste de l'app. */
-/* Modernisation du bouton à deux états (6 septembre 2026, demande
-   d'Emilien : « je souhaite que les boutons soient un peu plus modernes »)
-   — segmented control (piste translucide + pastille pleine qui glisse
-   visuellement d'un état à l'autre) au lieu de deux rectangles bordés. */
-.communityModeSwitch {
-  display: flex; gap: 4px; margin-bottom: 14px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 4px;
-}
-.communityModeBtn {
-  flex: 1; padding: 9px 8px; border: none;
-  background: transparent; color: rgba(255, 255, 255, 0.75); border-radius: 999px;
-  cursor: pointer; font-size: 14px; font-weight: 600;
-  transition: background-color var(--transition-fast), color var(--transition-fast),
-    box-shadow var(--transition-fast), transform 0.12s ease;
-}
-.communityModeBtn.active {
-  background: var(--purple); color: #fff;
-  box-shadow: 0 2px 8px rgba(103, 78, 169, 0.5);
-}
-.communityModeBtn:active { transform: scale(0.97); }
-@media (hover: hover) {
-  .communityModeBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.14); color: #fff; }
-}
-
-/* Rangée du champ actif — un seul champ visible à la fois (communitySearchOnly
-   / communityPublishOnly ci-dessous), même style pour les deux (demande
-   d'Emilien : "une seule sorte de texte"). `.entryCard input`/`textarea`
-   (génériques) imposent déjà width:100% + margin-bottom:8px ; annulés ici
-   pour que le champ occupe toute la largeur sans marge parasite.
-   ⚠️ 6 septembre 2026 (demande d'Emilien, boutons "en dessous de la barre") :
-   le "+"-sondage/trombone/icône d'envoi ne sont PLUS dans cette rangée — ils
-   forment leur propre .rowActions juste en dessous (voir plus bas), même
-   structure que le composeur jumeau du Profil. */
-.communityComposerRow { display: flex; align-items: center; gap: 8px; }
-.communityComposerRow input[type="text"],
-.communityComposerRow textarea { width: auto; flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
-/* Espace entre le champ et sa rangée de boutons — même valeur que le
-   composeur jumeau du Profil (.discussionComposer .rowActions ci-dessous). */
-#communitySearchBar > .rowActions.communityPublishOnly { margin-top: 8px; }
-
-/* Icône d'envoi ronde, à côté du champ plutôt qu'un bouton "Envoyer" en
-   pleine largeur en dessous (confirmé par Emilien) — masquée tant que le
-   champ est vide (.communitySendBtnHidden, posée par
-   syncCommunitySendBtnVisibility dans app.js). Classe autonome (pas
-   .iconBtn) pour éviter tout conflit de spécificité avec sa variante ronde. */
-.communitySendBtn {
-  flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: none; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; cursor: pointer;
-  background: var(--purple); color: #fff;
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
-}
-.communitySendBtn svg { width: 16px; height: 16px; }
-.communitySendBtn:hover { opacity: 0.9; }
-.communitySendBtn:active { transform: scale(0.92); }
-.communitySendBtn:disabled { opacity: 0.35; cursor: default; transform: none; }
-.communitySendBtn.communitySendBtnHidden { display: none; }
-
-/* Visibilité par mode : #communitySearchBar.modePublish est posée/retirée
-   par setCommunityMode() (app.js). Se combine SANS conflit avec le .hidden
-   posé indépendamment par mountPolls (le "+") et par
-   renderPending()/send() (pièce jointe en attente, message d'erreur) —
-   masqué si l'un OU l'autre le décide, chacun garde son propre code. */
-#communitySearchBar.modePublish .communitySearchOnly { display: none; }
-#communitySearchBar:not(.modePublish) .communityPublishOnly { display: none; }
-/* La découverte/les résultats de recherche (frères de la barre, voir
-   index.html) n'ont pas leur place pendant qu'on rédige un message. */
-#communitySearchBar.modePublish ~ #communityDiscoverHint,
-#communitySearchBar.modePublish ~ #communitySearchResults { display: none; }
-
-/* ⚠️ 6 septembre 2026, demande d'Emilien : « la barre noire du haut descend
-   trop bas en mode Publier [...] au même niveau que pour Rechercher ». Cause
-   trouvée par mesure directe (sandbox) : #communityMyPostsMsg — le paragraphe
-   d'erreur du composeur — réserve en permanence min-height:18px (.msg,
-   générique) PLUS la marge par défaut du navigateur sur <p> (1em, soit 13px
-   ici vu font-size:13px de .msg), même vide. Rechercher n'a pas d'équivalent :
-   d'où l'écart de hauteur entre les deux modes. On ne touche PAS à .msg
-   (générique, ~47 appels à .textContent = '' ailleurs dans app.js comptent
-   sur son min-height pour ne pas faire sauter LEUR mise en page) — seulement
-   CE paragraphe précis, et seulement quand :empty (aucun texte, donc rien à
-   réserver) ; un message d'erreur réel reprend sa hauteur normale dès qu'il
-   est posé (msgEl.textContent = err.message, voir mountMessageThread). */
-#communityMyPostsMsg:empty {
-  min-height: 0;
-  margin: 0;
-}
+/* Bouton "Rechercher" DANS la zone de texte : repris tel quel du gabarit
+   .chatComposerRow/.iconBtn (déjà défini plus haut, voir sa note) plutôt
+   qu'une variante propre à Communauté (coordination avec Design, chantier
+   transverse "bouton dans la zone d'écriture") — seul ajout nécessaire ici,
+   l'input <text> n'a pas la même géométrie de padding qu'un <textarea>. */
+.communitySearchRow { margin-bottom: 8px; }
+.communitySearchRow input[type="text"] { padding-right: 118px; margin-bottom: 0; }
 
 /* Décollement + modernisation des étiquettes de filtre Partenaires/Clients/
    Financement (6 septembre 2026, demande d'Emilien : « j'aimerais que les
@@ -2585,18 +2495,15 @@ body.scrollLock { overflow: hidden; }
   #communitySeekingFilters .seekingTagBtn:hover:not(.active) { background: rgba(255, 255, 255, 0.16); }
 }
 
-/* ⚠️ 6 septembre 2026, demande d'Emilien : « [ces deux rangées] se
-   déploient et soient visibles uniquement lorsque l'utilisateur clique sur
-   la zone de texte et qu'ils se replient (invisible) lorsque l'utilisateur
-   clique en dehors de la zone noire de l'entête ». Communauté uniquement
-   (confirmé par Emilien) — .searchBarExpanded posée/retirée par
+/* ⚠️ 6 septembre 2026, demande d'Emilien : « [cette rangée] se déploie et
+   soit visible uniquement lorsque l'utilisateur clique sur la zone de texte
+   et qu'elle se replie (invisible) lorsque l'utilisateur clique en dehors
+   de la zone noire de l'entête ». Communauté uniquement (confirmé par
+   Emilien) — .searchBarExpanded posée/retirée par
    expandCommunitySearchBarRow()/collapseCommunitySearchBarRow() (app.js).
-   Se combine SANS conflit avec .communitySearchOnly/.communityPublishOnly
-   (masqué si l'un OU l'autre le décide, même principe que plus haut) : les
-   deux rangées ne sont donc visibles que dans le bon mode ET une fois
-   dépliées. */
-#communitySearchBar:not(.searchBarExpanded) #communitySeekingFilters,
-#communitySearchBar:not(.searchBarExpanded) > .rowActions.communityPublishOnly {
+   29 septembre 2026 : ne pilote plus que #communitySeekingFilters, la
+   rangée jumelle .rowActions (Publier) ayant disparu avec ce mode. */
+#communitySearchBar:not(.searchBarExpanded) #communitySeekingFilters {
   display: none;
 }
 

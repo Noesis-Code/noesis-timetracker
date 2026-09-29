@@ -1284,76 +1284,25 @@
            bougé (toujours id dédié, toujours #communitySearchResults en
            frère) — seul le CSS change, plus une classe html.communityFeedSnap
            posée par app.js (défilement par saccade de tout le volet). -->
-      <!-- ⚠️ 5 septembre 2026 (demande d'Emilien : « je souhaite utiliser une
-           seule sorte de texte pour rechercher ou pour publier [...] je
-           clique alors sur un bouton pour sélectionner ce que je vais
-           faire »). Fusion de l'ancienne barre de recherche et de l'ancien
-           composeur "Publier" (#communityMyPostsBlock, qui vivait plus bas —
-           voir la note à son ancien emplacement) en une seule carte :
-           #communityModeSwitch choisit le mode (Rechercher/Publier), un seul
-           champ texte visible à la fois (communitySearchInput OU
-           communityMyPostsInput — même emplacement) porte l'action active.
-           Aucun id de champ n'a changé (communityMyPostsSendBtn/AttachBtn/
-           AttachInput/PendingList/Msg et communityPollsAddBtn ont juste été
-           déplacés ici) : mountProfilePostsComposer et mountPolls (app.js)
-           les retrouvent exactement comme avant. Visibilité pilotée en CSS
-           par les classes .communitySearchOnly/.communityPublishOnly
-           (masquées via #communitySearchBar.modePublish / :not(.modePublish),
-           voir setCommunityMode dans app.js et styles.css) — chaque champ reste
-           par ailleurs montré/masqué comme avant par son propre code (mountPolls
-           pour le "+", renderPending()/send() pour la pièce jointe en attente et
-           le message d'erreur) : les deux mécanismes se combinent sans se marcher
-           dessus (masqué si l'un OU l'autre le décide).
-           ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que lorsqu'on
-           arrive au bout, elle s'agrandisse [...] et que les boutons [...] se
-           trouvent en dessous de la barre et qu'ils descendent à mesure que la
-           zone de texte grossisse ». communityMyPostsInput redevient donc un
-           <textarea> (voir la note du 1er septembre juste au-dessus de son
-           ancien état <input>, retirée : elle ne s'applique plus) et les
-           boutons sortent de .communityComposerRow pour former une rangée
-           .rowActions séparée, EXACTEMENT la structure déjà en place côté
-           Profil (#profileDiscussionCommunityInput + son .rowActions, plus
-           bas dans ce fichier) — même classe générique, même comportement,
-           pas de CSS réinventé. L'agrandissement lui-même (pollAutoGrow) est
-           câblé une seule fois dans mountMessageThread (app.js), donc commun
-           aux trois champs qui partagent cette fonction (Communauté, Profil,
-           chat de sous-projet) — décision confirmée par Emilien. -->
+      <!-- ⚠️ 29 septembre 2026 (chantier « Épuration visuelle », demande
+           d'Emilien : « retrait complet de l'option/bouton Publier et du
+           sélecteur Rechercher/Publier. Ne reste qu'une zone de texte de
+           recherche, avec le bouton Rechercher DEDANS la zone »). Remplace
+           la fusion Rechercher/Publier du 5 septembre 2026 (#communityModeSwitch,
+           .communityComposerRow, composeur "Publier" avec ses ids
+           communityMyPosts*, "+" sondage communityPollsAddBtn) — tout ce
+           sous-arbre est retiré. Le bouton "Rechercher" DANS la zone de
+           texte reprend tel quel le gabarit transverse .chatComposerRow/
+           .iconBtn (déjà posé par #communityDiscussionInput plus bas dans ce
+           fichier, et par le composeur d'objectif), coordination avec
+           Design plutôt qu'une variante Communauté isolée. Historique
+           complet dans noesis-timetracker-communaute.md. -->
       <div class="entryCard" id="communitySearchBar">
-        <div class="communityModeSwitch" id="communityModeSwitch">
-          <button type="button" class="communityModeBtn active" id="communityModeSearchBtn" data-mode="search">Rechercher</button>
-          <button type="button" class="communityModeBtn" id="communityModePublishBtn" data-mode="publish">Publier</button>
+        <div class="chatComposerRow communitySearchRow">
+          <input type="text" id="communitySearchInput" placeholder="Chercher un pseudo, un projet, un secteur..." autocomplete="off">
+          <button type="button" id="communitySearchBtn" class="iconBtn" aria-label="Rechercher" title="Rechercher">Rechercher</button>
         </div>
-        <div class="communityComposerRow">
-          <input type="text" id="communitySearchInput" class="communitySearchOnly" placeholder="Chercher un pseudo, un projet, un secteur..." autocomplete="off">
-          <!-- mountMessageThread (app.js) ne lit que .value/addEventListener sur
-               cet id : passer de <input> à <textarea> ne lui demande aucune
-               modification. rows="1" + .pollAutoGrow (styles.css) : hauteur de
-               départ compacte, agrandie ensuite par pollAutoGrow (app.js). -->
-          <textarea id="communityMyPostsInput" class="communityPublishOnly pollAutoGrow" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
-        </div>
-        <div class="rowActions communityPublishOnly">
-          <!-- "+" des sondages : mountPolls le câble toujours par ids.addBtn
-               (id inchangé) et le montre/masque selon le droit de créer
-               (data.canCreate) — .communityPublishOnly (sur la rangée entière
-               désormais) ajoute une seconde condition (mode actif) sans
-               toucher à cette logique. -->
-          <button type="button" class="menuBtn pollComposerAddBtn hidden" id="communityPollsAddBtn" aria-label="Créer un sondage" title="Créer un sondage">+</button>
-          <div class="attachmentMenuWrap">
-            <button type="button" id="communityMyPostsAttachBtn" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            </button>
-            <input type="file" id="communityMyPostsAttachInput" class="hidden">
-          </div>
-          <!-- Icône d'envoi (plus de bouton "Envoyer" texte) : masquée tant que
-               le champ est vide (syncCommunitySendBtnVisibility, app.js), en
-               plus d'Entrée pour envoyer (déjà géré par mountMessageThread). -->
-          <button type="button" id="communityMyPostsSendBtn" class="communitySendBtn" aria-label="Envoyer" title="Envoyer">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </button>
-        </div>
-        <div id="communityMyPostsPendingList" class="attachmentList communityPublishOnly hidden"></div>
-        <p id="communityMyPostsMsg" class="msg communityPublishOnly"></p>
-        <div class="seekingTagPicker communitySearchOnly" id="communitySeekingFilters"></div>
+        <div class="seekingTagPicker" id="communitySeekingFilters"></div>
       </div>
       <!-- Découverte de membres (2 septembre 2026, demande d'Emilien :
            « perfectionner la découverte [...] des profils des autres
@@ -1395,62 +1344,13 @@
       <p id="communityDiscoverHint" class="hint hidden">Quelques profils à découvrir.</p>
       <div id="communitySearchResults" class="activitiesList"></div>
 
-      <!-- ⚠️ 5 septembre 2026 : l'ancien bloc composeur "Publier" séparé
-           (#communityMyPostsBlock, titre "Publier" + <textarea> + actions)
-           a été retiré d'ici — son contenu vit désormais dans la carte
-           fusionnée #communitySearchBar tout en haut (voir la note à cet
-           endroit). Les ids de ses champs n'ont pas changé. -->
-
-      <!-- Sondages (3 septembre 2026, 11ᵉ discussion "Sondages"). Cadrage
-           d'Emilien : « Les sondages n'apparaissent jamais dans les
-           discussions, ils sont toujours des post qui défile sur le volet
-           communauté, sur le profil ou dans un sous projet d'une activité. »
-           D'où un bloc à part, jamais mêlé au composeur de messages
-           ci-dessus — mais alimenté par la MÊME donnée que le bloc jumeau du
-           Profil (#profilePollsBlock) : ce sont toujours MES sondages, quel
-           que soit l'endroit d'où on les ouvre, exactement comme les messages
-           de #communityMyPostsBlock. Voir mountPolls dans app.js, appelée une
-           fois par emplacement, et server/lib/polls.js pour le modèle
-           (scope='profile', scopeId = mon propre userId).
-           ⚠️ Les sondages des personnes SUIVIES ne sont pas ici : ils défilent
-           mêlés à leurs messages dans #followingFeed juste en dessous (voir
-           loadFollowingFeed dans app.js). -->
-      <div id="communityPollsBlock" class="pollsBlock">
-        <!-- Plus de titre de section ni de ligne d'en-tête ici (3 septembre
-             2026, « Supprimer le titre "sondage" ») : le bloc n'apparaît que
-             par ce qu'il contient. Le "+" qui ouvre ce formulaire est monté
-             dans le composeur ci-dessus. -->
-        <div class="entryCard pollForm hidden" id="communityPollsForm">
-          <!-- Croix d'annulation (3 septembre 2026, demande d'Emilien) :
-               referme le formulaire ET remet tout à zéro, sans rien
-               enregistrer. Premier enfant du formulaire, posée en absolu par
-               .pollFormCancel pour rester au coin haut droit quelle que soit
-               la hauteur des champs. -->
-          <button type="button" class="pollFormCancel" id="communityPollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
-          <textarea id="communityPollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
-          <div class="pollFormOptions" id="communityPollsOptions"></div>
-          <div class="pollFormActions">
-            <button type="button" class="iconBtn pollAddOptionBtn" id="communityPollsAddOptionBtn">+ Ajouter une réponse</button>
-            <button type="button" class="iconBtn pollOptionsBtn" id="communityPollsOptionsBtn">Option</button>
-          </div>
-          <div class="pollFormAdvanced hidden" id="communityPollsAdvanced">
-            <label class="pollFormRow"><input type="checkbox" id="communityPollsMulti"> Plusieurs réponses possibles</label>
-            <label class="pollFormRow"><input type="checkbox" id="communityPollsAnonymous"> Vote anonyme</label>
-            <label class="pollFormRow"><input type="checkbox" id="communityPollsAllowSuggestions"> Autoriser une autre réponse</label>
-            <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="communityPollsClosesAt"></label>
-          </div>
-          <p class="hint" id="communityPollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
-          <button type="button" class="btn btn-primary pollCreateBtn" id="communityPollsCreateBtn">Terminer</button>
-          <p id="communityPollsMsg" class="msg"></p>
-        </div>
-        <!-- Plus de liste de sondages ici (4 septembre 2026, Emilien : « ils ne
-             défilent pas normalement dans le flux [...] je ne souhaite pas que
-             mon sondage reste bloqué en haut ni qu'il y ait de doublon »). Ce
-             bloc ne porte plus que le FORMULAIRE de création ; les sondages,
-             les miens compris, défilent dans #followingFeed juste en dessous,
-             mêlés aux messages et triés par date — exactement comme eux.
-             Un seul endroit les rend, donc plus de doublon possible. -->
-      </div>
+      <!-- ⚠️ 29 septembre 2026 : le composeur "Publier" (#communityMyPostsBlock,
+           qui vivait ici avant le 5 septembre) et le bloc Sondages Communauté
+           (#communityPollsBlock, formulaire de création) ont disparu avec le
+           retrait complet de Publier — voir la note plus haut, à
+           #communitySearchBar. Le socle mountPolls reste utilisé par Profil
+           (#profilePollsBlock plus bas dans ce fichier) ; le flux "Suivi"
+           continue d'afficher les sondages déjà créés, mêlés aux messages. -->
 
       <!-- Flux "Suivi" : mélange, trié par date, des messages "Communauté"
            (profile_posts), des sondages des personnes suivies (3 septembre
