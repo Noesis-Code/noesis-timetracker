@@ -295,7 +295,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
   height: calc(env(safe-area-inset-bottom, 0px) + 24px);
   background: linear-gradient(160deg, var(--purple) 0%, var(--purple-dark) 100%);
-  pointer-events: none;
+  pointer-events: none; background: transparent;
 }
 .onboarding-card {
   background: var(--card);
@@ -447,7 +447,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
   height: calc(env(safe-area-inset-bottom, 0px) + 24px);
   background: var(--bg);
-  pointer-events: none;
+  pointer-events: none; background: transparent;
   z-index: 50;
 }
 /* Pourquoi 100dvh en plus de 100vh (volet Design, 3 septembre 2026) :
@@ -6030,7 +6030,7 @@ button { -webkit-user-select: none; user-select: none; }
   width: 100%;
   height: 100%;
   z-index: 2;
-  pointer-events: none;
+  pointer-events: none; background: transparent;
   overflow: visible;
 }
 /* 26 septembre 2026, demande directe d'Emilien : contour fixe et fuseau
@@ -6745,3 +6745,21 @@ button { -webkit-user-select: none; user-select: none; }
 #profileSettingsScroll #calendarFeedSection:not(.hidden) + .settingsFlat .settingsFlatTitle { padding-top: 26px; }
 #profileSettingsScroll #calendarFeedMsg:empty { display: none; }
 #profileSettingsScroll #calendarFeedSection:not(.hidden) { margin-bottom: 0; }
+
+/* 30 septembre 2026 (demande d'Emilien : « les boutons catégorie et statistiques décrochés du fond noir, exactement comme la
+   zone de recherche dans le volet Communauté ; les données et les boutons passent en dessous et sont floutés »).
+   #activityPageSectionSwitch (Catégories | Statistiques) flotte au-dessus de #activityPageScroll : marge basse négative = sa
+   hauteur (le défilement passe dessous), fond transparent, pastilles en verre (.periodBtn, jetons --glass-*, flou déjà posé),
+   clics laissés au contenu hors des boutons. #activityPageBody reçoit une cale de même hauteur pour ne pas être masqué au repos
+   (padding-top de #activityPageScroll non touché : lu par pinSubProjectSticky()). */
+#activityPage { --activity-switch-h: 46px; }
+#activityPageSectionSwitch:not(.hidden) {
+  position: relative; z-index: 9;
+  margin-bottom: calc(-1 * var(--activity-switch-h));
+  padding-top: 8px; padding-bottom: 0;
+  pointer-events: none; background: transparent;
+}
+#activityPageSectionSwitch .periodBtn { pointer-events: auto; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 10px 30px rgba(0, 0, 0, 0.25); }
+#activityPageSectionSwitch:not(.hidden) + #activityPageScroll #activityPageBody::before {
+  content: ''; display: block; height: calc(var(--activity-switch-h) - 8px);
+}
