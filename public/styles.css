@@ -295,7 +295,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
   height: calc(env(safe-area-inset-bottom, 0px) + 24px);
   background: linear-gradient(160deg, var(--purple) 0%, var(--purple-dark) 100%);
-  pointer-events: none; background: transparent;
+  pointer-events: none;
 }
 .onboarding-card {
   background: var(--card);
@@ -447,7 +447,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
   height: calc(env(safe-area-inset-bottom, 0px) + 24px);
   background: var(--bg);
-  pointer-events: none; background: transparent;
+  pointer-events: none;
   z-index: 50;
 }
 /* Pourquoi 100dvh en plus de 100vh (volet Design, 3 septembre 2026) :
@@ -6030,7 +6030,7 @@ button { -webkit-user-select: none; user-select: none; }
   width: 100%;
   height: 100%;
   z-index: 2;
-  pointer-events: none; background: transparent;
+  pointer-events: none;
   overflow: visible;
 }
 /* 26 septembre 2026, demande directe d'Emilien : contour fixe et fuseau
