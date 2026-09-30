@@ -596,7 +596,6 @@ input[type=time]:focus, select:focus, textarea:focus {
 /* Le panneau flottant des projets réutilise .notifPanel telle quelle (aucune
    de ses règles redéfinie) — seulement élargi comme l'est déjà celui des
    Réglages : il contient des formulaires, pas une simple liste. */
-#profileProjectsPanel.projectsPanel { width: min(380px, 92vw); }
 
 /* ===== Panneaux flottants du Profil à en-tête fixe (10 septembre 2026) =====
    Deux demandes d'Emilien le même jour, même mécanisme :
@@ -630,27 +629,18 @@ input[type=time]:focus, select:focus, textarea:focus {
    (.communityMembersModal), dont la hauteur est celle de l'écran et non un
    calcul à partir de --topbar-h/--tabbar-h. Voir le bloc « PAGE PROFIL » plus
    bas dans ce fichier. #profileProjectsPanel, lui, reste un panneau ancré. */
-#profileProjectsPanel {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100dvh - var(--topbar-h, 56px) - 16px - var(--tabbar-h, 64px) - 12px);
-  overflow: hidden;
-}
 #followsScroll,
 #projectsScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* Les parties FIXES, hors défilement. */
 #profileFollowsPanel #followsSwitch { flex: 0 0 auto; margin-bottom: 10px; }
-#profileProjectsPanel .subpageHeader { flex: 0 0 auto; margin-bottom: 0; }
 /* Un filet sous le titre : sans lui, la première ligne du contenu passe juste
    sous le mot « Abonnés »/« Projets » pendant le défilement et on ne voit plus
    que le titre est un en-tête fixe, pas une ligne comme les autres. */
-#profileFollowsPanel #followsPanelTitle,
-#profileProjectsPanel .subpageHeader {
+#profileFollowsPanel #followsPanelTitle {
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }
 #profileFollowsPanel #followsPanelTitle { flex: 0 0 auto; margin: 0 0 8px; }
-#profileProjectsPanel #projectsScroll { padding-top: 10px; }
 /* Les trois boutons se partagent la largeur à parts égales et tolèrent un
    libellé plus long (« Abonnements ») sans pousser les deux autres hors du
    panneau, qui ne fait que 320px au plus.
@@ -6557,6 +6547,7 @@ button { -webkit-user-select: none; user-select: none; }
    visuellement de la page Profil, pleine et opaque, sur laquelle elles
    s'ouvrent. */
 #profileFollowsPanel .communityMembersModalCard,
+#profileProjectsPanel .communityMembersModalCard,
 #profileNotifPanel .communityMembersModalCard {
   display: flex; flex-direction: column; padding: 0; overflow: hidden;
 }
@@ -6713,3 +6704,8 @@ button { -webkit-user-select: none; user-select: none; }
   flex: 1 1 auto; min-width: 0; margin: 0; padding-bottom: 0; border-bottom: none;
 }
 #profileFollowsPanel .profileSubWindowHeader #followsPanelClose { margin-left: auto; flex: 0 0 auto; }
+
+/* 30 sept. 2026 (demande d'Emilien) : fenêtre « Projets » = même bandeau que « Abonnés » (titre + ✕ à droite, trait normal). */
+#profileProjectsPanel .profileSubWindowHeader #projectsPanelTitle { flex: 1 1 auto; min-width: 0; margin: 0; padding-bottom: 0; border-bottom: none; }
+#profileProjectsPanel .profileSubWindowHeader #projectsPanelClose { margin-left: auto; flex: 0 0 auto; }
+#profileProjectsPanel #projectsScroll { padding: 12px 16px 16px; overscroll-behavior: contain; }

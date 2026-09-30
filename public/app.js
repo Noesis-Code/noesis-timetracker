@@ -13124,7 +13124,7 @@
     // peuvent, y compris la bande horizontale de la barre supérieure — la
     // pastille qu'on venait de toucher se retrouvait alors à moitié sortie de
     // l'écran. Ici, seul le panneau bouge.
-    var panelBox = $('profileProjectsPanel');
+    var panelBox = $('projectsScroll');
     panelBox.scrollTop = target ? Math.max(0, target.offsetTop - panelBox.offsetTop) : 0;
   }
 
@@ -13133,14 +13133,10 @@
     $('newProjectCard').classList.add('hidden');
   }
 
-  // Referme le panneau au clic n'importe où en dehors de lui, des pastilles ou
-  // du "+" — même mécanisme que les trois panneaux voisins. .projectsWrap
-  // enveloppe toute la bande (pastilles + "+" + panneau), donc un clic sur une
-  // pastille n'est jamais compris comme un "clic en dehors".
-  document.addEventListener('click', function (e) {
-    if ($('profileProjectsPanel').classList.contains('hidden')) return;
-    if (e.target.closest('.projectsWrap')) return;
-    closeProjectsPanel();
+  // « Projets » est une fenêtre (même gabarit qu'Abonnés) : ✕ ou clic sur le fond pour la refermer.
+  $('projectsPanelClose').addEventListener('click', closeProjectsPanel);
+  $('profileProjectsPanel').addEventListener('click', function (e) {
+    if (e.target === $('profileProjectsPanel')) closeProjectsPanel();
   });
 
   function renderProjectsList(list) {
