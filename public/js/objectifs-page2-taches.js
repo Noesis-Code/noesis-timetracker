@@ -94,6 +94,8 @@
         <div class="periodSwitch" id="goalsPage2ModeSwitch">
           <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
           <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
+          <!-- 30 septembre 2026 : Discussion (déplacée de la fenêtre Activité), à droite de Objectifs ; visible seulement si l'activité affichée est partagée. -->
+          <button type="button" class="periodBtn hidden" id="goalsPage2ModeDiscBtn" data-mode="disc">Discussion<span id="goalsPage2DiscDot" class="notifDot hidden"></span></button>
         </div>
 
         <!-- Écran « Tâches » — 27 septembre 2026 (création), refondu le 28
@@ -143,12 +145,20 @@
              (#goalsActivityHeader) est de même injecté par ce fichier-là,
              juste avant #goalsPage2ModeSwitch. -->
         <div id="goalsObjectifsView" class="hidden"></div>
+        <!-- Onglet « Discussion » (30 septembre 2026) : le bloc #communityDiscussionBlock (index.html, logique dans app.js : TMT.discussion) y est déplacé juste après l'injection. -->
+        <div id="goalsDiscView" class="goalsDiscView hidden"></div>
         </div>
         <!-- fin #goalsActivitySwitcherScroll -->
       </div>
       <!-- fin .communityMembersModalCard -->
       </div>
 `);
+
+  (function () {
+    var blk = document.getElementById('communityDiscussionBlock');
+    var host = document.getElementById('goalsDiscView');
+    if (blk && host) host.appendChild(blk);
+  })();
 
   var $ = TMT.$,
       api = TMT.api,
@@ -209,6 +219,14 @@
     // voir #goalsActivityPlainRow) ; la pastille qui reste sur cette page
     // (#goalsPoleDot) est celle du pôle, posée par renderGoalsPoleSwitcher().
     $('goalsActivityName').textContent = a.name;
+
+    // Onglet Discussion : uniquement si l'activité est partagée avec au moins
+    // un autre utilisateur ; sinon caché et fil arrêté.
+    var discBtn = $('goalsPage2ModeDiscBtn');
+    if (discBtn) discBtn.classList.toggle('hidden', !TMT.currentGoalsActivityIsShared);
+    if (TMT.discussion) {
+      if (TMT.currentGoalsActivityIsShared) TMT.discussion.open(a.id); else TMT.discussion.close();
+    }
 
     // Renvoie la promesse (15 septembre 2026, discussion D) : permet à
     // openGoalsPeriodFromNotification() de n'ouvrir la page 2 qu'une fois
@@ -285,6 +303,13 @@
     if (tasksView) tasksView.classList.toggle('hidden', mode !== 'tasks');
     if (objectifsView) objectifsView.classList.toggle('hidden', mode !== 'goals');
     if (mode === 'tasks') loadGoalsTasksOverview();
+    var discBtn = $('goalsPage2ModeDiscBtn');
+    if (discBtn) discBtn.classList.toggle('active', mode === 'disc');
+    var discView = $('goalsDiscView');
+    if (discView) discView.classList.toggle('hidden', mode !== 'disc');
+    var scroller = $('goalsActivitySwitcherScroll');
+    if (scroller) scroller.classList.toggle('chatMode', mode === 'disc');
+    if (TMT.discussion) TMT.discussion.setVisible(mode === 'disc');
     // O2·07 : à l'arrivée sur « Objectifs », le rail indique la période en cours.
     if (mode === 'goals' && TMT.updateGoalsScrubVisibility) window.requestAnimationFrame(function () { TMT.updateGoalsScrubVisibility(); });
   }
@@ -292,6 +317,10 @@
   $('goalsPage2ModeTasksBtn').addEventListener('click', function () { setGoalsPage2Mode('tasks'); });
 
   $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
+
+  $('goalsPage2ModeDiscBtn').addEventListener('click', function () { setGoalsPage2Mode('disc'); });
+
+  TMT.setGoalsPage2Mode = setGoalsPage2Mode;
 
   // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages) — voir
   // le commentaire du bouton dans index.html. Déplacé ici depuis

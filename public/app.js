@@ -5615,7 +5615,6 @@
     if (!profile) return;
     if (!currentCommunityActivityId) {
       activityDetailEl().classList.add('hidden');
-      stopDiscussionPolling();
       // Sous-projets (3 septembre 2026) : le bloc suit la sélection
       // d'activité, exactement comme le fil de discussion juste au-dessus.
       resetSubProjectsBlock();
@@ -5635,10 +5634,8 @@
     // Nouvelle activité : on repart d'un fil vide côté affichage, sinon la
     // signature du fil précédent empêcherait le premier rendu (et le
     // défilement automatique vers le dernier message).
-    discussionRenderedIds = '';
-    $('communityDiscussionList').innerHTML = '';
-    $('communityDiscussionInput').value = '';
-    $('communityDiscussionMsg').textContent = '';
+    // (Le fil de discussion a déménagé dans la Page 2 d'Objectifs — voir
+    // TMT.discussion plus bas ; cette fenêtre n'en porte plus.)
 
     // Activité NON partagée : rien à comparer entre membres, aucun fil de
     // membres — on n'affiche que les sous-projets, et on n'appelle même pas
@@ -5652,7 +5649,6 @@
     setActivityPageSection(activityPageSection);
     if (!currentActivityIsShared) {
       activityDetailEl().classList.remove('hidden');
-      stopDiscussionPolling();
       resetSubProjectsBlock();
       loadSubProjects();
       if (shouldScroll) activityDetailEl().scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -5673,10 +5669,6 @@
 
     loadActivityCategoryFilter(currentCommunityActivityId);
     loadActivityStats(currentCommunityActivityId);
-    // AC·N1 : le fil n'est marqué lu que s'il est réellement à l'écran ; sinon
-    // la pastille de l'onglet Discussion signale les messages non lus.
-    loadDiscussion(activityPageSection === 'disc');
-    startDiscussionPolling();
     // Sous-projets de cette activité (discussion "Sous-projets", 3 septembre
     // 2026) : on repart toujours d'aucun sous-projet ouvert, comme les
     // statistiques repartent de la période "Semaine".
@@ -5740,7 +5732,6 @@
     var anchor = $('subProjectDetailAnchor');
     var stats = $('communityActivityMembersPart');
     var soloStats = $('activitySoloStatsBlock');
-    var disc = $('communityDiscussionBlock');
     // 15 septembre 2026 (demande d'Emilien — « je souhaite que la fenêtre
     // activité soit les réglages du volet objectif ») : "gérer mes
     // catégories", disponible que l'activité soit solo ou partagée
@@ -5771,7 +5762,6 @@
     // solo compare les SOUS-PROJETS. Aucun des deux n'est jamais affiché dans
     // le contexte de l'autre.
     if (soloStats) soloStats.classList.toggle('hidden', name !== 'stats' || currentActivityIsShared);
-    if (disc) disc.classList.toggle('hidden', name !== 'disc' || !currentActivityIsShared);
     // Fusionné avec "sub" (Tâches) le 16 septembre 2026 — voir le commentaire
     // au-dessus de cette fonction : plus de section "goals" séparée.
     if (goalsCats) goalsCats.classList.toggle('hidden', name !== 'sub');
@@ -5793,27 +5783,6 @@
     if (name === 'sub') {
       activityGoalsCategoriesOpen = {};
       loadActivityGoalsCategories(currentCommunityActivityId);
-    }
-
-    // ----- Mode conversation (3 septembre 2026, demande d'Emilien) -----
-    // « lorsque le clavier n'est pas activé, la zone pour écrire se situe tout
-    // en bas de l'écran ». La page cesse alors de défiler en bloc : elle
-    // devient une colonne dont seule la liste de messages défile, le composeur
-    // restant collé en bas. Voir #activityPageScroll.chatMode dans styles.css.
-    var scroller = $('activityPageScroll');
-    if (scroller) scroller.classList.toggle('chatMode', name === 'disc' && currentActivityIsShared);
-
-    // « je souhaite que la discussion affiche les messages les plus récents
-    // situés tout en bas ». Le fil est chargé à l'ouverture de la page, alors
-    // que sa section est encore masquée : à ce moment-là scrollHeight vaut 0
-    // (un élément en display:none n'a pas de hauteur), et le défilement
-    // automatique de renderDiscussion ne peut donc rien faire. On le rejoue
-    // au moment où la section devient réellement visible.
-    if (name === 'disc') {
-      var list = $('communityDiscussionList');
-      if (list) requestAnimationFrame(function () { list.scrollTop = list.scrollHeight; });
-      // Le fil est maintenant lu : marque lu côté serveur et éteint la pastille.
-      loadDiscussion(true);
     }
 
     // « je souhaite que dans le graphique, les dernières données se
@@ -5907,7 +5876,6 @@
     // elle, reste strictement réservée au partagé.
     var showStats = isShared;
     $('activityPageTabStats').classList.toggle('hidden', !showStats);
-    $('activityPageTabDisc').classList.toggle('hidden', !isShared);
     if (!isShared) refreshSoloStatsAvailability(a.id);
     // 15 septembre 2026 (7e passage, demande d'Emilien — « je souhaite que la
     // fenêtre activité soit les réglages du volet objectif ») : le sélecteur
@@ -5947,7 +5915,6 @@
   function closeActivityPage() {
     $('activityPage').classList.add('hidden');
     currentCommunityActivityId = '';
-    stopDiscussionPolling();
     resetSubProjectsBlock();
     loadSettingsActivities();
   }
@@ -9347,6 +9314,12 @@
   // durablement, réservée aux membres actuels de l'activité — voir
   // activity_messages dans server/db.js et les routes
   // /api/community/activity-messages.
+  // 30 septembre 2026 : le fil vit dans la Page 2 d'Objectifs (onglet
+  // Discussion, activité partagée seulement) et non plus dans la fenêtre
+  // Activité. Il suit donc SA propre activité (discussionActivityId, posée par
+  // TMT.discussion.open) et non currentCommunityActivityId.
+  var discussionActivityId = '';
+  var discussionVisible = false; // onglet Discussion de la Page 2 à l'écran
   var discussionPollTimer = null;
   var discussionRenderedIds = ''; // signature du dernier rendu, pour ne pas redessiner à l'identique
 
@@ -9373,12 +9346,13 @@
       // maintenant dans #activityPage, une page qui se superpose aux onglets :
       // c'est SA visibilité, et elle seule, qui dit si le fil est regardé.
       // Application directe de la directive transverse née du premier bug.
-      if (!currentCommunityActivityId || $('activityPage').classList.contains('hidden')) {
+      var sw = $('goalsActivitySwitcher');
+      if (!discussionActivityId || !sw || sw.getClientRects().length === 0) {
         stopDiscussionPolling();
         return;
       }
       if (document.hidden) return;
-      loadDiscussion(activityPageSection === 'disc');
+      loadDiscussion(discussionVisible);
       refreshUnreadBadges();
     }, 15000);
   }
@@ -9389,11 +9363,11 @@
   }
 
   function loadDiscussion(markRead) {
-    if (!profile || !currentCommunityActivityId) return;
-    var activityId = currentCommunityActivityId;
+    if (!profile || !discussionActivityId) return;
+    var activityId = discussionActivityId;
     api('GET', '/api/community/activity-messages?userId=' + profile.id + '&activityId=' + activityId + (markRead ? '' : '&markRead=0'))
       .then(function (data) {
-        if (String(activityId) !== String(currentCommunityActivityId)) return; // sélection changée entre-temps
+        if (String(activityId) !== String(discussionActivityId)) return; // sélection changée entre-temps
         renderDiscussion(data.messages);
         // La pastille de cette activité vient d'être remise à zéro côté
         // serveur (markRead) : on l'efface tout de suite ici plutôt que
@@ -9468,7 +9442,7 @@
   }
 
   function sendDiscussionMessage() {
-    if (!profile || !currentCommunityActivityId) return;
+    if (!profile || !discussionActivityId) return;
     var input = $('communityDiscussionInput');
     var body = input.value.trim();
     var msgEl = $('communityDiscussionMsg');
@@ -9477,7 +9451,7 @@
     msgEl.textContent = '';
     $('communityDiscussionSendBtn').disabled = true;
     api('POST', '/api/community/activity-messages', {
-      userId: profile.id, activityId: currentCommunityActivityId, body: body,
+      userId: profile.id, activityId: discussionActivityId, body: body,
     })
       .then(function () {
         input.value = '';
@@ -9495,6 +9469,38 @@
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDiscussionMessage(); }
   });
 
+  // Points d'entrée pour la Page 2 d'Objectifs (objectifs-page2-taches.js).
+  window.TMT.discussion = {
+    // Activité partagée affichée : charge le fil SANS le marquer lu (la
+    // pastille de l'onglet signale les non-lus) et lance le rafraîchissement.
+    open: function (activityId) {
+      discussionActivityId = String(activityId);
+      discussionVisible = false;
+      discussionRenderedIds = '';
+      $('communityDiscussionList').innerHTML = '';
+      $('communityDiscussionInput').value = '';
+      $('communityDiscussionMsg').textContent = '';
+      setDiscTabDot(0);
+      loadDiscussion(false);
+      startDiscussionPolling();
+      refreshUnreadBadges();
+    },
+    // Activité solo (ou page quittée) : plus de fil.
+    close: function () {
+      discussionActivityId = '';
+      discussionVisible = false;
+      stopDiscussionPolling();
+    },
+    // Onglet Discussion affiché/masqué : marquage lu à l'affichage.
+    setVisible: function (on) {
+      discussionVisible = !!on;
+      if (!on || !discussionActivityId) return;
+      var list = $('communityDiscussionList');
+      requestAnimationFrame(function () { list.scrollTop = list.scrollHeight; });
+      loadDiscussion(true);
+    },
+  };
+
   // Pastilles de non-lus : mises à jour en place (sans reconstruire la liste
   // d'activités, ce qui refermerait un menu "⋮" ouvert) — voir
   // GET /api/community/unread-messages.
@@ -9509,8 +9515,8 @@
   // d'après le même état « lu » serveur que les pastilles de la liste
   // (activity_message_reads). Jamais affichée quand le fil est à l'écran.
   function setDiscTabDot(count) {
-    var dot = $('activityPageDiscDot');
-    if (dot) dot.classList.toggle('hidden', !count || activityPageSection === 'disc');
+    var dot = $('goalsPage2DiscDot');
+    if (dot) dot.classList.toggle('hidden', !count || discussionVisible);
   }
 
   function refreshUnreadBadges() {
@@ -9521,7 +9527,7 @@
         badge.textContent = n;
         badge.classList.toggle('hidden', !n);
       });
-      if (currentCommunityActivityId) setDiscTabDot(data.byActivity[currentCommunityActivityId] || 0);
+      if (discussionActivityId) setDiscTabDot(data.byActivity[discussionActivityId] || 0);
     }).catch(function () { /* sans conséquence : la pastille reste telle quelle */ });
   }
 
@@ -9685,7 +9691,6 @@
       if (String(activityId) !== String(currentCommunityActivityId)) return;
       $('activityPage').classList.add('hidden');
       currentCommunityActivityId = '';
-      stopDiscussionPolling();
       loadSettingsActivities();
     });
   }
@@ -12151,27 +12156,25 @@
     if (target === 'activity') {
       var activityId = params.get('activityId');
       var messageId = params.get('messageId');
-      switchTab('activity');
+      // 30 septembre 2026 : la discussion d'activité vit dans la Page 2 du
+      // volet Feuille de route (onglet Discussion). On y ouvre l'activité
+      // (même chemin que les notifications Objectifs), puis on bascule sur
+      // l'onglet dès que la Page 2 affiche cette activité.
+      switchTab('goals');
       if (activityId) {
-        // Le détail d'une activité n'est plus déplié sous sa ligne : c'est
-        // désormais une page superposée (#activityPage), ouverte par
-        // openActivityPage(). Plutôt que de reconstruire ses arguments — dont
-        // sharedInfo, que seule la liste connaît —, on attend que la ligne
-        // concernée soit rendue et on déclenche le même clic que la personne
-        // aurait fait. Le jour où le mécanisme d'ouverture changera encore, ce
-        // renvoi suivra tout seul.
-        whenElementReady('#activitiesList .activityRow[data-activity-id="' + activityId + '"] .activityRowHeader', function (header) {
-          header.click();
-          // La page s'ouvre sur "Sous-projets" ou "Statistiques" selon
-          // l'activité : la notification, elle, parle d'un message, donc on
-          // bascule sur la section Discussion.
-          setActivityPageSection('disc');
-          if (messageId) {
-            focusWhenReady('#communityDiscussionList [data-message-id="' + messageId + '"]');
-          } else {
-            focusWhenReady('#communityDiscussionBlock');
+        openGoalsActivityFromNotification(activityId, null, null);
+        var discTries = 80;
+        setTimeout(function pollDisc() {
+          var sw = $('goalsActivitySwitcher');
+          if (window.TMT.currentGoalsActivityId === String(activityId) && sw && !sw.classList.contains('hidden')
+              && $('goalsPage2ModeDiscBtn') && !$('goalsPage2ModeDiscBtn').classList.contains('hidden')) {
+            window.TMT.setGoalsPage2Mode('disc');
+            if (messageId) focusWhenReady('#communityDiscussionList [data-message-id="' + messageId + '"]');
+            else focusWhenReady('#communityDiscussionBlock');
+            return;
           }
-        });
+          if (discTries-- > 0) setTimeout(pollDisc, 100);
+        }, 250); // après l'ouverture (asynchrone) de l'activité par la ligne ci-dessus
       }
       return;
     }
@@ -15867,7 +15870,6 @@
     if (currentCommunityActivityId && !stillExists) {
       currentCommunityActivityId = '';
       activityDetailEl().classList.add('hidden');
-      stopDiscussionPolling();
       // L'activité affichée n'existe plus : sa page n'a plus rien à montrer.
       $('activityPage').classList.add('hidden');
     } else if (currentCommunityActivityId) {
