@@ -13106,6 +13106,7 @@
     closeNotifPanel();
     closeFollowsPanel();
     $('profileProjectsPanel').classList.remove('hidden');
+    $('profileProjectsPanel').classList.toggle('projectsAddMode', projectId === null || projectId === undefined);
     $('newProjectCard').classList.add('hidden');
     var rows = $('projectsList').querySelectorAll('.activityRow');
     var target = null;

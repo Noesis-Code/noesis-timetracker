@@ -6710,3 +6710,12 @@ button { -webkit-user-select: none; user-select: none; }
 #profileProjectsPanel #projectsScroll { padding: 12px 16px 16px; overscroll-behavior: contain; }
 
 #profilePage #profilePageClose { font-size: 22px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+
+/* Projets : en mode « + », seul le formulaire d'ajout est visible. */
+#profileProjectsPanel.projectsAddMode #projectsList { display: none; }
+/* Croix des fenêtres du profil en verre liquide (jetons --glass-*). */
+#profileProjectsPanel #projectsPanelClose, #profileFollowsPanel #followsPanelClose {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
