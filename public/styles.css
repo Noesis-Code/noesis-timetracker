@@ -6672,3 +6672,31 @@ button { -webkit-user-select: none; user-select: none; }
   padding-left: 4px;
   padding-top: 14px;
 }
+
+/* ===================== BOUTONS DE COMPOSEUR — BRIQUE (1er octobre 2026) =====================
+   Demande d'Emilien : les boutons d'action des zones d'écriture (Ajouter, Rechercher, Envoyer,
+   composeurs de toutes les pages) prennent la « piste A » du style sobre : fond transparent,
+   contour fin et texte terre cuite (mêmes valeurs que claude/style-sobre-a). Sombre seulement.
+   Les boutons restent DANS la zone d'écriture ; aucun verre ; rien d'autre n'est modifié.
+   --brique / --brique-rgb / --brique-texte : jetons réutilisables. */
+:root[data-theme="dark"] {
+  --brique: #B8583B; --brique-rgb: 184, 88, 59; --brique-texte: #E39A82;
+}
+:root[data-theme="dark"] .chatComposerRow .iconBtn,
+:root[data-theme="dark"] .discussionComposer .rowActions .iconBtn,
+:root[data-theme="dark"] .activityGoalsCategoryAutoTaskBubble .iconBtn,
+:root[data-theme="dark"] .activityGoalsCategoryAddRow .iconBtn,
+:root[data-theme="dark"] .activityGoalsSecteurAddRow .iconBtn,
+:root[data-theme="dark"] .subProjectItemAdd .iconBtn,
+:root[data-theme="dark"] #feedbackSendBtn {
+  background: transparent; border: 1px solid var(--brique); color: var(--brique-texte); box-shadow: none;
+}
+:root[data-theme="dark"] .chatComposerRow .iconBtn:hover,
+:root[data-theme="dark"] .discussionComposer .rowActions .iconBtn:hover,
+:root[data-theme="dark"] .activityGoalsCategoryAutoTaskBubble .iconBtn:hover,
+:root[data-theme="dark"] .activityGoalsCategoryAddRow .iconBtn:hover,
+:root[data-theme="dark"] .activityGoalsSecteurAddRow .iconBtn:hover,
+:root[data-theme="dark"] .subProjectItemAdd .iconBtn:hover,
+:root[data-theme="dark"] #feedbackSendBtn:hover {
+  background: rgba(var(--brique-rgb), 0.14);
+}
