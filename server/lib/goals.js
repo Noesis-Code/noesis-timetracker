@@ -487,10 +487,67 @@ function renameCategory(activityId, key, label, description) {
 //    retrait gèle EN CASCADE tous ses secteurs actifs — « Retrait : retirer
 //    un pôle gèle automatiquement (cascade) tous ses secteurs actifs »,
 //    « masque, ne supprime pas » comme partout ailleurs dans l'app.
-function removeCategory(activityId, key) {
+function removeCategory(activityId, key, opts) {
   const existing = ensureDefaultCategory(activityId);
   const row = existing.find((r) => r.key === key);
   if (!row) throw Object.assign(new Error('Catégorie introuvable.'), { statusCode: 404 });
+  // 30 septembre 2026 (demande de Gaspard) : si des tâches sont affiliées à
+  // ce pôle/secteur, le choix est OBLIGATOIRE ('delete' ou 'keep') — jamais
+  // de destruction/détachement implicite. Transactionnel (tout ou rien).
+  const affected = [key].concat(row.parentKey ? [] : existing.filter((r) => r.parentKey === key).map((r) => r.key));
+  const taskCount = countTasksForKeys(activityId, affected);
+  const choice = opts && opts.tasks;
+  if (taskCount > 0 && choice !== 'delete' && choice !== 'keep') {
+    throw Object.assign(new Error('Choisis quoi faire des tâches affiliées (les supprimer ou les conserver).'), { statusCode: 409, taskCount });
+  }
+  db.exec('BEGIN');
+  try {
+    if (taskCount > 0) applyTaskChoice(activityId, affected, row.parentKey || null, choice);
+    const result = removeCategoryRows(activityId, key, row, existing);
+    db.exec('COMMIT');
+    return result;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+
+// Nombre de tâches (sub_project_items) rattachées aux clés données.
+function countTasksForKeys(activityId, keys) {
+  const ph = keys.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT COUNT(*) AS n FROM sub_project_items i
+    JOIN sub_projects sp ON sp.id = i.subProjectId
+    WHERE sp.activityId = ? AND sp.goalCategory IN (${ph})
+  `).get(activityId, ...keys).n;
+}
+
+// 'delete' : supprime les tâches (les sous-projets vides restent). 'keep' :
+// détache les tâches — un secteur retiré les rend à son pôle (elles restent
+// visibles au niveau du pôle, sans secteur), un pôle retiré les laisse sans
+// catégorie (goalCategory NULL, à reclasser plus tard).
+function applyTaskChoice(activityId, keys, poleKey, choice) {
+  const ph = keys.map(() => '?').join(',');
+  if (choice === 'delete') {
+    db.prepare(`
+      DELETE FROM sub_project_items WHERE subProjectId IN
+        (SELECT id FROM sub_projects WHERE activityId = ? AND goalCategory IN (${ph}))
+    `).run(activityId, ...keys);
+  } else {
+    db.prepare(`UPDATE sub_projects SET goalCategory = ? WHERE activityId = ? AND goalCategory IN (${ph})`)
+      .run(poleKey, activityId, ...keys);
+  }
+}
+
+function previewCategoryRemoval(activityId, key) {
+  const existing = ensureDefaultCategory(activityId);
+  const row = existing.find((r) => r.key === key);
+  if (!row) throw Object.assign(new Error('Catégorie introuvable.'), { statusCode: 404 });
+  const affected = [key].concat(row.parentKey ? [] : existing.filter((r) => r.parentKey === key).map((r) => r.key));
+  return { taskCount: countTasksForKeys(activityId, affected) };
+}
+
+function removeCategoryRows(activityId, key, row, existing) {
   const now = new Date().toISOString();
 
   if (row.parentKey) {
@@ -1521,6 +1578,7 @@ module.exports = {
   addCategory,
   renameCategory,
   removeCategory,
+  previewCategoryRemoval,
   reorderCategories,
   // Secteurs (18 septembre 2026, « Pôles & secteurs » — voir le commentaire
   // au-dessus de secteursForPole dans ce fichier). Exposés par

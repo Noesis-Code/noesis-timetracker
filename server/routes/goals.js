@@ -53,7 +53,7 @@ function requireMembership(userId, activityId) {
 }
 
 function handleGoalsError(res, err) {
-  if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+  if (err && err.statusCode) return res.status(err.statusCode).json(err.taskCount !== undefined ? { error: err.message, taskCount: err.taskCount } : { error: err.message });
   console.error('[goals]', err);
   return res.status(500).json({ error: 'Erreur serveur.' });
 }
@@ -422,6 +422,20 @@ router.put('/activities/:id/goals/categories/:key', (req, res) => {
   }
 });
 
+// Aperçu avant retrait (pôle ou secteur) : nombre de tâches affiliées.
+router.get('/activities/:id/goals/categories/:key/removal-preview', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    res.json(goals.previewCategoryRemoval(activityId, req.params.key));
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 router.delete('/activities/:id/goals/categories/:key', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
@@ -431,7 +445,7 @@ router.delete('/activities/:id/goals/categories/:key', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const categories = goals.removeCategory(activityId, req.params.key);
+    const categories = goals.removeCategory(activityId, req.params.key, { tasks: (req.body && req.body.tasks) || req.query.tasks });
     res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);
@@ -578,7 +592,7 @@ router.delete('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req
 
   try {
     assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
-    const secteurs = goals.removeCategory(activityId, req.params.secteurKey);
+    const secteurs = goals.removeCategory(activityId, req.params.secteurKey, { tasks: (req.body && req.body.tasks) || req.query.tasks });
     res.json({ ok: true, secteurs });
   } catch (err) {
     handleGoalsError(res, err);
