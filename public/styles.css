@@ -1938,7 +1938,7 @@ body.scrollLock { overflow: hidden; }
    rester blanc lui aussi plutôt que --card, sous peine d'un liseré visible. */
 .shareQr {
   margin-top: 12px; padding: 12px; background: #fff; border-radius: var(--radius-md);
-  width: fit-content; max-width: 220px;
+  width: fit-content; max-width: 220px; margin-left: auto; margin-right: auto;
 }
 .shareQr svg { display: block; width: 100%; height: auto; }
 
