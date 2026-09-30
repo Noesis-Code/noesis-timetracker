@@ -471,7 +471,7 @@
     if (isOpen) {
       var items = document.createElement('div');
       items.className = 'subProjectItems';
-      (g.tasks || []).forEach(function (task) { items.appendChild(buildGoalsTaskRow(task)); });
+      (g.tasks || []).forEach(function (task) { items.appendChild(buildGoalsTaskRow(task, g.key)); });
       row.appendChild(items);
 
       if (!g.tasks || !g.tasks.length) {
@@ -488,7 +488,7 @@
   }
 
 
-  function buildGoalsTaskRow(task) {
+  function buildGoalsTaskRow(task, groupKey) {
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (task.done ? ' done' : '');
     // 28 septembre 2026, demande de Notifications (coordination, voir
@@ -547,6 +547,65 @@
     // objectifs-page2.css.
     // Confirmation native puis DELETE /api/sub-project-items/:id (voir
     // l'hypothèse de route signalée en tête de section).
+    // Déplacer vers un autre pôle/secteur de la même activité : bouton discret
+    // qui ouvre une liste (select natif, optgroup par pôle ; secteurs sans
+    // couleur) sous la tâche. PUT .../goals/tasks/:id/category.
+    var mv = document.createElement('button');
+    mv.type = 'button';
+    mv.className = 'goalsTaskMoveBtn';
+    mv.textContent = '⇄';
+    mv.title = t('Déplacer vers…');
+    mv.setAttribute('aria-label', t('Déplacer vers…'));
+    mv.addEventListener('click', function () {
+      var existing = row.nextSibling;
+      if (existing && existing.classList && existing.classList.contains('goalsTaskMoveRow')) {
+        existing.remove();
+        return;
+      }
+      var box = document.createElement('div');
+      box.className = 'goalsTaskMoveRow';
+      var sel = document.createElement('select');
+      sel.setAttribute('aria-label', t('Déplacer vers…'));
+      var ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = t('Déplacer vers…');
+      sel.appendChild(ph);
+      var groups = (currentGoalsTasksOverview && currentGoalsTasksOverview.groups) || [];
+      var poleOrder = [];
+      var byPole = {};
+      groups.forEach(function (g) {
+        if (!byPole[g.poleKey]) { byPole[g.poleKey] = { label: g.poleLabel || g.label, items: [] }; poleOrder.push(g.poleKey); }
+        byPole[g.poleKey].items.push(g);
+      });
+      poleOrder.forEach(function (pk) {
+        var bp = byPole[pk];
+        var parent = sel;
+        if (!(bp.items.length === 1 && bp.items[0].isPole)) {
+          parent = document.createElement('optgroup');
+          parent.label = bp.label;
+          sel.appendChild(parent);
+        }
+        bp.items.forEach(function (g) {
+          var o = document.createElement('option');
+          o.value = g.key;
+          o.textContent = g.label;
+          if (g.key === groupKey) o.disabled = true;
+          parent.appendChild(o);
+        });
+      });
+      sel.addEventListener('change', function () {
+        if (!sel.value) return;
+        sel.disabled = true;
+        api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/tasks/' + task.id + '/category',
+          { userId: TMT.getProfile().id, categoryKey: sel.value })
+          .then(function () { loadGoalsTasksOverview(); })
+          .catch(function (err) { alert(err.message); sel.disabled = false; sel.value = ''; });
+      });
+      box.appendChild(sel);
+      row.parentNode.insertBefore(box, row.nextSibling);
+    });
+    row.appendChild(mv);
+
     var del = document.createElement('button');
     del.type = 'button';
     del.className = 'subProjectDeleteX';

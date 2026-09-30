@@ -267,8 +267,15 @@ function addCategoryTask(activityId, userId, categoryKey, label, extra) {
 // domicile visé (matérialisé au besoin par ensureCategoryTaskSection,
 // exactement comme addCategoryTask ci-dessus).
 function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
-  if (!goals.isValidCategoryForActivity(activityId, newCategoryKey)) {
+  // Pôle OU secteur de cette activité (déplacement depuis Page 2 > Tâches) ;
+  // un pôle qui a des secteurs ne reçoit pas de tâche directe (même garde
+  // que addCategoryTask / reassignHistoryTask). Le temps des secteurs
+  // remonte au pôle pour les stats (goals.resolveToPole), rien à faire ici.
+  if (!goals.isValidCategoryOrSecteurForActivity(activityId, newCategoryKey)) {
     throw Object.assign(new Error('Catégorie invalide pour cette activité.'), { statusCode: 400 });
+  }
+  if (goals.parentKeyFor(activityId, newCategoryKey) === null && goals.secteursForPole(activityId, newCategoryKey).length > 0) {
+    throw Object.assign(new Error('Ce pôle a des secteurs : choisissez-en un.'), { statusCode: 400 });
   }
 
   const item = subprojects.getItemRaw(itemId);
@@ -583,6 +590,7 @@ function tasksOverviewForActivity(activityId) {
       groups.push({
         key: target.key,
         poleKey: pole.key,
+        poleLabel: pole.label,
         label: target.label,
         isPole: isPoleGroup,
         description: target.description || null,

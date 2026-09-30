@@ -1005,6 +1005,7 @@
     'Retirer ce secteur': 'Remove this sector',
     'Retirer ce secteur ? Son historique reste consultable.': 'Remove this sector? Its history stays available.',
     'Nouveau secteur…': 'New sector…',
+    'Déplacer vers…': 'Move to…',
   };
 
   // ------------------- Messages contenant une valeur variable -------------

@@ -129,3 +129,16 @@
    croix ✕ APRÈS le titre (dernier enfant de l'en-tête fixe), comme
    #activityPageClose (styles.css, aucune marge propre non plus). */
 
+/* Déplacer une tâche vers un autre pôle/secteur : bouton discret (même
+   gabarit que la croix de suppression de tâche) + liste sous la tâche. */
+.goalsTasksGroup .subProjectItem .goalsTaskMoveBtn {
+  border: none;
+  background: none;
+  color: var(--muted, inherit);
+  opacity: .7;
+  font-size: 15px;
+  padding: 4px;
+  cursor: pointer;
+}
+.goalsTaskMoveRow { padding: 2px 0 6px 28px; }
+.goalsTaskMoveRow select { width: 100%; max-width: 100%; font-size: 14px; }
