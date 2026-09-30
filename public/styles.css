@@ -946,7 +946,8 @@ body { isolation: isolate; }
 :root[data-theme="dark"] { --halo-n1-a: 0.54; --halo-n2-a: 0.54; }
 #activityPage::before,
 #goalsActivitySwitcher::before,
-#profileSettingsPanel::before {
+#profileSettingsPanel::before,
+#profilePage::before {
   content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n1-rgb), var(--halo-n1-a)) 0%, rgba(var(--halo-n1-rgb), 0) 72%);
 }
@@ -955,10 +956,85 @@ body { isolation: isolate; }
   background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n2-rgb), var(--halo-n2-a)) 0%, rgba(var(--halo-n2-rgb), 0) 72%);
 }
 #activityPage .communityMembersModalCard,
+#profilePage .communityMembersModalCard,
 #goalsActivitySwitcher .communityMembersModalCard,
 #goalsDetailPage .communityMembersModalCard,
 #profileSettingsPanel.settingsPanel > .settingsPanelCard.settingsPanelCard,
 #activityPageSectionSwitch { background: transparent; }
+/* 30 septembre 2026 (Piste B) : tous les boutons de type « réglage » deviennent vitreux — ✕ de chaque fenêtre/panneau,
+   boutons du haut du Profil (abonnés, notifications, ✕), boutons de période (⋮) des Statistiques (fenêtre d'activité,
+   catégories, profil d'un membre) et « + » des catégories. Boutons d'envoi (.iconBtn « Envoyer ») et pièces jointes inchangés. */
+#communityMembersModalClose,
+#mergeActivityModalClose,
+#deleteActivityModalClose,
+#categoryStatsClose,
+#secteurTasksClose,
+#viewProfileModalClose,
+#followsPanelClose,
+#notifPanelClose,
+#legalTermsModalClose,
+#privacyPolicyModalClose,
+#legalNoticesModalClose,
+#offer1CheckoutModalClose,
+#profilePage .profileSquareBtn,
+#caPiePeriodBtn,
+#caChartPeriodBtn,
+#soloStatsPeriodBtn,
+#csTsPeriodBtn,
+#csChartPeriodBtn,
+#viewProfilePiePeriodBtn,
+#viewProfileChartPeriodBtn,
+.subProjectRowHeader .subProjectAddBtn {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+:root:not([data-theme="dark"]) #communityMembersModalClose,
+:root:not([data-theme="dark"]) #mergeActivityModalClose,
+:root:not([data-theme="dark"]) #deleteActivityModalClose,
+:root:not([data-theme="dark"]) #categoryStatsClose,
+:root:not([data-theme="dark"]) #secteurTasksClose,
+:root:not([data-theme="dark"]) #viewProfileModalClose,
+:root:not([data-theme="dark"]) #followsPanelClose,
+:root:not([data-theme="dark"]) #notifPanelClose,
+:root:not([data-theme="dark"]) #legalTermsModalClose,
+:root:not([data-theme="dark"]) #privacyPolicyModalClose,
+:root:not([data-theme="dark"]) #legalNoticesModalClose,
+:root:not([data-theme="dark"]) #offer1CheckoutModalClose,
+:root:not([data-theme="dark"]) #profilePage .profileSquareBtn,
+:root:not([data-theme="dark"]) #caPiePeriodBtn,
+:root:not([data-theme="dark"]) #caChartPeriodBtn,
+:root:not([data-theme="dark"]) #soloStatsPeriodBtn,
+:root:not([data-theme="dark"]) #csTsPeriodBtn,
+:root:not([data-theme="dark"]) #csChartPeriodBtn,
+:root:not([data-theme="dark"]) #viewProfilePiePeriodBtn,
+:root:not([data-theme="dark"]) #viewProfileChartPeriodBtn,
+:root:not([data-theme="dark"]) .subProjectRowHeader .subProjectAddBtn { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08); }
+/* 30 septembre 2026 (Piste B) : flèches ‹ › de semaine et boutons « Aujourd'hui » des Statistiques/Historique en verre. */
+#historyPrevWeek,
+#historyNextWeek,
+#tsPrevWeek,
+#tsNextWeek,
+#statsPieTodayBtn,
+#csTsPrevWeek,
+#csTsNextWeek,
+#csPieTodayBtn,
+#secteurTasksPrevWeek,
+#secteurTasksNextWeek {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+:root:not([data-theme="dark"]) #historyPrevWeek,
+:root:not([data-theme="dark"]) #historyNextWeek,
+:root:not([data-theme="dark"]) #tsPrevWeek,
+:root:not([data-theme="dark"]) #tsNextWeek,
+:root:not([data-theme="dark"]) #statsPieTodayBtn,
+:root:not([data-theme="dark"]) #csTsPrevWeek,
+:root:not([data-theme="dark"]) #csTsNextWeek,
+:root:not([data-theme="dark"]) #csPieTodayBtn,
+:root:not([data-theme="dark"]) #secteurTasksPrevWeek,
+:root:not([data-theme="dark"]) #secteurTasksNextWeek { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08); }
 
 /* Volet Chrono : question et boutons d'activité un peu plus aérés. Portés par
    #chronoIdle/#activityButtons (les classes .stepLabel/.activityChoiceBtn
@@ -2628,24 +2704,38 @@ body.scrollLock { overflow: hidden; }
    ligne, plus de nuance distincte : cette zone est désormais visuellement
    confondue avec le reste de l'app, seuls son contenu (icônes/texte)
    restent visibles. */
-/* 29 septembre 2026 (Piste B) : bulle de recherche en verre flottante, opaque à la lecture
-   (teinte sombre dense + flou : rien de lisible à travers), les données défilent dessous. */
+/* 30 septembre 2026 (Piste B, demande d'Emilien) : le cadre autour de la zone d'écriture est supprimé ; seule la zone de
+   recherche elle-même est en verre, avec la MÊME teinte que la barre des volets (.tabbar::before : dégradé blanc
+   translucide, liseré, ombre, flou 24px+). Les données défilent dessous. */
 #communitySearchBar {
   position: fixed;
   top: calc(var(--topbar-h, 56px) + 8px);
-  left: 12px;
-  right: 12px;
+  left: 16px;
+  right: 16px;
   z-index: 9;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03)), rgba(14, 14, 18, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  -webkit-backdrop-filter: blur(40px) saturate(170%); backdrop-filter: blur(40px) saturate(170%);
-  color: #ffffff;
-  border-radius: 22px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  color: var(--text);
+  border-radius: 0;
   margin-bottom: 0;
-  padding: 12px 18px 14px;
+  padding: 0;
 }
-#communitySearchBar input { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); }
+#communitySearchBar input {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.6) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 30px rgba(0, 0, 0, 0.12);
+  -webkit-backdrop-filter: blur(40px) saturate(160%); backdrop-filter: blur(40px) saturate(160%);
+  border-radius: 22px;
+}
+:root[data-theme="dark"] #communitySearchBar input {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+#communitySeekingFilters .seekingTagBtn { -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%); }
+:root:not([data-theme="dark"]) #communitySeekingFilters .seekingTagBtn { color: var(--text); background: rgba(255, 255, 255, 0.6); border-color: rgba(0, 0, 0, 0.12); }
 /* ⚠️ 3 septembre 2026, demande d'Emilien : « lorsque je clique sur le texte,
    cherchez un pseudo, les infos Noèsis et nom de l'utilisateur doivent
    toujours s'afficher. A présent, elles sont effacées par la zone texte qui
