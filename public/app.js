@@ -4877,12 +4877,15 @@
     sortedDays.forEach(function (d) {
       (d.activities || []).forEach(function (a) {
         if (!byActivity[a.activityId]) {
-          byActivity[a.activityId] = { activityId: a.activityId, name: a.name, color: a.color, total: 0 };
+          byActivity[a.activityId] = { activityId: a.activityId, name: a.name, color: a.color, deleted: false, total: 0 };
           order.push(a.activityId);
         }
         byActivity[a.activityId].total += a.seconds;
         byActivity[a.activityId].name = a.name;
         byActivity[a.activityId].color = a.color;
+        // Activité supprimée (plus de rattachement de l'utilisateur) : absente de la légende,
+        // mais son temps reste dans la bulle. `deleted` = vrai dès qu'une entrée le dit.
+        if (a.deleted) byActivity[a.activityId].deleted = true;
       });
     });
 
@@ -4895,6 +4898,7 @@
         name: act.name,
         color: act.color,
         isTotal: false,
+        deleted: act.deleted,
         values: sortedDays.map(function (d) {
           var found = (d.activities || []).find(function (a) { return a.activityId === act.activityId; });
           return found ? found.seconds : 0;
@@ -4937,6 +4941,7 @@
     var legend = $(legendId || 'statsChartLegend');
     legend.innerHTML = '';
     series.forEach(function (s) {
+      if (s.deleted) return; // légende : jamais d'activité supprimée
       var row = document.createElement('div');
       row.className = 'chartLegendRow' + (s.isTotal ? ' chartLegendTotal' : '');
       var dot = document.createElement('span');
@@ -5069,6 +5074,8 @@
       tooltip.appendChild(dateEl);
 
       ordered.slice().reverse().forEach(function (s) {
+        // Bulle : seulement les séries > 0 (activités supprimées incluses) + le Total.
+        if (!s.isTotal && !(s.values[i] > 0)) return;
         var row = document.createElement('div');
         row.className = 'chartTooltipRow';
         var dot = document.createElement('span');
@@ -9805,6 +9812,7 @@
     var legend = $('communityActivityChartLegend');
     legend.innerHTML = '';
     series.forEach(function (s) {
+      if (s.deleted) return; // légende : jamais d'activité supprimée
       var row = document.createElement('div');
       row.className = 'chartLegendRow' + (s.isTotal ? ' chartLegendTotal' : '');
       var dot = document.createElement('span');
@@ -9909,6 +9917,8 @@
       tooltip.appendChild(dateEl);
 
       ordered.slice().reverse().forEach(function (s) {
+        // Bulle : seulement les séries > 0 (activités supprimées incluses) + le Total.
+        if (!s.isTotal && !(s.values[i] > 0)) return;
         var row = document.createElement('div');
         row.className = 'chartTooltipRow';
         var dot = document.createElement('span');
@@ -13935,6 +13945,8 @@
       // on le relit à l'envers pour que le Total soit en TÊTE de l'infobulle,
       // comme dans l'onglet Statistiques.
       ordered.slice().reverse().forEach(function (s) {
+        // Bulle : seulement les séries > 0 (activités supprimées incluses) + le Total.
+        if (!s.isTotal && !(s.values[i] > 0)) return;
         var row = document.createElement('div');
         row.className = 'chartTooltipRow';
         var dot = document.createElement('span');
@@ -13982,6 +13994,7 @@
     box.appendChild(svg);
 
     series.forEach(function (s) {
+      if (s.deleted) return; // légende : jamais d'activité supprimée
       var row = document.createElement('div');
       row.className = 'chartLegendRow' + (s.isTotal ? ' chartLegendTotal' : '');
       var dot = document.createElement('span');

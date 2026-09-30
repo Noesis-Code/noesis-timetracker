@@ -197,7 +197,8 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
     `).all(userId, activityId, start, end)
     : db.prepare(`
       SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek, a.id AS activityId,
-             a.name AS activity, COALESCE(am.color, '#3498db') AS color, SUM(t.durationSeconds) AS seconds
+             a.name AS activity, COALESCE(am.color, '#3498db') AS color, SUM(t.durationSeconds) AS seconds,
+             CASE WHEN am.userId IS NULL THEN 1 ELSE 0 END AS deleted
       FROM time_entries t
       JOIN activities a ON a.id = t.activityId
       LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
@@ -239,7 +240,7 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
   const keyOf = (r) => (byCategory ? (r.category === null ? 'none' : r.category) : r.activityId);
   const entryOf = (r) => (byCategory
     ? { category: r.category === null ? null : r.category, name: r.category === null ? null : goals.categoryLabelFor(activityId, r.category), seconds: r.seconds }
-    : { activityId: r.activityId, name: r.activity, color: r.color, seconds: r.seconds });
+    : { activityId: r.activityId, name: r.activity, color: r.color, deleted: r.deleted === 1, seconds: r.seconds });
 
   if (granularity !== 'week' && granularity !== 'month') {
     // Historique totalement vide (aucune entrée jamais enregistrée) : tableau
