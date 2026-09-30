@@ -126,6 +126,8 @@
 
       <p id="goalsNoActivityHint" class="hint hidden">Ajoute une activité pour commencer à te fixer des objectifs.</p>
 `);
+  // Traduction EN du gabarit injecté (app.js a déjà appliqué la langue avant ce script).
+  if (window.NoesisI18n) window.NoesisI18n.translateStaticDom(document.getElementById('tab-goals'));
 
   var $ = TMT.$, api = TMT.api, pad = TMT.pad, dateLocale = TMT.dateLocale,
       refreshActivities = TMT.refreshActivities,

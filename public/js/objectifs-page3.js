@@ -182,6 +182,8 @@
         </div>
       </div>
 `;
+  // Traduction EN du gabarit injecté (app.js a déjà appliqué la langue avant ce script).
+  if (window.NoesisI18n) window.NoesisI18n.translateStaticDom(document.getElementById('goalsDetailPage'));
 
   var $ = TMT.$, api = TMT.api, readableTextOn = TMT.readableTextOn,
       subProjectShade = TMT.subProjectShade, SUB_PROJECT_SHADE_COUNT = TMT.SUB_PROJECT_SHADE_COUNT,

@@ -16520,7 +16520,7 @@
     $('offer1CheckoutPending').classList.remove('hidden');
     $('offer1PendingEmail').textContent = data.guardianEmail || '';
     $('offer1PendingExpiry').textContent = data.expiresAt
-      ? new Date(data.expiresAt).toLocaleDateString('fr-CA') : '';
+      ? new Date(data.expiresAt).toLocaleDateString(currentLang === 'en' ? 'en-CA' : 'fr-CA') : '';
     $('offer1CheckoutPendingMsg').textContent = '';
   }
 
