@@ -11324,6 +11324,17 @@
   // renderInvitesList/renderFollowRequests ci-dessous, qui chargent déjà ces
   // deux listes par ailleurs (showApp, ouverture du Profil).
   var notifPendingCounts = { invites: 0, followRequests: 0 };
+  // 30 sept. 2026 (Gaspard PR·07) : la pastille de la bulle n'était
+  // alimentée qu'à l'ouverture de l'app/du Profil — une demande reçue pendant
+  // l'usage n'apparaissait pas. On rafraîchit au retour au premier plan et
+  // toutes les 60 s tant que l'app est visible.
+  function refreshPendingBadges() {
+    if (!profile || document.hidden || $('app').classList.contains('hidden')) return;
+    loadPendingInvites();
+    loadFollowRequests();
+  }
+  document.addEventListener('visibilitychange', refreshPendingBadges);
+  setInterval(refreshPendingBadges, 60000);
   function refreshNotifDot() {
     var none = notifPendingCounts.invites === 0 && notifPendingCounts.followRequests === 0;
     var profileDot = $('profileNotifDot');

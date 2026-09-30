@@ -518,7 +518,7 @@ input[type=time]:focus, select:focus, textarea:focus {
    dans index.html) ; le point lui-même réutilise .notifDot, défini plus bas
    avec l'icône "avion en papier" du Profil. */
 .whoami { position: relative; display: inline-flex; align-items: center; }
-.whoami .notifDot { top: -2px; right: -2px; border-color: var(--purple-dark); }
+.whoami .notifDot { top: -3px; right: -3px; width: 12px; height: 12px; border-color: var(--bg); }
 /* Photo/initiale miniature de #whoami (3 septembre 2026) : même principe que
    .avatarDisplay plus bas (photo en fond si définie, sinon initiale sur fond
    coloré — voir renderIdentityHeader() dans app.js, qui alimente les deux en
