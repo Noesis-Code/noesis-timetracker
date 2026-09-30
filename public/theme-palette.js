@@ -44,7 +44,7 @@
   }
 })(typeof self !== 'undefined' ? self : this, function () {
   // 30 sept. 2026 (demande d'Emilien) : palette par défaut au teint brique (terre cuite, rouille, ocre,
-  // terre) + quelques contrepoints sobres (argile rosée, olive, ardoise, prune) pour rester bien distinguables.
+  // terre) + quelques contrepoints sobres (argile rosée, olive, ardoise, violet du halo) pour rester bien distinguables.
   // Contraste du texte blanc >= 4.0:1 sur chacune. Les anciennes couleurs (LEGACY_DARK_PALETTE) restent
   // VALIDES pour les activités existantes : jamais migrées ni réécrites.
   var DARK_PALETTE = [
@@ -55,7 +55,7 @@
     '#A8606A', // argile rosée
     '#6B7A3C', // olive
     '#4A6A8A', // ardoise
-    '#7A4562', // prune
+    '#8E4AA0', // violet (teinte du halo lumineux)
   ];
 
   var LEGACY_DARK_PALETTE = [
