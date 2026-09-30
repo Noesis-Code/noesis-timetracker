@@ -1,0 +1,59 @@
+/* Style sobre (proposition 30 sept. 2026) — SOMBRE seulement.
+   Ne touche que les DONNÉES (cartes, lignes, graphiques) et les BOUTONS sans verre ;
+   le verre (topbar, tabbar, boutons vitreux, zones de saisie) reste inchangé.
+   Trois pistes par tokens : <html data-sobre="a|b|c"> (voir index.html). */
+
+/* --- Piste A : neutres actuels, brique en simple accent --- */
+:root[data-theme="dark"][data-sobre="a"] {
+  --sb-accent: #B8583B; --sb-accent-dark: #93432B; --sb-accent-rgb: 184, 88, 59; --sb-accent-text: #E39A82;
+  --sb-card: #1f2229; --sb-border: #33363d; --sb-track: #2b2e35; --sb-hover: #2a2d34;
+  --sb-text: #eef0f2; --sb-text-light: #9a9ea6;
+  --sb-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.04);
+  --sb-btn-bg: transparent; --sb-btn-border: var(--sb-accent); --sb-btn-color: var(--sb-accent-text);
+}
+/* --- Piste B : neutres chauds + brique sur boutons / états actifs --- */
+:root[data-theme="dark"][data-sobre="b"] {
+  --sb-accent: #C0623F; --sb-accent-dark: #9C4B2E; --sb-accent-rgb: 192, 98, 63; --sb-accent-text: #E8A78D;
+  --sb-card: #211e1b; --sb-border: #3a3531; --sb-track: #2e2a26; --sb-hover: #2b2723;
+  --sb-text: #f1ece6; --sb-text-light: #a49b92;
+  --sb-shadow: none;
+  --sb-btn-bg: var(--sb-accent); --sb-btn-border: var(--sb-accent); --sb-btn-color: #fff;
+}
+/* --- Piste C : brique plus présente (fonds teintés, titres terre cuite) --- */
+:root[data-theme="dark"][data-sobre="c"] {
+  --sb-accent: #CC6A45; --sb-accent-dark: #A24E31; --sb-accent-rgb: 204, 106, 69; --sb-accent-text: #F0B096;
+  --sb-card: #2a201c; --sb-border: #4d362d; --sb-track: #382a24; --sb-hover: #33261f;
+  --sb-text: #f5ede6; --sb-text-light: #b0a196;
+  --sb-shadow: 0 2px 10px rgba(30,10,4,.5), inset 0 1px 0 rgba(255,190,160,.06);
+  --sb-btn-bg: var(--sb-accent); --sb-btn-border: var(--sb-accent); --sb-btn-color: #fff;
+}
+
+:root[data-theme="dark"][data-sobre] {
+  --card: var(--sb-card); --border: var(--sb-border); --track-bg: var(--sb-track); --hover-bg: var(--sb-hover);
+  --text: var(--sb-text); --text-light: var(--sb-text-light); --shadow-card: var(--sb-shadow);
+  --purple: var(--sb-accent); --purple-dark: var(--sb-accent-dark); --purple-rgb: var(--sb-accent-rgb);
+}
+/* La structure garde sa lueur violette d'origine. */
+:root[data-theme="dark"][data-sobre] #app::before { background: rgba(103, 78, 167, 0.32); }
+/* Texte violet clair du volet actif = structure : inchangé (règle d'origine plus spécifique ailleurs). */
+
+/* Boutons sans verre (Ajouter, Rechercher, …). */
+:root[data-theme="dark"][data-sobre] .iconBtn,
+:root[data-theme="dark"][data-sobre] .btn-small {
+  background: var(--sb-btn-bg); border: 1px solid var(--sb-btn-border); color: var(--sb-btn-color);
+  box-shadow: none;
+}
+:root[data-theme="dark"][data-sobre] .btn-primary { background: var(--sb-accent); color: #fff; }
+:root[data-theme="dark"][data-sobre] .unreadBadge { background: var(--sb-accent); }
+:root[data-theme="dark"][data-sobre] a,
+:root[data-theme="dark"][data-sobre] .msgLink { color: var(--sb-accent-text); }
+
+/* Cartes / lignes de données : plus plates. */
+:root[data-theme="dark"][data-sobre] .entryCard,
+:root[data-theme="dark"][data-sobre] .activityRow { border-color: var(--sb-border); }
+:root[data-theme="dark"][data-sobre="b"] .entryCard,
+:root[data-theme="dark"][data-sobre="b"] .activityRow { border-radius: var(--radius-md); }
+
+/* Piste C : titres de cartes en terre cuite claire. */
+:root[data-theme="dark"][data-sobre="c"] .sectionTitleRow h2,
+:root[data-theme="dark"][data-sobre="c"] .sectionTitleRow h3 { color: var(--sb-accent-text); }
