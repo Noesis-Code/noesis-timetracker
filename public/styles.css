@@ -886,6 +886,75 @@ body { isolation: isolate; }
 }
 :root:not([data-theme="dark"]) #tab-stats .sectionTitleRow .iconBtn,
 :root:not([data-theme="dark"]) #tab-stats .sectionTitleRow .menuBtn { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08); }
+/* 30 septembre 2026 (Piste B, volet Activité) : SEUL le « + » du haut devient vitreux ; le reste du volet est inchangé. */
+#tab-activity #addActivityBtn {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+:root:not([data-theme="dark"]) #tab-activity #addActivityBtn { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08); }
+/* 30 septembre 2026 (Piste B, fenêtre d'activité) : SEULS les boutons du haut (inviter, fermer) deviennent vitreux ;
+   onglets et cartes inchangés. */
+#activityPage .activityPageHeader .menuBtn {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+:root:not([data-theme="dark"]) #activityPage .activityPageHeader .menuBtn { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08); }
+/* 30 septembre 2026 (Piste B, Réglages + fenêtres Objectifs) : boutons ✕, flèches ‹ › et en-têtes de sections de
+   Réglages en verre (jetons --glass-*) ; le contenu (cartes, zones de saisie, onglets Tâches/Objectifs) reste inchangé.
+   Bordure des en-têtes de Réglages non touchée (sa couleur violette à l'ouverture reste pilotée plus bas). */
+#profileSettingsPanel .subpageHeader .menuBtn,
+#profileSettingsPanel .settingsGroup > .settingsSectionHeader,
+#profileSettingsPanel .settingsSection > .settingsSectionHeader,
+#goalsActivitySwitcher #goalsBackToCaptureBtn,
+#goalsActivitySwitcher .goalsSwipeBtn,
+#goalsDetailPage #goalsDetailBack,
+#goalsDetailPage #activityGoalsPrevBtn,
+#goalsDetailPage #activityGoalsNextBtn {
+  background: var(--glass-bg); color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+#profileSettingsPanel .subpageHeader .menuBtn,
+#goalsActivitySwitcher #goalsBackToCaptureBtn,
+#goalsActivitySwitcher .goalsSwipeBtn,
+#goalsDetailPage #goalsDetailBack,
+#goalsDetailPage #activityGoalsPrevBtn,
+#goalsDetailPage #activityGoalsNextBtn { border: 1px solid var(--glass-border); }
+:root:not([data-theme="dark"]) #profileSettingsPanel .subpageHeader .menuBtn,
+:root:not([data-theme="dark"]) #profileSettingsPanel .settingsGroup > .settingsSectionHeader,
+:root:not([data-theme="dark"]) #profileSettingsPanel .settingsSection > .settingsSectionHeader,
+:root:not([data-theme="dark"]) #goalsActivitySwitcher #goalsBackToCaptureBtn,
+:root:not([data-theme="dark"]) #goalsActivitySwitcher .goalsSwipeBtn,
+:root:not([data-theme="dark"]) #goalsDetailPage #goalsDetailBack,
+:root:not([data-theme="dark"]) #goalsDetailPage #activityGoalsPrevBtn,
+:root:not([data-theme="dark"]) #goalsDetailPage #activityGoalsNextBtn { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08); }
+/* 30 septembre 2026 (Piste B, option B validée par Emilien) : halos lumineux dans les fenêtres, pour les distinguer de
+   l'écran d'accueil (halo violet en bas). Niveau 1 (Activité, Page 2 de l'objectif, Réglages) = halo indigo bleuté
+   en bas ; niveau 2 (Page 3 de l'objectif) = halo prune en bas. Teintes de la famille violette de la palette.
+   Le halo vit sur ::before de chaque fenêtre (fixe, z-index -1, sous le contenu) ; les fonds pleins des cartes
+   internes sont rendus transparents pour le laisser voir. */
+:root {
+  --halo-n1-rgb: 80, 96, 210; --halo-n1-a: 0.22;
+  --halo-n2-rgb: 158, 72, 168; --halo-n2-a: 0.22;
+}
+:root[data-theme="dark"] { --halo-n1-a: 0.54; --halo-n2-a: 0.54; }
+#activityPage::before,
+#goalsActivitySwitcher::before,
+#profileSettingsPanel::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n1-rgb), var(--halo-n1-a)) 0%, rgba(var(--halo-n1-rgb), 0) 72%);
+}
+#goalsDetailPage::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n2-rgb), var(--halo-n2-a)) 0%, rgba(var(--halo-n2-rgb), 0) 72%);
+}
+#activityPage .communityMembersModalCard,
+#goalsActivitySwitcher .communityMembersModalCard,
+#goalsDetailPage .communityMembersModalCard,
+#profileSettingsPanel.settingsPanel > .settingsPanelCard.settingsPanelCard,
+#activityPageSectionSwitch { background: transparent; }
 
 /* Volet Chrono : question et boutons d'activité un peu plus aérés. Portés par
    #chronoIdle/#activityButtons (les classes .stepLabel/.activityChoiceBtn
@@ -1037,6 +1106,15 @@ textarea {
 #chronoHistoryHeader:hover { filter: brightness(1.12); }
 :root[data-theme="dark"] #chronoHistoryHeader { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24); }
 #chronoHistoryHeader .sectionTitle { margin: 0; }
+/* 29 septembre 2026 (Piste B, volet Feuille de route) : SEUL le bouton Historique de la page 1 devient
+   vitreux (comme celui du Chrono) ; zone d'écriture et puces d'activité restent inchangées (décision d'Emilien). */
+#tab-goals #goalsTasksHistoryHeader {
+  border: 1px solid var(--glass-border); background: var(--glass-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+#tab-goals #goalsTasksHistoryHeader:hover { background: var(--glass-bg); filter: brightness(1.12); }
+:root[data-theme="dark"] #tab-goals #goalsTasksHistoryHeader { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24); }
 #chronoHistoryPanel { margin-top: 10px; }
 .historyNav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .historyNav .iconBtn { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; flex-shrink: 0; }
@@ -2546,19 +2624,24 @@ body.scrollLock { overflow: hidden; }
    ligne, plus de nuance distincte : cette zone est désormais visuellement
    confondue avec le reste de l'app, seuls son contenu (icônes/texte)
    restent visibles. */
+/* 29 septembre 2026 (Piste B) : bulle de recherche en verre flottante, opaque à la lecture
+   (teinte sombre dense + flou : rien de lisible à travers), les données défilent dessous. */
 #communitySearchBar {
   position: fixed;
-  top: var(--topbar-h, 56px);
-  left: 0;
-  right: 0;
+  top: calc(var(--topbar-h, 56px) + 8px);
+  left: 12px;
+  right: 12px;
   z-index: 9;
-  background: #000000;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03)), rgba(14, 14, 18, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(40px) saturate(170%); backdrop-filter: blur(40px) saturate(170%);
   color: #ffffff;
-  border-radius: 0;
-  box-shadow: none;
+  border-radius: 22px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   margin-bottom: 0;
   padding: 12px 18px 14px;
 }
+#communitySearchBar input { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); }
 /* ⚠️ 3 septembre 2026, demande d'Emilien : « lorsque je clique sur le texte,
    cherchez un pseudo, les infos Noèsis et nom de l'utilisateur doivent
    toujours s'afficher. A présent, elles sont effacées par la zone texte qui
@@ -2578,7 +2661,7 @@ body.scrollLock { overflow: hidden; }
   font-size: 16px;
 }
 #tab-community {
-  padding-top: var(--community-searchbar-h, 74px);
+  padding-top: calc(var(--community-searchbar-h, 74px) + 16px);
 }
 
 /* ===== #communitySearchBar : zone de recherche seule (29 septembre 2026,
@@ -2643,7 +2726,15 @@ body.scrollLock { overflow: hidden; }
    le message d'exploration en dessous). Remplacé par flex-wrap: nowrap +
    défilement horizontal natif, même idiome que .chartScroll (scrollbar
    native, non masquée, pour rester cohérent avec le reste du projet). */
-.discoveryCircles { display: flex; flex-wrap: nowrap; gap: 14px; overflow-x: auto; }
+/* ⚠️ 30 septembre 2026, demande d'Emilien : « décaler les profils plus vers
+   la bulle d'écriture et les décoller des postes » (après retrait de la
+   phrase d'accompagnement, voir index.html). margin-top négatif : ce rond
+   est le seul enfant de #communitySearchResults (.activitiesList, flex
+   column) en découverte passive, donc ce décalage ne s'applique jamais à
+   la vue "lignes détaillées" d'une recherche active. margin-bottom : sépare
+   nettement la rangée du flux "Suivi" juste en dessous (#communitySectionFeed),
+   qui n'a par ailleurs aucune marge propre. */
+.discoveryCircles { display: flex; flex-wrap: nowrap; gap: 14px; overflow-x: auto; margin-top: -10px; margin-bottom: 22px; }
 .discoveryCircleBtn {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   width: 56px; padding: 0; border: none; background: none; cursor: pointer;

@@ -10436,10 +10436,11 @@
       '&seeking=' + encodeURIComponent(communitySeekingFilter.join(','));
     var isDiscovery = !q && communitySeekingFilter.length === 0;
     api('GET', url).then(function (list) {
-      $('communityDiscoverHint').classList.toggle('hidden', !isDiscovery || list.length === 0);
       // isDiscovery (5 septembre 2026) : rangée de ronds sans nom en
       // découverte passive, lignes détaillées dès qu'une recherche/un filtre
       // est actif — voir renderSearchResults ci-dessous.
+      // ⚠️ 30 septembre 2026 : la phrase d'accompagnement (#communityDiscoverHint)
+      // pilotée ici a été retirée sur demande d'Emilien — voir index.html.
       renderSearchResults(list, isDiscovery);
     });
   }
