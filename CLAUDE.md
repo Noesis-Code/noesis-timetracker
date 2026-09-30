@@ -19,6 +19,15 @@ Décision d'Émilien, 30 sept. 2026 : **plus d'autonomie, plus de demande de per
 - **Design** : si une direction est donnée, l'exécuter. Plusieurs pistes visuelles seulement quand la demande est réellement ambiguë.
 - **Ne jamais** élargir une demande : ne changer que ce qui est demandé (un style demandé pour UN état ne s'applique pas aux autres ; « zones précises » ≠ couleur principale — le **violet reste la couleur principale** de l'app, halos compris, sauf demande explicite).
 
+## Travail à deux (Émilien + Gaspard)
+
+Chacun dirige sa propre discussion Claude sur le même dépôt. Pour ne pas s'écraser :
+- **Un propriétaire par segment à la fois** (cartographie ci-dessous). On déclare son chantier dans `COORDINATION.md` (ligne + push immédiat) avant de coder ; un segment déjà pris ne se touche pas.
+- **Une branche par chantier** : `claude/<sujet>` depuis `origin/staging` à jour.
+- **Rebase obligatoire avant chaque push** : `git fetch origin && git rebase origin/staging`, puis vérifier `git diff origin/staging` (que ce qui est voulu), puis `git push origin HEAD:staging`. Jamais de `--force` sur `staging`. Un push refusé (non fast-forward) = refaire le rebase, pas forcer.
+- Fichiers très partagés : petits commits, rebase juste avant le push. Un conflit que Claude ne peut pas résoudre sans perdre le travail de l'autre → s'arrêter et prévenir.
+- `main` : toujours fusionné par Émilien seulement.
+
 ## Hébergement du code
 
 - Dépôt : https://github.com/Noesis-Code/noesis-timetracker.git — branche d'intégration `staging`.
