@@ -6706,3 +6706,10 @@ button { -webkit-user-select: none; user-select: none; }
 #profilePageScroll > #avatarMsg:empty { display: none; }
 #profilePageScroll > #topbarProjects { margin-bottom: 32px; }
 #profilePage #profilePageClose svg { width: 24px; height: 24px; }
+
+/* 30 sept. 2026 (demande d'Emilien, fenêtre « Abonnés ») : la croix ✕ à droite comme partout ailleurs, et plus de petit
+   trait sous le mot « Abonnés » : seul le trait normal pleine largeur du bandeau reste, sous le titre. */
+#profileFollowsPanel .profileSubWindowHeader #followsPanelTitle {
+  flex: 1 1 auto; min-width: 0; margin: 0; padding-bottom: 0; border-bottom: none;
+}
+#profileFollowsPanel .profileSubWindowHeader #followsPanelClose { margin-left: auto; flex: 0 0 auto; }
