@@ -2405,7 +2405,7 @@ body.scrollLock { overflow: hidden; }
    position qui disent "c'est moi", le liseré ferait un troisième signal. */
 .chatThread .discussionMsg.mine {
   align-self: flex-end;
-  background: var(--purple);
+  background: var(--mine-brique);
   border-left: none;
   border-bottom-left-radius: var(--radius-lg);
   border-bottom-right-radius: var(--radius-sm);
@@ -2538,6 +2538,10 @@ body.scrollLock { overflow: hidden; }
    cf. .discussionList ci-dessus et .historyEntry plus bas). */
 #followingFeed { display: flex; flex-direction: column; gap: 8px; }
 
+/* 30 sept. 2026 (demande d'Emilien) : MES publications/messages en brique crayeux, mat, moins lumineux.
+   Le violet reste la couleur principale de l'app partout ailleurs. */
+:root { --mine-brique: #8C5A4F; }
+
 /* Mes propres publications dans le flux d'actualité de Communauté (3 septembre
    2026, demande d'Emilien : « le message doit être violet complètement pour
    indiquer que c'est le mien mais il doit défiler normalement parmi les autres
@@ -2548,7 +2552,7 @@ body.scrollLock { overflow: hidden; }
    Les descendants sont forcés en blanc plutôt que laissés à `var(--text)` :
    sur fond violet, le texte du mode clair deviendrait illisible. */
 .discussionMsg.feedMine {
-  background: var(--purple);
+  background: var(--mine-brique);
   box-shadow: var(--shadow-card);
 }
 .discussionMsg.feedMine .discussionMsgBody,
