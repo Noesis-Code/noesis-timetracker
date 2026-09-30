@@ -6819,3 +6819,35 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding .onbInstallIcon svg rect:last-child { fill: var(--onb-purple); }
 .onbLegalCheck { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 12px; text-align: left; margin: 0 0 16px; }
 .onbLegalText { font-size: 14px; line-height: 1.4; color: var(--text); }
+
+/* ===== 30 septembre 2026 (demande de Gaspard, Activité / Catégories) ===== */
+/* Mode réordonner : barre « texte + Terminer » FIXE en haut (ne défile pas
+   avec la liste). Portée à la liste des pôles seulement (.subProjectEditBar
+   est partagée avec d'autres écrans). */
+#activityGoalsCategoriesList .subProjectEditBar {
+  position: sticky; top: calc(var(--activity-switch-h, 46px) + 6px); z-index: 6; background: var(--bg);
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+  /* masque le contenu qui défile sous le sélecteur flottant Catégories | Statistiques */
+  box-shadow: 0 -60px 0 0 var(--bg);
+}
+/* Lignes de secteur en mode réordonner : fine ligne de séparation entre
+   chaque élément (n'altère ni le glisser-déposer ni le renommage). */
+.activityGoalsSecteurRow.editing {
+  padding: 6px 0; border-top: 1px solid var(--border);
+}
+.activityGoalsSecteursBlock { gap: 0; }
+/* Hors édition : la ligne du pôle reste collée en haut pendant qu'on défile
+   ses secteurs (le groupe borne le collage à son propre pôle). */
+.activityGoalsCategoryGroup { display: flex; flex-direction: column; gap: 4px; }
+.activityGoalsCategoryGroup > .activityGoalsCategoryRow { position: sticky; top: calc(var(--activity-switch-h, 46px) + 6px); z-index: 3; }
+/* Bulle d'ajout pôle/secteur collée au bas de la zone visible = juste
+   au-dessus du clavier (#activityPage est rétrécie à la hauteur du
+   visualViewport tant qu'un champ a le focus). Classe posée par
+   scrollAddInputIntoView() (app.js). */
+.activityGoalsCategoryAddRow.addRowKb,
+.activityGoalsSecteurAddRow.addRowKb {
+  position: sticky; bottom: 0; z-index: 7; background: var(--bg);
+  padding: 8px 0; margin: 0;
+}
+/* Fenêtre « détail » : zone de saisie. */
+#categoryDetailDescription { width: 100%; box-sizing: border-box; font-size: 16px; resize: none; }

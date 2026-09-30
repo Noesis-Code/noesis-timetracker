@@ -2031,6 +2031,43 @@
       </div>
     </div>
 
+    <!-- 30 septembre 2026 (demande de Gaspard, Activité / Catégories) :
+         fenêtre de retrait d'un pôle/secteur (remplace window.confirm, qui ne
+         fonctionne pas en PWA) — 2 choix pour les tâches affiliées + annuler.
+         Construite/pilotée par openCategoryRemoveModal() (app.js). -->
+    <div id="categoryRemoveModal" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="communityMembersModalHeader">
+          <p class="sectionTitle" id="categoryRemoveTitle"></p>
+          <button type="button" class="menuBtn" id="categoryRemoveClose" aria-label="Fermer">✕</button>
+        </div>
+        <p class="hint" id="categoryRemoveText"></p>
+        <div class="rowActions deleteActivityChoices">
+          <button type="button" id="categoryRemoveDeleteTasksBtn" class="iconBtn danger"></button>
+          <button type="button" id="categoryRemoveKeepTasksBtn" class="iconBtn"></button>
+          <button type="button" id="categoryRemoveCancelBtn" class="iconBtn">Annuler</button>
+        </div>
+        <p id="categoryRemoveMsg" class="msg"></p>
+      </div>
+    </div>
+
+    <!-- Fenêtre « détail » d'un pôle/secteur qu'on vient de créer : description
+         (colonne activity_goal_categories.description, 200 caractères max). -->
+    <div id="categoryDetailModal" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="communityMembersModalHeader">
+          <p class="sectionTitle" id="categoryDetailTitle"></p>
+          <button type="button" class="menuBtn" id="categoryDetailClose" aria-label="Fermer">✕</button>
+        </div>
+        <p class="hint" id="categoryDetailHint"></p>
+        <textarea id="categoryDetailDescription" rows="4" maxlength="200"></textarea>
+        <div class="rowActions">
+          <button type="button" id="categoryDetailSaveBtn" class="iconBtn btnBrique">Enregistrer</button>
+        </div>
+        <p id="categoryDetailMsg" class="msg"></p>
+      </div>
+    </div>
+
     <div id="viewProfileModal" class="communityMembersModal hidden">
       <div class="communityMembersModalCard">
         <!-- En-tête d'identité, FIXE (2 septembre 2026, demande d'Emilien :

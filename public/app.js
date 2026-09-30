@@ -1340,7 +1340,7 @@
   if (_isCoarsePointer && window.visualViewport) {
     (function () {
       var pinBars = document.querySelectorAll('#topbar');
-      var pinPages = document.querySelectorAll('#activityPage, #goalsDetailPage');
+      var pinPages = document.querySelectorAll('#activityPage, #goalsDetailPage, #categoryDetailModal');
       // 27 septembre 2026 (Design) : .tabbar rejoint ce pincement continu, en
       // remplacement du masquage complet (.tabbarHidden, retiré ci-dessus) —
       // ancrée en BAS (pas en haut comme #topbar), sa formule de compensation
@@ -6918,8 +6918,7 @@
         del.disabled = currentActivityGoalsCategories.length <= 1;
         del.addEventListener('click', function (e) {
           e.stopPropagation();
-          if (!confirm(t('Retirer ce pôle ? Son historique reste consultable mais il ne recevra plus de nouveaux objectifs.'))) return;
-          removeActivityGoalsCategory(c.key);
+          openCategoryRemoveModal({ activityId: activityIdForTasks, key: c.key, label: c.label, poleKey: null });
         });
         row.appendChild(del);
 
@@ -7016,14 +7015,20 @@
       bindCategoryLongPress(row);
       bindCategoryOpenToggle(row, c.key);
 
-      list.appendChild(row);
+      // 30 septembre 2026 (demande de Gaspard) : la ligne du pôle reste
+      // collée en haut (sticky) pendant qu'on fait défiler ses secteurs —
+      // pôle + bloc secteurs dans un même groupe (voir .activityGoalsCategoryGroup).
+      var normalGroup = document.createElement('div');
+      normalGroup.className = 'activityGoalsCategoryGroup';
+      normalGroup.appendChild(row);
+      list.appendChild(normalGroup);
 
       // 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
       // « Pôles & secteurs ») — les secteurs de ce pôle, juste sous sa ligne
       // de nom et AVANT le bloc de tâches, affichés seulement si le pôle est
       // déplié (même règle que buildCategoryTasksBlock juste en dessous) :
       // c'est ici qu'on crée/renomme/retire/réordonne un secteur.
-      if (isOpen) list.appendChild(buildPoleSecteursBlock(activityIdForTasks, c));
+      if (isOpen) normalGroup.appendChild(buildPoleSecteursBlock(activityIdForTasks, c));
 
       // ⚠️ 25 septembre 2026, demande directe d'Emilien : la section ne sert
       // plus qu'à paramétrer pôles/secteurs — le bloc de tâches (case à
@@ -7070,6 +7075,7 @@
     if (!activityGoalsCategoriesEditMode) {
       list.appendChild(buildAddPoleRow(activityIdForTasks));
     }
+    if (!_isTextInputEl(document.activeElement)) clearActivityKbRunway();
   }
 
   // 26 septembre 2026, bug signalé par Emilien (captures d'écran à l'appui) :
@@ -7116,6 +7122,23 @@
   // `scrollIntoView` à chaque déclenchement — la position converge donc
   // vers la bonne cible quelle que soit la durée réelle de l'animation du
   // clavier, au lieu de parier sur un délai fixe de 2 images.
+  // 30 septembre 2026 (demande de Gaspard : « les menus déroulants des Pôles
+  // ne sont plus en haut de la page ») — CAUSE : la piste de défilement
+  // temporaire (.activityPageScrollKbRunway + .activityPageScrollKbTopSpacer,
+  // posées au focus d'un champ d'ajout/renommage) n'était retirée qu'au
+  // `blur` du champ. Or ajouter/renommer/retirer re-rend toute la liste
+  // (list.innerHTML = '') : le champ focalisé est arraché du DOM sans blur,
+  // la marge du haut (jusqu'à plusieurs centaines de px) restait donc posée
+  // pour de bon et repoussait tous les pôles vers le bas. Nettoyée ici à la
+  // fin de chaque rendu du panneau quand aucun champ n'a plus le focus.
+  function clearActivityKbRunway() {
+    var scroller = $('activityPageScroll');
+    if (!scroller) return;
+    scroller.classList.remove('activityPageScrollKbRunway');
+    var spacer = scroller.querySelector('.activityPageScrollKbTopSpacer');
+    if (spacer) { spacer.remove(); scroller.scrollTop = 0; }
+  }
+
   function scrollAddInputIntoView(el) {
     // 28 septembre 2026, 4e passage — diagnostic chiffré (HUD temporaire
     // posé plus haut dans ce fichier) sur le champ RÉEL en cause : sur un
@@ -7170,6 +7193,19 @@
       }
     }
     el.addEventListener('focus', function () {
+      // 30 septembre 2026 (demande de Gaspard) : la bulle d'ajout d'un
+      // pôle/secteur se colle au bas de la zone visible (= juste au-dessus du
+      // clavier, #activityPage étant rétrécie à vv.height) via position:
+      // sticky (classe .addRowKb, styles.css), quelle que soit la position
+      // de défilement. Retirée au blur avec un léger délai pour ne pas
+      // perdre le clic sur « Ajouter ».
+      var addRowEl = el.closest('.activityGoalsCategoryAddRow, .activityGoalsSecteurAddRow');
+      if (addRowEl) {
+        addRowEl.classList.add('addRowKb');
+        el.addEventListener('blur', function () {
+          setTimeout(function () { if (!addRowEl.contains(document.activeElement)) addRowEl.classList.remove('addRowKb'); }, 400);
+        }, { once: true });
+      }
       // 28 septembre 2026 (2e retour d'Emilien, captures à l'appui) : le
       // champ remontait bien un peu, mais restait loin au-dessus du clavier
       // dès que la liste de pôles/secteurs était courte. Cause : `scrollIntoView`
@@ -7191,12 +7227,20 @@
       function stopWatching() {
         if (_isCoarsePointer && window.visualViewport) window.visualViewport.removeEventListener('resize', doScroll);
         if (scroller) {
-          scroller.classList.remove('activityPageScrollKbRunway');
-          // Piste du haut (voir doScroll ci-dessus) : purement temporaire,
-          // ne doit jamais rester une fois le champ quitté.
-          var body = scroller.querySelector('#activityPageBody') || scroller;
-          var spacer = body.querySelector('.activityPageScrollKbTopSpacer');
-          if (spacer) spacer.remove();
+          // 30 septembre 2026 : retrait DIFFÉRÉ — retirer la piste au blur
+          // décalait la liste sous le doigt pendant l'appui sur « Ajouter »
+          // (le clic atterrissait sur une autre ligne et était perdu, cause
+          // probable de « impossible d'ajouter/supprimer »). Si un autre
+          // champ a repris le focus entre-temps, c'est lui qui nettoiera.
+          setTimeout(function () {
+            if (_isTextInputEl(document.activeElement)) return;
+            scroller.classList.remove('activityPageScrollKbRunway');
+            // Piste du haut (voir doScroll ci-dessus) : purement temporaire,
+            // ne doit jamais rester une fois le champ quitté.
+            var body = scroller.querySelector('#activityPageBody') || scroller;
+            var spacer = body.querySelector('.activityPageScrollKbTopSpacer');
+            if (spacer) spacer.remove();
+          }, 600);
         }
         el.removeEventListener('blur', stopWatching);
       }
@@ -7221,6 +7265,7 @@
     addBtn.type = 'button';
     addBtn.className = 'iconBtn btnBrique';
     addBtn.textContent = t('Ajouter');
+    addBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     addBtn.addEventListener('click', function () {
       var label = addInput.value.trim();
       if (!label) return;
@@ -7250,11 +7295,13 @@
       .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
 
-  function removeActivityGoalsCategory(key) {
+  // `tasks` : 'delete' | 'keep' (choix pour les tâches affiliées, voir
+  // openCategoryRemoveModal) — renvoie la promesse pour que la fenêtre
+  // affiche une éventuelle erreur serveur.
+  function removeActivityGoalsCategory(key, tasks) {
     var activityId = currentCommunityActivityId;
-    api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + key)
-      .then(function () { activityGoalsCategoriesRefresh(activityId); })
-      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
+    return api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + key, tasks ? { tasks: tasks } : undefined)
+      .then(function () { activityGoalsCategoriesRefresh(activityId); });
   }
 
   // 16 septembre 2026 (11e passage), demande d'Emilien : la bulle "Nouvelle
@@ -7274,7 +7321,11 @@
       return Promise.resolve();
     }
     return api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
-      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .then(function (res) {
+        activityGoalsCategoriesRefresh(activityId);
+        var last = res && res.categories && res.categories[res.categories.length - 1];
+        if (last && last.label === label) openCategoryDetailModal({ activityId: activityId, key: last.key, label: last.label, poleKey: null });
+      })
       .catch(function (err) { if (msg) msg.textContent = err.message; });
   }
 
@@ -7293,7 +7344,11 @@
     var msg = $('activityGoalsCategoriesMsg');
     if (!label) { if (msg) msg.textContent = t('Nom de secteur requis.'); return Promise.resolve(); }
     return api('POST', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs', { label: label })
-      .then(function () { activityGoalsCategoriesRefresh(activityId); })
+      .then(function (res) {
+        activityGoalsCategoriesRefresh(activityId);
+        var last = res && res.secteurs && res.secteurs[res.secteurs.length - 1];
+        if (last && last.label === label) openCategoryDetailModal({ activityId: activityId, key: last.key, label: last.label, poleKey: poleKey });
+      })
       .catch(function (err) { if (msg) msg.textContent = err.message; });
   }
 
@@ -7307,10 +7362,94 @@
       .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
 
-  function removePoleSecteur(activityId, poleKey, secteurKey) {
-    api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey)
-      .then(function () { activityGoalsCategoriesRefresh(activityId); })
-      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
+  function removePoleSecteur(activityId, poleKey, secteurKey, tasks) {
+    return api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey, tasks ? { tasks: tasks } : undefined)
+      .then(function () { activityGoalsCategoriesRefresh(activityId); });
+  }
+
+  // 30 septembre 2026 (demande de Gaspard) : fenêtre de retrait d'un
+  // pôle/secteur — window.confirm ne fonctionne pas en PWA, d'où cette
+  // fenêtre (pattern .communityMembersModal). S'il y a des tâches affiliées
+  // (GET .../removal-preview), 2 choix : les supprimer aussi, ou les
+  // conserver sans pôle/secteur (un secteur les rend à son pôle, un pôle
+  // les laisse sans catégorie) ; sinon un simple « Retirer ». Jamais de
+  // retrait sans ce choix quand des tâches existent (le serveur refuse en 409).
+  function openCategoryRemoveModal(o) {
+    var modal = $('categoryRemoveModal');
+    if (!modal) return;
+    var isPole = !o.poleKey;
+    var msg = $('categoryRemoveMsg');
+    var delBtn = $('categoryRemoveDeleteTasksBtn');
+    var keepBtn = $('categoryRemoveKeepTasksBtn');
+    $('categoryRemoveTitle').textContent = t(isPole ? 'Retirer le pôle « {name} » ?' : 'Retirer le secteur « {name} » ?', { name: o.label });
+    $('categoryRemoveText').textContent = t('Vérification des tâches affiliées…');
+    msg.textContent = '';
+    delBtn.classList.add('hidden');
+    keepBtn.classList.add('hidden');
+    modal.classList.remove('hidden');
+
+    function close() { modal.classList.add('hidden'); }
+    function run(choice) {
+      delBtn.disabled = keepBtn.disabled = true;
+      var p = isPole
+        ? removeActivityGoalsCategory(o.key, choice)
+        : removePoleSecteur(o.activityId, o.poleKey, o.key, choice);
+      p.then(close).catch(function (err) { msg.textContent = err.message; })
+        .then(function () { delBtn.disabled = keepBtn.disabled = false; });
+    }
+    function show(count) {
+      if (count === 0) {
+        $('categoryRemoveText').textContent = t(isPole ? 'Son historique reste consultable mais il ne recevra plus de nouveaux objectifs.' : 'Son historique reste consultable.');
+        keepBtn.textContent = t('Retirer');
+        keepBtn.classList.remove('hidden');
+        keepBtn.onclick = function () { run(undefined); };
+        delBtn.onclick = null;
+        return;
+      }
+      $('categoryRemoveText').textContent = count > 0
+        ? t('{n} tâche(s) affiliée(s). Que faire de ces tâches ?', { n: count })
+        : t('Des tâches sont peut-être affiliées. Que faire de ces tâches ?');
+      delBtn.textContent = t('Supprimer aussi les tâches');
+      keepBtn.textContent = t(isPole ? 'Conserver les tâches sans pôle' : 'Conserver les tâches sans secteur');
+      delBtn.classList.remove('hidden');
+      keepBtn.classList.remove('hidden');
+      delBtn.onclick = function () { run('delete'); };
+      keepBtn.onclick = function () { run('keep'); };
+    }
+    api('GET', '/api/activities/' + o.activityId + '/goals/categories/' + o.key + '/removal-preview')
+      .then(function (r) { show(r && typeof r.taskCount === 'number' ? r.taskCount : -1); })
+      .catch(function () { show(-1); });
+    $('categoryRemoveClose').onclick = close;
+    $('categoryRemoveCancelBtn').onclick = close;
+  }
+
+  // Fenêtre « détail » d'un pôle/secteur qu'on vient de créer : description
+  // (200 caractères max, colonne `description` existante). Enregistrée via
+  // les mêmes routes PUT que l'édition inline ; ✕ enregistre aussi si modifiée.
+  function openCategoryDetailModal(o) {
+    var modal = $('categoryDetailModal');
+    if (!modal) return;
+    var ta = $('categoryDetailDescription');
+    var msg = $('categoryDetailMsg');
+    $('categoryDetailTitle').textContent = o.label;
+    $('categoryDetailHint').textContent = t(o.poleKey ? 'Décris ce secteur (optionnel).' : 'Décris ce pôle (optionnel).');
+    ta.placeholder = t('Description (optionnel) — aide l’IA à repérer les liens pertinents entre secteurs');
+    ta.value = '';
+    msg.textContent = '';
+    modal.classList.remove('hidden');
+    function close() { modal.classList.add('hidden'); }
+    function save() {
+      var value = ta.value.trim();
+      if (!value) { close(); return; }
+      var req = o.poleKey
+        ? api('PUT', '/api/activities/' + o.activityId + '/goals/categories/' + o.poleKey + '/secteurs/' + o.key, { label: o.label, description: value })
+        : api('PUT', '/api/activities/' + o.activityId + '/goals/categories/' + o.key, { label: o.label, description: value });
+      req.then(function () { close(); activityGoalsCategoriesRefresh(o.activityId); })
+        .catch(function (err) { msg.textContent = err.message; });
+    }
+    $('categoryDetailSaveBtn').onclick = save;
+    $('categoryDetailClose').onclick = save;
+    setTimeout(function () { try { ta.focus(); } catch (e) {} }, 50);
   }
 
   // `secteurs` : la liste ACTUELLE de ce pôle (currentActivityGoalsCategories,
@@ -7413,6 +7552,9 @@
     addBtn.type = 'button';
     addBtn.className = 'iconBtn btnBrique';
     addBtn.textContent = t('Ajouter');
+    // Garde le focus (et donc le clavier/la mise en page) pendant l'appui sur
+    // « Ajouter » : sinon la mise en page bouge au blur et le clic est perdu.
+    addBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     addBtn.addEventListener('click', function () {
       var label = addInput.value.trim();
       if (!label) return;
@@ -7486,8 +7628,7 @@
       del.setAttribute('aria-label', t('Retirer ce secteur'));
       del.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (!confirm(t('Retirer ce secteur ? Son historique reste consultable.'))) return;
-        removePoleSecteur(activityId, pole.key, s.key);
+        openCategoryRemoveModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key });
       });
       row.appendChild(del);
 
