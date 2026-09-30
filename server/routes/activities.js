@@ -334,7 +334,9 @@ router.delete('/activities/:id/members/:memberId', (req, res) => {
     return res.status(403).json({ error: "Seul le ou la propriétaire de l'activité peut exclure un membre." });
   }
 
-  const targetId = Number(req.params.memberId);
+  // Les id d'utilisateur sont des TEXT (UUID), jamais des nombres : Number()
+  // donnait NaN et l'appartenance était introuvable (AC·20).
+  const targetId = String(req.params.memberId);
   if (targetId === userId) {
     return res.status(400).json({ error: "Utilise « Quitter la communauté » pour te retirer toi-même de cette activité." });
   }
