@@ -175,6 +175,7 @@ app.use('/api', require('./routes/offerforms'));
 app.use('/api', require('./routes/history'));
 app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/push'));
+app.use('/api', require('./routes/announcements'));
 // Sondages (3 septembre 2026, 11ᵉ discussion) — socle générique réutilisable
 // depuis plusieurs zones de l'app, voir server/lib/polls.js.
 app.use('/api', require('./routes/polls'));

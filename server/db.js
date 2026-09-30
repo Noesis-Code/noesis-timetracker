@@ -2241,4 +2241,23 @@ if (!columnExists('sub_project_items', 'seenAt')) {
   db.exec('ALTER TABLE sub_project_items ADD COLUMN seenAt TEXT');
 }
 
+// ===================== ANNONCES DIFFUSEES A TOUS =====================
+// 30 septembre 2026 : annonce envoyee a la main par scripts/send-announcement.js.
+// Le texte COMPLET vit ici (la notification push est tronquee a 140 car.) ;
+// announcement_seen garde qui l'a deja lue pour ne l'afficher qu'une fois.
+db.exec(`
+CREATE TABLE IF NOT EXISTS announcements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS announcement_seen (
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  announcementId INTEGER NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+  seenAt TEXT NOT NULL,
+  PRIMARY KEY (userId, announcementId)
+);
+`);
+
 module.exports = db;
