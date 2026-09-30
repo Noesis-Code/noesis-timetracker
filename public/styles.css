@@ -6692,7 +6692,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* 30 sept. 2026 (demande d'Emilien) : les BOUTONS rouges (stop du chrono, croix de suppression de pôles/secteurs/
    sous-projets/activités, .danger, retrait de photo…) passent à l'orange brique des boutons Ajouter/Rechercher/Envoyer.
    Les pastilles de notification et indicateurs d'état restent rouges (ce ne sont pas des boutons). */
-.chronoBtn-stop.chronoBtn-stop { background: #B5564F; } /* rouge crayeux (demande d'Emilien, 30 sept.) */
+.chronoBtn-stop.chronoBtn-stop { background: #C4483F; } /* rouge un peu moins crayeux (demande d'Emilien, 30 sept.) */
 .iconBtn.danger.danger, .activityDeleteX.activityDeleteX, .subProjectDeleteX.subProjectDeleteX {
   border-color: #C2694A; color: #E08A69;
 }
