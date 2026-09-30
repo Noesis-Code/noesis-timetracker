@@ -6708,3 +6708,5 @@ button { -webkit-user-select: none; user-select: none; }
 #profileProjectsPanel .profileSubWindowHeader #projectsPanelTitle { flex: 1 1 auto; min-width: 0; margin: 0; padding-bottom: 0; border-bottom: none; }
 #profileProjectsPanel .profileSubWindowHeader #projectsPanelClose { margin-left: auto; flex: 0 0 auto; }
 #profileProjectsPanel #projectsScroll { padding: 12px 16px 16px; overscroll-behavior: contain; }
+
+#profilePage #profilePageClose { font-size: 22px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
