@@ -3610,8 +3610,10 @@
     var legendItems = (ids && ids.legend) || activities;
     var wrap = $(wrapId);
     wrap.innerHTML = '';
-    $(emptyHintId).classList.toggle('hidden', activities.length > 0);
-    if (activities.length === 0) return;
+    // 30 sept. 2026 (Gaspard ST·05) : total à 0 = vide aussi (parts à 0 s).
+    var pieIsEmpty = activities.length === 0 || totalSeconds === 0;
+    $(emptyHintId).classList.toggle('hidden', !pieIsEmpty);
+    if (pieIsEmpty) return;
 
     var svgNS = 'http://www.w3.org/2000/svg';
     var cx = 50, cy = 50, rOuter = 46, rInner = 27;
