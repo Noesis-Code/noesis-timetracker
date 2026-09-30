@@ -22,7 +22,9 @@ const { periodRange } = require('../lib/period');
 
 const router = express.Router();
 
-const PALETTE = ['#4CAF50', '#3498db', '#E74C3C', '#F39C12', '#9B59B6', '#1ABC9C', '#E67E22', '#674EA7'];
+// 30 sept. 2026 (demande d'Emilien) : couleurs par défaut des profils au teint crayeux (désaturé, poudré).
+// Les profils existants gardent leur couleur (aucune migration).
+const PALETTE = ['#7FA07B', '#7A9BB5', '#B9705F', '#C4A062', '#A08BAE', '#77A89E', '#BC8D6B', '#8E86B8'];
 
 // Longueur maximale d'un message du fil "Communauté" de Profil — même limite
 // que le fil de discussion d'une activité partagée (voir MAX_MESSAGE_LENGTH
