@@ -31,6 +31,14 @@ Source unique de vérité du fonctionnement du dépôt. Historique détaillé de
 - Test fonctionnel : `NOESIS_DATA_DIR=$(mktemp -d) PORT=3999 node server/index.js` puis appeler les routes touchées (données de test : `server/lib/seed-staging.js`).
 - Toute régression silencieuse déjà vue ici : un correctif qui « disparaît » d'un fichier partagé. Avant de conclure, `git diff origin/staging` doit ne contenir QUE ce qui est voulu.
 
+## Vérification visuelle (UI)
+
+`NOESIS_DATA_DIR=$D RAILWAY_ENVIRONMENT_NAME=staging node scripts/dev-seed.js` (affiche l'id d'Emilien), puis `NOESIS_DATA_DIR=$D PORT=3999 node server/index.js &`, puis `python3 scripts/visual-check.py <id> <dossier> [dark|light]` et lire les PNG. Pour un écran précis, copier le script et cliquer jusqu'à lui. Toute retouche de design se vérifie en capture avant de rendre la main.
+
+## Travailleurs en arrière-plan (depuis le 30 sept. 2026)
+
+Émilien envoie ses demandes au coordinateur, qui les lance chacune dans une tâche en arrière-plan (tâche planifiée « Chantier TMT » déclenchée à la demande). Un travailleur : lit ce fichier et `BACKLOG.md`, prend UNE demande, travaille sur `claude/<sujet>` (depuis `origin/staging` à jour), teste, puis fusionne vers `staging` si c'est dans le périmètre d'autonomie (sinon propose et s'arrête), puis rend un compte rendu de 2 lignes. Il ne modifie pas `BACKLOG.md` (le coordinateur le tient).
+
 ## Cartographie (périmètres de fichiers, pour répartir les sous-agents)
 
 Fichiers très partagés (un seul agent à la fois dessus, sinon conflits de merge à résoudre par le coordinateur) : `public/app.js`, `public/index.html`, `public/styles.css`, `public/sw.js`, `public/i18n.js`, `server/db.js`, `server/index.js`, `server/lib/goals.js`, `server/routes/goals.js`.
