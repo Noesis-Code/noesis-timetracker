@@ -26,6 +26,7 @@ const express = require('express');
 // Pas d'activités par défaut : chaque déploiement démarre vide, à chacun
 // de créer ses activités (à l'initialisation puis dans Paramètres).
 require('./db');
+try { require('./lib/profilecolors-staging').applyProfileColorsOnStaging(); } catch (e) { console.error('[profilecolors-staging]', e.message); }
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
