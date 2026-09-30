@@ -2925,14 +2925,20 @@
                      server/routes/profile.js). Enregistrés par le même bouton
                      "Enregistrer" que le reste de cette carte (voir
                      settingsSaveBtn, app.js). -->
-                <label class="checkLabel">
-                  <input type="checkbox" id="settingsContactShareEmail">
-                  <span>Autoriser mes abonnés à me contacter par email</span>
-                </label>
-                <label class="checkLabel">
-                  <input type="checkbox" id="settingsContactSharePhone">
-                  <span>Autoriser mes abonnés à me contacter par téléphone</span>
-                </label>
+                <div class="notifRow">
+                  <span class="notifRowLabel">Autoriser mes abonnés à me contacter par email</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsContactShareEmail">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+                <div class="notifRow">
+                  <span class="notifRowLabel">Autoriser mes abonnés à me contacter par téléphone</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsContactSharePhone">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
                 <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
                 <p id="settingsMsg" class="msg"></p>
                 <!-- « Déconnexion » (26 septembre 2026, demande d'Emilien) : placé
@@ -2943,7 +2949,7 @@
                      enregistre son profil, puis on quitte.
                      Id et classe inchangés depuis l'origine : son écouteur dans
                      app.js n'a jamais bougé, quel que soit l'emplacement. -->
-                <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
+                <button type="button" id="logoutBtn" class="logoutBtn btnBrique">Déconnexion</button>
               </div>
               </div>
               </div>

@@ -1924,6 +1924,10 @@ body.scrollLock { overflow: hidden; }
   color: var(--purple); font-size: 13px; cursor: pointer; flex-shrink: 0;
 }
 .logoutBtn:hover { text-decoration: underline; }
+/* 30 sept. 2026 : « Déconnexion » dans Identité = bouton encadré orange brique (.btnBrique). */
+#settingsName ~ .logoutBtn { margin-left: 0; margin-top: 12px; padding: 10px 16px; border-radius: var(--radius-sm); text-decoration: none; }
+/* 30 sept. 2026 : « Enregistrer » (Identité) en gris, comme la confirmation du chrono (.iconBtn). */
+#settingsSaveBtn { background: var(--card); color: var(--text); border: 1px solid var(--border); }
 #profileSettingsPanel .sectionTitle:nth-child(2) { margin-top: 4px; }
 #profileSettingsPanel .shareActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 
@@ -2243,7 +2247,7 @@ body.scrollLock { overflow: hidden; }
 #profileSettingsPanel .settingsGroupBody { margin-top: 8px; }
 #profileSettingsPanel .settingsGroupBody .settingsSection,
 #profileSettingsPanel .settingsGroupBody .settingsFlat {
-  margin-left: 10px; padding-left: 10px; border-left: 2px solid var(--border);
+  margin-left: 10px; padding-left: 10px;
 }
 /* .settingsFlat (9 septembre 2026, demande d'Emilien : limiter les menus
    déroulants aux seules sections qui en ont vraiment besoin) — variante SANS
@@ -6682,13 +6686,6 @@ button { -webkit-user-select: none; user-select: none; }
 #profileSettingsScroll .settingsSectionBody,
 #profileSettingsScroll .settingsGroupBody {
   margin-top: 0;
-}
-/* 30 sept. 2026 (demande d'Emilien : « la barre verticale à gauche lorsqu'on
-   déroule les notifications ») : le corps déplié de la section Notifications
-   reçoit la même barre fine que les sections imbriquées (.settingsGroupBody
-   .settingsSection, plus haut). Ciblé via la bascule #notifCommunityToggle. */
-#profileSettingsScroll .settingsSectionBody:has(#notifCommunityToggle) {
-  margin-left: 10px; padding-left: 10px; border-left: 2px solid var(--border);
 }
 /* ⚠️ Reste des 44px réservés au bouton « ← » flottant, disparu le 26 septembre
    2026 : les titres de sous-section restaient décalés pour un bouton absent.
