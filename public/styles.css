@@ -2493,6 +2493,14 @@ body.scrollLock { overflow: hidden; }
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   padding: 6px 12px;
 }
+.chatComposerRow .iconBtn {
+  /* 30 sept. 2026 (demande d'Emilien) : boutons Ajouter/Rechercher/Envoyer DANS les zones d'écriture =
+     contour fin + texte orange brique, fond transparent (pas de verre : règle verrouillée). */
+  background: transparent; border: 1px solid #C2694A; color: #E08A69;
+  -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+}
+.chatComposerRow .iconBtn:hover:not(:disabled) { background: rgba(194, 105, 74, 0.14); }
+.chatComposerRow .iconBtn:disabled { opacity: 0.45; }
 .chatComposer .msg { text-align: right; margin-top: 6px; }
 .chatComposer .msg:empty { display: none; }
 
