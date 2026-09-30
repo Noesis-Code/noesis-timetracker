@@ -10460,6 +10460,11 @@
       // ⚠️ 30 septembre 2026 : la phrase d'accompagnement (#communityDiscoverHint)
       // pilotée ici a été retirée sur demande d'Emilien — voir index.html.
       renderSearchResults(list, isDiscovery);
+      // 30 septembre 2026, demande d'Emilien : dès que des résultats de
+      // recherche s'affichent (nom tapé ou filtre), la page remonte tout en
+      // haut pour qu'il les voie. window.scrollTo seul : ne touche ni au
+      // focus du champ ni au clavier.
+      if (!isDiscovery) window.scrollTo(0, 0);
     });
   }
 

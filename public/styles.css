@@ -2801,6 +2801,9 @@ body.scrollLock { overflow: hidden; }
    nettement la rangée du flux "Suivi" juste en dessous (#communitySectionFeed),
    qui n'a par ailleurs aucune marge propre. */
 .discoveryCircles { display: flex; flex-wrap: nowrap; gap: 14px; overflow-x: auto; margin-top: -10px; margin-bottom: 22px; }
+/* 30 septembre 2026, demande d'Emilien : les résultats d'une recherche active
+   (lignes détaillées, .activitiesList) sont décollés du fil en dessous. */
+#communitySearchResults.activitiesList:not(:empty) { margin-bottom: 22px; }
 .discoveryCircleBtn {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   width: 56px; padding: 0; border: none; background: none; cursor: pointer;
