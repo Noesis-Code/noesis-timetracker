@@ -13105,6 +13105,7 @@
     closeSettingsPanel();
     closeNotifPanel();
     closeFollowsPanel();
+    exitProjectsEditMode();
     $('profileProjectsPanel').classList.remove('hidden');
     $('profileProjectsPanel').classList.toggle('projectsAddMode', projectId === null || projectId === undefined);
     $('newProjectCard').classList.add('hidden');
@@ -13130,6 +13131,7 @@
   }
 
   function closeProjectsPanel() {
+    exitProjectsEditMode();
     $('profileProjectsPanel').classList.add('hidden');
     $('newProjectCard').classList.add('hidden');
   }
@@ -13140,7 +13142,46 @@
     if (e.target === $('profileProjectsPanel')) closeProjectsPanel();
   });
 
+  // Mode « réordonner » (appui long sur un projet, comme les Activités) :
+  // projets repliés, poignées visibles, bouton « Terminer » pour en sortir.
+  var projectsEditMode = false;
+  var lastProjectsList = [];
+  function exitProjectsEditMode() {
+    if (!projectsEditMode) return;
+    projectsEditMode = false;
+    renderProjectsList(lastProjectsList);
+  }
+  var projectLongPressTimer = null;
+  function bindProjectLongPress(el) {
+    var startX = 0, startY = 0;
+    function cancel() {
+      if (projectLongPressTimer) { clearTimeout(projectLongPressTimer); projectLongPressTimer = null; }
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', cancel);
+      el.removeEventListener('pointercancel', cancel);
+      el.removeEventListener('pointerleave', cancel);
+    }
+    function onMove(e) {
+      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
+    }
+    el.addEventListener('pointerdown', function (e) {
+      if (projectsEditMode || lastProjectsList.length < 2) return;
+      startX = e.clientX; startY = e.clientY;
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', cancel);
+      el.addEventListener('pointercancel', cancel);
+      el.addEventListener('pointerleave', cancel);
+      projectLongPressTimer = setTimeout(function () {
+        cancel();
+        projectsEditMode = true;
+        renderProjectsList(lastProjectsList);
+      }, 500);
+    });
+  }
+
   function renderProjectsList(list) {
+    lastProjectsList = list;
+    if (list.length < 2) projectsEditMode = false;
     // Bande compacte de la barre supérieure (4 septembre 2026) : rendue à
     // partir de la MÊME liste, dans la même passe — aucune requête de plus, et
     // aucun risque que les deux affichages divergent.
@@ -13148,6 +13189,20 @@
     var box = $('projectsList');
     box.innerHTML = '';
     $('projectsEmptyHint').classList.toggle('hidden', list.length > 0);
+    if (projectsEditMode) {
+      var editBar = document.createElement('div');
+      editBar.className = 'activityEditBar';
+      var editHint = document.createElement('span');
+      editHint.className = 'meta';
+      editHint.textContent = t('Glisse pour réordonner.');
+      var editDone = document.createElement('button');
+      editDone.type = 'button'; editDone.className = 'iconBtn';
+      editDone.textContent = t('Terminer');
+      editDone.addEventListener('click', exitProjectsEditMode);
+      editBar.appendChild(editHint);
+      editBar.appendChild(editDone);
+      box.appendChild(editBar);
+    }
 
     list.forEach(function (p, index) {
       var row = document.createElement('div');
@@ -13173,10 +13228,11 @@
       handle.setAttribute('aria-label', t('Déplacer ce projet'));
       handle.textContent = '≡';
       // Une seule ligne : rien à réordonner, une poignée n'aurait aucun sens.
-      if (list.length > 1) {
+      if (list.length > 1 && projectsEditMode) {
         bindProjectDrag(handle, row);
         header.appendChild(handle);
       }
+      if (!projectsEditMode) bindProjectLongPress(header);
 
       var nameSpan = document.createElement('span');
       nameSpan.className = 'activityRowName';
@@ -13299,6 +13355,7 @@
       // ouvre/referme le panneau d'édition — même principe que le clic sur
       // une activité SOLO dans #tab-activity (renderActivitiesSettings).
       header.addEventListener('click', function () {
+        if (projectsEditMode) return;
         panel.classList.toggle('hidden');
         updateProjectDragHandlesState();
       });
