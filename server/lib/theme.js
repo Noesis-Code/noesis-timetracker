@@ -22,7 +22,7 @@
 // public/theme-palette.js, seule source, chargée ici via require() et côté
 // client via une balise <script> (voir ce fichier pour le détail). Pour
 // changer une couleur, modifie public/theme-palette.js — pas ce fichier.
-const { DARK_PALETTE, LIGHT_PALETTE, LEGACY_DARK_PALETTE } = require('../../public/theme-palette.js');
+const { DARK_PALETTE, LIGHT_PALETTE, LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE } = require('../../public/theme-palette.js');
 
 function paletteFor(theme) {
   return theme === 'light' ? LIGHT_PALETTE : DARK_PALETTE;
@@ -71,7 +71,7 @@ function pairedColor(hex, fromTheme, toTheme) {
 function isInPalette(hex, theme) {
   const h = String(hex || '').toUpperCase();
   return paletteFor(theme).some((c) => c.toUpperCase() === h)
-    || (theme !== 'light' && LEGACY_DARK_PALETTE.some((c) => c.toUpperCase() === h)); // anciennes couleurs : restent valides
+    || (theme === 'light' ? LEGACY_LIGHT_PALETTE : LEGACY_DARK_PALETTE).some((c) => c.toUpperCase() === h); // anciennes couleurs : restent valides
 }
 
 module.exports = { DARK_PALETTE, LIGHT_PALETTE, paletteFor, nearestPaletteColor, pairedColor, isInPalette };

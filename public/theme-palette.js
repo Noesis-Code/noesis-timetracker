@@ -43,35 +43,26 @@
     root.NOESIS_THEME_PALETTES = factory();
   }
 })(typeof self !== 'undefined' ? self : this, function () {
-  // 30 sept. 2026 (demande d'Emilien) : palette par défaut au teint brique (terre cuite, rouille, ocre,
-  // terre) + quelques contrepoints sobres (argile rosée, olive, ardoise, violet du halo) pour rester bien distinguables.
-  // Contraste du texte blanc >= 4.0:1 sur chacune. Les anciennes couleurs (LEGACY_DARK_PALETTE) restent
-  // VALIDES pour les activités existantes : jamais migrées ni réécrites.
+  // 30 sept. 2026 (demande d'Emilien) : palette « B · Minéral (froid dominant) », 9 couleurs, même ordre
+  // partout. Les versions claires sont les jumelles (même teinte, éclaircies de 42 %). Toutes les anciennes
+  // couleurs (LEGACY_*) restent VALIDES : jamais rejetées ni réécrites en production.
   var DARK_PALETTE = [
-    '#A3432F', // brique
-    '#B0612F', // rouille
-    '#B08A2E', // ocre
-    '#7A5238', // terre
-    '#A8606A', // argile rosée
-    '#6B7A3C', // olive
-    '#4A6A8A', // ardoise
-    '#8E4AA0', // violet (teinte du halo lumineux)
-  ];
-
-  var LEGACY_DARK_PALETTE = [
-    '#9E2E2E', '#9B5D27', '#8B7923', '#328540', '#2E828A', '#3659A1', '#573EA3', '#833B9B',
+    '#A04B52', '#A0674B', '#A0864B', '#83A04B', '#4BA075', '#4B98A0', '#4B75A0', '#594BA0', '#914BA0',
   ];
 
   var LIGHT_PALETTE = [
-    '#D87979', // rouge clair
-    '#DAA06C', // orange clair
-    '#D8C564', // jaune clair
-    '#7ACD88', // vert clair
-    '#75C9D1', // cyan clair
-    '#85A0D6', // bleu clair
-    '#9B89D2', // indigo clair
-    '#C089D2', // violet clair
+    '#C8979B', '#C8A797', '#C8B997', '#B7C897', '#97C8AF', '#97C3C8', '#97AFC8', '#9F97C8', '#BF97C8',
   ];
 
-  return { DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE, LEGACY_DARK_PALETTE: LEGACY_DARK_PALETTE };
+  // Anciennes couleurs d'activité (sombre) : palette d'origine, puis palette « brique » (30 sept.).
+  var LEGACY_DARK_PALETTE = [
+    '#9E2E2E', '#9B5D27', '#8B7923', '#328540', '#2E828A', '#3659A1', '#573EA3', '#833B9B',
+    '#A3432F', '#B0612F', '#B08A2E', '#7A5238', '#A8606A', '#6B7A3C', '#4A6A8A', '#8E4AA0',
+  ];
+
+  var LEGACY_LIGHT_PALETTE = [
+    '#D87979', '#DAA06C', '#D8C564', '#7ACD88', '#75C9D1', '#85A0D6', '#9B89D2', '#C089D2',
+  ];
+
+  return { DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE, LEGACY_DARK_PALETTE: LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE: LEGACY_LIGHT_PALETTE };
 });
