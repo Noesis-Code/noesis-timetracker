@@ -2386,10 +2386,7 @@
         // l'appel buildRow(..., c, c) plus bas) doit rester ouvert et se
         // teinter en violet exactement comme un secteur — pas seulement quand
         // on est déjà drillé (state.drill).
-        if (state.drill || secteur) {
-          commitStay(rowValue);
-          return;
-        }
+        // 30 sept. 2026 (Gaspard CH·04/CH·08) : le choix final referme le menu.
         commit(rowValue);
       });
       row.appendChild(main);
