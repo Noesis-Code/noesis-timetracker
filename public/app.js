@@ -921,7 +921,7 @@
   // Applique le thème clair/sombre à toute l'app (attribut sur <html>, lu
   // par styles.css) et mémorise le thème actif pour le reste du script.
   function applyTheme(theme) {
-    currentTheme = theme === 'light' ? 'light' : 'dark';
+    currentTheme = 'dark'; // thème clair supprimé (30 sept. 2026) : toujours sombre, quelle que soit la valeur stockée
     document.documentElement.setAttribute('data-theme', currentTheme);
   }
 
@@ -1961,7 +1961,6 @@
     showProfileMain();
     loadPendingInvites();
     loadFollowRequests();
-    renderThemeSwitch();
     renderLangSwitch();
     renderShareSettings();
     loadProfileProjects();
@@ -11590,7 +11589,6 @@
     // rafraîchir SES propres commandes (thème coché, langue cochée, adresse
     // de partage). Sans ça, après un rechargement de page, la langue et le
     // thème actifs n'apparaissaient plus cochés.
-    renderThemeSwitch();
     renderLangSwitch();
     renderShareSettings();
     var settingsPanelEl = $('profileSettingsPanel');
@@ -12337,33 +12335,14 @@
       .finally(function () { $('settingsSaveBtn').disabled = false; });
   });
 
-  // ----- Apparence (clair/sombre) -----
-  function renderThemeSwitch() {
-    document.querySelectorAll('#themeSwitch .themeBtn').forEach(function (btn) {
-      btn.classList.toggle('active', btn.dataset.themeChoice === currentTheme);
-    });
+  // ----- Apparence : thème sombre unique (le sélecteur clair/sombre a été retiré le 30 sept. 2026) -----
+  // Un profil encore enregistré en 'light' est basculé une fois côté serveur (couleurs d'activités adaptées par la route existante).
+  function migrateLightThemeProfile() {
+    if (!profile || profile.theme !== 'light') return;
+    api('PUT', '/api/profile/' + profile.id, { theme: 'dark' })
+      .then(function (p) { saveProfile(p); refreshActivities().then(renderActivityGrid); })
+      .catch(function () { /* réessayé au prochain démarrage */ });
   }
-  document.querySelectorAll('#themeSwitch .themeBtn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var chosen = btn.dataset.themeChoice;
-      if (chosen === currentTheme) return;
-      $('themeMsg').textContent = '';
-      api('PUT', '/api/profile/' + profile.id, { theme: chosen })
-        .then(function (p) {
-          saveProfile(p);
-          renderThemeSwitch();
-          $('themeMsg').textContent = t('Thème mis à jour — tes couleurs d\'activités ont été adaptées si besoin.');
-          renderNewActivitySwatches();
-          refreshActivities().then(renderActivityGrid);
-          loadSettingsActivities();
-          // Redessine la courbe Total du Graphique sans refetch (sa couleur
-          // dépend du thème — blanc en sombre, noir en clair — et doit donc
-          // rester juste immédiatement après un changement de thème).
-          if (lastDailyBreakdown.length) renderChart(lastDailyBreakdown);
-        })
-        .catch(function (err) { $('themeMsg').textContent = err.message; });
-    });
-  });
 
   // ----- Langue (français / anglais) -----
   // Un rechargement complet de la page suit l'enregistrement : c'est le
@@ -16655,7 +16634,8 @@
   // ===================== DÉMARRAGE =====================
   profile = loadProfile();
   if (profile) {
-    applyTheme(profile.theme); // évite un flash du mauvais thème le temps du fetch ci-dessous
+    applyTheme('dark');
+    migrateLightThemeProfile();
     // Un profil mémorisé AVANT l'ajout du réglage de langue n'a pas de
     // champ `lang` : c'est forcément un profil qui existait déjà, donc
     // français — cohérent avec la migration côté serveur (voir db.js).

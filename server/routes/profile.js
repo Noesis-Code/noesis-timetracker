@@ -513,7 +513,7 @@ router.put('/profile/:id', (req, res) => {
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
   const name = (req.body.name || user.name).trim();
-  const theme = req.body.theme === 'light' ? 'light' : (req.body.theme === 'dark' ? 'dark' : user.theme);
+  const theme = 'dark'; // thème clair supprimé (30 sept. 2026) : tout profil repasse en sombre (couleurs adaptées ci-dessous)
   // Sécurité : même contrainte qu'à la création (POST /profile) — la
   // couleur doit appartenir à la palette du thème resolu, sinon une valeur
   // forgée serait stockée puis réinjectée sans échappement côté client
