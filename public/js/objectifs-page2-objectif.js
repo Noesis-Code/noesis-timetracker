@@ -280,6 +280,10 @@
 
   var goalsScrubActiveIndex = -1;
 
+  // O2·07 : index (0-12) de la période réellement en cours dans le cycle
+  // affiché (-1 tant qu'inconnu).
+  var goalsCurrentPeriodIdx = -1;
+
 
   // 17 septembre 2026 (discussion "Objectifs — Rail périodique"), demande
   // d'Emilien : le rail cesse d'être un geste tactile déclenché à la demande
@@ -386,8 +390,9 @@
     // habituel (inchangé pour tout le reste du défilement) : tout en haut
     // de la page → période 1, tout en bas → période 13.
     var doc = document.documentElement;
-    if (window.scrollY <= 2) return 0;
-    if (window.innerHeight + window.scrollY >= doc.scrollHeight - 2) return rows.length - 1;
+    var scrollable = doc.scrollHeight > window.innerHeight + 4;
+    if (scrollable && window.scrollY <= 2) return 0;
+    if (scrollable && window.innerHeight + window.scrollY >= doc.scrollHeight - 2) return rows.length - 1;
     var target = window.innerHeight / 2;
     var bestIdx = 0, bestDist = Infinity;
     rows.forEach(function (row, i) {
@@ -419,7 +424,19 @@
       d.style.background = isActive ? activeColor : '';
       d.style.color = isActive ? textColor : '';
       d.textContent = isActive ? String(i + 1) : '';
+      d.style.transform = '';
     });
+    // O2·N10 : le point actif se cale sur le centre vertical de SA ligne de
+    // période (et non plus sur sa position régulière dans le rail).
+    var rows = document.querySelectorAll('#goalsGrid .goalsGridRow');
+    var zoneEl = $('goalsScrubZone');
+    if (rows[idx] && goalsScrubDots[idx] && zoneEl) {
+      var rr = rows[idx].getBoundingClientRect();
+      var zr = zoneEl.getBoundingClientRect();
+      var dr0 = goalsScrubDots[idx].getBoundingClientRect();
+      var want = Math.max(zr.top + 12, Math.min(zr.bottom - 12, rr.top + rr.height / 2));
+      goalsScrubDots[idx].style.transform = 'translateY(' + Math.round(want - (dr0.top + dr0.height / 2)) + 'px)';
+    }
     var label = $('goalsScrubLabel');
     if (!label || !goalsScrubDots[idx]) return;
     label.innerHTML = info
@@ -441,6 +458,7 @@
       d.classList.remove('active');
       d.style.background = '';
       d.style.color = '';
+      d.style.transform = '';
       d.textContent = '';
     });
     goalsScrubActiveIndex = -1;
@@ -483,10 +501,16 @@
       // reste vide uniquement quand l'élément (ou un ancêtre) est réellement
       // display: none.
       if (!zone || zone.getClientRects().length === 0) return;
-      var idx = goalsPeriodFromY();
+      // O2·07 : à l'ouverture / au rendu (force), la période réellement en
+      // cours ; ensuite, la ligne au centre de l'écran pendant le défilement.
+      var idx = (force && goalsCurrentPeriodIdx >= 0) ? goalsCurrentPeriodIdx : goalsPeriodFromY();
       if (force || idx !== goalsScrubActiveIndex) showGoalsScrub(idx);
       if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(hideGoalsScrub, 700);
+      // Après 700ms d'immobilité : retour sur la période en cours (numéro +
+      // dates restent affichés), plutôt que de tout masquer.
+      hideTimer = setTimeout(function () {
+        if (goalsCurrentPeriodIdx >= 0) showGoalsScrub(goalsCurrentPeriodIdx); else hideGoalsScrub();
+      }, 700);
     }
     goalsScrubTick = tick;
 
@@ -535,6 +559,7 @@
     if (dot) dot.style.background = shade;
     var name = $('goalsPoleName');
     if (name) name.textContent = t(poles[index].label);
+    if (TMT.rerenderGoalsTasksOverview) TMT.rerenderGoalsTasksOverview();
   }
 
 
@@ -1036,6 +1061,12 @@
     // index (les catégories peuvent avoir démarré leur cycle à des dates
     // différentes, voir commentaire au-dessus de indexByCategory).
     currentGoalsPeriodInfo = [];
+    goalsCurrentPeriodIdx = -1;
+    categories.forEach(function (c) {
+      var pl = byCategory[c.key];
+      var cur = pl && goalPeriodByNumber(pl, pl.currentPeriodNumber);
+      if (goalsCurrentPeriodIdx < 0 && cur && cur.periodIndexInCycle) goalsCurrentPeriodIdx = cur.periodIndexInCycle - 1;
+    });
 
     for (var i = 1; i <= 13; i += 1) {
       (function (periodIndex) {

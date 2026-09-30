@@ -285,6 +285,8 @@
     if (tasksView) tasksView.classList.toggle('hidden', mode !== 'tasks');
     if (objectifsView) objectifsView.classList.toggle('hidden', mode !== 'goals');
     if (mode === 'tasks') loadGoalsTasksOverview();
+    // O2·07 : à l'arrivée sur « Objectifs », le rail indique la période en cours.
+    if (mode === 'goals' && TMT.updateGoalsScrubVisibility) window.requestAnimationFrame(function () { TMT.updateGoalsScrubVisibility(); });
   }
 
   $('goalsPage2ModeTasksBtn').addEventListener('click', function () { setGoalsPage2Mode('tasks'); });
@@ -323,6 +325,16 @@
 
 
   function renderGoalsTasksOverview(data) {
+    // O2·06 / O2·N4 / O2·N7 : l'écran suit le pôle affiché dans le sélecteur
+    // de pôle (TMT.currentGoalsSelectedPoleKey) — seuls les secteurs (ou le
+    // pôle sans secteur) de CE pôle, avec leurs tâches et leur avancement.
+    var selPole = TMT.currentGoalsSelectedPoleKey;
+    if (data && selPole && (data.groups || []).some(function (g) { return g.poleKey === selPole; })) {
+      var fg = data.groups.filter(function (g) { return g.poleKey === selPole; });
+      var fd = 0, ft = 0;
+      fg.forEach(function (g) { fd += g.done || 0; ft += g.total || 0; });
+      data = { done: fd, total: ft, percent: ft ? Math.round(fd / ft * 100) : null, groups: fg };
+    }
     var wrap = $('goalsTasksProgressWrap');
     // Règle R1 (même principe que renderActivityProgressRing()) : jamais de
     // « 0% » trompeur avant le premier chargement réel — l'anneau reste
@@ -353,6 +365,12 @@
       : t('Aucun pôle pour le moment — ajoutez-en un depuis la fenêtre de l’activité, section Catégories.');
     emptyHint.classList.toggle('hidden', groups.length > 0);
   }
+
+
+  // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle.
+  TMT.rerenderGoalsTasksOverview = function () {
+    if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview);
+  };
 
 
   // Gabarit repris tel quel d'une ligne sous-projet (.subProjectRow, voir
