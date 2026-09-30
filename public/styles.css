@@ -807,9 +807,9 @@ input[type=time]:focus, select:focus, textarea:focus {
 /* Volet actif : carré teinté violet, icône blanche, libellé violet clair. */
 .tabBtn.active .tabIcon,
 :root[data-theme="dark"] .tabBtn.active .tabIcon {
-  background: linear-gradient(180deg, rgba(var(--brique-rgb), 0.55) 0%, rgba(var(--brique-deep-rgb), 0.38) 100%);
-  border-color: rgba(var(--brique-text-rgb), 0.45);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 6px 18px rgba(var(--brique-deep-rgb), 0.45);
+  background: linear-gradient(180deg, rgba(133, 108, 200, 0.55) 0%, rgba(103, 78, 167, 0.38) 100%);
+  border-color: rgba(170, 150, 230, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 6px 18px rgba(103, 78, 167, 0.45);
   color: #ffffff;
 }
 .tabBtn.active { color: #ffffff; }
@@ -827,7 +827,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   white-space: nowrap;
 }
 .tabBtn.active .tabLabel { font-weight: 600; color: var(--purple); }
-:root[data-theme="dark"] .tabBtn.active .tabLabel { color: var(--brique-text); }
+:root[data-theme="dark"] .tabBtn.active .tabLabel { color: #cdbdf0; }
 
 /* ⚠️ 29 septembre 2026, demande d'Emilien (direction visuelle « Piste B »,
    validée sur rendu du volet Chrono) — MATIÈRE « VERRE » commune à l'app :
@@ -932,15 +932,6 @@ body { isolation: isolate; }
   --halo-n2-rgb: 158, 72, 168; --halo-n2-a: 0.22;
 }
 :root[data-theme="dark"] { --halo-n1-a: 0.54; --halo-n2-a: 0.54; }
-/* 30 sept. 2026 (demande d'Emilien) : sombre uniquement, toutes les zones violettes passent a la brique mate
-   (terre cuite desaturee, poudree, moins lumineuse). --purple* est redefini ici : tous les consommateurs suivent.
-   Les couleurs de poles choisies par l'utilisateur ne sont pas concernees. */
-:root[data-theme="dark"] {
-  --brique: #96574A; --brique-dark: #723F35; --brique-rgb: 150, 87, 74; --brique-deep-rgb: 114, 63, 53;
-  --brique-text: #C9998B; --brique-text-rgb: 201, 153, 139;
-  --purple: var(--brique); --purple-dark: var(--brique-dark); --purple-rgb: var(--brique-rgb);
-  --halo-n1-rgb: 138, 82, 68; --halo-n2-rgb: 112, 66, 56;
-}
 #activityPage::before,
 #goalsActivitySwitcher::before,
 #profileSettingsPanel::before,
@@ -6044,7 +6035,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .autoTaskGlowMove {
   fill: none;
-  stroke: var(--brique-text);
+  stroke: #9583C1;
   stroke-width: 3.5px;
   stroke-linecap: round;
   animation: activityGoalsAutoTaskGlow 6s linear infinite;
