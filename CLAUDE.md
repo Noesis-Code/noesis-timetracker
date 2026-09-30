@@ -13,9 +13,11 @@ Source unique de vérité du fonctionnement du dépôt. Historique détaillé de
 
 ## Autonomie
 
-- **Sans validation** : correctifs, petites fonctionnalités, retouches UI demandées, refactors locaux, tests, docs.
-- **Avec validation d'Émilien (proposer puis attendre)** : nouveau mécanisme, changement d'architecture, nouvelle dépendance, nouvelle table/migration lourde, changement de règle produit verrouillée. Décision d'Émilien : pour une demande de design, proposer plusieurs pistes visuelles plutôt que retoucher à l'aveugle.
-- **Ne jamais** : fusionner vers `main`, commit direct sur `main`, élargir une demande (ne changer que ce qui est demandé — un style demandé pour UN état ne s'applique pas aux autres).
+Décision d'Émilien, 30 sept. 2026 : **plus d'autonomie, plus de demande de permission**. Tout s'exécute sans validation préalable (correctifs, fonctionnalités, nouveaux mécanismes, architecture, dépendances, migrations) dès que c'est cohérent avec la demande ; on le signale en une ligne dans le compte rendu au lieu de demander avant.
+
+- **Réservé à Émilien (préparer, ne pas exécuter)** : fusion vers `main`, actions irréversibles ou destructrices (suppression de données/prod, réécriture d'historique git), changement d'une règle produit verrouillée, dépense ou abonnement payant.
+- **Design** : si une direction est donnée, l'exécuter. Plusieurs pistes visuelles seulement quand la demande est réellement ambiguë.
+- **Ne jamais** élargir une demande : ne changer que ce qui est demandé (un style demandé pour UN état ne s'applique pas aux autres ; « zones précises » ≠ couleur principale — le **violet reste la couleur principale** de l'app, halos compris, sauf demande explicite).
 
 ## Hébergement du code
 
@@ -37,7 +39,7 @@ Source unique de vérité du fonctionnement du dépôt. Historique détaillé de
 
 ## Travailleurs en arrière-plan (depuis le 30 sept. 2026)
 
-Émilien envoie ses demandes au coordinateur, qui les lance chacune dans une tâche en arrière-plan (tâche planifiée « Chantier TMT » déclenchée à la demande). Un travailleur : lit ce fichier et `BACKLOG.md`, prend UNE demande, travaille sur `claude/<sujet>` (depuis `origin/staging` à jour), teste, puis fusionne vers `staging` si c'est dans le périmètre d'autonomie (sinon propose et s'arrête), puis rend un compte rendu de 2 lignes. Il ne modifie pas `BACKLOG.md` (le coordinateur le tient).
+Émilien envoie ses demandes au coordinateur, qui les lance chacune dans une tâche en arrière-plan (tâche planifiée « Chantier TMT » déclenchée à la demande). Un travailleur : lit ce fichier et `BACKLOG.md`, prend UNE demande, travaille sur `claude/<sujet>` (depuis `origin/staging` à jour), teste, puis fusionne vers `staging` (il ne s'arrête pour proposer que pour les cas réservés à Émilien), puis rend un compte rendu de 2 lignes. Il ne modifie pas `BACKLOG.md` (le coordinateur le tient).
 
 ## Cartographie (périmètres de fichiers, pour répartir les sous-agents)
 
