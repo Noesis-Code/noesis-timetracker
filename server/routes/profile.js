@@ -22,9 +22,9 @@ const { periodRange } = require('../lib/period');
 
 const router = express.Router();
 
-// 30 sept. 2026 (demande d'Emilien) : couleurs par défaut des profils, palette B « Minéral » (9 teintes poudrées).
+// 30 sept. 2026 (demande d'Emilien) : couleurs par défaut des profils = MÊME nuance que les activités (palette B « Minéral »).
 // Remap des profils existants : staging seulement (server/lib/profilecolors-staging.js).
-const PALETTE = ['#B0787D', '#B08B78', '#B09F78', '#9DB078', '#78B094', '#78ABB0', '#7894B0', '#8178B0', '#A678B0'];
+const PALETTE = ['#A04B52', '#A0674B', '#A0864B', '#83A04B', '#4BA075', '#4B98A0', '#4B75A0', '#594BA0', '#914BA0'];
 
 // Longueur maximale d'un message du fil "Communauté" de Profil — même limite
 // que le fil de discussion d'une activité partagée (voir MAX_MESSAGE_LENGTH

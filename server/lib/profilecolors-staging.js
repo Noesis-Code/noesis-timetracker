@@ -9,7 +9,8 @@ const OLD_DARK = ['#9E2E2E', '#9B5D27', '#8B7923', '#328540', '#2E828A', '#3659A
 const V1_PROFILE = ['#7FA07B', '#7A9BB5', '#B9705F', '#C4A062', '#A08BAE', '#77A89E', '#BC8D6B', '#8E86B8']; // 1re version, trop pâle
 const CHALKY_PROFILE = ['#6E9669', '#6A93B5', '#B5604D', '#C49A4A', '#9678AC', '#5F9E92', '#BC8158', '#7E74B5']; // version « crayeuse »
 // 30 sept. 2026 : palette B « Minéral » (profils 9 couleurs ; activités 9 couleurs sombres + jumelles claires).
-const NEW_PROFILE = ['#B0787D', '#B08B78', '#B09F78', '#9DB078', '#78B094', '#78ABB0', '#7894B0', '#8178B0', '#A678B0'];
+const PALE_B_PROFILE = ['#B0787D', '#B08B78', '#B09F78', '#9DB078', '#78B094', '#78ABB0', '#7894B0', '#8178B0', '#A678B0']; // B pâle (3fa87c5)
+const NEW_PROFILE = ['#A04B52', '#A0674B', '#A0864B', '#83A04B', '#4BA075', '#4B98A0', '#4B75A0', '#594BA0', '#914BA0']; // = DARK_PALETTE
 const { DARK_PALETTE, LIGHT_PALETTE, LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE } = require('../../public/theme-palette.js');
 
 function applyProfileColorsOnStaging() {
@@ -17,7 +18,7 @@ function applyProfileColorsOnStaging() {
   if (!env || env === 'production') return 0;
   const upd = db.prepare('UPDATE users SET color = ? WHERE UPPER(color) = UPPER(?)');
   let n = 0;
-  [OLD_PROFILE, OLD_DARK, V1_PROFILE, CHALKY_PROFILE].forEach((old) => {
+  [OLD_PROFILE, OLD_DARK, V1_PROFILE, CHALKY_PROFILE, PALE_B_PROFILE].forEach((old) => {
     old.forEach((c, i) => { n += Number(upd.run(NEW_PROFILE[i], c).changes || 0); });
   });
   // Couleurs d'activité (activity_members) : ancienne palette -> palette B, par index (8 anciennes -> 9 nouvelles).
