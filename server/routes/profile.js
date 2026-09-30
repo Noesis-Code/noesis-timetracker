@@ -24,7 +24,7 @@ const router = express.Router();
 
 // 30 sept. 2026 (demande d'Emilien) : couleurs par défaut des profils au teint crayeux (désaturé, poudré).
 // Les profils existants gardent leur couleur (aucune migration).
-const PALETTE = ['#7FA07B', '#7A9BB5', '#B9705F', '#C4A062', '#A08BAE', '#77A89E', '#BC8D6B', '#8E86B8'];
+const PALETTE = ['#6E9669', '#6A93B5', '#B5604D', '#C49A4A', '#9678AC', '#5F9E92', '#BC8158', '#7E74B5'];
 
 // Longueur maximale d'un message du fil "Communauté" de Profil — même limite
 // que le fil de discussion d'une activité partagée (voir MAX_MESSAGE_LENGTH
