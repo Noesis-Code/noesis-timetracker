@@ -2405,7 +2405,7 @@ body.scrollLock { overflow: hidden; }
    position qui disent "c'est moi", le liseré ferait un troisième signal. */
 .chatThread .discussionMsg.mine {
   align-self: flex-end;
-  background: var(--mine-brique);
+  background: var(--mine-violet);
   border-left: none;
   border-bottom-left-radius: var(--radius-lg);
   border-bottom-right-radius: var(--radius-sm);
@@ -2413,10 +2413,10 @@ body.scrollLock { overflow: hidden; }
 .chatThread .discussionMsg.mine .discussionMsgBody,
 .chatThread .discussionMsg.mine .discussionMsgAuthor,
 .chatThread .discussionMsg.mine .meta,
-.chatThread .discussionMsg.mine .discussionMsgDelete { color: #fff; }
+.chatThread .discussionMsg.mine .discussionMsgDelete { color: var(--mine-violet-text); }
 .chatThread .discussionMsg.mine .meta { opacity: 0.8; }
 .chatThread .discussionMsg.mine .discussionMsgDelete:hover {
-  background: rgba(255, 255, 255, 0.18); color: #fff;
+  background: rgba(30, 24, 51, 0.12); color: var(--mine-violet-text);
 }
 /* Liens cliquables dans le corps d'un message (3 septembre 2026, demande
    d'Emilien : « si un utilisateur publie un lien, les autres [...] puissent
@@ -2425,7 +2425,7 @@ body.scrollLock { overflow: hidden; }
    (.discussionMsg.mine ici, .feedMine plus bas), le violet du lien
    disparaîtrait sur le violet du fond : surchargé en blanc souligné. */
 .msgLink { color: var(--purple); text-decoration: underline; word-break: break-word; }
-.chatThread .discussionMsg.mine .msgLink { color: #fff; }
+.chatThread .discussionMsg.mine .msgLink { color: var(--mine-violet-text); }
 /* Le fil est une conversation : on la lit du haut vers le bas, le plus récent
    en dernier. `justify-content: flex-end` colle les messages au BAS du cadre
    quand ils ne le remplissent pas encore — sans quoi une conversation de deux
@@ -2493,14 +2493,18 @@ body.scrollLock { overflow: hidden; }
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   padding: 6px 12px;
 }
-.chatComposerRow .iconBtn {
-  /* 30 sept. 2026 (demande d'Emilien) : boutons Ajouter/Rechercher/Envoyer DANS les zones d'écriture =
-     contour fin + texte orange brique, fond transparent (pas de verre : règle verrouillée). */
+.chatComposerRow .iconBtn,
+.btnBrique.btnBrique {
+  /* 30 sept. 2026 (demande d'Emilien) : TOUS les boutons Ajouter/Rechercher/Envoyer (zones d'écriture, IA,
+     discussions, création pôle/secteur/projet…) = contour fin + texte orange brique, fond transparent
+     (pas de verre : règle verrouillée). Classe .btnBrique à poser sur tout nouveau bouton de ce type. */
   background: transparent; border: 1px solid #C2694A; color: #E08A69;
   -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
 }
-.chatComposerRow .iconBtn:hover:not(:disabled) { background: rgba(194, 105, 74, 0.14); }
-.chatComposerRow .iconBtn:disabled { opacity: 0.45; }
+.chatComposerRow .iconBtn:hover:not(:disabled),
+.btnBrique.btnBrique:hover:not(:disabled) { background: rgba(194, 105, 74, 0.14); }
+.chatComposerRow .iconBtn:disabled,
+.btnBrique.btnBrique:disabled { opacity: 0.45; }
 .chatComposer .msg { text-align: right; margin-top: 6px; }
 .chatComposer .msg:empty { display: none; }
 
@@ -2546,9 +2550,9 @@ body.scrollLock { overflow: hidden; }
    cf. .discussionList ci-dessus et .historyEntry plus bas). */
 #followingFeed { display: flex; flex-direction: column; gap: 8px; }
 
-/* 30 sept. 2026 (demande d'Emilien) : MES publications/messages en brique crayeux, mat, moins lumineux.
+/* 30 sept. 2026 (demande d'Emilien) : MES publications/messages en violet pâle crayeux (texte foncé).
    Le violet reste la couleur principale de l'app partout ailleurs. */
-:root { --mine-brique: #8C5A4F; }
+:root { --mine-violet: #B7AED3; --mine-violet-text: #1E1833; }
 
 /* Mes propres publications dans le flux d'actualité de Communauté (3 septembre
    2026, demande d'Emilien : « le message doit être violet complètement pour
@@ -2560,18 +2564,18 @@ body.scrollLock { overflow: hidden; }
    Les descendants sont forcés en blanc plutôt que laissés à `var(--text)` :
    sur fond violet, le texte du mode clair deviendrait illisible. */
 .discussionMsg.feedMine {
-  background: var(--mine-brique);
+  background: var(--mine-violet);
   box-shadow: var(--shadow-card);
 }
 .discussionMsg.feedMine .discussionMsgBody,
 .discussionMsg.feedMine .discussionMsgAuthor,
 .discussionMsg.feedMine .meta,
 .discussionMsg.feedMine .attachmentName {
-  color: #fff;
+  color: var(--mine-violet-text);
 }
-.discussionMsg.feedMine .discussionMsgDelete { color: rgba(255, 255, 255, 0.75); }
-.discussionMsg.feedMine .discussionMsgDelete:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
-.discussionMsg.feedMine .msgLink { color: #fff; }
+.discussionMsg.feedMine .discussionMsgDelete { color: var(--mine-violet-text); }
+.discussionMsg.feedMine .discussionMsgDelete:hover { background: rgba(30, 24, 51, 0.12); color: var(--mine-violet-text); }
+.discussionMsg.feedMine .msgLink { color: var(--mine-violet-text); }
 
 /* Nom d'auteur TOUJOURS affiché en entier dans le fil "Suivi" (3 septembre
    2026, demande d'Emilien : « le nom des utilisateurs doit toujours
@@ -3891,8 +3895,8 @@ button { -webkit-user-select: none; user-select: none; }
 /* Sur une carte en violet plein, le champ doit rester lisible comme le reste. */
 .discussionMsg.feedMine.pollCard .pollOtherInput {
   background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.5);
-  color: #fff;
+  border-color: var(--mine-violet-text);
+  color: var(--mine-violet-text);
 }
 
 /* ----- formulaire de création ----- */
@@ -4022,29 +4026,29 @@ button { -webkit-user-select: none; user-select: none; }
 .discussionMsg.feedMine.pollCard .pollChoice span,
 .discussionMsg.feedMine.pollCard .pollResultLabel,
 .discussionMsg.feedMine.pollCard .msg {
-  color: #fff;
+  color: var(--mine-violet-text);
 }
 /* Les cadres des réponses et des boutons : un trait blanc translucide se
    détache du violet sans faire de bord dur. */
 .discussionMsg.feedMine.pollCard .pollChoice {
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: var(--mine-violet-text);
 }
 .discussionMsg.feedMine.pollCard .iconBtn {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.5);
-  color: #fff;
+  background: rgba(30, 24, 51, 0.06);
+  border-color: var(--mine-violet-text);
+  color: var(--mine-violet-text);
 }
-.discussionMsg.feedMine.pollCard .iconBtn:hover { background: rgba(255, 255, 255, 0.26); }
+.discussionMsg.feedMine.pollCard .iconBtn:hover { background: rgba(30, 24, 51, 0.12); }
 /* Barres de résultat : la piste et le remplissage sont tous deux violets dans
    le thème normal — sur fond violet, ils disparaîtraient l'un dans l'autre. */
-.discussionMsg.feedMine.pollCard .pollBar { background: rgba(255, 255, 255, 0.28); }
-.discussionMsg.feedMine.pollCard .pollBarFill { background: #fff; }
+.discussionMsg.feedMine.pollCard .pollBar { background: rgba(30, 24, 51, 0.18); }
+.discussionMsg.feedMine.pollCard .pollBarFill { background: var(--mine-violet-text); }
 .discussionMsg.feedMine.pollCard .pollResult.chosen .pollBarFill { background: rgba(255, 255, 255, 0.72); }
 /* .meta et .hint sont volontairement un peu en retrait, comme ailleurs dans
    l'app — blanc atténué plutôt que blanc pur. */
 .discussionMsg.feedMine.pollCard .meta,
 .discussionMsg.feedMine.pollCard .hint {
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--mine-violet-text);
 }
 
 /* ----- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) -----

@@ -1154,7 +1154,7 @@
     // avec seulement une place pour le bouton ajouter » — classe dédiée
     // (plus .iconBtn, réutilisée telle quelle ailleurs dans ce fichier) pour
     // pouvoir agrandir ce bouton précis sans toucher au reste de l'app.
-    btn.className = 'goalsCalendarTaskAddBtn';
+    btn.className = 'goalsCalendarTaskAddBtn btnBrique';
     btn.textContent = t('Ajouter');
     var msg = document.createElement('p');
     msg.className = 'msg';

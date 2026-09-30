@@ -754,7 +754,7 @@
 
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'iconBtn';
+    btn.className = 'iconBtn btnBrique';
     btn.textContent = t('Ajouter');
 
     var msg = document.createElement('p');

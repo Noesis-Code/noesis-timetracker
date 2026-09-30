@@ -527,7 +527,7 @@
     input.placeholder = t('Ajouter une tâche...');
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'iconBtn';
+    btn.className = 'iconBtn btnBrique';
     btn.textContent = t('Ajouter');
     var msg = document.createElement('p');
     msg.className = 'msg';

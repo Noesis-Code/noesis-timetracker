@@ -6368,7 +6368,7 @@
 
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'iconBtn';
+    btn.className = 'iconBtn btnBrique';
     btn.textContent = t('Ajouter');
 
     var msg = document.createElement('p');
@@ -7244,7 +7244,7 @@
     scrollAddInputIntoView(addInput);
     var addBtn = document.createElement('button');
     addBtn.type = 'button';
-    addBtn.className = 'iconBtn';
+    addBtn.className = 'iconBtn btnBrique';
     addBtn.textContent = t('Ajouter');
     addBtn.addEventListener('click', function () {
       var label = addInput.value.trim();
@@ -7436,7 +7436,7 @@
     scrollAddInputIntoView(addInput);
     var addBtn = document.createElement('button');
     addBtn.type = 'button';
-    addBtn.className = 'iconBtn';
+    addBtn.className = 'iconBtn btnBrique';
     addBtn.textContent = t('Ajouter');
     addBtn.addEventListener('click', function () {
       var label = addInput.value.trim();
@@ -8472,7 +8472,7 @@
       // il l'ouvre si elle est fermée, puis déplie le menu déroulant.
       var addBtn = document.createElement('button');
       addBtn.type = 'button';
-      addBtn.className = 'iconBtn subProjectAddBtn';
+      addBtn.className = 'iconBtn subProjectAddBtn btnBrique';
       addBtn.textContent = t('Ajouter');
       // ⚠️ Sa visibilité dépend de ce que contient DÉJÀ le sous-projet, donc
       // du DÉTAIL — chargé par une seconde requête. Les deux rendus courent en
@@ -8895,7 +8895,7 @@
     input.placeholder = t('Ajouter une tâche...');
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'iconBtn';
+    btn.className = 'iconBtn btnBrique';
     btn.textContent = t('Ajouter');
     var msg = document.createElement('p');
     msg.className = 'msg';
@@ -10129,7 +10129,7 @@
     if (canAdd) {
       var addBtn = document.createElement('button');
       addBtn.type = 'button';
-      addBtn.className = 'iconBtn';
+      addBtn.className = 'iconBtn btnBrique';
       addBtn.textContent = t('Ajouter un membre');
       actionsRow.appendChild(addBtn);
     }
