@@ -625,7 +625,11 @@ input[type=time]:focus, select:focus, textarea:focus {
       titre défilerait avec le contenu, ce qui est exactement ce qu'Emilien ne
       veut pas. `min-height: 0` est indispensable : sans lui, un enfant flex
       refuse de descendre sous la hauteur de son contenu et rien ne défile. */
-#profileFollowsPanel,
+/* ⚠️ 29 septembre 2026 : #profileFollowsPanel est SORTI de cette règle — il
+   n'est plus un panneau ancré sous son icône mais une fenêtre
+   (.communityMembersModal), dont la hauteur est celle de l'écran et non un
+   calcul à partir de --topbar-h/--tabbar-h. Voir le bloc « PAGE PROFIL » plus
+   bas dans ce fichier. #profileProjectsPanel, lui, reste un panneau ancré. */
 #profileProjectsPanel {
   display: flex;
   flex-direction: column;
@@ -4686,7 +4690,8 @@ button { -webkit-user-select: none; user-select: none; }
   padding-left: max(16px, env(safe-area-inset-left));
   padding-right: max(16px, env(safe-area-inset-right));
 }
-#activityPageScroll {
+#activityPageScroll,
+#profilePageScroll {
   padding-left: max(16px, env(safe-area-inset-left));
   padding-right: max(16px, env(safe-area-inset-right));
   padding-bottom: max(16px, env(safe-area-inset-bottom));
@@ -6404,4 +6409,201 @@ button { -webkit-user-select: none; user-select: none; }
   z-index: 250; /* au-dessus des fenêtres (Activité : 100) */
 }
 
+/* ===================== PAGE PROFIL (29 septembre 2026) =====================
+   Chantier « épuration visuelle », demande d'Emilien : « lorsqu'on clique sur
+   le profil en haut à gauche, cela ouvre une page dans le même style que la
+   fenêtre des activités [...] puis dans des carrés, l'icône des abonnés
+   abonnements, l'icône des invitations et la croix pour fermer [...] En
+   dessous de la barre placer les projets. »
 
+   Rien d'inventé ici : c'est le montage d'#activityPage recopié tel quel
+   (surface pleine et opaque + carte en colonne flex : bandeau figé, zone
+   défilante), déjà repris par Réglages le 26 septembre. Le bandeau réutilise
+   .activityPageHeader — donc aussi ses paddings d'encoche — et n'ajoute que
+   .profilePageHeader pour l'espacement propre aux carrés. */
+#profilePage { align-items: stretch; background: var(--bg); }
+#profilePage .communityMembersModalCard {
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  height: 100%; max-height: 100%;
+  border-radius: 0; box-shadow: none;
+}
+/* ⚠️ Sous les fenêtres filles, pas au-dessus : .communityMembersModal est à
+   z-index 100, et « Abonnés »/« Invitations » s'ouvrent PAR-DESSUS cette
+   page. Même valeur que #activityPage, pour la même raison. */
+#profilePage { z-index: 90; }
+.profilePageHeader { gap: 8px; }
+.profilePageHeader .avatarWrap { flex: 0 0 auto; margin: 0; }
+/* Le nom prend la place restante et se tronque plutôt que de pousser les trois
+   carrés hors de la ligne — même règle que .activityPageName, dont il hérite,
+   mais en plus petit : il cohabite ici avec une photo ET trois carrés, là où
+   le nom d'une activité n'a que deux boutons à côté de lui. */
+.profilePageHeader .activityPageName { font-size: 18px; }
+#profilePageScroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
+  /* Le rebond de cette zone ne se propage pas à l'onglet resté derrière. */
+  overscroll-behavior: contain;
+}
+/* La bande des projets arrive juste sous le bandeau, la Discussion après. */
+#profilePageScroll > #topbarProjects { margin-bottom: 16px; }
+
+/* Les « carrés » d'Emilien. .topIconBtn (l'ancienne forme de ces deux icônes)
+   n'avait ni fond ni bordure ; le carré, lui, est justement ce qui les rend
+   visibles comme des boutons. Gardé sobre : bordure fine, pas de remplissage,
+   la même que celle qui sépare les sections ailleurs. */
+.profileSquareBtn {
+  flex: 0 0 auto; position: relative;
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  background: transparent; color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  cursor: pointer; font-size: 16px; line-height: 1;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.profileSquareBtn svg { width: 20px; height: 20px; display: block; }
+.profileSquareBtn .notifDot { top: -2px; right: -2px; }
+@media (hover: hover) {
+  .profileSquareBtn:hover { background: var(--hover-bg); }
+}
+
+/* ----- Les deux fenêtres filles : « Abonnés » et « Invitations » -----
+   Choix d'Emilien du 29 septembre : « ouverture d'une fenêtre dans le même
+   style que les profils des autres utilisateurs ou que les membres de la
+   fenêtre d'activité ». C'est donc le montage de #viewProfileModal :
+   .communityMembersModalCard en colonne flex, bandeau figé, zone défilante.
+   Elles restent des feuilles posées sur le bas de l'écran (comportement
+   d'origine de .communityMembersModal, non touché) — ce qui les distingue
+   visuellement de la page Profil, pleine et opaque, sur laquelle elles
+   s'ouvrent. */
+#profileFollowsPanel .communityMembersModalCard,
+#profileNotifPanel .communityMembersModalCard {
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+}
+.profileSubWindowHeader {
+  display: flex; align-items: center; gap: 10px; flex: 0 0 auto;
+  background: var(--bg); padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.profileSubWindowHeader .sectionTitle { flex: 1; min-width: 0; margin: 0; }
+/* Le titre d'« Abonnés » portait son propre filet quand il était un panneau
+   ancré ; le bandeau en pose déjà un. Sans ça, deux traits superposés. */
+.profileSubWindowHeader #followsPanelTitle {
+  border-bottom: none; padding-bottom: 0; margin: 0;
+}
+/* Le sélecteur à trois vues reste FIXE sous le bandeau, hors du défilement —
+   c'est ce qu'Emilien avait demandé le 10 septembre (« le titre reste fixe
+   au-dessus et les noms défilent en dessous ») et que la conversion en
+   fenêtre ne doit pas perdre. */
+#profileFollowsPanel #followsSwitch {
+  flex: 0 0 auto; margin: 0; padding: 12px 16px 0;
+}
+#followsScroll,
+#notifScroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding: 12px 16px 16px;
+  overscroll-behavior: contain;
+}
+
+/* ================= RÉGLAGES — MODE ÉPURÉ (30 septembre 2026) =================
+   Chantier « épuration visuelle », demande d'Emilien, verbatim : « je souhaite
+   conserver la première fonction avec les boutons repliés et je souhaite que
+   lorsqu'on déplie un bouton de réglage il n'y ait plus de différentes zones.
+   Je souhaite garder la même structure mais simplement enlever les cadres et
+   mettre des lignes fines comme dans les enregistrements chrono, un style plus
+   simple avec moins de structures et de bulles et de couleurs. »
+
+   Précision obtenue de lui au cadrage : ce n'est PAS le bouton « Historique »
+   du Chrono qui sert de modèle (première hypothèse, écartée), mais le rendu
+   des ENREGISTREMENTS eux-mêmes — .historyEntryCompact dans
+   public/css/objectifs-page1.css, dont le propre commentaire dit : « séparées
+   par un simple filet — jamais de carte/ombre par tâche ». C'est ce gabarit
+   qui est repris ici : fond transparent, pas d'arrondi, pas d'ombre, un filet
+   d'1px entre les lignes, le dernier sans filet.
+
+   ⚠️ AUCUNE structure ni aucun id ne change : ce bloc est purement visuel. Les
+   sections restent repliées par défaut et se déplient comme avant (voir
+   closeAllSettingsSections / .settingsSectionHeader dans app.js, non touchés).
+   Tout est scopé sous #profileSettingsScroll : .settingsCard n'existe que dans
+   ce panneau, mais le scope reste explicite pour qu'un futur usage ailleurs
+   n'hérite pas de l'aplatissement. .entryCard, elle, est GÉNÉRIQUE (Design,
+   utilisée par Communauté et les sondages) et n'est pas touchée.
+
+   Ces règles doivent rester APRÈS celles de #profileSettingsPanel plus haut :
+   même spécificité (1 id + 1 classe), c'est donc l'ordre source qui tranche. */
+
+/* Les en-têtes repliables : le bouton reste un bouton, il perd sa carte. */
+#profileSettingsScroll .settingsSectionHeader {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 14px 4px;
+}
+/* ⚠️ COLLISION ASSUMÉE AVEC LE SEGMENT DESIGN — 30 septembre 2026.
+   Design a posé le même jour un effet « verre » sur ces mêmes en-têtes
+   (`#profileSettingsPanel .settingsGroup > .settingsSectionHeader` et sa
+   voisine, plus haut dans ce fichier : --glass-bg, backdrop-filter, liseré
+   intérieur blanc). Sa spécificité (1 id + 2 classes) l'emportait sur la règle
+   ci-dessus (1 id + 1 classe) : les en-têtes restaient des bulles vitrées.
+   Emilien a demandé l'inverse pour cet écran, verbatim : « enlever les cadres
+   [...] un style plus simple avec moins de structures et de bulles et de
+   couleurs ». Ces deux règles reprennent donc la même forme de sélecteur —
+   même spécificité, placées plus bas, donc gagnantes — UNIQUEMENT sur les
+   en-têtes de section de Réglages. Le reste du travail de Design est intact :
+   la croix du bandeau (.subpageHeader .menuBtn), la barre d'onglets, les
+   boutons de la page 2 des Objectifs et les jetons --glass-* eux-mêmes ne sont
+   pas touchés. À arbitrer par Emilien si les deux intentions se contredisent
+   vraiment — ce n'est pas à moi de trancher pour Design. */
+#profileSettingsScroll .settingsGroup > .settingsSectionHeader,
+#profileSettingsScroll .settingsSection > .settingsSectionHeader {
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* « Moins de couleurs » : l'ouverture ne se signale plus par un liseré violet
+   — le chevron qui pivote et le contenu qui apparaît le disent déjà. */
+#profileSettingsScroll .settingsSection.open .settingsSectionHeader,
+#profileSettingsScroll .settingsGroup.open .settingsSectionHeader {
+  border-bottom-color: var(--border);
+}
+/* Plus d'espace entre les sections : ce sont des lignes qui se suivent, pas
+   des blocs posés les uns sous les autres. Le filet suffit à les séparer. */
+#profileSettingsScroll .settingsSection,
+#profileSettingsScroll .settingsGroup,
+#profileSettingsScroll .settingsFlat {
+  margin-bottom: 0;
+}
+
+/* Le contenu d'une section dépliée : c'est là qu'Emilien voit « différentes
+   zones ». Chaque .settingsCard perd fond, arrondi et ombre et devient une
+   ligne séparée par un filet. */
+#profileSettingsScroll .settingsCard {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 12px 4px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border);
+}
+/* Dernière ligne d'une section : pas de filet, sinon il doublerait celui de
+   l'en-tête de la section suivante. */
+#profileSettingsScroll .settingsSectionBody > .settingsCard:last-child,
+#profileSettingsScroll .settingsGroupBody > .settingsCard:last-child,
+#profileSettingsScroll .settingsFlat > .settingsCard:last-child {
+  border-bottom: none;
+}
+/* Le corps déplié se colle à son en-tête : les 8px d'écart dessinaient un
+   deuxième bloc sous le premier. */
+#profileSettingsScroll .settingsSectionBody,
+#profileSettingsScroll .settingsGroupBody {
+  margin-top: 0;
+}
+/* ⚠️ Reste des 44px réservés au bouton « ← » flottant, disparu le 26 septembre
+   2026 : les titres de sous-section restaient décalés pour un bouton absent.
+   Alignés sur les 4px des lignes ci-dessus. */
+#profileSettingsScroll .settingsFlatTitle {
+  padding-left: 4px;
+  padding-top: 14px;
+}

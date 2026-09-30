@@ -1889,8 +1889,13 @@
     // elle y était déjà. syncTopbarHeightVar() recalcule --topbar-h : la
     // hauteur de la barre change entre les deux états (une ligne contre
     // deux).
-    $('topbarProfile').classList.add('hidden');
-    $('topbarDefault').classList.remove('hidden');
+    // ⚠️ 29 septembre 2026 : #topbarProfile n'existe plus. Le Profil est
+    // devenu une PAGE superposée (#profilePage), la barre supérieure ne bascule
+    // donc plus entre deux états et il n'y a plus rien à remettre ici. Les deux
+    // lignes retirées visaient des éléments désormais absents d'index.html —
+    // les laisser aurait levé une TypeError au premier changement d'onglet,
+    // c'est-à-dire une panne totale (voir noesis-timetracker-alerte-app-js-
+    // 2026-09-10.md, la règle sur les $('id') non gardés).
     syncTopbarHeightVar();
     // On quitte forcément la vue Réglages (dans #tab-profile) en rejoignant
     // un onglet principal — l'icône "⚙️" de la topbar ne doit donc plus
@@ -1944,20 +1949,15 @@
   // Profil en tapant n'importe quel onglet de la barre du bas, qui appelle
   // déjà switchTab() indépendamment de l'état de Profil (voir tabButtons
   // plus haut) — aucun remplacement nécessaire.
+  // 29 septembre 2026 (épuration visuelle, demande d'Emilien) : le Profil
+  // n'est plus un onglet doublé d'un état de barre supérieure — c'est une
+  // PAGE superposée, montée comme #activityPage. On ne quitte donc plus
+  // l'onglet courant pour l'ouvrir : il reste derrière, et la croix le
+  // redécouvre. C'est aussi ce qui permet d'ouvrir le Profil depuis
+  // n'importe où sans avoir à mémoriser d'où l'on venait (l'ancien
+  // lastMainTab, retiré le 31 août, n'a pas à revenir).
   function openProfile() {
-    document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
-    $('tab-profile').classList.remove('hidden');
-    // La photo/#whoami de la topbar disparaît et le Profil (identité + les
-    // trois icônes abonnés/invitations/réglages) s'intègre à la topbar à sa
-    // place, "Noèsis" se recentrant au-dessus (3 septembre 2026, demande
-    // d'Emilien). Voir #topbarDefault/#topbarProfile dans index.html, et le
-    // retour à l'état par défaut dans switchTab() ci-dessus. La hauteur de la
-    // topbar passe d'une à deux lignes : syncTopbarHeightVar() remet
-    // --topbar-h à jour pour que le reste de la mise en page (padding-top de
-    // #app, etc.) suive.
-    $('topbarDefault').classList.add('hidden');
-    $('topbarProfile').classList.remove('hidden');
-    syncTopbarHeightVar();
+    $('profilePage').classList.remove('hidden');
     showProfileMain();
     loadPendingInvites();
     loadFollowRequests();
@@ -1968,7 +1968,26 @@
     loadProfileDiscussion();
     refreshScrollLock();
   }
+
+  // Les fenêtres filles se referment AVEC la page : sans ça, fermer le Profil
+  // en laissant « Abonnés » ouvert laisserait une fenêtre orpheline posée sur
+  // un onglet auquel elle n'appartient pas.
+  function closeProfilePage() {
+    closeFollowsPanel();
+    closeNotifPanel();
+    closeProjectsPanel();
+    closeSettingsPanel();
+    $('profilePage').classList.add('hidden');
+    refreshScrollLock();
+  }
   $('whoami').addEventListener('click', openProfile);
+  $('profilePageClose').addEventListener('click', closeProfilePage);
+  // Clic sur la zone « en dehors » qui entoure la carte — forme identique à
+  // celle d'#activityPage et de Réglages. Le test sur e.target est
+  // indispensable : sans lui, tout clic DANS la page la refermerait.
+  $('profilePage').addEventListener('click', function (e) {
+    if (e.target === $('profilePage')) closeProfilePage();
+  });
 
   // ===================== ACTIVITÉ =====================
   // Une seule liste depuis le 30 août 2026 (fin de journée, demande
@@ -12207,32 +12226,38 @@
   // loadFollowConnections() (inchangée, toujours scopée à l'appelant) n'est
   // appelée qu'à l'ouverture effective du panneau — pas à chaque ouverture
   // du Profil.
+  // ⚠️ 29 septembre 2026 (décision d'Emilien) : ce n'est plus un panneau
+  // flottant ancré sous son icône mais une FENÊTRE, « dans le même style que
+  // les profils des autres utilisateurs ou que les membres de la fenêtre
+  // d'activité ». Conséquences sur ce bloc :
+  //   - plus de bascule ouvert/fermé au clic sur le carré : le carré OUVRE,
+  //     la croix (ou le fond) FERME — comme toute autre fenêtre de l'app ;
+  //   - l'écouteur « clic en dehors » sur document a été SUPPRIMÉ, pas
+  //     seulement neutralisé : .followsWrap n'existe plus, donc son
+  //     `closest()` aurait toujours renvoyé null et la fenêtre se serait
+  //     refermée au premier clic à l'intérieur d'elle-même ;
+  //   - la classe « active » sur le carré n'a plus de sens (la fenêtre
+  //     recouvre la page), mais closeFollowsPanel la retire encore par
+  //     sécurité, au cas où un autre appelant l'aurait posée.
+  // Tout le reste est inchangé : setFollowsSection('followers') au démarrage
+  // (convention du 10 septembre : on rouvre toujours sur « Abonnés ») et
+  // loadFollowConnections() à l'ouverture effective seulement.
   $('profileFollowsBtn').addEventListener('click', function (e) {
     e.stopPropagation();
-    var opening = $('profileFollowsPanel').classList.contains('hidden');
-    if (opening) {
-      closeSettingsPanel();
-      closeNotifPanel();
-      closeProjectsPanel();
-      // Toujours rouvert sur « Abonnés », jamais sur la vue laissée la fois
-      // précédente — même convention que le sélecteur Statistiques/
-      // Publications de la page de visite d'un profil.
-      setFollowsSection('followers');
-      loadFollowConnections();
-    }
-    $('profileFollowsPanel').classList.toggle('hidden', !opening);
-    $('profileFollowsBtn').classList.toggle('active', opening);
+    closeSettingsPanel();
+    closeNotifPanel();
+    closeProjectsPanel();
+    setFollowsSection('followers');
+    loadFollowConnections();
+    $('profileFollowsPanel').classList.remove('hidden');
   });
   function closeFollowsPanel() {
     $('profileFollowsPanel').classList.add('hidden');
     $('profileFollowsBtn').classList.remove('active');
   }
-  // Referme le panneau au clic n'importe où en dehors de lui (ou de son
-  // icône) — même mécanisme que les panneaux Invitations et Réglages.
-  document.addEventListener('click', function (e) {
-    if ($('profileFollowsPanel').classList.contains('hidden')) return;
-    if (e.target.closest('.followsWrap')) return;
-    closeFollowsPanel();
+  $('followsPanelClose').addEventListener('click', closeFollowsPanel);
+  $('profileFollowsPanel').addEventListener('click', function (e) {
+    if (e.target === $('profileFollowsPanel')) closeFollowsPanel();
   });
 
   // Bascule l'affichage du panneau déroulant (#profileNotifPanel) listant
@@ -12252,13 +12277,13 @@
     $('profileNotifBtn').classList.remove('active');
   }
 
+  // ⚠️ 29 septembre 2026 : fenêtre, plus panneau flottant — voir le
+  // commentaire détaillé du carré « Abonnés » juste au-dessus, qui vaut mot
+  // pour mot ici (pas de bascule, écouteur « clic en dehors » supprimé et non
+  // neutralisé, .notifWrap n'existant plus).
   $('profileNotifBtn').addEventListener('click', function (e) {
     e.stopPropagation();
-    var opening = $('profileNotifPanel').classList.contains('hidden');
-    // Les panneaux flottants de la barre du haut s'excluent mutuellement :
-    // ouvrir les invitations referme les Réglages et Abonnés & Abonnements,
-    // et réciproquement (demande d'Emilien, 1er et 2 septembre 2026).
-    if (opening) {
+    {
       closeSettingsPanel(); closeFollowsPanel(); closeProjectsPanel();
       // ⚠️ 10 septembre 2026 : ces deux listes n'étaient rechargées qu'à
       // l'ouverture du Profil (openProfile). Une invitation ou une demande de
@@ -12270,14 +12295,11 @@
       loadPendingInvites();
       loadFollowRequests();
     }
-    $('profileNotifPanel').classList.toggle('hidden', !opening);
-    $('profileNotifBtn').classList.toggle('active', opening);
+    $('profileNotifPanel').classList.remove('hidden');
   });
-  // Referme le panneau au clic n'importe où en dehors de lui (ou du bouton).
-  document.addEventListener('click', function (e) {
-    if ($('profileNotifPanel').classList.contains('hidden')) return;
-    if (e.target.closest('.notifWrap')) return;
-    closeNotifPanel();
+  $('notifPanelClose').addEventListener('click', closeNotifPanel);
+  $('profileNotifPanel').addEventListener('click', function (e) {
+    if (e.target === $('profileNotifPanel')) closeNotifPanel();
   });
 
   $('settingsSaveBtn').addEventListener('click', function () {

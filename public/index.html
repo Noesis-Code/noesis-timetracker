@@ -638,292 +638,12 @@
          (cadrage confirmé par Emilien). ⚠️ Ce bloc déborde sur le territoire
          de la discussion Design (`.topbar`/`.brand`) — fait à la demande
          explicite d'Emilien, voir le journal Profil du 3 septembre 2026. -->
-    <div class="topbarProfile hidden" id="topbarProfile">
-      <span class="brand brandCentered">Noèsis</span>
-      <div class="identityHeader">
-        <div class="avatarWrap">
-          <button type="button" class="avatarDisplay" id="avatarDisplayCircle" title="Changer la photo de profil" aria-label="Changer la photo de profil">
-            <img id="avatarDisplayImg" class="hidden" alt="">
-            <span id="avatarDisplayInitial"></span>
-          </button>
-          <button type="button" id="avatarRemoveBtn" class="avatarRemoveBtn hidden" title="Retirer la photo" aria-label="Retirer la photo">×</button>
-        </div>
-        <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" class="hidden">
-        <span class="identityName" id="identityDisplayName"></span>
-        <!-- Icône "avion en papier" (invitations/demandes de suivi) et bouton
-             "⚙️" Réglages : de retour ici, à droite du nom (2 septembre
-             2026, deuxième passage — précision d'Emilien sur sa demande
-             du jour même). Historique : nées ici (#profileMain),
-             déplacées dans .topbar le 31 août 2026 pour être accessibles
-             depuis n'importe quel onglet, puis replacées à gauche du
-             prénom #whoami, puis à sa droite le 2 septembre (premier
-             passage) — Emilien voulait en réalité dire le nom affiché
-             ICI, sur la page Profil, pas celui de la topbar. Comportement
-             au clic inchangé (profileNotifBtn/profileSettingsBtn dans
-             app.js) ; ces icônes ne sont donc plus visibles/cliquables
-             que lorsque le Profil est déjà ouvert (elles vivent dans
-             #tab-profile). -->
-        <!-- Icônes "avion en papier" et "⚙️" calquées sur celles de la barre
-             du bas depuis le 1er septembre 2026 (demande d'Emilien) :
-             .topIconBtn (styles.css) plutôt que .menuBtn — plus de fond/
-             bordure, même simplicité et même couleur par défaut que .tabIcon,
-             et deviennent violettes ("active") pendant que le panneau/la vue
-             qu'elles ouvrent est affiché(e), comme un onglet sélectionné en
-             bas (voir app.js). -->
-
-        <!-- Icône "Abonnés & Abonnements" (2 septembre 2026, demande
-             d'Emilien : « créer un icône simple pour abonnés et
-             abonnements [...] à gauche de l'icône invitation [...] qu'une
-             fois sélectionné, il exclut invitation et paramètres »).
-             Troisième icône de .identityHeader, calquée à l'identique sur
-             .notifWrap/.settingsWrap juste après (même .topIconBtn, même
-             panneau flottant .notifPanel ancré sous sa propre icône, même
-             violet "active" pendant l'ouverture, même fermeture au clic en
-             dehors) et rejoint leur exclusion mutuelle : ouvrir ce panneau
-             referme Invitations et Réglages, et réciproquement (voir
-             closeFollowsPanel/closeNotifPanel/closeSettingsPanel dans
-             app.js). Remplace l'ancien bouton texte "Abonnés &
-             Abonnements" qui vivait juste sous l'avatar depuis le 1er
-             septembre 2026 (voir plus bas dans #profileMain) — même
-             panneau, même contenu (#settingsFollowersList/
-             #settingsFollowingList inchangés, y compris le bouton "Se
-             désabonner" sur la liste Abonnements), seul le point d'entrée
-             change : une icône simple plutôt qu'un bouton texte, cohérente
-             avec les deux autres icônes de la ligne. -->
-              <div class="followsWrap">
-          <button id="profileFollowsBtn" class="topIconBtn" title="Abonnés et abonnements" aria-label="Abonnés et abonnements">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          </button>
-          <!-- ⚠️ 10 septembre 2026, demande d'Emilien : « je souhaite ajouter
-               des boutons. Pour abonner, abonnement et bloquer. Il faut
-               cliquer sur ces boutons pour scroller les abonnés ou les
-               abonnements ou les personnes bloqué [...] lorsque j'appuie sur
-               un bouton par exemple abonné, que j'ouvre la fenêtre, je
-               souhaite que le mot abonné, le titre reste fixe au-dessus et
-               que les noms des abonnés défilent en dessous. »
-
-               Les trois listes étaient jusqu'ici EMPILÉES dans un panneau qui
-               défilait d'un seul bloc, chacune précédée de son propre titre.
-               Elles deviennent trois vues exclusives d'un même espace, avec :
-                 - un sélecteur à trois boutons (#followsSwitch), qui reprend
-                   .periodSwitch/.periodBtn — le motif déjà utilisé par le
-                   sélecteur Statistiques/Publications de la page de visite,
-                   donc aucune nouvelle classe à écrire ;
-                 - un titre unique (#followsPanelTitle) qui prend le nom de la
-                   vue active et reste FIXE ;
-                 - une seule zone défilante (#followsScroll) sous ce titre.
-               Le panneau lui-même passe donc en colonne flex avec
-               `overflow: hidden` (voir #profileFollowsPanel dans styles.css) :
-               c'est #followsScroll, et lui seul, qui défile. -->
-          <div id="profileFollowsPanel" class="notifPanel hidden">
-            <div class="periodSwitch" id="followsSwitch">
-              <button type="button" class="periodBtn active" id="followsTabFollowers">Abonnés</button>
-              <button type="button" class="periodBtn" id="followsTabFollowing">Abonnements</button>
-              <button type="button" class="periodBtn" id="followsTabBlocked">Bloqués</button>
-            </div>
-            <p class="sectionTitle" id="followsPanelTitle">Abonnés</p>
-            <div id="followsScroll">
-              <div id="followsSectionFollowers">
-                <div id="settingsFollowersList" class="activitiesList"></div>
-                <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
-              </div>
-              <div id="followsSectionFollowing" class="hidden">
-                <div id="settingsFollowingList" class="activitiesList"></div>
-                <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
-              </div>
-              <!-- Bloqués (8 septembre 2026, demande d'Emilien : « je souhaite
-                   que l'on puisse bloquer les utilisateurs qui nous suivent [...]
-                   que ce paramètre s'affiche sur le profil sous l'icône abonné
-                   et abonnement en face des abonnés »). Le bouton "Bloquer"
-                   lui-même vit sur chaque ligne de la liste Abonnés (voir
-                   renderSettingsFollowers dans app.js).
-                   Portée du blocage cadrée avec Emilien (AskUserQuestion) :
-                   empêche seulement la personne de (re)suivre, ne la retire ni
-                   de la recherche/découverte de membres ni de la consultation
-                   de la page de visite du profil. -->
-              <div id="followsSectionBlocked" class="hidden">
-                <div id="settingsBlockedList" class="activitiesList"></div>
-                <p id="settingsBlockedEmptyHint" class="hint hidden">Aucun utilisateur bloqué.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-              <div class="notifWrap">
-          <button id="profileNotifBtn" class="topIconBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
-            <span id="profileNotifDot" class="notifDot hidden"></span>
-          </button>
-          <!-- ⚠️ 10 septembre 2026, demande d'Emilien : « je souhaite que
-               l'icône avion à papier [...] n'affiche que les demande
-               d'invitation reçue et les demande de suivi, pas de titre en haut
-               avec marqué aucune invitation. Sauf lorsqu'il n'y a aucune
-               invitation ni demande de suivit, juste marquer une phrase style
-               "aucune invitation ni demande de suivit". »
-
-               Les deux titres de section ("Invitations reçues" / "Demandes de
-               suivi reçues") sont donc RETIRÉS, ainsi que les deux phrases
-               "Aucune invitation en attente."/"Aucune demande en attente."
-               que chaque liste affichait pour elle-même (voir
-               renderInvitesList/renderFollowRequests dans app.js) : un panneau
-               vide affichait jusqu'ici deux titres et deux phrases pour ne
-               rien dire du tout. Les deux listes se suivent désormais sans
-               aucun intertitre — une invitation et une demande de suivi se
-               distinguent déjà par leur propre libellé — et une SEULE phrase
-               (#profileNotifEmptyHint) s'affiche quand les deux sont vides,
-               posée par syncNotifPanelEmptyHint(). -->
-          <div id="profileNotifPanel" class="notifPanel hidden">
-            <div id="invitesList" class="activitiesList"></div>
-            <!-- Demandes de suivi (Suivi, indépendant du partage d'activité)
-                 — déplacé depuis l'onglet Communauté à la demande
-                 d'Emilien. Le reste du système de Suivi (recherche de membres,
-                 fil d'actualité) reste dans Communauté. -->
-            <div id="followRequestsList" class="activitiesList"></div>
-            <p id="profileNotifEmptyHint" class="hint hidden">Aucune invitation ni demande de suivi.</p>
-          </div>
-        </div>
-
-        <!-- Emoji "⚙️" remplacé par un SVG (même style que le "avion en
-             papier" ci-dessus) : un emoji porte sa propre couleur figée,
-             impossible à aligner sur .topIconBtn/.topIconBtn.active. -->
-        <!-- Réglages en menu flottant (1er septembre 2026, demande
-             d'Emilien : « exactement comme l'invitation ») : le panneau a
-             quitté #tab-profile pour vivre ici, sous son icône, et reprend
-             telles quelles les classes du panneau des invitations
-             (.notifPanel) — même ancrage, même taille, même ombre. Ouvrir
-             l'un referme l'autre (voir app.js). .settingsWrap joue pour ce
-             panneau le rôle que .notifWrap joue pour les invitations :
-             repérer le « clic en dehors ». ⚠️ **2 septembre 2026, suite** : ce bloc
-             reprend sa place initiale dans `#tab-profile` (voir
-             `.identityHeader` plus bas) — Emilien a précisé que les icônes
-             doivent être sur la page Profil, pas dans la topbar. L'ancrage
-             du panneau change en conséquence : il ne se centre plus sous
-             toute la largeur de `.topbar`, mais s'ouvre directement sous sa
-             propre icône (`.notifWrap`/`.settingsWrap` en `position:
-             relative`, voir styles.css). -->
-              <!-- 29 septembre 2026 (Design, direction « Piste B ») : .settingsWrap/#profileSettingsBtn a déménagé dans #topbarDefault (à droite, en carré de verre) — même id, mêmes écouteurs (showProfileSettings()/closeSettingsPanel() ciblent l'id, le « clic en dehors » repère .settingsWrap par ancêtre DOM : aucun changement app.js). -->
-      </div>
-      <!-- Projets (4 septembre 2026, demande d'Emilien : « déplacer les
-           projets dans la zone du profil (une fois créé les projet n'affiche
-           que le nom et les logo des recherches, les details apparaissent
-           lorsqu'on clic dessus) »). Toute la section "Projets" a quitté
-           #profileMain pour vivre ICI, sous l'identité, dans la barre
-           supérieure — même déménagement que .identityHeader le 3 septembre.
-           Deux niveaux, comme demandé :
-             - visible en permanence : une bande de pastilles
-               (#topbarProjectsList, rendue par renderTopbarProjects dans
-               app.js) qui n'affiche QUE le nom du projet et ses badges
-               "Recherche" ;
-             - au clic sur une pastille (ou sur le "+") : le panneau flottant
-               #profileProjectsPanel s'ouvre, avec le détail complet et toute
-               la gestion (ajout, modification, suppression, réordonnancement)
-               — exactement le contenu qui vivait dans #profileMain, déplacé
-               tel quel, ids inchangés.
-           ⚠️ Panneau flottant plutôt qu'un dépliage sur place : .topbar est en
-           `position: fixed` et sa hauteur pilote --topbar-h (padding-top de
-           #app) — y déplier un formulaire ferait grandir la barre sans limite
-           et pousserait toute la page. Les trois icônes voisines
-           (abonnés/invitations/réglages) utilisent déjà ce motif ; ce panneau
-           réutilise .notifPanel telle quelle et s'exclut mutuellement avec
-           elles (voir closeProjectsPanel dans app.js). .projectsWrap joue le
-           rôle de .notifWrap/.settingsWrap/.followsWrap : repérer le "clic en
-           dehors". -->
-      <div class="topbarProjects projectsWrap" id="topbarProjects">
-        <div class="topbarProjectsStrip" id="topbarProjectsList"></div>
-        <button type="button" id="addProjectBtn" class="topbarProjectsAddBtn" title="Ajouter un projet" aria-label="Ajouter un projet">+</button>
-        <div id="profileProjectsPanel" class="notifPanel projectsPanel hidden">
-          <div class="subpageHeader">
-            <p class="sectionTitle subpageTitle">Projets</p>
-          </div>
-          <!-- ⚠️ 10 septembre 2026, demande d'Emilien : « lorsque l'option pour
-               ajouter des projets est ouverte, le titre projet reste bloqué en
-               haut et les autres informations défilent en dessous lorsqu'on
-               scroll ». Même structure que le panneau Abonnés du même jour :
-               le bandeau ci-dessus reste hors défilement, et tout le reste
-               (formulaire d'ajout, liste des projets) passe dans
-               #projectsScroll, seule zone défilante. Voir
-               #profileProjectsPanel dans styles.css. -->
-          <div id="projectsScroll">
-            <!-- Section "Projets" (1er septembre 2026, demande d'Emilien : « une
-                 section sous le nom de l'utilisateur où il parle de ses
-                 projets »). Modèle de données et périmètre négociés avec
-                 Emilien AVANT codage (voir noesis-timetracker-contexte-
-                 technique.md) : liste ILLIMITÉE de projets personnels,
-                 réordonnable manuellement (boutons ▲▼, pas de glisser-déposer —
-                 plus fiable sur mobile sans bibliothèque tierce), entièrement
-                 indépendante du Chrono/activities. Pas de statut "en pause"/
-                 "terminé", pas d'image par projet, pas d'épinglage — exclus
-                 explicitement par Emilien. Ici : gestion complète (ajout/
-                 modification/suppression/réordonnement) par le propriétaire du
-                 profil. En lecture seule, ses ABONNÉS (follows acceptés)
-                 consultent la même liste depuis #viewProfileModal, plus bas
-                 dans ce fichier (hors de toute section .tab — voir le
-                 commentaire à cet endroit) — voir GET /profile/:id/projects
-                 dans server/routes/profile.js et openProfileViewModal dans
-                 app.js.
-                 Formulaire réorganisé en paliers (2 septembre 2026, chantier
-                 "Simplification du formulaire de saisie Projets") : palier 1
-                 (nom + description, toujours visibles), palier 2 (Recherche +
-                 catégorie, toujours visibles), palier 3 (lien/date, replié par
-                 défaut derrière #newProjectMoreBtn — même pattern que
-                 #newActivityCard). shortDescription/fullDescription ont
-                 fusionné en un seul champ description (voir server/db.js) ;
-                 category est désormais une liste fermée (PROJECT_CATEGORIES,
-                 voir server/routes/profile.js et app.js).
-                 ⚠️ 2 septembre 2026, nouvelle demande d'Emilien (discussion
-                 Profil) : catégorie remontée du palier 3 (repliée) vers le
-                 palier 2 (toujours visible, avant le bouton "+ Ajouter des
-                 détails") ; le <select> natif est remplacé par un dropdown
-                 "maison" (voir buildCategoryDropdown dans app.js) qui s'ouvre
-                 toujours vers le bas, limité à 5 options visibles à la fois et
-                 calé au défilement (scroll-snap) pour ne jamais couper une
-                 option en deux — un <select> natif ne permet de contrôler
-                 aucun de ces trois points. #newProjectCategoryMount n'est qu'un
-                 point d'ancrage : app.js le remplace au chargement par le
-                 dropdown construit, qui reprend l'id "newProjectCategory" pour
-                 que le reste du code (lecture/reset de la valeur) n'ait pas à
-                 changer. -->
-            <!-- Ancienne ligne de titre "Projets" + "+" retirée le 4 septembre
-                 2026 : le panneau a déjà son propre titre juste au-dessus, et le
-                 "+" vit désormais dans la bande de la barre supérieure
-                 (#topbarProjectsList, même id #addProjectBtn conservé pour que
-                 son écouteur dans app.js n'ait pas à changer de cible). -->
-            <div class="activityRow hidden" id="newProjectCard">
-              <div class="activityRowHeader">
-                <span class="activityRowName">Nouveau projet</span>
-              </div>
-              <div class="activitySettingsPanel">
-                <input type="text" id="newProjectName" placeholder="Nom du projet">
-                <textarea id="newProjectDesc" rows="3" placeholder="Description"></textarea>
-                <p class="hint">Recherche (optionnel)</p>
-                <div class="seekingTagPicker" id="newProjectSeeking"></div>
-                <div id="newProjectCategoryMount"></div>
-                <button type="button" id="newProjectMoreBtn" class="iconBtn projectMoreDetailsBtn">+ Ajouter des détails</button>
-                <div class="activitySettingsPanel projectMoreDetails hidden" id="newProjectMoreDetails">
-                  <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
-                  <p class="hint">Date de début (optionnel)</p>
-                  <input type="date" id="newProjectStartDate">
-                </div>
-                <p class="meta" id="newProjectMsg"></p>
-                <div class="rowActions">
-                  <button type="button" id="newProjectSave" class="iconBtn">Ajouter le projet</button>
-                </div>
-              </div>
-            </div>
-            <div id="projectsList" class="activitiesList"></div>
-            <p id="projectsEmptyHint" class="hint hidden">Aucun projet ajouté pour l'instant.</p>
-          </div>
-        </div>
-      </div>
-      <p id="avatarMsg" class="msg"></p>
-    </div>
+    <!-- L'état « Profil ouvert » de la barre supérieure (#topbarProfile,
+         3 septembre 2026) n'existe plus depuis le 29 septembre 2026 : le
+         Profil est devenu une PAGE (#profilePage, plus bas dans ce fichier),
+         la barre supérieure ne change donc plus d'état quand on l'ouvre.
+         Identité, icônes et bande des projets ont déménagé tels quels dans
+         cette page. -->
   </header>
 
   <main id="content">
@@ -2115,185 +1835,9 @@
     </section>
 
     <!-- ---------- ONGLET PROFIL ---------- -->
-    <section id="tab-profile" class="tab hidden">
-
-      <!-- Profil n'est plus un onglet de la barre du bas depuis le 30 août
-           2026 (demande d'Emilien) : ce panneau plein écran s'ouvre en
-           cliquant sur la photo en haut à droite (#whoami). La flèche "←"
-           de fermeture a été retirée le 31 août 2026 (demande d'Emilien,
-           « supprimer le bouton pour revenir en arrière dans profil ») —
-           on quitte désormais Profil en tapant n'importe quel onglet de la
-           barre du bas (Chrono/Stats/Communauté/Activité), qui appelle déjà
-           switchTab() indépendamment de l'état de Profil (voir tabButtons,
-           app.js) ; closeProfile() et l'état lastMainTab, devenus inutiles,
-           ont été retirés du même coup. Le titre "Profil" et le bandeau
-           identité/icônes (avatar, nom, abonnés, invitations, réglages) ont
-           quitté cette section le 3 septembre 2026 (demande d'Emilien) —
-           ils vivent désormais dans `.topbar` (`#topbarProfile`, voir plus
-           haut dans ce fichier), affichés dès que le Profil est ouvert. Le
-           reste de la page (Projets/Discussion/Mes notes ci-dessous)
-           n'a pas changé. -->
-      <div id="profileMain">
-
-        <!-- La section "Projets" a quitté #profileMain le 4 septembre 2026
-             (demande d'Emilien) : elle vit désormais dans la barre supérieure,
-             sous l'identité — voir #topbarProjects plus haut dans ce fichier. -->
-
-        <!-- Zone de discussion (31 août 2026, demande d'Emilien) : remplace
-             la zone "Note" du Chrono, retirée le même jour (voir
-             #tab-chrono plus haut). Disponible à tout moment, indépendamment
-             d'un chrono en cours. Recentrée sur un seul fil personnel plus
-             tard le même jour (nouvelle demande d'Emilien : « que la
-             discussion sur le profil ne soit que pour la communauté [...]
-             enlever l'option membre puisqu'elle se trouve déjà dans
-             activité ») : la sous-partie "Membres" (qui réutilisait TEL QUEL
-             le fil d'une activité partagée, table activity_messages) a été
-             retirée d'ici — ce même fil reste accessible sans changement
-             depuis l'onglet Activité, doublon inutile dans Profil ; aucune
-             route ni table serveur supprimée (server/routes/community.js
-             intact). Fil "Communauté" (nouvelles tables profile_posts /
-             profile_post_attachments, server/routes/profile.js) : remplace
-             le bouton "Envoyer à la communauté" de l'ancienne zone Note —
-             dont le seul affichage ("En ce moment" de Communauté) avait déjà
-             été retiré le 30 août 2026 : comme lui, ce fil n'est pour
-             l'instant lu que par son auteur (voir le commentaire sur
-             profile_posts dans server/db.js). Chaque message peut recevoir
-             une ou plusieurs pièces jointes AVANT l'envoi (trombone du
-             composeur ci-dessous, plusieurs pièces jointes gardées en
-             mémoire côté client jusqu'à l'envoi) et/ou APRÈS l'envoi
-             (trombone sur le message déjà publié, voir buildProfilePostCard
-             dans app.js) — même sélecteur de fichier natif que partout
-             ailleurs dans l'app (handleAttachmentFilePick), pas de menu
-             Photo/Document intermédiaire. -->
-        <div id="profileDiscussionBlock" class="discussionBlock">
-          <!-- Titre "Discussion" renommé "Publier" le 3 septembre 2026
-               (demande d'Emilien) — cette zone reste la même (composeur +
-               fil profile_posts), seul l'intitulé change. -->
-          <!-- Titre "Publier" retiré le 4 septembre 2026 (demande d'Emilien :
-               « je souhaite que les publications fassent partie à part entière
-               du flux dans le profil et ne soient pas une sous section ») :
-               plus aucun intertitre ici — composeur, formulaire de sondage et
-               publications forment un seul flux continu, qui défile avec la
-               page. -->
-          <!-- La liste est passée SOUS le composeur le 3 septembre 2026
-               (demande d'Emilien : « lorsqu'un message est envoyé, je souhaite
-               qu'il apparaisse en dessous de la zone d'écriture ») — voir plus
-               bas dans ce même bloc. -->
-          <div class="discussionComposer">
-            <!-- Placeholder "Écrire au membre..." depuis le 3 septembre 2026
-                 (demande d'Emilien) — remplace "Écrire...". Composeur jumeau
-                 de Communauté (#communityMyPostsInput, plus haut dans ce
-                 fichier) volontairement laissé tel quel : hors du périmètre
-                 de cette demande.
-                 6 septembre 2026 : elle N'EST PLUS hors périmètre — Emilien a
-                 demandé l'agrandissement automatique aussi pour ce champ.
-                 .pollAutoGrow ajoutée (voir la note de communityMyPostsInput,
-                 plus haut dans ce fichier) ; la disposition (boutons dans
-                 .rowActions, en dessous) existait déjà ici et sert de modèle
-                 à Communauté.
-                 6 septembre 2026, suite : placeholder aligné sur celui de
-                 Communauté (demande d'Emilien : même texte par défaut « Écrire
-                 aux membres » sur les deux volets) — ne touche PAS
-                 communityDiscussionInput (Activité, texte similaire par
-                 coïncidence, zone différente, hors périmètre de cette
-                 demande).
-                 17 septembre 2026 : rows="2" → rows="1", même correctif que
-                 #communityDiscussionInput ce jour (voir son commentaire,
-                 plus haut) — .pollAutoGrow donne déjà min-height:0 ici, mais
-                 ne change rien à la hauteur intrinsèque réservée par
-                 rows="2" pour un contenu vide, d'où le même écart de
-                 positionnement du curseur au repos. -->
-            <textarea id="profileDiscussionCommunityInput" class="pollAutoGrow" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
-            <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
-            <div class="rowActions">
-              <!-- "+" des sondages, à gauche du trombone — même déplacement que
-                   dans le composeur jumeau de #tab-community (3 septembre
-                   2026). Il ouvre le formulaire de #profilePollsBlock, juste en
-                   dessous. -->
-              <button type="button" class="menuBtn pollComposerAddBtn hidden" id="profilePollsAddBtn" aria-label="Créer un sondage" title="Créer un sondage">+</button>
-              <div class="attachmentMenuWrap">
-                <button type="button" id="profileDiscussionAttachBtn" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                </button>
-                <input type="file" id="profileDiscussionAttachInput" class="hidden">
-              </div>
-              <button type="button" id="profileDiscussionCommunitySendBtn" class="iconBtn">Envoyer</button>
-            </div>
-            <p id="profileDiscussionCommunityMsg" class="msg"></p>
-          </div>
-          <!-- Sondages — bloc JUMEAU de #communityPollsBlock (#tab-community) :
-               même donnée (scope='profile', scopeId = mon userId), deux
-               emplacements, une seule liste. Même principe que la zone
-               Discussion et son miroir « écrire à sa communauté ». Voir
-               mountPolls dans app.js. -->
-          <div id="profilePollsBlock" class="pollsBlock">
-            <!-- Ni titre ni ligne d'en-tête (3 septembre 2026, comme le bloc
-                 jumeau de Communauté) : le "+" qui ouvre ce formulaire est dans
-                 le composeur ci-dessus, à gauche du trombone. -->
-            <div class="entryCard pollForm hidden" id="profilePollsForm">
-              <!-- Croix d'annulation (3 septembre 2026, demande d'Emilien) :
-                   referme le formulaire ET remet tout à zéro, sans rien
-                   enregistrer. Premier enfant du formulaire, posée en absolu par
-                   .pollFormCancel pour rester au coin haut droit quelle que soit
-                   la hauteur des champs. -->
-              <button type="button" class="pollFormCancel" id="profilePollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
-              <textarea id="profilePollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
-              <div class="pollFormOptions" id="profilePollsOptions"></div>
-              <div class="pollFormActions">
-                <button type="button" class="iconBtn pollAddOptionBtn" id="profilePollsAddOptionBtn">+ Ajouter une réponse</button>
-                <button type="button" class="iconBtn pollOptionsBtn" id="profilePollsOptionsBtn">Option</button>
-              </div>
-              <div class="pollFormAdvanced hidden" id="profilePollsAdvanced">
-                <label class="pollFormRow"><input type="checkbox" id="profilePollsMulti"> Plusieurs réponses possibles</label>
-                <label class="pollFormRow"><input type="checkbox" id="profilePollsAnonymous"> Vote anonyme</label>
-                <label class="pollFormRow"><input type="checkbox" id="profilePollsAllowSuggestions"> Autoriser une autre réponse</label>
-                <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="profilePollsClosesAt"></label>
-              </div>
-              <p class="hint" id="profilePollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
-              <button type="button" class="btn btn-primary pollCreateBtn" id="profilePollsCreateBtn">Terminer</button>
-              <p id="profilePollsMsg" class="msg"></p>
-            </div>
-            <!-- Plus de liste propre à ce bloc depuis le 3 septembre 2026,
-                 huitième passage (demande d'Emilien : tous les postes du profil
-                 triés du plus récent au moins récent, sondages compris) : mes
-                 sondages apparaissent désormais mêlés à mes messages dans le
-                 flux fusionné de #profileDiscussionBlock plus haut
-                 (#profileDiscussionCommunityList, rendu par renderProfileFeed
-                 dans app.js). #profilePollsList/#profilePollsEmptyHint
-                 retirés — ce bloc ne garde que le formulaire de création. -->
-          </div>
-          <!-- Mon flux personnel de messages, sous la zone d'écriture. Aucune
-               mise en évidence ici : tous les messages y sont les miens, un
-               repère « c'est moi » n'y distinguerait rien (demande d'Emilien,
-               3 septembre 2026 : « sur mon profil, le message doit être
-               normal, sans aucune distinction »). Le violet plein est réservé
-               au flux de Communauté, où mes messages côtoient ceux des
-               autres. -->
-          <div id="profileDiscussionCommunityList" class="discussionList"></div>
-          <p id="profileDiscussionCommunityEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessus.</p>
-        </div>
-
-        <!-- Le formulaire de création de sondage (#profilePollsBlock) est
-             remonté le 4 septembre 2026 DANS #profileDiscussionBlock, juste
-             sous le composeur : le flux n'a plus de hauteur bornée (voir
-             #profileDiscussionCommunityList dans styles.css), un bloc placé
-             après lui se serait retrouvé hors d'écran. -->
-
-        <!-- "Mes notes" a été supprimée le 4 septembre 2026 (demande
-             d'Emilien : « je souhaite supprimer les notes »), interface ET
-             route serveur : #notesList/#notesEmptyHint retirés d'ici,
-             loadProfileNotes/renderNotesList/buildHistoryCard retirés de
-             app.js, et GET /api/notes retirée de server/routes/history.js.
-             Les notes déjà saisies restent en base (colonne
-             time_entries.note, non touchée) mais plus rien ne les lit — le
-             Chrono n'offre de toute façon plus aucun moyen d'en écrire depuis
-             le 31 août 2026. -->
-      </div>
-
-      <!-- Page "Réglages" : Apparence, Sécurité, Import. Masquée par défaut ;
-           ouverte en remplaçant #profileMain (pas en accordéon) au clic sur
-           le bouton "⚙️" ci-dessus. -->
-    </section>
+    <!-- La section #tab-profile n'existe plus depuis le 29 septembre 2026 :
+         son unique contenu restant (#profileMain, la zone Discussion) vit
+         désormais dans #profilePage, sous la bande des projets. -->
 
     <!-- Page de visite du profil de quelqu'un d'autre (1er septembre 2026,
          demande d'Emilien) : ouverte en cliquant sur un nom dans "Abonnés &
@@ -2892,6 +2436,390 @@
     </div>
 
     <!-- Réglages (#profileSettingsPanel) déplacé ici le 9 septembre 2026 (demande d'Emilien, fenêtre plein écran) : il vivait jusque-là imbriqué dans .topbar (.settingsWrap > .identityHeader > #topbarProfile > .topbar), qui établit sa PROPRE zone d'empilement (position: fixed + z-index) — un enfant aussi profondément imbriqué ne peut pas, avec son seul z-index, se peindre au-dessus d'un AUTRE enfant direct de #app comme .tabbar : c'est la position de .topbar elle-même (z-index 10) qui aurait été comparée à .tabbar (z-index 10 aussi), pas celle du panneau, et .tabbar (déclarée après .topbar dans le document) l'aurait donc emporté et serait restée visible par-dessus. Déplacé ici, comme #activityPage juste au-dessus (même principe, voir son propre commentaire plus bas dans ce fichier) : enfant direct de <main>, qui ne crée aucune zone d'empilement propre — son z-index (90, styles.css) se compare alors directement à celui de .topbar/.tabbar (10 chacune) et l'emporte réellement. Le bouton "⚙️" (#profileSettingsBtn), lui, reste à sa place dans .identityHeader — seul le PANNEAU a bougé, showProfileSettings()/closeSettingsPanel() (app.js) continuent de le cibler par id, inchangés. -->
+    <!-- ===================== PAGE PROFIL ===================== -->
+    <!-- 29-30 septembre 2026, chantier « épuration visuelle », demande
+         d'Emilien, verbatim : « lorsqu'on clique sur le profil en haut à
+         gauche, cela ouvre une page dans le même style que la fenêtre des
+         activités avec la photo de l'utilisateur et le nom de l'utilisateur en
+         haut à gauche, puis dans des carrés, l'icône des abonnés abonnements,
+         l'icône des invitations et la croix pour fermer la fenêtre du profil.
+         En dessous de la barre placer les projets. »
+
+         Ce que ce bloc REMPLACE : jusqu'ici le Profil était un ÉTAT DE LA BARRE
+         SUPÉRIEURE (#topbarProfile : "Noèsis" recentré, identité + icônes,
+         bande des projets) doublé d'une section d'onglet (#tab-profile >
+         #profileMain, qui ne contenait plus que la Discussion). Les deux ont
+         fusionné ici, en une page superposée montée exactement comme
+         #activityPage (.communityMembersModal > .communityMembersModalCard,
+         colonne flex : bandeau fixe + zone défilante) — le même patron que
+         Réglages a repris le 26 septembre. Aucun id n'a été renommé : tout le
+         code qui lisait #identityDisplayName, #avatarDisplayCircle,
+         #topbarProjectsList, #profileDiscussion*, etc. fonctionne tel quel.
+
+         L'ordre du contenu (projets, PUIS discussion) est une décision
+         d'Emilien du 29 septembre, prise après correction d'une prémisse fausse
+         de ma part : « Mes notes » n'existe plus depuis le 4 septembre et les
+         projets avaient déjà quitté #profileMain le même jour.
+
+         "⚙️" Réglages n'est pas ici — décision d'Emilien : « pas dans la page
+         du haut, uniquement à droite dans la barre du haut lorsque
+         l'utilisateur se trouve sur la page principale avec les volets ». Le
+         segment Design l'y a placée de son côté (.topbarActions, plus haut dans
+         ce fichier), ce bloc n'a donc rien à déplacer. -->
+    <div id="profilePage" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="activityPageHeader profilePageHeader">
+          <div class="avatarWrap">
+          <button type="button" class="avatarDisplay" id="avatarDisplayCircle" title="Changer la photo de profil" aria-label="Changer la photo de profil">
+          <img id="avatarDisplayImg" class="hidden" alt="">
+          <span id="avatarDisplayInitial"></span>
+          </button>
+          <button type="button" id="avatarRemoveBtn" class="avatarRemoveBtn hidden" title="Retirer la photo" aria-label="Retirer la photo">×</button>
+          </div>
+          <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" class="hidden">
+          <span class="activityPageName" id="identityDisplayName"></span>
+          <!-- Les deux "carrés" (choix d'Emilien, 29 septembre) : ils n'ouvrent
+               plus un panneau flottant ancré sous l'icône, mais une FENÊTRE,
+               « dans le même style que les profils des autres utilisateurs ou
+               que les membres de la fenêtre d'activité » — voir
+               #profileFollowsPanel / #profileNotifPanel juste après cette page.
+               .profileSquareBtn leur donne le cadre carré ; la classe .active
+               n'a plus lieu d'être ici (la fenêtre ouverte masque la page). -->
+          <button id="profileFollowsBtn" class="profileSquareBtn" title="Abonnés et abonnements" aria-label="Abonnés et abonnements">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          </button>
+          <button id="profileNotifBtn" class="profileSquareBtn" title="Invitations et demandes de suivi" aria-label="Invitations et demandes de suivi">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          <span id="profileNotifDot" class="notifDot hidden"></span>
+          </button>
+          <button type="button" id="profilePageClose" class="profileSquareBtn" aria-label="Fermer" title="Fermer">✕</button>
+        </div>
+        <div id="profilePageScroll">
+          <p id="avatarMsg" class="msg"></p>
+          <div class="topbarProjects projectsWrap" id="topbarProjects">
+          <div class="topbarProjectsStrip" id="topbarProjectsList"></div>
+          <button type="button" id="addProjectBtn" class="topbarProjectsAddBtn" title="Ajouter un projet" aria-label="Ajouter un projet">+</button>
+          <div id="profileProjectsPanel" class="notifPanel projectsPanel hidden">
+          <div class="subpageHeader">
+          <p class="sectionTitle subpageTitle">Projets</p>
+          </div>
+          <!-- ⚠️ 10 septembre 2026, demande d'Emilien : « lorsque l'option pour
+          ajouter des projets est ouverte, le titre projet reste bloqué en
+          haut et les autres informations défilent en dessous lorsqu'on
+          scroll ». Même structure que le panneau Abonnés du même jour :
+          le bandeau ci-dessus reste hors défilement, et tout le reste
+          (formulaire d'ajout, liste des projets) passe dans
+          #projectsScroll, seule zone défilante. Voir
+          #profileProjectsPanel dans styles.css. -->
+          <div id="projectsScroll">
+          <!-- Section "Projets" (1er septembre 2026, demande d'Emilien : « une
+          section sous le nom de l'utilisateur où il parle de ses
+          projets »). Modèle de données et périmètre négociés avec
+          Emilien AVANT codage (voir noesis-timetracker-contexte-
+          technique.md) : liste ILLIMITÉE de projets personnels,
+          réordonnable manuellement (boutons ▲▼, pas de glisser-déposer —
+          plus fiable sur mobile sans bibliothèque tierce), entièrement
+          indépendante du Chrono/activities. Pas de statut "en pause"/
+          "terminé", pas d'image par projet, pas d'épinglage — exclus
+          explicitement par Emilien. Ici : gestion complète (ajout/
+          modification/suppression/réordonnement) par le propriétaire du
+          profil. En lecture seule, ses ABONNÉS (follows acceptés)
+          consultent la même liste depuis #viewProfileModal, plus bas
+          dans ce fichier (hors de toute section .tab — voir le
+          commentaire à cet endroit) — voir GET /profile/:id/projects
+          dans server/routes/profile.js et openProfileViewModal dans
+          app.js.
+          Formulaire réorganisé en paliers (2 septembre 2026, chantier
+          "Simplification du formulaire de saisie Projets") : palier 1
+          (nom + description, toujours visibles), palier 2 (Recherche +
+          catégorie, toujours visibles), palier 3 (lien/date, replié par
+          défaut derrière #newProjectMoreBtn — même pattern que
+          #newActivityCard). shortDescription/fullDescription ont
+          fusionné en un seul champ description (voir server/db.js) ;
+          category est désormais une liste fermée (PROJECT_CATEGORIES,
+          voir server/routes/profile.js et app.js).
+          ⚠️ 2 septembre 2026, nouvelle demande d'Emilien (discussion
+          Profil) : catégorie remontée du palier 3 (repliée) vers le
+          palier 2 (toujours visible, avant le bouton "+ Ajouter des
+          détails") ; le <select> natif est remplacé par un dropdown
+          "maison" (voir buildCategoryDropdown dans app.js) qui s'ouvre
+          toujours vers le bas, limité à 5 options visibles à la fois et
+          calé au défilement (scroll-snap) pour ne jamais couper une
+          option en deux — un <select> natif ne permet de contrôler
+          aucun de ces trois points. #newProjectCategoryMount n'est qu'un
+          point d'ancrage : app.js le remplace au chargement par le
+          dropdown construit, qui reprend l'id "newProjectCategory" pour
+          que le reste du code (lecture/reset de la valeur) n'ait pas à
+          changer. -->
+          <!-- Ancienne ligne de titre "Projets" + "+" retirée le 4 septembre
+          2026 : le panneau a déjà son propre titre juste au-dessus, et le
+          "+" vit désormais dans la bande de la barre supérieure
+          (#topbarProjectsList, même id #addProjectBtn conservé pour que
+          son écouteur dans app.js n'ait pas à changer de cible). -->
+          <div class="activityRow hidden" id="newProjectCard">
+          <div class="activityRowHeader">
+          <span class="activityRowName">Nouveau projet</span>
+          </div>
+          <div class="activitySettingsPanel">
+          <input type="text" id="newProjectName" placeholder="Nom du projet">
+          <textarea id="newProjectDesc" rows="3" placeholder="Description"></textarea>
+          <p class="hint">Recherche (optionnel)</p>
+          <div class="seekingTagPicker" id="newProjectSeeking"></div>
+          <div id="newProjectCategoryMount"></div>
+          <button type="button" id="newProjectMoreBtn" class="iconBtn projectMoreDetailsBtn">+ Ajouter des détails</button>
+          <div class="activitySettingsPanel projectMoreDetails hidden" id="newProjectMoreDetails">
+          <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
+          <p class="hint">Date de début (optionnel)</p>
+          <input type="date" id="newProjectStartDate">
+          </div>
+          <p class="meta" id="newProjectMsg"></p>
+          <div class="rowActions">
+          <button type="button" id="newProjectSave" class="iconBtn">Ajouter le projet</button>
+          </div>
+          </div>
+          </div>
+          <div id="projectsList" class="activitiesList"></div>
+          <p id="projectsEmptyHint" class="hint hidden">Aucun projet ajouté pour l'instant.</p>
+          </div>
+          </div>
+          </div>
+          <div id="profileMain">
+
+          <!-- La section "Projets" a quitté #profileMain le 4 septembre 2026
+          (demande d'Emilien) : elle vit désormais dans la barre supérieure,
+          sous l'identité — voir #topbarProjects plus haut dans ce fichier. -->
+
+          <!-- Zone de discussion (31 août 2026, demande d'Emilien) : remplace
+          la zone "Note" du Chrono, retirée le même jour (voir
+          #tab-chrono plus haut). Disponible à tout moment, indépendamment
+          d'un chrono en cours. Recentrée sur un seul fil personnel plus
+          tard le même jour (nouvelle demande d'Emilien : « que la
+          discussion sur le profil ne soit que pour la communauté [...]
+          enlever l'option membre puisqu'elle se trouve déjà dans
+          activité ») : la sous-partie "Membres" (qui réutilisait TEL QUEL
+          le fil d'une activité partagée, table activity_messages) a été
+          retirée d'ici — ce même fil reste accessible sans changement
+          depuis l'onglet Activité, doublon inutile dans Profil ; aucune
+          route ni table serveur supprimée (server/routes/community.js
+          intact). Fil "Communauté" (nouvelles tables profile_posts /
+          profile_post_attachments, server/routes/profile.js) : remplace
+          le bouton "Envoyer à la communauté" de l'ancienne zone Note —
+          dont le seul affichage ("En ce moment" de Communauté) avait déjà
+          été retiré le 30 août 2026 : comme lui, ce fil n'est pour
+          l'instant lu que par son auteur (voir le commentaire sur
+          profile_posts dans server/db.js). Chaque message peut recevoir
+          une ou plusieurs pièces jointes AVANT l'envoi (trombone du
+          composeur ci-dessous, plusieurs pièces jointes gardées en
+          mémoire côté client jusqu'à l'envoi) et/ou APRÈS l'envoi
+          (trombone sur le message déjà publié, voir buildProfilePostCard
+          dans app.js) — même sélecteur de fichier natif que partout
+          ailleurs dans l'app (handleAttachmentFilePick), pas de menu
+          Photo/Document intermédiaire. -->
+          <div id="profileDiscussionBlock" class="discussionBlock">
+          <!-- Titre "Discussion" renommé "Publier" le 3 septembre 2026
+          (demande d'Emilien) — cette zone reste la même (composeur +
+          fil profile_posts), seul l'intitulé change. -->
+          <!-- Titre "Publier" retiré le 4 septembre 2026 (demande d'Emilien :
+          « je souhaite que les publications fassent partie à part entière
+          du flux dans le profil et ne soient pas une sous section ») :
+          plus aucun intertitre ici — composeur, formulaire de sondage et
+          publications forment un seul flux continu, qui défile avec la
+          page. -->
+          <!-- La liste est passée SOUS le composeur le 3 septembre 2026
+          (demande d'Emilien : « lorsqu'un message est envoyé, je souhaite
+          qu'il apparaisse en dessous de la zone d'écriture ») — voir plus
+          bas dans ce même bloc. -->
+          <div class="discussionComposer">
+          <!-- Placeholder "Écrire au membre..." depuis le 3 septembre 2026
+          (demande d'Emilien) — remplace "Écrire...". Composeur jumeau
+          de Communauté (#communityMyPostsInput, plus haut dans ce
+          fichier) volontairement laissé tel quel : hors du périmètre
+          de cette demande.
+          6 septembre 2026 : elle N'EST PLUS hors périmètre — Emilien a
+          demandé l'agrandissement automatique aussi pour ce champ.
+          .pollAutoGrow ajoutée (voir la note de communityMyPostsInput,
+          plus haut dans ce fichier) ; la disposition (boutons dans
+          .rowActions, en dessous) existait déjà ici et sert de modèle
+          à Communauté.
+          6 septembre 2026, suite : placeholder aligné sur celui de
+          Communauté (demande d'Emilien : même texte par défaut « Écrire
+          aux membres » sur les deux volets) — ne touche PAS
+          communityDiscussionInput (Activité, texte similaire par
+          coïncidence, zone différente, hors périmètre de cette
+          demande).
+          17 septembre 2026 : rows="2" → rows="1", même correctif que
+          #communityDiscussionInput ce jour (voir son commentaire,
+          plus haut) — .pollAutoGrow donne déjà min-height:0 ici, mais
+          ne change rien à la hauteur intrinsèque réservée par
+          rows="2" pour un contenu vide, d'où le même écart de
+          positionnement du curseur au repos. -->
+          <textarea id="profileDiscussionCommunityInput" class="pollAutoGrow" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
+          <div id="profileDiscussionPendingList" class="attachmentList hidden"></div>
+          <div class="rowActions">
+          <!-- "+" des sondages, à gauche du trombone — même déplacement que
+          dans le composeur jumeau de #tab-community (3 septembre
+          2026). Il ouvre le formulaire de #profilePollsBlock, juste en
+          dessous. -->
+          <button type="button" class="menuBtn pollComposerAddBtn hidden" id="profilePollsAddBtn" aria-label="Créer un sondage" title="Créer un sondage">+</button>
+          <div class="attachmentMenuWrap">
+          <button type="button" id="profileDiscussionAttachBtn" class="menuBtn attachMenuIconBtn" aria-label="Ajouter une pièce jointe">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <input type="file" id="profileDiscussionAttachInput" class="hidden">
+          </div>
+          <button type="button" id="profileDiscussionCommunitySendBtn" class="iconBtn">Envoyer</button>
+          </div>
+          <p id="profileDiscussionCommunityMsg" class="msg"></p>
+          </div>
+          <!-- Sondages — bloc JUMEAU de #communityPollsBlock (#tab-community) :
+          même donnée (scope='profile', scopeId = mon userId), deux
+          emplacements, une seule liste. Même principe que la zone
+          Discussion et son miroir « écrire à sa communauté ». Voir
+          mountPolls dans app.js. -->
+          <div id="profilePollsBlock" class="pollsBlock">
+          <!-- Ni titre ni ligne d'en-tête (3 septembre 2026, comme le bloc
+          jumeau de Communauté) : le "+" qui ouvre ce formulaire est dans
+          le composeur ci-dessus, à gauche du trombone. -->
+          <div class="entryCard pollForm hidden" id="profilePollsForm">
+          <!-- Croix d'annulation (3 septembre 2026, demande d'Emilien) :
+          referme le formulaire ET remet tout à zéro, sans rien
+          enregistrer. Premier enfant du formulaire, posée en absolu par
+          .pollFormCancel pour rester au coin haut droit quelle que soit
+          la hauteur des champs. -->
+          <button type="button" class="pollFormCancel" id="profilePollsCancelBtn" aria-label="Annuler la création du sondage" title="Annuler">✕</button>
+          <textarea id="profilePollsQuestion" class="pollAutoGrow" rows="1" maxlength="300" placeholder="Ta question..."></textarea>
+          <div class="pollFormOptions" id="profilePollsOptions"></div>
+          <div class="pollFormActions">
+          <button type="button" class="iconBtn pollAddOptionBtn" id="profilePollsAddOptionBtn">+ Ajouter une réponse</button>
+          <button type="button" class="iconBtn pollOptionsBtn" id="profilePollsOptionsBtn">Option</button>
+          </div>
+          <div class="pollFormAdvanced hidden" id="profilePollsAdvanced">
+          <label class="pollFormRow"><input type="checkbox" id="profilePollsMulti"> Plusieurs réponses possibles</label>
+          <label class="pollFormRow"><input type="checkbox" id="profilePollsAnonymous"> Vote anonyme</label>
+          <label class="pollFormRow"><input type="checkbox" id="profilePollsAllowSuggestions"> Autoriser une autre réponse</label>
+          <label class="pollFormRow pollFormRowStacked">Clôture (facultatif)<input type="date" id="profilePollsClosesAt"></label>
+          </div>
+          <p class="hint" id="profilePollsPrivacyHint">Le vote n'est pas anonyme : le nom des votants est visible une fois qu'on a voté. Personne ne voit les résultats avant d'avoir voté.</p>
+          <button type="button" class="btn btn-primary pollCreateBtn" id="profilePollsCreateBtn">Terminer</button>
+          <p id="profilePollsMsg" class="msg"></p>
+          </div>
+          <!-- Plus de liste propre à ce bloc depuis le 3 septembre 2026,
+          huitième passage (demande d'Emilien : tous les postes du profil
+          triés du plus récent au moins récent, sondages compris) : mes
+          sondages apparaissent désormais mêlés à mes messages dans le
+          flux fusionné de #profileDiscussionBlock plus haut
+          (#profileDiscussionCommunityList, rendu par renderProfileFeed
+          dans app.js). #profilePollsList/#profilePollsEmptyHint
+          retirés — ce bloc ne garde que le formulaire de création. -->
+          </div>
+          <!-- Mon flux personnel de messages, sous la zone d'écriture. Aucune
+          mise en évidence ici : tous les messages y sont les miens, un
+          repère « c'est moi » n'y distinguerait rien (demande d'Emilien,
+          3 septembre 2026 : « sur mon profil, le message doit être
+          normal, sans aucune distinction »). Le violet plein est réservé
+          au flux de Communauté, où mes messages côtoient ceux des
+          autres. -->
+          <div id="profileDiscussionCommunityList" class="discussionList"></div>
+          <p id="profileDiscussionCommunityEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessus.</p>
+          </div>
+
+          <!-- Le formulaire de création de sondage (#profilePollsBlock) est
+          remonté le 4 septembre 2026 DANS #profileDiscussionBlock, juste
+          sous le composeur : le flux n'a plus de hauteur bornée (voir
+          #profileDiscussionCommunityList dans styles.css), un bloc placé
+          après lui se serait retrouvé hors d'écran. -->
+
+          <!-- "Mes notes" a été supprimée le 4 septembre 2026 (demande
+          d'Emilien : « je souhaite supprimer les notes »), interface ET
+          route serveur : #notesList/#notesEmptyHint retirés d'ici,
+          loadProfileNotes/renderNotesList/buildHistoryCard retirés de
+          app.js, et GET /api/notes retirée de server/routes/history.js.
+          Les notes déjà saisies restent en base (colonne
+          time_entries.note, non touchée) mais plus rien ne les lit — le
+          Chrono n'offre de toute façon plus aucun moyen d'en écrire depuis
+          le 31 août 2026. -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fenêtre « Abonnés / Abonnements / Bloqués ». Était un panneau flottant
+         ancré sous son icône (.notifPanel) ; devient une fenêtre au montage de
+         #viewProfileModal (bandeau fixe + zone défilante) sur décision
+         d'Emilien du 29 septembre 2026. Le sélecteur à trois boutons et le
+         titre restent FIXES au-dessus du défilement — c'est ce qu'il avait
+         demandé le 10 septembre et qui ne doit pas se perdre dans la
+         conversion. Contenu et ids inchangés. -->
+    <div id="profileFollowsPanel" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="profileSubWindowHeader">
+          <p class="sectionTitle" id="followsPanelTitle">Abonnés</p>
+          <button type="button" id="followsPanelClose" class="menuBtn" aria-label="Fermer">✕</button>
+        </div>
+        <div class="periodSwitch" id="followsSwitch">
+        <button type="button" class="periodBtn active" id="followsTabFollowers">Abonnés</button>
+        <button type="button" class="periodBtn" id="followsTabFollowing">Abonnements</button>
+        <button type="button" class="periodBtn" id="followsTabBlocked">Bloqués</button>
+        </div>
+        <div id="followsScroll">
+        <div id="followsSectionFollowers">
+        <div id="settingsFollowersList" class="activitiesList"></div>
+        <p id="settingsFollowersEmptyHint" class="hint hidden">Personne ne te suit pour l'instant.</p>
+        </div>
+        <div id="followsSectionFollowing" class="hidden">
+        <div id="settingsFollowingList" class="activitiesList"></div>
+        <p id="settingsFollowingEmptyHint" class="hint hidden">Tu ne suis personne pour l'instant.</p>
+        </div>
+        <!-- Bloqués (8 septembre 2026, demande d'Emilien : « je souhaite
+        que l'on puisse bloquer les utilisateurs qui nous suivent [...]
+        que ce paramètre s'affiche sur le profil sous l'icône abonné
+        et abonnement en face des abonnés »). Le bouton "Bloquer"
+        lui-même vit sur chaque ligne de la liste Abonnés (voir
+        renderSettingsFollowers dans app.js).
+        Portée du blocage cadrée avec Emilien (AskUserQuestion) :
+        empêche seulement la personne de (re)suivre, ne la retire ni
+        de la recherche/découverte de membres ni de la consultation
+        de la page de visite du profil. -->
+        <div id="followsSectionBlocked" class="hidden">
+        <div id="settingsBlockedList" class="activitiesList"></div>
+        <p id="settingsBlockedEmptyHint" class="hint hidden">Aucun utilisateur bloqué.</p>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fenêtre « Invitations et demandes de suivi ». Même conversion que la
+         fenêtre voisine. ⚠️ #invitesList et #followRequestsList gardent leurs
+         ids ET leurs attributs data- : le renvoi depuis une notification
+         (?notif=invite / ?notif=follow, voir openTabFromNotification dans
+         app.js) vise ces deux listes, et data-follow-id a été posé le 28
+         septembre pour la discussion Notifications — un contrat entre
+         segments, à ne pas casser en déplaçant le bloc. -->
+    <div id="profileNotifPanel" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="profileSubWindowHeader">
+          <p class="sectionTitle">Invitations et demandes de suivi</p>
+          <button type="button" id="notifPanelClose" class="menuBtn" aria-label="Fermer">✕</button>
+        </div>
+        <div id="notifScroll">
+          <div id="invitesList" class="activitiesList"></div>
+          <!-- Demandes de suivi (Suivi, indépendant du partage d'activité)
+          — déplacé depuis l'onglet Communauté à la demande
+          d'Emilien. Le reste du système de Suivi (recherche de membres,
+          fil d'actualité) reste dans Communauté. -->
+          <div id="followRequestsList" class="activitiesList"></div>
+          <p id="profileNotifEmptyHint" class="hint hidden">Aucune invitation ni demande de suivi.</p>
+        </div>
+      </div>
+    </div>
+
 <div id="profileSettingsPanel" class="notifPanel settingsPanel hidden">
             <!-- 26 septembre 2026, demande d'Emilien (« remplacer flèche desktop
                  + swipe tactile par une croix ✕ + clic sur le fond, même mécanisme
