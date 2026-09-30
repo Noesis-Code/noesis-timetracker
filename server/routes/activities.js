@@ -9,6 +9,7 @@ const { notifyActivityInvite } = require('../lib/push');
 // jamais sub_projects/sub_project_items lui-même, il appelle la fonction de
 // Sous-projets. Un seul require, un seul appel pour toute la liste.
 const { progressForActivities } = require('../lib/subprojects');
+const { transferActivityContent, hasGoalContent } = require('../lib/activitycontent');
 
 const router = express.Router();
 
@@ -289,8 +290,10 @@ router.post('/activities/:id/separate', (req, res) => {
     // ⚠️ ON DELETE SET NULL ne couvre PAS ce cas : l'activité d'origine n'est
     // jamais supprimée par « Séparer » (elle était partagée), donc ses
     // sous-projets survivent.
-    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = NULL WHERE activityId = ? AND userId = ?')
-      .run(newActivityId, activity.id, userId);
+    // AC·22 : il emporte la structure (pôles/secteurs) et ses propres tâches.
+    transferActivityContent(activity.id, newActivityId, { mode: 'copy', userId });
+    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = CASE WHEN subProjectId IN (SELECT id FROM sub_projects WHERE activityId = ?) THEN subProjectId ELSE NULL END WHERE activityId = ? AND userId = ?')
+      .run(newActivityId, newActivityId, activity.id, userId);
  
     // Il n'est plus membre de l'activité d'origine.
     db.prepare('DELETE FROM activity_members WHERE activityId = ? AND userId = ?').run(activity.id, userId);
@@ -373,8 +376,10 @@ router.delete('/activities/:id/members/:memberId', (req, res) => {
     db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)')
       .run(newActivityId, targetId, membership.color, now);
 
-    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = NULL WHERE activityId = ? AND userId = ?')
-      .run(newActivityId, activity.id, targetId);
+    // AC·22 : la personne exclue emporte la structure et ses propres tâches.
+    transferActivityContent(activity.id, newActivityId, { mode: 'copy', userId: targetId });
+    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = CASE WHEN subProjectId IN (SELECT id FROM sub_projects WHERE activityId = ?) THEN subProjectId ELSE NULL END WHERE activityId = ? AND userId = ?')
+      .run(newActivityId, newActivityId, activity.id, targetId);
 
     // Elle n'est plus membre de l'activité d'origine. Le propriétaire (qui
     // déclenche l'exclusion) reste forcément membre : aucun transfert de
@@ -476,8 +481,10 @@ router.post('/activities/:id/merge', (req, res) => {
     // en base. Sans cette mise à NULL explicite, les enregistrements déplacés
     // resteraient rattachés à un sous-projet d'une autre activité, et rien ne
     // le signalerait. Le temps, lui, est intégralement conservé.
-    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = NULL WHERE activityId = ? AND userId = ?')
-      .run(target.id, source.id, userId);
+    // AC·04 : pôles, secteurs, tâches et plans suivent (avant le temps).
+    transferActivityContent(source.id, target.id, { mode: 'move' });
+    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = CASE WHEN subProjectId IN (SELECT id FROM sub_projects WHERE activityId = ?) THEN subProjectId ELSE NULL END WHERE activityId = ? AND userId = ?')
+      .run(target.id, target.id, source.id, userId);
 
     db.prepare('DELETE FROM activity_members WHERE activityId = ? AND userId = ?').run(source.id, userId);
 
@@ -487,7 +494,7 @@ router.post('/activities/:id/merge', (req, res) => {
     // gardé le sien), on la masque au lieu de l'effacer, la clé étrangère
     // time_entries.activityId étant NOT NULL et sans cascade.
     const stillReferenced = db.prepare('SELECT 1 FROM time_entries WHERE activityId = ? LIMIT 1').get(source.id);
-    if (stillReferenced) {
+    if (stillReferenced || hasGoalContent(source.id)) {
       db.prepare('UPDATE activities SET active = 0, deletedAt = ? WHERE id = ?')
         .run(new Date().toISOString(), source.id);
     } else {
@@ -551,8 +558,10 @@ router.delete('/activities/:id', (req, res) => {
       // effacer la ligne (FK time_entries.activityId) : on la masque
       // définitivement à la place. Sinon, plus rien n'y fait référence :
       // suppression complète.
+      // AC·21 : jamais d'effacement (cascade) tant qu'elle porte des pôles,
+      // secteurs, tâches ou plans : on la masque, tout est conservé.
       const stillReferenced = db.prepare('SELECT 1 FROM time_entries WHERE activityId = ? LIMIT 1').get(activity.id);
-      if (stillReferenced) {
+      if (stillReferenced || hasGoalContent(activity.id)) {
         db.prepare('UPDATE activities SET active = 0, deletedAt = ? WHERE id = ?').run(new Date().toISOString(), activity.id);
       } else {
         db.prepare('DELETE FROM activities WHERE id = ?').run(activity.id);
