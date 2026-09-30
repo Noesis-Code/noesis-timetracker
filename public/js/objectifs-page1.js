@@ -105,6 +105,23 @@
             <p id="goalsTasksHistoryEmptyHint" class="hint hidden">Aucune tâche capturée cette semaine.</p>
           </div>
         </div>
+
+        <!-- Offre 1 (30 septembre 2026, demande d'Emilien) : a quitté Réglages pour
+             s'afficher ici, sous « Historique ». Contenu, ids et logique
+             inchangés (loadOffer1SubscribedSection/openOffer1CheckoutModal dans
+             app.js, exposés via TMT) ; la modale #offer1CheckoutModal reste dans
+             index.html. -->
+        <div id="offer1Section">
+          <div class="sectionTitleRow">
+            <p class="sectionTitle">Offre 1</p>
+          </div>
+          <div class="settingsCard">
+            <p class="hint">Formulaires d'identification et analyse régénérée tous les six mois, par activité — 20 $/mois, résiliable à tout moment.</p>
+            <div id="offer1SubscribedList" class="activitiesList"></div>
+            <p id="offer1SubscribedEmptyHint" class="hint hidden">Aucun abonnement actif pour l'instant.</p>
+            <button type="button" id="offer1CheckoutOpenBtn" class="iconBtn">Souscrire à l'Offre 1</button>
+          </div>
+        </div>
       </div>
 
       <p id="goalsNoActivityHint" class="hint hidden">Ajoute une activité pour commencer à te fixer des objectifs.</p>
@@ -891,6 +908,7 @@
     goalsTasksHistoryWeekOffset = 0;
     var histPanel = $('goalsTasksHistoryPanel');
     if (histPanel) histPanel.classList.add('hidden');
+    if (TMT.loadOffer1SubscribedSection) TMT.loadOffer1SubscribedSection();
   }
 
 
@@ -967,4 +985,5 @@
   TMT.openGoalsPeriodFromNotification = openGoalsPeriodFromNotification;
   TMT.renderGoalsCaptureActivities = renderGoalsCaptureActivities;
   TMT.showGoalsCapturePage = showGoalsCapturePage;
+  $('offer1CheckoutOpenBtn').addEventListener('click', TMT.openOffer1CheckoutModal);
 })();

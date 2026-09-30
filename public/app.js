@@ -11675,7 +11675,6 @@
     $('profileSettingsBtn').classList.add('active');
     renderNotificationsSection();
     refreshCalendarFeedSection();
-    loadOffer1SubscribedSection();
   }
   // Le bouton "⚙️" a vécu dans .topbar du 31 août au 2 septembre 2026
   // (demande d'Emilien), accessible depuis n'importe quel onglet — puis
@@ -16571,7 +16570,9 @@
       .finally(function () { $('offer1CheckoutRecheckBtn').disabled = false; });
   }
 
-  $('offer1CheckoutOpenBtn').addEventListener('click', openOffer1CheckoutModal);
+  // #offer1CheckoutOpenBtn vit dans la Feuille de route (injecté par objectifs-page1.js, qui câble son clic).
+  TMT.openOffer1CheckoutModal = openOffer1CheckoutModal;
+  TMT.loadOffer1SubscribedSection = loadOffer1SubscribedSection;
   $('offer1CheckoutModalClose').addEventListener('click', closeOffer1CheckoutModal);
   $('offer1CheckoutModal').addEventListener('click', function (e) {
     if (e.target === this) closeOffer1CheckoutModal(); // clic sur le fond

@@ -2892,22 +2892,17 @@
 
 
 
-            <!-- Groupe « Compte et sécurité » — fusion demandée par Emilien le 9
-                 septembre 2026 (réorganisation du panneau Réglages, voir
-                 noesis-timetracker-parametres.md). Sous-sections en accordéon
-                 imbriqué : ce groupe s'ouvre/se referme comme une section de
-                 premier niveau ; une fois ouvert, une seule sous-section à la
-                 fois s'ouvre à l'intérieur, sans jamais refermer le groupe
-                 lui-même (voir closeAllSettingsSections/closeSettingsContainer,
-                 public/app.js). Tous les ids des sous-sections sont inchangés. -->
-            <div class="settingsGroup">
+            <!-- Ancien groupe « Compte et sécurité » supprimé (demande d'Emilien,
+                 30 septembre 2026) : ses divisions sont devenues des sections
+                 de premier niveau indépendantes — Identité, Sécurité (code +
+                 documents légaux réunis) et Supprimer mon compte. Tous les ids
+                 sont inchangés. -->
+            <div class="settingsSection">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                <span class="sectionTitle">Compte et sécurité</span>
+                <span class="sectionTitle">Identité</span>
                 <span class="settingsSectionChevron" aria-hidden="true">▾</span>
               </button>
-              <div class="settingsGroupBody hidden">
-              <div class="settingsFlat">
-                <p class="sectionTitle settingsFlatTitle">Identité</p>
+              <div class="settingsSectionBody hidden">
               <div class="settingsCard">
                 <!-- La photo de profil ne se modifie plus ici depuis le 29 août
                      2026 : elle s'édite directement en cliquant sur l'avatar de la
@@ -2949,6 +2944,7 @@
                      Id et classe inchangés depuis l'origine : son écouteur dans
                      app.js n'a jamais bougé, quel que soit l'emplacement. -->
                 <button type="button" id="logoutBtn" class="logoutBtn">Déconnexion</button>
+              </div>
               </div>
               </div>
               <!-- "Abonnés & Abonnements" a quitté Réglages le 1er septembre 2026
@@ -2993,8 +2989,6 @@
                 <button id="settingsLogoutAllBtn" class="iconBtn danger">Se déconnecter de tous les appareils</button>
                 <p id="settingsLogoutAllMsg" class="msg"></p>
               </div>
-                </div>
-              </div>
               <!-- Documents légaux (10 septembre 2026, demande directe
                    d'Emilien) : la politique de confidentialité et les
                    mentions légales n'étaient nulle part visibles dans l'app
@@ -3022,12 +3016,11 @@
                    montrée à l'Utilisateur). Toute mise à jour du FOND doit
                    passer par ces documents projet, jamais être rédigée ici
                    directement. -->
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Documents légaux</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
+              <!-- Documents légaux (ex-sous-section, réunie à Sécurité le 30
+                   septembre 2026, demande d'Emilien) : mêmes ids et même
+                   comportement qu'avant, seul le conteneur change. Voir
+                   #privacyPolicyModal/#legalNoticesModal/#legalTermsModal plus
+                   bas dans ce fichier. -->
               <div class="settingsCard">
                 <p class="hint">Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.</p>
                 <button type="button" id="openPrivacyPolicyBtn" class="iconBtn">Lire la politique de confidentialité</button>
@@ -3037,31 +3030,6 @@
                 </div>
               </div>
 
-              <!-- Offre 1 (abonnement payant, 20 $/mois par activité) — ajoutée
-                   le 14 septembre 2026, premier branchement du front sur
-                   server/routes/offercheckout.js (POST /offer/checkout, GET
-                   /offer/subscriptions). La modale de souscription elle-même
-                   (#offer1CheckoutModal) vit plus bas dans ce fichier, avec les
-                   autres modales de Réglages ; ouverte par #offer1CheckoutOpenBtn
-                   (voir loadOffer1SubscribedSection/openOffer1CheckoutModal,
-                   app.js). L'édition des formulaires d'une activité déjà
-                   abonnée (server/routes/offerforms.js) n'est PAS construite
-                   ici — hors périmètre de ce passage, volontairement laissée
-                   de côté. -->
-              <div class="settingsSection">
-                <button type="button" class="settingsSectionHeader" aria-expanded="false">
-                  <span class="sectionTitle">Offre 1</span>
-                  <span class="settingsSectionChevron" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsSectionBody hidden">
-              <div class="settingsCard">
-                <p class="hint">Formulaires d'identification et analyse régénérée tous les six mois, par activité — 20 $/mois, résiliable à tout moment.</p>
-                <div id="offer1SubscribedList" class="activitiesList"></div>
-                <p id="offer1SubscribedEmptyHint" class="hint hidden">Aucun abonnement actif pour l'instant.</p>
-                <button type="button" id="offer1CheckoutOpenBtn" class="iconBtn">Souscrire à l'Offre 1</button>
-              </div>
-                </div>
-              </div>
               <!-- Zone "danger", volontairement tout en bas de Réglages (29 août
                    2026, demande d'Emilien) : suppression définitive du compte,
                    confirmée par le code PIN du profil (même mécanisme que la
@@ -3084,8 +3052,6 @@
               </div>
                 </div>
               </div>
-              </div>
-            </div>
 
 
             <!-- Affichage (anciennement « Préférences d'affichage », renommé le 9
