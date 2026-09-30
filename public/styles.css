@@ -817,6 +817,15 @@ input[type=time]:focus, select:focus, textarea:focus {
   white-space: nowrap;
 }
 .tabBtn.active .tabLabel { font-weight: 600; color: var(--purple); }
+/* 30 sept. 2026 (Gaspard ST·15, « onglet Statistiques pas visible ») : sur
+   petit écran (<= 360px) les 5 volets débordaient de la pastille de verre et
+   leurs libellés se chevauchaient ; on resserre pour que tous restent visibles. */
+@media (max-width: 360px) {
+  .tabbar { padding-left: 18px; padding-right: 18px; }
+  .tabBtn { min-width: 46px; }
+  .tabIcon { width: 46px; height: 46px; border-radius: 15px; }
+  .tabLabel { font-size: 9px; }
+}
 :root[data-theme="dark"] .tabBtn.active .tabLabel { color: #cdbdf0; }
 
 /* ⚠️ 29 septembre 2026, demande d'Emilien (direction visuelle « Piste B »,
