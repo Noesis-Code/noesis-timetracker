@@ -6771,12 +6771,15 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* Calme visuel (30 sept. 2026) : écrans d'accueil (#onboarding) — violet adouci, verre, interrupteur des conditions. */
 #onboarding .onboarding-card {
-  background: var(--glass-bg), var(--card); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+  max-height: calc(100dvh - 60px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
 }
-#onboarding .onboarding-card h1 { color: var(--onb-purple); }
+#onboarding { padding-top: calc(env(safe-area-inset-top, 0px) + 40px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); }
+#onboarding .onboarding-card h1 { color: #1f1838; }
 #onboarding .switchLink a, #onboarding .onbLegalText a { color: var(--onb-purple); }
 #onboarding .onbInstallIcon svg rect:first-child { fill: var(--onb-purple); }
 #onboarding .onbInstallIcon svg path { stroke: var(--onb-purple); }
 #onboarding .onbInstallIcon svg rect:last-child { fill: var(--onb-purple); }
-.onbLegalCheck { display: flex; align-items: center; gap: 12px; text-align: left; margin: 0 0 16px; }
+.onbLegalCheck { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 12px; text-align: left; margin: 0 0 16px; }
 .onbLegalText { font-size: 14px; line-height: 1.4; color: var(--text); }
