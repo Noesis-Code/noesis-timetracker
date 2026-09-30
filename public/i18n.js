@@ -116,6 +116,7 @@
     'Continuer': 'Continue',
     'Aucun profil trouvé.': 'No profile found.',
     "Aucune activité ajoutée pour l'instant.": 'No activity added yet.',
+    "Aucune activité pour l'instant. Touche « + » pour ajouter ta première activité.": 'No activity yet. Tap "+" to add your first one.',
     'Indique un prénom ou un pseudo.': 'Enter a first name or a nickname.',
     'Indique ton nom de famille.': 'Enter your last name.',
     'Indique un numéro de téléphone valide.': 'Enter a valid phone number.',

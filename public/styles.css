@@ -1346,6 +1346,8 @@ textarea {
   transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 .periodBtn.active { background: var(--purple); color: white; border-color: var(--purple); }
+#activityPageTabDisc { position: relative; }
+#activityPageTabDisc .notifDot { top: 2px; right: 2px; border-color: var(--card); }
 @media (hover: hover) {
   .periodBtn:hover:not(.active) { background: var(--hover-bg); }
 }

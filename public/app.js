@@ -5670,7 +5670,9 @@
 
     loadActivityCategoryFilter(currentCommunityActivityId);
     loadActivityStats(currentCommunityActivityId);
-    loadDiscussion(true);
+    // AC·N1 : le fil n'est marqué lu que s'il est réellement à l'écran ; sinon
+    // la pastille de l'onglet Discussion signale les messages non lus.
+    loadDiscussion(activityPageSection === 'disc');
     startDiscussionPolling();
     // Sous-projets de cette activité (discussion "Sous-projets", 3 septembre
     // 2026) : on repart toujours d'aucun sous-projet ouvert, comme les
@@ -5807,6 +5809,8 @@
     if (name === 'disc') {
       var list = $('communityDiscussionList');
       if (list) requestAnimationFrame(function () { list.scrollTop = list.scrollHeight; });
+      // Le fil est maintenant lu : marque lu côté serveur et éteint la pastille.
+      loadDiscussion(true);
     }
 
     // « je souhaite que dans le graphique, les dernières données se
@@ -9371,7 +9375,7 @@
         return;
       }
       if (document.hidden) return;
-      loadDiscussion(true);
+      loadDiscussion(activityPageSection === 'disc');
       refreshUnreadBadges();
     }, 15000);
   }
@@ -9391,7 +9395,7 @@
         // La pastille de cette activité vient d'être remise à zéro côté
         // serveur (markRead) : on l'efface tout de suite ici plutôt que
         // d'attendre le prochain rechargement complet de la liste.
-        if (markRead) setUnreadBadge(activityId, 0);
+        if (markRead) { setUnreadBadge(activityId, 0); setDiscTabDot(0); } else refreshUnreadBadges();
       })
       .catch(function () {
         // Activité quittée/supprimée entre-temps : loadActivityDetail gère
@@ -9498,6 +9502,14 @@
     badge.classList.toggle('hidden', !count);
   }
 
+  // AC·N1 : pastille .notifDot sur l'onglet Discussion de la page Activité,
+  // d'après le même état « lu » serveur que les pastilles de la liste
+  // (activity_message_reads). Jamais affichée quand le fil est à l'écran.
+  function setDiscTabDot(count) {
+    var dot = $('activityPageDiscDot');
+    if (dot) dot.classList.toggle('hidden', !count || activityPageSection === 'disc');
+  }
+
   function refreshUnreadBadges() {
     if (!profile) return;
     api('GET', '/api/community/unread-messages?userId=' + profile.id).then(function (data) {
@@ -9506,6 +9518,7 @@
         badge.textContent = n;
         badge.classList.toggle('hidden', !n);
       });
+      if (currentCommunityActivityId) setDiscTabDot(data.byActivity[currentCommunityActivityId] || 0);
     }).catch(function () { /* sans conséquence : la pastille reste telle quelle */ });
   }
 
@@ -15827,6 +15840,14 @@
       editBar.appendChild(editHint);
       editBar.appendChild(editDone);
       box.appendChild(editBar);
+    }
+    // AC·N2 : état vide — invite à ajouter une première activité.
+    if (!acts.length) {
+      var emptyMsg = document.createElement('p');
+      emptyMsg.className = 'hint';
+      emptyMsg.id = 'activitiesEmptyState';
+      emptyMsg.textContent = t("Aucune activité pour l'instant. Touche « + » pour ajouter ta première activité.");
+      box.appendChild(emptyMsg);
     }
     acts.forEach(function (a) {
       var sharedInfo = shared[String(a.id)];
