@@ -6688,3 +6688,13 @@ button { -webkit-user-select: none; user-select: none; }
   padding-left: 4px;
   padding-top: 14px;
 }
+
+/* 30 sept. 2026 (demande d'Emilien) : les BOUTONS rouges (stop du chrono, croix de suppression de pôles/secteurs/
+   sous-projets/activités, .danger, retrait de photo…) passent à l'orange brique des boutons Ajouter/Rechercher/Envoyer.
+   Les pastilles de notification et indicateurs d'état restent rouges (ce ne sont pas des boutons). */
+.chronoBtn-stop.chronoBtn-stop { background: #C2694A; }
+.iconBtn.danger.danger, .activityDeleteX.activityDeleteX, .subProjectDeleteX.subProjectDeleteX {
+  border-color: #C2694A; color: #E08A69;
+}
+.discussionMsgDelete.discussionMsgDelete:hover, .historyRowIconBtn.danger.danger:hover { color: #E08A69; }
+.avatarRemoveBtn.avatarRemoveBtn:hover { background: #C2694A; }
