@@ -6698,3 +6698,11 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .discussionMsgDelete.discussionMsgDelete:hover, .historyRowIconBtn.danger.danger:hover { color: #E08A69; }
 .avatarRemoveBtn.avatarRemoveBtn:hover { background: #C2694A; }
+
+/* 30 sept. 2026 (demande d'Emilien, page Profil) : la bande des projets + le « + » remontent tout près de la barre du
+   haut (message vide masqué, moins de marge haute) et se décollent de la zone d'écriture (marge basse plus grande) ;
+   la croix de fermeture est un SVG plus grand, parfaitement centré (le glyphe « ✕ » était décentré). */
+#profilePageScroll { padding-top: 6px; }
+#profilePageScroll > #avatarMsg:empty { display: none; }
+#profilePageScroll > #topbarProjects { margin-bottom: 32px; }
+#profilePage #profilePageClose svg { width: 24px; height: 24px; }
