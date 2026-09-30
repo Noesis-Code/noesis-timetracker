@@ -6734,3 +6734,16 @@ button { -webkit-user-select: none; user-select: none; }
   box-shadow: var(--glass-shadow);
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
 }
+
+/* 30 sept. 2026 (Sécurité) : « Changer mon code » en gris (comme « Enregistrer » d'Identité / confirmation chrono, .iconBtn) ;
+   boutons empilés pleine largeur, écart uniforme de 8px entre « Changer mon code », « Se déconnecter de tous les appareils »
+   et les boutons de lecture des mentions légales. */
+#settingsPinSaveBtn { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+#settingsPinSaveBtn, #settingsLogoutAllBtn, #openPrivacyPolicyBtn, #openLegalNoticesBtn, #openLegalTermsBtn {
+  display: block; width: 100%; box-sizing: border-box; margin: 8px 0 0; padding: 10px 16px; font-size: 14px;
+}
+#profileSettingsScroll .settingsCard:has(#settingsPinSaveBtn) { border-bottom: 0; padding-bottom: 0; }
+#profileSettingsScroll .settingsCard:has(#settingsLogoutAllBtn) { padding-top: 8px; }
+#profileSettingsScroll .settingsCard:has(#settingsLogoutAllBtn) #settingsLogoutAllBtn { margin-top: 0; }
+#profileSettingsScroll .settingsCard:has(#settingsLogoutAllBtn) .msg:empty,
+#profileSettingsScroll .settingsCard:has(#settingsPinSaveBtn) .msg:empty { margin: 0; min-height: 0; }
