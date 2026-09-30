@@ -6683,6 +6683,13 @@ button { -webkit-user-select: none; user-select: none; }
 #profileSettingsScroll .settingsGroupBody {
   margin-top: 0;
 }
+/* 30 sept. 2026 (demande d'Emilien : « la barre verticale à gauche lorsqu'on
+   déroule les notifications ») : le corps déplié de la section Notifications
+   reçoit la même barre fine que les sections imbriquées (.settingsGroupBody
+   .settingsSection, plus haut). Ciblé via la bascule #notifCommunityToggle. */
+#profileSettingsScroll .settingsSectionBody:has(#notifCommunityToggle) {
+  margin-left: 10px; padding-left: 10px; border-left: 2px solid var(--border);
+}
 /* ⚠️ Reste des 44px réservés au bouton « ← » flottant, disparu le 26 septembre
    2026 : les titres de sous-section restaient décalés pour un bouton absent.
    Alignés sur les 4px des lignes ci-dessus. */
