@@ -1555,6 +1555,10 @@
     // jour dès l'ouverture de l'app, même si on ne visite pas encore Profil.
     loadPendingInvites();
     loadFollowRequests();
+    // Ré-enregistre l'appareil côté serveur à chaque ouverture si la
+    // permission est déjà accordée (30 sept. 2026, CO·15) — jamais de demande
+    // de permission ici (pas de geste utilisateur).
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') subscribePushSilently();
     // L'écran de chargement animé reste affiché jusqu'ici : #app est certes
     // déjà visible (et mesuré : syncTopbarHeightVar/refreshScrollLock sont
     // passés juste au-dessus, donc aucun sursaut de mise en page au moment
@@ -11805,7 +11809,15 @@
       if (!pushServerEnabled) return false;
       if (Notification.permission === 'denied') return false;
       return currentPushSubscription().then(function (existing) {
-        if (existing) return true;
+        // 30 sept. 2026 (Gaspard CO·15) : un appareil déjà abonné côté
+        // navigateur n'était jamais ré-enregistré côté serveur (base
+        // réinitialisée, profil récupéré, abonnement purgé sur 404/410) :
+        // plus aucune notification sans qu'il y paraisse. POST /push/subscribe
+        // est idempotent (upsert sur l'endpoint) — on le rejoue à chaque appel.
+        if (existing) {
+          return api('POST', '/api/push/subscribe', { userId: profile.id, subscription: existing.toJSON() })
+            .then(function () { return true; });
+        }
         return Notification.requestPermission().then(function (permission) {
           if (permission !== 'granted') return false;
           return navigator.serviceWorker.ready.then(function (reg) {
