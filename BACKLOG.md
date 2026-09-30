@@ -10,7 +10,9 @@ Dernière mise à jour : 30 sept. 2026 (construit à partir de `chantiers-en-cou
 - Épuration visuelle : bouton d'envoi dans la zone (Profil, Feedback), topbar (Noesis→profil, profil→réglages), icône + étiquette « Feuille de route », page Profil en fenêtre, Réglages mode épuré.
 
 ## 2. En cours
-- 🟠 **Piste B « verre »** (Design) : boutons de type réglage en verre (✕ des fenêtres, boutons Profil, périodes Statistiques, flèches de semaine, « + » catégories) + zone de recherche Communauté sans cadre. Code dans `styles.css` : branche `emilien/design-piste-b-verre`, à valider visuellement puis fusionner.
+- (rien) — Piste B « verre » + « verre partout » fusionnées dans `staging` le 30 sept., validées par Émilien.
+- 🟡 Vérifier en thème clair (captures non concluantes) le « + » des projets du Profil et les bascules en verre.
+- 🟡 `server/lib/seed-staging.js` n'est appelé nulle part : `staging` démarre-t-il sans données de test ? À vérifier.
 
 ## 3. À trancher (❓ Émilien)
 - ❓ Rail périodique Page 2 « trop espacé » : 3 maquettes (A rail compact, B bande horizontale, C grille 2 colonnes) livrées le 29 sept., aucun choix encore. Piste probable du problème : `.goalsGrid { gap: 44px }`.
