@@ -236,7 +236,11 @@ input[type=time]:focus, select:focus, textarea:focus {
    fichier (barre d'adresse mobile qui apparaît/disparaît, voir la note du 3
    septembre 2026 plus haut) : 100vh reste le repli pour les navigateurs qui
    ne comprennent pas 100dvh. */
+/* Calme visuel (30 sept. 2026) : écrans de création/connexion/gate PWA, violet adouci (désaturé, plus sombre),
+   jamais remplacé. Jetons locaux à #onboarding : le violet du reste de l'app est inchangé. */
 #onboarding {
+  --onb-bg: linear-gradient(160deg, #453b6b 0%, #2c2547 100%);
+  --onb-purple: #8b7cb8;
   height: 100vh;
   height: 100dvh;
   /* 12 septembre 2026 (Design) : overflow:hidden coupait sans recours
@@ -254,7 +258,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(160deg, var(--purple) 0%, var(--purple-dark) 100%);
+  background: var(--onb-bg);
 }
 /* 11 septembre 2026 (nuit, diagnostic chiffré) : indicateur temporaire posé
    sur l'app (safe-top/safe-bottom/innerH/outerH) a montré, sur l'iPhone
@@ -294,7 +298,7 @@ input[type=time]:focus, select:focus, textarea:focus {
   right: 0;
   bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 24px));
   height: calc(env(safe-area-inset-bottom, 0px) + 24px);
-  background: linear-gradient(160deg, var(--purple) 0%, var(--purple-dark) 100%);
+  background: var(--onb-bg);
   pointer-events: none;
 }
 .onboarding-card {
@@ -6764,3 +6768,15 @@ button { -webkit-user-select: none; user-select: none; }
 #activityPageSectionSwitch:not(.hidden) + #activityPageScroll #activityPageBody::before {
   content: ''; display: block; height: calc(var(--activity-switch-h) - 8px);
 }
+
+/* Calme visuel (30 sept. 2026) : écrans d'accueil (#onboarding) — violet adouci, verre, interrupteur des conditions. */
+#onboarding .onboarding-card {
+  background: var(--glass-bg), var(--card); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+}
+#onboarding .onboarding-card h1 { color: var(--onb-purple); }
+#onboarding .switchLink a, #onboarding .onbLegalText a { color: var(--onb-purple); }
+#onboarding .onbInstallIcon svg rect:first-child { fill: var(--onb-purple); }
+#onboarding .onbInstallIcon svg path { stroke: var(--onb-purple); }
+#onboarding .onbInstallIcon svg rect:last-child { fill: var(--onb-purple); }
+.onbLegalCheck { display: flex; align-items: center; gap: 12px; text-align: left; margin: 0 0 16px; }
+.onbLegalText { font-size: 14px; line-height: 1.4; color: var(--text); }

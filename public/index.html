@@ -508,12 +508,13 @@
            d'un simple preventDefault sur chacun des deux liens, sans
            stopPropagation. -->
       <p class="onbLegalCheck">
-        <label for="onbLegalTermsCheckbox">
+        <label class="toggleSwitch">
           <input type="checkbox" id="onbLegalTermsCheckbox">
-          <span>J'ai lu et j'accepte les <a href="#" id="onbLegalTermsLink">conditions d'utilisation</a> et la <a href="#" id="onbPrivacyPolicyLink">politique de confidentialité</a>.</span>
+          <span class="toggleSwitchTrack"></span>
         </label>
+        <label for="onbLegalTermsCheckbox" class="onbLegalText">J'ai lu et j'accepte les <a href="#" id="onbLegalTermsLink">conditions d'utilisation</a> et la <a href="#" id="onbPrivacyPolicyLink">politique de confidentialité</a>.</label>
       </p>
-      <button class="btn btn-primary" id="onbCreateBtn" disabled>Créer mon profil</button>
+      <button class="btn btn-primary btnBrique" id="onbCreateBtn" disabled>Créer mon profil</button>
       <p class="switchLink"><a href="#" id="onbSwitchToExisting">J'ai déjà un profil sur cette app</a></p>
     </div>
 
@@ -538,7 +539,7 @@
       <p id="onbPinStepHint" class="hint hidden"></p>
       <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinInput" placeholder="Code" maxlength="6" autocomplete="off">
       <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinConfirmInput" placeholder="Confirme le code" maxlength="6" autocomplete="off" class="hidden">
-      <button class="btn btn-primary" id="onbPinSubmit">Valider</button>
+      <button class="btn btn-primary btnBrique" id="onbPinSubmit">Valider</button>
       <p class="switchLink"><a href="#" id="onbPinCancel">Retour</a></p>
     </div>
 
@@ -552,7 +553,7 @@
         <div id="onbNewActivitySwatches" class="colorSwatches"></div>
         <button id="onbNewActivitySave" class="btn btn-small btnBrique">Ajouter</button>
       </div>
-      <button id="onbActivitiesContinue" class="btn btn-primary" disabled>Continuer</button>
+      <button id="onbActivitiesContinue" class="btn btn-primary btnBrique" disabled>Continuer</button>
     </div>
 
     <!-- 11 septembre 2026 (demande d'Emilien) : tant que l'app n'est pas
