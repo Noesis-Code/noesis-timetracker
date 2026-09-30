@@ -2457,6 +2457,7 @@ body.scrollLock { overflow: hidden; }
   overflow-y: auto; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding: 16px; box-shadow: var(--shadow-elevated);
 }
+.announcementBody { white-space: pre-wrap; line-height: 1.5; margin: 0; }
 .communityMembersModalHeader {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
 }

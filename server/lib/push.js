@@ -93,6 +93,7 @@ const TEXTS = {
     followTitle: 'Demande de suivi',
     followBody: (from) => `${from} souhaite te suivre.`,
     postTitle: '📣 Communauté',
+    announcementTitle: 'Noèsis',
   },
   en: {
     inviteTitle: 'Invitation',
@@ -100,6 +101,7 @@ const TEXTS = {
     followTitle: 'Follow request',
     followBody: (from) => `${from} wants to follow you.`,
     postTitle: '📣 Community',
+    announcementTitle: 'Noèsis',
   },
 };
 
@@ -115,7 +117,7 @@ function textsFor(userId) {
 // Envoie une notification à TOUS les appareils abonnés de ces personnes.
 // - `userIds` : tableau d'identifiants de profil (les doublons sont ignorés).
 // - `payload` : { title, body, tag, url }.
-// Ne renvoie rien et ne lève jamais : l'appelant n'a pas à s'en soucier.
+// Renvoie une promesse (ignorée par les routes ; attendue par scripts/send-announcement.js) et ne lève jamais : l'appelant n'a pas à s'en soucier.
 function sendToUsers(userIds, payload) {
   if (!configured) return;
 
@@ -141,12 +143,12 @@ function sendToUsers(userIds, payload) {
 
   const deleteSub = db.prepare('DELETE FROM push_subscriptions WHERE id = ?');
 
-  subs.forEach((sub) => {
+  return Promise.all(subs.map((sub) => {
     const subscription = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
     // Volontairement sans await : l'envoi part en arrière-plan et la requête
     // HTTP qui l'a déclenché (l'envoi d'un message, par exemple) répond tout
     // de suite, sans attendre les services de push.
-    webpush.sendNotification(subscription, body, { TTL: 3600 }).catch((err) => {
+    return webpush.sendNotification(subscription, body, { TTL: 3600 }).catch((err) => {
       const status = err && err.statusCode;
       // 404/410 = l'abonnement n'existe plus côté service de push (app
       // désinstallée, navigateur réinitialisé, autorisation retirée). C'est le
@@ -157,7 +159,7 @@ function sendToUsers(userIds, payload) {
       }
       console.warn('[push] envoi échoué (' + status + ') :', err && err.body ? String(err.body).slice(0, 200) : err.message);
     });
-  });
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -302,7 +304,27 @@ function notifyFollowRequest(toUserId, fromUserId) {
   }
 }
 
+// Annonce diffusee a TOUS les profils ayant un abonnement push (ignore follows
+// et communityNotifyEnabled). Appelee uniquement a la main par
+// scripts/send-announcement.js. Corps tronque a 140 car. ; le texte complet
+// est lu dans l'app (table announcements).
+function allSubscribedUserIds() {
+  return db.prepare('SELECT DISTINCT userId FROM push_subscriptions').all().map((r) => r.userId);
+}
+
+async function notifyAnnouncement(body) {
+  if (!configured) return 0;
+  const ids = allSubscribedUserIds();
+  await Promise.all(ids.map((userId) => sendToUsers([userId], {
+    title: textsFor(userId).announcementTitle,
+    body: truncate(body, MESSAGE_MAX),
+    tag: 'announcement',
+    url: '/?notif=announcement',
+  })));
+  return ids.length;
+}
+
 module.exports = {
-  pushEnabled, publicKey, sendToUsers,
+  pushEnabled, publicKey, sendToUsers, allSubscribedUserIds, notifyAnnouncement,
   notifyActivityMessage, notifyCommunityPost, notifyActivityInvite, notifyFollowRequest,
 };

@@ -954,6 +954,7 @@
     // arrive sur /?notif=community ou /?notif=profile (voir server/lib/push.js
     // et notificationclick dans public/sw.js).
     if (location.search.indexOf('notif=') !== -1) openTabFromNotification(location.href);
+    else showAnnouncement(false);
   }
 
   // Appelé juste après la création/sélection d'un profil pendant l'onboarding.
@@ -8061,6 +8062,34 @@
     $('profileNotifBtn').classList.add('active');
   }
 
+  // Annonce diffusee a tous (30 sept. 2026, scripts/send-announcement.js) :
+  // fenetre modale avec le texte COMPLET, affichee une seule fois par profil
+  // (marquee « vue » des l'affichage). force=true (?notif=announcement) rouvre
+  // la derniere annonce meme deja vue.
+  var announcementShowing = false;
+  function showAnnouncement(force) {
+    var modal = $('announcementModal');
+    if (!profile || !modal || announcementShowing || !modal.classList.contains('hidden')) return;
+    announcementShowing = true;
+    api('GET', '/api/announcements/pending' + (force ? '?latest=1' : '')).then(function (data) {
+      var a = data && data.announcement;
+      if (!a) return;
+      $('announcementModalTitle').textContent = a.title;
+      $('announcementModalBody').textContent = a.body;
+      modal.classList.remove('hidden');
+      api('POST', '/api/announcements/' + a.id + '/seen', {}).catch(function () {});
+    }).catch(function () {}).then(function () { announcementShowing = false; });
+  }
+  $('announcementModalClose').addEventListener('click', function () {
+    $('announcementModal').classList.add('hidden');
+  });
+  $('announcementModal').addEventListener('click', function (e) {
+    if (e.target === $('announcementModal')) $('announcementModal').classList.add('hidden');
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') showAnnouncement(false);
+  });
+
   function openTabFromNotification(url) {
     var params = null;
     try {
@@ -8076,6 +8105,8 @@
     if (location.search.indexOf('notif=') !== -1) {
       history.replaceState(null, '', location.pathname);
     }
+
+    if (target === 'announcement') { showAnnouncement(true); return; }
 
     if (target === 'activity') {
       var activityId = params.get('activityId');
