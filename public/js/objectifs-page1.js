@@ -830,6 +830,8 @@
         .catch(function (err) { msg.textContent = err.message; })
         .then(function () { btn.disabled = false; });
     }
+    // O1·01 : ne pas voler le focus au champ (sinon le 1er clic ferme le clavier).
+    btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     btn.addEventListener('click', submit);
     textarea.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
