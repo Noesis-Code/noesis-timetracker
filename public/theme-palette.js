@@ -43,15 +43,23 @@
     root.NOESIS_THEME_PALETTES = factory();
   }
 })(typeof self !== 'undefined' ? self : this, function () {
+  // 30 sept. 2026 (demande d'Emilien) : palette par défaut au teint brique (terre cuite, rouille, ocre,
+  // terre) + quelques contrepoints sobres (argile rosée, olive, ardoise, prune) pour rester bien distinguables.
+  // Contraste du texte blanc >= 4.0:1 sur chacune. Les anciennes couleurs (LEGACY_DARK_PALETTE) restent
+  // VALIDES pour les activités existantes : jamais migrées ni réécrites.
   var DARK_PALETTE = [
-    '#9E2E2E', // rouge foncé
-    '#9B5D27', // orange foncé
-    '#8B7923', // jaune foncé
-    '#328540', // vert foncé
-    '#2E828A', // cyan foncé
-    '#3659A1', // bleu foncé
-    '#573EA3', // indigo foncé
-    '#833B9B', // violet foncé
+    '#A3432F', // brique
+    '#B0612F', // rouille
+    '#B08A2E', // ocre
+    '#7A5238', // terre
+    '#A8606A', // argile rosée
+    '#6B7A3C', // olive
+    '#4A6A8A', // ardoise
+    '#7A4562', // prune
+  ];
+
+  var LEGACY_DARK_PALETTE = [
+    '#9E2E2E', '#9B5D27', '#8B7923', '#328540', '#2E828A', '#3659A1', '#573EA3', '#833B9B',
   ];
 
   var LIGHT_PALETTE = [
@@ -65,5 +73,5 @@
     '#C089D2', // violet clair
   ];
 
-  return { DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE };
+  return { DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE, LEGACY_DARK_PALETTE: LEGACY_DARK_PALETTE };
 });

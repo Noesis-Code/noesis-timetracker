@@ -957,7 +957,10 @@
     var palette = PALETTES[currentTheme];
     containerEl.className = 'colorSwatches' + (compact ? ' compact' : '');
     containerEl.innerHTML = '';
-    var current = (selected && palette.indexOf(selected) !== -1) ? selected : palette[0];
+    var legacy = (NOESIS_THEME_PALETTES.LEGACY_DARK_PALETTE || []);
+    // Ancienne couleur par défaut d'une activité existante : conservée telle quelle (aucune pastille cochée).
+    var isLegacy = !!(selected && currentTheme !== 'light' && legacy.indexOf(selected) !== -1 && palette.indexOf(selected) === -1);
+    var current = (selected && (palette.indexOf(selected) !== -1 || isLegacy)) ? selected : palette[0];
     palette.forEach(function (c) {
       var sw = document.createElement('button');
       sw.type = 'button';
