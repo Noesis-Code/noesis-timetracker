@@ -704,6 +704,17 @@
     };
     var mainSaveBtn = $('activityGoalsMainSaveBtn');
     if (mainSaveBtn) mainSaveBtn.onclick = commitMainGoalText;
+    // 30 sept. 2026 (Gaspard, O3·03) : bloc plus compact — une fois l'objectif
+    // enregistré, « Enregistrer » ne reste affiché que tant que le texte a été
+    // modifié (l'enregistrement au blur est inchangé).
+    var mainSaveRow = mainSaveBtn && mainSaveBtn.parentNode;
+    var syncMainSaveRow = function () {
+      if (!mainSaveRow) return;
+      var dirty = mainInput.value.trim() !== lastCommittedMainGoalText;
+      mainSaveRow.classList.toggle('hidden', !!lastCommittedMainGoalText && !dirty);
+    };
+    mainInput.oninput = syncMainSaveRow;
+    syncMainSaveRow();
 
     // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
     // intégrations"), demande d'Emilien (confirmée après question posée) :
@@ -782,7 +793,10 @@
     var bilan = $('activityGoalsBilan');
     if (period.isPast && period.weeklies.length) {
       var doneCount = period.weeklies.filter(function (w) { return w.status === 'atteint'; }).length;
-      var text = doneCount + '/' + period.weeklies.length + ' ' + t('objectif(s) hebdomadaire(s) atteint(s).');
+      // 30 sept. 2026 (Gaspard, O3·08) : libellé explicite — « 3/4 objectif(s)
+      // hebdomadaire(s) atteint(s). » ne disait pas qu'il s'agit du bilan de
+      // la période terminée.
+      var text = t('Bilan de la période') + ' : ' + doneCount + ' ' + t('sur') + ' ' + period.weeklies.length + ' ' + t('objectifs hebdomadaires atteints') + '.';
       if (TMT.currentGoalsActivityIsShared && period.bilanPostedAt) text += ' ' + t('Bilan publié automatiquement dans le fil de discussion.');
       bilan.textContent = text;
       bilan.classList.remove('hidden');
@@ -1164,7 +1178,12 @@
       if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
       msg.textContent = '';
       btn.disabled = true;
-      addGoalsDayTask(period, day.date, label).catch(function () {}).then(function () { btn.disabled = false; });
+      // 30 sept. 2026 (Gaspard, O3·07) : l'erreur s'affichait seulement dans
+      // #activityGoalsMsg, tout en bas de la page, hors de vue — le bouton
+      // semblait ne rien faire. Elle s'affiche maintenant dans le formulaire.
+      addGoalsDayTask(period, day.date, label)
+        .catch(function (err) { msg.textContent = (err && err.message) || t('Impossible d’ajouter la tâche.'); })
+        .then(function () { btn.disabled = false; });
     }
     btn.addEventListener('click', submit);
     input.addEventListener('keydown', function (e) {
@@ -1232,11 +1251,20 @@
         var dateEl = document.createElement('span');
         dateEl.className = 'goalsCalendarDate';
         dateEl.textContent = calendarDayLabel(day.date);
+        // 30 sept. 2026 (Gaspard, O3·05) : le jour courant n'était distingué
+        // que par un fond léger — pastille « Aujourd'hui » explicite.
+        if (day.isToday) {
+          var todayBadge = document.createElement('span');
+          todayBadge.className = 'goalsCalendarTodayBadge';
+          todayBadge.textContent = t('Aujourd’hui');
+          dateEl.appendChild(todayBadge);
+        }
         row.appendChild(dateEl);
 
         var minutesEl = document.createElement('span');
         minutesEl.className = 'goalsCalendarMinutes' + (day.actualMinutes ? '' : ' empty');
         minutesEl.textContent = day.actualMinutes ? formatGoalHours(day.actualMinutes) : '';
+        minutesEl.title = t('Temps pointé ce jour');
         row.appendChild(minutesEl);
 
         // 28 septembre 2026 : le badge "S1"-"S4" cliquable (weekEl) est

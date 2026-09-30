@@ -944,6 +944,12 @@
     'En cours': 'Current',
     'objectif(s) hebdomadaire(s) atteint(s).': 'weekly goal(s) met.',
     'Bilan publié automatiquement dans le fil de discussion.': 'Recap automatically posted to the discussion thread.',
+    'Bilan de la période': 'Period recap',
+    'sur': 'out of',
+    'objectifs hebdomadaires atteints': 'weekly goals met',
+    'Aujourd’hui': 'Today',
+    'Temps pointé ce jour': 'Time tracked this day',
+    'Impossible d’ajouter la tâche.': 'Could not add the task.',
 
     // ---- 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
     // « Pôles & secteurs ») — renommage « catégorie » -> « pôle » côté

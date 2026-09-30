@@ -48,7 +48,7 @@
 
 .goalCardLabel { font-weight: bold; margin: 0 0 8px; font-size: 14px; }
 
-.goalMainProgressRow { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.goalMainProgressRow { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 
 .goalMainProgressTrack {
   flex: 1; height: 4px; border-radius: 2px;
@@ -85,26 +85,29 @@
 .goalMainCard textarea {
   background: transparent; border: none; border-radius: 0; padding: 2px 0;
   color: inherit; font-size: 15px; font-weight: 600;
+  /* 30 sept. 2026 (Gaspard, O3·03) : bloc plus compact — le min-height: 80px
+     global de textarea laissait ~60px vides sous le titre de l'objectif. */
+  min-height: 0; resize: none; field-sizing: content;
 }
 
 .goalMainCard textarea:focus { outline: none; box-shadow: none; }
 
 .goalMainCard textarea::placeholder { color: inherit; opacity: 0.65; }
 
-.goalEstimateHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; }
+.goalEstimateHint { font-size: 12px; color: var(--text-light); margin: 4px 0 0; }
 
 .goalMainCard .goalEstimateHint { color: inherit; opacity: 0.75; }
 
-.goalMainSaveRow { display: flex; justify-content: flex-end; margin-top: 8px; }
+.goalMainSaveRow { display: flex; justify-content: flex-end; margin-top: 4px; }
 
 .goalMainSaveBtn {
-  padding: 7px 16px; font-size: 13px; font-weight: 600;
+  padding: 4px 12px; font-size: 12px; font-weight: 600;
   border: 1px solid var(--purple); color: var(--purple); background: rgba(var(--purple-rgb), 0.16);
   border-radius: var(--radius-sm); cursor: pointer;
   transition: background-color var(--transition-fast);
 }
 
-.goalMainEmptyHint { font-size: 12px; color: var(--text-light); margin: 8px 0 0; opacity: 0.85; }
+.goalMainEmptyHint { font-size: 12px; color: var(--text-light); margin: 4px 0 0; opacity: 0.85; }
 
 .goalMainCard .goalMainEmptyHint { color: inherit; opacity: 0.85; }
 
@@ -113,7 +116,7 @@
 
 .goalCapacityRow {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-  margin: 10px 0 0; font-size: 12px;
+  margin: 6px 0 0; font-size: 12px; gap: 6px;
 }
 
 .goalCapacityLine { margin: 0; flex: 1; min-width: 0; }
@@ -259,6 +262,12 @@
 
 .goalsCalendarDate { flex: 1; min-width: 0; color: var(--text); text-transform: capitalize; }
 
+.goalsCalendarTodayBadge {
+  display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  color: #fff; background: var(--purple); vertical-align: middle;
+}
+
 .goalsCalendarWeekBadge {
   flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-light);
   background: var(--track-bg); border-radius: 999px; padding: 2px 8px;
@@ -294,7 +303,7 @@
 }
 
 .goalsCalendarAddTaskBtn {
-  position: relative; flex-shrink: 0; width: 22px; height: 22px;
+  position: relative; flex-shrink: 0; width: 28px; height: 28px;
   border: none; padding: 0; border-radius: 50%; cursor: pointer;
   color: var(--text-light); background: var(--track-bg);
 }
