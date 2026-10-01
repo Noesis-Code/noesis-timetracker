@@ -6479,10 +6479,19 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding .userList { max-height: 200px; margin-bottom: 4px; }
 #onboarding input[type=text], #onboarding input[type=password], #onboarding input[type=tel], #onboarding input[type=email] {
   padding: 10px 14px; margin-bottom: 8px; color: var(--text);
-  background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  background: transparent; border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
 }
+/* 1er oct. 2026 : champs de #onboarding = fond TRANSPARENT (aucune différence de teinte avec la carte), seul un liseré 1px les délimite ; focus = liseré plus clair, sans halo. */
+#onboarding input[type=text]:focus, #onboarding input[type=password]:focus, #onboarding input[type=tel]:focus, #onboarding input[type=email]:focus {
+  background: transparent; border-color: rgba(255, 255, 255, 0.38); box-shadow: none;
+}
+/* 1er oct. 2026 : carte du gate PWA (Safari) réellement centrée. Hors mode installé, #onboarding est calé sur le viewport visuel (fixed, inset 0)
+   plutôt que sur 100dvh en flux (Safari iOS : barres d'outils/défilement de page décalent la carte), et le titre du gate est centré comme le reste de la carte. */
+@media not (display-mode: standalone) {
+  #onboarding { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; width: auto; box-sizing: border-box; }
+}
+#onboarding #onbInstallPwa .lead { text-align: center; }
 #onboarding input::placeholder { color: var(--text-light); }
 #onboarding .switchLink a, #onboarding .onbLegalText a { color: var(--onb-purple); }
 #onboarding .onbInstallIcon svg rect:first-child { fill: var(--onb-purple); }
