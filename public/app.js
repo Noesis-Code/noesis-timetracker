@@ -6521,6 +6521,7 @@
     }
     el.addEventListener('pointerdown', function (e) {
       if (activityGoalsCategoriesEditMode) return;
+      if (e.target && e.target.closest && e.target.closest('input, textarea, select, button, a')) return;
       startX = e.clientX; startY = e.clientY;
       el.addEventListener('pointermove', onMove);
       el.addEventListener('pointerup', cancel);
@@ -7078,7 +7079,7 @@
       activityGoalsCategoriesOpen[pole.key] = !activityGoalsCategoriesOpen[pole.key];
       catRerender();
     });
-    bindCatLongPress(header);
+    bindCatLongPress(row);
     row.appendChild(header);
     if (pole.description) {
       var cap = document.createElement('p');
@@ -12977,6 +12978,7 @@
     }
     el.addEventListener('pointerdown', function (e) {
       if (projectsEditMode || lastProjectsList.length < 2) return;
+      if (e.target && e.target.closest && e.target.closest('input, textarea, select, button, a')) return;
       startX = e.clientX; startY = e.clientY;
       el.addEventListener('pointermove', onMove);
       el.addEventListener('pointerup', cancel);
@@ -13043,7 +13045,7 @@
         bindProjectDrag(handle, row);
         header.appendChild(handle);
       }
-      if (!projectsEditMode) bindProjectLongPress(header);
+      if (!projectsEditMode) bindProjectLongPress(row);
 
       var nameSpan = document.createElement('span');
       nameSpan.className = 'activityRowName';
@@ -15867,7 +15869,7 @@
         openActivityPage(a, sharedInfo, row);
       });
       header.classList.add('clickable');
-      bindActivityLongPress(header);
+      bindActivityLongPress(row);
 
       box.appendChild(row);
     });
@@ -15916,6 +15918,7 @@
     }
     el.addEventListener('pointerdown', function (e) {
       if (activitiesEditMode) return;
+      if (e.target && e.target.closest && e.target.closest('input, textarea, select, button, a')) return;
       startX = e.clientX; startY = e.clientY;
       el.addEventListener('pointermove', onMove);
       el.addEventListener('pointerup', cancel);
