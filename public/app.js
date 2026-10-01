@@ -13546,50 +13546,10 @@
   // si la modale a été refermée ou rouverte sur quelqu'un d'autre pendant
   // l'appel, la réponse est ignorée — même garde que partout ailleurs sur
   // cette page (viewProfileUserId).
-  // Blocage depuis la page de visite (30 sept. 2026, Gaspard CO·14) : même
-  // route que Réglages > Bloqués (POST /api/blocks : la personne ne peut plus
-  // me suivre ; me retire de ses abonnements chez moi). Deux appuis pour
-  // confirmer. Le déblocage reste dans Réglages > Bloqués.
-  function appendViewProfileBlockButton(slot, card) {
-    var target = card.id;
-    var btn = document.createElement('button');
-    btn.className = 'iconBtn danger';
-    btn.textContent = t('Bloquer');
-    btn.addEventListener('click', function () {
-      if (!btn.classList.contains('armed')) {
-        btn.classList.add('armed');
-        btn.textContent = t('Confirmer le blocage ?');
-        setTimeout(function () {
-          if (btn.disabled) return;
-          btn.classList.remove('armed');
-          btn.textContent = t('Bloquer');
-        }, 4000);
-        return;
-      }
-      btn.disabled = true;
-      api('POST', '/api/blocks', { blockedId: target })
-        .then(function () { btn.textContent = t('Bloqué'); })
-        .catch(function (err) {
-          btn.disabled = false;
-          btn.classList.remove('armed');
-          btn.textContent = t('Bloquer');
-          alert(err.message);
-        });
-    });
-    slot.appendChild(btn);
-    api('GET', '/api/blocks?userId=' + profile.id).then(function (list) {
-      if ((list || []).some(function (b) { return b.userId === target; })) {
-        btn.disabled = true;
-        btn.textContent = t('Bloqué');
-      }
-    }).catch(function () {});
-  }
-
   function renderViewProfileFollowButton(card) {
     var slot = $('viewProfileFollowSlot');
     slot.innerHTML = '';
     var target = card.id;
-    appendViewProfileBlockButton(slot, card);
 
     if (card.followStatus === 'accepted') {
       slot.appendChild(buildUnfollowButton(card.followId, card.name, function () {
