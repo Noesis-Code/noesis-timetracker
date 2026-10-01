@@ -10039,7 +10039,7 @@
   // activité personnelle du même nom et tout son historique déjà enregistré.
   // Le libellé change, le comportement non — et la confirmation le dit en
   // toutes lettres, parce que « quitter » se lit facilement comme « perdre ».
-  var ADD_MEMBER_SEARCH_MIN_LENGTH = 3;
+  var ADD_MEMBER_SEARCH_MIN_LENGTH = 1;
   var addMemberSearchSeq = 0;
   function renderActivityMembersActions(a, isShared) {
     var box = $('activityMembersActions');
@@ -10098,7 +10098,16 @@
       var searchInput = document.createElement('input');
       searchInput.type = 'text';
       searchInput.className = 'memberSearchInput';
-      searchInput.placeholder = t('Rechercher un membre...');
+      searchInput.placeholder = t('Chercher un pseudo, un projet, un secteur...');
+      searchInput.autocomplete = 'off';
+      var searchRow = document.createElement('div');
+      searchRow.className = 'chatComposerRow communitySearchRow';
+      var searchBtn = document.createElement('button');
+      searchBtn.type = 'button';
+      searchBtn.className = 'iconBtn btnBrique';
+      searchBtn.textContent = t('Rechercher');
+      searchRow.appendChild(searchInput);
+      searchRow.appendChild(searchBtn);
 
       var suggestBox = document.createElement('div');
 
@@ -10121,7 +10130,7 @@
       confirmBox.appendChild(confirmMsg);
       confirmBox.appendChild(confirmRow);
 
-      panel.appendChild(searchInput);
+      panel.appendChild(searchRow);
       panel.appendChild(suggestBox);
       panel.appendChild(confirmBox);
       if (membersListBox && membersListBox.parentNode) membersListBox.parentNode.insertBefore(panel, membersListBox);
@@ -10132,13 +10141,13 @@
       function showSearchView() {
         selectedUser = null;
         confirmBox.classList.add('hidden');
-        searchInput.classList.remove('hidden');
+        searchRow.classList.remove('hidden');
         suggestBox.classList.remove('hidden');
       }
 
       function showConfirmView(u) {
         selectedUser = u;
-        searchInput.classList.add('hidden');
+        searchRow.classList.add('hidden');
         suggestBox.classList.add('hidden');
         confirmMsg.textContent = t('Voulez-vous inviter {name} à rejoindre cette activité ?', { name: fullName(u.name, u.lastName) });
         confirmBox.classList.remove('hidden');
@@ -10197,6 +10206,7 @@
           .catch(function () { if (seq === addMemberSearchSeq) suggestBox.innerHTML = ''; });
       }
       var addMemberDebounce = null;
+      searchBtn.addEventListener('click', function () { clearTimeout(addMemberDebounce); runAddMemberSearch(); });
       searchInput.addEventListener('input', function () {
         clearTimeout(addMemberDebounce);
         addMemberDebounce = setTimeout(runAddMemberSearch, 250);

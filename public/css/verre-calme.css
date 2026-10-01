@@ -246,3 +246,9 @@ textarea
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; box-shadow: var(--glass-shadow) !important;
   -webkit-backdrop-filter: blur(40px) saturate(160%) !important; backdrop-filter: blur(40px) saturate(160%) !important; border-radius: 22px !important;
 }
+
+/* Fenêtre membres : barre de recherche identique à celle de Communauté. */
+:root .activityMembersSearchWrap input[type="text"].memberSearchInput, :root #communityMembersModal .activityMembersSearchWrap input[type="text"] {
+  background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; box-shadow: var(--glass-shadow) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(160%) !important; backdrop-filter: blur(40px) saturate(160%) !important; border-radius: 22px !important;
+}
