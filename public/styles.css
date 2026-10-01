@@ -6572,11 +6572,11 @@ button { -webkit-user-select: none; user-select: none; }
 
 .catList .catSecteurRow:first-child, .catList.editing .catSecteurRow:first-child { border-top: 0; }
 
-/* Fenêtre de description d'un pôle/secteur : bandeau + corps comme les fenêtres du Profil, champs et boutons en verre liquide. */
+/* Fenêtre de description d'un pôle/secteur : bandeau + corps comme les fenêtres du Profil, seule la croix en verre liquide. */
 #categoryDetailModal .categoryDetailBody { padding: 12px 16px 16px; }
-#categoryDetailClose, #categoryDetailSaveBtn, #categoryDetailDescription {
+#categoryDetailClose {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: var(--glass-shadow);
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
 }
-#categoryDetailSaveBtn { border-color: #C2694A; color: #E08A69; }
+#categoryDetailHint { display: none; }
