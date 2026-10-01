@@ -216,9 +216,6 @@ textarea
   -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
 }
 
-/* Communauté — zone de recherche : retour à l'apparence d'avant le verre calme (fond opaque habituel, champ compris). */
-:root #communitySearchBar { background: var(--card) !important; box-shadow: var(--shadow-card) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
-:root #communitySearchBar input[type="text"] { background: var(--card) !important; border-color: var(--border) !important; }
 
 /* Chrono — modification d'un enregistrement : la carte fournit seule la teinte, champs/menu/boutons en liseré seul (pas d'empilement). */
 :root :is(.historyEntry, .historyEntryCompact, .historyEntryCompact.isEditing) .historyEditFields,
@@ -242,10 +239,10 @@ textarea
   -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
 }
 
-/* Communauté — zone de recherche : verre liquide identique à la barre des volets du bas (jetons --glass-*), champ sans rectangle. */
-:root #communitySearchBar {
-  background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important;
-  box-shadow: var(--glass-shadow) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
+
+/* Communauté — zone de recherche : forme d'origine (le CHAMP est la pastille de verre, rayon 22 px ; le conteneur reste transparent). */
+:root #communitySearchBar { background: transparent !important; border: none !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; border-radius: 0 !important; padding: 0 !important; }
+:root #communitySearchBar input[type="text"] {
+  background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; box-shadow: var(--glass-shadow) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(160%) !important; backdrop-filter: blur(40px) saturate(160%) !important; border-radius: 22px !important;
 }
-:root #communitySearchBar input[type="text"] { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
