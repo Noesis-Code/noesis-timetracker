@@ -112,14 +112,12 @@
              app.js, exposés via TMT) ; la modale #offer1CheckoutModal reste dans
              index.html. -->
         <div id="offer1Section">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Offre 1</p>
-          </div>
-          <div class="settingsCard">
-            <p class="hint">Formulaires d'identification et analyse régénérée tous les six mois, par activité — 20 $/mois, résiliable à tout moment.</p>
+          <div class="offer1Promo">
+            <p class="offer1PromoText"><span>Génère automatiquement tes objectifs et tâches tous les mois en passant à l'Offre 1.</span></p>
+            <small class="offer1PromoSub">20 $/mois par activité · résiliable à tout moment</small>
             <div id="offer1SubscribedList" class="activitiesList"></div>
             <p id="offer1SubscribedEmptyHint" class="hint hidden">Aucun abonnement actif pour l'instant.</p>
-            <button type="button" id="offer1CheckoutOpenBtn" class="iconBtn">Souscrire à l'Offre 1</button>
+            <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn">Découvrir l'Offre 1</button>
           </div>
         </div>
       </div>
