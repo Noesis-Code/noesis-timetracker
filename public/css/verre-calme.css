@@ -201,13 +201,11 @@ textarea
   -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
 }
 
-/* ---- Volet 9 bis (1er oct. 2026) : même règle dans toutes les fenêtres (fenêtre d'une activité dans Stats avec plusieurs pôles, profils, Activité, Feuille de route…) ---- */
-:root :is(.communityMembersModalCard, .viewProfileScroll, #categoryStatsModal, #activityPage, #profilePage, #goalsDetailPage, #goalsActivitySwitcher, .statsSection, .timesheetBlock)
-  :is(.statsSection, .timesheetFrame, .timesheetGrid, .pieWrap, .statsSummary, .entryCard, .activityRow, .settingsCard, .historyEntry, .goalCard, .viewProfileProjectCase, .discussionMsg) {
+/* ---- Volet 9 bis (rectifié 1er oct. 2026) : une FENÊTRE ne compte pas comme une zone de verre ----
+   Seul l'empilement à l'intérieur d'une SECTION (carte) est neutralisé. Les sections posées directement dans une fenêtre
+   (cartes, rangées, champs, boutons) gardent leur verre normal. */
+:root :is(.statsSection, .timesheetBlock) :is(.timesheetFrame, .timesheetGrid, .pieWrap, .statsSummary, .statsSection) {
   background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none;
-}
-:root :is(.communityMembersModalCard, .viewProfileScroll, #categoryStatsModal) :is(.iconBtn, .menuBtn, select, input, textarea, .periodBtn, .seekingTagBtn, .categoryDropdownTrigger):not(.btnBrique):not(.btn-primary):not([type="checkbox"]):not([type="radio"]) {
-  background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
 /* Épingle (trombone) : icône blanche, verre et contour exactement comme le « + » (jetons --glass-*). */
