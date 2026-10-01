@@ -6627,3 +6627,9 @@ button { -webkit-user-select: none; user-select: none; }
 #communityMembersModal .communityMembersModalCard > * { flex: 0 0 auto; }
 #communityMembersModal #communityMembersModalList { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 #communityMembersModal .activityMembersSearchWrap:has(+ #communityMembersModalList.hidden) { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+/* Fenêtre membres : barre de recherche aux dimensions de celle de Communauté, et liste qui défile SOUS la barre. */
+#communityMembersModal .activityMembersSearchWrap { padding: 0; position: relative; z-index: 2; margin: 12px 0 0; }
+#communityMembersModal .activityMembersSearchWrap .communitySearchRow { margin-bottom: 0; }
+#communityMembersModal .activityMembersSearchWrap input[type="text"] { padding: 10px 118px 10px 14px; }
+#communityMembersModal .activityMembersSearchWrap + #communityMembersModalList { margin-top: -54px; padding-top: 62px; position: relative; z-index: 1; }
