@@ -425,6 +425,7 @@
     row.className = 'activityRow subProjectRow goalsTasksGroup'
       + (currentGoalsTasksOpenGroups[g.key] ? ' open' : '');
     row.dataset.groupKey = g.key;
+    row.dataset.poleKey = g.poleKey || '';
 
     var isOpen = !!currentGoalsTasksOpenGroups[g.key];
 
@@ -562,55 +563,60 @@
     mv.type = 'button';
     mv.className = 'goalsTaskMoveBtn';
     mv.textContent = '≡';
-    mv.title = t('Déplacer vers…');
-    mv.setAttribute('aria-label', t('Déplacer vers…'));
-    mv.addEventListener('click', function () {
-      var existing = row.nextSibling;
-      if (existing && existing.classList && existing.classList.contains('goalsTaskMoveRow')) {
-        existing.remove();
-        return;
-      }
-      var box = document.createElement('div');
-      box.className = 'goalsTaskMoveRow';
-      var sel = document.createElement('select');
-      sel.setAttribute('aria-label', t('Déplacer vers…'));
-      var ph = document.createElement('option');
-      ph.value = '';
-      ph.textContent = t('Déplacer vers…');
-      sel.appendChild(ph);
-      var groups = (currentGoalsTasksOverview && currentGoalsTasksOverview.groups) || [];
-      var poleOrder = [];
-      var byPole = {};
-      groups.forEach(function (g) {
-        if (!byPole[g.poleKey]) { byPole[g.poleKey] = { label: g.poleLabel || g.label, items: [] }; poleOrder.push(g.poleKey); }
-        byPole[g.poleKey].items.push(g);
-      });
-      poleOrder.forEach(function (pk) {
-        var bp = byPole[pk];
-        var parent = sel;
-        if (!(bp.items.length === 1 && bp.items[0].isPole)) {
-          parent = document.createElement('optgroup');
-          parent.label = bp.label;
-          sel.appendChild(parent);
-        }
-        bp.items.forEach(function (g) {
-          var o = document.createElement('option');
-          o.value = g.key;
-          o.textContent = g.label;
-          if (g.key === groupKey) o.disabled = true;
-          parent.appendChild(o);
+    mv.title = t('Glisser vers un autre secteur du pôle');
+    mv.setAttribute('aria-label', t('Glisser vers un autre secteur du pôle'));
+    // 1er oct. 2026 (Emilien) : déplacement UNIQUEMENT à l'intérieur d'un pôle,
+    // par glisser-déposer de la poignée ≡ au-dessus d'un autre secteur du même
+    // pôle (même mécanique que la feuille d'activité : pointer events +
+    // setPointerCapture, la ligne tirée n'est jamais déplacée dans le DOM).
+    // Dépôt = PUT .../goals/tasks/:id/category (route existante).
+    var allGroups = (currentGoalsTasksOverview && currentGoalsTasksOverview.groups) || [];
+    var myGroup = allGroups.filter(function (x) { return x.key === groupKey; })[0];
+    var siblings = myGroup ? allGroups.filter(function (x) { return x.poleKey === myGroup.poleKey; }) : [];
+    if (siblings.length < 2) mv.style.visibility = 'hidden';
+    mv.addEventListener('click', function (e) { e.stopPropagation(); });
+    mv.addEventListener('pointerdown', function (e) {
+      if (siblings.length < 2) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var startY = e.clientY, lastY = e.clientY, target = null;
+      var scroller = $('activityPageScroll') || document.scrollingElement;
+      row.classList.add('dragging');
+      mv.setPointerCapture(e.pointerId);
+      function compute() {
+        document.querySelectorAll('.goalsTasksGroup.catDropTarget').forEach(function (g) { g.classList.remove('catDropTarget'); });
+        target = null;
+        Array.prototype.forEach.call(document.querySelectorAll('.goalsTasksGroup'), function (g) {
+          if (g.dataset.groupKey === groupKey || g.dataset.poleKey !== myGroup.poleKey) return;
+          var r = g.getBoundingClientRect();
+          if (lastY >= r.top && lastY <= r.bottom) target = g;
         });
-      });
-      sel.addEventListener('change', function () {
-        if (!sel.value) return;
-        sel.disabled = true;
+        if (target) target.classList.add('catDropTarget');
+      }
+      function onMove(ev) {
+        lastY = ev.clientY;
+        row.style.transform = 'translateY(' + (lastY - startY) + 'px)';
+        compute();
+      }
+      function end(commit) {
+        mv.removeEventListener('pointermove', onMove);
+        mv.removeEventListener('pointerup', onUp);
+        mv.removeEventListener('pointercancel', onCancel);
+        row.classList.remove('dragging');
+        row.style.transform = '';
+        document.querySelectorAll('.goalsTasksGroup.catDropTarget').forEach(function (g) { g.classList.remove('catDropTarget'); });
+        var t0 = target; target = null;
+        if (!commit || !t0) return;
         api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/tasks/' + task.id + '/category',
-          { userId: TMT.getProfile().id, categoryKey: sel.value })
+          { userId: TMT.getProfile().id, categoryKey: t0.dataset.groupKey })
           .then(function () { loadGoalsTasksOverview(); })
-          .catch(function (err) { alert(err.message); sel.disabled = false; sel.value = ''; });
-      });
-      box.appendChild(sel);
-      row.parentNode.insertBefore(box, row.nextSibling);
+          .catch(function (err) { alert(err.message); });
+      }
+      function onUp() { end(true); }
+      function onCancel() { end(false); }
+      mv.addEventListener('pointermove', onMove);
+      mv.addEventListener('pointerup', onUp);
+      mv.addEventListener('pointercancel', onCancel);
     });
     row.insertBefore(mv, cb);
 

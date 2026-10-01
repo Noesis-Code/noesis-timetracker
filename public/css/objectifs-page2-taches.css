@@ -154,3 +154,7 @@
 }
 .goalsTasksGroup .subProjectItem input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
 .goalsTasksGroup .subProjectItem input[type="checkbox"]:checked::after { content: ""; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
+
+.goalsTasksGroup .subProjectItem .goalsTaskMoveBtn { cursor: grab; touch-action: none; user-select: none; }
+.goalsTasksGroup .subProjectItem.dragging { position: relative; z-index: 5; opacity: .9; background: var(--bg-raised, var(--card)); box-shadow: 0 6px 18px rgba(0,0,0,.45); border-radius: 10px; }
+.goalsTasksGroup.catDropTarget { outline: 2px solid var(--purple); outline-offset: -2px; }
