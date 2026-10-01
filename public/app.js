@@ -7237,17 +7237,8 @@
     }
     $('categoryDetailSaveBtn').onclick = save;
     $('categoryDetailClose').onclick = close;
-    // Focus SYNCHRONE (dans le geste de l'utilisateur) : sans ça iOS n'ouvre pas le clavier.
-    // Le curseur affiché par iOS peut rester figé à la position calculée AVANT la fin de l'animation d'ouverture de la
-    // fenêtre (il apparaît alors au milieu du champ) : on repose la sélection en fin de texte pendant et après l'animation.
-    function caretToEnd() {
-      try { var n = ta.value.length; ta.setSelectionRange(n, n); ta.scrollTop = ta.scrollHeight; } catch (e) {}
-    }
-    try { ta.focus(); } catch (e) {}
-    caretToEnd();
-    [60, 200, 400, 700].forEach(function (ms) {
-      setTimeout(function () { if (document.activeElement === ta) caretToEnd(); }, ms);
-    });
+    // Pas de focus automatique : le clavier ne s'ouvre pas et aucun curseur n'est posé tant que l'utilisateur ne touche pas le champ.
+    try { ta.blur(); ta.scrollTop = 0; } catch (e) {}
   }
 
   // « Déplacer vers… » : change un secteur de pôle (PUT …/secteurs/:key/move, qui
