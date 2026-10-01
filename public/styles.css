@@ -6618,3 +6618,12 @@ button { -webkit-user-select: none; user-select: none; }
   border-color: rgba(255,255,255,0.16);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), inset 0 -1px 0 rgba(0,0,0,0.35), 0 10px 30px rgba(0,0,0,0.55);
 }
+
+/* Fenêtre des membres : taille FIXE (1er oct. 2026, demande d'Emilien) — la carte ne change plus de hauteur selon le contenu ;
+   en-tête, recherche et actions restent en place, seule la liste défile. */
+#communityMembersModal .communityMembersModalCard {
+  height: 80vh; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;
+}
+#communityMembersModal .communityMembersModalCard > * { flex: 0 0 auto; }
+#communityMembersModal #communityMembersModalList { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+#communityMembersModal .activityMembersSearchWrap:has(+ #communityMembersModalList.hidden) { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
