@@ -111,3 +111,18 @@ textarea
   background: var(--vc-bg) !important; border-color: var(--vc-line) !important; color: var(--text);
   -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur);
 }
+
+/* ---- Volet 5 (1er oct. 2026) : Statistiques / feuille de temps — données posées directement sur la section ----
+   Aucune zone intermédiaire : fonds, liserés et flou retirés sur les contenants INTERNES (la section .statsSection garde son verre). */
+:root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot,
+:root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel {
+  background: transparent !important; box-shadow: none !important; border-color: transparent !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+
+/* ---- Volet 5 (1er oct. 2026) : feuille de temps et graphique = données posées directement sur la section, sans zone intermédiaire ---- */
+:root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot,
+:root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel {
+  background: transparent !important; box-shadow: none !important; border-color: transparent !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
