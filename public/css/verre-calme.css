@@ -176,3 +176,21 @@ textarea
   background: var(--vc-btn-bg) !important; border-color: var(--vc-btn-line) !important; box-shadow: none !important;
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
+
+/* ---- Volet 9 (1er oct. 2026) : le verre posé sur du verre n'ajoute PAS d'opacité ----
+   Tout élément de verre (bouton, champ, menu déroulant, case, rangée) situé DANS une zone de verre n'a plus de fond ni de flou propres :
+   seul son liseré fin le distingue. La zone parente fournit seule la teinte. */
+:root .statsSection, :root .activityRow, :root .settingsCard, :root .goalCard, :root .goalsActivityHeader, :root .historyEntry,
+:root .discussionMsg, :root .pollFormAdvanced, :root .entryCard, :root .activityProgressCard, :root .goalsTasksGroup, :root .dailyPriorityItem,
+:root .goalWeeklyCard, :root .goalsCalendarRow, :root .onboarding-card, :root .activityGoalsCategoryAutoTaskBubble, :root #chronoRunning {
+  --vc-inner-bg: transparent;
+}
+:root :is(.statsSection, .activityRow, .settingsCard, .goalCard, .goalsActivityHeader, .historyEntry, .discussionMsg, .pollFormAdvanced, .entryCard,
+          .activityProgressCard, .goalsTasksGroup, .dailyPriorityItem, .goalWeeklyCard, .goalsCalendarRow, .onboarding-card,
+          .activityGoalsCategoryAutoTaskBubble, #chronoRunning)
+  :is(.iconBtn, .menuBtn, .topIconBtn, input, select, textarea, .categoryDropdownTrigger, .categoryPickerBtn, .subProjectSelect,
+      .attachmentRow, .historyRowIconBtn, .periodBtn, .themeBtn, .seekingTagBtn, .goalAssigneeChip, .subProjectItemPlannedSelect):not(.btnBrique):not(.btn-primary):not([type="checkbox"]):not([type="radio"]) {
+  background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+:root .historyNav .iconBtn, :root .historyNav .menuBtn, :root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
+:root #statsPieTodayBtn, :root .menuBtn.attachMenuIconBtn { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: transparent !important; }
