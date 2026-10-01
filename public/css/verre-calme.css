@@ -243,3 +243,11 @@ textarea
   box-shadow: inset 0 1px 0 rgba(255,255,255,.24) !important;
   -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
 }
+
+/* Communauté — zone de recherche : verre liquide identique à la barre des volets du bas (jetons --glass-*), champ sans rectangle. */
+:root #communitySearchBar {
+  background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
+}
+:root #communitySearchBar input[type="text"] { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
