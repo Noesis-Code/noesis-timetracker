@@ -6817,6 +6817,7 @@
     if (!list || activityGoalsCategoriesEditMode) return;
     if (catNewPoleRow) { catCloseNewPole(); return; } // 2e appui sur + : referme sans enregistrer (comme #addActivityBtn)
     if (catComposerPoleKey) { catComposerPoleKey = null; catSyncComposer(); }
+    catCloseNewSecteur();
     var activityId = currentCommunityActivityId;
     var group = document.createElement('div');
     group.className = 'catGroup catNewPole';
@@ -6885,6 +6886,73 @@
   }
   $('catAddPoleBtn').addEventListener('click', catOpenNewPole);
 
+  // ----- Ligne de saisie d'un nouveau SECTEUR (dans son pôle, titre + description) -----
+  var catNewSecteurState = null;   // { poleKey, name, desc } tant que la ligne est ouverte
+  function catCloseNewSecteur() {
+    catNewSecteurState = null;
+    Array.prototype.forEach.call(document.querySelectorAll('.catNewSecteur'), function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+  }
+  function catBuildNewSecteurForm(activityId, pole) {
+    var st = catNewSecteurState;
+    var box = document.createElement('div');
+    box.className = 'catNewSecteur catNewPole';
+    var fields = document.createElement('div');
+    fields.className = 'catNewPoleFields';
+    var nameIn = document.createElement('input');
+    nameIn.type = 'text'; nameIn.maxLength = 40; nameIn.autocomplete = 'off';
+    nameIn.placeholder = t('Nom du secteur'); nameIn.enterKeyHint = 'next'; nameIn.value = st.name;
+    var descIn = document.createElement('textarea');
+    descIn.rows = 3; descIn.maxLength = 200; descIn.autocomplete = 'off';
+    descIn.placeholder = t('Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.');
+    descIn.enterKeyHint = 'send'; descIn.value = st.desc;
+    var msg = document.createElement('p'); msg.className = 'msg';
+    var actions = document.createElement('div'); actions.className = 'catNewPoleActions';
+    var cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
+    var add = document.createElement('button');
+    add.type = 'button'; add.className = 'iconBtn btnBrique'; add.textContent = t('Ajouter');
+    actions.appendChild(cancel); actions.appendChild(add);
+    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(msg); fields.appendChild(actions);
+    box.appendChild(fields);
+    nameIn.addEventListener('input', function () { st.name = nameIn.value; });
+    descIn.addEventListener('input', function () { st.desc = descIn.value; });
+    function submit() {
+      var label = nameIn.value.trim();
+      if (add.disabled) return;
+      if (!label) { msg.textContent = t('Nom de secteur requis.'); return; }
+      add.disabled = true; msg.textContent = '';
+      var description = descIn.value.trim();
+      api('POST', '/api/activities/' + activityId + '/goals/categories/' + pole.key + '/secteurs', { label: label })
+        .then(function (res) {
+          var last = res && res.secteurs && res.secteurs[res.secteurs.length - 1];
+          if (description && last && last.label === label && String(last.key).indexOf('tmp-') !== 0) {
+            return api('PUT', '/api/activities/' + activityId + '/goals/categories/' + pole.key + '/secteurs/' + last.key, { label: last.label, description: description });
+          }
+        })
+        .then(function () {
+          activityGoalsCategoriesOpen[pole.key] = true;
+          catNewSecteurState = null;
+          activityGoalsCategoriesRefresh(activityId);
+        })
+        .catch(function (err) { msg.textContent = err.message; })
+        .then(function () { add.disabled = false; });
+    }
+    add.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    add.addEventListener('click', submit);
+    cancel.addEventListener('click', catCloseNewSecteur);
+    nameIn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); descIn.focus(); }
+      else if (e.key === 'Escape') { e.preventDefault(); catCloseNewSecteur(); }
+    });
+    descIn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); catCloseNewSecteur(); }
+    });
+    return box;
+  }
+
   function createPoleSecteur(activityId, poleKey, label) {
     if (!label) { catComposerError(t('Nom de secteur requis.')); return Promise.resolve(false); }
     return api('POST', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs', { label: label })
@@ -6918,7 +6986,7 @@
       addPoleBtn.classList.toggle('disabled', poleFull);
       addPoleBtn.title = poleFull ? t('Maximum {max} pôles par activité', { max: currentActivityGoalsMax }) : t('Ajouter un pôle');
     }
-    if (activityGoalsCategoriesEditMode) catCloseNewPole();
+    if (activityGoalsCategoriesEditMode) { catCloseNewPole(); catCloseNewSecteur(); }
     var pole = null;
     if (catComposerPoleKey) {
       pole = currentActivityGoalsCategories.filter(function (c) { return c.key === catComposerPoleKey; })[0] || null;
@@ -7155,7 +7223,21 @@
         add.disabled = true; add.style.opacity = '0.4';
         add.textContent = t('Maximum {max} secteurs par pôle', { max: currentActivityGoalsMaxSecteurs });
       }
-      add.addEventListener('click', function () { if (!add.disabled) catSetComposerTarget(pole.key, true); });
+      add.addEventListener('click', function () {
+        if (add.disabled) return;
+        // 1er oct. 2026 : même principe que « + » des pôles — ligne de saisie
+        // (titre + description) créée DANS le pôle ; 2e appui = referme sans enregistrer.
+        var wasHere = catNewSecteurState && catNewSecteurState.poleKey === pole.key;
+        catCloseNewSecteur();
+        if (wasHere) return;
+        catNewSecteurState = { poleKey: pole.key, name: '', desc: '' };
+        var form = catBuildNewSecteurForm(activityId, pole);
+        wrap.insertBefore(form, add);
+        var ni = form.querySelector('input');
+        if (ni) ni.focus();
+        if (form.scrollIntoView) form.scrollIntoView({ block: 'nearest' });
+      });
+      if (catNewSecteurState && catNewSecteurState.poleKey === pole.key) wrap.appendChild(catBuildNewSecteurForm(activityId, pole));
       wrap.appendChild(add);
     }
     return wrap;
