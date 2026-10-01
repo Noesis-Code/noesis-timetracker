@@ -10058,18 +10058,10 @@
 
     var canAdd = a.isOwner || !isShared;
 
-    if (canAdd) {
-      var addBtn = document.createElement('button');
-      addBtn.type = 'button';
-      addBtn.className = 'iconBtn btnBrique';
-      addBtn.textContent = t('Ajouter un membre');
-      actionsRow.appendChild(addBtn);
-    }
-
     if (isShared) {
       var leaveBtn = document.createElement('button');
       leaveBtn.type = 'button';
-      leaveBtn.className = 'iconBtn';
+      leaveBtn.className = 'iconBtn btnBrique';
       leaveBtn.textContent = t('Quitter la communauté');
       leaveBtn.addEventListener('click', function () {
         if (!confirm(t('Quitter "{activity}" ? Tu gardes ta propre activité personnelle du même nom, avec tout ton historique déjà enregistré. Les autres membres ne sont pas concernés.', { activity: a.name }))) return;
@@ -10095,14 +10087,18 @@
       // Trois "vues" internes, une seule visible à la fois :
       //   1. searchInput + suggestBox (recherche en cours)
       //   2. confirmBox (une suggestion a été cliquée)
+      // 1er oct. 2026 (Emilien) : plus de bouton « Ajouter un membre » — une barre de recherche de membres
+      // est toujours présente TOUT EN HAUT, au-dessus des membres déjà présents.
+      var oldWrap = document.getElementById('activityMembersSearchWrap');
+      if (oldWrap && oldWrap.parentNode) oldWrap.parentNode.removeChild(oldWrap);
       var panel = document.createElement('div');
-      panel.className = 'hidden';
-      panel.style.marginTop = '8px';
+      panel.id = 'activityMembersSearchWrap';
+      panel.className = 'activityMembersSearchWrap';
 
       var searchInput = document.createElement('input');
       searchInput.type = 'text';
       searchInput.className = 'memberSearchInput';
-      searchInput.placeholder = t('Rechercher...');
+      searchInput.placeholder = t('Rechercher un membre...');
 
       var suggestBox = document.createElement('div');
 
@@ -10128,7 +10124,8 @@
       panel.appendChild(searchInput);
       panel.appendChild(suggestBox);
       panel.appendChild(confirmBox);
-      box.appendChild(panel);
+      if (membersListBox && membersListBox.parentNode) membersListBox.parentNode.insertBefore(panel, membersListBox);
+      else box.appendChild(panel);
 
       var selectedUser = null;
 
@@ -10137,7 +10134,6 @@
         confirmBox.classList.add('hidden');
         searchInput.classList.remove('hidden');
         suggestBox.classList.remove('hidden');
-        searchInput.focus();
       }
 
       function showConfirmView(u) {
@@ -10152,11 +10148,9 @@
       // boutons + liste des membres) — appelé après une invitation envoyée,
       // ou pour fermer la recherche.
       function closeSearchPanel() {
-        panel.classList.add('hidden');
         searchInput.value = '';
         suggestBox.innerHTML = '';
         showSearchView();
-        actionsRow.classList.remove('hidden');
         if (membersListBox) membersListBox.classList.remove('hidden');
       }
 
@@ -10176,6 +10170,7 @@
       function runAddMemberSearch() {
         var q = searchInput.value.trim();
         var seq = ++addMemberSearchSeq;
+        if (membersListBox) membersListBox.classList.toggle('hidden', q.length >= ADD_MEMBER_SEARCH_MIN_LENGTH);
         if (q.length < ADD_MEMBER_SEARCH_MIN_LENGTH) {
           suggestBox.innerHTML = '';
           return;
@@ -10228,17 +10223,7 @@
         searchInput.value = '';
       });
 
-      addBtn.addEventListener('click', function () {
-        var showing = !panel.classList.contains('hidden');
-        if (showing) { closeSearchPanel(); return; }
-        actionsRow.classList.add('hidden');
-        if (membersListBox) membersListBox.classList.add('hidden');
-        panel.classList.remove('hidden');
-        searchInput.value = '';
-        suggestBox.innerHTML = '';
-        showSearchView();
-        loadExistingMemberIds();
-      });
+      loadExistingMemberIds();
     }
 
     box.classList.toggle('hidden', !actionsRow.children.length);
