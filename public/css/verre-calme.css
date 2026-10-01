@@ -171,7 +171,6 @@ textarea
 :root .historyNav .iconBtn, :root .historyNav .menuBtn,
 :root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
 :root #goalsPrevPoleBtn, :root #goalsNextPoleBtn, :root #statsPieTodayBtn,
-:root .topIconBtn, :root .topbarDefault .topIconBtn, :root #settingsBtn,
 :root .menuBtn.attachMenuIconBtn, :root #profileDiscussionAttachBtn, :root .communityComposerRow .attachMenuIconBtn {
   background: var(--vc-btn-bg) !important; border-color: var(--vc-btn-line) !important; box-shadow: none !important;
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
@@ -194,3 +193,10 @@ textarea
 }
 :root .historyNav .iconBtn, :root .historyNav .menuBtn, :root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
 :root #statsPieTodayBtn, :root .menuBtn.attachMenuIconBtn { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: transparent !important; }
+
+/* L'engrenage Réglages (barre du haut) garde son verre liquide d'origine (jetons --glass-*), hors règles de transparence. */
+:root .topbarDefault .topIconBtn, :root .topIconBtn {
+  background: var(--glass-bg) !important; border-color: var(--glass-border) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.24) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
+}
