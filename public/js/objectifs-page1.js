@@ -67,6 +67,21 @@
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
         <p id="goalsCaptureActivityPrompt" class="hint goalsCaptureActivityPrompt hidden">Quelle activité pour cette tâche ?</p>
         <div id="goalsCaptureActivities" class="goalsCaptureActivities"></div>
+        <!-- Offre 1 (30 septembre 2026, demande d'Emilien) : a quitté Réglages pour
+             s'afficher ici, entre les activités et « Historique ». Contenu, ids et logique
+             inchangés (loadOffer1SubscribedSection/openOffer1CheckoutModal dans
+             app.js, exposés via TMT) ; la modale #offer1CheckoutModal reste dans
+             index.html. -->
+        <div id="offer1Section">
+          <div class="offer1Promo">
+            <p class="offer1PromoText"><span>Génère automatiquement tes objectifs et tâches tous les mois en passant à l'Offre 1.</span></p>
+            <small class="offer1PromoSub">20 $/mois par activité · résiliable à tout moment</small>
+            <div id="offer1SubscribedList" class="activitiesList"></div>
+            <p id="offer1SubscribedEmptyHint" class="hint hidden">Aucun abonnement actif pour l'instant.</p>
+            <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn">Découvrir l'Offre 1</button>
+          </div>
+        </div>
+
         <!-- 28 septembre 2026 (backlog encart 71, puis DEUX refontes le même
              jour). La première refonte (bouton .goalsTasksHistoryToggle avec
              chevron, blocs par jour #goalsTasksHistoryDays) a été corrigée
@@ -103,21 +118,6 @@
             </div>
             <div id="goalsTasksHistoryList"></div>
             <p id="goalsTasksHistoryEmptyHint" class="hint hidden">Aucune tâche capturée cette semaine.</p>
-          </div>
-        </div>
-
-        <!-- Offre 1 (30 septembre 2026, demande d'Emilien) : a quitté Réglages pour
-             s'afficher ici, sous « Historique ». Contenu, ids et logique
-             inchangés (loadOffer1SubscribedSection/openOffer1CheckoutModal dans
-             app.js, exposés via TMT) ; la modale #offer1CheckoutModal reste dans
-             index.html. -->
-        <div id="offer1Section">
-          <div class="offer1Promo">
-            <p class="offer1PromoText"><span>Génère automatiquement tes objectifs et tâches tous les mois en passant à l'Offre 1.</span></p>
-            <small class="offer1PromoSub">20 $/mois par activité · résiliable à tout moment</small>
-            <div id="offer1SubscribedList" class="activitiesList"></div>
-            <p id="offer1SubscribedEmptyHint" class="hint hidden">Aucun abonnement actif pour l'instant.</p>
-            <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn">Découvrir l'Offre 1</button>
           </div>
         </div>
       </div>
