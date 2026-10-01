@@ -6576,3 +6576,5 @@ html.kbOpen #activityPage::after {
 }
 html.kbOpen #activityPageScroll { padding-bottom: 60px; }
 html.kbOpen #activityPage .catComposer { margin-bottom: 52px; position: relative; z-index: 21; }
+
+.catList .catSecteurRow:first-child, .catList.editing .catSecteurRow:first-child { border-top: 0; }
