@@ -2051,6 +2051,19 @@
       </div>
     </div>
 
+    <!-- 1er octobre 2026 : « Déplacer vers… » — change un secteur de pôle (mode
+         édition, ⇄). Rempli par openCategoryMoveModal() (app.js). -->
+    <div id="categoryMoveModal" class="communityMembersModal hidden">
+      <div class="communityMembersModalCard">
+        <div class="communityMembersModalHeader">
+          <p class="sectionTitle" id="categoryMoveTitle"></p>
+          <button type="button" class="menuBtn" id="categoryMoveClose" aria-label="Fermer">✕</button>
+        </div>
+        <div id="categoryMoveList" class="activitiesList"></div>
+        <p id="categoryMoveMsg" class="msg"></p>
+      </div>
+    </div>
+
     <!-- Fenêtre « détail » d'un pôle/secteur qu'on vient de créer : description
          (colonne activity_goal_categories.description, 200 caractères max). -->
     <div id="categoryDetailModal" class="communityMembersModal hidden">
@@ -2444,6 +2457,24 @@
                fichier) n'est pas concerné — Emilien l'a explicitement demandé
                inchangé. -->
           <div id="activityPageBody"></div>
+        </div>
+        <!-- 1er octobre 2026 (onglet Catégories reconstruit) : zone d'écriture
+             d'ajout d'un pôle ou d'un secteur, frère de #activityPageScroll (comme
+             le composeur d'un fil de discussion) : #activityPage est rétrécie à la
+             hauteur visible par le pincement du clavier (pinPages), donc cette
+             zone reste collée au-dessus du clavier sans aucune astuce de défilement.
+             Cible = un pôle (secteur à créer) ou aucune (nouveau pôle). Pilotée par
+             catSyncComposer() (app.js). -->
+        <div id="catComposer" class="catComposer hidden">
+          <div id="catComposerTarget" class="catComposerTarget hidden">
+            <span id="catComposerTargetLabel"></span>
+            <button type="button" class="menuBtn" id="catComposerTargetClear" aria-label="Annuler">✕</button>
+          </div>
+          <div class="catComposerRow">
+            <input type="text" id="activityGoalsCategoryAddInput" maxlength="40" autocomplete="off" enterkeyhint="send">
+            <button type="button" id="catComposerAddBtn" class="iconBtn btnBrique">Ajouter</button>
+          </div>
+          <p id="catComposerMsg" class="msg"></p>
         </div>
       </div>
     </div>

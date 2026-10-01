@@ -1250,6 +1250,13 @@
     "Le nom ne peut pas être vide.": "The name cannot be empty.",
     "Enregistrement impossible.": "Could not save.",
   });
+  Object.assign(DICT, {
+    "Secteur dans « {name} »": "Sector in \"{name}\"",
+    "+ Nouveau secteur": "+ New sector",
+    "Modifier la description": "Edit description",
+    "Déplacer ce secteur vers un autre pôle": "Move this sector to another pole",
+    "Déplacer « {name} » vers…": "Move \"{name}\" to…",
+  });
   PATTERNS.push(
     [/^Nom d'activité trop long \((\d+) caractères maximum\)\.$/, 'Activity name too long ($1 characters maximum).'],
     [/^Tu as déjà une activité "(.+)"\.$/, 'You already have an activity "$1".']

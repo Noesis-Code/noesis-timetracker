@@ -3529,24 +3529,6 @@ button { -webkit-user-select: none; user-select: none; }
   background: var(--bg);
   padding: 16px 16px 0;
 }
-/* 🆕 28 septembre 2026 (2e retour d'Emilien, captures à l'appui) : quand la
-   liste de pôles/secteurs est courte, #activityPageScroll n'a pas assez de
-   contenu à faire défiler pour amener un champ focus jusqu'au bas de la
-   zone visible réduite par le clavier — scrollIntoView() est borné par le
-   débordement RÉEL du conteneur, il ne peut pas inventer de l'espace.
-   Classe posée/retirée en JS au focus/blur (scrollAddInputIntoView(),
-   app.js) : une piste de défilement toujours suffisante, quelle que soit la
-   longueur de la liste, jamais visible hors de ce moment précis. */
-#activityPageScroll.activityPageScrollKbRunway { padding-bottom: 60vh; }
-/* 🆕 28 septembre 2026, 4e passage (diagnostic chiffré à l'appui) : la piste
-   ci-dessus (EN BAS) n'aide que les champs proches de la FIN de la liste —
-   pour un champ proche du DÉBUT, il n'y a pas assez de contenu AU-DESSUS
-   pour défiler vers le haut. .activityPageScrollKbTopSpacer est un bloc
-   inséré/retiré en JS (scrollAddInputIntoView(), app.js) en tête de
-   #activityPageBody, avec une hauteur calculée au pixel près (jamais plus
-   que le manque réel) — jamais de largeur/hauteur par défaut ici, tout est
-   posé inline en JS au moment précis où c'est nécessaire. */
-.activityPageScrollKbTopSpacer { flex: 0 0 auto; width: 100%; height: 0; }
 .activityPageHeader {
   display: flex; align-items: center; gap: 10px;
   flex: 0 0 auto;
@@ -5670,106 +5652,6 @@ button { -webkit-user-select: none; user-select: none; }
    aussi été retiré du DOM par le même passage, la ligne n'a plus de
    raison d'être. */
 #activityGoalsCategoriesBlock { margin-top: 8px; }
-.activityGoalsCategoriesList {
-  display: flex; flex-direction: column; gap: 8px; margin: 10px 0;
-}
-/* 26 septembre 2026, bug signalé par Emilien (« je ne peux pas faire défiler
-   l'écran [...] lorsque j'appuie longtemps pour modifier les pôles et les
-   secteurs ») : `touch-action: none` était posé ici, sur la ligne ENTIÈRE —
-   alors que le reste de ce fichier réserve toujours cette propriété à la
-   seule POIGNÉE de glisser-déposer (.subProjectDragHandle,
-   .activityDragHandle), justement pour que « le reste de la ligne et la page
-   continuent de défiler normalement » (commentaire déjà présent plus haut
-   dans app.js, au-dessus de bindCategoryLongPress). Posée sur la ligne
-   entière, elle bloquait tout défilement tactile dès qu'un doigt touchait une
-   ligne de pôle, mode édition ou non — retirée ici, la poignée
-   (.subProjectDragHandle, déjà touch-action:none) reste seule responsable de
-   capturer le geste de glisser-déposer. */
-.activityGoalsCategoryRow {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--card); padding: 8px 10px;
-  position: relative;
-}
-/* 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») :
-   flex-basis 100% force ces deux éléments (caption lecture seule / champ
-   d'édition de la description) sur leur propre ligne, sous handle/nom/croix
-   — .activityGoalsCategoryRow ci-dessus passe en flex-wrap pour cet usage
-   seul, sans effet sur son layout existant tant qu'aucune description n'est
-   présente. */
-.activityGoalsCategoryDescriptionCaption { flex: 1 1 100%; margin-top: 2px; }
-.activityGoalsCategoryDescriptionInput {
-  flex: 1 1 100%; min-width: 0; font-size: 13px; padding: 5px 7px; margin-top: 2px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
-  background: var(--track-bg); color: var(--text);
-}
-.activityGoalsCategoryDescriptionInput:focus { border-color: var(--purple); }
-/* 17 septembre 2026 (maquette approuvée) : la ligne se replie/déplie au clic
-   simple (bindCategoryOpenToggle, app.js) — pas en mode édition, où le clic
-   ne fait rien (renommer/glisser/supprimer passent par leurs propres
-   contrôles). */
-.activityGoalsCategoryRow:not(.editing) { cursor: pointer; }
-/* 25 septembre 2026 : .activityGoalsCategoryCount (badge du nombre de
-   tâches) retiré — cette section n'affiche plus aucune tâche, voir
-   claude/noesis-timetracker-taches-categories-reference-discussion-c.md. */
-.activityGoalsCategoryChevron {
-  flex-shrink: 0; color: var(--text-light); font-size: 12px; width: 14px;
-  text-align: center;
-}
-/* 16 septembre 2026 (11e passage) : appui long + glisser pour réordonner,
-   même habillage visuel que .activityRow.dragging (réordonnancement des
-   activités) — voir bindCategoryLongPress/startCategoryDrag, app.js.
-   25 septembre 2026 : mode édition partagé pôle+secteur — la ligne de pôle
-   ET son bloc secteurs (édition) forment désormais un groupe déplaçable
-   ensemble (.activityGoalsCategoryEditGroup, app.js/bindCategoryDrag),
-   remplace les règles .activityGoalsCategoryRow.dragging ci-dessous. */
-/* 26 septembre 2026 : même correctif que .activityGoalsCategoryRow ci-dessus
-   (touch-action: none retiré du groupe entier, laissé à la seule poignée). */
-.activityGoalsCategoryEditGroup {
-  display: flex; flex-direction: column; gap: 2px;
-}
-.activityGoalsCategoryEditGroup.dragging { opacity: 0.75; z-index: 2; }
-.activityGoalsCategoryEditGroup.dragging .activityGoalsCategoryRow { border-color: var(--purple); }
-#activityGoalsCategoriesList.dragging .activityGoalsCategoryEditGroup:not(.dragging) { transition: transform 0.16s ease; }
-/* 26 septembre 2026, demande directe d'Emilien : secteurs masqués pendant le
-   déplacement d'un pôle (bindCategoryDrag, app.js — voir son commentaire pour
-   la raison exacte : des groupes de hauteurs différentes faussaient le calcul
-   de décalage `step`, d'où la superposition visible sur les captures
-   d'Emilien). `display: none` plutôt qu'`opacity`/`visibility` : ces groupes
-   doivent aussi perdre leur hauteur, pas seulement leur visibilité, sinon le
-   problème de hauteurs hétérogènes qu'on cherche justement à éliminer
-   resterait entier. */
-#activityGoalsCategoriesList.dragging .activityGoalsSecteursBlock { display: none; }
-.activityGoalsCategoryReorder {
-  border: none; background: transparent; color: var(--text-light);
-  font-size: 12px; line-height: 1; padding: 4px; cursor: pointer; flex-shrink: 0;
-}
-.activityGoalsCategoryReorder:disabled { opacity: 0.3; cursor: default; }
-/* 22 septembre 2026 : .activityGoalsCategoryDot (point coloré du pôle) avait
-   été retiré ici — les pôles n'avaient alors plus de couleur, voir
-   renderActivityGoalsCategoriesPanel() dans app.js.
-   26 septembre 2026, demande directe d'Emilien (maquette « Hybride »
-   validée, Artifact « Mode réorganisation — Pôles vs Secteurs ») :
-   revirement — la couleur revient au PÔLE sous forme d'une pastille ronde
-   (comme les puces du volet Activités, PAS un carré ni une barre), les
-   secteurs restant sans couleur (voir .activityGoalsSecteurDot ci-dessous,
-   toujours masquée). La règle avait été entièrement supprimée le 22
-   septembre (pas seulement masquée) ; il s'agit donc ici d'une NOUVELLE
-   règle, pas d'une restauration. Couleur posée en JS
-   (subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT),
-   app.js) — même système déjà utilisé pour les sous-projets/Chrono. Utilisée
-   dans les deux modes (édition et normal) de renderActivityGoalsCategoriesPanel(). */
-.activityGoalsCategoryDot {
-  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
-}
-.activityGoalsCategoryNameInput {
-  flex: 1; min-width: 0; font-size: 14px; padding: 6px 8px;
-  border: 1px solid transparent; border-radius: var(--radius-sm, 8px);
-  background: transparent; color: var(--text);
-}
-.activityGoalsCategoryNameInput:focus {
-  border-color: var(--border); background: var(--track-bg);
-}
 /* ⚠️ 22 septembre 2026 : `.activityGoalsCategoryWeeklySummary`/
    `...WeeklySummaryLine` (résumé lecture-seule des objectifs hebdomadaires
    sous chaque pôle, posé le 16 septembre 2026) retirées avec leur unique
@@ -5784,112 +5666,6 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryTasksBlock {
   margin: 2px 0 8px 34px; padding-left: 10px;
   border-left: 2px solid var(--border);
-}
-/* 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
-   « Pôles & secteurs ») — les secteurs d'un pôle, même retrait/bordure que
-   .activityGoalsCategoryTasksBlock juste au-dessus (buildPoleSecteursBlock(),
-   app.js) : rattaché visuellement à sa ligne de pôle, affiché seulement
-   quand celle-ci est dépliée, juste AVANT le bloc de tâches. */
-.activityGoalsSecteursBlock {
-  margin: 2px 0 4px 34px; padding-left: 10px;
-  border-left: 2px solid var(--border);
-  display: flex; flex-direction: column; gap: 4px;
-}
-/* 26 septembre 2026, déplacement d'un secteur d'un pôle à un autre
-   (bindSecteurDrag, app.js) : pendant ce geste précis, chaque bloc secteurs
-   reçoit une hauteur minimale — même un pôle sans AUCUN secteur (bloc
-   normalement vide, hauteur nulle) doit rester une cible survolable, sinon il
-   n'y aurait tout simplement rien à viser pour y déposer un secteur.
-   `secteurDropTarget` (posé/retiré en JS sur le bloc actuellement visé)
-   donne un repère visuel pendant le geste, utile en particulier pour ces
-   pôles vides qui n'ont sinon aucun contenu à regarder. */
-#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteursBlock {
-  min-height: 34px;
-  /* 26 septembre 2026 : la hauteur RÉELLE du bloc (posée en JS, voir
-     bindSecteurDrag/relayout) s'anime en même temps que les transforms de
-     ses lignes, pour que la zone en pointillé se rétrécisse/s'agrandisse
-     visuellement au même rythme et que les pôles suivants se décalent sans
-     à-coup — plus de secteur qui disparaît sous le pôle suivant. */
-  transition: height 0.16s ease;
-}
-#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteursBlock.secteurDropTarget {
-  outline: 1px dashed var(--purple); outline-offset: 2px; border-radius: var(--radius-sm, 8px);
-}
-#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteurRow:not(.dragging) {
-  transition: transform 0.16s ease;
-}
-.activityGoalsSecteurRow {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-}
-.activityGoalsSecteurRow.dragging {
-  opacity: 0.85; background: var(--track-bg); border-radius: var(--radius-sm, 8px);
-  z-index: 2; position: relative;
-}
-/* 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») —
-   même principe que .activityGoalsCategoryDescriptionCaption/...Input
-   ci-dessus, pour un secteur. */
-.activityGoalsSecteurDescriptionCaption { flex: 1 1 100%; margin-top: 1px; padding-left: 16px; }
-/* 26 septembre 2026, retour direct d'Emilien (capture d'écran à l'appui) :
-   « je souhaite que la bulle de description [...] soit collée au secteur
-   afin qu'on comprenne mieux que c'est la description du secteur » — la
-   caption (ci-dessus) était déjà indentée de 16px (padding-left, invisible
-   sur un <span> sans bordure propre), mais ce champ D'ÉDITION, lui, a une
-   bordure/fond visibles : un simple padding-left aurait seulement décalé le
-   PLACEHOLDER, pas la boîte elle-même, laissant son cadre flush au bord de
-   la ligne — donc visuellement rattaché au PÔLE plutôt qu'au secteur.
-   `flex-basis: calc(100% - 16px)` + `margin-left: 16px` (plutôt que
-   `flex: 1 1 100%` + `margin-left`, qui aurait fait déborder la ligne à
-   droite, box-sizing:border-box n'excluant pas les marges du calcul flex)
-   décale la boîte ENTIÈRE de 16px, alignée sous le nom du secteur, exactement
-   comme sa caption en lecture seule. */
-.activityGoalsSecteurDescriptionInput {
-  flex: 1 1 calc(100% - 16px); margin-left: 16px;
-  min-width: 0; font-size: 12px; padding: 4px 6px; margin-top: 1px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
-  background: var(--track-bg); color: var(--text);
-}
-.activityGoalsSecteurDescriptionInput:focus { border-color: var(--purple); }
-/* 22 septembre 2026, demande directe d'Emilien : « les pôles ne possèdent
-   pas de couleur ni d'icône ni de motif. Et c'est les secteurs auxquels on
-   attribue automatiquement une des 10 nuances. » Remplace
-   .activityGoalsCategoryDot (retiré juste au-dessus dans ce fichier) — même
-   forme, légèrement plus petit pour rester cohérent avec l'indentation d'un
-   secteur sous son pôle. Couleur posée en JS (secteurShade(), app.js).
-   26 septembre 2026, demande directe d'Emilien : revirement de cette
-   décision — « les secteurs n'ont plus de couleur, uniquement les pôles ont
-   une des cinq nuances de couleur attribuées ». La création du point dans
-   buildPoleSecteursBlock() (app.js) a été retirée ; la règle ci-dessous
-   reste dans la feuille de style (masquée, jamais supprimée, par convention
-   du projet) mais ne s'applique plus à rien tant que ce revirement tient. */
-.activityGoalsSecteurDot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-  border: 1px solid var(--border);
-}
-/* 26 septembre 2026, demande directe d'Emilien : « je souhaite que les croix
-   pour supprimer les secteurs ne soient pas encadrées dans un carré
-   contrairement aux pôles, afin qu'on puisse mieux distinguer les pôles des
-   secteurs. » .subProjectDeleteX (partagée avec Sous-projets et la croix de
-   pôle, server/lib intact, NE PAS la modifier globalement) garde son cadre
-   partout ailleurs — seule sa version DANS une ligne de secteur en édition
-   perd bordure et fond, par spécificité de sélecteur plutôt qu'une nouvelle
-   classe. */
-.activityGoalsSecteurRow.editing .subProjectDeleteX {
-  border: none; background: none; width: auto; height: auto; padding: 4px;
-}
-.activityGoalsSecteurNameInput {
-  flex: 1 1 auto; min-width: 0; font-size: 13px; padding: 5px 7px;
-  border: 1px solid transparent; border-radius: var(--radius-sm, 8px);
-  background: transparent; color: var(--text);
-}
-.activityGoalsSecteurNameInput:focus {
-  border-color: var(--border); background: var(--track-bg);
-}
-/* 25 septembre 2026 : .activityGoalsSecteurMoveBtn (flèches ▲▼) retiré — le
-   réordonnancement d'un secteur passe désormais par le même mécanisme
-   d'appui long + glisser que les pôles, voir bindSecteurDrag()/
-   buildPoleSecteursEditBlock() dans app.js. */
-.activityGoalsSecteurAddRow {
-  display: flex; align-items: center; gap: 6px; margin-top: 2px;
 }
 /* 17 septembre 2026 (discussion C, bulle IA de classement automatique —
    maquette approuvée par Emilien, citation directe : « Prends exemple sur
@@ -6136,102 +5912,6 @@ button { -webkit-user-select: none; user-select: none; }
 .activityGoalsCategoryAutoTaskPendingObjective {
   margin: 0 0 0 14px; font-style: italic; opacity: .85;
 }
-/* ===== Volet Objectifs — page 1 (capture), 25 septembre 2026 =====
-   Restructuration du volet Objectifs en 3 pages, demande directe d'Emilien —
-   voir le commentaire de #goalsCapturePage dans index.html et de la section
-   "VOLET OBJECTIFS — PAGE 1 : CAPTURE" dans app.js. Écran par défaut affiché
-   dès l'ouverture de l'onglet, avant même le choix d'une activité. */
-/* Puces d'activité à sélection multiple + double fonction (zone de texte
-   vide + clic → navigue vers la page 2 de cette activité plutôt que de la
-   sélectionner) — voir renderGoalsCaptureActivities(), app.js. */
-/* 26 septembre 2026, demande directe d'Emilien (page 1, points a-c) : les
-   puces passent sous la bulle (voir index.html), EMPILÉES verticalement
-   (« superposées et non pas alignées ») plutôt qu'alignées en ligne — chaque
-   puce prend systématiquement la même largeur que la zone d'écriture IA
-   (100% du conteneur commun, même parent flex que .goalsCaptureBubbleWrap).
-   ⚠️ Correctif du même jour : la première version chevauchait les puces par
-   un margin-top négatif (effet « jeu de cartes en éventail ») — ce n'était
-   pas ce qu'Emilien demandait ; « superposées » qualifie ici l'empilement
-   vertical par opposition à l'alignement en ligne, pas un chevauchement
-   visuel entre puces. Remplacé par un simple espacement vertical régulier
-   (gap), aucune puce n'en recouvre une autre. */
-/* 28 septembre 2026, demande d'Emilien : « donner aux bulles les activités
-   une forme plus rectangulaire. Dans le même style que dans la page chrono
-   mais en moins large » — PREMIÈRE tentative (retirée) : disposition changée
-   en ligne qui s'enroule (flex-wrap), largeur automatique. Correction directe
-   d'Emilien le même jour : « je ne t'ai jamais demandé de changer la
-   disposition des activités. Je souhaite qu'elle reste superposée, garder
-   le même format qu'avant. Simplement modifier légèrement la forme des
-   bulles » — la disposition empilée pleine largeur (flex-direction:column,
-   width:100%) est restaurée à l'identique ; SEUL le rayon change
-   (999px → var(--radius-sm)). var(--radius-lg) avait été essayé d'abord
-   mais, à la hauteur de cette puce (~33px), un rayon aussi grand reste
-   perçu comme une pilule (même piège déjà rencontré et documenté sur
-   .goalsGridHeadCell, 16 septembre 2026, voir son commentaire plus bas) —
-   var(--radius-sm) (8px, ~24% de la hauteur) se lit sans ambiguïté comme un
-   coin de rectangle. */
-/* 27 septembre 2026, demande d'Emilien : « je souhaite que les activités
-   n'aient pas de contour violet, seule la bulle se colore » — l'ancien
-   contour .selected (ci-dessous, retiré) est redondant avec la couleur
-   pleine déjà posée en JS (renderGoalsCaptureActivities(), état « en train
-   d'écrire ET sélectionnée »), qui est le seul signal de sélection désormais.
-.goalsCaptureActivityChip.selected {
-  border-color: var(--purple); box-shadow: 0 0 0 1.5px var(--purple) inset;
-} */
-/* 27 septembre 2026, demande d'Emilien : « le point violet [...] soit
-   positionné toujours au même endroit, à droite dans la bulle » — le nom
-   prend tout l'espace restant (flex:1) pour pousser le badge, quand présent,
-   contre le bord droit quelle que soit la longueur du nom.
-   ⚠️ Même jour, demande complémentaire : « le titre de l'activité ne soit
-   pas centré [...] mais à gauche » — .goalsCaptureActivityChip est un
-   <button>, dont le style par défaut du navigateur centre le texte ;
-   text-align:left corrige ce nom (et, en cascade, le contenu du point/badge,
-   sans effet sur eux). */
-/* 26 septembre 2026, demande directe d'Emilien (page 1, point e) : invite
-   affichée entre la bulle et les puces quand « Ajouter » est cliqué sans
-   activité choisie — voir submit(), buildGoalsCaptureBubble(), app.js. */
-/* Badge violet « non vu » — jamais un compteur cumulatif (se vide dès que
-   l'utilisateur visite la liste concernée, voir server/lib/goalstasks.js#
-   unseenCountsForActivity et markCategoriesSeen). Réutilisé tel quel pour le
-   badge de l'arbre périodique (.goalsGridHeadBadge plus bas). */
-/* 26 septembre 2026, retour direct d'Emilien : le badge de la Page 2 quitte
-   le menu déroulant de pôle pour l'arbre périodique lui-même
-   (.goalsGridHeadCell, voir renderGoalsGridHead(), app.js) — même style que
-   .goalsCaptureBadge. Règle ADDITIVE sur .goalsGridHeadCell (déjà déclarée
-   plus haut dans ce fichier, aucune propriété en commun avec celle-ci).
-   ⚠️ Correction directe d'Emilien (même jour) : « je souhaite que le point
-   violet lors de l'ajout d'une tâche soit plus centré et plus proche du nom
-   du secteur dans lequel il y a un ajout. Je souhaite qu'il ne soit pas en
-   haut à droite et coupé. » — le positionnement en coin (position:
-   absolute, ci-dessus, retiré) était coupé par `overflow: hidden` de
-   .goalsGridHeadCell (ellipsis du libellé). Remplacé par un flux inline
-   juste après le texte du libellé (span.textContent puis appendChild, voir
-   renderGoalsGridHead(), app.js) — jamais rogné, toujours à côté du nom. */
-/* 26 septembre 2026, restructuration Page 2, point 4 : plus aucune case
-   d'ajout sur cette page — quand aucun pôle réel n'existe encore, un simple
-   message renvoie vers le panneau Catégories plutôt qu'une case cliquable
-   (voir renderGoalsGridHead(), app.js). */
-/* Point violet par tâche, page 3 (calendrier) — demande directe d'Emilien :
-   « un petit point violet à droite des tâches nouvellement ajoutées [...]
-   une fois qu'elles sont visualisées, hop, le point disparaît. » Voir
-   renderGoalsCalendarDays(), app.js (task.unseen, posé par le serveur). */
-/* 26 septembre 2026, correctif « tâche capturée absente du calendrier » —
-   repère de secteur/pôle d'origine sur une tâche affichée dans un autre
-   secteur que celui actuellement ouvert (voir server/lib/calendarfeed.js#
-   dayTasksByDate, renderGoalsCalendarDays() app.js). */
-/* Bouton de retour de la page 2 vers la page 1 (#goalsBackToCaptureBtn,
-   index.html) — réutilise .menuBtn tel quel, même motif que .goalsSwipeBtn
-   juste au-dessus ; seul un petit espace le sépare de la flèche "précédente"
-   qui le suit immédiatement. */
-
-/* 25 septembre 2026, demande directe d'Emilien : le "+" (#addSubProjectBtn)
-   est retiré, remplacé par une bulle texte + bouton "Ajouter" tout en bas de
-   la liste des pôles (buildAddPoleRow(), app.js) — même gabarit que
-   .activityGoalsSecteurAddRow. Layout passé d'un bouton seul aligné à droite
-   à une rangée champ+bouton. */
-.activityGoalsCategoryAddRow {
-  display: flex; align-items: center; gap: 8px; margin: 8px 0;
-}
 /* Sélecteur compact de reclassement manuel, à côté de la case à cocher de
    chaque tâche (buildCategoryTaskRow, app.js) — demande d'Emilien : « Je
    souhaite ajouter une option pour changer manuellement les tâches de
@@ -6240,15 +5920,6 @@ button { -webkit-user-select: none; user-select: none; }
   flex-shrink: 0; max-width: 110px; font-size: 11px; color: var(--text-light);
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--radius-sm, 8px); padding: 3px 4px;
-}
-.activityGoalsCategoryAddWrap {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  margin: 10px 0;
-}
-.activityGoalsCategoryAddWrap input {
-  flex: 1; min-width: 120px; font-size: 14px; padding: 8px 10px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm, 8px);
-  background: var(--card); color: var(--text);
 }
 
 /* ===== Rail tactile du bord gauche — remplace la bande de 13 points +
@@ -6819,52 +6490,58 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding .onbInstallIcon svg rect:last-child { fill: var(--onb-purple); }
 .onbLegalCheck { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 12px; text-align: left; margin: 0 0 16px; }
 .onbLegalText { font-size: 14px; line-height: 1.4; color: var(--text); }
-
-/* ===== 30 septembre 2026 (demande de Gaspard, Activité / Catégories) ===== */
-/* Mode réordonner : barre « texte + Terminer » FIXE en haut (ne défile pas
-   avec la liste). Portée à la liste des pôles seulement (.subProjectEditBar
-   est partagée avec d'autres écrans). */
-#activityGoalsCategoriesList .subProjectEditBar {
-  position: sticky; top: calc(var(--activity-switch-h, 46px) + 6px); z-index: 6; background: var(--bg);
-  padding: 8px 2px; border-bottom: 1px solid var(--border);
-  /* masque le contenu qui défile sous le sélecteur flottant Catégories | Statistiques */
-  box-shadow: 0 -60px 0 0 var(--bg);
-}
-/* Lignes de secteur en mode réordonner : fine ligne de séparation entre
-   chaque élément (n'altère ni le glisser-déposer ni le renommage). */
-.activityGoalsSecteurRow.editing {
-  padding: 6px 0; border-top: 1px solid var(--border);
-}
-.activityGoalsSecteursBlock { gap: 0; }
-/* Hors édition : la ligne du pôle reste collée en haut pendant qu'on défile
-   ses secteurs (le groupe borne le collage à son propre pôle). */
-.activityGoalsCategoryGroup { display: flex; flex-direction: column; gap: 4px; }
-.activityGoalsCategoryGroup > .activityGoalsCategoryRow { position: sticky; top: calc(var(--activity-switch-h, 46px) + 6px); z-index: 3; }
-/* Bulle d'ajout pôle/secteur collée au bas de la zone visible = juste
-   au-dessus du clavier (#activityPage est rétrécie à la hauteur du
-   visualViewport tant qu'un champ a le focus). Classe posée par
-   scrollAddInputIntoView() (app.js). */
-.activityGoalsCategoryAddRow.addRowKb,
-.activityGoalsSecteurAddRow.addRowKb {
-  position: sticky; bottom: 0; z-index: 7; background: var(--bg);
-  padding: 8px 0; margin: 0;
-}
-/* Fenêtre « détail » : zone de saisie. */
-#categoryDetailDescription { width: 100%; box-sizing: border-box; font-size: 16px; resize: none; }
-
-/* 1er octobre 2026 (demande de Gaspard, Activité) : fond NOIR opaque derrière la ligne de pôle collée en haut (menu
-   déroulant ouvert) et derrière la barre « Terminer » : la cale du haut (sous le sélecteur flottant) devient collante et
-   opaque, le contenu qui défile ne transparaît plus. Les pastilles en verre du sélecteur ne changent pas. */
-#activityPageSectionSwitch:not(.hidden) + #activityPageScroll #activityPageBody:has(.activityGoalsSecteursBlock, .subProjectEditBar)::before {
-  /* 16px = padding-top de #activityPageScroll (hors rectangle de collage) ; la cale couvre jusqu'au haut de la ligne collée
-     (switch-h + 6px + 16px) et la marge négative garde la mise en page inchangée. */
-  position: sticky; top: -16px; z-index: 8; background: var(--bg);
-  height: calc(var(--activity-switch-h) + 22px); margin-bottom: calc(-1 * (var(--activity-switch-h) + 22px - var(--activity-switch-h) + 8px));
-}
-#activityGoalsCategoriesList .subProjectEditBar { background: var(--bg); }
-/* Liste des activités, mode édition (appui long) : barre « texte + Terminer » FIXE, fond opaque (même technique que
-   .subProjectEditBar ci-dessus). Portée à #activitiesList (.activityEditBar est aussi utilisée ailleurs). */
+/* Liste des activités, mode édition (appui long) : barre « texte + Terminer » FIXE, fond opaque.
+   Portée à #activitiesList (.activityEditBar est aussi utilisée ailleurs ; l'onglet Catégories a sa propre règle plus bas). */
 #activitiesList .activityEditBar {
   position: sticky; top: calc(var(--activity-switch-h, 46px) + 6px); z-index: 6; background: var(--bg);
   padding: 8px 2px; border-bottom: 1px solid var(--border);
 }
+
+/* ===== 1er octobre 2026 : onglet « Catégories » reconstruit (fenêtre Activité) =====
+   Bâti sur les classes de la liste des activités (.activityRow, .activityRowHeader, .activityDragHandle, .activityNameInput,
+   .activityMergeBtn, .activityDeleteX, .activityEditBar) : seules les classes .cat* ci-dessous sont propres à cet onglet. */
+#activityGoalsCategoriesBlock { margin-top: 8px; }
+.catList { margin: 10px 0; }
+.catGroup { display: flex; flex-direction: column; gap: 4px; }
+/* Ligne de pôle déplié : reste collée sous le sélecteur flottant pendant qu'on défile ses secteurs (le groupe borne le collage). */
+.catGroup > .activityRow.catPole { position: sticky; top: calc(var(--activity-switch-h, 46px) + 2px); z-index: 3; }
+.catChevron { flex: 0 0 auto; color: var(--text-light); }
+.catSecteurs { display: flex; flex-direction: column; margin-left: 14px; }
+.catSecteurRow { padding: 10px 0; border-top: 1px solid var(--border); }
+.catList:not(.editing) .catSecteurRow:first-child { border-top: 0; }
+.catSecteurRow .activityRowName { font-weight: 500; }
+.catSecteurRow > .meta { margin: 2px 0 0; }
+.catAddSecteurBtn {
+  align-self: flex-start; margin: 4px 0 8px; padding: 8px 4px; border: 0; background: none;
+  color: var(--purple); font: inherit; font-weight: 600; cursor: pointer;
+}
+/* Mode édition : lignes séparées par un trait fin ; barre « Terminer » FIXE, fond noir opaque. */
+.catList.editing .catSecteurRow { border-top: 1px solid var(--border); }
+.catList .activityEditBar {
+  position: sticky; top: calc(var(--activity-switch-h, 46px) + 2px); z-index: 6; background: var(--bg);
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+}
+.catGroup.dragging { opacity: 0.75; z-index: 2; position: relative; }
+.catGroup.dragging > .activityRow { border-color: var(--purple); }
+.catSecteurRow.dragging { opacity: 0.75; z-index: 2; position: relative; background: var(--card); }
+.catList.dragging .catGroup:not(.dragging), .catList.dragging .catSecteurRow:not(.dragging) { transition: transform 0.16s ease; }
+/* Fond noir opaque derrière la ligne de pôle collée (pôle déplié) et la barre « Terminer » : une bande opaque, DERRIÈRE les
+   pastilles en verre du sélecteur (qui ne changent pas), couvre le haut de la zone défilante jusqu'à la ligne collée ; le contenu
+   qui défile ne transparaît plus. Sans effet sur la mise en page (le contenu garde sa place au repos : 129px = bas de la bande). */
+#activityPageSectionSwitch:not(.hidden):has(+ #activityPageScroll #activityGoalsCategoriesBlock:not(.hidden) :is(.catSecteurs, .activityEditBar))::before {
+  content: ''; position: absolute; z-index: -1; left: 0; right: 0; top: 0;
+  height: calc(var(--activity-switch-h) + 18px); background: var(--bg);
+}
+/* Zone d'écriture (ajout d'un pôle/secteur) : pied de la fenêtre, au-dessus du clavier (la page est rétrécie à la hauteur visible). */
+.catComposer {
+  flex: 0 0 auto; background: var(--bg); border-top: 1px solid var(--border);
+  padding: 10px max(16px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+.catComposer:focus-within { padding-bottom: 10px; }
+.catComposerRow { display: flex; align-items: center; gap: 8px; }
+.catComposerRow input { flex: 1 1 auto; min-width: 0; font-size: 16px; }
+.catComposerTarget { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 14px; color: var(--text-light); }
+.catComposer .msg { margin: 6px 0 0; min-height: 0; }
+.catComposer .msg:empty { display: none; }
+/* Fenêtre « détail » : zone de saisie. */
+#categoryDetailDescription { width: 100%; box-sizing: border-box; font-size: 16px; resize: none; }

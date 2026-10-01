@@ -5783,8 +5783,12 @@
     // ne doit surtout pas se replier tout seul.
     if (name === 'sub') {
       activityGoalsCategoriesOpen = {};
+      // Arrivée sur l'onglet : jamais en mode édition, zone d'écriture sur « nouveau pôle ».
+      activityGoalsCategoriesEditMode = false;
+      catComposerPoleKey = null;
       loadActivityGoalsCategories(currentCommunityActivityId);
     }
+    catSyncComposer();
 
     // « je souhaite que dans le graphique, les dernières données se
     // réaffichent toujours par défaut, pas d'enregistrement de la dernière
@@ -6458,147 +6462,128 @@
     return outer;
   }
 
-  // 17 septembre 2026 (2e correction, demande d'Emilien, citation directe) :
-  // « lorsqu'on clique longtemps sur un sous-projet on peut ensuite déplacer
-  // les sous-projets et il y a une croix rouge à droite pour supprimer [...]
-  // Ces fonctions ne sont pas applicables aux catégories. Je souhaite
-  // transférer ces fonctions à l'identique aux catégories. » — reprend donc
-  // fonctionnellement ET visuellement le mode édition de
-  // renderSubProjectsList/bindSubProjectLongPress/enterSubProjectsEditMode/
-  // bindSubProjectDrag (plus haut dans ce fichier) : MÊMES classes CSS
-  // (.subProjectDragHandle/.subProjectNameInput/.subProjectDeleteX/
-  // .subProjectEditBar), rien dupliqué. Conséquence assumée, « à
-  // l'identique » : en mode normal la ligne n'affiche plus qu'un nom en
-  // lecture seule (.activityRowName, comme un sous-projet fermé) —
-  // renommer/déplacer/supprimer ne sont plus possibles qu'après un appui
-  // long, qui bascule TOUTE la liste dans un mode édition compact où seules
-  // les lignes (poignée + nom + croix) sont affichées, ni tâches ni résumé
-  // hebdomadaire (même règle que « ni avancement, ni description, ni
-  // Ajouter » pour les sous-projets en édition).
+  // ===================== ONGLET « CATÉGORIES » (fenêtre Activité) =====================
+  // Reconstruit DE ZÉRO le 1er octobre 2026 (« rien n'y marche », Émilien) sur la
+  // mécanique de la liste des ACTIVITÉS (renderActivitiesSettings) : mêmes classes
+  // (.activityRow, .activityRowHeader, .activityDragHandle, .activityNameInput,
+  // .activityDeleteX, .activityMergeBtn, .activityEditBar), même appui long
+  // (500 ms, annulé au-delà de 10 px), même glisser-déposer à la poignée ≡ (la ligne
+  // n'est translatée que visuellement, le DOM et le serveur ne bougent qu'au
+  // relâchement), mêmes fenêtres (.communityMembersModal).
+  //
+  // Comportement :
+  //  · liste de PÔLES ; toucher une ligne la déplie/replie et révèle ses SECTEURS ;
+  //  · couleur : seulement les pôles, AUTOMATIQUE selon leur position dans la liste
+  //    (subProjectShade, nuance de la couleur de l'activité) — aucun sélecteur ;
+  //  · ajout : zone d'écriture #catComposer (frère de #activityPageScroll, voir
+  //    index.html), collée au-dessus du clavier ; la cible est « nouveau pôle » ou
+  //    un pôle précis (touche « + Nouveau secteur » sous un pôle déplié) ;
+  //  · appui long → mode édition : ≡ glisser (pôles entre eux, secteurs dans leur
+  //    pôle), nom éditable, ✎ description, ⇄ déplacer un secteur vers un autre pôle
+  //    (fenêtre « Déplacer vers… »), ✕ retirer (fenêtre de choix, jamais confirm()).
+  // Routes serveur INCHANGÉES (goals/categories…, secteurs…, /move, removal-preview) :
+  // l'historique et les tâches d'un secteur suivent sa clé.
   var activityGoalsCategoriesEditMode = false;
   var lastActivityGoalsCategoriesData = null;
   var lastActivityGoalsPlanningData = null;
-
-  // 17 septembre 2026 (maquette approuvée, citation directe : « je souhaite
-  // que les catégories, par défaut, n'affichent pas les tâches ajoutées, et
-  // qu'elle les affiche uniquement lorsqu'on clique dessus. Ça déploie
-  // l'ensemble des tâches avec des petites case à cocher à gauche. ») —
-  // repliées par défaut (clé absente = false), une catégorie dépliée à la
-  // fois n'est PAS imposé : chaque clé garde son propre état indépendant.
-  // Le clic simple (bindCategoryOpenToggle) bascule l'affichage ; l'appui
-  // long (bindCategoryLongPress, inchangé) reste réservé au mode édition.
+  // Pôles dépliés (clé absente = replié) ; remis à zéro à chaque arrivée sur
+  // l'onglet (setActivityPageSection).
   var activityGoalsCategoriesOpen = {};
+  var catComposerPoleKey = null;   // pôle cible de la zone d'écriture, null = nouveau pôle
 
-  function enterCategoriesEditMode() {
-    if (activityGoalsCategoriesEditMode || !lastActivityGoalsCategoriesData) return;
-    activityGoalsCategoriesEditMode = true;
-    renderActivityGoalsCategoriesPanel(lastActivityGoalsCategoriesData, lastActivityGoalsPlanningData);
+  function catMsg(text) {
+    var m = $('activityGoalsCategoriesMsg');
+    if (m) m.textContent = text || '';
   }
 
-  function exitCategoriesEditMode() {
-    activityGoalsCategoriesEditMode = false;
-    var activityId = currentCommunityActivityId;
-    if (activityId) activityGoalsCategoriesRefresh(activityId);
+  // La grille de la page 1 d'Objectifs suit les pôles/secteurs de l'activité affichée.
+  function catSyncGrid(activityId) {
+    if (String(activityId) === String(TMT.currentGoalsActivityId)) reloadGoalsAll();
   }
 
-  var categoryLongPressTimer = null;
-  function bindCategoryLongPress(row) {
+  function catRerender() {
+    if (lastActivityGoalsCategoriesData) renderActivityGoalsCategoriesPanel(lastActivityGoalsCategoriesData, lastActivityGoalsPlanningData);
+  }
+
+  // ----- Mode édition (appui long, comme bindActivityLongPress) -----
+  var catLongPressTimer = null;
+  function bindCatLongPress(el) {
     function cancel() {
-      if (categoryLongPressTimer) { clearTimeout(categoryLongPressTimer); categoryLongPressTimer = null; }
-      row.removeEventListener('pointermove', onMove);
-      row.removeEventListener('pointerup', cancel);
-      row.removeEventListener('pointercancel', cancel);
-      row.removeEventListener('pointerleave', cancel);
+      if (catLongPressTimer) { clearTimeout(catLongPressTimer); catLongPressTimer = null; }
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', cancel);
+      el.removeEventListener('pointercancel', cancel);
+      el.removeEventListener('pointerleave', cancel);
     }
     var startX = 0, startY = 0;
     function onMove(e) {
       if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
     }
-    row.addEventListener('pointerdown', function (e) {
+    el.addEventListener('pointerdown', function (e) {
       if (activityGoalsCategoriesEditMode) return;
       startX = e.clientX; startY = e.clientY;
-      row.addEventListener('pointermove', onMove);
-      row.addEventListener('pointerup', cancel);
-      row.addEventListener('pointercancel', cancel);
-      row.addEventListener('pointerleave', cancel);
-      categoryLongPressTimer = setTimeout(function () {
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', cancel);
+      el.addEventListener('pointercancel', cancel);
+      el.addEventListener('pointerleave', cancel);
+      catLongPressTimer = setTimeout(function () {
         cancel();
-        enterCategoriesEditMode();
+        catEnterEditMode();
       }, 500);
     });
   }
 
-  // Clic simple (pas l'appui long, réservé au mode édition) : déplie/replie
-  // les tâches de cette catégorie. `e.stopPropagation()` sur le clic
-  // n'est pas nécessaire ici (la ligne elle-même est la cible), mais le
-  // clic est ignoré pendant l'édition et pendant qu'un appui long est en
-  // cours d'évaluation (cancel() l'aurait sinon laissé filer).
-  function bindCategoryOpenToggle(row, key) {
-    row.addEventListener('click', function () {
-      if (activityGoalsCategoriesEditMode) return;
-      activityGoalsCategoriesOpen[key] = !activityGoalsCategoriesOpen[key];
-      renderActivityGoalsCategoriesPanel(lastActivityGoalsCategoriesData, lastActivityGoalsPlanningData);
-    });
+  function catEnterEditMode() {
+    if (activityGoalsCategoriesEditMode || !lastActivityGoalsCategoriesData) return;
+    activityGoalsCategoriesEditMode = true;
+    catRerender();
   }
 
-  // 25 septembre 2026, demande directe d'Emilien (mode édition unique
-  // partagé pôle+secteur, voir renderActivityGoalsCategoriesPanel()) : la
-  // poignée d'un pôle ne déplace plus seulement sa ligne
-  // (.activityGoalsCategoryRow) mais tout son GROUPE
-  // (.activityGoalsCategoryEditGroup — la ligne du pôle ET son bloc secteurs
-  // en édition, désormais interleavés en mode édition). Opérer sur les
-  // lignes seules aurait laissé les blocs secteurs à leur ancienne position
-  // DOM après un glisser-déposer de pôle (repéré et corrigé avant écriture,
-  // voir claude/noesis-timetracker-taches-categories-reference-discussion-c.md).
-  // PUT .../goals/categories-reorder (clés, pas des ids) — inchangé.
-  function bindCategoryDrag(handle, groupEl) {
+  function catExitEditMode() {
+    activityGoalsCategoriesEditMode = false;
+    if (currentCommunityActivityId) activityGoalsCategoriesRefresh(currentCommunityActivityId);
+    else catRerender();
+  }
+
+  // ----- Glisser-déposer à la poignée (copie de bindActivityDrag, généralisée) -----
+  // o.container : parent des éléments à réordonner ; o.itemSel : leur sélecteur ;
+  // o.onDrop(elementsDansLeNouvelOrdre). Les voisins s'écartent de la hauteur de
+  // l'élément tiré (les groupes de pôle n'ont pas tous la même hauteur).
+  // ⚠️ L'élément tiré n'est PAS déplacé dans le DOM pendant le geste (réinsérer un
+  // nœud relâche la capture du pointeur) : transform seulement, DOM au relâchement.
+  function bindCatDrag(handle, item, o) {
+    handle.addEventListener('click', function (e) { e.stopPropagation(); });
     handle.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       e.stopPropagation();
-      var box = $('activityGoalsCategoriesList');
-
-      // 26 septembre 2026, demande directe d'Emilien (captures d'écran à
-      // l'appui, superposition visible pendant le déplacement) : « je
-      // souhaite que lorsque l'utilisateur déplace un pôle les secteurs ne
-      // soient plus visibles pendant le mouvement afin qu'il n'y ait plus de
-      // superposition ». Cause du chevauchement : `step` (ci-dessous) est UNE
-      // seule valeur (la hauteur du groupe glissé) appliquée à TOUS les
-      // autres groupes par layoutGap() — or deux pôles n'ont pas la même
-      // hauteur dès qu'ils n'ont pas le même nombre de secteurs. Masquer les
-      // blocs secteurs de TOUS les groupes AVANT de mesurer (voir
-      // `#activityGoalsCategoriesList.dragging .activityGoalsSecteursBlock`,
-      // styles.css) réduit chaque groupe à sa seule ligne de pôle — hauteurs
-      // à nouveau homogènes, `step` redevient valable pour tout le monde. La
-      // classe est ajoutée ICI, avant `groups`/`mids`/`step`, précisément
-      // pour que ces mesures reflètent déjà les secteurs masqués.
-      box.classList.add('dragging');
-
-      var groups = Array.prototype.slice.call(box.querySelectorAll('.activityGoalsCategoryEditGroup'));
-      var mids = groups.map(function (el) {
+      var list = $('activityGoalsCategoriesList');
+      list.classList.add('dragging');
+      var items = Array.prototype.filter.call(o.container.children, function (el) { return el.matches(o.itemSel); });
+      var mids = items.map(function (el) {
         var r = el.getBoundingClientRect();
         return r.top + r.height / 2;
       });
-      var fromIndex = groups.indexOf(groupEl);
+      var fromIndex = items.indexOf(item);
       var startY = e.clientY;
       var targetIndex = fromIndex;
-      var step = groupEl.getBoundingClientRect().height +
-        parseFloat(getComputedStyle(box).rowGap || getComputedStyle(box).gap || 0) || 0;
+      var cs = getComputedStyle(o.container);
+      var step = item.getBoundingClientRect().height + (parseFloat(cs.rowGap || cs.gap) || 0);
 
       handle.setPointerCapture(e.pointerId);
-      groupEl.classList.add('dragging');
+      item.classList.add('dragging');
 
       function layoutGap() {
-        for (var i = 0; i < groups.length; i++) {
+        for (var i = 0; i < items.length; i++) {
           if (i === fromIndex) continue;
           var shift = 0;
           if (targetIndex > fromIndex && i > fromIndex && i <= targetIndex) shift = -step;
           else if (targetIndex < fromIndex && i >= targetIndex && i < fromIndex) shift = step;
-          groups[i].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+          items[i].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
         }
       }
 
       function onMove(ev) {
-        groupEl.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
+        item.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
         var idx = 0;
         for (var i = 0; i < mids.length; i++) {
           if (ev.clientY > mids[i]) idx = i;
@@ -6610,21 +6595,15 @@
         handle.removeEventListener('pointermove', onMove);
         handle.removeEventListener('pointerup', onUp);
         handle.removeEventListener('pointercancel', onUp);
-        groupEl.classList.remove('dragging');
-        box.classList.remove('dragging');
-        groupEl.style.transform = '';
-        groups.forEach(function (el) { el.style.transform = ''; });
-
-        if (targetIndex !== fromIndex) {
-          var ordered = groups.slice();
-          ordered.splice(fromIndex, 1);
-          ordered.splice(targetIndex, 0, groupEl);
-          ordered.forEach(function (el) { box.appendChild(el); });
-          var activityId = currentCommunityActivityId;
-          api('PUT', '/api/activities/' + activityId + '/goals/categories-reorder', {
-            keys: ordered.map(function (el) { return el.dataset.categoryKey; }),
-          }).catch(function (err) { alert(err.message); activityGoalsCategoriesRefresh(activityId); });
-        }
+        item.classList.remove('dragging');
+        list.classList.remove('dragging');
+        item.style.transform = '';
+        items.forEach(function (el) { el.style.transform = ''; });
+        if (targetIndex === fromIndex) return;
+        var ordered = items.slice();
+        ordered.splice(fromIndex, 1);
+        ordered.splice(targetIndex, 0, item);
+        o.onDrop(ordered);
       }
 
       handle.addEventListener('pointermove', onMove);
@@ -6633,733 +6612,59 @@
     });
   }
 
-  // 26 septembre 2026, demande directe d'Emilien : « je souhaite qu'on puisse
-  // bouger un secteur d'un pôle à un autre. Et je souhaite que à chaque
-  // mouvement, les pôles et les secteurs se décalent pour laisser la place au
-  // secteur » — remplace la version du 25 septembre (scopée au SEUL bloc
-  // secteurs de son pôle d'origine) : opère désormais sur TOUS les blocs
-  // secteurs de la liste entière (un par pôle, `.activityGoalsSecteursBlock`,
-  // reconnus par `wrap.dataset.poleKey` posé par buildPoleSecteursEditBlock),
-  // pour permettre un dépôt dans N'IMPORTE QUEL pôle, y compris un pôle sans
-  // aucun secteur (`min-height` réservée pendant le geste, voir
-  // `#activityGoalsCategoriesList.secteursDragging .activityGoalsSecteursBlock`,
-  // styles.css — sans cette hauteur minimale un bloc vide n'aurait aucune
-  // zone à survoler pour le cibler).
-  //
-  // `row` ne quitte JAMAIS le DOM pendant le geste (sauf au tout dernier
-  // moment, dans onUp, s'il change réellement de pôle) : comme
-  // bindCategoryDrag, tout l'effet visuel pendant le glisser vient de
-  // `transform`, jamais d'un déplacement réel — mesures (`snapshot`, mids,
-  // rects) prises UNE SEULE FOIS au départ, jamais recalculées en cours de
-  // geste (un recalcul contre des éléments déjà translatés se serait
-  // rétro-influencé lui-même, source d'instabilité).
-  //
-  // Cas particulier non trivial : le pôle D'ORIGINE. `row` y reste
-  // physiquement présent tout du long — ses propres voisins doivent donc soit
-  // rester immobiles (si la cible du moment EST ce pôle, au même index qu'à
-  // l'origine : rien n'a changé, le trou est déjà occupé par `row`
-  // lui-même), soit se resserrer pour combler le trou qu'il laisse dès que la
-  // cible du moment est ailleurs (targetEntry !== originEntry) OU à un autre
-  // index dans CE MÊME pôle — relayout() calcule ce cas comme « row a
-  // virtuellement quitté sa place d'origine vers `effectiveIdx` », qui vaut
-  // l'index cible réel si on est encore dans ce pôle, ou la toute fin de la
-  // liste sinon (row considéré parti pour de bon) — même mathématique dans
-  // les deux cas, un seul chemin de code.
-  function bindSecteurDrag(handle, row, activityId, pole, secteur) {
-    handle.addEventListener('pointerdown', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var list = $('activityGoalsCategoriesList');
-      list.classList.add('secteursDragging');
-
-      function rowsOf(wrap) {
-        return Array.prototype.slice.call(wrap.querySelectorAll('.activityGoalsSecteurRow'))
-          .filter(function (el) { return el !== row; });
-      }
-
-      var wraps = Array.prototype.slice.call(list.querySelectorAll('.activityGoalsSecteursBlock'));
-      var snapshot = wraps.map(function (wrap) {
-        var siblings = rowsOf(wrap);
-        return {
-          wrap: wrap,
-          poleKey: wrap.dataset.poleKey,
-          wrapRect: wrap.getBoundingClientRect(),
-          siblings: siblings,
-          mids: siblings.map(function (el) {
-            var r = el.getBoundingClientRect();
-            return r.top + r.height / 2;
-          }),
-        };
-      });
-
-      var originPoleKey = pole.key;
-      var originEntry = snapshot.filter(function (s) { return s.poleKey === originPoleKey; })[0];
-      // Index d'origine parmi les FRÈRES (row exclu) — égal, par construction,
-      // à l'index de `secteur` dans `pole.secteurs` (les frères avant `row`
-      // gardent le même compte que dans la liste complète, voir le
-      // commentaire ci-dessus).
-      var originIndex = pole.secteurs.indexOf(secteur);
-      var startY = e.clientY;
-      var step = row.getBoundingClientRect().height +
-        (parseFloat(getComputedStyle(originEntry.wrap).rowGap || getComputedStyle(originEntry.wrap).gap || 0) || 0);
-
-      var activeEntry = originEntry;
-      var activeIndex = originIndex;
-
-      handle.setPointerCapture(e.pointerId);
-      row.classList.add('dragging');
-
-      function relayout(targetEntry, idx) {
-        // 26 septembre 2026 : au-delà du décalage (transform) des lignes à
-        // l'intérieur d'un bloc, le bloc `.activityGoalsSecteursBlock`
-        // lui-même doit changer de hauteur RÉELLE (pas juste un transform,
-        // qui ne modifie jamais le flux du document) pour que les pôles
-        // suivants, eux, se décalent réellement — sinon une ligne poussée
-        // vers le bas par transform dépasse la boîte de son bloc et se
-        // superpose au pôle suivant (bug signalé par Emilien, captures
-        // d'écran à l'appui). `entry.wrapRect.height` (mesurée une seule
-        // fois au début du geste) sert de référence stable.
-        snapshot.forEach(function (entry) {
-          if (entry === originEntry || entry === targetEntry) return;
-          entry.siblings.forEach(function (el) { el.style.transform = ''; });
-          entry.wrap.style.height = '';
-        });
-
-        var effectiveIdx = (targetEntry === originEntry) ? idx : originEntry.siblings.length;
-        originEntry.siblings.forEach(function (el, i) {
-          var shift = 0;
-          if (effectiveIdx > originIndex && i >= originIndex && i < effectiveIdx) shift = -step;
-          else if (effectiveIdx < originIndex && i >= effectiveIdx && i < originIndex) shift = step;
-          el.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
-        });
-
-        if (targetEntry === originEntry) {
-          // Simple réordonnancement interne : le nombre de secteurs de ce
-          // pôle ne change jamais pendant le geste, donc sa hauteur reste
-          // naturelle (le secteur glissé lui-même n'a jamais quitté ce bloc).
-          originEntry.wrap.style.height = '';
-        } else {
-          // `row` reste physiquement dans le DOM de `originEntry` jusqu'au
-          // dépôt (voir onUp) — le bloc d'origine se rétrécit visuellement
-          // comme si le secteur l'avait déjà quitté, pour que les pôles
-          // suivants remontent et referment l'espace laissé vacant.
-          originEntry.wrap.style.height = Math.max(0, originEntry.wrapRect.height - step) + 'px';
-        }
-
-        if (targetEntry !== originEntry) {
-          targetEntry.siblings.forEach(function (el, i) {
-            el.style.transform = i >= idx ? 'translateY(' + step + 'px)' : '';
-          });
-          // Symétrique : le bloc cible s'agrandit comme si le secteur y
-          // était déjà inséré, pour que les pôles suivants descendent et
-          // laissent vraiment la place — plus de secteur qui disparaît
-          // sous le pôle suivant.
-          targetEntry.wrap.style.height = (targetEntry.wrapRect.height + step) + 'px';
-        }
-
-        snapshot.forEach(function (entry) {
-          entry.wrap.classList.toggle('secteurDropTarget', entry === targetEntry);
-        });
-      }
-
-      relayout(activeEntry, activeIndex);
-
-      function nearestEntry(clientY) {
-        var best = null, bestDist = Infinity;
-        snapshot.forEach(function (entry) {
-          var r = entry.wrapRect;
-          var dist = clientY < r.top ? r.top - clientY : (clientY > r.bottom ? clientY - r.bottom : 0);
-          if (dist < bestDist) { bestDist = dist; best = entry; }
-        });
-        return best || originEntry;
-      }
-
-      function indexForEntry(entry, clientY) {
-        var idx = 0;
-        for (var i = 0; i < entry.mids.length; i++) {
-          if (clientY > entry.mids[i]) idx = i + 1;
-        }
-        return idx;
-      }
-
-      function onMove(ev) {
-        row.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
-        var targetEntry = nearestEntry(ev.clientY);
-        var idx = indexForEntry(targetEntry, ev.clientY);
-        if (targetEntry !== activeEntry || idx !== activeIndex) {
-          activeEntry = targetEntry;
-          activeIndex = idx;
-          relayout(activeEntry, activeIndex);
-        }
-      }
-
-      function onUp() {
-        handle.removeEventListener('pointermove', onMove);
-        handle.removeEventListener('pointerup', onUp);
-        handle.removeEventListener('pointercancel', onUp);
-        row.classList.remove('dragging');
-        list.classList.remove('secteursDragging');
-        row.style.transform = '';
-        snapshot.forEach(function (entry) {
-          entry.siblings.forEach(function (el) { el.style.transform = ''; });
-          entry.wrap.classList.remove('secteurDropTarget');
-          entry.wrap.style.height = '';
-        });
-
-        if (activeEntry.poleKey === originPoleKey) {
-          if (activeIndex !== originIndex) {
-            reorderPoleSecteur(activityId, originPoleKey, pole.secteurs, originIndex, activeIndex);
-          }
-        } else {
-          // Réinsère `row` dans le DOM du pôle CIBLE avant l'appel réseau —
-          // sans ça, `row` resterait visible dans son ancien pôle (retombé à
-          // sa place naturelle, transform effacé juste au-dessus) jusqu'à ce
-          // que activityGoalsCategoriesRefresh() reconstruise tout le
-          // panneau, plusieurs centaines de ms plus tard : un aller-retour
-          // visuel évitable.
-          activeEntry.wrap.insertBefore(row, activeEntry.siblings[activeIndex] || null);
-          movePoleSecteurToPole(activityId, originPoleKey, secteur.key, activeEntry.poleKey, activeIndex);
-        }
-      }
-
-      handle.addEventListener('pointermove', onMove);
-      handle.addEventListener('pointerup', onUp);
-      handle.addEventListener('pointercancel', onUp);
-    });
+  // ----- Appels serveur (routes existantes) -----
+  function catFailRefresh(activityId, err) {
+    catMsg(err && err.message);
+    activityGoalsCategoriesRefresh(activityId);
   }
 
-  function renderActivityGoalsCategoriesPanel(data, planningData) {
-    lastActivityGoalsCategoriesData = data;
-    lastActivityGoalsPlanningData = planningData;
-    currentActivityGoalsCategories = data.categories || [];
-    currentActivityGoalsMax = data.maxCategories || 5;
-    // 25 septembre 2026 : data.tasksByCategory n'est plus consommé ici (plus
-    // aucune tâche affichée dans cette section) — la donnée reste renvoyée
-    // par le serveur pour d'autres lecteurs, simplement plus lue ici.
-    var activityIdForTasks = currentCommunityActivityId;
-    // 16 septembre 2026 (discussion "Objectifs — D", 5e passage) — voir
-    // loadActivityGoalsCategories() ci-dessus : planningData peut être null
-    // (requête /goals/all échouée ou pas encore de plan pour une catégorie
-    // toute neuve) — dans ce cas byCategoryPlanning reste vide et aucune
-    // ligne ne perd sa liste de semaines, elle est simplement absente.
-    var byCategoryPlanning = (planningData && planningData.byCategory) || {};
-
-    var list = $('activityGoalsCategoriesList');
-    if (!list) return;
-
-    list.innerHTML = '';
-    list.classList.toggle('editing', activityGoalsCategoriesEditMode);
-
-    if (activityGoalsCategoriesEditMode && currentActivityGoalsCategories.length) {
-      var bar = document.createElement('div');
-      bar.className = 'subProjectEditBar';
-      var hint = document.createElement('span');
-      hint.className = 'meta';
-      hint.textContent = t('Glisse pour réordonner, touche le nom pour le modifier.');
-      var done = document.createElement('button');
-      done.type = 'button';
-      done.className = 'iconBtn';
-      done.textContent = t('Terminer');
-      done.addEventListener('click', exitCategoriesEditMode);
-      bar.appendChild(hint);
-      bar.appendChild(done);
-      list.appendChild(bar);
+  // Réordonne localement (les couleurs des pôles suivent la position, donc on
+  // repeint tout de suite), puis persiste.
+  function reorderPoles(activityId, keys) {
+    var data = lastActivityGoalsCategoriesData;
+    if (data) {
+      var byKey = {};
+      data.categories.forEach(function (c) { byKey[c.key] = c; });
+      data.categories = keys.map(function (k) { return byKey[k]; }).filter(Boolean);
+      catRerender();
     }
-
-    currentActivityGoalsCategories.forEach(function (c, index) {
-      var row = document.createElement('div');
-      row.className = 'activityGoalsCategoryRow' + (activityGoalsCategoriesEditMode ? ' editing' : '');
-      row.dataset.categoryKey = c.key;
-
-      if (activityGoalsCategoriesEditMode) {
-        var handle = document.createElement('span');
-        handle.className = 'subProjectDragHandle';
-        handle.setAttribute('aria-label', t('Déplacer ce pôle'));
-        handle.textContent = '≡';
-        row.appendChild(handle);
-
-        // 26 septembre 2026, retour d'Emilien sur la maquette « Hybride » :
-        // le point coloré du pôle est réintroduit (revirement par rapport
-        // au 22 septembre, voir commentaire équivalent en mode normal
-        // ci-dessous) — même nuance que la ligne en lecture seule, pour ne
-        // pas changer d'identité visuelle entre les deux modes.
-        var dotEdit = document.createElement('span');
-        dotEdit.className = 'activityGoalsCategoryDot';
-        dotEdit.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-        row.appendChild(dotEdit);
-
-        var input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'subProjectNameInput';
-        input.maxLength = 40;
-        input.value = c.label;
-        // 28 septembre 2026 (retour d'Emilien, capture à l'appui : ce champ de
-        // RENOMMAGE de pôle n'avait jamais reçu le correctif clavier posé le
-        // 27 septembre sur les champs d'AJOUT — scrollAddInputIntoView() est
-        // générique (n'importe quel champ), seuls ses 2 sites d'appel
-        // existants étaient limités à l'ajout. Même traitement ici.
-        scrollAddInputIntoView(input);
-        (function (c, input) {
-          function commitName() {
-            var value = input.value.trim();
-            if (!value || value === c.label) { input.value = c.label; return; }
-            renameActivityGoalsCategory(c.key, value);
-          }
-          input.addEventListener('blur', commitName);
-          input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
-        })(c, input);
-        row.appendChild(input);
-
-        var del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'subProjectDeleteX';
-        del.textContent = '✕';
-        del.setAttribute('aria-label', t('Retirer ce pôle'));
-        del.disabled = currentActivityGoalsCategories.length <= 1;
-        del.addEventListener('click', function (e) {
-          e.stopPropagation();
-          openCategoryRemoveModal({ activityId: activityIdForTasks, key: c.key, label: c.label, poleKey: null });
-        });
-        row.appendChild(del);
-
-        // 25 septembre 2026 (Aiguillage, « Coordination inter-secteurs de
-        // l'IA », Brief 2, cadré avec Emilien via AskUserQuestion) :
-        // description/contexte optionnelle du pôle — 200 caractères maximum,
-        // dans ce même bloc d'édition (pas d'emplacement séparé), toujours
-        // en dernier enfant de `row` pour passer sur sa propre ligne (voir
-        // .activityGoalsCategoryRow.editing/.activityGoalsCategoryDescriptionInput,
-        // styles.css : flex-wrap + flex-basis 100%, `row` reste l'unique
-        // élément glissé par bindCategoryDrag, sa hauteur mesurée
-        // dynamiquement inclut cette ligne). Commit indépendant du nom :
-        // envoie toujours le label courant pour ne jamais l'écraser (label
-        // requis côté serveur, voir renameCategory, server/lib/goals.js).
-        var descInput = document.createElement('input');
-        descInput.type = 'text';
-        descInput.className = 'activityGoalsCategoryDescriptionInput';
-        descInput.maxLength = 200;
-        descInput.value = c.description || '';
-        descInput.placeholder = t('Description (optionnel) — aide l’IA à repérer les liens pertinents entre secteurs');
-        descInput.addEventListener('click', function (e) { e.stopPropagation(); });
-        // 28 septembre 2026 : même correctif clavier que le champ de nom
-        // ci-dessus (voir son commentaire) — ce champ aussi défile sous le
-        // clavier au focus.
-        scrollAddInputIntoView(descInput);
-        (function (c, input, descInput) {
-          function commitDescription() {
-            var value = descInput.value.trim();
-            if (value === (c.description || '')) return;
-            renameActivityGoalsCategory(c.key, input.value.trim() || c.label, value);
-          }
-          descInput.addEventListener('blur', commitDescription);
-          descInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); descInput.blur(); } });
-        })(c, input, descInput);
-        row.appendChild(descInput);
-
-        // 25 septembre 2026, mode édition unique partagé pôle+secteur : le
-        // pôle et son bloc secteurs (édition) forment désormais un seul
-        // groupe déplaçable ensemble — voir bindCategoryDrag() plus haut,
-        // section « piège de layout » du doc de référence Discussion C.
-        var group = document.createElement('div');
-        group.className = 'activityGoalsCategoryEditGroup';
-        group.dataset.categoryKey = c.key;
-        group.appendChild(row);
-        group.appendChild(buildPoleSecteursEditBlock(activityIdForTasks, c));
-        bindCategoryDrag(handle, group);
-        list.appendChild(group);
-        return; // en édition : ni tâches, ni résumé hebdo (même règle que Sous-projets)
-      }
-
-      // 22 septembre 2026, demande directe d'Emilien : « les pôles ne
-      // possèdent pas de couleur ni d'icône ni de motif. » — revirement le
-      // 26 septembre 2026 (maquette « Hybride » validée par Emilien) : le
-      // point coloré du pôle est réintroduit ici, à GAUCHE du nom (premier
-      // enfant de la ligne) — reconfirmé le 27 septembre 2026. Aucun point
-      // coloré sur un secteur : les secteurs n'ont pas de couleur attitrée
-      // (reconfirmé le 27 septembre 2026, voir buildPoleSecteursBlock()
-      // plus bas — la création du point y a été retirée).
-      var dot = document.createElement('span');
-      dot.className = 'activityGoalsCategoryDot';
-      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-      row.appendChild(dot);
-
-      var nameLabel = document.createElement('span');
-      nameLabel.className = 'activityRowName';
-      nameLabel.textContent = c.label;
-      row.appendChild(nameLabel);
-
-      // Repliée par défaut (maquette approuvée) : chevron purement visuel —
-      // le clic porte sur la ligne entière (bindCategoryOpenToggle). Le
-      // badge du nombre de tâches a été retiré le 25 septembre 2026 (cette
-      // section ne montre plus aucune tâche, voir plus bas).
-      var isOpen = !!activityGoalsCategoriesOpen[c.key];
-
-      var chevron = document.createElement('span');
-      chevron.className = 'activityGoalsCategoryChevron';
-      chevron.textContent = isOpen ? '▾' : '▸';
-      row.appendChild(chevron);
-
-      // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA »,
-      // décision d'Emilien) : la description, quand elle existe, reste
-      // visible même hors mode édition — pas seulement un signal invisible
-      // pour l'IA. Réutilise la classe générique .meta (déjà utilisée
-      // ailleurs pour du texte secondaire) + .activityGoalsCategoryRow
-      // passe en flex-wrap (styles.css) pour la faire passer sur sa propre
-      // ligne, sous le nom.
-      if (c.description) {
-        var descCaption = document.createElement('span');
-        descCaption.className = 'meta activityGoalsCategoryDescriptionCaption';
-        descCaption.textContent = c.description;
-        row.appendChild(descCaption);
-      }
-
-      bindCategoryLongPress(row);
-      bindCategoryOpenToggle(row, c.key);
-
-      // 30 septembre 2026 (demande de Gaspard) : la ligne du pôle reste
-      // collée en haut (sticky) pendant qu'on fait défiler ses secteurs —
-      // pôle + bloc secteurs dans un même groupe (voir .activityGoalsCategoryGroup).
-      var normalGroup = document.createElement('div');
-      normalGroup.className = 'activityGoalsCategoryGroup';
-      normalGroup.appendChild(row);
-      list.appendChild(normalGroup);
-
-      // 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
-      // « Pôles & secteurs ») — les secteurs de ce pôle, juste sous sa ligne
-      // de nom et AVANT le bloc de tâches, affichés seulement si le pôle est
-      // déplié (même règle que buildCategoryTasksBlock juste en dessous) :
-      // c'est ici qu'on crée/renomme/retire/réordonne un secteur.
-      if (isOpen) normalGroup.appendChild(buildPoleSecteursBlock(activityIdForTasks, c));
-
-      // ⚠️ 25 septembre 2026, demande directe d'Emilien : la section ne sert
-      // plus qu'à paramétrer pôles/secteurs — le bloc de tâches (case à
-      // cocher/reclassement/suppression, buildCategoryTasksBlock ci-dessus)
-      // n'est plus affiché ici. Fonction laissée intacte, inutilisée depuis
-      // cette section : voir
-      // claude/noesis-timetracker-taches-categories-reference-discussion-c.md
-      // (Discussion C — Objectifs — Logique métier — doit la reprendre à
-      // l'identique dans le volet Objectifs).
-
-      // ⚠️ 22 septembre 2026, demande directe d'Emilien : « supprimer les
-      // objectifs hebdomadaires sous les pôles. » — le résumé lecture-seule
-      // des objectifs hebdomadaires de la période en cours (posé le
-      // 16 septembre 2026, voir l'historique ci-dessous) est RETIRÉ de cette
-      // section. La saisie/modification elle-même reste inchangée, dans le
-      // volet Objectifs de la barre du bas (openGoalsWeekEditor()) — rien de
-      // supprimé côté données ni côté ce volet-là, seulement cet affichage
-      // dupliqué ici. `byCategoryPlanning`/`planningData` (chargés par
-      // loadActivityGoalsCategories() plus haut) n'ont plus de lecteur dans
-      // cette fonction mais sont volontairement laissés en place (repli
-      // possible pour le futur système pôles/secteurs/objectifs/IA en
-      // discussion avec Emilien) plutôt que de toucher au chargement des
-      // données pour un simple retrait d'affichage.
-      //
-      // Historique (retiré) : 16 septembre 2026 (discussion "Objectifs — D",
-      // 5e passage), demande d'Emilien : « [l'objectif] se répertorie [...]
-      // sous l'objectif dans la fenêtre des activités section tâches » —
-      // affichait sous CHAQUE catégorie les objectifs hebdomadaires déjà
-      // saisis (period.weeklies[].text) de la période en cours.
-    });
-
-    // ⚠️ 25 septembre 2026, demande directe d'Emilien : la bulle d'ajout de
-    // tâche par IA (#activityGoalsCategoryAutoTaskWrap, buildCategoryAutoTaskBubble()
-    // ci-dessus) est retirée de cette section — « transférée dans le volet
-    // objectif », Discussion C briefée pour la reconstruire là-bas. Le
-    // conteneur #activityGoalsCategoryAutoTaskWrap est retiré d'index.html ;
-    // la fonction et son infra (categoryAutoTaskPending, file hors ligne)
-    // restent intactes dans ce fichier, inutilisées depuis cette section —
-    // voir claude/noesis-timetracker-taches-categories-reference-discussion-c.md.
-    // À la place : la bulle texte + bouton « Ajouter » d'un nouveau pôle,
-    // même gabarit que l'ajout d'un secteur (buildPoleSecteursBlock), tout
-    // en bas de la liste des pôles — remplace l'ancien « + »
-    // (#addSubProjectBtn, retiré d'index.html, voir plus bas).
-    if (!activityGoalsCategoriesEditMode) {
-      list.appendChild(buildAddPoleRow(activityIdForTasks));
-    }
-    if (!_isTextInputEl(document.activeElement)) clearActivityKbRunway();
+    api('PUT', '/api/activities/' + activityId + '/goals/categories-reorder', { keys: keys })
+      .then(function () { catSyncGrid(activityId); })
+      .catch(function (err) { catFailRefresh(activityId, err); });
   }
 
-  // 26 septembre 2026, bug signalé par Emilien (captures d'écran à l'appui) :
-  // « lorsque je clique sur ajouter un nouveau pôle et que j'ai cinq pôles
-  // [...] je ne parviens plus à voir la zone d'écriture. Elle est masquée
-  // [...] pas présent lorsque j'ai moins de 5 pôles. » — au plafond, la liste
-  // est assez longue pour que cette bulle d'ajout (tout en bas) se retrouve
-  // sous la ligne visible une fois le clavier ouvert : #activityPage est déjà
-  // correctement rétréci à vv.height (voir le mécanisme de pincement plus
-  // haut dans ce fichier, focusin sur #topbar/#activityPage/#goalsDetailPage)
-  // mais rien ne fait ensuite défiler CE champ précis dans cette zone
-  // réduite. Les 2 `requestAnimationFrame` imbriqués (plutôt qu'un délai fixe
-  // en `setTimeout`) laissent ce pincement s'appliquer avant de mesurer où
-  // faire défiler — même contournement que celui déjà documenté plus haut
-  // pour le bug WebKit 237851 (offsetTop parfois lu à 0 sur la 1ère image).
-  // Même bulle pour un pôle ET pour un secteur (buildPoleSecteursBlock plus
-  // haut) : un pôle proche de son plafond de secteurs (10) subirait
-  // exactement le même symptôme.
-  // 27 septembre 2026, retour d'Emilien (bug persistant, capture à l'appui) :
-  // « il faut [...] que les catégories défilent [...] jusqu'à ce que la zone
-  // d'écriture se positionne juste au-dessus du clavier » — `block: 'center'`
-  // centrait le champ au milieu de la zone visible (déjà réduite à vv.height,
-  // voir plus haut), pas juste au-dessus du clavier comme demandé ici.
-  // `block: 'end'` aligne le bas du champ sur le bas de cette zone visible,
-  // c'est-à-dire exactement la ligne du clavier. Complété par le passage de
-  // #activityPageSectionSwitch en sticky (styles.css, même date) : sans lui,
-  // ce même calcul aurait aussi fait défiler le sélecteur de section hors de
-  // vue avec la liste, ce qu'Emilien a explicitement demandé d'éviter.
-  // 27 septembre 2026, 2e passage — Emilien : toujours visible, alors que
-  // les deux correctifs ci-dessus sont bien en place. Cause trouvée par
-  // lecture, pas hypothèse : le double `requestAnimationFrame` s'exécute
-  // ~32 ms après le focus — largement AVANT que le clavier n'ait fini son
-  // animation d'ouverture. `#activityPage` (pincé par pinBottomBars/
-  // pinPages plus haut dans ce fichier, boucle rAF continue tant qu'un
-  // champ garde le focus) n'a donc pas encore atteint sa hauteur finale
-  // (`vv.height`) au moment où `scrollIntoView` calcule sa cible : le calcul
-  // se fige sur une zone visible encore trop grande (clavier pas ou peu
-  // ouvert), et la bulle se retrouve de nouveau sous le clavier une fois
-  // celui-ci stabilisé quelques images plus tard — sans qu'aucun nouveau
-  // scroll ne vienne alors corriger la position déjà figée. Corrigé en
-  // réécoutant `visualViewport.resize` (déclenché par le navigateur pendant
-  // ET/ou à la fin de l'animation du clavier, potentiellement plusieurs
-  // fois) tant que ce champ garde le focus, refaisant le même
-  // `scrollIntoView` à chaque déclenchement — la position converge donc
-  // vers la bonne cible quelle que soit la durée réelle de l'animation du
-  // clavier, au lieu de parier sur un délai fixe de 2 images.
-  // 30 septembre 2026 (demande de Gaspard : « les menus déroulants des Pôles
-  // ne sont plus en haut de la page ») — CAUSE : la piste de défilement
-  // temporaire (.activityPageScrollKbRunway + .activityPageScrollKbTopSpacer,
-  // posées au focus d'un champ d'ajout/renommage) n'était retirée qu'au
-  // `blur` du champ. Or ajouter/renommer/retirer re-rend toute la liste
-  // (list.innerHTML = '') : le champ focalisé est arraché du DOM sans blur,
-  // la marge du haut (jusqu'à plusieurs centaines de px) restait donc posée
-  // pour de bon et repoussait tous les pôles vers le bas. Nettoyée ici à la
-  // fin de chaque rendu du panneau quand aucun champ n'a plus le focus.
-  function clearActivityKbRunway() {
-    var scroller = $('activityPageScroll');
-    if (!scroller) return;
-    scroller.classList.remove('activityPageScrollKbRunway');
-    var spacer = scroller.querySelector('.activityPageScrollKbTopSpacer');
-    if (spacer) { spacer.remove(); scroller.scrollTop = 0; }
+  function reorderPoleSecteur(activityId, pole, keys) {
+    var byKey = {};
+    (pole.secteurs || []).forEach(function (s) { byKey[s.key] = s; });
+    pole.secteurs = keys.map(function (k) { return byKey[k]; }).filter(Boolean);
+    catRerender();
+    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + pole.key + '/secteurs-reorder', { keys: keys })
+      .then(function () { catSyncGrid(activityId); })
+      .catch(function (err) { catFailRefresh(activityId, err); });
   }
 
-  function scrollAddInputIntoView(el) {
-    // 28 septembre 2026, 4e passage — diagnostic chiffré (HUD temporaire
-    // posé plus haut dans ce fichier) sur le champ RÉEL en cause : sur un
-    // champ situé PRÈS DU DÉBUT de la liste (peu de contenu au-dessus),
-    // scrollTop restait bloqué à 0 alors que scrollHeight/clientHeight
-    // montraient de la place plus bas — logique une fois qu'on y pense :
-    // ramener CE champ en bas de la zone visible réduite par le clavier
-    // demanderait de défiler VERS LE HAUT au-delà du tout début du
-    // contenu, ce qui n'existe pas. La marge posée le 28 septembre
-    // (.activityPageScrollKbRunway, EN BAS) ne pouvait donc aider que les
-    // champs proches de la FIN d'une liste (ex. « Nouveau pôle »), jamais
-    // ceux proches du début (ex. un « Nouveau secteur » sous le 1er pôle).
-    // Corrigé en calculant l'écart réel avec visualViewport plutôt que de
-    // faire confiance à scrollIntoView (qui juge selon la propre hauteur
-    // du conteneur, laquelle ne correspondait pas à la zone réellement
-    // visible sous le clavier dans les mesures relevées) : si défiler
-    // suffit, on pose scrollTop directement, SANS animation — le HUD a
-    // aussi montré scrollTop figé à 0 malgré scrollIntoView({smooth}),
-    // cause probable : la boucle qui repince #activityPage à chaque image
-    // tant que le clavier est ouvert (pinLoop, plus haut dans ce fichier)
-    // interrompt l'animation avant qu'elle n'ait pu avancer. Si défiler ne
-    // suffit pas (champ trop proche du début de liste), on ajoute
-    // EXACTEMENT le manque en piste au-dessus du contenu — jamais plus —
-    // pour ne créer un saut visuel que quand c'est réellement nécessaire.
-    function doScroll() {
-      var scroller = el.closest('#activityPageScroll');
-      if (!scroller || !_isCoarsePointer || !window.visualViewport) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        return;
-      }
-      var body = scroller.querySelector('#activityPageBody') || scroller;
-      var spacer = body.querySelector('.activityPageScrollKbTopSpacer');
-      if (spacer) spacer.style.height = '0px';
-      var vv = window.visualViewport;
-      var vvBottom = vv.offsetTop + vv.height;
-      var rect = el.getBoundingClientRect();
-      var gap = vvBottom - rect.bottom;
-      if (Math.abs(gap) < 2) return;
-      var maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-      var target = scroller.scrollTop - gap;
-      if (target < 0) {
-        var deficit = -target;
-        if (!spacer) {
-          spacer = document.createElement('div');
-          spacer.className = 'activityPageScrollKbTopSpacer';
-          body.insertBefore(spacer, body.firstChild);
-        }
-        spacer.style.height = Math.ceil(deficit + 6) + 'px';
-        scroller.scrollTop = 0;
-      } else {
-        scroller.scrollTop = Math.min(target, maxScroll);
-      }
-    }
-    el.addEventListener('focus', function () {
-      // 30 septembre 2026 (demande de Gaspard) : la bulle d'ajout d'un
-      // pôle/secteur se colle au bas de la zone visible (= juste au-dessus du
-      // clavier, #activityPage étant rétrécie à vv.height) via position:
-      // sticky (classe .addRowKb, styles.css), quelle que soit la position
-      // de défilement. Retirée au blur avec un léger délai pour ne pas
-      // perdre le clic sur « Ajouter ».
-      var addRowEl = el.closest('.activityGoalsCategoryAddRow, .activityGoalsSecteurAddRow');
-      if (addRowEl) {
-        addRowEl.classList.add('addRowKb');
-        el.addEventListener('blur', function () {
-          setTimeout(function () { if (!addRowEl.contains(document.activeElement)) addRowEl.classList.remove('addRowKb'); }, 400);
-        }, { once: true });
-      }
-      // 28 septembre 2026 (2e retour d'Emilien, captures à l'appui) : le
-      // champ remontait bien un peu, mais restait loin au-dessus du clavier
-      // dès que la liste de pôles/secteurs était courte. Cause : `scrollIntoView`
-      // ne peut jamais faire défiler au-delà du débordement RÉEL du
-      // conteneur — sur une liste courte, #activityPageScroll n'a
-      // simplement pas assez de contenu sous le champ pour le pousser
-      // jusqu'au bas de la zone visible réduite par le clavier. Une marge de
-      // défilement temporaire (classe posée au focus, retirée au blur) donne
-      // toujours assez de « piste » pour atteindre le bas, quelle que soit
-      // la longueur de la liste — voir styles.css, .activityPageScrollKbRunway.
-      var scroller = el.closest('#activityPageScroll');
-      if (scroller) scroller.classList.add('activityPageScrollKbRunway');
-      requestAnimationFrame(function () {
-        requestAnimationFrame(doScroll);
-      });
-      if (_isCoarsePointer && window.visualViewport) {
-        window.visualViewport.addEventListener('resize', doScroll);
-      }
-      function stopWatching() {
-        if (_isCoarsePointer && window.visualViewport) window.visualViewport.removeEventListener('resize', doScroll);
-        if (scroller) {
-          // 30 septembre 2026 : retrait DIFFÉRÉ — retirer la piste au blur
-          // décalait la liste sous le doigt pendant l'appui sur « Ajouter »
-          // (le clic atterrissait sur une autre ligne et était perdu, cause
-          // probable de « impossible d'ajouter/supprimer »). Si un autre
-          // champ a repris le focus entre-temps, c'est lui qui nettoiera.
-          setTimeout(function () {
-            if (_isTextInputEl(document.activeElement)) return;
-            scroller.classList.remove('activityPageScrollKbRunway');
-            // Piste du haut (voir doScroll ci-dessus) : purement temporaire,
-            // ne doit jamais rester une fois le champ quitté.
-            var body = scroller.querySelector('#activityPageBody') || scroller;
-            var spacer = body.querySelector('.activityPageScrollKbTopSpacer');
-            if (spacer) spacer.remove();
-          }, 600);
-        }
-        el.removeEventListener('blur', stopWatching);
-      }
-      el.addEventListener('blur', stopWatching);
-    });
+  function movePoleSecteurToPole(activityId, fromPoleKey, secteurKey, targetPoleKey, targetIndex) {
+    return api('PUT', '/api/activities/' + activityId + '/goals/categories/' + fromPoleKey + '/secteurs/' + secteurKey + '/move', {
+      targetPoleKey: targetPoleKey,
+      targetIndex: targetIndex,
+    }).then(function () { activityGoalsCategoriesRefresh(activityId); });
   }
 
-  // 25 septembre 2026 : bulle d'ajout de pôle, même gabarit que
-  // .activityGoalsSecteurAddRow (buildPoleSecteursBlock ci-dessus) —
-  // remplace l'ancien « + » (#addSubProjectBtn).
-  function buildAddPoleRow(activityId) {
-    var addRow = document.createElement('div');
-    addRow.className = 'activityGoalsCategoryAddRow';
-    var addInput = document.createElement('input');
-    addInput.type = 'text';
-    addInput.id = 'activityGoalsCategoryAddInput';
-    addInput.className = 'activityGoalsCategoryNameInput';
-    addInput.maxLength = 40;
-    addInput.placeholder = t('Nouveau pôle…');
-    scrollAddInputIntoView(addInput);
-    var addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'iconBtn btnBrique';
-    addBtn.textContent = t('Ajouter');
-    addBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
-    addBtn.addEventListener('click', function () {
-      var label = addInput.value.trim();
-      if (!label) return;
-      addBtn.disabled = true;
-      createActivityGoalsCategory(activityId, label).then(function () {
-        addInput.value = '';
-        addBtn.disabled = false;
-      });
-    });
-    addInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } });
-    addRow.appendChild(addInput);
-    addRow.appendChild(addBtn);
-    return addRow;
+  // Renommer : le champ garde sa valeur, la liste n'est PAS repeinte (comme le nom
+  // d'une activité) — sinon un toucher sur « ✕ » juste après la saisie serait perdu.
+  function renameCategoryItem(activityId, entity, input, poleKey) {
+    var value = input.value.trim();
+    if (!value || value === entity.label) { input.value = entity.label; return; }
+    var url = '/api/activities/' + activityId + '/goals/categories/' + (poleKey ? poleKey + '/secteurs/' : '') + entity.key;
+    api('PUT', url, { label: value })
+      .then(function () { entity.label = value; catMsg(''); catSyncGrid(activityId); })
+      .catch(function (err) { input.value = entity.label; catMsg(err.message); });
   }
 
-  // 25 septembre 2026 (Aiguillage, « Coordination inter-secteurs de l'IA »,
-  // Brief 2) : `description` devient un 3ᵉ argument optionnel — omis (comme
-  // par tout appelant existant, ex. commitName ci-dessous), le corps envoyé
-  // au serveur ne porte pas le champ et renameCategory (server/lib/goals.js)
-  // laisse la colonne intacte.
-  function renameActivityGoalsCategory(key, label, description) {
-    var activityId = currentCommunityActivityId;
-    var body = { label: label };
-    if (description !== undefined) body.description = description;
-    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + key, body)
-      .then(function () { activityGoalsCategoriesRefresh(activityId); })
-      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
-  }
-
-  // `tasks` : 'delete' | 'keep' (choix pour les tâches affiliées, voir
-  // openCategoryRemoveModal) — renvoie la promesse pour que la fenêtre
-  // affiche une éventuelle erreur serveur.
   function removeActivityGoalsCategory(key, tasks) {
     var activityId = currentCommunityActivityId;
     return api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + key, tasks ? { tasks: tasks } : undefined)
       .then(function () { activityGoalsCategoriesRefresh(activityId); });
-  }
-
-  // 16 septembre 2026 (11e passage), demande d'Emilien : la bulle "Nouvelle
-  // catégorie" + bouton "Ajouter" (#activityGoalsCategoryAddWrap) est retirée
-  // d'index.html — cette logique de création est extraite dans une fonction
-  // réutilisable. **25 septembre 2026 : appelée désormais par
-  // buildAddPoleRow() (bulle texte + bouton, en bas de la liste des pôles,
-  // remplace le « + » #addSubProjectBtn) — le garde du plafond de pôles
-  // (auparavant seulement dans l'écouteur du « + ») est centralisé ici, et
-  // la fonction renvoie désormais sa promesse pour que l'appelant puisse
-  // réinitialiser son champ une fois l'ajout terminé.**
-  function createActivityGoalsCategory(activityId, label) {
-    var msg = $('activityGoalsCategoriesMsg');
-    if (!label) { if (msg) msg.textContent = t('Nom de pôle requis.'); return Promise.resolve(); }
-    if (currentActivityGoalsCategories.length >= currentActivityGoalsMax) {
-      if (msg) msg.textContent = t('Maximum de pôles atteint ({max}).', { max: currentActivityGoalsMax });
-      return Promise.resolve();
-    }
-    return api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
-      .then(function (res) {
-        activityGoalsCategoriesRefresh(activityId);
-        var last = res && res.categories && res.categories[res.categories.length - 1];
-        if (last && last.label === label) openCategoryDetailModal({ activityId: activityId, key: last.key, label: last.label, poleKey: null });
-      })
-      .catch(function (err) { if (msg) msg.textContent = err.message; });
-  }
-
-  // 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
-  // « Pôles & secteurs », exposition) : gestion des secteurs d'un pôle —
-  // créer/renommer/retirer/réordonner. Même mécanique d'appel que les
-  // fonctions pôle ci-dessus (renameActivityGoalsCategory/removeActivityGoalsCategory/
-  // createActivityGoalsCategory), sur les 5 nouvelles routes de
-  // server/routes/goals.js (GET/POST .../categories/:key/secteurs,
-  // PUT/DELETE .../categories/:key/secteurs/:secteurKey, PUT
-  // .../categories/:key/secteurs-reorder). Un secteur n'a pas de minimum
-  // (contrairement au pôle) : pas de garde côté client sur le dernier
-  // secteur, le serveur ne la pose pas non plus (voir
-  // noesis-timetracker-poles-secteurs.md).
-  function createPoleSecteur(activityId, poleKey, label) {
-    var msg = $('activityGoalsCategoriesMsg');
-    if (!label) { if (msg) msg.textContent = t('Nom de secteur requis.'); return Promise.resolve(); }
-    return api('POST', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs', { label: label })
-      .then(function (res) {
-        activityGoalsCategoriesRefresh(activityId);
-        var last = res && res.secteurs && res.secteurs[res.secteurs.length - 1];
-        if (last && last.label === label) openCategoryDetailModal({ activityId: activityId, key: last.key, label: last.label, poleKey: poleKey });
-      })
-      .catch(function (err) { if (msg) msg.textContent = err.message; });
-  }
-
-  // 25 septembre 2026 : même ajout de `description` optionnelle que
-  // renameActivityGoalsCategory ci-dessus.
-  function renamePoleSecteur(activityId, poleKey, secteurKey, label, description) {
-    var body = { label: label };
-    if (description !== undefined) body.description = description;
-    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey, body)
-      .then(function () { activityGoalsCategoriesRefresh(activityId); })
-      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
   }
 
   function removePoleSecteur(activityId, poleKey, secteurKey, tasks) {
@@ -7367,13 +6672,295 @@
       .then(function () { activityGoalsCategoriesRefresh(activityId); });
   }
 
-  // 30 septembre 2026 (demande de Gaspard) : fenêtre de retrait d'un
-  // pôle/secteur — window.confirm ne fonctionne pas en PWA, d'où cette
-  // fenêtre (pattern .communityMembersModal). S'il y a des tâches affiliées
-  // (GET .../removal-preview), 2 choix : les supprimer aussi, ou les
-  // conserver sans pôle/secteur (un secteur les rend à son pôle, un pôle
-  // les laisse sans catégorie) ; sinon un simple « Retirer ». Jamais de
-  // retrait sans ce choix quand des tâches existent (le serveur refuse en 409).
+  // Créations : résolvent true si créé (la zone d'écriture se vide), false sinon
+  // (le message d'erreur est dans la zone d'écriture, visible au-dessus du clavier).
+  function catComposerError(text) { var m = $('catComposerMsg'); if (m) m.textContent = text || ''; }
+
+  function createActivityGoalsCategory(activityId, label) {
+    if (!label) { catComposerError(t('Nom de pôle requis.')); return Promise.resolve(false); }
+    if (currentActivityGoalsCategories.length >= currentActivityGoalsMax) {
+      catComposerError(t('Maximum de pôles atteint ({max}).', { max: currentActivityGoalsMax }));
+      return Promise.resolve(false);
+    }
+    return api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
+      .then(function (res) {
+        activityGoalsCategoriesRefresh(activityId);
+        var last = res && res.categories && res.categories[res.categories.length - 1];
+        if (last && last.label === label && String(last.key).indexOf('tmp-') !== 0) {
+          openCategoryDetailModal({ activityId: activityId, key: last.key, label: last.label, poleKey: null, description: '' });
+        }
+        return true;
+      })
+      .catch(function (err) { catComposerError(err.message); return false; });
+  }
+
+  function createPoleSecteur(activityId, poleKey, label) {
+    if (!label) { catComposerError(t('Nom de secteur requis.')); return Promise.resolve(false); }
+    return api('POST', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs', { label: label })
+      .then(function (res) {
+        activityGoalsCategoriesOpen[poleKey] = true;
+        activityGoalsCategoriesRefresh(activityId);
+        var last = res && res.secteurs && res.secteurs[res.secteurs.length - 1];
+        if (last && last.label === label && String(last.key).indexOf('tmp-') !== 0) {
+          openCategoryDetailModal({ activityId: activityId, key: last.key, label: last.label, poleKey: poleKey, description: '' });
+        }
+        return true;
+      })
+      .catch(function (err) { catComposerError(err.message); return false; });
+  }
+
+  // ----- Zone d'écriture (ajout d'un pôle ou d'un secteur) -----
+  function catSetComposerTarget(poleKey, focus) {
+    catComposerPoleKey = poleKey || null;
+    catSyncComposer();
+    if (focus) { var input = $('activityGoalsCategoryAddInput'); if (input) input.focus(); }
+  }
+
+  function catSyncComposer() {
+    var box = $('catComposer');
+    if (!box) return;
+    var show = activityPageSection === 'sub' && !activityGoalsCategoriesEditMode;
+    box.classList.toggle('hidden', !show);
+    var pole = null;
+    if (catComposerPoleKey) {
+      pole = currentActivityGoalsCategories.filter(function (c) { return c.key === catComposerPoleKey; })[0] || null;
+      if (!pole && lastActivityGoalsCategoriesData) catComposerPoleKey = null;
+    }
+    $('catComposerTarget').classList.toggle('hidden', !pole);
+    if (pole) $('catComposerTargetLabel').textContent = t('Secteur dans « {name} »', { name: pole.label });
+    $('activityGoalsCategoryAddInput').placeholder = t(pole ? 'Nouveau secteur…' : 'Nouveau pôle…');
+  }
+
+  function catComposerSubmit() {
+    var input = $('activityGoalsCategoryAddInput');
+    var btn = $('catComposerAddBtn');
+    var activityId = currentCommunityActivityId;
+    var label = (input.value || '').trim();
+    if (!activityId || !label || btn.disabled) return;
+    btn.disabled = true;
+    catComposerError('');
+    var req = catComposerPoleKey
+      ? createPoleSecteur(activityId, catComposerPoleKey, label)
+      : createActivityGoalsCategory(activityId, label);
+    req.then(function (ok) { if (ok) input.value = ''; }).then(function () { btn.disabled = false; });
+  }
+
+  $('catComposerAddBtn').addEventListener('mousedown', function (e) { e.preventDefault(); });
+  $('catComposerAddBtn').addEventListener('click', catComposerSubmit);
+  $('activityGoalsCategoryAddInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); catComposerSubmit(); }
+  });
+  $('catComposerTargetClear').addEventListener('click', function () { catSetComposerTarget(null, false); });
+
+  // ----- Rendu -----
+  function renderActivityGoalsCategoriesPanel(data, planningData) {
+    lastActivityGoalsCategoriesData = data;
+    lastActivityGoalsPlanningData = planningData;
+    currentActivityGoalsCategories = data.categories || [];
+    currentActivityGoalsMax = data.maxCategories || 5;
+    var list = $('activityGoalsCategoriesList');
+    if (!list) return;
+    var activityId = currentCommunityActivityId;
+    var edit = activityGoalsCategoriesEditMode;
+
+    list.innerHTML = '';
+    list.className = 'activitiesList catList' + (edit ? ' editing' : '');
+
+    if (edit && currentActivityGoalsCategories.length) {
+      var bar = document.createElement('div');
+      bar.className = 'activityEditBar';
+      var hint = document.createElement('span');
+      hint.className = 'meta';
+      hint.textContent = t('Glisse pour réordonner, touche le nom pour le modifier.');
+      var done = document.createElement('button');
+      done.type = 'button';
+      done.className = 'iconBtn';
+      done.textContent = t('Terminer');
+      done.addEventListener('click', catExitEditMode);
+      bar.appendChild(hint);
+      bar.appendChild(done);
+      list.appendChild(bar);
+    }
+
+    currentActivityGoalsCategories.forEach(function (pole, index) {
+      list.appendChild(buildCatGroup(activityId, pole, index, list, edit));
+    });
+    catSyncComposer();
+  }
+
+  function catDeleteButton(label, onClick) {
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'activityDeleteX';
+    del.textContent = '✕';
+    del.setAttribute('aria-label', label);
+    del.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
+    return del;
+  }
+
+  function catSmallButton(glyph, label, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'activityMergeBtn';
+    b.textContent = glyph;
+    b.setAttribute('aria-label', label);
+    b.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
+    return b;
+  }
+
+  function catNameInput(activityId, entity, poleKey) {
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'activityNameInput';
+    input.maxLength = 40;
+    input.value = entity.label;
+    input.addEventListener('click', function (e) { e.stopPropagation(); });
+    input.addEventListener('blur', function () { renameCategoryItem(activityId, entity, input, poleKey); });
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+    return input;
+  }
+
+  function buildCatGroup(activityId, pole, index, list, edit) {
+    var group = document.createElement('div');
+    group.className = 'catGroup';
+    group.dataset.categoryKey = pole.key;
+
+    var row = document.createElement('div');
+    row.className = 'activityRow catPole' + (edit ? ' editing' : '');
+    var header = document.createElement('div');
+    header.className = 'activityRowHeader';
+
+    var dot = document.createElement('span');
+    dot.className = 'dot';
+    // Couleur AUTOMATIQUE : nuance de la couleur de l'activité selon la position.
+    dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+
+    if (edit) {
+      var handle = document.createElement('span');
+      handle.className = 'activityDragHandle';
+      handle.setAttribute('aria-label', t('Déplacer ce pôle'));
+      handle.textContent = '≡';
+      bindCatDrag(handle, group, {
+        container: list, itemSel: '.catGroup',
+        onDrop: function (ordered) {
+          ordered.forEach(function (el) { list.appendChild(el); });
+          reorderPoles(activityId, ordered.map(function (el) { return el.dataset.categoryKey; }));
+        },
+      });
+      header.appendChild(handle);
+      header.appendChild(dot);
+      header.appendChild(catNameInput(activityId, pole, null));
+      header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
+        openCategoryDetailModal({ activityId: activityId, key: pole.key, label: pole.label, poleKey: null, description: pole.description || '' });
+      }));
+      var del = catDeleteButton(t('Retirer ce pôle'), function () {
+        openCategoryRemoveModal({ activityId: activityId, key: pole.key, label: pole.label, poleKey: null });
+      });
+      del.disabled = currentActivityGoalsCategories.length <= 1;
+      header.appendChild(del);
+      row.appendChild(header);
+      group.appendChild(row);
+      group.appendChild(buildCatSecteurs(activityId, pole, true));
+      return group;
+    }
+
+    var isOpen = !!activityGoalsCategoriesOpen[pole.key];
+    var name = document.createElement('span');
+    name.className = 'activityRowName';
+    name.textContent = pole.label;
+    var chevron = document.createElement('span');
+    chevron.className = 'catChevron';
+    chevron.textContent = isOpen ? '▾' : '▸';
+    header.appendChild(dot);
+    header.appendChild(name);
+    header.appendChild(chevron);
+    header.classList.add('clickable');
+    header.addEventListener('click', function () {
+      activityGoalsCategoriesOpen[pole.key] = !activityGoalsCategoriesOpen[pole.key];
+      catRerender();
+    });
+    bindCatLongPress(header);
+    row.appendChild(header);
+    if (pole.description) {
+      var cap = document.createElement('p');
+      cap.className = 'meta';
+      cap.textContent = pole.description;
+      row.appendChild(cap);
+    }
+    group.appendChild(row);
+    if (isOpen) group.appendChild(buildCatSecteurs(activityId, pole, false));
+    return group;
+  }
+
+  function buildCatSecteurs(activityId, pole, edit) {
+    var wrap = document.createElement('div');
+    wrap.className = 'catSecteurs';
+    wrap.dataset.poleKey = pole.key;
+
+    (pole.secteurs || []).forEach(function (s) {
+      var row = document.createElement('div');
+      row.className = 'catSecteurRow';
+      row.dataset.secteurKey = s.key;
+      var header = document.createElement('div');
+      header.className = 'activityRowHeader';
+
+      if (edit) {
+        var handle = document.createElement('span');
+        handle.className = 'activityDragHandle';
+        handle.setAttribute('aria-label', t('Déplacer ce secteur'));
+        handle.textContent = '≡';
+        bindCatDrag(handle, row, {
+          container: wrap, itemSel: '.catSecteurRow',
+          onDrop: function (ordered) {
+            ordered.forEach(function (el) { wrap.appendChild(el); });
+            reorderPoleSecteur(activityId, pole, ordered.map(function (el) { return el.dataset.secteurKey; }));
+          },
+        });
+        header.appendChild(handle);
+        header.appendChild(catNameInput(activityId, s, pole.key));
+        if (currentActivityGoalsCategories.length > 1) {
+          header.appendChild(catSmallButton('⇄', t('Déplacer ce secteur vers un autre pôle'), function () {
+            openCategoryMoveModal({ activityId: activityId, pole: pole, secteur: s });
+          }));
+        }
+        header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
+          openCategoryDetailModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
+        }));
+        header.appendChild(catDeleteButton(t('Retirer ce secteur'), function () {
+          openCategoryRemoveModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key });
+        }));
+        row.appendChild(header);
+      } else {
+        var name = document.createElement('span');
+        name.className = 'activityRowName';
+        name.textContent = s.label;
+        header.appendChild(name);
+        row.appendChild(header);
+        if (s.description) {
+          var cap = document.createElement('p');
+          cap.className = 'meta';
+          cap.textContent = s.description;
+          row.appendChild(cap);
+        }
+        bindCatLongPress(row);
+      }
+      wrap.appendChild(row);
+    });
+
+    if (!edit) {
+      var add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'catAddSecteurBtn';
+      add.textContent = t('+ Nouveau secteur');
+      add.addEventListener('click', function () { catSetComposerTarget(pole.key, true); });
+      wrap.appendChild(add);
+    }
+    return wrap;
+  }
+
+  // ----- Fenêtres (.communityMembersModal) -----
+  // Retrait d'un pôle/secteur : 3 choix (supprimer aussi les tâches / les conserver
+  // sans pôle-secteur / annuler), via removal-preview. Jamais window.confirm.
   function openCategoryRemoveModal(o) {
     var modal = $('categoryRemoveModal');
     if (!modal) return;
@@ -7423,274 +7010,72 @@
     $('categoryRemoveCancelBtn').onclick = close;
   }
 
-  // Fenêtre « détail » d'un pôle/secteur qu'on vient de créer : description
-  // (200 caractères max, colonne `description` existante). Enregistrée via
-  // les mêmes routes PUT que l'édition inline ; ✕ enregistre aussi si modifiée.
+  // Détail (description, 200 caractères max) : ouverte après une création, et par
+  // « ✎ » en mode édition (champ prérempli). « ✕ » ferme sans enregistrer.
   function openCategoryDetailModal(o) {
     var modal = $('categoryDetailModal');
     if (!modal) return;
     var ta = $('categoryDetailDescription');
     var msg = $('categoryDetailMsg');
+    var initial = o.description || '';
     $('categoryDetailTitle').textContent = o.label;
     $('categoryDetailHint').textContent = t(o.poleKey ? 'Décris ce secteur (optionnel).' : 'Décris ce pôle (optionnel).');
     ta.placeholder = t('Description (optionnel) — aide l’IA à repérer les liens pertinents entre secteurs');
-    ta.value = '';
+    ta.value = initial;
     msg.textContent = '';
     modal.classList.remove('hidden');
     function close() { modal.classList.add('hidden'); }
     function save() {
       var value = ta.value.trim();
-      if (!value) { close(); return; }
-      var req = o.poleKey
-        ? api('PUT', '/api/activities/' + o.activityId + '/goals/categories/' + o.poleKey + '/secteurs/' + o.key, { label: o.label, description: value })
-        : api('PUT', '/api/activities/' + o.activityId + '/goals/categories/' + o.key, { label: o.label, description: value });
-      req.then(function () { close(); activityGoalsCategoriesRefresh(o.activityId); })
+      if (value === initial) { close(); return; }
+      var url = '/api/activities/' + o.activityId + '/goals/categories/' + (o.poleKey ? o.poleKey + '/secteurs/' : '') + o.key;
+      api('PUT', url, { label: o.label, description: value })
+        .then(function () { close(); activityGoalsCategoriesRefresh(o.activityId); })
         .catch(function (err) { msg.textContent = err.message; });
     }
     $('categoryDetailSaveBtn').onclick = save;
-    $('categoryDetailClose').onclick = save;
+    $('categoryDetailClose').onclick = close;
     setTimeout(function () { try { ta.focus(); } catch (e) {} }, 50);
   }
 
-  // `secteurs` : la liste ACTUELLE de ce pôle (currentActivityGoalsCategories,
-  // pas une copie tenue à part) — reconstruit les clés dans le nouvel ordre
-  // puis les envoie toutes, même convention que reorderActivityGoalsCategories
-  // (à réutiliser telle quelle si elle existe plus bas, sinon même schéma
-  // qu'ici : POST/PUT envoient toujours la liste ordonnée complète des clés).
-  function reorderPoleSecteur(activityId, poleKey, secteurs, fromIndex, toIndex) {
-    var keys = secteurs.map(function (s) { return s.key; });
-    var moved = keys.splice(fromIndex, 1)[0];
-    keys.splice(toIndex, 0, moved);
-    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs-reorder', { keys: keys })
-      .then(function () { activityGoalsCategoriesRefresh(activityId); })
-      .catch(function (err) { var msg = $('activityGoalsCategoriesMsg'); if (msg) msg.textContent = err.message; });
-  }
-
-  // 26 septembre 2026, demande directe d'Emilien : déplace un secteur d'un
-  // pôle vers UN AUTRE (bindSecteurDrag ci-dessous) — PUT .../secteurs/:secteurKey/move,
-  // server/lib/goals.js#moveSecteurToPole. `fromPoleKey` reste dans l'URL
-  // (même convention que renamePoleSecteur/removePoleSecteur ci-dessus,
-  // vérifié serveur-side par assertSecteurBelongsToPole) ; `targetPoleKey`/
-  // `targetIndex` dans le corps.
-  function movePoleSecteurToPole(activityId, fromPoleKey, secteurKey, targetPoleKey, targetIndex) {
-    api('PUT', '/api/activities/' + activityId + '/goals/categories/' + fromPoleKey + '/secteurs/' + secteurKey + '/move', {
-      targetPoleKey: targetPoleKey,
-      targetIndex: targetIndex,
-    })
-      .then(function () { activityGoalsCategoriesRefresh(activityId); })
-      .catch(function (err) {
-        var msg = $('activityGoalsCategoriesMsg');
-        if (msg) msg.textContent = err.message;
-        activityGoalsCategoriesRefresh(activityId); // remet le DOM en ordre après un rejet serveur
-      });
-  }
-
-  // Bloc de secteurs d'un pôle — affiché SEULEMENT quand le pôle est déplié
-  // (isOpen, même règle que buildCategoryTasksBlock), juste au-dessus des
-  // tâches. Pas de glisser-déposer (bindCategoryDrag, réservé aux pôles) :
-  // deux boutons ↑/↓ suffisent pour une liste courte de secteurs et évitent
-  // de dupliquer cette mécanique pour une nouvelle portée d'éléments.
-  // 25 septembre 2026, demande directe d'Emilien : les secteurs perdent ici
-  // leurs flèches ▲▼/croix de suppression (mode toujours-éditable) au profit
-  // du même mécanisme que les pôles — appui long pour entrer dans le mode
-  // édition PARTAGÉ (voir renderActivityGoalsCategoriesPanel/bindCategoryLongPress,
-  // le flag activityGoalsCategoriesEditMode est unique, pas par pôle). En
-  // mode normal (ici), un secteur est donc désormais une simple ligne en
-  // lecture seule ; l'édition (renommer/réordonner/retirer) se fait dans
-  // buildPoleSecteursEditBlock() ci-dessous, affichée à la place quand
-  // activityGoalsCategoriesEditMode est actif (voir le groupe de pôle qui
-  // l'appelle). Le clic pour déplier/replier un pôle (Q2, AskUserQuestion du
-  // 25 septembre) reste inchangé : cette fonction n'est appelée que si le
-  // pôle est déjà déplié (isOpen), comme avant.
-  function buildPoleSecteursBlock(activityId, pole) {
-    var wrap = document.createElement('div');
-    wrap.className = 'activityGoalsSecteursBlock';
-
-    var secteurs = pole.secteurs || [];
-    secteurs.forEach(function (s, index) {
+  // « Déplacer vers… » : change un secteur de pôle (PUT …/secteurs/:key/move, qui
+  // garde la clé du secteur, donc son historique et ses tâches). Ajouté en fin de
+  // liste du pôle cible.
+  function openCategoryMoveModal(o) {
+    var modal = $('categoryMoveModal');
+    if (!modal) return;
+    var box = $('categoryMoveList');
+    var msg = $('categoryMoveMsg');
+    $('categoryMoveTitle').textContent = t('Déplacer « {name} » vers…', { name: o.secteur.label });
+    msg.textContent = '';
+    box.innerHTML = '';
+    modal.classList.remove('hidden');
+    function close() { modal.classList.add('hidden'); }
+    currentActivityGoalsCategories.forEach(function (pole, index) {
+      if (pole.key === o.pole.key) return;
       var row = document.createElement('div');
-      row.className = 'activityGoalsSecteurRow';
-
-      // 22 septembre 2026, demande directe d'Emilien : le secteur recevait
-      // alors la couleur automatique (les pôles n'en avaient plus). Retiré
-      // le 26 septembre 2026 (revirement direct d'Emilien : « les secteurs
-      // n'ont plus de couleur, uniquement les pôles ») — reconfirmé le
-      // 27 septembre 2026 (« les secteurs n'ont pas de couleur attitrée »)
-      // après réapparition de ce même code par une écriture concurrente
-      // repartie d'une copie antérieure à ce retrait. La règle CSS
-      // `.activityGoalsSecteurDot` est conservée (masquée, jamais
-      // supprimée, convention du projet) — voir son commentaire.
-      var nameLabel = document.createElement('span');
-      nameLabel.className = 'activityRowName';
-      nameLabel.textContent = s.label;
-      row.appendChild(nameLabel);
-
-      // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA »),
-      // même principe que la ligne pôle ci-dessus : description visible même
-      // hors édition.
-      if (s.description) {
-        var secDescCaption = document.createElement('span');
-        secDescCaption.className = 'meta activityGoalsSecteurDescriptionCaption';
-        secDescCaption.textContent = s.description;
-        row.appendChild(secDescCaption);
-      }
-
-      bindCategoryLongPress(row);
-      wrap.appendChild(row);
-    });
-
-    var addRow = document.createElement('div');
-    addRow.className = 'activityGoalsSecteurAddRow';
-    addRow.addEventListener('click', function (e) { e.stopPropagation(); });
-    var addInput = document.createElement('input');
-    addInput.type = 'text';
-    addInput.className = 'activityGoalsSecteurNameInput';
-    addInput.maxLength = 40;
-    addInput.placeholder = t('Nouveau secteur…');
-    scrollAddInputIntoView(addInput);
-    var addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'iconBtn btnBrique';
-    addBtn.textContent = t('Ajouter');
-    // Garde le focus (et donc le clavier/la mise en page) pendant l'appui sur
-    // « Ajouter » : sinon la mise en page bouge au blur et le clic est perdu.
-    addBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
-    addBtn.addEventListener('click', function () {
-      var label = addInput.value.trim();
-      if (!label) return;
-      addBtn.disabled = true;
-      createPoleSecteur(activityId, pole.key, label).then(function () {
-        addInput.value = '';
-        addBtn.disabled = false;
+      row.className = 'activityRow';
+      var header = document.createElement('div');
+      header.className = 'activityRowHeader clickable';
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+      var name = document.createElement('span');
+      name.className = 'activityRowName';
+      name.textContent = pole.label;
+      header.appendChild(dot);
+      header.appendChild(name);
+      header.addEventListener('click', function () {
+        msg.textContent = '';
+        movePoleSecteurToPole(o.activityId, o.pole.key, o.secteur.key, pole.key, (pole.secteurs || []).length)
+          .then(close)
+          .catch(function (err) { msg.textContent = err.message; });
       });
+      row.appendChild(header);
+      box.appendChild(row);
     });
-    addInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } });
-    addRow.appendChild(addInput);
-    addRow.appendChild(addBtn);
-    wrap.appendChild(addRow);
-
-    return wrap;
+    $('categoryMoveClose').onclick = close;
   }
-
-  // 25 septembre 2026 : version ÉDITION du bloc secteurs d'un pôle — appelée
-  // uniquement depuis le groupe de pôle en mode édition
-  // (renderActivityGoalsCategoriesPanel). Même gabarit que la ligne pôle en
-  // édition (poignée/champ de nom/croix, classes .subProjectDragHandle/
-  // .subProjectNameInput/.subProjectDeleteX déjà existantes — aucune
-  // nouvelle classe CSS nécessaire ici). Pas de minimum de secteurs
-  // (contrairement au pôle) : pas de garde sur la dernière croix, comme
-  // avant ce passage.
-  function buildPoleSecteursEditBlock(activityId, pole) {
-    var wrap = document.createElement('div');
-    wrap.className = 'activityGoalsSecteursBlock';
-    // 26 septembre 2026 : porte le pôle propriétaire de CE bloc — bindSecteurDrag
-    // en a besoin pour reconnaître, au moment du dépôt, dans quel pôle un
-    // secteur a atterri (déplacement cross-pôle, voir son commentaire).
-    wrap.dataset.poleKey = pole.key;
-
-    var secteurs = pole.secteurs || [];
-    secteurs.forEach(function (s) {
-      var row = document.createElement('div');
-      row.className = 'activityGoalsSecteurRow editing';
-      row.dataset.secteurKey = s.key;
-
-      var handle = document.createElement('span');
-      handle.className = 'subProjectDragHandle';
-      handle.setAttribute('aria-label', t('Déplacer ce secteur'));
-      handle.textContent = '≡';
-      bindSecteurDrag(handle, row, activityId, pole, s);
-      row.appendChild(handle);
-
-      var input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'subProjectNameInput';
-      input.maxLength = 40;
-      input.value = s.label;
-      // 28 septembre 2026 : même correctif clavier que le champ de nom de
-      // pôle (renderActivityGoalsCategoriesPanel, voir son commentaire) —
-      // scrollAddInputIntoView() est générique, jamais branchée ici jusqu'ici.
-      scrollAddInputIntoView(input);
-      (function (s, input) {
-        function commitName() {
-          var value = input.value.trim();
-          if (!value || value === s.label) { input.value = s.label; return; }
-          renamePoleSecteur(activityId, pole.key, s.key, value);
-        }
-        input.addEventListener('blur', commitName);
-        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
-      })(s, input);
-      row.appendChild(input);
-
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'subProjectDeleteX';
-      del.textContent = '✕';
-      del.setAttribute('aria-label', t('Retirer ce secteur'));
-      del.addEventListener('click', function (e) {
-        e.stopPropagation();
-        openCategoryRemoveModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key });
-      });
-      row.appendChild(del);
-
-      // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA »),
-      // même principe que la ligne pôle en édition ci-dessus (voir son
-      // commentaire pour le détail du layout/commit) — dernier enfant de
-      // `row` pour passer sur sa propre ligne.
-      var descInput = document.createElement('input');
-      descInput.type = 'text';
-      descInput.className = 'activityGoalsSecteurDescriptionInput';
-      descInput.maxLength = 200;
-      descInput.value = s.description || '';
-      descInput.placeholder = t('Description (optionnel) — aide l’IA à repérer les liens pertinents entre secteurs');
-      descInput.addEventListener('click', function (e) { e.stopPropagation(); });
-      // 28 septembre 2026 : même correctif clavier que le champ de nom
-      // ci-dessus (voir son commentaire).
-      scrollAddInputIntoView(descInput);
-      (function (s, input, descInput) {
-        function commitDescription() {
-          var value = descInput.value.trim();
-          if (value === (s.description || '')) return;
-          renamePoleSecteur(activityId, pole.key, s.key, input.value.trim() || s.label, value);
-        }
-        descInput.addEventListener('blur', commitDescription);
-        descInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); descInput.blur(); } });
-      })(s, input, descInput);
-      row.appendChild(descInput);
-
-      wrap.appendChild(row);
-    });
-
-    return wrap;
-  }
-
-  // 16 septembre 2026 (8e passage) : plus de bouton "Personnaliser mes
-  // catégories" (#activityGoalsCategoryActivateBtn, retiré d'index.html) ni
-  // de sélecteur de couleur pour la nouvelle catégorie
-  // (#activityGoalsCategoryAddSwatches, retiré aussi) — voir le commentaire
-  // de renderActivityGoalsCategoriesPanel() plus haut. **11e passage : le
-  // bouton #activityGoalsCategoryAddBtn lui-même a été retiré d'index.html
-  // (voir createActivityGoalsCategory() ci-dessus) — cet écouteur reste dans
-  // le code mais gardé par un test d'existence pour ne rien casser si
-  // l'élément n'est plus là.**
-  if ($('activityGoalsCategoryAddBtn')) {
-    $('activityGoalsCategoryAddBtn').addEventListener('click', function () {
-      var activityId = currentCommunityActivityId;
-      if (!activityId) return;
-      var input = $('activityGoalsCategoryAddInput');
-      var label = (input.value || '').trim();
-      createActivityGoalsCategory(activityId, label);
-      if (input) input.value = '';
-    });
-  }
-
-  // 17 septembre 2026 (2e correction) : l'ancien couple bindCategoryLongPress
-  // (row, nameInputEl, removeBtnEl) / startCategoryDrag(row, pointerId,
-  // startY0) — appui long démarrant le glissé DIRECTEMENT, sans mode édition
-  // séparé — est remplacé par bindCategoryLongPress(row) (édite maintenant
-  // un flag activityGoalsCategoriesEditMode) / bindCategoryDrag(handle, row)
-  // (glissé à la poignée), définis plus haut avant renderActivityGoalsCategoriesPanel.
-  // Voir le commentaire qui précède cette dernière fonction pour le détail
-  // du changement demandé par Emilien.
 
   // Clic sur le fond noir, hors de la carte : referme, comme la page de visite
   // d'un profil. Le test sur e.target évite de refermer quand le clic vient
@@ -9322,10 +8707,9 @@
   }
 
   // 25 septembre 2026, demande directe d'Emilien : le « + » (#addSubProjectBtn)
-  // est retiré d'index.html, remplacé par buildAddPoleRow() (bulle texte +
-  // bouton « Ajouter », en bas de la liste des pôles, même gabarit que
-  // l'ajout d'un secteur) — voir renderActivityGoalsCategoriesPanel()/
-  // createActivityGoalsCategory() plus haut. #newSubProjectCard et
+  // est retiré d'index.html, remplacé par la zone d'écriture #catComposer
+  // (champ + bouton « Ajouter » collés au-dessus du clavier) — voir
+  // renderActivityGoalsCategoriesPanel()/createActivityGoalsCategory(). #newSubProjectCard et
   // closeNewSubProjectForm restent dans le code (masqués, pas supprimés).
   $('newSubProjectCancel').addEventListener('click', closeNewSubProjectForm);
   $('newSubProjectSave').addEventListener('click', createSubProject);
