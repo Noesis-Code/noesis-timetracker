@@ -859,7 +859,16 @@
     // doit changer EN DIRECT selon que la zone de texte est vide ou non
     // (voir renderGoalsCaptureActivities(), état « en train d'écrire ») —
     // pas seulement à l'ouverture de la page ou après l'envoi.
-    textarea.addEventListener('input', function () { renderGoalsCaptureActivities(); });
+    textarea.addEventListener('input', function () {
+      // 1er oct. 2026 (Emilien) : texte effacé -> activités désélectionnées, retour à la configuration par défaut.
+      if (!textarea.value.trim()) {
+        goalsCaptureSelectedActivityIds = [];
+        goalsCaptureAwaitingActivityChoice = false;
+        var prompt = $('goalsCaptureActivityPrompt');
+        if (prompt) prompt.classList.add('hidden');
+      }
+      renderGoalsCaptureActivities();
+    });
     // Sélectionner/désélectionner une activité doit rafraîchir l'affichage
     // « sélectionnée » des puces sans perdre le texte déjà écrit — pas de
     // dépendance particulière ici, renderGoalsCaptureActivities() lit
