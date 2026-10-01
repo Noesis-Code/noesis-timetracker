@@ -6513,8 +6513,6 @@ button { -webkit-user-select: none; user-select: none; }
 #activityGoalsCategoriesBlock { margin-top: 8px; }
 .catList { margin: 10px 0; }
 .catGroup { display: flex; flex-direction: column; gap: 4px; }
-/* Ligne de pôle déplié : reste collée sous le sélecteur flottant pendant qu'on défile ses secteurs (le groupe borne le collage). */
-.catGroup > .activityRow.catPole { position: sticky; top: calc(var(--activity-switch-h, 46px) + 2px); z-index: 3; }
 .catChevron { flex: 0 0 auto; color: var(--text-light); }
 .catSecteurs { display: flex; flex-direction: column; margin-left: 14px; }
 .catSecteurRow { padding: 10px 0; border-top: 1px solid var(--border); }
@@ -6535,10 +6533,10 @@ button { -webkit-user-select: none; user-select: none; }
 .catGroup.dragging > .activityRow { border-color: var(--purple); }
 .catSecteurRow.dragging { opacity: 0.75; z-index: 2; position: relative; background: var(--card); }
 .catList.dragging .catGroup:not(.dragging), .catList.dragging .catSecteurRow:not(.dragging) { transition: transform 0.16s ease; }
-/* Fond noir opaque derrière la ligne de pôle collée (pôle déplié) et la barre « Terminer » : une bande opaque, DERRIÈRE les
+/* 1er oct. 2026 : bande noire UNIQUEMENT en mode édition (barre « Terminer » fixe) ; hors édition, le contenu défile flouté sous le verre. Fond noir opaque derrière la barre « Terminer » : une bande opaque, DERRIÈRE les
    pastilles en verre du sélecteur (qui ne changent pas), couvre le haut de la zone défilante jusqu'à la ligne collée ; le contenu
    qui défile ne transparaît plus. Sans effet sur la mise en page (le contenu garde sa place au repos : 129px = bas de la bande). */
-#activityPageSectionSwitch:not(.hidden):has(+ #activityPageScroll #activityGoalsCategoriesBlock:not(.hidden) :is(.catSecteurs, .activityEditBar))::before {
+#activityPageSectionSwitch:not(.hidden):has(+ #activityPageScroll #activityGoalsCategoriesBlock:not(.hidden) .catList.editing .activityEditBar)::before {
   content: ''; position: absolute; z-index: -1; left: 0; right: 0; top: 0;
   height: calc(var(--activity-switch-h) + 18px); background: var(--bg);
 }
