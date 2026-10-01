@@ -1250,6 +1250,7 @@
     "Choisis quoi faire des tâches affiliées (les supprimer ou les conserver).": "Choose what to do with the linked tasks (delete or keep them).",
   });
   Object.assign(DICT, {
+    "Pôles": "Divisions",
     "Modifier la tâche": "Edit task",
     "Nom de la tâche": "Task name",
     "Date": "Date",
