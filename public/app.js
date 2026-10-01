@@ -6705,7 +6705,7 @@
   function catOpenNewPole() {
     var list = $('activityGoalsCategoriesList');
     if (!list || activityGoalsCategoriesEditMode) return;
-    if (catNewPoleRow) { catNewPoleRow.querySelector('input').focus(); return; }
+    if (catNewPoleRow) { catCloseNewPole(); return; } // 2e appui sur + : referme sans enregistrer (comme #addActivityBtn)
     if (catComposerPoleKey) { catComposerPoleKey = null; catSyncComposer(); }
     var activityId = currentCommunityActivityId;
     var group = document.createElement('div');
@@ -6750,7 +6750,7 @@
     row.appendChild(fields);
     group.appendChild(row);
     function submit() {
-      if (add.disabled) return;
+      if (add.disabled || !nameIn.value.trim()) return;
       add.disabled = true;
       msg.textContent = '';
       createActivityGoalsCategory(activityId, nameIn.value.trim(), descIn.value.trim(), function (m) { msg.textContent = m; })
