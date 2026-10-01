@@ -1006,6 +1006,10 @@
     'Retirer ce secteur ? Son historique reste consultable.': 'Remove this sector? Its history stays available.',
     'Nouveau secteur…': 'New sector…',
     'Déplacer vers…': 'Move to…',
+    'Nouveau pôle': 'New division',
+    'Nom du pôle': 'Division name',
+    'Description (facultative)': 'Description (optional)',
+    'Ajouter un pôle': 'Add a division',
   };
 
   // ------------------- Messages contenant une valeur variable -------------

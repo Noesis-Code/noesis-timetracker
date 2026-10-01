@@ -6676,23 +6676,103 @@
   // (le message d'erreur est dans la zone d'écriture, visible au-dessus du clavier).
   function catComposerError(text) { var m = $('catComposerMsg'); if (m) m.textContent = text || ''; }
 
-  function createActivityGoalsCategory(activityId, label) {
-    if (!label) { catComposerError(t('Nom de pôle requis.')); return Promise.resolve(false); }
+  // Création d'un pôle depuis la ligne de saisie inline (nom + description) :
+  // POST de création puis PUT de la description sur la clé créée (routes existantes).
+  function createActivityGoalsCategory(activityId, label, description, onError) {
+    if (!label) { onError(t('Nom de pôle requis.')); return Promise.resolve(false); }
     if (currentActivityGoalsCategories.length >= currentActivityGoalsMax) {
-      catComposerError(t('Maximum de pôles atteint ({max}).', { max: currentActivityGoalsMax }));
+      onError(t('Maximum de pôles atteint ({max}).', { max: currentActivityGoalsMax }));
       return Promise.resolve(false);
     }
     return api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
       .then(function (res) {
-        activityGoalsCategoriesRefresh(activityId);
         var last = res && res.categories && res.categories[res.categories.length - 1];
-        if (last && last.label === label && String(last.key).indexOf('tmp-') !== 0) {
-          openCategoryDetailModal({ activityId: activityId, key: last.key, label: last.label, poleKey: null, description: '' });
+        if (description && last && last.label === label && String(last.key).indexOf('tmp-') !== 0) {
+          return api('PUT', '/api/activities/' + activityId + '/goals/categories/' + last.key, { label: last.label, description: description });
         }
-        return true;
       })
-      .catch(function (err) { catComposerError(err.message); return false; });
+      .then(function () { activityGoalsCategoriesRefresh(activityId); return true; })
+      .catch(function (err) { onError(err.message); return false; });
   }
+
+  // Ligne de saisie d'un nouveau pôle : ajoutée EN BAS de la liste, conservée entre
+  // deux repeints (catNewPoleRow) tant qu'elle n'est ni validée ni annulée.
+  var catNewPoleRow = null;
+  function catCloseNewPole() {
+    if (catNewPoleRow && catNewPoleRow.parentNode) catNewPoleRow.parentNode.removeChild(catNewPoleRow);
+    catNewPoleRow = null;
+  }
+  function catOpenNewPole() {
+    var list = $('activityGoalsCategoriesList');
+    if (!list || activityGoalsCategoriesEditMode) return;
+    if (catNewPoleRow) { catNewPoleRow.querySelector('input').focus(); return; }
+    var activityId = currentCommunityActivityId;
+    var group = document.createElement('div');
+    group.className = 'catGroup catNewPole';
+    var row = document.createElement('div');
+    row.className = 'activityRow catPole';
+    var header = document.createElement('div');
+    header.className = 'activityRowHeader';
+    var dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = subProjectShade(currentActivityColor, currentActivityGoalsCategories.length, SUB_PROJECT_SHADE_COUNT);
+    var title = document.createElement('span');
+    title.className = 'activityRowName';
+    title.textContent = t('Nouveau pôle');
+    header.appendChild(dot);
+    header.appendChild(title);
+    row.appendChild(header);
+    var fields = document.createElement('div');
+    fields.className = 'catNewPoleFields';
+    var nameIn = document.createElement('input');
+    nameIn.type = 'text'; nameIn.maxLength = 40; nameIn.autocomplete = 'off';
+    nameIn.placeholder = t('Nom du pôle');
+    nameIn.enterKeyHint = 'next';
+    var descIn = document.createElement('input');
+    descIn.type = 'text'; descIn.maxLength = 200; descIn.autocomplete = 'off';
+    descIn.placeholder = t('Description (facultative)');
+    descIn.enterKeyHint = 'send';
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+    var actions = document.createElement('div');
+    actions.className = 'catNewPoleActions';
+    var cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
+    var add = document.createElement('button');
+    add.type = 'button'; add.className = 'iconBtn btnBrique'; add.textContent = t('Ajouter');
+    actions.appendChild(cancel);
+    actions.appendChild(add);
+    fields.appendChild(nameIn);
+    fields.appendChild(descIn);
+    fields.appendChild(msg);
+    fields.appendChild(actions);
+    row.appendChild(fields);
+    group.appendChild(row);
+    function submit() {
+      if (add.disabled) return;
+      add.disabled = true;
+      msg.textContent = '';
+      createActivityGoalsCategory(activityId, nameIn.value.trim(), descIn.value.trim(), function (m) { msg.textContent = m; })
+        .then(function (ok) { if (ok) catCloseNewPole(); })
+        .then(function () { add.disabled = false; });
+    }
+    add.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    add.addEventListener('click', submit);
+    cancel.addEventListener('click', catCloseNewPole);
+    nameIn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); descIn.focus(); }
+      else if (e.key === 'Escape') { e.preventDefault(); catCloseNewPole(); }
+    });
+    descIn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); catCloseNewPole(); }
+    });
+    catNewPoleRow = group;
+    list.appendChild(group);
+    nameIn.focus();
+    if (group.scrollIntoView) group.scrollIntoView({ block: 'nearest' });
+  }
+  $('catAddPoleBtn').addEventListener('click', catOpenNewPole);
 
   function createPoleSecteur(activityId, poleKey, label) {
     if (!label) { catComposerError(t('Nom de secteur requis.')); return Promise.resolve(false); }
@@ -6719,13 +6799,17 @@
   function catSyncComposer() {
     var box = $('catComposer');
     if (!box) return;
-    var show = activityPageSection === 'sub' && !activityGoalsCategoriesEditMode;
-    box.classList.toggle('hidden', !show);
+    var addPoleBtn = $('catAddPoleBtn');
+    if (addPoleBtn) addPoleBtn.classList.toggle('hidden', activityGoalsCategoriesEditMode);
+    if (activityGoalsCategoriesEditMode) catCloseNewPole();
     var pole = null;
     if (catComposerPoleKey) {
       pole = currentActivityGoalsCategories.filter(function (c) { return c.key === catComposerPoleKey; })[0] || null;
       if (!pole && lastActivityGoalsCategoriesData) catComposerPoleKey = null;
     }
+    // La zone d'écriture ne sert plus qu'à ajouter un SECTEUR (cible = un pôle) ;
+    // l'ajout d'un pôle passe par la ligne de saisie inline (« + » de l'en-tête).
+    box.classList.toggle('hidden', !(activityPageSection === 'sub' && !activityGoalsCategoriesEditMode && pole));
     $('catComposerTarget').classList.toggle('hidden', !pole);
     if (pole) $('catComposerTargetLabel').textContent = t('Secteur dans « {name} »', { name: pole.label });
     $('activityGoalsCategoryAddInput').placeholder = t(pole ? 'Nouveau secteur…' : 'Nouveau pôle…');
@@ -6741,7 +6825,7 @@
     catComposerError('');
     var req = catComposerPoleKey
       ? createPoleSecteur(activityId, catComposerPoleKey, label)
-      : createActivityGoalsCategory(activityId, label);
+      : Promise.resolve(false);
     req.then(function (ok) { if (ok) input.value = ''; }).then(function () { btn.disabled = false; });
   }
 
@@ -6785,6 +6869,7 @@
     currentActivityGoalsCategories.forEach(function (pole, index) {
       list.appendChild(buildCatGroup(activityId, pole, index, list, edit));
     });
+    if (catNewPoleRow && !edit) list.appendChild(catNewPoleRow); else catNewPoleRow = null;
     catSyncComposer();
   }
 
