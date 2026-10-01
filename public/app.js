@@ -10194,13 +10194,35 @@
               suggestBox.innerHTML = '<p class="hint">' + t('Aucun profil trouvé.') + '</p>';
               return;
             }
+            suggestBox.className = 'activitiesList';
             filtered.forEach(function (u) {
-              var displayName = fullName(u.name, u.lastName);
-              var chip = document.createElement('div');
-              chip.className = 'userChip';
-              chip.innerHTML = '<span class="dot" style="background:' + u.color + '"></span><span>' + escapeHtml(displayName) + '</span>';
-              chip.addEventListener('click', function () { showConfirmView(u); });
-              suggestBox.appendChild(chip);
+              var row = document.createElement('div');
+              row.className = 'activityRow discoveryLine';
+              var label = document.createElement('div');
+              label.className = 'discoverRow';
+              label.appendChild(buildSmallAvatar(u.avatar, u.name, u.color));
+              var textWrap = document.createElement('div');
+              textWrap.className = 'discoverRowText';
+              var nameEl = document.createElement('span');
+              nameEl.className = 'discoverRowName';
+              nameEl.textContent = fullName(u.name, u.lastName);
+              textWrap.appendChild(nameEl);
+              var subLine = document.createElement('span');
+              subLine.className = 'meta';
+              subLine.textContent = u.projectsCount > 0 ? t('{n} projet(s)', { n: u.projectsCount }) : t('Aucun projet');
+              textWrap.appendChild(subLine);
+              label.appendChild(textWrap);
+              row.appendChild(label);
+              var actionsWrap = document.createElement('div');
+              actionsWrap.className = 'rowActions';
+              var inviteBtn = document.createElement('button');
+              inviteBtn.type = 'button';
+              inviteBtn.className = 'iconBtn';
+              inviteBtn.textContent = t('Inviter');
+              inviteBtn.addEventListener('click', function () { showConfirmView(u); });
+              actionsWrap.appendChild(inviteBtn);
+              row.appendChild(actionsWrap);
+              suggestBox.appendChild(row);
             });
           })
           .catch(function () { if (seq === addMemberSearchSeq) suggestBox.innerHTML = ''; });
