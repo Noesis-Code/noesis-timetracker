@@ -68,3 +68,27 @@ input[type=time],
 select,
 textarea
 { background: var(--vc-bg); box-shadow: inset 0 0 0 1px var(--vc-line); -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur); }
+
+/* ---- Volet 2 (1er oct. 2026) : menus de sélection, Statistiques, feuille de temps, zone d'écriture IA, épingles/pièces jointes ----
+   Mêmes jetons ; menus et colonnes figées plus denses (--vc-bg-strong) pour rester lisibles quand le contenu défile derrière. */
+:root { --vc-bg-strong: rgba(255,255,255,.82); --vc-blur-strong: blur(18px) saturate(1.15); }
+:root[data-theme="dark"] { --vc-bg-strong: rgba(24,24,30,.74); }
+:root .categoryDropdownMenu, :root .categoryPickerPanel, :root .statsPeriodMenu, :root .subProjectAddMenu, :root .chartTooltip,
+:root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel,
+:root .categoryDropdownTrigger, :root .categoryPickerBtn, :root .subProjectSelect, :root .subProjectGoalCategorySelect, :root .subProjectItemPlannedSelect {
+  background: var(--vc-bg-strong); box-shadow: inset 0 0 0 1px var(--vc-line); -webkit-backdrop-filter: var(--vc-blur-strong); backdrop-filter: var(--vc-blur-strong);
+}
+:root select { background-color: var(--vc-bg); border-color: var(--vc-line); }
+:root .statsSection, :root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot {
+  background: var(--vc-bg); box-shadow: inset 0 0 0 1px var(--vc-line); -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur);
+}
+:root .chatComposerRow textarea, :root .discussionComposer textarea, :root .chatComposer textarea {
+  background: var(--vc-bg); border-color: var(--vc-line); -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur);
+}
+:root .menuBtn.attachMenuIconBtn, :root .attachmentRow {
+  background: var(--vc-bg); border-color: var(--vc-line); -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur);
+}
+:root .discussionMsgFiles img, :root .feedPost img, :root .attachmentThumb {
+  box-shadow: 0 0 0 1px var(--vc-line); border-radius: 12px;
+}
+:root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel { box-shadow: none; }
