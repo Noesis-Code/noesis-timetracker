@@ -144,3 +144,23 @@ textarea
 :root #profileDiscussionAttachBtn, :root .communityComposerRow .attachMenuIconBtn, :root .menuBtn.attachMenuIconBtn {
   background: var(--vc-bg) !important; border-color: var(--vc-line) !important; color: color-mix(in srgb, var(--purple) 55%, var(--text));
 }
+
+/* ---- Volet 7 (1er oct. 2026) : création de sondage — options avancées, cases à cocher, champs, sans blanc ---- */
+:root .pollFormAdvanced {
+  background: var(--vc-bg); border-color: var(--vc-line);
+  -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur);
+}
+:root .pollForm textarea, :root .pollFormRow input[type="date"], :root .pollOtherInput, :root .pollAddOptionBtn, :root .pollOptionsBtn {
+  background: var(--vc-bg) !important; border-color: var(--vc-line) !important; color: var(--text);
+  -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur);
+}
+:root .pollFormRow input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; flex: 0 0 20px; border-radius: 6px;
+  background: var(--vc-bg); border: 1.5px solid color-mix(in srgb, var(--text-light) 60%, transparent);
+  display: inline-grid; place-content: center; cursor: pointer; margin: 0;
+}
+:root .pollFormRow input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
+:root .pollFormRow input[type="checkbox"]:checked::after {
+  content: ""; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px);
+}
+:root .pollChoice input[type="checkbox"], :root .pollChoice input[type="radio"] { accent-color: var(--purple); }
