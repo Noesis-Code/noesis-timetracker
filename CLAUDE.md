@@ -11,6 +11,10 @@ Source unique de vérité du fonctionnement du dépôt. Historique détaillé de
 - Développeur code → testeur vérifie → relecteur contrôle → le coordinateur fusionne vers `staging`.
 - Compte rendu à Émilien : 2-3 lignes (fait / à valider / bloqué). Il veut des réponses très succinctes.
 
+## Rapidité (1er oct. 2026)
+
+Émilien trouve les délais trop longs. Règles : découper chaque lot de demandes en tâches indépendantes lancées EN PARALLÈLE (un sous-agent par segment de fichiers, plusieurs agents dans un même message) ; ne pas refaire soi-même ce qu'un agent fait ; vérification ciblée (`node --check`, tests, une capture de l'écran touché, pas de balayage complet) ; réponse finale en 2-4 lignes ; les corrections de détail (CSS, libellés) se font directement sans agent.
+
 ## Autonomie
 
 Décision d'Émilien, 30 sept. 2026 : **plus d'autonomie, plus de demande de permission**. Tout s'exécute sans validation préalable (correctifs, fonctionnalités, nouveaux mécanismes, architecture, dépendances, migrations) dès que c'est cohérent avec la demande ; on le signale en une ligne dans le compte rendu au lieu de demander avant.
