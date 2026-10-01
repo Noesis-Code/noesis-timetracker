@@ -2073,16 +2073,18 @@
          (colonne activity_goal_categories.description, 200 caractères max). -->
     <div id="categoryDetailModal" class="communityMembersModal hidden">
       <div class="communityMembersModalCard">
-        <div class="communityMembersModalHeader">
+        <div class="profileSubWindowHeader">
           <p class="sectionTitle" id="categoryDetailTitle"></p>
           <button type="button" class="menuBtn" id="categoryDetailClose" aria-label="Fermer">✕</button>
         </div>
-        <p class="hint" id="categoryDetailHint"></p>
-        <textarea id="categoryDetailDescription" rows="4" maxlength="200"></textarea>
-        <div class="rowActions">
-          <button type="button" id="categoryDetailSaveBtn" class="iconBtn btnBrique">Enregistrer</button>
+        <div class="categoryDetailBody">
+          <p class="hint" id="categoryDetailHint"></p>
+          <textarea id="categoryDetailDescription" rows="4" maxlength="200"></textarea>
+          <div class="rowActions">
+            <button type="button" id="categoryDetailSaveBtn" class="iconBtn btnBrique">Enregistrer</button>
+          </div>
+          <p id="categoryDetailMsg" class="msg"></p>
         </div>
-        <p id="categoryDetailMsg" class="msg"></p>
       </div>
     </div>
 

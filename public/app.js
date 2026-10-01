@@ -7232,7 +7232,8 @@
     }
     $('categoryDetailSaveBtn').onclick = save;
     $('categoryDetailClose').onclick = close;
-    setTimeout(function () { try { ta.focus(); } catch (e) {} }, 50);
+    // Focus SYNCHRONE (dans le geste de l'utilisateur) : sans ça iOS n'ouvre pas le clavier.
+    try { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
   }
 
   // « Déplacer vers… » : change un secteur de pôle (PUT …/secteurs/:key/move, qui
