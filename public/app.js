@@ -6989,11 +6989,11 @@
     catSyncComposer();
   }
 
-  function catDeleteButton(label, onClick) {
+  function catDeleteButton(label, onClick, trash) {
     var del = document.createElement('button');
     del.type = 'button';
-    del.className = 'activityDeleteX';
-    del.textContent = '✕';
+    if (trash) { del.className = 'historyRowIconBtn danger'; del.innerHTML = CHRONO_HISTORY_DELETE_ICON; }
+    else { del.className = 'activityDeleteX'; del.textContent = '✕'; }
     del.setAttribute('aria-label', label);
     del.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
     return del;
@@ -7002,8 +7002,8 @@
   function catSmallButton(glyph, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button';
-    b.className = 'activityMergeBtn';
-    b.textContent = glyph;
+    if (glyph === '✎') { b.className = 'historyRowIconBtn'; b.innerHTML = CHRONO_HISTORY_EDIT_ICON; }
+    else { b.className = 'activityMergeBtn'; b.textContent = glyph; }
     b.setAttribute('aria-label', label);
     b.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
     return b;
@@ -7120,17 +7120,12 @@
         });
         header.appendChild(handle);
         header.appendChild(catNameInput(activityId, s, pole.key));
-        if (currentActivityGoalsCategories.length > 1) {
-          header.appendChild(catSmallButton('⇄', t('Déplacer ce secteur vers un autre pôle'), function () {
-            openCategoryMoveModal({ activityId: activityId, pole: pole, secteur: s });
-          }));
-        }
         header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
           openCategoryDetailModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
         }));
         header.appendChild(catDeleteButton(t('Retirer ce secteur'), function () {
           openCategoryRemoveModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key });
-        }));
+        }, true));
         row.appendChild(header);
       } else {
         var name = document.createElement('span');
