@@ -242,7 +242,7 @@ textarea
 
 /* Communauté — zone de recherche : forme d'origine (le CHAMP est la pastille de verre, rayon 22 px ; le conteneur reste transparent). */
 :root #communitySearchBar { background: transparent !important; border: none !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; border-radius: 0 !important; padding: 0 !important; }
-:root #communitySearchBar input[type="text"] {
+:root #communitySearchBar #communitySearchInput#communitySearchInput {
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; box-shadow: var(--glass-shadow) !important;
   -webkit-backdrop-filter: blur(40px) saturate(160%) !important; backdrop-filter: blur(40px) saturate(160%) !important; border-radius: 22px !important;
 }
