@@ -7050,9 +7050,6 @@
       header.appendChild(handle);
       header.appendChild(dot);
       header.appendChild(catNameInput(activityId, pole, null));
-      header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
-        openCategoryDetailModal({ activityId: activityId, key: pole.key, label: pole.label, poleKey: null, description: pole.description || '' });
-      }));
       var del = catDeleteButton(t('Retirer ce pôle'), function () {
         openCategoryRemoveModal({ activityId: activityId, key: pole.key, label: pole.label, poleKey: null });
       });
@@ -7073,6 +7070,9 @@
     chevron.textContent = '›';
     header.appendChild(dot);
     header.appendChild(name);
+    header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
+      openCategoryDetailModal({ activityId: activityId, key: pole.key, label: pole.label, poleKey: null, description: pole.description || '' });
+    }));
     header.appendChild(chevron);
     header.classList.add('clickable');
     header.addEventListener('click', function () {
@@ -7119,9 +7119,6 @@
         });
         header.appendChild(handle);
         header.appendChild(catNameInput(activityId, s, pole.key));
-        header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
-          openCategoryDetailModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
-        }));
         header.appendChild(catDeleteButton(t('Retirer ce secteur'), function () {
           openCategoryRemoveModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key });
         }, true));
@@ -7131,6 +7128,9 @@
         name.className = 'activityRowName';
         name.textContent = s.label;
         header.appendChild(name);
+        header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
+          openCategoryDetailModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
+        }));
         row.appendChild(header);
         if (s.description) {
           var cap = document.createElement('p');
