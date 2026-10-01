@@ -6569,15 +6569,6 @@ button { -webkit-user-select: none; user-select: none; }
 .catNewPole .msg { margin: 0; min-height: 0; }
 .catNewPole .msg:empty { display: none; }
 
-/* Clavier iOS ouvert : la barre native (^ v ✓) flotte sur le bas de la page et laisse voir un morceau du contenu collé
-   contre elle. Bande noire pleine de sa hauteur au pied de la fenêtre Activité, et contenu relevé au-dessus. */
-html.kbOpen #activityPage::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 52px;
-  background: var(--bg); pointer-events: none; z-index: 20;
-}
-html.kbOpen #activityPageScroll { padding-bottom: 60px; }
-html.kbOpen #activityPage .catComposer { margin-bottom: 52px; position: relative; z-index: 21; }
-
 .catList .catSecteurRow:first-child, .catList.editing .catSecteurRow:first-child { border-top: 0; }
 
 /* Fenêtre de description d'un pôle/secteur : bandeau + corps comme les fenêtres du Profil, champs et boutons en verre liquide. */

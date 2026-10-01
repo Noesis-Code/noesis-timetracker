@@ -1401,7 +1401,6 @@
           // arrondis, tout en restant bien en dessous d'un clavier réel
           // (généralement 200-350px sur téléphone).
           var keyboardOpen = (document.documentElement.clientHeight - vv.height) > 100;
-          document.documentElement.classList.toggle('kbOpen', keyboardOpen);
           for (var i = 0; i < pinBottomBars.length; i++) {
             pinBottomBars[i].style.display = keyboardOpen ? 'none' : '';
           }
@@ -1435,7 +1434,6 @@
           // réafficher explicitement plutôt que de compter sur une dernière
           // frame d'applyPin() qui pourrait ne jamais s'exécuter.
           for (var i = 0; i < pinBottomBars.length; i++) pinBottomBars[i].style.display = '';
-          document.documentElement.classList.remove('kbOpen');
         }, 80);
       }, true);
     })();
