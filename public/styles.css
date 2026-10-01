@@ -898,6 +898,7 @@ body { isolation: isolate; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
 }
+#activityPage #catAddPoleBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 /* 30 septembre 2026 (Piste B, fenêtre d'activité) : SEULS les boutons du haut (inviter, fermer) deviennent vitreux ;
    onglets et cartes inchangés. */
 #activityPage .activityPageHeader .menuBtn {
@@ -6558,7 +6559,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catTitleRow .sectionTitle { margin: 0; }
 .catTitleRow { margin-bottom: 8px; }
 .catNewPole .catNewPoleFields { display: flex; flex-direction: column; gap: 6px; padding: 4px 0 2px; }
-.catNewPole input { width: 100%; min-width: 0; font-size: 16px; box-sizing: border-box; }
+.catNewPole input, .catNewPole textarea { width: 100%; min-width: 0; font-size: 16px; box-sizing: border-box; }
 .catNewPole .catNewPoleActions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .catNewPole .msg { margin: 0; min-height: 0; }
 .catNewPole .msg:empty { display: none; }

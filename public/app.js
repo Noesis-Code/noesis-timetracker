@@ -456,7 +456,7 @@
       var found = targetKey ? findCategoryEntity(doc, targetKey) : null;
       if (found) op.before = { label: found.entity.label, type: found.type };
       var label = body && typeof body.label === 'string' ? body.label.trim() : '';
-      if (w.kind === 'addPole') cats.unshift({ key: op.tmpKey, label: label, secteurs: [], colorIndex: nextPoleRank(cats) });
+      if (w.kind === 'addPole') cats.unshift({ key: op.tmpKey, label: label, secteurs: [] });
       else if (w.kind === 'addSecteur' && found) (found.entity.secteurs || (found.entity.secteurs = [])).push({ key: op.tmpKey, label: label, parentKey: w.poleKey });
       else if ((w.kind === 'renamePole' || w.kind === 'renameSecteur') && found) found.entity.label = label;
       else if ((w.kind === 'removePole' || w.kind === 'removeSecteur') && found) found.list.splice(found.index, 1);
@@ -2420,7 +2420,7 @@
           // l'appel buildRow(..., c, c) plus bas) — `pole` porte alors ce
           // même pôle et sert de repli.
           var owningPole = state.drill || pole;
-          var poleIndex = poleRank(owningPole, state.list.indexOf(owningPole));
+          var poleIndex = state.list.indexOf(owningPole);
           var poleLabel = owningPole ? owningPole.label : secteur.label;
           onVisualiser(secteur.key, secteur.label, poleLabel, poleIndex);
         });
@@ -3963,21 +3963,6 @@
   // activités à plus de cinq sous-projets et veut les distinguer toutes, il
   // faudra parler de teinte — c'est la seule dimension qui reste.
   var SUB_PROJECT_SHADE_COUNT = 5;
-
-  // Rang de nuance (couleur STABLE) d'un pôle : valeur persistée côté serveur
-  // (colorIndex), repli sur la position pour une donnée qui n'en porte pas
-  // (cache hors ligne ancien). Ne dépend plus de l'ordre d'affichage.
-  function poleRank(pole, fallbackIndex) {
-    return pole && typeof pole.colorIndex === 'number' ? pole.colorIndex : fallbackIndex;
-  }
-  // Prochaine couleur d'un nouveau pôle (même règle que le serveur : plus petit
-  // rang libre parmi les pôles actifs, sinon max + 1 modulo).
-  function nextPoleRank(poles) {
-    var used = {}, max = -1;
-    poles.forEach(function (p, i) { var r = poleRank(p, i) % SUB_PROJECT_SHADE_COUNT; used[r] = true; if (r > max) max = r; });
-    for (var k = 0; k < SUB_PROJECT_SHADE_COUNT; k++) if (!used[k]) return k;
-    return (max + 1) % SUB_PROJECT_SHADE_COUNT;
-  }
 
   function subProjectShade(baseHex, index, count) {
     if (index === null || index === undefined) return baseHex;
@@ -6721,6 +6706,7 @@
     var list = $('activityGoalsCategoriesList');
     if (!list || activityGoalsCategoriesEditMode) return;
     if (catNewPoleRow) { catNewPoleRow.querySelector('input').focus(); return; }
+    if (catComposerPoleKey) { catComposerPoleKey = null; catSyncComposer(); }
     var activityId = currentCommunityActivityId;
     var group = document.createElement('div');
     group.className = 'catGroup catNewPole';
@@ -6730,7 +6716,7 @@
     header.className = 'activityRowHeader';
     var dot = document.createElement('span');
     dot.className = 'dot';
-    dot.style.background = subProjectShade(currentActivityColor, nextPoleRank(currentActivityGoalsCategories), SUB_PROJECT_SHADE_COUNT);
+    dot.style.background = subProjectShade(currentActivityColor, 0, SUB_PROJECT_SHADE_COUNT);
     var title = document.createElement('span');
     title.className = 'activityRowName';
     title.textContent = t('Nouveau pôle');
@@ -6743,9 +6729,9 @@
     nameIn.type = 'text'; nameIn.maxLength = 40; nameIn.autocomplete = 'off';
     nameIn.placeholder = t('Nom du pôle');
     nameIn.enterKeyHint = 'next';
-    var descIn = document.createElement('input');
-    descIn.type = 'text'; descIn.maxLength = 200; descIn.autocomplete = 'off';
-    descIn.placeholder = t('Description (facultative)');
+    var descIn = document.createElement('textarea');
+    descIn.rows = 3; descIn.maxLength = 200; descIn.autocomplete = 'off';
+    descIn.placeholder = t('Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.');
     descIn.enterKeyHint = 'send';
     var msg = document.createElement('p');
     msg.className = 'msg';
@@ -6816,6 +6802,12 @@
     if (!box) return;
     var addPoleBtn = $('catAddPoleBtn');
     if (addPoleBtn) addPoleBtn.classList.toggle('hidden', activityGoalsCategoriesEditMode);
+    if (addPoleBtn) {
+      var poleFull = currentActivityGoalsCategories.length >= currentActivityGoalsMax;
+      addPoleBtn.disabled = poleFull;
+      addPoleBtn.classList.toggle('disabled', poleFull);
+      addPoleBtn.title = poleFull ? t('Maximum {max} pôles par activité', { max: currentActivityGoalsMax }) : t('Ajouter un pôle');
+    }
     if (activityGoalsCategoriesEditMode) catCloseNewPole();
     var pole = null;
     if (catComposerPoleKey) {
@@ -6824,7 +6816,7 @@
     }
     // La zone d'écriture ne sert plus qu'à ajouter un SECTEUR (cible = un pôle) ;
     // l'ajout d'un pôle passe par la ligne de saisie inline (« + » de l'en-tête).
-    box.classList.toggle('hidden', !(activityPageSection === 'sub' && !activityGoalsCategoriesEditMode && pole));
+    box.classList.toggle('hidden', !(activityPageSection === 'sub' && !activityGoalsCategoriesEditMode && pole && !catNewPoleRow));
     $('catComposerTarget').classList.toggle('hidden', !pole);
     if (pole) $('catComposerTargetLabel').textContent = t('Secteur dans « {name} »', { name: pole.label });
     $('activityGoalsCategoryAddInput').placeholder = t(pole ? 'Nouveau secteur…' : 'Nouveau pôle…');
@@ -6933,7 +6925,7 @@
     var dot = document.createElement('span');
     dot.className = 'dot';
     // Couleur AUTOMATIQUE : nuance de la couleur de l'activité selon la position.
-    dot.style.background = subProjectShade(currentActivityColor, poleRank(pole, index), SUB_PROJECT_SHADE_COUNT);
+    dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
 
     if (edit) {
       var handle = document.createElement('span');
@@ -7120,7 +7112,7 @@
     var initial = o.description || '';
     $('categoryDetailTitle').textContent = o.label;
     $('categoryDetailHint').textContent = t(o.poleKey ? 'Décris ce secteur (optionnel).' : 'Décris ce pôle (optionnel).');
-    ta.placeholder = t('Description (optionnel) — aide l’IA à repérer les liens pertinents entre secteurs');
+    ta.placeholder = t(o.poleKey ? 'Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.' : 'Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.');
     ta.value = initial;
     msg.textContent = '';
     modal.classList.remove('hidden');
@@ -7159,7 +7151,7 @@
       header.className = 'activityRowHeader clickable';
       var dot = document.createElement('span');
       dot.className = 'dot';
-      dot.style.background = subProjectShade(currentActivityColor, poleRank(pole, index), SUB_PROJECT_SHADE_COUNT);
+      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
       var name = document.createElement('span');
       name.className = 'activityRowName';
       name.textContent = pole.label;
@@ -16558,7 +16550,6 @@
   window.TMT.refreshActivities = refreshActivities;
   window.TMT.textColorForTheme = textColorForTheme;
   window.TMT.subProjectShade = subProjectShade;
-  window.TMT.poleRank = poleRank;
   window.TMT.SUB_PROJECT_SHADE_COUNT = SUB_PROJECT_SHADE_COUNT;
   window.TMT.eclairciPourLisibilite = eclairciPourLisibilite;
   window.TMT.readableTextOn = readableTextOn;

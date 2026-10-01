@@ -98,13 +98,12 @@ function checkAccess(callerId, activityId, memberId) {
 // chantier frontend séparé).
 function shadeRanks(activityId) {
   const rows = db.prepare(
-    'SELECT key, parentKey, colorIndex FROM activity_goal_categories WHERE activityId = ? ORDER BY position ASC, id ASC'
+    'SELECT key, parentKey FROM activity_goal_categories WHERE activityId = ? ORDER BY position ASC, id ASC'
   ).all(activityId);
   const poleRows = rows.filter((r) => !r.parentKey);
   if (poleRows.length) {
     const ranks = new Map();
-    // Rang = couleur PERSISTÉE du pôle (stable), repli sur la position.
-    poleRows.forEach((r, i) => ranks.set(r.key, Number.isInteger(r.colorIndex) ? r.colorIndex : i));
+    poleRows.forEach((r, i) => ranks.set(r.key, i));
     rows.filter((r) => r.parentKey).forEach((r) => {
       if (ranks.has(r.parentKey)) ranks.set(r.key, ranks.get(r.parentKey));
     });
@@ -122,7 +121,7 @@ function shadeRanks(activityId) {
   // TypeError (« goals.polesForActivity is not a function »).
   const synth = goals.categoriesForActivity(activityId); // pôles uniquement
   const ranks = new Map();
-  synth.forEach((c, i) => ranks.set(c.key, Number.isInteger(c.colorIndex) ? c.colorIndex : i));
+  synth.forEach((c, i) => ranks.set(c.key, i));
   return { ranks, count: synth.length };
 }
 

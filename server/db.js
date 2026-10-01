@@ -2144,33 +2144,6 @@ if (tableExists('activity_goal_categories') && !columnExists('activity_goal_cate
   db.exec('ALTER TABLE activity_goal_categories ADD COLUMN description TEXT');
 }
 
-// colorIndex (1er octobre 2026) : couleur STABLE d'un pôle (rang de nuance
-// 0..4, voir subProjectShade côté client), attribuée une fois à la création
-// puis jamais recalculée d'après la position — ajouter un pôle en tête ou
-// réordonner ne change plus aucune couleur. Migration idempotente : seules les
-// lignes de pôle sans valeur sont renseignées, selon leur position ACTUELLE
-// (rang parmi les pôles actifs ; rang parmi tous les pôles pour les retirés),
-// pour qu'aucune couleur ne change visuellement. Les secteurs n'en ont pas.
-if (tableExists('activity_goal_categories') && !columnExists('activity_goal_categories', 'colorIndex')) {
-  db.exec('ALTER TABLE activity_goal_categories ADD COLUMN colorIndex INTEGER');
-}
-if (tableExists('activity_goal_categories')) {
-  const cgRows = db.prepare(
-    'SELECT id, activityId, removedAt, colorIndex FROM activity_goal_categories WHERE parentKey IS NULL ORDER BY activityId, position ASC, id ASC'
-  ).all();
-  const cgSetColor = db.prepare('UPDATE activity_goal_categories SET colorIndex = ? WHERE id = ?');
-  const cgByActivity = new Map();
-  cgRows.forEach((r) => { if (!cgByActivity.has(r.activityId)) cgByActivity.set(r.activityId, []); cgByActivity.get(r.activityId).push(r); });
-  cgByActivity.forEach((rows) => {
-    let activeRank = 0;
-    rows.forEach((r, allRank) => {
-      const rank = r.removedAt ? allRank : activeRank;
-      if (!r.removedAt) activeRank += 1;
-      if (r.colorIndex === null || r.colorIndex === undefined) cgSetColor.run(rank % 5, r.id);
-    });
-  });
-}
-
 // ===================== SUGGESTION QUOTIDIENNE =====================
 // Segment neuf et indépendant (21 septembre 2026, cadré avec Emilien — voir
 // server/lib/dailysuggestion.js pour toute la logique). Deux tables neuves,

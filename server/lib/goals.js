@@ -119,8 +119,6 @@ function assertCategory(category) {
 // noesis-timetracker-objectifs.md, section « Principe retenu pour
 // l'organisation des discussions ».
 const MAX_CUSTOM_CATEGORIES = 5;
-// Nombre de nuances (rangs 0..4) = SUB_PROJECT_SHADE_COUNT côté client.
-const POLE_COLOR_COUNT = 5;
 
 // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : plafond des
 // secteurs actifs PAR PÔLE, cadré avec Emilien (« maximum 5 pôles et maximum
@@ -168,14 +166,9 @@ function categoriesForActivity(activityId) {
     // assertCategoryDescription ci-dessus et le commentaire de la colonne
     // dans server/db.js. '' si jamais renseignée (jamais NULL exposé tel
     // quel au client).
-    // colorIndex : couleur persistée (stable) ; repli sur le rang actif
-    // seulement pour une ligne jamais renseignée (jamais le cas après migration).
-    return rows.map((r, i) => ({
-      key: r.key, label: r.label, custom: true, description: r.description || '',
-      colorIndex: Number.isInteger(r.colorIndex) ? r.colorIndex : i % POLE_COLOR_COUNT,
-    }));
+    return rows.map((r) => ({ key: r.key, label: r.label, custom: true, description: r.description || '' }));
   }
-  return [{ key: DEFAULT_CATEGORY_KEY, label: DEFAULT_CATEGORY_LABEL, custom: false, description: '', colorIndex: 0 }];
+  return [{ key: DEFAULT_CATEGORY_KEY, label: DEFAULT_CATEGORY_LABEL, custom: false, description: '' }];
 }
 
 function isValidCategoryForActivity(activityId, category) {
@@ -342,8 +335,8 @@ function ensureDefaultCategory(activityId) {
   const key = nextCategoryKey(activityId);
   const createdAt = new Date().toISOString();
   db.prepare(`
-    INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt, colorIndex)
-    VALUES (?, ?, ?, '', 0, ?, 0)
+    INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt)
+    VALUES (?, ?, ?, '', 0, ?)
   `).run(activityId, key, DEFAULT_CATEGORY_LABEL, createdAt);
   return activeCategoryRows(activityId);
 }
@@ -359,14 +352,6 @@ function ensureDefaultCategory(activityId) {
 // échéant, pour qu'une activité qui n'a encore rien ne se retrouve jamais
 // avec 2 pôles d'un coup (le par-défaut + celui-ci) sans passer par le
 // plafond.
-// Couleur d'un nouveau pôle : plus petit rang de nuance non utilisé parmi les
-// pôles ACTIFS, sinon (max + 1) modulo le nombre de nuances.
-function nextPoleColorIndex(poleRows) {
-  const used = new Set(poleRows.map((r) => r.colorIndex).filter((n) => Number.isInteger(n)));
-  for (let i = 0; i < POLE_COLOR_COUNT; i++) if (!used.has(i)) return i;
-  return (Math.max.apply(null, Array.from(used)) + 1) % POLE_COLOR_COUNT;
-}
-
 function addCategory(activityId, label, parentKey, atTop) {
   const existing = ensureDefaultCategory(activityId);
   const cleanLabel = assertCategoryLabel(label);
@@ -411,25 +396,20 @@ function addCategory(activityId, label, parentKey, atTop) {
   // ---- Pôle (comportement historique, inchangé) -----------------------
   const poleCount = existing.filter((r) => !r.parentKey).length;
   if (poleCount >= MAX_CUSTOM_CATEGORIES) {
-    throw Object.assign(new Error(MAX_CUSTOM_CATEGORIES + ' catégories maximum par activité.'), { statusCode: 400 });
+    throw Object.assign(new Error('Maximum ' + MAX_CUSTOM_CATEGORIES + ' pôles par activité.'), { statusCode: 400 });
   }
-  const poleRows = existing.filter((r) => !r.parentKey);
-  const colorIndex = nextPoleColorIndex(poleRows.map((r) => ({
-    colorIndex: Number.isInteger(r.colorIndex) ? r.colorIndex : poleRows.indexOf(r) % POLE_COLOR_COUNT,
-  })));
   let position = poleCount;
   if (atTop) {
-    // Nouveau pôle en tête : les pôles actifs descendent d'un cran (leurs
-    // couleurs, persistées, ne bougent pas).
-    poleRows.forEach((r, i) => {
+    // Nouveau pôle en tête : les pôles actifs descendent d'un cran.
+    existing.filter((r) => !r.parentKey).forEach((r, i) => {
       db.prepare('UPDATE activity_goal_categories SET position = ? WHERE id = ?').run(i + 1, r.id);
     });
     position = 0;
   }
   db.prepare(`
-    INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt, colorIndex)
-    VALUES (?, ?, ?, '', ?, ?, ?)
-  `).run(activityId, key, cleanLabel, position, createdAt, colorIndex);
+    INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt)
+    VALUES (?, ?, ?, '', ?, ?)
+  `).run(activityId, key, cleanLabel, position, createdAt);
   return categoriesForActivity(activityId);
 }
 
