@@ -6598,3 +6598,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catNewPole input[type="text"]:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb), .25); }
 /* Fenêtre « Modifier » d'un pôle/secteur : le titre est modifiable mais sans case ni fond visibles */
 #categoryDetailTitle.categoryDetailTitleInput { background: none; border: 0; box-shadow: none; padding: 0; margin: 0; width: 100%; min-width: 0; font-family: inherit; font-size: 1.1rem; font-weight: 700; color: inherit; outline: none; border-radius: 0; }
+/* 1er oct. 2026 : icônes de la fenêtre du profil à la taille standard des fenêtres (.menuBtn : 32 px, ✕ 18 px). */
+#profilePage .profileSquareBtn { width: 32px; height: 32px; border-radius: var(--radius-sm); }
+#profilePage .profileSquareBtn svg { width: 18px; height: 18px; }
+#profilePage #profilePageClose { font-size: 18px; }
