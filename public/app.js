@@ -3400,6 +3400,11 @@
   document.addEventListener('click', function (e) {
     if (!e.target.closest('.statsPeriodMenuWrap')) closeAllStatsPeriodMenus();
   });
+  // 1er oct. 2026 : un appui long sur le graphique (lecture des données) ne produit pas de « click » —
+  // on referme donc aussi le menu dès le début du toucher en dehors de lui.
+  document.addEventListener('pointerdown', function (e) {
+    if (!e.target.closest('.statsPeriodMenuWrap')) closeAllStatsPeriodMenus();
+  }, true);
   // Aligne l'état visuel (option en surbrillance) d'un menu de période sur
   // une période donnée, sans déclencher onSelect — utilisé quand la période
   // est remise à "Semaine" par programme (ex : réouverture de l'onglet).
