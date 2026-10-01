@@ -164,3 +164,15 @@ textarea
   content: ""; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px);
 }
 :root .pollChoice input[type="checkbox"], :root .pollChoice input[type="radio"] { accent-color: var(--purple); }
+
+/* ---- Volet 8 (1er oct. 2026) : boutons flèches, réglages, trombone et « Aujourd'hui » — fond beaucoup plus transparent, partout ---- */
+:root { --vc-btn-bg: rgba(255,255,255,.35); --vc-btn-line: rgba(0,0,0,.08); }
+:root[data-theme="dark"] { --vc-btn-bg: rgba(255,255,255,.025); --vc-btn-line: rgba(255,255,255,.10); }
+:root .historyNav .iconBtn, :root .historyNav .menuBtn,
+:root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
+:root #goalsPrevPoleBtn, :root #goalsNextPoleBtn, :root #statsPieTodayBtn,
+:root .topIconBtn, :root .topbarDefault .topIconBtn, :root #settingsBtn,
+:root .menuBtn.attachMenuIconBtn, :root #profileDiscussionAttachBtn, :root .communityComposerRow .attachMenuIconBtn {
+  background: var(--vc-btn-bg) !important; border-color: var(--vc-btn-line) !important; box-shadow: none !important;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
