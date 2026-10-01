@@ -556,7 +556,7 @@
     poles.forEach(function (p, i) { if (p.key === TMT.currentGoalsSelectedPoleKey) index = i; });
     if (index === -1) index = 0;
     TMT.currentGoalsPoleIndex = index;
-    var shade = subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+    var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.poleRank(poles[index], index), SUB_PROJECT_SHADE_COUNT);
     var dot = $('goalsPoleDot');
     if (dot) dot.style.background = shade;
     var name = $('goalsPoleName');
@@ -699,7 +699,7 @@
         var span = document.createElement('span');
         span.className = 'goalsGridHeadCell';
         span.textContent = t(c.label);
-        var shade = subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+        var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.poleRank(c, index), SUB_PROJECT_SHADE_COUNT);
         // 17 septembre 2026 (discussion "Objectifs — Titres des catégories"),
         // demande d'Emilien : « je laisse la couleur noire à l'intérieur et
         // mets le titre de la catégorie en couleur » — fond transparent (la

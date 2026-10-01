@@ -225,7 +225,7 @@
     var index = -1;
     for (var i = 0; i < categories.length; i++) { if (categories[i].key === TMT.currentGoalsCategory) { index = i; break; } }
     if (index === -1) return 'var(--purple)';
-    return subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+    return subProjectShade(TMT.currentGoalsActivityColor, TMT.poleRank(categories[index], index), SUB_PROJECT_SHADE_COUNT);
   }
 
 

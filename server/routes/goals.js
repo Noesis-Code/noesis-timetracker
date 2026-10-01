@@ -396,7 +396,7 @@ router.post('/activities/:id/goals/categories', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    const categories = goals.addCategory(activityId, req.body.label);
+    const categories = goals.addCategory(activityId, req.body.label, undefined, req.body.atTop === true);
     res.json({ ok: true, categories });
   } catch (err) {
     handleGoalsError(res, err);

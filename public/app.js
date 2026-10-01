@@ -456,7 +456,7 @@
       var found = targetKey ? findCategoryEntity(doc, targetKey) : null;
       if (found) op.before = { label: found.entity.label, type: found.type };
       var label = body && typeof body.label === 'string' ? body.label.trim() : '';
-      if (w.kind === 'addPole') cats.push({ key: op.tmpKey, label: label, secteurs: [] });
+      if (w.kind === 'addPole') cats.unshift({ key: op.tmpKey, label: label, secteurs: [], colorIndex: nextPoleRank(cats) });
       else if (w.kind === 'addSecteur' && found) (found.entity.secteurs || (found.entity.secteurs = [])).push({ key: op.tmpKey, label: label, parentKey: w.poleKey });
       else if ((w.kind === 'renamePole' || w.kind === 'renameSecteur') && found) found.entity.label = label;
       else if ((w.kind === 'removePole' || w.kind === 'removeSecteur') && found) found.list.splice(found.index, 1);
@@ -2420,7 +2420,7 @@
           // l'appel buildRow(..., c, c) plus bas) — `pole` porte alors ce
           // même pôle et sert de repli.
           var owningPole = state.drill || pole;
-          var poleIndex = state.list.indexOf(owningPole);
+          var poleIndex = poleRank(owningPole, state.list.indexOf(owningPole));
           var poleLabel = owningPole ? owningPole.label : secteur.label;
           onVisualiser(secteur.key, secteur.label, poleLabel, poleIndex);
         });
@@ -3963,6 +3963,21 @@
   // activités à plus de cinq sous-projets et veut les distinguer toutes, il
   // faudra parler de teinte — c'est la seule dimension qui reste.
   var SUB_PROJECT_SHADE_COUNT = 5;
+
+  // Rang de nuance (couleur STABLE) d'un pôle : valeur persistée côté serveur
+  // (colorIndex), repli sur la position pour une donnée qui n'en porte pas
+  // (cache hors ligne ancien). Ne dépend plus de l'ordre d'affichage.
+  function poleRank(pole, fallbackIndex) {
+    return pole && typeof pole.colorIndex === 'number' ? pole.colorIndex : fallbackIndex;
+  }
+  // Prochaine couleur d'un nouveau pôle (même règle que le serveur : plus petit
+  // rang libre parmi les pôles actifs, sinon max + 1 modulo).
+  function nextPoleRank(poles) {
+    var used = {}, max = -1;
+    poles.forEach(function (p, i) { var r = poleRank(p, i) % SUB_PROJECT_SHADE_COUNT; used[r] = true; if (r > max) max = r; });
+    for (var k = 0; k < SUB_PROJECT_SHADE_COUNT; k++) if (!used[k]) return k;
+    return (max + 1) % SUB_PROJECT_SHADE_COUNT;
+  }
 
   function subProjectShade(baseHex, index, count) {
     if (index === null || index === undefined) return baseHex;
@@ -6684,9 +6699,9 @@
       onError(t('Maximum de pôles atteint ({max}).', { max: currentActivityGoalsMax }));
       return Promise.resolve(false);
     }
-    return api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label })
+    return api('POST', '/api/activities/' + activityId + '/goals/categories', { label: label, atTop: true })
       .then(function (res) {
-        var last = res && res.categories && res.categories[res.categories.length - 1];
+        var last = res && res.categories && res.categories[0];
         if (description && last && last.label === label && String(last.key).indexOf('tmp-') !== 0) {
           return api('PUT', '/api/activities/' + activityId + '/goals/categories/' + last.key, { label: last.label, description: description });
         }
@@ -6695,7 +6710,7 @@
       .catch(function (err) { onError(err.message); return false; });
   }
 
-  // Ligne de saisie d'un nouveau pôle : ajoutée EN BAS de la liste, conservée entre
+  // Ligne de saisie d'un nouveau pôle : ajoutée EN HAUT de la liste, conservée entre
   // deux repeints (catNewPoleRow) tant qu'elle n'est ni validée ni annulée.
   var catNewPoleRow = null;
   function catCloseNewPole() {
@@ -6715,7 +6730,7 @@
     header.className = 'activityRowHeader';
     var dot = document.createElement('span');
     dot.className = 'dot';
-    dot.style.background = subProjectShade(currentActivityColor, currentActivityGoalsCategories.length, SUB_PROJECT_SHADE_COUNT);
+    dot.style.background = subProjectShade(currentActivityColor, nextPoleRank(currentActivityGoalsCategories), SUB_PROJECT_SHADE_COUNT);
     var title = document.createElement('span');
     title.className = 'activityRowName';
     title.textContent = t('Nouveau pôle');
@@ -6768,7 +6783,7 @@
       else if (e.key === 'Escape') { e.preventDefault(); catCloseNewPole(); }
     });
     catNewPoleRow = group;
-    list.appendChild(group);
+    list.insertBefore(group, list.firstChild);
     nameIn.focus();
     if (group.scrollIntoView) group.scrollIntoView({ block: 'nearest' });
   }
@@ -6866,10 +6881,10 @@
       list.appendChild(bar);
     }
 
+    if (catNewPoleRow && !edit) list.appendChild(catNewPoleRow); else catNewPoleRow = null;
     currentActivityGoalsCategories.forEach(function (pole, index) {
       list.appendChild(buildCatGroup(activityId, pole, index, list, edit));
     });
-    if (catNewPoleRow && !edit) list.appendChild(catNewPoleRow); else catNewPoleRow = null;
     catSyncComposer();
   }
 
@@ -6918,7 +6933,7 @@
     var dot = document.createElement('span');
     dot.className = 'dot';
     // Couleur AUTOMATIQUE : nuance de la couleur de l'activité selon la position.
-    dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+    dot.style.background = subProjectShade(currentActivityColor, poleRank(pole, index), SUB_PROJECT_SHADE_COUNT);
 
     if (edit) {
       var handle = document.createElement('span');
@@ -7144,7 +7159,7 @@
       header.className = 'activityRowHeader clickable';
       var dot = document.createElement('span');
       dot.className = 'dot';
-      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+      dot.style.background = subProjectShade(currentActivityColor, poleRank(pole, index), SUB_PROJECT_SHADE_COUNT);
       var name = document.createElement('span');
       name.className = 'activityRowName';
       name.textContent = pole.label;
@@ -16543,6 +16558,7 @@
   window.TMT.refreshActivities = refreshActivities;
   window.TMT.textColorForTheme = textColorForTheme;
   window.TMT.subProjectShade = subProjectShade;
+  window.TMT.poleRank = poleRank;
   window.TMT.SUB_PROJECT_SHADE_COUNT = SUB_PROJECT_SHADE_COUNT;
   window.TMT.eclairciPourLisibilite = eclairciPourLisibilite;
   window.TMT.readableTextOn = readableTextOn;
