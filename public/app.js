@@ -6916,6 +6916,14 @@
     actions.appendChild(cancel); actions.appendChild(add);
     fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
+    // Au toucher d'un champ (clavier qui s'ouvre) : remonte la zone au-dessus du clavier.
+    [nameIn, descIn].forEach(function (el) {
+      el.addEventListener('focus', function () {
+        [250, 600].forEach(function (d) {
+          setTimeout(function () { if (document.activeElement === el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, d);
+        });
+      });
+    });
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
     descIn.addEventListener('input', function () { st.desc = descIn.value; });
     function submit() {
@@ -7233,8 +7241,7 @@
         catNewSecteurState = { poleKey: pole.key, name: '', desc: '' };
         var form = catBuildNewSecteurForm(activityId, pole);
         wrap.insertBefore(form, add);
-        var ni = form.querySelector('input');
-        if (ni) ni.focus();
+        // Pas de focus automatique : le clavier ne s'ouvre qu'au toucher d'un champ.
         if (form.scrollIntoView) form.scrollIntoView({ block: 'nearest' });
       });
       if (catNewSecteurState && catNewSecteurState.poleKey === pole.key) wrap.appendChild(catBuildNewSecteurForm(activityId, pole));
