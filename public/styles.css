@@ -6851,3 +6851,20 @@ button { -webkit-user-select: none; user-select: none; }
 }
 /* Fenêtre « détail » : zone de saisie. */
 #categoryDetailDescription { width: 100%; box-sizing: border-box; font-size: 16px; resize: none; }
+
+/* 1er octobre 2026 (demande de Gaspard, Activité) : fond NOIR opaque derrière la ligne de pôle collée en haut (menu
+   déroulant ouvert) et derrière la barre « Terminer » : la cale du haut (sous le sélecteur flottant) devient collante et
+   opaque, le contenu qui défile ne transparaît plus. Les pastilles en verre du sélecteur ne changent pas. */
+#activityPageSectionSwitch:not(.hidden) + #activityPageScroll #activityPageBody:has(.activityGoalsSecteursBlock, .subProjectEditBar)::before {
+  /* 16px = padding-top de #activityPageScroll (hors rectangle de collage) ; la cale couvre jusqu'au haut de la ligne collée
+     (switch-h + 6px + 16px) et la marge négative garde la mise en page inchangée. */
+  position: sticky; top: -16px; z-index: 8; background: var(--bg);
+  height: calc(var(--activity-switch-h) + 22px); margin-bottom: calc(-1 * (var(--activity-switch-h) + 22px - var(--activity-switch-h) + 8px));
+}
+#activityGoalsCategoriesList .subProjectEditBar { background: var(--bg); }
+/* Liste des activités, mode édition (appui long) : barre « texte + Terminer » FIXE, fond opaque (même technique que
+   .subProjectEditBar ci-dessus). Portée à #activitiesList (.activityEditBar est aussi utilisée ailleurs). */
+#activitiesList .activityEditBar {
+  position: sticky; top: calc(var(--activity-switch-h, 46px) + 6px); z-index: 6; background: var(--bg);
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+}
