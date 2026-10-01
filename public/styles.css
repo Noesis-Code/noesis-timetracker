@@ -6533,6 +6533,10 @@ button { -webkit-user-select: none; user-select: none; }
 .catGroup.dragging { opacity: 0.75; z-index: 2; position: relative; }
 .catGroup.dragging > .activityRow { border-color: var(--purple); }
 .catSecteurRow.dragging { opacity: 0.75; z-index: 2; position: relative; background: var(--card); }
+/* Glisser un secteur vers un autre pôle : trait d'insertion + pôle cible entouré. */
+.catList { position: relative; }
+.catDropLine { display: none; position: absolute; left: 0; right: 0; height: 3px; margin-top: -2px; border-radius: 2px; background: var(--purple); box-shadow: 0 0 8px var(--purple); pointer-events: none; z-index: 5; }
+.catGroup.catDropTarget > .activityRow { border-color: var(--purple); }
 .catList.dragging .catGroup:not(.dragging), .catList.dragging .catSecteurRow:not(.dragging) { transition: transform 0.16s ease; }
 /* 1er oct. 2026 : bande noire UNIQUEMENT en mode édition (barre « Terminer » fixe) ; hors édition, le contenu défile flouté sous le verre. Fond noir opaque derrière la barre « Terminer » : une bande opaque, DERRIÈRE les
    pastilles en verre du sélecteur (qui ne changent pas), couvre le haut de la zone défilante jusqu'à la ligne collée ; le contenu

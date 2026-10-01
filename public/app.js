@@ -6614,6 +6614,113 @@
     });
   }
 
+  // ----- Glisser d'un SECTEUR : dans son pôle OU vers un autre pôle (1er oct. 2026) -----
+  // Même mécanique que bindCatDrag (pointer events + setPointerCapture sur la poignée,
+  // l'élément tiré n'est jamais déplacé dans le DOM pendant le geste). En mode édition
+  // les secteurs de TOUS les pôles sont visibles : chaque pôle (en-tête + secteurs) est
+  // une zone de dépôt ; un trait violet montre où le secteur sera inséré. Au relâchement :
+  // même pôle -> route d'ordre ; autre pôle -> route /move (clé conservée : tâches et
+  // historique suivent). Auto-défilement en bord de zone ; lâché hors zone = annulé.
+  function bindCatSecteurDrag(handle, row, o) {
+    handle.addEventListener('click', function (e) { e.stopPropagation(); });
+    handle.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var list = $('activityGoalsCategoriesList');
+      var scroller = $('activityPageScroll') || list;
+      var startY = e.clientY, lastX = e.clientX, lastY = e.clientY;
+      var startScroll = scroller.scrollTop;
+      var target = null;           // { wrap, index, same } ; index = rang hors secteur tiré
+      var line = document.createElement('div');
+      line.className = 'catDropLine';
+      list.appendChild(line);
+      list.classList.add('dragging');
+      row.classList.add('dragging');
+      handle.setPointerCapture(e.pointerId);
+      var raf = 0;
+
+      function compute() {
+        var lr = list.getBoundingClientRect();
+        var groups = Array.prototype.slice.call(list.querySelectorAll('.catGroup'));
+        var best = null, bestD = Infinity;
+        groups.forEach(function (g) {
+          var r = g.getBoundingClientRect();
+          var d = lastY < r.top ? r.top - lastY : (lastY > r.bottom ? lastY - r.bottom : 0);
+          if (d < bestD) { bestD = d; best = g; }
+        });
+        var sr = scroller.getBoundingClientRect();
+        var outside = !best || lastY < sr.top || lastY > sr.bottom || lastX < lr.left - 20 || lastX > lr.right + 20;
+        document.querySelectorAll('.catGroup.catDropTarget').forEach(function (g) { g.classList.remove('catDropTarget'); });
+        if (outside) { target = null; line.style.display = 'none'; return; }
+        var wrap = best.querySelector('.catSecteurs');
+        var rows = Array.prototype.filter.call(wrap.children, function (el) { return el.matches('.catSecteurRow') && el !== row; });
+        var idx = 0;
+        rows.forEach(function (el, i) {
+          var r = el.getBoundingClientRect();
+          if (lastY > r.top + r.height / 2) idx = i + 1;
+        });
+        var y;
+        if (rows.length === 0) y = wrap.getBoundingClientRect().top;
+        else if (idx < rows.length) y = rows[idx].getBoundingClientRect().top;
+        else y = rows[rows.length - 1].getBoundingClientRect().bottom;
+        var same = wrap === o.wrap;
+        target = { wrap: wrap, index: idx, same: same };
+        if (!same) best.classList.add('catDropTarget');
+        line.style.display = 'block';
+        line.style.top = (y - lr.top) + 'px';
+      }
+
+      function place() {
+        row.style.transform = 'translateY(' + (lastY - startY + scroller.scrollTop - startScroll) + 'px)';
+        compute();
+      }
+
+      function tick() {
+        var sr = scroller.getBoundingClientRect();
+        var zone = 70, speed = 0;
+        if (lastY < sr.top + zone) speed = -Math.ceil((sr.top + zone - lastY) / 5);
+        else if (lastY > sr.bottom - zone) speed = Math.ceil((lastY - (sr.bottom - zone)) / 5);
+        if (speed) { scroller.scrollTop += Math.max(-24, Math.min(24, speed)); place(); }
+        raf = requestAnimationFrame(tick);
+      }
+      raf = requestAnimationFrame(tick);
+
+      function onMove(ev) { lastX = ev.clientX; lastY = ev.clientY; place(); }
+
+      function end(commit) {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onCancel);
+        cancelAnimationFrame(raf);
+        row.classList.remove('dragging');
+        list.classList.remove('dragging');
+        row.style.transform = '';
+        if (line.parentNode) line.parentNode.removeChild(line);
+        document.querySelectorAll('.catGroup.catDropTarget').forEach(function (g) { g.classList.remove('catDropTarget'); });
+        var t0 = target;
+        target = null;
+        if (!commit || !t0) return;
+        if (t0.same) {
+          var rows = Array.prototype.filter.call(o.wrap.children, function (el) { return el.matches('.catSecteurRow'); });
+          var from = rows.indexOf(row);
+          if (from === t0.index) return;   // même place
+          var ordered = rows.slice();
+          ordered.splice(from, 1);
+          ordered.splice(t0.index, 0, row);
+          ordered.forEach(function (el) { o.wrap.appendChild(el); });
+          o.onReorder(ordered.map(function (el) { return el.dataset.secteurKey; }));
+        } else {
+          o.onMoveTo(t0.wrap.dataset.poleKey, t0.index);
+        }
+      }
+      function onUp() { end(true); }
+      function onCancel() { end(false); }
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onCancel);
+    });
+  }
+
   // ----- Appels serveur (routes existantes) -----
   function catFailRefresh(activityId, err) {
     catMsg(err && err.message);
@@ -7003,11 +7110,12 @@
         handle.className = 'activityDragHandle';
         handle.setAttribute('aria-label', t('Déplacer ce secteur'));
         handle.textContent = '≡';
-        bindCatDrag(handle, row, {
-          container: wrap, itemSel: '.catSecteurRow',
-          onDrop: function (ordered) {
-            ordered.forEach(function (el) { wrap.appendChild(el); });
-            reorderPoleSecteur(activityId, pole, ordered.map(function (el) { return el.dataset.secteurKey; }));
+        bindCatSecteurDrag(handle, row, {
+          wrap: wrap,
+          onReorder: function (keys) { reorderPoleSecteur(activityId, pole, keys); },
+          onMoveTo: function (targetPoleKey, index) {
+            movePoleSecteurToPole(activityId, pole.key, s.key, targetPoleKey, index)
+              .catch(function (err) { catFailRefresh(activityId, err); });
           },
         });
         header.appendChild(handle);
