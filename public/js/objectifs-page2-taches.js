@@ -493,6 +493,9 @@
   }
 
 
+  // Même icône corbeille que l'historique du Chrono (CHRONO_HISTORY_DELETE_ICON, app.js).
+  var GOALS_TASK_TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
+
   function buildGoalsTaskRow(task, groupKey) {
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (task.done ? ' done' : '');
@@ -558,7 +561,7 @@
     var mv = document.createElement('button');
     mv.type = 'button';
     mv.className = 'goalsTaskMoveBtn';
-    mv.textContent = '⇄';
+    mv.textContent = '≡';
     mv.title = t('Déplacer vers…');
     mv.setAttribute('aria-label', t('Déplacer vers…'));
     mv.addEventListener('click', function () {
@@ -609,12 +612,12 @@
       box.appendChild(sel);
       row.parentNode.insertBefore(box, row.nextSibling);
     });
-    row.appendChild(mv);
+    row.insertBefore(mv, cb);
 
     var del = document.createElement('button');
     del.type = 'button';
-    del.className = 'subProjectDeleteX';
-    del.textContent = '✕';
+    del.className = 'subProjectDeleteX goalsTaskTrashBtn';
+    del.innerHTML = GOALS_TASK_TRASH_ICON;
     del.title = t('Supprimer cette tâche');
     del.setAttribute('aria-label', t('Supprimer cette tâche'));
     del.addEventListener('click', function () {

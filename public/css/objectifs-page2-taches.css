@@ -142,3 +142,15 @@
 }
 .goalsTaskMoveRow { padding: 2px 0 6px 28px; }
 .goalsTaskMoveRow select { width: 100%; max-width: 100%; font-size: 14px; }
+
+/* 1er oct. 2026 (Emilien) : poignée ≡ à gauche de la case, corbeille du Chrono,
+   case grise (couleur de la section). */
+.goalsTasksGroup .subProjectItem .goalsTaskMoveBtn { font-size: 1.1rem; line-height: 1; opacity: 1; color: var(--text-light); padding: 4px 6px 4px 0; }
+.goalsTasksGroup .subProjectItem .goalsTaskTrashBtn { display: inline-flex; align-items: center; justify-content: center; padding: 6px; color: var(--text-light); }
+.goalsTasksGroup .subProjectItem input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 6px;
+  background: var(--card); border: 1.5px solid color-mix(in srgb, var(--text-light) 55%, transparent);
+  display: inline-grid; place-content: center; cursor: pointer;
+}
+.goalsTasksGroup .subProjectItem input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
+.goalsTasksGroup .subProjectItem input[type="checkbox"]:checked::after { content: ""; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
