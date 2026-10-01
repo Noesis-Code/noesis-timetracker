@@ -229,3 +229,17 @@ textarea
   background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 :root .historyEntryCompact.isEditing { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+/* ---- Fenêtres : icônes de la barre du haut, boutons Catégories/Statistiques et « + » retrouvent leur verre d'avant (un peu plus opaque) ---- */
+:root #activityPage .activityPageHeader .menuBtn,
+:root #activityPage .activityPageHeader .topIconBtn,
+:root .communityMembersModalHeader .menuBtn, :root .profileSubWindowHeader .menuBtn,
+:root #profilePage .menuBtn, :root #profileSettingsPanel .subpageHeader .menuBtn,
+:root #goalsActivitySwitcher #goalsBackToCaptureBtn, :root #goalsActivitySwitcher .goalsSwipeBtn,
+:root #goalsDetailPage #goalsDetailBack, :root #goalsDetailPage #activityGoalsPrevBtn, :root #goalsDetailPage #activityGoalsNextBtn,
+:root #activityPageSectionSwitch .periodBtn:not(.active),
+:root #activityPage #catAddPoleBtn, :root #tab-activity #addActivityBtn {
+  background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; color: var(--text) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.24) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
+}
