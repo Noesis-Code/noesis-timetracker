@@ -1398,9 +1398,148 @@
               .catch(function () { /* pas bloquant — le point réapparaîtra au prochain chargement */ });
           }
 
+          bindGoalsTaskLongPress(taskRow, task, period, check);
           panel.appendChild(taskRow);
         });
       });
+    });
+  }
+
+
+  // 1er octobre 2026 (demande de Gaspard) : appui long (~500 ms, annulé si le
+  // doigt bouge de plus de 10 px — même geste que bindActivityLongPress,
+  // app.js) sur une tâche du détail de période => fenêtre d'édition (nom, date,
+  // secteur/pôle). Un simple tap garde son comportement (case à cocher seule).
+  function bindGoalsTaskLongPress(row, task, period, checkBtn) {
+    var timer = null, startX = 0, startY = 0, fired = false;
+    function cancel() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      row.removeEventListener('pointermove', onMove);
+      row.removeEventListener('pointerup', cancel);
+      row.removeEventListener('pointercancel', cancel);
+      row.removeEventListener('pointerleave', cancel);
+    }
+    function onMove(e) {
+      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
+    }
+    row.addEventListener('pointerdown', function (e) {
+      if (checkBtn.contains(e.target)) return;
+      fired = false;
+      startX = e.clientX; startY = e.clientY;
+      row.addEventListener('pointermove', onMove);
+      row.addEventListener('pointerup', cancel);
+      row.addEventListener('pointercancel', cancel);
+      row.addEventListener('pointerleave', cancel);
+      timer = setTimeout(function () {
+        cancel();
+        fired = true;
+        openGoalsTaskEditModal(task, period);
+      }, 500);
+    });
+    row.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    row.addEventListener('click', function (e) { if (fired) { e.stopPropagation(); e.preventDefault(); fired = false; } }, true);
+  }
+
+
+  function openGoalsTaskEditModal(task, period) {
+    var activityId = TMT.currentGoalsActivityId;
+    var overlay = document.createElement('div');
+    overlay.className = 'goalTaskEditModal';
+    var card = document.createElement('div');
+    card.className = 'goalTaskEditCard';
+    var header = document.createElement('div');
+    header.className = 'goalTaskEditHeader';
+    var title = document.createElement('p');
+    title.className = 'sectionTitle';
+    title.textContent = t('Modifier la tâche');
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'menuBtn';
+    closeBtn.setAttribute('aria-label', t('Fermer'));
+    closeBtn.textContent = '✕';
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    card.appendChild(header);
+
+    function field(labelText, control) {
+      var lab = document.createElement('label');
+      lab.className = 'goalTaskEditField';
+      var span = document.createElement('span');
+      span.textContent = labelText;
+      lab.appendChild(span);
+      lab.appendChild(control);
+      card.appendChild(lab);
+    }
+    var nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.maxLength = 300;
+    nameInput.value = task.label;
+    field(t('Nom de la tâche'), nameInput);
+
+    var dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.value = task.date || '';
+    field(t('Date'), dateInput);
+
+    var catSelect = document.createElement('select');
+    field(t('Secteur / pôle'), catSelect);
+
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+    card.appendChild(msg);
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'goalTaskEditSave btnBrique';
+    saveBtn.textContent = t('Enregistrer');
+    card.appendChild(saveBtn);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    function close() { overlay.remove(); }
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+
+    var currentKey = task.category || '';
+    api('GET', '/api/activities/' + activityId + '/goals/categories').then(function (data) {
+      catSelect.innerHTML = '';
+      (data.categories || []).forEach(function (c) {
+        if (c.secteurs && c.secteurs.length) {
+          // Un pôle qui a des secteurs ne reçoit pas de tâche directe.
+          var grp = document.createElement('optgroup');
+          grp.label = c.label;
+          c.secteurs.forEach(function (sec) {
+            var so = document.createElement('option');
+            so.value = sec.key;
+            so.textContent = sec.label;
+            grp.appendChild(so);
+          });
+          catSelect.appendChild(grp);
+        } else {
+          var o = document.createElement('option');
+          o.value = c.key;
+          o.textContent = c.label;
+          catSelect.appendChild(o);
+        }
+      });
+      if (currentKey) catSelect.value = currentKey;
+    }).catch(function (err) { msg.textContent = (err && err.message) || ''; });
+
+    saveBtn.addEventListener('click', function () {
+      var label = nameInput.value.trim();
+      if (!label) { msg.textContent = t('Le nom ne peut pas être vide.'); return; }
+      saveBtn.disabled = true;
+      msg.textContent = '';
+      api('PUT', '/api/sub-project-items/' + task.id, { label: label, dueDate: dateInput.value || null })
+        .then(function () {
+          if (catSelect.value && catSelect.value !== currentKey) {
+            return api('PUT', '/api/activities/' + activityId + '/goals/tasks/' + task.id + '/category', { categoryKey: catSelect.value });
+          }
+        })
+        .then(function () { close(); loadGoalsCalendarDays(period); })
+        .catch(function (err) {
+          saveBtn.disabled = false;
+          msg.textContent = (err && err.message) || t('Enregistrement impossible.');
+        });
     });
   }
 

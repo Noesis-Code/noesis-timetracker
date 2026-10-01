@@ -1242,6 +1242,14 @@
     "Décris ce secteur (optionnel).": "Describe this sector (optional).",
     "Choisis quoi faire des tâches affiliées (les supprimer ou les conserver).": "Choose what to do with the linked tasks (delete or keep them).",
   });
+  Object.assign(DICT, {
+    "Modifier la tâche": "Edit task",
+    "Nom de la tâche": "Task name",
+    "Date": "Date",
+    "Secteur / pôle": "Sector / pole",
+    "Le nom ne peut pas être vide.": "The name cannot be empty.",
+    "Enregistrement impossible.": "Could not save.",
+  });
   PATTERNS.push(
     [/^Nom d'activité trop long \((\d+) caractères maximum\)\.$/, 'Activity name too long ($1 characters maximum).'],
     [/^Tu as déjà une activité "(.+)"\.$/, 'You already have an activity "$1".']

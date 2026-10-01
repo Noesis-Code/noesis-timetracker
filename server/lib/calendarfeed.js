@@ -310,14 +310,20 @@ function todayLocalDay() {
 // quel que soit leur pôle/secteur — chaque tâche porte sa propre catégorie
 // (`category`) pour que le client puisse signaler celles qui n'appartiennent
 // pas au secteur actuellement affiché (voir renderGoalsCalendarDays, app.js).
-function dayTasksByDate(activityId, startDate, endDate) {
-  const rows = db.prepare(`
+//
+// 1er octobre 2026 (demande de Gaspard) : le détail d'une période ne montre
+// plus que les tâches du pôle/secteur affiché (`categoryKeys`, optionnel —
+// absent = comportement d'origine). Un pôle inclut ses tâches directes + celles
+// de ses secteurs ; un secteur ne montre que les siennes (voir periodDaysForUser).
+function dayTasksByDate(activityId, startDate, endDate, categoryKeys) {
+  let rows = db.prepare(`
     SELECT i.id, i.label, i.done, i.dueDate, i.autoCaptured, i.seenAt, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.dueDate BETWEEN ? AND ?
     ORDER BY i.position ASC, i.id ASC
   `).all(activityId, startDate, endDate);
+  if (Array.isArray(categoryKeys)) rows = rows.filter((r) => categoryKeys.includes(r.category));
   const byDate = {};
   rows.forEach((r) => {
     if (!byDate[r.dueDate]) byDate[r.dueDate] = [];
@@ -327,7 +333,7 @@ function dayTasksByDate(activityId, startDate, endDate) {
     // autoCaptured/seenAt bruts : seule une tâche autoCaptured ET pas encore
     // vue doit afficher le point, le client n'a pas besoin de recalculer
     // cette règle lui-même.
-    byDate[r.dueDate].push({ id: r.id, label: r.label, done: !!r.done, unseen: !!r.autoCaptured && !r.seenAt, category: r.category });
+    byDate[r.dueDate].push({ id: r.id, label: r.label, done: !!r.done, unseen: !!r.autoCaptured && !r.seenAt, category: r.category, date: r.dueDate });
   });
   return byDate;
 }
@@ -363,7 +369,11 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
   `).all(activityId, period.startDate, period.endDate);
   const secondsByDay = {};
   rows.forEach((r) => { secondsByDay[r.isoDate] = r.seconds; });
-  const tasksByDay = dayTasksByDate(activityId, period.startDate, period.endDate);
+  const categoryKeys = [category];
+  if (goals.parentKeyFor(activityId, category) === null) {
+    goals.secteursForPole(activityId, category).forEach((sec) => categoryKeys.push(sec.key));
+  }
+  const tasksByDay = dayTasksByDate(activityId, period.startDate, period.endDate, categoryKeys);
 
   const today = todayLocalDay();
   const days = [];
