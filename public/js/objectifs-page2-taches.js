@@ -370,9 +370,12 @@
     // Règle R1 (même principe que renderActivityProgressRing()) : jamais de
     // « 0% » trompeur avant le premier chargement réel — l'anneau reste
     // masqué tant que percent est null/undefined.
-    if (!data || data.percent === null || data.percent === undefined) {
+    // 1er oct. 2026 (Emilien) : affiché TOUJOURS une fois les données chargées,
+    // même sans tâche dans le pôle (0 % — 0 / 0).
+    if (!data) {
       wrap.classList.add('hidden');
     } else {
+      if (data.percent === null || data.percent === undefined) { data.percent = 0; data.done = data.done || 0; data.total = data.total || 0; }
       wrap.classList.remove('hidden');
       // r=19, identique à renderActivityProgressRing() (Sous-projets) — voir
       // le commentaire à côté de #goalsTasksProgressWrap, index.html.
