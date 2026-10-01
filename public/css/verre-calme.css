@@ -209,3 +209,11 @@ textarea
 :root :is(.communityMembersModalCard, .viewProfileScroll, #categoryStatsModal) :is(.iconBtn, .menuBtn, select, input, textarea, .periodBtn, .seekingTagBtn, .categoryDropdownTrigger):not(.btnBrique):not(.btn-primary):not([type="checkbox"]):not([type="radio"]) {
   background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
+
+/* Épingle (trombone) : icône blanche, verre et contour exactement comme le « + » (jetons --glass-*). */
+:root #profileDiscussionAttachBtn, :root .communityComposerRow .attachMenuIconBtn, :root .menuBtn.attachMenuIconBtn,
+:root :is(.communityMembersModalCard, .viewProfileScroll, .statsSection, .activityRow, .discussionMsg) .menuBtn.attachMenuIconBtn {
+  background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; color: var(--text) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.24) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
+}
