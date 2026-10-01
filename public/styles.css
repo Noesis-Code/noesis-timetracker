@@ -6515,7 +6515,8 @@ button { -webkit-user-select: none; user-select: none; }
 #activityGoalsCategoriesBlock { margin-top: 8px; }
 .catList { margin: 10px 0; }
 .catGroup { display: flex; flex-direction: column; gap: 4px; }
-.catChevron { flex: 0 0 auto; color: var(--text-light); }
+.catChevron { flex: 0 0 auto; display: inline-block; transition: transform 0.15s ease; color: var(--muted); }
+.catChevron.open { transform: rotate(90deg); }
 .catSecteurs { display: flex; flex-direction: column; margin-left: 14px; }
 .catSecteurRow { padding: 10px 0; border-top: 1px solid var(--border); }
 .catList:not(.editing) .catSecteurRow:first-child { border-top: 0; }

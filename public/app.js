@@ -7068,8 +7068,8 @@
     name.className = 'activityRowName';
     name.textContent = pole.label;
     var chevron = document.createElement('span');
-    chevron.className = 'catChevron';
-    chevron.textContent = isOpen ? '▾' : '▸';
+    chevron.className = 'catChevron' + (isOpen ? ' open' : '');
+    chevron.textContent = '›';
     header.appendChild(dot);
     header.appendChild(name);
     header.appendChild(chevron);
