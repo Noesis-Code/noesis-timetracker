@@ -6522,7 +6522,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catSecteurRow > .meta { margin: 2px 0 0; }
 .catAddSecteurBtn {
   align-self: flex-end; margin: 4px 0 8px; padding: 8px 4px; border: 0; background: none;
-  color: var(--purple); opacity: 0.6; font: inherit; font-weight: 500; cursor: pointer;
+  color: color-mix(in srgb, var(--purple) 50%, #fff); font: inherit; font-weight: 500; cursor: pointer;
 }
 /* Mode édition : lignes séparées par un trait fin ; barre « Terminer » FIXE, fond noir opaque. */
 .catList.editing .catSecteurRow { border-top: 1px solid var(--border); }
