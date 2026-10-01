@@ -258,3 +258,10 @@ textarea
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; box-shadow: var(--glass-shadow) !important;
   -webkit-backdrop-filter: blur(40px) saturate(160%) !important; backdrop-filter: blur(40px) saturate(160%) !important;
 }
+
+/* Fenêtre membres : membres présents en lignes simples (filets fins, sans section), comme les enregistrements de l'historique. */
+:root #communityMembersModalList > .activityRow {
+  background: transparent !important; border: none !important; border-bottom: 1px solid var(--border) !important; border-radius: 0 !important;
+  box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; margin: 0 !important; padding: 12px 2px !important;
+}
+:root #communityMembersModalList > .activityRow:last-child { border-bottom: none !important; }
