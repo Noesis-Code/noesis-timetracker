@@ -7303,7 +7303,8 @@
     var ta = $('categoryDetailDescription');
     var msg = $('categoryDetailMsg');
     var initial = o.description || '';
-    $('categoryDetailTitle').textContent = o.label;
+    var titleIn = $('categoryDetailTitle');
+    titleIn.value = o.label;
     $('categoryDetailHint').textContent = t(o.poleKey ? 'Décris ce secteur (optionnel).' : 'Décris ce pôle (optionnel).');
     ta.placeholder = t(o.poleKey ? 'Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.' : 'Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.');
     ta.value = initial;
@@ -7312,16 +7313,17 @@
     function close() { modal.classList.add('hidden'); }
     function save() {
       var value = ta.value.trim();
-      if (value === initial) { close(); return; }
+      var newLabel = titleIn.value.trim() || o.label;
+      if (value === initial && newLabel === o.label) { close(); return; }
       var url = '/api/activities/' + o.activityId + '/goals/categories/' + (o.poleKey ? o.poleKey + '/secteurs/' : '') + o.key;
-      api('PUT', url, { label: o.label, description: value })
+      api('PUT', url, { label: newLabel, description: value })
         .then(function () { close(); activityGoalsCategoriesRefresh(o.activityId); })
         .catch(function (err) { msg.textContent = err.message; });
     }
     $('categoryDetailSaveBtn').onclick = save;
     $('categoryDetailClose').onclick = close;
     // Pas de focus automatique : le clavier ne s'ouvre pas et aucun curseur n'est posé tant que l'utilisateur ne touche pas le champ.
-    try { ta.blur(); ta.scrollTop = 0; } catch (e) {}
+    try { titleIn.blur(); ta.blur(); ta.scrollTop = 0; } catch (e) {}
   }
 
   // « Déplacer vers… » : change un secteur de pôle (PUT …/secteurs/:key/move, qui

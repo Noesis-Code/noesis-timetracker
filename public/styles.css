@@ -6596,3 +6596,5 @@ button { -webkit-user-select: none; user-select: none; }
 /* Saisie d'un nouveau pôle/secteur : champ titre au même gabarit que la description */
 .catNewPole input[type="text"] { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border, rgba(255,255,255,.14)); background: var(--card); color: var(--text); }
 .catNewPole input[type="text"]:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb), .25); }
+/* Fenêtre « Modifier » d'un pôle/secteur : le titre est modifiable mais sans case ni fond visibles */
+#categoryDetailTitle.categoryDetailTitleInput { background: none; border: 0; box-shadow: none; padding: 0; margin: 0; width: 100%; min-width: 0; font-family: inherit; font-size: 1.1rem; font-weight: 700; color: inherit; outline: none; border-radius: 0; }
