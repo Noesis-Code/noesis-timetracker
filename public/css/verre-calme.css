@@ -221,3 +221,11 @@ textarea
 /* Communauté — zone de recherche : retour à l'apparence d'avant le verre calme (fond opaque habituel, champ compris). */
 :root #communitySearchBar { background: var(--card) !important; box-shadow: var(--shadow-card) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 :root #communitySearchBar input[type="text"] { background: var(--card) !important; border-color: var(--border) !important; }
+
+/* Chrono — modification d'un enregistrement : la carte fournit seule la teinte, champs/menu/boutons en liseré seul (pas d'empilement). */
+:root :is(.historyEntry, .historyEntryCompact, .historyEntryCompact.isEditing) .historyEditFields,
+:root .historyEditFields { background: transparent !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+:root .historyEditFields :is(input, select, textarea, .iconBtn, .historyEditCategory, .subProjectSelect):not(.btnBrique) {
+  background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+:root .historyEntryCompact.isEditing { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
