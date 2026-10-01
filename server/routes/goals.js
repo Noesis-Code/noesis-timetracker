@@ -123,7 +123,7 @@ router.get('/activities/:id/goals/all', (req, res) => {
     // volet Objectifs (renderGoalsGridHead(), app.js) doit savoir si le
     // plafond est atteint SANS requête séparée, ce point d'entrée étant déjà
     // celui que reloadGoalsAll() appelle à chaque ouverture/rafraîchissement.
-    res.json({ categories: active, frozenCategories: frozen, byCategory, maxCategories: goals.MAX_CUSTOM_CATEGORIES });
+    res.json({ categories: active, frozenCategories: frozen, byCategory, maxCategories: goals.MAX_CUSTOM_CATEGORIES, maxSecteurs: goals.MAX_SECTEURS_PER_POLE });
   } catch (err) {
     handleGoalsError(res, err);
   }
@@ -373,7 +373,7 @@ router.get('/activities/:id/goals/categories', (req, res) => {
         secteurs: goals.secteursForPole(activityId, c.key),
       })),
       frozenCategories: goals.frozenCategoriesForActivity(activityId),
-      maxCategories: goals.MAX_CUSTOM_CATEGORIES,
+      maxCategories: goals.MAX_CUSTOM_CATEGORIES, maxSecteurs: goals.MAX_SECTEURS_PER_POLE,
       // 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) :
       // les tâches de chaque catégorie ACTIVE, agrégées depuis tous les
       // sous-projets qui lui sont rattachés — voir server/lib/goalstasks.js.

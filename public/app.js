@@ -5960,6 +5960,7 @@
   //    formulaire d'ajout tant que le plafond n'est pas atteint.
   var currentActivityGoalsCategories = [];
   var currentActivityGoalsMax = 5;
+  var currentActivityGoalsMaxSecteurs = 10;
 
   function loadActivityGoalsCategories(activityId) {
     if (!activityId) return;
@@ -6957,6 +6958,7 @@
     lastActivityGoalsPlanningData = planningData;
     currentActivityGoalsCategories = data.categories || [];
     currentActivityGoalsMax = data.maxCategories || 5;
+    currentActivityGoalsMaxSecteurs = data.maxSecteurs || 10;
     var list = $('activityGoalsCategoriesList');
     if (!list) return;
     var activityId = currentCommunityActivityId;
@@ -7148,7 +7150,11 @@
       add.type = 'button';
       add.className = 'catAddSecteurBtn';
       add.textContent = t('+ Nouveau secteur');
-      add.addEventListener('click', function () { catSetComposerTarget(pole.key, true); });
+      if ((pole.secteurs || []).length >= currentActivityGoalsMaxSecteurs) {
+        add.disabled = true; add.style.opacity = '0.4';
+        add.textContent = t('Maximum {max} secteurs par pôle', { max: currentActivityGoalsMaxSecteurs });
+      }
+      add.addEventListener('click', function () { if (!add.disabled) catSetComposerTarget(pole.key, true); });
       wrap.appendChild(add);
     }
     return wrap;
