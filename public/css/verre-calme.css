@@ -100,10 +100,8 @@ textarea
   background: var(--vc-bg); border-color: var(--vc-line); -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur);
 }
 :root .activityGoalsCategoryAutoTaskBubble textarea, :root .activityGoalsCategoryAutoTaskBubble input { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
-:root .goalsCaptureActivityChip.selected { border-color: var(--text); }
 /* Les puces de capture posent leur fond en style inline (JS) : !important nécessaire. */
-:root .goalsCaptureActivityChip { background: var(--vc-bg) !important; border-color: var(--vc-line) !important; }
-:root .goalsCaptureActivityChip.selected { border-color: var(--text) !important; }
+:root .goalsCaptureActivityChip { background: var(--vc-bg) !important; }
 
 /* ---- Volet 4 (1er oct. 2026) : modification des enregistrements Chrono (date/heure, pôle) et confirmation d'arrêt ---- */
 :root .historyEditFields input[type=datetime-local], :root .historyEditFields select, :root .historyEditCategory,
