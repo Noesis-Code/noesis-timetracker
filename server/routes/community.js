@@ -6,6 +6,7 @@ const {
   activityBreakdownForUser, activityChartBreakdownForUser, activityTotalRange, activityTimesheetForUser,
 } = require('../lib/community');
 const { notifyActivityMessage } = require('../lib/push');
+const discussionFiles = require('../lib/discussionfiles');
 // ⚠️ 3 septembre 2026 (Activité — général) : import ajouté pour renvoyer le
 // LIBELLÉ de la période du graphique ("Cette semaine", "Ce mois-ci"...).
 // periodRange est déjà la source de ces libellés partout ailleurs — aucune
@@ -117,7 +118,7 @@ router.get('/community/activity-messages', (req, res) => {
   const check = checkSharedActivityAccess(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
-  const messages = activityMessagesForUser(activityId);
+  const messages = discussionFiles.attachFiles(activityMessagesForUser(activityId));
 
   // markRead=0 permet de rafraîchir le fil en arrière-plan (rechargement
   // périodique tant que l'écran est ouvert) sans effacer la pastille de
@@ -137,17 +138,22 @@ router.post('/community/activity-messages', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
-  if (!body) return res.status(400).json({ error: 'Message vide.' });
+  // Pièce jointe optionnelle (image ou PDF, 5 Mo) : un message peut n'avoir que le fichier.
+  let upload = null;
+  if (req.body.attachment) {
+    upload = discussionFiles.validateUpload(req.body.attachment);
+    if (upload.error) return res.status(400).json({ error: upload.error });
+  }
+  if (!body && !upload) return res.status(400).json({ error: 'Message vide.' });
   if (body.length > MAX_MESSAGE_LENGTH) return res.status(400).json({ error: 'Message trop long (2000 caractères maximum).' });
 
   const message = postActivityMessage(activityId, userId, body);
+  if (upload) discussionFiles.saveFile(message.id, upload);
+  discussionFiles.attachFiles(message);
 
-  // Notification push aux autres membres de l'activité (1er septembre 2026).
-  // Volontairement APRÈS l'enregistrement et sans await : l'envoi part en
-  // arrière-plan et ne peut jamais faire échouer l'écriture du message (voir
-  // le principe posé en tête de server/lib/push.js). Sans clés VAPID
-  // configurées, cet appel ne fait rien du tout.
-  notifyActivityMessage(activityId, userId, body, message && message.id);
+  // Notification push aux autres membres (après l'enregistrement, sans await :
+  // elle ne peut jamais faire échouer l'écriture — voir server/lib/push.js).
+  notifyActivityMessage(activityId, userId, body || ('📎 ' + upload.fileName), message && message.id);
 
   res.status(201).json(message);
 });
@@ -164,8 +170,25 @@ router.delete('/community/activity-messages/:id', (req, res) => {
   if (!message) return res.status(404).json({ error: 'Message introuvable.' });
   if (message.userId !== userId) return res.status(403).json({ error: 'Tu ne peux supprimer que tes propres messages.' });
 
+  discussionFiles.deleteFilesOfMessage(message.id);
   db.prepare('DELETE FROM activity_messages WHERE id = ?').run(message.id);
   res.json({ ok: true });
+});
+
+// Pièce jointe d'un message : réservée aux membres ACTUELS de l'activité
+// (même contrôle que le fil), jamais servie publiquement.
+router.get('/community/activity-message-files/:id', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(401).json({ error: 'Non connecté.' });
+  const file = discussionFiles.getFile(req.params.id);
+  if (!file) return res.status(404).json({ error: 'Fichier introuvable.' });
+  const check = checkSharedActivityAccess(userId, file.activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  res.setHeader('Content-Type', file.mimeType);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.setHeader('Content-Disposition', 'inline; filename="' + file.fileName.replace(/[^\x20-\x7e]/g, '_') + '"');
+  res.sendFile(file.path, (err) => { if (err && !res.headersSent) res.status(404).end(); });
 });
 
 // Total des messages non lus, toutes activités partagées confondues — sert

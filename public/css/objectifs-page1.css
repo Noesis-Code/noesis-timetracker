@@ -57,6 +57,8 @@
  * SANS teinte, cohérent avec l'esprit « seulement le point coloré » de
  * l'état au repos. */
 .goalsCaptureActivityChip.selected { border-color: var(--text); }
+/* 1er oct. 2026 (Gaspard) : message de discussion non lu = point rouge sur la puce. */
+.goalsCaptureUnreadDot { margin-left: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
 
 .goalsCaptureActivityChipName { flex: 1; text-align: left; }
 

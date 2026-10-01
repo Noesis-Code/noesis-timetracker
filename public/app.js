@@ -1555,6 +1555,7 @@
     // jour dès l'ouverture de l'app, même si on ne visite pas encore Profil.
     loadPendingInvites();
     loadFollowRequests();
+    refreshUnreadBadges();
     // Ré-enregistre l'appareil côté serveur à chaque ouverture si la
     // permission est déjà accordée (30 sept. 2026, CO·15) — jamais de demande
     // de permission ici (pas de geste utilisateur).
@@ -9101,7 +9102,8 @@
         // La pastille de cette activité vient d'être remise à zéro côté
         // serveur (markRead) : on l'efface tout de suite ici plutôt que
         // d'attendre le prochain rechargement complet de la liste.
-        if (markRead) { setUnreadBadge(activityId, 0); setDiscTabDot(0); } else refreshUnreadBadges();
+        if (markRead) { setUnreadBadge(activityId, 0); setDiscTabDot(0); }
+        refreshUnreadBadges();
       })
       .catch(function () {
         // Activité quittée/supprimée entre-temps : loadActivityDetail gère
@@ -9140,7 +9142,29 @@
           escapeHtml(m.userName) + (mine ? t(' (toi)') : '') + '</span>' +
           '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>' +
         '</div>' +
-        '<div class="discussionMsgBody">' + escapeHtml(m.body) + '</div>';
+        (m.body ? '<div class="discussionMsgBody">' + escapeHtml(m.body) + '</div>' : '');
+
+      // Pièces jointes (images cliquables, PDF en lien) — servies par une
+      // route réservée aux membres de l'activité.
+      if (m.files && m.files.length) {
+        var filesBox = document.createElement('div');
+        filesBox.className = 'discussionMsgFiles';
+        m.files.forEach(function (f) {
+          var url = '/api/community/activity-message-files/' + f.id;
+          if (f.mimeType.indexOf('image/') === 0) {
+            var img = document.createElement('img');
+            img.src = url; img.alt = f.fileName; img.loading = 'lazy';
+            img.addEventListener('click', function () { openImageViewer(url, f.fileName); });
+            filesBox.appendChild(img);
+          } else {
+            var a = document.createElement('a');
+            a.href = url; a.target = '_blank'; a.rel = 'noopener';
+            a.textContent = '📎 ' + f.fileName;
+            filesBox.appendChild(a);
+          }
+        });
+        msg.appendChild(filesBox);
+      }
 
       // Chacun ne supprime que ses propres messages — le propriétaire de
       // l'activité n'a aucun droit particulier ici, comme partout ailleurs
@@ -9170,27 +9194,68 @@
     if (isFirstRender || wasAtBottom) box.scrollTop = box.scrollHeight;
   }
 
+  var discussionPendingFile = null; // { fileName, dataUrl }
+
+  function setDiscussionPendingFile(f) {
+    discussionPendingFile = f;
+    var box = $('communityDiscussionPending');
+    box.classList.toggle('hidden', !f);
+    box.innerHTML = '';
+    if (!f) return;
+    var span = document.createElement('span');
+    span.textContent = '📎 ' + f.fileName;
+    var x = document.createElement('button');
+    x.type = 'button'; x.textContent = '✕'; x.title = t('Retirer');
+    x.addEventListener('click', function () { setDiscussionPendingFile(null); });
+    box.appendChild(span); box.appendChild(x);
+  }
+
   function sendDiscussionMessage() {
     if (!profile || !discussionActivityId) return;
     var input = $('communityDiscussionInput');
     var body = input.value.trim();
     var msgEl = $('communityDiscussionMsg');
-    if (!body) { msgEl.textContent = t('Écris un message avant d\'envoyer.'); return; }
+    if (!body && !discussionPendingFile) { msgEl.textContent = t('Écris un message avant d\'envoyer.'); return; }
 
     msgEl.textContent = '';
     $('communityDiscussionSendBtn').disabled = true;
     api('POST', '/api/community/activity-messages', {
       userId: profile.id, activityId: discussionActivityId, body: body,
+      attachment: discussionPendingFile || undefined,
     })
       .then(function () {
         input.value = '';
+        setDiscussionPendingFile(null);
         discussionRenderedIds = '';
         loadDiscussion(true);
       })
       .catch(function (err) { msgEl.textContent = err.message; })
-      .then(function () { $('communityDiscussionSendBtn').disabled = false; });
+      .then(function () {
+        $('communityDiscussionSendBtn').disabled = false;
+        // Le clavier reste ouvert : on rend le focus au champ après l'envoi.
+        input.focus();
+      });
   }
 
+  // Le tap sur Envoyer / trombone ne doit pas retirer le focus du champ
+  // (sinon le clavier se ferme) — même technique que #catComposerAddBtn.
+  ['communityDiscussionSendBtn', 'communityDiscussionAttachBtn'].forEach(function (id) {
+    $(id).addEventListener('mousedown', function (e) { e.preventDefault(); });
+    $(id).addEventListener('pointerdown', function (e) { e.preventDefault(); });
+  });
+  $('communityDiscussionAttachBtn').addEventListener('click', function () { $('communityDiscussionFileInput').click(); });
+  $('communityDiscussionFileInput').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    this.value = '';
+    var msgEl = $('communityDiscussionMsg');
+    if (!file) return;
+    if (!/^(image\/(jpeg|png|gif|webp)|application\/pdf)$/.test(file.type)) { msgEl.textContent = t('Images ou PDF seulement.'); return; }
+    if (file.size > 5 * 1024 * 1024) { msgEl.textContent = t('Fichier trop lourd (5 Mo max).'); return; }
+    msgEl.textContent = '';
+    var reader = new FileReader();
+    reader.onload = function () { setDiscussionPendingFile({ fileName: file.name, dataUrl: reader.result }); };
+    reader.readAsDataURL(file);
+  });
   $('communityDiscussionSendBtn').addEventListener('click', sendDiscussionMessage);
   // Entrée = envoyer, Maj+Entrée = retour à la ligne — convention habituelle
   // d'un champ de conversation.
@@ -9209,6 +9274,7 @@
       $('communityDiscussionList').innerHTML = '';
       $('communityDiscussionInput').value = '';
       $('communityDiscussionMsg').textContent = '';
+      setDiscussionPendingFile(null);
       setDiscTabDot(0);
       loadDiscussion(false);
       startDiscussionPolling();
@@ -9248,6 +9314,21 @@
     if (dot) dot.classList.toggle('hidden', !count || discussionVisible);
   }
 
+  // Point rouge sur les puces d'activité de la Feuille de route (Page 1).
+  function syncUnreadChipDots() {
+    var by = TMT.unreadByActivity || {};
+    document.querySelectorAll('.goalsCaptureActivityChip[data-activity-id]').forEach(function (chip) {
+      var dot = chip.querySelector('.goalsCaptureUnreadDot');
+      var n = by[chip.dataset.activityId] || 0;
+      if (n && !dot) {
+        dot = document.createElement('span');
+        dot.className = 'goalsCaptureUnreadDot';
+        chip.appendChild(dot);
+      } else if (!n && dot) dot.remove();
+    });
+  }
+  TMT.syncUnreadChipDots = syncUnreadChipDots;
+
   function refreshUnreadBadges() {
     if (!profile) return;
     api('GET', '/api/community/unread-messages?userId=' + profile.id).then(function (data) {
@@ -9257,6 +9338,11 @@
         badge.classList.toggle('hidden', !n);
       });
       if (discussionActivityId) setDiscTabDot(data.byActivity[discussionActivityId] || 0);
+      TMT.unreadByActivity = data.byActivity || {};
+      syncUnreadChipDots();
+      // Point rouge sur l'icône « Feuille de route » de la barre d'onglets.
+      var tabDot = $('goalsTabUnreadDot');
+      if (tabDot) tabDot.classList.toggle('hidden', !data.total);
     }).catch(function () { /* sans conséquence : la pastille reste telle quelle */ });
   }
 
@@ -11066,6 +11152,7 @@
     if (!profile || document.hidden || $('app').classList.contains('hidden')) return;
     loadPendingInvites();
     loadFollowRequests();
+    refreshUnreadBadges();
   }
   document.addEventListener('visibilitychange', refreshPendingBadges);
   setInterval(refreshPendingBadges, 60000);

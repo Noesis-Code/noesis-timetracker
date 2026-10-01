@@ -2495,7 +2495,18 @@ body.scrollLock { overflow: hidden; }
    sous-projet, non concerné) : la case au repos retrouve la hauteur d'une
    seule ligne, exactement celle du placeholder, donc plus aucun écart
    possible entre les deux. */
-#communityDiscussionInput { min-height: 0; }
+#communityDiscussionInput { min-height: 0; padding-left: 40px; }
+/* Trombone : tout à gauche, DANS la zone d'écriture (centré verticalement comme Envoyer). */
+.chatAttachBtn {
+  position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+  width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: var(--text-light); cursor: pointer;
+}
+.chatPendingFile { margin-top: 6px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.chatPendingFile button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 14px; }
+.discussionMsgFiles { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.discussionMsgFiles img { max-width: 220px; max-height: 220px; border-radius: 8px; cursor: pointer; display: block; }
+.discussionMsgFiles a { color: inherit; text-decoration: underline; }
 /* ⚠️ Bouton centré verticalement dans la zone de saisie (demande d'Emilien :
    « le bouton envoyer [...] centré entre le haut et le bas de la zone
    texte »). `top: 50%` + translation plutôt que `bottom` : la hauteur du
@@ -2845,11 +2856,13 @@ body.scrollLock { overflow: hidden; }
 /* Pastille de messages non lus sur une ligne d'activité partagée. Poussée à
    droite comme .memberLiveDot ci-dessus (toutes deux dans un
    .activityRowHeader en flex) ; masquée quand le compteur est à zéro. */
+/* 1er oct. 2026 (Gaspard) : message non lu = point rouge (le nombre reste dans le DOM). */
 .unreadBadge {
-  margin-left: auto; flex-shrink: 0; min-width: 20px; padding: 1px 6px;
-  border-radius: 999px; background: var(--purple); color: white;
-  font-size: 11px; font-weight: bold; text-align: center; line-height: 18px;
+  margin-left: auto; flex-shrink: 0; width: 10px; height: 10px; min-width: 0; padding: 0;
+  border-radius: 50%; background: var(--red); color: transparent;
+  font-size: 0; line-height: 0; overflow: hidden;
 }
+.unreadBadge.hidden { display: none; }
 
 /* Page (modale) listant les membres d'une activité partagée précise, ouverte
    depuis le menu "⋮" ci-dessus. Propre à Communauté. */

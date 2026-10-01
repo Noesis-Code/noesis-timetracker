@@ -735,7 +735,9 @@
         }
       });
 
+      btn.dataset.activityId = id;
       box.appendChild(btn);
+      if (TMT.syncUnreadChipDots) TMT.syncUnreadChipDots();
     });
   }
 
