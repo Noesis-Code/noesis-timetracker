@@ -148,7 +148,7 @@ function chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel) {
 // échouer la capture elle-même (voir l'appelant).
 function autoPlaceTask(userId, activityId, categoryKey, itemId, taskLabel) {
   const date = chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel);
-  db.prepare('UPDATE sub_project_items SET dueDate = ?, plannedUserId = COALESCE(plannedUserId, ?) WHERE id = ?')
+  db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 1, plannedUserId = COALESCE(plannedUserId, ?) WHERE id = ?')
     .run(date, userId, itemId);
   try {
     goalsauto.onSubProjectItemChanged(activityId, categoryKey);
@@ -159,7 +159,29 @@ function autoPlaceTask(userId, activityId, categoryKey, itemId, taskLabel) {
   return date;
 }
 
+// 1er oct. 2026 (Gaspard) : tâches NON faites dont le jour est passé ET dont la
+// date a été posée par le moteur (dueDateAuto=1) => replacées sur un jour
+// futur (aujourd'hui inclus) qui tient dans le budget, sinon le moins chargé.
+// Jamais une date saisie par l'utilisateur. Idempotent : une fois déplacée, la
+// tâche n'est plus en retard.
+function redispatchOverdue(userId, activityId) {
+  const today = todayLocal();
+  const rows = db.prepare(`
+    SELECT i.id, i.label, sp.goalCategory AS category
+    FROM sub_project_items i
+    JOIN sub_projects sp ON sp.id = i.subProjectId
+    WHERE sp.activityId = ? AND i.done = 0 AND i.dueDateAuto = 1 AND i.dueDate < ?
+    ORDER BY i.dueDate ASC, i.id ASC
+  `).all(activityId, today);
+  const upd = db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?');
+  rows.forEach((r) => {
+    upd.run(chooseAutoPlacementDate(userId, activityId, r.category, r.label), r.id);
+  });
+  return rows.length;
+}
+
 module.exports = {
+  redispatchOverdue,
   LOOKAHEAD_DAYS,
   DEFAULT_TASK_MINUTES,
   globalDailyCapacityMinutes,

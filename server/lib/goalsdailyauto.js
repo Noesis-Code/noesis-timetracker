@@ -259,7 +259,7 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
   }
 
   const now = new Date().toISOString();
-  const update = db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ? AND goalWeeklyId = ? AND dueDate IS NULL');
+  const update = db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 1 WHERE id = ? AND goalWeeklyId = ? AND dueDate IS NULL');
   let written = 0;
   assignments.forEach((a) => {
     const info = update.run(a.date, a.itemId, weekly.id);

@@ -2237,6 +2237,12 @@ if (!columnExists('users', 'communityNotifyEnabled')) {
 if (!columnExists('sub_project_items', 'autoCaptured')) {
   db.exec('ALTER TABLE sub_project_items ADD COLUMN autoCaptured INTEGER NOT NULL DEFAULT 0');
 }
+// dueDateAuto (1er oct. 2026, Gaspard) : 1 = la date a été posée par le moteur
+// (auto-placement / plan quotidien), 0 = saisie par l'utilisateur. Seules les
+// tâches à 1 peuvent être redispatchées (goalscaptureplace.js#redispatchOverdue).
+if (!columnExists('sub_project_items', 'dueDateAuto')) {
+  db.exec('ALTER TABLE sub_project_items ADD COLUMN dueDateAuto INTEGER NOT NULL DEFAULT 0');
+}
 if (!columnExists('sub_project_items', 'seenAt')) {
   db.exec('ALTER TABLE sub_project_items ADD COLUMN seenAt TEXT');
 }

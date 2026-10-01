@@ -582,8 +582,8 @@ function updateItem(itemId, fields, userId) {
     dueDate = /^\d{4}-\d{2}-\d{2}$/.test(clean) ? clean : null;
   }
 
-  db.prepare('UPDATE sub_project_items SET label = ?, done = ?, doneBy = ?, doneAt = ?, plannedUserId = ?, goalWeeklyId = ?, dueDate = ? WHERE id = ?')
-    .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, dueDate, itemId);
+  db.prepare('UPDATE sub_project_items SET label = ?, done = ?, doneBy = ?, doneAt = ?, plannedUserId = ?, goalWeeklyId = ?, dueDate = ?, dueDateAuto = CASE WHEN dueDate IS ? THEN dueDateAuto ELSE 0 END WHERE id = ?')
+    .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, dueDate, dueDate, itemId);
   return getItem(itemId);
 }
 

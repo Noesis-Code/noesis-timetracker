@@ -426,3 +426,6 @@
 .goalTaskEditField input, .goalTaskEditField select { width: 100%; box-sizing: border-box; }
 .goalTaskEditSave { width: 100%; }
 .goalsCalendarTaskRow { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* 1er oct. 2026 (Gaspard) : jours passés en violet foncé. */
+.goalsCalendarRow.past .goalsCalendarDate { color: var(--purple-dark); font-weight: 600; }

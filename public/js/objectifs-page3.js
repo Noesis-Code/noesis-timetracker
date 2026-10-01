@@ -488,7 +488,8 @@
     // (currentGoalsCategoryColor()), posée sur le cadre UNIQUE qui entoure
     // les 4 semaines (.goalsWeeklyList), inchangé par ce passage.
     box.style.borderColor = currentGoalsCategoryColor();
-    for (var weekIndex = 1; weekIndex <= 4; weekIndex += 1) {
+    // 1er oct. 2026 (Gaspard) : ordre DESCENDANT, S4 (le plus futur) en haut.
+    for (var weekIndex = 4; weekIndex >= 1; weekIndex -= 1) {
       (function (weekIndex) {
         var w = null;
         for (var i = 0; i < period.weeklies.length; i++) {
@@ -1219,6 +1220,8 @@
     // que recalculé ici, pour que les 3 endroits restent identiques par
     // construction.
     var goalsCalCatColor = currentGoalsCategoryColor();
+    var nowD = new Date();
+    var todayIso = nowD.getFullYear() + '-' + String(nowD.getMonth() + 1).padStart(2, '0') + '-' + String(nowD.getDate()).padStart(2, '0');
 
     // Regroupe les jours par semaine (1 à 4) en conservant, pour chacun,
     // s'il est le dernier jour de son bloc de 7 ("dimanche" au sens du volet
@@ -1247,7 +1250,7 @@
         var isWeekEnd = entry.isWeekEnd;
 
         var row = document.createElement('div');
-        row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '') + (isWeekEnd ? ' weekEnd' : '');
+        row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '') + (day.date < todayIso ? ' past' : '') + (isWeekEnd ? ' weekEnd' : '');
         if (isWeekEnd) row.style.borderColor = goalsCalCatColor;
 
         var dateEl = document.createElement('span');
@@ -1289,59 +1292,8 @@
         });
         row.appendChild(addBtn);
 
-        if (isWeekEnd) {
-          // « je souhaite qu'il soit clairement marqué que ce soit l'objectif
-          // hebdomadaire à réaliser [...] un avancement hebdomadaire sur la
-          // case du dimanche » — ligne complète (flex-basis: 100%, même
-          // motif que .goalsCalendarTaskAdd .msg) DANS la même case bordée
-          // que ci-dessus, pas une ligne séparée. w.status === 'atteint'
-          // l'emporte toujours sur le calcul minutes/estimation (cohérent
-          // avec le badge de statut ailleurs sur cette page,
-          // .goalWeeklyDot.goalStatusAtteint) ; du temps réel sans
-          // estimation compte comme entamé (barre pleine) plutôt que vide,
-          // qui suggérerait à tort qu'aucun travail n'a été fait.
-          var w = null;
-          for (var wi = 0; wi < period.weeklies.length; wi++) {
-            if (period.weeklies[wi].weekIndex === day.weekIndex) { w = period.weeklies[wi]; break; }
-          }
-          var weekProgress = document.createElement('div');
-          weekProgress.className = 'goalsCalendarWeekProgress';
-          // 16 septembre 2026 (discussion "Objectifs — D"), demande
-          // d'Emilien : « cliquer sur objectif de la semaine à réaliser
-          // [...] rentrer manuellement l'objectif » — ouvre le même éditeur
-          // (openGoalsWeekEditor(), la saisie manuelle du texte
-          // hebdomadaire, textarea de renderGoalsWeeklyList() juste
-          // au-dessus de ce panneau).
-          var weekProgressLabel = document.createElement('button');
-          weekProgressLabel.type = 'button';
-          weekProgressLabel.className = 'goalsCalendarWeekProgressLabel';
-          weekProgressLabel.style.color = goalsCalCatColor;
-          // 16 septembre 2026 (discussion "Objectifs — D", 5e passage),
-          // demande d'Emilien : « l'objectif s'écrit également dans le
-          // calendrier au niveau du dimanche » — une fois un texte saisi
-          // (w.text, via openGoalsWeekEditor()/saveWeeklyText()), il
-          // remplace le libellé générique ici ; tant qu'aucun texte n'est
-          // saisi, le libellé reste l'invite à cliquer, inchangée.
-          weekProgressLabel.textContent = (w && w.text) ? w.text : t('Objectif de la semaine à réaliser');
-          weekProgressLabel.title = t('Objectif de cette semaine');
-          weekProgressLabel.addEventListener('click', function () { openGoalsWeekEditor(period, day.weekIndex); });
-          weekProgress.appendChild(weekProgressLabel);
-          var weekProgressTrack = document.createElement('div');
-          weekProgressTrack.className = 'goalsCalendarWeekProgressTrack';
-          var weekProgressFill = document.createElement('div');
-          weekProgressFill.className = 'goalsCalendarWeekProgressFill';
-          var weekPct = 0;
-          if (w) {
-            if (w.status === 'atteint') weekPct = 100;
-            else if (w.estimateMinutes) weekPct = Math.max(0, Math.min(100, Math.round(((w.actualMinutes || 0) / w.estimateMinutes) * 100)));
-            else if (w.actualMinutes) weekPct = 100;
-          }
-          weekProgressFill.style.width = weekPct + '%';
-          weekProgressFill.style.background = goalsCalCatColor;
-          weekProgressTrack.appendChild(weekProgressFill);
-          weekProgress.appendChild(weekProgressTrack);
-          row.appendChild(weekProgress);
-        }
+        // 1er oct. 2026 (Gaspard) : l'objectif hebdomadaire n'est pas une tâche —
+        // plus de barre d'objectif dans la liste des jours (reste sur la carte S1-S4).
 
         panel.appendChild(row);
         panel.appendChild(addForm);

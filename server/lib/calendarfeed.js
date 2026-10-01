@@ -361,6 +361,7 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
   `).get(activityId, category, periodNumber);
   if (!period) throw Object.assign(new Error('Période introuvable.'), { statusCode: 404 });
 
+  try { require('./goalscaptureplace').redispatchOverdue(userId, activityId); } catch (e) { /* non bloquant */ }
   const rows = db.prepare(`
     SELECT isoDate, COALESCE(SUM(durationSeconds), 0) AS seconds
     FROM time_entries

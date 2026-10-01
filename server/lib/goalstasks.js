@@ -377,8 +377,8 @@ function reassignHistoryTask(userId, itemId, newActivityId, newCategoryKey, newD
 
   const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_items WHERE sectionId = ?')
     .get(targetSection.id).pos;
-  db.prepare('UPDATE sub_project_items SET subProjectId = ?, sectionId = ?, position = ?, dueDate = ? WHERE id = ?')
-    .run(targetSubProject.id, targetSection.id, next, cleanDueDate, item.id);
+  db.prepare('UPDATE sub_project_items SET subProjectId = ?, sectionId = ?, position = ?, dueDate = ?, dueDateAuto = CASE WHEN dueDate IS ? THEN dueDateAuto ELSE 0 END WHERE id = ?')
+    .run(targetSubProject.id, targetSection.id, next, cleanDueDate, cleanDueDate, item.id);
 
   // Re-tente le classement automatique (Offre1) sur les DEUX bouts,
   // ancien ET nouveau — même principe « jamais bloquant » que
