@@ -2863,6 +2863,8 @@ body.scrollLock { overflow: hidden; }
   font-size: 0; line-height: 0; overflow: hidden;
 }
 .unreadBadge.hidden { display: none; }
+/* 2 oct. 2026 (Emilien) : plus de pastille de messages non lus dans la liste du volet Activité. */
+#activitiesList .unreadBadge { display: none !important; }
 
 /* Page (modale) listant les membres d'une activité partagée précise, ouverte
    depuis le menu "⋮" ci-dessus. Propre à Communauté. */
