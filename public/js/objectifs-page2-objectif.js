@@ -562,6 +562,30 @@
     renderGoalsPoleSwitcher();
   }
 
+  // Remplit un cadre (le vrai, ou un clone pendant le glissé) pour la page « mensuel » (secteur) ou pour Tâches/Objectifs (pôle).
+  function applyGoalsHeaderState(hdr, monthOn, pole, shade) {
+    var dot = hdr.querySelector('.goalsActivityNameWrap .dot');
+    var name = hdr.querySelector('.activityPageName');
+    var small = hdr.querySelector('.goalsPoleSmall');
+    if (dot) dot.style.background = shade;
+    if (name) name.textContent = t(pole.label);
+    hdr.classList.toggle('isMonth', monthOn);
+    if (small) small.classList.toggle('hidden', !monthOn);
+    if (monthOn) {
+      var sec = goalsMonthSecteur();
+      if (small) { small.textContent = t(pole.label); small.classList.toggle('hidden', !!sec && sec.key === pole.key); }
+      if (name && sec) name.textContent = t(sec.label);
+      var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(shade || '');
+      if (m) hdr.style.setProperty('--poleRgb', parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16));
+    }
+  }
+  // Pour le glissé : habille un clone du cadre comme il sera sur la page voisine.
+  TMT.dressGoalsHeaderClone = function (clone, monthOn) {
+    var poles = goalsPoles(), index = TMT.currentGoalsPoleIndex || 0;
+    if (!poles[index]) return;
+    applyGoalsHeaderState(clone, monthOn, poles[index], subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT));
+  };
+
   function renderGoalsPoleSwitcher() {
     var header = $('goalsActivityHeader');
     if (!header) return;
@@ -576,23 +600,8 @@
     if (index === -1) index = 0;
     TMT.currentGoalsPoleIndex = index;
     var shade = subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-    var dot = $('goalsPoleDot');
-    if (dot) dot.style.background = shade;
-    var name = $('goalsPoleName');
-    if (name) name.textContent = t(poles[index].label);
-    // 2 oct. 2026 (Emilien) : page du milieu (mensuel) = même cadre, mais pour choisir le SECTEUR du pôle affiché,
-    // teinté (fond + contour) de la couleur automatique du pôle.
-    var small = $('goalsPoleSmall');
     var monthOn = !!(TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen());
-    header.classList.toggle('isMonth', monthOn);
-    if (small) small.classList.toggle('hidden', !monthOn);
-    if (monthOn) {
-      var sec = goalsMonthSecteur();
-      if (small) { small.textContent = t(poles[index].label); small.classList.toggle('hidden', !!sec && sec.key === poles[index].key); }
-      if (name && sec) name.textContent = t(sec.label);
-      var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(shade || '');
-      if (m) header.style.setProperty('--poleRgb', parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16));
-    }
+    applyGoalsHeaderState(header, monthOn, poles[index], shade);
     if (TMT.rerenderGoalsTasksOverview) TMT.rerenderGoalsTasksOverview();
   }
 

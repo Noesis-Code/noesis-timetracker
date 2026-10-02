@@ -409,6 +409,7 @@
       } else if (g0.scroller) return -1;
       return target;
     }
+    var GAP = 24; // espace entre deux pages pendant le glissé
     function startDrag(dx) {
       var target = canDrag(dx);
       if (target < 0) return false;
@@ -420,7 +421,17 @@
       nb.classList.remove('hidden');
       nb.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + cur.offsetTop + 'px;width:' + r.width + 'px;pointer-events:none;';
       zone.style.overflowX = 'hidden';
-      g0.drag = { cur: cur, nb: nb, curMode: curMode, nbMode: nbMode, width: r.width, dir: dx < 0 ? 1 : -1 };
+      // Le cadre pôle/secteur glisse avec les pages : on glisse le vrai cadre et un clone habillé comme sur la page voisine.
+      var hdr = $('goalsActivityHeader'), hclone = null;
+      if (hdr && !hdr.classList.contains('hidden') && TMT.dressGoalsHeaderClone) {
+        hclone = hdr.cloneNode(true);
+        // ids conservés (doublons TEMPORAIRES, clone retiré au relâchement) : le style du cadre en dépend.
+        TMT.dressGoalsHeaderClone(hclone, nbMode === 'month');
+        var hr = hdr.getBoundingClientRect();
+        hclone.style.cssText += ';position:absolute;left:' + (hr.left - zr.left) + 'px;top:' + hdr.offsetTop + 'px;width:' + hr.width + 'px;margin:0;pointer-events:none;';
+        zone.appendChild(hclone);
+      }
+      g0.drag = { cur: cur, nb: nb, hdr: hdr, hclone: hclone, curMode: curMode, nbMode: nbMode, width: r.width + GAP, dir: dx < 0 ? 1 : -1 };
       return true;
     }
     function place(dx) {
@@ -429,10 +440,12 @@
       d.x = x;
       d.cur.style.transform = 'translateX(' + x + 'px)';
       d.nb.style.transform = 'translateX(' + (x + d.dir * d.width) + 'px)';
+      if (d.hclone) { d.hdr.style.transform = 'translateX(' + x + 'px)'; d.hclone.style.transform = 'translateX(' + (x + d.dir * d.width) + 'px)'; }
     }
     function clean(d) {
       [d.cur, d.nb].forEach(function (v) { v.style.transition = ''; v.style.transform = ''; });
       d.nb.style.position = ''; d.nb.style.left = ''; d.nb.style.top = ''; d.nb.style.width = ''; d.nb.style.pointerEvents = '';
+      if (d.hclone) { d.hclone.remove(); d.hdr.style.transition = ''; d.hdr.style.transform = ''; }
       zone.style.overflowX = '';
     }
     zone.addEventListener('touchstart', function (e) {
@@ -462,6 +475,11 @@
       d.cur.style.transition = ease; d.nb.style.transition = ease;
       d.cur.style.transform = 'translateX(' + (commit ? -d.dir * d.width : 0) + 'px)';
       d.nb.style.transform = 'translateX(' + (commit ? 0 : d.dir * d.width) + 'px)';
+      if (d.hclone) {
+        d.hdr.style.transition = ease; d.hclone.style.transition = ease;
+        d.hdr.style.transform = 'translateX(' + (commit ? -d.dir * d.width : 0) + 'px)';
+        d.hclone.style.transform = 'translateX(' + (commit ? 0 : d.dir * d.width) + 'px)';
+      }
       window.setTimeout(function () {
         clean(d);
         if (commit) setGoalsPage2Mode(d.nbMode, { noAnim: true, keep: true });
