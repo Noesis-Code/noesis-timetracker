@@ -203,6 +203,7 @@
     'Total': 'Total',
     ' (en cours)': ' (current)',
     "Aujourd'hui": 'Today',
+    'Synchroniser': 'Sync',
     'Cette semaine': 'This week',
     'Ce mois-ci': 'This month',
     'Cette année': 'This year',

@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser } = require('../lib/stats');
-const { isoDateOf } = require('../lib/dates');
+const { isoDateOf, mondayOf } = require('../lib/dates');
 
 const router = express.Router();
 
@@ -159,6 +159,16 @@ router.get('/stats/today', (req, res) => {
   // breakdown }) pour que le client repeigne le camembert par le même chemin,
   // sans code de rendu en double.
   res.json({ day: today, label: "Aujourd'hui", breakdown: breakdownForRange(userId, today, today) });
+});
+
+// 2 oct. 2026 (Emilien) : mode « Semaine » du bouton de la Répartition — semaine calendaire en cours, depuis lundi jusqu'à aujourd'hui.
+router.get('/stats/week-so-far', (req, res) => {
+  const userId = req.userId;
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+  const today = isoDateOf(new Date(), req.timezone);
+  const monday = isoDateOf(mondayOf(new Date(), req.timezone), req.timezone);
+  res.json({ start: monday, end: today, label: 'Semaine en cours', breakdown: breakdownForRange(userId, monday, today) });
 });
 
 module.exports = router;

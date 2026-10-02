@@ -41,6 +41,7 @@
   // remis à false à chaque ouverture de l'onglet Statistiques (voir
   // switchTab) — la synchronisation reste le comportement normal.
   var pieTodayMode = false;
+  var pieWeekMode = false; // 2 oct. 2026 : 3 états du bouton — synchronisé → Aujourd'hui → Semaine (depuis lundi) → synchronisé
   // Dernière réponse de la Feuille de temps, gardée pour pouvoir
   // resynchroniser le camembert instantanément au second clic, sans refetch.
   var lastTimesheetPieData = null;
@@ -1929,6 +1930,7 @@
       // et une réouverture de l'app directement sur cet onglet. Pas de
       // repeinture ici — loadTimesheet() juste en dessous s'en charge.
       pieTodayMode = false;
+      pieWeekMode = false;
       syncPieTodayBtn();
       loadTimesheet();
     }
@@ -3501,7 +3503,7 @@
     }
     // Désynchronisé : la grille continue de se rafraîchir normalement, elle
     // ne pilote simplement plus le camembert tant que le mode est actif.
-    if (pieTodayMode) return;
+    if (pieTodayMode || pieWeekMode) return;
     renderPieBreakdown(data);
   }
 
@@ -3509,8 +3511,10 @@
   function syncPieTodayBtn() {
     var btn = $('statsPieTodayBtn');
     if (!btn) return;
-    btn.classList.toggle('active', pieTodayMode);
-    btn.setAttribute('aria-pressed', pieTodayMode ? 'true' : 'false');
+    btn.classList.toggle('active', pieTodayMode || pieWeekMode);
+    btn.setAttribute('aria-pressed', (pieTodayMode || pieWeekMode) ? 'true' : 'false');
+    // Le bouton annonce l'ACTION du prochain clic ; sa taille ne change jamais (largeur fixe en CSS).
+    btn.textContent = pieTodayMode ? t('Semaine') : (pieWeekMode ? t('Synchroniser') : t("Aujourd'hui"));
   }
 
   function loadPieToday() {
@@ -3524,15 +3528,29 @@
     });
   }
 
-  function setPieTodayMode(on) {
-    pieTodayMode = !!on;
+  function loadPieWeek() {
+    if (!profile) return;
+    api('GET', '/api/stats/week-so-far?userId=' + profile.id).then(function (data) {
+      if (!pieWeekMode) return;
+      renderPieBreakdown(data);
+    });
+  }
+
+  // mode : 'sync' | 'today' | 'week'
+  function setPieMode(mode) {
+    pieTodayMode = mode === 'today';
+    pieWeekMode = mode === 'week';
     syncPieTodayBtn();
     if (pieTodayMode) loadPieToday();
+    else if (pieWeekMode) loadPieWeek();
     else if (lastTimesheetPieData) renderPieBreakdown(lastTimesheetPieData);
     else loadTimesheet(); // resynchronisation avant toute réponse de la grille
   }
+  function setPieTodayMode(on) { setPieMode(on ? 'today' : 'sync'); }
 
-  $('statsPieTodayBtn').addEventListener('click', function () { setPieTodayMode(!pieTodayMode); });
+  $('statsPieTodayBtn').addEventListener('click', function () {
+    setPieMode(pieTodayMode ? 'week' : (pieWeekMode ? 'sync' : 'today'));
+  });
 
   function loadChartStats() {
     if (!profile) return;

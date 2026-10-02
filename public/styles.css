@@ -6636,3 +6636,6 @@ button { -webkit-user-select: none; user-select: none; }
 #communityMembersModal .activityMembersSearchWrap input[type="text"] { padding: 10px 118px 10px 14px; }
 #communityMembersModal .activityMembersSearchWrap + #communityMembersModalList { margin-top: -54px; padding-top: 62px; position: relative; z-index: 1; }
 #communityMembersModal .activityMembersSearchWrap > .activitiesList:not(:empty), #communityMembersModal .activityMembersSearchWrap > .hint { margin-top: 14px; }
+
+/* Bouton de la Répartition : largeur fixe, seul le texte change (Aujourd'hui / Semaine / Synchroniser). */
+#statsPieTodayBtn { min-width: 112px; width: 112px; text-align: center; white-space: nowrap; box-sizing: border-box; }
