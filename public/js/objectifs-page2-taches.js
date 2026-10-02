@@ -159,7 +159,15 @@
   (function () {
     var blk = document.getElementById('communityDiscussionBlock');
     var host = document.getElementById('goalsDiscView');
-    if (blk && host) host.appendChild(blk);
+    if (blk && host) {
+      // 2 oct. 2026 (Emilien) : la Discussion s'ouvre dans une fenêtre type « profil d'un autre utilisateur » (en-tête fixe + ✕, contenu dessous).
+      var sheet = document.createElement('div');
+      sheet.className = 'goalsDiscSheet';
+      sheet.innerHTML = '<div class="profileSubWindowHeader"><p class="sectionTitle" id="goalsDiscSheetTitle">Discussion</p>'
+        + '<button type="button" class="menuBtn" id="goalsDiscSheetClose" aria-label="Fermer">✕</button></div>';
+      sheet.appendChild(blk);
+      host.appendChild(sheet);
+    }
   })();
 
   var $ = TMT.$,
@@ -221,6 +229,8 @@
     // voir #goalsActivityPlainRow) ; la pastille qui reste sur cette page
     // (#goalsPoleDot) est celle du pôle, posée par renderGoalsPoleSwitcher().
     $('goalsActivityName').textContent = a.name;
+    var discTitle = $('goalsDiscSheetTitle');
+    if (discTitle) discTitle.textContent = 'Discussion · ' + a.name;
 
     // Onglet Discussion : uniquement si l'activité est partagée avec au moins
     // un autre utilisateur ; sinon caché et fil arrêté.
@@ -294,7 +304,19 @@
   // réutilise de même .activityProgressCard (Sous-projets) au lieu d'un
   // gabarit propre — voir le commentaire à côté de #goalsTasksProgressWrap,
   // index.html.
+  var goalsPage2BaseMode = 'tasks';
   function setGoalsPage2Mode(mode) {
+    // « Discussion » est une fenêtre par-dessus la vue de base : elle ne masque ni Tâches ni Objectifs.
+    if (mode === 'disc') {
+      currentGoalsPage2Mode = 'disc';
+      var dBtn = $('goalsPage2ModeDiscBtn');
+      if (dBtn) dBtn.classList.add('active');
+      var dView = $('goalsDiscView');
+      if (dView) dView.classList.remove('hidden');
+      if (TMT.discussion) TMT.discussion.setVisible(true);
+      return;
+    }
+    goalsPage2BaseMode = mode;
     currentGoalsPage2Mode = mode;
     var tasksBtn = $('goalsPage2ModeTasksBtn');
     var goalsBtn = $('goalsPage2ModeGoalsBtn');
@@ -309,8 +331,6 @@
     if (discBtn) discBtn.classList.toggle('active', mode === 'disc');
     var discView = $('goalsDiscView');
     if (discView) discView.classList.toggle('hidden', mode !== 'disc');
-    var scroller = $('goalsActivitySwitcherScroll');
-    if (scroller) scroller.classList.toggle('chatMode', mode === 'disc');
     if (TMT.discussion) TMT.discussion.setVisible(mode === 'disc');
     // O2·07 : à l'arrivée sur « Objectifs », le rail indique la période en cours.
     if (mode === 'goals' && TMT.updateGoalsScrubVisibility) window.requestAnimationFrame(function () { TMT.updateGoalsScrubVisibility(); });
@@ -321,6 +341,9 @@
   $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
 
   $('goalsPage2ModeDiscBtn').addEventListener('click', function () { setGoalsPage2Mode('disc'); });
+  function closeGoalsDiscSheet() { setGoalsPage2Mode(goalsPage2BaseMode); }
+  $('goalsDiscSheetClose').addEventListener('click', closeGoalsDiscSheet);
+  $('goalsDiscView').addEventListener('click', function (e) { if (e.target === this) closeGoalsDiscSheet(); });
 
   TMT.setGoalsPage2Mode = setGoalsPage2Mode;
 
