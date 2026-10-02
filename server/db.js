@@ -1658,6 +1658,16 @@ if (goalsCategoryCheckStillHardcoded()) {
   }
 }
 
+// ----- Objectifs : description détaillée (2 octobre 2026) -----
+// Le texte existant devient le TITRE (quelques mots) ; la description aide
+// l'IA et l'utilisateur. Additive, NOT NULL DEFAULT '' : sans effet sur l'existant.
+if (tableExists('goal_periods') && !columnExists('goal_periods', 'mainGoalDescription')) {
+  db.exec("ALTER TABLE goal_periods ADD COLUMN mainGoalDescription TEXT NOT NULL DEFAULT ''");
+}
+if (tableExists('goal_weekly') && !columnExists('goal_weekly', 'description')) {
+  db.exec("ALTER TABLE goal_weekly ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+}
+
 // ----- Sous-projets : les tâches vivent désormais dans une SECTION -----
 // (3 septembre 2026, deuxième passage — voir sub_project_sections ci-dessus.)
 // Migration additive et idempotente : une colonne, puis rattachement des

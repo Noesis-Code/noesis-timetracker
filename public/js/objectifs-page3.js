@@ -64,7 +64,11 @@
                    horizontalement en tapant au lieu de retourner à la ligne
                    dans une boîte haute. Même changement sur la zone
                    hebdomadaire (renderGoalsWeeklyList(), app.js). -->
-              <textarea id="activityGoalsMainInput" rows="1" maxlength="500" placeholder="Qu'est-ce que tu veux accomplir sur ces 4 semaines ?"></textarea>
+              <textarea id="activityGoalsMainInput" rows="1" maxlength="500" placeholder="Titre de l'objectif (quelques mots)"></textarea>
+              <div class="goalDescRow hidden" id="activityGoalsMainDescRow">
+                <span class="goalDescPreview" id="activityGoalsMainDescPreview"></span>
+                <button type="button" class="historyRowIconBtn goalDescEditBtn" id="activityGoalsMainDescBtn"></button>
+              </div>
 
               <!-- 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
                    intégrations"), demande d'Emilien : conserver et rendre
@@ -351,6 +355,76 @@
   }
 
 
+  // 2 oct. 2026 : description détaillée d'un objectif (titre = quelques mots).
+  // Fenêtre bas d'écran calquée sur celle des pôles/secteurs (#categoryDetailModal) :
+  // mêmes classes (.communityMembersModal, .profileSubWindowHeader, .categoryDetailBody),
+  // croix ✕, textarea, bouton Enregistrer DANS la zone.
+  var GOAL_DESC_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
+
+  function ensureGoalDescModal() {
+    var modal = $('goalDescModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'goalDescModal';
+    modal.className = 'communityMembersModal hidden';
+    modal.innerHTML =
+      '<div class="communityMembersModalCard">' +
+        '<div class="profileSubWindowHeader">' +
+          '<span class="sectionTitle goalDescModalTitle" id="goalDescModalTitle"></span>' +
+          '<button type="button" class="menuBtn" id="goalDescModalClose" aria-label="Fermer">✕</button>' +
+        '</div>' +
+        '<div class="categoryDetailBody">' +
+          '<textarea id="goalDescModalText" rows="6" maxlength="600" autocomplete="off"></textarea>' +
+          '<div class="rowActions"><button type="button" id="goalDescModalSave" class="iconBtn btnBrique">Enregistrer</button></div>' +
+          '<p id="goalDescModalMsg" class="msg"></p>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  // o : { title, description, onSave(description) -> Promise }
+  function openGoalDescModal(o) {
+    var modal = ensureGoalDescModal();
+    var ta = $('goalDescModalText');
+    var msg = $('goalDescModalMsg');
+    $('goalDescModalTitle').textContent = o.title;
+    ta.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux l’IA planifie pour toi.');
+    ta.value = o.description || '';
+    msg.textContent = '';
+    modal.classList.remove('hidden');
+    function close() { modal.classList.add('hidden'); }
+    $('goalDescModalClose').onclick = close;
+    $('goalDescModalSave').onclick = function () {
+      var value = ta.value.trim();
+      if (value === (o.description || '')) { close(); return; }
+      o.onSave(value).then(close).catch(function (err) { msg.textContent = err.message; });
+    };
+    try { ta.blur(); ta.scrollTop = 0; } catch (e) {}
+  }
+
+  // Rangée « description en petit (1 ligne, tronquée) + ✎ » sous un titre d'objectif.
+  function syncGoalDescRow(rowEl, previewEl, btnEl, description, canEdit, onClick) {
+    previewEl.textContent = description || '';
+    previewEl.classList.toggle('hidden', !description);
+    btnEl.innerHTML = GOAL_DESC_EDIT_ICON;
+    btnEl.title = t('Décrire cet objectif');
+    btnEl.setAttribute('aria-label', t('Décrire cet objectif'));
+    btnEl.onclick = onClick;
+    rowEl.classList.toggle('hidden', !canEdit);
+  }
+
+  function saveMainGoalDescription(periodNumber, title, description) {
+    return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', { text: title, description: description, category: TMT.currentGoalsCategory })
+      .then(reloadGoalsAll);
+  }
+
+  function saveWeeklyDescription(periodNumber, weekIndex, title, description) {
+    return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: title, description: description, category: TMT.currentGoalsCategory })
+      .then(reloadGoalsAll);
+  }
+
+
   function saveMainGoalText(periodNumber, text) {
     var pollActivityId = TMT.currentGoalsActivityId;
     var pollCategory = TMT.currentGoalsCategory;
@@ -519,7 +593,7 @@
         input.className = 'goalWeeklyText';
         input.rows = 1;
         input.maxLength = 300;
-        input.placeholder = t('Objectif de cette semaine (optionnel)');
+        input.placeholder = t('Titre de l’objectif (quelques mots)');
         input.value = w ? w.text : '';
         input.addEventListener('blur', function () {
           var value = input.value.trim();
@@ -530,7 +604,27 @@
         input.addEventListener('keydown', function (e) {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); input.blur(); }
         });
-        row.appendChild(input);
+        var textWrap = document.createElement('div');
+        textWrap.className = 'goalWeeklyTextWrap';
+        textWrap.appendChild(input);
+        var wDescRow = document.createElement('div');
+        wDescRow.className = 'goalDescRow';
+        var wDescPreview = document.createElement('span');
+        wDescPreview.className = 'goalDescPreview';
+        var wDescBtn = document.createElement('button');
+        wDescBtn.type = 'button';
+        wDescBtn.className = 'historyRowIconBtn goalDescEditBtn';
+        wDescRow.appendChild(wDescPreview);
+        wDescRow.appendChild(wDescBtn);
+        textWrap.appendChild(wDescRow);
+        syncGoalDescRow(wDescRow, wDescPreview, wDescBtn, w && w.description, !!(w && w.text), function () {
+          openGoalDescModal({
+            title: w.text,
+            description: w.description || '',
+            onSave: function (d) { return saveWeeklyDescription(period.periodNumber, weekIndex, w.text, d); },
+          });
+        });
+        row.appendChild(textWrap);
 
         if (w) {
           var dot = document.createElement('button');
@@ -679,6 +773,15 @@
 
     var mainInput = $('activityGoalsMainInput');
     mainInput.value = period.mainGoalText || '';
+    mainInput.placeholder = t('Titre de l’objectif (quelques mots)');
+    syncGoalDescRow($('activityGoalsMainDescRow'), $('activityGoalsMainDescPreview'), $('activityGoalsMainDescBtn'),
+      period.mainGoalDescription, !!(period.mainGoalText && period.mainGoalText.trim()), function () {
+        openGoalDescModal({
+          title: period.mainGoalText,
+          description: period.mainGoalDescription || '',
+          onSave: function (d) { return saveMainGoalDescription(period.periodNumber, period.mainGoalText, d); },
+        });
+      });
     // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
     // intégrations"), demande d'Emilien : garder l'enregistrement au blur
     // (inchangé) ET ajouter un bouton "Enregistrer" explicite — factorisé

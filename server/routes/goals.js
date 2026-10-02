@@ -203,10 +203,12 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
 
   const text = typeof req.body.text === 'string' ? req.body.text : '';
   if (text.length > 500) return res.status(400).json({ error: 'Texte trop long (500 caractères maximum).' });
+  const description = typeof req.body.description === 'string' ? req.body.description : undefined;
+  if (description !== undefined && description.trim().length > 600) return res.status(400).json({ error: 'Description trop longue (600 caractères maximum).' });
 
   try {
     const category = resolveCategory(activityId, req.body.category);
-    const estimate = goals.setMainGoal(activityId, category, periodNumber, text);
+    const estimate = goals.setMainGoal(activityId, category, periodNumber, text, description);
     res.json({ ok: true, estimate });
     // 26 septembre 2026 : déclenché APRÈS la réponse HTTP, jamais awaité —
     // « fire-and-forget », la proposition IA arrive en tâche de fond (voir
@@ -260,10 +262,12 @@ router.put('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (req
 
   const text = typeof req.body.text === 'string' ? req.body.text : '';
   if (text.length > 300) return res.status(400).json({ error: 'Texte trop long (300 caractères maximum).' });
+  const description = typeof req.body.description === 'string' ? req.body.description : undefined;
+  if (description !== undefined && description.trim().length > 600) return res.status(400).json({ error: 'Description trop longue (600 caractères maximum).' });
 
   try {
     const category = resolveCategory(activityId, req.body.category);
-    const result = goals.setWeekly(activityId, category, periodNumber, weekIndex, text);
+    const result = goals.setWeekly(activityId, category, periodNumber, weekIndex, text, description);
     res.json({ ok: true, ...result });
   } catch (err) {
     handleGoalsError(res, err);

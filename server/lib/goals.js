@@ -1185,9 +1185,9 @@ function carryOverWeekly(activityId, category, planStartDate) {
 
     const createdAt = new Date().toISOString();
     const info = db.prepare(`
-      INSERT INTO goal_weekly (periodId, weekIndex, text, estimateMinutes, estimateSource, estimateConfidence, assignedUserId, carriedOverFromId, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(targetPeriod.id, targetWeekIndex, w.text, w.estimateMinutes, w.estimateSource, w.estimateConfidence, w.assignedUserId, w.id, createdAt);
+      INSERT INTO goal_weekly (periodId, weekIndex, text, description, estimateMinutes, estimateSource, estimateConfidence, assignedUserId, carriedOverFromId, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(targetPeriod.id, targetWeekIndex, w.text, w.description || '', w.estimateMinutes, w.estimateSource, w.estimateConfidence, w.assignedUserId, w.id, createdAt);
 
     db.prepare('UPDATE goal_weekly SET carriedToId = ? WHERE id = ?').run(Number(info.lastInsertRowid), w.id);
   });
@@ -1217,6 +1217,7 @@ function buildBilanText(activityName, category, period, weeklies) {
   lines.push('📊 Bilan automatique — ' + categoryLabel + ' — Période ' + period.periodIndexInCycle + ' (' + period.startDate + ' – ' + period.endDate + ')');
   if (period.mainGoalText) {
     lines.push('Objectif périodique : « ' + period.mainGoalText + ' » — ' + statusLabel(period.mainGoalStatus));
+    if (period.mainGoalDescription) lines.push('Description : ' + period.mainGoalDescription);
   }
   lines.push(doneCount + ' objectif(s) hebdomadaire(s) sur ' + weeklies.length + ' atteint(s).');
   if (estH != null) {
@@ -1345,7 +1346,16 @@ function weekIsOver(periodStart, weekIndex) {
 // ---------------------------------------------------------------------------
 // Écritures
 
-function setMainGoal(activityId, category, periodNumber, text) {
+// Description détaillée (2 oct. 2026) : undefined = conserver l'existante ;
+// trim + 600 caractères max. Jamais modifiée par l'IA.
+const GOAL_DESCRIPTION_MAX = 600;
+function cleanDescription(description) {
+  const d = String(description).trim();
+  if (d.length > GOAL_DESCRIPTION_MAX) throw Object.assign(new Error('Description trop longue (' + GOAL_DESCRIPTION_MAX + ' caractères maximum).'), { statusCode: 400 });
+  return d;
+}
+
+function setMainGoal(activityId, category, periodNumber, text, description) {
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
   // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
   // désormais être posé directement sur un secteur, plus seulement sur un
@@ -1362,6 +1372,10 @@ function setMainGoal(activityId, category, periodNumber, text) {
     SET mainGoalText = ?, mainGoalEstimateMinutes = ?, mainGoalEstimateSource = ?, mainGoalEstimateConfidence = ?
     WHERE activityId = ? AND category = ? AND periodNumber = ?
   `).run(cleanText, estimate.minutes, estimate.source, estimate.confidence, activityId, category, periodNumber);
+  if (description !== undefined) {
+    db.prepare('UPDATE goal_periods SET mainGoalDescription = ? WHERE activityId = ? AND category = ? AND periodNumber = ?')
+      .run(cleanDescription(description), activityId, category, periodNumber);
+  }
   return { ...estimate };
 }
 
@@ -1383,7 +1397,7 @@ function setMainGoalStatus(activityId, category, periodNumber, status) {
 // (période, semaine) — la contrainte est vérifiée ici, pas en base, pour ne
 // pas gêner le report automatique qui, lui, peut avoir besoin de chercher une
 // semaine libre au-delà de la 4e (voir carryOverWeekly).
-function setWeekly(activityId, category, periodNumber, weekIndex, text) {
+function setWeekly(activityId, category, periodNumber, weekIndex, text, description) {
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
   // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
   // désormais être posé directement sur un secteur, plus seulement sur un
@@ -1406,6 +1420,7 @@ function setWeekly(activityId, category, periodNumber, weekIndex, text) {
       UPDATE goal_weekly SET text = ?, estimateMinutes = ?, estimateSource = ?, estimateConfidence = ?
       WHERE id = ?
     `).run(cleanText, estimate.minutes, estimate.source, estimate.confidence, existing.id);
+    if (description !== undefined) db.prepare('UPDATE goal_weekly SET description = ? WHERE id = ?').run(cleanDescription(description), existing.id);
     return { ...estimate, id: existing.id };
   }
 
@@ -1413,6 +1428,7 @@ function setWeekly(activityId, category, periodNumber, weekIndex, text) {
     INSERT INTO goal_weekly (periodId, weekIndex, text, estimateMinutes, estimateSource, estimateConfidence, createdAt)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(period.id, weekIndex, cleanText, estimate.minutes, estimate.source, estimate.confidence, createdAt);
+  if (description !== undefined) db.prepare('UPDATE goal_weekly SET description = ? WHERE id = ?').run(cleanDescription(description), Number(info.lastInsertRowid));
   return { ...estimate, id: Number(info.lastInsertRowid) };
 }
 

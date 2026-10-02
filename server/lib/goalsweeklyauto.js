@@ -218,12 +218,13 @@ async function generateForPeriod(activityId, userId, category, periodNumber) {
       || { label: goals.categoryLabelFor(activityId, category), description: '' };
     const alreadyWritten = goals.weeklyForPeriod(period.id)
       .filter((w) => w.carriedOverFromId == null && w.text && w.text.trim())
-      .map((w) => ({ weekIndex: w.weekIndex, text: w.text }));
+      .map((w) => (w.description ? { weekIndex: w.weekIndex, text: w.text, description: w.description } : { weekIndex: w.weekIndex, text: w.text }));
 
     const proposals = await callAi({
       category: { label: catInfo.label, description: catInfo.description || '' },
       period: { periodNumber, startDate: period.startDate, endDate: period.endDate },
       mainGoalText: period.mainGoalText,
+      ...(period.mainGoalDescription ? { mainGoalDescription: period.mainGoalDescription } : {}),
       weeksAlreadyWritten: alreadyWritten,
       weeksToFill: emptyWeeks,
     }, emptyWeeks);

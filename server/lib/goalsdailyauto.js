@@ -90,7 +90,7 @@ function weekDates(periodStart, weekIndex) {
 // objectif hebdomadaire appartient bien à une période de CETTE activité.
 function loadWeeklyForActivity(activityId, weeklyId) {
   const row = db.prepare(`
-    SELECT w.id, w.periodId, w.weekIndex, w.text, w.assignedUserId,
+    SELECT w.id, w.periodId, w.weekIndex, w.text, w.description, w.assignedUserId,
            p.activityId, p.category, p.startDate AS periodStart
     FROM goal_weekly w
     JOIN goal_periods p ON p.id = w.periodId
@@ -124,12 +124,16 @@ function deterministicAssignments(items, dates) {
   return items.map((item, idx) => ({ itemId: item.id, date: pool[idx % pool.length] }));
 }
 
-function buildPrompt(items, dates, dailyCapacityMinutes) {
+function buildPrompt(items, dates, dailyCapacityMinutes, weekly) {
   const daysList = dates.map((d, i) => `- ${d} (${WEEKDAY_LABELS_FR[i]})`).join('\n');
   const itemsList = items.map((it) => `- id ${it.id} : ${it.label}`).join('\n');
+  const goalLines = weekly && weekly.text
+    ? ['Objectif de la semaine : ' + weekly.text + (weekly.description ? '\nDescription : ' + weekly.description : ''), '']
+    : [];
   return [
     "Tu planifies une semaine de travail pour une seule personne, à partir de tâches qu'elle a déjà écrites elle-même.",
     '',
+    ...goalLines,
     'Jours disponibles cette semaine :',
     daysList,
     '',
@@ -241,7 +245,7 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
 
   if (configured() && items.length <= MAX_ITEMS_PER_CALL) {
     try {
-      const prompt = buildPrompt(items, dates, dailyCapacity);
+      const prompt = buildPrompt(items, dates, dailyCapacity, weekly);
       const text = await callModel(prompt);
       const parsed = extractJson(text);
       const { valid, missing } = validateAssignments(parsed, items, dates);
