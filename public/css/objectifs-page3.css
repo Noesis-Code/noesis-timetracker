@@ -432,3 +432,10 @@
 
 /* 2 oct. 2026 (Emilien) : le détail de période (ex-Page 3) vit désormais DANS la Page 2, au milieu (mensuel) — la page 2 défile. */
 #goalsMonthView #goalsDetailScroll { flex: none; overflow: visible; padding: 0; }
+
+/* Bulles des secteurs (page mensuel) — style des puces d'activité de Statistiques, sans pastille colorée. */
+#goalsMonthSectors { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
+#goalsMonthSectors::-webkit-scrollbar { display: none; }
+#goalsMonthSectors.hidden { display: none; }
+.gmChip { flex: 0 0 auto; padding: 7px 12px; border-radius: 999px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); }
+.gmChip.on { border-color: var(--purple); box-shadow: 0 0 0 1px var(--purple) inset; font-weight: 600; }

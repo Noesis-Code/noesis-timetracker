@@ -559,7 +559,6 @@
     cols.forEach(function (c, i) { if (cur && c.key === cur.key) idx = i; });
     TMT.currentGoalsSelectedSecteurKey = cols[((idx + delta) % cols.length + cols.length) % cols.length].key;
     if (TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
-    renderGoalsPoleSwitcher();
   }
 
   // Remplit un cadre (le vrai, ou un clone pendant le glissé) pour la page « mensuel » (secteur) ou pour Tâches/Objectifs (pôle).
@@ -600,8 +599,7 @@
     if (index === -1) index = 0;
     TMT.currentGoalsPoleIndex = index;
     var shade = subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
-    var monthOn = !!(TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen());
-    applyGoalsHeaderState(header, monthOn, poles[index], shade);
+    applyGoalsHeaderState(header, false, poles[index], shade); // cadre = PÔLE sur toutes les pages (2 oct. : les secteurs sont des bulles en page mensuel)
     if (TMT.rerenderGoalsTasksOverview) TMT.rerenderGoalsTasksOverview();
   }
 
@@ -1223,12 +1221,10 @@
   // d'activité depuis cette page n'est plus possible, voir le commentaire
   // d'index.html sur #goalsActivityPlainRow).
   $('goalsPrevPoleBtn').addEventListener('click', function () {
-    if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen()) return cycleGoalsSecteur(-1);
     openGoalsForPole(TMT.currentGoalsPoleIndex - 1);
   });
 
   $('goalsNextPoleBtn').addEventListener('click', function () {
-    if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen()) return cycleGoalsSecteur(1);
     openGoalsForPole(TMT.currentGoalsPoleIndex + 1);
   });
 
@@ -1256,7 +1252,6 @@
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
       // Droite → gauche (dx négatif) : pôle SUIVANT.
       // Gauche → droite (dx positif) : pôle PRÉCÉDENT.
-      if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen()) return cycleGoalsSecteur(dx < 0 ? 1 : -1);
       openGoalsForPole(TMT.currentGoalsPoleIndex + (dx < 0 ? 1 : -1));
     }, { passive: true });
   })();

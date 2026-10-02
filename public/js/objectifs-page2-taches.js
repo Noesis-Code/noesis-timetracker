@@ -422,16 +422,7 @@
       nb.classList.remove('hidden');
       nb.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + curTop + 'px;width:' + r.width + 'px;pointer-events:none;';
       zone.style.overflowX = 'hidden';
-      // Le cadre pôle/secteur glisse avec les pages : on glisse le vrai cadre et un clone habillé comme sur la page voisine.
-      var hdr = $('goalsActivityHeader'), hclone = null;
-      if (hdr && !hdr.classList.contains('hidden') && TMT.dressGoalsHeaderClone) {
-        hclone = hdr.cloneNode(true);
-        // ids conservés (doublons TEMPORAIRES, clone retiré au relâchement) : le style du cadre en dépend.
-        TMT.dressGoalsHeaderClone(hclone, nbMode === 'month');
-        var hr = hdr.getBoundingClientRect();
-        hclone.style.cssText += ';position:absolute;left:' + (hr.left - zr.left) + 'px;top:' + hdr.offsetTop + 'px;width:' + hr.width + 'px;margin:0;pointer-events:none;';
-        zone.appendChild(hclone);
-      }
+      var hdr = null, hclone = null; // le cadre pôle reste fixe
       g0.drag = { cur: cur, nb: nb, hdr: hdr, hclone: hclone, curMode: curMode, nbMode: nbMode, width: r.width + GAP, dir: dx < 0 ? 1 : -1 };
       return true;
     }

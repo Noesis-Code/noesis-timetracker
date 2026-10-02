@@ -1572,8 +1572,38 @@
     TMT.currentGoalsSelectedSecteurKey = cat;
     var keep = cat === TMT.currentGoalsCategory ? TMT.currentGoalsViewPeriodNumber : null;
     if (!applyGoalsMonthState(cat, keep)) { renderActivityGoals(); return; }
+    renderGoalsMonthSectors();
     showGoalsMonthContent(cat);
   };
+
+  // Bulles des secteurs du pôle affiché, sous le cadre pôle (page mensuel). Style des puces d'activité de Statistiques, sans pastille.
+  function renderGoalsMonthSectors() {
+    var host = $('goalsMonthView');
+    if (!host) return;
+    var box = $('goalsMonthSectors');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'goalsMonthSectors';
+      box.className = 'gmChips';
+      host.insertBefore(box, host.firstChild);
+    }
+    var cols = TMT.currentGoalsGridColumns || [];
+    var sel = TMT.goalsMonthSecteur && TMT.goalsMonthSecteur();
+    box.textContent = '';
+    box.classList.toggle('hidden', cols.length < 2);
+    cols.forEach(function (c) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'gmChip' + (sel && sel.key === c.key ? ' on' : '');
+      b.textContent = t(c.label);
+      b.addEventListener('click', function () {
+        if (sel && sel.key === c.key) return;
+        TMT.currentGoalsSelectedSecteurKey = c.key;
+        TMT.prepareGoalsMonth();
+      });
+      box.appendChild(b);
+    });
+  }
 
   TMT.isGoalsMonthOpen = function () { return !!TMT.getGoalsPage2Mode && TMT.getGoalsPage2Mode() === 'month'; };
 
