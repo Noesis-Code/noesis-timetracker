@@ -121,6 +121,7 @@
              #goalsObjectifsView — le cadre de pôle juste au-dessus, lui,
              reste visible mais n'est pas une navigation propre à cet écran). -->
         <div id="goalsTasksView" class="goalsTasksView">
+          <div id="goalsOverloadCard" class="goalsOverloadCard hidden"></div>
           <div id="goalsTasksProgressWrap" class="activityProgressCard hidden">
             <svg class="activityProgressRing" viewBox="0 0 44 44" aria-hidden="true">
               <circle class="activityProgressRingBg" cx="22" cy="22" r="19"></circle>
@@ -357,9 +358,43 @@
   });
 
 
+  // 2 oct. 2026 (Emilien, option B) : carte « surcharge » — plan PROPOSÉ, rien n'est
+  // modifié avant « Valider ». Serveur : server/lib/goalsoverload.js.
+  function loadGoalsOverloadCard() {
+    var activityId = TMT.currentGoalsActivityId;
+    var card = $('goalsOverloadCard');
+    if (!activityId || !card) return;
+    var base = '/api/activities/' + activityId + '/goals/overload';
+    api('GET', base).then(function (p) {
+      if (String(activityId) !== String(TMT.currentGoalsActivityId)) return;
+      card.innerHTML = '';
+      if (!p || !p.overloaded) { card.classList.add('hidden'); return; }
+      function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+      function fmt(m) { return m >= 60 ? (Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : '')) : (m + ' min'); }
+      card.appendChild(el('p', 'goalsOverloadTitle', t('Journée surchargée')));
+      card.appendChild(el('p', 'meta', t('Charge du jour : ') + fmt(p.loadMinutes) + t(' pour une capacité moyenne de ') + fmt(p.budgetMinutes) + t('. Nouveau plan proposé (rien n\'est modifié sans ta validation).')));
+      var ul = el('ul', 'goalsOverloadList');
+      p.moves.slice(0, 6).forEach(function (m) { ul.appendChild(el('li', null, m.label + ' : ' + m.from + ' \u2192 ' + m.to)); });
+      if (p.moves.length > 6) ul.appendChild(el('li', null, t('… et ') + (p.moves.length - 6) + t(' autres tâches déplacées')));
+      (p.objectives.weekly || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif hebdo') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });
+      (p.objectives.period || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif de période') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });
+      card.appendChild(ul);
+      var row = el('div', 'goalsOverloadActions');
+      var ok = el('button', 'goalsOverloadOk', t('Valider'));
+      var no = el('button', 'goalsOverloadNo', t('Ignorer'));
+      ok.type = 'button'; no.type = 'button';
+      function done() { loadGoalsOverloadCard(); loadGoalsTasksOverview(); }
+      ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/apply', { signature: p.signature }).then(done).catch(done); });
+      no.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/dismiss', {}).then(done).catch(done); });
+      row.appendChild(ok); row.appendChild(no); card.appendChild(row);
+      card.classList.remove('hidden');
+    }).catch(function () { card.classList.add('hidden'); });
+  }
+
   function loadGoalsTasksOverview() {
     var activityId = TMT.currentGoalsActivityId;
     if (!activityId) return;
+    loadGoalsOverloadCard();
     api('GET', '/api/activities/' + activityId + '/goals/tasks/overview')
       .then(function (data) {
         // L'utilisateur a pu changer d'activité ou de pôle pendant l'aller-

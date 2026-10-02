@@ -215,3 +215,12 @@
 
 /* 2 oct. 2026 : le trombone passait SOUS le champ en verre (backdrop-filter = contexte d'empilement, champ placé après dans le DOM) → au-dessus. */
 .goalsDiscSheet .chatAttachBtn { z-index: 5; color: var(--text); opacity: 1; }
+
+/* 2 oct. 2026 : carte « journée surchargée » (plan proposé, style verre ; violet = couleur principale). */
+.goalsOverloadCard { padding: 14px 16px; margin-bottom: 12px; border-radius: 18px; background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(40px) saturate(160%); backdrop-filter: blur(40px) saturate(160%); }
+.goalsOverloadCard.hidden { display: none; }
+.goalsOverloadTitle { margin: 0 0 4px; font-weight: 700; color: var(--text); }
+.goalsOverloadList { margin: 8px 0; padding-left: 18px; font-size: 13px; color: var(--text); }
+.goalsOverloadActions { display: flex; gap: 8px; }
+.goalsOverloadActions button { flex: 1; padding: 10px; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text); font-weight: 600; }
+.goalsOverloadActions .goalsOverloadOk { background: var(--purple); border-color: transparent; color: #fff; }
