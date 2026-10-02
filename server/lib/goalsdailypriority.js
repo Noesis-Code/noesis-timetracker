@@ -237,11 +237,9 @@ function computeDailyPriorityList(activityId, userId) {
         dueDate: t.dueDate,
         signals: { tempsScore, secteurScore, urgenceScore, positionScore, syncScore },
         score,
-        // Tâche longue (durée > capacité) déjà en cours ou due : passe devant toutes les autres.
-        longActive: estimatedMinutes > Math.max(60, capacityMinutes) && !!t.dueDate && t.dueDate <= today,
       };
     })
-    .sort((a, b) => (b.longActive - a.longActive) || (b.score - a.score));
+    .sort((a, b) => b.score - a.score);
 
   let remaining = capacityMinutes;
   tasks.forEach((t, i) => {
