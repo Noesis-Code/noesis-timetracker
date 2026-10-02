@@ -383,7 +383,11 @@
       var fill = $('goalsTasksProgressRingFill');
       fill.style.strokeDasharray = circumference.toFixed(2);
       fill.style.strokeDashoffset = (circumference * (1 - data.percent / 100)).toFixed(2);
-      $('goalsTasksProgressPercent').textContent = data.percent + '%';
+      // 2 oct. 2026 (Emilien) : à 100 % (au moins une tâche) → anneau vert, crochet et contour vert (Avancement global seulement).
+      var allDone = data.percent >= 100 && data.total > 0;
+      wrap.classList.toggle('isComplete', allDone);
+      if (allDone) $('goalsTasksProgressPercent').innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><polyline points="4 12.5 9.5 18 20 6.5"/></svg>';
+      else $('goalsTasksProgressPercent').textContent = data.percent + '%';
       $('goalsTasksProgressCount').textContent =
         data.done + ' / ' + data.total + t(' tâches complétées');
     }
@@ -447,6 +451,12 @@
     badge.textContent = g.percent === null || g.percent === undefined
       ? t('Aucune tâche')
       : g.percent + '% · ' + g.done + '/' + g.total;
+    // 100 % : crochet devant le badge, barre verte (pas de contour vert sur la catégorie).
+    var groupDone = g.percent >= 100 && g.total > 0;
+    if (groupDone) {
+      row.classList.add('isComplete');
+      badge.insertAdjacentHTML('afterbegin', '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><polyline points="4 12.5 9.5 18 20 6.5"/></svg> ');
+    }
     header.appendChild(badge);
 
     row.appendChild(header);
