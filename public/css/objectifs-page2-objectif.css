@@ -251,8 +251,8 @@
 .goalsScrubLabel b { display: block; color: var(--text); font-size: 12px; font-weight: 700; }
 
 
-/* 2 oct. 2026 (Emilien) : cadre du pôle moins large, centré. */
-.goalsActivityHeader { width: 76%; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+/* 2 oct. 2026 (Emilien) : cadre du pôle moins épais (hauteur réduite), pleine longueur conservée. */
+.goalsActivityHeader { padding-top: 6px; padding-bottom: 6px; }
 
 /* 2 oct. 2026 (Emilien) : cadre du pôle = même verre que les boutons Tâches/Objectifs (jetons --glass-*). */
 :root #goalsActivitySwitcher .goalsActivityHeader {
