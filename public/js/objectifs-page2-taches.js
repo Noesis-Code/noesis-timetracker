@@ -418,8 +418,9 @@
       if (!cur || !nb) return false;
       if (nbMode === 'month' && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
       var r = cur.getBoundingClientRect(), zr = cur.offsetParent ? cur.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+      var curTop = cur.offsetTop; // AVANT d'afficher la voisine (qui précède parfois cur dans le DOM et la décalerait)
       nb.classList.remove('hidden');
-      nb.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + cur.offsetTop + 'px;width:' + r.width + 'px;pointer-events:none;';
+      nb.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + curTop + 'px;width:' + r.width + 'px;pointer-events:none;';
       zone.style.overflowX = 'hidden';
       // Le cadre pôle/secteur glisse avec les pages : on glisse le vrai cadre et un clone habillé comme sur la page voisine.
       var hdr = $('goalsActivityHeader'), hclone = null;
