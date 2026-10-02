@@ -360,8 +360,7 @@
   function updateGoalsScrubVisibility() {
     var zone = $('goalsScrubZone');
     if (!zone) return;
-    var detailPage = $('goalsDetailPage');
-    var visible = !detailPage || detailPage.classList.contains('hidden');
+    var visible = !(TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen());
     zone.classList.toggle('hidden', !visible);
     if (!visible) hideGoalsScrub();
     else goalsScrubTick(true);
@@ -579,6 +578,8 @@
     TMT.currentGoalsSelectedPoleKey = p.key;
     renderGoalsPoleSwitcher();
     if (changed) reloadGoalsGridForPole(p.key);
+    // Page du milieu (mensuel) ouverte : elle suit le pôle affiché (période en cours).
+    if (changed && TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen() && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
   }
 
 

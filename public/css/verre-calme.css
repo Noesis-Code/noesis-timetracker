@@ -231,7 +231,7 @@ textarea
 :root .communityMembersModalHeader .menuBtn, :root .profileSubWindowHeader .menuBtn,
 :root #profilePage .menuBtn, :root #profileSettingsPanel .subpageHeader .menuBtn,
 :root #goalsActivitySwitcher #goalsBackToCaptureBtn, :root #goalsActivitySwitcher .goalsSwipeBtn,
-:root #goalsDetailPage #goalsDetailBack, :root #goalsDetailPage #activityGoalsPrevBtn, :root #goalsDetailPage #activityGoalsNextBtn,
+:root #goalsDetailPage #goalsDetailBack, :root #goalsDetailPage #activityGoalsPrevBtn, :root #goalsDetailPage #activityGoalsNextBtn, :root #goalsMonthView #activityGoalsPrevBtn, :root #goalsMonthView #activityGoalsNextBtn,
 :root #activityPageSectionSwitch .periodBtn:not(.active),
 :root #activityPage #catAddPoleBtn, :root #tab-activity #addActivityBtn {
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; color: var(--text) !important;

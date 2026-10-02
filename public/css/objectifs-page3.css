@@ -429,3 +429,6 @@
 
 /* 1er oct. 2026 (Gaspard) : jours passés en violet foncé. */
 .goalsCalendarRow.past .goalsCalendarDate { color: var(--purple-dark); font-weight: 600; }
+
+/* 2 oct. 2026 (Emilien) : le détail de période (ex-Page 3) vit désormais DANS la Page 2, au milieu (mensuel) — la page 2 défile. */
+#goalsMonthView #goalsDetailScroll { flex: none; overflow: visible; padding: 0; }

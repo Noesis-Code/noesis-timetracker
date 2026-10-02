@@ -184,6 +184,8 @@
 `;
   // Traduction EN du gabarit injecté (app.js a déjà appliqué la langue avant ce script).
   if (window.NoesisI18n) window.NoesisI18n.translateStaticDom(document.getElementById('goalsDetailPage'));
+  // Le contenu du détail de période déménage dans la page du milieu de la Page 2.
+  (function () { var host = document.getElementById('goalsMonthView'), sc = document.getElementById('goalsDetailScroll'); if (host && sc) host.appendChild(sc); })();
 
   var $ = TMT.$, api = TMT.api, readableTextOn = TMT.readableTextOn,
       subProjectShade = TMT.subProjectShade, SUB_PROJECT_SHADE_COUNT = TMT.SUB_PROJECT_SHADE_COUNT,
@@ -1526,29 +1528,25 @@
   // onglet de catégorie pour le déterminer implicitement. TMT.currentGoalsPlanning
   // vient directement de TMT.currentGoalsAllPlannings (déjà chargé pour la
   // grille) : aucun nouvel appel serveur pour ouvrir cette page.
-  function openGoalsDetail(category, periodNumber) {
-    TMT.currentGoalsCategory = category;
-    TMT.currentGoalsViewPeriodNumber = periodNumber;
+  // 2 oct. 2026 (Emilien) : le détail de période n'est plus une fenêtre plein écran mais la page du MILIEU (mensuel)
+  // de la Page 2 (#goalsMonthView, entre Tâches et l'arbre périodique) ; #goalsDetailPage reste masquée en permanence.
+  function applyGoalsMonthState(category, periodNumber) {
     var byCategory = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.byCategory) || {};
-    TMT.currentGoalsPlanning = byCategory[category] || null;
-    if (!TMT.currentGoalsPlanning) return;
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
-    // « tout en haut sur l'entête de l'application se trouve uniquement le
-    // nom de l'activité » — la catégorie, affichée ici jusque-là (« Activité
-    // · Catégorie »), déménage plus bas (.goalsCategoryLabel, voir
-    // renderActivityGoals()) et n'apparaît donc plus dans ce titre.
+    var planning = byCategory[category] || null;
+    if (!planning) return false;
+    TMT.currentGoalsCategory = category;
+    TMT.currentGoalsPlanning = planning;
+    TMT.currentGoalsViewPeriodNumber = periodNumber == null ? planning.currentPeriodNumber : periodNumber;
     $('goalsDetailTitle').textContent = $('goalsActivityName').textContent;
-    $('goalsDetailPage').classList.remove('hidden');
-    $('goalsDetailScroll').scrollTop = 0;
+    return true;
+  }
+
+  function showGoalsMonthContent(category) {
+    var sc = $('goalsActivitySwitcherScroll');
+    if (sc) sc.scrollTop = 0;
     renderActivityGoals();
-    // Page 2 ouverte : le rail tactile de la page 1 n'a plus lieu d'être
-    // atteignable derrière elle (15 septembre 2026, 5e passage).
     TMT.updateGoalsScrubVisibility();
-    // 25 septembre 2026 (badges « non vu », restructuration du volet
-    // Objectifs en 3 pages) : ouvrir ce nœud précis de l'arbre périodique
-    // (pôle ou secteur) le marque vu — vide son badge (renderGoalsGridHead(),
-    // voir plus haut dans ce fichier, 26 septembre : déplacé depuis le menu
-    // déroulant) au prochain rechargement des badges.
+    // 25 septembre 2026 (badges « non vu ») : ouvrir ce nœud le marque vu.
     if (TMT.currentGoalsActivityId) {
       api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/categories/' + encodeURIComponent(category) + '/mark-seen')
         .then(loadGoalsCaptureBadges)
@@ -1556,13 +1554,29 @@
     }
   }
 
+  // Clic sur une période de l'arbre : la page du milieu s'ouvre sur CETTE période (défilement latéral).
+  function openGoalsDetail(category, periodNumber) {
+    if (!applyGoalsMonthState(category, periodNumber)) return;
+    TMT.setGoalsPage2Mode('month', { keep: true });
+    showGoalsMonthContent(category);
+  }
+
+  // Arrivée par balayage : période en cours du pôle affiché (période déjà choisie conservée si même catégorie).
+  TMT.prepareGoalsMonth = function () {
+    var cat = TMT.currentGoalsSelectedPoleKey || TMT.currentGoalsCategory;
+    var known = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.byCategory) || {};
+    if (!known[cat]) cat = Object.keys(known)[0] || cat;
+    var keep = cat === TMT.currentGoalsCategory ? TMT.currentGoalsViewPeriodNumber : null;
+    if (!applyGoalsMonthState(cat, keep)) { renderActivityGoals(); return; }
+    showGoalsMonthContent(cat);
+  };
+
+  TMT.isGoalsMonthOpen = function () { return !!TMT.getGoalsPage2Mode && TMT.getGoalsPage2Mode() === 'month'; };
 
   function closeGoalsDetail() {
-    $('goalsDetailPage').classList.add('hidden');
-    // Invalide toute requête de calendrier de période encore en vol (voir
-    // loadGoalsCalendarDays() plus haut) : une réponse en retard ne doit
-    // jamais peindre une liste de jours après que la page 2 s'est refermée.
+    // Invalide toute requête de calendrier de période encore en vol (voir loadGoalsCalendarDays() plus haut).
     goalsCalendarRequestId += 1;
+    if (TMT.isGoalsMonthOpen()) TMT.setGoalsPage2Mode('tasks', { noAnim: true });
     TMT.updateGoalsScrubVisibility();
   }
 

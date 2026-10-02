@@ -148,6 +148,7 @@
              ne référence aucun élément de son intérieur. Le cadre de pôle
              (#goalsActivityHeader) est de même injecté par ce fichier-là,
              juste avant #goalsPage2ModeSwitch. -->
+        <div id="goalsMonthView" class="hidden"></div>
         <div id="goalsObjectifsView" class="hidden"></div>
         <!-- Onglet « Discussion » (30 septembre 2026) : le bloc #communityDiscussionBlock (index.html, logique dans app.js : TMT.discussion) y est déplacé juste après l'injection. -->
         <div id="goalsDiscView" class="goalsDiscView hidden"></div>
@@ -307,7 +308,13 @@
   // gabarit propre — voir le commentaire à côté de #goalsTasksProgressWrap,
   // index.html.
   var goalsPage2BaseMode = 'tasks';
-  function setGoalsPage2Mode(mode) {
+  // 2 oct. 2026 (Emilien) : 3 pages qui défilent — quotidien (Tâches) · mensuel (détail de période, ex-Page 3) · annuel (arbre périodique).
+  var GOALS_PAGE2_ORDER = ['tasks', 'month', 'goals'];
+  function goalsPage2ViewFor(m) { return $(m === 'tasks' ? 'goalsTasksView' : m === 'month' ? 'goalsMonthView' : 'goalsObjectifsView'); }
+  TMT.getGoalsPage2Mode = function () { return currentGoalsPage2Mode; };
+  // opts.keep : l'appelant (openGoalsDetail) a déjà posé catégorie/période ; opts.noAnim : sans défilement.
+  function setGoalsPage2Mode(mode, opts) {
+    opts = opts || {};
     // « Discussion » est une fenêtre par-dessus la vue de base : elle ne masque ni Tâches ni Objectifs.
     if (mode === 'disc') {
       currentGoalsPage2Mode = 'disc';
@@ -324,31 +331,32 @@
     var tasksBtn = $('goalsPage2ModeTasksBtn');
     var goalsBtn = $('goalsPage2ModeGoalsBtn');
     if (tasksBtn) tasksBtn.classList.toggle('active', mode === 'tasks');
-    var dT = document.querySelector('#goalsPage2Dots [data-dot=tasks]'), dG = document.querySelector('#goalsPage2Dots [data-dot=goals]');
-    if (dT) dT.classList.toggle('on', mode === 'tasks');
-    if (dG) dG.classList.toggle('on', mode === 'goals');
     if (goalsBtn) goalsBtn.classList.toggle('active', mode === 'goals');
-    var tasksView = $('goalsTasksView');
-    var objectifsView = $('goalsObjectifsView');
-    // 2 oct. 2026 (Emilien) : défilement latéral (et non un saut) entre Tâches et Objectifs.
-    var slideFrom = null, slideOut = null, slideIn = null;
-    if (tasksView && objectifsView && previousBase && previousBase !== mode &&
-        (mode === 'tasks' || mode === 'goals') && (previousBase === 'tasks' || previousBase === 'goals') &&
-        !tasksView.closest('.hidden') && typeof tasksView.animate === 'function') {
-      slideOut = previousBase === 'tasks' ? tasksView : objectifsView;
-      slideIn = mode === 'tasks' ? tasksView : objectifsView;
-      slideFrom = mode === 'goals' ? 1 : -1; // vers Objectifs : entre par la droite
+    GOALS_PAGE2_ORDER.forEach(function (m) {
+      var dot = document.querySelector('#goalsPage2Dots [data-dot=' + (m === 'month' ? 'next' : m) + ']');
+      if (dot) dot.classList.toggle('on', mode === m);
+    });
+    var views = {};
+    GOALS_PAGE2_ORDER.forEach(function (m) { views[m] = goalsPage2ViewFor(m); });
+    // Défilement latéral (et non un saut) entre pages voisines ou éloignées.
+    var slideOut = null, slideIn = null, slideFrom = 1;
+    var iOld = GOALS_PAGE2_ORDER.indexOf(previousBase), iNew = GOALS_PAGE2_ORDER.indexOf(mode);
+    if (!opts.noAnim && iOld >= 0 && iNew >= 0 && iOld !== iNew && views[previousBase] && views[mode] &&
+        !views.tasks.closest('.hidden') && typeof views.tasks.animate === 'function') {
+      slideOut = views[previousBase]; slideIn = views[mode];
+      slideFrom = iNew > iOld ? 1 : -1; // vers la droite du parcours : entre par la droite
       var r = slideOut.getBoundingClientRect(), zr = slideOut.offsetParent ? slideOut.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
       slideOut.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + (slideOut.offsetTop) + 'px;width:' + r.width + 'px;pointer-events:none;';
     }
-    if (tasksView) tasksView.classList.toggle('hidden', mode !== 'tasks' && slideOut !== tasksView);
-    if (objectifsView) objectifsView.classList.toggle('hidden', mode !== 'goals' && slideOut !== objectifsView);
+    GOALS_PAGE2_ORDER.forEach(function (m) {
+      if (views[m]) views[m].classList.toggle('hidden', mode !== m && slideOut !== views[m]);
+    });
     if (slideOut) {
       var host = document.getElementById('goalsActivitySwitcherScroll');
       host.style.overflowX = 'hidden';
-      var opts = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
-      slideIn.animate([{ transform: 'translateX(' + (slideFrom * 100) + '%)' }, { transform: 'translateX(0)' }], opts);
-      var outAnim = slideOut.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-slideFrom * 100) + '%)' }], opts);
+      var aopts = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
+      slideIn.animate([{ transform: 'translateX(' + (slideFrom * 100) + '%)' }, { transform: 'translateX(0)' }], aopts);
+      var outAnim = slideOut.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-slideFrom * 100) + '%)' }], aopts);
       outAnim.onfinish = function () {
         slideOut.style.position = ''; slideOut.style.left = ''; slideOut.style.top = ''; slideOut.style.width = ''; slideOut.style.pointerEvents = '';
         slideOut.classList.add('hidden');
@@ -356,13 +364,14 @@
       };
     }
     if (mode === 'tasks') loadGoalsTasksOverview();
+    if (mode === 'month' && !opts.keep && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
     var discBtn = $('goalsPage2ModeDiscBtn');
     if (discBtn) discBtn.classList.toggle('active', mode === 'disc');
     var discView = $('goalsDiscView');
     if (discView) discView.classList.toggle('hidden', mode !== 'disc');
     if (TMT.discussion) TMT.discussion.setVisible(mode === 'disc');
     // O2·07 : à l'arrivée sur « Objectifs », le rail indique la période en cours.
-    if (mode === 'goals' && TMT.updateGoalsScrubVisibility) window.requestAnimationFrame(function () { TMT.updateGoalsScrubVisibility(); });
+    if (TMT.updateGoalsScrubVisibility) window.requestAnimationFrame(function () { TMT.updateGoalsScrubVisibility(); });
   }
 
   $('goalsPage2ModeTasksBtn').addEventListener('click', function () { setGoalsPage2Mode('tasks'); });
@@ -405,14 +414,15 @@
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
       // Dans une zone défilante : le balayage ne change de page que si elle était déjà au bord (gauche pour revenir),
       // c'est-à-dire en prolongement du défilement de gauche à droite.
-      if (scroller) {
-        if (dx > 0 && startLeft <= 1 && scroller.scrollLeft <= 1 && gridAtLeft() && goalsPage2BaseMode === 'goals') setGoalsPage2Mode('tasks');
-        return;
-      }
-      // Sans zone défilante sous le doigt : en Objectifs, l'arbre périodique doit être TOUT À GAUCHE pour revenir.
-      if (dx > 0 && goalsPage2BaseMode === 'goals' && !gridAtLeft()) return;
-      if (dx < 0 && goalsPage2BaseMode === 'tasks') setGoalsPage2Mode('goals');
-      else if (dx > 0 && goalsPage2BaseMode === 'goals') setGoalsPage2Mode('tasks');
+      var idx = GOALS_PAGE2_ORDER.indexOf(goalsPage2BaseMode);
+      var target = idx + (dx < 0 ? 1 : -1);
+      if (target < 0 || target >= GOALS_PAGE2_ORDER.length) return;
+      // Depuis l'arbre périodique (annuel) : revenir vers la gauche seulement s'il est TOUT À GAUCHE (prolongement du défilement).
+      if (goalsPage2BaseMode === 'goals' && dx > 0) {
+        if (scroller && !(startLeft <= 1 && scroller.scrollLeft <= 1)) return;
+        if (!gridAtLeft()) return;
+      } else if (scroller) return; // zone défilante horizontalement sous le doigt : ne change pas de page
+      setGoalsPage2Mode(GOALS_PAGE2_ORDER[target]);
     }, { passive: true });
   })();
 

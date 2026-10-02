@@ -918,7 +918,9 @@ body { isolation: isolate; }
 #goalsActivitySwitcher .goalsSwipeBtn,
 #goalsDetailPage #goalsDetailBack,
 #goalsDetailPage #activityGoalsPrevBtn,
-#goalsDetailPage #activityGoalsNextBtn {
+#goalsDetailPage #activityGoalsNextBtn,
+#goalsMonthView #activityGoalsPrevBtn,
+#goalsMonthView #activityGoalsNextBtn {
   background: var(--glass-bg); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
@@ -928,7 +930,9 @@ body { isolation: isolate; }
 #goalsActivitySwitcher .goalsSwipeBtn,
 #goalsDetailPage #goalsDetailBack,
 #goalsDetailPage #activityGoalsPrevBtn,
-#goalsDetailPage #activityGoalsNextBtn { border: 1px solid var(--glass-border); }
+#goalsDetailPage #activityGoalsNextBtn,
+#goalsMonthView #activityGoalsPrevBtn,
+#goalsMonthView #activityGoalsNextBtn { border: 1px solid var(--glass-border); }
 /* 30 septembre 2026 (Piste B, option B validée par Emilien) : halos lumineux dans les fenêtres, pour les distinguer de
    l'écran d'accueil (halo violet en bas). Niveau 1 (Activité, Page 2 de l'objectif, Réglages) = halo indigo bleuté
    en bas ; niveau 2 (Page 3 de l'objectif) = halo prune en bas. Teintes de la famille violette de la palette.

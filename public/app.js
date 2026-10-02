@@ -7600,7 +7600,7 @@
     if (TMT.currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(detailPlanning, TMT.currentGoalsViewPeriodNumber)) {
       TMT.currentGoalsViewPeriodNumber = detailPlanning.currentPeriodNumber;
     }
-    if (!$('goalsDetailPage').classList.contains('hidden')) TMT.renderActivityGoals();
+    if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen()) TMT.renderActivityGoals();
   }
 
 
