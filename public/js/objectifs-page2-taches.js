@@ -372,6 +372,7 @@
     if (TMT.discussion) TMT.discussion.setVisible(mode === 'disc');
     // O2·07 : à l'arrivée sur « Objectifs », le rail indique la période en cours.
     if (TMT.updateGoalsScrubVisibility) window.requestAnimationFrame(function () { TMT.updateGoalsScrubVisibility(); });
+    if (TMT.renderGoalsPoleSwitcher) TMT.renderGoalsPoleSwitcher();
   }
 
   $('goalsPage2ModeTasksBtn').addEventListener('click', function () { setGoalsPage2Mode('tasks'); });

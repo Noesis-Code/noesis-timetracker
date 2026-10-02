@@ -41,7 +41,7 @@
           <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevPoleBtn" aria-label="Pôle précédent">‹</button>
           <div class="goalsActivityNameWrap">
             <span class="dot" id="goalsPoleDot"></span>
-            <span class="activityPageName" id="goalsPoleName"></span>
+            <span class="goalsPoleTxt"><small class="goalsPoleSmall hidden" id="goalsPoleSmall"></small><span class="activityPageName" id="goalsPoleName"></span></span>
           </div>
           <button type="button" class="menuBtn goalsSwipeBtn" id="goalsNextPoleBtn" aria-label="Pôle suivant">›</button>
         </div>
@@ -542,6 +542,26 @@
   // (goalsHasNoRealCategory), exactement comme l'ancien menu déroulant — la
   // grille affiche alors encore goalsPoles() en repli, un sélecteur n'aurait
   // pas de sens.
+  // Secteurs du pôle affiché (colonnes de la grille) ; un pôle sans secteur n'a que lui-même.
+  function goalsMonthColumns() { return TMT.currentGoalsGridColumns || []; }
+  function goalsMonthSecteur() {
+    var cols = goalsMonthColumns();
+    var key = TMT.currentGoalsSelectedSecteurKey;
+    for (var i = 0; i < cols.length; i++) if (cols[i].key === key) return cols[i];
+    return cols[0] || null;
+  }
+  TMT.goalsMonthSecteur = goalsMonthSecteur;
+  // ‹ › / balayage du cadre en page du milieu : secteur précédent/suivant (circulaire).
+  function cycleGoalsSecteur(delta) {
+    var cols = goalsMonthColumns();
+    if (cols.length < 2) return;
+    var cur = goalsMonthSecteur(), idx = 0;
+    cols.forEach(function (c, i) { if (cur && c.key === cur.key) idx = i; });
+    TMT.currentGoalsSelectedSecteurKey = cols[((idx + delta) % cols.length + cols.length) % cols.length].key;
+    if (TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
+    renderGoalsPoleSwitcher();
+  }
+
   function renderGoalsPoleSwitcher() {
     var header = $('goalsActivityHeader');
     if (!header) return;
@@ -560,6 +580,19 @@
     if (dot) dot.style.background = shade;
     var name = $('goalsPoleName');
     if (name) name.textContent = t(poles[index].label);
+    // 2 oct. 2026 (Emilien) : page du milieu (mensuel) = même cadre, mais pour choisir le SECTEUR du pôle affiché,
+    // teinté (fond + contour) de la couleur automatique du pôle.
+    var small = $('goalsPoleSmall');
+    var monthOn = !!(TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen());
+    header.classList.toggle('isMonth', monthOn);
+    if (small) small.classList.toggle('hidden', !monthOn);
+    if (monthOn) {
+      var sec = goalsMonthSecteur();
+      if (small) { small.textContent = t(poles[index].label); small.classList.toggle('hidden', !!sec && sec.key === poles[index].key); }
+      if (name && sec) name.textContent = t(sec.label);
+      var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(shade || '');
+      if (m) header.style.setProperty('--poleRgb', parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16));
+    }
     if (TMT.rerenderGoalsTasksOverview) TMT.rerenderGoalsTasksOverview();
   }
 
@@ -1181,10 +1214,12 @@
   // d'activité depuis cette page n'est plus possible, voir le commentaire
   // d'index.html sur #goalsActivityPlainRow).
   $('goalsPrevPoleBtn').addEventListener('click', function () {
+    if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen()) return cycleGoalsSecteur(-1);
     openGoalsForPole(TMT.currentGoalsPoleIndex - 1);
   });
 
   $('goalsNextPoleBtn').addEventListener('click', function () {
+    if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen()) return cycleGoalsSecteur(1);
     openGoalsForPole(TMT.currentGoalsPoleIndex + 1);
   });
 
@@ -1212,6 +1247,7 @@
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
       // Droite → gauche (dx négatif) : pôle SUIVANT.
       // Gauche → droite (dx positif) : pôle PRÉCÉDENT.
+      if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen()) return cycleGoalsSecteur(dx < 0 ? 1 : -1);
       openGoalsForPole(TMT.currentGoalsPoleIndex + (dx < 0 ? 1 : -1));
     }, { passive: true });
   })();
@@ -1237,6 +1273,7 @@
     // reste ci-dessus ; reloadGoalsAll() retombe sur le premier pôle réel de
     // cette activité (ou sur goalsPoles() si elle n'en a aucun).
     TMT.currentGoalsSelectedPoleKey = '';
+    TMT.currentGoalsSelectedSecteurKey = '';
     TMT.currentGoalsGridColumns = null;
   };
 

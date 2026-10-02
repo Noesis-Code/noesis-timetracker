@@ -7668,6 +7668,7 @@
       // requête était en vol.
       if (activityId !== TMT.currentGoalsActivityId || poleKey !== TMT.currentGoalsSelectedPoleKey) return;
       TMT.currentGoalsGridColumns = data.columns || [];
+      if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen() && TMT.prepareGoalsMonth) { TMT.prepareGoalsMonth(); TMT.renderGoalsPoleSwitcher(); }
       TMT.currentGoalsMaxSecteurs = data.maxSecteurs || TMT.currentGoalsMaxSecteurs;
       if (TMT.currentGoalsAllPlannings) {
         TMT.currentGoalsAllPlannings.byCategory = TMT.currentGoalsAllPlannings.byCategory || {};

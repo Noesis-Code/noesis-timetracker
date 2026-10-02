@@ -1535,6 +1535,7 @@
     var planning = byCategory[category] || null;
     if (!planning) return false;
     TMT.currentGoalsCategory = category;
+    TMT.currentGoalsSelectedSecteurKey = category;
     TMT.currentGoalsPlanning = planning;
     TMT.currentGoalsViewPeriodNumber = periodNumber == null ? planning.currentPeriodNumber : periodNumber;
     $('goalsDetailTitle').textContent = $('goalsActivityName').textContent;
@@ -1563,9 +1564,12 @@
 
   // Arrivée par balayage : période en cours du pôle affiché (période déjà choisie conservée si même catégorie).
   TMT.prepareGoalsMonth = function () {
-    var cat = TMT.currentGoalsSelectedPoleKey || TMT.currentGoalsCategory;
+    // Page du milieu : on choisit un SECTEUR du pôle affiché (le pôle lui-même si sans secteur).
+    var sec = TMT.goalsMonthSecteur && TMT.goalsMonthSecteur();
+    var cat = (sec && sec.key) || TMT.currentGoalsSelectedPoleKey || TMT.currentGoalsCategory;
     var known = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.byCategory) || {};
     if (!known[cat]) cat = Object.keys(known)[0] || cat;
+    TMT.currentGoalsSelectedSecteurKey = cat;
     var keep = cat === TMT.currentGoalsCategory ? TMT.currentGoalsViewPeriodNumber : null;
     if (!applyGoalsMonthState(cat, keep)) { renderActivityGoals(); return; }
     showGoalsMonthContent(cat);
