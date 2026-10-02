@@ -41,8 +41,9 @@ function todayLocal() {
 // datées. Renvoie null si pas de surcharge, sinon { loadMinutes, budgetMinutes, moves }.
 function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DAYS }) {
   const budget = Math.max(1, budgetMinutes);
+  // Tâche longue étalée : `minutes` = part du jour (voir loadTasks) ; jamais déplacée par le plan.
   const due = tasks.filter((t) => t.dueDate && t.dueDate <= today)
-    .sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id));
+    .sort((a, b) => (!!b.long - !!a.long) || (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id));
   const load = due.reduce((s, t) => s + t.minutes, 0);
   if (load <= budget) return null;
 
@@ -56,7 +57,7 @@ function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DA
   let kept = 0;
   const moves = [];
   due.forEach((t) => {
-    if (kept === 0 || kept + t.minutes <= budget) { kept += t.minutes; return; }
+    if (t.long || kept === 0 || kept + t.minutes <= budget) { kept += t.minutes; return; }
     let to = days.find((d) => dayLoad[d] + t.minutes <= budget);
     if (!to) to = days.reduce((b, d) => (dayLoad[d] < dayLoad[b] ? d : b), days[0]);
     dayLoad[to] += t.minutes;
@@ -75,7 +76,7 @@ function budgetFor(activityId, userId) {
   return Math.max(MIN_BUDGET_MINUTES, Math.round(total));
 }
 
-function loadTasks(activityId) {
+function loadTasks(activityId, budget, today) {
   const rows = db.prepare(`
     SELECT i.id, i.label, i.dueDate, i.dueDateAuto, sp.goalCategory AS category
     FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
@@ -83,7 +84,12 @@ function loadTasks(activityId) {
   `).all(activityId);
   return rows.map((r) => {
     const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null;
-    return { ...r, minutes: (est && est.minutes) || DEFAULT_TASK_MINUTES };
+    const total = (est && est.minutes) || DEFAULT_TASK_MINUTES;
+    const span = captureplace.longSpan(total, budget);
+    if (!span) return { ...r, minutes: total };
+    // Tâche longue : on ne compte que la part du jour, pas la durée totale.
+    const k = Math.max(0, goals.daysBetween(r.dueDate, today));
+    return { ...r, long: true, minutes: k === span.days - 1 ? span.rest : budget };
   });
 }
 
@@ -143,7 +149,8 @@ function getProposal(userId, activityId) {
   if (db.prepare('SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ?').get(userId, activityId, today)) {
     return { overloaded: false, dismissed: true };
   }
-  const p = computeProposal({ today, budgetMinutes: budgetFor(activityId, userId), tasks: loadTasks(activityId) });
+  const budget = budgetFor(activityId, userId);
+  const p = computeProposal({ today, budgetMinutes: budget, tasks: loadTasks(activityId, budget, today) });
   if (!p) return { overloaded: false };
   return {
     overloaded: true,
@@ -179,4 +186,4 @@ function dismissProposal(userId, activityId) {
   return { dismissed: true };
 }
 
-module.exports = { computeProposal, getProposal, applyProposal, dismissProposal };
+module.exports = { budgetFor, computeProposal, getProposal, applyProposal, dismissProposal };

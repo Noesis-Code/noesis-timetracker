@@ -91,25 +91,62 @@ function globalDailyCapacityMinutes(userId) {
   return Math.max(1, Math.round(total));
 }
 
+// TÂCHE LONGUE (2 oct. 2026, demande d'Emilien) : durée estimée > capacité
+// quotidienne moyenne C (même capacité que goalsoverload.budgetFor, import
+// paresseux : goalsoverload dépend déjà de ce fichier). Elle est placée seule
+// sur son jour de départ, consomme C minutes par jour sur n = ceil(d/C) jours
+// consécutifs (le dernier jour : reste d-(n-1)*C). Les jours intermédiaires
+// sont fermés aux autres tâches ; le reste de capacité du dernier jour reste libre.
+const CLOSED_DAY = 1e6;
+
+function capacityFor(userId, activityId) {
+  return require('./goalsoverload').budgetFor(activityId, userId);
+}
+
+function taskMinutes(activityId, category, label) {
+  const est = category ? goals.estimateForGoal(activityId, category, 'weekly', label) : null;
+  return (est && est.minutes) || DEFAULT_TASK_MINUTES;
+}
+
+// Pur. null si la tâche n'est pas longue.
+function longSpan(minutes, capacity) {
+  if (!(minutes > capacity)) return null;
+  const n = Math.ceil(minutes / capacity);
+  return { days: n, rest: minutes - (n - 1) * capacity };
+}
+
 // Charge déjà engagée, PAR JOUR, toutes activités confondues — chaque tâche
 // déjà datée et non cochée compte pour son estimation (goals.estimateForGoal,
 // même moteur que le signal « temps estimé » de goalsdailypriority.js) ou
-// DEFAULT_TASK_MINUTES à défaut d'historique.
-function committedMinutesByDay(userId, days) {
-  const placeholders = days.map(() => '?').join(',');
+// DEFAULT_TASK_MINUTES à défaut d'historique. Une tâche longue compte sa PART
+// du jour (jours intermédiaires fermés). `excludeId` : tâche à ignorer.
+function committedMinutesByDay(userId, days, excludeId) {
+  const earliest = goals.addDays(days[0], -60);
   const rows = db.prepare(`
-    SELECT i.label, i.dueDate AS date, sp.activityId, sp.goalCategory AS category
+    SELECT i.id, i.label, i.dueDate AS date, sp.activityId, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_project_sections s ON s.id = i.sectionId
     JOIN sub_projects sp ON sp.id = s.subProjectId
     JOIN activity_members m ON m.activityId = sp.activityId
-    WHERE m.userId = ? AND i.done = 0 AND i.dueDate IN (${placeholders})
-  `).all(userId, ...days);
+    WHERE m.userId = ? AND i.done = 0 AND i.dueDate >= ? AND i.dueDate <= ? AND i.id != ?
+  `).all(userId, earliest, days[days.length - 1], excludeId || 0);
   const byDay = {};
   days.forEach((d) => { byDay[d] = 0; });
+  const globalBudget = globalDailyCapacityMinutes(userId);
   rows.forEach((r) => {
-    const est = r.category ? goals.estimateForGoal(r.activityId, r.category, 'weekly', r.label) : null;
-    byDay[r.date] += (est && est.minutes) || DEFAULT_TASK_MINUTES;
+    const minutes = taskMinutes(r.activityId, r.category, r.label);
+    const cap = capacityFor(userId, r.activityId);
+    const span = longSpan(minutes, cap);
+    if (!span) {
+      if (byDay[r.date] !== undefined) byDay[r.date] += minutes;
+      return;
+    }
+    for (let k = 0; k < span.days; k += 1) {
+      const d = goals.addDays(r.date, k);
+      if (byDay[d] === undefined) continue;
+      // Dernier jour : on ne garde que le RESTE de capacité (cap - rest), exprimé dans le budget global.
+      byDay[d] += k < span.days - 1 ? CLOSED_DAY : globalBudget - (cap - span.rest);
+    }
   });
   return byDay;
 }
@@ -120,20 +157,36 @@ function committedMinutesByDay(userId, days) {
 // le budget quotidien global ; à défaut, le jour le MOINS chargé de la
 // fenêtre plutôt que de ne rien renvoyer (même esprit que le repli de
 // goalsdailyauto.js#deterministicAssignments : toujours une date, jamais de
-// blocage).
-function chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel) {
+// blocage). Tâche longue : premier jour de départ libre dont les jours
+// suivants sont libres (le dernier peut porter déjà son reste de capacité).
+function chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, excludeId) {
   const today = todayLocal();
+  const ownMinutes = taskMinutes(activityId, categoryKey, taskLabel);
+  const span = longSpan(ownMinutes, capacityFor(userId, activityId));
+  const extra = span ? span.days : 0;
   const days = [];
-  for (let i = 0; i < LOOKAHEAD_DAYS; i += 1) days.push(goals.addDays(today, i));
+  for (let i = 0; i < LOOKAHEAD_DAYS + extra; i += 1) days.push(goals.addDays(today, i));
 
-  const estimate = goals.estimateForGoal(activityId, categoryKey, 'weekly', taskLabel);
-  const ownMinutes = (estimate && estimate.minutes) || DEFAULT_TASK_MINUTES;
   const budget = globalDailyCapacityMinutes(userId);
-  const load = committedMinutesByDay(userId, days);
+  const load = committedMinutesByDay(userId, days, excludeId);
+  const window = days.slice(0, LOOKAHEAD_DAYS);
 
-  let chosen = days.find((d) => (load[d] || 0) + ownMinutes <= budget);
+  if (span) {
+    const cap = capacityFor(userId, activityId);
+    const start = window.find((d) => {
+      const i = days.indexOf(d);
+      for (let k = 0; k < span.days; k += 1) {
+        const l = load[days[i + k]] || 0;
+        if ((k < span.days - 1 ? l > 0 : l + span.rest > cap)) return false;
+      }
+      return true;
+    });
+    if (start) return start;
+  }
+
+  let chosen = window.find((d) => (load[d] || 0) + (span ? CLOSED_DAY : ownMinutes) <= budget);
   if (!chosen) {
-    chosen = days.reduce((best, d) => ((load[d] || 0) < (load[best] || 0) ? d : best), days[0]);
+    chosen = window.reduce((best, d) => ((load[d] || 0) < (load[best] || 0) ? d : best), window[0]);
   }
   return chosen;
 }
@@ -166,18 +219,35 @@ function autoPlaceTask(userId, activityId, categoryKey, itemId, taskLabel) {
 // tâche n'est plus en retard.
 function redispatchOverdue(userId, activityId) {
   const today = todayLocal();
-  const rows = db.prepare(`
-    SELECT i.id, i.label, sp.goalCategory AS category
+  const all = db.prepare(`
+    SELECT i.id, i.label, i.dueDate, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_projects sp ON sp.id = i.subProjectId
-    WHERE sp.activityId = ? AND i.done = 0 AND i.dueDateAuto = 1 AND i.dueDate < ?
+    WHERE sp.activityId = ? AND i.done = 0 AND i.dueDateAuto = 1 AND i.dueDate IS NOT NULL AND i.dueDate != ''
     ORDER BY i.dueDate ASC, i.id ASC
-  `).all(activityId, today);
+  `).all(activityId);
+  const cap = capacityFor(userId, activityId);
   const upd = db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?');
-  rows.forEach((r) => {
-    upd.run(chooseAutoPlacementDate(userId, activityId, r.category, r.label), r.id);
+  const withSpan = all.map((r) => ({ ...r, span: longSpan(taskMinutes(activityId, r.category, r.label), cap) }));
+  // Une tâche longue n'est en retard qu'une fois son DERNIER jour passé.
+  const overdue = (r) => (r.span ? goals.addDays(r.dueDate, r.span.days - 1) : r.dueDate) < today;
+  const lateLong = withSpan.filter((r) => r.span && overdue(r));
+  const lateShort = withSpan.filter((r) => !r.span && overdue(r));
+  // Tâche longue non faite : reste « tâche du jour » (aujourd'hui, prioritaire) ;
+  // les autres tâches auto des jours bloqués sont décalées.
+  lateLong.forEach((r) => upd.run(today, r.id));
+  if (lateLong.length) {
+    const blocked = new Set();
+    lateLong.forEach((r) => {
+      for (let k = 0; k < r.span.days; k += 1) blocked.add(goals.addDays(today, k));
+    });
+    withSpan.filter((r) => !r.span && !overdue(r) && blocked.has(r.dueDate))
+      .forEach((r) => upd.run(chooseAutoPlacementDate(userId, activityId, r.category, r.label, r.id), r.id));
+  }
+  lateShort.forEach((r) => {
+    upd.run(chooseAutoPlacementDate(userId, activityId, r.category, r.label, r.id), r.id);
   });
-  return rows.length;
+  return lateLong.length + lateShort.length;
 }
 
 module.exports = {
@@ -188,4 +258,6 @@ module.exports = {
   committedMinutesByDay,
   chooseAutoPlacementDate,
   autoPlaceTask,
+  longSpan,
+  taskMinutes,
 };
