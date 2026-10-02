@@ -159,9 +159,7 @@
 .goalsTasksGroup .subProjectItem.dragging { position: relative; z-index: 5; opacity: .9; background: var(--bg-raised, var(--card)); box-shadow: 0 6px 18px rgba(0,0,0,.45); border-radius: 10px; }
 .goalsTasksGroup.catDropTarget { outline: 2px solid var(--purple); outline-offset: -2px; }
 
-/* 100 % (2 oct. 2026) : vert calme. Contour vert uniquement sur l'Avancement global ; la catégorie garde ses bordures. */
+/* 100 % (2 oct. 2026) : vert calme. Uniquement sur l'Avancement global. */
 #goalsTasksProgressWrap.isComplete { border-color: rgba(111, 201, 160, 0.55) !important; }
 #goalsTasksProgressWrap.isComplete .activityProgressRingFill { stroke: #6fc9a0; }
 #goalsTasksProgressWrap.isComplete .activityProgressPercent { color: #9be0bf; }
-.goalsTasksGroup.isComplete .subProjectProgressFill { background: #6fc9a0 !important; }
-.goalsTasksGroup.isComplete .subProjectBadge { color: #9be0bf; }
