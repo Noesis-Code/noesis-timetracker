@@ -381,7 +381,7 @@
     // de pôle (TMT.currentGoalsSelectedPoleKey) — seuls les secteurs (ou le
     // pôle sans secteur) de CE pôle, avec leurs tâches et leur avancement.
     var selPole = TMT.currentGoalsSelectedPoleKey;
-    if (data && selPole && (data.groups || []).some(function (g) { return g.poleKey === selPole; })) {
+    if (data && selPole) { // 2 oct. 2026 : filtre TOUJOURS (un pôle sans tâche n'affichait auparavant que tous les secteurs de l'activité)
       var fg = data.groups.filter(function (g) { return g.poleKey === selPole; });
       var fd = 0, ft = 0;
       fg.forEach(function (g) { fd += g.done || 0; ft += g.total || 0; });
