@@ -39,6 +39,7 @@
    .activityPageHeader, objectifs-page2.js), pas plus de nouvelle mise en
    page que le simple déplacement de ces 3 déclarations. */
 #goalsActivitySwitcherScroll {
+  position: relative;
   flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
   overscroll-behavior: contain;
   display: flex; flex-direction: column; gap: 14px;

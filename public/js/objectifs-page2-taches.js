@@ -318,6 +318,7 @@
       if (TMT.discussion) TMT.discussion.setVisible(true);
       return;
     }
+    var previousBase = goalsPage2BaseMode;
     goalsPage2BaseMode = mode;
     currentGoalsPage2Mode = mode;
     var tasksBtn = $('goalsPage2ModeTasksBtn');
@@ -329,8 +330,31 @@
     if (goalsBtn) goalsBtn.classList.toggle('active', mode === 'goals');
     var tasksView = $('goalsTasksView');
     var objectifsView = $('goalsObjectifsView');
-    if (tasksView) tasksView.classList.toggle('hidden', mode !== 'tasks');
-    if (objectifsView) objectifsView.classList.toggle('hidden', mode !== 'goals');
+    // 2 oct. 2026 (Emilien) : défilement latéral (et non un saut) entre Tâches et Objectifs.
+    var slideFrom = null, slideOut = null, slideIn = null;
+    if (tasksView && objectifsView && previousBase && previousBase !== mode &&
+        (mode === 'tasks' || mode === 'goals') && (previousBase === 'tasks' || previousBase === 'goals') &&
+        !tasksView.closest('.hidden') && typeof tasksView.animate === 'function') {
+      slideOut = previousBase === 'tasks' ? tasksView : objectifsView;
+      slideIn = mode === 'tasks' ? tasksView : objectifsView;
+      slideFrom = mode === 'goals' ? 1 : -1; // vers Objectifs : entre par la droite
+      var r = slideOut.getBoundingClientRect(), zr = slideOut.offsetParent ? slideOut.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+      slideOut.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + (slideOut.offsetTop) + 'px;width:' + r.width + 'px;pointer-events:none;';
+    }
+    if (tasksView) tasksView.classList.toggle('hidden', mode !== 'tasks' && slideOut !== tasksView);
+    if (objectifsView) objectifsView.classList.toggle('hidden', mode !== 'goals' && slideOut !== objectifsView);
+    if (slideOut) {
+      var host = document.getElementById('goalsActivitySwitcherScroll');
+      host.style.overflowX = 'hidden';
+      var opts = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
+      slideIn.animate([{ transform: 'translateX(' + (slideFrom * 100) + '%)' }, { transform: 'translateX(0)' }], opts);
+      var outAnim = slideOut.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-slideFrom * 100) + '%)' }], opts);
+      outAnim.onfinish = function () {
+        slideOut.style.position = ''; slideOut.style.left = ''; slideOut.style.top = ''; slideOut.style.width = ''; slideOut.style.pointerEvents = '';
+        slideOut.classList.add('hidden');
+        outAnim.cancel(); slideIn.getAnimations().forEach(function (a) { a.cancel(); }); host.style.overflowX = '';
+      };
+    }
     if (mode === 'tasks') loadGoalsTasksOverview();
     var discBtn = $('goalsPage2ModeDiscBtn');
     if (discBtn) discBtn.classList.toggle('active', mode === 'disc');
