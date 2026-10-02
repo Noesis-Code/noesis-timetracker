@@ -4618,7 +4618,7 @@
   });
   $('csTsNextWeek').addEventListener('click', function () {
     if (csPeriod === 'month') { if (csMonthOffset === 0) return; csMonthOffset -= 1; }
-    else { if (csWeekOffset === 0) return; csWeekOffset -= 1; }
+    else { if (csWeekOffset <= 1) return; csWeekOffset -= 1; }
     loadCategoryStats();
   });
   setupStatsPeriodMenu($('csTsPeriodBtn'), $('csTsPeriodMenu'), function (period) {
@@ -5237,7 +5237,7 @@
       if (currentTimesheetMonthOffset === 0) return;
       currentTimesheetMonthOffset -= 1;
     } else {
-      if (currentTimesheetOffset === 0) return;
+      if (currentTimesheetOffset <= 1) return;
       currentTimesheetOffset -= 1;
     }
     loadTimesheet();

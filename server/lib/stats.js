@@ -517,8 +517,11 @@ function timesheetForUser(userId, weekOffset, opts) {
     // Aucun jour n'est inatteignable — les jours de la semaine en cours qui
     // ne sont pas dans cette semaine-là sont, eux, dans la fenêtre glissante
     // d'offset 0 (les deux se chevauchent, mais ne laissent pas de trou).
+    // 2 oct. 2026 (Emilien) : offset 1 = la semaine calendaire EN COURS (lundi→dimanche,
+    // incomplète : les jours à venir sont vides) ; offset 2 = la précédente, etc. L'offset 0
+    // (fenêtre glissante des 7 derniers jours) n'est que la vue PAR DÉFAUT à l'ouverture.
     const monday = mondayOf(today);
-    monday.setDate(monday.getDate() - offset * 7);
+    monday.setDate(monday.getDate() - (offset - 1) * 7);
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
@@ -537,11 +540,11 @@ function timesheetForUser(userId, weekOffset, opts) {
     ? db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ? AND activityId = ?')
         .get(userId, Number(opts.activityId))
     : db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
-  const hasMoreBefore = !!(earliest && earliest.d && earliest.d < start);
+  const hasMoreBefore = !!(earliest && earliest.d && (offset === 0 || earliest.d < start));
 
   const label = `Semaine du ${pad2(days[0].getDate())}/${pad2(days[0].getMonth() + 1)} au ${pad2(days[6].getDate())}/${pad2(days[6].getMonth() + 1)}`;
 
-  return { weekOffset: offset, isCurrentWeek: offset === 0, start, end, label, hasMoreBefore, days: grid };
+  return { weekOffset: offset, isCurrentWeek: offset <= 1, start, end, label, hasMoreBefore, days: grid };
 }
 
 // ===================== FEUILLE DE TEMPS — VUE "MOIS" (calendrier) =====================
