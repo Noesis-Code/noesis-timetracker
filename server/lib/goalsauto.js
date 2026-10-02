@@ -133,11 +133,27 @@ function fallbackCapacityMinutes(activityId) {
 // simple et prévisible, à la charge de l'utilisateur de le retirer quand la
 // situation redevient normale.
 
-function getCapacityOverrideMinutes(activityId, category, userId) {
+// 2 oct. 2026 (Emilien) : l'ajustement manuel a priorité sur le calcul auto
+// pendant OVERRIDE_PRIORITY_DAYS jours à partir du jour de saisie ; ensuite le
+// calcul automatique repart de cette valeur (voir capacityMinutesForMember).
+const OVERRIDE_PRIORITY_DAYS = 14;
+
+function getCapacityOverrideRow(activityId, category, userId) {
   const row = db.prepare(
-    'SELECT weeklyMinutes FROM goal_capacity_overrides WHERE activityId = ? AND category = ? AND userId = ?'
+    'SELECT weeklyMinutes, updatedAt FROM goal_capacity_overrides WHERE activityId = ? AND category = ? AND userId = ?'
   ).get(activityId, category, userId);
-  return row ? row.weeklyMinutes : null;
+  if (!row) return null;
+  const d = new Date(row.updatedAt);
+  const p = (n) => String(n).padStart(2, '0');
+  const startDay = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  const endDay = goals.addDays(startDay, OVERRIDE_PRIORITY_DAYS); // premier jour SANS priorité
+  return { minutes: row.weeklyMinutes, startDay, endDay };
+}
+
+// Valeur manuelle seulement tant que la priorité de 2 semaines court (sinon null).
+function getCapacityOverrideMinutes(activityId, category, userId) {
+  const row = getCapacityOverrideRow(activityId, category, userId);
+  return row && todayLocal() < row.endDay ? row.minutes : null;
 }
 
 function setCapacityOverrideMinutes(activityId, category, userId, weeklyMinutes) {
@@ -167,9 +183,18 @@ function clearCapacityOverride(activityId, category, userId) {
 }
 
 function capacityMinutesForMember(activityId, category, userId) {
-  const override = getCapacityOverrideMinutes(activityId, category, userId);
-  if (override != null) return override;
+  const row = getCapacityOverrideRow(activityId, category, userId);
+  const today = todayLocal();
+  if (row && today < row.endDay) return row.minutes;
   const history = recentWeeklyMinutesForUser(activityId, category, userId, RECENT_WEEKS_WINDOW);
+  if (row) {
+    // Après la priorité : le calcul repart de la valeur manuelle puis s'ajuste au temps réel —
+    // chaque semaine écoulée depuis la fin de la priorité remplace une semaine « manuelle » de la fenêtre.
+    const elapsedWeeks = Math.floor(goals.daysBetween(row.endDay, today) / 7);
+    const real = history.slice(0, Math.min(elapsedWeeks, RECENT_WEEKS_WINDOW, history.length));
+    const all = real.concat(new Array(RECENT_WEEKS_WINDOW - real.length).fill(row.minutes));
+    return Math.max(1, Math.round(all.reduce((s, m) => s + m, 0) / all.length));
+  }
   if (history.length) {
     return Math.max(1, Math.round(history.reduce((s, m) => s + m, 0) / history.length));
   }
@@ -357,6 +382,8 @@ module.exports = {
   deactivateOffre1,
   capacityMinutesForMember,
   getCapacityOverrideMinutes,
+  getCapacityOverrideRow,
+  OVERRIDE_PRIORITY_DAYS,
   setCapacityOverrideMinutes,
   clearCapacityOverride,
   reorganizeCategory,

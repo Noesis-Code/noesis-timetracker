@@ -867,6 +867,7 @@
   var goalsCapacityEditing = false;
 
 
+  var goalsCapacityUntil = null; // dernier jour de priorité de l'ajustement manuel (2 semaines)
   function renderGoalsCapacity() {
     var box = $('activityGoalsCapacity');
     if (!box) return;
@@ -880,6 +881,7 @@
         // activité pendant que cette requête était en vol — même principe
         // que loadGoalsCalendarDays() plus bas.
         if (requestId !== goalsCapacityRequestId) return;
+        goalsCapacityUntil = data.overrideUntil || null;
         renderGoalsCapacityBox(box, data.override, data.computed);
       })
       .catch(function () {
@@ -905,7 +907,7 @@
     line.appendChild(value);
     var tag = document.createElement('span');
     tag.className = 'goalCapacityTag' + (override != null ? ' manual' : '');
-    tag.textContent = override != null ? t('ajusté manuellement') : t('calculé automatiquement');
+    tag.textContent = override != null ? t('ajusté manuellement') + (goalsCapacityUntil ? ' · ' + t('jusqu’au') + ' ' + goalsCapacityUntil : '') : t('calculé automatiquement');
     line.appendChild(tag);
     box.appendChild(line);
 

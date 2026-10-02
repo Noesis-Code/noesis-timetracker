@@ -975,7 +975,8 @@ router.get('/activities/:id/goals/capacity', (req, res) => {
     }
     const override = goalsauto.getCapacityOverrideMinutes(activityId, category, userId);
     const computed = goalsauto.capacityMinutesForMember(activityId, category, userId);
-    res.json({ override, computed });
+    const row = goalsauto.getCapacityOverrideRow(activityId, category, userId);
+    res.json({ override, computed, overrideUntil: override != null && row ? goals.addDays(row.endDay, -1) : null });
   } catch (err) {
     handleGoalsError(res, err);
   }
