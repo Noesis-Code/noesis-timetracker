@@ -173,7 +173,7 @@
   position: fixed; right: 18px; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 120;
   width: 56px; height: 56px; flex: none; padding: 0; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: var(--purple); color: #fff; border: 1px solid rgba(255, 255, 255, 0.28);
+  background: #d9d0ff; color: #2b2058; border: none;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
 }
 #goalsPage2ModeDiscBtn.hidden, #goalsPage2ModeDiscBtn.active { display: none; }
