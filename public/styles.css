@@ -2858,8 +2858,8 @@ body.scrollLock { overflow: hidden; }
    .activityRowHeader en flex) ; masquée quand le compteur est à zéro. */
 /* 1er oct. 2026 (Gaspard) : message non lu = point rouge (le nombre reste dans le DOM). */
 .unreadBadge {
-  margin-left: auto; flex-shrink: 0; width: 10px; height: 10px; min-width: 0; padding: 0;
-  border-radius: 50%; background: var(--red); color: transparent;
+  margin-left: auto; flex-shrink: 0; width: 8px; height: 8px; min-width: 0; padding: 0;
+  border-radius: 50%; background: #f59a3c; color: transparent;
   font-size: 0; line-height: 0; overflow: hidden;
 }
 .unreadBadge.hidden { display: none; }
