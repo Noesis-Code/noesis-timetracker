@@ -443,7 +443,13 @@
 /* Page mensuel : carte de l'objectif périodique en verre de l'app (2 oct. 2026) ; la couleur du pôle ne sert plus qu'au contour et à la jauge. */
 #goalsMonthView #activityGoalsMainCard {
   background: var(--glass-bg) !important; color: var(--text) !important;
-  border: 1px solid var(--cardEdge, var(--glass-border)) !important; box-shadow: var(--glass-shadow) !important;
+  border: 1px solid var(--glass-border) !important; box-shadow: var(--glass-shadow) !important;
 }
 #goalsMonthView #activityGoalsMainCard .goalMainProgressTrack { background: var(--track-bg) !important; }
 #goalsMonthView #activityGoalsMainCard .goalMainProgressFill { background: var(--cardEdge, var(--purple)); }
+
+/* Page mensuel (2 oct. 2026) : pas de titre de secteur au-dessus de l'objectif ; section hebdomadaire translucide, sans contour coloré. */
+#goalsMonthView #activityGoalsCategoryLabel { display: none; }
+#goalsMonthView .goalsWeeklyList { background: var(--glass-bg); border: 1px solid var(--glass-border); gap: 0; }
+#goalsMonthView .goalsWeeklyList .goalWeeklyCard { background: transparent !important; box-shadow: none !important; border: none !important; border-top: 1px solid var(--glass-border) !important; }
+#goalsMonthView .goalsWeeklyList .goalWeeklyCard:first-child { border-top: none !important; }
