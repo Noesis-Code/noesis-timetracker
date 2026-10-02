@@ -112,14 +112,15 @@
 .goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
 
 .goalsGrid {
-  display: flex; flex-direction: column; gap: 14px;
+  --goalsGridGap: 34px;
+  display: flex; flex-direction: column; gap: var(--goalsGridGap);
   padding: 6px 4px 220px;
 }
 
 .goalsGridRow { display: flex; align-items: stretch; gap: 10px; position: relative; }
 
 .goalsGridRow:not(:first-child)::before {
-  content: ''; position: absolute; left: 0; top: -7px; z-index: -2;
+  content: ''; position: absolute; left: 0; top: calc(var(--goalsGridGap) / -2); z-index: -2;
   width: var(--goalsRowFullWidth, 100%);
   border-top: 2px dashed var(--track-bg); pointer-events: none;
 }
@@ -137,12 +138,12 @@
 
 .goalsGridCell::before {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
-  left: 50%; top: -14px; height: 14px; width: 0;
+  left: 50%; top: calc(var(--goalsGridGap) * -1); height: var(--goalsGridGap); width: 0;
   border-left: 2px solid var(--goalsCellLineColor, var(--track-bg));
   transform: translateX(-50%);
 }
 
-.goalsGridCell--filled::before { top: -16px; height: 16px; }
+.goalsGridCell--filled::before { top: calc(var(--goalsGridGap) * -1 - 2px); height: calc(var(--goalsGridGap) + 2px); }
 
 .goalsGridRow:first-child .goalsGridCell::before { display: none; }
 
@@ -150,7 +151,7 @@
 
 .goalsGridCell--filled {
   display: flex; flex-direction: column; gap: 2px;
-  min-height: 32px; padding: 6px 12px; justify-content: center;
+  min-height: 64px; padding: 14px 14px; justify-content: center;
   border: 2px solid var(--track-bg); border-radius: var(--radius-md);
   background: var(--card); box-shadow: var(--shadow-card);
 }
@@ -162,14 +163,14 @@
 }
 
 .goalsGridCell--empty {
-  min-height: 16px; border-radius: var(--radius-md);
+  min-height: 64px; border-radius: var(--radius-md);
   background: var(--track-bg); opacity: 0.32;
 }
 
 .goalsGridCell--empty.current { opacity: 0.55; }
 
 .goalsGridCell--add {
-  min-height: 54px; border: none; background: transparent; padding: 0;
+  min-height: 64px; border: none; background: transparent; padding: 0;
   position: relative; display: flex; align-items: center; justify-content: center;
 }
 
