@@ -163,3 +163,6 @@
 #goalsTasksProgressWrap.isComplete { border-color: rgba(111, 201, 160, 0.55) !important; }
 #goalsTasksProgressWrap.isComplete .activityProgressRingFill { stroke: #6fc9a0; }
 #goalsTasksProgressWrap.isComplete .activityProgressPercent { color: #9be0bf; }
+
+/* 2 oct. 2026 (Emilien) : aucun grisé au toucher/survol d'une tâche (le :hover générique restait collé après un appui). */
+.goalsTasksGroup .subProjectItem:hover, .goalsTasksGroup .subProjectItem:active, .goalsTasksGroup .subProjectItem:focus-within { background: transparent; }
