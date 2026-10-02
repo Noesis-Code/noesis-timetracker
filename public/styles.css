@@ -522,7 +522,7 @@ input[type=time]:focus, select:focus, textarea:focus {
    dans index.html) ; le point lui-même réutilise .notifDot, défini plus bas
    avec l'icône "avion en papier" du Profil. */
 .whoami { position: relative; display: inline-flex; align-items: center; }
-.whoami .notifDot { top: -3px; right: -3px; width: 12px; height: 12px; border-color: var(--bg); }
+.whoami .notifDot { top: -2px; right: -2px; width: 8px; height: 8px; }
 /* Photo/initiale miniature de #whoami (3 septembre 2026) : même principe que
    .avatarDisplay plus bas (photo en fond si définie, sinon initiale sur fond
    coloré — voir renderIdentityHeader() dans app.js, qui alimente les deux en
@@ -1819,8 +1819,8 @@ body.scrollLock { overflow: hidden; }
 .topIconBtn .notifDot { top: -1px; right: -1px; border-color: #000000; }
 .notifDot {
   position: absolute; top: 3px; right: 3px;
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--red); border: 2px solid var(--card);
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #f59a3c; border: none; box-shadow: 0 0 0 1px rgba(245, 154, 60, 0.25);
 }
 /* .notifWrap et .settingsWrap reprennent une position propre (`relative`)
    depuis le 2 septembre 2026, deuxième passage : elles ont quitté .topbar
