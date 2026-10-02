@@ -6652,3 +6652,6 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* Bouton de la Répartition : largeur fixe, seul le texte change (Aujourd'hui / Semaine / Synchroniser). */
 #statsPieTodayBtn { min-width: 112px; width: 112px; text-align: center; white-space: nowrap; box-sizing: border-box; }
+
+/* 2 oct. 2026 (Emilien) : fenêtre Membres — l'en-tête (déjà paddé 16px) s'ajoutait au padding de la carte : trop d'espace au-dessus du titre et de la croix. */
+#communityMembersModal .communityMembersModalCard { padding-top: 0; }
