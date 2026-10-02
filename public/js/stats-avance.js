@@ -70,6 +70,7 @@
     activities().forEach(function (a) {
       var b = el('button', 'saChip' + (String(a.id) === String(activityId) ? ' on' : ''));
       b.type = 'button';
+      b.style.setProperty('--chipEdge', a.color || '#674EA7');
       var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
       b.appendChild(d); b.appendChild(el('span', null, a.name));
       b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; renderChips(); load(); } });

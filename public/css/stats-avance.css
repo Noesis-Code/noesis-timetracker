@@ -10,7 +10,7 @@
 .saChips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
 .saChips::-webkit-scrollbar { display: none; }
 .saChip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 13px; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); }
-.saChip.on { border-color: var(--purple); box-shadow: 0 0 0 1px var(--purple) inset; font-weight: 600; }
+.saChip.on { border-color: var(--chipEdge, var(--purple)); box-shadow: 0 0 0 1px var(--chipEdge, var(--purple)) inset; font-weight: 600; }
 .saChipDot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
 .saCounters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
 .saCounter { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 14px; background: var(--glass-bg); border: 1px solid var(--glass-border); }

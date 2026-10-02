@@ -1591,6 +1591,8 @@
     var cols = TMT.currentGoalsGridColumns || [];
     var sel = TMT.goalsMonthSecteur && TMT.goalsMonthSecteur();
     box.textContent = '';
+    var edge = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+    box.style.setProperty('--chipEdge', edge);
     box.classList.toggle('hidden', cols.length < 2);
     cols.forEach(function (c) {
       var b = document.createElement('button');
