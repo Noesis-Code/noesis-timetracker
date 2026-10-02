@@ -811,9 +811,9 @@ input[type=time]:focus, select:focus, textarea:focus {
    introduit le 30 août 2026 pour l'onglet Activité (invitations en attente).
    Repositionné le 29 septembre 2026 dans l'angle du carré de verre (54px). */
 .tabBtnDot {
-  position: absolute; top: 6px; right: 6px;
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--red); border: 2px solid var(--bg);
+  position: absolute; top: 8px; right: 8px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #f59a3c; border: none; box-shadow: 0 0 0 1px rgba(245, 154, 60, 0.25);
 }
 /* Nom de la section sous le carré, dans la barre d'onglets. */
 .tabLabel {
