@@ -379,12 +379,12 @@
 
   $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
 
-  // Balayage horizontal : droite → gauche = Objectifs, gauche → droite = Tâches.
-  // Ignoré depuis le cadre de pôle (qui change de pôle), les champs, et toute zone défilant horizontalement.
+  // Balayage horizontal « glissé » (2 oct. 2026, Emilien : « je souhaite faire glisser les volets ») : les pages suivent le doigt,
+  // la page voisine apparaît à côté ; au relâchement elle se pose si on a assez glissé (25 % de la largeur, ou geste rapide), sinon revient.
+  // Ignoré depuis le cadre de pôle (qui change de pôle), les champs et toute zone défilant horizontalement (sauf au bord gauche de l'arbre).
   (function bindPage2ModeSwipe() {
     var zone = $('goalsActivitySwitcherScroll');
-    var sx = null, sy = null, st = 0;
-    // Renvoie la zone défilante horizontalement la plus proche (ou null).
+    zone.style.touchAction = 'pan-y';
     function hScroller(el) {
       for (; el && el !== zone; el = el.parentElement) {
         if (el.scrollWidth > el.clientWidth + 1) {
@@ -398,35 +398,78 @@
       var g = document.querySelector('#goalsObjectifsView .goalsGridScroll');
       return !g || g.scrollLeft <= 1;
     }
-    var scroller = null, startLeft = 0;
+    var g0 = null; // geste en cours
+    function canDrag(dx) {
+      var idx = GOALS_PAGE2_ORDER.indexOf(goalsPage2BaseMode);
+      var target = idx + (dx < 0 ? 1 : -1);
+      if (idx < 0 || target < 0 || target >= GOALS_PAGE2_ORDER.length) return -1;
+      if (goalsPage2BaseMode === 'goals' && dx > 0) {
+        if (g0.scroller && !(g0.startLeft <= 1 && g0.scroller.scrollLeft <= 1)) return -1;
+        if (!gridAtLeft()) return -1;
+      } else if (g0.scroller) return -1;
+      return target;
+    }
+    function startDrag(dx) {
+      var target = canDrag(dx);
+      if (target < 0) return false;
+      var curMode = goalsPage2BaseMode, nbMode = GOALS_PAGE2_ORDER[target];
+      var cur = goalsPage2ViewFor(curMode), nb = goalsPage2ViewFor(nbMode);
+      if (!cur || !nb) return false;
+      if (nbMode === 'month' && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
+      var r = cur.getBoundingClientRect(), zr = cur.offsetParent ? cur.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+      nb.classList.remove('hidden');
+      nb.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + cur.offsetTop + 'px;width:' + r.width + 'px;pointer-events:none;';
+      zone.style.overflowX = 'hidden';
+      g0.drag = { cur: cur, nb: nb, curMode: curMode, nbMode: nbMode, width: r.width, dir: dx < 0 ? 1 : -1 };
+      return true;
+    }
+    function place(dx) {
+      var d = g0.drag;
+      var x = d.dir > 0 ? Math.max(Math.min(dx, 0), -d.width) : Math.min(Math.max(dx, 0), d.width);
+      d.x = x;
+      d.cur.style.transform = 'translateX(' + x + 'px)';
+      d.nb.style.transform = 'translateX(' + (x + d.dir * d.width) + 'px)';
+    }
+    function clean(d) {
+      [d.cur, d.nb].forEach(function (v) { v.style.transition = ''; v.style.transform = ''; });
+      d.nb.style.position = ''; d.nb.style.left = ''; d.nb.style.top = ''; d.nb.style.width = ''; d.nb.style.pointerEvents = '';
+      zone.style.overflowX = '';
+    }
     zone.addEventListener('touchstart', function (e) {
-      sx = null; scroller = null;
+      g0 = null;
       if (e.touches.length !== 1 || goalsPage2BaseMode !== currentGoalsPage2Mode) return;
       var tg = e.target;
       if (tg.closest('#goalsActivityHeader, input, textarea, select, #goalsDiscView')) return;
-      scroller = hScroller(tg);
-      startLeft = scroller ? scroller.scrollLeft : 0;
-      sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+      var sc = hScroller(tg);
+      g0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), scroller: sc, startLeft: sc ? sc.scrollLeft : 0, drag: null };
     }, { passive: true });
-    zone.addEventListener('touchend', function (e) {
-      if (sx == null) return;
-      var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
-      sx = null;
-      // Plus facile (2 oct. 2026) : 40 px suffisent, ou 20 px si le geste est rapide (flick) ; seulement plus horizontal que vertical.
-    var adx = Math.abs(dx), dt = Math.max(1, Date.now() - st);
-    if (adx < Math.abs(dy) || (adx < 40 && !(adx >= 20 && adx / dt >= 0.35))) return;
-      // Dans une zone défilante : le balayage ne change de page que si elle était déjà au bord (gauche pour revenir),
-      // c'est-à-dire en prolongement du défilement de gauche à droite.
-      var idx = GOALS_PAGE2_ORDER.indexOf(goalsPage2BaseMode);
-      var target = idx + (dx < 0 ? 1 : -1);
-      if (target < 0 || target >= GOALS_PAGE2_ORDER.length) return;
-      // Depuis l'arbre périodique (annuel) : revenir vers la gauche seulement s'il est TOUT À GAUCHE (prolongement du défilement).
-      if (goalsPage2BaseMode === 'goals' && dx > 0) {
-        if (scroller && !(startLeft <= 1 && scroller.scrollLeft <= 1)) return;
-        if (!gridAtLeft()) return;
-      } else if (scroller) return; // zone défilante horizontalement sous le doigt : ne change pas de page
-      setGoalsPage2Mode(GOALS_PAGE2_ORDER[target]);
+    zone.addEventListener('touchmove', function (e) {
+      if (!g0) return;
+      var dx = e.touches[0].clientX - g0.x, dy = e.touches[0].clientY - g0.y;
+      if (!g0.drag) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g0 = null; return; } // défilement vertical
+        if (Math.abs(dx) < 8) return;
+        if (!startDrag(dx)) { g0 = null; return; }
+      }
+      place(dx);
     }, { passive: true });
+    function finish(e, cancelled) {
+      var g = g0; g0 = null;
+      if (!g || !g.drag) return;
+      var d = g.drag, dx = d.x || 0, dt = Math.max(1, Date.now() - g.t);
+      var commit = !cancelled && ((Math.abs(dx) > d.width * 0.25) || (Math.abs(dx) >= 20 && Math.abs(dx) / dt >= 0.35));
+      var ease = 'transform .22s cubic-bezier(.22,.8,.3,1)';
+      d.cur.style.transition = ease; d.nb.style.transition = ease;
+      d.cur.style.transform = 'translateX(' + (commit ? -d.dir * d.width : 0) + 'px)';
+      d.nb.style.transform = 'translateX(' + (commit ? 0 : d.dir * d.width) + 'px)';
+      window.setTimeout(function () {
+        clean(d);
+        if (commit) setGoalsPage2Mode(d.nbMode, { noAnim: true, keep: true });
+        else d.nb.classList.add('hidden');
+      }, 240);
+    }
+    zone.addEventListener('touchend', function (e) { finish(e, false); }, { passive: true });
+    zone.addEventListener('touchcancel', function (e) { finish(e, true); }, { passive: true });
   })();
 
   $('goalsPage2ModeDiscBtn').addEventListener('click', function () { setGoalsPage2Mode('disc'); });
