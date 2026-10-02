@@ -253,3 +253,10 @@
 
 /* 2 oct. 2026 (Emilien) : cadre du pôle moins large, centré. */
 .goalsActivityHeader { width: 76%; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+
+/* 2 oct. 2026 (Emilien) : cadre du pôle = même verre que les boutons Tâches/Objectifs (jetons --glass-*). */
+:root #goalsActivitySwitcher .goalsActivityHeader {
+  background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
+}
