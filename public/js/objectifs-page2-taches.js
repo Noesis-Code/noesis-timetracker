@@ -350,20 +350,24 @@
   (function bindPage2ModeSwipe() {
     var zone = $('goalsActivitySwitcherScroll');
     var sx = null, sy = null;
-    function hScrollable(el) {
+    // Renvoie la zone défilante horizontalement la plus proche (ou null).
+    function hScroller(el) {
       for (; el && el !== zone; el = el.parentElement) {
         if (el.scrollWidth > el.clientWidth + 1) {
           var ox = getComputedStyle(el).overflowX;
-          if (ox === 'auto' || ox === 'scroll') return true;
+          if (ox === 'auto' || ox === 'scroll') return el;
         }
       }
-      return false;
+      return null;
     }
+    var scroller = null, startLeft = 0;
     zone.addEventListener('touchstart', function (e) {
-      sx = null;
+      sx = null; scroller = null;
       if (e.touches.length !== 1 || goalsPage2BaseMode !== currentGoalsPage2Mode) return;
       var tg = e.target;
-      if (tg.closest('#goalsActivityHeader, input, textarea, select, #goalsDiscView') || hScrollable(tg)) return;
+      if (tg.closest('#goalsActivityHeader, input, textarea, select, #goalsDiscView')) return;
+      scroller = hScroller(tg);
+      startLeft = scroller ? scroller.scrollLeft : 0;
       sx = e.touches[0].clientX; sy = e.touches[0].clientY;
     }, { passive: true });
     zone.addEventListener('touchend', function (e) {
@@ -371,6 +375,12 @@
       var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
       sx = null;
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      // Dans une zone défilante : le balayage ne change de page que si elle était déjà au bord (gauche pour revenir),
+      // c'est-à-dire en prolongement du défilement de gauche à droite.
+      if (scroller) {
+        if (dx > 0 && startLeft <= 1 && scroller.scrollLeft <= 1 && goalsPage2BaseMode === 'goals') setGoalsPage2Mode('tasks');
+        return;
+      }
       if (dx < 0 && goalsPage2BaseMode === 'tasks') setGoalsPage2Mode('goals');
       else if (dx > 0 && goalsPage2BaseMode === 'goals') setGoalsPage2Mode('tasks');
     }, { passive: true });
