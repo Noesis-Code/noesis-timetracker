@@ -278,17 +278,74 @@
     scroller = hScroller(tg); startLeft = scroller ? scroller.scrollLeft : 0;
     sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
   }, { passive: true });
-  zone.addEventListener('touchend', function (e) {
-    if (sx == null) return;
-    var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
-    sx = null;
-    // Plus facile (2 oct. 2026) : 40 px suffisent, ou 20 px si le geste est rapide (flick) ; seulement plus horizontal que vertical.
-    var adx = Math.abs(dx), dt = Math.max(1, Date.now() - st);
-    if (adx < Math.abs(dy) || (adx < 40 && !(adx >= 20 && adx / dt >= 0.35))) return;
-    if (dx < 0 && page === 1) { if (scroller) return; setStatsPage(2); }
-    else if (dx > 0 && page === 2) {
-      if (scroller && !(startLeft <= 1 && scroller.scrollLeft <= 1)) return;
-      setStatsPage(1);
+  // Glissement qui suit le doigt (même principe que bindPage2ModeSwipe) : la voisine
+  // est placée en absolu à côté de la page courante, écart de 24 px. Le haut de la
+  // page courante est mesuré AVANT d'afficher la voisine (sinon décalage vertical).
+  var GAP = 24, drag = null;
+  function startDrag(dx) {
+    var dir = dx < 0 ? 1 : -1, nbN = page + dir;
+    if (nbN < 1 || nbN > 2) return null;
+    var cur = page === 1 ? page1 : page2, nb = nbN === 1 ? page1 : page2;
+    var pr = pages.getBoundingClientRect(), cr = cur.getBoundingClientRect();
+    var top = cr.top - pr.top;
+    if (nbN === 2) { build(); pickDefaultActivity(); renderChips(); load(); }
+    nb.classList.remove('hidden');
+    nb.style.cssText += ';position:absolute;left:' + (cr.left - pr.left) + 'px;top:' + top + 'px;width:' + cr.width + 'px;pointer-events:none;';
+    pages.style.overflowX = 'hidden';
+    return { dir: dir, cur: cur, nb: nb, nbN: nbN, w: cr.width };
+  }
+  function place(d, dx) {
+    var off = d.dir * (d.w + GAP);
+    d.cur.style.transform = 'translateX(' + dx + 'px)';
+    d.nb.style.transform = 'translateX(' + (dx + off) + 'px)';
+  }
+  function cleanDrag(d, commit) {
+    [d.cur, d.nb].forEach(function (e) { e.style.transition = ''; e.style.transform = ''; });
+    var gone = commit ? d.cur : d.nb;
+    d.nb.style.position = ''; d.nb.style.left = ''; d.nb.style.top = ''; d.nb.style.width = ''; d.nb.style.pointerEvents = '';
+    gone.classList.add('hidden');
+    pages.style.overflowX = '';
+    if (commit) {
+      page = d.nbN; closeModal();
+      if (dots) Array.prototype.forEach.call(dots.children, function (x, i) { x.classList.toggle('on', i === page - 1); });
     }
+  }
+  function finishDrag(d, commit, dx) {
+    var off = d.dir * (d.w + GAP), tr0 = 'transform .22s cubic-bezier(.22,.8,.3,1)';
+    d.cur.style.transition = tr0; d.nb.style.transition = tr0;
+    place(d, commit ? -off : 0);
+    d.nb.style.transform = 'translateX(' + (commit ? 0 : off) + 'px)';
+    var done = false;
+    function end() { if (done) return; done = true; cleanDrag(d, commit); }
+    d.cur.addEventListener('transitionend', end, { once: true });
+    setTimeout(end, 320);
+  }
+  zone.addEventListener('touchmove', function (e) {
+    if (sx == null) return;
+    var dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+    if (!drag) {
+      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+      if (dx < 0 && page === 1 && scroller) { sx = null; return; }
+      if (dx > 0 && page === 2 && scroller && !(startLeft <= 1 && scroller.scrollLeft <= 1)) { sx = null; return; }
+      drag = startDrag(dx);
+      if (!drag) { sx = null; return; }
+    }
+    // pas de dépassement : la page ne suit que dans le sens de la voisine
+    var lim = drag.w + GAP;
+    var mv = drag.dir > 0 ? Math.max(-lim, Math.min(0, dx)) : Math.min(lim, Math.max(0, dx));
+    place(drag, mv);
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  zone.addEventListener('touchcancel', function () {
+    if (drag) { var d = drag; drag = null; finishDrag(d, false); }
+    sx = null;
+  }, { passive: true });
+  zone.addEventListener('touchend', function (e) {
+    if (!drag) { sx = null; return; }
+    var d = drag; drag = null; sx = null;
+    var moved = Math.abs(parseFloat((d.cur.style.transform.match(/-?[\d.]+/) || [0])[0]) || 0);
+    var dt = Math.max(1, Date.now() - st);
+    var commit = moved >= d.w * 0.25 || (moved >= 20 && moved / dt >= 0.35);
+    finishDrag(d, commit);
   }, { passive: true });
 })();
