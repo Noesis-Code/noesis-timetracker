@@ -384,6 +384,10 @@
       }
       return null;
     }
+    function gridAtLeft() {
+      var g = document.querySelector('#goalsObjectifsView .goalsGridScroll');
+      return !g || g.scrollLeft <= 1;
+    }
     var scroller = null, startLeft = 0;
     zone.addEventListener('touchstart', function (e) {
       sx = null; scroller = null;
@@ -402,9 +406,11 @@
       // Dans une zone défilante : le balayage ne change de page que si elle était déjà au bord (gauche pour revenir),
       // c'est-à-dire en prolongement du défilement de gauche à droite.
       if (scroller) {
-        if (dx > 0 && startLeft <= 1 && scroller.scrollLeft <= 1 && goalsPage2BaseMode === 'goals') setGoalsPage2Mode('tasks');
+        if (dx > 0 && startLeft <= 1 && scroller.scrollLeft <= 1 && gridAtLeft() && goalsPage2BaseMode === 'goals') setGoalsPage2Mode('tasks');
         return;
       }
+      // Sans zone défilante sous le doigt : en Objectifs, l'arbre périodique doit être TOUT À GAUCHE pour revenir.
+      if (dx > 0 && goalsPage2BaseMode === 'goals' && !gridAtLeft()) return;
       if (dx < 0 && goalsPage2BaseMode === 'tasks') setGoalsPage2Mode('goals');
       else if (dx > 0 && goalsPage2BaseMode === 'goals') setGoalsPage2Mode('tasks');
     }, { passive: true });
