@@ -259,7 +259,7 @@
 
   // Balayage : mêmes gardes que bindPage2ModeSwipe (champs, zones défilant
   // horizontalement — heatmap, calendrier, graphique —, fenêtres ouvertes).
-  var sx = null, sy = null, scroller = null, startLeft = 0;
+  var sx = null, sy = null, st = 0, scroller = null, startLeft = 0;
   function hScroller(e0) {
     for (var e = e0; e && e !== zone; e = e.parentElement) {
       if (e.scrollWidth > e.clientWidth + 1) {
@@ -276,13 +276,15 @@
     if (!tg.closest || tg.closest('input, textarea, select, #statsAvanceModal, .statsPeriodMenu')) return;
     if (document.querySelector('.communityMembersModal:not(.hidden)')) return;
     scroller = hScroller(tg); startLeft = scroller ? scroller.scrollLeft : 0;
-    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
   }, { passive: true });
   zone.addEventListener('touchend', function (e) {
     if (sx == null) return;
     var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
     sx = null;
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    // Plus facile (2 oct. 2026) : 40 px suffisent, ou 20 px si le geste est rapide (flick) ; seulement plus horizontal que vertical.
+    var adx = Math.abs(dx), dt = Math.max(1, Date.now() - st);
+    if (adx < Math.abs(dy) || (adx < 40 && !(adx >= 20 && adx / dt >= 0.35))) return;
     if (dx < 0 && page === 1) { if (scroller) return; setStatsPage(2); }
     else if (dx > 0 && page === 2) {
       if (scroller && !(startLeft <= 1 && scroller.scrollLeft <= 1)) return;

@@ -383,7 +383,7 @@
   // Ignoré depuis le cadre de pôle (qui change de pôle), les champs, et toute zone défilant horizontalement.
   (function bindPage2ModeSwipe() {
     var zone = $('goalsActivitySwitcherScroll');
-    var sx = null, sy = null;
+    var sx = null, sy = null, st = 0;
     // Renvoie la zone défilante horizontalement la plus proche (ou null).
     function hScroller(el) {
       for (; el && el !== zone; el = el.parentElement) {
@@ -406,13 +406,15 @@
       if (tg.closest('#goalsActivityHeader, input, textarea, select, #goalsDiscView')) return;
       scroller = hScroller(tg);
       startLeft = scroller ? scroller.scrollLeft : 0;
-      sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
     }, { passive: true });
     zone.addEventListener('touchend', function (e) {
       if (sx == null) return;
       var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
       sx = null;
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      // Plus facile (2 oct. 2026) : 40 px suffisent, ou 20 px si le geste est rapide (flick) ; seulement plus horizontal que vertical.
+    var adx = Math.abs(dx), dt = Math.max(1, Date.now() - st);
+    if (adx < Math.abs(dy) || (adx < 40 && !(adx >= 20 && adx / dt >= 0.35))) return;
       // Dans une zone défilante : le balayage ne change de page que si elle était déjà au bord (gauche pour revenir),
       // c'est-à-dire en prolongement du défilement de gauche à droite.
       var idx = GOALS_PAGE2_ORDER.indexOf(goalsPage2BaseMode);
