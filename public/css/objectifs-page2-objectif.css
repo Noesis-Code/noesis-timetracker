@@ -250,3 +250,6 @@
 
 .goalsScrubLabel b { display: block; color: var(--text); font-size: 12px; font-weight: 700; }
 
+
+/* 2 oct. 2026 (Emilien) : cadre du pôle moins large, centré. */
+.goalsActivityHeader { width: 76%; margin-left: auto; margin-right: auto; box-sizing: border-box; }
