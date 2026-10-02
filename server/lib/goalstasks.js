@@ -582,7 +582,12 @@ function tasksOverviewForActivity(activityId) {
     const targets = isPoleGroup ? [pole] : secteurs;
 
     targets.forEach((target) => {
-      const tasks = tasksForCategory(activityId, target.key);
+      // 2 oct. 2026 (Emilien) : avancement QUOTIDIEN — une tâche cochée avant minuit
+      // (doneAt antérieur à aujourd'hui) disparaît de l'écran Tâches et ne compte plus ;
+      // les non cochées restent d'un jour à l'autre.
+      const today = todayLocal();
+      const tasks = tasksForCategory(activityId, target.key)
+        .filter((task) => !(task.done && task.doneAt && todayLocal(new Date(task.doneAt)) < today));
       const done = tasks.reduce((n, task) => n + (task.done ? 1 : 0), 0);
       const total = tasks.length;
       doneTotal += done;
