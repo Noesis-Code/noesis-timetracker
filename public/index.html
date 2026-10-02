@@ -1188,12 +1188,12 @@
                ne fait plus qu'agrandir, jamais réduire. -->
           <div class="discussionComposer chatComposer">
             <div class="chatComposerRow">
-              <!-- Pièce jointe (1er oct. 2026, demande de Gaspard) : trombone tout à GAUCHE, DANS la zone d'écriture, comme Envoyer à droite. -->
+              <input type="file" id="communityDiscussionFileInput" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" class="hidden">
+              <textarea id="communityDiscussionInput" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
+              <!-- Pièce jointe (1er oct. 2026, demande de Gaspard ; placé APRÈS le champ dans le DOM : Safari peignait le champ en verre (backdrop-filter) par-dessus le trombone) : trombone tout à GAUCHE, DANS la zone d'écriture, comme Envoyer à droite. -->
               <button type="button" id="communityDiscussionAttachBtn" class="chatAttachBtn" aria-label="Joindre un fichier" title="Joindre une image ou un PDF">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
               </button>
-              <input type="file" id="communityDiscussionFileInput" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" class="hidden">
-              <textarea id="communityDiscussionInput" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
               <button type="button" id="communityDiscussionSendBtn" class="iconBtn btnBrique">Envoyer</button>
             </div>
             <div id="communityDiscussionPending" class="chatPendingFile hidden"></div>

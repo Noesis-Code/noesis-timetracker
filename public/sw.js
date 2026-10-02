@@ -45,7 +45,7 @@
 // 29 septembre 2026 (scission de la Page 2 Objectifs en 2 fichiers exclusifs,
 // demande d'Emilien) : v6 → v7 ; objectifs-page2.js/.css remplacés par
 // objectifs-page2-taches.js/.css et objectifs-page2-objectif.js/.css.
-const CACHE_VERSION = 'noesis-v8';
+const CACHE_VERSION = 'noesis-v9';
 
 // File d'attente des tâches capturées hors ligne (voir l'en-tête de
 // public/offline-queue.js). Chargée ici pour que Background Sync puisse la

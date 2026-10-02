@@ -214,4 +214,4 @@
 }
 
 /* 2 oct. 2026 : le trombone passait SOUS le champ en verre (backdrop-filter = contexte d'empilement, champ placé après dans le DOM) → au-dessus. */
-.goalsDiscSheet .chatAttachBtn { z-index: 4; color: var(--text); }
+.goalsDiscSheet .chatAttachBtn { z-index: 5; color: var(--text); opacity: 1; }
