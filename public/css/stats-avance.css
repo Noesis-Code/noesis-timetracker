@@ -1,0 +1,50 @@
+/* Statistiques — page 2 « tâches réalisées » (2 oct. 2026). Voir public/js/stats-avance.js. */
+#statsPages { position: relative; }
+#statsPageDots {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
+  bottom: calc(var(--tabbar-h, 64px) + 8px); display: flex; gap: 10px; pointer-events: none;
+}
+#statsPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+#statsPageDots .goalsDot.on { opacity: 1; }
+#statsAvancePage { padding-bottom: calc(var(--tabbar-h, 64px) + 40px); }
+.saChips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
+.saChips::-webkit-scrollbar { display: none; }
+.saChip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 13px; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); }
+.saChip.on { border-color: var(--purple); box-shadow: 0 0 0 1px var(--purple) inset; font-weight: 600; }
+.saChipDot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
+.saCounters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.saCounter { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 14px; background: var(--glass-bg); border: 1px solid var(--glass-border); }
+.saCLabel { font-size: 12px; opacity: .7; }
+.saCValue { font-size: 20px; font-weight: 700; }
+.saCSub { font-size: 12px; opacity: .7; }
+.saCard { background: var(--glass-bg); border: 1px solid var(--glass-border); }
+.saChart { width: 100%; height: auto; display: block; }
+.saGrid { stroke: var(--glass-border); stroke-width: 1; }
+.saTick { fill: var(--text); opacity: .65; font-size: 9px; }
+.saPlanned { fill: none; stroke: var(--text); opacity: .55; stroke-width: 1.5; stroke-dasharray: 4 3; }
+.saArea { fill: var(--purple); opacity: .3; }
+.saLine { fill: none; stroke: var(--purple); stroke-width: 2; }
+.saToday { stroke: var(--text); stroke-width: 1; }
+.saDot { fill: var(--purple); stroke: var(--text); stroke-width: 1.5; }
+.saLegend { display: flex; gap: 14px; font-size: 12px; margin-top: 8px; opacity: .85; }
+.saLegend span { display: inline-flex; align-items: center; gap: 5px; }
+.saSw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.saSwDone { background: var(--purple); }
+.saSwPlan { background: transparent; border: 1px dashed var(--text); }
+.saSwTodo { background: var(--glass-border); }
+.saSwNow { background: transparent; border: 1.5px solid var(--text); }
+.saPoleRow { display: block; width: 100%; text-align: left; padding: 8px 0; background: none; border: 0; color: var(--text); font: inherit; }
+.saPoleTop { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
+.saBar { height: 6px; border-radius: 3px; background: var(--glass-border); overflow: hidden; }
+.saBarFill { height: 100%; border-radius: 3px; }
+.saGridRow { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; }
+.saGridHead { font-size: 8px; text-align: center; opacity: .65; margin-bottom: 4px; }
+.saGridLabel { font-size: 13px; margin: 8px 0 4px; }
+.saCell { position: relative; height: 22px; border-radius: 4px; background: var(--glass-border); overflow: hidden; display: flex; align-items: flex-end; }
+.saCell i { display: block; width: 100%; }
+.saCell.future { opacity: .45; }
+.saCell.now { outline: 1.5px solid var(--text); outline-offset: 1px; }
+.saModalHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.saModalTitle { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
+.saModalSub { margin: 0 0 12px; }
+.saBarFill, .saCell i { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .14); }

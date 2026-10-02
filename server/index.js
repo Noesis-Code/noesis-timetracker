@@ -155,6 +155,8 @@ app.use('/api', require('./routes/subprojects'));
 // qui remplace server/routes/subprojectstats.js). Volontairement hors du
 // préfixe /stats/*, qui appartient à server/routes/stats.js.
 app.use('/api', require('./routes/categorystats'));
+// Statistiques — page 2 « tâches réalisées » (2 oct. 2026), lecture seule.
+app.use('/api', require('./routes/statsactivityprogress'));
 // Planning d'objectifs annuel (Chantier 1 de la feuille de route produit,
 // 12 septembre 2026) — 13 périodes de 4 semaines par activité, voir
 // server/lib/goals.js.

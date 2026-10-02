@@ -1276,6 +1276,29 @@
     "Déplacer ce secteur vers un autre pôle": "Move this sector to another pole",
     "Déplacer « {name} » vers…": "Move \"{name}\" to…",
   });
+  Object.assign(DICT, {
+    "Tâches réalisées": "Completed tasks",
+    "Tâches": "Tasks",
+    "Objectifs": "Goals",
+    "Période": "Period",
+    "Chemin parcouru et à parcourir": "Path covered and ahead",
+    "Réalisé": "Done",
+    "Prévu": "Planned",
+    "À venir": "Upcoming",
+    "Aujourd'hui": "Today",
+    "Avancement par pôle": "Progress by pole",
+    "toucher un pôle": "tap a pole",
+    "Avancement par secteur": "Progress by sector",
+    "Le chemin des 13 périodes": "The path of the 13 periods",
+    "Atteint": "Reached",
+    "À atteindre": "To reach",
+    "En cours": "In progress",
+    "{n} % · {a}/{b} objectifs atteints": "{n}% · {a}/{b} goals reached",
+    "Aucune activité.": "No activity.",
+    "Aucun objectif planifié.": "No goal planned.",
+    "Pôle (hors secteur)": "Pole (no sector)",
+    "Chargement impossible.": "Could not load.",
+  });
   PATTERNS.push(
     [/^Nom d'activité trop long \((\d+) caractères maximum\)\.$/, 'Activity name too long ($1 characters maximum).'],
     [/^Tu as déjà une activité "(.+)"\.$/, 'You already have an activity "$1".']
