@@ -439,3 +439,11 @@
 #goalsMonthSectors.hidden { display: none; }
 .gmChip { flex: 0 0 auto; padding: 7px 12px; border-radius: 999px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); }
 .gmChip.on { border-color: var(--purple); box-shadow: 0 0 0 1px var(--purple) inset; font-weight: 600; }
+
+/* Page mensuel : carte de l'objectif périodique en verre de l'app (2 oct. 2026) ; la couleur du pôle ne sert plus qu'au contour et à la jauge. */
+#goalsMonthView #activityGoalsMainCard {
+  background: var(--glass-bg) !important; color: var(--text) !important;
+  border: 1px solid var(--cardEdge, var(--glass-border)) !important; box-shadow: var(--glass-shadow) !important;
+}
+#goalsMonthView #activityGoalsMainCard .goalMainProgressTrack { background: var(--track-bg) !important; }
+#goalsMonthView #activityGoalsMainCard .goalMainProgressFill { background: var(--cardEdge, var(--purple)); }
