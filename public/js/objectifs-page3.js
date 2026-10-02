@@ -230,6 +230,8 @@
     var categories = activeGoalsCategories();
     var index = -1;
     for (var i = 0; i < categories.length; i++) { if (categories[i].key === TMT.currentGoalsCategory) { index = i; break; } }
+    // Secteur (page mensuel) : la couleur est celle du PÔLE affiché, jamais le violet de repli.
+    if (index === -1 && TMT.currentGoalsPoleIndex != null) index = TMT.currentGoalsPoleIndex;
     if (index === -1) return 'var(--purple)';
     return subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
   }
