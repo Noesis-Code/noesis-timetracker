@@ -856,11 +856,13 @@ body { isolation: isolate; }
 }
 :root[data-theme="dark"] #app::before { background: rgba(var(--purple-rgb), 0.32); }
 :root {
+  --sheet-line: rgba(0, 0, 0, 0.16);
   --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.3) 100%);
   --glass-border: rgba(0, 0, 0, 0.08);
   --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 :root[data-theme="dark"] {
+  --sheet-line: rgba(255, 255, 255, 0.3);
   --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
   --glass-border: rgba(255, 255, 255, 0.16);
   --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.55);
@@ -2880,7 +2882,7 @@ body.scrollLock { overflow: hidden; }
 /* 2 oct. 2026 (Emilien) : ligne fine sur le contour supérieur de toutes les fenêtres qui montent du bas
    (style profil d'un membre). Les pages plein écran (#activityPage, #profilePage, Objectifs) en sont exclues. */
 .communityMembersModal:not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage) > .communityMembersModalCard,
-.goalTaskEditCard, .goalsDiscSheet { border-top: 1px solid var(--glass-border); }
+.goalTaskEditCard, .goalsDiscSheet { border-top: 1px solid var(--sheet-line); }
 /* Fenêtres imbriquées dans une page plein écran (ex. Membres dans la fenêtre d'activité) : mêmes règles, ligne fine incluse. */
 #activityPage .communityMembersModal > .communityMembersModalCard,
 #profilePage .communityMembersModal > .communityMembersModalCard,
@@ -6650,11 +6652,3 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* Bouton de la Répartition : largeur fixe, seul le texte change (Aujourd'hui / Semaine / Synchroniser). */
 #statsPieTodayBtn { min-width: 112px; width: 112px; text-align: center; white-space: nowrap; box-sizing: border-box; }
-
-/* 2 oct. 2026 (Emilien) : la fenêtre Membres est imbriquée dans #activityPage et héritait de sa carte plein écran
-   (fond transparent, coins carrés, sans ombre) → on lui rend l'apparence d'une fenêtre qui monte du bas + ligne fine en haut. */
-#activityPage #communityMembersModal > .communityMembersModalCard {
-  background: var(--bg); border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  box-shadow: var(--shadow-elevated); border-top: 1px solid var(--glass-border);
-  height: 80vh; max-height: 80vh; padding: 16px;
-}
