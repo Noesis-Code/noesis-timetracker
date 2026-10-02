@@ -199,3 +199,16 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 8px 22px rgba(0, 0, 0, 0.35) !important;
   -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important;
 }
+
+/* Fenêtre Discussion (2 oct. 2026) : zone d'écriture en verre flottant (même verre et même forme que la recherche de Communauté),
+   les bulles défilent SOUS elle. */
+.goalsDiscSheet { position: relative; }
+.goalsDiscSheet .discussionComposer {
+  position: absolute; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 3; margin: 0; background: transparent;
+}
+.goalsDiscSheet #communityDiscussionBlock { padding-bottom: 0; }
+.goalsDiscSheet #communityDiscussionList { padding-bottom: 96px; }
+:root .goalsDiscSheet #communityDiscussionInput {
+  background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; box-shadow: var(--glass-shadow) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(160%) !important; backdrop-filter: blur(40px) saturate(160%) !important; border-radius: 22px !important;
+}

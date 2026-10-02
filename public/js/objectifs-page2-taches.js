@@ -229,8 +229,6 @@
     // voir #goalsActivityPlainRow) ; la pastille qui reste sur cette page
     // (#goalsPoleDot) est celle du pôle, posée par renderGoalsPoleSwitcher().
     $('goalsActivityName').textContent = a.name;
-    var discTitle = $('goalsDiscSheetTitle');
-    if (discTitle) discTitle.textContent = 'Discussion · ' + a.name;
 
     // Onglet Discussion : uniquement si l'activité est partagée avec au moins
     // un autre utilisateur ; sinon caché et fil arrêté.
