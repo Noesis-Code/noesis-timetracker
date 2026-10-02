@@ -137,6 +137,9 @@
           <p id="goalsTasksEmptyHint" class="hint hidden"></p>
         </div>
 
+        <!-- 2 oct. 2026 (Emilien) : plus de boutons Tâches/Objectifs — on glisse de droite à gauche ; 3 points en bas au milieu (celui du milieu est réservé à une prochaine demande). -->
+        <div id="goalsPage2Dots" aria-hidden="true"><span class="goalsDot on" data-dot="tasks"></span><span class="goalsDot" data-dot="next"></span><span class="goalsDot" data-dot="goals"></span></div>
+
         <!-- ⚠️ 29 septembre 2026, scission Tâches / Objectifs de la Page 2 :
              emplacement de l'écran « Objectifs ». Son CONTENU (arbre
              périodique, rail tactile) est injecté par
@@ -320,6 +323,9 @@
     var tasksBtn = $('goalsPage2ModeTasksBtn');
     var goalsBtn = $('goalsPage2ModeGoalsBtn');
     if (tasksBtn) tasksBtn.classList.toggle('active', mode === 'tasks');
+    var dT = document.querySelector('#goalsPage2Dots [data-dot=tasks]'), dG = document.querySelector('#goalsPage2Dots [data-dot=goals]');
+    if (dT) dT.classList.toggle('on', mode === 'tasks');
+    if (dG) dG.classList.toggle('on', mode === 'goals');
     if (goalsBtn) goalsBtn.classList.toggle('active', mode === 'goals');
     var tasksView = $('goalsTasksView');
     var objectifsView = $('goalsObjectifsView');
@@ -338,6 +344,37 @@
   $('goalsPage2ModeTasksBtn').addEventListener('click', function () { setGoalsPage2Mode('tasks'); });
 
   $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
+
+  // Balayage horizontal : droite → gauche = Objectifs, gauche → droite = Tâches.
+  // Ignoré depuis le cadre de pôle (qui change de pôle), les champs, et toute zone défilant horizontalement.
+  (function bindPage2ModeSwipe() {
+    var zone = $('goalsActivitySwitcherScroll');
+    var sx = null, sy = null;
+    function hScrollable(el) {
+      for (; el && el !== zone; el = el.parentElement) {
+        if (el.scrollWidth > el.clientWidth + 1) {
+          var ox = getComputedStyle(el).overflowX;
+          if (ox === 'auto' || ox === 'scroll') return true;
+        }
+      }
+      return false;
+    }
+    zone.addEventListener('touchstart', function (e) {
+      sx = null;
+      if (e.touches.length !== 1 || goalsPage2BaseMode !== currentGoalsPage2Mode) return;
+      var tg = e.target;
+      if (tg.closest('#goalsActivityHeader, input, textarea, select, #goalsDiscView') || hScrollable(tg)) return;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    }, { passive: true });
+    zone.addEventListener('touchend', function (e) {
+      if (sx == null) return;
+      var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+      sx = null;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      if (dx < 0 && goalsPage2BaseMode === 'tasks') setGoalsPage2Mode('goals');
+      else if (dx > 0 && goalsPage2BaseMode === 'goals') setGoalsPage2Mode('tasks');
+    }, { passive: true });
+  })();
 
   $('goalsPage2ModeDiscBtn').addEventListener('click', function () { setGoalsPage2Mode('disc'); });
   function closeGoalsDiscSheet() { setGoalsPage2Mode(goalsPage2BaseMode); }

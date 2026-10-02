@@ -224,3 +224,13 @@
 .goalsOverloadActions { display: flex; gap: 8px; }
 .goalsOverloadActions button { flex: 1; padding: 10px; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text); font-weight: 600; }
 .goalsOverloadActions .goalsOverloadOk { background: var(--purple); border-color: transparent; color: #fff; }
+
+/* 2 oct. 2026 (Emilien) : boutons Tâches/Objectifs retirés (balayage + 3 points) ; la bulle Discussion (fixed) reste dans le conteneur. */
+#goalsPage2ModeSwitch { display: contents; }
+#goalsPage2ModeTasksBtn, #goalsPage2ModeGoalsBtn { display: none; }
+#goalsPage2Dots {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
+  bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; gap: 10px; pointer-events: none;
+}
+#goalsPage2Dots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s; }
+#goalsPage2Dots .goalsDot.on { opacity: 1; }
