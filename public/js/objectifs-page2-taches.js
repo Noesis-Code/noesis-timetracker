@@ -95,7 +95,7 @@
           <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
           <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
           <!-- 30 septembre 2026 : Discussion (déplacée de la fenêtre Activité), à droite de Objectifs ; visible seulement si l'activité affichée est partagée. -->
-          <button type="button" class="periodBtn hidden" id="goalsPage2ModeDiscBtn" data-mode="disc">Discussion<span id="goalsPage2DiscDot" class="notifDot hidden"></span></button>
+          <button type="button" class="periodBtn hidden" id="goalsPage2ModeDiscBtn" data-mode="disc" aria-label="Discussion" title="Discussion"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/></svg><span id="goalsPage2DiscDot" class="notifDot hidden"></span></button>
         </div>
 
         <!-- Écran « Tâches » — 27 septembre 2026 (création), refondu le 28

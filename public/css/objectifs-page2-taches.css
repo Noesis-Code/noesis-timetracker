@@ -166,3 +166,15 @@
 
 /* 2 oct. 2026 (Emilien) : aucun grisé au toucher/survol d'une tâche (le :hover générique restait collé après un appui). */
 .goalsTasksGroup .subProjectItem:hover, .goalsTasksGroup .subProjectItem:active, .goalsTasksGroup .subProjectItem:focus-within { background: transparent; }
+
+/* 2 oct. 2026 (Emilien) : la Discussion s'ouvre par une bulle ronde en bas à droite (même bouton, mêmes id et logique que l'ancien onglet).
+   Masquée pendant que le fil est affiché (les onglets Tâches/Objectifs ramènent à la page). */
+#goalsPage2ModeDiscBtn {
+  position: fixed; right: 18px; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 120;
+  width: 56px; height: 56px; flex: none; padding: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--purple); color: #fff; border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+}
+#goalsPage2ModeDiscBtn.hidden, #goalsPage2ModeDiscBtn.active { display: none; }
+#goalsPage2ModeDiscBtn .notifDot { top: 8px; right: 8px; }
