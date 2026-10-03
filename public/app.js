@@ -4713,7 +4713,8 @@
   // ce rendu-là n'a plus aucun rapport avec cette section.
   function syncSoloStatsTab(has) {
     $('activityPageTabStats').classList.toggle('hidden', !has);
-    $('activityPageSectionSwitch').classList.toggle('hidden', !has);
+    // Hauteur réservée (visibility, pas display) : le titre ne saute plus quand l'onglet apparaît/disparaît.
+    $('activityPageSectionSwitch').classList.toggle('tabsGhost', !has);
     // La dernière catégorie de temps de l'activité a disparu (rare, mais
     // possible après une modification d'historique) alors qu'on regardait les
     // statistiques : on ne laisse pas l'écran sur une section qui n'existe plus.
@@ -5354,7 +5355,9 @@
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.remove('tsFrozenCal');
 
-    $(I.weekLabel).textContent = t(data.label) + (data.isCurrentWeek ? t(' (en cours)') : '');
+    // Libellé court (« 29/09 – 05/10 ») ; la semaine en cours se marque en gras plutôt que par un suffixe (320 px).
+    $(I.weekLabel).textContent = String(data.label).replace(/^Semaine du (\d+\/\d+) au (\d+\/\d+)$/, '$1 – $2');
+    $(I.weekLabel).classList.toggle('tsCurrent', !!data.isCurrentWeek);
     $(I.nextBtn).disabled = data.isCurrentWeek;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
@@ -10140,7 +10143,7 @@
       var searchInput = document.createElement('input');
       searchInput.type = 'text';
       searchInput.className = 'memberSearchInput';
-      searchInput.placeholder = t('Chercher un pseudo, un projet, un secteur...');
+      searchInput.placeholder = t('Pseudo, projet, secteur');
       searchInput.autocomplete = 'off';
       var searchRow = document.createElement('div');
       searchRow.className = 'chatComposerRow communitySearchRow';
@@ -15768,6 +15771,18 @@
   // même : on perd le détail des membres, pas la gestion des activités.
   function loadSettingsActivities() {
     if (!profile) return;
+    // Affichage immédiat : dernière liste connue (puis rafraîchie), sinon « Chargement… ».
+    var listBox = $('activitiesList');
+    if (listBox && !listBox.children.length) {
+      if (activitiesCache && activitiesCache.length) {
+        renderActivitiesSettings(activitiesCache, (lastActivitiesData && lastActivitiesData.sharedList) || []);
+      } else {
+        var ld = document.createElement('p');
+        ld.className = 'hint';
+        ld.textContent = t('Chargement…');
+        listBox.appendChild(ld);
+      }
+    }
     Promise.all([
       api('GET', '/api/activities?all=1&userId=' + profile.id),
       api('GET', '/api/community?userId=' + profile.id).catch(function () { return { activities: [] }; })

@@ -649,7 +649,7 @@
     // ci-dessus est conservée volontairement : le serveur ne l'envoie plus
     // (les projets sont devenus un aperçu public) mais un onglet PWA resté
     // ouvert avec l'ancien code peut encore l'afficher.
-    'Chercher un pseudo, un projet, un secteur...': 'Search a nickname, a project, a sector...',
+    'Pseudo, projet, secteur': 'Nickname, project, sector',
     '{n} projet(s)': '{n} project(s)',
     'Quelques profils à découvrir.': 'A few profiles to discover.',
     'Aucun projet': 'No project',
