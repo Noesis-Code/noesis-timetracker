@@ -374,34 +374,6 @@
 
   var mainEditKey = null; // « période|pôle » dont l'objectif périodique est en modification sur place
 
-  // Garde le champ (et son formulaire, boutons compris) visible pendant que le clavier s'ouvre.
-  // iPhone en PWA : app.js (pincement continu, image par image) redimensionne la page plein écran
-  // à la hauteur du viewport visuel quand un champ a le focus ; iOS, lui, ne fait défiler vers le
-  // champ qu'à la première frappe. On suit donc la même cadence : à chaque image pendant ~1,5 s
-  // (le temps de l'animation du clavier) et à chaque changement du viewport visuel, on demande
-  // au navigateur de ramener le formulaire dans la zone visible (scrollIntoView « nearest » :
-  // gère les zones de défilement imbriquées, ne bouge pas si c'est déjà visible).
-  function keepVisibleAboveKeyboard(el) {
-    var vv = window.visualViewport;
-    var box = (el.closest && el.closest('.catNewPole, .catEditForm, .goalMainCard')) || el;
-    var until = Date.now() + 1500, raf = 0;
-    function step() {
-      raf = 0;
-      if (document.activeElement !== el) return;
-      try { box.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
-      if (Date.now() < until) raf = requestAnimationFrame(step);
-    }
-    function onResize() { until = Date.now() + 600; if (!raf) raf = requestAnimationFrame(step); }
-    function onBlur() {
-      el.removeEventListener('blur', onBlur);
-      if (vv) vv.removeEventListener('resize', onResize);
-      until = 0;
-    }
-    el.addEventListener('blur', onBlur);
-    if (vv) vv.addEventListener('resize', onResize);
-    raf = requestAnimationFrame(step);
-  }
-  TMT.keepVisibleAboveKeyboard = keepVisibleAboveKeyboard;
 
   function ensureGoalDescModal() {
     var modal = $('goalDescModal');
@@ -891,9 +863,6 @@
         saveMainGoalDescription(period.periodNumber, title, descIn.value.trim());
       };
       cancelBtn.onclick = function () { mainEditKey = null; descIn.dataset.editFor = ''; renderActivityGoals(); };
-      [mainInput, descIn].forEach(function (el) {
-        el.onfocus = function () { keepVisibleAboveKeyboard(el); };
-      });
     } else {
       descIn.dataset.editFor = '';
     }

@@ -1219,6 +1219,38 @@
     }, { capture: true, passive: true });
   }
 
+  // 3 oct. 2026 (demande d'Emilien : « pour l'ensemble de l'application ») — clavier iPhone/PWA :
+  // à la prise de focus d'un champ texte, on garde le champ (et son formulaire, boutons compris)
+  // dans la zone visible pendant l'ouverture du clavier. Le pincement continu ci-dessous
+  // redimensionne la page plein écran à la hauteur du viewport visuel image par image ; iOS, lui,
+  // ne fait défiler vers le champ qu'à la première frappe. On suit donc la même cadence :
+  // à chaque image pendant ~1,5 s et à chaque changement du viewport visuel, scrollIntoView
+  // « nearest » (gère les zones de défilement imbriquées, ne bouge pas si le champ est déjà visible).
+  if (_isCoarsePointer) {
+    document.addEventListener('focusin', function (e) {
+      var el = e.target;
+      if (!_isTextInputEl(el)) return;
+      var vv = window.visualViewport;
+      var box = (el.closest && el.closest('.catNewPole, .catEditForm, .goalMainCard')) || el;
+      var until = Date.now() + 1500, raf = 0;
+      function step() {
+        raf = 0;
+        if (document.activeElement !== el) return;
+        try { box.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (err) {}
+        if (Date.now() < until) raf = requestAnimationFrame(step);
+      }
+      function onResize() { until = Date.now() + 600; if (!raf) raf = requestAnimationFrame(step); }
+      function onBlur() {
+        el.removeEventListener('blur', onBlur);
+        if (vv) vv.removeEventListener('resize', onResize);
+        until = 0;
+      }
+      el.addEventListener('blur', onBlur);
+      if (vv) vv.addEventListener('resize', onResize);
+      raf = requestAnimationFrame(step);
+    }, true);
+  }
+
   // ⚠️ 3 septembre 2026 (Design) : masquage complet de .tabbar tant qu'un
   // champ texte avait le focus (voir historique dans le journal du volet) —
   // RETIRÉ le 27 septembre 2026, sur demande d'Emilien (« la barre des
@@ -7014,9 +7046,6 @@
     fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
     // Au toucher d'un champ (clavier qui s'ouvre) : remonte la zone au-dessus du clavier.
-    [nameIn, descIn].forEach(function (el) {
-      el.addEventListener('focus', function () { if (TMT.keepVisibleAboveKeyboard) TMT.keepVisibleAboveKeyboard(el); });
-    });
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
     descIn.addEventListener('input', function () { st.desc = descIn.value; });
     function submit() {
@@ -7236,9 +7265,6 @@
     actions.appendChild(del); actions.appendChild(cancel); actions.appendChild(save);
     fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
-    [nameIn, descIn].forEach(function (el) {
-      el.addEventListener('focus', function () { if (TMT.keepVisibleAboveKeyboard) TMT.keepVisibleAboveKeyboard(el); });
-    });
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
     descIn.addEventListener('input', function () { st.desc = descIn.value; });
     function close() { catEditState = null; catRerender(); }
