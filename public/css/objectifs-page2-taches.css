@@ -234,7 +234,7 @@
   bottom: env(safe-area-inset-bottom); display: flex; gap: 0;
 }
 /* Zone tactile 44 px ; le point visuel reste à 7 px (même position qu'avant : 18 px du bas). */
-.goalsDotBtn { width: 44px; height: 44px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.goalsDotBtn { width: 17px; height: 44px; /* pas de 17 px = écartement d'origine (7 px + 10 px) */ padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 #goalsPage2Dots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s; }
 #goalsPage2Dots .goalsDotBtn.on .goalsDot { opacity: 1; }
 

@@ -2,7 +2,7 @@
 #statsPages { position: relative; }
 #statsPageDots {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
-  bottom: calc(var(--tabbar-h, 64px) - 10px); display: flex; gap: 0;
+  bottom: var(--tabbar-h, 64px); display: flex; gap: 0;
 }
 #statsPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
 #statsPageDots .goalsDotBtn.on .goalsDot { opacity: 1; }
@@ -48,3 +48,6 @@
 .saModalTitle { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
 .saModalSub { margin: 0 0 12px; }
 .saBarFill, .saCell i { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .14); }
+
+/* 3 oct. 2026 : zone tactile au-dessus de la barre d'onglets (ne la recouvre pas), point visuel au même endroit qu'avant. */
+#statsPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
