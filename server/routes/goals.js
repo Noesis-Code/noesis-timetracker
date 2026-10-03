@@ -710,14 +710,14 @@ function overloadRoute(fn) {
     const check = requireMembership(userId, activityId);
     if (check.error) return res.status(check.error.status).json(check.error.body);
     try {
-      res.json(fn(userId, activityId, req.body || {}));
+      res.json(fn(userId, activityId, req.body || {}, req.query || {}));
     } catch (err) {
       handleGoalsError(res, err);
     }
   };
 }
-router.get('/activities/:id/goals/overload', overloadRoute((u, a) => goalsoverload.getProposal(u, a)));
-router.post('/activities/:id/goals/overload/apply', overloadRoute((u, a, b) => goalsoverload.applyProposal(u, a, b.signature)));
+router.get('/activities/:id/goals/overload', overloadRoute((u, a, b, q) => goalsoverload.getProposal(u, a, q.pole || undefined)));
+router.post('/activities/:id/goals/overload/apply', overloadRoute((u, a, b) => goalsoverload.applyProposal(u, a, b.signature, b.poleKey || undefined)));
 router.post('/activities/:id/goals/overload/dismiss', overloadRoute((u, a) => goalsoverload.dismissProposal(u, a)));
 
 // ---------------------------------------------------------------------------

@@ -2,10 +2,10 @@
 #statsPages { position: relative; }
 #statsPageDots {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
-  bottom: calc(var(--tabbar-h, 64px) + 8px); display: flex; gap: 10px; pointer-events: none;
+  bottom: calc(var(--tabbar-h, 64px) - 10px); display: flex; gap: 0;
 }
 #statsPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
-#statsPageDots .goalsDot.on { opacity: 1; }
+#statsPageDots .goalsDotBtn.on .goalsDot { opacity: 1; }
 #statsAvancePage { padding-bottom: calc(var(--tabbar-h, 64px) + 40px); }
 .saChips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
 .saChips::-webkit-scrollbar { display: none; }
