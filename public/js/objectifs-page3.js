@@ -374,54 +374,32 @@
 
   var mainEditKey = null; // « période|pôle » dont l'objectif périodique est en modification sur place
 
-  // Remonte un champ au-dessus du clavier (iPhone en PWA : le clavier se pose PAR-DESSUS la page,
-  // sans réduire la zone de mise en page, et iOS ne fait défiler vers le champ qu'à la frappe).
-  // Ici : on mesure le clavier via visualViewport, on réserve sous la page l'espace du clavier
-  // (sinon le bas de page ne peut pas monter) puis on fait UN défilement doux jusqu'au champ ;
-  // refait à chaque changement du viewport visuel tant que le champ garde le focus.
-  var kbPad = null; // { el, prev } : zone de défilement à laquelle on a réservé l'espace du clavier
-  function kbRelease() {
-    if (!kbPad) return;
-    kbPad.el.style.paddingBottom = kbPad.prev;
-    kbPad = null;
-  }
-  function kbScroller(el) {
-    for (var n = el.parentElement; n && n !== document.body; n = n.parentElement) {
-      var oy = getComputedStyle(n).overflowY;
-      if ((oy === 'auto' || oy === 'scroll')) return n;
-    }
-    return null;
-  }
+  // Garde le champ (et son formulaire, boutons compris) visible pendant que le clavier s'ouvre.
+  // iPhone en PWA : app.js (pincement continu, image par image) redimensionne la page plein écran
+  // à la hauteur du viewport visuel quand un champ a le focus ; iOS, lui, ne fait défiler vers le
+  // champ qu'à la première frappe. On suit donc la même cadence : à chaque image pendant ~1,5 s
+  // (le temps de l'animation du clavier) et à chaque changement du viewport visuel, on demande
+  // au navigateur de ramener le formulaire dans la zone visible (scrollIntoView « nearest » :
+  // gère les zones de défilement imbriquées, ne bouge pas si c'est déjà visible).
   function keepVisibleAboveKeyboard(el) {
     var vv = window.visualViewport;
-    var done = false;
-    function ensure() {
+    var box = (el.closest && el.closest('.catNewPole, .catEditForm, .goalMainCard')) || el;
+    var until = Date.now() + 1500, raf = 0;
+    function step() {
+      raf = 0;
       if (document.activeElement !== el) return;
-      var kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
-      var sc = kbScroller(el);
-      var host = sc || document.body;
-      if (kb > 80) {
-        if (!kbPad || kbPad.el !== host) { kbRelease(); kbPad = { el: host, prev: host.style.paddingBottom }; }
-        host.style.paddingBottom = (kb + 24) + 'px';
-      }
-      var top = vv ? vv.offsetTop : 0, vh = vv ? vv.height : window.innerHeight;
-      var r = el.getBoundingClientRect();
-      var topLimit = top + 70, bottomLimit = top + vh - 14;
-      if (r.top >= topLimit && r.bottom <= bottomLimit) return;
-      var delta = r.bottom > bottomLimit ? r.bottom - bottomLimit : r.top - topLimit;
-      (sc || window).scrollBy({ top: delta, behavior: 'smooth' });
+      try { box.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+      if (Date.now() < until) raf = requestAnimationFrame(step);
     }
-    var tmr = 0;
-    function onResize() { clearTimeout(tmr); tmr = setTimeout(ensure, 120); }
+    function onResize() { until = Date.now() + 600; if (!raf) raf = requestAnimationFrame(step); }
     function onBlur() {
       el.removeEventListener('blur', onBlur);
       if (vv) vv.removeEventListener('resize', onResize);
-      clearTimeout(tmr);
-      setTimeout(function () { if (!document.activeElement || !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) kbRelease(); }, 250);
+      until = 0;
     }
     el.addEventListener('blur', onBlur);
     if (vv) vv.addEventListener('resize', onResize);
-    [150, 450, 900].forEach(function (d) { setTimeout(ensure, d); });
+    raf = requestAnimationFrame(step);
   }
   TMT.keepVisibleAboveKeyboard = keepVisibleAboveKeyboard;
 
