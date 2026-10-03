@@ -15746,6 +15746,18 @@
   // même : on perd le détail des membres, pas la gestion des activités.
   function loadSettingsActivities() {
     if (!profile) return;
+    // Affichage immédiat : dernière liste connue (puis rafraîchie), sinon « Chargement… ».
+    var listBox = $('activitiesList');
+    if (listBox && !listBox.children.length) {
+      if (activitiesCache && activitiesCache.length) {
+        renderActivitiesSettings(activitiesCache, (lastActivitiesData && lastActivitiesData.sharedList) || []);
+      } else {
+        var ld = document.createElement('p');
+        ld.className = 'hint';
+        ld.textContent = t('Chargement…');
+        listBox.appendChild(ld);
+      }
+    }
     Promise.all([
       api('GET', '/api/activities?all=1&userId=' + profile.id),
       api('GET', '/api/community?userId=' + profile.id).catch(function () { return { activities: [] }; })
