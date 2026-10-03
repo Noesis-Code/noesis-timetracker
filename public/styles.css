@@ -6661,15 +6661,6 @@ button { -webkit-user-select: none; user-select: none; }
 /* 2 oct. 2026 (Emilien) : fenêtre Membres — l'en-tête (déjà paddé 16px) s'ajoutait au padding de la carte : trop d'espace au-dessus du titre et de la croix. */
 #communityMembersModal .communityMembersModalCard { padding-top: 0; }
 
-#activityPageSectionSwitch.tabsGhost { visibility: hidden; pointer-events: none; }
-
-/* Feuille de temps : titre et libellé de période sur une ligne, jusqu'à 320 px. */
-.sectionTitleRow:has(.timesheetNav) > .sectionTitle { font-size: clamp(13px, 4vw, 15px); white-space: nowrap; flex-shrink: 0; } /* limité à la Feuille de temps (3 oct. : ne touche plus les autres titres) */
-.timesheetNav { gap: 4px; min-width: 0; }
-.timesheetNav .meta { white-space: nowrap; font-size: clamp(11px, 3.4vw, 13px); }
-.timesheetNav .meta.tsCurrent { font-weight: 700; }
 @media (max-width: 340px) {
-  .timesheetNav .iconBtn, .timesheetNav .menuBtn { width: 26px; height: 28px; }
-  .timesheetNav { gap: 2px; }
   #communitySearchInput { font-size: 14px; }
 }

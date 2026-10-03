@@ -4728,8 +4728,7 @@
   // ce rendu-là n'a plus aucun rapport avec cette section.
   function syncSoloStatsTab(has) {
     $('activityPageTabStats').classList.toggle('hidden', !has);
-    // Hauteur réservée (visibility, pas display) : le titre ne saute plus quand l'onglet apparaît/disparaît.
-    $('activityPageSectionSwitch').classList.toggle('tabsGhost', !has);
+    $('activityPageSectionSwitch').classList.toggle('hidden', !has);
     // La dernière catégorie de temps de l'activité a disparu (rare, mais
     // possible après une modification d'historique) alors qu'on regardait les
     // statistiques : on ne laisse pas l'écran sur une section qui n'existe plus.
@@ -5370,9 +5369,7 @@
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.remove('tsFrozenCal');
 
-    // Libellé court (« 29/09 – 05/10 ») ; la semaine en cours se marque en gras plutôt que par un suffixe (320 px).
-    $(I.weekLabel).textContent = String(data.label).replace(/^Semaine du (\d+\/\d+) au (\d+\/\d+)$/, '$1 – $2');
-    $(I.weekLabel).classList.toggle('tsCurrent', !!data.isCurrentWeek);
+    $(I.weekLabel).textContent = t(data.label) + (data.isCurrentWeek ? t(' (en cours)') : '');
     $(I.nextBtn).disabled = data.isCurrentWeek;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
@@ -7262,9 +7259,9 @@
         });
         header.appendChild(handle);
         header.appendChild(catNameInput(activityId, s, pole.key));
-        header.appendChild(catSmallButton('✎', t('Modifier ce secteur'), function () {
-          openCategoryDetailModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
-        }));
+        header.appendChild(catDeleteButton(t('Retirer ce secteur'), function () {
+          openCategoryRemoveModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key });
+        }, true));
         row.appendChild(header);
       } else {
         var name = document.createElement('span');
@@ -7315,8 +7312,8 @@
   }
 
   // ----- Fenêtres (.communityMembersModal) -----
-  // Suppression d'un pôle/secteur : confirmation unique « tout supprimer » (3 oct. 2026) ;
-  // jamais window.confirm.
+  // Retrait d'un pôle/secteur : 3 choix (supprimer aussi les tâches / les conserver
+  // sans pôle-secteur / annuler), via removal-preview. Jamais window.confirm.
   function openCategoryRemoveModal(o) {
     var modal = $('categoryRemoveModal');
     if (!modal) return;
@@ -7324,26 +7321,44 @@
     var msg = $('categoryRemoveMsg');
     var delBtn = $('categoryRemoveDeleteTasksBtn');
     var keepBtn = $('categoryRemoveKeepTasksBtn');
-    $('categoryRemoveTitle').textContent = t(isPole ? 'Supprimer le pôle « {name} » ?' : 'Supprimer le secteur « {name} » ?', { name: o.label });
-    $('categoryRemoveText').textContent = t(isPole
-      ? 'Êtes-vous sûr de vouloir supprimer le pôle ? Les secteurs affiliés ainsi que les tâches seront également supprimés.'
-      : 'Êtes-vous sûr de vouloir supprimer le secteur ? Les tâches du secteur seront également supprimées.');
+    $('categoryRemoveTitle').textContent = t(isPole ? 'Retirer le pôle « {name} » ?' : 'Retirer le secteur « {name} » ?', { name: o.label });
+    $('categoryRemoveText').textContent = t('Vérification des tâches affiliées…');
     msg.textContent = '';
+    delBtn.classList.add('hidden');
     keepBtn.classList.add('hidden');
-    delBtn.textContent = t('Supprimer');
-    delBtn.classList.remove('hidden');
     modal.classList.remove('hidden');
 
     function close() { modal.classList.add('hidden'); }
-    // Toujours « tout supprimer » (3 oct. 2026) : une seule confirmation.
-    delBtn.onclick = function () {
-      delBtn.disabled = true;
+    function run(choice) {
+      delBtn.disabled = keepBtn.disabled = true;
       var p = isPole
-        ? removeActivityGoalsCategory(o.key, 'delete')
-        : removePoleSecteur(o.activityId, o.poleKey, o.key, 'delete');
+        ? removeActivityGoalsCategory(o.key, choice)
+        : removePoleSecteur(o.activityId, o.poleKey, o.key, choice);
       p.then(close).catch(function (err) { msg.textContent = err.message; })
-        .then(function () { delBtn.disabled = false; });
-    };
+        .then(function () { delBtn.disabled = keepBtn.disabled = false; });
+    }
+    function show(count) {
+      if (count === 0) {
+        $('categoryRemoveText').textContent = t(isPole ? 'Son historique reste consultable mais il ne recevra plus de nouveaux objectifs.' : 'Son historique reste consultable.');
+        keepBtn.textContent = t('Retirer');
+        keepBtn.classList.remove('hidden');
+        keepBtn.onclick = function () { run(undefined); };
+        delBtn.onclick = null;
+        return;
+      }
+      $('categoryRemoveText').textContent = count > 0
+        ? t('{n} tâche(s) affiliée(s). Que faire de ces tâches ?', { n: count })
+        : t('Des tâches sont peut-être affiliées. Que faire de ces tâches ?');
+      delBtn.textContent = t('Supprimer aussi les tâches');
+      keepBtn.textContent = t(isPole ? 'Conserver les tâches sans pôle' : 'Conserver les tâches sans secteur');
+      delBtn.classList.remove('hidden');
+      keepBtn.classList.remove('hidden');
+      delBtn.onclick = function () { run('delete'); };
+      keepBtn.onclick = function () { run('keep'); };
+    }
+    api('GET', '/api/activities/' + o.activityId + '/goals/categories/' + o.key + '/removal-preview')
+      .then(function (r) { show(r && typeof r.taskCount === 'number' ? r.taskCount : -1); })
+      .catch(function () { show(-1); });
     $('categoryRemoveClose').onclick = close;
     $('categoryRemoveCancelBtn').onclick = close;
   }
@@ -7374,12 +7389,6 @@
         .catch(function (err) { msg.textContent = err.message; });
     }
     $('categoryDetailSaveBtn').onclick = save;
-    var detailDel = $('categoryDetailDeleteBtn');
-    detailDel.disabled = !o.poleKey && currentActivityGoalsCategories.length <= 1;
-    detailDel.onclick = function () {
-      close();
-      openCategoryRemoveModal({ activityId: o.activityId, key: o.key, label: o.label, poleKey: o.poleKey });
-    };
     $('categoryDetailClose').onclick = close;
     // Pas de focus automatique : le clavier ne s'ouvre pas et aucun curseur n'est posé tant que l'utilisateur ne touche pas le champ.
     try { titleIn.blur(); ta.blur(); ta.scrollTop = 0; } catch (e) {}
@@ -15780,18 +15789,6 @@
   // même : on perd le détail des membres, pas la gestion des activités.
   function loadSettingsActivities() {
     if (!profile) return;
-    // Affichage immédiat : dernière liste connue (puis rafraîchie), sinon « Chargement… ».
-    var listBox = $('activitiesList');
-    if (listBox && !listBox.children.length) {
-      if (activitiesCache && activitiesCache.length) {
-        renderActivitiesSettings(activitiesCache, (lastActivitiesData && lastActivitiesData.sharedList) || []);
-      } else {
-        var ld = document.createElement('p');
-        ld.className = 'hint';
-        ld.textContent = t('Chargement…');
-        listBox.appendChild(ld);
-      }
-    }
     Promise.all([
       api('GET', '/api/activities?all=1&userId=' + profile.id),
       api('GET', '/api/community?userId=' + profile.id).catch(function () { return { activities: [] }; })

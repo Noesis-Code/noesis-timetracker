@@ -39,7 +39,7 @@ function transferActivityContent(fromId, toId, opts) {
   const byKey = new Map(srcRows.map((r) => [r.key, r]));
   // Clé sans ligne (activité jamais personnalisée) : pôle synthétique.
   keys.forEach((k) => {
-    if (!byKey.has(k)) byKey.set(k, { key: k, label: k === 'c1' ? 'Nouveau pôle' : k, color: '', position: 0, removedAt: null, parentKey: null, description: null });
+    if (!byKey.has(k)) byKey.set(k, { key: k, label: k === 'c1' ? 'Catégorie 1' : k, color: '', position: 0, removedAt: null, parentKey: null, description: null });
   });
 
   const used = new Set(db.prepare('SELECT key FROM activity_goal_categories WHERE activityId = ?').all(toId).map((r) => r.key));
