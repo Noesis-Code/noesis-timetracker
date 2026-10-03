@@ -116,6 +116,12 @@ router.get('/community/activity-messages', (req, res) => {
   if (!userId || !activityId) return res.status(400).json({ error: 'userId et activityId requis.' });
 
   const check = checkSharedActivityAccess(userId, activityId);
+  // Activité non partagée (un seul membre) : pas une erreur, simplement aucun
+  // message — évite un 400 en console à chaque ouverture/préchargement.
+  if (check.error && check.error.status === 400) {
+    const act = db.prepare('SELECT name FROM activities WHERE id = ?').get(activityId);
+    return res.json({ activityName: act ? act.name : '', messages: [] });
+  }
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   const messages = discussionFiles.attachFiles(activityMessagesForUser(activityId));

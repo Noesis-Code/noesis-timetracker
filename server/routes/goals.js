@@ -834,7 +834,13 @@ router.post('/goals/capture', async (req, res) => {
 
   try {
     const ok = allowed.length ? await goalstaskclassify.captureTaskForActivities(allowed, userId, req.body.label) : [];
-    res.status(201).json({ results: denied.concat(ok) });
+    const results = denied.concat(ok);
+    // Tout refusé (titre vide, trop long, activité introuvable...) : 400 avec
+    // le détail ; au moins une réussite : 201, le détail par activité est dans results.
+    if (results.length && results.every((r) => !r.ok)) {
+      return res.status(400).json({ error: results[0].error || 'Tâche refusée.', results });
+    }
+    res.status(201).json({ results });
   } catch (err) {
     handleGoalsError(res, err);
   }

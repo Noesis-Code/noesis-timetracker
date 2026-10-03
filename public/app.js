@@ -583,8 +583,21 @@
   // consulter l'essentiel sans réseau. Lectures seulement, erreurs ignorées ;
   // chaque réponse est gardée par api() elle-même. `markRead=0` : précharger
   // la discussion ne doit jamais marquer ses messages comme lus.
+  // Allégé (3 oct. 2026) : au plus une fois par session ET seulement si le
+  // dernier préchargement a plus de 12 min, lancé en période d'inactivité,
+  // 3 requêtes simultanées au plus, pas de messages pour les activités non
+  // partagées (le serveur répondait 400 à chacune).
+  var PRELOAD_MIN_AGE_MS = 12 * 60 * 1000;
+  var preloadDoneThisSession = false;
   function preloadOfflineData() {
-    if (!profile || navigator.onLine === false) return;
+    if (!profile || navigator.onLine === false || preloadDoneThisSession) return;
+    var lastKey = 'tmtPreloadAt:' + profile.id;
+    try {
+      var last = Number(localStorage.getItem(lastKey)) || 0;
+      if (Date.now() - last < PRELOAD_MIN_AGE_MS) { preloadDoneThisSession = true; return; }
+    } catch (e) { /* stockage indisponible : on précharge */ }
+    preloadDoneThisSession = true;
+    try { localStorage.setItem(lastKey, String(Date.now())); } catch (e2) { /* ignoré */ }
     var id = profile.id;
     var today = toDateValue(new Date());
     var urls = [
@@ -601,7 +614,7 @@
       urls.push('/api/activities/' + a.id + '/goals/all');
       urls.push('/api/activities/' + a.id + '/sub-projects?userId=' + id);
       urls.push('/api/category-stats?userId=' + id + '&activityId=' + encodeURIComponent(a.id) + '&period=week');
-      urls.push('/api/community/activity-messages?userId=' + id + '&activityId=' + a.id + '&markRead=0');
+      if (a.membersCount > 1) urls.push('/api/community/activity-messages?userId=' + id + '&activityId=' + a.id + '&markRead=0');
     });
     var i = 0;
     function next() {
@@ -617,8 +630,10 @@
         }
       }).catch(function () { /* ignoré */ }).then(next);
     }
-    // 2 files en parallèle pour ne pas encombrer le démarrage.
-    next(); next();
+    // 3 files en parallèle au plus, démarrées en période d'inactivité.
+    function start() { next(); next(); next(); }
+    if (window.requestIdleCallback) window.requestIdleCallback(start, { timeout: 10000 });
+    else setTimeout(start, 3000);
   }
 
   function apiNetwork(method, url, body) {
@@ -9210,6 +9225,12 @@
   function loadDiscussion(markRead) {
     if (!profile || !discussionActivityId) return;
     var activityId = discussionActivityId;
+    // Activité non partagée : pas de fil, on n'appelle pas la route.
+    var known = (activitiesCache || []).filter(function (a) { return String(a.id) === String(activityId); })[0];
+    if (known && known.membersCount <= 1 && !(lastRenderedShared && lastRenderedShared[String(activityId)])) {
+      renderDiscussion([]);
+      return;
+    }
     api('GET', '/api/community/activity-messages?userId=' + profile.id + '&activityId=' + activityId + (markRead ? '' : '&markRead=0'))
       .then(function (data) {
         if (String(activityId) !== String(discussionActivityId)) return; // sélection changée entre-temps
