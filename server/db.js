@@ -2276,4 +2276,20 @@ CREATE TABLE IF NOT EXISTS announcement_seen (
 );
 `);
 
+// ===================== EXEMPLES DE CORRECTION DU CLASSEMENT IA =====================
+// 3 octobre 2026 : quand un membre deplace une tache vers un autre secteur/pole,
+// on garde l'exemple (propre a l'activite) pour le reinjecter dans le prompt de
+// classement de CETTE activite uniquement (server/lib/goalsclassifyexamples.js).
+db.exec(`
+CREATE TABLE IF NOT EXISTS goal_classify_examples (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  userId TEXT REFERENCES users(id) ON DELETE SET NULL,
+  label TEXT NOT NULL,
+  categoryKey TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_goal_classify_examples_activity ON goal_classify_examples(activityId, id);
+`);
+
 module.exports = db;

@@ -38,6 +38,7 @@ const db = require('../db');
 const goals = require('./goals');
 const subprojects = require('./subprojects');
 const goalsauto = require('./goalsauto');
+const goalsclassifyexamples = require('./goalsclassifyexamples');
 
 // 21 septembre 2026 (Chrono — sélecteur pôle/secteur, fenêtre « visualiser »,
 // demande directe d'Emilien) — dupliqué depuis goals.js#todayLocal (même
@@ -304,6 +305,8 @@ function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
   // Re-tente le classement automatique (Offre1) sur les DEUX catégories
   // concernées — jamais bloquant, même principe qu'ailleurs dans ce fichier.
   const oldCategoryKey = currentSubProject.goalCategory;
+  // Apprentissage des corrections du classement IA (propre à l'activité).
+  goalsclassifyexamples.recordCorrection(activityId, userId, item.label, newCategoryKey);
   try {
     if (oldCategoryKey) goalsauto.onSubProjectItemChanged(activityId, oldCategoryKey);
     goalsauto.onSubProjectItemChanged(activityId, newCategoryKey);
