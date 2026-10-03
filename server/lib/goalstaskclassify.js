@@ -91,16 +91,28 @@ function buildClassificationCandidates(activityId) {
   poles.forEach((pole) => {
     const secteurs = goals.secteursForPole(activityId, pole.key);
     if (secteurs.length) {
-      secteurs.forEach((s) => out.push({ key: s.key, label: pole.label + ' → ' + s.label }));
+      secteurs.forEach((s) => out.push({
+        key: s.key,
+        label: pole.label + ' → ' + s.label,
+        description: s.description || '',
+        poleDescription: pole.description || '',
+      }));
     } else {
-      out.push({ key: pole.key, label: pole.label });
+      out.push({ key: pole.key, label: pole.label, description: pole.description || '', poleDescription: '' });
     }
   });
   return out;
 }
 
 function buildPrompt(label, categories) {
-  const list = categories.map((c) => `- ${c.key} : ${c.label}`).join('\n');
+  // Description du candidat puis, entre parenthèses, celle de son pôle
+  // (parties vides omises).
+  const list = categories.map((c) => {
+    let line = `- ${c.key} : ${c.label}`;
+    if (c.description) line += ` — ${c.description}`;
+    if (c.poleDescription) line += ` (pôle : ${c.poleDescription})`;
+    return line;
+  }).join('\n');
   return [
     "Une personne vient d'écrire une tâche à faire, sans préciser dans quelle catégorie de son planning elle doit être rangée.",
     '',
