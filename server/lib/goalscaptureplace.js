@@ -151,6 +151,69 @@ function committedMinutesByDay(userId, days, excludeId) {
   return byDay;
 }
 
+// Capacité HEBDOMADAIRE de l'activité : somme sur les pôles de
+// capacityMinutesForMember (ajustement manuel prioritaire, sinon calcul auto —
+// mécanisme inchangé) ; plancher 60 min/jour comme goalsoverload.budgetFor.
+function activityWeeklyCapacityMinutes(userId, activityId) {
+  let total = 0;
+  goals.categoriesForActivity(activityId).forEach((pole) => {
+    total += goalsauto.capacityMinutesForMember(activityId, pole.key, userId);
+  });
+  return Math.max(60 * 7, Math.round(total));
+}
+
+// Temps réel (non cochées) déjà planifié, PAR JOUR, pour UNE activité. Une
+// tâche longue compte sa capacité quotidienne les jours intermédiaires et son
+// reste le dernier jour.
+function activityMinutesByDay(userId, activityId, days, excludeId) {
+  const rows = db.prepare(`
+    SELECT i.label, i.dueDate AS date, sp.goalCategory AS category
+    FROM sub_project_items i
+    JOIN sub_project_sections s ON s.id = i.sectionId
+    JOIN sub_projects sp ON sp.id = s.subProjectId
+    WHERE sp.activityId = ? AND i.done = 0 AND i.dueDate >= ? AND i.dueDate <= ? AND i.id != ?
+  `).all(activityId, goals.addDays(days[0], -60), days[days.length - 1], excludeId || 0);
+  const byDay = {};
+  days.forEach((d) => { byDay[d] = 0; });
+  const cap = capacityFor(userId, activityId);
+  rows.forEach((r) => {
+    const minutes = taskMinutes(activityId, r.category, r.label);
+    const span = longSpan(minutes, cap);
+    const n = span ? span.days : 1;
+    for (let k = 0; k < n; k += 1) {
+      const d = goals.addDays(r.date, k);
+      if (byDay[d] === undefined) continue;
+      byDay[d] += !span ? minutes : (k < n - 1 ? cap : span.rest);
+    }
+  });
+  return byDay;
+}
+
+// Tâche courte sans objectif lié : première semaine (lundi->dimanche, en
+// commençant par la semaine en cours) où le temps prévu de l'ACTIVITÉ moins la
+// durée de ses tâches déjà planifiées laisse de la place ; dans cette semaine,
+// premier jour (à partir d'aujourd'hui) sous le budget quotidien, sinon le
+// moins chargé. null si aucune semaine n'a de place.
+function chooseByActivityWeek(userId, activityId, ownMinutes, today, excludeId) {
+  const WEEKS = 3;
+  const monday = goals.mostRecentMonday(today);
+  const days = [];
+  for (let i = 0; i < 7 * WEEKS; i += 1) days.push(goals.addDays(monday, i));
+  const load = activityMinutesByDay(userId, activityId, days, excludeId);
+  const weekly = activityWeeklyCapacityMinutes(userId, activityId);
+  const budget = capacityFor(userId, activityId);
+  for (let w = 0; w < WEEKS; w += 1) {
+    const week = days.slice(w * 7, w * 7 + 7);
+    const used = week.reduce((s, d) => s + load[d], 0);
+    if (used + ownMinutes > weekly) continue;
+    const cand = week.filter((d) => d >= today);
+    if (!cand.length) continue;
+    return cand.find((d) => load[d] + ownMinutes <= budget)
+      || cand.reduce((b, d) => (load[d] < load[b] ? d : b), cand[0]);
+  }
+  return null;
+}
+
 // Point d'entrée : choisit un jour (jamais une heure) pour une tâche fraîche,
 // glouton sur les LOOKAHEAD_DAYS prochains jours (aujourd'hui inclus) —
 // premier jour où charge déjà engagée + estimation de cette tâche tient sous
@@ -182,6 +245,11 @@ function chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, exc
       return true;
     });
     if (start) return start;
+  }
+
+  if (!span) {
+    const byWeek = chooseByActivityWeek(userId, activityId, ownMinutes, today, excludeId);
+    if (byWeek) return byWeek;
   }
 
   let chosen = window.find((d) => (load[d] || 0) + (span ? CLOSED_DAY : ownMinutes) <= budget);
@@ -255,6 +323,8 @@ module.exports = {
   LOOKAHEAD_DAYS,
   DEFAULT_TASK_MINUTES,
   globalDailyCapacityMinutes,
+  activityWeeklyCapacityMinutes,
+  activityMinutesByDay,
   committedMinutesByDay,
   chooseAutoPlacementDate,
   autoPlaceTask,
