@@ -6474,7 +6474,7 @@
     // de faire défiler.
     textarea.rows = 4;
     textarea.maxLength = 300;
-    textarea.placeholder = t('Nouvelle tâche… une IA choisit son pôle');
+    textarea.placeholder = t('Nouvelle tâche… Noèsis choisit son pôle');
 
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -6971,7 +6971,7 @@
     nameIn.enterKeyHint = 'next';
     var descIn = document.createElement('textarea');
     descIn.rows = 3; descIn.maxLength = 200; descIn.autocomplete = 'off';
-    descIn.placeholder = t('Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.');
+    descIn.placeholder = t('Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux Noèsis planifie pour toi.');
     descIn.enterKeyHint = 'send';
     var msg = document.createElement('p');
     msg.className = 'msg';
@@ -7034,7 +7034,7 @@
     nameIn.placeholder = t('Nom du secteur'); nameIn.enterKeyHint = 'next'; nameIn.value = st.name;
     var descIn = document.createElement('textarea');
     descIn.rows = 3; descIn.maxLength = 200; descIn.autocomplete = 'off';
-    descIn.placeholder = t('Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.');
+    descIn.placeholder = t('Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux Noèsis planifie pour toi.');
     descIn.enterKeyHint = 'send'; descIn.value = st.desc;
     var msg = document.createElement('p'); msg.className = 'msg';
     var actions = document.createElement('div'); actions.className = 'catNewPoleActions';
@@ -7250,7 +7250,7 @@
     nameIn.placeholder = t(st.poleKey ? 'Nom du secteur' : 'Nom du pôle'); nameIn.enterKeyHint = 'next'; nameIn.value = st.name;
     var descIn = document.createElement('textarea');
     descIn.rows = 3; descIn.maxLength = 200; descIn.autocomplete = 'off';
-    descIn.placeholder = t(st.poleKey ? 'Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.' : 'Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.');
+    descIn.placeholder = t(st.poleKey ? 'Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux Noèsis planifie pour toi.' : 'Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux Noèsis planifie pour toi.');
     descIn.enterKeyHint = 'send'; descIn.value = st.desc;
     var msg = document.createElement('p'); msg.className = 'msg';
     var actions = document.createElement('div'); actions.className = 'catNewPoleActions';
@@ -7506,7 +7506,7 @@
     var titleIn = $('categoryDetailTitle');
     titleIn.value = o.label;
     $('categoryDetailHint').textContent = t(o.poleKey ? 'Décris ce secteur (optionnel).' : 'Décris ce pôle (optionnel).');
-    ta.placeholder = t(o.poleKey ? 'Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.' : 'Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.');
+    ta.placeholder = t(o.poleKey ? 'Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux Noèsis planifie pour toi.' : 'Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux Noèsis planifie pour toi.');
     ta.value = initial;
     msg.textContent = '';
     modal.classList.remove('hidden');

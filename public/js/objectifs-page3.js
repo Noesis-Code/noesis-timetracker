@@ -411,7 +411,7 @@
     var ta = $('goalDescModalText');
     var msg = $('goalDescModalMsg');
     $('goalDescModalTitle').textContent = o.title;
-    ta.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux l’IA planifie pour toi.');
+    ta.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.');
     ta.value = o.description || '';
     msg.textContent = '';
     modal.classList.remove('hidden');
@@ -516,8 +516,8 @@
           msg = t('Aucune tâche à dater sur cette semaine (déjà planifiée ou vide).');
         } else {
           msg = data.assigned + '/' + data.total + ' ' + t('tâche(s) datée(s)') + ' — '
-            + (data.usedAi ? t('via IA') : t('répartition automatique'));
-          if (data.aiError) msg += ' (' + t('IA indisponible, repli automatique utilisé') + ')';
+            + (data.usedAi ? t('par Noèsis') : t('répartition automatique'));
+          if (data.aiError) msg += ' (' + t('Noèsis indisponible, repli automatique utilisé') + ')';
         }
         $('activityGoalsMsg').textContent = msg;
         return reloadGoalsAll();
@@ -867,7 +867,7 @@
     mainCardEl.classList.toggle('mainEditing', editing);
     mainSaveBtn.classList.toggle('iconBtn', editing); mainSaveBtn.classList.toggle('btnBrique', editing);
     cancelBtn.classList.toggle('iconBtn', editing);
-    descIn.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux l’IA planifie pour toi.');
+    descIn.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.');
     if (editing) {
       if (descIn.dataset.editFor !== mainEditKey) { descIn.value = period.mainGoalDescription || ''; descIn.dataset.editFor = mainEditKey; }
       mainSaveRow.classList.remove('hidden');

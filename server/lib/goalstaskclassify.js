@@ -250,7 +250,7 @@ async function classifyCategory(activityId, label, opts) {
       if (unc) return unresolved(unc, null);
       const key = extractKey(text, categories);
       if (key) return { key, usedAi: true, aiError: null };
-      return unresolved(null, "Réponse de l'IA inexploitable.");
+      return unresolved(null, "Réponse de Noèsis inexploitable.");
     } catch (err) {
       return unresolved(null, err.message);
     }
@@ -264,7 +264,7 @@ async function classifyCategory(activityId, label, opts) {
     const text = await callModel(prompt);
     const key = extractKey(text, categories);
     if (key) return { key, usedAi: true, aiError: null };
-    return { key: fallbackKey, usedAi: false, aiError: "Réponse de l'IA inexploitable." };
+    return { key: fallbackKey, usedAi: false, aiError: "Réponse de Noèsis inexploitable." };
   } catch (err) {
     return { key: fallbackKey, usedAi: false, aiError: err.message };
   }

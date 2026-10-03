@@ -891,7 +891,7 @@
     // 27 septembre 2026, demande d'Emilien : garder un texte proche de
     // l'ancien plutôt que la formulation « Nouvelle tâche… choisis une ou
     // plusieurs activités », avec des points de suspension à la fin.
-    textarea.placeholder = t('Écris une nouvelle tâche, l\'IA l\'organise dans tes projets...');
+    textarea.placeholder = t('Écris une nouvelle tâche, Noèsis l\'organise dans tes projets...');
 
     var btn = document.createElement('button');
     btn.type = 'button';

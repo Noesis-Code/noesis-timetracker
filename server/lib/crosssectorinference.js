@@ -133,7 +133,7 @@ async function callAi(payload, allowedKeys) {
     } catch (err) {
       // réponse non-JSON — pas d'information supplémentaire
     }
-    throw new Error(`L'IA a refusé l'évaluation cross-secteur (HTTP ${res.status})${detail ? ' : ' + detail : ''}.`);
+    throw new Error(`Noèsis n'a pas pu faire l'évaluation entre secteurs (HTTP ${res.status})${detail ? ' : ' + detail : ''}.`);
   }
   const body = await res.json();
   const text = (body.content || []).map((block) => block.text || '').join('');
@@ -147,7 +147,7 @@ function parseSuggestions(text, allowedKeys) {
   try {
     parsed = JSON.parse(text);
   } catch (err) {
-    throw new Error("Réponse de l'IA illisible (JSON invalide).");
+    throw new Error("Réponse de Noèsis illisible (JSON invalide).");
   }
   const raw = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
   const allowed = new Set(allowedKeys || []);

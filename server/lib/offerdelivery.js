@@ -80,7 +80,7 @@ Contraintes : exactement ${SUBPROJECT_COUNT} sous-projets ; chaque "name" fait m
 
 async function generateSubProjectsPlan(formsPayload) {
   if (!aiConfigured()) {
-    throw new Error("Génération IA indisponible : ANTHROPIC_API_KEY n'est pas configurée côté serveur.");
+    throw new Error("Génération indisponible pour le moment.");
   }
 
   const res = await fetch(ANTHROPIC_API_URL, {
@@ -107,7 +107,7 @@ async function generateSubProjectsPlan(formsPayload) {
       // Réponse non-JSON — pas d'information supplémentaire, on continue
       // avec seulement le code HTTP.
     }
-    throw new Error(`L'IA a refusé de générer le plan (HTTP ${res.status})${detail ? ' : ' + detail : ''}.`);
+    throw new Error(`Noèsis n'a pas pu générer le plan (HTTP ${res.status})${detail ? ' : ' + detail : ''}.`);
   }
 
   const body = await res.json();
@@ -124,24 +124,24 @@ function parsePlan(text) {
   try {
     parsed = JSON.parse(text);
   } catch (err) {
-    throw new Error("Réponse de l'IA illisible (JSON invalide).");
+    throw new Error("Réponse de Noèsis illisible (JSON invalide).");
   }
 
   const subProjects = Array.isArray(parsed.subProjects) ? parsed.subProjects : null;
   if (!subProjects || subProjects.length !== SUBPROJECT_COUNT) {
-    throw new Error(`L'IA doit renvoyer exactement ${SUBPROJECT_COUNT} sous-projets (reçu : ${subProjects ? subProjects.length : 0}).`);
+    throw new Error(`Noèsis doit renvoyer exactement ${SUBPROJECT_COUNT} sous-projets (reçu : ${subProjects ? subProjects.length : 0}).`);
   }
 
   return subProjects.map((raw, index) => {
     const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, MAX_NAME_LENGTH) : '';
-    if (!name) throw new Error(`Sous-projet #${index + 1} : nom manquant dans la réponse de l'IA.`);
+    if (!name) throw new Error(`Sous-projet #${index + 1} : nom manquant dans la réponse de Noèsis.`);
 
     const description = typeof raw.description === 'string' ? raw.description.trim().slice(0, MAX_DESCRIPTION_LENGTH) : '';
 
     const tasks = Array.isArray(raw.tasks)
       ? raw.tasks.map((t) => (typeof t === 'string' ? t.trim().slice(0, MAX_ITEM_LABEL_LENGTH) : '')).filter(Boolean)
       : [];
-    if (!tasks.length) throw new Error(`Sous-projet #${index + 1} ("${name}") : aucune tâche exploitable dans la réponse de l'IA.`);
+    if (!tasks.length) throw new Error(`Sous-projet #${index + 1} ("${name}") : aucune tâche exploitable dans la réponse de Noèsis.`);
 
     return { name, description, tasks };
   });

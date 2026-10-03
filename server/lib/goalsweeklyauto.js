@@ -142,7 +142,7 @@ async function callAi(payload, requestedWeeks) {
     } catch (err) {
       // réponse non-JSON — pas d'information supplémentaire
     }
-    throw new Error(`L'IA a refusé de générer les objectifs hebdomadaires (HTTP ${res.status})${detail ? ' : ' + detail : ''}.`);
+    throw new Error(`Noèsis n'a pas pu générer les objectifs hebdomadaires (HTTP ${res.status})${detail ? ' : ' + detail : ''}.`);
   }
   const body = await res.json();
   const text = (body.content || []).map((block) => block.text || '').join('');
@@ -158,7 +158,7 @@ function parseWeeklyGoals(text, requestedWeeks) {
   try {
     parsed = JSON.parse(text);
   } catch (err) {
-    throw new Error("Réponse de l'IA illisible (JSON invalide).");
+    throw new Error("Réponse de Noèsis illisible (JSON invalide).");
   }
   const raw = Array.isArray(parsed.weeklyGoals) ? parsed.weeklyGoals : [];
   const allowed = new Set(requestedWeeks);
