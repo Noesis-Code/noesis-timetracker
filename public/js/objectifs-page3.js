@@ -374,18 +374,54 @@
 
   var mainEditKey = null; // « période|pôle » dont l'objectif périodique est en modification sur place
 
-  // Remonte un champ au-dessus du clavier : UN seul défilement doux, et seulement si le champ
-  // n'est pas déjà entièrement visible (évite les à-coups quand le clavier s'ouvre).
+  // Remonte un champ au-dessus du clavier (iPhone en PWA : le clavier se pose PAR-DESSUS la page,
+  // sans réduire la zone de mise en page, et iOS ne fait défiler vers le champ qu'à la frappe).
+  // Ici : on mesure le clavier via visualViewport, on réserve sous la page l'espace du clavier
+  // (sinon le bas de page ne peut pas monter) puis on fait UN défilement doux jusqu'au champ ;
+  // refait à chaque changement du viewport visuel tant que le champ garde le focus.
+  var kbPad = null; // { el, prev } : zone de défilement à laquelle on a réservé l'espace du clavier
+  function kbRelease() {
+    if (!kbPad) return;
+    kbPad.el.style.paddingBottom = kbPad.prev;
+    kbPad = null;
+  }
+  function kbScroller(el) {
+    for (var n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+      var oy = getComputedStyle(n).overflowY;
+      if ((oy === 'auto' || oy === 'scroll')) return n;
+    }
+    return null;
+  }
   function keepVisibleAboveKeyboard(el) {
-    setTimeout(function () {
+    var vv = window.visualViewport;
+    var done = false;
+    function ensure() {
       if (document.activeElement !== el) return;
-      var vv = window.visualViewport, vh = vv ? vv.height : window.innerHeight;
+      var kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+      var sc = kbScroller(el);
+      var host = sc || document.body;
+      if (kb > 80) {
+        if (!kbPad || kbPad.el !== host) { kbRelease(); kbPad = { el: host, prev: host.style.paddingBottom }; }
+        host.style.paddingBottom = (kb + 24) + 'px';
+      }
+      var top = vv ? vv.offsetTop : 0, vh = vv ? vv.height : window.innerHeight;
       var r = el.getBoundingClientRect();
-      var topLimit = 70, bottomLimit = vh - 12;
+      var topLimit = top + 70, bottomLimit = top + vh - 14;
       if (r.top >= topLimit && r.bottom <= bottomLimit) return;
-      var delta = r.bottom > bottomLimit ? r.bottom - bottomLimit + 8 : r.top - topLimit - 8;
-      window.scrollBy({ top: delta, behavior: 'smooth' });
-    }, 380);
+      var delta = r.bottom > bottomLimit ? r.bottom - bottomLimit : r.top - topLimit;
+      (sc || window).scrollBy({ top: delta, behavior: 'smooth' });
+    }
+    var tmr = 0;
+    function onResize() { clearTimeout(tmr); tmr = setTimeout(ensure, 120); }
+    function onBlur() {
+      el.removeEventListener('blur', onBlur);
+      if (vv) vv.removeEventListener('resize', onResize);
+      clearTimeout(tmr);
+      setTimeout(function () { if (!document.activeElement || !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) kbRelease(); }, 250);
+    }
+    el.addEventListener('blur', onBlur);
+    if (vv) vv.addEventListener('resize', onResize);
+    [150, 450, 900].forEach(function (d) { setTimeout(ensure, d); });
   }
   TMT.keepVisibleAboveKeyboard = keepVisibleAboveKeyboard;
 
