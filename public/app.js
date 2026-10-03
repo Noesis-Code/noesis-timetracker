@@ -387,7 +387,7 @@
     el.classList.toggle('hidden', !lines.length);
   }
   function setOfflineDataBanner(savedAt) {
-    if (savedAt === null && offlineBannerState.savedAt === null) return;
+    if (savedAt === null && offlineBannerState.savedAt === null) { renderOfflineBanner(); return; }
     // Plusieurs écrans peuvent servir des copies d'âges différents : on
     // affiche la plus ancienne.
     offlineBannerState.savedAt = savedAt === null ? null
@@ -2141,7 +2141,27 @@
       }
       // origin 'server', arrêté hors ligne.
       var same = status.running && status.activity && String(status.activity.id) === String(rec.activity.id) &&
-        new Date(status.startTime).getTime() === new Date(rec.startTime).getTime();
+        Math.abs(new Date(status.startTime).getTime() - new Date(rec.startTime).getTime()) <= 2000;
+      if (!same && !status.running) {
+        // Plus aucun chrono côté serveur : soit l'arrêt a déjà été enregistré
+        // (doublon à ne pas recréer), soit il est perdu — on l'enregistre.
+        var isoRef = String(rec.stop.startTime).slice(0, 10);
+        return api('GET', '/api/history?userId=' + profile.id + '&period=week&date=' + isoRef).then(function (rows) {
+          var t0 = new Date(rec.stop.startTime).getTime();
+          var dup = (rows || []).some(function (r) {
+            return String(r.activityId) === String(rec.activity.id) && Math.abs(new Date(r.startTime).getTime() - t0) <= 2000;
+          });
+          if (dup) {
+            notes.push(t('Ce chrono avait déjà été arrêté sur un autre appareil : ton arrêt hors ligne n\'a pas été appliqué.'));
+            return done();
+          }
+          var cat2 = rec.stop.category !== undefined ? rec.stop.category : (rec.category ? rec.category.key : undefined);
+          return toHistory(rec.stop.startTime, rec.stop.endTime, cat2).then(function () {
+            notes.push(t('Arrêt hors ligne synchronisé ({activity}).', { activity: rec.activity.name }));
+            return done();
+          });
+        });
+      }
       if (!same) {
         notes.push(t('Ce chrono avait déjà été arrêté sur un autre appareil : ton arrêt hors ligne n\'a pas été appliqué.'));
         return done();
@@ -2169,6 +2189,9 @@
   }
 
   window.addEventListener('online', function () {
+    // Retour du réseau : le bandeau « données enregistrées du … » n'a plus lieu d'être.
+    offlineBannerState.savedAt = null;
+    renderOfflineBanner();
     if (profile && offlineChronoHasPending(loadOfflineChrono())) syncChronoStatus();
   });
 
@@ -2196,7 +2219,7 @@
   }
 
   function updateLiveTimer() {
-    var elapsedMs = Date.now() - timerStartMs;
+    var elapsedMs = Math.max(0, Date.now() - timerStartMs);
     var h = Math.floor(elapsedMs / 3600000);
     var m = Math.floor((elapsedMs % 3600000) / 60000);
     var s = Math.floor((elapsedMs % 60000) / 1000);

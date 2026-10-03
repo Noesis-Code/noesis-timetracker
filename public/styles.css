@@ -1098,9 +1098,10 @@ textarea {
 .stopConfirmCard {
   background: var(--bg); width: 100%; max-width: 340px; max-height: 85vh;
   overflow-y: auto; border-radius: var(--radius-xl);
-  padding: 16px; box-shadow: var(--shadow-elevated); text-align: left;
-  box-sizing: border-box;
+  padding: 16px 16px 20px; box-shadow: var(--shadow-elevated); text-align: left;
+  box-sizing: border-box; height: auto; min-width: 0;
 }
+.stopConfirmCard > *, .stopConfirmCard .stopDateTimeRow, .stopConfirmCard .categoryPicker { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .stopFieldLabel { font-size: 13px; color: var(--text-light); margin: 10px 0 4px; }
 /* Heure de début/fin en DEUX champs natifs séparés (date + heure) plutôt
    qu'un seul <input type="datetime-local"> — voir le commentaire détaillé
