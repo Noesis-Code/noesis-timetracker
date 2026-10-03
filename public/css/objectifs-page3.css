@@ -472,3 +472,11 @@
   box-shadow: var(--glass-shadow);
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
 }
+
+/* 3 oct. 2026 : objectif périodique en lecture (titre + description) avec bouton modifier à côté. */
+.goalMainRead { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.goalMainReadHead { display: flex; align-items: flex-start; gap: 8px; }
+.goalMainReadTitle { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.goalMainReadDesc { margin: 0; font-size: 13px; opacity: 0.8; overflow-wrap: anywhere; white-space: pre-wrap; }
+#activityGoalsMainDescInput { margin-top: 6px; font-size: 14px; font-weight: 400; field-sizing: content; min-height: 60px; }
+#activityGoalsMainCancelBtn { margin-right: 8px; }

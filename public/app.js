@@ -7017,11 +7017,7 @@
     box.appendChild(fields);
     // Au toucher d'un champ (clavier qui s'ouvre) : remonte la zone au-dessus du clavier.
     [nameIn, descIn].forEach(function (el) {
-      el.addEventListener('focus', function () {
-        [250, 600].forEach(function (d) {
-          setTimeout(function () { if (document.activeElement === el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, d);
-        });
-      });
+      el.addEventListener('focus', function () { if (TMT.keepVisibleAboveKeyboard) TMT.keepVisibleAboveKeyboard(el); });
     });
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
     descIn.addEventListener('input', function () { st.desc = descIn.value; });
@@ -7243,11 +7239,7 @@
     fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
     [nameIn, descIn].forEach(function (el) {
-      el.addEventListener('focus', function () {
-        [250, 600].forEach(function (d) {
-          setTimeout(function () { if (document.activeElement === el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, d);
-        });
-      });
+      el.addEventListener('focus', function () { if (TMT.keepVisibleAboveKeyboard) TMT.keepVisibleAboveKeyboard(el); });
     });
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
     descIn.addEventListener('input', function () { st.desc = descIn.value; });

@@ -65,6 +65,14 @@
                    dans une boîte haute. Même changement sur la zone
                    hebdomadaire (renderGoalsWeeklyList(), app.js). -->
               <textarea id="activityGoalsMainInput" rows="1" maxlength="500" placeholder="Titre de l'objectif (quelques mots)"></textarea>
+              <div class="goalMainRead hidden" id="activityGoalsMainRead">
+                <div class="goalMainReadHead">
+                  <span class="goalMainReadTitle" id="activityGoalsMainReadTitle"></span>
+                  <button type="button" class="historyRowIconBtn goalDescEditBtn" id="activityGoalsMainEditBtn"></button>
+                </div>
+                <p class="goalMainReadDesc hidden" id="activityGoalsMainReadDesc"></p>
+              </div>
+              <textarea id="activityGoalsMainDescInput" class="hidden" rows="3" maxlength="600" autocomplete="off"></textarea>
               <div class="goalDescRow hidden" id="activityGoalsMainDescRow">
                 <span class="goalDescPreview" id="activityGoalsMainDescPreview"></span>
                 <button type="button" class="historyRowIconBtn goalDescEditBtn" id="activityGoalsMainDescBtn"></button>
@@ -88,6 +96,7 @@
                    refreshGoalsDetailPageIfOpen() → renderActivityGoals()),
                    sans code supplémentaire ici. -->
               <div class="goalMainSaveRow">
+                <button type="button" class="goalMainSaveBtn hidden" id="activityGoalsMainCancelBtn">Annuler</button>
                 <button type="button" class="goalMainSaveBtn" id="activityGoalsMainSaveBtn">Enregistrer</button>
               </div>
               <p class="goalMainEmptyHint" id="activityGoalsMainEmptyHint">Les objectifs hebdomadaires te seront ensuite proposés automatiquement.</p>
@@ -362,6 +371,23 @@
   // mêmes classes (.communityMembersModal, .profileSubWindowHeader, .categoryDetailBody),
   // croix ✕, textarea, bouton Enregistrer DANS la zone.
   var GOAL_DESC_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
+
+  var mainEditKey = null; // « période|pôle » dont l'objectif périodique est en modification sur place
+
+  // Remonte un champ au-dessus du clavier : UN seul défilement doux, et seulement si le champ
+  // n'est pas déjà entièrement visible (évite les à-coups quand le clavier s'ouvre).
+  function keepVisibleAboveKeyboard(el) {
+    setTimeout(function () {
+      if (document.activeElement !== el) return;
+      var vv = window.visualViewport, vh = vv ? vv.height : window.innerHeight;
+      var r = el.getBoundingClientRect();
+      var topLimit = 70, bottomLimit = vh - 12;
+      if (r.top >= topLimit && r.bottom <= bottomLimit) return;
+      var delta = r.bottom > bottomLimit ? r.bottom - bottomLimit + 8 : r.top - topLimit - 8;
+      window.scrollBy({ top: delta, behavior: 'smooth' });
+    }, 380);
+  }
+  TMT.keepVisibleAboveKeyboard = keepVisibleAboveKeyboard;
 
   function ensureGoalDescModal() {
     var modal = $('goalDescModal');
@@ -776,14 +802,7 @@
     var mainInput = $('activityGoalsMainInput');
     mainInput.value = period.mainGoalText || '';
     mainInput.placeholder = t('Titre de l’objectif (quelques mots)');
-    syncGoalDescRow($('activityGoalsMainDescRow'), $('activityGoalsMainDescPreview'), $('activityGoalsMainDescBtn'),
-      period.mainGoalDescription, !!(period.mainGoalText && period.mainGoalText.trim()), function () {
-        openGoalDescModal({
-          title: period.mainGoalText,
-          description: period.mainGoalDescription || '',
-          onSave: function (d) { return saveMainGoalDescription(period.periodNumber, period.mainGoalText, d); },
-        });
-      });
+    $('activityGoalsMainDescRow').classList.add('hidden'); // remplacé par la lecture + modification sur place (3 oct. 2026)
     // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
     // intégrations"), demande d'Emilien : garder l'enregistrement au blur
     // (inchangé) ET ajouter un bouton "Enregistrer" explicite — factorisé
@@ -826,6 +845,45 @@
     };
     mainInput.oninput = syncMainSaveRow;
     syncMainSaveRow();
+
+    // 3 oct. 2026 (demande d'Emilien) : une fois l'objectif enregistré, la carte n'affiche que
+    // le titre et la description en dessous, avec un bouton modifier à côté ; le bouton
+    // transforme la carte en formulaire sur place (titre, description, Annuler/Enregistrer),
+    // sans fenêtre séparée. Tant qu'aucun objectif n'existe : saisie du titre comme avant.
+    var hasMainNow = !!(period.mainGoalText && period.mainGoalText.trim());
+    var editing = hasMainNow && !!mainEditKey && mainEditKey === period.periodNumber + '|' + TMT.currentGoalsCategory;
+    var readBox = $('activityGoalsMainRead'), descIn = $('activityGoalsMainDescInput');
+    var cancelBtn = $('activityGoalsMainCancelBtn'), editBtn = $('activityGoalsMainEditBtn');
+    $('activityGoalsMainReadTitle').textContent = period.mainGoalText || '';
+    var readDesc = $('activityGoalsMainReadDesc');
+    readDesc.textContent = period.mainGoalDescription || '';
+    readDesc.classList.toggle('hidden', !period.mainGoalDescription);
+    editBtn.innerHTML = GOAL_DESC_EDIT_ICON;
+    editBtn.setAttribute('aria-label', t('Modifier l’objectif'));
+    editBtn.title = t('Modifier l’objectif');
+    readBox.classList.toggle('hidden', !hasMainNow || editing);
+    mainInput.classList.toggle('hidden', hasMainNow && !editing);
+    descIn.classList.toggle('hidden', !editing);
+    cancelBtn.classList.toggle('hidden', !editing);
+    descIn.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux l’IA planifie pour toi.');
+    if (editing) {
+      if (descIn.dataset.editFor !== mainEditKey) { descIn.value = period.mainGoalDescription || ''; descIn.dataset.editFor = mainEditKey; }
+      mainSaveRow.classList.remove('hidden');
+      mainInput.onblur = null;
+      mainInput.oninput = null;
+      mainSaveBtn.onclick = function () {
+        var title = mainInput.value.trim() || period.mainGoalText;
+        mainEditKey = null; descIn.dataset.editFor = '';
+        saveMainGoalDescription(period.periodNumber, title, descIn.value.trim());
+      };
+      cancelBtn.onclick = function () { mainEditKey = null; descIn.dataset.editFor = ''; renderActivityGoals(); };
+      [mainInput, descIn].forEach(function (el) {
+        el.onfocus = function () { keepVisibleAboveKeyboard(el); };
+      });
+    } else {
+      descIn.dataset.editFor = '';
+    }
+    editBtn.onclick = function () { mainEditKey = period.periodNumber + '|' + TMT.currentGoalsCategory; renderActivityGoals(); };
 
     // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
     // intégrations"), demande d'Emilien (confirmée après question posée) :
