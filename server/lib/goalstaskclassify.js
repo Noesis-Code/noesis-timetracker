@@ -48,6 +48,7 @@
 
 const goals = require('./goals');
 const goalstasks = require('./goalstasks');
+const goalsclassifyexamples = require('./goalsclassifyexamples');
 // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages, demande
 // directe d'Emilien) — placement automatique jour par jour, capacité
 // croisée entre activités, voir son commentaire de tête.
@@ -91,23 +92,45 @@ function buildClassificationCandidates(activityId) {
   poles.forEach((pole) => {
     const secteurs = goals.secteursForPole(activityId, pole.key);
     if (secteurs.length) {
-      secteurs.forEach((s) => out.push({ key: s.key, label: pole.label + ' → ' + s.label }));
+      secteurs.forEach((s) => out.push({
+        key: s.key,
+        label: pole.label + ' → ' + s.label,
+        description: s.description || '',
+        poleDescription: pole.description || '',
+      }));
     } else {
-      out.push({ key: pole.key, label: pole.label });
+      out.push({ key: pole.key, label: pole.label, description: pole.description || '', poleDescription: '' });
     }
   });
   return out;
 }
 
-function buildPrompt(label, categories) {
-  const list = categories.map((c) => `- ${c.key} : ${c.label}`).join('\n');
+function buildPrompt(label, categories, examples) {
+  // Description du candidat puis, entre parenthèses, celle de son pôle
+  // (parties vides omises).
+  const list = categories.map((c) => {
+    let line = `- ${c.key} : ${c.label}`;
+    if (c.description) line += ` — ${c.description}`;
+    if (c.poleDescription) line += ` (pôle : ${c.poleDescription})`;
+    return line;
+  }).join('\n');
+  const exampleLines = (examples && examples.length)
+    ? [
+      "Corrections récentes faites par les membres de cette activité (à suivre en priorité pour des tâches semblables) :",
+      ...examples.map((e) => `- « ${e.label} » → ${e.categoryLabel}`),
+      '',
+    ]
+    : [];
   return [
     "Une personne vient d'écrire une tâche à faire, sans préciser dans quelle catégorie de son planning elle doit être rangée.",
     '',
     'Catégories disponibles (clé : libellé) :',
     list,
     '',
+    ...exampleLines,
     `Tâche à classer : "${label}"`,
+    '',
+    "Règle de classement : l'action prime sur le sujet. Classe selon ce que la personne doit FAIRE, pas selon l'objet dont parle la tâche. Exemples : « Payer la facture du fournisseur de grains verts » va dans Administration / Comptabilité et finances (pas dans Production / Approvisionnement) ; « Former le nouvel employé à l'emballage » va dans Ressources humaines.",
     '',
     'Réponds UNIQUEMENT avec la clé de la catégorie la plus probable, sans texte autour, sans ponctuation, sans balises markdown.',
     'Choisis toujours une catégorie parmi la liste ci-dessus, même en cas de doute — jamais de réponse vide, jamais une clé qui ne figure pas dans la liste.',
@@ -175,7 +198,7 @@ async function classifyCategory(activityId, label) {
     return { key: fallbackKey, usedAi: false, aiError: null };
   }
   try {
-    const prompt = buildPrompt(label, categories);
+    const prompt = buildPrompt(label, categories, goalsclassifyexamples.recentExamples(activityId, categories));
     const text = await callModel(prompt);
     const key = extractKey(text, categories);
     if (key) return { key, usedAi: true, aiError: null };
@@ -322,6 +345,8 @@ module.exports = {
   configured,
   modelName,
   classifyCategory,
+  buildPrompt,
+  buildClassificationCandidates,
   suggestWeeklyObjective,
   addTaskWithAutoCategory,
   captureTaskForActivities,
