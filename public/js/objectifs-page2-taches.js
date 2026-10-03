@@ -344,6 +344,7 @@
     if (!opts.noAnim && iOld >= 0 && iNew >= 0 && iOld !== iNew && views[previousBase] && views[mode] &&
         !views.tasks.closest('.hidden') && typeof views.tasks.animate === 'function') {
       slideOut = views[previousBase]; slideIn = views[mode];
+      var sc0 = document.getElementById('goalsActivitySwitcherScroll'), scrollS = sc0 ? sc0.scrollTop : 0, scrollH0 = sc0 ? sc0.scrollHeight : 0;
       slideFrom = iNew > iOld ? 1 : -1; // vers la droite du parcours : entre par la droite
       var r = slideOut.getBoundingClientRect(), zr = slideOut.offsetParent ? slideOut.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
       slideOut.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + (slideOut.offsetTop) + 'px;width:' + r.width + 'px;pointer-events:none;';
@@ -353,6 +354,13 @@
     });
     if (slideOut) {
       var host = document.getElementById('goalsActivitySwitcherScroll');
+      // Page de départ défilée vers le bas : la page d'arrivée apparaît à la hauteur visible, sans saut.
+      if (scrollS > 0) {
+        var pad = Math.max(0, scrollH0 - host.scrollHeight);
+        host.style.paddingBottom = pad + 'px';
+        host.scrollTop = scrollS;
+        slideIn.style.position = 'relative'; slideIn.style.top = scrollS + 'px';
+      }
       host.style.overflowX = 'hidden';
       var aopts = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
       slideIn.animate([{ transform: 'translateX(' + (slideFrom * 100) + '%)' }, { transform: 'translateX(0)' }], aopts);
@@ -360,7 +368,7 @@
       outAnim.onfinish = function () {
         slideOut.style.position = ''; slideOut.style.left = ''; slideOut.style.top = ''; slideOut.style.width = ''; slideOut.style.pointerEvents = '';
         slideOut.classList.add('hidden');
-        outAnim.cancel(); slideIn.getAnimations().forEach(function (a) { a.cancel(); }); host.style.overflowX = '';
+        outAnim.cancel(); slideIn.getAnimations().forEach(function (a) { a.cancel(); }); host.style.overflowX = ''; slideIn.style.position = ''; slideIn.style.top = ''; host.style.paddingBottom = ''; host.scrollTop = 0;
       };
     }
     if (mode === 'tasks') loadGoalsTasksOverview();
@@ -426,7 +434,7 @@
       var r = cur.getBoundingClientRect(), zr = cur.offsetParent ? cur.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
       var curTop = cur.offsetTop; // AVANT d'afficher la voisine (qui précède parfois cur dans le DOM et la décalerait)
       nb.classList.remove('hidden');
-      nb.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + curTop + 'px;width:' + r.width + 'px;pointer-events:none;';
+      nb.style.cssText += ';position:absolute;left:' + (r.left - zr.left) + 'px;top:' + (curTop + zone.scrollTop) + 'px;width:' + r.width + 'px;pointer-events:none;';
       zone.style.overflowX = 'hidden';
       var hdr = null, hclone = null; // le cadre pôle reste fixe
       g0.drag = { cur: cur, nb: nb, hdr: hdr, hclone: hclone, curMode: curMode, nbMode: nbMode, width: r.width + GAP, dir: dx < 0 ? 1 : -1 };
@@ -480,7 +488,7 @@
       }
       window.setTimeout(function () {
         clean(d);
-        if (commit) setGoalsPage2Mode(d.nbMode, { noAnim: true, keep: true });
+        if (commit) { zone.scrollTop = 0; setGoalsPage2Mode(d.nbMode, { noAnim: true, keep: true }); zone.scrollTop = 0; }
         else d.nb.classList.add('hidden');
       }, 240);
     }
