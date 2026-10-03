@@ -46,6 +46,7 @@
 // d'appeler l'IA), si l'appel échoue/expire, ou si la réponse ne correspond
 // à aucune clé candidate — jamais de blocage de la création de la tâche.
 
+const db = require('../db');
 const goals = require('./goals');
 const goalstasks = require('./goalstasks');
 const goalsclassifyexamples = require('./goalsclassifyexamples');
@@ -71,6 +72,8 @@ const REQUEST_TIMEOUT_MS = 15000;
 // Une seule clé de catégorie en sortie : pas besoin d'un budget de sortie
 // élevé comme dans goalsdailyauto.js (qui renvoie une date par tâche).
 const MAX_OUTPUT_TOKENS = 32;
+// Mode strict (capture) : la réponse peut être « INCERTAIN: cléA, cléB ».
+const MAX_OUTPUT_TOKENS_STRICT = 80;
 
 function configured() {
   return !!process.env.ANTHROPIC_API_KEY;
@@ -105,7 +108,8 @@ function buildClassificationCandidates(activityId) {
   return out;
 }
 
-function buildPrompt(label, categories, examples) {
+function buildPrompt(label, categories, examples, opts) {
+  const allowUncertain = !!(opts && opts.allowUncertain);
   // Description du candidat puis, entre parenthèses, celle de son pôle
   // (parties vides omises).
   const list = categories.map((c) => {
@@ -132,8 +136,16 @@ function buildPrompt(label, categories, examples) {
     '',
     "Règle de classement : l'action prime sur le sujet. Classe selon ce que la personne doit FAIRE, pas selon l'objet dont parle la tâche. Exemples : « Payer la facture du fournisseur de grains verts » va dans Administration / Comptabilité et finances (pas dans Production / Approvisionnement) ; « Former le nouvel employé à l'emballage » va dans Ressources humaines.",
     '',
-    'Réponds UNIQUEMENT avec la clé de la catégorie la plus probable, sans texte autour, sans ponctuation, sans balises markdown.',
-    'Choisis toujours une catégorie parmi la liste ci-dessus, même en cas de doute — jamais de réponse vide, jamais une clé qui ne figure pas dans la liste.',
+    ...(allowUncertain
+      ? [
+        'Réponds UNIQUEMENT avec la clé de la catégorie la plus probable, sans texte autour, sans ponctuation, sans balises markdown.',
+        "Si deux catégories te paraissent réellement plausibles et que tu ne peux pas trancher, réponds à la place exactement : INCERTAIN: cléA, cléB (tes deux meilleurs choix, clés de la liste ci-dessus).",
+        "Ne devine pas au hasard : si aucune catégorie ne convient, réponds INCERTAIN suivi de tes deux meilleurs choix.",
+      ]
+      : [
+        'Réponds UNIQUEMENT avec la clé de la catégorie la plus probable, sans texte autour, sans ponctuation, sans balises markdown.',
+        'Choisis toujours une catégorie parmi la liste ci-dessus, même en cas de doute — jamais de réponse vide, jamais une clé qui ne figure pas dans la liste.',
+      ]),
   ].join('\n');
 }
 
@@ -147,7 +159,21 @@ function extractKey(text, categories) {
   return found ? found.key : null;
 }
 
-async function callModel(prompt) {
+// Réponse « INCERTAIN: cléA, cléB » : renvoie les clés valides (dans l'ordre,
+// sans doublon) ou null si la réponse n'est pas de ce format.
+function extractUncertain(text, categories) {
+  if (!text) return null;
+  const m = /^\s*["'`]*INCERTAIN\b[\s:]*(.*)$/is.exec(text);
+  if (!m) return null;
+  const keys = [];
+  m[1].split(/[,;\s]+/).forEach((tok) => {
+    const k = tok.replace(/^["'`]+|["'`.]+$/g, '');
+    if (categories.some((c) => c.key === k) && !keys.includes(k)) keys.push(k);
+  });
+  return keys;
+}
+
+async function callModel(prompt, maxTokens) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -161,7 +187,7 @@ async function callModel(prompt) {
       },
       body: JSON.stringify({
         model: modelName(),
-        max_tokens: MAX_OUTPUT_TOKENS,
+        max_tokens: maxTokens || MAX_OUTPUT_TOKENS,
         temperature: 0,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -188,10 +214,46 @@ async function callModel(prompt) {
 // l'activité — ne lève jamais pour une panne IA : repli sur le premier
 // candidat dans tous les cas d'échec (clé absente, un seul candidat, appel
 // qui échoue/expire, réponse inexploitable).
-async function classifyCategory(activityId, label) {
+//
+// 3 octobre 2026 (décision d'Emilien, « l'IA propose, ne décide jamais à la
+// place de l'utilisateur ») — mode `opts.strict` (capture de la page 1) : plus
+// de repli « premier candidat ». Si l'IA est absente/échoue/expire/répond
+// n'importe quoi, ou répond INCERTAIN, renvoie { unresolved: true,
+// candidates, suggested } pour que le client demande à l'utilisateur ; un
+// seul candidat reste un placement direct. opts.forcedKey : choix de
+// l'utilisateur (validé contre les candidats), aucun appel IA.
+async function classifyCategory(activityId, label, opts) {
   const categories = buildClassificationCandidates(activityId);
   if (!categories.length) {
     throw Object.assign(new Error('Aucune catégorie sur cette activité.'), { statusCode: 400 });
+  }
+  if (opts && opts.strict) {
+    const asChoices = (keys) => keys.map((k) => categories.find((c) => c.key === k)).filter(Boolean).map((c) => ({ key: c.key, label: c.label }));
+    if (opts.forcedKey) {
+      if (!categories.some((c) => c.key === opts.forcedKey)) {
+        throw Object.assign(new Error('Catégorie choisie invalide pour cette activité.'), { statusCode: 400 });
+      }
+      return { key: opts.forcedKey, usedAi: false, aiError: null };
+    }
+    if (categories.length === 1) return { key: categories[0].key, usedAi: false, aiError: null };
+    const unresolved = (suggestedKeys, aiError) => ({
+      unresolved: true,
+      aiError,
+      candidates: asChoices(categories.map((c) => c.key)),
+      suggested: suggestedKeys && suggestedKeys.length === 2 ? asChoices(suggestedKeys) : null,
+    });
+    if (!configured()) return unresolved(null, 'Clé API absente.');
+    try {
+      const prompt = buildPrompt(label, categories, goalsclassifyexamples.recentExamples(activityId, categories), { allowUncertain: true });
+      const text = await callModel(prompt, MAX_OUTPUT_TOKENS_STRICT);
+      const unc = extractUncertain(text, categories);
+      if (unc) return unresolved(unc, null);
+      const key = extractKey(text, categories);
+      if (key) return { key, usedAi: true, aiError: null };
+      return unresolved(null, "Réponse de l'IA inexploitable.");
+    } catch (err) {
+      return unresolved(null, err.message);
+    }
   }
   const fallbackKey = categories[0].key;
   if (categories.length === 1 || !configured()) {
@@ -262,12 +324,15 @@ function suggestWeeklyObjective(activityId, categoryKey, taskLabel) {
 // depuis une catégorie précise. Ajoute désormais aussi suggestedObjective
 // (voir suggestWeeklyObjective ci-dessus) — jamais bloquant, jamais écrit en
 // base : une simple indication renvoyée au client pour cet ajout précis.
-async function addTaskWithAutoCategory(activityId, userId, label) {
+async function addTaskWithAutoCategory(activityId, userId, label, opts) {
   const clean = String(label || '').trim();
   if (!clean) throw Object.assign(new Error('Intitulé de la tâche requis.'), { statusCode: 400 });
   if (clean.length > 300) throw Object.assign(new Error('Intitulé trop long (300 caractères maximum).'), { statusCode: 400 });
 
-  const { key, usedAi, aiError } = await classifyCategory(activityId, clean);
+  const cls = await classifyCategory(activityId, clean, opts);
+  // Mode strict : classement non résolu, rien n'est créé (voir classifyCategory).
+  if (cls.unresolved) return cls;
+  const { key, usedAi, aiError } = cls;
   // 25 septembre 2026 (badges « non vu », restructuration du volet Objectifs
   // en 3 pages) : toute tâche créée par CE chemin (classification IA, jamais
   // le formulaire de catégorie classique) est marquée autoCaptured — voir
@@ -307,17 +372,62 @@ async function addTaskWithAutoCategory(activityId, userId, label) {
 // porte). Une activité qui échoue (classification, droits, etc.) n'empêche
 // JAMAIS les autres de réussir — même principe « jamais bloquant » que le
 // reste de ce fichier ; chaque résultat porte son propre statut.
+// Titre normalisé : minuscules, sans accents ni ponctuation, espaces réduits.
+function normalizeTitle(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Une tâche NON terminée (done=0) de l'activité a-t-elle le même titre normalisé ?
+function hasOpenDuplicate(activityId, label) {
+  const norm = normalizeTitle(label);
+  if (!norm) return false;
+  const rows = db.prepare(`
+    SELECT i.label FROM sub_project_items i
+    JOIN sub_project_sections s ON s.id = i.sectionId
+    JOIN sub_projects sp ON sp.id = s.subProjectId
+    WHERE sp.activityId = ? AND s.kind = 'tasks' AND i.done = 0
+  `).all(activityId);
+  return rows.some((r) => normalizeTitle(r.label) === norm);
+}
+
+function activityNameFor(activityId) {
+  const row = db.prepare('SELECT name FROM activities WHERE id = ?').get(activityId);
+  return row ? row.name : '';
+}
+
 async function captureTaskForActivities(activityIds, userId, label, opts) {
   const ids = Array.from(new Set((activityIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id))));
   if (!ids.length) {
     throw Object.assign(new Error('Au moins une activité doit être sélectionnée.'), { statusCode: 400 });
   }
   const skipAutoPlace = !!(opts && opts.skipAutoPlace);
+  const allowDuplicate = !!(opts && opts.allowDuplicate);
+  const forcedCategory = opts && opts.forcedCategory ? String(opts.forcedCategory) : null;
 
   const results = [];
   for (const activityId of ids) {
     try {
-      const item = await addTaskWithAutoCategory(activityId, userId, label);
+      const clean = String(label || '').trim();
+      // Doublon : on ne crée rien, le client demande confirmation
+      // (renvoie ensuite la capture avec allowDuplicate). Titre vide/trop long :
+      // laissé à addTaskWithAutoCategory qui lève l'erreur habituelle.
+      if (!allowDuplicate && clean && clean.length <= 300 && hasOpenDuplicate(activityId, clean)) {
+        results.push({ activityId, ok: false, needs: 'duplicate', error: 'Cette tâche existe déjà dans cette activité.', activityName: activityNameFor(activityId) });
+        continue;
+      }
+      const item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: forcedCategory });
+      if (item.unresolved) {
+        results.push({
+          activityId, ok: false, needs: 'category', error: 'Pôle et secteur non trouvés.',
+          activityName: activityNameFor(activityId), candidates: item.candidates, suggested: item.suggested,
+        });
+        continue;
+      }
       let placedDate = null;
       if (!skipAutoPlace) {
         try {
@@ -350,4 +460,6 @@ module.exports = {
   suggestWeeklyObjective,
   addTaskWithAutoCategory,
   captureTaskForActivities,
+  normalizeTitle,
+  hasOpenDuplicate,
 };

@@ -833,11 +833,17 @@ router.post('/goals/capture', async (req, res) => {
   });
 
   try {
-    const ok = allowed.length ? await goalstaskclassify.captureTaskForActivities(allowed, userId, req.body.label) : [];
+    const ok = allowed.length ? await goalstaskclassify.captureTaskForActivities(allowed, userId, req.body.label, {
+      // 3 oct. 2026 : confirmations côté client (doublon, tri incertain) — voir
+      // goalstaskclassify.js. Résultats avec `needs` ('duplicate' | 'category')
+      // = rien créé, le client redemande puis renvoie allowDuplicate / forcedCategory.
+      allowDuplicate: req.body.allowDuplicate === true,
+      forcedCategory: typeof req.body.forcedCategory === 'string' ? req.body.forcedCategory : null,
+    }) : [];
     const results = denied.concat(ok);
     // Tout refusé (titre vide, trop long, activité introuvable...) : 400 avec
     // le détail ; au moins une réussite : 201, le détail par activité est dans results.
-    if (results.length && results.every((r) => !r.ok)) {
+    if (results.length && results.every((r) => !r.ok && !r.needs)) {
       return res.status(400).json({ error: results[0].error || 'Tâche refusée.', results });
     }
     res.status(201).json({ results });
