@@ -6667,3 +6667,8 @@ button { -webkit-user-select: none; user-select: none; }
 .timesheetNav { gap: 4px; min-width: 0; }
 .timesheetNav .meta { white-space: nowrap; font-size: clamp(11px, 3.4vw, 13px); }
 .timesheetNav .meta.tsCurrent { font-weight: 700; }
+@media (max-width: 340px) {
+  .timesheetNav .iconBtn, .timesheetNav .menuBtn { width: 26px; height: 28px; }
+  .timesheetNav { gap: 2px; }
+  #communitySearchInput { font-size: 14px; }
+}
