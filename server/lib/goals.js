@@ -511,6 +511,9 @@ function removeCategory(activityId, key, opts) {
   db.exec('BEGIN');
   try {
     if (taskCount > 0) applyTaskChoice(activityId, affected, row.parentKey || null, choice);
+    // 3 oct. 2026 : suppression « tout supprimer » — plus d'orphelins : plannings,
+    // périodes/objectifs (enfants en cascade), capacités et exemples IA de ces clés.
+    if (choice !== 'keep') purgeCategoryPlanning(activityId, affected);
     const result = removeCategoryRows(activityId, key, row, existing);
     db.exec('COMMIT');
     return result;
@@ -518,6 +521,14 @@ function removeCategory(activityId, key, opts) {
     db.exec('ROLLBACK');
     throw e;
   }
+}
+
+function purgeCategoryPlanning(activityId, keys) {
+  const ph = keys.map(() => '?').join(',');
+  db.prepare(`DELETE FROM goal_periods WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
+  db.prepare(`DELETE FROM activity_goal_plans WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
+  db.prepare(`DELETE FROM goal_capacity_overrides WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
+  db.prepare(`DELETE FROM goal_classify_examples WHERE activityId = ? AND categoryKey IN (${ph})`).run(activityId, ...keys);
 }
 
 // Nombre de tâches (sub_project_items) rattachées aux clés données.
