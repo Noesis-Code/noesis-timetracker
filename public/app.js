@@ -1928,6 +1928,8 @@
     $('profileSettingsBtn').classList.remove('active');
 
     if (tab === 'stats') {
+      // 3 oct. 2026 : on revient toujours sur la page 1 (stats de temps), jamais sur celle des tâches.
+      if (TMT.setStatsPage) TMT.setStatsPage(1, { noAnim: true });
       loadStats();
       // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
       // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
@@ -3394,10 +3396,43 @@
   // côté (demande d'Emilien du 31 août 2026 ; la flèche #historyToggleBtn,
   // conservée comme simple repère visuel depuis le 30 août, est retirée du
   // DOM cette fois-ci).
+  // 3 oct. 2026 (demande d'Emilien) : à l'ouverture, la page remonte pour que l'en-tête
+  // « Historique » soit tout en haut (sous la barre du haut) ; une réserve d'espace sous la
+  // section permet cette remontée même si l'historique est court, et la page reste
+  // défilable vers les activités. À la fermeture : retour à la position d'avant.
+  var chronoHistoryScrollBack = null, chronoHistoryRO = null;
+  function chronoHistoryFitSpacer() {
+    var sec = $('chronoHistorySection');
+    if (!sec || $('chronoHistoryPanel').classList.contains('hidden')) return;
+    var top = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 56;
+    var bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h')) || 64;
+    sec.style.paddingBottom = '0px';
+    var pad = Math.max(0, window.innerHeight - top - bar - sec.offsetHeight);
+    sec.style.paddingBottom = pad + 'px';
+  }
+  function chronoHistoryScrollToTop() {
+    var top = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 56;
+    var y = $('chronoHistoryHeader').getBoundingClientRect().top + window.scrollY - top - 8;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }
   $('chronoHistoryHeader').addEventListener('click', function () {
     var opening = $('chronoHistoryPanel').classList.contains('hidden');
     $('chronoHistoryPanel').classList.toggle('hidden', !opening);
-    if (opening) { currentHistoryWeekOffset = 0; loadChronoHistory(); }
+    if (opening) {
+      chronoHistoryScrollBack = window.scrollY;
+      currentHistoryWeekOffset = 0; loadChronoHistory();
+      chronoHistoryFitSpacer();
+      if (typeof ResizeObserver === 'function' && !chronoHistoryRO) {
+        chronoHistoryRO = new ResizeObserver(function () { chronoHistoryFitSpacer(); });
+        chronoHistoryRO.observe($('chronoHistoryPanel'));
+      }
+      window.requestAnimationFrame(chronoHistoryScrollToTop);
+    } else {
+      if (chronoHistoryRO) { chronoHistoryRO.disconnect(); chronoHistoryRO = null; }
+      $('chronoHistorySection').style.paddingBottom = '';
+      if (chronoHistoryScrollBack != null) window.scrollTo({ top: chronoHistoryScrollBack, behavior: 'smooth' });
+      chronoHistoryScrollBack = null;
+    }
   });
   $('historyPrevWeek').addEventListener('click', function () { currentHistoryWeekOffset += 1; loadChronoHistory(); });
   $('historyNextWeek').addEventListener('click', function () {
