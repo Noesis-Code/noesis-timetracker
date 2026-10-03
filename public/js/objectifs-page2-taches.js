@@ -138,7 +138,7 @@
         </div>
 
         <!-- 2 oct. 2026 (Emilien) : plus de boutons Tâches/Objectifs — on glisse de droite à gauche ; 3 points en bas au milieu (celui du milieu est réservé à une prochaine demande). -->
-        <div id="goalsPage2Dots" aria-hidden="true"><span class="goalsDot on" data-dot="tasks"></span><span class="goalsDot" data-dot="next"></span><span class="goalsDot" data-dot="goals"></span></div>
+        <div id="goalsPage2Dots" role="group"><button type="button" class="goalsDotBtn on" data-dot="tasks" aria-label="Tâches"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="next" aria-label="Mensuel"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="goals" aria-label="Annuel"><span class="goalsDot"></span></button></div>
 
         <!-- ⚠️ 29 septembre 2026, scission Tâches / Objectifs de la Page 2 :
              emplacement de l'écran « Objectifs ». Son CONTENU (arbre
@@ -375,6 +375,12 @@
     if (TMT.renderGoalsPoleSwitcher) TMT.renderGoalsPoleSwitcher();
   }
 
+  Array.prototype.forEach.call(document.querySelectorAll('#goalsPage2Dots [data-dot]'), function (b) {
+    b.addEventListener('click', function () {
+      var m = b.getAttribute('data-dot') === 'next' ? 'month' : b.getAttribute('data-dot');
+      if (m !== goalsPage2BaseMode) setGoalsPage2Mode(m);
+    });
+  });
   $('goalsPage2ModeTasksBtn').addEventListener('click', function () { setGoalsPage2Mode('tasks'); });
 
   $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
@@ -508,8 +514,9 @@
     var card = $('goalsOverloadCard');
     if (!activityId || !card) return;
     var base = '/api/activities/' + activityId + '/goals/overload';
-    api('GET', base).then(function (p) {
-      if (String(activityId) !== String(TMT.currentGoalsActivityId)) return;
+    var pole = TMT.currentGoalsSelectedPoleKey || '';
+    api('GET', base + (pole ? '?pole=' + encodeURIComponent(pole) : '')).then(function (p) {
+      if (String(activityId) !== String(TMT.currentGoalsActivityId) || pole !== (TMT.currentGoalsSelectedPoleKey || '')) return;
       card.innerHTML = '';
       if (!p || !p.overloaded) { card.classList.add('hidden'); return; }
       function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
@@ -517,7 +524,7 @@
       card.appendChild(el('p', 'goalsOverloadTitle', t('Journée surchargée')));
       card.appendChild(el('p', 'meta', t('Charge du jour : ') + fmt(p.loadMinutes) + t(' pour une capacité moyenne de ') + fmt(p.budgetMinutes) + t('. Nouveau plan proposé (rien n\'est modifié sans ta validation).')));
       var ul = el('ul', 'goalsOverloadList');
-      p.moves.slice(0, 6).forEach(function (m) { ul.appendChild(el('li', null, m.label + ' : ' + m.from + ' \u2192 ' + m.to)); });
+      p.moves.slice(0, 6).forEach(function (m) { ul.appendChild(el('li', null, m.label + ' : ' + (TMT.calendarDayLabel(m.from) || m.from) + ' \u2192 ' + (TMT.calendarDayLabel(m.to) || m.to))); });
       if (p.moves.length > 6) ul.appendChild(el('li', null, t('… et ') + (p.moves.length - 6) + t(' autres tâches déplacées')));
       (p.objectives.weekly || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif hebdo') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });
       (p.objectives.period || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif de période') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });
@@ -527,7 +534,7 @@
       var no = el('button', 'goalsOverloadNo', t('Ignorer'));
       ok.type = 'button'; no.type = 'button';
       function done() { loadGoalsOverloadCard(); loadGoalsTasksOverview(); }
-      ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/apply', { signature: p.signature }).then(done).catch(done); });
+      ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/apply', { signature: p.signature, poleKey: pole || undefined }).then(done).catch(done); });
       no.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/dismiss', {}).then(done).catch(done); });
       row.appendChild(ok); row.appendChild(no); card.appendChild(row);
       card.classList.remove('hidden');
@@ -607,6 +614,7 @@
   // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle.
   TMT.rerenderGoalsTasksOverview = function () {
     if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview);
+    loadGoalsOverloadCard(); // une carte par pôle : suit le pôle affiché
   };
 
 

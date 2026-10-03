@@ -143,7 +143,9 @@ function signatureOf(moves) {
   return moves.map((m) => m.id + '>' + m.to).join(',');
 }
 
-function getProposal(userId, activityId) {
+// poleKey (optionnel) : ne garde que les déplacements de CE pôle (le secteur remonte au pôle).
+// Charge/capacité restent celles de l'activité ; objectifs et signature sont recalculés sur les déplacements gardés.
+function getProposal(userId, activityId, poleKey) {
   const today = todayLocal();
   try { captureplace.redispatchOverdue(userId, activityId); } catch (e) { /* non bloquant */ }
   if (db.prepare('SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ?').get(userId, activityId, today)) {
@@ -152,20 +154,23 @@ function getProposal(userId, activityId) {
   const budget = budgetFor(activityId, userId);
   const p = computeProposal({ today, budgetMinutes: budget, tasks: loadTasks(activityId, budget, today) });
   if (!p) return { overloaded: false };
+  const moves = p.moves.map((m) => ({ ...m, poleKey: m.category ? goals.resolveToPole(activityId, m.category) : null }))
+    .filter((m) => !poleKey || m.poleKey === poleKey);
+  if (!moves.length) return { overloaded: false };
   return {
     overloaded: true,
     loadMinutes: p.loadMinutes,
     budgetMinutes: p.budgetMinutes,
-    moves: p.moves,
-    objectives: objectiveChanges(activityId, p.moves),
-    signature: signatureOf(p.moves),
+    moves,
+    objectives: objectiveChanges(activityId, moves),
+    signature: signatureOf(moves),
   };
 }
 
 // Applique le plan APRÈS validation. `signature` = celle de l'aperçu vu par
 // l'utilisateur ; si le plan a changé entre-temps (409), rien n'est écrit.
-function applyProposal(userId, activityId, signature) {
-  const p = getProposal(userId, activityId);
+function applyProposal(userId, activityId, signature, poleKey) {
+  const p = getProposal(userId, activityId, poleKey);
   if (!p.overloaded) return { applied: 0 };
   if (signature && signature !== p.signature) {
     throw Object.assign(new Error('Le plan a changé depuis son affichage.'), { statusCode: 409 });

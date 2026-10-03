@@ -257,6 +257,7 @@
     };
   }
   TMT.setStatsPage = setStatsPage;
+  if (dots) Array.prototype.forEach.call(dots.children, function (b, i) { b.addEventListener('click', function () { setStatsPage(i + 1); }); });
 
   // Balayage : mêmes gardes que bindPage2ModeSwipe (champs, zones défilant
   // horizontalement — heatmap, calendrier, graphique —, fenêtres ouvertes).
