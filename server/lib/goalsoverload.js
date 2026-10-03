@@ -21,6 +21,7 @@ const db = require('../db');
 const goals = require('./goals');
 const goalsauto = require('./goalsauto');
 const captureplace = require('./goalscaptureplace');
+const goalsimportance = require('./goalsimportance');
 
 const DEFAULT_TASK_MINUTES = captureplace.DEFAULT_TASK_MINUTES;
 const LOOKAHEAD_DAYS = captureplace.LOOKAHEAD_DAYS;
@@ -37,34 +38,65 @@ function todayLocal() {
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
 
-// PURE. tasks : [{id,label,category,dueDate,minutes,dueDateAuto}] non cochées,
-// datées. Renvoie null si pas de surcharge, sinon { loadMinutes, budgetMinutes, moves }.
-function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DAYS }) {
+// PURE. tasks : [{id,label,category,dueDate,minutes,dueDateAuto,importance:{score,level,reasons},
+// long?,spanDays?,rest?}] non cochées, datées. Une tâche longue (long) occupe `spanDays` jours
+// dès sa date (budget chaque jour, `rest` le dernier) et n'est jamais déplacée.
+// Plan par IMPORTANCE (3 oct. 2026) : sur chaque jour de la semaine à venir (aujourd'hui = tâches
+// du jour + reportées), si la charge dépasse le budget, les tâches les PLUS importantes restent,
+// les MOINS importantes sont décalées au prochain créneau libre. Seules les dates posées par le
+// moteur (dueDateAuto) bougent : une date saisie par l'utilisateur est épinglée, jamais déplacée.
+// Renvoie null si rien à déplacer, sinon { loadMinutes (charge du 1er jour surchargé), budgetMinutes, moves }.
+function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DAYS, horizon = 7 }) {
   const budget = Math.max(1, budgetMinutes);
-  // Tâche longue étalée : `minutes` = part du jour (voir loadTasks) ; jamais déplacée par le plan.
-  const due = tasks.filter((t) => t.dueDate && t.dueDate <= today)
-    .sort((a, b) => (!!b.long - !!a.long) || (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id));
-  const load = due.reduce((s, t) => s + t.minutes, 0);
-  if (load <= budget) return null;
-
+  const eff = (t) => (t.dueDate < today ? today : t.dueDate);
   const days = [];
-  for (let i = 1; i <= lookahead; i += 1) days.push(goals.addDays(today, i));
-  const dayLoad = {};
-  days.forEach((d) => { dayLoad[d] = 0; });
-  tasks.forEach((t) => { if (dayLoad[t.dueDate] !== undefined) dayLoad[t.dueDate] += t.minutes; });
+  for (let i = 0; i <= lookahead; i += 1) days.push(goals.addDays(today, i));
+  const isLong = (t) => !!t.long;
+  const movable = (t) => !isLong(t) && !!t.dueDateAuto;
+  const cur = new Map();
+  tasks.forEach((t) => { if (t.dueDate && !isLong(t)) cur.set(t.id, eff(t)); });
+  const load = {};
+  days.forEach((d) => { load[d] = 0; });
+  tasks.forEach((t) => {
+    if (!t.dueDate) return;
+    if (isLong(t)) {
+      for (let k = 0; k < t.spanDays; k += 1) {
+        const d = goals.addDays(t.dueDate, k);
+        if (load[d] !== undefined) load[d] += k === t.spanDays - 1 ? t.rest : budget;
+      }
+    } else if (load[cur.get(t.id)] !== undefined) load[cur.get(t.id)] += t.minutes;
+  });
 
-  // Les plus anciennes restent aujourd'hui tant que le budget tient ; le reste est déplacé.
-  let kept = 0;
+  const moved = new Map();
+  let firstLoad = null;
+  for (let di = 0; di < Math.min(horizon, days.length); di += 1) {
+    const d = days[di];
+    if (load[d] <= budget) continue;
+    if (firstLoad === null) firstLoad = load[d];
+    const cands = tasks.filter((t) => movable(t) && cur.get(t.id) === d)
+      .sort((a, b) => (b.importance.score - a.importance.score)
+        || (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id));
+    let kept = load[d] - cands.reduce((s, t) => s + t.minutes, 0);
+    cands.forEach((t) => {
+      if (kept === 0 || kept + t.minutes <= budget) { kept += t.minutes; return; }
+      const after = days.slice(di + 1);
+      let to = after.find((e) => load[e] + t.minutes <= budget);
+      if (!to && after.length) to = after.reduce((b, e) => (load[e] < load[b] ? e : b), after[0]);
+      if (!to) { kept += t.minutes; return; }
+      load[d] -= t.minutes;
+      load[to] += t.minutes;
+      cur.set(t.id, to);
+      moved.set(t.id, to);
+    });
+  }
   const moves = [];
-  due.forEach((t) => {
-    if (t.long || kept === 0 || kept + t.minutes <= budget) { kept += t.minutes; return; }
-    let to = days.find((d) => dayLoad[d] + t.minutes <= budget);
-    if (!to) to = days.reduce((b, d) => (dayLoad[d] < dayLoad[b] ? d : b), days[0]);
-    dayLoad[to] += t.minutes;
-    moves.push({ id: t.id, label: t.label, category: t.category, minutes: t.minutes, from: t.dueDate, to, auto: !!t.dueDateAuto });
+  tasks.forEach((t) => {
+    if (!moved.has(t.id) || moved.get(t.id) === t.dueDate) return;
+    moves.push({ id: t.id, label: t.label, category: t.category, minutes: t.minutes, from: t.dueDate, to: moved.get(t.id), auto: true,
+      importance: t.importance.level, importanceScore: t.importance.score, reasons: t.importance.reasons });
   });
   if (!moves.length) return null;
-  return { loadMinutes: load, budgetMinutes: budget, moves };
+  return { loadMinutes: firstLoad, budgetMinutes: budget, moves };
 }
 
 function budgetFor(activityId, userId) {
@@ -82,15 +114,29 @@ function loadTasks(activityId, budget, today) {
     FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.done = 0 AND i.dueDate IS NOT NULL AND i.dueDate != ''
   `).all(activityId);
-  return rows.map((r) => {
+  const ctx = goalsimportance.loadGoalContexts(rows.map((r) => r.id));
+  const tasks = rows.map((r) => {
     const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null;
     const total = (est && est.minutes) || DEFAULT_TASK_MINUTES;
     const span = captureplace.longSpan(total, budget);
     if (!span) return { ...r, minutes: total };
-    // Tâche longue : on ne compte que la part du jour, pas la durée totale.
-    const k = Math.max(0, goals.daysBetween(r.dueDate, today));
-    return { ...r, long: true, minutes: k === span.days - 1 ? span.rest : budget };
+    return { ...r, long: true, spanDays: span.days, rest: span.rest, minutes: total };
   });
+  // Charge de chaque jour (même règle que computeProposal) pour le critère « journée chargée ».
+  const dayLoad = {};
+  tasks.forEach((t) => {
+    const n = t.long ? t.spanDays : 1;
+    for (let k = 0; k < n; k += 1) {
+      const d = goals.addDays(t.dueDate < today ? today : t.dueDate, k);
+      dayLoad[d] = (dayLoad[d] || 0) + (!t.long ? t.minutes : (k === n - 1 ? t.rest : budget));
+    }
+  });
+  tasks.forEach((t) => {
+    t.importance = goalsimportance.computeImportance({
+      today, goal: ctx[t.id], minutes: t.minutes, capacity: budget, dayLoadMinutes: dayLoad[t.dueDate < today ? today : t.dueDate],
+    });
+  });
+  return tasks;
 }
 
 // Objectif hebdomadaire actif + période contenant `day` pour une catégorie (ou null).

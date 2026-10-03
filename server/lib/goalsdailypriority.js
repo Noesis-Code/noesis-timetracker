@@ -62,6 +62,7 @@ const db = require('../db');
 const goals = require('./goals');
 const goalsauto = require('./goalsauto');
 const goalstasks = require('./goalstasks');
+const goalsimportance = require('./goalsimportance');
 
 const WEIGHT_TEMPS = 0.25;
 const WEIGHT_SECTEUR = 0.20;
@@ -215,6 +216,7 @@ function computeDailyPriorityList(activityId, userId) {
   const activityAvgMinutes = historicalAverageMinutesPerDayForActivity(userId, activityId, ACTIVITY_HISTORY_DAYS);
   const syncScore = Math.min(1, activityAvgMinutes / capacityMinutes);
 
+  const goalCtx = goalsimportance.loadGoalContexts(rawTasks.map((t) => t.id));
   const tasks = rawTasks
     .map((t) => {
       const estimate = estimateTaskMinutes(activityId, t.category, t.label);
@@ -231,7 +233,12 @@ function computeDailyPriorityList(activityId, userId) {
       const score = WEIGHT_TEMPS * tempsScore + WEIGHT_SECTEUR * secteurScore + WEIGHT_URGENCE * urgenceScore
         + WEIGHT_POSITION * positionScore + WEIGHT_SYNC * syncScore;
 
+      // Importance (3 oct. 2026) : objectif lié + durée/charge ; PRIME sur le score ci-dessus.
+      const importance = goalsimportance.computeImportance({
+        today, goal: goalCtx[t.id], minutes: estimatedMinutes, capacity: capacityMinutes, dayLoadMinutes: 0,
+      });
       return {
+        importance,
         id: t.id, subProjectId: t.subProjectId, label: t.label, category: t.category, poleKey: t.poleKey,
         estimatedMinutes, estimateSource: estimate.source, estimateConfidence: estimate.confidence,
         dueDate: t.dueDate,
@@ -239,7 +246,8 @@ function computeDailyPriorityList(activityId, userId) {
         score,
       };
     })
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => (goalsimportance.LEVEL_RANK[b.importance.level] - goalsimportance.LEVEL_RANK[a.importance.level])
+      || (b.importance.score - a.importance.score) || (b.score - a.score));
 
   let remaining = capacityMinutes;
   tasks.forEach((t, i) => {
