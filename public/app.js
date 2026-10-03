@@ -4690,7 +4690,8 @@
   // ce rendu-là n'a plus aucun rapport avec cette section.
   function syncSoloStatsTab(has) {
     $('activityPageTabStats').classList.toggle('hidden', !has);
-    $('activityPageSectionSwitch').classList.toggle('hidden', !has);
+    // Hauteur réservée (visibility, pas display) : le titre ne saute plus quand l'onglet apparaît/disparaît.
+    $('activityPageSectionSwitch').classList.toggle('tabsGhost', !has);
     // La dernière catégorie de temps de l'activité a disparu (rare, mais
     // possible après une modification d'historique) alors qu'on regardait les
     // statistiques : on ne laisse pas l'écran sur une section qui n'existe plus.
