@@ -133,7 +133,7 @@ const MAX_SECTEURS_PER_POLE = 10;
 // renommable ensuite comme toute autre catégorie (renameCategory ne fait
 // aucune distinction entre elle et une catégorie ajoutée par la suite).
 const DEFAULT_CATEGORY_KEY = 'c1';
-const DEFAULT_CATEGORY_LABEL = 'Catégorie 1';
+const DEFAULT_CATEGORY_LABEL = 'Nouveau pôle';
 
 // Lignes ACTIVES (non gelées) de activity_goal_categories, dans l'ordre
 // d'affichage. Une activité qui n'a jamais activé la personnalisation a
