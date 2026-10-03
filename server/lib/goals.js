@@ -1366,7 +1366,11 @@ function cleanDescription(description) {
   return d;
 }
 
-function setMainGoal(activityId, category, periodNumber, text, description) {
+// estimateMinutes (3 oct. 2026) : undefined = on garde une valeur saisie à la main pour CETTE
+// période (source 'manual'), sinon estimation automatique ; nombre = valeur manuelle (valable
+// pour cette période seulement : les périodes suivantes recalculent d'après le temps passé) ;
+// null = revenir à l'estimation automatique.
+function setMainGoal(activityId, category, periodNumber, text, description, estimateMinutes) {
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
   // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
   // désormais être posé directement sur un secteur, plus seulement sur un
@@ -1377,7 +1381,16 @@ function setMainGoal(activityId, category, periodNumber, text, description) {
   const plan = ensurePlan(activityId, category);
   ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
   const cleanText = String(text || '').trim();
-  const estimate = estimateForGoal(activityId, category, 'main', cleanText);
+  let estimate;
+  if (typeof estimateMinutes === 'number' && isFinite(estimateMinutes) && estimateMinutes >= 0) {
+    estimate = { minutes: Math.round(estimateMinutes), source: 'manual', confidence: 1 };
+  } else {
+    const cur = db.prepare('SELECT mainGoalEstimateMinutes AS m, mainGoalEstimateSource AS s, mainGoalEstimateConfidence AS c FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
+      .get(activityId, category, periodNumber);
+    estimate = (estimateMinutes === undefined && cur && cur.s === 'manual' && cur.m != null)
+      ? { minutes: cur.m, source: 'manual', confidence: cur.c == null ? 1 : cur.c }
+      : estimateForGoal(activityId, category, 'main', cleanText);
+  }
   db.prepare(`
     UPDATE goal_periods
     SET mainGoalText = ?, mainGoalEstimateMinutes = ?, mainGoalEstimateSource = ?, mainGoalEstimateConfidence = ?

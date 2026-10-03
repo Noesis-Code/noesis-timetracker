@@ -54,8 +54,8 @@
                  même fichier). 17 septembre 2026 : cette carte devient un
                  bandeau plein largeur de la couleur de catégorie (voir
                  renderActivityGoals(), app.js). -->
+            <p class="goalCardLabel goalsWeeklyLabel goalsMainOutLabel">Objectif périodique</p>
             <div class="goalCard goalMainCard" id="activityGoalsMainCard">
-              <p class="goalCardLabel">Objectif périodique</p>
               <!-- 16 septembre 2026 (discussion "Objectifs — D"), demande
                    d'Emilien : « la zone de texte [...] moins grande [...]
                    mais plus longue afin qu'on puisse voir le mot qu'on
@@ -73,6 +73,14 @@
                 <p class="goalMainReadDesc hidden" id="activityGoalsMainReadDesc"></p>
               </div>
               <textarea id="activityGoalsMainDescInput" class="hidden" rows="3" maxlength="600" autocomplete="off"></textarea>
+              <div class="goalMainEstEdit hidden" id="activityGoalsMainEstEdit">
+                <label for="activityGoalsMainEstInput">Temps estimé pour la période</label>
+                <div class="goalMainEstRow">
+                  <input type="number" id="activityGoalsMainEstInput" min="0" step="0.5" inputmode="decimal" autocomplete="off">
+                  <span>h</span>
+                  <button type="button" class="goalMainEstBtn" id="activityGoalsMainEstBtn" disabled>Estimez mon temps</button>
+                </div>
+              </div>
               <div class="goalDescRow hidden" id="activityGoalsMainDescRow">
                 <span class="goalDescPreview" id="activityGoalsMainDescPreview"></span>
                 <button type="button" class="historyRowIconBtn goalDescEditBtn" id="activityGoalsMainDescBtn"></button>
@@ -428,8 +436,10 @@
     rowEl.classList.toggle('hidden', !canEdit);
   }
 
-  function saveMainGoalDescription(periodNumber, title, description) {
-    return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', { text: title, description: description, category: TMT.currentGoalsCategory })
+  function saveMainGoalDescription(periodNumber, title, description, estimateMinutes) {
+    var body = { text: title, description: description, category: TMT.currentGoalsCategory };
+    if (estimateMinutes !== undefined) body.estimateMinutes = estimateMinutes; // nombre = manuel ; null = automatique
+    return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', body)
       .then(reloadGoalsAll);
   }
 
@@ -851,18 +861,46 @@
     mainInput.classList.toggle('hidden', hasMainNow && !editing);
     descIn.classList.toggle('hidden', !editing);
     cancelBtn.classList.toggle('hidden', !editing);
+    var estEdit = $('activityGoalsMainEstEdit');
+    estEdit.classList.toggle('hidden', !editing);
+    $('activityGoalsMainEstimate').classList.toggle('hidden', editing);
+    mainCardEl.classList.toggle('mainEditing', editing);
+    mainSaveBtn.classList.toggle('iconBtn', editing); mainSaveBtn.classList.toggle('btnBrique', editing);
+    cancelBtn.classList.toggle('iconBtn', editing);
     descIn.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux l’IA planifie pour toi.');
     if (editing) {
       if (descIn.dataset.editFor !== mainEditKey) { descIn.value = period.mainGoalDescription || ''; descIn.dataset.editFor = mainEditKey; }
       mainSaveRow.classList.remove('hidden');
       mainInput.onblur = null;
       mainInput.oninput = null;
+      // Temps estimé : champ en heures ; « Estimez mon temps » ne s'allume que si la valeur a été
+      // modifiée par rapport à l'estimation automatique, et la remet.
+      var estIn = $('activityGoalsMainEstInput'), estBtn = $('activityGoalsMainEstBtn');
+      var autoMinutes = null;
+      var toMin = function () { var h = parseFloat(String(estIn.value).replace(',', '.')); return isFinite(h) && h >= 0 ? Math.round(h * 60) : null; };
+      var syncEstBtn = function () { var m = toMin(); estBtn.disabled = autoMinutes == null || m === autoMinutes; estBtn.classList.toggle('lit', !estBtn.disabled); };
+      if (estIn.dataset.editFor !== mainEditKey) {
+        estIn.value = period.mainGoalEstimateMinutes != null ? String(Math.round(period.mainGoalEstimateMinutes / 6) / 10) : '';
+        estIn.dataset.editFor = mainEditKey;
+      }
+      var loadAuto = function () {
+        api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/main-estimate?category=' + encodeURIComponent(TMT.currentGoalsCategory) + '&text=' + encodeURIComponent(mainInput.value.trim() || period.mainGoalText))
+          .then(function (r) { autoMinutes = r && r.minutes != null ? r.minutes : null; syncEstBtn(); })
+          .catch(function () { autoMinutes = null; syncEstBtn(); });
+      };
+      estIn.oninput = syncEstBtn;
+      estBtn.onclick = function () { if (autoMinutes == null) return; estIn.value = String(Math.round(autoMinutes / 6) / 10); syncEstBtn(); };
+      var autoTmr = 0;
+      mainInput.oninput = function () { clearTimeout(autoTmr); autoTmr = setTimeout(loadAuto, 500); };
+      syncEstBtn(); loadAuto();
       mainSaveBtn.onclick = function () {
         var title = mainInput.value.trim() || period.mainGoalText;
-        mainEditKey = null; descIn.dataset.editFor = '';
-        saveMainGoalDescription(period.periodNumber, title, descIn.value.trim());
+        var m = toMin();
+        var est = (m == null || (autoMinutes != null && m === autoMinutes)) ? null : m;
+        mainEditKey = null; descIn.dataset.editFor = ''; estIn.dataset.editFor = '';
+        saveMainGoalDescription(period.periodNumber, title, descIn.value.trim(), est);
       };
-      cancelBtn.onclick = function () { mainEditKey = null; descIn.dataset.editFor = ''; renderActivityGoals(); };
+      cancelBtn.onclick = function () { mainEditKey = null; descIn.dataset.editFor = ''; $('activityGoalsMainEstInput').dataset.editFor = ''; renderActivityGoals(); };
     } else {
       descIn.dataset.editFor = '';
     }
@@ -890,7 +928,9 @@
     var periodBodyBox = $('activityGoalsPeriodBody');
     if (periodBodyBox) periodBodyBox.classList.toggle('hidden', !hasMainGoal);
 
-    $('activityGoalsMainEstimate').textContent = formatEstimateHint(period.mainGoalEstimateMinutes, period.mainGoalEstimateSource, period.mainGoalEstimateConfidence);
+    $('activityGoalsMainEstimate').textContent = period.mainGoalEstimateMinutes != null
+      ? '≈ ' + formatGoalHours(period.mainGoalEstimateMinutes) + ' ' + t('estimées pour la période')
+      : t('Temps estimé : à définir');
 
     // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
     // « réduire la section de l'objectif périodique au titre, au nombre

@@ -208,7 +208,10 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
 
   try {
     const category = resolveCategory(activityId, req.body.category);
-    const estimate = goals.setMainGoal(activityId, category, periodNumber, text, description);
+    let estimateMinutes;
+    if (req.body.estimateMinutes === null) estimateMinutes = null;
+    else if (typeof req.body.estimateMinutes === 'number' && isFinite(req.body.estimateMinutes) && req.body.estimateMinutes >= 0 && req.body.estimateMinutes <= 100000) estimateMinutes = req.body.estimateMinutes;
+    const estimate = goals.setMainGoal(activityId, category, periodNumber, text, description, estimateMinutes);
     res.json({ ok: true, estimate });
     // 26 septembre 2026 : déclenché APRÈS la réponse HTTP, jamais awaité —
     // « fire-and-forget », la proposition IA arrive en tâche de fond (voir
@@ -225,6 +228,23 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
     goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber)
       .then(() => crosssectorinference.evaluateCrossSectorLinks(activityId, category, { type: 'main_goal', text, periodNumber }))
       .catch(() => {});
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// Estimation automatique (sans rien enregistrer) pour un titre donné : sert au bouton « Estimez mon temps ».
+router.get('/activities/:id/goals/periods/:periodNumber/main-estimate', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    const category = resolveCategory(activityId, req.query.category);
+    const text = typeof req.query.text === 'string' ? req.query.text.trim().slice(0, 500) : '';
+    const e = goals.estimateForGoal(activityId, category, 'main', text);
+    res.json({ minutes: e.minutes, source: e.source, confidence: e.confidence });
   } catch (err) {
     handleGoalsError(res, err);
   }

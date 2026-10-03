@@ -480,3 +480,28 @@
 .goalMainReadDesc { margin: 0; font-size: 13px; opacity: 0.8; overflow-wrap: anywhere; white-space: pre-wrap; }
 #activityGoalsMainDescInput { margin-top: 6px; font-size: 14px; font-weight: 400; field-sizing: content; min-height: 60px; }
 #activityGoalsMainCancelBtn { margin-right: 8px; }
+
+/* 3 oct. 2026 : titre « Objectif périodique » hors de la carte ; carte épurée (plus de barre de progression,
+   plus de pastille « calculé automatiquement » ni de bouton « Ajuster » — le code reste, seule la vue est masquée). */
+#goalsMonthView .goalsMainOutLabel { margin: 0 0 8px; }
+#goalsMonthView .goalMainProgressRow { display: none; }
+#goalsMonthView .goalCapacityTag, #goalsMonthView .goalCapacityEditBtn, #goalsMonthView .goalCapacityClearBtn { display: none; }
+/* Modification sur place : mêmes champs arrondis que les pôles/secteurs. */
+#activityGoalsMainCard.mainEditing textarea,
+#activityGoalsMainCard.mainEditing input[type="number"] {
+  box-sizing: border-box; padding: 10px 14px; border-radius: 14px; font-size: 16px; font-weight: 400;
+  border: 1px solid var(--border, rgba(255,255,255,.14)); background: var(--card); color: var(--text);
+}
+#activityGoalsMainCard.mainEditing #activityGoalsMainInput { font-weight: 600; margin-bottom: 8px; }
+#activityGoalsMainCard.mainEditing textarea:focus,
+#activityGoalsMainCard.mainEditing input[type="number"]:focus {
+  outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb), .25);
+}
+#activityGoalsMainDescInput { margin-top: 0; }
+.goalMainEstEdit { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.goalMainEstEdit label { font-size: 12px; opacity: .75; }
+.goalMainEstRow { display: flex; align-items: center; gap: 8px; }
+.goalMainEstRow input { width: 84px; text-align: center; }
+.goalMainEstBtn { margin-left: auto; padding: 8px 14px; border-radius: 12px; font: inherit; font-size: 13px; color: inherit; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.14)); opacity: .45; }
+.goalMainEstBtn.lit { opacity: 1; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb), .25), 0 0 14px rgba(var(--purple-rgb), .45); }
+.goalMainEstBtn:disabled { cursor: default; }
