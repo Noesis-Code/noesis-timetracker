@@ -10118,7 +10118,7 @@
       var searchInput = document.createElement('input');
       searchInput.type = 'text';
       searchInput.className = 'memberSearchInput';
-      searchInput.placeholder = t('Chercher un pseudo, un projet, un secteur...');
+      searchInput.placeholder = t('Pseudo, projet, secteur');
       searchInput.autocomplete = 'off';
       var searchRow = document.createElement('div');
       searchRow.className = 'chatComposerRow communitySearchRow';
