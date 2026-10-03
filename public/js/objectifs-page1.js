@@ -753,6 +753,128 @@
   // voir claude/noesis-timetracker-taches-categories-reference-discussion-c.md) :
   // cette nouvelle bulle demande une connexion réseau, limite assumée et
   // documentée plutôt que cachée.
+  // 3 oct. 2026 (décisions d'Emilien) : le serveur ne crée rien et répond
+  // `needs` pour un doublon ('duplicate') ou un tri introuvable/incertain
+  // ('category', avec candidates + suggested). Une activité à la fois dans la
+  // même fenêtre, puis la capture est relancée pour cette seule activité avec
+  // allowDuplicate / forcedCategory. Les autres activités ne sont jamais bloquées.
+  function captureRequest(label, ids, extra) {
+    var body = { userId: TMT.getProfile().id, label: label, activityIds: ids };
+    if (extra && extra.allowDuplicate) body.allowDuplicate = true;
+    if (extra && extra.forcedCategory) body.forcedCategory = extra.forcedCategory;
+    return api('POST', '/api/goals/capture', body).then(function (data) { return (data && data.results) || []; });
+  }
+
+  function captureWithConfirmations(label, ids) {
+    return captureRequest(label, ids, null).then(function (first) {
+      var finals = first.filter(function (r) { return !r.needs; });
+      var queue = first.filter(function (r) { return r.needs; }).map(function (r) { return { r: r, allowDuplicate: false }; });
+      var cancelled = false;
+      function next() {
+        if (!queue.length) return Promise.resolve({ results: finals, cancelled: cancelled });
+        var cur = queue.shift();
+        return askCaptureChoice(label, cur.r).then(function (choice) {
+          if (!choice) { cancelled = true; return next(); }
+          var extra = { allowDuplicate: cur.allowDuplicate || cur.r.needs === 'duplicate', forcedCategory: choice.forcedCategory || null };
+          return captureRequest(label, [cur.r.activityId], extra).then(function (res) {
+            res.forEach(function (r) {
+              if (r.needs) queue.unshift({ r: r, allowDuplicate: extra.allowDuplicate });
+              else finals.push(r);
+            });
+            return next();
+          });
+        });
+      }
+      return next();
+    });
+  }
+
+  // Fenêtre bottom-sheet verre (mêmes classes que la fenêtre d'édition de
+  // tâche) : résout { forcedCategory? } pour continuer, null si annulé (✕ ou fond).
+  function askCaptureChoice(label, r) {
+    return new Promise(function (resolve) {
+      var overlay = document.createElement('div');
+      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal';
+      var card = document.createElement('div');
+      card.className = 'goalTaskEditCard';
+      var header = document.createElement('div');
+      header.className = 'goalTaskEditHeader';
+      var title = document.createElement('p');
+      title.className = 'sectionTitle';
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'menuBtn';
+      closeBtn.setAttribute('aria-label', t('Fermer'));
+      closeBtn.textContent = '✕';
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+      card.appendChild(header);
+      var done = false;
+      function finish(v) { if (done) return; done = true; overlay.remove(); resolve(v); }
+      closeBtn.addEventListener('click', function () { finish(null); });
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) finish(null); });
+
+      var taskLine = document.createElement('p');
+      taskLine.className = 'meta goalsCaptureConfirmTask';
+      taskLine.textContent = '« ' + label + ' »';
+
+      if (r.needs === 'duplicate') {
+        title.textContent = t('Cette tâche existe déjà dans') + ' ' + (r.activityName || '') + '. ' + t('Ajouter quand même ?');
+        card.appendChild(taskLine);
+        var actions = document.createElement('div');
+        actions.className = 'goalsCaptureConfirmActions';
+        var cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'iconBtn';
+        cancelBtn.textContent = t('Annuler');
+        cancelBtn.addEventListener('click', function () { finish(null); });
+        var addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'iconBtn btnBrique';
+        addBtn.textContent = t('Ajouter quand même');
+        addBtn.addEventListener('click', function () { finish({}); });
+        actions.appendChild(cancelBtn);
+        actions.appendChild(addBtn);
+        card.appendChild(actions);
+      } else {
+        title.textContent = t('Pôle et secteur non trouvés — où placer cette tâche ?');
+        card.appendChild(taskLine);
+        if (r.activityName) {
+          var actLine = document.createElement('p');
+          actLine.className = 'meta goalsCaptureConfirmTask';
+          actLine.textContent = r.activityName;
+          card.appendChild(actLine);
+        }
+        var list = document.createElement('div');
+        list.className = 'goalsCaptureConfirmList';
+        function render(choices, showOther) {
+          list.innerHTML = '';
+          choices.forEach(function (c) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'gmChip goalsCaptureConfirmChoice';
+            b.textContent = c.label;
+            b.addEventListener('click', function () { finish({ forcedCategory: c.key }); });
+            list.appendChild(b);
+          });
+          if (showOther) {
+            var o = document.createElement('button');
+            o.type = 'button';
+            o.className = 'gmChip goalsCaptureConfirmChoice goalsCaptureConfirmOther';
+            o.textContent = t('Autre…');
+            o.addEventListener('click', function () { render(r.candidates || [], false); });
+            list.appendChild(o);
+          }
+        }
+        if (r.suggested && r.suggested.length) render(r.suggested, true);
+        else render(r.candidates || [], false);
+        card.appendChild(list);
+      }
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+    });
+  }
+
   function buildGoalsCaptureBubble() {
     var outer = document.createElement('div');
     outer.className = 'activityGoalsCategoryAutoTaskWrapOuter';
@@ -800,11 +922,15 @@
       if (promptElDone) promptElDone.classList.add('hidden');
       msg.textContent = '';
       btn.disabled = true;
-      api('POST', '/api/goals/capture', { userId: TMT.getProfile().id, label: label, activityIds: goalsCaptureSelectedActivityIds })
-        .then(function (data) {
-          textarea.value = '';
-          goalsCaptureSelectedActivityIds = [];
-          var results = (data && data.results) || [];
+      var sentIds = goalsCaptureSelectedActivityIds.slice();
+      captureWithConfirmations(label, sentIds)
+        .then(function (outcome) {
+          // Texte et sélection gardés si l'utilisateur a annulé un choix.
+          if (!outcome.cancelled) {
+            textarea.value = '';
+            goalsCaptureSelectedActivityIds = [];
+          }
+          var results = outcome.results;
           var pending = document.createElement('div');
           pending.className = 'activityGoalsCategoryAutoTaskPending';
           results.forEach(function (r) {

@@ -707,6 +707,11 @@
     'Supprimer cette tâche': 'Delete this task',
     'Supprimer cette tâche ?': 'Delete this task?',
     "Écris une tâche avant d'ajouter.": 'Write a task before adding it.',
+    'Cette tâche existe déjà dans': 'This task already exists in',
+    'Ajouter quand même ?': 'Add anyway?',
+    'Ajouter quand même': 'Add anyway',
+    'Pôle et secteur non trouvés — où placer cette tâche ?': 'Pole and sector not found — where should this task go?',
+    'Autre…': 'Other…',
     'Le nom du sous-projet est requis.': 'The sub-project name is required.',
     // Messages d'erreur renvoyés par server/routes/subprojects.js
     'Sous-projet introuvable.': 'Sub-project not found.',

@@ -213,3 +213,11 @@
 :root[data-theme="light"] .offer1PromoText span{background:linear-gradient(90deg,#4a3980,#674EA7);-webkit-background-clip:text;background-clip:text}
 :root[data-theme="light"] .offer1Promo{border-color:rgba(103,78,167,.5)}
 #offer1SubscribedEmptyHint{display:none}
+
+/* 3 oct. 2026 : fenêtre de confirmation de capture (doublon / tri incertain), gabarit .goalTaskEditModal. */
+.goalsCaptureConfirmModal { z-index: 140; }
+.goalsCaptureConfirmTask { margin: 0 0 8px; overflow-wrap: anywhere; }
+.goalsCaptureConfirmList { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.goalsCaptureConfirmChoice { width: 100%; text-align: left; padding: 12px 14px; font-size: 14px; }
+.goalsCaptureConfirmActions { display: flex; gap: 10px; margin-top: 12px; }
+.goalsCaptureConfirmActions .iconBtn { flex: 1 1 0; }
