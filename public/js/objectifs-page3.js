@@ -765,7 +765,7 @@
       var mainTextColor = readableTextOn(mainCatColor);
       mainCardEl.style.background = mainCatColor;
       mainCardEl.style.color = mainTextColor;
-      mainCardEl.style.setProperty('--cardEdge', mainCatColor); // page mensuel : verre + contour de la couleur du pôle (CSS)
+      mainCardEl.style.setProperty('--cardEdge', TMT.currentGoalsPoleIndex != null ? subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex, SUB_PROJECT_SHADE_COUNT) : mainCatColor); // page mensuel : verre + contour de la couleur du pôle (CSS)
       if (mainProgressTrackEl) {
         mainProgressTrackEl.style.background = mainTextColor === '#ffffff'
           ? 'rgba(255, 255, 255, 0.25)'
