@@ -6661,3 +6661,9 @@ button { -webkit-user-select: none; user-select: none; }
 #communityMembersModal .communityMembersModalCard { padding-top: 0; }
 
 #activityPageSectionSwitch.tabsGhost { visibility: hidden; pointer-events: none; }
+
+/* Feuille de temps : titre et libellé de période sur une ligne, jusqu'à 320 px. */
+.sectionTitleRow > .sectionTitle { font-size: clamp(13px, 4vw, 15px); white-space: nowrap; flex-shrink: 0; }
+.timesheetNav { gap: 4px; min-width: 0; }
+.timesheetNav .meta { white-space: nowrap; font-size: clamp(11px, 3.4vw, 13px); }
+.timesheetNav .meta.tsCurrent { font-weight: 700; }

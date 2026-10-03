@@ -5332,7 +5332,9 @@
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.remove('tsFrozenCal');
 
-    $(I.weekLabel).textContent = t(data.label) + (data.isCurrentWeek ? t(' (en cours)') : '');
+    // Libellé court (« 29/09 – 05/10 ») ; la semaine en cours se marque en gras plutôt que par un suffixe (320 px).
+    $(I.weekLabel).textContent = String(data.label).replace(/^Semaine du (\d+\/\d+) au (\d+\/\d+)$/, '$1 – $2');
+    $(I.weekLabel).classList.toggle('tsCurrent', !!data.isCurrentWeek);
     $(I.nextBtn).disabled = data.isCurrentWeek;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
