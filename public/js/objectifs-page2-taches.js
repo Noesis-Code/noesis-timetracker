@@ -488,6 +488,28 @@
     zone.addEventListener('touchcancel', function (e) { finish(e, true); }, { passive: true });
   })();
 
+  // Page figée en haut, sans rebond : si le contenu tient à l'écran, aucun défilement vertical n'est possible.
+  (function lockPage2Scroll() {
+    var sc = $('goalsActivitySwitcherScroll');
+    if (!sc) return;
+    var raf = 0;
+    function update() {
+      raf = 0;
+      var fits = sc.scrollHeight <= sc.clientHeight + 1;
+      sc.classList.toggle('noScroll', fits);
+      if (fits && sc.scrollTop) sc.scrollTop = 0;
+    }
+    function schedule() { if (!raf) raf = requestAnimationFrame(update); }
+    if (typeof ResizeObserver === 'function') {
+      var ro = new ResizeObserver(schedule);
+      ro.observe(sc);
+      Array.prototype.forEach.call(sc.children, function (c) { ro.observe(c); });
+    }
+    if (typeof MutationObserver === 'function') new MutationObserver(schedule).observe(sc, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+    window.addEventListener('resize', schedule);
+    schedule();
+  })();
+
   $('goalsPage2ModeDiscBtn').addEventListener('click', function () { setGoalsPage2Mode('disc'); });
   function closeGoalsDiscSheet() { setGoalsPage2Mode(goalsPage2BaseMode); }
   $('goalsDiscSheetClose').addEventListener('click', closeGoalsDiscSheet);
