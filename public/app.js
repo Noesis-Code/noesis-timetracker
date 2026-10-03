@@ -7068,7 +7068,7 @@
         activityGoalsCategoriesRefresh(activityId);
         var last = res && res.secteurs && res.secteurs[res.secteurs.length - 1];
         if (last && last.label === label && String(last.key).indexOf('tmp-') !== 0) {
-          openCategoryDetailModal({ activityId: activityId, key: last.key, label: last.label, poleKey: poleKey, description: '' });
+          catOpenEdit(activityId, { key: last.key, label: last.label, poleKey: poleKey, description: '' });
         }
         return true;
       })
@@ -7198,6 +7198,91 @@
     return input;
   }
 
+  // ----- Modification d'un pôle/secteur SUR PLACE (3 oct. 2026, demande d'Emilien) -----
+  // La ligne se transforme en formulaire (titre + description, corbeille / Annuler / Enregistrer),
+  // plus de fenêtre séparée. Clavier : au toucher d'un champ la zone est remontée au-dessus du
+  // clavier (même technique que le formulaire « Nouveau secteur »), sans focus automatique.
+  var catEditState = null; // { key, poleKey, label, description, name, desc }
+  function catEditMatches(key, poleKey) {
+    return !!catEditState && catEditState.key === key && (catEditState.poleKey || null) === (poleKey || null);
+  }
+  function catOpenEdit(activityId, o) {
+    catCloseNewPole();
+    catCloseNewSecteur();
+    catEditState = { activityId: activityId, key: o.key, poleKey: o.poleKey || null, label: o.label, description: o.description || '', name: o.label, desc: o.description || '' };
+    catRerender();
+    window.requestAnimationFrame(function () {
+      var f = document.querySelector('.catEditForm');
+      if (f && f.scrollIntoView) f.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+  function catBuildEditForm(activityId) {
+    var st = catEditState;
+    var box = document.createElement('div');
+    box.className = 'catEditForm catNewPole';
+    var fields = document.createElement('div');
+    fields.className = 'catNewPoleFields';
+    var nameIn = document.createElement('input');
+    nameIn.type = 'text'; nameIn.maxLength = 40; nameIn.autocomplete = 'off';
+    nameIn.placeholder = t(st.poleKey ? 'Nom du secteur' : 'Nom du pôle'); nameIn.enterKeyHint = 'next'; nameIn.value = st.name;
+    var descIn = document.createElement('textarea');
+    descIn.rows = 3; descIn.maxLength = 200; descIn.autocomplete = 'off';
+    descIn.placeholder = t(st.poleKey ? 'Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.' : 'Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux l’IA planifie pour toi.');
+    descIn.enterKeyHint = 'send'; descIn.value = st.desc;
+    var msg = document.createElement('p'); msg.className = 'msg';
+    var actions = document.createElement('div'); actions.className = 'catNewPoleActions';
+    var del = document.createElement('button');
+    del.type = 'button'; del.className = 'historyRowIconBtn danger'; del.innerHTML = CHRONO_HISTORY_DELETE_ICON;
+    del.setAttribute('aria-label', t('Supprimer'));
+    del.disabled = !st.poleKey && currentActivityGoalsCategories.length <= 1;
+    var cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
+    var save = document.createElement('button');
+    save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
+    actions.appendChild(del); actions.appendChild(cancel); actions.appendChild(save);
+    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(msg); fields.appendChild(actions);
+    box.appendChild(fields);
+    [nameIn, descIn].forEach(function (el) {
+      el.addEventListener('focus', function () {
+        [250, 600].forEach(function (d) {
+          setTimeout(function () { if (document.activeElement === el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, d);
+        });
+      });
+    });
+    nameIn.addEventListener('input', function () { st.name = nameIn.value; });
+    descIn.addEventListener('input', function () { st.desc = descIn.value; });
+    function close() { catEditState = null; catRerender(); }
+    function doSave() {
+      if (save.disabled) return;
+      var value = descIn.value.trim();
+      var newLabel = nameIn.value.trim() || st.label;
+      if (value === st.description && newLabel === st.label) { close(); return; }
+      save.disabled = true; msg.textContent = '';
+      var url = '/api/activities/' + activityId + '/goals/categories/' + (st.poleKey ? st.poleKey + '/secteurs/' : '') + st.key;
+      api('PUT', url, { label: newLabel, description: value })
+        .then(function () { catEditState = null; activityGoalsCategoriesRefresh(activityId); })
+        .catch(function (err) { msg.textContent = err.message; })
+        .then(function () { save.disabled = false; });
+    }
+    save.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    save.addEventListener('click', doSave);
+    cancel.addEventListener('click', close);
+    del.addEventListener('click', function () {
+      var o = { activityId: activityId, key: st.key, label: st.label, poleKey: st.poleKey };
+      catEditState = null; catRerender();
+      openCategoryRemoveModal(o);
+    });
+    nameIn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); descIn.focus(); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+    descIn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); doSave(); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+    return box;
+  }
+
   function buildCatGroup(activityId, pole, index, list, edit) {
     var group = document.createElement('div');
     group.className = 'catGroup';
@@ -7240,6 +7325,12 @@
     }
 
     var isOpen = !!activityGoalsCategoriesOpen[pole.key];
+    if (catEditMatches(pole.key, null)) {
+      row.appendChild(catBuildEditForm(activityId));
+      group.appendChild(row);
+      if (isOpen) group.appendChild(buildCatSecteurs(activityId, pole, false));
+      return group;
+    }
     var name = document.createElement('span');
     name.className = 'activityRowName';
     name.textContent = pole.label;
@@ -7249,7 +7340,7 @@
     header.appendChild(dot);
     header.appendChild(name);
     header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
-      openCategoryDetailModal({ activityId: activityId, key: pole.key, label: pole.label, poleKey: null, description: pole.description || '' });
+      catOpenEdit(activityId, { key: pole.key, label: pole.label, poleKey: null, description: pole.description || '' });
     }));
     header.appendChild(chevron);
     header.classList.add('clickable');
@@ -7279,6 +7370,11 @@
       var row = document.createElement('div');
       row.className = 'catSecteurRow';
       row.dataset.secteurKey = s.key;
+      if (catEditMatches(s.key, pole.key)) {
+        row.appendChild(catBuildEditForm(activityId));
+        wrap.appendChild(row);
+        return;
+      }
       var header = document.createElement('div');
       header.className = 'activityRowHeader';
 
@@ -7298,7 +7394,7 @@
         header.appendChild(handle);
         header.appendChild(catNameInput(activityId, s, pole.key));
         header.appendChild(catSmallButton('✎', t('Modifier ce secteur'), function () {
-          openCategoryDetailModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
+          catOpenEdit(activityId, { key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
         }));
         row.appendChild(header);
       } else {
@@ -7307,7 +7403,7 @@
         name.textContent = s.label;
         header.appendChild(name);
         header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
-          openCategoryDetailModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
+          catOpenEdit(activityId, { key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
         }));
         row.appendChild(header);
         if (s.description) {
