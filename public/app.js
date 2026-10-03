@@ -7262,9 +7262,9 @@
         });
         header.appendChild(handle);
         header.appendChild(catNameInput(activityId, s, pole.key));
-        header.appendChild(catDeleteButton(t('Retirer ce secteur'), function () {
-          openCategoryRemoveModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key });
-        }, true));
+        header.appendChild(catSmallButton('✎', t('Modifier ce secteur'), function () {
+          openCategoryDetailModal({ activityId: activityId, key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
+        }));
         row.appendChild(header);
       } else {
         var name = document.createElement('span');
@@ -7315,8 +7315,8 @@
   }
 
   // ----- Fenêtres (.communityMembersModal) -----
-  // Retrait d'un pôle/secteur : 3 choix (supprimer aussi les tâches / les conserver
-  // sans pôle-secteur / annuler), via removal-preview. Jamais window.confirm.
+  // Suppression d'un pôle/secteur : confirmation unique « tout supprimer » (3 oct. 2026) ;
+  // jamais window.confirm.
   function openCategoryRemoveModal(o) {
     var modal = $('categoryRemoveModal');
     if (!modal) return;
@@ -7324,44 +7324,26 @@
     var msg = $('categoryRemoveMsg');
     var delBtn = $('categoryRemoveDeleteTasksBtn');
     var keepBtn = $('categoryRemoveKeepTasksBtn');
-    $('categoryRemoveTitle').textContent = t(isPole ? 'Retirer le pôle « {name} » ?' : 'Retirer le secteur « {name} » ?', { name: o.label });
-    $('categoryRemoveText').textContent = t('Vérification des tâches affiliées…');
+    $('categoryRemoveTitle').textContent = t(isPole ? 'Supprimer le pôle « {name} » ?' : 'Supprimer le secteur « {name} » ?', { name: o.label });
+    $('categoryRemoveText').textContent = t(isPole
+      ? 'Êtes-vous sûr de vouloir supprimer le pôle ? Les secteurs affiliés ainsi que les tâches seront également supprimés.'
+      : 'Êtes-vous sûr de vouloir supprimer le secteur ? Les tâches du secteur seront également supprimées.');
     msg.textContent = '';
-    delBtn.classList.add('hidden');
     keepBtn.classList.add('hidden');
+    delBtn.textContent = t('Supprimer');
+    delBtn.classList.remove('hidden');
     modal.classList.remove('hidden');
 
     function close() { modal.classList.add('hidden'); }
-    function run(choice) {
-      delBtn.disabled = keepBtn.disabled = true;
+    // Toujours « tout supprimer » (3 oct. 2026) : une seule confirmation.
+    delBtn.onclick = function () {
+      delBtn.disabled = true;
       var p = isPole
-        ? removeActivityGoalsCategory(o.key, choice)
-        : removePoleSecteur(o.activityId, o.poleKey, o.key, choice);
+        ? removeActivityGoalsCategory(o.key, 'delete')
+        : removePoleSecteur(o.activityId, o.poleKey, o.key, 'delete');
       p.then(close).catch(function (err) { msg.textContent = err.message; })
-        .then(function () { delBtn.disabled = keepBtn.disabled = false; });
-    }
-    function show(count) {
-      if (count === 0) {
-        $('categoryRemoveText').textContent = t(isPole ? 'Son historique reste consultable mais il ne recevra plus de nouveaux objectifs.' : 'Son historique reste consultable.');
-        keepBtn.textContent = t('Retirer');
-        keepBtn.classList.remove('hidden');
-        keepBtn.onclick = function () { run(undefined); };
-        delBtn.onclick = null;
-        return;
-      }
-      $('categoryRemoveText').textContent = count > 0
-        ? t('{n} tâche(s) affiliée(s). Que faire de ces tâches ?', { n: count })
-        : t('Des tâches sont peut-être affiliées. Que faire de ces tâches ?');
-      delBtn.textContent = t('Supprimer aussi les tâches');
-      keepBtn.textContent = t(isPole ? 'Conserver les tâches sans pôle' : 'Conserver les tâches sans secteur');
-      delBtn.classList.remove('hidden');
-      keepBtn.classList.remove('hidden');
-      delBtn.onclick = function () { run('delete'); };
-      keepBtn.onclick = function () { run('keep'); };
-    }
-    api('GET', '/api/activities/' + o.activityId + '/goals/categories/' + o.key + '/removal-preview')
-      .then(function (r) { show(r && typeof r.taskCount === 'number' ? r.taskCount : -1); })
-      .catch(function () { show(-1); });
+        .then(function () { delBtn.disabled = false; });
+    };
     $('categoryRemoveClose').onclick = close;
     $('categoryRemoveCancelBtn').onclick = close;
   }
@@ -7392,6 +7374,13 @@
         .catch(function (err) { msg.textContent = err.message; });
     }
     $('categoryDetailSaveBtn').onclick = save;
+    var detailDel = $('categoryDetailDeleteBtn');
+    detailDel.innerHTML = CHRONO_HISTORY_DELETE_ICON;
+    detailDel.disabled = !o.poleKey && currentActivityGoalsCategories.length <= 1;
+    detailDel.onclick = function () {
+      close();
+      openCategoryRemoveModal({ activityId: o.activityId, key: o.key, label: o.label, poleKey: o.poleKey });
+    };
     $('categoryDetailClose').onclick = close;
     // Pas de focus automatique : le clavier ne s'ouvre pas et aucun curseur n'est posé tant que l'utilisateur ne touche pas le champ.
     try { titleIn.blur(); ta.blur(); ta.scrollTop = 0; } catch (e) {}
