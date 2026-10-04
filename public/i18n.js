@@ -953,6 +953,7 @@
     'Partiel': 'Partial',
     'Atteint': 'Met',
     'Pas encore assez d’historique pour suggérer une durée.': 'Not enough history yet to suggest a duration.',
+    'Pas encore assez d’historique pour estimer ce temps.': 'Not enough history yet to estimate this time.',
     'Estimation suggérée': 'Suggested estimate',
     'confiance': 'confidence',
     'Réel': 'Actual',

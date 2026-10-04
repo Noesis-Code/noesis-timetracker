@@ -78,7 +78,7 @@
                 <div class="goalMainEstRow">
                   <input type="number" id="activityGoalsMainEstInput" min="0" step="0.5" inputmode="decimal" autocomplete="off">
                   <span>h</span>
-                  <button type="button" class="goalMainEstBtn" id="activityGoalsMainEstBtn" disabled>Estimez mon temps</button>
+                  <button type="button" class="goalMainEstBtn" id="activityGoalsMainEstBtn" disabled>Noèsis estime mon temps</button>
                 </div>
               </div>
               <div class="goalDescRow hidden" id="activityGoalsMainDescRow">
@@ -866,7 +866,7 @@
     $('activityGoalsMainEstimate').classList.toggle('hidden', editing);
     mainCardEl.classList.toggle('mainEditing', editing);
     mainSaveBtn.classList.toggle('iconBtn', editing); mainSaveBtn.classList.toggle('btnBrique', editing);
-    cancelBtn.classList.toggle('iconBtn', editing);
+    cancelBtn.classList.toggle('goalMainCancelPlain', editing);
     descIn.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.');
     if (editing) {
       if (descIn.dataset.editFor !== mainEditKey) { descIn.value = period.mainGoalDescription || ''; descIn.dataset.editFor = mainEditKey; }
@@ -878,7 +878,9 @@
       var estIn = $('activityGoalsMainEstInput'), estBtn = $('activityGoalsMainEstBtn');
       var autoMinutes = null;
       var toMin = function () { var h = parseFloat(String(estIn.value).replace(',', '.')); return isFinite(h) && h >= 0 ? Math.round(h * 60) : null; };
-      var syncEstBtn = function () { var m = toMin(); estBtn.disabled = autoMinutes == null || m === autoMinutes; estBtn.classList.toggle('lit', !estBtn.disabled); };
+      // S'allume dès que la valeur saisie à la main diffère de la valeur enregistrée.
+      var initialMin = period.mainGoalEstimateMinutes != null ? period.mainGoalEstimateMinutes : null;
+      var syncEstBtn = function () { var m = toMin(); estBtn.disabled = m == null || m === initialMin; estBtn.classList.toggle('lit', !estBtn.disabled); };
       if (estIn.dataset.editFor !== mainEditKey) {
         estIn.value = period.mainGoalEstimateMinutes != null ? String(Math.round(period.mainGoalEstimateMinutes / 6) / 10) : '';
         estIn.dataset.editFor = mainEditKey;
@@ -889,7 +891,12 @@
           .catch(function () { autoMinutes = null; syncEstBtn(); });
       };
       estIn.oninput = syncEstBtn;
-      estBtn.onclick = function () { if (autoMinutes == null) return; estIn.value = String(Math.round(autoMinutes / 6) / 10); syncEstBtn(); };
+      estBtn.onclick = function () {
+        if (autoMinutes == null) { $('activityGoalsMsg').textContent = t('Pas encore assez d’historique pour estimer ce temps.'); return; }
+        $('activityGoalsMsg').textContent = '';
+        estIn.value = String(Math.round(autoMinutes / 6) / 10);
+        initialMin = autoMinutes; syncEstBtn();
+      };
       var autoTmr = 0;
       mainInput.oninput = function () { clearTimeout(autoTmr); autoTmr = setTimeout(loadAuto, 500); };
       syncEstBtn(); loadAuto();

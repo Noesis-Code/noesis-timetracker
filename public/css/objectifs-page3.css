@@ -505,3 +505,6 @@
 .goalMainEstBtn { margin-left: auto; padding: 8px 14px; border-radius: 12px; font: inherit; font-size: 13px; color: inherit; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.14)); opacity: .45; }
 .goalMainEstBtn.lit { opacity: 1; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb), .25), 0 0 14px rgba(var(--purple-rgb), .45); }
 .goalMainEstBtn:disabled { cursor: default; }
+
+/* Annuler : neutre, sans couleur. */
+#activityGoalsMainCard .goalMainCancelPlain { color: inherit; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.14)); }
