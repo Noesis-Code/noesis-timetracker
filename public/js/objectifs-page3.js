@@ -439,8 +439,10 @@
   function saveMainGoalDescription(periodNumber, title, description, estimateMinutes) {
     var body = { text: title, description: description, category: TMT.currentGoalsCategory };
     if (estimateMinutes !== undefined) body.estimateMinutes = estimateMinutes; // nombre = manuel ; null = automatique
+    var pollActivityId = TMT.currentGoalsActivityId, pollCategory = TMT.currentGoalsCategory;
     return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', body)
-      .then(reloadGoalsAll);
+      .then(reloadGoalsAll)
+      .then(function () { if (title && title.trim()) maybeScheduleGoalsWeeklyAutoFillPoll(pollActivityId, pollCategory, periodNumber, 0); });
   }
 
   function saveWeeklyDescription(periodNumber, weekIndex, title, description) {
@@ -847,7 +849,10 @@
     // transforme la carte en formulaire sur place (titre, description, Annuler/Enregistrer),
     // sans fenêtre séparée. Tant qu'aucun objectif n'existe : saisie du titre comme avant.
     var hasMainNow = !!(period.mainGoalText && period.mainGoalText.trim());
-    var editing = hasMainNow && !!mainEditKey && mainEditKey === period.periodNumber + '|' + TMT.currentGoalsCategory;
+    // 4 oct. 2026 : tant qu'aucun objectif n'est saisi pour cette période, la carte s'ouvre directement
+    // dans le formulaire de modification (sans Annuler : rien à annuler).
+    var curKey = period.periodNumber + '|' + TMT.currentGoalsCategory;
+    var editing = !hasMainNow || mainEditKey === curKey;
     var readBox = $('activityGoalsMainRead'), descIn = $('activityGoalsMainDescInput');
     var cancelBtn = $('activityGoalsMainCancelBtn'), editBtn = $('activityGoalsMainEditBtn');
     $('activityGoalsMainReadTitle').textContent = period.mainGoalText || '';
@@ -860,7 +865,7 @@
     readBox.classList.toggle('hidden', !hasMainNow || editing);
     mainInput.classList.toggle('hidden', hasMainNow && !editing);
     descIn.classList.toggle('hidden', !editing);
-    cancelBtn.classList.toggle('hidden', !editing);
+    cancelBtn.classList.toggle('hidden', !editing || !hasMainNow);
     var estEdit = $('activityGoalsMainEstEdit');
     estEdit.classList.toggle('hidden', !editing);
     $('activityGoalsMainEstimate').classList.toggle('hidden', editing);
@@ -869,7 +874,7 @@
     cancelBtn.classList.toggle('goalMainCancelPlain', editing);
     descIn.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.');
     if (editing) {
-      if (descIn.dataset.editFor !== mainEditKey) { descIn.value = period.mainGoalDescription || ''; descIn.dataset.editFor = mainEditKey; }
+      if (descIn.dataset.editFor !== curKey) { descIn.value = period.mainGoalDescription || ''; descIn.dataset.editFor = curKey; }
       mainSaveRow.classList.remove('hidden');
       mainInput.onblur = null;
       mainInput.oninput = null;
@@ -881,9 +886,9 @@
       // S'allume dès que la valeur saisie à la main diffère de la valeur enregistrée.
       var initialMin = period.mainGoalEstimateMinutes != null ? period.mainGoalEstimateMinutes : null;
       var syncEstBtn = function () { var m = toMin(); estBtn.disabled = m == null || m === initialMin; estBtn.classList.toggle('lit', !estBtn.disabled); };
-      if (estIn.dataset.editFor !== mainEditKey) {
+      if (estIn.dataset.editFor !== curKey) {
         estIn.value = period.mainGoalEstimateMinutes != null ? String(Math.round(period.mainGoalEstimateMinutes / 6) / 10) : '';
-        estIn.dataset.editFor = mainEditKey;
+        estIn.dataset.editFor = curKey;
       }
       var loadAuto = function () {
         api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/main-estimate?category=' + encodeURIComponent(TMT.currentGoalsCategory) + '&text=' + encodeURIComponent(mainInput.value.trim() || period.mainGoalText))
@@ -902,6 +907,7 @@
       syncEstBtn(); loadAuto();
       mainSaveBtn.onclick = function () {
         var title = mainInput.value.trim() || period.mainGoalText;
+        if (!title) return;
         var m = toMin();
         var est = (m == null || (autoMinutes != null && m === autoMinutes)) ? null : m;
         mainEditKey = null; descIn.dataset.editFor = ''; estIn.dataset.editFor = '';
