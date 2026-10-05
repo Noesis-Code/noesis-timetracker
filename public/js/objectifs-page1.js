@@ -1238,6 +1238,7 @@
   // pas besoin d'une requête réseau tant que l'utilisateur ne l'a pas ouvert.
   function showGoalsCapturePage() {
     if (TMT.collapseGoalsArchives) TMT.collapseGoalsArchives();
+    if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
     var list = TMT.getActivitiesCache() || [];
     if (!list.length) {
       $('goalsCapturePage').classList.add('hidden');
@@ -1256,6 +1257,14 @@
     renderGoalsCaptureBubble();
     renderGoalsCaptureActivities();
     loadGoalsCaptureBadges();
+    // 5 oct. 2026 (Emilien) : au retour sur la feuille de route, page tout en haut (bulle d'entrée libre visible en entier).
+    function goalsScrollTop() {
+      window.scrollTo(0, 0);
+      var sc = histScroller();
+      if (sc) sc.scrollTop = 0;
+    }
+    goalsScrollTop();
+    window.requestAnimationFrame(function () { goalsScrollTop(); window.requestAnimationFrame(goalsScrollTop); });
     goalsTasksHistoryWeekOffset = 0;
     var histPanel = $('goalsTasksHistoryPanel');
     if (histPanel) histPanel.classList.add('hidden');
