@@ -879,7 +879,7 @@
 
   function openGoalsTaskEditPanel(row, task) {
     var panel = document.createElement('div');
-    panel.className = 'goalsTaskEditPanel';
+    panel.className = 'goalsTaskEditPanel historyEditFields';
     var uid = TMT.getProfile().id;
 
     var txt = document.createElement('input');
@@ -906,9 +906,9 @@
     }
 
     var actions = document.createElement('div');
-    actions.className = 'goalsTaskEditActions';
+    actions.className = 'rowActions';
     var delBtn = document.createElement('button');
-    delBtn.type = 'button'; delBtn.className = 'goalsTaskEditDelete'; delBtn.innerHTML = GOALS_TASK_TRASH_ICON;
+    delBtn.type = 'button'; delBtn.className = 'historyRowIconBtn danger historyEditDelete'; delBtn.innerHTML = GOALS_TASK_TRASH_ICON;
     delBtn.setAttribute('aria-label', t('Supprimer cette tâche'));
     delBtn.addEventListener('click', function () {
       if (!confirm(t('Supprimer cette tâche ?'))) return;
@@ -917,10 +917,10 @@
         .catch(function (err) { alert(err.message); });
     });
     var cancel = document.createElement('button');
-    cancel.type = 'button'; cancel.className = 'ghost'; cancel.textContent = t('Annuler');
+    cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
     cancel.addEventListener('click', function () { panel.remove(); });
     var save = document.createElement('button');
-    save.type = 'button'; save.textContent = t('Enregistrer');
+    save.type = 'button'; save.className = 'iconBtn'; save.textContent = t('Enregistrer');
     save.addEventListener('click', function () {
       var label = txt.value.trim();
       if (!label) { txt.focus(); return; }
