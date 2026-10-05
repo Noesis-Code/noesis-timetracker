@@ -1071,7 +1071,11 @@
       box.className = 'goalsPlacementBox';
       var actLine = document.createElement('p');
       actLine.className = 'goalsPlacementActivity';
-      actLine.textContent = act ? act.name : '';
+      var actDot = document.createElement('span');
+      actDot.className = 'goalsPlacementActivityDot';
+      actDot.style.background = (act && act.color) || '#CCCCCC';
+      actLine.appendChild(actDot);
+      actLine.appendChild(document.createTextNode(act ? act.name : ''));
       box.appendChild(actLine);
       var labelIn = document.createElement('textarea');
       labelIn.className = 'goalsTaskEditText'; labelIn.rows = 1; labelIn.maxLength = 300; labelIn.value = label;

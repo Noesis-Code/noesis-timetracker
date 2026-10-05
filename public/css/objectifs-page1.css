@@ -303,3 +303,7 @@
 :root .goalsWhereBtn { display: block; width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; font-family: inherit; font-size: 14px; color: var(--text); background: var(--vc-bg) !important; box-shadow: inset 0 0 0 1px var(--vc-line) !important; border: 0 !important; border-radius: 999px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .goalsWhereFloat { position: fixed; overflow-y: auto; }
 .goalsCaptureFloatItem.on::before { content: '✓ '; }
+
+/* 5 oct. 2026 : nom d'activité (pop-up partiel) — sans barre, plus grand, point de la couleur de l'activité à gauche. */
+:root .goalsPlacementModal .goalsPlacementActivity { display: flex; align-items: center; gap: 10px; border-bottom: 0; padding: 0 4px 6px; font-size: 18px; font-weight: 700; letter-spacing: 0; }
+.goalsPlacementActivityDot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; }
