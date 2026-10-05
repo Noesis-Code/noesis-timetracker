@@ -248,3 +248,12 @@
 /* 5 oct. 2026 : pop-up du mode IA — choix encadrés d'un orange léger, barre sous le titre et la croix. */
 .aiModeModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--vc-line, var(--border)); }
 :root .aiModeModal .goalTaskEditCard { box-shadow: inset 0 0 0 1.5px rgba(217, 130, 90, 0.55), var(--shadow-elevated); }
+
+/* 5 oct. 2026 : pop-up de rangement (mode Partiel) — modèle de modification de la page 2. */
+.goalsPlacementBox { border-top: 0; padding: 4px 0 10px; }
+.goalsPlacementBox + .goalsPlacementBox { border-top: 1px solid var(--vc-line, var(--border)); padding-top: 12px; }
+:root .goalsPlacementBox textarea.goalsTaskEditText { resize: none; overflow: hidden; width: 100%; box-sizing: border-box; font-family: inherit; line-height: 1.35; text-align: left; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 6px 0; font-size: 16px; color: var(--text); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.goalsPlacementWhere { display: flex; flex-direction: column; gap: 6px; }
+.goalsPlacementActivity { margin: 0; font-weight: 600; font-size: 14px; padding: 0 4px; }
+:root .goalsPlacementField select, :root .goalsPlacementField input[type="date"] { min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; text-align-last: left; -webkit-appearance: none; appearance: none; background: var(--vc-bg) !important; box-shadow: inset 0 0 0 1px var(--vc-line) !important; border: 0 !important; border-radius: 999px !important; }
+:root .goalsPlacementField input[type="date"] { text-align: center; display: block; margin: 0 auto; width: 100%; }

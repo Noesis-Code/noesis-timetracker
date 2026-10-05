@@ -959,7 +959,7 @@
   function showCapturePlacementModal(label, okResults) {
     if (!okResults.length) return;
     var overlay = document.createElement('div');
-    overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal';
+    overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
     var card = document.createElement('div');
     card.className = 'goalTaskEditCard';
     var header = document.createElement('div');
@@ -976,11 +976,6 @@
     closeBtn.addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
 
-    var taskLine = document.createElement('p');
-    taskLine.className = 'meta goalsCaptureConfirmTask';
-    taskLine.textContent = '« ' + label + ' »';
-    card.appendChild(taskLine);
-
     var uid = TMT.getProfile().id;
     var forms = [];
     okResults.forEach(function (r) {
@@ -988,14 +983,13 @@
       (TMT.getActivitiesCache() || []).forEach(function (a) { if (String(a.id) === String(r.activityId)) act = a; });
       var box = document.createElement('div');
       box.className = 'goalsPlacementBox';
-      var h = document.createElement('p');
-      h.className = 'goalsPlacementTitle';
-      h.textContent = act ? act.name : '';
-      box.appendChild(h);
-
-      var labelIn = document.createElement('input');
-      labelIn.type = 'text'; labelIn.maxLength = 300; labelIn.value = label;
-      box.appendChild(labeled(t('Tâche'), labelIn));
+      var labelIn = document.createElement('textarea');
+      labelIn.className = 'goalsTaskEditText'; labelIn.rows = 1; labelIn.maxLength = 300; labelIn.value = label;
+      function fitL() { labelIn.style.height = 'auto'; labelIn.style.height = labelIn.scrollHeight + 'px'; }
+      labelIn.addEventListener('input', fitL);
+      labelIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+      box.appendChild(labelIn);
+      window.requestAnimationFrame(fitL);
 
       var whereSel = document.createElement('select');
       var cur = r.categoryKey;
@@ -1003,7 +997,14 @@
       curOpt.value = cur;
       curOpt.textContent = (r.poleLabel || r.categoryLabel || '') + (r.secteurLabel ? ' › ' + r.secteurLabel : '');
       whereSel.appendChild(curOpt);
-      box.appendChild(labeled(t('Où'), whereSel));
+      var whereWrap = document.createElement('div');
+      whereWrap.className = 'goalsPlacementWhere';
+      var actLine = document.createElement('p');
+      actLine.className = 'goalsPlacementActivity';
+      actLine.textContent = act ? act.name : '';
+      whereWrap.appendChild(actLine);
+      whereWrap.appendChild(whereSel);
+      box.appendChild(labeled(t('Où'), whereWrap));
 
       var dateIn = document.createElement('input');
       dateIn.type = 'date'; dateIn.value = r.dueDate || '';
