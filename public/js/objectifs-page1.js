@@ -848,32 +848,137 @@
       var finals = first.filter(function (r) { return !r.needs; });
       var queue = first.filter(function (r) { return r.needs; }).map(function (r) { return { r: r, allowDuplicate: false }; });
       var cancelled = false;
+      // Envoie le choix d'une activité ; date/responsable (mode Absence) appliqués après création.
+      function sendChoice(cur, choice) {
+        var extra = { allowDuplicate: cur.allowDuplicate || cur.r.needs === 'duplicate', forcedCategory: choice.forcedCategory || null };
+        return captureRequest(label, [cur.r.activityId], extra).then(function (res) {
+          var applies = [];
+          res.forEach(function (r) {
+            if (r.needs) queue.unshift({ r: r, allowDuplicate: extra.allowDuplicate });
+            else {
+              if (r.ok && (choice.dueDate || choice.plannedUserId)) {
+                var body = { userId: TMT.getProfile().id };
+                if (choice.dueDate) { body.dueDate = choice.dueDate; r.dueDate = choice.dueDate; }
+                if (choice.plannedUserId) { body.plannedUserId = choice.plannedUserId; r.plannedUserId = choice.plannedUserId; }
+                applies.push(api('PUT', '/api/sub-project-items/' + r.id, body).catch(function () {}));
+              }
+              finals.push(r);
+            }
+          });
+          return Promise.all(applies);
+        });
+      }
       function next() {
         if (!queue.length) return Promise.resolve({ results: finals, cancelled: cancelled });
+        var cats = queue.filter(function (q) { return q.r.needs === 'category'; });
+        if (cats.length >= 2) {
+          // Plusieurs activités sans secteur trouvé : un seul pop-up, un choix par activité.
+          queue = queue.filter(function (q) { return q.r.needs !== 'category'; });
+          return askCategoryChoices(label, cats.map(function (q) { return q.r; })).then(function (choices) {
+            if (!choices) { cancelled = true; return next(); }
+            var chain = Promise.resolve();
+            cats.forEach(function (cur, i) { chain = chain.then(function () { return sendChoice(cur, choices[i]); }); });
+            return chain.then(next);
+          });
+        }
         var cur = queue.shift();
         return askCaptureChoice(label, cur.r).then(function (choice) {
           if (!choice) { cancelled = true; return next(); }
-          var extra = { allowDuplicate: cur.allowDuplicate || cur.r.needs === 'duplicate', forcedCategory: choice.forcedCategory || null };
-          return captureRequest(label, [cur.r.activityId], extra).then(function (res) {
-            var applies = [];
-            res.forEach(function (r) {
-              if (r.needs) queue.unshift({ r: r, allowDuplicate: extra.allowDuplicate });
-              else {
-                // Mode Absence : date et responsable choisis dans le pop-up de sélection.
-                if (r.ok && (choice.dueDate || choice.plannedUserId)) {
-                  var body = { userId: TMT.getProfile().id };
-                  if (choice.dueDate) { body.dueDate = choice.dueDate; r.dueDate = choice.dueDate; }
-                  if (choice.plannedUserId) { body.plannedUserId = choice.plannedUserId; r.plannedUserId = choice.plannedUserId; }
-                  applies.push(api('PUT', '/api/sub-project-items/' + r.id, body).catch(function () {}));
-                }
-                finals.push(r);
-              }
-            });
-            return Promise.all(applies).then(next);
-          });
+          return sendChoice(cur, choice).then(next);
         });
       }
       return next();
+    });
+  }
+
+  // Pop-up unique (mode Autonome/Absence) : toutes les activités dont le secteur est introuvable, un choix chacune.
+  function askCategoryChoices(label, rs) {
+    return new Promise(function (resolve) {
+      var absence = TMT.aiMode === 'absence';
+      var overlay = document.createElement('div');
+      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
+      var card = document.createElement('div');
+      card.className = 'goalTaskEditCard';
+      var header = document.createElement('div');
+      header.className = 'goalTaskEditHeader';
+      var title = document.createElement('p');
+      title.className = 'sectionTitle';
+      title.textContent = absence ? t('Sélection du pôle & secteur') : t('Pôle et secteur non trouvés — où placer cette tâche ?');
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+      closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+      header.appendChild(title); header.appendChild(closeBtn);
+      card.appendChild(header);
+      var body = document.createElement('div');
+      body.className = 'goalsPlacementScroll';
+      card.appendChild(body);
+      var done = false;
+      function finish(v) { if (done) return; done = true; overlay.remove(); resolve(v); }
+      closeBtn.addEventListener('click', function () { finish(null); });
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) finish(null); });
+      function fld(text, el) {
+        var w = document.createElement('label'); w.className = 'goalsPlacementField';
+        var sp = document.createElement('span'); sp.className = 'meta'; sp.textContent = text;
+        w.appendChild(sp); w.appendChild(el); return w;
+      }
+      var today = new Date();
+      var todayISO = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+      var forms = [];
+      rs.forEach(function (r) {
+        var act = (TMT.getActivitiesCache() || []).find(function (a) { return String(a.id) === String(r.activityId); });
+        var box = document.createElement('div');
+        box.className = 'goalsPlacementBox';
+        var actLine = document.createElement('p');
+        actLine.className = 'goalsPlacementActivity';
+        var dot = document.createElement('span');
+        dot.className = 'goalsPlacementActivityDot';
+        dot.style.background = (act && act.color) || '#CCCCCC';
+        actLine.appendChild(dot);
+        actLine.appendChild(document.createTextNode((act && act.name) || r.activityName || ''));
+        box.appendChild(actLine);
+        var sel = document.createElement('select');
+        var ph = document.createElement('option'); ph.value = ''; ph.textContent = t('Choisir…'); sel.appendChild(ph);
+        var groups = {};
+        (r.candidates || []).forEach(function (c) {
+          var parts = String(c.label).split(' → ');
+          if (parts.length < 2) { var lo = document.createElement('option'); lo.value = c.key; lo.textContent = c.label; sel.appendChild(lo); return; }
+          var g = groups[parts[0]];
+          if (!g) { g = groups[parts[0]] = document.createElement('optgroup'); g.label = parts[0]; sel.appendChild(g); }
+          var o = document.createElement('option'); o.value = c.key; o.textContent = parts.slice(1).join(' › '); g.appendChild(o);
+        });
+        var wrap = document.createElement('div'); wrap.className = 'goalsPlacementWhere'; wrap.appendChild(sel);
+        box.appendChild(fld(t('Où'), wrap));
+        floatingWhereMenu(sel);
+        var f = { sel: sel, dIn: null, wSel: null };
+        if (absence) {
+          f.dIn = document.createElement('input'); f.dIn.type = 'date'; f.dIn.value = todayISO;
+          f.wSel = document.createElement('select');
+          var wn = document.createElement('option'); wn.value = ''; wn.textContent = '—'; f.wSel.appendChild(wn);
+          api('GET', '/api/activities/' + r.activityId + '/goals/members').then(function (d) {
+            ((d && d.members) || []).forEach(function (m) { var o = document.createElement('option'); o.value = m.id; o.textContent = m.name; f.wSel.appendChild(o); });
+          }).catch(function () {});
+          box.appendChild(fld(t('Quand'), f.dIn));
+          box.appendChild(fld(t('Responsable'), f.wSel));
+        }
+        forms.push(f);
+        body.appendChild(box);
+      });
+      var err = document.createElement('p'); err.className = 'msg';
+      body.appendChild(err);
+      var actions = document.createElement('div');
+      actions.className = 'goalsCaptureConfirmActions';
+      var ok = document.createElement('button');
+      ok.type = 'button'; ok.className = 'iconBtn btnBrique'; ok.textContent = t('Enregistrer');
+      ok.addEventListener('click', function () {
+        if (forms.some(function (f) { return !f.sel.value; })) { err.textContent = t('Choisis un pôle ou un secteur pour chaque activité.'); return; }
+        finish(forms.map(function (f) {
+          return { forcedCategory: f.sel.value, dueDate: f.dIn ? (f.dIn.value || null) : null, plannedUserId: f.wSel ? (f.wSel.value || null) : null };
+        }));
+      });
+      actions.appendChild(ok);
+      body.appendChild(actions);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
     });
   }
 
