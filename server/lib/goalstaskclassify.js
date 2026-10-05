@@ -422,7 +422,18 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
         results.push({ activityId, ok: false, needs: 'duplicate', error: 'Cette tâche existe déjà dans cette activité.', activityName: activityNameFor(activityId) });
         continue;
       }
-      const item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: forcedCategory, skipAi: absence });
+      let item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: forcedCategory, skipAi: absence });
+      // 5 oct. 2026 (Emilien) : mode Partiel — tri introuvable => Noèsis propose le secteur LE PLUS UTILISÉ ;
+      // le pop-up de rangement permet ensuite de rectifier. (Autonome/Absence : on redemande à l'utilisateur.)
+      if (item.unresolved && opts && opts.aiMode === 'partiel' && item.candidates && item.candidates.length) {
+        let bestKey = item.candidates[0].key;
+        let bestCount = -1;
+        item.candidates.forEach((c) => {
+          const n = goalstasks.tasksForCategory(activityId, c.key).length;
+          if (n > bestCount) { bestCount = n; bestKey = c.key; }
+        });
+        item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: bestKey });
+      }
       if (item.unresolved) {
         results.push({
           activityId, ok: false, needs: 'category', error: 'Pôle et secteur non trouvés.',

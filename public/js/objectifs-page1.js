@@ -871,7 +871,8 @@
   function askCaptureChoice(label, r) {
     return new Promise(function (resolve) {
       var overlay = document.createElement('div');
-      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal';
+      // 5 oct. 2026 : le choix de secteur (tri introuvable, modes Autonome/Absence) est un pop-up centré.
+      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal' + (r.needs === 'category' ? ' goalsPlacementModal' : '');
       var card = document.createElement('div');
       card.className = 'goalTaskEditCard';
       var header = document.createElement('div');
