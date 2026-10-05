@@ -292,3 +292,9 @@
 .goalsCaptureFloatItem { display: block; width: 100%; text-align: left; background: transparent; border: 0; color: var(--text); font-family: inherit; font-size: 15px; padding: 9px 14px; border-radius: 999px; }
 .goalsCaptureFloatItem.sector { padding-left: 26px; }
 .goalsCaptureFloatItem:active { background: var(--vc-bg); }
+
+/* 5 oct. 2026 : menu flottant « Autre… » gris, par-dessus le pop-up (pas de nouveau pop-up). */
+.goalsCaptureFloat { top: auto; bottom: 16px; max-height: 60%; background: #3a3a3f; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+.goalsCaptureFloatPole { color: #fff; }
+.goalsCaptureFloatItem { color: #e8e8ec; }
+.goalsCaptureFloatItem:active { background: #4a4a50; }
