@@ -250,4 +250,7 @@ app.listen(PORT, HOST, () => {
   // comme les rappels d'échéance ci-dessus : la première copie a lieu 2
   // minutes après le démarrage, jamais immédiatement.
   startBackupSchedule();
+
+  // Annonce programmée (variables NOESIS_ANNOUNCE_*), sans effet si absentes.
+  require('./lib/announcementschedule').startAnnouncementSchedule();
 });
