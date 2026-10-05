@@ -588,11 +588,16 @@ function tasksOverviewForActivity(activityId, todayParam) {
       // 2 oct. 2026 (Emilien) : avancement QUOTIDIEN — une tâche cochée avant minuit
       // (doneAt antérieur à aujourd'hui) disparaît de l'écran Tâches et ne compte plus ;
       // les non cochées restent d'un jour à l'autre.
-      const today = todayLocal();
+      const today = validToday(todayParam);
       const tasks = tasksForCategory(activityId, target.key)
         .filter((task) => !(task.done && task.doneAt && todayLocal(new Date(task.doneAt)) < today));
-      const done = tasks.reduce((n, task) => n + (task.done ? 1 : 0), 0);
-      const total = tasks.length;
+      // 5 oct. 2026 (Emilien) : « Avancement quotidien » — compte UNIQUEMENT les tâches du jour :
+      // à faire (échéance aujourd'hui, en retard ou sans date) + cochées aujourd'hui. Les tâches
+      // à venir (grises) n'y entrent pas ; celles cochées avant minuit sont déjà décomptées.
+      const doneToday = tasks.filter((task) => task.done);
+      const pendingToday = tasks.filter((task) => !task.done && (task.dueDate || today) <= today);
+      const done = doneToday.length;
+      const total = doneToday.length + pendingToday.length;
       doneTotal += done;
       taskTotal += total;
       groups.push({

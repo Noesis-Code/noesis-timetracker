@@ -815,6 +815,7 @@
 
     // ---- Sous-projets : anneau d'avancement et mode édition (3 sept. 2026) ----
     'Avancement global': 'Overall progress',
+    'Avancement quotidien': 'Daily progress',
     ' tâches complétées': ' tasks completed',
     'Journée surchargée': 'Overloaded day',
     'importance': 'importance',

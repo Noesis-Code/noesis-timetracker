@@ -129,7 +129,7 @@
             </svg>
             <span id="goalsTasksProgressPercent" class="activityProgressPercent">0%</span>
             <div class="activityProgressText">
-              <p class="activityProgressTitle">Avancement global</p>
+              <p class="activityProgressTitle">Avancement quotidien</p>
               <p id="goalsTasksProgressCount" class="meta"></p>
             </div>
           </div>
@@ -610,7 +610,7 @@
       var fg = data.groups.filter(function (g) { return g.poleKey === selPole; });
       var fd = 0, ft = 0;
       fg.forEach(function (g) { fd += g.done || 0; ft += g.total || 0; });
-      data = { done: fd, total: ft, percent: ft ? Math.round(fd / ft * 100) : null, groups: fg };
+      data = { done: fd, total: ft, percent: ft ? Math.round(fd / ft * 100) : null, groups: fg, daily: data.daily };
     }
     var wrap = $('goalsTasksProgressWrap');
     // Règle R1 (même principe que renderActivityProgressRing()) : jamais de
@@ -669,7 +669,7 @@
     var emptyHint = $('goalsTasksEmptyHint');
     var any = todayTasks.length + upcoming.length > 0;
     var allDoneHere = !any && data && data.total > 0 && data.done >= data.total;
-    emptyHint.textContent = any ? '' : (allDoneHere ? t('Toutes les tâches sont terminées : retrouve-les dans Archives.') : t('Aucune tâche prévue pour aujourd’hui.'));
+    emptyHint.textContent = any ? '' : (allDoneHere ? t('Toutes les tâches du jour sont terminées : retrouve-les dans Archives.') : t('Aucune tâche prévue pour aujourd’hui.'));
     emptyHint.classList.toggle('hidden', any);
     if (!$('goalsTasksArchivePanel').classList.contains('hidden')) loadGoalsTasksArchives();
   }
