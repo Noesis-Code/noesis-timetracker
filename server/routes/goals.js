@@ -714,7 +714,22 @@ router.get('/activities/:id/goals/tasks/overview', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    res.json(goalstasks.tasksOverviewForActivity(activityId));
+    res.json(goalstasks.tasksOverviewForActivity(activityId, req.query.today));
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// 5 oct. 2026 (Emilien) : archives des tâches cochées (7 derniers jours) ; efface au passage
+// les tâches cochées depuis plus de 7 jours (ligne de tâche seulement).
+router.get('/activities/:id/goals/tasks/archives', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    res.json(goalstasks.archivesForActivity(activityId));
   } catch (err) {
     handleGoalsError(res, err);
   }

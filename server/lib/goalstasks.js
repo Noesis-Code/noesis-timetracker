@@ -573,7 +573,7 @@ function tasksHistoryForWeek(userId, weekOffset) {
 // subprojects.js. percentOf reprend la règle R1 déjà en vigueur dans
 // subprojects.js#percentOf : null (jamais 0) quand il n'y a rien à faire,
 // pour distinguer « rien à faire » de « rien fait ».
-function tasksOverviewForActivity(activityId) {
+function tasksOverviewForActivity(activityId, todayParam) {
   const percentOf = (done, total) => (total ? Math.round((done / total) * 100) : null);
   const groups = [];
   let doneTotal = 0;
@@ -617,15 +617,98 @@ function tasksOverviewForActivity(activityId) {
     });
   });
 
+  // 5 oct. 2026 (Emilien) : liste « du jour » (blanches) + à venir (grises).
+  purgeOldDoneTasks(activityId);
+  const daily = dailyListForActivity(activityId, validToday(todayParam));
+
   return {
     done: doneTotal,
     total: taskTotal,
     percent: percentOf(doneTotal, taskTotal),
     groups,
+    daily,
   };
 }
 
+// ---------------------------------------------------------------------------
+// 5 oct. 2026 (Emilien) — onglet Tâches de la Page 2 : liste « du jour » + archives.
+const ARCHIVE_RETENTION_DAYS = 7;
+const DAILY_MIN_LINES = 5;
+const DAILY_UPCOMING_CAP = 80;
+
+function validToday(s) {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : todayLocal();
+}
+
+// Toutes les tâches de l'activité (secteurs, ou pôles sans secteur), avec leur pôle/secteur.
+function allTasksWithGroup(activityId) {
+  const out = [];
+  goals.categoriesForActivity(activityId).forEach((pole) => {
+    const secteurs = goals.secteursForPole(activityId, pole.key) || [];
+    const targets = secteurs.length ? secteurs : [pole];
+    targets.forEach((target) => {
+      tasksForCategory(activityId, target.key).forEach((task) => {
+        out.push({
+          id: task.id,
+          label: task.label,
+          done: !!task.done,
+          doneAt: task.doneAt || null,
+          dueDate: task.dueDate || null,
+          position: task.position,
+          key: target.key,
+          groupLabel: target.label,
+          poleKey: pole.key,
+        });
+      });
+    });
+  });
+  return out;
+}
+
+// Efface UNIQUEMENT la ligne des tâches cochées depuis plus de 7 jours. Idempotent.
+// Aucune autre table ne référence sub_project_items : temps enregistré et statistiques intacts.
+function purgeOldDoneTasks(activityId) {
+  const cutoff = Date.now() - ARCHIVE_RETENTION_DAYS * 86400000;
+  let n = 0;
+  allTasksWithGroup(activityId).forEach((t) => {
+    if (!t.done || !t.doneAt) return;
+    const ts = Date.parse(t.doneAt);
+    if (Number.isFinite(ts) && ts < cutoff) {
+      db.prepare('DELETE FROM sub_project_items WHERE id = ? AND done = 1').run(t.id);
+      n += 1;
+    }
+  });
+  return n;
+}
+
+// today : tâches non cochées dont l'échéance est aujourd'hui (ou dépassée, reportée) ;
+// upcoming : échéances futures croissantes (le client complète jusqu'à 5 lignes).
+function dailyListForActivity(activityId, today) {
+  const pending = allTasksWithGroup(activityId).filter((t) => !t.done && t.dueDate);
+  const byDue = (a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : (a.position - b.position) || (a.id - b.id));
+  const strip = (t) => ({ id: t.id, label: t.label, dueDate: t.dueDate, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey });
+  return {
+    today,
+    minLines: DAILY_MIN_LINES,
+    todayTasks: pending.filter((t) => t.dueDate <= today).sort(byDue).map(strip),
+    upcoming: pending.filter((t) => t.dueDate > today).sort(byDue).slice(0, DAILY_UPCOMING_CAP).map(strip),
+  };
+}
+
+// Tâches terminées des 7 derniers jours, la plus récente d'abord (purge préalable).
+function archivesForActivity(activityId) {
+  purgeOldDoneTasks(activityId);
+  const tasks = allTasksWithGroup(activityId)
+    .filter((t) => t.done && t.doneAt)
+    .sort((a, b) => (a.doneAt < b.doneAt ? 1 : a.doneAt > b.doneAt ? -1 : b.id - a.id))
+    .map((t) => ({ id: t.id, label: t.label, doneAt: t.doneAt, dueDate: t.dueDate, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey }));
+  return { retentionDays: ARCHIVE_RETENTION_DAYS, tasks };
+}
+
 module.exports = {
+  archivesForActivity,
+  purgeOldDoneTasks,
+  dailyListForActivity,
   subProjectsForCategory,
   ensureHomeSubProject,
   ensureCategoryTaskSection,

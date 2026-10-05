@@ -240,3 +240,23 @@
 
 /* 3 oct. 2026 : page figée en haut quand tout tient à l'écran (posé par lockPage2Scroll, objectifs-page2-taches.js). */
 #goalsActivitySwitcherScroll.noScroll { overflow-y: hidden; touch-action: pan-x; }
+
+/* 5 oct. 2026 (Emilien) : liste « du jour » (blanches) + « À venir » (grises) + bouton Archives (même gabarit que Historique du Chrono). */
+.goalsTasksUpcomingLabel {
+  margin: 10px 0 2px; padding-top: 8px; border-top: 1px solid var(--glass-border);
+  font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-light);
+}
+.goalsDailyGrey .subProjectItemLabel { color: var(--text-light); }
+.goalsDailyWhen { flex: 0 0 auto; font-size: 12px; color: var(--text-light); white-space: nowrap; }
+#goalsTasksArchiveSection { margin-top: 14px; }
+#goalsTasksArchiveHeader {
+  margin-top: 4px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+  background: var(--glass-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 2px 10px rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  padding: 10px 20px; display: flex; justify-content: center; width: fit-content;
+  margin-left: auto; margin-right: auto; cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+#goalsTasksArchiveHeader:hover { filter: brightness(1.12); }
+#goalsTasksArchiveHeader .sectionTitle { margin: 0; }
+#goalsTasksArchivePanel { margin-top: 10px; }

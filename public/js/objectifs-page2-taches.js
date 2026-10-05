@@ -135,6 +135,16 @@
           </div>
           <div id="goalsTasksGroups" class="goalsTasksGroups"></div>
           <p id="goalsTasksEmptyHint" class="hint hidden"></p>
+          <!-- 5 oct. 2026 (Emilien) : bouton Archives = même gabarit/CSS que le bouton Historique du Chrono (voir objectifs-page2-taches.css). -->
+          <div id="goalsTasksArchiveSection">
+            <div class="sectionTitleRow historyHeaderClickable" id="goalsTasksArchiveHeader">
+              <p class="sectionTitle">Archives</p>
+            </div>
+            <div id="goalsTasksArchivePanel" class="hidden">
+              <div id="goalsTasksArchiveList"></div>
+              <p id="goalsTasksArchiveEmptyHint" class="hint hidden">Aucune tâche terminée ces 7 derniers jours.</p>
+            </div>
+          </div>
         </div>
 
         <!-- 2 oct. 2026 (Emilien) : plus de boutons Tâches/Objectifs — on glisse de droite à gauche ; 3 points en bas au milieu (celui du milieu est réservé à une prochaine demande). -->
@@ -575,7 +585,7 @@
     var activityId = TMT.currentGoalsActivityId;
     if (!activityId) return;
     loadGoalsOverloadCard();
-    api('GET', '/api/activities/' + activityId + '/goals/tasks/overview')
+    api('GET', '/api/activities/' + activityId + '/goals/tasks/overview?today=' + localIso(new Date()))
       .then(function (data) {
         // L'utilisateur a pu changer d'activité ou de pôle pendant l'aller-
         // retour serveur — ignorer une réponse devenue obsolète (même garde
@@ -630,15 +640,113 @@
 
     var list = $('goalsTasksGroups');
     list.innerHTML = '';
-    var groups = (data && data.groups) || [];
-    groups.forEach(function (g) { list.appendChild(buildGoalsTasksGroup(g)); });
+    // 5 oct. 2026 (Emilien) : liste « du jour » (blanches) complétée à 5 lignes minimum
+    // par les prochaines tâches datées (grises, sous « À venir »). Jamais de tâche inventée.
+    var daily = data && data.daily;
+    var allToday = (daily && daily.todayTasks) || [];
+    var allUpcoming = (daily && daily.upcoming) || [];
+    var pole = TMT.currentGoalsSelectedPoleKey;
+    var byPole = function (x) { return !pole || x.poleKey === pole; };
+    var todayTasks = allToday.filter(byPole);
+    var upcoming = allUpcoming.filter(byPole).slice(0, Math.max(0, ((daily && daily.minLines) || 5) - todayTasks.length));
+    if (todayTasks.length) {
+      var box1 = document.createElement('div');
+      box1.className = 'subProjectItems';
+      todayTasks.forEach(function (task) { box1.appendChild(buildGoalsDailyRow(task, false)); });
+      list.appendChild(box1);
+    }
+    if (upcoming.length) {
+      var sep = document.createElement('p');
+      sep.className = 'goalsTasksUpcomingLabel';
+      sep.textContent = t('À venir');
+      list.appendChild(sep);
+      var box2 = document.createElement('div');
+      box2.className = 'subProjectItems';
+      upcoming.forEach(function (task) { box2.appendChild(buildGoalsDailyRow(task, true)); });
+      list.appendChild(box2);
+    }
 
     var emptyHint = $('goalsTasksEmptyHint');
-    emptyHint.textContent = groups.length
-      ? ''
-      : t('Aucun pôle pour le moment — ajoutez-en un depuis la fenêtre de l’activité, section Catégories.');
-    emptyHint.classList.toggle('hidden', groups.length > 0);
+    var any = todayTasks.length + upcoming.length > 0;
+    emptyHint.textContent = any ? '' : t('Aucune tâche prévue pour aujourd’hui.');
+    emptyHint.classList.toggle('hidden', any);
+    if (!$('goalsTasksArchivePanel').classList.contains('hidden')) loadGoalsTasksArchives();
   }
+
+  function buildGoalsDailyRow(task, grey) {
+    var row = document.createElement('div');
+    row.className = 'subProjectItem goalsDailyItem' + (grey ? ' goalsDailyGrey' : '');
+    row.dataset.taskId = String(task.id);
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.addEventListener('change', function () {
+      cb.disabled = true;
+      api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: true })
+        .then(function () { loadGoalsTasksOverview(); })
+        .catch(function (err) { cb.checked = false; alert(err.message); })
+        .then(function () { cb.disabled = false; });
+    });
+    row.appendChild(cb);
+    var label = document.createElement('span');
+    label.className = 'subProjectItemLabel';
+    appendLinkified(label, task.label);
+    row.appendChild(label);
+    if (grey && task.dueDate) {
+      var when = document.createElement('span');
+      when.className = 'meta goalsDailyWhen';
+      when.textContent = TMT.calendarDayLabel(task.dueDate) || task.dueDate;
+      row.appendChild(when);
+    }
+    return row;
+  }
+
+  // Archives : tâches cochées (7 derniers jours), la plus récente d'abord ; décocher = retour dans la liste.
+  function loadGoalsTasksArchives() {
+    var activityId = TMT.currentGoalsActivityId;
+    if (!activityId) return;
+    api('GET', '/api/activities/' + activityId + '/goals/tasks/archives').then(function (data) {
+      if (String(activityId) !== String(TMT.currentGoalsActivityId)) return;
+      var box = $('goalsTasksArchiveList');
+      box.innerHTML = '';
+      var pole = TMT.currentGoalsSelectedPoleKey;
+      var tasks = ((data && data.tasks) || []).filter(function (x) { return !pole || x.poleKey === pole; });
+      tasks.forEach(function (task) {
+        var row = document.createElement('div');
+        row.className = 'subProjectItem done goalsArchiveItem';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        cb.addEventListener('change', function () {
+          cb.disabled = true;
+          api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: false })
+            .then(function () { loadGoalsTasksOverview(); })
+            .catch(function (err) { cb.checked = true; alert(err.message); })
+            .then(function () { cb.disabled = false; });
+        });
+        row.appendChild(cb);
+        var label = document.createElement('span');
+        label.className = 'subProjectItemLabel';
+        appendLinkified(label, task.label);
+        row.appendChild(label);
+        var d = new Date(task.doneAt);
+        var when = document.createElement('span');
+        when.className = 'meta goalsDailyWhen';
+        when.textContent = isNaN(d) ? '' : (TMT.calendarDayLabel(localIso(d)) || localIso(d));
+        row.appendChild(when);
+        box.appendChild(row);
+      });
+      $('goalsTasksArchiveEmptyHint').classList.toggle('hidden', tasks.length > 0);
+    }).catch(function () {});
+  }
+  function localIso(d) {
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  $('goalsTasksArchiveHeader').addEventListener('click', function () {
+    var opening = $('goalsTasksArchivePanel').classList.contains('hidden');
+    $('goalsTasksArchivePanel').classList.toggle('hidden', !opening);
+    if (opening) loadGoalsTasksArchives();
+  });
 
 
   // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle.
