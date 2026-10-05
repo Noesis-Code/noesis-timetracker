@@ -903,7 +903,14 @@ router.get('/goals/capture/badges', (req, res) => {
       ORDER BY a.id
     `).all(userId);
     const out = {};
-    activities.forEach((a) => { out[a.id] = goalstasks.unseenCountsForActivity(a.id); });
+    activities.forEach((a) => {
+      out[a.id] = goalstasks.unseenCountsForActivity(a.id);
+      // 5 oct. 2026 (Emilien) : X/Y des tâches du jour, affiché sur la puce de la page 1.
+      try {
+        const ov = goalstasks.tasksOverviewForActivity(a.id, req.query.today);
+        out[a.id].daily = { done: ov.done, total: ov.total };
+      } catch (e) { out[a.id].daily = { done: 0, total: 0 }; }
+    });
     res.json({ activities: out });
   } catch (err) {
     handleGoalsError(res, err);

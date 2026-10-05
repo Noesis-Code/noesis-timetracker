@@ -7879,7 +7879,9 @@
 
 
   function loadGoalsCaptureBadges() {
-    return api('GET', '/api/goals/capture/badges')
+    var d = new Date();
+    var todayIso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    return api('GET', '/api/goals/capture/badges?today=' + todayIso)
       .then(function (data) {
         TMT.goalsCaptureBadges = (data && data.activities) || {};
         TMT.renderGoalsCaptureActivities();

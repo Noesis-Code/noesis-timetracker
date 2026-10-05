@@ -71,6 +71,8 @@
   font-size: 11px; font-weight: 700; line-height: 1;
 }
 
+.goalsCaptureDailyCount { font-size: 12px; font-weight: 600; color: var(--text-light); margin-left: 6px; white-space: nowrap; }
+
 .goalsCaptureBubbleWrap { display: flex; flex-direction: column; }
 
 /* 28 septembre 2026, 2e retour d'Emilien le même jour (captures d'écran du

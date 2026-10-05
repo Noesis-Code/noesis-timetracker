@@ -766,6 +766,13 @@
       // Badge violet « non vu » — jamais un compteur cumulatif, voir
       // server/lib/goalstasks.js#unseenCountsForActivity.
       var badgeInfo = TMT.goalsCaptureBadges[a.id] || TMT.goalsCaptureBadges[id];
+      // 5 oct. 2026 (Emilien) : X/Y des tâches du jour ; rien s'il n'y en a aucune.
+      if (badgeInfo && badgeInfo.daily && badgeInfo.daily.total > 0) {
+        var dc = document.createElement('span');
+        dc.className = 'goalsCaptureDailyCount';
+        dc.textContent = badgeInfo.daily.done + '/' + badgeInfo.daily.total;
+        btn.appendChild(dc);
+      }
       if (badgeInfo && badgeInfo.total > 0) {
         var badge = document.createElement('span');
         badge.className = 'goalsCaptureBadge';
