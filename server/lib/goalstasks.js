@@ -594,7 +594,7 @@ function tasksOverviewForActivity(activityId, todayParam) {
       // 5 oct. 2026 (Emilien) : « Avancement quotidien » — compte UNIQUEMENT les tâches du jour :
       // à faire (échéance aujourd'hui, en retard ou sans date) + cochées aujourd'hui. Les tâches
       // à venir (grises) n'y entrent pas ; celles cochées avant minuit sont déjà décomptées.
-      const doneToday = tasks.filter((task) => task.done);
+      const doneToday = tasks.filter((task) => task.done && (task.dueDate || today) <= today); // une grise cochée d'avance ne compte pas
       const pendingToday = tasks.filter((task) => !task.done && (task.dueDate || today) <= today);
       const done = doneToday.length;
       const total = doneToday.length + pendingToday.length;
