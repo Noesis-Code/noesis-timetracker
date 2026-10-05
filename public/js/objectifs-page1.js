@@ -640,6 +640,16 @@
     histScrollTo(y);
   }
 
+  TMT.collapseGoalsHistory = function () {
+    var panel = $('goalsTasksHistoryPanel');
+    if (!panel) return;
+    panel.classList.add('hidden');
+    if (histRO) { histRO.disconnect(); histRO = null; }
+    var sec = $('goalsTasksHistorySection');
+    if (sec) sec.style.paddingBottom = '';
+    histScrollBack = null;
+  };
+
   if (goalsTasksHistoryHeaderEl) {
     goalsTasksHistoryHeaderEl.addEventListener('click', function () {
       var opening = $('goalsTasksHistoryPanel').classList.contains('hidden');
@@ -1261,6 +1271,7 @@
   // une liste la vide de son badge » demandé par Emilien.
   function showGoalsPolesPage(activityId) {
     if (TMT.collapseGoalsArchives) TMT.collapseGoalsArchives();
+    if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
     $('goalsCapturePage').classList.add('hidden');
     var list = TMT.getActivitiesCache() || [];
     var idx = -1;

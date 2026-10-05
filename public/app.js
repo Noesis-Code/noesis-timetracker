@@ -1939,6 +1939,10 @@
   });
 
   function switchTab(tab) {
+    // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
+    collapseChronoHistory();
+    if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
+    if (TMT.collapseGoalsArchives) TMT.collapseGoalsArchives();
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
     tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
@@ -3454,6 +3458,15 @@
     var top = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 56;
     var y = $('chronoHistoryHeader').getBoundingClientRect().top + window.scrollY - top - 8;
     window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }
+  function collapseChronoHistory() {
+    var panel = $('chronoHistoryPanel');
+    if (!panel) return;
+    panel.classList.add('hidden');
+    if (chronoHistoryRO) { chronoHistoryRO.disconnect(); chronoHistoryRO = null; }
+    var sec = $('chronoHistorySection');
+    if (sec) sec.style.paddingBottom = '';
+    chronoHistoryScrollBack = null;
   }
   $('chronoHistoryHeader').addEventListener('click', function () {
     var opening = $('chronoHistoryPanel').classList.contains('hidden');
