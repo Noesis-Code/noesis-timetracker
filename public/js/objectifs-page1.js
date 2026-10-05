@@ -1227,6 +1227,7 @@
   // seulement à l'ouverture — voir le câblage de #goalsTasksHistoryHeader) :
   // pas besoin d'une requête réseau tant que l'utilisateur ne l'a pas ouvert.
   function showGoalsCapturePage() {
+    if (TMT.collapseGoalsArchives) TMT.collapseGoalsArchives();
     var list = TMT.getActivitiesCache() || [];
     if (!list.length) {
       $('goalsCapturePage').classList.add('hidden');
@@ -1259,6 +1260,7 @@
   // (mark-seen) : l'utilisateur vient d'y entrer, même principe que « visiter
   // une liste la vide de son badge » demandé par Emilien.
   function showGoalsPolesPage(activityId) {
+    if (TMT.collapseGoalsArchives) TMT.collapseGoalsArchives();
     $('goalsCapturePage').classList.add('hidden');
     var list = TMT.getActivitiesCache() || [];
     var idx = -1;

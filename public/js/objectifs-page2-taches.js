@@ -336,6 +336,7 @@
       return;
     }
     var previousBase = goalsPage2BaseMode;
+    if (previousBase === 'tasks' && mode !== 'tasks') collapseGoalsArchives();
     goalsPage2BaseMode = mode;
     currentGoalsPage2Mode = mode;
     var tasksBtn = $('goalsPage2ModeTasksBtn');
@@ -776,6 +777,17 @@
     }
   });
 
+
+  // 5 oct. 2026 (Emilien) : Archives revient enroulé quand on quitte l'onglet Tâches ou la page.
+  function collapseGoalsArchives() {
+    var panel = $('goalsTasksArchivePanel');
+    if (!panel || panel.classList.contains('hidden')) return;
+    panel.classList.add('hidden');
+    if (archiveRO) { archiveRO.disconnect(); archiveRO = null; }
+    $('goalsTasksArchiveSection').style.paddingBottom = '';
+    archiveScrollBack = null;
+  }
+  TMT.collapseGoalsArchives = collapseGoalsArchives;
 
   // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle.
   TMT.rerenderGoalsTasksOverview = function () {
