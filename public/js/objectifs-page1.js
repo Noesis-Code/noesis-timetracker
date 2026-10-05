@@ -402,7 +402,6 @@
     var cancelBtn = editFields.querySelector('.historyEditCancel');
     var activitySelect = editFields.querySelector('.historyEditActivity');
     var categorySelect = editFields.querySelector('.historyEditCategory');
-    floatingWhereMenu(categorySelect);
     var dateInput = editFields.querySelector('.historyEditDate');
     var goalsPreview = editFields.querySelector('.historyReassignGoals');
 
