@@ -298,3 +298,8 @@
 .goalsCaptureFloatPole { color: #fff; }
 .goalsCaptureFloatItem { color: #e8e8ec; }
 .goalsCaptureFloatItem:active { background: #4a4a50; }
+
+/* 5 oct. 2026 : bouton du menu flottant pôle/secteur (remplace le <select> natif). */
+:root .goalsWhereBtn { display: block; width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; font-family: inherit; font-size: 14px; color: var(--text); background: var(--vc-bg) !important; box-shadow: inset 0 0 0 1px var(--vc-line) !important; border: 0 !important; border-radius: 999px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.goalsWhereFloat { position: fixed; overflow-y: auto; }
+.goalsCaptureFloatItem.on::before { content: '✓ '; }

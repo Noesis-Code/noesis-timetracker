@@ -402,6 +402,7 @@
     var cancelBtn = editFields.querySelector('.historyEditCancel');
     var activitySelect = editFields.querySelector('.historyEditActivity');
     var categorySelect = editFields.querySelector('.historyEditCategory');
+    floatingWhereMenu(categorySelect);
     var dateInput = editFields.querySelector('.historyEditDate');
     var goalsPreview = editFields.querySelector('.historyReassignGoals');
 
@@ -868,6 +869,64 @@
 
   // Fenêtre bottom-sheet verre (mêmes classes que la fenêtre d'édition de
   // tâche) : résout { forcedCategory? } pour continuer, null si annulé (✕ ou fond).
+  // 5 oct. 2026 (Emilien) : menu flottant gris (pôles en titres, secteurs dessous, sélection directe,
+  // sans « Aucun pôle ») qui remplace le <select> natif du choix pôle/secteur. Le <select> reste la source
+  // de vérité (masqué) : le menu en lit les options/optgroup et y écrit le choix (événement `change`).
+  function floatingWhereMenu(select) {
+    if (!select || select.dataset.floatMenu) return;
+    select.dataset.floatMenu = '1';
+    select.style.display = 'none';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'goalsWhereBtn';
+    select.parentNode.insertBefore(btn, select);
+    function sync() {
+      var o = select.options[select.selectedIndex];
+      var g = o && o.parentNode && o.parentNode.tagName === 'OPTGROUP' ? o.parentNode.label : '';
+      var txt = o ? o.textContent : '';
+      btn.textContent = g && g !== txt ? g + ' › ' + txt : txt;
+    }
+    sync();
+    new MutationObserver(sync).observe(select, { childList: true, subtree: true });
+    select.addEventListener('change', sync);
+    var menu = null;
+    function close() { if (menu) { menu.remove(); menu = null; document.removeEventListener('click', onDoc, true); } }
+    function onDoc(e) { if (menu && !menu.contains(e.target) && e.target !== btn) close(); }
+    function item(o, cls) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'goalsCaptureFloatItem ' + cls + (o.value === select.value ? ' on' : '');
+      b.textContent = o.textContent;
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        select.value = o.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        close();
+      });
+      menu.appendChild(b);
+    }
+    btn.addEventListener('click', function () {
+      if (menu) { close(); return; }
+      menu = document.createElement('div');
+      menu.className = 'goalsCaptureFloat goalsWhereFloat';
+      Array.prototype.forEach.call(select.children, function (n) {
+        if (n.tagName === 'OPTGROUP') {
+          var opts = Array.prototype.slice.call(n.children);
+          if (opts.length === 1 && opts[0].textContent === n.label) { item(opts[0], 'pole'); return; }
+          var h = document.createElement('p'); h.className = 'goalsCaptureFloatPole'; h.textContent = n.label; menu.appendChild(h);
+          opts.forEach(function (o) { item(o, 'sector'); });
+        } else if (n.value !== '') item(n, 'pole');
+      });
+      var r = btn.getBoundingClientRect();
+      var below = window.innerHeight - r.bottom, above = r.top;
+      menu.style.position = 'fixed'; menu.style.left = r.left + 'px'; menu.style.width = Math.max(r.width, 220) + 'px';
+      menu.style.right = 'auto'; menu.style.zIndex = '10000';
+      if (below >= above || below > 260) { menu.style.top = (r.bottom + 6) + 'px'; menu.style.bottom = 'auto'; menu.style.maxHeight = Math.max(160, below - 16) + 'px'; }
+      else { menu.style.bottom = (window.innerHeight - r.top + 6) + 'px'; menu.style.top = 'auto'; menu.style.maxHeight = Math.max(160, above - 16) + 'px'; }
+      document.body.appendChild(menu);
+      document.addEventListener('click', onDoc, true);
+    });
+  }
+
   function askCaptureChoice(label, r) {
     return new Promise(function (resolve) {
       var overlay = document.createElement('div');
@@ -1031,6 +1090,7 @@
       var whereWrap = document.createElement('div');
       whereWrap.className = 'goalsPlacementWhere';
       whereWrap.appendChild(whereSel);
+      floatingWhereMenu(whereSel);
       box.appendChild(labeled(t('Où'), whereWrap));
 
       var dateIn = document.createElement('input');
