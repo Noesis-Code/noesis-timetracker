@@ -930,9 +930,9 @@
     });
     var cancel = document.createElement('button');
     cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
-    cancel.addEventListener('click', function () { panel.remove(); });
+    cancel.addEventListener('click', function () { panel.remove(); var eb = row.querySelector('.goalsTaskEditBtn'); if (eb) eb.style.display = ''; });
     var save = document.createElement('button');
-    save.type = 'button'; save.className = 'iconBtn'; save.textContent = t('Enregistrer');
+    save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     save.addEventListener('click', function () {
       var label = txt.value.trim();
       if (!label) { txt.focus(); return; }
@@ -1032,7 +1032,8 @@
     edit.addEventListener('click', function (e) {
       e.stopPropagation();
       var existing = row.querySelector('.goalsTaskEditPanel');
-      if (existing) { existing.remove(); return; }
+      if (existing) { existing.remove(); edit.style.display = ''; return; }
+      edit.style.display = 'none';
       openGoalsTaskEditPanel(row, task);
     });
     row.appendChild(edit);

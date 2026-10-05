@@ -261,9 +261,13 @@
 #goalsTasksArchiveHeader .sectionTitle { margin: 0; }
 #goalsTasksArchivePanel { margin-top: 10px; }
 
-/* 5 oct. 2026 : panneau « modifier une tâche » */
-.goalsTasksGroup .subProjectItem { flex-wrap: wrap; }
-.goalsTaskEditPanel { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; padding: 8px 0 4px 28px; }
-.goalsTaskEditPanel input[type="text"], .goalsTaskEditPanel input[type="date"], .goalsTaskEditPanel select { width: 100%; max-width: 100%; font-size: 14px; }
-.goalsTaskEditActions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-.goalsTaskEditActions .goalsTaskEditDelete { margin-right: auto; background: none; border: none; color: var(--text-light); padding: 6px; display: inline-flex; }
+/* 5 oct. 2026 : panneau « modifier une tâche » — case à gauche, crayon à droite, jamais au-dessus/dessous */
+.goalsTasksGroup .subProjectItem { flex-wrap: wrap; align-items: center; }
+.goalsTasksGroup .subProjectItem > input[type="checkbox"] { flex: 0 0 auto; }
+.goalsTasksGroup .subProjectItem > .subProjectItemLabel { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.goalsTasksGroup .subProjectItem > .goalsDailyWhen { flex: 0 0 auto; }
+.goalsTasksGroup .subProjectItem > .goalsTaskEditBtn { flex: 0 0 auto; margin-left: auto; }
+.goalsTaskEditPanel { flex: 0 0 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0 4px; }
+.goalsTaskEditPanel input[type="text"], .goalsTaskEditPanel input[type="date"], .goalsTaskEditPanel select { width: 100%; max-width: 320px; font-size: 14px; text-align: center; text-align-last: center; }
+.goalsTaskEditPanel input[type="date"] { display: block; margin: 0 auto; }
+.goalsTaskEditPanel .rowActions { width: 100%; max-width: 320px; }
