@@ -1127,7 +1127,7 @@
   function askAiModeModal() {
     return new Promise(function (resolve) {
       var overlay = document.createElement('div');
-      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal';
+      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
       var card = document.createElement('div');
       card.className = 'goalTaskEditCard';
       var header = document.createElement('div');
