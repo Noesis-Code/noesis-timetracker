@@ -998,6 +998,7 @@
     if (!select || select.dataset.floatMenu) return;
     select.dataset.floatMenu = '1';
     var btn = document.createElement('button');
+    var keepLabel = null;
     btn.type = 'button';
     if (keepLook) {
       // Format inchangé : le <select> reste affiché tel quel, une couche transparente par-dessus ouvre le menu flottant.
@@ -1008,13 +1009,26 @@
       btn.className = 'goalsWhereOverlay';
       btn.setAttribute('aria-label', t('Pôle et secteur'));
       kw.appendChild(btn);
+      // Texte affiché « Pôle → Secteur » (coupé par « … » si trop long) : le <select> natif n'affiche que le secteur.
+      keepLabel = document.createElement('span');
+      keepLabel.className = 'goalsWhereLabel';
+      kw.appendChild(keepLabel);
+      select.classList.add('goalsWhereHideText');
     } else {
       select.style.display = 'none';
       btn.className = 'goalsWhereBtn';
       select.parentNode.insertBefore(btn, select);
     }
     function sync() {
-      if (keepLook) return;
+      if (keepLook) {
+        var ko = select.options[select.selectedIndex];
+        var kg = ko && ko.parentNode && ko.parentNode.tagName === 'OPTGROUP' ? ko.parentNode.label : '';
+        var kt = ko ? ko.textContent : '';
+        keepLabel.textContent = kg && kg !== kt ? kg + ' → ' + kt : kt;
+        var cs = window.getComputedStyle(select);
+        keepLabel.style.font = cs.font; keepLabel.style.left = (parseFloat(cs.paddingLeft) + 2) + 'px';
+        return;
+      }
       var o = select.options[select.selectedIndex];
       var g = o && o.parentNode && o.parentNode.tagName === 'OPTGROUP' ? o.parentNode.label : '';
       var txt = o ? o.textContent : '';
@@ -1052,7 +1066,7 @@
       });
       var r = btn.getBoundingClientRect();
       var below = window.innerHeight - r.bottom, above = r.top;
-      menu.style.position = 'fixed'; menu.style.left = r.left + 'px'; menu.style.width = Math.max(r.width, 220) + 'px';
+      menu.style.position = 'fixed'; menu.style.left = Math.max(12, Math.min(r.left, window.innerWidth - 230 - 12)) + 'px';
       menu.style.right = 'auto'; menu.style.zIndex = '10000';
       if (below >= above || below > 260) { menu.style.top = (r.bottom + 6) + 'px'; menu.style.bottom = 'auto'; menu.style.maxHeight = Math.max(160, below - 16) + 'px'; }
       else { menu.style.bottom = (window.innerHeight - r.top + 6) + 'px'; menu.style.top = 'auto'; menu.style.maxHeight = Math.max(160, above - 16) + 'px'; }

@@ -329,3 +329,14 @@
 .goalsWhereKeep select { width: 100%; }
 .historyReassignRow .goalsWhereKeep select { flex: none; }
 .goalsWhereOverlay { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0; margin: 0; opacity: 0; cursor: pointer; z-index: 2; }
+
+/* 5 oct. 2026 : Historique — cellule pôle/secteur de la même taille que celle de l'activité, texte « Pôle → Secteur » coupé par « … ». */
+.goalsWhereKeep select.goalsWhereHideText { color: transparent; text-shadow: none; width: 100%; box-sizing: border-box; }
+.goalsWhereKeep select.goalsWhereHideText option, .goalsWhereKeep select.goalsWhereHideText optgroup { color: initial; }
+.goalsWhereLabel { position: absolute; left: 10px; right: 30px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text); font: inherit; font-size: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 1; }
+.historyReassignRow > select, .historyReassignRow > .goalsWhereKeep { flex: 1 1 0; min-width: 0; width: 0; }
+
+:root .goalsWhereKeep select.goalsWhereHideText { color: transparent !important; -webkit-text-fill-color: transparent !important; }
+.historyReassignRow .goalsWhereKeep { display: flex; }
+.historyReassignRow .goalsWhereKeep select { height: 100%; min-height: 0; }
+.goalsWhereKeep::after { content: ""; position: absolute; right: 9px; top: 50%; width: 5px; height: 5px; border-right: 1.5px solid var(--text); border-bottom: 1.5px solid var(--text); transform: translateY(-70%) rotate(45deg); pointer-events: none; z-index: 1; }
