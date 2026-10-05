@@ -303,3 +303,4 @@
 }
 /* 5 oct. 2026 : bulle de modification plus transparente. */
 :root .goalsTasksGroup .subProjectItem.goalsTaskEditing { background: color-mix(in srgb, var(--vc-bg) 40%, transparent); }
+:root .goalsTaskEditPanel textarea.goalsTaskEditText { min-height: 0 !important; }

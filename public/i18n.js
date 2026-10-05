@@ -719,6 +719,7 @@
     'Ajouter quand même ?': 'Add anyway?',
     'Ajouter quand même': 'Add anyway',
     'Pôle et secteur non trouvés — où placer cette tâche ?': 'Pole and sector not found — where should this task go?',
+    'Sélection du pôle & secteur': 'Select pole & sector',
     'Autre…': 'Other…',
     'Le nom du sous-projet est requis.': 'The sub-project name is required.',
     // Messages d'erreur renvoyés par server/routes/subprojects.js

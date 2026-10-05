@@ -872,7 +872,7 @@
     return new Promise(function (resolve) {
       var overlay = document.createElement('div');
       // 5 oct. 2026 : le choix de secteur (tri introuvable, modes Autonome/Absence) est un pop-up centré.
-      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal' + (r.needs === 'category' ? ' goalsPlacementModal aiModeModal' : '');
+      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal' + (r.needs === 'category' ? ' goalsPlacementModal aiModeModal' : ' goalsBarModal');
       var card = document.createElement('div');
       card.className = 'goalTaskEditCard';
       var header = document.createElement('div');
@@ -915,7 +915,7 @@
         actions.appendChild(addBtn);
         card.appendChild(actions);
       } else {
-        title.textContent = t('Pôle et secteur non trouvés — où placer cette tâche ?');
+        title.textContent = t('Sélection du pôle & secteur');
         var list = document.createElement('div');
         list.className = 'goalsCaptureConfirmList';
         function render(choices, showOther) {
@@ -938,20 +938,17 @@
           }
         }
         function showDropdown() {
-          {
-              list.innerHTML = '';
-              var sel = document.createElement('select');
-              sel.className = 'goalsCaptureConfirmSelect';
-              var ph = document.createElement('option'); ph.value = ''; ph.textContent = t('Choisis un pôle ou un secteur'); sel.appendChild(ph);
-              (r.candidates || []).forEach(function (c) {
-                var op = document.createElement('option'); op.value = c.key; op.textContent = String(c.label).replace(' → ', ' › '); sel.appendChild(op);
-              });
-              var ok = document.createElement('button');
-              ok.type = 'button'; ok.className = 'iconBtn btnBrique goalsCaptureConfirmOk'; ok.textContent = t('Valider'); ok.disabled = true;
-              sel.addEventListener('change', function () { ok.disabled = !sel.value; });
-              ok.addEventListener('click', function () { if (sel.value) finish({ forcedCategory: sel.value }); });
-              list.appendChild(sel); list.appendChild(ok);
-          }
+          // « Autre… » : la liste complète (pôle › secteur) s'affiche directement dans ce même pop-up.
+          list.innerHTML = '';
+          list.classList.add('goalsCaptureConfirmFull');
+          (r.candidates || []).forEach(function (c) {
+            var bb = document.createElement('button');
+            bb.type = 'button';
+            bb.className = 'gmChip goalsCaptureConfirmChoice';
+            bb.textContent = String(c.label).replace(' → ', ' › ');
+            bb.addEventListener('click', function () { finish({ forcedCategory: c.key }); });
+            list.appendChild(bb);
+          });
         }
         if (r.suggested && r.suggested.length) render(r.suggested, true);
         else showDropdown();
@@ -981,6 +978,9 @@
     closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
     header.appendChild(title); header.appendChild(closeBtn);
     card.appendChild(header);
+    var body = document.createElement('div');
+    body.className = 'goalsPlacementScroll';
+    card.appendChild(body);
     function close() { overlay.remove(); }
     closeBtn.addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
@@ -992,6 +992,10 @@
       (TMT.getActivitiesCache() || []).forEach(function (a) { if (String(a.id) === String(r.activityId)) act = a; });
       var box = document.createElement('div');
       box.className = 'goalsPlacementBox';
+      var actLine = document.createElement('p');
+      actLine.className = 'goalsPlacementActivity';
+      actLine.textContent = act ? act.name : '';
+      box.appendChild(actLine);
       var labelIn = document.createElement('textarea');
       labelIn.className = 'goalsTaskEditText'; labelIn.rows = 1; labelIn.maxLength = 300; labelIn.value = label;
       function fitL() { labelIn.style.height = 'auto'; labelIn.style.height = labelIn.scrollHeight + 'px'; }
@@ -1008,10 +1012,6 @@
       whereSel.appendChild(curOpt);
       var whereWrap = document.createElement('div');
       whereWrap.className = 'goalsPlacementWhere';
-      var actLine = document.createElement('p');
-      actLine.className = 'goalsPlacementActivity';
-      actLine.textContent = act ? act.name : '';
-      whereWrap.appendChild(actLine);
       whereWrap.appendChild(whereSel);
       box.appendChild(labeled(t('Où'), whereWrap));
 
@@ -1027,7 +1027,7 @@
         whoSel.appendChild(none);
         box.appendChild(labeled(t('Responsable'), whoSel));
       }
-      card.appendChild(box);
+      body.appendChild(box);
       forms.push({ r: r, labelIn: labelIn, whereSel: whereSel, dateIn: dateIn, whoSel: whoSel, cur: cur });
 
       api('GET', '/api/activities/' + r.activityId + '/goals/categories').then(function (d) {
@@ -1065,7 +1065,7 @@
     }
 
     var errP = document.createElement('p'); errP.className = 'msg';
-    card.appendChild(errP);
+    body.appendChild(errP);
     var actions = document.createElement('div');
     actions.className = 'goalsCaptureConfirmActions';
     var okBtn = document.createElement('button');
@@ -1093,9 +1093,10 @@
         .catch(function (err) { errP.textContent = err.message; okBtn.disabled = false; });
     });
     actions.appendChild(okBtn);
-    card.appendChild(actions);
+    body.appendChild(actions);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+    forms.forEach(function (f) { var ta = f.labelIn; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; });
   }
 
   // ===== 5 oct. 2026 (Emilien) : gestion de l'IA — Autonome / Partiel / Absence =====

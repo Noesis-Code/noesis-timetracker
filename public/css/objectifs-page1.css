@@ -263,3 +263,21 @@
 :root .aiModeModal .goalsCaptureConfirmList { margin-top: 12px; }
 :root .goalsCaptureConfirmSelect { width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; -webkit-appearance: none; appearance: none; background: var(--vc-bg) !important; box-shadow: inset 0 0 0 1px var(--vc-line) !important; border: 0 !important; border-radius: 999px !important; text-align: left; color: var(--text); font-size: 14px; }
 .goalsCaptureConfirmOk { align-self: flex-end; }
+
+/* 5 oct. 2026 : pop-up de rangement — titre/croix fixes, contenu défilant ; activité au-dessus de la tâche ; activités espacées. */
+.goalTaskEditModal.goalsPlacementModal .goalTaskEditCard { display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; }
+.goalsPlacementModal .goalTaskEditHeader { flex: 0 0 auto; }
+.goalsPlacementScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.goalsPlacementModal .goalsPlacementBox { gap: 4px; padding: 0 0 6px; margin: 0; }
+.goalsPlacementModal .goalsPlacementBox + .goalsPlacementBox { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--vc-line, var(--border)); }
+.goalsPlacementModal .goalsPlacementActivity { margin: 0 0 6px; padding: 0 4px 6px; font-size: 13px; font-weight: 700; letter-spacing: .02em; border-bottom: 1px solid var(--vc-line, var(--border)); }
+:root .goalsPlacementModal .goalsPlacementBox textarea.goalsTaskEditText { padding: 2px 0 0; margin: 0; }
+.goalsPlacementModal .goalsPlacementField { margin-top: 2px; }
+
+.goalsCaptureConfirmFull { max-height: 52vh; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 4px; }
+:root .goalsPlacementBox textarea.goalsTaskEditText { min-height: 0 !important; }
+
+/* 5 oct. 2026 : barre sous le titre et la croix + moins d'espace au-dessus (choix de secteur, doublon). */
+.goalsBarModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--vc-line, var(--border)); }
+:root .goalsBarModal .goalTaskEditCard, :root .aiModeModal .goalTaskEditCard { padding-top: 8px; }
+:root .goalsBarModal .goalTaskEditHeader .sectionTitle, :root .aiModeModal .goalTaskEditHeader .sectionTitle { margin-top: 0; }
