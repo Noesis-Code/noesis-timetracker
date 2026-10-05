@@ -279,7 +279,9 @@
 
 /* 5 oct. 2026 : barre sous le titre et la croix + moins d'espace au-dessus (choix de secteur, doublon). */
 .goalsBarModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--vc-line, var(--border)); }
-:root .goalsBarModal .goalTaskEditCard { padding-top: 8px; }
+:root .goalsBarModal .goalTaskEditCard { padding-top: 12px; }
+:root .goalsBarModal .goalTaskEditHeader { gap: 20px; }
+:root .goalsBarModal .goalTaskEditHeader .sectionTitle { padding-right: 8px; }
 :root .goalsBarModal .goalTaskEditHeader .sectionTitle { margin-top: 0; }
 
 /* 5 oct. 2026 : « Autre… » (Autonome/Absence) — bulle flottante pôles/secteurs dans le même pop-up. */
