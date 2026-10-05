@@ -290,3 +290,6 @@
 :root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select { min-height: 38px; padding: 8px 14px; box-sizing: border-box; background: var(--card) !important; -webkit-appearance: none; appearance: none; }
 :root .goalsTaskEditPanel select { text-align: left; text-align-last: left; }
 :root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"] { background: rgba(255, 255, 255, 0.07) !important; border: 0 !important; }
+:root .goalsTaskEditPanel.historyEditFields input[type="date"], :root .goalsTaskEditPanel.historyEditFields select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"], :root .goalsPlacementField input[type="date"], :root .goalsPlacementField select {
+  background: rgba(255, 255, 255, 0.12) !important; box-shadow: none !important; border: 0 !important; border-radius: 999px !important;
+}
