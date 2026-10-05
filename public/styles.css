@@ -1207,7 +1207,8 @@ textarea {
   border-radius: var(--radius-sm); box-sizing: border-box; background: var(--card); color: var(--text);
   text-align: center;
 }
-.historyEditFields .rowActions { margin-top: 10px; }
+.historyEditFields .rowActions { margin-top: 10px; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.historyEditFields .historyEditDelete { margin-right: auto; } /* 5 oct. 2026 : corbeille tout à gauche, à gauche d'Annuler */
 .historyEditMsg { margin: 8px 0 0; }
 @media (max-width: 380px) {
   .historyEditFields input[type=datetime-local] { font-size: 12px; padding: 7px 4px; }

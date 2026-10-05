@@ -351,7 +351,6 @@
     delBtn.setAttribute('aria-label', t('Supprimer'));
     delBtn.innerHTML = HISTORY_DELETE_ICON;
     top.appendChild(editBtn);
-    top.appendChild(delBtn);
     display.appendChild(top);
 
     // Ligne meta — pôle › secteur (secteur seulement si la tâche est rangée
@@ -392,6 +391,10 @@
         '<button type="button" class="iconBtn historyEditSave">' + t('Enregistrer') + '</button>' +
       '</div>';
     row.appendChild(editFields);
+    // 5 oct. 2026 (Emilien) : la corbeille quitte la ligne (à côté de ✎) ; elle est tout à gauche
+    // de la zone d'édition, à gauche du bouton Annuler.
+    delBtn.classList.add('historyEditDelete');
+    editFields.querySelector('.rowActions').insertBefore(delBtn, editFields.querySelector('.rowActions').firstChild);
 
     var labelInput = editFields.querySelector('.historyEditTaskLabel');
     var editMsg = editFields.querySelector('.historyEditMsg');
