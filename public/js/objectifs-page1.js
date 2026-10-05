@@ -938,21 +938,39 @@
           }
         }
         function showDropdown() {
-          // « Autre… » : la liste complète (pôle › secteur) s'affiche directement dans ce même pop-up.
-          list.innerHTML = '';
-          list.classList.add('goalsCaptureConfirmFull');
+          // « Autre… » : bulle flottante dans ce même pop-up, même liste que le choix pôle/secteur de la page 2
+          // (pôles en titres, secteurs dessous ; un pôle sans secteur est lui-même cliquable).
+          var old = card.querySelector('.goalsCaptureFloat');
+          if (old) { old.remove(); return; }
+          var groups = [], byPole = {};
           (r.candidates || []).forEach(function (c) {
-            var bb = document.createElement('button');
-            bb.type = 'button';
-            bb.className = 'gmChip goalsCaptureConfirmChoice';
-            bb.textContent = String(c.label).replace(' → ', ' › ');
-            bb.addEventListener('click', function () { finish({ forcedCategory: c.key }); });
-            list.appendChild(bb);
+            var parts = String(c.label).split(' → ');
+            if (parts.length < 2) { groups.push({ leaf: c }); return; }
+            var g = byPole[parts[0]];
+            if (!g) { g = byPole[parts[0]] = { label: parts[0], items: [] }; groups.push(g); }
+            g.items.push({ key: c.key, label: parts.slice(1).join(' › ') });
           });
+          var float = document.createElement('div');
+          float.className = 'goalsCaptureFloat';
+          function opt(key, text, cls) {
+            var bb = document.createElement('button');
+            bb.type = 'button'; bb.className = 'goalsCaptureFloatItem ' + cls;
+            bb.textContent = text;
+            bb.addEventListener('click', function (e) { e.stopPropagation(); finish({ forcedCategory: key }); });
+            float.appendChild(bb);
+          }
+          groups.forEach(function (g) {
+            if (g.leaf) { opt(g.leaf.key, g.leaf.label, 'pole'); return; }
+            var h = document.createElement('p');
+            h.className = 'goalsCaptureFloatPole'; h.textContent = g.label;
+            float.appendChild(h);
+            g.items.forEach(function (it) { opt(it.key, it.label, 'sector'); });
+          });
+          card.appendChild(float);
         }
         if (r.suggested && r.suggested.length) render(r.suggested, true);
         else showDropdown();
-        card.appendChild(list);
+        card.insertBefore(list, card.querySelector('.goalsCaptureFloat'));
       }
       overlay.appendChild(card);
       document.body.appendChild(overlay);
