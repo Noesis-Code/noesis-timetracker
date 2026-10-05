@@ -402,7 +402,7 @@
     var cancelBtn = editFields.querySelector('.historyEditCancel');
     var activitySelect = editFields.querySelector('.historyEditActivity');
     var categorySelect = editFields.querySelector('.historyEditCategory');
-    floatingWhereMenu(categorySelect);
+    floatingWhereMenu(categorySelect, true);
     var dateInput = editFields.querySelector('.historyEditDate');
     var goalsPreview = editFields.querySelector('.historyReassignGoals');
 
@@ -869,13 +869,20 @@
         });
       }
       function next() {
-        if (!queue.length) return Promise.resolve({ results: finals, cancelled: cancelled });
+        if (!queue.length) {
+          if (!cancelled) return Promise.resolve({ results: finals, cancelled: false });
+          // Pop-up fermé (✕ ou à côté) : rien ne doit être enregistré — on retire ce qui avait déjà été créé pour d'autres activités.
+          var created = finals.filter(function (r) { return r.ok && r.id; });
+          return Promise.all(created.map(function (r) {
+            return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});
+          })).then(function () { loadGoalsCaptureBadges(); return { results: [], cancelled: true }; });
+        }
         var cats = queue.filter(function (q) { return q.r.needs === 'category'; });
         if (cats.length >= 2) {
           // Plusieurs activités sans secteur trouvé : un seul pop-up, un choix par activité.
           queue = queue.filter(function (q) { return q.r.needs !== 'category'; });
           return askCategoryChoices(label, cats.map(function (q) { return q.r; })).then(function (choices) {
-            if (!choices) { cancelled = true; return next(); }
+            if (!choices) { cancelled = true; queue = []; return next(); }
             var chain = Promise.resolve();
             cats.forEach(function (cur, i) { chain = chain.then(function () { return sendChoice(cur, choices[i]); }); });
             return chain.then(next);
@@ -883,7 +890,7 @@
         }
         var cur = queue.shift();
         return askCaptureChoice(label, cur.r).then(function (choice) {
-          if (!choice) { cancelled = true; return next(); }
+          if (!choice) { cancelled = true; queue = []; return next(); }
           return sendChoice(cur, choice).then(next);
         });
       }
@@ -987,15 +994,27 @@
   // 5 oct. 2026 (Emilien) : menu flottant gris (pôles en titres, secteurs dessous, sélection directe,
   // sans « Aucun pôle ») qui remplace le <select> natif du choix pôle/secteur. Le <select> reste la source
   // de vérité (masqué) : le menu en lit les options/optgroup et y écrit le choix (événement `change`).
-  function floatingWhereMenu(select) {
+  function floatingWhereMenu(select, keepLook) {
     if (!select || select.dataset.floatMenu) return;
     select.dataset.floatMenu = '1';
-    select.style.display = 'none';
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'goalsWhereBtn';
-    select.parentNode.insertBefore(btn, select);
+    if (keepLook) {
+      // Format inchangé : le <select> reste affiché tel quel, une couche transparente par-dessus ouvre le menu flottant.
+      var kw = document.createElement('span');
+      kw.className = 'goalsWhereKeep';
+      select.parentNode.insertBefore(kw, select);
+      kw.appendChild(select);
+      btn.className = 'goalsWhereOverlay';
+      btn.setAttribute('aria-label', t('Pôle et secteur'));
+      kw.appendChild(btn);
+    } else {
+      select.style.display = 'none';
+      btn.className = 'goalsWhereBtn';
+      select.parentNode.insertBefore(btn, select);
+    }
     function sync() {
+      if (keepLook) return;
       var o = select.options[select.selectedIndex];
       var g = o && o.parentNode && o.parentNode.tagName === 'OPTGROUP' ? o.parentNode.label : '';
       var txt = o ? o.textContent : '';
@@ -1340,7 +1359,7 @@
   var AI_MODES = [
     { key: 'autonome', label: 'Autonome', desc: 'Noèsis range tes tâches seul, sans te demander ton avis.' },
     { key: 'partiel', label: 'Partiel', desc: 'Noèsis propose un rangement ; tu le reconfirmes et tu peux le modifier.' },
-    { key: 'absence', label: 'Absence', desc: 'Noèsis ne range rien : tu choisis toi-même où va chaque tâche.' }
+    { key: 'absence', label: 'Absent', desc: 'Noèsis ne range rien : tu choisis toi-même où va chaque tâche.' }
   ];
   TMT.aiMode = undefined; // undefined = pas encore lu ; null = jamais choisi
   function loadAiMode() {

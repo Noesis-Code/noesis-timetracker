@@ -323,3 +323,9 @@
 
 /* 5 oct. 2026 : menu flottant étroit (≈ capture du menu natif) et très peu opaque. */
 :root .goalsCaptureFloat { width: 230px !important; max-width: calc(100vw - 48px); background: rgba(40, 40, 46, 0.28); -webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8); }
+
+/* 5 oct. 2026 : Historique — la 2e case « Où » garde son format de <select> ; une couche transparente ouvre le menu flottant. */
+.goalsWhereKeep { position: relative; display: block; flex: 1; min-width: 0; }
+.goalsWhereKeep select { width: 100%; }
+.historyReassignRow .goalsWhereKeep select { flex: none; }
+.goalsWhereOverlay { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0; margin: 0; opacity: 0; cursor: pointer; z-index: 2; }

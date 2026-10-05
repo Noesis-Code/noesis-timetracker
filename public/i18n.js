@@ -145,6 +145,7 @@
     'Autonome': 'Autonomous',
     'Partiel': 'Partial',
     'Absence': 'Off',
+    'Absent': 'Off',
     'Gestion de l\'IA': 'AI management',
     'Tâche': 'Task',
     'Tâche rangée': 'Task placed',
