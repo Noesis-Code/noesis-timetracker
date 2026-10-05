@@ -632,8 +632,8 @@
   function histFitSpacer() {
     var sec = $('goalsTasksHistorySection');
     if (!sec || $('goalsTasksHistoryPanel').classList.contains('hidden')) return;
-    sec.style.paddingBottom = '0px';
-    sec.style.paddingBottom = Math.max(HIST_BOTTOM_GAP, histViewportH() - sec.offsetHeight - 8) + 'px';
+    var base = sec.offsetHeight - (parseFloat(sec.style.paddingBottom) || parseFloat(getComputedStyle(sec).paddingBottom) || 0);
+    sec.style.paddingBottom = Math.max(HIST_BOTTOM_GAP, histViewportH() - base - 8) + 'px';
   }
   function histScrollToTop() {
     var y = histScrollY() + $('goalsTasksHistoryHeader').getBoundingClientRect().top - histTopOffset() - 8;

@@ -3441,8 +3441,10 @@
     if (!sec || $('chronoHistoryPanel').classList.contains('hidden')) return;
     var top = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 56;
     var bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h')) || 64;
-    sec.style.paddingBottom = '0px';
-    var pad = Math.max(0, window.innerHeight - top - bar - sec.offsetHeight);
+    // Sans remettre le padding à 0 (cela forçait une mise en page qui écrasait le défilement quand
+    // la liste est vide) : hauteur « de base » = hauteur actuelle moins la réserve déjà posée.
+    var base = sec.offsetHeight - (parseFloat(sec.style.paddingBottom) || 0);
+    var pad = Math.max(0, window.innerHeight - top - bar - base);
     sec.style.paddingBottom = pad + 'px';
   }
   function chronoHistoryScrollToTop() {

@@ -745,8 +745,8 @@
   function archiveFitSpacer() {
     var sec = $('goalsTasksArchiveSection'), sc = $('goalsActivitySwitcherScroll');
     if (!sec || !sc || $('goalsTasksArchivePanel').classList.contains('hidden')) return;
-    sec.style.paddingBottom = '0px';
-    var pad = Math.max(ARCHIVE_BOTTOM_GAP, sc.clientHeight - sec.offsetHeight - 8);
+    var base = sec.offsetHeight - (parseFloat(sec.style.paddingBottom) || parseFloat(getComputedStyle(sec).paddingBottom) || 0);
+    var pad = Math.max(ARCHIVE_BOTTOM_GAP, sc.clientHeight - base - 8);
     sec.style.paddingBottom = pad + 'px';
   }
   function archiveScrollToTop() {
