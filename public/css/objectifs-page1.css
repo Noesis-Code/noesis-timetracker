@@ -247,4 +247,4 @@
 
 /* 5 oct. 2026 : pop-up du mode IA — choix encadrés d'un orange léger, barre sous le titre et la croix. */
 .aiModeModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--vc-line, var(--border)); }
-:root .aiModeModal .aiModeChoice { box-shadow: inset 0 0 0 1.5px rgba(217, 130, 90, 0.55); }
+:root .aiModeModal .goalTaskEditCard { box-shadow: inset 0 0 0 1.5px rgba(217, 130, 90, 0.55), var(--shadow-elevated); }
