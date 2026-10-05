@@ -108,7 +108,7 @@ function loadWeeklyForActivity(activityId, weeklyId) {
 function undatedItemsForWeekly(weeklyId) {
   return db.prepare(`
     SELECT id, label FROM sub_project_items
-    WHERE goalWeeklyId = ? AND dueDate IS NULL AND done = 0
+    WHERE goalWeeklyId = ? AND (dueDate IS NULL OR dueDateAuto = 2) AND done = 0
     ORDER BY position ASC, id ASC
   `).all(weeklyId);
 }
@@ -263,7 +263,7 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
   }
 
   const now = new Date().toISOString();
-  const update = db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 1 WHERE id = ? AND goalWeeklyId = ? AND dueDate IS NULL');
+  const update = db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 1 WHERE id = ? AND goalWeeklyId = ? AND (dueDate IS NULL OR dueDateAuto = 2)');
   let written = 0;
   assignments.forEach((a) => {
     const info = update.run(a.date, a.itemId, weekly.id);

@@ -27,6 +27,13 @@ const db = require('../db');
 // de l'activité — aucune boucle de dépendance, goals.js ne require jamais
 // ce fichier.
 const goals = require('./goals');
+const { isoDateOf } = require('./dates');
+
+// 5 oct. 2026 : aucune tâche n'existe sans date. Faute de mieux (tâche que Noèsis ne
+// sait pas classer, ajout manuel sans jour…), la date par défaut est AUJOURD'HUI, posée
+// avec dueDateAuto = 2 : « défaut », déplaçable par le moteur (contrairement à une date
+// saisie, épinglée) mais traitée comme « à dater » par la planification quotidienne.
+function todayIso() { return isoDateOf(new Date()); }
 
 const SECTION_KINDS = ['tasks', 'poll', 'discussion'];
 
@@ -514,10 +521,10 @@ function createItem(section, label, extra) {
   const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_items WHERE sectionId = ?')
     .get(section.id).pos;
   const info = db.prepare(`
-    INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, plannedUserId, autoCaptured)
-    VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)
+    INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto, plannedUserId, autoCaptured)
+    VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
   `).run(section.subProjectId, section.id, label, next, new Date().toISOString(),
-    opts.dueDate || null, opts.plannedUserId || null, opts.autoCaptured ? 1 : 0);
+    opts.dueDate || todayIso(), opts.dueDate ? 0 : 2, opts.plannedUserId || null, opts.autoCaptured ? 1 : 0);
   return getItem(info.lastInsertRowid);
 }
 
@@ -579,8 +586,10 @@ function updateItem(itemId, fields, userId) {
   let dueDate = current.dueDate;
   if ('dueDate' in fields) {
     const clean = typeof fields.dueDate === 'string' ? fields.dueDate.trim() : '';
-    dueDate = /^\d{4}-\d{2}-\d{2}$/.test(clean) ? clean : null;
+    // Une date ne peut plus être retirée : vide/invalide => on garde l'actuelle (ou aujourd'hui).
+    dueDate = /^\d{4}-\d{2}-\d{2}$/.test(clean) ? clean : (current.dueDate || todayIso());
   }
+  if (!dueDate) dueDate = todayIso();
 
   db.prepare('UPDATE sub_project_items SET label = ?, done = ?, doneBy = ?, doneAt = ?, plannedUserId = ?, goalWeeklyId = ?, dueDate = ?, dueDateAuto = CASE WHEN dueDate IS ? THEN dueDateAuto ELSE 0 END WHERE id = ?')
     .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, dueDate, dueDate, itemId);

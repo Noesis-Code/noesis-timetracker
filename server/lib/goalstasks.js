@@ -368,7 +368,7 @@ function reassignHistoryTask(userId, itemId, newActivityId, newCategoryKey, newD
   let cleanDueDate = item.dueDate;
   if (newDueDate !== undefined) {
     if (newDueDate === null || newDueDate === '') {
-      cleanDueDate = null;
+      cleanDueDate = item.dueDate || todayLocal(); // une date ne peut plus être retirée
     } else if (/^\d{4}-\d{2}-\d{2}$/.test(String(newDueDate))) {
       cleanDueDate = String(newDueDate);
     } else {

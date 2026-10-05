@@ -2292,4 +2292,19 @@ CREATE TABLE IF NOT EXISTS goal_classify_examples (
 CREATE INDEX IF NOT EXISTS idx_goal_classify_examples_activity ON goal_classify_examples(activityId, id);
 `);
 
+// ===================== AUCUNE TÂCHE SANS DATE =====================
+// 5 octobre 2026 : toute tâche a une date. Rattrapage idempotent des tâches existantes
+// sans date : à faire => aujourd'hui (dueDateAuto = 2 : date « par défaut », voir
+// subprojects.js#createItem) ; déjà terminées => jour de leur coche (ou de leur création).
+db.exec(`
+UPDATE sub_project_items SET dueDate = COALESCE(substr(doneAt, 1, 10), substr(createdAt, 1, 10))
+  WHERE done = 1 AND (dueDate IS NULL OR dueDate = '');
+`);
+{
+  const d = new Date();
+  const pad = (n) => (n < 10 ? '0' + n : String(n));
+  const today = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  db.prepare("UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 2 WHERE done = 0 AND (dueDate IS NULL OR dueDate = '')").run(today);
+}
+
 module.exports = db;
