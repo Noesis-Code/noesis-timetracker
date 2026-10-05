@@ -948,7 +948,7 @@
   function showCapturePlacementModal(label, okResults) {
     if (!okResults.length) return;
     var overlay = document.createElement('div');
-    overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal';
+    overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal';
     var card = document.createElement('div');
     card.className = 'goalTaskEditCard';
     var header = document.createElement('div');
