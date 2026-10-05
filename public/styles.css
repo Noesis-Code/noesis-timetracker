@@ -6599,6 +6599,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catNewPole .catNewPoleFields { display: flex; flex-direction: column; gap: 6px; padding: 4px 0 2px; }
 .catNewPole input, .catNewPole textarea { width: 100%; min-width: 0; font-size: 16px; box-sizing: border-box; }
 .catNewPole .catNewPoleActions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.catEditForm .catNewPoleActions > .historyRowIconBtn.danger { margin-right: auto; } /* 5 oct. 2026 : corbeille tout à gauche, comme les historiques */
 .catNewPole .msg { margin: 0; min-height: 0; }
 .catNewPole .msg:empty { display: none; }
 
