@@ -594,11 +594,68 @@
   // génériques elles-mêmes — toujours propriété de Design).
   var goalsTasksHistoryHeaderEl = $('goalsTasksHistoryHeader');
 
+  // 5 oct. 2026 (Emilien) : même règle que « Historique » du Chrono et « Archives » (Page 2) — à
+  // l'ouverture la fenêtre remonte pour mettre « Historique » tout en haut (réserve d'espace sous la
+  // section si la liste est courte), on peut toujours défiler vers le haut ; à la fermeture, retour à
+  // la position d'avant. Espace vide permanent (72 px) sous le bouton, au-dessus des 3 points.
+  var HIST_BOTTOM_GAP = 72;
+  var histScrollBack = null, histRO = null;
+  function histScroller() {
+    var el = $('goalsTasksHistorySection');
+    while (el && el !== document.body) {
+      var oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1) return el;
+      el = el.parentElement;
+    }
+    return null; // fenêtre
+  }
+  function histTopOffset() {
+    var sc = histScroller();
+    if (sc) return sc.getBoundingClientRect().top;
+    return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 56;
+  }
+  function histViewportH() {
+    var sc = histScroller();
+    if (sc) return sc.clientHeight;
+    var bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h')) || 64;
+    return window.innerHeight - histTopOffset() - bar;
+  }
+  function histScrollY() { var sc = histScroller(); return sc ? sc.scrollTop : window.scrollY; }
+  function histScrollTo(y) {
+    var sc = histScroller();
+    if (sc) sc.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    else window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }
+  function histFitSpacer() {
+    var sec = $('goalsTasksHistorySection');
+    if (!sec || $('goalsTasksHistoryPanel').classList.contains('hidden')) return;
+    sec.style.paddingBottom = '0px';
+    sec.style.paddingBottom = Math.max(HIST_BOTTOM_GAP, histViewportH() - sec.offsetHeight - 8) + 'px';
+  }
+  function histScrollToTop() {
+    var y = histScrollY() + $('goalsTasksHistoryHeader').getBoundingClientRect().top - histTopOffset() - 8;
+    histScrollTo(y);
+  }
+
   if (goalsTasksHistoryHeaderEl) {
     goalsTasksHistoryHeaderEl.addEventListener('click', function () {
       var opening = $('goalsTasksHistoryPanel').classList.contains('hidden');
       $('goalsTasksHistoryPanel').classList.toggle('hidden', !opening);
-      if (opening) { goalsTasksHistoryWeekOffset = 0; loadGoalsTasksHistory(); }
+      if (opening) {
+        histScrollBack = histScrollY();
+        goalsTasksHistoryWeekOffset = 0; loadGoalsTasksHistory();
+        histFitSpacer();
+        if (typeof ResizeObserver === 'function' && !histRO) {
+          histRO = new ResizeObserver(function () { histFitSpacer(); });
+          histRO.observe($('goalsTasksHistoryPanel'));
+        }
+        window.requestAnimationFrame(histScrollToTop);
+      } else {
+        if (histRO) { histRO.disconnect(); histRO = null; }
+        $('goalsTasksHistorySection').style.paddingBottom = '';
+        if (histScrollBack != null) histScrollTo(histScrollBack);
+        histScrollBack = null;
+      }
     });
   }
 

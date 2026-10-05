@@ -248,7 +248,7 @@
 }
 .goalsDailyGrey .subProjectItemLabel { color: var(--text-light); }
 .goalsDailyWhen { flex: 0 0 auto; font-size: 12px; color: var(--text-light); white-space: nowrap; }
-#goalsTasksArchiveSection { margin-top: 14px; }
+#goalsTasksArchiveSection { margin-top: 14px; padding-bottom: 72px; } /* espace vide permanent sous « Archives », au-dessus des 3 points */
 #goalsTasksArchiveHeader {
   margin-top: 4px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
   background: var(--glass-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 2px 10px rgba(0, 0, 0, 0.08);

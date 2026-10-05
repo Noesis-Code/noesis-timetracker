@@ -736,10 +736,44 @@
     var p = function (n) { return String(n).padStart(2, '0'); };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
+  // 5 oct. 2026 (Emilien) : même comportement que « Historique » du Chrono — à l'ouverture, la
+  // fenêtre remonte pour mettre « Archives » tout en haut (réserve d'espace sous la section si la
+  // liste est courte), on peut toujours défiler vers les tâches ; à la fermeture, retour à la
+  // position d'avant. Un espace vide (72 px) reste en permanence sous le bouton, au-dessus des 3 points.
+  var ARCHIVE_BOTTOM_GAP = 72;
+  var archiveScrollBack = null, archiveRO = null;
+  function archiveFitSpacer() {
+    var sec = $('goalsTasksArchiveSection'), sc = $('goalsActivitySwitcherScroll');
+    if (!sec || !sc || $('goalsTasksArchivePanel').classList.contains('hidden')) return;
+    sec.style.paddingBottom = '0px';
+    var pad = Math.max(ARCHIVE_BOTTOM_GAP, sc.clientHeight - sec.offsetHeight - 8);
+    sec.style.paddingBottom = pad + 'px';
+  }
+  function archiveScrollToTop() {
+    var sc = $('goalsActivitySwitcherScroll');
+    if (!sc) return;
+    var y = sc.scrollTop + $('goalsTasksArchiveHeader').getBoundingClientRect().top - sc.getBoundingClientRect().top - 8;
+    sc.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }
   $('goalsTasksArchiveHeader').addEventListener('click', function () {
+    var sc = $('goalsActivitySwitcherScroll');
     var opening = $('goalsTasksArchivePanel').classList.contains('hidden');
     $('goalsTasksArchivePanel').classList.toggle('hidden', !opening);
-    if (opening) loadGoalsTasksArchives();
+    if (opening) {
+      archiveScrollBack = sc ? sc.scrollTop : null;
+      loadGoalsTasksArchives();
+      archiveFitSpacer();
+      if (typeof ResizeObserver === 'function' && !archiveRO) {
+        archiveRO = new ResizeObserver(function () { archiveFitSpacer(); });
+        archiveRO.observe($('goalsTasksArchivePanel'));
+      }
+      window.requestAnimationFrame(archiveScrollToTop);
+    } else {
+      if (archiveRO) { archiveRO.disconnect(); archiveRO = null; }
+      $('goalsTasksArchiveSection').style.paddingBottom = '';
+      if (sc && archiveScrollBack != null) sc.scrollTo({ top: archiveScrollBack, behavior: 'smooth' });
+      archiveScrollBack = null;
+    }
   });
 
 

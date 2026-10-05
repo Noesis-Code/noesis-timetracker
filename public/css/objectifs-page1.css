@@ -108,7 +108,7 @@
    net vise maintenant EXACTEMENT 4px, la vraie valeur de Chrono aujourd'hui.
    margin-top: -10px (au lieu de -4px) donne 14 - 10 = 4px, même mécanique de
    calcul, valeur ajustée. */
-#goalsTasksHistorySection { margin-top: -10px; }
+#goalsTasksHistorySection { margin-top: -10px; padding-bottom: 72px; } /* espace vide permanent sous « Historique », au-dessus des 3 points */
 #goalsTasksHistoryPanel { margin-top: 10px; }
 
 /* 28 septembre 2026 (réaffectation activité/pôle/secteur/période/semaine/
