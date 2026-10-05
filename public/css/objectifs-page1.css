@@ -320,3 +320,6 @@
 
 /* 5 oct. 2026 : verre liquide, même opacité que le menu natif du Chrono (capture d'Emilien). */
 :root .goalsCaptureFloat { background: rgba(44, 44, 50, 0.72); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,.18), 0 12px 32px rgba(0,0,0,.4); }
+
+/* 5 oct. 2026 : menu flottant étroit (≈ capture du menu natif) et très peu opaque. */
+:root .goalsCaptureFloat { width: 230px !important; max-width: calc(100vw - 48px); background: rgba(40, 40, 46, 0.28); -webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8); }
