@@ -915,7 +915,7 @@
         actions.appendChild(addBtn);
         card.appendChild(actions);
       } else {
-        title.textContent = t('Sélection du pôle & secteur');
+        title.textContent = TMT.aiMode === 'absence' ? t('Sélection du pôle & secteur') : t('Pôle et secteur non trouvés — où placer cette tâche ?');
         var list = document.createElement('div');
         list.className = 'goalsCaptureConfirmList';
         function render(choices, showOther) {
