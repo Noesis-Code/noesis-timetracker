@@ -649,22 +649,15 @@
     var byPole = function (x) { return !pole || x.poleKey === pole; };
     var todayTasks = allToday.filter(byPole);
     var upcoming = allUpcoming.filter(byPole).slice(0, Math.max(0, ((daily && daily.minLines) || 5) - todayTasks.length));
-    if (todayTasks.length) {
-      var box1 = document.createElement('div');
-      box1.className = 'subProjectItems';
-      todayTasks.forEach(function (task) { box1.appendChild(buildGoalsDailyRow(task, false)); });
-      list.appendChild(box1);
-    }
-    if (upcoming.length) {
-      var sep = document.createElement('p');
-      sep.className = 'goalsTasksUpcomingLabel';
-      sep.textContent = t('À venir');
-      list.appendChild(sep);
-      var box2 = document.createElement('div');
-      box2.className = 'subProjectItems';
-      upcoming.forEach(function (task) { box2.appendChild(buildGoalsDailyRow(task, true)); });
-      list.appendChild(box2);
-    }
+    // 5 oct. 2026 : les tâches restent RANGÉES PAR SECTEUR (accordéon replié par défaut, croix de
+    // suppression, glisser entre secteurs du pôle, ajout en ligne) ; seul le contenu de chaque
+    // secteur change : tâches du jour (blanc) puis tâches à venir (gris, avec leur date).
+    var perGroup = {};
+    todayTasks.forEach(function (task) { (perGroup[task.key] = perGroup[task.key] || []).push(Object.assign({}, task, { grey: false })); });
+    upcoming.forEach(function (task) { (perGroup[task.key] = perGroup[task.key] || []).push(Object.assign({}, task, { grey: true })); });
+    (data && data.groups || []).forEach(function (g) {
+      list.appendChild(buildGoalsTasksGroup(Object.assign({}, g, { tasks: perGroup[g.key] || [] })));
+    });
 
     var emptyHint = $('goalsTasksEmptyHint');
     var any = todayTasks.length + upcoming.length > 0;
@@ -849,7 +842,7 @@
 
   function buildGoalsTaskRow(task, groupKey) {
     var row = document.createElement('div');
-    row.className = 'subProjectItem' + (task.done ? ' done' : '');
+    row.className = 'subProjectItem' + (task.done ? ' done' : '') + (task.grey ? ' goalsDailyGrey' : '');
     // 28 septembre 2026, demande de Notifications (coordination, voir
     // noesis-timetracker-notifications-deep-link.md) : repère cette ligne
     // pour le halo de la notification « Tâches quotidiennes »
@@ -886,6 +879,12 @@
     // peut directement cliquer » — déjà satisfaite par appendLinkified().
     appendLinkified(label, task.label);
     row.appendChild(label);
+    if (task.grey && task.dueDate) {
+      var when = document.createElement('span');
+      when.className = 'meta goalsDailyWhen';
+      when.textContent = TMT.calendarDayLabel(task.dueDate) || task.dueDate;
+      row.appendChild(when);
+    }
 
     // 28 septembre 2026, demande directe d'Emilien : « en dessous les tâches
     // avec une croix rouge pour les supprimer », précisée le même jour :
