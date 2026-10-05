@@ -836,7 +836,8 @@
     // Description du pôle/secteur (attribuée via la fenêtre d'activité,
     // section Catégories) — demande explicite d'Emilien, affichée seulement
     // si présente, même gabarit que .subProjectRowDesc.
-    if (g.description) {
+    // 5 oct. 2026 (Emilien) : descriptif masqué sur la page 2 (conservé dans la fenêtre d'activité).
+    if (false && g.description) {
       var desc = document.createElement('p');
       desc.className = 'meta subProjectRowDesc';
       desc.textContent = g.description;
