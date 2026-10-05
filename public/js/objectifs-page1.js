@@ -855,11 +855,21 @@
           if (!choice) { cancelled = true; return next(); }
           var extra = { allowDuplicate: cur.allowDuplicate || cur.r.needs === 'duplicate', forcedCategory: choice.forcedCategory || null };
           return captureRequest(label, [cur.r.activityId], extra).then(function (res) {
+            var applies = [];
             res.forEach(function (r) {
               if (r.needs) queue.unshift({ r: r, allowDuplicate: extra.allowDuplicate });
-              else finals.push(r);
+              else {
+                // Mode Absence : date et responsable choisis dans le pop-up de sélection.
+                if (r.ok && (choice.dueDate || choice.plannedUserId)) {
+                  var body = { userId: TMT.getProfile().id };
+                  if (choice.dueDate) { body.dueDate = choice.dueDate; r.dueDate = choice.dueDate; }
+                  if (choice.plannedUserId) { body.plannedUserId = choice.plannedUserId; r.plannedUserId = choice.plannedUserId; }
+                  applies.push(api('PUT', '/api/sub-project-items/' + r.id, body).catch(function () {}));
+                }
+                finals.push(r);
+              }
             });
-            return next();
+            return Promise.all(applies).then(next);
           });
         });
       }
@@ -975,6 +985,32 @@
         card.appendChild(actions);
       } else {
         title.textContent = TMT.aiMode === 'absence' ? t('Sélection du pôle & secteur') : t('Pôle et secteur non trouvés — où placer cette tâche ?');
+        var getDate = function () { return null; }, getWho = function () { return null; };
+        if (TMT.aiMode === 'absence') {
+          // Mode Absence : l'utilisateur choisit aussi la date et le responsable (modèle de modification de la page 2).
+          var fwrap = document.createElement('div');
+          fwrap.className = 'goalsPlacementBox';
+          function fld(text, el) {
+            var w = document.createElement('label'); w.className = 'goalsPlacementField';
+            var sp = document.createElement('span'); sp.className = 'meta'; sp.textContent = text;
+            w.appendChild(sp); w.appendChild(el); return w;
+          }
+          var dIn = document.createElement('input'); dIn.type = 'date';
+          var dn = new Date(); dIn.value = dn.getFullYear() + '-' + String(dn.getMonth() + 1).padStart(2, '0') + '-' + String(dn.getDate()).padStart(2, '0');
+          var wSel = document.createElement('select');
+          var wNone = document.createElement('option'); wNone.value = ''; wNone.textContent = '—'; wSel.appendChild(wNone);
+          api('GET', '/api/activities/' + r.activityId + '/goals/members').then(function (d) {
+            ((d && d.members) || []).forEach(function (m) {
+              var o = document.createElement('option'); o.value = m.id; o.textContent = m.name; wSel.appendChild(o);
+            });
+          }).catch(function () {});
+          fwrap.appendChild(fld(t('Quand'), dIn));
+          fwrap.appendChild(fld(t('Responsable'), wSel));
+          card.appendChild(fwrap);
+          getDate = function () { return dIn.value || null; };
+          getWho = function () { return wSel.value || null; };
+        }
+        function pick(key) { finish({ forcedCategory: key, dueDate: getDate(), plannedUserId: getWho() }); }
         var list = document.createElement('div');
         list.className = 'goalsCaptureConfirmList';
         function render(choices, showOther) {
@@ -984,7 +1020,7 @@
             b.type = 'button';
             b.className = 'gmChip goalsCaptureConfirmChoice';
             b.textContent = c.label;
-            b.addEventListener('click', function () { finish({ forcedCategory: c.key }); });
+            b.addEventListener('click', function () { pick(c.key); });
             list.appendChild(b);
           });
           if (showOther) {
@@ -1015,7 +1051,7 @@
             var bb = document.createElement('button');
             bb.type = 'button'; bb.className = 'goalsCaptureFloatItem ' + cls;
             bb.textContent = text;
-            bb.addEventListener('click', function (e) { e.stopPropagation(); finish({ forcedCategory: key }); });
+            bb.addEventListener('click', function (e) { e.stopPropagation(); pick(key); });
             float.appendChild(bb);
           }
           groups.forEach(function (g) {
@@ -1039,7 +1075,9 @@
   // 5 oct. 2026 (Emilien) : pop-up après création — pour chaque activité, où la tâche
   // a été rangée (pôle/secteur, date, responsable), modifiable. Responsable vide si
   // aucune info. ✕ ferme sans rien changer (la tâche est déjà enregistrée).
-  function showCapturePlacementModal(label, okResults) {
+  function showCapturePlacementModal(label, okResults, cb) {
+    cb = cb || {};
+    var saved = false;
     if (!okResults.length) return;
     var overlay = document.createElement('div');
     overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
@@ -1058,7 +1096,7 @@
     var body = document.createElement('div');
     body.className = 'goalsPlacementScroll';
     card.appendChild(body);
-    function close() { overlay.remove(); }
+    function close() { overlay.remove(); if (!saved && cb.onCancel) cb.onCancel(); }
     closeBtn.addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
 
@@ -1101,7 +1139,7 @@
       dateIn.type = 'date'; dateIn.value = r.dueDate || '';
       box.appendChild(labeled(t('Quand'), dateIn));
 
-      var shared = !!(act && act.membersCount > 1);
+      var shared = true; // 5 oct. 2026 : le choix du responsable est toujours proposé
       var whoSel = null;
       if (shared) {
         whoSel = document.createElement('select');
@@ -1171,7 +1209,7 @@
           });
         });
       });
-      chain.then(function () { close(); loadGoalsCaptureBadges(); })
+      chain.then(function () { saved = true; close(); if (cb.onSave) cb.onSave(); loadGoalsCaptureBadges(); })
         .catch(function (err) { errP.textContent = err.message; okBtn.disabled = false; });
     });
     actions.appendChild(okBtn);
@@ -1328,12 +1366,15 @@
         })
         .then(function (outcome) {
           if (outcome.noMode) return;
-          // Texte et sélection gardés si l'utilisateur a annulé un choix.
-          if (!outcome.cancelled) {
-            textarea.value = '';
-            goalsCaptureSelectedActivityIds = [];
-          }
           var results = outcome.results;
+          var okResults = results.filter(function (r) { return r.ok; });
+          var partielPopup = TMT.aiMode === 'partiel' && okResults.length > 0;
+          function finalize() {
+            // Texte et sélection gardés si l'utilisateur a annulé un choix.
+            if (!outcome.cancelled) {
+              textarea.value = '';
+              goalsCaptureSelectedActivityIds = [];
+            }
           var pending = document.createElement('div');
           pending.className = 'activityGoalsCategoryAutoTaskPending';
           results.forEach(function (r) {
@@ -1374,7 +1415,18 @@
           }
           renderGoalsCaptureActivities();
           loadGoalsCaptureBadges();
-          if (TMT.aiMode === 'partiel') showCapturePlacementModal(label, results.filter(function (r) { return r.ok; }));
+          }
+          if (partielPopup) {
+            // Fermer le pop-up sans Enregistrer = rien n'est envoyé : les tâches créées sont retirées, le texte et les activités restent.
+            showCapturePlacementModal(label, okResults, {
+              onSave: finalize,
+              onCancel: function () {
+                Promise.all(okResults.map(function (r) {
+                  return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});
+                })).then(function () { loadGoalsCaptureBadges(); renderGoalsCaptureActivities(); });
+              }
+            });
+          } else finalize();
         })
         .catch(function (err) { msg.textContent = err.message; })
         .then(function () { btn.disabled = false; });

@@ -337,6 +337,8 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
     });
     if (hits.length === 1) who = hits[0].id;
   }
+  // Mode Autonome : un responsable est toujours attribué (à défaut, celui qui capture).
+  if (!who && !noAssign && opts && opts.fallbackWho) who = opts.fallbackWho;
   db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 2, plannedUserId = COALESCE(plannedUserId, ?) WHERE id = ?').run(date, who, itemId);
   try { goalsauto.onSubProjectItemChanged(activityId, categoryKey); } catch (e) { /* non bloquant */ }
   return date;

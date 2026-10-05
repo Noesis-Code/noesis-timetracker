@@ -444,7 +444,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
       let placedDate = null;
       if (!skipAutoPlace) {
         try {
-          placedDate = goalscaptureplace.placeCaptureDefault(userId, activityId, item.categoryKey, item.id, label, { noAssign: absence });
+          placedDate = goalscaptureplace.placeCaptureDefault(userId, activityId, item.categoryKey, item.id, label, { noAssign: absence, fallbackWho: opts && opts.aiMode === 'autonome' ? userId : null });
         } catch (e) {
           // Jamais bloquant pour la capture elle-même — la tâche reste
           // simplement non datée, visible dans sa catégorie comme toute
