@@ -307,3 +307,7 @@
 /* 5 oct. 2026 : nom d'activité (pop-up partiel) — sans barre, plus grand, point de la couleur de l'activité à gauche. */
 :root .goalsPlacementModal .goalsPlacementActivity { display: flex; align-items: center; gap: 10px; border-bottom: 0; padding: 0 4px 6px; font-size: 18px; font-weight: 700; letter-spacing: 0; }
 .goalsPlacementActivityDot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; }
+
+.goalsCaptureFloat .goalsCaptureFloatPole { margin: 0; padding: 12px 14px 4px; border-top: 1px solid rgba(255,255,255,.12); font-size: 13px; color: #b9b9c0; font-weight: 600; }
+.goalsCaptureFloat .goalsCaptureFloatPole:first-child { border-top: 0; }
+.goalsCaptureFloatTop { overflow-y: auto; border-radius: 20px; }

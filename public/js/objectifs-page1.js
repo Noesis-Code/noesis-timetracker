@@ -957,7 +957,7 @@
       header.appendChild(closeBtn);
       card.appendChild(header);
       var done = false;
-      function finish(v) { if (done) return; done = true; overlay.remove(); resolve(v); }
+      function finish(v) { if (done) return; done = true; overlay.remove(); var fl = document.querySelector('.goalsCaptureFloatTop'); if (fl) fl.remove(); resolve(v); }
       closeBtn.addEventListener('click', function () { finish(null); });
       overlay.addEventListener('click', function (e) { if (e.target === overlay) finish(null); });
 
@@ -1035,7 +1035,7 @@
         function showDropdown() {
           // « Autre… » : bulle flottante dans ce même pop-up, même liste que le choix pôle/secteur de la page 2
           // (pôles en titres, secteurs dessous ; un pôle sans secteur est lui-même cliquable).
-          var old = card.querySelector('.goalsCaptureFloat');
+          var old = document.querySelector('.goalsCaptureFloatTop');
           if (old) { old.remove(); return; }
           var groups = [], byPole = {};
           (r.candidates || []).forEach(function (c) {
@@ -1046,7 +1046,7 @@
             g.items.push({ key: c.key, label: parts.slice(1).join(' › ') });
           });
           var float = document.createElement('div');
-          float.className = 'goalsCaptureFloat';
+          float.className = 'goalsCaptureFloat goalsCaptureFloatTop';
           function opt(key, text, cls) {
             var bb = document.createElement('button');
             bb.type = 'button'; bb.className = 'goalsCaptureFloatItem ' + cls;
@@ -1061,11 +1061,22 @@
             float.appendChild(h);
             g.items.forEach(function (it) { opt(it.key, it.label, 'sector'); });
           });
-          card.appendChild(float);
+          // Volet flottant AU-DESSUS du pop-up (fixe, ancré sur « Autre… »), comme le menu pôle/secteur du Chrono.
+          var anchor = list.querySelector('.goalsCaptureConfirmOther') || list;
+          var ar = anchor.getBoundingClientRect(), cr = card.getBoundingClientRect();
+          var top = ar.height ? ar.bottom + 6 : cr.top + 70;
+          float.style.position = 'fixed'; float.style.left = (cr.left + 16) + 'px'; float.style.right = 'auto';
+          float.style.width = (cr.width - 32) + 'px'; float.style.zIndex = '10001'; float.style.bottom = 'auto';
+          var spaceBelow = window.innerHeight - top - 16, spaceAbove = ar.top - 16;
+          if (spaceBelow < 220 && spaceAbove > spaceBelow) { float.style.top = 'auto'; float.style.bottom = (window.innerHeight - ar.top + 6) + 'px'; float.style.maxHeight = spaceAbove + 'px'; }
+          else { float.style.top = top + 'px'; float.style.maxHeight = Math.max(160, spaceBelow) + 'px'; }
+          document.body.appendChild(float);
+          function onDoc(e) { if (!float.contains(e.target) && e.target !== anchor) { float.remove(); document.removeEventListener('click', onDoc, true); } }
+          document.addEventListener('click', onDoc, true);
         }
         if (r.suggested && r.suggested.length) render(r.suggested, true);
-        else showDropdown();
-        card.insertBefore(list, card.querySelector('.goalsCaptureFloat'));
+        else window.setTimeout(showDropdown, 30);
+        card.appendChild(list);
       }
       overlay.appendChild(card);
       document.body.appendChild(overlay);
