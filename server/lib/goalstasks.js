@@ -615,6 +615,7 @@ function tasksOverviewForActivity(activityId, todayParam) {
           label: task.label,
           done: task.done,
           dueDate: task.dueDate || null,
+          plannedUserId: task.plannedUserId || null,
           position: task.position,
           autoCaptured: !!task.autoCaptured,
         })),
@@ -692,7 +693,7 @@ function dailyListForActivity(activityId, today) {
   // Filet de sécurité : une tâche à faire sans date (ne devrait plus exister) compte comme « aujourd'hui ».
   const pending = allTasksWithGroup(activityId).filter((t) => !t.done).map((t) => (t.dueDate ? t : Object.assign({}, t, { dueDate: today })));
   const byDue = (a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : (a.position - b.position) || (a.id - b.id));
-  const strip = (t) => ({ id: t.id, label: t.label, dueDate: t.dueDate, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey });
+  const strip = (t) => ({ id: t.id, label: t.label, plannedUserId: t.plannedUserId || null, dueDate: t.dueDate, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey });
   return {
     today,
     minLines: DAILY_MIN_LINES,

@@ -260,3 +260,10 @@
 #goalsTasksArchiveHeader:hover { filter: brightness(1.12); }
 #goalsTasksArchiveHeader .sectionTitle { margin: 0; }
 #goalsTasksArchivePanel { margin-top: 10px; }
+
+/* 5 oct. 2026 : panneau « modifier une tâche » */
+.goalsTasksGroup .subProjectItem { flex-wrap: wrap; }
+.goalsTaskEditPanel { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; padding: 8px 0 4px 28px; }
+.goalsTaskEditPanel input[type="text"], .goalsTaskEditPanel input[type="date"], .goalsTaskEditPanel select { width: 100%; max-width: 100%; font-size: 14px; }
+.goalsTaskEditActions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.goalsTaskEditActions .goalsTaskEditDelete { margin-right: auto; background: none; border: none; color: var(--text-light); padding: 6px; display: inline-flex; }

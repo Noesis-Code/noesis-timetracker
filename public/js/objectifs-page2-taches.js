@@ -875,6 +875,70 @@
   // Même icône corbeille que l'historique du Chrono (CHRONO_HISTORY_DELETE_ICON, app.js).
   var GOALS_TASK_TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
+  var GOALS_TASK_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
+
+  function openGoalsTaskEditPanel(row, task) {
+    var panel = document.createElement('div');
+    panel.className = 'goalsTaskEditPanel';
+    var uid = TMT.getProfile().id;
+
+    var txt = document.createElement('input');
+    txt.type = 'text'; txt.maxLength = 300; txt.value = task.label || '';
+    panel.appendChild(txt);
+
+    var dateIn = document.createElement('input');
+    dateIn.type = 'date'; dateIn.value = task.dueDate || '';
+    panel.appendChild(dateIn);
+
+    var assignSel = null;
+    if (TMT.currentGoalsActivityIsShared) {
+      assignSel = document.createElement('select');
+      var none = document.createElement('option'); none.value = ''; none.textContent = t('Responsable') + ' : —';
+      assignSel.appendChild(none);
+      panel.appendChild(assignSel);
+      api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/members').then(function (d) {
+        ((d && d.members) || []).forEach(function (m) {
+          var o = document.createElement('option'); o.value = m.id; o.textContent = m.name;
+          if (task.plannedUserId === m.id) o.selected = true;
+          assignSel.appendChild(o);
+        });
+      }).catch(function () {});
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'goalsTaskEditActions';
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'goalsTaskEditDelete'; delBtn.innerHTML = GOALS_TASK_TRASH_ICON;
+    delBtn.setAttribute('aria-label', t('Supprimer cette tâche'));
+    delBtn.addEventListener('click', function () {
+      if (!confirm(t('Supprimer cette tâche ?'))) return;
+      api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + uid)
+        .then(function () { loadGoalsTasksOverview(); })
+        .catch(function (err) { alert(err.message); });
+    });
+    var cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'ghost'; cancel.textContent = t('Annuler');
+    cancel.addEventListener('click', function () { panel.remove(); });
+    var save = document.createElement('button');
+    save.type = 'button'; save.textContent = t('Enregistrer');
+    save.addEventListener('click', function () {
+      var label = txt.value.trim();
+      if (!label) { txt.focus(); return; }
+      var body = { userId: uid, label: label };
+      if (dateIn.value) body.dueDate = dateIn.value;
+      if (assignSel) body.plannedUserId = assignSel.value || null;
+      save.disabled = true;
+      api('PUT', '/api/sub-project-items/' + task.id, body)
+        .then(function () { loadGoalsTasksOverview(); })
+        .catch(function (err) { save.disabled = false; alert(err.message); });
+    });
+    actions.appendChild(delBtn); actions.appendChild(cancel); actions.appendChild(save);
+    panel.appendChild(actions);
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+    row.appendChild(panel);
+    txt.focus();
+  }
+
   function buildGoalsTaskRow(task, groupKey) {
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (task.done ? ' done' : '') + (task.grey ? ' goalsDailyGrey' : '');
@@ -945,19 +1009,21 @@
     // couleur) sous la tâche. PUT .../goals/tasks/:id/category.
     // 5 oct. 2026 (Emilien) : poignée ≡ et déplacement des tâches entre secteurs supprimés.
 
-    var del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'subProjectDeleteX goalsTaskTrashBtn';
-    del.innerHTML = GOALS_TASK_TRASH_ICON;
-    del.title = t('Supprimer cette tâche');
-    del.setAttribute('aria-label', t('Supprimer cette tâche'));
-    del.addEventListener('click', function () {
-      if (!confirm(t('Supprimer cette tâche ?'))) return;
-      api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + TMT.getProfile().id)
-        .then(function () { loadGoalsTasksOverview(); })
-        .catch(function (err) { alert(err.message); });
+    // 5 oct. 2026 (Emilien) : la corbeille devient « modifier » ; le panneau permet de
+    // changer le texte, la date et (activité partagée) le responsable, et garde la suppression.
+    var edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'subProjectDeleteX goalsTaskTrashBtn goalsTaskEditBtn';
+    edit.innerHTML = GOALS_TASK_EDIT_ICON;
+    edit.title = t('Modifier cette tâche');
+    edit.setAttribute('aria-label', t('Modifier cette tâche'));
+    edit.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var existing = row.querySelector('.goalsTaskEditPanel');
+      if (existing) { existing.remove(); return; }
+      openGoalsTaskEditPanel(row, task);
     });
-    row.appendChild(del);
+    row.appendChild(edit);
 
     return row;
   }
