@@ -668,7 +668,8 @@
 
     var emptyHint = $('goalsTasksEmptyHint');
     var any = todayTasks.length + upcoming.length > 0;
-    emptyHint.textContent = any ? '' : t('Aucune tâche prévue pour aujourd’hui.');
+    var allDoneHere = !any && data && data.total > 0 && data.done >= data.total;
+    emptyHint.textContent = any ? '' : (allDoneHere ? t('Toutes les tâches sont terminées : retrouve-les dans Archives.') : t('Aucune tâche prévue pour aujourd’hui.'));
     emptyHint.classList.toggle('hidden', any);
     if (!$('goalsTasksArchivePanel').classList.contains('hidden')) loadGoalsTasksArchives();
   }
