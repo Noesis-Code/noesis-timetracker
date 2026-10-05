@@ -227,3 +227,9 @@
 .goalsCaptureConfirmChoice { width: 100%; text-align: left; padding: 12px 14px; font-size: 14px; }
 .goalsCaptureConfirmActions { display: flex; gap: 10px; margin-top: 12px; }
 .goalsCaptureConfirmActions .iconBtn { flex: 1 1 0; }
+
+/* 5 oct. 2026 : pop-up de rangement après création */
+.goalsPlacementBox { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--border); }
+.goalsPlacementTitle { font-weight: 600; margin: 0; }
+.goalsPlacementField { display: flex; flex-direction: column; gap: 4px; }
+.goalsPlacementField select, .goalsPlacementField input { width: 100%; max-width: 100%; font-size: 14px; }

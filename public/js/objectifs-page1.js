@@ -942,6 +942,135 @@
     });
   }
 
+  // 5 oct. 2026 (Emilien) : pop-up après création — pour chaque activité, où la tâche
+  // a été rangée (pôle/secteur, date, responsable), modifiable. Responsable vide si
+  // aucune info. ✕ ferme sans rien changer (la tâche est déjà enregistrée).
+  function showCapturePlacementModal(label, okResults) {
+    if (!okResults.length) return;
+    var overlay = document.createElement('div');
+    overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal';
+    var card = document.createElement('div');
+    card.className = 'goalTaskEditCard';
+    var header = document.createElement('div');
+    header.className = 'goalTaskEditHeader';
+    var title = document.createElement('p');
+    title.className = 'sectionTitle';
+    title.textContent = t('Tâche rangée');
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+    closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+    header.appendChild(title); header.appendChild(closeBtn);
+    card.appendChild(header);
+    function close() { overlay.remove(); }
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+
+    var taskLine = document.createElement('p');
+    taskLine.className = 'meta goalsCaptureConfirmTask';
+    taskLine.textContent = '« ' + label + ' »';
+    card.appendChild(taskLine);
+
+    var uid = TMT.getProfile().id;
+    var forms = [];
+    okResults.forEach(function (r) {
+      var act = null;
+      (TMT.getActivitiesCache() || []).forEach(function (a) { if (String(a.id) === String(r.activityId)) act = a; });
+      var box = document.createElement('div');
+      box.className = 'goalsPlacementBox';
+      var h = document.createElement('p');
+      h.className = 'goalsPlacementTitle';
+      h.textContent = act ? act.name : '';
+      box.appendChild(h);
+
+      var whereSel = document.createElement('select');
+      var cur = r.categoryKey;
+      var curOpt = document.createElement('option');
+      curOpt.value = cur;
+      curOpt.textContent = (r.poleLabel || r.categoryLabel || '') + (r.secteurLabel ? ' › ' + r.secteurLabel : '');
+      whereSel.appendChild(curOpt);
+      box.appendChild(labeled(t('Où'), whereSel));
+
+      var dateIn = document.createElement('input');
+      dateIn.type = 'date'; dateIn.value = r.dueDate || '';
+      box.appendChild(labeled(t('Quand'), dateIn));
+
+      var shared = !!(act && act.membersCount > 1);
+      var whoSel = null;
+      if (shared) {
+        whoSel = document.createElement('select');
+        var none = document.createElement('option'); none.value = ''; none.textContent = '—';
+        whoSel.appendChild(none);
+        box.appendChild(labeled(t('Responsable'), whoSel));
+      }
+      card.appendChild(box);
+      forms.push({ r: r, whereSel: whereSel, dateIn: dateIn, whoSel: whoSel, cur: cur });
+
+      api('GET', '/api/activities/' + r.activityId + '/goals/categories').then(function (d) {
+        whereSel.innerHTML = '';
+        ((d && d.categories) || []).forEach(function (p) {
+          var secs = p.secteurs || [];
+          var targets = secs.length ? secs : [p];
+          var grp = document.createElement('optgroup'); grp.label = p.label;
+          targets.forEach(function (c) {
+            var o = document.createElement('option'); o.value = c.key; o.textContent = secs.length ? c.label : p.label;
+            if (c.key === cur) o.selected = true;
+            grp.appendChild(o);
+          });
+          whereSel.appendChild(grp);
+        });
+        if (!whereSel.value) { whereSel.appendChild(curOpt); whereSel.value = cur; }
+      }).catch(function () {});
+      if (whoSel) {
+        api('GET', '/api/activities/' + r.activityId + '/goals/members').then(function (d) {
+          ((d && d.members) || []).forEach(function (m) {
+            var o = document.createElement('option'); o.value = m.id; o.textContent = m.name;
+            if (r.plannedUserId === m.id) o.selected = true;
+            whoSel.appendChild(o);
+          });
+        }).catch(function () {});
+      }
+    });
+
+    function labeled(text, el) {
+      var w = document.createElement('label');
+      w.className = 'goalsPlacementField';
+      var s = document.createElement('span'); s.className = 'meta'; s.textContent = text;
+      w.appendChild(s); w.appendChild(el);
+      return w;
+    }
+
+    var errP = document.createElement('p'); errP.className = 'msg';
+    card.appendChild(errP);
+    var actions = document.createElement('div');
+    actions.className = 'goalsCaptureConfirmActions';
+    var okBtn = document.createElement('button');
+    okBtn.type = 'button'; okBtn.className = 'iconBtn btnBrique'; okBtn.textContent = t('Enregistrer');
+    okBtn.addEventListener('click', function () {
+      okBtn.disabled = true;
+      var chain = Promise.resolve();
+      forms.forEach(function (f) {
+        chain = chain.then(function () {
+          var p = Promise.resolve();
+          if (f.whereSel.value && f.whereSel.value !== f.cur) {
+            p = api('PUT', '/api/activities/' + f.r.activityId + '/goals/tasks/' + f.r.id + '/category', { userId: uid, categoryKey: f.whereSel.value });
+          }
+          return p.then(function () {
+            var body = { userId: uid };
+            if (f.dateIn.value) body.dueDate = f.dateIn.value;
+            if (f.whoSel) body.plannedUserId = f.whoSel.value || null;
+            return api('PUT', '/api/sub-project-items/' + f.r.id, body);
+          });
+        });
+      });
+      chain.then(function () { close(); loadGoalsCaptureBadges(); })
+        .catch(function (err) { errP.textContent = err.message; okBtn.disabled = false; });
+    });
+    actions.appendChild(okBtn);
+    card.appendChild(actions);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  }
+
   function buildGoalsCaptureBubble() {
     var outer = document.createElement('div');
     outer.className = 'activityGoalsCategoryAutoTaskWrapOuter';
@@ -1038,6 +1167,7 @@
           }
           renderGoalsCaptureActivities();
           loadGoalsCaptureBadges();
+          showCapturePlacementModal(label, results.filter(function (r) { return r.ok; }));
         })
         .catch(function (err) { msg.textContent = err.message; })
         .then(function () { btn.disabled = false; });

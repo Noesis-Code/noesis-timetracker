@@ -439,7 +439,19 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
           placedDate = null;
         }
       }
-      results.push(Object.assign({}, item, { activityId, ok: true, dueDate: placedDate || item.dueDate || null }));
+      // 5 oct. 2026 (Emilien) : détail du rangement pour le pop-up de la page 1.
+      let placement = {};
+      try {
+        const fresh = db.prepare('SELECT plannedUserId, dueDate FROM sub_project_items WHERE id = ?').get(item.id) || {};
+        const poleKey = goals.resolveToPole(activityId, item.categoryKey);
+        placement = {
+          plannedUserId: fresh.plannedUserId || null,
+          poleKey,
+          poleLabel: goals.categoryLabelFor(activityId, poleKey),
+          secteurLabel: poleKey !== item.categoryKey ? goals.categoryLabelFor(activityId, item.categoryKey) : null,
+        };
+      } catch (e) { placement = {}; }
+      results.push(Object.assign({}, item, placement, { activityId, ok: true, dueDate: placedDate || item.dueDate || null }));
       // 26 septembre 2026 : second déclencheur du moteur cross-secteur —
       // jamais awaité, jamais bloquant pour la capture (voir le require
       // ci-dessus).
