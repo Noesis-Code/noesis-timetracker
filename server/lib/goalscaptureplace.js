@@ -322,11 +322,13 @@ function redispatchOverdue(userId, activityId) {
 // responsable = le membre nommé dans le texte (prénom), l'unique membre d'une activité
 // solo, sinon AUCUN (pas assez de données). Modifiable ensuite dans le pop-up.
 function normName(x) { return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
-function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel) {
+function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel, opts) {
   const date = todayLocal();
   const members = goals.membersForActivity(activityId);
   let who = null;
-  if (members.length === 1) who = members[0].id;
+  const noAssign = !!(opts && opts.noAssign);
+  if (noAssign) who = null;
+  else if (members.length === 1) who = members[0].id;
   else if (members.length > 1) {
     const text = ' ' + normName(taskLabel).replace(/[^a-z0-9]+/g, ' ') + ' ';
     const hits = members.filter((m) => {

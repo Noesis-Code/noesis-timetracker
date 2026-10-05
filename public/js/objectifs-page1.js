@@ -1087,6 +1087,98 @@
     document.body.appendChild(overlay);
   }
 
+  // ===== 5 oct. 2026 (Emilien) : gestion de l'IA — Autonome / Partiel / Absence =====
+  // Choix obligatoire à la première capture (pop-up), modifiable ensuite dans Réglages.
+  var AI_MODES = [
+    { key: 'autonome', label: 'Autonome', desc: 'Noèsis range tes tâches seul, sans te demander ton avis.' },
+    { key: 'partiel', label: 'Partiel', desc: 'Noèsis propose un rangement ; tu le reconfirmes et tu peux le modifier.' },
+    { key: 'absence', label: 'Absence', desc: 'Noèsis ne range rien : tu choisis toi-même où va chaque tâche.' }
+  ];
+  TMT.aiMode = undefined; // undefined = pas encore lu ; null = jamais choisi
+  function loadAiMode() {
+    if (TMT.aiMode !== undefined) return Promise.resolve(TMT.aiMode);
+    return api('GET', '/api/profile/' + TMT.getProfile().id + '/ai-mode').then(function (d) {
+      TMT.aiMode = (d && d.mode) || null;
+      return TMT.aiMode;
+    });
+  }
+  function saveAiMode(mode) {
+    return api('PUT', '/api/profile/' + TMT.getProfile().id + '/ai-mode', { mode: mode }).then(function () {
+      TMT.aiMode = mode;
+      return mode;
+    });
+  }
+  function buildAiModeChoices(current, onPick) {
+    var box = document.createElement('div');
+    box.className = 'aiModeChoices';
+    AI_MODES.forEach(function (m) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'aiModeChoice' + (current === m.key ? ' on' : '');
+      var h = document.createElement('span'); h.className = 'aiModeChoiceTitle'; h.textContent = t(m.label);
+      var d = document.createElement('span'); d.className = 'meta aiModeChoiceDesc'; d.textContent = t(m.desc);
+      b.appendChild(h); b.appendChild(d);
+      b.addEventListener('click', function () { onPick(m.key); });
+      box.appendChild(b);
+    });
+    return box;
+  }
+  // Pop-up obligatoire : résout le mode choisi, ou null si fermé (rien n'est alors créé).
+  function askAiModeModal() {
+    return new Promise(function (resolve) {
+      var overlay = document.createElement('div');
+      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal';
+      var card = document.createElement('div');
+      card.className = 'goalTaskEditCard';
+      var header = document.createElement('div');
+      header.className = 'goalTaskEditHeader';
+      var title = document.createElement('p');
+      title.className = 'sectionTitle';
+      title.textContent = t('Comment Noèsis gère tes tâches ?');
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+      closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+      header.appendChild(title); header.appendChild(closeBtn);
+      card.appendChild(header);
+      var hint = document.createElement('p');
+      hint.className = 'meta';
+      hint.textContent = t('Tu pourras changer ce choix à tout moment dans Réglages › Gestion de l\'IA.');
+      card.appendChild(hint);
+      var err = document.createElement('p'); err.className = 'msg';
+      var done = false;
+      function finish(v) { if (done) return; done = true; overlay.remove(); resolve(v); }
+      closeBtn.addEventListener('click', function () { finish(null); });
+      card.appendChild(buildAiModeChoices(null, function (mode) {
+        saveAiMode(mode).then(function () { finish(mode); }).catch(function (e) { err.textContent = e.message; });
+      }));
+      card.appendChild(err);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+    });
+  }
+  function ensureAiMode() {
+    return loadAiMode().then(function (mode) { return mode || askAiModeModal(); });
+  }
+  TMT.renderAiModeSection = function () {
+    var box = $('aiModeOptions');
+    if (!box || !TMT.getProfile()) return;
+    var msg = $('aiModeMsg');
+    function paint() {
+      box.innerHTML = '';
+      box.appendChild(buildAiModeChoices(TMT.aiMode, function (mode) {
+        if (msg) msg.textContent = '';
+        saveAiMode(mode).then(paint).catch(function (e) { if (msg) msg.textContent = e.message; });
+      }));
+      if (TMT.aiMode == null) {
+        var h = document.createElement('p'); h.className = 'hint';
+        h.textContent = t('Pas encore choisi : il te sera demandé à ta première tâche.');
+        box.appendChild(h);
+      }
+    }
+    TMT.aiMode = undefined;
+    loadAiMode().then(paint).catch(function () {});
+  };
+
   function buildGoalsCaptureBubble() {
     var outer = document.createElement('div');
     outer.className = 'activityGoalsCategoryAutoTaskWrapOuter';
@@ -1135,8 +1227,13 @@
       msg.textContent = '';
       btn.disabled = true;
       var sentIds = goalsCaptureSelectedActivityIds.slice();
-      captureWithConfirmations(label, sentIds)
+      ensureAiMode()
+        .then(function (mode) {
+          if (!mode) return { results: [], cancelled: true, noMode: true };
+          return captureWithConfirmations(label, sentIds);
+        })
         .then(function (outcome) {
+          if (outcome.noMode) return;
           // Texte et sélection gardés si l'utilisateur a annulé un choix.
           if (!outcome.cancelled) {
             textarea.value = '';
@@ -1183,7 +1280,7 @@
           }
           renderGoalsCaptureActivities();
           loadGoalsCaptureBadges();
-          showCapturePlacementModal(label, results.filter(function (r) { return r.ok; }));
+          if (TMT.aiMode === 'partiel') showCapturePlacementModal(label, results.filter(function (r) { return r.ok; }));
         })
         .catch(function (err) { msg.textContent = err.message; })
         .then(function () { btn.disabled = false; });

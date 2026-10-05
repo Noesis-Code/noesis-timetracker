@@ -11833,6 +11833,7 @@
     // onglets de la barre du bas).
     $('profileSettingsBtn').classList.add('active');
     renderNotificationsSection();
+    if (TMT.renderAiModeSection) TMT.renderAiModeSection();
     refreshCalendarFeedSection();
   }
   // Le bouton "⚙️" a vécu dans .topbar du 31 août au 2 septembre 2026

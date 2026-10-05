@@ -614,6 +614,25 @@ router.put('/profile/:id/notify-community', (req, res) => {
   res.json({ ok: true, communityNotifyEnabled: !!enabled });
 });
 
+// 5 oct. 2026 (Emilien) : « Gestion de l'IA » — mode choisi par l'utilisateur (null tant que non choisi).
+const AI_MODES = ['autonome', 'partiel', 'absence'];
+router.get('/profile/:id/ai-mode', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux lire que ton propre profil.' });
+  const user = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json({ mode: user.aiMode || null });
+});
+router.put('/profile/:id/ai-mode', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux modifier que ton propre profil.' });
+  const mode = String(req.body.mode || '');
+  if (AI_MODES.indexOf(mode) === -1) return res.status(400).json({ error: 'Mode invalide.' });
+  const r = db.prepare('UPDATE users SET aiMode = ? WHERE id = ?').run(mode, req.params.id);
+  if (!r.changes) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json({ ok: true, mode });
+});
+
 // Vérifie le code d'un profil avant de le "récupérer" depuis "J'ai déjà un
 // profil" (typiquement depuis un autre appareil/navigateur). Ne renvoie le
 // profil qu'en cas de succès, et protège contre le bourrinage.

@@ -242,6 +242,7 @@ async function classifyCategory(activityId, label, opts) {
       candidates: asChoices(categories.map((c) => c.key)),
       suggested: suggestedKeys && suggestedKeys.length === 2 ? asChoices(suggestedKeys) : null,
     });
+    if (opts.skipAi) return unresolved(null, null); // mode « Absence » : l'utilisateur choisit lui-même
     if (!configured()) return unresolved(null, 'Clé API absente.');
     try {
       const prompt = buildPrompt(label, categories, goalsclassifyexamples.recentExamples(activityId, categories), { allowUncertain: true });
@@ -408,6 +409,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
   const skipAutoPlace = !!(opts && opts.skipAutoPlace);
   const allowDuplicate = !!(opts && opts.allowDuplicate);
   const forcedCategory = opts && opts.forcedCategory ? String(opts.forcedCategory) : null;
+  const absence = !!(opts && opts.aiMode === 'absence');
 
   const results = [];
   for (const activityId of ids) {
@@ -420,7 +422,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
         results.push({ activityId, ok: false, needs: 'duplicate', error: 'Cette tâche existe déjà dans cette activité.', activityName: activityNameFor(activityId) });
         continue;
       }
-      const item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: forcedCategory });
+      const item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: forcedCategory, skipAi: absence });
       if (item.unresolved) {
         results.push({
           activityId, ok: false, needs: 'category', error: 'Pôle et secteur non trouvés.',
@@ -431,7 +433,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
       let placedDate = null;
       if (!skipAutoPlace) {
         try {
-          placedDate = goalscaptureplace.placeCaptureDefault(userId, activityId, item.categoryKey, item.id, label);
+          placedDate = goalscaptureplace.placeCaptureDefault(userId, activityId, item.categoryKey, item.id, label, { noAssign: absence });
         } catch (e) {
           // Jamais bloquant pour la capture elle-même — la tâche reste
           // simplement non datée, visible dans sa catégorie comme toute

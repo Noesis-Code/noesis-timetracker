@@ -858,6 +858,11 @@ router.post('/goals/capture', async (req, res) => {
   const rawIds = Array.isArray(req.body.activityIds) ? req.body.activityIds : [];
   if (!rawIds.length) return res.status(400).json({ error: 'Au moins une activité doit être sélectionnée.' });
 
+  // 5 oct. 2026 (Emilien) : mode « gestion de l'IA » obligatoire avant la 1re capture.
+  const aiRow = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(userId);
+  const aiMode = aiRow && aiRow.aiMode ? aiRow.aiMode : null;
+  if (!aiMode) return res.status(409).json({ error: "Choisis d'abord comment Noèsis gère tes tâches.", needsAiMode: true });
+
   const denied = [];
   const allowed = [];
   rawIds.forEach((rawId) => {
@@ -874,6 +879,7 @@ router.post('/goals/capture', async (req, res) => {
       // = rien créé, le client redemande puis renvoie allowDuplicate / forcedCategory.
       allowDuplicate: req.body.allowDuplicate === true,
       forcedCategory: typeof req.body.forcedCategory === 'string' ? req.body.forcedCategory : null,
+      aiMode,
     }) : [];
     const results = denied.concat(ok);
     // Tout refusé (titre vide, trop long, activité introuvable...) : 400 avec

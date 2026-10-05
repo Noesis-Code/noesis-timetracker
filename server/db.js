@@ -2223,6 +2223,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_suggestions_user_date ON daily_sugge
 if (!columnExists('activity_members', 'notifyEnabled')) {
   db.exec('ALTER TABLE activity_members ADD COLUMN notifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
+// 5 oct. 2026 (Emilien) : mode « gestion de l'IA » par utilisateur — NULL tant que non choisi (pop-up obligatoire
+// à la première capture), puis 'autonome' | 'partiel' | 'absence'.
+if (!columnExists('users', 'aiMode')) {
+  db.exec('ALTER TABLE users ADD COLUMN aiMode TEXT');
+}
 if (!columnExists('users', 'communityNotifyEnabled')) {
   db.exec('ALTER TABLE users ADD COLUMN communityNotifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
