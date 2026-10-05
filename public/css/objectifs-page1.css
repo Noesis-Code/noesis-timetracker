@@ -257,3 +257,9 @@
 .goalsPlacementActivity { margin: 0; font-weight: 600; font-size: 14px; padding: 0 4px; }
 :root .goalsPlacementField select, :root .goalsPlacementField input[type="date"] { min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; text-align-last: left; -webkit-appearance: none; appearance: none; background: var(--vc-bg) !important; box-shadow: inset 0 0 0 1px var(--vc-line) !important; border: 0 !important; border-radius: 999px !important; }
 :root .goalsPlacementField input[type="date"] { text-align: center; display: block; margin: 0 auto; width: 100%; }
+
+/* 5 oct. 2026 : choix de secteur (Autonome/Absence) — propositions moins opaques, liste déroulante pour « Autre ». */
+:root .aiModeModal .goalsCaptureConfirmChoice { background: color-mix(in srgb, var(--vc-bg) 45%, transparent); box-shadow: inset 0 0 0 1px var(--vc-line); border: 0; border-radius: 999px; }
+:root .aiModeModal .goalsCaptureConfirmList { margin-top: 12px; }
+:root .goalsCaptureConfirmSelect { width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; -webkit-appearance: none; appearance: none; background: var(--vc-bg) !important; box-shadow: inset 0 0 0 1px var(--vc-line) !important; border: 0 !important; border-radius: 999px !important; text-align: left; color: var(--text); font-size: 14px; }
+.goalsCaptureConfirmOk { align-self: flex-end; }

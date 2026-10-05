@@ -872,7 +872,7 @@
     return new Promise(function (resolve) {
       var overlay = document.createElement('div');
       // 5 oct. 2026 : le choix de secteur (tri introuvable, modes Autonome/Absence) est un pop-up centré.
-      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal' + (r.needs === 'category' ? ' goalsPlacementModal' : '');
+      overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal' + (r.needs === 'category' ? ' goalsPlacementModal aiModeModal' : '');
       var card = document.createElement('div');
       card.className = 'goalTaskEditCard';
       var header = document.createElement('div');
@@ -916,13 +916,6 @@
         card.appendChild(actions);
       } else {
         title.textContent = t('Pôle et secteur non trouvés — où placer cette tâche ?');
-        card.appendChild(taskLine);
-        if (r.activityName) {
-          var actLine = document.createElement('p');
-          actLine.className = 'meta goalsCaptureConfirmTask';
-          actLine.textContent = r.activityName;
-          card.appendChild(actLine);
-        }
         var list = document.createElement('div');
         list.className = 'goalsCaptureConfirmList';
         function render(choices, showOther) {
@@ -940,12 +933,28 @@
             o.type = 'button';
             o.className = 'gmChip goalsCaptureConfirmChoice goalsCaptureConfirmOther';
             o.textContent = t('Autre…');
-            o.addEventListener('click', function () { render(r.candidates || [], false); });
+            o.addEventListener('click', showDropdown);
             list.appendChild(o);
           }
         }
+        function showDropdown() {
+          {
+              list.innerHTML = '';
+              var sel = document.createElement('select');
+              sel.className = 'goalsCaptureConfirmSelect';
+              var ph = document.createElement('option'); ph.value = ''; ph.textContent = t('Choisis un pôle ou un secteur'); sel.appendChild(ph);
+              (r.candidates || []).forEach(function (c) {
+                var op = document.createElement('option'); op.value = c.key; op.textContent = String(c.label).replace(' → ', ' › '); sel.appendChild(op);
+              });
+              var ok = document.createElement('button');
+              ok.type = 'button'; ok.className = 'iconBtn btnBrique goalsCaptureConfirmOk'; ok.textContent = t('Valider'); ok.disabled = true;
+              sel.addEventListener('change', function () { ok.disabled = !sel.value; });
+              ok.addEventListener('click', function () { if (sel.value) finish({ forcedCategory: sel.value }); });
+              list.appendChild(sel); list.appendChild(ok);
+          }
+        }
         if (r.suggested && r.suggested.length) render(r.suggested, true);
-        else render(r.candidates || [], false);
+        else showDropdown();
         card.appendChild(list);
       }
       overlay.appendChild(card);
