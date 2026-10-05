@@ -142,6 +142,7 @@
     'Heure de début': 'Start time',
     'Heure de fin': 'End time',
     'Annuler': 'Cancel',
+    'Tâche': 'Task',
     'Tâche rangée': 'Task placed',
     'Modifier cette tâche': 'Edit this task',
     'Durée : —': 'Duration: —',

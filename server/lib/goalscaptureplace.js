@@ -318,7 +318,30 @@ function redispatchOverdue(userId, activityId) {
   return lateLong.length + lateShort.length;
 }
 
+// 5 oct. 2026 (Emilien) : rangement par défaut à la capture (page 1) — date = aujourd'hui ;
+// responsable = le membre nommé dans le texte (prénom), l'unique membre d'une activité
+// solo, sinon AUCUN (pas assez de données). Modifiable ensuite dans le pop-up.
+function normName(x) { return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel) {
+  const date = todayLocal();
+  const members = goals.membersForActivity(activityId);
+  let who = null;
+  if (members.length === 1) who = members[0].id;
+  else if (members.length > 1) {
+    const text = ' ' + normName(taskLabel).replace(/[^a-z0-9]+/g, ' ') + ' ';
+    const hits = members.filter((m) => {
+      const first = normName(m.name).split(/\s+/)[0];
+      return first && first.length >= 2 && text.indexOf(' ' + first + ' ') !== -1;
+    });
+    if (hits.length === 1) who = hits[0].id;
+  }
+  db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 2, plannedUserId = COALESCE(plannedUserId, ?) WHERE id = ?').run(date, who, itemId);
+  try { goalsauto.onSubProjectItemChanged(activityId, categoryKey); } catch (e) { /* non bloquant */ }
+  return date;
+}
+
 module.exports = {
+  placeCaptureDefault,
   redispatchOverdue,
   LOOKAHEAD_DAYS,
   DEFAULT_TASK_MINUTES,

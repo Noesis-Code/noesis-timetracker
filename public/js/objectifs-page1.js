@@ -982,6 +982,10 @@
       h.textContent = act ? act.name : '';
       box.appendChild(h);
 
+      var labelIn = document.createElement('input');
+      labelIn.type = 'text'; labelIn.maxLength = 300; labelIn.value = label;
+      box.appendChild(labeled(t('Tâche'), labelIn));
+
       var whereSel = document.createElement('select');
       var cur = r.categoryKey;
       var curOpt = document.createElement('option');
@@ -1003,7 +1007,7 @@
         box.appendChild(labeled(t('Responsable'), whoSel));
       }
       card.appendChild(box);
-      forms.push({ r: r, whereSel: whereSel, dateIn: dateIn, whoSel: whoSel, cur: cur });
+      forms.push({ r: r, labelIn: labelIn, whereSel: whereSel, dateIn: dateIn, whoSel: whoSel, cur: cur });
 
       api('GET', '/api/activities/' + r.activityId + '/goals/categories').then(function (d) {
         whereSel.innerHTML = '';
@@ -1056,6 +1060,8 @@
           }
           return p.then(function () {
             var body = { userId: uid };
+            var newLabel = f.labelIn.value.trim();
+            if (newLabel && newLabel !== label) body.label = newLabel;
             if (f.dateIn.value) body.dueDate = f.dateIn.value;
             if (f.whoSel) body.plannedUserId = f.whoSel.value || null;
             return api('PUT', '/api/sub-project-items/' + f.r.id, body);
