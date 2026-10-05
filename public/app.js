@@ -7058,6 +7058,7 @@
     // followingFeedForUser, server/lib/community.js. Elles prennent le violet
     // plein pour se repérer d'un coup d'œil sans casser l'ordre chronologique.
     var isMine = !!(profile && entry.userId === profile.id);
+    var isAnnouncement = !!entry.isAnnouncement; // annonce Noèsis : ni profil à ouvrir, ni suppression
 
     var card = document.createElement('div');
     // .feedPost (styles.css, 3 septembre 2026, demande d'Emilien : « le nom
@@ -7104,7 +7105,7 @@
       ' ' + fullName(entry.userName, entry.userLastName) + (isMine ? t(' (toi)') : '')));
     // Ouvrir sa PROPRE page de visite de profil depuis son propre message
     // n'aurait aucun sens : le clic n'est proposé que sur les autres.
-    if (!isMine) {
+    if (!isMine && !isAnnouncement) {
       authorSpan.style.cursor = 'pointer';
       authorSpan.addEventListener('click', function () { openProfileViewModal(entry.userId, entry.userName, entry.userColor); });
     }

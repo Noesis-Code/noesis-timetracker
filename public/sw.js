@@ -37,7 +37,7 @@
  * un service worker n'a accès ni à public/i18n.js ni à la langue du profil.
  */
 
-const CACHE_VERSION = 'noesis-v4';
+const CACHE_VERSION = 'noesis-v5';
 
 // Enveloppe de l'app : ce qu'il faut pour qu'elle s'affiche sans réseau.
 // ⚠️ '/qrcode.js' ajouté le 11 septembre 2026 (QR code de la section

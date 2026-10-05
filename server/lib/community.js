@@ -166,7 +166,17 @@ function followingFeedForUser(userId, limit) {
   `).all(userId, userId, limit).map((row) => Object.assign({ type: 'post' }, row));
   posts.forEach((post) => { post.attachments = profilePostAttachmentsFor(post.id); });
 
-  return posts;
+  // 5 oct. 2026 (Emilien) : les annonces Noèsis (table announcements, envoyées à la main par
+  // scripts/send-announcement.js) défilent dans le fil comme une publication normale, visible
+  // par TOUS les profils, abonnements ou non. Auteur « Noèsis », jamais supprimable depuis le fil.
+  const announcements = db.prepare('SELECT id, body, createdAt FROM announcements ORDER BY id DESC LIMIT 20').all()
+    .map((a) => ({
+      type: 'post', id: 'announcement-' + a.id, userId: null, userName: 'Noèsis', userLastName: null,
+      userColor: '#7c5cff', userAvatar: null, body: a.body, createdAt: a.createdAt,
+      attachments: [], isAnnouncement: true,
+    }));
+
+  return posts.concat(announcements);
 }
 
 // Liste des membres d'UNE activité partagée précise, avec un indicateur "en
