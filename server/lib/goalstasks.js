@@ -684,7 +684,8 @@ function purgeOldDoneTasks(activityId) {
 // today : tâches non cochées dont l'échéance est aujourd'hui (ou dépassée, reportée) ;
 // upcoming : échéances futures croissantes (le client complète jusqu'à 5 lignes).
 function dailyListForActivity(activityId, today) {
-  const pending = allTasksWithGroup(activityId).filter((t) => !t.done && t.dueDate);
+  // Filet de sécurité : une tâche à faire sans date (ne devrait plus exister) compte comme « aujourd'hui ».
+  const pending = allTasksWithGroup(activityId).filter((t) => !t.done).map((t) => (t.dueDate ? t : Object.assign({}, t, { dueDate: today })));
   const byDue = (a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : (a.position - b.position) || (a.id - b.id));
   const strip = (t) => ({ id: t.id, label: t.label, dueDate: t.dueDate, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey });
   return {
