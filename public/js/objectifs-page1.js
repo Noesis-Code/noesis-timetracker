@@ -859,7 +859,7 @@
               if (r.ok && (choice.dueDate || choice.plannedUserId)) {
                 var body = { userId: TMT.getProfile().id };
                 if (choice.dueDate) { body.dueDate = choice.dueDate; r.dueDate = choice.dueDate; }
-                if (choice.plannedUserId) { body.plannedUserId = choice.plannedUserId; r.plannedUserId = choice.plannedUserId; }
+                if (choice.plannedUserId) { body.plannedUserId = choice.plannedUserId; body.notifyAssignee = true; r.plannedUserId = choice.plannedUserId; }
                 applies.push(api('PUT', '/api/sub-project-items/' + r.id, body).catch(function () {}));
               }
               finals.push(r);
@@ -1353,7 +1353,7 @@
             var newLabel = f.labelIn.value.trim();
             if (newLabel && newLabel !== label) body.label = newLabel;
             if (f.dateIn.value) body.dueDate = f.dateIn.value;
-            if (f.whoSel) body.plannedUserId = f.whoSel.value || null;
+            if (f.whoSel) { body.plannedUserId = f.whoSel.value || null; body.notifyAssignee = true; }
             return api('PUT', '/api/sub-project-items/' + f.r.id, body);
           });
         });

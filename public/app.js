@@ -12451,6 +12451,27 @@
       return;
     }
 
+    // 5 oct. 2026 (Emilien) : tâche attribuée par un autre membre (server/lib/taskassignnotif.js).
+    // Destination : Feuille de route, page 2, détail de la période (objectif périodique + hebdomadaires)
+    // où la tâche est répertoriée, semaine surlignée.
+    if (target === 'taskassigned') {
+      var taActivityId = notifIdParam(params, 'activityId');
+      var taCategory = params.get('category');
+      var taPeriod = Number(params.get('periodNumber'));
+      var taWeek = Number(params.get('weekIndex'));
+      switchTab('goals');
+      if (!taActivityId) return;
+      if (taCategory && taPeriod) {
+        openGoalsActivityFromNotification(taActivityId, taCategory, taPeriod);
+        if (taWeek >= 1 && taWeek <= 4) focusWhenReady('#goalWeekCard' + taWeek, 60);
+      } else {
+        openGoalsActivityFromNotification(taActivityId, null, null);
+        var taTask = notifIdParam(params, 'taskId');
+        if (taTask) focusGoalsTaskFromNotification(taActivityId, taTask);
+      }
+      return;
+    }
+
     // Rappel de fin de période d'objectif (15 septembre 2026,
     // server/lib/goalreminders.js, discussion "Objectifs — D : Calendrier &
     // intégrations") : ouvre l'onglet Objectifs sur l'activité concernée

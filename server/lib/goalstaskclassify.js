@@ -452,6 +452,10 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
           placedDate = null;
         }
       }
+      // Mode Autonome (aucun pop-up) : responsable désigné par le texte, autre que l'auteur → notification.
+      if (opts && opts.aiMode === 'autonome') {
+        try { require('./taskassignnotif').notifyAssigned(item.id, userId); } catch (e) { /* non bloquant */ }
+      }
       // 5 oct. 2026 (Emilien) : détail du rangement pour le pop-up de la page 1.
       let placement = {};
       try {
