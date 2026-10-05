@@ -1421,6 +1421,8 @@
       // continue (voir pinLoop plus bas) absorbe ce cas sans code dédié :
       // une lecture à 0 par erreur ne dure jamais plus d'une image.
       function applyPin() {
+        // 5 oct. 2026 (Emilien) : bulle Discussion et 3 points masqués tant que le clavier est ouvert.
+        document.documentElement.classList.toggle('kbOpen', (document.documentElement.clientHeight - vv.height) > 100);
         var yT = 'translateY(' + Math.round(vv.offsetTop) + 'px)';
         var h = Math.round(vv.height) + 'px';
         for (var i = 0; i < pinBars.length; i++) {
@@ -1482,6 +1484,7 @@
           // réafficher explicitement plutôt que de compter sur une dernière
           // frame d'applyPin() qui pourrait ne jamais s'exécuter.
           for (var i = 0; i < pinBottomBars.length; i++) pinBottomBars[i].style.display = '';
+          document.documentElement.classList.remove('kbOpen');
         }, 80);
       }, true);
     })();

@@ -271,3 +271,6 @@
 .goalsTaskEditPanel input[type="text"], .goalsTaskEditPanel input[type="date"], .goalsTaskEditPanel select { width: 100%; max-width: 320px; font-size: 14px; text-align: center; text-align-last: center; }
 .goalsTaskEditPanel input[type="date"] { display: block; margin: 0 auto; }
 .goalsTaskEditPanel .rowActions { width: 100%; max-width: 320px; }
+
+/* 5 oct. 2026 (Emilien) : clavier ouvert => bulle Discussion et 3 points masqués. */
+:root.kbOpen #goalsPage2Dots, :root.kbOpen #goalsPage2ModeDiscBtn { display: none !important; }
