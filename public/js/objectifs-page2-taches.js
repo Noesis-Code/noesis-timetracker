@@ -892,10 +892,14 @@
   function openGoalsTaskEditPanel(row, task) {
     var panel = document.createElement('div');
     panel.className = 'goalsTaskEditPanel historyEditFields';
+    row.classList.add('goalsTaskEditing');
     var uid = TMT.getProfile().id;
 
-    var txt = document.createElement('input');
-    txt.type = 'text'; txt.maxLength = 300; txt.value = task.label || '';
+    var txt = document.createElement('textarea');
+    txt.className = 'goalsTaskEditText'; txt.rows = 1; txt.maxLength = 300; txt.value = task.label || '';
+    function fitTxt() { txt.style.height = 'auto'; txt.style.height = txt.scrollHeight + 'px'; }
+    txt.addEventListener('input', fitTxt);
+    txt.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
     panel.appendChild(txt);
 
     var dateIn = document.createElement('input');
@@ -930,7 +934,7 @@
     });
     var cancel = document.createElement('button');
     cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
-    cancel.addEventListener('click', function () { panel.remove(); var eb = row.querySelector('.goalsTaskEditBtn'); if (eb) eb.style.display = ''; });
+    cancel.addEventListener('click', function () { panel.remove(); row.classList.remove('goalsTaskEditing'); var eb = row.querySelector('.goalsTaskEditBtn'); if (eb) eb.style.display = ''; });
     var save = document.createElement('button');
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     save.addEventListener('click', function () {
@@ -948,6 +952,7 @@
     panel.appendChild(actions);
     panel.addEventListener('click', function (e) { e.stopPropagation(); });
     row.appendChild(panel);
+    fitTxt();
     txt.focus();
   }
 

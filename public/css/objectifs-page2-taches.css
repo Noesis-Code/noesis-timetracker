@@ -274,3 +274,19 @@
 
 /* 5 oct. 2026 (Emilien) : clavier ouvert => bulle Discussion et 3 points masqués. */
 :root.kbOpen #goalsPage2Dots, :root.kbOpen #goalsPage2ModeDiscBtn { display: none !important; }
+
+/* 5 oct. 2026 (Emilien) : en modification, le texte de la tâche est éditable sur place (pas de doublon),
+   plus de case à cocher ; champs de date arrondis sans contour (aussi dans les historiques) ; Responsable à gauche. */
+.goalsTasksGroup .goalsTaskEditing > input[type="checkbox"], .goalsTasksGroup .goalsTaskEditing > .subProjectItemLabel, .goalsTasksGroup .goalsTaskEditing > .goalsDailyWhen { display: none !important; }
+.goalsTaskEditPanel { padding-top: 0; }
+:root .goalsTaskEditPanel textarea.goalsTaskEditText { resize: none; overflow: hidden; font-family: inherit; line-height: 1.35;} :root .goalsTaskEditPanel textarea.goalsTaskEditText { max-width: none; width: 100%; text-align: left; border: 0 !important; background: transparent !important; padding: 6px 0; font-size: inherit; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root .goalsTaskEditPanel select { text-align: left; text-align-last: left; border-radius: 999px; border: 0 !important; padding-left: 14px; }
+:root .goalsTaskEditPanel input[type="date"],
+:root .historyReassign input[type="date"],
+:root .historyEditFields input[type="datetime-local"],
+:root .goalsPlacementField input[type="date"] {
+  border: 0 !important; border-radius: 999px !important; outline: none; box-shadow: none;
+}
+:root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select { min-height: 38px; padding: 8px 14px; box-sizing: border-box; background: var(--card) !important; -webkit-appearance: none; appearance: none; }
+:root .goalsTaskEditPanel select { text-align: left; text-align-last: left; }
+:root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"] { background: rgba(255, 255, 255, 0.07) !important; border: 0 !important; }
