@@ -16244,8 +16244,8 @@
       // 6 oct. 2026 (Emilien) : crayon « modifier » visible directement sur la ligne.
       var penBtn = document.createElement('button');
       penBtn.type = 'button';
-      penBtn.className = 'activityEditPen';
-      penBtn.innerHTML = ACTIVITY_PEN_ICON;
+      penBtn.className = 'historyRowIconBtn activityEditPen';
+      penBtn.innerHTML = CHRONO_HISTORY_EDIT_ICON;
       penBtn.setAttribute('aria-label', t('Modifier cette activité'));
       penBtn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -16314,75 +16314,76 @@
   }
 
 
-  var ACTIVITY_PEN_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
-  var ACTIVITY_TRASH_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg>';
 
   // 6 oct. 2026 (Emilien, variante 1 « édition en place ») : bulle d'édition d'une activité — nom,
   // visibilité (Publique/Confidentielle, propre à chaque membre), Fusionner avec… (ouvre la feuille du
   // bas existante), corbeille à gauche, Annuler / Enregistrer.
   function buildActivityEditBubble(row, a, acts) {
     var profile = TMT.getProfile();
-    row.classList.add('activityEditBubble');
+    // Mêmes classes que le formulaire de modification des pôles/secteurs (catBuildEditForm).
+    row.classList.add('catEditForm', 'catNewPole', 'activityEditBubble');
     var conf = !!a.confidential;
+    var fields = document.createElement('div');
+    fields.className = 'catNewPoleFields';
 
     var nameIn = document.createElement('input');
     nameIn.type = 'text';
-    nameIn.className = 'activityNameInput activityEditName';
     nameIn.maxLength = 120;
+    nameIn.autocomplete = 'off';
     nameIn.value = a.name;
     nameIn.disabled = !a.isOwner;
-    row.appendChild(nameIn);
+    fields.appendChild(nameIn);
 
-    var lbl = document.createElement('div');
-    lbl.className = 'activityEditLabel';
-    lbl.textContent = t('Visibilité');
-    row.appendChild(lbl);
-
-    var seg = document.createElement('div');
-    seg.className = 'activityVisSeg';
-    var pubBtn = document.createElement('button');
-    pubBtn.type = 'button';
-    pubBtn.textContent = t('Publique');
-    var confBtn = document.createElement('button');
-    confBtn.type = 'button';
-    confBtn.textContent = t('Confidentielle');
-    seg.appendChild(pubBtn);
-    seg.appendChild(confBtn);
-    row.appendChild(seg);
-
+    // Curseur : vert = Publique, gris = Confidentielle (réglage propre à chaque membre).
+    var visRow = document.createElement('label');
+    visRow.className = 'activityVisRow';
+    var sw = document.createElement('span');
+    sw.className = 'toggleSwitch';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !conf;
+    var track = document.createElement('span');
+    track.className = 'toggleSwitchTrack';
+    sw.appendChild(cb);
+    sw.appendChild(track);
+    var word = document.createElement('span');
+    word.className = 'activityVisWord';
+    visRow.appendChild(sw);
+    visRow.appendChild(word);
+    fields.appendChild(visRow);
     var note = document.createElement('p');
     note.className = 'meta activityVisNote';
-    row.appendChild(note);
+    fields.appendChild(note);
     function paintVis() {
-      pubBtn.classList.toggle('on', !conf);
-      confBtn.classList.toggle('on', conf);
+      conf = !cb.checked;
+      word.textContent = conf ? t('Confidentielle') : t('Publique');
       note.textContent = conf
         ? t('Visible dans tes statistiques, pas dans celles des autres. Les membres d’une activité partagée voient quand même tes statistiques de cette activité. Ce réglage est le tien.')
         : t('Visible dans les statistiques que voient les autres. Ce réglage est le tien.');
     }
-    pubBtn.addEventListener('click', function () { conf = false; paintVis(); });
-    confBtn.addEventListener('click', function () { conf = true; paintVis(); });
+    cb.addEventListener('change', paintVis);
     paintVis();
 
     if ((acts || []).length > 1) {
       var mergeBtn = document.createElement('button');
       mergeBtn.type = 'button';
-      mergeBtn.className = 'activityEditAction';
-      mergeBtn.innerHTML = '<span>⇄</span><span>' + t('Fusionner avec…') + '</span><span class="ar">›</span>';
+      mergeBtn.className = 'iconBtn activityEditMerge';
+      mergeBtn.textContent = '⇄ ' + t('Fusionner avec…');
       mergeBtn.addEventListener('click', function () { openMergeActivityModal(a); });
-      row.appendChild(mergeBtn);
+      fields.appendChild(mergeBtn);
     }
 
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+    fields.appendChild(msg);
     var actions = document.createElement('div');
-    actions.className = 'activityEditActions';
+    actions.className = 'catNewPoleActions';
     var trash = document.createElement('button');
     trash.type = 'button';
-    trash.className = 'activityEditTrash';
-    trash.innerHTML = ACTIVITY_TRASH_ICON;
+    trash.className = 'historyRowIconBtn danger';
+    trash.innerHTML = CHRONO_HISTORY_DELETE_ICON;
     trash.setAttribute('aria-label', t('Supprimer cette activité'));
     trash.addEventListener('click', function () { openDeleteActivityModal(a); });
-    var sp = document.createElement('span');
-    sp.className = 'sp';
     var cancel = document.createElement('button');
     cancel.type = 'button';
     cancel.className = 'iconBtn';
@@ -16392,8 +16393,6 @@
     save.type = 'button';
     save.className = 'iconBtn btnBrique';
     save.textContent = t('Enregistrer');
-    var msg = document.createElement('p');
-    msg.className = 'msg';
     save.addEventListener('click', function () {
       save.disabled = true;
       var newName = nameIn.value.trim();
@@ -16410,11 +16409,10 @@
       }).catch(function (err) { msg.textContent = err.message; save.disabled = false; });
     });
     actions.appendChild(trash);
-    actions.appendChild(sp);
     actions.appendChild(cancel);
     actions.appendChild(save);
-    row.appendChild(actions);
-    row.appendChild(msg);
+    fields.appendChild(actions);
+    row.appendChild(fields);
   }
 
   // Appui long qui ouvre le mode édition — copié tel quel de
