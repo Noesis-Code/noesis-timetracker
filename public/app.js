@@ -7350,11 +7350,7 @@
       header.appendChild(handle);
       header.appendChild(dot);
       header.appendChild(catNameInput(activityId, pole, null));
-      var del = catDeleteButton(t('Retirer ce pôle'), function () {
-        openCategoryRemoveModal({ activityId: activityId, key: pole.key, label: pole.label, poleKey: null });
-      });
-      del.disabled = currentActivityGoalsCategories.length <= 1;
-      header.appendChild(del);
+      // 6 oct. 2026 (Emilien) : en mode déplacement (appui long), plus de croix à droite des pôles.
       row.appendChild(header);
       group.appendChild(row);
       group.appendChild(buildCatSecteurs(activityId, pole, true));
@@ -7430,9 +7426,7 @@
         });
         header.appendChild(handle);
         header.appendChild(catNameInput(activityId, s, pole.key));
-        header.appendChild(catSmallButton('✎', t('Modifier ce secteur'), function () {
-          catOpenEdit(activityId, { key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
-        }));
+        // 6 oct. 2026 (Emilien) : en mode déplacement, plus d'icône modifier à droite des secteurs.
         row.appendChild(header);
       } else {
         var name = document.createElement('span');
