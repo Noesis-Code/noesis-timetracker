@@ -16381,13 +16381,17 @@
     word.className = 'activityVisWord';
     visRow.appendChild(sw);
     visRow.appendChild(word);
-    fields.appendChild(visRow);
+    // Fusionner : à droite du curseur, bord droit aligné avec celui de la zone de texte.
+    var visLine = document.createElement('div');
+    visLine.className = 'activityVisLine';
+    visLine.appendChild(visRow);
+    fields.appendChild(visLine);
     var note = document.createElement('p');
     note.className = 'meta activityVisNote';
     fields.appendChild(note);
     function paintVis() {
       conf = !cb.checked;
-      word.textContent = conf ? t('Confidentielle') : t('Publique');
+      word.textContent = conf ? t('Activité invisible pour les autres') : t('Activité visible par les autres');
       note.textContent = conf
         ? t('Visible dans tes statistiques, pas dans celles des autres. Les membres d’une activité partagée voient quand même tes statistiques de cette activité. Ce réglage est le tien.')
         : t('Visible dans les statistiques que voient les autres. Ce réglage est le tien.');
@@ -16401,7 +16405,7 @@
       mergeBtn.className = 'iconBtn activityEditMerge';
       mergeBtn.textContent = '⇄ ' + t('Fusionner avec…');
       mergeBtn.addEventListener('click', function () { openMergeActivityModal(a); });
-      fields.appendChild(mergeBtn);
+      visLine.appendChild(mergeBtn);
     }
 
     var msg = document.createElement('p');
