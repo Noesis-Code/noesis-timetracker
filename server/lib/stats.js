@@ -66,6 +66,15 @@ function hiddenActivityIdsFor(ownerId, viewerId) {
   `).all(ownerId, viewerId || '').map((r) => r.id);
 }
 
+// 6 oct. 2026 (Emilien) : filtre de l'onglet Statistiques — ses PROPRES activités publiques ou
+// confidentielles. 'public' exclut les confidentielles, 'confidential' exclut les publiques, sinon rien.
+function ownVisibilityExcludedIds(userId, visibility) {
+  if (visibility !== 'public' && visibility !== 'confidential') return [];
+  const wantConf = visibility === 'confidential' ? 1 : 0;
+  return db.prepare('SELECT activityId AS id FROM activity_members WHERE userId = ? AND COALESCE(confidential, 0) != ?')
+    .all(userId, wantConf).map((r) => r.id);
+}
+
 function breakdownForRange(userId, startIso, endIso, excludeActivityIds) {
   const rangeStart = new Date(startIso + 'T00:00:00');
   const rangeEnd = new Date(endIso + 'T00:00:00');
@@ -407,6 +416,11 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
     WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
   `).all(userId, start, end);
 
+  if (!byCategory && opts && opts.excludeActivityIds && opts.excludeActivityIds.length) {
+    const hiddenIds = new Set(opts.excludeActivityIds);
+    for (let i = rows.length - 1; i >= 0; i--) if (hiddenIds.has(rows[i].activityId)) rows.splice(i, 1);
+  }
+
   // 18 septembre 2026 (« Pôles & secteurs ») : la Feuille de temps par
   // catégorie reste strictement au niveau pôle (jamais de détail secteur,
   // contrairement à la Répartition — voir server/lib/categorystats.js). Un
@@ -620,4 +634,4 @@ function timesheetMonthForUser(userId, monthOffset, opts) {
   return { monthOffset: offset, isCurrentMonth: offset === 0, start, end, label, hasMoreBefore, weeks };
 }
 
-module.exports = { hiddenActivityIdsFor, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };
+module.exports = { ownVisibilityExcludedIds, hiddenActivityIdsFor, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };

@@ -3643,9 +3643,40 @@
     btn.textContent = pieTodayMode ? t('Semaine') : (pieWeekMode ? t('Synchroniser') : t("Aujourd'hui"));
   }
 
+  // 6 oct. 2026 (Emilien) : filtre Public / Confidentiel / Tous de l'onglet Statistiques (temps).
+  var statsVisibility = 'all';
+  function statsVisParam() { return statsVisibility === 'all' ? '' : '&visibility=' + statsVisibility; }
+  function syncStatsVisBtn() {
+    var labels = { all: t('Tous'), public: t('Public'), confidential: t('Confidentiel') };
+    $('statsVisBtnLabel').textContent = labels[statsVisibility];
+    $('statsVisMenu').querySelectorAll('.statsPeriodMenuItem').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-vis') === statsVisibility);
+    });
+  }
+  $('statsVisBtn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var menu = $('statsVisMenu');
+    var willOpen = menu.classList.contains('hidden');
+    closeAllStatsPeriodMenus();
+    if (willOpen) menu.classList.remove('hidden');
+  });
+  $('statsVisMenu').addEventListener('click', function (e) {
+    var item = e.target.closest('.statsPeriodMenuItem');
+    if (!item) return;
+    this.classList.add('hidden');
+    var v = item.getAttribute('data-vis') || 'all';
+    if (v === statsVisibility) return;
+    statsVisibility = v;
+    syncStatsVisBtn();
+    loadTimesheet();
+    loadChartStats();
+    if (pieTodayMode) loadPieToday(); else if (pieWeekMode) loadPieWeek();
+  });
+  syncStatsVisBtn();
+
   function loadPieToday() {
     if (!profile) return;
-    api('GET', '/api/stats/today?userId=' + profile.id).then(function (data) {
+    api('GET', '/api/stats/today?userId=' + profile.id + statsVisParam()).then(function (data) {
       // L'utilisateur a pu re-cliquer (ou quitter l'onglet) pendant la
       // requête : ne rien peindre si le mode n'est plus actif, sinon une
       // réponse tardive écraserait le camembert resynchronisé.
@@ -3656,7 +3687,7 @@
 
   function loadPieWeek() {
     if (!profile) return;
-    api('GET', '/api/stats/week-so-far?userId=' + profile.id).then(function (data) {
+    api('GET', '/api/stats/week-so-far?userId=' + profile.id + statsVisParam()).then(function (data) {
       if (!pieWeekMode) return;
       renderPieBreakdown(data);
     });
@@ -3680,7 +3711,7 @@
 
   function loadChartStats() {
     if (!profile) return;
-    api('GET', '/api/stats?userId=' + profile.id + '&granularity=' + currentChartGranularity).then(function (data) {
+    api('GET', '/api/stats?userId=' + profile.id + '&granularity=' + currentChartGranularity + statsVisParam()).then(function (data) {
       lastDailyBreakdown = data.dailyBreakdown || [];
       renderChart(lastDailyBreakdown);
     });
@@ -5397,12 +5428,12 @@
   function loadTimesheet() {
     if (!profile) return;
     if (currentTimesheetPeriod === 'month') {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset).then(function (data) {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset + statsVisParam()).then(function (data) {
         renderTimesheetMonth(data);
         renderPieFromTimesheet(data);
       });
     } else {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset).then(function (data) {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset + statsVisParam()).then(function (data) {
         renderTimesheetWeek(data);
         renderPieFromTimesheet(data);
       });

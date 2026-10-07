@@ -782,6 +782,16 @@
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
     <section id="tab-stats" class="tab hidden">
       <div id="statsPages"><div id="statsPage1">
+      <div id="statsVisFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter">
+        <button type="button" class="caSubProjectBtn" id="statsVisBtn" aria-haspopup="true">
+          <span id="statsVisBtnLabel">Tous</span>
+        </button>
+        <div class="statsPeriodMenu caSubProjectMenu hidden" id="statsVisMenu">
+          <button type="button" class="statsPeriodMenuItem active" data-vis="all">Tous</button>
+          <button type="button" class="statsPeriodMenuItem" data-vis="public">Public</button>
+          <button type="button" class="statsPeriodMenuItem" data-vis="confidential">Confidentiel</button>
+        </div>
+      </div>
       <!-- Section 1 : Feuille de temps (heatmap hebdomadaire, ou calendrier
            mensuel — voir plus bas). Plus de mode plein écran depuis le
            1er septembre 2026 (demande d'Emilien : « supprimer l'option de
