@@ -508,3 +508,4 @@
 
 /* Annuler : neutre, sans couleur. */
 #activityGoalsMainCard .goalMainCancelPlain { color: inherit; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.14)); }
+#activityGoalsMainDescInput::placeholder { font-size: 12px; }

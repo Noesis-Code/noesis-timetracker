@@ -982,7 +982,7 @@
     'Pas encore commencée': 'Not started yet',
     'Reporté automatiquement depuis une semaine précédente, non atteinte.': 'Automatically carried over from a previous, unmet week.',
     'Objectif de cette semaine (optionnel)': 'This week’s goal (optional)',
-    'Titre de l’objectif (quelques mots)': 'Goal title (a few words)',
+    'Titre de l’objectif': 'Goal title',
     'Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.': 'Describe this goal more precisely: what you want to achieve, how you will know it is done. The more precise, the better Noèsis plans for you.',
     'Décrire cet objectif': 'Describe this goal',
     'En cours': 'Current',

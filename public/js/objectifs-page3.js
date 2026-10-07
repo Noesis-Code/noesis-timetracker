@@ -64,7 +64,7 @@
                    horizontalement en tapant au lieu de retourner à la ligne
                    dans une boîte haute. Même changement sur la zone
                    hebdomadaire (renderGoalsWeeklyList(), app.js). -->
-              <textarea id="activityGoalsMainInput" rows="1" maxlength="500" placeholder="Titre de l'objectif (quelques mots)"></textarea>
+              <textarea id="activityGoalsMainInput" rows="1" maxlength="500" placeholder="Titre de l'objectif"></textarea>
               <div class="goalMainRead hidden" id="activityGoalsMainRead">
                 <div class="goalMainReadHead">
                   <span class="goalMainReadTitle" id="activityGoalsMainReadTitle"></span>
@@ -619,7 +619,7 @@
         input.className = 'goalWeeklyText';
         input.rows = 1;
         input.maxLength = 300;
-        input.placeholder = t('Titre de l’objectif (quelques mots)');
+        input.placeholder = t('Titre de l’objectif');
         input.value = w ? w.text : '';
         input.addEventListener('blur', function () {
           var value = input.value.trim();
@@ -799,7 +799,7 @@
 
     var mainInput = $('activityGoalsMainInput');
     mainInput.value = period.mainGoalText || '';
-    mainInput.placeholder = t('Titre de l’objectif (quelques mots)');
+    mainInput.placeholder = t('Titre de l’objectif');
     $('activityGoalsMainDescRow').classList.add('hidden'); // remplacé par la lecture + modification sur place (3 oct. 2026)
     // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
     // intégrations"), demande d'Emilien : garder l'enregistrement au blur
