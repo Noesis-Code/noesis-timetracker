@@ -16351,6 +16351,9 @@
         .then(function () {
           a.color = c;
           colorBtn.style.background = c;
+          swatches.classList.add('hidden');
+          nameIn.classList.remove('hidden');
+          nameLine.classList.remove('colorOpen');
           refreshActivities().then(renderActivityGrid);
         })
         .catch(function (err) { alert(err.message); });
@@ -16360,6 +16363,7 @@
       e.stopPropagation();
       var open = swatches.classList.toggle('hidden') === false;
       nameIn.classList.toggle('hidden', open);
+      nameLine.classList.toggle('colorOpen', open);
     });
     nameLine.appendChild(colorBtn);
     nameLine.appendChild(nameIn);
