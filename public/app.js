@@ -16358,12 +16358,13 @@
     swatches.classList.add('hidden');
     colorBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      swatches.classList.toggle('hidden');
+      var open = swatches.classList.toggle('hidden') === false;
+      nameIn.classList.toggle('hidden', open);
     });
     nameLine.appendChild(colorBtn);
     nameLine.appendChild(nameIn);
+    nameLine.appendChild(swatches);
     fields.appendChild(nameLine);
-    fields.appendChild(swatches);
 
     // Curseur : vert = Publique, gris = Confidentielle (réglage propre à chaque membre).
     var visRow = document.createElement('label');

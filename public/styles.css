@@ -6686,3 +6686,5 @@ button { -webkit-user-select: none; user-select: none; }
 .activityVisLine { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .activityVisLine .activityVisRow { flex: 1; min-width: 0; }
 .activityVisLine .activityEditMerge { margin-left: auto; flex: 0 0 auto; align-self: center; white-space: nowrap; }
+.activityEditNameLine .colorSwatches{margin-left:auto;flex-wrap:nowrap;justify-content:flex-end;min-width:0}
+.activityEditNameLine .colorSwatches.hidden,.activityEditNameLine input.hidden{display:none}
