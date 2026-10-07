@@ -6701,3 +6701,4 @@ button { -webkit-user-select: none; user-select: none; }
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(8){animation-delay:315ms}
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(9){animation-delay:360ms}
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(10){animation-delay:405ms}
+.activityVisLine .activityVisRow{padding-left:30px}
