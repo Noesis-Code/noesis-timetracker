@@ -16337,7 +16337,33 @@
     nameIn.autocomplete = 'off';
     nameIn.value = a.name;
     nameIn.disabled = !a.isOwner;
-    fields.appendChild(nameIn);
+    // Pastille de couleur + pastilles de choix : même fonctionnement et même format qu'à l'appui long.
+    var nameLine = document.createElement('div');
+    nameLine.className = 'activityRowHeader activityEditNameLine';
+    var colorBtn = document.createElement('button');
+    colorBtn.type = 'button';
+    colorBtn.className = 'activityColorDot';
+    colorBtn.style.background = a.color;
+    colorBtn.setAttribute('aria-label', t('Changer la couleur'));
+    var swatches = document.createElement('div');
+    renderColorSwatches(swatches, a.color, function (c) {
+      api('PUT', '/api/activities/' + a.id, { userId: profile.id, color: c })
+        .then(function () {
+          a.color = c;
+          colorBtn.style.background = c;
+          refreshActivities().then(renderActivityGrid);
+        })
+        .catch(function (err) { alert(err.message); });
+    }, true);
+    swatches.classList.add('hidden');
+    colorBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      swatches.classList.toggle('hidden');
+    });
+    nameLine.appendChild(colorBtn);
+    nameLine.appendChild(nameIn);
+    fields.appendChild(nameLine);
+    fields.appendChild(swatches);
 
     // Curseur : vert = Publique, gris = Confidentielle (réglage propre à chaque membre).
     var visRow = document.createElement('label');

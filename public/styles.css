@@ -6681,3 +6681,5 @@ button { -webkit-user-select: none; user-select: none; }
 .activityVisNote { margin: 0; }
 .activityEditMerge { align-self: flex-start; }
 .activityRow.activityEditBubble { scroll-margin-bottom: 120px; scroll-margin-top: 12px; }
+.activityEditNameLine { display: flex; align-items: center; gap: 10px; }
+.activityEditNameLine input { flex: 1; min-width: 0; }
