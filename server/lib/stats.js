@@ -54,7 +54,19 @@ const goals = require('./goals');
 // vue Mois) et ne garde qu'une activité dominante par créneau — inutilisable
 // pour des totaux justes. C'est la raison pour laquelle ce calcul reste
 // serveur au lieu d'être refait côté client à partir de la grille.
-function breakdownForRange(userId, startIso, endIso) {
+// 6 oct. 2026 (Emilien) : activités CONFIDENTIELLES de `ownerId` que `viewerId` ne doit pas voir dans
+// ses statistiques — celles marquées confidentielles par lui, sauf si le visiteur est membre de la
+// même activité (activité partagée). Le propriétaire se voit toujours en entier.
+function hiddenActivityIdsFor(ownerId, viewerId) {
+  if (!ownerId || ownerId === viewerId) return [];
+  return db.prepare(`
+    SELECT am.activityId AS id FROM activity_members am
+    WHERE am.userId = ? AND am.confidential = 1
+      AND NOT EXISTS (SELECT 1 FROM activity_members v WHERE v.activityId = am.activityId AND v.userId = ?)
+  `).all(ownerId, viewerId || '').map((r) => r.id);
+}
+
+function breakdownForRange(userId, startIso, endIso, excludeActivityIds) {
   const rangeStart = new Date(startIso + 'T00:00:00');
   const rangeEnd = new Date(endIso + 'T00:00:00');
   rangeEnd.setDate(rangeEnd.getDate() + 1); // borne haute exclusive = lendemain du dernier jour affiché
@@ -68,8 +80,10 @@ function breakdownForRange(userId, startIso, endIso) {
     WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
   `).all(userId, startIso, endIso);
 
+  const excluded = new Set(excludeActivityIds || []);
   const byActivity = {};
   rows.forEach((r) => {
+    if (excluded.has(r.activityId)) return;
     const entryStart = new Date(r.startTime);
     const entryEnd = new Date(r.endTime);
     // Une entrée encore en cours (endTime absent) ou une date illisible
@@ -206,6 +220,11 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
       GROUP BY t.isoDate, a.id
       ORDER BY t.isoDate ASC, seconds DESC
     `).all(userId, start, end);
+
+  if (!byCategory && o.excludeActivityIds && o.excludeActivityIds.length) {
+    const hidden = new Set(o.excludeActivityIds);
+    rows = rows.filter((r) => !hidden.has(r.activityId));
+  }
 
   // 18 septembre 2026 (« Pôles & secteurs ») : le Graphique reste strictement
   // au niveau pôle (jamais de détail secteur affiché ici, contrairement à la
@@ -601,4 +620,4 @@ function timesheetMonthForUser(userId, monthOffset, opts) {
   return { monthOffset: offset, isCurrentMonth: offset === 0, start, end, label, hasMoreBefore, weeks };
 }
 
-module.exports = { breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };
+module.exports = { hiddenActivityIdsFor, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };

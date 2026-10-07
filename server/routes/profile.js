@@ -1082,13 +1082,15 @@ router.get('/profile/:userId/stats', (req, res) => {
   const period = PROFILE_STATS_PERIODS.indexOf(req.query.period) !== -1 ? req.query.period : 'week';
   const granularity = PROFILE_STATS_GRANULARITIES.indexOf(req.query.granularity) !== -1 ? req.query.granularity : 'day';
   const range = periodRange(period);
+  // 6 oct. 2026 : les activités confidentielles de la personne visitée n'apparaissent pas (sauf activité partagée).
+  const hidden = require('../lib/stats').hiddenActivityIdsFor(owner.id, req.userId);
 
   res.json({
     period,
     label: range.label,
     granularity,
-    breakdown: breakdownForRange(owner.id, range.start, range.end),
-    chart: chartBreakdownForUser(owner.id, granularity),
+    breakdown: breakdownForRange(owner.id, range.start, range.end, hidden),
+    chart: chartBreakdownForUser(owner.id, granularity, undefined, { excludeActivityIds: hidden }),
   });
 });
 

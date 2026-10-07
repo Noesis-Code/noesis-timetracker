@@ -18,7 +18,7 @@ function membershipCount(activityId) {
 }
 
 function serializeActivity(a, userId) {
-  var membership = db.prepare('SELECT color, notifyEnabled FROM activity_members WHERE activityId = ? AND userId = ?').get(a.id, userId);
+  var membership = db.prepare('SELECT color, notifyEnabled, confidential FROM activity_members WHERE activityId = ? AND userId = ?').get(a.id, userId);
   var owner = a.ownerId ? db.prepare('SELECT name FROM users WHERE id = ?').get(a.ownerId) : null;
   return {
     id: a.id,
@@ -35,6 +35,8 @@ function serializeActivity(a, userId) {
     // arriver ici) est traité comme activé, par cohérence avec le DEFAULT 1
     // de la colonne.
     notifyEnabled: membership ? !!membership.notifyEnabled : true,
+    // 6 oct. 2026 : Publique (false, défaut) / Confidentielle (true) — personnel à chaque membre.
+    confidential: membership ? !!membership.confidential : false,
   };
 }
 
@@ -183,6 +185,12 @@ router.put('/activities/:id', (req, res) => {
   if (req.body.notifyEnabled !== undefined) {
     db.prepare('UPDATE activity_members SET notifyEnabled = ? WHERE activityId = ? AND userId = ?')
       .run(req.body.notifyEnabled ? 1 : 0, activity.id, userId);
+  }
+
+  // 6 oct. 2026 : confidentialité — chaque membre règle sa propre part.
+  if (req.body.confidential !== undefined) {
+    db.prepare('UPDATE activity_members SET confidential = ? WHERE activityId = ? AND userId = ?')
+      .run(req.body.confidential ? 1 : 0, activity.id, userId);
   }
 
   const updated = db.prepare('SELECT * FROM activities WHERE id = ?').get(activity.id);

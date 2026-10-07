@@ -15957,6 +15957,8 @@
   // lastActivitiesData permet de rebasculer entre les deux rendus SANS
   // aller-retour réseau, ce sont les mêmes données affichées autrement.
   var activitiesEditMode = false;
+  // 6 oct. 2026 (Emilien) : id de l'activité dont on ouvre la bulle « modifier » (crayon) ; null = aucune.
+  var activityEditId = null;
   var lastActivitiesData = null;
 
   // Les deux appels de l'onglet Activité, faits ensemble puis fusionnés dans
@@ -16023,6 +16025,7 @@
   function renderActivitiesSettings(acts, sharedList) {
     var box = $('activitiesList');
     lastActivitiesData = { acts: acts, sharedList: sharedList };
+    if (activityEditId != null && !(acts || []).some(function (x) { return String(x.id) === String(activityEditId); })) activityEditId = null;
     var shared = {};
     (sharedList || []).forEach(function (x) { shared[String(x.activityId)] = x; });
 
@@ -16132,6 +16135,15 @@
       // ouvre la même modale de suppression qu'avant (#deleteActivityModal,
       // garder/purger l'historique — inchangée). Glisser-déposer : voir
       // bindActivityDrag.
+      if (!activitiesEditMode && activityEditId != null) {
+        if (String(a.id) === String(activityEditId)) {
+          buildActivityEditBubble(row, a, acts);
+          box.appendChild(row);
+          return;
+        }
+        row.classList.add('activityRowDim');
+      }
+
       if (activitiesEditMode) {
         var handle = document.createElement('span');
         handle.className = 'activityDragHandle';
@@ -16178,38 +16190,8 @@
         });
         header.appendChild(nameInput);
 
-        // 6 septembre 2026 (Emilien) : le "👤+" quitte le volet sans
-        // remplaçant — Partager et Séparer sont désormais couverts par le
-        // bouton « Membres » d'Activité solo, sur la page de l'activité (voir
-        // le commentaire au-dessus de renderActivitiesSettings). Cette place,
-        // dans la ligne, revient à Fusionner seul — la seule des quatre
-        // actions d'origine qui a un sens SANS ouvrir l'activité — sous une
-        // icône dédiée qui ouvre le choix de fusion directement, sans passer
-        // par un panneau (demande explicite d'Emilien).
-        if (acts.length > 1) {
-          var mergeIconBtn = document.createElement('button');
-          mergeIconBtn.type = 'button';
-          mergeIconBtn.className = 'activityMergeBtn';
-          mergeIconBtn.textContent = '⇄';
-          mergeIconBtn.setAttribute('aria-label', t('Fusionner cette activité'));
-          mergeIconBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            openMergeActivityModal(a);
-          });
-          header.appendChild(mergeIconBtn);
-        }
-
-        var del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'activityDeleteX';
-        del.textContent = '✕';
-        del.setAttribute('aria-label', t('Supprimer cette activité'));
-        del.addEventListener('click', function (e) {
-          e.stopPropagation();
-          openDeleteActivityModal(a);
-        });
-        header.appendChild(del);
-
+        // 6 oct. 2026 (Emilien) : Fusionner / Supprimer / Visibilité ne sont plus ici : ils s'ouvrent
+        // uniquement avec le crayon « modifier » de la ligne (bulle d'édition).
         row.appendChild(header);
 
         var swatches = document.createElement('div');
@@ -16259,6 +16241,19 @@
         header.appendChild(unreadBadge);
       }
 
+      // 6 oct. 2026 (Emilien) : crayon « modifier » visible directement sur la ligne.
+      var penBtn = document.createElement('button');
+      penBtn.type = 'button';
+      penBtn.className = 'activityEditPen';
+      penBtn.innerHTML = ACTIVITY_PEN_ICON;
+      penBtn.setAttribute('aria-label', t('Modifier cette activité'));
+      penBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        activityEditId = a.id;
+        renderActivitiesSettings(acts, sharedList);
+      });
+      header.appendChild(penBtn);
+
       row.appendChild(header);
 
       // 6 septembre 2026 (Emilien) : « supprime les textes en dessous des
@@ -16266,17 +16261,17 @@
       // explicatives qui suivaient (« tu peux choisir ta couleur... »,
       // « clique sur la ligne pour les voir ») sont retirées ; ne reste que
       // l'essentiel (qui la partage / combien de membres).
-      if (!a.isOwner) {
-        var badge = document.createElement('p');
-        badge.className = 'meta';
-        badge.textContent = t('Partagée par {owner}', { owner: a.ownerName || '?' });
-        row.appendChild(badge);
-      } else if (a.membersCount > 1) {
-        var badge2 = document.createElement('p');
-        badge2.className = 'meta';
-        badge2.textContent = t('{count} membres', { count: a.membersCount });
-        row.appendChild(badge2);
-      }
+      var metaLine = document.createElement('p');
+      metaLine.className = 'meta activityMetaLine';
+      var metaText = !a.isOwner
+        ? t('Partagée par {owner}', { owner: a.ownerName || '?' })
+        : (a.membersCount > 1 ? t('{count} membres', { count: a.membersCount }) : '');
+      if (metaText) metaLine.appendChild(document.createTextNode(metaText + ' · '));
+      var visChip = document.createElement('span');
+      visChip.className = 'activityVisChip ' + (a.confidential ? 'conf' : 'pub');
+      visChip.textContent = a.confidential ? t('Confidentielle') : t('Publique');
+      metaLine.appendChild(visChip);
+      row.appendChild(metaLine);
 
       // Clic sur la ligne : ouvre la PAGE de l'activité — voir le commentaire
       // au long de openActivityPage() pour l'historique de ce geste et les
@@ -16318,6 +16313,110 @@
     }
   }
 
+
+  var ACTIVITY_PEN_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  var ACTIVITY_TRASH_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg>';
+
+  // 6 oct. 2026 (Emilien, variante 1 « édition en place ») : bulle d'édition d'une activité — nom,
+  // visibilité (Publique/Confidentielle, propre à chaque membre), Fusionner avec… (ouvre la feuille du
+  // bas existante), corbeille à gauche, Annuler / Enregistrer.
+  function buildActivityEditBubble(row, a, acts) {
+    var profile = TMT.getProfile();
+    row.classList.add('activityEditBubble');
+    var conf = !!a.confidential;
+
+    var nameIn = document.createElement('input');
+    nameIn.type = 'text';
+    nameIn.className = 'activityNameInput activityEditName';
+    nameIn.maxLength = 120;
+    nameIn.value = a.name;
+    nameIn.disabled = !a.isOwner;
+    row.appendChild(nameIn);
+
+    var lbl = document.createElement('div');
+    lbl.className = 'activityEditLabel';
+    lbl.textContent = t('Visibilité');
+    row.appendChild(lbl);
+
+    var seg = document.createElement('div');
+    seg.className = 'activityVisSeg';
+    var pubBtn = document.createElement('button');
+    pubBtn.type = 'button';
+    pubBtn.textContent = t('Publique');
+    var confBtn = document.createElement('button');
+    confBtn.type = 'button';
+    confBtn.textContent = t('Confidentielle');
+    seg.appendChild(pubBtn);
+    seg.appendChild(confBtn);
+    row.appendChild(seg);
+
+    var note = document.createElement('p');
+    note.className = 'meta activityVisNote';
+    row.appendChild(note);
+    function paintVis() {
+      pubBtn.classList.toggle('on', !conf);
+      confBtn.classList.toggle('on', conf);
+      note.textContent = conf
+        ? t('Visible dans tes statistiques, pas dans celles des autres. Les membres d’une activité partagée voient quand même tes statistiques de cette activité. Ce réglage est le tien.')
+        : t('Visible dans les statistiques que voient les autres. Ce réglage est le tien.');
+    }
+    pubBtn.addEventListener('click', function () { conf = false; paintVis(); });
+    confBtn.addEventListener('click', function () { conf = true; paintVis(); });
+    paintVis();
+
+    if ((acts || []).length > 1) {
+      var mergeBtn = document.createElement('button');
+      mergeBtn.type = 'button';
+      mergeBtn.className = 'activityEditAction';
+      mergeBtn.innerHTML = '<span>⇄</span><span>' + t('Fusionner avec…') + '</span><span class="ar">›</span>';
+      mergeBtn.addEventListener('click', function () { openMergeActivityModal(a); });
+      row.appendChild(mergeBtn);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'activityEditActions';
+    var trash = document.createElement('button');
+    trash.type = 'button';
+    trash.className = 'activityEditTrash';
+    trash.innerHTML = ACTIVITY_TRASH_ICON;
+    trash.setAttribute('aria-label', t('Supprimer cette activité'));
+    trash.addEventListener('click', function () { openDeleteActivityModal(a); });
+    var sp = document.createElement('span');
+    sp.className = 'sp';
+    var cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'iconBtn';
+    cancel.textContent = t('Annuler');
+    cancel.addEventListener('click', function () { activityEditId = null; loadSettingsActivities(); });
+    var save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'iconBtn btnBrique';
+    save.textContent = t('Enregistrer');
+    var msg = document.createElement('p');
+    msg.className = 'msg';
+    save.addEventListener('click', function () {
+      save.disabled = true;
+      var newName = nameIn.value.trim();
+      var chain = Promise.resolve();
+      if (a.isOwner && newName && newName !== a.name) {
+        chain = chain.then(function () { return api('PUT', '/api/activities/' + a.id, { userId: profile.id, name: newName }); });
+      }
+      if (conf !== !!a.confidential) {
+        chain = chain.then(function () { return api('PUT', '/api/activities/' + a.id, { userId: profile.id, confidential: conf }); });
+      }
+      chain.then(function () {
+        activityEditId = null;
+        return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); });
+      }).catch(function (err) { msg.textContent = err.message; save.disabled = false; });
+    });
+    actions.appendChild(trash);
+    actions.appendChild(sp);
+    actions.appendChild(cancel);
+    actions.appendChild(save);
+    row.appendChild(actions);
+    row.appendChild(msg);
+  }
+
   // Appui long qui ouvre le mode édition — copié tel quel de
   // bindSubProjectLongPress (mêmes délais, mêmes gardes), appliqué à
   // #activitiesList plutôt qu'à #subProjectsList.
@@ -16352,6 +16451,7 @@
 
   function enterActivitiesEditMode() {
     if (activitiesEditMode || !lastActivitiesData) return;
+    activityEditId = null;
     activitiesEditMode = true;
     renderActivitiesSettings(lastActivitiesData.acts, lastActivitiesData.sharedList);
   }

@@ -2225,6 +2225,12 @@ if (!columnExists('activity_members', 'notifyEnabled')) {
 }
 // 5 oct. 2026 (Emilien) : mode « gestion de l'IA » par utilisateur — NULL tant que non choisi (pop-up obligatoire
 // à la première capture), puis 'autonome' | 'partiel' | 'absence'.
+// 6 oct. 2026 (Emilien) : activité Publique (défaut) ou Confidentielle — PERSONNEL à chaque membre.
+// Confidentielle = présente dans ses propres statistiques, absente de celles que voient les autres,
+// sauf pour les membres de l'activité partagée.
+if (!columnExists('activity_members', 'confidential')) {
+  db.exec('ALTER TABLE activity_members ADD COLUMN confidential INTEGER NOT NULL DEFAULT 0');
+}
 if (!columnExists('users', 'aiMode')) {
   db.exec('ALTER TABLE users ADD COLUMN aiMode TEXT');
 }
