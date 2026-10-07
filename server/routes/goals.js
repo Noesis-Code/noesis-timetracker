@@ -1040,7 +1040,7 @@ router.get('/activities/:id/goals/capacity', (req, res) => {
     const override = goalsauto.getCapacityOverrideMinutes(activityId, category, userId);
     const computed = goalsauto.capacityMinutesForMember(activityId, category, userId);
     const row = goalsauto.getCapacityOverrideRow(activityId, category, userId);
-    res.json({ override, computed, overrideUntil: override != null && row ? goals.addDays(row.endDay, -1) : null });
+    res.json({ override, computed, derived: goalsauto.periodDerivedWeeklyMinutes(activityId, category) != null, overrideUntil: override != null && row ? goals.addDays(row.endDay, -1) : null });
   } catch (err) {
     handleGoalsError(res, err);
   }

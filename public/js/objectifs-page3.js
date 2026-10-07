@@ -885,7 +885,8 @@
       var toMin = function () { var h = parseFloat(String(estIn.value).replace(',', '.')); return isFinite(h) && h >= 0 ? Math.round(h * 60) : null; };
       // S'allume dès que la valeur saisie à la main diffère de la valeur enregistrée.
       var initialMin = period.mainGoalEstimateMinutes != null ? period.mainGoalEstimateMinutes : null;
-      var syncEstBtn = function () { var m = toMin(); estBtn.disabled = m == null || m === initialMin; estBtn.classList.toggle('lit', !estBtn.disabled); };
+      // Vert léger si Noèsis a assez de données pour estimer ; sinon gris pâle, désactivé.
+      var syncEstBtn = function () { estBtn.disabled = autoMinutes == null; estBtn.classList.toggle('lit', autoMinutes != null); };
       if (estIn.dataset.editFor !== curKey) {
         estIn.value = period.mainGoalEstimateMinutes != null ? String(Math.round(period.mainGoalEstimateMinutes / 6) / 10) : '';
         estIn.dataset.editFor = curKey;
@@ -899,6 +900,8 @@
       estBtn.onclick = function () {
         if (autoMinutes == null) { $('activityGoalsMsg').textContent = t('Pas encore assez d’historique pour estimer ce temps.'); return; }
         $('activityGoalsMsg').textContent = '';
+        var curMin = toMin();
+        if (curMin != null && curMin !== autoMinutes && !confirm(t('Remplacer le temps saisi par l’estimation de Noèsis ?'))) return;
         estIn.value = String(Math.round(autoMinutes / 6) / 10);
         initialMin = autoMinutes; syncEstBtn();
       };
@@ -1081,7 +1084,7 @@
         // que loadGoalsCalendarDays() plus bas.
         if (requestId !== goalsCapacityRequestId) return;
         goalsCapacityUntil = data.overrideUntil || null;
-        renderGoalsCapacityBox(box, data.override, data.computed);
+        renderGoalsCapacityBox(box, data.override, data.computed, !!data.derived);
       })
       .catch(function () {
         if (requestId !== goalsCapacityRequestId) return;
@@ -1090,8 +1093,9 @@
   }
 
 
-  function renderGoalsCapacityBox(box, override, computed) {
+  function renderGoalsCapacityBox(box, override, computed, derived) {
     box.innerHTML = '';
+    if (derived) override = null;
     var minutes = override != null ? override : computed;
 
     var line = document.createElement('p');
@@ -1106,9 +1110,10 @@
     line.appendChild(value);
     var tag = document.createElement('span');
     tag.className = 'goalCapacityTag' + (override != null ? ' manual' : '');
-    tag.textContent = override != null ? t('ajusté manuellement') + (goalsCapacityUntil ? ' · ' + t('jusqu’au') + ' ' + goalsCapacityUntil : '') : t('calculé automatiquement');
+    tag.textContent = derived ? t('d’après le temps de la période') : override != null ? t('ajusté manuellement') + (goalsCapacityUntil ? ' · ' + t('jusqu’au') + ' ' + goalsCapacityUntil : '') : t('calculé automatiquement');
     line.appendChild(tag);
     box.appendChild(line);
+    if (derived) return;
 
     if (!goalsCapacityEditing) {
       var editBtn = document.createElement('button');
@@ -1117,7 +1122,7 @@
       editBtn.textContent = t('Ajuster');
       editBtn.addEventListener('click', function () {
         goalsCapacityEditing = true;
-        renderGoalsCapacityBox(box, override, computed);
+        renderGoalsCapacityBox(box, override, computed, derived);
       });
       box.appendChild(editBtn);
       if (override != null) {
@@ -1162,7 +1167,7 @@
     cancelBtn.textContent = t('Annuler');
     cancelBtn.addEventListener('click', function () {
       goalsCapacityEditing = false;
-      renderGoalsCapacityBox(box, override, computed);
+      renderGoalsCapacityBox(box, override, computed, derived);
     });
     editRow.appendChild(cancelBtn);
 

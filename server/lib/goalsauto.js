@@ -182,7 +182,21 @@ function clearCapacityOverride(activityId, category, userId) {
     .run(activityId, category, userId);
 }
 
+// Capacité hebdomadaire dérivée du temps estimé de la période en cours
+// (6 oct. 2026, demande d'Émilien) : estimation de la période ÷ nombre de
+// semaines. null si la période courante n'a pas d'estimation.
+function periodDerivedWeeklyMinutes(activityId, category) {
+  const plan = goals.getPlan(activityId, category);
+  if (!plan) return null;
+  const n = goals.periodNumberForDate(plan.startDate, todayLocal());
+  const row = db.prepare('SELECT mainGoalEstimateMinutes AS m FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
+    .get(activityId, category, n);
+  return row && row.m > 0 ? Math.max(1, Math.round(row.m / goals.WEEKS_PER_PERIOD)) : null;
+}
+
 function capacityMinutesForMember(activityId, category, userId) {
+  const derived = periodDerivedWeeklyMinutes(activityId, category);
+  if (derived != null) return derived;
   const row = getCapacityOverrideRow(activityId, category, userId);
   const today = todayLocal();
   if (row && today < row.endDay) return row.minutes;
@@ -376,6 +390,7 @@ function onSubProjectItemChanged(activityId, category) {
 }
 
 module.exports = {
+  periodDerivedWeeklyMinutes,
   RECENT_WEEKS_WINDOW,
   isOffre1Active,
   activateOffre1,

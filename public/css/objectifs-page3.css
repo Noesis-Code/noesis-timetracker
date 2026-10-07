@@ -509,3 +509,5 @@
 /* Annuler : neutre, sans couleur. */
 #activityGoalsMainCard .goalMainCancelPlain { color: inherit; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.14)); }
 #activityGoalsMainDescInput::placeholder { font-size: 12px; }
+.goalMainEstBtn.lit { border-color: rgba(76,175,80,.7); background: rgba(76,175,80,.16); box-shadow: none; }
+.goalMainEstBtn:disabled:not(.lit) { opacity: .4; }
