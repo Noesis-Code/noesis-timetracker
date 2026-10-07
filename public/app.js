@@ -16392,10 +16392,10 @@
     fields.appendChild(note);
     function paintVis() {
       conf = !cb.checked;
-      word.textContent = conf ? t('Activité invisible pour les autres') : t('Activité visible par les autres');
+      word.textContent = conf ? t('Confidentielle') : t('Publique');
       note.textContent = conf
-        ? t('Visible dans tes statistiques, pas dans celles des autres. Les membres d’une activité partagée voient quand même tes statistiques de cette activité. Ce réglage est le tien.')
-        : t('Visible dans les statistiques que voient les autres. Ce réglage est le tien.');
+        ? t('Activité invisible pour les autres.')
+        : t('Activité visible par les autres.');
     }
     cb.addEventListener('change', paintVis);
     paintVis();
