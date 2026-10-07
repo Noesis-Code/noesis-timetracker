@@ -16251,6 +16251,11 @@
         e.stopPropagation();
         activityEditId = a.id;
         renderActivitiesSettings(acts, sharedList);
+        // La bulle doit apparaître en entier au-dessus de la barre des volets : l'écran remonte au besoin.
+        window.requestAnimationFrame(function () {
+          var bubble = document.querySelector('#activitiesList .activityEditBubble');
+          if (bubble && bubble.scrollIntoView) bubble.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
       });
       header.appendChild(penBtn);
 

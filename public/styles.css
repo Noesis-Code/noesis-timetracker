@@ -6680,3 +6680,4 @@ button { -webkit-user-select: none; user-select: none; }
 .activityVisWord { font-size: 14px; color: var(--text); }
 .activityVisNote { margin: 0; }
 .activityEditMerge { align-self: flex-start; }
+.activityRow.activityEditBubble { scroll-margin-bottom: 120px; scroll-margin-top: 12px; }
