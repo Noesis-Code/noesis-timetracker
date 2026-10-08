@@ -135,6 +135,17 @@ function deterministicAssignments(items, dates) {
 // PURE. items : [{id, minutes, importance, date?}] (date = jour proposé par l'IA, facultatif) ;
 // dates : jours de la semaine ; dayLoad : {date: minutes déjà occupées} ;
 // weekUsed : minutes déjà consommées ; dayMax/weekMax : null = pas de limite.
+// Tâche très longue (> plafond du jour) : elle s'étale sur plusieurs jours consécutifs mais n'est datée qu'UNE fois
+// (au premier jour). Parts : [plafond, plafond, ..., reste]. Ex. 3 h pour 2 h/jour -> lundi 2 h, mardi 1 h.
+function spanParts(minutes, dayMax) {
+  if (!dayMax || !(minutes > dayMax)) return [minutes];
+  const n = Math.ceil(minutes / dayMax);
+  const parts = [];
+  for (let k = 0; k < n - 1; k += 1) parts.push(dayMax);
+  parts.push(minutes - (n - 1) * dayMax);
+  return parts;
+}
+
 function placeWithinCaps({ items, dates, today, dayLoad, weekUsed, dayMax, weekMax }) {
   const usable = dates.filter((d) => d >= today);
   const pool = usable.length ? usable : dates;
@@ -147,9 +158,15 @@ function placeWithinCaps({ items, dates, today, dayLoad, weekUsed, dayMax, weekM
     if (weekMax != null && used + it.minutes > weekMax) { skipped.push(it.id); return; }
     const start = it.date && pool.indexOf(it.date) >= 0 ? pool.indexOf(it.date) : 0;
     const order = pool.slice(start).concat(pool.slice(0, start));
-    const day = order.find((d) => dayMax == null || (load[d] || 0) + it.minutes <= dayMax);
+    const parts = spanParts(it.minutes, dayMax);
+    const day = order.find((d) => {
+      const j = pool.indexOf(d);
+      if (j + parts.length > pool.length) return false; // la tâche longue doit tenir dans la semaine
+      return parts.every((m, k) => dayMax == null || (load[pool[j + k]] || 0) + m <= dayMax);
+    });
     if (!day) { skipped.push(it.id); return; }
-    load[day] = (load[day] || 0) + it.minutes;
+    const j0 = pool.indexOf(day);
+    parts.forEach((m, k) => { load[pool[j0 + k]] = (load[pool[j0 + k]] || 0) + m; });
     used += it.minutes;
     placed.push({ itemId: it.id, date: day });
   });
@@ -171,8 +188,7 @@ function capContextForWeek(activityId, weekly, userId, dates, items, caps, today
     const est = category ? goals.estimateForGoal(activityId, category, 'weekly', label) : null;
     // Une estimation de repli (aucune tâche similaire) n'est pas fiable : durée par défaut.
     const m = est && est.minutes && est.source !== 'similarity-fallback' ? est.minutes : captureplace.DEFAULT_TASK_MINUTES;
-    // Une tâche plus longue que le plafond du jour est comptée au plafond (elle occupe la journée).
-    return caps.dayMax ? Math.min(m, caps.dayMax) : m;
+    return m; // une tâche plus longue que le plafond du jour s'étale sur plusieurs jours (spanParts)
   };
   const rows = db.prepare(`
     SELECT i.id, i.label, i.dueDate, sp.goalCategory AS category
@@ -184,7 +200,10 @@ function capContextForWeek(activityId, weekly, userId, dates, items, caps, today
   rows.forEach((r) => {
     if (!inCapScope(activityId, weekly.category, r.category)) return;
     const m = minutesOf(r.label, r.category);
-    dayLoad[r.dueDate] = (dayLoad[r.dueDate] || 0) + m;
+    spanParts(m, caps.dayMax).forEach((part, k) => {
+      const d = goals.addDays(r.dueDate, k);
+      dayLoad[d] = (dayLoad[d] || 0) + part;
+    });
     weekUsed += m;
   });
   // Temps déjà chronométré cette semaine (jusqu'à aujourd'hui).
@@ -397,4 +416,5 @@ module.exports = {
   modelName,
   generateDailyPlanForWeekly,
   placeWithinCaps,
+  spanParts,
 };
