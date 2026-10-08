@@ -867,7 +867,8 @@
         // Pastille de statut fusionnée avec le numéro : verte = atteint, orange = partiel,
         // rouge = non atteint ; un clic fait tourner le statut (semaine remplie seulement).
         if (w && w.text) {
-          badge.classList.add('goalWeeklyBadgeStatus', goalStatusClass(w.status));
+          badge.classList.add('goalWeeklyBadgeStatus');
+          if (goalStatusClass(w.status)) badge.classList.add(goalStatusClass(w.status));
           badge.setAttribute('role', 'button');
           badge.title = t(GOAL_STATUS_LABELS[w.status] || GOAL_STATUS_LABELS.non_atteint);
           badge.addEventListener('click', function () {
