@@ -1056,7 +1056,15 @@
     if (editing) {
       if (descIn.dataset.editFor !== curKey) { descIn.value = period.mainGoalDescription || ''; descIn.dataset.editFor = curKey; }
       // Hauteur ajustée au contenu (sans défilement) : le champ occupe toute la bulle.
-      var fitDesc = function () { descIn.style.height = 'auto'; descIn.style.height = Math.max(descIn.scrollHeight, 112) + 'px'; };
+      var fitDesc = function () {
+        // Vide : on mesure le texte d'aide (placeholder) pour que la bulle l'englobe en entier, quelle que soit la largeur.
+        var empty = !descIn.value;
+        if (empty) { descIn.style.fontSize = '14px'; descIn.value = descIn.placeholder; }
+        descIn.style.height = 'auto';
+        var h = descIn.scrollHeight;
+        if (empty) { descIn.value = ''; descIn.style.fontSize = ''; }
+        descIn.style.height = Math.max(h + 6, 150) + 'px';
+      };
       descIn.oninput = fitDesc; fitDesc(); setTimeout(fitDesc, 60);
       mainSaveRow.classList.remove('hidden');
       mainInput.onblur = null;

@@ -508,9 +508,9 @@
 
 /* Annuler : neutre, sans couleur. */
 #activityGoalsMainCard .goalMainCancelPlain { color: inherit; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.14)); }
-#activityGoalsMainDescInput::placeholder { font-size: 12px; }
+#activityGoalsMainDescInput::placeholder { font-size: 14px; }
 /* 8 oct. 2026 : la description ne défile ni ne se redimensionne ; vide, elle occupe toute la bulle (texte d'aide en entier). */
-#activityGoalsMainDescInput { overflow: hidden; resize: none; min-height: 112px; }
+#activityGoalsMainDescInput { overflow: hidden; resize: none; min-height: 150px; font-size: 16px; }
 .goalMainEstBtn.lit { border-color: rgba(76,175,80,.7); background: rgba(76,175,80,.16); box-shadow: none; }
 .goalMainEstBtn:disabled:not(.lit) { opacity: .4; }
 
