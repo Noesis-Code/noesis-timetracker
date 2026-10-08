@@ -27,6 +27,8 @@ const express = require('express');
 // de créer ses activités (à l'initialisation puis dans Paramètres).
 require('./db');
 try { require('./lib/profilecolors-staging').applyProfileColorsOnStaging(); } catch (e) { console.error('[profilecolors-staging]', e.message); }
+// Staging seulement ET SEED_SCENARIOS=1 : (re)crée l'activité de test « Scénarios Feuille de route (test) ».
+try { require('./lib/scenarios-staging').seedScenariosOnStaging(); } catch (e) { console.error('[scenarios-staging]', e.message); }
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
