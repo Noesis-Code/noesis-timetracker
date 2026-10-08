@@ -1320,8 +1320,15 @@
   });
   Object.assign(DICT, {
     "Pôles & secteurs": "Divisions & sectors",
-    "Ma moyenne (historique)": "My average (history)",
-    "Mon maximum (facultatif)": "My maximum (optional)",
+    "Moyenne": "Average",
+    "Maximum": "Maximum",
+    "Jour": "Day",
+    "Semaine": "Week",
+    "Heures": "Hours",
+    "Minutes": "Minutes",
+    "Fermer": "Close",
+    "Valider": "Confirm",
+    "Réinitialiser": "Reset",
     "Par jour": "Per day",
     "Par semaine": "Per week",
     "Utiliser ma moyenne": "Use my average",

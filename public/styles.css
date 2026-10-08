@@ -6608,8 +6608,27 @@ button { -webkit-user-select: none; user-select: none; }
 .catEditForm .timeCapsBlock .hint { margin: 0; }
 .catEditForm .timeCapsBody { display: flex; flex-direction: column; gap: 6px; }
 .catEditForm .timeCapsBody.hidden { display: none; }
-.catEditForm .timeCapsFields { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
-.catEditForm .timeCapsFields .fieldLabel { margin: 0; font-size: 14px; }
+.catEditForm .timeCapsTable { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px 8px; align-items: center; }
+.catEditForm .timeCapsHead { font-size: 13px; font-weight: 700; color: var(--text-light); text-align: center; }
+.catEditForm .timeCapsRowLabel { font-size: 14px; font-weight: 600; color: var(--text); }
+.catEditForm .timeCapsAvg { text-align: center; font-size: 15px; color: var(--text); font-variant-numeric: tabular-nums; }
+.catEditForm .timeCapsMax { min-height: 44px; width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--text); font: inherit; font-size: 15px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.catEditForm .timeCapsMax.isEmpty { color: var(--text-light); }
+.catEditForm .timeCapsMax:disabled { opacity: .6; cursor: default; }
+.durPickerOverlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; justify-content: center; }
+.durPickerSheet { width: 100%; max-width: 480px; box-sizing: border-box; margin: 0 8px calc(8px + env(safe-area-inset-bottom)); padding: 12px 16px 16px; border-radius: 22px; background: rgba(38,40,48,.94); color: #fff; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+.durPickerHead { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; }
+.durPickerClose { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: rgba(255,255,255,.75); font-size: 18px; cursor: pointer; }
+.durPickerWheels { position: relative; display: flex; justify-content: center; gap: 24px; height: 220px; margin: 4px 0 8px; }
+.durPickerBand { position: absolute; left: 0; right: 0; top: 88px; height: 44px; border-radius: 10px; background: rgba(255,255,255,.14); pointer-events: none; }
+.durPickerCol { position: relative; width: 110px; }
+.durPickerScroll { height: 220px; overflow-y: auto; scroll-snap-type: y mandatory; padding: 88px 0; box-sizing: border-box; scrollbar-width: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.durPickerScroll::-webkit-scrollbar { display: none; }
+.durPickerItem { height: 44px; line-height: 44px; text-align: center; font-size: 22px; scroll-snap-align: center; cursor: pointer; font-variant-numeric: tabular-nums; }
+.durPickerUnit { position: absolute; left: calc(50% + 24px); top: 0; height: 220px; display: flex; align-items: center; font-size: 12px; color: rgba(255,255,255,.6); pointer-events: none; }
+.durPickerBar { display: flex; align-items: center; justify-content: space-between; }
+.durPickerReset { min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: #7db8ff; font: inherit; font-size: 16px; cursor: pointer; }
+.durPickerOk { width: 48px; height: 48px; border: 0; border-radius: 50%; background: #0a84ff; color: #fff; font-size: 22px; cursor: pointer; }
 .catEditForm .linkBtn { align-self: flex-start; background: none; border: 0; padding: 0; color: var(--purple); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; }
 /* Saisie d'un nouveau pôle/secteur : champ titre au même gabarit que la description */
 .catNewPole input[type="text"] { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border, rgba(255,255,255,.14)); background: var(--card); color: var(--text); }

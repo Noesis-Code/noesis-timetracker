@@ -7562,49 +7562,108 @@
     if (m) return { value: Number(m[1]) };
     return { error: true };
   }
+  // Feuille flottante de choix d'une durée (heures 0-99 + minutes par 5), style
+  // sélecteur d'heure iOS : deux roues scroll-snap. opts : { title, minutes, onDone(min) }.
+  // « Réinitialiser » = 0:00 ; ✓ valide ; ✕ ou toucher dehors ferme sans changer.
+  function openDurationPicker(opts) {
+    var ROW = 44, init = Math.max(0, Math.min(99 * 60 + 59, Number(opts.minutes) || 0));
+    var ov = document.createElement('div'); ov.className = 'durPickerOverlay';
+    var sheet = document.createElement('div'); sheet.className = 'durPickerSheet';
+    sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', t(opts.title || 'Maximum'));
+    function close() { document.removeEventListener('keydown', onKey); ov.remove(); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    var head = document.createElement('div'); head.className = 'durPickerHead';
+    var ttl = document.createElement('span'); ttl.textContent = t(opts.title || 'Maximum');
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'durPickerClose'; x.textContent = '✕'; x.setAttribute('aria-label', t('Fermer'));
+    x.addEventListener('click', close);
+    head.appendChild(ttl); head.appendChild(x);
+    var wheels = document.createElement('div'); wheels.className = 'durPickerWheels';
+    var band = document.createElement('div'); band.className = 'durPickerBand'; wheels.appendChild(band);
+    function wheel(values, sel, label, unit) {
+      var col = document.createElement('div'); col.className = 'durPickerCol';
+      var sc = document.createElement('div'); sc.className = 'durPickerScroll'; sc.setAttribute('aria-label', label);
+      values.forEach(function (v) {
+        var it = document.createElement('div'); it.className = 'durPickerItem'; it.textContent = (unit === 'm' && v < 10 ? '0' : '') + v;
+        it.addEventListener('click', function () { sc.scrollTo({ top: values.indexOf(v) * ROW, behavior: 'smooth' }); });
+        sc.appendChild(it);
+      });
+      var lab = document.createElement('span'); lab.className = 'durPickerUnit'; lab.textContent = label;
+      col.appendChild(sc); col.appendChild(lab); wheels.appendChild(col);
+      var idx = Math.max(0, values.indexOf(sel));
+      setTimeout(function () { sc.scrollTop = idx * ROW; }, 0);
+      return { get: function () { return values[Math.max(0, Math.min(values.length - 1, Math.round(sc.scrollTop / ROW)))]; }, set: function (v) { sc.scrollTo({ top: Math.max(0, values.indexOf(v)) * ROW, behavior: 'smooth' }); } };
+    }
+    var hours = []; for (var h = 0; h <= 99; h++) hours.push(h);
+    var mins = []; for (var m = 0; m < 60; m += 5) mins.push(m);
+    var curMin = init % 60; if (mins.indexOf(curMin) < 0) { mins.push(curMin); mins.sort(function (p, q) { return p - q; }); }
+    var hW = wheel(hours, Math.floor(init / 60), t('Heures'), 'h');
+    var mW = wheel(mins, curMin, t('Minutes'), 'm');
+    var bar = document.createElement('div'); bar.className = 'durPickerBar';
+    var reset = document.createElement('button'); reset.type = 'button'; reset.className = 'durPickerReset'; reset.textContent = t('Réinitialiser');
+    reset.addEventListener('click', function () { hW.set(0); mW.set(0); setTimeout(function () { opts.onDone(0); close(); }, 0); });
+    var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'durPickerOk'; ok.textContent = '✓'; ok.setAttribute('aria-label', t('Valider'));
+    ok.addEventListener('click', function () { var v = hW.get() * 60 + mW.get(); close(); opts.onDone(v); });
+    bar.appendChild(reset); bar.appendChild(ok);
+    sheet.appendChild(head); sheet.appendChild(wheels); sheet.appendChild(bar);
+    ov.appendChild(sheet); document.body.appendChild(ov);
+    return { close: close };
+  }
   // Bloc plafonds du formulaire en place : renvoie { node, read() }.
+  // Tableau Moyenne (lecture seule) / Maximum (boutons -> openDurationPicker).
+  // Maximum 0:00 = aucun plafond (null), affiché en gris.
   function buildTimeCapsBlock(activityId, key) {
     var state = { loaded: false, avgDay: 0, avgWeek: 0, day: null, week: null };
     var node = document.createElement('div');
     node.className = 'timeCapsBlock';
-    function title(txt) { var p = document.createElement('p'); p.className = 'timeCapsTitle'; p.textContent = t(txt); return p; }
-    function field(box, label, id) {
-      var l = document.createElement('label'); l.className = 'fieldLabel'; l.htmlFor = id; l.textContent = t(label);
-      var i = document.createElement('input'); i.type = 'text'; i.id = id; i.placeholder = 'h:mm'; i.autocomplete = 'off'; i.disabled = true;
-      box.appendChild(l); box.appendChild(i); return i;
+    var table = document.createElement('div'); table.className = 'timeCapsTable';
+    function cell(cls, txt) { var d = document.createElement('div'); d.className = cls; if (txt != null) d.textContent = t(txt); return d; }
+    table.appendChild(cell('timeCapsCorner')); table.appendChild(cell('timeCapsHead', 'Moyenne')); table.appendChild(cell('timeCapsHead', 'Maximum'));
+    var avgDayEl = cell('timeCapsAvg'), avgWeekEl = cell('timeCapsAvg');
+    function maxBtn(which, label) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'timeCapsMax'; b.disabled = true;
+      b.addEventListener('click', function () {
+        if (!state.loaded) return;
+        openDurationPicker({ title: 'Maximum', minutes: state[which] || 0, onDone: function (v) { state[which] = v > 0 ? v : null; paint(); } });
+      });
+      return b;
     }
-    var avg = document.createElement('p'); avg.className = 'hint';
-    var fields = document.createElement('div'); fields.className = 'timeCapsFields';
-    var dayIn = field(fields, 'Par jour', 'timeCapsDay');
-    var weekIn = field(fields, 'Par semaine', 'timeCapsWeek');
+    var dayBtn = maxBtn('day'), weekBtn = maxBtn('week');
+    table.appendChild(cell('timeCapsRowLabel', 'Jour')); table.appendChild(avgDayEl); table.appendChild(dayBtn);
+    table.appendChild(cell('timeCapsRowLabel', 'Semaine')); table.appendChild(avgWeekEl); table.appendChild(weekBtn);
+    function paint() {
+      avgDayEl.textContent = fmtCapMinutes(state.avgDay) || '0:00'; avgWeekEl.textContent = fmtCapMinutes(state.avgWeek) || '0:00';
+      [[dayBtn, state.day], [weekBtn, state.week]].forEach(function (p) {
+        p[0].textContent = fmtCapMinutes(p[1]) || '0:00';
+        p[0].classList.toggle('isEmpty', !p[1]);
+      });
+    }
     var use = document.createElement('button'); use.type = 'button'; use.className = 'linkBtn'; use.textContent = t('Utiliser ma moyenne');
     use.addEventListener('click', function () {
       if (!state.loaded) return;
-      dayIn.value = fmtCapMinutes(state.avgDay); weekIn.value = fmtCapMinutes(state.avgWeek);
+      state.day = state.avgDay > 0 ? state.avgDay : null; state.week = state.avgWeek > 0 ? state.avgWeek : null; paint();
     });
     var toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'linkBtn';
     var body = document.createElement('div'); body.className = 'timeCapsBody hidden';
-    function paintToggle() { toggle.textContent = (body.classList.contains('hidden') ? '\u25B8 ' : '\u25BE ') + t('Moyenne et maximum de temps'); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
+    function paintToggle() { toggle.textContent = (body.classList.contains('hidden') ? '▸ ' : '▾ ') + t('Moyenne et maximum de temps'); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
     toggle.addEventListener('click', function () { body.classList.toggle('hidden'); paintToggle(); });
-    paintToggle();
-    body.appendChild(title('Ma moyenne (historique)')); body.appendChild(avg);
-    body.appendChild(title('Mon maximum (facultatif)')); body.appendChild(fields); body.appendChild(use);
+    paintToggle(); paint();
+    body.appendChild(table); body.appendChild(use);
     node.appendChild(toggle); node.appendChild(body);
     api('GET', '/api/activities/' + activityId + '/goals/timecaps/' + key).then(function (c) {
       state.loaded = true; state.avgDay = c.avgDayMinutes; state.avgWeek = c.avgWeekMinutes;
       state.day = c.maxDayMinutes; state.week = c.maxWeekMinutes;
-      avg.textContent = t('Par jour') + ' : ' + fmtCapMinutes(c.avgDayMinutes) + ' · ' + t('Par semaine') + ' : ' + fmtCapMinutes(c.avgWeekMinutes);
-      dayIn.value = fmtCapMinutes(c.maxDayMinutes); weekIn.value = fmtCapMinutes(c.maxWeekMinutes);
-      dayIn.disabled = weekIn.disabled = false;
+      paint(); dayBtn.disabled = weekBtn.disabled = false;
+      state.origDay = state.day; state.origWeek = state.week;
     }).catch(function () {});
     return {
       node: node,
       // { error } | { changed:false } | { changed:true, body }
       read: function () {
-        var d = parseCapMinutes(dayIn.value), w = parseCapMinutes(weekIn.value);
-        if (d.error || w.error) return { error: t('Durée invalide (ex. 1:30 ou 90).') };
-        var changed = state.loaded && (d.value !== state.day || w.value !== state.week);
-        return { changed: changed, body: { maxDayMinutes: d.value, maxWeekMinutes: w.value } };
+        var d = state.day || null, w = state.week || null;
+        var changed = state.loaded && (d !== (state.origDay || null) || w !== (state.origWeek || null));
+        return { changed: changed, body: { maxDayMinutes: d, maxWeekMinutes: w } };
       }
     };
   }
