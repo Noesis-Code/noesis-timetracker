@@ -55,7 +55,7 @@
 .goalsGridHeadCell {
   padding: 7px 12px; font-size: 13px; font-weight: 400; text-transform: none; letter-spacing: 0;
   border-radius: 999px; color: var(--text); background: var(--glass-bg);
-  border: 1px solid var(--glass-border); outline: none; box-shadow: none;
+  border: 3px solid var(--glass-border); outline: none; box-shadow: none;
 }
 
 .goalsGridHeadCell--add {
@@ -286,3 +286,6 @@
 }
 /* 2 oct. 2026 (Emilien) : page du milieu — ni pastille ni teinte, seulement le contour coloré. */
 #goalsActivityHeader.isMonth #goalsPoleDot { display: none; }
+
+/* 8 oct. 2026 : aucune bordure visible sur les cases de l'arbre (la bordure transparente garde les largeurs égales). */
+.goalsGrid .goalsGridCell--filled, .goalsGrid .goalsGridCell--empty { border-color: transparent !important; box-shadow: none !important; }
