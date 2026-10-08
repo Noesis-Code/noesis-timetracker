@@ -57,14 +57,15 @@ function unmetPeriods(activityId, today) {
   });
 }
 
-function unfinished(userId, activityId) {
+function unfinished(userId, activityId, poleFilter) {
   const today = todayLocal();
   const budget = overload.budgetFor(activityId, userId);
   const all = overload.loadTasks(activityId, budget, today);
   const late = all.filter((t) => t.dueDate < today);
   const rest = all.filter((t) => t.dueDate >= today);
   const periods = unmetPeriods(activityId, today);
-  if (!late.length) return { today, tasks: [], periods };
+  const inPole = (x) => !poleFilter || x.poleKey === poleFilter;
+  if (!late.length) return { today, tasks: [], periods: periods.filter(inPole) };
 
   // Charge des jours à venir (tâches déjà posées), puis premier jour libre pour chaque tâche en retard,
   // les plus importantes d'abord.
@@ -102,12 +103,17 @@ function unfinished(userId, activityId) {
       proposedTo: cm ? cm.to : target.get(t.id), capLabel: cm ? cm.capLabel : null,
       importance: t.importance.level,
     };
-  }).sort((a, b) => b.lateDays - a.lateDays || a.id - b.id);
-  return { today, tasks, periods };
+  }).filter(inPole).sort((a, b) => b.lateDays - a.lateDays || a.id - b.id);
+  return { today, tasks, periods: periods.filter(inPole) };
+}
+
+function itemInPole(activityId, itemId, pole) {
+  const r = db.prepare('SELECT sp.goalCategory AS category FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId WHERE i.id = ?').get(itemId);
+  return !!r && !!r.category && goals.resolveToPole(activityId, r.category) === pole;
 }
 
 // moves : [{id, to}] ; periods : [periodId]. Rien d'écrit si une validation échoue.
-function applyCarry(userId, activityId, body) {
+function applyCarry(userId, activityId, body, poleFilter) {
   const today = todayLocal();
   const moves = Array.isArray(body.tasks) ? body.tasks : [];
   const periodIds = Array.isArray(body.periods) ? body.periods : [];
@@ -117,11 +123,13 @@ function applyCarry(userId, activityId, body) {
     const row = db.prepare(`SELECT i.id, i.done FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
       WHERE i.id = ? AND sp.activityId = ?`).get(Number(m.id), activityId);
     if (!row || row.done) throw httpError('Tâche introuvable ou déjà terminée.', 404);
+    if (poleFilter && !itemInPole(activityId, row.id, poleFilter)) throw httpError('Tâche hors du pôle affiché.', 400);
     return { id: row.id, to: m.to };
   });
   const periods = periodIds.map((id) => {
     const p = db.prepare('SELECT * FROM goal_periods WHERE id = ? AND activityId = ?').get(Number(id), activityId);
     if (!p || p.carriedToId || !p.mainGoalText) throw httpError('Objectif de période introuvable ou déjà reporté.', 404);
+    if (poleFilter && goals.resolveToPole(activityId, p.category) !== poleFilter) throw httpError('Objectif hors du pôle affiché.', 400);
     return p;
   });
   let carried = 0;
@@ -161,7 +169,7 @@ function realism(userId, activityId, category) {
   const weeklySum = db.prepare("SELECT COALESCE(SUM(estimateMinutes), 0) AS s FROM goal_weekly WHERE periodId = ? AND carriedToId IS NULL").get(p.id).s;
   const target = Math.max(p.mainGoalEstimateMinutes || 0, weeklySum);
   if (target <= 0) return null;
-  const done = Math.round(goals.actualSecondsForRange(activityId, p.startDate, today) / 60);
+  const done = timecaps.minutesInRange(userId, activityId, category, p.startDate, today);
   const remaining = Math.max(0, target - done);
   const weeksLeft = Math.max(1, Math.ceil((goals.daysBetween(today, p.endDate) + 1) / 7));
   // Capacité réelle de CETTE catégorie (secteur, ou pôle = ses secteurs cumulés), pas de toute l'activité.
@@ -178,9 +186,9 @@ function realism(userId, activityId, category) {
   };
 }
 
-function realismAll(userId, activityId) {
+function realismAll(userId, activityId, poleFilter) {
   return goals.categoriesForActivity(activityId).map((c) => realism(userId, activityId, c.key))
-    .filter((r) => r && r.unrealistic);
+    .filter((r) => r && r.unrealistic && (!poleFilter || r.poleKey === poleFilter));
 }
 
 // choice : 'reduce' (cible ramenée à ce qui est tenable) | 'spread' (le surplus passe à la période suivante,

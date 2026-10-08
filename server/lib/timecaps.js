@@ -46,6 +46,15 @@ function averages(userId, activityId, key) {
   return { avgDayMinutes: perDay, avgWeekMinutes: Math.round(seconds / 60 / (AVG_DAYS / 7)) };
 }
 
+// Minutes réellement chronométrées dans [startIso, endIso] pour UN pôle (secteurs cumulés) ou UN secteur.
+function minutesInRange(userId, activityId, key, startIso, endIso) {
+  const categorystats = require('./categorystats');
+  const bd = categorystats.categoryBreakdownForRange(userId, activityId, startIso, endIso);
+  const isPole = goals.isValidCategoryForActivity(activityId, key);
+  const seconds = bd.categories.reduce((s, c) => s + ((c.category === key || (isPole && c.parentKey === key)) ? c.seconds : 0), 0);
+  return Math.round(seconds / 60);
+}
+
 function getCaps(userId, activityId, key) {
   if (!isKnownKey(activityId, key)) {
     throw Object.assign(new Error('Pôle ou secteur invalide pour cette activité.'), { statusCode: 400 });
@@ -140,4 +149,4 @@ function computeCapMoves({ today, caps, tasks, horizon = 60 }) {
   return out;
 }
 
-module.exports = { getCaps, setCaps, listCaps, weeklyCapFor, computeCapMoves, averages };
+module.exports = { getCaps, setCaps, listCaps, weeklyCapFor, computeCapMoves, averages, minutesInRange };

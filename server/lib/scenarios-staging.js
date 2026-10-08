@@ -126,7 +126,7 @@ function seedScenarios() {
   // ---- Plans et objectifs de période (période 1 terminée, période 2 en cours)
   const mkPlan = db.prepare('INSERT INTO activity_goal_plans (activityId, category, startDate, createdAt) VALUES (?, ?, ?, ?)');
   [K.juridique, K.finance, K.produit, K.communaute].forEach((k) => mkPlan.run(aid, k, planStart, now));
-  const done2 = Math.round(goals.actualSecondsForRange(aid, monday, todayIso) / 60);
+  const doneCom = timecaps.minutesInRange(u.id, aid, K.communaute, monday, todayIso); // réalisé de CE pôle (alertes par pôle)
   // Période 1 : objectifs non atteints.
   goals.setMainGoal(aid, K.juridique, 1, 'Réviser et publier les nouvelles conditions d\'utilisation', '', 600);
   goals.setMainGoal(aid, K.produit, 1, 'Lancer la bêta fermée à dix testeurs', '', 900);
@@ -137,7 +137,7 @@ function seedScenarios() {
   // Finance : cible irréaliste ET en retard (recalcul) ; Communauté : en avance (recalcul). Juridique : période 2 vide.
   goals.setMainGoal(aid, K.produit, 2, 'Livrer la version 1.0 publique', '', 4000);
   goals.setMainGoal(aid, K.finance, 2, 'Boucler le budget annuel et la déclaration', '', 1800);
-  goals.setMainGoal(aid, K.communaute, 2, 'Animer deux rencontres de la communauté', '', done2 + 150);
+  goals.setMainGoal(aid, K.communaute, 2, 'Animer deux rencontres de la communauté', '', doneCom + 150);
 
   // ---- Plafonds de temps (pôle Produit : jour + semaine ; secteur Juridique : jour)
   timecaps.setCaps(u.id, aid, K.produit, { maxDayMinutes: 60, maxWeekMinutes: 150 });

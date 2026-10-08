@@ -761,15 +761,15 @@ router.post('/activities/:id/goals/overload/dismiss', overloadRoute((u, a) => go
 
 // 7 oct. 2026 — report entre périodes (liste « Non réalisées », tout proposé) et cible irréaliste
 // (choix de l'utilisateur). Logique : server/lib/goalscarryover.js.
-router.get('/activities/:id/goals/unfinished', overloadRoute((u, a) => ({
-  ...goalscarryover.unfinished(u, a), realism: goalscarryover.realismAll(u, a),
+router.get('/activities/:id/goals/unfinished', overloadRoute((u, a, b, q) => ({
+  ...goalscarryover.unfinished(u, a, q.pole || undefined), realism: goalscarryover.realismAll(u, a, q.pole || undefined),
 })));
-router.post('/activities/:id/goals/unfinished/apply', overloadRoute((u, a, b) => goalscarryover.applyCarry(u, a, b)));
+router.post('/activities/:id/goals/unfinished/apply', overloadRoute((u, a, b) => goalscarryover.applyCarry(u, a, b, b.poleKey || undefined)));
 router.post('/activities/:id/goals/realism', overloadRoute((u, a, b) => goalscarryover.applyRealism(u, a, b)));
 
 // 7 oct. 2026 — recalcul d'après le temps réel : propositions en attente (créées par le job nocturne
 // server/lib/goalsrecalc.js), appliquées ou écartées par l'utilisateur seulement.
-router.get('/activities/:id/goals/recalc', overloadRoute((u, a) => ({ proposals: goalsrecalc.listPending(u, a) })));
+router.get('/activities/:id/goals/recalc', overloadRoute((u, a, b, q) => ({ proposals: goalsrecalc.listPending(u, a, q.pole || undefined) })));
 function recalcDecision(fn) {
   return (req, res) => {
     const userId = req.userId;

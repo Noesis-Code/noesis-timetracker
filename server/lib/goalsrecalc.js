@@ -63,7 +63,8 @@ function evaluate({ target, done, weeksLeft, actualPerWeek }) {
 function evaluatePeriod(userId, p, today) {
   const weeklySum = db.prepare('SELECT COALESCE(SUM(estimateMinutes), 0) AS s FROM goal_weekly WHERE periodId = ? AND carriedToId IS NULL').get(p.id).s;
   const target = Math.max(p.mainGoalEstimateMinutes || 0, weeklySum);
-  const done = Math.round(goals.actualSecondsForRange(p.activityId, p.startDate, today) / 60);
+  // Par pôle : temps réel de CETTE catégorie (un pôle cumule ses secteurs), pas de toute l'activité.
+  const done = timecaps.minutesInRange(userId, p.activityId, p.category, p.startDate, today);
   const weeksLeft = Math.max(1, Math.ceil((goals.daysBetween(today, p.endDate) + 1) / 7));
   const actualPerWeek = timecaps.averages(userId, p.activityId, p.category).avgWeekMinutes;
   const ev = evaluate({ target, done, weeksLeft, actualPerWeek });
@@ -111,9 +112,10 @@ function runAll() {
   return created;
 }
 
-function listPending(userId, activityId) {
+function listPending(userId, activityId, poleFilter) {
   return db.prepare("SELECT * FROM goal_recalc_proposals WHERE userId = ? AND activityId = ? AND status = 'pending' ORDER BY id").all(userId, activityId)
-    .map((r) => ({ ...r, poleKey: goals.resolveToPole(activityId, r.category), label: goals.categoryLabelFor(activityId, r.category) }));
+    .map((r) => ({ ...r, poleKey: goals.resolveToPole(activityId, r.category), label: goals.categoryLabelFor(activityId, r.category) }))
+    .filter((r) => !poleFilter || r.poleKey === poleFilter);
 }
 
 function getOwn(userId, activityId, id) {

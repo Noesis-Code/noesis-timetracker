@@ -553,7 +553,8 @@
   // cible irréaliste, recalcul) : orange, repliées par défaut, croix = masquée pour AUJOURD'HUI
   // seulement (localStorage, clé carte+activité+jour local ; revient d'elle-même le lendemain).
   var alertOpen = {};
-  function alertDayKey(key) { return 'tmt_alert_hide_' + key + '_' + (TMT.currentGoalsActivityId || ''); }
+  // Clé carte + activité + PÔLE affiché (fermer dans un pôle ne masque pas la carte d'un autre).
+  function alertDayKey(key) { return 'tmt_alert_hide_' + key + '_' + (TMT.currentGoalsActivityId || '') + '_' + (TMT.currentGoalsSelectedPoleKey || ''); }
   function alertHiddenToday(key) { try { return localStorage.getItem(alertDayKey(key)) === localIso(new Date()); } catch (e) { return false; } }
   // Prépare la carte (déjà vidée) et renvoie le conteneur du contenu, ou null si masquée aujourd'hui.
   // 7 oct. 2026 : les cartes d'alerte reviennent enroulées à chaque changement d'onglet (appelé par switchTab).
@@ -636,7 +637,7 @@
     if (!card) { card = document.createElement('div'); card.id = 'goalsReportCard'; card.className = 'goalsOverloadCard goalsAlertCard goalsReportCard hidden'; over.parentNode.insertBefore(card, over.nextSibling); }
     var base = '/api/activities/' + activityId + '/goals/';
     var pole = TMT.currentGoalsSelectedPoleKey || '';
-    api('GET', base + 'unfinished').then(function (d) {
+    api('GET', base + 'unfinished' + (pole ? '?pole=' + encodeURIComponent(pole) : '')).then(function (d) {
       if (String(activityId) !== String(TMT.currentGoalsActivityId) || pole !== (TMT.currentGoalsSelectedPoleKey || '')) return;
       card.innerHTML = '';
       function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
@@ -647,7 +648,7 @@
       var rb = buildAlertShell(card, 'report', tasks.length || periods.length ? t('Non réalisées') : t('Cible peut-être irréaliste'));
       if (!rb) return;
       function refresh() { loadGoalsReportCard(); loadGoalsTasksOverview(); if (TMT.reloadGoalsAll) TMT.reloadGoalsAll(); }
-      function post(path, body) { return api('POST', base + path, body).then(refresh).catch(function (e) { alert(e.message); refresh(); }); }
+      function post(path, body) { if (path === 'unfinished/apply' && pole) body = Object.assign({ poleKey: pole }, body); return api('POST', base + path, body).then(refresh).catch(function (e) { alert(e.message); refresh(); }); }
       real.forEach(function (r) {
         var box = el('div', 'goalsReportBlock');
         box.appendChild(el('p', 'goalsOverloadTitle', t('Cible peut-être irréaliste : il faudrait ') + hw(r.needPerWeekMinutes) + t('/sem, tu en fais ') + hw(r.havePerWeekMinutes)));
@@ -707,7 +708,7 @@
     if (!card) { card = document.createElement('div'); card.id = 'goalsRecalcCard'; card.className = 'goalsOverloadCard goalsAlertCard goalsRecalcCard hidden'; anchor.parentNode.insertBefore(card, anchor.nextSibling); }
     var base = '/api/activities/' + activityId + '/goals/recalc';
     var pole = TMT.currentGoalsSelectedPoleKey || '';
-    api('GET', base).then(function (d) {
+    api('GET', base + (pole ? '?pole=' + encodeURIComponent(pole) : '')).then(function (d) {
       if (String(activityId) !== String(TMT.currentGoalsActivityId) || pole !== (TMT.currentGoalsSelectedPoleKey || '')) return;
       card.innerHTML = '';
       var list = (d.proposals || []).filter(function (x) { return !pole || x.poleKey === pole; });
@@ -954,6 +955,7 @@
   TMT.rerenderGoalsTasksOverview = function () {
     if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview);
     loadGoalsOverloadCard(); // une carte par pôle : suit le pôle affiché
+    loadGoalsReportCard(); loadGoalsRecalcCard(); // idem : Non réalisées, cible irréaliste et recalcul sont par pôle
   };
 
 
