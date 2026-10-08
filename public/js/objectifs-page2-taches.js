@@ -122,6 +122,11 @@
              reste visible mais n'est pas une navigation propre à cet écran). -->
         <div id="goalsTasksView" class="goalsTasksView">
           <div id="goalsOverloadCard" class="goalsOverloadCard hidden"></div>
+          <!-- 8 oct. 2026 (Émilien) : tri des tâches par responsable, même gabarit que le filtre Public/Confidentiel des Statistiques. -->
+          <div id="goalsRespFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
+            <button type="button" class="caSubProjectBtn" id="goalsRespBtn" aria-haspopup="true"><span id="goalsRespBtnLabel">Tous</span></button>
+            <div class="statsPeriodMenu caSubProjectMenu hidden" id="goalsRespMenu"></div>
+          </div>
           <div id="goalsTasksProgressWrap" class="activityProgressCard hidden">
             <svg class="activityProgressRing" viewBox="0 0 44 44" aria-hidden="true">
               <circle class="activityProgressRingBg" cx="22" cy="22" r="19"></circle>
@@ -560,6 +565,7 @@
   // 7 oct. 2026 : les cartes d'alerte reviennent enroulées à chaque changement d'onglet (appelé par switchTab).
   TMT.collapseGoalsAlerts = function () {
     alertOpen = {};
+    if (typeof resetRespFilter === 'function') resetRespFilter();
     document.querySelectorAll('.goalsReportNote').forEach(function (n) { n.remove(); });
     document.querySelectorAll('.goalsAlertCard.open').forEach(function (c) {
       c.classList.remove('open');
@@ -781,7 +787,60 @@
   }
 
 
+  // Tri par responsable : filtre PROPRE À CHAQUE PÔLE, remis sur « Tous » quand on quitte l'onglet ou l'app.
+  var respFilter = {};
+  var respMembers = { activityId: null, list: [] };
+  function loadRespMembers() {
+    var aid = TMT.currentGoalsActivityId;
+    if (!aid || String(respMembers.activityId) === String(aid)) return;
+    respMembers = { activityId: aid, list: [] };
+    api('GET', '/api/activities/' + aid + '/goals/members').then(function (d) {
+      if (String(aid) !== String(TMT.currentGoalsActivityId)) return;
+      respMembers.list = (d && d.members) || [];
+      if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview);
+    }).catch(function () { respMembers = { activityId: null, list: [] }; });
+  }
+  function syncRespFilterUi() {
+    var wrap = $('goalsRespFilterWrap'); if (!wrap) return;
+    var pole = TMT.currentGoalsSelectedPoleKey || '';
+    var cur = respFilter[pole] || '';
+    if (cur && !respMembers.list.some(function (m) { return m.id === cur; })) { delete respFilter[pole]; cur = ''; }
+    wrap.classList.toggle('hidden', !respMembers.list.length);
+    var menu = $('goalsRespMenu'); menu.innerHTML = '';
+    var items = [{ id: '', name: t('Tous') }].concat(respMembers.list);
+    items.forEach(function (m) {
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'statsPeriodMenuItem' + (m.id === cur ? ' active' : '');
+      b.dataset.who = m.id; b.textContent = m.name;
+      menu.appendChild(b);
+    });
+    var sel = items.filter(function (m) { return m.id === cur; })[0];
+    $('goalsRespBtnLabel').textContent = sel ? sel.name : t('Tous');
+  }
+  $('goalsRespBtn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var menu = $('goalsRespMenu');
+    var willOpen = menu.classList.contains('hidden');
+    document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+    if (willOpen) menu.classList.remove('hidden');
+  });
+  $('goalsRespMenu').addEventListener('click', function (e) {
+    var item = e.target.closest('.statsPeriodMenuItem'); if (!item) return;
+    this.classList.add('hidden');
+    var pole = TMT.currentGoalsSelectedPoleKey || '';
+    if (item.dataset.who) respFilter[pole] = item.dataset.who; else delete respFilter[pole];
+    if (currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview); else syncRespFilterUi();
+  });
+  function resetRespFilter() {
+    var had = Object.keys(respFilter).length > 0;
+    respFilter = {};
+    var menu = $('goalsRespMenu'); if (menu) menu.classList.add('hidden');
+    if (had && currentGoalsTasksOverview) renderGoalsTasksOverview(currentGoalsTasksOverview); else syncRespFilterUi();
+  }
+
   function renderGoalsTasksOverview(data) {
+    loadRespMembers();
+    syncRespFilterUi();
     // O2·06 / O2·N4 / O2·N7 : l'écran suit le pôle affiché dans le sélecteur
     // de pôle (TMT.currentGoalsSelectedPoleKey) — seuls les secteurs (ou le
     // pôle sans secteur) de CE pôle, avec leurs tâches et leur avancement.
@@ -827,8 +886,10 @@
     var allUpcoming = (daily && daily.upcoming) || [];
     var pole = TMT.currentGoalsSelectedPoleKey;
     var byPole = function (x) { return !pole || x.poleKey === pole; };
-    var todayTasks = allToday.filter(byPole);
-    var upcoming = allUpcoming.filter(byPole).slice(0, Math.max(0, ((daily && daily.minLines) || 5) - todayTasks.length));
+    var who = respFilter[pole || ''] || '';
+    var byWho = function (x) { return !who || x.plannedUserId === who; };
+    var todayTasks = allToday.filter(byPole).filter(byWho);
+    var upcoming = allUpcoming.filter(byPole).filter(byWho).slice(0, Math.max(0, ((daily && daily.minLines) || 5) - todayTasks.length));
     // 5 oct. 2026 : les tâches restent RANGÉES PAR SECTEUR (accordéon replié par défaut, croix de
     // suppression, glisser entre secteurs du pôle, ajout en ligne) ; seul le contenu de chaque
     // secteur change : tâches du jour (blanc) puis tâches à venir (gris, avec leur date).

@@ -660,6 +660,7 @@ function allTasksWithGroup(activityId) {
           done: !!task.done,
           doneAt: task.doneAt || null,
           dueDate: task.dueDate || null,
+          plannedUserId: task.plannedUserId || null,
           position: task.position,
           key: target.key,
           groupLabel: target.label,
