@@ -325,6 +325,7 @@
   // opts.keep : l'appelant (openGoalsDetail) a déjà posé catégorie/période ; opts.noAnim : sans défilement.
   function setGoalsPage2Mode(mode, opts) {
     opts = opts || {};
+    if (TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts();
     // « Discussion » est une fenêtre par-dessus la vue de base : elle ne masque ni Tâches ni Objectifs.
     if (mode === 'disc') {
       currentGoalsPage2Mode = 'disc';
@@ -564,6 +565,8 @@
       var tg = c.querySelector('.goalsAlertToggle'); if (tg) tg.setAttribute('aria-expanded', 'false');
     });
   };
+  // Quitter l'app (autre application, écran verrouillé) puis revenir : cartes enroulées aussi.
+  document.addEventListener('visibilitychange', function () { if (document.hidden && TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts(); });
 
   function buildAlertShell(card, key, title) {
     card.classList.add('goalsAlertCard');
