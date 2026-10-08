@@ -582,10 +582,81 @@
     }).catch(function () { card.classList.add('hidden'); });
   }
 
+  // 7 oct. 2026 : « Non réalisées » (report tâche par tâche ou tout d'un coup) et « cible peut-être
+  // irréaliste » (3 options). Tout est PROPOSÉ : rien ne bouge sans clic. Serveur : server/lib/goalscarryover.js.
+  function loadGoalsReportCard() {
+    var activityId = TMT.currentGoalsActivityId;
+    var over = $('goalsOverloadCard');
+    if (!activityId || !over) return;
+    var card = $('goalsReportCard');
+    if (!card) { card = document.createElement('div'); card.id = 'goalsReportCard'; card.className = 'goalsOverloadCard goalsReportCard hidden'; over.parentNode.insertBefore(card, over.nextSibling); }
+    var base = '/api/activities/' + activityId + '/goals/';
+    var pole = TMT.currentGoalsSelectedPoleKey || '';
+    api('GET', base + 'unfinished').then(function (d) {
+      if (String(activityId) !== String(TMT.currentGoalsActivityId) || pole !== (TMT.currentGoalsSelectedPoleKey || '')) return;
+      card.innerHTML = '';
+      function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+      function hw(m) { return (Math.round(m / 6) / 10) + ' h'; }
+      function inPole(x) { return !pole || x.poleKey === pole; }
+      var tasks = (d.tasks || []).filter(inPole), periods = (d.periods || []).filter(inPole), real = (d.realism || []).filter(inPole);
+      if (!tasks.length && !periods.length && !real.length) { card.classList.add('hidden'); return; }
+      function refresh() { loadGoalsReportCard(); loadGoalsTasksOverview(); if (TMT.reloadGoalsAll) TMT.reloadGoalsAll(); }
+      function post(path, body) { return api('POST', base + path, body).then(refresh).catch(function (e) { alert(e.message); refresh(); }); }
+      real.forEach(function (r) {
+        var box = el('div', 'goalsReportBlock');
+        box.appendChild(el('p', 'goalsOverloadTitle', t('Cible peut-être irréaliste : il faudrait ') + hw(r.needPerWeekMinutes) + t('/sem, tu en fais ') + hw(r.havePerWeekMinutes)));
+        box.appendChild(el('p', 'meta', '« ' + r.text.slice(0, 60) + ' »'));
+        var row = el('div', 'goalsOverloadActions');
+        [['reduce', 'Réduire la cible'], ['spread', 'Étaler sur la période suivante'], ['keep', 'Garder tel quel']].forEach(function (o) {
+          var b = el('button', o[0] === 'keep' ? 'goalsOverloadNo' : '', t(o[1])); b.type = 'button';
+          b.addEventListener('click', function () { row.querySelectorAll('button').forEach(function (x) { x.disabled = true; }); post('realism', { category: r.category, choice: o[0] }); });
+          row.appendChild(b);
+        });
+        box.appendChild(row); card.appendChild(box);
+      });
+      if (tasks.length || periods.length) {
+        var box2 = el('div', 'goalsReportBlock');
+        box2.appendChild(el('p', 'goalsOverloadTitle', t('Non réalisées')));
+        box2.appendChild(el('p', 'meta', t('Jour proposé selon ta capacité et tes plafonds. Rien ne bouge sans ton clic.')));
+        var ul = el('ul', 'goalsOverloadList goalsReportList');
+        function line(text, late, btnLabel, onClick) {
+          var li = el('li', 'goalsReportItem');
+          li.appendChild(el('span', 'goalsReportText', text));
+          li.appendChild(el('span', 'goalsLateBadge', t('en retard de ') + late + ' j'));
+          var b = el('button', 'goalsReportBtn', btnLabel); b.type = 'button';
+          b.addEventListener('click', function () { b.disabled = true; onClick(); });
+          li.appendChild(b); ul.appendChild(li);
+        }
+        tasks.forEach(function (x) {
+          var day = TMT.calendarDayLabel(x.proposedTo) || x.proposedTo;
+          line(x.label + ' → ' + day + (x.fixed ? ' (' + t('date fixée') + ')' : '') + (x.capLabel ? ' · ' + x.capLabel : ''), x.lateDays, t('Reporter'),
+            function () { post('unfinished/apply', { tasks: [{ id: x.id, to: x.proposedTo }] }); });
+        });
+        periods.forEach(function (x) {
+          line(t('Objectif de période') + ' « ' + x.text.slice(0, 40) + ' »' + (x.targetFree ? '' : ' (' + t('période suivante déjà remplie') + ')'), x.lateDays, t('Reporter'),
+            function () { post('unfinished/apply', { periods: [x.periodId] }); });
+          if (!x.targetFree) ul.lastChild.querySelector('button').disabled = true;
+        });
+        box2.appendChild(ul);
+        var auto = tasks.filter(function (x) { return !x.fixed; });
+        var perOk = periods.filter(function (x) { return x.targetFree; });
+        if (auto.length + perOk.length > 1) {
+          var all = el('button', 'goalsReportAll', t('Tout reporter')); all.type = 'button';
+          all.addEventListener('click', function () { all.disabled = true; post('unfinished/apply', { tasks: auto.map(function (x) { return { id: x.id, to: x.proposedTo }; }), periods: perOk.map(function (x) { return x.periodId; }) }); });
+          box2.appendChild(all);
+          if (tasks.length > auto.length) box2.appendChild(el('p', 'meta', t('Les tâches à date fixée se reportent une par une.')));
+        }
+        card.appendChild(box2);
+      }
+      card.classList.remove('hidden');
+    }).catch(function () { card.classList.add('hidden'); });
+  }
+
   function loadGoalsTasksOverview() {
     var activityId = TMT.currentGoalsActivityId;
     if (!activityId) return;
     loadGoalsOverloadCard();
+    loadGoalsReportCard();
     api('GET', '/api/activities/' + activityId + '/goals/tasks/overview?today=' + localIso(new Date()))
       .then(function (data) {
         // L'utilisateur a pu changer d'activité ou de pôle pendant l'aller-
@@ -691,6 +762,13 @@
       when.className = 'meta goalsDailyWhen';
       when.textContent = TMT.calendarDayLabel(task.dueDate) || task.dueDate;
       row.appendChild(when);
+    }
+    if (!grey && task.dueDate && task.dueDate < localIso(new Date())) {
+      var lateDays = Math.round((new Date(localIso(new Date())) - new Date(task.dueDate)) / 86400000);
+      var lb = document.createElement('span');
+      lb.className = 'goalsLateBadge';
+      lb.textContent = t('en retard de ') + lateDays + ' j';
+      row.appendChild(lb);
     }
     return row;
   }

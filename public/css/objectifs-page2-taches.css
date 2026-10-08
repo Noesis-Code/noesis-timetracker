@@ -304,3 +304,13 @@
 /* 5 oct. 2026 : bulle de modification plus transparente. */
 :root .goalsTasksGroup .subProjectItem.goalsTaskEditing { background: color-mix(in srgb, var(--vc-bg) 40%, transparent); }
 :root .goalsTaskEditPanel textarea.goalsTaskEditText { min-height: 0 !important; }
+
+/* 7 oct. 2026 : report entre périodes, cible irréaliste, indicateur de retard (discret, violet). */
+.goalsReportBlock + .goalsReportBlock { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--glass-border); }
+.goalsReportItem { display: flex; align-items: center; gap: 8px; margin: 6px 0; list-style: none; }
+.goalsReportList { padding-left: 0; }
+.goalsReportText { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.goalsReportBtn, .goalsReportAll { padding: 6px 12px; border-radius: 12px; border: 1px solid var(--purple); background: transparent; color: var(--purple); font-weight: 600; flex: 0 0 auto; }
+.goalsReportAll { margin-top: 6px; background: var(--purple); color: #fff; border-color: transparent; }
+.goalsReportBtn:disabled, .goalsReportAll:disabled { opacity: .5; }
+.goalsLateBadge { flex: 0 0 auto; font-size: 11px; color: var(--purple); opacity: .85; white-space: nowrap; }
