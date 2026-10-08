@@ -226,6 +226,25 @@
 .goalsOverloadActions button { flex: 1; padding: 10px; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text); font-weight: 600; }
 .goalsOverloadActions .goalsOverloadOk { background: var(--purple); border-color: transparent; color: #fff; }
 
+/* 7 oct. 2026 (Emilien) : design commun des cartes d'alerte (surcharge, non réalisées, cible irréaliste,
+   recalcul) — orange, repliées par défaut, croix = masquée pour aujourd'hui. Le violet y devient orange ;
+   il reste la couleur principale partout ailleurs. */
+.goalsAlertCard { --alert: #ff9f2e; padding: 0; border: 1.5px solid var(--alert); background: linear-gradient(rgba(255,159,46,.09), rgba(255,159,46,.09)), var(--glass-bg); }
+.goalsAlertHead { display: flex; align-items: center; }
+.goalsAlertToggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 4px 8px 14px; border: 0; background: none; color: var(--text); font: inherit; font-weight: 700; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.goalsAlertIcon { flex: 0 0 auto; width: 20px; height: 20px; fill: none; stroke: var(--alert); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.goalsAlertTitle { flex: 1; min-width: 0; }
+.goalsAlertChevron { flex: 0 0 auto; width: 16px; height: 16px; fill: none; stroke: var(--text-light); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .7; transition: transform .2s; }
+.goalsAlertCard.open .goalsAlertChevron { transform: rotate(180deg); }
+.goalsAlertClose { flex: 0 0 auto; width: 44px; height: 44px; border: 0; background: none; color: #fff; font-size: 16px; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.goalsAlertBody { padding: 0 16px 14px; }
+.goalsAlertBody[hidden] { display: none; }
+.goalsAlertCard .goalsOverloadActions .goalsOverloadOk,
+.goalsAlertCard .goalsReportAll { background: var(--alert); border-color: transparent; color: #1b1206; }
+.goalsAlertCard .goalsReportBtn { border-color: var(--alert); color: var(--alert); }
+.goalsAlertCard .goalsLateBadge { color: var(--alert); opacity: 1; }
+.goalsAlertCard .goalsReportBlock + .goalsReportBlock { margin-top: 10px; }
+
 /* 2 oct. 2026 (Emilien) : boutons Tâches/Objectifs retirés (balayage + 3 points) ; la bulle Discussion (fixed) reste dans le conteneur. */
 #goalsPage2ModeSwitch { display: contents; }
 #goalsPage2ModeTasksBtn, #goalsPage2ModeGoalsBtn { display: none; }

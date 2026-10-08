@@ -840,6 +840,8 @@
     'Cible peut-être irréaliste : il faudrait ': 'Target may be unrealistic: you would need ',
     '/sem, tu en fais ': '/wk, you do ',
     'Noèsis propose de recalculer tes objectifs': 'Noèsis suggests recalculating your goals',
+    'Cible peut-être irréaliste': 'Target may be unrealistic',
+    "Fermer pour aujourd'hui": 'Close for today',
     'ton rythme réel': 'your actual pace',
     '/sem au lieu de ': '/wk instead of ',
     'Nouvelle estimation proposée': 'Suggested new estimate',

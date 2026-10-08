@@ -548,6 +548,36 @@
   });
 
 
+  // 7 oct. 2026 (Emilien) : design commun des cartes d'alerte (Journée surchargée, Non réalisées,
+  // cible irréaliste, recalcul) : orange, repliées par défaut, croix = masquée pour AUJOURD'HUI
+  // seulement (localStorage, clé carte+activité+jour local ; revient d'elle-même le lendemain).
+  var alertOpen = {};
+  function alertDayKey(key) { return 'tmt_alert_hide_' + key + '_' + (TMT.currentGoalsActivityId || ''); }
+  function alertHiddenToday(key) { try { return localStorage.getItem(alertDayKey(key)) === localIso(new Date()); } catch (e) { return false; } }
+  // Prépare la carte (déjà vidée) et renvoie le conteneur du contenu, ou null si masquée aujourd'hui.
+  function buildAlertShell(card, key, title) {
+    card.classList.add('goalsAlertCard');
+    if (alertHiddenToday(key)) { card.classList.add('hidden'); return null; }
+    var ns = 'http://www.w3.org/2000/svg';
+    var head = document.createElement('div'); head.className = 'goalsAlertHead';
+    var tg = document.createElement('button'); tg.type = 'button'; tg.className = 'goalsAlertToggle';
+    var ico = document.createElementNS(ns, 'svg'); ico.setAttribute('class', 'goalsAlertIcon'); ico.setAttribute('viewBox', '0 0 24 24'); ico.setAttribute('aria-hidden', 'true');
+    ['M12 3.5 2.5 20h19L12 3.5z', 'M12 10v4.5', 'M12 17.6v.1'].forEach(function (d) { var pa = document.createElementNS(ns, 'path'); pa.setAttribute('d', d); ico.appendChild(pa); });
+    var tt = document.createElement('span'); tt.className = 'goalsAlertTitle'; tt.textContent = title;
+    var chev = document.createElementNS(ns, 'svg'); chev.setAttribute('class', 'goalsAlertChevron'); chev.setAttribute('viewBox', '0 0 24 24'); chev.setAttribute('aria-hidden', 'true');
+    var cp = document.createElementNS(ns, 'path'); cp.setAttribute('d', 'M6 9l6 6 6-6'); chev.appendChild(cp);
+    tg.appendChild(ico); tg.appendChild(tt); tg.appendChild(chev);
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'goalsAlertClose'; x.textContent = '\u2715'; x.setAttribute('aria-label', t('Fermer pour aujourd\'hui'));
+    head.appendChild(tg); head.appendChild(x);
+    var body = document.createElement('div'); body.className = 'goalsAlertBody';
+    function sync() { var o = !!alertOpen[key]; card.classList.toggle('open', o); body.hidden = !o; tg.setAttribute('aria-expanded', o ? 'true' : 'false'); }
+    tg.addEventListener('click', function () { alertOpen[key] = !alertOpen[key]; sync(); });
+    x.addEventListener('click', function () { try { localStorage.setItem(alertDayKey(key), localIso(new Date())); } catch (e) { /* stockage indisponible */ } card.classList.add('hidden'); });
+    sync();
+    card.appendChild(head); card.appendChild(body);
+    return body;
+  }
+
   // 2 oct. 2026 (Emilien, option B) : carte « surcharge » — plan PROPOSÉ, rien n'est
   // modifié avant « Valider ». Serveur : server/lib/goalsoverload.js.
   function loadGoalsOverloadCard() {
@@ -562,14 +592,15 @@
       if (!p || !p.overloaded) { card.classList.add('hidden'); return; }
       function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
       function fmt(m) { return m >= 60 ? (Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : '')) : (m + ' min'); }
-      card.appendChild(el('p', 'goalsOverloadTitle', p.capLabel ? t('Plafond atteint') + ' \u00b7 ' + p.capLabel : t('Journée surchargée')));
-      card.appendChild(el('p', 'meta', p.capLabel ? t('Ce plafond serait dépassé. Nouveau plan proposé (rien n\'est modifié sans ta validation).') : t('Charge du jour : ') + fmt(p.loadMinutes) + t(' pour une capacité moyenne de ') + fmt(p.budgetMinutes) + t('. Nouveau plan proposé (rien n\'est modifié sans ta validation).')));
+      var ob = buildAlertShell(card, 'overload', p.capLabel ? t('Plafond atteint') + ' \u00b7 ' + p.capLabel : t('Journée surchargée'));
+      if (!ob) return;
+      ob.appendChild(el('p', 'meta', p.capLabel ? t('Ce plafond serait dépassé. Nouveau plan proposé (rien n\'est modifié sans ta validation).') : t('Charge du jour : ') + fmt(p.loadMinutes) + t(' pour une capacité moyenne de ') + fmt(p.budgetMinutes) + t('. Nouveau plan proposé (rien n\'est modifié sans ta validation).')));
       var ul = el('ul', 'goalsOverloadList');
       p.moves.slice(0, 6).forEach(function (m) { var li = el('li', null, m.label + ' : ' + (TMT.calendarDayLabel(m.from) || m.from) + ' \u2192 ' + (TMT.calendarDayLabel(m.to) || m.to) + (m.importance ? ' (' + t('importance') + ' ' + t(m.importance) + ')' : '')); if (m.reasons && m.reasons.length) li.title = m.reasons.join(' \u00b7 '); ul.appendChild(li); });
       if (p.moves.length > 6) ul.appendChild(el('li', null, t('… et ') + (p.moves.length - 6) + t(' autres tâches déplacées')));
       (p.objectives.weekly || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif hebdo') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });
       (p.objectives.period || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif de période') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });
-      card.appendChild(ul);
+      ob.appendChild(ul);
       var row = el('div', 'goalsOverloadActions');
       var ok = el('button', 'goalsOverloadOk', t('Valider'));
       var no = el('button', 'goalsOverloadNo', p.capLabel ? t('Garder aujourd\'hui') : t('Ignorer'));
@@ -577,7 +608,7 @@
       function done() { loadGoalsOverloadCard(); loadGoalsTasksOverview(); }
       ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/apply', { signature: p.signature, poleKey: pole || undefined }).then(done).catch(done); });
       no.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/dismiss', {}).then(done).catch(done); });
-      row.appendChild(ok); row.appendChild(no); card.appendChild(row);
+      row.appendChild(ok); row.appendChild(no); ob.appendChild(row);
       card.classList.remove('hidden');
     }).catch(function () { card.classList.add('hidden'); });
   }
@@ -589,7 +620,7 @@
     var over = $('goalsOverloadCard');
     if (!activityId || !over) return;
     var card = $('goalsReportCard');
-    if (!card) { card = document.createElement('div'); card.id = 'goalsReportCard'; card.className = 'goalsOverloadCard goalsReportCard hidden'; over.parentNode.insertBefore(card, over.nextSibling); }
+    if (!card) { card = document.createElement('div'); card.id = 'goalsReportCard'; card.className = 'goalsOverloadCard goalsAlertCard goalsReportCard hidden'; over.parentNode.insertBefore(card, over.nextSibling); }
     var base = '/api/activities/' + activityId + '/goals/';
     var pole = TMT.currentGoalsSelectedPoleKey || '';
     api('GET', base + 'unfinished').then(function (d) {
@@ -600,6 +631,8 @@
       function inPole(x) { return !pole || x.poleKey === pole; }
       var tasks = (d.tasks || []).filter(inPole), periods = (d.periods || []).filter(inPole), real = (d.realism || []).filter(inPole);
       if (!tasks.length && !periods.length && !real.length) { card.classList.add('hidden'); return; }
+      var rb = buildAlertShell(card, 'report', tasks.length || periods.length ? t('Non réalisées') : t('Cible peut-être irréaliste'));
+      if (!rb) return;
       function refresh() { loadGoalsReportCard(); loadGoalsTasksOverview(); if (TMT.reloadGoalsAll) TMT.reloadGoalsAll(); }
       function post(path, body) { return api('POST', base + path, body).then(refresh).catch(function (e) { alert(e.message); refresh(); }); }
       real.forEach(function (r) {
@@ -612,11 +645,10 @@
           b.addEventListener('click', function () { row.querySelectorAll('button').forEach(function (x) { x.disabled = true; }); post('realism', { category: r.category, choice: o[0] }); });
           row.appendChild(b);
         });
-        box.appendChild(row); card.appendChild(box);
+        box.appendChild(row); rb.appendChild(box);
       });
       if (tasks.length || periods.length) {
         var box2 = el('div', 'goalsReportBlock');
-        box2.appendChild(el('p', 'goalsOverloadTitle', t('Non réalisées')));
         box2.appendChild(el('p', 'meta', t('Jour proposé selon ta capacité et tes plafonds. Rien ne bouge sans ton clic.')));
         var ul = el('ul', 'goalsOverloadList goalsReportList');
         function line(text, late, btnLabel, onClick) {
@@ -646,7 +678,7 @@
           box2.appendChild(all);
           if (tasks.length > auto.length) box2.appendChild(el('p', 'meta', t('Les tâches à date fixée se reportent une par une.')));
         }
-        card.appendChild(box2);
+        rb.appendChild(box2);
       }
       card.classList.remove('hidden');
     }).catch(function () { card.classList.add('hidden'); });
@@ -659,7 +691,7 @@
     var anchor = $('goalsReportCard') || $('goalsOverloadCard');
     if (!activityId || !anchor) return;
     var card = $('goalsRecalcCard');
-    if (!card) { card = document.createElement('div'); card.id = 'goalsRecalcCard'; card.className = 'goalsOverloadCard goalsRecalcCard hidden'; anchor.parentNode.insertBefore(card, anchor.nextSibling); }
+    if (!card) { card = document.createElement('div'); card.id = 'goalsRecalcCard'; card.className = 'goalsOverloadCard goalsAlertCard goalsRecalcCard hidden'; anchor.parentNode.insertBefore(card, anchor.nextSibling); }
     var base = '/api/activities/' + activityId + '/goals/recalc';
     var pole = TMT.currentGoalsSelectedPoleKey || '';
     api('GET', base).then(function (d) {
@@ -669,18 +701,21 @@
       if (!list.length) { card.classList.add('hidden'); return; }
       function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
       function hw(m) { return (Math.round(m / 6) / 10) + ' h'; }
+      var cb = buildAlertShell(card, 'recalc', t('Noèsis propose de recalculer tes objectifs'));
+      if (!cb) return;
       function refresh() { loadGoalsRecalcCard(); if (TMT.reloadGoalsAll) TMT.reloadGoalsAll(); }
       list.forEach(function (x) {
         var box = el('div', 'goalsReportBlock');
-        box.appendChild(el('p', 'goalsOverloadTitle', t('Noèsis propose de recalculer tes objectifs') + ' (' + x.label + ') : ' + t('ton rythme réel') + ' ' + hw(x.actualPerWeekMinutes) + t('/sem au lieu de ') + hw(x.needPerWeekMinutes)));
+        box.appendChild(el('p', 'goalsOverloadTitle', x.label + ' : ' + t('ton rythme réel') + ' ' + hw(x.actualPerWeekMinutes) + t('/sem au lieu de ') + hw(x.needPerWeekMinutes)));
         box.appendChild(el('p', 'meta', t('Nouvelle estimation proposée') + ' : ' + hw(x.currentTargetMinutes) + ' \u2192 ' + hw(x.proposedTargetMinutes) + '. ' + t('Tes textes saisis ne changent pas.')));
         var row = el('div', 'goalsOverloadActions');
         var ok = el('button', 'goalsOverloadOk', t('Appliquer'));
-        var no = el('button', 'goalsOverloadNo', t('Plus tard') + ' \u2715');
+        var no = el('button', 'goalsOverloadNo', t('Plus tard'));
         ok.type = 'button'; no.type = 'button';
         ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/' + x.id + '/apply', {}).then(refresh).catch(function (e) { alert(e.message); refresh(); }); });
-        no.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/' + x.id + '/dismiss', {}).then(refresh).catch(refresh); });
-        row.appendChild(ok); row.appendChild(no); box.appendChild(row); card.appendChild(box);
+        // « Plus tard » ne règle rien : pas de refus serveur (qui masquait 7 jours), la carte est masquée pour aujourd'hui et revient demain.
+        no.addEventListener('click', function () { try { localStorage.setItem(alertDayKey('recalc'), localIso(new Date())); } catch (e) { /* stockage indisponible */ } card.classList.add('hidden'); });
+        row.appendChild(ok); row.appendChild(no); box.appendChild(row); cb.appendChild(box);
       });
       card.classList.remove('hidden');
     }).catch(function () { card.classList.add('hidden'); });
