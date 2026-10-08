@@ -992,6 +992,8 @@
         // ponctuelles peuvent exister sur n'importe quel jour de la période
         // indépendamment de la saisie d'un objectif hebdomadaire.
         var isOpen = !!goalsOpenWeekIndexes[weekIndex];
+        row.style.setProperty('--poleColor', currentGoalsCategoryColor());
+        row.classList.toggle('weekOpen', isOpen);
         var expandBtn = document.createElement('button');
         expandBtn.type = 'button';
         expandBtn.className = 'goalWeeklyExpandBtn' + (isOpen ? ' open' : '');
@@ -1004,6 +1006,7 @@
           var opening = panel.classList.contains('hidden');
           panel.classList.toggle('hidden', !opening);
           expandBtn.classList.toggle('open', opening);
+          row.classList.toggle('weekOpen', opening);
           goalsOpenWeekIndexes[weekIndex] = opening;
         });
         row.appendChild(expandBtn);
@@ -1781,7 +1784,6 @@
 
         var row = document.createElement('div');
         row.className = 'goalsCalendarRow' + (day.isToday ? ' today' : '') + (day.date < todayIso ? ' past' : '') + (isWeekEnd ? ' weekEnd' : '');
-        if (isWeekEnd) row.style.borderColor = goalsCalCatColor;
 
         var dateEl = document.createElement('span');
         dateEl.className = 'goalsCalendarDate';

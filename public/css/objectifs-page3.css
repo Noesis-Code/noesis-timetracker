@@ -248,8 +248,12 @@
 .goalWeeklyExpandBtn.open { transform: rotate(90deg); }
 
 .goalWeekDaysPanel {
-  display: flex; flex-direction: column; gap: 1px; background: var(--border);
+  display: flex; flex-direction: column; gap: 0; background: transparent;
 }
+.goalWeekDaysPanel .goalsCalendarRow { background: transparent !important; border: none; border-top: 1px solid rgba(255,255,255,0.05); }
+.goalsWeeklyList .goalWeeklyCard.weekOpen { box-shadow: inset 0 0 0 2px var(--poleColor) !important; }
+#goalsMonthView .goalsWeeklyList .goalWeeklyCard.weekOpen { box-shadow: inset 0 0 0 2px var(--poleColor) !important; }
+.goalWeekDaysPanel .goalsCalendarRow { box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 
 .goalWeekDaysPanel.hidden { display: none; }
 
@@ -282,9 +286,7 @@
 
 .goalsCalendarWeekBadge.clickable:hover { background: rgba(var(--purple-rgb), 0.22); }
 
-.goalsCalendarRow.weekEnd {
-  flex-wrap: wrap; border: 2px solid var(--purple); border-radius: var(--radius-md);
-}
+.goalsCalendarRow.weekEnd { flex-wrap: wrap; }
 
 .goalsCalendarWeekProgress { flex-basis: 100%; margin-top: 6px; }
 
