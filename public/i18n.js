@@ -1300,6 +1300,15 @@
   });
   Object.assign(DICT, {
     "Pôles & secteurs": "Divisions & sectors",
+    "Ma moyenne (historique)": "My average (history)",
+    "Mon maximum (facultatif)": "My maximum (optional)",
+    "Par jour": "Per day",
+    "Par semaine": "Per week",
+    "Utiliser ma moyenne": "Use my average",
+    "Durée invalide (ex. 1:30 ou 90).": "Invalid duration (e.g. 1:30 or 90).",
+    "Plafond atteint": "Limit reached",
+    "Garder aujourd'hui": "Keep today",
+    "Ce plafond serait dépassé. Nouveau plan proposé (rien n'est modifié sans ta validation).": "This limit would be exceeded. New plan proposed (nothing changes without your approval).",
     "Modifier la tâche": "Edit task",
     "Nom de la tâche": "Task name",
     "Date": "Date",

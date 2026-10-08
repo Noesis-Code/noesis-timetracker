@@ -7541,6 +7541,45 @@
     $('categoryRemoveCancelBtn').onclick = close;
   }
 
+  // Plafonds de temps facultatifs (7 oct. 2026) : moyenne historique + max/jour et max/semaine.
+  function fmtCapMinutes(m) {
+    if (m === null || m === undefined) return '';
+    return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+  }
+  function parseCapMinutes(txt) {
+    var s = String(txt || '').trim().toLowerCase().replace(',', '.');
+    if (!s) return { value: null };
+    var m = s.match(/^(\d+):([0-5]?\d)$/);
+    if (m) return { value: Number(m[1]) * 60 + Number(m[2]) };
+    m = s.match(/^(\d+)\s*h\s*([0-5]?\d)?$/);
+    if (m) return { value: Number(m[1]) * 60 + Number(m[2] || 0) };
+    m = s.match(/^(\d+)\s*(min|m)?$/);
+    if (m) return { value: Number(m[1]) };
+    return { error: true };
+  }
+  function readTimeCapsInputs() {
+    var d = parseCapMinutes($('timeCapsDay').value);
+    var w = parseCapMinutes($('timeCapsWeek').value);
+    if (d.error || w.error) return { error: t('Durée invalide (ex. 1:30 ou 90).') };
+    return { maxDayMinutes: d.value, maxWeekMinutes: w.value };
+  }
+  function loadTimeCaps(o, state) {
+    var dayIn = $('timeCapsDay'), weekIn = $('timeCapsWeek'), avg = $('timeCapsAvg');
+    dayIn.value = ''; weekIn.value = ''; avg.textContent = '';
+    dayIn.disabled = weekIn.disabled = true;
+    $('timeCapsUseAvg').onclick = function () {
+      if (!state.loaded) return;
+      dayIn.value = fmtCapMinutes(state.avgDay); weekIn.value = fmtCapMinutes(state.avgWeek);
+    };
+    api('GET', '/api/activities/' + o.activityId + '/goals/timecaps/' + o.key).then(function (c) {
+      state.loaded = true; state.avgDay = c.avgDayMinutes; state.avgWeek = c.avgWeekMinutes;
+      state.day = c.maxDayMinutes; state.week = c.maxWeekMinutes;
+      avg.textContent = t('Par jour') + ' : ' + fmtCapMinutes(c.avgDayMinutes) + ' · ' + t('Par semaine') + ' : ' + fmtCapMinutes(c.avgWeekMinutes);
+      dayIn.value = fmtCapMinutes(c.maxDayMinutes); weekIn.value = fmtCapMinutes(c.maxWeekMinutes);
+      dayIn.disabled = weekIn.disabled = false;
+    }).catch(function () { avg.textContent = ''; });
+  }
+
   // Détail (description, 200 caractères max) : ouverte après une création, et par
   // « ✎ » en mode édition (champ prérempli). « ✕ » ferme sans enregistrer.
   function openCategoryDetailModal(o) {
@@ -7549,6 +7588,8 @@
     var ta = $('categoryDetailDescription');
     var msg = $('categoryDetailMsg');
     var initial = o.description || '';
+    var capsState = { loaded: false, avgDay: 0, avgWeek: 0, day: null, week: null };
+    loadTimeCaps(o, capsState);
     var titleIn = $('categoryDetailTitle');
     titleIn.value = o.label;
     $('categoryDetailHint').textContent = t(o.poleKey ? 'Décris ce secteur (optionnel).' : 'Décris ce pôle (optionnel).');
@@ -7560,9 +7601,15 @@
     function save() {
       var value = ta.value.trim();
       var newLabel = titleIn.value.trim() || o.label;
-      if (value === initial && newLabel === o.label) { close(); return; }
+      var capsBody = readTimeCapsInputs(capsState);
+      if (capsBody.error) { msg.textContent = capsBody.error; return; }
+      var capsChanged = capsState.loaded && (capsBody.maxDayMinutes !== capsState.day || capsBody.maxWeekMinutes !== capsState.week);
+      var saveCaps = capsChanged
+        ? api('PUT', '/api/activities/' + o.activityId + '/goals/timecaps/' + o.key, { maxDayMinutes: capsBody.maxDayMinutes, maxWeekMinutes: capsBody.maxWeekMinutes })
+        : Promise.resolve();
+      if (value === initial && newLabel === o.label) { saveCaps.then(close).catch(function (err) { msg.textContent = err.message; }); return; }
       var url = '/api/activities/' + o.activityId + '/goals/categories/' + (o.poleKey ? o.poleKey + '/secteurs/' : '') + o.key;
-      api('PUT', url, { label: newLabel, description: value })
+      saveCaps.then(function () { return api('PUT', url, { label: newLabel, description: value }); })
         .then(function () { close(); activityGoalsCategoriesRefresh(o.activityId); })
         .catch(function (err) { msg.textContent = err.message; });
     }

@@ -2103,6 +2103,18 @@
         <div class="categoryDetailBody">
           <p class="hint" id="categoryDetailHint"></p>
           <textarea id="categoryDetailDescription" rows="4" maxlength="200"></textarea>
+          <div class="timeCapsBlock">
+            <p class="timeCapsTitle">Ma moyenne (historique)</p>
+            <p class="hint" id="timeCapsAvg"></p>
+            <p class="timeCapsTitle">Mon maximum (facultatif)</p>
+            <div class="timeCapsFields">
+              <label class="fieldLabel" for="timeCapsDay">Par jour</label>
+              <input type="text" id="timeCapsDay" inputmode="text" placeholder="h:mm" autocomplete="off">
+              <label class="fieldLabel" for="timeCapsWeek">Par semaine</label>
+              <input type="text" id="timeCapsWeek" inputmode="text" placeholder="h:mm" autocomplete="off">
+            </div>
+            <button type="button" id="timeCapsUseAvg" class="linkBtn">Utiliser ma moyenne</button>
+          </div>
           <div class="rowActions">
             <button type="button" id="categoryDetailDeleteBtn" class="historyRowIconBtn danger" aria-label="Supprimer"></button>
             <button type="button" id="categoryDetailSaveBtn" class="iconBtn btnBrique">Enregistrer</button>
