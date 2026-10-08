@@ -536,7 +536,7 @@
 .goalEstUse:disabled { opacity: .5; }
 .goalEstBody { display: flex; flex-direction: column; gap: 6px; }
 .goalEstBody.hidden { display: none; }
-.goalWeeklyProposalTitle { font-weight: 600; margin-bottom: 6px; resize: none; min-height: 0 !important; height: 46px; }
+.goalWeeklyProposalTitle { font-weight: 600; margin-bottom: 6px; resize: none; min-height: 0 !important; height: auto; overflow: hidden; }
 
 /* Objectif hebdomadaire : texte directement éditable (sans rectangle) + capacité dessous */
 .goalsWeeklyList .goalWeeklyText,

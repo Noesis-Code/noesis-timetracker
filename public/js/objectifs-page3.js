@@ -485,6 +485,9 @@
       var ta = document.createElement('textarea'); ta.rows = 3; ta.maxLength = 600; ta.value = p.description || ''; ta.placeholder = t('Description');
       wrap.appendChild(lab); wrap.appendChild(ti); wrap.appendChild(ta); scroll.appendChild(wrap);
       inputs.push({ weekIndex: p.weekIndex, ti: ti, ta: ta });
+      var fit = function () { ti.style.height = 'auto'; ti.style.height = ti.scrollHeight + 'px'; };
+      ti.addEventListener('input', fit);
+      setTimeout(fit, 0); setTimeout(fit, 150);
     });
     var err = document.createElement('p'); err.className = 'msg'; card.appendChild(err);
     var row = document.createElement('div'); row.className = 'goalsCaptureConfirmActions';
