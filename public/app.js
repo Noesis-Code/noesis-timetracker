@@ -1388,7 +1388,7 @@
   if (_isCoarsePointer && window.visualViewport) {
     (function () {
       var pinBars = document.querySelectorAll('#topbar');
-      var pinPages = document.querySelectorAll('#activityPage, #goalsDetailPage, #categoryDetailModal');
+      var pinPages = document.querySelectorAll('#activityPage, #goalsDetailPage');
       // 27 septembre 2026 (Design) : .tabbar rejoint ce pincement continu, en
       // remplacement du masquage complet (.tabbarHidden, retiré ci-dessus) —
       // ancrée en BAS (pas en haut comme #topbar), sa formule de compensation
@@ -7315,7 +7315,8 @@
     var save = document.createElement('button');
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     actions.appendChild(del); actions.appendChild(cancel); actions.appendChild(save);
-    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(msg); fields.appendChild(actions);
+    var caps = buildTimeCapsBlock(activityId, st.key);
+    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
     descIn.addEventListener('input', function () { st.desc = descIn.value; });
@@ -7324,10 +7325,14 @@
       if (save.disabled) return;
       var value = descIn.value.trim();
       var newLabel = nameIn.value.trim() || st.label;
-      if (value === st.description && newLabel === st.label) { close(); return; }
+      var capsRead = caps.read();
+      if (capsRead.error) { msg.textContent = capsRead.error; return; }
+      var textChanged = !(value === st.description && newLabel === st.label);
+      if (!textChanged && !capsRead.changed) { close(); return; }
       save.disabled = true; msg.textContent = '';
       var url = '/api/activities/' + activityId + '/goals/categories/' + (st.poleKey ? st.poleKey + '/secteurs/' : '') + st.key;
-      api('PUT', url, { label: newLabel, description: value })
+      var saveCaps = capsRead.changed ? api('PUT', '/api/activities/' + activityId + '/goals/timecaps/' + st.key, capsRead.body) : Promise.resolve();
+      saveCaps.then(function () { return textChanged ? api('PUT', url, { label: newLabel, description: value }) : null; })
         .then(function () { catEditState = null; activityGoalsCategoriesRefresh(activityId); })
         .catch(function (err) { msg.textContent = err.message; })
         .then(function () { save.disabled = false; });
@@ -7557,73 +7562,45 @@
     if (m) return { value: Number(m[1]) };
     return { error: true };
   }
-  function readTimeCapsInputs() {
-    var d = parseCapMinutes($('timeCapsDay').value);
-    var w = parseCapMinutes($('timeCapsWeek').value);
-    if (d.error || w.error) return { error: t('Durée invalide (ex. 1:30 ou 90).') };
-    return { maxDayMinutes: d.value, maxWeekMinutes: w.value };
-  }
-  function loadTimeCaps(o, state) {
-    var dayIn = $('timeCapsDay'), weekIn = $('timeCapsWeek'), avg = $('timeCapsAvg');
-    dayIn.value = ''; weekIn.value = ''; avg.textContent = '';
-    dayIn.disabled = weekIn.disabled = true;
-    $('timeCapsUseAvg').onclick = function () {
+  // Bloc plafonds du formulaire en place : renvoie { node, read() }.
+  function buildTimeCapsBlock(activityId, key) {
+    var state = { loaded: false, avgDay: 0, avgWeek: 0, day: null, week: null };
+    var node = document.createElement('div');
+    node.className = 'timeCapsBlock';
+    function title(txt) { var p = document.createElement('p'); p.className = 'timeCapsTitle'; p.textContent = t(txt); return p; }
+    function field(box, label, id) {
+      var l = document.createElement('label'); l.className = 'fieldLabel'; l.htmlFor = id; l.textContent = t(label);
+      var i = document.createElement('input'); i.type = 'text'; i.id = id; i.placeholder = 'h:mm'; i.autocomplete = 'off'; i.disabled = true;
+      box.appendChild(l); box.appendChild(i); return i;
+    }
+    var avg = document.createElement('p'); avg.className = 'hint';
+    var fields = document.createElement('div'); fields.className = 'timeCapsFields';
+    var dayIn = field(fields, 'Par jour', 'timeCapsDay');
+    var weekIn = field(fields, 'Par semaine', 'timeCapsWeek');
+    var use = document.createElement('button'); use.type = 'button'; use.className = 'linkBtn'; use.textContent = t('Utiliser ma moyenne');
+    use.addEventListener('click', function () {
       if (!state.loaded) return;
       dayIn.value = fmtCapMinutes(state.avgDay); weekIn.value = fmtCapMinutes(state.avgWeek);
-    };
-    api('GET', '/api/activities/' + o.activityId + '/goals/timecaps/' + o.key).then(function (c) {
+    });
+    node.appendChild(title('Ma moyenne (historique)')); node.appendChild(avg);
+    node.appendChild(title('Mon maximum (facultatif)')); node.appendChild(fields); node.appendChild(use);
+    api('GET', '/api/activities/' + activityId + '/goals/timecaps/' + key).then(function (c) {
       state.loaded = true; state.avgDay = c.avgDayMinutes; state.avgWeek = c.avgWeekMinutes;
       state.day = c.maxDayMinutes; state.week = c.maxWeekMinutes;
       avg.textContent = t('Par jour') + ' : ' + fmtCapMinutes(c.avgDayMinutes) + ' · ' + t('Par semaine') + ' : ' + fmtCapMinutes(c.avgWeekMinutes);
       dayIn.value = fmtCapMinutes(c.maxDayMinutes); weekIn.value = fmtCapMinutes(c.maxWeekMinutes);
       dayIn.disabled = weekIn.disabled = false;
-    }).catch(function () { avg.textContent = ''; });
-  }
-
-  // Détail (description, 200 caractères max) : ouverte après une création, et par
-  // « ✎ » en mode édition (champ prérempli). « ✕ » ferme sans enregistrer.
-  function openCategoryDetailModal(o) {
-    var modal = $('categoryDetailModal');
-    if (!modal) return;
-    var ta = $('categoryDetailDescription');
-    var msg = $('categoryDetailMsg');
-    var initial = o.description || '';
-    var capsState = { loaded: false, avgDay: 0, avgWeek: 0, day: null, week: null };
-    loadTimeCaps(o, capsState);
-    var titleIn = $('categoryDetailTitle');
-    titleIn.value = o.label;
-    $('categoryDetailHint').textContent = t(o.poleKey ? 'Décris ce secteur (optionnel).' : 'Décris ce pôle (optionnel).');
-    ta.placeholder = t(o.poleKey ? 'Décris ce secteur en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux Noèsis planifie pour toi.' : 'Décris ce pôle en une ou deux phrases : à quoi il sert, quelles tâches il contient. Plus c’est précis, mieux Noèsis planifie pour toi.');
-    ta.value = initial;
-    msg.textContent = '';
-    modal.classList.remove('hidden');
-    function close() { modal.classList.add('hidden'); }
-    function save() {
-      var value = ta.value.trim();
-      var newLabel = titleIn.value.trim() || o.label;
-      var capsBody = readTimeCapsInputs(capsState);
-      if (capsBody.error) { msg.textContent = capsBody.error; return; }
-      var capsChanged = capsState.loaded && (capsBody.maxDayMinutes !== capsState.day || capsBody.maxWeekMinutes !== capsState.week);
-      var saveCaps = capsChanged
-        ? api('PUT', '/api/activities/' + o.activityId + '/goals/timecaps/' + o.key, { maxDayMinutes: capsBody.maxDayMinutes, maxWeekMinutes: capsBody.maxWeekMinutes })
-        : Promise.resolve();
-      if (value === initial && newLabel === o.label) { saveCaps.then(close).catch(function (err) { msg.textContent = err.message; }); return; }
-      var url = '/api/activities/' + o.activityId + '/goals/categories/' + (o.poleKey ? o.poleKey + '/secteurs/' : '') + o.key;
-      saveCaps.then(function () { return api('PUT', url, { label: newLabel, description: value }); })
-        .then(function () { close(); activityGoalsCategoriesRefresh(o.activityId); })
-        .catch(function (err) { msg.textContent = err.message; });
-    }
-    $('categoryDetailSaveBtn').onclick = save;
-    var detailDel = $('categoryDetailDeleteBtn');
-    detailDel.innerHTML = CHRONO_HISTORY_DELETE_ICON;
-    detailDel.disabled = !o.poleKey && currentActivityGoalsCategories.length <= 1;
-    detailDel.onclick = function () {
-      close();
-      openCategoryRemoveModal({ activityId: o.activityId, key: o.key, label: o.label, poleKey: o.poleKey });
+    }).catch(function () {});
+    return {
+      node: node,
+      // { error } | { changed:false } | { changed:true, body }
+      read: function () {
+        var d = parseCapMinutes(dayIn.value), w = parseCapMinutes(weekIn.value);
+        if (d.error || w.error) return { error: t('Durée invalide (ex. 1:30 ou 90).') };
+        var changed = state.loaded && (d.value !== state.day || w.value !== state.week);
+        return { changed: changed, body: { maxDayMinutes: d.value, maxWeekMinutes: w.value } };
+      }
     };
-    $('categoryDetailClose').onclick = close;
-    // Pas de focus automatique : le clavier ne s'ouvre pas et aucun curseur n'est posé tant que l'utilisateur ne touche pas le champ.
-    try { titleIn.blur(); ta.blur(); ta.scrollTop = 0; } catch (e) {}
   }
 
   // « Déplacer vers… » : change un secteur de pôle (PUT …/secteurs/:key/move, qui

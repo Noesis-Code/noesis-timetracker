@@ -2092,38 +2092,6 @@
       </div>
     </div>
 
-    <!-- Fenêtre « détail » d'un pôle/secteur qu'on vient de créer : description
-         (colonne activity_goal_categories.description, 200 caractères max). -->
-    <div id="categoryDetailModal" class="communityMembersModal hidden">
-      <div class="communityMembersModalCard">
-        <div class="profileSubWindowHeader">
-          <input type="text" class="sectionTitle categoryDetailTitleInput" id="categoryDetailTitle" maxlength="40" autocomplete="off" aria-label="Nom">
-          <button type="button" class="menuBtn" id="categoryDetailClose" aria-label="Fermer">✕</button>
-        </div>
-        <div class="categoryDetailBody">
-          <p class="hint" id="categoryDetailHint"></p>
-          <textarea id="categoryDetailDescription" rows="4" maxlength="200"></textarea>
-          <div class="timeCapsBlock">
-            <p class="timeCapsTitle">Ma moyenne (historique)</p>
-            <p class="hint" id="timeCapsAvg"></p>
-            <p class="timeCapsTitle">Mon maximum (facultatif)</p>
-            <div class="timeCapsFields">
-              <label class="fieldLabel" for="timeCapsDay">Par jour</label>
-              <input type="text" id="timeCapsDay" inputmode="text" placeholder="h:mm" autocomplete="off">
-              <label class="fieldLabel" for="timeCapsWeek">Par semaine</label>
-              <input type="text" id="timeCapsWeek" inputmode="text" placeholder="h:mm" autocomplete="off">
-            </div>
-            <button type="button" id="timeCapsUseAvg" class="linkBtn">Utiliser ma moyenne</button>
-          </div>
-          <div class="rowActions">
-            <button type="button" id="categoryDetailDeleteBtn" class="historyRowIconBtn danger" aria-label="Supprimer"></button>
-            <button type="button" id="categoryDetailSaveBtn" class="iconBtn btnBrique">Enregistrer</button>
-          </div>
-          <p id="categoryDetailMsg" class="msg"></p>
-        </div>
-      </div>
-    </div>
-
     <div id="viewProfileModal" class="communityMembersModal hidden">
       <div class="communityMembersModalCard">
         <!-- En-tête d'identité, FIXE (2 septembre 2026, demande d'Emilien :
