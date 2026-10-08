@@ -53,15 +53,9 @@
 }
 
 .goalsGridHeadCell {
-  padding: 10px 8px;
-  font-size: 14px;
-  border-radius: var(--radius-md);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border: 2px solid;
-  outline: 1.5px solid;
-  outline-offset: -4px;
-  box-shadow: var(--shadow-badge);
+  padding: 7px 12px; font-size: 13px; font-weight: 400; text-transform: none; letter-spacing: 0;
+  border-radius: 999px; color: var(--text); background: var(--glass-bg);
+  border: 1px solid var(--glass-border); outline: none; box-shadow: none;
 }
 
 .goalsGridHeadCell--add {
