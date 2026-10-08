@@ -872,6 +872,9 @@
       // 2 oct. 2026 (Emilien) : à 100 % (au moins une tâche) → anneau vert, crochet et contour vert (Avancement global seulement).
       var allDone = data.percent >= 100 && data.total > 0;
       wrap.classList.toggle('isComplete', allDone);
+      // 8 oct. 2026 : tant que ce n'est pas terminé, contour = couleur du pôle.
+      if (allDone || !TMT.subProjectShade) wrap.style.removeProperty('--progressEdge');
+      else wrap.style.setProperty('--progressEdge', TMT.subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, TMT.SUB_PROJECT_SHADE_COUNT));
       if (allDone) $('goalsTasksProgressPercent').innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><polyline points="4 12.5 9.5 18 20 6.5"/></svg>';
       else $('goalsTasksProgressPercent').textContent = data.percent + '%';
       $('goalsTasksProgressCount').textContent =

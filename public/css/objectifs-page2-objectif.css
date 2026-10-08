@@ -42,7 +42,7 @@
    visuelle), sans toucher au padding (0) qui, lui, correspond bien au point
    (1) toujours en discussion. */
 .goalsGridHead {
-  display: flex; align-items: center; gap: 10px; padding: 0 4px 0 26px; margin-bottom: 14px;
+  display: flex; align-items: flex-start; gap: 10px; padding: 0 4px 0 26px; margin-bottom: 14px;
 }
 
 .goalsGridHeadCell {
@@ -290,3 +290,20 @@
 /* 8 oct. 2026 : aucune bordure visible sur les cases de l'arbre (la bordure transparente garde les largeurs égales). */
 .goalsGrid .goalsGridCell--filled, .goalsGrid .goalsGridCell--empty { border-color: transparent !important; box-shadow: none !important; }
 .goalsGridRow:not(:first-child)::before { display: none !important; }
+
+/* Objectif de l'année (8 oct. 2026) : colonne = titre du secteur + bulle, jamais plus large que l'arbre. */
+.goalsYearCol { position: relative; flex: 1 1 0; min-width: 0; max-width: 100%; box-sizing: border-box; border-radius: 18px; overflow-wrap: anywhere; }
+.goalsGridHead--paged .goalsYearCol { flex: 0 0 calc(50% - 5px); }
+.goalsYearCol .goalsGridHeadCell { display: block; width: 100%; box-sizing: border-box; cursor: pointer; }
+.goalsYearCol--open, .goalsYearCol--vide { margin-bottom: 18px; padding: 6px; display: grid; gap: 6px; }
+.goalsYearCol--open { background: var(--yearShade); color: var(--yearInk); }
+.goalsYearCol--open .goalsGridHeadCell { background: var(--bg); color: var(--text); border-color: transparent; font-weight: 600; }
+.goalsYearCol--vide { border: 3px solid var(--yearShade); padding: 3px; }
+.goalsYearCol--vide .goalsGridHeadCell { background: var(--yearShade); color: var(--yearInk); border-color: transparent; font-weight: 600; }
+.goalsYearText { margin: 0; padding: 2px 8px 6px; font-size: 13px; font-weight: 700; line-height: 1.3; cursor: pointer; }
+.goalsYearAdd { border: 2px dashed var(--track-bg); border-radius: 12px; background: transparent; color: var(--text-light); padding: 8px; font: inherit; font-size: 12px; cursor: pointer; }
+.goalsYearField { width: 100%; box-sizing: border-box; resize: none; border: none; border-radius: 12px; background: var(--bg); color: var(--text); padding: 8px 10px; font: inherit; font-size: 13px; min-height: 44px; overflow: hidden; }
+.goalsYearSave { border: none; border-radius: 999px; background: var(--bg); color: var(--text); padding: 7px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.goalsYearLink { position: absolute; left: 50%; top: 100%; height: 38px; width: 0; border-left: 2px solid var(--track-bg); transform: translateX(-50%); pointer-events: none; z-index: -1; }
+.goalsYearCol--linked .goalsYearLink { border-left-color: var(--yearShade); }
+.goalsYearCol--vide .goalsYearLink { display: none; }

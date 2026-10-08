@@ -196,6 +196,35 @@ router.get('/activities/:id/goals/members', (req, res) => {
   }
 });
 
+// Objectif de l'année : un texte par secteur (ou pôle sans secteur).
+router.get('/activities/:id/goals/year-goals', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    res.json({ goals: goals.getYearGoals(activityId) });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+router.put('/activities/:id/goals/year-goals/:key', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  const text = typeof req.body.text === 'string' ? req.body.text : '';
+  if (text.length > 300) return res.status(400).json({ error: 'Texte trop long (300 caractères maximum).' });
+  try {
+    res.json({ text: goals.setYearGoal(activityId, req.params.key, text) });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });

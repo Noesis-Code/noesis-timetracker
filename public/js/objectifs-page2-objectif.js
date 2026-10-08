@@ -238,6 +238,7 @@
   if (window.NoesisI18n) window.NoesisI18n.translateStaticDom(document.getElementById('goalsActivitySwitcher'));
 
   var $ = TMT.$,
+      api = TMT.api,
       subProjectShade = TMT.subProjectShade,
       SUB_PROJECT_SHADE_COUNT = TMT.SUB_PROJECT_SHADE_COUNT,
       eclairciPourLisibilite = TMT.eclairciPourLisibilite,
@@ -696,6 +697,97 @@
   }
 
 
+
+  // ===================== OBJECTIF DE L'ANNÉE (8 oct. 2026) ===================
+  // Un texte libre par secteur (ou par pôle sans secteur), sous le titre du
+  // secteur, jamais plus large que sa colonne. Replié par défaut (titre seul,
+  // même distance avec l'arbre qu'avant) ; déplié = bulle à la couleur du
+  // pôle + écart. Sans objectif : case vide « + Objectif de l'année ».
+  var goalsYearOpen = {};      // clé activité|catégorie -> true
+  var goalsYearEditing = {};   // idem -> true
+  var goalsYearLoadingFor = null;
+  var goalsRow13Filled = {};   // catégorie -> période 13 remplie
+  function goalsYearKey(c) { return TMT.currentGoalsActivityId + '|' + c.key; }
+
+  function loadGoalsYearGoals() {
+    var id = TMT.currentGoalsActivityId;
+    if (!id || TMT.currentGoalsYearGoalsFor === id || goalsYearLoadingFor === id) return;
+    goalsYearLoadingFor = id;
+    api('GET', '/api/activities/' + id + '/goals/year-goals').then(function (r) {
+      goalsYearLoadingFor = null;
+      TMT.currentGoalsYearGoals = (r && r.goals) || {};
+      TMT.currentGoalsYearGoalsFor = id;
+      if (TMT.currentGoalsActivityId === id) renderGoalsGridHead();
+    }).catch(function () { goalsYearLoadingFor = null; });
+  }
+
+  function refreshGoalsYearLinks() {
+    document.querySelectorAll('#goalsGridHead .goalsYearCol').forEach(function (col) {
+      col.classList.toggle('goalsYearCol--linked', !!goalsRow13Filled[col.getAttribute('data-key')]);
+    });
+  }
+
+  function buildGoalsYearColumn(c, pill, shade) {
+    var map = (TMT.currentGoalsYearGoalsFor === TMT.currentGoalsActivityId && TMT.currentGoalsYearGoals) || {};
+    var text = map[c.key] || '';
+    var key = goalsYearKey(c);
+    var col = document.createElement('div');
+    col.className = 'goalsYearCol';
+    col.setAttribute('data-key', c.key);
+    col.style.setProperty('--yearShade', shade);
+    col.style.setProperty('--yearInk', readableTextOn(shade));
+    pill.setAttribute('role', 'button');
+    pill.tabIndex = 0;
+    var editing = !!goalsYearEditing[key];
+    var open = !!goalsYearOpen[key] && !!text;
+    var empty = !text;
+    function rerender() { renderGoalsGridHead(); }
+    pill.addEventListener('click', function () {
+      if (empty) { goalsYearEditing[key] = !goalsYearEditing[key]; }
+      else { goalsYearOpen[key] = !goalsYearOpen[key]; goalsYearEditing[key] = false; }
+      rerender();
+    });
+    col.appendChild(pill);
+    if (empty || open || editing) {
+      col.classList.add(empty && !editing ? 'goalsYearCol--vide' : 'goalsYearCol--open');
+      if (editing) {
+        var ta = document.createElement('textarea');
+        ta.className = 'goalsYearField'; ta.rows = 2; ta.maxLength = 300; ta.value = text;
+        ta.placeholder = t('Objectif de l’année');
+        var fit = function () { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+        ta.addEventListener('input', fit);
+        var ok = document.createElement('button');
+        ok.type = 'button'; ok.className = 'goalsYearSave'; ok.textContent = t('Enregistrer');
+        ok.addEventListener('click', function () {
+          ok.disabled = true;
+          api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/year-goals/' + encodeURIComponent(c.key), { text: ta.value })
+            .then(function (r) {
+              var m = TMT.currentGoalsYearGoals || (TMT.currentGoalsYearGoals = {});
+              if (r && r.text) { m[c.key] = r.text; goalsYearOpen[key] = true; } else { delete m[c.key]; goalsYearOpen[key] = false; }
+              goalsYearEditing[key] = false;
+              rerender();
+            }).catch(function () { ok.disabled = false; });
+        });
+        col.appendChild(ta); col.appendChild(ok);
+        window.setTimeout(function () { fit(); ta.focus(); }, 0);
+      } else if (empty) {
+        var add = document.createElement('button');
+        add.type = 'button'; add.className = 'goalsYearAdd'; add.textContent = '+ ' + t('Objectif de l’année');
+        add.addEventListener('click', function () { goalsYearEditing[key] = true; rerender(); });
+        col.appendChild(add);
+      } else {
+        var p = document.createElement('p');
+        p.className = 'goalsYearText'; p.textContent = text;
+        p.addEventListener('click', function () { goalsYearEditing[key] = true; rerender(); });
+        col.appendChild(p);
+      }
+      var link = document.createElement('span');
+      link.className = 'goalsYearLink';
+      col.appendChild(link);
+    }
+    return col;
+  }
+
   function renderGoalsGridHead() {
     var head = $('goalsGridHead');
     if (!head) return;
@@ -782,8 +874,9 @@
           headBadge.textContent = String(headCount);
           span.appendChild(headBadge);
         }
-        head.appendChild(span);
+        head.appendChild(buildGoalsYearColumn(c, span, shade));
       });
+      loadGoalsYearGoals();
     }
     // 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que
     // le bouton + ne s'affiche plus à droite des catégories, mais qu'il
@@ -820,6 +913,7 @@
       emptyMsg.textContent = t('Aucun pôle pour le moment — ajoutez-en un depuis la fenêtre de l’activité, section Catégories.');
       head.appendChild(emptyMsg);
     }
+    refreshGoalsYearLinks();
     window.requestAnimationFrame(syncGoalsGridWidths);
   }
 
@@ -1236,6 +1330,12 @@
       })(i);
     }
 
+    goalsRow13Filled = {};
+    categories.forEach(function (c) {
+      var p13 = indexByCategory[c.key] && indexByCategory[c.key][13];
+      goalsRow13Filled[c.key] = !!(p13 && p13.mainGoalText);
+    });
+    refreshGoalsYearLinks();
     renderGoalsScrub();
     window.requestAnimationFrame(syncGoalsScrubZoneTopVar);
     window.requestAnimationFrame(syncGoalsGridWidths);

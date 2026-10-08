@@ -48,6 +48,39 @@
 const db = require('../db');
 const { postActivityMessage } = require('./community');
 
+// Objectif de l'année (8 oct. 2026) : un texte libre par secteur (ou par pôle
+// sans secteur) et par année, saisi par l'utilisateur. Gratuit : jamais
+// réécrit par Noèsis ; c'est la cible des recalculs de l'Offre 1.
+db.exec(`CREATE TABLE IF NOT EXISTS goal_year_goals (
+  activityId INTEGER NOT NULL,
+  category TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  updatedAt TEXT NOT NULL,
+  PRIMARY KEY (activityId, category, year)
+)`);
+
+function currentYear() { return Number(todayLocal().slice(0, 4)); }
+
+function getYearGoals(activityId) {
+  const out = {};
+  db.prepare('SELECT category, text FROM goal_year_goals WHERE activityId = ? AND year = ?')
+    .all(activityId, currentYear()).forEach((r) => { out[r.category] = r.text; });
+  return out;
+}
+
+function setYearGoal(activityId, category, text) {
+  const clean = String(text || '').trim().slice(0, 300);
+  if (!clean) {
+    db.prepare('DELETE FROM goal_year_goals WHERE activityId = ? AND category = ? AND year = ?').run(activityId, category, currentYear());
+    return '';
+  }
+  db.prepare(`INSERT INTO goal_year_goals (activityId, category, year, text, updatedAt) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(activityId, category, year) DO UPDATE SET text = excluded.text, updatedAt = excluded.updatedAt`)
+    .run(activityId, category, currentYear(), clean, new Date().toISOString());
+  return clean;
+}
+
 const PERIOD_DAYS = 28;
 const WEEK_DAYS = 7;
 const WEEKS_PER_PERIOD = 4;
@@ -445,6 +478,8 @@ function migratePoleDirectDataToSecteur(activityId, poleKey, secteurKey) {
     .run(secteurKey, activityId, poleKey);
   db.prepare('UPDATE goal_periods SET category = ? WHERE activityId = ? AND category = ?')
     .run(secteurKey, activityId, poleKey);
+  db.prepare('UPDATE goal_year_goals SET category = ? WHERE activityId = ? AND category = ?')
+    .run(secteurKey, activityId, poleKey);
 }
 
 // Renomme une catégorie ACTIVE (jamais une gelée — modifier l'étiquette
@@ -526,6 +561,7 @@ function removeCategory(activityId, key, opts) {
 function purgeCategoryPlanning(activityId, keys) {
   const ph = keys.map(() => '?').join(',');
   db.prepare(`DELETE FROM goal_periods WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
+  db.prepare(`DELETE FROM goal_year_goals WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
   db.prepare(`DELETE FROM activity_goal_plans WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
   db.prepare(`DELETE FROM goal_capacity_overrides WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
   db.prepare(`DELETE FROM goal_classify_examples WHERE activityId = ? AND categoryKey IN (${ph})`).run(activityId, ...keys);
@@ -1730,6 +1766,8 @@ module.exports = {
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
   yearGridStart,
+  getYearGoals,
+  setYearGoal,
   migratePlansToYearGrid,
   weekBounds,
   periodNumberForDate,
