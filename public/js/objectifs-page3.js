@@ -74,6 +74,8 @@
               </div>
               <textarea id="activityGoalsMainDescInput" class="hidden" rows="3" maxlength="600" autocomplete="off"></textarea>
               <div class="goalMainEstEdit hidden" id="activityGoalsMainEstEdit">
+                <button type="button" class="linkBtn goalEstUse hidden" id="activityGoalsMainEstToggle">▸ Gérer mon temps</button>
+                <div class="goalEstBody" id="activityGoalsMainEstBody">
                 <div class="goalEstTable">
                   <div></div>
                   <div class="goalEstHead">Moyenne</div>
@@ -83,6 +85,7 @@
                   <button type="button" class="goalEstMax isEmpty" id="activityGoalsMainEstMax">0:00</button>
                 </div>
                 <button type="button" class="linkBtn goalEstUse" id="activityGoalsMainEstUse">Utiliser ma moyenne</button>
+                </div>
               </div>
               <div class="goalDescRow hidden" id="activityGoalsMainDescRow">
                 <span class="goalDescPreview" id="activityGoalsMainDescPreview"></span>
@@ -993,6 +996,13 @@
       // Temps estimé : tableau Moyenne (estimation de Noèsis, lecture seule) / Maximum (saisi à la main,
       // roulette de durée). « Utiliser ma moyenne » recopie la moyenne dans le maximum.
       var avgEl = $('activityGoalsMainEstAvg'), maxBtn = $('activityGoalsMainEstMax'), useBtn = $('activityGoalsMainEstUse');
+      var estToggle = $('activityGoalsMainEstToggle'), estBody = $('activityGoalsMainEstBody');
+      if (maxBtn.dataset.editFor !== curKey) {
+        // Objectif déjà créé : tableau replié derrière « Gérer mon temps » ; sinon visible d'emblée.
+        estBody.classList.toggle('hidden', hasMainNow); estToggle.classList.toggle('hidden', !hasMainNow);
+      }
+      estToggle.textContent = '▸ ' + t('Gérer mon temps');
+      estToggle.onclick = function () { estBody.classList.remove('hidden'); estToggle.classList.add('hidden'); };
       var autoMinutes = null;
       if (maxBtn.dataset.editFor !== curKey) {
         maxBtn.dataset.minutes = period.mainGoalEstimateMinutes != null ? String(period.mainGoalEstimateMinutes) : '';
