@@ -7646,8 +7646,8 @@
     });
     var toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'linkBtn';
     var body = document.createElement('div'); body.className = 'timeCapsBody hidden';
-    function paintToggle() { toggle.textContent = (body.classList.contains('hidden') ? '▸ ' : '▾ ') + t('Moyenne et maximum de temps'); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
-    toggle.addEventListener('click', function () { body.classList.toggle('hidden'); paintToggle(); });
+    function paintToggle() { toggle.textContent = '▸ ' + t('Gérer mon temps'); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
+    toggle.addEventListener('click', function () { body.classList.remove('hidden'); toggle.classList.add('hidden'); });
     paintToggle(); paint();
     body.appendChild(table); body.appendChild(use);
     node.appendChild(toggle); node.appendChild(body);
