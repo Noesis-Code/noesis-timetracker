@@ -649,6 +649,13 @@
   }
 
 
+  function saveWeeklyCapacity(periodNumber, weekIndex, text, minutes) {
+    api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text, estimateMinutes: minutes, category: TMT.currentGoalsCategory })
+      .then(reloadGoalsAll)
+      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
+  }
+
+
   function saveWeeklyStatus(weeklyId, status) {
     api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/status', { status: status })
       .then(reloadGoalsAll)
@@ -824,6 +831,20 @@
             onSave: function (d) { return saveWeeklyDescription(period.periodNumber, weekIndex, w.text, d); },
           });
         });
+        if (w && w.text) {
+          var capMin = w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (TMT.goalsWeekCapacityDefault || 0);
+          var capBtn = document.createElement('button');
+          capBtn.type = 'button';
+          capBtn.className = 'goalWeeklyCapBtn' + (w.estimateSource === 'manual' ? ' manual' : '');
+          capBtn.textContent = t('Capacité') + ' : ' + (capMin ? formatGoalHours(capMin) : '—');
+          capBtn.addEventListener('click', function () {
+            TMT.openDurationPicker({
+              title: 'Capacité', minutes: capMin || 0,
+              onDone: function (v) { saveWeeklyCapacity(period.periodNumber, weekIndex, w.text, v > 0 ? v : 0); },
+            });
+          });
+          textWrap.appendChild(capBtn);
+        }
         row.appendChild(textWrap);
 
         if (w) {
@@ -1284,7 +1305,11 @@
         // que loadGoalsCalendarDays() plus bas.
         if (requestId !== goalsCapacityRequestId) return;
         goalsCapacityUntil = data.overrideUntil || null;
-        renderGoalsCapacityBox(box, data.override, data.computed, !!data.derived);
+        var effective = (!data.derived && data.override != null) ? data.override : data.computed;
+        var changed = (TMT.goalsWeekCapacityDefault || 0) !== (effective || 0);
+        TMT.goalsWeekCapacityDefault = effective || 0;
+        box.innerHTML = '';
+        if (changed && TMT.currentGoalsPlanning) { var pp = goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber); if (pp) renderGoalsWeeklyList(pp); }
       })
       .catch(function () {
         if (requestId !== goalsCapacityRequestId) return;

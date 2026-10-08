@@ -1421,7 +1421,7 @@ function setMainGoalStatus(activityId, category, periodNumber, status) {
 // (période, semaine) — la contrainte est vérifiée ici, pas en base, pour ne
 // pas gêner le report automatique qui, lui, peut avoir besoin de chercher une
 // semaine libre au-delà de la 4e (voir carryOverWeekly).
-function setWeekly(activityId, category, periodNumber, weekIndex, text, description) {
+function setWeekly(activityId, category, periodNumber, weekIndex, text, description, estimateOverride) {
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
   // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
   // désormais être posé directement sur un secteur, plus seulement sur un
@@ -1433,10 +1433,18 @@ function setWeekly(activityId, category, periodNumber, weekIndex, text, descript
   ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
   const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);
   const cleanText = String(text || '').trim();
-  const estimate = estimateForGoal(activityId, category, 'weekly', cleanText);
+  let estimate = estimateForGoal(activityId, category, 'weekly', cleanText);
 
   const existing = db.prepare('SELECT * FROM goal_weekly WHERE periodId = ? AND weekIndex = ? AND carriedOverFromId IS NULL')
     .get(period.id, weekIndex);
+  // Capacité de la semaine saisie par l'utilisateur : prime sur le calcul ;
+  // 0/null la rend à l'automatique ; un enregistrement de texte seul ne
+  // l'écrase jamais.
+  if (estimateOverride !== undefined && estimateOverride !== null && Number(estimateOverride) > 0) {
+    estimate = { minutes: Math.round(Number(estimateOverride)), source: 'manual', confidence: 1 };
+  } else if (estimateOverride === undefined && existing && existing.estimateSource === 'manual' && existing.estimateMinutes > 0) {
+    estimate = { minutes: existing.estimateMinutes, source: 'manual', confidence: 1 };
+  }
   const createdAt = new Date().toISOString();
 
   if (existing) {

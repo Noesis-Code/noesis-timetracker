@@ -1328,6 +1328,7 @@
     "Moyenne": "Average",
     "Maximum": "Maximum",
     "Cible": "Target",
+    "Capacité": "Capacity",
     "Jour": "Day",
     "Semaine": "Week",
     "Heures": "Hours",

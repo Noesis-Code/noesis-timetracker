@@ -318,7 +318,7 @@ router.put('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (req
 
   try {
     const category = resolveCategory(activityId, req.body.category);
-    const result = goals.setWeekly(activityId, category, periodNumber, weekIndex, text, description);
+    const result = goals.setWeekly(activityId, category, periodNumber, weekIndex, text, description, req.body.estimateMinutes === undefined ? undefined : (Number(req.body.estimateMinutes) || null));
     res.json({ ok: true, ...result });
   } catch (err) {
     handleGoalsError(res, err);
