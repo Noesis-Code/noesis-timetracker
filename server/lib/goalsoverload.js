@@ -219,7 +219,7 @@ function getProposal(userId, activityId, poleKey) {
   const afterOverload = new Map();
   if (p) p.moves.forEach((m) => afterOverload.set(m.id, m.to));
   const caps = timecaps.listCaps(userId, activityId).map((c) => ({
-    ...c, isPole: goals.isValidCategoryForActivity(activityId, c.key),
+    ...c, weekCaps: timecaps.weekCapsFor(activityId, c.key), isPole: goals.isValidCategoryForActivity(activityId, c.key),
     label: goals.categoryLabelFor(activityId, goals.resolveToPole(activityId, c.key)),
   }));
   const capTasks = tasks.map((t) => ({

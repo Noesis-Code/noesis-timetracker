@@ -86,7 +86,7 @@ function unfinished(userId, activityId, poleFilter) {
   });
   // Plafonds : les tâches proposées sont traitées comme déplaçables pour ce calcul seulement.
   const caps = timecaps.listCaps(userId, activityId).map((c) => ({
-    ...c, isPole: goals.isValidCategoryForActivity(activityId, c.key),
+    ...c, weekCaps: timecaps.weekCapsFor(activityId, c.key), isPole: goals.isValidCategoryForActivity(activityId, c.key),
     label: goals.categoryLabelFor(activityId, goals.resolveToPole(activityId, c.key)),
   }));
   const poleOf = (t) => (t.category ? goals.resolveToPole(activityId, t.category) : null);

@@ -328,6 +328,11 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
     dailyMax = capsRow.maxDayMinutes || null;
     weekMax = capsRow.maxWeekMinutes || null;
   } catch (e) { dailyMax = null; weekMax = null; }
+  // La Cible saisie sur CET objectif hebdomadaire prime sur le plafond de semaine, pour cette semaine seulement.
+  try {
+    const own = db.prepare('SELECT estimateMinutes, estimateSource FROM goal_weekly WHERE id = ?').get(weekly.id);
+    if (own && own.estimateSource === 'manual' && own.estimateMinutes > 0) weekMax = own.estimateMinutes;
+  } catch (e) { /* non bloquant */ }
   if (dailyMax) dailyCapacity = dailyMax;
 
   let assignments = [];

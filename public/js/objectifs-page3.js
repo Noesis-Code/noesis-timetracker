@@ -942,16 +942,7 @@
         }
 
         if (w) {
-          var dot = document.createElement('button');
-          dot.type = 'button';
-          dot.className = 'goalWeeklyDot ' + goalStatusClass(w.status);
-          dot.title = t(GOAL_STATUS_LABELS[w.status] || GOAL_STATUS_LABELS.non_atteint);
-          dot.addEventListener('click', function () {
-            var idx = GOAL_STATUS_ORDER.indexOf(w.status);
-            var next = GOAL_STATUS_ORDER[(idx + 1) % GOAL_STATUS_ORDER.length];
-            saveWeeklyStatus(w.id, next);
-          });
-          row.appendChild(dot);
+          // 8 oct. 2026 (Émilien) : la pastille de statut est retirée de la ligne.
 
           // 8 oct. 2026 (Emilien) : plus de responsable ni de petit calendrier sur
           // les objectifs hebdomadaires — l'assignation est réservée aux tâches.

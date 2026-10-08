@@ -117,7 +117,25 @@ function weeklyCapFor(userId, activityId, key) {
   return row && row.maxWeekMinutes != null ? row.maxWeekMinutes : null;
 }
 
-// PURE. caps : [{key, label, isPole, poleKey, maxDayMinutes, maxWeekMinutes}] ;
+// 8 oct. 2026 (Émilien) : la « Cible » saisie sur un objectif hebdomadaire (goal_weekly.estimateSource
+// = 'manual') PRIME sur le plafond de semaine de « Gérer mon temps », pour CETTE semaine seulement.
+// Renvoie { lundi ISO : minutes } pour le pôle/secteur `key` (un pôle regroupe ses secteurs).
+function weekCapsFor(activityId, key) {
+  const out = {};
+  const rows = db.prepare(`
+    SELECT w.weekIndex, w.estimateMinutes, p.startDate, p.category FROM goal_weekly w
+    JOIN goal_periods p ON p.id = w.periodId
+    WHERE p.activityId = ? AND w.carriedOverFromId IS NULL AND w.estimateSource = 'manual' AND w.estimateMinutes > 0
+  `).all(activityId);
+  const isPole = goals.isValidCategoryForActivity(activityId, key);
+  rows.forEach((r) => {
+    if (!(r.category === key || (isPole && goals.resolveToPole(activityId, r.category) === key))) return;
+    out[goals.mostRecentMonday(goals.weekBounds(r.startDate, r.weekIndex).start)] = r.estimateMinutes;
+  });
+  return out;
+}
+
+// PURE. caps : [{key, label, isPole, poleKey, maxDayMinutes, maxWeekMinutes, weekCaps?}] ;
 // tasks : [{id,label,category,poleOf (pôle de la tâche),dueDate,minutes,dueDateAuto,long?,importance?}].
 // Une tâche compte dans le plafond de sa catégorie ET dans celui de son pôle.
 // Seules les tâches posées par le moteur (dueDateAuto) bougent. Renvoie [{id,to,capKey,capLabel}].
@@ -129,9 +147,10 @@ function computeCapMoves({ today, caps, tasks, horizon = 60 }) {
   const capsOf = (t) => caps.filter((c) => inCap(c, t));
   const dayLoad = (c, d) => tasks.reduce((s, t) => s + (inCap(c, t) && cur.get(t.id) === d ? t.minutes : 0), 0);
   const weekOf = (d) => goals.mostRecentMonday(d);
+  const weekCap = (c, d) => (c.weekCaps && c.weekCaps[weekOf(d)] != null ? c.weekCaps[weekOf(d)] : c.maxWeekMinutes);
   const weekLoad = (c, d) => { const w = weekOf(d); return tasks.reduce((s, t) => s + (inCap(c, t) && cur.has(t.id) && weekOf(cur.get(t.id)) === w ? t.minutes : 0), 0); };
   const fits = (t, d) => capsOf(t).every((c) => (c.maxDayMinutes == null || dayLoad(c, d) + t.minutes <= c.maxDayMinutes)
-    && (c.maxWeekMinutes == null || weekLoad(c, d) + t.minutes <= c.maxWeekMinutes));
+    && (weekCap(c, d) == null || weekLoad(c, d) + t.minutes <= weekCap(c, d)));
   const movable = (t) => !t.long && !!t.dueDateAuto;
   const moved = new Map();
   const reasons = new Map();
@@ -155,7 +174,7 @@ function computeCapMoves({ today, caps, tasks, horizon = 60 }) {
       let guard = 200;
       while (c.maxDayMinutes != null && dayLoad(c, d) > c.maxDayMinutes && guard-- > 0) { if (!tryMove(c, d, false)) break; }
       guard = 200;
-      while (c.maxWeekMinutes != null && weekLoad(c, d) > c.maxWeekMinutes && guard-- > 0) { if (!tryMove(c, d, true)) break; }
+      while (weekCap(c, d) != null && weekLoad(c, d) > weekCap(c, d) && guard-- > 0) { if (!tryMove(c, d, true)) break; }
     });
   }
   const out = [];
@@ -168,4 +187,4 @@ function computeCapMoves({ today, caps, tasks, horizon = 60 }) {
 }
 
 module.exports = {
-  periodAverage, getCaps, setCaps, listCaps, weeklyCapFor, computeCapMoves, averages, minutesInRange };
+  periodAverage, weekCapsFor, getCaps, setCaps, listCaps, weeklyCapFor, computeCapMoves, averages, minutesInRange };
