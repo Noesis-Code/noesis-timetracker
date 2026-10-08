@@ -1422,8 +1422,6 @@
     if (!el) return;
     var total = plan && plan.periodNumber === period.periodNumber && plan.periodTotal != null ? plan.periodTotal : period.mainGoalEstimateMinutes;
     var line = total != null ? '≈ ' + formatGoalHours(total) + ' ' + t('estimées pour la période') : t('Temps estimé : à définir');
-    if (plan && plan.periodNumber === period.periodNumber && plan.extraTotal > 0) line += ' · +' + formatGoalHours(plan.extraTotal) + ' ' + t('passées en plus');
-    if (plan && plan.periodNumber === period.periodNumber && plan.savedTotal > 0) line += ' · −' + formatGoalHours(plan.savedTotal) + ' ' + t('gagnées');
     el.textContent = line;
   }
 
