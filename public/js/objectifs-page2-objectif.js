@@ -600,7 +600,7 @@
     poles.forEach(function (p, i) { if (p.key === TMT.currentGoalsSelectedPoleKey) index = i; });
     if (index === -1) index = 0;
     TMT.currentGoalsPoleIndex = index;
-    var shade = subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+    var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
     applyGoalsHeaderState(header, false, poles[index], shade); // cadre = PÔLE sur toutes les pages (2 oct. : les secteurs sont des bulles en page mensuel)
     if (TMT.rerenderGoalsTasksOverview) TMT.rerenderGoalsTasksOverview();
   }
@@ -742,7 +742,7 @@
         var span = document.createElement('span');
         span.className = 'goalsGridHeadCell';
         span.textContent = t(c.label);
-        var shade = subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+        var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
         // 17 septembre 2026 (discussion "Objectifs — Titres des catégories"),
         // demande d'Emilien : « je laisse la couleur noire à l'intérieur et
         // mets le titre de la catégorie en couleur » — fond transparent (la
@@ -1159,7 +1159,7 @@
             // dessus. La bordure reprend la même nuance que le fond (plus
             // aucun contour visible, bulle pleine comme la maquette de
             // référence envoyée par Emilien).
-            var filledShade = subProjectShade(TMT.currentGoalsActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+            var filledShade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
             cell.style.background = filledShade;
             cell.style.borderColor = filledShade;
             txt.style.color = 'var(--bg)';
