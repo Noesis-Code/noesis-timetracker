@@ -186,6 +186,36 @@ function seedScenarios() {
     }
   });
 
+  // ---- Exemples de capacité hebdomadaire (secteurs de Communauté, période en cours : semaines 1-2 passées, 3 en cours, 4 à venir).
+  //  Rédaction : PLUS de temps que la cible (sem. 1 : 200 min pour 120 -> +80 min ajoutées à la période).
+  //  Prospection : MOINS de temps (60 et 90 min pour 180 -> proposition de rattrapage sur les semaines à venir).
+  goals.addCategory(aid, 'Rédaction', K.communaute);
+  goals.addCategory(aid, 'Prospection', K.communaute);
+  const keyRed = keyOf('Rédaction'); const keyPro = keyOf('Prospection');
+  const capStart = goals.addDays(monday, -14);
+  [keyRed, keyPro].forEach((k) => db.prepare('INSERT INTO activity_goal_plans (activityId, category, startDate, createdAt) VALUES (?, ?, ?, ?) ON CONFLICT(activityId, category) DO UPDATE SET startDate = excluded.startDate').run(aid, k, capStart, now));
+  db.prepare('SELECT id, periodNumber FROM goal_periods WHERE activityId = ? AND category IN (?, ?)').all(aid, keyRed, keyPro).forEach((r) => {
+    const st = goals.addDays(capStart, (r.periodNumber - 1) * 28);
+    db.prepare('UPDATE goal_periods SET startDate = ?, endDate = ? WHERE id = ?').run(st, goals.addDays(st, 27), r.id);
+  });
+  goals.setMainGoal(aid, keyRed, 1, 'Publier le guide de la communauté', '', 480);
+  goals.setMainGoal(aid, keyPro, 1, 'Signer trois partenariats', '', 720);
+  const mkWeek = (key, wk, title, target, doneMin) => {
+    goals.setWeekly(aid, key, 1, wk, title, '', target);
+    if (!doneMin) return;
+    const dIso = goals.addDays(capStart, (wk - 1) * 7 + 1); const [y, m, dd] = dIso.split('-').map(Number);
+    const s = new Date(y, m - 1, dd, 10, 0, 0);
+    ins.run(u.id, aid, s.toISOString(), new Date(s.getTime() + doneMin * 60000).toISOString(), doneMin * 60, dIso, DOW[s.getDay()], key);
+  };
+  mkWeek(keyRed, 1, 'Rédiger le guide d\'accueil', 120, 200);
+  mkWeek(keyRed, 2, 'Rédiger la FAQ', 120, 120);
+  mkWeek(keyRed, 3, 'Relire et publier', 120, 0);
+  mkWeek(keyRed, 4, 'Mettre à jour le guide', 120, 0);
+  mkWeek(keyPro, 4, 'Faire le bilan des rendez-vous', 180, 0);
+  mkWeek(keyPro, 1, 'Appeler dix partenaires', 180, 60);
+  mkWeek(keyPro, 2, 'Relancer les partenaires', 180, 90);
+  mkWeek(keyPro, 3, 'Fixer trois rendez-vous', 180, 0);
+
   // ---- 6 Propositions de recalcul : on ne garde que Communauté (en avance) et Finance (en retard).
   goalsrecalc.runForUser(u.id, aid, todayIso);
   db.prepare("DELETE FROM goal_recalc_proposals WHERE activityId = ? AND category NOT IN (?, ?)").run(aid, K.communaute, K.finance);
