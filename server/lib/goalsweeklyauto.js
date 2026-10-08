@@ -130,7 +130,7 @@ async function callAi(payload, requestedWeeks) {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1024,
+      max_tokens: 3000,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: JSON.stringify(payload) }],
     }),
@@ -159,7 +159,13 @@ function parseWeeklyGoals(text, requestedWeeks) {
   try {
     parsed = JSON.parse(text);
   } catch (err) {
-    throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+    // Tolère des balises Markdown ou du texte autour : on isole le premier objet JSON.
+    try {
+      const i = text.indexOf('{'), j = text.lastIndexOf('}');
+      parsed = JSON.parse(text.slice(i, j + 1));
+    } catch (err2) {
+      throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+    }
   }
   const raw = Array.isArray(parsed.weeklyGoals) ? parsed.weeklyGoals : [];
   const allowed = new Set(requestedWeeks);
