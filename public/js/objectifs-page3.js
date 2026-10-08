@@ -1008,7 +1008,7 @@
       };
       var loadAuto = function () {
         api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/main-estimate?category=' + encodeURIComponent(TMT.currentGoalsCategory) + '&text=' + encodeURIComponent(mainInput.value.trim() || period.mainGoalText))
-          .then(function (r) { autoMinutes = r && r.minutes != null ? r.minutes : null; paintEst(); })
+          .then(function (r) { autoMinutes = r && r.avgMinutes != null ? r.avgMinutes : null; paintEst(); })
           .catch(function () { autoMinutes = null; paintEst(); });
       };
       maxBtn.onclick = function () {
@@ -1026,7 +1026,7 @@
         var title = mainInput.value.trim() || period.mainGoalText;
         if (!title) return;
         var m = getMax();
-        var est = (m == null || (autoMinutes != null && m === autoMinutes)) ? null : m;
+        var est = m;
         mainEditKey = null; descIn.dataset.editFor = ''; maxBtn.dataset.editFor = '';
         saveMainGoalDescription(period.periodNumber, title, descIn.value.trim(), est);
       };

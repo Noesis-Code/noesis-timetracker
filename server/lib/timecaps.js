@@ -55,6 +55,24 @@ function minutesInRange(userId, activityId, key, startIso, endIso) {
   return Math.round(seconds / 60);
 }
 
+// Moyenne historique du temps chronométré par période de 4 semaines (28 jours) pour un pôle
+// (secteurs cumulés) ou un secteur : on remonte jusqu'à 13 fenêtres terminées et on moyenne
+// depuis la plus ancienne fenêtre où du temps existe. null tant qu'aucun temps n'est enregistré.
+function periodAverage(userId, activityId, key) {
+  const today = todayLocal();
+  const wins = [];
+  for (let i = 0; i < 13; i++) {
+    const end = goals.addDays(today, -1 - i * AVG_DAYS);
+    const start = goals.addDays(end, -(AVG_DAYS - 1));
+    wins.push(minutesInRange(userId, activityId, key, start, end));
+  }
+  let oldest = -1;
+  wins.forEach((m, i) => { if (m > 0) oldest = i; });
+  if (oldest < 0) return null;
+  const used = wins.slice(0, oldest + 1);
+  return Math.round(used.reduce((a, b) => a + b, 0) / used.length);
+}
+
 function getCaps(userId, activityId, key) {
   if (!isKnownKey(activityId, key)) {
     throw Object.assign(new Error('Pôle ou secteur invalide pour cette activité.'), { statusCode: 400 });
@@ -149,4 +167,5 @@ function computeCapMoves({ today, caps, tasks, horizon = 60 }) {
   return out;
 }
 
-module.exports = { getCaps, setCaps, listCaps, weeklyCapFor, computeCapMoves, averages, minutesInRange };
+module.exports = {
+  periodAverage, getCaps, setCaps, listCaps, weeklyCapFor, computeCapMoves, averages, minutesInRange };

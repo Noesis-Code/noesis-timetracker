@@ -248,7 +248,7 @@ router.get('/activities/:id/goals/periods/:periodNumber/main-estimate', (req, re
     const category = resolveCategory(activityId, req.query.category);
     const text = typeof req.query.text === 'string' ? req.query.text.trim().slice(0, 500) : '';
     const e = goals.estimateForGoal(activityId, category, 'main', text);
-    res.json({ minutes: e.minutes, source: e.source, confidence: e.confidence });
+    res.json({ minutes: e.minutes, source: e.source, confidence: e.confidence, avgMinutes: timecaps.periodAverage(userId, activityId, category) });
   } catch (err) {
     handleGoalsError(res, err);
   }
