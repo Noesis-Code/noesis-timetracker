@@ -985,7 +985,10 @@
         // indépendamment de la saisie d'un objectif hebdomadaire.
         goalsOpenSync();
         var isOpen = !!goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)];
-        row.style.setProperty('--poleColor', currentGoalsCategoryColor());
+        // Couleur du PÔLE affiché (la même que le cadre de l'objectif périodique), jamais celle d'un rang de secteur.
+        var weekFill = TMT.currentGoalsPoleIndex != null ? subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex, SUB_PROJECT_SHADE_COUNT) : currentGoalsCategoryColor();
+        row.style.setProperty('--poleColor', weekFill);
+        row.style.setProperty('--poleText', readableTextOn(weekFill));
         row.classList.toggle('weekOpen', isOpen);
         var expandBtn = document.createElement('button');
         expandBtn.type = 'button';
