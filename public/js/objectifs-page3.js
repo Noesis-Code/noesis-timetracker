@@ -387,6 +387,8 @@
   // croix ✕, textarea, bouton Enregistrer DANS la zone.
   var GOAL_DESC_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
 
+  var mainFormForceKey = null; // posé par openGoalsDetail() (clic sur une période dans l'arbre) : formulaire visible d'emblée
+  var mainDraft = null; // { key, text } : texte commencé dans le formulaire d'objectif périodique vide
   var mainFormOpenKey = null; // « période|pôle » dont le formulaire d'objectif périodique vide a été ouvert (+ Ajouter)
   var mainEditKey = null; // « période|pôle » dont l'objectif périodique est en modification sur place
 
@@ -1083,6 +1085,8 @@
 
     var mainInput = $('activityGoalsMainInput');
     mainInput.value = period.mainGoalText || '';
+    var draftKey = period.periodNumber + '|' + TMT.currentGoalsCategory;
+    if (!(period.mainGoalText && period.mainGoalText.trim()) && mainDraft && mainDraft.key === draftKey && mainDraft.text) mainInput.value = mainDraft.text;
     mainInput.placeholder = t('Titre de l’objectif');
     $('activityGoalsMainDescRow').classList.add('hidden'); // remplacé par la lecture + modification sur place (3 oct. 2026)
     // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
@@ -1132,6 +1136,13 @@
       mainSaveRow.classList.toggle('hidden', !!lastCommittedMainGoalText && !dirty);
     };
     mainInput.oninput = syncMainSaveRow;
+    // Brouillon : écouteur à part (oninput est réassigné plus bas) ; remplacé à chaque rendu, jamais empilé.
+    if (mainInput._draftListener) mainInput.removeEventListener('input', mainInput._draftListener);
+    mainInput._draftListener = function () {
+      var v = mainInput.value.trim();
+      mainDraft = (!lastCommittedMainGoalText && v) ? { key: period.periodNumber + '|' + TMT.currentGoalsCategory, text: mainInput.value } : null;
+    };
+    mainInput.addEventListener('input', mainInput._draftListener);
     syncMainSaveRow();
 
     // 3 oct. 2026 (demande d'Emilien) : une fois l'objectif enregistré, la carte n'affiche que
@@ -1255,7 +1266,9 @@
     // hebdomadaires, tâches par jour) restent toujours accessibles, l'objectif périodique est facultatif.
     var emptyKey = period.periodNumber + '|' + TMT.currentGoalsCategory;
     var emptyBar = $('activityGoalsMainEmptyBar');
-    var showForm = hasMainGoal || mainFormOpenKey === emptyKey;
+    if (mainFormForceKey === emptyKey) { mainFormOpenKey = emptyKey; mainFormForceKey = null; }
+    var hasDraft = !hasMainGoal && !!mainDraft && mainDraft.key === emptyKey && !!mainDraft.text;
+    var showForm = hasMainGoal || hasDraft || mainFormOpenKey === emptyKey;
     if (emptyBar) {
       emptyBar.classList.toggle('hidden', showForm);
       emptyBar.onclick = function () {
@@ -2128,13 +2141,15 @@
 
   // Clic sur une période de l'arbre : la page du milieu s'ouvre sur CETTE période (défilement latéral).
   function openGoalsDetail(category, periodNumber) {
-    if (!applyGoalsMonthState(category, periodNumber)) return;
+    mainFormForceKey = periodNumber + '|' + category; // seule entrée qui ouvre d'emblée la création d'objectif périodique
+    if (!applyGoalsMonthState(category, periodNumber)) { mainFormForceKey = null; return; }
     TMT.setGoalsPage2Mode('month', { keep: true });
     showGoalsMonthContent(category);
   }
 
   // Arrivée par balayage : période en cours du pôle affiché (période déjà choisie conservée si même catégorie).
   TMT.prepareGoalsMonth = function () {
+    mainFormOpenKey = null; // arrivée par balayage / changement de secteur : carte « + Ajouter » par défaut
     // Page du milieu : on choisit un SECTEUR du pôle affiché (le pôle lui-même si sans secteur).
     var sec = TMT.goalsMonthSecteur && TMT.goalsMonthSecteur();
     var cat = (sec && sec.key) || TMT.currentGoalsSelectedPoleKey || TMT.currentGoalsCategory;
@@ -2181,6 +2196,7 @@
   TMT.isGoalsMonthOpen = function () { return !!TMT.getGoalsPage2Mode && TMT.getGoalsPage2Mode() === 'month'; };
 
   function closeGoalsDetail() {
+    mainFormOpenKey = null;
     // Invalide toute requête de calendrier de période encore en vol (voir loadGoalsCalendarDays() plus haut).
     goalsCalendarRequestId += 1;
     if (TMT.isGoalsMonthOpen()) TMT.setGoalsPage2Mode('tasks', { noAnim: true });
