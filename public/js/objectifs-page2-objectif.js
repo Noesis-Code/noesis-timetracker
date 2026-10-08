@@ -1112,7 +1112,7 @@
       if (goalsCurrentPeriodIdx < 0 && cur && cur.periodIndexInCycle) goalsCurrentPeriodIdx = cur.periodIndexInCycle - 1;
     });
 
-    for (var i = 1; i <= 13; i += 1) {
+    for (var i = 13; i >= 1; i -= 1) {
       (function (periodIndex) {
         var row = document.createElement('div');
         row.className = 'goalsGridRow' + (!hasNoRealCategory && categories.length > 2 ? ' goalsGridRow--paged' : '');
@@ -1179,7 +1179,7 @@
             // uniquement quand la période PRÉCÉDENTE est remplie (c'est elle
             // qui possède visuellement l'écart au-dessus de cette cellule) ;
             // repli sur var(--track-bg) sinon, comportement neutre inchangé.
-            var prevP = indexByCategory[c.key][periodIndex - 1];
+            var prevP = indexByCategory[c.key][periodIndex + 1];
             if (prevP && prevP.mainGoalText) cell.style.setProperty('--goalsCellLineColor', filledShade);
           } else {
             // Aucun objectif périodique pour cette (période, catégorie) —
