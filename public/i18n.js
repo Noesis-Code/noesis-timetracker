@@ -1327,6 +1327,7 @@
     "Pôles & secteurs": "Divisions & sectors",
     "Moyenne": "Average",
     "Maximum": "Maximum",
+    "Cible": "Target",
     "Jour": "Day",
     "Semaine": "Week",
     "Heures": "Hours",

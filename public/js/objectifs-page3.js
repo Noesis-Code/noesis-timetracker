@@ -79,7 +79,7 @@
                 <div class="goalEstTable">
                   <div></div>
                   <div class="goalEstHead">Moyenne</div>
-                  <div class="goalEstHead">Maximum</div>
+                  <div class="goalEstHead">Cible</div>
                   <div class="goalEstRowLabel">Période</div>
                   <div class="goalEstAvg" id="activityGoalsMainEstAvg">0:00</div>
                   <button type="button" class="goalEstMax isEmpty" id="activityGoalsMainEstMax">0:00</button>
@@ -1090,7 +1090,7 @@
           .catch(function () { autoMinutes = null; paintEst(); });
       };
       maxBtn.onclick = function () {
-        TMT.openDurationPicker({ title: 'Maximum', minutes: getMax() || 0, onDone: function (v) { maxBtn.dataset.minutes = v > 0 ? String(v) : ''; paintEst(); } });
+        TMT.openDurationPicker({ title: 'Cible', minutes: getMax() || 0, onDone: function (v) { maxBtn.dataset.minutes = v > 0 ? String(v) : ''; paintEst(); } });
       };
       useBtn.onclick = function () {
         if (autoMinutes == null) { $('activityGoalsMsg').textContent = t('Pas encore assez d’historique pour estimer ce temps.'); return; }

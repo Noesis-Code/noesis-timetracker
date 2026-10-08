@@ -7571,13 +7571,13 @@
     var ROW = 44, init = Math.max(0, Math.min(99 * 60 + 59, Number(opts.minutes) || 0));
     var ov = document.createElement('div'); ov.className = 'durPickerOverlay';
     var sheet = document.createElement('div'); sheet.className = 'durPickerSheet';
-    sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', t(opts.title || 'Maximum'));
+    sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', t(opts.title || 'Cible'));
     function close() { document.removeEventListener('keydown', onKey); ov.remove(); }
     function onKey(e) { if (e.key === 'Escape') close(); }
     document.addEventListener('keydown', onKey);
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
     var head = document.createElement('div'); head.className = 'durPickerHead';
-    var ttl = document.createElement('span'); ttl.textContent = t(opts.title || 'Maximum');
+    var ttl = document.createElement('span'); ttl.textContent = t(opts.title || 'Cible');
     var x = document.createElement('button'); x.type = 'button'; x.className = 'durPickerClose'; x.textContent = '✕'; x.setAttribute('aria-label', t('Fermer'));
     x.addEventListener('click', close);
     head.appendChild(ttl); head.appendChild(x);
@@ -7622,13 +7622,13 @@
     node.className = 'timeCapsBlock';
     var table = document.createElement('div'); table.className = 'timeCapsTable';
     function cell(cls, txt) { var d = document.createElement('div'); d.className = cls; if (txt != null) d.textContent = t(txt); return d; }
-    table.appendChild(cell('timeCapsCorner')); table.appendChild(cell('timeCapsHead', 'Moyenne')); table.appendChild(cell('timeCapsHead', 'Maximum'));
+    table.appendChild(cell('timeCapsCorner')); table.appendChild(cell('timeCapsHead', 'Moyenne')); table.appendChild(cell('timeCapsHead', 'Cible'));
     var avgDayEl = cell('timeCapsAvg'), avgWeekEl = cell('timeCapsAvg');
     function maxBtn(which, label) {
       var b = document.createElement('button'); b.type = 'button'; b.className = 'timeCapsMax'; b.disabled = true;
       b.addEventListener('click', function () {
         if (!state.loaded) return;
-        openDurationPicker({ title: 'Maximum', minutes: state[which] || 0, onDone: function (v) { state[which] = v > 0 ? v : null; paint(); } });
+        openDurationPicker({ title: 'Cible', minutes: state[which] || 0, onDone: function (v) { state[which] = v > 0 ? v : null; paint(); } });
       });
       return b;
     }
