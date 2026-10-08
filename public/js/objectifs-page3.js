@@ -930,14 +930,6 @@
           titleEl.style.cursor = 'pointer';
           titleEl.addEventListener('click', toggleWeek);
           textWrap.appendChild(titleEl);
-          if (w.description) {
-            var prev = document.createElement('div');
-            prev.className = 'goalDescPreview';
-            prev.textContent = w.description;
-            prev.style.cursor = 'pointer';
-            prev.addEventListener('click', toggleWeek);
-            textWrap.appendChild(prev);
-          }
           var wci = weekCapInfo(period.periodNumber, weekIndex);
           var capMin = wci ? wci.target : (w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (TMT.goalsWeekCapacityDefault || 0));
           var capBtn = document.createElement('button');
@@ -1151,7 +1143,7 @@
     $('activityGoalsMainReadTitle').textContent = period.mainGoalText || '';
     var readDesc = $('activityGoalsMainReadDesc');
     readDesc.textContent = period.mainGoalDescription || '';
-    readDesc.classList.toggle('hidden', !period.mainGoalDescription);
+    readDesc.classList.add('hidden'); // la description n'est visible qu'en modification (utile à Noèsis, pas à la lecture)
     editBtn.innerHTML = GOAL_DESC_EDIT_ICON;
     editBtn.setAttribute('aria-label', t('Modifier l’objectif'));
     editBtn.title = t('Modifier l’objectif');
