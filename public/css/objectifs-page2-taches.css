@@ -240,9 +240,9 @@
 .goalsAlertBody { padding: 0 16px 14px; }
 .goalsAlertBody[hidden] { display: none; }
 .goalsAlertCard .goalsOverloadActions .goalsOverloadOk,
-.goalsAlertCard .goalsReportAll { background: var(--alert); border-color: transparent; color: #1b1206; }
-.goalsAlertCard .goalsReportBtn { border-color: var(--alert); color: var(--alert); }
-.goalsAlertCard .goalsLateBadge { color: var(--alert); opacity: 1; }
+.goalsAlertCard .goalsReportAll { background: rgba(255,159,46,.16); border: 1px solid rgba(255,159,46,.45); color: #f0b36b; font-weight: 600; }
+.goalsAlertCard .goalsReportBtn { border: 1px solid rgba(255,159,46,.4); color: #e8ab62; background: none; }
+.goalsAlertCard .goalsLateBadge { color: #e8ab62; opacity: .9; }
 .goalsAlertCard .goalsReportBlock + .goalsReportBlock { margin-top: 10px; }
 
 /* 2 oct. 2026 (Emilien) : boutons Tâches/Objectifs retirés (balayage + 3 points) ; la bulle Discussion (fixed) reste dans le conteneur. */
