@@ -864,6 +864,17 @@
         var badge = document.createElement('span');
         badge.className = 'goalWeeklyBadge';
         badge.textContent = 'S' + weekIndex;
+        // Pastille de statut fusionnée avec le numéro : verte = atteint, orange = partiel,
+        // rouge = non atteint ; un clic fait tourner le statut (semaine remplie seulement).
+        if (w && w.text) {
+          badge.classList.add('goalWeeklyBadgeStatus', goalStatusClass(w.status));
+          badge.setAttribute('role', 'button');
+          badge.title = t(GOAL_STATUS_LABELS[w.status] || GOAL_STATUS_LABELS.non_atteint);
+          badge.addEventListener('click', function () {
+            var idx = GOAL_STATUS_ORDER.indexOf(w.status);
+            saveWeeklyStatus(w.id, GOAL_STATUS_ORDER[(idx + 1) % GOAL_STATUS_ORDER.length]);
+          });
+        }
         row.appendChild(badge);
 
         var wKey = goalRewriteKey('w', period.periodNumber, weekIndex);

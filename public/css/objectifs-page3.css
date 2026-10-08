@@ -568,3 +568,8 @@
 
 .goalWeeklyEditor.hasExtTitle { margin-top: 8px; }
 .goalWeeklyCard:has(.goalWeeklyEditor) .goalWeeklyDot { display: none; }
+
+.goalWeeklyBadgeStatus { cursor: pointer; color: #fff; }
+.goalWeeklyBadgeStatus.goalStatusAtteint { background: var(--green); }
+.goalWeeklyBadgeStatus.goalStatusPartiel { background: #f0ad4e; }
+.goalWeeklyBadgeStatus.goalStatusNonAtteint { background: var(--red); }
