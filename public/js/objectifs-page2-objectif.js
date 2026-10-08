@@ -298,6 +298,8 @@
   function renderGoalsScrub() {
     var rail = $('goalsScrubRail');
     if (!rail) return;
+    rail.innerHTML = ''; goalsScrubDots = []; // rail périodique supprimé : remplacé par les repères de ligne (.goalsRowMarker)
+    return;
     rail.innerHTML = '';
     goalsScrubDots = [];
     for (var i = 0; i < 13; i++) {
@@ -1197,6 +1199,33 @@
           row.appendChild(cell);
         });
         currentGoalsPeriodInfo[periodIndex - 1] = repPeriod ? { startDate: repPeriod.startDate, endDate: repPeriod.endDate } : null;
+
+        // Repère de période à gauche de la ligne (remplace l'ancien rail) : passée = point, en cours = numéro
+        // allumé de la couleur du pôle, à venir = numéro éteint. La date ne s'affiche qu'au clic.
+        var marker = document.createElement('button');
+        marker.type = 'button';
+        var mState = goalsCurrentPeriodIdx < 0 ? 'future' : (periodIndex - 1 < goalsCurrentPeriodIdx ? 'past' : (periodIndex - 1 === goalsCurrentPeriodIdx ? 'current' : 'future'));
+        marker.className = 'goalsRowMarker goalsRowMarker--' + mState;
+        marker.setAttribute('aria-label', t('Période') + ' ' + periodIndex);
+        if (mState !== 'past') marker.textContent = String(periodIndex);
+        if (mState === 'current') {
+          var poleColor = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+          marker.style.background = poleColor;
+          marker.style.color = readableTextOn(poleColor);
+        }
+        marker.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var old = grid.querySelector('.goalsRowMarkerDate');
+          var mine = marker.querySelector('.goalsRowMarkerDate');
+          if (old) old.remove();
+          if (mine) return;
+          var info = currentGoalsPeriodInfo[periodIndex - 1];
+          var tip = document.createElement('span');
+          tip.className = 'goalsRowMarkerDate';
+          tip.innerHTML = '<b>' + t('Période') + ' ' + periodIndex + '</b>' + (info ? formatGoalPeriodDates(info.startDate, info.endDate) : '');
+          marker.appendChild(tip);
+        });
+        row.appendChild(marker);
 
         // 26 septembre 2026 : colonne « page + » retirée définitivement de
         // cette page (voir le commentaire au-dessus de `showAddSlot`,
