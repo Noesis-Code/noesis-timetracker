@@ -179,10 +179,73 @@ function activitiesForUser(userId) {
 // directement dans goal_periods plutôt qu'en import circulaire vers
 // goals.js (qui, lui, dépend de server/db.js et de lib/community.js — pas de
 // ce fichier).
+// Exclusions d'export (réglage Calendrier) : Set de "activityId|poleKey".
+function exclusionsForUser(userId) {
+  const set = new Set();
+  db.prepare('SELECT activityId, poleKey FROM calendar_export_excluded WHERE userId = ?').all(userId)
+    .forEach((r) => set.add(r.activityId + '|' + r.poleKey));
+  return set;
+}
+function isExcluded(set, activityId, key) {
+  if (set.has(activityId + '|')) return true;
+  if (!key) return false;
+  return set.has(activityId + '|' + goals.resolveToPole(activityId, key));
+}
+
+function exportSelectionForUser(userId) {
+  const set = exclusionsForUser(userId);
+  return activitiesForUser(userId).map((a) => ({
+    id: a.id,
+    name: a.name,
+    included: !set.has(a.id + '|'),
+    poles: (goals.categoriesForActivity(a.id) || []).map((p) => ({
+      key: p.key, label: p.label, included: !set.has(a.id + '|' + p.key),
+    })),
+  }));
+}
+
+function setExportIncluded(userId, activityId, poleKey, included) {
+  assertActivityMember(userId, activityId);
+  const key = poleKey || '';
+  if (included) db.prepare('DELETE FROM calendar_export_excluded WHERE userId = ? AND activityId = ? AND poleKey = ?').run(userId, activityId, key);
+  else db.prepare('INSERT OR IGNORE INTO calendar_export_excluded (userId, activityId, poleKey) VALUES (?, ?, ?)').run(userId, activityId, key);
+}
+
+// Tâches datées et objectifs hebdomadaires (demande d'Emilien, 8 oct. 2026).
+function goalContentEventsForUser(userId, excl) {
+  const events = [];
+  for (const activity of activitiesForUser(userId)) {
+    if (excl.has(activity.id + '|')) continue;
+    const goalstasks = require('./goalstasks');
+    for (const t of goalstasks.allTasksWithGroup(activity.id)) {
+      if (!t.dueDate || t.done) continue;
+      if (isExcluded(excl, activity.id, t.poleKey || t.key)) continue;
+      const end = addDay(t.dueDate);
+      if (!end) continue;
+      events.push({ uid: 'task-' + t.id + '@noesis', startDate: t.dueDate, endDate: end, summary: t.label, description: 'Activité : ' + activity.name + ' · ' + t.groupLabel });
+    }
+    const rows = db.prepare(`
+      SELECT w.id, w.weekIndex, w.text, gp.startDate, gp.category FROM goal_weekly w
+      JOIN goal_periods gp ON gp.id = w.periodId
+      WHERE gp.activityId = ? AND w.text != ''
+    `).all(activity.id);
+    for (const r of rows) {
+      if (isExcluded(excl, activity.id, r.category)) continue;
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(r.startDate || '');
+      if (!m) continue;
+      const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 7 * (r.weekIndex - 1)));
+      const start = d.toISOString().slice(0, 10);
+      events.push({ uid: 'goalweekly-' + r.id + '@noesis', startDate: start, endDate: addDay(start), summary: r.text, description: 'Objectif hebdomadaire · ' + activity.name });
+    }
+  }
+  return events;
+}
+
 function goalPeriodEventsForUser(userId) {
+  const excl = exclusionsForUser(userId);
   const events = [];
   const rows = db.prepare(`
-    SELECT gp.id, a.name AS activityName, gp.periodIndexInCycle, gp.endDate
+    SELECT gp.id, gp.activityId, gp.category, a.name AS activityName, gp.periodIndexInCycle, gp.endDate
     FROM goal_periods gp
     JOIN activities a ON a.id = gp.activityId
     JOIN activity_members m ON m.activityId = gp.activityId
@@ -191,6 +254,7 @@ function goalPeriodEventsForUser(userId) {
   `).all(userId);
 
   for (const r of rows) {
+    if (isExcluded(excl, r.activityId, r.category)) continue;
     const end = addDay(r.endDate);
     if (!end) continue;
     events.push({
@@ -206,7 +270,9 @@ function goalPeriodEventsForUser(userId) {
 
 function eventsForUser(userId) {
   const events = [];
+  const excl = exclusionsForUser(userId);
   for (const activity of activitiesForUser(userId)) {
+    if (excl.has(activity.id + '|')) continue;
     const subProjects = subProjectsForActivity(activity.id, true);
     for (const sp of subProjects) {
       if (!sp.closesAt) continue;
@@ -230,6 +296,7 @@ function eventsForUser(userId) {
     }
   }
   events.push(...goalPeriodEventsForUser(userId));
+  events.push(...goalContentEventsForUser(userId, excl));
   // Tri par date puis par identifiant : le flux d'un même état est toujours
   // identique octet pour octet, ce qui évite de faire croire à un changement
   // à chaque relecture.
@@ -515,6 +582,8 @@ module.exports = {
   addDay,
   activitiesForUser,
   eventsForUser,
+  exportSelectionForUser,
+  setExportIncluded,
   buildFeedForUser,
   periodDaysForUser,
   createDayTask,

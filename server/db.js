@@ -751,6 +751,16 @@ CREATE TABLE IF NOT EXISTS calendar_feed_tokens (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_calendar_feed_token ON calendar_feed_tokens(token);
 
+-- Activites / poles exclus de l'export calendrier (8 oct. 2026). Par defaut
+-- tout est exporte : une ligne = quelque chose de DESACTIVE. poleKey vide =
+-- l'activite entiere.
+CREATE TABLE IF NOT EXISTS calendar_export_excluded (
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  activityId INTEGER NOT NULL,
+  poleKey TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (userId, activityId, poleKey)
+);
+
 -- ===================== RAPPELS D'ECHEANCE (4 septembre 2026) =====================
 -- Discussion "Calendrier des clotures". Table ADDITIVE : aucune table ni
 -- colonne existante n'est touchee. Comme toujours ici, elle n'existe qu'APRES
@@ -2325,4 +2335,4 @@ UPDATE sub_project_items SET dueDate = COALESCE(substr(doneAt, 1, 10), substr(cr
   db.prepare("UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 2 WHERE done = 0 AND (dueDate IS NULL OR dueDate = '')").run(today);
 }
 
-module.exports = db;
+module.exports = db;

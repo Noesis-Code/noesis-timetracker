@@ -714,6 +714,7 @@ function archivesForActivity(activityId) {
 }
 
 module.exports = {
+  allTasksWithGroup,
   archivesForActivity,
   purgeOldDoneTasks,
   dailyListForActivity,

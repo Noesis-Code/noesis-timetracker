@@ -11809,11 +11809,46 @@
     }
   }
 
+  // Activités (et leurs pôles) à exporter dans le calendrier : curseurs,
+  // même composant que les notifications. Tout est activé par défaut.
+  function renderCalendarExportList(data) {
+    var wrap = $('calendarExportList'), rows = $('calendarExportRows');
+    if (!wrap || !rows) return;
+    rows.innerHTML = '';
+    var acts = (data && data.activities) || [];
+    wrap.classList.toggle('hidden', !acts.length);
+    function row(label, checked, disabled, indent, onChange) {
+      var r = document.createElement('div'); r.className = 'notifRow';
+      if (indent) r.style.paddingLeft = '18px';
+      var l = document.createElement('span'); l.className = 'notifRowLabel'; l.textContent = label;
+      var sw = document.createElement('label'); sw.className = 'toggleSwitch';
+      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = checked; inp.disabled = disabled;
+      inp.addEventListener('change', function () { onChange(inp.checked); });
+      var tr = document.createElement('span'); tr.className = 'toggleSwitchTrack';
+      sw.appendChild(inp); sw.appendChild(tr); r.appendChild(l); r.appendChild(sw);
+      rows.appendChild(r);
+    }
+    function save(activityId, poleKey, included) {
+      api('PUT', '/api/calendar/export-selection', { activityId: activityId, poleKey: poleKey, included: included })
+        .then(renderCalendarExportList)
+        .catch(function (err) { $('calendarFeedMsg').textContent = err.message; refreshCalendarExportList(); });
+    }
+    acts.forEach(function (a) {
+      row(a.name, a.included, false, false, function (v) { save(a.id, '', v); });
+      if (a.poles.length > 1) a.poles.forEach(function (p) {
+        row(p.label, a.included && p.included, !a.included, true, function (v) { save(a.id, p.key, v); });
+      });
+    });
+  }
+  function refreshCalendarExportList() {
+    api('GET', '/api/calendar/export-selection').then(renderCalendarExportList).catch(function () {});
+  }
+
   function refreshCalendarFeedSection() {
     if (!profile) return;
     $('calendarFeedMsg').textContent = '';
     api('GET', '/api/calendar/feed?userId=' + encodeURIComponent(profile.id))
-      .then(renderCalendarFeedState)
+      .then(function (st) { renderCalendarFeedState(st); if (st && st.enabled && st.hasFeed) refreshCalendarExportList(); })
       // Une panne de ce flux ne doit jamais empêcher Réglages de s'ouvrir :
       // la section se referme, tout le reste du panneau est intact.
       .catch(function () { renderCalendarFeedState(null); });
@@ -11825,6 +11860,7 @@
     return api('POST', '/api/calendar/feed', { userId: profile.id })
       .then(function (state) {
         renderCalendarFeedState(state);
+        refreshCalendarExportList();
         msg.textContent = t(msgText);
       })
       .catch(function (err) { msg.textContent = err.message; });

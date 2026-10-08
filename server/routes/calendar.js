@@ -134,6 +134,23 @@ router.post('/activities/:id/goals-days/task', (req, res) => {
 // handler ne fait que la forme HTTP, même découpage que le reste du fichier.
 // Placées AVANT la route catch-all '/calendar/:file' ci-dessous (Express
 // évalue les routes dans l'ordre déclaré) pour ne pas être happées par elle.
+router.get('/calendar/export-selection', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  res.json({ activities: feed.exportSelectionForUser(req.userId) });
+});
+
+router.put('/calendar/export-selection', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.body.activityId);
+  if (!activityId) return res.status(400).json({ error: 'Activité invalide.' });
+  try {
+    feed.setExportIncluded(req.userId, activityId, typeof req.body.poleKey === 'string' ? req.body.poleKey : '', !!req.body.included);
+    res.json({ activities: feed.exportSelectionForUser(req.userId) });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ error: err.message });
+  }
+});
+
 router.get('/calendar/external', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });

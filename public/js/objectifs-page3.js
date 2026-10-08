@@ -859,49 +859,8 @@
           });
           row.appendChild(dot);
 
-          // Assignation (14 septembre 2026, demande d'Emilien) : UN membre de
-          // l'activité par tâche — jamais le grand objectif, toujours
-          // collectif (voir server/lib/goals.js). Liste des membres déjà
-          // fournie par planningForActivity (TMT.currentGoalsPlanning.members),
-          // aucun appel serveur dédié. Sélecteur natif compact, inchangé
-          // dans son principe (voir commentaire de fonction ci-dessus).
-          var assignSelect = document.createElement('select');
-          assignSelect.className = 'goalWeeklyAssignSelect';
-          var noneOpt = document.createElement('option');
-          noneOpt.value = '';
-          noneOpt.textContent = '—';
-          assignSelect.appendChild(noneOpt);
-          ((TMT.currentGoalsPlanning && TMT.currentGoalsPlanning.members) || []).forEach(function (m) {
-            var opt = document.createElement('option');
-            opt.value = m.id;
-            opt.textContent = m.name;
-            if (w.assignedUserId === m.id) opt.selected = true;
-            assignSelect.appendChild(opt);
-          });
-          assignSelect.addEventListener('change', function () {
-            saveWeeklyAssignee(w.id, assignSelect.value || null);
-          });
-          row.appendChild(assignSelect);
-
-          // 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
-          // d'Emilien : « proposer de créer une feuille de route au jour le
-          // jour en fonction des tâches hebdomadaires ». Répartit les tâches
-          // déjà rattachées à CETTE semaine (goal_weekly) sur les jours de la
-          // semaine en posant leur dueDate (server/lib/goalsdailyauto.js) —
-          // elles apparaissent alors automatiquement dans le calendrier de la
-          // période ci-dessous (mécanisme existant, aucun nouvel écran).
-          // generateDailyPlan() (ci-dessus) inchangée : ce bouton est
-          // seulement réduit à une icône (voir commentaire de fonction).
-          var dailyPlanBtn = document.createElement('button');
-          dailyPlanBtn.type = 'button';
-          dailyPlanBtn.className = 'goalWeeklyDailyPlanBtn';
-          dailyPlanBtn.textContent = '📅';
-          dailyPlanBtn.title = t('Générer la feuille de route jour par jour');
-          dailyPlanBtn.setAttribute('aria-label', t('Générer la feuille de route jour par jour'));
-          dailyPlanBtn.addEventListener('click', function () {
-            generateDailyPlan(w.id, dailyPlanBtn, period);
-          });
-          row.appendChild(dailyPlanBtn);
+          // 8 oct. 2026 (Emilien) : plus de responsable ni de petit calendrier sur
+          // les objectifs hebdomadaires — l'assignation est réservée aux tâches.
         }
 
         // 28 septembre 2026 : chevron de dépliage des jours de cette semaine

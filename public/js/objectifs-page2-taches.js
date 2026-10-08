@@ -805,7 +805,7 @@
     var pole = TMT.currentGoalsSelectedPoleKey || '';
     var cur = respFilter[pole] || '';
     if (cur && !respMembers.list.some(function (m) { return m.id === cur; })) { delete respFilter[pole]; cur = ''; }
-    wrap.classList.toggle('hidden', !respMembers.list.length);
+    wrap.classList.toggle('hidden', respMembers.list.length < 2);
     var menu = $('goalsRespMenu'); menu.innerHTML = '';
     var items = [{ id: '', name: t('Tous') }].concat(respMembers.list);
     items.forEach(function (m) {
