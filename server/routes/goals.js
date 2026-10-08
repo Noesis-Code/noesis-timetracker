@@ -33,6 +33,7 @@ const timecaps = require('../lib/timecaps');
 // Chantier Objectifs — C (bulle IA de classement automatique, 17 septembre
 // 2026) — voir server/lib/goalstaskclassify.js.
 const goalstaskclassify = require('../lib/goalstaskclassify');
+const goalsrewrite = require('../lib/goalsrewrite');
 // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages, demande
 // directe d'Emilien) — badges « non vu » et capture multi-activités, voir
 // server/lib/goalstasks.js (compteurs) et server/lib/goalstaskclassify.js
@@ -800,6 +801,23 @@ router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
     res.status(201).json(item);
   } catch (err) {
     handleGoalsError(res, err);
+  }
+});
+
+// 7 octobre 2026 : proposition de reformulation d'un texte d'objectif saisi à
+// la main (gratuit). Ne persiste RIEN : renvoie { proposal } (string ou null),
+// le client n'applique qu'au clic de l'utilisateur (voir lib/goalsrewrite.js).
+router.post('/activities/:id/goals/rewrite', async (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const check = requireMembership(userId, Number(req.params.id));
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    const proposal = await goalsrewrite.proposeRewrite(req.body && req.body.text);
+    res.json({ proposal });
+  } catch (err) {
+    if (err && err.status === 400) return res.status(400).json({ error: err.message });
+    res.json({ proposal: null });
   }
 });
 
