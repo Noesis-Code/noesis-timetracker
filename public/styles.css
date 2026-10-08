@@ -6606,6 +6606,8 @@ button { -webkit-user-select: none; user-select: none; }
 .catEditForm .timeCapsBlock { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
 .catEditForm .timeCapsTitle { margin: 4px 0 0; font-weight: 700; color: var(--text); font-size: 14px; }
 .catEditForm .timeCapsBlock .hint { margin: 0; }
+.catEditForm .timeCapsBody { display: flex; flex-direction: column; gap: 6px; }
+.catEditForm .timeCapsBody.hidden { display: none; }
 .catEditForm .timeCapsFields { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
 .catEditForm .timeCapsFields .fieldLabel { margin: 0; font-size: 14px; }
 .catEditForm .linkBtn { align-self: flex-start; background: none; border: 0; padding: 0; color: var(--purple); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; }

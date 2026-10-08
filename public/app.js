@@ -7582,8 +7582,14 @@
       if (!state.loaded) return;
       dayIn.value = fmtCapMinutes(state.avgDay); weekIn.value = fmtCapMinutes(state.avgWeek);
     });
-    node.appendChild(title('Ma moyenne (historique)')); node.appendChild(avg);
-    node.appendChild(title('Mon maximum (facultatif)')); node.appendChild(fields); node.appendChild(use);
+    var toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'linkBtn';
+    var body = document.createElement('div'); body.className = 'timeCapsBody hidden';
+    function paintToggle() { toggle.textContent = (body.classList.contains('hidden') ? '\u25B8 ' : '\u25BE ') + t('Moyenne et maximum de temps'); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
+    toggle.addEventListener('click', function () { body.classList.toggle('hidden'); paintToggle(); });
+    paintToggle();
+    body.appendChild(title('Ma moyenne (historique)')); body.appendChild(avg);
+    body.appendChild(title('Mon maximum (facultatif)')); body.appendChild(fields); body.appendChild(use);
+    node.appendChild(toggle); node.appendChild(body);
     api('GET', '/api/activities/' + activityId + '/goals/timecaps/' + key).then(function (c) {
       state.loaded = true; state.avgDay = c.avgDayMinutes; state.avgWeek = c.avgWeekMinutes;
       state.day = c.maxDayMinutes; state.week = c.maxWeekMinutes;

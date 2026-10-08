@@ -1325,6 +1325,7 @@
     "Par jour": "Per day",
     "Par semaine": "Per week",
     "Utiliser ma moyenne": "Use my average",
+    "Moyenne et maximum de temps": "Average and maximum time",
     "Durée invalide (ex. 1:30 ou 90).": "Invalid duration (e.g. 1:30 or 90).",
     "Plafond atteint": "Limit reached",
     "Garder aujourd'hui": "Keep today",
