@@ -757,7 +757,7 @@ function overloadRoute(fn) {
 }
 router.get('/activities/:id/goals/overload', overloadRoute((u, a, b, q) => goalsoverload.getProposal(u, a, q.pole || undefined)));
 router.post('/activities/:id/goals/overload/apply', overloadRoute((u, a, b) => goalsoverload.applyProposal(u, a, b.signature, b.poleKey || undefined)));
-router.post('/activities/:id/goals/overload/dismiss', overloadRoute((u, a) => goalsoverload.dismissProposal(u, a)));
+router.post('/activities/:id/goals/overload/dismiss', overloadRoute((u, a, b) => goalsoverload.dismissProposal(u, a, b.poleKey || undefined)));
 
 // 7 oct. 2026 — report entre périodes (liste « Non réalisées », tout proposé) et cible irréaliste
 // (choix de l'utilisateur). Logique : server/lib/goalscarryover.js.

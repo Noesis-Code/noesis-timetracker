@@ -622,7 +622,7 @@
       ok.type = 'button'; no.type = 'button';
       function done() { loadGoalsOverloadCard(); loadGoalsTasksOverview(); }
       ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/apply', { signature: p.signature, poleKey: pole || undefined }).then(done).catch(done); });
-      no.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/dismiss', {}).then(done).catch(done); });
+      no.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/dismiss', { poleKey: pole || undefined }).then(done).catch(done); });
       row.appendChild(ok); row.appendChild(no); ob.appendChild(row);
       card.classList.remove('hidden');
     }).catch(function () { card.classList.add('hidden'); });

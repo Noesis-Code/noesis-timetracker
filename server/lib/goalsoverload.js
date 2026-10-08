@@ -32,6 +32,16 @@ db.exec(`CREATE TABLE IF NOT EXISTS goal_overload_dismissals (
   userId TEXT NOT NULL, activityId INTEGER NOT NULL, day TEXT NOT NULL,
   PRIMARY KEY (userId, activityId, day)
 )`);
+// Ignorer PAR PÔLE : poleKey '' = tous les pôles (lignes antérieures). Migration idempotente (clé primaire élargie).
+if (!db.prepare('PRAGMA table_info(goal_overload_dismissals)').all().some((c) => c.name === 'poleKey')) {
+  db.exec(`CREATE TABLE goal_overload_dismissals_new (
+    userId TEXT NOT NULL, activityId INTEGER NOT NULL, day TEXT NOT NULL, poleKey TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (userId, activityId, day, poleKey)
+  );
+  INSERT INTO goal_overload_dismissals_new (userId, activityId, day, poleKey) SELECT userId, activityId, day, '' FROM goal_overload_dismissals;
+  DROP TABLE goal_overload_dismissals;
+  ALTER TABLE goal_overload_dismissals_new RENAME TO goal_overload_dismissals;`);
+}
 
 function todayLocal() {
   const d = new Date();
@@ -198,7 +208,7 @@ function signatureOf(moves) {
 function getProposal(userId, activityId, poleKey) {
   const today = todayLocal();
   try { captureplace.redispatchOverdue(userId, activityId); } catch (e) { /* non bloquant */ }
-  if (db.prepare('SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ?').get(userId, activityId, today)) {
+  if (db.prepare("SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ? AND (poleKey = '' OR poleKey = ?)").get(userId, activityId, today, poleKey || '')) {
     return { overloaded: false, dismissed: true };
   }
   const budget = budgetFor(activityId, userId, poleKey);
@@ -262,8 +272,8 @@ function applyProposal(userId, activityId, signature, poleKey) {
   return { applied: p.moves.length };
 }
 
-function dismissProposal(userId, activityId) {
-  db.prepare('INSERT OR IGNORE INTO goal_overload_dismissals (userId, activityId, day) VALUES (?, ?, ?)').run(userId, activityId, todayLocal());
+function dismissProposal(userId, activityId, poleKey) {
+  db.prepare('INSERT OR IGNORE INTO goal_overload_dismissals (userId, activityId, day, poleKey) VALUES (?, ?, ?, ?)').run(userId, activityId, todayLocal(), poleKey || '');
   return { dismissed: true };
 }
 
