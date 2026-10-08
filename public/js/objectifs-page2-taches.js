@@ -584,8 +584,9 @@
     var x = document.createElement('button'); x.type = 'button'; x.className = 'goalsAlertClose'; x.textContent = '\u2715'; x.setAttribute('aria-label', t('Fermer pour aujourd\'hui'));
     head.appendChild(tg); head.appendChild(x);
     var body = document.createElement('div'); body.className = 'goalsAlertBody';
-    function sync() { var o = !!alertOpen[key]; card.classList.toggle('open', o); body.hidden = !o; tg.setAttribute('aria-expanded', o ? 'true' : 'false'); }
-    tg.addEventListener('click', function () { alertOpen[key] = !alertOpen[key]; sync(); });
+    var sk = alertDayKey(key);
+    function sync() { var o = !!alertOpen[sk]; card.classList.toggle('open', o); body.hidden = !o; tg.setAttribute('aria-expanded', o ? 'true' : 'false'); }
+    tg.addEventListener('click', function () { alertOpen[sk] = !alertOpen[sk]; sync(); });
     x.addEventListener('click', function () { try { localStorage.setItem(alertDayKey(key), localIso(new Date())); } catch (e) { /* stockage indisponible */ } card.classList.add('hidden'); });
     sync();
     card.appendChild(head); card.appendChild(body);
@@ -694,8 +695,8 @@
               var li = pli;
               // Bouton grisé mais cliquable : explique pourquoi le report est impossible.
               var note = li.nextSibling && li.nextSibling.className === 'goalsReportNote' ? li.nextSibling : null;
-              if (note) { note.remove(); return; }
-              note = el('li', 'goalsReportNote', t('La période suivante a déjà son propre objectif. Pour y reporter celui-ci sans l’écraser, modifie ou vide d’abord l’objectif de la période suivante.'));
+              if (note) note.remove();
+              note = el('li', 'goalsReportNote', t('Erreur : la période suivante a déjà son propre objectif. Pour y reporter celui-ci sans l’écraser, modifie ou vide d’abord l’objectif de la période suivante.'));
               li.parentNode.insertBefore(note, li.nextSibling);
             });
           if (!x.targetFree) pli.querySelector('button').classList.add('goalsReportBtn--blocked');
