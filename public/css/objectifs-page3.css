@@ -511,3 +511,12 @@
 #activityGoalsMainDescInput::placeholder { font-size: 12px; }
 .goalMainEstBtn.lit { border-color: rgba(76,175,80,.7); background: rgba(76,175,80,.16); box-shadow: none; }
 .goalMainEstBtn:disabled:not(.lit) { opacity: .4; }
+
+/* Reformulation proposée par Noèsis (7 oct. 2026) : case teintée violet, bulle au clic. */
+.goalRewriteHint { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.85); background-color: rgba(139, 92, 246, 0.14); cursor: pointer; border-radius: 8px; }
+.goalRewriteBubble { position: relative; margin: 6px 0; padding: 10px 34px 10px 12px; border: 1px solid rgba(139, 92, 246, 0.7); border-radius: 12px; background: rgba(139, 92, 246, 0.12); backdrop-filter: blur(10px); color: inherit; font-size: 14px; text-align: left; }
+.goalRewriteTitle { font-weight: 600; font-size: 12px; opacity: .8; margin-bottom: 4px; }
+.goalRewriteText { margin-bottom: 8px; white-space: pre-wrap; }
+.goalRewriteActions { display: flex; gap: 8px; justify-content: flex-end; }
+.goalRewriteActions button { padding: 6px 12px; font-size: 13px; }
+.goalRewriteClose { position: absolute; top: 4px; right: 6px; width: 28px; height: 28px; padding: 0; background: transparent; border: 0; color: inherit; font-size: 16px; cursor: pointer; }

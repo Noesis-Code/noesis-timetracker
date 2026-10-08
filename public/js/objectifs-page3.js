@@ -474,6 +474,100 @@
   }
 
 
+  // 7 oct. 2026 (gratuit, validé par Émilien) : Noèsis reformule le texte saisi
+  // à la main mais ne l'applique pas. La case se colore (violet) ; au clic,
+  // une bulle propose le changement (Appliquer / Garder le mien). Rien n'est
+  // écrit sans clic. Les propositions survivent aux re-rendus (clé -> {text, proposal}).
+  var goalRewriteProposals = {};
+  var goalRewriteLive = {};
+  function goalRewriteKey(kind, periodNumber, idx) {
+    return [TMT.currentGoalsActivityId, TMT.currentGoalsCategory, periodNumber, kind, idx || 0].join('|');
+  }
+  function closeGoalRewriteBubble() {
+    var b = document.getElementById('goalRewriteBubble');
+    if (b) b.remove();
+  }
+  function paintGoalRewrite(key) {
+    var live = goalRewriteLive[key];
+    if (!live || !live.input.isConnected) return;
+    var p = goalRewriteProposals[key];
+    var on = !!(p && p.text === live.getSaved() && p.proposal && p.proposal !== p.text);
+    live.input.classList.toggle('goalRewriteHint', on);
+    if (live.extra) live.extra.classList.toggle('goalRewriteHint', on);
+  }
+  function openGoalRewriteBubble(key, anchorEl) {
+    var live = goalRewriteLive[key], p = goalRewriteProposals[key];
+    closeGoalRewriteBubble();
+    if (!live || !p || !p.proposal) return;
+    var b = document.createElement('div');
+    b.id = 'goalRewriteBubble';
+    b.className = 'goalRewriteBubble';
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'goalRewriteClose';
+    close.textContent = '\u2715';
+    close.setAttribute('aria-label', t('Fermer'));
+    close.onclick = closeGoalRewriteBubble;
+    var title = document.createElement('div');
+    title.className = 'goalRewriteTitle';
+    title.textContent = t('Proposition de Noèsis');
+    var txt = document.createElement('div');
+    txt.className = 'goalRewriteText';
+    txt.textContent = p.proposal;
+    var actions = document.createElement('div');
+    actions.className = 'goalRewriteActions';
+    var keep = document.createElement('button');
+    keep.type = 'button';
+    keep.className = 'secondary';
+    keep.textContent = t('Garder le mien');
+    keep.onclick = function () {
+      delete goalRewriteProposals[key];
+      paintGoalRewrite(key);
+      closeGoalRewriteBubble();
+    };
+    var apply = document.createElement('button');
+    apply.type = 'button';
+    apply.textContent = t('Appliquer');
+    apply.onclick = function () {
+      var proposal = p.proposal;
+      delete goalRewriteProposals[key];
+      closeGoalRewriteBubble();
+      live.apply(proposal);
+    };
+    actions.appendChild(keep);
+    actions.appendChild(apply);
+    b.appendChild(close);
+    b.appendChild(title);
+    b.appendChild(txt);
+    b.appendChild(actions);
+    anchorEl.insertAdjacentElement('afterend', b);
+  }
+  // Enregistre la case (input = champ, extra = élément de lecture optionnel
+  // cliquable aussi) et colore si une proposition à jour existe déjà.
+  function registerGoalRewrite(key, input, getSaved, apply, extra) {
+    goalRewriteLive[key] = { input: input, getSaved: getSaved, apply: apply, extra: extra || null };
+    var open = function (e) {
+      var p = goalRewriteProposals[key];
+      if (p && p.text === getSaved() && p.proposal) openGoalRewriteBubble(key, e.currentTarget);
+    };
+    input.addEventListener('click', open);
+    if (extra) extra.addEventListener('click', open);
+    paintGoalRewrite(key);
+  }
+  // Appel en arrière-plan après une saisie manuelle enregistrée ; échec = silence.
+  function requestGoalRewrite(key, text) {
+    if (!text || !TMT.currentGoalsActivityId) return;
+    delete goalRewriteProposals[key];
+    paintGoalRewrite(key);
+    api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/rewrite', { text: text })
+      .then(function (r) {
+        if (!r || !r.proposal) return;
+        goalRewriteProposals[key] = { text: text, proposal: r.proposal };
+        paintGoalRewrite(key);
+      })
+      .catch(function () {});
+  }
+
   function saveWeeklyText(periodNumber, weekIndex, text) {
     api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text, category: TMT.currentGoalsCategory })
       .then(reloadGoalsAll)
@@ -615,6 +709,7 @@
         badge.textContent = 'S' + weekIndex;
         row.appendChild(badge);
 
+        var wKey = goalRewriteKey('w', period.periodNumber, weekIndex);
         var input = document.createElement('textarea');
         input.className = 'goalWeeklyText';
         input.rows = 1;
@@ -626,6 +721,11 @@
           if (!w && !value) return;
           if (w && value === w.text) return;
           saveWeeklyText(period.periodNumber, weekIndex, value);
+          requestGoalRewrite(wKey, value);
+        });
+        registerGoalRewrite(wKey, input, function () { return w ? w.text : ''; }, function (proposal) {
+          input.value = proposal;
+          saveWeeklyText(period.periodNumber, weekIndex, proposal);
         });
         input.addEventListener('keydown', function (e) {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); input.blur(); }
@@ -819,14 +919,20 @@
     // jour une valeur locale SYNCHRONE dès le premier appel, avant même la
     // réponse serveur — le second appel (blur ou click, peu importe l'ordre)
     // voit alors la valeur déjà "committée" et s'arrête.
+    var mainRewriteKey = goalRewriteKey('m', period.periodNumber, 0);
     var lastCommittedMainGoalText = period.mainGoalText || '';
     var commitMainGoalText = function () {
       var value = mainInput.value.trim();
       if (value === lastCommittedMainGoalText) return;
       lastCommittedMainGoalText = value;
       saveMainGoalText(period.periodNumber, value);
+      requestGoalRewrite(mainRewriteKey, value);
     };
     mainInput.onblur = commitMainGoalText;
+    registerGoalRewrite(mainRewriteKey, mainInput, function () { return period.mainGoalText || ''; }, function (proposal) {
+      mainInput.value = proposal;
+      commitMainGoalText();
+    }, $('activityGoalsMainReadTitle'));
     mainInput.onkeydown = function (e) {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); mainInput.blur(); }
     };
