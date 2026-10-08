@@ -194,7 +194,14 @@ function periodDerivedWeeklyMinutes(activityId, category) {
   return row && row.m > 0 ? Math.max(1, Math.round(row.m / goals.WEEKS_PER_PERIOD)) : null;
 }
 
+// 7 oct. 2026 : plafonné par le max hebdomadaire (facultatif) du pôle/secteur, s'il existe.
 function capacityMinutesForMember(activityId, category, userId) {
+  const raw = uncappedCapacityMinutesForMember(activityId, category, userId);
+  const cap = require('./timecaps').weeklyCapFor(userId, activityId, category);
+  return cap != null ? Math.max(1, Math.min(raw, cap)) : raw;
+}
+
+function uncappedCapacityMinutesForMember(activityId, category, userId) {
   const derived = periodDerivedWeeklyMinutes(activityId, category);
   if (derived != null) return derived;
   const row = getCapacityOverrideRow(activityId, category, userId);
