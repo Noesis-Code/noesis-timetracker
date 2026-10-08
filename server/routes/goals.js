@@ -31,6 +31,7 @@ const goalstasks = require('../lib/goalstasks');
 const goalsoverload = require('../lib/goalsoverload');
 const goalscarryover = require('../lib/goalscarryover');
 const timecaps = require('../lib/timecaps');
+const goalsrecalc = require('../lib/goalsrecalc');
 // Chantier Objectifs — C (bulle IA de classement automatique, 17 septembre
 // 2026) — voir server/lib/goalstaskclassify.js.
 const goalstaskclassify = require('../lib/goalstaskclassify');
@@ -765,6 +766,22 @@ router.get('/activities/:id/goals/unfinished', overloadRoute((u, a) => ({
 })));
 router.post('/activities/:id/goals/unfinished/apply', overloadRoute((u, a, b) => goalscarryover.applyCarry(u, a, b)));
 router.post('/activities/:id/goals/realism', overloadRoute((u, a, b) => goalscarryover.applyRealism(u, a, b)));
+
+// 7 oct. 2026 — recalcul d'après le temps réel : propositions en attente (créées par le job nocturne
+// server/lib/goalsrecalc.js), appliquées ou écartées par l'utilisateur seulement.
+router.get('/activities/:id/goals/recalc', overloadRoute((u, a) => ({ proposals: goalsrecalc.listPending(u, a) })));
+function recalcDecision(fn) {
+  return (req, res) => {
+    const userId = req.userId;
+    if (!userId) return res.status(400).json({ error: 'userId requis.' });
+    const activityId = Number(req.params.id);
+    const check = requireMembership(userId, activityId);
+    if (check.error) return res.status(check.error.status).json(check.error.body);
+    try { res.json(fn(userId, activityId, req.params.pid)); } catch (err) { handleGoalsError(res, err); }
+  };
+}
+router.post('/activities/:id/goals/recalc/:pid/apply', recalcDecision(goalsrecalc.apply));
+router.post('/activities/:id/goals/recalc/:pid/dismiss', recalcDecision(goalsrecalc.dismiss));
 
 // 7 oct. 2026 — plafonds de temps facultatifs (max/jour, max/semaine) d'un pôle ou secteur,
 // avec la moyenne historique en lecture seule. Logique : server/lib/timecaps.js.

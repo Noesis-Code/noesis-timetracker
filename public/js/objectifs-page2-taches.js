@@ -652,11 +652,46 @@
     }).catch(function () { card.classList.add('hidden'); });
   }
 
+  // 7 oct. 2026 : recalcul d'après le temps réel. Proposition créée par le job nocturne (serveur :
+  // server/lib/goalsrecalc.js) ; rien ne change sans « Appliquer ».
+  function loadGoalsRecalcCard() {
+    var activityId = TMT.currentGoalsActivityId;
+    var anchor = $('goalsReportCard') || $('goalsOverloadCard');
+    if (!activityId || !anchor) return;
+    var card = $('goalsRecalcCard');
+    if (!card) { card = document.createElement('div'); card.id = 'goalsRecalcCard'; card.className = 'goalsOverloadCard goalsRecalcCard hidden'; anchor.parentNode.insertBefore(card, anchor.nextSibling); }
+    var base = '/api/activities/' + activityId + '/goals/recalc';
+    var pole = TMT.currentGoalsSelectedPoleKey || '';
+    api('GET', base).then(function (d) {
+      if (String(activityId) !== String(TMT.currentGoalsActivityId) || pole !== (TMT.currentGoalsSelectedPoleKey || '')) return;
+      card.innerHTML = '';
+      var list = (d.proposals || []).filter(function (x) { return !pole || x.poleKey === pole; });
+      if (!list.length) { card.classList.add('hidden'); return; }
+      function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+      function hw(m) { return (Math.round(m / 6) / 10) + ' h'; }
+      function refresh() { loadGoalsRecalcCard(); if (TMT.reloadGoalsAll) TMT.reloadGoalsAll(); }
+      list.forEach(function (x) {
+        var box = el('div', 'goalsReportBlock');
+        box.appendChild(el('p', 'goalsOverloadTitle', t('Noèsis propose de recalculer tes objectifs') + ' (' + x.label + ') : ' + t('ton rythme réel') + ' ' + hw(x.actualPerWeekMinutes) + t('/sem au lieu de ') + hw(x.needPerWeekMinutes)));
+        box.appendChild(el('p', 'meta', t('Nouvelle estimation proposée') + ' : ' + hw(x.currentTargetMinutes) + ' \u2192 ' + hw(x.proposedTargetMinutes) + '. ' + t('Tes textes saisis ne changent pas.')));
+        var row = el('div', 'goalsOverloadActions');
+        var ok = el('button', 'goalsOverloadOk', t('Appliquer'));
+        var no = el('button', 'goalsOverloadNo', t('Plus tard') + ' \u2715');
+        ok.type = 'button'; no.type = 'button';
+        ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/' + x.id + '/apply', {}).then(refresh).catch(function (e) { alert(e.message); refresh(); }); });
+        no.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/' + x.id + '/dismiss', {}).then(refresh).catch(refresh); });
+        row.appendChild(ok); row.appendChild(no); box.appendChild(row); card.appendChild(box);
+      });
+      card.classList.remove('hidden');
+    }).catch(function () { card.classList.add('hidden'); });
+  }
+
   function loadGoalsTasksOverview() {
     var activityId = TMT.currentGoalsActivityId;
     if (!activityId) return;
     loadGoalsOverloadCard();
     loadGoalsReportCard();
+    loadGoalsRecalcCard();
     api('GET', '/api/activities/' + activityId + '/goals/tasks/overview?today=' + localIso(new Date()))
       .then(function (data) {
         // L'utilisateur a pu changer d'activité ou de pôle pendant l'aller-
