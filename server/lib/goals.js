@@ -861,6 +861,18 @@ function mostRecentMonday(isoDay) {
   return d.toISOString().slice(0, 10);
 }
 
+// Grille calendaire (8 oct. 2026) : la période 1 commence au lundi de la
+// semaine du 1er janvier ; 13 périodes de 4 semaines par an, quelle que soit
+// l'activité ou la date de création du plan.
+function yearAnchor(year) {
+  return mostRecentMonday(String(year) + '-01-01');
+}
+function yearGridStart(isoDay) {
+  const y = Number(String(isoDay).slice(0, 4));
+  const next = yearAnchor(y + 1);
+  return next <= isoDay ? next : yearAnchor(y);
+}
+
 function periodBounds(planStartDate, periodNumber) {
   const start = addDays(planStartDate, (periodNumber - 1) * PERIOD_DAYS);
   const end = addDays(planStartDate, periodNumber * PERIOD_DAYS - 1);
@@ -901,7 +913,7 @@ function ensurePlan(activityId, category) {
   // 16 septembre 2026 : lundi de la semaine en cours plutôt que le jour exact
   // d'activation — voir le commentaire de mostRecentMonday() ci-dessus. Ne
   // s'applique qu'à cette toute première création du plan (idempotent).
-  const startDate = mostRecentMonday(todayLocal());
+  const startDate = yearGridStart(todayLocal());
   const createdAt = new Date().toISOString();
   db.prepare('INSERT INTO activity_goal_plans (activityId, category, startDate, createdAt) VALUES (?, ?, ?, ?)')
     .run(activityId, category, startDate, createdAt);
@@ -968,6 +980,40 @@ function plansNeedingRealignment() {
   return plans
     .filter((p) => mostRecentMonday(p.startDate) !== p.startDate)
     .map((p) => ({ ...p, wouldBecome: mostRecentMonday(p.startDate) }));
+}
+
+// Migration (à lancer explicitement : scripts/migrate-year-grid.js) : cale
+// chaque plan existant sur la grille de l'année (décalage constant de ses
+// périodes, renumérotation). Idempotent ; `dryRun` ne modifie rien.
+function isYearAnchor(isoDay) {
+  const y = Number(String(isoDay).slice(0, 4));
+  return isoDay === yearAnchor(y) || isoDay === yearAnchor(y + 1);
+}
+function migratePlansToYearGrid(dryRun) {
+  const plans = db.prepare('SELECT activityId, category, startDate FROM activity_goal_plans').all();
+  const report = [];
+  plans.forEach((pl) => {
+    if (isYearAnchor(pl.startDate)) return;
+    const A = yearGridStart(pl.startDate);
+    const d = ((daysBetween(A, pl.startDate) % PERIOD_DAYS) + PERIOD_DAYS) % PERIOD_DAYS;
+    const delta = d <= PERIOD_DAYS / 2 ? -d : PERIOD_DAYS - d;
+    report.push({ activityId: pl.activityId, category: pl.category, oldStart: pl.startDate, newStart: A, shiftDays: delta });
+    if (dryRun) return;
+    const periods = db.prepare('SELECT id, startDate FROM goal_periods WHERE activityId = ? AND category = ? ORDER BY periodNumber').all(pl.activityId, pl.category);
+    db.exec('BEGIN');
+    try {
+      db.prepare('UPDATE goal_periods SET periodNumber = -periodNumber WHERE activityId = ? AND category = ?').run(pl.activityId, pl.category);
+      const upd = db.prepare('UPDATE goal_periods SET startDate = ?, endDate = ?, periodNumber = ?, cycleIndex = ?, periodIndexInCycle = ? WHERE id = ?');
+      periods.forEach((p) => {
+        const num = Math.round(daysBetween(A, addDays(p.startDate, delta)) / PERIOD_DAYS) + 1;
+        const b = periodBounds(A, num);
+        upd.run(b.start, b.end, num, b.cycleIndex, b.periodIndexInCycle, p.id);
+      });
+      db.prepare('UPDATE activity_goal_plans SET startDate = ? WHERE activityId = ? AND category = ?').run(A, pl.activityId, pl.category);
+      db.exec('COMMIT');
+    } catch (e) { try { db.exec('ROLLBACK'); } catch (_) {} throw e; }
+  });
+  return report;
 }
 
 // ---------------------------------------------------------------------------
@@ -1683,6 +1729,8 @@ module.exports = {
   gridColumnsForPole,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
+  yearGridStart,
+  migratePlansToYearGrid,
   weekBounds,
   periodNumberForDate,
   estimateForGoal,
