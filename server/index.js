@@ -29,6 +29,8 @@ require('./db');
 try { require('./lib/profilecolors-staging').applyProfileColorsOnStaging(); } catch (e) { console.error('[profilecolors-staging]', e.message); }
 // Staging seulement ET SEED_SCENARIOS=1 : (re)crée l'activité de test « Scénarios Feuille de route (test) ».
 try { require('./lib/scenarios-staging').seedScenariosOnStaging(); } catch (e) { console.error('[scenarios-staging]', e.message); }
+// Cale les plans sur la grille de l'année (période 1 = semaine du 1er janvier). Idempotent.
+try { const r = require('./lib/goals').migratePlansToYearGrid(); if (r.length) console.log('[year-grid] ' + r.length + ' plan(s) recalé(s)'); } catch (e) { console.error('[year-grid]', e.message); }
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
