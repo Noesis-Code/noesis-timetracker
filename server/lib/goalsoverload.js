@@ -264,4 +264,4 @@ function dismissProposal(userId, activityId) {
   return { dismissed: true };
 }
 
-module.exports = { budgetFor, computeProposal, getProposal, applyProposal, dismissProposal };
+module.exports = { budgetFor, loadTasks, computeProposal, getProposal, applyProposal, dismissProposal };

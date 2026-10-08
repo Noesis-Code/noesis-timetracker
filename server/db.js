@@ -1123,6 +1123,13 @@ if (tableExists('goal_weekly') && !columnExists('goal_weekly', 'assignedUserId')
   db.exec('CREATE INDEX IF NOT EXISTS idx_goal_weekly_assignee ON goal_weekly(assignedUserId)');
 }
 
+// 7 oct. 2026 : report du grand objectif périodique non atteint vers la période suivante
+// (jumeau de goal_weekly.carriedOverFromId/carriedToId). Voir server/lib/goalscarryover.js.
+if (tableExists('goal_periods') && !columnExists('goal_periods', 'carriedOverFromId')) {
+  db.exec('ALTER TABLE goal_periods ADD COLUMN carriedOverFromId INTEGER');
+  db.exec('ALTER TABLE goal_periods ADD COLUMN carriedToId INTEGER');
+}
+
 if (!columnExists('users', 'pin')) {
   db.exec('ALTER TABLE users ADD COLUMN pin TEXT');
 }

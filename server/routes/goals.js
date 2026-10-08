@@ -29,6 +29,7 @@ const goalsdailypriority = require('../lib/goalsdailypriority');
 // 17 septembre 2026) — voir server/lib/goalstasks.js.
 const goalstasks = require('../lib/goalstasks');
 const goalsoverload = require('../lib/goalsoverload');
+const goalscarryover = require('../lib/goalscarryover');
 const timecaps = require('../lib/timecaps');
 // Chantier Objectifs — C (bulle IA de classement automatique, 17 septembre
 // 2026) — voir server/lib/goalstaskclassify.js.
@@ -84,7 +85,7 @@ router.get('/activities/:id/goals', (req, res) => {
 
   try {
     const category = resolveCategory(activityId, req.query.category);
-    res.json(goals.planningForActivity(activityId, category));
+    res.json(goalscarryover.decoratePlanning(goals.planningForActivity(activityId, category), userId, activityId));
   } catch (err) {
     handleGoalsError(res, err);
   }
@@ -756,6 +757,14 @@ function overloadRoute(fn) {
 router.get('/activities/:id/goals/overload', overloadRoute((u, a, b, q) => goalsoverload.getProposal(u, a, q.pole || undefined)));
 router.post('/activities/:id/goals/overload/apply', overloadRoute((u, a, b) => goalsoverload.applyProposal(u, a, b.signature, b.poleKey || undefined)));
 router.post('/activities/:id/goals/overload/dismiss', overloadRoute((u, a) => goalsoverload.dismissProposal(u, a)));
+
+// 7 oct. 2026 — report entre périodes (liste « Non réalisées », tout proposé) et cible irréaliste
+// (choix de l'utilisateur). Logique : server/lib/goalscarryover.js.
+router.get('/activities/:id/goals/unfinished', overloadRoute((u, a) => ({
+  ...goalscarryover.unfinished(u, a), realism: goalscarryover.realismAll(u, a),
+})));
+router.post('/activities/:id/goals/unfinished/apply', overloadRoute((u, a, b) => goalscarryover.applyCarry(u, a, b)));
+router.post('/activities/:id/goals/realism', overloadRoute((u, a, b) => goalscarryover.applyRealism(u, a, b)));
 
 // 7 oct. 2026 — plafonds de temps facultatifs (max/jour, max/semaine) d'un pôle ou secteur,
 // avec la moyenne historique en lecture seule. Logique : server/lib/timecaps.js.
