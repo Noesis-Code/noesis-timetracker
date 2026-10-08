@@ -132,12 +132,12 @@
 
 .goalsGridCell::before {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
-  left: 50%; top: calc(var(--goalsGridGap) * -1); height: var(--goalsGridGap); width: 0;
+  left: 50%; top: calc(var(--goalsGridGap) * -1 - 2px); height: var(--goalsGridGap); width: 0;
   border-left: 2px solid var(--goalsCellLineColor, var(--track-bg));
   transform: translateX(-50%);
 }
 
-.goalsGridCell--filled::before { top: calc(var(--goalsGridGap) * -1 - 2px); height: calc(var(--goalsGridGap) + 2px); }
+.goalsGridCell--filled::before { top: calc(var(--goalsGridGap) * -1 - 2px); height: var(--goalsGridGap); }
 
 .goalsGridRow:first-child .goalsGridCell::before { display: none; }
 
