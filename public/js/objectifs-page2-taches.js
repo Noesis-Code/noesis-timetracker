@@ -562,8 +562,8 @@
       if (!p || !p.overloaded) { card.classList.add('hidden'); return; }
       function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
       function fmt(m) { return m >= 60 ? (Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : '')) : (m + ' min'); }
-      card.appendChild(el('p', 'goalsOverloadTitle', t('Journée surchargée')));
-      card.appendChild(el('p', 'meta', t('Charge du jour : ') + fmt(p.loadMinutes) + t(' pour une capacité moyenne de ') + fmt(p.budgetMinutes) + t('. Nouveau plan proposé (rien n\'est modifié sans ta validation).')));
+      card.appendChild(el('p', 'goalsOverloadTitle', p.capLabel ? t('Plafond atteint') + ' \u00b7 ' + p.capLabel : t('Journée surchargée')));
+      card.appendChild(el('p', 'meta', p.capLabel ? t('Ce plafond serait dépassé. Nouveau plan proposé (rien n\'est modifié sans ta validation).') : t('Charge du jour : ') + fmt(p.loadMinutes) + t(' pour une capacité moyenne de ') + fmt(p.budgetMinutes) + t('. Nouveau plan proposé (rien n\'est modifié sans ta validation).')));
       var ul = el('ul', 'goalsOverloadList');
       p.moves.slice(0, 6).forEach(function (m) { var li = el('li', null, m.label + ' : ' + (TMT.calendarDayLabel(m.from) || m.from) + ' \u2192 ' + (TMT.calendarDayLabel(m.to) || m.to) + (m.importance ? ' (' + t('importance') + ' ' + t(m.importance) + ')' : '')); if (m.reasons && m.reasons.length) li.title = m.reasons.join(' \u00b7 '); ul.appendChild(li); });
       if (p.moves.length > 6) ul.appendChild(el('li', null, t('… et ') + (p.moves.length - 6) + t(' autres tâches déplacées')));
@@ -572,7 +572,7 @@
       card.appendChild(ul);
       var row = el('div', 'goalsOverloadActions');
       var ok = el('button', 'goalsOverloadOk', t('Valider'));
-      var no = el('button', 'goalsOverloadNo', t('Ignorer'));
+      var no = el('button', 'goalsOverloadNo', p.capLabel ? t('Garder aujourd\'hui') : t('Ignorer'));
       ok.type = 'button'; no.type = 'button';
       function done() { loadGoalsOverloadCard(); loadGoalsTasksOverview(); }
       ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', base + '/apply', { signature: p.signature, poleKey: pole || undefined }).then(done).catch(done); });

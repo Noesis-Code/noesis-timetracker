@@ -22,6 +22,7 @@ const goals = require('./goals');
 const goalsauto = require('./goalsauto');
 const captureplace = require('./goalscaptureplace');
 const goalsimportance = require('./goalsimportance');
+const timecaps = require('./timecaps');
 
 const DEFAULT_TASK_MINUTES = captureplace.DEFAULT_TASK_MINUTES;
 const LOOKAHEAD_DAYS = captureplace.LOOKAHEAD_DAYS;
@@ -198,15 +199,41 @@ function getProposal(userId, activityId, poleKey) {
     return { overloaded: false, dismissed: true };
   }
   const budget = budgetFor(activityId, userId);
-  const p = computeProposal({ today, budgetMinutes: budget, tasks: loadTasks(activityId, budget, today) });
-  if (!p) return { overloaded: false };
-  const moves = p.moves.map((m) => ({ ...m, poleKey: m.category ? goals.resolveToPole(activityId, m.category) : null }))
+  const tasks = loadTasks(activityId, budget, today);
+  const p = computeProposal({ today, budgetMinutes: budget, tasks });
+  // Plafonds de temps (7 oct. 2026) : appliqués APRÈS le plan de surcharge, mêmes règles
+  // (proposé seulement, dates posées par le moteur uniquement).
+  const afterOverload = new Map();
+  if (p) p.moves.forEach((m) => afterOverload.set(m.id, m.to));
+  const caps = timecaps.listCaps(userId, activityId).map((c) => ({
+    ...c, isPole: goals.isValidCategoryForActivity(activityId, c.key),
+    label: goals.categoryLabelFor(activityId, goals.resolveToPole(activityId, c.key)),
+  }));
+  const capTasks = tasks.map((t) => ({
+    ...t, dueDate: afterOverload.get(t.id) || t.dueDate, poleOf: t.category ? goals.resolveToPole(activityId, t.category) : null,
+  }));
+  const capMoves = timecaps.computeCapMoves({ today, caps, tasks: capTasks });
+  const byId = new Map();
+  if (p) p.moves.forEach((m) => byId.set(m.id, { ...m }));
+  capMoves.forEach((cm) => {
+    const t = tasks.find((x) => x.id === cm.id);
+    const prev = byId.get(cm.id);
+    byId.set(cm.id, { ...(prev || { id: t.id, label: t.label, category: t.category, minutes: t.minutes, from: t.dueDate, auto: true,
+      importance: t.importance.level, importanceScore: t.importance.score, reasons: t.importance.reasons }), to: cm.to, capLabel: cm.capLabel });
+  });
+  const allMoves = [...byId.values()].filter((m) => m.to !== m.from);
+  if (!allMoves.length) return { overloaded: false };
+  const moves = allMoves.map((m) => ({ ...m, poleKey: m.category ? goals.resolveToPole(activityId, m.category) : null }))
     .filter((m) => !poleKey || m.poleKey === poleKey);
   if (!moves.length) return { overloaded: false };
+  const capOnly = !p || !moves.some((m) => !m.capLabel);
+  const capLabel = (moves.find((m) => m.capLabel) || {}).capLabel || null;
   return {
     overloaded: true,
-    loadMinutes: p.loadMinutes,
-    budgetMinutes: p.budgetMinutes,
+    loadMinutes: p ? p.loadMinutes : null,
+    budgetMinutes: p ? p.budgetMinutes : budget,
+    capLabel: capOnly ? capLabel : null,
+    capExceeded: !!capLabel,
     moves,
     objectives: objectiveChanges(activityId, moves),
     signature: signatureOf(moves),
