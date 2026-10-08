@@ -903,11 +903,17 @@
           var titleEl = document.createElement('div');
           titleEl.className = 'goalWeeklyTitleText';
           titleEl.textContent = w.text;
+          // Un objectif rempli : toucher son texte déplie/replie la semaine, comme la flèche.
+          function toggleWeek() { var b = row.querySelector('.goalWeeklyExpandBtn'); if (b) b.click(); }
+          titleEl.style.cursor = 'pointer';
+          titleEl.addEventListener('click', toggleWeek);
           textWrap.appendChild(titleEl);
           if (w.description) {
             var prev = document.createElement('div');
             prev.className = 'goalDescPreview';
             prev.textContent = w.description;
+            prev.style.cursor = 'pointer';
+            prev.addEventListener('click', toggleWeek);
             textWrap.appendChild(prev);
           }
           var capMin = w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (TMT.goalsWeekCapacityDefault || 0);
