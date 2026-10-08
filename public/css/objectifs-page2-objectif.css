@@ -289,3 +289,4 @@
 
 /* 8 oct. 2026 : aucune bordure visible sur les cases de l'arbre (la bordure transparente garde les largeurs égales). */
 .goalsGrid .goalsGridCell--filled, .goalsGrid .goalsGridCell--empty { border-color: transparent !important; box-shadow: none !important; }
+.goalsGridRow:not(:first-child)::before { display: none !important; }
