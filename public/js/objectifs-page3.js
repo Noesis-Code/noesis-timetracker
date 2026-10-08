@@ -765,7 +765,7 @@
   function buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, focusTitle, rerender, extTitle) {
     var d = goalsWeekDrafts[draftKey];
     var box = document.createElement('div');
-    box.className = 'goalWeeklyEditor';
+    box.className = 'goalWeeklyEditor' + (extTitle ? ' hasExtTitle' : '');
     var title = extTitle || document.createElement('input');
     if (!extTitle) {
       title.type = 'text'; title.className = 'goalWeeklyEditTitle'; title.maxLength = 300;
@@ -774,10 +774,12 @@
       box.appendChild(title);
     }
     var desc = document.createElement('textarea');
-    desc.className = 'goalWeeklyEditDesc'; desc.rows = 3; desc.maxLength = 600;
+    desc.className = 'goalWeeklyEditDesc'; desc.rows = 5; desc.maxLength = 600;
     desc.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.');
     desc.value = d.desc;
-    desc.addEventListener('input', function () { d.desc = desc.value; });
+    function fitDesc() { desc.style.height = 'auto'; desc.style.height = Math.max(150, desc.scrollHeight + 2) + 'px'; }
+    desc.addEventListener('input', function () { d.desc = desc.value; fitDesc(); });
+    setTimeout(fitDesc, 0);
     box.appendChild(desc);
 
     var avg = TMT.goalsWeekCapacityDefault || 0;
@@ -967,7 +969,7 @@
         var expandBtn = document.createElement('button');
         expandBtn.type = 'button';
         expandBtn.className = 'goalWeeklyExpandBtn' + (isOpen ? ' open' : '');
-        expandBtn.textContent = '⌄';
+        expandBtn.textContent = '›';
         expandBtn.title = t('Afficher/masquer les jours de cette semaine');
         expandBtn.setAttribute('aria-label', t('Afficher/masquer les jours de cette semaine'));
         expandBtn.addEventListener('click', function () {
