@@ -1835,9 +1835,9 @@
         row.appendChild(dateEl);
 
         var minutesEl = document.createElement('span');
-        minutesEl.className = 'goalsCalendarMinutes' + ((day.actualMinutes && day.tasks && day.tasks.length) ? '' : ' empty');
-        minutesEl.textContent = (day.actualMinutes && day.tasks && day.tasks.length) ? formatGoalHours(day.actualMinutes) : ''; // le temps n'apparaît que sur un jour qui a des tâches
-        minutesEl.title = t('Temps pointé ce jour');
+        minutesEl.className = 'goalsCalendarMinutes' + (day.estimatedMinutes ? '' : ' empty');
+        minutesEl.textContent = day.estimatedMinutes ? formatGoalHours(day.estimatedMinutes) : ''; // temps estimé des tâches du jour ; zéro tâche = rien
+        minutesEl.title = t('Temps estimé des tâches de ce jour');
         row.appendChild(minutesEl);
 
         // 28 septembre 2026 : le badge "S1"-"S4" cliquable (weekEl) est

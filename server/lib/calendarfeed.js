@@ -444,6 +444,11 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
     goals.secteursForPole(activityId, category).forEach((sec) => categoryKeys.push(sec.key));
   }
   const tasksByDay = dayTasksByDate(activityId, period.startDate, period.endDate, categoryKeys);
+  // Temps affiché par jour = temps ESTIMÉ des tâches de ce jour (rien d'autre ; aucun jour sans tâche n'a de temps).
+  const goalscapacity = require('./goalscapacity');
+  Object.keys(tasksByDay).forEach((d) => {
+    tasksByDay[d].forEach((t) => { t.minutes = goalscapacity.taskMinutes(userId, activityId, t.category, t.label); });
+  });
 
   const today = todayLocalDay();
   const days = [];
@@ -456,6 +461,7 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
       date: cursor,
       weekIndex: weekIndex,
       actualMinutes: Math.round((secondsByDay[cursor] || 0) / 60),
+      estimatedMinutes: (tasksByDay[cursor] || []).reduce((s, t) => s + (t.minutes || 0), 0),
       isToday: cursor === today,
       tasks: tasksByDay[cursor] || [],
     });
