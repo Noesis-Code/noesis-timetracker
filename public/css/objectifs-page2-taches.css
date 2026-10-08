@@ -242,7 +242,7 @@
 .goalsAlertCard .goalsOverloadActions .goalsOverloadOk,
 .goalsAlertCard .goalsReportAll { background: rgba(255,159,46,.16); border: 1px solid rgba(255,159,46,.45); color: #f0b36b; font-weight: 600; }
 .goalsAlertCard .goalsReportBtn { border: 1px solid rgba(255,159,46,.4); color: #e8ab62; background: none; }
-.goalsAlertCard .goalsOverloadActions .goalsRealismBtn { background: none; border: 1px solid rgba(255,159,46,.45); color: #e8ab62; font-weight: 600; }
+.goalsAlertCard .goalsOverloadActions .goalsRealismBtn { border-color: rgba(255,159,46,.55); }
 .goalsAlertCard .goalsLateBadge { color: #e8ab62; opacity: .9; }
 .goalsAlertCard .goalsReportBlock + .goalsReportBlock { margin-top: 10px; }
 

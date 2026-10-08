@@ -656,7 +656,7 @@
         box.appendChild(el('p', 'meta', '« ' + r.text.slice(0, 60) + ' »'));
         var row = el('div', 'goalsOverloadActions');
         [['reduce', 'Réduire la cible'], ['spread', 'Étaler sur la période suivante'], ['keep', 'Garder tel quel']].forEach(function (o) {
-          var b = el('button', 'goalsRealismBtn', t(o[1])); b.type = 'button';
+          var b = el('button', (o[0] === 'keep' ? 'goalsOverloadNo ' : '') + 'goalsRealismBtn', t(o[1])); b.type = 'button';
           b.addEventListener('click', function () { row.querySelectorAll('button').forEach(function (x) { x.disabled = true; }); post('realism', { category: r.category, choice: o[0] }); });
           row.appendChild(b);
         });
