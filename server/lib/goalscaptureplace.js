@@ -322,6 +322,25 @@ function redispatchOverdue(userId, activityId) {
 // responsable = le membre nommé dans le texte (prénom), l'unique membre d'une activité
 // solo, sinon AUCUN (pas assez de données). Modifiable ensuite dans le pop-up.
 function normName(x) { return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+// 8 oct. 2026 (Émilien) : responsable proposé d'après l'HISTORIQUE — membre le plus souvent responsable
+// des tâches similaires de l'activité (mots communs, pondérés par la ressemblance). null si rien de comparable.
+function suggestAssigneeFromHistory(activityId, taskLabel, members) {
+  const ids = new Set(members.map((m) => m.id));
+  const target = new Set(goals.tokenize(taskLabel));
+  if (!target.size) return null;
+  const rows = db.prepare(`SELECT i.label AS label, i.plannedUserId AS plannedUserId FROM sub_project_items i
+    JOIN sub_project_sections s ON s.id = i.sectionId JOIN sub_projects sp ON sp.id = s.subProjectId
+    WHERE sp.activityId = ? AND i.plannedUserId IS NOT NULL`).all(activityId);
+  const score = new Map();
+  rows.forEach((r) => {
+    if (!ids.has(r.plannedUserId)) return;
+    const j = goals.jaccard(target, new Set(goals.tokenize(r.label)));
+    if (j > 0.15) score.set(r.plannedUserId, (score.get(r.plannedUserId) || 0) + j);
+  });
+  let best = null, bestV = 0;
+  score.forEach((v, k) => { if (v > bestV) { bestV = v; best = k; } });
+  return best;
+}
 function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel, opts) {
   const date = todayLocal();
   const members = goals.membersForActivity(activityId);
@@ -336,6 +355,8 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
       return first && first.length >= 2 && text.indexOf(' ' + first + ' ') !== -1;
     });
     if (hits.length === 1) who = hits[0].id;
+    // Sinon : historique des tâches similaires (Autonome : attribué ; Partiel : proposé, confirmé dans le pop-up).
+    if (!who) { try { who = suggestAssigneeFromHistory(activityId, taskLabel, members); } catch (e) { who = null; } }
   }
   // Mode Autonome : un responsable est toujours attribué (à défaut, celui qui capture).
   if (!who && !noAssign && opts && opts.fallbackWho) who = opts.fallbackWho;
@@ -345,6 +366,7 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
 }
 
 module.exports = {
+  suggestAssigneeFromHistory,
   placeCaptureDefault,
   redispatchOverdue,
   LOOKAHEAD_DAYS,
