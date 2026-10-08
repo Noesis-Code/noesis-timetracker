@@ -33,12 +33,16 @@ function fromAddress() {
 // attachments : [{ fileName, mimeType, dataUrl }] — dataUrl est une data URL
 // base64 complète (voir server/lib/attachments.js) ; Resend attend le contenu
 // base64 SANS le préfixe "data:...;base64,".
-async function sendMail({ to, subject, text, attachments }) {
+// html et replyTo sont optionnels (renvoi des courriels reçus, voir
+// server/routes/resendinbound.js).
+async function sendMail({ to, subject, text, html, replyTo, attachments }) {
   if (!configured()) {
     throw new Error("Envoi de courriel indisponible : RESEND_API_KEY n'est pas configurée côté serveur.");
   }
 
   const payload = { from: fromAddress(), to: [to], subject, text };
+  if (html) payload.html = html;
+  if (replyTo) payload.reply_to = replyTo;
   if (attachments && attachments.length) {
     payload.attachments = attachments.map((a) => ({
       filename: a.fileName,

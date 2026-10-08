@@ -74,6 +74,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Réception de courriels via Resend (8 octobre 2026) — webhook renvoyé vers
+// compagnie.noesis@gmail.com, voir server/routes/resendinbound.js. Monté
+// AVANT express.json() : la signature du webhook porte sur le corps brut.
+app.use('/api', require('./routes/resendinbound'));
+
 // 15 Mo au lieu des 100 Ko par défaut : l'import CSV de l'historique
 // (POST /api/import/history) envoie tout le fichier dans le corps de la
 // requête, une photo de profil transite en data URL, et une pièce jointe de
