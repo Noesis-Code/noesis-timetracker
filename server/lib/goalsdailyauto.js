@@ -124,7 +124,88 @@ function deterministicAssignments(items, dates) {
   return items.map((item, idx) => ({ itemId: item.id, date: pool[idx % pool.length] }));
 }
 
-function buildPrompt(items, dates, dailyCapacityMinutes, weekly, isMax) {
+
+// ---------------------------------------------------------------------------
+// 8 oct. 2026 (Émilien) : le temps de la SEMAINE prime sur celui du jour.
+// Plafond du jour = jamais dépassé ; budget de la semaine = total que la somme
+// des jours ne peut pas dépasser (déjà chronométré + déjà daté déduits). Les
+// tâches sont servies par importance décroissante ; ce qui ne rentre plus
+// reste SANS date (jours laissés vides). Les dates fixes (saisies à la main)
+// ne bougent jamais : elles comptent dans les charges, c'est tout.
+// PURE. items : [{id, minutes, importance, date?}] (date = jour proposé par l'IA, facultatif) ;
+// dates : jours de la semaine ; dayLoad : {date: minutes déjà occupées} ;
+// weekUsed : minutes déjà consommées ; dayMax/weekMax : null = pas de limite.
+function placeWithinCaps({ items, dates, today, dayLoad, weekUsed, dayMax, weekMax }) {
+  const usable = dates.filter((d) => d >= today);
+  const pool = usable.length ? usable : dates;
+  const load = Object.assign({}, dayLoad);
+  let used = weekUsed || 0;
+  const placed = [];
+  const skipped = [];
+  const ordered = items.slice().sort((a, b) => (b.importance || 0) - (a.importance || 0) || a.id - b.id);
+  ordered.forEach((it) => {
+    if (weekMax != null && used + it.minutes > weekMax) { skipped.push(it.id); return; }
+    const start = it.date && pool.indexOf(it.date) >= 0 ? pool.indexOf(it.date) : 0;
+    const order = pool.slice(start).concat(pool.slice(0, start));
+    const day = order.find((d) => dayMax == null || (load[d] || 0) + it.minutes <= dayMax);
+    if (!day) { skipped.push(it.id); return; }
+    load[day] = (load[day] || 0) + it.minutes;
+    used += it.minutes;
+    placed.push({ itemId: it.id, date: day });
+  });
+  return { placed, skipped };
+}
+
+function inCapScope(activityId, capKey, category) {
+  if (!category) return false;
+  if (category === capKey) return true;
+  return goals.isValidCategoryForActivity(activityId, capKey) && goals.resolveToPole(activityId, category) === capKey;
+}
+
+// Contexte des limites pour une semaine : charges par jour, minutes déjà consommées, minutes par tâche.
+function capContextForWeek(activityId, weekly, userId, dates, items, caps, today) {
+  const captureplace = require('./goalscaptureplace');
+  const timecaps = require('./timecaps');
+  const importance = require('./goalsimportance');
+  const minutesOf = (label, category) => {
+    const est = category ? goals.estimateForGoal(activityId, category, 'weekly', label) : null;
+    // Une estimation de repli (aucune tâche similaire) n'est pas fiable : durée par défaut.
+    const m = est && est.minutes && est.source !== 'similarity-fallback' ? est.minutes : captureplace.DEFAULT_TASK_MINUTES;
+    // Une tâche plus longue que le plafond du jour est comptée au plafond (elle occupe la journée).
+    return caps.dayMax ? Math.min(m, caps.dayMax) : m;
+  };
+  const rows = db.prepare(`
+    SELECT i.id, i.label, i.dueDate, sp.goalCategory AS category
+    FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+    WHERE sp.activityId = ? AND i.done = 0 AND i.dueDate >= ? AND i.dueDate <= ?
+  `).all(activityId, dates[0], dates[dates.length - 1]);
+  const dayLoad = {};
+  let weekUsed = 0;
+  rows.forEach((r) => {
+    if (!inCapScope(activityId, weekly.category, r.category)) return;
+    const m = minutesOf(r.label, r.category);
+    dayLoad[r.dueDate] = (dayLoad[r.dueDate] || 0) + m;
+    weekUsed += m;
+  });
+  // Temps déjà chronométré cette semaine (jusqu'à aujourd'hui).
+  try {
+    const end = today < dates[dates.length - 1] ? today : dates[dates.length - 1];
+    if (end >= dates[0]) {
+      weekUsed += timecaps.minutesInRange(userId, activityId, weekly.category, dates[0], end);
+    }
+  } catch (e) { /* non bloquant */ }
+  let ctx = {};
+  try { ctx = importance.loadGoalContexts(items.map((it) => it.id)); } catch (e) { ctx = {}; }
+  const enriched = items.map((it) => {
+    const minutes = minutesOf(it.label, weekly.category);
+    let score = 0;
+    try { score = importance.computeImportance({ today, goal: ctx[it.id], minutes, capacity: caps.dayMax || caps.weekMax || 60, dayLoadMinutes: 0 }).score; } catch (e) { score = 0; }
+    return { id: it.id, minutes, importance: score };
+  });
+  return { dayLoad, weekUsed, enriched };
+}
+
+function buildPrompt(items, dates, dailyCapacityMinutes, weekly, isMax, weekMax) {
   const daysList = dates.map((d, i) => `- ${d} (${WEEKDAY_LABELS_FR[i]})`).join('\n');
   const itemsList = items.map((it) => `- id ${it.id} : ${it.label}`).join('\n');
   const goalLines = weekly && weekly.text
@@ -138,6 +219,7 @@ function buildPrompt(items, dates, dailyCapacityMinutes, weekly, isMax) {
     daysList,
     '',
     isMax ? `Maximum par jour fixé par la personne : ${dailyCapacityMinutes} minutes. Chaque jour, vise ce maximum sans JAMAIS le dépasser.` : `Capacité indicative par jour : environ ${dailyCapacityMinutes} minutes (une indication, pas une limite stricte — regrouper des tâches liées sur le même jour est plus important que respecter ce chiffre au minute près).`,
+    weekMax ? `Budget total de la semaine fixé par la personne : ${weekMax} minutes. Le total de la semaine prime sur le maximum par jour : ne dépasse jamais l'un ni l'autre, quitte à laisser des jours vides.` : '',
     '',
     'Tâches à répartir (ne jamais changer leur texte, ne jamais en ajouter ni en retirer) :',
     itemsList,
@@ -240,7 +322,12 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
   let dailyCapacity = Math.max(1, Math.round(weeklyCapacity / 7));
   // Max quotidien posé (Gérer mon temps) : c'est lui qui compte — viser ce maximum sans le dépasser.
   let dailyMax = null;
-  try { dailyMax = require('./timecaps').getCaps(capacityUserId, activityId, weekly.category).maxDayMinutes || null; } catch (e) { dailyMax = null; }
+  let weekMax = null;
+  try {
+    const capsRow = require('./timecaps').getCaps(capacityUserId, activityId, weekly.category);
+    dailyMax = capsRow.maxDayMinutes || null;
+    weekMax = capsRow.maxWeekMinutes || null;
+  } catch (e) { dailyMax = null; weekMax = null; }
   if (dailyMax) dailyCapacity = dailyMax;
 
   let assignments = [];
@@ -249,7 +336,7 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
 
   if (configured() && items.length <= MAX_ITEMS_PER_CALL) {
     try {
-      const prompt = buildPrompt(items, dates, dailyCapacity, weekly, !!dailyMax);
+      const prompt = buildPrompt(items, dates, dailyCapacity, weekly, !!dailyMax, weekMax);
       const text = await callModel(prompt);
       const parsed = extractJson(text);
       const { valid, missing } = validateAssignments(parsed, items, dates);
@@ -266,6 +353,22 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
     usedAi = false;
   }
 
+  // Limites jour/semaine : la semaine prime, les tâches qui ne rentrent plus restent sans date.
+  let skippedForCaps = 0;
+  if (dailyMax || weekMax) {
+    try {
+      const today = todayLocal();
+      const ctx = capContextForWeek(activityId, weekly, capacityUserId, dates, items, { dayMax: dailyMax, weekMax }, today);
+      const dateOf = new Map(assignments.map((a) => [a.itemId, a.date]));
+      const r = placeWithinCaps({
+        items: ctx.enriched.map((e) => Object.assign({}, e, { date: dateOf.get(e.id) })),
+        dates, today, dayLoad: ctx.dayLoad, weekUsed: ctx.weekUsed, dayMax: dailyMax, weekMax,
+      });
+      assignments = r.placed;
+      skippedForCaps = r.skipped.length;
+    } catch (e) { /* repli : plan sans contrôle de limites */ }
+  }
+
   const now = new Date().toISOString();
   const update = db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 1 WHERE id = ? AND goalWeeklyId = ? AND (dueDate IS NULL OR dueDateAuto = 2)');
   let written = 0;
@@ -279,6 +382,7 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
     total: items.length,
     usedAi,
     aiError: usedAi ? null : aiError,
+    skippedForCaps,
     generatedAt: now,
   };
 }
@@ -287,4 +391,5 @@ module.exports = {
   configured,
   modelName,
   generateDailyPlanForWeekly,
+  placeWithinCaps,
 };
