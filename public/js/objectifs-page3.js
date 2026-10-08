@@ -786,8 +786,8 @@
     var body = document.createElement('div');
     body.className = 'goalEstBody';
     var open = d.target == null && !w ? true : d.target != null;
-    function paintToggle() { toggle.textContent = (open ? '▾ ' : '▸ ') + t('Gérer mon temps'); body.classList.toggle('hidden', !open); }
-    toggle.addEventListener('click', function () { open = !open; paintToggle(); });
+    function paintToggle() { toggle.textContent = '▸ ' + t('Gérer mon temps'); toggle.classList.toggle('hidden', open); body.classList.toggle('hidden', !open); }
+    toggle.addEventListener('click', function () { open = true; paintToggle(); });
     var table = document.createElement('div'); table.className = 'goalEstTable';
     ['', 'Moyenne', 'Cible'].forEach(function (h) { var c = document.createElement('div'); if (h) { c.className = 'goalEstHead'; c.textContent = t(h); } table.appendChild(c); });
     var lbl = document.createElement('div'); lbl.className = 'goalEstRowLabel'; lbl.textContent = t('Semaine');
@@ -890,6 +890,7 @@
             input.addEventListener('input', function () {
               var cur = goalsWeekDrafts[draftKey];
               if (cur) { cur.title = input.value; return; }
+              input.classList.add('goalWeeklyEditTitle'); // la bulle apparaît, on continue d'écrire dedans
               // Le champ reste en place (le clavier ne se ferme pas) ; la section se déroule dessous.
               goalsWeekDrafts[draftKey] = { title: input.value, desc: '', target: null };
               textWrap.appendChild(buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, false, function () { renderWeekInto(false); }, input));

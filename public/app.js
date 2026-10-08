@@ -11792,8 +11792,10 @@
     // n'a pas posé NOESIS_CALENDAR_FEED=1 chez l'hébergeur.
     if (!state || !state.enabled) { section.classList.add('hidden'); return; }
     section.classList.remove('hidden');
-    $('calendarFeedOff').classList.toggle('hidden', !!state.hasFeed);
-    $('calendarFeedOn').classList.toggle('hidden', !state.hasFeed);
+    // 8 oct. 2026 : les boutons Apple/Google sont toujours visibles ; le lien
+    // n'est créé (donc rien n'est exporté) qu'au clic sur l'un d'eux.
+    $('calendarFeedOff').classList.add('hidden');
+    $('calendarFeedOn').classList.remove('hidden');
     // Même correctif défensif que pour les trois boutons plus bas : cette
     // ligne de « dernière lecture » n'est plus dans index.html, et l'écrire
     // sans garde faisait échouer tout le rendu de la section.
@@ -11811,6 +11813,7 @@
 
   // Activités (et leurs pôles) à exporter dans le calendrier : curseurs,
   // même composant que les notifications. Tout est activé par défaut.
+  var calExportOpen = {};
   function renderCalendarExportList(data) {
     var wrap = $('calendarExportList'), rows = $('calendarExportRows');
     if (!wrap || !rows) return;
@@ -11834,9 +11837,24 @@
         .catch(function (err) { $('calendarFeedMsg').textContent = err.message; refreshCalendarExportList(); });
     }
     acts.forEach(function (a) {
-      row(a.name, a.included, false, false, function (v) { save(a.id, '', v); });
-      if (a.poles.length > 1) a.poles.forEach(function (p) {
-        row(p.label, a.included && p.included, !a.included, true, function (v) { save(a.id, p.key, v); });
+      var open = !!calExportOpen[a.id] && a.included;
+      var r = document.createElement('div'); r.className = 'notifRow';
+      var l = document.createElement('div'); l.setAttribute('role', 'button'); l.tabIndex = 0; l.className = 'notifRowLabel calExportName';
+      l.style.cssText = 'flex:1;cursor:pointer';
+      l.textContent = (open ? '▾ ' : '▸ ') + a.name;
+      l.addEventListener('click', function (ev) { ev.stopPropagation(); if (!a.included) return; calExportOpen[a.id] = !open; renderCalendarExportList(data); });
+      var sw = document.createElement('label'); sw.className = 'toggleSwitch';
+      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = a.included;
+      inp.addEventListener('change', function () {
+        // Désélectionnée : repliée. Resélectionnée : dépliée, tous les pôles cochés (serveur).
+        calExportOpen[a.id] = inp.checked;
+        save(a.id, '', inp.checked);
+      });
+      var tr = document.createElement('span'); tr.className = 'toggleSwitchTrack';
+      sw.appendChild(inp); sw.appendChild(tr); r.appendChild(l); r.appendChild(sw);
+      rows.appendChild(r);
+      if (open) a.poles.forEach(function (p) {
+        row(p.label, p.included, false, true, function (v) { save(a.id, p.key, v); });
       });
     });
   }
@@ -11848,7 +11866,7 @@
     if (!profile) return;
     $('calendarFeedMsg').textContent = '';
     api('GET', '/api/calendar/feed?userId=' + encodeURIComponent(profile.id))
-      .then(function (st) { renderCalendarFeedState(st); if (st && st.enabled && st.hasFeed) refreshCalendarExportList(); })
+      .then(function (st) { renderCalendarFeedState(st); if (st && st.enabled) refreshCalendarExportList(); })
       // Une panne de ce flux ne doit jamais empêcher Réglages de s'ouvrir :
       // la section se referme, tout le reste du panneau est intact.
       .catch(function () { renderCalendarFeedState(null); });
@@ -11939,18 +11957,32 @@
     return url ? url.replace(/^https:/, 'webcal:') : '';
   }
 
-  $('calendarFeedAppleBtn').addEventListener('click', function () {
+  // Crée le lien au premier clic (jamais avant) puis appelle cb(webcalUrl).
+  function ensureCalendarFeedThen(cb) {
+    if (!profile) return;
     var webcal = calendarFeedWebcalUrl();
-    if (!webcal) return;
-    window.location.href = webcal;
+    if (webcal) { cb(webcal); return; }
+    $('calendarFeedMsg').textContent = t('Création du lien...');
+    api('POST', '/api/calendar/feed', { userId: profile.id })
+      .then(function (state) {
+        renderCalendarFeedState(state);
+        $('calendarFeedMsg').textContent = '';
+        cb(calendarFeedWebcalUrl());
+      })
+      .catch(function (err) { $('calendarFeedMsg').textContent = err.message; });
+  }
+
+  $('calendarFeedAppleBtn').addEventListener('click', function () {
+    ensureCalendarFeedThen(function (webcal) { if (webcal) window.location.href = webcal; });
   });
 
   $('calendarFeedGoogleBtn').addEventListener('click', function () {
-    var webcal = calendarFeedWebcalUrl();
-    if (!webcal) return;
-    // Paramètre `cid` documenté par Google pour s'abonner à une adresse
-    // externe — un simple lien, aucune clé API ni compte Google côté serveur.
-    window.open('https://calendar.google.com/calendar/render?cid=' + encodeURIComponent(webcal), '_blank', 'noopener');
+    // Fenêtre ouverte tout de suite (clic utilisateur) pour ne pas être bloquée après l'appel réseau.
+    var w = window.open('about:blank', '_blank');
+    ensureCalendarFeedThen(function (webcal) {
+      var url = 'https://calendar.google.com/calendar/render?cid=' + encodeURIComponent(webcal);
+      if (w) { try { w.opener = null; } catch (e) {} w.location.href = url; } else window.location.href = url;
+    });
   });
 
   function showProfileSettings() {

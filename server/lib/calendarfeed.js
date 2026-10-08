@@ -207,7 +207,9 @@ function exportSelectionForUser(userId) {
 function setExportIncluded(userId, activityId, poleKey, included) {
   assertActivityMember(userId, activityId);
   const key = poleKey || '';
-  if (included) db.prepare('DELETE FROM calendar_export_excluded WHERE userId = ? AND activityId = ? AND poleKey = ?').run(userId, activityId, key);
+  // Réactiver une activité réactive aussi tous ses pôles.
+  if (included && key === '') db.prepare('DELETE FROM calendar_export_excluded WHERE userId = ? AND activityId = ?').run(userId, activityId);
+  else if (included) db.prepare('DELETE FROM calendar_export_excluded WHERE userId = ? AND activityId = ? AND poleKey = ?').run(userId, activityId, key);
   else db.prepare('INSERT OR IGNORE INTO calendar_export_excluded (userId, activityId, poleKey) VALUES (?, ?, ?)').run(userId, activityId, key);
 }
 

@@ -561,3 +561,7 @@
 .goalWeeklyEditBtn { margin-left: auto; }
 .goalWeeklyCard:has(.goalWeeklyEditor) .goalWeeklyTextWrap { flex: 1 1 100%; order: 10; }
 .goalWeeklyCard:has(.goalWeeklyEditor) .goalWeeklyEditBtn { display: none; }
+.goalsWeeklyList .goalWeeklyText.goalWeeklyEditTitle {
+  border: 1px solid var(--border) !important; background: var(--card) !important;
+  padding: 8px 10px; font-size: 16px; border-radius: var(--radius-md);
+}
