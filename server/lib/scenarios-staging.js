@@ -173,6 +173,19 @@ function seedScenarios() {
   addTask(K.produit, 'Corriger le bogue du chronomètre', -6, 2);
   addTask(K.juridique, 'Signer chez le notaire (date fixée)', -5, 0);
 
+  // ---- Exemples de pastilles de statut (période 1, Communauté) : vert / orange / rouge d'après les tâches faites.
+  [[1, 'Préparer le lancement de la communauté', 5, 5], [2, 'Contacter les premiers membres', 5, 3], [3, 'Organiser la première rencontre', 5, 1]].forEach(([wk, title, total, doneN]) => {
+    goals.setWeekly(aid, K.communaute, 1, wk, title);
+    if (wk === 1) goals.setMainGoal(aid, K.communaute, 1, 'Lancer la communauté', '', 600);
+    const wid = db.prepare('SELECT w.id FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE p.activityId = ? AND p.category = ? AND p.periodNumber = 1 AND w.weekIndex = ? AND w.carriedOverFromId IS NULL').get(aid, K.communaute, wk).id;
+    const { subProject, section } = goalstasks.ensureCategoryTaskSection(aid, u.id, K.communaute);
+    for (let i = 1; i <= total; i += 1) {
+      const r = db.prepare(`INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto, goalWeeklyId)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`).run(subProject.id, section.id, 'Tâche ' + wk + '.' + i, i <= doneN ? 1 : 0, pos += 1, now, day(-20 + wk * 3), wid);
+      void r;
+    }
+  });
+
   // ---- 6 Propositions de recalcul : on ne garde que Communauté (en avance) et Finance (en retard).
   goalsrecalc.runForUser(u.id, aid, todayIso);
   db.prepare("DELETE FROM goal_recalc_proposals WHERE activityId = ? AND category NOT IN (?, ?)").run(aid, K.communaute, K.finance);

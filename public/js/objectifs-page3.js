@@ -871,7 +871,9 @@
           if (goalStatusClass(w.status)) badge.classList.add(goalStatusClass(w.status));
           badge.setAttribute('role', 'button');
           badge.title = t(GOAL_STATUS_LABELS[w.status] || GOAL_STATUS_LABELS.non_atteint);
-          badge.addEventListener('click', function () {
+          // Statut calculé d'après les tâches réalisées : pas de réglage manuel dès qu'il y a des tâches.
+          if (w.taskTotal > 0) { badge.style.cursor = 'default'; badge.title = t('Calculé d’après les tâches réalisées'); }
+          else badge.addEventListener('click', function () {
             var idx = GOAL_STATUS_ORDER.indexOf(w.status);
             saveWeeklyStatus(w.id, GOAL_STATUS_ORDER[(idx + 1) % GOAL_STATUS_ORDER.length]);
           });

@@ -1298,6 +1298,32 @@ function postBilanIfDue(activity, category, planStartDate) {
 // sont créées, fait tourner le report automatique et l'envoi du bilan, puis
 // renvoie l'état complet du planning de cette (activité, catégorie), plus la
 // liste des membres de l'activité (pour l'assignation et la répartition).
+// 8 oct. 2026 (Émilien) : statut d'un objectif hebdomadaire calculé d'après les tâches rattachées
+// réalisées : >= 80 % atteint (vert), 40 à 79 % partiel (orange), < 40 % non atteint (rouge).
+// Seulement une fois la semaine commencée et s'il y a des tâches ; sans tâche, le statut reste manuel.
+const WEEKLY_DONE_GREEN = 0.8;
+const WEEKLY_DONE_AMBER = 0.4;
+function statusFromTaskRatio(total, done) {
+  if (!total) return null;
+  const r = done / total;
+  return r >= WEEKLY_DONE_GREEN ? 'atteint' : (r >= WEEKLY_DONE_AMBER ? 'partiel' : 'non_atteint');
+}
+function syncWeeklyAutoStatus(activityId, category) {
+  const today = todayLocal();
+  const rows = db.prepare(`
+    SELECT w.id, w.weekIndex, w.status, p.startDate,
+           (SELECT COUNT(*) FROM sub_project_items i WHERE i.goalWeeklyId = w.id) AS total,
+           (SELECT COUNT(*) FROM sub_project_items i WHERE i.goalWeeklyId = w.id AND i.done = 1) AS done
+    FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId
+    WHERE p.activityId = ? AND p.category = ? AND w.text != ''
+  `).all(activityId, category);
+  rows.forEach((w) => {
+    if (!w.total || weekBounds(w.startDate, w.weekIndex).start > today) return;
+    const st = statusFromTaskRatio(w.total, w.done);
+    if (st !== w.status) db.prepare('UPDATE goal_weekly SET status = ? WHERE id = ?').run(st, w.id);
+  });
+}
+
 function planningForActivity(activityId, category) {
   assertReadableCategory(activityId, category);
   const activity = db.prepare('SELECT id, name, ownerId FROM activities WHERE id = ?').get(activityId);
@@ -1312,6 +1338,7 @@ function planningForActivity(activityId, category) {
   const cycleIndexForCurrent = Math.floor((currentPeriodNumber - 1) / PERIODS_PER_CYCLE) + 1;
   const cycleLastPeriodNumber = cycleIndexForCurrent * PERIODS_PER_CYCLE;
   ensurePeriodsUpTo(activityId, category, cycleLastPeriodNumber, plan.startDate);
+  try { syncWeeklyAutoStatus(activityId, category); } catch (e) { /* non bloquant */ }
   carryOverWeekly(activityId, category, plan.startDate);
   postBilanIfDue(activity, category, plan.startDate);
 
@@ -1320,6 +1347,9 @@ function planningForActivity(activityId, category) {
     .map((p) => {
       const weeklies = weeklyForPeriod(p.id).map((w) => ({
         ...w,
+        // Un objectif reporté est, par définition, non réalisé : pastille rouge.
+        status: (w.status == null && w.carriedOverFromId) ? 'non_atteint' : w.status,
+        taskTotal: db.prepare('SELECT COUNT(*) AS n FROM sub_project_items WHERE goalWeeklyId = ?').get(w.id).n,
         actualMinutes: weekIsOver(p.startDate, w.weekIndex)
           ? Math.round(actualSecondsForRange(activityId, weekBounds(p.startDate, w.weekIndex).start, weekBounds(p.startDate, w.weekIndex).end) / 60)
           : null,
