@@ -1943,6 +1943,7 @@
     collapseChronoHistory();
     if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
     if (TMT.collapseGoalsArchives) TMT.collapseGoalsArchives();
+    if (TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts();
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
     tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });

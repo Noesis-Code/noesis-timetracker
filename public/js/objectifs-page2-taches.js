@@ -555,6 +555,16 @@
   function alertDayKey(key) { return 'tmt_alert_hide_' + key + '_' + (TMT.currentGoalsActivityId || ''); }
   function alertHiddenToday(key) { try { return localStorage.getItem(alertDayKey(key)) === localIso(new Date()); } catch (e) { return false; } }
   // Prépare la carte (déjà vidée) et renvoie le conteneur du contenu, ou null si masquée aujourd'hui.
+  // 7 oct. 2026 : les cartes d'alerte reviennent enroulées à chaque changement d'onglet (appelé par switchTab).
+  TMT.collapseGoalsAlerts = function () {
+    alertOpen = {};
+    document.querySelectorAll('.goalsAlertCard.open').forEach(function (c) {
+      c.classList.remove('open');
+      var bd = c.querySelector('.goalsAlertBody'); if (bd) bd.hidden = true;
+      var tg = c.querySelector('.goalsAlertToggle'); if (tg) tg.setAttribute('aria-expanded', 'false');
+    });
+  };
+
   function buildAlertShell(card, key, title) {
     card.classList.add('goalsAlertCard');
     if (alertHiddenToday(key)) { card.classList.add('hidden'); return null; }
