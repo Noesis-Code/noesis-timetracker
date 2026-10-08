@@ -930,7 +930,8 @@
             prev.addEventListener('click', toggleWeek);
             textWrap.appendChild(prev);
           }
-          var capMin = w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (TMT.goalsWeekCapacityDefault || 0);
+          var wci = weekCapInfo(period.periodNumber, weekIndex);
+          var capMin = w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (wci ? wci.target : (TMT.goalsWeekCapacityDefault || 0));
           var capBtn = document.createElement('button');
           capBtn.type = 'button';
           capBtn.className = 'goalWeeklyCapBtn' + (w.estimateSource === 'manual' ? ' manual' : '');
@@ -942,6 +943,20 @@
             });
           });
           textWrap.appendChild(capBtn);
+          if (wci && wci.past && wci.done != null) {
+            var info = document.createElement('div');
+            info.className = 'goalWeeklyCapInfo';
+            info.textContent = t('Réalisé') + ' : ' + formatGoalHours(wci.done) + (wci.extra > 0 ? ' · +' + formatGoalHours(wci.extra) + ' ' + t('en plus, ajoutées à la période') : '');
+            textWrap.appendChild(info);
+          }
+          if (wci && !wci.past && wci.proposal > 0) {
+            var prop = document.createElement('button');
+            prop.type = 'button';
+            prop.className = 'linkBtn goalEstUse goalWeeklyProposal';
+            prop.textContent = t('Proposition') + ' : +' + wci.proposal + ' min ' + t('pour rattraper le retard');
+            prop.addEventListener('click', function () { saveWeeklyCapacity(period.periodNumber, weekIndex, w.text, capMin + wci.proposal); });
+            textWrap.appendChild(prop);
+          }
         }
         renderWeekInto(false);
         if (w && w.text) {
@@ -1229,9 +1244,7 @@
     var periodBodyBox = $('activityGoalsPeriodBody');
     if (periodBodyBox) periodBodyBox.classList.toggle('hidden', !hasMainGoal);
 
-    $('activityGoalsMainEstimate').textContent = period.mainGoalEstimateMinutes != null
-      ? '≈ ' + formatGoalHours(period.mainGoalEstimateMinutes) + ' ' + t('estimées pour la période')
-      : t('Temps estimé : à définir');
+    paintPeriodEstimate(period);
 
     // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
     // « réduire la section de l'objectif périodique au titre, au nombre
@@ -1362,23 +1375,42 @@
     var category = TMT.currentGoalsCategory;
     if (!activityId) { box.innerHTML = ''; return; }
     var requestId = ++goalsCapacityRequestId;
-    api('GET', '/api/activities/' + activityId + '/goals/capacity?category=' + encodeURIComponent(category))
+    var periodNumber = TMT.currentGoalsViewPeriodNumber;
+    api('GET', '/api/activities/' + activityId + '/goals/periods/' + periodNumber + '/capacity-plan?category=' + encodeURIComponent(category))
       .then(function (data) {
-        // Garde-fou : la page 2 peut avoir changé de période/catégorie/
-        // activité pendant que cette requête était en vol — même principe
-        // que loadGoalsCalendarDays() plus bas.
         if (requestId !== goalsCapacityRequestId) return;
-        goalsCapacityUntil = data.overrideUntil || null;
-        var effective = (!data.derived && data.override != null) ? data.override : data.computed;
-        var changed = (TMT.goalsWeekCapacityDefault || 0) !== (effective || 0);
-        TMT.goalsWeekCapacityDefault = effective || 0;
         box.innerHTML = '';
-        if (changed && TMT.currentGoalsPlanning) { var pp = goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber); if (pp) renderGoalsWeeklyList(pp); }
+        var plan = data && data.plan;
+        var prev = JSON.stringify(TMT.goalsCapPlan || null);
+        TMT.goalsCapPlan = plan || null;
+        TMT.goalsWeekCapacityDefault = plan && plan.baseWeekly ? plan.baseWeekly : 0;
+        if (prev !== JSON.stringify(TMT.goalsCapPlan) && TMT.currentGoalsPlanning) {
+          var pp = goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber);
+          if (pp) { renderGoalsWeeklyList(pp); paintPeriodEstimate(pp); }
+        }
       })
       .catch(function () {
         if (requestId !== goalsCapacityRequestId) return;
         box.innerHTML = '';
       });
+  }
+
+  // Capacité de la semaine (plan serveur : cible propre, sinon valeur dérivée de la période / des activités / de l'historique).
+  function weekCapInfo(periodNumber, weekIndex) {
+    var plan = TMT.goalsCapPlan;
+    if (!plan || plan.periodNumber !== periodNumber) return null;
+    for (var i = 0; i < plan.weeks.length; i++) if (plan.weeks[i].weekIndex === weekIndex) return plan.weeks[i];
+    return null;
+  }
+
+  function paintPeriodEstimate(period) {
+    var plan = TMT.goalsCapPlan;
+    var el = $('activityGoalsMainEstimate');
+    if (!el) return;
+    var total = plan && plan.periodNumber === period.periodNumber && plan.periodTotal != null ? plan.periodTotal : period.mainGoalEstimateMinutes;
+    var line = total != null ? '≈ ' + formatGoalHours(total) + ' ' + t('estimées pour la période') : t('Temps estimé : à définir');
+    if (plan && plan.periodNumber === period.periodNumber && plan.extraTotal > 0) line += ' · +' + formatGoalHours(plan.extraTotal) + ' ' + t('passées en plus');
+    el.textContent = line;
   }
 
 

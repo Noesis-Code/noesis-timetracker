@@ -31,6 +31,7 @@ const goalstasks = require('../lib/goalstasks');
 const goalsoverload = require('../lib/goalsoverload');
 const goalscarryover = require('../lib/goalscarryover');
 const timecaps = require('../lib/timecaps');
+const goalscapacity = require('../lib/goalscapacity');
 const goalsrecalc = require('../lib/goalsrecalc');
 // Chantier Objectifs — C (bulle IA de classement automatique, 17 septembre
 // 2026) — voir server/lib/goalstaskclassify.js.
@@ -261,6 +262,20 @@ router.get('/activities/:id/goals/periods/:periodNumber/main-estimate', (req, re
   }
 });
 
+router.get('/activities/:id/goals/periods/:periodNumber/capacity-plan', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    const category = resolveCategory(activityId, req.query.category);
+    res.json({ plan: goalscapacity.planFor(userId, activityId, category, Number(req.params.periodNumber)) });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 router.put('/activities/:id/goals/periods/:periodNumber/main-status', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
@@ -318,7 +333,16 @@ router.put('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (req
 
   try {
     const category = resolveCategory(activityId, req.body.category);
-    const result = goals.setWeekly(activityId, category, periodNumber, weekIndex, text, description, req.body.estimateMinutes === undefined ? undefined : (Number(req.body.estimateMinutes) || null));
+    const newTarget = req.body.estimateMinutes === undefined ? undefined : (Number(req.body.estimateMinutes) || null);
+    // Dernière modification gagnante : si la période a une cible manuelle, elle suit la nouvelle somme des semaines.
+    let before = null;
+    if (newTarget) { try { before = goalscapacity.planFor(userId, activityId, category, periodNumber); } catch (e) { before = null; } }
+    const result = goals.setWeekly(activityId, category, periodNumber, weekIndex, text, description, newTarget);
+    if (before && before.periodManual != null && before.baseTotal != null) {
+      const wk = before.weeks.find((w) => w.weekIndex === weekIndex);
+      const periodRow = db.prepare('SELECT mainGoalText FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);
+      goals.setMainGoal(activityId, category, periodNumber, periodRow ? periodRow.mainGoalText : '', undefined, Math.max(0, before.baseTotal - (wk ? wk.target : 0) + newTarget));
+    }
     res.json({ ok: true, ...result });
   } catch (err) {
     handleGoalsError(res, err);
