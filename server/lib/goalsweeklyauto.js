@@ -92,6 +92,7 @@ const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
 // (server/routes/goals.js) — un objectif hebdomadaire composé par l'IA n'a
 // pas droit à une limite différente de celle posée à l'utilisateur.
 const MAX_WEEKLY_TEXT_LENGTH = 300;
+const MAX_WEEKLY_DESC_LENGTH = 600;
 
 function aiConfigured() {
   return !!process.env.ANTHROPIC_API_KEY;
@@ -116,8 +117,8 @@ function emptyWeekIndexes(periodId) {
 
 const SYSTEM_PROMPT = `Tu aides à planifier les objectifs d'une entreprise sur Noèsis. On te donne le grand objectif d'une période de 4 semaines (un pôle ou secteur d'activité) et, éventuellement, le texte déjà écrit pour certaines semaines de cette même période. Décline le grand objectif en objectifs hebdomadaires CONCRETS et ACTIONNABLES uniquement pour les numéros de semaine demandés (jamais les autres), cohérents entre eux et avec les semaines déjà écrites si il y en a.
 Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Markdown autour :
-{"weeklyGoals":[{"weekIndex":N,"text":"..."}]}
-Contraintes : un objet par numéro de semaine demandé, jamais un numéro non demandé ; chaque "text" fait moins de ${MAX_WEEKLY_TEXT_LENGTH} caractères, en français, une phrase d'action concrète (pas une reformulation vague du grand objectif).`;
+{"weeklyGoals":[{"weekIndex":N,"text":"...","description":"..."}]}
+Contraintes : un objet par numéro de semaine demandé, jamais un numéro non demandé ; "text" est le TITRE de l'objectif de la semaine : court (moins de 100 caractères), en français, une action concrète ; "description" précise en 1 à 3 phrases ce qu'il faut accomplir et comment on saura que c'est fait (moins de ${MAX_WEEKLY_DESC_LENGTH} caractères). Jamais une reformulation vague du grand objectif.`;
 
 async function callAi(payload, requestedWeeks) {
   const res = await fetch(ANTHROPIC_API_URL, {
@@ -170,7 +171,8 @@ function parseWeeklyGoals(text, requestedWeeks) {
     const clean = typeof entry.text === 'string' ? entry.text.trim().slice(0, MAX_WEEKLY_TEXT_LENGTH) : '';
     if (!clean) return;
     seen.add(weekIndex);
-    out.push({ weekIndex, text: clean });
+    const desc = typeof entry.description === 'string' ? entry.description.trim().slice(0, MAX_WEEKLY_DESC_LENGTH) : '';
+    out.push({ weekIndex, text: clean, description: desc });
   });
   return out;
 }
@@ -230,7 +232,7 @@ async function generateForPeriod(activityId, userId, category, periodNumber, opt
       weeksToFill: emptyWeeks,
     }, emptyWeeks);
 
-    if (dryRun) return { proposals: proposals.map((p) => ({ weekIndex: p.weekIndex, text: p.text })) };
+    if (dryRun) return { proposals: proposals.map((p) => ({ weekIndex: p.weekIndex, text: p.text, description: p.description || '' })) };
 
     let written = 0;
     const createdAt = new Date().toISOString();
@@ -244,9 +246,9 @@ async function generateForPeriod(activityId, userId, category, periodNumber, opt
       const estimate = goals.estimateForGoal(activityId, category, 'weekly', p.text);
       db.prepare(`
         INSERT INTO goal_weekly
-          (periodId, weekIndex, text, estimateMinutes, estimateSource, estimateConfidence, aiGenerated, createdAt)
-        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-      `).run(period.id, p.weekIndex, p.text, estimate.minutes, estimate.source, estimate.confidence, createdAt);
+          (periodId, weekIndex, text, description, estimateMinutes, estimateSource, estimateConfidence, aiGenerated, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+      `).run(period.id, p.weekIndex, p.text, p.description || '', estimate.minutes, estimate.source, estimate.confidence, createdAt);
       written += 1;
     });
 

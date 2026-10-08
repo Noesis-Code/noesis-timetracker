@@ -476,9 +476,11 @@
     list.forEach(function (p) {
       var wrap = document.createElement('div'); wrap.className = 'goalCard';
       var lab = document.createElement('p'); lab.className = 'meta'; lab.textContent = t('Semaine') + ' ' + p.weekIndex;
-      var ta = document.createElement('textarea'); ta.rows = 2; ta.maxLength = 300; ta.value = p.text || '';
-      wrap.appendChild(lab); wrap.appendChild(ta); scroll.appendChild(wrap);
-      inputs.push({ weekIndex: p.weekIndex, ta: ta });
+      var ti = document.createElement('textarea'); ti.rows = 1; ti.maxLength = 300; ti.value = p.text || ''; ti.placeholder = t('Titre de l’objectif');
+      ti.className = 'goalWeeklyProposalTitle';
+      var ta = document.createElement('textarea'); ta.rows = 3; ta.maxLength = 600; ta.value = p.description || ''; ta.placeholder = t('Description');
+      wrap.appendChild(lab); wrap.appendChild(ti); wrap.appendChild(ta); scroll.appendChild(wrap);
+      inputs.push({ weekIndex: p.weekIndex, ti: ti, ta: ta });
     });
     var err = document.createElement('p'); err.className = 'msg'; card.appendChild(err);
     var row = document.createElement('div'); row.className = 'goalsCaptureConfirmActions';
@@ -489,8 +491,8 @@
     closeBtn.onclick = close; ignore.onclick = close;
     ok.onclick = function () {
       ok.disabled = true;
-      var jobs = inputs.filter(function (i) { return i.ta.value.trim(); }).map(function (i) {
-        return api('PUT', '/api/activities/' + activityId + '/goals/periods/' + periodNumber + '/weekly/' + i.weekIndex, { text: i.ta.value.trim(), category: category });
+      var jobs = inputs.filter(function (i) { return i.ti.value.trim(); }).map(function (i) {
+        return api('PUT', '/api/activities/' + activityId + '/goals/periods/' + periodNumber + '/weekly/' + i.weekIndex, { text: i.ti.value.trim(), description: i.ta.value.trim(), category: category });
       });
       Promise.all(jobs).then(function () { close(); return reloadGoalsAll(); })
         .catch(function (e) { ok.disabled = false; err.textContent = e.message; });
