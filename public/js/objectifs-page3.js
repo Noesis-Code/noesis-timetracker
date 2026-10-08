@@ -109,11 +109,11 @@
                    après l'enregistrement (reloadGoalsAll() →
                    refreshGoalsDetailPageIfOpen() → renderActivityGoals()),
                    sans code supplémentaire ici. -->
+              <p class="goalMainEmptyHint" id="activityGoalsMainEmptyHint">Les objectifs hebdomadaires te seront ensuite proposés automatiquement.</p>
               <div class="goalMainSaveRow">
                 <button type="button" class="goalMainSaveBtn hidden" id="activityGoalsMainCancelBtn">Annuler</button>
                 <button type="button" class="goalMainSaveBtn" id="activityGoalsMainSaveBtn">Enregistrer</button>
               </div>
-              <p class="goalMainEmptyHint" id="activityGoalsMainEmptyHint">Les objectifs hebdomadaires te seront ensuite proposés automatiquement.</p>
 
               <div id="activityGoalsMainMeta">
                 <p class="goalEstimateHint" id="activityGoalsMainEstimate"></p>
