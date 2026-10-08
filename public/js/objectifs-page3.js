@@ -1005,6 +1005,7 @@
           if (!panel) return;
           var opening = panel.classList.contains('hidden');
           panel.classList.toggle('hidden', !opening);
+          if (!opening) Array.prototype.forEach.call(panel.querySelectorAll('.goalsDayTaskAdd'), function (f) { f.classList.add('hidden'); });
           expandBtn.classList.toggle('open', opening);
           row.classList.toggle('weekOpen', opening);
           goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)] = opening;
@@ -1026,6 +1027,11 @@
   }
 
   var goalsCalDaysCache = null;
+  // Referme tous les formulaires « ajouter une tâche » des jours (repli d'une semaine, changement de page/secteur/pôle/onglet).
+  function closeGoalsDayAddForms() {
+    Array.prototype.forEach.call(document.querySelectorAll('.goalsDayTaskAdd'), function (f) { f.classList.add('hidden'); });
+  }
+  TMT.closeGoalsDayAddForms = closeGoalsDayAddForms;
   function goalsCalDaysKey(period) {
     return [TMT.currentGoalsActivityId, TMT.currentGoalsCategory, period && period.periodNumber].join('|');
   }
@@ -2141,6 +2147,7 @@
 
   // Clic sur une période de l'arbre : la page du milieu s'ouvre sur CETTE période (défilement latéral).
   function openGoalsDetail(category, periodNumber) {
+    closeGoalsDayAddForms();
     mainFormForceKey = periodNumber + '|' + category; // seule entrée qui ouvre d'emblée la création d'objectif périodique
     if (!applyGoalsMonthState(category, periodNumber)) { mainFormForceKey = null; return; }
     TMT.setGoalsPage2Mode('month', { keep: true });
@@ -2149,6 +2156,7 @@
 
   // Arrivée par balayage : période en cours du pôle affiché (période déjà choisie conservée si même catégorie).
   TMT.prepareGoalsMonth = function () {
+    closeGoalsDayAddForms();
     mainFormOpenKey = null; // arrivée par balayage / changement de secteur : carte « + Ajouter » par défaut
     // Page du milieu : on choisit un SECTEUR du pôle affiché (le pôle lui-même si sans secteur).
     var sec = TMT.goalsMonthSecteur && TMT.goalsMonthSecteur();
@@ -2196,6 +2204,7 @@
   TMT.isGoalsMonthOpen = function () { return !!TMT.getGoalsPage2Mode && TMT.getGoalsPage2Mode() === 'month'; };
 
   function closeGoalsDetail() {
+    closeGoalsDayAddForms();
     mainFormOpenKey = null;
     // Invalide toute requête de calendrier de période encore en vol (voir loadGoalsCalendarDays() plus haut).
     goalsCalendarRequestId += 1;

@@ -330,6 +330,7 @@
   // opts.keep : l'appelant (openGoalsDetail) a déjà posé catégorie/période ; opts.noAnim : sans défilement.
   function setGoalsPage2Mode(mode, opts) {
     opts = opts || {};
+    if (TMT.closeGoalsDayAddForms) TMT.closeGoalsDayAddForms(); // formulaires « ajouter une tâche » des jours refermés à chaque changement d'onglet
     if (TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts();
     // « Discussion » est une fenêtre par-dessus la vue de base : elle ne masque ni Tâches ni Objectifs.
     if (mode === 'disc') {
