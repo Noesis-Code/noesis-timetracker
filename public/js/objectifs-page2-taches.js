@@ -600,6 +600,7 @@
     if (!activityId || !card) return;
     var base = '/api/activities/' + activityId + '/goals/overload';
     var pole = TMT.currentGoalsSelectedPoleKey || '';
+    card.classList.add('hidden'); card.innerHTML = '';
     api('GET', base + (pole ? '?pole=' + encodeURIComponent(pole) : '')).then(function (p) {
       if (String(activityId) !== String(TMT.currentGoalsActivityId) || pole !== (TMT.currentGoalsSelectedPoleKey || '')) return;
       card.innerHTML = '';

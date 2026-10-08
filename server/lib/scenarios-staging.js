@@ -146,7 +146,11 @@ function seedScenarios() {
   // ---- Tâches
   const budget = overload.budgetFor(aid, u.id);
   // Les 4 tâches en retard comptent aussi dans la charge du jour : juste assez pour dépasser le budget sans tout éparpiller.
-  const nOver = Math.max(2, Math.ceil(budget / 30) - 3);
+  // Surcharge PAR PÔLE : budget propre à Communauté et à Produit, chacun a son jour surchargé ; Finance/Juridique non.
+  const budgetCom = overload.budgetFor(aid, u.id, K.communaute);
+  const budgetProd = overload.budgetFor(aid, u.id, K.produit);
+  const nOver = Math.max(2, Math.ceil(budgetCom / 30) - 3);
+  const nOverProd = Math.max(2, Math.ceil(budgetProd / 30));
   const insTask = db.prepare(`INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto)
     VALUES (?, ?, ?, 0, ?, ?, ?, ?)`);
   let pos = 0;
@@ -157,6 +161,8 @@ function seedScenarios() {
   // 1 Journée surchargée (aujourd'hui) : tâches déplaçables (auto) + 1 tâche à date fixée qui ne bouge pas.
   for (let i = 1; i <= nOver; i += 1) addTask(K.communaute, 'Message aux membres n°' + i, 0, 1);
   addTask(K.communaute, 'Rencontre des membres (date fixée)', 0, 0);
+  // Produit : sa propre charge du jour (autres tâches que les maquettes), indépendante de Communauté.
+  for (let i = 1; i <= nOverProd; i += 1) addTask(K.produit, 'Revue de code n°' + i, 0, 1);
   // 2 Plafonds : Produit 4 tâches dans la même journée (+2) et 3 de plus la même semaine ; Juridique 3 tâches un jour.
   for (let i = 1; i <= 4; i += 1) addTask(K.produit, 'Maquette de l\'écran n°' + i, 2, 1);
   for (let i = 5; i <= 6; i += 1) addTask(K.produit, 'Maquette de l\'écran n°' + i, 3, 1);

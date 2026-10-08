@@ -100,23 +100,26 @@ function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DA
   return { loadMinutes: firstLoad, budgetMinutes: budget, moves };
 }
 
-function budgetFor(activityId, userId) {
+// poleKey (optionnel) : capacité de CE pôle seulement (le temps se calcule par pôle).
+function budgetFor(activityId, userId, poleKey) {
   let total = 0;
   goals.categoriesForActivity(activityId).forEach((pole) => {
+    if (poleKey && pole.key !== poleKey) return;
     total += goalsauto.capacityMinutesForMember(activityId, pole.key, userId) / 7;
   });
   // Plancher 60 min : sans historique chronométré la capacité calculée est quasi nulle (fausses alertes).
   return Math.max(MIN_BUDGET_MINUTES, Math.round(total));
 }
 
-function loadTasks(activityId, budget, today) {
+function loadTasks(activityId, budget, today, poleKey) {
   const rows = db.prepare(`
     SELECT i.id, i.label, i.dueDate, i.dueDateAuto, sp.goalCategory AS category
     FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.done = 0 AND i.dueDate IS NOT NULL AND i.dueDate != ''
   `).all(activityId);
-  const ctx = goalsimportance.loadGoalContexts(rows.map((r) => r.id));
-  const tasks = rows.map((r) => {
+  const kept = !poleKey ? rows : rows.filter((r) => r.category && goals.resolveToPole(activityId, r.category) === poleKey);
+  const ctx = goalsimportance.loadGoalContexts(kept.map((r) => r.id));
+  const tasks = kept.map((r) => {
     const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null;
     const total = (est && est.minutes) || DEFAULT_TASK_MINUTES;
     const span = captureplace.longSpan(total, budget);
@@ -191,15 +194,15 @@ function signatureOf(moves) {
 }
 
 // poleKey (optionnel) : ne garde que les déplacements de CE pôle (le secteur remonte au pôle).
-// Charge/capacité restent celles de l'activité ; objectifs et signature sont recalculés sur les déplacements gardés.
+// Avec poleKey, charge ET capacité ET tâches sont celles de CE pôle (secteurs remontés au pôle) ; sans poleKey, toute l'activité.
 function getProposal(userId, activityId, poleKey) {
   const today = todayLocal();
   try { captureplace.redispatchOverdue(userId, activityId); } catch (e) { /* non bloquant */ }
   if (db.prepare('SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ?').get(userId, activityId, today)) {
     return { overloaded: false, dismissed: true };
   }
-  const budget = budgetFor(activityId, userId);
-  const tasks = loadTasks(activityId, budget, today);
+  const budget = budgetFor(activityId, userId, poleKey);
+  const tasks = loadTasks(activityId, budget, today, poleKey);
   const p = computeProposal({ today, budgetMinutes: budget, tasks });
   // Plafonds de temps (7 oct. 2026) : appliqués APRÈS le plan de surcharge, mêmes règles
   // (proposé seulement, dates posées par le moteur uniquement).
