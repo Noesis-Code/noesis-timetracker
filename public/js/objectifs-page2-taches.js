@@ -560,6 +560,7 @@
   // 7 oct. 2026 : les cartes d'alerte reviennent enroulées à chaque changement d'onglet (appelé par switchTab).
   TMT.collapseGoalsAlerts = function () {
     alertOpen = {};
+    document.querySelectorAll('.goalsReportNote').forEach(function (n) { n.remove(); });
     document.querySelectorAll('.goalsAlertCard.open').forEach(function (c) {
       c.classList.remove('open');
       var bd = c.querySelector('.goalsAlertBody'); if (bd) bd.hidden = true;
@@ -586,7 +587,7 @@
     var body = document.createElement('div'); body.className = 'goalsAlertBody';
     var sk = alertDayKey(key);
     function sync() { var o = !!alertOpen[sk]; card.classList.toggle('open', o); body.hidden = !o; tg.setAttribute('aria-expanded', o ? 'true' : 'false'); }
-    tg.addEventListener('click', function () { alertOpen[sk] = !alertOpen[sk]; sync(); });
+    tg.addEventListener('click', function () { alertOpen[sk] = !alertOpen[sk]; if (!alertOpen[sk]) card.querySelectorAll('.goalsReportNote').forEach(function (n) { n.remove(); }); sync(); });
     x.addEventListener('click', function () { try { localStorage.setItem(alertDayKey(key), localIso(new Date())); } catch (e) { /* stockage indisponible */ } card.classList.add('hidden'); });
     sync();
     card.appendChild(head); card.appendChild(body);
@@ -695,9 +696,15 @@
               var li = pli;
               // Bouton grisé mais cliquable : explique pourquoi le report est impossible.
               var note = li.nextSibling && li.nextSibling.className === 'goalsReportNote' ? li.nextSibling : null;
+              // Reclic : le message disparaît puis revient aussitôt (fondu), pour montrer qu'il répond au clic.
+              var hadNote = !!note;
               if (note) note.remove();
-              note = el('li', 'goalsReportNote', t('Erreur : la période suivante a déjà son propre objectif. Pour y reporter celui-ci sans l’écraser, modifie ou vide d’abord l’objectif de la période suivante.'));
-              li.parentNode.insertBefore(note, li.nextSibling);
+              if (li._noteTimer) clearTimeout(li._noteTimer);
+              li._noteTimer = setTimeout(function () {
+                if (!li.parentNode) return;
+                var n2 = el('li', 'goalsReportNote', t('Erreur : la période suivante a déjà son propre objectif. Pour y reporter celui-ci sans l’écraser, modifie ou vide d’abord l’objectif de la période suivante.'));
+                li.parentNode.insertBefore(n2, li.nextSibling);
+              }, hadNote ? 140 : 0);
             });
           if (!x.targetFree) pli.querySelector('button').classList.add('goalsReportBtn--blocked');
         });
