@@ -756,6 +756,80 @@
   // ça, ce rafraîchissement replierait une semaine qu'Emilien vient d'ouvrir.
   var goalsOpenWeekIndexes = {};
 
+  // Brouillons d'édition des objectifs hebdomadaires ouverts (clé « période:semaine »),
+  // conservés à travers les re-rendus (rafraîchissement silencieux).
+  var goalsWeekDrafts = {};
+
+  // Section d'édition d'un objectif hebdomadaire, directement dans la carte :
+  // titre, description, « Gérer mon temps » (moyenne / cible).
+  function buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, focusTitle, rerender, extTitle) {
+    var d = goalsWeekDrafts[draftKey];
+    var box = document.createElement('div');
+    box.className = 'goalWeeklyEditor';
+    var title = extTitle || document.createElement('input');
+    if (!extTitle) {
+      title.type = 'text'; title.className = 'goalWeeklyEditTitle'; title.maxLength = 300;
+      title.placeholder = t('Titre de l’objectif'); title.value = d.title;
+      title.addEventListener('input', function () { d.title = title.value; });
+      box.appendChild(title);
+    }
+    var desc = document.createElement('textarea');
+    desc.className = 'goalWeeklyEditDesc'; desc.rows = 3; desc.maxLength = 600;
+    desc.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.');
+    desc.value = d.desc;
+    desc.addEventListener('input', function () { d.desc = desc.value; });
+    box.appendChild(desc);
+
+    var avg = TMT.goalsWeekCapacityDefault || 0;
+    var toggle = document.createElement('button');
+    toggle.type = 'button'; toggle.className = 'linkBtn goalEstUse';
+    var body = document.createElement('div');
+    body.className = 'goalEstBody';
+    var open = d.target == null && !w ? true : d.target != null;
+    function paintToggle() { toggle.textContent = (open ? '▾ ' : '▸ ') + t('Gérer mon temps'); body.classList.toggle('hidden', !open); }
+    toggle.addEventListener('click', function () { open = !open; paintToggle(); });
+    var table = document.createElement('div'); table.className = 'goalEstTable';
+    ['', 'Moyenne', 'Cible'].forEach(function (h) { var c = document.createElement('div'); if (h) { c.className = 'goalEstHead'; c.textContent = t(h); } table.appendChild(c); });
+    var lbl = document.createElement('div'); lbl.className = 'goalEstRowLabel'; lbl.textContent = t('Semaine');
+    var avgEl = document.createElement('div'); avgEl.className = 'goalEstAvg'; avgEl.textContent = TMT.fmtCapMinutes(avg) || '0:00';
+    var maxBtn = document.createElement('button'); maxBtn.type = 'button'; maxBtn.className = 'goalEstMax';
+    function paintMax() { maxBtn.textContent = TMT.fmtCapMinutes(d.target || 0) || '0:00'; maxBtn.classList.toggle('isEmpty', !d.target); }
+    maxBtn.addEventListener('click', function () {
+      TMT.openDurationPicker({ title: 'Cible', minutes: d.target || 0, onDone: function (v) { d.target = v > 0 ? v : null; paintMax(); } });
+    });
+    table.appendChild(lbl); table.appendChild(avgEl); table.appendChild(maxBtn);
+    body.appendChild(table);
+    var use = document.createElement('button'); use.type = 'button'; use.className = 'linkBtn goalEstUse';
+    use.textContent = t('Utiliser ma moyenne');
+    use.addEventListener('click', function () { if (avg > 0) { d.target = avg; paintMax(); } });
+    body.appendChild(use);
+    paintMax(); paintToggle();
+    box.appendChild(toggle); box.appendChild(body);
+
+    var actions = document.createElement('div'); actions.className = 'goalWeeklyEditActions';
+    var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'iconBtn'; cancel.textContent = t('Annuler');
+    cancel.addEventListener('click', function () { delete goalsWeekDrafts[draftKey]; rerender(); });
+    var save = document.createElement('button'); save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
+    var msg = document.createElement('p'); msg.className = 'msg';
+    save.addEventListener('click', function () {
+      var text = d.title.trim();
+      if (!text) { delete goalsWeekDrafts[draftKey]; rerender(); return; }
+      save.disabled = true;
+      api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/weekly/' + weekIndex,
+        { text: text, description: d.desc.trim(), estimateMinutes: d.target || 0, category: TMT.currentGoalsCategory })
+        .then(function () {
+          delete goalsWeekDrafts[draftKey];
+          if (!w || text !== w.text) requestGoalRewrite(wKey, text);
+          return reloadGoalsAll();
+        })
+        .catch(function (err) { save.disabled = false; msg.textContent = err.message; });
+    });
+    actions.appendChild(cancel); actions.appendChild(save);
+    box.appendChild(actions); box.appendChild(msg);
+    if (focusTitle) setTimeout(function () { try { title.focus(); title.setSelectionRange(title.value.length, title.value.length); } catch (e) {} }, 0);
+    return box;
+  }
+
   function renderGoalsWeeklyList(period) {
     var box = $('activityGoalsWeeklyList');
     box.innerHTML = '';
@@ -791,47 +865,48 @@
         row.appendChild(badge);
 
         var wKey = goalRewriteKey('w', period.periodNumber, weekIndex);
-        var input = document.createElement('textarea');
-        input.className = 'goalWeeklyText';
-        input.rows = 1;
-        input.maxLength = 300;
-        input.placeholder = t('Titre de l’objectif');
-        input.value = w ? w.text : '';
-        input.addEventListener('blur', function () {
-          var value = input.value.trim();
-          if (!w && !value) return;
-          if (w && value === w.text) return;
-          saveWeeklyText(period.periodNumber, weekIndex, value);
-          requestGoalRewrite(wKey, value);
-        });
-        registerGoalRewrite(wKey, input, function () { return w ? w.text : ''; }, function (proposal) {
-          input.value = proposal;
-          saveWeeklyText(period.periodNumber, weekIndex, proposal);
-        });
-        input.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); input.blur(); }
-        });
         var textWrap = document.createElement('div');
         textWrap.className = 'goalWeeklyTextWrap';
-        textWrap.appendChild(input);
-        var wDescRow = document.createElement('div');
-        wDescRow.className = 'goalDescRow';
-        var wDescPreview = document.createElement('span');
-        wDescPreview.className = 'goalDescPreview';
-        var wDescBtn = document.createElement('button');
-        wDescBtn.type = 'button';
-        wDescBtn.className = 'historyRowIconBtn goalDescEditBtn';
-        wDescRow.appendChild(wDescPreview);
-        wDescRow.appendChild(wDescBtn);
-        textWrap.appendChild(wDescRow);
-        syncGoalDescRow(wDescRow, wDescPreview, wDescBtn, w && w.description, !!(w && w.text), function () {
-          openGoalDescModal({
-            title: w.text,
-            description: w.description || '',
-            onSave: function (d) { return saveWeeklyDescription(period.periodNumber, weekIndex, w.text, d); },
-          });
-        });
-        if (w && w.text) {
+        var draftKey = period.periodNumber + ':' + weekIndex;
+        var editing = !!goalsWeekDrafts[draftKey];
+
+        function openEditor(initial) {
+          goalsWeekDrafts[draftKey] = initial;
+          renderWeekInto(true);
+        }
+        function renderWeekInto(focusTitle) {
+          textWrap.innerHTML = '';
+          if (goalsWeekDrafts[draftKey]) {
+            textWrap.appendChild(buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, focusTitle, function () { renderWeekInto(false); }));
+            return;
+          }
+          if (!w || !w.text) {
+            // Semaine vide : on écrit directement ; dès la première frappe la section se déroule.
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'goalWeeklyText';
+            input.maxLength = 300;
+            input.placeholder = t('Titre de l’objectif');
+            input.addEventListener('input', function () {
+              var cur = goalsWeekDrafts[draftKey];
+              if (cur) { cur.title = input.value; return; }
+              // Le champ reste en place (le clavier ne se ferme pas) ; la section se déroule dessous.
+              goalsWeekDrafts[draftKey] = { title: input.value, desc: '', target: null };
+              textWrap.appendChild(buildWeeklyEditor(period, weekIndex, w, wKey, draftKey, false, function () { renderWeekInto(false); }, input));
+            });
+            textWrap.appendChild(input);
+            return;
+          }
+          var titleEl = document.createElement('div');
+          titleEl.className = 'goalWeeklyTitleText';
+          titleEl.textContent = w.text;
+          textWrap.appendChild(titleEl);
+          if (w.description) {
+            var prev = document.createElement('div');
+            prev.className = 'goalDescPreview';
+            prev.textContent = w.description;
+            textWrap.appendChild(prev);
+          }
           var capMin = w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (TMT.goalsWeekCapacityDefault || 0);
           var capBtn = document.createElement('button');
           capBtn.type = 'button';
@@ -845,7 +920,23 @@
           });
           textWrap.appendChild(capBtn);
         }
-        row.appendChild(textWrap);
+        renderWeekInto(false);
+        if (w && w.text) {
+          var editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'historyRowIconBtn goalDescEditBtn goalWeeklyEditBtn';
+          editBtn.innerHTML = GOAL_DESC_EDIT_ICON;
+          editBtn.title = t('Modifier');
+          editBtn.setAttribute('aria-label', t('Modifier'));
+          editBtn.addEventListener('click', function () {
+            var manual = w.estimateSource === 'manual' && w.estimateMinutes > 0;
+            openEditor({ title: w.text, desc: w.description || '', target: manual ? w.estimateMinutes : null, targetTouched: false });
+          });
+          row.appendChild(textWrap);
+          row.appendChild(editBtn);
+        } else {
+          row.appendChild(textWrap);
+        }
 
         if (w) {
           var dot = document.createElement('button');
