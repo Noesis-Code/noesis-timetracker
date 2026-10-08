@@ -226,9 +226,9 @@
 
 .goalsScrubZone, .goalsScrubLabel { display: none !important; }
 .goalsGridScroll { margin-left: 0; }
-.goalsGrid { padding-left: 24px; }
+.goalsGrid { padding-left: 26px; }
 .goalsRowMarker {
-  position: absolute; left: -22px; top: 50%; transform: translateY(-50%); z-index: 3;
+  position: absolute; left: -26px; top: 50%; transform: translateY(-50%); z-index: 3;
   width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%; background: transparent;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   font-size: 11px; font-weight: 700; line-height: 1; color: var(--text-light);
