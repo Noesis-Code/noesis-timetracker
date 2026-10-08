@@ -1059,6 +1059,7 @@
     var grid = $('goalsGrid');
     if (!grid || !TMT.currentGoalsAllPlannings) return;
     grid.innerHTML = '';
+    grid.style.setProperty('--poleTree', subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT));
     var byCategory = TMT.currentGoalsAllPlannings.byCategory || {};
     var categories = activeGoalsCategories();
     // 16 septembre 2026 (11e passage) : même garde que renderGoalsGridHead()
