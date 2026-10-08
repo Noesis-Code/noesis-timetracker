@@ -229,14 +229,14 @@
 /* 7 oct. 2026 (Emilien) : design commun des cartes d'alerte (surcharge, non réalisées, cible irréaliste,
    recalcul) — orange, repliées par défaut, croix = masquée pour aujourd'hui. Le violet y devient orange ;
    il reste la couleur principale partout ailleurs. */
-.goalsAlertCard { --alert: #ff9f2e; padding: 0; border: 1.5px solid var(--alert); background: linear-gradient(rgba(255,159,46,.09), rgba(255,159,46,.09)), var(--glass-bg); }
+.goalsAlertCard { --alert: #ff9f2e; padding: 0; border: 1px solid rgba(255,159,46,.42); background: linear-gradient(rgba(255,159,46,.045), rgba(255,159,46,.045)), var(--glass-bg); }
 .goalsAlertHead { display: flex; align-items: center; }
-.goalsAlertToggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 4px 8px 14px; border: 0; background: none; color: var(--text); font: inherit; font-weight: 700; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.goalsAlertIcon { flex: 0 0 auto; width: 20px; height: 20px; fill: none; stroke: var(--alert); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.goalsAlertToggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 4px 4px 4px 12px; border: 0; background: none; color: rgba(255,255,255,.82); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.goalsAlertIcon { flex: 0 0 auto; width: 17px; height: 17px; fill: none; stroke: var(--alert); stroke-width: 2; opacity: .85; stroke-linecap: round; stroke-linejoin: round; }
 .goalsAlertTitle { flex: 1; min-width: 0; }
 .goalsAlertChevron { flex: 0 0 auto; width: 16px; height: 16px; fill: none; stroke: var(--text-light); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .7; transition: transform .2s; }
 .goalsAlertCard.open .goalsAlertChevron { transform: rotate(180deg); }
-.goalsAlertClose { flex: 0 0 auto; width: 44px; height: 44px; border: 0; background: none; color: #fff; font-size: 16px; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.goalsAlertClose { flex: 0 0 auto; width: 44px; height: 38px; border: 0; background: none; color: rgba(255,255,255,.75); font-size: 14px; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .goalsAlertBody { padding: 0 16px 14px; }
 .goalsAlertBody[hidden] { display: none; }
 .goalsAlertCard .goalsOverloadActions .goalsOverloadOk,
