@@ -42,7 +42,7 @@
    visuelle), sans toucher au padding (0) qui, lui, correspond bien au point
    (1) toujours en discussion. */
 .goalsGridHead {
-  display: flex; align-items: center; gap: 10px; padding: 0 4px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px; padding: 0 4px 0 26px; margin-bottom: 14px;
 }
 
 .goalsGridHeadCell {

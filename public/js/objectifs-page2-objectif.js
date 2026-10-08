@@ -752,7 +752,8 @@
         // liseré noir/blanc translucide du passage précédent, devenus sans
         // objet : il n'y a plus de fond rempli dont dériver un contraste.
         var displayColor = eclairciPourLisibilite(shade);
-        // 8 oct. 2026 : format des puces de l'onglet 2 (.gmChip), largeur de colonne conservée.
+        // 8 oct. 2026 : format des puces de l'onglet 2 (.gmChip), largeur de colonne conservée, contour = couleur du pôle.
+        span.style.borderColor = shade;
         // 26 septembre 2026 (retour direct d'Emilien après l'encart 53) :
         // badge violet « non vu » posé ICI, sur l'arbre périodique
         // lui-même — c'est le vrai emplacement des « objectifs
