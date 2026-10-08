@@ -1835,8 +1835,8 @@
         row.appendChild(dateEl);
 
         var minutesEl = document.createElement('span');
-        minutesEl.className = 'goalsCalendarMinutes' + (day.actualMinutes ? '' : ' empty');
-        minutesEl.textContent = day.actualMinutes ? formatGoalHours(day.actualMinutes) : '';
+        minutesEl.className = 'goalsCalendarMinutes' + ((day.actualMinutes && day.tasks && day.tasks.length) ? '' : ' empty');
+        minutesEl.textContent = (day.actualMinutes && day.tasks && day.tasks.length) ? formatGoalHours(day.actualMinutes) : ''; // le temps n'apparaît que sur un jour qui a des tâches
         minutesEl.title = t('Temps pointé ce jour');
         row.appendChild(minutesEl);
 
