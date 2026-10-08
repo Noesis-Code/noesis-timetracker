@@ -1440,6 +1440,7 @@
   function ensureAiMode() {
     return loadAiMode().then(function (mode) { return mode || askAiModeModal(); });
   }
+  TMT.ensureAiMode = ensureAiMode;
   TMT.renderAiModeSection = function () {
     var box = $('aiModeOptions');
     if (!box || !TMT.getProfile()) return;

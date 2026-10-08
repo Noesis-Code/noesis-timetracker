@@ -873,6 +873,8 @@
     '… et ': '… and ',
     ' autres tâches déplacées': ' more tasks moved',
     'Ignorer': 'Dismiss',
+    'Objectifs hebdomadaires proposés': 'Suggested weekly objectives',
+    'Modifie ou vide une ligne, puis valide. Rien n’est enregistré avant ta validation.': 'Edit or clear a line, then confirm. Nothing is saved until you confirm.',
     'Nouvelle tâche': 'New task',
     'Nouveau sondage': 'New poll',
     'Nouvelle discussion': 'New discussion',

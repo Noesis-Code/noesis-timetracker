@@ -442,13 +442,75 @@
     rowEl.classList.toggle('hidden', !canEdit);
   }
 
+  // 8 oct. 2026 (Émilien) : les objectifs hebdomadaires suivent le mode « gestion de l'IA ». Premier objectif
+  // périodique saisi avant toute capture : le pop-up de choix s'affiche d'abord (fermé = enregistré sans proposition).
+  function withAiMode(title, doSave) {
+    if (!title || !title.trim() || !TMT.ensureAiMode) return doSave();
+    return TMT.ensureAiMode().catch(function () { return null; }).then(doSave);
+  }
+  // Mode Partiel : après l'enregistrement, Noèsis propose les semaines vides dans un pop-up à valider.
+  function afterMainSavedPartiel(periodNumber, title) {
+    if (TMT.aiMode !== 'partiel' || !title || !title.trim()) return;
+    var activityId = TMT.currentGoalsActivityId, category = TMT.currentGoalsCategory;
+    api('POST', '/api/activities/' + activityId + '/goals/periods/' + periodNumber + '/weekly-proposals', { category: category })
+      .then(function (r) {
+        if (activityId !== TMT.currentGoalsActivityId || category !== TMT.currentGoalsCategory) return;
+        var list = (r && r.proposals) || [];
+        if (list.length) showWeeklyProposalsModal(activityId, category, periodNumber, list);
+      }).catch(function () {});
+  }
+  function showWeeklyProposalsModal(activityId, category, periodNumber, list) {
+    var overlay = document.createElement('div');
+    overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
+    var card = document.createElement('div'); card.className = 'goalTaskEditCard';
+    var header = document.createElement('div'); header.className = 'goalTaskEditHeader';
+    var title = document.createElement('p'); title.className = 'sectionTitle'; title.textContent = t('Objectifs hebdomadaires proposés');
+    var closeBtn = document.createElement('button'); closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+    closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+    header.appendChild(title); header.appendChild(closeBtn); card.appendChild(header);
+    var hint = document.createElement('p'); hint.className = 'meta';
+    hint.textContent = t('Modifie ou vide une ligne, puis valide. Rien n’est enregistré avant ta validation.');
+    card.appendChild(hint);
+    var inputs = [];
+    var scroll = document.createElement('div'); scroll.className = 'goalsPlacementScroll'; card.appendChild(scroll);
+    list.forEach(function (p) {
+      var wrap = document.createElement('div'); wrap.className = 'goalCard';
+      var lab = document.createElement('p'); lab.className = 'meta'; lab.textContent = t('Semaine') + ' ' + p.weekIndex;
+      var ta = document.createElement('textarea'); ta.rows = 2; ta.maxLength = 300; ta.value = p.text || '';
+      wrap.appendChild(lab); wrap.appendChild(ta); scroll.appendChild(wrap);
+      inputs.push({ weekIndex: p.weekIndex, ta: ta });
+    });
+    var err = document.createElement('p'); err.className = 'msg'; card.appendChild(err);
+    var row = document.createElement('div'); row.className = 'goalsCaptureConfirmActions';
+    var ignore = document.createElement('button'); ignore.type = 'button'; ignore.className = 'iconBtn'; ignore.textContent = t('Ignorer');
+    var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'iconBtn btnBrique'; ok.textContent = t('Valider');
+    row.appendChild(ignore); row.appendChild(ok); card.appendChild(row);
+    function close() { overlay.remove(); }
+    closeBtn.onclick = close; ignore.onclick = close;
+    ok.onclick = function () {
+      ok.disabled = true;
+      var jobs = inputs.filter(function (i) { return i.ta.value.trim(); }).map(function (i) {
+        return api('PUT', '/api/activities/' + activityId + '/goals/periods/' + periodNumber + '/weekly/' + i.weekIndex, { text: i.ta.value.trim(), category: category });
+      });
+      Promise.all(jobs).then(function () { close(); return reloadGoalsAll(); })
+        .catch(function (e) { ok.disabled = false; err.textContent = e.message; });
+    };
+    overlay.appendChild(card); document.body.appendChild(overlay);
+  }
+
   function saveMainGoalDescription(periodNumber, title, description, estimateMinutes) {
+    return withAiMode(title, function () { return doSaveMainGoalDescription(periodNumber, title, description, estimateMinutes); });
+  }
+  function doSaveMainGoalDescription(periodNumber, title, description, estimateMinutes) {
     var body = { text: title, description: description, category: TMT.currentGoalsCategory };
     if (estimateMinutes !== undefined) body.estimateMinutes = estimateMinutes; // nombre = manuel ; null = automatique
     var pollActivityId = TMT.currentGoalsActivityId, pollCategory = TMT.currentGoalsCategory;
     return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', body)
       .then(reloadGoalsAll)
-      .then(function () { if (title && title.trim()) maybeScheduleGoalsWeeklyAutoFillPoll(pollActivityId, pollCategory, periodNumber, 0); });
+      .then(function () {
+        if (title && title.trim() && TMT.aiMode === 'autonome') maybeScheduleGoalsWeeklyAutoFillPoll(pollActivityId, pollCategory, periodNumber, 0);
+        afterMainSavedPartiel(periodNumber, title);
+      });
   }
 
   function saveWeeklyDescription(periodNumber, weekIndex, title, description) {
@@ -458,6 +520,9 @@
 
 
   function saveMainGoalText(periodNumber, text) {
+    return withAiMode(text, function () { return doSaveMainGoalText(periodNumber, text); });
+  }
+  function doSaveMainGoalText(periodNumber, text) {
     var pollActivityId = TMT.currentGoalsActivityId;
     var pollCategory = TMT.currentGoalsCategory;
     api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main', { text: text, category: TMT.currentGoalsCategory })
@@ -467,7 +532,8 @@
         // remplissage IA ne se déclenche que sur un texte non vide
         // (server/lib/goalsweeklyauto.js, repli silencieux "no-main-goal").
         if (!text || !text.trim()) return;
-        maybeScheduleGoalsWeeklyAutoFillPoll(pollActivityId, pollCategory, periodNumber, 0);
+        if (TMT.aiMode === 'autonome') maybeScheduleGoalsWeeklyAutoFillPoll(pollActivityId, pollCategory, periodNumber, 0);
+        afterMainSavedPartiel(periodNumber, text);
       })
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }

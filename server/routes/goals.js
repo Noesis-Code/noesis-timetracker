@@ -229,7 +229,14 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
     // CHAÎNÉ ici via .then() — jamais un second .catch() indépendant posé en
     // parallèle, pour ne jamais avoir deux appels IA concurrents sur le même
     // événement.
-    goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber)
+    // 8 oct. 2026 (Émilien) : les objectifs hebdomadaires suivent le mode « gestion de l'IA ».
+    // Autonome : remplissage automatique (comme avant). Partiel : le client demande la proposition
+    // (POST …/weekly-proposals) et l'utilisateur valide. Absence ou mode jamais choisi : rien.
+    const modeRow = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(userId);
+    const fill = modeRow && modeRow.aiMode === 'autonome'
+      ? goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber)
+      : Promise.resolve();
+    fill
       .then(() => crosssectorinference.evaluateCrossSectorLinks(activityId, category, { type: 'main_goal', text, periodNumber }))
       .catch(() => {});
   } catch (err) {
@@ -267,6 +274,26 @@ router.put('/activities/:id/goals/periods/:periodNumber/main-status', (req, res)
     const category = resolveCategory(activityId, req.body.category);
     goals.setMainGoalStatus(activityId, category, periodNumber, req.body.status);
     res.json({ ok: true });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
+// Mode Partiel : propose les semaines vides SANS rien écrire ; le client fait valider puis enregistre.
+router.post('/activities/:id/goals/periods/:periodNumber/weekly-proposals', async (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const periodNumber = Number(req.params.periodNumber);
+  if (!periodNumber || periodNumber < 1) return res.status(400).json({ error: 'Période invalide.' });
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    const modeRow = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(userId);
+    if (!modeRow || modeRow.aiMode !== 'partiel') return res.json({ proposals: [] });
+    const category = resolveCategory(activityId, req.body.category);
+    const r = await goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber, { dryRun: true });
+    res.json({ proposals: (r && r.proposals) || [] });
   } catch (err) {
     handleGoalsError(res, err);
   }

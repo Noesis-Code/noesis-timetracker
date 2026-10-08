@@ -181,7 +181,8 @@ function parseWeeklyGoals(text, requestedWeeks) {
 // les semaines vides, comme si l'utilisateur ne les avait pas encore
 // remplies — jamais bloquant pour la requête HTTP qui a déjà répondu au
 // moment où ceci s'exécute.
-async function generateForPeriod(activityId, userId, category, periodNumber) {
+async function generateForPeriod(activityId, userId, category, periodNumber, opts) {
+  const dryRun = !!(opts && opts.dryRun); // Mode Partiel : propose sans rien écrire
   // 27 septembre 2026 (discussion "C. Objectifs — Page 1 / Logique métier"),
   // demande explicite d'Emilien après un signalement (« les objectifs
   // hebdomadaires ne se sont pas remplis ») : journaliser l'issue de CHAQUE
@@ -228,6 +229,8 @@ async function generateForPeriod(activityId, userId, category, periodNumber) {
       weeksAlreadyWritten: alreadyWritten,
       weeksToFill: emptyWeeks,
     }, emptyWeeks);
+
+    if (dryRun) return { proposals: proposals.map((p) => ({ weekIndex: p.weekIndex, text: p.text })) };
 
     let written = 0;
     const createdAt = new Date().toISOString();
