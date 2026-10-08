@@ -981,6 +981,9 @@
     descIn.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.');
     if (editing) {
       if (descIn.dataset.editFor !== curKey) { descIn.value = period.mainGoalDescription || ''; descIn.dataset.editFor = curKey; }
+      // Hauteur ajustée au contenu (sans défilement) : le champ occupe toute la bulle.
+      var fitDesc = function () { descIn.style.height = 'auto'; descIn.style.height = Math.max(descIn.scrollHeight, 112) + 'px'; };
+      descIn.oninput = fitDesc; fitDesc(); setTimeout(fitDesc, 60);
       mainSaveRow.classList.remove('hidden');
       mainInput.onblur = null;
       mainInput.oninput = null;
