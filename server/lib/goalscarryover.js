@@ -11,6 +11,7 @@ const db = require('../db');
 const goals = require('./goals');
 const overload = require('./goalsoverload');
 const timecaps = require('./timecaps');
+const goalscapacity = require('./goalscapacity');
 
 const HORIZON = 60;
 const MARGIN = 1.15;
@@ -120,11 +121,11 @@ function applyCarry(userId, activityId, body, poleFilter) {
   const isDay = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
   const items = moves.map((m) => {
     if (!isDay(m.to) || m.to < today) throw httpError('Jour cible invalide.', 400);
-    const row = db.prepare(`SELECT i.id, i.done FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+    const row = db.prepare(`SELECT i.id, i.done, i.label, sp.goalCategory AS category FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
       WHERE i.id = ? AND sp.activityId = ?`).get(Number(m.id), activityId);
     if (!row || row.done) throw httpError('Tâche introuvable ou déjà terminée.', 404);
     if (poleFilter && !itemInPole(activityId, row.id, poleFilter)) throw httpError('Tâche hors du pôle affiché.', 400);
-    return { id: row.id, to: m.to };
+    return { id: row.id, to: m.to, label: row.label, category: row.category };
   });
   const periods = periodIds.map((id) => {
     const p = db.prepare('SELECT * FROM goal_periods WHERE id = ? AND activityId = ?').get(Number(id), activityId);
@@ -136,7 +137,11 @@ function applyCarry(userId, activityId, body, poleFilter) {
   db.exec('BEGIN');
   try {
     const upd = db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?');
-    items.forEach((m) => upd.run(m.to, m.id));
+    items.forEach((m) => {
+      upd.run(m.to, m.id);
+      // Le temps estimé de la tâche reportée s'ajoute à la cible de la semaine d'arrivée (et à la période).
+      if (m.category) goalscapacity.addMinutesToWeekOf(userId, activityId, m.category, m.to, goalscapacity.taskMinutes(userId, activityId, m.category, m.label));
+    });
     periods.forEach((p) => {
       const start = planStartOf(activityId, p.category);
       if (!start) return;

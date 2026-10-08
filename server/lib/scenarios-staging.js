@@ -186,11 +186,14 @@ function seedScenarios() {
     }
   });
 
-  // ---- Exemples de capacité hebdomadaire (secteurs de Communauté, période en cours : semaines 1-2 passées, 3 en cours, 4 à venir).
+  // ---- Exemples de capacité hebdomadaire (secteurs du pôle Marketing, période en cours : semaines 1-2 passées, 3 en cours, 4 à venir).
   //  Rédaction : PLUS de temps que la cible (sem. 1 : 200 min pour 120 -> +80 min ajoutées à la période).
   //  Prospection : MOINS de temps (60 et 90 min pour 180 -> proposition de rattrapage sur les semaines à venir).
-  goals.addCategory(aid, 'Rédaction', K.communaute);
-  goals.addCategory(aid, 'Prospection', K.communaute);
+  // Pôle neuf « Marketing » : ajouter un secteur à un pôle qui a déjà des données les déplacerait sur ce secteur.
+  goals.addCategory(aid, 'Marketing');
+  const keyMkt = keyOf('Marketing');
+  goals.addCategory(aid, 'Rédaction', keyMkt);
+  goals.addCategory(aid, 'Prospection', keyMkt);
   const keyRed = keyOf('Rédaction'); const keyPro = keyOf('Prospection');
   const capStart = goals.addDays(monday, -14);
   [keyRed, keyPro].forEach((k) => db.prepare('INSERT INTO activity_goal_plans (activityId, category, startDate, createdAt) VALUES (?, ?, ?, ?) ON CONFLICT(activityId, category) DO UPDATE SET startDate = excluded.startDate').run(aid, k, capStart, now));
@@ -208,11 +211,19 @@ function seedScenarios() {
     ins.run(u.id, aid, s.toISOString(), new Date(s.getTime() + doneMin * 60000).toISOString(), doneMin * 60, dIso, DOW[s.getDay()], key);
   };
   mkWeek(keyRed, 1, 'Rédiger le guide d\'accueil', 120, 200);
-  mkWeek(keyRed, 2, 'Rédiger la FAQ', 120, 120);
+  mkWeek(keyRed, 2, 'Rédiger la FAQ', 120, 75);
   mkWeek(keyRed, 3, 'Relire et publier', 120, 0);
   mkWeek(keyRed, 4, 'Mettre à jour le guide', 120, 0);
   mkWeek(keyPro, 4, 'Faire le bilan des rendez-vous', 180, 0);
   mkWeek(keyPro, 1, 'Appeler dix partenaires', 180, 60);
+  // Tâches liées : Rédaction S2 toutes faites (cible réduite au temps réel), Prospection S1 deux tâches non faites (à reporter).
+  const linkTasks = (key, wk, labels, doneFlag, dueOff) => {
+    const wid = db.prepare('SELECT w.id FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE p.activityId = ? AND p.category = ? AND p.periodNumber = 1 AND w.weekIndex = ? AND w.carriedOverFromId IS NULL').get(aid, key, wk).id;
+    const { subProject, section } = goalstasks.ensureCategoryTaskSection(aid, u.id, key);
+    labels.forEach((label) => db.prepare('INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto, goalWeeklyId) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)').run(subProject.id, section.id, label, doneFlag, pos += 1, now, day(dueOff), wid));
+  };
+  linkTasks(keyRed, 2, ['Plan de la FAQ', 'Questions fréquentes'], 1, -9);
+  linkTasks(keyPro, 1, ['Premier contact avec Dupont', 'Premier contact avec Tremblay'], 0, -12);
   mkWeek(keyPro, 2, 'Relancer les partenaires', 180, 90);
   mkWeek(keyPro, 3, 'Fixer trois rendez-vous', 180, 0);
 

@@ -12,7 +12,20 @@ const db = require('../db');
 const goals = require('./goals');
 const timecaps = require('./timecaps');
 
-const MIN_PROPOSAL = 15;
+const DEFAULT_TASK_MINUTES = require('./goalscaptureplace').DEFAULT_TASK_MINUTES;
+
+// Tâches liées à l'objectif hebdomadaire d'une semaine : total / faites / minutes estimées des tâches faites.
+function linkedTasks(activityId, weeklyId, category) {
+  if (!weeklyId) return { total: 0, undone: 0, doneMinutes: 0 };
+  const rows = db.prepare('SELECT label, done FROM sub_project_items WHERE goalWeeklyId = ?').all(weeklyId);
+  let undone = 0; let doneMinutes = 0;
+  rows.forEach((r) => {
+    if (!r.done) { undone += 1; return; }
+    const est = goals.estimateForGoal(activityId, category, 'weekly', r.label);
+    doneMinutes += (est && est.minutes) || DEFAULT_TASK_MINUTES;
+  });
+  return { total: rows.length, undone, doneMinutes };
+}
 
 function today() {
   const d = new Date();
@@ -50,31 +63,65 @@ function planFor(userId, activityId, category, periodNumber) {
     const b = goals.weekBounds(period.startDate, i);
     const past = b.end < now;
     const target = own[i] != null ? own[i] : restVal;
-    let done = null; let extra = 0; let short = 0;
+    let done = null; let extra = 0; let short = 0; let saved = 0; let effTarget = target;
     if (past) {
       done = timecaps.minutesInRange(userId, activityId, category, b.start, b.end);
       extra = Math.max(0, done - target);
       short = target > 0 ? Math.max(0, target - done) : 0;
+      // Moins de temps mais TOUTES les tâches faites : la cible se réduit au temps réel (le temps sans tâche n'a pas de valeur).
+      // Tâches restantes : cible inchangée (le report ajoute du temps plus tard). Aucune tâche liée : cible inchangée.
+      const lt = linkedTasks(activityId, byWeek[i] ? byWeek[i].id : null, category);
+      if (lt.total > 0 && lt.undone === 0 && done < target) { saved = target - done; effTarget = done; }
+      short = 0;
     }
-    return { weekIndex: i, own: own[i] != null ? own[i] : null, target, past, done, extra, short, proposal: 0 };
+    return { weekIndex: i, own: own[i] != null ? own[i] : null, target: effTarget, past, done, extra, short, saved, proposal: 0 };
   });
 
   const hasData = periodManual != null || Object.keys(own).length > 0 || baseWeekly != null;
   const baseTotal = hasData ? weeks.reduce((s, w) => s + w.target, 0) : null;
   const extraTotal = weeks.reduce((s, w) => s + w.extra, 0);
-  const shortfall = weeks.reduce((s, w) => s + w.short, 0);
-  const future = weeks.filter((w) => !w.past);
-  if (shortfall >= MIN_PROPOSAL && future.length) {
-    const share = Math.round(shortfall / future.length / 5) * 5;
-    if (share >= 5) future.forEach((w) => { w.proposal = share; });
-  }
+  const shortfall = 0;
+  const savedTotal = weeks.reduce((s, w) => s + w.saved, 0);
   return {
     periodNumber, baseWeekly, baseSource,
     source: Object.keys(own).length ? 'weeks' : (periodManual != null ? 'period' : baseSource),
-    weeks, baseTotal, extraTotal, shortfall,
+    weeks, baseTotal, extraTotal, shortfall, savedTotal,
     periodTotal: baseTotal == null ? null : baseTotal + extraTotal,
     periodManual,
   };
 }
 
-module.exports = { planFor };
+// Ajoute `minutes` à la cible de la semaine contenant `day` (report d'une tâche : le temps de la tâche s'ajoute à la
+// semaine d'arrivée, donc à la période). Renvoie false si rien n'a pu être fait (pas de plan / pas de base connue).
+function addMinutesToWeekOf(userId, activityId, category, day, minutes) {
+  if (!(minutes > 0)) return false;
+  const plan = db.prepare('SELECT startDate FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, category);
+  if (!plan) return false;
+  const n = goals.periodNumberForDate(plan.startDate, day);
+  const period = goals.ensurePeriodRow(activityId, category, n, plan.startDate);
+  const weekIndex = Math.floor(goals.daysBetween(period.startDate, day) / 7) + 1;
+  if (weekIndex < 1 || weekIndex > goals.WEEKS_PER_PERIOD) return false;
+  const before = planFor(userId, activityId, category, n);
+  if (!before || before.baseTotal == null) return false;
+  const wk = before.weeks.find((w) => w.weekIndex === weekIndex);
+  const row = db.prepare('SELECT w.text FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE p.id = ? AND w.weekIndex = ? AND w.carriedOverFromId IS NULL').get(period.id, weekIndex);
+  const newTarget = (wk ? wk.target : 0) + minutes;
+  goals.setWeekly(activityId, category, n, weekIndex, row ? row.text : '', undefined, newTarget);
+  if (before.periodManual != null) {
+    const pr = db.prepare('SELECT mainGoalText FROM goal_periods WHERE id = ?').get(period.id);
+    goals.setMainGoal(activityId, category, n, pr ? pr.mainGoalText : '', undefined, before.baseTotal + minutes);
+  }
+  return true;
+}
+
+// Temps estimé d'une tâche (même source que le planificateur), écarté s'il dépasse la capacité d'une journée (estimation
+// issue d'objectifs hebdomadaires, pas d'une tâche) : on retombe sur la durée par défaut.
+function taskMinutes(userId, activityId, category, label) {
+  const est = category ? goals.estimateForGoal(activityId, category, 'weekly', label) : null;
+  const m = (est && est.minutes) || DEFAULT_TASK_MINUTES;
+  let budget = 0;
+  try { budget = require('./goalsoverload').budgetFor(activityId, userId); } catch (e) { budget = 0; }
+  return budget > 0 && m > budget ? DEFAULT_TASK_MINUTES : m;
+}
+
+module.exports = { planFor, addMinutesToWeekOf, taskMinutes };

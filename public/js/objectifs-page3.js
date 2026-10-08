@@ -931,7 +931,7 @@
             textWrap.appendChild(prev);
           }
           var wci = weekCapInfo(period.periodNumber, weekIndex);
-          var capMin = w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (wci ? wci.target : (TMT.goalsWeekCapacityDefault || 0));
+          var capMin = wci ? wci.target : (w.estimateSource === 'manual' && w.estimateMinutes > 0 ? w.estimateMinutes : (TMT.goalsWeekCapacityDefault || 0));
           var capBtn = document.createElement('button');
           capBtn.type = 'button';
           capBtn.className = 'goalWeeklyCapBtn' + (w.estimateSource === 'manual' ? ' manual' : '');
@@ -946,16 +946,8 @@
           if (wci && wci.past && wci.done != null) {
             var info = document.createElement('div');
             info.className = 'goalWeeklyCapInfo';
-            info.textContent = t('Réalisé') + ' : ' + formatGoalHours(wci.done) + (wci.extra > 0 ? ' · +' + formatGoalHours(wci.extra) + ' ' + t('en plus, ajoutées à la période') : '');
+            info.textContent = t('Réalisé') + ' : ' + formatGoalHours(wci.done) + (wci.extra > 0 ? ' · +' + formatGoalHours(wci.extra) + ' ' + t('en plus, ajoutées à la période') : '') + (wci.saved > 0 ? ' · ' + t('tâches faites en moins de temps') + ' : −' + formatGoalHours(wci.saved) : '');
             textWrap.appendChild(info);
-          }
-          if (wci && !wci.past && wci.proposal > 0) {
-            var prop = document.createElement('button');
-            prop.type = 'button';
-            prop.className = 'linkBtn goalEstUse goalWeeklyProposal';
-            prop.textContent = t('Proposition') + ' : +' + wci.proposal + ' min ' + t('pour rattraper le retard');
-            prop.addEventListener('click', function () { saveWeeklyCapacity(period.periodNumber, weekIndex, w.text, capMin + wci.proposal); });
-            textWrap.appendChild(prop);
           }
         }
         renderWeekInto(false);
@@ -1413,6 +1405,7 @@
     var total = plan && plan.periodNumber === period.periodNumber && plan.periodTotal != null ? plan.periodTotal : period.mainGoalEstimateMinutes;
     var line = total != null ? '≈ ' + formatGoalHours(total) + ' ' + t('estimées pour la période') : t('Temps estimé : à définir');
     if (plan && plan.periodNumber === period.periodNumber && plan.extraTotal > 0) line += ' · +' + formatGoalHours(plan.extraTotal) + ' ' + t('passées en plus');
+    if (plan && plan.periodNumber === period.periodNumber && plan.savedTotal > 0) line += ' · −' + formatGoalHours(plan.savedTotal) + ' ' + t('gagnées');
     el.textContent = line;
   }
 
