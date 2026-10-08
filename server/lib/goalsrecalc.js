@@ -62,7 +62,7 @@ function evaluate({ target, done, weeksLeft, actualPerWeek }) {
 
 function evaluatePeriod(userId, p, today) {
   const weeklySum = db.prepare('SELECT COALESCE(SUM(estimateMinutes), 0) AS s FROM goal_weekly WHERE periodId = ? AND carriedToId IS NULL').get(p.id).s;
-  const target = Math.max(p.mainGoalEstimateMinutes || 0, weeklySum);
+  const target = p.mainGoalEstimateMinutes > 0 ? p.mainGoalEstimateMinutes : weeklySum; // le maximum de la période prime
   // Par pôle : temps réel de CETTE catégorie (un pôle cumule ses secteurs), pas de toute l'activité.
   const done = timecaps.minutesInRange(userId, p.activityId, p.category, p.startDate, today);
   const weeksLeft = Math.max(1, Math.ceil((goals.daysBetween(today, p.endDate) + 1) / 7));

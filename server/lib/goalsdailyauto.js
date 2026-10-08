@@ -124,7 +124,7 @@ function deterministicAssignments(items, dates) {
   return items.map((item, idx) => ({ itemId: item.id, date: pool[idx % pool.length] }));
 }
 
-function buildPrompt(items, dates, dailyCapacityMinutes, weekly) {
+function buildPrompt(items, dates, dailyCapacityMinutes, weekly, isMax) {
   const daysList = dates.map((d, i) => `- ${d} (${WEEKDAY_LABELS_FR[i]})`).join('\n');
   const itemsList = items.map((it) => `- id ${it.id} : ${it.label}`).join('\n');
   const goalLines = weekly && weekly.text
@@ -137,7 +137,7 @@ function buildPrompt(items, dates, dailyCapacityMinutes, weekly) {
     'Jours disponibles cette semaine :',
     daysList,
     '',
-    `Capacité indicative par jour : environ ${dailyCapacityMinutes} minutes (une indication, pas une limite stricte — regrouper des tâches liées sur le même jour est plus important que respecter ce chiffre au minute près).`,
+    isMax ? `Maximum par jour fixé par la personne : ${dailyCapacityMinutes} minutes. Chaque jour, vise ce maximum sans JAMAIS le dépasser.` : `Capacité indicative par jour : environ ${dailyCapacityMinutes} minutes (une indication, pas une limite stricte — regrouper des tâches liées sur le même jour est plus important que respecter ce chiffre au minute près).`,
     '',
     'Tâches à répartir (ne jamais changer leur texte, ne jamais en ajouter ni en retirer) :',
     itemsList,
@@ -237,7 +237,11 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
   // de requérir ce fichier, mais goals.js est déjà requis par les deux).
   const goalsauto = require('./goalsauto');
   const weeklyCapacity = goalsauto.capacityMinutesForMember(activityId, weekly.category, capacityUserId);
-  const dailyCapacity = Math.max(1, Math.round(weeklyCapacity / 7));
+  let dailyCapacity = Math.max(1, Math.round(weeklyCapacity / 7));
+  // Max quotidien posé (Gérer mon temps) : c'est lui qui compte — viser ce maximum sans le dépasser.
+  let dailyMax = null;
+  try { dailyMax = require('./timecaps').getCaps(capacityUserId, activityId, weekly.category).maxDayMinutes || null; } catch (e) { dailyMax = null; }
+  if (dailyMax) dailyCapacity = dailyMax;
 
   let assignments = [];
   let usedAi = false;
@@ -245,7 +249,7 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
 
   if (configured() && items.length <= MAX_ITEMS_PER_CALL) {
     try {
-      const prompt = buildPrompt(items, dates, dailyCapacity, weekly);
+      const prompt = buildPrompt(items, dates, dailyCapacity, weekly, !!dailyMax);
       const text = await callModel(prompt);
       const parsed = extractJson(text);
       const { valid, missing } = validateAssignments(parsed, items, dates);

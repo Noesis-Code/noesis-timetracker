@@ -196,9 +196,14 @@ function periodDerivedWeeklyMinutes(activityId, category) {
 
 // 7 oct. 2026 : plafonné par le max hebdomadaire (facultatif) du pôle/secteur, s'il existe.
 function capacityMinutesForMember(activityId, category, userId) {
-  const raw = uncappedCapacityMinutesForMember(activityId, category, userId);
+  // 8 oct. 2026 (Émilien) : c'est le MAXIMUM qui compte, pas la moyenne — Noèsis vise le maximum sans
+  // le dépasser. Max hebdo posé : la capacité EST ce max (borné par le max de la période, s'il y en a un).
   const cap = require('./timecaps').weeklyCapFor(userId, activityId, category);
-  return cap != null ? Math.max(1, Math.min(raw, cap)) : raw;
+  if (cap != null) {
+    const derived = periodDerivedWeeklyMinutes(activityId, category);
+    return Math.max(1, derived != null ? Math.min(derived, cap) : cap);
+  }
+  return uncappedCapacityMinutesForMember(activityId, category, userId);
 }
 
 function uncappedCapacityMinutesForMember(activityId, category, userId) {

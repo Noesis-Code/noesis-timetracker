@@ -167,16 +167,16 @@ function realism(userId, activityId, category) {
   const p = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, n);
   if (!p || !p.mainGoalText) return null;
   const weeklySum = db.prepare("SELECT COALESCE(SUM(estimateMinutes), 0) AS s FROM goal_weekly WHERE periodId = ? AND carriedToId IS NULL").get(p.id).s;
-  const target = Math.max(p.mainGoalEstimateMinutes || 0, weeklySum);
+  const target = p.mainGoalEstimateMinutes > 0 ? p.mainGoalEstimateMinutes : weeklySum; // le maximum de la période prime
   if (target <= 0) return null;
   const done = timecaps.minutesInRange(userId, activityId, category, p.startDate, today);
   const remaining = Math.max(0, target - done);
   const weeksLeft = Math.max(1, Math.ceil((goals.daysBetween(today, p.endDate) + 1) / 7));
   // Capacité réelle de CETTE catégorie (secteur, ou pôle = ses secteurs cumulés), pas de toute l'activité.
   let have = timecaps.averages(userId, activityId, category).avgWeekMinutes;
-  if (have <= 0) return null; // aucun historique : pas de jugement
   const cap = timecaps.weeklyCapFor(userId, activityId, category);
-  if (cap != null) have = Math.min(have, cap);
+  if (cap != null) have = cap; // le maximum posé prime sur la moyenne
+  if (have <= 0) return null; // aucun historique ni maximum : pas de jugement
   const needPerWeek = Math.round(remaining / weeksLeft);
   const unrealistic = remaining > 0 && needPerWeek > have * MARGIN;
   return {
