@@ -55,6 +55,7 @@
                  bandeau plein largeur de la couleur de catégorie (voir
                  renderActivityGoals(), app.js). -->
             <p class="goalCardLabel goalsWeeklyLabel goalsMainOutLabel">Objectif périodique</p>
+            <button type="button" class="goalMainEmptyBar hidden" id="activityGoalsMainEmptyBar"><span>Aucun objectif périodique</span><span class="goalMainEmptyAdd">+ Ajouter</span></button>
             <div class="goalCard goalMainCard" id="activityGoalsMainCard">
               <!-- 16 septembre 2026 (discussion "Objectifs — D"), demande
                    d'Emilien : « la zone de texte [...] moins grande [...]
@@ -386,6 +387,7 @@
   // croix ✕, textarea, bouton Enregistrer DANS la zone.
   var GOAL_DESC_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
 
+  var mainFormOpenKey = null; // « période|pôle » dont le formulaire d'objectif périodique vide a été ouvert (+ Ajouter)
   var mainEditKey = null; // « période|pôle » dont l'objectif périodique est en modification sur place
 
 
@@ -1249,8 +1251,23 @@
     if (mainEmptyHint) mainEmptyHint.classList.toggle('hidden', hasMainGoal);
     var mainMetaBox = $('activityGoalsMainMeta');
     if (mainMetaBox) mainMetaBox.classList.toggle('hidden', !hasMainGoal);
+    // Sans objectif périodique : carte discrète « Aucun objectif périodique · + Ajouter » ; les semaines (objectifs
+    // hebdomadaires, tâches par jour) restent toujours accessibles, l'objectif périodique est facultatif.
+    var emptyKey = period.periodNumber + '|' + TMT.currentGoalsCategory;
+    var emptyBar = $('activityGoalsMainEmptyBar');
+    var showForm = hasMainGoal || mainFormOpenKey === emptyKey;
+    if (emptyBar) {
+      emptyBar.classList.toggle('hidden', showForm);
+      emptyBar.onclick = function () {
+        mainFormOpenKey = emptyKey;
+        renderActivityGoals();
+        var inp = $('activityGoalsMainInput'); if (inp) inp.focus();
+      };
+    }
+    var mainCardBox = $('activityGoalsMainCard');
+    if (mainCardBox) mainCardBox.classList.toggle('hidden', !showForm);
     var periodBodyBox = $('activityGoalsPeriodBody');
-    if (periodBodyBox) periodBodyBox.classList.toggle('hidden', !hasMainGoal);
+    if (periodBodyBox) periodBodyBox.classList.remove('hidden');
 
     paintPeriodEstimate(period);
 
@@ -1697,11 +1714,11 @@
   // bouton, Entrée soumet — repliable ici puisqu'il y en a un par jour.
   function buildGoalsCalendarAddForm(period, day) {
     var wrap = document.createElement('div');
-    wrap.className = 'goalsCalendarTaskAdd hidden';
+    wrap.className = 'subProjectItemAdd goalsDayTaskAdd hidden'; // même format que l'onglet 1 (zone de saisie + « Ajouter »)
     var input = document.createElement('input');
     input.type = 'text';
     input.maxLength = 300;
-    input.placeholder = t('Tâche pour ce jour...');
+    input.placeholder = t('Ajouter une tâche...');
     var btn = document.createElement('button');
     btn.type = 'button';
     // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
@@ -1709,7 +1726,7 @@
     // avec seulement une place pour le bouton ajouter » — classe dédiée
     // (plus .iconBtn, réutilisée telle quelle ailleurs dans ce fichier) pour
     // pouvoir agrandir ce bouton précis sans toucher au reste de l'app.
-    btn.className = 'goalsCalendarTaskAddBtn btnBrique';
+    btn.className = 'iconBtn btnBrique';
     btn.textContent = t('Ajouter');
     var msg = document.createElement('p');
     msg.className = 'msg';
@@ -1886,6 +1903,24 @@
             api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/tasks/' + task.id + '/mark-seen')
               .then(function () { dot.remove(); })
               .catch(function () { /* pas bloquant — le point réapparaîtra au prochain chargement */ });
+          }
+
+          // Bouton modifier à droite : même éditeur sur place que l'onglet 1 (texte, date, suppression).
+          if (TMT.openGoalsTaskEditPanel) {
+            var editTask = document.createElement('button');
+            editTask.type = 'button';
+            editTask.className = 'subProjectDeleteX goalsTaskTrashBtn goalsTaskEditBtn goalsDayTaskEditBtn';
+            editTask.innerHTML = TMT.goalsTaskEditIcon ? TMT.goalsTaskEditIcon() : '';
+            editTask.title = t('Modifier cette tâche');
+            editTask.setAttribute('aria-label', t('Modifier cette tâche'));
+            editTask.addEventListener('click', function (e) {
+              e.stopPropagation();
+              var existing = taskRow.querySelector('.goalsTaskEditPanel');
+              if (existing) { existing.remove(); taskRow.classList.remove('goalsTaskEditing'); editTask.style.display = ''; return; }
+              editTask.style.display = 'none';
+              TMT.openGoalsTaskEditPanel(taskRow, { id: task.id, label: task.label, dueDate: day.date }, function () { loadGoalsCalendarDays(period); });
+            });
+            taskRow.appendChild(editTask);
           }
 
           bindGoalsTaskLongPress(taskRow, task, period, check);

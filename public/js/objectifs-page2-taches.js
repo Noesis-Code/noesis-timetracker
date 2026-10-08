@@ -1035,6 +1035,8 @@
     archiveScrollBack = null;
   }
   TMT.collapseGoalsArchives = collapseGoalsArchives;
+  TMT.openGoalsTaskEditPanel = openGoalsTaskEditPanel; // réutilisé par les jours du calendrier (page 2, onglet 2)
+  TMT.goalsTaskEditIcon = function () { return GOALS_TASK_EDIT_ICON; };
 
   // Rappelé par le sélecteur de pôle (objectifs-page2-objectif.js) au changement de pôle.
   TMT.rerenderGoalsTasksOverview = function () {
@@ -1137,7 +1139,8 @@
 
   var GOALS_TASK_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
 
-  function openGoalsTaskEditPanel(row, task) {
+  function openGoalsTaskEditPanel(row, task, onChanged) {
+    var refresh = typeof onChanged === 'function' ? onChanged : function () { loadGoalsTasksOverview(); };
     var panel = document.createElement('div');
     panel.className = 'goalsTaskEditPanel historyEditFields';
     row.classList.add('goalsTaskEditing');
@@ -1177,7 +1180,7 @@
     delBtn.addEventListener('click', function () {
       if (!confirm(t('Supprimer cette tâche ?'))) return;
       api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + uid)
-        .then(function () { loadGoalsTasksOverview(); })
+        .then(function () { refresh(); })
         .catch(function (err) { alert(err.message); });
     });
     var cancel = document.createElement('button');
@@ -1190,10 +1193,10 @@
       if (!label) { txt.focus(); return; }
       var body = { userId: uid, label: label };
       if (dateIn.value) body.dueDate = dateIn.value;
-      if (assignSel) body.plannedUserId = assignSel.value || null;
+      if (assignSel && task.plannedUserId !== undefined) body.plannedUserId = assignSel.value || null;
       save.disabled = true;
       api('PUT', '/api/sub-project-items/' + task.id, body)
-        .then(function () { loadGoalsTasksOverview(); })
+        .then(function () { refresh(); })
         .catch(function (err) { save.disabled = false; alert(err.message); });
     });
     actions.appendChild(delBtn); actions.appendChild(cancel); actions.appendChild(save);
