@@ -7552,6 +7552,7 @@
     if (m === null || m === undefined) return '';
     return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
   }
+  TMT.fmtCapMinutes = fmtCapMinutes;
   function parseCapMinutes(txt) {
     var s = String(txt || '').trim().toLowerCase().replace(',', '.');
     if (!s) return { value: null };
@@ -7611,6 +7612,7 @@
     ov.appendChild(sheet); document.body.appendChild(ov);
     return { close: close };
   }
+  TMT.openDurationPicker = openDurationPicker;
   // Bloc plafonds du formulaire en place : renvoie { node, read() }.
   // Tableau Moyenne (lecture seule) / Maximum (boutons -> openDurationPicker).
   // Maximum 0:00 = aucun plafond (null), affiché en gris.

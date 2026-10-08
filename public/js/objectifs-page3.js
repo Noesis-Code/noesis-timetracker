@@ -74,12 +74,15 @@
               </div>
               <textarea id="activityGoalsMainDescInput" class="hidden" rows="3" maxlength="600" autocomplete="off"></textarea>
               <div class="goalMainEstEdit hidden" id="activityGoalsMainEstEdit">
-                <label for="activityGoalsMainEstInput">Temps estimé pour la période</label>
-                <div class="goalMainEstRow">
-                  <input type="number" id="activityGoalsMainEstInput" min="0" step="0.5" inputmode="decimal" autocomplete="off">
-                  <span>h</span>
-                  <button type="button" class="goalMainEstBtn" id="activityGoalsMainEstBtn" disabled>Noèsis estime mon temps</button>
+                <div class="goalEstTable">
+                  <div></div>
+                  <div class="goalEstHead">Moyenne</div>
+                  <div class="goalEstHead">Maximum</div>
+                  <div class="goalEstRowLabel">Période</div>
+                  <div class="goalEstAvg" id="activityGoalsMainEstAvg">0:00</div>
+                  <button type="button" class="goalEstMax isEmpty" id="activityGoalsMainEstMax">0:00</button>
                 </div>
+                <button type="button" class="linkBtn goalEstUse" id="activityGoalsMainEstUse">Utiliser ma moyenne</button>
               </div>
               <div class="goalDescRow hidden" id="activityGoalsMainDescRow">
                 <span class="goalDescPreview" id="activityGoalsMainDescPreview"></span>
@@ -987,45 +990,47 @@
       mainSaveRow.classList.remove('hidden');
       mainInput.onblur = null;
       mainInput.oninput = null;
-      // Temps estimé : champ en heures ; « Estimez mon temps » ne s'allume que si la valeur a été
-      // modifiée par rapport à l'estimation automatique, et la remet.
-      var estIn = $('activityGoalsMainEstInput'), estBtn = $('activityGoalsMainEstBtn');
+      // Temps estimé : tableau Moyenne (estimation de Noèsis, lecture seule) / Maximum (saisi à la main,
+      // roulette de durée). « Utiliser ma moyenne » recopie la moyenne dans le maximum.
+      var avgEl = $('activityGoalsMainEstAvg'), maxBtn = $('activityGoalsMainEstMax'), useBtn = $('activityGoalsMainEstUse');
       var autoMinutes = null;
-      var toMin = function () { var h = parseFloat(String(estIn.value).replace(',', '.')); return isFinite(h) && h >= 0 ? Math.round(h * 60) : null; };
-      // S'allume dès que la valeur saisie à la main diffère de la valeur enregistrée.
-      var initialMin = period.mainGoalEstimateMinutes != null ? period.mainGoalEstimateMinutes : null;
-      // Vert léger si Noèsis a assez de données pour estimer ; sinon gris pâle, désactivé.
-      var syncEstBtn = function () { estBtn.disabled = autoMinutes == null; estBtn.classList.toggle('lit', autoMinutes != null); };
-      if (estIn.dataset.editFor !== curKey) {
-        estIn.value = period.mainGoalEstimateMinutes != null ? String(Math.round(period.mainGoalEstimateMinutes / 6) / 10) : '';
-        estIn.dataset.editFor = curKey;
+      if (maxBtn.dataset.editFor !== curKey) {
+        maxBtn.dataset.minutes = period.mainGoalEstimateMinutes != null ? String(period.mainGoalEstimateMinutes) : '';
+        maxBtn.dataset.editFor = curKey;
       }
+      var getMax = function () { var v = parseInt(maxBtn.dataset.minutes, 10); return isFinite(v) && v > 0 ? v : null; };
+      var paintEst = function () {
+        avgEl.textContent = TMT.fmtCapMinutes(autoMinutes) || '0:00';
+        var m = getMax();
+        maxBtn.textContent = TMT.fmtCapMinutes(m) || '0:00';
+        maxBtn.classList.toggle('isEmpty', !m);
+        useBtn.disabled = autoMinutes == null;
+      };
       var loadAuto = function () {
         api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/main-estimate?category=' + encodeURIComponent(TMT.currentGoalsCategory) + '&text=' + encodeURIComponent(mainInput.value.trim() || period.mainGoalText))
-          .then(function (r) { autoMinutes = r && r.minutes != null ? r.minutes : null; syncEstBtn(); })
-          .catch(function () { autoMinutes = null; syncEstBtn(); });
+          .then(function (r) { autoMinutes = r && r.minutes != null ? r.minutes : null; paintEst(); })
+          .catch(function () { autoMinutes = null; paintEst(); });
       };
-      estIn.oninput = syncEstBtn;
-      estBtn.onclick = function () {
+      maxBtn.onclick = function () {
+        TMT.openDurationPicker({ title: 'Maximum', minutes: getMax() || 0, onDone: function (v) { maxBtn.dataset.minutes = v > 0 ? String(v) : ''; paintEst(); } });
+      };
+      useBtn.onclick = function () {
         if (autoMinutes == null) { $('activityGoalsMsg').textContent = t('Pas encore assez d’historique pour estimer ce temps.'); return; }
         $('activityGoalsMsg').textContent = '';
-        var curMin = toMin();
-        if (curMin != null && curMin !== autoMinutes && !confirm(t('Remplacer le temps saisi par l’estimation de Noèsis ?'))) return;
-        estIn.value = String(Math.round(autoMinutes / 6) / 10);
-        initialMin = autoMinutes; syncEstBtn();
+        maxBtn.dataset.minutes = String(autoMinutes); paintEst();
       };
       var autoTmr = 0;
       mainInput.oninput = function () { clearTimeout(autoTmr); autoTmr = setTimeout(loadAuto, 500); };
-      syncEstBtn(); loadAuto();
+      paintEst(); loadAuto();
       mainSaveBtn.onclick = function () {
         var title = mainInput.value.trim() || period.mainGoalText;
         if (!title) return;
-        var m = toMin();
+        var m = getMax();
         var est = (m == null || (autoMinutes != null && m === autoMinutes)) ? null : m;
-        mainEditKey = null; descIn.dataset.editFor = ''; estIn.dataset.editFor = '';
+        mainEditKey = null; descIn.dataset.editFor = ''; maxBtn.dataset.editFor = '';
         saveMainGoalDescription(period.periodNumber, title, descIn.value.trim(), est);
       };
-      cancelBtn.onclick = function () { mainEditKey = null; descIn.dataset.editFor = ''; $('activityGoalsMainEstInput').dataset.editFor = ''; renderActivityGoals(); };
+      cancelBtn.onclick = function () { mainEditKey = null; descIn.dataset.editFor = ''; $('activityGoalsMainEstMax').dataset.editFor = ''; renderActivityGoals(); };
     } else {
       descIn.dataset.editFor = '';
     }
