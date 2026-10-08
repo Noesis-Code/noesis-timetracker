@@ -755,6 +755,14 @@
   // maybeScheduleGoalsWeeklyAutoFillPoll() plus haut dans ce fichier) : sans
   // ça, ce rafraîchissement replierait une semaine qu'Emilien vient d'ouvrir.
   var goalsOpenWeekIndexes = {};
+  // État déplié PAR (période, semaine) et seulement pour le secteur/pôle affiché : changer de période le garde,
+  // changer de secteur ou de pôle (puis revenir) le remet à zéro (tout replié).
+  var goalsOpenScope = null;
+  function goalsOpenKey(period, weekIndex) { return (period ? period.periodNumber : 0) + '|' + weekIndex; }
+  function goalsOpenSync() {
+    var scope = TMT.currentGoalsActivityId + '|' + TMT.currentGoalsCategory;
+    if (goalsOpenScope !== scope) { goalsOpenScope = scope; goalsOpenWeekIndexes = {}; }
+  }
 
   // Brouillons d'édition des objectifs hebdomadaires ouverts (clé « période:semaine »),
   // conservés à travers les re-rendus (rafraîchissement silencieux).
@@ -983,7 +991,8 @@
         // ait déjà un texte (w non nul) ou non : du temps réel/des tâches
         // ponctuelles peuvent exister sur n'importe quel jour de la période
         // indépendamment de la saisie d'un objectif hebdomadaire.
-        var isOpen = !!goalsOpenWeekIndexes[weekIndex];
+        goalsOpenSync();
+        var isOpen = !!goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)];
         row.style.setProperty('--poleColor', currentGoalsCategoryColor());
         row.classList.toggle('weekOpen', isOpen);
         var expandBtn = document.createElement('button');
@@ -999,7 +1008,7 @@
           panel.classList.toggle('hidden', !opening);
           expandBtn.classList.toggle('open', opening);
           row.classList.toggle('weekOpen', opening);
-          goalsOpenWeekIndexes[weekIndex] = opening;
+          goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)] = opening;
         });
         row.appendChild(expandBtn);
 
@@ -1655,7 +1664,8 @@
     if (panel && panel.classList.contains('hidden')) {
       panel.classList.remove('hidden');
       if (expandBtn) expandBtn.classList.add('open');
-      goalsOpenWeekIndexes[weekIndex] = true;
+      goalsOpenSync();
+      goalsOpenWeekIndexes[goalsOpenKey(period, weekIndex)] = true;
     }
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     var ta = target.querySelector('textarea');
