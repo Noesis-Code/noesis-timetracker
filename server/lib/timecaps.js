@@ -140,4 +140,4 @@ function computeCapMoves({ today, caps, tasks, horizon = 60 }) {
   return out;
 }
 
-module.exports = { getCaps, setCaps, listCaps, weeklyCapFor, computeCapMoves };
+module.exports = { getCaps, setCaps, listCaps, weeklyCapFor, computeCapMoves, averages };

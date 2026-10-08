@@ -148,7 +148,7 @@ function applyCarry(userId, activityId, body) {
 }
 
 // ---------------------------------------------------------------------------
-// Cible irréaliste. « Disponible » = moyenne hebdo du temps réellement chronométré sur 4 semaines
+// Cible irréaliste. « Disponible » = moyenne hebdo du temps réellement chronométré sur 4 semaines pour la catégorie
 // (capacityMinutesForMember est dérivée du grand objectif lui-même quand il est posé : la comparer
 // à lui-même ne détecterait jamais rien), plafonnée par le max hebdo du pôle s'il existe.
 function realism(userId, activityId, category) {
@@ -164,7 +164,8 @@ function realism(userId, activityId, category) {
   const done = Math.round(goals.actualSecondsForRange(activityId, p.startDate, today) / 60);
   const remaining = Math.max(0, target - done);
   const weeksLeft = Math.max(1, Math.ceil((goals.daysBetween(today, p.endDate) + 1) / 7));
-  let have = Math.round(goals.actualSecondsForRange(activityId, goals.addDays(today, -28), goals.addDays(today, -1)) / 60 / 4);
+  // Capacité réelle de CETTE catégorie (secteur, ou pôle = ses secteurs cumulés), pas de toute l'activité.
+  let have = timecaps.averages(userId, activityId, category).avgWeekMinutes;
   if (have <= 0) return null; // aucun historique : pas de jugement
   const cap = timecaps.weeklyCapFor(userId, activityId, category);
   if (cap != null) have = Math.min(have, cap);
