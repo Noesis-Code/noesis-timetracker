@@ -859,7 +859,6 @@
     'période suivante déjà remplie': 'next period already filled',
     'Reporter': 'Carry over',
     'Tout reporter': 'Carry over all',
-    'Les tâches à date fixée se reportent une par une.': 'Fixed-date tasks are carried over one by one.',
     'importance': 'importance',
     'haute': 'high',
     'normale': 'normal',

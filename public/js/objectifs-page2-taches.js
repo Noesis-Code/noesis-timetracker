@@ -697,7 +697,6 @@
           var all = el('button', 'goalsReportAll', t('Tout reporter')); all.type = 'button';
           all.addEventListener('click', function () { all.disabled = true; post('unfinished/apply', { tasks: auto.map(function (x) { return { id: x.id, to: x.proposedTo }; }), periods: perOk.map(function (x) { return x.periodId; }) }); });
           box2.appendChild(all);
-          if (tasks.length > auto.length) box2.appendChild(el('p', 'meta', t('Les tâches à date fixée se reportent une par une.')));
         }
         rb.appendChild(box2);
       }
