@@ -857,6 +857,7 @@
     'en retard de ': 'late by ',
     'date fixée': 'fixed date',
     'période suivante déjà remplie': 'next period already filled',
+    'La période suivante a déjà son propre objectif. Pour y reporter celui-ci sans l’écraser, modifie ou vide d’abord l’objectif de la période suivante.': 'The next period already has its own goal. To carry this one over without overwriting it, first edit or clear the next period’s goal.',
     'Reporter': 'Carry over',
     'Tout reporter': 'Carry over all',
     'importance': 'importance',

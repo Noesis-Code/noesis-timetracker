@@ -243,6 +243,8 @@
 .goalsAlertCard .goalsReportAll { background: rgba(255,159,46,.16); border: 1px solid rgba(255,159,46,.45); color: #f0b36b; font-weight: 600; }
 .goalsAlertCard .goalsReportBtn { border: 1px solid rgba(255,159,46,.4); color: #e8ab62; background: none; }
 .goalsAlertCard .goalsOverloadActions .goalsRealismBtn { border-color: rgba(255,159,46,.55); }
+.goalsAlertCard .goalsReportBtn--blocked { opacity: .5; cursor: default; }
+.goalsReportNote { list-style: none; margin: 2px 0 6px; padding: 2px 4px 2px 0; font-size: 13px; line-height: 1.4; color: rgba(255,255,255,.62); }
 .goalsAlertCard .goalsLateBadge { color: #e8ab62; opacity: .9; }
 .goalsAlertCard .goalsReportBlock + .goalsReportBlock { margin-top: 10px; }
 

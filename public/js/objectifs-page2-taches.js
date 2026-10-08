@@ -671,7 +671,7 @@
           li.appendChild(el('span', 'goalsReportText', text));
           li.appendChild(el('span', 'goalsLateBadge', t('en retard de ') + late + ' j'));
           var b = el('button', 'goalsReportBtn', btnLabel); b.type = 'button';
-          b.addEventListener('click', function () { b.disabled = true; onClick(); });
+          b.addEventListener('click', function () { if (!b.classList.contains('goalsReportBtn--blocked')) b.disabled = true; onClick(); });
           li.appendChild(b);
           if (onDelete) {
             var d = el('button', 'goalsReportDel'); d.type = 'button'; d.innerHTML = GOALS_TASK_TRASH_ICON; d.setAttribute('aria-label', t('Supprimer la tâche'));
@@ -679,6 +679,7 @@
             li.appendChild(d);
           }
           ul.appendChild(li);
+          return li;
         }
         tasks.forEach(function (x) {
           var day = TMT.calendarDayLabel(x.proposedTo) || x.proposedTo;
@@ -687,9 +688,17 @@
             function () { api('DELETE', '/api/sub-project-items/' + x.id + '?userId=' + TMT.getProfile().id).then(refresh).catch(function (e) { alert(e.message); refresh(); }); });
         });
         periods.forEach(function (x) {
-          line(t('Objectif de période') + ' « ' + x.text.slice(0, 40) + ' »' + (x.targetFree ? '' : ' (' + t('période suivante déjà remplie') + ')'), x.lateDays, t('Reporter'),
-            function () { post('unfinished/apply', { periods: [x.periodId] }); });
-          if (!x.targetFree) ul.lastChild.querySelector('button').disabled = true;
+          var pli = line(t('Objectif de période') + ' « ' + x.text.slice(0, 40) + ' »' + (x.targetFree ? '' : ' (' + t('période suivante déjà remplie') + ')'), x.lateDays, t('Reporter'),
+            function () {
+              if (x.targetFree) { post('unfinished/apply', { periods: [x.periodId] }); return; }
+              var li = pli;
+              // Bouton grisé mais cliquable : explique pourquoi le report est impossible.
+              var note = li.nextSibling && li.nextSibling.className === 'goalsReportNote' ? li.nextSibling : null;
+              if (note) { note.remove(); return; }
+              note = el('li', 'goalsReportNote', t('La période suivante a déjà son propre objectif. Pour y reporter celui-ci sans l’écraser, modifie ou vide d’abord l’objectif de la période suivante.'));
+              li.parentNode.insertBefore(note, li.nextSibling);
+            });
+          if (!x.targetFree) pli.querySelector('button').classList.add('goalsReportBtn--blocked');
         });
         box2.appendChild(ul);
         var auto = tasks.filter(function (x) { return !x.fixed; });
