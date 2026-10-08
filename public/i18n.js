@@ -724,6 +724,7 @@
     'aucune tâche': 'no task',
     'Supprimer cette tâche': 'Delete this task',
     'Supprimer cette tâche ?': 'Delete this task?',
+    'Supprimer la tâche': 'Delete the task',
     "Écris une tâche avant d'ajouter.": 'Write a task before adding it.',
     'Cette tâche existe déjà dans': 'This task already exists in',
     'Ajouter quand même ?': 'Add anyway?',

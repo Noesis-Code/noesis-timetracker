@@ -665,18 +665,25 @@
         var box2 = el('div', 'goalsReportBlock');
         box2.appendChild(el('p', 'meta', t('Jour proposé selon ta capacité et tes plafonds. Rien ne bouge sans ton clic.')));
         var ul = el('ul', 'goalsOverloadList goalsReportList');
-        function line(text, late, btnLabel, onClick) {
+        function line(text, late, btnLabel, onClick, onDelete) {
           var li = el('li', 'goalsReportItem');
           li.appendChild(el('span', 'goalsReportText', text));
           li.appendChild(el('span', 'goalsLateBadge', t('en retard de ') + late + ' j'));
           var b = el('button', 'goalsReportBtn', btnLabel); b.type = 'button';
           b.addEventListener('click', function () { b.disabled = true; onClick(); });
-          li.appendChild(b); ul.appendChild(li);
+          li.appendChild(b);
+          if (onDelete) {
+            var d = el('button', 'goalsReportDel'); d.type = 'button'; d.innerHTML = GOALS_TASK_TRASH_ICON; d.setAttribute('aria-label', t('Supprimer la tâche'));
+            d.addEventListener('click', function () { if (!confirm(t('Supprimer cette tâche ?'))) return; d.disabled = b.disabled = true; onDelete(); });
+            li.appendChild(d);
+          }
+          ul.appendChild(li);
         }
         tasks.forEach(function (x) {
           var day = TMT.calendarDayLabel(x.proposedTo) || x.proposedTo;
           line(x.label + ' → ' + day + (x.fixed ? ' (' + t('date fixée') + ')' : '') + (x.capLabel ? ' · ' + x.capLabel : ''), x.lateDays, t('Reporter'),
-            function () { post('unfinished/apply', { tasks: [{ id: x.id, to: x.proposedTo }] }); });
+            function () { post('unfinished/apply', { tasks: [{ id: x.id, to: x.proposedTo }] }); },
+            function () { api('DELETE', '/api/sub-project-items/' + x.id + '?userId=' + TMT.getProfile().id).then(refresh).catch(function (e) { alert(e.message); refresh(); }); });
         });
         periods.forEach(function (x) {
           line(t('Objectif de période') + ' « ' + x.text.slice(0, 40) + ' »' + (x.targetFree ? '' : ' (' + t('période suivante déjà remplie') + ')'), x.lateDays, t('Reporter'),

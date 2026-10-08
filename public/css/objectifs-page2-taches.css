@@ -332,4 +332,7 @@
 .goalsReportBtn, .goalsReportAll { padding: 6px 12px; border-radius: 12px; border: 1px solid var(--purple); background: transparent; color: var(--purple); font-weight: 600; flex: 0 0 auto; }
 .goalsReportAll { margin-top: 6px; background: var(--purple); color: #fff; border-color: transparent; }
 .goalsReportBtn:disabled, .goalsReportAll:disabled { opacity: .5; }
+.goalsReportDel { flex: 0 0 auto; width: 44px; height: 44px; margin: -6px -8px -6px -4px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; color: #fff; }
+.goalsReportDel svg { width: 18px; height: 18px; }
+.goalsReportDel:disabled { opacity: .5; }
 .goalsLateBadge { flex: 0 0 auto; font-size: 11px; color: var(--purple); opacity: .85; white-space: nowrap; }
