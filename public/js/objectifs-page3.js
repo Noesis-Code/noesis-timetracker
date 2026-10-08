@@ -1011,6 +1011,15 @@
         box.appendChild(daysPanel);
       })(weekIndex);
     }
+    // Les panneaux de jours viennent d'être recréés vides : on les remplit tout de suite avec les derniers jours reçus
+    // (sinon une semaine dépliée reste vide quand la liste est redessinée après le chargement des jours).
+    var cc = goalsCalDaysCache;
+    if (cc && cc.key === goalsCalDaysKey(period)) renderGoalsCalendarDays(cc.days, period);
+  }
+
+  var goalsCalDaysCache = null;
+  function goalsCalDaysKey(period) {
+    return [TMT.currentGoalsActivityId, TMT.currentGoalsCategory, period && period.periodNumber].join('|');
   }
 
 
@@ -1739,6 +1748,7 @@
   // isWeekEnd plus bas, pas forcément un dimanche calendaire) en premier,
   // jusqu'au premier jour (« lundi ») en dernier.
   function renderGoalsCalendarDays(days, period) {
+    goalsCalDaysCache = { key: goalsCalDaysKey(period), days: days };
     // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
     // « chaque dimanche entouré par la couleur dédiée à la catégorie » —
     // 16 septembre 2026 : calcul déplacé dans currentGoalsCategoryColor()
