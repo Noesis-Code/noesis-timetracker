@@ -43,11 +43,13 @@ function viewRange(mode, today, yearOpt) {
     const labels = []; for (let i = 1; i <= 13; i += 1) labels.push('P' + i);
     return { start, end, labels, n: 13, idx: (d) => Math.min(12, Math.floor(goals.daysBetween(start, d) / 28)) };
   }
-  if (mode === 'month') {
-    const start = today.slice(0, 8) + '01';
-    const last = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0).getDate();
-    const labels = []; for (let i = 1; i <= last; i += 1) labels.push(String(i));
-    return { start, end: today.slice(0, 8) + String(last).padStart(2, '0'), labels, n: last, idx: (d) => Number(d.slice(8, 10)) - 1 };
+  if (mode === 'period') {
+    // Période de 28 jours en cours (même grille que l'année : période 1 = lundi de la semaine du 1er janvier).
+    let anchor = yearAnchor(Number(today.slice(0, 4)));
+    if (anchor > today) anchor = yearAnchor(Number(today.slice(0, 4)) - 1);
+    const start = goals.addDays(anchor, Math.floor(goals.daysBetween(anchor, today) / 28) * 28);
+    const labels = []; for (let i = 1; i <= 28; i += 1) labels.push(String(i));
+    return { start, end: goals.addDays(start, 27), labels, n: 28, idx: (d) => goals.daysBetween(start, d) };
   }
   const start = goals.mostRecentMonday(today);
   return { start, end: goals.addDays(start, 6), labels: WEEKDAY_LABELS.slice(), n: 7, idx: (d) => goals.daysBetween(start, d) };
@@ -99,13 +101,58 @@ function buildAllYears(today, items, years) {
 function chartFor(today, items, year, years) {
   const cur = Number(today.slice(0, 4));
   const calc = (m) => buildView(m, today, items);
-  const out = { month: calc('month'), week: calc('week') };
+  const out = { period: calc('period'), week: calc('week') };
   if (year === 'all') out.year = buildAllYears(today, items, years);
   else if (year && year < cur) {
     out.year = buildView('year', year + '-12-31', items, year);
     out.year.todayIndex = null; out.year.past = true;
   } else out.year = calc('year');
   return out;
+}
+
+// Année « de grille » (ancre = lundi de la semaine du 1er janvier) à laquelle appartient une date.
+function anchorYearOf(d) {
+  const y = Number(String(d).slice(0, 4));
+  return d < yearAnchor(y) ? y - 1 : y;
+}
+// Objectifs : réussite cumulée par période. objs : [{ periodStart, status }].
+// year : nombre | 'all'. Un point par période (13 par année) ; « Tous » = toutes les années depuis minY.
+function buildObjectiveSeries(today, objs, year, minY) {
+  const cur = anchorYearOf(today);
+  const first = year === 'all' ? Math.min(minY, cur) : Number(year);
+  const last = year === 'all' ? cur : first;
+  const n = (last - first + 1) * 13;
+  const planB = new Array(n).fill(0); const doneB = new Array(n).fill(0);
+  objs.forEach((o) => {
+    const y = anchorYearOf(o.periodStart);
+    if (y < first || y > last) return;
+    const i = (y - first) * 13 + Math.min(12, Math.floor(goals.daysBetween(yearAnchor(y), o.periodStart) / 28));
+    planB[i] += 1;
+    if (o.status === 'atteint') doneB[i] += 1;
+  });
+  const isCur = year === 'all' || Number(year) === cur;
+  const todayIdx = (cur - first) * 13 + Math.min(12, Math.floor(goals.daysBetween(yearAnchor(cur), today) / 28));
+  const ti = isCur ? Math.max(0, Math.min(n - 1, todayIdx)) : n - 1;
+  const stepY = Math.max(1, Math.ceil((last - first + 1) / 4));
+  const labels = []; const done = []; const planned = [];
+  let acc = 0; let pacc = 0;
+  for (let i = 0; i < n; i += 1) {
+    acc += doneB[i]; pacc += planB[i];
+    if (year === 'all') labels.push(i % 13 === 0 && ((i / 13) % stepY === 0) ? String(first + i / 13) : '');
+    else labels.push('P' + (i + 1));
+    done.push(!isCur || i <= ti ? acc : null);
+    planned.push(pacc);
+  }
+  const res = { labels, done, planned, todayIndex: ti, max: niceMax(Math.max(acc, pacc)) };
+  if (!isCur || year === 'all') { if (year === 'all') res.noToday = true; else { res.todayIndex = null; res.past = true; } }
+  return res;
+}
+function objectivesChart(today, allObjs, year, minY) {
+  const y = year === 'all' ? 'all' : (year || Number(today.slice(0, 4)));
+  return {
+    periodic: buildObjectiveSeries(today, allObjs.filter((o) => o.kind === 'period'), y, minY),
+    weekly: buildObjectiveSeries(today, allObjs.filter((o) => o.kind === 'weekly'), y, minY),
+  };
 }
 
 // ---- Données de base -----------------------------------------------------
@@ -375,11 +422,15 @@ function insightsForActivity(activityId, userId, poleKey, yearParam) {
     if (year < cur) today = year + '-12-31';
   }
   const ctx = { activityId, userId, today, scope, tasks, objs };
-  const objItems = allObjs.map((o) => ({ due: o.end, done: o.status === 'atteint' ? (o.end < realToday ? o.end : realToday) : null }));
+  let minY = cur;
+  allObjs.forEach((o) => { minY = Math.min(minY, anchorYearOf(o.periodStart)); });
+  years.forEach((y) => { minY = Math.min(minY, y); });
+  const act = db.prepare('SELECT createdAt FROM activities WHERE id = ?').get(activityId);
+  if (act && /^\d{4}/.test(act.createdAt || '')) minY = Math.min(minY, Number(act.createdAt.slice(0, 4)));
   const taskItems = allTasks.map((t) => ({ due: t.due || t.doneDay, done: t.doneDay }));
   return {
     year, years,
-    chart: { tasks: chartFor(realToday, taskItems, year, years), objectives: chartFor(realToday, objItems, year, years) },
+    chart: { tasks: chartFor(realToday, taskItems, year, years), objectives: objectivesChart(realToday, allObjs, year === 'all' ? 'all' : (year < cur ? year : null), minY) },
     tasks: tasksCards(ctx),
     objectives: objectivesCards(ctx),
   };

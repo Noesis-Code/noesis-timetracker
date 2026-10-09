@@ -1398,6 +1398,8 @@
     "Objectifs": "Goals",
     "Période": "Period",
     "Chemin parcouru et à parcourir": "Path covered and ahead",
+    "Périodiques": "Periodic",
+    "Hebdomadaires": "Weekly",
     "Réalisé": "Done",
     "Prévu": "Planned",
     "À venir": "Upcoming",

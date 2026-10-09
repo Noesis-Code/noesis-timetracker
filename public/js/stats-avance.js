@@ -45,8 +45,9 @@
   var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
   var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
   var yearSel = null; // null = année en cours (défaut) | 'all' | 'AAAA' ; jamais persisté
-  var tab = 't', view = 'year', adding = false, draft = [];
-  var VIEWS = [['year', 'Année'], ['month', 'Mois'], ['week', 'Semaine']];
+  var tab = 't', view = 'year', oview = 'periodic', adding = false, draft = [];
+  var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
+  var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires']];
 
   function build() {
     if (built) return; built = true;
@@ -58,7 +59,7 @@
   }
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
   function resetTransient() {
-    view = 'year'; adding = false; draft = [];
+    view = 'year'; oview = 'periodic'; adding = false; draft = [];
     if (yearSel !== null) { yearSel = null; if (built && activityId != null && page === 2) { load(); return; } }
     if (built && data) render();
   }
@@ -122,12 +123,13 @@
     var W = 300, H = 140, L = 26, R = 292, T = 8, B = 112, mx = Math.max(1, v.max || Math.max.apply(null, planned));
     var x = function (i) { return L + (R - L) * i / (n - 1); };
     var y = function (val) { return B - (B - T) * val / mx; };
-    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + tr('Chemin parcouru et à parcourir') + '">';
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + tr('Graphique') + '">';
     [0, mx / 2, mx].forEach(function (val) {
       s += '<line class="saGrid" x1="' + L + '" x2="' + R + '" y1="' + y(val) + '" y2="' + y(val) + '"/><text class="saTick" x="' + (L - 4) + '" y="' + (y(val) + 3) + '" text-anchor="end">' + Math.round(val * 10) / 10 + '</text>';
     });
-    var labels = v.labels || [], step = Math.max(1, Math.ceil(labels.length / 7));
+    var labels = v.labels || [], sparse = labels.some(function (l) { return l === ''; }), step = sparse ? 1 : Math.max(1, Math.ceil(labels.length / 7));
     labels.forEach(function (l, i) {
+      if (l === '') return;
       if (i % step === 0 || i === labels.length - 1 && (labels.length - 1) % step >= Math.ceil(step / 2)) s += '<text class="saTick" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="' + (i === labels.length - 1 && String(l).length > 3 ? 'end' : 'middle') + '">' + String(l).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</text>';
     });
     var done = [], run = 0;
@@ -167,26 +169,28 @@
     return s + '</svg>';
   }
 
-  // Vues Mois / Semaine : seulement pour l'année en cours.
+  // Vues Période / Semaine (Tâches) : seulement pour l'année en cours.
   function yearOnly(d) { return d && (d.year === 'all' || Number(d.year) < new Date().getFullYear()); }
 
   function chartCard(d) {
-    if (yearOnly(d)) view = 'year';
-    var views = d.chart && d.chart[tab === 't' ? 'tasks' : 'objectives'];
-    var v = views && views[view];
+    var isT = tab === 't', VS = isT ? VIEWS : OVIEWS;
+    if (isT && yearOnly(d)) view = 'year';
+    var cv = isT ? view : oview;
+    var views = d.chart && d.chart[isT ? 'tasks' : 'objectives'];
+    var v = views && views[cv];
     var card = el('div', 'saCard saGlass');
     var hd = el('div', 'saHd');
-    var h = el('p', 'sectionTitle', tr('Chemin parcouru et à parcourir') + ' ');
-    var cur = VIEWS.filter(function (x) { return x[0] === view; })[0];
-    h.appendChild(el('span', 'meta', '· ' + tr(cur[1])));
+    var h = el('p', 'sectionTitle', tr('Graphique') + ' ');
+    var cur = VS.filter(function (x) { return x[0] === cv; })[0];
+    if (cur) h.appendChild(el('span', 'meta', '· ' + tr(cur[1])));
     hd.appendChild(h);
     // Même menu « ⋮ » que le Graphique de la page 1 (.statsPeriodMenuWrap / .statsPeriodMenu).
     var wrap = el('div', 'statsPeriodMenuWrap');
     var btn = el('button', 'menuBtn', '⋮'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-label', tr('Choisir la période'));
     var menu = el('div', 'statsPeriodMenu hidden');
-    VIEWS.filter(function (o) { return !yearOnly(d) || o[0] === 'year'; }).forEach(function (o) {
-      var it = el('button', 'statsPeriodMenuItem' + (o[0] === view ? ' active' : ''), tr(o[1])); it.type = 'button';
-      it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== view) { view = o[0]; render(); } });
+    VS.filter(function (o) { return !isT || !yearOnly(d) || o[0] === 'year'; }).forEach(function (o) {
+      var it = el('button', 'statsPeriodMenuItem' + (o[0] === cv ? ' active' : ''), tr(o[1])); it.type = 'button';
+      it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== cv) { if (isT) view = o[0]; else oview = o[0]; render(); } });
       menu.appendChild(it);
     });
     btn.addEventListener('click', function (e) {
@@ -468,7 +472,7 @@
     activityId = found ? found.id : (list[0] ? list[0].id : null);
   }
   // Quitter l'onglet Statistiques (la page 2 reste « courante » mais cachée) remet aussi le graphique sur « Année ».
-  new MutationObserver(function () { if (!zone.offsetParent && (view !== 'year' || adding || yearSel !== null)) resetTransient(); })
+  new MutationObserver(function () { if (!zone.offsetParent && (view !== 'year' || oview !== 'periodic' || adding || yearSel !== null)) resetTransient(); })
     .observe(zone, { attributes: true, attributeFilter: ['class', 'style'] });
   function closeModal() { resetTransient(); }
 
