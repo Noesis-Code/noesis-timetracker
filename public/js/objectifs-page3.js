@@ -1049,7 +1049,10 @@
     if (!period) return;
 
     var title = t('Période') + ' ' + period.periodIndexInCycle;
-    if (period.cycleIndex > 1) title += ' · ' + t('Année') + ' ' + period.cycleIndex;
+    // 9 oct. 2026 : année calendaire de la période (au lieu de « Année 2 »), seulement hors année en cours.
+    var pm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(period.startDate || ''));
+    var periodYear = pm ? new Date(Date.UTC(+pm[1], +pm[2] - 1, +pm[3] + 6)).getUTCFullYear() : null;
+    if (periodYear && periodYear !== new Date().getFullYear()) title += ' · ' + periodYear;
     if (period.isCurrent) title += ' · ' + t('En cours');
     $('activityGoalsPeriodTitle').textContent = title;
     $('activityGoalsPeriodDates').textContent = formatGoalPeriodDates(period.startDate, period.endDate);
