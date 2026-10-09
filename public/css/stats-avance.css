@@ -12,42 +12,63 @@
 .saChip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 13px; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); }
 .saChip.on { border-color: var(--chipEdge, var(--purple)); box-shadow: 0 0 0 1px var(--chipEdge, var(--purple)) inset; font-weight: 600; }
 .saChipDot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
-.saCounters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-.saCounter { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 14px; background: var(--glass-bg); border: 1px solid var(--glass-border); }
-.saCLabel { font-size: 12px; opacity: .7; }
-.saCValue { font-size: 20px; font-weight: 700; }
-.saCSub { font-size: 12px; opacity: .7; }
-.saCard { background: var(--glass-bg); border: 1px solid var(--glass-border); }
-.saChart { width: 100%; height: auto; display: block; }
+/* Refonte 9 oct. 2026 : onglets Tâches | Objectifs, graphique, cartes d'information. */
+.saSeg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.saSegBtn { padding: 9px 6px; border-radius: 12px; font: inherit; font-size: 13px; color: var(--text); border: 1px solid var(--glass-border); background: rgba(255, 255, 255, .04); }
+.saSegBtn.on { background: var(--purple); border-color: var(--purple); color: #fff; font-weight: 600; }
+.saBody { display: flex; flex-direction: column; gap: 10px; }
+.saGlass { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: var(--glass-shadow, none); }
+.saCard { padding: 12px; }
+.saHd { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.saHd .sectionTitle { margin: 0; }
+.saHd2 { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.saHd2 h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.saRm { color: var(--text-light); }
+.saChart, .saCard svg { display: block; width: 100%; height: auto; }
 .saGrid { stroke: var(--glass-border); stroke-width: 1; }
-.saTick { fill: var(--text); opacity: .65; font-size: 9px; }
+.saTick { fill: var(--text); opacity: .65; font-size: 8px; }
 .saPlanned { fill: none; stroke: var(--text); opacity: .55; stroke-width: 1.5; stroke-dasharray: 4 3; }
-.saArea { fill: var(--purple); opacity: .3; }
-.saLine { fill: none; stroke: var(--purple); stroke-width: 2; }
 .saToday { stroke: var(--text); stroke-width: 1; }
-.saDot { fill: var(--purple); stroke: var(--text); stroke-width: 1.5; }
-.saLegend { display: flex; gap: 14px; font-size: 12px; margin-top: 8px; opacity: .85; }
+.saLegend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; margin-top: 6px; opacity: .85; }
 .saLegend span { display: inline-flex; align-items: center; gap: 5px; }
-.saSw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-.saSwDone { background: var(--purple); }
-.saSwPlan { background: transparent; border: 1px dashed var(--text); }
-.saSwTodo { background: var(--glass-border); }
-.saSwNow { background: transparent; border: 1.5px solid var(--text); }
-.saPoleRow { display: block; width: 100%; text-align: left; padding: 8px 0; background: none; border: 0; color: var(--text); font: inherit; }
-.saPoleTop { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
-.saBar { height: 6px; border-radius: 3px; background: var(--glass-border); overflow: hidden; }
-.saBarFill { height: 100%; border-radius: 3px; }
-.saGridRow { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; }
-.saGridHead { font-size: 8px; text-align: center; opacity: .65; margin-bottom: 4px; }
-.saGridLabel { font-size: 13px; margin: 8px 0 4px; }
-.saCell { position: relative; height: 22px; border-radius: 4px; background: var(--glass-border); overflow: hidden; display: flex; align-items: flex-end; }
-.saCell i { display: block; width: 100%; }
-.saCell.future { opacity: .45; }
-.saCell.now { outline: 1.5px solid var(--text); outline-offset: 1px; }
-.saModalHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
-.saModalTitle { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
-.saModalSub { margin: 0 0 12px; }
-.saBarFill, .saCell i { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .14); }
+.saSw { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.saSwPlan { background: transparent !important; border: 1px dashed var(--text); }
+.saRow1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.saBig { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.saSmall { font-size: 12px; opacity: .7; }
+.saBadge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
+.saBadge.up { color: #4CAF50; background: rgba(76, 175, 80, .15); }
+.saBadge.dn { color: #E74C3C; background: rgba(231, 76, 60, .15); }
+.saCv { font-size: 12.5px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.saBar2 { height: 6px; border-radius: 3px; background: #2b2e35; overflow: hidden; display: flex; margin-top: 8px; }
+.saBar2 u { display: block; height: 100%; }
+.saRw { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin-top: 8px; }
+.saRwN { flex: 0 0 100px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saRwName { display: inline-flex; align-items: center; gap: 6px; }
+.saRw .saBar2 { flex: 1; margin: 0; }
+.saTxt { flex: 1; font-size: 12px; opacity: .8; min-width: 0; }
+.saDays { display: flex; gap: 5px; align-items: flex-end; height: 46px; margin-top: 6px; }
+.saDays i { flex: 1; border-radius: 3px 3px 0 0; }
+.saDl { display: flex; gap: 5px; font-size: 10px; opacity: .6; margin-top: 2px; }
+.saDl span { flex: 1; text-align: center; }
+.saTiles { display: grid; gap: 8px; }
+.saTile { padding: 8px 10px; display: flex; flex-direction: column; }
+.saTile small { font-size: 11px; opacity: .7; }
+.saTile b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.saLst { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
+.saLst li { display: flex; justify-content: space-between; gap: 8px; }
+.saLst b { color: #E74C3C; font-weight: 500; white-space: nowrap; }
+.saAdd { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; border-radius: 14px; font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--glass-border); }
+.saAdd b { color: var(--purple); font-size: 18px; line-height: 1; }
+.saSep { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; opacity: .65; margin: 4px 2px 0; }
+.saGh { border-radius: 16px; cursor: pointer; }
+.saGin { opacity: .35; filter: saturate(.6); pointer-events: none; }
+.saGh.sel { box-shadow: 0 0 0 1.5px var(--purple); }
+.saGh.sel .saGin { opacity: 1; filter: none; }
+.saActs { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 4px; }
+.saCancel, .saApply { padding: 12px; border-radius: 14px; font: inherit; font-size: 14px; color: var(--text); }
+.saCancel { border: 1px solid var(--glass-border); background: rgba(255, 255, 255, .05); }
+.saApply { border: 0; background: #C2694A; color: #fff; font-weight: 600; }
 
 /* 3 oct. 2026 : zone tactile au-dessus de la barre d'onglets (ne la recouvre pas), point visuel au même endroit qu'avant. */
 #statsPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
