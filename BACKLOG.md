@@ -15,7 +15,6 @@ Dernière mise à jour : 30 sept. 2026 (construit à partir de `chantiers-en-cou
 - 🟡 `server/lib/seed-staging.js` n'est appelé nulle part : `staging` démarre-t-il sans données de test ? À vérifier.
 
 ## 3. À trancher (❓ Émilien)
-- ❓ Rail périodique Page 2 « trop espacé » : 3 maquettes (A rail compact, B bande horizontale, C grille 2 colonnes) livrées le 29 sept., aucun choix encore. Piste probable du problème : `.goalsGrid { gap: 44px }`.
 - ❓ Panneaux flottants / menus : ajouter une croix ✕ en plus du clic en dehors ? (jamais posé).
 - ❓ Faut-il migrer le bloc capacité/génération jour par jour (Planification IA) et les sections Tâches/Discussion vers un fichier de page, ou les laisser dans le tronc commun ?
 - ❓ Sous-projets : aucune discussion dédiée ; garder le segment ou l'absorber ?
