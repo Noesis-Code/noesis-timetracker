@@ -61,14 +61,21 @@ function buildView(mode, today, items) {
   const total = scope.length;
   const todayIndex = Math.max(0, Math.min(r.n - 1, r.idx(today)));
   const buckets = new Array(r.n).fill(0);
-  scope.forEach((it) => { if (inR(it.done)) buckets[r.idx(it.done)] += 1; });
-  const done = []; const planned = []; let acc = 0;
+  const pBuckets = new Array(r.n).fill(0);
+  scope.forEach((it) => {
+    if (inR(it.done)) buckets[r.idx(it.done)] += 1;
+    // Prévu : à la date prévue de l'élément (avant la plage = dès le début, après = à la fin ; sans date prévue = à sa date de réalisation).
+    let pd = it.due;
+    if (!pd) pd = it.done; else if (pd < r.start) pd = r.start; else if (pd > r.end) pd = r.end;
+    if (pd && inR(pd)) pBuckets[r.idx(pd)] += 1;
+  });
+  const done = []; const planned = []; let acc = 0; let pacc = 0;
   for (let i = 0; i < r.n; i += 1) {
-    acc += buckets[i];
+    acc += buckets[i]; pacc += pBuckets[i];
     done.push(i <= todayIndex ? acc : null);
-    planned.push(round1(total * (i + 1) / r.n));
+    planned.push(pacc);
   }
-  return { labels: r.labels, done, planned, todayIndex, max: niceMax(Math.max(total, acc)) };
+  return { labels: r.labels, done, planned, todayIndex, max: niceMax(Math.max(total, acc, pacc)) };
 }
 
 function chartFor(today, items) {
