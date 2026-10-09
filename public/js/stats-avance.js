@@ -93,6 +93,8 @@
     });
     els.modal.classList.remove('hidden');
   }
+  // Un pôle n'est cliquable que s'il a au moins un vrai secteur (l'entrée « pôle hors secteur » seule ne compte pas).
+  function hasSectors(p) { return !!(p && p.sectors && p.sectors.some(function (x) { return x.label; })); }
   // Feuille « par secteur » des cartes Objectifs : kind = 'target' | 'achieved'.
   function openObjSheet(p, index, kind) {
     els.mTitle.innerHTML = '';
@@ -322,8 +324,8 @@
         w.appendChild(bigRow(r.count + ' ' + tr(r.count > 1 ? 'tâches' : 'tâche'), '≈ ' + fmtMin(r.minutes)));
         (r.poles || []).forEach(function (p, i) {
           var doneShare = p.total ? (p.total - p.remaining) * 100 / p.total : 100, ok = doneShare >= 50;
-          var rw = row(poleName(p.label, poleColor(i)), bar([[doneShare, ok ? GREEN : RED]]), colored(p.remaining + ' / ' + p.total + ' ›', ok));
-          if (p.sectors && p.sectors.length) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openSheet(p, i); }); }
+          var rw = row(poleName(p.label, poleColor(i)), bar([[doneShare, ok ? GREEN : RED]]), colored(p.remaining + ' / ' + p.total + (hasSectors(p) ? ' ›' : ''), ok));
+          if (hasSectors(p)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openSheet(p, i); }); }
           w.appendChild(rw);
         });
         return w; } },
@@ -358,8 +360,8 @@
         var w = document.createElement('div');
         a.forEach(function (r, i) {
           var ok = r.doneMin >= r.targetMin, share = r.targetMin ? r.doneMin * 100 / r.targetMin : 0;
-          var rw = row(poleName(r.label, poleColor(i)), bar([[share, ok ? GREEN : RED]]), colored(fmtMin(r.doneMin) + ' / ' + fmtMin(r.targetMin) + (r.sectors && r.sectors.length ? ' ›' : ''), ok));
-          if (r.sectors && r.sectors.length) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'target'); }); }
+          var rw = row(poleName(r.label, poleColor(i)), bar([[share, ok ? GREEN : RED]]), colored(fmtMin(r.doneMin) + ' / ' + fmtMin(r.targetMin) + (hasSectors(r) ? ' ›' : ''), ok));
+          if (hasSectors(r)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'target'); }); }
           w.appendChild(rw);
         });
         return w; } },
@@ -369,7 +371,7 @@
         a.forEach(function (r, i) {
           var tot = Math.max(1, (r.atteint || 0) + (r.partiel || 0) + (r.non || 0)), dp = Math.round(r.deltaPts || 0);
           var rw = row(poleName(r.label, poleColor(i)), bar([[r.atteint * 100 / tot, GREEN], [r.partiel * 100 / tot, GREY], [r.non * 100 / tot, RED]]), badge(sgn(dp, ' pts'), dp >= 0, true));
-          if (r.sectors && r.sectors.length) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'achieved'); }); }
+          if (hasSectors(r)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'achieved'); }); }
           w.appendChild(rw);
         });
         w.appendChild(legend([[GREEN, tr('atteint')], [GREY, tr('partiel')], [RED, tr('non')]]));
