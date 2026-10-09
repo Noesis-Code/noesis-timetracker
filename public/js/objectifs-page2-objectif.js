@@ -761,7 +761,7 @@
       b.type = 'button'; b.className = 'statsPeriodMenuItem' + (y === ty ? ' active' : ''); b.textContent = String(y);
       b.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.add('hidden'); if (y !== ty) selectGoalsYear(y); });
       row.appendChild(b);
-      if (y > goalsCurrentYear() && y === TMT.goalsYears.maxYear) {
+      if (y > goalsCurrentYear() && y === TMT.goalsYears.maxYear && TMT.goalsYears.deletable) {
         var del = document.createElement('button');
         del.type = 'button'; del.className = 'goalsYearDel'; del.textContent = '✕';
         del.setAttribute('aria-label', t('Supprimer') + ' ' + y);
@@ -788,6 +788,11 @@
     var willOpen = menu.classList.contains('hidden');
     document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
     if (willOpen) menu.classList.remove('hidden');
+    if (willOpen && TMT.currentGoalsActivityId) {
+      api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/years').then(function (r) {
+        TMT.goalsYears = r; renderGoalsYearPicker();
+      }).catch(function () {});
+    }
   });
 
   // ===================== OBJECTIF DE L'ANNÉE (8 oct. 2026) ===================

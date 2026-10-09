@@ -82,7 +82,8 @@ function listYears(activityId) {
   const first = plans.length ? Math.min(...plans.map((p) => yearOfPlanStart(p.startDate))) : cur;
   const years = [];
   for (let y = maxYearFor(activityId); y >= Math.min(first, cur); y -= 1) years.push(y);
-  return { years, currentYear: cur, maxYear: maxYearFor(activityId) };
+  const max = maxYearFor(activityId);
+  return { years, currentYear: cur, maxYear: max, deletable: max > cur && yearIsEmpty(activityId, max) };
 }
 
 function createNextYear(activityId) {
