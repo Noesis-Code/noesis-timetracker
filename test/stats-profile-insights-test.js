@@ -57,10 +57,21 @@ const srv = app.listen(0, async () => {
     const g = async (u) => (await fetch(base + '/api/stats/activity-insights/glisse?activityId=' + pub + '&periodStart=' + today.slice(0, 8) + '01', { headers: { 'x-user': u } })).status;
     assert(await g('fol') === 403, 'glisse : non-membre (visiteur) refusé');
     assert(await g('own') === 200, 'glisse : membre accepté');
-    // Activité partagée : le visiteur membre de l'activité « Secret » la voit (même règle que le camembert).
+    // Activité confidentielle partagée avec le visiteur : TOUJOURS exclue du profil du propriétaire (règle stricte).
     db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(conf, 'fol', '#111111', now);
     r = await get('fol', 'userId=own');
-    assert(r.s === 200 && r.j.activities.length === 2, 'activité confidentielle partagée avec le visiteur : visible (règle du camembert)');
+    assert(r.s === 200 && r.j.activities.length === 1 && r.j.activities[0].id === pub, 'activité confidentielle partagée avec le visiteur : toujours exclue');
+    r = await get('fol', 'userId=own&activityId=' + conf);
+    assert(r.s === 403, 'activité confidentielle partagée, accès direct : 403');
+    // Statistiques par membre : membre OK (agrégats, sans titre), non-membre 403.
+    const gm = async (u, sc) => { const x = await fetch(base + '/api/stats/activity-members?activityId=' + pub + (sc ? '&scope=' + sc : ''), { headers: { 'x-user': u } }); let j = null; try { j = await x.json(); } catch (e) { /* vide */ } return { s: x.status, j }; };
+    db.prepare("UPDATE sub_project_items SET doneBy = 'own' WHERE subProjectId IN (SELECT id FROM sub_projects WHERE activityId = ?)").run(pub);
+    r = await gm('own', 'all');
+    assert(r.s === 200 && r.j.members.length === 1 && r.j.members[0].userId === 'own', 'membres : propriétaire OK');
+    assert(r.j.members[0].done === 1 && r.j.total.done === 1 && r.j.total.remaining === 0, 'membres : tâche faite comptée');
+    assert(JSON.stringify(r.j).indexOf('TITRE-SECRET') < 0, 'membres : aucun titre de tâche');
+    assert((await gm('str')).s === 403, 'membres : non-membre 403');
+    assert((await gm('own', 'week')).s === 200, 'membres : portée semaine OK');
   } catch (e) { failed += 1; console.log('  FAIL exception ' + e.stack); }
   srv.close();
   console.log(failed ? failed + ' échec(s)' : 'Tout est vert.');

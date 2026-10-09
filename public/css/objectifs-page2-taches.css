@@ -298,7 +298,7 @@
 .goalsTaskEditPanel .rowActions { width: 100%; max-width: 320px; }
 
 /* 5 oct. 2026 (Emilien) : clavier ouvert => bulle Discussion et 3 points masqués. */
-:root.kbOpen #goalsPage2Dots, :root.kbOpen #goalsPage2ModeDiscBtn { display: none !important; }
+:root.kbOpen #goalsPage2Dots, :root.kbOpen #goalsPage2ModeDiscBtn, :root.kbOpen #goalsPage2ModeStatsBtn { display: none !important; }
 
 /* 5 oct. 2026 (Emilien) : en modification, le texte de la tâche est éditable sur place (pas de doublon),
    plus de case à cocher ; champs de date arrondis sans contour (aussi dans les historiques) ; Responsable à gauche. */
@@ -355,3 +355,24 @@
 .recurRow .meta { white-space: nowrap; }
 :root .recurField .recurNum { width: 72px; min-height: 38px; padding: 8px 6px; box-sizing: border-box; text-align: center; border: 0 !important; border-radius: 999px !important; background: var(--vc-bg, var(--card)) !important; box-shadow: inset 0 0 0 1px var(--vc-line, var(--border)); color: var(--text); font-size: 14px; -moz-appearance: textfield; }
 :root .goalsPlacementField .recurField select { min-height: 38px; }
+
+/* 9 oct. 2026 : onglet Statistiques (par membre) — fenêtre type Discussion, cartes en verre, violet principal. */
+#goalsStatsView:not(.hidden) { position: fixed; inset: 0; z-index: 130; background: rgba(0, 0, 0, 0.5); display: flex; align-items: flex-end; justify-content: center; }
+.goalsStatsSheet { width: 100%; max-width: 480px; height: 85%; background: var(--bg); border-top: 1px solid var(--sheet-line); border-radius: var(--radius-xl) var(--radius-xl) 0 0; box-shadow: var(--shadow-elevated); display: flex; flex-direction: column; overflow: hidden; }
+.goalsStatsScope { margin: 0 16px 10px; flex: 0 0 auto; }
+.goalsStatsBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px calc(20px + env(safe-area-inset-bottom, 0px)); }
+.goalsStatsCard { background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 10px; }
+.goalsStatsSummary { border-color: rgba(103, 78, 167, 0.6); }
+.goalsStatsHead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.goalsStatsRank { width: 18px; text-align: center; color: var(--muted, #9a94b8); font-size: 13px; }
+.goalsStatsName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goalsStatsBar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin-bottom: 8px; }
+.goalsStatsFill { height: 100%; border-radius: 4px; }
+.goalsStatsFill.good { background: #6fc9a0; }
+.goalsStatsFill.bad { background: #e0626b; }
+.goalsStatsLine { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 2px 0; }
+
+
+/* Bulle Statistiques : miroir de la bulle Discussion, en bas à gauche (verre, icône claire). */
+#goalsPage2ModeStatsBtn { position: fixed; left: 18px; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 120; width: 56px; height: 56px; flex: none; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+:root #goalsActivitySwitcher #goalsPage2ModeStatsBtn { background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; color: var(--text) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 8px 22px rgba(0, 0, 0, 0.35) !important; -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important; }

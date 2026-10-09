@@ -609,4 +609,47 @@ function visitorInsights(activityId, ownerId, yearParam, opts) {
   };
 }
 
-module.exports = { insightsForActivity, visitorInsights, glisseDetail };
+// ---- Réalisation des tâches PAR MEMBRE (fenêtre Activité, onglet Statistiques) -------------------
+// Membres seulement (la route garde). Agrégats uniquement : aucun titre de tâche. Responsable d'une tâche =
+// celui qui l'a faite, sinon la personne à qui elle est planifiée (plannedUserId). Même portée que les cartes
+// (taskRange : année / période / semaine / tout).
+function memberStats(activityId, scopeParam, yearParam) {
+  const realToday = todayLocal();
+  const cur = Number(realToday.slice(0, 4));
+  const scopeName = scopeParam === 'period' || scopeParam === 'week' ? scopeParam : (scopeParam === 'all' ? 'all' : 'year');
+  const year = scopeName === 'all' ? 'all' : cur;
+  const range = taskRange(scopeName === 'all' ? 'year' : scopeName, year, realToday);
+  const scope = loadScope(activityId, null);
+  const planned = {};
+  db.prepare(`SELECT i.id, i.plannedUserId FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+    WHERE sp.activityId = ? AND sp.goalCategory IS NOT NULL AND i.plannedUserId IS NOT NULL`).all(activityId).forEach((r) => { planned[r.id] = r.plannedUserId; });
+  const undated = scopeName === 'year' || scopeName === 'all';
+  const tasks = loadTasks(activityId, scope.keyToPole)
+    .filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
+  const members = db.prepare(`SELECT u.id AS id, u.name AS name, u.lastName AS lastName, u.color AS color, u.avatar AS avatar
+    FROM activity_members am JOIN users u ON u.id = am.userId WHERE am.activityId = ? ORDER BY am.joinedAt, u.id`).all(activityId);
+  const by = {};
+  members.forEach((m) => { by[m.id] = { userId: m.id, name: m.name, lastName: m.lastName || '', color: m.color || null, avatar: m.avatar || null, assigned: 0, done: 0, withDue: 0, onTime: 0, late: 0 }; });
+  let total = 0; let totalDone = 0;
+  tasks.forEach((t) => {
+    total += 1; if (t.done) totalDone += 1;
+    const resp = t.done ? (t.doneBy || planned[t.id]) : planned[t.id];
+    const m = resp && by[resp];
+    if (!m) return;
+    m.assigned += 1;
+    if (t.done) {
+      m.done += 1;
+      if (t.due && t.doneDay) { m.withDue += 1; if (t.doneDay <= t.due) m.onTime += 1; }
+    } else if (t.due && t.due < realToday) m.late += 1;
+  });
+  const out = Object.keys(by).map((k) => {
+    const m = by[k];
+    m.donePct = m.assigned ? Math.round(m.done / m.assigned * 100) : null;
+    m.onTimePct = m.withDue ? Math.round(m.onTime / m.withDue * 100) : null;
+    m.good = (m.donePct != null && m.donePct >= 80) || (m.onTimePct != null && m.onTimePct >= 80);
+    return m;
+  }).sort((a, b) => (b.done - a.done) || ((b.donePct || 0) - (a.donePct || 0)) || a.name.localeCompare(b.name));
+  return { scope: scopeName, total: { tasks: total, done: totalDone, remaining: total - totalDone }, members: out };
+}
+
+module.exports = { insightsForActivity, visitorInsights, glisseDetail, memberStats };
