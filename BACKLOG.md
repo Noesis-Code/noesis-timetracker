@@ -23,7 +23,6 @@ Dernière mise à jour : 30 sept. 2026 (construit à partir de `chantiers-en-cou
 - 🟠 Diagnostic clavier sur l'écran Catégories (fenêtre Activité) : HUD de diagnostic posé, capture de l'écran précis jamais obtenue ; bandeau clavier natif.
 - 🟠 Bandeau/zone teintée pointillée au-dessus du clavier sur la Page 3 quand la période a déjà un objectif (non reproduit ; piste : pincement clavier partagé dans `app.js`).
 - 🟡 `bindActivityDrag` (`app.js` ~L16046) : ajouter `click → stopPropagation()` sur la poignée (même défaut corrigé sur `bindProjectDrag`).
-- 🟡 Retirer le code mort `bindSubProjectDrag` (écran Sous-projets masqué depuis le 17 sept.).
 - 🟡 `users.stripeCustomerId` et `notifyEnabled`/`communityNotifyEnabled` : présents dans `db.js` ; vérifier qu'ils survivent sur une base NEUVE (le testeur démarre le serveur sur base vide).
 
 ## 5. Fonctionnalités à finir
