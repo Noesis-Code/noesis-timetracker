@@ -28,8 +28,40 @@ function emilien() {
     || db.prepare("SELECT id, name FROM users WHERE name LIKE 'Emilien%' ORDER BY createdAt LIMIT 1").get() || null;
 }
 
+const FUSION_NAMES = ['Fusion A (test)', 'Fusion B (test)'];
+
 function findActivities(userId) {
-  return db.prepare('SELECT id FROM activities WHERE name = ? AND ownerId = ?').all(NAME, userId);
+  return db.prepare('SELECT id FROM activities WHERE name IN (?, ?, ?) AND ownerId = ?').all(NAME, FUSION_NAMES[0], FUSION_NAMES[1], userId);
+}
+
+// Deux activités pour tester la fusion : chacune a pôle + secteur, un objectif de période, un objectif d'année ;
+// A a en plus une année suivante. Total 4 pôles (limite 5). Le pôle « Ventes » existe des deux côtés.
+function seedFusion(u) {
+  const goals = require('./goals');
+  const now = new Date().toISOString();
+  const color = db.prepare('SELECT color FROM activity_members WHERE userId = ? LIMIT 1').get(u.id);
+  const make = (name, spec) => {
+    const aid = Number(db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, 0, 1, ?, ?)').run(name, u.id, now).lastInsertRowid);
+    db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(aid, u.id, color ? color.color : '#A04B52', now);
+    const first = goals.ensureDefaultCategory(aid)[0];
+    goals.renameCategory(aid, first.key, spec[0].pole);
+    spec.slice(1).forEach((s) => goals.addCategory(aid, s.pole));
+    spec.forEach((s) => goals.addCategory(aid, s.secteur, goals.categoriesForActivity(aid).find((c) => c.label === s.pole).key));
+    spec.forEach((s) => {
+      const k = goals.secteursForPole(aid, goals.categoriesForActivity(aid).find((c) => c.label === s.pole).key).find((c) => c.label === s.secteur).key;
+      goals.setMainGoal(aid, k, 1, s.periode, '', 240);
+      goals.setYearGoal(aid, k, s.annee);
+    });
+    return aid;
+  };
+  const a = make(FUSION_NAMES[0], [
+    { pole: 'Ventes', secteur: 'Prospects', periode: 'Contacter 20 prospects', annee: 'Doubler le portefeuille' },
+    { pole: 'Admin', secteur: 'Facturation', periode: 'Automatiser les factures', annee: 'Zéro retard de facturation' }]);
+  const b = make(FUSION_NAMES[1], [
+    { pole: 'Ventes', secteur: 'Clients', periode: 'Rappeler les clients inactifs', annee: 'Fidéliser 80 % des clients' },
+    { pole: 'Formation', secteur: 'Cours', periode: 'Finir le module 1', annee: 'Certification complète' }]);
+  goals.createNextYear(a);
+  return { fusionA: a, fusionB: b };
 }
 
 // Supprime l'activité de test et SES données uniquement (clé = id d'activité).
@@ -231,7 +263,8 @@ function seedScenarios() {
   goalsrecalc.runForUser(u.id, aid, todayIso);
   db.prepare("DELETE FROM goal_recalc_proposals WHERE activityId = ? AND category NOT IN (?, ?)").run(aid, K.communaute, K.finance);
 
-  return { activityId: aid, keys: K, budget };
+  const fusion = seedFusion(u);
+  return { activityId: aid, keys: K, budget, fusion };
 }
 
 // Au démarrage : staging + SEED_SCENARIOS=1 seulement, sinon rien.
