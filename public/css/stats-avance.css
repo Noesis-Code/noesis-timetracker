@@ -123,3 +123,14 @@
 .vpsDots .goalsDot { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--text); opacity: .35; transition: opacity .2s; }
 .vpsDots .goalsDotBtn.on .goalsDot { opacity: 1; }
 #viewProfileStatsPage2 .saChips { padding-top: 0; }
+
+/* 9 oct. 2026 : détail au clic d'une bulle « Où ça glisse » (feuille du bas). */
+.saTileBtn { font: inherit; color: var(--text); cursor: pointer; }
+.saTileBtn:disabled { cursor: default; }
+.saGexp { font-size: 11.5px; opacity: .7; margin: 8px 0; line-height: 1.4; }
+.saGsec { margin-top: 12px; }
+.saGsec h4 { margin: 0 0 4px; font-size: 13px; display: flex; justify-content: space-between; align-items: baseline; }
+.saGsec h4 em { font-style: normal; font-size: 12px; opacity: .8; }
+.saGrow { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--glass-border); font-size: 13px; }
+.saGrow small { font-size: 12px; opacity: .85; white-space: nowrap; }
+.saGmore { background: none; border: 0; padding: 6px 0 0; color: var(--text); opacity: .6; font: inherit; font-size: 12px; }

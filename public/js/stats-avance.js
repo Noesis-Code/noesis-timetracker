@@ -128,6 +128,76 @@
     });
     els.modal.classList.remove('hidden');
   }
+  // Détail d'une bulle « Où ça glisse » (sa propre page seulement) : GET /api/stats/activity-insights/glisse.
+  function fmtSlot(x) { return x.kind === 'week' ? tr('S{n}', { n: x.n }) : x.label; }
+  function glisseSection(title, color, rows, right) {
+    var sec = el('div', 'saGsec');
+    var h = el('h4', null, tr(title)); h.style.color = color; h.appendChild(el('em', null, String(rows.length)));
+    sec.appendChild(h);
+    var box = el('div'); sec.appendChild(box);
+    var expanded = false;
+    var draw = function () {
+      box.innerHTML = '';
+      rows.slice(0, expanded ? rows.length : 3).forEach(function (r) {
+        var d = el('div', 'saGrow');
+        d.appendChild(el('span', null, r.label));
+        var small = el('small', null, right(r)); if (color !== GREEN && color !== RED) small.style.color = color;
+        d.appendChild(small); box.appendChild(d);
+      });
+      if (!expanded && rows.length > 3) {
+        var more = el('button', 'saGmore', tr(rows.length - 3 > 1 ? '+ {n} autres' : '+ {n} autre', { n: rows.length - 3 })); more.type = 'button';
+        more.addEventListener('click', function () { expanded = true; draw(); });
+        box.appendChild(more);
+      }
+    };
+    draw();
+    return sec;
+  }
+  function openGlisse(periodStart, week) {
+    TMT.api('GET', '/api/stats/activity-insights/glisse?activityId=' + encodeURIComponent(activityId) + '&periodStart=' + encodeURIComponent(periodStart) + (week ? '&week=' + week : '')).then(function (g) { renderGlisse(g); }, function () {});
+  }
+  function renderGlisse(g) {
+    var pn = String(g.periodLabel || '').replace(/^P/, '');
+    var isW = g.mode === 'week', ok = g.pct != null && g.pct >= 80, col = ok ? GREEN : RED;
+    els.mTitle.innerHTML = '';
+    els.mTitle.appendChild(el('span', null, isW ? tr('Semaine {n} · {p}', { n: g.week, p: g.periodLabel }) : tr('Période {n} · {a} – {b}', { n: pn, a: g.startLabel, b: g.endLabel })));
+    els.mSub.textContent = '';
+    els.mList.innerHTML = '';
+    var big = el('div', 'saRow1'), bg = el('span', 'saBig', g.pct != null ? g.pct + ' %' : '–'); bg.style.color = g.pct != null ? col : '';
+    big.appendChild(bg); big.appendChild(el('span', 'saSmall', tr(isW ? 'du temps prévu réalisé' : 'des semaines atteintes')));
+    els.mList.appendChild(big);
+    if (isW && g.pct != null) els.mList.appendChild(bar([[g.pct, GREEN], [100 - g.pct, RED]]));
+    els.mList.appendChild(el('p', 'saGexp', tr(isW
+      ? 'Le chiffre = temps estimé des tâches liées à l’objectif de la semaine qui sont faites, divisé par le temps estimé de toutes ces tâches. 90 % ou plus : atteint · 75 % ou plus : partiel.'
+      : 'Le chiffre = part des semaines atteintes dans la période (les semaines à venir ne comptent pas). Touche une semaine pour voir ses tâches.')));
+    if (!isW) {
+      var wkw = el('div', 'saTiles'); wkw.style.gridTemplateColumns = 'repeat(4,1fr)';
+      g.tiles.forEach(function (x) {
+        var t = el('button', 'saTile saGlass saTileBtn'), has = x.pct != null; t.type = 'button';
+        if (has) t.style.borderColor = x.pct >= 80 ? GREEN : RED; else { t.style.opacity = '.5'; t.disabled = true; }
+        t.appendChild(el('small', null, 'S' + x.week));
+        var b = el('b', null, has ? x.pct + ' %' : '–'); if (has) b.style.color = x.pct >= 80 ? GREEN : RED; t.appendChild(b);
+        if (has) t.addEventListener('click', function () { openGlisse(g.periodStart, x.week); });
+        wkw.appendChild(t);
+      });
+      els.mList.appendChild(wkw);
+    }
+    var mins = function (r) { return fmtMin(r.minutes); };
+    var from = function (r) { return 'S' + r.week; };
+    var secs = isW ? [
+      ['Réalisées', GREEN, g.done, mins],
+      ['Non accomplies', RED, g.notDone, mins],
+      ['Ont glissé', ORANGE, g.slipped, function (r) { return r.to.kind === 'week' ? tr('→ semaine {n} · {d}', { n: r.to.n, d: r.to.date }) : tr('→ {p} · {d}', { p: r.to.label, d: r.to.date }); }],
+      ['Avancées', '#8b6fd6', g.ahead, function (r) { return tr('prévue {a} → faite {b}', { a: fmtSlot(r.from), b: 'S' + r.week }); }]
+    ] : [
+      ['Ont glissé', ORANGE, g.slipped, function (r) { return from(r) + ' → ' + fmtSlot(r.to); }],
+      ['Non accomplies', RED, g.notDone, from],
+      ['Avancées', '#8b6fd6', g.ahead, function (r) { return fmtSlot(r.from) + ' → ' + from(r); }]
+    ];
+    secs.forEach(function (x) { if (x[2] && x[2].length) els.mList.appendChild(glisseSection(x[0], x[1], x[2], x[3])); });
+    els.modal.classList.remove('hidden');
+  }
+
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
   function isDirty() { return view !== 'year' || oview !== 'all' || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
   function resetTransient() {
@@ -413,7 +483,9 @@
         var g = el('div', 'saTiles');
         g.style.gridTemplateColumns = 'repeat(4,1fr)';
         items.forEach(function (wk) {
-          var t = el('div', 'saTile saGlass'), has = wk.pct != null, ok = has && wk.pct >= 80;
+          var has = wk.pct != null, ok = has && wk.pct >= 80, click = !visitor && has && wk.periodStart;
+          var t = el(click ? 'button' : 'div', 'saTile saGlass' + (click ? ' saTileBtn' : '')); if (click) t.type = 'button';
+          if (click) t.addEventListener('click', function () { openGlisse(wk.periodStart, wk.week || null); });
           if (has) t.style.borderColor = ok ? GREEN : RED; else t.style.opacity = wk.future ? '.4' : '.6';
           t.appendChild(el('small', null, wk.label));
           var b = el('b', null, has ? Math.round(wk.pct) + ' %' : '–'); if (has) b.style.color = ok ? GREEN : RED; t.appendChild(b); g.appendChild(t);

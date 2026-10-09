@@ -53,6 +53,10 @@ const srv = app.listen(0, async () => {
     assert(r.s === 401, 'sans session : 401');
     r = await get('fol', 'userId=inconnu');
     assert(r.s === 404, 'profil inconnu : 404');
+    // Détail « Où ça glisse » : réservé aux membres de l'activité (jamais un visiteur de profil).
+    const g = async (u) => (await fetch(base + '/api/stats/activity-insights/glisse?activityId=' + pub + '&periodStart=' + today.slice(0, 8) + '01', { headers: { 'x-user': u } })).status;
+    assert(await g('fol') === 403, 'glisse : non-membre (visiteur) refusé');
+    assert(await g('own') === 200, 'glisse : membre accepté');
     // Activité partagée : le visiteur membre de l'activité « Secret » la voit (même règle que le camembert).
     db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(conf, 'fol', '#111111', now);
     r = await get('fol', 'userId=own');

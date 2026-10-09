@@ -39,6 +39,25 @@ router.get('/stats/activity-insights', (req, res) => {
   }
 });
 
+// GET /api/stats/activity-insights/glisse?activityId=…&periodStart=AAAA-MM-JJ[&week=1..4] — détail d'une bulle « Où ça glisse ».
+// Membre de l'activité seulement (jamais pour un profil visité : cette route ne prend pas de userId).
+router.get('/stats/activity-insights/glisse', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.query.activityId);
+  if (!Number.isInteger(activityId)) return res.status(400).json({ error: 'activityId requis.' });
+  if (!db.prepare('SELECT id FROM activities WHERE id = ?').get(activityId)) return res.status(404).json({ error: 'Activité introuvable.' });
+  if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
+  const ps = String(req.query.periodStart || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ps)) return res.status(400).json({ error: 'periodStart requis.' });
+  const week = req.query.week ? Number(req.query.week) : null;
+  if (week !== null && !(Number.isInteger(week) && week >= 1 && week <= 4)) return res.status(400).json({ error: 'week invalide.' });
+  try { return res.json(insights.glisseDetail(activityId, ps, week)); } catch (err) {
+    console.error('[stats-glisse]', err);
+    return res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 // GET /api/stats/profile-insights?userId=…[&activityId=…][&year=all][&scope=year|period|week][&kind=periodic|weekly|all][&woff=-N]
 // Statistiques de tâches et d'objectifs d'un AUTRE utilisateur (lecture seule). Règles appliquées ICI, côté serveur :
 //  - même accès que le camembert du profil visité (canViewTrackedContent : soi-même ou abonné accepté) -> sinon 403 ;

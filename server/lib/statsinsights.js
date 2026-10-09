@@ -435,7 +435,7 @@ function objectivesCards(ctx) {
       const list = [];
       for (let w = 1; w <= 4; w += 1) {
         const x = wl.filter((o) => o.periodStart === ps && o.weekIndex === w);
-        list.push({ label: 'S' + w, pct: x.length ? pct(x) : null });
+        list.push({ label: 'S' + w, pct: x.length ? pct(x) : null, periodStart: ps, week: w });
       }
       const pe = goals.addDays(ps, 27); const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
       return { mode: 'weekly', label: plabel(ps) + ' · ' + fmt(ps) + ' – ' + fmt(pe), offset: idx - (pstarts.length - 1), canPrev: idx > 0, canNext: idx < pstarts.length - 1, list };
@@ -444,7 +444,7 @@ function objectivesCards(ctx) {
     let pstarts;
     if (ctx.yearNum) { const an = yearAnchor(ctx.yearNum); pstarts = []; for (let i = 0; i < 13; i += 1) pstarts.push(goals.addDays(an, i * 28)); }
     else { const all = Array.from(new Set(objs.map(unitStart))).sort(); pstarts = all.slice(-13); }
-    const list = pstarts.map((s0) => { const x = started.filter((o) => unitStart(o) === s0); return { label: plabel(s0), pct: x.length ? pct(x) : null, future: s0 > today, current: s0 <= realToday && realToday < goals.addDays(s0, 28) }; });
+    const list = pstarts.map((s0) => { const x = started.filter((o) => unitStart(o) === s0); return { label: plabel(s0), periodStart: s0, pct: x.length ? pct(x) : null, future: s0 > today, current: s0 <= realToday && realToday < goals.addDays(s0, 28) }; });
     return list.some((c) => c.pct != null) ? { mode: 'periodic', list } : null;
   });
 
@@ -480,6 +480,71 @@ function objectivesCards(ctx) {
   });
 
   return out;
+}
+
+// ---- Détail « Où ça glisse » (clic sur une bulle, sa propre page uniquement) ----------------------
+// Pour une semaine (weekIndex 1..4) ou une période entière (weekIndex absent) commençant à periodStart.
+// Tâches liées = sub_project_items.goalWeeklyId. Réalisées = faites ; Non accomplies = non faites ;
+// Ont glissé = non faites dont la date prévue est après la fin de la semaine ; Avancées = faites dans la semaine
+// mais liées à une semaine ultérieure. Temps estimé par tâche : goals.estimateForGoal (30 min par défaut).
+function glisseDetail(activityId, periodStart, weekIndex) {
+  const realToday = todayLocal();
+  const scope = loadScope(activityId, null);
+  const tasks = loadTasks(activityId, scope.keyToPole);
+  const pers = db.prepare('SELECT id, startDate FROM goal_periods WHERE activityId = ?').all(activityId);
+  const wk = {};
+  pers.forEach((p) => {
+    db.prepare("SELECT id, weekIndex FROM goal_weekly WHERE periodId = ? AND TRIM(text) <> ''").all(p.id).forEach((w) => {
+      const b = goals.weekBounds(p.startDate, w.weekIndex);
+      wk[w.id] = { ps: p.startDate, w: w.weekIndex, start: b.start, end: b.end };
+    });
+  });
+  const plabel = (d) => 'P' + (Math.floor(goals.daysBetween(yearAnchor(anchorYearOf(d)), d) / 28) + 1);
+  const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
+  const cache = {};
+  const minutes = (t) => {
+    const k = t.key + '|' + t.label;
+    if (!(k in cache)) { const e = goals.estimateForGoal(activityId, t.key, 'weekly', t.label); cache[k] = e && e.minutes > 0 ? e.minutes : 30; }
+    return cache[k];
+  };
+  // Emplacement d'une date par rapport à la période de référence : semaine de la même période ou autre période.
+  const where = (d, ps) => (d <= goals.addDays(ps, 27) && d >= ps
+    ? { kind: 'week', n: Math.floor(goals.daysBetween(ps, d) / 7) + 1, date: fmt(d) }
+    : { kind: 'period', label: plabel(d), date: fmt(d) });
+  const slot = (ref, ps) => (ref.ps === ps ? { kind: 'week', n: ref.w } : { kind: 'period', label: plabel(ref.ps) });
+  const weekDetail = (w) => {
+    const ids = Object.keys(wk).filter((id) => wk[id].ps === periodStart && wk[id].w === w).map(Number);
+    const b = goals.weekBounds(periodStart, w);
+    const mine = tasks.filter((t) => t.weeklyId != null && ids.indexOf(t.weeklyId) >= 0);
+    const row = (t) => ({ label: t.label, minutes: minutes(t), week: w });
+    const done = mine.filter((t) => t.done);
+    const notDone = mine.filter((t) => !t.done);
+    const slipped = notDone.filter((t) => t.due && t.due > b.end).map((t) => Object.assign(row(t), { to: where(t.due, periodStart) }));
+    const ahead = tasks.filter((t) => t.done && t.doneDay && t.doneDay >= b.start && t.doneDay <= b.end && t.weeklyId != null && wk[t.weeklyId] && wk[t.weeklyId].start > b.end)
+      .map((t) => Object.assign(row(t), { from: slot(wk[t.weeklyId], periodStart) }));
+    let tot = 0; let dn = 0;
+    mine.forEach((t) => { const m = minutes(t); tot += m; if (t.done) dn += m; });
+    return { week: w, start: b.start, end: b.end, started: b.start <= realToday, pct: tot ? Math.round(dn * 100 / tot) : null, done: done.map(row), notDone: notDone.map(row), slipped, ahead };
+  };
+  const out = { periodStart, periodLabel: plabel(periodStart), periodEnd: goals.addDays(periodStart, 27), startLabel: fmt(periodStart), endLabel: fmt(goals.addDays(periodStart, 27)) };
+  if (weekIndex) {
+    return Object.assign(out, { mode: 'week' }, weekDetail(weekIndex));
+  }
+  const weeks = [1, 2, 3, 4].map(weekDetail);
+  const tileOf = (wd) => {
+    const ids = Object.keys(wk).filter((id) => wk[id].ps === periodStart && wk[id].w === wd.week).map(Number);
+    if (!ids.length || !wd.started) return null;
+    const rows = db.prepare(`SELECT status FROM goal_weekly WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids);
+    return rows.length ? Math.round(rows.filter((r) => r.status === 'atteint').length * 100 / rows.length) : null;
+  };
+  const tiles = weeks.map((wd) => ({ week: wd.week, pct: tileOf(wd) }));
+  const evald = tiles.filter((x) => x.pct != null);
+  const cat = (key) => weeks.reduce((a, wd) => a.concat(wd[key]), []);
+  return Object.assign(out, {
+    mode: 'period',
+    pct: evald.length ? Math.round(evald.filter((x) => x.pct >= 80).length * 100 / evald.length) : null,
+    tiles, slipped: cat('slipped'), notDone: cat('notDone'), ahead: cat('ahead'),
+  });
 }
 
 function yearOf(d) { return d ? Number(String(d).slice(0, 4)) : null; }
@@ -544,4 +609,4 @@ function visitorInsights(activityId, ownerId, yearParam, opts) {
   };
 }
 
-module.exports = { insightsForActivity, visitorInsights };
+module.exports = { insightsForActivity, visitorInsights, glisseDetail };
