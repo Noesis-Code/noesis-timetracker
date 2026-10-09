@@ -51,9 +51,12 @@
   // d'information par défaut + cartes ajoutables (choix mémorisé par onglet).
   // Données : GET /api/stats/activity-insights (server/lib/statsinsights.js) ;
   // une donnée absente (null) masque simplement sa carte.
-  var tab = 't', view = 'year', oview = 'all', adding = false, draft = [], dayOff = 0, wOff = 0, pPage = null; // pPage : page de 4 périodes de « Où ça glisse » (null = auto). wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
-  var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine'], ['all', 'Tout']];
-  var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires'], ['all', 'Tout']];
+  var DEF_O = visitor ? 'all' : 'weekly'; // défaut Objectifs : « Tout » sur un profil visité, Hebdomadaires sur sa propre page
+  var tab = 't', view = 'year', oview = DEF_O, adding = false, draft = [], dayOff = 0, wOff = 0, pPage = null; // pPage : page de 4 périodes de « Où ça glisse » (null = auto). wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
+  // « Tout » : profil visité seulement, premier choix du menu ⋮.
+  var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
+  var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires']];
+  if (visitor) { VIEWS.unshift(['all', 'Tout']); OVIEWS.unshift(['all', 'Tout']); }
 
   function build() {
     if (built) return; built = true;
@@ -199,10 +202,10 @@
   }
 
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
-  function isDirty() { return view !== 'year' || oview !== 'all' || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
+  function isDirty() { return view !== 'year' || oview !== DEF_O || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
   function resetTransient() {
-    var wasOff = dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== 'all';
-    view = 'year'; oview = 'all'; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
+    var wasOff = dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== DEF_O;
+    view = 'year'; oview = DEF_O; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
     if (wasOff && built && activityId != null && cfg.isShown()) { load(); return; }
     if (built && data) render();
   }
