@@ -264,6 +264,8 @@
     'mois': 'months',
     'Arrêter la récurrence': 'Stop repeating',
     'Répéter': 'Repeat',
+    'Choisis un pôle ou un secteur.': 'Choose a pole or sector.',
+    'Choisir…': 'Choose…',
     'Mon agenda': 'My calendar',
     'Colle l\u2019adresse ICS de ton agenda': 'Paste your calendar ICS address',
     'Colle d\u2019abord l\u2019adresse de ton agenda.': 'Paste your calendar address first.',

@@ -1125,10 +1125,10 @@
         card.appendChild(actions);
       } else {
         title.textContent = TMT.aiMode === 'absence' ? t('Sélection du pôle & secteur') : t('Pôle et secteur non trouvés — où placer cette tâche ?');
-        var getDate = function () { return null; }, getWho = function () { return null; }, recFld = null;
+        var getDate = function () { return null; }, getWho = function () { return null; }, recFld = null, fwrap = null;
         if (TMT.aiMode === 'absence') {
           // Mode Absence : l'utilisateur choisit aussi la date et le responsable (modèle de modification de la page 2).
-          var fwrap = document.createElement('div');
+          fwrap = document.createElement('div');
           fwrap.className = 'goalsPlacementBox';
           function fld(text, el) {
             var w = document.createElement('label'); w.className = 'goalsPlacementField';
@@ -1151,6 +1151,9 @@
           getDate = function () { return dIn.value || null; };
           getWho = function () { return wSel.value || null; };
         }
+        var selectMode = !(r.suggested && r.suggested.length);
+        var chosenKey = null, whereBtn = null;
+        function setChosen(key, text) { chosenKey = key; whereBtn.textContent = text; }
         function pick(key) { finish({ forcedCategory: key, dueDate: getDate(), plannedUserId: getWho(), recurrence: recFld ? recFld.get() : null }); }
         var list = document.createElement('div');
         list.className = 'goalsCaptureConfirmList';
@@ -1188,11 +1191,16 @@
           });
           var float = document.createElement('div');
           float.className = 'goalsCaptureFloat goalsCaptureFloatTop';
-          function opt(key, text, cls) {
+          function opt(key, text, cls, shown) {
             var bb = document.createElement('button');
             bb.type = 'button'; bb.className = 'goalsCaptureFloatItem ' + cls;
             bb.textContent = text;
-            bb.addEventListener('click', function (e) { e.stopPropagation(); pick(key); });
+            bb.addEventListener('click', function (e) {
+              e.stopPropagation();
+              // Sans proposition (Absent / tri introuvable) : le choix remplit la case ; on valide avec Enregistrer.
+              if (selectMode) { setChosen(key, shown || text); float.remove(); document.removeEventListener('click', onDoc, true); }
+              else pick(key);
+            });
             float.appendChild(bb);
           }
           groups.forEach(function (g) {
@@ -1200,10 +1208,10 @@
             var h = document.createElement('p');
             h.className = 'goalsCaptureFloatPole'; h.textContent = g.label;
             float.appendChild(h);
-            g.items.forEach(function (it) { opt(it.key, it.label, 'sector'); });
+            g.items.forEach(function (it) { opt(it.key, it.label, 'sector', g.label + ' › ' + it.label); });
           });
           // Volet flottant AU-DESSUS du pop-up (fixe, ancré sur « Autre… »), comme le menu pôle/secteur du Chrono.
-          var anchor = list.querySelector('.goalsCaptureConfirmOther') || list;
+          var anchor = selectMode ? whereBtn : (list.querySelector('.goalsCaptureConfirmOther') || list);
           var ar = anchor.getBoundingClientRect(), cr = card.getBoundingClientRect();
           var top = ar.height ? ar.bottom + 6 : cr.top + 70;
           float.style.position = 'fixed'; float.style.left = (cr.left + 16) + 'px'; float.style.right = 'auto';
@@ -1215,9 +1223,30 @@
           function onDoc(e) { if (!float.contains(e.target) && e.target !== anchor) { float.remove(); document.removeEventListener('click', onDoc, true); } }
           document.addEventListener('click', onDoc, true);
         }
-        if (r.suggested && r.suggested.length) render(r.suggested, true);
-        else window.setTimeout(showDropdown, 30);
-        card.appendChild(list);
+        if (!selectMode) { render(r.suggested, true); card.appendChild(list); }
+        else {
+          // Case « Où » fermée : un clic déroule la liste des pôles/secteurs ; le choix s'affiche dans la case et se modifie.
+          var whereField = document.createElement('div');
+          whereField.className = 'goalsPlacementField';
+          var whereCap = document.createElement('span'); whereCap.className = 'meta'; whereCap.textContent = t('Où');
+          whereBtn = document.createElement('button');
+          whereBtn.type = 'button'; whereBtn.className = 'goalsWhereBtn goalsWhereBtnBlock';
+          whereBtn.textContent = t('Choisir…');
+          whereBtn.addEventListener('click', showDropdown);
+          whereField.appendChild(whereCap); whereField.appendChild(whereBtn);
+          list.appendChild(whereField);
+          var whereErr = document.createElement('p'); whereErr.className = 'msg'; whereField.appendChild(whereErr);
+          var saveRow = document.createElement('div'); saveRow.className = 'goalsCaptureConfirmActions';
+          var saveBtn = document.createElement('button');
+          saveBtn.type = 'button'; saveBtn.className = 'iconBtn btnBrique'; saveBtn.textContent = t('Enregistrer');
+          saveBtn.addEventListener('click', function () {
+            if (!chosenKey) { whereErr.textContent = t('Choisis un pôle ou un secteur.'); return; }
+            pick(chosenKey);
+          });
+          saveRow.appendChild(saveBtn);
+          if (fwrap) card.insertBefore(list, fwrap); else card.appendChild(list);
+          card.appendChild(saveRow);
+        }
       }
       overlay.appendChild(card);
       document.body.appendChild(overlay);
