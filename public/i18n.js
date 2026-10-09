@@ -1018,6 +1018,7 @@
     'Public': 'Public',
     'Confidentiel': 'Confidential',
     'Titre de l’objectif': 'Goal title',
+    'Supprimer cet objectif': 'Delete this goal',
     'Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.': 'Describe this goal more precisely: what you want to achieve, how you will know it is done. The more precise, the better Noèsis plans for you.',
     'Décrire cet objectif': 'Describe this goal',
     'En cours': 'Current',

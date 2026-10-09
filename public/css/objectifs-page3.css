@@ -592,3 +592,6 @@
 .goalMainEmptyAdd { color: var(--purple); font-weight: 600; }
 .goalWeeklyCapInfo { font-size: 12px; color: var(--text-light); padding: 2px 0; }
 .goalWeeklyProposal { font-size: 12px; align-self: flex-start; }
+
+/* 9 oct. 2026 : corbeille tout à gauche des formulaires de modification (objectif périodique / hebdomadaire). */
+.goalMainSaveRow > .historyRowIconBtn.danger, .goalWeeklyEditActions > .historyRowIconBtn.danger { margin-right: auto; }

@@ -1687,6 +1687,32 @@ function setMainGoal(activityId, category, periodNumber, text, description, esti
   return { ...estimate };
 }
 
+// Suppression d'un objectif périodique (9 oct. 2026) : vide le grand objectif de la période
+// et supprime ses objectifs hebdomadaires. La période elle-même reste (case vide).
+function deleteWeeklyRows(ids) {
+  ids.forEach((id) => {
+    db.prepare('UPDATE goal_weekly SET carriedOverFromId = NULL WHERE carriedOverFromId = ?').run(id);
+    db.prepare('UPDATE goal_weekly SET carriedToId = NULL WHERE carriedToId = ?').run(id);
+    db.prepare('DELETE FROM goal_weekly WHERE id = ?').run(id);
+  });
+}
+
+function deleteMainGoal(activityId, category, periodNumber) {
+  assertCategoryOrSecteurForActivity(activityId, category);
+  const period = db.prepare('SELECT id FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);
+  if (!period) return;
+  deleteWeeklyRows(db.prepare('SELECT id FROM goal_weekly WHERE periodId = ?').all(period.id).map((r) => r.id));
+  db.prepare(`UPDATE goal_periods SET mainGoalText = '', mainGoalDescription = '', mainGoalEstimateMinutes = NULL,
+    mainGoalEstimateSource = NULL, mainGoalEstimateConfidence = NULL, mainGoalStatus = NULL WHERE id = ?`).run(period.id);
+}
+
+function deleteWeekly(activityId, category, periodNumber, weekIndex) {
+  assertCategoryOrSecteurForActivity(activityId, category);
+  const period = db.prepare('SELECT id FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);
+  if (!period) return;
+  deleteWeeklyRows(db.prepare('SELECT id FROM goal_weekly WHERE periodId = ? AND weekIndex = ? AND carriedOverFromId IS NULL').all(period.id, weekIndex).map((r) => r.id));
+}
+
 function setMainGoalStatus(activityId, category, periodNumber, status) {
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
   // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
@@ -1936,6 +1962,8 @@ module.exports = {
   assertCategoryOrSecteurForActivity,
   gridColumnsForPole,
   secteurRemovalInfo,
+  deleteMainGoal,
+  deleteWeekly,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
   yearGridStart,

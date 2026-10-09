@@ -10,6 +10,7 @@
 // références (time_entries, sub_projects, plans, périodes,
 // capacités, suggestions). Aucune collision possible, rien à fusionner.
 const db = require('../db');
+require('./goals'); // tables goal_year_goals / goal_years
 
 function sourceKeys(fromId, userId, includeShared) {
   const keys = new Set();
@@ -53,8 +54,8 @@ function transferActivityContent(fromId, toId, opts) {
   const fromName = (db.prepare('SELECT name FROM activities WHERE id = ?').get(fromId) || {}).name || '';
   const now = new Date().toISOString();
   const ins = db.prepare(`INSERT INTO activity_goal_categories
-    (activityId, key, label, color, position, createdAt, removedAt, parentKey, description)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    (activityId, key, label, color, position, createdAt, removedAt, parentKey, description, fromYear, removedYear, removedFromDate)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   // Pôles d'abord pour garder l'ordre ; le parentKey est remappé.
   const ordered = Array.from(byKey.values()).sort((a, b) => (a.parentKey ? 1 : 0) - (b.parentKey ? 1 : 0));
   ordered.forEach((r) => {
@@ -64,7 +65,8 @@ function transferActivityContent(fromId, toId, opts) {
     }
     if (!r.parentKey && !r.removedAt) labels.add(String(label).toLowerCase());
     ins.run(toId, map.get(r.key), label, r.color || '', pos++, r.createdAt || now, r.removedAt || null,
-      r.parentKey ? (map.get(r.parentKey) || null) : null, r.description || null);
+      r.parentKey ? (map.get(r.parentKey) || null) : null, r.description || null,
+      r.fromYear == null ? null : r.fromYear, r.removedYear == null ? null : r.removedYear, r.removedFromDate || null);
   });
 
   const remap = (sql, extra) => map.forEach((nk, ok) => db.prepare(sql).run(nk, ...extra(ok)));
@@ -92,6 +94,7 @@ function transferActivityContent(fromId, toId, opts) {
     map.forEach((nk, ok) => {
       db.prepare('UPDATE activity_goal_plans SET activityId = ?, category = ? WHERE activityId = ? AND category = ?').run(toId, nk, fromId, ok);
       db.prepare('UPDATE goal_periods SET activityId = ?, category = ? WHERE activityId = ? AND category = ?').run(toId, nk, fromId, ok);
+      db.prepare('UPDATE goal_year_goals SET activityId = ?, category = ? WHERE activityId = ? AND category = ?').run(toId, nk, fromId, ok);
       db.prepare('UPDATE goal_capacity_overrides SET activityId = ?, category = ? WHERE activityId = ? AND category = ?').run(toId, nk, fromId, ok);
       db.prepare('UPDATE goal_cross_sector_suggestions SET activityId = ?, sourceCategory = ? WHERE activityId = ? AND sourceCategory = ?').run(toId, nk, fromId, ok);
     });
@@ -102,7 +105,11 @@ function transferActivityContent(fromId, toId, opts) {
   }
   // Déplacement : les lignes de la source ont été recopiées, on les retire
   // pour que la source (vide) puisse être effacée sans rien perdre.
-  if (move) db.prepare('DELETE FROM activity_goal_categories WHERE activityId = ?').run(fromId);
+  if (move) {
+    db.prepare('INSERT OR IGNORE INTO goal_years (activityId, year, createdAt) SELECT ?, year, createdAt FROM goal_years WHERE activityId = ?').run(toId, fromId);
+    db.prepare('DELETE FROM goal_years WHERE activityId = ?').run(fromId);
+    db.prepare('DELETE FROM activity_goal_categories WHERE activityId = ?').run(fromId);
+  }
   return { categories: map.size };
 }
 

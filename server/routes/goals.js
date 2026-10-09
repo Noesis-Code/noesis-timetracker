@@ -377,6 +377,36 @@ router.post('/activities/:id/goals/periods/:periodNumber/weekly-proposals', asyn
   }
 });
 
+// Suppression d'un objectif périodique / hebdomadaire (corbeille du formulaire de modification).
+router.delete('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const periodNumber = Number(req.params.periodNumber);
+  if (!periodNumber || periodNumber < 1) return res.status(400).json({ error: 'Période invalide.' });
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    goals.deleteMainGoal(activityId, resolveCategory(activityId, req.query.category), periodNumber);
+    res.json({ ok: true });
+  } catch (err) { handleGoalsError(res, err); }
+});
+
+router.delete('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const periodNumber = Number(req.params.periodNumber);
+  const weekIndex = Number(req.params.weekIndex);
+  if (!periodNumber || periodNumber < 1 || !weekIndex || weekIndex < 1 || weekIndex > 4) return res.status(400).json({ error: 'Période ou semaine invalide.' });
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    goals.deleteWeekly(activityId, resolveCategory(activityId, req.query.category), periodNumber, weekIndex);
+    res.json({ ok: true });
+  } catch (err) { handleGoalsError(res, err); }
+});
+
 router.put('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
