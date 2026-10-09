@@ -159,7 +159,7 @@ router.get('/activities/:id/goals/all-for-pole', (req, res) => {
     if (!goals.isValidCategoryForActivity(activityId, poleKey)) {
       return res.status(400).json({ error: 'Pôle invalide pour cette activité.' });
     }
-    const columns = goals.gridColumnsForPole(activityId, poleKey);
+    const columns = goals.gridColumnsForPole(activityId, poleKey, req.query.year);
     const byCategory = {};
     columns.forEach((c) => {
       byCategory[c.key] = goals.planningForActivity(activityId, c.key);
@@ -725,6 +725,37 @@ router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, r
   }
 });
 
+// Redistribution des tâches d'un secteur retiré (9 oct. 2026) : selon le mode de
+// Noèsis de l'utilisateur — autonome : propositions appliquées d'office par le
+// client ; partiel : propositions à valider ; absence : aucun choix proposé.
+router.get('/activities/:id/goals/categories/:key/secteurs/:secteurKey/redistribution', async (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    const info = goals.secteurRemovalInfo(activityId, req.params.secteurKey);
+    const modeRow = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(userId);
+    const mode = (modeRow && modeRow.aiMode) || 'absence';
+    const proposals = {};
+    if (mode !== 'absence' && info.targets.length > 1) {
+      const restrictKeys = info.targets.map((t) => t.key);
+      for (const sp of info.tasks) {
+        try {
+          const r = await goalstaskclassify.classifyCategory(activityId, sp.name, { strict: true, restrictKeys });
+          if (r && r.key) proposals[sp.id] = r.key;
+          else if (r && r.suggested && r.suggested[0]) proposals[sp.id] = r.suggested[0].key;
+        } catch (e) { /* pas de proposition pour ce sous-projet */ }
+      }
+    }
+    res.json({ mode, tasks: info.tasks, targets: info.targets, proposals });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 router.delete('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
@@ -735,7 +766,7 @@ router.delete('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req
 
   try {
     assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
-    const secteurs = goals.removeCategory(activityId, req.params.secteurKey, { tasks: (req.body && req.body.tasks) || req.query.tasks });
+    const secteurs = goals.removeCategory(activityId, req.params.secteurKey, { tasks: (req.body && req.body.tasks) || req.query.tasks, assignments: req.body && req.body.assignments });
     res.json({ ok: true, secteurs });
   } catch (err) {
     handleGoalsError(res, err);

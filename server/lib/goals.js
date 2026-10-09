@@ -60,6 +60,16 @@ db.exec(`CREATE TABLE IF NOT EXISTS goal_year_goals (
   PRIMARY KEY (activityId, category, year)
 )`);
 
+// Secteurs par année (9 oct. 2026) : un secteur est visible dans l'arbre d'une
+// année Y si fromYear est NULL ou ≤ Y, et s'il n'est pas retiré ou Y ≤ removedYear.
+// removedFromDate : début de la période en cours au retrait (périodes suivantes supprimées).
+(function ensureSectorYearColumns() {
+  const cols = db.prepare('PRAGMA table_info(activity_goal_categories)').all().map((c) => c.name);
+  if (!cols.includes('fromYear')) db.exec('ALTER TABLE activity_goal_categories ADD COLUMN fromYear INTEGER');
+  if (!cols.includes('removedYear')) db.exec('ALTER TABLE activity_goal_categories ADD COLUMN removedYear INTEGER');
+  if (!cols.includes('removedFromDate')) db.exec('ALTER TABLE activity_goal_categories ADD COLUMN removedFromDate TEXT');
+})();
+
 function currentYear() { return Number(todayLocal().slice(0, 4)); }
 
 // Années d'arbre périodique créées pour une activité (au-delà de l'année en cours,
@@ -474,9 +484,9 @@ function addCategory(activityId, label, parentKey, atTop) {
       throw Object.assign(new Error(MAX_SECTEURS_PER_POLE + ' secteurs maximum par pôle.'), { statusCode: 400 });
     }
     db.prepare(`
-      INSERT INTO activity_goal_categories (activityId, key, label, color, position, parentKey, createdAt)
-      VALUES (?, ?, ?, '', ?, ?, ?)
-    `).run(activityId, key, cleanLabel, siblingCount, parentKey, createdAt);
+      INSERT INTO activity_goal_categories (activityId, key, label, color, position, parentKey, createdAt, fromYear)
+      VALUES (?, ?, ?, '', ?, ?, ?, ?)
+    `).run(activityId, key, cleanLabel, siblingCount, parentKey, createdAt, currentYear());
 
     // 27 septembre 2026 (demande d'Emilien, chantier « Tâches quotidiennes
     // intégrées à la Page 2 ») : un pôle qui reçoit un secteur ne peut plus
@@ -541,12 +551,20 @@ function addCategory(activityId, label, parentKey, atTop) {
 function migratePoleDirectDataToSecteur(activityId, poleKey, secteurKey) {
   db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE activityId = ? AND goalCategory = ?')
     .run(secteurKey, activityId, poleKey);
-  db.prepare('UPDATE activity_goal_plans SET category = ? WHERE activityId = ? AND category = ?')
-    .run(secteurKey, activityId, poleKey);
-  db.prepare('UPDATE goal_periods SET category = ? WHERE activityId = ? AND category = ?')
-    .run(secteurKey, activityId, poleKey);
-  db.prepare('UPDATE goal_year_goals SET category = ? WHERE activityId = ? AND category = ?')
-    .run(secteurKey, activityId, poleKey);
+  // Par année (9 oct. 2026) : seules l'année en cours et les suivantes passent au
+  // secteur ; les années passées gardent l'arbre du pôle. Le plan du pôle reste
+  // (copié, même date de départ pour que la numérotation des périodes concorde).
+  const plan = db.prepare('SELECT startDate FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, poleKey);
+  if (!plan) return;
+  const cur = currentYear();
+  const y0 = yearOfPlanStart(plan.startDate);
+  const minN = Math.max(0, cur - y0) * PERIODS_PER_CYCLE + 1;
+  db.prepare('INSERT OR IGNORE INTO activity_goal_plans (activityId, category, startDate, createdAt) VALUES (?, ?, ?, ?)')
+    .run(activityId, secteurKey, plan.startDate, new Date().toISOString());
+  db.prepare('UPDATE goal_periods SET category = ? WHERE activityId = ? AND category = ? AND periodNumber >= ?')
+    .run(secteurKey, activityId, poleKey, minN);
+  db.prepare('UPDATE goal_year_goals SET category = ? WHERE activityId = ? AND category = ? AND year >= ?')
+    .run(secteurKey, activityId, poleKey, cur);
 }
 
 // Renomme une catégorie ACTIVE (jamais une gelée — modifier l'étiquette
@@ -607,6 +625,27 @@ function removeCategory(activityId, key, opts) {
   const affected = [key].concat(row.parentKey ? [] : existing.filter((r) => r.parentKey === key).map((r) => r.key));
   const taskCount = countTasksForKeys(activityId, affected);
   const choice = opts && opts.tasks;
+  // Secteur (9 oct. 2026) : retrait PAR ANNÉE — périodes supprimées à partir de la
+  // période en cours, jamais les passées ; tâches ouvertes redistribuées aux autres secteurs.
+  if (row.parentKey && choice !== 'delete' && choice !== 'keep') {
+    db.exec('BEGIN');
+    try {
+      redistributeSecteurTasks(activityId, row, existing, opts && opts.assignments);
+      const today = todayLocal();
+      const del = db.prepare('SELECT id, startDate FROM goal_periods WHERE activityId = ? AND category = ? AND endDate >= ?').all(activityId, key, today);
+      const from = del.length ? del.map((d) => d.startDate).sort()[0] : today;
+      del.forEach((d) => db.prepare('DELETE FROM goal_periods WHERE id = ?').run(d.id));
+      db.prepare('DELETE FROM goal_year_goals WHERE activityId = ? AND category = ? AND year > ?').run(activityId, key, currentYear());
+      const result = removeCategoryRows(activityId, key, row, existing);
+      db.prepare('UPDATE activity_goal_categories SET removedYear = ?, removedFromDate = ? WHERE activityId = ? AND key = ?')
+        .run(currentYear(), from, activityId, key);
+      db.exec('COMMIT');
+      return result;
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
+  }
   if (taskCount > 0 && choice !== 'delete' && choice !== 'keep') {
     throw Object.assign(new Error('Choisis quoi faire des tâches affiliées (les supprimer ou les conserver).'), { statusCode: 409, taskCount });
   }
@@ -623,6 +662,43 @@ function removeCategory(activityId, key, opts) {
     db.exec('ROLLBACK');
     throw e;
   }
+}
+
+// Sous-projets d'un secteur qui portent encore au moins une tâche ouverte (à redistribuer).
+function openTaskHomesForSecteur(activityId, key) {
+  return db.prepare(`
+    SELECT sp.id, sp.name FROM sub_projects sp
+    WHERE sp.activityId = ? AND sp.goalCategory = ?
+      AND EXISTS (SELECT 1 FROM sub_project_items i WHERE i.subProjectId = sp.id AND i.done = 0)
+    ORDER BY sp.position, sp.id
+  `).all(activityId, key);
+}
+
+// Cibles possibles d'une redistribution : les autres secteurs actifs du même pôle,
+// sinon le pôle lui-même.
+function redistributionTargets(activityId, row, existing) {
+  const sibs = existing.filter((r) => r.parentKey === row.parentKey && r.key !== row.key);
+  if (sibs.length) return sibs.map((r) => ({ key: r.key, label: r.label }));
+  const pole = existing.find((r) => r.key === row.parentKey);
+  return pole ? [{ key: pole.key, label: pole.label }] : [];
+}
+
+function redistributeSecteurTasks(activityId, row, existing, assignments) {
+  const targets = redistributionTargets(activityId, row, existing);
+  if (!targets.length) return;
+  const valid = new Set(targets.map((t) => t.key));
+  openTaskHomesForSecteur(activityId, row.key).forEach((sp) => {
+    const wanted = assignments && assignments[sp.id];
+    const dest = valid.has(wanted) ? wanted : targets[0].key;
+    db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE id = ?').run(dest, sp.id);
+  });
+}
+
+function secteurRemovalInfo(activityId, key) {
+  const existing = ensureDefaultCategory(activityId);
+  const row = existing.find((r) => r.key === key && r.parentKey);
+  if (!row) throw Object.assign(new Error('Secteur introuvable.'), { statusCode: 404 });
+  return { tasks: openTaskHomesForSecteur(activityId, key), targets: redistributionTargets(activityId, row, existing) };
 }
 
 function purgeCategoryPlanning(activityId, keys) {
@@ -874,9 +950,18 @@ function assertCategoryOrSecteurForActivity(activityId, category) {
 // secteur n'a été créé. Forme identique à categoriesForActivity
 // (`{key,label,...}`) pour rester consommable telle quelle par
 // activeGoalsCategories()/renderGoalsGrid() côté client.
-function gridColumnsForPole(activityId, poleKey) {
-  const secteurs = secteursForPole(activityId, poleKey);
-  if (secteurs.length) return secteurs;
+function gridColumnsForPole(activityId, poleKey, year) {
+  const y = Number(year);
+  if (Number.isFinite(y) && y > 0) {
+    const rows = db.prepare('SELECT * FROM activity_goal_categories WHERE activityId = ? AND parentKey = ? ORDER BY position, id').all(activityId, poleKey)
+      .filter((r) => (r.fromYear == null || r.fromYear <= y) && (r.removedAt == null || (r.removedYear != null && y <= r.removedYear)));
+    if (rows.length) {
+      return rows.map((r) => ({ key: r.key, label: r.label, parentKey: r.parentKey, description: r.description || '', removedFromDate: r.removedAt ? (r.removedFromDate || null) : null }));
+    }
+  } else {
+    const secteurs = secteursForPole(activityId, poleKey);
+    if (secteurs.length) return secteurs;
+  }
   const pole = categoriesForActivity(activityId).find((c) => c.key === poleKey);
   return pole ? [pole] : [];
 }
@@ -1850,6 +1935,7 @@ module.exports = {
   // server/routes/goals.js.
   assertCategoryOrSecteurForActivity,
   gridColumnsForPole,
+  secteurRemovalInfo,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
   yearGridStart,

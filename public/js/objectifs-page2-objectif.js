@@ -729,9 +729,27 @@
       renderGoalsGridHead(); renderGoalsGrid();
     }).catch(function () { goalsYearsLoadingFor = null; });
   }
+  // Année vide au sommet (au-dessus de l'année en cours) : disparaît quand on la quitte.
+  // Le serveur ne supprime que la dernière année, et seulement si elle est vide.
+  TMT.pruneGoalsYears = function () {
+    var id = TMT.currentGoalsActivityId, ys = TMT.goalsYears;
+    if (!id || !ys || TMT.goalsYearsFor !== id || !(ys.maxYear > goalsCurrentYear())) return Promise.resolve();
+    return api('DELETE', '/api/activities/' + id + '/goals/years/' + ys.maxYear).then(function (r) {
+      if (TMT.currentGoalsActivityId !== id) return;
+      if (TMT.goalsTreeYear > r.maxYear) TMT.goalsTreeYear = null;
+      TMT.goalsYears = r;
+    }).catch(function () { /* année remplie : on la garde */ });
+  };
   function selectGoalsYear(y) {
+    var prevY = goalsTreeYearNow();
     TMT.goalsTreeYear = y;
+    if (y < prevY) {
+      TMT.pruneGoalsYears().then(function () { renderGoalsYearPicker(); });
+    }
     renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid();
+    // Les secteurs diffèrent selon l'année : recharge les colonnes de l'année choisie.
+    var pk = TMT.currentGoalsSelectedPoleKey;
+    if (pk && TMT.reloadGoalsGridForPole) TMT.reloadGoalsGridForPole(pk);
   }
   function renderGoalsYearPicker() {
     var wrap = $('goalsYearPickWrap'), menu = $('goalsYearPickMenu'), label = $('goalsYearPickLabel');
@@ -761,22 +779,6 @@
       b.type = 'button'; b.className = 'statsPeriodMenuItem' + (y === ty ? ' active' : ''); b.textContent = String(y);
       b.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.add('hidden'); if (y !== ty) selectGoalsYear(y); });
       row.appendChild(b);
-      if (y > goalsCurrentYear() && y === TMT.goalsYears.maxYear && TMT.goalsYears.deletable) {
-        var del = document.createElement('button');
-        del.type = 'button'; del.className = 'goalsYearDel'; del.textContent = '✕';
-        del.setAttribute('aria-label', t('Supprimer') + ' ' + y);
-        del.addEventListener('click', function (e) {
-          e.stopPropagation();
-          api('DELETE', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/years/' + y).then(function (r) {
-            TMT.goalsYears = r;
-            if (TMT.goalsTreeYear === y || TMT.goalsTreeYear > r.maxYear) TMT.goalsTreeYear = goalsCurrentYear();
-            var pk = TMT.currentGoalsSelectedPoleKey;
-            var p = pk && TMT.reloadGoalsGridForPole ? TMT.reloadGoalsGridForPole(pk) : null;
-            return Promise.resolve(p).then(function () { renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid(); });
-          }).catch(function (err) { b.textContent = y + ' — ' + (err && err.message ? err.message : ''); });
-        });
-        row.appendChild(del);
-      }
       menu.appendChild(row);
     });
   }
@@ -788,11 +790,6 @@
     var willOpen = menu.classList.contains('hidden');
     document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
     if (willOpen) menu.classList.remove('hidden');
-    if (willOpen && TMT.currentGoalsActivityId) {
-      api('GET', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/years').then(function (r) {
-        TMT.goalsYears = r; renderGoalsYearPicker();
-      }).catch(function () {});
-    }
   });
 
   // ===================== OBJECTIF DE L'ANNÉE (8 oct. 2026) ===================
@@ -1330,6 +1327,7 @@
         var repPeriod = null;
         if (!hasNoRealCategory) categories.forEach(function (c, index) {
           var p = indexByCategory[c.key][periodIndex];
+          if (p && c.removedFromDate && p.startDate >= c.removedFromDate) p = null; // secteur retiré : périodes supprimées
           var cell = document.createElement('button');
           cell.type = 'button';
           cell.title = t(c.label) + ' — ' + t('Période') + ' ' + periodIndex;

@@ -6959,8 +6959,8 @@
       .then(function () { activityGoalsCategoriesRefresh(activityId); });
   }
 
-  function removePoleSecteur(activityId, poleKey, secteurKey, tasks) {
-    return api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey, tasks ? { tasks: tasks } : undefined)
+  function removePoleSecteur(activityId, poleKey, secteurKey, tasks, assignments) {
+    return api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey, tasks ? { tasks: tasks } : { assignments: assignments || {} })
       .then(function () { activityGoalsCategoriesRefresh(activityId); });
   }
 
@@ -7526,20 +7526,66 @@
     $('categoryRemoveTitle').textContent = t(isPole ? 'Supprimer le pôle « {name} » ?' : 'Supprimer le secteur « {name} » ?', { name: o.label });
     $('categoryRemoveText').textContent = t(isPole
       ? 'Êtes-vous sûr de vouloir supprimer le pôle ? Les secteurs affiliés ainsi que les tâches seront également supprimés.'
-      : 'Êtes-vous sûr de vouloir supprimer le secteur ? Les tâches du secteur seront également supprimées.');
+      : 'Êtes-vous sûr de vouloir supprimer le secteur ? Ses objectifs sont supprimés à partir de la période en cours (les périodes passées sont conservées) et ses tâches ouvertes passent aux autres secteurs.');
     msg.textContent = '';
     keepBtn.classList.add('hidden');
     delBtn.textContent = t('Supprimer');
     delBtn.classList.remove('hidden');
+    delBtn.disabled = false;
+    var assignBox = $('categoryRemoveAssign');
+    if (!assignBox) {
+      assignBox = document.createElement('div');
+      assignBox.id = 'categoryRemoveAssign';
+      $('categoryRemoveText').insertAdjacentElement('afterend', assignBox);
+    }
+    assignBox.innerHTML = '';
+    var assignments = {};
+    var selects = [];
     modal.classList.remove('hidden');
 
     function close() { modal.classList.add('hidden'); }
-    // Toujours « tout supprimer » (3 oct. 2026) : une seule confirmation.
+    function refreshDelState() {
+      delBtn.disabled = selects.some(function (sel) { return !sel.value; });
+    }
+    // Secteur : redistribution des tâches ouvertes selon le mode de Noèsis
+    // (autonome = automatique, partiel = proposition à valider, absence = choix libre).
+    if (!isPole) {
+      delBtn.disabled = true;
+      api('GET', '/api/activities/' + o.activityId + '/goals/categories/' + o.poleKey + '/secteurs/' + o.key + '/redistribution').then(function (info) {
+        var mode = info.mode;
+        (info.tasks || []).forEach(function (tk) {
+          if (info.proposals && info.proposals[tk.id]) assignments[tk.id] = info.proposals[tk.id];
+        });
+        if (mode !== 'autonome' && (info.tasks || []).length && (info.targets || []).length) {
+          var cap = document.createElement('p');
+          cap.className = 'meta';
+          cap.textContent = mode === 'partiel' ? t('Noèsis propose où placer les tâches de ce secteur — valide ou change.') : t('Choisis où placer les tâches de ce secteur.');
+          assignBox.appendChild(cap);
+          info.tasks.forEach(function (tk) {
+            var rowEl = document.createElement('label');
+            rowEl.className = 'meta';
+            rowEl.style.display = 'flex'; rowEl.style.gap = '8px'; rowEl.style.alignItems = 'center'; rowEl.style.margin = '6px 0';
+            var nm = document.createElement('span'); nm.style.flex = '1'; nm.textContent = tk.name;
+            var sel = document.createElement('select');
+            if (mode === 'absence') { var ph = document.createElement('option'); ph.value = ''; ph.textContent = '—'; sel.appendChild(ph); }
+            info.targets.forEach(function (tg) {
+              var op = document.createElement('option'); op.value = tg.key; op.textContent = tg.label; sel.appendChild(op);
+            });
+            if (assignments[tk.id]) sel.value = assignments[tk.id];
+            sel.addEventListener('change', function () { assignments[tk.id] = sel.value; refreshDelState(); });
+            rowEl.appendChild(nm); rowEl.appendChild(sel);
+            assignBox.appendChild(rowEl);
+            selects.push(sel);
+          });
+        }
+        refreshDelState();
+      }).catch(function (err) { msg.textContent = err.message; });
+    }
     delBtn.onclick = function () {
       delBtn.disabled = true;
       var p = isPole
         ? removeActivityGoalsCategory(o.key, 'delete')
-        : removePoleSecteur(o.activityId, o.poleKey, o.key, 'delete');
+        : removePoleSecteur(o.activityId, o.poleKey, o.key, null, assignments);
       p.then(close).catch(function (err) { msg.textContent = err.message; })
         .then(function () { delBtn.disabled = false; });
     };
@@ -7977,7 +8023,7 @@
   function reloadGoalsGridForPole(poleKey) {
     var activityId = TMT.currentGoalsActivityId;
     if (!activityId || !poleKey) return Promise.resolve();
-    return api('GET', '/api/activities/' + activityId + '/goals/all-for-pole?poleKey=' + encodeURIComponent(poleKey)).then(function (data) {
+    return api('GET', '/api/activities/' + activityId + '/goals/all-for-pole?poleKey=' + encodeURIComponent(poleKey) + '&year=' + (TMT.goalsTreeYear || new Date().getFullYear())).then(function (data) {
       // Même garde-fou que reloadGoalsAll() : activité changée, ou pôle
       // changé de nouveau (clic rapide sur un autre bouton) pendant que cette
       // requête était en vol.

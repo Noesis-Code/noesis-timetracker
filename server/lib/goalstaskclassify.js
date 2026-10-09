@@ -223,7 +223,8 @@ async function callModel(prompt, maxTokens) {
 // seul candidat reste un placement direct. opts.forcedKey : choix de
 // l'utilisateur (validé contre les candidats), aucun appel IA.
 async function classifyCategory(activityId, label, opts) {
-  const categories = buildClassificationCandidates(activityId);
+  let categories = buildClassificationCandidates(activityId);
+  if (opts && Array.isArray(opts.restrictKeys)) categories = categories.filter((c) => opts.restrictKeys.includes(c.key));
   if (!categories.length) {
     throw Object.assign(new Error('Aucune catégorie sur cette activité.'), { statusCode: 400 });
   }
