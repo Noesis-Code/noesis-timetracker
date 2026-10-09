@@ -761,7 +761,7 @@
       b.type = 'button'; b.className = 'statsPeriodMenuItem' + (y === ty ? ' active' : ''); b.textContent = String(y);
       b.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.add('hidden'); if (y !== ty) selectGoalsYear(y); });
       row.appendChild(b);
-      if (y > goalsCurrentYear()) {
+      if (y > goalsCurrentYear() && y === TMT.goalsYears.maxYear) {
         var del = document.createElement('button');
         del.type = 'button'; del.className = 'goalsYearDel'; del.textContent = '✕';
         del.setAttribute('aria-label', t('Supprimer') + ' ' + y);

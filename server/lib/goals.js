@@ -110,6 +110,7 @@ function yearIsEmpty(activityId, year) {
 // Retire une année FUTURE et vide (jamais l'année en cours ni une année passée).
 function deleteYear(activityId, year) {
   if (year <= currentYear()) throw Object.assign(new Error('Seules les années futures peuvent être supprimées.'), { statusCode: 400 });
+  if (year !== maxYearFor(activityId)) throw Object.assign(new Error('Supprimez d’abord les années suivantes.'), { statusCode: 400 });
   if (!yearIsEmpty(activityId, year)) throw Object.assign(new Error('Cette année contient déjà des objectifs.'), { statusCode: 400 });
   const plans = db.prepare('SELECT category, startDate FROM activity_goal_plans WHERE activityId = ?').all(activityId);
   plans.forEach((pl) => {
