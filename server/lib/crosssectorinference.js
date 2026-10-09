@@ -111,6 +111,16 @@ Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Mark
 Contraintes : "targetCategory" doit être une des clés listées (jamais une clé inventée) ; "text" fait moins de ${MAX_SUGGESTION_TEXT_LENGTH} caractères, en français, un objectif concret (pas une reformulation de la source) ; "reason" fait moins de ${MAX_REASON_LENGTH} caractères, une phrase courte expliquant le lien ; jamais deux entrées pour la même "targetCategory".`;
 
 async function callAi(payload, allowedKeys) {
+  // 9 oct. 2026 : une réponse illisible est relancée une fois.
+  try {
+    return await callAiOnce(payload, allowedKeys);
+  } catch (err) {
+    if (!/illisible/.test(err.message)) throw err;
+    return callAiOnce(payload, allowedKeys);
+  }
+}
+
+async function callAiOnce(payload, allowedKeys) {
   const res = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
@@ -120,7 +130,7 @@ async function callAi(payload, allowedKeys) {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1536,
+      max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: JSON.stringify(payload) }],
     }),
@@ -137,7 +147,12 @@ async function callAi(payload, allowedKeys) {
   }
   const body = await res.json();
   const text = (body.content || []).map((block) => block.text || '').join('');
-  return parseSuggestions(text, allowedKeys);
+  try {
+    return parseSuggestions(text, allowedKeys);
+  } catch (err) {
+    console.error('[objectifs][cross-secteur] réponse illisible — arrêt : ' + body.stop_reason + ', début : ' + JSON.stringify(String(text).slice(0, 200)));
+    throw err;
+  }
 }
 
 // Validation stricte — ne fait jamais confiance à l'IA pour respecter les
@@ -147,7 +162,12 @@ function parseSuggestions(text, allowedKeys) {
   try {
     parsed = JSON.parse(text);
   } catch (err) {
-    throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+    try {
+      const i = text.indexOf('{'), j = text.lastIndexOf('}');
+      parsed = JSON.parse(text.slice(i, j + 1));
+    } catch (err2) {
+      throw new Error("Réponse de Noèsis illisible (JSON invalide).");
+    }
   }
   const raw = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
   const allowed = new Set(allowedKeys || []);

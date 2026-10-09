@@ -121,6 +121,16 @@ Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Mark
 Contraintes : un objet par numéro de semaine demandé, jamais un numéro non demandé ; "text" est le TITRE de l'objectif de la semaine : court (moins de 100 caractères), en français, une action concrète ; "description" précise en 1 à 3 phrases ce qu'il faut accomplir et comment on saura que c'est fait (moins de ${MAX_WEEKLY_DESC_LENGTH} caractères). Jamais une reformulation vague du grand objectif.`;
 
 async function callAi(payload, requestedWeeks) {
+  // 9 oct. 2026 : une réponse illisible (coupée ou entourée de texte) est relancée une fois.
+  try {
+    return await callAiOnce(payload, requestedWeeks);
+  } catch (err) {
+    if (!/illisible/.test(err.message)) throw err;
+    return callAiOnce(payload, requestedWeeks);
+  }
+}
+
+async function callAiOnce(payload, requestedWeeks) {
   const res = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
@@ -130,7 +140,7 @@ async function callAi(payload, requestedWeeks) {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 3000,
+      max_tokens: 6000,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: JSON.stringify(payload) }],
     }),
@@ -147,7 +157,12 @@ async function callAi(payload, requestedWeeks) {
   }
   const body = await res.json();
   const text = (body.content || []).map((block) => block.text || '').join('');
-  return parseWeeklyGoals(text, requestedWeeks);
+  try {
+    return parseWeeklyGoals(text, requestedWeeks);
+  } catch (err) {
+    console.error('[objectifs][remplissage IA hebdomadaire] réponse illisible — arrêt : ' + body.stop_reason + ', début : ' + JSON.stringify(String(text).slice(0, 200)));
+    throw err;
+  }
 }
 
 // Validation stricte : ne fait JAMAIS confiance à l'IA pour respecter les
