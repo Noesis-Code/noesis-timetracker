@@ -377,7 +377,6 @@
       els.body.appendChild(add);
       return;
     }
-    els.body.appendChild(el('div', 'saSep', tr('Ajouter une information')));
     defs.filter(function (c) { return !c.def; }).forEach(function (c) {
       var n = c.body(data); if (!n) return;
       var sel = draft.indexOf(c.key) >= 0;

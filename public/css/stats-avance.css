@@ -70,7 +70,7 @@
 .saActs { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 4px; }
 .saCancel, .saApply { padding: 12px; border-radius: 14px; font: inherit; font-size: 14px; color: var(--text); }
 .saCancel { border: 1px solid var(--glass-border); background: rgba(255, 255, 255, .05); }
-.saApply { border: 0; background: #C2694A; color: #fff; font-weight: 600; }
+.saApply { border: 1px solid #C2694A; background: transparent; color: #E08A69; font-weight: 600; }
 
 /* 3 oct. 2026 : zone tactile au-dessus de la barre d'onglets (ne la recouvre pas), point visuel au même endroit qu'avant. */
 #statsPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
