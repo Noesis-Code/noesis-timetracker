@@ -736,18 +736,23 @@
     col.setAttribute('data-key', c.key);
     col.style.setProperty('--yearShade', shade);
     col.style.setProperty('--yearInk', readableTextOn(shade));
-    pill.setAttribute('role', 'button');
-    pill.tabIndex = 0;
     var editing = !!goalsYearEditing[key];
-    var open = !!goalsYearOpen[key] && !!text;
+    // Pôle sans secteur (pill === null) : pas de titre à toucher, la bulle est toujours dépliée.
+    var open = (!pill || !!goalsYearOpen[key]) && !!text;
     var empty = !text;
     function rerender() { renderGoalsGridHead(); }
-    pill.addEventListener('click', function () {
-      if (empty) { goalsYearEditing[key] = !goalsYearEditing[key]; }
-      else { goalsYearOpen[key] = !goalsYearOpen[key]; goalsYearEditing[key] = false; }
-      rerender();
-    });
-    col.appendChild(pill);
+    if (pill) {
+      pill.setAttribute('role', 'button');
+      pill.tabIndex = 0;
+      pill.addEventListener('click', function () {
+        if (empty) { goalsYearEditing[key] = !goalsYearEditing[key]; }
+        else { goalsYearOpen[key] = !goalsYearOpen[key]; goalsYearEditing[key] = false; }
+        rerender();
+      });
+      col.appendChild(pill);
+    } else {
+      col.classList.add('goalsYearCol--noPill');
+    }
     if (empty || open || editing) {
       col.classList.add(empty && !editing ? 'goalsYearCol--vide' : 'goalsYearCol--open');
       if (editing) {
@@ -876,6 +881,12 @@
         }
         head.appendChild(buildGoalsYearColumn(c, span, shade));
       });
+      loadGoalsYearGoals();
+    } else if (!hasNoRealCategory && isPoleFallbackColumn) {
+      // Pôle sans secteur : l'objectif de l'année reste possible, sans titre de secteur.
+      var poleCat = categories[0];
+      var poleShade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+      head.appendChild(buildGoalsYearColumn(poleCat, null, poleShade));
       loadGoalsYearGoals();
     }
     // 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que

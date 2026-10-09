@@ -307,3 +307,6 @@
 .goalsYearLink { position: absolute; left: 50%; top: 100%; height: 38px; width: 0; border-left: 2px solid var(--track-bg); transform: translateX(-50%); pointer-events: none; z-index: -1; }
 .goalsYearCol--linked .goalsYearLink { border-left-color: var(--yearShade); }
 .goalsYearCol--vide .goalsYearLink { display: none; }
+
+.goalsYearCol--noPill.goalsYearCol--vide { padding: 3px; }
+.goalsYearCol--noPill .goalsYearAdd { padding: 10px; }
