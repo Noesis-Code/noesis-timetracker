@@ -701,6 +701,7 @@
     'Connecte-toi pour voir ce profil.': 'Sign in to view this profile.',
     'Tu dois suivre ce profil pour voir ses messages.': 'You need to follow this profile to see its messages.',
     'Choisir la période': 'Choose the period',
+    "Choisir l'année": 'Choose the year',
 
     // ---- Profil : Projets, formulaire en paliers + catégories fermées
     // (2 septembre 2026, chantier "Simplification du formulaire de saisie

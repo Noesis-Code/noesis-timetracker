@@ -34,9 +34,9 @@ function round1(v) { return Math.round(v * 10) / 10; }
 // ---- Graphique cumulatif --------------------------------------------------
 // doneEvents / dueEvents : listes de dates 'YYYY-MM-DD'. Une même entité compte une fois
 // dans la plage si sa date prévue OU sa date de réalisation y tombe.
-function viewRange(mode, today) {
+function viewRange(mode, today, yearOpt) {
   if (mode === 'year') {
-    const y = Number(today.slice(0, 4));
+    const y = yearOpt || Number(today.slice(0, 4));
     let start = yearAnchor(y);
     if (start > today) start = yearAnchor(y - 1);
     const end = goals.addDays(yearAnchor(Number(goals.addDays(start, 6).slice(0, 4)) + 1), -1);
@@ -53,9 +53,9 @@ function viewRange(mode, today) {
   return { start, end: goals.addDays(start, 6), labels: WEEKDAY_LABELS.slice(), n: 7, idx: (d) => goals.daysBetween(start, d) };
 }
 
-function buildView(mode, today, items) {
+function buildView(mode, today, items, yearOpt) {
   // items : [{ due: date|null, done: date|null }]
-  const r = viewRange(mode, today);
+  const r = viewRange(mode, today, yearOpt);
   const inR = (d) => d && d >= r.start && d <= r.end;
   const scope = items.filter((it) => inR(it.due) || inR(it.done));
   const total = scope.length;
@@ -78,8 +78,34 @@ function buildView(mode, today, items) {
   return { labels: r.labels, done, planned, todayIndex, max: niceMax(Math.max(total, acc, pacc)) };
 }
 
-function chartFor(today, items) {
-  return { year: buildView('year', today, items), month: buildView('month', today, items), week: buildView('week', today, items) };
+// Vue « Tous » : un point par année (labels = années), cumul sur l'ensemble.
+function buildAllYears(today, items, years) {
+  const cur = Number(today.slice(0, 4));
+  const minY = years.length ? Math.min.apply(null, years) : cur;
+  const n = cur - minY + 1;
+  const yi = (d) => Math.max(0, Math.min(n - 1, Number(d.slice(0, 4)) - minY));
+  const buckets = new Array(n).fill(0); const pBuckets = new Array(n).fill(0);
+  items.forEach((it) => {
+    if (it.done) buckets[yi(it.done)] += 1;
+    const pd = it.due || it.done;
+    if (pd) pBuckets[yi(pd)] += 1;
+  });
+  const labels = []; const done = []; const planned = []; let acc = 0; let pacc = 0;
+  for (let i = 0; i < n; i += 1) { labels.push(String(minY + i)); acc += buckets[i]; pacc += pBuckets[i]; done.push(acc); planned.push(pacc); }
+  return { labels, done, planned, todayIndex: n - 1, noToday: true, max: niceMax(Math.max(acc, pacc)) };
+}
+
+// year : null (= année en cours) | nombre | 'all'.
+function chartFor(today, items, year, years) {
+  const cur = Number(today.slice(0, 4));
+  const calc = (m) => buildView(m, today, items);
+  const out = { month: calc('month'), week: calc('week') };
+  if (year === 'all') out.year = buildAllYears(today, items, years);
+  else if (year && year < cur) {
+    out.year = buildView('year', year + '-12-31', items, year);
+    out.year.todayIndex = null; out.year.past = true;
+  } else out.year = calc('year');
+  return out;
 }
 
 // ---- Données de base -----------------------------------------------------
@@ -324,16 +350,36 @@ function objectivesCards(ctx) {
   return out;
 }
 
-function insightsForActivity(activityId, userId, poleKey) {
-  const today = todayLocal();
+function yearOf(d) { return d ? Number(String(d).slice(0, 4)) : null; }
+
+function insightsForActivity(activityId, userId, poleKey, yearParam) {
+  const realToday = todayLocal();
+  const cur = Number(realToday.slice(0, 4));
   const scope = loadScope(activityId, poleKey || null);
-  const tasks = loadTasks(activityId, scope.keyToPole);
-  const objs = loadObjectives(activityId, scope.keyToPole);
+  const allTasks = loadTasks(activityId, scope.keyToPole);
+  const allObjs = loadObjectives(activityId, scope.keyToPole);
+  const ys = new Set();
+  const add = (d) => { const y = yearOf(d); if (y && y <= cur) ys.add(y); };
+  allTasks.forEach((t) => { add(t.due); add(t.doneDay); });
+  allObjs.forEach((o) => add(o.end));
+  const years = Array.from(ys).sort((a, b) => b - a);
+  let year = cur;
+  if (String(yearParam) === 'all') year = 'all';
+  else if (/^\d{4}$/.test(String(yearParam || ''))) year = Math.min(cur, Number(yearParam));
+  let today = realToday; let tasks = allTasks; let objs = allObjs;
+  if (year !== 'all') {
+    const inY = (d) => yearOf(d) === year;
+    // Tâches sans date : comptées seulement pour l'année en cours (elles restent à faire).
+    tasks = allTasks.filter((t) => inY(t.due) || inY(t.doneDay) || (year === cur && !t.due && !t.doneDay));
+    objs = allObjs.filter((o) => inY(o.end));
+    if (year < cur) today = year + '-12-31';
+  }
   const ctx = { activityId, userId, today, scope, tasks, objs };
-  const objItems = objs.map((o) => ({ due: o.end, done: o.status === 'atteint' ? (o.end < today ? o.end : today) : null }));
-  const taskItems = tasks.map((t) => ({ due: t.due || t.doneDay, done: t.doneDay }));
+  const objItems = allObjs.map((o) => ({ due: o.end, done: o.status === 'atteint' ? (o.end < realToday ? o.end : realToday) : null }));
+  const taskItems = allTasks.map((t) => ({ due: t.due || t.doneDay, done: t.doneDay }));
   return {
-    chart: { tasks: chartFor(today, taskItems), objectives: chartFor(today, objItems) },
+    year, years,
+    chart: { tasks: chartFor(realToday, taskItems, year, years), objectives: chartFor(realToday, objItems, year, years) },
     tasks: tasksCards(ctx),
     objectives: objectivesCards(ctx),
   };

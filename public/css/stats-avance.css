@@ -13,7 +13,9 @@
 .saChip.on { border-color: var(--chipEdge, var(--purple)); box-shadow: 0 0 0 1px var(--chipEdge, var(--purple)) inset; font-weight: 600; }
 .saChipDot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
 /* Refonte 9 oct. 2026 : onglets Tâches | Objectifs, graphique, cartes d'information. */
-.saSeg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.saSeg { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.saSegTabs { flex: 1; min-width: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.saYearWrap .caSubProjectBtn { padding: 8px 10px; }
 .saSegBtn { padding: 9px 6px; border-radius: 12px; font: inherit; font-size: 13px; color: var(--text); border: 1px solid var(--glass-border); background: rgba(255, 255, 255, .04); }
 .saSegBtn.on { background: var(--purple); border-color: var(--purple); color: #fff; font-weight: 600; }
 .saBody { display: flex; flex-direction: column; gap: 10px; }

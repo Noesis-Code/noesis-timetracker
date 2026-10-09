@@ -44,6 +44,7 @@
   // une donnée absente (null) masque simplement sa carte.
   var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
   var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
+  var yearSel = null; // null = année en cours (défaut) | 'all' | 'AAAA' ; jamais persisté
   var tab = 't', view = 'year', adding = false, draft = [];
   var VIEWS = [['year', 'Année'], ['month', 'Mois'], ['week', 'Semaine']];
 
@@ -56,7 +57,11 @@
     [els.chips, els.msg, els.seg, els.body].forEach(function (e) { page2.appendChild(e); });
   }
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
-  function resetTransient() { view = 'year'; adding = false; draft = []; if (built && data) render(); }
+  function resetTransient() {
+    view = 'year'; adding = false; draft = [];
+    if (yearSel !== null) { yearSel = null; if (built && activityId != null && page === 2) { load(); return; } }
+    if (built && data) render();
+  }
 
   // ---------- Utilitaires ----------
   function fmtMin(m) {
@@ -123,7 +128,7 @@
     });
     var labels = v.labels || [], step = Math.max(1, Math.ceil(labels.length / 7));
     labels.forEach(function (l, i) {
-      if (i % step === 0 || i === labels.length - 1 && (labels.length - 1) % step >= Math.ceil(step / 2)) s += '<text class="saTick" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + String(l).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</text>';
+      if (i % step === 0 || i === labels.length - 1 && (labels.length - 1) % step >= Math.ceil(step / 2)) s += '<text class="saTick" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="' + (i === labels.length - 1 && String(l).length > 3 ? 'end' : 'middle') + '">' + String(l).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</text>';
     });
     var done = [], run = 0;
     for (var i = 0; i < n; i++) {
@@ -149,9 +154,11 @@
     s += seg + '<path class="saPlanned" d="' + pp + '"/>' + ln;
     var ti = has(v.todayIndex) ? Math.min(n - 1, Math.max(0, v.todayIndex)) : (done.length ? done.length - 1 : null);
     if (ti != null) {
+      if (!v.past && !v.noToday) {
       s += '<line class="saToday" x1="' + x(ti) + '" x2="' + x(ti) + '" y1="' + T + '" y2="' + B + '"/>';
       var right = ti < n / 2;
       s += '<text class="saTick" style="opacity:.9" x="' + (x(ti) + (right ? 4 : -4)) + '" y="' + (T + 8) + '" text-anchor="' + (right ? 'start' : 'end') + '">' + tr("Aujourd'hui") + '</text>';
+      }
       if (done.length) {
         var li = done.length - 1, ok = done[li] >= planned[li];
         s += '<circle cx="' + x(li) + '" cy="' + y(done[li]) + '" r="3.5" fill="' + (ok ? GREEN : RED) + '" stroke="#fff" stroke-width="1.5"/>';
@@ -160,7 +167,11 @@
     return s + '</svg>';
   }
 
+  // Vues Mois / Semaine : seulement pour l'année en cours.
+  function yearOnly(d) { return d && (d.year === 'all' || Number(d.year) < new Date().getFullYear()); }
+
   function chartCard(d) {
+    if (yearOnly(d)) view = 'year';
     var views = d.chart && d.chart[tab === 't' ? 'tasks' : 'objectives'];
     var v = views && views[view];
     var card = el('div', 'saCard saGlass');
@@ -173,7 +184,7 @@
     var wrap = el('div', 'statsPeriodMenuWrap');
     var btn = el('button', 'menuBtn', '⋮'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-label', tr('Choisir la période'));
     var menu = el('div', 'statsPeriodMenu hidden');
-    VIEWS.forEach(function (o) {
+    VIEWS.filter(function (o) { return !yearOnly(d) || o[0] === 'year'; }).forEach(function (o) {
       var it = el('button', 'statsPeriodMenuItem' + (o[0] === view ? ' active' : ''), tr(o[1])); it.type = 'button';
       it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== view) { view = o[0]; render(); } });
       menu.appendChild(it);
@@ -350,11 +361,36 @@
 
   function renderSeg() {
     els.seg.innerHTML = '';
+    var tabs = el('div', 'saSegTabs'); els.seg.appendChild(tabs);
     [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (o) {
       var b = el('button', 'saSegBtn' + (tab === o[0] ? ' on' : ''), tr(o[1])); b.type = 'button';
       b.addEventListener('click', function () { if (tab !== o[0]) { tab = o[0]; adding = false; draft = []; render(); } });
-      els.seg.appendChild(b);
+      tabs.appendChild(b);
     });
+    // Choix de l'année : seulement si plusieurs années ont des données.
+    var ys = data && data.years;
+    if (!ys || ys.length < 2) return;
+    var wrap = el('div', 'statsPeriodMenuWrap saYearWrap');
+    var yb = el('button', 'caSubProjectBtn', String(data.year === 'all' ? tr('Tous') : data.year)); yb.type = 'button';
+    yb.setAttribute('aria-haspopup', 'true'); yb.setAttribute('aria-label', tr("Choisir l'année"));
+    var menu = el('div', 'statsPeriodMenu hidden');
+    ys.map(String).concat(['all']).forEach(function (y) {
+      var on = String(data.year) === y;
+      var it = el('button', 'statsPeriodMenuItem' + (on ? ' active' : ''), y === 'all' ? tr('Tous') : y); it.type = 'button';
+      it.addEventListener('click', function () {
+        menu.classList.add('hidden');
+        if (on) return;
+        yearSel = y === String(new Date().getFullYear()) ? null : y; load();
+      });
+      menu.appendChild(it);
+    });
+    yb.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var willOpen = menu.classList.contains('hidden');
+      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+      if (willOpen) menu.classList.remove('hidden');
+    });
+    wrap.appendChild(yb); wrap.appendChild(menu); els.seg.appendChild(wrap);
   }
 
   function render() {
@@ -405,7 +441,7 @@
       b.style.setProperty('--chipEdge', a.color || '#674EA7');
       var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
       b.appendChild(d); b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; renderChips(); load(); } });
+      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; yearSel = null; renderChips(); load(); } });
       els.chips.appendChild(b);
     });
   }
@@ -415,7 +451,7 @@
     if (activityId == null) { els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
     els.msg.classList.add('hidden');
     var seq = ++loadSeq;
-    TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(activityId)).then(function (d) {
+    TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(activityId) + (yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '')).then(function (d) {
       if (seq !== loadSeq) return;
       data = d; render();
     }, function () {
@@ -432,7 +468,7 @@
     activityId = found ? found.id : (list[0] ? list[0].id : null);
   }
   // Quitter l'onglet Statistiques (la page 2 reste « courante » mais cachée) remet aussi le graphique sur « Année ».
-  new MutationObserver(function () { if (!zone.offsetParent && (view !== 'year' || adding)) resetTransient(); })
+  new MutationObserver(function () { if (!zone.offsetParent && (view !== 'year' || adding || yearSel !== null)) resetTransient(); })
     .observe(zone, { attributes: true, attributeFilter: ['class', 'style'] });
   function closeModal() { resetTransient(); }
 
