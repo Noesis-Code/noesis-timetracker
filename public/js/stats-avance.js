@@ -279,11 +279,14 @@
         nav.appendChild(prev); nav.appendChild(el('span', 'meta', a.label)); nav.appendChild(next);
         w.appendChild(nav);
         var days = el('div', 'saDays' + (a.minutes.length > 7 ? ' saDays28' : '')), lab = el('div', 'saDl' + (a.minutes.length > 7 ? ' saDl28' : ''));
+        var dn = a.doneDays || a.minutes, pl = a.plannedDays || [];
+        var top = Math.max(1, Math.max.apply(null, dn.map(function (v) { return v || 0; }).concat(pl.map(function (v) { return v || 0; }))));
         a.minutes.forEach(function (m, i) {
-          var b = el('i');
-          if (m == null) { b.style.height = '6px'; b.style.background = 'transparent'; b.style.border = '1px dashed #2b2e35'; }
-          else { b.style.height = Math.max(6, mx ? m * 100 / mx : 0) + '%'; b.style.background = !m ? '#2b2e35' : (m >= mx * 0.5 ? GREEN : RED); }
-          days.appendChild(b);
+          var col = el('div', 'saDayCol'), d = dn[i], pv = pl[i] || 0;
+          if (pv) { var pb = el('span', 'saDayPlan'); pb.style.height = (pv * 100 / top) + '%'; col.appendChild(pb); }
+          if (d == null) { col.classList.add('future'); }
+          else { var b = el('i'); b.style.height = d ? (d * 100 / top) + '%' : '3px'; b.style.background = !d ? '#2b2e35' : (pv && d < pv ? RED : GREEN); col.appendChild(b); }
+          days.appendChild(col);
           lab.appendChild(el('span', null, a.minutes.length > 7 ? String(Number((a.dates[i] || '').slice(8, 10))) : tr(['L', 'M', 'M', 'J', 'V', 'S', 'D'][i])));
         });
         w.appendChild(days); w.appendChild(lab); return w; } },

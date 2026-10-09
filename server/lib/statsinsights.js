@@ -232,7 +232,7 @@ function onTimeFor(tasks, today, r) {
 }
 
 // Journées travaillées : une période de 28 jours (vues Année et Période) ou une semaine, décalée de `offset` (<= 0).
-function workedDays(activityId, scope, today, kind, offset) {
+function workedDays(activityId, scope, today, kind, offset, allTasks) {
   const keys = scope.poles.reduce((a, p) => a.concat(p.keys), []);
   if (!keys.length) return null;
   const len = kind === 'week' ? 7 : 28;
@@ -244,10 +244,21 @@ function workedDays(activityId, scope, today, kind, offset) {
   const byDay = {}; rows.forEach((r) => { byDay[r.isoDate] = Math.round(r.s / 60); });
   const days = []; const dates = [];
   for (let i = 0; i < len; i += 1) { const d = goals.addDays(start, i); dates.push(d); days.push(d > today ? null : (byDay[d] || 0)); }
+  // Tâches réalisées / prévues par jour. Prévu = tâches dont la date prévue actuelle est ce jour (une tâche déplacée car non réalisée
+  // n'est plus comptée sur son ancien jour) ; sans date prévue, la date de réalisation tient lieu de date prévue.
+  const doneCount = new Array(len).fill(0); const plannedCount = new Array(len).fill(0);
+  (allTasks || []).forEach((t) => {
+    const di = t.done && t.doneDay ? goals.daysBetween(start, t.doneDay) : -1;
+    if (di >= 0 && di < len) doneCount[di] += 1;
+    const pd = t.due || (t.done ? t.doneDay : null);
+    const pi = pd ? goals.daysBetween(start, pd) : -1;
+    if (pi >= 0 && pi < len) plannedCount[pi] += 1;
+  });
+  const doneDays = doneCount.map((n, i) => (dates[i] > today ? null : n));
   const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
   let label = fmt(start) + ' – ' + fmt(end);
   if (kind !== 'week') { const ay = anchorYearOf(start); label = 'P' + (Math.floor(goals.daysBetween(yearAnchor(ay), start) / 28) + 1) + ' · ' + label; }
-  return { kind: kind === 'week' ? 'week' : 'period', start, end, label, offset, minutes: days, dates, canNext: offset < 0 };
+  return { kind: kind === 'week' ? 'week' : 'period', start, end, label, offset, minutes: days, doneDays, plannedDays: plannedCount, dates, canNext: offset < 0 };
 }
 
 function tasksCards(ctx) {
@@ -276,7 +287,7 @@ function tasksCards(ctx) {
     return list.length ? list : null;
   });
 
-  out.weekdays = safe(() => workedDays(activityId, scope, ctx.realToday, view === 'week' ? 'week' : 'period', ctx.offset));
+  out.weekdays = safe(() => workedDays(activityId, scope, ctx.realToday, view === 'week' ? 'week' : 'period', ctx.offset, allTasks));
 
   out.remaining = safe(() => {
     const open = tasks.filter((t) => !t.done && !t.closed);
