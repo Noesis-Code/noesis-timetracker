@@ -107,3 +107,7 @@
 /* 9 oct. 2026 : fenêtre « Retirer cette information ? » — filet sous le titre et la croix, en-tête un peu plus haut (classe posée seulement depuis les stats). */
 #categoryRemoveModal.saConfirm .communityMembersModalCard { padding-top: 2px; }
 #categoryRemoveModal.saConfirm .communityMembersModalHeader { padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--glass-border); }
+/* 9 oct. 2026 : le liseré de sélection épouse exactement la carte (cartes d'une même ligne de même hauteur et de même largeur). */
+.saGh { display: flex; }
+.saGh > .saGin { flex: 1; display: flex; min-width: 0; }
+.saGh > .saGin > .saCard { flex: 1; min-width: 0; margin: 0; }

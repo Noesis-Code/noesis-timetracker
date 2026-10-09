@@ -421,7 +421,7 @@
     if (ob && !ob._saWatch) {
       ob._saWatch = true;
       new MutationObserver(function () {
-        if (ob.classList.contains('hidden')) { ob.classList.remove('saConfirm'); var bb = document.getElementById('categoryRemoveDeleteTasksBtn'); if (bb) { bb.style.background = ''; bb.style.borderColor = ''; bb.style.color = ''; } }
+        if (ob.classList.contains('hidden')) { if (ob.classList.contains('saConfirm')) ob.classList.remove('saConfirm'); var bb = document.getElementById('categoryRemoveDeleteTasksBtn'); if (bb) { bb.style.background = ''; bb.style.borderColor = ''; bb.style.color = ''; } }
       }).observe(ob, { attributes: true, attributeFilter: ['class'] });
     }
   }
