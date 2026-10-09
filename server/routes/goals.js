@@ -339,22 +339,9 @@ router.get('/activities/:id/goals/periods/:periodNumber/capacity-plan', (req, re
   }
 });
 
+// 9 oct. 2026 : le statut d'une période est calculé par Noèsis d'après ses objectifs hebdomadaires ; plus de réglage manuel.
 router.put('/activities/:id/goals/periods/:periodNumber/main-status', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.params.id);
-  const periodNumber = Number(req.params.periodNumber);
-
-  const check = requireMembership(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  try {
-    const category = resolveCategory(activityId, req.body.category);
-    goals.setMainGoalStatus(activityId, category, periodNumber, req.body.status);
-    res.json({ ok: true });
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
+  res.status(410).json({ error: 'Le statut de la période est calculé automatiquement par Noèsis.' });
 });
 
 // Mode Partiel : propose les semaines vides SANS rien écrire ; le client fait valider puis enregistre.

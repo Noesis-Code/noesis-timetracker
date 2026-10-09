@@ -1418,6 +1418,7 @@ function carryOverWeekly(activityId, category, planStartDate) {
     // l'utilisateur n'est jamais reporté.
     if (w.status == null) {
       db.prepare('UPDATE goal_weekly SET status = ? WHERE id = ?').run('non_atteint', w.id);
+      recomputePeriodStatus(w.periodId);
     }
     if (w.status !== null && w.status !== 'non_atteint') return;
 
@@ -1523,10 +1524,9 @@ function postBilanIfDue(activity, category, planStartDate) {
 
     // Statut du grand objectif toujours non tranché à la fin de la période :
     // compte comme non atteint, même logique que les objectifs hebdomadaires.
-    if (period.mainGoalStatus == null && period.mainGoalText) {
-      db.prepare('UPDATE goal_periods SET mainGoalStatus = ? WHERE id = ?').run('non_atteint', period.id);
-      period.mainGoalStatus = 'non_atteint';
-    }
+    // 9 oct. 2026 : statut de période dérivé des objectifs hebdomadaires (voir recomputePeriodStatus) ; plus de règle « sans statut -> non atteint ».
+    recomputePeriodStatus(period.id);
+    period.mainGoalStatus = db.prepare('SELECT mainGoalStatus FROM goal_periods WHERE id = ?').get(period.id).mainGoalStatus;
 
     // Publication seulement si l'activité est PARTAGÉE : une activité solo
     // n'a pas de fil de discussion (noesis-timetracker-activite.md). Le
@@ -1551,29 +1551,70 @@ function postBilanIfDue(activity, category, planStartDate) {
 // sont créées, fait tourner le report automatique et l'envoi du bilan, puis
 // renvoie l'état complet du planning de cette (activité, catégorie), plus la
 // liste des membres de l'activité (pour l'assignation et la répartition).
-// 8 oct. 2026 (Émilien) : statut d'un objectif hebdomadaire calculé d'après les tâches rattachées
-// réalisées : >= 80 % atteint (vert), 40 à 79 % partiel (orange), < 40 % non atteint (rouge).
-// Seulement une fois la semaine commencée et s'il y a des tâches ; sans tâche, le statut reste manuel.
-const WEEKLY_DONE_GREEN = 0.8;
-const WEEKLY_DONE_AMBER = 0.4;
-function statusFromTaskRatio(total, done) {
-  if (!total) return null;
+// 9 oct. 2026 (Émilien) : statut automatique des objectifs, calculé par Noèsis.
+// OBJECTIF HEBDOMADAIRE : ratio = temps estimé des tâches terminées / temps estimé total des tâches liées
+// (sub_project_items.goalWeeklyId ; une tâche « glissée » garde son goalWeeklyId : elle compte toujours pour
+// l'objectif d'origine). Le temps réel ne compte pas. >= 90 % atteint ; 75 à 90 % partiel ; sinon non atteint.
+// Tâche sans estimation historique : DEFAULT_TASK_MINUTES (30 min). Sans tâche liée : statut inchangé.
+// Un choix manuel (pastille page 3) dure jusqu'au prochain changement d'une tâche liée (recalcul ci-dessous).
+// OBJECTIF DE PÉRIODE : statut dérivé (aucun réglage manuel), stocké dans mainGoalStatus : atteint si tous les
+// objectifs hebdomadaires sont atteints, partiel s'il en manque un seul, non atteint s'il en manque 2 ou plus.
+const WEEKLY_ATTEINT_MIN = 0.9;
+const WEEKLY_PARTIEL_MIN = 0.75;
+const DEFAULT_TASK_MINUTES = 30;
+
+// Pur. tasks : [{ done, minutes }] ; minutes absent/<=0 -> DEFAULT_TASK_MINUTES. Renvoie null s'il n'y a aucune tâche.
+function weeklyStatusFromTasks(tasks) {
+  if (!tasks || !tasks.length) return null;
+  let total = 0; let done = 0;
+  tasks.forEach((t) => {
+    const m = t.minutes > 0 ? t.minutes : DEFAULT_TASK_MINUTES;
+    total += m;
+    if (t.done) done += m;
+  });
   const r = done / total;
-  return r >= WEEKLY_DONE_GREEN ? 'atteint' : (r >= WEEKLY_DONE_AMBER ? 'partiel' : 'non_atteint');
+  return r >= WEEKLY_ATTEINT_MIN ? 'atteint' : (r >= WEEKLY_PARTIEL_MIN ? 'partiel' : 'non_atteint');
 }
-function syncWeeklyAutoStatus(activityId, category) {
-  const today = todayLocal();
-  const rows = db.prepare(`
-    SELECT w.id, w.weekIndex, w.status, p.startDate,
-           (SELECT COUNT(*) FROM sub_project_items i WHERE i.goalWeeklyId = w.id) AS total,
-           (SELECT COUNT(*) FROM sub_project_items i WHERE i.goalWeeklyId = w.id AND i.done = 1) AS done
-    FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId
-    WHERE p.activityId = ? AND p.category = ? AND w.text != ''
-  `).all(activityId, category);
-  rows.forEach((w) => {
-    if (!w.total || weekBounds(w.startDate, w.weekIndex).start > today) return;
-    const st = statusFromTaskRatio(w.total, w.done);
-    if (st !== w.status) db.prepare('UPDATE goal_weekly SET status = ? WHERE id = ?').run(st, w.id);
+
+// Pur. statuses : statuts des objectifs hebdomadaires de la période. null si aucun objectif hebdomadaire.
+function periodStatusFromWeeklies(statuses) {
+  if (!statuses || !statuses.length) return null;
+  const missing = statuses.filter((st) => st !== 'atteint').length;
+  return missing === 0 ? 'atteint' : (missing === 1 ? 'partiel' : 'non_atteint');
+}
+
+function recomputePeriodStatus(periodId) {
+  if (periodId == null) return;
+  const rows = db.prepare("SELECT status FROM goal_weekly WHERE periodId = ? AND TRIM(text) <> ''").all(periodId);
+  const st = periodStatusFromWeeklies(rows.map((r) => r.status));
+  if (st == null) return;
+  db.prepare('UPDATE goal_periods SET mainGoalStatus = ? WHERE id = ? AND (mainGoalStatus IS NOT ?)').run(st, periodId, st);
+}
+
+function recomputeWeeklyStatus(weeklyId) {
+  if (weeklyId == null) return;
+  const w = db.prepare(`
+    SELECT w.id, w.status, w.periodId, p.activityId, p.category
+    FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id = ?
+  `).get(weeklyId);
+  if (!w) return;
+  const rows = db.prepare('SELECT label, done FROM sub_project_items WHERE goalWeeklyId = ?').all(weeklyId);
+  const st = weeklyStatusFromTasks(rows.map((r) => {
+    const est = estimateForGoal(w.activityId, w.category, 'weekly', r.label);
+    return { done: !!r.done, minutes: est && est.minutes };
+  }));
+  if (st != null && st !== w.status) db.prepare('UPDATE goal_weekly SET status = ? WHERE id = ?').run(st, weeklyId);
+  recomputePeriodStatus(w.periodId);
+}
+
+// Crochet : à appeler quand une tâche liée change (coche, création, suppression, déplacement, libellé).
+// `weeklyIds` : objectifs hebdomadaires touchés (avant ET après le changement). Ne lève jamais.
+function recomputeForWeeklies(weeklyIds) {
+  const seen = new Set();
+  (weeklyIds || []).forEach((id) => {
+    if (id == null || seen.has(id)) return;
+    seen.add(id);
+    try { recomputeWeeklyStatus(id); } catch (e) { /* non bloquant */ }
   });
 }
 
@@ -1592,7 +1633,6 @@ function planningForActivity(activityId, category) {
   const maxCycle = Math.max(cycleIndexForCurrent, maxYearFor(activityId) - yearOfPlanStart(plan.startDate) + 1);
   const cycleLastPeriodNumber = maxCycle * PERIODS_PER_CYCLE;
   ensurePeriodsUpTo(activityId, category, cycleLastPeriodNumber, plan.startDate);
-  try { syncWeeklyAutoStatus(activityId, category); } catch (e) { /* non bloquant */ }
   carryOverWeekly(activityId, category, plan.startDate);
   postBilanIfDue(activity, category, plan.startDate);
 
@@ -1711,8 +1751,10 @@ function deleteWeekly(activityId, category, periodNumber, weekIndex) {
   const period = db.prepare('SELECT id FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);
   if (!period) return;
   deleteWeeklyRows(db.prepare('SELECT id FROM goal_weekly WHERE periodId = ? AND weekIndex = ? AND carriedOverFromId IS NULL').all(period.id, weekIndex).map((r) => r.id));
+  recomputePeriodStatus(period.id);
 }
 
+// 9 oct. 2026 : le statut de période est dérivé (recomputePeriodStatus) ; ce réglage manuel n'est plus exposé (la route répond 410).
 function setMainGoalStatus(activityId, category, periodNumber, status) {
   // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
   // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
@@ -1771,6 +1813,7 @@ function setWeekly(activityId, category, periodNumber, weekIndex, text, descript
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(period.id, weekIndex, cleanText, estimate.minutes, estimate.source, estimate.confidence, createdAt);
   if (description !== undefined) db.prepare('UPDATE goal_weekly SET description = ? WHERE id = ?').run(cleanDescription(description), Number(info.lastInsertRowid));
+  recomputePeriodStatus(period.id);
   return { ...estimate, id: Number(info.lastInsertRowid) };
 }
 
@@ -1785,6 +1828,7 @@ function setWeeklyStatus(activityId, weeklyId, status) {
   `).get(weeklyId, activityId);
   if (!row) throw Object.assign(new Error('Objectif hebdomadaire introuvable.'), { statusCode: 404 });
   db.prepare('UPDATE goal_weekly SET status = ? WHERE id = ?').run(status, weeklyId);
+  recomputePeriodStatus(db.prepare('SELECT periodId FROM goal_weekly WHERE id = ?').get(weeklyId).periodId);
 }
 
 // Assigne (ou retire, si userId est null) UN membre de l'activité à cet
@@ -1919,6 +1963,12 @@ module.exports = {
   setMainGoalStatus,
   setWeekly,
   setWeeklyStatus,
+  weeklyStatusFromTasks,
+  periodStatusFromWeeklies,
+  recomputeWeeklyStatus,
+  recomputePeriodStatus,
+  recomputeForWeeklies,
+  DEFAULT_TASK_MINUTES,
   setWeeklyAssignee,
   periodAssigneesFor,
   setPeriodAssignees,

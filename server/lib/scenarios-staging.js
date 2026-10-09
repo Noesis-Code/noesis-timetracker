@@ -216,6 +216,7 @@ function seedScenarios() {
         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`).run(subProject.id, section.id, 'Tâche ' + wk + '.' + i, i <= doneN ? 1 : 0, pos += 1, now, day(-20 + wk * 3), wid);
       void r;
     }
+    goals.recomputeWeeklyStatus(wid); // statut automatique (9 oct. 2026)
   });
 
   // ---- Exemples de capacité hebdomadaire (secteurs du pôle Marketing, période en cours : semaines 1-2 passées, 3 en cours, 4 à venir).

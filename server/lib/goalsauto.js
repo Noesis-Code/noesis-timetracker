@@ -340,6 +340,7 @@ function reorganizeForMember(activityId, category, userId, items) {
 
     const markPlaced = db.prepare('UPDATE sub_project_items SET goalWeeklyId = ? WHERE id = ?');
     bucket.forEach((g) => g.items.forEach((it) => markPlaced.run(weeklyId, it.id)));
+    goals.recomputeForWeeklies([weeklyId]);
     placedCount += bucket.reduce((s, g) => s + g.items.length, 0);
 
     periodNumber = slot.period.periodNumber;

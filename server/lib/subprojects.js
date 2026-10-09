@@ -596,6 +596,8 @@ function updateItem(itemId, fields, userId) {
 
   db.prepare('UPDATE sub_project_items SET label = ?, done = ?, doneBy = ?, doneAt = ?, plannedUserId = ?, goalWeeklyId = ?, dueDate = ?, dueDateAuto = CASE WHEN dueDate IS ? THEN dueDateAuto ELSE 0 END WHERE id = ?')
     .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, dueDate, dueDate, itemId);
+  // Statut automatique des objectifs (9 oct. 2026) : coche/décoche, libellé ou rattachement modifié.
+  goals.recomputeForWeeklies([current.goalWeeklyId, goalWeeklyId]);
 
   // Récurrence (9 oct. 2026) : `recurrence` absent => inchangée ; null => on l'arrête ; { every, unit } => on la pose.
   if ('recurrence' in fields) {
@@ -624,7 +626,9 @@ function spawnNextOccurrence(done) {
 }
 
 function deleteItem(itemId) {
+  const row = getItemRaw(itemId);
   db.prepare('DELETE FROM sub_project_items WHERE id = ?').run(itemId);
+  if (row) goals.recomputeForWeeklies([row.goalWeeklyId]);
 }
 
 function reorderItems(sectionId, orderedIds) {
