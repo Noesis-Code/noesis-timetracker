@@ -622,7 +622,8 @@
     var normalized = ((index % n) + n) % n;
     var p = poles[normalized];
     var changed = TMT.currentGoalsSelectedPoleKey !== p.key;
-    if (changed) { goalsYearOpen = {}; goalsYearEditing = {}; } // changer de pôle : les secteurs se replient
+    if (changed) { goalsYearOpen = {}; goalsYearEditing = {}; }
+    if (changed) TMT.goalsTreeYear = null; // changer de pôle : retour à la période en cours (reload ci-dessous redessine) // changer de pôle : les secteurs se replient
     TMT.currentGoalsSelectedPoleKey = p.key;
     renderGoalsPoleSwitcher();
     if (changed) reloadGoalsGridForPole(p.key);
@@ -827,8 +828,17 @@
   // nouveau au changement de pôle et quand on quitte puis revient sur l'onglet 3.
   TMT.resetGoalsYearOpen = function () {
     goalsYearOpen = {}; goalsYearEditing = {};
+    resetGoalsTreeYearToCurrent(); // onglet changé / page quittée : retour à la période en cours
     if (document.querySelector('#goalsGridHead .goalsYearCol')) renderGoalsGridHead();
   };
+  // Période affichée (année) partagée par tous les secteurs d'un pôle ; revient à l'année en cours
+  // au changement de pôle, d'onglet ou de page. Rien de persisté.
+  function resetGoalsTreeYearToCurrent() {
+    if (!TMT.goalsTreeYear || TMT.goalsTreeYear === goalsCurrentYear()) { TMT.goalsTreeYear = null; return false; }
+    TMT.goalsTreeYear = null;
+    renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid();
+    return true;
+  }
   var goalsYearOpen = {};      // clé activité|catégorie -> true
   var goalsYearEditing = {};   // idem -> true
   var goalsYearLoadingFor = null;
