@@ -111,3 +111,7 @@
 .saGh { display: flex; }
 .saGh > .saGin { flex: 1; display: flex; min-width: 0; }
 .saGh > .saGin > .saCard { flex: 1; min-width: 0; margin: 0; }
+.saTiles13 { gap: 4px; }
+.saTiles13 .saTile { padding: 4px 2px; }
+.saTiles13 .saTile b { font-size: 11px; }
+.saTiles13 .saTile small { font-size: 9px; }

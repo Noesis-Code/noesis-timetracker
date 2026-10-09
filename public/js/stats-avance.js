@@ -45,7 +45,7 @@
   var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
   var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
   var yearSel = null; // null = année en cours (défaut) | 'all' | 'AAAA' ; jamais persisté
-  var tab = 't', view = 'year', oview = 'weekly', adding = false, draft = [], dayOff = 0; // dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
+  var tab = 't', view = 'year', oview = 'weekly', adding = false, draft = [], dayOff = 0, wOff = 0; // wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
   var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires']];
 
@@ -121,8 +121,8 @@
   }
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
   function resetTransient() {
-    var wasOff = dayOff !== 0 || view !== 'year' || oview !== 'weekly';
-    view = 'year'; oview = 'weekly'; adding = false; draft = []; dayOff = 0; hideSheet();
+    var wasOff = dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== 'weekly';
+    view = 'year'; oview = 'weekly'; adding = false; draft = []; dayOff = 0; wOff = 0; hideSheet();
     if ((yearSel !== null || wasOff) && built && activityId != null && page === 2) { yearSel = null; load(); return; }
     yearSel = null;
     if (built && data) render();
@@ -254,7 +254,7 @@
     var menu = el('div', 'statsPeriodMenu hidden');
     VS.filter(function (o) { return !isT || !yearOnly(d) || o[0] === 'year'; }).forEach(function (o) {
       var it = el('button', 'statsPeriodMenuItem' + (o[0] === cv ? ' active' : ''), tr(o[1])); it.type = 'button';
-      it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== cv) { if (isT) view = o[0]; else oview = o[0]; dayOff = 0; load(); } });
+      it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== cv) { if (isT) view = o[0]; else oview = o[0]; dayOff = 0; wOff = 0; load(); } });
       menu.appendChild(it);
     });
     btn.addEventListener('click', function (e) {
@@ -374,15 +374,28 @@
         });
         w.appendChild(legend([[GREEN, tr('atteint')], [GREY, tr('partiel')], [RED, tr('non')]]));
         return w; } },
-      { key: 'weeks', def: true, title: 'Où ça glisse dans la période', body: function (d) {
-        var a = d.objectives && d.objectives.weeks; if (!a || !a.length) return null;
-        var g = el('div', 'saTiles'); g.style.gridTemplateColumns = 'repeat(' + Math.min(4, a.length) + ',1fr)';
-        a.forEach(function (wk) {
-          var ok = wk.pct >= 80, t = el('div', 'saTile saGlass'); t.style.borderColor = ok ? GREEN : RED;
+      { key: 'weeks', def: true, title: 'Où ça glisse', body: function (d) {
+        var a = d.objectives && d.objectives.weeks; if (!a || !a.list || !a.list.length) return null;
+        var w = document.createElement('div');
+        if (a.mode === 'weekly') {
+          var nav = el('div', 'sectionTitleRow timesheetNav saDaysNav');
+          var prev = el('button', 'iconBtn', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente')); prev.disabled = !a.canPrev;
+          var next = el('button', 'iconBtn', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
+          prev.addEventListener('click', function () { if (a.canPrev) { wOff = (a.offset || 0) - 1; load(); } });
+          next.addEventListener('click', function () { if (a.canNext) { wOff = Math.min(0, (a.offset || 0) + 1); load(); } });
+          nav.appendChild(prev); nav.appendChild(el('span', 'meta', a.label)); nav.appendChild(next);
+          w.appendChild(nav);
+        }
+        var g = el('div', 'saTiles' + (a.mode === 'periodic' ? ' saTiles13' : ''));
+        g.style.gridTemplateColumns = 'repeat(' + (a.mode === 'periodic' ? 7 : Math.min(4, a.list.length)) + ',1fr)';
+        a.list.forEach(function (wk) {
+          var t = el('div', 'saTile saGlass'), has = wk.pct != null, ok = has && wk.pct >= 80;
+          if (has) t.style.borderColor = ok ? GREEN : RED; else t.style.opacity = wk.future ? '.4' : '.6';
           t.appendChild(el('small', null, wk.label));
-          var b = el('b', null, Math.round(wk.pct) + ' %'); b.style.color = ok ? GREEN : RED; t.appendChild(b); g.appendChild(t);
+          var b = el('b', null, has ? Math.round(wk.pct) + ' %' : '–'); if (has) b.style.color = ok ? GREEN : RED; t.appendChild(b); g.appendChild(t);
         });
-        return g; } },
+        w.appendChild(g);
+        return w; } },
       { key: 'carried', def: true, title: 'Objectifs reportés qui s’accumulent', body: function (d) {
         var c = d.objectives && d.objectives.carried; if (!c || !has(c.count)) return null;
         var dl = Math.round(c.delta || 0);
@@ -550,7 +563,7 @@
     if (activityId == null) { els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
     els.msg.classList.add('hidden');
     var seq = ++loadSeq;
-    TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(activityId) + (yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '') + '&scope=' + view + '&kind=' + oview + (dayOff ? '&offset=' + dayOff : '')).then(function (d) {
+    TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(activityId) + (yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '') + '&scope=' + view + '&kind=' + oview + (dayOff ? '&offset=' + dayOff : '') + (wOff ? '&woff=' + wOff : '')).then(function (d) {
       if (seq !== loadSeq) return;
       data = d; render();
     }, function () {

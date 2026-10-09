@@ -407,22 +407,28 @@ function objectivesCards(ctx) {
 
   out.weeks = safe(() => {
     const kind = objs.length ? objs[0].kind : null;
-    const list = [];
+    const pct = (x) => Math.round(x.filter((o) => o.status === 'atteint').length / x.length * 100);
+    const plabel = (s) => 'P' + (Math.floor(goals.daysBetween(yearAnchor(anchorYearOf(s)), s) / 28) + 1);
     if (kind === 'weekly') {
-      const ps = lastList.length ? lastList[0].periodStart : null;
+      // Une période à la fois (la plus récente commencée, puis en remontant avec offset <= 0) : taux d'atteinte par semaine.
+      const pstarts = Array.from(new Set(started.map((o) => o.periodStart))).sort();
+      if (!pstarts.length) return null;
+      const idx = Math.max(0, pstarts.length - 1 + Math.min(0, ctx.woff || 0));
+      const ps = pstarts[idx];
+      const list = [];
       for (let w = 1; w <= 4; w += 1) {
-        const x = lastList.filter((o) => o.periodStart === ps && o.weekIndex === w);
-        if (!x.length) continue;
-        list.push({ label: 'S' + w, pct: Math.round(x.filter((o) => o.status === 'atteint').length / x.length * 100) });
+        const x = started.filter((o) => o.periodStart === ps && o.weekIndex === w);
+        list.push({ label: 'S' + w, pct: x.length ? pct(x) : null });
       }
-    } else {
-      starts.slice(-4).forEach((s) => {
-        const x = started.filter((o) => unitStart(o) === s);
-        const ay = anchorYearOf(s);
-        list.push({ label: 'P' + (Math.floor(goals.daysBetween(yearAnchor(ay), s) / 28) + 1), pct: Math.round(x.filter((o) => o.status === 'atteint').length / x.length * 100) });
-      });
+      const pe = goals.addDays(ps, 27); const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
+      return { mode: 'weekly', label: plabel(ps) + ' · ' + fmt(ps) + ' – ' + fmt(pe), offset: idx - (pstarts.length - 1), canPrev: idx > 0, canNext: idx < pstarts.length - 1, list };
     }
-    return list.length ? list : null;
+    // Périodiques : les 13 périodes de l'année choisie (ou les 13 dernières avec « Tous »).
+    let pstarts;
+    if (ctx.yearNum) { const an = yearAnchor(ctx.yearNum); pstarts = []; for (let i = 0; i < 13; i += 1) pstarts.push(goals.addDays(an, i * 28)); }
+    else { const all = Array.from(new Set(objs.map(unitStart))).sort(); pstarts = all.slice(-13); }
+    const list = pstarts.map((s0) => { const x = started.filter((o) => unitStart(o) === s0); return { label: plabel(s0), pct: x.length ? pct(x) : null, future: s0 > today, current: s0 <= realToday && realToday < goals.addDays(s0, 28) }; });
+    return list.some((c) => c.pct != null) ? { mode: 'periodic', list } : null;
   });
 
   out.carried = safe(() => {
@@ -488,7 +494,7 @@ function insightsForActivity(activityId, userId, poleKey, yearParam, opts) {
   const tasks = allTasks.filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
   const kindObjs = allObjs.filter((o) => o.kind === (okind === 'weekly' ? 'weekly' : 'period'));
   const objs = year === 'all' ? kindObjs : kindObjs.filter((o) => yearOf(o.end) === year);
-  const ctx = { activityId, userId, today, realToday, scope, tasks, allTasks, objs, range, view: scopeName, offset: off, isCurrentYear: year === 'all' || year === cur };
+  const ctx = { activityId, userId, today, realToday, scope, tasks, allTasks, objs, range, view: scopeName, offset: off, woff: Math.max(-520, Math.min(0, parseInt(opts.woff, 10) || 0)), yearNum: year === 'all' ? null : year, isCurrentYear: year === 'all' || year === cur };
   let minY = cur;
   allObjs.forEach((o) => { minY = Math.min(minY, anchorYearOf(o.periodStart)); });
   years.forEach((y) => { minY = Math.min(minY, y); });
