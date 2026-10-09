@@ -27,8 +27,6 @@ Dernière mise à jour : 30 sept. 2026 (construit à partir de `chantiers-en-cou
 - 🟡 `users.stripeCustomerId` et `notifyEnabled`/`communityNotifyEnabled` : présents dans `db.js` ; vérifier qu'ils survivent sur une base NEUVE (le testeur démarre le serveur sur base vide).
 
 ## 5. Fonctionnalités à finir
-- 🟠 Brancher `externalcalendar.busyMinutesTodayForUser` dans `WEIGHT_SYNC` de `goalsdailypriority.js`.
-- 🟠 UI de saisie de l'URL d'abonnement ICS (routes `/calendar/external` déjà là).
 - 🟡 Persistance du geste « reporter à plus tard » (liste du jour) — nécessite une table, cadrage d'abord.
 - 🟡 Affichage de la suggestion cross-secteur en attente (moteur livré, affichage hors scope jusqu'ici).
 - 🟡 Retrait de l'option « Publier » dans Communauté (zone recherche seule, bouton dedans) — vérifier l'état dans le code.

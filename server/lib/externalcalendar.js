@@ -8,8 +8,14 @@
 const db = require('../db');
 
 function ensureTable() {
+  // 9 oct. 2026 : userId est un identifiant TEXTE (uuid) ; l'ancienne colonne INTEGER refusait toute écriture.
+  // La table n'a jamais pu contenir de ligne (aucun écran), on la recrée.
+  try {
+    const col = db.prepare('PRAGMA table_info(external_calendar_subscriptions)').all().find((c) => c.name === 'userId');
+    if (col && /INT/i.test(col.type)) db.exec('DROP TABLE external_calendar_subscriptions');
+  } catch (e) { /* table absente */ }
   db.exec(`CREATE TABLE IF NOT EXISTS external_calendar_subscriptions (
-    userId INTEGER PRIMARY KEY,
+    userId TEXT PRIMARY KEY,
     icsUrl TEXT NOT NULL,
     updatedAt TEXT NOT NULL
   )`);
@@ -21,6 +27,7 @@ function getSubscription(userId) {
 }
 
 function setSubscription(userId, icsUrl) {
+  clearBusyCache(userId);
   db.prepare(`
     INSERT INTO external_calendar_subscriptions (userId, icsUrl, updatedAt)
     VALUES (?, ?, datetime('now'))
@@ -29,6 +36,7 @@ function setSubscription(userId, icsUrl) {
 }
 
 function removeSubscription(userId) {
+  clearBusyCache(userId);
   db.prepare('DELETE FROM external_calendar_subscriptions WHERE userId = ?').run(userId);
 }
 
@@ -97,7 +105,32 @@ async function busyMinutesTodayForUser(userId, isoDate) {
   return busyMinutesForDay(text, isoDate);
 }
 
+// Cache mémoire (15 min) des minutes occupées : le calcul de la liste du jour est synchrone, la lecture du flux ne l'est pas.
+const busyCache = new Map();
+const BUSY_TTL_MS = 15 * 60 * 1000;
+
+function cachedBusyMinutes(userId, isoDate) {
+  const hit = busyCache.get(userId + '|' + isoDate);
+  return hit && Date.now() - hit.at < BUSY_TTL_MS ? hit.minutes : null;
+}
+
+// Jamais bloquant : flux injoignable -> on garde null (aucune réduction).
+async function refreshBusy(userId, isoDate) {
+  if (cachedBusyMinutes(userId, isoDate) != null || !getSubscription(userId)) return;
+  try {
+    const minutes = await busyMinutesTodayForUser(userId, isoDate);
+    if (minutes != null) busyCache.set(userId + '|' + isoDate, { minutes, at: Date.now() });
+  } catch (e) { /* ignoré */ }
+}
+
+function clearBusyCache(userId) {
+  Array.from(busyCache.keys()).forEach((k) => { if (k.startsWith(userId + '|')) busyCache.delete(k); });
+}
+
 module.exports = {
+  cachedBusyMinutes,
+  refreshBusy,
+  clearBusyCache,
   getSubscription,
   setSubscription,
   removeSubscription,

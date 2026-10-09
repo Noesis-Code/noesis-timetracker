@@ -4573,6 +4573,11 @@ button { -webkit-user-select: none; user-select: none; }
    carte sur un téléphone (même problème que .historyEntry .note, treizième
    passage). Police à chasse fixe pour qu'un jeton se relise caractère par
    caractère. */
+#externalCalendarUrl {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .calendarFeedUrl {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;

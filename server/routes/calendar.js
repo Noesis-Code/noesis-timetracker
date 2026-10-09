@@ -162,8 +162,14 @@ router.put('/calendar/external', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const icsUrl = String(req.body.icsUrl || '').trim();
-  if (!/^https?:\/\//i.test(icsUrl)) return res.status(400).json({ error: 'URL invalide.' });
-  externalcalendar.setSubscription(userId, icsUrl);
+  let host = '';
+  try { host = new URL(icsUrl.replace(/^webcal:/i, 'https:')).hostname; } catch (e) { /* URL invalide */ }
+  // Le serveur ira chercher cette adresse : https seulement, jamais une adresse locale/privée.
+  if (!/^(https?|webcal):\/\//i.test(icsUrl) || !host || host === 'localhost' || !host.includes('.')
+    || /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[)/.test(host)) {
+    return res.status(400).json({ error: 'URL invalide.' });
+  }
+  externalcalendar.setSubscription(userId, icsUrl.replace(/^webcal:/i, 'https:'));
   res.json({ ok: true });
 });
 

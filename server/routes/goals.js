@@ -1345,7 +1345,7 @@ router.post('/activities/:id/goals/weekly/:weeklyId/daily-plan', async (req, res
 // goalsdailypriority.js). Couvre toute l'activité, tous pôles/secteurs
 // confondus (le planning reste propre à l'activité, jamais global à la
 // personne — règle 1 de goals.js).
-router.get('/activities/:id/goals/daily-priority', (req, res) => {
+router.get('/activities/:id/goals/daily-priority', async (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const activityId = Number(req.params.id);
@@ -1354,6 +1354,7 @@ router.get('/activities/:id/goals/daily-priority', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
+    await require('../lib/externalcalendar').refreshBusy(userId, goalsdailypriority.todayLocal());
     res.json(goalsdailypriority.computeDailyPriorityList(activityId, userId));
   } catch (err) {
     handleGoalsError(res, err);

@@ -59,6 +59,7 @@
 // par jour » déjà existant dans l'UI, cadrage confirmé le 22 sept.).
 
 const db = require('../db');
+const externalcalendar = require('./externalcalendar');
 const goals = require('./goals');
 const goalsauto = require('./goalsauto');
 const goalstasks = require('./goalstasks');
@@ -196,9 +197,12 @@ function computeDailyPriorityList(activityId, userId) {
   const poles = goals.categoriesForActivity(activityId);
   const today = todayLocal();
 
-  const capacityMinutes = Math.max(1, Math.round(
+  const baseCapacity = Math.max(1, Math.round(
     poles.reduce((sum, pole) => sum + goalsauto.capacityMinutesForMember(activityId, pole.key, userId) / 7, 0)
   ));
+  // Agenda externe (flux ICS) : les plages occupées d'aujourd'hui réduisent le temps disponible (jamais sous 15 min).
+  const busyMinutes = externalcalendar.cachedBusyMinutes(userId, today) || 0;
+  const capacityMinutes = busyMinutes ? Math.max(Math.min(15, baseCapacity), baseCapacity - busyMinutes) : baseCapacity;
 
   const pressureByPole = new Map();
   poles.forEach((pole) => pressureByPole.set(pole.key, goalPressureForPole(activityId, pole.key)));
@@ -255,7 +259,7 @@ function computeDailyPriorityList(activityId, userId) {
     if (t.selected) remaining -= t.estimatedMinutes;
   });
 
-  return { activityId, userId, capacityMinutes, generatedAt: new Date().toISOString(), items: tasks };
+  return { activityId, userId, capacityMinutes, busyMinutes, generatedAt: new Date().toISOString(), items: tasks };
 }
 
 // --- Utilisée uniquement par server/lib/dailysuggestioncron.js -------------
@@ -328,6 +332,6 @@ module.exports = {
   SECTEUR_HISTORY_DAYS, ACTIVITY_HISTORY_DAYS,
   pendingTasksForActivity, recentDailyMinutesForCategory, goalPressureForPole,
   deadlineScoreForTask, positionScoreForTask, historicalAverageMinutesPerDayForActivity,
-  computeDailyPriorityList, activeActivitiesForUser, anyDailyPriorityForUser,
+  todayLocal, computeDailyPriorityList, activeActivitiesForUser, anyDailyPriorityForUser,
   mostUrgentTaskForUser,
 };

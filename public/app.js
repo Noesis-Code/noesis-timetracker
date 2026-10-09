@@ -11858,6 +11858,7 @@
   // feuille de partage système invite précisément à l'envoyer à quelqu'un.
   // Copie explicite seulement, avec l'avertissement écrit au-dessus.
   function renderCalendarFeedState(state) {
+    loadExternalCalendar();
     var section = $('calendarFeedSection');
     if (!section) return;
     // Fonction éteinte côté serveur : la section n'apparaît pas du tout.
@@ -11956,6 +11957,31 @@
       })
       .catch(function (err) { msg.textContent = err.message; });
   }
+
+  // Agenda externe (lecture) : Noèsis lit les plages occupées d'un flux ICS pour alléger la liste du jour.
+  function loadExternalCalendar() {
+    if (!profile || !$('externalCalendarUrl')) return;
+    api('GET', '/api/calendar/external?userId=' + profile.id).then(function (res) {
+      $('externalCalendarUrl').value = (res && res.icsUrl) || '';
+      $('externalCalendarRemoveBtn').classList.toggle('hidden', !(res && res.icsUrl));
+    }).catch(function () {});
+  }
+  $('externalCalendarSaveBtn').addEventListener('click', function () {
+    if (!profile) return;
+    var msg = $('externalCalendarMsg');
+    var url = $('externalCalendarUrl').value.trim();
+    msg.textContent = '';
+    if (!url) { msg.textContent = t('Colle d\u2019abord l\u2019adresse de ton agenda.'); return; }
+    api('PUT', '/api/calendar/external', { userId: profile.id, icsUrl: url })
+      .then(function () { msg.textContent = t('Agenda enregistré.'); loadExternalCalendar(); })
+      .catch(function (err) { msg.textContent = err.message; });
+  });
+  $('externalCalendarRemoveBtn').addEventListener('click', function () {
+    if (!profile) return;
+    api('DELETE', '/api/calendar/external?userId=' + profile.id)
+      .then(function () { $('externalCalendarMsg').textContent = t('Agenda retiré.'); loadExternalCalendar(); })
+      .catch(function (err) { $('externalCalendarMsg').textContent = err.message; });
+  });
 
   $('calendarFeedCreateBtn').addEventListener('click', function () {
     if (!profile) return;
