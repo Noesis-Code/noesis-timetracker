@@ -93,3 +93,6 @@
 .saModalHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
 .saModalTitle { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
 .saModalSub { margin: 0 0 12px; }
+/* 9 oct. 2026 : cartes d'information — titre + corbeille un peu plus haut, filet sous l'en-tête. */
+.saInfo { padding-top: 8px; }
+.saInfo .saHd2 { padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid var(--glass-border); }

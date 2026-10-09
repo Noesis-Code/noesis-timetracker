@@ -45,7 +45,7 @@
   var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
   var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
   var yearSel = null; // null = année en cours (défaut) | 'all' | 'AAAA' ; jamais persisté
-  var tab = 't', view = 'year', oview = 'periodic', adding = false, draft = [], dayOff = 0; // dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
+  var tab = 't', view = 'year', oview = 'weekly', adding = false, draft = [], dayOff = 0; // dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
   var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires']];
 
@@ -95,8 +95,8 @@
   }
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
   function resetTransient() {
-    var wasOff = dayOff !== 0 || view !== 'year' || oview !== 'periodic';
-    view = 'year'; oview = 'periodic'; adding = false; draft = []; dayOff = 0; hideSheet();
+    var wasOff = dayOff !== 0 || view !== 'year' || oview !== 'weekly';
+    view = 'year'; oview = 'weekly'; adding = false; draft = []; dayOff = 0; hideSheet();
     if ((yearSel !== null || wasOff) && built && activityId != null && page === 2) { yearSel = null; load(); return; }
     yearSel = null;
     if (built && data) render();
@@ -402,7 +402,7 @@
       onConfirm: function () { go(); return Promise.resolve(); }
     });
     var b = document.getElementById('categoryRemoveDeleteTasksBtn');
-    if (b) { b.textContent = tr('Retirer'); b.style.background = ORANGE; b.style.borderColor = ORANGE; b.style.color = '#fff'; }
+    if (b) { b.textContent = tr('Retirer'); b.style.background = 'transparent'; b.style.borderColor = ORANGE; b.style.color = '#E08A69'; }
     var ob = document.getElementById('categoryRemoveModal');
     if (ob && !ob._saWatch) {
       ob._saWatch = true;
@@ -521,7 +521,7 @@
     activityId = found ? found.id : (list[0] ? list[0].id : null);
   }
   // Quitter l'onglet Statistiques (la page 2 reste « courante » mais cachée) remet aussi le graphique sur « Année ».
-  new MutationObserver(function () { if (!zone.offsetParent && (view !== 'year' || oview !== 'periodic' || adding || yearSel !== null || dayOff !== 0)) resetTransient(); })
+  new MutationObserver(function () { if (!zone.offsetParent && (view !== 'year' || oview !== 'weekly' || adding || yearSel !== null || dayOff !== 0)) resetTransient(); })
     .observe(zone, { attributes: true, attributeFilter: ['class', 'style'] });
   function closeModal() { hideSheet(); resetTransient(); }
 
