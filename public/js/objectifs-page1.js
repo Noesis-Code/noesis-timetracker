@@ -962,11 +962,15 @@
           f.dIn = document.createElement('input'); f.dIn.type = 'date'; f.dIn.value = todayISO;
           f.wSel = document.createElement('select');
           var wn = document.createElement('option'); wn.value = ''; wn.textContent = '—'; f.wSel.appendChild(wn);
+          var wFieldMulti = fld(t('Responsable'), f.wSel);
           api('GET', '/api/activities/' + r.activityId + '/goals/members').then(function (d) {
-            ((d && d.members) || []).forEach(function (m) { var o = document.createElement('option'); o.value = m.id; o.textContent = m.name; f.wSel.appendChild(o); });
+            var ms = (d && d.members) || [];
+            ms.forEach(function (m) { var o = document.createElement('option'); o.value = m.id; o.textContent = m.name; f.wSel.appendChild(o); });
+            // Activité non partagée : le responsable est forcément la seule personne, aucun choix à proposer.
+            if (ms.length <= 1) { wFieldMulti.style.display = 'none'; f.wSel.value = ''; }
           }).catch(function () {});
           box.appendChild(fld(t('Quand'), f.dIn));
-          box.appendChild(fld(t('Responsable'), f.wSel));
+          box.appendChild(wFieldMulti);
           if (TMT.buildRecurrenceField) { f.rec = TMT.buildRecurrenceField(null); box.appendChild(fld(t('Répéter'), f.rec.el)); }
         }
         forms.push(f);
@@ -1139,13 +1143,17 @@
           var dn = new Date(); dIn.value = dn.getFullYear() + '-' + String(dn.getMonth() + 1).padStart(2, '0') + '-' + String(dn.getDate()).padStart(2, '0');
           var wSel = document.createElement('select');
           var wNone = document.createElement('option'); wNone.value = ''; wNone.textContent = '—'; wSel.appendChild(wNone);
+          var wFieldOne = fld(t('Responsable'), wSel);
           api('GET', '/api/activities/' + r.activityId + '/goals/members').then(function (d) {
-            ((d && d.members) || []).forEach(function (m) {
+            var ms = (d && d.members) || [];
+            ms.forEach(function (m) {
               var o = document.createElement('option'); o.value = m.id; o.textContent = m.name; wSel.appendChild(o);
             });
+            // Activité non partagée : pas de choix de responsable.
+            if (ms.length <= 1) { wFieldOne.style.display = 'none'; wSel.value = ''; }
           }).catch(function () {});
           fwrap.appendChild(fld(t('Quand'), dIn));
-          fwrap.appendChild(fld(t('Responsable'), wSel));
+          fwrap.appendChild(wFieldOne);
           if (TMT.buildRecurrenceField) { recFld = TMT.buildRecurrenceField(null); fwrap.appendChild(fld(t('Répéter'), recFld.el)); }
           card.appendChild(fwrap);
           getDate = function () { return dIn.value || null; };
@@ -1328,15 +1336,17 @@
       }
 
       var shared = true; // 5 oct. 2026 : le choix du responsable est toujours proposé
-      var whoSel = null;
+      var whoSel = null, whoField = null;
       if (shared) {
         whoSel = document.createElement('select');
         var none = document.createElement('option'); none.value = ''; none.textContent = '—';
         whoSel.appendChild(none);
-        box.appendChild(labeled(t('Responsable'), whoSel));
+        whoField = labeled(t('Responsable'), whoSel);
+        box.appendChild(whoField);
       }
       body.appendChild(box);
-      forms.push({ r: r, labelIn: labelIn, whereSel: whereSel, dateIn: dateIn, whoSel: whoSel, cur: cur, recF: recF });
+      var formRef = { r: r, labelIn: labelIn, whereSel: whereSel, dateIn: dateIn, whoSel: whoSel, cur: cur, recF: recF };
+      forms.push(formRef);
 
       api('GET', '/api/activities/' + r.activityId + '/goals/categories').then(function (d) {
         whereSel.innerHTML = '';
@@ -1355,7 +1365,10 @@
       }).catch(function () {});
       if (whoSel) {
         api('GET', '/api/activities/' + r.activityId + '/goals/members').then(function (d) {
-          ((d && d.members) || []).forEach(function (m) {
+          var ms = (d && d.members) || [];
+          // Activité non partagée : pas de choix de responsable, la tâche garde celui déjà posé.
+          if (ms.length <= 1) { whoField.style.display = 'none'; whoSel = null; formRef.whoSel = null; return; }
+          ms.forEach(function (m) {
             var o = document.createElement('option'); o.value = m.id; o.textContent = m.name;
             if (r.plannedUserId === m.id) o.selected = true;
             whoSel.appendChild(o);
