@@ -98,12 +98,12 @@
 .saModalHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
 .saModalTitle { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
 .saModalSub { margin: 0 0 12px; }
-/* 9 oct. 2026 : cartes d'information — titre + corbeille un peu plus haut, filet sous l'en-tête. */
-.saInfo { padding-top: 8px; }
-.saInfo .saHd2 { padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid var(--glass-border); }
 /* 9 oct. 2026 : jours travaillés = tâches faites (barre) contre tâches prévues (contour pointillé). */
 .saDays { height: 56px; }
 .saDayCol { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
 .saDayCol i { width: 100%; position: relative; z-index: 1; }
 .saDayPlan { position: absolute; left: 0; right: 0; bottom: 0; border: 1px dashed var(--text); opacity: .55; border-radius: 3px 3px 0 0; box-sizing: border-box; z-index: 2; pointer-events: none; }
 .saDayCol.future::after { content: ''; width: 100%; height: 3px; border: 1px dashed #2b2e35; box-sizing: border-box; }
+/* 9 oct. 2026 : fenêtre « Retirer cette information ? » — filet sous le titre et la croix, en-tête un peu plus haut (classe posée seulement depuis les stats). */
+#categoryRemoveModal.saConfirm .communityMembersModalCard { padding-top: 2px; }
+#categoryRemoveModal.saConfirm .communityMembersModalHeader { padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--glass-border); }

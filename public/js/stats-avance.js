@@ -417,10 +417,11 @@
     var b = document.getElementById('categoryRemoveDeleteTasksBtn');
     if (b) { b.textContent = tr('Retirer'); b.style.background = 'transparent'; b.style.borderColor = ORANGE; b.style.color = '#E08A69'; }
     var ob = document.getElementById('categoryRemoveModal');
+    if (ob) ob.classList.add('saConfirm');
     if (ob && !ob._saWatch) {
       ob._saWatch = true;
       new MutationObserver(function () {
-        if (ob.classList.contains('hidden')) { var bb = document.getElementById('categoryRemoveDeleteTasksBtn'); if (bb) { bb.style.background = ''; bb.style.borderColor = ''; bb.style.color = ''; } }
+        if (ob.classList.contains('hidden')) { ob.classList.remove('saConfirm'); var bb = document.getElementById('categoryRemoveDeleteTasksBtn'); if (bb) { bb.style.background = ''; bb.style.borderColor = ''; bb.style.color = ''; } }
       }).observe(ob, { attributes: true, attributeFilter: ['class'] });
     }
   }
