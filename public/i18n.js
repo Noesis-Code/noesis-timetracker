@@ -1446,6 +1446,8 @@
     "Période suivante": "Next period",
     "{a} / {b} tâches restantes": "{a} / {b} tasks remaining",
     "Charge restante par secteur": "Remaining load by sector",
+    "Temps cible contre temps fait par secteur": "Target vs actual time by sector",
+    "Objectifs atteints par secteur": "Goals achieved by sector",
     "atteint": "reached",
     "partiel": "partial",
     "non": "not reached",

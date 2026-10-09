@@ -367,13 +367,22 @@ function objectivesCards(ctx) {
   const prevS = starts.length > 1 ? starts[starts.length - 2] : null;
   const lastList = last ? started.filter((o) => unitStart(o) === last) : [];
 
-  const targetFor = (p, list) => {
-    const mine = list.filter((o) => o.pole === p.key);
+  const targetCore = (mine, keys) => {
     const targetMin = mine.reduce((s, o) => s + o.est, 0);
     if (!mine.length || !targetMin) return null;
     const seen = {}; let doneMin = 0;
-    mine.forEach((o) => { const k = unitStart(o) + '|' + unitEnd(o); if (seen[k]) return; seen[k] = 1; doneMin += minutesFor(activityId, p.keys, unitStart(o), unitEnd(o)); });
-    return { key: p.key, label: p.label, targetMin, doneMin };
+    mine.forEach((o) => { const k = unitStart(o) + '|' + unitEnd(o); if (seen[k]) return; seen[k] = 1; doneMin += minutesFor(activityId, keys, unitStart(o), unitEnd(o)); });
+    return { targetMin, doneMin };
+  };
+  const targetFor = (p, list) => {
+    const mine = list.filter((o) => o.pole === p.key);
+    const c = targetCore(mine, p.keys);
+    if (!c) return null;
+    // Détail par secteur (le pôle sans secteur = libellé null).
+    const sectors = (p.sectors || []).map((sc) => { const x = targetCore(list.filter((o) => o.key === sc.key), [sc.key]); return x && { key: sc.key, label: sc.label, targetMin: x.targetMin, doneMin: x.doneMin }; }).filter(Boolean);
+    const dx = targetCore(list.filter((o) => o.key === p.key), [p.key]);
+    if (dx) sectors.push({ key: p.key, label: null, targetMin: dx.targetMin, doneMin: dx.doneMin });
+    return { key: p.key, label: p.label, targetMin: c.targetMin, doneMin: c.doneMin, sectors };
   };
 
   out.target = safe(() => {
@@ -389,7 +398,9 @@ function objectivesCards(ctx) {
       const pct = (s) => { const x = mine.filter((o) => unitStart(o) === s); return x.length ? x.filter((o) => o.status === 'atteint').length / x.length * 100 : 0; };
       const atteint = mine.filter((o) => o.status === 'atteint').length;
       const partiel = mine.filter((o) => o.status === 'partiel').length;
-      list.push({ key: p.key, label: p.label, atteint, partiel, non: mine.length - atteint - partiel, deltaPts: last && prevS ? Math.round(pct(last) - pct(prevS)) : 0 });
+      const cnt = (arr) => { const a = arr.filter((o) => o.status === 'atteint').length; const pa = arr.filter((o) => o.status === 'partiel').length; return { atteint: a, partiel: pa, non: arr.length - a - pa }; };
+      const sectors = (p.sectors || []).concat([{ key: p.key, label: null }]).map((sc) => { const arr = mine.filter((o) => o.key === sc.key); return arr.length ? Object.assign({ key: sc.key, label: sc.label }, cnt(arr)) : null; }).filter(Boolean);
+      list.push({ key: p.key, label: p.label, sectors, atteint, partiel, non: mine.length - atteint - partiel, deltaPts: last && prevS ? Math.round(pct(last) - pct(prevS)) : 0 });
     });
     return list.length ? list : null;
   });

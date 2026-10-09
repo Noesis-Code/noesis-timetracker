@@ -93,6 +93,32 @@
     });
     els.modal.classList.remove('hidden');
   }
+  // Feuille « par secteur » des cartes Objectifs : kind = 'target' | 'achieved'.
+  function openObjSheet(p, index, kind) {
+    els.mTitle.innerHTML = '';
+    els.mTitle.appendChild(dotEl(poleColor(index))); els.mTitle.appendChild(el('span', null, p.label));
+    els.mSub.textContent = kind === 'target' ? fmtMin(p.doneMin) + ' / ' + fmtMin(p.targetMin) : '';
+    els.mList.innerHTML = '';
+    els.mList.appendChild(el('p', 'sectionTitle', tr(kind === 'target' ? 'Temps cible contre temps fait par secteur' : 'Objectifs atteints par secteur')));
+    var rows = p.sectors || [];
+    if (!rows.length) els.mList.appendChild(el('p', 'hint', '—'));
+    rows.forEach(function (sc) {
+      var r = el('div', 'saPoleRow'), top = el('div', 'saPoleTop'), b = el('div', 'saBar');
+      top.appendChild(el('span', null, sc.label || tr('Pôle (hors secteur)')));
+      if (kind === 'target') {
+        var ok = sc.doneMin >= sc.targetMin, share = sc.targetMin ? Math.min(100, sc.doneMin * 100 / sc.targetMin) : 0;
+        top.appendChild(el('span', 'meta', fmtMin(sc.doneMin) + ' / ' + fmtMin(sc.targetMin)));
+        var f = el('div', 'saBarFill'); f.style.width = Math.round(share) + '%'; f.style.background = ok ? GREEN : RED; b.appendChild(f);
+      } else {
+        var tot = Math.max(1, (sc.atteint || 0) + (sc.partiel || 0) + (sc.non || 0));
+        top.appendChild(el('span', 'meta', sc.atteint + ' / ' + tot));
+        b.style.display = 'flex';
+        [[sc.atteint, GREEN], [sc.partiel, GREY], [sc.non, RED]].forEach(function (x) { var f = el('div', 'saBarFill'); f.style.width = (x[0] * 100 / tot) + '%'; f.style.background = x[1]; b.appendChild(f); });
+      }
+      r.appendChild(top); r.appendChild(b); els.mList.appendChild(r);
+    });
+    els.modal.classList.remove('hidden');
+  }
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
   function resetTransient() {
     var wasOff = dayOff !== 0 || view !== 'year' || oview !== 'weekly';
@@ -332,7 +358,9 @@
         var w = document.createElement('div');
         a.forEach(function (r, i) {
           var ok = r.doneMin >= r.targetMin, share = r.targetMin ? r.doneMin * 100 / r.targetMin : 0;
-          w.appendChild(row(poleName(r.label, poleColor(i)), bar([[share, ok ? GREEN : RED]]), colored(fmtMin(r.doneMin) + ' / ' + fmtMin(r.targetMin), ok)));
+          var rw = row(poleName(r.label, poleColor(i)), bar([[share, ok ? GREEN : RED]]), colored(fmtMin(r.doneMin) + ' / ' + fmtMin(r.targetMin) + (r.sectors && r.sectors.length ? ' ›' : ''), ok));
+          if (r.sectors && r.sectors.length) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'target'); }); }
+          w.appendChild(rw);
         });
         return w; } },
       { key: 'achieved', def: true, title: 'Objectifs atteints', body: function (d) {
@@ -340,7 +368,9 @@
         var w = document.createElement('div');
         a.forEach(function (r, i) {
           var tot = Math.max(1, (r.atteint || 0) + (r.partiel || 0) + (r.non || 0)), dp = Math.round(r.deltaPts || 0);
-          w.appendChild(row(poleName(r.label, poleColor(i)), bar([[r.atteint * 100 / tot, GREEN], [r.partiel * 100 / tot, GREY], [r.non * 100 / tot, RED]]), badge(sgn(dp, ' pts'), dp >= 0, true)));
+          var rw = row(poleName(r.label, poleColor(i)), bar([[r.atteint * 100 / tot, GREEN], [r.partiel * 100 / tot, GREY], [r.non * 100 / tot, RED]]), badge(sgn(dp, ' pts'), dp >= 0, true));
+          if (r.sectors && r.sectors.length) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'achieved'); }); }
+          w.appendChild(rw);
         });
         w.appendChild(legend([[GREEN, tr('atteint')], [GREY, tr('partiel')], [RED, tr('non')]]));
         return w; } },
