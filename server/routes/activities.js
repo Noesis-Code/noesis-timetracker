@@ -9,7 +9,7 @@ const { notifyActivityInvite } = require('../lib/push');
 // jamais sub_projects/sub_project_items lui-même, il appelle la fonction de
 // Sous-projets. Un seul require, un seul appel pour toute la liste.
 const { progressForActivities } = require('../lib/subprojects');
-const { transferActivityContent, hasGoalContent } = require('../lib/activitycontent');
+const { transferActivityContent, hasGoalContent, activePoleCount } = require('../lib/activitycontent');
 
 const router = express.Router();
 
@@ -459,6 +459,15 @@ router.post('/activities/:id/merge', (req, res) => {
   // Une activité partagée ne disparaît jamais : c'est elle qui recueille.
   const target = sharedA ? a : sharedB ? b : (String(b.id) === String(intoId) ? b : a);
   const source = target.id === a.id ? b : a;
+
+  // Plafond de pôles : les pôles des deux activités s'additionnent (5 maximum par activité).
+  const totalPoles = activePoleCount(target.id) + activePoleCount(source.id);
+  const maxPoles = require('../lib/goals').MAX_CUSTOM_CATEGORIES;
+  if (totalPoles > maxPoles) {
+    return res.status(409).json({
+      error: 'Ces deux activités totalisent ' + totalPoles + ' pôles, or une activité ne peut en avoir que ' + maxPoles + '. Retire des pôles avant de les fusionner.',
+    });
+  }
 
   // Un chrono en cours sur l'une ou l'autre bloque : la session en cours
   // pointe une activité qui peut disparaître au milieu de l'opération.

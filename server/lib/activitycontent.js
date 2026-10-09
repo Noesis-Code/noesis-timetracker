@@ -121,4 +121,10 @@ function hasGoalContent(activityId) {
     || db.prepare('SELECT 1 FROM activity_goal_plans WHERE activityId = ? LIMIT 1').get(activityId));
 }
 
-module.exports = { transferActivityContent, hasGoalContent };
+// Pôles actifs d'une activité (une activité jamais personnalisée en compte un seul, implicite).
+function activePoleCount(activityId) {
+  const n = db.prepare('SELECT COUNT(*) AS n FROM activity_goal_categories WHERE activityId = ? AND parentKey IS NULL AND removedAt IS NULL').get(activityId).n;
+  return n || 1;
+}
+
+module.exports = { transferActivityContent, hasGoalContent, activePoleCount };

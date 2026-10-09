@@ -7593,6 +7593,33 @@
     $('categoryRemoveCancelBtn').onclick = close;
   }
 
+  // Confirmation de suppression générique (même fenêtre que le retrait d'un pôle/secteur) :
+  // o = { title, text, onConfirm() -> Promise }.
+  TMT.confirmDelete = function (o) {
+    var modal = $('categoryRemoveModal');
+    if (!modal) { o.onConfirm(); return; }
+    var msg = $('categoryRemoveMsg'), delBtn = $('categoryRemoveDeleteTasksBtn'), keepBtn = $('categoryRemoveKeepTasksBtn');
+    $('categoryRemoveTitle').textContent = o.title;
+    $('categoryRemoveText').textContent = o.text;
+    var assignBox = $('categoryRemoveAssign');
+    if (assignBox) assignBox.innerHTML = '';
+    msg.textContent = '';
+    keepBtn.classList.add('hidden');
+    delBtn.textContent = t('Supprimer');
+    delBtn.classList.remove('hidden');
+    delBtn.disabled = false;
+    modal.style.zIndex = '500';
+    modal.classList.remove('hidden');
+    function close() { modal.classList.add('hidden'); modal.style.zIndex = ''; }
+    delBtn.onclick = function () {
+      delBtn.disabled = true;
+      Promise.resolve(o.onConfirm()).then(close).catch(function (err) { msg.textContent = err && err.message ? err.message : ''; })
+        .then(function () { delBtn.disabled = false; });
+    };
+    $('categoryRemoveClose').onclick = close;
+    $('categoryRemoveCancelBtn').onclick = close;
+  };
+
   // Plafonds de temps facultatifs (7 oct. 2026) : moyenne historique + max/jour et max/semaine.
   function fmtCapMinutes(m) {
     if (m === null || m === undefined) return '';

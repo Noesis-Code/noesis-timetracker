@@ -848,10 +848,14 @@
       var trash = document.createElement('button'); trash.type = 'button'; trash.className = 'historyRowIconBtn danger';
       trash.innerHTML = GOAL_TRASH_ICON; trash.setAttribute('aria-label', t('Supprimer cet objectif')); trash.title = t('Supprimer cet objectif');
       trash.addEventListener('click', function () {
-        trash.disabled = true;
-        api('DELETE', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/weekly/' + weekIndex + '?category=' + encodeURIComponent(TMT.currentGoalsCategory))
-          .then(function () { delete goalsWeekDrafts[draftKey]; return reloadGoalsAll(); })
-          .catch(function (err) { trash.disabled = false; msg.textContent = err.message; });
+        TMT.confirmDelete({
+          title: t('Supprimer cet objectif hebdomadaire ?'),
+          text: t('Êtes-vous sûr de vouloir supprimer cet objectif hebdomadaire ?'),
+          onConfirm: function () {
+            return api('DELETE', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/weekly/' + weekIndex + '?category=' + encodeURIComponent(TMT.currentGoalsCategory))
+              .then(function () { delete goalsWeekDrafts[draftKey]; return reloadGoalsAll(); });
+          },
+        });
       });
       actions.appendChild(trash);
     }
@@ -1200,11 +1204,14 @@
       mainDelBtn.title = t('Supprimer cet objectif');
       mainDelBtn.classList.toggle('hidden', !editing || !hasMainNow);
       mainDelBtn.onclick = function () {
-        mainDelBtn.disabled = true;
-        api('DELETE', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/main?category=' + encodeURIComponent(TMT.currentGoalsCategory))
-          .then(function () { mainEditKey = null; mainDraft = null; return reloadGoalsAll(); })
-          .catch(function () {})
-          .then(function () { mainDelBtn.disabled = false; });
+        TMT.confirmDelete({
+          title: t('Supprimer cet objectif périodique ?'),
+          text: t('Êtes-vous sûr de vouloir supprimer cet objectif périodique ? Ses objectifs hebdomadaires seront également supprimés.'),
+          onConfirm: function () {
+            return api('DELETE', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + period.periodNumber + '/main?category=' + encodeURIComponent(TMT.currentGoalsCategory))
+              .then(function () { mainEditKey = null; mainDraft = null; return reloadGoalsAll(); });
+          },
+        });
       };
       syncMainSaveRow();
     }
