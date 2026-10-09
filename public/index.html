@@ -3301,13 +3301,14 @@
               <!-- 9 oct. 2026 : agenda externe lu par Noèsis (sens inverse du flux ci-dessus). -->
               <div id="externalCalendarSection" class="settingsFlat">
                 <p class="sectionTitle settingsFlatTitle">Mon agenda</p>
-                <p class="meta">Colle l'adresse ICS de ton agenda (Google Agenda, Apple Calendar…). Noèsis ne compte que les heures occupées, jamais le contenu des événements, pour alléger tes tâches du jour.</p>
+                <p class="meta">Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis ne compte que les heures occupées, jamais le contenu des événements, pour alléger tes tâches du jour.</p>
                 <input type="text" id="externalCalendarUrl" class="calendarFeedUrl" inputmode="url" placeholder="https://…/basic.ics" autocomplete="off">
                 <div class="shareActions">
-                  <button type="button" id="externalCalendarSaveBtn" class="iconBtn">Enregistrer</button>
-                  <button type="button" id="externalCalendarRemoveBtn" class="iconBtn hidden">Retirer</button>
+                  <button type="button" id="externalCalendarSaveBtn" class="iconBtn">Ajouter</button>
                 </div>
                 <p id="externalCalendarMsg" class="msg"></p>
+                <button type="button" id="externalCalendarListBtn" class="linkBtn externalCalendarListBtn hidden">▸ URL enregistrées</button>
+                <div id="externalCalendarList" class="externalCalendarList hidden"></div>
               </div>
               <!-- Export de mes données personnelles (7 septembre 2026,
                    candidate n°1 de l'audit des sections manquantes du panneau

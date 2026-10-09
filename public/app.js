@@ -11958,29 +11958,67 @@
       .catch(function (err) { msg.textContent = err.message; });
   }
 
-  // Agenda externe (lecture) : Noèsis lit les plages occupées d'un flux ICS pour alléger la liste du jour.
+  // Agenda externe (lecture) : Noèsis lit les plages occupées de plusieurs flux ICS pour alléger la liste du jour.
+  var externalCalendarListOpen = false;
+  function renderExternalCalendarUrls(urls) {
+    var btn = $('externalCalendarListBtn');
+    var box = $('externalCalendarList');
+    if (!btn || !box) return;
+    urls = urls || [];
+    btn.classList.toggle('hidden', !urls.length);
+    if (!urls.length) { externalCalendarListOpen = false; box.classList.add('hidden'); box.innerHTML = ''; return; }
+    btn.textContent = (externalCalendarListOpen ? '▾ ' : '▸ ') + t('URL enregistrées') + ' (' + urls.length + ')';
+    box.classList.toggle('hidden', !externalCalendarListOpen);
+    box.innerHTML = '';
+    urls.forEach(function (u) {
+      var row = document.createElement('div');
+      row.className = 'externalCalendarRow';
+      var txt = document.createElement('span');
+      txt.className = 'externalCalendarRowUrl';
+      txt.textContent = u.icsUrl;
+      txt.title = u.icsUrl;
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'historyRowIconBtn danger';
+      del.innerHTML = typeof CHRONO_HISTORY_DELETE_ICON !== 'undefined' ? CHRONO_HISTORY_DELETE_ICON : '🗑';
+      del.setAttribute('aria-label', t('Supprimer cette adresse'));
+      del.addEventListener('click', function () {
+        TMT.confirmDelete({
+          title: t('Supprimer cette adresse ?'),
+          text: t('Noèsis ne lira plus cet agenda.'),
+          onConfirm: function () {
+            return api('DELETE', '/api/calendar/external/' + u.id + '?userId=' + profile.id)
+              .then(function (res) { renderExternalCalendarUrls(res && res.urls); });
+          }
+        });
+      });
+      row.appendChild(txt); row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
   function loadExternalCalendar() {
     if (!profile || !$('externalCalendarUrl')) return;
-    api('GET', '/api/calendar/external?userId=' + profile.id).then(function (res) {
-      $('externalCalendarUrl').value = (res && res.icsUrl) || '';
-      $('externalCalendarRemoveBtn').classList.toggle('hidden', !(res && res.icsUrl));
-    }).catch(function () {});
+    api('GET', '/api/calendar/external?userId=' + profile.id)
+      .then(function (res) { renderExternalCalendarUrls(res && res.urls); })
+      .catch(function () {});
   }
+  $('externalCalendarListBtn').addEventListener('click', function () {
+    externalCalendarListOpen = !externalCalendarListOpen;
+    loadExternalCalendar();
+  });
   $('externalCalendarSaveBtn').addEventListener('click', function () {
     if (!profile) return;
     var msg = $('externalCalendarMsg');
     var url = $('externalCalendarUrl').value.trim();
     msg.textContent = '';
     if (!url) { msg.textContent = t('Colle d\u2019abord l\u2019adresse de ton agenda.'); return; }
-    api('PUT', '/api/calendar/external', { userId: profile.id, icsUrl: url })
-      .then(function () { msg.textContent = t('Agenda enregistré.'); loadExternalCalendar(); })
+    api('POST', '/api/calendar/external', { userId: profile.id, icsUrl: url })
+      .then(function (res) {
+        msg.textContent = t('Agenda enregistré.');
+        $('externalCalendarUrl').value = '';
+        renderExternalCalendarUrls(res && res.urls);
+      })
       .catch(function (err) { msg.textContent = err.message; });
-  });
-  $('externalCalendarRemoveBtn').addEventListener('click', function () {
-    if (!profile) return;
-    api('DELETE', '/api/calendar/external?userId=' + profile.id)
-      .then(function () { $('externalCalendarMsg').textContent = t('Agenda retiré.'); loadExternalCalendar(); })
-      .catch(function (err) { $('externalCalendarMsg').textContent = err.message; });
   });
 
   $('calendarFeedCreateBtn').addEventListener('click', function () {

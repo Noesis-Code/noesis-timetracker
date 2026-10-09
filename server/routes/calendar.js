@@ -154,11 +154,11 @@ router.put('/calendar/export-selection', (req, res) => {
 router.get('/calendar/external', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const sub = externalcalendar.getSubscription(userId);
-  res.json({ icsUrl: sub ? sub.icsUrl : null });
+  res.json({ urls: externalcalendar.listUrls(userId) });
 });
 
-router.put('/calendar/external', (req, res) => {
+// Ajoute une adresse (plusieurs possibles).
+router.post('/calendar/external', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   const icsUrl = String(req.body.icsUrl || '').trim();
@@ -169,15 +169,19 @@ router.put('/calendar/external', (req, res) => {
     || /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[)/.test(host)) {
     return res.status(400).json({ error: 'URL invalide.' });
   }
-  externalcalendar.setSubscription(userId, icsUrl.replace(/^webcal:/i, 'https:'));
-  res.json({ ok: true });
+  try {
+    externalcalendar.addUrl(userId, icsUrl.replace(/^webcal:/i, 'https:'));
+    res.status(201).json({ urls: externalcalendar.listUrls(userId) });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ error: err.message });
+  }
 });
 
-router.delete('/calendar/external', (req, res) => {
+router.delete('/calendar/external/:id', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  externalcalendar.removeSubscription(userId);
-  res.json({ ok: true });
+  externalcalendar.removeUrl(userId, Number(req.params.id));
+  res.json({ urls: externalcalendar.listUrls(userId) });
 });
 
 // ----- Le flux lui-même -----

@@ -6723,3 +6723,9 @@ button { -webkit-user-select: none; user-select: none; }
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(10){animation-delay:405ms}
 .activityVisLine .activityVisRow{padding-left:30px}
 .activityEditBubble .activityVisNote{padding-left:30px}
+
+/* Agenda externe (9 oct. 2026) : bouton « URL enregistrées » (même style que « Gérer mon temps ») et liste à corbeilles. */
+.externalCalendarListBtn { align-self: flex-start; background: none; border: 0; padding: 0; margin-top: 8px; color: var(--purple); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; }
+.externalCalendarList { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.externalCalendarRow { display: flex; align-items: center; gap: 10px; }
+.externalCalendarRowUrl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text); }

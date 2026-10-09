@@ -19,25 +19,37 @@ function ensureTable() {
     icsUrl TEXT NOT NULL,
     updatedAt TEXT NOT NULL
   )`);
+  // 9 oct. 2026 : PLUSIEURS adresses par personne (une ligne par adresse). L'ancienne table (une adresse) est reprise.
+  db.exec(`CREATE TABLE IF NOT EXISTS external_calendar_urls (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId TEXT NOT NULL,
+    icsUrl TEXT NOT NULL,
+    createdAt TEXT NOT NULL,
+    UNIQUE (userId, icsUrl)
+  )`);
+  db.exec(`INSERT OR IGNORE INTO external_calendar_urls (userId, icsUrl, createdAt)
+    SELECT userId, icsUrl, updatedAt FROM external_calendar_subscriptions`);
+  db.exec('DELETE FROM external_calendar_subscriptions');
 }
 ensureTable();
 
-function getSubscription(userId) {
-  return db.prepare('SELECT icsUrl FROM external_calendar_subscriptions WHERE userId = ?').get(userId) || null;
+const MAX_URLS = 10;
+
+function listUrls(userId) {
+  return db.prepare('SELECT id, icsUrl FROM external_calendar_urls WHERE userId = ? ORDER BY id').all(userId);
 }
 
-function setSubscription(userId, icsUrl) {
+function addUrl(userId, icsUrl) {
+  if (listUrls(userId).length >= MAX_URLS) {
+    throw Object.assign(new Error('Tu peux enregistrer ' + MAX_URLS + ' adresses au maximum.'), { statusCode: 400 });
+  }
   clearBusyCache(userId);
-  db.prepare(`
-    INSERT INTO external_calendar_subscriptions (userId, icsUrl, updatedAt)
-    VALUES (?, ?, datetime('now'))
-    ON CONFLICT(userId) DO UPDATE SET icsUrl = excluded.icsUrl, updatedAt = excluded.updatedAt
-  `).run(userId, icsUrl);
+  db.prepare("INSERT OR IGNORE INTO external_calendar_urls (userId, icsUrl, createdAt) VALUES (?, ?, datetime('now'))").run(userId, icsUrl);
 }
 
-function removeSubscription(userId) {
+function removeUrl(userId, id) {
   clearBusyCache(userId);
-  db.prepare('DELETE FROM external_calendar_subscriptions WHERE userId = ?').run(userId);
+  db.prepare('DELETE FROM external_calendar_urls WHERE userId = ? AND id = ?').run(userId, id);
 }
 
 // Parseur minimal : seuls DTSTART/DTEND de chaque VEVENT nous intéressent
@@ -79,14 +91,27 @@ function parseIcsDate(value) {
 // Minutes occupées qui tombent dans la journée isoDate (heure serveur, même
 // limite documentée ci-dessus).
 function busyMinutesForDay(icsText, isoDate) {
+  return busyMinutesForTexts([icsText], isoDate);
+}
+
+// Plusieurs agendas : l'union des plages (deux rendez-vous qui se chevauchent ne comptent qu'une fois).
+function busyMinutesForTexts(texts, isoDate) {
   const dayStart = new Date(isoDate + 'T00:00:00Z');
   const dayEnd = new Date(isoDate + 'T23:59:59Z');
-  let minutes = 0;
-  for (const ev of parseIcsBusyIntervals(icsText)) {
-    const start = ev.start < dayStart ? dayStart : ev.start;
-    const end = ev.end > dayEnd ? dayEnd : ev.end;
-    if (end > start) minutes += (end - start) / 60000;
-  }
+  const spans = [];
+  texts.forEach((txt) => {
+    for (const ev of parseIcsBusyIntervals(txt)) {
+      const start = ev.start < dayStart ? dayStart : ev.start;
+      const end = ev.end > dayEnd ? dayEnd : ev.end;
+      if (end > start) spans.push([start.getTime(), end.getTime()]);
+    }
+  });
+  spans.sort((a, b) => a[0] - b[0]);
+  let minutes = 0; let curEnd = -Infinity;
+  spans.forEach(([a, b]) => {
+    const from = Math.max(a, curEnd);
+    if (b > from) { minutes += (b - from) / 60000; curEnd = b; }
+  });
   return Math.round(minutes);
 }
 
@@ -97,12 +122,16 @@ function busyMinutesForDay(icsText, isoDate) {
 // flux est injoignable — laissée à l'appelant (goalsdailypriority.js) de
 // décider comment se replier (jamais bloquant pour le reste du calcul).
 async function busyMinutesTodayForUser(userId, isoDate) {
-  const sub = getSubscription(userId);
-  if (!sub) return null;
-  const res = await fetch(sub.icsUrl, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) throw new Error('Calendrier externe injoignable (' + res.status + ').');
-  const text = await res.text();
-  return busyMinutesForDay(text, isoDate);
+  const urls = listUrls(userId);
+  if (!urls.length) return null;
+  const texts = [];
+  for (const u of urls) {
+    try {
+      const res = await fetch(u.icsUrl, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) texts.push(await res.text());
+    } catch (e) { /* une adresse injoignable n'empêche pas les autres */ }
+  }
+  return texts.length ? busyMinutesForTexts(texts, isoDate) : null;
 }
 
 // Cache mémoire (15 min) des minutes occupées : le calcul de la liste du jour est synchrone, la lecture du flux ne l'est pas.
@@ -116,7 +145,7 @@ function cachedBusyMinutes(userId, isoDate) {
 
 // Jamais bloquant : flux injoignable -> on garde null (aucune réduction).
 async function refreshBusy(userId, isoDate) {
-  if (cachedBusyMinutes(userId, isoDate) != null || !getSubscription(userId)) return;
+  if (cachedBusyMinutes(userId, isoDate) != null || !listUrls(userId).length) return;
   try {
     const minutes = await busyMinutesTodayForUser(userId, isoDate);
     if (minutes != null) busyCache.set(userId + '|' + isoDate, { minutes, at: Date.now() });
@@ -131,9 +160,11 @@ module.exports = {
   cachedBusyMinutes,
   refreshBusy,
   clearBusyCache,
-  getSubscription,
-  setSubscription,
-  removeSubscription,
+  listUrls,
+  addUrl,
+  removeUrl,
+  MAX_URLS,
+  busyMinutesForTexts,
   parseIcsBusyIntervals,
   busyMinutesForDay,
   busyMinutesTodayForUser,
