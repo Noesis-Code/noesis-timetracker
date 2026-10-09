@@ -35,6 +35,8 @@ const cat = goals.ensureDefaultCategory(aid)[0].key;
 goals.setWeekly(aid, cat, 40, 1, 'Objectif A');
 goals.setWeekly(aid, cat, 40, 2, 'Objectif B');
 const per = db.prepare('SELECT id FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = 40').get(aid, cat);
+// Période passée : seules les semaines passées comptent dans le statut de période
+db.prepare("UPDATE goal_periods SET startDate = '2020-01-06', endDate = '2020-02-02' WHERE id = ?").run(per.id);
 const wk = (i) => db.prepare('SELECT * FROM goal_weekly WHERE periodId = ? AND weekIndex = ?').get(per.id, i);
 const periodSt = () => db.prepare('SELECT mainGoalStatus s FROM goal_periods WHERE id = ?').get(per.id).s;
 const { subProject, section } = goalstasks.ensureCategoryTaskSection(aid, u.id, cat);
@@ -70,6 +72,11 @@ goals.setWeeklyStatus(aid, wk(2).id, 'atteint');
 assert(periodSt() === 'atteint', 'période : tous atteints');
 goals.setWeeklyStatus(aid, wk(2).id, 'partiel');
 assert(periodSt() === 'partiel', 'période : un manquant -> partiel');
+
+// Semaines à venir : ignorées (statut de période inchangé)
+db.prepare("UPDATE goal_periods SET startDate = '2099-01-05', endDate = '2099-02-01' WHERE id = ?").run(per.id);
+goals.setWeeklyStatus(aid, wk(2).id, 'atteint');
+assert(periodSt() === 'partiel', 'semaines à venir ignorées : statut de période inchangé');
 
 console.log(failed ? failed + ' échec(s)' : 'Tout est vert');
 process.exit(failed ? 1 : 0);

@@ -1585,7 +1585,12 @@ function periodStatusFromWeeklies(statuses) {
 
 function recomputePeriodStatus(periodId) {
   if (periodId == null) return;
-  const rows = db.prepare("SELECT status FROM goal_weekly WHERE periodId = ? AND TRIM(text) <> ''").all(periodId);
+  // Seules les semaines PASSÉES comptent (fin de semaine < aujourd'hui) ; la semaine en cours et celles à venir sont ignorées.
+  const per = db.prepare('SELECT startDate FROM goal_periods WHERE id = ?').get(periodId);
+  if (!per) return;
+  const today = todayLocal();
+  const rows = db.prepare("SELECT status, weekIndex FROM goal_weekly WHERE periodId = ? AND TRIM(text) <> ''").all(periodId)
+    .filter((r) => addDays(per.startDate, r.weekIndex * WEEK_DAYS - 1) < today);
   const st = periodStatusFromWeeklies(rows.map((r) => r.status));
   if (st == null) return;
   db.prepare('UPDATE goal_periods SET mainGoalStatus = ? WHERE id = ? AND (mainGoalStatus IS NOT ?)').run(st, periodId, st);
