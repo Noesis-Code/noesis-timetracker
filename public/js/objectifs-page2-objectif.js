@@ -729,6 +729,32 @@
       renderGoalsGridHead(); renderGoalsGrid();
     }).catch(function () { goalsYearsLoadingFor = null; });
   }
+  // Défilement automatique vers la période en cours (9 oct. 2026) : quand l'utilisateur est
+  // complètement arrivé sur l'onglet 3 (glissement terminé) et n'a plus le doigt sur l'écran.
+  var goalsTouchCount = 0;
+  document.addEventListener('touchstart', function (e) { goalsTouchCount = e.touches.length; }, { passive: true, capture: true });
+  document.addEventListener('touchend', function (e) { goalsTouchCount = e.touches.length; }, { passive: true, capture: true });
+  document.addEventListener('touchcancel', function () { goalsTouchCount = 0; }, { passive: true, capture: true });
+  var goalsAutoScrollToken = 0;
+  TMT.scheduleGoalsAutoScroll = function () {
+    var token = ++goalsAutoScrollToken, started = Date.now();
+    (function tick() {
+      if (token !== goalsAutoScrollToken) return;
+      if (TMT.getGoalsPage2Mode && TMT.getGoalsPage2Mode() !== 'goals') return;
+      var settled = Date.now() - started > 420 && goalsTouchCount === 0;
+      var marker = document.querySelector('#goalsGrid .goalsRowMarker--current');
+      if (settled && marker) {
+        var host = $('goalsActivitySwitcherScroll'), row = marker.closest('.goalsGridRow') || marker;
+        if (host && row) {
+          var hr = host.getBoundingClientRect(), rr = row.getBoundingClientRect();
+          host.scrollTo({ top: Math.max(0, host.scrollTop + (rr.top - hr.top) - hr.height / 3), behavior: 'smooth' });
+        }
+        return;
+      }
+      if (Date.now() - started < 4000) setTimeout(tick, 120);
+    })();
+  };
+
   // Année vide au sommet (au-dessus de l'année en cours) : disparaît quand on la quitte.
   // Le serveur ne supprime que la dernière année, et seulement si elle est vide.
   TMT.pruneGoalsYears = function () {

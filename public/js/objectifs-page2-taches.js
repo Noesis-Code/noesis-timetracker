@@ -394,6 +394,7 @@
       };
     }
     if (mode === 'tasks') loadGoalsTasksOverview();
+    if (mode === 'goals' && TMT.scheduleGoalsAutoScroll) TMT.scheduleGoalsAutoScroll();
     if (mode === 'month' && !opts.keep && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
     var discBtn = $('goalsPage2ModeDiscBtn');
     if (discBtn) discBtn.classList.toggle('active', mode === 'disc');
