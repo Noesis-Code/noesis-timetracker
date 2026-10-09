@@ -45,7 +45,7 @@
   var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
   var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
   var yearSel = null; // null = année en cours (défaut) | 'all' | 'AAAA' ; jamais persisté
-  var tab = 't', view = 'year', oview = 'weekly', adding = false, draft = [], dayOff = 0, wOff = 0; // wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
+  var tab = 't', view = 'year', oview = 'weekly', adding = false, draft = [], dayOff = 0, wOff = 0, pPage = null; // pPage : page de 4 périodes de « Où ça glisse » (null = auto). wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
   var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires']];
 
@@ -124,7 +124,7 @@
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
   function resetTransient() {
     var wasOff = dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== 'weekly';
-    view = 'year'; oview = 'weekly'; adding = false; draft = []; dayOff = 0; wOff = 0; hideSheet();
+    view = 'year'; oview = 'weekly'; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
     if ((yearSel !== null || wasOff) && built && activityId != null && page === 2) { yearSel = null; load(); return; }
     yearSel = null;
     if (built && data) render();
@@ -256,7 +256,7 @@
     var menu = el('div', 'statsPeriodMenu hidden');
     VS.filter(function (o) { return !isT || !yearOnly(d) || o[0] === 'year'; }).forEach(function (o) {
       var it = el('button', 'statsPeriodMenuItem' + (o[0] === cv ? ' active' : ''), tr(o[1])); it.type = 'button';
-      it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== cv) { if (isT) view = o[0]; else oview = o[0]; dayOff = 0; wOff = 0; load(); } });
+      it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== cv) { if (isT) view = o[0]; else oview = o[0]; dayOff = 0; wOff = 0; pPage = null; load(); } });
       menu.appendChild(it);
     });
     btn.addEventListener('click', function (e) {
@@ -388,9 +388,27 @@
           nav.appendChild(prev); nav.appendChild(el('span', 'meta', a.label)); nav.appendChild(next);
           w.appendChild(nav);
         }
-        var g = el('div', 'saTiles' + (a.mode === 'periodic' ? ' saTiles13' : ''));
-        g.style.gridTemplateColumns = 'repeat(' + (a.mode === 'periodic' ? 7 : Math.min(4, a.list.length)) + ',1fr)';
-        a.list.forEach(function (wk) {
+        var items = a.list;
+        if (a.mode === 'periodic') {
+          // 4 périodes par page (P1-4, P5-8, P9-12, P13 seule) ; page par défaut = celle de la période en cours, sinon la dernière avec données.
+          var np = Math.ceil(a.list.length / 4), pg = pPage;
+          if (pg === null) {
+            var ci = -1, li = -1; a.list.forEach(function (c, i) { if (c.current) ci = i; if (c.pct != null) li = i; });
+            pg = Math.floor((ci >= 0 ? ci : (li >= 0 ? li : 0)) / 4);
+          }
+          pg = Math.max(0, Math.min(np - 1, pg));
+          items = a.list.slice(pg * 4, pg * 4 + 4);
+          var pn = el('div', 'sectionTitleRow timesheetNav saDaysNav');
+          var pv = el('button', 'iconBtn', '‹'); pv.type = 'button'; pv.setAttribute('aria-label', tr('Période précédente')); pv.disabled = pg <= 0;
+          var nx = el('button', 'iconBtn', '›'); nx.type = 'button'; nx.setAttribute('aria-label', tr('Période suivante')); nx.disabled = pg >= np - 1;
+          pv.addEventListener('click', function () { if (pg > 0) { pPage = pg - 1; load(); } });
+          nx.addEventListener('click', function () { if (pg < np - 1) { pPage = pg + 1; load(); } });
+          pn.appendChild(pv); pn.appendChild(el('span', 'meta', items[0].label + (items.length > 1 ? ' – ' + items[items.length - 1].label : ''))); pn.appendChild(nx);
+          w.appendChild(pn);
+        }
+        var g = el('div', 'saTiles');
+        g.style.gridTemplateColumns = 'repeat(4,1fr)';
+        items.forEach(function (wk) {
           var t = el('div', 'saTile saGlass'), has = wk.pct != null, ok = has && wk.pct >= 80;
           if (has) t.style.borderColor = ok ? GREEN : RED; else t.style.opacity = wk.future ? '.4' : '.6';
           t.appendChild(el('small', null, wk.label));
@@ -492,7 +510,7 @@
       it.addEventListener('click', function () {
         menu.classList.add('hidden');
         if (on) return;
-        yearSel = y === String(new Date().getFullYear()) ? null : y; load();
+        yearSel = y === String(new Date().getFullYear()) ? null : y; pPage = null; load();
       });
       menu.appendChild(it);
     });
@@ -555,7 +573,7 @@
       b.style.setProperty('--chipEdge', a.color || '#674EA7');
       var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
       b.appendChild(d); b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; yearSel = null; renderChips(); load(); } });
+      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; yearSel = null; pPage = null; renderChips(); load(); } });
       els.chips.appendChild(b);
     });
   }

@@ -61,7 +61,7 @@
 .saDl { display: flex; gap: 5px; font-size: 10px; opacity: .6; margin-top: 2px; }
 .saDl span { flex: 1; text-align: center; }
 .saTiles { display: grid; gap: 8px; }
-.saTile { padding: 8px 10px; display: flex; flex-direction: column; }
+.saTile { padding: 8px 6px; display: flex; flex-direction: column; align-items: center; border: 2px solid var(--glass-border); border-radius: 14px; }
 .saTile small { font-size: 11px; opacity: .7; }
 .saTile b { font-size: 15px; font-variant-numeric: tabular-nums; }
 .saLst { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
