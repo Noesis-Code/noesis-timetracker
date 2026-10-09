@@ -397,19 +397,16 @@
         }
         var items = a.list;
         if (a.mode === 'periodic') {
-          // 4 périodes par page (P1-4, P5-8, P9-12, P13 seule) ; page par défaut = celle de la période en cours, sinon la dernière avec données.
-          var np = Math.ceil(a.list.length / 4), pg = pPage;
-          if (pg === null) {
-            var ci = -1, li = -1; a.list.forEach(function (c, i) { if (c.current) ci = i; if (c.pct != null) li = i; });
-            pg = Math.floor((ci >= 0 ? ci : (li >= 0 ? li : 0)) / 4);
-          }
-          pg = Math.max(0, Math.min(np - 1, pg));
-          items = a.list.slice(pg * 4, pg * 4 + 4);
+          // Pas de période à venir. Dernière période = tout à droite, puis 4 par 4 en remontant ; au début de l'année la dernière page se cale sur P1-P4 (jamais une période seule).
+          var vis = a.list.filter(function (c) { return !c.future; }), n = vis.length, wins = [], e = n - 1;
+          while (e >= 0) { var st = e - 3; if (st <= 0) { wins.push([0, Math.min(3, n - 1)]); break; } wins.push([st, e]); e = st - 1; }
+          var np = wins.length, pg = Math.max(0, Math.min(np - 1, pPage || 0));
+          items = vis.slice(wins[pg][0], wins[pg][1] + 1);
           var pn = el('div', 'sectionTitleRow timesheetNav saDaysNav');
-          var pv = el('button', 'iconBtn', '‹'); pv.type = 'button'; pv.setAttribute('aria-label', tr('Période précédente')); pv.disabled = pg <= 0;
-          var nx = el('button', 'iconBtn', '›'); nx.type = 'button'; nx.setAttribute('aria-label', tr('Période suivante')); nx.disabled = pg >= np - 1;
-          pv.addEventListener('click', function () { if (pg > 0) { pPage = pg - 1; load(); } });
-          nx.addEventListener('click', function () { if (pg < np - 1) { pPage = pg + 1; load(); } });
+          var pv = el('button', 'iconBtn', '‹'); pv.type = 'button'; pv.setAttribute('aria-label', tr('Période précédente')); pv.disabled = pg >= np - 1;
+          var nx = el('button', 'iconBtn', '›'); nx.type = 'button'; nx.setAttribute('aria-label', tr('Période suivante')); nx.disabled = pg <= 0;
+          pv.addEventListener('click', function () { if (pg < np - 1) { pPage = pg + 1; load(); } });
+          nx.addEventListener('click', function () { if (pg > 0) { pPage = pg - 1; load(); } });
           pn.appendChild(pv); pn.appendChild(el('span', 'meta', items[0].label + (items.length > 1 ? ' – ' + items[items.length - 1].label : ''))); pn.appendChild(nx);
           w.appendChild(pn);
         }
