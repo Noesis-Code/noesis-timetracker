@@ -18,6 +18,8 @@
 .saSegBtn.on { background: var(--purple); border-color: var(--purple); color: #fff; font-weight: 600; }
 .saBody { display: flex; flex-direction: column; gap: 10px; }
 .saGlass { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: var(--glass-shadow, none); }
+/* 9 oct. 2026 : même verre que les sections de l'onglet 1 (.statsSection, verre-calme.css) : fond --vc-bg, liseré intérieur, flou. */
+:root .saGlass { background: var(--vc-bg); border: 0; box-shadow: inset 0 0 0 1px var(--vc-line); -webkit-backdrop-filter: var(--vc-blur); backdrop-filter: var(--vc-blur); }
 .saCard { padding: 12px; }
 .saHd { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
 .saHd .sectionTitle { margin: 0; }
