@@ -786,9 +786,6 @@
         p.addEventListener('click', function () { goalsYearEditing[key] = true; rerender(); });
         col.appendChild(p);
       }
-      var link = document.createElement('span');
-      link.className = 'goalsYearLink';
-      col.appendChild(link);
     }
     return col;
   }

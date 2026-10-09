@@ -42,7 +42,7 @@
    visuelle), sans toucher au padding (0) qui, lui, correspond bien au point
    (1) toujours en discussion. */
 .goalsGridHead {
-  display: flex; align-items: flex-start; gap: 10px; padding: 0 4px 0 26px; margin-bottom: 14px;
+  display: flex; align-items: flex-start; gap: 10px; padding: 0 4px 0 26px; margin-bottom: 6px;
 }
 
 .goalsGridHeadCell {
@@ -108,7 +108,7 @@
 .goalsGrid {
   --goalsGridGap: 34px;
   display: flex; flex-direction: column; gap: var(--goalsGridGap);
-  padding: 6px 4px 220px;
+  padding: 2px 4px 220px;
 }
 
 .goalsGridRow { display: flex; align-items: stretch; gap: 10px; position: relative; }
@@ -295,7 +295,7 @@
 .goalsYearCol { position: relative; flex: 1 1 0; min-width: 0; max-width: 100%; box-sizing: border-box; border-radius: 18px; overflow-wrap: anywhere; }
 .goalsGridHead--paged .goalsYearCol { flex: 0 0 calc(50% - 5px); }
 .goalsYearCol .goalsGridHeadCell { display: block; width: 100%; box-sizing: border-box; cursor: pointer; }
-.goalsYearCol--open, .goalsYearCol--vide { margin-bottom: 18px; padding: 6px; display: grid; gap: 6px; }
+.goalsYearCol--open, .goalsYearCol--vide { margin-bottom: 8px; padding: 6px; display: grid; gap: 6px; }
 .goalsYearCol--open { background: var(--yearShade); color: var(--yearInk); }
 .goalsYearCol--open .goalsGridHeadCell { background: var(--bg); color: var(--text); border-color: transparent; font-weight: 600; }
 .goalsYearCol--vide { border: 3px solid var(--yearShade); padding: 3px; }
@@ -310,3 +310,5 @@
 
 .goalsYearCol--noPill.goalsYearCol--vide { padding: 3px; }
 .goalsYearCol--noPill .goalsYearAdd { padding: 10px; }
+
+.goalsYearLink { display: none !important; }
