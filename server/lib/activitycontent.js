@@ -121,10 +121,12 @@ function hasGoalContent(activityId) {
     || db.prepare('SELECT 1 FROM activity_goal_plans WHERE activityId = ? LIMIT 1').get(activityId));
 }
 
-// Pôles actifs d'une activité (une activité jamais personnalisée en compte un seul, implicite).
-function activePoleCount(activityId) {
-  const n = db.prepare('SELECT COUNT(*) AS n FROM activity_goal_categories WHERE activityId = ? AND parentKey IS NULL AND removedAt IS NULL').get(activityId).n;
-  return n || 1;
+// Fusion : l'activité absorbée perd tout son contenu Objectifs (pôles, secteurs, tâches, plans, périodes, années).
+function wipeGoalContent(activityId) {
+  ['goal_cross_sector_suggestions', 'goal_capacity_overrides', 'goal_year_goals', 'goal_years', 'goal_periods',
+    'activity_goal_plans', 'sub_projects', 'activity_goal_categories'].forEach((t) => {
+    try { db.prepare('DELETE FROM ' + t + ' WHERE activityId = ?').run(activityId); } catch (e) { /* table absente */ }
+  });
 }
 
-module.exports = { transferActivityContent, hasGoalContent, activePoleCount };
+module.exports = { transferActivityContent, hasGoalContent, wipeGoalContent };

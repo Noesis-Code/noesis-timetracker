@@ -16959,7 +16959,7 @@
     var removed = kept === from ? other : from;
 
     $('mergeActivitySummary').textContent = t(
-      '« {removed} » disparaîtra et ses enregistrements seront ajoutés à « {kept} », qui garde son nom et sa couleur.',
+      '« {removed} » disparaîtra avec ses pôles, secteurs, tâches et objectifs : seuls ses enregistrements de temps seront ajoutés à « {kept} », sans pôle. « {kept} » garde tout le reste, son nom et sa couleur.',
       { removed: removed.name, kept: kept.name });
     $('mergeActivityMsg').textContent = '';
     showMergeStep('confirm');

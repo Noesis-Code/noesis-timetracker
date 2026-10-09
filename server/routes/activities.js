@@ -9,7 +9,7 @@ const { notifyActivityInvite } = require('../lib/push');
 // jamais sub_projects/sub_project_items lui-même, il appelle la fonction de
 // Sous-projets. Un seul require, un seul appel pour toute la liste.
 const { progressForActivities } = require('../lib/subprojects');
-const { transferActivityContent, hasGoalContent, activePoleCount } = require('../lib/activitycontent');
+const { transferActivityContent, hasGoalContent, wipeGoalContent } = require('../lib/activitycontent');
 
 const router = express.Router();
 
@@ -460,15 +460,6 @@ router.post('/activities/:id/merge', (req, res) => {
   const target = sharedA ? a : sharedB ? b : (String(b.id) === String(intoId) ? b : a);
   const source = target.id === a.id ? b : a;
 
-  // Plafond de pôles : les pôles des deux activités s'additionnent (5 maximum par activité).
-  const totalPoles = activePoleCount(target.id) + activePoleCount(source.id);
-  const maxPoles = require('../lib/goals').MAX_CUSTOM_CATEGORIES;
-  if (totalPoles > maxPoles) {
-    return res.status(409).json({
-      error: 'Ces deux activités totalisent ' + totalPoles + ' pôles, or une activité ne peut en avoir que ' + maxPoles + '. Retire des pôles avant de les fusionner.',
-    });
-  }
-
   // Un chrono en cours sur l'une ou l'autre bloque : la session en cours
   // pointe une activité qui peut disparaître au milieu de l'opération.
   const running = db.prepare(
@@ -499,9 +490,11 @@ router.post('/activities/:id/merge', (req, res) => {
     // resteraient rattachés à un sous-projet d'une autre activité, et rien ne
     // le signalerait. Le temps, lui, est intégralement conservé.
     // AC·04 : pôles, secteurs, tâches et plans suivent (avant le temps).
-    transferActivityContent(source.id, target.id, { mode: 'move' });
-    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = CASE WHEN subProjectId IN (SELECT id FROM sub_projects WHERE activityId = ?) THEN subProjectId ELSE NULL END WHERE activityId = ? AND userId = ?')
-      .run(target.id, target.id, source.id, userId);
+    // 9 oct. 2026 (Émilien) : la fusion n'importe NI pôles, NI secteurs, NI tâches, NI objectifs.
+    // Seul le temps est conservé, sans pôle (goalCategory NULL) ni sous-projet.
+    db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = NULL, goalCategory = NULL WHERE activityId = ? AND userId = ?')
+      .run(target.id, source.id, userId);
+    wipeGoalContent(source.id);
 
     db.prepare('DELETE FROM activity_members WHERE activityId = ? AND userId = ?').run(source.id, userId);
 

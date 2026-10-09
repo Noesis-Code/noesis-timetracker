@@ -256,7 +256,7 @@
     'Choisir une autre activité': 'Pick another activity',
     'Partagée elle aussi — impossible de fusionner deux activités partagées.': 'Shared as well — two shared activities cannot be merged.',
     'Aucune autre activité à fusionner avec celle-ci.': 'No other activity to merge this one with.',
-    '« {removed} » disparaîtra et ses enregistrements seront ajoutés à « {kept} », qui garde son nom et sa couleur.': '"{removed}" will disappear and its sessions will be added to "{kept}", which keeps its name and colour.',
+    '« {removed} » disparaîtra avec ses pôles, secteurs, tâches et objectifs : seuls ses enregistrements de temps seront ajoutés à « {kept} », sans pôle. « {kept} » garde tout le reste, son nom et sa couleur.': '"{removed}" will disappear with its poles, sectors, tasks and goals: only its time entries will be added to "{kept}", without a pole. "{kept}" keeps everything else, its name and its colour.',
     'Choisis deux activités différentes.': 'Pick two different activities.',
     'Tu ne fais pas partie de ces deux activités.': 'You are not part of both of these activities.',
     "Ces deux activités sont partagées avec d'autres personnes. Il faut qu'au moins une des deux soit personnelle pour pouvoir les fusionner.": 'Both of these activities are shared with other people. At least one of the two must be personal for them to be merged.',
