@@ -14161,6 +14161,7 @@
     $('viewProfileStatsLockedHint').classList.add('hidden');
     $('viewProfilePieBlock').classList.remove('hidden');
     $('viewProfileChartBlock').classList.remove('hidden');
+    if (TMT.visitorStats) TMT.visitorStats.reset();
     // Sondages du profil visité (3 septembre 2026, discussion "Sondages") :
     // remis à zéro ET remasqués comme le reste — le bloc se réaffichera de
     // lui-même si ce profil-ci en a (voir mountPolls, plus bas). Chargé plus
@@ -14433,12 +14434,14 @@
       $('viewProfileChartLegend').innerHTML = '';
       $('viewProfileChartEmptyHint').classList.add('hidden');
       $('viewProfileStatsLabel').textContent = '';
+      if (TMT.visitorStats) TMT.visitorStats.lock();
       syncViewProfilePaneHeight();
       return;
     }
     $('viewProfileStatsLockedHint').classList.add('hidden');
     $('viewProfilePieBlock').classList.remove('hidden');
     $('viewProfileChartBlock').classList.remove('hidden');
+    if (TMT.visitorStats) TMT.visitorStats.unlock(target);
     api('GET', '/api/profile/' + target + '/stats?viewerId=' + profile.id +
         '&period=' + viewProfilePiePeriod + '&granularity=' + viewProfileChartGranularity)
       .then(function (data) {

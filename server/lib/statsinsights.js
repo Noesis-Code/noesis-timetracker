@@ -152,6 +152,8 @@ function objectivesChart(today, allObjs, year, minY) {
   return {
     periodic: buildObjectiveSeries(today, allObjs.filter((o) => o.kind === 'period'), y, minY),
     weekly: buildObjectiveSeries(today, allObjs.filter((o) => o.kind === 'weekly'), y, minY),
+    // Vue « Tout » : périodiques + hebdomadaires confondus.
+    all: buildObjectiveSeries(today, allObjs, y, minY),
   };
 }
 
@@ -263,7 +265,7 @@ function workedDays(activityId, scope, today, kind, offset, allTasks) {
 
 function tasksCards(ctx) {
   const { activityId, userId, today, scope, tasks, allTasks, range, view } = ctx;
-  const out = { onTime: null, estimate: null, weekdays: null, remaining: null, postponed: null, rhythm: null, busy: null, capacity: null, assignees: null, urgent: null };
+  const out = { onTime: null, estimate: null, weekdays: null, remaining: null, postponed: null, rhythm: null, streak: null, busy: null, capacity: null, assignees: null, urgent: null };
   const doneIn = (t) => t.done && t.doneDay && inRange(t.doneDay, { start: range.start, end: range.end });
 
   out.onTime = safe(() => {
@@ -318,7 +320,19 @@ function tasksCards(ctx) {
     return { perWorkedDay: round1(recent.length / days.size), doneInScope: recent.length };
   });
 
+  // Série en cours : jours de suite (jusqu'à aujourd'hui, ou hier s'il n'y a encore rien aujourd'hui) avec au moins une tâche faite.
+  out.streak = safe(() => {
+    const days = new Set(allTasks.filter((t) => t.done && t.doneDay).map((t) => t.doneDay));
+    if (!days.size) return null;
+    let d = ctx.realToday;
+    if (!days.has(d)) d = goals.addDays(d, -1);
+    let n = 0;
+    while (days.has(d) && n < 3660) { n += 1; d = goals.addDays(d, -1); }
+    return { days: n };
+  });
+
   out.busy = safe(() => {
+    if (ctx.visitor) return null;
     if (!externalcalendar.listUrls(userId).length) return null;
     const m = externalcalendar.cachedBusyMinutes(userId, today);
     if (m == null) { externalcalendar.refreshBusy(userId, today).catch(() => {}); return null; }
@@ -326,6 +340,7 @@ function tasksCards(ctx) {
   });
 
   out.capacity = safe(() => {
+    if (ctx.visitor) return null;
     let weekly = 0;
     scope.poles.forEach((p) => { weekly += goalsauto.capacityMinutesForMember(activityId, p.key, userId) || 0; });
     return weekly > 0 ? { avgFreeMinutes: Math.round(weekly / 7) } : null;
@@ -406,18 +421,20 @@ function objectivesCards(ctx) {
   });
 
   out.weeks = safe(() => {
-    const kind = objs.length ? objs[0].kind : null;
+    // Vue « Tout » : la carte suit les hebdomadaires (toutes années) ; sinon le type choisi.
+    const wl = ctx.okind === 'all' ? started.filter((o) => o.kind === 'weekly') : started;
+    const kind = ctx.okind === 'all' ? 'weekly' : (objs.length ? objs[0].kind : null);
     const pct = (x) => Math.round(x.filter((o) => o.status === 'atteint').length / x.length * 100);
     const plabel = (s) => 'P' + (Math.floor(goals.daysBetween(yearAnchor(anchorYearOf(s)), s) / 28) + 1);
     if (kind === 'weekly') {
       // Une période à la fois (la plus récente commencée, puis en remontant avec offset <= 0) : taux d'atteinte par semaine.
-      const pstarts = Array.from(new Set(started.map((o) => o.periodStart))).sort();
+      const pstarts = Array.from(new Set(wl.map((o) => o.periodStart))).sort();
       if (!pstarts.length) return null;
       const idx = Math.max(0, pstarts.length - 1 + Math.min(0, ctx.woff || 0));
       const ps = pstarts[idx];
       const list = [];
       for (let w = 1; w <= 4; w += 1) {
-        const x = started.filter((o) => o.periodStart === ps && o.weekIndex === w);
+        const x = wl.filter((o) => o.periodStart === ps && o.weekIndex === w);
         list.push({ label: 'S' + w, pct: x.length ? pct(x) : null });
       }
       const pe = goals.addDays(ps, 27); const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
@@ -483,7 +500,7 @@ function insightsForActivity(activityId, userId, poleKey, yearParam, opts) {
   if (String(yearParam) === 'all') year = 'all';
   else if (/^\d{4}$/.test(String(yearParam || ''))) year = Math.min(cur, Number(yearParam));
   const scopeName = opts.scope === 'period' || opts.scope === 'week' ? opts.scope : 'year';
-  const okind = opts.kind === 'weekly' ? 'weekly' : 'periodic';
+  const okind = opts.kind === 'weekly' ? 'weekly' : (opts.kind === 'all' ? 'all' : 'periodic');
   const off = Math.max(-520, Math.min(0, parseInt(opts.offset, 10) || 0));
   // Les vues Période / Semaine ne concernent que l'année en cours.
   const range = taskRange(year !== 'all' && year < cur ? 'year' : scopeName, year, realToday);
@@ -492,9 +509,9 @@ function insightsForActivity(activityId, userId, poleKey, yearParam, opts) {
   // Tâches de la portée : échéance ou réalisation dans la portée ; sans date : seulement si la portée couvre « aujourd'hui » à l'année.
   const undated = (scopeName === 'year' || year === 'all') && (year === 'all' || year === cur);
   const tasks = allTasks.filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
-  const kindObjs = allObjs.filter((o) => o.kind === (okind === 'weekly' ? 'weekly' : 'period'));
+  const kindObjs = okind === 'all' ? allObjs : allObjs.filter((o) => o.kind === (okind === 'weekly' ? 'weekly' : 'period'));
   const objs = year === 'all' ? kindObjs : kindObjs.filter((o) => yearOf(o.end) === year);
-  const ctx = { activityId, userId, today, realToday, scope, tasks, allTasks, objs, range, view: scopeName, offset: off, woff: Math.max(-520, Math.min(0, parseInt(opts.woff, 10) || 0)), yearNum: year === 'all' ? null : year, isCurrentYear: year === 'all' || year === cur };
+  const ctx = { activityId, userId, today, realToday, scope, tasks, allTasks, objs, range, view: scopeName, offset: off, okind, visitor: !!opts.visitor, woff: Math.max(-520, Math.min(0, parseInt(opts.woff, 10) || 0)), yearNum: year === 'all' ? null : year, isCurrentYear: year === 'all' || year === cur };
   let minY = cur;
   allObjs.forEach((o) => { minY = Math.min(minY, anchorYearOf(o.periodStart)); });
   years.forEach((y) => { minY = Math.min(minY, y); });
@@ -509,4 +526,22 @@ function insightsForActivity(activityId, userId, poleKey, yearParam, opts) {
   };
 }
 
-module.exports = { insightsForActivity };
+// Version VISITEUR (profil d'un autre utilisateur) : lecture seule, uniquement des agrégats.
+// Liste blanche explicite : jamais de titres de tâches, agenda, capacité, responsable, durées estimées/réelles,
+// ni de détail par secteur. Le filtre de confidentialité (activité) est appliqué par la route AVANT cet appel.
+function visitorInsights(activityId, ownerId, yearParam, opts) {
+  const full = insightsForActivity(activityId, ownerId, null, yearParam, Object.assign({}, opts, { visitor: true }));
+  const t = full.tasks || {};
+  const o = full.objectives || {};
+  return {
+    year: full.year, scope: full.scope,
+    chart: full.chart,
+    tasks: { onTime: t.onTime || null, rhythm: t.rhythm || null, streak: t.streak || null },
+    objectives: {
+      achieved: o.achieved ? o.achieved.map((r) => ({ key: r.key, label: r.label, atteint: r.atteint, partiel: r.partiel, non: r.non, deltaPts: r.deltaPts })) : null,
+      weeks: o.weeks || null,
+    },
+  };
+}
+
+module.exports = { insightsForActivity, visitorInsights };

@@ -2257,6 +2257,9 @@
           </span>
           <p class="hint">Suis ce profil pour voir ses statistiques.</p>
         </div>
+        <!-- 9 oct. 2026 : deux pages horizontales (glisser vers la gauche) : 1 = Répartition + Graphique (temps), 2 = Tâches | Objectifs (public/js/stats-avance.js, TMT.visitorStats). -->
+        <div id="viewProfileStatsPages">
+        <div id="viewProfileStatsPage1">
         <div id="viewProfilePieBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Répartition</p>
@@ -2309,6 +2312,10 @@
           <div id="viewProfileChartLegend" class="chartLegend"></div>
           <p id="viewProfileChartEmptyHint" class="hint hidden">Rien d'enregistré pour l'instant.</p>
         </div>
+        </div>
+        <div id="viewProfileStatsPage2" class="hidden"></div>
+        </div>
+        <div id="viewProfileStatsDots" class="vpsDots" role="group"><button type="button" class="goalsDotBtn on" aria-label="Statistiques"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Tâches réalisées"><span class="goalsDot"></span></button></div>
         </div>
 
         <!-- Messages "Communauté" du profil visité — la SEULE partie

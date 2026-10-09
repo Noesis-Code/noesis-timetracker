@@ -18,8 +18,7 @@
   if (!TMT || !zone || !page1 || !page2 || !pages) return;
   var tr = function (s, v) { return typeof window.t === 'function' ? window.t(s, v) : s; };
 
-  var page = 1, activityId = null, data = null, loadSeq = 0, built = false;
-  var els = {};
+  var page = 1;
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -27,7 +26,17 @@
     if (text != null) e.textContent = text;
     return e;
   }
-  function activities() { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; }
+  var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
+  var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
+
+  // 9 oct. 2026 : le contenu (onglets Tâches | Objectifs, graphique, cartes) est une « instance » réutilisable.
+  // cfg.root : élément hôte ; cfg.visitor : true = profil d'un AUTRE utilisateur (lecture seule : cartes fixes,
+  // pas d'ajout/retrait, pas de feuilles « par secteur ») ; cfg.activities() : pastilles ; cfg.fetch(activityId, qs) : Promise des données.
+  function createInstance(cfg) {
+  var page2 = cfg.root, visitor = !!cfg.visitor;
+  var activityId = null, data = null, loadSeq = 0, built = false;
+  var els = {};
+  function activities() { return cfg.activities(); }
   function activityColor() {
     var a = activities().filter(function (x) { return String(x.id) === String(activityId); })[0];
     return (a && a.color) || '#674EA7';
@@ -42,12 +51,9 @@
   // d'information par défaut + cartes ajoutables (choix mémorisé par onglet).
   // Données : GET /api/stats/activity-insights (server/lib/statsinsights.js) ;
   // une donnée absente (null) masque simplement sa carte.
-  var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
-  var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
-  var yearSel = null; // null = année en cours (défaut) | 'all' | 'AAAA' ; jamais persisté
-  var tab = 't', view = 'year', oview = 'weekly', adding = false, draft = [], dayOff = 0, wOff = 0, pPage = null; // pPage : page de 4 périodes de « Où ça glisse » (null = auto). wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
-  var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
-  var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires']];
+  var tab = 't', view = 'year', oview = 'all', adding = false, draft = [], dayOff = 0, wOff = 0, pPage = null; // pPage : page de 4 périodes de « Où ça glisse » (null = auto). wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
+  var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine'], ['all', 'Tout']];
+  var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires'], ['all', 'Tout']];
 
   function build() {
     if (built) return; built = true;
@@ -56,8 +62,9 @@
     els.seg = el('div', 'saSeg');
     els.body = el('div', 'saBody');
     [els.chips, els.msg, els.seg, els.body].forEach(function (e) { page2.appendChild(e); });
+    if (visitor) els.body.classList.add('saVisitor');
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
-    var m = el('div', 'communityMembersModal hidden'); m.id = 'statsAvanceModal';
+    var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
     var card = el('div', 'communityMembersModalCard');
     var head = el('div', 'saModalHead');
     var title = el('div', 'saModalTitle');
@@ -94,7 +101,7 @@
     els.modal.classList.remove('hidden');
   }
   // Un pôle n'est cliquable que s'il a au moins un vrai secteur (l'entrée « pôle hors secteur » seule ne compte pas).
-  function hasSectors(p) { return !!(p && p.sectors && p.sectors.some(function (x) { return x.label; })); }
+  function hasSectors(p) { return !visitor && !!(p && p.sectors && p.sectors.some(function (x) { return x.label; })); }
   // Feuille « par secteur » des cartes Objectifs : kind = 'target' | 'achieved'.
   function openObjSheet(p, index, kind) {
     els.mTitle.innerHTML = '';
@@ -122,11 +129,11 @@
     els.modal.classList.remove('hidden');
   }
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
+  function isDirty() { return view !== 'year' || oview !== 'all' || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
   function resetTransient() {
-    var wasOff = dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== 'weekly';
-    view = 'year'; oview = 'weekly'; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
-    if ((yearSel !== null || wasOff) && built && activityId != null && page === 2) { yearSel = null; load(); return; }
-    yearSel = null;
+    var wasOff = dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== 'all';
+    view = 'year'; oview = 'all'; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
+    if (wasOff && built && activityId != null && cfg.isShown()) { load(); return; }
     if (built && data) render();
   }
 
@@ -235,15 +242,12 @@
     return s + '</svg>';
   }
 
-  // Vues Période / Semaine (Tâches) : seulement pour l'année en cours.
-  function yearOnly(d) { return d && (d.year === 'all' || Number(d.year) < new Date().getFullYear()); }
-
   function chartCard(d) {
     var isT = tab === 't', VS = isT ? VIEWS : OVIEWS;
-    if (isT && yearOnly(d)) view = 'year';
     var cv = isT ? view : oview;
     var views = d.chart && d.chart[isT ? 'tasks' : 'objectives'];
-    var v = views && views[cv];
+    // Tâches « Tout » : le serveur renvoie alors la série toutes années dans « year » (year=all).
+    var v = views && views[isT && cv === 'all' ? 'year' : cv];
     var card = el('div', 'saCard saGlass');
     var hd = el('div', 'saHd');
     var h = el('p', 'sectionTitle', tr('Graphique') + ' ');
@@ -254,7 +258,7 @@
     var wrap = el('div', 'statsPeriodMenuWrap');
     var btn = el('button', 'menuBtn', '⋮'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-label', tr('Choisir la période'));
     var menu = el('div', 'statsPeriodMenu hidden');
-    VS.filter(function (o) { return !isT || !yearOnly(d) || o[0] === 'year'; }).forEach(function (o) {
+    VS.forEach(function (o) {
       var it = el('button', 'statsPeriodMenuItem' + (o[0] === cv ? ' active' : ''), tr(o[1])); it.type = 'button';
       it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== cv) { if (isT) view = o[0]; else oview = o[0]; dayOff = 0; wOff = 0; pPage = null; load(); } });
       menu.appendChild(it);
@@ -337,6 +341,9 @@
       { key: 'rhythm', title: 'Rythme de réalisation', body: function (d) {
         var r = d.tasks && d.tasks.rhythm; if (!r || !has(r.perWorkedDay)) return null;
         return bigRow(fmtNum(r.perWorkedDay), tr('tâche par jour travaillé')); } },
+      { key: 'streak', title: 'Série en cours', body: function (d) {
+        var r = d.tasks && d.tasks.streak; if (!r || !has(r.days)) return null;
+        return bigRow(String(r.days), tr(r.days > 1 ? 'jours de suite avec une tâche faite' : 'jour de suite avec une tâche faite')); } },
       { key: 'busy', title: 'Agenda occupé', body: function (d) {
         var b = d.tasks && d.tasks.busy; if (!b || !has(b.minutesToday)) return null;
         var w = document.createElement('div');
@@ -443,7 +450,7 @@
   function saveAdded(k, arr) { try { localStorage.setItem(infoStore(k), JSON.stringify(arr)); } catch (e) { /* stockage indisponible */ } }
 
   // Cartes à peu d'informations : deux par ligne (une seule restante = pleine largeur).
-  var HALF = { rhythm: 1, busy: 1, capacity: 1, assignees: 1, urgent: 1, carried: 1, linked: 1 };
+  var HALF = { rhythm: 1, streak: 1, busy: 1, capacity: 1, assignees: 1, urgent: 1, carried: 1, linked: 1 };
   function fillHalfRuns() {
     var run = [];
     var flush = function () { if (run.length % 2 === 1) run[run.length - 1].classList.add('saFull'); run = []; };
@@ -494,33 +501,9 @@
     var tabs = el('div', 'saSegTabs'); els.seg.appendChild(tabs);
     [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (o) {
       var b = el('button', 'saSegBtn' + (tab === o[0] ? ' on' : ''), tr(o[1])); b.type = 'button';
-      b.addEventListener('click', function () { if (tab !== o[0]) { tab = o[0]; adding = false; draft = []; render(); } });
+      b.addEventListener('click', function () { if (tab !== o[0]) { tab = o[0]; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; load(); } });
       tabs.appendChild(b);
     });
-    // Choix de l'année : seulement si plusieurs années ont des données.
-    var ys = data && data.years;
-    if (!ys || ys.length < 2) return;
-    var wrap = el('div', 'statsPeriodMenuWrap saYearWrap');
-    var yb = el('button', 'caSubProjectBtn', String(data.year === 'all' ? tr('Tous') : data.year)); yb.type = 'button';
-    yb.setAttribute('aria-haspopup', 'true'); yb.setAttribute('aria-label', tr("Choisir l'année"));
-    var menu = el('div', 'statsPeriodMenu hidden');
-    ys.map(String).concat(['all']).forEach(function (y) {
-      var on = String(data.year) === y;
-      var it = el('button', 'statsPeriodMenuItem' + (on ? ' active' : ''), y === 'all' ? tr('Tous') : y); it.type = 'button';
-      it.addEventListener('click', function () {
-        menu.classList.add('hidden');
-        if (on) return;
-        yearSel = y === String(new Date().getFullYear()) ? null : y; pPage = null; load();
-      });
-      menu.appendChild(it);
-    });
-    yb.addEventListener('click', function (e) {
-      e.stopPropagation();
-      var willOpen = menu.classList.contains('hidden');
-      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
-      if (willOpen) menu.classList.remove('hidden');
-    });
-    wrap.appendChild(yb); wrap.appendChild(menu); els.seg.appendChild(wrap);
   }
 
   function render() {
@@ -530,6 +513,16 @@
     if (!data) return;
     els.body.appendChild(chartCard(data));
     var defs = CARDS[tab], added = loadAdded(tab);
+    if (visitor) {
+      // Profil visité : cartes fixes, lecture seule (liste blanche aussi côté serveur).
+      var fixed = tab === 't' ? ['onTime', 'rhythm', 'streak'] : ['achieved', 'weeks'];
+      fixed.forEach(function (k) {
+        var c = defs.filter(function (x) { return x.key === k; })[0], n = c && c.body(data);
+        if (n) els.body.appendChild(infoCard(c, n, false));
+      });
+      fillHalfRuns();
+      return;
+    }
     defs.filter(function (c) { return c.def; }).forEach(function (c) {
       var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, false));
     });
@@ -573,20 +566,26 @@
       b.style.setProperty('--chipEdge', a.color || '#674EA7');
       var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
       b.appendChild(d); b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; yearSel = null; pPage = null; renderChips(); load(); } });
+      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; pPage = null; renderChips(); load(); } });
       els.chips.appendChild(b);
     });
   }
 
   function load() {
     build();
-    if (activityId == null) { els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
+    if (activityId == null && !visitor) { els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
     els.msg.classList.add('hidden');
     var seq = ++loadSeq;
-    TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(activityId) + (yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '') + '&scope=' + view + '&kind=' + oview + (dayOff ? '&offset=' + dayOff : '') + (wOff ? '&woff=' + wOff : '')).then(function (d) {
+    var all = tab === 't' ? view === 'all' : oview === 'all';
+    var qs = (all ? '&year=all' : '') + '&scope=' + (view === 'all' ? 'year' : view) + '&kind=' + oview + (dayOff ? '&offset=' + dayOff : '') + (wOff ? '&woff=' + wOff : '');
+    cfg.fetch(activityId, qs).then(function (r) {
       if (seq !== loadSeq) return;
-      data = d; render();
-    }, function () {
+      if (r.activityId !== undefined && r.activityId !== null) activityId = r.activityId;
+      data = r.data;
+      if (visitor) renderChips();
+      if (visitor && !data) { els.body.innerHTML = ''; els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
+      render();
+    }, function (e) {
       if (seq !== loadSeq) return;
       els.msg.textContent = tr('Chargement impossible.'); els.msg.classList.remove('hidden');
     });
@@ -595,14 +594,100 @@
   function pickDefaultActivity() {
     var list = activities();
     if (activityId != null && list.some(function (a) { return String(a.id) === String(activityId); })) return;
+    if (visitor) { activityId = null; return; }
     var pref = TMT.currentGoalsActivityId;
     var found = list.filter(function (a) { return String(a.id) === String(pref); })[0];
     activityId = found ? found.id : (list[0] ? list[0].id : null);
   }
+  return {
+    open: function () { build(); pickDefaultActivity(); renderChips(); load(); },
+    reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty,
+    forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; els.body.innerHTML = ''; } }
+  };
+  }
+
+  // ---------- Page de visite d'un profil : 2 pages horizontales (temps | tâches et objectifs) ----------
+  // Lecture seule, accès vérifié côté serveur (GET /api/stats/profile-insights). Verrouillé = les deux pages masquées.
+  (function () {
+    var wrap = document.getElementById('viewProfileStatsPages');
+    var p1 = document.getElementById('viewProfileStatsPage1');
+    var p2 = document.getElementById('viewProfileStatsPage2');
+    var vdots = document.getElementById('viewProfileStatsDots');
+    if (!wrap || !p1 || !p2 || !vdots) return;
+    var vinst = null, vuser = null, vpage = 1;
+    function setDots() { Array.prototype.forEach.call(vdots.children, function (d, i) { d.classList.toggle('on', i === vpage - 1); }); }
+    function go(n) {
+      if (n === vpage) return;
+      var from = vpage === 1 ? p1 : p2, to = n === 1 ? p1 : p2, dir = n > vpage ? 1 : -1;
+      vpage = n; setDots();
+      if (n === 2 && vuser) {
+        if (!vinst) vinst = TMT.createVisitorStats(p2, vuser);
+        vinst.open();
+      } else if (vinst) { vinst.hideSheet(); vinst.reset(); }
+      to.classList.remove('hidden');
+      if (typeof to.animate !== 'function') { from.classList.add('hidden'); return; }
+      var r = from.getBoundingClientRect(), pr = wrap.getBoundingClientRect();
+      from.style.cssText += ';position:absolute;left:' + (r.left - pr.left) + 'px;top:' + (r.top - pr.top) + 'px;width:' + r.width + 'px;pointer-events:none;';
+      wrap.style.overflowX = 'hidden';
+      var ao = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
+      to.animate([{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'translateX(0)' }], ao);
+      var out = from.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-dir * 100) + '%)' }], ao);
+      out.onfinish = function () {
+        from.style.position = ''; from.style.left = ''; from.style.top = ''; from.style.width = ''; from.style.pointerEvents = '';
+        from.classList.add('hidden'); out.cancel();
+        to.getAnimations().forEach(function (a) { a.cancel(); });
+        wrap.style.overflowX = '';
+      };
+    }
+    Array.prototype.forEach.call(vdots.children, function (b, i) { b.addEventListener('click', function () { go(i + 1); }); });
+    var x0 = null, y0 = null;
+    wrap.addEventListener('touchstart', function (e) {
+      x0 = null;
+      if (e.touches.length !== 1 || !e.target.closest || e.target.closest('input, textarea, select, .statsPeriodMenu, .chartScroll')) return;
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    wrap.addEventListener('touchend', function (e) {
+      if (x0 == null) return;
+      var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      if (dx < 0 && vpage === 1) go(2); else if (dx > 0 && vpage === 2) go(1);
+    }, { passive: true });
+    function showPage1() { vpage = 1; setDots(); p1.classList.remove('hidden'); p2.classList.add('hidden'); }
+    TMT.visitorStats = {
+      // Nouveau profil visité : on repart de zéro (page 1, instance jetée).
+      reset: function () { vinst = null; vuser = null; p2.innerHTML = ''; showPage1(); wrap.classList.remove('hidden'); vdots.classList.remove('hidden'); },
+      lock: function () { wrap.classList.add('hidden'); vdots.classList.add('hidden'); },
+      unlock: function (userId) { vuser = userId; wrap.classList.remove('hidden'); vdots.classList.remove('hidden'); }
+    };
+  })();
+
+  var inst = createInstance({
+    root: page2,
+    activities: function () { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; },
+    isShown: function () { return page === 2; },
+    fetch: function (aid, qs) {
+      return TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(aid) + qs).then(function (d) { return { data: d }; });
+    }
+  });
+  // Profil d'un AUTRE utilisateur : même code, lecture seule. Voir TMT.createVisitorStats (app.js : page de visite).
+  TMT.createVisitorStats = function (root, userId) {
+    var acts = [];
+    var v = createInstance({
+      root: root, visitor: true,
+      activities: function () { return acts; },
+      isShown: function () { return true; },
+      fetch: function (aid, qs) {
+        return TMT.api('GET', '/api/stats/profile-insights?userId=' + encodeURIComponent(userId) + (aid != null ? '&activityId=' + encodeURIComponent(aid) : '') + qs).then(function (r) {
+          acts = r.activities || []; return r;
+        });
+      }
+    });
+    return v;
+  };
   // Quitter l'onglet Statistiques (la page 2 reste « courante » mais cachée) remet aussi le graphique sur « Année ».
-  new MutationObserver(function () { if (!zone.offsetParent && (view !== 'year' || oview !== 'weekly' || adding || yearSel !== null || dayOff !== 0)) resetTransient(); })
+  new MutationObserver(function () { if (!zone.offsetParent && inst.isDirty()) inst.reset(); })
     .observe(zone, { attributes: true, attributeFilter: ['class', 'style'] });
-  function closeModal() { hideSheet(); resetTransient(); }
+  function closeModal() { inst.hideSheet(); inst.reset(); }
 
   // ---------- Changement de page (même animation que setGoalsPage2Mode) ----------
   function setStatsPage(n, opts) {
@@ -613,7 +698,7 @@
     page = n;
     if (dots) Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle('on', i === n - 1); });
     closeModal();
-    if (n === 2) { build(); pickDefaultActivity(); renderChips(); load(); }
+    if (n === 2) inst.open();
     to.classList.remove('hidden');
     if (opts.noAnim || typeof to.animate !== 'function') { from.classList.add('hidden'); return; }
     var r = from.getBoundingClientRect(), pr = pages.getBoundingClientRect();
@@ -663,7 +748,7 @@
     var cur = page === 1 ? page1 : page2, nb = nbN === 1 ? page1 : page2;
     var pr = pages.getBoundingClientRect(), cr = cur.getBoundingClientRect();
     var top = cr.top - pr.top;
-    if (nbN === 2) { build(); pickDefaultActivity(); renderChips(); load(); }
+    if (nbN === 2) inst.open();
     nb.classList.remove('hidden');
     nb.style.cssText += ';position:absolute;left:' + (cr.left - pr.left) + 'px;top:' + top + 'px;width:' + cr.width + 'px;pointer-events:none;';
     pages.style.overflowX = 'hidden';

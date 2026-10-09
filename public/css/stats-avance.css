@@ -115,3 +115,11 @@
 .saTiles13 .saTile { padding: 4px 2px; }
 .saTiles13 .saTile b { font-size: 11px; }
 .saTiles13 .saTile small { font-size: 9px; }
+
+/* 9 oct. 2026 : statistiques d'un profil visité — deux pages horizontales + points de pagination. */
+#viewProfileStatsPages { position: relative; }
+.vpsDots { display: flex; justify-content: center; gap: 0; margin-top: 4px; }
+.vpsDots .goalsDotBtn { padding: 8px 6px; background: none; border: 0; }
+.vpsDots .goalsDot { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--text); opacity: .35; transition: opacity .2s; }
+.vpsDots .goalsDotBtn.on .goalsDot { opacity: 1; }
+#viewProfileStatsPage2 .saChips { padding-top: 0; }

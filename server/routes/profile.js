@@ -1223,3 +1223,4 @@ router.delete('/profile/projects/:id', (req, res) => {
 module.exports = router;
 module.exports.canViewProjects = canViewProjects;
 module.exports.canViewPosts = canViewPosts;
+module.exports.canViewTrackedContent = canViewTrackedContent;

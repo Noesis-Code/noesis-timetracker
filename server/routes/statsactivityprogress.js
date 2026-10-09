@@ -39,4 +39,39 @@ router.get('/stats/activity-insights', (req, res) => {
   }
 });
 
+// GET /api/stats/profile-insights?userId=…[&activityId=…][&year=all][&scope=year|period|week][&kind=periodic|weekly|all][&woff=-N]
+// Statistiques de tâches et d'objectifs d'un AUTRE utilisateur (lecture seule). Règles appliquées ICI, côté serveur :
+//  - même accès que le camembert du profil visité (canViewTrackedContent : soi-même ou abonné accepté) -> sinon 403 ;
+//  - activités confidentielles du profil visité jamais listées ni sélectionnables (403) — sauf activité partagée
+//    avec le visiteur, même règle que le camembert (stats.hiddenActivityIdsFor) ;
+//  - réponse = agrégats seulement (insights.visitorInsights : aucun titre de tâche, agenda, capacité, responsable, durée estimée).
+router.get('/stats/profile-insights', (req, res) => {
+  const viewerId = req.userId;
+  if (!viewerId) return res.status(401).json({ error: 'Non authentifié.' });
+  const ownerId = String(req.query.userId || '');
+  const owner = ownerId ? db.prepare('SELECT id FROM users WHERE id = ?').get(ownerId) : null;
+  if (!owner) return res.status(404).json({ error: 'Profil introuvable.' });
+  const profileRoutes = require('./profile');
+  if (!profileRoutes.canViewTrackedContent(viewerId, owner.id)) return res.status(403).json({ error: 'Tu dois suivre ce profil pour voir ses statistiques.' });
+  const hidden = new Set(require('../lib/stats').hiddenActivityIdsFor(owner.id, viewerId));
+  const activities = db.prepare(`SELECT a.id AS id, a.name AS name, COALESCE(am.color, '#674EA7') AS color
+    FROM activity_members am JOIN activities a ON a.id = am.activityId WHERE am.userId = ? ORDER BY a.id`).all(owner.id)
+    .filter((a) => !hidden.has(a.id));
+  let activityId = null;
+  if (req.query.activityId !== undefined && req.query.activityId !== '') {
+    activityId = Number(req.query.activityId);
+    if (!Number.isInteger(activityId)) return res.status(400).json({ error: 'activityId invalide.' });
+    if (hidden.has(activityId)) return res.status(403).json({ error: 'Activité non accessible.' });
+    if (!activities.some((a) => a.id === activityId)) return res.status(404).json({ error: 'Activité introuvable.' });
+  } else if (activities.length) activityId = activities[0].id;
+  if (activityId == null) return res.json({ activities, activityId: null, data: null });
+  try {
+    const data = insights.visitorInsights(activityId, owner.id, req.query.year, { scope: req.query.scope, kind: req.query.kind, woff: req.query.woff });
+    return res.json({ activities, activityId, data });
+  } catch (err) {
+    console.error('[stats-profile-insights]', err);
+    return res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 module.exports = router;
