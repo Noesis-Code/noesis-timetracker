@@ -35,7 +35,11 @@ function periodRange(period, refDate, tz) {
   // America/Toronto par server/index.js) plutôt que minuit UTC — comportement
   // strictement inchangé quand `refDate` est absent (branche `new Date()`,
   // non touchée).
-  const ref = refDate ? new Date(refDate + 'T00:00:00') : new Date();
+  // 9 oct. 2026 : une date AAAA-MM-JJ explicite est déjà une date CALENDAIRE de l'utilisateur ; la relire dans son
+  // fuseau décalait d'un jour (minuit Toronto = dimanche soir à Vancouver) -> lundi vu comme la semaine précédente.
+  // On l'ancre donc à midi local et on ignore `tz` ; sans date, `tz` sert à lire « maintenant ».
+  const ref = refDate ? new Date(refDate + 'T12:00:00') : new Date();
+  if (refDate) tz = null;
   const hasTz = tz && isValidTimezone(tz);
 
   if (period === 'day') {

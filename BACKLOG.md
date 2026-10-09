@@ -20,7 +20,7 @@ Dernière mise à jour : 30 sept. 2026 (construit à partir de `chantiers-en-cou
 - ❓ Sous-projets : aucune discussion dédiée ; garder le segment ou l'absorber ?
 
 ## 4. Bugs connus / à vérifier
-- 🟠 Feuille de temps, le lundi : les enregistrements du jour n'apparaissent qu'à mardi (récurrent). Pistes : `server/lib/dates.js` (`mondayOf`/`isoDateOf`), `server/lib/period.js` (`periodRange`), Vue Semaine dans `app.js`. Reproduire un lundi simulé.
+- 🟠 Feuille de temps, le lundi : correctif fuseau poussé le 9 oct. (`period.js`, date explicite ignorée par `tz`) ; cause pour un utilisateur en fuseau Toronto/Montréal non confirmée — à revérifier un lundi.
 - 🟠 Diagnostic clavier sur l'écran Catégories (fenêtre Activité) : HUD de diagnostic posé, capture de l'écran précis jamais obtenue ; bandeau clavier natif.
 - 🟠 Bandeau/zone teintée pointillée au-dessus du clavier sur la Page 3 quand la période a déjà un objectif (non reproduit ; piste : pincement clavier partagé dans `app.js`).
 - 🟡 `bindActivityDrag` (`app.js` ~L16046) : ajouter `click → stopPropagation()` sur la poignée (même défaut corrigé sur `bindProjectDrag`).
