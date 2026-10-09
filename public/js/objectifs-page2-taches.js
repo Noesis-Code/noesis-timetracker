@@ -394,7 +394,7 @@
       };
     }
     if (mode === 'tasks') loadGoalsTasksOverview();
-    if (mode === 'goals' && TMT.scheduleGoalsAutoScroll) TMT.scheduleGoalsAutoScroll();
+    // Défilement automatique vers la période en cours supprimé (demande d'Émilien, 9 oct. 2026).
     if (mode === 'month' && !opts.keep && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
     var discBtn = $('goalsPage2ModeDiscBtn');
     if (discBtn) discBtn.classList.toggle('active', mode === 'disc');
