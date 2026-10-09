@@ -22,7 +22,7 @@ router.get('/stats/activity-progress', (req, res) => {
   }
 });
 
-// GET /api/stats/activity-insights?activityId=…[&poleKey=…][&year=AAAA|all] — graphique cumulatif + cartes (lecture seule).
+// GET /api/stats/activity-insights?activityId=…[&poleKey=…][&year=AAAA|all][&scope=year|period|week][&offset=-N][&kind=periodic|weekly] — graphique cumulatif + cartes (lecture seule).
 router.get('/stats/activity-insights', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
@@ -33,7 +33,7 @@ router.get('/stats/activity-insights', (req, res) => {
   const membership = db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId);
   if (!membership) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
   const poleKey = req.query.poleKey ? String(req.query.poleKey) : null;
-  try { return res.json(insights.insightsForActivity(activityId, userId, poleKey, req.query.year)); } catch (err) {
+  try { return res.json(insights.insightsForActivity(activityId, userId, poleKey, req.query.year, { scope: req.query.scope, offset: req.query.offset, kind: req.query.kind })); } catch (err) {
     console.error('[stats-activity-insights]', err);
     return res.status(500).json({ error: 'Erreur serveur.' });
   }

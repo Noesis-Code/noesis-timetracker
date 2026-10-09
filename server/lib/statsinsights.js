@@ -163,7 +163,7 @@ function loadScope(activityId, poleKey) {
   const out = poles.map((p) => {
     const keys = [p.key].concat((goals.secteursForPole(activityId, p.key) || []).map((s) => s.key));
     keys.forEach((k) => { keyToPole[k] = p.key; });
-    return { key: p.key, label: p.label, keys };
+    return { key: p.key, label: p.label, keys, sectors: (goals.secteursForPole(activityId, p.key) || []).map((x) => ({ key: x.key, label: x.label })) };
   });
   return { poles: out, keyToPole };
 }
@@ -205,18 +205,25 @@ function minutesFor(activityId, keys, start, end) {
 }
 
 // ---- Onglet Tâches -------------------------------------------------------
-function monthBounds(today, offset) {
-  const d = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1 + offset, 1);
-  const p = (n) => String(n).padStart(2, '0');
-  const first = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-01';
-  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-  return { start: first, end: first.slice(0, 8) + p(last) };
+// Portée des cartes = vue du graphique (scope=year|period|week). start/end = bornes complètes de la portée
+// (null = sans borne, vue « Tous ») ; les tâches comptées « jusqu'à aujourd'hui » le sont par leur propre logique.
+function taskRange(scope, year, realToday) {
+  const cur = Number(realToday.slice(0, 4));
+  if (scope === 'period' || scope === 'week') {
+    const r = viewRange(scope, realToday);
+    const len = scope === 'week' ? 7 : 28;
+    return { start: r.start, end: r.end, prev: { start: goals.addDays(r.start, -len), end: goals.addDays(r.start, -1) } };
+  }
+  if (year === 'all') return { start: null, end: null, prev: null };
+  const y = Number(year);
+  return { start: y + '-01-01', end: y + '-12-31', prev: { start: (y - 1) + '-01-01', end: (y - 1) + '-12-31' }, curYear: y === cur };
 }
+function inRange(d, r) { return !!d && (!r.start || d >= r.start) && (!r.end || d <= r.end); }
 
-function onTimeFor(tasks, today, b) {
+function onTimeFor(tasks, today, r) {
   let onTime = 0; let late = 0; let postponed = 0;
   tasks.forEach((t) => {
-    if (!t.due || t.due < b.start || t.due > b.end) return;
+    if (!inRange(t.due, r)) return;
     if (t.done && t.doneDay) { if (t.doneDay <= t.due) onTime += 1; else late += 1; }
     else if (!t.done && t.due < today) postponed += 1;
   });
@@ -224,42 +231,52 @@ function onTimeFor(tasks, today, b) {
   return { onTime, late, postponed, total, pct: total ? Math.round(onTime / total * 100) : null };
 }
 
+// Journées travaillées : une période de 28 jours (vues Année et Période) ou une semaine, décalée de `offset` (<= 0).
+function workedDays(activityId, scope, today, kind, offset) {
+  const keys = scope.poles.reduce((a, p) => a.concat(p.keys), []);
+  if (!keys.length) return null;
+  const len = kind === 'week' ? 7 : 28;
+  const cur = viewRange(kind, today);
+  const start = goals.addDays(cur.start, offset * len);
+  const end = goals.addDays(start, len - 1);
+  const rows = db.prepare(`SELECT isoDate, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ? GROUP BY isoDate`)
+    .all(activityId, ...keys, start, end);
+  const byDay = {}; rows.forEach((r) => { byDay[r.isoDate] = Math.round(r.s / 60); });
+  const days = []; const dates = [];
+  for (let i = 0; i < len; i += 1) { const d = goals.addDays(start, i); dates.push(d); days.push(d > today ? null : (byDay[d] || 0)); }
+  const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
+  let label = fmt(start) + ' – ' + fmt(end);
+  if (kind !== 'week') { const ay = anchorYearOf(start); label = 'P' + (Math.floor(goals.daysBetween(yearAnchor(ay), start) / 28) + 1) + ' · ' + label; }
+  return { kind: kind === 'week' ? 'week' : 'period', start, end, label, offset, minutes: days, dates, canNext: offset < 0 };
+}
+
 function tasksCards(ctx) {
-  const { activityId, userId, today, scope, tasks } = ctx;
+  const { activityId, userId, today, scope, tasks, allTasks, range, view } = ctx;
   const out = { onTime: null, estimate: null, weekdays: null, remaining: null, postponed: null, rhythm: null, busy: null, capacity: null, assignees: null, urgent: null };
+  const doneIn = (t) => t.done && t.doneDay && inRange(t.doneDay, { start: range.start, end: range.end });
 
   out.onTime = safe(() => {
-    const cur = onTimeFor(tasks, today, monthBounds(today, 0));
+    const cur = onTimeFor(tasks, today, range);
     if (!cur.total) return null;
-    const prev = onTimeFor(tasks, today, monthBounds(today, -1));
-    return { pct: cur.pct, prevPct: prev.total ? prev.pct : null, onTime: cur.onTime, late: cur.late, postponed: cur.postponed, total: cur.total };
+    const prev = range.prev ? onTimeFor(allTasks, today, range.prev) : null;
+    return { pct: cur.pct, prevPct: prev && prev.total ? prev.pct : null, onTime: cur.onTime, late: cur.late, postponed: cur.postponed, total: cur.total };
   });
 
   out.estimate = safe(() => {
-    const since = goals.addDays(today, -30);
+    const since = range.start || '2000-01-01';
+    const until = range.end && range.end < today ? range.end : today;
     const list = [];
     scope.poles.forEach((p) => {
-      const mine = tasks.filter((t) => t.pole === p.key && t.done && t.doneDay && t.doneDay >= since).slice(0, 60);
+      const mine = tasks.filter((t) => t.pole === p.key && doneIn(t)).slice(0, 200);
       let est = 0; let counted = 0;
       mine.forEach((t) => { const e = goals.estimateForGoal(activityId, t.key, 'weekly', t.label); if (e && e.minutes) { est += e.minutes; counted += 1; } });
-      const actual = minutesFor(activityId, p.keys, since, today);
+      const actual = minutesFor(activityId, p.keys, since, until);
       if (counted && actual) list.push({ key: p.key, label: p.label, estimatedMin: est, actualMin: actual, deltaPct: Math.round((actual - est) / est * 100) });
     });
     return list.length ? list : null;
   });
 
-  out.weekdays = safe(() => {
-    const keys = scope.poles.reduce((a, p) => a.concat(p.keys), []);
-    if (!keys.length) return null;
-    const mon = goals.mostRecentMonday(today);
-    const start = goals.addDays(mon, -56);
-    const rows = db.prepare(`SELECT isoDate, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ? GROUP BY isoDate`)
-      .all(activityId, ...keys, start, today);
-    if (!rows.length) return null;
-    const sums = new Array(7).fill(0);
-    rows.forEach((r) => { sums[(new Date(r.isoDate + 'T00:00:00Z').getUTCDay() + 6) % 7] += r.s / 60; });
-    return sums.map((m) => Math.round(m / 8));
-  });
+  out.weekdays = safe(() => workedDays(activityId, scope, ctx.realToday, view === 'week' ? 'week' : 'period', ctx.offset));
 
   out.remaining = safe(() => {
     const open = tasks.filter((t) => !t.done && !t.closed);
@@ -270,18 +287,24 @@ function tasksCards(ctx) {
       if (!(ck in cache)) { const e = goals.estimateForGoal(activityId, t.key, 'weekly', t.label); cache[ck] = e && e.minutes ? e.minutes : 0; }
       minutes += cache[ck];
     });
-    const poles = scope.poles.map((p) => ({ key: p.key, label: p.label, remaining: open.filter((t) => t.pole === p.key).length, total: tasks.filter((t) => t.pole === p.key && !t.closed).length })).filter((p) => p.total);
+    const poles = scope.poles.map((p) => {
+      const mine = tasks.filter((t) => t.pole === p.key && !t.closed);
+      const sectors = p.sectors.map((s) => {
+        const m = mine.filter((t) => t.key === s.key);
+        return { key: s.key, label: s.label, remaining: m.filter((t) => !t.done).length, total: m.length };
+      });
+      const direct = mine.filter((t) => t.key === p.key);
+      if (direct.length) sectors.push({ key: p.key, label: null, direct: true, remaining: direct.filter((t) => !t.done).length, total: direct.length });
+      return { key: p.key, label: p.label, remaining: mine.filter((t) => !t.done).length, total: mine.length, sectors: sectors.filter((s) => s.total) };
+    }).filter((p) => p.total);
     return { count: open.length, minutes, poles };
   });
 
   out.rhythm = safe(() => {
-    const since = goals.addDays(today, -30);
-    const recent = tasks.filter((t) => t.done && t.doneDay && t.doneDay >= since);
+    const recent = tasks.filter(doneIn);
     if (!recent.length) return null;
     const days = new Set(recent.map((t) => t.doneDay));
-    const mon = yearAnchor(Number(today.slice(0, 4)));
-    const pStart = goals.addDays(mon, Math.floor(goals.daysBetween(mon, today) / 28) * 28);
-    return { perWorkedDay: round1(recent.length / days.size), doneInPeriod: tasks.filter((t) => t.done && t.doneDay && t.doneDay >= pStart).length };
+    return { perWorkedDay: round1(recent.length / days.size), doneInScope: recent.length };
   });
 
   out.busy = safe(() => {
@@ -301,7 +324,7 @@ function tasksCards(ctx) {
     const names = {}; const list = [];
     scope.poles.forEach((p) => {
       const count = {};
-      tasks.forEach((t) => { if (t.pole === p.key && t.done && t.doneBy) count[t.doneBy] = (count[t.doneBy] || 0) + 1; });
+      tasks.forEach((t) => { if (t.pole === p.key && doneIn(t) && t.doneBy) count[t.doneBy] = (count[t.doneBy] || 0) + 1; });
       const best = Object.keys(count).sort((a, b) => count[b] - count[a])[0];
       if (!best) return;
       if (!(best in names)) { const u = db.prepare('SELECT name FROM users WHERE id = ?').get(best); names[best] = u ? u.name : null; }
@@ -320,56 +343,71 @@ function tasksCards(ctx) {
 }
 
 // ---- Onglet Objectifs ----------------------------------------------------
+// objs = objectifs de l'année choisie (ou tous) ET du type choisi (périodiques / hebdomadaires).
+function unitStart(o) { return o.kind === 'weekly' ? goals.weekBounds(o.periodStart, o.weekIndex).start : o.periodStart; }
+function unitEnd(o) { return o.kind === 'weekly' ? goals.weekBounds(o.periodStart, o.weekIndex).end : o.periodEnd; }
+
 function objectivesCards(ctx) {
-  const { activityId, today, scope, tasks, objs } = ctx;
+  const { activityId, today, scope, tasks, objs, realToday, isCurrentYear } = ctx;
   const out = { target: null, achieved: null, weeks: null, carried: null, linked: null, pressure: null };
-  const current = objs.filter((o) => o.periodStart <= today && today <= o.periodEnd);
+  const started = objs.filter((o) => unitStart(o) <= today);
+  const starts = Array.from(new Set(started.map(unitStart))).sort();
+  const last = starts.length ? starts[starts.length - 1] : null;
+  const prevS = starts.length > 1 ? starts[starts.length - 2] : null;
+  const lastList = last ? started.filter((o) => unitStart(o) === last) : [];
+
+  const targetFor = (p, list) => {
+    const mine = list.filter((o) => o.pole === p.key);
+    const targetMin = mine.reduce((s, o) => s + o.est, 0);
+    if (!mine.length || !targetMin) return null;
+    const seen = {}; let doneMin = 0;
+    mine.forEach((o) => { const k = unitStart(o) + '|' + unitEnd(o); if (seen[k]) return; seen[k] = 1; doneMin += minutesFor(activityId, p.keys, unitStart(o), unitEnd(o)); });
+    return { key: p.key, label: p.label, targetMin, doneMin };
+  };
 
   out.target = safe(() => {
-    const list = [];
-    scope.poles.forEach((p) => {
-      const mine = current.filter((o) => o.pole === p.key);
-      if (!mine.length) return;
-      const weeklyEst = mine.filter((o) => o.kind === 'weekly').reduce((s, o) => s + o.est, 0);
-      const targetMin = weeklyEst || mine.filter((o) => o.kind === 'period').reduce((s, o) => s + o.est, 0);
-      if (!targetMin) return;
-      list.push({ key: p.key, label: p.label, targetMin, doneMin: minutesFor(activityId, p.keys, mine[0].periodStart, mine[0].periodEnd) });
-    });
+    const list = scope.poles.map((p) => targetFor(p, started)).filter(Boolean);
     return list.length ? list : null;
   });
 
   out.achieved = safe(() => {
     const list = [];
     scope.poles.forEach((p) => {
-      const mine = objs.filter((o) => o.pole === p.key && o.periodStart <= today);
-      const starts = Array.from(new Set(mine.map((o) => o.periodStart))).sort().reverse().slice(0, 4);
-      if (!starts.length) return;
-      const pct = (s) => { const x = mine.filter((o) => o.periodStart === s); return x.length ? x.filter((o) => o.status === 'atteint').length / x.length * 100 : 0; };
-      const sel = mine.filter((o) => starts.indexOf(o.periodStart) >= 0);
-      const atteint = sel.filter((o) => o.status === 'atteint').length;
-      const partiel = sel.filter((o) => o.status === 'partiel').length;
-      list.push({ key: p.key, label: p.label, atteint, partiel, non: sel.length - atteint - partiel, deltaPts: starts.length > 1 ? Math.round(pct(starts[0]) - pct(starts[1])) : 0 });
+      const mine = started.filter((o) => o.pole === p.key);
+      if (!mine.length) return;
+      const pct = (s) => { const x = mine.filter((o) => unitStart(o) === s); return x.length ? x.filter((o) => o.status === 'atteint').length / x.length * 100 : 0; };
+      const atteint = mine.filter((o) => o.status === 'atteint').length;
+      const partiel = mine.filter((o) => o.status === 'partiel').length;
+      list.push({ key: p.key, label: p.label, atteint, partiel, non: mine.length - atteint - partiel, deltaPts: last && prevS ? Math.round(pct(last) - pct(prevS)) : 0 });
     });
     return list.length ? list : null;
   });
 
   out.weeks = safe(() => {
+    const kind = objs.length ? objs[0].kind : null;
     const list = [];
-    for (let w = 1; w <= 4; w += 1) {
-      const x = current.filter((o) => o.kind === 'weekly' && o.weekIndex === w);
-      if (!x.length || goals.weekBounds(x[0].periodStart, w).start > today) continue;
-      list.push({ label: 'S' + w, pct: Math.round(x.filter((o) => o.status === 'atteint').length / x.length * 100) });
+    if (kind === 'weekly') {
+      const ps = lastList.length ? lastList[0].periodStart : null;
+      for (let w = 1; w <= 4; w += 1) {
+        const x = lastList.filter((o) => o.periodStart === ps && o.weekIndex === w);
+        if (!x.length) continue;
+        list.push({ label: 'S' + w, pct: Math.round(x.filter((o) => o.status === 'atteint').length / x.length * 100) });
+      }
+    } else {
+      starts.slice(-4).forEach((s) => {
+        const x = started.filter((o) => unitStart(o) === s);
+        const ay = anchorYearOf(s);
+        list.push({ label: 'P' + (Math.floor(goals.daysBetween(yearAnchor(ay), s) / 28) + 1), pct: Math.round(x.filter((o) => o.status === 'atteint').length / x.length * 100) });
+      });
     }
     return list.length ? list : null;
   });
 
   out.carried = safe(() => {
-    const cnt = (list) => list.filter((o) => o.kind === 'weekly' && o.carried).length;
-    const count = cnt(current);
+    const cnt = (list) => list.filter((o) => o.carried).length;
+    const count = cnt(lastList);
     if (!count) return null;
-    const prevStarts = Array.from(new Set(objs.filter((o) => o.periodEnd < today).map((o) => o.periodStart))).sort();
-    const prev = prevStarts.length ? cnt(objs.filter((o) => o.periodStart === prevStarts[prevStarts.length - 1])) : 0;
-    return { count, delta: count - prev };
+    return { count, delta: count - (prevS ? cnt(started.filter((o) => unitStart(o) === prevS)) : 0) };
   });
 
   out.linked = safe(() => {
@@ -381,12 +419,14 @@ function objectivesCards(ctx) {
   });
 
   out.pressure = safe(() => {
+    if (!isCurrentYear) return null;
+    const current = objs.filter((o) => o.periodStart <= realToday && realToday <= o.periodEnd);
     const list = [];
     scope.poles.forEach((p) => {
       const mine = current.filter((o) => o.pole === p.key);
-      const t = out.target ? out.target.find((x) => x.key === p.key) : null;
+      const t = targetFor(p, current);
       if (!mine.length || !t) return;
-      const elapsed = Math.min(1, Math.max(0, (goals.daysBetween(mine[0].periodStart, today) + 1) / 28));
+      const elapsed = Math.min(1, Math.max(0, (goals.daysBetween(mine[0].periodStart, realToday) + 1) / 28));
       const gap = Math.round((t.doneMin / t.targetMin - elapsed) * 100);
       if (gap <= -10) list.push({ key: p.key, label: p.label, state: 'late', gap });
       else if (gap >= 10) list.push({ key: p.key, label: p.label, state: 'ahead', gap });
@@ -399,7 +439,8 @@ function objectivesCards(ctx) {
 
 function yearOf(d) { return d ? Number(String(d).slice(0, 4)) : null; }
 
-function insightsForActivity(activityId, userId, poleKey, yearParam) {
+function insightsForActivity(activityId, userId, poleKey, yearParam, opts) {
+  opts = opts || {};
   const realToday = todayLocal();
   const cur = Number(realToday.slice(0, 4));
   const scope = loadScope(activityId, poleKey || null);
@@ -413,15 +454,19 @@ function insightsForActivity(activityId, userId, poleKey, yearParam) {
   let year = cur;
   if (String(yearParam) === 'all') year = 'all';
   else if (/^\d{4}$/.test(String(yearParam || ''))) year = Math.min(cur, Number(yearParam));
-  let today = realToday; let tasks = allTasks; let objs = allObjs;
-  if (year !== 'all') {
-    const inY = (d) => yearOf(d) === year;
-    // Tâches sans date : comptées seulement pour l'année en cours (elles restent à faire).
-    tasks = allTasks.filter((t) => inY(t.due) || inY(t.doneDay) || (year === cur && !t.due && !t.doneDay));
-    objs = allObjs.filter((o) => inY(o.end));
-    if (year < cur) today = year + '-12-31';
-  }
-  const ctx = { activityId, userId, today, scope, tasks, objs };
+  const scopeName = opts.scope === 'period' || opts.scope === 'week' ? opts.scope : 'year';
+  const okind = opts.kind === 'weekly' ? 'weekly' : 'periodic';
+  const off = Math.max(-520, Math.min(0, parseInt(opts.offset, 10) || 0));
+  // Les vues Période / Semaine ne concernent que l'année en cours.
+  const range = taskRange(year !== 'all' && year < cur ? 'year' : scopeName, year, realToday);
+  let today = realToday;
+  if (year !== 'all' && year < cur) today = year + '-12-31';
+  // Tâches de la portée : échéance ou réalisation dans la portée ; sans date : seulement si la portée couvre « aujourd'hui » à l'année.
+  const undated = (scopeName === 'year' || year === 'all') && (year === 'all' || year === cur);
+  const tasks = allTasks.filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
+  const kindObjs = allObjs.filter((o) => o.kind === (okind === 'weekly' ? 'weekly' : 'period'));
+  const objs = year === 'all' ? kindObjs : kindObjs.filter((o) => yearOf(o.end) === year);
+  const ctx = { activityId, userId, today, realToday, scope, tasks, allTasks, objs, range, view: scopeName, offset: off, isCurrentYear: year === 'all' || year === cur };
   let minY = cur;
   allObjs.forEach((o) => { minY = Math.min(minY, anchorYearOf(o.periodStart)); });
   years.forEach((y) => { minY = Math.min(minY, y); });
@@ -429,7 +474,7 @@ function insightsForActivity(activityId, userId, poleKey, yearParam) {
   if (act && /^\d{4}/.test(act.createdAt || '')) minY = Math.min(minY, Number(act.createdAt.slice(0, 4)));
   const taskItems = allTasks.map((t) => ({ due: t.due || t.doneDay, done: t.doneDay }));
   return {
-    year, years,
+    year, years, scope: scopeName,
     chart: { tasks: chartFor(realToday, taskItems, year, years), objectives: objectivesChart(realToday, allObjs, year === 'all' ? 'all' : (year < cur ? year : null), minY) },
     tasks: tasksCards(ctx),
     objectives: objectivesCards(ctx),

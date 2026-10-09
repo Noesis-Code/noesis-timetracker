@@ -45,7 +45,7 @@
   var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
   var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
   var yearSel = null; // null = année en cours (défaut) | 'all' | 'AAAA' ; jamais persisté
-  var tab = 't', view = 'year', oview = 'periodic', adding = false, draft = [];
+  var tab = 't', view = 'year', oview = 'periodic', adding = false, draft = [], dayOff = 0; // dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
   var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires']];
 
@@ -56,11 +56,49 @@
     els.seg = el('div', 'saSeg');
     els.body = el('div', 'saBody');
     [els.chips, els.msg, els.seg, els.body].forEach(function (e) { page2.appendChild(e); });
+    // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
+    var m = el('div', 'communityMembersModal hidden'); m.id = 'statsAvanceModal';
+    var card = el('div', 'communityMembersModalCard');
+    var head = el('div', 'saModalHead');
+    var title = el('div', 'saModalTitle');
+    var close = el('button', 'menuBtn', '✕'); close.type = 'button'; close.setAttribute('aria-label', tr('Fermer'));
+    head.appendChild(title); head.appendChild(close);
+    var sub = el('p', 'meta saModalSub');
+    var list = el('div', 'statsSection saCard');
+    card.appendChild(head); card.appendChild(sub); card.appendChild(list);
+    m.appendChild(card); document.body.appendChild(m);
+    els.modal = m; els.mTitle = title; els.mSub = sub; els.mList = list;
+    close.addEventListener('click', hideSheet);
+    m.addEventListener('click', function (e) { if (e.target === m) hideSheet(); });
+  }
+  function hideSheet() { if (els.modal) els.modal.classList.add('hidden'); }
+  function openSheet(p, index) {
+    els.mTitle.innerHTML = '';
+    els.mTitle.appendChild(dotEl(poleColor(index))); els.mTitle.appendChild(el('span', null, p.label));
+    els.mSub.textContent = tr('{a} / {b} tâches restantes', { a: p.remaining, b: p.total });
+    els.mList.innerHTML = '';
+    els.mList.appendChild(el('p', 'sectionTitle', tr('Charge restante par secteur')));
+    var rows = p.sectors || [];
+    if (!rows.length) els.mList.appendChild(el('p', 'hint', '—'));
+    rows.forEach(function (sc) {
+      var share = sc.total ? (sc.total - sc.remaining) * 100 / sc.total : 100;
+      var r = el('div', 'saPoleRow');
+      var top = el('div', 'saPoleTop');
+      top.appendChild(el('span', null, sc.label || tr('Pôle (hors secteur)')));
+      top.appendChild(el('span', 'meta', sc.remaining + ' / ' + sc.total));
+      var b = el('div', 'saBar'), fill = el('div', 'saBarFill');
+      fill.style.width = Math.round(share) + '%'; fill.style.background = poleColor(index);
+      b.appendChild(fill); r.appendChild(top); r.appendChild(b);
+      els.mList.appendChild(r);
+    });
+    els.modal.classList.remove('hidden');
   }
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
   function resetTransient() {
-    view = 'year'; oview = 'periodic'; adding = false; draft = [];
-    if (yearSel !== null) { yearSel = null; if (built && activityId != null && page === 2) { load(); return; } }
+    var wasOff = dayOff !== 0 || view !== 'year' || oview !== 'periodic';
+    view = 'year'; oview = 'periodic'; adding = false; draft = []; dayOff = 0; hideSheet();
+    if ((yearSel !== null || wasOff) && built && activityId != null && page === 2) { yearSel = null; load(); return; }
+    yearSel = null;
     if (built && data) render();
   }
 
@@ -190,7 +228,7 @@
     var menu = el('div', 'statsPeriodMenu hidden');
     VS.filter(function (o) { return !isT || !yearOnly(d) || o[0] === 'year'; }).forEach(function (o) {
       var it = el('button', 'statsPeriodMenuItem' + (o[0] === cv ? ' active' : ''), tr(o[1])); it.type = 'button';
-      it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== cv) { if (isT) view = o[0]; else oview = o[0]; render(); } });
+      it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== cv) { if (isT) view = o[0]; else oview = o[0]; dayOff = 0; load(); } });
       menu.appendChild(it);
     });
     btn.addEventListener('click', function (e) {
@@ -231,13 +269,22 @@
         });
         return w; } },
       { key: 'weekdays', def: true, title: 'Jours où tu travailles vraiment', body: function (d) {
-        var a = d.tasks && d.tasks.weekdays; if (!a || a.length < 7) return null;
-        var mx = Math.max.apply(null, a), w = document.createElement('div'), days = el('div', 'saDays'), lab = el('div', 'saDl');
-        a.forEach(function (m, i) {
-          var b = el('i'); b.style.height = Math.max(6, mx ? m * 100 / mx : 0) + '%';
-          b.style.background = !m ? '#2b2e35' : (m >= mx * 0.5 ? GREEN : RED);
+        var a = d.tasks && d.tasks.weekdays; if (!a || !a.minutes || !a.minutes.length) return null;
+        var mx = Math.max.apply(null, a.minutes.map(function (m) { return m || 0; })), w = document.createElement('div');
+        var nav = el('div', 'sectionTitleRow timesheetNav saDaysNav');
+        var prev = el('button', 'iconBtn', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente'));
+        var next = el('button', 'iconBtn', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
+        prev.addEventListener('click', function () { dayOff = (a.offset || 0) - 1; load(); });
+        next.addEventListener('click', function () { if (a.canNext) { dayOff = Math.min(0, (a.offset || 0) + 1); load(); } });
+        nav.appendChild(prev); nav.appendChild(el('span', 'meta', a.label)); nav.appendChild(next);
+        w.appendChild(nav);
+        var days = el('div', 'saDays' + (a.minutes.length > 7 ? ' saDays28' : '')), lab = el('div', 'saDl' + (a.minutes.length > 7 ? ' saDl28' : ''));
+        a.minutes.forEach(function (m, i) {
+          var b = el('i');
+          if (m == null) { b.style.height = '6px'; b.style.background = 'transparent'; b.style.border = '1px dashed #2b2e35'; }
+          else { b.style.height = Math.max(6, mx ? m * 100 / mx : 0) + '%'; b.style.background = !m ? '#2b2e35' : (m >= mx * 0.5 ? GREEN : RED); }
           days.appendChild(b);
-          lab.appendChild(el('span', null, tr(['L', 'M', 'M', 'J', 'V', 'S', 'D'][i])));
+          lab.appendChild(el('span', null, a.minutes.length > 7 ? String(Number((a.dates[i] || '').slice(8, 10))) : tr(['L', 'M', 'M', 'J', 'V', 'S', 'D'][i])));
         });
         w.appendChild(days); w.appendChild(lab); return w; } },
       { key: 'remaining', def: true, title: 'Charge restante par pôle', body: function (d) {
@@ -246,7 +293,9 @@
         w.appendChild(bigRow(r.count + ' ' + tr(r.count > 1 ? 'tâches' : 'tâche'), '≈ ' + fmtMin(r.minutes)));
         (r.poles || []).forEach(function (p, i) {
           var doneShare = p.total ? (p.total - p.remaining) * 100 / p.total : 100, ok = doneShare >= 50;
-          w.appendChild(row(poleName(p.label, poleColor(i)), bar([[doneShare, ok ? GREEN : RED]]), colored(p.remaining + ' / ' + p.total, ok)));
+          var rw = row(poleName(p.label, poleColor(i)), bar([[doneShare, ok ? GREEN : RED]]), colored(p.remaining + ' / ' + p.total + ' ›', ok));
+          if (p.sectors && p.sectors.length) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openSheet(p, i); }); }
+          w.appendChild(rw);
         });
         return w; } },
       { key: 'postponed', title: 'Tâches reportées plusieurs fois', body: function (d) {
@@ -283,7 +332,7 @@
           w.appendChild(row(poleName(r.label, poleColor(i)), bar([[share, ok ? GREEN : RED]]), colored(fmtMin(r.doneMin) + ' / ' + fmtMin(r.targetMin), ok)));
         });
         return w; } },
-      { key: 'achieved', def: true, title: 'Objectifs atteints · 4 dernières périodes', body: function (d) {
+      { key: 'achieved', def: true, title: 'Objectifs atteints', body: function (d) {
         var a = d.objectives && d.objectives.achieved; if (!a || !a.length) return null;
         var w = document.createElement('div');
         a.forEach(function (r, i) {
@@ -455,7 +504,7 @@
     if (activityId == null) { els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
     els.msg.classList.add('hidden');
     var seq = ++loadSeq;
-    TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(activityId) + (yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '')).then(function (d) {
+    TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(activityId) + (yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '') + '&scope=' + view + '&kind=' + oview + (dayOff ? '&offset=' + dayOff : '')).then(function (d) {
       if (seq !== loadSeq) return;
       data = d; render();
     }, function () {
@@ -472,9 +521,9 @@
     activityId = found ? found.id : (list[0] ? list[0].id : null);
   }
   // Quitter l'onglet Statistiques (la page 2 reste « courante » mais cachée) remet aussi le graphique sur « Année ».
-  new MutationObserver(function () { if (!zone.offsetParent && (view !== 'year' || oview !== 'periodic' || adding || yearSel !== null)) resetTransient(); })
+  new MutationObserver(function () { if (!zone.offsetParent && (view !== 'year' || oview !== 'periodic' || adding || yearSel !== null || dayOff !== 0)) resetTransient(); })
     .observe(zone, { attributes: true, attributeFilter: ['class', 'style'] });
-  function closeModal() { resetTransient(); }
+  function closeModal() { hideSheet(); resetTransient(); }
 
   // ---------- Changement de page (même animation que setGoalsPage2Mode) ----------
   function setStatsPage(n, opts) {
