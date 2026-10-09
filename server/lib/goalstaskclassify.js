@@ -339,7 +339,7 @@ async function addTaskWithAutoCategory(activityId, userId, label, opts) {
   // en 3 pages) : toute tâche créée par CE chemin (classification IA, jamais
   // le formulaire de catégorie classique) est marquée autoCaptured — voir
   // server/lib/subprojects.js#createItem et goalstasks.js#unseenCountsForActivity.
-  const item = goalstasks.addCategoryTask(activityId, userId, key, clean, { autoCaptured: true });
+  const item = goalstasks.addCategoryTask(activityId, userId, key, clean, { autoCaptured: true, recurrence: opts && opts.recurrence ? opts.recurrence : null });
   let suggestedObjective = null;
   try {
     suggestedObjective = suggestWeeklyObjective(activityId, key, clean);
@@ -412,6 +412,19 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
   const forcedCategory = opts && opts.forcedCategory ? String(opts.forcedCategory) : null;
   const absence = !!(opts && opts.aiMode === 'absence');
 
+  // Récurrence (9 oct. 2026) : Autonome = seulement si le mot « récurrente » est écrit ; Partiel = Noèsis propose
+  // (champ recurrenceSuggestion, l'utilisateur confirme dans le pop-up) ; Absent = rien.
+  const taskrecurrence = require('./taskrecurrence');
+  let recurrence = null;
+  let recurrenceSuggestion = null;
+  if (opts && opts.aiMode === 'autonome') {
+    const p = taskrecurrence.parseExplicit(label);
+    if (p && p.label) { label = p.label; recurrence = { every: p.every, unit: p.unit }; }
+  } else if (opts && opts.aiMode === 'partiel') {
+    const sug = await taskrecurrence.suggest(label);
+    if (sug) { recurrenceSuggestion = { every: sug.every, unit: sug.unit }; if (sug.label) label = sug.label; }
+  }
+
   const results = [];
   for (const activityId of ids) {
     try {
@@ -423,7 +436,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
         results.push({ activityId, ok: false, needs: 'duplicate', error: 'Cette tâche existe déjà dans cette activité.', activityName: activityNameFor(activityId) });
         continue;
       }
-      let item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: forcedCategory, skipAi: absence });
+      let item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: forcedCategory, skipAi: absence, recurrence });
       // 5 oct. 2026 (Emilien) : mode Partiel — tri introuvable => Noèsis propose le secteur LE PLUS UTILISÉ ;
       // le pop-up de rangement permet ensuite de rectifier. (Autonome/Absence : on redemande à l'utilisateur.)
       if (item.unresolved && opts && opts.aiMode === 'partiel' && item.candidates && item.candidates.length) {
@@ -433,7 +446,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
           const n = goalstasks.tasksForCategory(activityId, c.key).length;
           if (n > bestCount) { bestCount = n; bestKey = c.key; }
         });
-        item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: bestKey });
+        item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: bestKey, recurrence });
       }
       if (item.unresolved) {
         results.push({
@@ -469,7 +482,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
           secteurLabel: poleKey !== item.categoryKey ? goals.categoryLabelFor(activityId, item.categoryKey) : null,
         };
       } catch (e) { placement = {}; }
-      results.push(Object.assign({}, item, placement, { activityId, ok: true, dueDate: placedDate || item.dueDate || null }));
+      results.push(Object.assign({}, item, placement, { recurrenceSuggestion, activityId, ok: true, dueDate: placedDate || item.dueDate || null }));
       // 26 septembre 2026 : second déclencheur du moteur cross-secteur —
       // jamais awaité, jamais bloquant pour la capture (voir le require
       // ci-dessus).
@@ -482,6 +495,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
 }
 
 module.exports = {
+  callModel,
   configured,
   modelName,
   classifyCategory,

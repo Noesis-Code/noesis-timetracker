@@ -247,6 +247,7 @@ function addCategoryTask(activityId, userId, categoryKey, label, extra) {
   // simple passe-plat vers subprojects.createItem — voir son commentaire pour
   // le détail (posé uniquement par le chemin de capture libre par IA).
   if (extra && extra.autoCaptured) cleanExtra.autoCaptured = true;
+  if (extra && extra.recurrence) cleanExtra.recurrence = extra.recurrence;
 
   const { subProject, section } = ensureCategoryTaskSection(activityId, userId, categoryKey);
   const item = subprojects.createItem(section, clean, cleanExtra);

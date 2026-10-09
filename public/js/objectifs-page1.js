@@ -856,8 +856,9 @@
           res.forEach(function (r) {
             if (r.needs) queue.unshift({ r: r, allowDuplicate: extra.allowDuplicate });
             else {
-              if (r.ok && (choice.dueDate || choice.plannedUserId)) {
+              if (r.ok && (choice.dueDate || choice.plannedUserId || choice.recurrence)) {
                 var body = { userId: TMT.getProfile().id };
+                if (choice.recurrence) body.recurrence = choice.recurrence;
                 if (choice.dueDate) { body.dueDate = choice.dueDate; r.dueDate = choice.dueDate; }
                 if (choice.plannedUserId) { body.plannedUserId = choice.plannedUserId; body.notifyAssignee = true; r.plannedUserId = choice.plannedUserId; }
                 applies.push(api('PUT', '/api/sub-project-items/' + r.id, body).catch(function () {}));
@@ -966,6 +967,7 @@
           }).catch(function () {});
           box.appendChild(fld(t('Quand'), f.dIn));
           box.appendChild(fld(t('Responsable'), f.wSel));
+          if (TMT.buildRecurrenceField) { f.rec = TMT.buildRecurrenceField(null); box.appendChild(fld(t('Répéter'), f.rec.el)); }
         }
         forms.push(f);
         body.appendChild(box);
@@ -979,7 +981,7 @@
       ok.addEventListener('click', function () {
         if (forms.some(function (f) { return !f.sel.value; })) { err.textContent = t('Choisis un pôle ou un secteur pour chaque activité.'); return; }
         finish(forms.map(function (f) {
-          return { forcedCategory: f.sel.value, dueDate: f.dIn ? (f.dIn.value || null) : null, plannedUserId: f.wSel ? (f.wSel.value || null) : null };
+          return { forcedCategory: f.sel.value, dueDate: f.dIn ? (f.dIn.value || null) : null, plannedUserId: f.wSel ? (f.wSel.value || null) : null, recurrence: f.rec ? f.rec.get() : null };
         }));
       });
       actions.appendChild(ok);
@@ -1123,7 +1125,7 @@
         card.appendChild(actions);
       } else {
         title.textContent = TMT.aiMode === 'absence' ? t('Sélection du pôle & secteur') : t('Pôle et secteur non trouvés — où placer cette tâche ?');
-        var getDate = function () { return null; }, getWho = function () { return null; };
+        var getDate = function () { return null; }, getWho = function () { return null; }, recFld = null;
         if (TMT.aiMode === 'absence') {
           // Mode Absence : l'utilisateur choisit aussi la date et le responsable (modèle de modification de la page 2).
           var fwrap = document.createElement('div');
@@ -1144,11 +1146,12 @@
           }).catch(function () {});
           fwrap.appendChild(fld(t('Quand'), dIn));
           fwrap.appendChild(fld(t('Responsable'), wSel));
+          if (TMT.buildRecurrenceField) { recFld = TMT.buildRecurrenceField(null); fwrap.appendChild(fld(t('Répéter'), recFld.el)); }
           card.appendChild(fwrap);
           getDate = function () { return dIn.value || null; };
           getWho = function () { return wSel.value || null; };
         }
-        function pick(key) { finish({ forcedCategory: key, dueDate: getDate(), plannedUserId: getWho() }); }
+        function pick(key) { finish({ forcedCategory: key, dueDate: getDate(), plannedUserId: getWho(), recurrence: recFld ? recFld.get() : null }); }
         var list = document.createElement('div');
         list.className = 'goalsCaptureConfirmList';
         function render(choices, showOther) {
@@ -1265,7 +1268,7 @@
       actLine.appendChild(document.createTextNode(act ? act.name : ''));
       box.appendChild(actLine);
       var labelIn = document.createElement('textarea');
-      labelIn.className = 'goalsTaskEditText'; labelIn.rows = 1; labelIn.maxLength = 300; labelIn.value = label;
+      labelIn.className = 'goalsTaskEditText'; labelIn.rows = 1; labelIn.maxLength = 300; labelIn.value = r.label || label;
       function fitL() { labelIn.style.height = 'auto'; labelIn.style.height = labelIn.scrollHeight + 'px'; }
       labelIn.addEventListener('input', fitL);
       labelIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
@@ -1288,6 +1291,13 @@
       dateIn.type = 'date'; dateIn.value = r.dueDate || '';
       box.appendChild(labeled(t('Quand'), dateIn));
 
+      // Récurrence : Noèsis propose (recurrenceSuggestion), l'utilisateur confirme ou retire.
+      var recF = null;
+      if (TMT.buildRecurrenceField) {
+        recF = TMT.buildRecurrenceField(r.recurrenceSuggestion || (r.recurEvery ? { every: r.recurEvery, unit: r.recurUnit } : null));
+        box.appendChild(labeled(t('Répéter'), recF.el));
+      }
+
       var shared = true; // 5 oct. 2026 : le choix du responsable est toujours proposé
       var whoSel = null;
       if (shared) {
@@ -1297,7 +1307,7 @@
         box.appendChild(labeled(t('Responsable'), whoSel));
       }
       body.appendChild(box);
-      forms.push({ r: r, labelIn: labelIn, whereSel: whereSel, dateIn: dateIn, whoSel: whoSel, cur: cur });
+      forms.push({ r: r, labelIn: labelIn, whereSel: whereSel, dateIn: dateIn, whoSel: whoSel, cur: cur, recF: recF });
 
       api('GET', '/api/activities/' + r.activityId + '/goals/categories').then(function (d) {
         whereSel.innerHTML = '';
@@ -1351,7 +1361,8 @@
           return p.then(function () {
             var body = { userId: uid };
             var newLabel = f.labelIn.value.trim();
-            if (newLabel && newLabel !== label) body.label = newLabel;
+            if (newLabel && newLabel !== (f.r.label || label)) body.label = newLabel;
+            if (f.recF) body.recurrence = f.recF.get();
             if (f.dateIn.value) body.dueDate = f.dateIn.value;
             if (f.whoSel) { body.plannedUserId = f.whoSel.value || null; body.notifyAssignee = true; }
             return api('PUT', '/api/sub-project-items/' + f.r.id, body);

@@ -1148,6 +1148,56 @@
 
   var GOALS_TASK_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
 
+  // Tâche récurrente (9 oct. 2026) : champ « Répéter » partagé (onglet 1 capture, onglet 2 édition).
+  // initial = { every, unit } ou null. get() renvoie { every, unit } ou null (= ne se répète pas).
+  function buildRecurrenceField(initial) {
+    var wrap = document.createElement('div');
+    wrap.className = 'recurField';
+    var mode = document.createElement('select');
+    mode.className = 'recurMode';
+    [['', t('Ne se répète pas')], ['on', t('Se répète')]].forEach(function (o) {
+      var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; mode.appendChild(op);
+    });
+    var row = document.createElement('div');
+    row.className = 'recurRow hidden';
+    var lead = document.createElement('span'); lead.className = 'meta'; lead.textContent = t('Tous les');
+    var num = document.createElement('input');
+    num.type = 'number'; num.min = '1'; num.max = '365'; num.value = '1'; num.inputMode = 'numeric'; num.className = 'recurNum';
+    var unit = document.createElement('select');
+    unit.className = 'recurUnit';
+    [['day', t('jours')], ['week', t('semaines')], ['month', t('mois')]].forEach(function (o) {
+      var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; unit.appendChild(op);
+    });
+    row.appendChild(lead); row.appendChild(num); row.appendChild(unit);
+    var stop = document.createElement('button');
+    stop.type = 'button'; stop.className = 'iconBtn recurStop hidden'; stop.textContent = t('Arrêter la récurrence');
+    function sync() {
+      var on = mode.value === 'on';
+      row.classList.toggle('hidden', !on);
+      stop.classList.toggle('hidden', !on || !hadInitial);
+    }
+    var hadInitial = !!(initial && initial.every && initial.unit);
+    function set(rec) {
+      if (rec && rec.every && rec.unit) { mode.value = 'on'; num.value = String(rec.every); unit.value = rec.unit; }
+      else mode.value = '';
+      sync();
+    }
+    mode.addEventListener('change', sync);
+    stop.addEventListener('click', function () { mode.value = ''; sync(); });
+    wrap.appendChild(mode); wrap.appendChild(row); wrap.appendChild(stop);
+    set(initial);
+    return {
+      el: wrap,
+      set: function (rec) { hadInitial = !!(rec && rec.every); set(rec); },
+      get: function () {
+        if (mode.value !== 'on') return null;
+        var n = Math.max(1, Math.min(365, parseInt(num.value, 10) || 1));
+        return { every: n, unit: unit.value };
+      }
+    };
+  }
+  TMT.buildRecurrenceField = buildRecurrenceField;
+
   function openGoalsTaskEditPanel(row, task, onChanged) {
     var refresh = typeof onChanged === 'function' ? onChanged : function () { loadGoalsTasksOverview(); };
     var panel = document.createElement('div');
@@ -1165,6 +1215,15 @@
     var dateIn = document.createElement('input');
     dateIn.type = 'date'; dateIn.value = task.dueDate || '';
     panel.appendChild(dateIn);
+
+    // Récurrence : lue sur la tâche (le calendrier ne la transmet pas) ; n'est envoyée qu'une fois chargée.
+    var recField = buildRecurrenceField(null);
+    var recLoaded = false;
+    panel.appendChild(recField.el);
+    api('GET', '/api/sub-project-items/' + task.id + '?userId=' + uid).then(function (it) {
+      recField.set(it && it.recurEvery ? { every: it.recurEvery, unit: it.recurUnit } : null);
+      recLoaded = true;
+    }).catch(function () {});
 
     var assignSel = null;
     if (TMT.currentGoalsActivityIsShared) {
@@ -1203,6 +1262,7 @@
       var body = { userId: uid, label: label };
       if (dateIn.value) body.dueDate = dateIn.value;
       if (assignSel && task.plannedUserId !== undefined) body.plannedUserId = assignSel.value || null;
+      if (recLoaded) body.recurrence = recField.get();
       save.disabled = true;
       api('PUT', '/api/sub-project-items/' + task.id, body)
         .then(function () { refresh(); })

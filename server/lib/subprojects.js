@@ -27,6 +27,7 @@ const db = require('../db');
 // de l'activité — aucune boucle de dépendance, goals.js ne require jamais
 // ce fichier.
 const goals = require('./goals');
+const taskrecurrence = require('./taskrecurrence');
 const { isoDateOf } = require('./dates');
 
 // 5 oct. 2026 : aucune tâche n'existe sans date. Faute de mieux (tâche que Noèsis ne
@@ -520,11 +521,13 @@ function createItem(section, label, extra) {
   const opts = extra || {};
   const next = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_items WHERE sectionId = ?')
     .get(section.id).pos;
+  const rec = taskrecurrence.normalize(opts.recurrence);
   const info = db.prepare(`
-    INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto, plannedUserId, autoCaptured)
-    VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto, plannedUserId, autoCaptured, recurEvery, recurUnit)
+    VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(section.subProjectId, section.id, label, next, new Date().toISOString(),
-    opts.dueDate || todayIso(), opts.dueDate ? 0 : 2, opts.plannedUserId || null, opts.autoCaptured ? 1 : 0);
+    opts.dueDate || todayIso(), opts.dueDate ? 0 : 2, opts.plannedUserId || null, opts.autoCaptured ? 1 : 0,
+    rec ? rec.every : null, rec ? rec.unit : null);
   return getItem(info.lastInsertRowid);
 }
 
@@ -593,7 +596,31 @@ function updateItem(itemId, fields, userId) {
 
   db.prepare('UPDATE sub_project_items SET label = ?, done = ?, doneBy = ?, doneAt = ?, plannedUserId = ?, goalWeeklyId = ?, dueDate = ?, dueDateAuto = CASE WHEN dueDate IS ? THEN dueDateAuto ELSE 0 END WHERE id = ?')
     .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, dueDate, dueDate, itemId);
+
+  // Récurrence (9 oct. 2026) : `recurrence` absent => inchangée ; null => on l'arrête ; { every, unit } => on la pose.
+  if ('recurrence' in fields) {
+    const rec = taskrecurrence.normalize(fields.recurrence);
+    db.prepare('UPDATE sub_project_items SET recurEvery = ?, recurUnit = ? WHERE id = ?')
+      .run(rec ? rec.every : null, rec ? rec.unit : null, itemId);
+  }
+  // Cochée alors qu'elle se répète : la prochaine occurrence naît (une seule ouverte à la fois) et porte la récurrence.
+  const after = getItemRaw(itemId);
+  if (after && after.done && !current.done && after.recurEvery && after.recurUnit) {
+    spawnNextOccurrence(after);
+  }
   return getItem(itemId);
+}
+
+function spawnNextOccurrence(done) {
+  const next = taskrecurrence.nextDueDate(done.dueDate || todayIso(), done.recurEvery, done.recurUnit, todayIso());
+  const pos = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM sub_project_items WHERE sectionId = ?').get(done.sectionId).pos;
+  db.prepare(`
+    INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto, plannedUserId, autoCaptured, recurEvery, recurUnit)
+    VALUES (?, ?, ?, 0, ?, ?, ?, 0, ?, 0, ?, ?)
+  `).run(done.subProjectId, done.sectionId, done.label, pos, new Date().toISOString(), next, done.plannedUserId || null,
+    done.recurEvery, done.recurUnit);
+  // L'occurrence cochée ne se répète plus : on ne génère jamais deux fois la suivante (décocher/recocher).
+  db.prepare('UPDATE sub_project_items SET recurEvery = NULL, recurUnit = NULL WHERE id = ?').run(done.id);
 }
 
 function deleteItem(itemId) {

@@ -345,6 +345,15 @@ router.put('/sub-project-sections/:id/items/reorder', (req, res) => {
 // point d'entrée de l'avancement — une case cochée change immédiatement le
 // percent lu par "Général" au prochain appel, sans recalcul stocké nulle part
 // (l'avancement est dérivé à la lecture, jamais mis en cache).
+// Une tâche (récurrence incluse), pour l'éditeur sur place des onglets Objectifs.
+router.get('/sub-project-items/:id', (req, res) => {
+  const item = sp.getItem(Number(req.params.id));
+  if (!item) return res.status(404).json({ error: 'Tâche introuvable.' });
+  const access = sp.checkSubProjectAccess(req.userId, item.subProjectId);
+  if (access.error) return res.status(access.error.status).json(access.error.body);
+  res.json(item);
+});
+
 router.put('/sub-project-items/:id', (req, res) => {
   const userId = req.userId;
   const item = sp.getItem(Number(req.params.id));
