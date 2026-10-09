@@ -376,8 +376,18 @@
   }
   function saveAdded(k, arr) { try { localStorage.setItem(infoStore(k), JSON.stringify(arr)); } catch (e) { /* stockage indisponible */ } }
 
+  // Cartes à peu d'informations : deux par ligne (une seule restante = pleine largeur).
+  var HALF = { rhythm: 1, busy: 1, capacity: 1, assignees: 1, urgent: 1, carried: 1, linked: 1 };
+  function fillHalfRuns() {
+    var run = [];
+    var flush = function () { if (run.length % 2 === 1) run[run.length - 1].classList.add('saFull'); run = []; };
+    Array.prototype.forEach.call(els.body.children, function (ch) {
+      if (ch.classList.contains('saHalf')) run.push(ch); else flush();
+    });
+    flush();
+  }
   function infoCard(def, node, removable) {
-    var c = el('div', 'saCard saGlass saInfo');
+    var c = el('div', 'saCard saGlass saInfo' + (HALF[def.key] ? ' saHalf' : ''));
     var hd = el('div', 'saHd2');
     hd.appendChild(el('h3', null, tr(def.title)));
     if (removable) {
@@ -464,12 +474,13 @@
       add.appendChild(el('b', null, '+')); add.appendChild(document.createTextNode(tr('Ajouter une information')));
       add.addEventListener('click', function () { adding = true; draft = added.slice(); render(); });
       els.body.appendChild(add);
+      fillHalfRuns();
       return;
     }
     defs.filter(function (c) { return !c.def; }).forEach(function (c) {
       var n = c.body(data); if (!n) return;
       var sel = draft.indexOf(c.key) >= 0;
-      var g = el('div', 'saGh' + (sel ? ' sel' : '')); g.setAttribute('role', 'button'); g.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      var g = el('div', 'saGh' + (sel ? ' sel' : '') + (HALF[c.key] ? ' saHalf' : '')); g.setAttribute('role', 'button'); g.setAttribute('aria-pressed', sel ? 'true' : 'false');
       var inner = el('div', 'saGin'); inner.appendChild(infoCard(c, n, false)); g.appendChild(inner);
       g.addEventListener('click', function () {
         var i = draft.indexOf(c.key);
@@ -484,6 +495,7 @@
     var apply = el('button', 'saApply', tr('Appliquer')); apply.type = 'button';
     apply.addEventListener('click', function () { saveAdded(tab, draft.slice()); adding = false; draft = []; render(); });
     acts.appendChild(cancel); acts.appendChild(apply); els.body.appendChild(acts);
+    fillHalfRuns();
   }
 
   function renderChips() {
