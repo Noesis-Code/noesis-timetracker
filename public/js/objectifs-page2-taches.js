@@ -330,6 +330,7 @@
   // opts.keep : l'appelant (openGoalsDetail) a déjà posé catégorie/période ; opts.noAnim : sans défilement.
   function setGoalsPage2Mode(mode, opts) {
     opts = opts || {};
+    if (mode !== 'disc' && mode !== currentGoalsPage2Mode && TMT.resetGoalsYearOpen) TMT.resetGoalsYearOpen();
     if (TMT.closeGoalsDayAddForms) TMT.closeGoalsDayAddForms(); // formulaires « ajouter une tâche » des jours refermés à chaque changement d'onglet
     if (TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts();
     // « Discussion » est une fenêtre par-dessus la vue de base : elle ne masque ni Tâches ni Objectifs.
@@ -1342,4 +1343,8 @@
   // fenêtre d'une activité) — voir aussi objectifs-page2-objectif.js pour les
   // points d'entrée de l'arbre (renderGoalsGrid(), etc.).
   TMT.openGoalsForActivity = openGoalsForActivity;
+  (function () {
+    var open = openGoalsForActivity;
+    TMT.openGoalsForActivity = function () { if (TMT.resetGoalsYearOpen) TMT.resetGoalsYearOpen(); return open.apply(this, arguments); };
+  })();
 })();

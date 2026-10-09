@@ -204,10 +204,44 @@ router.get('/activities/:id/goals/year-goals', (req, res) => {
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
   try {
-    res.json({ goals: goals.getYearGoals(activityId) });
+    res.json({ goals: goals.getYearGoals(activityId, req.query.year) });
   } catch (err) {
     handleGoalsError(res, err);
   }
+});
+
+// Années de l'arbre périodique : liste, « Nouveau + » (année suivante), suppression d'une année future vide.
+router.get('/activities/:id/goals/years', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try { res.json(goals.listYears(activityId)); } catch (err) { handleGoalsError(res, err); }
+});
+
+router.post('/activities/:id/goals/years', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    const year = goals.createNextYear(activityId);
+    res.json({ year, ...goals.listYears(activityId) });
+  } catch (err) { handleGoalsError(res, err); }
+});
+
+router.delete('/activities/:id/goals/years/:year', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    goals.deleteYear(activityId, Number(req.params.year));
+    res.json(goals.listYears(activityId));
+  } catch (err) { handleGoalsError(res, err); }
 });
 
 router.put('/activities/:id/goals/year-goals/:key', (req, res) => {
@@ -219,7 +253,7 @@ router.put('/activities/:id/goals/year-goals/:key', (req, res) => {
   const text = typeof req.body.text === 'string' ? req.body.text : '';
   if (text.length > 300) return res.status(400).json({ error: 'Texte trop long (300 caractères maximum).' });
   try {
-    res.json({ text: goals.setYearGoal(activityId, req.params.key, text) });
+    res.json({ text: goals.setYearGoal(activityId, req.params.key, text, req.body.year) });
   } catch (err) {
     handleGoalsError(res, err);
   }

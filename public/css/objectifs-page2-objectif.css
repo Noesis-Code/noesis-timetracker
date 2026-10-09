@@ -312,3 +312,11 @@
 .goalsYearCol--noPill .goalsYearAdd { padding: 10px; }
 
 .goalsYearLink { display: none !important; }
+
+/* Sélecteur d'année de l'arbre (9 oct. 2026) : même bouton et même menu que le filtre de pôle des Statistiques. */
+.goalsYearPickWrap { padding: 0 4px 10px 4px; }
+.goalsYearRow { display: flex; align-items: center; }
+.goalsYearRow .statsPeriodMenuItem { flex: 1 1 auto; }
+.goalsYearDel { border: none; background: transparent; color: var(--text-light); padding: 6px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.goalsYearNew { font-weight: 700; }
+.goalsYearPickWrap .statsPeriodMenu { z-index: 30; background: var(--card, #1c1b24) !important; }

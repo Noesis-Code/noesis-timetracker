@@ -176,6 +176,10 @@
             <div class="goalsGridAddStickyAnchor" id="goalsGridAddStickyAnchor">
               <div id="goalsGridAddContent" class="goalsGridCellAddContent"></div>
             </div>
+            <div id="goalsYearPickWrap" class="statsPeriodMenuWrap caSubProjectFilter goalsYearPickWrap hidden">
+              <button type="button" class="caSubProjectBtn" id="goalsYearPickBtn" aria-haspopup="true"><span id="goalsYearPickLabel"></span></button>
+              <div class="statsPeriodMenu caSubProjectMenu hidden" id="goalsYearPickMenu"></div>
+            </div>
             <div class="goalsGridHead" id="goalsGridHead"></div>
 
             <!-- Grille de comparaison des catégories : une ligne par période du
@@ -618,6 +622,7 @@
     var normalized = ((index % n) + n) % n;
     var p = poles[normalized];
     var changed = TMT.currentGoalsSelectedPoleKey !== p.key;
+    if (changed) { goalsYearOpen = {}; goalsYearEditing = {}; } // changer de pôle : les secteurs se replient
     TMT.currentGoalsSelectedPoleKey = p.key;
     renderGoalsPoleSwitcher();
     if (changed) reloadGoalsGridForPole(p.key);
@@ -698,26 +703,121 @@
 
 
 
+
+  // ===================== ANNÉE DE L'ARBRE (9 oct. 2026) ======================
+  // Sélecteur en haut à gauche : « Nouveau + » (année suivante), puis les années de la plus
+  // haute à la plus basse. Une année passée se consulte sans se modifier.
+  function goalsCurrentYear() { return (TMT.goalsYears && TMT.goalsYears.currentYear) || new Date().getFullYear(); }
+  function goalsTreeYearNow() { return TMT.goalsTreeYear || goalsCurrentYear(); }
+  function goalsYearOfStart(startDate) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(startDate || ''));
+    if (!m) return goalsCurrentYear();
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + 6)).getUTCFullYear();
+  }
+  var goalsYearsLoadingFor = null;
+  function loadGoalsYears() {
+    var id = TMT.currentGoalsActivityId;
+    if (!id) return;
+    if (TMT.goalsYearsFor === id) { renderGoalsYearPicker(); return; }
+    if (goalsYearsLoadingFor === id) return;
+    goalsYearsLoadingFor = id; TMT.goalsTreeYear = null;
+    api('GET', '/api/activities/' + id + '/goals/years').then(function (r) {
+      goalsYearsLoadingFor = null;
+      if (TMT.currentGoalsActivityId !== id) return;
+      TMT.goalsYears = r; TMT.goalsYearsFor = id; TMT.goalsTreeYear = null;
+      renderGoalsYearPicker();
+      renderGoalsGridHead(); renderGoalsGrid();
+    }).catch(function () { goalsYearsLoadingFor = null; });
+  }
+  function selectGoalsYear(y) {
+    TMT.goalsTreeYear = y;
+    renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid();
+  }
+  function renderGoalsYearPicker() {
+    var wrap = $('goalsYearPickWrap'), menu = $('goalsYearPickMenu'), label = $('goalsYearPickLabel');
+    if (!wrap || !menu || !label || !TMT.goalsYears || TMT.goalsYearsFor !== TMT.currentGoalsActivityId) return;
+    var cats = activeGoalsCategories();
+    wrap.classList.toggle('hidden', goalsHasNoRealCategory(cats));
+    var ty = goalsTreeYearNow();
+    label.textContent = String(ty);
+    menu.innerHTML = '';
+    var add = document.createElement('button');
+    add.type = 'button'; add.className = 'statsPeriodMenuItem goalsYearNew'; add.textContent = t('Nouveau') + ' +';
+    add.addEventListener('click', function (e) {
+      e.stopPropagation();
+      menu.classList.add('hidden');
+      api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/years').then(function (r) {
+        TMT.goalsYears = r; TMT.goalsTreeYear = r.year;
+        var pk = TMT.currentGoalsSelectedPoleKey;
+        var p = pk && TMT.reloadGoalsGridForPole ? TMT.reloadGoalsGridForPole(pk) : (TMT.reloadGoalsAll ? TMT.reloadGoalsAll() : null);
+        return Promise.resolve(p).then(function () { renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid(); });
+      }).catch(function () {});
+    });
+    menu.appendChild(add);
+    (TMT.goalsYears.years || []).forEach(function (y) {
+      var row = document.createElement('div');
+      row.className = 'goalsYearRow';
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'statsPeriodMenuItem' + (y === ty ? ' active' : ''); b.textContent = String(y);
+      b.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.add('hidden'); if (y !== ty) selectGoalsYear(y); });
+      row.appendChild(b);
+      if (y > goalsCurrentYear()) {
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'goalsYearDel'; del.textContent = '✕';
+        del.setAttribute('aria-label', t('Supprimer') + ' ' + y);
+        del.addEventListener('click', function (e) {
+          e.stopPropagation();
+          api('DELETE', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/years/' + y).then(function (r) {
+            TMT.goalsYears = r;
+            if (TMT.goalsTreeYear === y || TMT.goalsTreeYear > r.maxYear) TMT.goalsTreeYear = goalsCurrentYear();
+            var pk = TMT.currentGoalsSelectedPoleKey;
+            var p = pk && TMT.reloadGoalsGridForPole ? TMT.reloadGoalsGridForPole(pk) : null;
+            return Promise.resolve(p).then(function () { renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid(); });
+          }).catch(function (err) { b.textContent = y + ' — ' + (err && err.message ? err.message : ''); });
+        });
+        row.appendChild(del);
+      }
+      menu.appendChild(row);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('#goalsYearPickBtn');
+    if (!btn) return;
+    e.stopPropagation();
+    var menu = $('goalsYearPickMenu');
+    var willOpen = menu.classList.contains('hidden');
+    document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+    if (willOpen) menu.classList.remove('hidden');
+  });
+
   // ===================== OBJECTIF DE L'ANNÉE (8 oct. 2026) ===================
   // Un texte libre par secteur (ou par pôle sans secteur), sous le titre du
   // secteur, jamais plus large que sa colonne. Replié par défaut (titre seul,
   // même distance avec l'arbre qu'avant) ; déplié = bulle à la couleur du
   // pôle + écart. Sans objectif : case vide « + Objectif de l'année ».
+  // Les secteurs ayant un objectif de l'année sont repliés par défaut ; ils se replient de
+  // nouveau au changement de pôle et quand on quitte puis revient sur l'onglet 3.
+  TMT.resetGoalsYearOpen = function () {
+    goalsYearOpen = {}; goalsYearEditing = {};
+    if (document.querySelector('#goalsGridHead .goalsYearCol')) renderGoalsGridHead();
+  };
   var goalsYearOpen = {};      // clé activité|catégorie -> true
   var goalsYearEditing = {};   // idem -> true
   var goalsYearLoadingFor = null;
   var goalsRow13Filled = {};   // catégorie -> période 13 remplie
-  function goalsYearKey(c) { return TMT.currentGoalsActivityId + '|' + c.key; }
+  function goalsYearKey(c) { return TMT.currentGoalsActivityId + '|' + goalsTreeYearNow() + '|' + c.key; }
 
   function loadGoalsYearGoals() {
     var id = TMT.currentGoalsActivityId;
-    if (!id || TMT.currentGoalsYearGoalsFor === id || goalsYearLoadingFor === id) return;
-    goalsYearLoadingFor = id;
-    api('GET', '/api/activities/' + id + '/goals/year-goals').then(function (r) {
+    var yk = id + '|' + goalsTreeYearNow();
+    if (!id || TMT.currentGoalsYearGoalsFor === yk || goalsYearLoadingFor === yk) return;
+    goalsYearLoadingFor = yk;
+    api('GET', '/api/activities/' + id + '/goals/year-goals?year=' + goalsTreeYearNow()).then(function (r) {
       goalsYearLoadingFor = null;
+      if (yk !== TMT.currentGoalsActivityId + '|' + goalsTreeYearNow()) return;
       TMT.currentGoalsYearGoals = (r && r.goals) || {};
-      TMT.currentGoalsYearGoalsFor = id;
-      if (TMT.currentGoalsActivityId === id) renderGoalsGridHead();
+      TMT.currentGoalsYearGoalsFor = yk;
+      renderGoalsGridHead();
     }).catch(function () { goalsYearLoadingFor = null; });
   }
 
@@ -728,7 +828,8 @@
   }
 
   function buildGoalsYearColumn(c, pill, shade) {
-    var map = (TMT.currentGoalsYearGoalsFor === TMT.currentGoalsActivityId && TMT.currentGoalsYearGoals) || {};
+    var map = (TMT.currentGoalsYearGoalsFor === TMT.currentGoalsActivityId + '|' + goalsTreeYearNow() && TMT.currentGoalsYearGoals) || {};
+    var readOnly = goalsTreeYearNow() < goalsCurrentYear();
     var text = map[c.key] || '';
     var key = goalsYearKey(c);
     var col = document.createElement('div');
@@ -736,7 +837,7 @@
     col.setAttribute('data-key', c.key);
     col.style.setProperty('--yearShade', shade);
     col.style.setProperty('--yearInk', readableTextOn(shade));
-    var editing = !!goalsYearEditing[key];
+    var editing = !readOnly && !!goalsYearEditing[key];
     // Pôle sans secteur (pill === null) : pas de titre à toucher, la bulle est toujours dépliée.
     var open = (!pill || !!goalsYearOpen[key]) && !!text;
     var empty = !text;
@@ -745,6 +846,7 @@
       pill.setAttribute('role', 'button');
       pill.tabIndex = 0;
       pill.addEventListener('click', function () {
+        if (empty && readOnly) return;
         if (empty) { goalsYearEditing[key] = !goalsYearEditing[key]; }
         else { goalsYearOpen[key] = !goalsYearOpen[key]; goalsYearEditing[key] = false; }
         rerender();
@@ -753,7 +855,7 @@
     } else {
       col.classList.add('goalsYearCol--noPill');
     }
-    if (empty || open || editing) {
+    if ((empty && !readOnly) || open || editing) {
       col.classList.add(empty && !editing ? 'goalsYearCol--vide' : 'goalsYearCol--open');
       if (editing) {
         var ta = document.createElement('textarea');
@@ -765,7 +867,7 @@
         ok.type = 'button'; ok.className = 'goalsYearSave'; ok.textContent = t('Enregistrer');
         ok.addEventListener('click', function () {
           ok.disabled = true;
-          api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/year-goals/' + encodeURIComponent(c.key), { text: ta.value })
+          api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/year-goals/' + encodeURIComponent(c.key), { text: ta.value, year: goalsTreeYearNow() })
             .then(function (r) {
               var m = TMT.currentGoalsYearGoals || (TMT.currentGoalsYearGoals = {});
               if (r && r.text) { m[c.key] = r.text; goalsYearOpen[key] = true; } else { delete m[c.key]; goalsYearOpen[key] = false; }
@@ -783,7 +885,7 @@
       } else {
         var p = document.createElement('p');
         p.className = 'goalsYearText'; p.textContent = text;
-        p.addEventListener('click', function () { goalsYearEditing[key] = true; rerender(); });
+        if (!readOnly) p.addEventListener('click', function () { goalsYearEditing[key] = true; rerender(); });
         col.appendChild(p);
       }
     }
@@ -878,13 +980,13 @@
         }
         head.appendChild(buildGoalsYearColumn(c, span, shade));
       });
-      loadGoalsYearGoals();
+      loadGoalsYearGoals(); loadGoalsYears();
     } else if (!hasNoRealCategory && isPoleFallbackColumn) {
       // Pôle sans secteur : l'objectif de l'année reste possible, sans titre de secteur.
       var poleCat = categories[0];
       var poleShade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
       head.appendChild(buildGoalsYearColumn(poleCat, null, poleShade));
-      loadGoalsYearGoals();
+      loadGoalsYearGoals(); loadGoalsYears();
     }
     // 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que
     // le bouton + ne s'affiche plus à droite des catégories, mais qu'il
@@ -1194,8 +1296,8 @@
       indexByCategory[c.key] = {};
       var planning = byCategory[c.key];
       if (!planning) return;
-      var current = goalPeriodByNumber(planning, planning.currentPeriodNumber);
-      var cycleIndex = current ? current.cycleIndex : 1;
+      // 9 oct. 2026 : le cycle affiché est celui de l'ANNÉE choisie (sélecteur en haut).
+      var cycleIndex = goalsTreeYearNow() - goalsYearOfStart(planning.plan && planning.plan.startDate) + 1;
       (planning.periods || []).forEach(function (p) {
         if (p.cycleIndex === cycleIndex) indexByCategory[c.key][p.periodIndexInCycle] = p;
       });
@@ -1305,7 +1407,8 @@
         // allumé de la couleur du pôle, à venir = numéro éteint. La date ne s'affiche qu'au clic.
         var marker = document.createElement('button');
         marker.type = 'button';
-        var mState = goalsCurrentPeriodIdx < 0 ? 'future' : (periodIndex - 1 < goalsCurrentPeriodIdx ? 'past' : (periodIndex - 1 === goalsCurrentPeriodIdx ? 'current' : 'future'));
+        var treeY = goalsTreeYearNow(), curY = goalsCurrentYear();
+        var mState = treeY > curY ? 'future' : treeY < curY ? 'past' : goalsCurrentPeriodIdx < 0 ? 'future' : (periodIndex - 1 < goalsCurrentPeriodIdx ? 'past' : (periodIndex - 1 === goalsCurrentPeriodIdx ? 'current' : 'future'));
         marker.className = 'goalsRowMarker goalsRowMarker--' + mState;
         marker.setAttribute('aria-label', t('Période') + ' ' + periodIndex);
         if (mState !== 'past') marker.textContent = String(periodIndex);

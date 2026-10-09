@@ -416,6 +416,7 @@
     'Calendrier et export de données': 'Calendar & data export',
     'Identité': 'Identity',
     'Enregistrer': 'Save',
+    'Nouveau': 'New',
     'Objectif de l’année': 'Year goal',
     'Responsable': 'Assignee',
     'Apparence': 'Appearance',

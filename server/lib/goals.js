@@ -62,22 +62,87 @@ db.exec(`CREATE TABLE IF NOT EXISTS goal_year_goals (
 
 function currentYear() { return Number(todayLocal().slice(0, 4)); }
 
-function getYearGoals(activityId) {
+// Années d'arbre périodique créées pour une activité (au-delà de l'année en cours,
+// toujours présente). « Nouveau + » crée toujours l'année suivant la plus haute.
+db.exec(`CREATE TABLE IF NOT EXISTS goal_years (
+  activityId INTEGER NOT NULL,
+  year INTEGER NOT NULL,
+  createdAt TEXT NOT NULL,
+  PRIMARY KEY (activityId, year)
+)`);
+
+function maxYearFor(activityId) {
+  const r = db.prepare('SELECT MAX(year) AS y FROM goal_years WHERE activityId = ?').get(activityId);
+  return Math.max(currentYear(), r && r.y ? r.y : 0);
+}
+
+function listYears(activityId) {
+  const cur = currentYear();
+  const plans = db.prepare('SELECT startDate FROM activity_goal_plans WHERE activityId = ?').all(activityId);
+  const first = plans.length ? Math.min(...plans.map((p) => yearOfPlanStart(p.startDate))) : cur;
+  const years = [];
+  for (let y = maxYearFor(activityId); y >= Math.min(first, cur); y -= 1) years.push(y);
+  return { years, currentYear: cur, maxYear: maxYearFor(activityId) };
+}
+
+function createNextYear(activityId) {
+  const year = maxYearFor(activityId) + 1;
+  db.prepare('INSERT OR IGNORE INTO goal_years (activityId, year, createdAt) VALUES (?, ?, ?)')
+    .run(activityId, year, new Date().toISOString());
+  return year;
+}
+
+function yearIsEmpty(activityId, year) {
+  const rows = db.prepare('SELECT id, periodNumber, category, mainGoalText FROM goal_periods WHERE activityId = ?').all(activityId);
+  const plans = {};
+  db.prepare('SELECT category, startDate FROM activity_goal_plans WHERE activityId = ?').all(activityId).forEach((p) => { plans[p.category] = p.startDate; });
+  for (const r of rows) {
+    if (!plans[r.category]) continue;
+    const cycleYear = yearOfPlanStart(plans[r.category]) + Math.floor((r.periodNumber - 1) / PERIODS_PER_CYCLE);
+    if (cycleYear !== year) continue;
+    if (String(r.mainGoalText || '').trim()) return false;
+    const w = db.prepare("SELECT 1 FROM goal_weekly WHERE periodId = ? AND TRIM(COALESCE(text, '')) <> '' LIMIT 1").get(r.id);
+    if (w) return false;
+  }
+  return !db.prepare('SELECT 1 FROM goal_year_goals WHERE activityId = ? AND year = ?').get(activityId, year);
+}
+
+// Retire une année FUTURE et vide (jamais l'année en cours ni une année passée).
+function deleteYear(activityId, year) {
+  if (year <= currentYear()) throw Object.assign(new Error('Seules les années futures peuvent être supprimées.'), { statusCode: 400 });
+  if (!yearIsEmpty(activityId, year)) throw Object.assign(new Error('Cette année contient déjà des objectifs.'), { statusCode: 400 });
+  const plans = db.prepare('SELECT category, startDate FROM activity_goal_plans WHERE activityId = ?').all(activityId);
+  plans.forEach((pl) => {
+    const k = year - yearOfPlanStart(pl.startDate);
+    if (k < 0) return;
+    const lo = k * PERIODS_PER_CYCLE + 1, hi = lo + PERIODS_PER_CYCLE - 1;
+    const ids = db.prepare('SELECT id FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber BETWEEN ? AND ?').all(activityId, pl.category, lo, hi).map((r) => r.id);
+    ids.forEach((id) => {
+      db.prepare('DELETE FROM goal_weekly WHERE periodId = ?').run(id);
+      db.prepare('DELETE FROM goal_periods WHERE id = ?').run(id);
+    });
+  });
+  db.prepare('DELETE FROM goal_years WHERE activityId = ? AND year = ?').run(activityId, year);
+}
+
+function getYearGoals(activityId, year) {
   const out = {};
   db.prepare('SELECT category, text FROM goal_year_goals WHERE activityId = ? AND year = ?')
-    .all(activityId, currentYear()).forEach((r) => { out[r.category] = r.text; });
+    .all(activityId, Number(year) || currentYear()).forEach((r) => { out[r.category] = r.text; });
   return out;
 }
 
-function setYearGoal(activityId, category, text) {
+function setYearGoal(activityId, category, text, year) {
+  const y = Number(year) || currentYear();
+  if (y < currentYear()) throw Object.assign(new Error('Une année passée ne se modifie plus.'), { statusCode: 400 });
   const clean = String(text || '').trim().slice(0, 300);
   if (!clean) {
-    db.prepare('DELETE FROM goal_year_goals WHERE activityId = ? AND category = ? AND year = ?').run(activityId, category, currentYear());
+    db.prepare('DELETE FROM goal_year_goals WHERE activityId = ? AND category = ? AND year = ?').run(activityId, category, y);
     return '';
   }
   db.prepare(`INSERT INTO goal_year_goals (activityId, category, year, text, updatedAt) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(activityId, category, year) DO UPDATE SET text = excluded.text, updatedAt = excluded.updatedAt`)
-    .run(activityId, category, currentYear(), clean, new Date().toISOString());
+    .run(activityId, category, y, clean, new Date().toISOString());
   return clean;
 }
 
@@ -909,12 +974,22 @@ function yearGridStart(isoDay) {
   return next <= isoDay ? next : yearAnchor(y);
 }
 
+// Année (calendaire) de la grille d'un plan : le startDate d'un plan est le lundi
+// de la semaine du 1er janvier de sa première année (donc +6 jours = cette année).
+function yearOfPlanStart(planStartDate) {
+  return Number(addDays(planStartDate, 6).slice(0, 4));
+}
+
+// Période n (continue : 13 par année) : l'année k du plan commence au lundi de la
+// semaine du 1er janvier de (première année + k), 13 périodes de 28 jours.
 function periodBounds(planStartDate, periodNumber) {
-  const start = addDays(planStartDate, (periodNumber - 1) * PERIOD_DAYS);
-  const end = addDays(planStartDate, periodNumber * PERIOD_DAYS - 1);
-  const cycleIndex = Math.floor((periodNumber - 1) / PERIODS_PER_CYCLE) + 1;
-  const periodIndexInCycle = ((periodNumber - 1) % PERIODS_PER_CYCLE) + 1;
-  return { start, end, cycleIndex, periodIndexInCycle };
+  const y0 = yearOfPlanStart(planStartDate);
+  const k = Math.floor((periodNumber - 1) / PERIODS_PER_CYCLE);
+  const i = (periodNumber - 1) % PERIODS_PER_CYCLE;
+  const anchor = yearAnchor(y0 + k);
+  const start = addDays(anchor, i * PERIOD_DAYS);
+  const end = addDays(anchor, (i + 1) * PERIOD_DAYS - 1);
+  return { start, end, cycleIndex: k + 1, periodIndexInCycle: i + 1 };
 }
 
 function weekBounds(periodStart, weekIndex) {
@@ -927,9 +1002,18 @@ function weekBounds(periodStart, weekIndex) {
 // jour `isoDay`. Un jour antérieur au démarrage du plan (ne devrait pas
 // arriver) retombe sur la période 1 plutôt que sur un nombre négatif.
 function periodNumberForDate(planStartDate, isoDay) {
-  const days = daysBetween(planStartDate, isoDay);
+  const y0 = yearOfPlanStart(planStartDate);
+  const dayYear = Number(String(isoDay).slice(0, 4));
+  if (!dayYear) return 1;
+  let y = dayYear + 1;
+  while (y > y0 && yearAnchor(y) > isoDay) y -= 1;
+  const k = y - y0;
+  if (k < 0) return 1;
+  const days = daysBetween(yearAnchor(y), isoDay);
   if (days === null || days < 0) return 1;
-  return Math.floor(days / PERIOD_DAYS) + 1;
+  // Les 0 à 7 jours qui restent après la période 13 retombent sur la période 13.
+  const i = Math.min(PERIODS_PER_CYCLE - 1, Math.floor(days / PERIOD_DAYS));
+  return k * PERIODS_PER_CYCLE + i + 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -1418,7 +1502,8 @@ function planningForActivity(activityId, category) {
   // l'avance ne viole donc pas la règle verrouillée « aucune génération
   // automatique d'objectif ».
   const cycleIndexForCurrent = Math.floor((currentPeriodNumber - 1) / PERIODS_PER_CYCLE) + 1;
-  const cycleLastPeriodNumber = cycleIndexForCurrent * PERIODS_PER_CYCLE;
+  const maxCycle = Math.max(cycleIndexForCurrent, maxYearFor(activityId) - yearOfPlanStart(plan.startDate) + 1);
+  const cycleLastPeriodNumber = maxCycle * PERIODS_PER_CYCLE;
   ensurePeriodsUpTo(activityId, category, cycleLastPeriodNumber, plan.startDate);
   try { syncWeeklyAutoStatus(activityId, category); } catch (e) { /* non bloquant */ }
   carryOverWeekly(activityId, category, plan.startDate);
@@ -1767,6 +1852,11 @@ module.exports = {
   periodBounds,
   yearGridStart,
   getYearGoals,
+  listYears,
+  createNextYear,
+  deleteYear,
+  maxYearFor,
+  yearOfPlanStart,
   setYearGoal,
   migratePlansToYearGrid,
   weekBounds,
