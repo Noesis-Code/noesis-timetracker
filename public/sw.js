@@ -78,6 +78,7 @@ const SHELL = [
   '/css/activite-stats-taches.css',
   '/css/verre-calme.css',
   '/i18n.js',
+  '/legal-en.js',
   '/qrcode.js',
   '/offline-queue.js',
   '/offline.html',
