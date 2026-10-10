@@ -6796,3 +6796,8 @@ button { -webkit-user-select: none; user-select: none; }
 #aiNoticeModal > .communityMembersModalCard { display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; max-height: 85dvh; }
 #aiNoticeModal .aiNoticeBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 #aiNoticeModal .communityMembersModalHeader, #aiNoticeModal .marketingInviteActions { flex: 0 0 auto; }
+/* 10 oct. 2026 : info IA — le bouton défile avec le texte ; titre fixe, barre dessous, moins d'espace en haut. */
+#aiNoticeModal > .communityMembersModalCard { padding-top: 8px; }
+#aiNoticeModal .communityMembersModalHeader { margin-bottom: 0; padding: 4px 0 10px; border-bottom: 1px solid var(--border); }
+#aiNoticeModal .aiNoticeScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-top: 10px; }
+#aiNoticeModal .aiNoticeBody { overflow: visible; flex: none; }
