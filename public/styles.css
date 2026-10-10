@@ -6546,8 +6546,10 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding .onboarding-card { margin: auto; }
 #onboarding:has(#onbExisting:not(.hidden)) .onboarding-card { margin: auto auto 0; }
 #onboarding .onbFooter { display: none; margin: 10px auto auto; font-size: 11px; text-align: center; }
-#onboarding:has(#onbExisting:not(.hidden)) .onbFooter { display: block; }
-#onboarding .onbFooter a, #onboarding .switchLink.onbMutedLink a { color: var(--text-light); text-decoration: underline; }
+#onboarding:has(#onbExisting:not(.hidden)) .onbFooter:not(.onbBackFooter) { display: block; }
+#onboarding:has(#onbPinStep:not(.hidden)) .onbBackFooter { display: block; }
+#onboarding:has(#onbPinStep:not(.hidden)) .onboarding-card { margin: auto auto 0; }
+#onboarding .onbFooter a { color: var(--text-light); text-decoration: underline; }
 #onboarding .onbMutedLink { font-size: 11px; }
 #onboarding .onbInstallIcon { margin-bottom: 6px; }
 #onboarding .onbInstallSteps { margin: 8px 0; font-size: 13px; line-height: 1.4; }
