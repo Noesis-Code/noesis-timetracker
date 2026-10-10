@@ -2387,6 +2387,10 @@ if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === 'lastSe
 if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === 'inactiveNoticeAt')) {
   db.exec('ALTER TABLE users ADD COLUMN inactiveNoticeAt TEXT');
 }
+// Trame 13 (info IA, 10 oct. 2026) : date et version de l'info IA confirmee. Aucun blocage cote serveur.
+for (const col of ['aiNoticeAckAt', 'aiNoticeVersion']) {
+  if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === col)) db.exec('ALTER TABLE users ADD COLUMN ' + col + ' TEXT');
+}
 db.exec(`
 CREATE TABLE IF NOT EXISTS inactive_account_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

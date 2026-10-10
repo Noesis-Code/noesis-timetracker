@@ -4,4 +4,5 @@ module.exports = {
   PRIVACY_VERSION: '3.7',
   TERMS_VERSION: '1.2',
   MARKETING_CONSENT_VERSION: '3.7',
+  AI_NOTICE_VERSION: '1',
 };

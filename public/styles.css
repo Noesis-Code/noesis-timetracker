@@ -6581,6 +6581,7 @@ button { -webkit-user-select: none; user-select: none; }
 .onbOptionalConsents { border-top: 1px solid var(--border); padding-top: 14px; margin-bottom: 4px; }
 .marketingInviteBody { line-height: 1.5; margin: 0 0 16px; }
 .marketingInviteBody a, a.policy24Link { color: var(--purple); }
+.aiNoticeBody p { margin: 0 0 10px; }
 .marketingInviteActions { display: flex; gap: 10px; }
 .marketingInviteActions .btn { flex: 1 1 0; }
 /* Liste des activités, mode édition (appui long) : barre « texte + Terminer » FIXE, fond opaque.

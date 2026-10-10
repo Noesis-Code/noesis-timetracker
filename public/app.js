@@ -2008,7 +2008,7 @@
     else {
       if (tab === 'community') loadCommunity();
       else if (tab === 'activity') loadActivityTab();
-      else if (tab === 'goals') TMT.loadGoalsTab();
+      else if (tab === 'goals') { TMT.loadGoalsTab(); maybeShowAiNotice(); }
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
@@ -10837,6 +10837,17 @@
       }
     });
   }
+  // Trame 13 : info IA a l'ouverture de la Feuille de route. Aucun blocage : l'IA marche sans clic ; hors ligne, fermer sans enregistrer.
+  function maybeShowAiNotice() {
+    if (!profile) return;
+    api('GET', '/api/profile/' + profile.id).then(function (p) {
+      if (p.aiNoticeCurrentVersion && p.aiNoticeVersion !== p.aiNoticeCurrentVersion) $('aiNoticeModal').classList.remove('hidden');
+    }).catch(function () {});
+  }
+  $('aiNoticeAck').addEventListener('click', function () {
+    api('PUT', '/api/profile/ai-notice-ack').catch(function () { /* hors ligne : rien d'enregistré, la fenêtre reviendra */ })
+      .then(function () { $('aiNoticeModal').classList.add('hidden'); });
+  });
   function putMarketingConsent(consent) {
     return api('PUT', '/api/profile/marketing-consent', { consent: consent });
   }

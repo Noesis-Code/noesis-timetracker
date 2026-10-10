@@ -7,7 +7,7 @@ const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/
 const { notifyCommunityPost } = require('../lib/push');
 const { setSessionCookie } = require('../lib/session');
 const { deleteAccountData } = require('../lib/accountdeletion');
-const { PRIVACY_VERSION, TERMS_VERSION, MARKETING_CONSENT_VERSION } = require('../lib/legalversions');
+const { PRIVACY_VERSION, TERMS_VERSION, MARKETING_CONSENT_VERSION, AI_NOTICE_VERSION } = require('../lib/legalversions');
 // Export de mes données personnelles (7 septembre 2026) — voir GET
 // /profile/export plus bas et l'en-tête de server/lib/dataexport.js pour le
 // détail du périmètre.
@@ -502,10 +502,10 @@ router.get('/profile/export', (req, res) => {
 // (comme /public) : elle sert aussi à afficher l'identité publique d'un
 // tiers, seuls les trois champs sensibles sont gated.
 router.get('/profile/:id', (req, res) => {
-  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled, marketingConsent, marketingConsentAt, directoryConsent FROM users WHERE id = ?').get(req.params.id);
+  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled, marketingConsent, marketingConsentAt, directoryConsent, aiNoticeVersion FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   const isOwner = req.userId === user.id;
-  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent } : {}) });
+  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent, aiNoticeVersion: user.aiNoticeVersion || null, aiNoticeCurrentVersion: AI_NOTICE_VERSION } : {}) });
 });
 
 // 10 oct. 2026 (trames 2 et 4) : consentement commercial et annuaire de connexion, utilisateur connecté seulement.
@@ -518,6 +518,14 @@ router.put('/profile/marketing-consent', (req, res) => {
     .run(req.body.consent ? 1 : 0, at, MARKETING_CONSENT_VERSION, req.userId);
   if (!r.changes) return res.status(404).json({ error: 'Profil introuvable.' });
   res.json({ ok: true, marketingConsent: req.body.consent, marketingConsentAt: at, marketingConsentVersion: MARKETING_CONSENT_VERSION });
+});
+// Trame 13 : confirmation de l'info IA (date serveur + version). N'autorise ni ne refuse rien : l'IA fonctionne dans tous les cas.
+router.put('/profile/ai-notice-ack', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  const at = new Date().toISOString();
+  const r = db.prepare('UPDATE users SET aiNoticeAckAt = ?, aiNoticeVersion = ? WHERE id = ?').run(at, AI_NOTICE_VERSION, req.userId);
+  if (!r.changes) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json({ ok: true, aiNoticeAckAt: at, aiNoticeVersion: AI_NOTICE_VERSION });
 });
 router.put('/profile/directory-consent', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
