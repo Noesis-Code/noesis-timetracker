@@ -2355,24 +2355,47 @@ if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === 'lastSe
   db.exec('ALTER TABLE users ADD COLUMN lastSeenAt TEXT');
   db.prepare('UPDATE users SET lastSeenAt = ? WHERE lastSeenAt IS NULL').run(new Date().toISOString());
 }
+// Trame 6 (version définitive) : users.inactiveNoticeAt (NULL = aucun avis en cours), journal
+// inactive_account_log (id de compte seulement, jamais d'adresse ; pas de CASCADE : la ligne
+// 'suppression' survit au compte) et inactive_account_runs (une ligne par exécution quotidienne).
+if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === 'inactiveNoticeAt')) {
+  db.exec('ALTER TABLE users ADD COLUMN inactiveNoticeAt TEXT');
+}
 db.exec(`
-CREATE TABLE IF NOT EXISTS inactive_account_notices (
-  userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  status TEXT NOT NULL DEFAULT 'notified',
-  noticeSentAt TEXT NOT NULL,
-  deletionAt TEXT,
-  reminderSentAt TEXT
+CREATE TABLE IF NOT EXISTS inactive_account_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('avis','rappel','suppression')),
+  createdAt TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_inactive_account_log_user ON inactive_account_log(userId, createdAt);
+`);
+// Migration des premières versions (tables inactive_account_notices / runs[ranAt,...]) : idempotent.
+if (db.prepare("PRAGMA table_info(inactive_account_runs)").all().some((c) => c.name === 'ranAt')) {
+  db.exec('ALTER TABLE inactive_account_runs RENAME TO inactive_account_runs_old');
+}
+db.exec(`
 CREATE TABLE IF NOT EXISTS inactive_account_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ranAt TEXT NOT NULL,
-  notices INTEGER NOT NULL DEFAULT 0,
-  reminders INTEGER NOT NULL DEFAULT 0,
-  deleted INTEGER NOT NULL DEFAULT 0,
-  cancelled INTEGER NOT NULL DEFAULT 0,
-  manual INTEGER NOT NULL DEFAULT 0,
-  failures INTEGER NOT NULL DEFAULT 0
+  runAt TEXT NOT NULL,
+  avis INTEGER NOT NULL DEFAULT 0,
+  rappels INTEGER NOT NULL DEFAULT 0,
+  suppressions INTEGER NOT NULL DEFAULT 0,
+  erreursEnvoi INTEGER NOT NULL DEFAULT 0,
+  comptesSansCourriel INTEGER NOT NULL DEFAULT 0
 );
 `);
+if (db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'inactive_account_runs_old'").get()) {
+  db.exec(`INSERT INTO inactive_account_runs (runAt, avis, rappels, suppressions, erreursEnvoi, comptesSansCourriel)
+    SELECT ranAt, notices, reminders, deleted, failures, manual FROM inactive_account_runs_old;
+    DROP TABLE inactive_account_runs_old;`);
+}
+if (db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'inactive_account_notices'").get()) {
+  db.exec(`UPDATE users SET inactiveNoticeAt = (SELECT noticeSentAt FROM inactive_account_notices n WHERE n.userId = users.id AND n.status = 'notified')
+      WHERE id IN (SELECT userId FROM inactive_account_notices WHERE status = 'notified');
+    INSERT INTO inactive_account_log (userId, action, createdAt) SELECT userId, 'avis', noticeSentAt FROM inactive_account_notices WHERE status = 'notified';
+    INSERT INTO inactive_account_log (userId, action, createdAt) SELECT userId, 'rappel', reminderSentAt FROM inactive_account_notices WHERE status = 'notified' AND reminderSentAt IS NOT NULL;
+    DROP TABLE inactive_account_notices;`);
+}
 
 module.exports = db;

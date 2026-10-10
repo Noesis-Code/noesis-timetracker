@@ -13118,7 +13118,7 @@
           if (msgEl) msgEl.textContent = t('Message envoyé. Merci !');
         })
         .catch(function () {
-          if (msgEl) msgEl.textContent = t('Envoi impossible pour le moment. Réessaie plus tard.');
+          if (msgEl) msgEl.textContent = t('L\'envoi a échoué, réessaie plus tard');
         })
         .finally(function () {
           sendBtn.disabled = false;

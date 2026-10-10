@@ -27,31 +27,10 @@ const { validateAttachmentPayload } = require('../lib/attachments');
 
 const router = express.Router();
 
-// ⚠️ 8 septembre 2026, en soirée (discussion « Connexion / Création de
-// compte », sur demande directe d'Emilien) : basculé TEMPORAIREMENT vers
-// compagnie.noesis@gmail.com. La destination d'origine (confidentialite.
-// noesis@gmail.com, choisie le même jour, voir ci-dessous) échouait
-// systématiquement (Resend, HTTP 403) : le domaine d'envoi par défaut
-// resend.dev n'accepte, en l'absence de domaine vérifié sur
-// resend.com/domains, que l'adresse propre au compte Resend lui-même —
-// qui est compagnie.noesis@gmail.com. Emilien n'a pas de domaine pour
-// Noèsis et a choisi cette solution de repli plutôt que d'en acheter un
-// avant le 11 septembre (voir noesis-timetracker-chantiers-en-cours.md et
-// noesis-timetracker-registre-traitements.md, ligne 10, pour le détail).
-// **À REBASCULER vers confidentialite.noesis@gmail.com dès qu'un domaine
-// sera vérifié sur Resend** — ce n'est plus l'adresse légalement
-// documentée comme destinataire tant que ce commentaire n'a pas été
-// retiré.
-//
-// Adresse de destination initialement confirmée par Emilien le 8 septembre
-// 2026 — distincte de compagnie.noesis@gmail.com (dossier légal de
-// Gaspard), qui reste l'adresse de contact générale de l'entreprise.
-const CONTACT_EMAIL = 'compagnie.noesis@gmail.com';
-// 10 oct. 2026 (conformité Loi 25, trame 12) : chaque message part AUSSI vers
-// confidentialite.noesis@gmail.com ET compagnie.noesis@gmail.com. Un envoi par
-// destinataire (un destinataire refusé par Resend, p. ex. domaine non vérifié,
-// ne bloque pas l'autre) ; échec seulement si AUCUN envoi n'a abouti.
-const CONTACT_EMAILS = ['confidentialite.noesis@gmail.com', 'compagnie.noesis@gmail.com'];
+// Destination unique des messages d'aide (trame 12, 10 oct. 2026) : variable
+// d'environnement CONTACT_EMAIL, par défaut confidentialite.noesis@gmail.com
+// (adresse du compte Resend ; Gaspard la transfère ensuite vers la boîte de la compagnie).
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'confidentialite.noesis@gmail.com';
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_ATTACHMENTS = 2; // une photo + un document, cadré avec Emilien
 const CATEGORY_LABELS = { suggestion: 'Suggestion', bug: 'Signalement de bug' };
@@ -81,18 +60,12 @@ router.post('/feedback', requireAuth, async (req, res) => {
   const subject = `[Noèsis — ${CATEGORY_LABELS[category]}] de ${authorLabel}`;
   const text = `${CATEGORY_LABELS[category]} envoyé depuis l'application par ${authorLabel} (id ${req.userId}).\n\n${message}`;
 
-  // Le contenu du message n'est JAMAIS journalisé : seulement le destinataire et l'erreur Resend.
-  let delivered = 0;
-  for (const to of CONTACT_EMAILS) {
-    try {
-      await sendMail({ to, subject, text, attachments });
-      delivered++;
-    } catch (err) {
-      console.error('[feedback] échec d\'envoi vers ' + to + ' :', err.message);
-    }
-  }
-  if (!delivered) {
-    return res.status(502).json({ error: "L'envoi a échoué, réessaie plus tard." });
+  // Journal : code et texte de l'erreur Resend seulement, JAMAIS le message, le nom ni la pièce jointe.
+  try {
+    await sendMail({ to: CONTACT_EMAIL, subject, text, attachments });
+  } catch (err) {
+    console.error('[feedback] échec d\'envoi Resend : ' + err.message);
+    return res.status(502).json({ error: "L'envoi a échoué, réessaie plus tard" });
   }
 
   res.json({ message: 'Message envoyé. Merci !' });

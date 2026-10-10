@@ -1,43 +1,39 @@
 // Fermeture des comptes inactifs (Loi 25, trame 6 — 10 oct. 2026).
 //
-// Règle : un compte sans AUCUNE connexion depuis 24 mois reçoit un avis par
-// courriel (Resend) annonçant sa suppression dans 30 jours ; un rappel part
-// la veille ; sans reconnexion, le compte est supprimé comme par « Supprimer
-// mon compte » (server/lib/accountdeletion.js), un courriel confirme, et un
-// rapport quotidien part vers compagnie.noesis@gmail.com.
+// Règle : compte sans connexion depuis plus de 23 mois -> avis (Resend) ; à >= 29 jours
+// après l'avis, rappel unique ; à >= 30 jours après l'avis, rappel envoyé et aucune
+// reconnexion -> suppression (même fonction que « Supprimer mon compte ») + UN courriel de
+// confirmation. Rapport quotidien à confidentialite.noesis@gmail.com.
 //
 // Garanties :
-//  - un seul courriel par étape (la ligne de suivi n'est écrite qu'APRÈS un
-//    envoi réussi : un échec = rien d'écrit, rien de supprimé, nouvel essai
-//    au passage suivant) ;
-//  - une reconnexion (users.lastSeenAt postérieur à l'avis) annule la procédure ;
-//  - compte sans courriel : jamais supprimé automatiquement, noté
-//    (status 'manual') et listé dans le rapport pour traitement manuel ;
-//  - journal et suivi sans adresse courriel (id de compte seulement, les
-//    lignes de suivi partent avec le compte) ;
-//  - durées raccourcies (tests/staging) via variables d'environnement
-//    UNIQUEMENT hors production : ignorées (avec avertissement) en production.
+//  - une étape par compte et par exécution ; rien n'est écrit (users.inactiveNoticeAt, journal)
+//    qu'APRÈS un envoi réussi : échec d'envoi = rien supprimé, délai de 30 j non démarré ;
+//  - reconnexion : users.inactiveNoticeAt remis à NULL (server/lib/session.js, et ici par sécurité) ;
+//  - compte sans courriel : jamais supprimé automatiquement, compté et journalisé (console) ;
+//  - l'adresse et le prénom ne sont lus qu'en mémoire : jamais écrits en base ni dans les journaux ;
+//  - durées raccourcies (staging/tests) par variables d'environnement, ignorées en production.
 const db = require('../db');
 const { sendMail } = require('./mail');
 const { deleteAccountData } = require('./accountdeletion');
 
 const DAY = 24 * 3600 * 1000;
 const DEFAULTS = {
-  thresholdMs: 730 * DAY,   // 24 mois
-  noticeMs: 30 * DAY,       // délai entre l'avis et la suppression
-  reminderMs: 1 * DAY,      // rappel la veille
+  thresholdMs: null,        // null = 23 mois calendaires
+  noticeMs: 30 * DAY,       // avis -> suppression
+  reminderMs: 1 * DAY,      // rappel envoyé à noticeMs - reminderMs (soit >= 29 jours après l'avis)
   intervalMs: 1 * DAY,      // au plus une exécution par 24 h
+  reportWindowMs: 15 * DAY, // « suppressions prévues » du rapport
 };
-const REPORT_TO = 'compagnie.noesis@gmail.com';
+const REPORT_TO = 'confidentialite.noesis@gmail.com';
 const ENV_KEYS = {
   thresholdMs: 'INACTIVE_ACCOUNT_THRESHOLD_MS',
   noticeMs: 'INACTIVE_ACCOUNT_NOTICE_MS',
   reminderMs: 'INACTIVE_ACCOUNT_REMINDER_MS',
   intervalMs: 'INACTIVE_ACCOUNT_INTERVAL_MS',
+  reportWindowMs: 'INACTIVE_ACCOUNT_REPORT_WINDOW_MS',
 };
 
-// Production = RAILWAY_ENVIRONMENT_NAME absent ou « production », sauf
-// NODE_ENV=test. Dans le doute (variable absente), on se comporte en production.
+// Production = RAILWAY_ENVIRONMENT_NAME absent ou « production », sauf NODE_ENV=test.
 function isProduction(env = process.env) {
   if (env.NODE_ENV === 'test') return false;
   const name = env.RAILWAY_ENVIRONMENT_NAME;
@@ -59,33 +55,39 @@ function getConfig(env = process.env) {
   return cfg;
 }
 
-function appUrl() {
-  return process.env.APP_URL || process.env.APP_BASE_URL || '';
+// Début de l'inactivité : un compte est inactif si sa dernière activité est STRICTEMENT avant ce moment.
+function inactivityCutoffMs(now, cfg) {
+  if (cfg.thresholdMs) return now - cfg.thresholdMs;
+  const d = new Date(now);
+  d.setUTCMonth(d.getUTCMonth() - 23);
+  return d.getTime();
 }
 
-function fmtDate(ms, lang) {
-  return new Date(ms).toLocaleDateString(lang === 'en' ? 'en-CA' : 'fr-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+function fmtDate(ms) {
+  return new Date(ms).toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Montreal' });
 }
 
-function buildMail(kind, user, deletionMs) {
-  const en = user.lang === 'en';
-  const name = user.name || '';
-  const link = appUrl();
-  const when = fmtDate(deletionMs, user.lang);
-  const open = link ? (en ? `Open the app to keep your account: ${link}` : `Ouvre l'application pour conserver ton compte : ${link}`) : (en ? 'Open the app to keep your account.' : "Ouvre l'application pour conserver ton compte.");
+const SIGNATURE = '\n\nCordialement.\n\nGaspard & Émilien MOREL--OBATON\nCOMPAGNIE NOÈSIS Inc.\nMail : compagnie.noesis@gmail.com';
+
+function buildMail(kind, name, dateMs) {
+  const hello = `Bonjour ${name || ''},\n`;
+  const when = fmtDate(dateMs);
   if (kind === 'notice') {
-    return en
-      ? { subject: 'Your Noèsis account will be deleted for inactivity', text: `Hello ${name},\n\nYou have not used your Noèsis account for 24 months. Unless you sign in before ${when}, it will be deleted on that date, along with all its data.\n\n${open}\n\nNoèsis` }
-      : { subject: 'Ton compte Noèsis sera supprimé pour inactivité', text: `Bonjour ${name},\n\nTu n'as pas utilisé ton compte Noèsis depuis 24 mois. Sans connexion de ta part avant le ${when}, il sera supprimé à cette date, avec toutes ses données.\n\n${open}\n\nNoèsis` };
+    return {
+      subject: 'Votre compte Noèsis TimeTracker sera supprimé',
+      text: `${hello}votre compte Noèsis TimeTracker n'a pas été utilisé depuis plus de 23 mois. Sans connexion de votre part d'ici le ${when}, il sera supprimé avec ses données.\n\nPour le conserver, il suffit d'ouvrir l'application et de vous connecter.${SIGNATURE}`,
+    };
   }
   if (kind === 'reminder') {
-    return en
-      ? { subject: 'Reminder: your Noèsis account will be deleted tomorrow', text: `Hello ${name},\n\nYour inactive Noèsis account will be deleted on ${when}, with all its data.\n\n${open}\n\nNoèsis` }
-      : { subject: 'Rappel : ton compte Noèsis sera supprimé demain', text: `Bonjour ${name},\n\nTon compte Noèsis inactif sera supprimé le ${when}, avec toutes ses données.\n\n${open}\n\nNoèsis` };
+    return {
+      subject: 'Votre compte Noèsis TimeTracker sera supprimé demain',
+      text: `${hello}rappel : votre compte Noèsis TimeTracker sera supprimé demain, le ${when}, avec toutes ses données, faute de connexion depuis plus de 23 mois.\n\nPour le conserver, ouvrez l'application et connectez-vous avant cette date.${SIGNATURE}`,
+    };
   }
-  return en
-    ? { subject: 'Your Noèsis account has been deleted', text: `Hello ${name},\n\nAs announced, your Noèsis account was deleted after 24 months of inactivity, along with all its data.\n\nNoèsis` }
-    : { subject: 'Ton compte Noèsis a été supprimé', text: `Bonjour ${name},\n\nComme annoncé, ton compte Noèsis a été supprimé après 24 mois d'inactivité, avec toutes ses données.\n\nNoèsis` };
+  return {
+    subject: 'Votre compte Noèsis TimeTracker a été supprimé',
+    text: `${hello}votre compte Noèsis TimeTracker et toutes ses données ont été supprimés aujourd'hui, le ${when}, parce qu'il n'avait pas été utilisé depuis près de 24 mois. Une copie chiffrée peut subsister jusqu'à 30 jours dans nos sauvegardes, puis elle est détruite. Votre adresse courriel n'est conservée nulle part : ce message est le dernier.\n\nPour toute question : compagnie.noesis@gmail.com.${SIGNATURE}`,
+  };
 }
 
 function lastActivityMs(user) {
@@ -93,124 +95,125 @@ function lastActivityMs(user) {
   return Number.isFinite(t) ? t : Date.now();
 }
 
+function logAction(userId, action, iso) {
+  db.prepare('INSERT INTO inactive_account_log (userId, action, createdAt) VALUES (?,?,?)').run(userId, action, iso);
+}
+
 // mailer injectable pour les tests ; `now` (ms) aussi.
 async function runInactiveAccounts({ now = Date.now(), mailer = sendMail, config = getConfig(), sendReport = true } = {}) {
-  const stats = { notices: 0, reminders: 0, deleted: 0, cancelled: 0, manual: 0, failures: 0 };
-  const manualIds = [];
+  const stats = { avis: 0, rappels: 0, suppressions: 0, erreursEnvoi: 0, sansCourriel: 0 };
   const nowIso = new Date(now).toISOString();
+  const cutoff = inactivityCutoffMs(now, config);
 
-  const users = db.prepare('SELECT id, name, email, lang, createdAt, lastSeenAt FROM users').all();
-  for (const user of users) {
+  const users = db.prepare('SELECT id, lastSeenAt, createdAt, inactiveNoticeAt FROM users').all();
+  for (const row of users) {
     try {
-      const seen = lastActivityMs(user);
-      const email = (user.email || '').trim();
-      let notice = db.prepare('SELECT * FROM inactive_account_notices WHERE userId = ?').get(user.id);
+      const seen = lastActivityMs(row);
+      let noticeAt = row.inactiveNoticeAt ? Date.parse(row.inactiveNoticeAt) : null;
 
       // Reconnexion depuis l'avis : procédure annulée.
-      if (notice && seen > Date.parse(notice.noticeSentAt)) {
-        db.prepare('DELETE FROM inactive_account_notices WHERE userId = ?').run(user.id);
-        stats.cancelled++;
-        console.log('[inactive-accounts] annulation (reconnexion) : ' + user.id);
-        continue;
-      }
-      // Compte « manuel » qui a depuis reçu un courriel : on repart de zéro.
-      if (notice && notice.status === 'manual' && email) {
-        db.prepare('DELETE FROM inactive_account_notices WHERE userId = ?').run(user.id);
-        notice = null;
+      if (noticeAt !== null && seen > noticeAt) {
+        db.prepare('UPDATE users SET inactiveNoticeAt = NULL WHERE id = ?').run(row.id);
+        noticeAt = null;
       }
 
-      if (!notice) {
-        if (now - seen < config.thresholdMs) continue; // compte actif
-        if (!email) {
-          db.prepare("INSERT INTO inactive_account_notices (userId, status, noticeSentAt) VALUES (?, 'manual', ?)").run(user.id, nowIso);
-          stats.manual++;
-          manualIds.push(user.id);
-          console.log('[inactive-accounts] sans courriel, traitement manuel : ' + user.id);
+      // Adresse et prénom : en mémoire seulement, le temps de cette itération.
+      const personal = () => db.prepare('SELECT name, email FROM users WHERE id = ?').get(row.id) || {};
+      const emailOf = (p) => (p.email || '').trim();
+
+      if (noticeAt === null) {
+        if (!(seen < cutoff)) continue; // compte actif
+        const p = personal();
+        if (!emailOf(p)) {
+          stats.sansCourriel++;
+          console.log('[inactive-accounts] sans courriel, traitement manuel : ' + row.id);
           continue;
         }
-        const deletionMs = now + config.noticeMs;
-        const m = buildMail('notice', user, deletionMs);
+        const m = buildMail('notice', p.name, now + config.noticeMs);
         try {
-          await mailer({ to: email, subject: m.subject, text: m.text });
+          await mailer({ to: emailOf(p), subject: m.subject, text: m.text });
         } catch (err) {
-          stats.failures++;
-          console.error('[inactive-accounts] échec d\'envoi de l\'avis (' + user.id + ') : ' + err.message);
+          stats.erreursEnvoi++;
+          console.error('[inactive-accounts] échec d\'envoi de l\'avis (' + row.id + ') : ' + err.message);
           continue;
         }
-        db.prepare("INSERT INTO inactive_account_notices (userId, status, noticeSentAt, deletionAt) VALUES (?, 'notified', ?, ?)")
-          .run(user.id, nowIso, new Date(deletionMs).toISOString());
-        stats.notices++;
-        console.log('[inactive-accounts] avis envoyé : ' + user.id);
+        db.prepare('UPDATE users SET inactiveNoticeAt = ? WHERE id = ?').run(nowIso, row.id);
+        logAction(row.id, 'avis', nowIso);
+        stats.avis++;
+        console.log('[inactive-accounts] avis envoyé : ' + row.id);
         continue;
       }
 
-      if (notice.status === 'manual') {
-        continue; // jamais supprimé automatiquement
-      }
+      const deletionMs = noticeAt + config.noticeMs;
+      const reminderSent = !!db.prepare("SELECT 1 FROM inactive_account_log WHERE userId = ? AND action = 'rappel' AND createdAt >= ?").get(row.id, row.inactiveNoticeAt);
 
-      let deletionMs = Date.parse(notice.deletionAt);
-      const reminderDue = !notice.reminderSentAt && now >= deletionMs - config.reminderMs;
-      if (reminderDue) {
-        const m = buildMail('reminder', user, deletionMs);
+      if (!reminderSent) {
+        if (now < deletionMs - config.reminderMs) continue; // trop tôt
+        const p = personal();
+        if (!emailOf(p)) { stats.sansCourriel++; continue; }
+        const m = buildMail('reminder', p.name, deletionMs);
         try {
-          await mailer({ to: email, subject: m.subject, text: m.text });
+          await mailer({ to: emailOf(p), subject: m.subject, text: m.text });
         } catch (err) {
-          stats.failures++;
-          console.error('[inactive-accounts] échec d\'envoi du rappel (' + user.id + ') : ' + err.message);
+          stats.erreursEnvoi++;
+          console.error('[inactive-accounts] échec d\'envoi du rappel (' + row.id + ') : ' + err.message);
           continue;
         }
-        // Rappel envoyé en retard (serveur arrêté) : la suppression est repoussée
-        // d'un délai de rappel pour qu'il précède toujours la suppression.
-        if (now >= deletionMs) {
-          deletionMs = now + config.reminderMs;
-          db.prepare('UPDATE inactive_account_notices SET reminderSentAt = ?, deletionAt = ? WHERE userId = ?')
-            .run(nowIso, new Date(deletionMs).toISOString(), user.id);
-        } else {
-          db.prepare('UPDATE inactive_account_notices SET reminderSentAt = ? WHERE userId = ?').run(nowIso, user.id);
-        }
-        stats.reminders++;
-        console.log('[inactive-accounts] rappel envoyé : ' + user.id);
+        logAction(row.id, 'rappel', nowIso);
+        stats.rappels++;
+        console.log('[inactive-accounts] rappel envoyé : ' + row.id);
         continue;
       }
 
-      if (notice.reminderSentAt && now >= deletionMs && email) {
-        const full = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+      if (now >= deletionMs) {
+        const full = db.prepare('SELECT * FROM users WHERE id = ?').get(row.id);
+        const email = emailOf(full);
+        if (!email) { stats.sansCourriel++; console.log('[inactive-accounts] sans courriel, traitement manuel : ' + row.id); continue; }
+        const name = full.name;
         deleteAccountData(full);
-        stats.deleted++;
-        console.log('[inactive-accounts] compte supprimé : ' + user.id);
-        const m = buildMail('deleted', user, deletionMs);
+        logAction(row.id, 'suppression', nowIso);
+        stats.suppressions++;
+        console.log('[inactive-accounts] compte supprimé : ' + row.id);
+        const m = buildMail('deleted', name, now);
         try {
           await mailer({ to: email, subject: m.subject, text: m.text });
         } catch (err) {
-          stats.failures++;
-          console.error('[inactive-accounts] échec d\'envoi de la confirmation (' + user.id + ') : ' + err.message);
+          stats.erreursEnvoi++;
+          console.error('[inactive-accounts] échec d\'envoi de la confirmation (' + row.id + ') : ' + err.message);
         }
       }
     } catch (err) {
-      stats.failures++;
-      console.error('[inactive-accounts] erreur (' + user.id + ') : ' + err.message);
+      stats.erreursEnvoi++;
+      console.error('[inactive-accounts] erreur (' + row.id + ') : ' + err.message);
     }
   }
 
-  db.prepare('INSERT INTO inactive_account_runs (ranAt, notices, reminders, deleted, cancelled, manual, failures) VALUES (?,?,?,?,?,?,?)')
-    .run(nowIso, stats.notices, stats.reminders, stats.deleted, stats.cancelled, stats.manual, stats.failures);
+  db.prepare('INSERT INTO inactive_account_runs (runAt, avis, rappels, suppressions, erreursEnvoi, comptesSansCourriel) VALUES (?,?,?,?,?,?)')
+    .run(nowIso, stats.avis, stats.rappels, stats.suppressions, stats.erreursEnvoi, stats.sansCourriel);
 
   if (sendReport) {
-    const pending = db.prepare("SELECT COUNT(*) AS n FROM inactive_account_notices WHERE status = 'notified'").get().n;
-    const manualTotal = db.prepare("SELECT COUNT(*) AS n FROM inactive_account_notices WHERE status = 'manual'").get().n;
+    const upcoming = db.prepare('SELECT id, inactiveNoticeAt FROM users WHERE inactiveNoticeAt IS NOT NULL').all()
+      .map((u) => ({ id: u.id, at: Date.parse(u.inactiveNoticeAt) + config.noticeMs }))
+      .filter((u) => u.at <= now + config.reportWindowMs)
+      .sort((a, b) => a.at - b.at);
     const lines = [
-      `Rapport quotidien — fermeture des comptes inactifs (${nowIso.slice(0, 10)})`,
+      `Rapport quotidien : comptes inactifs (${nowIso.slice(0, 10)})`,
       '',
-      `Avis envoyés : ${stats.notices}`,
-      `Rappels envoyés : ${stats.reminders}`,
-      `Comptes supprimés : ${stats.deleted}`,
-      `Procédures annulées (reconnexion) : ${stats.cancelled}`,
-      `Échecs (envoi ou erreur) : ${stats.failures}`,
-      `Procédures en cours : ${pending}`,
-      `Comptes sans courriel à traiter manuellement : ${manualTotal}` + (manualIds.length ? ' (nouveaux : ' + manualIds.join(', ') + ')' : ''),
+      `Avis envoyés : ${stats.avis}`,
+      `Rappels envoyés : ${stats.rappels}`,
+      `Suppressions : ${stats.suppressions}`,
+      `Erreurs d'envoi : ${stats.erreursEnvoi}`,
+      `Comptes sans courriel : ${stats.sansCourriel}`,
+      '',
+      'Suppressions prévues dans les 15 prochains jours',
+      ...(upcoming.length ? upcoming.map((u) => `${u.id} : ${new Date(u.at).toISOString().slice(0, 10)}`) : ['Aucun']),
     ];
     try {
-      await mailer({ to: REPORT_TO, subject: 'Noèsis — rapport quotidien des comptes inactifs', text: lines.join('\n') });
+      await mailer({
+        to: REPORT_TO,
+        subject: (stats.erreursEnvoi ? 'ERREUR : ' : '') + 'Rapport quotidien : comptes inactifs',
+        text: lines.join('\n'),
+      });
     } catch (err) {
       console.error('[inactive-accounts] échec d\'envoi du rapport : ' + err.message);
     }
@@ -219,8 +222,8 @@ async function runInactiveAccounts({ now = Date.now(), mailer = sendMail, config
 }
 
 function lastRunMs() {
-  const row = db.prepare('SELECT ranAt FROM inactive_account_runs ORDER BY id DESC LIMIT 1').get();
-  return row ? Date.parse(row.ranAt) : 0;
+  const row = db.prepare('SELECT runAt FROM inactive_account_runs ORDER BY id DESC LIMIT 1').get();
+  return row ? Date.parse(row.runAt) : 0;
 }
 
 let running = false;
@@ -239,12 +242,11 @@ async function runIfDue() {
   }
 }
 
-// Lancement au démarrage si plus de 24 h sans exécution, puis vérification
-// périodique (toutes les heures ; plus souvent si l'intervalle est raccourci hors production).
+// Lancement au démarrage si dernière exécution > 24 h (délai de 1 min), puis vérification périodique.
 function startInactiveAccountsCron() {
   const cfg = getConfig();
   setTimeout(runIfDue, 60 * 1000).unref();
   setInterval(runIfDue, Math.min(3600 * 1000, cfg.intervalMs)).unref();
 }
 
-module.exports = { startInactiveAccountsCron, runInactiveAccounts, runIfDue, getConfig, isProduction, DEFAULTS };
+module.exports = { startInactiveAccountsCron, runInactiveAccounts, runIfDue, getConfig, isProduction, inactivityCutoffMs, DEFAULTS };
