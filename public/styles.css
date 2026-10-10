@@ -6792,3 +6792,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* 10 oct. 2026 : Identité — moins d'espace entre « Enregistrer » et l'onglet Sécurité. */
 #settingsMsg:empty { min-height: 0; margin: 0; }
 #profileSettingsScroll .settingsCard:has(#settingsSaveBtn) { padding-bottom: 4px; }
+/* 10 oct. 2026 : fenêtre info IA — titre fixe en haut, texte qui défile, bouton toujours visible. */
+#aiNoticeModal > .communityMembersModalCard { display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; max-height: 85dvh; }
+#aiNoticeModal .aiNoticeBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+#aiNoticeModal .communityMembersModalHeader, #aiNoticeModal .marketingInviteActions { flex: 0 0 auto; }
