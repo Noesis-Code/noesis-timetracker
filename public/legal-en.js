@@ -419,6 +419,22 @@
         return r;
       };
     }
+    // Filet de sécurité : si un autre script réécrit un de nos textes (ou si la
+    // langue est posée sans passer par les chemins ci-dessus), on resynchronise.
+    function drifted() {
+      var en = currentLang() === 'en';
+      for (var i = 0; i < nodeTargets.length; i++) {
+        var t = nodeTargets[i];
+        var want = t.lead + t.en + t.trail;
+        if (en && t.node.nodeValue !== want) return true;
+      }
+      if (!en) {
+        for (var j = 0; j < nodeOrig.length; j++) if (nodeOrig[j].node.nodeValue !== nodeOrig[j].value) return true;
+      }
+      return false;
+    }
+    setInterval(function () { if (drifted()) apply(); }, 500);
+    document.addEventListener('DOMContentLoaded', apply);
     window.NoesisLegalEn = { apply: apply, EN: EN };
   }
 
