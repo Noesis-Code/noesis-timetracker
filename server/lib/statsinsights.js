@@ -368,6 +368,49 @@ function tasksCards(ctx) {
   return out;
 }
 
+// Ratio de temps fait d'UNE semaine = MÊME règle que le statut automatique (goals.weeklyStatusFromTasks) :
+// minutes par tâche = goals.weeklyTaskMinutes (catégorie de l'objectif, 30 min par défaut), tâches liées via goalWeeklyId.
+// Choix pour une semaine à plusieurs objectifs liés : le ratio porte sur l'ENSEMBLE des tâches liées à tous les objectifs
+// hebdo de la semaine (bulle et feuille partagent cette base ; il n'y a donc qu'un chiffre par semaine).
+// weeklies : [{ id, category, status }] ; renvoie null sans tâche liée (bulle vide, non cliquable).
+// note : statut posé manuellement qui diffère du calcul -> texte neutre, jamais un second chiffre.
+function weekSummary(activityId, tasks, weeklies) {
+  const byId = {}; weeklies.forEach((w) => { byId[w.id] = w; });
+  const mine = tasks.filter((t) => t.weeklyId != null && byId[t.weeklyId]);
+  if (!mine.length) return null;
+  const items = mine.map((t) => ({ done: t.done, minutes: goals.weeklyTaskMinutes(activityId, byId[t.weeklyId].category, t.label) }));
+  const ratio = goals.weeklyRatioFromTasks(items);
+  const status = goals.weeklyStatusFromRatio(ratio);
+  // Une semaine à plusieurs objectifs : chaque statut stocké porte sur SES tâches, il peut donc légitimement différer : pas de note.
+  const diff = weeklies.length === 1 && weeklies[0].status && weeklies[0].status !== status ? weeklies[0] : null;
+  return { pct: Math.round(ratio * 100), status, note: diff ? diff.status : null, mine, items };
+}
+
+// Index des objectifs hebdomadaires (y compris ceux reportés : leurs tâches restent liées et leur semaine a bien eu lieu).
+// Partagé par la bulle et la feuille « Où ça glisse » : une seule base, donc un seul chiffre par semaine.
+function loadWeekIndex(activityId) {
+  const wk = {};
+  db.prepare('SELECT id, startDate, category FROM goal_periods WHERE activityId = ?').all(activityId).forEach((p) => {
+    db.prepare("SELECT id, weekIndex, status FROM goal_weekly WHERE periodId = ? AND TRIM(text) <> ''").all(p.id).forEach((w) => {
+      const b = goals.weekBounds(p.startDate, w.weekIndex);
+      wk[w.id] = { id: w.id, ps: p.startDate, w: w.weekIndex, start: b.start, end: b.end, category: p.category, status: w.status };
+    });
+  });
+  return wk;
+}
+
+// Bulle de période = part des semaines ATTEINTES (statut calculé par la règle du ratio) parmi les semaines commencées
+// ayant au moins une tâche liée. Partagé par la bulle et la feuille de période. null si aucune semaine évaluable.
+function periodShare(activityId, tasks, wIndex, ps, realToday, keyOk) {
+  const tiles = [1, 2, 3, 4].map((w) => {
+    const x = Object.keys(wIndex).map((id) => wIndex[id]).filter((e) => e.ps === ps && e.w === w && e.start <= realToday && keyOk(e.category));
+    const sm = x.length ? weekSummary(activityId, tasks, x) : null;
+    return { week: w, sm };
+  });
+  const evald = tiles.filter((t) => t.sm);
+  return { tiles, pct: evald.length ? Math.round(evald.filter((t) => t.sm.status === 'atteint').length * 100 / evald.length) : null };
+}
+
 // ---- Onglet Objectifs ----------------------------------------------------
 // objs = objectifs de l'année choisie (ou tous) ET du type choisi (périodiques / hebdomadaires).
 function unitStart(o) { return o.kind === 'weekly' ? goals.weekBounds(o.periodStart, o.weekIndex).start : o.periodStart; }
@@ -424,7 +467,6 @@ function objectivesCards(ctx) {
     // Vue « Tout » : la carte suit les hebdomadaires (toutes années) ; sinon le type choisi.
     const wl = ctx.okind === 'all' ? started.filter((o) => o.kind === 'weekly') : started;
     const kind = ctx.okind === 'all' ? 'weekly' : (objs.length ? objs[0].kind : null);
-    const pct = (x) => Math.round(x.filter((o) => o.status === 'atteint').length / x.length * 100);
     const plabel = (s) => 'P' + (Math.floor(goals.daysBetween(yearAnchor(anchorYearOf(s)), s) / 28) + 1);
     if (kind === 'weekly') {
       // Une période à la fois (la plus récente commencée, puis en remontant avec offset <= 0) : taux d'atteinte par semaine.
@@ -432,10 +474,12 @@ function objectivesCards(ctx) {
       if (!pstarts.length) return null;
       const idx = Math.max(0, pstarts.length - 1 + Math.min(0, ctx.woff || 0));
       const ps = pstarts[idx];
-      const list = [];
+      const list = []; const wIndex = loadWeekIndex(activityId);
       for (let w = 1; w <= 4; w += 1) {
-        const x = wl.filter((o) => o.periodStart === ps && o.weekIndex === w);
-        list.push({ label: 'S' + w, pct: x.length ? pct(x) : null, periodStart: ps, week: w });
+        // Bulle d'une semaine = ratio de temps fait (même index, même chiffre et même statut que la feuille ouverte au clic).
+        const x = Object.keys(wIndex).map((id) => wIndex[id]).filter((e) => e.ps === ps && e.w === w && e.start <= realToday && scope.keyToPole[e.category]);
+        const sm = x.length ? weekSummary(activityId, ctx.allTasks, x) : null;
+        list.push({ label: 'S' + w, pct: sm ? sm.pct : null, status: sm ? sm.status : null, periodStart: ps, week: w });
       }
       const pe = goals.addDays(ps, 27); const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
       return { mode: 'weekly', label: plabel(ps) + ' · ' + fmt(ps) + ' – ' + fmt(pe), offset: idx - (pstarts.length - 1), canPrev: idx > 0, canNext: idx < pstarts.length - 1, list };
@@ -444,7 +488,8 @@ function objectivesCards(ctx) {
     let pstarts;
     if (ctx.yearNum) { const an = yearAnchor(ctx.yearNum); pstarts = []; for (let i = 0; i < 13; i += 1) pstarts.push(goals.addDays(an, i * 28)); }
     else { const all = Array.from(new Set(objs.map(unitStart))).sort(); pstarts = all.slice(-13); }
-    const list = pstarts.map((s0) => { const x = started.filter((o) => unitStart(o) === s0); return { label: plabel(s0), periodStart: s0, pct: x.length ? pct(x) : null, future: s0 > today, current: s0 <= realToday && realToday < goals.addDays(s0, 28) }; });
+    const wIndex = loadWeekIndex(activityId);
+    const list = pstarts.map((s0) => { const sh = periodShare(activityId, ctx.allTasks, wIndex, s0, realToday, (c) => !!scope.keyToPole[c]); return { label: plabel(s0), periodStart: s0, pct: sh.pct, future: s0 > today, current: s0 <= realToday && realToday < goals.addDays(s0, 28) }; });
     return list.some((c) => c.pct != null) ? { mode: 'periodic', list } : null;
   });
 
@@ -486,25 +531,18 @@ function objectivesCards(ctx) {
 // Pour une semaine (weekIndex 1..4) ou une période entière (weekIndex absent) commençant à periodStart.
 // Tâches liées = sub_project_items.goalWeeklyId. Réalisées = faites ; Non accomplies = non faites ;
 // Ont glissé = non faites dont la date prévue est après la fin de la semaine ; Avancées = faites dans la semaine
-// mais liées à une semaine ultérieure. Temps estimé par tâche : goals.estimateForGoal (30 min par défaut).
+// mais liées à une semaine ultérieure. Ratio d'une semaine = règle du statut (goals.weeklyRatioFromTasks, minutes par tâche goals.weeklyTaskMinutes).
 function glisseDetail(activityId, periodStart, weekIndex) {
   const realToday = todayLocal();
   const scope = loadScope(activityId, null);
   const tasks = loadTasks(activityId, scope.keyToPole);
-  const pers = db.prepare('SELECT id, startDate FROM goal_periods WHERE activityId = ?').all(activityId);
-  const wk = {};
-  pers.forEach((p) => {
-    db.prepare("SELECT id, weekIndex FROM goal_weekly WHERE periodId = ? AND TRIM(text) <> ''").all(p.id).forEach((w) => {
-      const b = goals.weekBounds(p.startDate, w.weekIndex);
-      wk[w.id] = { ps: p.startDate, w: w.weekIndex, start: b.start, end: b.end };
-    });
-  });
+  const wk = loadWeekIndex(activityId);
   const plabel = (d) => 'P' + (Math.floor(goals.daysBetween(yearAnchor(anchorYearOf(d)), d) / 28) + 1);
   const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
   const cache = {};
   const minutes = (t) => {
-    const k = t.key + '|' + t.label;
-    if (!(k in cache)) { const e = goals.estimateForGoal(activityId, t.key, 'weekly', t.label); cache[k] = e && e.minutes > 0 ? e.minutes : 30; }
+    const k = (t.weeklyId != null && wk[t.weeklyId] ? wk[t.weeklyId].category : t.key) + '|' + t.label;
+    if (!(k in cache)) cache[k] = goals.weeklyTaskMinutes(activityId, t.weeklyId != null && wk[t.weeklyId] ? wk[t.weeklyId].category : t.key, t.label);
     return cache[k];
   };
   // Emplacement d'une date par rapport à la période de référence : semaine de la même période ou autre période.
@@ -522,27 +560,21 @@ function glisseDetail(activityId, periodStart, weekIndex) {
     const slipped = notDone.filter((t) => t.due && t.due > b.end).map((t) => Object.assign(row(t), { to: where(t.due, periodStart) }));
     const ahead = tasks.filter((t) => t.done && t.doneDay && t.doneDay >= b.start && t.doneDay <= b.end && t.weeklyId != null && wk[t.weeklyId] && wk[t.weeklyId].start > b.end)
       .map((t) => Object.assign(row(t), { from: slot(wk[t.weeklyId], periodStart) }));
-    let tot = 0; let dn = 0;
-    mine.forEach((t) => { const m = minutes(t); tot += m; if (t.done) dn += m; });
-    return { week: w, start: b.start, end: b.end, started: b.start <= realToday, pct: tot ? Math.round(dn * 100 / tot) : null, done: done.map(row), notDone: notDone.map(row), slipped, ahead };
+    // Même ratio que la bulle et que le statut automatique (weekSummary -> goals.weeklyRatioFromTasks).
+    const sm = weekSummary(activityId, tasks, ids.map((id) => wk[id]));
+    return { week: w, start: b.start, end: b.end, started: b.start <= realToday, pct: sm ? sm.pct : null, status: sm ? sm.status : null, statusNote: sm ? sm.note : null, done: done.map(row), notDone: notDone.map(row), slipped, ahead };
   };
   const out = { periodStart, periodLabel: plabel(periodStart), periodEnd: goals.addDays(periodStart, 27), startLabel: fmt(periodStart), endLabel: fmt(goals.addDays(periodStart, 27)) };
   if (weekIndex) {
     return Object.assign(out, { mode: 'week' }, weekDetail(weekIndex));
   }
   const weeks = [1, 2, 3, 4].map(weekDetail);
-  const tileOf = (wd) => {
-    const ids = Object.keys(wk).filter((id) => wk[id].ps === periodStart && wk[id].w === wd.week).map(Number);
-    if (!ids.length || !wd.started) return null;
-    const rows = db.prepare(`SELECT status FROM goal_weekly WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids);
-    return rows.length ? Math.round(rows.filter((r) => r.status === 'atteint').length * 100 / rows.length) : null;
-  };
-  const tiles = weeks.map((wd) => ({ week: wd.week, pct: tileOf(wd) }));
-  const evald = tiles.filter((x) => x.pct != null);
+  const share = periodShare(activityId, tasks, wk, periodStart, realToday, () => true);
+  const tiles = weeks.map((wd) => ({ week: wd.week, pct: wd.started && wd.pct != null ? wd.pct : null, status: wd.started && wd.pct != null ? wd.status : null, statusNote: wd.started && wd.pct != null ? wd.statusNote : null }));
   const cat = (key) => weeks.reduce((a, wd) => a.concat(wd[key]), []);
   return Object.assign(out, {
     mode: 'period',
-    pct: evald.length ? Math.round(evald.filter((x) => x.pct >= 80).length * 100 / evald.length) : null,
+    pct: share.pct,
     tiles, slipped: cat('slipped'), notDone: cat('notDone'), ahead: cat('ahead'),
   });
 }

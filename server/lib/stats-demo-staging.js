@@ -312,13 +312,9 @@ function build(u, fakeNames, NAME, NAME_CONF, seed) {
             }
           }
         }
+        // Statut = ratio réel des tâches liées (même règle que l'app : goals.recomputeWeeklyStatus), jamais tiré indépendamment.
         let status = null;
-        if (ws <= todayIso) { // semaine passée OU en cours : statut automatique d'après les tâches faites
-          status = goals.weeklyStatusFromTasks(new Array(totalN).fill(0).map((_, i) => ({ done: i < doneN, minutes: 30 })));
-          if (qq === 0.05 && we < curWeekStart && we >= D(curWeekStart, -7)) status = 'non_atteint';
-          if (ws === curWeekStart) status = kn === 'communaute' ? 'atteint' : 'partiel'; // semaine en cours : un objectif atteint d'avance, un partiel
-        }
-        db.prepare('UPDATE goal_weekly SET status = ? WHERE id = ?').run(status, wid);
+        if (ws <= todayIso) { goals.recomputeWeeklyStatus(wid); status = db.prepare('SELECT status FROM goal_weekly WHERE id = ?').get(wid).status; }
         weeklies.push({ id: wid, key: kn, n, w, ws, we, status });
       });
     }
@@ -379,11 +375,21 @@ function build(u, fakeNames, NAME, NAME_CONF, seed) {
     const ws = D(periodStart(tn), (tw - 1) * 7); const we = D(ws, 6);
     const hops = (x.hops || 0) + 1;
     let status = null;
-    if (we < todayIso) { const r = rnd(); status = hops >= 3 || r < 0.5 ? 'atteint' : (r < 0.7 ? 'partiel' : 'non_atteint'); }
     const nid = Number(db.prepare(`INSERT INTO goal_weekly (periodId, weekIndex, text, estimateMinutes, estimateSource, estimateConfidence, status, assignedUserId, carriedOverFromId, createdAt)
       VALUES (?, ?, ?, ?, 'manual', 1, ?, ?, ?, ?)`).run(periodIdOf[K[x.key] + '|' + tn], tw, row.text, row.estimateMinutes, status, row.assignedUserId, x.id, now).lastInsertRowid);
     db.prepare('UPDATE goal_weekly SET carriedToId = ? WHERE id = ?').run(nid, x.id);
     carriedFrom.add(x.id);
+    if (we < todayIso) { // semaine terminée : on crée des tâches liées dont le ratio donne l'issue voulue, puis le statut est calculé par l'app
+      const r = rnd(); const want = hops >= 3 || r < 0.5 ? 4 : (r < 0.7 ? 3 : 1); // faites sur 4 : atteint / partiel / non atteint
+      const th = periodTheme[x.key + '|' + tn] || periodTheme[x.key + '|' + x.n];
+      for (let t = 0; t < 4; t += 1) {
+        const idx = pickMember(); const due = D(ws, between(0, 4));
+        const dn = t < want;
+        addTask(x.key, th[1][t % th[1].length], due, 0, idx, dn ? { done: true, doneDay: due < todayIso ? due : D(todayIso, -1), doneIdx: idx } : { done: false, kind: 'overdue' }, nid);
+      }
+      goals.recomputeWeeklyStatus(nid);
+      status = db.prepare('SELECT status FROM goal_weekly WHERE id = ?').get(nid).status;
+    }
     const copy = { id: nid, key: x.key, n: tn, w: tw, ws, we, status, hops };
     bySlot[x.key + '|' + seq] = copy;
     // insère au bon rang chronologique (la copie est toujours plus tard)

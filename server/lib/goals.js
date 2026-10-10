@@ -1564,7 +1564,8 @@ const WEEKLY_PARTIEL_MIN = 0.75;
 const DEFAULT_TASK_MINUTES = 30;
 
 // Pur. tasks : [{ done, minutes }] ; minutes absent/<=0 -> DEFAULT_TASK_MINUTES. Renvoie null s'il n'y a aucune tâche.
-function weeklyStatusFromTasks(tasks) {
+// Ratio de temps fait (0..1) : SOURCE UNIQUE, réutilisée par le statut ET par les statistiques « Où ça glisse ».
+function weeklyRatioFromTasks(tasks) {
   if (!tasks || !tasks.length) return null;
   let total = 0; let done = 0;
   tasks.forEach((t) => {
@@ -1572,8 +1573,22 @@ function weeklyStatusFromTasks(tasks) {
     total += m;
     if (t.done) done += m;
   });
-  const r = done / total;
+  return done / total;
+}
+
+function weeklyStatusFromRatio(r) {
+  if (r == null) return null;
   return r >= WEEKLY_ATTEINT_MIN ? 'atteint' : (r >= WEEKLY_PARTIEL_MIN ? 'partiel' : 'non_atteint');
+}
+
+function weeklyStatusFromTasks(tasks) {
+  return weeklyStatusFromRatio(weeklyRatioFromTasks(tasks));
+}
+
+// Minutes d'une tâche liée à un objectif hebdomadaire (catégorie de l'objectif) : estimation historique, sinon défaut.
+function weeklyTaskMinutes(activityId, category, label) {
+  const est = estimateForGoal(activityId, category, 'weekly', label);
+  return est && est.minutes > 0 ? est.minutes : DEFAULT_TASK_MINUTES;
 }
 
 // Pur. statuses : statuts des objectifs hebdomadaires de la période. null si aucun objectif hebdomadaire.
@@ -1604,10 +1619,7 @@ function recomputeWeeklyStatus(weeklyId) {
   `).get(weeklyId);
   if (!w) return;
   const rows = db.prepare('SELECT label, done FROM sub_project_items WHERE goalWeeklyId = ?').all(weeklyId);
-  const st = weeklyStatusFromTasks(rows.map((r) => {
-    const est = estimateForGoal(w.activityId, w.category, 'weekly', r.label);
-    return { done: !!r.done, minutes: est && est.minutes };
-  }));
+  const st = weeklyStatusFromTasks(rows.map((r) => ({ done: !!r.done, minutes: weeklyTaskMinutes(w.activityId, w.category, r.label) })));
   if (st != null && st !== w.status) db.prepare('UPDATE goal_weekly SET status = ? WHERE id = ?').run(st, weeklyId);
   recomputePeriodStatus(w.periodId);
 }
@@ -1969,6 +1981,9 @@ module.exports = {
   setWeekly,
   setWeeklyStatus,
   weeklyStatusFromTasks,
+  weeklyRatioFromTasks,
+  weeklyStatusFromRatio,
+  weeklyTaskMinutes,
   periodStatusFromWeeklies,
   recomputeWeeklyStatus,
   recomputePeriodStatus,

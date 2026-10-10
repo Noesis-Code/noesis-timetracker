@@ -250,7 +250,7 @@
   }
   function renderGlisse(g) {
     var pn = String(g.periodLabel || '').replace(/^P/, '');
-    var isW = g.mode === 'week', ok = g.pct != null && g.pct >= 80, col = ok ? GREEN : RED;
+    var isW = g.mode === 'week', ok = g.pct != null && (isW ? g.status === 'atteint' : g.pct >= 80), col = ok ? GREEN : RED;
     els.mTitle.innerHTML = '';
     els.mTitle.appendChild(el('span', null, isW ? tr('Semaine {n} · {p}', { n: g.week, p: g.periodLabel }) : tr('Période {n} · {a} – {b}', { n: pn, a: g.startLabel, b: g.endLabel })));
     els.mSub.textContent = '';
@@ -261,15 +261,16 @@
     els.mTop.appendChild(big);
     if (isW && g.pct != null) els.mTop.appendChild(bar([[g.pct, GREEN], [100 - g.pct, RED]]));
     els.mTop.appendChild(el('p', 'saGexp', tr(isW
-      ? 'Le chiffre = temps estimé des tâches liées à l’objectif de la semaine qui sont faites, divisé par le temps estimé de toutes ces tâches. 90 % ou plus : atteint · 75 % ou plus : partiel.'
-      : 'Le chiffre = part des semaines atteintes dans la période (les semaines à venir ne comptent pas). Touche une semaine pour voir ses tâches.')));
+      ? 'Le chiffre = temps estimé des tâches liées à l’objectif de la semaine qui sont faites, divisé par le temps estimé de toutes ces tâches (même règle que le statut). 90 % ou plus : atteint (vert) · 75 % ou plus : partiel · sinon non atteint (rouge).'
+      : 'Le chiffre = part des semaines atteintes dans la période (les semaines à venir ne comptent pas). Chaque case montre le temps fait de la semaine : vert si atteinte (90 % ou plus). Touche une semaine pour voir ses tâches.')));
+    if (isW && g.statusNote) els.mTop.appendChild(el('p', 'saGexp', tr('Statut posé à la main : {s}.', { s: tr(g.statusNote === 'atteint' ? 'atteint' : (g.statusNote === 'partiel' ? 'partiel' : 'non atteint')) })));
     if (!isW) {
       var wkw = el('div', 'saTiles'); wkw.style.gridTemplateColumns = 'repeat(4,1fr)';
       g.tiles.forEach(function (x) {
         var t = el('button', 'saTile saGlass saTileBtn'), has = x.pct != null; t.type = 'button';
-        if (has) t.style.borderColor = x.pct >= 80 ? GREEN : RED; else { t.style.opacity = '.5'; t.disabled = true; }
+        if (has) t.style.borderColor = x.status === 'atteint' ? GREEN : RED; else { t.style.opacity = '.5'; t.disabled = true; }
         t.appendChild(el('small', null, 'S' + x.week));
-        var b = el('b', null, has ? x.pct + ' %' : '–'); if (has) b.style.color = x.pct >= 80 ? GREEN : RED; t.appendChild(b);
+        var b = el('b', null, has ? x.pct + ' %' : '–'); if (has) b.style.color = x.status === 'atteint' ? GREEN : RED; t.appendChild(b);
         if (has) t.addEventListener('click', function () { openGlisse(g.periodStart, x.week); });
         wkw.appendChild(t);
       });
@@ -608,7 +609,7 @@
         var g = el('div', 'saTiles');
         g.style.gridTemplateColumns = 'repeat(4,1fr)';
         items.forEach(function (wk) {
-          var has = wk.pct != null, ok = has && wk.pct >= 80, click = !visitor && has && wk.periodStart;
+          var has = wk.pct != null, ok = has && (wk.status ? wk.status === 'atteint' : wk.pct >= 80), click = !visitor && has && wk.periodStart;
           var t = el(click ? 'button' : 'div', 'saTile saGlass' + (click ? ' saTileBtn' : '')); if (click) t.type = 'button';
           if (click) t.addEventListener('click', function () { openGlisse(wk.periodStart, wk.week || null); });
           if (has) t.style.borderColor = ok ? GREEN : RED; else t.style.opacity = wk.future ? '.4' : '.6';
