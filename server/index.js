@@ -311,4 +311,7 @@ app.listen(PORT, HOST, () => {
   // Recalcul des objectifs d'après le temps réel (7 oct. 2026) : PROPOSITIONS seulement, une fois par nuit
   // (heure de Montréal). Désactivable : GOALS_RECALC_CRON=off. Voir server/lib/goalsrecalc.js.
   require('./lib/goalsrecalc').startGoalsRecalcCron();
+
+  // Fermeture des comptes inactifs (Loi 25, 10 oct. 2026) : 24 mois sans connexion, avis puis rappel puis suppression. Voir server/lib/inactiveaccounts.js.
+  require('./lib/inactiveaccounts').startInactiveAccountsCron();
 });

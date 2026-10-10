@@ -2346,4 +2346,33 @@ CREATE INDEX IF NOT EXISTS idx_sub_project_items_due ON sub_project_items(dueDat
 CREATE INDEX IF NOT EXISTS idx_sub_project_items_done ON sub_project_items(done, doneAt);
 `);
 
+// ===================== FERMETURE DES COMPTES INACTIFS =====================
+// 10 oct. 2026 (conformité Loi 25, trame 6) : users.lastSeenAt = dernière activité authentifiée
+// (posée par server/lib/session.js, au plus une écriture toutes les 6 h par compte). À la création
+// de la colonne, tous les comptes existants sont réputés vus « maintenant » (aucune fermeture
+// rétroactive). Suivi des avis SANS adresse courriel ; les lignes partent avec le compte (CASCADE).
+if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === 'lastSeenAt')) {
+  db.exec('ALTER TABLE users ADD COLUMN lastSeenAt TEXT');
+  db.prepare('UPDATE users SET lastSeenAt = ? WHERE lastSeenAt IS NULL').run(new Date().toISOString());
+}
+db.exec(`
+CREATE TABLE IF NOT EXISTS inactive_account_notices (
+  userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'notified',
+  noticeSentAt TEXT NOT NULL,
+  deletionAt TEXT,
+  reminderSentAt TEXT
+);
+CREATE TABLE IF NOT EXISTS inactive_account_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ranAt TEXT NOT NULL,
+  notices INTEGER NOT NULL DEFAULT 0,
+  reminders INTEGER NOT NULL DEFAULT 0,
+  deleted INTEGER NOT NULL DEFAULT 0,
+  cancelled INTEGER NOT NULL DEFAULT 0,
+  manual INTEGER NOT NULL DEFAULT 0,
+  failures INTEGER NOT NULL DEFAULT 0
+);
+`);
+
 module.exports = db;

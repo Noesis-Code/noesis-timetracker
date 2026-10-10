@@ -242,8 +242,24 @@ function bumpSessionEpoch(userId) {
 // silencieusement sur DEFAULT_TIMEZONE — jamais une erreur, jamais un blocage
 // de la requête : un client plus ancien (avant ce chantier) continue de
 // fonctionner exactement comme avant.
+// Dernière activité (fermeture des comptes inactifs, server/lib/inactiveaccounts.js) :
+// au plus une écriture toutes les 6 h par compte, jamais bloquante.
+const SEEN_THROTTLE_MS = 6 * 3600 * 1000;
+const lastSeenWrite = new Map();
+function touchLastSeen(userId) {
+  const nowMs = Date.now();
+  if (nowMs - (lastSeenWrite.get(userId) || 0) < SEEN_THROTTLE_MS) return;
+  lastSeenWrite.set(userId, nowMs);
+  try {
+    db.prepare('UPDATE users SET lastSeenAt = ? WHERE id = ?').run(new Date(nowMs).toISOString(), userId);
+  } catch (err) {
+    lastSeenWrite.delete(userId);
+  }
+}
+
 function middleware(req, res, next) {
   req.userId = readSessionUserId(req);
+  if (req.userId) touchLastSeen(req.userId);
   const headerTz = req.get('X-Client-Tz');
   req.timezone = isValidTimezone(headerTz) ? headerTz : DEFAULT_TIMEZONE;
   next();
