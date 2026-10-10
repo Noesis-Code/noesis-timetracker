@@ -6801,3 +6801,13 @@ button { -webkit-user-select: none; user-select: none; }
 #aiNoticeModal .communityMembersModalHeader { margin-bottom: 0; padding: 4px 0 10px; border-bottom: 1px solid var(--border); }
 #aiNoticeModal .aiNoticeScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-top: 10px; }
 #aiNoticeModal .aiNoticeBody { overflow: visible; flex: none; }
+
+/* 10 oct. 2026 (retour testeur iPhone) : #onboarding clavier ouvert — hauteur = viewport visuel, contenu aligné en haut
+   (le centrage vertical coupait le haut des champs), défilement vertical. */
+html.kbOpen #onboarding {
+  height: var(--vvh, 100dvh);
+  align-items: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }

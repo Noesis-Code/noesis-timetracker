@@ -1490,6 +1490,48 @@
     })();
   }
 
+  // 10 oct. 2026 (Design, retour testeur iPhone) : un bouton touché clavier ouvert = UN geste (action + fermeture du
+  // clavier). Sans ça, le 1er toucher fait perdre le focus à l'input, le clavier se ferme, la mise en page bouge et le
+  // clic rate le bouton. mousedown.preventDefault garde le focus (donc la mise en page) jusqu'au click ; le blur suit
+  // le gestionnaire du click (setTimeout 0). Exclus : zones d'écriture (.chatComposerRow : l'envoi garde le clavier),
+  // [data-keep-kb], champs/labels/liens/select.
+  if (_isCoarsePointer) {
+    document.addEventListener('mousedown', function (e) {
+      var a = document.activeElement;
+      if (!a || !_isTextInputEl(a)) return;
+      var t = e.target && e.target.closest ? e.target.closest('button, .btn, .iconBtn') : null;
+      if (!t || t.disabled || t.closest('.chatComposerRow, [data-keep-kb]')) return;
+      e.preventDefault();
+    }, true);
+    document.addEventListener('click', function (e) {
+      var a = document.activeElement;
+      if (!a || !_isTextInputEl(a)) return;
+      var t = e.target && e.target.closest ? e.target.closest('button, .btn, .iconBtn') : null;
+      if (!t || t.closest('.chatComposerRow, [data-keep-kb]')) return;
+      setTimeout(function () {
+        var b = document.activeElement;
+        if (b && b === a && _isTextInputEl(b)) b.blur();
+      }, 0);
+    }, false);
+  }
+
+  // 10 oct. 2026 : hauteur visible réelle pour #onboarding (100vh en standalone ne rétrécit pas avec le clavier).
+  if (window.visualViewport) {
+    (function () {
+      var vv = window.visualViewport, root = document.documentElement;
+      function setVvh() { root.style.setProperty('--vvh', Math.round(vv.height) + 'px'); }
+      vv.addEventListener('resize', setVvh);
+      setVvh();
+      document.addEventListener('focusin', function (e) {
+        var el = e.target;
+        if (!_isTextInputEl(el) || !el.closest || !el.closest('#onboarding')) return;
+        setTimeout(function () {
+          if (document.activeElement === el) { try { el.scrollIntoView({ block: 'center' }); } catch (err) {} }
+        }, 350);
+      }, true);
+    })();
+  }
+
   // 3 septembre 2026, suite (Design) : Emilien souhaite qu'un volet dont le
   // contenu tient déjà entièrement dans l'écran (ex. Chrono, Activité selon
   // ce qu'ils contiennent à l'instant) ne présente AUCUN mouvement au
