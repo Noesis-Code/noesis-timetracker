@@ -276,4 +276,4 @@ function seedScenariosOnStaging() {
   return r;
 }
 
-module.exports = { NAME, isStaging, seedScenarios, resetScenarios, seedScenariosOnStaging };
+module.exports = { NAME, isStaging, seedScenarios, resetScenarios, seedScenariosOnStaging, removeActivity };

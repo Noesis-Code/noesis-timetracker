@@ -1899,6 +1899,8 @@ if (tableExists('running_timers') && !columnExists('running_timers', 'goalCatego
 if (columnExists('time_entries', 'goalCategory')) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_entries_goalcategory ON time_entries(activityId, goalCategory)');
 }
+// Statistiques (10 oct. 2026) : les sommes de temps par activité et plage de dates (estimations, cartes) balayaient toute l'activité.
+if (tableExists('time_entries')) db.exec('CREATE INDEX IF NOT EXISTS idx_entries_activity_date ON time_entries(activityId, isoDate)');
 
 // ----- Correction du sur-effacement à la suppression d'un compte -----
 // (9 septembre 2026 — voir noesis-timetracker-conformite-loi25.md, section

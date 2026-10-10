@@ -676,6 +676,8 @@ function allTasksWithGroup(activityId) {
 // Efface UNIQUEMENT la ligne des tâches cochées depuis plus de 7 jours. Idempotent.
 // Aucune autre table ne référence sub_project_items : temps enregistré et statistiques intacts.
 function purgeOldDoneTasks(activityId) {
+  // Activités d'exemple des statistiques (staging seulement) : leur historique de tâches faites doit survivre (voir stats-demo-staging.js).
+  try { if (require('./stats-demo-staging').isDemoActivity(activityId)) return 0; } catch (e) { /* module absent : purge normale */ }
   const cutoff = Date.now() - ARCHIVE_RETENTION_DAYS * 86400000;
   let n = 0;
   allTasksWithGroup(activityId).forEach((t) => {
