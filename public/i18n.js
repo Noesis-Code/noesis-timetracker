@@ -1182,6 +1182,7 @@
   function hasKey(k) { return Object.prototype.hasOwnProperty.call(DICT, k); }
 
   function applyTemplate(tpl, m) {
+    if (typeof tpl === 'function') return tpl(m);
     return tpl.replace(/\$(\d)/g, function (_, i) { return m[Number(i)] || ''; });
   }
 
@@ -1500,6 +1501,270 @@
     [/^Tu as déjà une activité "(.+)"\.$/, 'You already have an activity "$1".']
   );
 
-  global.NoesisI18n = { t: t, setLang: setLang, getLang: getLang, translateStaticDom: translateStaticDom };
+  // 10 octobre 2026 (chantier « Anglais partout ») : chaînes restées en
+  // français après l'audit complet de l'interface (HTML statique, gabarits JS,
+  // libellés construits dans le code, messages serveur).
+  Object.assign(DICT, {
+    // ---- Gestion de l'IA (public/js/objectifs-page1.js, AI_MODES) ----
+    "Autonome": "Autonomous",
+    "Partiel": "Partial",
+    "Absent": "Off",
+    "Noèsis range tes tâches seul, sans te demander ton avis.": "Noèsis sorts your tasks on its own, without asking for your opinion.",
+    "Noèsis propose un rangement ; tu le reconfirmes et tu peux le modifier.": "Noèsis suggests where each task goes; you reconfirm it and can change it.",
+    "Noèsis ne range rien : tu choisis toi-même où va chaque tâche.": "Noèsis sorts nothing: you choose where each task goes yourself.",
+    "Comment Noèsis gère tes tâches ?": "How should Noèsis handle your tasks?",
+    "Tu pourras changer ce choix à tout moment dans Réglages › Gestion de l'IA.": "You can change this choice at any time in Settings › AI management.",
+    "Pas encore choisi : il te sera demandé à ta première tâche.": "Not chosen yet: you will be asked at your first task.",
+    "Choisis un pôle ou un secteur pour chaque activité.": "Choose a division or a sector for each activity.",
+    "Pôle et secteur": "Division and sector",
+    // ---- Page Objectifs (gabarits) ----
+    "Génère automatiquement tes objectifs et tâches tous les mois en passant à l'Offre 1.": "Automatically generate your goals and tasks every month by moving to Offer 1.",
+    "20 $/mois par activité · résiliable à tout moment": "$20/month per activity · cancel anytime",
+    "Découvrir l'Offre 1": "Discover Offer 1",
+    "Archives": "Archive",
+    "Aucune tâche terminée ces 7 derniers jours.": "No task completed in the last 7 days.",
+    "Discussion": "Discussion",
+    "Mensuel": "Monthly",
+    "Annuel": "Yearly",
+    "Aucun objectif périodique": "No periodic goal",
+    "+ Ajouter": "+ Add",
+    "▸ Gérer mon temps": "▸ Manage my time",
+    "Objectifs hebdomadaires": "Weekly goals",
+    "Titre de l'objectif": "Goal title",
+    "Toutes les tâches du jour sont terminées : retrouve-les dans Archives.": "All of today's tasks are done: find them in the Archive.",
+    "Aucune tâche prévue pour aujourd’hui.": "No task planned for today.",
+    "Calculé par Noèsis d’après les tâches réalisées": "Calculated by Noèsis from the completed tasks",
+    "en plus, ajoutées à la période": "extra, added to the period",
+    "tâches faites en moins de temps": "tasks done in less time",
+    "Modifier l’objectif": "Edit the goal",
+    "estimées pour la période": "estimated for the period",
+    "Temps estimé : à définir": "Estimated time: to be defined",
+    "Temps estimé des tâches de ce jour": "Estimated time of this day's tasks",
+    // ---- Libellés construits dans app.js ----
+    "retirée": "removed",
+    "rangée dans": "filed in",
+    "contribue peut-être à": "may contribute to",
+    "Maximum {max} secteurs par pôle": "Maximum {max} sectors per division",
+    "Supprimer le pôle « {name} » ?": "Delete the division \"{name}\"?",
+    "Supprimer le secteur « {name} » ?": "Delete the sector \"{name}\"?",
+    "Êtes-vous sûr de vouloir supprimer le pôle ? Les secteurs affiliés ainsi que les tâches seront également supprimés.": "Are you sure you want to delete the division? Its linked sectors and tasks will also be deleted.",
+    "Les tâches de ce sous-projet, une fois un membre prévu assigné, seront placées automatiquement dans le planning hebdomadaire Objectifs de ce membre.": "Once a planned member is assigned, this sub-project's tasks will be placed automatically in that member's weekly Goals planning.",
+    "Répartition du temps par membre": "Time breakdown by member",
+    "Votre accord est retiré. Vos données ne servent plus qu'au fonctionnement de l'application.": "Your consent is withdrawn. Your data is now used only to run the app.",
+    "Colle d’abord l’adresse de ton agenda.": "Paste your calendar's address first.",
+    "L'envoi a échoué, réessaie plus tard": "Sending failed, try again later",
+    "Replie les projets pour pouvoir les réordonner": "Collapse the projects to be able to reorder them",
+    "Glisse pour réordonner.": "Drag to reorder.",
+    "Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.": "Join me on Noèsis, my shared TimeTracker: {url}\nMy nickname is \"{pseudo}\" — find me in Community > Find members to follow me.",
+    // ---- Index.html statique ----
+    "Chargement de Noèsis": "Loading Noèsis",
+    "Ouvrir le profil": "Open profile",
+    "Choisir la granularité": "Choose the granularity",
+    "Joindre un fichier": "Attach a file",
+    "Joindre une image ou un PDF": "Attach an image or a PDF",
+    ", et j'ai 16 ans ou plus.": ", and I am 16 or older.",
+    "Être trouvable à la connexion": "Be findable at sign-in",
+    "J'accepte que Noesis utilise les données que je saisis pour analyser l'usage, produire des statistiques, m'envoyer des communications commerciales et cibler ses propres campagnes publicitaires. Mon code PIN et mes messages privés ne sont jamais utilisés. Je peux retirer mon accord à tout moment dans Réglages, section Sécurité. (Politique de confidentialité,": "I agree that Noesis may use the data I enter to analyse usage, produce statistics, send me commercial communications and target its own advertising campaigns. My PIN code and private messages are never used. I can withdraw my consent at any time in Settings, Security section. (Privacy policy,",
+    "J'accepte que mon prénom et mon nom puissent être trouvés dans la recherche de membres de l'écran de connexion. (Politique de confidentialité, section 4.1)": "I agree that my first and last name may be found in the member search on the sign-in screen. (Privacy policy, section 4.1)",
+    "Analyse de l'usage, statistiques, communications commerciales et campagnes publicitaires de Noesis.": "Usage analysis, statistics, commercial communications and advertising campaigns by Noesis.",
+    "Gouvernance des renseignements personnels": "Personal information governance",
+    "Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit personne n'a encore écrit.": "Nothing to show yet: either nobody is sharing their profile with you yet, or nobody has written yet.",
+    "Catégories": "Categories",
+    "+ Ajouter des détails": "+ Add details",
+    "Activités exportées": "Exported activities",
+    "Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis ne compte que les heures occupées, jamais le contenu des événements, pour alléger tes tâches du jour.": "Paste the ICS address of a calendar (Google Calendar, Apple Calendar…); you can add several. Noèsis only counts the busy hours, never the events' content, to lighten your tasks for the day.",
+    "▸ URL enregistrées": "▸ Saved URLs",
+    "Une question sur vos données": "A question about your data",
+    "J'accepte": "I agree",
+    "Non merci": "No thanks",
+    // ---- Messages serveur ----
+    "Seules les années futures peuvent être supprimées.": "Only future years can be deleted.",
+    "Supprimez d’abord les années suivantes.": "Delete the following years first.",
+    "Cette année contient déjà des objectifs.": "This year already contains goals.",
+    "Une année passée ne se modifie plus.": "A past year can no longer be edited.",
+    "Catégorie invalide.": "Invalid category.",
+    "Catégorie invalide pour cette activité.": "Invalid category for this activity.",
+    "Nom de catégorie requis.": "Category name required.",
+    "Pôle introuvable pour ce secteur.": "Division not found for this sector.",
+    "Catégorie introuvable.": "Category not found.",
+    "Impossible de retirer le dernier pôle.": "Cannot remove the last division.",
+    "Liste de catégories invalide.": "Invalid category list.",
+    "Pôle introuvable.": "Division not found.",
+    "Liste de secteurs invalide.": "Invalid sector list.",
+    "Secteur introuvable pour ce pôle.": "Sector not found for this division.",
+    "Pôle cible introuvable.": "Target division not found.",
+    "Catégorie ou secteur invalide pour cette activité.": "Invalid category or sector for this activity.",
+    "Statut invalide.": "Invalid status.",
+    "Ce membre n'appartient pas à cette activité.": "This member does not belong to this activity.",
+    "Capacité invalide (minutes par semaine positives requises).": "Invalid capacity (positive minutes per week required).",
+    "Jour cible invalide.": "Invalid target day.",
+    "Tâche introuvable ou déjà terminée.": "Task not found or already completed.",
+    "Tâche hors du pôle affiché.": "Task outside the displayed division.",
+    "Objectif de période introuvable ou déjà reporté.": "Period goal not found or already carried over.",
+    "Objectif hors du pôle affiché.": "Goal outside the displayed division.",
+    "Choix invalide.": "Invalid choice.",
+    "La période suivante a déjà un objectif.": "The next period already has a goal.",
+    "Aucune tâche à dater : tout est déjà placé ou aucune tâche ne dépend encore de cet objectif.": "No task to date: everything is already placed or no task depends on this goal yet.",
+    "Le plan a changé depuis son affichage.": "The plan has changed since it was displayed.",
+    "Proposition déjà traitée.": "Proposal already handled.",
+    "Cette période n'est plus d'actualité.": "This period is no longer current.",
+    "Texte requis.": "Text required.",
+    "Aucune catégorie sur cette activité.": "No category on this activity.",
+    "Catégorie choisie invalide pour cette activité.": "Chosen category invalid for this activity.",
+    "Au moins une activité doit être sélectionnée.": "At least one activity must be selected.",
+    "Cette tâche existe déjà dans cette activité.": "This task already exists in this activity.",
+    "Pôle et secteur non trouvés.": "Division and sector not found.",
+    "Ce pôle a des secteurs : ajoutez la tâche à l'un d'eux.": "This division has sectors: add the task to one of them.",
+    "Date d'échéance invalide.": "Invalid due date.",
+    "Ce pôle a des secteurs : choisissez-en un.": "This division has sectors: choose one.",
+    "Cette tâche n'appartient pas à cette activité.": "This task does not belong to this activity.",
+    "Période introuvable.": "Period not found.",
+    "Date invalide.": "Invalid date.",
+    "Type de fichier non autorisé (images ou PDF seulement).": "File type not allowed (images or PDF only).",
+    "Pôle ou secteur invalide pour cette activité.": "Invalid division or sector for this activity.",
+    "Pôle invalide pour cette activité.": "Invalid division for this activity.",
+    "Envoi de courriel indisponible : RESEND_API_KEY n'est pas configurée côté serveur.": "Email sending unavailable: RESEND_API_KEY is not configured on the server.",
+    "Génération indisponible pour le moment.": "Generation unavailable at the moment.",
+    "Ce sondage n'accepte pas de réponse libre.": "This poll does not accept free-text answers.",
+    "Ce sondage a déjà le nombre maximum de réponses.": "This poll already has the maximum number of answers.",
+    "Récurrence invalide.": "Invalid recurrence.",
+    "URL invalide.": "Invalid URL.",
+    "Non connecté.": "Not signed in.",
+    "Deux pièces jointes maximum (une photo et un document).": "Two attachments maximum (one photo and one document).",
+    "Tu ne peux pas suivre cette personne.": "You cannot follow this person.",
+    "Tu ne peux pas te bloquer toi-même.": "You cannot block yourself.",
+    "Tu ne peux retirer que tes propres blocages.": "You can only remove your own blocks.",
+    "Débloqué.": "Unblocked.",
+    "Le statut de la période est calculé automatiquement par Noèsis.": "The period's status is calculated automatically by Noèsis.",
+    "Période ou semaine invalide.": "Invalid period or week.",
+    "Semaine invalide (1 à 4).": "Invalid week (1 to 4).",
+    "Choisis d'abord comment Noèsis gère tes tâches.": "First choose how Noèsis handles your tasks.",
+    "Tâche refusée.": "Task refused.",
+    "Paiement indisponible : STRIPE_OFFER1_PRICE_ID n'est pas configurée.": "Payment unavailable: STRIPE_OFFER1_PRICE_ID is not configured.",
+    "Lien invalide": "Invalid link",
+    "Lien expiré": "Link expired",
+    "Déjà utilisé": "Already used",
+    "Trop de recherches. Réessayez dans une minute.": "Too many searches. Try again in a minute.",
+    "Cette adresse courriel est déjà associée à un profil. Récupère ton profil (« J'ai déjà un profil sur cette app ») ou utilise une autre adresse.": "This email address is already linked to a profile. Recover your profile (\"I already have a profile on this app\") or use another address.",
+    "Tu dois accepter les conditions d'utilisation et la politique de confidentialité.": "You must accept the terms of use and the privacy policy.",
+    "Couleur invalide.": "Invalid colour.",
+    "Valeur invalide.": "Invalid value.",
+    "Tu ne peux modifier que ton propre profil.": "You can only edit your own profile.",
+    "Tu ne peux lire que ton propre profil.": "You can only read your own profile.",
+    "Mode invalide.": "Invalid mode.",
+    "Trop de tentatives. Réessayez dans une minute.": "Too many attempts. Try again in a minute.",
+    "Tu ne peux supprimer que ton propre profil.": "You can only delete your own profile.",
+    "Non authentifié.": "Not authenticated.",
+    "Activité non accessible.": "Activity not accessible.",
+    "Nom du sous-projet requis.": "Sub-project name required.",
+    "Profil introuvable. Réinitialise ton profil dans Paramètres.": "Profile not found. Reset your profile in Settings.",
+  });
+  PATTERNS.push(
+    [/^(Nom|Texte|Description|Titre|Intitulé|Message|Question|Réponse) trop (?:long|longue) \((\d+) caractères maximum\)\.$/, function (m) { return ({ 'Nom': 'Name', 'Texte': 'Text', 'Description': 'Description', 'Titre': 'Title', 'Intitulé': 'Title', 'Message': 'Message', 'Question': 'Question', 'Réponse': 'Answer' })[m[1]] + ' too long (' + m[2] + ' characters maximum).'; }],
+    [/^(\d+) secteurs maximum par pôle\.$/, '$1 sectors maximum per division.'],
+    [/^Maximum (\d+) pôles par activité\.$/, 'Maximum $1 divisions per activity.'],
+    [/^Tu peux enregistrer (\d+) adresses au maximum\.$/, 'You can save $1 addresses at most.'],
+    [/^Plafond invalide \((.+)\) : entier de minutes >= 0 ou vide\.$/, 'Invalid limit ($1): whole number of minutes >= 0 or empty.'],
+    [/^(.+) a été bloqué\(e\)\.$/, '$1 was blocked.'],
+    [/^Un courriel a été envoyé à (.+) pour recueillir le consentement de ton représentant légal\. Reviens ici une fois qu'il ou elle aura confirmé\.$/, 'An email was sent to $1 to collect your legal guardian\'s consent. Come back here once they have confirmed.'],
+    [/^Impossible d'envoyer le courriel de consentement : (.+)$/, 'Could not send the consent email: $1'],
+    [/^Noèsis n'a pas pu (?:faire l'évaluation entre secteurs|générer les objectifs hebdomadaires|générer le plan) \(HTTP (\d+)\)(.*)$/, 'Noèsis could not complete the request (HTTP $1)$2'],
+    [/^Anthropic a refusé l'appel \(HTTP (\d+)\)(.*)$/, 'Anthropic refused the call (HTTP $1)$2'],
+    [/^(.+) requis\.$/, function (m) { return m[1] + ' required.'; }]
+  );
+
+  Object.assign(DICT, {
+    "Rechercher": "Search",
+    "Semaine en cours": "Current week",
+    "En savoir plus": "Learn more",
+    "Temps": "Time",
+    "Images ou PDF seulement.": "Images or PDF only.",
+    "Inviter": "Invite",
+    "Nom du secteur": "Sector name",
+    "Visualiser": "View",
+    "discussion": "discussion",
+    "importance": "importance",
+    "jusqu’au": "until",
+    "Partenaires": "Partners",
+    "Financement": "Funding",
+    "Depuis le début": "Since the beginning",
+    "Trop d'essais. Réessaie dans 30 minutes.": "Too many attempts. Try again in 30 minutes.",
+    "Aucun objectif lié": "No linked goal",
+    "Objectif lié lointain": "Linked goal is far off",
+    "Tâche longue, à avancer": "Long task, to move forward",
+    "Tâche assez longue": "Fairly long task",
+    "Journée déjà chargée": "Day already full",
+    "Journée bien remplie": "Day well filled",
+  });
+  var MONTHS_FR_EN = { 'Janvier': 'January', 'Février': 'February', 'Mars': 'March', 'Avril': 'April', 'Mai': 'May', 'Juin': 'June', 'Juillet': 'July', 'Août': 'August', 'Septembre': 'September', 'Octobre': 'October', 'Novembre': 'November', 'Décembre': 'December' };
+  PATTERNS.push(
+    [/^(Janvier|Février|Mars|Avril|Mai|Juin|Juillet|Août|Septembre|Octobre|Novembre|Décembre) (\d{4})$/, function (m) { return MONTHS_FR_EN[m[1]] + ' ' + m[2]; }],
+    [/^Objectif hebdo en retard de (\d+) j$/, 'Weekly goal $1 d late'],
+    [/^Objectif hebdo se termine dans (\d+) j$/, 'Weekly goal ends in $1 d'],
+    [/^Objectif de période dépassé de (\d+) j$/, 'Period goal overdue by $1 d'],
+    [/^Objectif de période se termine dans (\d+) j$/, 'Period goal ends in $1 d']
+  );
+
+  // 10 octobre 2026 (chantier « Anglais partout ») : noms de pôles/secteurs
+  // PAR DÉFAUT (créés par le système, pas saisis par l'utilisateur). Ils sont
+  // traduits à l'AFFICHAGE seulement (jamais dans les données ni dans les
+  // comparaisons : ce sont des clés de logique) ; un pôle/secteur renommé par
+  // l'utilisateur a un autre nom et s'affiche donc tel quel.
+  var DEFAULT_NAMES = {
+    'Entreprise': 'Business', 'Communauté': 'Community', 'Produit': 'Product',
+    'Gouvernance': 'Governance', 'Finance': 'Finance', 'Juridique': 'Legal',
+    'RH': 'HR', 'Processus': 'Processes', 'Nouveau pôle': 'New division'
+  };
+  Object.assign(DICT, DEFAULT_NAMES);
+
+  function translateNameText(raw) {
+    var tv = raw && raw.trim();
+    if (!tv) return raw;
+    var parts = tv.split(/( → | · | › )/);
+    var changed = false;
+    for (var i = 0; i < parts.length; i += 2) {
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_NAMES, parts[i])) { parts[i] = DEFAULT_NAMES[parts[i]]; changed = true; }
+    }
+    return changed ? raw.replace(tv, parts.join('')) : raw;
+  }
+  function translateNamesIn(node) {
+    if (node.nodeType === 3) {
+      var out = translateNameText(node.nodeValue);
+      if (out !== node.nodeValue) node.nodeValue = out;
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    var tag = node.tagName;
+    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEXTAREA') return;
+    if (tag === 'OPTGROUP' && node.label) {
+      var l = translateNameText(node.label);
+      if (l !== node.label) node.label = l;
+    }
+    var w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false);
+    var list = [], n;
+    while ((n = w.nextNode())) list.push(n);
+    list.forEach(translateNamesIn);
+    var groups = node.querySelectorAll ? node.querySelectorAll('optgroup[label]') : [];
+    for (var g = 0; g < groups.length; g++) translateNamesIn(groups[g]);
+  }
+  var namesObserver = null;
+  // Surveille le DOM (textes ajoutés ou modifiés après coup) et traduit les
+  // noms par défaut. Sans effet en français.
+  function watchDefaultNames(root) {
+    if (lang !== 'en' || namesObserver || typeof MutationObserver !== 'function' || !root) return;
+    translateNamesIn(root);
+    namesObserver = new MutationObserver(function (muts) {
+      muts.forEach(function (m) {
+        if (m.type === 'characterData') translateNamesIn(m.target);
+        else if (m.type === 'attributes') {
+          var el = m.target;
+          if (el.tagName === 'OPTGROUP') translateNamesIn(el);
+        } else m.addedNodes.forEach(translateNamesIn);
+      });
+    });
+    namesObserver.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['label'] });
+  }
+
+  global.NoesisI18n = { t: t, setLang: setLang, getLang: getLang, translateStaticDom: translateStaticDom, watchDefaultNames: watchDefaultNames };
   global.t = t;
 })(window);

@@ -629,7 +629,7 @@
       if (!ob) return;
       ob.appendChild(el('p', 'meta', p.capLabel ? t('Ce plafond serait dépassé. Nouveau plan proposé (rien n\'est modifié sans ta validation).') : t('Charge du jour : ') + fmt(p.loadMinutes) + t(' pour une capacité moyenne de ') + fmt(p.budgetMinutes) + t('. Nouveau plan proposé (rien n\'est modifié sans ta validation).')));
       var ul = el('ul', 'goalsOverloadList');
-      p.moves.slice(0, 6).forEach(function (m) { var li = el('li', null, m.label + ' : ' + (TMT.calendarDayLabel(m.from) || m.from) + ' \u2192 ' + (TMT.calendarDayLabel(m.to) || m.to) + (m.importance ? ' (' + t('importance') + ' ' + t(m.importance) + ')' : '')); if (m.reasons && m.reasons.length) li.title = m.reasons.join(' \u00b7 '); ul.appendChild(li); });
+      p.moves.slice(0, 6).forEach(function (m) { var li = el('li', null, m.label + ' : ' + (TMT.calendarDayLabel(m.from) || m.from) + ' \u2192 ' + (TMT.calendarDayLabel(m.to) || m.to) + (m.importance ? ' (' + t('importance') + ' ' + t(m.importance) + ')' : '')); if (m.reasons && m.reasons.length) li.title = m.reasons.map(function (r) { return t(r); }).join(' \u00b7 '); ul.appendChild(li); });
       if (p.moves.length > 6) ul.appendChild(el('li', null, t('… et ') + (p.moves.length - 6) + t(' autres tâches déplacées')));
       (p.objectives.weekly || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif hebdo') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });
       (p.objectives.period || []).forEach(function (o) { ul.appendChild(el('li', null, t('Objectif de période') + ' « ' + (o.text || '').slice(0, 40) + ' » : ' + fmt(o.before) + ' \u2192 ' + fmt(o.after))); });

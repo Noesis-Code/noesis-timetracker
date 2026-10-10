@@ -896,7 +896,7 @@
 
         var badge = document.createElement('span');
         badge.className = 'goalWeeklyBadge';
-        badge.textContent = 'S' + weekIndex;
+        badge.textContent = t('S{n}', { n: weekIndex });
         // Pastille de statut fusionnée avec le numéro : verte = atteint, orange = partiel,
         // rouge = non atteint ; un clic fait tourner le statut (semaine remplie seulement).
         if (w && w.text) {

@@ -273,7 +273,7 @@
       g.tiles.forEach(function (x) {
         var t = el('button', 'saTile saGlass saTileBtn'), has = x.pct != null; t.type = 'button';
         if (has) t.style.borderColor = x.status === 'atteint' ? GREEN : RED; else { t.style.opacity = '.5'; t.disabled = true; }
-        t.appendChild(el('small', null, 'S' + x.week));
+        t.appendChild(el('small', null, tr('S{n}', { n: x.week })));
         var b = el('b', null, has ? x.pct + ' %' : '–'); if (has) b.style.color = x.status === 'atteint' ? GREEN : RED; t.appendChild(b);
         if (has) t.addEventListener('click', function () { openGlisse(g.periodStart, x.week); });
         wkw.appendChild(t);
@@ -281,12 +281,12 @@
       els.mTop.appendChild(wkw);
     }
     var mins = function (r) { return fmtMin(r.minutes); };
-    var from = function (r) { return 'S' + r.week; };
+    var from = function (r) { return tr('S{n}', { n: r.week }); };
     var secs = isW ? [
       ['Réalisées', GREEN, g.done, mins],
       ['Non accomplies', RED, g.notDone, mins],
       ['Ont glissé', ORANGE, g.slipped, function (r) { return r.to.kind === 'week' ? tr('→ semaine {n} · {d}', { n: r.to.n, d: r.to.date }) : tr('→ {p} · {d}', { p: r.to.label, d: r.to.date }); }],
-      ['Avancées', '#8b6fd6', g.ahead, function (r) { return tr('prévue {a} → faite {b}', { a: fmtSlot(r.from), b: 'S' + r.week }); }]
+      ['Avancées', '#8b6fd6', g.ahead, function (r) { return tr('prévue {a} → faite {b}', { a: fmtSlot(r.from), b: tr('S{n}', { n: r.week }) }); }]
     ] : [
       ['Ont glissé', ORANGE, g.slipped, function (r) { return from(r) + ' → ' + fmtSlot(r.to); }],
       ['Non accomplies', RED, g.notDone, from],

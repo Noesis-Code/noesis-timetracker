@@ -98,6 +98,12 @@
   // commentaire juste avant la section "FEUILLE DE TEMPS D'UNE ACTIVITÉ".
   var currentTheme = 'dark';
   var currentLang = 'fr'; // 'fr' par défaut depuis le 9 sept. 2026 (nouveaux comptes) ; voir applyLang plus bas
+  // Langue appliquée dès le chargement du script (avant tout rendu construit au niveau racine avec t()) :
+  // sans cela, les listes dessinées au démarrage (ex. sélecteur « Recherche » des projets) restaient en français.
+  try {
+    var earlyProfile = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (earlyProfile && earlyProfile.lang === 'en' && window.NoesisI18n) currentLang = NoesisI18n.setLang('en');
+  } catch (e) { /* ignore */ }
 
   // ----- Verrouillage d'orientation (30 août 2026, demande d'Emilien) -----
   // NOTE (1er septembre 2026) : ce commentaire décrit l'état du 30 août. Depuis,
@@ -949,6 +955,7 @@
   function applyLang(lang) {
     currentLang = NoesisI18n.setLang(lang);
     NoesisI18n.translateStaticDom(document.body);
+    NoesisI18n.watchDefaultNames(document.body);
     return currentLang;
   }
 
@@ -5082,7 +5089,11 @@
   // ici pour ces deux cas.
   function dayChartLabel(d, shortForm) {
     if (d.granularity === 'week' || d.granularity === 'month') {
-      return shortForm ? d.shortLabel : d.fullLabel;
+      // Mois : en anglais, nom du mois formaté par le navigateur (le serveur envoie du français).
+      if (d.granularity === 'month' && currentLang === 'en' && d.isoDate) {
+        return new Date(d.isoDate + 'T00:00:00').toLocaleDateString(dateLocale(), { month: shortForm ? 'short' : 'long', year: 'numeric' });
+      }
+      return shortForm ? d.shortLabel : t(d.fullLabel);
     }
     var dateObj = new Date(d.isoDate + 'T00:00:00');
     var dm = pad(dateObj.getDate()) + '/' + pad(dateObj.getMonth() + 1);
@@ -11988,7 +11999,7 @@
     if (state.hasFeed) {
       $('calendarFeedUrl').value = state.url || '';
       if (calFeedLastAccess) calFeedLastAccess.textContent = state.lastAccessAt
-        ? t('Dernière lecture par un calendrier : ') + new Date(state.lastAccessAt).toLocaleString()
+        ? t('Dernière lecture par un calendrier : ') + new Date(state.lastAccessAt).toLocaleString(dateLocale())
         : t('Jamais relu par un calendrier pour le moment.');
     } else {
       $('calendarFeedUrl').value = '';
