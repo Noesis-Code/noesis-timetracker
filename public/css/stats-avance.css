@@ -142,3 +142,6 @@
 .saSheetCard .saModalScroll > .saCard { margin-bottom: 0; }
 /* Pages Temps | Tâches | Objectifs glissantes : la page hôte sert de repère aux voisines posées en absolu pendant le glissement. */
 #statsAvancePage, #viewProfileStatsPage2 { position: relative; }
+
+/* 10 oct. 2026 : sélecteur d'année sous les pastilles d'activité, au-dessus des informations. */
+.saChips + .caSubProjectFilter { margin: 8px 0 4px; }

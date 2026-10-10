@@ -146,7 +146,7 @@
     els.msg = el('p', 'hint hidden');
     // Une page par onglet (Tâches | Objectifs) : les deux voisines coexistent pendant le glissement (slidePager).
     bodies.t = el('div', 'saBody'); bodies.o = el('div', 'saBody hidden'); els.body = bodies.t;
-    [els.yearRow, els.chips, els.msg, bodies.t, bodies.o].forEach(function (e) { page2.appendChild(e); });
+    [els.chips, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { page2.appendChild(e); });
     if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
     var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
