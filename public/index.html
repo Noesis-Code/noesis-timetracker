@@ -3065,23 +3065,6 @@
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>
-                <!-- 10 oct. 2026 (conformité, trames 2 et 4) : interrupteurs qui agissent au clic (routes PUT dédiées), sans passer par « Enregistrer ». -->
-                <div class="notifRow">
-                  <span class="notifRowLabel">Utilisation commerciale de mes données</span>
-                  <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsMarketingConsent">
-                    <span class="toggleSwitchTrack"></span>
-                  </label>
-                </div>
-                <p class="hint">Analyse de l'usage, statistiques, communications commerciales et campagnes publicitaires de Noesis. <a href="#" class="policy24Link">§2.4</a></p>
-                <p id="settingsMarketingMsg" class="msg"></p>
-                <div class="notifRow">
-                  <span class="notifRowLabel">Être trouvable dans la recherche de l'écran de connexion</span>
-                  <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsDirectoryConsent">
-                    <span class="toggleSwitchTrack"></span>
-                  </label>
-                </div>
                 <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
                 <p id="settingsMsg" class="msg"></p>
                 <!-- « Déconnexion » (26 septembre 2026, demande d'Emilien) : placé
@@ -3165,6 +3148,25 @@
                    montrée à l'Utilisateur). Toute mise à jour du FOND doit
                    passer par ces documents projet, jamais être rédigée ici
                    directement. -->
+              <!-- 10 oct. 2026 : consentements déplacés dans Sécurité, juste au-dessus des documents légaux ; interrupteurs qui agissent au clic (routes PUT dédiées), sans passer par « Enregistrer ». -->
+              <div class="settingsCard settingsConsentCard">
+                <div class="notifRow">
+                  <span class="notifRowLabel">Utilisation commerciale de mes données</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsMarketingConsent">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+                <div class="notifRow">
+                  <span class="notifRowLabel">Être trouvable dans la recherche de l'écran de connexion</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsDirectoryConsent">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+                <p class="hint">Analyse de l'usage, statistiques, communications commerciales et campagnes publicitaires de Noesis. <a href="#" class="policy24Link">§2.4</a></p>
+                <p id="settingsMarketingMsg" class="msg"></p>
+              </div>
               <!-- Documents légaux (ex-sous-section, réunie à Sécurité le 30
                    septembre 2026, demande d'Emilien) : mêmes ids et même
                    comportement qu'avant, seul le conteneur change. Voir

@@ -6774,3 +6774,9 @@ button { -webkit-user-select: none; user-select: none; }
 .externalCalendarList { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .externalCalendarRow { display: flex; align-items: center; gap: 10px; }
 .externalCalendarRowUrl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text); }
+
+/* 10 oct. 2026 : consentements des Réglages (Sécurité) — deux lignes rapprochées, séparées par une simple barre. */
+.settingsConsentCard .notifRow { padding-top: 6px; padding-bottom: 6px; margin: 0; }
+.settingsConsentCard .notifRow + .notifRow { border-top: 1px solid var(--border); }
+.settingsConsentCard .hint { margin: 6px 0 0; }
+.settingsConsentCard .msg { min-height: 0; margin: 0; }
