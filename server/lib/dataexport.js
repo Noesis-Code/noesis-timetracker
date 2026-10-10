@@ -48,6 +48,9 @@
 // ne figurent pas dans l'énumération de la politique de confidentialité
 // (section 2.2).
 const db = require('../db');
+// Ces modules créent/migrent au chargement des colonnes/tables lues ci-dessous.
+require('./goals');
+require('./taskrecurrence');
 
 function rows(sql, ...params) {
   return db.prepare(sql).all(...params);
@@ -64,7 +67,8 @@ function buildUserExport(userId) {
   const user = row(
     `SELECT id, name, lastName, phone, email, color, theme, lang, shareProfile, avatar, createdAt,
             termsAcceptedAt, termsVersion, privacyVersion,
-            marketingConsent, marketingConsentAt, marketingConsentVersion, directoryConsent
+            marketingConsent, marketingConsentAt, marketingConsentVersion, directoryConsent,
+            aiMode, aiNoticeAckAt, aiNoticeVersion
      FROM users WHERE id = ?`,
     userId
   );
@@ -254,8 +258,90 @@ function buildUserExport(userId) {
     ? { enabled: true, createdAt: calendarFeedRow.createdAt, lastAccessAt: calendarFeedRow.lastAccessAt }
     : { enabled: false };
 
+  // ---- Objectifs et tâches (ajout 10 oct. 2026, décision d'Emilien) ----
+  // Périmètre « à moi » : activités dont il est propriétaire ou seul membre
+  // (le plan lui appartient) ; dans une activité partagée dont il n'est pas
+  // propriétaire, seulement ce qui lui est assigné. Jamais le contenu assigné
+  // à un autre membre. Les tâches (sub_project_items) n'ont pas de créateur
+  // en base : « créée par moi » = assignée à moi, ou non assignée dans une
+  // activité à moi.
+  const ownScope = `(a.ownerId = ? OR (SELECT COUNT(*) FROM activity_members x WHERE x.activityId = a.id) = 1)`;
+  const mineActivityIds = rows(
+    `SELECT a.id FROM activities a
+     JOIN activity_members m ON m.activityId = a.id AND m.userId = ?
+     WHERE ${ownScope}`,
+    userId, userId
+  ).map((r) => r.id);
+  const inMine = mineActivityIds.length ? mineActivityIds.join(',') : 'NULL';
+
+  const goalWeekly = rows(
+    `SELECT w.id, w.periodId, p.activityId, a.name AS activityName, p.category, p.periodNumber,
+            w.weekIndex, w.text, w.estimateMinutes, w.status, w.assignedUserId,
+            w.carriedOverFromId, w.carriedToId, w.createdAt
+     FROM goal_weekly w
+     JOIN goal_periods p ON p.id = w.periodId
+     JOIN activities a ON a.id = p.activityId
+     WHERE w.assignedUserId = ?
+        OR (w.assignedUserId IS NULL AND p.activityId IN (${inMine}))
+     ORDER BY p.activityId, p.category, p.periodNumber, w.weekIndex`,
+    userId
+  ).map((r) => ({ ...r, assignedUserId: r.assignedUserId ? userId : null }));
+
+  const goalPeriods = rows(
+    `SELECT p.id, p.activityId, a.name AS activityName, p.category, p.periodNumber, p.cycleIndex,
+            p.periodIndexInCycle, p.startDate, p.endDate, p.mainGoalText,
+            p.mainGoalEstimateMinutes, p.mainGoalStatus, p.createdAt
+     FROM goal_periods p
+     JOIN activities a ON a.id = p.activityId
+     WHERE p.activityId IN (${inMine})
+        OR p.id IN (SELECT periodId FROM goal_period_assignees WHERE userId = ?)
+        OR p.id IN (SELECT w.periodId FROM goal_weekly w WHERE w.assignedUserId = ?)
+     ORDER BY p.activityId, p.category, p.periodNumber`,
+    userId, userId
+  );
+
+  const goalYearGoals = rows(
+    `SELECT g.activityId, a.name AS activityName, g.category, g.year, g.text, g.updatedAt
+     FROM goal_year_goals g JOIN activities a ON a.id = g.activityId
+     WHERE g.activityId IN (${inMine})
+     ORDER BY g.activityId, g.category, g.year`
+  );
+
+  // Pôles/secteurs (activity_goal_categories) des activités dont il est membre.
+  const goalCategories = rows(
+    `SELECT c.activityId, a.name AS activityName, c.key, c.label, c.color, c.position,
+            c.fromYear, c.removedYear, c.createdAt, c.removedAt
+     FROM activity_goal_categories c
+     JOIN activities a ON a.id = c.activityId
+     JOIN activity_members m ON m.activityId = a.id AND m.userId = ?
+     ORDER BY c.activityId, c.position`,
+    userId
+  );
+
+  const tasks = rows(
+    `SELECT i.id, i.subProjectId, sp.activityId, a.name AS activityName,
+            sp.goalCategory AS category,
+            (SELECT c.label FROM activity_goal_categories c
+              WHERE c.activityId = sp.activityId AND c.key = sp.goalCategory) AS categoryLabel,
+            sec.title AS sectionTitle, i.label, i.done, i.doneAt, i.doneBy,
+            i.dueDate, i.plannedUserId, i.goalWeeklyId, i.recurEvery, i.recurUnit, i.createdAt
+     FROM sub_project_items i
+     JOIN sub_projects sp ON sp.id = i.subProjectId
+     JOIN activities a ON a.id = sp.activityId
+     LEFT JOIN sub_project_sections sec ON sec.id = i.sectionId
+     WHERE i.plannedUserId = ?
+        OR (i.plannedUserId IS NULL AND sp.activityId IN (${inMine}))
+     ORDER BY sp.activityId, i.createdAt`,
+    userId
+  ).map((r) => ({
+    ...r,
+    done: !!r.done,
+    doneBy: r.doneBy ? (r.doneBy === userId ? userId : null) : null,
+    plannedUserId: r.plannedUserId ? userId : null,
+  }));
+
   return {
-    exportVersion: 1,
+    exportVersion: 2,
     generatedAt: new Date().toISOString(),
     user,
     activities,
@@ -274,6 +360,11 @@ function buildUserExport(userId) {
     pollsCreated,
     pollVotesCast,
     calendarFeed,
+    goalPeriods,
+    goalWeekly,
+    goalYearGoals,
+    goalCategories,
+    tasks,
   };
 }
 
