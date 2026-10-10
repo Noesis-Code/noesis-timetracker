@@ -64,6 +64,24 @@
     els.msg = el('p', 'hint hidden');
     els.seg = el('div', 'saSeg');
     els.body = el('div', 'saBody');
+    if (visitor) {
+      // Glissement horizontal Tâches <-> Objectifs. Sur Tâches, un geste vers la droite n'est PAS pris ici : il reste à la page
+      // de visite (retour à la page Temps). Les gestes gérés ici ne remontent pas (stopPropagation).
+      var sx = null, sy = null;
+      page2.addEventListener('touchstart', function (e) {
+        sx = null;
+        if (e.touches.length !== 1 || !e.target.closest || e.target.closest('input, textarea, select, .statsPeriodMenu, .chartScroll, .saChips')) return;
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      }, { passive: true });
+      page2.addEventListener('touchend', function (e) {
+        if (sx == null) return;
+        var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null;
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        if (dx < 0 && tab === 't') { goTab('o'); e.stopPropagation(); }
+        else if (dx > 0 && tab === 'o') { goTab('t'); e.stopPropagation(); }
+        else if (dx < 0 && tab === 'o') e.stopPropagation();
+      }, { passive: true });
+    }
     [els.chips, els.msg, els.seg, els.body].forEach(function (e) { page2.appendChild(e); });
     if (visitor) els.body.classList.add('saVisitor');
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
@@ -323,7 +341,7 @@
     var v = views && views[isT && cv === 'all' ? 'year' : cv];
     var card = el('div', 'saCard saGlass');
     var hd = el('div', 'saHd');
-    var h = el('p', 'sectionTitle', tr('Graphique') + ' ');
+    var h = el('p', 'sectionTitle', tr(visitor ? (isT ? 'Tâches' : 'Objectifs') : 'Graphique') + ' ');
     var cur = VS.filter(function (x) { return x[0] === cv; })[0];
     if (cur) h.appendChild(el('span', 'meta', '· ' + tr(cur[1])));
     hd.appendChild(h);
@@ -570,6 +588,16 @@
 
   function renderSeg() {
     els.seg.innerHTML = '';
+    if (visitor) {
+      // Profil visité : plus de boutons Tâches | Objectifs, deux pages qu'on fait glisser + 2 points de pagination.
+      var dts = el('div', 'saDots'); els.seg.appendChild(dts);
+      [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (o) {
+        var d = el('button', 'saDot' + (tab === o[0] ? ' on' : '')); d.type = 'button'; d.setAttribute('aria-label', tr(o[1]));
+        d.addEventListener('click', function () { goTab(o[0]); });
+        dts.appendChild(d);
+      });
+      return;
+    }
     var tabs = el('div', 'saSegTabs'); els.seg.appendChild(tabs);
     [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (o) {
       var b = el('button', 'saSegBtn' + (tab === o[0] ? ' on' : ''), tr(o[1])); b.type = 'button';
@@ -578,8 +606,16 @@
     });
   }
 
+  var slideDir = 0;
+  function goTab(t) {
+    if (tab === t) return;
+    slideDir = t === 'o' ? 1 : -1;
+    tab = t; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; load();
+  }
   function render() {
     if (!built) return;
+    var sd = slideDir; slideDir = 0;
+    if (sd && typeof els.body.animate === 'function') els.body.animate([{ transform: 'translateX(' + (sd * 40) + '%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.22,.8,.3,1)' });
     renderSeg();
     els.body.innerHTML = '';
     if (!data) return;

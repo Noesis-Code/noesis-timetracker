@@ -134,3 +134,9 @@
 .saGrow { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--glass-border); font-size: 13px; }
 .saGrow small { font-size: 12px; opacity: .85; white-space: nowrap; }
 .saGmore { background: none; border: 0; padding: 6px 0 0; color: var(--text); opacity: .6; font: inherit; font-size: 12px; }
+
+/* Profil visité : points de pagination Tâches / Objectifs (violet = page visible, blanc estompé sinon). */
+.saDots { flex: 1; display: flex; justify-content: center; gap: 6px; }
+.saDot { width: 28px; height: 20px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.saDot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s, background .2s; }
+.saDot.on::before { background: var(--purple, #674EA7); opacity: 1; }
