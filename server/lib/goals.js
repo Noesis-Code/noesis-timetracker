@@ -1501,6 +1501,9 @@ function statusLabel(status) {
 }
 
 function postBilanIfDue(activity, category, planStartDate) {
+  // 10 oct. 2026 (décision d'Emilien) : plus AUCUN bilan automatique de fin de période dans la discussion ni la communauté.
+  return;
+  // eslint-disable-next-line no-unreachable
   const today = todayLocal();
   const membersCount = db.prepare('SELECT COUNT(*) AS n FROM activity_members WHERE activityId = ?').get(activity.id).n;
 

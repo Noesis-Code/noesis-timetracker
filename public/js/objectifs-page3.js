@@ -1390,7 +1390,6 @@
       // hebdomadaire(s) atteint(s). » ne disait pas qu'il s'agit du bilan de
       // la période terminée.
       var text = t('Bilan de la période') + ' : ' + doneCount + ' ' + t('sur') + ' ' + period.weeklies.length + ' ' + t('objectifs hebdomadaires atteints') + '.';
-      if (TMT.currentGoalsActivityIsShared && period.bilanPostedAt) text += ' ' + t('Bilan publié automatiquement dans le fil de discussion.');
       bilan.textContent = text;
       bilan.classList.remove('hidden');
     } else {
