@@ -376,3 +376,7 @@
 /* Bulle Statistiques : miroir de la bulle Discussion, en bas à gauche (verre, icône claire). */
 #goalsPage2ModeStatsBtn { position: fixed; left: 18px; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 120; width: 56px; height: 56px; flex: none; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 :root #goalsActivitySwitcher #goalsPage2ModeStatsBtn { background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; color: var(--text) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 8px 22px rgba(0, 0, 0, 0.35) !important; -webkit-backdrop-filter: blur(24px) saturate(160%) !important; backdrop-filter: blur(24px) saturate(160%) !important; }
+
+/* Tâche terminée depuis plus de 7 jours : visible, non modifiable. */
+.taskLocked { opacity: 0.55; }
+.taskLocked input[type="checkbox"] { cursor: default; }

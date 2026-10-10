@@ -26,14 +26,6 @@ const LEA_NAME_CONF = 'Léa — confidentielle (test)';
 
 function isStaging() { return scen.isStaging(); }
 
-// Vrai pour les 4 activités d'exemple (staging seulement) : la purge des tâches faites de plus de 7 jours (goalstasks.purgeOldDoneTasks)
-// les épargne, sinon l'historique de 2 ans disparaît dès l'ouverture de la Page 2 des objectifs.
-function isDemoActivity(activityId) {
-  if (!isStaging()) return false;
-  const r = db.prepare('SELECT name FROM activities WHERE id = ?').get(activityId);
-  return !!r && [NAME, NAME_CONF, LEA_NAME, LEA_NAME_CONF].indexOf(r.name) >= 0;
-}
-
 function emilien() {
   return db.prepare("SELECT id, name FROM users WHERE name = 'Emilien' AND lastName = 'Staging'").get()
     || db.prepare("SELECT id, name FROM users WHERE name = 'Emilien'").get()
@@ -472,4 +464,4 @@ function seedStatsDemoOnStaging() {
   return r;
 }
 
-module.exports = { NAME, NAME_CONF, LEA_NAME, isDemoActivity, isStaging, seedStatsDemo, resetStatsDemo, seedStatsDemoOnStaging };
+module.exports = { NAME, NAME_CONF, LEA_NAME, isStaging, seedStatsDemo, resetStatsDemo, seedStatsDemoOnStaging };

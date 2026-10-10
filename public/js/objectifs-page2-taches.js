@@ -1040,6 +1040,7 @@
         var cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = true;
+        if (task.locked) { cb.disabled = true; row.classList.add('taskLocked'); row.title = t('Tâche verrouillée : terminée depuis plus de 7 jours.'); }
         cb.addEventListener('change', function () {
           cb.disabled = true;
           api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: false })

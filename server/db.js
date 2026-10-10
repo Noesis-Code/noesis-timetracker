@@ -2337,4 +2337,13 @@ UPDATE sub_project_items SET dueDate = COALESCE(substr(doneAt, 1, 10), substr(cr
   db.prepare("UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 2 WHERE done = 0 AND (dueDate IS NULL OR dueDate = '')").run(today);
 }
 
+// 10 oct. 2026 : les tâches terminées ne sont plus purgées (historique complet pour les statistiques) ;
+// index pour garder les requêtes rapides avec des dizaines de milliers de lignes. Idempotent.
+db.exec(`
+CREATE INDEX IF NOT EXISTS idx_sub_project_items_section ON sub_project_items(sectionId, position);
+CREATE INDEX IF NOT EXISTS idx_sub_project_items_goalweekly ON sub_project_items(goalWeeklyId);
+CREATE INDEX IF NOT EXISTS idx_sub_project_items_due ON sub_project_items(dueDate);
+CREATE INDEX IF NOT EXISTS idx_sub_project_items_done ON sub_project_items(done, doneAt);
+`);
+
 module.exports = db;

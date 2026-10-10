@@ -397,7 +397,11 @@ router.delete('/sub-project-items/:id', (req, res) => {
   const access = sp.checkSubProjectAccess(req.userId, item.subProjectId);
   if (access.error) return res.status(access.error.status).json(access.error.body);
 
-  sp.deleteItem(item.id);
+  try {
+    sp.deleteItem(item.id);
+  } catch (err) {
+    return handleSubProjectsError(res, err);
+  }
   res.json({ ok: true });
 });
 

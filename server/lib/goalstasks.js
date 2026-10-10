@@ -111,6 +111,9 @@ function tasksForCategory(activityId, categoryKey) {
       .filter((s) => s.kind === 'tasks')
       .forEach((s) => {
         (s.items || []).forEach((item) => {
+          // Historique conservé en base (statistiques) mais jamais affiché : seules les tâches
+          // terminées des 7 derniers jours (ou non terminées) apparaissent dans les listes.
+          if (subprojects.isItemLocked(item)) return;
           out.push(Object.assign({}, item, {
             subProjectId: sp.id,
             subProjectName: sp.name,
@@ -282,6 +285,7 @@ function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
 
   const item = subprojects.getItemRaw(itemId);
   if (!item) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
+  subprojects.assertItemEditable(item);
 
   // Cohérence activité / tâche, validée ICI côté serveur — même garde que
   // resolveSubProjectId (server/lib/entrysubproject.js) pour le Chrono :
@@ -339,6 +343,7 @@ function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
 function reassignHistoryTask(userId, itemId, newActivityId, newCategoryKey, newDueDate) {
   const item = subprojects.getItemRaw(itemId);
   if (!item) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
+  subprojects.assertItemEditable(item);
 
   const currentSubProject = subprojects.getSubProject(item.subProjectId);
   if (!currentSubProject) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
@@ -625,7 +630,6 @@ function tasksOverviewForActivity(activityId, todayParam) {
   });
 
   // 5 oct. 2026 (Emilien) : liste « du jour » (blanches) + à venir (grises).
-  purgeOldDoneTasks(activityId);
   const daily = dailyListForActivity(activityId, validToday(todayParam));
 
   return {
@@ -660,6 +664,7 @@ function allTasksWithGroup(activityId) {
           label: task.label,
           done: !!task.done,
           doneAt: task.doneAt || null,
+          locked: subprojects.isItemLocked(task),
           dueDate: task.dueDate || null,
           plannedUserId: task.plannedUserId || null,
           position: task.position,
@@ -673,23 +678,9 @@ function allTasksWithGroup(activityId) {
   return out;
 }
 
-// Efface UNIQUEMENT la ligne des tâches cochées depuis plus de 7 jours. Idempotent.
-// Aucune autre table ne référence sub_project_items : temps enregistré et statistiques intacts.
-function purgeOldDoneTasks(activityId) {
-  // Activités d'exemple des statistiques (staging seulement) : leur historique de tâches faites doit survivre (voir stats-demo-staging.js).
-  try { if (require('./stats-demo-staging').isDemoActivity(activityId)) return 0; } catch (e) { /* module absent : purge normale */ }
-  const cutoff = Date.now() - ARCHIVE_RETENTION_DAYS * 86400000;
-  let n = 0;
-  allTasksWithGroup(activityId).forEach((t) => {
-    if (!t.done || !t.doneAt) return;
-    const ts = Date.parse(t.doneAt);
-    if (Number.isFinite(ts) && ts < cutoff) {
-      db.prepare('DELETE FROM sub_project_items WHERE id = ? AND done = 1').run(t.id);
-      n += 1;
-    }
-  });
-  return n;
-}
+// 10 oct. 2026 (Emilien) : plus de purge physique. Les tâches terminées restent en base (les statistiques
+// Année/Tout en dépendent) ; elles sont seulement masquées des listes (tasksForCategory) et verrouillées
+// (subprojects.assertItemEditable) après 7 jours.
 
 // today : tâches non cochées dont l'échéance est aujourd'hui (ou dépassée, reportée) ;
 // upcoming : échéances futures croissantes (le client complète jusqu'à 5 lignes).
@@ -706,20 +697,18 @@ function dailyListForActivity(activityId, today) {
   };
 }
 
-// Tâches terminées des 7 derniers jours, la plus récente d'abord (purge préalable).
+// Tâches terminées des 7 derniers jours, la plus récente d'abord (les plus anciennes restent en base, masquées).
 function archivesForActivity(activityId) {
-  purgeOldDoneTasks(activityId);
   const tasks = allTasksWithGroup(activityId)
     .filter((t) => t.done && t.doneAt)
     .sort((a, b) => (a.doneAt < b.doneAt ? 1 : a.doneAt > b.doneAt ? -1 : b.id - a.id))
-    .map((t) => ({ id: t.id, label: t.label, doneAt: t.doneAt, dueDate: t.dueDate, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey }));
+    .map((t) => ({ id: t.id, label: t.label, locked: subprojects.isItemLocked(t), doneAt: t.doneAt, dueDate: t.dueDate, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey }));
   return { retentionDays: ARCHIVE_RETENTION_DAYS, tasks };
 }
 
 module.exports = {
   allTasksWithGroup,
   archivesForActivity,
-  purgeOldDoneTasks,
   dailyListForActivity,
   subProjectsForCategory,
   ensureHomeSubProject,

@@ -763,6 +763,7 @@
     'Sous-projet introuvable.': 'Sub-project not found.',
     'Intitulé de la tâche requis.': 'Task label required.',
     'Tâche introuvable.': 'Task not found.',
+    'Tâche verrouillée : terminée depuis plus de 7 jours.': 'Task locked: completed more than 7 days ago.',
     "Seul le créateur du sous-projet ou le propriétaire de l'activité peut le supprimer.": 'Only the sub-project creator or the activity owner can delete it.',
 
     // ---- Sondages (3 septembre 2026, 11ᵉ discussion "Sondages") ----
