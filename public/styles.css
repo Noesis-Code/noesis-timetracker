@@ -6777,6 +6777,8 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* 10 oct. 2026 : consentements des Réglages (Sécurité) — deux lignes rapprochées, séparées par une simple barre. */
 .settingsConsentCard .notifRow { padding-top: 6px; padding-bottom: 6px; margin: 0; }
-.settingsConsentCard .notifRow + .notifRow { border-top: 1px solid var(--border); }
 .settingsConsentCard .hint { margin: 6px 0 0; }
 .settingsConsentCard .msg { min-height: 0; margin: 0; }
+.settingsConsentCard .consentItem { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.settingsConsentCard .consentItem .notifRow { border-bottom: none; padding-bottom: 2px; }
+.settingsConsentCard .notifRow:last-child { border-bottom: none; }
