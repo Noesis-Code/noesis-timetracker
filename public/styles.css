@@ -6811,3 +6811,6 @@ html.kbOpen #onboarding {
   overscroll-behavior: contain;
 }
 html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
+
+/* Documents légaux ouverts depuis une autre fenêtre (avis IA, invitation) : toujours au-dessus */
+#legalTermsModal, #privacyPolicyModal, #legalNoticesModal { z-index: 400; }
