@@ -518,20 +518,34 @@
       </p>
       <!-- 10 oct. 2026 (conformité, trames 2 et 4) : deux cases FACULTATIVES, non cochées, séparées de la case CGU ; seule la case CGU bloque « Créer mon profil ». -->
       <div class="onbOptionalConsents">
-        <p class="onbLegalCheck">
+        <div class="onbLegalCheck onbConsentRow">
           <label class="toggleSwitch">
             <input type="checkbox" id="onbMarketingCheckbox">
             <span class="toggleSwitchTrack"></span>
           </label>
-          <label for="onbMarketingCheckbox" class="onbLegalText">J'accepte que Noesis utilise les données que je saisis pour analyser l'usage, produire des statistiques, m'envoyer des communications commerciales et cibler ses propres campagnes publicitaires. Mon code PIN et mes messages privés ne sont jamais utilisés. Je peux retirer mon accord à tout moment dans mon profil. (Politique de confidentialité, <a href="#" class="policy24Link">§2.4</a>)</label>
-        </p>
-        <p class="onbLegalCheck">
+          <div class="onbConsentBody">
+            <label for="onbMarketingCheckbox" class="onbConsentTitle">Utilisation commerciale de mes données</label>
+            <p class="onbConsentSummary">Facultatif : Noèsis peut analyser l'usage et m'écrire. Retrait possible à tout moment.</p>
+            <details class="onbConsentMore">
+              <summary>En savoir plus</summary>
+              <p class="onbLegalText">J'accepte que Noesis utilise les données que je saisis pour analyser l'usage, produire des statistiques, m'envoyer des communications commerciales et cibler ses propres campagnes publicitaires. Mon code PIN et mes messages privés ne sont jamais utilisés. Je peux retirer mon accord à tout moment dans mon profil. (Politique de confidentialité, <a href="#" class="policy24Link">§2.4</a>)</p>
+            </details>
+          </div>
+        </div>
+        <div class="onbLegalCheck onbConsentRow">
           <label class="toggleSwitch">
             <input type="checkbox" id="onbDirectoryCheckbox">
             <span class="toggleSwitchTrack"></span>
           </label>
-          <label for="onbDirectoryCheckbox" class="onbLegalText">J'accepte que mon prénom et mon nom puissent être trouvés dans la recherche de membres de l'écran de connexion. (Politique de confidentialité, section 4.1)</label>
-        </p>
+          <div class="onbConsentBody">
+            <label for="onbDirectoryCheckbox" class="onbConsentTitle">Être trouvable à la connexion</label>
+            <p class="onbConsentSummary">Facultatif : mon nom apparaît dans la recherche de l'écran de connexion.</p>
+            <details class="onbConsentMore">
+              <summary>En savoir plus</summary>
+              <p class="onbLegalText">J'accepte que mon prénom et mon nom puissent être trouvés dans la recherche de membres de l'écran de connexion. (Politique de confidentialité, section 4.1)</p>
+            </details>
+          </div>
+        </div>
       </div>
       <button class="btn btn-primary btnBrique" id="onbCreateBtn" disabled>Créer mon profil</button>
       <p class="switchLink"><a href="#" class="governanceLink">Gouvernance des renseignements personnels</a></p>
