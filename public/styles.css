@@ -6782,3 +6782,7 @@ button { -webkit-user-select: none; user-select: none; }
 .settingsConsentCard .consentItem { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 .settingsConsentCard .consentItem .notifRow { border-bottom: none; padding-bottom: 2px; }
 .settingsConsentCard .notifRow:last-child { border-bottom: none; }
+
+/* 10 oct. 2026 : Déconnexion dans le bandeau des Réglages, compacte, à gauche de la croix. */
+.subpageHeader .logoutBtnHeader { margin-left: auto; font-size: 12px; padding: 4px 8px; border: 1px solid var(--glass-border, var(--border)); border-radius: var(--radius-sm); }
+#profileSettingsPanel.settingsPanel .logoutBtnHeader ~ #settingsCloseBtn { margin-left: 0; }
