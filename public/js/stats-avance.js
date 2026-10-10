@@ -62,11 +62,10 @@
     if (built) return; built = true;
     els.chips = el('div', 'saChips');
     els.msg = el('p', 'hint hidden');
-    els.seg = el('div', 'saSeg');
     els.body = el('div', 'saBody');
-    if (visitor) {
-      // Glissement horizontal Tâches <-> Objectifs. Sur Tâches, un geste vers la droite n'est PAS pris ici : il reste à la page
-      // de visite (retour à la page Temps). Les gestes gérés ici ne remontent pas (stopPropagation).
+    {
+      // Glissement horizontal Tâches <-> Objectifs (profil visité ET sa propre page). Sur Tâches, un geste vers la droite n'est PAS pris ici : il reste à la page
+      // englobante (retour à la page Temps). Les gestes gérés ici ne remontent pas (stopPropagation).
       var sx = null, sy = null;
       page2.addEventListener('touchstart', function (e) {
         sx = null;
@@ -82,7 +81,7 @@
         else if (dx < 0 && tab === 'o') e.stopPropagation();
       }, { passive: true });
     }
-    [els.chips, els.msg, els.seg, els.body].forEach(function (e) { page2.appendChild(e); });
+    [els.chips, els.msg, els.body].forEach(function (e) { page2.appendChild(e); });
     if (visitor) els.body.classList.add('saVisitor');
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
     var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
@@ -220,10 +219,10 @@
   }
 
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
-  function isDirty() { return view !== 'year' || oview !== DEF_O || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
+  function isDirty() { return tab !== 't' || view !== 'year' || oview !== DEF_O || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
   function resetTransient() {
-    var wasOff = dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== DEF_O;
-    view = 'year'; oview = DEF_O; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
+    var wasOff = dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== DEF_O || tab !== 't';
+    setTab('t'); view = 'year'; oview = DEF_O; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
     if (wasOff && built && activityId != null && cfg.isShown()) { load(); return; }
     if (built && data) render();
   }
@@ -341,7 +340,7 @@
     var v = views && views[isT && cv === 'all' ? 'year' : cv];
     var card = el('div', 'saCard saGlass');
     var hd = el('div', 'saHd');
-    var h = el('p', 'sectionTitle', tr(visitor ? (isT ? 'Tâches' : 'Objectifs') : 'Graphique') + ' ');
+    var h = el('p', 'sectionTitle', tr(isT ? 'Tâches' : 'Objectifs') + ' ');
     var cur = VS.filter(function (x) { return x[0] === cv; })[0];
     if (cur) h.appendChild(el('span', 'meta', '· ' + tr(cur[1])));
     hd.appendChild(h);
@@ -586,37 +585,21 @@
     }
   }
 
-  function renderSeg() {
-    els.seg.innerHTML = '';
-    if (visitor) {
-      // Profil visité : plus de boutons Tâches | Objectifs, deux pages qu'on fait glisser + 2 points de pagination.
-      var dts = el('div', 'saDots'); els.seg.appendChild(dts);
-      [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (o) {
-        var d = el('button', 'saDot' + (tab === o[0] ? ' on' : '')); d.type = 'button'; d.setAttribute('aria-label', tr(o[1]));
-        d.addEventListener('click', function () { goTab(o[0]); });
-        dts.appendChild(d);
-      });
-      return;
-    }
-    var tabs = el('div', 'saSegTabs'); els.seg.appendChild(tabs);
-    [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (o) {
-      var b = el('button', 'saSegBtn' + (tab === o[0] ? ' on' : ''), tr(o[1])); b.type = 'button';
-      b.addEventListener('click', function () { if (tab !== o[0]) { tab = o[0]; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; load(); } });
-      tabs.appendChild(b);
-    });
-  }
-
   var slideDir = 0;
+  function setTab(t) { // change d'onglet sans recharger (les points globaux suivent via cfg.onTab)
+    if (tab === t) return;
+    tab = t; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null;
+    if (cfg.onTab) cfg.onTab(tab);
+  }
   function goTab(t) {
     if (tab === t) return;
     slideDir = t === 'o' ? 1 : -1;
-    tab = t; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; load();
+    setTab(t); load();
   }
   function render() {
     if (!built) return;
     var sd = slideDir; slideDir = 0;
     if (sd && typeof els.body.animate === 'function') els.body.animate([{ transform: 'translateX(' + (sd * 40) + '%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.22,.8,.3,1)' });
-    renderSeg();
     els.body.innerHTML = '';
     if (!data) return;
     els.body.appendChild(chartCard(data));
@@ -709,7 +692,7 @@
   }
   return {
     open: function () { build(); pickDefaultActivity(); renderChips(); load(); },
-    reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty,
+    reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab,
     forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; els.body.innerHTML = ''; } }
   };
   }
@@ -723,15 +706,18 @@
     var vdots = document.getElementById('viewProfileStatsDots');
     if (!wrap || !p1 || !p2 || !vdots) return;
     var vinst = null, vuser = null, vpage = 1;
-    function setDots() { Array.prototype.forEach.call(vdots.children, function (d, i) { d.classList.toggle('on', i === vpage - 1); }); }
+    // Trois points globaux : Temps | Tâches | Objectifs (les deux dernières = les onglets de la page 2).
+    function setDots() { var lp = vpage === 1 ? 1 : (vinst && vinst.getTab() === 'o' ? 3 : 2); Array.prototype.forEach.call(vdots.children, function (d, i) { d.classList.toggle('on', i === lp - 1); }); }
     function go(n) {
-      if (n === vpage) return;
-      var from = vpage === 1 ? p1 : p2, to = n === 1 ? p1 : p2, dir = n > vpage ? 1 : -1;
-      vpage = n; setDots();
-      if (n === 2 && vuser) {
-        if (!vinst) vinst = TMT.createVisitorStats(p2, vuser);
-        vinst.open();
+      var ph = n === 1 ? 1 : 2;
+      if (ph === vpage) { if (ph === 2 && vinst) vinst.goTab(n === 3 ? 'o' : 't'); return; }
+      var from = vpage === 1 ? p1 : p2, to = ph === 1 ? p1 : p2, dir = ph > vpage ? 1 : -1;
+      vpage = ph;
+      if (ph === 2 && vuser) {
+        if (!vinst) vinst = TMT.createVisitorStats(p2, vuser, setDots);
+        vinst.setTab(n === 3 ? 'o' : 't'); vinst.open();
       } else if (vinst) { vinst.hideSheet(); vinst.reset(); }
+      setDots();
       to.classList.remove('hidden');
       if (typeof to.animate !== 'function') { from.classList.add('hidden'); return; }
       var r = from.getBoundingClientRect(), pr = wrap.getBoundingClientRect();
@@ -758,7 +744,7 @@
       if (x0 == null) return;
       var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
       if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-      if (dx < 0 && vpage === 1) go(2); else if (dx > 0 && vpage === 2) go(1);
+      if (dx < 0 && vpage === 1) go(2); else if (dx > 0 && vpage === 2) go(1); // à l'intérieur de la page 2, Tâches <-> Objectifs est géré par la page elle-même
     }, { passive: true });
     function showPage1() { vpage = 1; setDots(); p1.classList.remove('hidden'); p2.classList.add('hidden'); }
     TMT.visitorStats = {
@@ -773,15 +759,16 @@
     root: page2,
     activities: function () { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; },
     isShown: function () { return page === 2; },
+    onTab: function () { setDots(); },
     fetch: function (aid, qs) {
       return TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(aid) + qs).then(function (d) { return { data: d }; });
     }
   });
   // Profil d'un AUTRE utilisateur : même code, lecture seule. Voir TMT.createVisitorStats (app.js : page de visite).
-  TMT.createVisitorStats = function (root, userId) {
+  TMT.createVisitorStats = function (root, userId, onTab) {
     var acts = [];
     var v = createInstance({
-      root: root, visitor: true,
+      root: root, visitor: true, onTab: onTab,
       activities: function () { return acts; },
       isShown: function () { return true; },
       fetch: function (aid, qs) {
@@ -798,15 +785,21 @@
   function closeModal() { inst.hideSheet(); inst.reset(); }
 
   // ---------- Changement de page (même animation que setGoalsPage2Mode) ----------
+  // Trois points globaux : Temps | Tâches | Objectifs. n = 1..3 ; 2 et 3 sont la page 2 (onglet Tâches / Objectifs).
+  function setDots() {
+    var lp = page === 1 ? 1 : (inst.getTab() === 'o' ? 3 : 2);
+    if (dots) Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle('on', i === lp - 1); });
+  }
   function setStatsPage(n, opts) {
     opts = opts || {};
-    if (n === page) return;
-    var from = page === 1 ? page1 : page2, to = n === 1 ? page1 : page2;
-    var dir = n > page ? 1 : -1;
-    page = n;
-    if (dots) Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle('on', i === n - 1); });
+    var ph = n === 1 ? 1 : 2;
+    if (ph === page) { if (ph === 2) inst.goTab(n === 3 ? 'o' : 't'); return; }
+    var from = page === 1 ? page1 : page2, to = ph === 1 ? page1 : page2;
+    var dir = ph > page ? 1 : -1;
+    page = ph;
     closeModal();
-    if (n === 2) inst.open();
+    if (ph === 2) { inst.setTab(n === 3 ? 'o' : 't'); inst.open(); }
+    setDots();
     to.classList.remove('hidden');
     if (opts.noAnim || typeof to.animate !== 'function') { from.classList.add('hidden'); return; }
     var r = from.getBoundingClientRect(), pr = pages.getBoundingClientRect();
@@ -843,6 +836,7 @@
     var tg = e.target;
     if (!tg.closest || tg.closest('input, textarea, select, .statsPeriodMenu')) return;
     if (document.querySelector('.communityMembersModal:not(.hidden)')) return;
+    if (page === 2 && inst.getTab() === 'o') return; // sur Objectifs, le glissement vers la droite revient à Tâches (voir page2 touchend)
     scroller = hScroller(tg); startLeft = scroller ? scroller.scrollLeft : 0;
     sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
   }, { passive: true });
@@ -874,8 +868,7 @@
     gone.classList.add('hidden');
     pages.style.overflowX = '';
     if (commit) {
-      page = d.nbN; closeModal();
-      if (dots) Array.prototype.forEach.call(dots.children, function (x, i) { x.classList.toggle('on', i === page - 1); });
+      page = d.nbN; closeModal(); setDots();
     }
   }
   function finishDrag(d, commit, dx) {
