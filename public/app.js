@@ -1578,6 +1578,8 @@
   }
   document.addEventListener('touchmove', function (e) {
     if (!isStandaloneMode()) return;
+    // 10 oct. 2026 : l'écran d'inscription/connexion doit toujours pouvoir défiler (petits écrans).
+    if ($('onboarding') && !$('onboarding').classList.contains('hidden')) return;
     if (_documentNeedsScroll()) return;
     if (_isScrollableAncestor(e.target)) return;
     e.preventDefault();
