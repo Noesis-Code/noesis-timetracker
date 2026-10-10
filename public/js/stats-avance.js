@@ -38,6 +38,7 @@
   TMT.slidePager = slidePager;
   function slidePager(cfg) {
     var zone = cfg.zone, g = null;
+    zone.style.touchAction = 'pan-y';
     function hScroller(e0) {
       for (var e = e0; e && e !== zone; e = e.parentElement) {
         if (e.scrollWidth > e.clientWidth + 1) {
@@ -55,15 +56,16 @@
       var mods = document.querySelectorAll('.communityMembersModal:not(.hidden)'); // une fenêtre ouverte AU-DESSUS (pas celle qui contient la zone) bloque le geste
       for (var mi = 0; mi < mods.length; mi++) if (!mods[mi].contains(zone)) return;
       var sc = hScroller(tg);
-      g = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), sc: sc, startLeft: sc ? sc.scrollLeft : 0, drag: null, swallow: false };
+      g = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), sc: sc, startLeft: sc ? sc.scrollLeft : 0, drag: null, swallow: false, lock: TMT.axisLock.start(tg), tg: tg };
     }, { passive: true });
     zone.addEventListener('touchmove', function (e) {
       if (!g) return;
       var dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y;
       if (!g.drag) {
         if (g.swallow) { if (e.cancelable) e.preventDefault(); return; }
-        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g = null; return; } // défilement vertical
-        if (Math.abs(dx) < 8) return;
+        var axis = TMT.axisLock.move(g.lock, dx, dy); // verrouillage d'axe (helper commun)
+        if (!axis) return;
+        if (axis === 'y') { g = null; return; } // défilement vertical natif
         var dir = dx < 0 ? 1 : -1;
         if (g.sc && (dir > 0 || !(g.startLeft <= 1 && g.sc.scrollLeft <= 1))) { g = null; return; } // zone défilant horizontalement (heatmap, graphique)
         var d = cfg.neighbor(dir);
@@ -75,6 +77,7 @@
         d.nb.style.cssText += ';position:absolute;left:' + (cr.left - hr.left) + 'px;top:' + top + 'px;width:' + cr.width + 'px;pointer-events:none;';
         d.host.style.overflowX = 'hidden';
         d.dir = dir; d.w = cr.width + GAP; d.x = 0; g.drag = d;
+        TMT.axisLock.hold(g.lock, g.tg);
       }
       var dd = g.drag;
       dd.x = dd.dir > 0 ? Math.max(-dd.w, Math.min(0, dx)) : Math.min(dd.w, Math.max(0, dx));
@@ -85,6 +88,7 @@
     function finish(e, cancelled) {
       var s0 = g; g = null;
       if (!s0) return;
+      TMT.axisLock.release(s0.lock);
       if (!s0.drag) { if (s0.swallow && e.stopPropagation) e.stopPropagation(); return; }
       if (e.stopPropagation) e.stopPropagation();
       var d = s0.drag, dt = Math.max(1, Date.now() - s0.t), mv = Math.abs(d.x);

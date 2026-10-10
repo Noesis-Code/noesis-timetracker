@@ -483,20 +483,24 @@
       var tg = e.target;
       if (tg.closest('#goalsActivityHeader, input, textarea, select, #goalsDiscView')) return;
       var sc = hScroller(tg);
-      g0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), scroller: sc, startLeft: sc ? sc.scrollLeft : 0, drag: null };
+      g0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), scroller: sc, startLeft: sc ? sc.scrollLeft : 0, drag: null, lock: TMT.axisLock.start(tg), tg: tg };
     }, { passive: true });
     zone.addEventListener('touchmove', function (e) {
       if (!g0) return;
       var dx = e.touches[0].clientX - g0.x, dy = e.touches[0].clientY - g0.y;
       if (!g0.drag) {
-        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g0 = null; return; } // défilement vertical
-        if (Math.abs(dx) < 8) return;
+        var axis = TMT.axisLock.move(g0.lock, dx, dy); // verrouillage d'axe (helper commun)
+        if (!axis) return;
+        if (axis === 'y') { g0 = null; return; } // défilement vertical natif
         if (!startDrag(dx)) { g0 = null; return; }
+        TMT.axisLock.hold(g0.lock, g0.tg);
       }
       place(dx);
-    }, { passive: true });
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
     function finish(e, cancelled) {
       var g = g0; g0 = null;
+      if (g) TMT.axisLock.release(g.lock);
       if (!g || !g.drag) return;
       var d = g.drag, dx = d.x || 0, dt = Math.max(1, Date.now() - g.t);
       var commit = !cancelled && ((Math.abs(dx) > d.width * 0.25) || (Math.abs(dx) >= 20 && Math.abs(dx) / dt >= 0.35));
