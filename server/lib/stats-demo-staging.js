@@ -437,6 +437,11 @@ function build(u, fakeNames, NAME, NAME_CONF, seed) {
     db.prepare('UPDATE goal_periods SET mainGoalEstimateMinutes = ?, mainGoalEstimateSource = ?, mainGoalEstimateConfidence = 1 WHERE id = ?').run(target, 'manual', p.id);
   });
 
+  // Bilans automatiques de fin de période (goals.postBilanIfDue) : toutes les périodes passées du seed viennent de se terminer
+  // « aujourd'hui » -> ils inonderaient la discussion. Marqués déjà postés ; messages « Bilan automatique » éventuels supprimés.
+  db.prepare('UPDATE goal_periods SET bilanPostedAt = ? WHERE activityId = ? AND endDate < ? AND bilanPostedAt IS NULL').run(new Date().toISOString(), aid, todayIso);
+  db.prepare("DELETE FROM activity_messages WHERE activityId = ? AND body LIKE '%Bilan automatique%'").run(aid);
+
   const stats = {
     tasks: nTasks, entries: nEntries, weeklies: weeklies.length, carried: carriedFrom.size, periods: lastP - firstP + 1,
     done: db.prepare('SELECT COUNT(*) AS c FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId WHERE sp.activityId = ? AND i.done = 1').get(aid).c,

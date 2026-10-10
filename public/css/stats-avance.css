@@ -144,4 +144,5 @@
 #statsAvancePage, #viewProfileStatsPage2 { position: relative; }
 
 /* 10 oct. 2026 : sélecteur d'année sous les pastilles d'activité, au-dessus des informations. */
-.saChips + .caSubProjectFilter { margin: 8px 0 4px; }
+/* Haut du bouton d'année = haut de la 1re carte de la page Temps (mesuré : 126 px) ; les infos dessous ne bougent pas. */
+.saChips + .caSubProjectFilter { margin: -1px 0 13px; }

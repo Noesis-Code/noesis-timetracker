@@ -4846,34 +4846,14 @@
   // Appelée depuis loadActivityPage() (recherche "syncSoloStatsTab" pour son
   // appelant), pas depuis le rendu de la liste des sous-projets comme avant —
   // ce rendu-là n'a plus aucun rapport avec cette section.
-  function syncSoloStatsTab(has) {
-    $('activityPageTabStats').classList.toggle('hidden', !has);
-    // Hauteur réservée (visibility, pas display) : le titre ne saute plus quand l'onglet apparaît/disparaît.
-    $('activityPageSectionSwitch').classList.toggle('tabsGhost', !has);
-    // La dernière catégorie de temps de l'activité a disparu (rare, mais
-    // possible après une modification d'historique) alors qu'on regardait les
-    // statistiques : on ne laisse pas l'écran sur une section qui n'existe plus.
-    if (!has && activityPageSection === 'stats') setActivityPageSection('sub');
-  }
-
-  // Vérifie, à l'ouverture de la page d'une activité SOLO, si elle a du temps
-  // rattaché à une catégorie — réutilise le même filtre que la fenêtre
-  // flottante (/api/category-stats/activities), sur une plage large plutôt
-  // que sur la fenêtre affichée par une grille (il n'y en a pas ici) : cette
-  // page ne s'intéresse qu'à « est-ce qu'il existe quelque chose à montrer,
-  // un jour donné », pas à une période précise.
-  function refreshSoloStatsAvailability(activityId) {
-    if (!profile || !activityId) return;
-    api('GET', '/api/category-stats/activities?userId=' + profile.id
-      + '&from=2000-01-01&to=' + toDateValue(new Date()))
-      .then(function (data) {
-        // Garde anti-réponse-en-vol : l'activité regardée a pu changer pendant
-        // la requête.
-        if (String(activityId) !== String(currentCommunityActivityId)) return;
-        var ids = (data && data.activityIds) || [];
-        syncSoloStatsTab(ids.indexOf(Number(activityId)) !== -1);
-      })
-      .catch(function () {});
+  // 10 oct. 2026 (Emilien) : les statistiques de la fenêtre Activité sont PAR MEMBRE : inutiles seul. Une activité non
+  // partagée (< 2 membres) n'a donc ni onglet « Statistiques » ni rangée d'onglets (supprimée, pas masquée : aucun vide
+  // sous le titre) et ouvre directement « Pôles & secteurs ». Seule règle : currentActivityIsShared.
+  function syncActivityTabs() {
+    var sw = $('activityPageSectionSwitch');
+    if (sw) sw.classList.toggle('hidden', !currentActivityIsShared);
+    $('activityPageTabStats').classList.toggle('hidden', !currentActivityIsShared);
+    if (!currentActivityIsShared && activityPageSection === 'stats') setActivityPageSection('sub');
   }
 
   function renderSoloCategoryPie(data) {
@@ -5909,6 +5889,7 @@
   // Objectifs de la barre du bas (switchTab('goals'), namespace différent,
   // sans lien avec activityPageSection) n'est pas concerné.
   function setActivityPageSection(name) {
+    if (name === 'stats' && !currentActivityIsShared) name = 'sub'; // activité seule : pas de statistiques par membre
     activityPageSection = name;
     document.querySelectorAll('#activityPageSectionSwitch .periodBtn').forEach(function (b) {
       b.classList.toggle('active', b.dataset.section === name);
@@ -6063,9 +6044,7 @@
     // (/api/category-stats/activities, csCanOpen) — même principe que
     // l'ancienne « RECALCULÉE à l'arrivée des sous-projets ». La Discussion,
     // elle, reste strictement réservée au partagé.
-    var showStats = isShared;
-    $('activityPageTabStats').classList.toggle('hidden', !showStats);
-    if (!isShared) refreshSoloStatsAvailability(a.id);
+    syncActivityTabs();
     // 15 septembre 2026 (7e passage, demande d'Emilien — « je souhaite que la
     // fenêtre activité soit les réglages du volet objectif ») : le sélecteur
     // n'est plus jamais masqué en entier, même pour une activité NON partagée
@@ -16401,6 +16380,7 @@
       var actForCurrent = (acts || []).filter(function (x) { return String(x.id) === String(currentCommunityActivityId); })[0];
       currentActivityIsShared = !!shared[String(currentCommunityActivityId)]
         || !!(actForCurrent && actForCurrent.membersCount > 1);
+      syncActivityTabs();
     }
 
     // Mémorisé pour la boîte de fusion (qui doit proposer les AUTRES activités
@@ -17543,6 +17523,18 @@
   window.TMT.$ = $;
   window.TMT.api = api;
   window.TMT.getCaState = function () { return { id: currentCommunityActivityId, category: currentActivityCategory }; }; // fenêtre Activité (activite-stats-taches.js)
+  // Page « Tâches par membre » : le filtre de pôle n'y propose pas « Sans pôle » ; couleurs de membres = nuances de l'activité.
+  window.TMT.caTasksPage = function (on) {
+    var m = $('caCategoryMenu'); if (m) m.classList.toggle('caNoNone', !!on);
+    if (on && currentActivityCategory === 'none') {
+      currentActivityCategory = ''; syncActivityCategoryBtn();
+      if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
+    }
+  };
+  window.TMT.caMemberColors = function (members) {
+    rememberActivityMembers(currentCommunityActivityId, [members]);
+    return members.map(function (m) { return activityMemberColor(m.userId, m.color || '#674EA7'); });
+  };
   window.TMT.pad = pad;
   window.TMT.dateLocale = dateLocale;
   window.TMT.refreshActivities = refreshActivities;

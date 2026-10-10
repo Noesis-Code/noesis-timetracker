@@ -656,8 +656,8 @@ function memberStats(activityId, scopeParam, yearParam, poleKey) {
   db.prepare(`SELECT i.id, i.plannedUserId FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND sp.goalCategory IS NOT NULL AND i.plannedUserId IS NOT NULL`).all(activityId).forEach((r) => { planned[r.id] = r.plannedUserId; });
   const undated = scopeName === 'year' || scopeName === 'all';
-  const tasks = loadTasks(activityId, scope.keyToPole)
-    .filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
+  const loaded = loadTasks(activityId, scope.keyToPole);
+  const tasks = loaded.filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
   const members = db.prepare(`SELECT u.id AS id, u.name AS name, u.lastName AS lastName, u.color AS color, u.avatar AS avatar
     FROM activity_members am JOIN users u ON u.id = am.userId WHERE am.activityId = ? ORDER BY am.joinedAt, u.id`).all(activityId);
   const by = {};
@@ -681,7 +681,32 @@ function memberStats(activityId, scopeParam, yearParam, poleKey) {
     m.good = (m.donePct != null && m.donePct >= 80) || (m.onTimePct != null && m.onTimePct >= 80);
     return m;
   }).sort((a, b) => (b.done - a.done) || ((b.donePct || 0) - (a.donePct || 0)) || a.name.localeCompare(b.name));
-  return { scope: scopeName, total: { tasks: total, done: totalDone, remaining: total - totalDone }, members: out };
+  // Courbes cumulées des tâches faites, UNE par membre (même grille que le graphique des tâches : année = 13 périodes,
+  // période = 28 jours, semaine = 7 jours, tout = une valeur par année). Compteurs seulement : aucun titre de tâche.
+  const doneTasks = loaded.filter((t) => t.done && t.doneDay && by[t.doneBy || planned[t.id]]);
+  const respOf = (t) => t.doneBy || planned[t.id];
+  let labels; let n; let idx; let todayIndex; let noToday = false;
+  if (scopeName === 'all') {
+    const yrs = doneTasks.map((t) => Number(t.doneDay.slice(0, 4))).concat([cur]);
+    const minY = Math.min.apply(null, yrs);
+    n = cur - minY + 1; labels = []; for (let i = 0; i < n; i += 1) labels.push(String(minY + i));
+    idx = (d) => Math.max(0, Math.min(n - 1, Number(d.slice(0, 4)) - minY)); todayIndex = n - 1; noToday = true;
+  } else {
+    const r = viewRange(scopeName, realToday);
+    labels = r.labels; n = r.n; idx = (d) => (d >= r.start && d <= r.end ? r.idx(d) : -1);
+    todayIndex = Math.max(0, Math.min(n - 1, r.idx(realToday)));
+  }
+  const buckets = {}; members.forEach((m) => { buckets[m.id] = new Array(n).fill(0); });
+  doneTasks.forEach((t) => { const i = idx(t.doneDay); if (i >= 0) buckets[respOf(t)][i] += 1; });
+  let max = 0;
+  const seriesMembers = members.map((m) => {
+    let acc = 0; const values = [];
+    for (let i = 0; i < n; i += 1) { acc += buckets[m.id][i]; values.push(i <= todayIndex ? acc : null); }
+    max = Math.max(max, acc);
+    return { userId: m.id, name: m.name, lastName: m.lastName || '', color: m.color || null, values };
+  });
+  return { scope: scopeName, total: { tasks: total, done: totalDone, remaining: total - totalDone }, members: out,
+    series: { labels, todayIndex, noToday, max: niceMax(max), members: seriesMembers } };
 }
 
 module.exports = { insightsForActivity, visitorInsights, glisseDetail, memberStats };
