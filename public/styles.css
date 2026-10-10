@@ -6786,3 +6786,5 @@ button { -webkit-user-select: none; user-select: none; }
 /* 10 oct. 2026 : Déconnexion dans le bandeau des Réglages, compacte, à gauche de la croix. */
 .subpageHeader .logoutBtnHeader { margin-left: auto; font-size: 12px; padding: 4px 8px; border: 1px solid var(--glass-border, var(--border)); border-radius: var(--radius-sm); }
 #profileSettingsPanel.settingsPanel .logoutBtnHeader ~ #settingsCloseBtn { margin-left: 0; }
+.subpageHeader .logoutBtn.logoutBtnHeader { color: #E08A69; border-color: #C2694A; background: transparent; }
+.subpageHeader .logoutBtn.logoutBtnHeader:hover { background: rgba(194, 105, 74, 0.14); text-decoration: none; }
