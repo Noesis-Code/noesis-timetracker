@@ -398,6 +398,10 @@ router.post('/profile', (req, res) => {
   ).get(name, lastName);
   if (existing) return res.status(409).json({ error: `"${name} ${lastName}" existe déjà. Choisis un autre prénom ou nom, ou récupère ton profil si c'est toi.` });
 
+  // 10 oct. 2026 : adresse déjà utilisée = message clair (avant, erreur 500 HTML illisible côté appli).
+  const emailTaken = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get(email);
+  if (emailTaken) return res.status(409).json({ error: 'Cette adresse courriel est déjà associée à un profil. Récupère ton profil (« J\'ai déjà un profil sur cette app ») ou utilise une autre adresse.' });
+
   // Trame 5 : preuve d'acceptation — refus côté serveur si la case CGU/Politique n'est pas cochée.
   if (req.body.termsAccepted !== true) return res.status(400).json({ error: 'Tu dois accepter les conditions d\'utilisation et la politique de confidentialité.' });
 
