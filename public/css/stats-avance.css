@@ -114,7 +114,11 @@
 
 /* 9 oct. 2026 : statistiques d'un profil visité — deux pages horizontales + points de pagination. */
 #viewProfileStatsPages { position: relative; }
-.vpsDots { display: flex; justify-content: center; gap: 0; margin-top: 4px; }
+/* 10 oct. 2026 : points fixes au premier plan (même technique que #statsPageDots), ne bougent pas au défilement. */
+.vpsDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 200; bottom: env(safe-area-inset-bottom, 0px); display: flex; gap: 0; }
+.vpsDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
+.vpsDots .goalsDot { box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+#viewProfileStatsPages { padding-bottom: 36px; }
 .vpsDots .goalsDotBtn { padding: 8px 6px; background: none; border: 0; }
 .vpsDots .goalsDot { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--text); opacity: .35; transition: opacity .2s; }
 .vpsDots .goalsDotBtn.on .goalsDot { opacity: 1; }
