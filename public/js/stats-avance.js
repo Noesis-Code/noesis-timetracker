@@ -34,6 +34,7 @@
   // pas d'ajout/retrait, pas de feuilles « par secteur ») ; cfg.activities() : pastilles ; cfg.fetch(activityId, qs) : Promise des données.
   function createInstance(cfg) {
   var page2 = cfg.root, visitor = !!cfg.visitor;
+  var yearSel = null; // null = année en cours (défaut) | 'AAAA' passée ; propre page seulement, jamais persisté
   var activityId = null, data = null, loadSeq = 0, built = false;
   var els = {};
   function activities() { return cfg.activities(); }
@@ -219,10 +220,10 @@
   }
 
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
-  function isDirty() { return tab !== 't' || view !== 'year' || oview !== DEF_O || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
+  function isDirty() { return yearSel !== null || tab !== 't' || view !== 'year' || oview !== DEF_O || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
   function resetTransient() {
-    var wasOff = dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== DEF_O || tab !== 't';
-    setTab('t'); view = 'year'; oview = DEF_O; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
+    var wasOff = yearSel !== null || dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== DEF_O || tab !== 't';
+    yearSel = null; setTab('t'); view = 'year'; oview = DEF_O; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
     if (wasOff && built && activityId != null && cfg.isShown()) { load(); return; }
     if (built && data) render();
   }
@@ -350,6 +351,7 @@
     var menu = el('div', 'statsPeriodMenu hidden');
     VS.forEach(function (o) {
       var it = el('button', 'statsPeriodMenuItem' + (o[0] === cv ? ' active' : ''), tr(o[1])); it.type = 'button';
+      if (yearSel !== null && o[0] !== 'year' && isT) { it.disabled = true; it.style.opacity = '.4'; }
       it.addEventListener('click', function () { menu.classList.add('hidden'); if (o[0] !== cv) { if (isT) view = o[0]; else oview = o[0]; dayOff = 0; wOff = 0; pPage = null; load(); } });
       menu.appendChild(it);
     });
@@ -359,7 +361,34 @@
       document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
       if (willOpen) menu.classList.remove('hidden');
     });
-    wrap.appendChild(btn); wrap.appendChild(menu); hd.appendChild(wrap);
+    wrap.appendChild(btn); wrap.appendChild(menu);
+    var ys = !visitor && d.years;
+    if (ys && ys.length >= 2) {
+      // Choix de l'année (propre page) : année en cours par défaut, années passées = vue Année seulement.
+      var curY = String(new Date().getFullYear()), selY = yearSel !== null ? String(yearSel) : curY;
+      var yw = el('div', 'statsPeriodMenuWrap saYearWrap');
+      var yb = el('button', 'caSubProjectBtn', selY); yb.type = 'button';
+      yb.setAttribute('aria-haspopup', 'true'); yb.setAttribute('aria-label', tr("Choisir l'année"));
+      var ym = el('div', 'statsPeriodMenu hidden');
+      var opts = ys.map(String); if (opts.indexOf(curY) < 0) opts.push(curY);
+      opts.sort().reverse().forEach(function (y) {
+        var it = el('button', 'statsPeriodMenuItem' + (y === selY ? ' active' : ''), y); it.type = 'button';
+        it.addEventListener('click', function () {
+          ym.classList.add('hidden');
+          if (y === selY) return;
+          yearSel = y === curY ? null : y; if (yearSel !== null) { view = 'year'; wOff = 0; dayOff = 0; pPage = null; } load();
+        });
+        ym.appendChild(it);
+      });
+      yb.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var willOpen = ym.classList.contains('hidden');
+        document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+        if (willOpen) ym.classList.remove('hidden');
+      });
+      yw.appendChild(yb); yw.appendChild(ym);
+      var rt = el('div', 'saHdRight'); rt.appendChild(yw); rt.appendChild(wrap); hd.appendChild(rt);
+    } else hd.appendChild(wrap);
     card.appendChild(hd);
     var svg = v ? chartSvg(v) : null;
     if (!svg) { card.appendChild(el('p', 'hint', '—')); return card; }
@@ -657,7 +686,7 @@
       b.style.setProperty('--chipEdge', a.color || '#674EA7');
       var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
       b.appendChild(d); b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; pPage = null; renderChips(); load(); } });
+      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; pPage = null; yearSel = null; renderChips(); load(); } });
       els.chips.appendChild(b);
     });
   }
@@ -668,7 +697,7 @@
     els.msg.classList.add('hidden');
     var seq = ++loadSeq;
     var all = tab === 't' ? view === 'all' : oview === 'all';
-    var qs = (all ? '&year=all' : '') + '&scope=' + (view === 'all' ? 'year' : view) + '&kind=' + oview + (dayOff ? '&offset=' + dayOff : '') + (wOff ? '&woff=' + wOff : '');
+    var qs = (all ? '&year=all' : (!visitor && yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '')) + '&scope=' + (view === 'all' ? 'year' : view) + '&kind=' + oview + (dayOff ? '&offset=' + dayOff : '') + (wOff ? '&woff=' + wOff : '');
     cfg.fetch(activityId, qs).then(function (r) {
       if (seq !== loadSeq) return;
       if (r.activityId !== undefined && r.activityId !== null) activityId = r.activityId;
