@@ -1,7 +1,7 @@
 const express = require('express');
 const { randomUUID } = require('node:crypto');
 const db = require('../db');
-const { makePinRecord, verifyPinRecord, isValidPinFormat, isLocked, registerFailure, registerSuccess } = require('../lib/auth');
+const { makePinRecord, verifyPinRecord, isValidPinFormat, checkPin, LOCK_MESSAGE } = require('../lib/auth');
 const { isInPalette, pairedColor } = require('../lib/theme');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 const { notifyCommunityPost } = require('../lib/push');
@@ -334,6 +334,20 @@ function usersRateLimited(ip) {
   if (!e || now - e.start >= USERS_RATE_WINDOW_MS) { e = { start: now, n: 0 }; usersRateHits.set(ip, e); }
   e.n += 1;
   return e.n > USERS_RATE_LIMIT;
+}
+// Limite par IP sur la connexion (verify-pin) : empêche d'essayer des comptes
+// différents en rafale. En mémoire, par minute.
+const LOGIN_IP_LIMIT = 10;
+const loginIpHits = new Map();
+function loginIpLimited(ip) {
+  const now = Date.now();
+  if (loginIpHits.size > 5000) {
+    loginIpHits.forEach((v, k) => { if (now - v.start >= USERS_RATE_WINDOW_MS) loginIpHits.delete(k); });
+  }
+  let e = loginIpHits.get(ip);
+  if (!e || now - e.start >= USERS_RATE_WINDOW_MS) { e = { start: now, n: 0 }; loginIpHits.set(ip, e); }
+  e.n += 1;
+  return e.n > LOGIN_IP_LIMIT;
 }
 router.get('/users', (req, res) => {
   if (usersRateLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de recherches. Réessayez dans une minute.' });
@@ -691,19 +705,17 @@ router.put('/profile/:id/ai-mode', (req, res) => {
 // profil" (typiquement depuis un autre appareil/navigateur). Ne renvoie le
 // profil qu'en cas de succès, et protège contre le bourrinage.
 router.post('/profile/:id/verify-pin', (req, res) => {
+  if (loginIpLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans une minute.' });
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
   if (!user.pin) return res.status(409).json({ error: 'Ce profil n\'a pas encore de code.', needsPin: true });
-  if (isLocked(user.id)) return res.status(429).json({ error: 'Trop d\'essais. Réessaie dans une minute.' });
 
   const pin = (req.body.pin || '').trim();
-  if (!verifyPinRecord(pin, user.pin)) {
-    registerFailure(user.id);
-    return res.status(401).json({ error: 'Code incorrect.' });
-  }
+  const pinState = checkPin(user, pin);
+  if (pinState === 'locked') return res.status(429).json({ error: LOCK_MESSAGE });
+  if (pinState === 'bad') return res.status(401).json({ error: 'Code incorrect.' });
 
-  registerSuccess(user.id);
   // Système de session (chantier 1) : une récupération de profil réussie
   // (bon PIN) vaut connexion sur CET appareil, exactement comme la création
   // ci-dessus — c'est le seul autre point d'entrée qui doit poser le témoin.
@@ -732,13 +744,10 @@ router.post('/profile/:id/set-pin', (req, res) => {
   }
 
   if (user.pin) {
-    if (isLocked(user.id)) return res.status(429).json({ error: 'Trop d\'essais. Réessaie dans une minute.' });
     const currentPin = (req.body.currentPin || '').trim();
-    if (!verifyPinRecord(currentPin, user.pin)) {
-      registerFailure(user.id);
-      return res.status(401).json({ error: 'Code actuel incorrect.' });
-    }
-    registerSuccess(user.id);
+    const pinState = checkPin(user, currentPin);
+    if (pinState === 'locked') return res.status(429).json({ error: LOCK_MESSAGE });
+    if (pinState === 'bad') return res.status(401).json({ error: 'Code actuel incorrect.' });
   }
 
   db.prepare('UPDATE users SET pin = ? WHERE id = ?').run(makePinRecord(newPin), user.id);
@@ -788,14 +797,11 @@ router.delete('/profile/:id', (req, res) => {
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
   if (!user.pin) return res.status(409).json({ error: 'Ce profil n\'a pas encore de code.', needsPin: true });
-  if (isLocked(user.id)) return res.status(429).json({ error: 'Trop d\'essais. Réessaie dans une minute.' });
 
   const pin = ((req.body && req.body.pin) || '').trim();
-  if (!verifyPinRecord(pin, user.pin)) {
-    registerFailure(user.id);
-    return res.status(401).json({ error: 'Code incorrect.' });
-  }
-  registerSuccess(user.id);
+  const pinState = checkPin(user, pin);
+  if (pinState === 'locked') return res.status(429).json({ error: LOCK_MESSAGE });
+  if (pinState === 'bad') return res.status(401).json({ error: 'Code incorrect.' });
 
   deleteAccountData(user);
 

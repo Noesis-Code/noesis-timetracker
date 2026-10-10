@@ -1301,6 +1301,15 @@ if (usersNameStillGloballyUnique()) {
 // tout profil créé depuis exige un nom de famille non vide (POST /profile).
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_name_lastname ON users(name COLLATE NOCASE, lastName COLLATE NOCASE)');
 
+// Blocage persistant du code PIN (3 échecs => 30 min), voir server/lib/auth.js.
+// Placé APRÈS la reconstruction de `users` ci-dessus (qui recopie des colonnes fixes).
+if (!columnExists('users', 'pinFailCount')) {
+  db.exec('ALTER TABLE users ADD COLUMN pinFailCount INTEGER NOT NULL DEFAULT 0');
+}
+if (!columnExists('users', 'pinLockedUntil')) {
+  db.exec('ALTER TABLE users ADD COLUMN pinLockedUntil TEXT');
+}
+
 // Vote anonyme (3 septembre 2026, demande d'Emilien). Migration purement
 // additive, comme toutes celles de ce bloc : DEFAULT 0, donc tout sondage créé
 // avant ce jour reste nominatif — le comportement d'un sondage déjà publié ne
