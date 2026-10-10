@@ -2257,6 +2257,32 @@ if (!columnExists('users', 'communityNotifyEnabled')) {
   db.exec('ALTER TABLE users ADD COLUMN communityNotifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
 
+// 10 oct. 2026 (conformité Loi 25, trames 2/4/5) : consentement commercial, annuaire de connexion,
+// preuve d'acceptation des CGU/Politique. ALTER TABLE idempotents ; `users` n'est jamais reconstruite.
+// Comptes existants : marketingConsent = 0 (marketingConsentAt NULL => invite affichée), directoryConsent = 1,
+// preuve d'acceptation NULL.
+if (!columnExists('users', 'marketingConsent')) {
+  db.exec('ALTER TABLE users ADD COLUMN marketingConsent INTEGER NOT NULL DEFAULT 0');
+}
+if (!columnExists('users', 'marketingConsentAt')) {
+  db.exec('ALTER TABLE users ADD COLUMN marketingConsentAt TEXT');
+}
+if (!columnExists('users', 'marketingConsentVersion')) {
+  db.exec('ALTER TABLE users ADD COLUMN marketingConsentVersion TEXT');
+}
+if (!columnExists('users', 'directoryConsent')) {
+  db.exec('ALTER TABLE users ADD COLUMN directoryConsent INTEGER NOT NULL DEFAULT 1');
+}
+if (!columnExists('users', 'termsAcceptedAt')) {
+  db.exec('ALTER TABLE users ADD COLUMN termsAcceptedAt TEXT');
+}
+if (!columnExists('users', 'termsVersion')) {
+  db.exec('ALTER TABLE users ADD COLUMN termsVersion TEXT');
+}
+if (!columnExists('users', 'privacyVersion')) {
+  db.exec('ALTER TABLE users ADD COLUMN privacyVersion TEXT');
+}
+
 // ---------------------------------------------------------------------------
 // autoCaptured / seenAt (25 septembre 2026, discussion Objectifs — Logique
 // métier — restructuration du volet Objectifs en 3 pages, demande directe

@@ -62,7 +62,9 @@ function row(sql, ...params) {
 // cette fonction qu'avec req.userId, jamais un id fourni par le client).
 function buildUserExport(userId) {
   const user = row(
-    `SELECT id, name, lastName, phone, email, color, theme, lang, shareProfile, avatar, createdAt
+    `SELECT id, name, lastName, phone, email, color, theme, lang, shareProfile, avatar, createdAt,
+            termsAcceptedAt, termsVersion, privacyVersion,
+            marketingConsent, marketingConsentAt, marketingConsentVersion, directoryConsent
      FROM users WHERE id = ?`,
     userId
   );

@@ -516,7 +516,25 @@
         </label>
         <label for="onbLegalTermsCheckbox" class="onbLegalText">J'ai lu et j'accepte les <a href="#" id="onbLegalTermsLink">conditions d'utilisation</a> et la <a href="#" id="onbPrivacyPolicyLink">politique de confidentialité</a>.</label>
       </p>
+      <!-- 10 oct. 2026 (conformité, trames 2 et 4) : deux cases FACULTATIVES, non cochées, séparées de la case CGU ; seule la case CGU bloque « Créer mon profil ». -->
+      <div class="onbOptionalConsents">
+        <p class="onbLegalCheck">
+          <label class="toggleSwitch">
+            <input type="checkbox" id="onbMarketingCheckbox">
+            <span class="toggleSwitchTrack"></span>
+          </label>
+          <label for="onbMarketingCheckbox" class="onbLegalText">J'accepte que Noesis utilise les données que je saisis pour analyser l'usage, produire des statistiques, m'envoyer des communications commerciales et cibler ses propres campagnes publicitaires. Mon code PIN et mes messages privés ne sont jamais utilisés. Je peux retirer mon accord à tout moment dans mon profil. (Politique de confidentialité, <a href="#" class="policy24Link">§2.4</a>)</label>
+        </p>
+        <p class="onbLegalCheck">
+          <label class="toggleSwitch">
+            <input type="checkbox" id="onbDirectoryCheckbox">
+            <span class="toggleSwitchTrack"></span>
+          </label>
+          <label for="onbDirectoryCheckbox" class="onbLegalText">J'accepte que mon prénom et mon nom puissent être trouvés dans la recherche de membres de l'écran de connexion. (Politique de confidentialité, section 4.1)</label>
+        </p>
+      </div>
       <button class="btn btn-primary btnBrique" id="onbCreateBtn" disabled>Créer mon profil</button>
+      <p class="switchLink"><a href="#" class="governanceLink">Gouvernance des renseignements personnels</a></p>
       <p class="switchLink"><a href="#" id="onbSwitchToExisting">J'ai déjà un profil sur cette app</a></p>
     </div>
 
@@ -534,6 +552,7 @@
       <input type="text" id="onbSearch" placeholder="Tape ton nom complet..." autocomplete="off">
       <div id="onbUserList" class="userList"></div>
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
+      <p class="switchLink"><a href="#" class="governanceLink">Gouvernance des renseignements personnels</a></p>
     </div>
 
     <div id="onbPinStep" class="hidden">
@@ -3033,6 +3052,23 @@
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>
+                <!-- 10 oct. 2026 (conformité, trames 2 et 4) : interrupteurs qui agissent au clic (routes PUT dédiées), sans passer par « Enregistrer ». -->
+                <div class="notifRow">
+                  <span class="notifRowLabel">Utilisation commerciale de mes données</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsMarketingConsent">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+                <p class="hint">Analyse de l'usage, statistiques, communications commerciales et campagnes publicitaires de Noesis. <a href="#" class="policy24Link">§2.4</a></p>
+                <p id="settingsMarketingMsg" class="msg"></p>
+                <div class="notifRow">
+                  <span class="notifRowLabel">Être trouvable dans la recherche de l'écran de connexion</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsDirectoryConsent">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
                 <button id="settingsSaveBtn" class="btn btn-primary btn-small">Enregistrer</button>
                 <p id="settingsMsg" class="msg"></p>
                 <!-- « Déconnexion » (26 septembre 2026, demande d'Emilien) : placé
@@ -3124,6 +3160,7 @@
               <div class="settingsCard">
                 <p class="hint">Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.</p>
                 <button type="button" id="openPrivacyPolicyBtn" class="iconBtn">Lire la politique de confidentialité</button>
+                <button type="button" id="openGovernanceBtn" class="iconBtn governanceLink">Gouvernance des renseignements personnels</button>
                 <button type="button" id="openLegalNoticesBtn" class="iconBtn">Lire les mentions légales</button>
                 <button type="button" id="openLegalTermsBtn" class="iconBtn">Lire les conditions d'utilisation</button>
               </div>
@@ -3418,6 +3455,7 @@
                   </div>
                   <div class="discussionComposer">
                     <textarea id="feedbackMessageInput" class="pollAutoGrow" rows="3" placeholder="Ton message..." maxlength="4000"></textarea>
+                    <p class="hint">N'écris pas de mot de passe, de NIP, de numéro de carte ni d'autre renseignement sensible dans ce message ou dans une pièce jointe.</p>
                     <div id="feedbackPendingList" class="attachmentList hidden"></div>
                     <div class="rowActions">
                       <div class="attachmentMenuWrap">
@@ -3584,33 +3622,35 @@
       <button type="button" class="menuBtn" id="legalTermsModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
+      <p class="hint">Version 1.2 — en vigueur le 10 octobre 2026.</p>
+
       <h3>1. Objet et acceptation</h3>
       <p>Les présentes Conditions Générales d'Utilisation (les « CGU ») régissent l'accès et l'utilisation de l'application Noèsis TimeTracker et des services associés (les « Services »), édités par Noèsis Inc. (la « Société »). En créant un compte ou en utilisant les Services, l'Utilisateur reconnaît avoir lu, compris et accepté les présentes CGU.</p>
       <p>Les Services sont offerts aux personnes résidant au Canada. Ils ne sont pas proposés aux résidents d'autres territoires et n'y sont pas promus ; en créant un Compte, l'Utilisateur déclare résider au Canada.</p>
-      <p>Les dispositions du présent document propres aux Utilisateurs résidant en France ou dans l'Union européenne (articles 7, 8, 12 et 15) sont rédigées par anticipation d'une expansion future des Services au-delà du Canada ; elles ne sont pas opérantes tant que les Services demeurent offerts exclusivement aux résidents du Canada.</p>
+      <p>Les dispositions du présent document propres aux Utilisateurs résidant en France ou dans l'Union européenne (articles 7 et 12) sont rédigées par anticipation d'une expansion future des Services au-delà du Canada ; elles ne sont pas opérantes tant que les Services demeurent offerts exclusivement aux résidents du Canada.</p>
 
       <h3>2. Identification de la Société</h3>
-      <p>Noèsis Inc. (raison sociale légale : <strong>Compagnie Noèsis inc.</strong>) est une société par actions constituée au Québec le 8 septembre 2026, immatriculée sous le numéro d'entreprise du Québec (NEQ) <strong>1182542432</strong>.</p>
+      <p>Noèsis Inc. (raison sociale légale : Compagnie Noèsis inc.) est une société par actions constituée au Québec le 8 septembre 2026, immatriculée sous le numéro d'entreprise du Québec (NEQ) 1182542432.</p>
       <p>Les présentes CGU engagent la Société elle-même. Ses fondateurs, administrateurs et dirigeants n'y sont pas personnellement parties et ne peuvent être tenus personnellement responsables des obligations qui y sont décrites.</p>
-      <p>Pour toute question relative aux présentes CGU : confidentialite.noesis@gmail.com.</p>
+      <p>Pour toute question relative aux présentes CGU : compagnie.noesis@gmail.com.</p>
 
       <h3>3. Définitions</h3>
-      <p><strong>« Services »</strong> : l'ensemble des fonctionnalités offertes par Noèsis TimeTracker, incluant l'Offre Gratuite (et, une fois construite et lancée, l'Offre 1 — voir article 4.2).</p>
-      <p><strong>« Compte »</strong> : l'espace personnel créé par l'Utilisateur pour accéder aux Services ; un Compte correspond à une seule personne responsable.</p>
-      <p><strong>« Utilisateur »</strong> : toute personne physique ou entreprise/organisation titulaire d'un Compte.</p>
-      <p><strong>« Contenu »</strong> : toute donnée, information ou message transmis par l'Utilisateur dans le cadre des Services, y compris dans la Communauté.</p>
-      <p><strong>« Abonnement »</strong> : l'accès payant à l'Offre 1, une fois celle-ci lancée.</p>
+      <p>« Services » : l'ensemble des fonctionnalités offertes par Noèsis TimeTracker, incluant l'Offre Gratuite (et, une fois construite et lancée, l'Offre 1 — voir article 4.2).</p>
+      <p>« Compte » : l'espace personnel créé par l'Utilisateur pour accéder aux Services ; un Compte correspond à une seule personne responsable.</p>
+      <p>« Utilisateur » : toute personne physique ou entreprise/organisation titulaire d'un Compte.</p>
+      <p>« Contenu » : toute donnée, information ou message transmis par l'Utilisateur dans le cadre des Services, y compris dans la Communauté.</p>
+      <p>« Abonnement » : l'accès payant à l'Offre 1, une fois celle-ci lancée.</p>
 
       <h3>4. Description des Services</h3>
-      <p><strong>4.1 Offre Gratuite.</strong> L'Offre Gratuite comprend le suivi du temps (TimeTracker), avec répartition de l'activité par jour, semaine, mois et année, l'organisation en sous-projets, les statistiques, ainsi qu'un accès à la Communauté (sondages, publications, abonnements entre utilisateurs) et au calendrier optionnel. C'est la seule offre active au lancement du 11 septembre 2026.</p>
-      <p class="hint"><strong>4.2 Offre 1 (payante) — non applicable au lancement du 11 septembre 2026.</strong> Cette section décrit une offre qui n'existe pas encore dans l'application. Elle est conservée ici par anticipation et deviendra opérante seulement le jour où l'Offre 1 sera réellement construite et lancée — pas avant. L'Offre 1 donnerait accès à des formulaires d'identification et à l'analyse générée à partir de ces formulaires, incluant une feuille de route régénérée automatiquement tous les six mois. Elle serait souscrite par activité. Prix envisagé : 20 $ par mois et par activité.</p>
+      <p><strong>4.1 Offre Gratuite.</strong> L'Offre Gratuite comprend le suivi du temps (TimeTracker), avec répartition de l'activité par jour, semaine, mois et année, l'organisation en sous-projets, les statistiques, ainsi qu'un accès à la Communauté (sondages, publications, abonnements entre utilisateurs) et au calendrier optionnel. L'Offre Gratuite comprend aussi un assistant d'intelligence artificielle qui propose un classement des tâches (voir la Politique de confidentialité). Les propositions de l'assistant peuvent être inexactes, incomplètes ou trompeuses : l'Utilisateur doit les vérifier avant de s'y fier. C'est la seule offre active au lancement du 11 septembre 2026.</p>
+      <p><strong>4.2 Offre 1 (payante) — non applicable au lancement du 11 septembre 2026.</strong> Cette section décrit une offre qui n'existe pas encore dans l'application. Elle est conservée ici par anticipation et deviendra opérante seulement le jour où l'Offre 1 sera réellement construite et lancée — pas avant. L'Offre 1 donnerait accès à des formulaires d'identification et à l'analyse générée à partir de ces formulaires, incluant une feuille de route régénérée automatiquement tous les six mois. Elle serait souscrite par activité. Prix envisagé : 20 $ par mois et par activité.</p>
 
       <h3>5. Création et gestion du Compte</h3>
       <p>L'Utilisateur garantit l'exactitude des informations fournies lors de la création du Compte et s'engage à les maintenir à jour. Un Compte est strictement personnel ; il ne peut être partagé entre plusieurs personnes, même au sein d'une même entreprise ou organisation.</p>
       <p>L'accès aux Services est réservé aux personnes âgées de 16 ans ou plus. La Société peut suspendre ou résilier tout Compte créé par une personne n'ayant pas atteint cet âge.</p>
-      <p class="hint">Le mécanisme de consentement parental pour un mineur de 16-17 ans, décrit ci-dessous, ne s'applique qu'à la souscription de l'Offre 1 — non pertinent tant que celle-ci n'existe pas.</p>
+      <p>Le mécanisme de consentement parental pour un mineur de 16-17 ans, décrit ci-dessous, ne s'applique qu'à la souscription de l'Offre 1 — non pertinent tant que celle-ci n'existe pas.</p>
       <p>L'abonnement payant à l'Offre 1, le jour où elle existera, constituerait un engagement financier récurrent excédant les besoins ordinaires et usuels d'un mineur au sens de l'article 157 du Code civil du Québec. La souscription à l'Offre 1 serait alors réservée aux personnes majeures (18 ans ou plus) ou, pour un mineur de 16 ou 17 ans, subordonnée au consentement exprès de son représentant légal, recueilli au moment de la souscription au moyen d'une case à cocher distincte.</p>
-      <p>L'écran « J'ai déjà un profil » permet de retrouver un Compte existant en tapant son nom complet (prénom et nom de famille). Dès qu'une suite d'au moins trois caractères tapée par un visiteur correspond au nom complet d'un Compte, ce nom complet peut s'afficher à l'écran, avant même toute connexion — jusqu'à cinq résultats à la fois. En créant un Compte, l'Utilisateur consent à ce que son nom complet puisse ainsi être retrouvé et affiché par toute personne qui en connaît déjà une partie.</p>
+      <p>L'écran de connexion permet de retrouver un Compte existant en tapant au moins 3 caractères d'un nom : le prénom et le nom de famille complets des personnes correspondantes (jusqu'à 5 résultats) s'affichent alors avant toute connexion, et le nombre de recherches possibles est limité. L'Utilisateur y consent par une case distincte, cochée à l'inscription. Le détail de cette fonction figure dans la politique de confidentialité (section 4.1).</p>
 
       <h3>6. Prix, facturation et taxes — non applicable tant que l'Offre 1 n'existe pas</h3>
       <p>Les frais d'abonnement à l'Offre 1, le jour où elle existera, seraient facturés avant le début de chaque mois de service, via Stripe. En cas d'échec de paiement, l'accès à l'Offre 1 pourrait être suspendu jusqu'à régularisation.</p>
@@ -3618,11 +3658,11 @@
 
       <h3>7. Droit de résolution du contrat</h3>
       <p><strong>Utilisateurs résidant au Canada.</strong> Conformément aux articles 54.1 et suivants de la Loi sur la protection du consommateur (contrats conclus à distance), l'Utilisateur consommateur dispose d'un droit de résolution si la Société ne respecte pas ses obligations de divulgation précontractuelle ou de transmission d'une copie du contrat. Cette section ne devient pertinente que le jour où un contrat payant (Offre 1) existe.</p>
-      <p class="hint"><strong>Utilisateurs résidant en France ou dans l'Union européenne (par anticipation, non opérant).</strong> Conformément à l'article L221-18 du Code de la consommation, l'Utilisateur consommateur résidant en France ou dans l'Union européenne disposerait d'un délai de rétractation de quatorze (14) jours à compter de la souscription à l'Offre 1, sans avoir à motiver sa décision. Non pertinent tant que le service reste limité au Canada et gratuit.</p>
+      <p><strong>Utilisateurs résidant en France ou dans l'Union européenne (par anticipation, non opérant).</strong> Conformément à l'article L221-18 du Code de la consommation, l'Utilisateur consommateur résidant en France ou dans l'Union européenne disposerait d'un délai de rétractation de quatorze (14) jours à compter de la souscription à l'Offre 1, sans avoir à motiver sa décision. Non pertinent tant que le service reste limité au Canada et gratuit.</p>
 
       <h3>8. Modification des présentes CGU</h3>
-      <p>La Société peut modifier les présentes CGU pour un motif légitime, notamment une évolution des Services, de la réglementation applicable ou de ses coûts d'exploitation ; elle ne peut le faire de façon purement discrétionnaire.</p>
-      <p>Toute modification substantielle sera communiquée à l'Utilisateur par un avis écrit au moins 30 jours avant son entrée en vigueur, conformément à l'article 11.2 de la Loi sur la protection du consommateur. L'Utilisateur qui refuse une modification substantielle peut résilier son Compte sans frais avant l'entrée en vigueur de celle-ci.</p>
+      <p>La Société peut modifier les présentes CGU pour un motif légitime, notamment une évolution des Services, de la réglementation applicable ou de ses coûts d'exploitation ; elle ne peut le faire de façon purement discrétionnaire. Les éléments des présentes CGU qui peuvent être ainsi modifiés sont : la description et les fonctionnalités des Services (article 4), le prix et les modalités de l'Offre 1 lorsqu'elle existera (articles 4.2 et 6), les règles de modération de la Communauté (article 10), et les mesures techniques décrites à l'article 12, comme les sauvegardes.</p>
+      <p>Toute modification substantielle sera communiquée à l'Utilisateur par un courriel individuel envoyé à l'adresse de son Compte, au moins 30 jours avant son entrée en vigueur, conformément à l'article 11.2 de la Loi sur la protection du consommateur. Ce courriel décrit la nouvelle clause et celle qu'elle remplace, indique la date d'entrée en vigueur et rappelle que l'Utilisateur qui refuse une modification substantielle peut résilier son Compte sans frais avant cette date.</p>
 
       <h3>9. Propriété intellectuelle</h3>
       <p>L'application Noèsis TimeTracker, sa structure, ses fonctionnalités et son contenu éditorial demeurent la propriété exclusive de la Société.</p>
@@ -3631,7 +3671,7 @@
       <p>La Communauté permet à l'Utilisateur d'échanger des messages privés, visibles uniquement par leur destinataire, et des messages publics, visibles uniquement par les autres abonnés, ainsi que de publier des sondages. L'Utilisateur reste seul responsable du Contenu qu'il publie et garantit qu'il ne contrevient à aucune loi applicable ni aux droits d'un tiers.</p>
       <p>En publiant du Contenu dans le cadre des Services, l'Utilisateur accorde à la Société une licence non exclusive, gratuite et mondiale d'héberger, de reproduire, d'afficher et de transmettre ce Contenu dans la seule mesure nécessaire au fonctionnement des Services, notamment son affichage aux destinataires ou abonnés concernés. Cette licence prend fin lorsque le Contenu est supprimé, sous réserve des copies conservées à des fins de sauvegarde ou de conformité légale.</p>
       <p>La Société applique une modération proactive des messages publics de la Communauté, sans attendre nécessairement un signalement. Cette lecture, effectuée manuellement par un dirigeant de la Société, a pour seul objet de détecter un Contenu contraire aux présentes CGU ou à la loi ; elle ne comporte aucune appréciation de l'opinion, de la valeur ou de la qualité du Contenu, et la Société ne sélectionne, ne classe ni ne met en évidence aucun Contenu en fonction de son intérêt ou de son point de vue. Un Contenu ainsi détecté peut être retiré et le Compte de son auteur suspendu.</p>
-      <p>Les messages privés échangés entre Utilisateurs ne font l'objet d'aucune surveillance ni lecture proactive par la Société. Ils ne sont examinés que sur signalement, adressé par courriel à confidentialite.noesis@gmail.com ou par tout autre moyen de signalement mis à disposition dans l'application.</p>
+      <p>Les messages privés échangés entre Utilisateurs ne font l'objet d'aucune surveillance ni lecture proactive par la Société. Ils ne sont examinés que sur signalement, adressé par courriel à compagnie.noesis@gmail.com ou par tout autre moyen de signalement mis à disposition dans l'application.</p>
       <p>À l'égard du Contenu publié par ses Utilisateurs, la Société agit à titre d'hébergeur. Sa responsabilité pour un tel Contenu ne peut être engagée que si, ayant été informée par un signalement suffisamment précis de son caractère illicite, elle n'agit pas promptement pour le retirer ou en bloquer l'accès.</p>
 
       <h3>11. Absence de détention de fonds de tiers</h3>
@@ -3640,88 +3680,35 @@
       <h3>12. Limitation de responsabilité</h3>
       <p><strong>Utilisateurs résidant au Canada.</strong> Sous réserve de l'article 1474 du Code civil du Québec, qui interdit d'exclure ou de limiter la responsabilité pour un préjudice matériel causé par une faute intentionnelle ou une faute lourde, ou pour un préjudice corporel ou moral, la responsabilité de la Société envers l'Utilisateur est limitée aux dommages directs et prévisibles résultant d'un manquement de la Société à ses obligations essentielles.</p>
       <p>La Société décline toute responsabilité pour les dommages indirects, notamment la perte de profits, de clientèle, de données ou d'opportunités d'affaires, sauf en cas de faute intentionnelle ou lourde de sa part.</p>
-      <p><strong>Sur les sauvegardes</strong> : aucune sauvegarde n'est active à ce jour ; une fois une sauvegarde chiffrée réellement en place, la Société fera des efforts raisonnables pour éviter la perte de données, sans garantir l'absence totale de perte. L'Utilisateur demeure responsable de conserver ses propres copies des données qu'il juge essentielles.</p>
+      <p>Sur les sauvegardes : une copie chiffrée de la base de données est créée chaque jour et conservée 30 jours chez un fournisseur distinct de l'hébergeur (voir la politique de confidentialité, section 4.2). La Société fait des efforts raisonnables pour éviter la perte de données, sans garantir l'absence totale de perte. L'Utilisateur demeure responsable de conserver ses propres copies des données qu'il juge essentielles.</p>
       <p>Sous réserve du premier alinéa du présent article (faute intentionnelle ou faute lourde, préjudice corporel ou moral, qui ne sont jamais plafonnés), et tant que les Services restent gratuits, la responsabilité de la Société envers un Utilisateur ne peut pratiquement donner lieu à un plafond en argent versé, puisqu'aucune somme n'est versée par l'Utilisateur. Le jour où l'Offre 1 existera, la responsabilité totale de la Société envers un Utilisateur, pour l'ensemble des réclamations liées à une période de douze (12) mois, ne pourra excéder le montant des sommes versées par cet Utilisateur à la Société au cours de cette même période.</p>
       <p>La présente clause ne prive en aucun cas l'Utilisateur consommateur des droits qui lui sont accordés par la Loi sur la protection du consommateur (Québec) ou par toute autre loi d'ordre public applicable.</p>
-      <p class="hint"><strong>Utilisateurs résidant en France ou dans l'Union européenne (par anticipation, non opérant).</strong> Aucune clause des présentes ne saurait supprimer ou réduire le droit à réparation de l'Utilisateur résidant en France ou dans l'Union européenne en cas de manquement de la Société à l'une de ses obligations.</p>
+      <p><strong>Utilisateurs résidant en France ou dans l'Union européenne (par anticipation, non opérant).</strong> Aucune clause des présentes ne saurait supprimer ou réduire le droit à réparation de l'Utilisateur résidant en France ou dans l'Union européenne en cas de manquement de la Société à l'une de ses obligations.</p>
 
       <h3>13. Résiliation</h3>
-      <p>L'Utilisateur peut résilier son Compte à tout moment, directement depuis les paramètres de son Compte ou en en faisant la demande à confidentialite.noesis@gmail.com. La Société peut suspendre ou résilier un Compte en cas de manquement grave ou répété aux présentes CGU, moyennant un avis préalable sauf urgence.</p>
+      <p>L'Utilisateur peut résilier son Compte à tout moment, directement depuis les paramètres de son Compte ou en en faisant la demande à compagnie.noesis@gmail.com. La Société peut suspendre ou résilier un Compte en cas de manquement grave ou répété aux présentes CGU, moyennant un avis préalable sauf urgence.</p>
 
       <h3>14. Langue du contrat</h3>
       <p>Conformément à la Charte de la langue française (telle que modifiée par la Loi 96), la version française des présentes CGU est celle qui prévaut. Toute version dans une autre langue n'est offerte qu'à titre de commodité et ne lie l'Utilisateur que s'il y consent expressément après avoir reçu la version française.</p>
 
       <h3>15. Droit applicable et recours</h3>
       <p>Les présentes CGU sont régies par le droit applicable dans la province de Québec. Sous réserve du droit de l'Utilisateur consommateur d'intenter un recours devant le tribunal de son propre domicile lorsque la loi le lui permet, tout litige relève des tribunaux compétents du district judiciaire de Montréal. Aucune clause des présentes n'a pour effet de priver l'Utilisateur consommateur de son droit d'intenter un recours devant les tribunaux compétents, y compris un recours collectif, ni de le contraindre à un arbitrage obligatoire, conformément à l'article 11.1 de la Loi sur la protection du consommateur.</p>
-      <p>Avant toute action judiciaire, les parties s'engagent à tenter de bonne foi de résoudre à l'amiable tout différend découlant des présentes CGU, au moyen d'une communication écrite adressée à confidentialite.noesis@gmail.com décrivant le différend, suivie d'une période de négociation d'au moins trente (30) jours. Cette tentative amiable ne prive en aucun cas l'Utilisateur consommateur de son droit d'intenter à tout moment un recours devant les tribunaux compétents, ni n'affecte les délais de prescription qui lui sont applicables.</p>
+      <p>Avant toute action judiciaire, les parties s'engagent à tenter de bonne foi de résoudre à l'amiable tout différend découlant des présentes CGU, au moyen d'une communication écrite adressée à compagnie.noesis@gmail.com décrivant le différend, suivie d'une période de négociation d'au moins trente (30) jours. Cette tentative amiable ne prive en aucun cas l'Utilisateur consommateur de son droit d'intenter à tout moment un recours devant les tribunaux compétents, ni n'affecte les délais de prescription qui lui sont applicables.</p>
 
       <h3>16. Dispositions diverses</h3>
-      <p><strong>Divisibilité</strong> — Si une disposition des présentes CGU est jugée invalide, illégale ou inapplicable, cette disposition est réputée dissociée des présentes, sans affecter la validité ni le caractère exécutoire des autres dispositions.</p>
-      <p><strong>Non-renonciation</strong> — Le fait pour la Société de ne pas exercer ou de ne pas faire respecter, à une occasion donnée, un droit ou une disposition des présentes CGU ne constitue pas une renonciation à ce droit ou à cette disposition pour l'avenir.</p>
-      <p><strong>Intégralité de l'accord</strong> — Les présentes CGU, ainsi que les politiques auxquelles elles renvoient (notamment la politique de confidentialité), constituent l'intégralité de l'entente entre l'Utilisateur et la Société relativement aux Services.</p>
-      <p><strong>Cession</strong> — La Société peut céder tout ou partie de ses droits et obligations découlant des présentes CGU, notamment dans le cadre d'une réorganisation de son entreprise, sans que cette cession ne réduise les droits dont bénéficie l'Utilisateur consommateur en vertu des présentes ou de la loi applicable.</p>
-      <p><strong>Force majeure</strong> — La Société ne peut être tenue responsable d'un retard ou d'un défaut d'exécution résultant d'une cause indépendante de sa volonté raisonnable, notamment une panne d'un fournisseur d'hébergement, une catastrophe naturelle ou une décision gouvernementale.</p>
+      <p><strong>Divisibilité —</strong> Si une disposition des présentes CGU est jugée invalide, illégale ou inapplicable, cette disposition est réputée dissociée des présentes, sans affecter la validité ni le caractère exécutoire des autres dispositions.</p>
+      <p><strong>Non-renonciation —</strong> Le fait pour la Société de ne pas exercer ou de ne pas faire respecter, à une occasion donnée, un droit ou une disposition des présentes CGU ne constitue pas une renonciation à ce droit ou à cette disposition pour l'avenir.</p>
+      <p><strong>Intégralité de l'accord —</strong> Les présentes CGU, ainsi que les politiques auxquelles elles renvoient (notamment la politique de confidentialité), constituent l'intégralité de l'entente entre l'Utilisateur et la Société relativement aux Services.</p>
+      <p><strong>Cession —</strong> La Société peut céder tout ou partie de ses droits et obligations découlant des présentes CGU, notamment dans le cadre d'une réorganisation de son entreprise, sans que cette cession ne réduise les droits dont bénéficie l'Utilisateur consommateur en vertu des présentes ou de la loi applicable.</p>
+      <p><strong>Force majeure —</strong> La Société ne peut être tenue responsable d'un retard ou d'un défaut d'exécution résultant d'une cause indépendante de sa volonté raisonnable, notamment une panne d'un fournisseur d'hébergement, une catastrophe naturelle ou une décision gouvernementale.</p>
 
       <h3>17. Coordonnées</h3>
-      <p>Pour toute question relative aux présentes CGU : confidentialite.noesis@gmail.com.</p>
+      <p>Pour toute question relative aux présentes CGU : compagnie.noesis@gmail.com.</p>
     </div>
   </div>
 </div>
 
-<!-- Texte de la politique de confidentialité (10 septembre 2026, demande
-     directe d'Emilien : rendre la politique de confidentialité et les
-     mentions légales accessibles depuis Réglages, comme les Conditions
-     d'utilisation le sont déjà depuis le 7 septembre). Reprend EXACTEMENT le
-     même motif que #legalTermsModal juste au-dessus (page qui remonte du
-     bas, en-tête fixe + corps défilant, placé au niveau du <body>, hors de
-     #app et #onboarding). ⚠️ Aucun mandat sur le fond juridique : le texte
-     ci-dessous est repris tel quel depuis
-     noesis-timetracker-conformite-loi25.md (section 1, version 3.2 — en
-     vigueur le 11 septembre 2026). **Mise à jour du 11 septembre 2026** :
-     remplacement de « En bref », de la section 4.1 et d'un paragraphe de la
-     section 7 (version 2.9) — deux écarts trouvés entre le texte publié le
-     10 septembre et le produit réel (partage volontaire de courriel/
-     téléphone avec les abonnés acceptés, livré le 7 septembre ; affichage du
-     nom de famille sur une correspondance exacte à l'écran de connexion,
-     livré le 8 septembre), signalés par Emilien et corrigés dans
-     noesis-timetracker-conformite-loi25.md avant d'être reportés ici.
-     **Mise à jour du 11 septembre 2026 (nuit), version 3.1** : « En bref »,
-     la section 4.1 et la section 7 sont de nouveau réécrites — la recherche
-     libre par sous-chaîne ajoutée le 10 septembre 2026 à l'écran de
-     connexion (accessible sans compte Noèsis, dès 3 caractères tapés,
-     jusqu'à 5 résultats avec prénom et nom de famille complets) n'était pas
-     décrite, et l'ancien texte affirmait à tort qu'aucune identité n'était
-     révélée sans être déjà connue de la personne qui cherche — vrai pour la
-     recherche exacte (inchangée, toujours décrite), faux pour cette
-     recherche libre. Signalé par Emilien, corrigé dans
-     noesis-timetracker-conformite-loi25.md avant d'être reporté ici. Le
-     reste du texte (sections 1 à 3, 4.2 à 10) n'a pas été retouché à ce
-     passage — hors du périmètre signalé, à l'exception du préambule
-     éditorial interne (historique détaillé des versions, notes de relecture)
-     qui n'est pas une clause opposable et n'a pas sa place devant
-     l'Utilisateur — remplacé par la seule mention du numéro de version. Le
-     tableau détaillé de l'historique des versions (section 9 du document
-     source) n'est pas reproduit ici : le texte lui-même précise qu'il est
-     "conservé et peut être communiqué sur demande", ce que couvre déjà
-     l'adresse de contact indiquée.
-     **Mise à jour du 11 septembre 2026 (nuit, suite), version 3.2** : Emilien
-     a proposé lui-même une reformulation de la section 4.1, plus précise sur
-     un point que la version 3.1 (la « première recherche », exacte, n'est
-     plus manuellement accessible depuis aucune page de l'application depuis
-     le 10 septembre 2026 — vérifié sur `public/app.js`, ligne ~12368 — elle
-     n'est donc plus décrite comme une action possible pour un visiteur).
-     Trois imprécisions du brouillon d'Emilien ont été corrigées avant
-     intégration (prénom/pseudonyme plutôt que nom de famille pour le
-     formulaire Aide et suggestions ; nombre de pièces jointes plutôt qu'une
-     distinction de type qui n'existe pas dans le code ; durée réelle de
-     conservation chez Resend, 30 jours). Une nouvelle section 4.5 est ajoutée
-     pour décrire Resend, le sous-traitant d'envoi de courriels du formulaire
-     Aide et suggestions — recommandé depuis le 8 septembre 2026
-     (`noesis-timetracker-registre-traitements.md`) mais jamais encore
-     mentionné dans cette politique. Détail complet dans
-     noesis-timetracker-conformite-loi25.md, section 2. Toute mise à jour du
-     FOND doit passer par noesis-timetracker-conformite-loi25.md (discussion
-     Légal) puis être reportée ici à l'identique. -->
+<!-- Politique de confidentialité V3.7 (en vigueur le 10 octobre 2026), reprise mot pour mot depuis le texte source validé. Même gabarit que #legalTermsModal. Toute mise à jour du fond passe par le texte source, jamais rédigée ici. -->
 <div id="privacyPolicyModal" class="communityMembersModal hidden">
   <div class="communityMembersModalCard legalTermsModalCard">
     <div class="communityMembersModalHeader">
@@ -3729,19 +3716,19 @@
       <button type="button" class="menuBtn" id="privacyPolicyModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
-      <p class="hint">Version 3.2 — en vigueur le 11 septembre 2026.</p>
+      <p class="hint">Version 3.7 — en vigueur le 10 octobre 2026.</p>
 
       <h3>À qui s'adresse ce service</h3>
       <p>Noèsis TimeTracker est offert aux personnes résidant au Canada. Le service n'est pas proposé aux résidents de l'Union européenne ni d'autres territoires, et il n'y est pas promu. Si vous n'êtes pas au Canada, ce service ne vous est pas destiné.</p>
 
       <h3>En bref</h3>
       <p>Noèsis TimeTracker est une application qui vous permet de chronométrer vos activités et d'en suivre les totaux. Pour fonctionner, elle a besoin de savoir qui vous êtes et de conserver ce que vous chronométrez.</p>
-      <p>Nous collectons le minimum : votre nom, votre numéro de téléphone, une adresse courriel, et ce que vous enregistrez vous-même dans l'application. Nous ne vendons rien, nous ne partageons rien avec des annonceurs, et il n'y a aucune publicité ni aucun traceur publicitaire. Votre prénom et votre nom de famille peuvent être vus par n'importe qui — même sans compte Noèsis, même sans être connecté : il suffit de taper au moins 3 caractères d'un nom sur l'écran de connexion pour voir apparaître jusqu'à 5 identités complètes. Une fois connecté à son propre compte, tout autre membre inscrit peut aussi voir votre photo de profil, le nombre de projets que vous suivez, et ce que vous recherchez (si vous l'indiquez) — c'est la fonction d'annuaire de base de l'application. <strong>Tout le reste</strong> — vos activités, vos totaux, vos notes — est <strong>privé par défaut</strong>. Rien n'est visible par les autres tant que vous ne le décidez pas. Votre numéro de téléphone et votre adresse courriel ne sont jamais visibles par défaut : vous pouvez choisir de partager l'un, l'autre, ou les deux avec vos abonnés acceptés, chacun restant désactivé tant que vous ne l'activez pas vous-même. Vous pouvez supprimer votre compte à tout moment : tout est alors effacé. Vos renseignements sont hébergés aux Pays-Bas, chez notre fournisseur d'infrastructure.</p>
+      <p>Nous collectons le minimum : votre nom, votre numéro de téléphone, une adresse courriel, et ce que vous enregistrez vous-même dans l'application. Nous ne revendons aucun de vos renseignements et nous ne les communiquons à aucun annonceur. Si vous y consentez par une case distincte, Noèsis peut les utiliser pour analyser l'usage, vous écrire à des fins commerciales et cibler ses propres campagnes (section 2.4), et en conserver une copie sur un support de stockage chiffré détenu par Noèsis (section 4.7). Il n'y a aucun traceur publicitaire dans l'application. Votre prénom et votre nom de famille peuvent être vus avant même la connexion : il suffit de taper au moins 3 caractères d'un nom sur l'écran de connexion pour voir apparaître jusqu'à 5 identités complètes, et le nombre de recherches possibles est limité. Vous y consentez par une case distincte, cochée à l'inscription. Une fois connecté à son propre compte, tout autre membre inscrit peut aussi voir votre photo de profil, le nombre de projets que vous suivez et ce que vous recherchez (si vous l'indiquez) : c'est la fonction d'annuaire de base de l'application. Tout le reste — vos activités, vos totaux, vos notes — est privé par défaut. Rien n'est visible par les autres tant que vous ne le décidez pas. Votre numéro de téléphone et votre adresse courriel ne sont jamais visibles par défaut : vous pouvez choisir de partager l'un, l'autre, ou les deux avec vos abonnés acceptés, chacun restant désactivé tant que vous ne l'activez pas vous-même. Pour vous aider à classer vos tâches, une intelligence artificielle fournie par Anthropic peut utiliser ce que vous saisissez dans l'application pour l'organiser, mais jamais votre nom, votre prénom, votre courriel, votre numéro de téléphone, votre photo, votre code PIN, vos conversations ni vos publications (section 4.6). Vous pouvez supprimer votre compte à tout moment : tout est alors effacé. Vos renseignements sont hébergés aux Pays-Bas, chez notre fournisseur d'infrastructure.</p>
       <p>Le reste de ce document détaille chacun de ces points.</p>
 
       <h3>1. Qui est responsable de vos renseignements</h3>
-      <p>L'application Noèsis TimeTracker est exploitée par <strong>Noèsis Inc.</strong> (raison sociale légale : Compagnie Noèsis inc., NEQ 1182542432), société par actions constituée au Québec, dont le siège social est situé à Montréal, Québec.</p>
-      <p>Conformément à la <em>Loi sur la protection des renseignements personnels dans le secteur privé</em>, la personne responsable de la protection des renseignements personnels est <strong>Gaspard et Émilien Morel-Obaton</strong>, dirigeants de Noèsis Inc. — confidentialite.noesis@gmail.com.</p>
+      <p>L'application Noèsis TimeTracker est exploitée par Noèsis Inc. (raison sociale légale : Compagnie Noèsis inc., NEQ 1182542432), société par actions constituée au Québec, dont le siège social est situé à Montréal, Québec.</p>
+      <p>Conformément à la Loi sur la protection des renseignements personnels dans le secteur privé (Québec), la personne responsable de la protection des renseignements personnels est Émilien Morel-Obaton, vice-président de Noèsis Inc., à qui cette fonction a été déléguée par écrit — compagnie.noesis@gmail.com. Pour les personnes qui résident dans une autre province ou un territoire du Canada, la Loi sur la protection des renseignements personnels et les documents électroniques (LPRPDE), ou la loi provinciale applicable, s'applique également.</p>
       <p>C'est à cette adresse qu'il faut écrire pour toute question sur cette politique, pour exercer vos droits, ou pour signaler un problème.</p>
 
       <h3>2. Ce que nous collectons, et pourquoi</h3>
@@ -3752,77 +3739,86 @@
       <p><strong>Numéro de téléphone</strong> — vous joindre et vous permettre de récupérer l'accès à votre compte si les autres moyens ne suffisent pas.</p>
       <p><strong>Adresse courriel</strong> — retrouver votre compte et vous aider à en récupérer l'accès si vous oubliez votre code PIN.</p>
       <p><strong>Code PIN (4 à 6 chiffres)</strong> — protéger l'accès à votre compte. Il n'est jamais conservé en clair : seule une empreinte cryptographique irréversible est enregistrée.</p>
-      <p>Nous <strong>ne demandons pas</strong> votre date de naissance, votre adresse postale ni aucune donnée de paiement.</p>
+      <p>Nous ne demandons pas votre date de naissance, votre adresse postale ni aucune donnée de paiement.</p>
       <p><strong>2.2 Ce que vous créez en utilisant l'application</strong></p>
       <p><strong>Vos activités</strong> — la liste que vous créez vous-même, avec le nom et la couleur que vous choisissez.</p>
       <p><strong>Vos sessions chronométrées</strong> — date, heure de début, durée. C'est la raison d'être de l'application.</p>
       <p><strong>Vos notes</strong> — le texte libre que vous ajoutez à une session ou à une publication. Vous seul décidez de ce que vous y écrivez.</p>
       <p><strong>Vos pièces jointes</strong> — les fichiers, photos ou documents que vous choisissez d'ajouter.</p>
       <p><strong>Vos liens avec d'autres personnes</strong> — les activités que vous partagez, les invitations envoyées ou reçues, les personnes que vous suivez, et les messages échangés dans une activité partagée.</p>
+      <p><strong>Vos messages publics dans la Communauté</strong> — publiés pour vos abonnés. Un dirigeant de Noèsis peut les lire pour détecter un contenu contraire aux conditions d'utilisation ou à la loi (modération). Vos messages privés ne sont lus que si une personne les signale.</p>
       <p><strong>Votre photo de profil</strong> — facultative.</p>
       <p><strong>Vos préférences</strong> — thème clair ou sombre, langue, couleurs.</p>
       <p><strong>Votre adresse de calendrier</strong> — créée uniquement si vous activez le calendrier (section 4.3). C'est une suite de caractères aléatoire, qui n'est associée qu'à votre compte, et que vous pouvez supprimer ou remplacer à tout moment.</p>
-      <p class="hint">Sur les notes et les pièces jointes : ce sont des espaces de texte et de fichiers libres. Nous n'en contrôlons pas le contenu et nous ne les analysons pas. Évitez d'y inscrire des renseignements sensibles — sur votre santé, vos finances ou votre vie privée — que vous ne voudriez pas voir conservés.</p>
-      <p><strong>2.3 Ce que nous n'utilisons pas</strong> — aucun témoin publicitaire ou de mesure d'audience (l'application utilise un seul témoin, strictement nécessaire à son fonctionnement, qui vous garde connecté d'une page à l'autre — c'est pourquoi il ne nécessite pas votre consentement préalable) ; aucun outil d'analyse tiers, aucun pixel de suivi, aucun réseau publicitaire ; aucune décision automatisée vous concernant.</p>
+      <p>Sur les notes et les pièces jointes : ce sont des espaces de texte et de fichiers libres. Nous n'en contrôlons pas le contenu et nous ne les analysons pas, sauf par l'assistant d'intelligence artificielle décrit à la section 4.6, qui peut utiliser les renseignements que vous saisissez dans l'application, y compris vos notes et vos pièces jointes, mais jamais votre identité, vos coordonnées, votre code PIN, vos conversations ni vos publications. Évitez d'y inscrire des renseignements sensibles — sur votre santé, vos finances ou votre vie privée — que vous ne voudriez pas voir conservés.</p>
+      <p><strong>2.3 Ce que nous n'utilisons pas</strong></p>
+      <p>Aucun témoin publicitaire ou de mesure d'audience (l'application utilise un seul témoin, strictement nécessaire à son fonctionnement, qui vous garde connecté d'une page à l'autre — c'est pourquoi il ne nécessite pas votre consentement préalable) ; aucun outil d'analyse tiers, aucun pixel de suivi, aucun réseau publicitaire. Une intelligence artificielle est utilisée pour proposer le classement de vos tâches et peut utiliser les renseignements que vous saisissez dans l'application : voir la section 4.6.</p>
+      <p><strong>2.4 Analyse et usage commercial, avec votre consentement distinct</strong></p>
+      <p>Si vous y consentez par une case distincte, que vous cochez vous-même à l'inscription, Noèsis peut utiliser les renseignements que vous saisissez dans l'application (profil, activités, sessions chronométrées, tâches, notes, préférences) pour : analyser l'usage et améliorer le service ; produire des statistiques ; vous adresser des communications commerciales ; cibler nos propres campagnes publicitaires. Sont exclus de cet usage votre code PIN et vos messages privés. Nous ne revendons, ne louons et ne cédons aucun de vos renseignements, et nous ne les communiquons à aucun annonceur ni courtier de données. Une copie peut en être conservée sur un support de stockage chiffré détenu par Noèsis (section 4.7). Refuser ce consentement, ou le retirer plus tard depuis votre profil ou en nous écrivant à l'adresse de la section 1, n'a aucune conséquence sur votre accès à l'application. Tout nouvel usage commercial serait annoncé avant son entrée en vigueur (section 9).</p>
 
       <h3>3. Sur quelle base nous traitons vos renseignements</h3>
-      <p>Nous traitons vos renseignements sur la base de <strong>votre consentement</strong>, que vous donnez à l'inscription, séparément des conditions d'utilisation. Ce consentement est libre : vous n'êtes pas obligé d'utiliser Noèsis. Il est éclairé : la présente politique en explique la portée. Il est donné à des fins précises, énumérées à la section 2.</p>
-      <p><strong>Vous pouvez le retirer à tout moment</strong> en supprimant votre compte (section 6). Le retrait n'a pas d'effet rétroactif sur ce qui a été fait avant, mais il met fin au traitement pour l'avenir.</p>
+      <p>Nous traitons vos renseignements sur la base de votre consentement, que vous donnez à l'inscription, séparément des conditions d'utilisation. Ce consentement est libre : vous n'êtes pas obligé d'utiliser Noèsis. Il est éclairé : la présente politique en explique la portée. Il est donné à des fins précises, énumérées à la section 2. L'affichage de votre prénom et de votre nom dans la recherche de membres (section 4.1) fait partie de ces fins ; vous y consentez par une case distincte, cochée à l'inscription. Il en va de même de l'usage commercial décrit à la section 2.4, pour lequel une autre case distincte est prévue.</p>
+      <p>Vous pouvez le retirer à tout moment en supprimant votre compte (section 6). Le retrait n'a pas d'effet rétroactif sur ce qui a été fait avant, mais il met fin au traitement pour l'avenir.</p>
 
       <h3>4. Qui peut voir vos renseignements</h3>
-      <p><strong>4.1 Les autres utilisateurs.</strong> <strong>Votre prénom et votre nom de famille peuvent être vus par n'importe qui, même sans compte Noèsis et sans être connecté.</strong> L'écran de connexion propose une recherche ouverte à tout visiteur : dès qu'au moins <strong>3 caractères</strong> sont tapés, le prénom et le nom de famille complets de toute personne correspondante s'affichent, jusqu'à <strong>5 résultats</strong> à la fois. Il n'est pas nécessaire de connaître à l'avance l'identité complète de quelqu'un pour la voir apparaître ainsi de cette façon : un fragment quelconque, deviné ou tapé au hasard, suffit. Cette recherche ne montre jamais que le prénom et le nom de famille — ni votre photo, ni votre numéro de téléphone, ni votre adresse courriel, ni rien d'autre de votre compte n'y apparaît.</p>
+      <p><strong>4.1 Les autres utilisateurs.</strong> L'écran de connexion propose une recherche ouverte à tout visiteur, même sans compte Noèsis : dès qu'au moins 3 caractères sont tapés, le prénom et le nom de famille complets de toute personne correspondante s'affichent, jusqu'à 5 résultats à la fois. Un fragment quelconque suffit donc pour voir apparaître une identité. Le nombre de recherches possibles est limité pour empêcher un balayage automatique de la liste des comptes. Vous consentez à cet affichage par une case distincte, cochée à l'inscription. Cette recherche ne montre jamais que le prénom et le nom de famille — ni votre photo, ni votre numéro de téléphone, ni votre adresse courriel, ni rien d'autre de votre compte n'y apparaît.</p>
       <p>Une route technique distincte, non affichée dans l'interface, existe en parallèle : elle sert uniquement à ce que l'application reconnaisse automatiquement, sur l'appareil où vous avez déjà créé votre compte, que ce compte existe toujours, à partir du prénom et du nom de famille déjà enregistrés sur cet appareil. Elle reste techniquement accessible en dehors de l'application, sans authentification, à quiconque connaît déjà votre prénom et votre nom de famille exacts, mais aucun bouton ni champ de l'application n'y mène, et elle ne permet pas de deviner une identité qu'on ne connaît pas déjà.</p>
-      <p><strong>Une fois connecté à son propre compte, tout autre utilisateur inscrit peut aussi voir</strong>, en plus de votre prénom et de votre nom de famille : votre photo de profil, le nombre de projets que vous suivez, et ce que vous recherchez (si vous l'indiquez). C'est la fonction d'annuaire de base de l'application, nécessaire pour que d'autres personnes puissent vous retrouver — elle ne dépend d'aucun geste de votre part et vous ne pouvez pas vous en retirer autrement qu'en supprimant votre compte.</p>
-      <p><strong>Votre numéro de téléphone et votre adresse courriel, eux, ne sont jamais visibles par défaut.</strong> Vous pouvez cependant choisir, dans Réglages → Identité, de partager votre adresse courriel et/ou votre numéro de téléphone — les deux, l'un ou l'autre, indépendamment — avec les personnes qui vous suivent et dont vous avez accepté la demande d'abonnement. Tant que vous n'avez pas activé ce partage pour un canal donné, personne d'autre que vous ne voit ce renseignement par ce canal ; si vous vous désabonnez d'une personne ou qu'elle se désabonne de vous, l'accès à ce contact disparaît avec le reste de ce que permet l'abonnement.</p>
+      <p>Une fois connecté à son propre compte, tout autre utilisateur inscrit peut aussi voir, en plus de votre prénom et de votre nom de famille : votre photo de profil, le nombre de projets que vous suivez et ce que vous recherchez (si vous l'indiquez). C'est la fonction d'annuaire de base de l'application, nécessaire pour que d'autres personnes puissent vous retrouver : vous ne pouvez pas vous en retirer autrement qu'en supprimant votre compte.</p>
+      <p>Votre numéro de téléphone et votre adresse courriel, eux, ne sont jamais visibles par défaut. Vous pouvez cependant choisir, dans Réglages → Identité, de partager votre adresse courriel et/ou votre numéro de téléphone — les deux, l'un ou l'autre, indépendamment — avec les personnes qui vous suivent et dont vous avez accepté la demande d'abonnement. Tant que vous n'avez pas activé ce partage pour un canal donné, personne d'autre que vous ne voit ce renseignement par ce canal ; si vous vous désabonnez d'une personne ou qu'elle se désabonne de vous, l'accès à ce contact disparaît avec le reste de ce que permet l'abonnement.</p>
       <p>Tout le reste reste privé par défaut. Vos activités, vos totaux, vos sessions chronométrées, vos notes, le détail de vos projets et vos publications ne sont visibles par personne d'autre tant que vous n'avez pas posé, vous-même, l'un des gestes volontaires suivants : (1) inviter quelqu'un à partager une activité — cette personne voit alors le nom de l'activité, votre prénom et le temps que vous y consacrez, pour cette activité seulement, jamais vos autres activités ni vos notes personnelles ; (2) accepter la demande d'abonnement de quelqu'un — cette personne peut alors consulter vos statistiques, le détail de vos projets et vos publications, et, si vous l'avez activé, votre courriel et/ou votre téléphone (voir ci-dessus) ; (3) écrire dans une discussion d'activité partagée — vos messages sont lus par les autres membres de cette activité. Vous pouvez revenir sur chacun de ces choix à tout moment.</p>
-      <p><strong>4.2 Notre fournisseur d'hébergement.</strong> L'application et sa base de données sont hébergées chez <strong>Railway Corporation</strong>, dans un centre de données situé à <strong>Amsterdam, aux Pays-Bas</strong>. Railway agit uniquement comme prestataire technique : il héberge, il n'exploite pas. Il est tenu par ses propres conditions d'utilisation et sa politique de confidentialité publiques, qui lui imposent des obligations de confidentialité et de sécurité, et il n'a pas le droit d'utiliser vos renseignements à ses propres fins. Une démarche est en cours pour formaliser ces engagements dans une entente écrite spécifique à notre relation avec cet hébergeur.</p>
-      <p>Puisque cet hébergement se situe hors du Québec, nous avons réalisé au préalable une évaluation des facteurs relatifs à la vie privée, comme la loi l'exige. Vous pouvez en demander le résumé à l'adresse indiquée à la section 1. Les Pays-Bas relèvent du Règlement général sur la protection des données de l'Union européenne, un cadre juridique reconnu comme offrant un niveau de protection élevé — supérieur, sur plusieurs points, à ce qu'exige la loi québécoise.</p>
-      <p><strong>Une copie de secours chiffrée existe désormais</strong>, en plus de la base de données principale. Chaque jour, une copie de vos renseignements est chiffrée avant de quitter nos serveurs et envoyée chez Cloudflare, dans un centre de données situé dans l'Union européenne. Cloudflare ne reçoit jamais que des octets illisibles : la clé de déchiffrement n'est jamais transmise à cette entreprise.</p>
+      <p><strong>4.2 Notre fournisseur d'hébergement.</strong> L'application et sa base de données sont hébergées chez Railway Corporation, dans un centre de données situé à Amsterdam, aux Pays-Bas. Railway est toutefois une société américaine (San Francisco, Californie) : selon l'entente de traitement des données conclue avec elle, ses principales activités de traitement ont lieu aux États-Unis et elle peut y transférer des renseignements, notamment par l'intermédiaire de ses propres sous-traitants (son infrastructure repose sur Google Cloud Platform ; la liste de ses sous-traitants est publique : trust.railway.com). La copie de sauvegarde, elle, ne passe pas par Railway : elle est conservée chez Cloudflare, comme indiqué plus bas. Railway agit uniquement comme prestataire technique : il héberge, il n'exploite pas. Il est tenu par ses propres conditions d'utilisation et sa politique de confidentialité publiques, qui lui imposent des obligations de confidentialité et de sécurité, et il n'a pas le droit d'utiliser vos renseignements à ses propres fins. Ces engagements sont aussi formalisés dans une entente écrite de traitement des données (DPA) signée avec cet hébergeur le 10 septembre 2026.</p>
+      <p>Puisque cet hébergement se situe hors du Québec, nous avons réalisé au préalable une évaluation des facteurs relatifs à la vie privée, comme la loi l'exige. Vous pouvez en demander le résumé à l'adresse indiquée à la section 1. Les Pays-Bas relèvent du Règlement général sur la protection des données de l'Union européenne, un cadre juridique reconnu comme offrant un niveau de protection élevé — supérieur, sur plusieurs points, à ce qu'exige la loi québécoise. Pour les traitements qui auraient lieu aux États-Unis, la protection de vos renseignements repose sur l'entente écrite de traitement des données signée avec Railway.</p>
+      <p>Une copie de secours chiffrée existe désormais, en plus de la base de données principale. Chaque jour, une copie de vos renseignements est chiffrée avant de quitter nos serveurs et envoyée chez Cloudflare, dans un centre de données situé dans l'Union européenne. Cloudflare ne reçoit jamais que des octets illisibles : la clé de déchiffrement n'est jamais transmise à cette entreprise.</p>
       <p><strong>4.3 Votre application de calendrier, si vous l'activez.</strong> Noèsis peut faire apparaître les dates d'échéance de vos sous-projets dans une application de calendrier — par exemple Apple Calendar ou Google Agenda. Cette fonction est désactivée par défaut. Rien ne sort de l'application tant que vous ne l'avez pas activée vous-même, dans Profil → Réglages → Calendrier.</p>
-      <p>Quand vous l'activez : l'application vous remet une adresse web unique, contenant une suite de caractères aléatoire, que vous donnez à votre application de calendrier — c'est votre calendrier qui vient chercher l'information, Noèsis n'envoie rien nulle part. Si vous utilisez Google Agenda, ce sont les serveurs de Google qui viennent relire cette adresse ; si vous utilisez Apple Calendar, ce sont ceux d'Apple ou directement votre appareil. Ces entreprises reçoivent alors ce que l'adresse contient, et le conservent selon leurs propres politiques, sur lesquelles nous n'avons aucun contrôle. <strong>Ce que l'adresse contient, et rien d'autre :</strong> le nom du sous-projet, le nom de l'activité à laquelle il appartient, et la date d'échéance — aucune tâche, aucun message, aucun sondage, aucun nom de membre, aucune durée chronométrée, aucune donnée de votre profil. La liaison ne va que dans un sens : ce que vous modifiez dans votre calendrier ne change jamais rien dans Noèsis.</p>
-      <p class="hint">Cette adresse doit être traitée comme un mot de passe. Toute personne qui l'obtient peut lire les noms de vos sous-projets et leurs dates, sans avoir à se connecter. Ne la publiez nulle part.</p>
+      <p>Quand vous l'activez : l'application vous remet une adresse web unique, contenant une suite de caractères aléatoire, que vous donnez à votre application de calendrier — c'est votre calendrier qui vient chercher l'information, Noèsis n'envoie rien nulle part. Si vous utilisez Google Agenda, ce sont les serveurs de Google qui viennent relire cette adresse ; si vous utilisez Apple Calendar, ce sont ceux d'Apple ou directement votre appareil. Ces entreprises reçoivent alors ce que l'adresse contient, et le conservent selon leurs propres politiques, sur lesquelles nous n'avons aucun contrôle. Ce que l'adresse contient, et rien d'autre : le nom du sous-projet, le nom de l'activité à laquelle il appartient, et la date d'échéance — aucune tâche, aucun message, aucun sondage, aucun nom de membre, aucune durée chronométrée, aucune donnée de votre profil. La liaison ne va que dans un sens : ce que vous modifiez dans votre calendrier ne change jamais rien dans Noèsis.</p>
+      <p>Cette adresse doit être traitée comme un mot de passe. Toute personne qui l'obtient peut lire les noms de vos sous-projets et leurs dates, sans avoir à se connecter. Ne la publiez nulle part.</p>
       <p>Vous gardez la main à tout moment, depuis Profil → Réglages → Calendrier : régénérer l'adresse, désactiver le calendrier, ou supprimer votre compte (l'adresse est alors détruite avec le reste).</p>
       <p><strong>4.4 Personne d'autre.</strong> Nous ne vendons pas vos renseignements. Nous ne les louons pas. Nous ne les communiquons à aucun annonceur, courtier de données ou partenaire commercial. Nous ne les communiquerions à une autorité publique que si la loi nous y obligeait, et nous vous en informerions dans la mesure où la loi nous le permet.</p>
-      <p><strong>4.5 Notre service d'envoi de courriels, si vous utilisez « Aide et suggestions ».</strong> Le formulaire « Aide et suggestions » du panneau Réglages vous permet d'envoyer un message libre à l'équipe de Noèsis, avec jusqu'à <strong>deux pièces jointes optionnelles</strong> (photo ou document, sans distinction entre les deux). Ce message — accompagné de votre <strong>prénom (ou pseudonyme)</strong> déjà associé à votre profil — est transmis par courriel, à l'aide de <strong>Resend</strong>, un sous-traitant américain d'envoi de courriels, à l'adresse compagnie.noesis@gmail.com. Resend conserve le contenu de ce courriel et les journaux d'envoi jusqu'à <strong>30 jours</strong> pendant que notre compte y reste actif, et les supprime au plus tard <strong>90 jours</strong> après sa fermeture. Comme pour les notes (section 2.2), évitez d'y inscrire des renseignements sensibles que vous ne voudriez pas voir transiter par ce canal, ni conserver, même temporairement, chez ce sous-traitant.</p>
+      <p><strong>4.5 Notre service d'envoi de courriels, si vous utilisez « Aide et suggestions ».</strong> Le formulaire « Aide et suggestions » du panneau Réglages vous permet d'envoyer un message libre à l'équipe de Noèsis, avec jusqu'à deux pièces jointes optionnelles (photo ou document, sans distinction entre les deux). Ce message — accompagné de votre prénom (ou pseudonyme) déjà associé à votre profil — est transmis par courriel, à l'aide de Resend, un sous-traitant américain d'envoi de courriels, à l'adresse compagnie.noesis@gmail.com, une boîte de réception Gmail (service de Google) : le message est donc aussi conservé dans cette boîte. Ce transfert vers les États-Unis est encadré par une entente écrite de traitement des données (DPA) signée avec Resend, qui lui impose des obligations de confidentialité et de sécurité. Resend conserve le contenu de ce courriel et les journaux d'envoi tant que notre compte y reste actif, et les supprime au plus tard 90 jours après sa fermeture. Comme pour les notes (section 2.2), évitez d'y inscrire des renseignements sensibles que vous ne voudriez pas voir transiter par ce canal, ni conserver, même temporairement, chez ces sous-traitants.</p>
+      <p><strong>4.6 Notre assistant d'intelligence artificielle, fourni par Anthropic.</strong> Dans l'Offre Gratuite, lorsque vous créez une tâche dans une activité, une intelligence artificielle fournie par Anthropic, un sous-traitant américain, vous propose un pôle et une section pour la ranger. Vous gardez la décision finale : à la première utilisation de cette fonction, vous choisissez le mode que vous préférez, et vous pouvez le changer à tout moment dans Réglages (section Gestion de l'IA), où trois options sont proposées : Actif avec confirmation (la proposition vous est présentée dans une fenêtre que vous devez valider avant qu'elle ne s'applique), Actif sans confirmation (le classement s'applique directement, sans validation de votre part ; vous pouvez ensuite déplacer vous-même la tâche) ou Inactif (aucune suggestion, vous classez vous-même vos tâches). Vous pouvez nous demander quels renseignements ont servi à proposer un classement et pourquoi, à l'adresse de la section 1.</p>
+      <p>Dans l'Offre 1 (payante), qui n'existe pas encore dans l'application, si vous choisissez de remplir les formulaires prévus à cet effet, les données que vous y indiquerez — temps consacré à vos activités par semaine, jours les plus productifs, tâches déjà notées — seront transmises à Anthropic pour générer automatiquement une feuille de route quotidienne, qui s'adaptera chaque semaine à votre disponibilité de la semaine précédente. Une notification, accompagnée d'une fenêtre présentant les tâches proposées pour la journée, vous sera envoyée chaque jour.</p>
+      <p>Ce qui peut être transmis à Anthropic : ce que vous saisissez dans l'application pour l'organiser, à savoir vos activités, vos pôles et sections, vos sessions chronométrées, vos tâches, vos notes, vos pièces jointes, vos préférences et, le jour où l'Offre 1 existera, vos réponses aux formulaires utilisés pour la feuille de route. Ne sont jamais transmis : votre prénom, votre nom de famille, votre numéro de téléphone, votre adresse courriel, votre photo, votre code PIN (nous n'en conservons qu'une version chiffrée), vos conversations (messages privés et discussions d'activité) et vos publications dans la Communauté. Dans le classement actuel des tâches, l'assistant reçoit le texte de la tâche et les noms des pôles et secteurs de l'activité. Ces renseignements peuvent être utilisés par l'assistant dès maintenant ou dans de nouvelles fonctions ; avant qu'une nouvelle fonction n'utilise vos renseignements à une fin nouvelle, nous vous en informons par courriel et dans l'application (section 9). Anthropic peut traiter ces renseignements partout dans le monde, dans le cadre du contrat de traitement des données conclu avec nous (conditions commerciales et addenda de traitement des données d'Anthropic). Anthropic fait appel à des sous-traitants dont la liste à jour est publique : anthropic.com/subprocessors. Selon les conditions commerciales d'Anthropic, celle-ci ne peut pas utiliser le contenu transmis par l'intermédiaire de l'API pour entraîner ses modèles. À la fin du contrat avec Anthropic, ces renseignements sont supprimés de ses systèmes dans un délai de 30 jours, sauf obligation légale, litige entre les parties ou nécessité de lutter contre un usage nuisible du service. Pendant le contrat, Anthropic supprime automatiquement de ses serveurs les renseignements transmis et les réponses de l'assistant dans les 30 jours suivant leur réception ou leur génération ; un contenu signalé par ses systèmes comme contraire à sa politique d'utilisation peut être conservé jusqu'à 2 ans. Les propositions de l'assistant peuvent être inexactes, incomplètes ou trompeuses : vérifiez-les avant de les accepter.</p>
+      <p><strong>4.7 Notre support de stockage chiffré, si vous avez consenti à l'usage de la section 2.4.</strong> Les renseignements concernés peuvent être copiés, pour être analysés, sur un support de stockage chiffré détenu par Noèsis (ordinateur ou support amovible), sans passer par un service tiers. Seuls les dirigeants de Noèsis Inc. y ont accès. Nous n'y plaçons ni votre code PIN ni vos messages privés. Si vous retirez votre consentement ou supprimez votre compte, nous supprimons de ce support la copie qui vous concerne.</p>
 
       <h3>5. Combien de temps nous les conservons</h3>
       <p>Tant que votre compte existe, vos renseignements sont conservés — c'est ce qui vous permet de consulter votre historique.</p>
       <p>Dès que vous supprimez votre compte, tout est effacé immédiatement et définitivement de la base de données vivante : votre profil, vos activités, votre historique, vos notes, vos pièces jointes, vos messages, vos liens avec d'autres personnes et votre adresse de calendrier. Il n'y a pas de période de grâce et pas de corbeille : la suppression est irréversible.</p>
-      <p><strong>Seule exception : les sauvegardes chiffrées.</strong> Une copie chiffrée de la base est conservée hors site pour nous protéger d'une perte accidentelle. Une copie de vos renseignements, déjà chiffrée, peut donc subsister jusqu'à <strong>30 jours</strong> dans ces sauvegardes avant d'être définitivement purgée par rotation automatique, même après la suppression de votre compte. Personne ne peut lire cette copie sans la clé de déchiffrement, qui n'est jamais transmise à notre fournisseur de sauvegarde.</p>
-      <p>Si vous cessez simplement d'utiliser l'application sans supprimer votre compte, vos renseignements restent conservés. Écrivez-nous si vous voulez que nous fermions un compte inactif.</p>
+      <p>Seule exception : les sauvegardes chiffrées. Une copie chiffrée de la base est conservée hors site pour nous protéger d'une perte accidentelle. Une copie de vos renseignements, déjà chiffrée, peut donc subsister jusqu'à 30 jours dans ces sauvegardes avant d'être définitivement purgée par rotation automatique, même après la suppression de votre compte. Personne ne peut lire cette copie sans la clé de déchiffrement, qui n'est jamais transmise à notre fournisseur de sauvegarde. Si vous avez consenti à l'usage de la section 2.4, la copie conservée sur notre support chiffré (section 4.7) est supprimée dès le retrait de votre consentement ou la suppression de votre compte.</p>
+      <p>Si vous cessez simplement d'utiliser l'application sans supprimer votre compte, vos renseignements restent conservés pendant 24 mois sans connexion. Passé ce délai, nous vous écrivons à l'adresse courriel de votre compte au moins 30 jours avant de le fermer ; si vous ne vous reconnectez pas d'ici là, le compte est supprimé comme décrit ci-dessus. Vous pouvez aussi nous écrire à tout moment pour que nous fermions un compte inactif plus tôt.</p>
 
       <h3>6. Vos droits</h3>
       <p>Vous pouvez, à tout moment :</p>
-      <p><strong>Consulter</strong> vos renseignements — ils sont visibles dans l'application. Vous pouvez aussi en demander copie.</p>
+      <p><strong>Consulter vos renseignements</strong> — ils sont visibles dans l'application. Vous pouvez aussi en demander copie.</p>
       <p><strong>Les corriger</strong> — directement dans l'onglet Profil, ou en nous écrivant.</p>
-      <p><strong>Les emporter</strong> (portabilité) — depuis Profil → Réglages → « Exporter mes données », un bouton vous remet directement un fichier structuré contenant tout ce qui vous concerne.</p>
+      <p><strong>Les emporter (portabilité)</strong> — depuis Profil → Réglages → « Exporter mes données », un bouton vous remet directement un fichier structuré contenant tout ce qui vous concerne.</p>
       <p><strong>Les faire effacer</strong> — le bouton « Supprimer mon compte » de l'onglet Profil. Effet immédiat, sous réserve de la section 5.</p>
-      <p><strong>Retirer votre consentement</strong> — en supprimant votre compte. Pour le seul calendrier, il suffit de le désactiver (section 4.3).</p>
-      <p><strong>Porter plainte</strong> — auprès de la Commission d'accès à l'information du Québec.</p>
+      <p><strong>Retirer votre consentement</strong> — en supprimant votre compte. Pour le seul usage commercial (section 2.4), il suffit de désactiver l'interrupteur prévu dans votre profil. Pour le seul calendrier, il suffit de le désactiver (section 4.3).</p>
+      <p><strong>Porter plainte</strong> — auprès de la Commission d'accès à l'information du Québec ou, si vous résidez dans une autre province ou un territoire du Canada, auprès du Commissariat à la protection de la vie privée du Canada.</p>
       <p>Nous répondons à toute demande dans un délai maximal de 30 jours. Si nous devions refuser une demande, nous vous en donnerions le motif écrit et vous indiquerions les recours possibles.</p>
       <p><strong>6bis. Audit de l'effacement réel du compte (« Supprimer mon compte »).</strong> À la suppression de votre compte, sont réellement effacés (ligne de base de données supprimée, pas seulement masquée) : votre profil (identité, nom de famille, téléphone, courriel, code PIN hashé), votre historique et votre chrono en cours, vos appartenances aux activités, ainsi que — par cascade — vos invitations, vos abonnements, vos pièces jointes, vos messages, vos publications et projets de profil, vos abonnements de notification, vos votes de sondage, votre adresse de calendrier. Vos pièces jointes n'existent nulle part ailleurs que dans ces lignes de base de données : leur suppression est donc complète, sans résidu sur un service de stockage séparé.</p>
       <p>Ce qui subsiste légitimement, par construction : une activité partagée dont d'autres personnes restent membres continue d'exister, avec sa propriété transférée automatiquement au membre restant le plus ancien ; les sessions chronométrées et messages des autres membres d'une activité partagée restent inchangés — seuls les vôtres sont retirés ; un sous-projet, une section de tâches ou un sondage que vous avez créé au sein d'une activité partagée survit à la suppression de votre compte, avec sa paternité transférée de la même façon, plutôt que d'entraîner la disparition du contenu et des votes des autres membres. Là où un transfert de paternité n'est pas possible (un sondage publié sur votre page personnelle, ou un message que vous avez écrit dans le fil d'un sous-projet), le contenu est conservé et seul votre nom disparaît, affiché comme « Compte supprimé ».</p>
 
       <h3>7. Comment nous protégeons vos renseignements</h3>
-      <p><strong>Chiffrement en transit.</strong> Toutes les communications entre votre appareil et l'application passent par HTTPS.</p>
-      <p><strong>Codes PIN irréversibles.</strong> Votre code PIN (4 à 6 chiffres) est transformé par une fonction cryptographique salée (scrypt) ; même nous ne pouvons pas le lire.</p>
-      <p><strong>Cloisonnement des comptes.</strong> Le serveur vérifie votre identité à chaque requête à partir d'une session signée. Il n'est pas possible d'accéder aux renseignements d'un autre compte en modifiant une adresse.</p>
-      <p><strong>Confidentialité par défaut.</strong> Tous les réglages de visibilité sont au maximum de protection à la création du compte, à l'exception de votre identité minimale (section 4.1) : votre prénom et votre nom de famille sont repérables par n'importe qui sur l'écran de connexion, sans compte requis, dès que 3 caractères d'un nom y sont tapés, et le reste de votre identité minimale (photo, nombre de projets, ce que vous recherchez) l'est par tout autre membre inscrit une fois connecté. Le partage de votre courriel et de votre téléphone, eux, comme le reste et les fonctions qui communiquent quelque chose à l'extérieur, comme le calendrier de la section 4.3, restent éteints tant que vous ne les activez pas.</p>
-      <p><strong>Adresses de calendrier imprévisibles et révocables.</strong> L'adresse décrite à la section 4.3 est tirée au hasard sur 256 bits, ce qui la rend impossible à deviner, et vous pouvez la remplacer ou la supprimer à tout moment.</p>
-      <p><strong>Accès restreint.</strong> Seuls les responsables désignés à la section 1 ont accès à l'infrastructure.</p>
-      <p>Aucun système n'est parfaitement sûr. En cas d'incident présentant un risque de préjudice sérieux, nous en informerons la Commission d'accès à l'information et les personnes touchées, comme la loi l'exige.</p>
+      <p><strong>Chiffrement en transit</strong>. Toutes les communications entre votre appareil et l'application passent par HTTPS.</p>
+      <p><strong>Codes PIN irréversibles</strong>. Votre code PIN (4 à 6 chiffres) est transformé par une fonction cryptographique salée (scrypt) ; même nous ne pouvons pas le lire.</p>
+      <p><strong>Cloisonnement des comptes</strong>. Le serveur vérifie votre identité à chaque requête à partir d'une session signée. Il n'est pas possible d'accéder aux renseignements d'un autre compte en modifiant une adresse.</p>
+      <p><strong>Confidentialité par défaut</strong>. Tous les réglages de visibilité sont au maximum de protection à la création du compte, à l'exception de votre identité minimale (section 4.1) : votre prénom et votre nom de famille sont retrouvables avant la connexion par une recherche limitée (section 4.1), et par tout autre membre inscrit une fois connecté. Votre photo, le nombre de projets que vous suivez et ce que vous recherchez sont visibles par les membres connectés. Le partage de votre courriel et de votre téléphone, eux, comme le reste et les fonctions qui communiquent quelque chose à l'extérieur, comme le calendrier de la section 4.3, restent éteints tant que vous ne les activez pas.</p>
+      <p><strong>Adresses de calendrier imprévisibles et révocables</strong>. L'adresse décrite à la section 4.3 est tirée au hasard sur 256 bits, ce qui la rend impossible à deviner, et vous pouvez la remplacer ou la supprimer à tout moment.</p>
+      <p><strong>Accès restreint</strong>. Seuls les dirigeants de Noèsis Inc., Gaspard et Émilien Morel-Obaton, ont accès à l'infrastructure.</p>
+      <p><strong>Aucun système n'est parfaitement sûr</strong>. En cas d'incident présentant un risque de préjudice sérieux, nous en informerons la Commission d'accès à l'information et les personnes touchées, comme la loi l'exige. Pour les personnes résidant hors du Québec, nous en informerons de la même façon le Commissariat à la protection de la vie privée du Canada lorsqu'il existe un risque réel de préjudice grave. Nous consignons tous les incidents dans un registre.</p>
 
       <h3>8. Les personnes mineures</h3>
       <p>Noèsis TimeTracker n'est pas destinée aux personnes de moins de 16 ans.</p>
-      <p class="hint">Une offre payante est prévue pour l'avenir avec des conditions d'âge et de consentement parental additionnelles — voir les conditions d'utilisation. Elle n'existe pas encore dans l'application au moment de la publication de cette politique.</p>
+      <p>Une offre payante est prévue pour l'avenir avec des conditions d'âge et de consentement parental additionnelles — voir les conditions d'utilisation. Elle n'existe pas encore dans l'application au moment de la publication de cette politique.</p>
 
       <h3>9. Si cette politique change</h3>
-      <p>Nous pouvons modifier cette politique, par exemple si l'application évolue. Toute modification importante vous sera signalée dans l'application avant sa prise d'effet, et la date de version en tête de ce document sera mise à jour. L'historique des versions est conservé et peut vous être communiqué sur demande.</p>
+      <p>Nous pouvons modifier cette politique, par exemple si l'application évolue. Toute modification importante vous sera communiquée par courriel et signalée dans l'application avant sa prise d'effet, et la date de version en tête de ce document sera mise à jour. L'historique des versions est conservé et peut vous être communiqué sur demande.</p>
 
       <h3>10. Nous joindre</h3>
       <p>Pour toute question, demande ou plainte relative à vos renseignements personnels :</p>
-      <p><strong>Gaspard et Émilien Morel-Obaton</strong>, dirigeants de Noèsis Inc. — Responsable de la protection des renseignements personnels<br>confidentialite.noesis@gmail.com</p>
-      <p>Vous pouvez également vous adresser directement à la <strong>Commission d'accès à l'information du Québec</strong> — cai.gouv.qc.ca.</p>
+      <p>Émilien Morel-Obaton, vice-président de Noèsis Inc. — Responsable de la protection des renseignements personnels</p>
+      <p>compagnie.noesis@gmail.com</p>
+      <p>Vous pouvez également vous adresser directement à la Commission d'accès à l'information du Québec — cai.gouv.qc.ca — ou, si vous résidez hors du Québec, au Commissariat à la protection de la vie privée du Canada — priv.gc.ca.</p>
     </div>
   </div>
 </div>
@@ -3841,21 +3837,37 @@
       <button type="button" class="menuBtn" id="legalNoticesModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
+      <p class="hint">Version 1.2 — en vigueur le 10 octobre 2026.</p>
+
       <h3>Identification de l'exploitant</h3>
       <p>L'application Noèsis TimeTracker est exploitée par <strong>Noèsis Inc.</strong> (raison sociale légale : Compagnie Noèsis inc.), société par actions constituée au Québec le 8 septembre 2026, dont le siège social est situé à Montréal, Québec, Canada.</p>
       <p>Numéro d'entreprise du Québec (NEQ) : <strong>1182542432</strong>.</p>
       <p>Noèsis Inc. est une société par actions constituée au Québec. Les fondateurs, Gaspard et Émilien Morel-Obaton, en sont les dirigeants et actionnaires et n'assument plus personnellement, à titre individuel, les responsabilités liées à l'application.</p>
-      <p>Contact : confidentialite.noesis@gmail.com</p>
+      <p>Contact : compagnie.noesis@gmail.com</p>
 
       <h3>Responsable de la protection des renseignements personnels</h3>
-      <p>Conformément à l'article 3.1 de la <em>Loi sur la protection des renseignements personnels dans le secteur privé</em>, la personne responsable de la protection des renseignements personnels est <strong>Gaspard et Émilien Morel-Obaton</strong>, dirigeants de Noèsis Inc. — confidentialite.noesis@gmail.com.</p>
+      <p>Conformément à l'article 3.1 de la <em>Loi sur la protection des renseignements personnels dans le secteur privé</em>, la personne responsable de la protection des renseignements personnels est <strong>Émilien Morel-Obaton</strong>, vice-président de Noèsis Inc., à qui cette fonction a été déléguée par écrit — compagnie.noesis@gmail.com.</p>
       <p>Cette personne est chargée de veiller au respect de la loi, de répondre aux demandes d'accès, de rectification et de suppression, et de traiter les incidents de confidentialité.</p>
 
       <h3>Hébergement</h3>
-      <p>L'application est hébergée par Railway Corporation, dans un centre de données situé à Amsterdam, aux Pays-Bas.</p>
+      <p>L'application est hébergée par <strong>Railway Corporation</strong>, dans un centre de données situé à Amsterdam, aux Pays-Bas.</p>
 
       <h3>Langue</h3>
       <p>Cette application et ses documents contractuels sont offerts en français. Une version anglaise est disponible à titre de commodité ; en cas de divergence, la version française prévaut.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 10 oct. 2026 (trame 8) : Gouvernance des renseignements personnels, publique (sans connexion), même gabarit que les autres documents légaux. -->
+<div id="governanceModal" class="communityMembersModal hidden">
+  <div class="communityMembersModalCard legalTermsModalCard">
+    <div class="communityMembersModalHeader">
+      <p class="sectionTitle">Gouvernance des renseignements personnels</p>
+      <button type="button" class="menuBtn" id="governanceModalClose" aria-label="Fermer">✕</button>
+    </div>
+    <div class="legalTermsBody">
+      <p>Noèsis recueille le minimum de renseignements, ne les vend pas, les héberge chez des fournisseurs liés par contrat et vous permet de les consulter, corriger ou supprimer. Pour joindre le responsable de la protection des renseignements personnels, faire une demande ou une plainte, écrivez à compagnie.noesis@gmail.com. Nous visons une réponse dans les 15 jours; la loi nous donne 30 jours. Si vous n'êtes pas satisfait de la réponse, vous pouvez vous adresser à la Commission d'accès à l'information du Québec.</p>
+      <p class="hint">Dernière mise à jour : 10 octobre 2026</p>
     </div>
   </div>
 </div>
@@ -3932,6 +3944,20 @@
 <script src="/theme-palette.js"></script>
 <script src="/i18n.js"></script>
 <script src="/qrcode.js"></script>
+<!-- 10 oct. 2026 (trame 3) : invite pour les comptes existants (marketingConsentAt NULL). Aucune croix, deux boutons identiques, rien de pré-coché. Placée AVANT les modales légales pour que la Politique s'ouvre par-dessus. -->
+<div id="marketingInviteModal" class="communityMembersModal hidden">
+  <div class="communityMembersModalCard">
+    <div class="communityMembersModalHeader">
+      <p class="sectionTitle">Une question sur vos données</p>
+    </div>
+    <p class="marketingInviteBody">Nous aimerions utiliser les données que vous saisissez pour analyser l'usage, produire des statistiques, vous envoyer des communications commerciales et cibler nos propres campagnes publicitaires. Votre code PIN et vos messages privés ne sont jamais utilisés. Vous pouvez changer d'avis à tout moment dans votre profil. (Politique de confidentialité, <a href="#" class="policy24Link">§2.4</a>)</p>
+    <div class="marketingInviteActions">
+      <button type="button" class="btn btn-small btnBrique" id="marketingInviteYes">J'accepte</button>
+      <button type="button" class="btn btn-small btnBrique" id="marketingInviteNo">Non merci</button>
+    </div>
+  </div>
+</div>
+
 <!-- Annonce diffusee a tous (30 sept. 2026) : texte complet, une seule fois. -->
 <div id="announcementModal" class="communityMembersModal hidden">
   <div class="communityMembersModalCard">

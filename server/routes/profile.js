@@ -7,6 +7,7 @@ const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/
 const { notifyCommunityPost } = require('../lib/push');
 const { setSessionCookie } = require('../lib/session');
 const { deleteAccountData } = require('../lib/accountdeletion');
+const { PRIVACY_VERSION, TERMS_VERSION, MARKETING_CONSENT_VERSION } = require('../lib/legalversions');
 // Export de mes données personnelles (7 septembre 2026) — voir GET
 // /profile/export plus bas et l'en-tête de server/lib/dataexport.js pour le
 // détail du périmètre.
@@ -320,13 +321,28 @@ const USERS_SEARCH_MAX_RESULTS = 5;
 function escapeSqliteLike(s) {
   return s.replace(/[\\%_]/g, (c) => '\\' + c);
 }
+// 10 oct. 2026 (trame 4) : 20 requêtes par minute et par IP (compteur en mémoire) sur cette route publique.
+const USERS_RATE_LIMIT = 20;
+const USERS_RATE_WINDOW_MS = 60 * 1000;
+const usersRateHits = new Map();
+function usersRateLimited(ip) {
+  const now = Date.now();
+  if (usersRateHits.size > 5000) {
+    usersRateHits.forEach((v, k) => { if (now - v.start >= USERS_RATE_WINDOW_MS) usersRateHits.delete(k); });
+  }
+  let e = usersRateHits.get(ip);
+  if (!e || now - e.start >= USERS_RATE_WINDOW_MS) { e = { start: now, n: 0 }; usersRateHits.set(ip, e); }
+  e.n += 1;
+  return e.n > USERS_RATE_LIMIT;
+}
 router.get('/users', (req, res) => {
+  if (usersRateLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de recherches. Réessayez dans une minute.' });
   const q = (req.query.q || '').trim();
   if (q) {
     if (q.length < USERS_SEARCH_MIN_LENGTH) return res.json([]);
     const rows = db.prepare(
       "SELECT id, name, lastName, color, pin FROM users " +
-      "WHERE (name || ' ' || COALESCE(lastName, '')) LIKE '%' || ? || '%' ESCAPE '\\' " +
+      "WHERE directoryConsent = 1 AND (name || ' ' || COALESCE(lastName, '')) LIKE '%' || ? || '%' ESCAPE '\\' " +
       "LIMIT ?"
     ).all(escapeSqliteLike(q), USERS_SEARCH_MAX_RESULTS);
     return res.json(rows.map((u) => ({
@@ -341,7 +357,7 @@ router.get('/users', (req, res) => {
   const lastName = (req.query.lastName || '').trim();
   if (!name) return res.json([]);
   const rows = db.prepare(
-    "SELECT id, name, lastName, color, pin FROM users WHERE name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2"
+    "SELECT id, name, lastName, color, pin FROM users WHERE directoryConsent = 1 AND name = ? COLLATE NOCASE AND COALESCE(lastName, '') = ? COLLATE NOCASE LIMIT 2"
   ).all(name, lastName);
   res.json(rows.map((u) => ({ id: u.id, name: u.name, lastName: u.lastName || '', color: u.color, hasPin: !!u.pin })));
 });
@@ -382,6 +398,9 @@ router.post('/profile', (req, res) => {
   ).get(name, lastName);
   if (existing) return res.status(409).json({ error: `"${name} ${lastName}" existe déjà. Choisis un autre prénom ou nom, ou récupère ton profil si c'est toi.` });
 
+  // Trame 5 : preuve d'acceptation — refus côté serveur si la case CGU/Politique n'est pas cochée.
+  if (req.body.termsAccepted !== true) return res.status(400).json({ error: 'Tu dois accepter les conditions d\'utilisation et la politique de confidentialité.' });
+
   const lang = LANGS.indexOf(req.body.lang) !== -1 ? req.body.lang : DEFAULT_LANG;
 
   const id = randomUUID();
@@ -399,14 +418,17 @@ router.post('/profile', (req, res) => {
   // abonnés n'est plus un choix (voir le commentaire sur PUT ci-dessous et
   // la migration correspondante dans server/db.js pour les profils déjà
   // existants créés avant ce changement).
-  db.prepare('INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)')
-    .run(id, name, lastName, phone, email, color, createdAt, makePinRecord(pin), 'dark', lang);
+  // Trames 2/4/5 : consentement commercial (absent = faux), annuaire de connexion (valeur de la case), preuve d'acceptation.
+  const marketingConsent = req.body.marketingConsent === true ? 1 : 0;
+  const directoryConsent = req.body.directoryConsent === true ? 1 : 0;
+  db.prepare('INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, marketingConsent, marketingConsentAt, marketingConsentVersion, directoryConsent, termsAcceptedAt, termsVersion, privacyVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(id, name, lastName, phone, email, color, createdAt, makePinRecord(pin), 'dark', lang, marketingConsent, createdAt, MARKETING_CONSENT_VERSION, directoryConsent, createdAt, TERMS_VERSION, PRIVACY_VERSION);
   // Système de session (chantier 1) : la création d'un profil vaut
   // connexion — le témoin posé ici est ce qui authentifiera ensuite chaque
   // appel de ce profil, plutôt que l'id renvoyé ci-dessous (gardé pour
   // l'affichage côté client, plus jamais comme preuve d'identité serveur).
   setSessionCookie(req, res, id);
-  res.status(201).json({ id, name, lastName, phone, email, color, createdAt, theme: 'dark', lang, shareProfile: true, avatar: null, contactShareEmail: false, contactSharePhone: false, communityNotifyEnabled: true });
+  res.status(201).json({ id, name, lastName, phone, email, color, createdAt, theme: 'dark', lang, shareProfile: true, avatar: null, contactShareEmail: false, contactSharePhone: false, communityNotifyEnabled: true, marketingConsent: !!marketingConsent, marketingConsentAt: createdAt, marketingConsentAsked: true, directoryConsent: !!directoryConsent });
 });
 
 // ---------- Fil "Communauté" de la zone Discussion de Profil ----------
@@ -476,10 +498,29 @@ router.get('/profile/export', (req, res) => {
 // (comme /public) : elle sert aussi à afficher l'identité publique d'un
 // tiers, seuls les trois champs sensibles sont gated.
 router.get('/profile/:id', (req, res) => {
-  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled FROM users WHERE id = ?').get(req.params.id);
+  const user = db.prepare('SELECT id, name, lastName, phone, email, color, createdAt, theme, lang, shareProfile, avatar, contactShareEmail, contactSharePhone, communityNotifyEnabled, marketingConsent, marketingConsentAt, directoryConsent FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   const isOwner = req.userId === user.id;
-  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled });
+  res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent } : {}) });
+});
+
+// 10 oct. 2026 (trames 2 et 4) : consentement commercial et annuaire de connexion, utilisateur connecté seulement.
+// Déclarées AVANT PUT /profile/:id (sinon « marketing-consent » serait pris pour un :id).
+router.put('/profile/marketing-consent', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (typeof req.body.consent !== 'boolean') return res.status(400).json({ error: 'Valeur invalide.' });
+  const at = new Date().toISOString();
+  const r = db.prepare('UPDATE users SET marketingConsent = ?, marketingConsentAt = ?, marketingConsentVersion = ? WHERE id = ?')
+    .run(req.body.consent ? 1 : 0, at, MARKETING_CONSENT_VERSION, req.userId);
+  if (!r.changes) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json({ ok: true, marketingConsent: req.body.consent, marketingConsentAt: at, marketingConsentVersion: MARKETING_CONSENT_VERSION });
+});
+router.put('/profile/directory-consent', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (typeof req.body.consent !== 'boolean') return res.status(400).json({ error: 'Valeur invalide.' });
+  const r = db.prepare('UPDATE users SET directoryConsent = ? WHERE id = ?').run(req.body.consent ? 1 : 0, req.userId);
+  if (!r.changes) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json({ ok: true, directoryConsent: req.body.consent });
 });
 
 // Taille max d'une photo de profil UNE FOIS encodée en data URL (~1.5 Mo

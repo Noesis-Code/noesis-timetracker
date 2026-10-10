@@ -1627,7 +1627,7 @@
       // se déclarer prêt. Sans ce `return`, l'app s'ouvrait sur la grille des
       // activités et basculait ensuite sur le chronomètre en cours.
       return syncChronoStatus();
-    }).then(dismissBootSplash, dismissBootSplash);
+    }).then(dismissBootSplash, dismissBootSplash).then(function () { return refreshConsentState(true); }).catch(function () {});
     // 25 septembre 2026 (données hors ligne) : modifications en attente
     // envoyées d'abord, puis préchargement léger (voir DONNÉES HORS LIGNE).
     registerOfflineWritesListener();
@@ -1733,7 +1733,7 @@
     if (!/^[0-9]{4,6}$/.test(pin)) { $('onbMsg').textContent = t('Choisis un code de 4 à 6 chiffres.'); return; }
     if (pin !== pinConfirm) { $('onbMsg').textContent = t('Les deux codes ne correspondent pas.'); return; }
     $('onbCreateBtn').disabled = true;
-    api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin })
+    api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked })
       .then(function (p) {
         saveProfile(p);
         proceedAfterProfile();
@@ -1769,7 +1769,19 @@
     if (q.length < ONB_SEARCH_MIN_LENGTH) { renderOnbUserList([], seq, q); return; }
     api('GET', '/api/users?q=' + encodeURIComponent(q))
       .then(function (users) { renderOnbUserList(users, seq, q); })
-      .catch(function () { renderOnbUserList([], seq, q); });
+      .catch(function (err) {
+        // 10 oct. 2026 (trame 4) : le message du serveur (limite de 20 recherches par minute) est affiché tel quel.
+        if (err && err.message && seq === onbSearchSeq && !err.offline) {
+          var box = $('onbUserList');
+          box.innerHTML = '';
+          var p = document.createElement('p');
+          p.className = 'hint';
+          p.textContent = err.message;
+          box.appendChild(p);
+          return;
+        }
+        renderOnbUserList([], seq, q);
+      });
   }
   function renderOnbUserList(users, seq, q) {
     if (seq !== onbSearchSeq) return;
@@ -10788,6 +10800,69 @@
   });
   $('legalNoticesModal').addEventListener('click', function (e) {
     if (e.target === this) this.classList.add('hidden');
+  });
+
+  // ===================== CONFORMITÉ (10 oct. 2026, trames 2, 3, 4, 8) =====
+  // Liens §2.4 : ouvrent la Politique sans rien cocher. Liens Gouvernance : page publique (aucune connexion requise).
+  document.querySelectorAll('.policy24Link').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      $('privacyPolicyModal').classList.remove('hidden');
+    });
+  });
+  document.querySelectorAll('.governanceLink').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      $('governanceModal').classList.remove('hidden');
+    });
+  });
+  $('governanceModalClose').addEventListener('click', function () {
+    $('governanceModal').classList.add('hidden');
+  });
+  $('governanceModal').addEventListener('click', function (e) {
+    if (e.target === this) this.classList.add('hidden');
+  });
+
+  // Relit les consentements côté serveur : alimente les interrupteurs de Réglages et, si `maybeInvite`,
+  // affiche l'invite (trame 3) aux seuls comptes dont marketingConsentAt est NULL, jamais pendant un chrono en cours.
+  function refreshConsentState(maybeInvite) {
+    if (!profile) return Promise.resolve();
+    return api('GET', '/api/profile/' + profile.id).then(function (p) {
+      $('settingsMarketingConsent').checked = !!p.marketingConsent;
+      $('settingsDirectoryConsent').checked = p.directoryConsent !== false;
+      if (maybeInvite && p.marketingConsentAsked === false && $('chronoRunning').classList.contains('hidden')) {
+        $('marketingInviteModal').classList.remove('hidden');
+      }
+    });
+  }
+  function putMarketingConsent(consent) {
+    return api('PUT', '/api/profile/marketing-consent', { consent: consent });
+  }
+  ['marketingInviteYes', 'marketingInviteNo'].forEach(function (id) {
+    $(id).addEventListener('click', function () {
+      var consent = id === 'marketingInviteYes';
+      putMarketingConsent(consent).then(function () {
+        $('settingsMarketingConsent').checked = consent;
+      }).catch(function () { /* hors ligne : rien n'est enregistré, l'invite reviendra à la prochaine ouverture */ })
+        .then(function () { $('marketingInviteModal').classList.add('hidden'); });
+    });
+  });
+  $('settingsMarketingConsent').addEventListener('change', function () {
+    var box = this;
+    var consent = box.checked;
+    var msg = $('settingsMarketingMsg');
+    msg.textContent = '';
+    putMarketingConsent(consent).then(function () {
+      if (!consent) msg.textContent = t('Votre accord est retiré. Vos données ne servent plus qu\'au fonctionnement de l\'application.');
+    }).catch(function (err) {
+      box.checked = !consent;
+      msg.textContent = err.message || '';
+    });
+  });
+  $('settingsDirectoryConsent').addEventListener('change', function () {
+    var box = this;
+    var consent = box.checked;
+    api('PUT', '/api/profile/directory-consent', { consent: consent }).catch(function () { box.checked = !consent; });
   });
 
   // ===================== SUIVI (Recherche / Demandes / Suivi / Partagée) =====
