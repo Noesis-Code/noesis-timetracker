@@ -6788,3 +6788,6 @@ button { -webkit-user-select: none; user-select: none; }
 #profileSettingsPanel.settingsPanel .logoutBtnHeader ~ #settingsCloseBtn { margin-left: 0; }
 .subpageHeader .logoutBtn.logoutBtnHeader { color: #E08A69; border-color: #C2694A; background: transparent; }
 .subpageHeader .logoutBtn.logoutBtnHeader:hover { background: rgba(194, 105, 74, 0.14); text-decoration: none; }
+/* 10 oct. 2026 : Identité — moins d'espace entre « Enregistrer » et l'onglet Sécurité. */
+#settingsMsg:empty { min-height: 0; margin: 0; }
+#profileSettingsScroll .settingsCard:has(#settingsSaveBtn) { padding-bottom: 4px; }
