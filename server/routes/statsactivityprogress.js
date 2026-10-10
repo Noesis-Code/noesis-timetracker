@@ -58,7 +58,7 @@ router.get('/stats/activity-insights/glisse', (req, res) => {
   }
 });
 
-// GET /api/stats/activity-members?activityId=…[&scope=year|period|week|all] — réalisation des tâches par membre (onglet Statistiques
+// GET /api/stats/activity-members?activityId=…[&scope=year|period|week|all][&category=<clé de pôle>] — réalisation des tâches par membre (onglet Statistiques
 // de la fenêtre Activité). Membres de l'activité seulement (403 sinon) ; agrégats, jamais de titre de tâche.
 router.get('/stats/activity-members', (req, res) => {
   const userId = req.userId;
@@ -67,7 +67,7 @@ router.get('/stats/activity-members', (req, res) => {
   if (!Number.isInteger(activityId)) return res.status(400).json({ error: 'activityId requis.' });
   if (!db.prepare('SELECT id FROM activities WHERE id = ?').get(activityId)) return res.status(404).json({ error: 'Activité introuvable.' });
   if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
-  try { return res.json(insights.memberStats(activityId, req.query.scope)); } catch (err) {
+  try { return res.json(insights.memberStats(activityId, req.query.scope, null, typeof req.query.category === 'string' && req.query.category !== '' && req.query.category !== 'all' ? req.query.category : null)); } catch (err) {
     console.error('[stats-activity-members]', err);
     return res.status(500).json({ error: 'Erreur serveur.' });
   }

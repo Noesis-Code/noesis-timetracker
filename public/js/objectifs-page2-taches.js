@@ -94,8 +94,6 @@
         <div class="periodSwitch" id="goalsPage2ModeSwitch">
           <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
           <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
-          <!-- 9 oct. 2026 : Statistiques par membre (fenêtre par-dessus, comme la Discussion) -->
-          <button type="button" class="periodBtn" id="goalsPage2ModeStatsBtn" data-mode="stats" aria-label="Statistiques" title="Statistiques"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></button>
           <!-- 30 septembre 2026 : Discussion (déplacée de la fenêtre Activité), à droite de Objectifs ; visible seulement si l'activité affichée est partagée. -->
           <button type="button" class="periodBtn hidden" id="goalsPage2ModeDiscBtn" data-mode="disc" aria-label="Discussion" title="Discussion"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-13a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-9l-4 4"/><path d="M12 11v.01M8 11v.01M16 11v.01"/></svg><span id="goalsPage2DiscDot" class="notifDot hidden"></span></button>
         </div>
@@ -169,19 +167,6 @@
         <div id="goalsObjectifsView" class="hidden"></div>
         <!-- Onglet « Discussion » (30 septembre 2026) : le bloc #communityDiscussionBlock (index.html, logique dans app.js : TMT.discussion) y est déplacé juste après l'injection. -->
         <div id="goalsDiscView" class="goalsDiscView hidden"></div>
-        <!-- Onglet « Statistiques » (9 oct. 2026) : réalisation des tâches par membre, fenêtre type Discussion. -->
-        <div id="goalsStatsView" class="goalsStatsView hidden">
-          <div class="goalsStatsSheet">
-            <div class="profileSubWindowHeader"><p class="sectionTitle">Statistiques</p><button type="button" class="menuBtn" id="goalsStatsClose" aria-label="Fermer">✕</button></div>
-            <div class="periodSwitch goalsStatsScope" id="goalsStatsScope">
-              <button type="button" class="periodBtn" data-scope="year">Année</button>
-              <button type="button" class="periodBtn" data-scope="period">Période</button>
-              <button type="button" class="periodBtn" data-scope="week">Semaine</button>
-              <button type="button" class="periodBtn" data-scope="all">Tout</button>
-            </div>
-            <div class="goalsStatsBody" id="goalsStatsBody"></div>
-          </div>
-        </div>
         </div>
         <!-- fin #goalsActivitySwitcherScroll -->
       </div>
@@ -562,64 +547,6 @@
   $('goalsDiscView').addEventListener('click', function (e) { if (e.target === this) closeGoalsDiscSheet(); });
 
   TMT.setGoalsPage2Mode = setGoalsPage2Mode;
-
-  // ===================== Statistiques par membre (9 oct. 2026) =====================
-  // Fenêtre par-dessus la page (comme la Discussion) : GET /api/stats/activity-members (membres seulement, agrégats).
-  var goalsStatsScope = 'year', goalsStatsSeq = 0;
-  function statsAvatar(m) {
-    var el = document.createElement('span'); el.className = 'smallAvatar';
-    if (m.avatar) { var im = document.createElement('img'); im.src = m.avatar; im.alt = ''; el.appendChild(im); el.style.background = 'transparent'; }
-    else { el.textContent = (m.name || '?').trim().charAt(0).toUpperCase(); el.style.background = m.color || 'var(--purple)'; }
-    return el;
-  }
-  function statsLine(label, value) {
-    var r = document.createElement('div'); r.className = 'goalsStatsLine';
-    var a = document.createElement('span'); a.textContent = label;
-    var b = document.createElement('strong'); b.textContent = value;
-    r.appendChild(a); r.appendChild(b); return r;
-  }
-  function renderGoalsStats(d) {
-    var body = $('goalsStatsBody'); body.textContent = '';
-    var sum = document.createElement('div'); sum.className = 'goalsStatsCard goalsStatsSummary';
-    sum.appendChild(statsLine(t('Tâches faites'), d.total.done + ' / ' + d.total.tasks));
-    sum.appendChild(statsLine(t('Restantes'), String(d.total.remaining)));
-    body.appendChild(sum);
-    if (!d.members.length || !d.total.tasks) {
-      var e = document.createElement('p'); e.className = 'meta'; e.textContent = t('Aucune tâche sur cette période.'); body.appendChild(e);
-    }
-    d.members.forEach(function (m, i) {
-      var c = document.createElement('div'); c.className = 'goalsStatsCard';
-      var head = document.createElement('div'); head.className = 'goalsStatsHead';
-      var rank = document.createElement('span'); rank.className = 'goalsStatsRank'; rank.textContent = String(i + 1);
-      var nm = document.createElement('span'); nm.className = 'goalsStatsName'; nm.textContent = m.lastName ? m.name + ' ' + m.lastName : m.name;
-      head.appendChild(rank); head.appendChild(statsAvatar(m)); head.appendChild(nm);
-      var cnt = document.createElement('strong'); cnt.textContent = m.done + ' / ' + m.assigned; head.appendChild(cnt);
-      c.appendChild(head);
-      var bar = document.createElement('div'); bar.className = 'goalsStatsBar';
-      var fill = document.createElement('div'); fill.className = 'goalsStatsFill ' + (m.assigned && !m.good ? 'bad' : 'good');
-      fill.style.width = (m.assigned ? m.donePct : 0) + '%';
-      bar.appendChild(fill); c.appendChild(bar);
-      c.appendChild(statsLine(t('Faites à la date prévue'), m.onTimePct == null ? '—' : m.onTimePct + ' %'));
-      c.appendChild(statsLine(t('En retard'), String(m.late)));
-      body.appendChild(c);
-    });
-  }
-  function loadGoalsStats() {
-    var aid = TMT.currentGoalsActivityId; if (!aid) return;
-    var seq = ++goalsStatsSeq;
-    Array.prototype.forEach.call(document.querySelectorAll('#goalsStatsScope [data-scope]'), function (b) { b.classList.toggle('active', b.getAttribute('data-scope') === goalsStatsScope); });
-    api('GET', '/api/stats/activity-members?activityId=' + encodeURIComponent(aid) + '&scope=' + goalsStatsScope).then(function (d) {
-      if (seq === goalsStatsSeq) renderGoalsStats(d);
-    }).catch(function (err) { if (seq === goalsStatsSeq) { var b = $('goalsStatsBody'); b.textContent = ''; var p = document.createElement('p'); p.className = 'meta'; p.textContent = err.message; b.appendChild(p); } });
-  }
-  function closeGoalsStats() { $('goalsStatsView').classList.add('hidden'); }
-  $('goalsPage2ModeStatsBtn').addEventListener('click', function () { $('goalsStatsView').classList.remove('hidden'); loadGoalsStats(); });
-  $('goalsStatsClose').addEventListener('click', closeGoalsStats);
-  $('goalsStatsView').addEventListener('click', function (e) { if (e.target === this) closeGoalsStats(); });
-  $('goalsStatsScope').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-scope]'); if (!b) return;
-    goalsStatsScope = b.getAttribute('data-scope'); loadGoalsStats();
-  });
 
   // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages) — voir
   // le commentaire du bouton dans index.html. Déplacé ici depuis

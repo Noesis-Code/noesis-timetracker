@@ -5815,6 +5815,7 @@
     // filtrerait sur une catégorie qui n'appartient pas à cette activité.
     currentActivityCategory = '';
     syncActivityPeriodMenus();
+    if (TMT.caTasks) TMT.caTasks.onActivity(); // 10 oct. 2026 : retour sur la page Temps, données Tâches à recharger
     // Nouvelle activité : on repart d'un fil vide côté affichage, sinon la
     // signature du fil précédent empêcherait le premier rendu (et le
     // défilement automatique vers le dernier message).
@@ -9961,6 +9962,7 @@
     if (value === currentActivityCategory) return;
     currentActivityCategory = value;
     syncActivityCategoryBtn();
+    if (TMT.caTasks) TMT.caTasks.onCategory();
     if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
   });
 
@@ -17540,6 +17542,7 @@
   // restent à jour même après connexion/déconnexion ou changement de thème.
   window.TMT.$ = $;
   window.TMT.api = api;
+  window.TMT.getCaState = function () { return { id: currentCommunityActivityId, category: currentActivityCategory }; }; // fenêtre Activité (activite-stats-taches.js)
   window.TMT.pad = pad;
   window.TMT.dateLocale = dateLocale;
   window.TMT.refreshActivities = refreshActivities;

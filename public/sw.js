@@ -46,7 +46,7 @@
 // demande d'Emilien) : v6 → v7 ; objectifs-page2.js/.css remplacés par
 // objectifs-page2-taches.js/.css et objectifs-page2-objectif.js/.css.
 // 2 oct. 2026 : v9 → v10, ajout de stats-avance.js/.css (Statistiques, page 2).
-const CACHE_VERSION = 'noesis-v254';
+const CACHE_VERSION = 'noesis-v255';
 
 // File d'attente des tâches capturées hors ligne (voir l'en-tête de
 // public/offline-queue.js). Chargée ici pour que Background Sync puisse la
@@ -68,11 +68,13 @@ const SHELL = [
   '/js/objectifs-page2-objectif.js',
   '/js/objectifs-page3.js',
   '/js/stats-avance.js',
+  '/js/activite-stats-taches.js',
   '/css/objectifs-page1.css',
   '/css/objectifs-page2-taches.css',
   '/css/objectifs-page2-objectif.css',
   '/css/objectifs-page3.css',
   '/css/stats-avance.css',
+  '/css/activite-stats-taches.css',
   '/css/verre-calme.css',
   '/i18n.js',
   '/qrcode.js',

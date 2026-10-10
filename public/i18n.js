@@ -1032,6 +1032,7 @@
     'justesse': 'accuracy',
     'Période': 'Period',
     'Tout': 'All',
+    'Tâches par membre': 'Tasks by member',
     'Tâches faites': 'Tasks done',
     'Restantes': 'Remaining',
     'Faites à la date prévue': 'Done on the planned date',

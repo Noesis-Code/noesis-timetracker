@@ -72,6 +72,7 @@
 <link rel="stylesheet" href="/css/objectifs-page2-objectif.css">
 <link rel="stylesheet" href="/css/objectifs-page3.css">
 <link rel="stylesheet" href="/css/stats-avance.css">
+<link rel="stylesheet" href="/css/activite-stats-taches.css">
 <link rel="stylesheet" href="/css/verre-calme.css">
 
 <style>
@@ -1577,6 +1578,9 @@
           <div class="statsPeriodMenu caSubProjectMenu hidden" id="caCategoryMenu"></div>
         </div>
 
+        <!-- 10 oct. 2026 : deux pages glissantes (slidePager de stats-avance.js) : 1 = Temps (Répartition + Graphique), 2 = Tâches par membre
+             (public/js/activite-stats-taches.js, GET /api/stats/activity-members). Deux points fixes au premier plan. -->
+        <div id="caStatsPages"><div id="caStatsPage1">
         <div id="communityActivityPieBlock" class="statsSection">
           <div class="sectionTitleRow">
             <p class="sectionTitle">Répartition</p>
@@ -1638,6 +1642,10 @@
           <div id="communityActivityChartLegend" class="chartLegend"></div>
           <p id="communityActivityChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
         </div>
+        </div><!-- /#caStatsPage1 -->
+        <div id="caStatsPage2" class="hidden"></div>
+        </div><!-- /#caStatsPages -->
+        <div id="caStatsDots" role="group"><button type="button" class="goalsDotBtn on" aria-label="Temps"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" aria-label="Tâches par membre"><span class="goalsDot"></span></button></div>
 
         </div><!-- /#communityActivityMembersPart -->
 
@@ -3945,5 +3953,6 @@
 <script src="/js/objectifs-page3.js"></script>
 <!-- 2 oct. 2026 : Statistiques, page 2 (avancement par activité) -->
 <script src="/js/stats-avance.js"></script>
+<script src="/js/activite-stats-taches.js"></script>
 </body>
 </html>

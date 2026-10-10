@@ -13,7 +13,6 @@
 .saChip.on { border-color: var(--chipEdge, var(--purple)); box-shadow: 0 0 0 1px var(--chipEdge, var(--purple)) inset; font-weight: 600; }
 .saChipDot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
 /* Refonte 9 oct. 2026 : onglets Tâches | Objectifs, graphique, cartes d'information. */
-.saYearWrap .caSubProjectBtn { padding: 6px 10px; font-size: 13px; }
 .saHdRight { display: flex; align-items: center; gap: 6px; }
 .saBody { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .saBody > * { grid-column: 1 / -1; min-width: 0; }

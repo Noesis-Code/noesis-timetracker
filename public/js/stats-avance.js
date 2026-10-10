@@ -35,6 +35,7 @@
   // cfg.zone : élément qui reçoit le geste ; cfg.neighbor(dir) : null | { cur, nb, host, start(), commit(), cancel() } (dir = +1 vers la droite des pages) ;
   // cfg.swallow(dir) : true = geste de fin de piste qu'on garde pour nous (ne remonte pas à l'application).
   var GAP = 24;
+  TMT.slidePager = slidePager;
   function slidePager(cfg) {
     var zone = cfg.zone, g = null;
     function hScroller(e0) {
@@ -140,11 +141,12 @@
 
   function build() {
     if (built) return; built = true;
+    els.yearRow = el('div', 'statsPeriodMenuWrap caSubProjectFilter hidden');
     els.chips = el('div', 'saChips');
     els.msg = el('p', 'hint hidden');
     // Une page par onglet (Tâches | Objectifs) : les deux voisines coexistent pendant le glissement (slidePager).
     bodies.t = el('div', 'saBody'); bodies.o = el('div', 'saBody hidden'); els.body = bodies.t;
-    [els.chips, els.msg, bodies.t, bodies.o].forEach(function (e) { page2.appendChild(e); });
+    [els.yearRow, els.chips, els.msg, bodies.t, bodies.o].forEach(function (e) { page2.appendChild(e); });
     if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
     var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
@@ -403,6 +405,36 @@
     return s + '</svg>';
   }
 
+  // Choix de l'année (propre page), en haut à gauche au-dessus des pastilles d'activité (même bouton que « Public ▾ » de la page Temps).
+  // N'apparaît que si les données couvrent au moins 2 années civiles. Année en cours par défaut ; années passées = vue Année seulement.
+  function renderYear(ys) {
+    if (visitor || !els.yearRow) return;
+    els.yearRow.innerHTML = '';
+    if (!ys || ys.length < 2) { els.yearRow.classList.add('hidden'); return; }
+    els.yearRow.classList.remove('hidden');
+    var curY = String(new Date().getFullYear()), selY = yearSel !== null ? String(yearSel) : curY;
+    var yb = el('button', 'caSubProjectBtn', selY); yb.type = 'button';
+    yb.setAttribute('aria-haspopup', 'true'); yb.setAttribute('aria-label', tr("Choisir l'année"));
+    var ym = el('div', 'statsPeriodMenu caSubProjectMenu hidden');
+    var opts = ys.map(String); if (opts.indexOf(curY) < 0) opts.push(curY);
+    opts.sort().reverse().forEach(function (y) {
+      var it = el('button', 'statsPeriodMenuItem' + (y === selY ? ' active' : ''), y); it.type = 'button';
+      it.addEventListener('click', function () {
+        ym.classList.add('hidden');
+        if (y === selY) return;
+        yearSel = y === curY ? null : y; if (yearSel !== null) { view = 'year'; wOff = 0; dayOff = 0; pPage = null; } load();
+      });
+      ym.appendChild(it);
+    });
+    yb.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var willOpen = ym.classList.contains('hidden');
+      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+      if (willOpen) ym.classList.remove('hidden');
+    });
+    els.yearRow.appendChild(yb); els.yearRow.appendChild(ym);
+  }
+
   function chartCard(d) {
     var isT = tab === 't', VS = isT ? VIEWS : OVIEWS;
     var cv = isT ? view : oview;
@@ -432,33 +464,7 @@
       if (willOpen) menu.classList.remove('hidden');
     });
     wrap.appendChild(btn); wrap.appendChild(menu);
-    var ys = !visitor && d.years;
-    if (ys && ys.length >= 2) {
-      // Choix de l'année (propre page) : année en cours par défaut, années passées = vue Année seulement.
-      var curY = String(new Date().getFullYear()), selY = yearSel !== null ? String(yearSel) : curY;
-      var yw = el('div', 'statsPeriodMenuWrap saYearWrap');
-      var yb = el('button', 'caSubProjectBtn', selY); yb.type = 'button';
-      yb.setAttribute('aria-haspopup', 'true'); yb.setAttribute('aria-label', tr("Choisir l'année"));
-      var ym = el('div', 'statsPeriodMenu hidden');
-      var opts = ys.map(String); if (opts.indexOf(curY) < 0) opts.push(curY);
-      opts.sort().reverse().forEach(function (y) {
-        var it = el('button', 'statsPeriodMenuItem' + (y === selY ? ' active' : ''), y); it.type = 'button';
-        it.addEventListener('click', function () {
-          ym.classList.add('hidden');
-          if (y === selY) return;
-          yearSel = y === curY ? null : y; if (yearSel !== null) { view = 'year'; wOff = 0; dayOff = 0; pPage = null; } load();
-        });
-        ym.appendChild(it);
-      });
-      yb.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var willOpen = ym.classList.contains('hidden');
-        document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
-        if (willOpen) ym.classList.remove('hidden');
-      });
-      yw.appendChild(yb); yw.appendChild(ym);
-      var rt = el('div', 'saHdRight'); rt.appendChild(yw); rt.appendChild(wrap); hd.appendChild(rt);
-    } else hd.appendChild(wrap);
+    hd.appendChild(wrap);
     card.appendChild(hd);
     var svg = v ? chartSvg(v) : null;
     if (!svg) { card.appendChild(el('p', 'hint', '—')); return card; }
@@ -767,7 +773,7 @@
       b.style.setProperty('--chipEdge', a.color || '#674EA7');
       var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
       b.appendChild(d); b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; pPage = null; yearSel = null; datas = { t: null, o: null }; renderChips(); load(); } });
+      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; pPage = null; yearSel = null; datas = { t: null, o: null }; renderYear(null); renderChips(); load(); } });
       els.chips.appendChild(b);
     });
   }
@@ -802,6 +808,7 @@
       if (seq !== loadSeq) return;
       if (r.activityId !== undefined && r.activityId !== null) activityId = r.activityId;
       data = r.data; datas[tab] = data;
+      renderYear(data && data.years);
       if (visitor) renderChips();
       if (visitor && !data) { bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
       render();
@@ -824,7 +831,7 @@
     open: function () { build(); pickDefaultActivity(); renderChips(); load(); },
     reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab, commitTab: commitTab,
     bodyOf: function (t) { build(); return bodies[t]; }, otherReady: function () { return !!datas[tab === 't' ? 'o' : 't']; },
-    forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; datas = { t: null, o: null }; } }
+    forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; els.yearRow.innerHTML = ''; els.yearRow.classList.add('hidden'); bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; datas = { t: null, o: null }; } }
   };
   }
 

@@ -613,13 +613,13 @@ function visitorInsights(activityId, ownerId, yearParam, opts) {
 // Membres seulement (la route garde). Agrégats uniquement : aucun titre de tâche. Responsable d'une tâche =
 // celui qui l'a faite, sinon la personne à qui elle est planifiée (plannedUserId). Même portée que les cartes
 // (taskRange : année / période / semaine / tout).
-function memberStats(activityId, scopeParam, yearParam) {
+function memberStats(activityId, scopeParam, yearParam, poleKey) {
   const realToday = todayLocal();
   const cur = Number(realToday.slice(0, 4));
   const scopeName = scopeParam === 'period' || scopeParam === 'week' ? scopeParam : (scopeParam === 'all' ? 'all' : 'year');
   const year = scopeName === 'all' ? 'all' : cur;
   const range = taskRange(scopeName === 'all' ? 'year' : scopeName, year, realToday);
-  const scope = loadScope(activityId, null);
+  const scope = loadScope(activityId, poleKey ? String(poleKey) : null); // filtre « pôle » de la fenêtre Activité (clé inconnue / 'none' => aucune tâche)
   const planned = {};
   db.prepare(`SELECT i.id, i.plannedUserId FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND sp.goalCategory IS NOT NULL AND i.plannedUserId IS NOT NULL`).all(activityId).forEach((r) => { planned[r.id] = r.plannedUserId; });
