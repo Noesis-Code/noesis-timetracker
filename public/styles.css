@@ -6540,6 +6540,7 @@ button { -webkit-user-select: none; user-select: none; }
   #onboarding .onbOptionalConsents { padding-top: 8px; }
   #onboarding .switchLink { margin-top: 6px; }
 }
+#onboarding .onbGovRow { margin: 8px 0 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
 #onboarding .onbInstallIcon { margin-bottom: 6px; }
 #onboarding .onbInstallSteps { margin: 8px 0; font-size: 13px; line-height: 1.4; }
 #onboarding .onbInstallSteps li { margin-bottom: 4px; }
