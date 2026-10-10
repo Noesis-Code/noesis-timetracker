@@ -312,6 +312,8 @@ app.listen(PORT, HOST, () => {
   // (heure de Montréal). Désactivable : GOALS_RECALC_CRON=off. Voir server/lib/goalsrecalc.js.
   require('./lib/goalsrecalc').startGoalsRecalcCron();
 
+  // Staging seulement : remise à zéro unique des invites de test d'Emilien Staging (voir server/lib/stagingprompts.js).
+  require('./lib/stagingprompts').resetStagingPromptsOnce();
   // Fermeture des comptes inactifs (Loi 25, 10 oct. 2026) : 24 mois sans connexion, avis puis rappel puis suppression. Voir server/lib/inactiveaccounts.js.
   require('./lib/inactiveaccounts').startInactiveAccountsCron();
 });
