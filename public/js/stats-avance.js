@@ -29,6 +29,85 @@
   var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
   var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
 
+  // ---------- Glissement continu (une technique pour les pages Temps | Tâches | Objectifs, propre page ET profil visité) ----------
+  // Même technique que la Page 2 de la feuille de route (bindPage2ModeSwipe) : la page voisine est posée en absolu à côté de la courante
+  // (écart 24 px), les deux suivent le doigt, au relâchement la plus proche se pose (25 % de la largeur, ou geste rapide), sinon retour.
+  // cfg.zone : élément qui reçoit le geste ; cfg.neighbor(dir) : null | { cur, nb, host, start(), commit(), cancel() } (dir = +1 vers la droite des pages) ;
+  // cfg.swallow(dir) : true = geste de fin de piste qu'on garde pour nous (ne remonte pas à l'application).
+  var GAP = 24;
+  function slidePager(cfg) {
+    var zone = cfg.zone, g = null;
+    function hScroller(e0) {
+      for (var e = e0; e && e !== zone; e = e.parentElement) {
+        if (e.scrollWidth > e.clientWidth + 1) {
+          var ox = getComputedStyle(e).overflowX;
+          if (ox === 'auto' || ox === 'scroll') return e;
+        }
+      }
+      return null;
+    }
+    zone.addEventListener('touchstart', function (e) {
+      g = null;
+      if (e.touches.length !== 1) return;
+      var tg = e.target;
+      if (!tg.closest || tg.closest('input, textarea, select, .statsPeriodMenu, .saChips')) return;
+      var mods = document.querySelectorAll('.communityMembersModal:not(.hidden)'); // une fenêtre ouverte AU-DESSUS (pas celle qui contient la zone) bloque le geste
+      for (var mi = 0; mi < mods.length; mi++) if (!mods[mi].contains(zone)) return;
+      var sc = hScroller(tg);
+      g = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), sc: sc, startLeft: sc ? sc.scrollLeft : 0, drag: null, swallow: false };
+    }, { passive: true });
+    zone.addEventListener('touchmove', function (e) {
+      if (!g) return;
+      var dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y;
+      if (!g.drag) {
+        if (g.swallow) { if (e.cancelable) e.preventDefault(); return; }
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g = null; return; } // défilement vertical
+        if (Math.abs(dx) < 8) return;
+        var dir = dx < 0 ? 1 : -1;
+        if (g.sc && (dir > 0 || !(g.startLeft <= 1 && g.sc.scrollLeft <= 1))) { g = null; return; } // zone défilant horizontalement (heatmap, graphique)
+        var d = cfg.neighbor(dir);
+        if (!d) { if (cfg.swallow && cfg.swallow(dir)) g.swallow = true; else g = null; return; }
+        var hr = d.host.getBoundingClientRect(), cr = d.cur.getBoundingClientRect();
+        var top = cr.top - hr.top; // AVANT d'afficher la voisine (sinon décalage vertical)
+        if (d.start) d.start();
+        d.nb.classList.remove('hidden');
+        d.nb.style.cssText += ';position:absolute;left:' + (cr.left - hr.left) + 'px;top:' + top + 'px;width:' + cr.width + 'px;pointer-events:none;';
+        d.host.style.overflowX = 'hidden';
+        d.dir = dir; d.w = cr.width + GAP; d.x = 0; g.drag = d;
+      }
+      var dd = g.drag;
+      dd.x = dd.dir > 0 ? Math.max(-dd.w, Math.min(0, dx)) : Math.min(dd.w, Math.max(0, dx));
+      dd.cur.style.transform = 'translateX(' + dd.x + 'px)';
+      dd.nb.style.transform = 'translateX(' + (dd.x + dd.dir * dd.w) + 'px)';
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+    function finish(e, cancelled) {
+      var s0 = g; g = null;
+      if (!s0) return;
+      if (!s0.drag) { if (s0.swallow && e.stopPropagation) e.stopPropagation(); return; }
+      if (e.stopPropagation) e.stopPropagation();
+      var d = s0.drag, dt = Math.max(1, Date.now() - s0.t), mv = Math.abs(d.x);
+      var commit = !cancelled && (mv > d.w * 0.25 || (mv >= 20 && mv / dt >= 0.35));
+      var ease = 'transform .22s cubic-bezier(.22,.8,.3,1)';
+      d.cur.style.transition = ease; d.nb.style.transition = ease;
+      d.cur.style.transform = 'translateX(' + (commit ? -d.dir * d.w : 0) + 'px)';
+      d.nb.style.transform = 'translateX(' + (commit ? 0 : d.dir * d.w) + 'px)';
+      var done = false;
+      function end() {
+        if (done) return; done = true;
+        [d.cur, d.nb].forEach(function (v) { v.style.transition = ''; v.style.transform = ''; });
+        ['position', 'left', 'top', 'width', 'pointerEvents'].forEach(function (k) { d.nb.style[k] = ''; });
+        d.host.style.overflowX = '';
+        (commit ? d.cur : d.nb).classList.add('hidden');
+        if (commit) d.commit(); else if (d.cancel) d.cancel();
+      }
+      d.cur.addEventListener('transitionend', end, { once: true });
+      setTimeout(end, 320);
+    }
+    zone.addEventListener('touchend', function (e) { finish(e, false); }, { passive: true });
+    zone.addEventListener('touchcancel', function (e) { finish(e, true); }, { passive: true });
+  }
+
   // 9 oct. 2026 : le contenu (onglets Tâches | Objectifs, graphique, cartes) est une « instance » réutilisable.
   // cfg.root : élément hôte ; cfg.visitor : true = profil d'un AUTRE utilisateur (lecture seule : cartes fixes,
   // pas d'ajout/retrait, pas de feuilles « par secteur ») ; cfg.activities() : pastilles ; cfg.fetch(activityId, qs) : Promise des données.
@@ -36,7 +115,7 @@
   var page2 = cfg.root, visitor = !!cfg.visitor;
   var yearSel = null; // null = année en cours (défaut) | 'AAAA' passée ; propre page seulement, jamais persisté
   var activityId = null, data = null, loadSeq = 0, built = false;
-  var els = {};
+  var els = {}, bodies = {}, datas = { t: null, o: null };
   function activities() { return cfg.activities(); }
   function activityColor() {
     var a = activities().filter(function (x) { return String(x.id) === String(activityId); })[0];
@@ -63,27 +142,10 @@
     if (built) return; built = true;
     els.chips = el('div', 'saChips');
     els.msg = el('p', 'hint hidden');
-    els.body = el('div', 'saBody');
-    {
-      // Glissement horizontal Tâches <-> Objectifs (profil visité ET sa propre page). Sur Tâches, un geste vers la droite n'est PAS pris ici : il reste à la page
-      // englobante (retour à la page Temps). Les gestes gérés ici ne remontent pas (stopPropagation).
-      var sx = null, sy = null;
-      page2.addEventListener('touchstart', function (e) {
-        sx = null;
-        if (e.touches.length !== 1 || !e.target.closest || e.target.closest('input, textarea, select, .statsPeriodMenu, .chartScroll, .saChips')) return;
-        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
-      }, { passive: true });
-      page2.addEventListener('touchend', function (e) {
-        if (sx == null) return;
-        var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null;
-        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-        if (dx < 0 && tab === 't') { goTab('o'); e.stopPropagation(); }
-        else if (dx > 0 && tab === 'o') { goTab('t'); e.stopPropagation(); }
-        else if (dx < 0 && tab === 'o') e.stopPropagation();
-      }, { passive: true });
-    }
-    [els.chips, els.msg, els.body].forEach(function (e) { page2.appendChild(e); });
-    if (visitor) els.body.classList.add('saVisitor');
+    // Une page par onglet (Tâches | Objectifs) : les deux voisines coexistent pendant le glissement (slidePager).
+    bodies.t = el('div', 'saBody'); bodies.o = el('div', 'saBody hidden'); els.body = bodies.t;
+    [els.chips, els.msg, bodies.t, bodies.o].forEach(function (e) { page2.appendChild(e); });
+    if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
     // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
     var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
     var card = el('div', 'communityMembersModalCard');
@@ -93,9 +155,14 @@
     head.appendChild(title); head.appendChild(close);
     var sub = el('p', 'meta saModalSub');
     var list = el('div', 'statsSection saCard');
-    card.appendChild(head); card.appendChild(sub); card.appendChild(list);
+    // En-tête FIXE (titre, ✕, sous-titre, bloc mTop) ; seule la liste défile en dessous.
+    var fixed = el('div', 'saModalFixed'), top = el('div', 'saModalTop'), scroll = el('div', 'saModalScroll');
+    card.classList.add('saSheetCard');
+    fixed.appendChild(head); fixed.appendChild(sub); fixed.appendChild(top);
+    scroll.appendChild(list);
+    card.appendChild(fixed); card.appendChild(scroll);
     m.appendChild(card); document.body.appendChild(m);
-    els.modal = m; els.mTitle = title; els.mSub = sub; els.mList = list;
+    els.modal = m; els.mTitle = title; els.mSub = sub; els.mList = list; els.mTop = top; els.mScroll = scroll;
     close.addEventListener('click', hideSheet);
     m.addEventListener('click', function (e) { if (e.target === m) hideSheet(); });
   }
@@ -104,6 +171,7 @@
     els.mTitle.innerHTML = '';
     els.mTitle.appendChild(dotEl(poleColor(index))); els.mTitle.appendChild(el('span', null, p.label));
     els.mSub.textContent = tr('{a} / {b} tâches restantes', { a: p.remaining, b: p.total });
+    els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
     els.mList.innerHTML = '';
     els.mList.appendChild(el('p', 'sectionTitle', tr('Charge restante par secteur')));
     var rows = p.sectors || [];
@@ -128,6 +196,7 @@
     els.mTitle.innerHTML = '';
     els.mTitle.appendChild(dotEl(poleColor(index))); els.mTitle.appendChild(el('span', null, p.label));
     els.mSub.textContent = kind === 'target' ? fmtMin(p.doneMin) + ' / ' + fmtMin(p.targetMin) : '';
+    els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
     els.mList.innerHTML = '';
     els.mList.appendChild(el('p', 'sectionTitle', tr(kind === 'target' ? 'Temps cible contre temps fait par secteur' : 'Objectifs atteints par secteur')));
     var rows = p.sectors || [];
@@ -183,12 +252,13 @@
     els.mTitle.innerHTML = '';
     els.mTitle.appendChild(el('span', null, isW ? tr('Semaine {n} · {p}', { n: g.week, p: g.periodLabel }) : tr('Période {n} · {a} – {b}', { n: pn, a: g.startLabel, b: g.endLabel })));
     els.mSub.textContent = '';
+    els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
     els.mList.innerHTML = '';
     var big = el('div', 'saRow1'), bg = el('span', 'saBig', g.pct != null ? g.pct + ' %' : '–'); bg.style.color = g.pct != null ? col : '';
     big.appendChild(bg); big.appendChild(el('span', 'saSmall', tr(isW ? 'du temps prévu réalisé' : 'des semaines atteintes')));
-    els.mList.appendChild(big);
-    if (isW && g.pct != null) els.mList.appendChild(bar([[g.pct, GREEN], [100 - g.pct, RED]]));
-    els.mList.appendChild(el('p', 'saGexp', tr(isW
+    els.mTop.appendChild(big);
+    if (isW && g.pct != null) els.mTop.appendChild(bar([[g.pct, GREEN], [100 - g.pct, RED]]));
+    els.mTop.appendChild(el('p', 'saGexp', tr(isW
       ? 'Le chiffre = temps estimé des tâches liées à l’objectif de la semaine qui sont faites, divisé par le temps estimé de toutes ces tâches. 90 % ou plus : atteint · 75 % ou plus : partiel.'
       : 'Le chiffre = part des semaines atteintes dans la période (les semaines à venir ne comptent pas). Touche une semaine pour voir ses tâches.')));
     if (!isW) {
@@ -201,7 +271,7 @@
         if (has) t.addEventListener('click', function () { openGlisse(g.periodStart, x.week); });
         wkw.appendChild(t);
       });
-      els.mList.appendChild(wkw);
+      els.mTop.appendChild(wkw);
     }
     var mins = function (r) { return fmtMin(r.minutes); };
     var from = function (r) { return 'S' + r.week; };
@@ -628,7 +698,18 @@
   function render() {
     if (!built) return;
     var sd = slideDir; slideDir = 0;
+    els.body = bodies[tab];
+    bodies[tab].classList.remove('hidden'); bodies[tab === 't' ? 'o' : 't'].classList.add('hidden');
     if (sd && typeof els.body.animate === 'function') els.body.animate([{ transform: 'translateX(' + (sd * 40) + '%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.22,.8,.3,1)' });
+    renderCore();
+  }
+  // Rend l'AUTRE onglet (données déjà reçues) dans sa page cachée, prête à glisser à côté de la courante.
+  function renderAs(t, d) {
+    var sv = { tab: tab, data: data, body: els.body, adding: adding, draft: draft };
+    tab = t; data = d; els.body = bodies[t]; adding = false; draft = [];
+    try { renderCore(); } finally { tab = sv.tab; data = sv.data; els.body = sv.body; adding = sv.adding; draft = sv.draft; }
+  }
+  function renderCore() {
     els.body.innerHTML = '';
     if (!data) return;
     els.body.appendChild(chartCard(data));
@@ -686,25 +767,45 @@
       b.style.setProperty('--chipEdge', a.color || '#674EA7');
       var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
       b.appendChild(d); b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; pPage = null; yearSel = null; renderChips(); load(); } });
+      b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; pPage = null; yearSel = null; datas = { t: null, o: null }; renderChips(); load(); } });
       els.chips.appendChild(b);
     });
   }
 
+  function buildQs(t, dOff, wo) {
+    var all = t === 't' ? view === 'all' : oview === 'all';
+    return (all ? '&year=all' : (!visitor && yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '')) + '&scope=' + (view === 'all' ? 'year' : view) + '&kind=' + oview + (dOff ? '&offset=' + dOff : '') + (wo ? '&woff=' + wo : '');
+  }
+  // Précharge l'autre onglet (état par défaut : décalages à 0) pour que le glissement ait toujours sa voisine à montrer.
+  function prefetchOther() {
+    if (activityId == null) return;
+    var o = tab === 't' ? 'o' : 't', seq = loadSeq;
+    cfg.fetch(activityId, buildQs(o, 0, 0)).then(function (r) {
+      if (seq !== loadSeq || tab === o || !r.data) return;
+      datas[o] = r.data; renderAs(o, r.data);
+    }, function () {});
+  }
+  // Glissement abouti vers l'autre onglet : sa page préchargée devient la courante (état par onglet remis à zéro comme goTab).
+  function commitTab(t) {
+    var d = datas[t]; setTab(t);
+    if (!d) { load(); return; }
+    data = d; render(); // l'ancienne page reste glissable (rafraîchie en arrière-plan)
+    loadSeq++; prefetchOther();
+  }
   function load() {
     build();
     if (activityId == null && !visitor) { els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
     els.msg.classList.add('hidden');
     var seq = ++loadSeq;
-    var all = tab === 't' ? view === 'all' : oview === 'all';
-    var qs = (all ? '&year=all' : (!visitor && yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '')) + '&scope=' + (view === 'all' ? 'year' : view) + '&kind=' + oview + (dayOff ? '&offset=' + dayOff : '') + (wOff ? '&woff=' + wOff : '');
+    var qs = buildQs(tab, dayOff, wOff);
     cfg.fetch(activityId, qs).then(function (r) {
       if (seq !== loadSeq) return;
       if (r.activityId !== undefined && r.activityId !== null) activityId = r.activityId;
-      data = r.data;
+      data = r.data; datas[tab] = data;
       if (visitor) renderChips();
-      if (visitor && !data) { els.body.innerHTML = ''; els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
+      if (visitor && !data) { bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; els.msg.textContent = tr('Aucune activité.'); els.msg.classList.remove('hidden'); return; }
       render();
+      prefetchOther();
     }, function (e) {
       if (seq !== loadSeq) return;
       els.msg.textContent = tr('Chargement impossible.'); els.msg.classList.remove('hidden');
@@ -721,8 +822,9 @@
   }
   return {
     open: function () { build(); pickDefaultActivity(); renderChips(); load(); },
-    reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab,
-    forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; els.body.innerHTML = ''; } }
+    reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab, commitTab: commitTab,
+    bodyOf: function (t) { build(); return bodies[t]; }, otherReady: function () { return !!datas[tab === 't' ? 'o' : 't']; },
+    forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; datas = { t: null, o: null }; } }
   };
   }
 
@@ -763,18 +865,27 @@
       };
     }
     Array.prototype.forEach.call(vdots.children, function (b, i) { b.addEventListener('click', function () { go(i + 1); }); });
-    var x0 = null, y0 = null;
-    wrap.addEventListener('touchstart', function (e) {
-      x0 = null;
-      if (e.touches.length !== 1 || !e.target.closest || e.target.closest('input, textarea, select, .statsPeriodMenu, .chartScroll')) return;
-      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
-    }, { passive: true });
-    wrap.addEventListener('touchend', function (e) {
-      if (x0 == null) return;
-      var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
-      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-      if (dx < 0 && vpage === 1) go(2); else if (dx > 0 && vpage === 2) go(1); // à l'intérieur de la page 2, Tâches <-> Objectifs est géré par la page elle-même
-    }, { passive: true });
+    // Glissement continu Temps | Tâches | Objectifs (slidePager) ; le geste vers la droite depuis Tâches ramène à Temps.
+    function vIdx() { return vpage === 1 ? 0 : (vinst && vinst.getTab() === 'o' ? 2 : 1); }
+    slidePager({
+      zone: wrap,
+      swallow: function (dir) { return dir > 0 && vIdx() === 2; },
+      neighbor: function (dir) {
+        var i = vIdx(), t = i + dir;
+        if (t < 0 || t > 2) return null;
+        if (i === 0 || t === 0) {
+          if (t > 0 && !vuser) return null;
+          return {
+            cur: i === 0 ? p1 : p2, nb: t === 0 ? p1 : p2, host: wrap,
+            start: function () { if (t > 0) { if (!vinst) vinst = TMT.createVisitorStats(p2, vuser, setDots); vinst.setTab('t'); vinst.open(); } },
+            commit: function () { vpage = t === 0 ? 1 : 2; if (t === 0 && vinst) { vinst.hideSheet(); vinst.reset(); } setDots(); }
+          };
+        }
+        if (!vinst || !vinst.otherReady()) return null;
+        var nt = t === 2 ? 'o' : 't';
+        return { cur: vinst.bodyOf(nt === 'o' ? 't' : 'o'), nb: vinst.bodyOf(nt), host: p2, commit: function () { vinst.commitTab(nt); } };
+      }
+    });
     function showPage1() { vpage = 1; setDots(); p1.classList.remove('hidden'); p2.classList.add('hidden'); }
     TMT.visitorStats = {
       // Nouveau profil visité : on repart de zéro (page 1, instance jetée).
@@ -847,95 +958,25 @@
   TMT.setStatsPage = setStatsPage;
   if (dots) Array.prototype.forEach.call(dots.children, function (b, i) { b.addEventListener('click', function () { setStatsPage(i + 1); }); });
 
-  // Balayage : mêmes gardes que bindPage2ModeSwipe (champs, zones défilant
-  // horizontalement — heatmap, calendrier, graphique —, fenêtres ouvertes).
-  var sx = null, sy = null, st = 0, scroller = null, startLeft = 0;
-  function hScroller(e0) {
-    for (var e = e0; e && e !== zone; e = e.parentElement) {
-      if (e.scrollWidth > e.clientWidth + 1) {
-        var ox = getComputedStyle(e).overflowX;
-        if (ox === 'auto' || ox === 'scroll') return e;
+  // Glissement continu Temps | Tâches | Objectifs (slidePager, mêmes gardes que la Page 2 de la feuille de route :
+  // champs, zones défilant horizontalement — heatmap, graphique —, fenêtres ouvertes). Vers la droite depuis Tâches : retour à Temps.
+  function curIdx() { return page === 1 ? 0 : (inst.getTab() === 'o' ? 2 : 1); }
+  slidePager({
+    zone: zone,
+    swallow: function (dir) { return dir > 0 && curIdx() === 2; },
+    neighbor: function (dir) {
+      var i = curIdx(), t = i + dir;
+      if (t < 0 || t > 2) return null;
+      if (i === 0 || t === 0) {
+        return {
+          cur: i === 0 ? page1 : page2, nb: t === 0 ? page1 : page2, host: pages,
+          start: function () { if (t > 0) inst.open(); },
+          commit: function () { page = t === 0 ? 1 : 2; closeModal(); setDots(); }
+        };
       }
+      if (!inst.otherReady()) return null;
+      var nt = t === 2 ? 'o' : 't';
+      return { cur: inst.bodyOf(nt === 'o' ? 't' : 'o'), nb: inst.bodyOf(nt), host: page2, commit: function () { inst.commitTab(nt); } };
     }
-    return null;
-  }
-  zone.addEventListener('touchstart', function (e) {
-    sx = null; scroller = null;
-    if (e.touches.length !== 1) return;
-    var tg = e.target;
-    if (!tg.closest || tg.closest('input, textarea, select, .statsPeriodMenu')) return;
-    if (document.querySelector('.communityMembersModal:not(.hidden)')) return;
-    if (page === 2 && inst.getTab() === 'o') return; // sur Objectifs, le glissement vers la droite revient à Tâches (voir page2 touchend)
-    scroller = hScroller(tg); startLeft = scroller ? scroller.scrollLeft : 0;
-    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
-  }, { passive: true });
-  // Glissement qui suit le doigt (même principe que bindPage2ModeSwipe) : la voisine
-  // est placée en absolu à côté de la page courante, écart de 24 px. Le haut de la
-  // page courante est mesuré AVANT d'afficher la voisine (sinon décalage vertical).
-  var GAP = 24, drag = null;
-  function startDrag(dx) {
-    var dir = dx < 0 ? 1 : -1, nbN = page + dir;
-    if (nbN < 1 || nbN > 2) return null;
-    var cur = page === 1 ? page1 : page2, nb = nbN === 1 ? page1 : page2;
-    var pr = pages.getBoundingClientRect(), cr = cur.getBoundingClientRect();
-    var top = cr.top - pr.top;
-    if (nbN === 2) inst.open();
-    nb.classList.remove('hidden');
-    nb.style.cssText += ';position:absolute;left:' + (cr.left - pr.left) + 'px;top:' + top + 'px;width:' + cr.width + 'px;pointer-events:none;';
-    pages.style.overflowX = 'hidden';
-    return { dir: dir, cur: cur, nb: nb, nbN: nbN, w: cr.width };
-  }
-  function place(d, dx) {
-    var off = d.dir * (d.w + GAP);
-    d.cur.style.transform = 'translateX(' + dx + 'px)';
-    d.nb.style.transform = 'translateX(' + (dx + off) + 'px)';
-  }
-  function cleanDrag(d, commit) {
-    [d.cur, d.nb].forEach(function (e) { e.style.transition = ''; e.style.transform = ''; });
-    var gone = commit ? d.cur : d.nb;
-    d.nb.style.position = ''; d.nb.style.left = ''; d.nb.style.top = ''; d.nb.style.width = ''; d.nb.style.pointerEvents = '';
-    gone.classList.add('hidden');
-    pages.style.overflowX = '';
-    if (commit) {
-      page = d.nbN; closeModal(); setDots();
-    }
-  }
-  function finishDrag(d, commit, dx) {
-    var off = d.dir * (d.w + GAP), tr0 = 'transform .22s cubic-bezier(.22,.8,.3,1)';
-    d.cur.style.transition = tr0; d.nb.style.transition = tr0;
-    place(d, commit ? -off : 0);
-    d.nb.style.transform = 'translateX(' + (commit ? 0 : off) + 'px)';
-    var done = false;
-    function end() { if (done) return; done = true; cleanDrag(d, commit); }
-    d.cur.addEventListener('transitionend', end, { once: true });
-    setTimeout(end, 320);
-  }
-  zone.addEventListener('touchmove', function (e) {
-    if (sx == null) return;
-    var dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
-    if (!drag) {
-      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
-      if (dx < 0 && page === 1 && scroller) { sx = null; return; }
-      if (dx > 0 && page === 2 && scroller && !(startLeft <= 1 && scroller.scrollLeft <= 1)) { sx = null; return; }
-      drag = startDrag(dx);
-      if (!drag) { sx = null; return; }
-    }
-    // pas de dépassement : la page ne suit que dans le sens de la voisine
-    var lim = drag.w + GAP;
-    var mv = drag.dir > 0 ? Math.max(-lim, Math.min(0, dx)) : Math.min(lim, Math.max(0, dx));
-    place(drag, mv);
-    if (e.cancelable) e.preventDefault();
-  }, { passive: false });
-  zone.addEventListener('touchcancel', function () {
-    if (drag) { var d = drag; drag = null; finishDrag(d, false); }
-    sx = null;
-  }, { passive: true });
-  zone.addEventListener('touchend', function (e) {
-    if (!drag) { sx = null; return; }
-    var d = drag; drag = null; sx = null;
-    var moved = Math.abs(parseFloat((d.cur.style.transform.match(/-?[\d.]+/) || [0])[0]) || 0);
-    var dt = Math.max(1, Date.now() - st);
-    var commit = moved >= d.w * 0.25 || (moved >= 20 && moved / dt >= 0.35);
-    finishDrag(d, commit);
-  }, { passive: true });
+  });
 })();

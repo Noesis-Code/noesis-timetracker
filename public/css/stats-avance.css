@@ -135,3 +135,11 @@
 .saGrow { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--glass-border); font-size: 13px; }
 .saGrow small { font-size: 12px; opacity: .85; white-space: nowrap; }
 .saGmore { background: none; border: 0; padding: 6px 0 0; color: var(--text); opacity: .6; font: inherit; font-size: 12px; }
+
+/* 10 oct. 2026 : feuille du bas à en-tête FIXE (titre, ✕, chiffre, explication, barre, bulles) ; seules les listes défilent. */
+.communityMembersModalCard.saSheetCard { display: flex; flex-direction: column; overflow: hidden; }
+.saSheetCard .saModalFixed { flex: 0 0 auto; }
+.saSheetCard .saModalScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.saSheetCard .saModalScroll > .saCard { margin-bottom: 0; }
+/* Pages Temps | Tâches | Objectifs glissantes : la page hôte sert de repère aux voisines posées en absolu pendant le glissement. */
+#statsAvancePage, #viewProfileStatsPage2 { position: relative; }
