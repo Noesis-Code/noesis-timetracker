@@ -564,7 +564,6 @@
       <input type="text" id="onbSearch" placeholder="Tape ton nom complet..." autocomplete="off">
       <div id="onbUserList" class="userList"></div>
       <p class="switchLink"><a href="#" id="onbSwitchToCreate">Créer un nouveau profil</a></p>
-      <p class="switchLink"><a href="#" class="governanceLink">Gouvernance des renseignements personnels</a></p>
     </div>
 
     <div id="onbPinStep" class="hidden">
@@ -573,7 +572,7 @@
       <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinInput" placeholder="Code" maxlength="6" autocomplete="off">
       <input type="password" inputmode="numeric" pattern="[0-9]*" id="onbPinConfirmInput" placeholder="Confirme le code" maxlength="6" autocomplete="off" class="hidden">
       <button class="btn btn-primary btnBrique" id="onbPinSubmit">Valider</button>
-      <p class="switchLink"><a href="#" id="onbPinCancel">Retour</a></p>
+      <p class="switchLink onbMutedLink"><a href="#" id="onbPinCancel">Retour</a></p>
     </div>
 
     <div id="onbActivities" class="hidden">
@@ -614,6 +613,8 @@
 
     <p id="onbMsg" class="msg"></p>
   </div>
+  <!-- 10 oct. 2026 : lien Gouvernance discret sous la carte, visible seulement sur l'écran de connexion (Loi 25 : accessible sans compte). -->
+  <p class="onbFooter"><a href="#" class="governanceLink">Gouvernance des renseignements personnels</a></p>
 </div>
 
 <!-- ===================== APPLICATION ===================== -->

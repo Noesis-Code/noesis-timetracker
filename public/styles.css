@@ -6541,6 +6541,14 @@ button { -webkit-user-select: none; user-select: none; }
   #onboarding .switchLink { margin-top: 6px; }
 }
 #onboarding .onbGovRow { margin: 8px 0 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+/* 10 oct. 2026 : lien Gouvernance en pied de carte (écran de connexion seulement) + bouton Retour du code au même style discret. */
+#onboarding { flex-direction: column; }
+#onboarding .onboarding-card { margin: auto; }
+#onboarding:has(#onbExisting:not(.hidden)) .onboarding-card { margin: auto auto 0; }
+#onboarding .onbFooter { display: none; margin: 10px auto auto; font-size: 11px; text-align: center; }
+#onboarding:has(#onbExisting:not(.hidden)) .onbFooter { display: block; }
+#onboarding .onbFooter a, #onboarding .switchLink.onbMutedLink a { color: var(--text-light); text-decoration: underline; }
+#onboarding .onbMutedLink { font-size: 11px; }
 #onboarding .onbInstallIcon { margin-bottom: 6px; }
 #onboarding .onbInstallSteps { margin: 8px 0; font-size: 13px; line-height: 1.4; }
 #onboarding .onbInstallSteps li { margin-bottom: 4px; }
