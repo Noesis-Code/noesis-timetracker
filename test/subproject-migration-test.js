@@ -80,6 +80,13 @@ assert(db.prepare('SELECT COUNT(*) n FROM time_entries WHERE subProjectId IS NOT
 const snap = () => JSON.stringify([db.prepare('SELECT * FROM activity_goal_categories ORDER BY id').all(), db.prepare('SELECT id, goalCategory FROM sub_projects ORDER BY id').all(), db.prepare('SELECT id, goalCategory FROM time_entries ORDER BY id').all()]);
 const s1 = snap(); const r2 = mig.migrateSubProjectsToPoles();
 assert(r2.length === 0 && snap() === s1, '2e passage : idempotent');
+// Unicité : sous-projets créés APRÈS la migration (activité migrée ou nouvelle) = jamais touchés
+const late1 = sp(A, 'Tardif A', 9); const NA = act('Nouvelle'); const late2 = sp(NA, 'Tardif N', 0); entry(A, late1);
+const cats = count('activity_goal_categories');
+mig.migrateSubProjectsToPoles();
+assert(key(late1) === null && key(late2) === null && count('activity_goal_categories') === cats, 'sous-projets ajoutés après : intacts, aucun pôle/secteur créé');
+assert(db.prepare("SELECT COUNT(*) n FROM migration_flags WHERE name IN ('subproject-pass1','subproject-pass2')").get().n === 2, 'drapeaux globaux posés');
+
 // Zéro pôle par défaut (11 oct. 2026)
 const Z = act('Z');
 assert(goals.categoriesForActivity(Z).length === 0, 'activité neuve : aucun pôle, pas de « Nouveau pôle »');

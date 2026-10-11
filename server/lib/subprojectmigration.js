@@ -140,9 +140,39 @@ function freezeEmptyDefaultPoles() {
   return n;
 }
 
+function flagDone(name) {
+  db.exec('CREATE TABLE IF NOT EXISTS migration_flags (name TEXT PRIMARY KEY, doneAt TEXT NOT NULL)');
+  return !!db.prepare('SELECT 1 FROM migration_flags WHERE name = ?').get(name);
+}
+function setFlag(name) {
+  db.prepare('INSERT OR IGNORE INTO migration_flags (name, doneAt) VALUES (?, ?)').run(name, new Date().toISOString());
+}
+
+// UNIQUE : 1re passe (sous-projets -> pôles) et 2e passe (excédent -> secteurs) ne
+// s'exécutent qu'UNE fois chacune (drapeaux globaux), à la mise en prod. Un
+// sous-projet ou une activité créés ensuite (ex. Offre 1) ne sont JAMAIS touchés.
+// Si la 1re passe a déjà tourné avant l'introduction du drapeau (marqueurs par
+// activité présents), on pose simplement le drapeau sans rien retraiter.
 function migrateSubProjectsToPoles() {
   ensureTable();
   try { freezeEmptyDefaultPoles(); } catch (e) { console.error('[subproject-migration] pôles par défaut :', e.message); }
+  const out = [];
+  if (!flagDone('subproject-pass1')) {
+    if (db.prepare('SELECT 1 FROM activity_subproject_migration LIMIT 1').get()) {
+      setFlag('subproject-pass1');
+    } else {
+      out.push(...runPass1());
+      setFlag('subproject-pass1');
+    }
+  }
+  if (!flagDone('subproject-pass2')) {
+    try { migrateOverflowToSectors(); setFlag('subproject-pass2'); }
+    catch (e) { console.error('[subproject-migration] 2e passe :', e.message); }
+  }
+  return out;
+}
+
+function runPass1() {
   const acts = db.prepare(`SELECT DISTINCT activityId FROM sub_projects
     WHERE goalCategory IS NULL AND activityId NOT IN (SELECT activityId FROM activity_subproject_migration)`).all();
   const out = [];
@@ -161,7 +191,6 @@ function migrateSubProjectsToPoles() {
       console.error('[subproject-migration] activité ' + activityId + ' échouée (rien modifié) :', e.message);
     }
   });
-  try { migrateOverflowToSectors(); } catch (e) { console.error('[subproject-migration] 2e passe :', e.message); }
   return out;
 }
 
