@@ -1996,6 +1996,7 @@ module.exports = {
   // ajoutés (catégorie par défaut générique, couleur 100% automatique).
   MAX_CUSTOM_CATEGORIES,
   MAX_SECTEURS_PER_POLE,
+  migratePoleDirectDataToSecteur,
   DEFAULT_CATEGORY_KEY,
   DEFAULT_CATEGORY_LABEL,
   isCustomized,

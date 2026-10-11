@@ -154,14 +154,97 @@ function migrateSubProjectsToPoles() {
       out.push(r);
       if (r.skipped.length) {
         console.warn('[subproject-migration] activité ' + activityId + ' : plafond de ' + MAX_POLES +
-          ' pôles atteint, sous-projets NON migrés (conservés intacts) : ' + r.skipped.join(' | '));
+          ' pôles atteint, sous-projets excédentaires renvoyés en secteurs (2e passe) : ' + r.skipped.join(' | '));
       }
     } catch (e) {
       try { db.exec('ROLLBACK'); } catch (_) { /* déjà annulé */ }
       console.error('[subproject-migration] activité ' + activityId + ' échouée (rien modifié) :', e.message);
     }
   });
+  try { migrateOverflowToSectors(); } catch (e) { console.error('[subproject-migration] 2e passe :', e.message); }
   return out;
 }
 
-module.exports = { migrateSubProjectsToPoles };
+// 2e PASSE (décision d'Émilien, 11 oct. 2026) : les sous-projets restés non migrés
+// à cause du plafond de 5 pôles (goalCategory NULL, activité déjà marquée migrée)
+// deviennent des SECTEURS du dernier pôle actif (le 5e). Un pôle avec secteurs ne
+// portant pas de tâches en direct, ses tâches/objectifs directs basculent d'abord
+// vers un premier secteur de MÊME NOM (goals.migratePoleDirectDataToSecteur ; le
+// temps du pôle reste sur le pôle, comme addCategory). Clos = secteur gelé.
+// Idempotent (sélection sur goalCategory NULL). Plafond de secteurs par pôle
+// respecté : le surplus est loggé et laissé intact.
+function migrateOverflowToSectors() {
+  const goals = require('./goals');
+  const MAX_SEC = goals.MAX_SECTEURS_PER_POLE;
+  const acts = db.prepare(`SELECT DISTINCT sp.activityId FROM sub_projects sp
+    WHERE sp.goalCategory IS NULL AND sp.activityId IN (SELECT activityId FROM activity_subproject_migration)`).all();
+  const out = [];
+  acts.forEach(({ activityId }) => {
+    const host = db.prepare(`SELECT * FROM activity_goal_categories WHERE activityId = ? AND removedAt IS NULL AND parentKey IS NULL
+      ORDER BY position DESC, id DESC LIMIT 1`).get(activityId);
+    const subs = db.prepare('SELECT * FROM sub_projects WHERE activityId = ? AND goalCategory IS NULL ORDER BY pinned DESC, position, id').all(activityId);
+    if (!host) {
+      console.warn('[subproject-migration] activité ' + activityId + ' : aucun pôle actif pour accueillir les secteurs, sous-projets laissés intacts : ' + subs.map((x) => x.name).join(' | '));
+      return;
+    }
+    db.exec('BEGIN');
+    try {
+      const todayStr = today();
+      const year = new Date().getFullYear();
+      const now = new Date().toISOString();
+      const isClosed = (sp) => !!sp.closesAt && sp.closesAt < todayStr;
+      let siblings = db.prepare('SELECT * FROM activity_goal_categories WHERE activityId = ? AND removedAt IS NULL AND parentKey = ? ORDER BY position, id')
+        .all(activityId, host.key);
+      let seq = db.prepare('SELECT COUNT(*) AS n FROM activity_goal_categories WHERE activityId = ?').get(activityId).n;
+      const nextKey = () => {
+        let key;
+        do { seq += 1; key = 'c' + seq; }
+        while (db.prepare('SELECT 1 FROM activity_goal_categories WHERE activityId = ? AND key = ?').get(activityId, key));
+        return key;
+      };
+      const ins = db.prepare(`INSERT INTO activity_goal_categories
+        (activityId, key, label, color, position, parentKey, createdAt, fromYear, description, removedAt, removedYear, removedFromDate)
+        VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?)`);
+      let free = MAX_SEC - siblings.length;
+      const open = subs.filter((x) => !isClosed(x));
+      const closed = subs.filter(isClosed);
+      const res = { activityId, host: host.key, sectors: [], frozen: [], skipped: [] };
+      const needHome = !siblings.length;
+      if (needHome) free -= 1;           // le secteur « même nom que le pôle »
+      const take = open.slice(0, Math.max(0, free));
+      open.slice(take.length).forEach((x) => res.skipped.push(x.name));
+      if (take.length || closed.length) {
+        let pos = siblings.length;
+        if (needHome) {
+          const k = nextKey();
+          ins.run(activityId, k, host.label, 0, host.key, now, year, host.description || null, null, null, null);
+          goals.migratePoleDirectDataToSecteur(activityId, host.key, k);
+          pos = 1; res.homeSector = k;
+        }
+        const attach = (sp, frozen) => {
+          const k = nextKey();
+          const label = String(sp.name || '').trim().slice(0, 40) || 'Sous-projet ' + sp.id;
+          ins.run(activityId, k, label, frozen ? 0 : pos++, host.key, now, year, String(sp.description || '').trim().slice(0, 200) || null,
+            frozen ? now : null, frozen ? year : null, frozen ? todayStr : null);
+          db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE id = ?').run(k, sp.id);
+          db.prepare('UPDATE time_entries SET goalCategory = ? WHERE subProjectId = ? AND goalCategory IS NULL').run(k, sp.id);
+          db.prepare('UPDATE running_timers SET goalCategory = ? WHERE subProjectId = ? AND goalCategory IS NULL').run(k, sp.id);
+          (frozen ? res.frozen : res.sectors).push(label);
+        };
+        take.forEach((sp) => attach(sp, false));
+        closed.forEach((sp) => attach(sp, true));
+      }
+      db.exec('COMMIT');
+      out.push(res);
+      console.log('[subproject-migration] activité ' + activityId + ' : secteurs sous le pôle « ' + host.label + ' » : ' +
+        res.sectors.concat(res.frozen.map((x) => x + ' (gelé)')).join(' | '));
+      if (res.skipped.length) console.warn('[subproject-migration] activité ' + activityId + ' : plafond de ' + MAX_SEC + ' secteurs atteint, NON migrés (intacts) : ' + res.skipped.join(' | '));
+    } catch (e) {
+      try { db.exec('ROLLBACK'); } catch (_) { /* déjà annulé */ }
+      console.error('[subproject-migration] 2e passe activité ' + activityId + ' échouée (rien modifié) :', e.message);
+    }
+  });
+  return out;
+}
+
+module.exports = { migrateSubProjectsToPoles, migrateOverflowToSectors };
