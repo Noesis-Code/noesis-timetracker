@@ -1,0 +1,222 @@
+{
+  "version": 1,
+  "activityName": "NOÈSIS",
+  "categories": [
+    {
+      "key": "c1",
+      "label": "Entreprise",
+      "description": "Fonctionnement interne de Noèsis : gouvernance, finances, juridique, équipe, organisation, outils internes et performance. Ne concerne pas les produits TMT et BSP eux-mêmes.",
+      "parentKey": null,
+      "color": "",
+      "position": 0,
+      "removed": false
+    },
+    {
+      "key": "c4",
+      "label": "Gouvernance",
+      "description": "Réunions (pilotage, hebdomadaires, préparation, comptes rendus), planning, répartition des tâches, objectifs de l'entreprise, décisions des fondateurs et documents confidentiels.",
+      "parentKey": "c1",
+      "color": "",
+      "position": 0,
+      "removed": false
+    },
+    {
+      "key": "c5",
+      "label": "Finance",
+      "description": "Payer, facturer, encaisser, comptabiliser, déclarer (TPS/TVQ, impôts), budget, trésorerie, banque, rémunération et financement, même si la facture vient d'un fournisseur ou d'un client.",
+      "parentKey": "c1",
+      "color": "",
+      "position": 1,
+      "removed": false
+    },
+    {
+      "key": "c6",
+      "label": "Juridique",
+      "description": "Incorporation, actionnaires, contrats à rédiger, réviser ou signer (même avec un client ou un fournisseur), CGU, Loi 25, RGPD, assurances, propriété intellectuelle et rendez-vous avec l'avocat.",
+      "parentKey": "c1",
+      "color": "",
+      "position": 2,
+      "removed": false
+    },
+    {
+      "key": "c7",
+      "label": "RH",
+      "description": "Les personnes de l'équipe : recrutement, formation, intégration, horaires et disponibilités, collaborations avec des personnes externes et relations de travail.",
+      "parentKey": "c1",
+      "color": "",
+      "position": 3,
+      "removed": false
+    },
+    {
+      "key": "c8",
+      "label": "Processus",
+      "description": "Structures et informations organisationnelles : organigramme, rôles et responsabilités, règles, méthodes, procédures, modèles de documents et stratégies de développement de l'entreprise.",
+      "parentKey": "c1",
+      "color": "",
+      "position": 4,
+      "removed": false
+    },
+    {
+      "key": "c9",
+      "label": "Technologie",
+      "description": "Outils et systèmes internes de l'entreprise : Google Drive, messagerie, comptes et accès, sécurité informatique, sauvegardes, abonnements logiciels. Ce qui concerne TMT ou BSP va dans leur Stockage.",
+      "parentKey": "c1",
+      "color": "",
+      "position": 5,
+      "removed": false
+    },
+    {
+      "key": "c10",
+      "label": "Analyse Interne",
+      "description": "Mesure de la performance interne de Noèsis : indicateurs, bilans de semaine ou de période, temps passé, retards, objectifs atteints ou non et pistes d'amélioration. Hors analyse de TMT ou BSP.",
+      "parentKey": "c1",
+      "color": "",
+      "position": 6,
+      "removed": false
+    },
+    {
+      "key": "c2",
+      "label": "Communauté",
+      "description": "Tout ce qui relie Noèsis à l'extérieur : prospects, clients, partenaires, fournisseurs, marketing et marché.",
+      "parentKey": null,
+      "color": "",
+      "position": 1,
+      "removed": false
+    },
+    {
+      "key": "c11",
+      "label": "Prospects",
+      "description": "Clients potentiels : repérer, contacter, relancer, faire une démonstration, suivre les demandes. La tâche précise qu'il s'agit d'un « prospect ».",
+      "parentKey": "c2",
+      "color": "",
+      "position": 0,
+      "removed": false
+    },
+    {
+      "key": "c12",
+      "label": "Clients",
+      "description": "Clients actuels, désignés par leur nom ou projet (Justin) : suivi, soutien, satisfaction, relances, renouvellements et travaux faits pour eux.",
+      "parentKey": "c2",
+      "color": "",
+      "position": 1,
+      "removed": false
+    },
+    {
+      "key": "c13",
+      "label": "Partenaires",
+      "description": "Alliances et aides externes : partenaires d'affaires, collaborations, organismes et programmes d'aide, mentors et recommandations mutuelles.",
+      "parentKey": "c2",
+      "color": "",
+      "position": 2,
+      "removed": false
+    },
+    {
+      "key": "c14",
+      "label": "Fournisseurs",
+      "description": "Choisir, comparer, négocier et commander auprès des fournisseurs et prestataires (hébergement, paiement, logiciels, services). Payer leurs factures va en Finance, leurs contrats en Juridique.",
+      "parentKey": "c2",
+      "color": "",
+      "position": 3,
+      "removed": false
+    },
+    {
+      "key": "c15",
+      "label": "Marketing",
+      "description": "Faire connaître Noèsis : LinkedIn (publications, commentaires), contenu, image de marque, audience, campagnes, promotions, site web, même si la tâche cite TMT ou BSP. Prix dans Produit.",
+      "parentKey": "c2",
+      "color": "",
+      "position": 4,
+      "removed": false
+    },
+    {
+      "key": "c16",
+      "label": "Analyse Marché",
+      "description": "Veille et études de marché : concurrents, tendances, tarifs de la concurrence, besoins du marché, taille du marché, analyse FFOM. Concerne l'extérieur, pas l'analyse de TMT ou BSP.",
+      "parentKey": "c2",
+      "color": "",
+      "position": 5,
+      "removed": false
+    },
+    {
+      "key": "c3",
+      "label": "Produit",
+      "description": "Les deux produits de Noèsis : TMT (TiMeTracker) et BSP (Bespoke). Chaque tâche nomme son produit (TMT ou BSP). Les offres et les prix sont ici.",
+      "parentKey": null,
+      "color": "",
+      "position": 2,
+      "removed": false
+    },
+    {
+      "key": "c17",
+      "label": "TiMeTracker - Stratégie",
+      "description": "Vision et orientation de TMT : positionnement, public visé, offres, prix et tarifs, fonctionnalités à prioriser, feuille de route du produit et décisions sur ce que l'application doit devenir.",
+      "parentKey": "c3",
+      "color": "",
+      "position": 0,
+      "removed": false
+    },
+    {
+      "key": "c18",
+      "label": "TiMeTracker - Analyse",
+      "description": "Analyser TMT et ce qui en ressort : utilisation, données des clients de TMT, statistiques, retours des utilisateurs, bugs constatés, tests du staging, comparaison avec la concurrence.",
+      "parentKey": "c3",
+      "color": "",
+      "position": 1,
+      "removed": false
+    },
+    {
+      "key": "c19",
+      "label": "TiMeTracker - Plan & Développement",
+      "description": "Agir directement sur TMT : planifier, concevoir l'interface, développer, ajouter une fonction, corriger un bug, tester le code, mettre en ligne. Pas l'analyse de ses données ni de son usage.",
+      "parentKey": "c3",
+      "color": "",
+      "position": 2,
+      "removed": false
+    },
+    {
+      "key": "c20",
+      "label": "TiMeTracker - Stockage",
+      "description": "Conserver ce qui concerne TMT : documentation, code, sauvegardes, versions, fichiers de design, maquettes, bases de données et archives du produit. Hors TMT, le stockage va dans Technologie.",
+      "parentKey": "c3",
+      "color": "",
+      "position": 3,
+      "removed": false
+    },
+    {
+      "key": "c21",
+      "label": "Bespoke - Stratégie",
+      "description": "Vision et orientation de BSP : offres sur mesure, positionnement, prix et tarifs négociés par client, types de missions proposées et choix des clients à accompagner.",
+      "parentKey": "c3",
+      "color": "",
+      "position": 4,
+      "removed": false
+    },
+    {
+      "key": "c22",
+      "label": "Bespoke - Analyse",
+      "description": "Analyser le fonctionnement de BSP et ce qui en ressort : données et résultats des missions, bilans de mission, données des clients de BSP, efficacité des méthodes, pistes d'amélioration.",
+      "parentKey": "c3",
+      "color": "",
+      "position": 5,
+      "removed": false
+    },
+    {
+      "key": "c23",
+      "label": "Bespoke - Plan & Développement",
+      "description": "Agir directement sur BSP : concevoir et améliorer offres, méthodes, modèles de feuille de route et de débriefing, processus de mission. Pas les travaux pour un client (Clients), ni l'analyse.",
+      "parentKey": "c3",
+      "color": "",
+      "position": 6,
+      "removed": false
+    },
+    {
+      "key": "c24",
+      "label": "Bespoke - Stockage",
+      "description": "Conserver ce qui concerne BSP : dossiers clients, livrables, modèles de feuille de route et de débriefing, documents reçus des clients, archives. Hors BSP, le stockage va dans Technologie.",
+      "parentKey": "c3",
+      "color": "",
+      "position": 7,
+      "removed": false
+    }
+  ]
+}
