@@ -31,7 +31,7 @@ assert(goals.periodStatusFromWeeklies(['atteint', 'partiel', null]) === 'non_att
 // Scénario base de données
 const u = db.prepare("SELECT id FROM users WHERE name='Emilien'").get();
 const aid = db.prepare('SELECT activityId FROM activity_members WHERE userId = ? LIMIT 1').get(u.id).activityId;
-const cat = goals.ensureDefaultCategory(aid)[0].key;
+const cat = goals.addCategory(aid, 'Pôle test')[0].key;
 goals.setWeekly(aid, cat, 40, 1, 'Objectif A');
 goals.setWeekly(aid, cat, 40, 2, 'Objectif B');
 const per = db.prepare('SELECT id FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = 40').get(aid, cat);

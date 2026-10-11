@@ -157,8 +157,7 @@ function build(u, fakeNames, NAME, NAME_CONF, seed) {
   members.forEach((m) => db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(aid, m.id, memberColor(m), now));
 
   // ---- Pôles et secteurs (tous créés AVANT toute donnée)
-  const first = goals.ensureDefaultCategory(aid)[0];
-  goals.renameCategory(aid, first.key, 'Produit');
+  const first = goals.addCategory(aid, 'Produit')[0];
   goals.addCategory(aid, 'Marketing');
   goals.addCategory(aid, 'Communauté');
   goals.addCategory(aid, 'Interface', first.key);
@@ -455,8 +454,7 @@ function seedConfidential(u, em, todayIso, D, at, NAME_CONF) {
   const now = new Date().toISOString();
   const aid = Number(db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, 0, 1, ?, ?)').run(NAME_CONF, u.id, now).lastInsertRowid);
   db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt, confidential) VALUES (?, ?, ?, ?, 1)').run(aid, u.id, em.color || '#674EA7', now);
-  const pole = goals.ensureDefaultCategory(aid)[0];
-  goals.renameCategory(aid, pole.key, 'Privé');
+  const pole = goals.addCategory(aid, 'Privé')[0];
   const s = goalstasks.ensureCategoryTaskSection(aid, u.id, pole.key);
   const ins = db.prepare(`INSERT INTO sub_project_items (subProjectId, sectionId, label, done, doneBy, doneAt, position, createdAt, dueDate, dueDateAuto, plannedUserId)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`);

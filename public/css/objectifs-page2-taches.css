@@ -359,3 +359,13 @@
 /* Tâche terminée depuis plus de 7 jours : visible, non modifiable. */
 .taskLocked { opacity: 0.55; }
 .taskLocked input[type="checkbox"] { cursor: default; }
+
+/* Activité sans pôle (11 oct. 2026) : état vide à la place des 3 pages. */
+.goalsNoPoleState { padding: 24px 16px; display: flex; flex-direction: column; gap: 12px; }
+.goalsNoPoleTitle { font-weight: 600; font-size: 1.05rem; margin: 0; }
+.goalsNoPoleForm { display: flex; flex-direction: column; gap: 10px; }
+.goalsNoPoleForm input { width: 100%; box-sizing: border-box; }
+.goalsActivitySwitcher.goalsNoPole #goalsActivitySwitcherScroll,
+.goalsActivitySwitcher.goalsNoPole #goalsPage2Dots { display: none; }
+.goalsNoPoleForm input { padding: 12px; font-size: 1rem; }
+.goalsNoPoleForm button { width: 100%; height: auto; min-height: 44px; padding: 10px 14px; white-space: normal; }

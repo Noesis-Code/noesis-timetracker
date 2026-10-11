@@ -35,16 +35,16 @@ db.prepare("INSERT INTO running_timers (userId, activityId, startTime, subProjec
 // B : 7 ouverts
 const B = act('B'); const bs = []; for (let i = 0; i < 7; i++) { bs.push(sp(B, 'B' + i, i)); entry(B, bs[i]); }
 // C : pôle par défaut VIDE matérialisé
-const C = act('C'); goals.addCategory(C, 'Tmp'); // matérialise 'Nouveau pôle' + 'Tmp'
-db.prepare("DELETE FROM activity_goal_categories WHERE activityId = ? AND label = 'Tmp'").run(C);
+const C = act('C');
+const defRow = (a) => db.prepare("INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt) VALUES (?, 'c1', 'Nouveau pôle', '', 0, ?)").run(a, now);
+defRow(C);
 const c1 = sp(C, 'Gamma', 0);
 // D : pôle par défaut AVEC temps -> conservé
-const D = act('D'); goals.addCategory(D, 'Perso'); db.prepare("DELETE FROM activity_goal_categories WHERE activityId = ? AND label = 'Perso'").run(D);
+const D = act('D'); defRow(D);
 db.prepare("INSERT INTO time_entries (userId, activityId, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES ('u1', ?, ?, ?, 60, ?, 'x', 'c1')").run(D, now, now, day);
 const d1 = sp(D, 'Delta', 0);
 // E : 4 pôles perso existants + 3 sous-projets -> 1 seul migré
-const E = act('E'); goals.addCategory(E, 'P1'); goals.addCategory(E, 'P2'); goals.addCategory(E, 'P3');
-db.prepare("UPDATE activity_goal_categories SET label = 'Mon pôle' WHERE activityId = ? AND position = 0").run(E);
+const E = act('E'); goals.addCategory(E, 'Mon pôle'); goals.addCategory(E, 'P2'); goals.addCategory(E, 'P3'); goals.addCategory(E, 'P4');
 const e = [sp(E, 'E0', 0), sp(E, 'E1', 1), sp(E, 'E2', 2)];
 
 const before = { sp: count('sub_projects'), items: count('sub_project_items'), sec: count('sub_project_sections'), te: count('time_entries'), rt: count('running_timers') };
@@ -74,5 +74,12 @@ assert(db.prepare('SELECT COUNT(*) n FROM time_entries WHERE subProjectId IS NOT
 const snap = () => JSON.stringify([db.prepare('SELECT * FROM activity_goal_categories ORDER BY id').all(), db.prepare('SELECT id, goalCategory FROM sub_projects ORDER BY id').all(), db.prepare('SELECT id, goalCategory FROM time_entries ORDER BY id').all()]);
 const s1 = snap(); const r2 = mig.migrateSubProjectsToPoles();
 assert(r2.length === 0 && snap() === s1, '2e passage : idempotent');
+// Zéro pôle par défaut (11 oct. 2026)
+const Z = act('Z');
+assert(goals.categoriesForActivity(Z).length === 0, 'activité neuve : aucun pôle, pas de « Nouveau pôle »');
+const zp = goals.addCategory(Z, 'Seul');
+assert(zp.length === 1 && zp[0].label === 'Seul' && zp[0].key === 'c1', 'premier pôle créé = celui de l\'utilisateur');
+goals.removeCategory(Z, 'c1');
+assert(goals.categoriesForActivity(Z).length === 0, 'retrait du dernier pôle autorisé (minimum 0)');
 console.log(failed ? failed + ' échec(s)' : 'Tous les tests passent');
 process.exit(failed ? 1 : 0);

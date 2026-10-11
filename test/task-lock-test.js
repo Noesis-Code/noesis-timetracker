@@ -18,7 +18,7 @@ function throws403(fn) { try { fn(); return false; } catch (e) { return e.status
 
 const u = db.prepare("SELECT id FROM users WHERE name='Emilien'").get();
 const aid = db.prepare('SELECT activityId FROM activity_members WHERE userId = ? LIMIT 1').get(u.id).activityId;
-const cat = goals.ensureDefaultCategory(aid)[0].key;
+const cat = goals.addCategory(aid, 'Pôle test')[0].key;
 const mk = (label) => goalstasks.addCategoryTask(aid, u.id, cat, label);
 const ago = (d) => new Date(Date.now() - d * 86400000).toISOString();
 const setDone = (id, d) => db.prepare('UPDATE sub_project_items SET done = 1, doneAt = ?, doneBy = ? WHERE id = ?').run(ago(d), u.id, id);

@@ -15,7 +15,7 @@ function assert(c, l) { if (c) console.log('  ok  ' + l); else { failed += 1; co
 
 const me = db.prepare("SELECT id FROM users WHERE name='Emilien'").get();
 const aid = db.prepare('SELECT activityId FROM activity_members WHERE userId = ? LIMIT 1').get(me.id).activityId;
-const cat = goals.ensureDefaultCategory(aid)[0].key;
+const cat = goals.addCategory(aid, 'Pôle test')[0].key;
 goals.setWeekly(aid, cat, 1, 1, 'Objectif export visible');
 
 // Activité d'un autre compte, avec objectif et tâche
@@ -23,7 +23,7 @@ const other = db.prepare('SELECT id FROM users WHERE id <> ? LIMIT 1').get(me.id
 const now = new Date().toISOString();
 const oa = db.prepare('INSERT INTO activities (name, ownerId, createdAt) VALUES (?, ?, ?)').run('Activité étrangère', other.id, now).lastInsertRowid;
 db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(oa, other.id, '#000000', now);
-goals.setWeekly(oa, goals.ensureDefaultCategory(oa)[0].key, 1, 1, 'SECRET_AUTRE_COMPTE');
+goals.setWeekly(oa, goals.addCategory(oa, 'Pôle test')[0].key, 1, 1, 'SECRET_AUTRE_COMPTE');
 const sp = db.prepare('INSERT INTO sub_projects (activityId, name, createdBy, createdAt) VALUES (?, ?, ?, ?)').run(oa, 'SP étranger', other.id, now).lastInsertRowid;
 db.prepare('INSERT INTO sub_project_items (subProjectId, label, createdAt) VALUES (?, ?, ?)').run(sp, 'SECRET_TACHE_AUTRE', now);
 const mysp = db.prepare('INSERT INTO sub_projects (activityId, name, createdBy, createdAt) VALUES (?, ?, ?, ?)').run(aid, 'SP à moi', me.id, now).lastInsertRowid;

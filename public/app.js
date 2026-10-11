@@ -8076,6 +8076,7 @@
       // loadActivityDetail() ailleurs).
       if (activityId !== TMT.currentGoalsActivityId) return;
       TMT.currentGoalsAllPlannings = data;
+      if (TMT.updateGoalsNoPoleState) TMT.updateGoalsNoPoleState(!(data.categories && data.categories.length));
 
       // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : dès qu'un
       // premier pôle RÉEL existe (personnalisation activée), la grille

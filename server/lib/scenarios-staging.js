@@ -43,8 +43,7 @@ function seedFusion(u) {
   const make = (name, spec) => {
     const aid = Number(db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, 0, 1, ?, ?)').run(name, u.id, now).lastInsertRowid);
     db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(aid, u.id, color ? color.color : '#A04B52', now);
-    const first = goals.ensureDefaultCategory(aid)[0];
-    goals.renameCategory(aid, first.key, spec[0].pole);
+    goals.addCategory(aid, spec[0].pole);
     spec.slice(1).forEach((s) => goals.addCategory(aid, s.pole));
     spec.forEach((s) => goals.addCategory(aid, s.secteur, goals.categoriesForActivity(aid).find((c) => c.label === s.pole).key));
     spec.forEach((s) => {
@@ -118,8 +117,7 @@ function seedScenarios() {
   db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(aid, u.id, color ? color.color : '#A04B52', now);
 
   // ---- Pôles et secteurs : Entreprise (secteurs Juridique, Finance), Produit, Communauté
-  const first = goals.ensureDefaultCategory(aid)[0];
-  goals.renameCategory(aid, first.key, 'Entreprise');
+  const first = goals.addCategory(aid, 'Entreprise')[0];
   goals.addCategory(aid, 'Produit');
   goals.addCategory(aid, 'Communauté');
   goals.addCategory(aid, 'Juridique', first.key);

@@ -46,7 +46,7 @@ const { seedStagingData } = require('../server/lib/seed-staging');
 seedStagingData(db);
 const user = db.prepare("SELECT id FROM users WHERE name='Emilien'").get();
 const act = db.prepare('SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY a.id').get(user.id);
-const pole = goals.categoriesForActivity(act.id)[0].key;
+const pole = goals.addCategory(act.id, 'Pôle test')[0].key;
 const spId = Number(db.prepare("INSERT INTO sub_projects (activityId, name, createdBy, createdAt, goalCategory) VALUES (?, 'T', ?, datetime('now'), ?)").run(act.id, user.id, pole).lastInsertRowid);
 db.prepare("INSERT INTO sub_project_sections (subProjectId, kind, title, createdBy, createdAt) VALUES (?, 'tasks', '', ?, datetime('now'))").run(spId, user.id);
 const d0 = (() => { const d = new Date(); const q = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + q(d.getMonth() + 1) + '-' + q(d.getDate()); })();

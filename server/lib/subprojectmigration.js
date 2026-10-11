@@ -107,7 +107,7 @@ function migrateActivity(activityId) {
     toOpen.forEach((sp) => { attach(sp, false); result.migrated++; });
     toFreeze.forEach((sp) => { attach(sp, true); result.frozen++; });
 
-    if (toOpen.length) {
+    {
       emptyDefaults.forEach((r) => {
         db.prepare('UPDATE activity_goal_categories SET removedAt = ? WHERE id = ?').run(now, r.id);
         result.replacedDefaults++;
@@ -120,8 +120,29 @@ function migrateActivity(activityId) {
   return result;
 }
 
+// Une seule fois (drapeau en base) : gèle tout pôle « Nouveau pôle » VIDE, pour
+// toutes les activités. Plus aucun pôle par défaut n'existe (11 oct. 2026) ;
+// un pôle de ce nom portant des données est conservé tel quel.
+function freezeEmptyDefaultPoles() {
+  db.exec('CREATE TABLE IF NOT EXISTS migration_flags (name TEXT PRIMARY KEY, doneAt TEXT NOT NULL)');
+  if (db.prepare("SELECT 1 FROM migration_flags WHERE name = 'freeze-empty-default-pole'").get()) return 0;
+  const rows = db.prepare(
+    "SELECT * FROM activity_goal_categories WHERE label = ? AND removedAt IS NULL AND parentKey IS NULL").all(DEFAULT_LABEL);
+  const now = new Date().toISOString();
+  let n = 0;
+  rows.forEach((r) => {
+    if (!poleHasData(r.activityId, r)) {
+      db.prepare('UPDATE activity_goal_categories SET removedAt = ? WHERE id = ?').run(now, r.id);
+      n++;
+    }
+  });
+  db.prepare("INSERT INTO migration_flags (name, doneAt) VALUES ('freeze-empty-default-pole', ?)").run(now);
+  return n;
+}
+
 function migrateSubProjectsToPoles() {
   ensureTable();
+  try { freezeEmptyDefaultPoles(); } catch (e) { console.error('[subproject-migration] pôles par défaut :', e.message); }
   const acts = db.prepare(`SELECT DISTINCT activityId FROM sub_projects
     WHERE goalCategory IS NULL AND activityId NOT IN (SELECT activityId FROM activity_subproject_migration)`).all();
   const out = [];

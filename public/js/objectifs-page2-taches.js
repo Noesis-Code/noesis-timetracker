@@ -64,6 +64,15 @@
           <span class="activityPageName" id="goalsActivityName"></span>
           <button type="button" class="menuBtn" id="goalsBackToCaptureBtn" aria-label="Fermer">✕</button>
         </div>
+        <div id="goalsNoPoleState" class="goalsNoPoleState hidden">
+          <p class="goalsNoPoleTitle">Cette activité n’a pas encore de pôle.</p>
+          <p class="hint">Crée ton premier pôle pour organiser tes tâches et tes objectifs.</p>
+          <div class="goalsNoPoleForm">
+            <input type="text" id="goalsNoPoleInput" maxlength="40" placeholder="Nom du pôle" aria-label="Nom du pôle">
+            <button type="button" id="goalsNoPoleAddBtn" class="menuBtn" aria-label="Ajouter un pôle">+ Ajouter un pôle</button>
+          </div>
+          <p id="goalsNoPoleMsg" class="msg"></p>
+        </div>
         <div id="goalsActivitySwitcherScroll">
 
         <!-- 27 septembre 2026, chantier « Tâches quotidiennes intégrées à la
@@ -213,6 +222,26 @@
   // — ou, 14 septembre 2026, en tapant l'une des deux flèches ‹/› ajoutées de
   // part et d'autre du nom (même changement d'activité, juste un second
   // moyen d'y accéder pour les appareils sans geste tactile).
+  // 11 oct. 2026 : une activité sans AUCUN pôle (état par défaut) affiche un état vide
+  // clair à la place des 3 pages ; l'utilisateur crée son premier pôle ici.
+  TMT.updateGoalsNoPoleState = function (isEmpty) {
+    var sw = $('goalsActivitySwitcher');
+    if (sw) sw.classList.toggle('goalsNoPole', !!isEmpty);
+    var box = $('goalsNoPoleState');
+    if (box) box.classList.toggle('hidden', !isEmpty);
+  };
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target && ev.target.closest && ev.target.closest('#goalsNoPoleAddBtn');
+    if (!btn) return;
+    var input = $('goalsNoPoleInput'), msg = $('goalsNoPoleMsg');
+    var label = String(input.value || '').trim();
+    msg.textContent = '';
+    if (!label) { msg.textContent = t('Nom de pôle requis.'); return; }
+    TMT.api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/categories', { label: label, atTop: true })
+      .then(function () { input.value = ''; return openGoalsForActivity(TMT.currentGoalsActivityIndex || 0); })
+      .catch(function (err) { msg.textContent = err.message; });
+  });
+
   function openGoalsForActivity(index) {
     var list = TMT.getActivitiesCache() || [];
     if (!list.length) {

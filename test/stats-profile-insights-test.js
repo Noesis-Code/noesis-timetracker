@@ -18,7 +18,7 @@ const today = now.slice(0, 10);
 function mkActivity(name, confidential) {
   const a = db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, shareToken, createdAt) VALUES (?, 0, 1, ?, ?, ?)').run(name, 'own', 'tok' + name, now).lastInsertRowid;
   db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt, confidential) VALUES (?, ?, ?, ?, ?)').run(a, 'own', '#4CAF50', now, confidential ? 1 : 0);
-  const cat = goals.ensureDefaultCategory(Number(a))[0].key;
+  const cat = goals.addCategory(Number(a), 'Pôle test')[0].key;
   const sp = db.prepare('INSERT INTO sub_projects (activityId, name, description, createdBy, position, createdAt, goalCategory) VALUES (?, ?, ?, ?, 0, ?, ?)').run(a, 'Projet ' + name, '', 'own', now, cat).lastInsertRowid;
   db.prepare('INSERT INTO sub_project_items (subProjectId, label, done, doneAt, position, createdAt, dueDate) VALUES (?, ?, 1, ?, 0, ?, ?)').run(sp, 'TITRE-SECRET-' + name, now, now, today);
   return Number(a);

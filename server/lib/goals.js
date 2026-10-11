@@ -278,7 +278,8 @@ function categoriesForActivity(activityId) {
     // quel au client).
     return rows.map((r) => ({ key: r.key, label: r.label, custom: true, description: r.description || '' }));
   }
-  return [{ key: DEFAULT_CATEGORY_KEY, label: DEFAULT_CATEGORY_LABEL, custom: false, description: '' }];
+  // Zéro pôle : état normal (plus de pôle synthétique « Nouveau pôle »).
+  return [];
 }
 
 function isValidCategoryForActivity(activityId, category) {
@@ -439,15 +440,8 @@ function nextCategoryKey(activityId) {
 // renameCategory, removeCategory, reorderCategories) — jamais depuis une
 // écriture de plan/objectif, qui n'en a pas besoin (clé TEXT libre).
 function ensureDefaultCategory(activityId) {
-  const existing = activeCategoryRows(activityId);
-  if (existing.length) return existing;
-
-  const key = nextCategoryKey(activityId);
-  const createdAt = new Date().toISOString();
-  db.prepare(`
-    INSERT INTO activity_goal_categories (activityId, key, label, color, position, createdAt)
-    VALUES (?, ?, ?, '', 0, ?)
-  `).run(activityId, key, DEFAULT_CATEGORY_LABEL, createdAt);
+  // 11 oct. 2026 (décision d'Émilien) : AUCUN pôle par défaut — une activité
+  // sans pôle créé par l'utilisateur en a zéro. Plus de matérialisation.
   return activeCategoryRows(activityId);
 }
 
@@ -762,9 +756,7 @@ function removeCategoryRows(activityId, key, row, existing) {
 
   // ---- Pôle --------------------------------------------------------------
   const poleRows = existing.filter((r) => !r.parentKey);
-  if (poleRows.length <= 1) {
-    throw Object.assign(new Error('Impossible de retirer le dernier pôle.'), { statusCode: 400 });
-  }
+  // Plus de minimum : une activité peut revenir à zéro pôle.
   db.prepare('UPDATE activity_goal_categories SET removedAt = ? WHERE activityId = ? AND key = ?')
     .run(now, activityId, key);
 
