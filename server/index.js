@@ -316,4 +316,6 @@ app.listen(PORT, HOST, () => {
   require('./lib/stagingprompts').resetStagingPromptsOnce();
   // Fermeture des comptes inactifs (Loi 25, 10 oct. 2026) : 24 mois sans connexion, avis puis rappel puis suppression. Voir server/lib/inactiveaccounts.js.
   require('./lib/inactiveaccounts').startInactiveAccountsCron();
+  // Annonce programmée (variables NOESIS_ANNOUNCE_*), sans effet si absentes.
+  require('./lib/announcementschedule').startAnnouncementSchedule();
 });
