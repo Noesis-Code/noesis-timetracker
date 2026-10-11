@@ -18,10 +18,12 @@ function decorateWithCategory(rows) {
   const cache = new Map();
   rows.forEach((row) => {
     if (!row.goalCategory) { row.categoryLabel = null; return; }
-    if (!cache.has(row.goalCategory)) {
-      cache.set(row.goalCategory, categorySummary(row.activityId, row.goalCategory));
+    // Clé = activité + catégorie : les clés (c2, c3...) se répètent d'une activité à l'autre.
+    const ck = row.activityId + ':' + row.goalCategory;
+    if (!cache.has(ck)) {
+      cache.set(ck, categorySummary(row.activityId, row.goalCategory));
     }
-    const summary = cache.get(row.goalCategory);
+    const summary = cache.get(ck);
     row.categoryLabel = summary ? summary.label : null;
     row.categoryFrozen = summary ? summary.frozen : false;
   });

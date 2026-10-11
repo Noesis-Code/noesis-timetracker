@@ -33,6 +33,7 @@ try { require('./lib/scenarios-staging').seedScenariosOnStaging(); } catch (e) {
 try { require('./lib/stats-demo-staging').seedStatsDemoOnStaging(); } catch (e) { console.error('[stats-demo-staging]', e.message); }
 // Cale les plans sur la grille de l'année (période 1 = semaine du 1er janvier). Idempotent.
 try { const r = require('./lib/goals').migratePlansToYearGrid(); if (r.length) console.log('[year-grid] ' + r.length + ' plan(s) recalé(s)'); } catch (e) { console.error('[year-grid]', e.message); }
+try { const r = require('./lib/subprojectmigration').migrateSubProjectsToPoles(); if (r.length) console.log('[subproject-migration] ' + r.length + ' activité(s) migrée(s)'); } catch (e) { console.error('[subproject-migration]', e.message); }
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
