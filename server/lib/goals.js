@@ -425,8 +425,15 @@ function assertCategoryDescription(description) {
 // pour ne jamais réutiliser une clé déjà portée par une catégorie retirée
 // (voir le commentaire sur activity_goal_categories dans server/db.js).
 function nextCategoryKey(activityId) {
+  // 12 oct. 2026 : « nombre de lignes + 1 » ne suffit pas — une activité dont
+  // les clés ont un trou (ligne supprimée, migrations) retombait sur une clé
+  // déjà prise et la contrainte UNIQUE(activityId, key) renvoyait « Erreur
+  // serveur » à chaque création de pôle ou de secteur. On saute les clés prises.
   const row = db.prepare('SELECT COUNT(*) AS n FROM activity_goal_categories WHERE activityId = ?').get(activityId);
-  return 'c' + (row.n + 1);
+  const taken = new Set(db.prepare('SELECT key FROM activity_goal_categories WHERE activityId = ?').all(activityId).map((r) => r.key));
+  let n = row.n + 1;
+  while (taken.has('c' + n)) n++;
+  return 'c' + n;
 }
 
 // 8ᵉ passage (16 septembre 2026) : remplace activateCustomCategories.
