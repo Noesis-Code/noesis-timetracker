@@ -187,6 +187,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'offer1access-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'accès anticipé Offre 1 : tests passés'); }
   catch (e) { assert(false, 'accès anticipé Offre 1 : tests échoués'); }
 
+  // Planificateur de semaines (lot A) : suite autonome, base temporaire propre.
+  let wpOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'weekplanner-test.js')], { encoding: 'utf8' }); } catch (e) { wpOk = false; }
+  assert(wpOk, 'le planificateur de semaines (test/weekplanner-test.js) passe');
+
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });
