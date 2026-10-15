@@ -1,4 +1,4 @@
-/* Noèsis TimeTracker — Objectifs, Page 2 — « Ajouter » > « Ajouter des tâches » (Essor, 15 oct. 2026)
+/* Noèsis TimeTracker — Objectifs, Page 2 — bouton ＋ > « Ajouter des tâches » (Essor, 15 oct. 2026)
  *
  * Fenêtre plein écran (fermeture = croix ✕, bouton d'envoi DANS la zone d'écriture de la consigne).
  * L'utilisateur joint un document ET écrit une consigne (ou touche un raccourci) ; l'IA PROPOSE des
@@ -19,26 +19,27 @@
   }
 
   document.getElementById('content').insertAdjacentHTML('beforeend', `
-    <div id="docTasksPage" class="accompPage hidden">
+    <div id="docTasksPage" class="docTasksWin hidden">
       <div class="activityPageHeader">
-        <span class="activityPageName">Ajouter des tâches</span>
+        <span class="activityPageName">Ajouter des tâches <span id="docTasksBadge" class="essorBadge">Essor</span></span>
         <button type="button" class="menuBtn" id="docTasksClose" aria-label="Fermer">✕</button>
       </div>
-      <div class="accompScroll">
+      <div class="docTasksScroll">
         <p class="hint">Joins un document (.txt, .md, .csv, .docx) et dis quoi en faire. L’IA te propose des tâches ; rien n’est ajouté sans ta validation.</p>
         <div class="docTasksShortcuts">
           <button type="button" class="docTasksShortcut" data-text="Lis le document et crée-moi les tâches">Lis le document et crée-moi les tâches</button>
           <button type="button" class="docTasksShortcut" data-text="Récupère les tâches écrites dans le document et applique-les dans mes périodes">Récupère les tâches écrites dans le document et applique-les dans mes périodes</button>
         </div>
-        <div class="accompBox">
+        <div class="docTasksDriveRow" aria-disabled="true">Connecter Drive <span class="goalsAddSoon">Bientôt</span></div>
+        <div class="docTasksBox">
           <textarea id="docTasksText" rows="4" maxlength="1500" placeholder="Ta consigne, en langage libre"></textarea>
-          <div class="accompBoxRow">
-            <label class="accompIconBtn" for="docTasksFile" title="Joindre un document" aria-label="Joindre un document">📎</label>
+          <div class="docTasksBoxRow">
+            <label class="docTasksIconBtn" for="docTasksFile" title="Joindre un document" aria-label="Joindre un document">📎</label>
             <input type="file" id="docTasksFile" class="hidden" multiple accept=".txt,.md,.markdown,.csv,.docx,.pdf,text/*">
             <span style="flex:1 1 auto"></span>
-            <button type="button" id="docTasksSend" class="accompSend" aria-label="Proposer des tâches">➤</button>
+            <button type="button" id="docTasksSend" class="docTasksSendBtn" aria-label="Proposer des tâches">➤</button>
           </div>
-          <div id="docTasksFiles" class="accompFiles"></div>
+          <div id="docTasksFiles" class="docTasksFilesBox"></div>
         </div>
         <p id="docTasksMsg" class="msg"></p>
         <div id="docTasksResults"></div>
@@ -59,7 +60,7 @@
 
   function renderFiles() {
     $('docTasksFiles').innerHTML = files.map(function (f, i) {
-      return '<span class="accompChip">' + esc(f.fileName) + ' <button type="button" data-i="' + i + '" aria-label="Retirer">✕</button></span>';
+      return '<span class="docTasksChip">' + esc(f.fileName) + ' <button type="button" data-i="' + i + '" aria-label="Retirer">✕</button></span>';
     }).join('');
   }
   $('docTasksFiles').addEventListener('click', function (e) {
@@ -102,7 +103,7 @@
     var warn = (r.warnings || []).map(function (w) {
       return '<div class="docTasksWarn">Attention : ' + weekLabel(w.week) + ', ' + w.minutes + ' min proposées pour une capacité de ' + w.capacityMinutes + ' min. Décoche des tâches ou garde-les en connaissance de cause.</div>';
     }).join('');
-    host.innerHTML = warn + html + '<button type="button" id="docTasksApply" class="accompApply">Ajouter les tâches cochées</button>';
+    host.innerHTML = warn + html + '<button type="button" id="docTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button>';
     $('docTasksApply').addEventListener('click', apply);
   }
 

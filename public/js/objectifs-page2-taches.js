@@ -581,29 +581,10 @@
       if (req !== goalsAddReq) return;
       var on = !!(r && r.essor === true);
       btn.classList.toggle('hidden', !on);
-      var b = $('goalsAddSheetBadge'); if (b) b.classList.toggle('hidden', !on);
     }).catch(function () {});
   }
-  document.getElementById('content').insertAdjacentHTML('beforeend', `
-    <div id="goalsAddSheet" class="goalsAddSheetWrap hidden">
-      <div class="goalsAddSheet">
-        <div class="goalsAddSheetHead">
-          <span class="goalsAddSheetTitle">Ajouter <span id="goalsAddSheetBadge" class="essorBadge">Essor</span></span>
-          <button type="button" class="menuBtn" id="goalsAddSheetClose" aria-label="Fermer">✕</button>
-        </div>
-        <button type="button" class="goalsAddEntry" id="goalsAddTasksBtn">Ajouter des tâches</button>
-        <button type="button" class="goalsAddEntry" id="goalsAddDriveBtn" disabled>Connecter Drive <span class="goalsAddSoon">Bientôt</span></button>
-      </div>
-    </div>`);
-  function closeGoalsAddSheet() { $('goalsAddSheet').classList.add('hidden'); }
-  $('goalsPage2AddBtn').addEventListener('click', function () { $('goalsAddSheet').classList.remove('hidden'); });
-  $('goalsAddSheetClose').addEventListener('click', closeGoalsAddSheet);
-  $('goalsAddSheet').addEventListener('click', function (e) { if (e.target === this) closeGoalsAddSheet(); });
-  // Ajout de tâches depuis un document + consigne (objectifs-document-taches.js).
-  $('goalsAddTasksBtn').addEventListener('click', function () {
-    closeGoalsAddSheet();
-    if (TMT.openDocTasks) TMT.openDocTasks();
-  });
+  // Le bouton ＋ ouvre directement la page « Ajouter des tâches » (objectifs-document-taches.js).
+  $('goalsPage2AddBtn').addEventListener('click', function () { if (TMT.openDocTasks) TMT.openDocTasks(); });
   function closeGoalsDiscSheet() { setGoalsPage2Mode(goalsPage2BaseMode); }
   $('goalsDiscSheetClose').addEventListener('click', closeGoalsDiscSheet);
   $('goalsDiscView').addEventListener('click', function (e) { if (e.target === this) closeGoalsDiscSheet(); });

@@ -370,14 +370,5 @@
 .goalsNoPoleForm input { padding: 12px; font-size: 1rem; }
 .goalsNoPoleForm button { width: 100%; height: auto; min-height: 44px; padding: 10px 14px; white-space: normal; }
 
-/* 15 oct. 2026 (Emilien) : bouton « Ajouter » (Essor) à la place de la bulle Discussion ; feuille à deux entrées, fermeture ✕. */
+/* 15 oct. 2026 (Emilien) : bouton « Ajouter » (Essor) à la place de la bulle Discussion ; le ＋ ouvre directement la page « Ajouter des tâches ». */
 #goalsPage2AddBtn .notifDot { display: none; }
-.goalsAddSheetWrap:not(.hidden) { position: fixed; inset: 0; z-index: 130; background: rgba(0, 0, 0, 0.5); display: flex; align-items: flex-end; justify-content: center; }
-.goalsAddSheet { width: 100%; max-width: 480px; background: var(--bg); border-radius: var(--radius-xl) var(--radius-xl) 0 0; box-shadow: var(--shadow-elevated); padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px; }
-.goalsAddSheetHead { display: flex; align-items: center; justify-content: space-between; }
-.goalsAddSheetTitle { font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
-.essorBadge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--purple); color: #fff; }
-.essorBadge.hidden { display: none; }
-.goalsAddEntry { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text); font-size: 15px; text-align: center; }
-.goalsAddEntry:disabled { opacity: 0.55; }
-.goalsAddSoon { margin-left: 6px; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--glass-border); }
