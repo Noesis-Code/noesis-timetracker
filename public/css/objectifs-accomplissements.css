@@ -17,6 +17,7 @@
 .accompApply { margin-top: 14px; width: 100%; padding: 12px; border: 0; border-radius: 14px; font: inherit; font-weight: 600; cursor: pointer; background: #7c5cff; color: #fff; }
 
 /* Code d'accès gratuit Offre 1 */
-.accompCodeLink { background: none; border: 0; color: #7c5cff; font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 4px 8px; }
+.offer1PromoActions { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+.offer1PromoBtnGrey, .offer1PromoBtnGrey:disabled { background: rgba(127,127,127,.28); color: inherit; cursor: pointer; opacity: 1; border: 0; }
 .offer1CodeInput { flex: 1 1 auto; min-width: 0; background: transparent; border: 1px solid var(--border, rgba(127,127,127,.35)); border-radius: 10px; padding: 10px; color: inherit; font: inherit; }
 .accompCodeOk { flex: 0 0 auto; border: 0; border-radius: 10px; padding: 10px 16px; background: #7c5cff; color: #fff; font: inherit; cursor: pointer; }

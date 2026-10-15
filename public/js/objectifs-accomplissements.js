@@ -48,14 +48,13 @@
     sw.appendChild(btn);
     btn.addEventListener('click', function () { $('accompPage').classList.remove('hidden'); });
   }
-  // Accès : bouton « Accompli » seulement si le serveur confirme ; sinon lien « J'ai un code ».
+  // Accès : bouton « Accompli » seulement si le serveur confirme ; sinon bouton « J'ai un code » (carte Offre 1 de la Feuille de route).
   if (sw) TMT.api('GET', '/api/offer1/access').then(function (r) {
     if (!r) return;
     if (r.hasAccess === true) { addAccompBtn(); return; }
-    var link = document.createElement('button');
-    link.type = 'button'; link.id = 'offer1CodeLink'; link.className = 'accompCodeLink';
-    link.textContent = 'J’ai un code';
-    sw.appendChild(link);
+    var link = $('offer1CodeLink');
+    if (!link) return;
+    link.classList.remove('hidden');
     link.addEventListener('click', function () { $('offer1CodeMsg').textContent = ''; $('offer1CodeInput').value = ''; $('offer1CodePage').classList.remove('hidden'); });
   }).catch(function () {});
 
@@ -84,7 +83,7 @@
     TMT.api('POST', '/api/offer1/redeem', { code: code }).then(function (r) {
       if (!r || r.hasAccess !== true) { $('offer1CodeMsg').textContent = 'Erreur. Réessaie.'; return; }
       $('offer1CodePage').classList.add('hidden');
-      var l = $('offer1CodeLink'); if (l) l.remove();
+      var l = $('offer1CodeLink'); if (l) l.classList.add('hidden');
       addAccompBtn();
     }).catch(function (err) { $('offer1CodeMsg').textContent = (err && err.message) || 'Code invalide.'; });
   }

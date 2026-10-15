@@ -79,7 +79,10 @@
             <small class="offer1PromoSub">20 $/mois par activité · résiliable à tout moment</small>
             <div id="offer1SubscribedList" class="activitiesList"></div>
             <p id="offer1SubscribedEmptyHint" class="hint hidden">Aucun abonnement actif pour l'instant.</p>
-            <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn" disabled aria-disabled="true">Découvrir l'Offre 1</button>
+            <div class="offer1PromoActions">
+              <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn" disabled aria-disabled="true">Découvrir l'Offre 1</button>
+              <button type="button" id="offer1CodeLink" class="offer1PromoBtn offer1PromoBtnGrey hidden">J’ai un code</button>
+            </div>
           </div>
         </div>
 
