@@ -208,6 +208,7 @@ app.use('/api', require('./routes/feedback'));
 // pour toute route non-API, et un lecteur de calendrier recevrait alors du
 // HTML au lieu du flux.
 app.use('/api', require('./routes/calendar'));
+app.use('/api', require('./routes/accomplishments'));
 // Suggestion quotidienne (21 septembre 2026) — capacité du jour + sélection
 // de tâches, notification matinale déclenchée par
 // server/lib/dailysuggestioncron.js (démarré plus bas). Segment neuf et
