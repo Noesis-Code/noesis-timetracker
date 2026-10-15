@@ -40,6 +40,17 @@ const files = {
   'fold-1111': { id: 'fold-1111', name: 'Projet', mimeType: 'application/vnd.google-apps.folder' },
   'txt-1111': { id: 'txt-1111', name: 'n.txt', mimeType: 'text/plain', parents: ['fold-1111'], size: '5' },
 };
+const mkPdf = (stream) => {
+  const objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    '<< /Length ' + stream.length + ' >>\nstream\n' + stream + '\nendstream', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
+  let out = '%PDF-1.4\n'; const offs = [];
+  objs.forEach((o, i) => { offs.push(out.length); out += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
+  const x = out.length;
+  out += 'xref\n0 6\n0000000000 65535 f \n' + offs.map((o) => String(o).padStart(10, '0') + ' 00000 n \n').join('') + 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + x + '\n%%EOF';
+  return out;
+};
+files['pdf-1111'] = { id: 'pdf-1111', name: 'plan.pdf', mimeType: 'application/pdf', parents: ['fold-1111'], size: '900' };
 let revoked = null;
 drive.setFetch(async (url, opt) => {
   const u = new URL(url); calls.push(u.pathname);
@@ -53,6 +64,7 @@ drive.setFetch(async (url, opt) => {
   const m = u.pathname.match(/\/drive\/v3\/files(?:\/([^/]+)(\/export)?)?$/);
   if (m && !m[1]) return json({ files: [files['doc-1111'], files['txt-1111']] });
   if (m && m[2]) return { ok: true, arrayBuffer: async () => Buffer.from('Texte du document: écrire le plan') };
+  if (m && m[1] === 'pdf-1111' && u.searchParams.get('alt') === 'media') return { ok: true, arrayBuffer: async () => Buffer.from(mkPdf('BT /F1 18 Tf 20 100 Td (Appeler le client Drive) Tj ET'), 'latin1') };
   if (m && u.searchParams.get('alt') === 'media') return { ok: true, arrayBuffer: async () => Buffer.from('bonjour') };
   if (m) return files[m[1]] ? json(files[m[1]]) : json({}, false);
   return json({}, false);
@@ -117,6 +129,9 @@ drive.setFetch(async (url, opt) => {
   assert(t2.text === 'bonjour', '.txt lu');
   r = await call('post', '/drive/propose', 'own', { body: { activityId: act, fileId: 'out-1111', instruction: 'x' } });
   assert(r.st === 403, 'fichier hors dossier refusé');
+
+  const tp = await drive.readFileText('own', act, 'pdf-1111');
+  assert(/Appeler le client Drive/.test(tp.text), 'PDF du Drive : texte extrait');
 
   let seen = null;
   dt.setCaller(async ({ user }) => { seen = user; return '{"tasks":[]}'; });

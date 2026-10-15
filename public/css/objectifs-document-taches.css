@@ -28,7 +28,8 @@
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
 }
 .docTasksBox { border-radius: 14px; padding: 10px; }
-.docTasksDriveRow { border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; font-size: 15px; opacity: 0.6; cursor: default; }
+.docTasksDriveRow { border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; font-size: 15px; }
+.docTasksDriveOff { opacity: 0.6; cursor: default; }
 .docTasksBox textarea { width: 100%; box-sizing: border-box; background: transparent; border: 0; outline: 0; color: inherit; font: inherit; resize: none; }
 .docTasksBoxRow { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .docTasksIconBtn { cursor: pointer; padding: 6px 8px; }
@@ -37,3 +38,12 @@
 .docTasksChip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(124, 92, 255, .18); margin-top: 6px; }
 .docTasksChip button { background: none; border: 0; color: inherit; cursor: pointer; }
 .docTasksApplyBtn { margin-top: 14px; width: 100%; padding: 12px; border: 0; border-radius: 14px; font: inherit; font-weight: 600; cursor: pointer; background: var(--purple); color: #fff; }
+.docTasksDrive { margin-bottom: 2px; }
+.docTasksDriveHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.docTasksDriveBtn { width: 100%; padding: 10px; border: 0; border-radius: 12px; background: var(--purple); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.docTasksConsent { font-size: 12px; opacity: .75; margin: 8px 0 0; line-height: 1.4; }
+.docTasksPick { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
+.docTasksPick:hover { background: rgba(124, 92, 255, .18); }
+.docTasksLink { background: none; border: 0; color: var(--purple); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
+.docTasksX { background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 2px 6px; }
+.docTasksConfirm { font-size: 13px; margin: 4px 0 10px; }

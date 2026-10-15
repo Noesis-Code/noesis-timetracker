@@ -25,12 +25,12 @@
         <button type="button" class="menuBtn" id="docTasksClose" aria-label="Fermer">✕</button>
       </div>
       <div class="docTasksScroll">
-        <p class="hint">Joins un document (.txt, .md, .csv, .docx) et dis quoi en faire. L’IA te propose des tâches ; rien n’est ajouté sans ta validation.</p>
+        <p class="hint">Joins un document (.txt, .md, .csv, .docx, .pdf) ou choisis-en un dans Drive et dis quoi en faire. L’IA te propose des tâches ; rien n’est ajouté sans ta validation.</p>
         <div class="docTasksShortcuts">
           <button type="button" class="docTasksShortcut" data-text="Lis le document et crée-moi les tâches">Lis le document et crée-moi les tâches</button>
           <button type="button" class="docTasksShortcut" data-text="Récupère les tâches écrites dans le document et applique-les dans mes périodes">Récupère les tâches écrites dans le document et applique-les dans mes périodes</button>
         </div>
-        <div class="docTasksDriveRow" aria-disabled="true">Connecter Drive <span class="goalsAddSoon">Bientôt</span></div>
+        <div id="docTasksDrive" class="docTasksDrive"></div>
         <div class="docTasksBox">
           <textarea id="docTasksText" rows="4" maxlength="1500" placeholder="Ta consigne, en langage libre"></textarea>
           <div class="docTasksBoxRow">
@@ -46,7 +46,7 @@
       </div>
     </div>`);
 
-  function open() { $('docTasksPage').classList.remove('hidden'); }
+  function open() { $('docTasksPage').classList.remove('hidden'); loadDrive(); }
   function close() { $('docTasksPage').classList.add('hidden'); }
   TMT.openDocTasks = open;
   $('docTasksClose').addEventListener('click', close);
@@ -71,6 +71,7 @@
     Array.prototype.forEach.call(e.target.files, function (f) {
       if (files.length >= MAX_FILES) { msg(MAX_FILES + ' fichiers maximum.'); return; }
       if (f.size > MAX_BYTES) { msg('Fichier trop lourd (5 Mo max).'); return; }
+      driveFile = null; renderDrive();
       var r = new FileReader();
       r.onload = function () { files.push({ fileName: f.name, mimeType: f.type, dataUrl: r.result }); renderFiles(); };
       r.readAsDataURL(f);
@@ -83,7 +84,10 @@
     var instruction = $('docTasksText').value.trim();
     if (!instruction) { msg('Écris une consigne ou touche un raccourci.'); return; }
     busy = true; msg('L’IA lit le document…'); $('docTasksResults').innerHTML = '';
-    TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/propose', { instruction: instruction, files: files })
+    var req = driveFile
+      ? TMT.api('POST', '/api/drive/propose', { activityId: Number(actId()), fileId: driveFile.id, instruction: instruction })
+      : TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/propose', { instruction: instruction, files: files });
+    req
       .then(function (r) {
         busy = false; proposals = r.tasks || [];
         var notes = (r.notes || []).slice(); if (r.truncated) notes.push('Document long : seule la première partie a été lue.');
@@ -92,6 +96,103 @@
       })
       .catch(function (err) { busy = false; msg((err && err.message) || 'Erreur.'); });
   });
+
+  // ---------- Google Drive (lecture seule, un seul dossier par activité) ----------
+  var driveSt = null, driveFile = null, driveView = 'main', driveList = [], driveErr = '';
+  function dApi(method, path, extra) {
+    var q = 'activityId=' + encodeURIComponent(actId());
+    if (method === 'GET') return TMT.api('GET', path + '?' + q);
+    return TMT.api('POST', path, Object.assign({ activityId: Number(actId()) }, extra || {}));
+  }
+  function loadDrive() {
+    driveView = 'main'; driveFile = null; driveErr = '';
+    dApi('GET', '/api/drive/status').then(function (s) { driveSt = s; renderDrive(); if (s.connected && s.folderChosen) loadFiles(); })
+      .catch(function () { driveSt = { configured: false }; renderDrive(); });
+  }
+  function loadFiles() {
+    dApi('GET', '/api/drive/files').then(function (r) { driveList = r.files || []; renderDrive(); })
+      .catch(function (e) { driveErr = (e && e.message) || 'Erreur Drive.'; renderDrive(); });
+  }
+  function renderDrive() {
+    var h = $('docTasksDrive'), s = driveSt, html = '';
+    if (!s) { h.innerHTML = ''; return; }
+    if (!s.configured) {
+      h.innerHTML = '<div class="docTasksDriveRow docTasksDriveOff" aria-disabled="true">Connecter Drive <span class="goalsAddSoon">Bientôt</span></div>'; return;
+    }
+    if (!s.connected) {
+      html = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button>'
+        + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers d’UN SEUL dossier que tu choisis, uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé, et tu peux te déconnecter à tout moment.</p></div>';
+    } else if (driveView === 'folders') {
+      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="docTasksX" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
+        + (driveList.length ? driveList.map(function (f) { return '<button type="button" class="docTasksPick" data-d="folder" data-id="' + esc(f.id) + '">📁 ' + esc(f.name) + '</button>'; }).join('') : '<p class="hint">Aucun dossier trouvé.</p>') + '</div>';
+    } else if (!s.folderChosen) {
+      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Drive connecté</span></div><button type="button" class="docTasksDriveBtn" data-d="pickFolder">Choisir un dossier</button></div>';
+    } else {
+      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>📁 ' + esc(s.folderName || 'Dossier') + '</span><button type="button" class="docTasksLink" data-d="pickFolder">Changer</button></div>'
+        + (driveFile ? '<span class="docTasksChip">' + esc(driveFile.name) + ' <button type="button" data-d="unpick" aria-label="Retirer">✕</button></span>'
+          : (driveList.length ? driveList.map(function (f) { return '<button type="button" class="docTasksPick" data-d="file" data-id="' + esc(f.id) + '">' + esc(f.name) + '</button>'; }).join('') : '<p class="hint">Aucun fichier lisible dans ce dossier.</p>')) + '</div>';
+    }
+    if (driveErr) html += '<p class="msg">' + esc(driveErr) + '</p>';
+    if (s.connected) {
+      html += driveView === 'confirm'
+        ? '<div class="docTasksConfirm">Déconnecter Drive de cette activité ? <button type="button" class="docTasksLink" data-d="disconnectYes">Déconnecter</button> <button type="button" class="docTasksLink" data-d="disconnectNo">Annuler</button></div>'
+        : '<button type="button" class="docTasksLink" data-d="disconnect">Déconnecter Drive</button>';
+    }
+    h.innerHTML = html;
+  }
+  $('docTasksDrive').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-d]'); if (!b) return;
+    var d = b.getAttribute('data-d'), id = b.getAttribute('data-id');
+    driveErr = '';
+    function fail(err) { driveErr = (err && err.message) || 'Erreur Drive.'; renderDrive(); }
+    if (d === 'connect') {
+      dApi('GET', '/api/drive/connect').then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
+    } else if (d === 'pickFolder') {
+      driveView = 'folders'; driveList = []; renderDrive();
+      dApi('GET', '/api/drive/folders').then(function (r) { driveList = r.folders || []; renderDrive(); }).catch(fail);
+    } else if (d === 'closeFolders') {
+      driveView = 'main'; driveList = []; renderDrive(); if (driveSt.folderChosen) loadFiles();
+    } else if (d === 'folder') {
+      dApi('POST', '/api/drive/folder', { folderId: id }).then(function (r) {
+        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveView = 'main'; driveFile = null; driveList = []; renderDrive(); loadFiles();
+      }).catch(fail);
+    } else if (d === 'file') {
+      var f = driveList.filter(function (x) { return x.id === id; })[0];
+      if (f) { driveFile = f; files = []; renderFiles(); renderDrive(); }
+    } else if (d === 'unpick') { driveFile = null; renderDrive(); }
+    else if (d === 'disconnect') { driveView = 'confirm'; renderDrive(); }
+    else if (d === 'disconnectNo') { driveView = 'main'; renderDrive(); }
+    else if (d === 'disconnectYes') {
+      dApi('POST', '/api/drive/disconnect').then(function () {
+        driveSt = { configured: true, connected: false, folderChosen: false }; driveView = 'main'; driveFile = null; driveList = []; renderDrive();
+      }).catch(fail);
+    }
+  });
+
+  // Retour de Google (?drive=connected&activityId=N) : on rouvre la page Ajouter de cette activité.
+  (function () {
+    var p; try { p = new URLSearchParams(location.search); } catch (e) { return; }
+    if (p.get('drive') !== 'connected') return;
+    var aid = String(p.get('activityId') || '');
+    history.replaceState(null, '', location.pathname);
+    if (!/^\d+$/.test(aid)) return;
+    var tries = 120;
+    (function poll() {
+      if (TMT.switchTab && TMT.openGoalsPeriodFromNotification && TMT.getActivitiesCache && (TMT.getActivitiesCache() || []).length) {
+        TMT.switchTab('goals');
+        setTimeout(function () {
+          TMT.openGoalsPeriodFromNotification(aid, null, null);
+          var t2 = 60;
+          (function wait() {
+            if (String(TMT.currentGoalsActivityId) === aid) { open(); return; }
+            if (t2-- > 0) setTimeout(wait, 100);
+          })();
+        }, 300);
+        return;
+      }
+      if (tries-- > 0) setTimeout(poll, 100);
+    })();
+  })();
 
   function render(r) {
     var host = $('docTasksResults');

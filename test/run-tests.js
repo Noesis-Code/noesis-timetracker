@@ -197,6 +197,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'documenttasks-test.js')], { encoding: 'utf8' }); } catch (e) { dtOk = false; }
   assert(dtOk, 'ajout de tâches depuis un document (test/documenttasks-test.js) passe');
 
+  // Connecteur Drive (Google simulé, PDF compris).
+  let drOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'drive-test.js')], { encoding: 'utf8' }); } catch (e) { drOk = false; }
+  assert(drOk, 'connecteur Drive (test/drive-test.js) passe');
+
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });

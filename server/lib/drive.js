@@ -203,7 +203,7 @@ async function readFileText(userId, activityId, fileId) {
   else if (meta.mimeType === GSHEET) text = (await api(t, `/files/${id}/export`, { mimeType: 'text/csv' }, true)).toString('utf8');
   else {
     const buf = await api(t, `/files/${id}`, { alt: 'media' }, true);
-    const r = documenttasks.textFromFile({ fileName: meta.name, mimeType: meta.mimeType, dataUrl: 'data:' + meta.mimeType + ';base64,' + buf.toString('base64') });
+    const r = await documenttasks.textFromFile({ fileName: meta.name, mimeType: meta.mimeType, dataUrl: 'data:' + meta.mimeType + ';base64,' + buf.toString('base64') });
     if (r.unsupported) throw httpError(400, r.unsupported);
     text = r.text;
   }
