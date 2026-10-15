@@ -599,10 +599,10 @@
   $('goalsPage2AddBtn').addEventListener('click', function () { $('goalsAddSheet').classList.remove('hidden'); });
   $('goalsAddSheetClose').addEventListener('click', closeGoalsAddSheet);
   $('goalsAddSheet').addEventListener('click', function (e) { if (e.target === this) closeGoalsAddSheet(); });
-  // Saisie de tâches existante de l'activité : la zone d'Accomplissements (objectifs-accomplissements.js).
+  // Ajout de tâches depuis un document + consigne (objectifs-document-taches.js).
   $('goalsAddTasksBtn').addEventListener('click', function () {
     closeGoalsAddSheet();
-    var p = $('accompPage'); if (p) p.classList.remove('hidden');
+    if (TMT.openDocTasks) TMT.openDocTasks();
   });
   function closeGoalsDiscSheet() { setGoalsPage2Mode(goalsPage2BaseMode); }
   $('goalsDiscSheetClose').addEventListener('click', closeGoalsDiscSheet);

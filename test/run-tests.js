@@ -192,6 +192,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'weekplanner-test.js')], { encoding: 'utf8' }); } catch (e) { wpOk = false; }
   assert(wpOk, 'le planificateur de semaines (test/weekplanner-test.js) passe');
 
+  // Ajout de tâches depuis un document (IA simulée).
+  let dtOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'documenttasks-test.js')], { encoding: 'utf8' }); } catch (e) { dtOk = false; }
+  assert(dtOk, 'ajout de tâches depuis un document (test/documenttasks-test.js) passe');
+
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });

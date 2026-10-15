@@ -1,0 +1,8 @@
+/* Ajouter des tâches depuis un document (Essor) — réutilise .accompPage/.accompBox ; violet = couleur principale. */
+.docTasksShortcuts { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.docTasksShortcut { border: 1px solid #7c5cff; background: transparent; color: inherit; border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.docTasksShortcut:hover { background: rgba(124, 92, 255, .18); }
+.docTasksRow { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border, rgba(127,127,127,.35)); border-radius: 12px; margin-top: 8px; font-size: 14px; }
+.docTasksRow input[type=checkbox] { margin-top: 3px; accent-color: #7c5cff; }
+.docTasksMeta { font-size: 12px; opacity: .7; margin-top: 2px; }
+.docTasksWarn { margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 159, 28, .16); border: 1px solid rgba(255, 159, 28, .5); font-size: 13px; }

@@ -210,6 +210,7 @@ app.use('/api', require('./routes/feedback'));
 // HTML au lieu du flux.
 app.use('/api', require('./routes/calendar'));
 app.use('/api', require('./routes/accomplishments'));
+app.use('/api', require('./routes/documenttasks'));
 // Suggestion quotidienne (21 septembre 2026) — capacité du jour + sélection
 // de tâches, notification matinale déclenchée par
 // server/lib/dailysuggestioncron.js (démarré plus bas). Segment neuf et

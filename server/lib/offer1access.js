@@ -68,9 +68,21 @@ function hasOffer1Access(userId) {
   return hasActiveGrant(userId) || hasActiveOffer1Subscription(userId);
 }
 
+// Essor sur CETTE activité (même règle que GET /activities/:id/offer1) :
+// abonnement actif de l'activité, ou grant actif du propriétaire.
+function activityHasEssor(activityId, userId) {
+  try {
+    const db = require('../db');
+    const act = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(activityId);
+    if (!act) return false;
+    if (db.prepare("SELECT 1 FROM activity_subscriptions WHERE activityId = ? AND status = 'active' LIMIT 1").get(activityId)) return true;
+    return act.ownerId === userId && hasActiveGrant(userId);
+  } catch (e) { return false; }
+}
+
 function requireOffer1Access(req, res, next) {
   if (hasOffer1Access(req.userId)) return next();
   res.status(403).json({ error: 'offer1_required' });
 }
 
-module.exports = { hasOffer1Access, hasActiveGrant, isValidFreeCode, grantAccess, revokeAccess, sha256Hex, hasActiveOffer1Subscription, requireOffer1Access };
+module.exports = { hasOffer1Access, hasActiveGrant, isValidFreeCode, grantAccess, revokeAccess, sha256Hex, hasActiveOffer1Subscription, requireOffer1Access, activityHasEssor };
