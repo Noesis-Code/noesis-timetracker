@@ -2437,4 +2437,12 @@ if (db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'inactive_account_notic
     DROP TABLE inactive_account_notices;`);
 }
 
+// weeklyCapacityMinutes (15 oct. 2026, planificateur de semaines, lot A) :
+// capacite hebdomadaire manuelle de l'utilisateur, toutes activites
+// confondues. NULL = pas de cible manuelle (la valeur par defaut est alors la
+// moyenne chronometree, voir server/lib/weekplanner.js). Additif.
+if (!columnExists('users', 'weeklyCapacityMinutes')) {
+  db.exec('ALTER TABLE users ADD COLUMN weeklyCapacityMinutes INTEGER');
+}
+
 module.exports = db;

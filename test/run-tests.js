@@ -184,6 +184,11 @@ async function main() {
   } catch (e) { refusedOverwrite = true; }
   assert(refusedOverwrite, 'la commande "restore" refuse d\'écraser un fichier destination déjà existant');
 
+  // Planificateur de semaines (lot A) : suite autonome, base temporaire propre.
+  let wpOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'weekplanner-test.js')], { encoding: 'utf8' }); } catch (e) { wpOk = false; }
+  assert(wpOk, 'le planificateur de semaines (test/weekplanner-test.js) passe');
+
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });
