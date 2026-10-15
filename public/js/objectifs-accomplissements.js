@@ -40,15 +40,56 @@
     </div>`);
 
   var sw = $('goalsPage2ModeSwitch');
-  // Accès anticipé : bouton injecté seulement si le serveur confirme l'accès (échec = pas de bouton).
-  if (sw) TMT.api('GET', '/api/offer1/access').then(function (r) {
-    if (!r || r.hasAccess !== true) return;
+  function addAccompBtn() {
+    if (!sw || $('accompOpenBtn')) return;
     var btn = document.createElement('button');
     btn.type = 'button'; btn.id = 'accompOpenBtn'; btn.className = 'periodBtn';
     btn.textContent = '✓ Accompli'; btn.setAttribute('aria-label', 'Accomplissements');
     sw.appendChild(btn);
     btn.addEventListener('click', function () { $('accompPage').classList.remove('hidden'); });
+  }
+  // Accès : bouton « Accompli » seulement si le serveur confirme ; sinon lien « J'ai un code ».
+  if (sw) TMT.api('GET', '/api/offer1/access').then(function (r) {
+    if (!r) return;
+    if (r.hasAccess === true) { addAccompBtn(); return; }
+    var link = document.createElement('button');
+    link.type = 'button'; link.id = 'offer1CodeLink'; link.className = 'accompCodeLink';
+    link.textContent = 'J’ai un code';
+    sw.appendChild(link);
+    link.addEventListener('click', function () { $('offer1CodeMsg').textContent = ''; $('offer1CodeInput').value = ''; $('offer1CodePage').classList.remove('hidden'); });
   }).catch(function () {});
+
+  document.getElementById('content').insertAdjacentHTML('beforeend', `
+    <div id="offer1CodePage" class="accompPage hidden">
+      <div class="activityPageHeader">
+        <span class="activityPageName">J’ai un code</span>
+        <button type="button" class="menuBtn" id="offer1CodeClose" aria-label="Fermer">✕</button>
+      </div>
+      <div class="accompScroll">
+        <p class="hint">Entre ton code d’accès gratuit à l’Offre 1.</p>
+        <div class="accompBox">
+          <div class="accompBoxRow">
+            <input type="text" id="offer1CodeInput" class="offer1CodeInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Code d’accès" aria-label="Code d’accès">
+            <button type="button" id="offer1CodeSend" class="accompCodeOk">Valider</button>
+          </div>
+        </div>
+        <p id="offer1CodeMsg" class="msg"></p>
+      </div>
+    </div>`);
+  $('offer1CodeClose').addEventListener('click', function () { $('offer1CodePage').classList.add('hidden'); });
+  function submitCode() {
+    var code = $('offer1CodeInput').value.trim();
+    if (!code) { $('offer1CodeMsg').textContent = 'Entre un code.'; return; }
+    $('offer1CodeMsg').textContent = 'Vérification…';
+    TMT.api('POST', '/api/offer1/redeem', { code: code }).then(function (r) {
+      if (!r || r.hasAccess !== true) { $('offer1CodeMsg').textContent = 'Erreur. Réessaie.'; return; }
+      $('offer1CodePage').classList.add('hidden');
+      var l = $('offer1CodeLink'); if (l) l.remove();
+      addAccompBtn();
+    }).catch(function (err) { $('offer1CodeMsg').textContent = (err && err.message) || 'Code invalide.'; });
+  }
+  $('offer1CodeSend').addEventListener('click', submitCode);
+  $('offer1CodeInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') submitCode(); });
   $('accompClose').addEventListener('click', function () { $('accompPage').classList.add('hidden'); });
 
   function renderFiles() {
