@@ -506,6 +506,19 @@ router.get('/profile/export', (req, res) => {
   res.json(data);
 });
 
+// 15 oct. 2026 : capacité hebdomadaire (minutes, toutes activités), cible manuelle sinon moyenne chronométrée.
+router.get('/profile/weekly-capacity', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  const c = require('../lib/weekplanner').getWeeklyCapacity(req.userId);
+  if (!c) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json(c);
+});
+router.put('/profile/weekly-capacity', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  try { res.json(require('../lib/weekplanner').setWeeklyCapacity(req.userId, req.body.minutes)); }
+  catch (e) { res.status(e.statusCode || 500).json({ error: e.message }); }
+});
+
 // Correction Sécurité (chantier 1, une fois la session posée — voir
 // noesis-timetracker-securite.md) : cette route renvoyait lastName/phone/
 // email pour N'IMPORTE QUEL id, à n'importe quel appelant. Avec req.userId
@@ -522,18 +535,6 @@ router.get('/profile/:id', (req, res) => {
   res.json({ id: user.id, name: user.name, lastName: isOwner ? (user.lastName || null) : null, phone: isOwner ? (user.phone || null) : null, email: isOwner ? (user.email || null) : null, color: user.color, createdAt: user.createdAt, theme: user.theme, lang: user.lang || DEFAULT_LANG, shareProfile: !!user.shareProfile, avatar: user.avatar || null, contactShareEmail: !!user.contactShareEmail, contactSharePhone: !!user.contactSharePhone, communityNotifyEnabled: !!user.communityNotifyEnabled, ...(isOwner ? { marketingConsent: !!user.marketingConsent, marketingConsentAt: user.marketingConsentAt || null, marketingConsentAsked: !!user.marketingConsentAt, directoryConsent: !!user.directoryConsent, aiNoticeVersion: user.aiNoticeVersion || null, aiNoticeCurrentVersion: AI_NOTICE_VERSION } : {}) });
 });
 
-// 15 oct. 2026 : capacité hebdomadaire (minutes, toutes activités), cible manuelle sinon moyenne chronométrée.
-router.get('/profile/weekly-capacity', (req, res) => {
-  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
-  const c = require('../lib/weekplanner').getWeeklyCapacity(req.userId);
-  if (!c) return res.status(404).json({ error: 'Profil introuvable.' });
-  res.json(c);
-});
-router.put('/profile/weekly-capacity', (req, res) => {
-  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
-  try { res.json(require('../lib/weekplanner').setWeeklyCapacity(req.userId, req.body.minutes)); }
-  catch (e) { res.status(e.statusCode || 500).json({ error: e.message }); }
-});
 // 10 oct. 2026 (trames 2 et 4) : consentement commercial et annuaire de connexion, utilisateur connecté seulement.
 // Déclarées AVANT PUT /profile/:id (sinon « marketing-consent » serait pris pour un :id).
 router.put('/profile/marketing-consent', (req, res) => {
