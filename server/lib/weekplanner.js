@@ -4,6 +4,7 @@
 // - get/setWeeklyCapacity : capacite hebdomadaire par utilisateur (minutes, toutes
 //   activites confondues). Cible manuelle prioritaire, sinon moyenne chronometree.
 
+// NB : les weekKey doivent etre au format zero-rempli YYYY-Www (ex. 2026-W05) : le tri est lexical.
 const AVG_DAYS = 28;
 const MAX_WEEK_MINUTES = 10080;
 

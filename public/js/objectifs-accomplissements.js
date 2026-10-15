@@ -40,13 +40,15 @@
     </div>`);
 
   var sw = $('goalsPage2ModeSwitch');
-  if (sw) {
+  // Accès anticipé : bouton injecté seulement si le serveur confirme l'accès (échec = pas de bouton).
+  if (sw) TMT.api('GET', '/api/offer1/access').then(function (r) {
+    if (!r || r.hasAccess !== true) return;
     var btn = document.createElement('button');
     btn.type = 'button'; btn.id = 'accompOpenBtn'; btn.className = 'periodBtn';
     btn.textContent = '✓ Accompli'; btn.setAttribute('aria-label', 'Accomplissements');
     sw.appendChild(btn);
     btn.addEventListener('click', function () { $('accompPage').classList.remove('hidden'); });
-  }
+  }).catch(function () {});
   $('accompClose').addEventListener('click', function () { $('accompPage').classList.add('hidden'); });
 
   function renderFiles() {
