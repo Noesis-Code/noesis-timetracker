@@ -1,11 +1,24 @@
 // GET /api/offer1/access -> { hasAccess } pour l'utilisateur connecté (le front masque les entrées).
 const express = require('express');
 const { requireAuth } = require('../lib/session');
-const { hasOffer1Access, isValidFreeCode, grantAccess } = require('../lib/offer1access');
+const { hasOffer1Access, hasActiveGrant, isValidFreeCode, grantAccess } = require('../lib/offer1access');
 const router = express.Router();
 
 router.get('/offer1/access', requireAuth, (req, res) => {
   res.json({ hasAccess: hasOffer1Access(req.userId) });
+});
+
+// GET /api/activities/:id/offer1 -> { essor } : « Essor » = Offre 1 de base sur CETTE activité.
+// Vrai si un abonnement actif existe pour l'activité, ou si l'utilisateur a un grant actif ET en est propriétaire.
+// Réservé aux membres de l'activité (403 sinon).
+router.get('/activities/:id/offer1', requireAuth, (req, res) => {
+  const db = require('../db');
+  const id = Number(req.params.id);
+  const act = Number.isInteger(id) && db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(id);
+  const member = act && db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(id, req.userId);
+  if (!member) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
+  const sub = !!db.prepare("SELECT 1 FROM activity_subscriptions WHERE activityId = ? AND status = 'active' LIMIT 1").get(id);
+  res.json({ essor: sub || (act.ownerId === req.userId && hasActiveGrant(req.userId)) });
 });
 
 // POST /api/offer1/redeem { code } : échange un code gratuit contre un droit d'accès.

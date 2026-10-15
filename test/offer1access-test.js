@@ -44,4 +44,24 @@ router._resetFails();
 for (let i = 0; i < 5; i++) assert(call('r1', 'faux' + i).st === 400, 'essai faux ' + (i + 1) + ' : 400');
 assert(call('r1', TEST_CODE).st === 429, '6e essai (même bon code) : 429');
 assert(call('r2', TEST_CODE, '9.9.9.9').st === 200 && hasOffer1Access('r2'), 'autre utilisateur/IP : bon code => accès');
+
+// Route /activities/:id/offer1 (Essor)
+{
+  const db = require('../server/db');
+  ['own', 'mem', 'out', 'sub'].forEach((u) => db.prepare("INSERT INTO users (id, name, createdAt) VALUES (?, ?, datetime('now'))").run(u, u));
+  const mkAct = (name, owner) => { const id = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES (?,?,'')").run(name, owner).lastInsertRowid; db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,?,'#fff','')").run(id, owner); return id; };
+  const a1 = mkAct('A1', 'own'), a2 = mkAct('A2', 'sub');
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,?,'#fff','')").run(a1, 'mem');
+  db.prepare("INSERT INTO activity_subscriptions (activityId, userId, stripeCustomerId, stripeSubscriptionId, stripePriceId, status, createdAt) VALUES (?,?,?,?,?,?,?)").run(a2, 'sub', 'c', 's1', 'p', 'active', '');
+  const lay = router.stack.find((l) => l.route && l.route.path === '/activities/:id/offer1');
+  const essor = (userId, id) => { let st = 200, b = null; lay.route.stack[lay.route.stack.length - 1].handle({ userId, params: { id: String(id) } }, { status(s) { st = s; return this; }, json(x) { b = x; } }); return { st, b }; };
+  assert(essor('own', a1).b.essor === false, 'essor : rien => false');
+  assert(essor('out', a1).st === 403, 'essor : non-membre => 403');
+  assert(essor('sub', a2).b.essor === true, 'essor : abonnement actif => true');
+  grantAccess('own', 'code'); grantAccess('mem', 'code');
+  assert(essor('own', a1).b.essor === true, 'essor : grant du propriétaire => true');
+  assert(essor('mem', a1).b.essor === false, 'essor : grant d\'un simple membre => false');
+  let st401 = 0; lay.route.stack[0].handle({}, { status(s) { st401 = s; return this; }, json() {} }, () => {});
+  assert(st401 === 401, 'essor : sans session => 401');
+}
 process.exit(failed ? 1 : 0);
