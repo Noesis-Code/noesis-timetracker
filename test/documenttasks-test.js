@@ -66,7 +66,26 @@ function call(path_, userId, id, body) {
 
   dt.setCaller(async () => '{"tasks":[]}');
   r = await call('propose', 'own', act, { instruction: 'x', files: [{ fileName: 'a.pdf', mimeType: 'application/pdf', dataUrl: dataUrl('%PDF') }] });
-  assert(r.st === 400 && /PDF/.test(r.b.error), 'PDF : message clair');
+  assert(r.st === 400 && /PDF illisible ou corrompu/.test(r.b.error), 'PDF corrompu : message clair');
+
+  // PDF texte minimal généré
+  const mkPdf = (stream) => {
+    const objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+      '<< /Length ' + stream.length + ' >>\nstream\n' + stream + '\nendstream', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
+    let out = '%PDF-1.4\n'; const offs = [];
+    objs.forEach((o, i) => { offs.push(out.length); out += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
+    const x = out.length;
+    out += 'xref\n0 6\n0000000000 65535 f \n' + offs.map((o) => String(o).padStart(10, '0') + ' 00000 n \n').join('') + 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + x + '\n%%EOF';
+    return out;
+  };
+  const pdfFile = (txt) => ({ fileName: 'a.pdf', mimeType: 'application/pdf', dataUrl: dataUrl(txt, 'application/pdf') });
+  let pr = await dt.textFromFile(pdfFile(mkPdf('BT /F1 18 Tf 20 100 Td (Appeler le client) Tj ET')));
+  assert(pr.text && /Appeler le client/.test(pr.text), 'PDF texte : texte extrait');
+  pr = await dt.textFromFile(pdfFile(mkPdf('')));
+  assert(pr.unsupported && /sans texte lisible \(scan\)/.test(pr.unsupported), 'PDF vide/scan : message clair');
+  pr = await dt.textFromFile(pdfFile('pas un pdf du tout'));
+  assert(pr.unsupported && /illisible ou corrompu/.test(pr.unsupported), 'PDF corrompu (textFromFile) : sans planter');
   r = await call('propose', 'own', act, { instruction: '' });
   assert(r.st === 400, 'consigne vide refusée');
 
@@ -78,7 +97,7 @@ function call(path_, userId, id, body) {
   const local = Buffer.concat([lh, name, comp]);
   const eo = Buffer.alloc(22); eo.writeUInt32LE(0x06054b50, 0); eo.writeUInt16LE(1, 8); eo.writeUInt16LE(1, 10); eo.writeUInt32LE(46 + name.length, 12); eo.writeUInt32LE(local.length, 16);
   const docx = Buffer.concat([local, cd, name, eo]);
-  const t = dt.textFromFile({ fileName: 'a.docx', mimeType: 'application/octet-stream', dataUrl: 'data:application/octet-stream;base64,' + docx.toString('base64') });
+  const t = await dt.textFromFile({ fileName: 'a.docx', mimeType: 'application/octet-stream', dataUrl: 'data:application/octet-stream;base64,' + docx.toString('base64') });
   assert(t.text && t.text.trim() === 'Appeler & planifier', 'docx : texte extrait');
 
   // Accès

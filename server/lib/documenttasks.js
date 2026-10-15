@@ -86,8 +86,41 @@ function docxText(buf) {
   return s;
 }
 
+// PDF texte uniquement (unpdf, pdf.js sans dépendance native). Le contenu reste une donnée.
+const MAX_PDF_PAGES = 40;
+let unpdfMod = null;
+async function pdfText(buf, fileName) {
+  const label = `« ${fileName} »`;
+  let pdf;
+  try {
+    unpdfMod = unpdfMod || require('unpdf');
+    pdf = await unpdfMod.getDocumentProxy(new Uint8Array(buf));
+  } catch (e) {
+    const protectedPdf = e && (e.name === 'PasswordException' || /password/i.test(String(e.message)));
+    return { unsupported: protectedPdf ? `PDF protégé par mot de passe (${label}).` : `PDF illisible ou corrompu (${label}).` };
+  }
+  try {
+    const pages = Math.min(pdf.numPages, MAX_PDF_PAGES);
+    const out = [];
+    let len = 0;
+    for (let i = 1; i <= pages && len <= MAX_DOC_CHARS; i++) {
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      const line = tc.items.map((it) => (it.str || '') + (it.hasEOL ? '\n' : '')).join(' ').replace(/[ \t]+/g, ' ').trim();
+      if (line) { out.push(line); len += line.length; }
+    }
+    const text = out.join('\n\n');
+    if (!text.trim()) return { unsupported: `PDF sans texte lisible (scan) (${label}).` };
+    return { text: text.slice(0, MAX_DOC_CHARS) };
+  } catch (e) {
+    return { unsupported: `PDF illisible ou corrompu (${label}).` };
+  } finally {
+    try { await pdf.destroy(); } catch (e) { /* ignore */ }
+  }
+}
+
 // Renvoie { text } ou { unsupported: 'message' }.
-function textFromFile(att) {
+async function textFromFile(att) {
   const v = validateAttachmentPayload(att || {});
   if (v.error) throw httpError(400, v.error);
   const name = v.fileName.toLowerCase();
@@ -97,21 +130,21 @@ function textFromFile(att) {
     return t == null ? { unsupported: `Impossible de lire « ${v.fileName} » (fichier .docx illisible).` } : { text: t };
   }
   if (/\.pdf$/.test(name) || v.mimeType === 'application/pdf') {
-    return { unsupported: `Les PDF ne sont pas encore lus (« ${v.fileName} »). Enregistre-le en .docx ou .txt, ou colle son texte dans la consigne.` };
+    return pdfText(buf, v.fileName);
   }
   if (/\.(txt|md|markdown|csv)$/.test(name) || /^text\//.test(v.mimeType) || v.mimeType === 'application/json') return { text: buf.toString('utf8') };
-  return { unsupported: `Format non pris en charge (« ${v.fileName} »). Formats lus : .txt, .md, .csv, .docx.` };
+  return { unsupported: `Format non pris en charge (« ${v.fileName} »). Formats lus : .txt, .md, .csv, .docx, .pdf (texte).` };
 }
 
-function documentText(files) {
+async function documentText(files) {
   const list = Array.isArray(files) ? files : [];
   if (list.length > MAX_ATTACHMENTS_PER_NOTE) throw httpError(400, `${MAX_ATTACHMENTS_PER_NOTE} fichiers maximum.`);
   const parts = [], notes = [];
-  list.forEach((f) => {
-    const r = textFromFile(f);
+  for (const f of list) {
+    const r = await textFromFile(f);
     if (r.unsupported) notes.push(r.unsupported);
     else if (r.text.trim()) parts.push(r.text.trim());
-  });
+  }
   if (list.length && !parts.length) throw httpError(400, notes[0] || 'Aucun texte lisible dans les fichiers joints.');
   let text = parts.join('\n\n----\n\n');
   const truncated = text.length > MAX_DOC_CHARS;
@@ -203,7 +236,7 @@ function capacityWarnings(tasks, capacityMinutes) {
 async function propose(userId, activityId, body) {
   const instruction = String((body && body.instruction) || '').trim().slice(0, MAX_INSTRUCTION);
   if (!instruction) throw httpError(400, 'Écris une consigne (ou choisis un raccourci).');
-  const doc = documentText(body && body.files);
+  const doc = await documentText(body && body.files);
   if (!doc.text && !instruction) throw httpError(400, 'Joins un document ou écris une consigne.');
   if (!caller && !classify.configured()) throw httpError(503, "L'IA n'est pas configurée sur ce serveur. Réessaie plus tard.");
   if (!takeRateSlot(userId)) throw httpError(429, 'Limite atteinte : 10 demandes par heure. Réessaie plus tard.');
