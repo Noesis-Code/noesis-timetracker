@@ -184,6 +184,9 @@ async function main() {
   } catch (e) { refusedOverwrite = true; }
   assert(refusedOverwrite, 'la commande "restore" refuse d\'écraser un fichier destination déjà existant');
 
+  try { execFileSync('node', [path.join(__dirname, 'offer1access-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'accès anticipé Offre 1 : tests passés'); }
+  catch (e) { assert(false, 'accès anticipé Offre 1 : tests échoués'); }
+
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });
