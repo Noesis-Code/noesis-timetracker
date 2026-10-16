@@ -132,3 +132,8 @@
 .docTasksFor { color: var(--text-light); }
 .docTasksFor.me { color: #9d84e0; font-weight: 600; }
 .docTasksOther .docTasksChangeBody { opacity: .65; }
+
+.docTasksGroupHead { display: flex; align-items: center; gap: 10px; padding: 10px 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-light); cursor: pointer; }
+.docTasksGroupHead .docTasksMeta { margin-left: auto; font-weight: 400; }
+.docTasksGroupHead input[type="checkbox"]:indeterminate { background: var(--purple); border-color: var(--purple); }
+.docTasksPop > .docTasksPopCard > #docTasksPTasksApply { flex: none; margin-top: 8px; }

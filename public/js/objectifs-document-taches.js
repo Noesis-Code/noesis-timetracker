@@ -67,6 +67,7 @@
         <p id="docTasksChangesHint" class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
         <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div><div id="docTasksChangesList"></div></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
+        <button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn hidden">Ajouter les tâches cochées</button>
         <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
         <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer les cochées</button>
       </div>
@@ -484,15 +485,25 @@
     $('docTasksChangesTasks').classList.toggle('hidden', !tm);
     $('docTasksChangesList').classList.toggle('hidden', tm);
     $('docTasksChangesFind').classList.toggle('hidden', tm);
+    var gidx = [], lastAt = null;
+    changes.forEach(function (c, i) { if (c.createdAt !== lastAt) { gidx.push({ at: c.createdAt, idx: [] }); lastAt = c.createdAt; } gidx[gidx.length - 1].idx.push(i); });
+    var gStart = {}; gidx.forEach(function (g, gi) { gStart[g.idx[0]] = { g: g, gi: gi }; });
     $('docTasksChangesList').innerHTML = changes.length ? changes.map(function (c, i) {
-      return '<div class="docTasksPopRow docTasksChangeRow' + (c.mine ? '' : ' docTasksOther') + '"><input type="checkbox" data-c="' + i + '"' + (c.checked === 0 ? '' : ' checked') + ' aria-label="Appliquer">' +
-        '<div class="docTasksChangeBody"><div class="docTasksChangeWhen">' + esc(whenLabel(c.createdAt)) + (c.forName ? ' · <span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span>' : '') + '</div>' +
+      var head = gStart[i] ? '<label class="docTasksGroupHead"><input type="checkbox" data-g="' + gStart[i].gi + '" aria-label="Tout sélectionner pour ce moment"><span>' + esc(whenLabel(gStart[i].g.at)) + '</span><span class="docTasksMeta">' + gStart[i].g.idx.length + '</span></label>' : '';
+      return head + '<div class="docTasksPopRow docTasksChangeRow' + (c.mine ? '' : ' docTasksOther') + '"><input type="checkbox" data-c="' + i + '"' + (c.checked === 0 ? '' : ' checked') + ' aria-label="Appliquer">' +
+        '<div class="docTasksChangeBody">' + (c.forName ? '<div class="docTasksChangeWhen"><span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span></div>' : '') +
         '<div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
         '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>' +
         (c.reason ? '<div class="docTasksMeta">' + esc(c.reason) + '</div>' : '') + '</div>' +
         '<button type="button" class="historyRowIconBtn danger" data-d="' + i + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
     }).join('') : '<p class="docTasksMeta">Rien à valider.</p>';
     var ap = $('docTasksChangesApply'); ap.classList.toggle('hidden', tm || !changes.length);
+    gidx.forEach(function (g, gi) {
+      var gb = $('docTasksChangesList').querySelector('input[data-g="' + gi + '"]'); if (!gb) return;
+      var on = g.idx.filter(function (i) { return changes[i].checked !== 0; }).length;
+      gb.checked = on === g.idx.length; gb.indeterminate = on > 0 && on < g.idx.length;
+    });
+    var pa = $('docTasksPTasksApply'); if (pa) pa.classList.toggle('hidden', !tm || !ptasks.length);
   }
   // Nouvelles tâches proposées par la surveillance Drive (partie « Nouvelles tâches » de la même fenêtre).
   var ptasks = [], pcats = [];
@@ -510,7 +521,7 @@
       return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-pt="' + i + '" checked aria-label="Ajouter">'
         + '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(t.title) + '</div><div class="docTasksMeta">' + esc(meta) + '</div>' + pick + '</div>'
         + '<button type="button" class="historyRowIconBtn danger" data-pd="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
-    }).join('') + '<button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button>';
+    }).join('');
   }
   function loadPTasks() {
     return dApi('GET', '/api/drive/sync/pending').then(function (r) {
@@ -534,16 +545,16 @@
   $('docTasksChangesTasks').addEventListener('click', function (e) {
     var d = e.target.closest('button[data-pd]');
     if (d) { var t = ptasks[Number(d.getAttribute('data-pd'))]; if (t) resolvePTasks([{ id: t.id, key: t.key, checked: false }], false); return; }
-    if (e.target.closest('#docTasksPTasksApply')) {
-      var items = [], any = false;
-      Array.prototype.forEach.call($('docTasksChangesTasks').querySelectorAll('input[data-pt]'), function (cb) {
-        var t = ptasks[Number(cb.getAttribute('data-pt'))]; if (!t) return;
-        if (cb.checked) any = true;
-        items.push({ id: t.id, key: t.key, checked: cb.checked });
-      });
-      if (!any) { cToast('Coche au moins une tâche.'); return; }
-      resolvePTasks(items, true);
-    }
+  });
+  $('docTasksPTasksApply').addEventListener('click', function () {
+    var items = [], any = false;
+    Array.prototype.forEach.call($('docTasksChangesTasks').querySelectorAll('input[data-pt]'), function (cb) {
+      var t = ptasks[Number(cb.getAttribute('data-pt'))]; if (!t) return;
+      if (cb.checked) any = true;
+      items.push({ id: t.id, key: t.key, checked: cb.checked });
+    });
+    if (!any) { cToast('Coche au moins une tâche.'); return; }
+    resolvePTasks(items, true);
   });
   $('docTasksChangesTasks').addEventListener('change', function (e) {
     var sel = e.target.closest('select[data-pc]'); if (!sel) return;
@@ -570,6 +581,14 @@
   });
   // Coché/décoché mémorisé côté serveur (suit l'utilisateur d'un appareil à l'autre).
   $('docTasksChangesList').addEventListener('change', function (e) {
+    var gb = e.target.closest('input[data-g]');
+    if (gb) { // un clic : toute la section (même date et heure) cochée ou décochée
+      var v0 = gb.checked ? 1 : 0, ch = [];
+      var gi = Number(gb.getAttribute('data-g')), seen = -1, last = null;
+      changes.forEach(function (c) { if (c.createdAt !== last) { seen += 1; last = c.createdAt; } if (seen === gi) ch.push(c); });
+      Promise.all(ch.map(function (c) { var prev = c.checked === 0 ? 0 : 1; c.checked = v0; return cApi('POST', '/check', { id: c.id, checked: !!v0 }).catch(function () { c.checked = prev; }); })).then(renderChanges);
+      return;
+    }
     var cb = e.target.closest('input[data-c]'); if (!cb) return;
     var c = changes[Number(cb.getAttribute('data-c'))]; if (!c) return;
     var v = cb.checked ? 1 : 0, prev = c.checked === 0 ? 0 : 1; c.checked = v;
