@@ -130,6 +130,7 @@ function deleteYear(activityId, year) {
     const lo = k * PERIODS_PER_CYCLE + 1, hi = lo + PERIODS_PER_CYCLE - 1;
     const ids = db.prepare('SELECT id FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber BETWEEN ? AND ?').all(activityId, pl.category, lo, hi).map((r) => r.id);
     ids.forEach((id) => {
+      detachCarryLinks([id]);
       db.prepare('DELETE FROM goal_weekly WHERE periodId = ?').run(id);
       db.prepare('DELETE FROM goal_periods WHERE id = ?').run(id);
     });
@@ -616,6 +617,17 @@ function renameCategory(activityId, key, label, description) {
 //    retrait gèle EN CASCADE tous ses secteurs actifs — « Retrait : retirer
 //    un pôle gèle automatiquement (cascade) tous ses secteurs actifs »,
 //    « masque, ne supprime pas » comme partout ailleurs dans l'app.
+// 16 oct. 2026 : goal_weekly.carriedOverFromId/carriedToId référencent goal_weekly(id) SANS cascade.
+// Supprimer des périodes dont un objectif hebdo a été reporté depuis/vers une période conservée
+// échouait (FOREIGN KEY constraint failed → « Erreur serveur » à la suppression d'un secteur).
+// On détache d'abord ces liens (les objectifs restants gardent leur texte, seul le renvoi disparaît).
+function detachCarryLinks(periodIds) {
+  if (!periodIds || !periodIds.length) return;
+  const ph = periodIds.map(() => '?').join(',');
+  db.prepare(`UPDATE goal_weekly SET carriedToId = NULL WHERE carriedToId IN (SELECT id FROM goal_weekly WHERE periodId IN (${ph}))`).run(...periodIds);
+  db.prepare(`UPDATE goal_weekly SET carriedOverFromId = NULL WHERE carriedOverFromId IN (SELECT id FROM goal_weekly WHERE periodId IN (${ph}))`).run(...periodIds);
+}
+
 function removeCategory(activityId, key, opts) {
   const existing = ensureDefaultCategory(activityId);
   const row = existing.find((r) => r.key === key);
@@ -635,6 +647,7 @@ function removeCategory(activityId, key, opts) {
       const today = todayLocal();
       const del = db.prepare('SELECT id, startDate FROM goal_periods WHERE activityId = ? AND category = ? AND endDate >= ?').all(activityId, key, today);
       const from = del.length ? del.map((d) => d.startDate).sort()[0] : today;
+      detachCarryLinks(del.map((d) => d.id));
       del.forEach((d) => db.prepare('DELETE FROM goal_periods WHERE id = ?').run(d.id));
       db.prepare('DELETE FROM goal_year_goals WHERE activityId = ? AND category = ? AND year > ?').run(activityId, key, currentYear());
       const result = removeCategoryRows(activityId, key, row, existing);
@@ -704,6 +717,7 @@ function secteurRemovalInfo(activityId, key) {
 
 function purgeCategoryPlanning(activityId, keys) {
   const ph = keys.map(() => '?').join(',');
+  detachCarryLinks(db.prepare(`SELECT id FROM goal_periods WHERE activityId = ? AND category IN (${ph})`).all(activityId, ...keys).map((r) => r.id));
   db.prepare(`DELETE FROM goal_periods WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
   db.prepare(`DELETE FROM goal_year_goals WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
   db.prepare(`DELETE FROM activity_goal_plans WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
