@@ -48,7 +48,7 @@
         <div class="docTasksDriveHead"><strong>Tâches ajoutées</strong><button type="button" class="docTasksX" id="docTasksPopClose" aria-label="Fermer">✕</button></div>
         <div id="docTasksPopList" class="docTasksPopList"></div>
         <div id="docTasksPopToast" class="docTasksPopToast"></div>
-        <button type="button" id="docTasksPopOk" class="docTasksApplyBtn btnBrique">OK</button>
+        <button type="button" id="docTasksPopOk" class="docTasksApplyBtn">OK</button>
       </div>
     </div>
     <div id="docTasksChangesPop" class="docTasksPop hidden" role="dialog" aria-label="Modifications proposées">
@@ -57,8 +57,8 @@
         <p class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
         <div id="docTasksChangesList" class="docTasksPopList"></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
-        <button type="button" id="docTasksChangesFind" class="docTasksLink btnBrique">Chercher de nouvelles modifications</button>
-        <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn btnBrique">Appliquer les cochées</button>
+        <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
+        <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer les cochées</button>
       </div>
     </div>`);
 
@@ -142,24 +142,24 @@
       h.innerHTML = '<div class="docTasksDriveRow docTasksDriveOff" aria-disabled="true">Connecter Drive <span class="goalsAddSoon">Bientôt</span></div>'; return;
     }
     if (!s.connected) {
-      html = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn btnBrique" data-d="connect">Connecter Drive</button>'
+      html = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button>'
         + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers d’UN SEUL dossier que tu choisis, uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois le dossier choisi, TiMeTracker le surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
     } else if (driveView === 'folders') {
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="docTasksX" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
         + (driveList.length ? driveList.map(function (f) { return '<button type="button" class="docTasksPick" data-d="folder" data-id="' + esc(f.id) + '">📁 ' + esc(f.name) + '</button>'; }).join('') : '<p class="hint">Aucun dossier trouvé.</p>') + '</div>';
     } else if (!s.folderChosen) {
-      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Drive connecté</span></div><button type="button" class="docTasksDriveBtn btnBrique" data-d="pickFolder">Choisir un dossier</button></div>';
+      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Drive connecté</span></div><button type="button" class="docTasksDriveBtn" data-d="pickFolder">Choisir un dossier</button></div>';
     } else {
-      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>📁 ' + esc(s.folderName || 'Dossier') + '</span><button type="button" class="docTasksLink btnBrique" data-d="pickFolder">Changer</button></div>'
+      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>📁 ' + esc(s.folderName || 'Dossier') + '</span><button type="button" class="docTasksLink" data-d="pickFolder">Changer</button></div>'
         + (driveFile ? '<span class="docTasksChip">' + esc(driveFile.name) + ' <button type="button" data-d="unpick" aria-label="Retirer">✕</button></span>'
           : (driveList.length ? driveList.map(function (f) { return '<button type="button" class="docTasksPick" data-d="file" data-id="' + esc(f.id) + '">' + esc(f.name) + '</button>'; }).join('') : '<p class="hint">Aucun fichier lisible dans ce dossier.</p>')) + '</div>';
     }
-    if (s.connected && s.needsReconnect) html += '<div class="docTasksWarn">L’accès à Drive a été révoqué ou a expiré : la surveillance est en pause. <button type="button" class="docTasksLink btnBrique" data-d="connect">Reconnecter Drive</button></div>';
+    if (s.connected && s.needsReconnect) html += '<div class="docTasksWarn">L’accès à Drive a été révoqué ou a expiré : la surveillance est en pause. <button type="button" class="docTasksLink" data-d="connect">Reconnecter Drive</button></div>';
     if (driveErr) html += '<p class="msg">' + esc(driveErr) + '</p>';
     if (s.connected) {
       html += driveView === 'confirm'
-        ? '<div class="docTasksConfirm">Déconnecter Drive de cette activité ? <button type="button" class="docTasksLink btnBrique" data-d="disconnectYes">Déconnecter</button> <button type="button" class="docTasksLink btnBrique" data-d="disconnectNo">Annuler</button></div>'
-        : '<button type="button" class="docTasksLink btnBrique" data-d="disconnect">Déconnecter Drive</button>';
+        ? '<div class="docTasksConfirm">Déconnecter Drive de cette activité ? <button type="button" class="docTasksLink" data-d="disconnectYes">Déconnecter</button> <button type="button" class="docTasksLink" data-d="disconnectNo">Annuler</button></div>'
+        : '<button type="button" class="docTasksLink" data-d="disconnect">Déconnecter Drive</button>';
     }
     h.innerHTML = html;
   }
@@ -206,11 +206,11 @@
     var h = $('docTasksSync'), s = syncSt;
     if (!s) { h.innerHTML = ''; return; }
     var html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Surveillance du dossier</span></div>';
-    if (s.pendingCount) html += '<button type="button" class="docTasksPill btnBrique" data-s="pending">' + s.pendingCount + ' nouvelle' + (s.pendingCount > 1 ? 's' : '') + ' tâche' + (s.pendingCount > 1 ? 's' : '') + ' proposée' + (s.pendingCount > 1 ? 's' : '') + '</button>';
+    if (s.pendingCount) html += '<button type="button" class="docTasksPill" data-s="pending">' + s.pendingCount + ' nouvelle' + (s.pendingCount > 1 ? 's' : '') + ' tâche' + (s.pendingCount > 1 ? 's' : '') + ' proposée' + (s.pendingCount > 1 ? 's' : '') + '</button>';
     html += '<label class="docTasksCheck"><input type="checkbox" id="docTasksAuto"' + (s.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
       + '<label class="docTasksMeta" for="docTasksInstr">Consigne permanente (facultative)</label>'
       + '<textarea id="docTasksInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(s.defaultInstruction) + '">' + esc(s.instruction === s.defaultInstruction ? '' : s.instruction) + '</textarea>'
-      + '<div class="docTasksDriveHead"><button type="button" class="docTasksLink btnBrique" data-s="save">Enregistrer</button><button type="button" class="docTasksLink btnBrique" data-s="run">Synchroniser maintenant</button></div>'
+      + '<div class="docTasksDriveHead"><button type="button" class="docTasksLink" data-s="save">Enregistrer</button><button type="button" class="docTasksLink" data-s="run">Synchroniser maintenant</button></div>'
       + '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
     if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
     if (syncMsg) html += '<p class="msg">' + esc(syncMsg) + '</p>';
@@ -267,7 +267,7 @@
   }
   function toast(t, undo) {
     var h = $('docTasksPopToast'); clearTimeout(popTimer);
-    h.innerHTML = esc(t) + ' <button type="button" class="docTasksLink btnBrique" id="docTasksPopUndo">Annuler</button>';
+    h.innerHTML = esc(t) + ' <button type="button" class="docTasksLink" id="docTasksPopUndo">Annuler</button>';
     $('docTasksPopUndo').addEventListener('click', function () { clearTimeout(popTimer); h.innerHTML = ''; undo(); });
     popTimer = setTimeout(function () { h.innerHTML = ''; }, 6000);
   }
@@ -337,7 +337,7 @@
     var warn = (r.warnings || []).map(function (w) {
       return '<div class="docTasksWarn">Attention : ' + weekLabel(w.week) + ', ' + w.minutes + ' min proposées pour une capacité de ' + w.capacityMinutes + ' min. Décoche des tâches ou garde-les en connaissance de cause.</div>';
     }).join('');
-    host.innerHTML = warn + html + '<button type="button" id="docTasksApply" class="docTasksApplyBtn btnBrique">Ajouter les tâches cochées</button>';
+    host.innerHTML = warn + html + '<button type="button" id="docTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button>';
     $('docTasksApply').addEventListener('click', apply);
     Array.prototype.forEach.call(host.querySelectorAll('select[data-c]'), function (sel) {
       sel.addEventListener('change', function () {

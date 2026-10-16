@@ -28,20 +28,20 @@
 .docTasksDriveOff { opacity: 0.6; cursor: default; }
 /* Zone libre = bulle de la Page 1 (.activityGoalsCategoryAutoTaskBubble + contour animé) ; trombone .chatAttachBtn ; envoi .btnBrique. */
 #docTasksBubble textarea { padding: 14px 12px 60px 12px; text-align: left; }
-#docTasksBubble #docTasksSend { top: auto; bottom: 8px; right: 8px; transform: none; height: 40px; padding: 0 18px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 15px; font-weight: 600; line-height: 1; }
+#docTasksBubble #docTasksSend { top: auto; bottom: 8px; right: 8px; transform: none; height: 36px; padding: 0 18px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font: inherit; font-size: 15px; font-weight: 600; line-height: 1; }
 #docTasksBubble .chatAttachBtn { z-index: 1; left: auto; right: 104px; top: auto; bottom: 13px; transform: none; }
 #docTasksBubble .iconBtn:disabled { opacity: 0.45; cursor: default; }
 .docTasksFilesBox { display: flex; flex-wrap: wrap; gap: 6px; }
 .docTasksChip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(124, 92, 255, .18); margin-top: 6px; }
 .docTasksChip button { background: none; border: 0; color: inherit; cursor: pointer; }
-.docTasksApplyBtn { margin-top: 14px; width: 100%; padding: 12px; border: 0; border-radius: 14px; font: inherit; font-weight: 600; cursor: pointer; background: var(--purple); color: #fff; }
+.docTasksApplyBtn { margin-top: 14px; width: 100%; padding: 12px; border: 0; border-radius: 14px; font: inherit; font-weight: 600; cursor: pointer; background: #C2694A; color: #fff; }
 .docTasksDrive { margin-bottom: 2px; }
 .docTasksDriveHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.docTasksDriveBtn { width: 100%; padding: 10px; border: 0; border-radius: 12px; background: var(--purple); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.docTasksDriveBtn { width: 100%; padding: 10px; border: 0; border-radius: 12px; background: #C2694A; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .docTasksConsent { font-size: 12px; opacity: .75; margin: 8px 0 0; line-height: 1.4; }
 .docTasksPick { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
 .docTasksPick:hover { background: rgba(124, 92, 255, .18); }
-.docTasksLink { background: none; border: 0; color: var(--purple); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
+.docTasksLink { background: none; border: 0; color: #E08A69; font: inherit; font-size: 13px; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
 .docTasksX { background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 2px 6px; }
 .docTasksConfirm { font-size: 13px; margin: 4px 0 10px; }
 /* Surveillance du dossier Drive + pop-up des tâches ajoutées (sombre seulement, même verre/halo). */
@@ -50,7 +50,7 @@
 .docTasksCheck { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; }
 .docTasksCheck input { margin-top: 3px; accent-color: #7c5cff; }
 .docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
-.docTasksPill { display: inline-block; margin-bottom: 6px; padding: 6px 12px; border: 0; border-radius: 999px; background: var(--purple); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.docTasksPill { display: inline-block; margin-bottom: 6px; padding: 6px 12px; border: 0; border-radius: 999px; background: #C2694A; color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .docTasksPop { position: fixed; inset: 0; z-index: 103; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .55); }
 .docTasksPop.hidden { display: none; }
 .docTasksPopCard { width: 100%; max-width: 440px; max-height: 80vh; display: flex; flex-direction: column; padding: 14px; border-radius: 18px; color: var(--text);
@@ -69,12 +69,6 @@
 .docTasksChangeDiff { font-size: 14px; overflow-wrap: anywhere; }
 .docTasksChangeOld { opacity: .6; text-decoration: line-through; }
 .docTasksChangeNew { font-weight: 600; }
-/* 16 oct. 2026 : boutons de CETTE page = orange brique (.btnBrique : contour, texte, fond transparent). Le violet reste la couleur du reste de l'app. */
-.docTasksWin .btnBrique, .docTasksPop .btnBrique { cursor: pointer; text-decoration: none; }
-.docTasksApplyBtn.btnBrique, .docTasksDriveBtn.btnBrique { font-weight: 600; }
-.docTasksPill.btnBrique { font-weight: 600; }
-.docTasksLink.btnBrique { padding: 6px 12px; border-radius: 999px; font-size: 13px; margin: 2px 0; }
-.docTasksWin .btnBrique:disabled, .docTasksPop .btnBrique:disabled { opacity: .45; cursor: default; }
 /* 16 oct. 2026 : sections Drive / surveillance / « Modifications proposées » = transparentes (contour fin, sans fond ni flou ; le halo de la page reste visible). */
 #docTasksDrive .docTasksDriveRow, #docTasksSync .docTasksDriveRow, #docTasksChangesBtn,
 #docTasksChangesPop .docTasksPopCard {
