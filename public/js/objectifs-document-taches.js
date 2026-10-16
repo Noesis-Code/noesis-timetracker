@@ -473,7 +473,7 @@
       return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-pt="' + i + '" checked aria-label="Ajouter">'
         + '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(t.title) + '</div><div class="docTasksMeta">' + esc(meta) + '</div>' + pick + '</div>'
         + '<button type="button" class="historyRowIconBtn danger" data-pd="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
-    }).join('') + '<button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button><div class="docTasksCancelRow"><button type="button" id="docTasksPTasksCancel" class="docTasksLink">Annuler</button></div>';
+    }).join('') + '<button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button>';
   }
   function loadPTasks() {
     return dApi('GET', '/api/drive/sync/pending').then(function (r) {
@@ -497,7 +497,6 @@
   $('docTasksChangesTasks').addEventListener('click', function (e) {
     var d = e.target.closest('button[data-pd]');
     if (d) { var t = ptasks[Number(d.getAttribute('data-pd'))]; if (t) resolvePTasks([{ id: t.id, key: t.key, checked: false }], false); return; }
-    if (e.target.closest('#docTasksPTasksCancel')) { $('docTasksChangesPop').classList.add('hidden'); return; }
     if (e.target.closest('#docTasksPTasksApply')) {
       var items = [], any = false;
       Array.prototype.forEach.call($('docTasksChangesTasks').querySelectorAll('input[data-pt]'), function (cb) {
