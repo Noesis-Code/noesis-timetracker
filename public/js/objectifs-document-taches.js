@@ -185,6 +185,7 @@
         + '<button type="button" class="docTasksLink docTasksDiscLink" data-d="disconnect">Déconnecter Drive</button></div>'
         + (foldersOpen && n ? '<div id="docTasksFoldersBody" class="docTasksFoldersInline"></div>' : '');
   }
+  var FOLDER_ICON = '<svg class="docTasksFolderIco" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
   var PENCIL_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
   function renderFoldersPop() {
     var s = driveSt || {}, fl = s.folders || [];
@@ -192,15 +193,14 @@
     $('docTasksFoldersBody').innerHTML = (fl.length ? '<div class="docTasksFolderList">' + fl.map(function (f) {
       return folderRemoveId === f.id
         ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-d="folderRemoveYes" data-id="' + esc(f.id) + '">Retirer</button> <button type="button" class="docTasksLink" data-d="folderRemoveNo">Annuler</button></div>'
-        : '<div class="docTasksFolderRow"><span class="docTasksFolderName">📁 ' + esc(f.name || 'Dossier') + (f.paused ? ' <span class="docTasksMeta">(en pause)</span>' : '') + '</span>'
-          + '<button type="button" class="historyRowIconBtn goalDescEditBtn docTasksFolderIconBtn" data-d="folderEdit" data-id="' + esc(f.id) + '" aria-label="Modifier les réglages de ce dossier" title="Modifier">' + PENCIL_ICON + '</button>'
-          + '<button type="button" class="historyRowIconBtn danger docTasksFolderIconBtn" data-d="folderRemove" data-id="' + esc(f.id) + '" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller">' + TRASH_ICON + '</button></div>';
+        : '<div class="docTasksFolderRow"><span class="docTasksFolderName">' + FOLDER_ICON + esc(f.name || 'Dossier') + (f.paused ? ' <span class="docTasksMeta">(en pause)</span>' : '') + '</span>'
+          + '<button type="button" class="historyRowIconBtn goalDescEditBtn docTasksFolderIconBtn" data-d="folderEdit" data-id="' + esc(f.id) + '" aria-label="Modifier les réglages de ce dossier" title="Modifier">' + PENCIL_ICON + '</button></div>';
     }).join('') + '</div>' : '<p class="hint">Aucun dossier connecté.</p>')
       + (fl.length < 10 ? '<div><button type="button" class="docTasksLink" data-d="pickFolder">Ajouter un dossier</button></div>' : '')
       + (driveFile ? '' : (driveList.length ? '<div class="docTasksMeta" style="margin-top:10px">Lire un fichier avec l’IA</div>' + driveList.slice(0, 60).map(function (f) { return '<button type="button" class="docTasksPick" data-d="file" data-id="' + esc(f.id) + '">' + esc(f.path || f.name) + '</button>'; }).join('') : ''))
       + (filesErr ? '<p class="msg">' + esc(filesErr) + '</p>' : '');
   }
-  var fsId = null, fsMsg = '';
+  var fsId = null, fsMsg = '', fsConfirm = false;
   function renderFolderSet() {
     var f = ((driveSt && driveSt.folders) || []).filter(function (x) { return x.id === fsId; })[0]; if (!f) return;
     var dflt = (syncSt && syncSt.defaultInstruction) || 'Extrais toutes les tâches écrites dans le document';
@@ -209,18 +209,28 @@
       + '<label class="docTasksCheck"><input type="checkbox" id="docTasksFsAuto"' + (f.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
       + '<label class="docTasksMeta" for="docTasksFsInstr">Consigne permanente (facultative)</label>'
       + '<textarea id="docTasksFsInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(dflt.replace(/[\s.…]+$/, '') + '…') + '">' + esc(f.instruction) + '</textarea>'
-      + '<button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button>'
+      + (fsConfirm
+        ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-f="removeYes">Retirer</button> <button type="button" class="docTasksLink" data-f="removeNo">Annuler</button></div>'
+        : '<div class="docTasksFsActions"><button type="button" class="historyRowIconBtn danger docTasksFolderIconBtn" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller">' + TRASH_ICON + '</button><button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
       + '<div class="docTasksCancelRow"><button type="button" class="docTasksLink" data-f="run">Synchroniser maintenant</button></div>'
       + (fsMsg ? '<p class="msg">' + esc(fsMsg) + '</p>' : '');
   }
-  function openFolderSet(id) { fsId = id; fsMsg = ''; renderFolderSet(); $('docTasksFolderSetPop').classList.remove('hidden'); }
+  function openFolderSet(id) { fsId = id; fsMsg = ''; fsConfirm = false; renderFolderSet(); $('docTasksFolderSetPop').classList.remove('hidden'); }
   function closeFolderSet() { $('docTasksFolderSetPop').classList.add('hidden'); fsId = null; }
   $('docTasksFsClose').addEventListener('click', closeFolderSet);
   $('docTasksFsBody').addEventListener('click', function (e) {
     var b = e.target.closest('[data-f]'); if (!b || !fsId) return;
     var a = b.getAttribute('data-f');
     function fail(err) { fsMsg = (err && err.message) || 'Erreur.'; renderFolderSet(); }
-    if (a === 'save') {
+    if (a === 'remove') { fsConfirm = true; renderFolderSet();
+    } else if (a === 'removeNo') { fsConfirm = false; renderFolderSet();
+    } else if (a === 'removeYes') {
+      dApi('POST', '/api/drive/folder/remove', { folderId: fsId }).then(function (r) {
+        fsConfirm = false; driveSt.folders = r.folders || []; driveSt.folderChosen = driveSt.folders.length > 0; driveSt.folderName = driveSt.folders.length ? driveSt.folders[0].name : null;
+        driveFile = null; driveList = []; closeFolderSet(); renderDrive();
+        if (driveSt.folderChosen) { loadSync(); } else { syncSt = null; renderSync(); }
+      }).catch(fail);
+    } else if (a === 'save') {
       dApi('POST', '/api/drive/folder/settings', { folderId: fsId, mode: $('docTasksFsAuto').checked ? 'auto' : 'propose', instruction: $('docTasksFsInstr').value, paused: !$('docTasksFsActive').checked })
         .then(function (r) { driveSt.folders = r.folders || driveSt.folders; syncSt = r; renderSync(); renderFoldersPop(); closeFolderSet(); }).catch(fail);
     } else if (a === 'run') {

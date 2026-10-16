@@ -104,3 +104,7 @@
 .docTasksFolderIconBtn { width: 44px; height: 44px; }
 .docTasksFolderRow { gap: 0; }
 .docTasksFolderName { flex: 1 1 auto; }
+
+.docTasksFolderIco { vertical-align: -3px; margin-right: 8px; flex: none; }
+.docTasksFsActions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.docTasksFsActions .docTasksApplyBtn { margin-top: 0; flex: 1 1 auto; width: auto; }
