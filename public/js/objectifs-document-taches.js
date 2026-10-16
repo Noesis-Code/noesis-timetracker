@@ -135,6 +135,17 @@
     dApi('GET', '/api/drive/files').then(function (r) { driveList = r.files || []; renderDrive(); })
       .catch(function (e) { driveErr = (e && e.message) || 'Erreur Drive.'; renderDrive(); });
   }
+  var folderQuery = '';
+  function norm(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
+  // Propositions : dossiers dont le nom commence par ce qui est écrit (rien tant que rien n'est écrit).
+  function renderFolderSug() {
+    var box = $('docTasksFolderSug'); if (!box) return;
+    var q = norm(folderQuery);
+    if (!q) { box.innerHTML = '<p class="hint">Écris les premières lettres du nom.</p>'; return; }
+    var m = driveList.filter(function (f) { return norm(f.name).indexOf(q) === 0; }).slice(0, 8);
+    box.innerHTML = m.length ? m.map(function (f) { return '<button type="button" class="docTasksPick" data-d="folder" data-id="' + esc(f.id) + '">📁 ' + esc(f.name) + '</button>'; }).join('')
+      : '<p class="hint">' + (driveList.length ? 'Aucun dossier ne commence par ces lettres.' : 'Chargement…') + '</p>';
+  }
   function renderDrive() {
     var h = $('docTasksDrive'), s = driveSt, html = '';
     if (!s) { h.innerHTML = ''; return; }
@@ -146,7 +157,8 @@
         + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers d’UN SEUL dossier que tu choisis, uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois le dossier choisi, TiMeTracker le surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
     } else if (driveView === 'folders') {
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="docTasksX" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
-        + (driveList.length ? driveList.map(function (f) { return '<button type="button" class="docTasksPick" data-d="folder" data-id="' + esc(f.id) + '">📁 ' + esc(f.name) + '</button>'; }).join('') : '<p class="hint">Aucun dossier trouvé.</p>') + '</div>';
+        + '<input type="text" id="docTasksFolderQ" class="docTasksInstr" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris le nom du dossier…" value="' + esc(folderQuery) + '">'
+        + '<div id="docTasksFolderSug"></div></div>';
     } else if (!s.folderChosen) {
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Drive connecté</span></div><button type="button" class="docTasksDriveBtn" data-d="pickFolder">Choisir un dossier</button></div>';
     } else {
@@ -162,6 +174,9 @@
         : '<button type="button" class="docTasksLink" data-d="disconnect">Déconnecter Drive</button>';
     }
     h.innerHTML = html;
+    if (!s.configured || !s.connected || driveView !== 'folders') return;
+    var q = $('docTasksFolderQ');
+    if (q) { q.addEventListener('input', function () { folderQuery = q.value; renderFolderSug(); }); renderFolderSug(); q.focus(); }
   }
   $('docTasksDrive').addEventListener('click', function (e) {
     var b = e.target.closest('[data-d]'); if (!b) return;
@@ -171,7 +186,7 @@
     if (d === 'connect') {
       dApi('GET', '/api/drive/connect').then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
     } else if (d === 'pickFolder') {
-      driveView = 'folders'; driveList = []; renderDrive();
+      driveView = 'folders'; driveList = []; folderQuery = ''; renderDrive();
       dApi('GET', '/api/drive/folders').then(function (r) { driveList = r.folders || []; renderDrive(); }).catch(fail);
     } else if (d === 'closeFolders') {
       driveView = 'main'; driveList = []; renderDrive(); if (driveSt.folderChosen) loadFiles();
