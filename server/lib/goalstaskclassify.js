@@ -459,7 +459,8 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
       const placeOut = {};
       if (!skipAutoPlace) {
         try {
-          placedDate = goalscaptureplace.placeCaptureDefault(userId, activityId, item.categoryKey, item.id, label, { out: placeOut, noAssign: absence, fallbackWho: opts && opts.aiMode === 'autonome' ? userId : null });
+          const pre = await goalscaptureplace.precomputeObjectiveMatch(userId, activityId, item.categoryKey, label);
+          placedDate = goalscaptureplace.placeCaptureDefault(userId, activityId, item.categoryKey, item.id, label, { out: placeOut, pre, noAssign: absence, fallbackWho: opts && opts.aiMode === 'autonome' ? userId : null });
         } catch (e) {
           // Jamais bloquant pour la capture elle-même — la tâche reste
           // simplement non datée, visible dans sa catégorie comme toute

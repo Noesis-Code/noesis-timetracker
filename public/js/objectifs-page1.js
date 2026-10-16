@@ -1340,7 +1340,9 @@
         var wl = wd.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' }).replace('.', '');
         var gt = String(r.dueWhy.goalText || '');
         if (gt.length > 60) gt = gt.slice(0, 57) + '…';
-        whyLine.textContent = t('Suggéré') + ' : ' + t('semaine du') + ' ' + wl + ', ' + t('objectif') + ' « ' + gt + ' »';
+        var wn = r.dueWhy.weekNumber ? ' (' + t('semaine') + ' ' + r.dueWhy.weekNumber + ')' : '';
+        var rs = String(r.dueWhy.reason || '');
+        whyLine.textContent = t('Suggéré') + ' : ' + t('semaine du') + ' ' + wl + wn + ', ' + t('objectif') + ' « ' + gt + ' »' + (rs ? ' — ' + rs : '');
         box.appendChild(whyLine);
       }
 
