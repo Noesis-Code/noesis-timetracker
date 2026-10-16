@@ -79,7 +79,10 @@
             <small class="offer1PromoSub">20 $/mois par activité · résiliable à tout moment</small>
             <div id="offer1SubscribedList" class="activitiesList"></div>
             <p id="offer1SubscribedEmptyHint" class="hint hidden">Aucun abonnement actif pour l'instant.</p>
-            <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn" disabled aria-disabled="true">Découvrir l'Offre 1</button>
+            <div class="offer1PromoActions">
+              <button type="button" id="offer1CheckoutOpenBtn" class="offer1PromoBtn" disabled aria-disabled="true">Découvrir l'Offre 1</button>
+              <button type="button" id="offer1CodeLink" class="offer1PromoBtn offer1PromoBtnGrey hidden">J’ai un code</button>
+            </div>
           </div>
         </div>
 
@@ -445,7 +448,7 @@
       var weekIndex = weekIndexForDate(period, dateValue);
       var weekly = (period.weeklies || []).filter(function (w) { return w.weekIndex === weekIndex; })[0];
       goalsPreview.textContent = [
-        t('Période') + ' ' + period.periodNumber + ' · ' + t('Semaine') + ' ' + weekIndex,
+        t('Période') + ' ' + period.periodNumber + ' · ' + t('Semaine') + ' ' + ((period.firstWeekOfYear || (((period.periodNumber - 1) % 13) * 4 + 1)) + weekIndex - 1),
         t('Objectif périodique') + ' : ' + (period.mainGoalText || t('aucun')),
         t('Objectif hebdomadaire') + ' : ' + ((weekly && weekly.text) || t('aucun')),
       ].join(' · ');
@@ -1328,6 +1331,20 @@
       var dateIn = document.createElement('input');
       dateIn.type = 'date'; dateIn.value = r.dueDate || '';
       box.appendChild(labeled(t('Quand'), dateIn));
+      // 16 oct. 2026 : suggestion rangée selon les objectifs (semaine + objectif visé), modifiable via la date.
+      if (r.dueWhy && r.dueWhy.weekStart) {
+        var whyLine = document.createElement('div');
+        whyLine.className = 'goalsPlacementWhy';
+        whyLine.style.cssText = 'font-size:12px;opacity:.7;margin:-4px 0 6px';
+        var wd = new Date(r.dueWhy.weekStart + 'T12:00:00');
+        var wl = wd.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' }).replace('.', '');
+        var gt = String(r.dueWhy.goalText || '');
+        if (gt.length > 60) gt = gt.slice(0, 57) + '…';
+        var wn = r.dueWhy.weekNumber ? ' (' + t('semaine') + ' ' + r.dueWhy.weekNumber + ')' : '';
+        var rs = String(r.dueWhy.reason || '');
+        whyLine.textContent = t('Suggéré') + ' : ' + t('semaine du') + ' ' + wl + wn + ', ' + t('objectif') + ' « ' + gt + ' »' + (rs ? ' — ' + rs : '');
+        box.appendChild(whyLine);
+      }
 
       // Récurrence : Noèsis propose (recurrenceSuggestion), l'utilisateur confirme ou retire.
       var recF = null;

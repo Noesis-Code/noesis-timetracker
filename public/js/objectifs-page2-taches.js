@@ -103,8 +103,8 @@
         <div class="periodSwitch" id="goalsPage2ModeSwitch">
           <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
           <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
-          <!-- 30 septembre 2026 : Discussion (déplacée de la fenêtre Activité), à droite de Objectifs ; visible seulement si l'activité affichée est partagée. -->
-          <button type="button" class="periodBtn hidden" id="goalsPage2ModeDiscBtn" data-mode="disc" aria-label="Discussion" title="Discussion"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-13a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-9l-4 4"/><path d="M12 11v.01M8 11v.01M16 11v.01"/></svg><span id="goalsPage2DiscDot" class="notifDot hidden"></span></button>
+          <!-- 15 oct. 2026 (Emilien) : le bouton Discussion est retiré de l'interface (routes et messages conservés). Remplacé par « Ajouter », réservé aux activités Essor (GET /api/activities/:id/offer1). -->
+          <button type="button" class="periodBtn hidden" id="goalsPage2AddBtn" aria-label="Ajouter" title="Ajouter"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
 
         <!-- Écran « Tâches » — 27 septembre 2026 (création), refondu le 28
@@ -281,11 +281,9 @@
 
     // Onglet Discussion : uniquement si l'activité est partagée avec au moins
     // un autre utilisateur ; sinon caché et fil arrêté.
-    var discBtn = $('goalsPage2ModeDiscBtn');
-    if (discBtn) discBtn.classList.toggle('hidden', !TMT.currentGoalsActivityIsShared);
-    if (TMT.discussion) {
-      if (TMT.currentGoalsActivityIsShared) TMT.discussion.open(a.id); else TMT.discussion.close();
-    }
+    // Bouton « Ajouter » : visible seulement si le serveur confirme Essor pour cette activité.
+    syncGoalsAddBtn(a.id);
+    if (TMT.discussion) TMT.discussion.close(); // Discussion retirée de l'UI (15 oct. 2026)
 
     // Renvoie la promesse (15 septembre 2026, discussion D) : permet à
     // openGoalsPeriodFromNotification() de n'ouvrir la page 2 qu'une fois
@@ -574,7 +572,19 @@
     schedule();
   })();
 
-  $('goalsPage2ModeDiscBtn').addEventListener('click', function () { setGoalsPage2Mode('disc'); });
+  var goalsAddReq = 0;
+  function syncGoalsAddBtn(activityId) {
+    var btn = $('goalsPage2AddBtn'); if (!btn) return;
+    btn.classList.add('hidden');
+    var req = ++goalsAddReq;
+    TMT.api('GET', '/api/activities/' + encodeURIComponent(activityId) + '/offer1').then(function (r) {
+      if (req !== goalsAddReq) return;
+      var on = !!(r && r.essor === true);
+      btn.classList.toggle('hidden', !on);
+    }).catch(function () {});
+  }
+  // Le bouton ＋ ouvre directement la page « Ajouter des tâches » (objectifs-document-taches.js).
+  $('goalsPage2AddBtn').addEventListener('click', function () { if (TMT.openDocTasks) TMT.openDocTasks(); });
   function closeGoalsDiscSheet() { setGoalsPage2Mode(goalsPage2BaseMode); }
   $('goalsDiscSheetClose').addEventListener('click', closeGoalsDiscSheet);
   $('goalsDiscView').addEventListener('click', function (e) { if (e.target === this) closeGoalsDiscSheet(); });

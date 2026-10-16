@@ -542,6 +542,8 @@ function createItem(section, label, extra) {
   `).run(section.subProjectId, section.id, label, next, new Date().toISOString(),
     opts.dueDate || todayIso(), opts.dueDate ? 0 : 2, opts.plannedUserId || null, opts.autoCaptured ? 1 : 0,
     rec ? rec.every : null, rec ? rec.unit : null);
+  // 16 oct. 2026 : correction orthographique silencieuse, après l'enregistrement (jamais bloquante).
+  if (!opts.noSpellfix) require('./silentspellfix').schedule(info.lastInsertRowid);
   return getItem(info.lastInsertRowid);
 }
 
@@ -613,6 +615,7 @@ function updateItem(itemId, fields, userId) {
     .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, dueDate, dueDate, itemId);
   // Statut automatique des objectifs (9 oct. 2026) : coche/décoche, libellé ou rattachement modifié.
   goals.recomputeForWeeklies([current.goalWeeklyId, goalWeeklyId]);
+  if (label !== current.label) require('./silentspellfix').schedule(itemId); // correction silencieuse (16 oct. 2026)
 
   // Récurrence (9 oct. 2026) : `recurrence` absent => inchangée ; null => on l'arrête ; { every, unit } => on la pose.
   if ('recurrence' in fields) {

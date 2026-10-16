@@ -130,6 +130,7 @@ function deleteYear(activityId, year) {
     const lo = k * PERIODS_PER_CYCLE + 1, hi = lo + PERIODS_PER_CYCLE - 1;
     const ids = db.prepare('SELECT id FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber BETWEEN ? AND ?').all(activityId, pl.category, lo, hi).map((r) => r.id);
     ids.forEach((id) => {
+      detachCarryLinks([id]);
       db.prepare('DELETE FROM goal_weekly WHERE periodId = ?').run(id);
       db.prepare('DELETE FROM goal_periods WHERE id = ?').run(id);
     });
@@ -616,6 +617,17 @@ function renameCategory(activityId, key, label, description) {
 //    retrait gèle EN CASCADE tous ses secteurs actifs — « Retrait : retirer
 //    un pôle gèle automatiquement (cascade) tous ses secteurs actifs »,
 //    « masque, ne supprime pas » comme partout ailleurs dans l'app.
+// 16 oct. 2026 : goal_weekly.carriedOverFromId/carriedToId référencent goal_weekly(id) SANS cascade.
+// Supprimer des périodes dont un objectif hebdo a été reporté depuis/vers une période conservée
+// échouait (FOREIGN KEY constraint failed → « Erreur serveur » à la suppression d'un secteur).
+// On détache d'abord ces liens (les objectifs restants gardent leur texte, seul le renvoi disparaît).
+function detachCarryLinks(periodIds) {
+  if (!periodIds || !periodIds.length) return;
+  const ph = periodIds.map(() => '?').join(',');
+  db.prepare(`UPDATE goal_weekly SET carriedToId = NULL WHERE carriedToId IN (SELECT id FROM goal_weekly WHERE periodId IN (${ph}))`).run(...periodIds);
+  db.prepare(`UPDATE goal_weekly SET carriedOverFromId = NULL WHERE carriedOverFromId IN (SELECT id FROM goal_weekly WHERE periodId IN (${ph}))`).run(...periodIds);
+}
+
 function removeCategory(activityId, key, opts) {
   const existing = ensureDefaultCategory(activityId);
   const row = existing.find((r) => r.key === key);
@@ -635,6 +647,7 @@ function removeCategory(activityId, key, opts) {
       const today = todayLocal();
       const del = db.prepare('SELECT id, startDate FROM goal_periods WHERE activityId = ? AND category = ? AND endDate >= ?').all(activityId, key, today);
       const from = del.length ? del.map((d) => d.startDate).sort()[0] : today;
+      detachCarryLinks(del.map((d) => d.id));
       del.forEach((d) => db.prepare('DELETE FROM goal_periods WHERE id = ?').run(d.id));
       db.prepare('DELETE FROM goal_year_goals WHERE activityId = ? AND category = ? AND year > ?').run(activityId, key, currentYear());
       const result = removeCategoryRows(activityId, key, row, existing);
@@ -704,6 +717,7 @@ function secteurRemovalInfo(activityId, key) {
 
 function purgeCategoryPlanning(activityId, keys) {
   const ph = keys.map(() => '?').join(',');
+  detachCarryLinks(db.prepare(`SELECT id FROM goal_periods WHERE activityId = ? AND category IN (${ph})`).all(activityId, ...keys).map((r) => r.id));
   db.prepare(`DELETE FROM goal_periods WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
   db.prepare(`DELETE FROM goal_year_goals WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
   db.prepare(`DELETE FROM activity_goal_plans WHERE activityId = ? AND category IN (${ph})`).run(activityId, ...keys);
@@ -939,6 +953,15 @@ function assertCategoryOrSecteurForActivity(activityId, category) {
   }
 }
 
+// Un secteur supprimé n'est réaffiché QUE pour une année de grille passée et
+// seulement s'il portait du contenu de planification cette année-là.
+function secteurHasPlanningContentForYear(activityId, key, year) {
+  const y = String(year);
+  return !!db.prepare(`SELECT 1 FROM goal_periods p WHERE p.activityId = ? AND p.category = ?
+    AND (substr(p.startDate,1,4) = ? OR substr(p.endDate,1,4) = ?)
+    AND (p.mainGoalText != '' OR EXISTS (SELECT 1 FROM goal_weekly w WHERE w.periodId = p.id AND w.text != '')) LIMIT 1`).get(activityId, key, y, y);
+}
+
 // 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande explicite
 // d'Emilien : « On ne change pas l'arbre. Cependant, les secteurs deviennent
 // les pôles. ») — colonnes de la grille périodique existante
@@ -949,11 +972,12 @@ function assertCategoryOrSecteurForActivity(activityId, category) {
 // secteur n'a été créé. Forme identique à categoriesForActivity
 // (`{key,label,...}`) pour rester consommable telle quelle par
 // activeGoalsCategories()/renderGoalsGrid() côté client.
-function gridColumnsForPole(activityId, poleKey, year) {
+function gridColumnsForPole(activityId, poleKey, year, opts) {
   const y = Number(year);
+  const currentYear = (opts && Number(opts.currentYear)) || new Date().getFullYear();
   if (Number.isFinite(y) && y > 0) {
     const rows = db.prepare('SELECT * FROM activity_goal_categories WHERE activityId = ? AND parentKey = ? ORDER BY position, id').all(activityId, poleKey)
-      .filter((r) => (r.fromYear == null || r.fromYear <= y) && (r.removedAt == null || (r.removedYear != null && y <= r.removedYear)));
+      .filter((r) => (r.fromYear == null || r.fromYear <= y) && (r.removedAt == null || (y < currentYear && secteurHasPlanningContentForYear(activityId, r.key, y))));
     if (rows.length) {
       return rows.map((r) => ({ key: r.key, label: r.label, parentKey: r.parentKey, description: r.description || '', removedFromDate: r.removedAt ? (r.removedFromDate || null) : null }));
     }
@@ -1048,26 +1072,35 @@ function mostRecentMonday(isoDay) {
   return d.toISOString().slice(0, 10);
 }
 
-// Grille calendaire (8 oct. 2026) : la période 1 commence au lundi de la
-// semaine du 1er janvier ; 13 périodes de 4 semaines par an, quelle que soit
-// l'activité ou la date de création du plan.
+// Grille calendaire : la semaine 1 de chaque année commence au PREMIER LUNDI de
+// janvier (lundi du 1er au 7 janvier) ; 13 périodes de 4 semaines = 52 semaines
+// par an. Les jours avant l'ancre ou après la semaine 52 n'appartiennent à aucune
+// semaine (rattachés à la période la plus proche pour la logique, jamais affichés
+// comme une semaine).
 function yearAnchor(year) {
+  const jan1 = String(year) + '-01-01';
+  const m = mostRecentMonday(jan1);
+  return m === jan1 ? jan1 : addDays(m, 7);
+}
+// Ancienne ancre (jusqu'au 16 oct. 2026) : lundi de la semaine du 1er janvier.
+function legacyYearAnchor(year) {
   return mostRecentMonday(String(year) + '-01-01');
 }
 function yearGridStart(isoDay) {
-  const y = Number(String(isoDay).slice(0, 4));
-  const next = yearAnchor(y + 1);
-  return next <= isoDay ? next : yearAnchor(y);
+  let y = Number(String(isoDay).slice(0, 4));
+  if (isoDay >= yearAnchor(y + 1)) return yearAnchor(y + 1);
+  while (isoDay < yearAnchor(y)) y -= 1;
+  return yearAnchor(y);
 }
 
-// Année (calendaire) de la grille d'un plan : le startDate d'un plan est le lundi
-// de la semaine du 1er janvier de sa première année (donc +6 jours = cette année).
+// Année (calendaire) de la grille d'un plan : le startDate d'un plan est l'ancre
+// (premier lundi de janvier) de sa première année.
 function yearOfPlanStart(planStartDate) {
-  return Number(addDays(planStartDate, 6).slice(0, 4));
+  return Number(String(planStartDate).slice(0, 4));
 }
 
-// Période n (continue : 13 par année) : l'année k du plan commence au lundi de la
-// semaine du 1er janvier de (première année + k), 13 périodes de 28 jours.
+// Période n (continue : 13 par année) : l'année k du plan commence au premier
+// lundi de janvier de (première année + k), 13 périodes de 28 jours.
 function periodBounds(planStartDate, periodNumber) {
   const y0 = yearOfPlanStart(planStartDate);
   const k = Math.floor((periodNumber - 1) / PERIODS_PER_CYCLE);
@@ -1076,6 +1109,11 @@ function periodBounds(planStartDate, periodNumber) {
   const start = addDays(anchor, i * PERIOD_DAYS);
   const end = addDays(anchor, (i + 1) * PERIOD_DAYS - 1);
   return { start, end, cycleIndex: k + 1, periodIndexInCycle: i + 1 };
+}
+
+// Numéro de semaine dans l'année (1 à 52) : (période du cycle - 1) * 4 + weekIndex.
+function weekOfYear(periodIndexInCycle, weekIndex) {
+  return (Number(periodIndexInCycle) - 1) * 4 + Number(weekIndex);
 }
 
 function weekBounds(periodStart, weekIndex) {
@@ -1097,7 +1135,7 @@ function periodNumberForDate(planStartDate, isoDay) {
   if (k < 0) return 1;
   const days = daysBetween(yearAnchor(y), isoDay);
   if (days === null || days < 0) return 1;
-  // Les 0 à 7 jours qui restent après la période 13 retombent sur la période 13.
+  // Les jours après la semaine 52 (hors grille) retombent sur la période 13.
   const i = Math.min(PERIODS_PER_CYCLE - 1, Math.floor(days / PERIOD_DAYS));
   return k * PERIODS_PER_CYCLE + i + 1;
 }
@@ -1193,13 +1231,31 @@ function plansNeedingRealignment() {
 // périodes, renumérotation). Idempotent ; `dryRun` ne modifie rien.
 function isYearAnchor(isoDay) {
   const y = Number(String(isoDay).slice(0, 4));
-  return isoDay === yearAnchor(y) || isoDay === yearAnchor(y + 1);
+  return isoDay === yearAnchor(y);
 }
 function migratePlansToYearGrid(dryRun) {
   const plans = db.prepare('SELECT activityId, category, startDate FROM activity_goal_plans').all();
   const report = [];
   plans.forEach((pl) => {
     if (isYearAnchor(pl.startDate)) return;
+    // Cas courant (16 oct. 2026) : plan calé sur l'ancienne ancre (lundi de la semaine
+    // du 1er janvier) -> recalage sur le premier lundi de janvier. Les numéros de
+    // période ne changent pas ; seules les dates (décalage de 0 ou 7 jours) bougent.
+    const legacyYear = Number(addDays(pl.startDate, 6).slice(0, 4));
+    if (pl.startDate === legacyYearAnchor(legacyYear)) {
+      const newStart = yearAnchor(legacyYear);
+      report.push({ activityId: pl.activityId, category: pl.category, oldStart: pl.startDate, newStart, shiftDays: daysBetween(pl.startDate, newStart) });
+      if (dryRun) return;
+      db.exec('BEGIN');
+      try {
+        const rows = db.prepare('SELECT id, periodNumber FROM goal_periods WHERE activityId = ? AND category = ?').all(pl.activityId, pl.category);
+        const upd = db.prepare('UPDATE goal_periods SET startDate = ?, endDate = ? WHERE id = ?');
+        rows.forEach((p) => { const b = periodBounds(newStart, p.periodNumber); upd.run(b.start, b.end, p.id); });
+        db.prepare('UPDATE activity_goal_plans SET startDate = ? WHERE activityId = ? AND category = ?').run(newStart, pl.activityId, pl.category);
+        db.exec('COMMIT');
+      } catch (e) { try { db.exec('ROLLBACK'); } catch (_) {} throw e; }
+      return;
+    }
     const A = yearGridStart(pl.startDate);
     const d = ((daysBetween(A, pl.startDate) % PERIOD_DAYS) + PERIOD_DAYS) % PERIOD_DAYS;
     const delta = d <= PERIOD_DAYS / 2 ? -d : PERIOD_DAYS - d;
@@ -1657,9 +1713,14 @@ function planningForActivity(activityId, category) {
 
   const periods = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? ORDER BY periodNumber')
     .all(activityId, category)
+    // Borne (16 oct. 2026) : jamais de période au-delà de la dernière année créée (un report
+    // ou un étalement peut avoir matérialisé la période 14+ ; elle reste cachée tant que
+    // l'utilisateur n'a pas créé l'année suivante).
+    .filter((p) => p.periodNumber <= cycleLastPeriodNumber)
     .map((p) => {
       const weeklies = weeklyForPeriod(p.id).map((w) => ({
         ...w,
+        weekOfYear: weekOfYear(p.periodIndexInCycle, w.weekIndex),
         // Un objectif reporté est, par définition, non réalisé : pastille rouge.
         status: (w.status == null && w.carriedOverFromId) ? 'non_atteint' : w.status,
         taskTotal: db.prepare('SELECT COUNT(*) AS n FROM sub_project_items WHERE goalWeeklyId = ?').get(w.id).n,
@@ -1675,6 +1736,7 @@ function planningForActivity(activityId, category) {
         : null;
       return {
         ...p,
+        firstWeekOfYear: weekOfYear(p.periodIndexInCycle, 1),
         weeklies,
         assignees: periodAssigneesFor(p.id),
         actualMinutes,
@@ -1701,7 +1763,7 @@ function weekIsOver(periodStart, weekIndex) {
 // Écritures
 
 // Description détaillée (2 oct. 2026) : undefined = conserver l'existante ;
-// trim + 600 caractères max. Jamais modifiée par l'IA.
+// trim + 600 caractères max. L'IA ne la change que par PROPOSITION validée (server/lib/changeproposals.js).
 const GOAL_DESCRIPTION_MAX = 600;
 function cleanDescription(description) {
   const d = String(description).trim();
@@ -2039,6 +2101,8 @@ module.exports = {
   deleteWeekly,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
+  yearAnchor,
+  weekOfYear,
   yearGridStart,
   getYearGoals,
   listYears,

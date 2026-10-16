@@ -5,7 +5,7 @@ const { makePinRecord, verifyPinRecord, isValidPinFormat, checkPin, LOCK_MESSAGE
 const { isInPalette, pairedColor } = require('../lib/theme');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 const { notifyCommunityPost } = require('../lib/push');
-const { setSessionCookie } = require('../lib/session');
+const { setSessionCookie, requireAuth } = require('../lib/session');
 const { deleteAccountData } = require('../lib/accountdeletion');
 const { PRIVACY_VERSION, TERMS_VERSION, MARKETING_CONSENT_VERSION, AI_NOTICE_VERSION } = require('../lib/legalversions');
 // Export de mes données personnelles (7 septembre 2026) — voir GET
@@ -504,6 +504,20 @@ router.get('/profile/export', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="noesis-export-${fileDate}.json"`);
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.json(data);
+});
+
+const { requireOffer1Access } = require('../lib/offer1access');
+// 15 oct. 2026 : capacité hebdomadaire (minutes, toutes activités), cible manuelle sinon moyenne chronométrée.
+router.get('/profile/weekly-capacity', requireAuth, requireOffer1Access, (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  const c = require('../lib/weekplanner').getWeeklyCapacity(req.userId);
+  if (!c) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json(c);
+});
+router.put('/profile/weekly-capacity', requireAuth, requireOffer1Access, (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  try { res.json(require('../lib/weekplanner').setWeeklyCapacity(req.userId, (req.body || {}).minutes)); }
+  catch (e) { res.status(e.statusCode || 500).json({ error: e.message }); }
 });
 
 // Correction Sécurité (chantier 1, une fois la session posée — voir

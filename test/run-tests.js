@@ -184,6 +184,34 @@ async function main() {
   } catch (e) { refusedOverwrite = true; }
   assert(refusedOverwrite, 'la commande "restore" refuse d\'écraser un fichier destination déjà existant');
 
+  try { execFileSync('node', [path.join(__dirname, 'offer1access-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'accès anticipé Offre 1 : tests passés'); }
+  catch (e) { assert(false, 'accès anticipé Offre 1 : tests échoués'); }
+
+  // Planificateur de semaines (lot A) : suite autonome, base temporaire propre.
+  let wpOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'weekplanner-test.js')], { encoding: 'utf8' }); } catch (e) { wpOk = false; }
+  assert(wpOk, 'le planificateur de semaines (test/weekplanner-test.js) passe');
+
+  // Rangement par date à la capture (indices de date, date manuelle prioritaire).
+  let cdOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'capturedate-test.js')], { encoding: 'utf8' }); } catch (e) { cdOk = false; }
+  assert(cdOk, 'le rangement par date à la capture (test/capturedate-test.js) passe');
+
+  // Ajout de tâches depuis un document (IA simulée).
+  let dtOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'documenttasks-test.js')], { encoding: 'utf8' }); } catch (e) { dtOk = false; }
+  assert(dtOk, 'ajout de tâches depuis un document (test/documenttasks-test.js) passe');
+
+  // Connecteur Drive (Google simulé, PDF compris).
+  let drOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'drive-test.js')], { encoding: 'utf8' }); } catch (e) { drOk = false; }
+  assert(drOk, 'connecteur Drive (test/drive-test.js) passe');
+
+  // Surveillance du dossier Drive (Google et IA simulés).
+  let dsOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'drivesync-test.js')], { encoding: 'utf8' }); } catch (e) { dsOk = false; }
+  assert(dsOk, 'surveillance Drive (test/drivesync-test.js) passe');
+
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });

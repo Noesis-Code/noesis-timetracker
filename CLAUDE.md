@@ -84,6 +84,6 @@ Hors dépôt : Horaires / client Jacopo (produit séparé, en pause).
 
 - Une LISTE de tâches, jamais un horaire à créneaux fixes.
 - Les secteurs n'apparaissent pas dans la grille des objectifs, la feuille de temps ni le graphique : leur temps remonte au pôle.
-- Les suggestions IA informent, ne décident jamais à la place de l'utilisateur ; jamais d'écrasement d'une saisie manuelle.
+- Les suggestions IA informent, ne décident jamais à la place de l'utilisateur ; une saisie manuelle ne change que par proposition validée, montrant l'avant et l'après (champ par champ, jamais de modification silencieuse ; un refus est mémorisé). **Exception décidée par Émilien le 16 oct. 2026** : seules les corrections d'orthographe/grammaire s'appliquent en silence à l'entrée d'une tâche (`server/lib/silentspellfix.js`, jamais listées dans « Modifications proposées ») ; tout autre changement d'une saisie manuelle reste une proposition validée.
 - Une seule technique d'interaction par fonction : fermeture d'un plein écran = croix ✕ ; réordonnancement = glisser-déposer ; bouton d'envoi DANS la zone d'écriture.
 - Le gate d'installation PWA (`isStandaloneMode()`) ne se déclenche qu'à la création/récupération d'un profil.

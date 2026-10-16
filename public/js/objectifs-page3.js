@@ -480,7 +480,7 @@
     var scroll = document.createElement('div'); scroll.className = 'goalsPlacementScroll'; card.appendChild(scroll);
     list.forEach(function (p) {
       var wrap = document.createElement('div'); wrap.className = 'goalCard';
-      var lab = document.createElement('p'); lab.className = 'meta'; lab.textContent = t('Semaine') + ' ' + p.weekIndex;
+      var lab = document.createElement('p'); lab.className = 'meta'; lab.textContent = t('Semaine') + ' ' + (((periodNumber - 1) % 13) * 4 + p.weekIndex);
       var ti = document.createElement('textarea'); ti.rows = 1; ti.maxLength = 300; ti.value = p.text || ''; ti.placeholder = t('Titre de l’objectif');
       ti.className = 'goalWeeklyProposalTitle';
       var ta = document.createElement('textarea'); ta.rows = 3; ta.maxLength = 600; ta.value = p.description || ''; ta.placeholder = t('Description');
@@ -896,7 +896,7 @@
 
         var badge = document.createElement('span');
         badge.className = 'goalWeeklyBadge';
-        badge.textContent = t('S{n}', { n: weekIndex });
+        badge.textContent = t('S{n}', { n: (period.firstWeekOfYear || (((period.periodNumber - 1) % 13) * 4 + 1)) + weekIndex - 1 });
         // Pastille de statut fusionnée avec le numéro : verte = atteint, orange = partiel,
         // rouge = non atteint ; un clic fait tourner le statut (semaine remplie seulement).
         if (w && w.text) {
@@ -2135,6 +2135,7 @@
   });
 
   $('activityGoalsNextBtn').addEventListener('click', function () {
+    if (!goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber + 1)) return;
     TMT.currentGoalsViewPeriodNumber += 1;
     renderActivityGoals();
   });
@@ -2169,7 +2170,7 @@
     TMT.currentGoalsCategory = category;
     TMT.currentGoalsSelectedSecteurKey = category;
     TMT.currentGoalsPlanning = planning;
-    TMT.currentGoalsViewPeriodNumber = periodNumber == null ? planning.currentPeriodNumber : periodNumber;
+    TMT.currentGoalsViewPeriodNumber = (periodNumber == null || !goalPeriodByNumber(planning, periodNumber)) ? planning.currentPeriodNumber : periodNumber;
     $('goalsDetailTitle').textContent = $('goalsActivityName').textContent;
     return true;
   }

@@ -225,7 +225,7 @@
     els.modal.classList.remove('hidden');
   }
   // Détail d'une bulle « Où ça glisse » (sa propre page seulement) : GET /api/stats/activity-insights/glisse.
-  function fmtSlot(x) { return x.kind === 'week' ? tr('S{n}', { n: x.n }) : x.label; }
+  function fmtSlot(x) { return x.kind === 'week' ? tr('S{n}', { n: x.wn || x.n }) : x.label; }
   function glisseSection(title, color, rows, right) {
     var sec = el('div', 'saGsec');
     var h = el('h4', null, tr(title)); h.style.color = color; h.appendChild(el('em', null, String(rows.length)));
@@ -256,7 +256,7 @@
     var pn = String(g.periodLabel || '').replace(/^P/, '');
     var isW = g.mode === 'week', ok = g.pct != null && (isW ? g.status === 'atteint' : g.pct >= 80), col = ok ? GREEN : RED;
     els.mTitle.innerHTML = '';
-    els.mTitle.appendChild(el('span', null, isW ? tr('Semaine {n} · {p}', { n: g.week, p: g.periodLabel }) : tr('Période {n} · {a} – {b}', { n: pn, a: g.startLabel, b: g.endLabel })));
+    els.mTitle.appendChild(el('span', null, isW ? tr('Semaine {n} · {p}', { n: g.weekOfYear || g.week, p: g.periodLabel }) : tr('Période {n} · {a} – {b}', { n: pn, a: g.startLabel, b: g.endLabel })));
     els.mSub.textContent = '';
     els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
     els.mList.innerHTML = '';
@@ -273,7 +273,7 @@
       g.tiles.forEach(function (x) {
         var t = el('button', 'saTile saGlass saTileBtn'), has = x.pct != null; t.type = 'button';
         if (has) t.style.borderColor = x.status === 'atteint' ? GREEN : RED; else { t.style.opacity = '.5'; t.disabled = true; }
-        t.appendChild(el('small', null, tr('S{n}', { n: x.week })));
+        t.appendChild(el('small', null, tr('S{n}', { n: x.weekOfYear || x.week })));
         var b = el('b', null, has ? x.pct + ' %' : '–'); if (has) b.style.color = x.status === 'atteint' ? GREEN : RED; t.appendChild(b);
         if (has) t.addEventListener('click', function () { openGlisse(g.periodStart, x.week); });
         wkw.appendChild(t);
@@ -281,12 +281,12 @@
       els.mTop.appendChild(wkw);
     }
     var mins = function (r) { return fmtMin(r.minutes); };
-    var from = function (r) { return tr('S{n}', { n: r.week }); };
+    var from = function (r) { return tr('S{n}', { n: r.weekOfYear || r.week }); };
     var secs = isW ? [
       ['Réalisées', GREEN, g.done, mins],
       ['Non accomplies', RED, g.notDone, mins],
-      ['Ont glissé', ORANGE, g.slipped, function (r) { return r.to.kind === 'week' ? tr('→ semaine {n} · {d}', { n: r.to.n, d: r.to.date }) : tr('→ {p} · {d}', { p: r.to.label, d: r.to.date }); }],
-      ['Avancées', '#8b6fd6', g.ahead, function (r) { return tr('prévue {a} → faite {b}', { a: fmtSlot(r.from), b: tr('S{n}', { n: r.week }) }); }]
+      ['Ont glissé', ORANGE, g.slipped, function (r) { return r.to.kind === 'week' ? tr('→ semaine {n} · {d}', { n: r.to.wn || r.to.n, d: r.to.date }) : tr('→ {p} · {d}', { p: r.to.label, d: r.to.date }); }],
+      ['Avancées', '#8b6fd6', g.ahead, function (r) { return tr('prévue {a} → faite {b}', { a: fmtSlot(r.from), b: tr('S{n}', { n: r.weekOfYear || r.week }) }); }]
     ] : [
       ['Ont glissé', ORANGE, g.slipped, function (r) { return from(r) + ' → ' + fmtSlot(r.to); }],
       ['Non accomplies', RED, g.notDone, from],

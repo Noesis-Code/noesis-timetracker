@@ -654,7 +654,9 @@
     // service worker) ou réponse 503 `{ offline: true }` fabriquée par
     // public/sw.js. Message d'erreur inchangé pour tous les autres appelants.
     return fetch(url, opts).then(function (r) {
-      return r.json().then(function (data) {
+      // 16 oct. 2026 : une réponse non JSON (redémarrage, route absente) faisait afficher le message
+      // BRUT du navigateur (anglais : « The string did not match the expected pattern »). Message maison.
+      return r.json().catch(function () { throw new Error(t('Erreur serveur')); }).then(function (data) {
         if (!r.ok) {
           if (data.needsLogin) handleSessionLost();
           var apiErr = new Error(t(data.error || 'Erreur serveur'));
@@ -665,6 +667,8 @@
       });
     }, function (netErr) {
       netErr.offline = true;
+      // Message brut du navigateur (« Load failed », « Failed to fetch ») = anglais : remplacé par le texte de l'app.
+      try { netErr.message = t('Connexion impossible. Réessaie.'); } catch (e2) {}
       throw netErr;
     });
   }
@@ -6261,7 +6265,21 @@
   function activityGoalsCategoriesRefresh(activityId) {
     loadActivityGoalsCategories(activityId);
     if (String(activityId) === String(TMT.currentGoalsActivityId)) reloadGoalsAll();
+    notifyCategoriesChanged(activityId);
   }
+
+  // 16 oct. 2026 : événement commun « pôles/secteurs modifiés » (ajout, renommage,
+  // suppression, déplacement) — les écrans qui gardent une liste en mémoire (sélecteur
+  // du Chrono en cours) la rechargent ici au lieu d'afficher des pôles supprimés.
+  function notifyCategoriesChanged(activityId) {
+    try { document.dispatchEvent(new CustomEvent('tmt:categories-changed', { detail: { activityId: String(activityId) } })); } catch (e) { /* ignoré */ }
+  }
+  document.addEventListener('tmt:categories-changed', function (ev) {
+    var id = ev && ev.detail && ev.detail.activityId;
+    if (!id || chronoRunningActivityId == null || String(chronoRunningActivityId) !== id) return;
+    var act = (activitiesCache || []).filter(function (x) { return String(x.id) === id; })[0];
+    if (act) renderChronoCategorySelector(act, chronoRunningCategory);
+  });
 
   // 16 septembre 2026 (8e passage, demande d'Emilien, couleur 100%
   // automatique) : plus de pastille de couleur ni de sélecteur de couleur
@@ -6757,6 +6775,7 @@
   // La grille de la page 1 d'Objectifs suit les pôles/secteurs de l'activité affichée.
   function catSyncGrid(activityId) {
     if (String(activityId) === String(TMT.currentGoalsActivityId)) reloadGoalsAll();
+    notifyCategoriesChanged(activityId);
   }
 
   function catRerender() {
@@ -12765,6 +12784,15 @@
       if (!dailyActivityId) return;
       openGoalsActivityFromNotification(dailyActivityId, null, null);
       if (dailyTaskId) focusGoalsTaskFromNotification(dailyActivityId, dailyTaskId);
+      return;
+    }
+
+    // Surveillance Drive (16 oct. 2026) : tâches ajoutées/proposées depuis le dossier ; ouvre la page
+    // Ajouter de l'activité (qui affiche le pop-up des tâches ajoutées). Voir objectifs-document-taches.js.
+    if (target === 'drivesync') {
+      var dsActivityId = notifIdParam(params, 'activityId');
+      switchTab('goals');
+      if (dsActivityId && window.TMT && TMT.openDocTasksForActivity) TMT.openDocTasksForActivity(String(dsActivityId));
       return;
     }
 

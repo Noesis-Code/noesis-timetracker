@@ -179,6 +179,7 @@ app.use('/api', require('./routes/goals'));
 // (crée la Stripe Checkout Session) — la confirmation, elle, arrive par
 // webhook et est montée à part, tout en haut de ce fichier (voir plus haut).
 app.use('/api', require('./routes/offercheckout'));
+app.use('/api', require('./routes/offer1access'));
 // Confirmation du consentement parental (14 septembre 2026, point 5 du volet
 // Légal du chantier paiement/abonnements) — route PUBLIQUE, sans req.userId :
 // le représentant légal n'a pas de compte TimeTracker, voir l'en-tête de
@@ -208,6 +209,10 @@ app.use('/api', require('./routes/feedback'));
 // pour toute route non-API, et un lecteur de calendrier recevrait alors du
 // HTML au lieu du flux.
 app.use('/api', require('./routes/calendar'));
+app.use('/api', require('./routes/accomplishments'));
+app.use('/api', require('./routes/documenttasks'));
+app.use('/api', require('./routes/changeproposals'));
+app.use('/api', require('./routes/drive'));
 // Suggestion quotidienne (21 septembre 2026) — capacité du jour + sélection
 // de tâches, notification matinale déclenchée par
 // server/lib/dailysuggestioncron.js (démarré plus bas). Segment neuf et
@@ -305,6 +310,9 @@ app.listen(PORT, HOST, () => {
   // feuilles de route + révélation différée des tâches de remplacement.
   // Voir server/lib/subscriptioncron.js.
   require('./lib/subscriptioncron').startSubscriptionCron();
+
+  // Surveillance du dossier Drive (16 oct. 2026) : DRIVE_SYNC_INTERVAL_MIN (défaut 30, 0 = désactivé).
+  require('./lib/drivesync').startDriveSync();
 
   // Suggestion quotidienne (21 septembre 2026) : notification matinale à
   // heure fixe, démarrée après l'écoute comme les autres tâches planifiées

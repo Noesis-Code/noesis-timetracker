@@ -72,7 +72,7 @@ function revealDueReplacements() {
       // section minimale : sp.createItem ne lit que .id et .subProjectId.
       const section = db.prepare('SELECT id, subProjectId FROM sub_project_sections WHERE id = ?').get(item.sectionId);
       if (section) {
-        sp.createItem(section, queued.label);
+        sp.createItem(section, queued.label, { noSpellfix: true });
         db.prepare('DELETE FROM sub_project_item_queue WHERE id = ?').run(queued.id);
         offerquota.incrementRenewalsUsed(item.subProjectId);
       }

@@ -1,0 +1,119 @@
+/* Ajouter des tâches depuis un document (Essor) — page verre + halo de la Page 3 (--halo-n2-*) ; violet = couleur principale. */
+.docTasksRow { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border, rgba(127,127,127,.35)); border-radius: 12px; margin-top: 8px; font-size: 14px; }
+.docTasksRow input[type=checkbox] { margin-top: 3px; accent-color: #7c5cff; }
+.docTasksMeta { font-size: 12px; opacity: .7; margin-top: 2px; }
+.docTasksWarn { margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 159, 28, .16); border: 1px solid rgba(255, 159, 28, .5); font-size: 13px; }
+
+/* Page « Ajouter des tâches » : plein écran, halo de la Page 3 (mêmes variables/valeurs que #goalsDetailPage::before) + cartes en verre. */
+.docTasksWin { position: fixed; inset: 0; z-index: 102; background: var(--bg); display: flex; flex-direction: column; }
+.docTasksWin.hidden { display: none; }
+.docTasksWin::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle 325px at 50% 108%, rgba(var(--halo-n2-rgb), var(--halo-n2-a)) 0%, rgba(var(--halo-n2-rgb), 0) 72%);
+}
+.docTasksWin .activityPageName { display: inline-flex; align-items: center; gap: 8px; }
+.docTasksWin .activityPageHeader .menuBtn {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+.essorBadge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--purple); color: #fff; }
+.goalsAddSoon { margin-left: 6px; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--glass-border); }
+.docTasksScroll { flex: 1 1 auto; overflow-y: auto; padding: 14px 16px calc(24px + env(safe-area-inset-bottom)); }
+.docTasksDriveRow, .docTasksRow {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); color: var(--text);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+.docTasksDriveRow { border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; font-size: 15px; }
+.docTasksDriveOff { opacity: 0.6; cursor: default; }
+/* Zone libre = bulle de la Page 1 (.activityGoalsCategoryAutoTaskBubble + contour animé) ; trombone .chatAttachBtn ; envoi .btnBrique. */
+#docTasksBubble textarea { padding: 14px 12px 60px 12px; text-align: left; }
+#docTasksBubble #docTasksSend { top: auto; bottom: 8px; right: 8px; transform: none; height: 36px; padding: 0 18px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font: inherit; font-size: 15px; font-weight: 600; line-height: 1; }
+#docTasksBubble .chatAttachBtn { z-index: 1; left: auto; right: 104px; top: auto; bottom: 13px; transform: none; }
+#docTasksBubble .iconBtn:disabled { opacity: 0.45; cursor: default; }
+.docTasksFilesBox { display: flex; flex-wrap: wrap; gap: 6px; }
+.docTasksChip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(124, 92, 255, .18); margin-top: 6px; }
+.docTasksChip button { background: none; border: 0; color: inherit; cursor: pointer; }
+.docTasksApplyBtn { margin-top: 14px; width: 100%; padding: 12px; border: 0; border-radius: 14px; font: inherit; font-weight: 600; cursor: pointer; background: #C2694A; color: #fff; }
+.docTasksDrive { margin-bottom: 2px; }
+.docTasksDriveHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.docTasksDriveBtn { width: 100%; padding: 10px; border: 0; border-radius: 12px; background: #C2694A; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.docTasksConsent { font-size: 12px; opacity: .75; margin: 8px 0 0; line-height: 1.4; }
+.docTasksPick { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
+.docTasksPick:hover { background: rgba(124, 92, 255, .18); }
+.docTasksLink { background: none; border: 0; color: #E08A69; font: inherit; font-size: 13px; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
+.docTasksX { background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 2px 6px; }
+.docTasksConfirm { font-size: 13px; margin: 4px 0 10px; }
+/* Surveillance du dossier Drive + pop-up des tâches ajoutées (sombre seulement, même verre/halo). */
+.docTasksSync { margin-bottom: 2px; }
+.docTasksSync .docTasksSyncRow { font-size: 13px; padding: 0 4px; margin: -4px 0 12px; background: none; border: 0; box-shadow: none; }
+.docTasksCheck { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; }
+.docTasksCheck input { margin-top: 3px; accent-color: #7c5cff; }
+.docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
+.docTasksPill { display: inline-block; margin-bottom: 6px; padding: 6px 12px; border: 0; border-radius: 999px; background: #C2694A; color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.docTasksPop { position: fixed; inset: 0; z-index: 103; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .55); }
+.docTasksPop.hidden { display: none; }
+.docTasksPopCard { width: 100%; max-width: 440px; max-height: 80vh; display: flex; flex-direction: column; padding: 14px; border-radius: 18px; color: var(--text);
+  background: radial-gradient(circle 260px at 50% 115%, rgba(var(--halo-n2-rgb), var(--halo-n2-a)) 0%, rgba(var(--halo-n2-rgb), 0) 72%), var(--glass-bg);
+  border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%); }
+.docTasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 8px 0; }
+.docTasksPopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--glass-border); font-size: 14px; }
+.docTasksTrash { flex: 0 0 auto; background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 6px; opacity: .8; }
+.docTasksPopToast { min-height: 18px; font-size: 13px; }
+/* Modifications proposées (16 oct. 2026) : avant -> après, case cochée par défaut, corbeille à droite. Même verre/halo. */
+.docTasksChangesEntry { display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; border-radius: 14px; margin-bottom: 10px; font: inherit; font-size: 15px; cursor: pointer; text-align: left; }
+.docTasksChangeRow { align-items: flex-start; }
+.docTasksChangeRow input[type=checkbox] { margin-top: 4px; accent-color: #7c5cff; flex: 0 0 auto; }
+.docTasksChangeBody { flex: 1 1 auto; min-width: 0; }
+.docTasksChangeTitle { font-size: 13px; opacity: .75; overflow-wrap: anywhere; }
+.docTasksChangeDiff { font-size: 14px; overflow-wrap: anywhere; }
+.docTasksChangeOld { opacity: .6; text-decoration: line-through; }
+.docTasksChangeNew { font-weight: 600; }
+/* 16 oct. 2026 : sections Drive / surveillance / entrée « Modifications proposées » (PAS la fenêtre qui s'ouvre) = transparentes (contour fin, sans fond ni flou ; le halo de la page reste visible). */
+#docTasksDrive .docTasksDriveRow, #docTasksChangesBtn {
+  background: transparent; box-shadow: none; border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+/* 16 oct. 2026 : pastille du nombre de modifications proposées = ronde, orange brique (le badge « Essor » reste violet). */
+#docTasksChangesN { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #C2694A; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; flex: none; }
+#docTasksChangesN.hidden { display: none; }
+/* 16 oct. 2026 : cases à cocher de cette page = même format que les tâches de la Page 2 (fond noir, coins arrondis, coche blanche sur violet). */
+.docTasksWin input[type="checkbox"], .docTasksPop input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 6px; flex: none;
+  background: var(--card); border: 1.5px solid color-mix(in srgb, var(--text-light) 55%, transparent);
+  display: inline-grid; place-content: center; cursor: pointer; margin: 0;
+}
+.docTasksWin input[type="checkbox"]:checked, .docTasksPop input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
+.docTasksWin input[type="checkbox"]:checked::after, .docTasksPop input[type="checkbox"]:checked::after { content: ""; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
+/* 16 oct. 2026 : tâches proposées = lignes simples (ni verre, ni cadre, ni opacité), une fine ligne entre deux, comme les tâches de la Page 2 / l'historique. */
+.docTasksRow { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-bottom: 1px solid var(--border, rgba(127,127,127,.35)); border-radius: 0; margin-top: 0; padding: 12px 2px; opacity: 1; }
+.docTasksRowWrap:last-of-type .docTasksRow, .docTasksRowWrap:last-child .docTasksRow { border-bottom: 0; }
+.docTasksCancelRow { text-align: center; margin: 6px 0 20px; }
+.docTasksPickOn { background: rgba(194, 105, 74, .22); border-color: #C2694A; opacity: 1; }
+/* Dossiers surveillés (liste repliable, corbeille de l'app à droite). */
+.docTasksFoldersHead { font-size: 14px; }
+.docTasksFolderList { margin-bottom: 6px; }
+.docTasksFolderRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 14px; }
+.docTasksFolderName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 16 oct. 2026 : rangée du bas (dossiers connectés orange + Déconnecter gris) ; crayon/corbeille à cible tactile 44 px. */
+.docTasksBottomRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-top: 4px; }
+.docTasksBottomBtn { flex: 1 1 auto; width: auto; min-height: 44px; padding: 10px 14px; border: 0; border-radius: 12px; font: inherit; font-weight: 600; cursor: pointer; }
+.docTasksBottomRow .docTasksFoldersLink { align-self: center; }
+.docTasksBottomRow .docTasksDiscLink { margin-left: auto; align-self: center; color: var(--text-light, #9a98a8); }
+.docTasksFoldersInline { margin-top: 8px; }
+.docTasksFolderIconBtn { width: 44px; height: 44px; }
+.docTasksFolderRow { gap: 0; }
+.docTasksFolderName { flex: 1 1 auto; }
+
+.docTasksFolderIco { vertical-align: -3px; margin-right: 8px; flex: none; }
+.docTasksFsActions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.docTasksFsActions .docTasksApplyBtn { margin-top: 0; flex: 1 1 auto; width: auto; }
+
+.docTasksFolderToggle { background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; display: flex; align-items: center; }
+.docTasksChev { margin-left: 8px; color: var(--text-light); font-size: 12px; }
+.docTasksFolderFiles { margin: 0 0 6px 24px; }
+.docTasksFileRow { display: block; width: 100%; text-align: left; padding: 8px 0; border: 0; border-bottom: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.docTasksFileRow:last-child { border-bottom: 0; }
+
+.docTasksFsActions { justify-content: space-between; }
+.docTasksFsActions .docTasksApplyBtn { flex: none; width: auto; padding: 8px 20px; border-radius: var(--radius-sm); font-size: 14px; }
