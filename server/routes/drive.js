@@ -29,7 +29,7 @@ const wrap = (fn) => async (req, res) => { try { res.json(await fn(req)); } catc
 router.get('/drive/status', ...chain, wrap((req) => drive.status(req.userId, req.activityId)));
 router.get('/drive/connect', ...chain, wrap((req) => ({ url: drive.authUrl(req.userId, req.activityId) })));
 router.get('/drive/folders', ...chain, async (req, res) => {
-  try { res.json({ folders: await drive.listFolders(req.userId, req.activityId) }); } catch (e) { fail(res, e, req); }
+  try { res.json({ folders: await drive.listFolders(req.userId, req.activityId, typeof req.query.q === 'string' ? req.query.q : '') }); } catch (e) { fail(res, e, req); }
 });
 router.post('/drive/folder', ...chain, wrap((req) => drive.chooseFolder(req.userId, req.activityId, req.body.folderId)));
 router.get('/drive/files', ...chain, async (req, res) => {

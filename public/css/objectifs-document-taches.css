@@ -89,3 +89,4 @@
 .docTasksRow { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-bottom: 1px solid var(--border, rgba(127,127,127,.35)); border-radius: 0; margin-top: 0; padding: 12px 2px; opacity: 1; }
 .docTasksRowWrap:last-of-type .docTasksRow, .docTasksRowWrap:last-child .docTasksRow { border-bottom: 0; }
 .docTasksCancelRow { text-align: center; margin: 6px 0 20px; }
+.docTasksPickOn { background: rgba(194, 105, 74, .22); border-color: #C2694A; opacity: 1; }

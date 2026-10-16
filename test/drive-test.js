@@ -52,8 +52,9 @@ const mkPdf = (stream) => {
 };
 files['pdf-1111'] = { id: 'pdf-1111', name: 'plan.pdf', mimeType: 'application/pdf', parents: ['fold-1111'], size: '900' };
 let revoked = null;
+const urls = [];
 const baseFetch = async (url, opt) => {
-  const u = new URL(url); calls.push(u.pathname);
+  const u = new URL(url); calls.push(u.pathname); urls.push(u);
   const json = (o, ok = true) => ({ ok, status: ok ? 200 : 404, json: async () => o, arrayBuffer: async () => Buffer.from('') });
   if (u.host === 'oauth2.googleapis.com' && u.pathname === '/token') {
     const b = new URLSearchParams(opt.body);
@@ -62,6 +63,7 @@ const baseFetch = async (url, opt) => {
   }
   if (u.pathname === '/revoke') { revoked = new URLSearchParams(opt.body).get('token'); return json({}); }
   const m = u.pathname.match(/\/drive\/v3\/files(?:\/([^/]+)(\/export)?)?$/);
+  if (m && !m[1] && /name contains/.test(u.searchParams.get('q') || '')) return u.searchParams.get('pageToken') ? json({ files: [{ id: 'f3', name: 'Dos3' }] }) : json({ files: [{ id: 'f1', name: 'Dos1', driveId: 'd' }, { id: 'f2', name: 'Dos2' }], nextPageToken: 'tok' });
   if (m && !m[1]) return json({ files: [files['doc-1111'], files['txt-1111']] });
   if (m && m[2]) return { ok: true, arrayBuffer: async () => Buffer.from('Texte du document: écrire le plan') };
   if (m && m[1] === 'pdf-1111' && u.searchParams.get('alt') === 'media') return { ok: true, arrayBuffer: async () => Buffer.from(mkPdf('BT /F1 18 Tf 20 100 Td (Appeler le client Drive) Tj ET'), 'latin1') };
@@ -123,6 +125,15 @@ drive.setFetch(baseFetch);
   assert(r.st === 400, 'un fichier n’est pas un dossier');
   r = await call('get', '/drive/files', 'own', { query: { activityId: act } });
   assert(r.st === 200 && r.b.files.length === 2, 'liste des fichiers du dossier');
+
+  urls.length = 0;
+  r = await call('get', '/drive/folders', 'own', { query: { activityId: act, q: "l'a\\b" } });
+  const fu = urls.filter((x) => x.pathname === '/drive/v3/files');
+  assert(r.st === 200 && r.b.folders.length === 3 && fu.length === 2, 'recherche dossiers : pagination suivie');
+  assert(fu[0].searchParams.get('q').endsWith("name contains 'l\\'a\\\\b'"), 'q échappé (apostrophe, antislash)');
+  assert(fu[0].searchParams.get('supportsAllDrives') === 'true' && fu[0].searchParams.get('includeItemsFromAllDrives') === 'true' && fu[0].searchParams.get('corpora') === 'allDrives', 'Drive partagés inclus');
+  r = await call('get', '/drive/folders', 'own', { query: { activityId: act, q: 'x'.repeat(101) } });
+  assert(r.st === 400, 'q trop long refusé');
 
   const t = await drive.readFileText('own', act, 'doc-1111');
   assert(/écrire le plan/.test(t.text), 'Google Doc exporté en texte');

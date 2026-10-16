@@ -230,18 +230,34 @@ async function api(token, path, params, raw) {
   try { return raw ? Buffer.from(await r.arrayBuffer()) : await r.json(); } catch (e) { throw httpError(502, 'Drive n’a pas répondu.'); }
 }
 
-async function listFolders(userId, activityId) {
+const ALL_DRIVES = { supportsAllDrives: 'true', includeItemsFromAllDrives: 'true' };
+const FOLDER_MAX = 300;
+// Recherche de dossiers par nom (Drive personnel, dossiers partagés, Drive partagés), pagination jusqu'à 300.
+async function listFolders(userId, activityId, query) {
   const c = needConn(userId, activityId);
+  const qs = String(query == null ? '' : query).trim();
+  if (qs.length > 100) throw httpError(400, 'Recherche trop longue.');
   const t = await accessToken(c);
-  const j = await api(t, '/files', { q: `mimeType = '${FOLDER_MIME}' and trashed = false`, fields: 'files(id,name)', pageSize: '200', orderBy: 'name' });
-  return (j.files || []).map((f) => ({ id: f.id, name: f.name }));
+  const esc = qs.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const q = `mimeType = '${FOLDER_MIME}' and trashed = false` + (qs ? ` and name contains '${esc}'` : '');
+  const out = [];
+  let pageToken = '';
+  for (let i = 0; i < 10 && out.length < FOLDER_MAX; i++) {
+    const params = Object.assign({ q, fields: 'nextPageToken,files(id,name,driveId)', pageSize: '100', orderBy: 'name', corpora: 'allDrives' }, ALL_DRIVES);
+    if (pageToken) params.pageToken = pageToken;
+    const j = await api(t, '/files', params);
+    for (const f of (j.files || [])) out.push({ id: f.id, name: f.name, shared: !!f.driveId });
+    pageToken = j.nextPageToken || '';
+    if (!pageToken) break;
+  }
+  return out.slice(0, FOLDER_MAX);
 }
 
 async function chooseFolder(userId, activityId, folderId) {
   const c = needConn(userId, activityId);
   if (typeof folderId !== 'string' || !/^[\w-]{5,200}$/.test(folderId)) throw httpError(400, 'Dossier invalide.');
   const t = await accessToken(c);
-  const f = await api(t, '/files/' + encodeURIComponent(folderId), { fields: 'id,name,mimeType,trashed' });
+  const f = await api(t, '/files/' + encodeURIComponent(folderId), { fields: 'id,name,mimeType,trashed', supportsAllDrives: 'true' });
   if (f.mimeType !== FOLDER_MIME || f.trashed) throw httpError(400, 'Ce n’est pas un dossier.');
   if (c.folderId && c.folderId !== f.id) db.prepare('DELETE FROM drive_seen_files WHERE userId = ? AND activityId = ?').run(userId, activityId); // autre dossier : on relit tout (les tâches déjà vues restent dédupliquées)
   db.prepare('UPDATE drive_connections SET folderId = ?, folderName = ? WHERE userId = ? AND activityId = ?').run(f.id, String(f.name || '').slice(0, 200), userId, activityId);
@@ -261,7 +277,7 @@ const READABLE = /^(application\/vnd\.google-apps\.(document|spreadsheet)|applic
 async function listFiles(userId, activityId) {
   const c = needFolder(userId, activityId);
   const t = await accessToken(c);
-  const j = await api(t, '/files', { q: `'${c.folderId}' in parents and trashed = false and mimeType != '${FOLDER_MIME}'`, fields: 'files(id,name,mimeType,modifiedTime)', pageSize: '200', orderBy: 'name' });
+  const j = await api(t, '/files', { q: `'${c.folderId}' in parents and trashed = false and mimeType != '${FOLDER_MIME}'`, fields: 'files(id,name,mimeType,modifiedTime)', pageSize: '200', orderBy: 'name', corpora: 'allDrives', ...ALL_DRIVES });
   return (j.files || []).filter((f) => READABLE.test(f.mimeType)).map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime }));
 }
 
@@ -270,16 +286,16 @@ async function readFileText(userId, activityId, fileId) {
   const c = needFolder(userId, activityId);
   if (typeof fileId !== 'string' || !/^[\w-]{5,200}$/.test(fileId)) throw httpError(400, 'Fichier invalide.');
   const t = await accessToken(c);
-  const meta = await api(t, '/files/' + encodeURIComponent(fileId), { fields: 'id,name,mimeType,size,parents,trashed' });
+  const meta = await api(t, '/files/' + encodeURIComponent(fileId), { fields: 'id,name,mimeType,size,parents,trashed', supportsAllDrives: 'true' });
   if (meta.trashed || !Array.isArray(meta.parents) || !meta.parents.includes(c.folderId)) throw httpError(403, 'Ce fichier n’est pas dans le dossier choisi.');
   if (!READABLE.test(meta.mimeType)) throw httpError(400, 'Format non pris en charge.');
   if (Number(meta.size) > MAX_FILE_BYTES) throw httpError(400, 'Fichier trop lourd (10 Mo max).');
   const id = encodeURIComponent(meta.id);
   let text, notes = [];
-  if (meta.mimeType === GDOC) text = (await api(t, `/files/${id}/export`, { mimeType: 'text/plain' }, true)).toString('utf8');
-  else if (meta.mimeType === GSHEET) text = (await api(t, `/files/${id}/export`, { mimeType: 'text/csv' }, true)).toString('utf8');
+  if (meta.mimeType === GDOC) text = (await api(t, `/files/${id}/export`, { mimeType: 'text/plain', supportsAllDrives: 'true' }, true)).toString('utf8');
+  else if (meta.mimeType === GSHEET) text = (await api(t, `/files/${id}/export`, { mimeType: 'text/csv', supportsAllDrives: 'true' }, true)).toString('utf8');
   else {
-    const buf = await api(t, `/files/${id}`, { alt: 'media' }, true);
+    const buf = await api(t, `/files/${id}`, { alt: 'media', supportsAllDrives: 'true' }, true);
     const r = await documenttasks.textFromFile({ fileName: meta.name, mimeType: meta.mimeType, dataUrl: 'data:' + meta.mimeType + ';base64,' + buf.toString('base64') });
     if (r.unsupported) throw httpError(400, r.unsupported);
     text = r.text;

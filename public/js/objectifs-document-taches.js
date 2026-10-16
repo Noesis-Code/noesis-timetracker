@@ -135,16 +135,34 @@
     dApi('GET', '/api/drive/files').then(function (r) { driveList = r.files || []; renderDrive(); })
       .catch(function (e) { driveErr = (e && e.message) || 'Erreur Drive.'; renderDrive(); });
   }
-  var folderQuery = '';
+  var folderList = [], folderQuery = '', folderSel = null, folderTimer = null, folderSeq = 0, folderLoading = false;
   function norm(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
-  // Propositions : dossiers dont le nom commence par ce qui est écrit (rien tant que rien n'est écrit).
+  // Propositions : dossiers (recherchés côté serveur) dont le nom commence par ce qui est écrit.
   function renderFolderSug() {
     var box = $('docTasksFolderSug'); if (!box) return;
+    if (folderSel) {
+      box.innerHTML = '<button type="button" class="docTasksPick docTasksPickOn" aria-pressed="true" disabled>📁 ' + esc(folderSel.name) + '</button>'
+        + '<button type="button" class="docTasksDriveBtn" data-d="folderOk" style="margin-top:8px">Choisir ce dossier</button>'
+        + '<div style="margin-top:4px"><button type="button" class="docTasksLink" data-d="folderCancel">Annuler</button></div>';
+      return;
+    }
     var q = norm(folderQuery);
     if (!q) { box.innerHTML = '<p class="hint">Écris les premières lettres du nom.</p>'; return; }
-    var m = driveList.filter(function (f) { return norm(f.name).indexOf(q) === 0; }).slice(0, 8);
+    var m = folderList.filter(function (f) { return norm(f.name).indexOf(q) === 0; }).slice(0, 8);
     box.innerHTML = m.length ? m.map(function (f) { return '<button type="button" class="docTasksPick" data-d="folder" data-id="' + esc(f.id) + '">📁 ' + esc(f.name) + '</button>'; }).join('')
-      : '<p class="hint">' + (driveList.length ? 'Aucun dossier ne commence par ces lettres.' : 'Chargement…') + '</p>';
+      : '<p class="hint">' + (folderLoading ? 'Recherche…' : 'Aucun dossier ne commence par ces lettres.') + '</p>';
+  }
+  function searchFolders() {
+    var q = folderQuery.trim(), seq = ++folderSeq;
+    if (!q) { folderList = []; folderLoading = false; renderFolderSug(); return; }
+    folderLoading = true; renderFolderSug();
+    dApi('GET', '/api/drive/folders&q=' + encodeURIComponent(q).slice(0, 300)).then(function (r) {
+      if (seq !== folderSeq || driveView !== 'folders') return;
+      folderList = r.folders || []; folderLoading = false; renderFolderSug();
+    }).catch(function (err) {
+      if (seq !== folderSeq) return;
+      folderLoading = false; driveErr = (err && err.message) || 'Erreur Drive.'; renderDrive();
+    });
   }
   function renderDrive() {
     var h = $('docTasksDrive'), s = driveSt, html = '';
@@ -176,7 +194,7 @@
     h.innerHTML = html;
     if (!s.configured || !s.connected || driveView !== 'folders') return;
     var q = $('docTasksFolderQ');
-    if (q) { q.addEventListener('input', function () { folderQuery = q.value; renderFolderSug(); }); renderFolderSug(); q.focus(); }
+    if (q) { q.addEventListener('input', function () { folderQuery = q.value; folderSel = null; clearTimeout(folderTimer); folderTimer = setTimeout(searchFolders, 250); renderFolderSug(); }); renderFolderSug(); q.focus(); }
   }
   $('docTasksDrive').addEventListener('click', function (e) {
     var b = e.target.closest('[data-d]'); if (!b) return;
@@ -186,13 +204,17 @@
     if (d === 'connect') {
       dApi('GET', '/api/drive/connect').then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
     } else if (d === 'pickFolder') {
-      driveView = 'folders'; driveList = []; folderQuery = ''; renderDrive();
-      dApi('GET', '/api/drive/folders').then(function (r) { driveList = r.folders || []; renderDrive(); }).catch(fail);
+      driveView = 'folders'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
     } else if (d === 'closeFolders') {
-      driveView = 'main'; driveList = []; renderDrive(); if (driveSt.folderChosen) loadFiles();
+      driveView = 'main'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
     } else if (d === 'folder') {
-      dApi('POST', '/api/drive/folder', { folderId: id }).then(function (r) {
-        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveView = 'main'; driveFile = null; driveList = []; renderDrive(); loadFiles(); loadSync();
+      var pf = folderList.filter(function (x) { return x.id === id; })[0];
+      if (pf) { folderSel = pf; folderQuery = pf.name; var qi = $('docTasksFolderQ'); if (qi) qi.value = pf.name; renderFolderSug(); }
+    } else if (d === 'folderCancel') {
+      folderSel = null; var qc = $('docTasksFolderQ'); if (qc) { qc.focus(); } renderFolderSug();
+    } else if (d === 'folderOk' && folderSel) {
+      dApi('POST', '/api/drive/folder', { folderId: folderSel.id }).then(function (r) {
+        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync();
       }).catch(fail);
     } else if (d === 'file') {
       var f = driveList.filter(function (x) { return x.id === id; })[0];
@@ -224,7 +246,7 @@
     if (s.pendingCount) html += '<button type="button" class="docTasksPill" data-s="pending">' + s.pendingCount + ' nouvelle' + (s.pendingCount > 1 ? 's' : '') + ' tâche' + (s.pendingCount > 1 ? 's' : '') + ' proposée' + (s.pendingCount > 1 ? 's' : '') + '</button>';
     html += '<label class="docTasksCheck"><input type="checkbox" id="docTasksAuto"' + (s.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
       + '<label class="docTasksMeta" for="docTasksInstr">Consigne permanente (facultative)</label>'
-      + '<textarea id="docTasksInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(s.defaultInstruction) + '">' + esc(s.instruction === s.defaultInstruction ? '' : s.instruction) + '</textarea>'
+      + '<textarea id="docTasksInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(String(s.defaultInstruction || '').replace(/[\s.…]+$/, '') + '…') + '">' + esc(s.instruction === s.defaultInstruction ? '' : s.instruction) + '</textarea>'
       + '<div class="docTasksDriveHead"><button type="button" class="docTasksLink" data-s="save">Enregistrer</button><button type="button" class="docTasksLink" data-s="run">Synchroniser maintenant</button></div>'
       + '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
     if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
