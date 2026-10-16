@@ -20,6 +20,7 @@
 // fonctions ci-dessous reçoivent donc toujours un activityId déjà garanti
 // valide, plus besoin de le refaire ici.
 
+const aibudget = require('./aibudget');
 const db = require('../db');
 const sp = require('./subprojects');
 const { replaceQueue } = require('./subprojectqueue');
@@ -83,7 +84,7 @@ async function generateSubProjectsPlan(formsPayload) {
     throw new Error("Génération indisponible pour le moment.");
   }
 
-  const res = await fetch(ANTHROPIC_API_URL, {
+  const res = await aibudget.fetchAnthropic('offre1-plan', ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
@@ -157,7 +158,7 @@ async function activateActivitySubscription(activityId, userId) {
   const already = db.prepare('SELECT 1 FROM sub_projects WHERE activityId = ? AND slot IS NOT NULL LIMIT 1').get(activityId);
   if (already) return { activityId, alreadyActivated: true };
 
-  const plan = await generateSubProjectsPlan(loadFormsPayload(activityId, userId));
+  const plan = await aibudget.runAs(userId, () => generateSubProjectsPlan(loadFormsPayload(activityId, userId)));
 
   const created = [];
   db.exec('BEGIN');
@@ -209,7 +210,7 @@ async function regenerateActivityRoadmap(activityId, userId) {
     return activateActivitySubscription(activityId, userId);
   }
 
-  const plan = await generateSubProjectsPlan(loadFormsPayload(activityId, userId));
+  const plan = await aibudget.runAs(userId, () => generateSubProjectsPlan(loadFormsPayload(activityId, userId)));
   const bySlot = new Map(existingSlots.map((row) => [row.slot, row.id]));
 
   db.exec('BEGIN');

@@ -11,6 +11,7 @@
 // (cible appartenant à l'activité, valeurs, « avant » relu en base et non fourni par l'IA).
 // Coût : chaque appel IA consomme le plafond quotidien partagé avec la surveillance Drive
 // (drivesync.takeCall / DRIVE_SYNC_MAX_AI_CALLS_PER_DAY).
+const aibudget = require('./aibudget');
 const crypto = require('crypto');
 const db = require('../db');
 const goals = require('./goals');
@@ -122,7 +123,7 @@ async function callAnthropic({ system, user }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(API_URL, {
+    const res = await aibudget.fetchAnthropic('modifications-proposees', API_URL, {
       method: 'POST', signal: controller.signal,
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: classify.modelName(), max_tokens: MAX_TOKENS, temperature: 0, system, messages: [{ role: 'user', content: user }] }),
@@ -248,7 +249,7 @@ async function generate(userId, activityId, opts) {
   if (!drivesync.takeCall(userId)) return { added: 0, capReached: true };
   let text;
   try { text = await (caller || callAnthropic)({ system: SYSTEM, user: buildUser(ctx, o.docText || '') }); }
-  catch (e) { return { added: 0, failed: true }; }
+  catch (e) { return e && e.aiBlocked ? { added: 0, aiBlocked: true, aiResumesOn: e.resumesOn, message: e.message } : { added: 0, failed: true }; }
   if (text && typeof text === 'object') text = text.text;
   const changes = validate(text, ctx);
   if (!changes) return { added: 0, failed: true };

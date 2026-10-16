@@ -46,6 +46,7 @@
 // d'appeler l'IA), si l'appel échoue/expire, ou si la réponse ne correspond
 // à aucune clé candidate — jamais de blocage de la création de la tâche.
 
+const aibudget = require('./aibudget');
 const db = require('../db');
 const goals = require('./goals');
 const goalstasks = require('./goalstasks');
@@ -173,11 +174,11 @@ function extractUncertain(text, categories) {
   return keys;
 }
 
-async function callModel(prompt, maxTokens) {
+async function callModel(prompt, maxTokens, feature) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(ANTHROPIC_API_URL, {
+    const res = await aibudget.fetchAnthropic(feature || 'classement-tache', ANTHROPIC_API_URL, {
       method: 'POST',
       signal: controller.signal,
       headers: {

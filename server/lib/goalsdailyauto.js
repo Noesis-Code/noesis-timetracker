@@ -41,6 +41,7 @@
 // l'utilisateur (bouton), pour garder les coûts prévisibles et sous son
 // contrôle.
 
+const aibudget = require('./aibudget');
 const db = require('../db');
 const goals = require('./goals');
 
@@ -286,7 +287,7 @@ async function callModel(prompt) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(ANTHROPIC_API_URL, {
+    const res = await aibudget.fetchAnthropic('objectifs-plan-quotidien', ANTHROPIC_API_URL, {
       method: 'POST',
       signal: controller.signal,
       headers: {
