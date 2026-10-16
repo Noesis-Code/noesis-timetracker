@@ -114,3 +114,6 @@
 .docTasksFolderFiles { margin: 0 0 6px 24px; }
 .docTasksFileRow { display: block; width: 100%; text-align: left; padding: 8px 0; border: 0; border-bottom: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .docTasksFileRow:last-child { border-bottom: 0; }
+
+.docTasksFsActions { justify-content: space-between; }
+.docTasksFsActions .docTasksApplyBtn { flex: none; width: auto; padding: 8px 20px; border-radius: var(--radius-sm); font-size: 14px; }

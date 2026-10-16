@@ -215,7 +215,7 @@
   function renderFolderSet() {
     var f = ((driveSt && driveSt.folders) || []).filter(function (x) { return x.id === fsId; })[0]; if (!f) return;
     var dflt = (syncSt && syncSt.defaultInstruction) || 'Extrais toutes les tâches écrites dans le document';
-    $('docTasksFsTitle').textContent = '📁 ' + (f.name || 'Dossier');
+    $('docTasksFsTitle').innerHTML = FOLDER_ICON + esc(f.name || 'Dossier');
     $('docTasksFsBody').innerHTML = '<label class="docTasksCheck"><input type="checkbox" id="docTasksFsActive"' + (f.paused ? '' : ' checked') + '> Surveillance active (décoche pour la mettre en pause)</label>'
       + '<label class="docTasksCheck"><input type="checkbox" id="docTasksFsAuto"' + (f.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
       + '<label class="docTasksMeta" for="docTasksFsInstr">Consigne permanente (facultative)</label>'
