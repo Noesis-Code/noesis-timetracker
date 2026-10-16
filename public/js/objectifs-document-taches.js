@@ -352,8 +352,10 @@
     var warn = (r.warnings || []).map(function (w) {
       return '<div class="docTasksWarn">Attention : ' + weekLabel(w.week) + ', ' + w.minutes + ' min proposées pour une capacité de ' + w.capacityMinutes + ' min. Décoche des tâches ou garde-les en connaissance de cause.</div>';
     }).join('');
-    host.innerHTML = warn + html + '<button type="button" id="docTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button>';
+    host.innerHTML = warn + html + '<button type="button" id="docTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button><div class="docTasksCancelRow"><button type="button" id="docTasksCancel" class="docTasksLink">Annuler</button></div>';
     $('docTasksApply').addEventListener('click', apply);
+    // Annuler : les tâches proposées et le bouton disparaissent ; la saisie reste. Il faut recliquer sur Ajouter pour les revoir.
+    $('docTasksCancel').addEventListener('click', function () { proposals = []; pendingMode = false; host.innerHTML = ''; });
     Array.prototype.forEach.call(host.querySelectorAll('select[data-c]'), function (sel) {
       sel.addEventListener('change', function () {
         var t = proposals[Number(sel.getAttribute('data-c'))]; if (!t) return;
