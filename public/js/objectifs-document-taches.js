@@ -52,6 +52,18 @@
         <button type="button" id="docTasksPopOk" class="docTasksApplyBtn">OK</button>
       </div>
     </div>
+    <div id="docTasksFoldersPop" class="docTasksPop hidden" role="dialog" aria-label="Mes dossiers connectés">
+      <div class="docTasksPopCard">
+        <div class="docTasksDriveHead"><strong>Mes dossiers connectés</strong><button type="button" class="docTasksX" id="docTasksFoldersClose" aria-label="Fermer">✕</button></div>
+        <div id="docTasksFoldersBody" class="docTasksPopList"></div>
+      </div>
+    </div>
+    <div id="docTasksFolderSetPop" class="docTasksPop hidden" role="dialog" aria-label="Réglages du dossier">
+      <div class="docTasksPopCard">
+        <div class="docTasksDriveHead"><strong id="docTasksFsTitle">Réglages du dossier</strong><button type="button" class="docTasksX" id="docTasksFsClose" aria-label="Fermer">✕</button></div>
+        <div id="docTasksFsBody" class="docTasksPopList"></div>
+      </div>
+    </div>
     <div id="docTasksChangesPop" class="docTasksPop hidden" role="dialog" aria-label="Modifications proposées">
       <div class="docTasksPopCard">
         <div class="docTasksDriveHead"><strong>Modifications proposées</strong><button type="button" class="docTasksX" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
@@ -121,7 +133,7 @@
   });
 
   // ---------- Google Drive (lecture seule, jusqu’à 10 dossiers surveillés par activité) ----------
-  var foldersOpen = false, folderRemoveId = null;
+  var folderRemoveId = null;
   var driveSt = null, driveFile = null, driveView = 'main', driveList = [], driveErr = '';
   function dApi(method, path, extra) {
     var q = 'activityId=' + encodeURIComponent(actId());
@@ -166,14 +178,66 @@
       folderLoading = false; driveErr = (err && err.message) || 'Erreur Drive.'; renderDrive();
     });
   }
-  function renderDrive() { renderDriveMain(); renderDisc(); }
+  function renderDrive() { renderDriveMain(); renderDisc(); renderFoldersPop(); }
   function renderDisc() {
     var d = $('docTasksDisc'), s = driveSt;
     if (!s || !s.configured || !s.connected) { d.innerHTML = ''; return; }
+    var n = (s.folders || []).length;
     d.innerHTML = driveView === 'confirm'
       ? '<div class="docTasksConfirm">Déconnecter Drive de cette activité ? <button type="button" class="docTasksLink" data-d="disconnectYes">Déconnecter</button> <button type="button" class="docTasksLink" data-d="disconnectNo">Annuler</button></div>'
-      : '<button type="button" class="docTasksLink" data-d="disconnect">Déconnecter Drive</button>';
+      : '<div class="docTasksBottomRow">' + (n ? '<button type="button" class="docTasksDriveBtn docTasksBottomBtn" data-d="openFolders">Voir mes dossiers connectés (' + n + ')</button>' : '')
+        + '<button type="button" class="offer1PromoBtn offer1PromoBtnGrey docTasksBottomBtn" data-d="disconnect">Déconnecter Drive</button></div>';
   }
+  var PENCIL_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
+  function renderFoldersPop() {
+    var s = driveSt || {}, fl = s.folders || [];
+    $('docTasksFoldersBody').innerHTML = (fl.length ? '<div class="docTasksFolderList">' + fl.map(function (f) {
+      return folderRemoveId === f.id
+        ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-d="folderRemoveYes" data-id="' + esc(f.id) + '">Retirer</button> <button type="button" class="docTasksLink" data-d="folderRemoveNo">Annuler</button></div>'
+        : '<div class="docTasksFolderRow"><span class="docTasksFolderName">📁 ' + esc(f.name || 'Dossier') + (f.paused ? ' <span class="docTasksMeta">(en pause)</span>' : '') + '</span>'
+          + '<button type="button" class="historyRowIconBtn goalDescEditBtn docTasksFolderIconBtn" data-d="folderEdit" data-id="' + esc(f.id) + '" aria-label="Modifier les réglages de ce dossier" title="Modifier">' + PENCIL_ICON + '</button>'
+          + '<button type="button" class="historyRowIconBtn danger docTasksFolderIconBtn" data-d="folderRemove" data-id="' + esc(f.id) + '" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller">' + TRASH_ICON + '</button></div>';
+    }).join('') + '</div>' : '<p class="hint">Aucun dossier connecté.</p>')
+      + (fl.length < 10 ? '<div><button type="button" class="docTasksLink" data-d="pickFolder">Ajouter un dossier</button></div>' : '')
+      + (driveFile ? '' : (driveList.length ? '<div class="docTasksMeta" style="margin-top:10px">Lire un fichier avec l’IA</div>' + driveList.slice(0, 60).map(function (f) { return '<button type="button" class="docTasksPick" data-d="file" data-id="' + esc(f.id) + '">' + esc(f.path || f.name) + '</button>'; }).join('') : ''))
+      + (driveErr ? '<p class="msg">' + esc(driveErr) + '</p>' : '');
+  }
+  var fsId = null, fsMsg = '';
+  function renderFolderSet() {
+    var f = ((driveSt && driveSt.folders) || []).filter(function (x) { return x.id === fsId; })[0]; if (!f) return;
+    var dflt = (syncSt && syncSt.defaultInstruction) || 'Extrais toutes les tâches écrites dans le document';
+    $('docTasksFsTitle').textContent = '📁 ' + (f.name || 'Dossier');
+    $('docTasksFsBody').innerHTML = '<label class="docTasksCheck"><input type="checkbox" id="docTasksFsActive"' + (f.paused ? '' : ' checked') + '> Surveillance active (décoche pour la mettre en pause)</label>'
+      + '<label class="docTasksCheck"><input type="checkbox" id="docTasksFsAuto"' + (f.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
+      + '<label class="docTasksMeta" for="docTasksFsInstr">Consigne permanente (facultative)</label>'
+      + '<textarea id="docTasksFsInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(dflt.replace(/[\s.…]+$/, '') + '…') + '">' + esc(f.instruction) + '</textarea>'
+      + '<button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button>'
+      + '<div class="docTasksCancelRow"><button type="button" class="docTasksLink" data-f="run">Synchroniser maintenant</button></div>'
+      + (fsMsg ? '<p class="msg">' + esc(fsMsg) + '</p>' : '');
+  }
+  function openFolderSet(id) { fsId = id; fsMsg = ''; renderFolderSet(); $('docTasksFolderSetPop').classList.remove('hidden'); }
+  function closeFolderSet() { $('docTasksFolderSetPop').classList.add('hidden'); fsId = null; }
+  $('docTasksFsClose').addEventListener('click', closeFolderSet);
+  $('docTasksFoldersClose').addEventListener('click', function () { $('docTasksFoldersPop').classList.add('hidden'); });
+  $('docTasksFsBody').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-f]'); if (!b || !fsId) return;
+    var a = b.getAttribute('data-f');
+    function fail(err) { fsMsg = (err && err.message) || 'Erreur.'; renderFolderSet(); }
+    if (a === 'save') {
+      dApi('POST', '/api/drive/folder/settings', { folderId: fsId, mode: $('docTasksFsAuto').checked ? 'auto' : 'propose', instruction: $('docTasksFsInstr').value, paused: !$('docTasksFsActive').checked })
+        .then(function (r) { driveSt.folders = r.folders || driveSt.folders; syncSt = r; renderSync(); renderFoldersPop(); closeFolderSet(); }).catch(fail);
+    } else if (a === 'run') {
+      fsMsg = 'Synchronisation…'; renderFolderSet();
+      dApi('POST', '/api/drive/sync/run', { folderId: fsId }).then(function (r) {
+        syncSt = r;
+        fsMsg = r.needsReconnect ? 'Drive doit être reconnecté.' : r.capReached ? 'Plafond quotidien atteint.' : (r.added + ' ajoutée(s), ' + r.proposed + ' proposée(s).');
+        renderFolderSet(); renderSync();
+        if (r.needsReconnect) { driveSt.needsReconnect = true; renderDrive(); }
+        if (r.added) checkAdded();
+        if (typeof TMT.openGoalsForActivity === 'function' && r.added) TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0);
+      }).catch(fail);
+    }
+  });
   function renderDriveMain() {
     var h = $('docTasksDrive'), s = driveSt, html = '';
     if (!s) { h.innerHTML = ''; return; }
@@ -187,20 +251,10 @@
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="docTasksX" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
         + '<input type="text" id="docTasksFolderQ" class="docTasksInstr" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris le nom du dossier…" value="' + esc(folderQuery) + '">'
         + '<div id="docTasksFolderSug"></div></div>';
-    } else if (!s.folderChosen) {
-      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Drive connecté</span></div><button type="button" class="docTasksDriveBtn" data-d="pickFolder">Choisir un dossier</button></div>';
     } else {
-      var fl = s.folders && s.folders.length ? s.folders : [{ id: '', name: s.folderName || 'Dossier' }];
-      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><button type="button" class="docTasksLink docTasksFoldersHead" data-d="toggleFolders" aria-expanded="' + (foldersOpen ? 'true' : 'false') + '">Dossiers surveillés (' + fl.length + ') ' + (foldersOpen ? '▴' : '▾') + '</button>'
-        + (fl.length < 10 ? '<button type="button" class="docTasksLink" data-d="pickFolder">Ajouter un dossier</button>' : '') + '</div>'
-        + (foldersOpen ? '<div class="docTasksFolderList">' + fl.map(function (f) {
-          return folderRemoveId === f.id && f.id
-            ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-d="folderRemoveYes" data-id="' + esc(f.id) + '">Retirer</button> <button type="button" class="docTasksLink" data-d="folderRemoveNo">Annuler</button></div>'
-            : '<div class="docTasksFolderRow"><span class="docTasksFolderName">📁 ' + esc(f.name || 'Dossier') + '</span>'
-              + (f.id ? '<button type="button" class="historyRowIconBtn danger" data-d="folderRemove" data-id="' + esc(f.id) + '" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller">' + TRASH_ICON + '</button>' : '') + '</div>';
-        }).join('') + '</div>' : '')
-        + (driveFile ? '<span class="docTasksChip">' + esc(driveFile.name) + ' <button type="button" data-d="unpick" aria-label="Retirer">✕</button></span>'
-          : (driveList.length ? driveList.map(function (f) { return '<button type="button" class="docTasksPick" data-d="file" data-id="' + esc(f.id) + '">' + esc(f.name) + '</button>'; }).join('') : '<p class="hint">Aucun fichier lisible dans ce dossier.</p>')) + '</div>';
+      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Drive connecté</span></div>'
+        + ((s.folders || []).length < 10 ? '<button type="button" class="docTasksDriveBtn" data-d="pickFolder">Choisir un dossier</button>' : '<p class="hint">10 dossiers surveillés (maximum).</p>')
+        + (driveFile ? '<div><span class="docTasksChip">' + esc(driveFile.path || driveFile.name) + ' <button type="button" data-d="unpick" aria-label="Retirer">✕</button></span></div>' : '') + '</div>';
     }
     if (s.connected && s.needsReconnect) html += '<div class="docTasksWarn">L’accès à Drive a été révoqué ou a expiré : la surveillance est en pause. <button type="button" class="docTasksLink" data-d="connect">Reconnecter Drive</button></div>';
     if (driveErr) html += '<p class="msg">' + esc(driveErr) + '</p>';
@@ -217,7 +271,7 @@
     if (d === 'connect') {
       dApi('GET', '/api/drive/connect').then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
     } else if (d === 'pickFolder') {
-      driveView = 'folders'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
+      $('docTasksFoldersPop').classList.add('hidden'); driveView = 'folders'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
     } else if (d === 'closeFolders') {
       driveView = 'main'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
     } else if (d === 'folder') {
@@ -227,18 +281,21 @@
       folderSel = null; var qc = $('docTasksFolderQ'); if (qc) { qc.focus(); } renderFolderSug();
     } else if (d === 'folderOk' && folderSel) {
       dApi('POST', '/api/drive/folder', { folderId: folderSel.id }).then(function (r) {
-        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveSt.folders = r.folders || driveSt.folders; foldersOpen = true; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync();
+        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveSt.folders = r.folders || driveSt.folders; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync(); openFolderSet(r.folderId);
       }).catch(fail);
-    } else if (d === 'toggleFolders') { foldersOpen = !foldersOpen; folderRemoveId = null; renderDrive();
+    } else if (d === 'openFolders') { folderRemoveId = null; renderDrive(); $('docTasksFoldersPop').classList.remove('hidden');
+    } else if (d === 'folderEdit') { openFolderSet(id);
     } else if (d === 'folderRemove') { folderRemoveId = id; renderDrive();
     } else if (d === 'folderRemoveNo') { folderRemoveId = null; renderDrive();
     } else if (d === 'folderRemoveYes') {
       dApi('POST', '/api/drive/folder/remove', { folderId: id }).then(function (r) {
         folderRemoveId = null; driveSt.folders = r.folders || []; driveSt.folderChosen = driveSt.folders.length > 0; driveSt.folderName = driveSt.folders.length ? driveSt.folders[0].name : null;
         driveFile = null; driveList = []; renderDrive();
+        if (!driveSt.folderChosen) $('docTasksFoldersPop').classList.add('hidden');
         if (driveSt.folderChosen) { loadFiles(); loadSync(); } else { syncSt = null; renderSync(); }
       }).catch(fail);
     } else if (d === 'file') {
+      $('docTasksFoldersPop').classList.add('hidden');
       var f = driveList.filter(function (x) { return x.id === id; })[0];
       if (f) { driveFile = f; files = []; renderFiles(); renderDrive(); }
     } else if (d === 'unpick') { driveFile = null; renderDrive(); }
@@ -252,6 +309,7 @@
   }
   $('docTasksDrive').addEventListener('click', onDriveClick);
   $('docTasksDisc').addEventListener('click', onDriveClick);
+  $('docTasksFoldersBody').addEventListener('click', onDriveClick);
 
   // ---------- Surveillance du dossier ----------
   var syncSt = null, syncMsg = '', pendingMode = false;
@@ -263,16 +321,13 @@
     var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
     return m < 1 ? 'à l’instant' : m < 60 ? 'il y a ' + m + ' min' : m < 1440 ? 'il y a ' + Math.round(m / 60) + ' h' : new Date(iso).toLocaleDateString('fr-CA');
   }
+  // État seulement : tâches en attente, dernière vérification, plafond. Les réglages sont par dossier (crayon).
   function renderSync() {
     var h = $('docTasksSync'), s = syncSt;
-    if (!s) { h.innerHTML = ''; return; }
-    var html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Surveillance du dossier</span></div>';
+    if (!s || !(driveSt && driveSt.folderChosen)) { h.innerHTML = ''; return; }
+    var html = '<div class="docTasksDriveRow">';
     if (s.pendingCount) html += '<button type="button" class="docTasksPill" data-s="pending">' + s.pendingCount + ' nouvelle' + (s.pendingCount > 1 ? 's' : '') + ' tâche' + (s.pendingCount > 1 ? 's' : '') + ' proposée' + (s.pendingCount > 1 ? 's' : '') + '</button>';
-    html += '<label class="docTasksCheck"><input type="checkbox" id="docTasksAuto"' + (s.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
-      + '<label class="docTasksMeta" for="docTasksInstr">Consigne permanente (facultative)</label>'
-      + '<textarea id="docTasksInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(String(s.defaultInstruction || '').replace(/[\s.…]+$/, '') + '…') + '">' + esc(s.instruction === s.defaultInstruction ? '' : s.instruction) + '</textarea>'
-      + '<div class="docTasksDriveHead"><button type="button" class="docTasksLink" data-s="save">Enregistrer</button><button type="button" class="docTasksLink" data-s="run">Synchroniser maintenant</button></div>'
-      + '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
+    html += '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
     if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
     if (syncMsg) html += '<p class="msg">' + esc(syncMsg) + '</p>';
     h.innerHTML = html + '</div>';
@@ -281,20 +336,7 @@
     var b = e.target.closest('[data-s]'); if (!b) return;
     var a = b.getAttribute('data-s');
     function fail(err) { syncMsg = (err && err.message) || 'Erreur.'; renderSync(); }
-    if (a === 'save') {
-      dApi('POST', '/api/drive/sync/settings', { mode: $('docTasksAuto').checked ? 'auto' : 'propose', instruction: $('docTasksInstr').value })
-        .then(function (r) { syncSt = r; syncMsg = 'Réglages enregistrés.'; renderSync(); }).catch(fail);
-    } else if (a === 'run') {
-      syncMsg = 'Synchronisation…'; renderSync();
-      dApi('POST', '/api/drive/sync/run').then(function (r) {
-        syncSt = r;
-        syncMsg = r.needsReconnect ? 'Drive doit être reconnecté.' : r.capReached ? 'Plafond quotidien atteint.' : (r.added + ' ajoutée(s), ' + r.proposed + ' proposée(s).');
-        renderSync();
-        if (r.needsReconnect) { driveSt.needsReconnect = true; renderDrive(); }
-        if (r.added) checkAdded();
-        if (typeof TMT.openGoalsForActivity === 'function' && r.added) TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0);
-      }).catch(fail);
-    } else if (a === 'pending') {
+    if (a === 'pending') {
       dApi('GET', '/api/drive/sync/pending').then(function (r) {
         pendingMode = true; proposals = r.tasks || []; categories = r.categories || [];
         proposals.forEach(function (t) { t.toChoose = false; });

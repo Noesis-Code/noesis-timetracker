@@ -25,6 +25,7 @@ const KEY = classify.buildClassificationCandidates(act)[0].key;
 let docs = { 'f1-aaaaa': { text: 'Appeler Paul\nEnvoyer devis', mt: '2026-10-01T00:00:00Z', parents: ['fold-1111'] },
   'f2-aaaaa': { text: 'Autre', mt: '2026-10-01T00:00:00Z', parents: ['fold-1111'] } };
 const outside = { id: 'out-1111', name: 'Hors', mimeType: 'application/vnd.google-apps.document', parents: ['other-1'] };
+const tree = {}; // dossiers imbriqués : id -> { parents, also }
 let revoke = false; const reads = [];
 const mockFetch = async (url, opt) => {
   const u = new URL(url);
@@ -36,8 +37,10 @@ const mockFetch = async (url, opt) => {
   const m = u.pathname.match(/\/drive\/v3\/files(?:\/([^/]+)(\/export)?)?$/);
   if (m && !m[1]) { if (u.searchParams.get('q').startsWith('mimeType =')) return json({ files: [] });
     const qf = (u.searchParams.get('q').match(/'([^']+)' in parents/) || [])[1];
-    return json({ files: Object.keys(docs).filter((id) => docs[id].parents.includes(qf)).map((id) => ({ id, name: id, mimeType: 'application/vnd.google-apps.document', modifiedTime: docs[id].mt })) }); }
+    const subs = Object.keys(tree).filter((id) => tree[id].parents.includes(qf) || (tree[id].also || []).includes(qf)).map((id) => ({ id, name: id, mimeType: 'application/vnd.google-apps.folder' }));
+    return json({ files: subs.concat(Object.keys(docs).filter((id) => docs[id].parents.includes(qf)).map((id) => ({ id, name: id, mimeType: 'application/vnd.google-apps.document', modifiedTime: docs[id].mt }))) }); }
   if (m && m[2]) { reads.push(m[1]); return { ok: true, status: 200, arrayBuffer: async () => Buffer.from(docs[m[1]].text) }; }
+  if (m && tree[m[1]]) return json({ id: m[1], name: m[1], mimeType: 'application/vnd.google-apps.folder', parents: tree[m[1]].parents });
   if (m && m[1] === 'fold-1111') return json({ id: 'fold-1111', name: 'Projet', mimeType: 'application/vnd.google-apps.folder' });
   if (m && m[1] === 'fold-2222') return json({ id: 'fold-2222', name: 'Second', mimeType: 'application/vnd.google-apps.folder' });
   if (m && docs[m[1]]) return json({ id: m[1], name: m[1], mimeType: 'application/vnd.google-apps.document', parents: docs[m[1]].parents });
@@ -119,6 +122,39 @@ const items = () => db.prepare('SELECT label FROM sub_project_items i JOIN sub_p
   docs['f3-aaaaa'].mt = '2026-10-09T00:00:00Z';
   const rd1 = reads.length; await ds.syncConnection('own', act);
   assert(!reads.slice(rd1).includes('f3-aaaaa'), 'dossier retiré : n’est plus surveillé');
+  // Sous-dossiers imbriqués, boucle, profondeur max
+  Object.assign(tree, { 'sub-1111': { parents: ['fold-1111'] }, 'sub-2222': { parents: ['sub-1111'], also: [] } });
+  tree['sub-1111'].also = ['sub-2222']; // boucle : sub-2222 contient sub-1111
+  docs['deep-aaaaa'] = { text: 'Tâche profonde', mt: '2026-10-10T00:00:00Z', parents: ['sub-2222'] };
+  let prev = 'fold-1111';
+  for (let i = 1; i <= 7; i++) { tree['lvl-' + i + '0000'] = { parents: [prev] }; prev = 'lvl-' + i + '0000'; }
+  docs['toodeep-aa'] = { text: 'Trop profond', mt: '2026-10-10T00:00:00Z', parents: [prev] };
+  docs['lvl5file-a'] = { text: 'Niveau 6', mt: '2026-10-10T00:00:00Z', parents: ['lvl-50000'] };
+  const lf = await drive.listFiles('own', act);
+  const deepF = lf.find((x) => x.id === 'deep-aaaaa');
+  assert(deepF && deepF.path === 'sub-1111 / sub-2222 / deep-aaaaa', 'sous-dossiers : fichier trouvé avec son chemin lisible');
+  assert(lf.filter((x) => x.id === 'deep-aaaaa').length === 1, 'boucle de dossiers : pas de doublon ni de blocage');
+  assert(!lf.some((x) => x.id === 'toodeep-aa') && lf.some((x) => x.id === 'lvl5file-a'), 'profondeur : au-delà de 5 niveaux ignoré, niveau 5 lu');
+  assert((await drive.readFileText('own', act, 'deep-aaaaa')).text.length > 0, 'readFileText accepte un fichier de l’arborescence');
+  let d2 = false; try { await drive.readFileText('own', act, 'toodeep-aa'); } catch (e) { d2 = e.statusCode === 403; }
+  assert(d2, 'readFileText refuse au-delà de la profondeur');
+  aiTitles = ['Tâche profonde'];
+  const rd2 = reads.length; db.prepare('DELETE FROM drive_ai_usage').run();
+  await ds.syncConnection('own', act);
+  assert(reads.slice(rd2).includes('deep-aaaaa') && !reads.slice(rd2).includes('toodeep-aa'), 'surveillance récursive : fichier de sous-dossier lu');
+  const rd3 = reads.length; await ds.syncConnection('own', act);
+  assert(reads.length === rd3, 'sous-dossiers : fichiers inchangés non relus');
+  // Réglages par dossier : pause, mode, consigne
+  const fs1 = ds.saveFolderSettings('own', act, 'fold-1111', { mode: 'auto', instruction: ' Urgentes  seulement ', paused: true });
+  const fo1 = fs1.folders.find((x) => x.id === 'fold-1111');
+  assert(fo1.mode === 'auto' && fo1.instruction === 'Urgentes seulement' && fo1.paused === true, 'réglages par dossier enregistrés');
+  docs['deep-aaaaa'].mt = '2026-10-11T00:00:00Z'; docs['deep-aaaaa'].text += ' +';
+  const rd4 = reads.length; await ds.syncConnection('own', act);
+  assert(reads.length === rd4, 'dossier en pause : non surveillé');
+  const rn = await ds.syncNow('own', act, 'fold-1111');
+  assert(reads.length > rd4, 'synchroniser maintenant : ce dossier est lu même en pause');
+  let nf = false; try { ds.saveFolderSettings('own', act, 'inconnu-1', {}); } catch (e) { nf = e.statusCode === 404; }
+  assert(nf, 'réglages d’un dossier inconnu : 404');
   // Déconnexion : tout supprimé
   drive.setFetch(async () => ({ ok: true, status: 200, json: async () => ({}) }));
   await drive.disconnect('own', act);

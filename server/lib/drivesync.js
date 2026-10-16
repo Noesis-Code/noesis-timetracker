@@ -1,4 +1,4 @@
-// Surveillance permanente du dossier Drive choisi (Essor, 16 oct. 2026).
+// Surveillance permanente des dossiers Drive choisis (sous-dossiers compris, réglages par dossier : mode, consigne, pause) (Essor, 16 oct. 2026).
 // Toutes les DRIVE_SYNC_INTERVAL_MIN minutes (défaut 30), pour chaque connexion Essor active :
 // liste les dossiers choisis (10 max) SEULEMENT (drive.listFiles / readFileText vérifient le parent), ignore
 // les fichiers dont modifiedTime n'a pas changé, relit les modifiés, saute l'IA si l'empreinte du
@@ -81,7 +81,25 @@ function saveSettings(userId, activityId, body) {
   if (instruction === DEFAULT_INSTRUCTION) instruction = '';
   db.prepare(`INSERT INTO drive_sync (userId, activityId, mode, instruction) VALUES (?, ?, ?, ?)
     ON CONFLICT(userId, activityId) DO UPDATE SET mode = excluded.mode, instruction = excluded.instruction`).run(userId, activityId, mode, instruction);
+  // Ancienne route globale : s'applique à tous les dossiers (l'écran utilise les réglages par dossier).
+  db.prepare('UPDATE drive_folders SET mode = ?, instruction = ? WHERE userId = ? AND activityId = ?').run(mode, instruction, userId, activityId);
   return settings(userId, activityId);
+}
+
+// Réglages d'UN dossier surveillé : mode, consigne permanente, pause. Champs absents = inchangés.
+function saveFolderSettings(userId, activityId, folderId, body) {
+  const c = drive.getConn(userId, activityId);
+  if (!c) throw httpError(409, 'Drive n’est pas connecté pour cette activité.');
+  const fo = drive.foldersOf(userId, activityId).find((f) => f.id === folderId);
+  if (!fo) throw httpError(404, 'Dossier introuvable.');
+  body = body || {};
+  const mode = body.mode === undefined ? fo.mode : (body.mode === 'auto' ? 'auto' : 'propose');
+  let instruction = body.instruction === undefined ? fo.instruction : String(body.instruction || '').replace(/\s+/g, ' ').trim().slice(0, MAX_INSTRUCTION);
+  if (instruction === DEFAULT_INSTRUCTION) instruction = '';
+  const paused = body.paused === undefined ? fo.paused : !!body.paused;
+  db.prepare('UPDATE drive_folders SET mode = ?, instruction = ?, paused = ? WHERE userId = ? AND activityId = ? AND folderId = ?')
+    .run(mode, instruction, paused ? 1 : 0, userId, activityId, folderId);
+  return { ...settings(userId, activityId), folders: drive.foldersOf(userId, activityId) };
 }
 
 // ---------- Tâches en attente (mode propose) ----------
@@ -158,7 +176,8 @@ function notify(userId, activityId, added, proposed) {
   } catch (e) { /* une notification ratée ne doit rien bloquer */ }
 }
 
-async function syncConnection(userId, activityId) {
+async function syncConnection(userId, activityId, opts) {
+  opts = opts || {};
   const k = userId + ':' + activityId;
   const out = { filesChecked: 0, filesRead: 0, aiCalls: 0, added: 0, proposed: 0, capReached: false, needsReconnect: false };
   if (running.has(k)) return { ...out, busy: true };
@@ -169,7 +188,7 @@ async function syncConnection(userId, activityId) {
     if (!c || !drive.foldersOf(userId, activityId).length || !sy) return out;
     if (sy.needsReconnect) { out.needsReconnect = true; return out; }
     let files;
-    try { files = await drive.listFiles(userId, activityId); }
+    try { files = await drive.listFiles(userId, activityId, opts.folderId ? { folderId: opts.folderId } : { skipPaused: true }); }
     catch (e) { if (e.revoked) out.needsReconnect = true; else console.warn('[drivesync] liste du dossier impossible (code ' + (e.statusCode || '?') + ')'); return out; }
     const seenFile = db.prepare('SELECT * FROM drive_seen_files WHERE userId = ? AND activityId = ? AND fileId = ?');
     const putFile = db.prepare(`INSERT INTO drive_seen_files (userId, activityId, fileId, modifiedTime, contentHash) VALUES (?, ?, ?, ?, ?)
@@ -178,8 +197,10 @@ async function syncConnection(userId, activityId) {
     const putTask = db.prepare(`INSERT OR IGNORE INTO drive_seen_tasks (userId, activityId, fileId, taskKey, status, title, catKey, week, minutes, itemId, createdAt)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     const existing = existingKeys(activityId);
-    const instruction = sy.instruction || DEFAULT_INSTRUCTION;
+    const folderCfg = new Map(drive.foldersOf(userId, activityId).map((fo) => [fo.id, fo]));
     for (const f of files) {
+      const cfg = folderCfg.get(f.folderId) || {};
+      const instruction = cfg.instruction || DEFAULT_INSTRUCTION;
       out.filesChecked++;
       const seen = seenFile.get(userId, activityId, f.id);
       if (seen && seen.modifiedTime === f.modifiedTime) continue; // inchangé : rien à lire
@@ -208,7 +229,7 @@ async function syncConnection(userId, activityId) {
         const tk = taskKey(t.title);
         if (!tk || keyRow.get(userId, activityId, tk)) continue; // déjà ajoutée / refusée / en attente
         if (existing.has(tk)) { putTask.run(userId, activityId, f.id, tk, 'dismissed', null, null, null, null, null, now); continue; } // déjà dans l'app : jamais écrasée ni rajoutée
-        if (sy.mode === 'auto') {
+        if (cfg.mode === 'auto') {
           const r = documenttasks.apply(userId, activityId, [{ title: t.title, key: t.key, week: t.week, minutes: t.minutes }]);
           if (r.addedCount) { putTask.run(userId, activityId, f.id, tk, 'added', t.title, t.key, t.week, t.minutes, r.addedIds[0], now); existing.add(tk); out.added++; }
         } else {
@@ -226,11 +247,12 @@ async function syncConnection(userId, activityId) {
   } finally { running.delete(k); }
 }
 
-async function syncNow(userId, activityId) {
+async function syncNow(userId, activityId, folderId) {
   const c = drive.getConn(userId, activityId);
   if (!c) throw httpError(409, 'Drive n’est pas connecté pour cette activité.');
   if (!drive.foldersOf(userId, activityId).length) throw httpError(409, 'Choisis d’abord un dossier Drive.');
-  const r = await syncConnection(userId, activityId);
+  if (folderId && !drive.foldersOf(userId, activityId).some((f) => f.id === folderId)) throw httpError(404, 'Dossier introuvable.');
+  const r = await syncConnection(userId, activityId, folderId ? { folderId } : {});
   return { ...r, ...settings(userId, activityId) };
 }
 
@@ -258,4 +280,4 @@ function startDriveSync() {
   timer.unref();
 }
 
-module.exports = { listAdded, ackAdded, removeAdded, restoreAdded, DEFAULT_INSTRUCTION, settings, saveSettings, listPending, resolvePending, syncConnection, syncNow, runSweep, startDriveSync, intervalMin, maxCalls, takeCall };
+module.exports = { listAdded, ackAdded, removeAdded, restoreAdded, DEFAULT_INSTRUCTION, settings, saveSettings, saveFolderSettings, listPending, resolvePending, syncConnection, syncNow, runSweep, startDriveSync, intervalMin, maxCalls, takeCall };

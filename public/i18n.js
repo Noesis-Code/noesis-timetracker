@@ -1132,6 +1132,22 @@
     'Nom du pôle': 'Division name',
     'Description (facultative)': 'Description (optional)',
     'Ajouter un pôle': 'Add a division',
+    'Voir mes dossiers connectés': 'View my connected folders',
+    'Mes dossiers connectés': 'My connected folders',
+    'Déconnecter Drive': 'Disconnect Drive',
+    'Drive connecté': 'Drive connected',
+    'Choisir un dossier': 'Choose a folder',
+    'Ajouter un dossier': 'Add a folder',
+    'Aucun dossier connecté.': 'No connected folder.',
+    'Réglages du dossier': 'Folder settings',
+    'Modifier les réglages de ce dossier': 'Edit this folder’s settings',
+    'Surveillance active (décoche pour la mettre en pause)': 'Monitoring on (uncheck to pause it)',
+    'Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)': 'Add new tasks automatically (otherwise they are suggested for your approval)',
+    'Consigne permanente (facultative)': 'Standing instruction (optional)',
+    'Synchroniser maintenant': 'Sync now',
+    '(en pause)': '(paused)',
+    'Dossier introuvable.': 'Folder not found.',
+    'Lire un fichier avec l’IA': 'Read a file with the AI',
   };
 
   // ------------------- Messages contenant une valeur variable -------------

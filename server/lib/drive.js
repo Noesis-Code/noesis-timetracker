@@ -43,11 +43,26 @@ function ensureTable() {
     folderId TEXT NOT NULL,
     folderName TEXT,
     addedAt TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'propose',
+    instruction TEXT NOT NULL DEFAULT '',
+    paused INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (userId, activityId, folderId)
   )`);
   // Migration idempotente : l'ancien dossier unique devient une ligne (un retrait remet folderId au suivant ou à NULL).
   db.exec(`INSERT OR IGNORE INTO drive_folders (userId, activityId, folderId, folderName, addedAt)
     SELECT userId, activityId, folderId, COALESCE(folderName, ''), connectedAt FROM drive_connections WHERE folderId IS NOT NULL AND folderId != ''`);
+  // Réglages par dossier (16 oct. 2026) : migration idempotente, valeurs initiales reprises de drive_sync.
+  const dfCols = db.prepare('PRAGMA table_info(drive_folders)').all().map((c) => c.name);
+  if (!dfCols.includes('mode')) {
+    db.exec("ALTER TABLE drive_folders ADD COLUMN mode TEXT NOT NULL DEFAULT 'propose'");
+    db.exec("ALTER TABLE drive_folders ADD COLUMN instruction TEXT NOT NULL DEFAULT ''");
+    db.exec('ALTER TABLE drive_folders ADD COLUMN paused INTEGER NOT NULL DEFAULT 0');
+    if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'drive_sync'").get()) {
+      db.exec(`UPDATE drive_folders SET
+        mode = COALESCE((SELECT s.mode FROM drive_sync s WHERE s.userId = drive_folders.userId AND s.activityId = drive_folders.activityId), 'propose'),
+        instruction = COALESCE((SELECT s.instruction FROM drive_sync s WHERE s.userId = drive_folders.userId AND s.activityId = drive_folders.activityId), '')`);
+    }
+  }
   // Surveillance permanente du dossier (16 oct. 2026). Aucun contenu de document : seulement
   // des empreintes, des clés normalisées et les titres de tâches proposées/ajoutées.
   db.exec(`CREATE TABLE IF NOT EXISTS drive_sync (
@@ -197,7 +212,8 @@ function getConn(userId, activityId) {
 const MAX_FOLDERS = 10;
 function foldersOf(userId, activityId) {
   ensureTable();
-  return db.prepare('SELECT folderId AS id, folderName AS name FROM drive_folders WHERE userId = ? AND activityId = ? ORDER BY addedAt, rowid').all(userId, activityId);
+  return db.prepare('SELECT folderId AS id, folderName AS name, mode, instruction, paused FROM drive_folders WHERE userId = ? AND activityId = ? ORDER BY addedAt, rowid').all(userId, activityId)
+    .map((f) => ({ id: f.id, name: f.name, mode: f.mode === 'auto' ? 'auto' : 'propose', instruction: f.instruction || '', paused: !!f.paused }));
 }
 // Garde drive_connections.folderId/folderName = premier dossier (compat).
 function syncCompat(userId, activityId) {
@@ -316,25 +332,81 @@ function needFolder(userId, activityId) {
 
 const READABLE = /^(application\/vnd\.google-apps\.(document|spreadsheet)|application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|text\/.*)$/;
 
-// Fichiers lisibles directement dans les dossiers choisis (jamais ailleurs).
-async function listFiles(userId, activityId) {
+const MAX_DEPTH = 5, MAX_FILES_PER_FOLDER = 500, MAX_SUBFOLDERS = 200, MAX_PAGES = 30;
+// Parcourt un dossier choisi et ses sous-dossiers (profondeur max 5, 500 fichiers lisibles max, anti-boucle).
+// Chaque fichier garde son chemin lisible (« Sous-dossier / Nom »). Une erreur sur la racine remonte ; sur un sous-dossier, il est ignoré.
+async function walkFolder(t, root) {
+  const files = [], visited = new Set([root.id]);
+  const queue = [{ id: root.id, path: '', depth: 0 }];
+  let folders = 0;
+  while (queue.length && files.length < MAX_FILES_PER_FOLDER) {
+    const cur = queue.shift();
+    let pageToken = '';
+    for (let i = 0; i < MAX_PAGES && files.length < MAX_FILES_PER_FOLDER; i++) {
+      const params = { q: `'${cur.id}' in parents and trashed = false`, fields: 'nextPageToken,files(id,name,mimeType,modifiedTime)', pageSize: '200', orderBy: 'name', corpora: 'allDrives', ...ALL_DRIVES };
+      if (pageToken) params.pageToken = pageToken;
+      let j;
+      try { j = await api(t, '/files', params); }
+      catch (e) { if (cur.depth === 0) throw e; break; }
+      for (const f of (j.files || [])) {
+        if (f.mimeType === FOLDER_MIME) {
+          if (cur.depth < MAX_DEPTH && !visited.has(f.id) && folders < MAX_SUBFOLDERS) {
+            visited.add(f.id); folders++;
+            queue.push({ id: f.id, path: cur.path + f.name + ' / ', depth: cur.depth + 1 });
+          }
+        } else if (READABLE.test(f.mimeType) && files.length < MAX_FILES_PER_FOLDER) {
+          files.push({ id: f.id, name: f.name, path: cur.path + f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime });
+        }
+      }
+      pageToken = j.nextPageToken || '';
+      if (!pageToken) break;
+    }
+  }
+  return files;
+}
+
+// Fichiers lisibles dans les dossiers choisis ET leurs sous-dossiers (jamais ailleurs).
+// opts.folderId : un seul dossier ; opts.skipPaused : ignore les dossiers en pause.
+async function listFiles(userId, activityId, opts) {
+  opts = opts || {};
   const c = needFolder(userId, activityId);
+  let folders = foldersOf(userId, activityId);
+  if (opts.folderId) { folders = folders.filter((f) => f.id === opts.folderId); if (!folders.length) throw httpError(404, 'Dossier introuvable.'); }
+  if (opts.skipPaused) folders = folders.filter((f) => !f.paused);
   const t = await accessToken(c);
   const out = [], seen = new Set();
   let ok = 0, lastErr = null;
-  for (const fo of foldersOf(userId, activityId)) {
-    let j;
-    try { j = await api(t, '/files', { q: `'${fo.id}' in parents and trashed = false and mimeType != '${FOLDER_MIME}'`, fields: 'files(id,name,mimeType,modifiedTime)', pageSize: '200', orderBy: 'name', corpora: 'allDrives', ...ALL_DRIVES }); }
+  for (const fo of folders) {
+    let list;
+    try { list = await walkFolder(t, fo); }
     catch (e) { lastErr = e; continue; } // un dossier devenu inaccessible n'empêche pas les autres
     ok++;
-    for (const f of (j.files || [])) {
-      if (!READABLE.test(f.mimeType) || seen.has(f.id)) continue;
+    for (const f of list) {
+      if (seen.has(f.id)) continue;
       seen.add(f.id);
-      out.push({ id: f.id, name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime, folderId: fo.id, folderName: fo.name || '' });
+      out.push({ ...f, folderId: fo.id, folderName: fo.name || '' });
     }
   }
   if (!ok && lastErr) throw lastErr;
   return out;
+}
+
+// Vrai si le fichier est dans l'arborescence (profondeur bornée) d'un des dossiers choisis.
+async function inChosenTree(t, parents, rootIds) {
+  let level = (parents || []).slice(0, 5), seen = new Set();
+  for (let depth = 0; depth <= MAX_DEPTH && level.length; depth++) {
+    if (level.some((p) => rootIds.has(p))) return true;
+    if (depth === MAX_DEPTH) break;
+    const next = [];
+    for (const p of level) {
+      if (seen.has(p)) continue; seen.add(p);
+      let m;
+      try { m = await api(t, '/files/' + encodeURIComponent(p), { fields: 'id,parents', supportsAllDrives: 'true' }); } catch (e) { continue; }
+      if (m && Array.isArray(m.parents)) next.push(...m.parents.slice(0, 5));
+    }
+    level = next;
+  }
+  return false;
 }
 
 // Texte d'un fichier du dossier choisi. Rien n'est stocké.
@@ -343,7 +415,8 @@ async function readFileText(userId, activityId, fileId) {
   if (typeof fileId !== 'string' || !/^[\w-]{5,200}$/.test(fileId)) throw httpError(400, 'Fichier invalide.');
   const t = await accessToken(c);
   const meta = await api(t, '/files/' + encodeURIComponent(fileId), { fields: 'id,name,mimeType,size,parents,trashed', supportsAllDrives: 'true' });
-  if (meta.trashed || !Array.isArray(meta.parents) || !foldersOf(userId, activityId).some((fo) => meta.parents.includes(fo.id))) throw httpError(403, 'Ce fichier n’est pas dans un dossier choisi.');
+  const roots = new Set(foldersOf(userId, activityId).map((fo) => fo.id));
+  if (meta.trashed || !Array.isArray(meta.parents) || !(await inChosenTree(t, meta.parents, roots))) throw httpError(403, 'Ce fichier n’est pas dans un dossier choisi.');
   if (!READABLE.test(meta.mimeType)) throw httpError(400, 'Format non pris en charge.');
   if (Number(meta.size) > MAX_FILE_BYTES) throw httpError(400, 'Fichier trop lourd (10 Mo max).');
   const id = encodeURIComponent(meta.id);
@@ -382,5 +455,5 @@ async function disconnect(userId, activityId) {
   return { disconnected: true };
 }
 
-module.exports = { markNeedsReconnect, needFolder, accessToken, api, getConn, setFetch, configured, authUrl, handleCallback, status, listFolders, chooseFolder, removeFolder, foldersOf, MAX_FOLDERS, listFiles, readFileText, proposeFromFile, disconnect, checkState, makeState, encrypt, decrypt, SCOPE };
+module.exports = { MAX_DEPTH, MAX_FILES_PER_FOLDER, markNeedsReconnect, needFolder, accessToken, api, getConn, setFetch, configured, authUrl, handleCallback, status, listFolders, chooseFolder, removeFolder, foldersOf, MAX_FOLDERS, listFiles, readFileText, proposeFromFile, disconnect, checkState, makeState, encrypt, decrypt, SCOPE };
 ensureTable();
