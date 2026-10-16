@@ -9,7 +9,7 @@
   'use strict';
   var TMT = window.TMT = window.TMT || {};
   var MAX_FILES = 4, MAX_BYTES = 5 * 1024 * 1024;
-  var files = [], proposals = [], busy = false;
+  var files = [], proposals = [], categories = [], busy = false;
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -89,8 +89,16 @@
       : TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/propose', { instruction: instruction, files: files });
     req
       .then(function (r) {
-        busy = false; proposals = r.tasks || [];
+        busy = false; proposals = r.tasks || []; categories = r.categories || [];
         var notes = (r.notes || []).slice(); if (r.truncated) notes.push('Document long : seule la première partie a été lue.');
+        if (r.found != null && r.found !== proposals.length) {
+          var d = r.dropped || {}, why = [];
+          if (d.doublon) why.push(d.doublon + ' doublon(s)');
+          if (d.limite) why.push(d.limite + ' au-delà de la limite');
+          if (d.vide) why.push(d.vide + ' sans titre');
+          notes.push('L’IA a trouvé ' + r.found + ' tâches, ' + proposals.length + ' affichées' + (why.length ? ' (' + why.join(', ') + ')' : '') + '.');
+        }
+        if (r.repaired) notes.push('La réponse de l’IA a été coupée : seules les tâches complètes sont affichées. Relance pour obtenir la suite.');
         msg(notes.join(' '));
         render(r);
       })
@@ -199,13 +207,25 @@
     if (!proposals.length) { host.innerHTML = '<p class="hint">Aucune tâche proposée.</p>'; return; }
     var html = proposals.map(function (t, i) {
       var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
-      return '<label class="docTasksRow"><input type="checkbox" data-i="' + i + '" checked><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span></label>';
+      var pick = '';
+      if (t.toChoose && categories.length) {
+        pick = '<div class="docTasksMeta">Catégorie à choisir : <select class="docTasksCat" data-c="' + i + '">'
+          + categories.map(function (c) { return '<option value="' + esc(c.key) + '"' + (c.key === t.key ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
+        meta = [t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+      }
+      return '<div class="docTasksRowWrap"><label class="docTasksRow"><input type="checkbox" data-i="' + i + '" checked><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span></label>' + pick + '</div>';
     }).join('');
     var warn = (r.warnings || []).map(function (w) {
       return '<div class="docTasksWarn">Attention : ' + weekLabel(w.week) + ', ' + w.minutes + ' min proposées pour une capacité de ' + w.capacityMinutes + ' min. Décoche des tâches ou garde-les en connaissance de cause.</div>';
     }).join('');
     host.innerHTML = warn + html + '<button type="button" id="docTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button>';
     $('docTasksApply').addEventListener('click', apply);
+    Array.prototype.forEach.call(host.querySelectorAll('select[data-c]'), function (sel) {
+      sel.addEventListener('change', function () {
+        var t = proposals[Number(sel.getAttribute('data-c'))]; if (!t) return;
+        t.key = sel.value; t.toChoose = false;
+      });
+    });
   }
 
   function apply() {
