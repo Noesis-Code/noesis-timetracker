@@ -1,0 +1,258 @@
+// Surveillance permanente du dossier Drive choisi (Essor, 16 oct. 2026).
+// Toutes les DRIVE_SYNC_INTERVAL_MIN minutes (défaut 30), pour chaque connexion Essor active :
+// liste le dossier choisi SEULEMENT (drive.listFiles / readFileText vérifient le parent), ignore
+// les fichiers dont modifiedTime n'a pas changé, relit les modifiés, saute l'IA si l'empreinte du
+// texte normalisé est identique, sinon appelle la même extraction que documenttasks.propose,
+// déduplique par clé normalisée (tâches déjà ajoutées / refusées / en attente / existantes), puis :
+//   - mode 'auto'    : ajoute via documenttasks.apply (addCategoryTask) ;
+//   - mode 'propose' : stocke en 'pending' ; rien n'est écrit avant la validation de l'utilisateur.
+// Règles : une tâche supprimée ou refusée n'est jamais rajoutée (la ligne drive_seen_tasks reste) ;
+// le document est une DONNÉE (prompt de documenttasks) ; aucun contenu de document n'est journalisé
+// (compteurs seulement) ; plafond DRIVE_SYNC_MAX_AI_CALLS_PER_DAY (défaut 20) appels IA/jour/utilisateur ;
+// jeton révoqué => « à reconnecter », la connexion est ensuite ignorée (pas de boucle d'erreurs).
+// Variables : DRIVE_SYNC_INTERVAL_MIN (0 ou off = désactivé), DRIVE_SYNC_MAX_AI_CALLS_PER_DAY.
+const crypto = require('crypto');
+const db = require('../db');
+const drive = require('./drive');
+const documenttasks = require('./documenttasks');
+const classify = require('./goalstaskclassify');
+const push = require('./push');
+const { activityHasEssor } = require('./offer1access');
+const subprojects = require('./subprojects');
+
+const DEFAULT_INSTRUCTION = 'Extrais toutes les tâches écrites dans le document';
+const MAX_INSTRUCTION = 1500;
+
+function httpError(status, message) { return Object.assign(new Error(message), { statusCode: status }); }
+function maxCalls() {
+  const n = parseInt(process.env.DRIVE_SYNC_MAX_AI_CALLS_PER_DAY, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 20;
+}
+function intervalMin() {
+  const raw = String(process.env.DRIVE_SYNC_INTERVAL_MIN == null ? '30' : process.env.DRIVE_SYNC_INTERVAL_MIN).trim().toLowerCase();
+  if (raw === 'off') return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 1 ? n : (n === 0 ? 0 : 30);
+}
+function today() { return new Date().toISOString().slice(0, 10); }
+const taskKey = (title) => documenttasks.norm(title).slice(0, 200);
+
+function callsToday(userId) {
+  const r = db.prepare('SELECT calls FROM drive_ai_usage WHERE userId = ? AND day = ?').get(userId, today());
+  return r ? r.calls : 0;
+}
+// Réserve un appel IA ; false si le plafond du jour est atteint.
+function takeCall(userId) {
+  // Synchrone (node:sqlite) : aucune autre requête ne s'intercale entre la lecture et l'écriture.
+  if (callsToday(userId) >= maxCalls()) return false;
+  db.prepare(`INSERT INTO drive_ai_usage (userId, day, calls) VALUES (?, ?, 1)
+    ON CONFLICT(userId, day) DO UPDATE SET calls = calls + 1`).run(userId, today());
+  return true;
+}
+
+function syncRow(userId, activityId) {
+  return db.prepare('SELECT * FROM drive_sync WHERE userId = ? AND activityId = ?').get(userId, activityId);
+}
+
+// ---------- Réglages / état (UI) ----------
+function settings(userId, activityId) {
+  const c = drive.getConn(userId, activityId);
+  if (!c) throw httpError(409, 'Drive n’est pas connecté pour cette activité.');
+  const sy = syncRow(userId, activityId) || {};
+  const used = callsToday(userId), max = maxCalls();
+  return {
+    active: !!c.folderId && !sy.needsReconnect,
+    mode: sy.mode === 'auto' ? 'auto' : 'propose',
+    instruction: sy.instruction || DEFAULT_INSTRUCTION,
+    defaultInstruction: DEFAULT_INSTRUCTION,
+    lastCheckedAt: sy.lastCheckedAt || null,
+    needsReconnect: !!sy.needsReconnect,
+    capReached: used >= max, callsToday: used, maxCallsPerDay: max,
+    pendingCount: db.prepare("SELECT COUNT(*) AS n FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending'").get(userId, activityId).n,
+  };
+}
+
+function saveSettings(userId, activityId, body) {
+  const c = drive.getConn(userId, activityId);
+  if (!c) throw httpError(409, 'Drive n’est pas connecté pour cette activité.');
+  const mode = body && body.mode === 'auto' ? 'auto' : 'propose';
+  let instruction = String((body && body.instruction) || '').replace(/\s+/g, ' ').trim().slice(0, MAX_INSTRUCTION);
+  if (instruction === DEFAULT_INSTRUCTION) instruction = '';
+  db.prepare(`INSERT INTO drive_sync (userId, activityId, mode, instruction) VALUES (?, ?, ?, ?)
+    ON CONFLICT(userId, activityId) DO UPDATE SET mode = excluded.mode, instruction = excluded.instruction`).run(userId, activityId, mode, instruction);
+  return settings(userId, activityId);
+}
+
+// ---------- Tâches en attente (mode propose) ----------
+function listPending(userId, activityId) {
+  const rows = db.prepare("SELECT id, title, catKey AS key, week, minutes FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending' ORDER BY id").all(userId, activityId);
+  const cands = classify.buildClassificationCandidates(activityId);
+  const labels = new Map(cands.map((c) => [c.key, c.label]));
+  return { tasks: rows.map((r) => ({ ...r, categoryLabel: labels.get(r.key) || '' })), categories: cands.map((c) => ({ key: c.key, label: c.label })) };
+}
+
+// items : [{ id, key?, checked }] — cochées => ajoutées ; décochées => refusées (jamais re-proposées).
+function resolvePending(userId, activityId, items) {
+  if (!Array.isArray(items) || !items.length) throw httpError(400, 'Rien à valider.');
+  const get = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND userId = ? AND activityId = ? AND status = 'pending'");
+  const upd = db.prepare('UPDATE drive_seen_tasks SET status = ?, itemId = ? WHERE id = ?');
+  let added = 0, dismissed = 0; const skipped = [];
+  items.slice(0, 200).forEach((it) => {
+    const row = it && get.get(Number(it.id), userId, activityId);
+    if (!row) return;
+    if (!it.checked) { upd.run('dismissed', null, row.id); dismissed++; return; }
+    const key = typeof it.key === 'string' && it.key ? it.key : row.catKey;
+    const r = documenttasks.apply(userId, activityId, [{ title: row.title, key, week: row.week, minutes: row.minutes }]);
+    if (r.addedCount) { upd.run('added', r.addedIds[0], row.id); db.prepare('UPDATE drive_seen_tasks SET ack = 1 WHERE id = ?').run(row.id); added++; }
+    else { upd.run('dismissed', null, row.id); skipped.push(...r.skipped); } // déjà présente / catégorie invalide : on ne reproposera pas
+  });
+  return { addedCount: added, dismissedCount: dismissed, skipped };
+}
+
+// ---------- Pop-up « tâches ajoutées » ----------
+function listAdded(userId, activityId) {
+  const rows = db.prepare("SELECT id, title, catKey AS key, week FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'added' AND ack = 0 AND itemId IS NOT NULL ORDER BY id").all(userId, activityId);
+  const labels = new Map(classify.buildClassificationCandidates(activityId).map((c) => [c.key, c.label]));
+  return { tasks: rows.map((r) => ({ ...r, categoryLabel: labels.get(r.key) || '' })) };
+}
+function ackAdded(userId, activityId) {
+  db.prepare("UPDATE drive_seen_tasks SET ack = 1 WHERE userId = ? AND activityId = ? AND status = 'added'").run(userId, activityId);
+  return { ok: true };
+}
+// Supprime la tâche ajoutée et marque sa clé 'dismissed' : jamais rajoutée.
+function removeAdded(userId, activityId, id) {
+  const row = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND userId = ? AND activityId = ? AND status = 'added'").get(Number(id), userId, activityId);
+  if (!row) throw httpError(404, 'Tâche introuvable.');
+  if (row.itemId) { try { subprojects.deleteItem(row.itemId); } catch (e) { /* déjà supprimée */ } }
+  db.prepare("UPDATE drive_seen_tasks SET status = 'dismissed', itemId = NULL WHERE id = ?").run(row.id);
+  return { ok: true };
+}
+// Annuler la suppression (toast) : la tâche revient et la clé redevient 'added'.
+function restoreAdded(userId, activityId, id) {
+  const row = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND userId = ? AND activityId = ? AND status = 'dismissed' AND title IS NOT NULL").get(Number(id), userId, activityId);
+  if (!row) throw httpError(404, 'Tâche introuvable.');
+  const r = documenttasks.apply(userId, activityId, [{ title: row.title, key: row.catKey, week: row.week, minutes: row.minutes }]);
+  if (!r.addedCount) throw httpError(409, 'Impossible de rétablir cette tâche.');
+  db.prepare("UPDATE drive_seen_tasks SET status = 'added', itemId = ?, ack = 1 WHERE id = ?").run(r.addedIds[0], row.id);
+  return { ok: true };
+}
+
+// ---------- Synchronisation ----------
+const running = new Set();
+const sha = (t) => crypto.createHash('sha256').update(String(t).replace(/\s+/g, ' ').trim().toLowerCase(), 'utf8').digest('hex');
+
+function existingKeys(activityId) {
+  const rows = db.prepare('SELECT i.label FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId WHERE sp.activityId = ?').all(activityId);
+  return new Set(rows.map((r) => taskKey(r.label)));
+}
+
+function notify(userId, activityId, added, proposed) {
+  try {
+    const fr = (db.prepare('SELECT lang FROM users WHERE id = ?').get(userId) || {}).lang === 'fr';
+    const n = added || proposed;
+    let body;
+    if (added) body = fr ? `${n} tâche${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''} depuis ton Drive` : `${n} task${n > 1 ? 's' : ''} added from your Drive`;
+    else body = fr ? `${n} nouvelle${n > 1 ? 's' : ''} tâche${n > 1 ? 's' : ''} proposée${n > 1 ? 's' : ''} depuis ton Drive` : `${n} new task${n > 1 ? 's' : ''} suggested from your Drive`;
+    push.sendToUsers([userId], { title: 'TiMeTracker', body, tag: 'drive-sync-' + activityId, url: '/?notif=drivesync&activityId=' + activityId });
+  } catch (e) { /* une notification ratée ne doit rien bloquer */ }
+}
+
+async function syncConnection(userId, activityId) {
+  const k = userId + ':' + activityId;
+  const out = { filesChecked: 0, filesRead: 0, aiCalls: 0, added: 0, proposed: 0, capReached: false, needsReconnect: false };
+  if (running.has(k)) return { ...out, busy: true };
+  running.add(k);
+  try {
+    const c = drive.getConn(userId, activityId);
+    const sy = syncRow(userId, activityId);
+    if (!c || !c.folderId || !sy) return out;
+    if (sy.needsReconnect) { out.needsReconnect = true; return out; }
+    let files;
+    try { files = await drive.listFiles(userId, activityId); }
+    catch (e) { if (e.revoked) out.needsReconnect = true; else console.warn('[drivesync] liste du dossier impossible (code ' + (e.statusCode || '?') + ')'); return out; }
+    const seenFile = db.prepare('SELECT * FROM drive_seen_files WHERE userId = ? AND activityId = ? AND fileId = ?');
+    const putFile = db.prepare(`INSERT INTO drive_seen_files (userId, activityId, fileId, modifiedTime, contentHash) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(userId, activityId, fileId) DO UPDATE SET modifiedTime = excluded.modifiedTime, contentHash = excluded.contentHash`);
+    const keyRow = db.prepare('SELECT 1 FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND taskKey = ?');
+    const putTask = db.prepare(`INSERT OR IGNORE INTO drive_seen_tasks (userId, activityId, fileId, taskKey, status, title, catKey, week, minutes, itemId, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const existing = existingKeys(activityId);
+    const instruction = sy.instruction || DEFAULT_INSTRUCTION;
+    for (const f of files) {
+      out.filesChecked++;
+      const seen = seenFile.get(userId, activityId, f.id);
+      if (seen && seen.modifiedTime === f.modifiedTime) continue; // inchangé : rien à lire
+      let text;
+      try { text = (await drive.readFileText(userId, activityId, f.id)).text; }
+      catch (e) {
+        if (e.revoked) { out.needsReconnect = true; break; }
+        if (e.statusCode === 400 || e.statusCode === 403 || e.statusCode === 404) putFile.run(userId, activityId, f.id, f.modifiedTime, null); // illisible : pas de relecture tant qu'il ne change pas
+        continue;
+      }
+      out.filesRead++;
+      const hash = sha(text);
+      if (seen && seen.contentHash === hash) { putFile.run(userId, activityId, f.id, f.modifiedTime, hash); continue; } // seule la date a bougé
+      if (!takeCall(userId)) { out.capReached = true; break; } // retentera demain (fichier non marqué comme vu)
+      out.aiCalls++;
+      let prop;
+      try {
+        const dataUrl = 'data:text/plain;base64,' + Buffer.from(text, 'utf8').toString('base64');
+        prop = await documenttasks.propose(userId, activityId, { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl }] }, { skipRate: true });
+      } catch (e) { continue; } // échec IA : fichier non marqué, nouvel essai au prochain passage (borné par le plafond)
+      putFile.run(userId, activityId, f.id, f.modifiedTime, hash);
+      const now = new Date().toISOString();
+      for (const t of prop.tasks) {
+        const tk = taskKey(t.title);
+        if (!tk || keyRow.get(userId, activityId, tk)) continue; // déjà ajoutée / refusée / en attente
+        if (existing.has(tk)) { putTask.run(userId, activityId, f.id, tk, 'dismissed', null, null, null, null, null, now); continue; } // déjà dans l'app : jamais écrasée ni rajoutée
+        if (sy.mode === 'auto') {
+          const r = documenttasks.apply(userId, activityId, [{ title: t.title, key: t.key, week: t.week, minutes: t.minutes }]);
+          if (r.addedCount) { putTask.run(userId, activityId, f.id, tk, 'added', t.title, t.key, t.week, t.minutes, r.addedIds[0], now); existing.add(tk); out.added++; }
+        } else {
+          putTask.run(userId, activityId, f.id, tk, 'pending', t.title, t.key, t.week, t.minutes, null, now);
+          existing.add(tk); out.proposed++;
+        }
+      }
+    }
+    if (out.capReached) db.prepare('UPDATE drive_sync SET capDay = ? WHERE userId = ? AND activityId = ?').run(today(), userId, activityId);
+    if (!out.needsReconnect) db.prepare('UPDATE drive_sync SET lastCheckedAt = ? WHERE userId = ? AND activityId = ?').run(new Date().toISOString(), userId, activityId);
+    if (out.added || out.proposed) notify(userId, activityId, out.added, out.proposed);
+    // Compteurs seulement : jamais de contenu de document ni de titre de tâche.
+    console.log(`[drivesync] fichiers=${out.filesChecked} lus=${out.filesRead} ia=${out.aiCalls} ajoutees=${out.added} proposees=${out.proposed} plafond=${out.capReached}`);
+    return out;
+  } finally { running.delete(k); }
+}
+
+async function syncNow(userId, activityId) {
+  const c = drive.getConn(userId, activityId);
+  if (!c) throw httpError(409, 'Drive n’est pas connecté pour cette activité.');
+  if (!c.folderId) throw httpError(409, 'Choisis d’abord un dossier Drive.');
+  const r = await syncConnection(userId, activityId);
+  return { ...r, ...settings(userId, activityId) };
+}
+
+async function runSweep() {
+  if (!drive.configured()) return 0;
+  const rows = db.prepare(`SELECT c.userId, c.activityId FROM drive_connections c JOIN drive_sync s ON s.userId = c.userId AND s.activityId = c.activityId
+    WHERE c.folderId IS NOT NULL AND s.needsReconnect = 0`).all();
+  let n = 0;
+  for (const r of rows) {
+    if (!activityHasEssor(r.activityId, r.userId)) continue;
+    try { await syncConnection(r.userId, r.activityId); n++; }
+    catch (e) { console.error('[drivesync] échec (code ' + (e.statusCode || '?') + ')'); }
+  }
+  return n;
+}
+
+let timer = null;
+function startDriveSync() {
+  if (timer) return;
+  const m = intervalMin();
+  if (!m) return;
+  const run = () => runSweep().catch((e) => console.error('[drivesync] balayage échoué :', e.message));
+  setTimeout(run, 3 * 60 * 1000).unref();
+  timer = setInterval(run, m * 60 * 1000);
+  timer.unref();
+}
+
+module.exports = { listAdded, ackAdded, removeAdded, restoreAdded, DEFAULT_INSTRUCTION, settings, saveSettings, listPending, resolvePending, syncConnection, syncNow, runSweep, startDriveSync, intervalMin, maxCalls };

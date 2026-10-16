@@ -292,13 +292,14 @@ function capacityWarnings(tasks, capacityMinutes) {
   return Object.keys(by).sort().filter((w) => by[w] > capacityMinutes).map((w) => ({ week: w, minutes: by[w], capacityMinutes }));
 }
 
-async function propose(userId, activityId, body) {
+// opts.skipRate : surveillance Drive (server/lib/drivesync.js), qui a son propre plafond quotidien.
+async function propose(userId, activityId, body, opts) {
   const instruction = String((body && body.instruction) || '').trim().slice(0, MAX_INSTRUCTION);
   if (!instruction) throw httpError(400, 'Écris une consigne (ou choisis un raccourci).');
   const doc = await documentText(body && body.files);
   if (!doc.text && !instruction) throw httpError(400, 'Joins un document ou écris une consigne.');
   if (!caller && !classify.configured()) throw httpError(503, "L'IA n'est pas configurée sur ce serveur. Réessaie plus tard.");
-  if (!takeRateSlot(userId)) throw httpError(429, 'Limite atteinte : 10 demandes par heure. Réessaie plus tard.');
+  if (!(opts && opts.skipRate) && !takeRateSlot(userId)) throw httpError(429, 'Limite atteinte : 10 demandes par heure. Réessaie plus tard.');
   const ctx = buildContext(userId, activityId);
   if (!ctx.candidates.length) throw httpError(400, 'Aucune catégorie sur cette activité.');
   let out;
@@ -344,4 +345,4 @@ function apply(userId, activityId, tasks) {
   return { addedCount: added.length, addedIds: added, skipped };
 }
 
-module.exports = { propose, apply, setCaller, resetRate, parseProposals, textFromFile, capacityWarnings, parseDetailed, SYSTEM, buildUser, RATE_MAX };
+module.exports = { norm, propose, apply, setCaller, resetRate, parseProposals, textFromFile, capacityWarnings, parseDetailed, SYSTEM, buildUser, RATE_MAX };

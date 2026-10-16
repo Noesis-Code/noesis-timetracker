@@ -207,6 +207,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'drive-test.js')], { encoding: 'utf8' }); } catch (e) { drOk = false; }
   assert(drOk, 'connecteur Drive (test/drive-test.js) passe');
 
+  // Surveillance du dossier Drive (Google et IA simulés).
+  let dsOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'drivesync-test.js')], { encoding: 'utf8' }); } catch (e) { dsOk = false; }
+  assert(dsOk, 'surveillance Drive (test/drivesync-test.js) passe');
+
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });

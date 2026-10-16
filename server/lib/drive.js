@@ -35,6 +35,48 @@ function ensureTable() {
     connectedAt TEXT NOT NULL,
     PRIMARY KEY (userId, activityId)
   )`);
+  // Surveillance permanente du dossier (16 oct. 2026). Aucun contenu de document : seulement
+  // des empreintes, des clés normalisées et les titres de tâches proposées/ajoutées.
+  db.exec(`CREATE TABLE IF NOT EXISTS drive_sync (
+    userId TEXT NOT NULL,
+    activityId INTEGER NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'propose',
+    instruction TEXT NOT NULL DEFAULT '',
+    lastCheckedAt TEXT,
+    needsReconnect INTEGER NOT NULL DEFAULT 0,
+    capDay TEXT,
+    PRIMARY KEY (userId, activityId)
+  )`);
+  db.exec(`CREATE TABLE IF NOT EXISTS drive_seen_files (
+    userId TEXT NOT NULL,
+    activityId INTEGER NOT NULL,
+    fileId TEXT NOT NULL,
+    modifiedTime TEXT,
+    contentHash TEXT,
+    PRIMARY KEY (userId, activityId, fileId)
+  )`);
+  db.exec(`CREATE TABLE IF NOT EXISTS drive_seen_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId TEXT NOT NULL,
+    activityId INTEGER NOT NULL,
+    fileId TEXT NOT NULL,
+    taskKey TEXT NOT NULL,
+    status TEXT NOT NULL,
+    title TEXT,
+    catKey TEXT,
+    week TEXT,
+    minutes INTEGER,
+    itemId INTEGER,
+    ack INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL
+  )`);
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_drive_seen_tasks_key ON drive_seen_tasks(userId, activityId, taskKey)');
+  db.exec(`CREATE TABLE IF NOT EXISTS drive_ai_usage (
+    userId TEXT NOT NULL,
+    day TEXT NOT NULL,
+    calls INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (userId, day)
+  )`);
   ready = true;
 }
 
@@ -103,7 +145,14 @@ async function tokenRequest(params) {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, ...params }).toString(),
   });
-  if (!r.ok) throw httpError(502, 'Google a refusé la demande.');
+  if (!r.ok) {
+    // Jeton révoqué/invalide (invalid_grant) : distinct d'une panne passagère.
+    let revoked = false;
+    if (r.status === 400 || r.status === 401) {
+      try { const j = await r.json(); revoked = !j || !j.error || /invalid_grant|unauthorized_client|invalid_client/.test(String(j.error)); } catch (e) { revoked = true; }
+    }
+    throw Object.assign(httpError(502, 'Google a refusé la demande.'), { revoked });
+  }
   return r.json();
 }
 
@@ -120,6 +169,7 @@ async function handleCallback(userId, query, verifyActivity) {
   db.prepare(`INSERT INTO drive_connections (userId, activityId, encryptedToken, connectedAt) VALUES (?, ?, ?, ?)
     ON CONFLICT(userId, activityId) DO UPDATE SET encryptedToken = excluded.encryptedToken, folderId = NULL, folderName = NULL, connectedAt = excluded.connectedAt`)
     .run(userId, st.a, encrypt(tok.refresh_token), new Date().toISOString());
+  db.prepare('UPDATE drive_sync SET needsReconnect = 0 WHERE userId = ? AND activityId = ?').run(userId, st.a);
   return st.a;
 }
 
@@ -131,15 +181,27 @@ function status(userId, activityId) {
   const out = { configured: configured(), connected: false, folderChosen: false, folderName: null };
   if (!out.configured) { out.message = 'Drive non configuré sur ce serveur.'; return out; }
   const c = getConn(userId, activityId);
-  if (c) { out.connected = true; out.folderChosen = !!c.folderId; out.folderName = c.folderName || null; }
+  if (c) {
+    out.connected = true; out.folderChosen = !!c.folderId; out.folderName = c.folderName || null;
+    const sy = db.prepare('SELECT needsReconnect FROM drive_sync WHERE userId = ? AND activityId = ?').get(userId, activityId);
+    out.needsReconnect = !!(sy && sy.needsReconnect);
+  }
   return out;
+}
+
+function markNeedsReconnect(userId, activityId) {
+  db.prepare(`INSERT INTO drive_sync (userId, activityId, needsReconnect) VALUES (?, ?, 1)
+    ON CONFLICT(userId, activityId) DO UPDATE SET needsReconnect = 1`).run(userId, activityId);
 }
 
 async function accessToken(conn) {
   const refresh = decrypt(conn.encryptedToken);
   let tok;
   try { tok = await tokenRequest({ refresh_token: refresh, grant_type: 'refresh_token' }); }
-  catch (e) { throw httpError(401, 'Accès à Drive expiré : reconnecte Drive.'); }
+  catch (e) {
+    if (e.revoked) markNeedsReconnect(conn.userId, conn.activityId);
+    throw Object.assign(httpError(401, 'Accès à Drive expiré : reconnecte Drive.'), { revoked: !!e.revoked });
+  }
   if (!tok.access_token) throw httpError(401, 'Accès à Drive expiré : reconnecte Drive.');
   return tok.access_token;
 }
@@ -168,7 +230,9 @@ async function chooseFolder(userId, activityId, folderId) {
   const t = await accessToken(c);
   const f = await api(t, '/files/' + encodeURIComponent(folderId), { fields: 'id,name,mimeType,trashed' });
   if (f.mimeType !== FOLDER_MIME || f.trashed) throw httpError(400, 'Ce n’est pas un dossier.');
+  if (c.folderId && c.folderId !== f.id) db.prepare('DELETE FROM drive_seen_files WHERE userId = ? AND activityId = ?').run(userId, activityId); // autre dossier : on relit tout (les tâches déjà vues restent dédupliquées)
   db.prepare('UPDATE drive_connections SET folderId = ?, folderName = ? WHERE userId = ? AND activityId = ?').run(f.id, String(f.name || '').slice(0, 200), userId, activityId);
+  db.prepare("INSERT OR IGNORE INTO drive_sync (userId, activityId, mode, instruction) VALUES (?, ?, 'propose', '')").run(userId, activityId);
   return { folderId: f.id, folderName: f.name };
 }
 
@@ -222,15 +286,16 @@ async function proposeFromFile(userId, activityId, fileId, instruction) {
 async function disconnect(userId, activityId) {
   ensureTable();
   const c = getConn(userId, activityId);
-  if (!c) return { disconnected: true };
+  if (!c) { ['drive_sync', 'drive_seen_files', 'drive_seen_tasks'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId)); return { disconnected: true }; }
   if (configured()) {
     try {
       await fetchFn(REVOKE_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: decrypt(c.encryptedToken) }).toString() });
     } catch (e) { /* la suppression locale prime */ }
   }
-  db.prepare('DELETE FROM drive_connections WHERE userId = ? AND activityId = ?').run(userId, activityId);
+  // Droit au retrait : la surveillance s'arrête et tout ce qui la concerne est supprimé.
+  ['drive_sync', 'drive_seen_files', 'drive_seen_tasks', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
   return { disconnected: true };
 }
 
-module.exports = { setFetch, configured, authUrl, handleCallback, status, listFolders, chooseFolder, listFiles, readFileText, proposeFromFile, disconnect, checkState, makeState, encrypt, decrypt, SCOPE };
+module.exports = { markNeedsReconnect, needFolder, accessToken, api, getConn, setFetch, configured, authUrl, handleCallback, status, listFolders, chooseFolder, listFiles, readFileText, proposeFromFile, disconnect, checkState, makeState, encrypt, decrypt, SCOPE };
 ensureTable();

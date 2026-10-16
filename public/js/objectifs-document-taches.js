@@ -31,6 +31,7 @@
           <button type="button" class="docTasksShortcut" data-text="Récupère les tâches écrites dans le document et applique-les dans mes périodes">Récupère les tâches écrites dans le document et applique-les dans mes périodes</button>
         </div>
         <div id="docTasksDrive" class="docTasksDrive"></div>
+        <div id="docTasksSync" class="docTasksSync"></div>
         <div class="docTasksBox">
           <textarea id="docTasksText" rows="4" maxlength="1500" placeholder="Ta consigne, en langage libre"></textarea>
           <div class="docTasksBoxRow">
@@ -44,9 +45,17 @@
         <p id="docTasksMsg" class="msg"></p>
         <div id="docTasksResults"></div>
       </div>
+    </div>
+    <div id="docTasksAddedPop" class="docTasksPop hidden" role="dialog" aria-label="Tâches ajoutées">
+      <div class="docTasksPopCard">
+        <div class="docTasksDriveHead"><strong>Tâches ajoutées</strong><button type="button" class="docTasksX" id="docTasksPopClose" aria-label="Fermer">✕</button></div>
+        <div id="docTasksPopList" class="docTasksPopList"></div>
+        <div id="docTasksPopToast" class="docTasksPopToast"></div>
+        <button type="button" id="docTasksPopOk" class="docTasksApplyBtn">OK</button>
+      </div>
     </div>`);
 
-  function open() { $('docTasksPage').classList.remove('hidden'); loadDrive(); }
+  function open() { $('docTasksPage').classList.remove('hidden'); loadDrive(); checkAdded(); }
   function close() { $('docTasksPage').classList.add('hidden'); }
   TMT.openDocTasks = open;
   $('docTasksClose').addEventListener('click', close);
@@ -83,7 +92,7 @@
     if (busy) return;
     var instruction = $('docTasksText').value.trim();
     if (!instruction) { msg('Écris une consigne ou touche un raccourci.'); return; }
-    busy = true; msg('L’IA lit le document…'); $('docTasksResults').innerHTML = '';
+    busy = true; pendingMode = false; msg('L’IA lit le document…'); $('docTasksResults').innerHTML = '';
     var req = driveFile
       ? TMT.api('POST', '/api/drive/propose', { activityId: Number(actId()), fileId: driveFile.id, instruction: instruction })
       : TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/propose', { instruction: instruction, files: files });
@@ -114,7 +123,7 @@
   }
   function loadDrive() {
     driveView = 'main'; driveFile = null; driveErr = '';
-    dApi('GET', '/api/drive/status').then(function (s) { driveSt = s; renderDrive(); if (s.connected && s.folderChosen) loadFiles(); })
+    dApi('GET', '/api/drive/status').then(function (s) { driveSt = s; renderDrive(); if (s.connected && s.folderChosen) { loadFiles(); loadSync(); } else { syncSt = null; renderSync(); } })
       .catch(function () { driveSt = { configured: false }; renderDrive(); });
   }
   function loadFiles() {
@@ -129,7 +138,7 @@
     }
     if (!s.connected) {
       html = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button>'
-        + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers d’UN SEUL dossier que tu choisis, uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé, et tu peux te déconnecter à tout moment.</p></div>';
+        + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers d’UN SEUL dossier que tu choisis, uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois le dossier choisi, TiMeTracker le surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
     } else if (driveView === 'folders') {
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="docTasksX" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
         + (driveList.length ? driveList.map(function (f) { return '<button type="button" class="docTasksPick" data-d="folder" data-id="' + esc(f.id) + '">📁 ' + esc(f.name) + '</button>'; }).join('') : '<p class="hint">Aucun dossier trouvé.</p>') + '</div>';
@@ -140,6 +149,7 @@
         + (driveFile ? '<span class="docTasksChip">' + esc(driveFile.name) + ' <button type="button" data-d="unpick" aria-label="Retirer">✕</button></span>'
           : (driveList.length ? driveList.map(function (f) { return '<button type="button" class="docTasksPick" data-d="file" data-id="' + esc(f.id) + '">' + esc(f.name) + '</button>'; }).join('') : '<p class="hint">Aucun fichier lisible dans ce dossier.</p>')) + '</div>';
     }
+    if (s.connected && s.needsReconnect) html += '<div class="docTasksWarn">L’accès à Drive a été révoqué ou a expiré : la surveillance est en pause. <button type="button" class="docTasksLink" data-d="connect">Reconnecter Drive</button></div>';
     if (driveErr) html += '<p class="msg">' + esc(driveErr) + '</p>';
     if (s.connected) {
       html += driveView === 'confirm'
@@ -162,7 +172,7 @@
       driveView = 'main'; driveList = []; renderDrive(); if (driveSt.folderChosen) loadFiles();
     } else if (d === 'folder') {
       dApi('POST', '/api/drive/folder', { folderId: id }).then(function (r) {
-        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveView = 'main'; driveFile = null; driveList = []; renderDrive(); loadFiles();
+        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveView = 'main'; driveFile = null; driveList = []; renderDrive(); loadFiles(); loadSync();
       }).catch(fail);
     } else if (d === 'file') {
       var f = driveList.filter(function (x) { return x.id === id; })[0];
@@ -172,17 +182,112 @@
     else if (d === 'disconnectNo') { driveView = 'main'; renderDrive(); }
     else if (d === 'disconnectYes') {
       dApi('POST', '/api/drive/disconnect').then(function () {
-        driveSt = { configured: true, connected: false, folderChosen: false }; driveView = 'main'; driveFile = null; driveList = []; renderDrive();
+        driveSt = { configured: true, connected: false, folderChosen: false }; driveView = 'main'; driveFile = null; driveList = []; syncSt = null; renderDrive(); renderSync();
       }).catch(fail);
     }
   });
 
+  // ---------- Surveillance du dossier ----------
+  var syncSt = null, syncMsg = '', pendingMode = false;
+  function loadSync() {
+    dApi('GET', '/api/drive/sync').then(function (r) { syncSt = r; renderSync(); }).catch(function () { syncSt = null; renderSync(); });
+  }
+  function ago(iso) {
+    if (!iso) return 'jamais';
+    var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    return m < 1 ? 'à l’instant' : m < 60 ? 'il y a ' + m + ' min' : m < 1440 ? 'il y a ' + Math.round(m / 60) + ' h' : new Date(iso).toLocaleDateString('fr-CA');
+  }
+  function renderSync() {
+    var h = $('docTasksSync'), s = syncSt;
+    if (!s) { h.innerHTML = ''; return; }
+    var html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Surveillance du dossier</span></div>';
+    if (s.pendingCount) html += '<button type="button" class="docTasksPill" data-s="pending">' + s.pendingCount + ' nouvelle' + (s.pendingCount > 1 ? 's' : '') + ' tâche' + (s.pendingCount > 1 ? 's' : '') + ' proposée' + (s.pendingCount > 1 ? 's' : '') + '</button>';
+    html += '<label class="docTasksCheck"><input type="checkbox" id="docTasksAuto"' + (s.mode === 'auto' ? ' checked' : '') + '> Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)</label>'
+      + '<label class="docTasksMeta" for="docTasksInstr">Consigne permanente (facultative)</label>'
+      + '<textarea id="docTasksInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(s.defaultInstruction) + '">' + esc(s.instruction === s.defaultInstruction ? '' : s.instruction) + '</textarea>'
+      + '<div class="docTasksDriveHead"><button type="button" class="docTasksLink" data-s="save">Enregistrer</button><button type="button" class="docTasksLink" data-s="run">Synchroniser maintenant</button></div>'
+      + '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
+    if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
+    if (syncMsg) html += '<p class="msg">' + esc(syncMsg) + '</p>';
+    h.innerHTML = html + '</div>';
+  }
+  $('docTasksSync').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-s]'); if (!b) return;
+    var a = b.getAttribute('data-s');
+    function fail(err) { syncMsg = (err && err.message) || 'Erreur.'; renderSync(); }
+    if (a === 'save') {
+      dApi('POST', '/api/drive/sync/settings', { mode: $('docTasksAuto').checked ? 'auto' : 'propose', instruction: $('docTasksInstr').value })
+        .then(function (r) { syncSt = r; syncMsg = 'Réglages enregistrés.'; renderSync(); }).catch(fail);
+    } else if (a === 'run') {
+      syncMsg = 'Synchronisation…'; renderSync();
+      dApi('POST', '/api/drive/sync/run').then(function (r) {
+        syncSt = r;
+        syncMsg = r.needsReconnect ? 'Drive doit être reconnecté.' : r.capReached ? 'Plafond quotidien atteint.' : (r.added + ' ajoutée(s), ' + r.proposed + ' proposée(s).');
+        renderSync();
+        if (r.needsReconnect) { driveSt.needsReconnect = true; renderDrive(); }
+        if (r.added) checkAdded();
+        if (typeof TMT.openGoalsForActivity === 'function' && r.added) TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0);
+      }).catch(fail);
+    } else if (a === 'pending') {
+      dApi('GET', '/api/drive/sync/pending').then(function (r) {
+        pendingMode = true; proposals = r.tasks || []; categories = r.categories || [];
+        proposals.forEach(function (t) { t.toChoose = false; });
+        msg(''); render({ warnings: [] });
+      }).catch(fail);
+    }
+  });
+
+  // ---------- Pop-up « tâches ajoutées » (suppression directe d'une ligne, annulable) ----------
+  var popItems = [], popTimer = null;
+  function popRender() {
+    $('docTasksPopList').innerHTML = popItems.map(function (t, i) {
+      var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : ''].filter(Boolean).join(' · ');
+      return '<div class="docTasksPopRow"><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span>'
+        + '<button type="button" class="docTasksTrash" data-p="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">🗑</button></div>';
+    }).join('') || '<p class="hint">Plus aucune tâche dans cette liste.</p>';
+  }
+  function popOpen(list) { popItems = list; popRender(); $('docTasksPopToast').innerHTML = ''; $('docTasksAddedPop').classList.remove('hidden'); }
+  function popClose() {
+    $('docTasksAddedPop').classList.add('hidden');
+    if (popItems.some(function (t) { return t.tracked; })) dApi('POST', '/api/drive/sync/added/ack').catch(function () {});
+    popItems = [];
+    if (typeof TMT.openGoalsForActivity === 'function') TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0);
+  }
+  function checkAdded() {
+    dApi('GET', '/api/drive/sync/added').then(function (r) {
+      var l = (r.tasks || []).map(function (t) { t.tracked = true; return t; });
+      if (l.length) popOpen(l);
+    }).catch(function () {});
+  }
+  function toast(t, undo) {
+    var h = $('docTasksPopToast'); clearTimeout(popTimer);
+    h.innerHTML = esc(t) + ' <button type="button" class="docTasksLink" id="docTasksPopUndo">Annuler</button>';
+    $('docTasksPopUndo').addEventListener('click', function () { clearTimeout(popTimer); h.innerHTML = ''; undo(); });
+    popTimer = setTimeout(function () { h.innerHTML = ''; }, 6000);
+  }
+  $('docTasksPopList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-p]'); if (!b) return;
+    var i = Number(b.getAttribute('data-p')), t = popItems[i]; if (!t) return;
+    var req = t.tracked ? dApi('POST', '/api/drive/sync/added/remove', { id: t.id }) : TMT.api('DELETE', '/api/sub-project-items/' + t.itemId);
+    req.then(function () {
+      popItems.splice(i, 1); popRender();
+      toast('Tâche supprimée.', function () {
+        var back = t.tracked ? dApi('POST', '/api/drive/sync/added/restore', { id: t.id })
+          : TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/apply', { tasks: [{ title: t.title, key: t.key, week: t.week }] });
+        back.then(function (r) {
+          if (!t.tracked && r && r.addedIds) t.itemId = r.addedIds[0];
+          popItems.splice(i, 0, t); popRender();
+        }).catch(function (err) { $('docTasksPopToast').textContent = (err && err.message) || 'Impossible d’annuler.'; });
+      });
+    }).catch(function (err) { $('docTasksPopToast').textContent = (err && err.message) || 'Erreur.'; });
+  });
+  $('docTasksPopClose').addEventListener('click', popClose);
+  $('docTasksPopOk').addEventListener('click', popClose);
+
   // Retour de Google (?drive=connected&activityId=N) : on rouvre la page Ajouter de cette activité.
-  (function () {
-    var p; try { p = new URLSearchParams(location.search); } catch (e) { return; }
-    if (p.get('drive') !== 'connected') return;
-    var aid = String(p.get('activityId') || '');
-    history.replaceState(null, '', location.pathname);
+  // Ouvre la page Ajouter de l'activité (retour de Google, ou notification ?notif=drivesync).
+  function openForActivity(aid) {
+    aid = String(aid || '');
     if (!/^\d+$/.test(aid)) return;
     var tries = 120;
     (function poll() {
@@ -200,11 +305,19 @@
       }
       if (tries-- > 0) setTimeout(poll, 100);
     })();
+  }
+  TMT.openDocTasksForActivity = openForActivity;
+  (function () {
+    var p; try { p = new URLSearchParams(location.search); } catch (e) { return; }
+    if (p.get('drive') !== 'connected') return;
+    var aid = String(p.get('activityId') || '');
+    history.replaceState(null, '', location.pathname);
+    openForActivity(aid);
   })();
 
   function render(r) {
     var host = $('docTasksResults');
-    if (!proposals.length) { host.innerHTML = '<p class="hint">Aucune tâche proposée.</p>'; return; }
+    if (!proposals.length) { pendingMode = false; host.innerHTML = '<p class="hint">Aucune tâche proposée.</p>'; return; }
     var html = proposals.map(function (t, i) {
       var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       var pick = '';
@@ -236,13 +349,31 @@
     });
     if (!picked.length) { msg('Coche au moins une tâche.'); return; }
     if (busy) return; busy = true;
+    if (pendingMode) {
+      var items = [];
+      Array.prototype.forEach.call($('docTasksResults').querySelectorAll('input[data-i]'), function (c) {
+        var t = proposals[Number(c.getAttribute('data-i'))]; if (t) items.push({ id: t.id, key: t.key, checked: c.checked });
+      });
+      dApi('POST', '/api/drive/sync/resolve', { items: items }).then(function (res) {
+        busy = false; pendingMode = false; proposals = []; $('docTasksResults').innerHTML = '';
+        msg(res.addedCount + ' tâche(s) ajoutée(s), ' + res.dismissedCount + ' refusée(s).');
+        loadSync();
+        if (typeof TMT.openGoalsForActivity === 'function') TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0);
+      }).catch(function (err) { busy = false; msg((err && err.message) || 'Erreur.'); });
+      return;
+    }
     TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/apply', { tasks: picked })
       .then(function (res) {
         busy = false;
         var m = res.addedCount + ' tâche(s) ajoutée(s).';
         if (res.skipped && res.skipped.length) m += ' ' + res.skipped.length + ' ignorée(s) (' + res.skipped.map(function (s) { return s.reason; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(', ') + ').';
         msg(m);
+        var addedList = (res.addedIds || []).map(function (id, n) {
+          var t = picked[n] || {}, cat = categories.filter(function (c) { return c.key === t.key; })[0];
+          return { itemId: id, title: t.title, key: t.key, week: t.week, categoryLabel: cat ? cat.label : '' };
+        });
         $('docTasksResults').innerHTML = ''; proposals = [];
+        if (addedList.length === res.addedCount && addedList.length) popOpen(addedList);
         $('docTasksText').value = ''; files = []; renderFiles();
         if (typeof TMT.openGoalsForActivity === 'function') TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0);
       })

@@ -310,6 +310,9 @@ app.listen(PORT, HOST, () => {
   // Voir server/lib/subscriptioncron.js.
   require('./lib/subscriptioncron').startSubscriptionCron();
 
+  // Surveillance du dossier Drive (16 oct. 2026) : DRIVE_SYNC_INTERVAL_MIN (défaut 30, 0 = désactivé).
+  require('./lib/drivesync').startDriveSync();
+
   // Suggestion quotidienne (21 septembre 2026) : notification matinale à
   // heure fixe, démarrée après l'écoute comme les autres tâches planifiées
   // ci-dessus. Voir server/lib/dailysuggestioncron.js.

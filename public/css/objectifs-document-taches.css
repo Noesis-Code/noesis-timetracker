@@ -47,3 +47,19 @@
 .docTasksLink { background: none; border: 0; color: var(--purple); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
 .docTasksX { background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 2px 6px; }
 .docTasksConfirm { font-size: 13px; margin: 4px 0 10px; }
+/* Surveillance du dossier Drive + pop-up des tâches ajoutées (sombre seulement, même verre/halo). */
+.docTasksSync { margin-bottom: 2px; }
+.docTasksSync .docTasksDriveRow { font-size: 14px; }
+.docTasksCheck { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; }
+.docTasksCheck input { margin-top: 3px; accent-color: #7c5cff; }
+.docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
+.docTasksPill { display: inline-block; margin-bottom: 6px; padding: 6px 12px; border: 0; border-radius: 999px; background: var(--purple); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.docTasksPop { position: fixed; inset: 0; z-index: 103; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .55); }
+.docTasksPop.hidden { display: none; }
+.docTasksPopCard { width: 100%; max-width: 440px; max-height: 80vh; display: flex; flex-direction: column; padding: 14px; border-radius: 18px; color: var(--text);
+  background: radial-gradient(circle 260px at 50% 115%, rgba(var(--halo-n2-rgb), var(--halo-n2-a)) 0%, rgba(var(--halo-n2-rgb), 0) 72%), var(--glass-bg);
+  border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%); }
+.docTasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 8px 0; }
+.docTasksPopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--glass-border); font-size: 14px; }
+.docTasksTrash { flex: 0 0 auto; background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 6px; opacity: .8; }
+.docTasksPopToast { min-height: 18px; font-size: 13px; }

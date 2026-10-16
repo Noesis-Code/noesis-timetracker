@@ -12768,6 +12768,15 @@
       return;
     }
 
+    // Surveillance Drive (16 oct. 2026) : tâches ajoutées/proposées depuis le dossier ; ouvre la page
+    // Ajouter de l'activité (qui affiche le pop-up des tâches ajoutées). Voir objectifs-document-taches.js.
+    if (target === 'drivesync') {
+      var dsActivityId = notifIdParam(params, 'activityId');
+      switchTab('goals');
+      if (dsActivityId && window.TMT && TMT.openDocTasksForActivity) TMT.openDocTasksForActivity(String(dsActivityId));
+      return;
+    }
+
     // 5 oct. 2026 (Emilien) : tâche attribuée par un autre membre (server/lib/taskassignnotif.js).
     // Destination : Feuille de route, page 2, détail de la période (objectif périodique + hebdomadaires)
     // où la tâche est répertoriée, semaine surlignée.

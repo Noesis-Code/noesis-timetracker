@@ -2,6 +2,7 @@
 const express = require('express');
 const db = require('../db');
 const drive = require('../lib/drive');
+const drivesync = require('../lib/drivesync');
 const { requireOffer1Access, activityHasEssor } = require('../lib/offer1access');
 const { requireAuth } = require('../lib/session');
 
@@ -32,6 +33,17 @@ router.get('/drive/files', ...chain, async (req, res) => {
 });
 router.post('/drive/propose', ...chain, wrap((req) => drive.proposeFromFile(req.userId, req.activityId, req.body.fileId, String(req.body.instruction || '').trim().slice(0, 1500))));
 router.post('/drive/disconnect', ...chain, wrap((req) => drive.disconnect(req.userId, req.activityId)));
+
+// Surveillance permanente du dossier (server/lib/drivesync.js).
+router.get('/drive/sync', ...chain, wrap((req) => drivesync.settings(req.userId, req.activityId)));
+router.post('/drive/sync/settings', ...chain, wrap((req) => drivesync.saveSettings(req.userId, req.activityId, req.body)));
+router.post('/drive/sync/run', ...chain, wrap((req) => drivesync.syncNow(req.userId, req.activityId)));
+router.get('/drive/sync/pending', ...chain, wrap((req) => drivesync.listPending(req.userId, req.activityId)));
+router.post('/drive/sync/resolve', ...chain, wrap((req) => drivesync.resolvePending(req.userId, req.activityId, req.body.items)));
+router.get('/drive/sync/added', ...chain, wrap((req) => drivesync.listAdded(req.userId, req.activityId)));
+router.post('/drive/sync/added/ack', ...chain, wrap((req) => drivesync.ackAdded(req.userId, req.activityId)));
+router.post('/drive/sync/added/remove', ...chain, wrap((req) => drivesync.removeAdded(req.userId, req.activityId, req.body.id)));
+router.post('/drive/sync/added/restore', ...chain, wrap((req) => drivesync.restoreAdded(req.userId, req.activityId, req.body.id)));
 
 // Retour de Google (navigation du navigateur) : pas de guard par activité, le state signé la porte.
 router.get('/drive/callback', requireAuth, requireOffer1Access, async (req, res) => {
