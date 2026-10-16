@@ -939,6 +939,13 @@ function assertCategoryOrSecteurForActivity(activityId, category) {
   }
 }
 
+// Un secteur retiré ne reste dans l'arbre (année de retrait) que s'il porte un
+// contenu saisi dans ses périodes passées ; vide, il disparaît tout de suite.
+function secteurHasPlanningContent(activityId, key) {
+  return !!db.prepare(`SELECT 1 FROM goal_periods p WHERE p.activityId = ? AND p.category = ?
+    AND (p.mainGoalText != '' OR EXISTS (SELECT 1 FROM goal_weekly w WHERE w.periodId = p.id AND w.text != '')) LIMIT 1`).get(activityId, key);
+}
+
 // 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande explicite
 // d'Emilien : « On ne change pas l'arbre. Cependant, les secteurs deviennent
 // les pôles. ») — colonnes de la grille périodique existante
@@ -953,7 +960,7 @@ function gridColumnsForPole(activityId, poleKey, year) {
   const y = Number(year);
   if (Number.isFinite(y) && y > 0) {
     const rows = db.prepare('SELECT * FROM activity_goal_categories WHERE activityId = ? AND parentKey = ? ORDER BY position, id').all(activityId, poleKey)
-      .filter((r) => (r.fromYear == null || r.fromYear <= y) && (r.removedAt == null || (r.removedYear != null && y <= r.removedYear)));
+      .filter((r) => (r.fromYear == null || r.fromYear <= y) && (r.removedAt == null || (r.removedYear != null && y <= r.removedYear && secteurHasPlanningContent(activityId, r.key))));
     if (rows.length) {
       return rows.map((r) => ({ key: r.key, label: r.label, parentKey: r.parentKey, description: r.description || '', removedFromDate: r.removedAt ? (r.removedFromDate || null) : null }));
     }

@@ -6261,7 +6261,21 @@
   function activityGoalsCategoriesRefresh(activityId) {
     loadActivityGoalsCategories(activityId);
     if (String(activityId) === String(TMT.currentGoalsActivityId)) reloadGoalsAll();
+    notifyCategoriesChanged(activityId);
   }
+
+  // 16 oct. 2026 : événement commun « pôles/secteurs modifiés » (ajout, renommage,
+  // suppression, déplacement) — les écrans qui gardent une liste en mémoire (sélecteur
+  // du Chrono en cours) la rechargent ici au lieu d'afficher des pôles supprimés.
+  function notifyCategoriesChanged(activityId) {
+    try { document.dispatchEvent(new CustomEvent('tmt:categories-changed', { detail: { activityId: String(activityId) } })); } catch (e) { /* ignoré */ }
+  }
+  document.addEventListener('tmt:categories-changed', function (ev) {
+    var id = ev && ev.detail && ev.detail.activityId;
+    if (!id || chronoRunningActivityId == null || String(chronoRunningActivityId) !== id) return;
+    var act = (activitiesCache || []).filter(function (x) { return String(x.id) === id; })[0];
+    if (act) renderChronoCategorySelector(act, chronoRunningCategory);
+  });
 
   // 16 septembre 2026 (8e passage, demande d'Emilien, couleur 100%
   // automatique) : plus de pastille de couleur ni de sélecteur de couleur
@@ -6757,6 +6771,7 @@
   // La grille de la page 1 d'Objectifs suit les pôles/secteurs de l'activité affichée.
   function catSyncGrid(activityId) {
     if (String(activityId) === String(TMT.currentGoalsActivityId)) reloadGoalsAll();
+    notifyCategoriesChanged(activityId);
   }
 
   function catRerender() {
