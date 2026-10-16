@@ -90,3 +90,8 @@
 .docTasksRowWrap:last-of-type .docTasksRow, .docTasksRowWrap:last-child .docTasksRow { border-bottom: 0; }
 .docTasksCancelRow { text-align: center; margin: 6px 0 20px; }
 .docTasksPickOn { background: rgba(194, 105, 74, .22); border-color: #C2694A; opacity: 1; }
+/* Dossiers surveillés (liste repliable, corbeille de l'app à droite). */
+.docTasksFoldersHead { font-size: 14px; }
+.docTasksFolderList { margin-bottom: 6px; }
+.docTasksFolderRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 14px; }
+.docTasksFolderName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

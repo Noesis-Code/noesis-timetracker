@@ -2,7 +2,7 @@
 // OAuth 2.0 (code flow, access_type=offline, prompt=consent), scope drive.readonly.
 // Le refresh token est chiffré au repos (AES-256-GCM, clé DRIVE_TOKEN_KEY). Aucune
 // journalisation de token ni de contenu ; le contenu des fichiers n'est jamais persisté.
-// Un SEUL dossier choisi par activité : tout accès à un fichier vérifie qu'il est dans ce dossier.
+// Jusqu'à 10 dossiers choisis par activité (table drive_folders) : tout accès à un fichier vérifie qu'il est dans l'un d'eux.
 // Variables : GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, DRIVE_TOKEN_KEY.
 const crypto = require('crypto');
 const db = require('../db');
@@ -35,6 +35,19 @@ function ensureTable() {
     connectedAt TEXT NOT NULL,
     PRIMARY KEY (userId, activityId)
   )`);
+  // Dossiers surveillés (plusieurs par activité, 16 oct. 2026) : source de vérité ; drive_connections.folderId
+  // ne garde que le premier (compat).
+  db.exec(`CREATE TABLE IF NOT EXISTS drive_folders (
+    userId TEXT NOT NULL,
+    activityId INTEGER NOT NULL,
+    folderId TEXT NOT NULL,
+    folderName TEXT,
+    addedAt TEXT NOT NULL,
+    PRIMARY KEY (userId, activityId, folderId)
+  )`);
+  // Migration idempotente : l'ancien dossier unique devient une ligne (un retrait remet folderId au suivant ou à NULL).
+  db.exec(`INSERT OR IGNORE INTO drive_folders (userId, activityId, folderId, folderName, addedAt)
+    SELECT userId, activityId, folderId, COALESCE(folderName, ''), connectedAt FROM drive_connections WHERE folderId IS NOT NULL AND folderId != ''`);
   // Surveillance permanente du dossier (16 oct. 2026). Aucun contenu de document : seulement
   // des empreintes, des clés normalisées et les titres de tâches proposées/ajoutées.
   db.exec(`CREATE TABLE IF NOT EXISTS drive_sync (
@@ -172,6 +185,7 @@ async function handleCallback(userId, query, verifyActivity) {
   db.prepare(`INSERT INTO drive_connections (userId, activityId, encryptedToken, connectedAt) VALUES (?, ?, ?, ?)
     ON CONFLICT(userId, activityId) DO UPDATE SET encryptedToken = excluded.encryptedToken, folderId = NULL, folderName = NULL, connectedAt = excluded.connectedAt`)
     .run(userId, st.a, encrypt(tok.refresh_token), new Date().toISOString());
+  db.prepare('DELETE FROM drive_folders WHERE userId = ? AND activityId = ?').run(userId, st.a);
   db.prepare('UPDATE drive_sync SET needsReconnect = 0 WHERE userId = ? AND activityId = ?').run(userId, st.a);
   return st.a;
 }
@@ -180,12 +194,22 @@ function getConn(userId, activityId) {
   ensureTable();
   return db.prepare('SELECT * FROM drive_connections WHERE userId = ? AND activityId = ?').get(userId, activityId);
 }
+const MAX_FOLDERS = 10;
+function foldersOf(userId, activityId) {
+  ensureTable();
+  return db.prepare('SELECT folderId AS id, folderName AS name FROM drive_folders WHERE userId = ? AND activityId = ? ORDER BY addedAt, rowid').all(userId, activityId);
+}
+// Garde drive_connections.folderId/folderName = premier dossier (compat).
+function syncCompat(userId, activityId) {
+  const f = foldersOf(userId, activityId)[0];
+  db.prepare('UPDATE drive_connections SET folderId = ?, folderName = ? WHERE userId = ? AND activityId = ?').run(f ? f.id : null, f ? f.name : null, userId, activityId);
+}
 function status(userId, activityId) {
-  const out = { configured: configured(), connected: false, folderChosen: false, folderName: null };
+  const out = { configured: configured(), connected: false, folderChosen: false, folderName: null, folders: [] };
   if (!out.configured) { out.message = 'Drive non configuré sur ce serveur.'; return out; }
   const c = getConn(userId, activityId);
   if (c) {
-    out.connected = true; out.folderChosen = !!c.folderId; out.folderName = c.folderName || null;
+    out.connected = true; out.folders = foldersOf(userId, activityId); out.folderChosen = out.folders.length > 0; out.folderName = out.folders.length ? out.folders[0].name || null : null;
     const sy = db.prepare('SELECT needsReconnect FROM drive_sync WHERE userId = ? AND activityId = ?').get(userId, activityId);
     out.needsReconnect = !!(sy && sy.needsReconnect);
   }
@@ -259,26 +283,58 @@ async function chooseFolder(userId, activityId, folderId) {
   const t = await accessToken(c);
   const f = await api(t, '/files/' + encodeURIComponent(folderId), { fields: 'id,name,mimeType,trashed', supportsAllDrives: 'true' });
   if (f.mimeType !== FOLDER_MIME || f.trashed) throw httpError(400, 'Ce n’est pas un dossier.');
-  if (c.folderId && c.folderId !== f.id) db.prepare('DELETE FROM drive_seen_files WHERE userId = ? AND activityId = ?').run(userId, activityId); // autre dossier : on relit tout (les tâches déjà vues restent dédupliquées)
-  db.prepare('UPDATE drive_connections SET folderId = ?, folderName = ? WHERE userId = ? AND activityId = ?').run(f.id, String(f.name || '').slice(0, 200), userId, activityId);
+  const have = foldersOf(userId, activityId);
+  const name = String(f.name || '').slice(0, 200);
+  if (have.some((x) => x.id === f.id)) { db.prepare('UPDATE drive_folders SET folderName = ? WHERE userId = ? AND activityId = ? AND folderId = ?').run(name, userId, activityId, f.id); }
+  else {
+    if (have.length >= MAX_FOLDERS) throw httpError(409, `Tu surveilles déjà ${MAX_FOLDERS} dossiers (maximum). Retires-en un pour en ajouter un autre.`);
+    db.prepare('INSERT INTO drive_folders (userId, activityId, folderId, folderName, addedAt) VALUES (?, ?, ?, ?, ?)').run(userId, activityId, f.id, name, new Date().toISOString());
+  }
+  syncCompat(userId, activityId);
   db.prepare("INSERT OR IGNORE INTO drive_sync (userId, activityId, mode, instruction) VALUES (?, ?, 'propose', '')").run(userId, activityId);
-  return { folderId: f.id, folderName: f.name };
+  return { folderId: f.id, folderName: f.name, folders: foldersOf(userId, activityId) };
+}
+
+// Retire un dossier de la surveillance. Ne touche JAMAIS au Drive de l'utilisateur : seulement nos lignes.
+// Les drive_seen_tasks restent (déduplication : une tâche déjà vue ne revient pas).
+function removeFolder(userId, activityId, folderId) {
+  needConn(userId, activityId);
+  if (typeof folderId !== 'string' || !/^[\w-]{5,200}$/.test(folderId)) throw httpError(400, 'Dossier invalide.');
+  const r = db.prepare('DELETE FROM drive_folders WHERE userId = ? AND activityId = ? AND folderId = ?').run(userId, activityId, folderId);
+  if (!r.changes) throw httpError(404, 'Dossier introuvable.');
+  // Fichiers vus de ce dossier : on ne connaît pas le parent localement, on relit simplement tout au prochain passage (déduplication par tâches).
+  db.prepare('DELETE FROM drive_seen_files WHERE userId = ? AND activityId = ?').run(userId, activityId);
+  syncCompat(userId, activityId);
+  return { ok: true, folders: foldersOf(userId, activityId) };
 }
 
 function needFolder(userId, activityId) {
   const c = needConn(userId, activityId);
-  if (!c.folderId) throw httpError(409, 'Choisis d’abord un dossier Drive.');
+  if (!foldersOf(userId, activityId).length) throw httpError(409, 'Choisis d’abord un dossier Drive.');
   return c;
 }
 
 const READABLE = /^(application\/vnd\.google-apps\.(document|spreadsheet)|application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|text\/.*)$/;
 
-// Fichiers lisibles directement dans le dossier choisi (jamais ailleurs).
+// Fichiers lisibles directement dans les dossiers choisis (jamais ailleurs).
 async function listFiles(userId, activityId) {
   const c = needFolder(userId, activityId);
   const t = await accessToken(c);
-  const j = await api(t, '/files', { q: `'${c.folderId}' in parents and trashed = false and mimeType != '${FOLDER_MIME}'`, fields: 'files(id,name,mimeType,modifiedTime)', pageSize: '200', orderBy: 'name', corpora: 'allDrives', ...ALL_DRIVES });
-  return (j.files || []).filter((f) => READABLE.test(f.mimeType)).map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime }));
+  const out = [], seen = new Set();
+  let ok = 0, lastErr = null;
+  for (const fo of foldersOf(userId, activityId)) {
+    let j;
+    try { j = await api(t, '/files', { q: `'${fo.id}' in parents and trashed = false and mimeType != '${FOLDER_MIME}'`, fields: 'files(id,name,mimeType,modifiedTime)', pageSize: '200', orderBy: 'name', corpora: 'allDrives', ...ALL_DRIVES }); }
+    catch (e) { lastErr = e; continue; } // un dossier devenu inaccessible n'empêche pas les autres
+    ok++;
+    for (const f of (j.files || [])) {
+      if (!READABLE.test(f.mimeType) || seen.has(f.id)) continue;
+      seen.add(f.id);
+      out.push({ id: f.id, name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime, folderId: fo.id, folderName: fo.name || '' });
+    }
+  }
+  if (!ok && lastErr) throw lastErr;
+  return out;
 }
 
 // Texte d'un fichier du dossier choisi. Rien n'est stocké.
@@ -287,7 +343,7 @@ async function readFileText(userId, activityId, fileId) {
   if (typeof fileId !== 'string' || !/^[\w-]{5,200}$/.test(fileId)) throw httpError(400, 'Fichier invalide.');
   const t = await accessToken(c);
   const meta = await api(t, '/files/' + encodeURIComponent(fileId), { fields: 'id,name,mimeType,size,parents,trashed', supportsAllDrives: 'true' });
-  if (meta.trashed || !Array.isArray(meta.parents) || !meta.parents.includes(c.folderId)) throw httpError(403, 'Ce fichier n’est pas dans le dossier choisi.');
+  if (meta.trashed || !Array.isArray(meta.parents) || !foldersOf(userId, activityId).some((fo) => meta.parents.includes(fo.id))) throw httpError(403, 'Ce fichier n’est pas dans un dossier choisi.');
   if (!READABLE.test(meta.mimeType)) throw httpError(400, 'Format non pris en charge.');
   if (Number(meta.size) > MAX_FILE_BYTES) throw httpError(400, 'Fichier trop lourd (10 Mo max).');
   const id = encodeURIComponent(meta.id);
@@ -315,16 +371,16 @@ async function proposeFromFile(userId, activityId, fileId, instruction) {
 async function disconnect(userId, activityId) {
   ensureTable();
   const c = getConn(userId, activityId);
-  if (!c) { ['drive_sync', 'drive_seen_files', 'drive_seen_tasks'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId)); return { disconnected: true }; }
+  if (!c) { ['drive_sync', 'drive_seen_files', 'drive_seen_tasks', 'drive_folders'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId)); return { disconnected: true }; }
   if (configured()) {
     try {
       await fetchFn(REVOKE_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: decrypt(c.encryptedToken) }).toString() });
     } catch (e) { /* la suppression locale prime */ }
   }
   // Droit au retrait : la surveillance s'arrête et tout ce qui la concerne est supprimé.
-  ['drive_sync', 'drive_seen_files', 'drive_seen_tasks', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
+  ['drive_sync', 'drive_seen_files', 'drive_seen_tasks', 'drive_folders', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
   return { disconnected: true };
 }
 
-module.exports = { markNeedsReconnect, needFolder, accessToken, api, getConn, setFetch, configured, authUrl, handleCallback, status, listFolders, chooseFolder, listFiles, readFileText, proposeFromFile, disconnect, checkState, makeState, encrypt, decrypt, SCOPE };
+module.exports = { markNeedsReconnect, needFolder, accessToken, api, getConn, setFetch, configured, authUrl, handleCallback, status, listFolders, chooseFolder, removeFolder, foldersOf, MAX_FOLDERS, listFiles, readFileText, proposeFromFile, disconnect, checkState, makeState, encrypt, decrypt, SCOPE };
 ensureTable();

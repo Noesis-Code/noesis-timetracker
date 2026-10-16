@@ -73,6 +73,7 @@ const baseFetch = async (url, opt) => {
 };
 drive.setFetch(baseFetch);
 
+async function assertThrows(fn, code, label) { try { await fn(); assert(false, label); } catch (e) { assert(e.statusCode === code, label); } }
 (async () => {
   // Non configuré
   let r = await call('get', '/drive/status', 'own', { query: { activityId: act } });
@@ -125,6 +126,48 @@ drive.setFetch(baseFetch);
   assert(r.st === 400, 'un fichier n’est pas un dossier');
   r = await call('get', '/drive/files', 'own', { query: { activityId: act } });
   assert(r.st === 200 && r.b.files.length === 2, 'liste des fichiers du dossier');
+
+  // Plusieurs dossiers
+  files['fold-2222'] = { id: 'fold-2222', name: 'Second', mimeType: 'application/vnd.google-apps.folder' };
+  r = await call('get', '/drive/status', 'own', { query: { activityId: act } });
+  assert(r.b.folders.length === 1 && r.b.folders[0].id === 'fold-1111' && r.b.folderChosen && r.b.folderName === 'Projet', 'statut : liste de dossiers + compat folderName');
+  r = await call('post', '/drive/folder', 'own', { body: { activityId: act, folderId: 'fold-2222' } });
+  assert(r.st === 200 && r.b.folders.length === 2, 'ajout d’un 2e dossier (ne remplace pas)');
+  r = await call('post', '/drive/folder', 'own', { body: { activityId: act, folderId: 'fold-2222' } });
+  assert(r.st === 200 && r.b.folders.length === 2, 'doublon ignoré');
+  r = await call('get', '/drive/files', 'own', { query: { activityId: act } });
+  assert(r.b.files.length === 2 && r.b.files.every((f) => f.folderName), 'fichiers de tous les dossiers, avec nom du dossier (dédoublonnés)');
+  files['doc-2222'] = { id: 'doc-2222', name: 'Autre', mimeType: 'application/vnd.google-apps.document', parents: ['fold-2222'] };
+  assert(/écrire le plan/.test((await drive.readFileText('own', act, 'doc-2222')).text), 'lecture autorisée dans le 2e dossier');
+  for (let i = 3; i <= 10; i++) { const id = 'fold-' + i + i + i + i; files[id] = { id, name: 'D' + i, mimeType: 'application/vnd.google-apps.folder' }; r = await call('post', '/drive/folder', 'own', { body: { activityId: act, folderId: id } }); assert(r.st === 200, 'ajout dossier ' + i); }
+  files['fold-1100'] = { id: 'fold-1100', name: 'Onze', mimeType: 'application/vnd.google-apps.folder' };
+  r = await call('post', '/drive/folder', 'own', { body: { activityId: act, folderId: 'fold-1100' } });
+  assert(r.st === 409 && /10/.test(r.b.error), 'plafond de 10 dossiers : erreur claire');
+  assert(db.prepare('SELECT COUNT(*) c FROM drive_folders').get().c === 10, '10 dossiers en base');
+  db.prepare("INSERT INTO drive_seen_files (userId, activityId, fileId) VALUES ('own', ?, 'x1')").run(act);
+  db.prepare("INSERT INTO drive_seen_tasks (userId, activityId, fileId, taskKey, status, createdAt) VALUES ('own', ?, 'x1', 'k', 'dismissed', '')").run(act);
+  for (let i = 3; i <= 10; i++) r = await call('post', '/drive/folder/remove', 'own', { body: { activityId: act, folderId: 'fold-' + i + i + i + i } });
+  assert(r.st === 200 && r.b.folders.length === 2, 'retrait de dossiers');
+  assert(!db.prepare('SELECT 1 FROM drive_seen_files').get() && db.prepare('SELECT 1 FROM drive_seen_tasks').get(), 'retrait : fichiers vus effacés, tâches vues gardées');
+  r = await call('post', '/drive/folder/remove', 'own', { body: { activityId: act, folderId: 'fold-2222' } });
+  assert(r.st === 200 && r.b.folders.length === 1 && !urls.some((u) => /fold-2222/.test(u.href) && u.searchParams.get('alt')), 'retrait du 2e dossier');
+  r = await call('post', '/drive/folder/remove', 'own', { body: { activityId: act, folderId: 'fold-2222' } });
+  assert(r.st === 404, 'retrait d’un dossier non surveillé : 404');
+  await assertThrows(() => drive.readFileText('own', act, 'doc-2222'), 403, 'lecture refusée après retrait du dossier');
+  assert(db.prepare('SELECT folderId f FROM drive_connections').get().f === 'fold-1111', 'compat : drive_connections.folderId = premier dossier');
+  // Migration idempotente depuis l'ancien schéma (un dossier par connexion)
+  const cp = require('child_process');
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-drive-mig-'));
+  const out = cp.spawnSync(process.execPath, ['-e', `
+    const db = require('./server/db');
+    db.exec("CREATE TABLE IF NOT EXISTS drive_connections (userId TEXT NOT NULL, activityId INTEGER NOT NULL, encryptedToken TEXT NOT NULL, folderId TEXT, folderName TEXT, connectedAt TEXT NOT NULL, PRIMARY KEY (userId, activityId))");
+    db.prepare("INSERT INTO drive_connections VALUES ('u', 1, 't', 'old-folder-1', 'Ancien', '2026-01-01')").run();
+    require('./server/lib/drive');
+    const n = () => db.prepare('SELECT * FROM drive_folders').all();
+    console.log(JSON.stringify(n()));
+  `], { cwd: path.join(__dirname, '..'), env: { ...process.env, NOESIS_DATA_DIR: dir2 }, encoding: 'utf8' });
+  const mig = out.stdout.trim().split('\n').pop();
+  assert(/"folderId":"old-folder-1"/.test(mig) && /"folderName":"Ancien"/.test(mig), 'migration : l’ancien dossier devient une ligne drive_folders');
 
   urls.length = 0;
   r = await call('get', '/drive/folders', 'own', { query: { activityId: act, q: "l'a\\b" } });

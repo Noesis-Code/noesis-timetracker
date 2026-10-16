@@ -1,6 +1,6 @@
 // Surveillance permanente du dossier Drive choisi (Essor, 16 oct. 2026).
 // Toutes les DRIVE_SYNC_INTERVAL_MIN minutes (défaut 30), pour chaque connexion Essor active :
-// liste le dossier choisi SEULEMENT (drive.listFiles / readFileText vérifient le parent), ignore
+// liste les dossiers choisis (10 max) SEULEMENT (drive.listFiles / readFileText vérifient le parent), ignore
 // les fichiers dont modifiedTime n'a pas changé, relit les modifiés, saute l'IA si l'empreinte du
 // texte normalisé est identique, sinon appelle la même extraction que documenttasks.propose,
 // déduplique par clé normalisée (tâches déjà ajoutées / refusées / en attente / existantes), puis :
@@ -62,7 +62,7 @@ function settings(userId, activityId) {
   const sy = syncRow(userId, activityId) || {};
   const used = callsToday(userId), max = maxCalls();
   return {
-    active: !!c.folderId && !sy.needsReconnect,
+    active: drive.foldersOf(userId, activityId).length > 0 && !sy.needsReconnect,
     mode: sy.mode === 'auto' ? 'auto' : 'propose',
     instruction: sy.instruction || DEFAULT_INSTRUCTION,
     defaultInstruction: DEFAULT_INSTRUCTION,
@@ -166,7 +166,7 @@ async function syncConnection(userId, activityId) {
   try {
     const c = drive.getConn(userId, activityId);
     const sy = syncRow(userId, activityId);
-    if (!c || !c.folderId || !sy) return out;
+    if (!c || !drive.foldersOf(userId, activityId).length || !sy) return out;
     if (sy.needsReconnect) { out.needsReconnect = true; return out; }
     let files;
     try { files = await drive.listFiles(userId, activityId); }
@@ -229,7 +229,7 @@ async function syncConnection(userId, activityId) {
 async function syncNow(userId, activityId) {
   const c = drive.getConn(userId, activityId);
   if (!c) throw httpError(409, 'Drive n’est pas connecté pour cette activité.');
-  if (!c.folderId) throw httpError(409, 'Choisis d’abord un dossier Drive.');
+  if (!drive.foldersOf(userId, activityId).length) throw httpError(409, 'Choisis d’abord un dossier Drive.');
   const r = await syncConnection(userId, activityId);
   return { ...r, ...settings(userId, activityId) };
 }
@@ -237,7 +237,7 @@ async function syncNow(userId, activityId) {
 async function runSweep() {
   if (!drive.configured()) return 0;
   const rows = db.prepare(`SELECT c.userId, c.activityId FROM drive_connections c JOIN drive_sync s ON s.userId = c.userId AND s.activityId = c.activityId
-    WHERE c.folderId IS NOT NULL AND s.needsReconnect = 0`).all();
+    WHERE EXISTS (SELECT 1 FROM drive_folders d WHERE d.userId = c.userId AND d.activityId = c.activityId) AND s.needsReconnect = 0`).all();
   let n = 0;
   for (const r of rows) {
     if (!activityHasEssor(r.activityId, r.userId)) continue;

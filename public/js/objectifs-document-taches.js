@@ -120,7 +120,8 @@
       .catch(function (err) { busy = false; $('docTasksSend').disabled = false; msg((err && err.message) || 'Erreur.'); });
   });
 
-  // ---------- Google Drive (lecture seule, un seul dossier par activité) ----------
+  // ---------- Google Drive (lecture seule, jusqu’à 10 dossiers surveillés par activité) ----------
+  var foldersOpen = false, folderRemoveId = null;
   var driveSt = null, driveFile = null, driveView = 'main', driveList = [], driveErr = '';
   function dApi(method, path, extra) {
     var q = 'activityId=' + encodeURIComponent(actId());
@@ -181,7 +182,7 @@
     }
     if (!s.connected) {
       html = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button>'
-        + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers d’UN SEUL dossier que tu choisis, uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois le dossier choisi, TiMeTracker le surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
+        + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers des dossiers que tu choisis (10 au maximum), uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois les dossiers choisis, TiMeTracker les surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
     } else if (driveView === 'folders') {
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="docTasksX" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
         + '<input type="text" id="docTasksFolderQ" class="docTasksInstr" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris le nom du dossier…" value="' + esc(folderQuery) + '">'
@@ -189,7 +190,15 @@
     } else if (!s.folderChosen) {
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Drive connecté</span></div><button type="button" class="docTasksDriveBtn" data-d="pickFolder">Choisir un dossier</button></div>';
     } else {
-      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>📁 ' + esc(s.folderName || 'Dossier') + '</span><button type="button" class="docTasksLink" data-d="pickFolder">Changer</button></div>'
+      var fl = s.folders && s.folders.length ? s.folders : [{ id: '', name: s.folderName || 'Dossier' }];
+      html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><button type="button" class="docTasksLink docTasksFoldersHead" data-d="toggleFolders" aria-expanded="' + (foldersOpen ? 'true' : 'false') + '">Dossiers surveillés (' + fl.length + ') ' + (foldersOpen ? '▴' : '▾') + '</button>'
+        + (fl.length < 10 ? '<button type="button" class="docTasksLink" data-d="pickFolder">Ajouter un dossier</button>' : '') + '</div>'
+        + (foldersOpen ? '<div class="docTasksFolderList">' + fl.map(function (f) {
+          return folderRemoveId === f.id && f.id
+            ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-d="folderRemoveYes" data-id="' + esc(f.id) + '">Retirer</button> <button type="button" class="docTasksLink" data-d="folderRemoveNo">Annuler</button></div>'
+            : '<div class="docTasksFolderRow"><span class="docTasksFolderName">📁 ' + esc(f.name || 'Dossier') + '</span>'
+              + (f.id ? '<button type="button" class="historyRowIconBtn danger" data-d="folderRemove" data-id="' + esc(f.id) + '" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller">' + TRASH_ICON + '</button>' : '') + '</div>';
+        }).join('') + '</div>' : '')
         + (driveFile ? '<span class="docTasksChip">' + esc(driveFile.name) + ' <button type="button" data-d="unpick" aria-label="Retirer">✕</button></span>'
           : (driveList.length ? driveList.map(function (f) { return '<button type="button" class="docTasksPick" data-d="file" data-id="' + esc(f.id) + '">' + esc(f.name) + '</button>'; }).join('') : '<p class="hint">Aucun fichier lisible dans ce dossier.</p>')) + '</div>';
     }
@@ -218,7 +227,16 @@
       folderSel = null; var qc = $('docTasksFolderQ'); if (qc) { qc.focus(); } renderFolderSug();
     } else if (d === 'folderOk' && folderSel) {
       dApi('POST', '/api/drive/folder', { folderId: folderSel.id }).then(function (r) {
-        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync();
+        driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveSt.folders = r.folders || driveSt.folders; foldersOpen = true; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync();
+      }).catch(fail);
+    } else if (d === 'toggleFolders') { foldersOpen = !foldersOpen; folderRemoveId = null; renderDrive();
+    } else if (d === 'folderRemove') { folderRemoveId = id; renderDrive();
+    } else if (d === 'folderRemoveNo') { folderRemoveId = null; renderDrive();
+    } else if (d === 'folderRemoveYes') {
+      dApi('POST', '/api/drive/folder/remove', { folderId: id }).then(function (r) {
+        folderRemoveId = null; driveSt.folders = r.folders || []; driveSt.folderChosen = driveSt.folders.length > 0; driveSt.folderName = driveSt.folders.length ? driveSt.folders[0].name : null;
+        driveFile = null; driveList = []; renderDrive();
+        if (driveSt.folderChosen) { loadFiles(); loadSync(); } else { syncSt = null; renderSync(); }
       }).catch(fail);
     } else if (d === 'file') {
       var f = driveList.filter(function (x) { return x.id === id; })[0];

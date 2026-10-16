@@ -32,6 +32,7 @@ router.get('/drive/folders', ...chain, async (req, res) => {
   try { res.json({ folders: await drive.listFolders(req.userId, req.activityId, typeof req.query.q === 'string' ? req.query.q : '') }); } catch (e) { fail(res, e, req); }
 });
 router.post('/drive/folder', ...chain, wrap((req) => drive.chooseFolder(req.userId, req.activityId, req.body.folderId)));
+router.post('/drive/folder/remove', ...chain, wrap((req) => drive.removeFolder(req.userId, req.activityId, req.body.folderId)));
 router.get('/drive/files', ...chain, async (req, res) => {
   try { res.json({ files: await drive.listFiles(req.userId, req.activityId) }); } catch (e) { fail(res, e, req); }
 });

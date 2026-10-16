@@ -26,7 +26,7 @@ let docs = { 'f1-aaaaa': { text: 'Appeler Paul\nEnvoyer devis', mt: '2026-10-01T
   'f2-aaaaa': { text: 'Autre', mt: '2026-10-01T00:00:00Z', parents: ['fold-1111'] } };
 const outside = { id: 'out-1111', name: 'Hors', mimeType: 'application/vnd.google-apps.document', parents: ['other-1'] };
 let revoke = false; const reads = [];
-drive.setFetch(async (url, opt) => {
+const mockFetch = async (url, opt) => {
   const u = new URL(url);
   const json = (o, ok = true, st = 200) => ({ ok, status: st, json: async () => o, arrayBuffer: async () => Buffer.from('') });
   if (u.pathname === '/token') { const b = new URLSearchParams(opt.body);
@@ -35,13 +35,16 @@ drive.setFetch(async (url, opt) => {
   if (u.pathname === '/revoke') return json({});
   const m = u.pathname.match(/\/drive\/v3\/files(?:\/([^/]+)(\/export)?)?$/);
   if (m && !m[1]) { if (u.searchParams.get('q').startsWith('mimeType =')) return json({ files: [] });
-    return json({ files: Object.keys(docs).map((id) => ({ id, name: id, mimeType: 'application/vnd.google-apps.document', modifiedTime: docs[id].mt })) }); }
+    const qf = (u.searchParams.get('q').match(/'([^']+)' in parents/) || [])[1];
+    return json({ files: Object.keys(docs).filter((id) => docs[id].parents.includes(qf)).map((id) => ({ id, name: id, mimeType: 'application/vnd.google-apps.document', modifiedTime: docs[id].mt })) }); }
   if (m && m[2]) { reads.push(m[1]); return { ok: true, status: 200, arrayBuffer: async () => Buffer.from(docs[m[1]].text) }; }
   if (m && m[1] === 'fold-1111') return json({ id: 'fold-1111', name: 'Projet', mimeType: 'application/vnd.google-apps.folder' });
+  if (m && m[1] === 'fold-2222') return json({ id: 'fold-2222', name: 'Second', mimeType: 'application/vnd.google-apps.folder' });
   if (m && docs[m[1]]) return json({ id: m[1], name: m[1], mimeType: 'application/vnd.google-apps.document', parents: docs[m[1]].parents });
   if (m && m[1] === 'out-1111') return json(outside);
   return json({}, false, 404);
-});
+};
+drive.setFetch(mockFetch);
 let aiCalls = 0, aiTitles = [];
 dt.setCaller(async () => { aiCalls++; return JSON.stringify({ tasks: aiTitles.map((t) => ({ title: t, key: KEY, week: null, minutes: 30 })) }); });
 const count = (st) => db.prepare('SELECT COUNT(*) n FROM drive_seen_tasks WHERE status = ?').get(st).n;
@@ -101,10 +104,25 @@ const items = () => db.prepare('SELECT label FROM sub_project_items i JOIN sub_p
   const f = drive.setFetch; drive.setFetch(async () => { tokCalls.push(1); return { ok: false, status: 500, json: async () => ({}) }; });
   await ds.runSweep();
   assert(tokCalls.length === 0, 'connexion à reconnecter : plus aucun appel (pas de boucle)');
+  // Surveillance multi-dossiers
+  revoke = false; db.prepare('UPDATE drive_sync SET needsReconnect = 0').run(); db.prepare('DELETE FROM drive_ai_usage').run(); drive.setFetch(mockFetch);
+  docs['f3-aaaaa'] = { text: 'Tâche du second dossier', mt: '2026-10-08T00:00:00Z', parents: ['fold-2222'] };
+  docs['f4-aaaaa'] = { text: 'Hors dossiers', mt: '2026-10-08T00:00:00Z', parents: ['fold-9999'] };
+  await drive.chooseFolder('own', act, 'fold-2222');
+  aiTitles = ['Tâche du second dossier'];
+  const rd0 = reads.length;
+  r = await ds.syncConnection('own', act);
+  assert(reads.slice(rd0).includes('f3-aaaaa') && !reads.includes('f4-aaaaa'), 'multi-dossiers : le 2e dossier est surveillé, un fichier hors dossiers jamais lu');
+  let denied = false; try { await drive.readFileText('own', act, 'f4-aaaaa'); } catch (e) { denied = e.statusCode === 403; }
+  assert(denied, 'lecture refusée hors des dossiers choisis');
+  drive.removeFolder('own', act, 'fold-2222');
+  docs['f3-aaaaa'].mt = '2026-10-09T00:00:00Z';
+  const rd1 = reads.length; await ds.syncConnection('own', act);
+  assert(!reads.slice(rd1).includes('f3-aaaaa'), 'dossier retiré : n’est plus surveillé');
   // Déconnexion : tout supprimé
   drive.setFetch(async () => ({ ok: true, status: 200, json: async () => ({}) }));
   await drive.disconnect('own', act);
-  const left = ['drive_connections', 'drive_sync', 'drive_seen_files', 'drive_seen_tasks'].map((t) => db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n);
+  const left = ['drive_connections', 'drive_sync', 'drive_seen_files', 'drive_seen_tasks', 'drive_folders'].map((t) => db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n);
   assert(left.every((n) => n === 0), 'déconnexion : connexion + surveillance supprimées');
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);
