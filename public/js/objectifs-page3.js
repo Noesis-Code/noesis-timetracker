@@ -2135,6 +2135,7 @@
   });
 
   $('activityGoalsNextBtn').addEventListener('click', function () {
+    if (!goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber + 1)) return;
     TMT.currentGoalsViewPeriodNumber += 1;
     renderActivityGoals();
   });
@@ -2169,7 +2170,7 @@
     TMT.currentGoalsCategory = category;
     TMT.currentGoalsSelectedSecteurKey = category;
     TMT.currentGoalsPlanning = planning;
-    TMT.currentGoalsViewPeriodNumber = periodNumber == null ? planning.currentPeriodNumber : periodNumber;
+    TMT.currentGoalsViewPeriodNumber = (periodNumber == null || !goalPeriodByNumber(planning, periodNumber)) ? planning.currentPeriodNumber : periodNumber;
     $('goalsDetailTitle').textContent = $('goalsActivityName').textContent;
     return true;
   }

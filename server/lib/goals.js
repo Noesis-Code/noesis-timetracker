@@ -1713,6 +1713,10 @@ function planningForActivity(activityId, category) {
 
   const periods = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? ORDER BY periodNumber')
     .all(activityId, category)
+    // Borne (16 oct. 2026) : jamais de période au-delà de la dernière année créée (un report
+    // ou un étalement peut avoir matérialisé la période 14+ ; elle reste cachée tant que
+    // l'utilisateur n'a pas créé l'année suivante).
+    .filter((p) => p.periodNumber <= cycleLastPeriodNumber)
     .map((p) => {
       const weeklies = weeklyForPeriod(p.id).map((w) => ({
         ...w,
