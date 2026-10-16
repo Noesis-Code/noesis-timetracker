@@ -107,7 +107,7 @@ function saveFolderSettings(userId, activityId, folderId, body) {
 
 // ---------- Tâches en attente (mode propose) ----------
 function listPending(userId, activityId) {
-  const rows = db.prepare("SELECT id, title, catKey AS key, week, minutes FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending' ORDER BY id").all(userId, activityId);
+  const rows = db.prepare("SELECT id, title, catKey AS key, week, minutes, createdAt FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending' ORDER BY createdAt DESC, id").all(userId, activityId);
   const cands = classify.buildClassificationCandidates(activityId);
   const labels = new Map(cands.map((c) => [c.key, c.label]));
   return { tasks: rows.map((r) => ({ ...r, categoryLabel: labels.get(r.key) || '' })), categories: cands.map((c) => ({ key: c.key, label: c.label })) };

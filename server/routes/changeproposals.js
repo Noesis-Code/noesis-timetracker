@@ -19,13 +19,13 @@ function fail(res, e) { res.status(e.statusCode || 500).json({ error: e.statusCo
 const mw = [requireAuth, requireOffer1Access, guard];
 
 router.get('/activities/:id/change-proposals', ...mw, (req, res) => {
-  try { res.json({ proposals: changeproposals.list(Number(req.params.id)) }); } catch (e) { fail(res, e); }
+  try { res.json({ proposals: changeproposals.list(Number(req.params.id), req.userId) }); } catch (e) { fail(res, e); }
 });
 // Demande à l'IA de chercher de nouvelles modifications (propositions seulement ; plafond IA quotidien partagé).
 router.post('/activities/:id/change-proposals/generate', ...mw, async (req, res) => {
   try {
     const r = await changeproposals.generate(req.userId, Number(req.params.id), {});
-    res.json({ ...r, proposals: changeproposals.list(Number(req.params.id)) });
+    res.json({ ...r, proposals: changeproposals.list(Number(req.params.id), req.userId) });
   } catch (e) { fail(res, e); }
 });
 router.post('/activities/:id/change-proposals/apply', ...mw, (req, res) => {

@@ -70,13 +70,12 @@
 .docTasksChangeOld { opacity: .6; text-decoration: line-through; }
 .docTasksChangeNew { font-weight: 600; }
 /* 16 oct. 2026 : sections Drive / surveillance / entrée « Modifications proposées » (PAS la fenêtre qui s'ouvre) = transparentes (contour fin, sans fond ni flou ; le halo de la page reste visible). */
-#docTasksDrive .docTasksDriveRow, #docTasksChangesBtn {
+#docTasksDrive .docTasksDriveRow {
   background: transparent; box-shadow: none; border: 1px solid var(--glass-border);
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 /* 16 oct. 2026 : pastille du nombre de modifications proposées = ronde, orange brique (le badge « Essor » reste violet). */
-#docTasksChangesN { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #C2694A; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; flex: none; }
-#docTasksChangesN.hidden { display: none; }
+
 /* 16 oct. 2026 : cases à cocher de cette page = même format que les tâches de la Page 2 (fond noir, coins arrondis, coche blanche sur violet). */
 .docTasksWin input[type="checkbox"], .docTasksPop input[type="checkbox"] {
   -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 6px; flex: none;
@@ -117,3 +116,24 @@
 
 .docTasksFsActions { justify-content: space-between; }
 .docTasksFsActions .docTasksApplyBtn { flex: none; width: auto; padding: 8px 20px; border-radius: var(--radius-sm); font-size: 14px; }
+
+/* Liste à chevrons : « Modifications proposées » / « Nouvelles tâches » (une seule carte, deux lignes séparées par un trait fin, pastille orange toute ronde). */
+.docTasksPair { display: flex; flex-direction: column; border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; margin: 6px 0 10px; }
+.docTasksTile { display: flex; align-items: center; gap: 10px; width: 100%; height: 52px; padding: 0 14px; box-sizing: border-box; background: transparent; color: inherit; font: inherit; font-size: 15px; border: 0; cursor: pointer; text-align: left; }
+.docTasksTile + .docTasksTile { border-top: 1px solid var(--glass-border); }
+.docTasksTileLabel { flex: 1 1 auto; min-width: 0; line-height: 24px; padding-bottom: 3px; }
+.docTasksCount { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: #C2694A; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
+.docTasksCount.hidden { display: none; }
+.docTasksChev { flex: none; color: var(--text-light); }
+#docTasksMsg:empty { margin: 0; min-height: 0; }
+#docTasksResults:empty { display: none; }
+
+.docTasksChangeWhen { font-size: 12px; color: var(--text-light); margin-bottom: 2px; }
+.docTasksFor { color: var(--text-light); }
+.docTasksFor.me { color: #9d84e0; font-weight: 600; }
+.docTasksOther .docTasksChangeBody { opacity: .65; }
+
+.docTasksGroupHead { display: flex; align-items: center; gap: 10px; padding: 10px 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-light); cursor: pointer; }
+.docTasksGroupHead .docTasksMeta { margin-left: auto; font-weight: 400; }
+.docTasksGroupHead input[type="checkbox"]:indeterminate { background: var(--purple); border-color: var(--purple); }
+.docTasksPop > .docTasksPopCard > #docTasksPTasksApply { flex: none; margin-top: 8px; }
