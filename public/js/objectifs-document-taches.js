@@ -25,26 +25,22 @@
         <button type="button" class="menuBtn" id="docTasksClose" aria-label="Fermer">✕</button>
       </div>
       <div class="docTasksScroll">
-        <p class="hint">Joins un document (.txt, .md, .csv, .docx, .pdf) ou choisis-en un dans Drive et dis quoi en faire. L’IA te propose des tâches ; rien n’est ajouté sans ta validation.</p>
-        <div class="docTasksShortcuts">
-          <button type="button" class="docTasksShortcut" data-text="Lis le document et crée-moi les tâches">Lis le document et crée-moi les tâches</button>
-          <button type="button" class="docTasksShortcut" data-text="Récupère les tâches écrites dans le document et applique-les dans mes périodes">Récupère les tâches écrites dans le document et applique-les dans mes périodes</button>
-        </div>
-        <div id="docTasksDrive" class="docTasksDrive"></div>
-        <div id="docTasksSync" class="docTasksSync"></div>
-        <button type="button" id="docTasksChangesBtn" class="docTasksDriveRow docTasksChangesEntry">Modifications proposées <span id="docTasksChangesN" class="essorBadge hidden"></span></button>
-        <div class="docTasksBox">
-          <textarea id="docTasksText" rows="4" maxlength="1500" placeholder="Ta consigne, en langage libre"></textarea>
-          <div class="docTasksBoxRow">
-            <label class="docTasksIconBtn" for="docTasksFile" title="Joindre un document" aria-label="Joindre un document">📎</label>
+        <div class="activityGoalsCategoryAutoTaskWrapOuter">
+          <div id="docTasksBubble" class="activityGoalsCategoryAutoTaskBubble">
+            <textarea id="docTasksText" rows="4" maxlength="1500" placeholder="Ta consigne, en langage libre"></textarea>
+            <label class="chatAttachBtn" for="docTasksFile" title="Joindre un document" aria-label="Joindre un document">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </label>
             <input type="file" id="docTasksFile" class="hidden" multiple accept=".txt,.md,.markdown,.csv,.docx,.pdf,text/*">
-            <span style="flex:1 1 auto"></span>
-            <button type="button" id="docTasksSend" class="docTasksSendBtn" aria-label="Proposer des tâches">➤</button>
+            <button type="button" id="docTasksSend" class="iconBtn btnBrique" aria-label="Proposer des tâches">➤</button>
           </div>
           <div id="docTasksFiles" class="docTasksFilesBox"></div>
         </div>
         <p id="docTasksMsg" class="msg"></p>
         <div id="docTasksResults"></div>
+        <div id="docTasksDrive" class="docTasksDrive"></div>
+        <div id="docTasksSync" class="docTasksSync"></div>
+        <button type="button" id="docTasksChangesBtn" class="docTasksDriveRow docTasksChangesEntry">Modifications proposées <span id="docTasksChangesN" class="essorBadge hidden"></span></button>
       </div>
     </div>
     <div id="docTasksAddedPop" class="docTasksPop hidden" role="dialog" aria-label="Tâches ajoutées">
@@ -73,10 +69,7 @@
   function actId() { return TMT.currentGoalsActivityId; }
   function msg(t) { $('docTasksMsg').textContent = t || ''; }
 
-  $('docTasksPage').querySelector('.docTasksShortcuts').addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-text]'); if (!b) return;
-    $('docTasksText').value = b.getAttribute('data-text'); $('docTasksText').focus();
-  });
+  if (TMT.attachAutoTaskGlow) TMT.attachAutoTaskGlow($('docTasksBubble'));
 
   function renderFiles() {
     $('docTasksFiles').innerHTML = files.map(function (f, i) {
@@ -102,14 +95,14 @@
   $('docTasksSend').addEventListener('click', function () {
     if (busy) return;
     var instruction = $('docTasksText').value.trim();
-    if (!instruction) { msg('Écris une consigne ou touche un raccourci.'); return; }
-    busy = true; pendingMode = false; msg('L’IA lit le document…'); $('docTasksResults').innerHTML = '';
+    if (!instruction) { msg('Écris une consigne.'); return; }
+    busy = true; $('docTasksSend').disabled = true; pendingMode = false; msg('L’IA lit le document…'); $('docTasksResults').innerHTML = '';
     var req = driveFile
       ? TMT.api('POST', '/api/drive/propose', { activityId: Number(actId()), fileId: driveFile.id, instruction: instruction })
       : TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/propose', { instruction: instruction, files: files });
     req
       .then(function (r) {
-        busy = false; proposals = r.tasks || []; categories = r.categories || [];
+        busy = false; $('docTasksSend').disabled = false; proposals = r.tasks || []; categories = r.categories || [];
         var notes = (r.notes || []).slice(); if (r.truncated) notes.push('Document long : seule la première partie a été lue.');
         if (r.found != null && r.found !== proposals.length) {
           var d = r.dropped || {}, why = [];
@@ -123,7 +116,7 @@
         msg(notes.join(' '));
         render(r);
       })
-      .catch(function (err) { busy = false; msg((err && err.message) || 'Erreur.'); });
+      .catch(function (err) { busy = false; $('docTasksSend').disabled = false; msg((err && err.message) || 'Erreur.'); });
   });
 
   // ---------- Google Drive (lecture seule, un seul dossier par activité) ----------
