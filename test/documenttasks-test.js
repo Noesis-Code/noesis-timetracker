@@ -123,12 +123,18 @@ function call(path_, userId, id, body) {
   // Accès
   r = await call('propose', 'out', act, { instruction: 'x' });
   assert(r.st === 403, 'non-membre refusé');
+  db.prepare("UPDATE offer1_grants SET revokedAt = 'x' WHERE userId = 'mem'").run();
   r = await call('propose', 'mem', act, { instruction: 'x' });
-  assert(r.st === 403 && r.b.error === 'essor_required', 'membre sans Essor sur l’activité refusé');
+  assert(r.st === 403, 'membre sans code ni abonnement refusé');
   db.prepare("INSERT INTO activity_subscriptions (activityId, userId, stripeCustomerId, stripeSubscriptionId, stripePriceId, status, createdAt) VALUES (?,?,?,?,?,?,?)").run(act, 'own', 'c', 's', 'p', 'active', '');
   dt.setCaller(async () => '{"tasks":[]}');
   r = await call('propose', 'mem', act, { instruction: 'x' });
-  assert(r.st === 200, 'abonnement actif : membre accepté');
+  assert(r.st === 403, 'l’abonnement d’un autre membre ne profite pas à ce membre');
+  r = await call('propose', 'own', act, { instruction: 'x' });
+  assert(r.st === 200, 'abonné lui-même : accepté');
+  grantAccess('mem', 'code');
+  r = await call('propose', 'mem', act, { instruction: 'x' });
+  assert(r.st === 200, 'code gratuit : membre accepté sur toutes ses activités');
   r = await call('apply', 'out', act, { tasks: [] });
   assert(r.st === 403, 'apply : non-membre refusé');
   let u401 = 0; router.stack.find((l) => l.route && l.route.path.endsWith('propose')).route.stack[0].handle({}, { status(s) { u401 = s; return this; }, json() {} }, () => {}); assert(u401 === 401, 'sans session : 401');

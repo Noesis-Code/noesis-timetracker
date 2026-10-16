@@ -60,7 +60,10 @@ assert(call('r2', TEST_CODE, '9.9.9.9').st === 200 && hasOffer1Access('r2'), 'au
   assert(essor('sub', a2).b.essor === true, 'essor : abonnement actif => true');
   grantAccess('own', 'code'); grantAccess('mem', 'code');
   assert(essor('own', a1).b.essor === true, 'essor : grant du propriétaire => true');
-  assert(essor('mem', a1).b.essor === false, 'essor : grant d\'un simple membre => false');
+  assert(essor('mem', a1).b.essor === true, 'essor : grant (code) d\'un simple membre => true (toutes ses activités)');
+  db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,?,'#fff','')").run(a2, 'out');
+  assert(essor('out', a2).b.essor === false, 'essor : l\'abonnement d\'un membre ne profite pas aux autres membres');
+  assert(essor('mem', a2).st === 403, 'essor : non-membre => 403 même avec un code');
   let st401 = 0; lay.route.stack[0].handle({}, { status(s) { st401 = s; return this; }, json() {} }, () => {});
   assert(st401 === 401, 'essor : sans session => 401');
 }

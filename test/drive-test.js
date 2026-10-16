@@ -88,9 +88,9 @@ async function assertThrows(fn, code, label) { try { await fn(); assert(false, l
   db.prepare("UPDATE offer1_grants SET revokedAt = 'x' WHERE userId = 'free'").run();
   r = await call('get', '/drive/status', 'free', { query: { activityId: act2 } });
   assert(r.st === 403, 'sans Offre 1 : refusé');
-  grantAccess('free', 'code'); // grant actif mais activité appartenant à 'own' : Essor via ownerId only
+  grantAccess('free', 'code'); // code gratuit : Essor sur toutes les activités dont il est membre (règle du 16 oct. 2026)
   r = await call('get', '/drive/status', 'free', { query: { activityId: act2 } });
-  assert(r.st === 403, 'non-Essor sur l’activité : refusé');
+  assert(r.st === 200, 'code gratuit : Essor sur son activité');
   r = await call('get', '/drive/status', 'free', { query: { activityId: act } });
   assert(r.st === 403, 'non-membre : refusé');
 
