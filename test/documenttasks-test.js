@@ -120,6 +120,16 @@ function call(path_, userId, id, body) {
   const t = await dt.textFromFile({ fileName: 'a.docx', mimeType: 'application/octet-stream', dataUrl: 'data:application/octet-stream;base64,' + docx.toString('base64') });
   assert(t.text && t.text.trim() === 'Appeler & planifier', 'docx : texte extrait');
 
+  // Sans document : l'IA part des objectifs hebdomadaires de l'application (16 oct. 2026)
+  const pid = db.prepare("INSERT INTO goal_periods (activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate, mainGoalText, createdAt) VALUES (?,?,?,?,?,?,?,'',?)")
+    .run(act, key, 999, 1, 1, monday, goals.addDays(monday, 27), new Date().toISOString()).lastInsertRowid;
+  db.prepare("INSERT INTO goal_weekly (periodId, weekIndex, text, createdAt) VALUES (?,?,?,?)").run(pid, 1, 'Boucler la maquette OBJ-TEST', new Date().toISOString());
+  dt.setCaller(async ({ system, user }) => { seen = { system, user }; return '{"tasks":[]}'; });
+  r = await call('propose', 'own', act, { instruction: 'Donne-moi les tâches de la semaine' });
+  assert(r.st === 200, 'sans document : accepté');
+  assert(/<application>[\s\S]*Boucler la maquette OBJ-TEST[\s\S]*<\/application>/.test(seen.user), 'sans document : les objectifs hebdomadaires de l’activité sont dans le prompt');
+  assert(/<document>\s*<\/document>/.test(seen.user), 'sans document : bloc document vide');
+
   // Accès
   r = await call('propose', 'out', act, { instruction: 'x' });
   assert(r.st === 403, 'non-membre refusé');
