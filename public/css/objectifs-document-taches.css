@@ -77,3 +77,11 @@
 /* 16 oct. 2026 : pastille du nombre de modifications proposées = ronde, orange brique (le badge « Essor » reste violet). */
 #docTasksChangesN { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #C2694A; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; flex: none; }
 #docTasksChangesN.hidden { display: none; }
+/* 16 oct. 2026 : cases à cocher de cette page = même format que les tâches de la Page 2 (fond noir, coins arrondis, coche blanche sur violet). */
+.docTasksWin input[type="checkbox"], .docTasksPop input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 6px; flex: none;
+  background: var(--card); border: 1.5px solid color-mix(in srgb, var(--text-light) 55%, transparent);
+  display: inline-grid; place-content: center; cursor: pointer; margin: 0;
+}
+.docTasksWin input[type="checkbox"]:checked, .docTasksPop input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
+.docTasksWin input[type="checkbox"]:checked::after, .docTasksPop input[type="checkbox"]:checked::after { content: ""; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
