@@ -510,7 +510,10 @@
   function renderPTasks() {
     var h = $('docTasksChangesTasks'); if (!h) return;
     if (!ptasks.length) { h.innerHTML = '<p class="docTasksMeta">Aucune nouvelle tâche à valider.</p>'; return; }
+    var gl = null;
     h.innerHTML = ptasks.map(function (t, i) {
+      var gk = String(t.createdAt || '').slice(0, 16), head = '';
+      if (gk !== gl) { gl = gk; var n = ptasks.filter(function (x) { return String(x.createdAt || '').slice(0, 16) === gk; }).length; head = '<label class="docTasksGroupHead"><input type="checkbox" data-pg="' + esc(gk) + '" checked aria-label="Tout sélectionner pour ce moment"><span>' + esc(whenLabel(t.createdAt)) + '</span><span class="docTasksMeta">' + n + '</span></label>'; }
       var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       var pick = '';
       if (t.toChoose && pcats.length) {
@@ -518,10 +521,17 @@
           + pcats.map(function (c) { return '<option value="' + esc(c.key) + '"' + (c.key === t.key ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
         meta = [t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       }
-      return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-pt="' + i + '" checked aria-label="Ajouter">'
+      return head + '<div class="docTasksPopRow docTasksChangeRow" data-pgk="' + esc(gk) + '"><input type="checkbox" data-pt="' + i + '" checked aria-label="Ajouter">'
         + '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(t.title) + '</div><div class="docTasksMeta">' + esc(meta) + '</div>' + pick + '</div>'
         + '<button type="button" class="historyRowIconBtn danger" data-pd="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
     }).join('');
+  }
+  function syncGroupBoxes() {
+    Array.prototype.forEach.call($('docTasksChangesTasks').querySelectorAll('input[data-pg]'), function (gb) {
+      var cbs = $('docTasksChangesTasks').querySelectorAll('[data-pgk="' + gb.getAttribute('data-pg') + '"] input[data-pt]'), on = 0;
+      Array.prototype.forEach.call(cbs, function (c) { if (c.checked) on += 1; });
+      gb.checked = on === cbs.length; gb.indeterminate = on > 0 && on < cbs.length;
+    });
   }
   function loadPTasks() {
     return dApi('GET', '/api/drive/sync/pending').then(function (r) {
@@ -557,6 +567,12 @@
     resolvePTasks(items, true);
   });
   $('docTasksChangesTasks').addEventListener('change', function (e) {
+    var gb = e.target.closest('input[data-pg]');
+    if (gb) { // un clic : toute la section (même date et heure) cochée ou décochée
+      Array.prototype.forEach.call($('docTasksChangesTasks').querySelectorAll('[data-pgk="' + gb.getAttribute('data-pg') + '"] input[data-pt]'), function (cb) { cb.checked = gb.checked; });
+      return;
+    }
+    syncGroupBoxes();
     var sel = e.target.closest('select[data-pc]'); if (!sel) return;
     var t = ptasks[Number(sel.getAttribute('data-pc'))]; if (!t) return;
     t.key = sel.value; t.toChoose = false;
