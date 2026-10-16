@@ -46,6 +46,24 @@ else {
     assert(dw > today && dw <= require('../server/lib/goals').addDays(today, 14), 'semaine prochaine => dans la semaine suivante : ' + dw);
     const dn = cp.dateForCapture(u.id, a.id, cat.key, 0, 'Ranger le bureau');
     assert(/^\d{4}-\d{2}-\d{2}$/.test(dn) && dn >= today, 'sans indice : date répartie par capacité : ' + dn);
+    // Objectifs : placement selon l'objectif hebdomadaire / périodique.
+    const pole = goals.resolveToPole(a.id, cat.key);
+    const mon = goals.mostRecentMonday(today);
+    const wk2 = goals.addDays(mon, 7);
+    db.prepare('DELETE FROM goal_periods WHERE activityId = ? AND category = ?').run(a.id, pole);
+    const per = db.prepare('INSERT INTO goal_periods (activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate, mainGoalText, createdAt) VALUES (?,?,?,?,?,?,?,?,?)')
+      .run(a.id, pole, 9001, 1, 1, mon, goals.addDays(mon, 27), 'Stabiliser la plateforme', new Date().toISOString());
+    const outP = {}; cp.dateForCapture(u.id, a.id, cat.key, 0, 'Revoir la plateforme', outP);
+    assert(outP.why && outP.why.kind === 'period' && outP.why.weekStart === mon, 'sans objectif hebdo : objectif périodique (semaine courante)');
+    db.prepare('INSERT INTO goal_weekly (periodId, weekIndex, text, createdAt) VALUES (?,?,?,?)').run(per.lastInsertRowid, 2, 'Lancer la newsletter clients', new Date().toISOString());
+    const outW = {}; const dw2 = cp.dateForCapture(u.id, a.id, cat.key, 0, 'Rédiger la newsletter', outW);
+    assert(outW.why && outW.why.kind === 'weekly' && outW.why.weekStart === wk2 && dw2 >= wk2 && dw2 <= goals.addDays(wk2, 6), 'proche objectif hebdo de la semaine suivante : ' + dw2);
+    const outH = {}; const dh = cp.dateForCapture(u.id, a.id, cat.key, 0, 'Rédiger la newsletter demain', outH);
+    assert(!outH.why && dh === goals.addDays(today, 1), 'indice explicite prioritaire');
+    db.prepare('UPDATE users SET weeklyCapacityMinutes = 1 WHERE id = ?').run(u.id);
+    const outF = {}; cp.dateForCapture(u.id, a.id, cat.key, 0, 'Rédiger la newsletter', outF);
+    assert(!outF.why, 'semaines pleines : plus de suggestion par objectif (repli capacité)');
+    db.prepare('UPDATE users SET weeklyCapacityMinutes = NULL WHERE id = ?').run(u.id);
   }
 }
 if (failed) { console.log(failed + ' échec(s)'); process.exit(1); }

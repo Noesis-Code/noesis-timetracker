@@ -353,7 +353,64 @@ function pickDayInRange(userId, activityId, days, ownMinutes, itemId) {
   return days.find((d) => (load[d] || 0) + ownMinutes <= budget)
     || days.reduce((b, d) => ((load[d] || 0) < (load[b] || 0) ? d : b), days[0]);
 }
-function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel) {
+// 16 oct. 2026 (Émilien) : sans indice de date, la tâche est rangée selon les OBJECTIFS de son
+// pôle (le secteur remonte au pôle) : (1) semaine de l'objectif hebdomadaire (semaine courante
+// ou à venir, <= 4 semaines) dont le titre/la description ressemble le plus au texte
+// (goals.tokenize/jaccard) ; (2) à défaut, semaine de l'objectif périodique courant ; une
+// semaine déjà pleine (capacité de l'activité + capacité hebdomadaire de l'utilisateur) cède
+// la place à la suivante. Un JOUR seulement (liste, jamais de créneau). Suggestion modifiable.
+function weekHasRoom(userId, activityId, mon, today, own, itemId) {
+  const days = [];
+  for (let i = 0; i < 7; i += 1) { const d = goals.addDays(mon, i); if (d >= today) days.push(d); }
+  if (!days.length) return null;
+  const day = pickDayInRange(userId, activityId, days, own, itemId);
+  if (!day) return null;
+  try {
+    const cap = require('./weekplanner').getWeeklyCapacity(userId);
+    if (cap && cap.minutes != null) {
+      const all = [];
+      for (let i = 0; i < 7; i += 1) all.push(goals.addDays(mon, i));
+      const load = committedMinutesByDay(userId, all, itemId);
+      const used = all.reduce((s, d) => s + (load[d] || 0), 0);
+      if (used + own > cap.minutes) return null;
+    }
+  } catch (e) { /* capacité indisponible : on ne bloque pas */ }
+  return day;
+}
+function objectiveTarget(userId, activityId, categoryKey, taskLabel, today, own, itemId) {
+  const pole = goals.resolveToPole(activityId, categoryKey);
+  const periods = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ?').all(activityId, pole);
+  if (!periods.length) return null;
+  const horizon = goals.addDays(today, 27);
+  const target = new Set(goals.tokenize(taskLabel));
+  const cands = [];
+  periods.forEach((p) => {
+    db.prepare('SELECT * FROM goal_weekly WHERE periodId = ?').all(p.id).forEach((w) => {
+      if (!String(w.text || '').trim() || w.status === 'atteint') return;
+      const b = goals.weekBounds(p.startDate, w.weekIndex);
+      if (b.end < today || b.start > horizon) return;
+      const score = goals.jaccard(target, new Set(goals.tokenize(w.text + ' ' + (w.description || ''))));
+      cands.push({ start: goals.mostRecentMonday(b.start), text: w.text, score });
+    });
+  });
+  const best = cands.filter((c) => c.score > 0).sort((a, b) => b.score - a.score || (a.start < b.start ? -1 : 1))[0];
+  if (best) {
+    for (let k = 0; k < 4; k += 1) {
+      const mon = goals.addDays(best.start, 7 * k);
+      const d = weekHasRoom(userId, activityId, mon, today, own, itemId);
+      if (d) return { date: d, weekStart: mon, goalText: best.text, kind: 'weekly' };
+    }
+  }
+  const cur = periods.find((p) => p.startDate <= today && p.endDate >= today);
+  if (cur && String(cur.mainGoalText || '').trim()) {
+    for (let mon = goals.mostRecentMonday(today); mon <= cur.endDate; mon = goals.addDays(mon, 7)) {
+      const d = weekHasRoom(userId, activityId, mon, today, own, itemId);
+      if (d) return { date: d, weekStart: mon, goalText: cur.mainGoalText, kind: 'period' };
+    }
+  }
+  return null;
+}
+function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, out) {
   const today = todayLocal();
   const hint = require('./capturedatehint').parseDateHint(taskLabel, today);
   const own = taskMinutes(activityId, categoryKey, taskLabel);
@@ -377,13 +434,19 @@ function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel) {
       return d || hint.date;
     }
   } catch (e) { /* repli ci-dessous */ }
+  if (!hint) {
+    try {
+      const t = objectiveTarget(userId, activityId, categoryKey, taskLabel, today, own, itemId);
+      if (t) { if (out) out.why = { kind: t.kind, weekStart: t.weekStart, goalText: t.goalText }; return t.date; }
+    } catch (e) { /* repli ci-dessous */ }
+  }
   try { return chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, itemId); } catch (e) { return today; }
 }
 function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel, opts) {
   // Une date déjà saisie par l'utilisateur (dueDateAuto=0) prime toujours.
   const cur = db.prepare('SELECT dueDate, dueDateAuto FROM sub_project_items WHERE id = ?').get(itemId);
   const manual = !!(cur && cur.dueDate && !cur.dueDateAuto);
-  const date = manual ? cur.dueDate : dateForCapture(userId, activityId, categoryKey, itemId, taskLabel);
+  const date = manual ? cur.dueDate : dateForCapture(userId, activityId, categoryKey, itemId, taskLabel, opts && opts.out);
   const members = goals.membersForActivity(activityId);
   let who = null;
   const noAssign = !!(opts && opts.noAssign);
@@ -410,6 +473,7 @@ module.exports = {
   suggestAssigneeFromHistory,
   placeCaptureDefault,
   dateForCapture,
+  objectiveTarget,
   redispatchOverdue,
   LOOKAHEAD_DAYS,
   DEFAULT_TASK_MINUTES,

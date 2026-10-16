@@ -1331,6 +1331,18 @@
       var dateIn = document.createElement('input');
       dateIn.type = 'date'; dateIn.value = r.dueDate || '';
       box.appendChild(labeled(t('Quand'), dateIn));
+      // 16 oct. 2026 : suggestion rangée selon les objectifs (semaine + objectif visé), modifiable via la date.
+      if (r.dueWhy && r.dueWhy.weekStart) {
+        var whyLine = document.createElement('div');
+        whyLine.className = 'goalsPlacementWhy';
+        whyLine.style.cssText = 'font-size:12px;opacity:.7;margin:-4px 0 6px';
+        var wd = new Date(r.dueWhy.weekStart + 'T12:00:00');
+        var wl = wd.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' }).replace('.', '');
+        var gt = String(r.dueWhy.goalText || '');
+        if (gt.length > 60) gt = gt.slice(0, 57) + '…';
+        whyLine.textContent = t('Suggéré') + ' : ' + t('semaine du') + ' ' + wl + ', ' + t('objectif') + ' « ' + gt + ' »';
+        box.appendChild(whyLine);
+      }
 
       // Récurrence : Noèsis propose (recurrenceSuggestion), l'utilisateur confirme ou retire.
       var recF = null;
