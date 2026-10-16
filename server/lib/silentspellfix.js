@@ -71,7 +71,7 @@ const SYSTEM = [
 ].join('\n');
 
 async function callModelForFix(text) {
-  const out = await classify.callModel(SYSTEM + '\n\nTitre :\n' + text, 200);
+  const out = await classify.callModel(SYSTEM + '\n\nTitre :\n' + text, 200, 'correction-orthographe');
   return String(out || '').trim().replace(/^["«]\s*|\s*["»]$/g, '');
 }
 

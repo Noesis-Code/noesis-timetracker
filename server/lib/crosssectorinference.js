@@ -56,6 +56,7 @@
 // appel IA par déclenchement, sortie JSON strictement contrainte, plafonds
 // re-validés côté serveur après réponse.
 
+const aibudget = require('./aibudget');
 const db = require('../db');
 const goals = require('./goals');
 
@@ -121,7 +122,7 @@ async function callAi(payload, allowedKeys) {
 }
 
 async function callAiOnce(payload, allowedKeys) {
-  const res = await fetch(ANTHROPIC_API_URL, {
+  const res = await aibudget.fetchAnthropic('inter-secteurs', ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,

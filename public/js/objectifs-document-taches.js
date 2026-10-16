@@ -248,7 +248,7 @@
       fsMsg = 'Synchronisation…'; renderFolderSet();
       dApi('POST', '/api/drive/sync/run', { folderId: fsId }).then(function (r) {
         syncSt = r;
-        fsMsg = r.needsReconnect ? 'Drive doit être reconnecté.' : r.capReached ? 'Plafond quotidien atteint.' : (r.added + ' ajoutée(s), ' + r.proposed + ' proposée(s).');
+        fsMsg = r.needsReconnect ? 'Drive doit être reconnecté.' : r.aiBlocked ? r.aiMessage : r.capReached ? 'Plafond quotidien atteint.' : (r.added + ' ajoutée(s), ' + r.proposed + ' proposée(s).');
         renderFolderSet(); renderSync();
         if (r.needsReconnect) { driveSt.needsReconnect = true; renderDrive(); }
         if (r.added) checkAdded();
@@ -344,7 +344,8 @@
     if (!s || !(driveSt && driveSt.folderChosen)) { h.innerHTML = ''; return; }
     var html = '<div class="docTasksSyncRow">';
     html += '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
-    if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
+    if (s.aiBlocked && s.aiResumesOn) html += '<div class="docTasksWarn">' + esc(s.aiMessage) + '</div>';
+    else if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
     if (syncMsg) html += '<p class="msg">' + esc(syncMsg) + '</p>';
     h.innerHTML = html + '</div>';
   }
@@ -542,7 +543,7 @@
     if (busy) return; busy = true; cToast('L’IA cherche…');
     cApi('POST', '/generate', {}).then(function (r) {
       busy = false; changes = r.proposals || []; renderChanges();
-      cToast(r.capReached ? 'Plafond IA du jour atteint.' : (r.configured === false ? 'IA non configurée.' : (r.failed ? 'L’IA n’a pas répondu.' : (r.added ? r.added + ' nouvelle(s) proposition(s).' : 'Rien de nouveau à proposer.'))));
+      cToast(r.aiBlocked ? r.message : r.capReached ? 'Plafond IA du jour atteint.' : (r.configured === false ? 'IA non configurée.' : (r.failed ? 'L’IA n’a pas répondu.' : (r.added ? r.added + ' nouvelle(s) proposition(s).' : 'Rien de nouveau à proposer.'))));
     }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
   });
   $('docTasksChangesList').addEventListener('click', function (e) {

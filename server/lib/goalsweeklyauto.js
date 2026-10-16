@@ -83,6 +83,7 @@
 // séquencement est une précaution de coût/lisibilité, pas une nécessité de
 // cohérence des données.
 
+const aibudget = require('./aibudget');
 const db = require('../db');
 const goals = require('./goals');
 
@@ -131,7 +132,7 @@ async function callAi(payload, requestedWeeks) {
 }
 
 async function callAiOnce(payload, requestedWeeks) {
-  const res = await fetch(ANTHROPIC_API_URL, {
+  const res = await aibudget.fetchAnthropic('objectifs-hebdo', ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,

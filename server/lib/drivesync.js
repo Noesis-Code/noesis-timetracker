@@ -8,13 +8,14 @@
 //   - mode 'propose' : stocke en 'pending' ; rien n'est écrit avant la validation de l'utilisateur.
 // Règles : une tâche supprimée ou refusée n'est jamais rajoutée (la ligne drive_seen_tasks reste) ;
 // le document est une DONNÉE (prompt de documenttasks) ; aucun contenu de document n'est journalisé
-// (compteurs seulement) ; plafond DRIVE_SYNC_MAX_AI_CALLS_PER_DAY (défaut 20) appels IA/jour/utilisateur ;
+// (compteurs seulement) ; plafond OPTIONNEL DRIVE_SYNC_MAX_AI_CALLS_PER_DAY (défaut : aucun) appels IA/jour/utilisateur ;
 // jeton révoqué => « à reconnecter », la connexion est ensuite ignorée (pas de boucle d'erreurs).
 // Variables : DRIVE_SYNC_INTERVAL_MIN (0 ou off = désactivé), DRIVE_SYNC_MAX_AI_CALLS_PER_DAY.
 const crypto = require('crypto');
 const db = require('../db');
 const drive = require('./drive');
 const documenttasks = require('./documenttasks');
+const aibudget = require('./aibudget');
 const changeproposals = require('./changeproposals');
 const classify = require('./goalstaskclassify');
 const push = require('./push');
@@ -27,7 +28,7 @@ const MAX_INSTRUCTION = 1500;
 function httpError(status, message) { return Object.assign(new Error(message), { statusCode: status }); }
 function maxCalls() {
   const n = parseInt(process.env.DRIVE_SYNC_MAX_AI_CALLS_PER_DAY, 10);
-  return Number.isFinite(n) && n >= 0 ? n : 20;
+  return Number.isFinite(n) && n >= 0 ? n : Infinity; // aucun plafond par défaut (décision d'Émilien, 16 oct. 2026)
 }
 function intervalMin() {
   const raw = String(process.env.DRIVE_SYNC_INTERVAL_MIN == null ? '30' : process.env.DRIVE_SYNC_INTERVAL_MIN).trim().toLowerCase();
@@ -68,7 +69,9 @@ function settings(userId, activityId) {
     defaultInstruction: DEFAULT_INSTRUCTION,
     lastCheckedAt: sy.lastCheckedAt || null,
     needsReconnect: !!sy.needsReconnect,
-    capReached: used >= max, callsToday: used, maxCallsPerDay: max,
+    aiBlocked: aibudget.status(userId).blocked, aiResumesOn: aibudget.status(userId).resumesOn,
+    aiMessage: aibudget.status(userId).blocked ? aibudget.blockedMessage(aibudget.status(userId).resumesOn) : null,
+    capReached: used >= max, callsToday: used, maxCallsPerDay: Number.isFinite(max) ? max : null,
     pendingCount: db.prepare("SELECT COUNT(*) AS n FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending'").get(userId, activityId).n,
   };
 }
@@ -214,12 +217,14 @@ async function syncConnection(userId, activityId, opts) {
       out.filesRead++;
       const hash = sha(text);
       if (seen && seen.contentHash === hash) { putFile.run(userId, activityId, f.id, f.modifiedTime, hash); continue; } // seule la date a bougé
+      const bud = aibudget.check(userId);
+      if (!bud.ok) { out.aiBlocked = true; out.aiResumesOn = bud.resumesOn; break; } // budget IA hebdomadaire : fichier non marqué, reprise à la tranche suivante
       if (!takeCall(userId)) { out.capReached = true; break; } // retentera demain (fichier non marqué comme vu)
       out.aiCalls++;
       let prop;
       try {
         const dataUrl = 'data:text/plain;base64,' + Buffer.from(text, 'utf8').toString('base64');
-        prop = await documenttasks.propose(userId, activityId, { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl }] }, { skipRate: true });
+        prop = await aibudget.runAs(userId, () => documenttasks.propose(userId, activityId, { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl }] }, { skipRate: true }));
       } catch (e) { continue; } // échec IA : fichier non marqué, nouvel essai au prochain passage (borné par le plafond)
       putFile.run(userId, activityId, f.id, f.modifiedTime, hash);
       // Modifications proposées (16 oct. 2026) : propositions seulement, rien n'est écrit (changeproposals.js).

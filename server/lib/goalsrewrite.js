@@ -9,6 +9,7 @@
 // proposition si la clé ANTHROPIC_API_KEY est absente, si l'appel échoue ou
 // expire, ou si la réponse est vide/identique/inexploitable.
 
+const aibudget = require('./aibudget');
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_API_VERSION = '2023-06-01';
 const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
@@ -40,7 +41,7 @@ async function callModel(prompt) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(ANTHROPIC_API_URL, {
+    const res = await aibudget.fetchAnthropic('reformulation', ANTHROPIC_API_URL, {
       method: 'POST',
       signal: controller.signal,
       headers: {

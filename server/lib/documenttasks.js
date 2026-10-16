@@ -10,6 +10,7 @@
 // catégorie, semaine, durée) ; aucune cible d'objectif (manual ou non) n'est touchée ;
 // une LISTE de tâches, jamais d'horaire à créneaux. La durée estimée sert à signaler un
 // dépassement de la capacité hebdo ; elle n'est pas stockée (une tâche n'a pas de durée).
+const aibudget = require('./aibudget');
 const zlib = require('zlib');
 const db = require('../db');
 const goals = require('./goals');
@@ -196,7 +197,7 @@ async function callAnthropic({ system, user }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(API_URL, {
+    const res = await aibudget.fetchAnthropic('document-taches', API_URL, {
       method: 'POST', signal: controller.signal,
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: classify.modelName(), max_tokens: MAX_TOKENS, temperature: 0, system, messages: [{ role: 'user', content: user }] }),
@@ -304,7 +305,7 @@ async function propose(userId, activityId, body, opts) {
   if (!ctx.candidates.length) throw httpError(400, 'Aucune catégorie sur cette activité.');
   let out;
   try { out = await (caller || callAnthropic)({ system: SYSTEM, user: buildUser(ctx, instruction, doc.text) }); }
-  catch (e) { throw httpError(502, "L'IA n'a pas répondu. Réessaie dans un moment."); }
+  catch (e) { throw e && e.aiBlocked ? httpError(429, e.message) : httpError(502, "L'IA n'a pas répondu. Réessaie dans un moment."); }
   const text = out && typeof out === 'object' ? out.text : out;
   const aiTruncated = !!(out && typeof out === 'object' && out.stopReason === 'max_tokens');
   const parsed = parseDetailed(text, ctx);

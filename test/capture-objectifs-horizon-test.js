@@ -22,10 +22,10 @@ const today = t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDat
 const insP = db.prepare('INSERT INTO goal_periods (activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate, mainGoalText, createdAt) VALUES (?,?,?,?,?,?,?,?,?)');
 const insW = db.prepare('INSERT INTO goal_weekly (periodId, weekIndex, text, description, createdAt) VALUES (?,?,?,?,?)');
 function reset() { db.prepare('DELETE FROM goal_periods WHERE activityId = ?').run(a.id); }
-const D50 = '2026-12-07'; // lundi de la semaine 50 (période 13, semaine 2) ; 2026-11-30 = début période
+const D50 = '2026-12-14'; // lundi de la semaine 50 (période 13, semaine 2) ; 2026-12-07 = début période (grille : 1er lundi de janvier = 2026-01-05)
 function farPlan(periodText) {
   reset();
-  const p = insP.run(a.id, pole, 9013, 1, 13, '2026-11-30', '2026-12-27', periodText || '', now);
+  const p = insP.run(a.id, pole, 9013, 1, 13, '2026-12-07', '2027-01-03', periodText || '', now);
   insW.run(p.lastInsertRowid, 2, "Nettoyage de l'application", 'ménage du code et des écrans', now);
   insW.run(p.lastInsertRowid, 3, 'Préparer la facturation', '', now);
   return p.lastInsertRowid;
@@ -64,7 +64,7 @@ const T = (label, pre) => cp.objectiveTarget(u.id, a.id, cat.key, label, today, 
   assert(r && r.kind === 'weekly', 'hebdomadaire prioritaire sur périodique');
   // Seulement périodique -> répartie dans la période
   reset();
-  insP.run(a.id, pole, 9013, 1, 13, '2026-11-30', '2026-12-27', "Nettoyer l'application", now);
+  insP.run(a.id, pole, 9013, 1, 13, '2026-12-07', '2027-01-03', "Nettoyer l'application", now);
   r = T("nettoyer l'application");
   assert(r && r.kind === 'period' && r.date >= '2026-11-30' && r.date <= '2026-12-27', 'seul périodique -> dans la période : ' + (r && r.date));
   // Date explicite prioritaire
