@@ -654,7 +654,9 @@
     // service worker) ou réponse 503 `{ offline: true }` fabriquée par
     // public/sw.js. Message d'erreur inchangé pour tous les autres appelants.
     return fetch(url, opts).then(function (r) {
-      return r.json().then(function (data) {
+      // 16 oct. 2026 : une réponse non JSON (redémarrage, route absente) faisait afficher le message
+      // BRUT du navigateur (anglais : « The string did not match the expected pattern »). Message maison.
+      return r.json().catch(function () { throw new Error(t('Erreur serveur')); }).then(function (data) {
         if (!r.ok) {
           if (data.needsLogin) handleSessionLost();
           var apiErr = new Error(t(data.error || 'Erreur serveur'));
@@ -665,6 +667,8 @@
       });
     }, function (netErr) {
       netErr.offline = true;
+      // Message brut du navigateur (« Load failed », « Failed to fetch ») = anglais : remplacé par le texte de l'app.
+      try { netErr.message = t('Connexion impossible. Réessaie.'); } catch (e2) {}
       throw netErr;
     });
   }

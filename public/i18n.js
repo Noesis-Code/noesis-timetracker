@@ -587,6 +587,7 @@
 
     // ---- Messages renvoyés par le serveur (texte fixe) ----
     'Erreur serveur': 'Server error',
+    'Connexion impossible. Réessaie.': 'Connection failed. Try again.',
     'userId requis.': 'userId is required.',
     'userId et activityId requis.': 'userId and activityId are required.',
     'Profil introuvable.': 'Profile not found.',

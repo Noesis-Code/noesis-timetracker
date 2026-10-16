@@ -125,7 +125,7 @@
   var driveSt = null, driveFile = null, driveView = 'main', driveList = [], driveErr = '';
   function dApi(method, path, extra) {
     var q = 'activityId=' + encodeURIComponent(actId());
-    if (method === 'GET') return TMT.api('GET', path + '?' + q);
+    if (method === 'GET') return TMT.api('GET', path + '?' + q + (extra ? '&' + extra : ''));
     return TMT.api('POST', path, Object.assign({ activityId: Number(actId()) }, extra || {}));
   }
   function loadDrive() {
@@ -158,7 +158,7 @@
     var q = folderQuery.trim(), seq = ++folderSeq;
     if (!q) { folderList = []; folderLoading = false; renderFolderSug(); return; }
     folderLoading = true; renderFolderSug();
-    dApi('GET', '/api/drive/folders&q=' + encodeURIComponent(q).slice(0, 300)).then(function (r) {
+    dApi('GET', '/api/drive/folders', 'q=' + encodeURIComponent(q).slice(0, 300)).then(function (r) {
       if (seq !== folderSeq || driveView !== 'folders') return;
       folderList = r.folders || []; folderLoading = false; renderFolderSug();
     }).catch(function (err) {
