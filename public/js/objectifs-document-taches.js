@@ -58,7 +58,7 @@
         <div id="docTasksChangesList" class="docTasksPopList"></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
         <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
-        <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer</button>
+        <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer les cochées</button>
       </div>
     </div>`);
 
@@ -360,13 +360,13 @@
     var n = $('docTasksChangesN');
     n.textContent = changes.length; n.classList.toggle('hidden', !changes.length);
     $('docTasksChangesList').innerHTML = changes.length ? changes.map(function (c, i) {
-      return '<div class="docTasksPopRow docTasksChangeRow"><div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
+      return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-c="' + i + '" checked aria-label="Appliquer">' +
+        '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
         '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>' +
         (c.reason ? '<div class="docTasksMeta">' + esc(c.reason) + '</div>' : '') + '</div>' +
         '<button type="button" class="historyRowIconBtn danger" data-d="' + i + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
     }).join('') : '<p class="docTasksMeta">Aucune modification proposée pour le moment.</p>';
     var ap = $('docTasksChangesApply'); ap.classList.toggle('hidden', !changes.length);
-    ap.textContent = changes.length > 1 ? 'Appliquer (' + changes.length + ')' : 'Appliquer';
   }
   function loadChanges() {
     cApi('GET', '').then(function (r) { changes = r.proposals || []; renderChanges(); }).catch(function () { changes = []; renderChanges(); });
@@ -389,8 +389,11 @@
   });
   $('docTasksChangesApply').addEventListener('click', function () {
     if (busy) return;
-    var ids = changes.map(function (c) { return c.id; });
-    if (!ids.length) return;
+    var ids = [], rest = [];
+    Array.prototype.forEach.call($('docTasksChangesList').querySelectorAll('input[data-c]'), function (cb) {
+      var c = changes[Number(cb.getAttribute('data-c'))]; if (c && cb.checked) ids.push(c.id);
+    });
+    if (!ids.length) { cToast('Coche au moins une modification.'); return; }
     busy = true;
     cApi('POST', '/apply', { ids: ids }).then(function (r) {
       busy = false;

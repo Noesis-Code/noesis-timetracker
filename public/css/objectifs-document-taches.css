@@ -63,6 +63,7 @@
 /* Modifications proposées (16 oct. 2026) : avant -> après, case cochée par défaut, corbeille à droite. Même verre/halo. */
 .docTasksChangesEntry { display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; border-radius: 14px; margin-bottom: 10px; font: inherit; font-size: 15px; cursor: pointer; text-align: left; }
 .docTasksChangeRow { align-items: flex-start; }
+.docTasksChangeRow input[type=checkbox] { margin-top: 4px; accent-color: #7c5cff; flex: 0 0 auto; }
 .docTasksChangeBody { flex: 1 1 auto; min-width: 0; }
 .docTasksChangeTitle { font-size: 13px; opacity: .75; overflow-wrap: anywhere; }
 .docTasksChangeDiff { font-size: 14px; overflow-wrap: anywhere; }
