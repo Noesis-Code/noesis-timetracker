@@ -312,7 +312,11 @@ async function propose(userId, activityId, body, opts) {
   const tasks = parsed.tasks;
   // Compteurs seulement : aucun contenu de document ni de tâche n'est journalisé.
   console.log(`[documenttasks] trouvées=${parsed.found} retenues=${tasks.length} doublons=${parsed.dropped.doublon} vides=${parsed.dropped.vide} limite=${parsed.dropped.limite} aChoisir=${parsed.toChoose} reparee=${parsed.repaired} coupee=${aiTruncated}`);
+  // Modifications proposées (16 oct. 2026) : propositions d'avant/après sur l'existant, rien n'est écrit.
+  let changes = 0;
+  if (doc.text) { try { changes = (await require('./changeproposals').generate(userId, activityId, { docText: doc.text })).added || 0; } catch (e) { /* non bloquant */ } }
   return {
+    changes,
     tasks, truncated: doc.truncated, notes: doc.notes,
     found: parsed.found, kept: tasks.length, dropped: parsed.dropped, toChoose: parsed.toChoose,
     repaired: parsed.repaired || aiTruncated, aiTruncated,

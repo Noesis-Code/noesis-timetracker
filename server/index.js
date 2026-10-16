@@ -211,6 +211,7 @@ app.use('/api', require('./routes/feedback'));
 app.use('/api', require('./routes/calendar'));
 app.use('/api', require('./routes/accomplishments'));
 app.use('/api', require('./routes/documenttasks'));
+app.use('/api', require('./routes/changeproposals'));
 app.use('/api', require('./routes/drive'));
 // Suggestion quotidienne (21 septembre 2026) — capacité du jour + sélection
 // de tâches, notification matinale déclenchée par

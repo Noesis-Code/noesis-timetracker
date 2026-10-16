@@ -32,6 +32,7 @@
         </div>
         <div id="docTasksDrive" class="docTasksDrive"></div>
         <div id="docTasksSync" class="docTasksSync"></div>
+        <button type="button" id="docTasksChangesBtn" class="docTasksDriveRow docTasksChangesEntry">Modifications proposées <span id="docTasksChangesN" class="essorBadge hidden"></span></button>
         <div class="docTasksBox">
           <textarea id="docTasksText" rows="4" maxlength="1500" placeholder="Ta consigne, en langage libre"></textarea>
           <div class="docTasksBoxRow">
@@ -53,9 +54,19 @@
         <div id="docTasksPopToast" class="docTasksPopToast"></div>
         <button type="button" id="docTasksPopOk" class="docTasksApplyBtn">OK</button>
       </div>
+    </div>
+    <div id="docTasksChangesPop" class="docTasksPop hidden" role="dialog" aria-label="Modifications proposées">
+      <div class="docTasksPopCard">
+        <div class="docTasksDriveHead"><strong>Modifications proposées</strong><button type="button" class="docTasksX" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
+        <p class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
+        <div id="docTasksChangesList" class="docTasksPopList"></div>
+        <div id="docTasksChangesToast" class="docTasksPopToast"></div>
+        <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
+        <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer les cochées</button>
+      </div>
     </div>`);
 
-  function open() { $('docTasksPage').classList.remove('hidden'); loadDrive(); checkAdded(); }
+  function open() { $('docTasksPage').classList.remove('hidden'); loadDrive(); checkAdded(); loadChanges(); }
   function close() { $('docTasksPage').classList.add('hidden'); }
   TMT.openDocTasks = open;
   $('docTasksClose').addEventListener('click', close);
@@ -108,6 +119,7 @@
           notes.push('L’IA a trouvé ' + r.found + ' tâches, ' + proposals.length + ' affichées' + (why.length ? ' (' + why.join(', ') + ')' : '') + '.');
         }
         if (r.repaired) notes.push('La réponse de l’IA a été coupée : seules les tâches complètes sont affichées. Relance pour obtenir la suite.');
+        if (r.changes) { notes.push(r.changes + ' modification(s) proposée(s) sur l’existant : voir « Modifications proposées ».'); loadChanges(); }
         msg(notes.join(' '));
         render(r);
       })
@@ -340,6 +352,62 @@
       });
     });
   }
+
+  // ---------- Modifications proposées (avant -> après, validées une à une) ----------
+  var changes = [];
+  function cApi(method, tail, body) { return TMT.api(method, '/api/activities/' + actId() + '/change-proposals' + tail, body); }
+  function cToast(t) { $('docTasksChangesToast').textContent = t || ''; }
+  function showVal(field, v) {
+    if (v === '' || v == null) return '—';
+    if (field === 'time') return v + ' min';
+    return v;
+  }
+  function renderChanges() {
+    var n = $('docTasksChangesN');
+    n.textContent = changes.length; n.classList.toggle('hidden', !changes.length);
+    $('docTasksChangesList').innerHTML = changes.length ? changes.map(function (c, i) {
+      return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-c="' + i + '" checked aria-label="Appliquer">' +
+        '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
+        '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>' +
+        (c.reason ? '<div class="docTasksMeta">' + esc(c.reason) + '</div>' : '') + '</div>' +
+        '<button type="button" class="docTasksTrash" data-d="' + i + '" aria-label="Refuser">🗑</button></div>';
+    }).join('') : '<p class="docTasksMeta">Aucune modification proposée pour le moment.</p>';
+    $('docTasksChangesApply').classList.toggle('hidden', !changes.length);
+  }
+  function loadChanges() {
+    cApi('GET', '').then(function (r) { changes = r.proposals || []; renderChanges(); }).catch(function () { changes = []; renderChanges(); });
+  }
+  function refresh() { if (typeof TMT.openGoalsForActivity === 'function') TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0); }
+  $('docTasksChangesBtn').addEventListener('click', function () { cToast(''); $('docTasksChangesPop').classList.remove('hidden'); loadChanges(); });
+  $('docTasksChangesClose').addEventListener('click', function () { $('docTasksChangesPop').classList.add('hidden'); });
+  $('docTasksChangesFind').addEventListener('click', function () {
+    if (busy) return; busy = true; cToast('L’IA cherche…');
+    cApi('POST', '/generate', {}).then(function (r) {
+      busy = false; changes = r.proposals || []; renderChanges();
+      cToast(r.capReached ? 'Plafond IA du jour atteint.' : (r.configured === false ? 'IA non configurée.' : (r.failed ? 'L’IA n’a pas répondu.' : (r.added ? r.added + ' nouvelle(s) proposition(s).' : 'Rien de nouveau à proposer.'))));
+    }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
+  });
+  $('docTasksChangesList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-d]'); if (!b) return;
+    var c = changes[Number(b.getAttribute('data-d'))]; if (!c) return;
+    cApi('POST', '/dismiss', { ids: [c.id] }).then(function () { changes = changes.filter(function (x) { return x.id !== c.id; }); renderChanges(); })
+      .catch(function (err) { cToast((err && err.message) || 'Erreur.'); });
+  });
+  $('docTasksChangesApply').addEventListener('click', function () {
+    if (busy) return;
+    var ids = [], rest = [];
+    Array.prototype.forEach.call($('docTasksChangesList').querySelectorAll('input[data-c]'), function (cb) {
+      var c = changes[Number(cb.getAttribute('data-c'))]; if (c && cb.checked) ids.push(c.id);
+    });
+    if (!ids.length) { cToast('Coche au moins une modification.'); return; }
+    busy = true;
+    cApi('POST', '/apply', { ids: ids }).then(function (r) {
+      busy = false;
+      changes = changes.filter(function (x) { return ids.indexOf(x.id) < 0; }); renderChanges();
+      cToast(r.appliedCount + ' modification(s) appliquée(s)' + (r.skipped && r.skipped.length ? ', ' + r.skipped.length + ' ignorée(s) (' + r.skipped.map(function (s) { return s.reason; }).join(', ') + ')' : '') + '.');
+      if (r.appliedCount) refresh();
+    }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
+  });
 
   function apply() {
     var picked = [];

@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const drive = require('./drive');
 const documenttasks = require('./documenttasks');
+const changeproposals = require('./changeproposals');
 const classify = require('./goalstaskclassify');
 const push = require('./push');
 const { activityHasEssor } = require('./offer1access');
@@ -200,6 +201,8 @@ async function syncConnection(userId, activityId) {
         prop = await documenttasks.propose(userId, activityId, { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl }] }, { skipRate: true });
       } catch (e) { continue; } // échec IA : fichier non marqué, nouvel essai au prochain passage (borné par le plafond)
       putFile.run(userId, activityId, f.id, f.modifiedTime, hash);
+      // Modifications proposées (16 oct. 2026) : propositions seulement, rien n'est écrit (changeproposals.js).
+      try { await changeproposals.generate(userId, activityId, { docText: text }); } catch (e) { /* non bloquant */ }
       const now = new Date().toISOString();
       for (const t of prop.tasks) {
         const tk = taskKey(t.title);
@@ -255,4 +258,4 @@ function startDriveSync() {
   timer.unref();
 }
 
-module.exports = { listAdded, ackAdded, removeAdded, restoreAdded, DEFAULT_INSTRUCTION, settings, saveSettings, listPending, resolvePending, syncConnection, syncNow, runSweep, startDriveSync, intervalMin, maxCalls };
+module.exports = { listAdded, ackAdded, removeAdded, restoreAdded, DEFAULT_INSTRUCTION, settings, saveSettings, listPending, resolvePending, syncConnection, syncNow, runSweep, startDriveSync, intervalMin, maxCalls, takeCall };

@@ -63,3 +63,12 @@
 .docTasksPopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--glass-border); font-size: 14px; }
 .docTasksTrash { flex: 0 0 auto; background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 6px; opacity: .8; }
 .docTasksPopToast { min-height: 18px; font-size: 13px; }
+/* Modifications proposées (16 oct. 2026) : avant -> après, case cochée par défaut, corbeille à droite. Même verre/halo. */
+.docTasksChangesEntry { display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; border-radius: 14px; margin-bottom: 10px; font: inherit; font-size: 15px; cursor: pointer; text-align: left; }
+.docTasksChangeRow { align-items: flex-start; }
+.docTasksChangeRow input[type=checkbox] { margin-top: 4px; accent-color: #7c5cff; flex: 0 0 auto; }
+.docTasksChangeBody { flex: 1 1 auto; min-width: 0; }
+.docTasksChangeTitle { font-size: 13px; opacity: .75; overflow-wrap: anywhere; }
+.docTasksChangeDiff { font-size: 14px; overflow-wrap: anywhere; }
+.docTasksChangeOld { opacity: .6; text-decoration: line-through; }
+.docTasksChangeNew { font-weight: 600; }

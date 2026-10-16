@@ -1701,7 +1701,7 @@ function weekIsOver(periodStart, weekIndex) {
 // Écritures
 
 // Description détaillée (2 oct. 2026) : undefined = conserver l'existante ;
-// trim + 600 caractères max. Jamais modifiée par l'IA.
+// trim + 600 caractères max. L'IA ne la change que par PROPOSITION validée (server/lib/changeproposals.js).
 const GOAL_DESCRIPTION_MAX = 600;
 function cleanDescription(description) {
   const d = String(description).trim();
