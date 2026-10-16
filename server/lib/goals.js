@@ -939,6 +939,15 @@ function assertCategoryOrSecteurForActivity(activityId, category) {
   }
 }
 
+// Un secteur supprimé n'est réaffiché QUE pour une année de grille passée et
+// seulement s'il portait du contenu de planification cette année-là.
+function secteurHasPlanningContentForYear(activityId, key, year) {
+  const y = String(year);
+  return !!db.prepare(`SELECT 1 FROM goal_periods p WHERE p.activityId = ? AND p.category = ?
+    AND (substr(p.startDate,1,4) = ? OR substr(p.endDate,1,4) = ?)
+    AND (p.mainGoalText != '' OR EXISTS (SELECT 1 FROM goal_weekly w WHERE w.periodId = p.id AND w.text != '')) LIMIT 1`).get(activityId, key, y, y);
+}
+
 // 21 septembre 2026 (« Secteurs dans l'arbre périodique », demande explicite
 // d'Emilien : « On ne change pas l'arbre. Cependant, les secteurs deviennent
 // les pôles. ») — colonnes de la grille périodique existante
@@ -949,11 +958,12 @@ function assertCategoryOrSecteurForActivity(activityId, category) {
 // secteur n'a été créé. Forme identique à categoriesForActivity
 // (`{key,label,...}`) pour rester consommable telle quelle par
 // activeGoalsCategories()/renderGoalsGrid() côté client.
-function gridColumnsForPole(activityId, poleKey, year) {
+function gridColumnsForPole(activityId, poleKey, year, opts) {
   const y = Number(year);
+  const currentYear = (opts && Number(opts.currentYear)) || new Date().getFullYear();
   if (Number.isFinite(y) && y > 0) {
     const rows = db.prepare('SELECT * FROM activity_goal_categories WHERE activityId = ? AND parentKey = ? ORDER BY position, id').all(activityId, poleKey)
-      .filter((r) => (r.fromYear == null || r.fromYear <= y) && r.removedAt == null);
+      .filter((r) => (r.fromYear == null || r.fromYear <= y) && (r.removedAt == null || (y < currentYear && secteurHasPlanningContentForYear(activityId, r.key, y))));
     if (rows.length) {
       return rows.map((r) => ({ key: r.key, label: r.label, parentKey: r.parentKey, description: r.description || '', removedFromDate: r.removedAt ? (r.removedFromDate || null) : null }));
     }
