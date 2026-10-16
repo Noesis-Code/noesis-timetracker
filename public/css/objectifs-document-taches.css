@@ -82,3 +82,6 @@
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 #docTasksChangesPop { background: transparent; }
+/* 16 oct. 2026 : pastille du nombre de modifications proposées = ronde, orange brique (le badge « Essor » reste violet). */
+#docTasksChangesN { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #C2694A; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; flex: none; }
+#docTasksChangesN.hidden { display: none; }
