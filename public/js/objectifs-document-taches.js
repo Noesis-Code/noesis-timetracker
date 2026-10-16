@@ -38,9 +38,10 @@
         </div>
         <p id="docTasksMsg" class="msg"></p>
         <div id="docTasksResults"></div>
+        <button type="button" id="docTasksChangesBtn" class="docTasksDriveRow docTasksChangesEntry">Modifications proposées <span id="docTasksChangesN" class="essorBadge hidden"></span></button>
         <div id="docTasksDrive" class="docTasksDrive"></div>
         <div id="docTasksSync" class="docTasksSync"></div>
-        <button type="button" id="docTasksChangesBtn" class="docTasksDriveRow docTasksChangesEntry">Modifications proposées <span id="docTasksChangesN" class="essorBadge hidden"></span></button>
+        <div id="docTasksDisc" class="docTasksDrive"></div>
       </div>
     </div>
     <div id="docTasksAddedPop" class="docTasksPop hidden" role="dialog" aria-label="Tâches ajoutées">
@@ -164,7 +165,15 @@
       folderLoading = false; driveErr = (err && err.message) || 'Erreur Drive.'; renderDrive();
     });
   }
-  function renderDrive() {
+  function renderDrive() { renderDriveMain(); renderDisc(); }
+  function renderDisc() {
+    var d = $('docTasksDisc'), s = driveSt;
+    if (!s || !s.configured || !s.connected) { d.innerHTML = ''; return; }
+    d.innerHTML = driveView === 'confirm'
+      ? '<div class="docTasksConfirm">Déconnecter Drive de cette activité ? <button type="button" class="docTasksLink" data-d="disconnectYes">Déconnecter</button> <button type="button" class="docTasksLink" data-d="disconnectNo">Annuler</button></div>'
+      : '<button type="button" class="docTasksLink" data-d="disconnect">Déconnecter Drive</button>';
+  }
+  function renderDriveMain() {
     var h = $('docTasksDrive'), s = driveSt, html = '';
     if (!s) { h.innerHTML = ''; return; }
     if (!s.configured) {
@@ -186,17 +195,12 @@
     }
     if (s.connected && s.needsReconnect) html += '<div class="docTasksWarn">L’accès à Drive a été révoqué ou a expiré : la surveillance est en pause. <button type="button" class="docTasksLink" data-d="connect">Reconnecter Drive</button></div>';
     if (driveErr) html += '<p class="msg">' + esc(driveErr) + '</p>';
-    if (s.connected) {
-      html += driveView === 'confirm'
-        ? '<div class="docTasksConfirm">Déconnecter Drive de cette activité ? <button type="button" class="docTasksLink" data-d="disconnectYes">Déconnecter</button> <button type="button" class="docTasksLink" data-d="disconnectNo">Annuler</button></div>'
-        : '<button type="button" class="docTasksLink" data-d="disconnect">Déconnecter Drive</button>';
-    }
     h.innerHTML = html;
     if (!s.configured || !s.connected || driveView !== 'folders') return;
     var q = $('docTasksFolderQ');
     if (q) { q.addEventListener('input', function () { folderQuery = q.value; folderSel = null; clearTimeout(folderTimer); folderTimer = setTimeout(searchFolders, 250); renderFolderSug(); }); renderFolderSug(); q.focus(); }
   }
-  $('docTasksDrive').addEventListener('click', function (e) {
+  function onDriveClick(e) {
     var b = e.target.closest('[data-d]'); if (!b) return;
     var d = b.getAttribute('data-d'), id = b.getAttribute('data-id');
     driveErr = '';
@@ -227,7 +231,9 @@
         driveSt = { configured: true, connected: false, folderChosen: false }; driveView = 'main'; driveFile = null; driveList = []; syncSt = null; renderDrive(); renderSync();
       }).catch(fail);
     }
-  });
+  }
+  $('docTasksDrive').addEventListener('click', onDriveClick);
+  $('docTasksDisc').addEventListener('click', onDriveClick);
 
   // ---------- Surveillance du dossier ----------
   var syncSt = null, syncMsg = '', pendingMode = false;
