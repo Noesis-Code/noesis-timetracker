@@ -126,6 +126,15 @@ function call(method, tail, userId, id, body) {
   r = await call('post', '/apply', 'own', act, { ids: r.b.proposals.map((x) => x.id) });
   assert(r.b.appliedCount === 0 && itemDue(t2.id).label === 'Vieille tâche', 'tâche terminée/verrouillée : intacte');
 
+  // date déjà passée : jamais proposée (génération) ni listée (lignes déjà stockées)
+  const late = goalstasks.addCategoryTask(act, 'own', key, 'Tâche échue', { dueDate: goals.addDays(today, -3) });
+  const ctxLate = cp.buildContext('own', act);
+  const vLate = cp.validate(JSON.stringify({ changes: [{ target: 'task', id: late.id, field: 'date', after: newDate, reason: 'échue' }] }), ctxLate);
+  assert(vLate && vLate.length === 0, 'date passée : aucun report proposé');
+  db.prepare("INSERT INTO change_proposals (activityId, userId, target, targetId, field, beforeValue, afterValue, reason, hash, status, createdAt) VALUES (?, 'own', 'task', ?, 'date', ?, ?, 'x', 'hlate', 'pending', datetime('now'))").run(act, late.id, goals.addDays(today, -3), newDate);
+  r = await call('get', '', 'own', act);
+  assert(!r.b.proposals.some((x) => x.targetId === late.id), 'ligne stockée de date passée : non affichée');
+
   // sorties invalides
   cp.setCaller(async () => 'pas du json');
   r = await call('post', '/generate', 'own', act, {});
