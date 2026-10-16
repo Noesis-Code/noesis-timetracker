@@ -98,7 +98,7 @@
 /* 16 oct. 2026 : rangée du bas (dossiers connectés orange + Déconnecter gris) ; crayon/corbeille à cible tactile 44 px. */
 .docTasksBottomRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-top: 4px; }
 .docTasksBottomBtn { flex: 1 1 auto; width: auto; min-height: 44px; padding: 10px 14px; border: 0; border-radius: 12px; font: inherit; font-weight: 600; cursor: pointer; }
-.docTasksBottomRow .docTasksDriveBtn { flex: 0 1 auto; }
+.docTasksBottomRow .docTasksFoldersLink { align-self: center; }
 .docTasksBottomRow .docTasksDiscLink { margin-left: auto; align-self: center; }
 .docTasksFolderIconBtn { width: 44px; height: 44px; }
 .docTasksFolderRow { gap: 0; }

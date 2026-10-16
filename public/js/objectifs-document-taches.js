@@ -68,7 +68,7 @@
       <div class="docTasksPopCard">
         <div class="docTasksDriveHead"><strong>Modifications proposées</strong><button type="button" class="docTasksX" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
         <p class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
-        <div id="docTasksChangesList" class="docTasksPopList"></div>
+        <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div><div id="docTasksChangesList"></div></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
         <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
         <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer les cochées</button>
@@ -185,7 +185,7 @@
     var n = (s.folders || []).length;
     d.innerHTML = driveView === 'confirm'
       ? '<div class="docTasksConfirm">Déconnecter Drive de cette activité ? <button type="button" class="docTasksLink" data-d="disconnectYes">Déconnecter</button> <button type="button" class="docTasksLink" data-d="disconnectNo">Annuler</button></div>'
-      : '<div class="docTasksBottomRow">' + (n ? '<button type="button" class="docTasksDriveBtn docTasksBottomBtn" data-d="openFolders">Voir mes dossiers connectés (' + n + ')</button>' : '')
+      : '<div class="docTasksBottomRow">' + (n ? '<button type="button" class="docTasksLink docTasksFoldersLink" data-d="openFolders">Voir mes dossiers connectés (' + n + ')</button>' : '')
         + '<button type="button" class="docTasksLink docTasksDiscLink" data-d="disconnect">Déconnecter Drive</button></div>';
   }
   var PENCIL_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
@@ -326,24 +326,11 @@
     var h = $('docTasksSync'), s = syncSt;
     if (!s || !(driveSt && driveSt.folderChosen)) { h.innerHTML = ''; return; }
     var html = '<div class="docTasksDriveRow">';
-    if (s.pendingCount) html += '<button type="button" class="docTasksPill" data-s="pending">' + s.pendingCount + ' nouvelle' + (s.pendingCount > 1 ? 's' : '') + ' tâche' + (s.pendingCount > 1 ? 's' : '') + ' proposée' + (s.pendingCount > 1 ? 's' : '') + '</button>';
     html += '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
     if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
     if (syncMsg) html += '<p class="msg">' + esc(syncMsg) + '</p>';
     h.innerHTML = html + '</div>';
   }
-  $('docTasksSync').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-s]'); if (!b) return;
-    var a = b.getAttribute('data-s');
-    function fail(err) { syncMsg = (err && err.message) || 'Erreur.'; renderSync(); }
-    if (a === 'pending') {
-      dApi('GET', '/api/drive/sync/pending').then(function (r) {
-        pendingMode = true; proposals = r.tasks || []; categories = r.categories || [];
-        proposals.forEach(function (t) { t.toChoose = false; });
-        msg(''); render({ warnings: [] });
-      }).catch(fail);
-    }
-  });
 
   // ---------- Pop-up « tâches ajoutées » (suppression directe d'une ligne, annulable) ----------
   var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>'; // même SVG/classe que la corbeille de l'app (.historyRowIconBtn.danger)
@@ -463,19 +450,75 @@
   }
   function renderChanges() {
     var n = $('docTasksChangesN');
-    n.textContent = changes.length; n.classList.toggle('hidden', !changes.length);
-    $('docTasksChangesList').innerHTML = changes.length ? changes.map(function (c, i) {
+    var tot = changes.length + ptasks.length;
+    n.textContent = tot; n.classList.toggle('hidden', !tot);
+    renderPTasks();
+    $('docTasksChangesList').innerHTML = changes.length ? '<div class="docTasksMeta"><strong>' + (ptasks.length ? 'Modifications' : '') + '</strong></div>' + changes.map(function (c, i) {
       return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-c="' + i + '"' + (c.checked === 0 ? '' : ' checked') + ' aria-label="Appliquer">' +
         '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
         '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>' +
         (c.reason ? '<div class="docTasksMeta">' + esc(c.reason) + '</div>' : '') + '</div>' +
         '<button type="button" class="historyRowIconBtn danger" data-d="' + i + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
-    }).join('') : '<p class="docTasksMeta">Aucune modification proposée pour le moment.</p>';
+    }).join('') : (ptasks.length ? '' : '<p class="docTasksMeta">Rien à valider.</p>');
     var ap = $('docTasksChangesApply'); ap.classList.toggle('hidden', !changes.length);
   }
-  function loadChanges() {
-    cApi('GET', '').then(function (r) { changes = r.proposals || []; renderChanges(); }).catch(function () { changes = []; renderChanges(); });
+  // Nouvelles tâches proposées par la surveillance Drive (partie « Nouvelles tâches » de la même fenêtre).
+  var ptasks = [], pcats = [];
+  function renderPTasks() {
+    var h = $('docTasksChangesTasks'); if (!h) return;
+    if (!ptasks.length) { h.innerHTML = ''; return; }
+    h.innerHTML = '<div class="docTasksMeta"><strong>Nouvelles tâches</strong></div>' + ptasks.map(function (t, i) {
+      var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+      var pick = '';
+      if (t.toChoose && pcats.length) {
+        pick = '<div class="docTasksMeta">Catégorie à choisir : <select class="docTasksCat" data-pc="' + i + '">'
+          + pcats.map(function (c) { return '<option value="' + esc(c.key) + '"' + (c.key === t.key ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
+        meta = [t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+      }
+      return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-pt="' + i + '" checked aria-label="Ajouter">'
+        + '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(t.title) + '</div><div class="docTasksMeta">' + esc(meta) + '</div>' + pick + '</div>'
+        + '<button type="button" class="historyRowIconBtn danger" data-pd="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
+    }).join('') + '<button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button><div class="docTasksCancelRow"><button type="button" id="docTasksPTasksCancel" class="docTasksLink">Annuler</button></div>';
   }
+  function loadPTasks() {
+    return dApi('GET', '/api/drive/sync/pending').then(function (r) {
+      ptasks = r.tasks || []; pcats = r.categories || []; ptasks.forEach(function (t) { t.toChoose = !!t.toChoose; });
+    }).catch(function () { ptasks = []; });
+  }
+  function loadChanges() {
+    var p = loadPTasks();
+    cApi('GET', '').then(function (r) { changes = r.proposals || []; }).catch(function () { changes = []; }).then(function () { return p; }).then(renderChanges);
+  }
+  function resolvePTasks(items, okMsg) {
+    if (busy) return; busy = true;
+    dApi('POST', '/api/drive/sync/resolve', { items: items }).then(function (res) {
+      busy = false;
+      var gone = items.map(function (x) { return x.id; });
+      ptasks = ptasks.filter(function (t) { return gone.indexOf(t.id) < 0; }); renderChanges(); loadSync();
+      if (okMsg) cToast(res.addedCount + ' tâche(s) ajoutée(s), ' + res.dismissedCount + ' refusée(s).');
+      if (res.addedCount) refresh();
+    }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
+  }
+  $('docTasksChangesTasks').addEventListener('click', function (e) {
+    var d = e.target.closest('button[data-pd]');
+    if (d) { var t = ptasks[Number(d.getAttribute('data-pd'))]; if (t) resolvePTasks([{ id: t.id, key: t.key, checked: false }], false); return; }
+    if (e.target.closest('#docTasksPTasksCancel')) { $('docTasksChangesPop').classList.add('hidden'); return; }
+    if (e.target.closest('#docTasksPTasksApply')) {
+      var items = [], any = false;
+      Array.prototype.forEach.call($('docTasksChangesTasks').querySelectorAll('input[data-pt]'), function (cb) {
+        var t = ptasks[Number(cb.getAttribute('data-pt'))]; if (!t) return;
+        if (cb.checked) any = true;
+        items.push({ id: t.id, key: t.key, checked: cb.checked });
+      });
+      if (!any) { cToast('Coche au moins une tâche.'); return; }
+      resolvePTasks(items, true);
+    }
+  });
+  $('docTasksChangesTasks').addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-pc]'); if (!sel) return;
+    var t = ptasks[Number(sel.getAttribute('data-pc'))]; if (!t) return;
+    t.key = sel.value; t.toChoose = false;
+  });
   function refresh() { if (typeof TMT.openGoalsForActivity === 'function') TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0); }
   $('docTasksChangesBtn').addEventListener('click', function () { cToast(''); $('docTasksChangesPop').classList.remove('hidden'); loadChanges(); });
   $('docTasksChangesClose').addEventListener('click', function () { $('docTasksChangesPop').classList.add('hidden'); });
