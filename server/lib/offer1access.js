@@ -68,15 +68,15 @@ function hasOffer1Access(userId) {
   return hasActiveGrant(userId) || hasActiveOffer1Subscription(userId);
 }
 
-// Essor sur CETTE activité (même règle que GET /activities/:id/offer1) :
-// abonnement actif de l'activité, ou grant actif du propriétaire.
+// Essor pour CET utilisateur sur CETTE activité (règle du 16 oct. 2026, Émilien) : membre de l'activité ET
+// (accès par code gratuit actif : toutes ses activités, OU abonnement actif payé par lui-même sur cette activité).
+// L'abonnement d'un membre ne donne rien aux autres membres.
 function activityHasEssor(activityId, userId) {
   try {
     const db = require('../db');
-    const act = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(activityId);
-    if (!act) return false;
-    if (db.prepare("SELECT 1 FROM activity_subscriptions WHERE activityId = ? AND status = 'active' LIMIT 1").get(activityId)) return true;
-    return act.ownerId === userId && hasActiveGrant(userId);
+    if (!userId || !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) return false;
+    if (hasActiveGrant(userId)) return true;
+    return !!db.prepare("SELECT 1 FROM activity_subscriptions WHERE activityId = ? AND userId = ? AND status = 'active' LIMIT 1").get(activityId, userId);
   } catch (e) { return false; }
 }
 
