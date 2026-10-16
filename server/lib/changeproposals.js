@@ -215,26 +215,30 @@ function validate(text, ctx) {
 const hashOf = (c) => sha(c.target + '|' + c.targetId + '|' + c.field + '|' + normText(c.after));
 
 function rowOut(r) {
-  return { id: r.id, target: r.target, targetId: r.targetId, field: r.field, fieldLabel: FIELD_LABEL[r.field] || r.field, before: r.beforeValue || '', after: r.afterValue, reason: r.reason, checked: r.checked === 0 ? 0 : 1, label: r.label || '' };
+  return { id: r.id, target: r.target, targetId: r.targetId, field: r.field, fieldLabel: FIELD_LABEL[r.field] || r.field, before: r.beforeValue || '', after: r.afterValue, reason: r.reason, checked: r.checked === 0 ? 0 : 1, label: r.label || '', createdAt: r.createdAt || '', forUserId: r.forUserId || null, forName: r.forName || '', mine: !!r.mine };
 }
 
 // Libellé lisible de la cible (tâche ou objectif) pour l'affichage.
-function withLabels(rows) {
-  const task = db.prepare('SELECT label FROM sub_project_items WHERE id = ?');
-  const weekly = db.prepare('SELECT text FROM goal_weekly WHERE id = ?');
+// viewerId : l'utilisateur qui consulte ; « pour qui » = personne planifiée/assignée sur la cible, sinon celui qui a lancé la proposition.
+function withLabels(rows, viewerId) {
+  const task = db.prepare('SELECT label, plannedUserId AS uid FROM sub_project_items WHERE id = ?');
+  const weekly = db.prepare('SELECT text, assignedUserId AS uid FROM goal_weekly WHERE id = ?');
+  const user = db.prepare('SELECT name FROM users WHERE id = ?');
   return rows.map((r) => {
     const t = r.target === 'task' ? task.get(r.targetId) : weekly.get(r.targetId);
-    return rowOut({ ...r, label: t ? (t.label || t.text) : '' });
+    const forUserId = (t && t.uid) || r.userId || null;
+    const u = forUserId ? user.get(forUserId) : null;
+    return rowOut({ ...r, label: t ? (t.label || t.text) : '', forUserId, forName: u ? u.name : '', mine: !!viewerId && forUserId === viewerId });
   });
 }
 
-function list(activityId) {
+function list(activityId, viewerId) {
   const today = todayIso();
   // Exclut les reports dont la cause est une date déjà passée (y compris les lignes déjà stockées).
-  const rows = db.prepare("SELECT * FROM change_proposals WHERE activityId = ? AND status = 'pending' ORDER BY id").all(activityId)
+  const rows = db.prepare("SELECT * FROM change_proposals WHERE activityId = ? AND status = 'pending' ORDER BY createdAt DESC, id DESC").all(activityId)
     .filter((r) => !(r.target === 'task' && r.field === 'date' && r.beforeValue && r.beforeValue < today))
     .filter((r) => !isSpellingOnly(r.field, r.beforeValue, r.afterValue, r.reason)); // corrections orthographiques déjà stockées : masquées
-  return withLabels(rows);
+  return withLabels(rows, viewerId);
 }
 
 // Génère des propositions ('pending' uniquement, aucune écriture sur les tâches/objectifs).

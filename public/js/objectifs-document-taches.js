@@ -469,6 +469,10 @@
     if (field === 'time') return v + ' min';
     return v;
   }
+  function whenLabel(iso) {
+    var d = new Date(iso); if (isNaN(d)) return '';
+    return d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
   function renderChanges() {
     var n = $('docTasksChangesN'), n2 = $('docTasksTasksN');
     n.textContent = changes.length; n.classList.toggle('hidden', !changes.length);
@@ -481,8 +485,9 @@
     $('docTasksChangesList').classList.toggle('hidden', tm);
     $('docTasksChangesFind').classList.toggle('hidden', tm);
     $('docTasksChangesList').innerHTML = changes.length ? changes.map(function (c, i) {
-      return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-c="' + i + '"' + (c.checked === 0 ? '' : ' checked') + ' aria-label="Appliquer">' +
-        '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
+      return '<div class="docTasksPopRow docTasksChangeRow' + (c.mine ? '' : ' docTasksOther') + '"><input type="checkbox" data-c="' + i + '"' + (c.checked === 0 ? '' : ' checked') + ' aria-label="Appliquer">' +
+        '<div class="docTasksChangeBody"><div class="docTasksChangeWhen">' + esc(whenLabel(c.createdAt)) + (c.forName ? ' · <span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span>' : '') + '</div>' +
+        '<div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
         '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>' +
         (c.reason ? '<div class="docTasksMeta">' + esc(c.reason) + '</div>' : '') + '</div>' +
         '<button type="button" class="historyRowIconBtn danger" data-d="' + i + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
