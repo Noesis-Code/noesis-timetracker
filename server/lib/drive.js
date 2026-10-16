@@ -141,10 +141,13 @@ function authUrl(userId, activityId) {
 }
 
 async function tokenRequest(params) {
-  const r = await fetchFn(TOKEN_URL, {
-    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, ...params }).toString(),
-  });
+  let r;
+  try {
+    r = await fetchFn(TOKEN_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, ...params }).toString(),
+    });
+  } catch (e) { throw httpError(502, 'Drive n’a pas répondu.'); }
   if (!r.ok) {
     // Jeton révoqué/invalide (invalid_grant) : distinct d'une panne passagère.
     let revoked = false;
@@ -153,7 +156,7 @@ async function tokenRequest(params) {
     }
     throw Object.assign(httpError(502, 'Google a refusé la demande.'), { revoked });
   }
-  return r.json();
+  try { return await r.json(); } catch (e) { throw httpError(502, 'Drive n’a pas répondu.'); }
 }
 
 // Retourne l'id d'activité du state valide.
@@ -195,11 +198,19 @@ function markNeedsReconnect(userId, activityId) {
 }
 
 async function accessToken(conn) {
-  const refresh = decrypt(conn.encryptedToken);
+  let refresh;
+  try { refresh = decrypt(conn.encryptedToken); }
+  catch (e) {
+    // Clé DRIVE_TOKEN_KEY changée ou jeton corrompu : seule une reconnexion règle le problème.
+    console.error('[drive] jeton illisible (clé changée ?)', e && e.message);
+    markNeedsReconnect(conn.userId, conn.activityId);
+    throw Object.assign(httpError(401, 'Accès à Drive expiré : reconnecte Drive.'), { revoked: true });
+  }
   let tok;
   try { tok = await tokenRequest({ refresh_token: refresh, grant_type: 'refresh_token' }); }
   catch (e) {
     if (e.revoked) markNeedsReconnect(conn.userId, conn.activityId);
+    if (!e.revoked && e.statusCode === 502 && /n’a pas répondu/.test(e.message)) throw e; // panne réseau : pas une expiration
     throw Object.assign(httpError(401, 'Accès à Drive expiré : reconnecte Drive.'), { revoked: !!e.revoked });
   }
   if (!tok.access_token) throw httpError(401, 'Accès à Drive expiré : reconnecte Drive.');
@@ -212,9 +223,11 @@ function needConn(userId, activityId) {
   return c;
 }
 async function api(token, path, params, raw) {
-  const r = await fetchFn(API + path + (params ? '?' + new URLSearchParams(params).toString() : ''), { headers: { Authorization: 'Bearer ' + token } });
+  let r;
+  try { r = await fetchFn(API + path + (params ? '?' + new URLSearchParams(params).toString() : ''), { headers: { Authorization: 'Bearer ' + token } }); }
+  catch (e) { throw httpError(502, 'Drive n’a pas répondu.'); }
   if (!r.ok) throw httpError(r.status === 404 ? 404 : 502, r.status === 404 ? 'Fichier introuvable.' : 'Drive n’a pas répondu.');
-  return raw ? Buffer.from(await r.arrayBuffer()) : r.json();
+  try { return raw ? Buffer.from(await r.arrayBuffer()) : await r.json(); } catch (e) { throw httpError(502, 'Drive n’a pas répondu.'); }
 }
 
 async function listFolders(userId, activityId) {

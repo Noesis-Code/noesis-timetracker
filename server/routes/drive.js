@@ -19,17 +19,21 @@ function guard(req, res, next) {
 }
 const chain = [requireAuth, requireOffer1Access, guard];
 
-function fail(res, e) { res.status(e.statusCode || 500).json({ error: e.statusCode ? e.message : 'Erreur serveur.' }); }
-const wrap = (fn) => async (req, res) => { try { res.json(await fn(req)); } catch (e) { fail(res, e); } };
+function fail(res, e, req) {
+  // Journal serveur : route + message seulement (jamais de token ni de secret).
+  console.error('[drive]', req ? req.method + ' ' + req.path : '', e && e.statusCode ? e.statusCode : '', e && e.message);
+  res.status(e.statusCode || 500).json({ error: e.statusCode ? e.message : 'Erreur serveur.' });
+}
+const wrap = (fn) => async (req, res) => { try { res.json(await fn(req)); } catch (e) { fail(res, e, req); } };
 
 router.get('/drive/status', ...chain, wrap((req) => drive.status(req.userId, req.activityId)));
 router.get('/drive/connect', ...chain, wrap((req) => ({ url: drive.authUrl(req.userId, req.activityId) })));
 router.get('/drive/folders', ...chain, async (req, res) => {
-  try { res.json({ folders: await drive.listFolders(req.userId, req.activityId) }); } catch (e) { fail(res, e); }
+  try { res.json({ folders: await drive.listFolders(req.userId, req.activityId) }); } catch (e) { fail(res, e, req); }
 });
 router.post('/drive/folder', ...chain, wrap((req) => drive.chooseFolder(req.userId, req.activityId, req.body.folderId)));
 router.get('/drive/files', ...chain, async (req, res) => {
-  try { res.json({ files: await drive.listFiles(req.userId, req.activityId) }); } catch (e) { fail(res, e); }
+  try { res.json({ files: await drive.listFiles(req.userId, req.activityId) }); } catch (e) { fail(res, e, req); }
 });
 router.post('/drive/propose', ...chain, wrap((req) => drive.proposeFromFile(req.userId, req.activityId, req.body.fileId, String(req.body.instruction || '').trim().slice(0, 1500))));
 router.post('/drive/disconnect', ...chain, wrap((req) => drive.disconnect(req.userId, req.activityId)));
@@ -53,7 +57,7 @@ router.get('/drive/callback', requireAuth, requireOffer1Access, async (req, res)
       if (!activityHasEssor(a, req.userId)) throw Object.assign(new Error('essor_required'), { statusCode: 403 });
     });
     res.redirect('/?drive=connected&activityId=' + activityId);
-  } catch (e) { fail(res, e); }
+  } catch (e) { fail(res, e, req); }
 });
 
 module.exports = router;

@@ -167,7 +167,7 @@
     var b = e.target.closest('[data-d]'); if (!b) return;
     var d = b.getAttribute('data-d'), id = b.getAttribute('data-id');
     driveErr = '';
-    function fail(err) { driveErr = (err && err.message) || 'Erreur Drive.'; renderDrive(); }
+    function fail(err) { driveErr = (err && err.message) || 'Erreur Drive.'; if (/reconnecte Drive/i.test(driveErr) && driveSt) driveSt.needsReconnect = true; renderDrive(); }
     if (d === 'connect') {
       dApi('GET', '/api/drive/connect').then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
     } else if (d === 'pickFolder') {

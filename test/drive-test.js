@@ -52,7 +52,7 @@ const mkPdf = (stream) => {
 };
 files['pdf-1111'] = { id: 'pdf-1111', name: 'plan.pdf', mimeType: 'application/pdf', parents: ['fold-1111'], size: '900' };
 let revoked = null;
-drive.setFetch(async (url, opt) => {
+const baseFetch = async (url, opt) => {
   const u = new URL(url); calls.push(u.pathname);
   const json = (o, ok = true) => ({ ok, status: ok ? 200 : 404, json: async () => o, arrayBuffer: async () => Buffer.from('') });
   if (u.host === 'oauth2.googleapis.com' && u.pathname === '/token') {
@@ -68,7 +68,8 @@ drive.setFetch(async (url, opt) => {
   if (m && u.searchParams.get('alt') === 'media') return { ok: true, arrayBuffer: async () => Buffer.from('bonjour') };
   if (m) return files[m[1]] ? json(files[m[1]]) : json({}, false);
   return json({}, false);
-});
+};
+drive.setFetch(baseFetch);
 
 (async () => {
   // Non configuré
@@ -139,6 +140,22 @@ drive.setFetch(async (url, opt) => {
   await call('post', '/drive/propose', 'own', { body: { activityId: act, fileId: 'doc-1111', instruction: 'tâches' } });
   assert(seen && /écrire le plan/.test(seen), 'le texte Drive alimente l’IA de documenttasks');
   assert(db.prepare('SELECT COUNT(*) c FROM drive_connections').get().c === 1, 'aucune persistance du contenu (une seule ligne)');
+
+  // Erreurs non-HTTP : messages explicites, jamais « Erreur serveur »
+  const errLog = console.error; console.error = () => {};
+  drive.setFetch(async () => { throw new Error('ECONNRESET'); });
+  r = await call('get', '/drive/folders', 'own', { query: { activityId: act } });
+  assert(r.st === 502 && /Drive n’a pas répondu/.test(r.b.error), 'fetch qui jette : 502 explicite');
+  drive.setFetch(baseFetch);
+  const goodEnc = db.prepare('SELECT encryptedToken e FROM drive_connections WHERE userId = ?').get('own').e;
+  db.prepare("UPDATE drive_connections SET encryptedToken = 'v1.abc.def.ghi' WHERE userId = 'own'").run();
+  r = await call('get', '/drive/folders', 'own', { query: { activityId: act } });
+  assert(r.st === 401 && /reconnecte Drive/.test(r.b.error), 'token illisible : 401 reconnecte Drive');
+  r = await call('get', '/drive/status', 'own', { query: { activityId: act } });
+  assert(r.b.needsReconnect === true, 'token illisible : needsReconnect posé');
+  db.prepare('UPDATE drive_connections SET encryptedToken = ? WHERE userId = ?').run(goodEnc, 'own');
+  db.prepare('UPDATE drive_sync SET needsReconnect = 0').run();
+  console.error = errLog;
 
   // Déconnexion
   r = await call('post', '/drive/disconnect', 'own', { body: { activityId: act } });
