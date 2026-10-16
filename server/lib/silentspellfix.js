@@ -118,4 +118,4 @@ function schedule(itemId) {
   setTimeout(() => { fixItemLabel(itemId).catch(() => {}); }, 50).unref();
 }
 
-module.exports = { schedule, fixItemLabel, fixText, isPureSpellingFix, setCaller, SYSTEM };
+module.exports = { schedule, fixItemLabel, fixText, isPureSpellingFix, editDistance, setCaller, SYSTEM };

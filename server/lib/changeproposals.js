@@ -142,11 +142,19 @@ function isRealDate(s) {
 }
 
 // 16 oct. 2026 : une correction d'orthographe/grammaire/ponctuation n'est plus une proposition.
-function isSpellingOnly(field, before, after) {
+const SPELL_REASON = /orthograph|grammat|ponctuat|accord\b|accords|typograph|conjugaison|coquille|faute|accent|majuscule|espace/i;
+function isSpellingOnly(field, before, after, reason) {
   if (field !== 'text' && field !== 'instruction') return false;
   if (!before) return false;
+  // Motif donné par l'IA (« Correction orthographique/grammaticale… ») : correction, jamais proposée.
+  if (reason && SPELL_REASON.test(String(reason))) return true;
   const fold = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, '');
-  return fold(before) === fold(after) || spellfix.isPureSpellingFix(String(before), String(after));
+  const a = fold(before), b = fold(after);
+  if (a === b || spellfix.isPureSpellingFix(String(before), String(after))) return true;
+  // Même suite de chiffres et écart minime de lettres (singulier/pluriel, accord, espace autour d'une barre…) : correction.
+  const nums = (s) => (String(s).match(/\d+/g) || []).join(',');
+  if (nums(before) === nums(after) && spellfix.editDistance(a, b) <= Math.max(2, Math.round(Math.max(a.length, b.length) * 0.06))) return true;
+  return false;
 }
 
 // Renvoie [{ target, targetId, field, before, after, reason }] — « avant » vient de la base, jamais de l'IA.
@@ -194,7 +202,7 @@ function validate(text, ctx) {
     }
     if (normText(before) === normText(after) && before === after) continue;
     if (before === after) continue;
-    if (isSpellingOnly(field, before, after)) continue; // correction orthographique : posée en silence, jamais proposée
+    if (isSpellingOnly(field, before, after, c.reason)) continue; // correction orthographique : posée en silence, jamais proposée
     const key = target + '|' + id + '|' + field;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -224,7 +232,7 @@ function list(activityId) {
   // Exclut les reports dont la cause est une date déjà passée (y compris les lignes déjà stockées).
   const rows = db.prepare("SELECT * FROM change_proposals WHERE activityId = ? AND status = 'pending' ORDER BY id").all(activityId)
     .filter((r) => !(r.target === 'task' && r.field === 'date' && r.beforeValue && r.beforeValue < today))
-    .filter((r) => !isSpellingOnly(r.field, r.beforeValue, r.afterValue)); // corrections orthographiques déjà stockées : masquées
+    .filter((r) => !isSpellingOnly(r.field, r.beforeValue, r.afterValue, r.reason)); // corrections orthographiques déjà stockées : masquées
   return withLabels(rows);
 }
 
@@ -321,4 +329,4 @@ function dismiss(activityId, ids) {
   return { dismissedCount: rows.length };
 }
 
-module.exports = { setChecked, list, generate, apply, dismiss, setCaller, validate, buildContext, buildUser, SYSTEM, hashOf };
+module.exports = { setChecked, list, generate, apply, dismiss, setCaller, validate, buildContext, buildUser, SYSTEM, hashOf, isSpellingOnly };
