@@ -46,7 +46,7 @@
 .docTasksConfirm { font-size: 13px; margin: 4px 0 10px; }
 /* Surveillance du dossier Drive + pop-up des tâches ajoutées (sombre seulement, même verre/halo). */
 .docTasksSync { margin-bottom: 2px; }
-.docTasksSync .docTasksDriveRow { font-size: 14px; }
+.docTasksSync .docTasksSyncRow { font-size: 13px; padding: 0 4px; margin: -4px 0 12px; background: none; border: 0; box-shadow: none; }
 .docTasksCheck { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; }
 .docTasksCheck input { margin-top: 3px; accent-color: #7c5cff; }
 .docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
@@ -70,7 +70,7 @@
 .docTasksChangeOld { opacity: .6; text-decoration: line-through; }
 .docTasksChangeNew { font-weight: 600; }
 /* 16 oct. 2026 : sections Drive / surveillance / entrée « Modifications proposées » (PAS la fenêtre qui s'ouvre) = transparentes (contour fin, sans fond ni flou ; le halo de la page reste visible). */
-#docTasksDrive .docTasksDriveRow, #docTasksSync .docTasksDriveRow, #docTasksChangesBtn {
+#docTasksDrive .docTasksDriveRow, #docTasksChangesBtn {
   background: transparent; box-shadow: none; border: 1px solid var(--glass-border);
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }

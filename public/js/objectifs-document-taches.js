@@ -320,7 +320,7 @@
   function renderSync() {
     var h = $('docTasksSync'), s = syncSt;
     if (!s || !(driveSt && driveSt.folderChosen)) { h.innerHTML = ''; return; }
-    var html = '<div class="docTasksDriveRow">';
+    var html = '<div class="docTasksSyncRow">';
     html += '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
     if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
     if (syncMsg) html += '<p class="msg">' + esc(syncMsg) + '</p>';
