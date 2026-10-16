@@ -39,8 +39,8 @@
         <p id="docTasksMsg" class="msg"></p>
         <div id="docTasksResults"></div>
         <div class="docTasksPair">
-          <button type="button" id="docTasksChangesBtn" class="docTasksTile"><small>Modifications proposées</small><span id="docTasksChangesN" class="docTasksCount"></span></button>
-          <button type="button" id="docTasksTasksBtn" class="docTasksTile"><small>Nouvelles tâches</small><span id="docTasksTasksN" class="docTasksCount"></span></button>
+          <button type="button" id="docTasksChangesBtn" class="docTasksTile"><span class="docTasksTileLabel">Modifications proposées</span><span id="docTasksChangesN" class="docTasksCount"></span><svg class="docTasksChev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg></button>
+          <button type="button" id="docTasksTasksBtn" class="docTasksTile"><span class="docTasksTileLabel">Nouvelles tâches</span><span id="docTasksTasksN" class="docTasksCount"></span><svg class="docTasksChev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg></button>
         </div>
         <div id="docTasksDrive" class="docTasksDrive"></div>
         <div id="docTasksSync" class="docTasksSync"></div>
@@ -471,8 +471,8 @@
   }
   function renderChanges() {
     var n = $('docTasksChangesN'), n2 = $('docTasksTasksN');
-    n.textContent = changes.length; n.classList.toggle('on', !!changes.length);
-    n2.textContent = ptasks.length; n2.classList.toggle('on', !!ptasks.length);
+    n.textContent = changes.length > 99 ? '99+' : changes.length; n.classList.toggle('hidden', !changes.length);
+    n2.textContent = ptasks.length > 99 ? '99+' : ptasks.length; n2.classList.toggle('hidden', !ptasks.length);
     renderPTasks();
     var pop = $('docTasksChangesPop'), tm = pop.getAttribute('data-mode') === 'tasks';
     $('docTasksChangesTitle').textContent = tm ? 'Nouvelles tâches' : 'Modifications proposées';
