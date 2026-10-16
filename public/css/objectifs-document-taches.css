@@ -85,3 +85,6 @@
 }
 .docTasksWin input[type="checkbox"]:checked, .docTasksPop input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
 .docTasksWin input[type="checkbox"]:checked::after, .docTasksPop input[type="checkbox"]:checked::after { content: ""; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
+/* 16 oct. 2026 : tâches proposées = lignes simples (ni verre, ni cadre, ni opacité), une fine ligne entre deux, comme les tâches de la Page 2 / l'historique. */
+.docTasksRow { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-bottom: 1px solid var(--border, rgba(127,127,127,.35)); border-radius: 0; margin-top: 0; padding: 12px 2px; opacity: 1; }
+.docTasksRowWrap:last-of-type .docTasksRow, .docTasksRowWrap:last-child .docTasksRow { border-bottom: 0; }
