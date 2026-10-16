@@ -22,7 +22,7 @@ const today = t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDat
 const insP = db.prepare('INSERT INTO goal_periods (activityId, category, periodNumber, cycleIndex, periodIndexInCycle, startDate, endDate, mainGoalText, createdAt) VALUES (?,?,?,?,?,?,?,?,?)');
 const insW = db.prepare('INSERT INTO goal_weekly (periodId, weekIndex, text, description, createdAt) VALUES (?,?,?,?,?)');
 function reset() { db.prepare('DELETE FROM goal_periods WHERE activityId = ?').run(a.id); }
-const D50 = '2026-12-07'; // lundi de la semaine 50 (période 13, semaine 2) ; 2026-11-30 = début période
+const D50 = '2026-12-14'; // lundi de la semaine 50 (période 13, semaine 2) ; 2026-12-07 = début période (grille : 1er lundi de janvier = 2026-01-05)
 function farPlan(periodText) {
   reset();
   const p = insP.run(a.id, pole, 9013, 1, 13, '2026-11-30', '2026-12-27', periodText || '', now);
