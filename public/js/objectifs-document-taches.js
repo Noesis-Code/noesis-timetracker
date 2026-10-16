@@ -58,7 +58,7 @@
         <div id="docTasksChangesList" class="docTasksPopList"></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
         <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
-        <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer les cochées</button>
+        <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer</button>
       </div>
     </div>`);
 
@@ -243,12 +243,13 @@
   });
 
   // ---------- Pop-up « tâches ajoutées » (suppression directe d'une ligne, annulable) ----------
+  var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>'; // même SVG/classe que la corbeille de l'app (.historyRowIconBtn.danger)
   var popItems = [], popTimer = null;
   function popRender() {
     $('docTasksPopList').innerHTML = popItems.map(function (t, i) {
       var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : ''].filter(Boolean).join(' · ');
       return '<div class="docTasksPopRow"><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span>'
-        + '<button type="button" class="docTasksTrash" data-p="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">🗑</button></div>';
+        + '<button type="button" class="historyRowIconBtn danger" data-p="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
     }).join('') || '<p class="hint">Plus aucune tâche dans cette liste.</p>';
   }
   function popOpen(list) { popItems = list; popRender(); $('docTasksPopToast').innerHTML = ''; $('docTasksAddedPop').classList.remove('hidden'); }
@@ -359,13 +360,13 @@
     var n = $('docTasksChangesN');
     n.textContent = changes.length; n.classList.toggle('hidden', !changes.length);
     $('docTasksChangesList').innerHTML = changes.length ? changes.map(function (c, i) {
-      return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-c="' + i + '" checked aria-label="Appliquer">' +
-        '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
+      return '<div class="docTasksPopRow docTasksChangeRow"><div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
         '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>' +
         (c.reason ? '<div class="docTasksMeta">' + esc(c.reason) + '</div>' : '') + '</div>' +
-        '<button type="button" class="docTasksTrash" data-d="' + i + '" aria-label="Refuser">🗑</button></div>';
+        '<button type="button" class="historyRowIconBtn danger" data-d="' + i + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
     }).join('') : '<p class="docTasksMeta">Aucune modification proposée pour le moment.</p>';
-    $('docTasksChangesApply').classList.toggle('hidden', !changes.length);
+    var ap = $('docTasksChangesApply'); ap.classList.toggle('hidden', !changes.length);
+    ap.textContent = changes.length > 1 ? 'Appliquer (' + changes.length + ')' : 'Appliquer';
   }
   function loadChanges() {
     cApi('GET', '').then(function (r) { changes = r.proposals || []; renderChanges(); }).catch(function () { changes = []; renderChanges(); });
@@ -388,11 +389,8 @@
   });
   $('docTasksChangesApply').addEventListener('click', function () {
     if (busy) return;
-    var ids = [], rest = [];
-    Array.prototype.forEach.call($('docTasksChangesList').querySelectorAll('input[data-c]'), function (cb) {
-      var c = changes[Number(cb.getAttribute('data-c'))]; if (c && cb.checked) ids.push(c.id);
-    });
-    if (!ids.length) { cToast('Coche au moins une modification.'); return; }
+    var ids = changes.map(function (c) { return c.id; });
+    if (!ids.length) return;
     busy = true;
     cApi('POST', '/apply', { ids: ids }).then(function (r) {
       busy = false;
