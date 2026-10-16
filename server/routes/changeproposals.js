@@ -31,6 +31,9 @@ router.post('/activities/:id/change-proposals/generate', ...mw, async (req, res)
 router.post('/activities/:id/change-proposals/apply', ...mw, (req, res) => {
   try { res.json(changeproposals.apply(req.userId, Number(req.params.id), (req.body || {}).ids)); } catch (e) { fail(res, e); }
 });
+router.post('/activities/:id/change-proposals/check', ...mw, (req, res) => {
+  try { const b = req.body || {}; res.json(changeproposals.setChecked(Number(req.params.id), b.id, b.checked === true || b.checked === 1 || b.checked === '1')); } catch (e) { fail(res, e); }
+});
 router.post('/activities/:id/change-proposals/dismiss', ...mw, (req, res) => {
   try { res.json(changeproposals.dismiss(Number(req.params.id), (req.body || {}).ids)); } catch (e) { fail(res, e); }
 });

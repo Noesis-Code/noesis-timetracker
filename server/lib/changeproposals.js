@@ -40,6 +40,10 @@ db.exec(`CREATE TABLE IF NOT EXISTS change_proposals (
   createdAt TEXT NOT NULL,
   resolvedAt TEXT
 )`);
+// 16 oct. 2026 : état coché/décoché mémorisé côté serveur (suit l'utilisateur d'un appareil à l'autre). Migration additive.
+if (!db.prepare('PRAGMA table_info(change_proposals)').all().some((c) => c.name === 'checked')) {
+  db.exec('ALTER TABLE change_proposals ADD COLUMN checked INTEGER NOT NULL DEFAULT 1');
+}
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_change_proposals_hash ON change_proposals(activityId, hash)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_change_proposals_act ON change_proposals(activityId, status)');
 
@@ -189,7 +193,7 @@ function validate(text, ctx) {
 const hashOf = (c) => sha(c.target + '|' + c.targetId + '|' + c.field + '|' + normText(c.after));
 
 function rowOut(r) {
-  return { id: r.id, target: r.target, targetId: r.targetId, field: r.field, fieldLabel: FIELD_LABEL[r.field] || r.field, before: r.beforeValue || '', after: r.afterValue, reason: r.reason, label: r.label || '' };
+  return { id: r.id, target: r.target, targetId: r.targetId, field: r.field, fieldLabel: FIELD_LABEL[r.field] || r.field, before: r.beforeValue || '', after: r.afterValue, reason: r.reason, checked: r.checked === 0 ? 0 : 1, label: r.label || '' };
 }
 
 // Libellé lisible de la cible (tâche ou objectif) pour l'affichage.
@@ -241,9 +245,17 @@ async function generate(userId, activityId, opts) {
 function cleanIds(ids) {
   return Array.isArray(ids) ? ids.map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 200) : [];
 }
-function pendingRows(activityId, ids) {
-  const get = db.prepare("SELECT * FROM change_proposals WHERE id = ? AND activityId = ? AND status = 'pending'");
+function pendingRows(activityId, ids, onlyChecked) {
+  const get = db.prepare("SELECT * FROM change_proposals WHERE id = ? AND activityId = ? AND status = 'pending'" + (onlyChecked ? ' AND checked = 1' : ''));
   return cleanIds(ids).map((id) => get.get(id, activityId)).filter(Boolean); // id hors activité / déjà traité : ignoré
+}
+// Mémorise l'état coché d'une proposition en attente (jamais de suppression automatique).
+function setChecked(activityId, id, checked) {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n <= 0) throw httpError(400, 'Proposition invalide.');
+  const r = db.prepare("UPDATE change_proposals SET checked = ? WHERE id = ? AND activityId = ? AND status = 'pending'").run(checked ? 1 : 0, n, activityId);
+  if (!r.changes) throw httpError(404, 'Proposition introuvable.');
+  return { id: n, checked: checked ? 1 : 0 };
 }
 function mark(id, status) {
   db.prepare('UPDATE change_proposals SET status = ?, resolvedAt = ? WHERE id = ?').run(status, new Date().toISOString(), id);
@@ -273,7 +285,7 @@ function applyOne(userId, activityId, r) {
 
 // N'applique QUE les ids fournis (cochés). Une proposition non applicable est refusée (mémorisée) avec sa raison.
 function apply(userId, activityId, ids) {
-  const rows = pendingRows(activityId, ids);
+  const rows = pendingRows(activityId, ids, true); // une ligne décochée n'est jamais appliquée (et reste affichée)
   const applied = [], skipped = [];
   rows.forEach((r) => {
     let why;
@@ -291,4 +303,4 @@ function dismiss(activityId, ids) {
   return { dismissedCount: rows.length };
 }
 
-module.exports = { list, generate, apply, dismiss, setCaller, validate, buildContext, buildUser, SYSTEM, hashOf };
+module.exports = { setChecked, list, generate, apply, dismiss, setCaller, validate, buildContext, buildUser, SYSTEM, hashOf };

@@ -79,6 +79,23 @@ function call(method, tail, userId, id, body) {
   r = await call('get', '', 'own', act);
   assert(r.b.proposals.length === 4, 'GET liste les propositions');
 
+  // état coché mémorisé
+  assert(p.every((x) => x.checked === 1), 'GET : cochées par défaut');
+  r = await call('post', '/check', 'own', act, { id: byField('instruction').id, checked: false });
+  assert(r.st === 200 && r.b.checked === 0, 'décocher persiste');
+  r = await call('get', '', 'own', act);
+  assert(r.b.proposals.find((x) => x.field === 'instruction').checked === 0 && r.b.proposals.length === 4, 'GET renvoie l’état décoché, ligne toujours affichée');
+  r = await call('post', '/generate', 'own', act, {});
+  assert(r.b.proposals.find((x) => x.field === 'instruction').checked === 0, 'nouvelle génération n’écrase pas l’état');
+  r = await call('post', '/apply', 'own', act, { ids: [byField('instruction').id] });
+  assert(r.b.appliedCount === 0 && wrow().description === 'Consigne initiale', 'décochée : jamais appliquée');
+  r = await call('get', '', 'own', act);
+  assert(r.b.proposals.length === 4, 'décochée : reste affichée');
+  r = await call('post', '/check', 'out', other, { id: byField('instruction').id, checked: true });
+  assert(r.st === 403, 'check : non membre 403');
+  r = await call('post', '/check', 'own', act, { id: byField('instruction').id, checked: true });
+  assert(r.b.checked === 1, 'recocher persiste');
+
   // refus mémorisé
   r = await call('post', '/dismiss', 'own', act, { ids: [byField('text').id] });
   assert(r.b.dismissedCount === 1, 'refus enregistré');
@@ -121,6 +138,8 @@ function call(method, tail, userId, id, body) {
   db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,?,'#fff','')").run(act, 'noessor');
   r = await call('post', '/generate', 'noessor', act, {});
   assert(r.st === 403, 'sans Essor : 403');
+  r = await call('post', '/check', 'noessor', act, { id: 1, checked: false });
+  assert(r.st === 403, 'check sans Essor : 403');
 
   // plafond quotidien partagé
   process.env.DRIVE_SYNC_MAX_AI_CALLS_PER_DAY = '0';

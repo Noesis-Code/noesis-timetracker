@@ -28,8 +28,8 @@
 .docTasksDriveOff { opacity: 0.6; cursor: default; }
 /* Zone libre = bulle de la Page 1 (.activityGoalsCategoryAutoTaskBubble + contour animé) ; trombone .chatAttachBtn ; envoi .btnBrique. */
 #docTasksBubble textarea { padding: 14px 12px 60px 12px; text-align: left; }
-#docTasksBubble #docTasksSend { top: auto; bottom: 8px; right: 8px; transform: none; width: 40px; height: 40px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
-#docTasksBubble .chatAttachBtn { z-index: 1; left: auto; right: 54px; top: auto; bottom: 13px; transform: none; }
+#docTasksBubble #docTasksSend { top: auto; bottom: 8px; right: 8px; transform: none; height: 40px; padding: 0 18px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 15px; font-weight: 600; line-height: 1; }
+#docTasksBubble .chatAttachBtn { z-index: 1; left: auto; right: 104px; top: auto; bottom: 13px; transform: none; }
 #docTasksBubble .iconBtn:disabled { opacity: 0.45; cursor: default; }
 .docTasksFilesBox { display: flex; flex-wrap: wrap; gap: 6px; }
 .docTasksChip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(124, 92, 255, .18); margin-top: 6px; }
@@ -69,3 +69,16 @@
 .docTasksChangeDiff { font-size: 14px; overflow-wrap: anywhere; }
 .docTasksChangeOld { opacity: .6; text-decoration: line-through; }
 .docTasksChangeNew { font-weight: 600; }
+/* 16 oct. 2026 : boutons de CETTE page = orange brique (.btnBrique : contour, texte, fond transparent). Le violet reste la couleur du reste de l'app. */
+.docTasksWin .btnBrique, .docTasksPop .btnBrique { cursor: pointer; text-decoration: none; }
+.docTasksApplyBtn.btnBrique, .docTasksDriveBtn.btnBrique { font-weight: 600; }
+.docTasksPill.btnBrique { font-weight: 600; }
+.docTasksLink.btnBrique { padding: 6px 12px; border-radius: 999px; font-size: 13px; margin: 2px 0; }
+.docTasksWin .btnBrique:disabled, .docTasksPop .btnBrique:disabled { opacity: .45; cursor: default; }
+/* 16 oct. 2026 : sections Drive / surveillance / « Modifications proposées » = transparentes (contour fin, sans fond ni flou ; le halo de la page reste visible). */
+#docTasksDrive .docTasksDriveRow, #docTasksSync .docTasksDriveRow, #docTasksChangesBtn,
+#docTasksChangesPop .docTasksPopCard {
+  background: transparent; box-shadow: none; border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+#docTasksChangesPop { background: transparent; }
