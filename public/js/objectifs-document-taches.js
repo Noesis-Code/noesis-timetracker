@@ -471,8 +471,8 @@
   }
   function renderChanges() {
     var n = $('docTasksChangesN'), n2 = $('docTasksTasksN');
-    n.textContent = changes.length > 99 ? '99+' : changes.length; n.classList.toggle('hidden', !changes.length);
-    n2.textContent = ptasks.length > 99 ? '99+' : ptasks.length; n2.classList.toggle('hidden', !ptasks.length);
+    n.textContent = changes.length; n.classList.toggle('hidden', !changes.length);
+    n2.textContent = ptasks.length; n2.classList.toggle('hidden', !ptasks.length);
     renderPTasks();
     var pop = $('docTasksChangesPop'), tm = pop.getAttribute('data-mode') === 'tasks';
     $('docTasksChangesTitle').textContent = tm ? 'Nouvelles tâches' : 'Modifications proposées';

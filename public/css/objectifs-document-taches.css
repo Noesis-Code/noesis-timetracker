@@ -122,7 +122,7 @@
 .docTasksTile { display: flex; align-items: center; gap: 10px; width: 100%; height: 52px; padding: 0 14px; box-sizing: border-box; background: transparent; color: inherit; font: inherit; font-size: 15px; border: 0; cursor: pointer; text-align: left; }
 .docTasksTile + .docTasksTile { border-top: 1px solid var(--glass-border); }
 .docTasksTileLabel { flex: 1 1 auto; min-width: 0; line-height: 24px; padding-bottom: 3px; }
-.docTasksCount { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 24px; height: 24px; border-radius: 50%; background: #C2694A; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
+.docTasksCount { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: #C2694A; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
 .docTasksCount.hidden { display: none; }
 .docTasksChev { flex: none; color: var(--text-light); }
 #docTasksMsg:empty { margin: 0; min-height: 0; }
