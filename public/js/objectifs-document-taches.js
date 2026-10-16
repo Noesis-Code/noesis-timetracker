@@ -38,7 +38,10 @@
         </div>
         <p id="docTasksMsg" class="msg"></p>
         <div id="docTasksResults"></div>
-        <button type="button" id="docTasksChangesBtn" class="docTasksDriveRow docTasksChangesEntry">Modifications proposées <span id="docTasksChangesN" class="essorBadge hidden"></span></button>
+        <div class="docTasksPair">
+          <button type="button" id="docTasksChangesBtn" class="docTasksTile"><small>Modifications proposées</small><span id="docTasksChangesN" class="docTasksCount"></span></button>
+          <button type="button" id="docTasksTasksBtn" class="docTasksTile"><small>Nouvelles tâches</small><span id="docTasksTasksN" class="docTasksCount"></span></button>
+        </div>
         <div id="docTasksDrive" class="docTasksDrive"></div>
         <div id="docTasksSync" class="docTasksSync"></div>
         <div id="docTasksDisc" class="docTasksDrive"></div>
@@ -60,8 +63,8 @@
     </div>
     <div id="docTasksChangesPop" class="docTasksPop hidden" role="dialog" aria-label="Modifications proposées">
       <div class="docTasksPopCard">
-        <div class="docTasksDriveHead"><strong>Modifications proposées</strong><button type="button" class="docTasksX" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
-        <p class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
+        <div class="docTasksDriveHead"><strong id="docTasksChangesTitle">Modifications proposées</strong><button type="button" class="docTasksX" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
+        <p id="docTasksChangesHint" class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
         <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div><div id="docTasksChangesList"></div></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
         <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
@@ -467,25 +470,31 @@
     return v;
   }
   function renderChanges() {
-    var n = $('docTasksChangesN');
-    var tot = changes.length + ptasks.length;
-    n.textContent = tot; n.classList.toggle('hidden', !tot);
+    var n = $('docTasksChangesN'), n2 = $('docTasksTasksN');
+    n.textContent = changes.length; n.classList.toggle('on', !!changes.length);
+    n2.textContent = ptasks.length; n2.classList.toggle('on', !!ptasks.length);
     renderPTasks();
-    $('docTasksChangesList').innerHTML = changes.length ? '<div class="docTasksMeta"><strong>' + (ptasks.length ? 'Modifications' : '') + '</strong></div>' + changes.map(function (c, i) {
+    var pop = $('docTasksChangesPop'), tm = pop.getAttribute('data-mode') === 'tasks';
+    $('docTasksChangesTitle').textContent = tm ? 'Nouvelles tâches' : 'Modifications proposées';
+    $('docTasksChangesHint').classList.toggle('hidden', tm);
+    $('docTasksChangesTasks').classList.toggle('hidden', !tm);
+    $('docTasksChangesList').classList.toggle('hidden', tm);
+    $('docTasksChangesFind').classList.toggle('hidden', tm);
+    $('docTasksChangesList').innerHTML = changes.length ? changes.map(function (c, i) {
       return '<div class="docTasksPopRow docTasksChangeRow"><input type="checkbox" data-c="' + i + '"' + (c.checked === 0 ? '' : ' checked') + ' aria-label="Appliquer">' +
         '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
         '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>' +
         (c.reason ? '<div class="docTasksMeta">' + esc(c.reason) + '</div>' : '') + '</div>' +
         '<button type="button" class="historyRowIconBtn danger" data-d="' + i + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
-    }).join('') : (ptasks.length ? '' : '<p class="docTasksMeta">Rien à valider.</p>');
-    var ap = $('docTasksChangesApply'); ap.classList.toggle('hidden', !changes.length);
+    }).join('') : '<p class="docTasksMeta">Rien à valider.</p>';
+    var ap = $('docTasksChangesApply'); ap.classList.toggle('hidden', tm || !changes.length);
   }
   // Nouvelles tâches proposées par la surveillance Drive (partie « Nouvelles tâches » de la même fenêtre).
   var ptasks = [], pcats = [];
   function renderPTasks() {
     var h = $('docTasksChangesTasks'); if (!h) return;
-    if (!ptasks.length) { h.innerHTML = ''; return; }
-    h.innerHTML = '<div class="docTasksMeta"><strong>Nouvelles tâches</strong></div>' + ptasks.map(function (t, i) {
+    if (!ptasks.length) { h.innerHTML = '<p class="docTasksMeta">Aucune nouvelle tâche à valider.</p>'; return; }
+    h.innerHTML = ptasks.map(function (t, i) {
       var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       var pick = '';
       if (t.toChoose && pcats.length) {
@@ -537,7 +546,9 @@
     t.key = sel.value; t.toChoose = false;
   });
   function refresh() { if (typeof TMT.openGoalsForActivity === 'function') TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0); }
-  $('docTasksChangesBtn').addEventListener('click', function () { cToast(''); $('docTasksChangesPop').classList.remove('hidden'); loadChanges(); });
+  function openChangesPop(mode) { cToast(''); $('docTasksChangesPop').setAttribute('data-mode', mode); $('docTasksChangesPop').classList.remove('hidden'); renderChanges(); loadChanges(); }
+  $('docTasksChangesBtn').addEventListener('click', function () { openChangesPop('changes'); });
+  $('docTasksTasksBtn').addEventListener('click', function () { openChangesPop('tasks'); });
   $('docTasksChangesClose').addEventListener('click', function () { $('docTasksChangesPop').classList.add('hidden'); });
   $('docTasksChangesFind').addEventListener('click', function () {
     if (busy) return; busy = true; cToast('L’IA cherche…');
