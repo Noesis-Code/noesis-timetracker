@@ -24,6 +24,9 @@ const subprojects = require('./subprojects');
 
 const DEFAULT_INSTRUCTION = 'Extrais toutes les tâches écrites dans le document';
 const MAX_INSTRUCTION = 1500;
+// Par passage de surveillance : au plus 50 fichiers envoyés à l'IA (les autres au passage suivant) ; arrêt après 3 échecs IA de suite.
+const MAX_AI_PER_PASS = Number(process.env.DRIVE_SYNC_MAX_AI_PER_PASS) > 0 ? Number(process.env.DRIVE_SYNC_MAX_AI_PER_PASS) : 50;
+const MAX_AI_FAILS_IN_A_ROW = 3;
 
 function httpError(status, message) { return Object.assign(new Error(message), { statusCode: status }); }
 function maxCalls() {
@@ -201,7 +204,9 @@ async function syncConnection(userId, activityId, opts) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     const existing = existingKeys(activityId);
     const folderCfg = new Map(drive.foldersOf(userId, activityId).map((fo) => [fo.id, fo]));
+    let aiFails = 0;
     for (const f of files) {
+      if (out.aiCalls >= MAX_AI_PER_PASS) break; // reprise au prochain passage
       const cfg = folderCfg.get(f.folderId) || {};
       const instruction = cfg.instruction || DEFAULT_INSTRUCTION;
       out.filesChecked++;
@@ -225,7 +230,8 @@ async function syncConnection(userId, activityId, opts) {
       try {
         const dataUrl = 'data:text/plain;base64,' + Buffer.from(text, 'utf8').toString('base64');
         prop = await aibudget.runAs(userId, () => documenttasks.propose(userId, activityId, { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl }] }, { skipRate: true }));
-      } catch (e) { continue; } // échec IA : fichier non marqué, nouvel essai au prochain passage (borné par le plafond)
+      } catch (e) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; continue; } // échec IA : fichier non marqué, nouvel essai au prochain passage ; l'IA semble en panne après 3 échecs de suite
+      aiFails = 0;
       putFile.run(userId, activityId, f.id, f.modifiedTime, hash);
       // Modifications proposées (16 oct. 2026) : propositions seulement, rien n'est écrit (changeproposals.js).
       try { await changeproposals.generate(userId, activityId, { docText: text }); } catch (e) { /* non bloquant */ }
