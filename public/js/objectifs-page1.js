@@ -448,7 +448,7 @@
       var weekIndex = weekIndexForDate(period, dateValue);
       var weekly = (period.weeklies || []).filter(function (w) { return w.weekIndex === weekIndex; })[0];
       goalsPreview.textContent = [
-        t('Période') + ' ' + period.periodNumber + ' · ' + t('Semaine') + ' ' + weekIndex,
+        t('Période') + ' ' + period.periodNumber + ' · ' + t('Semaine') + ' ' + ((period.firstWeekOfYear || (((period.periodNumber - 1) % 13) * 4 + 1)) + weekIndex - 1),
         t('Objectif périodique') + ' : ' + (period.mainGoalText || t('aucun')),
         t('Objectif hebdomadaire') + ' : ' + ((weekly && weekly.text) || t('aucun')),
       ].join(' · ');

@@ -1072,26 +1072,35 @@ function mostRecentMonday(isoDay) {
   return d.toISOString().slice(0, 10);
 }
 
-// Grille calendaire (8 oct. 2026) : la période 1 commence au lundi de la
-// semaine du 1er janvier ; 13 périodes de 4 semaines par an, quelle que soit
-// l'activité ou la date de création du plan.
+// Grille calendaire : la semaine 1 de chaque année commence au PREMIER LUNDI de
+// janvier (lundi du 1er au 7 janvier) ; 13 périodes de 4 semaines = 52 semaines
+// par an. Les jours avant l'ancre ou après la semaine 52 n'appartiennent à aucune
+// semaine (rattachés à la période la plus proche pour la logique, jamais affichés
+// comme une semaine).
 function yearAnchor(year) {
+  const jan1 = String(year) + '-01-01';
+  const m = mostRecentMonday(jan1);
+  return m === jan1 ? jan1 : addDays(m, 7);
+}
+// Ancienne ancre (jusqu'au 16 oct. 2026) : lundi de la semaine du 1er janvier.
+function legacyYearAnchor(year) {
   return mostRecentMonday(String(year) + '-01-01');
 }
 function yearGridStart(isoDay) {
-  const y = Number(String(isoDay).slice(0, 4));
-  const next = yearAnchor(y + 1);
-  return next <= isoDay ? next : yearAnchor(y);
+  let y = Number(String(isoDay).slice(0, 4));
+  if (isoDay >= yearAnchor(y + 1)) return yearAnchor(y + 1);
+  while (isoDay < yearAnchor(y)) y -= 1;
+  return yearAnchor(y);
 }
 
-// Année (calendaire) de la grille d'un plan : le startDate d'un plan est le lundi
-// de la semaine du 1er janvier de sa première année (donc +6 jours = cette année).
+// Année (calendaire) de la grille d'un plan : le startDate d'un plan est l'ancre
+// (premier lundi de janvier) de sa première année.
 function yearOfPlanStart(planStartDate) {
-  return Number(addDays(planStartDate, 6).slice(0, 4));
+  return Number(String(planStartDate).slice(0, 4));
 }
 
-// Période n (continue : 13 par année) : l'année k du plan commence au lundi de la
-// semaine du 1er janvier de (première année + k), 13 périodes de 28 jours.
+// Période n (continue : 13 par année) : l'année k du plan commence au premier
+// lundi de janvier de (première année + k), 13 périodes de 28 jours.
 function periodBounds(planStartDate, periodNumber) {
   const y0 = yearOfPlanStart(planStartDate);
   const k = Math.floor((periodNumber - 1) / PERIODS_PER_CYCLE);
@@ -1100,6 +1109,11 @@ function periodBounds(planStartDate, periodNumber) {
   const start = addDays(anchor, i * PERIOD_DAYS);
   const end = addDays(anchor, (i + 1) * PERIOD_DAYS - 1);
   return { start, end, cycleIndex: k + 1, periodIndexInCycle: i + 1 };
+}
+
+// Numéro de semaine dans l'année (1 à 52) : (période du cycle - 1) * 4 + weekIndex.
+function weekOfYear(periodIndexInCycle, weekIndex) {
+  return (Number(periodIndexInCycle) - 1) * 4 + Number(weekIndex);
 }
 
 function weekBounds(periodStart, weekIndex) {
@@ -1121,7 +1135,7 @@ function periodNumberForDate(planStartDate, isoDay) {
   if (k < 0) return 1;
   const days = daysBetween(yearAnchor(y), isoDay);
   if (days === null || days < 0) return 1;
-  // Les 0 à 7 jours qui restent après la période 13 retombent sur la période 13.
+  // Les jours après la semaine 52 (hors grille) retombent sur la période 13.
   const i = Math.min(PERIODS_PER_CYCLE - 1, Math.floor(days / PERIOD_DAYS));
   return k * PERIODS_PER_CYCLE + i + 1;
 }
@@ -1217,13 +1231,31 @@ function plansNeedingRealignment() {
 // périodes, renumérotation). Idempotent ; `dryRun` ne modifie rien.
 function isYearAnchor(isoDay) {
   const y = Number(String(isoDay).slice(0, 4));
-  return isoDay === yearAnchor(y) || isoDay === yearAnchor(y + 1);
+  return isoDay === yearAnchor(y);
 }
 function migratePlansToYearGrid(dryRun) {
   const plans = db.prepare('SELECT activityId, category, startDate FROM activity_goal_plans').all();
   const report = [];
   plans.forEach((pl) => {
     if (isYearAnchor(pl.startDate)) return;
+    // Cas courant (16 oct. 2026) : plan calé sur l'ancienne ancre (lundi de la semaine
+    // du 1er janvier) -> recalage sur le premier lundi de janvier. Les numéros de
+    // période ne changent pas ; seules les dates (décalage de 0 ou 7 jours) bougent.
+    const legacyYear = Number(addDays(pl.startDate, 6).slice(0, 4));
+    if (pl.startDate === legacyYearAnchor(legacyYear)) {
+      const newStart = yearAnchor(legacyYear);
+      report.push({ activityId: pl.activityId, category: pl.category, oldStart: pl.startDate, newStart, shiftDays: daysBetween(pl.startDate, newStart) });
+      if (dryRun) return;
+      db.exec('BEGIN');
+      try {
+        const rows = db.prepare('SELECT id, periodNumber FROM goal_periods WHERE activityId = ? AND category = ?').all(pl.activityId, pl.category);
+        const upd = db.prepare('UPDATE goal_periods SET startDate = ?, endDate = ? WHERE id = ?');
+        rows.forEach((p) => { const b = periodBounds(newStart, p.periodNumber); upd.run(b.start, b.end, p.id); });
+        db.prepare('UPDATE activity_goal_plans SET startDate = ? WHERE activityId = ? AND category = ?').run(newStart, pl.activityId, pl.category);
+        db.exec('COMMIT');
+      } catch (e) { try { db.exec('ROLLBACK'); } catch (_) {} throw e; }
+      return;
+    }
     const A = yearGridStart(pl.startDate);
     const d = ((daysBetween(A, pl.startDate) % PERIOD_DAYS) + PERIOD_DAYS) % PERIOD_DAYS;
     const delta = d <= PERIOD_DAYS / 2 ? -d : PERIOD_DAYS - d;
@@ -1684,6 +1716,7 @@ function planningForActivity(activityId, category) {
     .map((p) => {
       const weeklies = weeklyForPeriod(p.id).map((w) => ({
         ...w,
+        weekOfYear: weekOfYear(p.periodIndexInCycle, w.weekIndex),
         // Un objectif reporté est, par définition, non réalisé : pastille rouge.
         status: (w.status == null && w.carriedOverFromId) ? 'non_atteint' : w.status,
         taskTotal: db.prepare('SELECT COUNT(*) AS n FROM sub_project_items WHERE goalWeeklyId = ?').get(w.id).n,
@@ -1699,6 +1732,7 @@ function planningForActivity(activityId, category) {
         : null;
       return {
         ...p,
+        firstWeekOfYear: weekOfYear(p.periodIndexInCycle, 1),
         weeklies,
         assignees: periodAssigneesFor(p.id),
         actualMinutes,
@@ -2063,6 +2097,8 @@ module.exports = {
   deleteWeekly,
   // Exportés pour les tests (bac à sable) — mêmes fonctions, pas de doublon.
   periodBounds,
+  yearAnchor,
+  weekOfYear,
   yearGridStart,
   getYearGoals,
   listYears,

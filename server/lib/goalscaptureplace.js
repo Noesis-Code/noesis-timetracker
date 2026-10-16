@@ -406,11 +406,9 @@ function lexScore(taskStems, title, desc) {
   return sum / taskStems.size;
 }
 function weekOfYear(weekStart) {
-  const y = Number(String(weekStart).slice(0, 4));
-  const next = goals.mostRecentMonday(String(y + 1) + '-01-01');
-  const anchor = next <= weekStart ? next : goals.mostRecentMonday(String(y) + '-01-01');
+  const anchor = goals.yearGridStart(weekStart);
   const ms = Date.parse(weekStart + 'T00:00:00Z') - Date.parse(anchor + 'T00:00:00Z');
-  return Math.floor(ms / 86400000 / 7) + 1;
+  return Math.min(52, Math.floor(ms / 86400000 / 7) + 1);
 }
 // Objectifs candidats (hebdomadaires non atteints et périodiques en cours ou à venir) des pôles donnés.
 function listObjectiveCandidates(activityId, poleKeys, today) {

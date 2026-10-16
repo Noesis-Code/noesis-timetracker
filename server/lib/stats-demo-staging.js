@@ -170,9 +170,9 @@ function build(u, fakeNames, NAME, NAME_CONF, seed) {
   // ---- Grille des périodes : plan démarré 2 ans avant l'année en cours ; données dès ~25 mois avant aujourd'hui.
   const curYear = Number(todayIso.slice(0, 4));
   const y0 = curYear - 2;
-  const planStart = goals.mostRecentMonday(y0 + '-01-01');
+  const planStart = goals.yearAnchor(y0);
   LEAVES.forEach((n) => db.prepare('INSERT INTO activity_goal_plans (activityId, category, startDate, createdAt) VALUES (?, ?, ?, ?)').run(aid, K[n], planStart, now));
-  const periodStart = (n) => D(goals.mostRecentMonday((y0 + Math.floor((n - 1) / 13)) + '-01-01'), ((n - 1) % 13) * 28);
+  const periodStart = (n) => D(goals.yearAnchor(y0 + Math.floor((n - 1) / 13)), ((n - 1) % 13) * 28);
   const dataFrom = D(todayIso, -750);
   let firstP = 1; while (periodStart(firstP + 1) <= dataFrom) firstP += 1;
   let curP = 1; while (periodStart(curP + 1) <= todayIso) curP += 1;

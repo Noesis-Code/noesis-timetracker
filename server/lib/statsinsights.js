@@ -19,8 +19,11 @@ function todayLocal(now) {
   const p = (n) => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
-// Période 1 = lundi de la semaine du 1er janvier (même grille que goals.js).
-function yearAnchor(year) { return goals.mostRecentMonday(String(year) + '-01-01'); }
+// Période 1 = premier lundi de janvier (même grille que goals.js).
+function yearAnchor(year) { return goals.yearAnchor(year); }
+// Numéro de période (1-13) d'un début de période, et numéro de semaine dans l'année (1-52).
+function periodIdxOf(ps) { return Math.min(12, Math.floor(goals.daysBetween(yearAnchor(anchorYearOf(ps)), ps) / 28)) + 1; }
+function woy(ps, w) { return goals.weekOfYear(periodIdxOf(ps), w); }
 
 function localDate(ts) {
   if (!ts) return null;
@@ -39,7 +42,7 @@ function viewRange(mode, today, yearOpt) {
     const y = yearOpt || Number(today.slice(0, 4));
     let start = yearAnchor(y);
     if (start > today) start = yearAnchor(y - 1);
-    const end = goals.addDays(yearAnchor(Number(goals.addDays(start, 6).slice(0, 4)) + 1), -1);
+    const end = goals.addDays(yearAnchor(Number(start.slice(0, 4)) + 1), -1);
     const labels = []; for (let i = 1; i <= 13; i += 1) labels.push('P' + i);
     return { start, end, labels, n: 13, idx: (d) => Math.min(12, Math.floor(goals.daysBetween(start, d) / 28)) };
   }
@@ -47,7 +50,7 @@ function viewRange(mode, today, yearOpt) {
     // Période de 28 jours en cours (même grille que l'année : période 1 = lundi de la semaine du 1er janvier).
     let anchor = yearAnchor(Number(today.slice(0, 4)));
     if (anchor > today) anchor = yearAnchor(Number(today.slice(0, 4)) - 1);
-    const start = goals.addDays(anchor, Math.floor(goals.daysBetween(anchor, today) / 28) * 28);
+    const start = goals.addDays(anchor, Math.min(12, Math.floor(goals.daysBetween(anchor, today) / 28)) * 28);
     const labels = []; for (let i = 1; i <= 28; i += 1) labels.push(String(i));
     return { start, end: goals.addDays(start, 27), labels, n: 28, idx: (d) => goals.daysBetween(start, d) };
   }
@@ -479,7 +482,7 @@ function objectivesCards(ctx) {
         // Bulle d'une semaine = ratio de temps fait (même index, même chiffre et même statut que la feuille ouverte au clic).
         const x = Object.keys(wIndex).map((id) => wIndex[id]).filter((e) => e.ps === ps && e.w === w && e.start <= realToday && scope.keyToPole[e.category]);
         const sm = x.length ? weekSummary(activityId, ctx.allTasks, x) : null;
-        list.push({ label: 'S' + w, pct: sm ? sm.pct : null, status: sm ? sm.status : null, periodStart: ps, week: w });
+        list.push({ label: 'S' + woy(ps, w), weekOfYear: woy(ps, w), pct: sm ? sm.pct : null, status: sm ? sm.status : null, periodStart: ps, week: w });
       }
       const pe = goals.addDays(ps, 27); const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
       return { mode: 'weekly', label: plabel(ps) + ' · ' + fmt(ps) + ' – ' + fmt(pe), offset: idx - (pstarts.length - 1), canPrev: idx > 0, canNext: idx < pstarts.length - 1, list };
@@ -547,14 +550,14 @@ function glisseDetail(activityId, periodStart, weekIndex) {
   };
   // Emplacement d'une date par rapport à la période de référence : semaine de la même période ou autre période.
   const where = (d, ps) => (d <= goals.addDays(ps, 27) && d >= ps
-    ? { kind: 'week', n: Math.floor(goals.daysBetween(ps, d) / 7) + 1, date: fmt(d) }
+    ? { kind: 'week', n: Math.floor(goals.daysBetween(ps, d) / 7) + 1, wn: woy(ps, Math.floor(goals.daysBetween(ps, d) / 7) + 1), date: fmt(d) }
     : { kind: 'period', label: plabel(d), date: fmt(d) });
-  const slot = (ref, ps) => (ref.ps === ps ? { kind: 'week', n: ref.w } : { kind: 'period', label: plabel(ref.ps) });
+  const slot = (ref, ps) => (ref.ps === ps ? { kind: 'week', n: ref.w, wn: woy(ps, ref.w) } : { kind: 'period', label: plabel(ref.ps) });
   const weekDetail = (w) => {
     const ids = Object.keys(wk).filter((id) => wk[id].ps === periodStart && wk[id].w === w).map(Number);
     const b = goals.weekBounds(periodStart, w);
     const mine = tasks.filter((t) => t.weeklyId != null && ids.indexOf(t.weeklyId) >= 0);
-    const row = (t) => ({ label: t.label, minutes: minutes(t), week: w });
+    const row = (t) => ({ label: t.label, minutes: minutes(t), week: w, weekOfYear: woy(periodStart, w) });
     const done = mine.filter((t) => t.done);
     const notDone = mine.filter((t) => !t.done);
     const slipped = notDone.filter((t) => t.due && t.due > b.end).map((t) => Object.assign(row(t), { to: where(t.due, periodStart) }));
@@ -562,7 +565,7 @@ function glisseDetail(activityId, periodStart, weekIndex) {
       .map((t) => Object.assign(row(t), { from: slot(wk[t.weeklyId], periodStart) }));
     // Même ratio que la bulle et que le statut automatique (weekSummary -> goals.weeklyRatioFromTasks).
     const sm = weekSummary(activityId, tasks, ids.map((id) => wk[id]));
-    return { week: w, start: b.start, end: b.end, started: b.start <= realToday, pct: sm ? sm.pct : null, status: sm ? sm.status : null, statusNote: sm ? sm.note : null, done: done.map(row), notDone: notDone.map(row), slipped, ahead };
+    return { week: w, weekOfYear: woy(periodStart, w), start: b.start, end: b.end, started: b.start <= realToday, pct: sm ? sm.pct : null, status: sm ? sm.status : null, statusNote: sm ? sm.note : null, done: done.map(row), notDone: notDone.map(row), slipped, ahead };
   };
   const out = { periodStart, periodLabel: plabel(periodStart), periodEnd: goals.addDays(periodStart, 27), startLabel: fmt(periodStart), endLabel: fmt(goals.addDays(periodStart, 27)) };
   if (weekIndex) {
@@ -570,7 +573,7 @@ function glisseDetail(activityId, periodStart, weekIndex) {
   }
   const weeks = [1, 2, 3, 4].map(weekDetail);
   const share = periodShare(activityId, tasks, wk, periodStart, realToday, () => true);
-  const tiles = weeks.map((wd) => ({ week: wd.week, pct: wd.started && wd.pct != null ? wd.pct : null, status: wd.started && wd.pct != null ? wd.status : null, statusNote: wd.started && wd.pct != null ? wd.statusNote : null }));
+  const tiles = weeks.map((wd) => ({ week: wd.week, weekOfYear: wd.weekOfYear, pct: wd.started && wd.pct != null ? wd.pct : null, status: wd.started && wd.pct != null ? wd.status : null, statusNote: wd.started && wd.pct != null ? wd.statusNote : null }));
   const cat = (key) => weeks.reduce((a, wd) => a.concat(wd[key]), []);
   return Object.assign(out, {
     mode: 'period',
