@@ -341,8 +341,49 @@ function suggestAssigneeFromHistory(activityId, taskLabel, members) {
   score.forEach((v, k) => { if (v > bestV) { bestV = v; best = k; } });
   return best;
 }
+// 16 oct. 2026 (Émilien) : la date n'est plus « aujourd'hui » par défaut. Indice dans le texte
+// (jour / semaine / échéance) => jour cohérent, choisi selon la capacité ; sans indice => répartition
+// par capacité (semaines de l'activité, ordre logique). Suggestion modifiable (dueDateAuto=2).
+function pickDayInRange(userId, activityId, days, ownMinutes, itemId) {
+  const load = activityMinutesByDay(userId, activityId, days, itemId);
+  const budget = capacityFor(userId, activityId);
+  const weekly = activityWeeklyCapacityMinutes(userId, activityId);
+  const used = days.reduce((s, d) => s + (load[d] || 0), 0);
+  if (used + ownMinutes > weekly * Math.max(1, days.length / 7)) return null;
+  return days.find((d) => (load[d] || 0) + ownMinutes <= budget)
+    || days.reduce((b, d) => ((load[d] || 0) < (load[b] || 0) ? d : b), days[0]);
+}
+function dateForCapture(userId, activityId, categoryKey, itemId, taskLabel) {
+  const today = todayLocal();
+  const hint = require('./capturedatehint').parseDateHint(taskLabel, today);
+  const own = taskMinutes(activityId, categoryKey, taskLabel);
+  try {
+    if (hint && hint.kind === 'day') return hint.date;
+    if (hint && hint.kind === 'week') {
+      for (let w = 0; w < 3; w += 1) {
+        const mon = goals.addDays(hint.date, 7 * w);
+        const days = [];
+        for (let i = 0; i < 7; i += 1) { const d = goals.addDays(mon, i); if (d >= today) days.push(d); }
+        if (!days.length) continue;
+        const d = pickDayInRange(userId, activityId, days, own, itemId);
+        if (d) return d;
+      }
+      return hint.date >= today ? hint.date : today;
+    }
+    if (hint && hint.kind === 'deadline') {
+      const days = [];
+      for (let d = today; d <= hint.date && days.length < 60; d = goals.addDays(d, 1)) days.push(d);
+      const d = days.length ? pickDayInRange(userId, activityId, days, own, itemId) : null;
+      return d || hint.date;
+    }
+  } catch (e) { /* repli ci-dessous */ }
+  try { return chooseAutoPlacementDate(userId, activityId, categoryKey, taskLabel, itemId); } catch (e) { return today; }
+}
 function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel, opts) {
-  const date = todayLocal();
+  // Une date déjà saisie par l'utilisateur (dueDateAuto=0) prime toujours.
+  const cur = db.prepare('SELECT dueDate, dueDateAuto FROM sub_project_items WHERE id = ?').get(itemId);
+  const manual = !!(cur && cur.dueDate && !cur.dueDateAuto);
+  const date = manual ? cur.dueDate : dateForCapture(userId, activityId, categoryKey, itemId, taskLabel);
   const members = goals.membersForActivity(activityId);
   let who = null;
   const noAssign = !!(opts && opts.noAssign);
@@ -360,7 +401,7 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
   }
   // Mode Autonome : un responsable est toujours attribué (à défaut, celui qui capture).
   if (!who && !noAssign && opts && opts.fallbackWho) who = opts.fallbackWho;
-  db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = 2, plannedUserId = COALESCE(plannedUserId, ?) WHERE id = ?').run(date, who, itemId);
+  db.prepare('UPDATE sub_project_items SET dueDate = ?, dueDateAuto = CASE WHEN ? THEN dueDateAuto ELSE 2 END, plannedUserId = COALESCE(plannedUserId, ?) WHERE id = ?').run(date, manual ? 1 : 0, who, itemId);
   try { goalsauto.onSubProjectItemChanged(activityId, categoryKey); } catch (e) { /* non bloquant */ }
   return date;
 }
@@ -368,6 +409,7 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
 module.exports = {
   suggestAssigneeFromHistory,
   placeCaptureDefault,
+  dateForCapture,
   redispatchOverdue,
   LOOKAHEAD_DAYS,
   DEFAULT_TASK_MINUTES,

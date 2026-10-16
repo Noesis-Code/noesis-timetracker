@@ -192,6 +192,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'weekplanner-test.js')], { encoding: 'utf8' }); } catch (e) { wpOk = false; }
   assert(wpOk, 'le planificateur de semaines (test/weekplanner-test.js) passe');
 
+  // Rangement par date à la capture (indices de date, date manuelle prioritaire).
+  let cdOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'capturedate-test.js')], { encoding: 'utf8' }); } catch (e) { cdOk = false; }
+  assert(cdOk, 'le rangement par date à la capture (test/capturedate-test.js) passe');
+
   // Ajout de tâches depuis un document (IA simulée).
   let dtOk = true;
   try { execFileSync('node', [path.join(__dirname, 'documenttasks-test.js')], { encoding: 'utf8' }); } catch (e) { dtOk = false; }
