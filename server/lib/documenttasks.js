@@ -202,7 +202,12 @@ async function callAnthropic({ system, user }) {
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: classify.modelName(), max_tokens: MAX_TOKENS, temperature: 0, system, messages: [{ role: 'user', content: user }] }),
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) {
+      let detail = '';
+      try { const j = await res.json(); detail = (j && j.error && (j.error.type + ' : ' + j.error.message)) || ''; } catch (e) { /* corps illisible */ }
+      console.warn('[documenttasks] API Anthropic HTTP ' + res.status + ' ' + String(detail).slice(0, 300));
+      throw new Error('HTTP ' + res.status);
+    }
     const body = await res.json();
     const block = Array.isArray(body.content) ? body.content.find((b) => b.type === 'text') : null;
     return { text: block ? block.text : '', stopReason: body.stop_reason || null };
