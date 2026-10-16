@@ -21,7 +21,7 @@
   document.getElementById('content').insertAdjacentHTML('beforeend', `
     <div id="docTasksPage" class="docTasksWin hidden">
       <div class="activityPageHeader">
-        <span class="activityPageName">Ajouter des tâches <span id="docTasksBadge" class="essorBadge">Essor</span></span>
+        <span class="activityPageName">Ajouter des tâches <span id="docTasksBadge" class="essorBadge">Expansion</span></span>
         <button type="button" class="menuBtn" id="docTasksClose" aria-label="Fermer">✕</button>
       </div>
       <div class="docTasksScroll">
