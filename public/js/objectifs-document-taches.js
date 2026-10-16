@@ -52,12 +52,6 @@
         <button type="button" id="docTasksPopOk" class="docTasksApplyBtn">OK</button>
       </div>
     </div>
-    <div id="docTasksFoldersPop" class="docTasksPop hidden" role="dialog" aria-label="Mes dossiers connectés">
-      <div class="docTasksPopCard">
-        <div class="docTasksDriveHead"><strong>Mes dossiers connectés</strong><button type="button" class="docTasksX" id="docTasksFoldersClose" aria-label="Fermer">✕</button></div>
-        <div id="docTasksFoldersBody" class="docTasksPopList"></div>
-      </div>
-    </div>
     <div id="docTasksFolderSetPop" class="docTasksPop hidden" role="dialog" aria-label="Réglages du dossier">
       <div class="docTasksPopCard">
         <div class="docTasksDriveHead"><strong id="docTasksFsTitle">Réglages du dossier</strong><button type="button" class="docTasksX" id="docTasksFsClose" aria-label="Fermer">✕</button></div>
@@ -142,12 +136,12 @@
   }
   function loadDrive() {
     driveView = 'main'; driveFile = null; driveErr = '';
-    dApi('GET', '/api/drive/status').then(function (s) { driveSt = s; renderDrive(); if (s.connected && s.folderChosen) { loadFiles(); loadSync(); } else { syncSt = null; renderSync(); } })
+    dApi('GET', '/api/drive/status').then(function (s) { driveSt = s; renderDrive(); if (s.connected && s.folderChosen) { loadSync(); } else { syncSt = null; renderSync(); } })
       .catch(function () { driveSt = { configured: false }; renderDrive(); });
   }
   function loadFiles() {
     dApi('GET', '/api/drive/files').then(function (r) { driveList = r.files || []; renderDrive(); })
-      .catch(function (e) { driveErr = (e && e.message) || 'Erreur Drive.'; renderDrive(); });
+      .catch(function (e) { filesErr = (e && e.message) || 'Erreur Drive.'; renderDrive(); });
   }
   var folderList = [], folderQuery = '', folderSel = null, folderTimer = null, folderSeq = 0, folderLoading = false;
   function norm(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
@@ -179,18 +173,22 @@
     });
   }
   function renderDrive() { renderDriveMain(); renderDisc(); renderFoldersPop(); }
+  var foldersOpen = false, filesErr = '';
   function renderDisc() {
     var d = $('docTasksDisc'), s = driveSt;
     if (!s || !s.configured || !s.connected) { d.innerHTML = ''; return; }
     var n = (s.folders || []).length;
+    if (!n) foldersOpen = false;
     d.innerHTML = driveView === 'confirm'
       ? '<div class="docTasksConfirm">Déconnecter Drive de cette activité ? <button type="button" class="docTasksLink" data-d="disconnectYes">Déconnecter</button> <button type="button" class="docTasksLink" data-d="disconnectNo">Annuler</button></div>'
-      : '<div class="docTasksBottomRow">' + (n ? '<button type="button" class="docTasksLink docTasksFoldersLink" data-d="openFolders">Voir mes dossiers connectés (' + n + ')</button>' : '')
-        + '<button type="button" class="docTasksLink docTasksDiscLink" data-d="disconnect">Déconnecter Drive</button></div>';
+      : '<div class="docTasksBottomRow">' + (n ? '<button type="button" class="docTasksLink docTasksFoldersLink" data-d="openFolders" aria-expanded="' + (foldersOpen ? 'true' : 'false') + '">Voir mes dossiers connectés (' + n + ') ' + (foldersOpen ? '▴' : '▾') + '</button>' : '')
+        + '<button type="button" class="docTasksLink docTasksDiscLink" data-d="disconnect">Déconnecter Drive</button></div>'
+        + (foldersOpen && n ? '<div id="docTasksFoldersBody" class="docTasksFoldersInline"></div>' : '');
   }
   var PENCIL_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
   function renderFoldersPop() {
     var s = driveSt || {}, fl = s.folders || [];
+    if (!$('docTasksFoldersBody')) return;
     $('docTasksFoldersBody').innerHTML = (fl.length ? '<div class="docTasksFolderList">' + fl.map(function (f) {
       return folderRemoveId === f.id
         ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-d="folderRemoveYes" data-id="' + esc(f.id) + '">Retirer</button> <button type="button" class="docTasksLink" data-d="folderRemoveNo">Annuler</button></div>'
@@ -200,7 +198,7 @@
     }).join('') + '</div>' : '<p class="hint">Aucun dossier connecté.</p>')
       + (fl.length < 10 ? '<div><button type="button" class="docTasksLink" data-d="pickFolder">Ajouter un dossier</button></div>' : '')
       + (driveFile ? '' : (driveList.length ? '<div class="docTasksMeta" style="margin-top:10px">Lire un fichier avec l’IA</div>' + driveList.slice(0, 60).map(function (f) { return '<button type="button" class="docTasksPick" data-d="file" data-id="' + esc(f.id) + '">' + esc(f.path || f.name) + '</button>'; }).join('') : ''))
-      + (driveErr ? '<p class="msg">' + esc(driveErr) + '</p>' : '');
+      + (filesErr ? '<p class="msg">' + esc(filesErr) + '</p>' : '');
   }
   var fsId = null, fsMsg = '';
   function renderFolderSet() {
@@ -218,7 +216,6 @@
   function openFolderSet(id) { fsId = id; fsMsg = ''; renderFolderSet(); $('docTasksFolderSetPop').classList.remove('hidden'); }
   function closeFolderSet() { $('docTasksFolderSetPop').classList.add('hidden'); fsId = null; }
   $('docTasksFsClose').addEventListener('click', closeFolderSet);
-  $('docTasksFoldersClose').addEventListener('click', function () { $('docTasksFoldersPop').classList.add('hidden'); });
   $('docTasksFsBody').addEventListener('click', function (e) {
     var b = e.target.closest('[data-f]'); if (!b || !fsId) return;
     var a = b.getAttribute('data-f');
@@ -271,7 +268,7 @@
     if (d === 'connect') {
       dApi('GET', '/api/drive/connect').then(function (r) { if (r && r.url) window.location.href = r.url; }).catch(fail);
     } else if (d === 'pickFolder') {
-      $('docTasksFoldersPop').classList.add('hidden'); driveView = 'folders'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
+      foldersOpen = false; driveView = 'folders'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
     } else if (d === 'closeFolders') {
       driveView = 'main'; folderList = []; folderQuery = ''; folderSel = null; folderSeq++; clearTimeout(folderTimer); renderDrive();
     } else if (d === 'folder') {
@@ -283,7 +280,7 @@
       dApi('POST', '/api/drive/folder', { folderId: folderSel.id }).then(function (r) {
         driveSt.folderChosen = true; driveSt.folderName = r.folderName; driveSt.folders = r.folders || driveSt.folders; driveView = 'main'; driveFile = null; driveList = []; folderList = []; folderQuery = ''; folderSel = null; renderDrive(); loadFiles(); loadSync(); openFolderSet(r.folderId);
       }).catch(fail);
-    } else if (d === 'openFolders') { folderRemoveId = null; renderDrive(); $('docTasksFoldersPop').classList.remove('hidden');
+    } else if (d === 'openFolders') { folderRemoveId = null; foldersOpen = !foldersOpen; filesErr = ''; renderDrive(); if (foldersOpen) loadFiles();
     } else if (d === 'folderEdit') { openFolderSet(id);
     } else if (d === 'folderRemove') { folderRemoveId = id; renderDrive();
     } else if (d === 'folderRemoveNo') { folderRemoveId = null; renderDrive();
@@ -291,11 +288,10 @@
       dApi('POST', '/api/drive/folder/remove', { folderId: id }).then(function (r) {
         folderRemoveId = null; driveSt.folders = r.folders || []; driveSt.folderChosen = driveSt.folders.length > 0; driveSt.folderName = driveSt.folders.length ? driveSt.folders[0].name : null;
         driveFile = null; driveList = []; renderDrive();
-        if (!driveSt.folderChosen) $('docTasksFoldersPop').classList.add('hidden');
-        if (driveSt.folderChosen) { loadFiles(); loadSync(); } else { syncSt = null; renderSync(); }
+        if (driveSt.folderChosen) { loadSync(); } else { syncSt = null; renderSync(); }
       }).catch(fail);
     } else if (d === 'file') {
-      $('docTasksFoldersPop').classList.add('hidden');
+      foldersOpen = false;
       var f = driveList.filter(function (x) { return x.id === id; })[0];
       if (f) { driveFile = f; files = []; renderFiles(); renderDrive(); }
     } else if (d === 'unpick') { driveFile = null; renderDrive(); }
@@ -309,7 +305,6 @@
   }
   $('docTasksDrive').addEventListener('click', onDriveClick);
   $('docTasksDisc').addEventListener('click', onDriveClick);
-  $('docTasksFoldersBody').addEventListener('click', onDriveClick);
 
   // ---------- Surveillance du dossier ----------
   var syncSt = null, syncMsg = '', pendingMode = false;
