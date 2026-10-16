@@ -69,6 +69,13 @@
       </div>
     </div>`);
 
+  // Clic ailleurs : la liste des dossiers connectés se réenroule (phase de capture : avant tout re-rendu).
+  document.addEventListener('click', function (e) {
+    if (!foldersOpen || $('docTasksPage').classList.contains('hidden')) return;
+    var t = e.target;
+    if (t.closest && t.closest('#docTasksFoldersBody, [data-d="openFolders"], #docTasksFolderSetPop')) return;
+    foldersOpen = false; renderDrive();
+  }, true);
   function open() { $('docTasksPage').classList.remove('hidden'); loadDrive(); checkAdded(); loadChanges(); }
   function close() { $('docTasksPage').classList.add('hidden'); }
   TMT.openDocTasks = open;
@@ -202,7 +209,6 @@
         : '<div class="docTasksFolderRow"><button type="button" class="docTasksFolderName docTasksFolderToggle" data-d="folderToggle" data-id="' + esc(f.id) + '" aria-expanded="' + (folderExpanded[f.id] ? 'true' : 'false') + '">' + FOLDER_ICON + esc(f.name || 'Dossier') + (f.paused ? ' <span class="docTasksMeta">(en pause)</span>' : '') + ' <span class="docTasksChev">' + (folderExpanded[f.id] ? '▴' : '▾') + '</span></button>'
           + '<button type="button" class="historyRowIconBtn goalDescEditBtn docTasksFolderIconBtn" data-d="folderEdit" data-id="' + esc(f.id) + '" aria-label="Modifier les réglages de ce dossier" title="Modifier">' + PENCIL_ICON + '</button></div>' + (folderExpanded[f.id] ? folderFilesHtml(f) : '');
     }).join('') + '</div>' : '<p class="hint">Aucun dossier connecté.</p>')
-      + (fl.length < 10 ? '<div><button type="button" class="docTasksLink" data-d="pickFolder">Ajouter un dossier</button></div>' : '')
       + (filesErr ? '<p class="msg">' + esc(filesErr) + '</p>' : '');
   }
   var fsId = null, fsMsg = '', fsConfirm = false;
