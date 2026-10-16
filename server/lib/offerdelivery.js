@@ -167,7 +167,7 @@ async function activateActivitySubscription(activityId, userId) {
       db.prepare('UPDATE sub_projects SET slot = ? WHERE id = ?').run(slot, subProject.id);
       const section = sp.createSection(subProject.id, userId, 'tasks', '');
 
-      const revealed = item.tasks.slice(0, REVEAL_BATCH_SIZE).map((label) => sp.createItem(section, label));
+      const revealed = item.tasks.slice(0, REVEAL_BATCH_SIZE).map((label) => sp.createItem(section, label, { noSpellfix: true }));
       const backlog = item.tasks.slice(REVEAL_BATCH_SIZE);
       replaceQueue(section.id, backlog);
       // Les REVEAL_BATCH_SIZE tâches qui viennent d'être révélées comptent
