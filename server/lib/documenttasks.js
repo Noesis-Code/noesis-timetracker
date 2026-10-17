@@ -199,7 +199,7 @@ const SYSTEM = [
   "- si le document écrit une date pour la tâche, utilise cette date exacte au format AAAA-MM-JJ (même si ce n'est pas un lundi) ;",
   "- sinon, répartis les tâches dans l'ordre logique sur les lundis proposés, selon la capacité hebdomadaire, sans tout mettre au même jour ni à la même semaine ;",
   "- `week` vaut null seulement si aucune date n'a de sens.",
-  "Réponds UNIQUEMENT par du JSON valide, sans texte autour ni balises markdown : {\"tasks\":[{\"title\":\"...\",\"key\":\"...\",\"week\":\"AAAA-MM-JJ\"|null,\"minutes\":30|null}]}",
+  "Réponds UNIQUEMENT par du JSON valide, sans texte autour ni balises markdown : {\"t\":[[\"titre\",\"cleCategorie\",\"AAAA-MM-JJ\"|null,minutes|null],...]} (un tableau par tâche, dans cet ordre exact : titre, clé, date cible, durée en minutes ; {\"t\":[]} si aucune tâche).",
 ].join('\n');
 
 function appBlock(app) {
@@ -251,10 +251,10 @@ async function callAnthropic({ system, stable, variable }) {
   } finally { clearTimeout(timer); }
 }
 
-// Récupère les objets tâche COMPLETS d'un JSON coupé (réponse tronquée à max_tokens).
+// Récupère les éléments tâche COMPLETS (objet {…} ancien format, ou tableau […] format court) d'un JSON coupé (réponse tronquée à max_tokens).
 function salvageTaskObjects(text) {
   const str = String(text || '');
-  const k = str.search(/"tasks"\s*:\s*\[/);
+  const k = str.search(/"(?:tasks|t)"\s*:\s*\[/);
   if (k < 0) return null;
   let i = str.indexOf('[', k) + 1;
   const out = [];
@@ -263,11 +263,19 @@ function salvageTaskObjects(text) {
     const c = str[i];
     if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
     if (c === '"') inStr = true;
-    else if (c === '{') { if (depth === 0) start = i; depth++; }
-    else if (c === '}') { depth--; if (depth === 0 && start >= 0) { try { out.push(JSON.parse(str.slice(start, i + 1))); } catch (e) { /* objet illisible : ignoré */ } start = -1; } }
-    else if (c === ']' && depth === 0) break;
+    else if (c === '{' || c === '[') { if (depth === 0) start = i; depth++; }
+    else if (c === '}' || c === ']') {
+      if (depth === 0) break; // fin de la liste
+      depth--;
+      if (depth === 0 && start >= 0) { try { out.push(JSON.parse(str.slice(start, i + 1))); } catch (e) { /* élément illisible : ignoré */ } start = -1; }
+    }
   }
   return out;
+}
+
+// Format court ["titre","cle","AAAA-MM-JJ"|null,minutes|null] -> objet {title,key,week,minutes} ; l'objet de l'ancien format passe tel quel.
+function taskFromRow(t) {
+  return Array.isArray(t) ? { title: t[0], key: t[1], week: t[2], minutes: t[3] } : t;
 }
 
 const norm = (v) => String(v == null ? '' : v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -292,6 +300,7 @@ function validTargetDate(v, weeks) {
   return v >= weeks[0] && v <= last ? v : null;
 }
 
+// Format de réponse court {"t":[[titre,clé,date,minutes],...]} (moins de jetons de sortie) ; l'ancien {"tasks":[{title,key,week,minutes}]} reste accepté.
 // Revalide la réponse de l'IA : JSON tolérant (entourage/markdown, JSON coupé réparé),
 // semaines/durées contrôlées. Une clé inconnue n'écarte PLUS la tâche : repli sur la clé la plus
 // proche ou la première catégorie, marqué `toChoose` (l'utilisateur corrige dans l'UI).
@@ -300,8 +309,9 @@ function parseDetailed(text, ctx) {
   const raw = String(text);
   let list = null, repaired = false;
   const m = /\{[\s\S]*\}/.exec(raw);
-  if (m) { try { const j = JSON.parse(m[0]); if (j && Array.isArray(j.tasks)) list = j.tasks; } catch (e) { /* réparation ci-dessous */ } }
+  if (m) { try { const j = JSON.parse(m[0]); if (j && Array.isArray(j.t)) list = j.t; else if (j && Array.isArray(j.tasks)) list = j.tasks; } catch (e) { /* réparation ci-dessous */ } }
   if (!list) { list = salvageTaskObjects(raw); repaired = !!(list && list.length); if (!list || !list.length) return null; }
+  list = list.map(taskFromRow);
   const labels = new Map(ctx.candidates.map((c) => [c.key, c.label]));
   const seen = new Set(), tasks = [];
   const dropped = { doublon: 0, vide: 0, limite: 0 };

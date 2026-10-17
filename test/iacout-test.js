@@ -91,6 +91,24 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   assert(ac.cacheable('x'.repeat(4200), 'y'.repeat(100)) && !ac.cacheable('x', 'y'), 'cache : estimation du minimum de 1024 jetons');
   global.fetch = realFetch; delete process.env.ANTHROPIC_API_KEY;
 
+  // ---- Option 4 : sortie compacte ----
+  const ctxT = { candidates: classify.buildClassificationCandidates(act), weeks: [goals.mostRecentMonday(today), goals.addDays(goals.mostRecentMonday(today), 7)] };
+  const wk1 = ctxT.weeks[1];
+  const pc = dt.parseDetailed('{"t":[["Appeler Paul","' + KEY + '","' + wk1 + '",30],["Envoyer devis","' + KEY + '",null,null],["Appeler Paul","' + KEY + '",null,10],["Cle inconnue","zzz","2026-02-31",2]]}', ctxT);
+  assert(pc.tasks.length === 3 && pc.dropped.doublon === 1 && pc.tasks[0].week === wk1 && pc.tasks[0].minutes === 30 && pc.tasks[1].week === null && pc.tasks[1].minutes === null, 'compact : titre/clé/semaine/durée lus, doublon écarté');
+  assert(pc.tasks[2].toChoose === true && pc.tasks[2].week === null && pc.tasks[2].minutes === null, 'compact : clé inconnue à choisir, date et durée invalides revalidées');
+  const po = dt.parseDetailed(JSON.stringify({ tasks: [{ title: 'Ancien', key: KEY, week: wk1, minutes: 20 }] }), ctxT);
+  assert(po.tasks.length === 1 && po.tasks[0].title === 'Ancien' && po.tasks[0].minutes === 20, 'ancien format {"tasks":[{…}]} toujours accepté');
+  const pt = dt.parseDetailed('{"t":[["A","' + KEY + '",null,10],["B","' + KEY + '",null,15],["C coup', ctxT);
+  assert(pt.tasks.length === 2 && pt.repaired, 'compact : réponse tronquée réparée (éléments complets gardés)');
+  const vTask = openTask.id;
+  const cctx = cp.buildContext('own', act);
+  const nd = goals.addDays(today, 6);
+  const vc = cp.validate('{"c":[["t",' + vTask + ',"date","' + nd + '","Trop chargé"],["x",1,"date","' + nd + '","?"],["t",' + vTask + ',"text","Rédiger le plan détaillé","Précision"]]}', cctx);
+  assert(vc.length === 2 && vc[0].field === 'date' && vc[0].before && vc[1].after === 'Rédiger le plan détaillé', 'changements compacts : lus et revalidés (avant relu en base)');
+  const vo = cp.validate(JSON.stringify({ changes: [{ target: 'task', id: vTask, field: 'date', after: nd, reason: 'x' }] }), cctx);
+  assert(vo.length === 1, 'ancien format {"changes":[…]} toujours accepté');
+
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -99,7 +99,7 @@ const SYSTEM = [
   "Ne propose une modification que si elle est clairement justifiée (tâche déjà accomplie de fait, temps estimé manifestement trop court ou trop long au vu des tâches faites, date à venir devenue irréaliste (jamais une date déjà passée : les tâches échues sont gérées ailleurs), libellé à préciser d'après le document). Aucune modification de pure forme. En cas de doute, ne propose rien.",
   "Ne propose JAMAIS de correction d'orthographe, de grammaire, d'accents ni de ponctuation : elles sont posées en silence ailleurs, hors de cette liste.",
   "N'invente aucun nom propre. Utilise UNIQUEMENT les identifiants fournis. Une raison courte (120 caractères max) en français pour chaque modification.",
-  'Réponds UNIQUEMENT par du JSON valide, sans texte autour : {"changes":[{"target":"task"|"weekly","id":123,"field":"date"|"text"|"time"|"instruction","after":"valeur","reason":"..."}]} ; {"changes":[]} si rien à proposer.',
+  'Réponds UNIQUEMENT par du JSON valide, sans texte autour : {"c":[["t"|"w",123,"date"|"text"|"time"|"instruction","valeur","raison"],...]} (un tableau par modification, dans cet ordre : "t" = tâche ou "w" = objectif hebdomadaire, id, champ, nouvelle valeur, raison) ; {"c":[]} si rien à proposer.',
 ].join('\n');
 
 const strip = (s) => String(s == null ? '' : s).replace(/<\/?\s*(document|donnees)\s*>/gi, '');
@@ -164,16 +164,24 @@ function isSpellingOnly(field, before, after, reason) {
   return false;
 }
 
+// Ligne courte ["t"|"w"|"task"|"weekly", id, champ, après, raison] -> objet {target,id,field,after,reason} ; l'objet de l'ancien format passe tel quel.
+function changeFromRow(r) {
+  if (!Array.isArray(r)) return r;
+  const tg = String(r[0]).toLowerCase();
+  return { target: tg === 't' || tg === 'task' ? 'task' : tg === 'w' || tg === 'weekly' ? 'weekly' : null, id: r[1], field: r[2], after: r[3], reason: r[4] };
+}
+
 // Renvoie [{ target, targetId, field, before, after, reason }] — « avant » vient de la base, jamais de l'IA.
 function validate(text, ctx) {
   const m = /\{[\s\S]*\}/.exec(String(text || ''));
   if (!m) return null;
   let j; try { j = JSON.parse(m[0]); } catch (e) { return null; }
-  if (!j || !Array.isArray(j.changes)) return null;
+  const rows = j && (Array.isArray(j.c) ? j.c : Array.isArray(j.changes) ? j.changes : null); // format court {"c":[[cible,id,champ,après,raison]]} ou ancien {"changes":[{…}]}
+  if (!rows) return null;
   const tasks = new Map(ctx.open.map((t) => [t.id, t]));
   const weeklies = new Map(ctx.weeklies.map((w) => [w.id, w]));
   const seen = new Set(), out = [];
-  for (const c of j.changes) {
+  for (const c of rows.map(changeFromRow)) {
     if (out.length >= MAX_CHANGES) break;
     if (!c || typeof c !== 'object') continue;
     const target = c.target === 'task' || c.target === 'weekly' ? c.target : null;
