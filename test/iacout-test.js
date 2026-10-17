@@ -130,6 +130,87 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   const vo = cp.validate(JSON.stringify({ changes: [{ target: 'task', id: vTask, field: 'date', after: nd, reason: 'x' }] }), cctx);
   assert(vo.length === 1, 'ancien format {"changes":[…]} toujours accepté');
 
+  // ---- Option 3 : API Batch pour la surveillance programmée ----
+  const aibatch = require('../server/lib/aibatch');
+  process.env.ANTHROPIC_API_KEY = 'k';
+  const sonnet2 = 'claude-sonnet-4-5';
+  const bstore = new Map(); let submitFail = false, nSubmit = 0, nGet = 0, lastSubmit = null;
+  aibatch.setFetch(async (url, init) => {
+    const json = (o, ok = true, st = 200) => ({ ok, status: st, json: async () => o, text: async () => (typeof o === 'string' ? o : JSON.stringify(o)) });
+    if (init.method === 'POST') {
+      if (submitFail) return json({}, false, 500);
+      const body = JSON.parse(init.body); nSubmit++; lastSubmit = body;
+      const id = 'msgbatch_' + nSubmit; bstore.set(id, { status: 'in_progress', requests: body.requests, lines: [] });
+      return json({ id, processing_status: 'in_progress' });
+    }
+    const m = String(url).match(/batches\/([^/]+)(\/results)?$/);
+    const b = m && bstore.get(m[1]);
+    if (!b) return json({}, false, 404);
+    if (m[2]) return json(b.lines.map((l) => JSON.stringify(l)).join('\n'));
+    nGet++;
+    return json({ id: m[1], processing_status: b.status, results_url: b.status === 'ended' ? 'https://api.anthropic.com/v1/messages/batches/' + m[1] + '/results' : null });
+  });
+  const okLine = (cid, title) => ({ custom_id: cid, result: { type: 'succeeded', message: { model: sonnet2, stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ t: [[title, KEY, null, 30]] }) }], usage: { input_tokens: 1000000, output_tokens: 0 } } } });
+  const endBatch = (id, lines) => { const b = bstore.get(id); b.status = 'ended'; b.lines = lines; };
+  const seenF = (id) => db.prepare('SELECT 1 FROM drive_seen_files WHERE fileId = ?').get(id);
+  const taskRow = (title) => db.prepare('SELECT status FROM drive_seen_tasks WHERE title = ?').get(title);
+  docs['b1-aaaaa'] = { text: 'Premier texte batch', mt: '2026-10-05T00:00:00Z', parents: ['fold-1111'] };
+  docs['b2-aaaaa'] = { text: 'Second texte batch', mt: '2026-10-05T00:00:00Z', parents: ['fold-1111'] };
+  const direct = [];
+  dt.setCaller(async () => { direct.push(1); return JSON.stringify({ t: [['Tâche directe', KEY, null, 10]] }); });
+  const uniq = (t) => 'Tâche ' + t;
+  let r = await ds.syncConnection('own', act);
+  assert(nSubmit === 1 && lastSubmit.requests.length === 2 && direct.length === 0 && r.batched === 2, 'lot : fichiers de la surveillance soumis en UN lot, aucun appel direct');
+  const sp = lastSubmit.requests[0].params;
+  assert(sp.model && sp.max_tokens > 0 && Array.isArray(sp.system) && sp.messages[0].content[0].cache_control, 'lot : params = modèle, max_tokens, system en blocs, message avec cache');
+  assert(!seenF('b1-aaaaa') && !seenF('b2-aaaaa'), 'lot : fichiers non marqués vus avant le résultat');
+  const brow = db.prepare('SELECT * FROM drive_batches').get();
+  assert(brow && brow.status === 'submitted' && !/texte batch/i.test(brow.fileMap) && Object.keys(JSON.parse(brow.fileMap)).length === 2, 'lot : ligne drive_batches persistée sans contenu de document');
+  // redémarrage du serveur : nouvelle instance du module, état relu depuis la base
+  delete require.cache[require.resolve('../server/lib/drivesync')];
+  const ds2 = require('../server/lib/drivesync');
+  r = await ds2.syncConnection('own', act);
+  assert(nSubmit === 1 && nGet >= 1 && !seenF('b1-aaaaa'), 'lot en cours : pas de second lot pour les mêmes fichiers, rien d\'appliqué avant la fin');
+  const ids = Object.keys(JSON.parse(brow.fileMap));
+  const cidOf = (fid) => ids.find((c) => JSON.parse(brow.fileMap)[c].fileId === fid);
+  endBatch('msgbatch_1', [okLine(cidOf('b1-aaaaa'), uniq('B1')), { custom_id: cidOf('b2-aaaaa'), result: { type: 'errored', error: { type: 'api_error' } } }]);
+  const costBefore = db.prepare("SELECT COALESCE(SUM(costUsd),0) c FROM ai_usage_log WHERE feature = 'surveillance-drive-batch'").get().c;
+  r = await ds2.syncConnection('own', act);
+  assert(seenF('b1-aaaaa') && taskRow(uniq('B1')) && taskRow(uniq('B1')).status === 'pending' && r.proposed >= 1, 'lot terminé : fichier réussi marqué vu + tâche en attente (même logique que les appels directs)');
+  assert(!seenF('b2-aaaaa'), 'lot : fichier en erreur non marqué (nouvel essai)');
+  const costRow = db.prepare("SELECT COALESCE(SUM(costUsd),0) c, SUM(calls) n FROM ai_usage_log WHERE feature = 'surveillance-drive-batch'").get();
+  assert(Math.abs(costRow.c - costBefore - 1.5) < 1e-9, 'lot : coût enregistré à 50 % (1 M jetons Sonnet = 1,50 $, feature surveillance-drive-batch)');
+  assert(db.prepare("SELECT status FROM drive_batches WHERE batchId = 'msgbatch_1'").get().status === 'done', 'lot : marqué terminé');
+  // le fichier en erreur est resoumis au passage suivant (nouveau lot) ; résultats expirés / annulés : rien n'est marqué
+  nGet = 0; await ds2.syncConnection('own', act);
+  assert(nSubmit === 2, 'lot : le fichier en erreur repart dans un nouveau lot');
+  endBatch('msgbatch_2', [{ custom_id: 'f0', result: { type: 'expired' } }]);
+  await ds2.syncConnection('own', act);
+  assert(!seenF('b2-aaaaa') && nSubmit === 3, 'lot expiré : fichier non marqué, resoumis');
+  endBatch('msgbatch_3', [{ custom_id: 'f0', result: { type: 'canceled' } }]);
+  // synchroniser maintenant : appels directs immédiats même en mode lot
+  const nS = nSubmit; const rn = await ds2.syncNow('own', act);
+  assert(nSubmit === nS && direct.length >= 1 && seenF('b2-aaaaa'), 'synchroniser maintenant : appels directs, jamais de lot');
+  // DRIVE_SYNC_BATCH=off
+  docs['b3-aaaaa'] = { text: 'Troisième texte', mt: '2026-10-06T00:00:00Z', parents: ['fold-1111'] };
+  process.env.DRIVE_SYNC_BATCH = 'off'; const d0 = direct.length;
+  await ds2.syncConnection('own', act);
+  assert(nSubmit === nS && direct.length === d0 + 1, 'DRIVE_SYNC_BATCH=off : retour aux appels directs');
+  delete process.env.DRIVE_SYNC_BATCH;
+  // repli : soumission impossible => appels directs
+  docs['b4-aaaaa'] = { text: 'Quatrième texte', mt: '2026-10-06T00:00:00Z', parents: ['fold-1111'] };
+  submitFail = true; const d1 = direct.length;
+  await ds2.syncConnection('own', act);
+  assert(direct.length === d1 + 1 && seenF('b4-aaaaa'), 'soumission en échec : repli sur les appels directs');
+  submitFail = false;
+  // budget bloqué : rien n'est soumis, rien n'est marqué
+  docs['b5-aaaaa'] = { text: 'Cinquième texte', mt: '2026-10-07T00:00:00Z', parents: ['fold-1111'] };
+  ab.record('own', sonnet2, { input_tokens: 1e7 }, 'test-budget');
+  const nS2 = nSubmit;
+  r = await ds2.syncConnection('own', act);
+  assert(r.aiBlocked && nSubmit === nS2 && !seenF('b5-aaaaa'), 'budget bloqué : aucun lot soumis, fichier non marqué');
+  aibatch.setFetch(null); delete process.env.ANTHROPIC_API_KEY; dt.setCaller(null);
+
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

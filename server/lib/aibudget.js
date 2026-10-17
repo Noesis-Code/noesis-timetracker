@@ -120,8 +120,8 @@ function check(userId, now) {
   return { ok: false, resumesOn: s.resumesOn, message: blockedMessage(s.resumesOn) };
 }
 
-// record(userId, model, usage, feature) : enregistre le coût réel d'un appel. Ne lève jamais.
-function record(userId, model, usage, feature, now) {
+// record(userId, model, usage, feature, now, factor) : enregistre le coût réel d'un appel (factor 0,5 pour un lot Anthropic). Ne lève jamais.
+function record(userId, model, usage, feature, now, factor) {
   try {
     const u = usage || {};
     const inTok = (Number(u.input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0) + (Number(u.cache_read_input_tokens) || 0);
@@ -131,7 +131,7 @@ function record(userId, model, usage, feature, now) {
       ON CONFLICT(userId, day, model, feature) DO UPDATE SET calls = calls + 1,
         inputTokens = inputTokens + excluded.inputTokens, outputTokens = outputTokens + excluded.outputTokens,
         costUsd = costUsd + excluded.costUsd`)
-      .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u));
+      .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u) * (Number.isFinite(factor) && factor > 0 ? factor : 1));
   } catch (e) { console.warn('[aibudget] enregistrement impossible :', e && e.message); }
 }
 
