@@ -6,6 +6,8 @@
 // déduplique par clé normalisée (tâches déjà ajoutées / refusées / en attente / existantes), puis :
 //   - mode 'auto'    : ajoute via documenttasks.apply (addCategoryTask) ;
 //   - mode 'propose' : stocke en 'pending' ; rien n'est écrit avant la validation de l'utilisateur.
+// Les « modifications proposées » ne sont demandées qu'aux lectures suivantes d'un fichier (pas à la première : rien à comparer) ;
+// elles sortent de propose() (un seul passage), plus d'appel séparé ici (il doublait l'appel déjà fait par propose).
 // Règles : une tâche supprimée ou refusée n'est jamais rajoutée (la ligne drive_seen_tasks reste) ;
 // le document est une DONNÉE (prompt de documenttasks) ; aucun contenu de document n'est journalisé
 // (compteurs seulement) ; plafond OPTIONNEL DRIVE_SYNC_MAX_AI_CALLS_PER_DAY (défaut : aucun) appels IA/jour/utilisateur ;
@@ -16,7 +18,6 @@ const db = require('../db');
 const drive = require('./drive');
 const documenttasks = require('./documenttasks');
 const aibudget = require('./aibudget');
-const changeproposals = require('./changeproposals');
 const classify = require('./goalstaskclassify');
 const push = require('./push');
 const { activityHasEssor } = require('./offer1access');
@@ -229,12 +230,11 @@ async function syncConnection(userId, activityId, opts) {
       let prop;
       try {
         const dataUrl = 'data:text/plain;base64,' + Buffer.from(text, 'utf8').toString('base64');
-        prop = await aibudget.runAs(userId, () => documenttasks.propose(userId, activityId, { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl }] }, { skipRate: true }));
+        prop = await aibudget.runAs(userId, () => documenttasks.propose(userId, activityId, { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl }] }, { skipRate: true, skipChanges: !seen }));
       } catch (e) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; continue; } // échec IA : fichier non marqué, nouvel essai au prochain passage ; l'IA semble en panne après 3 échecs de suite
       aiFails = 0;
       putFile.run(userId, activityId, f.id, f.modifiedTime, hash);
-      // Modifications proposées (16 oct. 2026) : propositions seulement, rien n'est écrit (changeproposals.js).
-      try { await aibudget.runAs(userId, () => changeproposals.generate(userId, activityId, { docText: text })); } catch (e) { /* non bloquant */ } // runAs : coût imputé à l'utilisateur (budget IA), pas au compte système
+      // Les « modifications proposées » sont générées par propose() (même runAs : coût imputé à l'utilisateur), sauf à la première lecture du fichier (skipChanges : rien à comparer).
       const now = new Date().toISOString();
       for (const t of prop.tasks) {
         const tk = taskKey(t.title);

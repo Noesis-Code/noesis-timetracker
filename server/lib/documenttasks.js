@@ -328,6 +328,7 @@ function capacityWarnings(tasks, capacityMinutes) {
 }
 
 // opts.skipRate : surveillance Drive (server/lib/drivesync.js), qui a son propre plafond quotidien.
+// opts.skipChanges : première lecture d'un fichier surveillé, aucune « modification proposée » à comparer (pas d'appel IA).
 async function propose(userId, activityId, body, opts) {
   const instruction = String((body && body.instruction) || '').trim().slice(0, MAX_INSTRUCTION);
   if (!instruction) throw httpError(400, 'Écris une consigne (ou choisis un raccourci).');
@@ -349,7 +350,7 @@ async function propose(userId, activityId, body, opts) {
   console.log(`[documenttasks] trouvées=${parsed.found} retenues=${tasks.length} doublons=${parsed.dropped.doublon} vides=${parsed.dropped.vide} limite=${parsed.dropped.limite} aChoisir=${parsed.toChoose} reparee=${parsed.repaired} coupee=${aiTruncated}`);
   // Modifications proposées (16 oct. 2026) : propositions d'avant/après sur l'existant, rien n'est écrit.
   let changes = 0;
-  if (doc.text) { try { changes = (await require('./changeproposals').generate(userId, activityId, { docText: doc.text })).added || 0; } catch (e) { /* non bloquant */ } }
+  if (doc.text && !(opts && opts.skipChanges)) { try { changes = (await require('./changeproposals').generate(userId, activityId, { docText: doc.text })).added || 0; } catch (e) { /* non bloquant */ } }
   return {
     changes,
     tasks, truncated: doc.truncated, notes: doc.notes,
