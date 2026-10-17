@@ -427,6 +427,126 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   assert([1, 2, 3].filter((k) => seenF('bud' + k + '-aaaaa')).length === 0, 'I6 : fichiers non soumis non marqués vus');
   aibatch.setFetch(null); delete process.env.ANTHROPIC_API_KEY;
 
+  // ======== Corrections de relecture (N1 à N5) ========
+  const runAll = async (n) => { for (let k = 0; k < n; k++) { resetNext(); await ds.syncConnection('own', act); } };
+  db.prepare("UPDATE drive_batches SET status = 'done'").run();
+  process.env.DRIVE_SYNC_BATCH = 'off';
+  dt.setCaller(okCaller);
+  await runAll(3); // vide la file : plus aucun fichier à traiter avant les nouveaux cas
+  const listedReason = (fid) => (db.prepare('SELECT reason FROM drive_skipped WHERE fileId = ?').get(fid) || {}).reason;
+
+  // ---- N1 : plus de 80 tâches dans une réponse = réponse coupée (division + réessai), rien de perdu ----
+  const rows150 = Array.from({ length: 150 }, (_, i) => 'Ligne ' + i + ' ' + NW(8, 'y' + i + '_')).join('\n');
+  addDoc('n1-aaaaa', rows150);
+  const n1sizes = [];
+  dt.setCaller(async (a) => {
+    const ls = [...a.variable.matchAll(/Ligne (\d+) /g)].map((mm) => mm[1]); n1sizes.push(ls.length);
+    return JSON.stringify({ t: ls.map((l) => ['Tâche N1 L' + l, KEY, null, 10]) });
+  });
+  await ds.syncConnection('own', act);
+  assert(n1sizes[0] === 150 && !seenF('n1-aaaaa') && taskRow('Tâche N1 L0') && !taskRow('Tâche N1 L149'), 'N1 : 150 tâches en un segment => 80 gardées, fichier PAS marqué vu (réponse coupée)');
+  resetNext(); await ds.syncConnection('own', act);
+  assert(seenF('n1-aaaaa') && n1sizes.slice(1).every((n) => n < 150) && taskRow('Tâche N1 L149') && taskRow('Tâche N1 L100'), 'N1 : au réessai le segment est divisé, les 150 tâches sont toutes rangées, fichier marqué vu');
+  addDoc('n1b-aaaaa', rows150.replace(/Ligne /g, 'Rang '));
+  dt.setCaller(async (a) => JSON.stringify({ t: Array.from({ length: 150 }, (_, i) => ['Jamais ' + a.variable.length + ' ' + i, KEY, null, 10]) }));
+  await runAll(3);
+  assert(listedReason('n1b-aaaaa') === 'réponse IA incomplète' && seenF('n1b-aaaaa'), 'N1 : toujours coupée après 3 essais => listée dans drive_skipped (rien de silencieux)');
+
+  // ---- N2 : panne persistante propre à un fichier (HTTP 400) plafonnée puis listée ; panne globale jamais listée ----
+  process.env.DRIVE_SYNC_MAX_FILE_INFRA_FAILS = '3';
+  ['n2a', 'n2b', 'n2c'].forEach((id) => addDoc(id + '-aaaaa', NW(30, id + 'bad_')));
+  let goodN = 0;
+  dt.setCaller(async (a) => { if (/n2[abc]bad_/.test(a.variable)) throw new Error('HTTP 400'); return JSON.stringify({ t: [] }); });
+  const newGood = () => { goodN++; addDoc('n2g' + goodN + '-aaaaa', NW(30, 'good' + goodN + '_')); };
+  for (let k = 0; k < 4; k++) { newGood(); await ds.syncConnection('own', act); }
+  assert([1, 2, 3, 4].every((k) => seenF('n2g' + k + '-aaaaa')), 'N2 : 3 fichiers en panne 400 n\'affament pas les autres (fichiers sains traités à chaque passage)');
+  assert(['n2a', 'n2b', 'n2c'].every((id) => listedReason(id + '-aaaaa') === 'erreur IA persistante sur ce fichier' && seenF(id + '-aaaaa')), 'N2 : après le plafond (3 ici), les fichiers en panne propre sont listés avec une raison claire');
+  const nl = db.prepare('SELECT COUNT(*) n FROM drive_skipped').get().n;
+  addDoc('n2d-aaaaa', NW(30, 'n2dglob_'));
+  dt.setCaller(async () => { throw new Error('HTTP 402'); });
+  await runAll(5);
+  assert(!seenF('n2d-aaaaa') && !listedReason('n2d-aaaaa') && db.prepare('SELECT COUNT(*) n FROM drive_skipped').get().n === nl, 'N2 : panne globale (402) sur 5 passages => rien n\'est listé ni marqué vu');
+  dt.setCaller(async () => { throw new Error('HTTP 400'); });
+  addDoc('n2e-aaaaa', NW(30, 'n2eall_'));
+  await runAll(5);
+  assert(!listedReason('n2d-aaaaa') && !listedReason('n2e-aaaaa'), 'N2 : 400 sans aucun succès dans le passage (crédit épuisé possible) => rien n\'est compté ni listé');
+  dt.setCaller(okCaller); await runAll(2);
+  assert(seenF('n2d-aaaaa') && seenF('n2e-aaaaa') && !listedReason('n2d-aaaaa'), 'N2 : l\'IA revenue, les fichiers sont traités normalement');
+  delete process.env.DRIVE_SYNC_MAX_FILE_INFRA_FAILS;
+
+  // ---- N3 : un lot en vol réduit le reste du budget ; coût estimé x 1,25 sur le cache ----
+  process.env.ANTHROPIC_API_KEY = 'k'; aibatch.setFetch(batchFetch); delete process.env.DRIVE_SYNC_BATCH;
+  db.prepare("UPDATE drive_batches SET status = 'done'").run();
+  const prm = require('../server/lib/docanalysis').requestParams({ parts: { stable: 'x'.repeat(4000), variable: 'y'.repeat(2000) }, want: { t: true, c: false } });
+  const cacheTok = Math.ceil(JSON.stringify(prm.system[0]).length / 4) + Math.ceil(JSON.stringify(prm.messages[0].content[0]).length / 4);
+  const plainTok = Math.ceil(JSON.stringify(prm.messages[0].content[1]).length / 4);
+  const pr = ab.priceFor(prm.model);
+  assert(Math.abs(ds.maxCostOf(prm) - ((cacheTok * 1.25 + plainTok) * pr.in + prm.max_tokens * pr.out) * 0.5 / 1e6) < 1e-12, 'N3 : estimation = entrée mise en cache x 1,25 + entrée normale x 1 + sortie maximale, à 50 %');
+  const sp3 = ab.status('own'); const tr3 = ab.trancheOf(new Date()); const c3 = ds.maxCostOf(prm);
+  process.env.AI_BUDGET_MONTH_USD = String((sp3.spentMonth + c3 * 1.6) * 4 / tr3);
+  addDoc('n3a-aaaaa', NW(30, 'n3a_'));
+  const sub3 = nSubmit; rr = await ds.syncConnection('own', act);
+  const est1 = db.prepare("SELECT estCost FROM drive_batches WHERE status = 'submitted' ORDER BY id DESC").get();
+  assert(nSubmit === sub3 + 1 && est1 && est1.estCost > 0 && est1.estCost <= c3 * 1.6, 'N3 : coût estimé stocké dans drive_batches (colonne estCost)');
+  addDoc('n3b-aaaaa', NW(30, 'n3b_'));
+  rr = await ds.syncConnection('own', act);
+  assert(nSubmit === sub3 + 1 && rr.budgetDeferred === 1 && !seenF('n3b-aaaaa'), 'N3 : le lot en vol réduit le reste : le 2e fichier attend (sinon le même reste serait consommé deux fois)');
+  db.prepare("UPDATE drive_batches SET status = 'done'").run();
+  delete process.env.AI_BUDGET_MONTH_USD;
+  rr = await ds.syncConnection('own', act);
+  assert(nSubmit === sub3 + 2, 'N3 : lot relevé (terminé) => le reste est de nouveau disponible');
+  db.prepare("UPDATE drive_batches SET status = 'done'").run();
+  aibatch.setFetch(null); delete process.env.ANTHROPIC_API_KEY; process.env.DRIVE_SYNC_BATCH = 'off';
+
+  // ---- N4 : fichier de 400 segments traité par morceaux, sans rien perdre ni répéter ----
+  dt.setCaller(okCaller); await runAll(3);
+  const segPara = (i) => ('w' + i + '_ ').repeat(Math.floor(19500 / ('w' + i + '_ ').length)).trim();
+  addDoc('n4-aaaaa', Array.from({ length: 400 }, (_, i) => segPara(i)).join('\n\n'));
+  const segSeen = [];
+  dt.setCaller(async (a) => { const mm = /\bw(\d+)_ /.exec(a.variable.split('<document>')[1] || ''); segSeen.push(mm ? Number(mm[1]) : -1); return JSON.stringify({ t: [] }); });
+  await ds.syncConnection('own', act);
+  assert(segSeen.length === 40 && !seenF('n4-aaaaa') && hashRows('n4-aaaaa') === 0, 'N4 : au plus 40 segments par fichier et par passage, fichier non marqué vu');
+  for (let k = 1; k < 10; k++) await ds.syncConnection('own', act);
+  assert(seenF('n4-aaaaa') && segSeen.length === 400 && new Set(segSeen).size === 400 && !segSeen.includes(-1), 'N4 : 400 segments traités en 10 passages, chacun une seule fois (reprise par empreintes), fichier marqué vu à la fin');
+  assert(!listedReason('n4-aaaaa') && !db.prepare('SELECT 1 FROM drive_seg_done WHERE fileId = ?').get('n4-aaaaa') && !db.prepare('SELECT 1 FROM drive_progress WHERE fileId = ?').get('n4-aaaaa'), 'N4 : état de reprise effacé à la fin');
+  process.env.DRIVE_SYNC_MAX_DEFER_PASSES = '1';
+  addDoc('n4b-aaaaa', Array.from({ length: 100 }, (_, i) => segPara(1000 + i)).join('\n\n'));
+  segSeen.length = 0;
+  await ds.syncConnection('own', act); await ds.syncConnection('own', act);
+  assert(listedReason('n4b-aaaaa') === 'trop volumineux (traité en partie)' && seenF('n4b-aaaaa') && segSeen.length === 40, 'N4 : report prolongé (au-delà du plafond de passages) => fichier listé « trop volumineux »');
+  delete process.env.DRIVE_SYNC_MAX_DEFER_PASSES;
+  process.env.DRIVE_SYNC_MAX_SEGS_PER_PASS = '25';
+  addDoc('n4c-aaaaa', Array.from({ length: 30 }, (_, i) => segPara(2000 + i)).join('\n\n'));
+  segSeen.length = 0; await ds.syncConnection('own', act);
+  assert(segSeen.length === 25 && !seenF('n4c-aaaaa'), 'N4 : plafond de segments par passage');
+  delete process.env.DRIVE_SYNC_MAX_SEGS_PER_PASS; await ds.syncConnection('own', act);
+  assert(seenF('n4c-aaaaa') && segSeen.length === 30, 'N4 : le reste est traité au passage suivant, sans répétition');
+
+  // ---- N5 : une entrée skip:* inchangée n'est pas retéléchargée ; modifiée, elle est réévaluée ----
+  dt.setCaller(okCaller); await runAll(2);
+  const dl = []; const baseFetch = mockFetch;
+  drive.setFetch(async (url, opt) => { const mm = String(url).match(/files\/([^/?]+)\/export/); if (mm) dl.push(mm[1]); return baseFetch(url, opt); });
+  const longSent = 'Il faut impérativement préparer le dossier complet pour la réunion du comité de direction avant la fin du mois prochain sans faute';
+  addDoc('n5a-aaaaa', 'Rappeler Paul demain'); addDoc('n5b-aaaaa', longSent); addDoc('n5c-aaaaa', longSent);
+  await ds.syncConnection('own', act);
+  assert(skippedReason('n5a-aaaaa') === 'vide' && skippedReason('n5c-aaaaa') === 'doublon' && db.prepare("SELECT dupHash FROM drive_skipped WHERE fileId = 'n5c-aaaaa'").get().dupHash, 'N5 : fichier court ignoré, doublon ignoré (empreinte de l\'original mémorisée)');
+  dl.length = 0; await ds.syncConnection('own', act); await ds.syncConnection('own', act);
+  assert(!dl.includes('n5a-aaaaa') && !dl.includes('n5c-aaaaa'), 'N5 : skip inchangé (court / doublon dont l\'original est inchangé) => aucun téléchargement répété');
+  dl.length = 0; await ds.syncNow('own', act);
+  assert(dl.includes('n5a-aaaaa') && dl.includes('n5c-aaaaa'), 'N5 : « Synchroniser maintenant » relit quand même les entrées skip');
+  addDoc('n5d-aaaaa', 'Appeler Marie'); await ds.syncConnection('own', act); dl.length = 0;
+  process.env.DRIVE_PREFILTER = 'off'; await ds.syncConnection('own', act); delete process.env.DRIVE_PREFILTER;
+  assert(dl.includes('n5d-aaaaa'), 'N5 : DRIVE_PREFILTER=off relit les entrées skip');
+  addDoc('n5e-aaaaa', longSent + ' et ensuite revoir les budgets'); addDoc('n5f-aaaaa', longSent + ' et ensuite revoir les budgets');
+  await ds.syncConnection('own', act);
+  assert(skippedReason('n5f-aaaaa') === 'doublon', 'N5 : nouveau doublon ignoré');
+  touch('n5e-aaaaa', 'Texte entièrement différent qui contient assez de mots pour être traité par le pré-filtre local sans aucune difficulté particulière');
+  dl.length = 0; await ds.syncConnection('own', act);
+  assert(dl.includes('n5f-aaaaa') && !skippedReason('n5f-aaaaa'), 'N5 : l\'original change => le doublon est relu et réévalué (invariant B1)');
+  touch('n5a-aaaaa', 'Appeler Paul demain'); dl.length = 0; await ds.syncConnection('own', act);
+  assert(dl.includes('n5a-aaaaa'), 'N5 : skip dont le fichier a changé (modifiedTime) => relu et réévalué');
+  drive.setFetch(mockFetch); delete process.env.DRIVE_SYNC_BATCH; dt.setCaller(null);
+
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -17,6 +17,10 @@
 // Pré-filtre local avant l'IA (driveprefilter.js ; DRIVE_PREFILTER=off ; contourné en manuel) : fichiers vides / doublons / sans mots ignorés et listés.
 // Fichier déjà vu qui change : seuls les blocs nouveaux (empreintes, drivechunks.js) partent à l'IA. Soumission impossible => appels directs. Variables : DRIVE_SYNC_INTERVAL_MIN (0 ou off = désactivé), DRIVE_SYNC_MAX_AI_CALLS_PER_DAY,
 // DRIVE_SYNC_MAX_AI_PER_PASS (50), DRIVE_SYNC_BATCH=off (retour aux appels directs).
+// Invariant : tout fichier est soit traité, soit listé (drive_skipped). Réponse IA au-delà de 80 tâches = réponse coupée (segment divisé, essais plafonnés) ;
+// panne propre à un fichier (HTTP 400/413/422) plafonnée (DRIVE_SYNC_MAX_FILE_INFRA_FAILS, 10 sur 24 h) puis listée, panne globale (clé, crédit, réseau, 5xx) jamais ;
+// fichier volumineux : au plus DRIVE_SYNC_MAX_SEGS_PER_FILE (40) segments par passage et DRIVE_SYNC_MAX_SEGS_PER_PASS (120) en tout, reprise par empreintes de segments,
+// listé « trop volumineux » après DRIVE_SYNC_MAX_DEFER_PASSES (24) passages ; entrée skip:* non relue tant que le fichier n'a pas changé (doublon : tant que l'original est inchangé).
 const crypto = require('crypto');
 const db = require('../db');
 const drive = require('./drive');
@@ -214,6 +218,12 @@ const BATCH_PURGE_MS = 7 * 24 * 3600 * 1000; // les lignes terminées / expirée
 const MAX_FILE_ATTEMPTS = 3; // réponses coupées ou inexploitables : 3 essais par fichier, puis marqué vu + listé dans drive_skipped
 const BACKOFF_MS = 30 * 60 * 1000; // attente avant le nouvel essai : 30 min x 2^(essais-1)
 const SEG_MAX = documenttasks.MAX_DOC_CHARS - 500; // un texte plus long est découpé en segments, jamais tronqué
+const intEnv = (name, def) => { const n = parseInt(process.env[name], 10); return Number.isFinite(n) && n > 0 ? n : def; };
+const maxInfraFails = () => intEnv('DRIVE_SYNC_MAX_FILE_INFRA_FAILS', 10); // pannes IA propres à un fichier, sur INFRA_WINDOW_MS, avant de le lister
+const INFRA_WINDOW_MS = 24 * 3600 * 1000;
+const maxSegsPerFile = () => intEnv('DRIVE_SYNC_MAX_SEGS_PER_FILE', 40); // segments envoyés pour UN fichier par passage (le reste : passages suivants)
+const maxSegsPerPass = () => intEnv('DRIVE_SYNC_MAX_SEGS_PER_PASS', 120); // segments envoyés au total par passage
+const maxDeferPasses = () => intEnv('DRIVE_SYNC_MAX_DEFER_PASSES', 24); // passages de report d'un fichier volumineux avant de le lister
 db.exec(`CREATE TABLE IF NOT EXISTS drive_attempts (
   userId TEXT NOT NULL,
   activityId INTEGER NOT NULL,
@@ -266,41 +276,107 @@ function attemptsOf(userId, activityId, fileId, modifiedTime) {
   if (r && r.modifiedTime !== modifiedTime) { db.prepare('DELETE FROM drive_attempts WHERE userId = ? AND activityId = ? AND fileId = ?').run(userId, activityId, fileId); return null; }
   return r || null;
 }
-const SKIP_REASON = { truncated: 'réponse IA incomplète', unusable: 'réponse IA inexploitable' };
+const SKIP_REASON = { truncated: 'réponse IA incomplète', unusable: 'réponse IA inexploitable', infra: 'erreur IA persistante sur ce fichier', big: 'trop volumineux (traité en partie)' };
+const isCut = (prop) => !!prop.aiTruncated || !!(prop.dropped && prop.dropped.limite > 0); // plus de 80 tâches dans la réponse : les suivantes seraient perdues => segment divisé et réessayé
+const ids = (userId, activityId, fileId) => [userId, activityId, fileId];
+
+// Fichier abandonné MAIS listé : marqué vu (plus de relecture tant qu'il ne change pas ; empreintes de blocs NON enregistrées) + drive_skipped (visible dans GET /drive/sync).
+function listSkipped(userId, activityId, m, reason, st, out) {
+  st.putFile.run(userId, activityId, m.fileId, m.modifiedTime, m.hash);
+  db.prepare('INSERT OR REPLACE INTO drive_skipped (userId, activityId, fileId, name, reason, at) VALUES (?, ?, ?, ?, ?, ?)').run(userId, activityId, m.fileId, m.name || '', reason, new Date().toISOString());
+  clearFileState(userId, activityId, m.fileId);
+  (out.skipped = out.skipped || []).push({ name: m.name || '', reason });
+}
+// Efface tout l'état de traitement d'un fichier (essais, pannes, reprise par segments).
+function clearFileState(userId, activityId, fileId) {
+  ['drive_attempts', 'drive_infra_fails', 'drive_progress', 'drive_seg_done'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ? AND fileId = ?`).run(...ids(userId, activityId, fileId)));
+}
+// Panne IA propre au fichier (4xx déterministe) : comptée sur 24 h ; au plafond le fichier est listé. Une panne globale n'arrive jamais ici.
+function bumpInfra(userId, activityId, m, st, out) {
+  const now = Date.now();
+  const r = db.prepare('SELECT * FROM drive_infra_fails WHERE userId = ? AND activityId = ? AND fileId = ?').get(...ids(userId, activityId, m.fileId));
+  let n = 1, ws = new Date(now).toISOString();
+  if (r && r.modifiedTime === m.modifiedTime && now - Date.parse(r.windowStart) <= INFRA_WINDOW_MS) { n = r.n + 1; ws = r.windowStart; }
+  if (n >= maxInfraFails()) { listSkipped(userId, activityId, m, SKIP_REASON.infra, st, out); return; }
+  db.prepare(`INSERT INTO drive_infra_fails (userId, activityId, fileId, modifiedTime, n, windowStart) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(userId, activityId, fileId) DO UPDATE SET modifiedTime = excluded.modifiedTime, n = excluded.n, windowStart = excluded.windowStart`).run(userId, activityId, m.fileId, m.modifiedTime, n, ws);
+}
+// Fichier volumineux non terminé à ce passage : un passage de report de plus ; au-delà du plafond, listé (true). Une fois par fichier et par passage.
+function deferFile(userId, activityId, m, st, out) {
+  const seen = out.deferred = out.deferred || new Set();
+  if (seen.has(m.fileId)) return false;
+  seen.add(m.fileId);
+  const r = db.prepare('SELECT * FROM drive_progress WHERE userId = ? AND activityId = ? AND fileId = ?').get(...ids(userId, activityId, m.fileId));
+  const passes = (r && r.modifiedTime === m.modifiedTime ? r.passes : 0) + 1;
+  if (passes > maxDeferPasses()) { listSkipped(userId, activityId, m, SKIP_REASON.big, st, out); return true; }
+  db.prepare(`INSERT INTO drive_progress (userId, activityId, fileId, modifiedTime, passes) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(userId, activityId, fileId) DO UPDATE SET modifiedTime = excluded.modifiedTime, passes = excluded.passes`).run(userId, activityId, m.fileId, m.modifiedTime, passes);
+  out.bigDeferred = (out.bigDeferred || 0) + 1;
+  return false;
+}
+// Reprise par segments : empreintes (sha256) des segments déjà traités pour la version courante du fichier.
+function loadSegDone(userId, activityId, fileId, modifiedTime) {
+  db.prepare("DELETE FROM drive_seg_done WHERE userId = ? AND activityId = ? AND fileId = ? AND COALESCE(modifiedTime, '') != ?").run(userId, activityId, fileId, modifiedTime || '');
+  return new Set(db.prepare('SELECT segHash FROM drive_seg_done WHERE userId = ? AND activityId = ? AND fileId = ?').all(userId, activityId, fileId).map((r) => r.segHash));
+}
+function markSegDone(userId, activityId, m, segHash) {
+  db.prepare('INSERT OR IGNORE INTO drive_seg_done (userId, activityId, fileId, modifiedTime, segHash) VALUES (?, ?, ?, ?, ?)').run(userId, activityId, m.fileId, m.modifiedTime, segHash);
+}
+// Erreur d'un appel IA -> résultat de segment. { fail } : réponse inexploitable ; { infra, det } : panne propre au fichier (HTTP 400/413/422 de l'API, ou 400 de préparation) ;
+// { infra } : panne globale (clé absente, crédit épuisé, 401/402/429/5xx, réseau, budget) qui ne fait JAMAIS lister un fichier.
+function errOutcome(e) {
+  if (e && e.unusable) return { fail: true };
+  const m = /^HTTP (\d{3})$/.exec(String((e && e.message) || ''));
+  const code = m ? Number(m[1]) : 0;
+  const det = !!e && !e.aiBlocked && ((e.stage === 'call' && [400, 413, 422].includes(code)) || (e.stage === 'prep' && e.statusCode === 400));
+  return det ? { infra: true, det: true } : { infra: true };
+}
+// Appel direct d'une demande préparée (mêmes étapes que documenttasks.propose, avec l'étape en cause pour classer la panne).
+async function callPrep(userId, activityId, pp) {
+  let out;
+  try { out = await docanalysis.call({ parts: pp.parts, want: pp.want, feature: 'document-taches' }); }
+  catch (e) { throw Object.assign(e && typeof e === 'object' ? e : new Error(String(e)), { stage: 'call' }); }
+  return documenttasks.finishProposal(userId, activityId, out, pp);
+}
+const prepOf = async (userId, activityId, body, popts) => {
+  try { return await documenttasks.prepareProposal(userId, activityId, body, popts); }
+  catch (e) { throw Object.assign(e && typeof e === 'object' ? e : new Error(String(e)), { stage: 'prep' }); }
+};
 
 // Échec définitif ou nouvel essai : après MAX_FILE_ATTEMPTS, le fichier est marqué vu ET listé dans drive_skipped (visible dans GET /drive/sync).
 function failFile(userId, activityId, m, kind, st, out) {
   const prev = attemptsOf(userId, activityId, m.fileId, m.modifiedTime);
   const n = (prev ? prev.attempts : 0) + 1;
-  if (n >= MAX_FILE_ATTEMPTS) {
-    st.putFile.run(userId, activityId, m.fileId, m.modifiedTime, m.hash); // vu : plus de relecture tant qu'il ne change pas (empreintes de blocs NON enregistrées)
-    db.prepare('INSERT OR REPLACE INTO drive_skipped (userId, activityId, fileId, name, reason, at) VALUES (?, ?, ?, ?, ?, ?)').run(userId, activityId, m.fileId, m.name || '', SKIP_REASON[kind], new Date().toISOString());
-    db.prepare('DELETE FROM drive_attempts WHERE userId = ? AND activityId = ? AND fileId = ?').run(userId, activityId, m.fileId);
-    (out.skipped = out.skipped || []).push({ name: m.name || '', reason: SKIP_REASON[kind] });
-    return;
-  }
+  if (n >= MAX_FILE_ATTEMPTS) { listSkipped(userId, activityId, m, SKIP_REASON[kind], st, out); return; }
   const split = (prev ? prev.split : 0) + (kind === 'truncated' ? 1 : 0); // réponse coupée : au réessai, segments coupés en deux
   db.prepare(`INSERT INTO drive_attempts (userId, activityId, fileId, modifiedTime, attempts, split, nextAt) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(userId, activityId, fileId) DO UPDATE SET modifiedTime = excluded.modifiedTime, attempts = excluded.attempts, split = excluded.split, nextAt = excluded.nextAt`)
     .run(userId, activityId, m.fileId, m.modifiedTime, n, split, new Date(Date.now() + BACKOFF_MS * Math.pow(2, n - 1)).toISOString());
 }
 
-// Conclut le traitement d'un fichier. outcomes : un par segment — { tasks, truncated } | { fail: true } (inexploitable) | { infra: true } (panne IA / réseau).
-// Les tâches complètes sont toujours rangées ; le fichier n'est marqué vu (et ses empreintes enregistrées) que si TOUS les segments ont réussi sans coupure.
+// Conclut le traitement d'un fichier. outcomes : un par segment — { tasks, truncated, segHash? } | { fail: true } (inexploitable) | { infra: true, det? } (panne IA / réseau).
+// Les tâches complètes sont toujours rangées ; le fichier n'est marqué vu (et ses empreintes enregistrées) que si TOUS les segments ont réussi sans coupure
+// ET qu'il ne reste plus de segments à traiter (m.partial : fichier volumineux repris au passage suivant ; chaque segment réussi est mémorisé par son empreinte).
 function settleFile(userId, activityId, m, cfg, outcomes, existing, st, out) {
-  let trunc = false, bad = false, infra = false;
+  let trunc = false, bad = false, infra = false, global = false;
   outcomes.forEach((o) => {
-    if (o.tasks) { storeTasks(userId, activityId, m.fileId, cfg, o.tasks, existing, st, out); if (o.truncated) trunc = true; }
-    else if (o.fail) bad = true; else infra = true;
+    if (o.tasks) {
+      storeTasks(userId, activityId, m.fileId, cfg, o.tasks, existing, st, out);
+      out.aiOk = (out.aiOk || 0) + 1; // preuve que l'IA répond : une panne 4xx d'un autre fichier lui est alors propre
+      if (o.truncated) trunc = true; else if (o.segHash) markSegDone(userId, activityId, m, o.segHash);
+    } else if (o.fail) bad = true;
+    else { infra = true; if (!o.det) global = true; }
   });
   if (!trunc && !bad && !infra) {
+    if (m.partial) return false; // la suite au passage suivant (reprise par empreintes de segments)
     st.putFile.run(userId, activityId, m.fileId, m.modifiedTime, m.hash);
     if (Array.isArray(m.chunks)) drivechunks.saveHashes(userId, activityId, m.fileId, m.chunks);
-    db.prepare('DELETE FROM drive_attempts WHERE userId = ? AND activityId = ? AND fileId = ?').run(userId, activityId, m.fileId);
+    clearFileState(userId, activityId, m.fileId);
     return true;
   }
   if (trunc || bad) failFile(userId, activityId, m, trunc ? 'truncated' : 'unusable', st, out);
-  return false; // panne seule : pas compté comme essai, nouvel essai au prochain passage
+  else if (!global) (out.suspects = out.suspects || []).push(m); // panne propre au fichier : comptée en fin de passage si l'IA a répondu ailleurs
+  return false; // panne globale : jamais comptée ni listée, nouvel essai au prochain passage
 }
 
 // Relève les lots terminés et applique la même logique que les appels directs. Un lot non terminé est laissé tel quel.
@@ -336,11 +412,11 @@ async function collectBatches(userId, activityId, st, folderCfg, out) {
         try {
           const block = Array.isArray(r.message.content) ? r.message.content.find((b) => b.type === 'text') : null;
           const prop = documenttasks.finishProposal(userId, activityId, { text: block ? block.text : '', stopReason: r.message.stop_reason || null }, { want: { t: true, c: !m.first && !!m.wantC && m.seg === 0 } });
-          return { tasks: prop.tasks, truncated: !!prop.aiTruncated };
+          return { tasks: prop.tasks, truncated: isCut(prop), segHash: m.segHash };
         } catch (e) { return { fail: true }; }
       });
       if (!cfg) { failed++; continue; }
-      const meta = { fileId, name: m0.name, modifiedTime: m0.modifiedTime, hash: m0.contentHash, chunks: m0.chunks };
+      const meta = { fileId, name: m0.name, modifiedTime: m0.modifiedTime, hash: m0.contentHash, chunks: m0.chunks, partial: !!m0.partial };
       if (settleFile(userId, activityId, meta, cfg, outcomes, existing, st, out)) ok++; else failed++;
     }
     console.log(`[drivesync] lot relevé : fichiers=${files.size} ok=${ok} echecs=${failed}`);
@@ -350,7 +426,7 @@ async function collectBatches(userId, activityId, st, folderCfg, out) {
 async function syncConnection(userId, activityId, opts) {
   opts = opts || {};
   const k = userId + ':' + activityId;
-  const out = { filesChecked: 0, filesRead: 0, aiCalls: 0, added: 0, proposed: 0, capReached: false, needsReconnect: false };
+  const out = { filesChecked: 0, filesRead: 0, aiCalls: 0, segs: 0, added: 0, proposed: 0, capReached: false, needsReconnect: false };
   if (running.has(k)) return { ...out, busy: true };
   running.add(k);
   try {
@@ -370,19 +446,29 @@ async function syncConnection(userId, activityId, opts) {
     const inflight = batchFileIds(userId, activityId); // fichiers déjà dans un lot en cours : pas de second envoi
     const pf = !opts.manual && prefilter.enabled(); // pré-filtre local : « Synchroniser maintenant » lit tout
     const dupOf = db.prepare('SELECT 1 FROM drive_seen_files WHERE userId = ? AND activityId = ? AND contentHash = ? AND fileId != ? LIMIT 1');
-    const skipIns = db.prepare('INSERT OR REPLACE INTO drive_skipped (userId, activityId, fileId, name, reason, at) VALUES (?, ?, ?, ?, ?, ?)');
+    const skipIns = db.prepare('INSERT OR REPLACE INTO drive_skipped (userId, activityId, fileId, name, reason, at, dupHash) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    const skipRow = db.prepare('SELECT dupHash FROM drive_skipped WHERE userId = ? AND activityId = ? AND fileId = ?');
+    const hashSeenElsewhere = db.prepare('SELECT 1 FROM drive_seen_files WHERE userId = ? AND activityId = ? AND contentHash = ? AND fileId != ? LIMIT 1');
     const skipDel = db.prepare('DELETE FROM drive_skipped WHERE userId = ? AND activityId = ? AND fileId = ?');
     const hashesInPass = new Set();
     const queue = []; // mode lot : demandes préparées { f, hash, first, cfg, prep }
     let aiFails = 0;
+    // Les fichiers déjà en panne propre (4xx) passent en dernier : trois fichiers cassés ne doivent pas épuiser le disjoncteur avant les autres.
+    const broken = new Set(db.prepare('SELECT fileId FROM drive_infra_fails WHERE userId = ? AND activityId = ?').all(userId, activityId).map((r) => r.fileId));
+    if (broken.size) files = files.filter((f) => !broken.has(f.id)).concat(files.filter((f) => broken.has(f.id)));
     for (const f of files) {
-      if (out.aiCalls >= MAX_AI_PER_PASS) break; // reprise au prochain passage
+      if (out.aiCalls >= MAX_AI_PER_PASS || out.segs >= maxSegsPerPass()) break; // reprise au prochain passage
       const cfg = folderCfg.get(f.folderId) || {};
       const instruction = cfg.instruction || DEFAULT_INSTRUCTION;
       out.filesChecked++;
       const seen = seenFile.get(userId, activityId, f.id);
       // inchangé : rien à lire. Une entrée « skip:* » (pré-filtre) est TOUJOURS réévaluée : le pré-filtre est local et gratuit (original modifié / disparu, manuel, DRIVE_PREFILTER=off).
       if (seen && seen.modifiedTime === f.modifiedTime && !/^skip:/.test(seen.contentHash || '')) continue;
+      // Entrée skip:* d'un fichier INCHANGÉ : pas de nouveau téléchargement tant que le verdict tient (doublon : tant que l'original, de même empreinte, est inchangé). Manuel / DRIVE_PREFILTER=off : toujours relue.
+      if (pf && seen && seen.modifiedTime === f.modifiedTime && /^skip:/.test(seen.contentHash || '')) {
+        const sk = skipRow.get(userId, activityId, f.id);
+        if (sk && (seen.contentHash !== 'skip:doublon' || (sk.dupHash && hashSeenElsewhere.get(userId, activityId, sk.dupHash, f.id)))) continue;
+      }
       const att = attemptsOf(userId, activityId, f.id, f.modifiedTime);
       if (!opts.manual && att && att.nextAt > new Date().toISOString()) continue; // attente avant un nouvel essai (réponse coupée / inexploitable)
       if (!opts.manual && inflight.has(f.id)) continue; // lot en cours pour ce fichier (le manuel lit tout, immédiatement)
@@ -391,7 +477,7 @@ async function syncConnection(userId, activityId, opts) {
       catch (e) {
         if (e.revoked) { out.needsReconnect = true; break; }
         if (e.statusCode === 400 || e.statusCode === 403 || e.statusCode === 404) st.putFile.run(userId, activityId, f.id, f.modifiedTime, null); // illisible : pas de relecture tant qu'il ne change pas
-        if (pf && e.statusCode === 400) { skipIns.run(userId, activityId, f.id, f.name || '', 'vide ou illisible', new Date().toISOString()); (out.skipped = out.skipped || []).push({ name: f.name || '', reason: 'vide ou illisible' }); } // fichier vide / format non lu : listé aussi
+        if (pf && e.statusCode === 400) { skipIns.run(userId, activityId, f.id, f.name || '', 'vide ou illisible', new Date().toISOString(), null); (out.skipped = out.skipped || []).push({ name: f.name || '', reason: 'vide ou illisible' }); } // fichier vide / format non lu : listé aussi
         continue;
       }
       out.filesRead++;
@@ -408,7 +494,7 @@ async function syncConnection(userId, activityId, opts) {
         if (!reason && (hashesInPass.has(hash) || dupOf.get(userId, activityId, hash, f.id))) reason = 'doublon'; // même texte qu'un autre fichier déjà traité
         if (reason) {
           st.putFile.run(userId, activityId, f.id, f.modifiedTime, 'skip:' + reason);
-          skipIns.run(userId, activityId, f.id, f.name || '', reason, new Date().toISOString());
+          skipIns.run(userId, activityId, f.id, f.name || '', reason, new Date().toISOString(), reason === 'doublon' ? hash : null);
           (out.skipped = out.skipped || []).push({ name: f.name || '', reason });
           out.bytesSaved = (out.bytesSaved || 0) + text.length;
           continue;
@@ -427,25 +513,39 @@ async function syncConnection(userId, activityId, opts) {
       if (!takeCall(userId)) { out.capReached = true; break; } // retentera demain (fichier non marqué comme vu)
       out.aiCalls++;
       // Un texte plus long que la limite est DÉCOUPÉ en segments (jamais tronqué) ; après une réponse coupée, chaque segment est coupé en deux.
-      const segs = drivechunks.halve(drivechunks.segment(plan.text, SEG_MAX), att ? att.split : 0);
-      const meta = { fileId: f.id, name: f.name, modifiedTime: f.modifiedTime, hash, chunks: plan.hashes };
+      // Au plus maxSegsPerFile() segments par fichier et maxSegsPerPass() par passage : le reste au passage suivant (segments déjà traités reconnus par empreinte).
+      const items = drivechunks.halve(drivechunks.segment(plan.text, SEG_MAX), att ? att.split : 0).map((t, i) => ({ t, i, h: drivechunks.hashOf(t) }));
+      const doneSegs = loadSegDone(userId, activityId, f.id, f.modifiedTime);
+      const todo = items.filter((x) => !doneSegs.has(x.h));
+      const take = todo.slice(0, Math.max(1, Math.min(maxSegsPerFile(), maxSegsPerPass() - out.segs)));
+      const meta = { fileId: f.id, name: f.name, modifiedTime: f.modifiedTime, hash, chunks: plan.hashes, partial: take.length < todo.length };
+      if (meta.partial && deferFile(userId, activityId, meta, st, out)) continue; // report trop long : listé « trop volumineux »
+      out.segs += take.length;
       const bodyOf = (t) => ({ instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl: 'data:text/plain;base64,' + Buffer.from(t, 'utf8').toString('base64') }] });
-      // Les « modifications proposées » sortent du même appel que les tâches (1er segment seulement), sauf à la première lecture du fichier (rien à comparer).
-      const poptsOf = (n) => ({ skipRate: true, callTaken: true, skipChanges: isNew || n > 0 });
+      // Les « modifications proposées » sortent du même appel que les tâches (1er segment du fichier seulement), sauf à la première lecture du fichier (rien à comparer).
+      const poptsOf = (i) => ({ skipRate: true, callTaken: true, skipChanges: isNew || i > 0 });
       if (batch) {
-        try { queue.push({ f, meta, first: isNew, cfg, preps: await aibudget.runAs(userId, async () => { const a = []; for (let n = 0; n < segs.length; n++) a.push(await documenttasks.prepareProposal(userId, activityId, bodyOf(segs[n]), poptsOf(n))); return a; }) }); }
-        catch (e) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; }
+        try { const preps = await aibudget.runAs(userId, async () => { const a = []; for (const x of take) a.push(await prepOf(userId, activityId, bodyOf(x.t), poptsOf(x.i))); return a; }); out.aiOk = (out.aiOk || 0) + 1; queue.push({ f, meta, first: isNew, cfg, preps, segs: take }); }
+        catch (e) { const o = errOutcome(e); if (o.det) (out.suspects = out.suspects || []).push(meta); if (!(o.det && (out.aiOk || queue.length)) && ++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; }
         continue;
       }
       const outcomes = [];
-      for (let n = 0; n < segs.length; n++) {
-        try { const prop = await aibudget.runAs(userId, () => documenttasks.propose(userId, activityId, bodyOf(segs[n]), poptsOf(n))); outcomes.push({ tasks: prop.tasks, truncated: !!prop.aiTruncated }); }
-        catch (e) { outcomes.push(e && e.unusable ? { fail: true } : { infra: true }); break; } // panne IA : le fichier n'est pas marqué, nouvel essai au prochain passage
+      for (const x of take) {
+        try { const prop = await aibudget.runAs(userId, async () => callPrep(userId, activityId, await prepOf(userId, activityId, bodyOf(x.t), poptsOf(x.i)))); outcomes.push({ tasks: prop.tasks, truncated: isCut(prop), segHash: x.h }); }
+        catch (e) { outcomes.push(errOutcome(e)); break; } // panne IA : le fichier n'est pas marqué, nouvel essai au prochain passage
       }
-      if (outcomes.some((o) => o.infra)) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) { settleFile(userId, activityId, meta, cfg, outcomes, existing, st, out); break; } } else aiFails = 0; // l'IA semble en panne après 3 échecs de suite
       settleFile(userId, activityId, meta, cfg, outcomes, existing, st, out);
+      const inf = outcomes.find((o) => o.infra);
+      if (!inf) aiFails = 0;
+      else if (!(inf.det && out.aiOk > 0) && ++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; // l'IA semble en panne après 3 échecs de suite (une panne propre à un fichier n'y compte pas si l'IA répond ailleurs)
     }
     if (queue.length) await submitQueue(userId, activityId, queue, st, existing, out);
+    // Pannes propres à un fichier : comptées SEULEMENT si l'IA a répondu ailleurs pendant ce passage (sinon : panne globale probable, rien n'est compté ni listé).
+    if (out.suspects) {
+      if (out.aiOk > 0) out.suspects.forEach((m) => bumpInfra(userId, activityId, m, st, out));
+      else out.suspects.forEach((m) => db.prepare('INSERT OR IGNORE INTO drive_infra_fails (userId, activityId, fileId, modifiedTime, n, windowStart) VALUES (?, ?, ?, ?, 0, ?)').run(userId, activityId, m.fileId, m.modifiedTime, new Date().toISOString())); // rien de compté, mais passé en fin de file (pas d'affamement)
+    }
+    delete out.suspects; delete out.deferred;
     if (out.capReached) db.prepare('UPDATE drive_sync SET capDay = ? WHERE userId = ? AND activityId = ?').run(today(), userId, activityId);
     if (!out.needsReconnect) db.prepare('UPDATE drive_sync SET lastCheckedAt = ? WHERE userId = ? AND activityId = ?').run(new Date().toISOString(), userId, activityId);
     if (out.added || out.proposed) notify(userId, activityId, out.added, out.proposed);
@@ -455,55 +555,68 @@ async function syncConnection(userId, activityId, opts) {
   } finally { running.delete(k); }
 }
 
-// Coût MAXIMAL estimé d'une requête de lot (50 %) : entrée (caractères/4) x prix d'entrée + max_tokens x prix de sortie.
+// Coût MAXIMAL estimé d'une requête de lot (50 %) : entrée (caractères/4) x prix d'entrée (x 1,25 pour les blocs mis en cache : création de cache au pire) + max_tokens x prix de sortie.
 function maxCostOf(params) {
   const p = aibudget.priceFor(params.model);
-  const chars = JSON.stringify(params.system).length + JSON.stringify(params.messages).length;
-  return (Math.ceil(chars / 4) * p.in + params.max_tokens * p.out) * 0.5 / 1e6;
+  const blocks = [].concat(params.system || [], ...(params.messages || []).map((m) => m.content || []));
+  const inTok = blocks.reduce((a, b) => a + Math.ceil(JSON.stringify(b).length / 4) * (b && b.cache_control ? 1.25 : 1), 0);
+  return (inTok * p.in + params.max_tokens * p.out) * 0.5 / 1e6;
 }
 
-// Soumet les demandes préparées en UN lot. Budget vérifié avant ET réservé par estimation du coût maximal : on n'admet que les fichiers
-// (tous leurs segments) dont le total tient dans ce qui reste de la tranche hebdomadaire ; le reste attend le passage suivant (non marqué vu).
+// Soumet les demandes préparées en UN lot. Budget vérifié avant ET réservé par estimation du coût maximal : ce qui reste de la tranche hebdomadaire
+// est diminué de l'estimation des lots déjà en vol (drive_batches.estCost, tous les fichiers de l'utilisateur). On admet les fichiers dont le total tient ;
+// un fichier à plusieurs segments dont seuls les premiers tiennent part par morceaux (la suite au passage suivant) ; le reste attend (non marqué vu).
 // Le coût réel est enregistré à la relève du lot. Soumission impossible : appels directs.
 async function submitQueue(userId, activityId, queue, st, existing, out) {
   const bud = aibudget.check(userId);
   if (!bud.ok) { out.aiBlocked = true; out.aiResumesOn = bud.resumesOn; return; }
   const s0 = aibudget.status(userId);
-  let remaining = s0.allowedNow - s0.spentMonth;
+  const inflight = db.prepare("SELECT COALESCE(SUM(estCost), 0) AS c FROM drive_batches WHERE userId = ? AND status = 'submitted'").get(userId).c;
+  let remaining = s0.allowedNow - s0.spentMonth - inflight;
   const admitted = [];
-  for (const q of queue) {
-    const params = q.preps.map((pp) => docanalysis.requestParams(pp));
-    const cost = params.reduce((a, pr) => a + maxCostOf(pr), 0);
-    if (cost > remaining) { out.budgetDeferred = (out.budgetDeferred || 0) + 1; continue; } // ne tient pas : au passage suivant
-    remaining -= cost; admitted.push({ ...q, params });
+  let estTotal = 0;
+  for (const q0 of queue) {
+    let q = q0;
+    let params = q.preps.map((pp) => docanalysis.requestParams(pp));
+    const costs = params.map(maxCostOf);
+    let cost = costs.reduce((a, c) => a + c, 0);
+    if (cost > remaining) {
+      let acc = 0, k = 0;
+      while (k < costs.length && acc + costs[k] <= remaining) { acc += costs[k]; k++; }
+      if (!k) { out.budgetDeferred = (out.budgetDeferred || 0) + 1; continue; } // ne tient pas : au passage suivant
+      q = { ...q, preps: q.preps.slice(0, k), segs: q.segs.slice(0, k), meta: { ...q.meta, partial: true } };
+      params = params.slice(0, k); cost = acc;
+      if (deferFile(userId, activityId, q.meta, st, out)) continue;
+    }
+    remaining -= cost; estTotal += cost; admitted.push({ ...q, params });
   }
   if (!admitted.length) return;
   const requests = [], fileMap = {};
   admitted.forEach((q, fi) => q.params.forEach((params, n) => {
     const cid = 'f' + fi + 's' + n;
     requests.push({ custom_id: cid, params });
-    fileMap[cid] = { fileId: q.f.id, name: q.f.name || '', modifiedTime: q.f.modifiedTime, contentHash: q.meta.hash, chunks: n === 0 ? q.meta.chunks : undefined, folderId: q.f.folderId, first: q.first, wantC: n === 0 && !!q.preps[0].want.c, seg: n };
+    fileMap[cid] = { fileId: q.f.id, name: q.f.name || '', modifiedTime: q.f.modifiedTime, contentHash: q.meta.hash, chunks: n === 0 ? q.meta.chunks : undefined, folderId: q.f.folderId, first: q.first, wantC: q.segs[n].i === 0 && !!q.preps[n].want.c, seg: n, segHash: q.segs[n].h, partial: !!q.meta.partial };
   }));
   try {
     const { id } = await aibatch.submit(requests);
-    db.prepare('INSERT INTO drive_batches (userId, activityId, batchId, createdAt, status, fileMap) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(userId, activityId, id, new Date().toISOString(), 'submitted', JSON.stringify(fileMap));
+    db.prepare('INSERT INTO drive_batches (userId, activityId, batchId, createdAt, status, fileMap, estCost) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, activityId, id, new Date().toISOString(), 'submitted', JSON.stringify(fileMap), estTotal);
     out.batched = admitted.length;
     return;
   } catch (e) { console.warn('[drivesync] soumission du lot impossible (code ' + (e.statusCode || '?') + ') : appels directs'); }
   let aiFails = 0;
   for (const q of admitted) {
     const outcomes = [];
-    for (const pp of q.preps) {
+    for (let n = 0; n < q.preps.length; n++) {
       try {
-        const prop = await aibudget.runAs(userId, async () => documenttasks.finishProposal(userId, activityId, await docanalysis.call({ parts: pp.parts, want: pp.want, feature: 'document-taches' }), pp));
-        outcomes.push({ tasks: prop.tasks, truncated: !!prop.aiTruncated });
-      } catch (e) { outcomes.push(e && e.unusable ? { fail: true } : { infra: true }); break; }
+        const prop = await aibudget.runAs(userId, async () => callPrep(userId, activityId, q.preps[n]));
+        outcomes.push({ tasks: prop.tasks, truncated: isCut(prop), segHash: q.segs[n].h });
+      } catch (e) { outcomes.push(errOutcome(e)); break; }
     }
-    const infra = outcomes.some((o) => o.infra);
     settleFile(userId, activityId, q.meta, q.cfg, outcomes, existing, st, out);
-    if (infra && ++aiFails >= MAX_AI_FAILS_IN_A_ROW) break;
-    if (!infra) aiFails = 0;
+    const inf = outcomes.find((o) => o.infra);
+    if (!inf) aiFails = 0;
+    else if (!(inf.det && out.aiOk > 0) && ++aiFails >= MAX_AI_FAILS_IN_A_ROW) break;
   }
 }
 
@@ -540,4 +653,4 @@ function startDriveSync() {
   timer.unref();
 }
 
-module.exports = { listAdded, ackAdded, removeAdded, restoreAdded, DEFAULT_INSTRUCTION, settings, saveSettings, saveFolderSettings, listPending, resolvePending, syncConnection, syncNow, runSweep, startDriveSync, intervalMin, maxCalls, takeCall };
+module.exports = { listAdded, ackAdded, removeAdded, restoreAdded, DEFAULT_INSTRUCTION, settings, saveSettings, saveFolderSettings, listPending, resolvePending, syncConnection, syncNow, runSweep, startDriveSync, intervalMin, maxCalls, takeCall, maxCostOf };

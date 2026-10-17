@@ -134,6 +134,34 @@ function ensureTable() {
     status TEXT NOT NULL DEFAULT 'submitted',
     fileMap TEXT NOT NULL DEFAULT '{}'
   )`); // lots Anthropic de la surveillance (drivesync.js)
+  // Migrations idempotentes (relecture N3/N5) : coût maximal estimé d'un lot en vol ; empreinte du texte d'un doublon ignoré (sha256, aucun contenu).
+  if (!db.prepare('PRAGMA table_info(drive_batches)').all().some((c) => c.name === 'estCost')) db.exec('ALTER TABLE drive_batches ADD COLUMN estCost REAL NOT NULL DEFAULT 0');
+  if (!db.prepare('PRAGMA table_info(drive_skipped)').all().some((c) => c.name === 'dupHash')) db.exec('ALTER TABLE drive_skipped ADD COLUMN dupHash TEXT');
+  db.exec(`CREATE TABLE IF NOT EXISTS drive_infra_fails (
+    userId TEXT NOT NULL,
+    activityId INTEGER NOT NULL,
+    fileId TEXT NOT NULL,
+    modifiedTime TEXT,
+    n INTEGER NOT NULL DEFAULT 0,
+    windowStart TEXT NOT NULL,
+    PRIMARY KEY (userId, activityId, fileId)
+  )`); // pannes IA propres à un fichier (erreur 4xx déterministe) : plafond sur 24 h, puis fichier listé (drivesync.js)
+  db.exec(`CREATE TABLE IF NOT EXISTS drive_progress (
+    userId TEXT NOT NULL,
+    activityId INTEGER NOT NULL,
+    fileId TEXT NOT NULL,
+    modifiedTime TEXT,
+    passes INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (userId, activityId, fileId)
+  )`); // fichier volumineux traité par morceaux sur plusieurs passages : nombre de passages de report (drivesync.js)
+  db.exec(`CREATE TABLE IF NOT EXISTS drive_seg_done (
+    userId TEXT NOT NULL,
+    activityId INTEGER NOT NULL,
+    fileId TEXT NOT NULL,
+    modifiedTime TEXT,
+    segHash TEXT NOT NULL,
+    PRIMARY KEY (userId, activityId, fileId, segHash)
+  )`); // empreintes (sha256) des segments déjà traités d'un fichier en cours de reprise, jamais de contenu (drivesync.js)
   db.exec(`CREATE TABLE IF NOT EXISTS drive_ai_usage (
     userId TEXT NOT NULL,
     day TEXT NOT NULL,
@@ -358,6 +386,7 @@ function removeFolder(userId, activityId, folderId) {
   db.prepare('DELETE FROM drive_seen_chunks WHERE userId = ? AND activityId = ?').run(userId, activityId);
   db.prepare('DELETE FROM drive_skipped WHERE userId = ? AND activityId = ?').run(userId, activityId);
   db.prepare('DELETE FROM drive_attempts WHERE userId = ? AND activityId = ?').run(userId, activityId);
+  ['drive_infra_fails', 'drive_progress', 'drive_seg_done'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
   syncCompat(userId, activityId);
   return { ok: true, folders: foldersOf(userId, activityId) };
 }
@@ -482,14 +511,14 @@ async function proposeFromFile(userId, activityId, fileId, instruction) {
 async function disconnect(userId, activityId) {
   ensureTable();
   const c = getConn(userId, activityId);
-  if (!c) { ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_attempts', 'drive_seen_tasks', 'drive_folders'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId)); return { disconnected: true }; }
+  if (!c) { ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_attempts', 'drive_infra_fails', 'drive_progress', 'drive_seg_done', 'drive_seen_tasks', 'drive_folders'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId)); return { disconnected: true }; }
   if (configured()) {
     try {
       await fetchFn(REVOKE_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: decrypt(c.encryptedToken) }).toString() });
     } catch (e) { /* la suppression locale prime */ }
   }
   // Droit au retrait : la surveillance s'arrête et tout ce qui la concerne est supprimé.
-  ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_attempts', 'drive_seen_tasks', 'drive_folders', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
+  ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_attempts', 'drive_infra_fails', 'drive_progress', 'drive_seg_done', 'drive_seen_tasks', 'drive_folders', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
   return { disconnected: true };
 }
 
