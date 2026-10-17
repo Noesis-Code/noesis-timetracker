@@ -24,7 +24,8 @@ const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('./attac
 const MAX_DOC_CHARS = 24000;
 const MAX_INSTRUCTION = 1500;
 const MAX_TASKS = 80;
-const WEEKS_AHEAD = 12;
+const MAX_WEEKS = 260;      // plafond technique de lundis (≈ 5 ans), pour borner la taille du prompt sans couper les années créées
+const MAX_OBJECTIVES = 200; // objectifs hebdomadaires listés dans le prompt (les plus proches d'abord)
 const RATE_MAX = 10, RATE_WINDOW = 60 * 60 * 1000;
 
 const rate = new Map();
@@ -152,11 +153,18 @@ async function documentText(files) {
 }
 
 // ---------- Contexte ----------
-function weeksContext() {
+// Horizon (17 oct. 2026) : tous les lundis de la semaine courante jusqu'à la dernière semaine de la dernière année
+// créée de CETTE activité (même borne que le défilement des périodes). Sans année au-delà : ce qui existe, au minimum la semaine courante.
+function weeksContext(activityId) {
   const monday = goals.mostRecentMonday(todayIso());
+  let lastMonday = monday;
+  try {
+    const maxYear = goals.maxYearFor(activityId);
+    lastMonday = goals.addDays(goals.yearAnchor(maxYear), 51 * 7); // 13 périodes x 4 semaines = 52 semaines
+  } catch (e) { /* activité inconnue : semaine courante seulement */ }
   const out = [];
-  for (let i = 0; i < WEEKS_AHEAD; i++) out.push(goals.addDays(monday, i * 7));
-  return out;
+  for (let d = monday; d && d <= lastMonday && out.length < MAX_WEEKS; d = goals.addDays(d, 7)) out.push(d);
+  return out.length ? out : [monday];
 }
 
 // Données de l'application (16 oct. 2026, Émilien) : objectifs hebdomadaires à venir et tâches ouvertes de CETTE activité.
@@ -170,7 +178,7 @@ function appData(activityId, weeks) {
       WHERE p.activityId = ? AND w.carriedOverFromId IS NULL AND w.text != ''`).all(activityId)
       .map((w) => ({ ...w, week: goals.addDays(w.startDate, (w.weekIndex - 1) * 7) }))
       .filter((w) => w.week >= monday && w.week <= end)
-      .sort((a, b) => a.week.localeCompare(b.week)).slice(0, 60);
+      .sort((a, b) => a.week.localeCompare(b.week)).slice(0, MAX_OBJECTIVES);
     open = db.prepare(`SELECT i.label, i.dueDate, sp.goalCategory AS cat FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
       WHERE sp.activityId = ? AND i.done = 0 ORDER BY i.dueDate, i.id LIMIT 80`).all(activityId);
   } catch (e) { /* données absentes : l'IA répond avec la consigne seule */ }
@@ -180,18 +188,25 @@ function appData(activityId, weeks) {
 function buildContext(userId, activityId) {
   const candidates = classify.buildClassificationCandidates(activityId);
   const cap = weekplanner.getWeeklyCapacity(userId);
-  const weeks = weeksContext();
+  const weeks = weeksContext(activityId);
   return { candidates, weeks, capacityMinutes: cap && cap.minutes ? cap.minutes : null, app: appData(activityId, weeks) };
 }
 
 const SYSTEM = docanalysis.SYSTEM; // prompt commun aux tâches et aux modifications proposées (docanalysis.js)
 
+// Lundis groupés par année : « 2026: 10-19 10-26 … 2027: 01-04 … » (moins de caractères que des dates complètes).
+function weeksCompact(weeks) {
+  const by = new Map();
+  weeks.forEach((w) => { const y = w.slice(0, 4); if (!by.has(y)) by.set(y, []); by.get(y).push(w.slice(5)); });
+  return [...by].map(([y, l]) => y + ': ' + l.join(' ')).join(' ; ');
+}
+
 function appBlock(app) {
-  const clean = (t) => docanalysis.tagsOut(t || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  const clean = (t, n) => docanalysis.tagsOut(t || '').replace(/\s+/g, ' ').trim().slice(0, n || 300);
   const a = app || { objectives: [], open: [] };
-  const obj = a.objectives.map((o) => `- semaine du ${o.week} [${o.cat}] ${clean(o.text)}${o.description ? ' — ' + clean(o.description) : ''}${o.estimateMinutes ? ' (' + o.estimateMinutes + ' min)' : ''}`).join('\n') || '(aucun)';
+  const obj = a.objectives.map((o) => `${o.week} [${o.cat}] ${clean(o.text, 160)}${o.description ? ' — ' + clean(o.description, 100) : ''}${o.estimateMinutes ? ' (' + o.estimateMinutes + 'm)' : ''}`).join('\n') || '(aucun)';
   const open = a.open.map((t) => `- [${t.cat}] ${clean(t.label)}${t.dueDate ? ' (' + t.dueDate + ')' : ''}`).join('\n') || '(aucune)';
-  return 'Objectifs hebdomadaires à venir :\n' + obj + '\n\nTâches déjà ouvertes (ne pas les reproposer) :\n' + open;
+  return 'Objectifs hebdomadaires à venir (lundi de la semaine [catégorie] objectif (durée estimée en minutes)) :\n' + obj + '\n\nTâches déjà ouvertes (ne pas les reproposer) :\n' + open;
 }
 
 // Deux parties : STABLE (catégories, semaines, capacité, application : mises en cache) puis VARIABLE (consigne, document).
@@ -201,7 +216,7 @@ function buildUserParts(ctx, instruction, doc) {
   const safeInstr = docanalysis.tagsOut(instruction);
   const stable = [
     'Catégories disponibles (clé : libellé) :', cats, '',
-    'Semaines cibles possibles (lundi) : ' + ctx.weeks.join(', '),
+    'Semaines cibles possibles (lundis, AAAA : MM-JJ) : ' + weeksCompact(ctx.weeks),
     ctx.capacityMinutes ? `Capacité hebdomadaire de la personne : ${ctx.capacityMinutes} minutes (évite de la dépasser).` : 'Capacité hebdomadaire : inconnue.',
     '', '<application>', appBlock(ctx.app), '</application>',
   ].join('\n');
@@ -260,7 +275,7 @@ function validTargetDate(v, weeks) {
   if (weeks.includes(v)) return v;
   if (!isRealDate(v)) return null;
   const last = goals.addDays(weeks[weeks.length - 1], 6);
-  return v >= weeks[0] && v <= last ? v : null;
+  return v >= weeks[0] && v <= last ? v : null; // jour quelconque de l'horizon étendu
 }
 
 // Format de réponse court {"t":[[titre,clé,date,minutes],...]} (moins de jetons de sortie) ; l'ancien {"tasks":[{title,key,week,minutes}]} reste accepté.
@@ -366,7 +381,7 @@ async function propose(userId, activityId, body, opts) {
 function apply(userId, activityId, tasks) {
   if (!Array.isArray(tasks) || !tasks.length) throw httpError(400, 'Rien à ajouter : coche au moins une tâche.');
   if (tasks.length > MAX_TASKS) throw httpError(400, 'Trop de tâches à la fois.');
-  const weeks = weeksContext();
+  const weeks = weeksContext(activityId);
   const today = todayIso();
   const exists = db.prepare(`SELECT 1 FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND sp.goalCategory = ? AND i.done = 0 AND LOWER(i.label) = ? LIMIT 1`);
@@ -385,4 +400,4 @@ function apply(userId, activityId, tasks) {
   return { addedCount: added.length, addedIds: added, skipped };
 }
 
-module.exports = { norm, propose, prepareProposal, finishProposal, buildContext, MAX_DOC_CHARS, apply, setCaller, resetRate, parseProposals, textFromFile, capacityWarnings, parseDetailed, SYSTEM, buildUser, buildUserParts, RATE_MAX };
+module.exports = { norm, propose, prepareProposal, finishProposal, buildContext, MAX_DOC_CHARS, apply, setCaller, resetRate, parseProposals, textFromFile, capacityWarnings, parseDetailed, SYSTEM, buildUser, buildUserParts, weeksContext, RATE_MAX };
