@@ -4,7 +4,11 @@
 // le mois est découpé en 4 tranches (jours 1-7, 8-14, 15-21, 22-fin) ; le plafond
 // CUMULÉ à la fin de la tranche k vaut cap × k/4. Le non-dépensé se reporte ; la
 // dépense du mois courant est toujours comparée au plafond cumulé de la tranche.
-// Le coût réel vient du champ `usage` de chaque réponse de l'API Anthropic.
+// Le coût réel vient du champ `usage` de chaque réponse de l'API Anthropic (cache de prompt : lecture ×0,1,
+// création ×1,25 du prix d'entrée ; lots Anthropic : facteur 0,5 passé à record).
+//
+// Lots Anthropic (drivesync.js) : le coût réel est enregistré à la RELÈVE du lot (facteur 0,5) ; avant la soumission, le coût MAXIMAL estimé
+// (entrée + max_tokens de sortie, x 0,5) est comparé à ce qui reste de la tranche (status) pour ne pas la dépasser.
 //
 // Tarifs en $/million de jetons ; surchargeables sans code : AI_PRICE_IN_PER_M,
 // AI_PRICE_OUT_PER_M (valent pour tous les modèles), AI_BUDGET_MONTH_USD (défaut 15).
@@ -119,8 +123,8 @@ function check(userId, now) {
   return { ok: false, resumesOn: s.resumesOn, message: blockedMessage(s.resumesOn) };
 }
 
-// record(userId, model, usage, feature) : enregistre le coût réel d'un appel. Ne lève jamais.
-function record(userId, model, usage, feature, now) {
+// record(userId, model, usage, feature, now, factor) : enregistre le coût réel d'un appel (factor 0,5 pour un lot Anthropic). Ne lève jamais.
+function record(userId, model, usage, feature, now, factor) {
   try {
     const u = usage || {};
     const inTok = (Number(u.input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0) + (Number(u.cache_read_input_tokens) || 0);
@@ -130,7 +134,7 @@ function record(userId, model, usage, feature, now) {
       ON CONFLICT(userId, day, model, feature) DO UPDATE SET calls = calls + 1,
         inputTokens = inputTokens + excluded.inputTokens, outputTokens = outputTokens + excluded.outputTokens,
         costUsd = costUsd + excluded.costUsd`)
-      .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u));
+      .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u) * (Number.isFinite(factor) && factor > 0 ? factor : 1));
   } catch (e) { console.warn('[aibudget] enregistrement impossible :', e && e.message); }
 }
 

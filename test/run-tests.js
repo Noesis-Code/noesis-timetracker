@@ -202,6 +202,16 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'documenttasks-test.js')], { encoding: 'utf8' }); } catch (e) { dtOk = false; }
   assert(dtOk, 'ajout de tâches depuis un document (test/documenttasks-test.js) passe');
 
+  // Horizon étendu de « Ajouter des tâches ».
+  let dthOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'documenttasks-horizon-test.js')], { encoding: 'utf8' }); } catch (e) { dthOk = false; }
+  assert(dthOk, 'horizon étendu des tâches IA (test/documenttasks-horizon-test.js) passe');
+
+  // Jour proposé par l'IA, contrôle de capacité par jour.
+  let dtjOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'documenttasks-jour-test.js')], { encoding: 'utf8' }); } catch (e) { dtjOk = false; }
+  assert(dtjOk, 'jour proposé et capacité par jour (test/documenttasks-jour-test.js) passe');
+
   // Connecteur Drive (Google simulé, PDF compris).
   let drOk = true;
   try { execFileSync('node', [path.join(__dirname, 'drive-test.js')], { encoding: 'utf8' }); } catch (e) { drOk = false; }
@@ -211,6 +221,13 @@ async function main() {
   let dsOk = true;
   try { execFileSync('node', [path.join(__dirname, 'drivesync-test.js')], { encoding: 'utf8' }); } catch (e) { dsOk = false; }
   assert(dsOk, 'surveillance Drive (test/drivesync-test.js) passe');
+
+  // Budget IA et économies de coût IA (cache de prompt, appel fusionné, lots, empreintes, pré-filtre).
+  for (const [f, label] of [['aibudget-test.js', 'budget IA'], ['changeproposals-test.js', 'modifications proposées'], ['changeproposals-weekly-test.js', 'redistribution par objectif hebdomadaire'], ['iacout-test.js', 'économies de coût IA']]) {
+    let ok = true;
+    try { execFileSync('node', [path.join(__dirname, f)], { encoding: 'utf8', stdio: 'pipe' }); } catch (e) { ok = false; }
+    assert(ok, `${label} (test/${f}) passe`);
+  }
 
   // Nettoyage
   db.close();

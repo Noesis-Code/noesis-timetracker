@@ -417,7 +417,14 @@ router.put('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (req
     // Dernière modification gagnante : si la période a une cible manuelle, elle suit la nouvelle somme des semaines.
     let before = null;
     if (newTarget) { try { before = goalscapacity.planFor(userId, activityId, category, periodNumber); } catch (e) { before = null; } }
+    const prevWeekly = db.prepare(`SELECT w.text, w.description, w.estimateMinutes FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId
+      WHERE p.activityId = ? AND p.category = ? AND p.periodNumber = ? AND w.weekIndex = ? AND w.carriedOverFromId IS NULL`).get(activityId, category, periodNumber, weekIndex);
     const result = goals.setWeekly(activityId, category, periodNumber, weekIndex, text, description, newTarget);
+    // Redistribution proposée (Essor) : analyse différée et non bloquante, seulement si l'objectif est non vide et a changé.
+    try {
+      const changed = !prevWeekly || prevWeekly.text !== text.trim() || (description !== undefined && (prevWeekly.description || '') !== description.trim()) || (newTarget && prevWeekly.estimateMinutes !== newTarget);
+      if (text.trim() && changed) require('../lib/changeproposals').scheduleForWeekly(userId, activityId, result.id);
+    } catch (e) { /* jamais d'échec côté réponse */ }
     if (before && before.periodManual != null && before.baseTotal != null) {
       const wk = before.weeks.find((w) => w.weekIndex === weekIndex);
       const periodRow = db.prepare('SELECT mainGoalText FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);

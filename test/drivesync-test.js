@@ -5,6 +5,7 @@ process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 process.env.GOOGLE_CLIENT_ID = 'cid'; process.env.GOOGLE_CLIENT_SECRET = 'sec';
 process.env.GOOGLE_REDIRECT_URI = 'https://x.test/api/drive/callback'; process.env.DRIVE_TOKEN_KEY = 'a'.repeat(64);
 process.env.DRIVE_SYNC_MAX_AI_CALLS_PER_DAY = '4';
+process.env.DRIVE_PREFILTER = 'off'; // textes de test très courts : le pré-filtre a ses propres tests (iacout-test.js)
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');
