@@ -30,10 +30,10 @@ const lastMondayOf = (y) => goals.addDays(goals.yearAnchor(y), 51 * 7);
   const n2 = w.length;
   goals.createNextYear(act);
   w = dt.weeksContext(act);
-  assert(w.length > n2 && (w.length === 110 || w[w.length - 1] === lastMondayOf(y + 2)), '2 années créées : plus long (borné par le plafond 110)');
+  assert(w.length > n2 && w[w.length - 1] === lastMondayOf(y + 2), '2 années créées : jusqu\'à la fin de la 2e année suivante, sans être coupé');
   assert(w.every((d) => goals.mostRecentMonday(d) === d), 'tous des lundis');
   assert(dt.weeksContext(999999).length >= 1, 'activité inconnue : au moins la semaine courante');
-  assert(w.length <= 110, 'plafond technique respecté');
+  assert(w.length <= 260, 'plafond technique respecté');
 
   // Objectif hebdomadaire lointain (semaine +30) : listé dans le prompt, tâche acceptée dans cette semaine
   goals.ensurePlan(act, key);
