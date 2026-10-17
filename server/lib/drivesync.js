@@ -234,7 +234,7 @@ async function syncConnection(userId, activityId, opts) {
       aiFails = 0;
       putFile.run(userId, activityId, f.id, f.modifiedTime, hash);
       // Modifications proposées (16 oct. 2026) : propositions seulement, rien n'est écrit (changeproposals.js).
-      try { await changeproposals.generate(userId, activityId, { docText: text }); } catch (e) { /* non bloquant */ }
+      try { await aibudget.runAs(userId, () => changeproposals.generate(userId, activityId, { docText: text })); } catch (e) { /* non bloquant */ } // runAs : coût imputé à l'utilisateur (budget IA), pas au compte système
       const now = new Date().toISOString();
       for (const t of prop.tasks) {
         const tk = taskKey(t.title);
