@@ -18,6 +18,14 @@
     return 'semaine du ' + new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' });
   }
 
+  // Jour proposé (« mer. 14 oct. ») ; anciennes propositions sans `day` : « semaine du … ». `noRoom` : semaine pleine, jour à choisir.
+  function dayOrWeekLabel(t) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((t && t.day) || '');
+    var out = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('fr-CA', { weekday: 'short', day: 'numeric', month: 'short' })
+      : (t && t.week ? weekLabel(t.week) + (t.noRoom ? ' (jour à choisir)' : '') : '');
+    return out + (t && t.moved ? ' · déplacée (semaine pleine)' : '');
+  }
+
   document.getElementById('content').insertAdjacentHTML('beforeend', `
     <div id="docTasksPage" class="docTasksWin hidden">
       <div class="activityPageHeader">
@@ -359,7 +367,7 @@
   var popItems = [], popTimer = null;
   function popRender() {
     $('docTasksPopList').innerHTML = popItems.map(function (t, i) {
-      var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : ''].filter(Boolean).join(' · ');
+      var meta = [t.categoryLabel, dayOrWeekLabel(t)].filter(Boolean).join(' · ');
       return '<div class="docTasksPopRow"><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span>'
         + '<button type="button" class="historyRowIconBtn danger" data-p="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
     }).join('') || '<p class="hint">Plus aucune tâche dans cette liste.</p>';
@@ -437,17 +445,20 @@
     var host = $('docTasksResults');
     if (!proposals.length) { pendingMode = false; host.innerHTML = '<p class="hint">Aucune tâche proposée.</p>'; return; }
     var html = proposals.map(function (t, i) {
-      var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+      var meta = [t.categoryLabel, dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       var pick = '';
       if (t.toChoose && categories.length) {
         pick = '<div class="docTasksMeta">Catégorie à choisir : <select class="docTasksCat" data-c="' + i + '">'
           + categories.map(function (c) { return '<option value="' + esc(c.key) + '"' + (c.key === t.key ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
-        meta = [t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+        meta = [dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       }
       return '<div class="docTasksRowWrap"><label class="docTasksRow"><input type="checkbox" data-i="' + i + '" checked><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span></label>' + pick + '</div>';
     }).join('');
     var warn = (r.warnings || []).map(function (w) {
       return '<div class="docTasksWarn">Attention : ' + weekLabel(w.week) + ', ' + w.minutes + ' min proposées pour une capacité de ' + w.capacityMinutes + ' min. Décoche des tâches ou garde-les en connaissance de cause.</div>';
+    }).join('');
+    warn += (r.dayWarnings || []).map(function (w) {
+      return '<div class="docTasksWarn">Attention : ' + dayOrWeekLabel({ day: w.day }) + ', ' + w.minutes + ' min pour une capacité de ' + w.capacityMinutes + ' min par jour. Tu peux changer le jour après l\'ajout.</div>';
     }).join('');
     host.innerHTML = warn + html + '<button type="button" id="docTasksApply" class="docTasksApplyBtn">Ajouter les tâches cochées</button><div class="docTasksCancelRow"><button type="button" id="docTasksCancel" class="docTasksLink">Annuler</button></div>';
     $('docTasksApply').addEventListener('click', apply);
@@ -514,12 +525,12 @@
     h.innerHTML = ptasks.map(function (t, i) {
       var gk = String(t.createdAt || '').slice(0, 16), head = '';
       if (gk !== gl) { gl = gk; var n = ptasks.filter(function (x) { return String(x.createdAt || '').slice(0, 16) === gk; }).length; head = '<label class="docTasksGroupHead"><input type="checkbox" data-pg="' + esc(gk) + '" checked aria-label="Tout sélectionner pour ce moment"><span>' + esc(whenLabel(t.createdAt)) + '</span><span class="docTasksMeta">' + n + '</span></label>'; }
-      var meta = [t.categoryLabel, t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+      var meta = [t.categoryLabel, dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       var pick = '';
       if (t.toChoose && pcats.length) {
         pick = '<div class="docTasksMeta">Catégorie à choisir : <select class="docTasksCat" data-pc="' + i + '">'
           + pcats.map(function (c) { return '<option value="' + esc(c.key) + '"' + (c.key === t.key ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
-        meta = [t.week ? weekLabel(t.week) : '', t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+        meta = [dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       }
       return head + '<div class="docTasksPopRow docTasksChangeRow" data-pgk="' + esc(gk) + '"><input type="checkbox" data-pt="' + i + '" checked aria-label="Ajouter">'
         + '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(t.title) + '</div><div class="docTasksMeta">' + esc(meta) + '</div>' + pick + '</div>'
@@ -630,7 +641,7 @@
     var picked = [];
     Array.prototype.forEach.call($('docTasksResults').querySelectorAll('input[data-i]:checked'), function (c) {
       var t = proposals[Number(c.getAttribute('data-i'))];
-      if (t) picked.push({ title: t.title, key: t.key, week: t.week, minutes: t.minutes });
+      if (t) picked.push({ title: t.title, key: t.key, week: t.week, day: t.day, minutes: t.minutes });
     });
     if (!picked.length) { msg('Coche au moins une tâche.'); return; }
     if (busy) return; busy = true;
@@ -655,7 +666,7 @@
         msg(m);
         var addedList = (res.addedIds || []).map(function (id, n) {
           var t = picked[n] || {}, cat = categories.filter(function (c) { return c.key === t.key; })[0];
-          return { itemId: id, title: t.title, key: t.key, week: t.week, categoryLabel: cat ? cat.label : '' };
+          return { itemId: id, title: t.title, key: t.key, week: t.week, day: t.day, categoryLabel: cat ? cat.label : '' };
         });
         $('docTasksResults').innerHTML = ''; proposals = [];
         if (addedList.length === res.addedCount && addedList.length) popOpen(addedList);

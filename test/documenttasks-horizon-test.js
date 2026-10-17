@@ -52,7 +52,7 @@ const lastMondayOf = (y) => goals.addDays(goals.yearAnchor(y), 51 * 7);
   const reply = JSON.stringify({ t: [['Tâche liée', key, target, 60], ['Date exacte lointaine', key, goals.addDays(target, 2), 30], ['Hors horizon', key, '2099-01-04', 30], ['Passé', key, '1999-01-04', 30]] });
   const parsed = dt.parseDetailed(reply, ctx);
   assert(parsed.tasks[0].week === target, 'tâche liée : semaine +30 acceptée');
-  assert(parsed.tasks[1].week === goals.addDays(target, 2), 'date exacte dans l\'horizon (jour quelconque) acceptée');
+  assert(parsed.tasks[1].day === goals.addDays(target, 2) && parsed.tasks[1].week === target, 'date exacte dans l\'horizon (jour quelconque) acceptée');
   assert(parsed.tasks[2].week === null && parsed.tasks[3].week === null, 'date hors horizon (avant/après) : null');
   const r = dt.apply('own', act, [{ title: 'Tâche lointaine', key, week: target }, { title: 'Hors horizon', key, week: '2099-01-04' }]);
   assert(r.addedCount === 2, 'apply : semaine lointaine acceptée, hors horizon ajoutée sans date');

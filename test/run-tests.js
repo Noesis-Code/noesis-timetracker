@@ -207,6 +207,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'documenttasks-horizon-test.js')], { encoding: 'utf8' }); } catch (e) { dthOk = false; }
   assert(dthOk, 'horizon étendu des tâches IA (test/documenttasks-horizon-test.js) passe');
 
+  // Jour proposé par l'IA, contrôle de capacité par jour.
+  let dtjOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'documenttasks-jour-test.js')], { encoding: 'utf8' }); } catch (e) { dtjOk = false; }
+  assert(dtjOk, 'jour proposé et capacité par jour (test/documenttasks-jour-test.js) passe');
+
   // Connecteur Drive (Google simulé, PDF compris).
   let drOk = true;
   try { execFileSync('node', [path.join(__dirname, 'drive-test.js')], { encoding: 'utf8' }); } catch (e) { drOk = false; }
