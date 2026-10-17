@@ -211,6 +211,46 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   assert(r.aiBlocked && nSubmit === nS2 && !seenF('b5-aaaaa'), 'budget bloqué : aucun lot soumis, fichier non marqué');
   aibatch.setFetch(null); delete process.env.ANTHROPIC_API_KEY; dt.setCaller(null);
 
+  // ---- Option 5 : lire seulement ce qui a changé (empreintes) ----
+  db.prepare("DELETE FROM ai_usage_log WHERE feature = 'test-budget'").run();
+  const dch = require('../server/lib/drivechunks');
+  const para = (n) => 'Paragraphe numéro ' + n + ' : contenu utile assez long pour ressembler à une vraie phrase de document de travail.';
+  const mkDoc = (over) => ['# Projet', para(1), para(2), '## Livrables', para(3), para(4), para(5), '## Suivi', para(6), para(7), para(8), para(9)].map((x, i) => (over && over[i] != null ? over[i] : x)).join('\n\n');
+  const sp1 = dch.split(mkDoc());
+  assert(sp1.length === 12 && sp1[4].trail === 'Projet > Livrables' && sp1[8].trail === 'Projet > Suivi', 'empreintes : découpage par titres et paragraphes, fil des titres');
+  const BIG = { 1: 'Réécrit 1', 2: 'Réécrit 2', 4: 'Réécrit 4', 5: 'Réécrit 5', 6: 'Réécrit 6', 7: 'Réécrit 7', 8: 'Réécrit 8', 9: 'Réécrit 9', 10: 'Réécrit 10' };
+  const seenVars = [];
+  dt.setCaller(async (a) => { seenVars.push(a.variable); return JSON.stringify({ t: [] }); });
+  docs['c1-aaaaa'] = { text: mkDoc(), mt: '2026-10-08T00:00:00Z', parents: ['fold-1111'] };
+  await ds.syncConnection('own', act);
+  const v0 = seenVars[seenVars.length - 1];
+  assert(v0.includes(para(1)) && v0.includes(para(9)), 'première lecture : texte complet');
+  const rows = db.prepare("SELECT chunkHash FROM drive_seen_chunks WHERE fileId = 'c1-aaaaa'").all();
+  assert(rows.length === 12 && rows.every((r) => /^[0-9a-f]{64}$/.test(r.chunkHash)), 'empreintes stockées (sha256 seulement, 12 blocs) ; aucun contenu');
+  const cols = db.prepare('PRAGMA table_info(drive_seen_chunks)').all().map((c) => c.name).join();
+  assert(cols === 'userId,activityId,fileId,chunkHash', 'table drive_seen_chunks : aucune colonne de contenu');
+  touch('c1-aaaaa', mkDoc({ 5: para(4) + ' MODIFIÉ avec une nouvelle date le 2026-11-02.' }));
+  await ds.syncConnection('own', act);
+  const v1 = seenVars[seenVars.length - 1];
+  assert(v1.includes('MODIFIÉ') && !v1.includes(para(1)) && !v1.includes(para(9)) && !v1.includes(para(3)), 'un seul paragraphe modifié : seul ce bloc part dans le prompt');
+  assert(/c1-aaaaa|Extraits modifiés/.test(v1) && v1.includes('[Section : Projet > Livrables]'), 'en-tête court : nom du fichier + fil de titres du bloc');
+  touch('c1-aaaaa', mkDoc(BIG));
+  await ds.syncConnection('own', act);
+  const v2 = seenVars[seenVars.length - 1];
+  assert(v2.includes('## Livrables') && v2.includes('Réécrit 9') && !v2.includes('Extraits modifiés'), 'gros remaniement (> 60 % des blocs) : texte complet');
+  const nv = seenVars.length;
+  touch('c1-aaaaa', mkDoc(BIG) + '\n\n\n');
+  await ds.syncConnection('own', act);
+  assert(seenVars.length === nv, 'blanc ajouté seulement : aucun bloc nouveau, pas d\'appel IA');
+  // échec IA : empreintes non mises à jour
+  dt.setCaller(async () => { throw new Error('panne'); });
+  touch('c1-aaaaa', mkDoc({ ...BIG, 11: 'Ajout fragile' }));
+  const before = db.prepare("SELECT COUNT(*) n FROM drive_seen_chunks WHERE fileId = 'c1-aaaaa' AND chunkHash = ?").get(dch.hashOf('Ajout fragile')).n;
+  await ds.syncConnection('own', act);
+  const after = db.prepare("SELECT COUNT(*) n FROM drive_seen_chunks WHERE fileId = 'c1-aaaaa' AND chunkHash = ?").get(dch.hashOf('Ajout fragile')).n;
+  assert(before === 0 && after === 0, 'échec du traitement : empreintes non mises à jour');
+  dt.setCaller(null);
+
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
