@@ -272,6 +272,125 @@ async function generate(userId, activityId, opts) {
   return { added: store(userId, activityId, changes) };
 }
 
+// ---------- Redistribution déclenchée par un objectif hebdomadaire (17 oct. 2026, Émilien) ----------
+// Création/modification d'un objectif hebdomadaire => analyse CIBLÉE (en arrière-plan, après un délai) : l'IA compare les tâches
+// ouvertes de la même catégorie (autres semaines) à cet objectif et PROPOSE des changements de date. Mêmes lignes 'pending' que
+// le reste (aucune écriture avant validation, refus mémorisé par hash). Sortie limitée à des changements `date` de tâches existantes.
+const WEEKLY_HORIZON_WEEKS = 12, WEEKLY_MAX_TASKS = 60, WEEKLY_MAX_CHANGES = 10;
+const WEEKLY_DEBOUNCE_MS = () => (process.env.CP_WEEKLY_DEBOUNCE_MS !== undefined ? Number(process.env.CP_WEEKLY_DEBOUNCE_MS) : 60000);
+
+function weeklyContext(userId, activityId, weeklyId) {
+  const w = db.prepare(`SELECT w.id, w.text, w.description, w.estimateMinutes, w.weekIndex, p.startDate, p.endDate, p.category AS cat, p.mainGoalText AS periodGoal
+    FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId
+    WHERE w.id = ? AND p.activityId = ? AND w.carriedOverFromId IS NULL`).get(weeklyId, activityId);
+  if (!w || !String(w.text || '').trim()) return null;
+  const today = todayIso();
+  const weekStart = goals.addDays(w.startDate, (w.weekIndex - 1) * 7), weekEnd = goals.addDays(weekStart, 6);
+  if (weekEnd < today) return null; // semaine passée : rien à y déplacer
+  const horizonEnd = goals.addDays(goals.mostRecentMonday(weekStart), WEEKLY_HORIZON_WEEKS * 7 + 6);
+  const tasks = db.prepare(`SELECT i.id, i.label, i.dueDate FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+    WHERE sp.activityId = ? AND sp.goalCategory = ? AND i.done = 0 AND i.dueDate >= ? AND i.dueDate <= ? AND NOT (i.dueDate >= ? AND i.dueDate <= ?)
+    ORDER BY i.dueDate, i.id LIMIT ?`).all(activityId, w.cat, today, horizonEnd, weekStart, weekEnd, WEEKLY_MAX_TASKS);
+  if (!tasks.length) return null;
+  let yearGoal = '';
+  try { yearGoal = String((goals.getYearGoals(activityId, Number(weekStart.slice(0, 4))) || {})[w.cat] || ''); } catch (e) { /* sans objectif annuel */ }
+  const others = db.prepare(`SELECT w2.id, w2.text, p2.startDate, w2.weekIndex FROM goal_weekly w2 JOIN goal_periods p2 ON p2.id = w2.periodId
+    WHERE p2.activityId = ? AND p2.category = ? AND w2.carriedOverFromId IS NULL AND w2.text != '' AND w2.id != ?`).all(activityId, w.cat, w.id)
+    .map((o) => ({ id: o.id, text: o.text, weekStart: goals.addDays(o.startDate, (o.weekIndex - 1) * 7) }))
+    .filter((o) => o.weekStart >= goals.addDays(today, -7) && o.weekStart <= horizonEnd)
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart)).slice(0, 30);
+  return { today, w, weekStart, weekEnd, horizonEnd, tasks, yearGoal, periodGoal: w.periodGoal || '', others };
+}
+
+function weeklyParts(c) {
+  const L = [];
+  L.push('Date du jour : ' + c.today + '.', '', '<donnees>');
+  if (c.yearGoal.trim()) L.push('Objectif annuel de la catégorie : ' + strip(c.yearGoal));
+  if (c.periodGoal.trim()) L.push('Objectif périodique (' + c.w.startDate + ' au ' + c.w.endDate + ') : ' + strip(c.periodGoal));
+  L.push('Autres objectifs hebdomadaires de la catégorie (semaine du | texte) :');
+  c.others.forEach((o) => L.push(`${o.weekStart} | ${strip(o.text)}`));
+  L.push('Tâches ouvertes de la catégorie, hors semaine visée (id | libellé | date) :');
+  c.tasks.forEach((t) => L.push(`${t.id} | ${strip(t.label)} | ${t.dueDate}`));
+  L.push('</donnees>');
+  const variable = [
+    '<consigne>',
+    `Objectif hebdomadaire VISÉ, semaine du ${c.weekStart} au ${c.weekEnd} : ${strip(c.w.text)}` + (c.w.estimateMinutes ? ` (${c.w.estimateMinutes} min)` : '') + (c.w.description ? ' — consigne : ' + strip(c.w.description) : ''),
+    `Propose UNIQUEMENT de déplacer vers cette semaine (date AAAA-MM-JJ entre ${c.weekStart} et ${c.weekEnd}) des tâches ouvertes qui servent clairement MIEUX cet objectif que l'objectif de leur semaine actuelle. Section "c" seulement, uniquement des changements "date" de tâches ("t"). En cas de doute, [].`,
+    '</consigne>', '', '<document>', '', '</document>', '', '<sortie>', 'Produis UNIQUEMENT la section "c" (clé JSON "c", aucune autre).', '</sortie>',
+  ].join('\n');
+  return { stable: L.join('\n'), variable };
+}
+
+// Revalide la sortie IA : seulement `date` de tâches candidates, dans la semaine visée, ni passée ni déjà dans la bonne semaine ; « avant » relu en base.
+function validateWeekly(text, c) {
+  const m = /\{[\s\S]*\}/.exec(String(text || ''));
+  if (!m) return null;
+  let j; try { j = JSON.parse(m[0]); } catch (e) { return null; }
+  const rows = j && Array.isArray(j.c) ? j.c : null;
+  if (!rows) return null;
+  const tasks = new Map(c.tasks.map((t) => [t.id, t]));
+  const seen = new Set(), out = [];
+  for (const r of rows.map(changeFromRow)) {
+    if (out.length >= WEEKLY_MAX_CHANGES) break;
+    if (!r || typeof r !== 'object' || r.target !== 'task' || r.field !== 'date') continue;
+    const id = Number(r.id), t = tasks.get(id);
+    const after = String(r.after || '').trim();
+    if (!t || seen.has(id) || !isRealDate(after) || after < c.weekStart || after > c.weekEnd || after < c.today || after === t.dueDate) continue;
+    seen.add(id);
+    out.push({ target: 'task', targetId: id, field: 'date', before: t.dueDate, after, reason: String(r.reason || '').replace(/\s+/g, ' ').trim().slice(0, 160) });
+  }
+  return out;
+}
+
+// Retourne { added } ; ne lève jamais (échec IA => { added: 0, failed: true }).
+async function generateForWeekly(userId, activityId, weeklyId) {
+  try {
+    const { activityHasEssor } = require('./offer1access');
+    if (!activityHasEssor(activityId, userId)) return { added: 0, notEssor: true };
+    if (!docanalysis.hasCaller() && !classify.configured()) return { added: 0, configured: false };
+    const c = weeklyContext(userId, activityId, weeklyId);
+    if (!c) return { added: 0 };
+    if (!aibudget.check(userId).ok) return { added: 0, aiBlocked: true };
+    if (!require('./drivesync').takeCall(userId)) return { added: 0, capReached: true };
+    const out = await aibudget.runAs(userId, () => docanalysis.call({ parts: weeklyParts(c), want: { t: false, c: true }, feature: 'redistribution-objectif' }));
+    const changes = validateWeekly(out && out.text, c);
+    if (!changes) return { added: 0, failed: true };
+    return { added: store(userId, activityId, changes) }; // hash déjà en attente / refusé / appliqué : rien de recréé
+  } catch (e) {
+    console.warn('[changeproposals] redistribution objectif hebdo échouée : ' + (e && e.message));
+    return { added: 0, failed: true };
+  }
+}
+
+// Anti-rafale : une minuterie par weeklyId (chaque nouvelle modification la repousse) et une seule analyse à la fois par weeklyId.
+const weeklyTimers = new Map(), weeklyRunning = new Set(), weeklyAgain = new Set();
+function runWeekly(userId, activityId, weeklyId, delay) {
+  weeklyTimers.delete(weeklyId);
+  if (weeklyRunning.has(weeklyId)) { weeklyAgain.add(weeklyId); return Promise.resolve({ queued: true }); }
+  weeklyRunning.add(weeklyId);
+  return generateForWeekly(userId, activityId, weeklyId).catch(() => ({ added: 0, failed: true })).then((res) => {
+    weeklyRunning.delete(weeklyId);
+    if (weeklyAgain.delete(weeklyId)) scheduleForWeekly(userId, activityId, weeklyId, { delayMs: delay });
+    return res;
+  });
+}
+// Non bloquant : programme l'analyse (si Essor et objectif non vide) et rend la main immédiatement. Jamais d'exception.
+function scheduleForWeekly(userId, activityId, weeklyId, opts) {
+  try {
+    const { activityHasEssor } = require('./offer1access');
+    if (!weeklyId || !activityHasEssor(activityId, userId)) return false;
+    const row = db.prepare('SELECT w.text FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id = ? AND p.activityId = ?').get(weeklyId, activityId);
+    if (!row || !String(row.text || '').trim()) return false;
+    const delay = opts && opts.delayMs !== undefined ? opts.delayMs : WEEKLY_DEBOUNCE_MS();
+    if (weeklyTimers.has(weeklyId)) clearTimeout(weeklyTimers.get(weeklyId));
+    const t = setTimeout(() => { runWeekly(userId, activityId, weeklyId, delay); }, delay);
+    if (t.unref) t.unref();
+    weeklyTimers.set(weeklyId, t);
+    return true;
+  } catch (e) { return false; }
+}
+function weeklyState() { return { timers: weeklyTimers.size, running: weeklyRunning.size }; }
+
 // ---------- Application / refus ----------
 function cleanIds(ids) {
   return Array.isArray(ids) ? ids.map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 200) : [];
@@ -334,4 +453,4 @@ function dismiss(activityId, ids) {
   return { dismissedCount: rows.length };
 }
 
-module.exports = { setChecked, list, generate, store, storeFromText, apply, dismiss, setCaller, validate, buildContext, buildUser, buildUserParts, SYSTEM, hashOf, isSpellingOnly };
+module.exports = { generateForWeekly, scheduleForWeekly, weeklyState, validateWeekly, setChecked, list, generate, store, storeFromText, apply, dismiss, setCaller, validate, buildContext, buildUser, buildUserParts, SYSTEM, hashOf, isSpellingOnly };

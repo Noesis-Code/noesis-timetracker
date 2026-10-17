@@ -223,7 +223,7 @@ async function main() {
   assert(dsOk, 'surveillance Drive (test/drivesync-test.js) passe');
 
   // Budget IA et économies de coût IA (cache de prompt, appel fusionné, lots, empreintes, pré-filtre).
-  for (const [f, label] of [['aibudget-test.js', 'budget IA'], ['changeproposals-test.js', 'modifications proposées'], ['iacout-test.js', 'économies de coût IA']]) {
+  for (const [f, label] of [['aibudget-test.js', 'budget IA'], ['changeproposals-test.js', 'modifications proposées'], ['changeproposals-weekly-test.js', 'redistribution par objectif hebdomadaire'], ['iacout-test.js', 'économies de coût IA']]) {
     let ok = true;
     try { execFileSync('node', [path.join(__dirname, f)], { encoding: 'utf8', stdio: 'pipe' }); } catch (e) { ok = false; }
     assert(ok, `${label} (test/${f}) passe`);
