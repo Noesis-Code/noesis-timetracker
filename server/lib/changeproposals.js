@@ -364,9 +364,9 @@ async function generateForWeekly(userId, activityId, weeklyId) {
 
 // Anti-rafale : une minuterie par weeklyId (chaque nouvelle modification la repousse) et une seule analyse à la fois par weeklyId.
 const weeklyTimers = new Map(), weeklyRunning = new Set(), weeklyAgain = new Set();
-// Limite par utilisateur : au plus CP_WEEKLY_MAX_PER_HOUR analyses lancées par fenêtre glissante d'une heure (défaut 6) ; l'excédent est ABANDONNÉ (journalisé, sans contenu) :
-// la proposition se régénère à la prochaine modification de l'objectif.
-const WEEKLY_MAX_PER_HOUR = () => { const n = parseInt(process.env.CP_WEEKLY_MAX_PER_HOUR, 10); return Number.isFinite(n) && n >= 0 ? n : 6; };
+// Limite par utilisateur : au plus CP_WEEKLY_MAX_PER_HOUR analyses lancées par fenêtre glissante d'une heure (défaut 20) ; l'excédent est ABANDONNÉ (journalisé, sans contenu) :
+// la proposition se régénère à la prochaine modification de l'objectif. Une analyse qui échoue (crédit épuisé, plafond, erreur IA) est remboursée : elle ne compte pas.
+const WEEKLY_MAX_PER_HOUR = () => { const n = parseInt(process.env.CP_WEEKLY_MAX_PER_HOUR, 10); return Number.isFinite(n) && n >= 0 ? n : 20; };
 const WEEKLY_WINDOW_MS = 3600 * 1000;
 const weeklyStarts = new Map(); // userId -> horodatages des analyses lancées dans l'heure
 function weeklyAllowed(userId) {
@@ -376,6 +376,7 @@ function weeklyAllowed(userId) {
   a.push(now); weeklyStarts.set(userId, a);
   return true;
 }
+function weeklyRefund(userId) { const a = weeklyStarts.get(userId); if (a && a.length) a.pop(); }
 function resetWeeklyLimits() { weeklyStarts.clear(); }
 function runWeekly(userId, activityId, weeklyId, delay) {
   weeklyTimers.delete(weeklyId);
@@ -384,6 +385,7 @@ function runWeekly(userId, activityId, weeklyId, delay) {
   weeklyRunning.add(weeklyId);
   return generateForWeekly(userId, activityId, weeklyId).catch(() => ({ added: 0, failed: true })).then((res) => {
     weeklyRunning.delete(weeklyId);
+    if (res && (res.failed || res.aiBlocked || res.capReached || res.notEssor || res.configured === false)) weeklyRefund(userId); // échec : ne compte pas dans la limite
     if (weeklyAgain.delete(weeklyId)) scheduleForWeekly(userId, activityId, weeklyId, { delayMs: delay });
     return res;
   });
