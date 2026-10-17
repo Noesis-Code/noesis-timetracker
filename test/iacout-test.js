@@ -4,6 +4,7 @@ process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-iacout-
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
 process.env.GOOGLE_CLIENT_ID = 'cid'; process.env.GOOGLE_CLIENT_SECRET = 'sec';
 process.env.GOOGLE_REDIRECT_URI = 'https://x.test/api/drive/callback'; process.env.DRIVE_TOKEN_KEY = 'a'.repeat(64);
+process.env.DRIVE_PREFILTER = 'off'; // les sections précédentes utilisent des textes très courts ; réactivé pour l'option 6
 let failed = 0;
 const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const db = require('../server/db');
@@ -35,7 +36,7 @@ const mockFetch = async (url, opt) => {
   if (m && !m[1]) {
     if (u.searchParams.get('q').startsWith('mimeType =')) return json({ files: [] });
     const qf = (u.searchParams.get('q').match(/'([^']+)' in parents/) || [])[1];
-    return json({ files: Object.keys(docs).filter((id) => docs[id].parents.includes(qf)).map((id) => ({ id, name: id, mimeType: 'application/vnd.google-apps.document', modifiedTime: docs[id].mt })) });
+    return json({ files: Object.keys(docs).filter((id) => docs[id].parents.includes(qf)).map((id) => ({ id, name: id, mimeType: docs[id].mime || 'application/vnd.google-apps.document', modifiedTime: docs[id].mt })) });
   }
   if (m && m[2]) return { ok: true, status: 200, arrayBuffer: async () => Buffer.from(docs[m[1]].text) };
   if (m && m[1] === 'fold-1111') return json({ id: 'fold-1111', name: 'Projet', mimeType: 'application/vnd.google-apps.folder' });
@@ -250,6 +251,52 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   const after = db.prepare("SELECT COUNT(*) n FROM drive_seen_chunks WHERE fileId = 'c1-aaaaa' AND chunkHash = ?").get(dch.hashOf('Ajout fragile')).n;
   assert(before === 0 && after === 0, 'échec du traitement : empreintes non mises à jour');
   dt.setCaller(null);
+
+  // ---- Option 6 : pré-filtre local avant l'IA ----
+  delete process.env.DRIVE_PREFILTER;
+  const pfm = require('../server/lib/driveprefilter');
+  const sent = []; let aiN = 0;
+  dt.setCaller(async (a) => { aiN++; sent.push(a.variable); return JSON.stringify({ t: [] }); });
+  const sentence = 'Il faut impérativement envoyer le rapport financier annuel au comptable avant le quinze novembre prochain sans faute';
+  const noise = ['Confidentiel - ne pas diffuser', 'Page suivante'];
+  const noisy = [sentence, ...Array.from({ length: 12 }, (_, i) => noise[i % 2] + '   \n\n\n\n' + 'Société Exemple   inc.'), 'Fin   du   document avec   espaces   multiples'].join('\n');
+  const cl = pfm.clean(noisy);
+  assert(cl.includes(sentence) && (cl.match(/Confidentiel - ne pas diffuser/g) || []).length === 1 && (cl.match(/Page suivante/g) || []).length === 1 && !/ {2,}/.test(cl) && !/\n{3,}/.test(cl), 'nettoyage : phrase utile gardée, lignes répétées ≥ 3 fois réduites à la première, espaces et vides en trop retirés');
+  const table = ['Nom | Tâche | Échéance', 'Paul | Appeler le client | lundi', 'Paul | Appeler le client | lundi', 'Paul | Appeler le client | lundi', 'Marie | Envoyer le devis | mardi', 'Jean | Relire le contrat de travail | mercredi'].join('\n');
+  assert(pfm.clean(table) === table, 'tableau avec mots : conservé intégralement (même lignes répétées)');
+  assert(pfm.evaluate('', {}).skip === 'vide' && pfm.evaluate('trois mots seulement', {}).skip === 'vide' && pfm.evaluate('12 34 56,78\n99;100', { name: 'x.csv' }).skip === 'sans mots', 'règles : vide / moins de 20 mots / feuille sans mots');
+  assert(pfm.evaluate('12 34 56,78\n99;100', { name: 'x.txt' }).skip === 'vide' && !pfm.evaluate(noisy, {}).skip, 'règles : seul un tableur est ignoré « sans mots » ; fichier avec phrase utile envoyé');
+  docs['p1-aaaaa'] = { text: ' \n ', mt: '2026-10-09T00:00:00Z', parents: ['fold-1111'] };
+  docs['p2-aaaaa'] = { text: 'Rappeler Paul demain', mt: '2026-10-09T00:00:00Z', parents: ['fold-1111'] };
+  docs['p3-aaaaa'] = { text: noisy, mt: '2026-10-09T00:00:00Z', parents: ['fold-1111'] };
+  docs['p4-aaaaa'] = { text: noisy, mt: '2026-10-09T00:00:00Z', parents: ['fold-1111'] };
+  docs['p5-aaaaa'] = { text: table, mt: '2026-10-09T00:00:00Z', parents: ['fold-1111'] };
+  docs['p6-aaaaa'] = { text: '120\n340;12,5\n7 8 9', mt: '2026-10-09T00:00:00Z', parents: ['fold-1111'], mime: 'application/vnd.google-apps.spreadsheet' };
+  let rr = await ds.syncConnection('own', act);
+  const reasons = Object.fromEntries((rr.skipped || []).map((x) => [x.name, x.reason]));
+  assert(reasons['p1-aaaaa'] === 'vide ou illisible' && reasons['p2-aaaaa'] === 'vide' && reasons['p6-aaaaa'] === 'sans mots' && reasons['p4-aaaaa'] === 'doublon' && !reasons['p3-aaaaa'] && !reasons['p5-aaaaa'], 'pré-filtre : vide, trop court, sans mots, doublon ignorés ; fichier utile et tableau gardés');
+  assert(aiN === 2, 'pré-filtre : seuls 2 fichiers (phrase utile, tableau) partent à l\'IA');
+  const sv = sent.find((v) => v.includes(sentence));
+  assert(sv && (sv.match(/Confidentiel - ne pas diffuser/g) || []).length === 1, 'pré-filtre : la phrase utile est envoyée, le bruit répété réduit');
+  assert(sent.some((v) => v.includes('Jean | Relire le contrat de travail | mercredi') && v.includes('Marie | Envoyer le devis | mardi')), 'pré-filtre : tableau envoyé en entier');
+  const stt = ds.settings('own', act);
+  assert(stt.skippedCount === 5 && stt.skipped.some((x) => x.name === 'p1-aaaaa' && x.reason === 'vide ou illisible'), 'état de la surveillance : compteur et liste « nom + raison » des fichiers ignorés');
+  assert(!/^[0-9a-f]{64}$/.test(db.prepare("SELECT contentHash FROM drive_seen_files WHERE fileId = 'p2-aaaaa'").get().contentHash || ''), 'fichier ignoré : pas de hash de contenu enregistré');
+  console.log('  info  octets économisés sur ce jeu d\'essai : ' + rr.bytesSaved + ' octets (~' + Math.round(rr.bytesSaved / 4) + ' jetons)');
+  // un fichier ignoré qui change est réévalué
+  touch('p2-aaaaa', sentence + ' et ensuite préparer la réunion de coordination avec toute l\'équipe de production');
+  const a0 = aiN; await ds.syncConnection('own', act);
+  assert(aiN === a0 + 1 && ds.settings('own', act).skippedCount === 4, 'fichier ignoré puis complété : réévalué et envoyé à l\'IA');
+  // le manuel contourne le pré-filtre
+  touch('p1-aaaaa', 'Appeler Paul'); const a1 = aiN;
+  rr = await ds.syncNow('own', act);
+  assert(aiN === a1 + 1 && !db.prepare("SELECT 1 FROM drive_skipped WHERE fileId = 'p1-aaaaa'").get(), 'synchroniser maintenant : contourne le pré-filtre (lit tout)');
+  // DRIVE_PREFILTER=off
+  docs['p7-aaaaa'] = { text: 'Deux mots', mt: '2026-10-10T00:00:00Z', parents: ['fold-1111'] };
+  process.env.DRIVE_PREFILTER = 'off'; const a2 = aiN;
+  await ds.syncConnection('own', act);
+  assert(aiN === a2 + 1, 'DRIVE_PREFILTER=off : pré-filtre coupé');
+  delete process.env.DRIVE_PREFILTER; dt.setCaller(null);
 
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);

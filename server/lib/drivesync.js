@@ -14,6 +14,7 @@
 // jeton révoqué => « à reconnecter », la connexion est ensuite ignorée (pas de boucle d'erreurs).
 // Surveillance programmée : les fichiers à analyser partent en UN lot Anthropic (API Batch, 50 % du prix, table drive_batches) ;
 // les passages suivants relèvent les lots terminés et appliquent la même logique. « Synchroniser maintenant » reste en appels directs.
+// Pré-filtre local avant l'IA (driveprefilter.js ; DRIVE_PREFILTER=off ; contourné en manuel) : fichiers vides / doublons / sans mots ignorés et listés.
 // Fichier déjà vu qui change : seuls les blocs nouveaux (empreintes, drivechunks.js) partent à l'IA. Soumission impossible => appels directs. Variables : DRIVE_SYNC_INTERVAL_MIN (0 ou off = désactivé), DRIVE_SYNC_MAX_AI_CALLS_PER_DAY,
 // DRIVE_SYNC_MAX_AI_PER_PASS (50), DRIVE_SYNC_BATCH=off (retour aux appels directs).
 const crypto = require('crypto');
@@ -23,6 +24,7 @@ const documenttasks = require('./documenttasks');
 const aibudget = require('./aibudget');
 const aibatch = require('./aibatch');
 const drivechunks = require('./drivechunks');
+const prefilter = require('./driveprefilter');
 const docanalysis = require('./docanalysis');
 const classify = require('./goalstaskclassify');
 const push = require('./push');
@@ -62,6 +64,12 @@ function takeCall(userId) {
   return true;
 }
 
+// Fichiers ignorés par le pré-filtre local (nom + raison) : visibles dans l'état de la surveillance.
+function skippedInfo(userId, activityId) {
+  const rows = db.prepare('SELECT name, reason FROM drive_skipped WHERE userId = ? AND activityId = ? ORDER BY at DESC LIMIT 100').all(userId, activityId);
+  return { skippedCount: rows.length, skipped: rows.map((r) => ({ name: r.name || '', reason: r.reason })) };
+}
+
 function syncRow(userId, activityId) {
   return db.prepare('SELECT * FROM drive_sync WHERE userId = ? AND activityId = ?').get(userId, activityId);
 }
@@ -82,6 +90,7 @@ function settings(userId, activityId) {
     aiBlocked: aibudget.status(userId).blocked, aiResumesOn: aibudget.status(userId).resumesOn,
     aiMessage: aibudget.status(userId).blocked ? aibudget.blockedMessage(aibudget.status(userId).resumesOn) : null,
     capReached: used >= max, callsToday: used, maxCallsPerDay: Number.isFinite(max) ? max : null,
+    ...skippedInfo(userId, activityId),
     pendingCount: db.prepare("SELECT COUNT(*) AS n FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending'").get(userId, activityId).n,
   };
 }
@@ -297,6 +306,11 @@ async function syncConnection(userId, activityId, opts) {
     const seenFile = db.prepare('SELECT * FROM drive_seen_files WHERE userId = ? AND activityId = ? AND fileId = ?');
     const existing = existingKeys(activityId);
     const inflight = batchFileIds(userId, activityId); // fichiers déjà dans un lot en cours : pas de second envoi
+    const pf = !opts.manual && prefilter.enabled(); // pré-filtre local : « Synchroniser maintenant » lit tout
+    const dupOf = db.prepare('SELECT 1 FROM drive_seen_files WHERE userId = ? AND activityId = ? AND contentHash = ? AND fileId != ? LIMIT 1');
+    const skipIns = db.prepare('INSERT OR REPLACE INTO drive_skipped (userId, activityId, fileId, name, reason, at) VALUES (?, ?, ?, ?, ?, ?)');
+    const skipDel = db.prepare('DELETE FROM drive_skipped WHERE userId = ? AND activityId = ? AND fileId = ?');
+    const hashesInPass = new Set();
     const queue = []; // mode lot : demandes préparées { f, hash, first, cfg, prep }
     let aiFails = 0;
     for (const f of files) {
@@ -312,13 +326,35 @@ async function syncConnection(userId, activityId, opts) {
       catch (e) {
         if (e.revoked) { out.needsReconnect = true; break; }
         if (e.statusCode === 400 || e.statusCode === 403 || e.statusCode === 404) st.putFile.run(userId, activityId, f.id, f.modifiedTime, null); // illisible : pas de relecture tant qu'il ne change pas
+        if (pf && e.statusCode === 400) { skipIns.run(userId, activityId, f.id, f.name || '', 'vide ou illisible', new Date().toISOString()); (out.skipped = out.skipped || []).push({ name: f.name || '', reason: 'vide ou illisible' }); } // fichier vide / format non lu : listé aussi
         continue;
       }
       out.filesRead++;
       const hash = sha(text);
       if (seen && seen.contentHash === hash) { st.putFile.run(userId, activityId, f.id, f.modifiedTime, hash); continue; } // seule la date a bougé
+      // Pré-filtre local (driveprefilter.js) : jamais en manuel. Un fichier ignoré est noté « skip:raison » (pas de hash qui masquerait
+      // une modification future : s'il change, il est réévalué) et listé dans drive_skipped.
+      const wasSkipped = !!seen && /^skip:/.test(seen.contentHash || '');
+      const isNew = !seen || wasSkipped; // jamais lu par l'IA
+      let body0 = text;
+      if (pf) {
+        const ev = prefilter.evaluate(text, f);
+        let reason = ev.skip || null;
+        if (!reason && (hashesInPass.has(hash) || dupOf.get(userId, activityId, hash, f.id))) reason = 'doublon'; // même texte qu'un autre fichier déjà traité
+        if (reason) {
+          st.putFile.run(userId, activityId, f.id, f.modifiedTime, 'skip:' + reason);
+          skipIns.run(userId, activityId, f.id, f.name || '', reason, new Date().toISOString());
+          (out.skipped = out.skipped || []).push({ name: f.name || '', reason });
+          out.bytesSaved = (out.bytesSaved || 0) + text.length;
+          continue;
+        }
+        skipDel.run(userId, activityId, f.id);
+        out.bytesSaved = (out.bytesSaved || 0) + (text.length - ev.text.length);
+        body0 = ev.text;
+      } else skipDel.run(userId, activityId, f.id);
+      hashesInPass.add(hash);
       // Lire seulement ce qui a changé : fichier déjà vu => seuls les blocs à empreinte nouvelle partent à l'IA (drivechunks.js) ; sinon texte complet.
-      const plan = drivechunks.plan(text, f.name, seen ? drivechunks.loadHashes(userId, activityId, f.id) : null);
+      const plan = drivechunks.plan(body0, f.name, isNew ? null : drivechunks.loadHashes(userId, activityId, f.id));
       if (plan.mode === 'none') { st.putFile.run(userId, activityId, f.id, f.modifiedTime, hash); drivechunks.saveHashes(userId, activityId, f.id, plan.hashes); out.unchangedBlocks = (out.unchangedBlocks || 0) + 1; continue; } // rien de nouveau (suppression / réordonnancement)
       if (plan.mode === 'partial') out.partialReads = (out.partialReads || 0) + 1;
       const bud = aibudget.check(userId);
@@ -327,9 +363,9 @@ async function syncConnection(userId, activityId, opts) {
       out.aiCalls++;
       const body = { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl: 'data:text/plain;base64,' + Buffer.from(plan.text, 'utf8').toString('base64') }] };
       // Les « modifications proposées » sortent du même appel que les tâches, sauf à la première lecture du fichier (rien à comparer).
-      const popts = { skipRate: true, callTaken: true, skipChanges: !seen };
+      const popts = { skipRate: true, callTaken: true, skipChanges: isNew };
       if (batch) {
-        try { queue.push({ f, hash, chunks: plan.hashes, first: !seen, cfg, prep: await aibudget.runAs(userId, () => documenttasks.prepareProposal(userId, activityId, body, popts)) }); }
+        try { queue.push({ f, hash, chunks: plan.hashes, first: isNew, cfg, prep: await aibudget.runAs(userId, () => documenttasks.prepareProposal(userId, activityId, body, popts)) }); }
         catch (e) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; }
         continue;
       }
@@ -346,7 +382,7 @@ async function syncConnection(userId, activityId, opts) {
     if (!out.needsReconnect) db.prepare('UPDATE drive_sync SET lastCheckedAt = ? WHERE userId = ? AND activityId = ?').run(new Date().toISOString(), userId, activityId);
     if (out.added || out.proposed) notify(userId, activityId, out.added, out.proposed);
     // Compteurs seulement : jamais de contenu de document ni de titre de tâche.
-    console.log(`[drivesync] fichiers=${out.filesChecked} lus=${out.filesRead} ia=${out.aiCalls} ajoutees=${out.added} proposees=${out.proposed} plafond=${out.capReached}${out.partialReads ? ' partielles=' + out.partialReads : ''}${out.batched ? ' lot=' + out.batched : ''}`);
+    console.log(`[drivesync] fichiers=${out.filesChecked} lus=${out.filesRead} ia=${out.aiCalls} ajoutees=${out.added} proposees=${out.proposed} plafond=${out.capReached}${out.partialReads ? ' partielles=' + out.partialReads : ''}${out.skipped ? ' ignores=' + out.skipped.length : ''}${out.bytesSaved ? ' octetsEconomises=' + out.bytesSaved : ''}${out.batched ? ' lot=' + out.batched : ''}`);
     return out;
   } finally { running.delete(k); }
 }

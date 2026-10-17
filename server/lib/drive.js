@@ -106,6 +106,15 @@ function ensureTable() {
     chunkHash TEXT NOT NULL,
     PRIMARY KEY (userId, activityId, fileId, chunkHash)
   )`); // empreintes seulement (drivechunks.js), jamais de contenu
+  db.exec(`CREATE TABLE IF NOT EXISTS drive_skipped (
+    userId TEXT NOT NULL,
+    activityId INTEGER NOT NULL,
+    fileId TEXT NOT NULL,
+    name TEXT,
+    reason TEXT NOT NULL,
+    at TEXT NOT NULL,
+    PRIMARY KEY (userId, activityId, fileId)
+  )`); // fichiers ignorés par le pré-filtre local (nom + raison seulement, jamais de contenu ; driveprefilter.js)
   db.exec(`CREATE TABLE IF NOT EXISTS drive_batches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     userId TEXT NOT NULL,
@@ -337,6 +346,7 @@ function removeFolder(userId, activityId, folderId) {
   // Fichiers vus de ce dossier : on ne connaît pas le parent localement, on relit simplement tout au prochain passage (déduplication par tâches).
   db.prepare('DELETE FROM drive_seen_files WHERE userId = ? AND activityId = ?').run(userId, activityId);
   db.prepare('DELETE FROM drive_seen_chunks WHERE userId = ? AND activityId = ?').run(userId, activityId);
+  db.prepare('DELETE FROM drive_skipped WHERE userId = ? AND activityId = ?').run(userId, activityId);
   syncCompat(userId, activityId);
   return { ok: true, folders: foldersOf(userId, activityId) };
 }
@@ -461,14 +471,14 @@ async function proposeFromFile(userId, activityId, fileId, instruction) {
 async function disconnect(userId, activityId) {
   ensureTable();
   const c = getConn(userId, activityId);
-  if (!c) { ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_seen_tasks', 'drive_folders'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId)); return { disconnected: true }; }
+  if (!c) { ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_seen_tasks', 'drive_folders'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId)); return { disconnected: true }; }
   if (configured()) {
     try {
       await fetchFn(REVOKE_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: decrypt(c.encryptedToken) }).toString() });
     } catch (e) { /* la suppression locale prime */ }
   }
   // Droit au retrait : la surveillance s'arrête et tout ce qui la concerne est supprimé.
-  ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_seen_tasks', 'drive_folders', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
+  ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_seen_tasks', 'drive_folders', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
   return { disconnected: true };
 }
 
