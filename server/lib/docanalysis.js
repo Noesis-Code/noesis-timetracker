@@ -40,7 +40,8 @@ const SYSTEM = [
   'Exemple avec les deux sections : {"t":[["Appeler Paul","cle",null,30]],"c":[["t",12,"date","2026-10-20","Trop chargé"]]}',
 ].join('\n');
 
-const tagsOut = (t) => String(t == null ? '' : t).replace(/<\/?\s*(document|consigne|donnees|application|sortie)\s*>/gi, '');
+// Balises du prompt retirées de TOUT texte inséré (document, titres de tâches, objectifs, catégories), variantes avec espaces comprises (« < /document >»).
+const tagsOut = (t) => String(t == null ? '' : t).replace(/<\s*\/?\s*(document|consigne|donnees|application|sortie)\s*>/gi, '');
 
 // Message user en deux parties : STABLE (mise en cache : tâches puis données de modification) et VARIABLE.
 // tctx : documenttasks.buildContext ; cctx : changeproposals.buildContext ; want : { t, c }.
@@ -89,4 +90,4 @@ async function call({ parts, want, feature }) {
   } finally { clearTimeout(timer); }
 }
 
-module.exports = { SYSTEM, buildParts, requestParams, call, setCaller, hasCaller, maxTokensFor, API_URL };
+module.exports = { tagsOut, SYSTEM, buildParts, requestParams, call, setCaller, hasCaller, maxTokensFor, API_URL };

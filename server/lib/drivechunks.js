@@ -81,4 +81,44 @@ function plan(text, fileName, prev) {
   return { text: out.join('\n'), hashes, mode: 'partial', changed: fresh.length, total: blocks.length };
 }
 
-module.exports = { split, plan, loadHashes, saveHashes, hashOf, FULL_RATIO, MAX_BLOCK };
+// Découpe un texte en segments d'au plus `max` caractères, aux frontières de paragraphes (puis de lignes, puis coupe franche en dernier recours).
+// Aucun caractère n'est perdu : chaque segment sera envoyé à l'IA (le texte plus long que la limite de documenttasks serait sinon tronqué).
+function segment(text, max) {
+  const t = String(text || '');
+  if (t.length <= max) return t.trim() ? [t] : [];
+  const out = [];
+  let acc = '';
+  const flush = () => { if (acc.trim()) out.push(acc); acc = ''; };
+  const add = (piece, sep) => {
+    if (acc && acc.length + sep.length + piece.length > max) flush();
+    acc = acc ? acc + sep + piece : piece;
+  };
+  t.split(/\n{2,}/).forEach((para) => {
+    if (para.length <= max) { add(para, '\n\n'); return; }
+    para.split('\n').forEach((line) => {
+      if (line.length <= max) { add(line, '\n'); return; }
+      for (let i = 0; i < line.length; i += max) add(line.slice(i, i + max), '\n');
+    });
+  });
+  flush();
+  return out;
+}
+
+// Coupe chaque segment en deux moitiés (à la ligne la plus proche du milieu), `times` fois : réessai après une réponse IA coupée.
+function halve(segments, times) {
+  let segs = segments.slice();
+  for (let k = 0; k < times; k++) {
+    const next = [];
+    segs.forEach((sg) => {
+      if (sg.length < 400) { next.push(sg); return; }
+      const mid = Math.floor(sg.length / 2);
+      let cut = sg.lastIndexOf('\n', mid);
+      if (cut < sg.length * 0.2) { cut = sg.indexOf('\n', mid); if (cut < 0 || cut > sg.length * 0.8) cut = mid; }
+      next.push(sg.slice(0, cut), sg.slice(cut));
+    });
+    segs = next.filter((x) => x.trim());
+  }
+  return segs;
+}
+
+module.exports = { split, plan, segment, halve, loadHashes, saveHashes, hashOf, FULL_RATIO, MAX_BLOCK };

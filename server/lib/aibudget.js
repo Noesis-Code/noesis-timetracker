@@ -7,6 +7,9 @@
 // Le coût réel vient du champ `usage` de chaque réponse de l'API Anthropic (cache de prompt : lecture ×0,1,
 // création ×1,25 du prix d'entrée ; lots Anthropic : facteur 0,5 passé à record).
 //
+// Lots Anthropic (drivesync.js) : le coût réel est enregistré à la RELÈVE du lot (facteur 0,5) ; avant la soumission, le coût MAXIMAL estimé
+// (entrée + max_tokens de sortie, x 0,5) est comparé à ce qui reste de la tranche (status) pour ne pas la dépasser.
+//
 // Tarifs en $/million de jetons ; surchargeables sans code : AI_PRICE_IN_PER_M,
 // AI_PRICE_OUT_PER_M (valent pour tous les modèles), AI_BUDGET_MONTH_USD (défaut 15).
 // Les appels sans utilisateur identifiable sont enregistrés sous 'system', jamais bloqués.

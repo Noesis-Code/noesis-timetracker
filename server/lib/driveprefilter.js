@@ -1,8 +1,8 @@
 // Pré-filtre LOCAL avant l'IA pour la surveillance programmée de Drive (17 oct. 2026, réduction du coût IA).
 // Règle absolue d'Émilien : ne JAMAIS perdre de contenu important. Seuls gestes permis :
-//   (a) ignorer un fichier vide ou de moins de 20 mots ; (b) ignorer un doublon exact d'un fichier déjà traité de la même connexion
+//   (a) ignorer un fichier vide ou de moins de 20 mots (jamais s'il contient des puces, cases ou lignes numérotées) ; (b) ignorer un doublon exact d'un fichier déjà traité de la même connexion
 //   (fait dans drivesync.js : même contentHash) ; (c) nettoyer SANS toucher aux phrases : espaces multiples, lignes vides en trop,
-//   lignes identiques répétées 3 fois ou plus (en-têtes / pieds de page : on garde la première occurrence) ;
+//   lignes COURTES de texte ordinaire (< 120 car., ni liste, ni titre, ni tableau) répétées 3 fois ou plus (en-têtes / pieds de page : on garde la première occurrence) ;
 //   (d) feuille de calcul / CSV : ignorer seulement si aucun mot (que des chiffres et symboles).
 // Interdits : tri de sections par mots-clés, résumé, suppression de signatures ou de tableaux contenant des mots, troncature en plus.
 // Filet : chaque fichier ignoré est comptabilisé avec sa raison (drive_skipped, visible dans drive/sync) ; « Synchroniser maintenant »
@@ -20,6 +20,9 @@ function isSheet(file) {
 }
 
 // Ligne de tableau (séparateurs | ; tabulation, ou plusieurs virgules) : jamais dédoublonnée.
+// Lignes de liste (puces, cases, numérotation) et titres : jamais dédoublonnées, et leur présence empêche d'ignorer un fichier court.
+const LIST_LINE = /^\s*([-*•–]|\[[ xX]?\]|\d+[.)])\s+\S/;
+const HEADING = /^\s*#{1,6}\s/;
 const looksTabular = (l) => /[|\t;]/.test(l) || (l.match(/,/g) || []).length >= 2;
 
 // (c) Nettoyage sans toucher aux phrases.
@@ -30,7 +33,7 @@ function clean(text) {
   const kept = new Set(), out = [];
   lines.forEach((l) => {
     const k = l.trim();
-    if (k && count.get(k) >= REPEAT_MIN && !looksTabular(k)) { if (kept.has(k)) return; kept.add(k); } // répétée : première occurrence seulement
+    if (k && count.get(k) >= REPEAT_MIN && k.length < 120 && !looksTabular(k) && !LIST_LINE.test(l) && !HEADING.test(l)) { if (kept.has(k)) return; kept.add(k); } // répétée : première occurrence seulement
     out.push(l);
   });
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -41,7 +44,7 @@ function evaluate(text, file) {
   const raw = String(text || '');
   if (!raw.trim()) return { skip: 'vide' };
   if (isSheet(file) && !hasWord(raw)) return { skip: 'sans mots' };
-  if (wordCount(raw) < MIN_WORDS) return { skip: 'vide' }; // vide ou moins de ~20 mots
+  if (wordCount(raw) < MIN_WORDS && !raw.split('\n').some((l) => LIST_LINE.test(l))) return { skip: 'vide' }; // vide ou moins de ~20 mots (sauf puces / cases / lignes numérotées : jamais ignoré)
   return { text: clean(raw) };
 }
 

@@ -209,7 +209,21 @@ db.exec(`CREATE TABLE IF NOT EXISTS drive_batches (
   fileMap TEXT NOT NULL DEFAULT '{}'
 )`); // fileMap : custom_id -> { fileId, modifiedTime, contentHash, folderId, first } ; jamais de contenu de document
 db.exec('CREATE INDEX IF NOT EXISTS idx_drive_batches_act ON drive_batches(userId, activityId, status)');
-const BATCH_MAX_AGE_MS = 48 * 3600 * 1000; // un lot Anthropic expire en 24 h ; au-delà on le considère perdu
+const BATCH_MAX_AGE_MS = 48 * 3600 * 1000; // un lot Anthropic expire en 24 h ; au-delà on le considère perdu (même si l'API ne répond plus)
+const BATCH_PURGE_MS = 7 * 24 * 3600 * 1000; // les lignes terminées / expirées / perdues sont purgées après 7 jours
+const MAX_FILE_ATTEMPTS = 3; // réponses coupées ou inexploitables : 3 essais par fichier, puis marqué vu + listé dans drive_skipped
+const BACKOFF_MS = 30 * 60 * 1000; // attente avant le nouvel essai : 30 min x 2^(essais-1)
+const SEG_MAX = documenttasks.MAX_DOC_CHARS - 500; // un texte plus long est découpé en segments, jamais tronqué
+db.exec(`CREATE TABLE IF NOT EXISTS drive_attempts (
+  userId TEXT NOT NULL,
+  activityId INTEGER NOT NULL,
+  fileId TEXT NOT NULL,
+  modifiedTime TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  split INTEGER NOT NULL DEFAULT 0,
+  nextAt TEXT,
+  PRIMARY KEY (userId, activityId, fileId)
+)`); // essais par fichier (réponse IA coupée / inexploitable) : plafond et attente ; aucun contenu
 function batchMode() { return String(process.env.DRIVE_SYNC_BATCH || '').trim().toLowerCase() !== 'off' && aibatch.available(); }
 
 function stmts() {
@@ -246,42 +260,90 @@ const batchFileIds = (userId, activityId) => {
   return ids;
 };
 
-// Relève les lots terminés et applique exactement la logique des appels directs. Un lot non terminé est laissé tel quel.
+// Essais d'un fichier pour sa version courante (modifiedTime) ; une version différente repart de zéro.
+function attemptsOf(userId, activityId, fileId, modifiedTime) {
+  const r = db.prepare('SELECT * FROM drive_attempts WHERE userId = ? AND activityId = ? AND fileId = ?').get(userId, activityId, fileId);
+  if (r && r.modifiedTime !== modifiedTime) { db.prepare('DELETE FROM drive_attempts WHERE userId = ? AND activityId = ? AND fileId = ?').run(userId, activityId, fileId); return null; }
+  return r || null;
+}
+const SKIP_REASON = { truncated: 'réponse IA incomplète', unusable: 'réponse IA inexploitable' };
+
+// Échec définitif ou nouvel essai : après MAX_FILE_ATTEMPTS, le fichier est marqué vu ET listé dans drive_skipped (visible dans GET /drive/sync).
+function failFile(userId, activityId, m, kind, st, out) {
+  const prev = attemptsOf(userId, activityId, m.fileId, m.modifiedTime);
+  const n = (prev ? prev.attempts : 0) + 1;
+  if (n >= MAX_FILE_ATTEMPTS) {
+    st.putFile.run(userId, activityId, m.fileId, m.modifiedTime, m.hash); // vu : plus de relecture tant qu'il ne change pas (empreintes de blocs NON enregistrées)
+    db.prepare('INSERT OR REPLACE INTO drive_skipped (userId, activityId, fileId, name, reason, at) VALUES (?, ?, ?, ?, ?, ?)').run(userId, activityId, m.fileId, m.name || '', SKIP_REASON[kind], new Date().toISOString());
+    db.prepare('DELETE FROM drive_attempts WHERE userId = ? AND activityId = ? AND fileId = ?').run(userId, activityId, m.fileId);
+    (out.skipped = out.skipped || []).push({ name: m.name || '', reason: SKIP_REASON[kind] });
+    return;
+  }
+  const split = (prev ? prev.split : 0) + (kind === 'truncated' ? 1 : 0); // réponse coupée : au réessai, segments coupés en deux
+  db.prepare(`INSERT INTO drive_attempts (userId, activityId, fileId, modifiedTime, attempts, split, nextAt) VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(userId, activityId, fileId) DO UPDATE SET modifiedTime = excluded.modifiedTime, attempts = excluded.attempts, split = excluded.split, nextAt = excluded.nextAt`)
+    .run(userId, activityId, m.fileId, m.modifiedTime, n, split, new Date(Date.now() + BACKOFF_MS * Math.pow(2, n - 1)).toISOString());
+}
+
+// Conclut le traitement d'un fichier. outcomes : un par segment — { tasks, truncated } | { fail: true } (inexploitable) | { infra: true } (panne IA / réseau).
+// Les tâches complètes sont toujours rangées ; le fichier n'est marqué vu (et ses empreintes enregistrées) que si TOUS les segments ont réussi sans coupure.
+function settleFile(userId, activityId, m, cfg, outcomes, existing, st, out) {
+  let trunc = false, bad = false, infra = false;
+  outcomes.forEach((o) => {
+    if (o.tasks) { storeTasks(userId, activityId, m.fileId, cfg, o.tasks, existing, st, out); if (o.truncated) trunc = true; }
+    else if (o.fail) bad = true; else infra = true;
+  });
+  if (!trunc && !bad && !infra) {
+    st.putFile.run(userId, activityId, m.fileId, m.modifiedTime, m.hash);
+    if (Array.isArray(m.chunks)) drivechunks.saveHashes(userId, activityId, m.fileId, m.chunks);
+    db.prepare('DELETE FROM drive_attempts WHERE userId = ? AND activityId = ? AND fileId = ?').run(userId, activityId, m.fileId);
+    return true;
+  }
+  if (trunc || bad) failFile(userId, activityId, m, trunc ? 'truncated' : 'unusable', st, out);
+  return false; // panne seule : pas compté comme essai, nouvel essai au prochain passage
+}
+
+// Relève les lots terminés et applique la même logique que les appels directs. Un lot non terminé est laissé tel quel.
 async function collectBatches(userId, activityId, st, folderCfg, out) {
+  db.prepare("DELETE FROM drive_batches WHERE status IN ('done', 'expired', 'lost') AND createdAt < ?").run(new Date(Date.now() - BATCH_PURGE_MS).toISOString());
   const rows = db.prepare("SELECT * FROM drive_batches WHERE userId = ? AND activityId = ? AND status = 'submitted' ORDER BY id").all(userId, activityId);
   const setStatus = db.prepare('UPDATE drive_batches SET status = ? WHERE id = ?');
   for (const row of rows) {
+    // Âge évalué AVANT l'appel à l'API : un lot trop vieux est abandonné même si l'API répond en erreur (fichiers libérés).
+    if (Date.now() - Date.parse(row.createdAt) > BATCH_MAX_AGE_MS) { setStatus.run('expired', row.id); continue; }
     let info;
     try { info = await aibatch.get(row.batchId); }
     catch (e) { if (e.statusCode === 404) setStatus.run('lost', row.id); continue; } // panne passagère : on réessaie au prochain passage
-    if (info.processing_status !== 'ended') {
-      if (Date.now() - Date.parse(row.createdAt) > BATCH_MAX_AGE_MS) setStatus.run('expired', row.id);
-      continue;
-    }
+    if (info.processing_status !== 'ended') continue;
     let lines;
     try { lines = info.results_url ? await aibatch.results(info.results_url) : []; } catch (e) { continue; }
     setStatus.run('done', row.id); // avant l'application : un lot n'est jamais compté deux fois (un fichier non marqué sera simplement relu)
     let map = {}; try { map = JSON.parse(row.fileMap); } catch (e) { /* vide */ }
+    const byCid = new Map(lines.filter((l) => l && l.custom_id).map((l) => [l.custom_id, l]));
     const existing = existingKeys(activityId);
+    const files = new Map(); // fileId -> [custom_id triés par segment]
+    Object.keys(map).forEach((cid) => { const a = files.get(map[cid].fileId) || []; a.push(cid); files.set(map[cid].fileId, a); });
     let ok = 0, failed = 0;
-    for (const line of lines) {
-      const m = line && map[line.custom_id];
-      if (!m) continue;
-      const r = line.result || {};
-      if (r.type !== 'succeeded' || !r.message) { failed++; continue; } // errored / canceled / expired : fichier non marqué, nouvel essai au prochain passage
-      aibudget.record(userId, r.message.model, r.message.usage, 'surveillance-drive-batch', undefined, 0.5); // lot = 50 % du prix
-      const cfg = folderCfg.get(m.folderId);
-      if (!cfg) { failed++; continue; } // dossier retiré depuis la soumission
-      try {
-        const block = Array.isArray(r.message.content) ? r.message.content.find((b) => b.type === 'text') : null;
-        const prop = documenttasks.finishProposal(userId, activityId, { text: block ? block.text : '', stopReason: r.message.stop_reason || null }, { want: { t: true, c: !m.first && !!m.wantC } });
-        st.putFile.run(userId, activityId, m.fileId, m.modifiedTime, m.contentHash);
-        if (Array.isArray(m.chunks)) drivechunks.saveHashes(userId, activityId, m.fileId, m.chunks);
-        storeTasks(userId, activityId, m.fileId, cfg, prop.tasks, existing, st, out);
-        ok++;
-      } catch (e) { failed++; }
+    for (const [fileId, cids] of files) {
+      cids.sort((a, b) => map[a].seg - map[b].seg);
+      const m0 = map[cids[0]];
+      const cfg = folderCfg.get(m0.folderId);
+      const outcomes = cids.map((cid) => {
+        const m = map[cid], r = (byCid.get(cid) || {}).result || {};
+        if (r.type !== 'succeeded' || !r.message) return { fail: true }; // errored / canceled / expired / ligne absente : essai compté
+        aibudget.record(userId, r.message.model, r.message.usage, 'surveillance-drive-batch', undefined, 0.5); // lot = 50 % du prix, enregistré à la relève
+        if (!cfg) return { infra: true }; // dossier retiré depuis la soumission : fichier non marqué
+        try {
+          const block = Array.isArray(r.message.content) ? r.message.content.find((b) => b.type === 'text') : null;
+          const prop = documenttasks.finishProposal(userId, activityId, { text: block ? block.text : '', stopReason: r.message.stop_reason || null }, { want: { t: true, c: !m.first && !!m.wantC && m.seg === 0 } });
+          return { tasks: prop.tasks, truncated: !!prop.aiTruncated };
+        } catch (e) { return { fail: true }; }
+      });
+      if (!cfg) { failed++; continue; }
+      const meta = { fileId, name: m0.name, modifiedTime: m0.modifiedTime, hash: m0.contentHash, chunks: m0.chunks };
+      if (settleFile(userId, activityId, meta, cfg, outcomes, existing, st, out)) ok++; else failed++;
     }
-    console.log(`[drivesync] lot relevé : fichiers=${Object.keys(map).length} ok=${ok} echecs=${failed}`);
+    console.log(`[drivesync] lot relevé : fichiers=${files.size} ok=${ok} echecs=${failed}`);
   }
 }
 
@@ -319,7 +381,10 @@ async function syncConnection(userId, activityId, opts) {
       const instruction = cfg.instruction || DEFAULT_INSTRUCTION;
       out.filesChecked++;
       const seen = seenFile.get(userId, activityId, f.id);
-      if (seen && seen.modifiedTime === f.modifiedTime) continue; // inchangé : rien à lire
+      // inchangé : rien à lire. Une entrée « skip:* » (pré-filtre) est TOUJOURS réévaluée : le pré-filtre est local et gratuit (original modifié / disparu, manuel, DRIVE_PREFILTER=off).
+      if (seen && seen.modifiedTime === f.modifiedTime && !/^skip:/.test(seen.contentHash || '')) continue;
+      const att = attemptsOf(userId, activityId, f.id, f.modifiedTime);
+      if (!opts.manual && att && att.nextAt > new Date().toISOString()) continue; // attente avant un nouvel essai (réponse coupée / inexploitable)
       if (!opts.manual && inflight.has(f.id)) continue; // lot en cours pour ce fichier (le manuel lit tout, immédiatement)
       let text;
       try { text = (await drive.readFileText(userId, activityId, f.id)).text; }
@@ -361,21 +426,24 @@ async function syncConnection(userId, activityId, opts) {
       if (!bud.ok) { out.aiBlocked = true; out.aiResumesOn = bud.resumesOn; break; } // budget IA hebdomadaire : fichier non marqué, reprise à la tranche suivante
       if (!takeCall(userId)) { out.capReached = true; break; } // retentera demain (fichier non marqué comme vu)
       out.aiCalls++;
-      const body = { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl: 'data:text/plain;base64,' + Buffer.from(plan.text, 'utf8').toString('base64') }] };
-      // Les « modifications proposées » sortent du même appel que les tâches, sauf à la première lecture du fichier (rien à comparer).
-      const popts = { skipRate: true, callTaken: true, skipChanges: isNew };
+      // Un texte plus long que la limite est DÉCOUPÉ en segments (jamais tronqué) ; après une réponse coupée, chaque segment est coupé en deux.
+      const segs = drivechunks.halve(drivechunks.segment(plan.text, SEG_MAX), att ? att.split : 0);
+      const meta = { fileId: f.id, name: f.name, modifiedTime: f.modifiedTime, hash, chunks: plan.hashes };
+      const bodyOf = (t) => ({ instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl: 'data:text/plain;base64,' + Buffer.from(t, 'utf8').toString('base64') }] });
+      // Les « modifications proposées » sortent du même appel que les tâches (1er segment seulement), sauf à la première lecture du fichier (rien à comparer).
+      const poptsOf = (n) => ({ skipRate: true, callTaken: true, skipChanges: isNew || n > 0 });
       if (batch) {
-        try { queue.push({ f, hash, chunks: plan.hashes, first: isNew, cfg, prep: await aibudget.runAs(userId, () => documenttasks.prepareProposal(userId, activityId, body, popts)) }); }
+        try { queue.push({ f, meta, first: isNew, cfg, preps: await aibudget.runAs(userId, async () => { const a = []; for (let n = 0; n < segs.length; n++) a.push(await documenttasks.prepareProposal(userId, activityId, bodyOf(segs[n]), poptsOf(n))); return a; }) }); }
         catch (e) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; }
         continue;
       }
-      let prop;
-      try { prop = await aibudget.runAs(userId, () => documenttasks.propose(userId, activityId, body, popts)); }
-      catch (e) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; continue; } // échec IA : fichier non marqué, nouvel essai au prochain passage ; l'IA semble en panne après 3 échecs de suite
-      aiFails = 0;
-      st.putFile.run(userId, activityId, f.id, f.modifiedTime, hash);
-      drivechunks.saveHashes(userId, activityId, f.id, plan.hashes); // empreintes mises à jour après un traitement réussi seulement
-      storeTasks(userId, activityId, f.id, cfg, prop.tasks, existing, st, out);
+      const outcomes = [];
+      for (let n = 0; n < segs.length; n++) {
+        try { const prop = await aibudget.runAs(userId, () => documenttasks.propose(userId, activityId, bodyOf(segs[n]), poptsOf(n))); outcomes.push({ tasks: prop.tasks, truncated: !!prop.aiTruncated }); }
+        catch (e) { outcomes.push(e && e.unusable ? { fail: true } : { infra: true }); break; } // panne IA : le fichier n'est pas marqué, nouvel essai au prochain passage
+      }
+      if (outcomes.some((o) => o.infra)) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) { settleFile(userId, activityId, meta, cfg, outcomes, existing, st, out); break; } } else aiFails = 0; // l'IA semble en panne après 3 échecs de suite
+      settleFile(userId, activityId, meta, cfg, outcomes, existing, st, out);
     }
     if (queue.length) await submitQueue(userId, activityId, queue, st, existing, out);
     if (out.capReached) db.prepare('UPDATE drive_sync SET capDay = ? WHERE userId = ? AND activityId = ?').run(today(), userId, activityId);
@@ -387,30 +455,55 @@ async function syncConnection(userId, activityId, opts) {
   } finally { running.delete(k); }
 }
 
-// Soumet les demandes préparées en UN lot. Budget vérifié avant (fichiers non soumis = non marqués). Soumission impossible : appels directs.
+// Coût MAXIMAL estimé d'une requête de lot (50 %) : entrée (caractères/4) x prix d'entrée + max_tokens x prix de sortie.
+function maxCostOf(params) {
+  const p = aibudget.priceFor(params.model);
+  const chars = JSON.stringify(params.system).length + JSON.stringify(params.messages).length;
+  return (Math.ceil(chars / 4) * p.in + params.max_tokens * p.out) * 0.5 / 1e6;
+}
+
+// Soumet les demandes préparées en UN lot. Budget vérifié avant ET réservé par estimation du coût maximal : on n'admet que les fichiers
+// (tous leurs segments) dont le total tient dans ce qui reste de la tranche hebdomadaire ; le reste attend le passage suivant (non marqué vu).
+// Le coût réel est enregistré à la relève du lot. Soumission impossible : appels directs.
 async function submitQueue(userId, activityId, queue, st, existing, out) {
   const bud = aibudget.check(userId);
   if (!bud.ok) { out.aiBlocked = true; out.aiResumesOn = bud.resumesOn; return; }
-  const requests = queue.map((q, n) => ({ custom_id: 'f' + n, params: docanalysis.requestParams(q.prep) }));
+  const s0 = aibudget.status(userId);
+  let remaining = s0.allowedNow - s0.spentMonth;
+  const admitted = [];
+  for (const q of queue) {
+    const params = q.preps.map((pp) => docanalysis.requestParams(pp));
+    const cost = params.reduce((a, pr) => a + maxCostOf(pr), 0);
+    if (cost > remaining) { out.budgetDeferred = (out.budgetDeferred || 0) + 1; continue; } // ne tient pas : au passage suivant
+    remaining -= cost; admitted.push({ ...q, params });
+  }
+  if (!admitted.length) return;
+  const requests = [], fileMap = {};
+  admitted.forEach((q, fi) => q.params.forEach((params, n) => {
+    const cid = 'f' + fi + 's' + n;
+    requests.push({ custom_id: cid, params });
+    fileMap[cid] = { fileId: q.f.id, name: q.f.name || '', modifiedTime: q.f.modifiedTime, contentHash: q.meta.hash, chunks: n === 0 ? q.meta.chunks : undefined, folderId: q.f.folderId, first: q.first, wantC: n === 0 && !!q.preps[0].want.c, seg: n };
+  }));
   try {
     const { id } = await aibatch.submit(requests);
-    const fileMap = {};
-    queue.forEach((q, n) => { fileMap['f' + n] = { fileId: q.f.id, modifiedTime: q.f.modifiedTime, contentHash: q.hash, chunks: q.chunks, folderId: q.f.folderId, first: q.first, wantC: !!q.prep.want.c }; });
     db.prepare('INSERT INTO drive_batches (userId, activityId, batchId, createdAt, status, fileMap) VALUES (?, ?, ?, ?, ?, ?)')
       .run(userId, activityId, id, new Date().toISOString(), 'submitted', JSON.stringify(fileMap));
-    out.batched = queue.length;
+    out.batched = admitted.length;
     return;
   } catch (e) { console.warn('[drivesync] soumission du lot impossible (code ' + (e.statusCode || '?') + ') : appels directs'); }
   let aiFails = 0;
-  for (const q of queue) {
-    let prop;
-    try {
-      prop = await aibudget.runAs(userId, async () => documenttasks.finishProposal(userId, activityId, await docanalysis.call({ parts: q.prep.parts, want: q.prep.want, feature: 'document-taches' }), q.prep));
-    } catch (e) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; continue; }
-    aiFails = 0;
-    st.putFile.run(userId, activityId, q.f.id, q.f.modifiedTime, q.hash);
-    drivechunks.saveHashes(userId, activityId, q.f.id, q.chunks);
-    storeTasks(userId, activityId, q.f.id, q.cfg, prop.tasks, existing, st, out);
+  for (const q of admitted) {
+    const outcomes = [];
+    for (const pp of q.preps) {
+      try {
+        const prop = await aibudget.runAs(userId, async () => documenttasks.finishProposal(userId, activityId, await docanalysis.call({ parts: pp.parts, want: pp.want, feature: 'document-taches' }), pp));
+        outcomes.push({ tasks: prop.tasks, truncated: !!prop.aiTruncated });
+      } catch (e) { outcomes.push(e && e.unusable ? { fail: true } : { infra: true }); break; }
+    }
+    const infra = outcomes.some((o) => o.infra);
+    settleFile(userId, activityId, q.meta, q.cfg, outcomes, existing, st, out);
+    if (infra && ++aiFails >= MAX_AI_FAILS_IN_A_ROW) break;
+    if (!infra) aiFails = 0;
   }
 }
 

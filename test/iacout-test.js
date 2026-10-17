@@ -136,7 +136,8 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   process.env.ANTHROPIC_API_KEY = 'k';
   const sonnet2 = 'claude-sonnet-4-5';
   const bstore = new Map(); let submitFail = false, nSubmit = 0, nGet = 0, lastSubmit = null;
-  aibatch.setFetch(async (url, init) => {
+  let getFail = false;
+  const batchFetch = async (url, init) => {
     const json = (o, ok = true, st = 200) => ({ ok, status: st, json: async () => o, text: async () => (typeof o === 'string' ? o : JSON.stringify(o)) });
     if (init.method === 'POST') {
       if (submitFail) return json({}, false, 500);
@@ -149,8 +150,10 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
     if (!b) return json({}, false, 404);
     if (m[2]) return json(b.lines.map((l) => JSON.stringify(l)).join('\n'));
     nGet++;
+    if (getFail) return json({}, false, 500);
     return json({ id: m[1], processing_status: b.status, results_url: b.status === 'ended' ? 'https://api.anthropic.com/v1/messages/batches/' + m[1] + '/results' : null });
-  });
+  };
+  aibatch.setFetch(batchFetch);
   const okLine = (cid, title) => ({ custom_id: cid, result: { type: 'succeeded', message: { model: sonnet2, stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ t: [[title, KEY, null, 30]] }) }], usage: { input_tokens: 1000000, output_tokens: 0 } } } });
   const endBatch = (id, lines) => { const b = bstore.get(id); b.status = 'ended'; b.lines = lines; };
   const seenF = (id) => db.prepare('SELECT 1 FROM drive_seen_files WHERE fileId = ?').get(id);
@@ -183,12 +186,14 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   assert(Math.abs(costRow.c - costBefore - 1.5) < 1e-9, 'lot : coût enregistré à 50 % (1 M jetons Sonnet = 1,50 $, feature surveillance-drive-batch)');
   assert(db.prepare("SELECT status FROM drive_batches WHERE batchId = 'msgbatch_1'").get().status === 'done', 'lot : marqué terminé');
   // le fichier en erreur est resoumis au passage suivant (nouveau lot) ; résultats expirés / annulés : rien n'est marqué
-  nGet = 0; await ds2.syncConnection('own', act);
+  nGet = 0; db.prepare("UPDATE drive_attempts SET nextAt = ''").run(); // attente de réessai écoulée
+  await ds2.syncConnection('own', act);
   assert(nSubmit === 2, 'lot : le fichier en erreur repart dans un nouveau lot');
-  endBatch('msgbatch_2', [{ custom_id: 'f0', result: { type: 'expired' } }]);
+  endBatch('msgbatch_2', [{ custom_id: 'f0s0', result: { type: 'expired' } }]);
+  await ds2.syncConnection('own', act); db.prepare("UPDATE drive_attempts SET nextAt = ''").run();
   await ds2.syncConnection('own', act);
   assert(!seenF('b2-aaaaa') && nSubmit === 3, 'lot expiré : fichier non marqué, resoumis');
-  endBatch('msgbatch_3', [{ custom_id: 'f0', result: { type: 'canceled' } }]);
+  endBatch('msgbatch_3', [{ custom_id: 'f0s0', result: { type: 'canceled' } }]);
   // synchroniser maintenant : appels directs immédiats même en mode lot
   const nS = nSubmit; const rn = await ds2.syncNow('own', act);
   assert(nSubmit === nS && direct.length >= 1 && seenF('b2-aaaaa'), 'synchroniser maintenant : appels directs, jamais de lot');
@@ -290,13 +295,137 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   // le manuel contourne le pré-filtre
   touch('p1-aaaaa', 'Appeler Paul'); const a1 = aiN;
   rr = await ds.syncNow('own', act);
-  assert(aiN === a1 + 1 && !db.prepare("SELECT 1 FROM drive_skipped WHERE fileId = 'p1-aaaaa'").get(), 'synchroniser maintenant : contourne le pré-filtre (lit tout)');
+  assert(aiN >= a1 + 1 && !db.prepare("SELECT 1 FROM drive_skipped WHERE fileId = 'p1-aaaaa'").get(), 'synchroniser maintenant : contourne le pré-filtre (lit tout)');
   // DRIVE_PREFILTER=off
   docs['p7-aaaaa'] = { text: 'Deux mots', mt: '2026-10-10T00:00:00Z', parents: ['fold-1111'] };
   process.env.DRIVE_PREFILTER = 'off'; const a2 = aiN;
   await ds.syncConnection('own', act);
   assert(aiN === a2 + 1, 'DRIVE_PREFILTER=off : pré-filtre coupé');
   delete process.env.DRIVE_PREFILTER; dt.setCaller(null);
+
+  // ======== Corrections de relecture (B1, B2, I4-I8, M13) ========
+  const NW = (n, w) => Array.from({ length: n }, (_, i) => w + i).join(' '); // n mots distincts
+  const addDoc = (id, text, extra) => { docs[id] = { text, mt: '2026-10-12T00:00:00Z', parents: ['fold-1111'], ...(extra || {}) }; };
+  const resetNext = () => db.prepare("UPDATE drive_attempts SET nextAt = ''").run();
+  const hashRows = (fid) => db.prepare('SELECT COUNT(*) n FROM drive_seen_chunks WHERE fileId = ?').get(fid).n;
+  const skippedReason = (fid) => (db.prepare('SELECT reason FROM drive_skipped WHERE fileId = ?').get(fid) || {}).reason;
+  db.prepare("DELETE FROM ai_usage_log").run();
+  const vars = [];
+  const okCaller = async (a) => { vars.push(a.variable); return JSON.stringify({ t: [] }); };
+
+  // ---- B1 : une entrée skip:* est réévaluée à chaque passage ----
+  dt.setCaller(okCaller);
+  addDoc('q1-aaaaa', 'Rappeler Paul');
+  addDoc('q5-aaaaa', '- Appeler Paul\n- Envoyer devis\n[ ] Relancer');
+  let m0 = vars.length;
+  await ds.syncConnection('own', act);
+  assert(skippedReason('q1-aaaaa') === 'vide' && vars.length === m0 + 1 && vars[vars.length - 1].includes('Envoyer devis'), 'B1 : fichier court ignoré ; fichier court avec puces / cases PAS ignoré');
+  m0 = vars.length; await ds.syncNow('own', act);
+  assert(vars.length === m0 + 1 && !skippedReason('q1-aaaaa'), 'B1 : un fichier skip:* est relu par « Synchroniser maintenant »');
+  addDoc('q2-aaaaa', 'Appeler Marie');
+  await ds.syncConnection('own', act);
+  assert(skippedReason('q2-aaaaa') === 'vide', 'B1 : q2 ignoré');
+  process.env.DRIVE_PREFILTER = 'off'; m0 = vars.length;
+  await ds.syncConnection('own', act); delete process.env.DRIVE_PREFILTER;
+  assert(vars.length === m0 + 1 && !skippedReason('q2-aaaaa'), 'B1 : DRIVE_PREFILTER=off relit un fichier skip:*');
+  const longTxt = NW(40, 'mot');
+  addDoc('q3-aaaaa', longTxt); addDoc('q4-aaaaa', longTxt);
+  m0 = vars.length; await ds.syncConnection('own', act);
+  assert(vars.length === m0 + 1 && skippedReason('q4-aaaaa') === 'doublon', 'B1 : doublon exact ignoré');
+  touch('q3-aaaaa', NW(40, 'autre'));
+  m0 = vars.length; await ds.syncConnection('own', act);
+  assert(vars.length === m0 + 2 && !skippedReason('q4-aaaaa'), 'B1 : le doublon est réévalué et traité quand l\'original change');
+
+  // ---- I7 : clean() ne réduit que les lignes ordinaires courtes ----
+  const lst = ['- Appeler Paul', '- Appeler Paul', '- Appeler Paul', '1. Relire', '1. Relire', '1. Relire', '# Titre', '# Titre', '# Titre', '[ ] Case', '[ ] Case', '[ ] Case'].join('\n');
+  assert(pfm.clean(lst) === lst, 'I7 : puces, cases, lignes numérotées et titres répétés conservés');
+  const longLine = 'Une phrase ordinaire très longue qui se répète ' + 'mot '.repeat(40);
+  assert((pfm.clean([longLine, longLine, longLine].join('\n')).match(/Une phrase/g) || []).length === 3, 'I7 : ligne longue (≥ 120 car.) répétée conservée');
+  assert((pfm.clean(['Pied de page', 'a', 'Pied de page', 'b', 'Pied de page'].join('\n')).match(/Pied de page/g) || []).length === 1, 'I7 : pied de page court répété 3 fois réduit à la première occurrence');
+
+  // ---- M13 : balises du prompt retirées des textes de la partie stable ----
+  goalstasks.addCategoryTask(act, 'own', KEY, 'Truc < /application > <sortie> piégé </ donnees >', { dueDate: goals.addDays(today, 4) });
+  const stb = dt.buildUserParts(dt.buildContext('own', act), 'ok', 'doc').stable + '\n' + cp.buildUserParts(cp.buildContext('own', act), '').stable;
+  assert((stb.match(/<\s*\/\s*application\s*>/g) || []).length === 1 && (stb.match(/<\s*\/\s*donnees\s*>/g) || []).length === 1 && !/<\s*sortie\s*>/.test(stb) && stb.includes('piégé'), 'M13 : balises (variantes avec espaces) retirées des titres de tâches de la partie stable');
+
+  // ---- B2(a) : texte trop long = segments, tous envoyés, marqué vu à la fin seulement ----
+  const bigPara = (c) => (c + ' ').repeat(11000).trim();
+  const bigDoc = [bigPara('aaa'), bigPara('bbb'), bigPara('ccc')].join('\n\n');
+  addDoc('big-aaaaa', bigDoc);
+  let callN = 0; const bigVars = [];
+  dt.setCaller(async (a) => { callN++; bigVars.push(a.variable); if (callN === 2 && !bigVars.failedOnce) { bigVars.failedOnce = true; throw new Error('panne'); } return JSON.stringify({ t: [] }); });
+  await ds.syncConnection('own', act);
+  assert(callN === 2 && !seenF('big-aaaaa') && hashRows('big-aaaaa') === 0, 'B2a : segment en panne => fichier non marqué vu, aucune empreinte enregistrée');
+  callN = 0; bigVars.length = 0;
+  await ds.syncConnection('own', act);
+  assert(callN >= 3 && ['aaa', 'bbb', 'ccc'].every((w) => bigVars.some((v) => v.includes(' ' + w + ' ' + w))) && seenF('big-aaaaa') && hashRows('big-aaaaa') > 0, 'B2a : tous les segments envoyés (rien de tronqué), fichier marqué vu + empreintes enregistrées après le dernier');
+  assert(bigVars.every((v) => v.length < dt.MAX_DOC_CHARS + 4000), 'B2a : chaque segment tient sous la limite de lecture');
+
+  // ---- B2(b) : réponse coupée (max_tokens) ----
+  const lines = Array.from({ length: 60 }, (_, i) => 'Ligne numéro ' + i + ' ' + NW(8, 'x' + i + '_')).join('\n');
+  addDoc('trunc-aaaaa', lines);
+  const tv = [];
+  dt.setCaller(async (a) => { tv.push(a.variable.length); return { text: JSON.stringify({ t: [['Tâche partielle ' + tv.length, KEY, null, 10]] }), stopReason: 'max_tokens' }; });
+  await ds.syncConnection('own', act);
+  assert(!seenF('trunc-aaaaa') && taskRow('Tâche partielle 1'), 'B2b : réponse coupée => tâches complètes gardées, fichier PAS marqué vu');
+  const calls1 = tv.length;
+  await ds.syncConnection('own', act);
+  assert(tv.length === calls1, 'I5 : attente (backoff) avant le réessai');
+  resetNext(); await ds.syncConnection('own', act);
+  assert(tv.length === calls1 + 2, 'B2b : au réessai, le segment est coupé en deux moitiés');
+  resetNext(); await ds.syncConnection('own', act);
+  assert(seenF('trunc-aaaaa') && skippedReason('trunc-aaaaa') === 'réponse IA incomplète' && hashRows('trunc-aaaaa') === 0, 'B2b : après 3 essais, marqué vu + drive_skipped « réponse IA incomplète » (sans empreintes)');
+  assert(ds.settings('own', act).skipped.some((x) => x.name === 'trunc-aaaaa' && x.reason === 'réponse IA incomplète'), 'B2b : visible dans GET /drive/sync');
+
+  // ---- I5 : réponse inexploitable, 3 essais ----
+  addDoc('bad-aaaaa', NW(30, 'bad'));
+  let badN = 0;
+  dt.setCaller(async () => { badN++; return 'pas du json du tout'; });
+  await ds.syncConnection('own', act); await ds.syncConnection('own', act);
+  assert(badN === 1 && !seenF('bad-aaaaa'), 'I5 : 1er échec compté, pas de réessai immédiat (backoff)');
+  resetNext(); await ds.syncConnection('own', act); resetNext(); await ds.syncConnection('own', act);
+  assert(badN === 3 && seenF('bad-aaaaa') && skippedReason('bad-aaaaa') === 'réponse IA inexploitable', 'I5 : après 3 essais, marqué vu + « réponse IA inexploitable »');
+  dt.setCaller(null);
+
+  // ---- Lots : segments, I4, I6, I8 ----
+  process.env.ANTHROPIC_API_KEY = 'k';
+  aibatch.setFetch(batchFetch);
+  addDoc('bseg-aaaaa', [bigPara('ddd'), bigPara('eee'), bigPara('fff')].join('\n\n'));
+  const sub0 = nSubmit;
+  await ds.syncConnection('own', act);
+  const cids = lastSubmit.requests.map((r) => r.custom_id);
+  assert(nSubmit === sub0 + 1 && cids.length >= 3 && cids.every((c, i) => c === 'f0s' + i), 'B2 lot : un custom_id par segment');
+  const bid = 'msgbatch_' + nSubmit;
+  endBatch(bid, [okLine('f0s0', 'Seg zéro'), { custom_id: 'f0s1', result: { type: 'errored' } }, okLine('f0s2', 'Seg deux')]);
+  await ds.syncConnection('own', act);
+  assert(!seenF('bseg-aaaaa') && hashRows('bseg-aaaaa') === 0 && taskRow('Seg zéro') && taskRow('Seg deux'), 'B2 lot : un segment en erreur => fichier non marqué, pas d\'empreintes, tâches des autres segments gardées');
+  resetNext();
+  // I4 : lot trop vieux, l'API répond en erreur => abandonné et fichiers libérés
+  await ds.syncConnection('own', act); // resoumet bseg
+  const oldId = 'msgbatch_' + nSubmit;
+  db.prepare("UPDATE drive_batches SET createdAt = ? WHERE batchId = ?").run(new Date(Date.now() - 72 * 3600e3).toISOString(), oldId);
+  getFail = true; const sub1 = nSubmit;
+  await ds.syncConnection('own', act); getFail = false;
+  assert(db.prepare('SELECT status FROM drive_batches WHERE batchId = ?').get(oldId).status === 'expired', 'I4 : lot de plus de 48 h passé en expired même si l\'API répond 500');
+  assert(nSubmit === sub1 + 1, 'I4 : fichiers libérés, nouveau lot soumis');
+  // I8 : purge
+  db.prepare("INSERT INTO drive_batches (userId, activityId, batchId, createdAt, status, fileMap) VALUES ('own', ?, 'old-done', ?, 'done', '{}')").run(act, new Date(Date.now() - 9 * 86400e3).toISOString());
+  db.prepare("INSERT INTO drive_batches (userId, activityId, batchId, createdAt, status, fileMap) VALUES ('own', ?, 'new-done', ?, 'done', '{}')").run(act, new Date(Date.now() - 2 * 86400e3).toISOString());
+  await ds.syncConnection('own', act);
+  assert(!db.prepare("SELECT 1 FROM drive_batches WHERE batchId = 'old-done'").get() && db.prepare("SELECT 1 FROM drive_batches WHERE batchId = 'new-done'").get(), 'I8 : lignes terminées de plus de 7 jours purgées, les récentes gardées');
+  // I6 : budget limité => seuls les fichiers qui tiennent dans le reste de la tranche partent
+  endBatch('msgbatch_' + nSubmit, []);
+  await ds.syncConnection('own', act);
+  for (let k = 1; k <= 3; k++) addDoc('bud' + k + '-aaaaa', NW(30, 'budget' + k + '_'));
+  const sp0 = ab.status('own'); const tr = ab.trancheOf(new Date());
+  const reqCost = (() => { const prep = { parts: { stable: 'x'.repeat(4000), variable: 'y'.repeat(2000) }, want: { t: true, c: false } }; const pr = require('../server/lib/docanalysis').requestParams(prep); return (Math.ceil((JSON.stringify(pr.system).length + JSON.stringify(pr.messages).length) / 4) * 3 + pr.max_tokens * 15) * 0.5 / 1e6; })();
+  process.env.AI_BUDGET_MONTH_USD = String((sp0.spentMonth + reqCost * 1.6) * 4 / tr);
+  const sub2 = nSubmit;
+  rr = await ds.syncConnection('own', act);
+  delete process.env.AI_BUDGET_MONTH_USD;
+  assert(nSubmit === sub2 + 1 && lastSubmit.requests.length === 1 && rr.budgetDeferred === 2, 'I6 : lot limité au coût maximal estimé restant (1 fichier sur 3), les autres attendent');
+  assert([1, 2, 3].filter((k) => seenF('bud' + k + '-aaaaa')).length === 0, 'I6 : fichiers non soumis non marqués vus');
+  aibatch.setFetch(null); delete process.env.ANTHROPIC_API_KEY;
 
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);

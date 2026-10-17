@@ -90,7 +90,7 @@ function buildContext(userId, activityId) {
 
 const SYSTEM = docanalysis.SYSTEM; // prompt commun aux tâches et aux modifications proposées (docanalysis.js)
 
-const strip = (s) => String(s == null ? '' : s).replace(/<\/?\s*(document|donnees)\s*>/gi, '');
+const strip = (s) => docanalysis.tagsOut(s);
 
 // Deux parties : STABLE (données de l'activité : mises en cache) puis VARIABLE (document éventuel).
 function buildUserParts(ctx, docText) {

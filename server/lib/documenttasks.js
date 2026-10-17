@@ -187,7 +187,7 @@ function buildContext(userId, activityId) {
 const SYSTEM = docanalysis.SYSTEM; // prompt commun aux tâches et aux modifications proposées (docanalysis.js)
 
 function appBlock(app) {
-  const clean = (t) => String(t || '').replace(/<\/?\s*(document|consigne|application)\s*>/gi, '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  const clean = (t) => docanalysis.tagsOut(t || '').replace(/\s+/g, ' ').trim().slice(0, 300);
   const a = app || { objectives: [], open: [] };
   const obj = a.objectives.map((o) => `- semaine du ${o.week} [${o.cat}] ${clean(o.text)}${o.description ? ' — ' + clean(o.description) : ''}${o.estimateMinutes ? ' (' + o.estimateMinutes + ' min)' : ''}`).join('\n') || '(aucun)';
   const open = a.open.map((t) => `- [${t.cat}] ${clean(t.label)}${t.dueDate ? ' (' + t.dueDate + ')' : ''}`).join('\n') || '(aucune)';
@@ -196,9 +196,9 @@ function appBlock(app) {
 
 // Deux parties : STABLE (catégories, semaines, capacité, application : mises en cache) puis VARIABLE (consigne, document).
 function buildUserParts(ctx, instruction, doc) {
-  const cats = ctx.candidates.map((c) => `- ${c.key} : ${c.label}${c.description ? ' — ' + c.description : ''}`).join('\n');
-  const safeDoc = String(doc || '').replace(/<\/?\s*(document|consigne)\s*>/gi, '');
-  const safeInstr = instruction.replace(/<\/?\s*(document|consigne)\s*>/gi, '');
+  const cats = docanalysis.tagsOut(ctx.candidates.map((c) => `- ${c.key} : ${c.label}${c.description ? ' — ' + c.description : ''}`).join('\n'));
+  const safeDoc = docanalysis.tagsOut(doc);
+  const safeInstr = docanalysis.tagsOut(instruction);
   const stable = [
     'Catégories disponibles (clé : libellé) :', cats, '',
     'Semaines cibles possibles (lundi) : ' + ctx.weeks.join(', '),
@@ -335,7 +335,7 @@ function finishProposal(userId, activityId, out, prep) {
   const text = out && typeof out === 'object' ? out.text : out;
   const aiTruncated = !!(out && typeof out === 'object' && out.stopReason === 'max_tokens');
   const parsed = parseDetailed(text, ctx);
-  if (!parsed) throw httpError(502, "La réponse de l'IA était inexploitable. Réessaie ou reformule la consigne.");
+  if (!parsed) throw Object.assign(httpError(502, "La réponse de l'IA était inexploitable. Réessaie ou reformule la consigne."), { unusable: true });
   const tasks = parsed.tasks;
   // Compteurs seulement : aucun contenu de document ni de tâche n'est journalisé.
   console.log(`[documenttasks] trouvées=${parsed.found} retenues=${tasks.length} doublons=${parsed.dropped.doublon} vides=${parsed.dropped.vide} limite=${parsed.dropped.limite} aChoisir=${parsed.toChoose} reparee=${parsed.repaired} coupee=${aiTruncated}`);
@@ -385,4 +385,4 @@ function apply(userId, activityId, tasks) {
   return { addedCount: added.length, addedIds: added, skipped };
 }
 
-module.exports = { norm, propose, prepareProposal, finishProposal, buildContext, apply, setCaller, resetRate, parseProposals, textFromFile, capacityWarnings, parseDetailed, SYSTEM, buildUser, buildUserParts, RATE_MAX };
+module.exports = { norm, propose, prepareProposal, finishProposal, buildContext, MAX_DOC_CHARS, apply, setCaller, resetRate, parseProposals, textFromFile, capacityWarnings, parseDetailed, SYSTEM, buildUser, buildUserParts, RATE_MAX };
