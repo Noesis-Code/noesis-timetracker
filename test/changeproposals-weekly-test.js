@@ -92,6 +92,11 @@ const pendingCount = () => db.prepare("SELECT COUNT(*) c FROM change_proposals W
   assert(calls === c0 + 2, 'limite horaire par utilisateur : 5 modifications espacées => 2 appels IA seulement (' + (calls - c0) + ')');
   cp.resetWeeklyLimits(); cp.scheduleForWeekly('own', act, w.id, { delayMs: 0 }); await sleep(60);
   assert(calls === c0 + 3, 'fenêtre réinitialisée : l\'analyse repart');
+  // une analyse en échec ne compte pas dans la limite
+  mode = 'fail'; cp.resetWeeklyLimits();
+  const c1 = calls;
+  for (let i = 0; i < 4; i++) { cp.scheduleForWeekly('own', act, w.id, { delayMs: 0 }); await sleep(60); }
+  assert(calls === c1 + 4, 'échecs non comptés : 4 analyses échouées malgré une limite à 2 (' + (calls - c1) + ')');
   delete process.env.CP_WEEKLY_MAX_PER_HOUR; cp.resetWeeklyLimits();
 
   // échec IA silencieux
