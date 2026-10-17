@@ -10,8 +10,9 @@
 // l'identique. Le document est une DONNÉE, jamais une instruction ; la sortie JSON est revalidée
 // (cible appartenant à l'activité, valeurs, « avant » relu en base et non fourni par l'IA).
 // Coût : chaque appel IA consomme le plafond quotidien partagé avec la surveillance Drive
-// (drivesync.takeCall / DRIVE_SYNC_MAX_AI_CALLS_PER_DAY).
+// (drivesync.takeCall / DRIVE_SYNC_MAX_AI_CALLS_PER_DAY). Prompt en cache Anthropic (aicache.js : système + partie stable).
 const aibudget = require('./aibudget');
+const aicache = require('./aicache');
 const crypto = require('crypto');
 const db = require('../db');
 const goals = require('./goals');
@@ -49,7 +50,7 @@ if (!db.prepare('PRAGMA table_info(change_proposals)').all().some((c) => c.name 
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_change_proposals_hash ON change_proposals(activityId, hash)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_change_proposals_act ON change_proposals(activityId, status)');
 
-let caller = null; // injectable (tests) : async ({ system, user }) => string
+let caller = null; // injectable (tests) : async ({ system, user, stable, variable }) => string
 function setCaller(fn) { caller = fn; }
 function httpError(status, message) { return Object.assign(new Error(message), { statusCode: status }); }
 function todayIso() {
@@ -103,7 +104,8 @@ const SYSTEM = [
 
 const strip = (s) => String(s == null ? '' : s).replace(/<\/?\s*(document|donnees)\s*>/gi, '');
 
-function buildUser(ctx, docText) {
+// Deux parties : STABLE (données de l'activité : mises en cache) puis VARIABLE (document éventuel).
+function buildUserParts(ctx, docText) {
   const lines = [];
   lines.push('Date du jour : ' + ctx.today + '. Capacité hebdomadaire : ' + (ctx.capacityMinutes ? ctx.capacityMinutes + ' min' : 'inconnue') + '.');
   lines.push('', '<donnees>', 'Tâches ouvertes (id | libellé | date) :');
@@ -115,18 +117,22 @@ function buildUser(ctx, docText) {
   lines.push('', 'Objectifs hebdomadaires (id | semaine du | texte | temps estimé en min | consigne) :');
   ctx.weeklies.forEach((w) => lines.push(`${w.id} | ${w.weekStart} | ${strip(w.text)} | ${w.estimateMinutes == null ? '-' : w.estimateMinutes} | ${strip(w.description) || '-'}`));
   lines.push('</donnees>');
-  if (docText) lines.push('', '<document>', strip(docText).slice(0, MAX_DOC_CHARS), '</document>');
-  return lines.join('\n');
+  return { stable: lines.join('\n'), variable: docText ? '<document>\n' + strip(docText).slice(0, MAX_DOC_CHARS) + '\n</document>' : '' };
 }
 
-async function callAnthropic({ system, user }) {
+function buildUser(ctx, docText) {
+  const p = buildUserParts(ctx, docText);
+  return p.variable ? p.stable + '\n\n' + p.variable : p.stable;
+}
+
+async function callAnthropic({ system, stable, variable }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await aibudget.fetchAnthropic('modifications-proposees', API_URL, {
       method: 'POST', signal: controller.signal,
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: classify.modelName(), max_tokens: MAX_TOKENS, temperature: 0, system, messages: [{ role: 'user', content: user }] }),
+      body: JSON.stringify(aicache.messageParams({ model: classify.modelName(), maxTokens: MAX_TOKENS, system, stable, variable: variable || 'Aucun document joint : analyse seulement les données.' })),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const body = await res.json();
@@ -252,7 +258,8 @@ async function generate(userId, activityId, opts) {
   const drivesync = require('./drivesync'); // chargé à l'usage : drivesync dépend de documenttasks
   if (!drivesync.takeCall(userId)) return { added: 0, capReached: true };
   let text;
-  try { text = await (caller || callAnthropic)({ system: SYSTEM, user: buildUser(ctx, o.docText || '') }); }
+  try { const parts = buildUserParts(ctx, o.docText || '');
+    text = await (caller || callAnthropic)({ system: SYSTEM, user: buildUser(ctx, o.docText || ''), stable: parts.stable, variable: parts.variable }); }
   catch (e) { return e && e.aiBlocked ? { added: 0, aiBlocked: true, aiResumesOn: e.resumesOn, message: e.message } : { added: 0, failed: true }; }
   if (text && typeof text === 'object') text = text.text;
   const changes = validate(text, ctx);
@@ -334,4 +341,4 @@ function dismiss(activityId, ids) {
   return { dismissedCount: rows.length };
 }
 
-module.exports = { setChecked, list, generate, apply, dismiss, setCaller, validate, buildContext, buildUser, SYSTEM, hashOf, isSpellingOnly };
+module.exports = { setChecked, list, generate, apply, dismiss, setCaller, validate, buildContext, buildUser, buildUserParts, SYSTEM, hashOf, isSpellingOnly };

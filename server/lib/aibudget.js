@@ -4,7 +4,8 @@
 // le mois est découpé en 4 tranches (jours 1-7, 8-14, 15-21, 22-fin) ; le plafond
 // CUMULÉ à la fin de la tranche k vaut cap × k/4. Le non-dépensé se reporte ; la
 // dépense du mois courant est toujours comparée au plafond cumulé de la tranche.
-// Le coût réel vient du champ `usage` de chaque réponse de l'API Anthropic.
+// Le coût réel vient du champ `usage` de chaque réponse de l'API Anthropic (cache de prompt : lecture ×0,1,
+// création ×1,25 du prix d'entrée ; lots Anthropic : facteur 0,5 passé à record).
 //
 // Tarifs en $/million de jetons ; surchargeables sans code : AI_PRICE_IN_PER_M,
 // AI_PRICE_OUT_PER_M (valent pour tous les modèles), AI_BUDGET_MONTH_USD (défaut 15).

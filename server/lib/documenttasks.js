@@ -8,9 +8,10 @@
 // délimité) ; texte envoyé limité ; limite de débit 10 appels/heure/utilisateur ; aucun
 // contenu de document journalisé ni stocké ; la réponse de l'IA est revalidée (clé de
 // catégorie, semaine, durée) ; aucune cible d'objectif (manual ou non) n'est touchée ;
-// une LISTE de tâches, jamais d'horaire à créneaux. La durée estimée sert à signaler un
+// une LISTE de tâches, jamais d'horaire à créneaux. Prompt en cache Anthropic (aicache.js : système + partie stable). La durée estimée sert à signaler un
 // dépassement de la capacité hebdo ; elle n'est pas stockée (une tâche n'a pas de durée).
 const aibudget = require('./aibudget');
+const aicache = require('./aicache');
 const zlib = require('zlib');
 const db = require('../db');
 const goals = require('./goals');
@@ -29,7 +30,7 @@ const WEEKS_AHEAD = 12;
 const RATE_MAX = 10, RATE_WINDOW = 60 * 60 * 1000;
 
 const rate = new Map();
-let caller = null; // injectable (tests) : async ({ system, user }) => string
+let caller = null; // injectable (tests) : async ({ system, user, stable, variable }) => string
 
 function httpError(status, message) { return Object.assign(new Error(message), { statusCode: status }); }
 function setCaller(fn) { caller = fn; }
@@ -209,27 +210,34 @@ function appBlock(app) {
   return 'Objectifs hebdomadaires à venir :\n' + obj + '\n\nTâches déjà ouvertes (ne pas les reproposer) :\n' + open;
 }
 
-function buildUser(ctx, instruction, doc) {
+// Deux parties : STABLE (catégories, semaines, capacité, application : mises en cache) puis VARIABLE (consigne, document).
+function buildUserParts(ctx, instruction, doc) {
   const cats = ctx.candidates.map((c) => `- ${c.key} : ${c.label}${c.description ? ' — ' + c.description : ''}`).join('\n');
   const safeDoc = String(doc || '').replace(/<\/?\s*(document|consigne)\s*>/gi, '');
   const safeInstr = instruction.replace(/<\/?\s*(document|consigne)\s*>/gi, '');
-  return [
+  const stable = [
     'Catégories disponibles (clé : libellé) :', cats, '',
     'Semaines cibles possibles (lundi) : ' + ctx.weeks.join(', '),
     ctx.capacityMinutes ? `Capacité hebdomadaire de la personne : ${ctx.capacityMinutes} minutes (évite de la dépasser).` : 'Capacité hebdomadaire : inconnue.',
     '', '<application>', appBlock(ctx.app), '</application>',
-    '', '<consigne>', safeInstr, '</consigne>', '', '<document>', safeDoc, '</document>',
   ].join('\n');
+  const variable = ['<consigne>', safeInstr, '</consigne>', '', '<document>', safeDoc, '</document>'].join('\n');
+  return { stable, variable };
 }
 
-async function callAnthropic({ system, user }) {
+function buildUser(ctx, instruction, doc) {
+  const p = buildUserParts(ctx, instruction, doc);
+  return p.stable + '\n\n' + p.variable;
+}
+
+async function callAnthropic({ system, stable, variable }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await aibudget.fetchAnthropic('document-taches', API_URL, {
       method: 'POST', signal: controller.signal,
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: classify.modelName(), max_tokens: MAX_TOKENS, temperature: 0, system, messages: [{ role: 'user', content: user }] }),
+      body: JSON.stringify(aicache.messageParams({ model: classify.modelName(), maxTokens: MAX_TOKENS, system, stable, variable })),
     });
     if (!res.ok) {
       let detail = '';
@@ -339,7 +347,8 @@ async function propose(userId, activityId, body, opts) {
   const ctx = buildContext(userId, activityId);
   if (!ctx.candidates.length) throw httpError(400, 'Aucune catégorie sur cette activité.');
   let out;
-  try { out = await (caller || callAnthropic)({ system: SYSTEM, user: buildUser(ctx, instruction, doc.text) }); }
+  try { const parts = buildUserParts(ctx, instruction, doc.text);
+    out = await (caller || callAnthropic)({ system: SYSTEM, user: parts.stable + '\n\n' + parts.variable, stable: parts.stable, variable: parts.variable }); }
   catch (e) { throw e && e.aiBlocked ? httpError(429, e.message) : httpError(502, "L'IA n'a pas répondu. Réessaie dans un moment."); }
   const text = out && typeof out === 'object' ? out.text : out;
   const aiTruncated = !!(out && typeof out === 'object' && out.stopReason === 'max_tokens');
@@ -385,4 +394,4 @@ function apply(userId, activityId, tasks) {
   return { addedCount: added.length, addedIds: added, skipped };
 }
 
-module.exports = { norm, propose, apply, setCaller, resetRate, parseProposals, textFromFile, capacityWarnings, parseDetailed, SYSTEM, buildUser, RATE_MAX };
+module.exports = { norm, propose, apply, setCaller, resetRate, parseProposals, textFromFile, capacityWarnings, parseDetailed, SYSTEM, buildUser, buildUserParts, RATE_MAX };

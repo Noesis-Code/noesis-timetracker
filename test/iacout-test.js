@@ -60,6 +60,37 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   await ds.syncConnection('own', act);
   assert(tasksCalls === 2 && changeCalls === 1, 'option 7 : fichier modifié = appel tâches + appel modifications proposées');
 
+  // ---- Option 2 : cache de prompt + coût ----
+  const ab = require('../server/lib/aibudget');
+  const sonnet = 'claude-sonnet-4-5';
+  assert(Math.abs(ab.computeCost(sonnet, { input_tokens: 1e6 }) - 3) < 1e-9, 'coût : entrée normale ×1');
+  assert(Math.abs(ab.computeCost(sonnet, { cache_read_input_tokens: 1e6 }) - 0.3) < 1e-9, 'coût : lecture de cache ×0,1');
+  assert(Math.abs(ab.computeCost(sonnet, { cache_creation_input_tokens: 1e6 }) - 3.75) < 1e-9, 'coût : création de cache ×1,25');
+  assert(Math.abs(ab.computeCost(sonnet, { input_tokens: 1000, cache_read_input_tokens: 9000, cache_creation_input_tokens: 2000, output_tokens: 500 }) - (0.003 + 0.0027 + 0.0075 + 0.0075)) < 1e-9, 'coût : mélange entrée/cache/sortie');
+  ab.record('own', sonnet, { input_tokens: 1000, cache_read_input_tokens: 9000 }, 'test-cache');
+  const lg = db.prepare("SELECT inputTokens, costUsd FROM ai_usage_log WHERE feature = 'test-cache'").get();
+  assert(lg.inputTokens === 10000 && Math.abs(lg.costUsd - (0.003 + 0.0027)) < 1e-9, 'record : jetons totaux et coût avec cache');
+  dt.setCaller(null); cp.setCaller(null);
+  process.env.ANTHROPIC_API_KEY = 'k';
+  const bodies = [];
+  const realFetch = global.fetch;
+  global.fetch = async (url, init) => {
+    if (!String(url).startsWith('https://api.anthropic.com/')) return realFetch(url, init);
+    bodies.push(JSON.parse(init.body));
+    return { ok: true, status: 200, clone() { return this; }, json: async () => ({ model: sonnet, content: [{ type: 'text', text: '{"tasks":[]}' }], usage: { input_tokens: 10, cache_read_input_tokens: 100, output_tokens: 5 } }) };
+  };
+  await ab.runAs('own', () => dt.propose('own', act, { instruction: 'Extrais', files: [{ fileName: 'a.txt', mimeType: 'text/plain', dataUrl: 'data:text/plain;base64,' + Buffer.from('Appeler Paul demain matin').toString('base64') }] }, { skipRate: true, skipChanges: true }));
+  const b0 = bodies[0];
+  assert(Array.isArray(b0.system) && b0.system[0].cache_control && b0.system[0].cache_control.type === 'ephemeral', 'cache : system en blocs avec cache_control');
+  const uc = b0.messages[0].content;
+  assert(uc.length === 2 && uc[0].cache_control && !uc[1].cache_control, 'cache : message user = bloc stable (cache_control) + bloc variable');
+  assert(/<application>/.test(uc[0].text) && !/<document>/.test(uc[0].text) && /<consigne>/.test(uc[1].text) && /Appeler Paul/.test(uc[1].text), 'cache : stable = catégories/application ; variable = consigne + document');
+  await ab.runAs('own', () => dt.propose('own', act, { instruction: 'Autre consigne', files: [{ fileName: 'a.txt', mimeType: 'text/plain', dataUrl: 'data:text/plain;base64,' + Buffer.from('Autre texte tout à fait différent').toString('base64') }] }, { skipRate: true, skipChanges: true }));
+  assert(bodies[1].messages[0].content[0].text === uc[0].text && JSON.stringify(bodies[1].system) === JSON.stringify(b0.system), 'cache : préfixe identique d\'un document à l\'autre');
+  const ac = require('../server/lib/aicache');
+  assert(ac.cacheable('x'.repeat(4200), 'y'.repeat(100)) && !ac.cacheable('x', 'y'), 'cache : estimation du minimum de 1024 jetons');
+  global.fetch = realFetch; delete process.env.ANTHROPIC_API_KEY;
+
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
