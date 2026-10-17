@@ -8,7 +8,7 @@ const db = require('../server/db');
 const goals = require('../server/lib/goals');
 const dt = require('../server/lib/documenttasks');
 
-db.prepare("INSERT INTO users (id, name, createdAt, weeklyCapacityMinutes) VALUES ('own','own',datetime('now'), 300)").run(); // 60 min par jour
+db.prepare("INSERT INTO users (id, name, createdAt, weeklyCapacityMinutes) VALUES ('own','own',datetime('now'), 420)").run(); // 420 / 7 = 60 min par jour
 const act = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('A','own','')").run().lastInsertRowid;
 db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,?,'#fff','')").run(act, 'own');
 goals.addCategory(act, 'Production');
@@ -30,7 +30,8 @@ const fin = (rows, doc) => {
   assert(p.tasks[0].day === wed && p.tasks[0].week === nextMon, 'jour proposé accepté, week = lundi du jour');
 
   p = parse([['A', key, sat, 30], ['B', key, sun, 30]]);
-  assert(p.tasks[0].day === mon2 && p.tasks[1].day === mon2 && p.tasks[0].week === mon2, 'jour de week-end sans date du document : décalé au prochain jour travaillé');
+  assert(p.tasks[0].day === sat && p.tasks[1].day === sun && p.tasks[0].week === nextMon, 'week-end accepté (7 jours travaillés), non décalé');
+  assert(dt.buildContext('own', act).dayCapacityMinutes === 60, 'capacité du jour = capacité hebdo / 7');
 
   p = parse([['A', key, sat, 30]], { docText: 'Livrer le rapport le ' + sat });
   assert(p.tasks[0].day === sat && p.tasks[0].exact === true, 'date exacte du document (ISO) : week-end accepté tel quel');

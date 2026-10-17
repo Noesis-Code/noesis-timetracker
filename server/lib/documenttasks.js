@@ -27,7 +27,8 @@ const MAX_TASKS = 80;
 const MAX_WEEKS = 260;      // plafond technique de lundis (≈ 5 ans), pour borner la taille du prompt sans couper les années créées
 const MAX_OBJECTIVES = 200; // objectifs hebdomadaires listés dans le prompt (les plus proches d'abord)
 const MAX_PERIOD_GOALS = 120; // objectifs périodiques listés dans le prompt (les plus proches d'abord)
-const WORK_DAYS = [1, 2, 3, 4, 5]; // jours travaillés : lundi à vendredi (aucun réglage de jours travaillés n'existe : hypothèse)
+const DEFAULT_WORK_DAYS = 7; // nombre de jours travaillés par semaine (la capacité hebdo est mesurée week-ends inclus) ; un réglage futur pourra le remplacer
+const WORK_DAYS = [1, 2, 3, 4, 5, 6, 0].slice(0, DEFAULT_WORK_DAYS); // getUTCDay : lundi d'abord
 const DEFAULT_TASK_MINUTES = 30;   // durée d'une tâche sans estimation (acceptée ou proposée sans durée)
 const LOAD_WEEKS_IN_PROMPT = 12;   // semaines proches dont la charge déjà acceptée est donnée à l'IA
 const RATE_MAX = 10, RATE_WINDOW = 60 * 60 * 1000;
@@ -255,7 +256,7 @@ function buildUserParts(ctx, instruction, doc) {
   const safeInstr = docanalysis.tagsOut(instruction);
   const stable = [
     'Catégories disponibles (clé : libellé) :', cats, '',
-    'Semaines de l\'horizon (lundis, AAAA : MM-JJ ; le jour proposé est un jour travaillé lundi-vendredi de ces semaines, jamais avant ' + (ctx.today || todayIso()) + ') : ' + weeksCompact(ctx.weeks),
+    'Semaines de l\'horizon (lundis, AAAA : MM-JJ ; le jour proposé est un jour de ces semaines, jamais avant ' + (ctx.today || todayIso()) + ') : ' + weeksCompact(ctx.weeks),
     ctx.capacityMinutes ? `Capacité hebdomadaire de la personne : ${ctx.capacityMinutes} minutes, soit ${Math.round(ctx.capacityMinutes / WORK_DAYS.length)} minutes par jour travaillé (évite de les dépasser).` : 'Capacité : inconnue.',
     '', '<application>', appBlock(ctx.app, ctx.loadByDay, ctx.weeks.length ? goals.addDays(ctx.weeks[Math.min(ctx.weeks.length, LOAD_WEEKS_IN_PROMPT) - 1], 6) : ''), '</application>',
   ].join('\n');
