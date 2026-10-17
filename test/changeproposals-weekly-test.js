@@ -85,6 +85,15 @@ const pendingCount = () => db.prepare("SELECT COUNT(*) c FROM change_proposals W
   await sleep(250);
   assert(calls === 1 && cp.weeklyState().timers === 0 && cp.weeklyState().running === 0, 'rafale : un seul appel IA après le délai');
 
+  // limite par utilisateur : au plus CP_WEEKLY_MAX_PER_HOUR analyses par heure, l'excédent est abandonné (journalisé)
+  process.env.CP_WEEKLY_MAX_PER_HOUR = '2'; cp.resetWeeklyLimits();
+  const c0 = calls;
+  for (let i = 0; i < 5; i++) { cp.scheduleForWeekly('own', act, w.id, { delayMs: 0 }); await sleep(60); }
+  assert(calls === c0 + 2, 'limite horaire par utilisateur : 5 modifications espacées => 2 appels IA seulement (' + (calls - c0) + ')');
+  cp.resetWeeklyLimits(); cp.scheduleForWeekly('own', act, w.id, { delayMs: 0 }); await sleep(60);
+  assert(calls === c0 + 3, 'fenêtre réinitialisée : l\'analyse repart');
+  delete process.env.CP_WEEKLY_MAX_PER_HOUR; cp.resetWeeklyLimits();
+
   // échec IA silencieux
   mode = 'fail';
   db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?').run(goals.addDays(nextMonday, 10), task.id);

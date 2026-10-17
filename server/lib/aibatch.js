@@ -17,7 +17,11 @@ async function request(url, init) {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await doFetch(url, { ...init, signal: controller.signal, headers: headers() });
-    if (!res.ok) throw Object.assign(new Error('HTTP ' + res.status), { statusCode: res.status });
+    if (!res.ok) {
+      let detail = '';
+      try { const j = await res.json(); detail = (j && j.error && j.error.message) || ''; } catch (e) { /* corps illisible */ }
+      throw Object.assign(new Error('HTTP ' + res.status), { statusCode: res.status, creditLow: /credit balance/i.test(String(detail)) });
+    }
     return res;
   } finally { clearTimeout(timer); }
 }

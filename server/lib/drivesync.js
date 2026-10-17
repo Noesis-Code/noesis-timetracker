@@ -130,7 +130,7 @@ function saveFolderSettings(userId, activityId, folderId, body) {
 
 // ---------- Tâches en attente (mode propose) ----------
 function listPending(userId, activityId) {
-  const rows = db.prepare("SELECT id, title, catKey AS key, week, minutes, createdAt FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending' ORDER BY createdAt DESC, id").all(userId, activityId);
+  const rows = db.prepare("SELECT id, title, catKey AS key, week, day, minutes, createdAt FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'pending' ORDER BY createdAt DESC, id").all(userId, activityId);
   const cands = classify.buildClassificationCandidates(activityId);
   const labels = new Map(cands.map((c) => [c.key, c.label]));
   return { tasks: rows.map((r) => ({ ...r, categoryLabel: labels.get(r.key) || '' })), categories: cands.map((c) => ({ key: c.key, label: c.label })) };
@@ -147,7 +147,7 @@ function resolvePending(userId, activityId, items) {
     if (!row) return;
     if (!it.checked) { upd.run('dismissed', null, row.id); dismissed++; return; }
     const key = typeof it.key === 'string' && it.key ? it.key : row.catKey;
-    const r = documenttasks.apply(userId, activityId, [{ title: row.title, key, week: row.week, minutes: row.minutes }]);
+    const r = documenttasks.apply(userId, activityId, [{ title: row.title, key, week: row.week, day: row.day || undefined, minutes: row.minutes }]);
     if (r.addedCount) { upd.run('added', r.addedIds[0], row.id); db.prepare('UPDATE drive_seen_tasks SET ack = 1 WHERE id = ?').run(row.id); added++; }
     else { upd.run('dismissed', null, row.id); skipped.push(...r.skipped); } // déjà présente / catégorie invalide : on ne reproposera pas
   });
@@ -156,7 +156,7 @@ function resolvePending(userId, activityId, items) {
 
 // ---------- Pop-up « tâches ajoutées » ----------
 function listAdded(userId, activityId) {
-  const rows = db.prepare("SELECT id, title, catKey AS key, week FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'added' AND ack = 0 AND itemId IS NOT NULL ORDER BY id").all(userId, activityId);
+  const rows = db.prepare("SELECT id, title, catKey AS key, week, day FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'added' AND ack = 0 AND itemId IS NOT NULL ORDER BY id").all(userId, activityId);
   const labels = new Map(classify.buildClassificationCandidates(activityId).map((c) => [c.key, c.label]));
   return { tasks: rows.map((r) => ({ ...r, categoryLabel: labels.get(r.key) || '' })) };
 }
@@ -176,7 +176,7 @@ function removeAdded(userId, activityId, id) {
 function restoreAdded(userId, activityId, id) {
   const row = db.prepare("SELECT * FROM drive_seen_tasks WHERE id = ? AND userId = ? AND activityId = ? AND status = 'dismissed' AND title IS NOT NULL").get(Number(id), userId, activityId);
   if (!row) throw httpError(404, 'Tâche introuvable.');
-  const r = documenttasks.apply(userId, activityId, [{ title: row.title, key: row.catKey, week: row.week, minutes: row.minutes }]);
+  const r = documenttasks.apply(userId, activityId, [{ title: row.title, key: row.catKey, week: row.week, day: row.day || undefined, minutes: row.minutes }]);
   if (!r.addedCount) throw httpError(409, 'Impossible de rétablir cette tâche.');
   db.prepare("UPDATE drive_seen_tasks SET status = 'added', itemId = ?, ack = 1 WHERE id = ?").run(r.addedIds[0], row.id);
   return { ok: true };
@@ -241,8 +241,8 @@ function stmts() {
     putFile: db.prepare(`INSERT INTO drive_seen_files (userId, activityId, fileId, modifiedTime, contentHash) VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(userId, activityId, fileId) DO UPDATE SET modifiedTime = excluded.modifiedTime, contentHash = excluded.contentHash`),
     keyRow: db.prepare('SELECT 1 FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND taskKey = ?'),
-    putTask: db.prepare(`INSERT OR IGNORE INTO drive_seen_tasks (userId, activityId, fileId, taskKey, status, title, catKey, week, minutes, itemId, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+    putTask: db.prepare(`INSERT OR IGNORE INTO drive_seen_tasks (userId, activityId, fileId, taskKey, status, title, catKey, week, minutes, itemId, createdAt, day)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
   };
 }
 
@@ -252,12 +252,12 @@ function storeTasks(userId, activityId, fileId, cfg, tasks, existing, st, out) {
   for (const t of tasks) {
     const tk = taskKey(t.title);
     if (!tk || st.keyRow.get(userId, activityId, tk)) continue; // déjà ajoutée / refusée / en attente
-    if (existing.has(tk)) { st.putTask.run(userId, activityId, fileId, tk, 'dismissed', null, null, null, null, null, now); continue; } // déjà dans l'app : jamais écrasée ni rajoutée
+    if (existing.has(tk)) { st.putTask.run(userId, activityId, fileId, tk, 'dismissed', null, null, null, null, null, now, null); continue; } // déjà dans l'app : jamais écrasée ni rajoutée
     if (cfg.mode === 'auto') {
-      const r = documenttasks.apply(userId, activityId, [{ title: t.title, key: t.key, week: t.week, minutes: t.minutes }]);
-      if (r.addedCount) { st.putTask.run(userId, activityId, fileId, tk, 'added', t.title, t.key, t.week, t.minutes, r.addedIds[0], now); existing.add(tk); out.added++; }
+      const r = documenttasks.apply(userId, activityId, [{ title: t.title, key: t.key, week: t.week, day: t.day || undefined, minutes: t.minutes }]);
+      if (r.addedCount) { st.putTask.run(userId, activityId, fileId, tk, 'added', t.title, t.key, t.week, t.minutes, r.addedIds[0], now, t.day || null); existing.add(tk); out.added++; }
     } else {
-      st.putTask.run(userId, activityId, fileId, tk, 'pending', t.title, t.key, t.week, t.minutes, null, now);
+      st.putTask.run(userId, activityId, fileId, tk, 'pending', t.title, t.key, t.week, t.minutes, null, now, t.day || null);
       existing.add(tk); out.proposed++;
     }
   }
@@ -328,7 +328,8 @@ function errOutcome(e) {
   if (e && e.unusable) return { fail: true };
   const m = /^HTTP (\d{3})$/.exec(String((e && e.message) || ''));
   const code = m ? Number(m[1]) : 0;
-  const det = !!e && !e.aiBlocked && ((e.stage === 'call' && [400, 413, 422].includes(code)) || (e.stage === 'prep' && e.statusCode === 400));
+  const det = !!e && !e.aiBlocked && !e.creditLow && ( // crédit épuisé (400 « credit balance ») : panne GLOBALE, jamais propre à un fichier
+    (e.stage === 'call' && [400, 413, 422].includes(code)) || (e.stage === 'prep' && e.statusCode === 400));
   return det ? { infra: true, det: true } : { infra: true };
 }
 // Appel direct d'une demande préparée (mêmes étapes que documenttasks.propose, avec l'étape en cause pour classer la panne).
@@ -406,7 +407,11 @@ async function collectBatches(userId, activityId, st, folderCfg, out) {
       const cfg = folderCfg.get(m0.folderId);
       const outcomes = cids.map((cid) => {
         const m = map[cid], r = (byCid.get(cid) || {}).result || {};
-        if (r.type !== 'succeeded' || !r.message) return { fail: true }; // errored / canceled / expired / ligne absente : essai compté
+        if (r.type !== 'succeeded' || !r.message) { // ligne absente / inexploitable : essai compté ; crédit épuisé, expiré, annulé ou panne serveur : panne globale (jamais comptée) ; requête invalide : propre au fichier
+          const er = (r.error && r.error.error) || r.error || {}, msg = String(er.message || '');
+          if (r.type === 'errored' || r.type === 'canceled' || r.type === 'expired') return /credit balance/i.test(msg) || er.type !== 'invalid_request_error' ? { infra: true } : { infra: true, det: true };
+          return { fail: true };
+        }
         aibudget.record(userId, r.message.model, r.message.usage, 'surveillance-drive-batch', undefined, 0.5); // lot = 50 % du prix, enregistré à la relève
         if (!cfg) return { infra: true }; // dossier retiré depuis la soumission : fichier non marqué
         try {
@@ -525,8 +530,8 @@ async function syncConnection(userId, activityId, opts) {
       // Les « modifications proposées » sortent du même appel que les tâches (1er segment du fichier seulement), sauf à la première lecture du fichier (rien à comparer).
       const poptsOf = (i) => ({ skipRate: true, callTaken: true, skipChanges: isNew || i > 0 });
       if (batch) {
-        try { const preps = await aibudget.runAs(userId, async () => { const a = []; for (const x of take) a.push(await prepOf(userId, activityId, bodyOf(x.t), poptsOf(x.i))); return a; }); out.aiOk = (out.aiOk || 0) + 1; queue.push({ f, meta, first: isNew, cfg, preps, segs: take }); }
-        catch (e) { const o = errOutcome(e); if (o.det) (out.suspects = out.suspects || []).push(meta); if (!(o.det && (out.aiOk || queue.length)) && ++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; }
+        try { const preps = await aibudget.runAs(userId, async () => { const a = []; for (const x of take) a.push(await prepOf(userId, activityId, bodyOf(x.t), poptsOf(x.i))); return a; }); queue.push({ f, meta, first: isNew, cfg, preps, segs: take }); }
+        catch (e) { const o = errOutcome(e); if (o.det) (out.suspects = out.suspects || []).push(meta); if (!(o.det && out.aiOk) && ++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; }
         continue;
       }
       const outcomes = [];
@@ -602,6 +607,7 @@ async function submitQueue(userId, activityId, queue, st, existing, out) {
     db.prepare('INSERT INTO drive_batches (userId, activityId, batchId, createdAt, status, fileMap, estCost) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(userId, activityId, id, new Date().toISOString(), 'submitted', JSON.stringify(fileMap), estTotal);
     out.batched = admitted.length;
+    out.aiOk = (out.aiOk || 0) + 1; // l'API a ACCEPTÉ le lot : preuve que l'IA répond (la simple préparation d'une requête n'en est pas une)
     return;
   } catch (e) { console.warn('[drivesync] soumission du lot impossible (code ' + (e.statusCode || '?') + ') : appels directs'); }
   let aiFails = 0;

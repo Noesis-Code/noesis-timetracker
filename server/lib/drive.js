@@ -137,6 +137,7 @@ function ensureTable() {
   // Migrations idempotentes (relecture N3/N5) : coût maximal estimé d'un lot en vol ; empreinte du texte d'un doublon ignoré (sha256, aucun contenu).
   if (!db.prepare('PRAGMA table_info(drive_batches)').all().some((c) => c.name === 'estCost')) db.exec('ALTER TABLE drive_batches ADD COLUMN estCost REAL NOT NULL DEFAULT 0');
   if (!db.prepare('PRAGMA table_info(drive_skipped)').all().some((c) => c.name === 'dupHash')) db.exec('ALTER TABLE drive_skipped ADD COLUMN dupHash TEXT');
+  if (!db.prepare('PRAGMA table_info(drive_seen_tasks)').all().some((c) => c.name === 'day')) db.exec('ALTER TABLE drive_seen_tasks ADD COLUMN day TEXT'); // jour proposé (rééquilibré) ; NULL pour les anciennes lignes : on retombe sur la semaine
   db.exec(`CREATE TABLE IF NOT EXISTS drive_infra_fails (
     userId TEXT NOT NULL,
     activityId INTEGER NOT NULL,
@@ -518,6 +519,7 @@ async function disconnect(userId, activityId) {
     } catch (e) { /* la suppression locale prime */ }
   }
   // Droit au retrait : la surveillance s'arrête et tout ce qui la concerne est supprimé.
+  // Limite connue : un lot Anthropic déjà soumis continue chez Anthropic ; son coût réel n'est plus enregistré (la ligne drive_batches, qui seule le relève, est supprimée).
   ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_attempts', 'drive_infra_fails', 'drive_progress', 'drive_seg_done', 'drive_seen_tasks', 'drive_folders', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
   return { disconnected: true };
 }

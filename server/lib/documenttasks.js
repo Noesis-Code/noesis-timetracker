@@ -437,7 +437,7 @@ function balanceDays(tasks, ctx) {
       for (let d = nextWorkday(goals.addDays(day, 1), last); d; d = nextWorkday(goals.addDays(d, 1), last)) {
         if ((load[d] || 0) + mins(t) <= dayCap) { dest = d; break; }
       }
-      if (dest) { load[dest] = (load[dest] || 0) + mins(t); t.day = dest; t.week = goals.mostRecentMonday(dest); t.moved = true; }
+      if (dest) { load[dest] = (load[dest] || 0) + mins(t); t.fromWeek = t.week; t.day = dest; t.week = goals.mostRecentMonday(dest); t.moved = true; } // fromWeek : semaine d'origine (libellé « jour plein » ou « semaine pleine »)
       else { t.day = null; t.noRoom = true; } // « à choisir » ; `week` conservé
     }
   }

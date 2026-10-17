@@ -23,7 +23,8 @@
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((t && t.day) || '');
     var out = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('fr-CA', { weekday: 'short', day: 'numeric', month: 'short' })
       : (t && t.week ? weekLabel(t.week) + (t.noRoom ? ' (jour à choisir)' : '') : '');
-    return out + (t && t.moved ? ' · déplacée (semaine pleine)' : '');
+    // Déplacée parce que le JOUR était plein (même semaine) ; « semaine pleine » seulement si elle a changé de semaine. Sans semaine d'origine : « jour plein ».
+    return out + (t && t.moved ? (t.fromWeek && t.week && t.fromWeek !== t.week ? ' · déplacée (semaine pleine)' : ' · déplacée (jour plein)') : '');
   }
 
   document.getElementById('content').insertAdjacentHTML('beforeend', `

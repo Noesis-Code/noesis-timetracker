@@ -364,9 +364,23 @@ async function generateForWeekly(userId, activityId, weeklyId) {
 
 // Anti-rafale : une minuterie par weeklyId (chaque nouvelle modification la repousse) et une seule analyse à la fois par weeklyId.
 const weeklyTimers = new Map(), weeklyRunning = new Set(), weeklyAgain = new Set();
+// Limite par utilisateur : au plus CP_WEEKLY_MAX_PER_HOUR analyses lancées par fenêtre glissante d'une heure (défaut 6) ; l'excédent est ABANDONNÉ (journalisé, sans contenu) :
+// la proposition se régénère à la prochaine modification de l'objectif.
+const WEEKLY_MAX_PER_HOUR = () => { const n = parseInt(process.env.CP_WEEKLY_MAX_PER_HOUR, 10); return Number.isFinite(n) && n >= 0 ? n : 6; };
+const WEEKLY_WINDOW_MS = 3600 * 1000;
+const weeklyStarts = new Map(); // userId -> horodatages des analyses lancées dans l'heure
+function weeklyAllowed(userId) {
+  const now = Date.now();
+  const a = (weeklyStarts.get(userId) || []).filter((t) => now - t < WEEKLY_WINDOW_MS);
+  if (a.length >= WEEKLY_MAX_PER_HOUR()) { weeklyStarts.set(userId, a); return false; }
+  a.push(now); weeklyStarts.set(userId, a);
+  return true;
+}
+function resetWeeklyLimits() { weeklyStarts.clear(); }
 function runWeekly(userId, activityId, weeklyId, delay) {
   weeklyTimers.delete(weeklyId);
   if (weeklyRunning.has(weeklyId)) { weeklyAgain.add(weeklyId); return Promise.resolve({ queued: true }); }
+  if (!weeklyAllowed(userId)) { console.warn('[changeproposals] redistribution objectif hebdo abandonnée : limite par heure atteinte pour cet utilisateur'); return Promise.resolve({ added: 0, rateLimited: true }); }
   weeklyRunning.add(weeklyId);
   return generateForWeekly(userId, activityId, weeklyId).catch(() => ({ added: 0, failed: true })).then((res) => {
     weeklyRunning.delete(weeklyId);
@@ -453,4 +467,4 @@ function dismiss(activityId, ids) {
   return { dismissedCount: rows.length };
 }
 
-module.exports = { generateForWeekly, scheduleForWeekly, weeklyState, validateWeekly, setChecked, list, generate, store, storeFromText, apply, dismiss, setCaller, validate, buildContext, buildUser, buildUserParts, SYSTEM, hashOf, isSpellingOnly };
+module.exports = { generateForWeekly, scheduleForWeekly, resetWeeklyLimits, weeklyState, validateWeekly, setChecked, list, generate, store, storeFromText, apply, dismiss, setCaller, validate, buildContext, buildUser, buildUserParts, SYSTEM, hashOf, isSpellingOnly };

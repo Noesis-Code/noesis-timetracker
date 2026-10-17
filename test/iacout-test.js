@@ -140,7 +140,7 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   const batchFetch = async (url, init) => {
     const json = (o, ok = true, st = 200) => ({ ok, status: st, json: async () => o, text: async () => (typeof o === 'string' ? o : JSON.stringify(o)) });
     if (init.method === 'POST') {
-      if (submitFail) return json({}, false, 500);
+      if (submitFail) return { ...json({ error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } }, false, typeof submitFail === 'number' ? submitFail : 500) };
       const body = JSON.parse(init.body); nSubmit++; lastSubmit = body;
       const id = 'msgbatch_' + nSubmit; bstore.set(id, { status: 'in_progress', requests: body.requests, lines: [] });
       return json({ id, processing_status: 'in_progress' });
@@ -496,7 +496,27 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   rr = await ds.syncConnection('own', act);
   assert(nSubmit === sub3 + 2, 'N3 : lot relevé (terminé) => le reste est de nouveau disponible');
   db.prepare("UPDATE drive_batches SET status = 'done'").run();
+  // ---- N3b : crédit épuisé EN MODE LOT (soumission 400 « credit balance », repli direct 400) : jamais de fichier listé, boucle de repli coupée ----
+  process.env.DRIVE_SYNC_MAX_FILE_INFRA_FAILS = '10';
+  ['n3c', 'n3d', 'n3e', 'n3f', 'n3g'].forEach((id) => addDoc(id + '-aaaaa', NW(30, id + 'cr_')));
+  submitFail = 400; let creditCalls = 0;
+  dt.setCaller(async () => { creditCalls++; throw new Error('HTTP 400'); }); // l'API directe répond aussi 400 (message de crédit non relayé par ce faux appelant)
+  for (let k = 0; k < 15; k++) { resetNext(); const c0 = creditCalls; await ds.syncConnection('own', act); assert(creditCalls - c0 <= 3, 'N3b : boucle de repli coupée après 3 échecs de suite (passage ' + k + ' : ' + (creditCalls - c0) + ' appels)'); }
+  assert(['n3c', 'n3d', 'n3e', 'n3f', 'n3g'].every((id) => !listedReason(id + '-aaaaa') && !seenF(id + '-aaaaa')), 'N3b : 15 passages en lot avec crédit épuisé => aucun fichier listé ni marqué vu');
+  assert(!db.prepare('SELECT 1 FROM drive_infra_fails WHERE n > 0').get(), 'N3b : aucune panne propre à un fichier comptée');
+  creditCalls = 0; dt.setCaller(async () => { creditCalls++; throw Object.assign(new Error('HTTP 400'), { creditLow: true }); });
+  for (let k = 0; k < 15; k++) { resetNext(); await ds.syncConnection('own', act); }
+  assert(!db.prepare("SELECT 1 FROM drive_skipped WHERE fileId LIKE 'n3%'").get() && !db.prepare('SELECT 1 FROM drive_infra_fails WHERE n > 0').get(), 'N3b : message « credit balance » reconnu comme panne globale');
+  submitFail = false; dt.setCaller(okCaller); delete process.env.DRIVE_SYNC_MAX_FILE_INFRA_FAILS;
+  db.prepare("UPDATE drive_batches SET status = 'done'").run();
   aibatch.setFetch(null); delete process.env.ANTHROPIC_API_KEY; process.env.DRIVE_SYNC_BATCH = 'off';
+
+  // ---- N3c : le jour proposé est conservé dans drive_seen_tasks (et non réduit au lundi) ----
+  { const goalsLib = require('../server/lib/goals'); const mon = goalsLib.addDays(goalsLib.mostRecentMonday(new Date().toISOString().slice(0, 10)), 7), wed = goalsLib.addDays(mon, 2);
+    dt.setCaller(async () => JSON.stringify({ t: [['Tâche au mercredi', KEY, wed, 20]] })); addDoc('n3day-aaaaa', NW(30, 'n3day_'));
+    await ds.syncConnection('own', act);
+    const dr = db.prepare("SELECT day, week FROM drive_seen_tasks WHERE title = 'Tâche au mercredi'").get();
+    assert(dr && dr.day === wed && dr.week === mon, 'N3c : jour proposé (mercredi) conservé, pas seulement le lundi de la semaine'); dt.setCaller(okCaller); }
 
   // ---- N4 : fichier de 400 segments traité par morceaux, sans rien perdre ni répéter ----
   dt.setCaller(okCaller); await runAll(3);

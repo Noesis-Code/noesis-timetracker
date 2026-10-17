@@ -84,7 +84,7 @@ async function call({ parts, want, feature }) {
       let detail = '';
       try { const j = await res.json(); detail = (j && j.error && (j.error.type + ' : ' + j.error.message)) || ''; } catch (e) { /* corps illisible */ }
       console.warn('[docanalysis] API Anthropic HTTP ' + res.status + ' ' + String(detail).slice(0, 300));
-      throw new Error('HTTP ' + res.status);
+      throw Object.assign(new Error('HTTP ' + res.status), { creditLow: /credit balance/i.test(String(detail)) }); // crédit épuisé : panne globale, jamais propre à un fichier
     }
     const body = await res.json();
     const block = Array.isArray(body.content) ? body.content.find((b) => b.type === 'text') : null;
