@@ -50,15 +50,36 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   await drive.handleCallback('own', { state: st, code: 'c' });
   await drive.chooseFolder('own', act, 'fold-1111');
 
-  // ---- Option 7 : pas d'appel « modifications proposées » à la première lecture ----
-  let tasksCalls = 0, changeCalls = 0;
-  dt.setCaller(async () => { tasksCalls++; return JSON.stringify({ tasks: [{ title: 'Appeler Paul', key: KEY, week: null, minutes: 30 }] }); });
-  cp.setCaller(async () => { changeCalls++; return JSON.stringify({ changes: [] }); });
+  // ---- Options 7 et 1 : première lecture sans « modifications », fichier modifié = UN SEUL appel fusionné ----
+  const calls = [];
+  const chgDate = goals.addDays(today, 6);
+  dt.setCaller(async (a) => {
+    calls.push(a);
+    const out = { t: [['Appeler Paul', KEY, null, 30]] };
+    if (a.want.c) out.c = [['t', openTask.id, 'date', chgDate, 'Trop chargé'], ['t', openTask.id, 'text', 'Rédige le plan', 'orthographe']];
+    return JSON.stringify(out);
+  });
   await ds.syncConnection('own', act);
-  assert(tasksCalls === 1 && changeCalls === 0, 'option 7 : première lecture = 1 appel tâches, aucun appel modifications proposées');
+  assert(calls.length === 1 && calls[0].want.t && !calls[0].want.c && !/Sections? .*"c"/.test(calls[0].variable), 'option 7 : première lecture = 1 appel, section "c" non demandée');
+  assert(db.prepare('SELECT COUNT(*) n FROM change_proposals').get().n === 0, 'option 7 : aucune modification proposée stockée');
   touch('f1-aaaaa', 'Appeler Paul\nEnvoyer devis\nRelancer');
   await ds.syncConnection('own', act);
-  assert(tasksCalls === 2 && changeCalls === 1, 'option 7 : fichier modifié = appel tâches + appel modifications proposées');
+  assert(calls.length === 2 && calls[1].want.t && calls[1].want.c, 'option 1 : fichier modifié = UN SEUL appel pour tâches + modifications');
+  assert(/sortie>[\s\S]*"t" et "c"/.test(calls[1].variable) && calls[1].stable.includes('<donnees>') && calls[1].stable.includes('<application>'), 'option 1 : <sortie> demandée et contexte des deux fonctions dans la partie stable');
+  const pend = db.prepare("SELECT field, afterValue FROM change_proposals WHERE status = 'pending'").all();
+  assert(pend.length === 1 && pend[0].field === 'date' && pend[0].afterValue === chgDate, 'option 1 : section "c" validée et stockée (correction d\'orthographe jamais listée)');
+  assert(calls[0].stable === calls[1].stable && calls[0].system === calls[1].system, 'option 1 : partie stable et système identiques (même cache) entre première lecture et fichier modifié');
+  // route manuelle « modifications proposées » seule : même cache, section "c" seule
+  const r1 = await cp.generate('own', act, {});
+  assert(r1.added === 0 && calls.length === 3 && !calls[2].want.t && calls[2].want.c && calls[2].stable === calls[1].stable, 'generate manuel : un appel, section "c" seule, même partie stable');
+  // propose manuel avec document : un seul appel (plus de second appel generate)
+  const n0 = calls.length;
+  const rp = await dt.propose('own', act, { instruction: 'Extrais', files: [{ fileName: 'a.txt', mimeType: 'text/plain', dataUrl: 'data:text/plain;base64,' + Buffer.from('Un texte avec des tâches').toString('base64') }] });
+  assert(calls.length === n0 + 1 && calls[n0].want.c && rp.tasks.length === 1, 'propose manuel avec document : un seul appel IA (tâches + modifications)');
+  const n1 = calls.length;
+  await dt.propose('own', act, { instruction: 'Sans document' });
+  assert(calls.length === n1 + 1 && !calls[n1].want.c, 'propose sans document : section "c" non demandée');
+  dt.setCaller(null);
 
   // ---- Option 2 : cache de prompt + coût ----
   const ab = require('../server/lib/aibudget');

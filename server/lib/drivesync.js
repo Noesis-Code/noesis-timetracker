@@ -230,7 +230,7 @@ async function syncConnection(userId, activityId, opts) {
       let prop;
       try {
         const dataUrl = 'data:text/plain;base64,' + Buffer.from(text, 'utf8').toString('base64');
-        prop = await aibudget.runAs(userId, () => documenttasks.propose(userId, activityId, { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl }] }, { skipRate: true, skipChanges: !seen }));
+        prop = await aibudget.runAs(userId, () => documenttasks.propose(userId, activityId, { instruction, files: [{ fileName: 'drive.txt', mimeType: 'text/plain', dataUrl }] }, { skipRate: true, callTaken: true, skipChanges: !seen }));
       } catch (e) { if (++aiFails >= MAX_AI_FAILS_IN_A_ROW) break; continue; } // échec IA : fichier non marqué, nouvel essai au prochain passage ; l'IA semble en panne après 3 échecs de suite
       aiFails = 0;
       putFile.run(userId, activityId, f.id, f.modifiedTime, hash);
