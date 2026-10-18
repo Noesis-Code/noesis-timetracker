@@ -487,7 +487,7 @@
     n2.textContent = ptasks.length; n2.classList.toggle('hidden', !ptasks.length);
     ptree = null; // les données ont changé : l'arbre Pôle › Secteur est reconstruit
     var tm = !isCh();
-    $('docTasksChangesTitle').textContent = (tm ? 'Nouvelles tâches' : 'Modifications proposées') + ' · v384'; // TEMPORAIRE : repère de version pour diagnostiquer le cache de l'iPhone
+    $('docTasksChangesTitle').textContent = (tm ? 'Nouvelles tâches' : 'Modifications proposées');
     $('docTasksChangesHint').classList.toggle('hidden', tm);
     $('docTasksChangesFind').classList.toggle('hidden', tm);
     var ab = $('docTasksPTasksApply'); if (ab) ab.textContent = tm ? 'Ajouter la sélection' : 'Appliquer';
@@ -846,17 +846,9 @@
   var swipeBound = false;
   function bindSwipe() {
     if (swipeBound || !(window.TMT && TMT.slidePager)) return; swipeBound = true;
-    // TEMPORAIRE : diagnostic affiché dans le titre
-    var dz = $('docTasksChangesTasks'), dbgN = 0, dbgX = 0, dbgY = 0, dbgMsg = '';
-    var dbgLog = []; function dbg(m) { dbgMsg = m; if (dbgLog[dbgLog.length - 1] !== m && !/^move/.test(m)) dbgLog.push(m); if (dbgLog.length > 6) dbgLog.shift(); var el = $('docTasksChangesTitle'); if (el) el.textContent = el.textContent.split(' · v')[0] + ' · v385 · ' + dbgLog.join(' | ') + (/^move/.test(m) ? ' | ' + m : ''); }
-    dz.addEventListener('touchstart', function (e) { dbgX = e.touches[0].clientX; dbgN = 0; dbgLog = []; var mm = [].map.call(document.querySelectorAll('.communityMembersModal:not(.hidden)'), function (m) { return m.id + (m.contains(dz) ? '(in)' : '(OUT)'); }).join(','); dbg('start ' + Math.round(dbgX) + ' modals[' + mm + ']'); dbgY = e.touches[0].clientY; }, { capture: true, passive: true });
-    dz.addEventListener('touchmove', function (e) { dbgN++; if (dbgN === 1 || dbgN % 8 === 0) dbg('move dx' + Math.round(e.touches[0].clientX - dbgX) + ' dy' + Math.round(e.touches[0].clientY - dbgY) + ' n' + dbgN); }, { capture: true, passive: true });
-    dz.addEventListener('touchend', function () { dbg('end ' + dbgMsg.slice(0, 20)); }, { capture: true, passive: true });
-    dz.addEventListener('touchcancel', function () { dbg('CANCEL ' + dbgMsg.slice(0, 20)); }, { capture: true, passive: true });
     TMT.slidePager({
       zone: $('docTasksChangesTasks'),
       neighbor: function (dir) {
-        dbg('nb dir' + dir + ' s' + nav.s + ' pview' + (pview ? 1 : 0) + ' fwd' + (fwd ? fwd.s : '-'));
         if (!pview) return null;
         var t = nav.s + dir, st;
         if (dir < 0) { if (nav.s < 1) return null; st = { s: t, p: t > 0 ? nav.p : null, g: t > 1 ? nav.g : null }; }
