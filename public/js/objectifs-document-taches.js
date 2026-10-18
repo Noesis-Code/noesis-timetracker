@@ -714,43 +714,56 @@
   function renderDots() {
     var d = $('docTasksPDots'); if (!d) return;
     var html = '';
-    for (var i = 0; i <= nav.s && nav.s > 0; i++) html += '<button type="button" class="ptDotBtn' + (i === nav.s ? ' on' : '') + '" data-dot="' + i + '" aria-label="Écran ' + (i + 1) + '"' + (i === nav.s ? ' aria-current="true"' : '') + '><span class="ptDot"></span></button>';
+    for (var i = 0; i <= nav.s && nav.s > 0; i++) html += '<button type="button" class="goalsDotBtn' + (i === nav.s ? ' on' : '') + '" data-dot="' + i + '" aria-label="Écran ' + (i + 1) + '"' + (i === nav.s ? ' aria-current="true"' : '') + '><span class="goalsDot"></span></button>';
     d.innerHTML = html;
   }
-  var ptrack = null, pclear = null;
-  function panes() { return ptrack ? ptrack.children : []; }
+  // Glissement : même technique que les autres écrans glissants (stats-avance.js, setStatsPage) — l'écran d'arrivée `to`
+  // entre de dir*100 % à 0, l'écran de départ `from` (posé en absolu) sort de 0 à -dir*100 %. Un seul écran rendu à la fois.
+  var pview = null;
+  function panes() { return pview ? pview.children : []; }
   function fillPane(i) { var el = panes()[i]; if (el) el.innerHTML = paneHtml(i); }
-  function showScreen(animate) {
-    for (var i = 0; i <= nav.s; i++) fillPane(i);
-    clearTimeout(pclear);
-    ptrack.classList.toggle('ptAnim', !!animate);
-    void ptrack.offsetWidth; // fige le point de départ : la transition part de l'écran actuel (avant comme arrière)
-    ptrack.style.transform = 'translateX(' + (-nav.s * 100) + '%)';
-    var cur = panes()[nav.s]; if (cur && animate) cur.scrollTop = 0;
-    pclear = setTimeout(function () { for (var j = nav.s + 1; j < 3; j++) { var e = panes()[j]; if (e) e.innerHTML = ''; } }, animate ? 520 : 0);
+  function showScreen() { // affichage immédiat (sans animation) de l'écran courant
+    for (var i = 0; i < 3; i++) { var e = panes()[i]; if (!e) continue; e.classList.toggle('hidden', i !== nav.s); e.innerHTML = i === nav.s ? paneHtml(i) : ''; }
     renderDots(); paintBoxes();
   }
-  function goTo(s, p, g) {
+  function goTo(s, p, g, opts) {
     if (s > 0 && !findPole(p)) s = 0;
-    var back = s < nav.s, keepP = nav.p, keepG = nav.g;
+    var from0 = nav.s, back = s < from0, keepP = nav.p, keepG = nav.g;
     nav = { s: s, p: s > 0 ? p : null, g: s > 1 ? g : null };
     if (back) { nav.p = s > 0 ? keepP : null; nav.g = s > 1 ? keepG : null; }
-    var cur = !back && ptrack && ptrack.children[s]; if (cur) cur.innerHTML = '';
-    showScreen(true);
+    if (s === from0) { showScreen(); return; }
+    var from = panes()[from0], to = panes()[s], dir = s > from0 ? 1 : -1;
+    fillPane(s); renderDots(); paintBoxes();
+    to.scrollTop = 0;
+    to.classList.remove('hidden');
+    if ((opts && opts.noAnim) || typeof to.animate !== 'function') { from.classList.add('hidden'); from.innerHTML = ''; return; }
+    var r = from.getBoundingClientRect(), pr = pview.getBoundingClientRect();
+    from.style.cssText += ';position:absolute;left:' + (r.left - pr.left) + 'px;top:' + (r.top - pr.top) + 'px;width:' + r.width + 'px;height:' + r.height + 'px;pointer-events:none;';
+    pview.style.overflowX = 'hidden';
+    var ao = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
+    to.animate([{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'translateX(0)' }], ao);
+    var out = from.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-dir * 100) + '%)' }], ao);
+    out.onfinish = function () {
+      from.style.position = ''; from.style.left = ''; from.style.top = ''; from.style.width = ''; from.style.height = ''; from.style.pointerEvents = '';
+      from.classList.add('hidden'); from.innerHTML = ''; out.cancel();
+      to.getAnimations().forEach(function (a) { a.cancel(); });
+      pview.style.overflowX = '';
+    };
   }
   function renderPTasks() {
     var h = $('docTasksChangesTasks'); if (!h) return;
-    if (!ptasks.length) { h.innerHTML = '<p class="docTasksMeta">Aucune nouvelle tâche à valider.</p>'; ptrack = null; var dd = $('docTasksPDots'); if (dd) dd.innerHTML = ''; paintBoxes(); return; }
+    if (!ptasks.length) { h.innerHTML = '<p class="docTasksMeta">Aucune nouvelle tâche à valider.</p>'; pview = null; var dd = $('docTasksPDots'); if (dd) dd.innerHTML = ''; paintBoxes(); return; }
     if (!ptree) buildPTree();
-    var keep = ptrack && ptrack.children[nav.s] ? ptrack.children[nav.s].scrollTop : 0;
+    bindSwipe();
+    var keep = pview && pview.children[nav.s] ? pview.children[nav.s].scrollTop : 0;
     // l'écran courant doit encore exister (tâches ajoutées, supprimées ou reclassées)
     var p = nav.s > 0 ? findPole(nav.p) : null;
     if (nav.s > 0 && !p) nav = { s: 0, p: null, g: null };
     else if (nav.s === 2 && !findGrp(p, nav.g)) nav = { s: 1, p: nav.p, g: null };
     else if (nav.s === 2 && !p.slist.length) nav = { s: 1, p: nav.p, g: null };
-    h.innerHTML = '<div class="ptView"><div class="ptTrack"><div class="ptPane"></div><div class="ptPane"></div><div class="ptPane"></div></div></div>';
-    ptrack = h.querySelector('.ptTrack');
-    showScreen(false);
+    h.innerHTML = '<div class="ptView"><div class="ptPane hidden"></div><div class="ptPane hidden"></div><div class="ptPane hidden"></div></div>';
+    pview = h.querySelector('.ptView');
+    showScreen();
     if (keep && panes()[nav.s]) panes()[nav.s].scrollTop = keep;
   }
   var CHEV = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>';
@@ -811,15 +824,25 @@
     var s = Number(b.getAttribute('data-dot')); if (s >= nav.s) return;
     goTo(s, nav.p, nav.g);
   });
-  // Balayage tactile vers la droite = écran précédent.
-  (function () {
-    var x0 = null, y0 = 0, host = $('docTasksChangesTasks');
-    host.addEventListener('touchstart', function (e) { var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
-    host.addEventListener('touchend', function (e) {
-      if (x0 == null) return; var t = e.changedTouches[0], dx = t.clientX - x0, dy = Math.abs(t.clientY - y0); x0 = null;
-      if (dx > 70 && dy < 40 && nav.s > 0) goTo(nav.s - 1, nav.p, nav.g);
-    }, { passive: true });
-  })();
+  // Glissement tactile : technique commune (TMT.slidePager, stats-avance.js). Vers la droite = écran précédent ;
+  // vers la gauche on n'avance pas (on avance en touchant une carte). Branché au premier rendu (stats-avance.js se charge après ce fichier).
+  var swipeBound = false;
+  function bindSwipe() {
+    if (swipeBound || !(window.TMT && TMT.slidePager)) return; swipeBound = true;
+    TMT.slidePager({
+      zone: $('docTasksChangesTasks'),
+      neighbor: function (dir) {
+        if (dir > 0 || nav.s < 1 || !pview) return null;
+        var t = nav.s - 1, cur = panes()[nav.s], nb = panes()[t], keep = { p: nav.p, g: nav.g };
+        return {
+          cur: cur, nb: nb, host: pview,
+          start: function () { fillPane(t); nb.scrollTop = 0; },
+          commit: function () { nav = { s: t, p: t > 0 ? keep.p : null, g: t > 1 ? keep.g : null }; cur.innerHTML = ''; renderDots(); paintBoxes(); },
+          cancel: function () { nb.innerHTML = ''; }
+        };
+      }
+    });
+  }
   // « Ajouter la sélection » : n'envoie QUE les tâches cochées (les autres restent en attente), par lots de 200.
   $('docTasksPTasksApply').addEventListener('click', function () {
     var items = ptasks.filter(function (t) { return psel[t.id]; }).map(function (t) { return { id: t.id, key: t.key, checked: true }; });

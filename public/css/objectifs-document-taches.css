@@ -155,10 +155,8 @@
 /* 18 oct. 2026 : parcours en 3 écrans qui glissent DANS le pop-up (sommaire › pôle › secteur). Cases neutres ; seul le pôle porte une teinte (--pc). */
 #docTasksChangesPop[data-mode="tasks"] #docTasksChangesBox { overflow: hidden; display: flex; flex-direction: column; margin: 8px -14px; }
 #docTasksChangesPop[data-mode="tasks"] #docTasksChangesTasks { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-.ptView { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-.ptTrack { display: flex; height: 100%; }
-.ptTrack.ptAnim { transition: transform .45s cubic-bezier(.22, .8, .3, 1); }
-.ptPane { flex: 0 0 100%; min-width: 0; height: 100%; overflow-y: auto; box-sizing: border-box; padding: 0 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
+.ptView { flex: 1 1 auto; min-height: 0; overflow: hidden; position: relative; }
+.ptPane { width: 100%; min-width: 0; height: 100%; overflow-y: auto; box-sizing: border-box; padding: 0 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
 .ptPane > * { flex: none; }
 .ptTopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ptTotalR { font-size: 13px; opacity: .65; font-variant-numeric: tabular-nums; text-align: right; }
@@ -201,10 +199,10 @@ input[type="checkbox"].ptTaskCb:indeterminate, .ptPane input[type="checkbox"]:in
 .ptPane input[type="checkbox"]:disabled { opacity: .35; cursor: default; }
 .ptBar { flex-direction: column; align-items: stretch; gap: 0; padding-top: 0; }
 .ptDots { display: flex; justify-content: center; }
-.ptDotBtn { width: 17px; height: 18px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.ptDot { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s; }
-.ptDotBtn.on .ptDot { opacity: 1; }
-.ptDotBtn.on { cursor: default; }
+#docTasksPDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+#docTasksPDots .goalsDotBtn { height: 18px; }
+#docTasksPDots .goalsDotBtn.on .goalsDot { opacity: 1; }
+#docTasksPDots .goalsDotBtn.on { cursor: default; }
 #docTasksChangesTasks > .docTasksMeta { padding: 0 14px; }
 
 /* Cases de « Nouvelles tâches » : contour d'origine inchangé, intérieur transparent (on ne voit que le contour) ; cochée = violet très translucide, coche blanche. */
