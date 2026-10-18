@@ -11999,7 +11999,7 @@
     urls = urls || [];
     var rb = $('extCalRulesBlock');
     if (rb) {
-      rb.classList.toggle('isDisabled', !urls.length);
+      rb.classList.toggle('hidden', !urls.length);
       rb.querySelectorAll('input,button.extCalAddBtn,#extCalSettingsSaveBtn,.extCalSeg button,.historyRowIconBtn').forEach(function (el) { el.disabled = !urls.length; });
     }
     btn.classList.toggle('hidden', !urls.length);
