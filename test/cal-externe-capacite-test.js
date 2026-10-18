@@ -57,7 +57,7 @@ db.prepare("INSERT INTO external_calendar_settings (userId, workPatterns, vacati
 db.prepare("INSERT INTO external_calendar_settings (userId, workPatterns, vacationWords, workDayMinutes, freeDayMinutes) VALUES ('old2', '[]', NULL, NULL, NULL)").run();
 for (let i = 0; i < 2; i++) {
   ext.migrateLegacySettings();
-  assert(JSON.stringify(ext.getSettings('old')) === '{"rules":[{"words":["congé"],"mode":"none","maxMinutes":null},{"words":["Atelier"],"mode":"limit","maxMinutes":120}],"defaultMinutes":300}', 'migration (passage ' + (i + 1) + ') : anciens réglages -> règles + défaut');
+  assert(JSON.stringify(ext.getSettings('old')) === '{"rules":[{"words":["congé"],"mode":"none","maxMinutes":null},{"words":["Atelier"],"mode":"limit","maxMinutes":120}],"defaultMinutes":null}', 'migration (passage ' + (i + 1) + ') : anciens réglages -> règles (plafond par défaut ignoré)');
 }
 assert(ext.getSettings('old2').rules[0].words.join() === 'vacances,congé,férié', 'migration : vacances par défaut conservées');
 
