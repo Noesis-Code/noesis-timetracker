@@ -156,7 +156,7 @@
 #docTasksChangesPop[data-mode="tasks"] #docTasksChangesBox { overflow: hidden; display: flex; flex-direction: column; margin: 8px -14px; }
 #docTasksChangesPop[data-mode="tasks"] #docTasksChangesTasks { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .ptView { flex: 1 1 auto; min-height: 0; overflow: hidden; position: relative; }
-.ptPane { width: 100%; min-width: 0; height: 100%; overflow-y: auto; box-sizing: border-box; padding: 0 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
+.ptPane { width: 100%; min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; padding: 0 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
 .ptPane > * { flex: none; }
 .ptTopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ptTotalR { font-size: 13px; opacity: .65; font-variant-numeric: tabular-nums; text-align: right; }
