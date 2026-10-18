@@ -26,6 +26,7 @@ Dernière mise à jour : 30 sept. 2026 (construit à partir de `chantiers-en-cou
 - 🟡 `users.stripeCustomerId` et `notifyEnabled`/`communityNotifyEnabled` : présents dans `db.js` ; vérifier qu'ils survivent sur une base NEUVE (le testeur démarre le serveur sur base vide).
 
 ## 5. Fonctionnalités à finir
+- 🟠 Vision (18 oct. 2026, Émilien) : à terme l'utilisateur de l'offre Expansion ne saisit que son OBJECTIF ANNUEL et sa STRATÉGIE ; l'IA propose ensuite objectifs périodiques, hebdomadaires et tâches, par pôle/secteur créés par l'utilisateur (toujours en proposition validée avant/après). Étape 1 en cours : formulaire de stratégie par activité + filtre IA des tâches IA hors stratégie (branche `claude/strategie`). Étape 2 : génération des objectifs périodiques/hebdo/tâches à partir de objectif annuel + stratégie.
 - 🟡 Persistance du geste « reporter à plus tard » (liste du jour) — nécessite une table, cadrage d'abord.
 - 🟡 Affichage de la suggestion cross-secteur en attente (moteur livré, affichage hors scope jusqu'ici).
 - 🟡 Retrait de l'option « Publier » dans Communauté (zone recherche seule, bouton dedans) — vérifier l'état dans le code.
