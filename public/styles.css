@@ -6837,7 +6837,8 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 .extCalSeg button.on { background: var(--purple); color: #fff; }
 .extCalRule[data-mode="none"] .extCalSeg button.on { background: #C2694A; }
 .extCalHrs { width: 64px; flex: 0 0 64px; }
-.extCalAddBtn { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 14px; border: 1.5px dashed var(--glass-border); background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+.extCalAddBtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-bottom: 10px; padding: 11px; border-radius: 14px; font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--glass-border); cursor: pointer; } /* même case que « Ajouter une information » (Stats) */
+.extCalAddBtn b { color: var(--purple); font-size: 18px; line-height: 1; }
 .extCalDefaultRow { display: flex; align-items: center; gap: 8px; }
 .extCalDefaultRow label { flex: 1 1 auto; }
 .extCalDefaultRow input { width: 84px; flex: 0 0 84px; }
