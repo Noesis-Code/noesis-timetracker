@@ -487,7 +487,7 @@
     n2.textContent = ptasks.length; n2.classList.toggle('hidden', !ptasks.length);
     ptree = null; // les données ont changé : l'arbre Pôle › Secteur est reconstruit
     var tm = !isCh();
-    $('docTasksChangesTitle').textContent = tm ? 'Nouvelles tâches' : 'Modifications proposées';
+    $('docTasksChangesTitle').textContent = (tm ? 'Nouvelles tâches' : 'Modifications proposées') + ' · v382'; // TEMPORAIRE : repère de version pour diagnostiquer le cache de l'iPhone
     $('docTasksChangesHint').classList.toggle('hidden', tm);
     $('docTasksChangesFind').classList.toggle('hidden', tm);
     var ab = $('docTasksPTasksApply'); if (ab) ab.textContent = tm ? 'Ajouter la sélection' : 'Appliquer';
