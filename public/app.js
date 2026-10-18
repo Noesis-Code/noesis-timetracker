@@ -12105,7 +12105,6 @@
       box.appendChild(row);
     });
     var rb = $('extCalRulesBlock');
-    if (rb && rb.classList.contains('isDisabled')) rb.querySelectorAll('.extCalRule input,.extCalRule button').forEach(function (el) { el.disabled = true; });
   }
   function loadExternalCalendarSettings() {
     if (!profile || !$('extCalRules')) return;

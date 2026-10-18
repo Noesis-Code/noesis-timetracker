@@ -6828,7 +6828,6 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 .infoTipPop { position: absolute; left: 0; right: 0; z-index: 30; padding: 10px 12px; border-radius: 12px; font: 400 13px/1.4 system-ui, sans-serif; background: var(--card); color: var(--text); border: 1px solid var(--glass-border); box-shadow: 0 8px 24px rgba(0,0,0,.35); text-transform: none; letter-spacing: 0; }
 .extCalRulesBlock { margin-top: 14px; }
 .extCalRulesBlock.hidden { display: none; }
-.extCalRulesBlock.isDisabled > :not(.extCalSubTitle) { opacity: .45; pointer-events: none; }
 .extCalSubTitle { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-weight: 600; }
 .extCalRuleBox { margin-bottom: 10px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.05); border: 1px solid var(--glass-border); }
 .extCalLbl { display: block; font-size: 12px; opacity: .75; margin-bottom: 6px; }
