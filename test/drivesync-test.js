@@ -156,11 +156,14 @@ const items = () => db.prepare('SELECT label FROM sub_project_items i JOIN sub_p
   assert(reads.length > rd4, 'synchroniser maintenant : ce dossier est lu même en pause');
   let nf = false; try { ds.saveFolderSettings('own', act, 'inconnu-1', {}); } catch (e) { nf = e.statusCode === 404; }
   assert(nf, 'réglages d’un dossier inconnu : 404');
-  // Déconnexion : tout supprimé
+  // Déconnexion : surveillance supprimée, tâches proposées conservées
+  const tasksBefore = db.prepare("SELECT COUNT(*) n FROM drive_seen_tasks WHERE userId = 'own' AND activityId = ?").get(act).n;
   drive.setFetch(async () => ({ ok: true, status: 200, json: async () => ({}) }));
   await drive.disconnect('own', act);
-  const left = ['drive_connections', 'drive_sync', 'drive_seen_files', 'drive_seen_tasks', 'drive_folders'].map((t) => db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n);
+  const left = ['drive_connections', 'drive_sync', 'drive_seen_files', 'drive_folders'].map((t) => db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n);
   assert(left.every((n) => n === 0), 'déconnexion : connexion + surveillance supprimées');
+  const tasksAfter = db.prepare("SELECT COUNT(*) n FROM drive_seen_tasks WHERE userId = 'own' AND activityId = ?").get(act).n;
+  assert(tasksBefore > 0 && tasksAfter === tasksBefore, 'déconnexion : les tâches proposées (en attente) restent');
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
