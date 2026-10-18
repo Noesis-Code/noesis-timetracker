@@ -6839,9 +6839,6 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 .extCalHrs { width: 64px; flex: 0 0 64px; }
 .extCalAddBtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-bottom: 10px; padding: 11px; border-radius: 14px; font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--glass-border); cursor: pointer; } /* même case que « Ajouter une information » (Stats) */
 .extCalAddBtn b { color: var(--purple); font-size: 18px; line-height: 1; }
-.extCalDefaultRow { display: flex; align-items: center; gap: 8px; }
-.extCalDefaultRow label { flex: 1 1 auto; }
-.extCalDefaultRow input { width: 84px; flex: 0 0 84px; }
 
 /* 18 oct. 2026 : champs de « Répartition selon mon agenda » = transparents comme le reste ; champ des mots plus long, bords très arrondis. */
 .extCalRulesBlock input.calendarFeedUrl { background: transparent; color: var(--text); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 9px 14px; box-sizing: border-box; font-size: 13px; }

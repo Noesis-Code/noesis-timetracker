@@ -12112,7 +12112,6 @@
       if (!s) return;
       extCalRules = s.rules || [];
       renderExtCalRules();
-      $('extCalDefaultHours').value = s.defaultMinutes == null ? '' : s.defaultMinutes / 60;
     }).catch(function () {});
   }
   if ($('extCalAddRuleBtn')) $('extCalAddRuleBtn').addEventListener('click', function () {
@@ -12126,12 +12125,11 @@
   function saveExtCalNow() {
     if (!profile) return;
     var msg = $('extCalSettingsMsg');
-    var dh = $('extCalDefaultHours').value.trim().replace(',', '.');
     var seq = ++extCalSaveSeq;
     api('PUT', '/api/calendar/external-settings', {
       userId: profile.id,
       rules: extCalRulesFromDom(),
-      defaultMinutes: dh === '' ? null : Math.round(Number(dh) * 60)
+      defaultMinutes: null // 18 oct. 2026 : plafond « tous les autres jours » supprimé (les heures par jour se règlent déjà dans la feuille des activités)
     }).then(function () { if (seq === extCalSaveSeq) msg.textContent = t('Enregistré.'); })
       .catch(function (err) { if (seq === extCalSaveSeq) msg.textContent = err.message; });
   }
