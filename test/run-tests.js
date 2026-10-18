@@ -222,6 +222,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'drivesync-test.js')], { encoding: 'utf8' }); } catch (e) { dsOk = false; }
   assert(dsOk, 'surveillance Drive (test/drivesync-test.js) passe');
 
+  // Tâches Drive partagées par activité (migration + règles communes aux membres).
+  let dpOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'drivepartage-test.js')], { encoding: 'utf8' }); } catch (e) { dpOk = false; }
+  assert(dpOk, 'tâches Drive partagées (test/drivepartage-test.js) passe');
+
   // Budget IA et économies de coût IA (cache de prompt, appel fusionné, lots, empreintes, pré-filtre).
   for (const [f, label] of [['aibudget-test.js', 'budget IA'], ['changeproposals-test.js', 'modifications proposées'], ['changeproposals-weekly-test.js', 'redistribution par objectif hebdomadaire'], ['iacout-test.js', 'économies de coût IA']]) {
     let ok = true;
