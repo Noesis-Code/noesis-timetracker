@@ -848,9 +848,9 @@
     if (swipeBound || !(window.TMT && TMT.slidePager)) return; swipeBound = true;
     // TEMPORAIRE : diagnostic affiché dans le titre
     var dz = $('docTasksChangesTasks'), dbgN = 0, dbgX = 0, dbgY = 0, dbgMsg = '';
-    function dbg(m) { dbgMsg = m; var el = $('docTasksChangesTitle'); if (el) el.textContent = el.textContent.split(' · v384')[0] + ' · v384 · ' + m; }
-    dz.addEventListener('touchstart', function (e) { dbgX = e.touches[0].clientX; dbgN = 0; var mm = [].map.call(document.querySelectorAll('.communityMembersModal:not(.hidden)'), function (m) { return m.id + (m.contains(dz) ? '(in)' : '(OUT)'); }).join(','); dbg('start ' + Math.round(dbgX) + ' modals[' + mm + ']'); dbgY = e.touches[0].clientY; }, { capture: true, passive: true });
-    dz.addEventListener('touchmove', function (e) { dbgN++; if (dbgN <= 3 || dbgN % 6 === 0) dbg('move dx' + Math.round(e.touches[0].clientX - dbgX) + ' dy' + Math.round(e.touches[0].clientY - dbgY) + ' n' + dbgN); }, { capture: true, passive: true });
+    var dbgLog = []; function dbg(m) { dbgMsg = m; if (dbgLog[dbgLog.length - 1] !== m && !/^move/.test(m)) dbgLog.push(m); if (dbgLog.length > 6) dbgLog.shift(); var el = $('docTasksChangesTitle'); if (el) el.textContent = el.textContent.split(' · v')[0] + ' · v385 · ' + dbgLog.join(' | ') + (/^move/.test(m) ? ' | ' + m : ''); }
+    dz.addEventListener('touchstart', function (e) { dbgX = e.touches[0].clientX; dbgN = 0; dbgLog = []; var mm = [].map.call(document.querySelectorAll('.communityMembersModal:not(.hidden)'), function (m) { return m.id + (m.contains(dz) ? '(in)' : '(OUT)'); }).join(','); dbg('start ' + Math.round(dbgX) + ' modals[' + mm + ']'); dbgY = e.touches[0].clientY; }, { capture: true, passive: true });
+    dz.addEventListener('touchmove', function (e) { dbgN++; if (dbgN === 1 || dbgN % 8 === 0) dbg('move dx' + Math.round(e.touches[0].clientX - dbgX) + ' dy' + Math.round(e.touches[0].clientY - dbgY) + ' n' + dbgN); }, { capture: true, passive: true });
     dz.addEventListener('touchend', function () { dbg('end ' + dbgMsg.slice(0, 20)); }, { capture: true, passive: true });
     dz.addEventListener('touchcancel', function () { dbg('CANCEL ' + dbgMsg.slice(0, 20)); }, { capture: true, passive: true });
     TMT.slidePager({
