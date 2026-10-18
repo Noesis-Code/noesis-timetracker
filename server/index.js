@@ -248,7 +248,9 @@ app.use((req, res, next) => {
     req.path === '/app.js' ||
     req.path === '/styles.css' ||
     req.path === '/i18n.js' ||
-    req.path === '/theme-palette.js'
+    req.path === '/theme-palette.js' ||
+    // 18 oct. 2026 : /js/*.js et /css/*.css (objectifs-document-taches.js, etc.) n'avaient aucun en-tête : l'iPhone les gardait périmés (glissement/Modifications proposées jamais mis à jour).
+    /^\/(js|css)\/[^/]+\.(js|css)$/.test(req.path)
   ) {
     res.set('Cache-Control', 'no-cache');
   }
