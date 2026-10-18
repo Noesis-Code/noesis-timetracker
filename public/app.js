@@ -12017,28 +12017,87 @@
       .then(function (res) { renderExternalCalendarUrls(res && res.urls); })
       .catch(function () {});
   }
-  // Capacité par jour selon l'agenda : mots de travail / vacances, heures (affichées en heures, stockées en minutes).
+  // Capacité par jour selon l'agenda : RÈGLES « si le titre contient … -> aucune tâche / temps limité » (heures affichées, minutes stockées).
+  var extCalRules = [];
+  function extCalRulesFromDom() {
+    var out = [];
+    var rows = $('extCalRules').querySelectorAll('.extCalRule');
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var mode = r.querySelector('select').value;
+      var h = r.querySelector('input[type=number]').value.trim().replace(',', '.');
+      out.push({ words: r.querySelector('input[type=text]').value, mode: mode, maxMinutes: mode === 'limit' && h !== '' ? Math.round(Number(h) * 60) : null });
+    }
+    return out;
+  }
+  function renderExtCalRules() {
+    var box = $('extCalRules');
+    if (!box) return;
+    box.innerHTML = '';
+    extCalRules.forEach(function (rule, idx) {
+      var row = document.createElement('div');
+      row.className = 'extCalRule';
+      row.style.marginBottom = '12px';
+      var lab = document.createElement('label');
+      lab.className = 'meta';
+      lab.textContent = t('Si le titre contient');
+      var words = document.createElement('input');
+      words.type = 'text'; words.className = 'calendarFeedUrl'; words.autocomplete = 'off';
+      words.placeholder = idx === 0 ? t('vacances, congé') : t('bureau');
+      words.value = Array.isArray(rule.words) ? rule.words.join(', ') : (rule.words || '');
+      var line = document.createElement('div');
+      line.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px';
+      var sel = document.createElement('select');
+      sel.className = 'calendarFeedUrl'; sel.style.flex = '1 1 auto';
+      [['none', t('Aucune tâche')], ['limit', t('Temps limité')]].forEach(function (o) {
+        var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op);
+      });
+      sel.value = rule.mode === 'limit' ? 'limit' : 'none';
+      var hrs = document.createElement('input');
+      hrs.type = 'number'; hrs.className = 'calendarFeedUrl'; hrs.min = '0'; hrs.max = '24'; hrs.step = '0.5';
+      hrs.setAttribute('inputmode', 'decimal'); hrs.placeholder = t('max. h'); hrs.style.cssText = 'width:90px;flex:0 0 90px';
+      hrs.value = rule.maxMinutes == null ? '' : rule.maxMinutes / 60;
+      hrs.classList.toggle('hidden', sel.value !== 'limit');
+      sel.addEventListener('change', function () { hrs.classList.toggle('hidden', sel.value !== 'limit'); });
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'historyRowIconBtn danger';
+      del.innerHTML = typeof CHRONO_HISTORY_DELETE_ICON !== 'undefined' ? CHRONO_HISTORY_DELETE_ICON : '\ud83d\uddd1';
+      del.setAttribute('aria-label', t('Supprimer cette règle'));
+      del.addEventListener('click', function () {
+        extCalRules = extCalRulesFromDom();
+        extCalRules.splice(idx, 1);
+        renderExtCalRules();
+      });
+      line.appendChild(sel); line.appendChild(hrs); line.appendChild(del);
+      row.appendChild(lab); row.appendChild(words); row.appendChild(line);
+      box.appendChild(row);
+    });
+  }
   function loadExternalCalendarSettings() {
-    if (!profile || !$('extCalWorkPatterns')) return;
+    if (!profile || !$('extCalRules')) return;
     api('GET', '/api/calendar/external-settings?userId=' + profile.id).then(function (s) {
       if (!s) return;
-      $('extCalWorkPatterns').value = (s.workPatterns || []).join(', ');
-      $('extCalVacation').value = (s.vacationWords || []).join(', ');
-      $('extCalWorkHours').value = s.workDayMinutes == null ? '' : s.workDayMinutes / 60;
-      $('extCalFreeHours').value = s.freeDayMinutes == null ? '' : s.freeDayMinutes / 60;
+      extCalRules = s.rules || [];
+      renderExtCalRules();
+      $('extCalDefaultHours').value = s.defaultMinutes == null ? '' : s.defaultMinutes / 60;
     }).catch(function () {});
   }
+  if ($('extCalAddRuleBtn')) $('extCalAddRuleBtn').addEventListener('click', function () {
+    extCalRules = extCalRulesFromDom();
+    if (extCalRules.length >= 20) { $('extCalSettingsMsg').textContent = t('Tu peux créer 20 règles au maximum.'); return; }
+    extCalRules.push({ words: [], mode: 'none', maxMinutes: null });
+    renderExtCalRules();
+  });
   if ($('extCalSettingsSaveBtn')) $('extCalSettingsSaveBtn').addEventListener('click', function () {
     if (!profile) return;
     var msg = $('extCalSettingsMsg');
-    var hrs = function (id) { var v = $(id).value.trim().replace(',', '.'); return v === '' ? null : Math.round(Number(v) * 60); };
+    var dh = $('extCalDefaultHours').value.trim().replace(',', '.');
     msg.textContent = '';
     api('PUT', '/api/calendar/external-settings', {
       userId: profile.id,
-      workPatterns: $('extCalWorkPatterns').value,
-      vacationWords: $('extCalVacation').value,
-      workDayMinutes: hrs('extCalWorkHours'),
-      freeDayMinutes: hrs('extCalFreeHours')
+      rules: extCalRulesFromDom(),
+      defaultMinutes: dh === '' ? null : Math.round(Number(dh) * 60)
     }).then(function () { msg.textContent = t('Réglages enregistrés.'); loadExternalCalendarSettings(); })
       .catch(function (err) { msg.textContent = err.message; });
   });

@@ -3350,7 +3350,7 @@
                    logique (renderCalendarFeedState continue de basculer leur
                    "hidden" tel quel). -->
               <div id="calendarFeedSection" class="settingsFlat hidden">
-                <p class="sectionTitle settingsFlatTitle">Calendrier</p>
+                <p class="sectionTitle settingsFlatTitle">Exporter mes données vers le calendrier</p>
                 <div id="calendarFeedOff" class="hidden">
                   <button type="button" id="calendarFeedCreateBtn" class="iconBtn">Créer mon lien de calendrier</button>
                 </div>
@@ -3372,8 +3372,8 @@
               </div>
               <!-- 9 oct. 2026 : agenda externe lu par Noèsis (sens inverse du flux ci-dessus). -->
               <div id="externalCalendarSection" class="settingsFlat">
-                <p class="sectionTitle settingsFlatTitle">Mon agenda</p>
-                <p class="meta">Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis n'en garde aucun contenu : seulement les heures occupées et la comparaison des titres avec tes mots ci-dessous.</p>
+                <p class="sectionTitle settingsFlatTitle">Importer un calendrier dans l'appli</p>
+                <p class="meta">Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis n'en garde aucun contenu : seulement les heures occupées et la comparaison des titres avec tes règles ci-dessous.</p>
                 <input type="text" id="externalCalendarUrl" class="calendarFeedUrl" inputmode="url" placeholder="https://…/basic.ics" autocomplete="off">
                 <div class="shareActions">
                   <button type="button" id="externalCalendarSaveBtn" class="iconBtn">Ajouter</button>
@@ -3382,17 +3382,17 @@
                 <button type="button" id="externalCalendarListBtn" class="linkBtn externalCalendarListBtn hidden">▸ URL enregistrées</button>
                 <div id="externalCalendarList" class="externalCalendarList hidden"></div>
                 <p class="sectionTitle settingsFlatTitle">Répartition selon mon agenda</p>
-                <p class="meta">Pour répartir tes tâches dans la semaine : un jour dont un événement contient un de ces mots est un jour travaillé ailleurs ; un jour de vacances ne reçoit aucune tâche. Seuls les titres sont comparés, rien n'est conservé.</p>
-                <label class="meta" for="extCalWorkPatterns">Mots des jours travaillés ailleurs (séparés par des virgules, ex. Jacopo)</label>
-                <input type="text" id="extCalWorkPatterns" class="calendarFeedUrl" autocomplete="off" placeholder="Jacopo">
-                <label class="meta" for="extCalWorkHours">Heures chez moi les jours travaillés ailleurs</label>
-                <input type="number" id="extCalWorkHours" class="calendarFeedUrl" min="0" max="24" step="0.5" inputmode="decimal" placeholder="ex. 2">
-                <label class="meta" for="extCalFreeHours">Heures chez moi les autres jours</label>
-                <input type="number" id="extCalFreeHours" class="calendarFeedUrl" min="0" max="24" step="0.5" inputmode="decimal" placeholder="ex. 6">
-                <label class="meta" for="extCalVacation">Mots des jours de vacances (séparés par des virgules)</label>
-                <input type="text" id="extCalVacation" class="calendarFeedUrl" autocomplete="off" placeholder="vacances, congé, férié">
-                <div class="shareActions">
-                  <button type="button" id="extCalSettingsSaveBtn" class="iconBtn">Enregistrer</button>
+                <p class="meta">Pour répartir tes tâches dans la semaine : chaque règle s'applique aux jours où un événement a un titre contenant un de ses mots. Si plusieurs règles s'appliquent, la plus restrictive gagne. Seuls les titres sont comparés, rien n'est conservé.</p>
+                <div class="settingsCard">
+                  <div id="extCalRules"></div>
+                  <div class="shareActions">
+                    <button type="button" id="extCalAddRuleBtn" class="iconBtn">+ Ajouter une règle</button>
+                  </div>
+                  <label class="meta" for="extCalDefaultHours">Tous les autres jours : heures chez moi</label>
+                  <input type="number" id="extCalDefaultHours" class="calendarFeedUrl" min="0" max="24" step="0.5" inputmode="decimal" placeholder="ex. 6">
+                  <div class="shareActions">
+                    <button type="button" id="extCalSettingsSaveBtn" class="iconBtn">Enregistrer</button>
+                  </div>
                 </div>
                 <p id="extCalSettingsMsg" class="msg"></p>
               </div>

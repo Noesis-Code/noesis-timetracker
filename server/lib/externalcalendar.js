@@ -159,11 +159,10 @@ function clearBusyCache(userId) {
 }
 
 // ---------- Capacité par jour selon l'agenda (18 oct. 2026, demande d'Émilien, offre gratuite incluse) ----------
-// Les TITRES des événements sont lus UNIQUEMENT pour les comparer, en mémoire, aux mots configurés par l'utilisateur
-// (« motifs de travail » comme « Jacopo », mots de vacances) ; ils ne sont ni stockés ni journalisés ni envoyés à l'IA.
-//  - un jour couvert par un événement de vacances -> capacité 0 (aucune tâche placée) ;
-//  - sinon un événement dont le titre contient un motif de travail -> workDayMinutes (« heures chez moi ces jours-là ») ;
-//  - sinon -> freeDayMinutes. Réglages vides = pas de limite imposée par l'agenda (comportement antérieur).
+// Les TITRES des événements sont lus UNIQUEMENT pour les comparer, en mémoire, aux mots des règles de l'utilisateur
+// ; ils ne sont ni stockés ni journalisés ni envoyés à l'IA.
+//  - règle « aucune tâche » -> capacité 0 ; « temps limité » -> son maximum ; plusieurs règles le même jour : la plus restrictive gagne ;
+//  - aucune règle applicable -> heures par défaut (« tous les autres jours »), ou pas de limite si vides.
 const DEFAULT_VACATION_WORDS = ['vacances', 'congé', 'férié'];
 const MAX_DAY_MINUTES = 1440;
 
@@ -174,6 +173,11 @@ db.exec(`CREATE TABLE IF NOT EXISTS external_calendar_settings (
   workDayMinutes INTEGER,
   freeDayMinutes INTEGER
 )`);
+// 18 oct. 2026 : RÈGLES (« si le titre contient … -> aucune tâche / temps limité ») à la place des 4 champs.
+// Colonne rules (JSON) ; freeDayMinutes devient les heures par défaut (« tous les autres jours »).
+try { db.exec('ALTER TABLE external_calendar_settings ADD COLUMN rules TEXT'); } catch (e) { /* déjà ajoutée */ }
+
+const MAX_RULES = 20;
 
 function cleanWords(list) {
   const arr = Array.isArray(list) ? list : (typeof list === 'string' ? list.split(/[,;\n]/) : []);
@@ -188,17 +192,6 @@ function cleanWords(list) {
   return out.slice(0, 20);
 }
 
-function getSettings(userId) {
-  const r = db.prepare('SELECT * FROM external_calendar_settings WHERE userId = ?').get(userId);
-  const parse = (v, d) => { try { const a = JSON.parse(v); return Array.isArray(a) ? a : d; } catch (e) { return d; } };
-  return {
-    workPatterns: r ? parse(r.workPatterns, []) : [],
-    vacationWords: r && r.vacationWords != null ? parse(r.vacationWords, DEFAULT_VACATION_WORDS) : DEFAULT_VACATION_WORDS.slice(),
-    workDayMinutes: r && r.workDayMinutes != null ? r.workDayMinutes : null,
-    freeDayMinutes: r && r.freeDayMinutes != null ? r.freeDayMinutes : null,
-  };
-}
-
 function minutesOrNull(v) {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
@@ -208,19 +201,62 @@ function minutesOrNull(v) {
   return n;
 }
 
+// Valide une liste de règles [{words, mode:'none'|'limit', maxMinutes}] ; lève 400 si hors limites.
+function cleanRules(list) {
+  if (!Array.isArray(list)) return [];
+  if (list.length > MAX_RULES) throw Object.assign(new Error('Tu peux créer ' + MAX_RULES + ' règles au maximum.'), { statusCode: 400 });
+  const out = [];
+  list.forEach((r) => {
+    if (!r || typeof r !== 'object') return;
+    const words = cleanWords(r.words);
+    if (!words.length) return; // règle sans mot : ignorée
+    if (r.mode !== 'none' && r.mode !== 'limit') throw Object.assign(new Error('Mode de règle invalide.'), { statusCode: 400 });
+    if (r.mode === 'none') { out.push({ words, mode: 'none', maxMinutes: null }); return; }
+    const m = minutesOrNull(r.maxMinutes);
+    if (m == null) throw Object.assign(new Error('Indique un maximum d\u2019heures pour une règle à temps limité.'), { statusCode: 400 });
+    out.push({ words, mode: 'limit', maxMinutes: m });
+  });
+  return out;
+}
+
+function parseJsonArray(v, d) { try { const a = JSON.parse(v); return Array.isArray(a) ? a : d; } catch (e) { return d; } }
+
+// Migration (idempotente) : anciens réglages -> règles. Vacances = « aucune tâche » ; mots travail ailleurs + X h = « temps limité ».
+function rulesFromLegacy(r) {
+  const out = [];
+  const vac = r.vacationWords != null ? cleanWords(parseJsonArray(r.vacationWords, DEFAULT_VACATION_WORDS)) : DEFAULT_VACATION_WORDS.slice();
+  if (vac.length) out.push({ words: vac, mode: 'none', maxMinutes: null });
+  const work = cleanWords(parseJsonArray(r.workPatterns, []));
+  if (work.length && r.workDayMinutes != null) out.push({ words: work, mode: 'limit', maxMinutes: r.workDayMinutes });
+  return out;
+}
+
+function migrateLegacySettings() {
+  db.prepare('SELECT * FROM external_calendar_settings WHERE rules IS NULL').all().forEach((r) => {
+    db.prepare('UPDATE external_calendar_settings SET rules = ? WHERE userId = ? AND rules IS NULL')
+      .run(JSON.stringify(rulesFromLegacy(r)), r.userId);
+  });
+}
+migrateLegacySettings();
+
+function getSettings(userId) {
+  const r = db.prepare('SELECT * FROM external_calendar_settings WHERE userId = ?').get(userId);
+  if (!r) return { rules: [{ words: DEFAULT_VACATION_WORDS.slice(), mode: 'none', maxMinutes: null }], defaultMinutes: null };
+  let rules;
+  try { rules = r.rules != null ? cleanRules(parseJsonArray(r.rules, [])) : rulesFromLegacy(r); } catch (e) { rules = []; }
+  return { rules, defaultMinutes: r.freeDayMinutes != null ? r.freeDayMinutes : null };
+}
+
 function setSettings(userId, body) {
   const b = body || {};
   const cur = getSettings(userId);
   const next = {
-    workPatterns: b.workPatterns !== undefined ? cleanWords(b.workPatterns) : cur.workPatterns,
-    vacationWords: b.vacationWords !== undefined ? cleanWords(b.vacationWords) : cur.vacationWords,
-    workDayMinutes: b.workDayMinutes !== undefined ? minutesOrNull(b.workDayMinutes) : cur.workDayMinutes,
-    freeDayMinutes: b.freeDayMinutes !== undefined ? minutesOrNull(b.freeDayMinutes) : cur.freeDayMinutes,
+    rules: b.rules !== undefined ? cleanRules(b.rules) : cur.rules,
+    defaultMinutes: b.defaultMinutes !== undefined ? minutesOrNull(b.defaultMinutes) : cur.defaultMinutes,
   };
-  db.prepare(`INSERT INTO external_calendar_settings (userId, workPatterns, vacationWords, workDayMinutes, freeDayMinutes)
-    VALUES (?, ?, ?, ?, ?) ON CONFLICT(userId) DO UPDATE SET workPatterns = excluded.workPatterns, vacationWords = excluded.vacationWords,
-    workDayMinutes = excluded.workDayMinutes, freeDayMinutes = excluded.freeDayMinutes`)
-    .run(userId, JSON.stringify(next.workPatterns), JSON.stringify(next.vacationWords), next.workDayMinutes, next.freeDayMinutes);
+  db.prepare(`INSERT INTO external_calendar_settings (userId, rules, freeDayMinutes) VALUES (?, ?, ?)
+    ON CONFLICT(userId) DO UPDATE SET rules = excluded.rules, freeDayMinutes = excluded.freeDayMinutes`)
+    .run(userId, JSON.stringify(next.rules), next.defaultMinutes);
   return getSettings(userId);
 }
 
@@ -248,13 +284,16 @@ function parseIcsEvents(icsText) {
   return out;
 }
 
-// PURE. Capacité (minutes) d'un jour : 0 vacances, workDayMinutes, freeDayMinutes, ou null (pas de limite).
+// PURE. Capacité (minutes) d'un jour : chaque règle dont un mot figure dans le titre d'un événement du jour s'applique
+// (« aucune tâche » = 0, « temps limité » = son maximum) ; la plus restrictive gagne ; aucune règle -> heures par défaut (ou null = pas de limite).
 function dayCapacityFromTexts(texts, isoDate, settings, tz) {
   const dayStart = new Date(isoDate + 'T00:00:00Z').getTime();
   const dayEnd = dayStart + 86400000;
-  const vac = (settings.vacationWords || []).map(foldText).filter(Boolean);
-  const work = (settings.workPatterns || []).map(foldText).filter(Boolean);
-  let isVac = false; let isWork = false;
+  const rules = (settings.rules || []).map((r) => ({
+    words: (r.words || []).map(foldText).filter(Boolean),
+    cap: r.mode === 'none' ? 0 : (Number.isFinite(r.maxMinutes) ? r.maxMinutes : null),
+  })).filter((r) => r.words.length && r.cap != null);
+  let best = null;
   texts.forEach((txt) => {
     parseIcsEvents(txt).forEach((ev) => {
       if (ev.allDay) { if (!(ev.start.getTime() < dayEnd && ev.end.getTime() > dayStart)) return; } // journée entière : date du calendrier, sans fuseau
@@ -266,13 +305,11 @@ function dayCapacityFromTexts(texts, isoDate, settings, tz) {
         if (isoDate < first || isoDate > lastD) return;
       }
       const title = foldText(ev.summary);
-      if (vac.some((w) => title.includes(w))) isVac = true;
-      else if (work.some((w) => title.includes(w))) isWork = true;
+      rules.forEach((r) => { if (r.words.some((w) => title.includes(w)) && (best == null || r.cap < best)) best = r.cap; });
     });
   });
-  if (isVac) return 0;
-  if (isWork) return settings.workDayMinutes;
-  return settings.freeDayMinutes;
+  if (best != null) return best;
+  return settings.defaultMinutes != null ? settings.defaultMinutes : null;
 }
 
 // Cache mémoire (15 min) des TEXTES des flux : permet de calculer la capacité de plusieurs jours de façon synchrone.
@@ -307,7 +344,7 @@ async function dayCapacities(userId, days, tz) {
 }
 
 module.exports = {
-  getSettings, setSettings, parseIcsEvents, dayCapacityFromTexts, dayCapacities, DEFAULT_VACATION_WORDS,
+  getSettings, setSettings, migrateLegacySettings, parseIcsEvents, dayCapacityFromTexts, dayCapacities, DEFAULT_VACATION_WORDS,
   cachedBusyMinutes,
   refreshBusy,
   clearBusyCache,

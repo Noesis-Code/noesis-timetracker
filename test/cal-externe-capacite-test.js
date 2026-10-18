@@ -1,4 +1,4 @@
-// Agenda externe : capacité par jour (Jacopo / vacances / libre) et déplacement intra-semaine silencieux (18 oct. 2026).
+// Agenda externe : capacité par jour (règles, vacances, libre) et déplacement intra-semaine silencieux (18 oct. 2026).
 // Usage : node test/cal-externe-capacite-test.js
 const os = require('os'), fs = require('fs'), path = require('path');
 process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tmt-cal-'));
@@ -23,23 +23,43 @@ const compact = (iso) => iso.replace(/-/g, '');
 const ev = (summary, day) => `BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:${compact(day)}\r\nDTEND;VALUE=DATE:${compact(goals.addDays(day, 1))}\r\nSUMMARY:${summary}\r\nEND:VEVENT\r\n`;
 const ics = (...evs) => 'BEGIN:VCALENDAR\r\n' + evs.join('') + 'END:VCALENDAR\r\n';
 
-const settings = { workPatterns: ['jacopo'], vacationWords: ext.DEFAULT_VACATION_WORDS, workDayMinutes: 120, freeDayMinutes: 360 };
-const texts = [ics(ev('Shift Jacopo', mon), ev('Congé', tue), ev('Férié – jour de l\'An', thu))];
-assert(ext.dayCapacityFromTexts(texts, mon, settings) === 120, 'jour Jacopo : X h (120 min)');
+const settings = { rules: [{ words: ['vacances', 'congé', 'férié'], mode: 'none' }, { words: ['bureau'], mode: 'limit', maxMinutes: 120 }], defaultMinutes: 360 };
+const texts = [ics(ev('Shift bureau', mon), ev('Congé', tue), ev('Férié – jour de l\'An', thu))];
+assert(ext.dayCapacityFromTexts(texts, mon, settings) === 120, 'jour limité : X h (120 min)');
 assert(ext.dayCapacityFromTexts(texts, tue, settings) === 0, 'jour de congé : capacité 0');
 assert(ext.dayCapacityFromTexts(texts, thu, settings) === 0, 'jour férié (accent ignoré, mot par défaut) : 0');
 assert(ext.dayCapacityFromTexts(texts, wed, settings) === 360, 'jour libre : Y h (360 min)');
-assert(ext.dayCapacityFromTexts(texts, wed, { ...settings, freeDayMinutes: null }) === null, 'réglage vide : aucune limite imposée');
-assert(ext.dayCapacityFromTexts([ics(ev('Vacances au Mexique', wed))], wed, { ...settings, vacationWords: ['voyage'] }) === 360, 'mots de vacances réglables');
+assert(ext.dayCapacityFromTexts(texts, wed, { ...settings, defaultMinutes: null }) === null, 'réglage vide : aucune limite imposée');
+assert(ext.dayCapacityFromTexts([ics(ev('Vacances au Mexique', wed))], wed, { ...settings, rules: [{ words: ['voyage'], mode: 'none' }] }) === 360, 'mots de vacances réglables');
 
 // Événement horodaté : lundi 22:00Z à mardi 02:00Z = lundi 18:00-22:00 à Toronto (un seul jour local)
 const z = (day, hh) => compact(day) + 'T' + hh + '0000Z';
-const timed = `BEGIN:VEVENT\r\nDTSTART:${z(mon, '22')}\r\nDTEND:${z(tue, '02')}\r\nSUMMARY:Jacopo\r\nEND:VEVENT\r\n`;
+const timed = `BEGIN:VEVENT\r\nDTSTART:${z(mon, '22')}\r\nDTEND:${z(tue, '02')}\r\nSUMMARY:Bureau\r\nEND:VEVENT\r\n`;
 const tx = [ics(timed)];
 assert(ext.dayCapacityFromTexts(tx, mon, settings, 'America/Toronto') === 120 && ext.dayCapacityFromTexts(tx, tue, settings, 'America/Toronto') === 360, 'événement horodaté Z : un seul jour LOCAL (Toronto)');
 assert(ext.dayCapacityFromTexts(tx, tue, settings, 'Europe/Paris') === 120, 'même événement : autre fuseau, autre jour');
-ext.setSettings('w', { workPatterns: ['Jacopo', 'jacopo', 'JACOPO', null, 5, { a: 1 }, ' '], vacationWords: [] });
-assert(JSON.stringify(ext.getSettings('w').workPatterns) === '["Jacopo"]' && ext.getSettings('w').vacationWords.length === 0, 'mots : non-chaînes ignorées, doublons sans casse');
+// Règles : validation, plus restrictive gagne, migration
+ext.setSettings('w', { rules: [{ words: ['Bureau', 'bureau', 'BUREAU', null, 5, ' '], mode: 'limit', maxMinutes: 90 }, { words: [], mode: 'none' }, null, 'x'] });
+assert(JSON.stringify(ext.getSettings('w').rules) === '[{"words":["Bureau"],"mode":"limit","maxMinutes":90}]', 'règles : non-chaînes ignorées, doublons sans casse, règle vide écartée');
+const bad = (rules) => { try { ext.setSettings('w', { rules }); return false; } catch (e) { return e.statusCode === 400; } };
+assert(bad(new Array(21).fill({ words: ['a'], mode: 'none' })), '> 20 règles refusé');
+assert(bad([{ words: ['a'], mode: 'autre' }]), 'mode invalide refusé');
+assert(bad([{ words: ['a'], mode: 'limit', maxMinutes: 1441 }]) && bad([{ words: ['a'], mode: 'limit', maxMinutes: 1.5 }]), 'minutes hors 0-1440 / non entières refusées');
+const many = Array.from({ length: 30 }, (_, i) => 'mot' + i).concat(['x'.repeat(80)]);
+const rr = ext.setSettings('w', { rules: [{ words: many, mode: 'none' }] }).rules[0].words;
+assert(rr.length === 20 && rr.every((x) => x.length <= 60), '20 mots max par règle, 60 caractères par mot');
+assert(ext.getSettings('neuf').rules.length === 1 && ext.getSettings('neuf').rules[0].mode === 'none' && ext.getSettings('neuf').rules[0].words.join() === 'vacances,congé,férié', 'compte neuf : règle vacances = aucune tâche');
+const two = { rules: [{ words: ['bureau'], mode: 'limit', maxMinutes: 240 }, { words: ['atelier'], mode: 'limit', maxMinutes: 60 }], defaultMinutes: 360 };
+assert(ext.dayCapacityFromTexts([ics(ev('Bureau', mon), ev('Atelier', mon), ev('Bureau', tue))], mon, two) === 60, 'deux règles le même jour : la plus restrictive gagne');
+assert(ext.dayCapacityFromTexts([ics(ev('Bureau', mon), ev('Congé', mon))], mon, { ...two, rules: two.rules.concat([{ words: ['congé'], mode: 'none' }]) }) === 0, 'aucune tâche l\'emporte sur temps limité');
+// Migration des anciennes colonnes (idempotente, sans perte)
+db.prepare("INSERT INTO external_calendar_settings (userId, workPatterns, vacationWords, workDayMinutes, freeDayMinutes) VALUES ('old', '[\"Atelier\"]', '[\"congé\"]', 120, 300)").run();
+db.prepare("INSERT INTO external_calendar_settings (userId, workPatterns, vacationWords, workDayMinutes, freeDayMinutes) VALUES ('old2', '[]', NULL, NULL, NULL)").run();
+for (let i = 0; i < 2; i++) {
+  ext.migrateLegacySettings();
+  assert(JSON.stringify(ext.getSettings('old')) === '{"rules":[{"words":["congé"],"mode":"none","maxMinutes":null},{"words":["Atelier"],"mode":"limit","maxMinutes":120}],"defaultMinutes":300}', 'migration (passage ' + (i + 1) + ') : anciens réglages -> règles + défaut');
+}
+assert(ext.getSettings('old2').rules[0].words.join() === 'vacances,congé,férié', 'migration : vacances par défaut conservées');
 
 const reply = (rows) => JSON.stringify({ t: rows });
 const fin = (rows, dayCaps, cap) => {
