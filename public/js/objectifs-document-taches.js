@@ -76,7 +76,7 @@
         <p id="docTasksChangesHint" class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
         <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div><div id="docTasksChangesList"></div></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
-        <div id="docTasksPTasksBar" class="ptBar hidden"><div class="ptBarTxt"><strong id="docTasksPTasksSel">Aucune tâche sélectionnée</strong><span class="docTasksMeta">Les autres restent en attente.</span></div><button type="button" id="docTasksPTasksClear" class="docTasksLink">Tout décocher</button><button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn">Ajouter la sélection</button></div>
+        <div id="docTasksPTasksBar" class="ptBar hidden"><button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn">Ajouter la sélection</button></div>
         <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
         <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer les cochées</button>
       </div>
@@ -660,8 +660,7 @@
     });
     var sel = ptasks.filter(function (t) { return psel[t.id]; }), mins = 0;
     sel.forEach(function (t) { mins += t.minutes || 0; });
-    var s = $('docTasksPTasksSel'); if (s) s.textContent = sel.length ? nTasks(sel.length) + ' · ' + fmtH(mins) : 'Aucune tâche sélectionnée';
-    ['docTasksPTasksApply', 'docTasksPTasksClear'].forEach(function (id) { var b = $(id); if (b) b.disabled = !sel.length; });
+    var b = $('docTasksPTasksApply'); if (b) b.disabled = !sel.length;
   }
   function renderPTasks() {
     var h = $('docTasksChangesTasks'); if (!h) return;
@@ -669,8 +668,7 @@
     if (!ptree) buildPTree();
     var sc = $('docTasksChangesBox'), top = sc ? sc.scrollTop : 0, total = 0;
     ptree.forEach(function (n) { total += n.leaves.length; });
-    h.innerHTML = '<div class="ptHead"><span class="ptTotal">' + nTasks(total) + ' en attente</span><span class="ptHeadBtns"><button type="button" class="docTasksLink" data-pall="1">Tout déplier</button><button type="button" class="docTasksLink" data-pall="0">Tout replier</button></span></div>'
-      + '<div class="docTasksMeta ptIntro">Classées par destination. Rien n’est coché d’avance ; les tâches non cochées restent en attente.</div>'
+    h.innerHTML = '<div class="ptHead"><span class="ptTotal">' + nTasks(total) + ' en attente</span></div>'
       + visibleRows(ptree, []).join('');
     Array.prototype.forEach.call(h.querySelectorAll('input[data-mixed]'), function (cb) { cb.indeterminate = true; });
     if (sc) sc.scrollTop = top;
@@ -727,7 +725,6 @@
     n.sleaves.forEach(function (t) { if (on) psel[t.id] = true; else delete psel[t.id]; });
     paintBoxes();
   });
-  $('docTasksPTasksClear').addEventListener('click', function () { psel = {}; paintBoxes(); });
   // « Ajouter la sélection » : n'envoie QUE les tâches cochées (les autres restent en attente), par lots de 200.
   $('docTasksPTasksApply').addEventListener('click', function () {
     var items = ptasks.filter(function (t) { return psel[t.id]; }).map(function (t) { return { id: t.id, key: t.key, checked: true }; });
