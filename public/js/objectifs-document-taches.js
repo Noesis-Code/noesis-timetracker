@@ -74,11 +74,10 @@
       <div class="docTasksPopCard">
         <div class="docTasksDriveHead"><strong id="docTasksChangesTitle">Modifications proposées</strong><button type="button" class="docTasksX" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
         <p id="docTasksChangesHint" class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
-        <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div><div id="docTasksChangesList"></div></div>
+        <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
         <div id="docTasksPTasksBar" class="ptBar hidden"><div id="docTasksPDots" class="ptDots"></div><button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn">Ajouter la sélection</button></div>
         <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
-        <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer les cochées</button>
       </div>
     </div>`);
 
@@ -482,48 +481,42 @@
     if (field === 'time') return v + ' min';
     return v;
   }
-  function whenLabel(iso) {
-    var d = new Date(iso); if (isNaN(d)) return '';
-    return d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit', hour12: false });
-  }
   function renderChanges() {
     var n = $('docTasksChangesN'), n2 = $('docTasksTasksN');
     n.textContent = changes.length; n.classList.toggle('hidden', !changes.length);
     n2.textContent = ptasks.length; n2.classList.toggle('hidden', !ptasks.length);
-    renderPTasks();
-    var pop = $('docTasksChangesPop'), tm = pop.getAttribute('data-mode') === 'tasks';
+    ptree = null; // les données ont changé : l'arbre Pôle › Secteur est reconstruit
+    var tm = !isCh();
     $('docTasksChangesTitle').textContent = tm ? 'Nouvelles tâches' : 'Modifications proposées';
     $('docTasksChangesHint').classList.toggle('hidden', tm);
-    $('docTasksChangesTasks').classList.toggle('hidden', !tm);
-    $('docTasksChangesList').classList.toggle('hidden', tm);
     $('docTasksChangesFind').classList.toggle('hidden', tm);
-    var gidx = [], lastAt = null;
-    changes.forEach(function (c, i) { if (c.createdAt !== lastAt) { gidx.push({ at: c.createdAt, idx: [] }); lastAt = c.createdAt; } gidx[gidx.length - 1].idx.push(i); });
-    var gStart = {}; gidx.forEach(function (g, gi) { gStart[g.idx[0]] = { g: g, gi: gi }; });
-    $('docTasksChangesList').innerHTML = changes.length ? changes.map(function (c, i) {
-      var head = gStart[i] ? '<label class="docTasksGroupHead"><input type="checkbox" data-g="' + gStart[i].gi + '" aria-label="Tout sélectionner pour ce moment"><span>' + esc(whenLabel(gStart[i].g.at)) + '</span><span class="docTasksMeta">' + gStart[i].g.idx.length + '</span></label>' : '';
-      return head + '<div class="docTasksPopRow docTasksChangeRow' + (c.mine ? '' : ' docTasksOther') + '"><input type="checkbox" data-c="' + i + '"' + (c.checked === 0 ? '' : ' checked') + ' aria-label="Appliquer">' +
-        '<div class="docTasksChangeBody">' + (c.forName ? '<div class="docTasksChangeWhen"><span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span></div>' : '') +
-        '<div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
-        '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>' +
-        (c.reason ? '<div class="docTasksMeta">' + esc(c.reason) + '</div>' : '') + '</div>' +
-        '<button type="button" class="historyRowIconBtn danger" data-d="' + i + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
-    }).join('') : '<p class="docTasksMeta">Rien à valider.</p>';
-    var ap = $('docTasksChangesApply'); ap.classList.toggle('hidden', tm || !changes.length);
-    gidx.forEach(function (g, gi) {
-      var gb = $('docTasksChangesList').querySelector('input[data-g="' + gi + '"]'); if (!gb) return;
-      var on = g.idx.filter(function (i) { return changes[i].checked !== 0; }).length;
-      gb.checked = on === g.idx.length; gb.indeterminate = on > 0 && on < g.idx.length;
-    });
-    var pa = $('docTasksPTasksBar'); if (pa) pa.classList.toggle('hidden', !tm || !ptasks.length);
+    var ab = $('docTasksPTasksApply'); if (ab) ab.textContent = tm ? 'Ajouter la sélection' : 'Appliquer';
+    var pa = $('docTasksPTasksBar'); if (pa) pa.classList.toggle('hidden', !items().length);
+    renderPTasks();
   }
   // Nouvelles tâches proposées par la surveillance Drive (partie « Nouvelles tâches » de la même fenêtre).
   // 18 oct. 2026 : parcours en 3 écrans (Sommaire › Pôle › Secteur › semaines › tâches), rien de coché d'avance.
-  var ptasks = [], pcats = [], ptree = null, pnodes = {}, psel = {}, pexp = {};
+  var ptasks = [], pcats = [], ptree = null, pnodes = {}, psel = {}, pexp = {}, pidx = {};
+  // 18 oct. 2026 : « Modifications proposées » réutilise le MÊME parcours que « Nouvelles tâches » (mode du pop-up).
+  // Tâches : sélection en mémoire (psel). Modifications : coche mémorisée côté serveur (c.checked, /check).
+  function isCh() { return $('docTasksChangesPop').getAttribute('data-mode') !== 'tasks'; }
+  function items() { return isCh() ? changes : ptasks; }
+  function isOn(t) { return isCh() ? t.checked !== 0 : !!psel[t.id]; }
+  function setOn(t, on) { if (isCh()) t.checked = on ? 1 : 0; else if (on) psel[t.id] = true; else delete psel[t.id]; }
+  function persistChecks(arr, prevs) { // modifications : enregistre les coches côté serveur ; en cas d'échec, remet l'état d'avant
+    if (!isCh()) return;
+    Promise.all(arr.map(function (c, k) {
+      return cApi('POST', '/check', { id: c.id, checked: c.checked !== 0 }).catch(function (err) { c.checked = prevs[k]; cToast((err && err.message) || 'Erreur.'); });
+    })).then(paintBoxes);
+  }
+  function toggleItems(arr, on) {
+    var prevs = arr.map(function (c) { return c.checked === 0 ? 0 : 1; });
+    arr.forEach(function (t) { setOn(t, on); }); paintBoxes(); persistChecks(arr, prevs);
+  }
   var pmeta = { poles: {}, secteurs: {}, order: {}, poleIdx: {}, weeks: {}, periods: {}, existing: {} };
   var PBATCH = 200; // plafond du serveur par appel de résolution
   function fmtH(m) { m = Math.round(m || 0); var h = Math.floor(m / 60), r = m % 60; return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : ''); }
-  function nTasks(n) { return n + (n > 1 ? ' tâches' : ' tâche'); }
+  function nTasks(n) { return isCh() ? n + (n > 1 ? ' modifications' : ' modification') : n + (n > 1 ? ' tâches' : ' tâche'); }
   function isoAdd(iso, n) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return '';
     return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + n)).toISOString().slice(0, 10);
@@ -539,7 +532,7 @@
   function loadPMeta() {
     var a = actId();
     pmeta = { poles: {}, secteurs: {}, order: {}, poleIdx: {}, weeks: {}, periods: {}, existing: {} };
-    if (!a || !ptasks.length) return Promise.resolve();
+    if (!a || !(ptasks.length || changes.length)) return Promise.resolve();
     return TMT.api('GET', '/api/activities/' + a + '/goals/categories').then(function (c) {
       var ord = 0;
       (c.categories || []).forEach(function (p) {
@@ -587,37 +580,43 @@
   }
   function mkGrp(id, label) { return { id: id, label: label, flat: [], weeks: {}, wlist: [] }; }
   function buildPTree() {
-    pnodes = {}; pcolors = {};
-    var poles = {}, plist = [];
-    ptasks.forEach(function (t, i) {
-      var pk = t.toChoose ? null : poleOfKey(t.key), wk = pk && t.week ? pmeta.weeks[t.key + '|' + t.week] : null;
+    pnodes = {}; pcolors = {}; pidx = {};
+    var poles = {}, plist = [], ch = isCh();
+    items().forEach(function (t, i) {
+      pidx[t.id] = t;
+      var tkey = ch ? t.categoryKey : t.key;
+      var pk = (ch ? !tkey : t.toChoose) ? null : poleOfKey(tkey), wk = !ch && pk && t.week ? pmeta.weeks[t.key + '|' + t.week] : null;
       var leaf = { task: t, i: i };
-      var ex = pmeta.existing[pk || poleOfKey(t.key)];
-      leaf.dup = !!(ex && ex[normTitle(t.title)]);
-      leaf.ok = !t.toChoose && !!poleOfKey(t.key);
+      if (ch) { leaf.ok = true; leaf.dup = false; } else {
+        var ex = pmeta.existing[pk || poleOfKey(t.key)];
+        leaf.dup = !!(ex && ex[normTitle(t.title)]);
+        leaf.ok = !t.toChoose && !!poleOfKey(t.key);
+      }
       var pole, grp;
       if (!pk) {
-        pole = poles.orph = poles.orph || { id: 'orph', orph: true, label: 'Catégorie à choisir', ord: -2, direct: mkGrp('orph:d', ''), secs: {}, slist: [] };
-        grp = pole.direct; grp.flat.push(leaf);
+        pole = poles.orph = poles.orph || { id: 'orph', orph: true, label: ch ? 'Sans pôle' : 'Catégorie à choisir', ord: -2, direct: mkGrp('orph:d', ''), secs: {}, slist: [] };
+        grp = pole.direct;
       } else {
-        if (!wk) { // catégorie valide sans objectif hebdomadaire correspondant : classée sous sa période, jamais dans « à placer »
+        if (!wk && !ch) { // catégorie valide sans objectif hebdomadaire correspondant : classée sous sa période, jamais dans « à placer »
           var pp = null;
           (pmeta.periods[t.key] || []).forEach(function (x) { if (t.week && x.pStart <= t.week && t.week <= x.pEnd) pp = x; });
           wk = { id: 'x' + (t.week || ''), text: '', est: 0, tag: isoWeekTag(t.week), pid: pp ? pp.pid : 'none', pnum: pp ? pp.pnum : 999, none: !pp, noWeekly: true };
         }
         pole = poles[pk];
         if (!pole) { pole = poles[pk] = { id: 'p:' + pk, key: pk, label: pmeta.poles[pk].label, ord: pmeta.order[pk] || 0, direct: mkGrp('p:' + pk + ':d', ''), secs: {}, slist: [] }; }
-        if (pmeta.secteurs[t.key]) {
-          var sk = t.key;
+        if (pmeta.secteurs[tkey]) {
+          var sk = tkey;
           grp = pole.secs[sk] = pole.secs[sk] || (function () { var g = mkGrp('s:' + sk, pmeta.secteurs[sk].label); g.ord = pmeta.order[sk] || 0; pole.slist.push(g); return g; })();
         } else grp = pole.direct;
-        var wid = 'w:' + grp.id + ':' + wk.id, w = grp.weeks[wid];
-        if (!w) { w = grp.weeks[wid] = { id: wid, tag: wk.tag, text: wk.text, est: wk.est, pnum: wk.pnum, none: !!wk.none, noWeekly: !!wk.noWeekly, week: t.week, leaves: [] }; grp.wlist.push(w); }
-        w.leaves.push(leaf);
+        if (!ch) {
+          var wid = 'w:' + grp.id + ':' + wk.id, w = grp.weeks[wid];
+          if (!w) { w = grp.weeks[wid] = { id: wid, tag: wk.tag, text: wk.text, est: wk.est, pnum: wk.pnum, none: !!wk.none, noWeekly: !!wk.noWeekly, week: t.week, leaves: [] }; grp.wlist.push(w); }
+          w.leaves.push(leaf);
+        }
       }
       grp.flat.push(leaf);
     });
-    function srt(a) { a.sort(function (x, y) { return String(x.task.day || x.task.week || '').localeCompare(String(y.task.day || y.task.week || '')) || String(x.task.title).localeCompare(String(y.task.title)); }); }
+    function srt(a) { if (ch) { a.sort(function (x, y) { return String(x.task.label).localeCompare(String(y.task.label)) || (x.task.id - y.task.id); }); return; } a.sort(function (x, y) { return String(x.task.day || x.task.week || '').localeCompare(String(y.task.day || y.task.week || '')) || String(x.task.title).localeCompare(String(y.task.title)); }); }
     function fin(o, leaves) { // cumuls
       o.leaves = leaves; o.sleaves = leaves.filter(function (l) { return l.ok; }).map(function (l) { return l.task; });
       o.mins = 0; leaves.forEach(function (l) { o.mins += l.task.minutes || 0; }); pnodes[o.id] = o;
@@ -643,13 +642,23 @@
   function findGrp(p, gid) { return gid === 'd' ? p.direct : p.slist.filter(function (g) { return g.id === gid; })[0]; }
 
   function nodeState(n) {
-    var on = 0; n.sleaves.forEach(function (t) { if (psel[t.id]) on += 1; });
+    var on = 0; n.sleaves.forEach(function (t) { if (isOn(t)) on += 1; });
     return on === 0 ? 0 : (on === n.sleaves.length ? 2 : 1);
   }
   function cbx(n) { return '<input type="checkbox" data-gid="' + esc(n.id) + '" aria-label="Sélectionner"' + (n.sleaves.length ? '' : ' disabled') + '>'; }
-  function totalTxt(n) { return nTasks(n.leaves.length) + ' · ' + fmtH(n.mins); }
+  function totalTxt(n) { return nTasks(n.leaves.length) + (isCh() ? '' : ' · ' + fmtH(n.mins)); }
   function allRow(n, txt) { return '<label class="ptAllRow" data-t="' + esc(txt) + '">' + cbx(n) + '<span class="ptAllTxt">' + txt + '</span></label>'; }
+  function changeHtml(l) { // une modification : « Pour toi / Pour X », titre, ancien → nouveau, raison, corbeille « Refuser »
+    var c = l.task;
+    return '<div class="ptTask docTasksChangeItem' + (c.mine ? '' : ' docTasksOther') + '" data-tid="' + c.id + '"><input type="checkbox" data-tid="' + c.id + '" aria-label="Appliquer"><div class="ptBody">'
+      + (c.forName ? '<div class="docTasksChangeWhen"><span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span></div>' : '')
+      + '<div class="ptLabel ptTaskTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>'
+      + '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>'
+      + (c.reason ? '<div class="ptSub">' + esc(c.reason) + '</div>' : '')
+      + '</div><button type="button" class="historyRowIconBtn danger" data-pd="' + c.id + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
+  }
   function taskHtml(l) {
+    if (isCh()) return changeHtml(l);
     var t = l.task, day = dayOrWeekLabel({ day: t.day, week: t.week, noRoom: t.noRoom });
     var sub = [day, t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
     var h = '<div class="ptTask' + (l.ok ? '' : ' ptNo') + '" data-tid="' + t.id + '"><input type="checkbox" data-tid="' + t.id + '" aria-label="Sélectionner"' + (l.ok ? '' : ' disabled') + '><div class="ptBody"><div class="ptLabel ptTaskTitle">' + esc(t.title) + '</div>';
@@ -688,12 +697,12 @@
     var col = p.orph ? '#e8c46a' : poleColor(p.key);
     if (s === 1) {
       var hd = '<div class="ptTopRow"><span class="ptPole" style="--pc:' + esc(col) + '"><span class="ptPdot"></span><strong class="ptTitle">' + esc(p.label) + '</strong></span><span class="ptTotalR">' + esc(totalTxt(p)) + '</span></div>';
-      if (p.orph) return hd + '<p class="ptHelp">Ces tâches n’ont pas de catégorie valide : choisis-en une pour pouvoir les ajouter.</p>' + p.direct.flat.map(taskHtml).join('');
+      if (p.orph) return hd + '<p class="ptHelp">' + (isCh() ? 'Ces modifications ne sont rattachées à aucun pôle.' : 'Ces tâches n’ont pas de catégorie valide : choisis-en une pour pouvoir les ajouter.') + '</p>' + p.direct.flat.map(taskHtml).join('');
       hd += allRow(p, 'Tout sélectionner');
       if (!p.slist.length) return hd + weeksHtml(p.direct);
       var cards = (p.direct.flat.length ? [p.direct] : []).concat(p.slist).map(function (g) {
         var lab = g === p.direct ? 'Sans secteur' : g.label;
-        return '<div class="ptCardRow">' + cbx(g) + '<button type="button" class="ptCard ptCardSec" data-go="2" data-p="' + esc(p.id) + '" data-g="' + (g === p.direct ? 'd' : esc(g.id)) + '" style="--pc:' + esc(col) + '"><span class="ptSecTxt"><strong>' + esc(lab) + '</strong><span class="ptSub">' + esc((g.range ? g.range + ' · ' : '') + fmtH(g.mins)) + '</span></span><span class="ptCardN">' + g.leaves.length + '</span>' + CHEV + '</button></div>';
+        return '<div class="ptCardRow">' + cbx(g) + '<button type="button" class="ptCard ptCardSec" data-go="2" data-p="' + esc(p.id) + '" data-g="' + (g === p.direct ? 'd' : esc(g.id)) + '" style="--pc:' + esc(col) + '"><span class="ptSecTxt"><strong>' + esc(lab) + '</strong>' + (isCh() ? '' : '<span class="ptSub">' + esc((g.range ? g.range + ' · ' : '') + fmtH(g.mins)) + '</span>') + '</span><span class="ptCardN">' + g.leaves.length + '</span>' + CHEV + '</button></div>';
       }).join('');
       return hd + cards;
     }
@@ -707,8 +716,8 @@
       var n = pnodes[cb.getAttribute('data-gid')]; if (!n) return;
       var st = nodeState(n); cb.checked = st === 2; cb.indeterminate = st === 1;
     });
-    Array.prototype.forEach.call(h.querySelectorAll('input[data-tid]'), function (cb) { cb.checked = !!psel[cb.getAttribute('data-tid')]; });
-    var any = ptasks.some(function (t) { return psel[t.id]; });
+    Array.prototype.forEach.call(h.querySelectorAll('input[data-tid]'), function (cb) { var t = pidx[cb.getAttribute('data-tid')]; cb.checked = !!t && isOn(t); });
+    var any = items().some(function (t) { return isOn(t); });
     var b = $('docTasksPTasksApply'); if (b) b.disabled = !any;
   }
   function renderDots() {
@@ -753,7 +762,7 @@
   }
   function renderPTasks() {
     var h = $('docTasksChangesTasks'); if (!h) return;
-    if (!ptasks.length) { h.innerHTML = '<p class="docTasksMeta">Aucune nouvelle tâche à valider.</p>'; pview = null; var dd = $('docTasksPDots'); if (dd) dd.innerHTML = ''; paintBoxes(); return; }
+    if (!items().length) { h.innerHTML = '<p class="docTasksMeta">' + (isCh() ? 'Rien à valider.' : 'Aucune nouvelle tâche à valider.') + '</p>'; pview = null; var dd = $('docTasksPDots'); if (dd) dd.innerHTML = ''; paintBoxes(); return; }
     if (!ptree) buildPTree();
     bindSwipe();
     var keep = pview && pview.children[nav.s] ? pview.children[nav.s].scrollTop : 0;
@@ -771,7 +780,6 @@
   function loadPTasks() {
     return dApi('GET', '/api/drive/sync/pending').then(function (r) {
       ptasks = r.tasks || []; pcats = r.categories || []; ptasks.forEach(function (t) { t.toChoose = !!t.toChoose; });
-      return loadPMeta();
     }).catch(function () { ptasks = []; }).then(function () {
       ptree = null; var live = {}; ptasks.forEach(function (t) { live[t.id] = true; });
       Object.keys(psel).forEach(function (k) { if (!live[k]) delete psel[k]; }); // la sélection ne survit que pour des tâches encore en attente
@@ -779,7 +787,7 @@
   }
   function loadChanges() {
     var p = loadPTasks();
-    cApi('GET', '').then(function (r) { changes = r.proposals || []; }).catch(function () { changes = []; }).then(function () { return p; }).then(renderChanges);
+    cApi('GET', '').then(function (r) { changes = r.proposals || []; }).catch(function () { changes = []; }).then(function () { return p; }).then(loadPMeta).then(renderChanges);
   }
   function resolvePTasks(items, okMsg) {
     if (busy) return; busy = true;
@@ -793,6 +801,12 @@
   }
   $('docTasksChangesTasks').addEventListener('click', function (e) {
     var d = e.target.closest('button[data-pd]');
+    if (d && isCh()) { // « Refuser » : refus mémorisé côté serveur
+      var cid = Number(d.getAttribute('data-pd')), c = changes.filter(function (x) { return x.id === cid; })[0]; if (!c) return;
+      cApi('POST', '/dismiss', { ids: [c.id] }).then(function () { changes = changes.filter(function (x) { return x.id !== c.id; }); renderChanges(); })
+        .catch(function (err) { cToast((err && err.message) || 'Erreur.'); });
+      return;
+    }
     if (d) { var id = Number(d.getAttribute('data-pd')); var t = ptasks.filter(function (x) { return x.id === id; })[0]; if (t) resolvePTasks([{ id: t.id, key: t.key, checked: false }], false); return; }
     var wx = e.target.closest('button[data-wx]');
     if (wx) { wx.classList.toggle('open'); wx.setAttribute('aria-expanded', wx.classList.contains('open') ? 'true' : 'false'); return; }
@@ -802,7 +816,7 @@
     if (row && !e.target.closest('input,select,button')) { // clic sur le texte : cocher la tâche
       var tid = row.getAttribute('data-tid');
       if (row.classList.contains('ptNo')) return;
-      if (psel[tid]) delete psel[tid]; else psel[tid] = true; paintBoxes();
+      var it = pidx[tid]; if (it) toggleItems([it], !isOn(it));
     }
   });
   $('docTasksChangesTasks').addEventListener('change', function (e) {
@@ -812,12 +826,11 @@
       t.key = sel.value; t.toChoose = false; ptree = null; renderPTasks(); return;
     }
     var tc = e.target.closest('input[data-tid]');
-    if (tc) { var k = tc.getAttribute('data-tid'); if (tc.checked) psel[k] = true; else delete psel[k]; paintBoxes(); return; }
+    if (tc) { var it = pidx[tc.getAttribute('data-tid')]; if (it) toggleItems([it], tc.checked); return; }
     var cb = e.target.closest('input[data-gid]'); if (!cb) return;
     var n = pnodes[cb.getAttribute('data-gid')]; if (!n) return;
     var on = nodeState(n) !== 2; // plein => on décoche ; vide ou mixte => on coche tout
-    n.sleaves.forEach(function (t) { if (on) psel[t.id] = true; else delete psel[t.id]; });
-    paintBoxes();
+    toggleItems(n.sleaves, on);
   });
   // Points : ceux de gauche ramènent à l'écran correspondant (le dernier disparaît au retour).
   $('docTasksPDots').addEventListener('click', function (e) {
@@ -849,6 +862,7 @@
   }
   // « Ajouter la sélection » : n'envoie QUE les tâches cochées (les autres restent en attente), par lots de 200.
   $('docTasksPTasksApply').addEventListener('click', function () {
+    if (isCh()) { applyChanges(); return; }
     var items = ptasks.filter(function (t) { return psel[t.id]; }).map(function (t) { return { id: t.id, key: t.key, checked: true }; });
     if (!items.length) { cToast('Coche au moins une tâche.'); return; }
     if (busy) return; busy = true;
@@ -870,7 +884,7 @@
     })();
   });
   function refresh() { if (typeof TMT.openGoalsForActivity === 'function') TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0); }
-  function openChangesPop(mode) { if (mode === 'tasks') nav = { s: 0, p: null, g: null }; cToast(''); $('docTasksChangesPop').setAttribute('data-mode', mode); $('docTasksChangesPop').classList.remove('hidden'); renderChanges(); loadChanges(); }
+  function openChangesPop(mode) { nav = { s: 0, p: null, g: null }; fwd = null; cToast(''); $('docTasksChangesPop').setAttribute('data-mode', mode); $('docTasksChangesPop').classList.remove('hidden'); renderChanges(); loadChanges(); }
   $('docTasksChangesBtn').addEventListener('click', function () { openChangesPop('changes'); });
   $('docTasksTasksBtn').addEventListener('click', function () { openChangesPop('tasks'); });
   $('docTasksChangesClose').addEventListener('click', function () { $('docTasksChangesPop').classList.add('hidden'); });
@@ -881,33 +895,10 @@
       cToast(r.aiBlocked ? r.message : r.capReached ? 'Plafond IA du jour atteint.' : (r.configured === false ? 'IA non configurée.' : (r.failed ? 'L’IA n’a pas répondu.' : (r.added ? r.added + ' nouvelle(s) proposition(s).' : 'Rien de nouveau à proposer.'))));
     }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
   });
-  $('docTasksChangesList').addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-d]'); if (!b) return;
-    var c = changes[Number(b.getAttribute('data-d'))]; if (!c) return;
-    cApi('POST', '/dismiss', { ids: [c.id] }).then(function () { changes = changes.filter(function (x) { return x.id !== c.id; }); renderChanges(); })
-      .catch(function (err) { cToast((err && err.message) || 'Erreur.'); });
-  });
-  // Coché/décoché mémorisé côté serveur (suit l'utilisateur d'un appareil à l'autre).
-  $('docTasksChangesList').addEventListener('change', function (e) {
-    var gb = e.target.closest('input[data-g]');
-    if (gb) { // un clic : toute la section (même date et heure) cochée ou décochée
-      var v0 = gb.checked ? 1 : 0, ch = [];
-      var gi = Number(gb.getAttribute('data-g')), seen = -1, last = null;
-      changes.forEach(function (c) { if (c.createdAt !== last) { seen += 1; last = c.createdAt; } if (seen === gi) ch.push(c); });
-      Promise.all(ch.map(function (c) { var prev = c.checked === 0 ? 0 : 1; c.checked = v0; return cApi('POST', '/check', { id: c.id, checked: !!v0 }).catch(function () { c.checked = prev; }); })).then(renderChanges);
-      return;
-    }
-    var cb = e.target.closest('input[data-c]'); if (!cb) return;
-    var c = changes[Number(cb.getAttribute('data-c'))]; if (!c) return;
-    var v = cb.checked ? 1 : 0, prev = c.checked === 0 ? 0 : 1; c.checked = v;
-    cApi('POST', '/check', { id: c.id, checked: !!v }).catch(function (err) { c.checked = prev; cb.checked = !!prev; cToast((err && err.message) || 'Erreur.'); });
-  });
-  $('docTasksChangesApply').addEventListener('click', function () {
+  // « Appliquer » : n'envoie que les modifications cochées (coches mémorisées côté serveur).
+  function applyChanges() {
     if (busy) return;
-    var ids = [], rest = [];
-    Array.prototype.forEach.call($('docTasksChangesList').querySelectorAll('input[data-c]'), function (cb) {
-      var c = changes[Number(cb.getAttribute('data-c'))]; if (c && cb.checked) ids.push(c.id);
-    });
+    var ids = changes.filter(function (c) { return c.checked !== 0; }).map(function (c) { return c.id; });
     if (!ids.length) { cToast('Coche au moins une modification.'); return; }
     busy = true;
     cApi('POST', '/apply', { ids: ids }).then(function (r) {
@@ -916,7 +907,7 @@
       cToast(r.appliedCount + ' modification(s) appliquée(s)' + (r.skipped && r.skipped.length ? ', ' + r.skipped.length + ' ignorée(s) (' + r.skipped.map(function (s) { return s.reason; }).join(', ') + ')' : '') + '.');
       if (r.appliedCount) refresh();
     }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
-  });
+  }
 
   function apply() {
     var picked = [];
