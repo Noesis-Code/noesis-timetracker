@@ -157,13 +157,13 @@
 #docTasksChangesPop[data-mode="tasks"] #docTasksChangesTasks { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .ptView { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 .ptTrack { display: flex; height: 100%; }
-.ptTrack.ptAnim { transition: transform .3s ease; }
+.ptTrack.ptAnim { transition: transform .45s cubic-bezier(.22, .8, .3, 1); }
 .ptPane { flex: 0 0 100%; min-width: 0; height: 100%; overflow-y: auto; box-sizing: border-box; padding: 0 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
 .ptPane > * { flex: none; }
 .ptTopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ptTotalR { font-size: 13px; opacity: .65; font-variant-numeric: tabular-nums; text-align: right; }
 .ptAllRow { display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; }
-.ptAllTxt { font-style: italic; text-decoration: underline; font-weight: 600; }
+.ptAllTxt { font-style: italic; font-weight: 600; }
 .ptTopRow > .ptAllRow { flex: 1 1 auto; }
 .ptPole { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .ptPdot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--pc, var(--purple)); }
@@ -206,3 +206,7 @@ input[type="checkbox"].ptTaskCb:indeterminate, .ptPane input[type="checkbox"]:in
 .ptDotBtn.on .ptDot { opacity: 1; }
 .ptDotBtn.on { cursor: default; }
 #docTasksChangesTasks > .docTasksMeta { padding: 0 14px; }
+
+/* Cases de « Nouvelles tâches » : verre à l'état vide, vert liquide quand cochées (ou partielles). */
+.ptPane input[type="checkbox"] { background: rgba(255, 255, 255, .08); border-color: var(--glass-border); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.ptPane input[type="checkbox"]:checked, .ptPane input[type="checkbox"]:indeterminate { background: linear-gradient(180deg, rgba(104, 224, 152, .95) 0%, rgba(38, 170, 98, .9) 100%); border-color: rgba(140, 240, 180, .75); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 0 8px rgba(60, 200, 120, .35); }

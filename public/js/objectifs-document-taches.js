@@ -689,7 +689,7 @@
     if (s === 1) {
       var hd = '<div class="ptTopRow"><span class="ptPole" style="--pc:' + esc(col) + '"><span class="ptPdot"></span><strong class="ptTitle">' + esc(p.label) + '</strong></span><span class="ptTotalR">' + esc(totalTxt(p)) + '</span></div>';
       if (p.orph) return hd + '<p class="ptHelp">Ces tâches n’ont pas de catégorie valide : choisis-en une pour pouvoir les ajouter.</p>' + p.direct.flat.map(taskHtml).join('');
-      hd += allRow(p, 'Tout sélectionner dans ce pôle');
+      hd += allRow(p, 'Tout sélectionner');
       if (!p.slist.length) return hd + weeksHtml(p.direct);
       var cards = (p.direct.flat.length ? [p.direct] : []).concat(p.slist).map(function (g) {
         var lab = g === p.direct ? 'Sans secteur' : g.label;
@@ -699,7 +699,7 @@
     }
     var g = findGrp(p, nav.g); if (!g) return '';
     return '<div class="ptTopRow"><span class="ptPole" style="--pc:' + esc(col) + '"><span class="ptPdot"></span><span class="ptTitleBox"><span class="ptSub">' + esc(p.label) + '</span><strong class="ptTitle">' + esc(g.id === p.direct.id ? 'Sans secteur' : g.label) + '</strong></span></span><span class="ptTotalR">' + esc(totalTxt(g)) + '</span></div>'
-      + allRow(g, 'Tout sélectionner dans ce secteur') + weeksHtml(g);
+      + allRow(g, 'Tout sélectionner') + weeksHtml(g);
   }
   function paintBoxes() { // état des cases visibles (sans tout redessiner)
     var h = $('docTasksChangesTasks');
@@ -727,7 +727,7 @@
     void ptrack.offsetWidth; // fige le point de départ : la transition part de l'écran actuel (avant comme arrière)
     ptrack.style.transform = 'translateX(' + (-nav.s * 100) + '%)';
     var cur = panes()[nav.s]; if (cur && animate) cur.scrollTop = 0;
-    pclear = setTimeout(function () { for (var j = nav.s + 1; j < 3; j++) { var e = panes()[j]; if (e) e.innerHTML = ''; } }, animate ? 340 : 0);
+    pclear = setTimeout(function () { for (var j = nav.s + 1; j < 3; j++) { var e = panes()[j]; if (e) e.innerHTML = ''; } }, animate ? 520 : 0);
     renderDots(); paintBoxes();
   }
   function goTo(s, p, g) {
