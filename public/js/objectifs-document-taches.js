@@ -521,7 +521,7 @@
   // 18 oct. 2026 : ARBRE PAR DESTINATION (Pôle › Secteur › Objectif périodique › Objectif hebdomadaire › Tâche),
   // « À placer » en tête, RIEN de coché d'avance, nœuds repliés, feuilles rendues seulement à l'ouverture d'un nœud.
   var ptasks = [], pcats = [], ptree = null, pnodes = {}, psel = {}, pexp = {};
-  var pmeta = { poles: {}, secteurs: {}, order: {}, weeks: {}, existing: {} };
+  var pmeta = { poles: {}, secteurs: {}, order: {}, weeks: {}, periods: {}, existing: {} };
   var PBATCH = 200; // plafond du serveur par appel de résolution
   function fmtH(m) { m = Math.round(m || 0); var h = Math.floor(m / 60), r = m % 60; return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : ''); }
   function nTasks(n) { return n + (n > 1 ? ' tâches' : ' tâche'); }
@@ -539,7 +539,7 @@
   // Structure pôles/secteurs, tâches existantes (doublons) et objectifs périodiques/hebdomadaires — lectures seules, routes existantes.
   function loadPMeta() {
     var a = actId();
-    pmeta = { poles: {}, secteurs: {}, order: {}, weeks: {}, existing: {} };
+    pmeta = { poles: {}, secteurs: {}, order: {}, weeks: {}, periods: {}, existing: {} };
     if (!a || !ptasks.length) return Promise.resolve();
     return TMT.api('GET', '/api/activities/' + a + '/goals/categories').then(function (c) {
       var ord = 0;
@@ -559,6 +559,7 @@
           var by = r.byCategory || {};
           Object.keys(by).forEach(function (ck) {
             ((by[ck] || {}).periods || []).forEach(function (p) {
+              (pmeta.periods[ck] = pmeta.periods[ck] || []).push({ pid: p.id, pnum: p.periodNumber, pStart: p.startDate, pEnd: p.endDate, pText: p.mainGoalText || '' });
               (p.weeklies || []).forEach(function (w) {
                 var k = ck + '|' + isoAdd(p.startDate, (w.weekIndex - 1) * 7);
                 if (!pmeta.weeks[k]) pmeta.weeks[k] = { id: w.id, text: w.text || '', est: w.estimateMinutes || 0, tag: 'S' + w.weekOfYear, pid: p.id, pnum: p.periodNumber, pStart: p.startDate, pEnd: p.endDate, pText: p.mainGoalText || '' };
@@ -570,9 +571,15 @@
     }).catch(function () {});
   }
 
+  function isoWeekTag(iso) { // « S42 » d'une date du lundi (règle ISO)
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return 'S?';
+    var d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))), day = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - day);
+    return 'S' + Math.ceil(((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
+  }
   function buildPTree() {
     pnodes = {};
-    var top = [], orph = { id: 'orph', kind: 'À placer', label: 'Destination non trouvée', sub0: 'Aucun objectif hebdomadaire ne correspond. Choisis une catégorie ou laisse en attente.', kids: [], ord: -1, lvl: 0 };
+    var top = [], orph = { id: 'orph', kind: 'À placer', label: 'Catégorie à choisir', sub0: 'Ces tâches n’ont pas de catégorie valide : choisis-en une pour pouvoir les ajouter.', kids: [], ord: -1, lvl: 0 };
     var idx = {};
     function node(id, parent, o) {
       if (idx[id]) return idx[id];
@@ -583,13 +590,19 @@
       var leaf = { id: 't' + t.id, task: t, kids: [] };
       var pk = t.toChoose ? null : poleOfKey(t.key), wk = pk && t.week ? pmeta.weeks[t.key + '|' + t.week] : null;
       var parent;
-      if (!wk) { parent = orph; leaf.lvl = 1; }
+      if (!pk) { parent = orph; leaf.lvl = 1; }
       else {
+        // Catégorie valide mais pas d'objectif hebdomadaire correspondant : la tâche reste classée sous sa période (ou « sans objectif périodique ») et sa semaine, jamais dans « à placer ».
+        if (!wk) {
+          var pers = pmeta.periods[t.key] || [], pp = null;
+          pers.forEach(function (x) { if (t.week && x.pStart <= t.week && t.week <= x.pEnd) pp = x; });
+          wk = { id: 'x' + (t.week || ''), text: '', est: 0, tag: isoWeekTag(t.week), pid: pp ? pp.pid : 'none', pnum: pp ? pp.pnum : 999, pStart: pp && pp.pStart, pEnd: pp && pp.pEnd, pText: pp ? pp.pText : '', none: !pp, noWeekly: true };
+        }
         var pole = node('p:' + pk, null, { kind: 'Pôle', label: pmeta.poles[pk].label, ord: pmeta.order[pk] || 0 });
         var cur = pole;
         if (pmeta.secteurs[t.key]) cur = node('s:' + t.key, pole, { kind: 'Secteur', label: pmeta.secteurs[t.key].label, ord: pmeta.order[t.key] || 0 });
-        var per = node('r:' + t.key + ':' + wk.pid, cur, { kind: 'Objectif périodique', label: wk.pText || 'Objectif périodique', sub0: 'Période ' + wk.pnum + ' · ' + shortDate(wk.pStart) + ' → ' + shortDate(wk.pEnd), ord: wk.pnum });
-        parent = node('w:' + t.key + ':' + wk.id, per, { kind: 'Objectif hebdomadaire', week: wk.tag, label: wk.text || 'Objectif hebdomadaire', est: wk.est, ord: t.week });
+        var per = node('r:' + t.key + ':' + wk.pid, cur, { kind: 'Objectif périodique', label: wk.none ? 'Sans objectif périodique' : (wk.pText || 'Objectif périodique'), sub0: wk.none ? '' : 'Période ' + wk.pnum + ' · ' + shortDate(wk.pStart) + ' → ' + shortDate(wk.pEnd), ord: wk.pnum });
+        parent = node('w:' + t.key + ':' + wk.id, per, { kind: 'Objectif hebdomadaire', week: wk.tag, label: wk.text || (wk.noWeekly ? 'Aucun objectif hebdomadaire' : 'Objectif hebdomadaire'), est: wk.est, ord: t.week });
         leaf.lvl = parent.lvl + 1;
       }
       var ex = pmeta.existing[pk || poleOfKey(t.key)];
