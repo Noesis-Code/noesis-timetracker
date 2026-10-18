@@ -3349,7 +3349,7 @@
                    directs de #calendarFeedSection, sans changement d'id ni de
                    logique (renderCalendarFeedState continue de basculer leur
                    "hidden" tel quel). -->
-              <div id="calendarFeedSection" class="settingsFlat hidden">
+              <div id="calendarFeedSection" class="settingsFlat agendaGlass hidden">
                 <p class="sectionTitle settingsFlatTitle">Exporter mes données vers le calendrier</p>
                 <div id="calendarFeedOff" class="hidden">
                   <button type="button" id="calendarFeedCreateBtn" class="iconBtn">Créer mon lien de calendrier</button>
@@ -3371,9 +3371,8 @@
                 <p id="calendarFeedMsg" class="msg"></p>
               </div>
               <!-- 9 oct. 2026 : agenda externe lu par Noèsis (sens inverse du flux ci-dessus). -->
-              <div id="externalCalendarSection" class="settingsFlat">
-                <p class="sectionTitle settingsFlatTitle">Importer un calendrier dans l'appli</p>
-                <p class="meta">Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis n'en garde aucun contenu : seulement les heures occupées et la comparaison des titres avec tes règles ci-dessous.</p>
+              <div id="externalCalendarSection" class="settingsFlat agendaGlass">
+                <p class="sectionTitle settingsFlatTitle">Importer un calendrier dans l'appli <span class="infoTipWrap"><button type="button" class="infoTipBtn" aria-label="Informations" aria-expanded="false" data-tip="Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis ne garde que les heures occupées et compare les titres à tes règles, rien d'autre.">i</button></span></p>
                 <input type="text" id="externalCalendarUrl" class="calendarFeedUrl" inputmode="url" placeholder="https://…/basic.ics" autocomplete="off">
                 <div class="shareActions">
                   <button type="button" id="externalCalendarSaveBtn" class="iconBtn">Ajouter</button>
@@ -3381,20 +3380,19 @@
                 <p id="externalCalendarMsg" class="msg"></p>
                 <button type="button" id="externalCalendarListBtn" class="linkBtn externalCalendarListBtn hidden">▸ URL enregistrées</button>
                 <div id="externalCalendarList" class="externalCalendarList hidden"></div>
-                <p class="sectionTitle settingsFlatTitle">Répartition selon mon agenda</p>
-                <p class="meta">Pour répartir tes tâches dans la semaine : chaque règle s'applique aux jours où un événement a un titre contenant un de ses mots. Si plusieurs règles s'appliquent, la plus restrictive gagne. Seuls les titres sont comparés, rien n'est conservé.</p>
-                <div class="settingsCard">
+                <div id="extCalRulesBlock" class="extCalRulesBlock isDisabled">
+                  <p class="extCalSubTitle">Répartition selon mon agenda <span class="infoTipWrap"><button type="button" class="infoTipBtn" aria-label="Informations" aria-expanded="false" data-tip="Chaque règle s'applique aux jours où un événement a un titre contenant un de ses mots ; si plusieurs s'appliquent, la plus restrictive gagne. Seuls les titres sont comparés, rien n'est conservé.">i</button></span> <span class="infoTipWrap extCalLockTip"><button type="button" class="infoTipBtn" aria-label="Informations" aria-expanded="false" data-tip="Connecte d'abord un agenda ci-dessus pour activer ces règles.">i</button></span></p>
                   <div id="extCalRules"></div>
-                  <div class="shareActions">
-                    <button type="button" id="extCalAddRuleBtn" class="iconBtn">+ Ajouter une règle</button>
+                  <button type="button" id="extCalAddRuleBtn" class="extCalAddBtn">+ Ajouter une règle</button>
+                  <div class="extCalRuleBox extCalDefaultRow">
+                    <label for="extCalDefaultHours">Tous les autres jours</label>
+                    <input type="number" id="extCalDefaultHours" class="calendarFeedUrl" min="0" max="24" step="0.5" inputmode="decimal" placeholder="h">
                   </div>
-                  <label class="meta" for="extCalDefaultHours">Tous les autres jours : heures chez moi</label>
-                  <input type="number" id="extCalDefaultHours" class="calendarFeedUrl" min="0" max="24" step="0.5" inputmode="decimal" placeholder="ex. 6">
                   <div class="shareActions">
                     <button type="button" id="extCalSettingsSaveBtn" class="iconBtn">Enregistrer</button>
                   </div>
+                  <p id="extCalSettingsMsg" class="msg"></p>
                 </div>
-                <p id="extCalSettingsMsg" class="msg"></p>
               </div>
               <!-- Export de mes données personnelles (7 septembre 2026,
                    candidate n°1 de l'audit des sections manquantes du panneau
@@ -3405,7 +3403,7 @@
                    Le jeton du flux calendrier et les identifiants push restent
                    exclus du fichier exporté (décision confirmée par Emilien),
                    rien à faire côté client pour ça. -->
-              <div class="settingsFlat">
+              <div class="settingsFlat agendaGlass">
                 <p class="sectionTitle settingsFlatTitle">Exporter mes données</p>
                 <button type="button" id="exportDataBtn" class="iconBtn">Télécharger mes données</button>
                 <p id="exportDataMsg" class="msg"></p>

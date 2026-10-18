@@ -11973,6 +11973,23 @@
       .catch(function (err) { msg.textContent = err.message; });
   }
 
+  // Infobulle commune : <button class="infoTipBtn" data-tip="texte"> ; bulle ouverte au clic, fermée par reclic ou clic ailleurs.
+  (function () {
+    var pop = null, cur = null;
+    function close() { if (pop) { pop.remove(); pop = null; } if (cur) { cur.setAttribute('aria-expanded', 'false'); cur = null; } }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.infoTipBtn');
+      if (!b) { if (!(pop && pop.contains(e.target))) close(); return; }
+      e.preventDefault(); e.stopPropagation();
+      var same = cur === b; close(); if (same) return;
+      pop = document.createElement('div'); pop.className = 'infoTipPop'; pop.setAttribute('role', 'tooltip');
+      pop.textContent = t(b.getAttribute('data-tip') || '');
+      var card = b.closest('.agendaGlass') || b.parentNode;
+      card.style.position = 'relative'; card.appendChild(pop);
+      pop.style.top = (b.getBoundingClientRect().bottom - card.getBoundingClientRect().top + 6) + 'px';
+      cur = b; b.setAttribute('aria-expanded', 'true');
+    });
+  })();
   // Agenda externe (lecture) : Noèsis lit les plages occupées de plusieurs flux ICS pour alléger la liste du jour.
   var externalCalendarListOpen = false;
   function renderExternalCalendarUrls(urls) {
@@ -11980,6 +11997,11 @@
     var box = $('externalCalendarList');
     if (!btn || !box) return;
     urls = urls || [];
+    var rb = $('extCalRulesBlock');
+    if (rb) {
+      rb.classList.toggle('isDisabled', !urls.length);
+      rb.querySelectorAll('input,button.extCalAddBtn,#extCalSettingsSaveBtn,.extCalSeg button,.historyRowIconBtn').forEach(function (el) { el.disabled = !urls.length; });
+    }
     btn.classList.toggle('hidden', !urls.length);
     if (!urls.length) { externalCalendarListOpen = false; box.classList.add('hidden'); box.innerHTML = ''; return; }
     btn.textContent = (externalCalendarListOpen ? '▾ ' : '▸ ') + t('URL enregistrées') + ' (' + urls.length + ')';
@@ -12024,8 +12046,8 @@
     var rows = $('extCalRules').querySelectorAll('.extCalRule');
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var mode = r.querySelector('select').value;
-      var h = r.querySelector('input[type=number]').value.trim().replace(',', '.');
+      var mode = r.dataset.mode === 'limit' ? 'limit' : 'none';
+      var h = r.querySelector('.extCalHrs').value.trim().replace(',', '.');
       out.push({ words: r.querySelector('input[type=text]').value, mode: mode, maxMinutes: mode === 'limit' && h !== '' ? Math.round(Number(h) * 60) : null });
     }
     return out;
@@ -12036,29 +12058,38 @@
     box.innerHTML = '';
     extCalRules.forEach(function (rule, idx) {
       var row = document.createElement('div');
-      row.className = 'extCalRule';
-      row.style.marginBottom = '12px';
+      row.className = 'extCalRule extCalRuleBox';
+      row.dataset.mode = rule.mode === 'limit' ? 'limit' : 'none';
       var lab = document.createElement('label');
-      lab.className = 'meta';
+      lab.className = 'extCalLbl';
       lab.textContent = t('Si le titre contient');
       var words = document.createElement('input');
       words.type = 'text'; words.className = 'calendarFeedUrl'; words.autocomplete = 'off';
       words.placeholder = idx === 0 ? t('vacances, congé') : t('bureau');
       words.value = Array.isArray(rule.words) ? rule.words.join(', ') : (rule.words || '');
       var line = document.createElement('div');
-      line.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px';
-      var sel = document.createElement('select');
-      sel.className = 'calendarFeedUrl'; sel.style.flex = '1 1 auto';
-      [['none', t('Aucune tâche')], ['limit', t('Temps limité')]].forEach(function (o) {
-        var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op);
-      });
-      sel.value = rule.mode === 'limit' ? 'limit' : 'none';
+      line.className = 'extCalLine';
+      var seg = document.createElement('div');
+      seg.className = 'extCalSeg';
       var hrs = document.createElement('input');
-      hrs.type = 'number'; hrs.className = 'calendarFeedUrl'; hrs.min = '0'; hrs.max = '24'; hrs.step = '0.5';
-      hrs.setAttribute('inputmode', 'decimal'); hrs.placeholder = t('max. h'); hrs.style.cssText = 'width:90px;flex:0 0 90px';
+      hrs.type = 'number'; hrs.className = 'calendarFeedUrl extCalHrs'; hrs.min = '0'; hrs.max = '24'; hrs.step = '0.5';
+      hrs.setAttribute('inputmode', 'decimal'); hrs.placeholder = t('max. h');
       hrs.value = rule.maxMinutes == null ? '' : rule.maxMinutes / 60;
-      hrs.classList.toggle('hidden', sel.value !== 'limit');
-      sel.addEventListener('change', function () { hrs.classList.toggle('hidden', sel.value !== 'limit'); });
+      function setMode(m) {
+        row.dataset.mode = m;
+        hrs.classList.toggle('hidden', m !== 'limit');
+        seg.querySelectorAll('button').forEach(function (bt) {
+          var on = bt.dataset.m === m;
+          bt.classList.toggle('on', on); bt.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      }
+      [['none', t('Aucune tâche')], ['limit', t('Temps limité')]].forEach(function (o) {
+        var bt = document.createElement('button');
+        bt.type = 'button'; bt.dataset.m = o[0]; bt.textContent = o[1];
+        bt.addEventListener('click', function () { setMode(o[0]); });
+        seg.appendChild(bt);
+      });
+      setMode(row.dataset.mode);
       var del = document.createElement('button');
       del.type = 'button';
       del.className = 'historyRowIconBtn danger';
@@ -12069,10 +12100,12 @@
         extCalRules.splice(idx, 1);
         renderExtCalRules();
       });
-      line.appendChild(sel); line.appendChild(hrs); line.appendChild(del);
+      line.appendChild(seg); line.appendChild(hrs); line.appendChild(del);
       row.appendChild(lab); row.appendChild(words); row.appendChild(line);
       box.appendChild(row);
     });
+    var rb = $('extCalRulesBlock');
+    if (rb && rb.classList.contains('isDisabled')) rb.querySelectorAll('.extCalRule input,.extCalRule button').forEach(function (el) { el.disabled = true; });
   }
   function loadExternalCalendarSettings() {
     if (!profile || !$('extCalRules')) return;
