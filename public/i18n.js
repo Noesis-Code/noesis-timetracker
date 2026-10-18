@@ -277,6 +277,7 @@
     'Colle d\u2019abord l\u2019adresse de ton agenda.': 'Paste your calendar address first.',
     'Agenda enregistré.': 'Calendar saved.',
     'Réglages enregistrés.': 'Settings saved.',
+    'Enregistré.': 'Saved.',
     'Répartition selon mon agenda': 'Planning based on my calendar',
     'Heures chez moi les jours travaillés ailleurs': 'Hours at home on days worked elsewhere',
     'Heures chez moi les autres jours': 'Hours at home on other days',

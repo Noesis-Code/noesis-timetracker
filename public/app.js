@@ -12121,18 +12121,30 @@
     extCalRules.push({ words: [], mode: 'none', maxMinutes: null });
     renderExtCalRules();
   });
-  if ($('extCalSettingsSaveBtn')) $('extCalSettingsSaveBtn').addEventListener('click', function () {
+  // 18 oct. 2026 : enregistrement automatique (plus de bouton) : 600 ms après la dernière frappe / le dernier clic sur une règle.
+  var extCalSaveTimer = null, extCalSaveSeq = 0;
+  function saveExtCalNow() {
     if (!profile) return;
     var msg = $('extCalSettingsMsg');
     var dh = $('extCalDefaultHours').value.trim().replace(',', '.');
-    msg.textContent = '';
+    var seq = ++extCalSaveSeq;
     api('PUT', '/api/calendar/external-settings', {
       userId: profile.id,
       rules: extCalRulesFromDom(),
       defaultMinutes: dh === '' ? null : Math.round(Number(dh) * 60)
-    }).then(function () { msg.textContent = t('Réglages enregistrés.'); loadExternalCalendarSettings(); })
-      .catch(function (err) { msg.textContent = err.message; });
-  });
+    }).then(function () { if (seq === extCalSaveSeq) msg.textContent = t('Enregistré.'); })
+      .catch(function (err) { if (seq === extCalSaveSeq) msg.textContent = err.message; });
+  }
+  function scheduleExtCalSave() {
+    $('extCalSettingsMsg').textContent = '';
+    clearTimeout(extCalSaveTimer);
+    extCalSaveTimer = setTimeout(saveExtCalNow, 600);
+  }
+  if ($('extCalRulesBlock')) {
+    $('extCalRulesBlock').addEventListener('input', function (e) { if (e.target.closest('input')) scheduleExtCalSave(); });
+    $('extCalRulesBlock').addEventListener('click', function (e) { if (e.target.closest('.extCalSeg button, .historyRowIconBtn')) setTimeout(scheduleExtCalSave, 0); });
+    $('extCalRulesBlock').addEventListener('focusout', function (e) { if (e.target.closest('input') && extCalSaveTimer) { clearTimeout(extCalSaveTimer); extCalSaveTimer = null; saveExtCalNow(); } });
+  }
   $('externalCalendarListBtn').addEventListener('click', function () {
     externalCalendarListOpen = !externalCalendarListOpen;
     loadExternalCalendar();
