@@ -502,7 +502,10 @@
   function isCh() { return $('docTasksChangesPop').getAttribute('data-mode') !== 'tasks'; }
   function items() { return isCh() ? changes : ptasks; }
   function isOn(t) { return isCh() ? t.checked !== 0 : !!psel[t.id]; }
-  function setOn(t, on) { if (isCh()) t.checked = on ? 1 : 0; else if (on) psel[t.id] = true; else delete psel[t.id]; }
+  // 18 oct. 2026 : rien de coché d'avance (comme Nouvelles tâches) ; seules les coches faites pendant cette session comptent.
+  var cSessionOn = {};
+  function normCh(list) { list.forEach(function (c) { c.checked = cSessionOn[c.id] ? 1 : 0; }); return list; }
+  function setOn(t, on) { if (isCh()) { t.checked = on ? 1 : 0; if (on) cSessionOn[t.id] = true; else delete cSessionOn[t.id]; } else if (on) psel[t.id] = true; else delete psel[t.id]; }
   function persistChecks(arr, prevs) { // modifications : enregistre les coches côté serveur ; en cas d'échec, remet l'état d'avant
     if (!isCh()) return;
     Promise.all(arr.map(function (c, k) {
@@ -787,7 +790,7 @@
   }
   function loadChanges() {
     var p = loadPTasks();
-    cApi('GET', '').then(function (r) { changes = r.proposals || []; }).catch(function () { changes = []; }).then(function () { return p; }).then(loadPMeta).then(renderChanges);
+    cApi('GET', '').then(function (r) { changes = normCh(r.proposals || []); }).catch(function () { changes = []; }).then(function () { return p; }).then(loadPMeta).then(renderChanges);
   }
   function resolvePTasks(items, okMsg) {
     if (busy) return; busy = true;
@@ -891,7 +894,7 @@
   $('docTasksChangesFind').addEventListener('click', function () {
     if (busy) return; busy = true; cToast('L’IA cherche…');
     cApi('POST', '/generate', {}).then(function (r) {
-      busy = false; changes = r.proposals || []; renderChanges();
+      busy = false; changes = normCh(r.proposals || []); renderChanges();
       cToast(r.aiBlocked ? r.message : r.capReached ? 'Plafond IA du jour atteint.' : (r.configured === false ? 'IA non configurée.' : (r.failed ? 'L’IA n’a pas répondu.' : (r.added ? r.added + ' nouvelle(s) proposition(s).' : 'Rien de nouveau à proposer.'))));
     }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
   });
