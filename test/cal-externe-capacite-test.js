@@ -32,6 +32,15 @@ assert(ext.dayCapacityFromTexts(texts, wed, settings) === 360, 'jour libre : Y h
 assert(ext.dayCapacityFromTexts(texts, wed, { ...settings, freeDayMinutes: null }) === null, 'réglage vide : aucune limite imposée');
 assert(ext.dayCapacityFromTexts([ics(ev('Vacances au Mexique', wed))], wed, { ...settings, vacationWords: ['voyage'] }) === 360, 'mots de vacances réglables');
 
+// Événement horodaté : lundi 22:00Z à mardi 02:00Z = lundi 18:00-22:00 à Toronto (un seul jour local)
+const z = (day, hh) => compact(day) + 'T' + hh + '0000Z';
+const timed = `BEGIN:VEVENT\r\nDTSTART:${z(mon, '22')}\r\nDTEND:${z(tue, '02')}\r\nSUMMARY:Jacopo\r\nEND:VEVENT\r\n`;
+const tx = [ics(timed)];
+assert(ext.dayCapacityFromTexts(tx, mon, settings, 'America/Toronto') === 120 && ext.dayCapacityFromTexts(tx, tue, settings, 'America/Toronto') === 360, 'événement horodaté Z : un seul jour LOCAL (Toronto)');
+assert(ext.dayCapacityFromTexts(tx, tue, settings, 'Europe/Paris') === 120, 'même événement : autre fuseau, autre jour');
+ext.setSettings('w', { workPatterns: ['Jacopo', 'jacopo', 'JACOPO', null, 5, { a: 1 }, ' '], vacationWords: [] });
+assert(JSON.stringify(ext.getSettings('w').workPatterns) === '["Jacopo"]' && ext.getSettings('w').vacationWords.length === 0, 'mots : non-chaînes ignorées, doublons sans casse');
+
 const reply = (rows) => JSON.stringify({ t: rows });
 const fin = (rows, dayCaps, cap) => {
   const ctx = dt.buildContext('own', act);

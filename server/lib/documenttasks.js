@@ -469,7 +469,7 @@ async function prepareProposal(userId, activityId, body, opts) {
     const days = [];
     const lastDay = goals.addDays(ctx.weeks[ctx.weeks.length - 1], 6);
     for (let d = ctx.weeks[0]; d <= lastDay && days.length < 400; d = goals.addDays(d, 1)) days.push(d);
-    ctx.dayCaps = await require('./externalcalendar').dayCapacities(userId, days);
+    ctx.dayCaps = await require('./externalcalendar').dayCapacities(userId, days, o.timezone);
   } catch (e) { ctx.dayCaps = {}; }
   if (!ctx.candidates.length) throw httpError(400, 'Aucune catégorie sur cette activité.');
   const cctx = changeproposals.buildContext(userId, activityId);

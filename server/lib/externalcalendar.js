@@ -6,6 +6,7 @@
 // sortant/entrant. Aucune dépendance ajoutée : Node 24 fournit `fetch`
 // nativement.
 const db = require('../db');
+const dates = require('./dates');
 
 function ensureTable() {
   // 9 oct. 2026 : userId est un identifiant TEXTE (uuid) ; l'ancienne colonne INTEGER refusait toute écriture.
@@ -175,8 +176,16 @@ db.exec(`CREATE TABLE IF NOT EXISTS external_calendar_settings (
 )`);
 
 function cleanWords(list) {
-  const arr = Array.isArray(list) ? list : String(list || '').split(/[,;\n]/);
-  return Array.from(new Set(arr.map((w) => String(w).trim().slice(0, 60)).filter(Boolean))).slice(0, 20);
+  const arr = Array.isArray(list) ? list : (typeof list === 'string' ? list.split(/[,;\n]/) : []);
+  const seen = new Set();
+  const out = [];
+  arr.forEach((w) => {
+    if (typeof w !== 'string') return;
+    const v = w.trim().slice(0, 60);
+    const k = v.toLowerCase();
+    if (v && !seen.has(k)) { seen.add(k); out.push(v); }
+  });
+  return out.slice(0, 20);
 }
 
 function getSettings(userId) {
@@ -226,7 +235,7 @@ function parseIcsEvents(icsText) {
     const line = rawLine.trim();
     if (line === 'BEGIN:VEVENT') { cur = {}; continue; }
     if (line === 'END:VEVENT') {
-      if (cur && cur.start) { if (!cur.end) cur.end = new Date(cur.start.getTime() + 86400000); out.push({ start: cur.start, end: cur.end, summary: cur.summary || '' }); }
+      if (cur && cur.start) { if (!cur.end) cur.end = new Date(cur.start.getTime() + 86400000); out.push({ start: cur.start, end: cur.end, summary: cur.summary || '', allDay: !!cur.allDay }); }
       cur = null; continue;
     }
     if (!cur) continue;
@@ -234,13 +243,13 @@ function parseIcsEvents(icsText) {
     if (!m) continue;
     if (m[1] === 'SUMMARY') { cur.summary = m[2].replace(/\\([,;nN\\])/g, (x, c) => (c === 'n' || c === 'N' ? ' ' : c)); continue; }
     const d = parseIcsDate(m[2].trim());
-    if (d) cur[m[1] === 'DTSTART' ? 'start' : 'end'] = d;
+    if (d) { cur[m[1] === 'DTSTART' ? 'start' : 'end'] = d; if (m[1] === 'DTSTART') cur.allDay = /^\d{8}$/.test(m[2].trim()); }
   }
   return out;
 }
 
 // PURE. Capacité (minutes) d'un jour : 0 vacances, workDayMinutes, freeDayMinutes, ou null (pas de limite).
-function dayCapacityFromTexts(texts, isoDate, settings) {
+function dayCapacityFromTexts(texts, isoDate, settings, tz) {
   const dayStart = new Date(isoDate + 'T00:00:00Z').getTime();
   const dayEnd = dayStart + 86400000;
   const vac = (settings.vacationWords || []).map(foldText).filter(Boolean);
@@ -248,7 +257,14 @@ function dayCapacityFromTexts(texts, isoDate, settings) {
   let isVac = false; let isWork = false;
   texts.forEach((txt) => {
     parseIcsEvents(txt).forEach((ev) => {
-      if (!(ev.start.getTime() < dayEnd && ev.end.getTime() > dayStart)) return;
+      if (ev.allDay) { if (!(ev.start.getTime() < dayEnd && ev.end.getTime() > dayStart)) return; } // journée entière : date du calendrier, sans fuseau
+      else {
+        // Événement horodaté (UTC) : jours LOCAUX couverts, dans le fuseau de l'utilisateur.
+        const zone = tz || dates.DEFAULT_TIMEZONE;
+        const first = dates.isoDateOf(ev.start, zone);
+        const lastD = dates.isoDateOf(new Date(Math.max(ev.start.getTime(), ev.end.getTime() - 1)), zone);
+        if (isoDate < first || isoDate > lastD) return;
+      }
       const title = foldText(ev.summary);
       if (vac.some((w) => title.includes(w))) isVac = true;
       else if (work.some((w) => title.includes(w))) isWork = true;
@@ -279,13 +295,13 @@ async function refreshTexts(userId) {
 }
 
 // Capacités des jours demandés : { 'YYYY-MM-DD': minutes } (jours sans limite absents). Agenda absent/injoignable -> {}.
-async function dayCapacities(userId, days) {
+async function dayCapacities(userId, days, tz) {
   try {
     const texts = await refreshTexts(userId);
     if (!texts) return {};
     const settings = getSettings(userId);
     const out = {};
-    days.forEach((d) => { const c = dayCapacityFromTexts(texts, d, settings); if (c != null) out[d] = c; });
+    days.forEach((d) => { const c = dayCapacityFromTexts(texts, d, settings, tz); if (c != null) out[d] = c; });
     return out;
   } catch (e) { return {}; }
 }
