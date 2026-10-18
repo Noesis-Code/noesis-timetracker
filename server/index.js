@@ -307,6 +307,7 @@ app.listen(PORT, HOST, () => {
   // comme les rappels d'échéance ci-dessus : la première copie a lieu 2
   // minutes après le démarrage, jamais immédiatement.
   startBackupSchedule();
+  if (process.env.NOESIS_RESTORE_DRIVE_TASKS) require('./lib/restoredrivetasks').run(process.env.NOESIS_RESTORE_DRIVE_TASKS).catch((e) => console.error('[restore-tasks] échec :', e && e.message));
 
   // Abonnement Offre 1 (9 septembre 2026) : régénération mensuelle des
   // feuilles de route + révélation différée des tâches de remplacement.
