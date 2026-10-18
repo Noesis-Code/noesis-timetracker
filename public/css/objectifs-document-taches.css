@@ -170,3 +170,5 @@
 .ptBar .docTasksLink { min-height: 44px; }
 .ptBar button:disabled { opacity: .4; cursor: default; }
 .ptRow > input[type="checkbox"]:disabled { opacity: .35; cursor: default; }
+/* Taille fixe : le pop-up « Nouvelles tâches » garde sa plus grande hauteur, arbre replié ou déplié. */
+#docTasksChangesPop[data-mode="tasks"] > .docTasksPopCard { height: 80vh; height: 80dvh; }
