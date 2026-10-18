@@ -77,6 +77,7 @@
         <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
         <div id="docTasksPTasksBar" class="ptBar hidden"><div id="docTasksPDots" class="ptDots"></div><button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn">Ajouter la sélection</button></div>
+        <button type="button" id="docTasksDelAll" class="docTasksLink docTasksDelAll hidden">Tout supprimer</button>
         <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
       </div>
     </div>`);
@@ -491,6 +492,7 @@
     $('docTasksChangesHint').classList.toggle('hidden', tm);
     $('docTasksChangesFind').classList.toggle('hidden', tm);
     var ab = $('docTasksPTasksApply'); if (ab) ab.textContent = tm ? 'Ajouter la sélection' : 'Appliquer';
+    delArmReset(); var da = $('docTasksDelAll'); if (da) da.classList.toggle('hidden', !items().length);
     var pa = $('docTasksPTasksBar'); if (pa) pa.classList.toggle('hidden', !items().length);
     renderPTasks();
   }
@@ -891,6 +893,35 @@
   $('docTasksChangesBtn').addEventListener('click', function () { openChangesPop('changes'); });
   $('docTasksTasksBtn').addEventListener('click', function () { openChangesPop('tasks'); });
   $('docTasksChangesClose').addEventListener('click', function () { $('docTasksChangesPop').classList.add('hidden'); });
+  // 18 oct. 2026 : « Tout supprimer » (Nouvelles tâches ET Modifications proposées) = refuser tout ce qui est en attente ; un refus est mémorisé (pas reproposé).
+  // Confirmation sur place (pas de fenêtre système) : un 1er appui arme le bouton 5 s, le 2e supprime.
+  var delTimer = null;
+  function delArmReset() { clearTimeout(delTimer); delTimer = null; var b = $('docTasksDelAll'); if (b) { b.textContent = 'Tout supprimer'; b.removeAttribute('data-armed'); } }
+  $('docTasksDelAll').addEventListener('click', function () {
+    if (busy) return;
+    var b = this, list = items(), n = list.length; if (!n) return;
+    if (!b.getAttribute('data-armed')) {
+      b.setAttribute('data-armed', '1'); b.textContent = 'Confirmer : supprimer ' + nTasks(n).replace('tâche', isCh() ? 'modification' : 'tâche');
+      delTimer = setTimeout(delArmReset, 5000); return;
+    }
+    delArmReset(); busy = true; cToast('Suppression…');
+    var ch = isCh(), all = list.slice(), gone = {}, i = 0;
+    function finish(err) {
+      busy = false;
+      if (ch) changes = changes.filter(function (x) { return !gone[x.id]; });
+      else { ptasks = ptasks.filter(function (x) { return !gone[x.id]; }); Object.keys(gone).forEach(function (id) { delete psel[id]; }); }
+      ptree = null; nav = { s: 0, p: null, g: null }; renderChanges();
+      cToast(err || (Object.keys(gone).length + ' supprimé(s).'));
+    }
+    (function next() {
+      if (i >= all.length) { finish(); return; }
+      var batch = all.slice(i, i + PBATCH); i += PBATCH;
+      var req = ch ? cApi('POST', '/dismiss', { ids: batch.map(function (x) { return x.id; }) })
+                   : dApi('POST', '/api/drive/sync/resolve', { items: batch.map(function (x) { return { id: x.id, key: x.key, checked: false }; }) });
+      req.then(function () { batch.forEach(function (x) { gone[x.id] = true; }); next(); })
+         .catch(function (err) { finish((err && err.message) || 'Erreur.'); });
+    })();
+  });
   $('docTasksChangesFind').addEventListener('click', function () {
     if (busy) return; busy = true; cToast('L’IA cherche…');
     cApi('POST', '/generate', {}).then(function (r) {
