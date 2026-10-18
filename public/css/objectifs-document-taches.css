@@ -142,8 +142,7 @@
 .ptHeadBtns { display: flex; gap: 14px; }
 .ptHeadBtns .docTasksLink { min-height: 44px; }
 .ptIntro { padding: 0 14px 8px; }
-.ptRow { display: flex; align-items: flex-start; gap: 6px; padding: 8px 12px 8px calc(6px + var(--ptl, 0) * 14px); border-bottom: 1px solid var(--glass-border); }
-.ptRow.ptPole, .ptRow.ptOrph { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.ptRow { display: flex; align-items: flex-start; gap: 6px; padding: 8px 4px 8px calc(2px + var(--ptl, 0) * 14px); }
 .ptTog, .ptTogSp { flex: none; width: 32px; height: 32px; margin-top: -2px; padding: 0; border: 0; background: transparent; color: var(--text-light); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .ptTogSp { cursor: default; }
 .ptTog svg { transition: transform .15s; }
