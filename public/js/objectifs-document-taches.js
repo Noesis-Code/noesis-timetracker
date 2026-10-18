@@ -648,7 +648,7 @@
   }
   function cbx(n) { return '<input type="checkbox" data-gid="' + esc(n.id) + '" aria-label="Sélectionner"' + (n.sleaves.length ? '' : ' disabled') + '>'; }
   function totalTxt(n) { return nTasks(n.leaves.length) + ' · ' + fmtH(n.mins); }
-  function allRow(n, txt) { return '<button type="button" class="ptAllBtn" data-t="' + esc(txt) + '" data-all="' + esc(n.id) + '"' + (n.sleaves.length ? '' : ' disabled') + '>' + txt + '</button>'; }
+  function allRow(n, txt) { return '<label class="ptAllRow" data-t="' + esc(txt) + '">' + cbx(n) + '<span class="ptAllTxt">' + txt + '</span></label>'; }
   function taskHtml(l) {
     var t = l.task, day = dayOrWeekLabel({ day: t.day, week: t.week, noRoom: t.noRoom });
     var sub = [day, t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
@@ -708,12 +708,6 @@
       var st = nodeState(n); cb.checked = st === 2; cb.indeterminate = st === 1;
     });
     Array.prototype.forEach.call(h.querySelectorAll('input[data-tid]'), function (cb) { cb.checked = !!psel[cb.getAttribute('data-tid')]; });
-    Array.prototype.forEach.call(h.querySelectorAll('button[data-all]'), function (bt) {
-      var n = pnodes[bt.getAttribute('data-all')]; if (!n) return;
-      var all = nodeState(n) === 2; bt.classList.toggle('on', all);
-      var base = bt.getAttribute('data-t') || 'Tout sélectionner';
-      bt.textContent = all ? base.replace('Tout sélectionner', 'Tout désélectionner') : base;
-    });
     var any = ptasks.some(function (t) { return psel[t.id]; });
     var b = $('docTasksPTasksApply'); if (b) b.disabled = !any;
   }
@@ -730,6 +724,7 @@
     for (var i = 0; i <= nav.s; i++) fillPane(i);
     clearTimeout(pclear);
     ptrack.classList.toggle('ptAnim', !!animate);
+    void ptrack.offsetWidth; // fige le point de départ : la transition part de l'écran actuel (avant comme arrière)
     ptrack.style.transform = 'translateX(' + (-nav.s * 100) + '%)';
     var cur = panes()[nav.s]; if (cur && animate) cur.scrollTop = 0;
     pclear = setTimeout(function () { for (var j = nav.s + 1; j < 3; j++) { var e = panes()[j]; if (e) e.innerHTML = ''; } }, animate ? 340 : 0);
@@ -737,8 +732,10 @@
   }
   function goTo(s, p, g) {
     if (s > 0 && !findPole(p)) s = 0;
+    var back = s < nav.s, keepP = nav.p, keepG = nav.g;
     nav = { s: s, p: s > 0 ? p : null, g: s > 1 ? g : null };
-    var cur = ptrack && ptrack.children[s]; if (cur) cur.innerHTML = '';
+    if (back) { nav.p = s > 0 ? keepP : null; nav.g = s > 1 ? keepG : null; }
+    var cur = !back && ptrack && ptrack.children[s]; if (cur) cur.innerHTML = '';
     showScreen(true);
   }
   function renderPTasks() {
@@ -783,8 +780,6 @@
   $('docTasksChangesTasks').addEventListener('click', function (e) {
     var d = e.target.closest('button[data-pd]');
     if (d) { var id = Number(d.getAttribute('data-pd')); var t = ptasks.filter(function (x) { return x.id === id; })[0]; if (t) resolvePTasks([{ id: t.id, key: t.key, checked: false }], false); return; }
-    var ab = e.target.closest('button[data-all]');
-    if (ab) { var an = pnodes[ab.getAttribute('data-all')]; if (an) { var aon = nodeState(an) !== 2; an.sleaves.forEach(function (t) { if (aon) psel[t.id] = true; else delete psel[t.id]; }); paintBoxes(); } return; }
     var wx = e.target.closest('button[data-wx]');
     if (wx) { wx.classList.toggle('open'); wx.setAttribute('aria-expanded', wx.classList.contains('open') ? 'true' : 'false'); return; }
     var go = e.target.closest('button[data-go]');

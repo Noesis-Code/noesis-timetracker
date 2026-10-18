@@ -163,6 +163,7 @@
 .ptTopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ptTotalR { font-size: 13px; opacity: .65; font-variant-numeric: tabular-nums; text-align: right; }
 .ptAllRow { display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; }
+.ptAllTxt { font-style: italic; text-decoration: underline; font-weight: 600; }
 .ptTopRow > .ptAllRow { flex: 1 1 auto; }
 .ptPole { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .ptPdot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--pc, var(--purple)); }
@@ -190,9 +191,6 @@
 .ptWeekTasks { display: flex; flex-direction: column; gap: 10px; padding: 2px 0 8px 22px; }
 .ptClamp { display: block; width: calc(100% - 30px); box-sizing: border-box; margin-right: 0; text-align: left; background: none; border: 0; color: inherit; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ptClamp.open { white-space: normal; overflow: visible; }
-.ptAllBtn { flex: none; align-self: flex-start; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-.ptAllBtn.on { background: var(--purple); border-color: var(--purple); color: #fff; }
-.ptAllBtn:disabled { opacity: .4; cursor: default; }
 .ptTask { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
 .ptTask > input[type="checkbox"] { margin-top: 1px; }
 .ptTask.ptNo { cursor: default; }
