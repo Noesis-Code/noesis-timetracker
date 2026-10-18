@@ -23,8 +23,8 @@
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((t && t.day) || '');
     var out = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('fr-CA', { weekday: 'short', day: 'numeric', month: 'short' })
       : (t && t.week ? weekLabel(t.week) + (t.noRoom ? ' (jour à choisir)' : '') : '');
-    // Déplacée parce que le JOUR était plein (même semaine) ; « semaine pleine » seulement si elle a changé de semaine. Sans semaine d'origine : « jour plein ».
-    return out + (t && t.moved ? (t.fromWeek && t.week && t.fromWeek !== t.week ? ' · déplacée (semaine pleine)' : ' · déplacée (jour plein)') : '');
+    // Un changement de jour dans la même semaine est silencieux ; seule une tâche passée à une AUTRE semaine est signalée.
+    return out + (t && t.moved ? ' · déplacée (semaine pleine)' : '');
   }
 
   document.getElementById('content').insertAdjacentHTML('beforeend', `
@@ -632,7 +632,7 @@
       var sub = [day, t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
       h += '<div class="ptKind">Tâche</div><div class="ptLabel ptTaskTitle">' + esc(t.title) + '</div>';
       if (sub) h += '<div class="ptSub">' + esc(sub) + '</div>';
-      if (t.moved) h += '<div><span class="ptFlag">' + (t.fromWeek && t.week && t.fromWeek !== t.week ? 'déplacée (semaine pleine)' : 'déplacée (jour plein)') + '</span></div>';
+      if (t.moved) h += '<div><span class="ptFlag">' + 'déplacée (semaine pleine)' + '</span></div>';
       if (n.dup) h += '<div><span class="ptFlag">doublon probable d’une tâche existante</span></div>';
       if (!n.ok && pcats.length) {
         h += '<div class="docTasksMeta">Choisis une catégorie : <select class="docTasksCat" data-pc="' + i + '"><option value="">—</option>'
