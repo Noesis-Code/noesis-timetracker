@@ -721,7 +721,8 @@
   // entre de dir*100 % à 0, l'écran de départ `from` (posé en absolu) sort de 0 à -dir*100 %. Un seul écran rendu à la fois.
   var pview = null;
   function panes() { return pview ? pview.children : []; }
-  function fillPane(i) { var el = panes()[i]; if (el) el.innerHTML = paneHtml(i); }
+  var fwd = null; // écran quitté par un retour (le geste vers la gauche y revient)
+  function fillPane(i, st) { var el = panes()[i]; if (!el) return; var keep = nav; if (st) nav = st; el.innerHTML = paneHtml(i); nav = keep; }
   function showScreen() { // affichage immédiat (sans animation) de l'écran courant
     for (var i = 0; i < 3; i++) { var e = panes()[i]; if (!e) continue; e.classList.toggle('hidden', i !== nav.s); e.innerHTML = i === nav.s ? paneHtml(i) : ''; }
     renderDots(); paintBoxes();
@@ -730,7 +731,7 @@
     if (s > 0 && !findPole(p)) s = 0;
     var from0 = nav.s, back = s < from0, keepP = nav.p, keepG = nav.g;
     nav = { s: s, p: s > 0 ? p : null, g: s > 1 ? g : null };
-    if (back) { nav.p = s > 0 ? keepP : null; nav.g = s > 1 ? keepG : null; }
+    if (back) { nav.p = s > 0 ? keepP : null; nav.g = s > 1 ? keepG : null; fwd = { s: from0, p: keepP, g: keepG }; } else fwd = null;
     if (s === from0) { showScreen(); return; }
     var from = panes()[from0], to = panes()[s], dir = s > from0 ? 1 : -1;
     fillPane(s); renderDots(); paintBoxes();
@@ -825,19 +826,22 @@
     goTo(s, nav.p, nav.g);
   });
   // Glissement tactile : technique commune (TMT.slidePager, stats-avance.js). Vers la droite = écran précédent ;
-  // vers la gauche on n'avance pas (on avance en touchant une carte). Branché au premier rendu (stats-avance.js se charge après ce fichier).
+  // vers la gauche = l'écran qu'on vient de quitter (sinon on avance en touchant une carte). Branché au premier rendu (stats-avance.js se charge après ce fichier).
   var swipeBound = false;
   function bindSwipe() {
     if (swipeBound || !(window.TMT && TMT.slidePager)) return; swipeBound = true;
     TMT.slidePager({
       zone: $('docTasksChangesTasks'),
       neighbor: function (dir) {
-        if (dir > 0 || nav.s < 1 || !pview) return null;
-        var t = nav.s - 1, cur = panes()[nav.s], nb = panes()[t], keep = { p: nav.p, g: nav.g };
+        if (!pview) return null;
+        var t = nav.s + dir, st;
+        if (dir < 0) { if (nav.s < 1) return null; st = { s: t, p: t > 0 ? nav.p : null, g: t > 1 ? nav.g : null }; }
+        else { if (!fwd || fwd.s !== t) return null; st = { s: t, p: fwd.p, g: t > 1 ? fwd.g : null }; }
+        var cur = panes()[nav.s], nb = panes()[t], keepNav = nav;
         return {
           cur: cur, nb: nb, host: pview,
-          start: function () { fillPane(t); nb.scrollTop = 0; },
-          commit: function () { nav = { s: t, p: t > 0 ? keep.p : null, g: t > 1 ? keep.g : null }; cur.innerHTML = ''; renderDots(); paintBoxes(); },
+          start: function () { fillPane(t, st); nb.scrollTop = 0; },
+          commit: function () { nav = st; fwd = dir < 0 ? { s: keepNav.s, p: keepNav.p, g: keepNav.g } : null; cur.innerHTML = ''; renderDots(); paintBoxes(); },
           cancel: function () { nb.innerHTML = ''; }
         };
       }
