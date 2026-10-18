@@ -512,15 +512,16 @@ async function proposeFromFile(userId, activityId, fileId, instruction) {
 async function disconnect(userId, activityId) {
   ensureTable();
   const c = getConn(userId, activityId);
-  if (!c) { ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_attempts', 'drive_infra_fails', 'drive_progress', 'drive_seg_done', 'drive_seen_tasks', 'drive_folders'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId)); return { disconnected: true }; }
+  if (!c) { ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_attempts', 'drive_infra_fails', 'drive_progress', 'drive_seg_done', 'drive_folders'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId)); return { disconnected: true }; }
   if (configured()) {
     try {
       await fetchFn(REVOKE_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: decrypt(c.encryptedToken) }).toString() });
     } catch (e) { /* la suppression locale prime */ }
   }
-  // Droit au retrait : la surveillance s'arrête et tout ce qui la concerne est supprimé.
+  // Droit au retrait : la surveillance s'arrête et l'état de synchronisation est supprimé.
+  // Les propositions de tâches (drive_seen_tasks : en attente, ajoutées, refusées) RESTENT : ce sont des tâches de l'utilisateur à trier, et la déduplication évite qu'elles reviennent si Drive est reconnecté.
   // Limite connue : un lot Anthropic déjà soumis continue chez Anthropic ; son coût réel n'est plus enregistré (la ligne drive_batches, qui seule le relève, est supprimée).
-  ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_attempts', 'drive_infra_fails', 'drive_progress', 'drive_seg_done', 'drive_seen_tasks', 'drive_folders', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
+  ['drive_sync', 'drive_seen_files', 'drive_seen_chunks', 'drive_batches', 'drive_skipped', 'drive_attempts', 'drive_infra_fails', 'drive_progress', 'drive_seg_done', 'drive_folders', 'drive_connections'].forEach((t) => db.prepare(`DELETE FROM ${t} WHERE userId = ? AND activityId = ?`).run(userId, activityId));
   return { disconnected: true };
 }
 

@@ -201,20 +201,21 @@ function validate(text, ctx) {
 const hashOf = (c) => sha(c.target + '|' + c.targetId + '|' + c.field + '|' + normText(c.after));
 
 function rowOut(r) {
-  return { id: r.id, target: r.target, targetId: r.targetId, field: r.field, fieldLabel: FIELD_LABEL[r.field] || r.field, before: r.beforeValue || '', after: r.afterValue, reason: r.reason, checked: r.checked === 0 ? 0 : 1, label: r.label || '', createdAt: r.createdAt || '', forUserId: r.forUserId || null, forName: r.forName || '', mine: !!r.mine };
+  return { id: r.id, target: r.target, targetId: r.targetId, field: r.field, fieldLabel: FIELD_LABEL[r.field] || r.field, before: r.beforeValue || '', after: r.afterValue, reason: r.reason, checked: r.checked === 0 ? 0 : 1, label: r.label || '', createdAt: r.createdAt || '', forUserId: r.forUserId || null, forName: r.forName || '', mine: !!r.mine, categoryKey: r.categoryKey || null };
 }
 
 // Libellé lisible de la cible (tâche ou objectif) pour l'affichage.
 // viewerId : l'utilisateur qui consulte ; « pour qui » = personne planifiée/assignée sur la cible, sinon celui qui a lancé la proposition.
 function withLabels(rows, viewerId) {
-  const task = db.prepare('SELECT label, plannedUserId AS uid FROM sub_project_items WHERE id = ?');
-  const weekly = db.prepare('SELECT text, assignedUserId AS uid FROM goal_weekly WHERE id = ?');
+  // categoryKey : pôle ou secteur de la cible (sub_projects.goalCategory / goal_periods.category), pour le parcours Pôle › Secteur.
+  const task = db.prepare('SELECT i.label AS label, i.plannedUserId AS uid, sp.goalCategory AS cat FROM sub_project_items i LEFT JOIN sub_projects sp ON sp.id = i.subProjectId WHERE i.id = ?');
+  const weekly = db.prepare('SELECT w.text AS text, w.assignedUserId AS uid, p.category AS cat FROM goal_weekly w LEFT JOIN goal_periods p ON p.id = w.periodId WHERE w.id = ?');
   const user = db.prepare('SELECT name FROM users WHERE id = ?');
   return rows.map((r) => {
     const t = r.target === 'task' ? task.get(r.targetId) : weekly.get(r.targetId);
     const forUserId = (t && t.uid) || r.userId || null;
     const u = forUserId ? user.get(forUserId) : null;
-    return rowOut({ ...r, label: t ? (t.label || t.text) : '', forUserId, forName: u ? u.name : '', mine: !!viewerId && forUserId === viewerId });
+    return rowOut({ ...r, label: t ? (t.label || t.text) : '', forUserId, forName: u ? u.name : '', mine: !!viewerId && forUserId === viewerId, categoryKey: (t && t.cat) || null });
   });
 }
 

@@ -248,13 +248,26 @@ app.use((req, res, next) => {
     req.path === '/app.js' ||
     req.path === '/styles.css' ||
     req.path === '/i18n.js' ||
-    req.path === '/theme-palette.js'
+    req.path === '/theme-palette.js' ||
+    // 18 oct. 2026 : /js/*.js et /css/*.css (objectifs-document-taches.js, etc.) n'avaient aucun en-tête : l'iPhone les gardait périmés (glissement/Modifications proposées jamais mis à jour).
+    /^\/(js|css)\/[^/]+\.(js|css)$/.test(req.path)
   ) {
     res.set('Cache-Control', 'no-cache');
   }
   next();
 });
 
+// 18 oct. 2026 : index.html est servi avec ?v=<build> sur chaque /js/*.js et /css/*.css. Un en-tête no-cache n'efface pas une copie
+// déjà gardée « fraîche » par l'iPhone (cache heuristique) : l'URL change à chaque déploiement, donc le fichier est rechargé.
+const ASSET_BUILD = String(process.env.RAILWAY_GIT_COMMIT_SHA || process.env.RAILWAY_DEPLOYMENT_ID || Date.now()).slice(0, 12);
+function sendIndex(req, res) {
+  res.set('Cache-Control', 'no-cache');
+  fs.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8', (err, html) => {
+    if (err) return res.status(500).end();
+    res.type('html').send(html.replace(/((?:src|href)=")(\/(?:js|css)\/[^"?]+\.(?:js|css))"/g, '$1$2?v=' + ASSET_BUILD + '"'));
+  });
+}
+app.get(['/', '/index.html'], sendIndex);
 app.use(express.static(PUBLIC_DIR));
 
 // Toute route non-API renvoie l'app (navigation par onglets gérée côté client)
@@ -266,8 +279,7 @@ app.use(express.static(PUBLIC_DIR));
 // route de repli — vérifié par des tests isolés sur Express 4 et 5 avant
 // d'appliquer ce correctif.
 app.get('/*splat', (req, res) => {
-  res.set('Cache-Control', 'no-cache');
-  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+  sendIndex(req, res);
 });
 
 // HOST : en local on reste sur localhost ; sur un hébergeur il faut écouter

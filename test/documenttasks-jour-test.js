@@ -52,7 +52,7 @@ const fin = (rows, doc) => {
   // Débordement : capacité 60 min/jour ; 3 tâches de 30 min le mercredi -> la moins importante (dernière) part au jeudi
   let r = await fin([['T1', key, wed, 30], ['T2', key, wed, 30], ['T3', key, wed, 30]]);
   const by = Object.fromEntries(r.tasks.map((t) => [t.title, t]));
-  assert(by.T1.day === wed && by.T2.day === wed && by.T3.day === thu && by.T3.moved === true && by.T3.week === nextMon, 'débordement : tâche proposée la moins importante déplacée au jour suivant avec de la place');
+  assert(by.T1.day === wed && by.T2.day === wed && by.T3.day === thu && !by.T3.moved && by.T3.week === nextMon, 'débordement : tâche proposée la moins importante déplacée au jour suivant (même semaine : silencieux, pas de moved)');
   // Date exacte jamais déplacée
   r = await fin([['E1', key, wed, 60], ['E2', key, wed, 60]], 'à faire le ' + wed + ' (E1 et E2)');
   assert(r.tasks.every((t) => t.day === wed && !t.moved) && r.dayWarnings.length === 1, 'dates exactes du document jamais déplacées (avertissement par jour)');

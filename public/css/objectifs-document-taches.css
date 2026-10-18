@@ -62,9 +62,6 @@
 .docTasksPopToast { min-height: 18px; font-size: 13px; }
 /* Modifications proposées (16 oct. 2026) : avant -> après, case cochée par défaut, corbeille à droite. Même verre/halo. */
 .docTasksChangesEntry { display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; border-radius: 14px; margin-bottom: 10px; font: inherit; font-size: 15px; cursor: pointer; text-align: left; }
-.docTasksChangeRow { align-items: flex-start; }
-.docTasksChangeRow input[type=checkbox] { margin-top: 4px; accent-color: #7c5cff; flex: 0 0 auto; }
-.docTasksChangeBody { flex: 1 1 auto; min-width: 0; }
 .docTasksChangeTitle { font-size: 13px; opacity: .75; overflow-wrap: anywhere; }
 .docTasksChangeDiff { font-size: 14px; overflow-wrap: anywhere; }
 .docTasksChangeOld { opacity: .6; text-decoration: line-through; }
@@ -131,9 +128,76 @@
 .docTasksChangeWhen { font-size: 12px; color: var(--text-light); margin-bottom: 2px; }
 .docTasksFor { color: var(--text-light); }
 .docTasksFor.me { color: #9d84e0; font-weight: 600; }
-.docTasksOther .docTasksChangeBody { opacity: .65; }
+.docTasksOther .ptBody { opacity: .65; }
 
-.docTasksGroupHead { display: flex; align-items: center; gap: 10px; padding: 10px 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-light); cursor: pointer; }
-.docTasksGroupHead .docTasksMeta { margin-left: auto; font-weight: 400; }
-.docTasksGroupHead input[type="checkbox"]:indeterminate { background: var(--purple); border-color: var(--purple); }
-.docTasksPop > .docTasksPopCard > #docTasksPTasksApply { flex: none; margin-top: 8px; }
+/* 18 oct. 2026 : « Nouvelles tâches » = arbre par destination (Pôle › Secteur › Objectif périodique › Objectif hebdomadaire › Tâche) dans le pop-up verre habituel. Violet = couleur principale ; aucune couleur de secteur. */
+.ptBody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.3; cursor: pointer; }
+.ptLabel { min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.ptTaskTitle { font-size: 14px; font-weight: 400; }
+.ptWeek { flex: none; margin-top: 1px; padding: 2px 7px; border-radius: 999px; background: var(--purple); color: #fff; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ptSub { font-size: 12px; line-height: 1.4; opacity: .7; font-variant-numeric: tabular-nums; }
+.ptFlag { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid #6b5a2a; background: rgba(224,170,48,.12); color: #e8c46a; font-size: 11.5px; }
+.ptOver { font-size: 12px; line-height: 1.4; color: #e8c46a; }
+.ptBar { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0 0; }
+.ptBar.hidden { display: none; }
+.ptBar .docTasksApplyBtn { margin-top: 0; width: 100%; min-height: 44px; }
+.ptBar .docTasksLink { min-height: 44px; }
+.ptBar button:disabled { opacity: .4; cursor: default; }
+/* Taille fixe : le pop-up « Nouvelles tâches » garde sa plus grande hauteur, arbre replié ou déplié. */
+#docTasksChangesPop > .docTasksPopCard { height: 80vh; height: 80dvh; }
+/* 18 oct. 2026 : parcours en 3 écrans qui glissent DANS le pop-up (sommaire › pôle › secteur). Cases neutres ; seul le pôle porte une teinte (--pc). */
+#docTasksChangesPop #docTasksChangesBox { overflow: hidden; display: flex; flex-direction: column; margin: 8px -14px; }
+#docTasksChangesPop #docTasksChangesTasks { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.ptView { flex: 1 1 auto; min-height: 0; overflow: hidden; position: relative; }
+.ptPane { width: 100%; min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; padding: 0 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
+.ptPane > * { flex: none; }
+.ptTopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ptTotalR { font-size: 13px; opacity: .65; font-variant-numeric: tabular-nums; text-align: right; }
+.ptAllRow { display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; }
+.ptAllTxt { font-style: italic; font-weight: 600; }
+.ptTopRow > .ptAllRow { flex: 1 1 auto; }
+.ptPole { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ptPdot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--pc, var(--purple)); }
+.ptTitle { font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
+.ptTitleBox { display: flex; flex-direction: column; min-width: 0; }
+.ptCardRow { display: flex; align-items: flex-start; gap: 10px; }
+.ptCardRow > input[type="checkbox"] { margin-top: 16px; }
+.ptCard { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 18px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: color-mix(in srgb, var(--pc) 14%, transparent); border: 1px solid color-mix(in srgb, var(--pc) 35%, transparent); }
+.ptCardTop { display: flex; align-items: center; gap: 10px; }
+.ptCardTop strong { font-size: 18px; min-width: 0; overflow-wrap: anywhere; }
+.ptCardN { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: #C2694A; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
+.ptCard svg { flex: none; opacity: .6; }
+.ptChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ptChip { padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .1); font-size: 12px; }
+.ptCardSec { flex-direction: row; align-items: center; }
+.ptSecTxt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ptSecTxt strong { font-size: 17px; overflow-wrap: anywhere; }
+.ptHelp { margin: 0; font-size: 13px; opacity: .7; }
+.ptWeekHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; }
+.ptWeekRow { display: flex; align-items: center; gap: 10px; min-width: 0; cursor: pointer; }
+.ptWeekRow .ptWeek { margin-top: 0; }
+.ptWeekTot { flex: none; font-size: 12px; opacity: .6; font-variant-numeric: tabular-nums; }
+.ptWeekSub { margin-top: -6px; padding-left: 30px; }
+.ptWeekTasks { display: flex; flex-direction: column; gap: 10px; padding: 2px 0 8px 22px; }
+.ptClamp { display: block; width: calc(100% - 30px); box-sizing: border-box; margin-right: 0; text-align: left; background: none; border: 0; color: inherit; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptClamp.open { white-space: normal; overflow: visible; }
+.ptTask { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.ptTask > input[type="checkbox"] { margin-top: 1px; }
+.ptTask.ptNo { cursor: default; }
+.ptTask .ptBody { cursor: inherit; }
+.ptTask .historyRowIconBtn { flex: none; }
+input[type="checkbox"].ptTaskCb:indeterminate, .ptPane input[type="checkbox"]:indeterminate { background: var(--purple); border-color: var(--purple); }
+.ptPane input[type="checkbox"]:indeterminate::after { content: ""; width: 10px; height: 2px; background: #fff; border: 0; transform: none; }
+.ptPane input[type="checkbox"]:disabled { opacity: .35; cursor: default; }
+.ptBar { flex-direction: column; align-items: stretch; gap: 0; padding-top: 0; }
+.ptDots { display: flex; justify-content: center; }
+#docTasksPDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+#docTasksPDots .goalsDotBtn { height: 18px; }
+#docTasksPDots .goalsDotBtn.on .goalsDot { opacity: 1; }
+#docTasksPDots .goalsDotBtn.on { cursor: default; }
+#docTasksChangesTasks > .docTasksMeta { padding: 0 14px; }
+
+/* Cases de « Nouvelles tâches » : contour d'origine inchangé, intérieur transparent (on ne voit que le contour) ; cochée = violet très translucide, coche blanche. */
+.ptPane input[type="checkbox"] { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.ptPane input[type="checkbox"]:checked, .ptPane input[type="checkbox"]:indeterminate { background: color-mix(in srgb, var(--purple) 28%, transparent); border-color: color-mix(in srgb, var(--text-light) 55%, transparent); box-shadow: none; }

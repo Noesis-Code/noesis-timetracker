@@ -6,6 +6,7 @@
 // sortant/entrant. Aucune dépendance ajoutée : Node 24 fournit `fetch`
 // nativement.
 const db = require('../db');
+const dates = require('./dates');
 
 function ensureTable() {
   // 9 oct. 2026 : userId est un identifiant TEXTE (uuid) ; l'ancienne colonne INTEGER refusait toute écriture.
@@ -153,10 +154,197 @@ async function refreshBusy(userId, isoDate) {
 }
 
 function clearBusyCache(userId) {
+  textCache.delete(userId);
   Array.from(busyCache.keys()).forEach((k) => { if (k.startsWith(userId + '|')) busyCache.delete(k); });
 }
 
+// ---------- Capacité par jour selon l'agenda (18 oct. 2026, demande d'Émilien, offre gratuite incluse) ----------
+// Les TITRES des événements sont lus UNIQUEMENT pour les comparer, en mémoire, aux mots des règles de l'utilisateur
+// ; ils ne sont ni stockés ni journalisés ni envoyés à l'IA.
+//  - règle « aucune tâche » -> capacité 0 ; « temps limité » -> son maximum ; plusieurs règles le même jour : la plus restrictive gagne ;
+//  - aucune règle applicable -> heures par défaut (« tous les autres jours »), ou pas de limite si vides.
+const DEFAULT_VACATION_WORDS = ['vacances', 'congé', 'férié'];
+const MAX_DAY_MINUTES = 1440;
+
+db.exec(`CREATE TABLE IF NOT EXISTS external_calendar_settings (
+  userId TEXT PRIMARY KEY,
+  workPatterns TEXT NOT NULL DEFAULT '[]',
+  vacationWords TEXT,
+  workDayMinutes INTEGER,
+  freeDayMinutes INTEGER
+)`);
+// 18 oct. 2026 : RÈGLES (« si le titre contient … -> aucune tâche / temps limité ») à la place des 4 champs.
+// Colonne rules (JSON) ; freeDayMinutes devient les heures par défaut (« tous les autres jours »).
+try { db.exec('ALTER TABLE external_calendar_settings ADD COLUMN rules TEXT'); } catch (e) { /* déjà ajoutée */ }
+
+const MAX_RULES = 20;
+
+function cleanWords(list) {
+  const arr = Array.isArray(list) ? list : (typeof list === 'string' ? list.split(/[,;\n]/) : []);
+  const seen = new Set();
+  const out = [];
+  arr.forEach((w) => {
+    if (typeof w !== 'string') return;
+    const v = w.trim().slice(0, 60);
+    const k = v.toLowerCase();
+    if (v && !seen.has(k)) { seen.add(k); out.push(v); }
+  });
+  return out.slice(0, 20);
+}
+
+function minutesOrNull(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0 || n > MAX_DAY_MINUTES) {
+    throw Object.assign(new Error('Durée invalide : un nombre de minutes entre 0 et ' + MAX_DAY_MINUTES + '.'), { statusCode: 400 });
+  }
+  return n;
+}
+
+// Valide une liste de règles [{words, mode:'none'|'limit', maxMinutes}] ; lève 400 si hors limites.
+function cleanRules(list) {
+  if (!Array.isArray(list)) return [];
+  if (list.length > MAX_RULES) throw Object.assign(new Error('Tu peux créer ' + MAX_RULES + ' règles au maximum.'), { statusCode: 400 });
+  const out = [];
+  list.forEach((r) => {
+    if (!r || typeof r !== 'object') return;
+    const words = cleanWords(r.words);
+    if (!words.length) return; // règle sans mot : ignorée
+    if (r.mode !== 'none' && r.mode !== 'limit') throw Object.assign(new Error('Mode de règle invalide.'), { statusCode: 400 });
+    if (r.mode === 'none') { out.push({ words, mode: 'none', maxMinutes: null }); return; }
+    const m = minutesOrNull(r.maxMinutes);
+    if (m == null) throw Object.assign(new Error('Indique un maximum d\u2019heures pour une règle à temps limité.'), { statusCode: 400 });
+    out.push({ words, mode: 'limit', maxMinutes: m });
+  });
+  return out;
+}
+
+function parseJsonArray(v, d) { try { const a = JSON.parse(v); return Array.isArray(a) ? a : d; } catch (e) { return d; } }
+
+// Migration (idempotente) : anciens réglages -> règles. Vacances = « aucune tâche » ; mots travail ailleurs + X h = « temps limité ».
+function rulesFromLegacy(r) {
+  const out = [];
+  const vac = r.vacationWords != null ? cleanWords(parseJsonArray(r.vacationWords, DEFAULT_VACATION_WORDS)) : DEFAULT_VACATION_WORDS.slice();
+  if (vac.length) out.push({ words: vac, mode: 'none', maxMinutes: null });
+  const work = cleanWords(parseJsonArray(r.workPatterns, []));
+  if (work.length && r.workDayMinutes != null) out.push({ words: work, mode: 'limit', maxMinutes: r.workDayMinutes });
+  return out;
+}
+
+function migrateLegacySettings() {
+  db.prepare('SELECT * FROM external_calendar_settings WHERE rules IS NULL').all().forEach((r) => {
+    db.prepare('UPDATE external_calendar_settings SET rules = ? WHERE userId = ? AND rules IS NULL')
+      .run(JSON.stringify(rulesFromLegacy(r)), r.userId);
+  });
+}
+migrateLegacySettings();
+
+function getSettings(userId) {
+  const r = db.prepare('SELECT * FROM external_calendar_settings WHERE userId = ?').get(userId);
+  if (!r) return { rules: [{ words: DEFAULT_VACATION_WORDS.slice(), mode: 'none', maxMinutes: null }], defaultMinutes: null };
+  let rules;
+  try { rules = r.rules != null ? cleanRules(parseJsonArray(r.rules, [])) : rulesFromLegacy(r); } catch (e) { rules = []; }
+  return { rules, defaultMinutes: r.freeDayMinutes != null ? r.freeDayMinutes : null };
+}
+
+function setSettings(userId, body) {
+  const b = body || {};
+  const cur = getSettings(userId);
+  const next = {
+    rules: b.rules !== undefined ? cleanRules(b.rules) : cur.rules,
+    defaultMinutes: b.defaultMinutes !== undefined ? minutesOrNull(b.defaultMinutes) : cur.defaultMinutes,
+  };
+  db.prepare(`INSERT INTO external_calendar_settings (userId, rules, freeDayMinutes) VALUES (?, ?, ?)
+    ON CONFLICT(userId) DO UPDATE SET rules = excluded.rules, freeDayMinutes = excluded.freeDayMinutes`)
+    .run(userId, JSON.stringify(next.rules), next.defaultMinutes);
+  return getSettings(userId);
+}
+
+function foldText(v) { return String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+// Événements avec titre : [{start, end, summary}] (dates en UTC, même limite de fuseau que plus haut).
+function parseIcsEvents(icsText) {
+  const lines = String(icsText).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r\n|\n/);
+  const out = [];
+  let cur = null;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line === 'BEGIN:VEVENT') { cur = {}; continue; }
+    if (line === 'END:VEVENT') {
+      if (cur && cur.start) { if (!cur.end) cur.end = new Date(cur.start.getTime() + 86400000); out.push({ start: cur.start, end: cur.end, summary: cur.summary || '', allDay: !!cur.allDay }); }
+      cur = null; continue;
+    }
+    if (!cur) continue;
+    const m = line.match(/^(DTSTART|DTEND|SUMMARY)[^:]*:(.*)$/);
+    if (!m) continue;
+    if (m[1] === 'SUMMARY') { cur.summary = m[2].replace(/\\([,;nN\\])/g, (x, c) => (c === 'n' || c === 'N' ? ' ' : c)); continue; }
+    const d = parseIcsDate(m[2].trim());
+    if (d) { cur[m[1] === 'DTSTART' ? 'start' : 'end'] = d; if (m[1] === 'DTSTART') cur.allDay = /^\d{8}$/.test(m[2].trim()); }
+  }
+  return out;
+}
+
+// PURE. Capacité (minutes) d'un jour : chaque règle dont un mot figure dans le titre d'un événement du jour s'applique
+// (« aucune tâche » = 0, « temps limité » = son maximum) ; la plus restrictive gagne ; aucune règle -> heures par défaut (ou null = pas de limite).
+function dayCapacityFromTexts(texts, isoDate, settings, tz) {
+  const dayStart = new Date(isoDate + 'T00:00:00Z').getTime();
+  const dayEnd = dayStart + 86400000;
+  const rules = (settings.rules || []).map((r) => ({
+    words: (r.words || []).map(foldText).filter(Boolean),
+    cap: r.mode === 'none' ? 0 : (Number.isFinite(r.maxMinutes) ? r.maxMinutes : null),
+  })).filter((r) => r.words.length && r.cap != null);
+  let best = null;
+  texts.forEach((txt) => {
+    parseIcsEvents(txt).forEach((ev) => {
+      if (ev.allDay) { if (!(ev.start.getTime() < dayEnd && ev.end.getTime() > dayStart)) return; } // journée entière : date du calendrier, sans fuseau
+      else {
+        // Événement horodaté (UTC) : jours LOCAUX couverts, dans le fuseau de l'utilisateur.
+        const zone = tz || dates.DEFAULT_TIMEZONE;
+        const first = dates.isoDateOf(ev.start, zone);
+        const lastD = dates.isoDateOf(new Date(Math.max(ev.start.getTime(), ev.end.getTime() - 1)), zone);
+        if (isoDate < first || isoDate > lastD) return;
+      }
+      const title = foldText(ev.summary);
+      rules.forEach((r) => { if (r.words.some((w) => title.includes(w)) && (best == null || r.cap < best)) best = r.cap; });
+    });
+  });
+  if (best != null) return best;
+  return settings.defaultMinutes != null ? settings.defaultMinutes : null;
+}
+
+// Cache mémoire (15 min) des TEXTES des flux : permet de calculer la capacité de plusieurs jours de façon synchrone.
+const textCache = new Map();
+async function refreshTexts(userId) {
+  const hit = textCache.get(userId);
+  if (hit && Date.now() - hit.at < BUSY_TTL_MS) return hit.texts;
+  const urls = listUrls(userId);
+  if (!urls.length) { textCache.delete(userId); return null; }
+  const texts = [];
+  for (const u of urls) {
+    try {
+      const res = await fetch(u.icsUrl, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) texts.push(await res.text());
+    } catch (e) { /* une adresse injoignable n'empêche pas les autres */ }
+  }
+  if (!texts.length) return null; // jamais bloquant : aucune capacité imposée
+  textCache.set(userId, { texts, at: Date.now() });
+  return texts;
+}
+
+// Capacités des jours demandés : { 'YYYY-MM-DD': minutes } (jours sans limite absents). Agenda absent/injoignable -> {}.
+async function dayCapacities(userId, days, tz) {
+  try {
+    const texts = await refreshTexts(userId);
+    if (!texts) return {};
+    const settings = getSettings(userId);
+    const out = {};
+    days.forEach((d) => { const c = dayCapacityFromTexts(texts, d, settings, tz); if (c != null) out[d] = c; });
+    return out;
+  } catch (e) { return {}; }
+}
+
 module.exports = {
+  getSettings, setSettings, migrateLegacySettings, parseIcsEvents, dayCapacityFromTexts, dayCapacities, DEFAULT_VACATION_WORDS,
   cachedBusyMinutes,
   refreshBusy,
   clearBusyCache,

@@ -3350,7 +3350,7 @@
                    logique (renderCalendarFeedState continue de basculer leur
                    "hidden" tel quel). -->
               <div id="calendarFeedSection" class="settingsFlat hidden">
-                <p class="sectionTitle settingsFlatTitle">Calendrier</p>
+                <p class="sectionTitle settingsFlatTitle">Exporter mes données vers le calendrier</p>
                 <div id="calendarFeedOff" class="hidden">
                   <button type="button" id="calendarFeedCreateBtn" class="iconBtn">Créer mon lien de calendrier</button>
                 </div>
@@ -3372,8 +3372,7 @@
               </div>
               <!-- 9 oct. 2026 : agenda externe lu par Noèsis (sens inverse du flux ci-dessus). -->
               <div id="externalCalendarSection" class="settingsFlat">
-                <p class="sectionTitle settingsFlatTitle">Mon agenda</p>
-                <p class="meta">Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis ne compte que les heures occupées, jamais le contenu des événements, pour alléger tes tâches du jour.</p>
+                <p class="sectionTitle settingsFlatTitle">Importer un calendrier dans l'appli <span class="infoTipWrap"><button type="button" class="infoTipBtn" aria-label="Informations" aria-expanded="false" data-tip="Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis ne garde que les heures occupées et compare les titres à tes règles, rien d'autre.">i</button></span></p>
                 <input type="text" id="externalCalendarUrl" class="calendarFeedUrl" inputmode="url" placeholder="https://…/basic.ics" autocomplete="off">
                 <div class="shareActions">
                   <button type="button" id="externalCalendarSaveBtn" class="iconBtn">Ajouter</button>
@@ -3381,6 +3380,12 @@
                 <p id="externalCalendarMsg" class="msg"></p>
                 <button type="button" id="externalCalendarListBtn" class="linkBtn externalCalendarListBtn hidden">▸ URL enregistrées</button>
                 <div id="externalCalendarList" class="externalCalendarList hidden"></div>
+                <div id="extCalRulesBlock" class="extCalRulesBlock">
+                  <p class="extCalSubTitle">Répartition selon mon agenda <span class="infoTipWrap"><button type="button" class="infoTipBtn" aria-label="Informations" aria-expanded="false" data-tip="Chaque règle s'applique aux jours où un événement a un titre contenant un de ses mots ; si plusieurs s'appliquent, la plus restrictive gagne. Seuls les titres sont comparés, rien n'est conservé.">i</button></span></p>
+                  <div id="extCalRules"></div>
+                  <button type="button" id="extCalAddRuleBtn" class="extCalAddBtn"><b>+</b>Ajouter une règle</button>
+                  <p id="extCalSettingsMsg" class="msg"></p>
+                </div>
               </div>
               <!-- Export de mes données personnelles (7 septembre 2026,
                    candidate n°1 de l'audit des sections manquantes du panneau

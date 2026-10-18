@@ -11873,6 +11873,7 @@
   // Copie explicite seulement, avec l'avertissement écrit au-dessus.
   function renderCalendarFeedState(state) {
     loadExternalCalendar();
+    loadExternalCalendarSettings();
     var section = $('calendarFeedSection');
     if (!section) return;
     // Fonction éteinte côté serveur : la section n'apparaît pas du tout.
@@ -11972,6 +11973,23 @@
       .catch(function (err) { msg.textContent = err.message; });
   }
 
+  // Infobulle commune : <button class="infoTipBtn" data-tip="texte"> ; bulle ouverte au clic, fermée par reclic ou clic ailleurs.
+  (function () {
+    var pop = null, cur = null;
+    function close() { if (pop) { pop.remove(); pop = null; } if (cur) { cur.setAttribute('aria-expanded', 'false'); cur = null; } }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.infoTipBtn');
+      if (!b) { if (!(pop && pop.contains(e.target))) close(); return; }
+      e.preventDefault(); e.stopPropagation();
+      var same = cur === b; close(); if (same) return;
+      pop = document.createElement('div'); pop.className = 'infoTipPop'; pop.setAttribute('role', 'tooltip');
+      pop.textContent = t(b.getAttribute('data-tip') || '');
+      var card = b.closest('.settingsFlat') || b.closest('.extCalRulesBlock') || b.parentNode;
+      card.style.position = 'relative'; card.appendChild(pop);
+      pop.style.top = (b.getBoundingClientRect().bottom - card.getBoundingClientRect().top + 6) + 'px';
+      cur = b; b.setAttribute('aria-expanded', 'true');
+    });
+  })();
   // Agenda externe (lecture) : Noèsis lit les plages occupées de plusieurs flux ICS pour alléger la liste du jour.
   var externalCalendarListOpen = false;
   function renderExternalCalendarUrls(urls) {
@@ -11979,6 +11997,11 @@
     var box = $('externalCalendarList');
     if (!btn || !box) return;
     urls = urls || [];
+    var rb = $('extCalRulesBlock');
+    if (rb) {
+      rb.classList.toggle('hidden', !urls.length);
+      rb.querySelectorAll('input,button.extCalAddBtn,#extCalSettingsSaveBtn,.extCalSeg button,.historyRowIconBtn').forEach(function (el) { el.disabled = !urls.length; });
+    }
     btn.classList.toggle('hidden', !urls.length);
     if (!urls.length) { externalCalendarListOpen = false; box.classList.add('hidden'); box.innerHTML = ''; return; }
     btn.textContent = (externalCalendarListOpen ? '▾ ' : '▸ ') + t('URL enregistrées') + ' (' + urls.length + ')';
@@ -12015,6 +12038,110 @@
     api('GET', '/api/calendar/external?userId=' + profile.id)
       .then(function (res) { renderExternalCalendarUrls(res && res.urls); })
       .catch(function () {});
+  }
+  // Capacité par jour selon l'agenda : RÈGLES « si le titre contient … -> aucune tâche / temps limité » (heures affichées, minutes stockées).
+  var extCalRules = [];
+  function extCalRulesFromDom() {
+    var out = [];
+    var rows = $('extCalRules').querySelectorAll('.extCalRule');
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var mode = r.dataset.mode === 'limit' ? 'limit' : 'none';
+      var h = r.querySelector('.extCalHrs').value.trim().replace(',', '.');
+      out.push({ words: r.querySelector('input[type=text]').value, mode: mode, maxMinutes: mode === 'limit' && h !== '' ? Math.round(Number(h) * 60) : null });
+    }
+    return out;
+  }
+  function renderExtCalRules() {
+    var box = $('extCalRules');
+    if (!box) return;
+    box.innerHTML = '';
+    extCalRules.forEach(function (rule, idx) {
+      var row = document.createElement('div');
+      row.className = 'extCalRule extCalRuleBox';
+      row.dataset.mode = rule.mode === 'limit' ? 'limit' : 'none';
+      var lab = document.createElement('label');
+      lab.className = 'extCalLbl';
+      lab.textContent = t('Si le titre contient');
+      var words = document.createElement('input');
+      words.type = 'text'; words.className = 'calendarFeedUrl'; words.autocomplete = 'off';
+      words.placeholder = idx === 0 ? t('vacances, congé') : t('bureau');
+      words.value = Array.isArray(rule.words) ? rule.words.join(', ') : (rule.words || '');
+      var line = document.createElement('div');
+      line.className = 'extCalLine';
+      var seg = document.createElement('div');
+      seg.className = 'extCalSeg';
+      var hrs = document.createElement('input');
+      hrs.type = 'number'; hrs.className = 'calendarFeedUrl extCalHrs'; hrs.min = '0'; hrs.max = '24'; hrs.step = '0.5';
+      hrs.setAttribute('inputmode', 'decimal'); hrs.placeholder = t('max. h');
+      hrs.value = rule.maxMinutes == null ? '' : rule.maxMinutes / 60;
+      function setMode(m) {
+        row.dataset.mode = m;
+        hrs.classList.toggle('hidden', m !== 'limit');
+        seg.querySelectorAll('button').forEach(function (bt) {
+          var on = bt.dataset.m === m;
+          bt.classList.toggle('on', on); bt.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      }
+      [['none', t('Aucune tâche')], ['limit', t('Temps limité')]].forEach(function (o) {
+        var bt = document.createElement('button');
+        bt.type = 'button'; bt.dataset.m = o[0]; bt.textContent = o[1];
+        bt.addEventListener('click', function () { setMode(o[0]); });
+        seg.appendChild(bt);
+      });
+      setMode(row.dataset.mode);
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'historyRowIconBtn danger';
+      del.innerHTML = typeof CHRONO_HISTORY_DELETE_ICON !== 'undefined' ? CHRONO_HISTORY_DELETE_ICON : '\ud83d\uddd1';
+      del.setAttribute('aria-label', t('Supprimer cette règle'));
+      del.addEventListener('click', function () {
+        extCalRules = extCalRulesFromDom();
+        extCalRules.splice(idx, 1);
+        renderExtCalRules();
+      });
+      line.appendChild(seg); line.appendChild(hrs); line.appendChild(del);
+      row.appendChild(lab); row.appendChild(words); row.appendChild(line);
+      box.appendChild(row);
+    });
+    var rb = $('extCalRulesBlock');
+  }
+  function loadExternalCalendarSettings() {
+    if (!profile || !$('extCalRules')) return;
+    api('GET', '/api/calendar/external-settings?userId=' + profile.id).then(function (s) {
+      if (!s) return;
+      extCalRules = s.rules || [];
+      renderExtCalRules();
+    }).catch(function () {});
+  }
+  if ($('extCalAddRuleBtn')) $('extCalAddRuleBtn').addEventListener('click', function () {
+    extCalRules = extCalRulesFromDom();
+    if (extCalRules.length >= 20) { $('extCalSettingsMsg').textContent = t('Tu peux créer 20 règles au maximum.'); return; }
+    extCalRules.push({ words: [], mode: 'none', maxMinutes: null });
+    renderExtCalRules();
+  });
+  // 18 oct. 2026 : enregistrement automatique (plus de bouton) : 600 ms après la dernière frappe / le dernier clic sur une règle.
+  var extCalSaveTimer = null, extCalSaveSeq = 0;
+  function saveExtCalNow() {
+    if (!profile) return;
+    var msg = $('extCalSettingsMsg');
+    var seq = ++extCalSaveSeq;
+    api('PUT', '/api/calendar/external-settings', {
+      userId: profile.id,
+      rules: extCalRulesFromDom(),
+      defaultMinutes: null // 18 oct. 2026 : plafond « tous les autres jours » supprimé (les heures par jour se règlent déjà dans la feuille des activités)
+    }).then(function () { if (seq === extCalSaveSeq) msg.textContent = t('Enregistré.'); })
+      .catch(function (err) { if (seq === extCalSaveSeq) msg.textContent = err.message; });
+  }
+  function scheduleExtCalSave() {
+    $('extCalSettingsMsg').textContent = '';
+    clearTimeout(extCalSaveTimer);
+    extCalSaveTimer = setTimeout(saveExtCalNow, 600);
+  }
+  if ($('extCalRulesBlock')) {
+    $('extCalRulesBlock').addEventListener('input', function (e) { if (e.target.closest('input')) scheduleExtCalSave(); });
+    $('extCalRulesBlock').addEventListener('click', function (e) { if (e.target.closest('.extCalSeg button, .historyRowIconBtn')) setTimeout(scheduleExtCalSave, 0); });
+    $('extCalRulesBlock').addEventListener('focusout', function (e) { if (e.target.closest('input') && extCalSaveTimer) { clearTimeout(extCalSaveTimer); extCalSaveTimer = null; saveExtCalNow(); } });
   }
   $('externalCalendarListBtn').addEventListener('click', function () {
     externalCalendarListOpen = !externalCalendarListOpen;

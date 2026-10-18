@@ -332,7 +332,14 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
     return { assigned: 0, total: 0, usedAi: false, message: 'Aucune tâche à dater : tout est déjà placé ou aucune tâche ne dépend encore de cet objectif.' };
   }
 
-  const dates = weekDates(weekly.periodStart, weekly.weekIndex);
+  const allDates = weekDates(weekly.periodStart, weekly.weekIndex);
+  let dates = allDates;
+  // Agenda externe : aucun jour de vacances (capacité 0) ; s'il ne reste aucun jour, la semaine est planifiée telle quelle.
+  try {
+    const caps = await require('./externalcalendar').dayCapacities(requestingUserId, dates);
+    const open = dates.filter((d) => caps[d] !== 0);
+    if (open.length && open.length < dates.length) dates = open;
+  } catch (e) { /* non bloquant */ }
   const capacityUserId = weekly.assignedUserId || requestingUserId;
   // goalsauto est requis ici plutôt qu'en tête de fichier pour éviter tout
   // risque de dépendance circulaire (goalsauto n'a aujourd'hui aucune raison
@@ -383,7 +390,7 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
   if (dailyMax || weekMax) {
     try {
       const today = todayLocal();
-      const ctx = capContextForWeek(activityId, weekly, capacityUserId, dates, items, { dayMax: dailyMax, weekMax }, today);
+      const ctx = capContextForWeek(activityId, weekly, capacityUserId, allDates, items, { dayMax: dailyMax, weekMax }, today);
       const dateOf = new Map(assignments.map((a) => [a.itemId, a.date]));
       const r = placeWithinCaps({
         items: ctx.enriched.map((e) => Object.assign({}, e, { date: dateOf.get(e.id) })),

@@ -23,8 +23,8 @@
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((t && t.day) || '');
     var out = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('fr-CA', { weekday: 'short', day: 'numeric', month: 'short' })
       : (t && t.week ? weekLabel(t.week) + (t.noRoom ? ' (jour à choisir)' : '') : '');
-    // Déplacée parce que le JOUR était plein (même semaine) ; « semaine pleine » seulement si elle a changé de semaine. Sans semaine d'origine : « jour plein ».
-    return out + (t && t.moved ? (t.fromWeek && t.week && t.fromWeek !== t.week ? ' · déplacée (semaine pleine)' : ' · déplacée (jour plein)') : '');
+    // Un changement de jour dans la même semaine est silencieux ; seule une tâche passée à une AUTRE semaine est signalée.
+    return out + (t && t.moved ? ' · déplacée (semaine pleine)' : '');
   }
 
   document.getElementById('content').insertAdjacentHTML('beforeend', `
@@ -74,11 +74,10 @@
       <div class="docTasksPopCard">
         <div class="docTasksDriveHead"><strong id="docTasksChangesTitle">Modifications proposées</strong><button type="button" class="docTasksX" id="docTasksChangesClose" aria-label="Fermer">✕</button></div>
         <p id="docTasksChangesHint" class="docTasksMeta">Rien ne change sans ta validation. Décoche ou supprime ce que tu refuses ; un refus n’est pas reproposé.</p>
-        <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div><div id="docTasksChangesList"></div></div>
+        <div id="docTasksChangesBox" class="docTasksPopList"><div id="docTasksChangesTasks"></div></div>
         <div id="docTasksChangesToast" class="docTasksPopToast"></div>
-        <button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn hidden">Ajouter les tâches cochées</button>
+        <div id="docTasksPTasksBar" class="ptBar hidden"><div id="docTasksPDots" class="ptDots"></div><button type="button" id="docTasksPTasksApply" class="docTasksApplyBtn">Ajouter la sélection</button></div>
         <button type="button" id="docTasksChangesFind" class="docTasksLink">Chercher de nouvelles modifications</button>
-        <button type="button" id="docTasksChangesApply" class="docTasksApplyBtn">Appliquer les cochées</button>
       </div>
     </div>`);
 
@@ -482,152 +481,427 @@
     if (field === 'time') return v + ' min';
     return v;
   }
-  function whenLabel(iso) {
-    var d = new Date(iso); if (isNaN(d)) return '';
-    return d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit', hour12: false });
-  }
   function renderChanges() {
     var n = $('docTasksChangesN'), n2 = $('docTasksTasksN');
     n.textContent = changes.length; n.classList.toggle('hidden', !changes.length);
     n2.textContent = ptasks.length; n2.classList.toggle('hidden', !ptasks.length);
-    renderPTasks();
-    var pop = $('docTasksChangesPop'), tm = pop.getAttribute('data-mode') === 'tasks';
-    $('docTasksChangesTitle').textContent = tm ? 'Nouvelles tâches' : 'Modifications proposées';
+    ptree = null; // les données ont changé : l'arbre Pôle › Secteur est reconstruit
+    var tm = !isCh();
+    $('docTasksChangesTitle').textContent = (tm ? 'Nouvelles tâches' : 'Modifications proposées');
     $('docTasksChangesHint').classList.toggle('hidden', tm);
-    $('docTasksChangesTasks').classList.toggle('hidden', !tm);
-    $('docTasksChangesList').classList.toggle('hidden', tm);
     $('docTasksChangesFind').classList.toggle('hidden', tm);
-    var gidx = [], lastAt = null;
-    changes.forEach(function (c, i) { if (c.createdAt !== lastAt) { gidx.push({ at: c.createdAt, idx: [] }); lastAt = c.createdAt; } gidx[gidx.length - 1].idx.push(i); });
-    var gStart = {}; gidx.forEach(function (g, gi) { gStart[g.idx[0]] = { g: g, gi: gi }; });
-    $('docTasksChangesList').innerHTML = changes.length ? changes.map(function (c, i) {
-      var head = gStart[i] ? '<label class="docTasksGroupHead"><input type="checkbox" data-g="' + gStart[i].gi + '" aria-label="Tout sélectionner pour ce moment"><span>' + esc(whenLabel(gStart[i].g.at)) + '</span><span class="docTasksMeta">' + gStart[i].g.idx.length + '</span></label>' : '';
-      return head + '<div class="docTasksPopRow docTasksChangeRow' + (c.mine ? '' : ' docTasksOther') + '"><input type="checkbox" data-c="' + i + '"' + (c.checked === 0 ? '' : ' checked') + ' aria-label="Appliquer">' +
-        '<div class="docTasksChangeBody">' + (c.forName ? '<div class="docTasksChangeWhen"><span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span></div>' : '') +
-        '<div class="docTasksChangeTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>' +
-        '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>' +
-        (c.reason ? '<div class="docTasksMeta">' + esc(c.reason) + '</div>' : '') + '</div>' +
-        '<button type="button" class="historyRowIconBtn danger" data-d="' + i + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
-    }).join('') : '<p class="docTasksMeta">Rien à valider.</p>';
-    var ap = $('docTasksChangesApply'); ap.classList.toggle('hidden', tm || !changes.length);
-    gidx.forEach(function (g, gi) {
-      var gb = $('docTasksChangesList').querySelector('input[data-g="' + gi + '"]'); if (!gb) return;
-      var on = g.idx.filter(function (i) { return changes[i].checked !== 0; }).length;
-      gb.checked = on === g.idx.length; gb.indeterminate = on > 0 && on < g.idx.length;
-    });
-    var pa = $('docTasksPTasksApply'); if (pa) pa.classList.toggle('hidden', !tm || !ptasks.length);
+    var ab = $('docTasksPTasksApply'); if (ab) ab.textContent = tm ? 'Ajouter la sélection' : 'Appliquer';
+    var pa = $('docTasksPTasksBar'); if (pa) pa.classList.toggle('hidden', !items().length);
+    renderPTasks();
   }
   // Nouvelles tâches proposées par la surveillance Drive (partie « Nouvelles tâches » de la même fenêtre).
-  var ptasks = [], pcats = [];
-  function renderPTasks() {
-    var h = $('docTasksChangesTasks'); if (!h) return;
-    if (!ptasks.length) { h.innerHTML = '<p class="docTasksMeta">Aucune nouvelle tâche à valider.</p>'; return; }
-    var gl = null;
-    h.innerHTML = ptasks.map(function (t, i) {
-      var gk = String(t.createdAt || '').slice(0, 16), head = '';
-      if (gk !== gl) { gl = gk; var n = ptasks.filter(function (x) { return String(x.createdAt || '').slice(0, 16) === gk; }).length; head = '<label class="docTasksGroupHead"><input type="checkbox" data-pg="' + esc(gk) + '" checked aria-label="Tout sélectionner pour ce moment"><span>' + esc(whenLabel(t.createdAt)) + '</span><span class="docTasksMeta">' + n + '</span></label>'; }
-      var meta = [t.categoryLabel, dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
-      var pick = '';
-      if (t.toChoose && pcats.length) {
-        pick = '<div class="docTasksMeta">Catégorie à choisir : <select class="docTasksCat" data-pc="' + i + '">'
-          + pcats.map(function (c) { return '<option value="' + esc(c.key) + '"' + (c.key === t.key ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
-        meta = [dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+  // 18 oct. 2026 : parcours en 3 écrans (Sommaire › Pôle › Secteur › semaines › tâches), rien de coché d'avance.
+  var ptasks = [], pcats = [], ptree = null, pnodes = {}, psel = {}, pexp = {}, pidx = {};
+  // 18 oct. 2026 : « Modifications proposées » réutilise le MÊME parcours que « Nouvelles tâches » (mode du pop-up).
+  // Tâches : sélection en mémoire (psel). Modifications : coche mémorisée côté serveur (c.checked, /check).
+  function isCh() { return $('docTasksChangesPop').getAttribute('data-mode') !== 'tasks'; }
+  function items() { return isCh() ? changes : ptasks; }
+  function isOn(t) { return isCh() ? t.checked !== 0 : !!psel[t.id]; }
+  // 18 oct. 2026 : rien de coché d'avance (comme Nouvelles tâches) ; seules les coches faites pendant cette session comptent.
+  var cSessionOn = {};
+  function normCh(list) { list.forEach(function (c) { c.checked = cSessionOn[c.id] ? 1 : 0; }); return list; }
+  function setOn(t, on) { if (isCh()) { t.checked = on ? 1 : 0; if (on) cSessionOn[t.id] = true; else delete cSessionOn[t.id]; } else if (on) psel[t.id] = true; else delete psel[t.id]; }
+  function persistChecks(arr, prevs) { // modifications : enregistre les coches côté serveur ; en cas d'échec, remet l'état d'avant
+    if (!isCh()) return;
+    Promise.all(arr.map(function (c, k) {
+      return cApi('POST', '/check', { id: c.id, checked: c.checked !== 0 }).catch(function (err) { c.checked = prevs[k]; cToast((err && err.message) || 'Erreur.'); });
+    })).then(paintBoxes);
+  }
+  function toggleItems(arr, on) {
+    var prevs = arr.map(function (c) { return c.checked === 0 ? 0 : 1; });
+    arr.forEach(function (t) { setOn(t, on); }); paintBoxes(); persistChecks(arr, prevs);
+  }
+  var pmeta = { poles: {}, secteurs: {}, order: {}, poleIdx: {}, weeks: {}, periods: {}, existing: {} };
+  var PBATCH = 200; // plafond du serveur par appel de résolution
+  function fmtH(m) { m = Math.round(m || 0); var h = Math.floor(m / 60), r = m % 60; return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : ''); }
+  function nTasks(n) { return isCh() ? n + (n > 1 ? ' modifications' : ' modification') : n + (n > 1 ? ' tâches' : ' tâche'); }
+  function isoAdd(iso, n) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return '';
+    return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + n)).toISOString().slice(0, 10);
+  }
+  function shortDate(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return '';
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' });
+  }
+  function normTitle(s) { return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function poleOfKey(k) { return pmeta.poles[k] ? k : (pmeta.secteurs[k] ? pmeta.secteurs[k].pole : null); }
+
+  // Structure pôles/secteurs, tâches existantes (doublons) et objectifs périodiques/hebdomadaires — lectures seules, routes existantes.
+  function loadPMeta() {
+    var a = actId();
+    pmeta = { poles: {}, secteurs: {}, order: {}, poleIdx: {}, weeks: {}, periods: {}, existing: {} };
+    if (!a || !(ptasks.length || changes.length)) return Promise.resolve();
+    return TMT.api('GET', '/api/activities/' + a + '/goals/categories').then(function (c) {
+      var ord = 0;
+      (c.categories || []).forEach(function (p) {
+        pmeta.poleIdx[p.key] = Object.keys(pmeta.poleIdx).length; pmeta.poles[p.key] = { label: p.label }; pmeta.order[p.key] = ord++;
+        (p.secteurs || []).forEach(function (s) { pmeta.secteurs[s.key] = { pole: p.key, label: s.label }; pmeta.order[s.key] = ord++; });
+      });
+      var tb = c.tasksByCategory || {};
+      Object.keys(tb).forEach(function (pk) {
+        var set = pmeta.existing[pk] = {};
+        (tb[pk] || []).forEach(function (it) { var n = normTitle(it.label || it.title); if (n) set[n] = true; });
+      });
+      var used = {};
+      ptasks.forEach(function (t) { var pk = poleOfKey(t.key); if (pk) used[pk] = true; });
+      return Promise.all(Object.keys(used).map(function (pk) {
+        return TMT.api('GET', '/api/activities/' + a + '/goals/all-for-pole?poleKey=' + encodeURIComponent(pk)).then(function (r) {
+          var by = r.byCategory || {};
+          Object.keys(by).forEach(function (ck) {
+            ((by[ck] || {}).periods || []).forEach(function (p) {
+              (pmeta.periods[ck] = pmeta.periods[ck] || []).push({ pid: p.id, pnum: p.periodNumber, pStart: p.startDate, pEnd: p.endDate, pText: p.mainGoalText || '' });
+              (p.weeklies || []).forEach(function (w) {
+                var k = ck + '|' + isoAdd(p.startDate, (w.weekIndex - 1) * 7);
+                if (!pmeta.weeks[k]) pmeta.weeks[k] = { id: w.id, text: w.text || '', est: w.estimateMinutes || 0, tag: 'S' + w.weekOfYear, pid: p.id, pnum: p.periodNumber, pStart: p.startDate, pEnd: p.endDate, pText: p.mainGoalText || '' };
+              });
+            });
+          });
+        }).catch(function () {});
+      }));
+    }).catch(function () {});
+  }
+
+  function isoWeekTag(iso) { // « S42 » d'une date du lundi (règle ISO)
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return 'S?';
+    var d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))), day = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - day);
+    return 'S' + Math.ceil(((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
+  }
+  // 18 oct. 2026 : PARCOURS EN 3 ÉCRANS dans le pop-up (Sommaire › Un pôle › Un secteur), glissement horizontal, points en bas.
+  // Seul l'écran visible est rendu. Couleur d'un pôle = nuance automatique de l'app (TMT.subProjectShade), jamais pour un secteur.
+  var nav = { s: 0, p: null, g: null }, pcolors = {};
+  function poleColor(pk) {
+    if (pcolors[pk]) return pcolors[pk];
+    var base = TMT.currentGoalsActivityColor || '#674EA7', c = base;
+    try { c = TMT.subProjectShade(base, pmeta.poleIdx[pk] || 0, TMT.SUB_PROJECT_SHADE_COUNT) || base; } catch (e) {}
+    return (pcolors[pk] = c);
+  }
+  function mkGrp(id, label) { return { id: id, label: label, flat: [], weeks: {}, wlist: [] }; }
+  function buildPTree() {
+    pnodes = {}; pcolors = {}; pidx = {};
+    var poles = {}, plist = [], ch = isCh();
+    items().forEach(function (t, i) {
+      pidx[t.id] = t;
+      var tkey = ch ? t.categoryKey : t.key;
+      var pk = (ch ? !tkey : t.toChoose) ? null : poleOfKey(tkey), wk = !ch && pk && t.week ? pmeta.weeks[t.key + '|' + t.week] : null;
+      var leaf = { task: t, i: i };
+      if (ch) { leaf.ok = true; leaf.dup = false; } else {
+        var ex = pmeta.existing[pk || poleOfKey(t.key)];
+        leaf.dup = !!(ex && ex[normTitle(t.title)]);
+        leaf.ok = !t.toChoose && !!poleOfKey(t.key);
       }
-      return head + '<div class="docTasksPopRow docTasksChangeRow" data-pgk="' + esc(gk) + '"><input type="checkbox" data-pt="' + i + '" checked aria-label="Ajouter">'
-        + '<div class="docTasksChangeBody"><div class="docTasksChangeTitle">' + esc(t.title) + '</div><div class="docTasksMeta">' + esc(meta) + '</div>' + pick + '</div>'
-        + '<button type="button" class="historyRowIconBtn danger" data-pd="' + i + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
+      var pole, grp;
+      if (!pk) {
+        pole = poles.orph = poles.orph || { id: 'orph', orph: true, label: ch ? 'Sans pôle' : 'Catégorie à choisir', ord: -2, direct: mkGrp('orph:d', ''), secs: {}, slist: [] };
+        grp = pole.direct;
+      } else {
+        if (!wk && !ch) { // catégorie valide sans objectif hebdomadaire correspondant : classée sous sa période, jamais dans « à placer »
+          var pp = null;
+          (pmeta.periods[t.key] || []).forEach(function (x) { if (t.week && x.pStart <= t.week && t.week <= x.pEnd) pp = x; });
+          wk = { id: 'x' + (t.week || ''), text: '', est: 0, tag: isoWeekTag(t.week), pid: pp ? pp.pid : 'none', pnum: pp ? pp.pnum : 999, none: !pp, noWeekly: true };
+        }
+        pole = poles[pk];
+        if (!pole) { pole = poles[pk] = { id: 'p:' + pk, key: pk, label: pmeta.poles[pk].label, ord: pmeta.order[pk] || 0, direct: mkGrp('p:' + pk + ':d', ''), secs: {}, slist: [] }; }
+        if (pmeta.secteurs[tkey]) {
+          var sk = tkey;
+          grp = pole.secs[sk] = pole.secs[sk] || (function () { var g = mkGrp('s:' + sk, pmeta.secteurs[sk].label); g.ord = pmeta.order[sk] || 0; pole.slist.push(g); return g; })();
+        } else grp = pole.direct;
+        if (!ch) {
+          var wid = 'w:' + grp.id + ':' + wk.id, w = grp.weeks[wid];
+          if (!w) { w = grp.weeks[wid] = { id: wid, tag: wk.tag, text: wk.text, est: wk.est, pnum: wk.pnum, none: !!wk.none, noWeekly: !!wk.noWeekly, week: t.week, leaves: [] }; grp.wlist.push(w); }
+          w.leaves.push(leaf);
+        }
+      }
+      grp.flat.push(leaf);
+    });
+    function srt(a) { if (ch) { a.sort(function (x, y) { return String(x.task.label).localeCompare(String(y.task.label)) || (x.task.id - y.task.id); }); return; } a.sort(function (x, y) { return String(x.task.day || x.task.week || '').localeCompare(String(y.task.day || y.task.week || '')) || String(x.task.title).localeCompare(String(y.task.title)); }); }
+    function fin(o, leaves) { // cumuls
+      o.leaves = leaves; o.sleaves = leaves.filter(function (l) { return l.ok; }).map(function (l) { return l.task; });
+      o.mins = 0; leaves.forEach(function (l) { o.mins += l.task.minutes || 0; }); pnodes[o.id] = o;
+    }
+    plist = Object.keys(poles).map(function (k) { return poles[k]; }).sort(function (a, b) { return a.ord - b.ord; });
+    plist.forEach(function (p) {
+      var all = [];
+      [p.direct].concat(p.slist.sort(function (a, b) { return a.ord - b.ord || String(a.label).localeCompare(String(b.label)); })).forEach(function (g) {
+        srt(g.flat); fin(g, g.flat); all = all.concat(g.flat);
+        g.wlist.sort(function (a, b) { return String(a.week).localeCompare(String(b.week)) || (a.pnum - b.pnum); });
+        g.wlist.forEach(function (w) { srt(w.leaves); fin(w, w.leaves); });
+        var wks = g.wlist.map(function (w) { return w.week; }).filter(Boolean).sort();
+        g.range = wks.length ? (isoWeekTag(wks[0]) === isoWeekTag(wks[wks.length - 1]) ? isoWeekTag(wks[0]) : isoWeekTag(wks[0]) + ' à ' + isoWeekTag(wks[wks.length - 1])) : '';
+      });
+      fin(p, all);
+    });
+    var allL = []; plist.forEach(function (p) { allL = allL.concat(p.leaves); });
+    pall = { id: 'all' }; fin(pall, allL);
+    ptree = plist;
+  }
+  var pall = null;
+  function findPole(id) { return (ptree || []).filter(function (p) { return p.id === id; })[0]; }
+  function findGrp(p, gid) { return gid === 'd' ? p.direct : p.slist.filter(function (g) { return g.id === gid; })[0]; }
+
+  function nodeState(n) {
+    var on = 0; n.sleaves.forEach(function (t) { if (isOn(t)) on += 1; });
+    return on === 0 ? 0 : (on === n.sleaves.length ? 2 : 1);
+  }
+  function cbx(n) { return '<input type="checkbox" data-gid="' + esc(n.id) + '" aria-label="Sélectionner"' + (n.sleaves.length ? '' : ' disabled') + '>'; }
+  function totalTxt(n) { return nTasks(n.leaves.length) + (isCh() ? '' : ' · ' + fmtH(n.mins)); }
+  function allRow(n, txt) { return '<label class="ptAllRow" data-t="' + esc(txt) + '">' + cbx(n) + '<span class="ptAllTxt">' + txt + '</span></label>'; }
+  function changeHtml(l) { // une modification : « Pour toi / Pour X », titre, ancien → nouveau, raison, corbeille « Refuser »
+    var c = l.task;
+    return '<div class="ptTask docTasksChangeItem' + (c.mine ? '' : ' docTasksOther') + '" data-tid="' + c.id + '"><input type="checkbox" data-tid="' + c.id + '" aria-label="Appliquer"><div class="ptBody">'
+      + (c.forName ? '<div class="docTasksChangeWhen"><span class="docTasksFor' + (c.mine ? ' me' : '') + '">' + (c.mine ? 'Pour toi' : 'Pour ' + esc(c.forName)) + '</span></div>' : '')
+      + '<div class="ptLabel ptTaskTitle">' + esc(c.label) + ' · ' + esc(c.fieldLabel) + '</div>'
+      + '<div class="docTasksChangeDiff"><span class="docTasksChangeOld">' + esc(showVal(c.field, c.before)) + '</span> → <span class="docTasksChangeNew">' + esc(showVal(c.field, c.after)) + '</span></div>'
+      + (c.reason ? '<div class="ptSub">' + esc(c.reason) + '</div>' : '')
+      + '</div><button type="button" class="historyRowIconBtn danger" data-pd="' + c.id + '" aria-label="Refuser" title="Refuser">' + TRASH_ICON + '</button></div>';
+  }
+  function taskHtml(l) {
+    if (isCh()) return changeHtml(l);
+    var t = l.task, day = dayOrWeekLabel({ day: t.day, week: t.week, noRoom: t.noRoom });
+    var sub = [day, t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+    var h = '<div class="ptTask' + (l.ok ? '' : ' ptNo') + '" data-tid="' + t.id + '"><input type="checkbox" data-tid="' + t.id + '" aria-label="Sélectionner"' + (l.ok ? '' : ' disabled') + '><div class="ptBody"><div class="ptLabel ptTaskTitle">' + esc(t.title) + '</div>';
+    if (sub) h += '<div class="ptSub">' + esc(sub) + '</div>';
+    if (t.moved) h += '<div><span class="ptFlag">déplacée (semaine pleine)</span></div>';
+    if (l.dup) h += '<div><span class="ptFlag">doublon probable d’une tâche existante</span></div>';
+    if (!l.ok && pcats.length) {
+      h += '<div class="docTasksMeta">Choisis une catégorie : <select class="docTasksCat" data-pc="' + l.i + '"><option value="">—</option>'
+        + pcats.map(function (c) { return '<option value="' + esc(c.key) + '">' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
+    }
+    return h + '</div><button type="button" class="historyRowIconBtn danger" data-pd="' + t.id + '" aria-label="Supprimer cette tâche" title="Supprimer">' + TRASH_ICON + '</button></div>';
+  }
+  function weeksHtml(g) {
+    if (!g.wlist.length) return g.flat.map(taskHtml).join('');
+    return g.wlist.map(function (w) {
+      var lab = (w.none ? 'Sans objectif périodique' : 'Période ' + w.pnum) + (w.week ? ' · ' + shortDate(w.week) : '');
+      var sub = w.noWeekly ? 'Aucun objectif hebdomadaire' : w.text;
+      var over = w.est && w.mins > w.est;
+      return '<div class="ptWeekHead"><label class="ptWeekRow">' + cbx(w) + '<span class="ptWeek">' + esc(w.tag) + '</span><span class="ptLabel">' + esc(lab) + '</span></label>'
+        + '<span class="ptWeekTot">' + w.leaves.length + ' · ' + esc(fmtH(w.mins)) + '</span></div>'
+        + (sub ? '<button type="button" class="ptSub ptWeekSub ptClamp" data-wx="1" aria-expanded="false" title="Voir le nom complet">' + esc(sub) + (w.est ? ' · ' + esc(fmtH(w.est)) + ' prévues' : '') + '</button>' : '')
+        + (over ? '<div class="ptOver ptWeekSub">Plus que prévu : ' + esc(fmtH(w.mins)) + ' proposées pour ' + esc(fmtH(w.est)) + ' prévues.</div>' : '')
+        + '<div class="ptWeekTasks">' + w.leaves.map(taskHtml).join('') + '</div>';
     }).join('');
   }
-  function syncGroupBoxes() {
-    Array.prototype.forEach.call($('docTasksChangesTasks').querySelectorAll('input[data-pg]'), function (gb) {
-      var cbs = $('docTasksChangesTasks').querySelectorAll('[data-pgk="' + gb.getAttribute('data-pg') + '"] input[data-pt]'), on = 0;
-      Array.prototype.forEach.call(cbs, function (c) { if (c.checked) on += 1; });
-      gb.checked = on === cbs.length; gb.indeterminate = on > 0 && on < cbs.length;
-    });
+  function paneHtml(s) {
+    if (s === 0) {
+      var h = '<div class="ptTopRow">' + allRow(pall, 'Tout sélectionner') + '<span class="ptTotalR">' + esc(totalTxt(pall)) + '</span></div>';
+      return h + ptree.map(function (p) {
+        var col = p.orph ? '#e8c46a' : poleColor(p.key);
+        var chips = p.slist.map(function (g) { return '<span class="ptChip">' + esc(g.label) + ' ' + g.leaves.length + '</span>'; }).join('');
+        return '<div class="ptCardRow">' + cbx(p) + '<button type="button" class="ptCard" data-go="1" data-p="' + esc(p.id) + '" style="--pc:' + esc(col) + '"><span class="ptCardTop"><span class="ptPdot"></span><strong>' + esc(p.label) + '</strong><span class="ptCardN">' + p.leaves.length + '</span>' + CHEV + '</span>' + '</button></div>';
+      }).join('');
+    }
+    var p = findPole(nav.p); if (!p) return '';
+    var col = p.orph ? '#e8c46a' : poleColor(p.key);
+    if (s === 1) {
+      var hd = '<div class="ptTopRow"><span class="ptPole" style="--pc:' + esc(col) + '"><span class="ptPdot"></span><strong class="ptTitle">' + esc(p.label) + '</strong></span><span class="ptTotalR">' + esc(totalTxt(p)) + '</span></div>';
+      if (p.orph) return hd + '<p class="ptHelp">' + (isCh() ? 'Ces modifications ne sont rattachées à aucun pôle.' : 'Ces tâches n’ont pas de catégorie valide : choisis-en une pour pouvoir les ajouter.') + '</p>' + p.direct.flat.map(taskHtml).join('');
+      hd += allRow(p, 'Tout sélectionner');
+      if (!p.slist.length) return hd + weeksHtml(p.direct);
+      var cards = (p.direct.flat.length ? [p.direct] : []).concat(p.slist).map(function (g) {
+        var lab = g === p.direct ? 'Sans secteur' : g.label;
+        return '<div class="ptCardRow">' + cbx(g) + '<button type="button" class="ptCard ptCardSec" data-go="2" data-p="' + esc(p.id) + '" data-g="' + (g === p.direct ? 'd' : esc(g.id)) + '" style="--pc:' + esc(col) + '"><span class="ptSecTxt"><strong>' + esc(lab) + '</strong>' + (isCh() ? '' : '<span class="ptSub">' + esc((g.range ? g.range + ' · ' : '') + fmtH(g.mins)) + '</span>') + '</span><span class="ptCardN">' + g.leaves.length + '</span>' + CHEV + '</button></div>';
+      }).join('');
+      return hd + cards;
+    }
+    var g = findGrp(p, nav.g); if (!g) return '';
+    return '<div class="ptTopRow"><span class="ptPole" style="--pc:' + esc(col) + '"><span class="ptPdot"></span><span class="ptTitleBox"><span class="ptSub">' + esc(p.label) + '</span><strong class="ptTitle">' + esc(g.id === p.direct.id ? 'Sans secteur' : g.label) + '</strong></span></span><span class="ptTotalR">' + esc(totalTxt(g)) + '</span></div>'
+      + allRow(g, 'Tout sélectionner') + weeksHtml(g);
   }
+  function paintBoxes() { // état des cases visibles (sans tout redessiner)
+    var h = $('docTasksChangesTasks');
+    Array.prototype.forEach.call(h.querySelectorAll('input[data-gid]'), function (cb) {
+      var n = pnodes[cb.getAttribute('data-gid')]; if (!n) return;
+      var st = nodeState(n); cb.checked = st === 2; cb.indeterminate = st === 1;
+    });
+    Array.prototype.forEach.call(h.querySelectorAll('input[data-tid]'), function (cb) { var t = pidx[cb.getAttribute('data-tid')]; cb.checked = !!t && isOn(t); });
+    var any = items().some(function (t) { return isOn(t); });
+    var b = $('docTasksPTasksApply'); if (b) b.disabled = !any;
+  }
+  function renderDots() {
+    var d = $('docTasksPDots'); if (!d) return;
+    var html = '';
+    for (var i = 0; i <= nav.s && nav.s > 0; i++) html += '<button type="button" class="goalsDotBtn' + (i === nav.s ? ' on' : '') + '" data-dot="' + i + '" aria-label="Écran ' + (i + 1) + '"' + (i === nav.s ? ' aria-current="true"' : '') + '><span class="goalsDot"></span></button>';
+    d.innerHTML = html;
+  }
+  // Glissement : même technique que les autres écrans glissants (stats-avance.js, setStatsPage) — l'écran d'arrivée `to`
+  // entre de dir*100 % à 0, l'écran de départ `from` (posé en absolu) sort de 0 à -dir*100 %. Un seul écran rendu à la fois.
+  var pview = null;
+  function panes() { return pview ? pview.children : []; }
+  var fwd = null; // écran quitté par un retour (le geste vers la gauche y revient)
+  function fillPane(i, st) { var el = panes()[i]; if (!el) return; var keep = nav; if (st) nav = st; el.innerHTML = paneHtml(i); nav = keep; }
+  function showScreen() { // affichage immédiat (sans animation) de l'écran courant
+    for (var i = 0; i < 3; i++) { var e = panes()[i]; if (!e) continue; e.classList.toggle('hidden', i !== nav.s); e.innerHTML = i === nav.s ? paneHtml(i) : ''; }
+    renderDots(); paintBoxes();
+  }
+  function goTo(s, p, g, opts) {
+    if (s > 0 && !findPole(p)) s = 0;
+    var from0 = nav.s, back = s < from0, keepP = nav.p, keepG = nav.g;
+    nav = { s: s, p: s > 0 ? p : null, g: s > 1 ? g : null };
+    if (back) { nav.p = s > 0 ? keepP : null; nav.g = s > 1 ? keepG : null; fwd = { s: from0, p: keepP, g: keepG }; } else fwd = null;
+    if (s === from0) { showScreen(); return; }
+    var from = panes()[from0], to = panes()[s], dir = s > from0 ? 1 : -1;
+    fillPane(s); renderDots(); paintBoxes();
+    to.scrollTop = 0;
+    to.classList.remove('hidden');
+    if ((opts && opts.noAnim) || typeof to.animate !== 'function') { from.classList.add('hidden'); from.innerHTML = ''; return; }
+    var r = from.getBoundingClientRect(), pr = pview.getBoundingClientRect();
+    from.style.cssText += ';position:absolute;left:' + (r.left - pr.left) + 'px;top:' + (r.top - pr.top) + 'px;width:' + r.width + 'px;height:' + r.height + 'px;pointer-events:none;';
+    pview.style.overflowX = 'hidden';
+    var ao = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
+    to.animate([{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'translateX(0)' }], ao);
+    var out = from.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-dir * 100) + '%)' }], ao);
+    out.onfinish = function () {
+      from.style.position = ''; from.style.left = ''; from.style.top = ''; from.style.width = ''; from.style.height = ''; from.style.pointerEvents = '';
+      from.classList.add('hidden'); from.innerHTML = ''; out.cancel();
+      to.getAnimations().forEach(function (a) { a.cancel(); });
+      pview.style.overflowX = '';
+    };
+  }
+  function renderPTasks() {
+    var h = $('docTasksChangesTasks'); if (!h) return;
+    if (!items().length) { h.innerHTML = '<p class="docTasksMeta">' + (isCh() ? 'Rien à valider.' : 'Aucune nouvelle tâche à valider.') + '</p>'; pview = null; var dd = $('docTasksPDots'); if (dd) dd.innerHTML = ''; paintBoxes(); return; }
+    if (!ptree) buildPTree();
+    bindSwipe();
+    var keep = pview && pview.children[nav.s] ? pview.children[nav.s].scrollTop : 0;
+    // l'écran courant doit encore exister (tâches ajoutées, supprimées ou reclassées)
+    var p = nav.s > 0 ? findPole(nav.p) : null;
+    if (nav.s > 0 && !p) nav = { s: 0, p: null, g: null };
+    else if (nav.s === 2 && !findGrp(p, nav.g)) nav = { s: 1, p: nav.p, g: null };
+    else if (nav.s === 2 && !p.slist.length) nav = { s: 1, p: nav.p, g: null };
+    h.innerHTML = '<div class="ptView"><div class="ptPane hidden"></div><div class="ptPane hidden"></div><div class="ptPane hidden"></div></div>';
+    pview = h.querySelector('.ptView');
+    showScreen();
+    if (keep && panes()[nav.s]) panes()[nav.s].scrollTop = keep;
+  }
+  var CHEV = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>';
   function loadPTasks() {
     return dApi('GET', '/api/drive/sync/pending').then(function (r) {
       ptasks = r.tasks || []; pcats = r.categories || []; ptasks.forEach(function (t) { t.toChoose = !!t.toChoose; });
-    }).catch(function () { ptasks = []; });
+    }).catch(function () { ptasks = []; }).then(function () {
+      ptree = null; var live = {}; ptasks.forEach(function (t) { live[t.id] = true; });
+      Object.keys(psel).forEach(function (k) { if (!live[k]) delete psel[k]; }); // la sélection ne survit que pour des tâches encore en attente
+    });
   }
   function loadChanges() {
     var p = loadPTasks();
-    cApi('GET', '').then(function (r) { changes = r.proposals || []; }).catch(function () { changes = []; }).then(function () { return p; }).then(renderChanges);
+    cApi('GET', '').then(function (r) { changes = normCh(r.proposals || []); }).catch(function () { changes = []; }).then(function () { return p; }).then(loadPMeta).then(renderChanges);
   }
   function resolvePTasks(items, okMsg) {
     if (busy) return; busy = true;
     dApi('POST', '/api/drive/sync/resolve', { items: items }).then(function (res) {
       busy = false;
       var gone = items.map(function (x) { return x.id; });
-      ptasks = ptasks.filter(function (t) { return gone.indexOf(t.id) < 0; }); renderChanges(); loadSync();
+      ptasks = ptasks.filter(function (t) { return gone.indexOf(t.id) < 0; }); gone.forEach(function (id) { delete psel[id]; }); ptree = null; renderChanges(); loadSync();
       if (okMsg) cToast(res.addedCount + ' tâche(s) ajoutée(s), ' + res.dismissedCount + ' refusée(s).');
       if (res.addedCount) refresh();
     }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
   }
   $('docTasksChangesTasks').addEventListener('click', function (e) {
     var d = e.target.closest('button[data-pd]');
-    if (d) { var t = ptasks[Number(d.getAttribute('data-pd'))]; if (t) resolvePTasks([{ id: t.id, key: t.key, checked: false }], false); return; }
-  });
-  $('docTasksPTasksApply').addEventListener('click', function () {
-    var items = [], any = false;
-    Array.prototype.forEach.call($('docTasksChangesTasks').querySelectorAll('input[data-pt]'), function (cb) {
-      var t = ptasks[Number(cb.getAttribute('data-pt'))]; if (!t) return;
-      if (cb.checked) any = true;
-      items.push({ id: t.id, key: t.key, checked: cb.checked });
-    });
-    if (!any) { cToast('Coche au moins une tâche.'); return; }
-    resolvePTasks(items, true);
-  });
-  $('docTasksChangesTasks').addEventListener('change', function (e) {
-    var gb = e.target.closest('input[data-pg]');
-    if (gb) { // un clic : toute la section (même date et heure) cochée ou décochée
-      Array.prototype.forEach.call($('docTasksChangesTasks').querySelectorAll('[data-pgk="' + gb.getAttribute('data-pg') + '"] input[data-pt]'), function (cb) { cb.checked = gb.checked; });
+    if (d && isCh()) { // « Refuser » : refus mémorisé côté serveur
+      var cid = Number(d.getAttribute('data-pd')), c = changes.filter(function (x) { return x.id === cid; })[0]; if (!c) return;
+      cApi('POST', '/dismiss', { ids: [c.id] }).then(function () { changes = changes.filter(function (x) { return x.id !== c.id; }); renderChanges(); })
+        .catch(function (err) { cToast((err && err.message) || 'Erreur.'); });
       return;
     }
-    syncGroupBoxes();
-    var sel = e.target.closest('select[data-pc]'); if (!sel) return;
-    var t = ptasks[Number(sel.getAttribute('data-pc'))]; if (!t) return;
-    t.key = sel.value; t.toChoose = false;
+    if (d) { var id = Number(d.getAttribute('data-pd')); var t = ptasks.filter(function (x) { return x.id === id; })[0]; if (t) resolvePTasks([{ id: t.id, key: t.key, checked: false }], false); return; }
+    var wx = e.target.closest('button[data-wx]');
+    if (wx) { wx.classList.toggle('open'); wx.setAttribute('aria-expanded', wx.classList.contains('open') ? 'true' : 'false'); return; }
+    var go = e.target.closest('button[data-go]');
+    if (go) { goTo(Number(go.getAttribute('data-go')), go.getAttribute('data-p'), go.getAttribute('data-g')); return; }
+    var row = e.target.closest('.ptTask');
+    if (row && !e.target.closest('input,select,button')) { // clic sur le texte : cocher la tâche
+      var tid = row.getAttribute('data-tid');
+      if (row.classList.contains('ptNo')) return;
+      var it = pidx[tid]; if (it) toggleItems([it], !isOn(it));
+    }
+  });
+  $('docTasksChangesTasks').addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-pc]');
+    if (sel) {
+      var t = ptasks[Number(sel.getAttribute('data-pc'))]; if (!t || !sel.value) return;
+      t.key = sel.value; t.toChoose = false; ptree = null; renderPTasks(); return;
+    }
+    var tc = e.target.closest('input[data-tid]');
+    if (tc) { var it = pidx[tc.getAttribute('data-tid')]; if (it) toggleItems([it], tc.checked); return; }
+    var cb = e.target.closest('input[data-gid]'); if (!cb) return;
+    var n = pnodes[cb.getAttribute('data-gid')]; if (!n) return;
+    var on = nodeState(n) !== 2; // plein => on décoche ; vide ou mixte => on coche tout
+    toggleItems(n.sleaves, on);
+  });
+  // Points : ceux de gauche ramènent à l'écran correspondant (le dernier disparaît au retour).
+  $('docTasksPDots').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-dot]'); if (!b) return;
+    var s = Number(b.getAttribute('data-dot')); if (s >= nav.s) return;
+    goTo(s, nav.p, nav.g);
+  });
+  // Glissement tactile : technique commune (TMT.slidePager, stats-avance.js). Vers la droite = écran précédent ;
+  // vers la gauche = l'écran qu'on vient de quitter (sinon on avance en touchant une carte). Branché au premier rendu (stats-avance.js se charge après ce fichier).
+  var swipeBound = false;
+  function bindSwipe() {
+    if (swipeBound || !(window.TMT && TMT.slidePager)) return; swipeBound = true;
+    TMT.slidePager({
+      zone: $('docTasksChangesTasks'),
+      neighbor: function (dir) {
+        if (!pview) return null;
+        var t = nav.s + dir, st;
+        if (dir < 0) { if (nav.s < 1) return null; st = { s: t, p: t > 0 ? nav.p : null, g: t > 1 ? nav.g : null }; }
+        else return null; // 18 oct. 2026 : pas de glissement vers la gauche (on avance en touchant une carte)
+        var cur = panes()[nav.s], nb = panes()[t], keepNav = nav;
+        return {
+          cur: cur, nb: nb, host: pview,
+          start: function () { fillPane(t, st); nb.scrollTop = 0; },
+          commit: function () { nav = st; fwd = dir < 0 ? { s: keepNav.s, p: keepNav.p, g: keepNav.g } : null; cur.innerHTML = ''; renderDots(); paintBoxes(); },
+          cancel: function () { nb.innerHTML = ''; }
+        };
+      }
+    });
+  }
+  // « Ajouter la sélection » : n'envoie QUE les tâches cochées (les autres restent en attente), par lots de 200.
+  $('docTasksPTasksApply').addEventListener('click', function () {
+    if (isCh()) { applyChanges(); return; }
+    var items = ptasks.filter(function (t) { return psel[t.id]; }).map(function (t) { return { id: t.id, key: t.key, checked: true }; });
+    if (!items.length) { cToast('Coche au moins une tâche.'); return; }
+    if (busy) return; busy = true;
+    var i = 0, added = 0, ignored = 0, done = {};
+    function finish(errMsg) {
+      busy = false;
+      ptasks = ptasks.filter(function (t) { return !done[t.id]; }); Object.keys(done).forEach(function (id) { delete psel[id]; });
+      ptree = null; renderChanges(); loadSync();
+      cToast(errMsg || (added + ' tâche(s) ajoutée(s)' + (ignored ? ', ' + ignored + ' ignorée(s) (déjà présentes)' : '') + '.'));
+      if (added) refresh();
+    }
+    (function next() {
+      if (i >= items.length) { finish(); return; }
+      var batch = items.slice(i, i + PBATCH);
+      dApi('POST', '/api/drive/sync/resolve', { items: batch }).then(function (res) {
+        batch.forEach(function (x) { done[x.id] = true; });
+        added += res.addedCount || 0; ignored += (res.skipped || []).length + (res.dismissedCount || 0); i += PBATCH; next();
+      }).catch(function (err) { finish((added ? added + ' ajoutée(s) avant l’erreur. ' : '') + ((err && err.message) || 'Erreur.')); });
+    })();
   });
   function refresh() { if (typeof TMT.openGoalsForActivity === 'function') TMT.openGoalsForActivity(TMT.currentGoalsActivityIndex || 0); }
-  function openChangesPop(mode) { cToast(''); $('docTasksChangesPop').setAttribute('data-mode', mode); $('docTasksChangesPop').classList.remove('hidden'); renderChanges(); loadChanges(); }
+  function openChangesPop(mode) { nav = { s: 0, p: null, g: null }; fwd = null; cToast(''); $('docTasksChangesPop').setAttribute('data-mode', mode); $('docTasksChangesPop').classList.remove('hidden'); renderChanges(); loadChanges(); }
   $('docTasksChangesBtn').addEventListener('click', function () { openChangesPop('changes'); });
   $('docTasksTasksBtn').addEventListener('click', function () { openChangesPop('tasks'); });
   $('docTasksChangesClose').addEventListener('click', function () { $('docTasksChangesPop').classList.add('hidden'); });
   $('docTasksChangesFind').addEventListener('click', function () {
     if (busy) return; busy = true; cToast('L’IA cherche…');
     cApi('POST', '/generate', {}).then(function (r) {
-      busy = false; changes = r.proposals || []; renderChanges();
+      busy = false; changes = normCh(r.proposals || []); renderChanges();
       cToast(r.aiBlocked ? r.message : r.capReached ? 'Plafond IA du jour atteint.' : (r.configured === false ? 'IA non configurée.' : (r.failed ? 'L’IA n’a pas répondu.' : (r.added ? r.added + ' nouvelle(s) proposition(s).' : 'Rien de nouveau à proposer.'))));
     }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
   });
-  $('docTasksChangesList').addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-d]'); if (!b) return;
-    var c = changes[Number(b.getAttribute('data-d'))]; if (!c) return;
-    cApi('POST', '/dismiss', { ids: [c.id] }).then(function () { changes = changes.filter(function (x) { return x.id !== c.id; }); renderChanges(); })
-      .catch(function (err) { cToast((err && err.message) || 'Erreur.'); });
-  });
-  // Coché/décoché mémorisé côté serveur (suit l'utilisateur d'un appareil à l'autre).
-  $('docTasksChangesList').addEventListener('change', function (e) {
-    var gb = e.target.closest('input[data-g]');
-    if (gb) { // un clic : toute la section (même date et heure) cochée ou décochée
-      var v0 = gb.checked ? 1 : 0, ch = [];
-      var gi = Number(gb.getAttribute('data-g')), seen = -1, last = null;
-      changes.forEach(function (c) { if (c.createdAt !== last) { seen += 1; last = c.createdAt; } if (seen === gi) ch.push(c); });
-      Promise.all(ch.map(function (c) { var prev = c.checked === 0 ? 0 : 1; c.checked = v0; return cApi('POST', '/check', { id: c.id, checked: !!v0 }).catch(function () { c.checked = prev; }); })).then(renderChanges);
-      return;
-    }
-    var cb = e.target.closest('input[data-c]'); if (!cb) return;
-    var c = changes[Number(cb.getAttribute('data-c'))]; if (!c) return;
-    var v = cb.checked ? 1 : 0, prev = c.checked === 0 ? 0 : 1; c.checked = v;
-    cApi('POST', '/check', { id: c.id, checked: !!v }).catch(function (err) { c.checked = prev; cb.checked = !!prev; cToast((err && err.message) || 'Erreur.'); });
-  });
-  $('docTasksChangesApply').addEventListener('click', function () {
+  // « Appliquer » : n'envoie que les modifications cochées (coches mémorisées côté serveur).
+  function applyChanges() {
     if (busy) return;
-    var ids = [], rest = [];
-    Array.prototype.forEach.call($('docTasksChangesList').querySelectorAll('input[data-c]'), function (cb) {
-      var c = changes[Number(cb.getAttribute('data-c'))]; if (c && cb.checked) ids.push(c.id);
-    });
+    var ids = changes.filter(function (c) { return c.checked !== 0; }).map(function (c) { return c.id; });
     if (!ids.length) { cToast('Coche au moins une modification.'); return; }
     busy = true;
     cApi('POST', '/apply', { ids: ids }).then(function (r) {
@@ -636,7 +910,7 @@
       cToast(r.appliedCount + ' modification(s) appliquée(s)' + (r.skipped && r.skipped.length ? ', ' + r.skipped.length + ' ignorée(s) (' + r.skipped.map(function (s) { return s.reason; }).join(', ') + ')' : '') + '.');
       if (r.appliedCount) refresh();
     }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });
-  });
+  }
 
   function apply() {
     var picked = [];
