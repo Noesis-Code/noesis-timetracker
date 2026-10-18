@@ -852,7 +852,7 @@
         if (!pview) return null;
         var t = nav.s + dir, st;
         if (dir < 0) { if (nav.s < 1) return null; st = { s: t, p: t > 0 ? nav.p : null, g: t > 1 ? nav.g : null }; }
-        else { if (!fwd || fwd.s !== t) return null; st = { s: t, p: fwd.p, g: t > 1 ? fwd.g : null }; }
+        else return null; // 18 oct. 2026 : pas de glissement vers la gauche (on avance en touchant une carte)
         var cur = panes()[nav.s], nb = panes()[t], keepNav = nav;
         return {
           cur: cur, nb: nb, host: pview,
