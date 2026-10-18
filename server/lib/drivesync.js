@@ -640,7 +640,7 @@ async function syncNow(userId, activityId, folderId) {
 
 async function runSweep() {
   if (!drive.configured()) return 0;
-  const rows = db.prepare(`SELECT c.userId, c.activityId FROM drive_connections c JOIN drive_sync s ON s.userId = c.userId AND s.activityId = c.activityId
+  const rows = db.prepare(`SELECT c.userId, c.activityId FROM drive_connections c JOIN activities act ON act.id = c.activityId AND act.ownerId = c.userId JOIN drive_sync s ON s.userId = c.userId AND s.activityId = c.activityId
     WHERE EXISTS (SELECT 1 FROM drive_folders d WHERE d.userId = c.userId AND d.activityId = c.activityId) AND s.needsReconnect = 0`).all();
   let n = 0;
   for (const r of rows) {

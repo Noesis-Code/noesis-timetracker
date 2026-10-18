@@ -272,6 +272,7 @@
   function renderDriveMain() {
     var h = $('docTasksDrive'), s = driveSt, html = '';
     if (!s) { h.innerHTML = ''; return; }
+    if (s.configured && s.isOwner === false) { h.innerHTML = '<div class="docTasksDriveRow"><p class="docTasksMeta">Seul le propriétaire de l’activité connecte Drive. Les nouvelles tâches trouvées sont les mêmes pour tous les membres.</p></div>'; return; }
     if (!s.configured) {
       h.innerHTML = '<div class="docTasksDriveRow docTasksDriveOff" aria-disabled="true">Connecter Drive <span class="goalsAddSoon">Bientôt</span></div>'; return;
     }
