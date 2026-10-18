@@ -313,8 +313,13 @@ function isRealDate(s) {
 // ---------- Jours (17 oct. 2026) ----------
 const dowOf = (iso) => new Date(iso + 'T00:00:00Z').getUTCDay();
 const isWorkday = (iso) => WORK_DAYS.includes(dowOf(iso));
-function nextWorkday(iso, last) {
-  for (let d = iso; d && d <= last; d = goals.addDays(d, 1)) if (isWorkday(d)) return d;
+// Capacité d'un jour (minutes) : agenda externe de l'utilisateur (ctx.dayCaps : 0 = vacances, X/Y réglés) sinon capacité par défaut ; null = illimitée.
+function capOf(ctx, day) {
+  const c = ctx && ctx.dayCaps ? ctx.dayCaps[day] : undefined;
+  return c != null ? c : (ctx && ctx.dayCapacityMinutes ? ctx.dayCapacityMinutes : null);
+}
+function nextWorkday(iso, last, ctx) {
+  for (let d = iso; d && d <= last; d = goals.addDays(d, 1)) if (isWorkday(d) && capOf(ctx, d) !== 0) return d;
   return null;
 }
 // La date figure-t-elle dans le texte du document (AAAA-MM-JJ, JJ/MM, « 14 oct. », « Oct 14 ») ? Alors c'est une date EXACTE du document.
@@ -344,7 +349,7 @@ function resolveDay(v, ctx) {
   if (day < today) { if (weeks.includes(v) && v >= weeks[0]) day = today; else return null; }
   if (day < weeks[0]) return null;
   const exact = docMentionsDate(ctx.docText, v);
-  if (!exact && !isWorkday(day)) { day = nextWorkday(day, last); if (!day) return null; }
+  if (!exact && (!isWorkday(day) || capOf(ctx, day) === 0)) { day = nextWorkday(day, last, ctx); if (!day) return null; }
   return { day, exact };
 }
 
@@ -406,12 +411,11 @@ function capacityWarnings(tasks, capacityMinutes, loadByDay) {
 
 // Jours encore en dépassement APRÈS répartition (cause : tâches acceptées ou tâche seule plus longue que le jour) : information seulement.
 function dayWarnings(tasks, ctx) {
-  const dayCap = ctx.dayCapacityMinutes;
-  if (!dayCap) return [];
   const load = { ...(ctx.loadByDay || {}) };
   tasks.forEach((t) => { if (t.day) load[t.day] = (load[t.day] || 0) + (t.minutes || DEFAULT_TASK_MINUTES); });
   const days = new Set(tasks.filter((t) => t.day).map((t) => t.day));
-  return [...days].sort().filter((d) => load[d] > dayCap).map((d) => ({ day: d, week: goals.mostRecentMonday(d), minutes: load[d], capacityMinutes: dayCap }));
+  return [...days].sort().filter((d) => capOf(ctx, d) != null && load[d] > capOf(ctx, d))
+    .map((d) => ({ day: d, week: goals.mostRecentMonday(d), minutes: load[d], capacityMinutes: capOf(ctx, d) }));
 }
 
 // Contrôle déterministe (« Semaine qui dépasse sa capacité », 17 oct. 2026). Charge d'un jour = tâches ACCEPTÉES + PROPOSÉES.
@@ -419,25 +423,28 @@ function dayWarnings(tasks, ctx) {
 // document, jamais une tâche acceptée, vers le prochain jour travaillé avec de la place (même semaine d'abord, puis semaines suivantes
 // de l'horizon). Aucune place : la tâche reste sans jour (`day` null, `noRoom`) et l'utilisateur choisit. Modifie `tasks` en place.
 function balanceDays(tasks, ctx) {
-  const dayCap = ctx.dayCapacityMinutes;
-  if (!dayCap) return tasks;
+  if (!ctx.dayCapacityMinutes && !(ctx.dayCaps && Object.keys(ctx.dayCaps).length)) return tasks;
   const last = goals.addDays(ctx.weeks[ctx.weeks.length - 1], 6);
   const mins = (t) => t.minutes || DEFAULT_TASK_MINUTES;
   const load = { ...(ctx.loadByDay || {}) };
   tasks.forEach((t) => { if (t.day) load[t.day] = (load[t.day] || 0) + mins(t); });
   const days = [...new Set(tasks.filter((t) => t.day).map((t) => t.day))].sort();
   for (const day of days) {
-    while ((load[day] || 0) > dayCap) {
+    while (capOf(ctx, day) != null && (load[day] || 0) > capOf(ctx, day)) {
       let idx = -1;
       for (let i = tasks.length - 1; i >= 0; i--) if (tasks[i].day === day && !tasks[i].exact) { idx = i; break; }
       if (idx < 0) break; // plus rien de déplaçable : avertissement seulement
       const t = tasks[idx];
       load[day] -= mins(t);
       let dest = null;
-      for (let d = nextWorkday(goals.addDays(day, 1), last); d; d = nextWorkday(goals.addDays(d, 1), last)) {
-        if ((load[d] || 0) + mins(t) <= dayCap) { dest = d; break; }
+      for (let d = nextWorkday(goals.addDays(day, 1), last, ctx); d; d = nextWorkday(goals.addDays(d, 1), last, ctx)) {
+        if (capOf(ctx, d) == null || (load[d] || 0) + mins(t) <= capOf(ctx, d)) { dest = d; break; }
       }
-      if (dest) { load[dest] = (load[dest] || 0) + mins(t); t.fromWeek = t.week; t.day = dest; t.week = goals.mostRecentMonday(dest); t.moved = true; } // fromWeek : semaine d'origine (libellé « jour plein » ou « semaine pleine »)
+      if (dest) {
+        // Changement de JOUR dans la même semaine : silencieux (18 oct. 2026, Émilien), aucune indication. Autre semaine : signalé (`moved`).
+        load[dest] = (load[dest] || 0) + mins(t); t.fromWeek = t.week; t.day = dest; t.week = goals.mostRecentMonday(dest);
+        if (t.week !== t.fromWeek) t.moved = true;
+      }
       else { t.day = null; t.noRoom = true; } // « à choisir » ; `week` conservé
     }
   }
@@ -457,6 +464,13 @@ async function prepareProposal(userId, activityId, body, opts) {
   if (!docanalysis.hasCaller() && !classify.configured()) throw httpError(503, "L'IA n'est pas configurée sur ce serveur. Réessaie plus tard.");
   if (!o.skipRate && !takeRateSlot(userId)) throw httpError(429, 'Limite atteinte : 10 demandes par heure. Réessaie plus tard.');
   const ctx = buildContext(userId, activityId);
+  // Agenda externe (offre gratuite incluse) : capacité par jour (vacances = 0, jour travaillé ailleurs = X h, jour libre = Y h). Jamais bloquant.
+  try {
+    const days = [];
+    const lastDay = goals.addDays(ctx.weeks[ctx.weeks.length - 1], 6);
+    for (let d = ctx.weeks[0]; d <= lastDay && days.length < 400; d = goals.addDays(d, 1)) days.push(d);
+    ctx.dayCaps = await require('./externalcalendar').dayCapacities(userId, days);
+  } catch (e) { ctx.dayCaps = {}; }
   if (!ctx.candidates.length) throw httpError(400, 'Aucune catégorie sur cette activité.');
   const cctx = changeproposals.buildContext(userId, activityId);
   let wantC = !!doc.text && !o.skipChanges && !!(cctx.open.length || cctx.weeklies.length);

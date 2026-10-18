@@ -153,10 +153,145 @@ async function refreshBusy(userId, isoDate) {
 }
 
 function clearBusyCache(userId) {
+  textCache.delete(userId);
   Array.from(busyCache.keys()).forEach((k) => { if (k.startsWith(userId + '|')) busyCache.delete(k); });
 }
 
+// ---------- Capacité par jour selon l'agenda (18 oct. 2026, demande d'Émilien, offre gratuite incluse) ----------
+// Les TITRES des événements sont lus UNIQUEMENT pour les comparer, en mémoire, aux mots configurés par l'utilisateur
+// (« motifs de travail » comme « Jacopo », mots de vacances) ; ils ne sont ni stockés ni journalisés ni envoyés à l'IA.
+//  - un jour couvert par un événement de vacances -> capacité 0 (aucune tâche placée) ;
+//  - sinon un événement dont le titre contient un motif de travail -> workDayMinutes (« heures chez moi ces jours-là ») ;
+//  - sinon -> freeDayMinutes. Réglages vides = pas de limite imposée par l'agenda (comportement antérieur).
+const DEFAULT_VACATION_WORDS = ['vacances', 'congé', 'férié'];
+const MAX_DAY_MINUTES = 1440;
+
+db.exec(`CREATE TABLE IF NOT EXISTS external_calendar_settings (
+  userId TEXT PRIMARY KEY,
+  workPatterns TEXT NOT NULL DEFAULT '[]',
+  vacationWords TEXT,
+  workDayMinutes INTEGER,
+  freeDayMinutes INTEGER
+)`);
+
+function cleanWords(list) {
+  const arr = Array.isArray(list) ? list : String(list || '').split(/[,;\n]/);
+  return Array.from(new Set(arr.map((w) => String(w).trim().slice(0, 60)).filter(Boolean))).slice(0, 20);
+}
+
+function getSettings(userId) {
+  const r = db.prepare('SELECT * FROM external_calendar_settings WHERE userId = ?').get(userId);
+  const parse = (v, d) => { try { const a = JSON.parse(v); return Array.isArray(a) ? a : d; } catch (e) { return d; } };
+  return {
+    workPatterns: r ? parse(r.workPatterns, []) : [],
+    vacationWords: r && r.vacationWords != null ? parse(r.vacationWords, DEFAULT_VACATION_WORDS) : DEFAULT_VACATION_WORDS.slice(),
+    workDayMinutes: r && r.workDayMinutes != null ? r.workDayMinutes : null,
+    freeDayMinutes: r && r.freeDayMinutes != null ? r.freeDayMinutes : null,
+  };
+}
+
+function minutesOrNull(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0 || n > MAX_DAY_MINUTES) {
+    throw Object.assign(new Error('Durée invalide : un nombre de minutes entre 0 et ' + MAX_DAY_MINUTES + '.'), { statusCode: 400 });
+  }
+  return n;
+}
+
+function setSettings(userId, body) {
+  const b = body || {};
+  const cur = getSettings(userId);
+  const next = {
+    workPatterns: b.workPatterns !== undefined ? cleanWords(b.workPatterns) : cur.workPatterns,
+    vacationWords: b.vacationWords !== undefined ? cleanWords(b.vacationWords) : cur.vacationWords,
+    workDayMinutes: b.workDayMinutes !== undefined ? minutesOrNull(b.workDayMinutes) : cur.workDayMinutes,
+    freeDayMinutes: b.freeDayMinutes !== undefined ? minutesOrNull(b.freeDayMinutes) : cur.freeDayMinutes,
+  };
+  db.prepare(`INSERT INTO external_calendar_settings (userId, workPatterns, vacationWords, workDayMinutes, freeDayMinutes)
+    VALUES (?, ?, ?, ?, ?) ON CONFLICT(userId) DO UPDATE SET workPatterns = excluded.workPatterns, vacationWords = excluded.vacationWords,
+    workDayMinutes = excluded.workDayMinutes, freeDayMinutes = excluded.freeDayMinutes`)
+    .run(userId, JSON.stringify(next.workPatterns), JSON.stringify(next.vacationWords), next.workDayMinutes, next.freeDayMinutes);
+  return getSettings(userId);
+}
+
+function foldText(v) { return String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+// Événements avec titre : [{start, end, summary}] (dates en UTC, même limite de fuseau que plus haut).
+function parseIcsEvents(icsText) {
+  const lines = String(icsText).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r\n|\n/);
+  const out = [];
+  let cur = null;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line === 'BEGIN:VEVENT') { cur = {}; continue; }
+    if (line === 'END:VEVENT') {
+      if (cur && cur.start) { if (!cur.end) cur.end = new Date(cur.start.getTime() + 86400000); out.push({ start: cur.start, end: cur.end, summary: cur.summary || '' }); }
+      cur = null; continue;
+    }
+    if (!cur) continue;
+    const m = line.match(/^(DTSTART|DTEND|SUMMARY)[^:]*:(.*)$/);
+    if (!m) continue;
+    if (m[1] === 'SUMMARY') { cur.summary = m[2].replace(/\\([,;nN\\])/g, (x, c) => (c === 'n' || c === 'N' ? ' ' : c)); continue; }
+    const d = parseIcsDate(m[2].trim());
+    if (d) cur[m[1] === 'DTSTART' ? 'start' : 'end'] = d;
+  }
+  return out;
+}
+
+// PURE. Capacité (minutes) d'un jour : 0 vacances, workDayMinutes, freeDayMinutes, ou null (pas de limite).
+function dayCapacityFromTexts(texts, isoDate, settings) {
+  const dayStart = new Date(isoDate + 'T00:00:00Z').getTime();
+  const dayEnd = dayStart + 86400000;
+  const vac = (settings.vacationWords || []).map(foldText).filter(Boolean);
+  const work = (settings.workPatterns || []).map(foldText).filter(Boolean);
+  let isVac = false; let isWork = false;
+  texts.forEach((txt) => {
+    parseIcsEvents(txt).forEach((ev) => {
+      if (!(ev.start.getTime() < dayEnd && ev.end.getTime() > dayStart)) return;
+      const title = foldText(ev.summary);
+      if (vac.some((w) => title.includes(w))) isVac = true;
+      else if (work.some((w) => title.includes(w))) isWork = true;
+    });
+  });
+  if (isVac) return 0;
+  if (isWork) return settings.workDayMinutes;
+  return settings.freeDayMinutes;
+}
+
+// Cache mémoire (15 min) des TEXTES des flux : permet de calculer la capacité de plusieurs jours de façon synchrone.
+const textCache = new Map();
+async function refreshTexts(userId) {
+  const hit = textCache.get(userId);
+  if (hit && Date.now() - hit.at < BUSY_TTL_MS) return hit.texts;
+  const urls = listUrls(userId);
+  if (!urls.length) { textCache.delete(userId); return null; }
+  const texts = [];
+  for (const u of urls) {
+    try {
+      const res = await fetch(u.icsUrl, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) texts.push(await res.text());
+    } catch (e) { /* une adresse injoignable n'empêche pas les autres */ }
+  }
+  if (!texts.length) return null; // jamais bloquant : aucune capacité imposée
+  textCache.set(userId, { texts, at: Date.now() });
+  return texts;
+}
+
+// Capacités des jours demandés : { 'YYYY-MM-DD': minutes } (jours sans limite absents). Agenda absent/injoignable -> {}.
+async function dayCapacities(userId, days) {
+  try {
+    const texts = await refreshTexts(userId);
+    if (!texts) return {};
+    const settings = getSettings(userId);
+    const out = {};
+    days.forEach((d) => { const c = dayCapacityFromTexts(texts, d, settings); if (c != null) out[d] = c; });
+    return out;
+  } catch (e) { return {}; }
+}
+
 module.exports = {
+  getSettings, setSettings, parseIcsEvents, dayCapacityFromTexts, dayCapacities, DEFAULT_VACATION_WORDS,
   cachedBusyMinutes,
   refreshBusy,
   clearBusyCache,

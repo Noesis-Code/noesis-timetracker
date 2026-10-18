@@ -11873,6 +11873,7 @@
   // Copie explicite seulement, avec l'avertissement écrit au-dessus.
   function renderCalendarFeedState(state) {
     loadExternalCalendar();
+    loadExternalCalendarSettings();
     var section = $('calendarFeedSection');
     if (!section) return;
     // Fonction éteinte côté serveur : la section n'apparaît pas du tout.
@@ -12016,6 +12017,31 @@
       .then(function (res) { renderExternalCalendarUrls(res && res.urls); })
       .catch(function () {});
   }
+  // Capacité par jour selon l'agenda : mots de travail / vacances, heures (affichées en heures, stockées en minutes).
+  function loadExternalCalendarSettings() {
+    if (!profile || !$('extCalWorkPatterns')) return;
+    api('GET', '/api/calendar/external-settings?userId=' + profile.id).then(function (s) {
+      if (!s) return;
+      $('extCalWorkPatterns').value = (s.workPatterns || []).join(', ');
+      $('extCalVacation').value = (s.vacationWords || []).join(', ');
+      $('extCalWorkHours').value = s.workDayMinutes == null ? '' : s.workDayMinutes / 60;
+      $('extCalFreeHours').value = s.freeDayMinutes == null ? '' : s.freeDayMinutes / 60;
+    }).catch(function () {});
+  }
+  if ($('extCalSettingsSaveBtn')) $('extCalSettingsSaveBtn').addEventListener('click', function () {
+    if (!profile) return;
+    var msg = $('extCalSettingsMsg');
+    var hrs = function (id) { var v = $(id).value.trim().replace(',', '.'); return v === '' ? null : Math.round(Number(v) * 60); };
+    msg.textContent = '';
+    api('PUT', '/api/calendar/external-settings', {
+      userId: profile.id,
+      workPatterns: $('extCalWorkPatterns').value,
+      vacationWords: $('extCalVacation').value,
+      workDayMinutes: hrs('extCalWorkHours'),
+      freeDayMinutes: hrs('extCalFreeHours')
+    }).then(function () { msg.textContent = t('Réglages enregistrés.'); loadExternalCalendarSettings(); })
+      .catch(function (err) { msg.textContent = err.message; });
+  });
   $('externalCalendarListBtn').addEventListener('click', function () {
     externalCalendarListOpen = !externalCalendarListOpen;
     loadExternalCalendar();

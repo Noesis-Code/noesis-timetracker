@@ -177,6 +177,21 @@ router.post('/calendar/external', (req, res) => {
   }
 });
 
+// Réglages de capacité par jour selon l'agenda (accès gratuit) : motifs de travail, mots de vacances, heures les jours travaillés / libres.
+router.get('/calendar/external-settings', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  res.json(externalcalendar.getSettings(req.userId));
+});
+
+router.put('/calendar/external-settings', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  try {
+    res.json(externalcalendar.setSettings(req.userId, req.body));
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ error: err.message });
+  }
+});
+
 router.delete('/calendar/external/:id', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
