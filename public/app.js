@@ -11984,7 +11984,7 @@
       var same = cur === b; close(); if (same) return;
       pop = document.createElement('div'); pop.className = 'infoTipPop'; pop.setAttribute('role', 'tooltip');
       pop.textContent = t(b.getAttribute('data-tip') || '');
-      var card = b.closest('.agendaGlass') || b.parentNode;
+      var card = b.closest('.settingsFlat') || b.closest('.extCalRulesBlock') || b.parentNode;
       card.style.position = 'relative'; card.appendChild(pop);
       pop.style.top = (b.getBoundingClientRect().bottom - card.getBoundingClientRect().top + 6) + 'px';
       cur = b; b.setAttribute('aria-expanded', 'true');
