@@ -156,7 +156,16 @@
   function openMenu() {
     closeMenu();
     if (!tradeAllowed) return;
-    menu = document.createElement('div'); menu.id = 'tabbarMenu';
+    // Pop-up centré (recette .communityMembersModal) : voile + carte, titre, ✕ en haut à droite ; fermeture = ✕ ou toucher le voile.
+    menu = document.createElement('div'); menu.id = 'tabbarMenu'; menu.className = 'communityMembersModal';
+    menu.setAttribute('role', 'dialog'); menu.setAttribute('aria-modal', 'true'); menu.setAttribute('aria-labelledby', 'tabbarMenuTitle');
+    var card = document.createElement('div'); card.className = 'communityMembersModalCard';
+    var hd = document.createElement('div'); hd.className = 'profileSubWindowHeader';
+    var ttl = document.createElement('p'); ttl.className = 'sectionTitle'; ttl.id = 'tabbarMenuTitle'; ttl.textContent = tr('Ma barre du bas');
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'menuBtn'; x.textContent = '✕'; x.setAttribute('aria-label', tr('Fermer'));
+    x.addEventListener('click', exitEdit);
+    hd.appendChild(ttl); hd.appendChild(x); card.appendChild(hd);
+    menu.addEventListener('click', function (e) { if (e.target === menu) exitEdit(); });
     var row = document.createElement('div'); row.className = 'notifRow';
     var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = 'Trade Tracker';
     var sw = document.createElement('label'); sw.className = 'toggleSwitch';
@@ -167,7 +176,7 @@
       if (!inp.checked && typeof TMT.closeTrade === 'function') TMT.closeTrade(); // retrait : la page Trade se ferme (les données Trade sont conservées)
       put({ trade: inp.checked }).then(function () { keepEdit = false; });
     });
-    sw.appendChild(inp); sw.appendChild(track); row.appendChild(label); row.appendChild(sw); menu.appendChild(row);
+    sw.appendChild(inp); sw.appendChild(track); row.appendChild(label); row.appendChild(sw); card.appendChild(row); menu.appendChild(card);
     document.body.appendChild(menu);
   }
   function exitEdit() { editing = false; closeMenu(); if (nav) nav.classList.remove('tabbarEditing'); }
