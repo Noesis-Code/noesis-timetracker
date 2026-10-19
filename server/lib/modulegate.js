@@ -22,6 +22,7 @@ const RULES = [
   ['roadmap', /^\/api\/activities\/[^/]+\/goals(\/|$)/, (p) => CATEGORY_CRUD.test(p) && !CATEGORY_TASK.test(p)],
   ['sharing', /^\/api\/(invites(\/|$)|community\/(activity-[a-z-]+|unread-messages))/],
   ['community', /^\/api\/(community(\/(shared-feed|following-feed))?|follows|blocks|users\/search|polls)(\/|$)/],
+  ['trade', /^\/api\/trade(\/|$)/],
   ['profile', /^\/api\/profile\/(posts|post-attachments|projects)(\/|$)/],
   ['profile', /^\/api\/profile\/[^/]+\/(public|projects|posts)$/],
 ];

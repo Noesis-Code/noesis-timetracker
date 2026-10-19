@@ -58,4 +58,18 @@ const nd = M.defaults();
 assert(nd.stats && nd.roadmap && nd['stats-tasks'] && !nd.community && !nd.profile, 'défaut nouveau compte : A+B actifs, Communauté+Profil inactifs');
 assert(M.setModules('absent', { stats: true }).status === 404, 'profil absent : 404');
 assert(Array.isArray(M.NEW_ACCOUNT_DEFAULT_MODULES) && M.defaults().core === true && M.defaults().offer1 === false, 'défauts nouveau compte');
+// Trade Tracker : off par défaut, réservé à TRADE_ALLOWED_USER_IDS (vide = personne).
+delete process.env.TRADE_ALLOWED_USER_IDS;
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('t1', 'Trader', '2026-01-01')").run();
+assert(M.getModules('u1').trade === false && M.defaults().trade === false && !M.isEnabled('t1', 'trade'), 'trade : désactivé par défaut (comptes existants et nouveaux)');
+assert(M.setModules('t1', { trade: true }).status === 403 && !M.isEnabled('t1', 'trade'), 'trade : variable vide = personne, activation refusée (403)');
+assert(!M.list('t1').some((x) => x.id === 'trade'), 'trade : non listé pour un id non autorisé');
+process.env.TRADE_ALLOWED_USER_IDS = ' t1 , autre ';
+assert(M.list('t1').some((x) => x.id === 'trade' && x.toggleable) && !M.list('u1').some((x) => x.id === 'trade'), 'trade : listé seulement pour les ids autorisés');
+assert(M.setModules('u1', { trade: true }).status === 403, 'trade : id non listé refusé');
+assert(M.setModules('t1', { trade: true }).ok && M.isEnabled('t1', 'trade'), 'trade : id autorisé peut l\'activer');
+assert(M.getModules('t1').stats === true && M.getModules('t1').roadmap === true, 'trade : les autres modules sont inchangés');
+delete process.env.TRADE_ALLOWED_USER_IDS;
+assert(!M.isEnabled('t1', 'trade'), 'trade : retiré de la variable = inactif même si la colonne dit vrai');
+assert(M.setModules('t1', { trade: false }).ok, 'trade : désactivation toujours permise');
 process.exit(failed ? 1 : 0);

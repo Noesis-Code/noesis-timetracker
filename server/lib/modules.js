@@ -14,7 +14,7 @@ const BUNDLES = {
   tasks: { label: 'Feuille de route', anchor: 'roadmap', modules: ['roadmap', 'stats-tasks'], all: ['roadmap', 'stats-tasks', 'calendar', 'ai'] },
 };
 // Optionnels, indépendants des ensembles.
-const OPTIONAL = ['community', 'profile'];
+const OPTIONAL = ['community', 'profile', 'trade'];
 // Communauté et Profil vont ensemble (un seul module côté usage) : les deux clés sont toujours égales.
 const LINKED = ['community', 'profile'];
 function linkPair(m, preferred) {
@@ -35,10 +35,18 @@ const MODULES = {
   calendar: { label: 'Calendrier', requires: ['roadmap'] },
   ai: { label: 'Assistant IA', requires: ['roadmap'] },
   notifications: { label: 'Notifications', requires: [] },
+  trade: { label: 'Trade Tracker', requires: [] },
   offer1: { label: 'Offre payante', requires: ['roadmap', 'ai'] },
 };
 const ALWAYS_ON = ['core'];
 const NOT_TOGGLEABLE = ['core', 'offer1'];
+
+// Trade Tracker (produit séparé relié à TMT) : module optionnel, DÉSACTIVÉ par défaut pour tous, réservé aux ids listés dans
+// TRADE_ALLOWED_USER_IDS (séparés par des virgules ; vide ou absent = personne). Lu à chaque appel (pas de cache).
+function tradeAllowedIds() {
+  return String(process.env.TRADE_ALLOWED_USER_IDS || '').split(',').map((x) => x.trim()).filter(Boolean);
+}
+function isTradeAllowed(userId) { return !!userId && tradeAllowedIds().includes(String(userId)); }
 
 function defaults() {
   const out = {};
@@ -50,17 +58,18 @@ function defaults() {
 // Comptes existants (colonne NULL) : tout actif, comme avant ce socle.
 function legacyDefaults() {
   const out = {};
-  for (const id of Object.keys(MODULES)) out[id] = id !== 'offer1';
+  for (const id of Object.keys(MODULES)) out[id] = id !== 'offer1' && id !== 'trade';
   return out;
 }
 
-function normalize(raw) {
+function normalize(raw, userId) {
   const base = legacyDefaults();
   if (raw && typeof raw === 'object') {
     for (const id of Object.keys(raw)) {
       if (MODULES[id] && !NOT_TOGGLEABLE.includes(id)) base[id] = !!raw[id];
     }
   }
+  if (!isTradeAllowed(userId)) base.trade = false; // jamais actif pour un id non autorisé (même si la colonne dit vrai)
   return linkPair(base);
 }
 
@@ -69,7 +78,7 @@ function getModules(userId) {
   if (!row) return null;
   let raw = null;
   if (row.modules) { try { raw = JSON.parse(row.modules); } catch (e) { raw = null; } }
-  return normalize(raw);
+  return normalize(raw, userId);
 }
 
 function isEnabled(userId, name) {
@@ -104,6 +113,7 @@ function setModules(userId, patch) {
   for (const id of Object.keys(patch)) {
     if (!MODULES[id]) return { ok: false, status: 400, error: `Module inconnu : ${id}.` };
     if (typeof patch[id] !== 'boolean') return { ok: false, status: 400, error: 'Modules invalides.' };
+    if (id === 'trade' && patch[id] && !isTradeAllowed(userId)) return { ok: false, status: 403, error: "Trade Tracker n'est pas disponible pour ce compte." };
     if (NOT_TOGGLEABLE.includes(id)) {
       if (patch[id] !== current[id] && !(id === 'core' && patch[id] === true)) {
         return { ok: false, status: 400, error: id === 'core' ? 'Le noyau ne peut pas être désactivé.' : "L'offre payante ne s'active pas ici." };
@@ -136,8 +146,9 @@ function setModules(userId, patch) {
   return { ok: true, modules: next };
 }
 
-function list() {
-  return Object.keys(MODULES).map((id) => ({ id, bundle: Object.keys(BUNDLES).find((b) => BUNDLES[b].modules.includes(id)) || (OPTIONAL.includes(id) ? 'optional' : null), label: MODULES[id].label, requires: MODULES[id].requires, toggleable: !NOT_TOGGLEABLE.includes(id) }));
+// `trade` n'est listé que pour les ids autorisés (userId requis).
+function list(userId) {
+  return Object.keys(MODULES).filter((id) => id !== 'trade' || isTradeAllowed(userId)).map((id) => ({ id, bundle: Object.keys(BUNDLES).find((b) => BUNDLES[b].modules.includes(id)) || (OPTIONAL.includes(id) ? 'optional' : null), label: MODULES[id].label, requires: MODULES[id].requires, toggleable: !NOT_TOGGLEABLE.includes(id) }));
 }
 
-module.exports = { BUNDLES, OPTIONAL, MODULES, NEW_ACCOUNT_DEFAULT_MODULES, defaults, getModules, isEnabled, setModules, validate, list };
+module.exports = { BUNDLES, OPTIONAL, MODULES, NEW_ACCOUNT_DEFAULT_MODULES, defaults, isTradeAllowed, getModules, isEnabled, setModules, validate, list };
