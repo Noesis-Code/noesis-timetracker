@@ -5886,7 +5886,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 .activityGoalsCategoryAutoTaskBubble textarea {
   display: block; width: 100%; box-sizing: border-box;
-  resize: none; overflow: hidden; line-height: 1.35;
+  resize: none; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; line-height: 1.35;
   border: none; outline: none; background: transparent; color: var(--text);
   font-family: inherit; font-size: 15px;
   padding: 14px 92px 14px 12px; min-height: 128px;
