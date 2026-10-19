@@ -22,6 +22,7 @@ Rien n'est déployé automatiquement. Le serveur **refuse de démarrer en produc
 | `TMT_BASE_URL` | URL publique de TMT (obligatoire ; autorise l'iframe) |
 | `TRADE_EXPERT_TMT_IDS` | id(s) TMT de l'expert (obligatoire) |
 | `TRADE_ADMIN_TOKEN` | facultatif, >= 16 car. ; active l'import admin |
+| `TRADE_CONNECTOR` | `demo` (défaut) ou `questrade` (voir ci-dessous) |
 | `TRADE_COOKIE_CROSS_SITE` | `1` si le cookie doit passer en iframe sans HTTPS détecté (inutile derrière Railway HTTPS) |
 | `TRADE_DATA_DIR` | `/data` (le volume) ; `NOESIS_DATA_DIR` accepté en repli |
 
@@ -33,3 +34,10 @@ Rien n'est déployé automatiquement. Le serveur **refuse de démarrer en produc
 5. Côté TMT : ajouter `TRADE_ALLOWED_USER_IDS`, `TRADE_LINK_SECRET`, `TRADE_BASE_URL` (URL de Trade), `TRADE_NOTIFY_SECRET`, puis redéployer TMT.
 6. Activer le module Trade pour ton compte dans TMT, ouvrir l'onglet, vérifier l'entrée par lien.
 7. Données de départ (facultatif) : `node trade-tracker/import-sheet.js <dossier-csv> --user <idTMT>` ou endpoint admin ; sauvegarde : `npm run backup` planifié.
+
+## Activer Questrade (lecture seule)
+1. Portail API Questrade : créer une application personnelle (lecture seule) et générer un jeton d'API (refresh token).
+2. Service Trade : `TRADE_CONNECTOR=questrade` (et `TRADE_TOKEN_KEY` déjà définie), redéployer.
+3. Dans l'app, coller le jeton (`POST /api/broker/token`). La synchro suivante (15 min) renouvelle le jeton, qui est remplacé à chaque usage dans le stockage chiffré : ne pas réutiliser l'ancien.
+4. Si `GET /api/broker/status` renvoie `renewToken: true`, Questrade a refusé le jeton (expiré, déjà consommé ailleurs) : en générer un nouveau et le coller.
+5. Les données fictives de la démo ne sont pas effacées : les purger avec `DELETE /api/broker/token` avant le premier collage si besoin (supprime aussi le jeton), ou repartir d'un volume vide.

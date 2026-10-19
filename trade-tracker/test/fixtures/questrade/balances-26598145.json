@@ -1,0 +1,6 @@
+{ "perCurrencyBalances": [
+  { "currency": "CAD", "cash": 1250.5, "marketValue": 8000.0, "totalEquity": 9250.5, "buyingPower": 1250.5, "maintenanceExcess": 1250.5, "isRealTime": false },
+  { "currency": "USD", "cash": 75.25, "marketValue": 3100.0, "totalEquity": 3175.25, "buyingPower": 75.25, "maintenanceExcess": 75.25, "isRealTime": false }
+],
+"combinedBalances": [ { "currency": "CAD", "cash": 1353.5, "marketValue": 12304.0, "totalEquity": 13657.5, "buyingPower": 1353.5, "maintenanceExcess": 1353.5, "isRealTime": false } ],
+"sodPerCurrencyBalances": [ { "currency": "CAD", "cash": 1250.5, "marketValue": 8000.0, "totalEquity": 9250.5, "buyingPower": 1250.5, "maintenanceExcess": 1250.5, "isRealTime": false } ] }

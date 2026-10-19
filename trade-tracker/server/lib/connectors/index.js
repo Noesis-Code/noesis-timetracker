@@ -1,17 +1,27 @@
-// Registre des connecteurs. Le connecteur Questrade réel n'est pas encore branché
-// (en attente des jetons) : le squelette documenté est dans questrade.js (sans réseau, client HTTP injecté) ; l'ajouter ici avec la même interface fetchPortfolio(user).
+// Registre des connecteurs. `demo` par défaut ; `questrade` (lecture seule, requiresToken) n'est
+// utilisé que si TRADE_CONNECTOR=questrade : la synchro ignore alors les utilisateurs sans jeton.
 const { createDemoConnector } = require('./demo');
+const { createQuestradeConnector, createFetchHttp } = require('./questrade');
 
-// Registre : nom -> fabrique. Un connecteur qui lit le jeton de l'utilisateur déclare `requiresToken: true`
-// (la synchro l'ignore alors tant que l'utilisateur n'a pas connecté son courtier). Questrade s'ajoutera ici
-// (`questrade: (opts) => createQuestradeConnector({ db: opts.db, env: opts.env, http })`) avec les vrais jetons.
+// nom -> fabrique(opts). opts.db est requis par Questrade ; opts.http (client injectable) vaut createFetchHttp() par défaut.
 const REGISTRY = {
   demo: () => createDemoConnector(),
+  questrade: (opts) => {
+    if (!opts.db) throw new Error('connecteur questrade : base de données requise');
+    return createQuestradeConnector({ db: opts.db, env: opts.env || process.env, http: opts.http || createFetchHttp(), sleep: opts.sleep, now: opts.now });
+  },
 };
 
+// Les connecteurs à session (Questrade) sont gardés par base : l'access_token en mémoire évite un renouvellement à chaque synchro.
+const CACHE = new WeakMap();
+
 function getConnector(name = process.env.TRADE_CONNECTOR || 'demo', opts = {}) {
-  if (Object.prototype.hasOwnProperty.call(REGISTRY, name)) return REGISTRY[name](opts);
-  throw new Error('connecteur inconnu ou non disponible : ' + name);
+  if (!Object.prototype.hasOwnProperty.call(REGISTRY, name)) throw new Error('connecteur inconnu ou non disponible : ' + name);
+  const cacheable = name === 'questrade' && opts.db && !opts.http && !opts.sleep && !opts.now && !opts.env;
+  if (!cacheable) return REGISTRY[name](opts);
+  const per = CACHE.get(opts.db) || {};
+  CACHE.set(opts.db, per);
+  return per[name] || (per[name] = REGISTRY[name](opts));
 }
 
 module.exports = { getConnector };

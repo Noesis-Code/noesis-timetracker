@@ -15,7 +15,7 @@ const { getConnector } = require('../server/lib/connectors');
   const secret = 'SeCrEt-' + crypto.randomBytes(12).toString('hex');
   B.saveBrokerToken(db, 1, secret);
   assert.strictEqual(getConnector('demo').requiresToken, undefined);
-  assert.throws(() => getConnector('questrade'), /inconnu ou non disponible/, 'Questrade non enregistré');
+  assert.throws(() => getConnector('questrade'), /base de données requise/, 'Questrade enregistré, exige la base');
 
   let seen = null;
   const conn = { name: 'faux', requiresToken: true, async fetchPortfolio(u) { seen = B.getBrokerToken(db, u.id); throw new Error('refus 401 avec ' + seen); } };

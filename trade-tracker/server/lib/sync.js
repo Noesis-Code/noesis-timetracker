@@ -61,7 +61,7 @@ function applyData(db, user, data, now) {
 }
 
 // Synchronise un utilisateur ; ne lève jamais : l'échec est journalisé (ECHEC).
-async function syncUser(db, user, { connector = getConnector(), notifier = null, now = Date.now() } = {}) {
+async function syncUser(db, user, { connector = getConnector(undefined, { db }), notifier = null, now = Date.now() } = {}) {
   // Connecteur réel : le jeton est celui de l'utilisateur ; sans jeton, rien à synchroniser (pas d'échec journalisé).
   if (connector.requiresToken && !hasBrokerToken(db, user.id)) return { ok: false, skipped: true, error: 'aucun jeton courtier' };
   try {

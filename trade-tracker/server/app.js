@@ -224,7 +224,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const last = db.prepare("SELECT at, status, message FROM sync_log WHERE userId = ? AND kind = 'sync' ORDER BY id DESC LIMIT 1").get(req.user.id);
     const ok = db.prepare("SELECT at FROM sync_log WHERE userId = ? AND kind = 'sync' AND status != 'ECHEC' ORDER BY id DESC LIMIT 1").get(req.user.id);
     const out = { connected: BT.hasBrokerToken(db, req.user.id), lastSyncAt: ok ? ok.at : null };
-    if (last && last.status === 'ECHEC') out.error = last.message;
+    if (last && last.status === 'ECHEC') { out.error = last.message; if (/Jeton Questrade à renouveler/.test(last.message)) out.renewToken = true; } // renewToken : le jeton collé est refusé, en coller un nouveau
     res.json(out);
   });
 

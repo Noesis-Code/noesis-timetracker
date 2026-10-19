@@ -1,0 +1,5 @@
+{ "positions": [
+  { "symbol": "ABX.TO", "symbolId": 6498, "openQuantity": 400, "closedQuantity": 0, "currentMarketValue": 8000.0, "currentPrice": 20.0, "averageEntryPrice": 17.5, "dayPnl": 40.0, "closedPnl": 0.0, "openPnl": 1000.0, "totalCost": 7000.0, "isRealTime": false, "isUnderReorg": false },
+  { "symbol": "NEM", "symbolId": 17356, "openQuantity": 50, "closedQuantity": 10, "currentMarketValue": 3100.0, "currentPrice": 62.0, "averageEntryPrice": 55.0, "dayPnl": -5.0, "closedPnl": 120.0, "openPnl": 350.0, "totalCost": 2750.0, "isRealTime": false, "isUnderReorg": false },
+  { "symbol": "OLD.TO", "symbolId": 999, "openQuantity": 0, "closedQuantity": 100, "currentMarketValue": 0.0, "currentPrice": 5.0, "averageEntryPrice": 4.0, "dayPnl": 0.0, "closedPnl": 100.0, "openPnl": 0.0, "totalCost": 0.0, "isRealTime": false, "isUnderReorg": false }
+] }

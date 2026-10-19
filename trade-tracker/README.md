@@ -16,7 +16,7 @@ Rien n'est déployé automatiquement. Marche à suivre (Émilien) :
    - `TRADE_TOKEN_KEY` : >= 16 car., chiffre les jetons courtier (le perdre = jetons à reconnecter).
    - `TRADE_NOTIFY_SECRET` : identique côté TMT (événements d'achat) ; `TMT_BASE_URL` : URL de TMT.
    - `TRADE_EXPERT_TMT_IDS` : id(s) TMT de l'expert, séparés par des virgules.
-   - `TRADE_ADMIN_TOKEN` (facultatif, >= 16 car.) : active l'import admin ; `TRADE_CONNECTOR` (`demo` par défaut), `TRADE_SYNC_INTERVAL_MIN`.
+   - `TRADE_ADMIN_TOKEN` (facultatif, >= 16 car.) : active l'import admin ; `TRADE_CONNECTOR` (`demo` par défaut ; `questrade` = lecture seule, voir `DEPLOY.md`), `TRADE_SYNC_INTERVAL_MIN`.
    - Générer un secret : `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 4. Un seul réplica (SQLite, planificateurs en processus).
 5. Sauvegarde : `npm run backup` (`node backup.js`, `VACUUM INTO` daté dans `/data/backups`, 14 conservées) en tâche planifiée Railway, plus les sauvegardes de volume Railway ; copier périodiquement hors du volume (R2, voir `GUIDE-SAUVEGARDE-R2.md` à la racine).
