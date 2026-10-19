@@ -25,6 +25,19 @@ users.concat(rows.filter((r) => r.userId === SYSTEM_USER)).forEach((r) => consol
 const total = users.reduce((s, r) => s + r.cost, 0);
 console.log('\nUtilisateurs actifs : ' + users.length + ' | moyenne ' + fmt(users.length ? total / users.length : 0) + ' (cible 10 $) | max ' + fmt(users.length ? users[0].cost : 0) + ' (limite ' + fmt(capMonth) + ')');
 
+// Résumé par FONCTION (modèles et replis regroupés), une table texte triée par coût : à lancer sur la base de production.
+const ff = db.prepare(`SELECT feature, SUM(calls) AS calls, SUM(inputTokens) AS inTok, SUM(outputTokens) AS outTok, SUM(cacheReadTokens) AS cr, SUM(costUsd) AS cost
+  FROM ai_usage_log WHERE day >= ? GROUP BY feature ORDER BY cost DESC`).all(since);
+const totCost = ff.reduce((s, r) => s + r.cost, 0), totCalls = ff.reduce((s, r) => s + r.calls, 0);
+console.log('\nRésumé par fonction (' + days + ' j, repli inclus) :');
+console.log('  ' + 'fonction'.padEnd(30) + 'appels'.padStart(8) + '/jour'.padStart(7) + 'ent.moy'.padStart(9) + 'sort.moy'.padStart(9) + 'cache'.padStart(7) + '$'.padStart(9) + '$/appel'.padStart(9) + 'part'.padStart(6));
+ff.forEach((r) => {
+  const c = r.calls || 1;
+  console.log('  ' + r.feature.padEnd(30) + String(r.calls).padStart(8) + (r.calls / days).toFixed(1).padStart(7) + String(Math.round(r.inTok / c)).padStart(9) + String(Math.round(r.outTok / c)).padStart(9)
+    + ((r.inTok ? Math.round(100 * r.cr / r.inTok) : 0) + ' %').padStart(7) + fmt(r.cost).padStart(9) + (r.cost / c).toFixed(4).padStart(9) + ((totCost ? Math.round(100 * r.cost / totCost) : 0) + ' %').padStart(6));
+});
+console.log('  ' + 'TOTAL'.padEnd(30) + String(totCalls).padStart(8) + (totCalls / days).toFixed(1).padStart(7) + ''.padStart(25) + fmt(totCost).padStart(9));
+
 const fm = db.prepare(`SELECT feature, model, SUM(calls) AS calls, SUM(inputTokens) AS inTok, SUM(outputTokens) AS outTok,
     SUM(cacheReadTokens) AS cr, SUM(cacheWriteTokens) AS cw, SUM(costUsd) AS cost
   FROM ai_usage_log WHERE day >= ? GROUP BY feature, model ORDER BY cost DESC`).all(since);
