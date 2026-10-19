@@ -6128,6 +6128,7 @@
 
     currentCommunityActivityId = String(a.id);
     currentActivityIsShared = isShared;
+    var strategyBtn = $('activityPageStrategyBtn'); if (strategyBtn) strategyBtn.dataset.aid = String(a.id);
 
     $('activityPageDot').style.background = a.color;
     $('activityPageName').textContent = a.name;

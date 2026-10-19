@@ -28,6 +28,7 @@ const db = require('../db');
 // ce fichier.
 const goals = require('./goals');
 const taskrecurrence = require('./taskrecurrence');
+require('./strategy'); // migration de la colonne `origin` (tâche saisie par l'utilisateur ou créée par l'IA)
 const { isoDateOf } = require('./dates');
 
 // 5 oct. 2026 : aucune tâche n'existe sans date. Faute de mieux (tâche que Noèsis ne
@@ -537,11 +538,11 @@ function createItem(section, label, extra) {
     .get(section.id).pos;
   const rec = taskrecurrence.normalize(opts.recurrence);
   const info = db.prepare(`
-    INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto, plannedUserId, autoCaptured, recurEvery, recurUnit)
-    VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sub_project_items (subProjectId, sectionId, label, done, position, createdAt, dueDate, dueDateAuto, plannedUserId, autoCaptured, recurEvery, recurUnit, origin)
+    VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(section.subProjectId, section.id, label, next, new Date().toISOString(),
     opts.dueDate || todayIso(), opts.dueDate ? 0 : 2, opts.plannedUserId || null, opts.autoCaptured ? 1 : 0,
-    rec ? rec.every : null, rec ? rec.unit : null);
+    rec ? rec.every : null, rec ? rec.unit : null, opts.origin === 'ai' ? 'ai' : 'user');
   // 16 oct. 2026 : correction orthographique silencieuse, après l'enregistrement (jamais bloquante).
   if (!opts.noSpellfix) require('./silentspellfix').schedule(info.lastInsertRowid);
   return getItem(info.lastInsertRowid);
@@ -613,6 +614,8 @@ function updateItem(itemId, fields, userId) {
 
   db.prepare('UPDATE sub_project_items SET label = ?, done = ?, doneBy = ?, doneAt = ?, plannedUserId = ?, goalWeeklyId = ?, dueDate = ?, dueDateAuto = CASE WHEN dueDate IS ? THEN dueDateAuto ELSE 0 END WHERE id = ?')
     .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, dueDate, dueDate, itemId);
+  // Tâche touchée (libellé, coche, jour) par l'utilisateur : elle devient « à lui », plus jamais retirée en silence (stratégie, 19 oct. 2026).
+  if (current.origin === 'ai' && (label !== current.label || done !== current.done || dueDate !== current.dueDate)) db.prepare("UPDATE sub_project_items SET origin = 'user' WHERE id = ?").run(itemId);
   // Statut automatique des objectifs (9 oct. 2026) : coche/décoche, libellé ou rattachement modifié.
   goals.recomputeForWeeklies([current.goalWeeklyId, goalWeeklyId]);
   if (label !== current.label) require('./silentspellfix').schedule(itemId); // correction silencieuse (16 oct. 2026)

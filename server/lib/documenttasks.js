@@ -221,7 +221,7 @@ function buildContext(userId, activityId) {
   const weeks = weeksContext(activityId);
   const capacityMinutes = cap && cap.minutes ? cap.minutes : null;
   return { candidates, weeks, capacityMinutes, dayCapacityMinutes: capacityMinutes ? Math.round(capacityMinutes / WORK_DAYS.length) : null,
-    loadByDay: acceptedLoadByDay(userId, weeks), today: todayIso(), app: appData(activityId, weeks) };
+    loadByDay: acceptedLoadByDay(userId, weeks), today: todayIso(), activityId, app: appData(activityId, weeks) };
 }
 
 const SYSTEM = docanalysis.SYSTEM; // prompt commun aux tâches et aux modifications proposées (docanalysis.js)
@@ -249,6 +249,8 @@ function appBlock(app, loadByDay, loadLimit) {
     + '\n\nTâches déjà ouvertes (ne pas les reproposer) :\n' + open;
 }
 
+function strategyBlock(activityId) { return activityId ? require('./strategy').promptBlock(activityId, docanalysis.tagsOut) : ''; }
+
 // Deux parties : STABLE (catégories, semaines, capacité, application : mises en cache) puis VARIABLE (consigne, document).
 function buildUserParts(ctx, instruction, doc) {
   const cats = docanalysis.tagsOut(ctx.candidates.map((c) => `- ${c.key} : ${c.label}${c.description ? ' — ' + c.description : ''}`).join('\n'));
@@ -258,6 +260,7 @@ function buildUserParts(ctx, instruction, doc) {
     'Catégories disponibles (clé : libellé) :', cats, '',
     'Semaines de l\'horizon (lundis, AAAA : MM-JJ ; le jour proposé est un jour de ces semaines, jamais avant ' + (ctx.today || todayIso()) + ') : ' + weeksCompact(ctx.weeks),
     ctx.capacityMinutes ? `Capacité hebdomadaire de la personne : ${ctx.capacityMinutes} minutes, soit ${Math.round(ctx.capacityMinutes / WORK_DAYS.length)} minutes par jour travaillé (évite de les dépasser).` : 'Capacité : inconnue.',
+    ...(strategyBlock(ctx.activityId) ? ['', strategyBlock(ctx.activityId)] : []),
     '', '<application>', appBlock(ctx.app, ctx.loadByDay, ctx.weeks.length ? goals.addDays(ctx.weeks[Math.min(ctx.weeks.length, LOAD_WEEKS_IN_PROMPT) - 1], 6) : ''), '</application>',
   ].join('\n');
   const variable = ['<consigne>', safeInstr, '</consigne>', '', '<document>', safeDoc, '</document>'].join('\n');
@@ -528,7 +531,7 @@ function apply(userId, activityId, tasks) {
     const key = t && t.key;
     if (!title || typeof key !== 'string' || !goals.isValidCategoryOrSecteurForActivity(activityId, key)) { skipped.push({ title, reason: 'catégorie invalide' }); return; }
     if (exists.get(activityId, key, title.toLowerCase())) { skipped.push({ title, reason: 'déjà présente' }); return; }
-    const extra = {};
+    const extra = { origin: 'ai' }; // tâche créée par l'IA : retirable en silence si elle devient hors stratégie
     const target = validTargetDate((t && t.day) || (t && t.week), weeks); // le jour choisi, sinon la semaine (ancien format)
     if (target) extra.dueDate = target < today ? today : target;
     try { added.push(goalstasks.addCategoryTask(activityId, userId, key, title, extra).id); }

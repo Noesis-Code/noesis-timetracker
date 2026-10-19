@@ -212,6 +212,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'documenttasks-jour-test.js')], { encoding: 'utf8' }); } catch (e) { dtjOk = false; }
   assert(dtjOk, 'jour proposé et capacité par jour (test/documenttasks-jour-test.js) passe');
 
+  // Stratégie d'activité (filtre IA, retrait silencieux des tâches de l'IA seulement).
+  let stOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'strategie-test.js')], { encoding: 'utf8' }); } catch (e) { stOk = false; }
+  assert(stOk, 'stratégie d\'activité (test/strategie-test.js) passe');
+
   // Connecteur Drive (Google simulé, PDF compris).
   let drOk = true;
   try { execFileSync('node', [path.join(__dirname, 'drive-test.js')], { encoding: 'utf8' }); } catch (e) { drOk = false; }

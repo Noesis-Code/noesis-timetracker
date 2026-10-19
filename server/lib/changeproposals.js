@@ -57,10 +57,10 @@ const sha = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
 const normText = (v) => String(v == null ? '' : v).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
 const FIELDS = {
-  task: { date: 'date', text: 'text' },
+  task: { date: 'date', text: 'text', retirer: 'retirer' },
   weekly: { time: 'time', instruction: 'instruction' },
 };
-const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne' };
+const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne', retirer: 'Retirer (hors stratégie)' };
 
 // ---------- Contexte ----------
 function buildContext(userId, activityId) {
@@ -85,7 +85,7 @@ function buildContext(userId, activityId) {
     logs = db.prepare('SELECT text, minutes, substr(createdAt,1,10) AS day FROM accomplishment_logs WHERE activityId = ? AND createdAt >= ? ORDER BY createdAt DESC LIMIT 30').all(activityId, since);
   } catch (e) { /* table absente : sans accomplissements */ }
   const cap = weekplanner.getWeeklyCapacity(userId);
-  return { today, monday, horizonEnd, open, done, weeklies, logs, capacityMinutes: cap && cap.minutes ? cap.minutes : null };
+  return { activityId, today, monday, horizonEnd, open, done, weeklies, logs, capacityMinutes: cap && cap.minutes ? cap.minutes : null };
 }
 
 const SYSTEM = docanalysis.SYSTEM; // prompt commun aux tâches et aux modifications proposées (docanalysis.js)
@@ -164,7 +164,10 @@ function validate(text, ctx) {
     let before, after;
     if (target === 'task') {
       const t = tasks.get(id); if (!t) continue;
-      if (field === 'date') {
+      if (field === 'retirer') {
+        if (t.done || require('./strategy').isEmpty(require('./strategy').get(ctx.activityId))) continue; // sans stratégie ou tâche terminée : rien à retirer
+        before = t.label; after = 'Retirer la tâche';
+      } else if (field === 'date') {
         // Date déjà passée : le report relève de l'avertissement de la page 2, jamais des « Modifications proposées ».
         if (t.dueDate && t.dueDate < ctx.today) continue;
         after = String(c.after || '').trim();
@@ -270,7 +273,14 @@ async function generate(userId, activityId, opts) {
   } catch (e) { return e && e.aiBlocked ? { added: 0, aiBlocked: true, aiResumesOn: e.resumesOn, message: e.message } : { added: 0, failed: true }; }
   const changes = validate(out && out.text, ctx);
   if (!changes) return { added: 0, failed: true };
-  return { added: store(userId, activityId, changes) };
+  // Hors stratégie : suppression SILENCIEUSE seulement d'une tâche créée par l'IA et jamais touchée par l'utilisateur ; sinon proposition validée.
+  const strat = require('./strategy');
+  const kept = changes.filter((c) => {
+    if (c.field !== 'retirer') return true;
+    if (!strat.isSilentlyRemovable(c.targetId)) return true;
+    try { subprojects.deleteItem(c.targetId); return false; } catch (e) { return true; }
+  });
+  return { added: store(userId, activityId, kept) };
 }
 
 // ---------- Redistribution déclenchée par un objectif hebdomadaire (17 oct. 2026, Émilien) ----------
@@ -435,6 +445,7 @@ function applyOne(userId, activityId, r) {
     if (!cur || cur.done) return 'tâche introuvable ou terminée';
     const now = r.field === 'date' ? (cur.dueDate || '') : cur.label;
     if (now !== (r.beforeValue || '')) return 'déjà modifiée depuis la proposition';
+    if (r.field === 'retirer') { subprojects.deleteItem(r.targetId); return null; } // validé par l'utilisateur
     // updateItem refuse une tâche verrouillée (403) ; une date modifiée repasse dueDateAuto à 0 (choix validé de l'utilisateur).
     subprojects.updateItem(r.targetId, r.field === 'date' ? { dueDate: r.afterValue } : { label: r.afterValue }, userId);
     return null;
