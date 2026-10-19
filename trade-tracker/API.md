@@ -74,6 +74,9 @@ Expert seulement (client : 403 `forbidden`) :
 
 Jeton courtier : chaque utilisateur (expert ou client) connecte son propre compte courtier ; le jeton est stocké chiffré par utilisateur (clé `TRADE_TOKEN_KEY`) et n'est jamais renvoyé par l'API. `GET /api/me` expose seulement `brokerConnected: boolean`.
 
+## Import du Sheet (A9)
+`POST /api/admin/import-sheet` (hors session ; en-tête `X-Admin-Token` = `TRADE_ADMIN_TOKEN`, >= 16 car. ; variable absente => 404) corps `{ tmtUserId, role?: "expert"|"client", name?, files: { comptes, positions, transactions, soldes } }` (textes CSV, tous facultatifs) -> `{ accounts, positions, balances, transactions, skipped: [..] }` (compteurs de lignes NOUVELLES). Idempotent, sans suppression, sans événement d'achat. Script équivalent : `node trade-tracker/import-sheet.js <dossier-csv> --user <idTMT>`. Colonnes (en-têtes insensibles à la casse/aux accents, séparateur `,` ou `;`) : Comptes `compte,type,libelle,courtier` ; Positions `compte,symbole,nom,secteur,devise,quantite,prix_moyen,prix_actuel` ; Transactions `compte,id,date,type,symbole,quantite,prix,montant,devise` ; Soldes `compte,devise,encaisse`. Exemples fictifs : `test/fixtures/`.
+
 ## Synchro et connecteurs
 Chaque utilisateur est synchronisé périodiquement (`TRADE_SYNC_INTERVAL_MIN`, défaut 15 ; l'expert d'abord) par un connecteur `async fetchPortfolio(user)` (voir `server/lib/connectors/demo.js` pour la forme des données). Seul le connecteur `demo` (fictif) existe ; Questrade viendra avec la même interface. Chaque synchro écrit une ligne dans `sync-log` (`OK`/`ECHEC`). Un instantané quotidien alimente `/api/history`.
 
@@ -87,7 +90,7 @@ Chaque NOUVELLE transaction `ACHAT` de l'expert détectée par une synchro crée
 Réponse attendue : 2xx. Sinon l'événement reste `ECHEC` et est renvoyé à la synchro suivante (5 essais max). `TRADE_NOTIFY_DRYRUN=1` : requête construite et enregistrée `DRYRUN`, aucun appel réseau. Sans `TMT_BASE_URL`/`TRADE_NOTIFY_SECRET` : `SKIPPED`.
 
 ## Variables d'environnement
-`TRADE_LINK_SECRET` (signature des liens, >= 16 car., partagé avec TMT), `TRADE_TOKEN_KEY` (chiffrement des jetons courtier), `TRADE_EXPERT_TMT_IDS` (ids TMT amorçant le rôle expert, séparés par des virgules), `TRADE_NOTIFY_SECRET`, `TMT_BASE_URL`, `TRADE_CONNECTOR` (défaut `demo`), `TRADE_SYNC_DISABLE`, `TRADE_SYNC_INTERVAL_MIN`, `TRADE_NOTIFY_DRYRUN`, `PORT` (3980), `NOESIS_DATA_DIR`. Aucun secret n'est stocké dans le code.
+`TRADE_LINK_SECRET` (signature des liens, >= 16 car., partagé avec TMT), `TRADE_TOKEN_KEY` (chiffrement des jetons courtier), `TRADE_EXPERT_TMT_IDS` (ids TMT amorçant le rôle expert, séparés par des virgules), `TRADE_NOTIFY_SECRET`, `TRADE_ADMIN_TOKEN` (import admin), `TMT_BASE_URL`, `TRADE_CONNECTOR` (défaut `demo`), `TRADE_SYNC_DISABLE`, `TRADE_SYNC_INTERVAL_MIN`, `TRADE_NOTIFY_DRYRUN`, `PORT` (3980), `NOESIS_DATA_DIR`. Aucun secret n'est stocké dans le code.
 
 ## Hors v0
 Connecteur courtier (Questrade), prix et taux automatiques, écriture de transactions : non inclus ; la synchro n'utilise que le connecteur de démonstration.

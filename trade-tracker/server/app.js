@@ -1,7 +1,9 @@
 // Trade Tracker — application Express (lecture seule + liens/invitations).
 const path = require('path');
 const fs = require('fs');
+const crypto = require('node:crypto');
 const express = require('express');
+const { importSheet, ensureUser } = require('./lib/importsheet');
 const A = require('./lib/auth');
 const C = require('./lib/calc');
 const { buildPortfolio, latestUsdCad } = require('./lib/portfolio');
@@ -19,8 +21,25 @@ function parseCookies(h) {
 function createApp(db, { env = process.env } = {}) {
   const app = express();
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '50kb' }));
   const err = (res, status, error, message) => res.status(status).json({ error, message: message || error });
+
+  // Admin (hors session) : import d'un export CSV du Sheet. Protégé par TRADE_ADMIN_TOKEN
+  // (en-tête X-Admin-Token, comparaison à temps constant) ; absent => route inexistante (404).
+  app.post('/api/admin/import-sheet', express.json({ limit: '5mb' }), (req, res) => {
+    const want = env.TRADE_ADMIN_TOKEN;
+    if (!want || want.length < 16) return err(res, 404, 'not_found');
+    const given = Buffer.from(String(req.headers['x-admin-token'] || ''));
+    const exp = Buffer.from(want);
+    if (given.length !== exp.length || !crypto.timingSafeEqual(given, exp)) return err(res, 401, 'unauthorized');
+    const b = req.body || {};
+    if (typeof b.tmtUserId !== 'string' || !b.tmtUserId || !b.files || typeof b.files !== 'object') return err(res, 400, 'bad_request', 'tmtUserId et files requis');
+    try {
+      const user = ensureUser(db, b.tmtUserId, b.role || 'expert', typeof b.name === 'string' ? b.name : '');
+      res.json(importSheet(db, user, b.files));
+    } catch (e) { err(res, 400, 'import_failed', e.message); }
+  });
+
+  app.use(express.json({ limit: '50kb' }));
 
   app.get('/api/health', (req, res) => res.json({ ok: true }));
 

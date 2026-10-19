@@ -9,7 +9,8 @@ const { takeSnapshot } = require('../server/lib/snapshot');
 
 (async () => {
   const secret = crypto.randomBytes(16).toString('hex');
-  const env = { TRADE_LINK_SECRET: secret, TRADE_EXPERT_TMT_IDS: 'tmt-e' };
+  const adminTok = crypto.randomBytes(16).toString('hex');
+  const env = { TRADE_LINK_SECRET: secret, TRADE_EXPERT_TMT_IDS: 'tmt-e', TRADE_ADMIN_TOKEN: adminTok };
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys = ON'); migrate(db);
   const server = createApp(db, { env }).listen(0);
   const base = 'http://127.0.0.1:' + server.address().port;
@@ -87,6 +88,16 @@ const { takeSnapshot } = require('../server/lib/snapshot');
     assert(['id', 'symbol', 'name', 'sector', 'accountType', 'quantity', 'price', 'currency', 'amountCad', 'at'].every((k) => k in j.purchases[0]));
     assert.strictEqual((await (await get('/api/purchases?limit=1&offset=1', cl.cookie)).json()).purchases[0].at, '2026-03-03');
     assert.strictEqual((await get('/api/purchases')).status, 401);
+
+    // import admin
+    const imp = (tok, body) => fetch(base + '/api/admin/import-sheet', { method: 'POST', headers: { 'content-type': 'application/json', ...(tok ? { 'x-admin-token': tok } : {}) }, body: JSON.stringify(body) });
+    const csv = { comptes: 'compte,type\nFAKE-9,CELI', soldes: 'compte,devise,encaisse\nFAKE-9,CAD,10' };
+    assert.strictEqual((await imp(null, { tmtUserId: 'tmt-e', files: csv })).status, 401);
+    assert.strictEqual((await imp('x'.repeat(32), { tmtUserId: 'tmt-e', files: csv })).status, 401);
+    assert.strictEqual((await get('/api/admin/import-sheet', ex.cookie)).status, 404);
+    r = await imp(adminTok, { tmtUserId: 'tmt-e', files: csv }); assert.strictEqual(r.status, 200);
+    assert.strictEqual((await r.json()).accounts, 1);
+    assert.strictEqual((await (await imp(adminTok, { tmtUserId: 'tmt-e', files: csv })).json()).accounts, 0);
 
     // déconnexion
     await fetch(base + '/api/logout', { method: 'POST', headers: { cookie: cl.cookie } });

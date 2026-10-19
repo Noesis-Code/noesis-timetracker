@@ -1,0 +1,5 @@
+Compte,Id,Date,Type,Symbole,Quantité,Prix,Montant,Devise
+FAKE-0001,,2026-03-02,Apport,,,,6000,CAD
+FAKE-0001,,2026-03-03,Achat,AAA.TO,400,12.5,5000,CAD
+FAKE-0002,T9,2026-05-01,Dividende,LIT,,,40,USD
+FAKE-0002,,pas-une-date,Achat,LIT,1,1,1,CAD
