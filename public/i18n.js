@@ -160,6 +160,8 @@
     'Gestion de l\'IA': 'AI management',
     'Tâche': 'Task',
     'Tâche rangée': 'Task placed',
+    'Ajouter cette tâche ?': 'Add this task?',
+    'Confirmer': 'Confirm',
     'Modifier cette tâche': 'Edit this task',
     'Durée : —': 'Duration: —',
     'Durée : ': 'Duration: ',

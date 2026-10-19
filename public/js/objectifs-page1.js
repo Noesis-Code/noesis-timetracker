@@ -1293,6 +1293,76 @@
     });
   }
 
+  // 19 oct. 2026 (#1450, Emilien) : mode Autonome — la tâche rangée par l'IA est
+  // montrée (nom, pôle/secteur, échéance) avec Confirmer / Annuler ; ✕ ou Annuler
+  // retire les tâches créées. (Partiel et Absence ont déjà leur propre validation.)
+  function showCaptureConfirmModal(label, okResults, cb) {
+    cb = cb || {};
+    if (!okResults.length) return;
+    var done = false;
+    var overlay = document.createElement('div');
+    overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
+    var card = document.createElement('div');
+    card.className = 'goalTaskEditCard';
+    var header = document.createElement('div');
+    header.className = 'goalTaskEditHeader';
+    var title = document.createElement('p');
+    title.className = 'sectionTitle';
+    title.textContent = t('Ajouter cette tâche ?');
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+    closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+    header.appendChild(title); header.appendChild(closeBtn);
+    card.appendChild(header);
+    var body = document.createElement('div');
+    body.className = 'goalsPlacementScroll';
+    okResults.forEach(function (r) {
+      var act = null;
+      (TMT.getActivitiesCache() || []).forEach(function (a) { if (String(a.id) === String(r.activityId)) act = a; });
+      var box = document.createElement('div');
+      box.className = 'goalsPlacementBox';
+      var actLine = document.createElement('p');
+      actLine.className = 'goalsPlacementActivity';
+      var dot = document.createElement('span');
+      dot.className = 'goalsPlacementActivityDot';
+      dot.style.background = (act && act.color) || '#CCCCCC';
+      actLine.appendChild(dot);
+      actLine.appendChild(document.createTextNode(act ? act.name : ''));
+      box.appendChild(actLine);
+      var nameP = document.createElement('p');
+      nameP.textContent = r.label || label;
+      box.appendChild(nameP);
+      var where = document.createElement('p');
+      where.className = 'meta';
+      where.textContent = t('Où') + ' : ' + ((r.poleLabel || r.categoryLabel || '—') + (r.secteurLabel ? ' › ' + r.secteurLabel : ''));
+      box.appendChild(where);
+      var when = document.createElement('p');
+      when.className = 'meta';
+      when.textContent = t('Quand') + ' : ' + (r.dueDate ? calendarDayLabel(r.dueDate) : '—');
+      box.appendChild(when);
+      body.appendChild(box);
+    });
+    card.appendChild(body);
+    var actions = document.createElement('div');
+    actions.className = 'goalsCaptureConfirmActions';
+    var okBtn = document.createElement('button');
+    okBtn.type = 'button'; okBtn.className = 'iconBtn btnBrique'; okBtn.textContent = t('Confirmer');
+    var noBtn = document.createElement('button');
+    noBtn.type = 'button'; noBtn.className = 'iconBtn'; noBtn.textContent = t('Annuler');
+    actions.appendChild(okBtn); actions.appendChild(noBtn);
+    card.appendChild(actions);
+    function finish(ok) {
+      if (done) return; done = true; overlay.remove();
+      if (ok) { if (cb.onConfirm) cb.onConfirm(); } else if (cb.onCancel) cb.onCancel();
+    }
+    okBtn.addEventListener('click', function () { finish(true); });
+    noBtn.addEventListener('click', function () { finish(false); });
+    closeBtn.addEventListener('click', function () { finish(false); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) finish(false); });
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  }
+
   // 5 oct. 2026 (Emilien) : pop-up après création — pour chaque activité, où la tâche
   // a été rangée (pôle/secteur, date, responsable), modifiable. Responsable vide si
   // aucune info. ✕ ferme sans rien changer (la tâche est déjà enregistrée).
@@ -1737,6 +1807,15 @@
             // Fermer le pop-up sans Enregistrer = rien n'est envoyé : les tâches créées sont retirées, le texte et les activités restent.
             showCapturePlacementModal(label, okResults, {
               onSave: finalize,
+              onCancel: function () {
+                Promise.all(okResults.map(function (r) {
+                  return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});
+                })).then(function () { loadGoalsCaptureBadges(); renderGoalsCaptureActivities(); });
+              }
+            });
+          } else if (TMT.aiMode === 'autonome' && okResults.length) {
+            showCaptureConfirmModal(label, okResults, {
+              onConfirm: finalize,
               onCancel: function () {
                 Promise.all(okResults.map(function (r) {
                   return api('DELETE', '/api/sub-project-items/' + r.id + '?userId=' + TMT.getProfile().id).catch(function () {});
