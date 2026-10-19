@@ -19,14 +19,18 @@ const tp = require('../server/lib/taskprecision');
   assert(tp.sameTitle('Commander le café vert', 'commander le CAFÉ vert.'), 'doublon : casse/accents/ponctuation');
   assert(tp.sameTitle('Payer la facture du fournisseur', 'Facture fournisseur : payer') === true, 'doublon : mêmes mots, ordre libre');
   assert(!tp.sameTitle('Payer la facture du fournisseur', 'Payer la facture du transporteur'), 'doublon : un mot différent = distinct');
+  assert(tp.sameTitle('Commander les légumes pour la semaine', 'Commande de légumes pour la semaine'), 'doublon : commander/commande (racine)');
+  assert(tp.matchesIgnore('Embaucher un employé', 'embauche') !== null, 'à ignorer : embaucher/embauche (racine)');
+  assert(tp.stem('terrasse') === tp.stem('terase'), 'racine : faute de frappe (lettre doublée)');
+  assert(tp.actionHints('Payer la facture du fournisseur').length === 1 && tp.actionHints('Appeler Marc').length === 0, 'action : verbe d\'ouverture connu seulement');
 
   // Harnais (fournisseur simulé) : garde-fous de non-régression.
   const ev = require('../scripts/eval-task-precision');
   const out = await ev.run({});
   const m = out.metrics;
   console.log('  métriques', JSON.stringify(m));
-  assert(m.cas >= 40, 'jeu d\'évaluation : au moins 40 cas');
-  assert(m.precision >= 90 && m.rappel >= 85, 'précision >= 90 % et rappel >= 85 %');
+  assert(m.cas >= 60, 'jeu d\'évaluation : au moins 60 cas');
+  assert(m.precision >= 95 && m.rappel >= 90, 'précision >= 95 % et rappel >= 90 %');
   assert(m.refusJustes === 100, 'refus (à ignorer, doublons) : aucun faux refus');
   assert(out.rows.filter((r) => r.got.outcome === 'reject').every((r) => r.expected.outcome === 'reject'), 'aucun rejet injustifié');
   const data = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/task-precision/cases.json'), 'utf8'));

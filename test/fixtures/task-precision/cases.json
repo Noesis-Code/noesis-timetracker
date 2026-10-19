@@ -43,6 +43,17 @@
         { "key": "perso", "label": "Vie personnelle", "description": "santé rendez-vous épicerie budget loyer" }
       ],
       "strategy": { "goal": "", "deadline": "", "priorities": ["", "", ""], "ignore": "" }
+    },
+    "resto": {
+      "name": "Restaurant de quartier",
+      "candidates": [
+        { "key": "cuisine", "label": "Cuisine → Menu et préparation", "description": "menu plats recettes préparation cuisiniers carte" },
+        { "key": "achats", "label": "Cuisine → Achats et inventaire", "description": "commande fournisseurs inventaire légumes viande livraison stock" },
+        { "key": "salle", "label": "Salle → Service", "description": "serveurs réservations tables clients service terrasse" },
+        { "key": "rh", "label": "Gestion → Personnel", "description": "employés horaires embauche paie formation" },
+        { "key": "compta", "label": "Gestion → Comptabilité", "description": "factures taxes TPS TVQ paiements budget" }
+      ],
+      "strategy": { "goal": "Ouvrir la terrasse en mai", "deadline": "2027-05-01", "priorities": ["Terrasse","Menu d'été","Réservations en ligne"], "ignore": "livraison à domicile; programme de fidélité" }
     }
   },
   "cases": [
@@ -87,6 +98,27 @@
     { "id": "c39", "context": "etu", "kind": "classify", "label": "Préparer la présentation d'équipe", "expect": { "outcome": "place", "key": "travaux" } },
     { "id": "c40", "context": "etu", "kind": "generate", "label": "Remettre le rapport de laboratoire", "expect": { "outcome": "place", "key": "travaux" } },
     { "id": "c41", "context": "etu", "kind": "generate", "label": "Remettre le rapport de laboratoire", "existing": ["remettre le rapport de laboratoire"], "expect": { "outcome": "duplicate" } },
-    { "id": "c42", "context": "etu", "kind": "classify", "label": "Payer le loyer", "expect": { "outcome": "place", "key": "perso" } }
+    { "id": "c42", "context": "etu", "kind": "classify", "label": "Payer le loyer", "expect": { "outcome": "place", "key": "perso" } },
+    { "id": "c43", "context": "resto", "kind": "classify", "label": "Voir ça", "expect": { "outcome": "uncertain" } },
+    { "id": "c44", "context": "cafe", "kind": "classify", "label": "Régler le truc avec Julie", "expect": { "outcome": "uncertain" } },
+    { "id": "c45", "context": "pige", "kind": "classify", "label": "Penser au projet", "expect": { "outcome": "uncertain" } },
+    { "id": "c46", "context": "cafe", "kind": "classify", "label": "Comander du café vert au fournisseur", "expect": { "outcome": "place", "key": "appro" } },
+    { "id": "c47", "context": "pige", "kind": "classify", "label": "Envoyer la factur de avril au client", "expect": { "outcome": "place", "key": "admin" } },
+    { "id": "c48", "context": "resto", "kind": "classify", "label": "Reserver la terase pour samedi", "expect": { "outcome": "place", "key": "salle" } },
+    { "id": "c49", "context": "cafe", "kind": "generate", "label": "Appeler le fournisseur de café vert pour confirmer la commande de 120 kg, puis vérifier le délai de livraison avec l'importateur, ensuite mettre à jour le tableau des stocks et envoyer un courriel de suivi à toute l'équipe", "expect": { "outcome": "place", "key": "appro" } },
+    { "id": "c50", "context": "resto", "kind": "generate", "label": "- 2) Faire la commande de légumes pour la semaine et vérifier l'inventaire du frigo ;", "expect": { "outcome": "place", "key": "achats" } },
+    { "id": "c51", "context": "resto", "kind": "generate", "label": "Commander les légumes pour la semaine", "existing": ["Commande de légumes pour la semaine"], "expect": { "outcome": "duplicate" } },
+    { "id": "c52", "context": "cafe", "kind": "generate", "label": "Imprimer les étiquettes des sacs", "existing": ["Imprimer des étiquettes pour les sacs"], "expect": { "outcome": "duplicate" } },
+    { "id": "c53", "context": "pige", "kind": "generate", "label": "Envoyer la facture de mars", "existing": ["Envoyer ma facture de mars"], "expect": { "outcome": "duplicate" } },
+    { "id": "c54", "context": "etu", "kind": "generate", "label": "Réviser les chapitres 4 et 5", "existing": ["Réviser le chapitre 4"], "expect": { "outcome": "place", "key": "cours" } },
+    { "id": "c55", "context": "resto", "kind": "generate", "label": "Payer les factures de la semaine", "existing": ["Payer les fournisseurs"], "expect": { "outcome": "place", "key": "compta" } },
+    { "id": "c56", "context": "resto", "kind": "generate", "label": "Lancer un programme de fidélité pour les habitués", "expect": { "outcome": "reject" } },
+    { "id": "c57", "context": "resto", "kind": "generate", "label": "Organiser la livraison à domicile du midi", "expect": { "outcome": "reject" } },
+    { "id": "c58", "context": "cafe", "kind": "generate", "label": "Embaucher un employé à temps partiel", "expect": { "outcome": "reject" } },
+    { "id": "c59", "context": "resto", "kind": "generate", "label": "Acheter des chaises pour la terrasse", "expect": { "outcome": "place", "key": "salle" } },
+    { "id": "c60", "context": "resto", "kind": "classify", "label": "Payer la facture du fournisseur de légumes", "expect": { "outcome": "place", "key": "compta" } },
+    { "id": "c61", "context": "resto", "kind": "classify", "label": "Former les serveurs au nouveau menu", "expect": { "outcome": "place", "key": "rh" } },
+    { "id": "c62", "context": "cafe", "kind": "classify", "label": "Photographier les sacs emballés pour la boutique", "expect": { "outcome": "place", "key": "boutique" } },
+    { "id": "c63", "context": "etu", "kind": "classify", "label": "Payer le loyer et le budget du mois", "expect": { "outcome": "place", "key": "perso" } }
   ]
 }

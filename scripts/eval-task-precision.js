@@ -18,7 +18,8 @@ const fakeProvider = {
     const t = new Set(tp.tokens(label));
     const scored = candidates.map((c) => {
       const words = new Set(tp.tokens(c.label + ' ' + (c.description || '')));
-      return { key: c.key, score: [...t].filter((w) => words.has(w)).length };
+      const hints = tp.actionHints(label);
+      return { key: c.key, score: [...t].filter((w) => words.has(w)).length + 2 * hints.filter((w) => words.has(w)).length };
     }).sort((a, b) => b.score - a.score);
     const [a, b] = scored;
     if (!a || a.score === 0) return { key: null, uncertain: scored.slice(0, 2).map((x) => x.key), confidence: 0 };

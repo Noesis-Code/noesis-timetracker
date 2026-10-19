@@ -18,7 +18,17 @@ function fold(v) {
 }
 // Mots utiles (sans mots vides, pluriel simple ramené au singulier).
 function tokens(v) {
-  return fold(v).split(' ').filter((w) => w && !STOP.has(w) && (w.length > 2 || /\d/.test(w))).map((w) => (w.length > 3 ? w.replace(/(?:s|x)$/, '') : w));
+  return fold(v).split(' ').filter((w) => w && !STOP.has(w) && (w.length > 2 || /\d/.test(w))).map(stem);
+}
+// Racine légère (comparaison seulement, jamais affichée) : « commander/commande/commandes », « embaucher/embauche », « terrasse/terase » (faute),
+// « réservation/réserver » donnent la même racine. Les mots courts et les nombres restent intacts.
+function stem(w) {
+  if (w.length <= 3 || /\d/.test(w)) return w;
+  let s = w.replace(/(.)\1+/g, '$1');                       // lettres doublées (fautes de frappe : terrasse/terase)
+  if (s.length > 5) s = s.replace(/(?:ations?|tions?|ions?)$/, '');
+  if (s.length > 3) s = s.replace(/[sx]$/, '');
+  if (s.length > 4) s = s.replace(/(?:ement|ent|er|ez|e)$/, '');
+  return s;
 }
 
 // Termes de la rubrique « à ignorer » : séparés par virgule, point-virgule, retour de ligne ou puce. Chaque terme garde ses mots utiles.
@@ -56,4 +66,12 @@ function sameTitle(a, b) {
 }
 function isDuplicate(title, others) { return (others || []).some((o) => sameTitle(title, o)); }
 
-module.exports = { cleanTitle, fold, tokens, ignoreTerms, matchesIgnore, priorityRank, sameTitle, isDuplicate };
+// « Action contre sujet » : le verbe d'ouverture dit le domaine (« Payer la facture du fournisseur » = finances, pas approvisionnement).
+// Renvoie les mots-thèmes (racines) à pondérer en plus des mots du titre ; liste fermée, volontairement courte, 0 hasard.
+const ACTION_THEMES = { pay: ['paiement'], rembours: ['paiement'], declar: ['impot', 'taxe'], form: ['formation'], embauch: ['embauche'], photographi: ['photo'] };
+function actionHints(title) {
+  const first = tokens(title)[0];
+  return first && ACTION_THEMES[first] ? ACTION_THEMES[first].map(stem) : [];
+}
+
+module.exports = { stem, actionHints,  cleanTitle, fold, tokens, ignoreTerms, matchesIgnore, priorityRank, sameTitle, isDuplicate };
