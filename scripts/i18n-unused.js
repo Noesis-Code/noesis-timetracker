@@ -27,7 +27,7 @@ for (let i = open + 1; i < close; i++) {
   for (;;) {
     let obj = null;
     try { obj = new Function('return ({' + text + '\n})')(); } catch (e) { /* entrée incomplète */ }
-    if (obj && Object.keys(obj).length === 1) { entries.push({ key: Object.keys(obj)[0], start: i + 1, end: j + 1 }); break; }
+    if (obj && Object.keys(obj).length >= 1) { Object.keys(obj).forEach((k) => entries.push({ key: k, start: i + 1, end: j + 1 })); break; }
     j++;
     if (j >= close) throw new Error('entrée non parsable ligne ' + (i + 1));
     text += '\n' + lines[j];
