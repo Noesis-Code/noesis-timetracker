@@ -264,3 +264,8 @@ body.demoMode .brand::after { content: 'démo'; margin-left: 8px; font-size: 10p
 .btnDanger { background: var(--brique); border-color: var(--brique); color: var(--white); }
 .btnDangerOutline { color: var(--brique-text); border-color: var(--brique); background: none; }
 .linkBtn { margin-top: 12px; width: 100%; }
+.codeCard { text-align: center; background: linear-gradient(180deg, rgba(var(--purple-rgb), 0.28) 0%, var(--glass-calm-bg) 100%); }
+.codeVal { font-size: 20px; font-weight: bold; letter-spacing: 1px; margin: 8px 0; word-break: break-all; user-select: all; font-variant-numeric: tabular-nums; }
+.invMail { min-width: 0; overflow-wrap: anywhere; }
+.invMail .hint { display: block; }
+.detailRow .invMail { color: var(--text); }

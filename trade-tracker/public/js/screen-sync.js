@@ -17,6 +17,7 @@
           return '<div class="detailRow"><span>' + TTF.esc(c.label) + '<span class="hint"> · ' + TTF.ago(c.lastSync) + '</span></span>' + badge(c.status) + '</div>';
         }).join('') : '<div class="emptyState">Aucun compte connecté.</div>') +
         '<a class="btnGhost linkBtn" href="#/broker">' + (raw.me && raw.me.brokerConnected ? 'Gérer ma connexion' : 'Connecter mon courtier') + '</a></div>' +
+        (raw.me && raw.me.role === 'expert' && raw.source !== 'demo' ? '<div class="sectionTitle">Accès</div><div class="card"><div class="cardLabel">Inviter un client ou un expert</div><a class="btnGhost linkBtn" style="margin-top:8px" href="#/invite">Inviter</a></div>' : '') +
         '<div class="sectionTitle">Journal</div>' +
         '<div class="card">' + (raw.syncLog.length ? raw.syncLog.map(function (e) {
           return '<div class="logRow"><div class="logTop">' + badge(e.status) + '<span class="hint">' + TTF.dateTime(e.at) + '</span></div><div class="logMsg">' + TTF.esc(KIND[e.kind] || e.kind) + ' · ' + TTF.esc(e.message) + '</div></div>';
