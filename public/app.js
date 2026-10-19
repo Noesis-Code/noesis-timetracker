@@ -3437,6 +3437,13 @@
   function syncPeriodMenuActive(menu, period) {
     menu.querySelectorAll('.statsPeriodMenuItem').forEach(function (b) { b.classList.toggle('active', b.dataset.period === period); });
   }
+  // Câblage complet d'un menu de période : `get`/`set` lisent/écrivent l'état
+  // de l'appelant, `onChange` recharge ses données. Renvoie { sync } qui remet
+  // la coche du menu sur `get()` (sans rien recharger).
+  function bindPeriodMenu(o) {
+    setupStatsPeriodMenu(o.btn, o.menu, function (value) { o.set(value); o.onChange(); });
+    return { sync: function () { syncPeriodMenuActive(o.menu, o.get()); } };
+  }
 
   // (Le menu "⋮" de la Répartition a été retiré le 1er septembre 2026 : le
   // camembert suit désormais la période de la Feuille de temps — voir
@@ -8500,13 +8507,20 @@
   // Un menu "⋮" par section, câblés par le helper générique de l'onglet
   // Statistiques (setupStatsPeriodMenu) — réutilisé tel quel, pas une ligne
   // modifiée, exactement comme la page de visite d'un profil le fait déjà.
-  setupStatsPeriodMenu($('caPiePeriodBtn'), $('caPiePeriodMenu'), function (p) {
-    currentActivityPiePeriod = p;
+  function reloadActivityStats() {
     if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
+  }
+  var caPieMenu = bindPeriodMenu({
+    btn: $('caPiePeriodBtn'), menu: $('caPiePeriodMenu'),
+    get: function () { return currentActivityPiePeriod; },
+    set: function (v) { currentActivityPiePeriod = v; },
+    onChange: reloadActivityStats,
   });
-  setupStatsPeriodMenu($('caChartPeriodBtn'), $('caChartPeriodMenu'), function (g) {
-    currentActivityChartGranularity = g;
-    if (currentCommunityActivityId) loadActivityStats(currentCommunityActivityId);
+  var caChartMenu = bindPeriodMenu({
+    btn: $('caChartPeriodBtn'), menu: $('caChartPeriodMenu'),
+    get: function () { return currentActivityChartGranularity; },
+    set: function (v) { currentActivityChartGranularity = v; },
+    onChange: reloadActivityStats,
   });
 
   // Remet les deux menus sur leur période courante. Nécessaire à chaque
@@ -8593,8 +8607,8 @@
   });
 
   function syncActivityPeriodMenus() {
-    syncPeriodMenuActive($('caPiePeriodMenu'), currentActivityPiePeriod);
-    syncPeriodMenuActive($('caChartPeriodMenu'), currentActivityChartGranularity);
+    caPieMenu.sync();
+    caChartMenu.sync();
   }
 
   // ⚠️ UN SEUL appel serveur pour les deux sections, avec DEUX périodes.
@@ -12740,8 +12754,8 @@
     // choisie la fois précédente sur un autre profil.
     viewProfilePiePeriod = 'week';
     viewProfileChartGranularity = 'day';
-    syncPeriodMenuActive($('viewProfilePiePeriodMenu'), viewProfilePiePeriod);
-    syncPeriodMenuActive($('viewProfileChartPeriodMenu'), viewProfileChartGranularity);
+    viewProfilePieMenu.sync();
+    viewProfileChartMenu.sync();
 
     // Le sélecteur repart lui aussi sur "Statistiques" à chaque ouverture, y
     // compris si "Messages" était affiché sur le profil précédent. La
@@ -13030,13 +13044,17 @@
       .catch(function (err) { $('viewProfileProjectsMsg').textContent = err.message; });
   }
 
-  setupStatsPeriodMenu($('viewProfilePiePeriodBtn'), $('viewProfilePiePeriodMenu'), function (period) {
-    viewProfilePiePeriod = period;
-    loadViewProfileStats();
+  var viewProfilePieMenu = bindPeriodMenu({
+    btn: $('viewProfilePiePeriodBtn'), menu: $('viewProfilePiePeriodMenu'),
+    get: function () { return viewProfilePiePeriod; },
+    set: function (v) { viewProfilePiePeriod = v; },
+    onChange: loadViewProfileStats,
   });
-  setupStatsPeriodMenu($('viewProfileChartPeriodBtn'), $('viewProfileChartPeriodMenu'), function (granularity) {
-    viewProfileChartGranularity = granularity;
-    loadViewProfileStats();
+  var viewProfileChartMenu = bindPeriodMenu({
+    btn: $('viewProfileChartPeriodBtn'), menu: $('viewProfileChartPeriodMenu'),
+    get: function () { return viewProfileChartGranularity; },
+    set: function (v) { viewProfileChartGranularity = v; },
+    onChange: loadViewProfileStats,
   });
 
   // 14 septembre 2026 : rendu réunifié dans renderChart (voir son commentaire
