@@ -47,4 +47,15 @@ async function memoize(parts, fn) {
 }
 function memoClear() { memoStore.clear(); memoPending.clear(); }
 
-module.exports = { memoize, memoClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };
+// Paliers « modèle rapide d'abord, modèle fort en repli » (19 oct. 2026, décision d'Emilien). Modèle rapide lu dans la variable d'environnement
+// `envModel` (défaut claude-haiku-4-5 ; 'off' ou égal au modèle fort = désactivé), seuil de confiance (0-100) dans `envConf` (défaut 80).
+function fastModelFor(envModel, strongModel) {
+  const m = String(process.env[envModel] || 'claude-haiku-4-5').trim();
+  return !m || /^(off|0|non|false)$/i.test(m) || m === strongModel ? null : m;
+}
+function minConfidenceFor(envConf) {
+  const n = Number(process.env[envConf]);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80;
+}
+
+module.exports = { fastModelFor, minConfidenceFor, memoize, memoClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };

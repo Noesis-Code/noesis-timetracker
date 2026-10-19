@@ -111,18 +111,54 @@ Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Mark
 {"suggestions":[{"targetCategory":"...","text":"...","reason":"..."}]}
 Contraintes : "targetCategory" doit être une des clés listées (jamais une clé inventée) ; "text" fait moins de ${MAX_SUGGESTION_TEXT_LENGTH} caractères, en français, un objectif concret (pas une reformulation de la source) ; "reason" fait moins de ${MAX_REASON_LENGTH} caractères, une phrase courte expliquant le lien ; jamais deux entrées pour la même "targetCategory".`;
 
+// 19 oct. 2026 (décision d'Emilien, coût) : Haiku d'abord, repli sur ANTHROPIC_MODEL (fort) si Haiku est peu sûr : JSON illisible,
+// catégorie cible inconnue, ou confiance (champ "confidence" 0-100 demandé par suggestion) < seuil.
+// Réglages : NOESIS_CROSS_FAST_MODEL (défaut claude-haiku-4-5 ; 'off' = modèle fort seul), NOESIS_CROSS_MIN_CONFIDENCE (défaut 80).
+// Journal : feature 'inter-secteurs' (Haiku) / 'inter-secteurs:repli' (modèle fort).
+function crossFastModel() {
+  const m = String(process.env.NOESIS_CROSS_FAST_MODEL || 'claude-haiku-4-5').trim();
+  return !m || /^(off|0|non|false)$/i.test(m) || m === ANTHROPIC_MODEL ? null : m;
+}
+function crossMinConfidence() {
+  const n = Number(process.env.NOESIS_CROSS_MIN_CONFIDENCE);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80;
+}
+const CONFIDENCE_ADDENDUM = '\nAjoute dans chaque suggestion un champ "confidence" (entier 0-100, ta confiance que le lien est réel) ; en dessous de 80 si tu hésites.';
+
 async function callAi(payload, allowedKeys) {
+  const fast = crossFastModel();
+  if (fast) {
+    try {
+      const r = await callAiOnce(payload, allowedKeys, fast, 'inter-secteurs', SYSTEM_PROMPT + CONFIDENCE_ADDENDUM, true);
+      if (r) return r;
+    } catch (err) { /* repli sur le modèle fort */ }
+  }
+  return callAiStrong(payload, allowedKeys, fast ? 'inter-secteurs:repli' : 'inter-secteurs');
+}
+
+// Vrai si la sortie de Haiku est sûre : JSON lisible, toutes les cibles connues, toutes les confiances >= seuil. Liste vide = sûre.
+function fastOutputIsSure(text, allowedKeys) {
+  let parsed;
+  try { parsed = JSON.parse(text); } catch (e) {
+    try { parsed = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch (e2) { return false; }
+  }
+  if (!parsed || !Array.isArray(parsed.suggestions)) return false;
+  const allowed = new Set(allowedKeys || []);
+  return parsed.suggestions.every((e) => e && allowed.has(e.targetCategory) && Number(e.confidence) >= crossMinConfidence());
+}
+
+async function callAiStrong(payload, allowedKeys, feature) {
   // 9 oct. 2026 : une réponse illisible est relancée une fois.
   try {
-    return await callAiOnce(payload, allowedKeys);
+    return await callAiOnce(payload, allowedKeys, ANTHROPIC_MODEL, feature);
   } catch (err) {
     if (!/illisible/.test(err.message)) throw err;
-    return callAiOnce(payload, allowedKeys);
+    return callAiOnce(payload, allowedKeys, ANTHROPIC_MODEL, feature);
   }
 }
 
-async function callAiOnce(payload, allowedKeys) {
-  const res = await aibudget.fetchAnthropic('inter-secteurs', ANTHROPIC_API_URL, {
+async function callAiOnce(payload, allowedKeys, model, feature, system, fastMode) {
+  const res = await aibudget.fetchAnthropic(feature || 'inter-secteurs', ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
@@ -130,9 +166,9 @@ async function callAiOnce(payload, allowedKeys) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
+      model: model || ANTHROPIC_MODEL,
       max_tokens: 2500,
-      system: SYSTEM_PROMPT,
+      system: system || SYSTEM_PROMPT,
       messages: [{ role: 'user', content: JSON.stringify(payload) }],
     }),
   });
@@ -148,6 +184,7 @@ async function callAiOnce(payload, allowedKeys) {
   }
   const body = await res.json();
   const text = (body.content || []).map((block) => block.text || '').join('');
+  if (fastMode && !fastOutputIsSure(text, allowedKeys)) return null; // peu sûr : l'appelant se replie sur le modèle fort
   try {
     return parseSuggestions(text, allowedKeys);
   } catch (err) {
@@ -292,6 +329,7 @@ function categoriesWithMainGoal(activityId) {
 }
 
 module.exports = {
+  callAi,
   MAX_SUGGESTION_TEXT_LENGTH,
   MAX_REASON_LENGTH,
   evaluateCrossSectorLinks,

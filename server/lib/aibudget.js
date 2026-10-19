@@ -210,6 +210,18 @@ function usageReport(days) {
     FROM ai_usage_log WHERE day >= ? GROUP BY feature, model ORDER BY costUsd DESC`).all(todayLocal(d));
 }
 
+// Taux de repli Haiku -> modèle fort (features « X » et « X:repli ») sur `days` jours : { feature, fastCalls, fallbackCalls, fallbackRate }.
+// Le repli suit un essai Haiku : taux = repli / (appels Haiku). 
+function fallbackReport(days) {
+  const rows = usageReport(days), by = {};
+  rows.forEach((r) => {
+    const base = r.feature.replace(/:repli$/, '');
+    const o = by[base] || (by[base] = { feature: base, fastCalls: 0, fallbackCalls: 0 });
+    if (/:repli$/.test(r.feature)) o.fallbackCalls += r.calls; else if (/haiku/i.test(r.model)) o.fastCalls += r.calls;
+  });
+  return Object.values(by).filter((o) => o.fallbackCalls || o.fastCalls).map((o) => Object.assign(o, { fallbackRate: o.fastCalls ? Math.round(1000 * o.fallbackCalls / o.fastCalls) / 1000 : null }));
+}
+
 // Utilisateur courant du contexte asynchrone (posé par le middleware HTTP ou runAs).
 const als = new AsyncLocalStorage();
 function runAs(userId, fn) { return als.run({ userId: userId || null }, fn); }
@@ -236,4 +248,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { usageReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER };
+module.exports = { usageReport, fallbackReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER };

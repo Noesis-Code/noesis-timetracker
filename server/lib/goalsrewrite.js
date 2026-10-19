@@ -38,15 +38,33 @@ function buildPrompt(text) {
   ].join('\n');
 }
 
-function callModel(prompt) {
-  return aicache.memoize([modelName(), MAX_OUTPUT_TOKENS, prompt], () => callModelRaw(prompt));
+// Haiku d'abord, repli sur le modèle fort (modelName()) si Haiku est peu sûr : appel en échec, sortie vide/multi-lignes/trop longue,
+// chiffre absent du texte d'origine (fait inventé), ou confiance < seuil. Réglages : NOESIS_REWRITE_FAST_MODEL ('off' = fort seul), NOESIS_REWRITE_MIN_CONFIDENCE.
+// Journal : features 'reformulation' (Haiku) / 'reformulation:repli' (fort).
+const CONF_LINE = "\nTermine par une seconde ligne exactement de la forme « CONFIANCE: N » (N de 0 à 100 : ta confiance que la reformulation est fidèle et meilleure ; sous 80 si tu hésites).";
+const digitsOf = (t) => (String(t).match(/\d+/g) || []);
+function callModel(prompt, original) {
+  const fast = aicache.fastModelFor('NOESIS_REWRITE_FAST_MODEL', modelName());
+  const strong = () => aicache.memoize([modelName(), MAX_OUTPUT_TOKENS, prompt], () => callModelRaw(prompt, modelName(), fast ? 'reformulation:repli' : 'reformulation'));
+  if (!fast) return strong();
+  return aicache.memoize([fast, MAX_OUTPUT_TOKENS + 12, prompt], async () => {
+    try {
+      const raw = String(await callModelRaw(prompt + CONF_LINE, fast, 'reformulation', MAX_OUTPUT_TOKENS + 12)).trim();
+      const m = /\n\s*CONFIANCE\s*:\s*(\d{1,3})\s*$/i.exec(raw);
+      const body = m ? raw.slice(0, m.index).trim() : '';
+      const known = new Set(digitsOf(original));
+      if (m && Number(m[1]) >= aicache.minConfidenceFor('NOESIS_REWRITE_MIN_CONFIDENCE') && body && !/\n/.test(body)
+          && body.length <= MAX_TEXT_LENGTH && digitsOf(body).every((d) => known.has(d))) return body;
+    } catch (err) { /* repli sur le modèle fort */ }
+    return strong();
+  });
 }
 
-async function callModelRaw(prompt) {
+async function callModelRaw(prompt, model, feature, maxTokens) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await aibudget.fetchAnthropic('reformulation', ANTHROPIC_API_URL, {
+    const res = await aibudget.fetchAnthropic(feature || 'reformulation', ANTHROPIC_API_URL, {
       method: 'POST',
       signal: controller.signal,
       headers: {
@@ -55,8 +73,8 @@ async function callModelRaw(prompt) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: modelName(),
-        max_tokens: MAX_OUTPUT_TOKENS,
+        model: model || modelName(),
+        max_tokens: maxTokens || MAX_OUTPUT_TOKENS,
         temperature: 0,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -86,7 +104,7 @@ async function proposeRewrite(rawText) {
   }
   if (!configured()) return null;
   try {
-    const out = await callModel(buildPrompt(text));
+    const out = await callModel(buildPrompt(text), text);
     const cleaned = String(out || '').trim().replace(/^["«'`]+|["»'`]+$/g, '').replace(/\s*\n+\s*/g, ' ').trim();
     if (!cleaned || cleaned.length > MAX_TEXT_LENGTH || cleaned === text) return null;
     return cleaned;

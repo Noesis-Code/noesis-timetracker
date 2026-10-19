@@ -112,6 +112,7 @@ function buildClassificationCandidates(activityId) {
 
 function buildPrompt(label, categories, examples, opts) {
   const allowUncertain = !!(opts && opts.allowUncertain);
+  const withConfidence = !!(opts && opts.confidence);
   // Description du candidat puis, entre parenthèses, celle de son pôle
   // (parties vides omises).
   const list = categories.map((c) => {
@@ -148,6 +149,7 @@ function buildPrompt(label, categories, examples, opts) {
         'Réponds UNIQUEMENT avec la clé de la catégorie la plus probable, sans texte autour, sans ponctuation, sans balises markdown.',
         'Choisis toujours une catégorie parmi la liste ci-dessus, même en cas de doute — jamais de réponse vide, jamais une clé qui ne figure pas dans la liste.',
       ]),
+    ...(withConfidence ? ["Format de réponse : la clé, puis ' | ', puis ta confiance de 0 à 100 (exemple : cléA | 90). Sois honnête : en dessous de 80 si tu hésites."] : []),
   ].join('\n');
 }
 
@@ -230,6 +232,33 @@ async function callModelRaw(prompt, maxTokens, feature, model) {
 // candidates, suggested } pour que le client demande à l'utilisateur ; un
 // seul candidat reste un placement direct. opts.forcedKey : choix de
 // l'utilisateur (validé contre les candidats), aucun appel IA.
+// 19 oct. 2026 (décision d'Emilien, coût) : Haiku d'abord, repli sur le modèle fort (modelName(), NOESIS_TASK_CATEGORY_MODEL)
+// seulement si Haiku est peu sûr : appel en échec, clé inconnue/sortie invalide, INCERTAIN, ou confiance < seuil (ou absente).
+// Réglages : NOESIS_CLASSIFY_FAST_MODEL (défaut claude-haiku-4-5 ; 'off' = toujours le modèle fort), NOESIS_CLASSIFY_MIN_CONFIDENCE (défaut 80).
+// Journal : feature 'classement-tache' (Haiku) et 'classement-tache:repli' (modèle fort) => taux de repli dans usageReport().
+function fastModel() {
+  const m = String(process.env.NOESIS_CLASSIFY_FAST_MODEL || 'claude-haiku-4-5').trim();
+  return !m || /^(off|0|non|false)$/i.test(m) || m === modelName() ? null : m;
+}
+function minConfidence() {
+  const n = Number(process.env.NOESIS_CLASSIFY_MIN_CONFIDENCE);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 80;
+}
+async function callTiered(label, categories, examples, allowUncertain, maxTokens) {
+  const strongPrompt = () => buildPrompt(label, categories, examples, { allowUncertain });
+  const fast = fastModel();
+  if (fast) {
+    try {
+      const text = await callModel(buildPrompt(label, categories, examples, { allowUncertain, confidence: true }), maxTokens + 12, 'classement-tache', fast);
+      const key = extractKey(text, categories);
+      const m = /\|\s*(\d{1,3})/.exec(String(text || ''));
+      const conf = m ? Number(m[1]) : null;
+      if (key && !extractUncertain(text, categories) && conf != null && conf >= minConfidence()) return key;
+    } catch (err) { /* repli sur le modèle fort */ }
+  }
+  return callModel(strongPrompt(), maxTokens, fast ? 'classement-tache:repli' : 'classement-tache');
+}
+
 async function classifyCategory(activityId, label, opts) {
   let categories = buildClassificationCandidates(activityId);
   if (opts && Array.isArray(opts.restrictKeys)) categories = categories.filter((c) => opts.restrictKeys.includes(c.key));
@@ -254,8 +283,7 @@ async function classifyCategory(activityId, label, opts) {
     if (opts.skipAi) return unresolved(null, null); // mode « Absence » : l'utilisateur choisit lui-même
     if (!configured()) return unresolved(null, 'Clé API absente.');
     try {
-      const prompt = buildPrompt(label, categories, goalsclassifyexamples.recentExamples(activityId, categories), { allowUncertain: true });
-      const text = await callModel(prompt, MAX_OUTPUT_TOKENS_STRICT);
+      const text = await callTiered(label, categories, goalsclassifyexamples.recentExamples(activityId, categories), true, MAX_OUTPUT_TOKENS_STRICT);
       const unc = extractUncertain(text, categories);
       if (unc) return unresolved(unc, null);
       const key = extractKey(text, categories);
@@ -270,8 +298,7 @@ async function classifyCategory(activityId, label, opts) {
     return { key: fallbackKey, usedAi: false, aiError: null };
   }
   try {
-    const prompt = buildPrompt(label, categories, goalsclassifyexamples.recentExamples(activityId, categories));
-    const text = await callModel(prompt);
+    const text = await callTiered(label, categories, goalsclassifyexamples.recentExamples(activityId, categories), false, MAX_OUTPUT_TOKENS);
     const key = extractKey(text, categories);
     if (key) return { key, usedAi: true, aiError: null };
     return { key: fallbackKey, usedAi: false, aiError: "Réponse de Noèsis inexploitable." };
@@ -506,6 +533,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
 }
 
 module.exports = {
+  callTiered,
   callModel,
   configured,
   modelName,

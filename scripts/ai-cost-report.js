@@ -17,3 +17,4 @@ console.log('Maximum : ' + fmt(max) + ' (limite ' + fmt(ab.capMonth()) + ')');
 console.log('\nRépartition par fonctionnalité :');
 db.prepare(`SELECT feature, SUM(costUsd) AS cost, SUM(calls) AS calls FROM ai_usage_log WHERE day >= ? AND day <= ? GROUP BY feature ORDER BY cost DESC`)
   .all(month + '-01', month + '-31').forEach((r) => console.log('  ' + r.feature.padEnd(30) + fmt(r.cost).padStart(10) + '  ' + r.calls + ' appel(s)'));
+try { const fr = ab.fallbackReport(30); if (fr.length) { console.log('\nTaux de repli Haiku -> modèle fort (30 j) :'); fr.forEach((o) => console.log('  ' + o.feature.padEnd(28) + o.fastCalls + ' Haiku, ' + o.fallbackCalls + ' repli(s)' + (o.fallbackRate != null ? ' = ' + Math.round(o.fallbackRate * 100) + ' %' : ''))); } } catch (e) { /* rapport facultatif */ }

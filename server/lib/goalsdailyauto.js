@@ -284,15 +284,32 @@ function validateAssignments(raw, items, dates) {
   return { valid, missing };
 }
 
-function callModel(prompt) {
-  return aicache.memoize([modelName(), MAX_OUTPUT_TOKENS, prompt], () => callModelRaw(prompt));
+function callModel(prompt, model, feature) {
+  const mdl = model || modelName();
+  return aicache.memoize([mdl, MAX_OUTPUT_TOKENS, prompt], () => callModelRaw(prompt, mdl, feature));
 }
 
-async function callModelRaw(prompt) {
+// Haiku d'abord, repli sur le modèle fort si Haiku est peu sûr : appel en échec, JSON absent/non conforme, au moins une tâche sans date
+// valide, ou confiance (champ racine "confidence", 0-100) < seuil. Réglages : NOESIS_DAILY_FAST_MODEL ('off' = fort seul), NOESIS_DAILY_MIN_CONFIDENCE.
+// Journal : features 'objectifs-plan-quotidien' (Haiku) / 'objectifs-plan-quotidien:repli' (fort).
+const DAILY_CONF = '\nAjoute à la racine de l\'objet JSON un champ "confidence" (entier 0-100, ta confiance dans ce placement ; sous 80 si tu hésites).';
+async function callPlanTiered(prompt, items, dates) {
+  const fast = aicache.fastModelFor('NOESIS_DAILY_FAST_MODEL', modelName());
+  if (fast) {
+    try {
+      const parsed = extractJson(await callModel(prompt + DAILY_CONF, fast, 'objectifs-plan-quotidien'));
+      const r = parsed ? validateAssignments(parsed, items, dates) : null;
+      if (r && r.valid.length && !r.missing.length && Number(parsed.confidence) >= aicache.minConfidenceFor('NOESIS_DAILY_MIN_CONFIDENCE')) return parsed;
+    } catch (err) { /* repli sur le modèle fort */ }
+  }
+  return extractJson(await callModel(prompt, modelName(), fast ? 'objectifs-plan-quotidien:repli' : 'objectifs-plan-quotidien'));
+}
+
+async function callModelRaw(prompt, model, feature) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await aibudget.fetchAnthropic('objectifs-plan-quotidien', ANTHROPIC_API_URL, {
+    const res = await aibudget.fetchAnthropic(feature || 'objectifs-plan-quotidien', ANTHROPIC_API_URL, {
       method: 'POST',
       signal: controller.signal,
       headers: {
@@ -301,7 +318,7 @@ async function callModelRaw(prompt) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: modelName(),
+        model: model || modelName(),
         max_tokens: MAX_OUTPUT_TOKENS,
         temperature: 0,
         messages: [{ role: 'user', content: prompt }],
@@ -374,8 +391,7 @@ async function generateDailyPlanForWeekly(activityId, weeklyId, requestingUserId
   if (configured() && items.length <= MAX_ITEMS_PER_CALL) {
     try {
       const prompt = buildPrompt(items, dates, dailyCapacity, weekly, !!dailyMax, weekMax);
-      const text = await callModel(prompt);
-      const parsed = extractJson(text);
+      const parsed = await callPlanTiered(prompt, items, dates);
       const { valid, missing } = validateAssignments(parsed, items, dates);
       assignments = valid;
       if (missing.length) assignments = assignments.concat(deterministicAssignments(missing, dates));

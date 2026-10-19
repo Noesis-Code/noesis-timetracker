@@ -21,6 +21,7 @@
 // valide, plus besoin de le refaire ici.
 
 const aibudget = require('./aibudget');
+const aicache = require('./aicache');
 const db = require('../db');
 const sp = require('./subprojects');
 const { replaceQueue } = require('./subprojectqueue');
@@ -79,12 +80,32 @@ Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Mark
 {"subProjects":[{"name":"...","description":"...","tasks":["...","..."]}]}
 Contraintes : exactement ${SUBPROJECT_COUNT} sous-projets ; chaque "name" fait moins de ${MAX_NAME_LENGTH} caractères ; chaque "description" fait moins de ${MAX_DESCRIPTION_LENGTH} caractères ; chaque tâche fait moins de ${MAX_ITEM_LABEL_LENGTH} caractères ; entre ${REVEAL_BATCH_SIZE} et 15 tâches par sous-projet (une vraie feuille de route, pas juste les 3 premières étapes).`;
 
+// Haiku d'abord, repli sur ANTHROPIC_MODEL (fort) si Haiku est peu sûr : appel en échec, JSON non conforme, plan trop court/incomplet
+// (un sous-projet sans description, ou moins de REVEAL_BATCH_SIZE tâches), ou confiance (champ racine "confidence") < seuil.
+// Réglages : NOESIS_OFFER_FAST_MODEL ('off' = fort seul), NOESIS_OFFER_MIN_CONFIDENCE (défaut 80). Journal : 'offre1-plan' / 'offre1-plan:repli'.
+const OFFER_CONF = '\nAjoute à la racine de l\'objet JSON un champ "confidence" (entier 0-100, ta confiance que ce plan est complet, concret et adapté aux formulaires ; sous 80 si tu hésites).';
+function planIsComplete(plan) {
+  return plan.length === SUBPROJECT_COUNT && plan.every((p) => p.name && p.description && p.tasks.length >= REVEAL_BATCH_SIZE);
+}
 async function generateSubProjectsPlan(formsPayload) {
   if (!aiConfigured()) {
     throw new Error("Génération indisponible pour le moment.");
   }
+  const fast = aicache.fastModelFor('NOESIS_OFFER_FAST_MODEL', ANTHROPIC_MODEL);
+  if (fast) {
+    try {
+      const text = await callPlanApi(formsPayload, fast, SYSTEM_PROMPT + OFFER_CONF, 'offre1-plan');
+      const plan = parsePlan(text);
+      let conf = NaN;
+      try { conf = Number(JSON.parse(String(text).trim().replace(/^```[a-zA-Z]*\s*/, '').replace(/\s*```$/, '').trim()).confidence); } catch (e) { /* illisible : repli */ }
+      if (planIsComplete(plan) && conf >= aicache.minConfidenceFor('NOESIS_OFFER_MIN_CONFIDENCE')) return plan;
+    } catch (err) { if (err && err.aiBlocked) throw err; /* repli sur le modèle fort */ }
+  }
+  return parsePlan(await callPlanApi(formsPayload, ANTHROPIC_MODEL, SYSTEM_PROMPT, fast ? 'offre1-plan:repli' : 'offre1-plan'));
+}
 
-  const res = await aibudget.fetchAnthropic('offre1-plan', ANTHROPIC_API_URL, {
+async function callPlanApi(formsPayload, model, system, feature) {
+  const res = await aibudget.fetchAnthropic(feature, ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
@@ -92,9 +113,9 @@ async function generateSubProjectsPlan(formsPayload) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
+      model,
       max_tokens: 4096,
-      system: SYSTEM_PROMPT,
+      system,
       messages: [{ role: 'user', content: JSON.stringify(formsPayload || {}) }],
     }),
   });
@@ -112,8 +133,7 @@ async function generateSubProjectsPlan(formsPayload) {
   }
 
   const body = await res.json();
-  const text = (body.content || []).map((block) => block.text || '').join('');
-  return parsePlan(text);
+  return (body.content || []).map((block) => block.text || '').join('');
 }
 
 // Validation stricte de la réponse IA : elle contourne les routes HTTP (on
