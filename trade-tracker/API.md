@@ -59,6 +59,7 @@ Tri par défaut : `valueCad` décroissant (le tri fin est fait côté interface)
   bySector:   [ { key, label, clientPct, expertPct, gapPts } ],   // inclut key "cash" (Encaisse), tri par |gapPts| décroissant
   byPosition: [ { symbol, label, sector, clientPct, expertPct, gapPts } ] }  // titres agrégés par symbole, tous comptes
 ```
+Pas de paramètre `account` (décision du 19 oct. 2026) : filtrer par compte rendrait les pourcentages ambigus (poids dans le compte ou dans le portefeuille ? l'expert reste global) et obligerait l'écran « Moi et l'expert » à recharger `/api/compare` à chaque puce, alors que le chargement unique (mémo, ETag, copie hors ligne du service worker) sert tous les écrans. À reprendre seulement après décision produit sur la base de calcul des poids.
 Pour l'expert lui-même, tous les écarts valent 0. Les poids sont en % de la valeur totale (encaisse incluse).
 
 `GET /api/purchases?limit=10&offset=0` (limit 1-50, défaut 10) -> derniers achats de l'EXPERT (transactions `ACHAT`, récents d'abord, lisible par tout utilisateur connecté) :
