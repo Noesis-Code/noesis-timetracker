@@ -2445,4 +2445,19 @@ if (!columnExists('users', 'weeklyCapacityMinutes')) {
   db.exec('ALTER TABLE users ADD COLUMN weeklyCapacityMinutes INTEGER');
 }
 
+// Jetons d'acces personnels « Connecter mon IA » (serveur MCP lecture seule, 19 oct. 2026).
+// Seule l'empreinte SHA-256 du jeton est stockee. Additif, idempotent.
+db.exec(`
+CREATE TABLE IF NOT EXISTS ai_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  tokenHash TEXT NOT NULL UNIQUE,
+  createdAt TEXT NOT NULL,
+  lastUsedAt TEXT,
+  revokedAt TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ai_tokens_user ON ai_tokens(userId);
+`);
+
 module.exports = db;

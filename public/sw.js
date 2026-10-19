@@ -46,7 +46,7 @@
 // demande d'Emilien) : v6 → v7 ; objectifs-page2.js/.css remplacés par
 // objectifs-page2-taches.js/.css et objectifs-page2-objectif.js/.css.
 // 2 oct. 2026 : v9 → v10, ajout de stats-avance.js/.css (Statistiques, page 2).
-const CACHE_VERSION = 'noesis-v355';
+const CACHE_VERSION = 'noesis-v397';
 
 // File d'attente des tâches capturées hors ligne (voir l'en-tête de
 // public/offline-queue.js). Chargée ici pour que Background Sync puisse la
@@ -72,6 +72,7 @@ const SHELL = [
   '/js/axis-lock.js',
   '/js/stats-avance.js',
   '/js/activite-stats-taches.js',
+  '/js/connexion-ia.js',
   '/css/objectifs-page1.css',
   '/css/objectifs-page2-taches.css',
   '/css/objectifs-page2-objectif.css',
@@ -80,6 +81,7 @@ const SHELL = [
   '/css/objectifs-page3.css',
   '/css/stats-avance.css',
   '/css/activite-stats-taches.css',
+  '/css/connexion-ia.css',
   '/css/verre-calme.css',
   '/i18n.js',
   '/legal-en.js',
@@ -137,7 +139,7 @@ async function networkFirst(request, fallbackPath) {
     }
     return response;
   } catch (err) {
-    const cached = await caches.match(request.mode === 'navigate' ? '/index.html' : request);
+    const cached = await caches.match(request.mode === 'navigate' ? '/index.html' : request, { ignoreSearch: request.mode !== 'navigate' });
     if (cached) return cached;
     if (fallbackPath) {
       const fallback = await caches.match(fallbackPath);
