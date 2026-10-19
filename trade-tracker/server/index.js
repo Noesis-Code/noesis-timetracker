@@ -16,11 +16,13 @@ const { createApp } = require('./app');
 const { startSnapshotScheduler } = require('./lib/snapshot');
 const { startSyncScheduler } = require('./lib/sync');
 const { createNotifier } = require('./lib/notifier');
+const { createAlerter } = require('./lib/alerts');
 
 const db = openDb();
-const app = createApp(db);
+const notifier = createNotifier();
+const app = createApp(db, { onAlert: createAlerter(db, notifier) });
 if (!process.env.TRADE_LINK_SECRET) console.warn('[trade-tracker] TRADE_LINK_SECRET absent : les liens depuis TMT seront refusés.');
 startSnapshotScheduler(db);
-startSyncScheduler(db, { notifier: createNotifier() });
+startSyncScheduler(db, { notifier });
 const port = Number(process.env.PORT) || 3980;
 app.listen(port, () => console.log(`[trade-tracker] http://localhost:${port}`));

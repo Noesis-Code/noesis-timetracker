@@ -94,7 +94,7 @@ function deleteBrokerToken(db, userId, broker = 'questrade') {
 function purgeSyncData(db, userId) {
   db.exec('BEGIN');
   try {
-    for (const sql of ['DELETE FROM events WHERE userId = ?', 'DELETE FROM history WHERE userId = ?',
+    for (const sql of ["DELETE FROM events WHERE userId = ? AND type != 'security'", 'DELETE FROM history WHERE userId = ?',
       'DELETE FROM sync_log WHERE userId = ?', 'DELETE FROM accounts WHERE userId = ?']) db.prepare(sql).run(userId);
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }

@@ -59,6 +59,22 @@ const srv = app.listen(0, async () => {
   M.setModules('t1', { notifications: true });
   r = await post({ userId: 'inconnu', symbol: 'X' }, { id: 'e3' }); await tick();
   assert(r.status === 200 && sent.length === 1, 'utilisateur inconnu/non autorisé : aucune notification');
+  // Alertes de sécurité Trade Tracker (type « security ») : connexion, nouvel appareil, jeton courtier, échecs répétés
+  M.setModules('t1', { trade: false });
+  const before = sent.length;
+  r = await post({ type: 'security', kind: 'new_device', userId: 't1', occurredAt: new Date().toISOString() }, { id: 's1' }); await tick();
+  assert(r.status === 200 && r.body.notified === true && sent.length === before + 1, 'alerte de sécurité : notifiée même si le volet Trade est masqué');
+  const al = sent[sent.length - 1];
+  assert(/nouvel appareil/i.test(al.body) && al.url === '/?notif=trade&secu=new_device' && !/\$|×/.test(al.body), 'alerte : texte clair, adressage ?notif=trade, aucune donnée financière');
+  r = await post({ type: 'security', kind: 'pirate', userId: 't1' }, { id: 's2' });
+  assert(r.status === 400, 'type d\'alerte inconnu : 400');
+  r = await post({ type: 'security', kind: 'login', userId: 'inconnu' }, { id: 's3' }); await tick();
+  assert(r.status === 200 && sent.length === before + 1, 'alerte pour un id non autorisé : aucune notification');
+  r = await post({ type: 'security', kind: 'login', userId: 't1', occurredAt: 'a' }, { id: 's4', sig: 'sha256=' + 'cd'.repeat(32) });
+  assert(r.status === 401, 'alerte non signée : refusée');
+  r = await post({ type: 'security', kind: 'broker_token_deleted', userId: 't1', occurredAt: 'b' }, { id: 's5' }); await tick();
+  assert(sent.length === before + 2 && /supprim/.test(sent[sent.length - 1].body), 'alerte de suppression du jeton courtier');
+  M.setModules('t1', { trade: true });
   r = await post('pas du json', { id: 'e4' });
   assert(r.status === 400, 'corps invalide : 400');
   delete process.env.TRADE_NOTIFY_SECRET;

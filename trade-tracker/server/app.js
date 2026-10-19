@@ -269,6 +269,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     const had = BT.hasBrokerToken(db, req.user.id);
     try { BT.saveBrokerToken(db, req.user.id, token.trim(), { env }); } catch { return err(res, 500, 'store_failed', 'Jeton non enregistré.'); }
     aud(req, had ? 'broker_token_replaced' : 'broker_token_set', {});
+    alertUser(req.user.id, had ? 'broker_token_replaced' : 'broker_token_set');
     res.json({ ok: true, brokerConnected: true });
   });
 
@@ -286,6 +287,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     if (!needStepUp(req, res)) return;
     try { BT.deleteBrokerToken(db, req.user.id); BT.purgeSyncData(db, req.user.id); } catch { return err(res, 500, 'delete_failed', 'Suppression non terminée.'); }
     aud(req, 'broker_token_deleted', {});
+    alertUser(req.user.id, 'broker_token_deleted');
     res.json({ ok: true, brokerConnected: false });
   });
 

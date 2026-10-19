@@ -54,8 +54,9 @@ router.post('/trade-events', express.raw({ type: () => true, limit: '64kb' }), (
 
   let ev;
   try { ev = JSON.parse(raw); } catch (e) { return res.status(400).json({ error: 'invalid' }); }
-  if (!ev || typeof ev.userId !== 'string' || !ev.userId || typeof ev.symbol !== 'string' || !ev.symbol.trim()) return res.status(400).json({ error: 'invalid' });
-  const symbol = ev.symbol.trim().slice(0, 40);
+  const isSecurity = !!ev && ev.type === 'security'; // alerte de sécurité (connexion, nouvel appareil...) : pas de titre financier
+  if (!ev || typeof ev.userId !== 'string' || !ev.userId || (isSecurity ? !push.TRADE_SECURITY_KINDS.includes(ev.kind) : (typeof ev.symbol !== 'string' || !ev.symbol.trim()))) return res.status(400).json({ error: 'invalid' });
+  const symbol = isSecurity ? 'security:' + ev.kind : ev.symbol.trim().slice(0, 40);
 
   // Rejeu avec un autre X-Trade-Event-Id : l'identifiant n'est pas couvert par la signature, donc la signature elle-même est dédupliquée.
   const sigKey = 'sig:' + crypto.createHash('sha256').update(sig).digest('hex');
@@ -67,7 +68,9 @@ router.post('/trade-events', express.raw({ type: () => true, limit: '64kb' }), (
   // Module « trade » inactif ou id non autorisé : événement reçu et mémorisé, aucune notification.
   let notified = false;
   try {
-    if (modules.isTradeAllowed(ev.userId) && modules.isEnabled(ev.userId, 'trade')) {
+    if (isSecurity) {
+      if (modules.isTradeAllowed(ev.userId)) { push.notifyTradeSecurity(ev.userId, { eventId, kind: ev.kind }); notified = true; }
+    } else if (modules.isTradeAllowed(ev.userId) && modules.isEnabled(ev.userId, 'trade')) {
       push.notifyTradePurchase(ev.userId, { eventId, symbol, quantity: Number(ev.quantity), price: Number(ev.price) });
       notified = true;
     }

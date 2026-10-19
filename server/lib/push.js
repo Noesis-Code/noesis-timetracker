@@ -96,6 +96,12 @@ const TEXTS = {
     postTitle: '📣 Communauté',
     tradeTitle: 'Trade Tracker',
     tradeBody: (symbol, qty, price) => `Nouvel achat : ${symbol}` + (qty != null ? ` — ${qty} × ${price} $` : ''),
+    tradeSecurity: {
+      login: 'Nouvelle connexion à ton compte.', new_device: 'Connexion depuis un nouvel appareil.', broker_token_set: 'Jeton courtier connecté.',
+      broker_token_replaced: 'Jeton courtier remplacé.', broker_token_deleted: 'Jeton courtier supprimé.',
+      auth_failures: 'Plusieurs échecs de vérification sur ton compte.', backup_code: 'Un code de secours a été utilisé.',
+    },
+    tradeSecurityHint: 'Pas toi ? Ferme toutes les sessions dans Trade Tracker.',
     announcementTitle: 'Noèsis',
   },
   en: {
@@ -106,6 +112,12 @@ const TEXTS = {
     postTitle: '📣 Community',
     tradeTitle: 'Trade Tracker',
     tradeBody: (symbol, qty, price) => `New purchase: ${symbol}` + (qty != null ? ` — ${qty} × $${price}` : ''),
+    tradeSecurity: {
+      login: 'New sign-in to your account.', new_device: 'Sign-in from a new device.', broker_token_set: 'Broker token connected.',
+      broker_token_replaced: 'Broker token replaced.', broker_token_deleted: 'Broker token deleted.',
+      auth_failures: 'Several failed verifications on your account.', backup_code: 'A backup code was used.',
+    },
+    tradeSecurityHint: 'Not you? Close all sessions in Trade Tracker.',
     announcementTitle: 'Noèsis',
   },
 };
@@ -377,7 +389,27 @@ function notifyTradePurchase(toUserId, ev) {
   }
 }
 
+// Alerte de sécurité Trade Tracker (POST /api/trade-events, type « security ») : connexion, nouvel appareil, jeton courtier, échecs répétés.
+// Aucune donnée financière dans le texte. Pas de filtre par module « trade » (une alerte de sécurité ne doit pas dépendre d'un réglage d'affichage).
+const TRADE_SECURITY_KINDS = ['login', 'new_device', 'broker_token_set', 'broker_token_replaced', 'broker_token_deleted', 'auth_failures', 'backup_code'];
+function notifyTradeSecurity(toUserId, ev) {
+  if (!configured) return;
+  try {
+    if (!TRADE_SECURITY_KINDS.includes(ev.kind)) return;
+    const t = textsFor(toUserId);
+    sendToUsers([toUserId], {
+      title: t.tradeTitle,
+      body: t.tradeSecurity[ev.kind] + ' ' + t.tradeSecurityHint,
+      tag: 'trade-secu-' + ev.eventId,
+      url: '/?notif=trade&secu=' + encodeURIComponent(ev.kind),
+    });
+  } catch (err) {
+    console.warn('[push] notifyTradeSecurity :', err.message);
+  }
+}
+
 module.exports = {
+  TRADE_SECURITY_KINDS, notifyTradeSecurity,
   pushEnabled, publicKey, sendToUsers, allSubscribedUserIds, notifyAnnouncement,
   notifyActivityMessage, notifyCommunityPost, notifyActivityInvite, notifyFollowRequest, notifyTradePurchase,
 };
