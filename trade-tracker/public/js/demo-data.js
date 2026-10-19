@@ -100,4 +100,44 @@
     ],
     broker: 'Courtier démo (lecture seule)'
   };
+
+  // ---- Comparaison client / expert (forme supposée de GET /api/compare, à aligner sur API.md en B8) ----
+  var expertW = { AURG: ['Or', 'Aurum Ridge', 18], CUPR: ['Cuivre', 'Cuprum Basin', 14], URAN: ['Uranium', 'Uranor', 12], LITH: ['Lithium', 'Lithos Énergie', 8],
+    ARGN: ['Argent', 'Argentum Corp', 7], NRTH: ['Or', 'Nordique Minerais', 5], NICK: ['Nickel', 'Nickelor', 6], TERR: ['Terres rares', 'Terres Rares Boréal', 4],
+    ZINK: ['Zinc', 'Zinkal Métaux', 4], PLAT: ['Platine', 'Platina Nord', 7], MOLY: ['Molybdène', 'Molybor', 7] };
+  var expertCash = 6;
+  var mePos = {}, meSec = {};
+  positions.forEach(function (p) {
+    var a = mePos[p.symbol] = mePos[p.symbol] || { symbol: p.symbol, name: p.name, sector: p.sector, mePct: 0, expertPct: 0 };
+    a.mePct += p.valueCad / totalValueCad * 100;
+  });
+  var posRows = Object.keys(expertW).map(function (k) {
+    var a = mePos[k] = mePos[k] || { symbol: k, name: expertW[k][1], sector: expertW[k][0], mePct: 0, expertPct: 0 };
+    a.expertPct = expertW[k][2]; return a;
+  });
+  Object.keys(mePos).forEach(function (k) { if (posRows.indexOf(mePos[k]) < 0) posRows.push(mePos[k]); });
+  function gap(a) { a.mePct = r2(a.mePct); a.gapPts = r2(a.mePct - a.expertPct); return a; }
+  posRows.forEach(gap);
+  posRows.push(gap({ symbol: 'cash', name: 'Encaisse', sector: 'Encaisse', mePct: cashTotal / totalValueCad * 100, expertPct: expertCash }));
+  var secRows = {};
+  posRows.forEach(function (r) {
+    var b = secRows[r.sector] = secRows[r.sector] || { key: r.sector === 'Encaisse' ? 'cash' : r.sector, label: r.sector, mePct: 0, expertPct: 0 };
+    b.mePct += r.mePct; b.expertPct += r.expertPct;
+  });
+  var sectors = Object.keys(secRows).map(function (k) { return gap(secRows[k]); });
+  function byMax(a, b) { return Math.max(b.mePct, b.expertPct) - Math.max(a.mePct, a.expertPct); }
+  sectors.sort(byMax); posRows.sort(byMax);
+  window.TT_DEMO.compare = {
+    asOf: iso(new Date(NOW)), expertName: 'Expert',
+    me: { totalValueCad: r2(totalValueCad) }, expert: { totalValueCad: 412350.4 },
+    sectors: sectors,
+    positions: posRows.map(function (r) { return { symbol: r.symbol, name: r.name, sector: r.sector, mePct: r.mePct, expertPct: r.expertPct, gapPts: r.gapPts }; }),
+    lastSync: { at: syncLog[0].at, status: 'OK' },
+    purchases: [
+      { id: 'x5', at: ago(95), symbol: 'MOLY', name: 'Molybor', sector: 'Molybdène', accountType: 'REER', quantity: 400, price: 11.2, currency: 'CAD', amountCad: 4480 },
+      { id: 'x4', at: ago(26 * 60), symbol: 'PLAT', name: 'Platina Nord', sector: 'Platine', accountType: 'CELI', quantity: 250, price: 18.4, currency: 'USD', amountCad: 6302.5 },
+      { id: 'x3', at: ago(4 * 24 * 60), symbol: 'URAN', name: 'Uranor', sector: 'Uranium', accountType: 'REER', quantity: 150, price: 25.9, currency: 'CAD', amountCad: 3885 },
+      { id: 'x2', at: ago(9 * 24 * 60), symbol: 'AURG', name: 'Aurum Ridge', sector: 'Or', accountType: 'CELI', quantity: 300, price: 17.1, currency: 'CAD', amountCad: 5130 }
+    ]
+  };
 })();
