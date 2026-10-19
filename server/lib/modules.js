@@ -7,11 +7,11 @@ const db = require('../db');
 const NEW_ACCOUNT_DEFAULT_MODULES = ['stats', 'stats-tasks', 'roadmap', 'sharing', 'calendar', 'ai', 'notifications'];
 
 // Ensembles (décision d'Émilien) : au moins UN des deux doit rester actif (Chrono, dans core, fait partie de A côté produit).
-// A « Temps » : statistiques du chrono / feuille de temps. B « Tâches et objectifs » : statistiques des tâches + Feuille de route.
+// A « Chrono » : statistiques du chrono / feuille de temps. B « Feuille de route » : statistiques des tâches + Feuille de route.
 // `anchor` = module dont l'état dit si l'ensemble est actif.
 const BUNDLES = {
-  time: { label: 'Temps', anchor: 'stats', modules: ['stats'] },
-  tasks: { label: 'Tâches et objectifs', anchor: 'roadmap', modules: ['roadmap', 'stats-tasks'] },
+  time: { label: 'Chrono', anchor: 'stats', modules: ['stats'], all: ['stats'] },
+  tasks: { label: 'Feuille de route', anchor: 'roadmap', modules: ['roadmap', 'stats-tasks'], all: ['roadmap', 'stats-tasks', 'calendar', 'ai'] },
 };
 // Optionnels, indépendants des ensembles.
 const OPTIONAL = ['community', 'profile'];
@@ -90,7 +90,7 @@ function validate(next) {
     }
   }
   if (!Object.keys(BUNDLES).some((b) => next[BUNDLES[b].anchor])) {
-    return { ok: false, error: 'Garde au moins un ensemble : « Temps » ou « Tâches et objectifs ».' };
+    return { ok: false, error: 'Garde au moins un ensemble : « Chrono » ou « Feuille de route ».' };
   }
   return { ok: true };
 }
@@ -111,6 +111,22 @@ function setModules(userId, patch) {
       continue;
     }
     next[id] = patch[id];
+  }
+  // Dépendances automatiques : activer un module active ce dont il a besoin ; un module resté actif sans son prérequis
+  // (état hérité ou partiel) est coupé, au lieu de refuser l'enregistrement.
+  const need = (id) => { for (const d of MODULES[id].requires) { if (!next[d]) { next[d] = true; need(d); } } };
+  Object.keys(patch).forEach((id) => { if (patch[id] === true && MODULES[id] && !NOT_TOGGLEABLE.includes(id)) need(id); });
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const id of Object.keys(MODULES)) {
+      if (next[id] && !NOT_TOGGLEABLE.includes(id) && MODULES[id].requires.some((d) => !next[d])) { next[id] = false; changed = true; }
+    }
+  }
+  // Règle croisée : si ce patch coupe un ensemble et que l'autre était déjà coupé, l'autre est réactivé (jamais une erreur).
+  const bs = Object.keys(BUNDLES);
+  if (!bs.some((b) => next[BUNDLES[b].anchor])) {
+    const touched = bs.filter((b) => BUNDLES[b].all.some((id) => id in patch));
+    if (touched.length === 1) bs.filter((b) => b !== touched[0]).forEach((b) => BUNDLES[b].all.forEach((id) => { next[id] = true; }));
   }
   const linked = LINKED.find((k) => k in patch);
   if (linked) linkPair(next, patch[linked]);
