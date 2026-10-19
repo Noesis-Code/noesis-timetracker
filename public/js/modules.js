@@ -102,7 +102,121 @@
   function load() {
     if (!pid()) return Promise.resolve(null);
     var id = pid();
-    return call('GET').then(function (d) { state = d.modules; loadedFor = id; remember(); apply(); paint(); return state; }).catch(function () { return null; });
+    return call('GET').then(function (d) { state = d.modules; loadedFor = id; remember(); apply(); applyOrder(); paint(); return state; }).catch(function () { return null; });
+  }
+
+  // ===== Barre du bas modulable (19 oct. 2026) =====
+  // Appui long sur un volet = mode édition : glisser-déposer pour réordonner (ordre mémorisé par utilisateur, localStorage),
+  // ✕ pour retirer = désactiver son module (même effet et même garde-fou que Réglages > Modules). Activité et Stats ne sont pas retirables.
+  var nav = document.querySelector('.tabbar');
+  var editing = false, suppressClick = false;
+  var ORDER_KEY = function () { return 'noesis_tab_order_' + (pid() || ''); };
+  function tabBtns() { return nav ? Array.prototype.slice.call(nav.querySelectorAll('.tabBtn')) : []; }
+  function savedOrder() { try { var a = JSON.parse(localStorage.getItem(ORDER_KEY()) || 'null'); return Array.isArray(a) ? a : null; } catch (e) { return null; } }
+  function applyOrder() {
+    var order = savedOrder(); if (!nav || !order) return;
+    var btns = tabBtns(), by = {};
+    btns.forEach(function (b) { by[b.dataset.tab] = b; });
+    var seq = order.filter(function (k) { return by[k]; });
+    btns.forEach(function (b) { if (seq.indexOf(b.dataset.tab) < 0) seq.push(b.dataset.tab); });
+    seq.forEach(function (k) { nav.appendChild(by[k]); });
+  }
+  function saveOrder() {
+    try { if (pid()) localStorage.setItem(ORDER_KEY(), JSON.stringify(tabBtns().map(function (b) { return b.dataset.tab; }))); } catch (e) { /* stockage plein */ }
+  }
+  // Retrait : onglet -> patch de modules. Chrono = ensemble Temps ; Feuille de route = ensemble Tâches et objectifs ; Communauté = Communauté et profil.
+  function removalPatch(tab) {
+    if (tab === 'chrono') return BUNDLES[0].ids.reduce(function (p, id) { p[id] = false; return p; }, {});
+    if (tab === 'goals') return BUNDLES[1].ids.reduce(function (p, id) { p[id] = false; return p; }, {});
+    if (tab === 'community') return { community: false, profile: false };
+    return null;
+  }
+  function removalAllowed(tab) {
+    if (tab === 'chrono') return on('roadmap');
+    if (tab === 'goals') return on('stats');
+    return true;
+  }
+  function clearBadges() { tabBtns().forEach(function (b) { var x = b.querySelector('.tabRemove'); if (x) x.remove(); }); }
+  function exitEdit() { editing = false; if (nav) nav.classList.remove('tabbarEditing'); clearBadges(); }
+  function enterEdit() {
+    if (editing || !nav) return;
+    editing = true; nav.classList.add('tabbarEditing'); clearBadges();
+    tabBtns().forEach(function (b) {
+      var tab = b.dataset.tab, patch = removalPatch(tab);
+      if (!patch) return;
+      var x = document.createElement('span'); x.className = 'tabRemove'; x.textContent = '✕'; x.setAttribute('role', 'button');
+      x.setAttribute('aria-label', tr('Retirer ce volet'));
+      x.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+      x.addEventListener('click', function (e) {
+        e.stopPropagation(); e.preventDefault();
+        if (!removalAllowed(tab)) { exitEdit(); setMsg(tr('Garde au moins un ensemble.')); if (window.TMT && TMT.toast) TMT.toast(tr('Garde au moins un ensemble.')); return; }
+        var label = (b.querySelector('.tabLabel') || {}).textContent || tab;
+        var run = function () { return call('PUT', { modules: patch }).then(function (d) { state = d.modules; remember(); apply(); paint(); exitEdit(); }); };
+        if (TMT.confirmDelete) {
+          TMT.confirmDelete({ title: tr('Retirer ce volet ?'), text: tr('Le volet') + ' « ' + tr(label) + ' » ' + tr('sera masqué. Aucune donnée n’est supprimée ; tu peux le remettre dans Réglages > Modules.'), onConfirm: run });
+          var ok = document.getElementById('categoryRemoveDeleteTasksBtn'); if (ok) ok.textContent = tr('Retirer');
+        } else run();
+      });
+      b.appendChild(x);
+    });
+  }
+  function startDrag(btn, e) {
+    var items = tabBtns().filter(function (b) { return b.offsetParent !== null; });
+    var mids = items.map(function (el) { var r = el.getBoundingClientRect(); return r.left + r.width / 2; });
+    var from = items.indexOf(btn); if (from < 0) return;
+    var startX = e.clientX, target = from, moved = false;
+    var step = items.length > 1 ? Math.abs(mids[1] - mids[0]) : 0;
+    try { btn.setPointerCapture(e.pointerId); } catch (er) { /* capture refusée */ }
+    function gap() {
+      items.forEach(function (el, i) {
+        if (i === from) return;
+        var sh = 0;
+        if (target > from && i > from && i <= target) sh = -step; else if (target < from && i >= target && i < from) sh = step;
+        el.style.transform = sh ? 'translateX(' + sh + 'px)' : '';
+      });
+    }
+    function mv(ev) {
+      var dx = ev.clientX - startX;
+      if (!moved && Math.abs(dx) < 6) return;
+      moved = true; btn.classList.add('tabDragging');
+      btn.style.transform = 'translateX(' + dx + 'px)';
+      var idx = 0; for (var i = 0; i < mids.length; i++) if (ev.clientX > mids[i]) idx = i;
+      if (idx !== target) { target = idx; gap(); }
+    }
+    function up() {
+      btn.removeEventListener('pointermove', mv); btn.removeEventListener('pointerup', up); btn.removeEventListener('pointercancel', up);
+      btn.classList.remove('tabDragging'); btn.style.transform = ''; items.forEach(function (el) { el.style.transform = ''; });
+      if (moved) {
+        suppressClick = true; setTimeout(function () { suppressClick = false; }, 400);
+        if (target !== from) {
+          var ordered = items.slice(); ordered.splice(from, 1); ordered.splice(target, 0, btn);
+          var all = tabBtns(), hidden = all.filter(function (b) { return items.indexOf(b) < 0; });
+          ordered.concat(hidden).forEach(function (b) { nav.appendChild(b); });
+          saveOrder();
+        }
+      }
+    }
+    btn.addEventListener('pointermove', mv); btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up);
+  }
+  if (nav) {
+    nav.addEventListener('pointerdown', function (e) {
+      var btn = e.target.closest && e.target.closest('.tabBtn'); if (!btn || e.target.closest('.tabRemove')) return;
+      if (editing) { startDrag(btn, e); return; }
+      var sx = e.clientX, sy = e.clientY, timer = setTimeout(function () { cleanup(); suppressClick = true; setTimeout(function () { suppressClick = false; }, 700); enterEdit(); startDrag(btn, e); }, 450);
+      function cm(ev) { if (Math.abs(ev.clientX - sx) > 10 || Math.abs(ev.clientY - sy) > 10) { clearTimeout(timer); cleanup(); } }
+      function cleanup() { clearTimeout(timer); document.removeEventListener('pointermove', cm); document.removeEventListener('pointerup', cleanup); document.removeEventListener('pointercancel', cleanup); }
+      document.addEventListener('pointermove', cm); document.addEventListener('pointerup', cleanup); document.addEventListener('pointercancel', cleanup);
+    });
+    // Capture : en édition, un toucher simple sur un volet ferme l'édition au lieu de naviguer ; juste après un glisser, aucun clic.
+    nav.addEventListener('click', function (e) {
+      if (e.target.closest('.tabRemove')) return;
+      if (suppressClick) { e.stopPropagation(); e.preventDefault(); return; }
+      if (editing) { e.stopPropagation(); e.preventDefault(); exitEdit(); }
+    }, true);
+    nav.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    document.addEventListener('pointerdown', function (e) { if (editing && !e.target.closest('.tabbar') && !e.target.closest('#categoryRemoveModal')) exitEdit(); });
+    document.addEventListener('tmt:modules', function () { applyOrder(); if (editing) { exitEdit(); } });
+    applyOrder();
   }
 
   // Tant que rien n'est chargé (hors ligne, avant connexion), tout est considéré actif : comportement d'avant le socle.

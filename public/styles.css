@@ -511,7 +511,7 @@ input[type=time]:focus, select:focus, textarea:focus {
    justify-content:space-between entre .brand et ce groupe, alors que le
    gap ci-dessous ne fait que resserrer les icônes contre le prénom, plutôt
    que de les répartir sur toute la largeur de la barre. */
-.topbarActions { display: flex; align-items: center; gap: 10px; }
+.topbarActions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 /* .whoami est un <button> depuis le 30 août 2026 (demande d'Emilien) : ouvre
    le Profil au clic (voir openProfile, app.js) — Profil n'a plus d'onglet
    dédié dans la barre du bas. Reset des styles par défaut de bouton. Depuis
