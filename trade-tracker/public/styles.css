@@ -1,0 +1,121 @@
+/* Trade Tracker — gabarit. Sombre uniquement ; variables de tokens.css (copie de TMT). */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { background: var(--black); }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  line-height: 1.5; font-size: 14px;
+  overscroll-behavior-y: none;
+}
+button, input, select { font-family: inherit; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+
+/* Halo violet flou en bas de l'écran (comme TMT) */
+#app::before {
+  content: ''; position: fixed; z-index: -1; pointer-events: none;
+  left: 50%; margin-left: -200px; bottom: -130px;
+  width: 400px; height: 400px; border-radius: 50%;
+  background: rgba(var(--purple-rgb), 0.32); filter: blur(60px);
+}
+#app { isolation: isolate; min-height: 100vh; max-width: 520px; margin: 0 auto; position: relative; }
+
+/* Barre du haut : noire, fixe */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  padding: 14px 18px; padding-top: max(14px, env(safe-area-inset-top));
+  background: var(--black); box-shadow: var(--shadow-topbar);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.brand { font-weight: bold; font-size: 18px; letter-spacing: 0.2px; color: var(--white); }
+.topbarRight { display: flex; align-items: center; gap: 8px; }
+.topIconBtn {
+  width: 36px; height: 36px; border-radius: 12px; color: var(--text);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+}
+.topIconBtn:active { transform: scale(0.96); }
+
+/* Pastille d'état de synchro (barre du haut) */
+.syncPill {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px;
+  border-radius: 999px; font-size: 11px; font-weight: bold; color: var(--text-light); cursor: pointer;
+  background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line);
+}
+.syncDot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-light); }
+.syncPill.ok .syncDot { background: var(--green); }
+.syncPill.warn .syncDot { background: var(--warn-orange); }
+.syncPill.error .syncDot { background: var(--red); }
+.syncPill.error { color: var(--brique-text); }
+
+/* Écran */
+.screen {
+  padding: calc(66px + env(safe-area-inset-top)) 14px calc(118px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 12px;
+}
+.screenTitle { font-size: 20px; font-weight: bold; margin: 2px 2px 0; }
+.sectionTitle { font-size: 15px; font-weight: bold; margin: 6px 2px 0; }
+.hint { font-size: 13px; color: var(--text-light); }
+.emptyState { text-align: center; color: var(--text-light); padding: 40px 16px; font-size: 13px; }
+
+/* Barre du bas : volets flottants sur verre */
+.tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  max-width: 520px; margin: 0 auto; padding: 0 24px;
+  display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none;
+}
+.tabbar::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: auto;
+  left: 16px; right: 16px; top: 0; bottom: max(4px, calc(env(safe-area-inset-bottom) - 10px));
+  border-radius: 36px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+}
+.tabBtn {
+  position: relative; pointer-events: auto; flex: 0 0 auto; min-width: 54px;
+  background: none; border: none; padding: 11px 0 max(14px, calc(env(safe-area-inset-bottom) + 4px));
+  color: var(--tab-idle-dark); display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+.tabBtn:active { transform: scale(0.94); }
+.tabIcon {
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; border-radius: 17px;
+  background: linear-gradient(180deg, var(--glass-calm-line) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.tabIcon svg { width: 26px; height: 26px; display: block; }
+.tabBtn.active { color: var(--white); }
+.tabBtn.active .tabIcon {
+  background: linear-gradient(180deg, rgba(133, 108, 200, 0.55) 0%, rgba(var(--purple-rgb), 0.38) 100%);
+  border-color: rgba(170, 150, 230, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 6px 18px rgba(var(--purple-rgb), 0.45);
+}
+.tabLabel { font-size: 10px; line-height: 1; color: var(--text-light); white-space: nowrap; }
+.tabBtn.active .tabLabel { font-weight: 600; color: var(--purple); }
+@media (max-width: 360px) { .tabBtn { min-width: 48px; } .tabIcon { width: 48px; height: 48px; } }
+
+/* Cartes (verre calme) */
+.card {
+  background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line);
+  border-radius: var(--radius-lg); padding: 14px; box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
+}
+.cardLabel { font-size: 12px; color: var(--text-light); }
+.cardValue { font-size: 22px; font-weight: bold; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.cardMeta { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pos { color: var(--good); }
+.neg { color: var(--bad); }
+
+/* Pastilles et puces */
+.chipRow { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: 0 -2px; }
+.chipRow::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto; height: 32px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+  font-size: 13px; color: var(--text); background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.chip.active { background: rgba(var(--purple-rgb), 0.45); border-color: rgba(170, 150, 230, 0.55); color: var(--white); font-weight: 600; }
+.badge { display: inline-block; font-size: 11px; font-weight: bold; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--glass-calm-line); color: var(--text-light); }
