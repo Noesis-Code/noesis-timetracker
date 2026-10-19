@@ -15,6 +15,13 @@ const BUNDLES = {
 };
 // Optionnels, indépendants des ensembles.
 const OPTIONAL = ['community', 'profile'];
+// Communauté et Profil vont ensemble (un seul module côté usage) : les deux clés sont toujours égales.
+const LINKED = ['community', 'profile'];
+function linkPair(m, preferred) {
+  const v = preferred === undefined ? !!(m.community && m.profile) : !!preferred;
+  LINKED.forEach((k) => { m[k] = v; });
+  return m;
+}
 
 // id -> { label, requires }. core toujours actif ; offer1 listé mais jamais activable ici (droit géré par l'offre/paiement).
 const MODULES = {
@@ -37,7 +44,7 @@ function defaults() {
   const out = {};
   for (const id of Object.keys(MODULES)) out[id] = ALWAYS_ON.includes(id) || NEW_ACCOUNT_DEFAULT_MODULES.includes(id);
   out.offer1 = false;
-  return out;
+  return linkPair(out);
 }
 
 // Comptes existants (colonne NULL) : tout actif, comme avant ce socle.
@@ -54,7 +61,7 @@ function normalize(raw) {
       if (MODULES[id] && !NOT_TOGGLEABLE.includes(id)) base[id] = !!raw[id];
     }
   }
-  return base;
+  return linkPair(base);
 }
 
 function getModules(userId) {
@@ -105,6 +112,8 @@ function setModules(userId, patch) {
     }
     next[id] = patch[id];
   }
+  const linked = LINKED.find((k) => k in patch);
+  if (linked) linkPair(next, patch[linked]);
   const v = validate(next);
   if (!v.ok) return { ok: false, status: 409, error: v.error };
   db.prepare('UPDATE users SET modules = ? WHERE id = ?').run(JSON.stringify(next), userId);

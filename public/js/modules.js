@@ -33,7 +33,7 @@
     { key: 'time', title: 'Temps', desc: 'Chrono, statistiques du chrono et feuille de temps', ids: ['stats'], anchor: 'stats' },
     { key: 'tasks', title: 'Tâches et objectifs', desc: 'Objectifs (Feuille de route) et statistiques des tâches', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap' }
   ];
-  var OPTIONAL = ['community', 'profile'];
+  // Communauté et Profil = un seul interrupteur (le serveur garde les deux clés liées).
 
   function put(patch) {
     setMsg('');
@@ -59,17 +59,16 @@
       box.appendChild(card);
     });
     var h = document.createElement('p'); h.className = 'hint modulesAddTitle'; h.textContent = tr('Ajouter'); box.appendChild(h);
-    OPTIONAL.forEach(function (id) {
-      var row = document.createElement('div'); row.className = 'notifRow';
-      var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(LABELS[id]);
-      var sw = document.createElement('label'); sw.className = 'toggleSwitch';
-      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!state[id];
-      var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
-      inp.addEventListener('change', function () { var patch = {}; patch[id] = inp.checked; put(patch); });
-      sw.appendChild(inp); sw.appendChild(track);
-      row.appendChild(label); row.appendChild(sw);
-      box.appendChild(row);
-    });
+    var row = document.createElement('div'); row.className = 'notifRow';
+    var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr('Communauté et profil');
+    var sw = document.createElement('label'); sw.className = 'toggleSwitch';
+    var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!state.community;
+    var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
+    inp.addEventListener('change', function () { put({ community: inp.checked, profile: inp.checked }); });
+    sw.appendChild(inp); sw.appendChild(track);
+    row.appendChild(label); row.appendChild(sw);
+    box.appendChild(row);
+    var hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = tr('Fil de la communauté, abonnements et profil public.'); box.appendChild(hint);
   }
 
   function load() {

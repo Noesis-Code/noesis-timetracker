@@ -27,7 +27,11 @@ assert(M.setModules('u1', { core: false }).status === 400, 'core non désactivab
 assert(M.setModules('u1', { offer1: true }).status === 400, 'offer1 non activable');
 assert(M.setModules('u1', { zzz: true }).status === 400, 'module inconnu refusé');
 assert(M.getModules('u1').profile && M.getModules('u1').community, 'comptes existants : Communauté et Profil actifs');
-assert(M.setModules('u1', { community: false, profile: false }).ok && M.isEnabled('u1', 'stats'), 'optionnels indépendants');
+assert(M.setModules('u1', { community: false }).ok && !M.isEnabled('u1', 'profile') && !M.isEnabled('u1', 'community') && M.isEnabled('u1', 'stats'), 'Communauté et Profil liés (off)');
+assert(M.setModules('u1', { profile: true }).ok && M.isEnabled('u1', 'community'), 'Communauté et Profil liés (on)');
+db.prepare("UPDATE users SET modules = ? WHERE id = 'u1'").run(JSON.stringify({ community: true, profile: false }));
+assert(M.getModules('u1').community === false && M.getModules('u1').profile === false, 'normalisation à la lecture d\'un état dépareillé');
+M.setModules('u1', { community: false });
 assert(M.setModules('u1', { stats: 'oui' }).status === 400, 'valeur non booléenne refusée');
 assert(M.setModules('u1', null).status === 400 && M.setModules('u1', []).status === 400, 'corps invalide refusé');
 r = M.setModules('u1', { stats: false });

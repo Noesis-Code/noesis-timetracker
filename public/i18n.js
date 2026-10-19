@@ -89,6 +89,8 @@
     "Nom de l'activité": 'Activity name',
     'Couleur': 'Colour',
     'Ajouter': 'Add',
+    'Communauté et profil': 'Community and profile',
+    'Fil de la communauté, abonnements et profil public.': 'Community feed, follows and public profile.',
     'Continuer': 'Continue',
     'Aucun profil trouvé.': 'No profile found.',
     "Aucune activité ajoutée pour l'instant.": 'No activity added yet.',
