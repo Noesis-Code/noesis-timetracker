@@ -7706,49 +7706,69 @@
   // confirmation explicite), (2) les déplacer vers un autre secteur (même pôle ou autre pôle, liste
   // groupée par pôle), (3) annuler. Même fenêtre que les autres confirmations de suppression.
   function openSecteurTasksChoiceModal(o) {
-    var modal = $('categoryRemoveModal');
-    var msg = $('categoryRemoveMsg');
-    var delBtn = $('categoryRemoveDeleteTasksBtn');
-    var moveBtn = $('categoryRemoveKeepTasksBtn');
     var n = o.taskCount;
-    var assignBox = $('categoryRemoveAssign');
-    if (!assignBox) {
-      assignBox = document.createElement('div');
-      assignBox.id = 'categoryRemoveAssign';
-      $('categoryRemoveText').insertAdjacentElement('afterend', assignBox);
-    }
-    function close() { modal.classList.add('hidden'); }
     function nTasks() { return t(n > 1 ? '{n} tâches' : '{n} tâche', { n: n }); }
-    function run(extra, btn) {
-      btn.disabled = true; msg.textContent = '';
+    // Gabarit de la fenêtre de confirmation existante (showCaptureConfirmModal, objectifs-page1.js).
+    var overlay = document.createElement('div');
+    overlay.className = 'goalTaskEditModal goalsCaptureConfirmModal goalsPlacementModal aiModeModal';
+    var card = document.createElement('div');
+    card.className = 'goalTaskEditCard';
+    var header = document.createElement('div');
+    header.className = 'goalTaskEditHeader';
+    var title = document.createElement('p');
+    title.className = 'sectionTitle';
+    title.textContent = t('Supprimer le secteur « {name} » ?', { name: o.label });
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button'; closeBtn.className = 'menuBtn';
+    closeBtn.setAttribute('aria-label', t('Fermer')); closeBtn.textContent = '✕';
+    header.appendChild(title); header.appendChild(closeBtn);
+    card.appendChild(header);
+    var body = document.createElement('div');
+    body.className = 'goalsPlacementScroll';
+    card.appendChild(body);
+    var actions = document.createElement('div');
+    actions.className = 'goalsCaptureConfirmActions';
+    card.appendChild(actions);
+    function close() { overlay.remove(); }
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+
+    function btn(label, brique, fn) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = brique ? 'iconBtn btnBrique' : 'iconBtn'; b.textContent = label;
+      b.addEventListener('click', fn);
+      actions.appendChild(b);
+      return b;
+    }
+    function render(text, extra) {
+      body.innerHTML = ''; actions.innerHTML = '';
+      var box = document.createElement('div');
+      box.className = 'goalsPlacementBox';
+      var p = document.createElement('p'); p.textContent = text; box.appendChild(p);
+      if (extra) box.appendChild(extra);
+      var msg = document.createElement('p'); msg.className = 'msg'; box.appendChild(msg);
+      body.appendChild(box);
+      return msg;
+    }
+    function run(extra, b, msg) {
+      b.disabled = true; msg.textContent = '';
       removePoleSecteur(o.activityId, o.poleKey, o.key, null, null, extra).then(close)
-        .catch(function (err) { msg.textContent = err.message; })
-        .then(function () { btn.disabled = false; });
+        .catch(function (err) { msg.textContent = err.message; b.disabled = false; });
     }
     function stepChoice() {
-      $('categoryRemoveTitle').textContent = t('Supprimer le secteur « {name} » ?', { name: o.label });
-      $('categoryRemoveText').textContent = t('Ce secteur contient {tasks}. Que faire de ces tâches ?', { tasks: nTasks() });
-      assignBox.innerHTML = ''; msg.textContent = '';
-      delBtn.textContent = t('Supprimer aussi ses tâches'); delBtn.classList.remove('hidden'); delBtn.disabled = false;
-      moveBtn.textContent = t('Déplacer les tâches vers un autre secteur'); moveBtn.classList.remove('hidden'); moveBtn.disabled = false;
-      delBtn.onclick = stepConfirmDelete;
-      moveBtn.onclick = stepMove;
+      render(t('Ce secteur contient {tasks}. Que faire de ces tâches ?', { tasks: nTasks() }));
+      btn(t('Supprimer'), true, stepConfirmDelete);
+      btn(t('Déplacer'), false, stepMove);
+      btn(t('Annuler'), false, close);
     }
     function stepConfirmDelete() {
-      $('categoryRemoveText').textContent = t('Le secteur et ses {tasks} seront supprimés définitivement. Cette action est irréversible.', { tasks: nTasks() });
-      msg.textContent = '';
-      moveBtn.classList.add('hidden');
-      delBtn.textContent = t('Supprimer définitivement');
-      delBtn.onclick = function () { run({ mode: 'delete' }, delBtn); };
+      var msg = render(t('Le secteur et ses {tasks} seront supprimés définitivement. Cette action est irréversible.', { tasks: nTasks() }));
+      var ok = btn(t('Confirmer'), true, function () { run({ mode: 'delete' }, ok, msg); });
+      btn(t('Annuler'), false, close);
     }
     function stepMove() {
-      $('categoryRemoveText').textContent = t('Choisis le secteur qui recevra les {tasks}.', { tasks: nTasks() });
-      msg.textContent = '';
-      assignBox.innerHTML = '';
+      // Sélecteur pôle › secteur de l'app (menu flottant groupé par pôle, comme « Où » de la capture).
       var sel = document.createElement('select');
-      sel.id = 'categoryRemoveTarget';
-      sel.style.width = '100%'; sel.style.margin = '8px 0';
-      var ph = document.createElement('option'); ph.value = ''; ph.textContent = t('Choisir un secteur…'); sel.appendChild(ph);
       currentActivityGoalsCategories.forEach(function (pole) {
         var list = (pole.secteurs || []).filter(function (s) { return s.key !== o.key; });
         if (!list.length) return;
@@ -7756,17 +7776,19 @@
         list.forEach(function (s) { var op = document.createElement('option'); op.value = s.key; op.textContent = s.label; grp.appendChild(op); });
         sel.appendChild(grp);
       });
-      assignBox.appendChild(sel);
-      if (sel.options.length < 2) { var none = document.createElement('p'); none.className = 'meta'; none.textContent = t('Aucun autre secteur disponible.'); assignBox.appendChild(none); }
-      delBtn.classList.add('hidden');
-      moveBtn.textContent = t('Déplacer et supprimer le secteur'); moveBtn.disabled = true;
-      sel.addEventListener('change', function () { moveBtn.disabled = !sel.value; });
-      moveBtn.onclick = function () { run({ mode: 'move', target: sel.value }, moveBtn); };
+      var field = document.createElement('label'); field.className = 'goalsPlacementField';
+      var cap = document.createElement('span'); cap.className = 'meta'; cap.textContent = t('Où');
+      var wrap = document.createElement('div'); wrap.className = 'goalsPlacementWhere';
+      wrap.appendChild(sel); field.appendChild(cap); field.appendChild(wrap);
+      var msg = render(t('Choisis le secteur qui recevra les {tasks}.', { tasks: nTasks() }), field);
+      if (TMT.floatingWhereMenu) TMT.floatingWhereMenu(sel);
+      var ok = btn(t('Confirmer'), true, function () { run({ mode: 'move', target: sel.value }, ok, msg); });
+      if (!sel.options.length) { ok.disabled = true; msg.textContent = t('Aucun autre secteur disponible.'); }
+      btn(t('Annuler'), false, close);
     }
     stepChoice();
-    modal.classList.remove('hidden');
-    $('categoryRemoveClose').onclick = close;
-    $('categoryRemoveCancelBtn').onclick = close;
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
   }
 
   // Confirmation de suppression générique (même fenêtre que le retrait d'un pôle/secteur) :
