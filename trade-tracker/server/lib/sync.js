@@ -2,6 +2,7 @@
 // La toute première synchro d'un utilisateur ne crée AUCUN événement (historique de départ).
 const { getConnector } = require('./connectors');
 const { notifyPending } = require('./notifier');
+const { hasBrokerToken, getBrokerToken } = require('./brokertoken');
 
 const iso = (ms) => new Date(ms).toISOString();
 
@@ -61,6 +62,8 @@ function applyData(db, user, data, now) {
 
 // Synchronise un utilisateur ; ne lève jamais : l'échec est journalisé (ECHEC).
 async function syncUser(db, user, { connector = getConnector(), notifier = null, now = Date.now() } = {}) {
+  // Connecteur réel : le jeton est celui de l'utilisateur ; sans jeton, rien à synchroniser (pas d'échec journalisé).
+  if (connector.requiresToken && !hasBrokerToken(db, user.id)) return { ok: false, skipped: true, error: 'aucun jeton courtier' };
   try {
     const data = await connector.fetchPortfolio(user);
     const r = applyData(db, user, data, now);
@@ -69,8 +72,11 @@ async function syncUser(db, user, { connector = getConnector(), notifier = null,
     if (notifier && user.role === 'expert') await notifyPending(db, notifier);
     return { ok: true, ...r };
   } catch (e) {
-    db.prepare("INSERT INTO sync_log (userId, at, kind, status, message, itemsCount) VALUES (?,?,'sync','ECHEC',?,0)").run(user.id, iso(now), 'Échec de synchro : ' + e.message);
-    return { ok: false, error: e.message };
+    // jamais de secret dans le journal : le jeton de l'utilisateur est masqué s'il apparaît dans le message
+    let msg = String((e && e.message) || e);
+    try { const t = getBrokerToken(db, user.id); if (t) msg = msg.split(t).join('[jeton]'); } catch { /* clé absente : rien à masquer */ }
+    db.prepare("INSERT INTO sync_log (userId, at, kind, status, message, itemsCount) VALUES (?,?,'sync','ECHEC',?,0)").run(user.id, iso(now), 'Échec de synchro : ' + msg);
+    return { ok: false, error: msg };
   }
 }
 
