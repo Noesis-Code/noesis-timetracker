@@ -205,6 +205,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'documenttasks-test.js')], { encoding: 'utf8' }); } catch (e) { dtOk = false; }
   assert(dtOk, 'ajout de tâches depuis un document (test/documenttasks-test.js) passe');
 
+  // Catégorie inconnue : tâche IA écartée et comptée.
+  let ciOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'categorie-inconnue-test.js')], { encoding: 'utf8' }); } catch (e) { ciOk = false; }
+  assert(ciOk, 'tâche IA à catégorie inconnue écartée (test/categorie-inconnue-test.js) passe');
+
   // Horizon étendu de « Ajouter des tâches ».
   let dthOk = true;
   try { execFileSync('node', [path.join(__dirname, 'documenttasks-horizon-test.js')], { encoding: 'utf8' }); } catch (e) { dthOk = false; }

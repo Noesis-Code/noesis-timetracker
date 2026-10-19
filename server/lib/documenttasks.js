@@ -373,8 +373,7 @@ function validTargetDate(v, weeks) {
 
 // Format de réponse court {"t":[[titre,clé,date,minutes],...]} (moins de jetons de sortie) ; l'ancien {"tasks":[{title,key,week,minutes}]} reste accepté.
 // Revalide la réponse de l'IA : JSON tolérant (entourage/markdown, JSON coupé réparé),
-// semaines/durées contrôlées. Une clé inconnue n'écarte PLUS la tâche : repli sur la clé la plus
-// proche ou la première catégorie, marqué `toChoose` (l'utilisateur corrige dans l'UI).
+// semaines/durées contrôlées. Clé inconnue : repli sur la clé la plus proche (marqué `toChoose` ; sinon tâche écartée.
 function parseDetailed(text, ctx) {
   if (!text) return null;
   const raw = String(text);
@@ -385,14 +384,19 @@ function parseDetailed(text, ctx) {
   list = list.map(taskFromRow);
   const labels = new Map(ctx.candidates.map((c) => [c.key, c.label]));
   const seen = new Set(), tasks = [];
-  const dropped = { doublon: 0, vide: 0, limite: 0 };
+  const dropped = { doublon: 0, vide: 0, limite: 0, categorieInconnue: 0 };
   let toChoose = 0;
   list.forEach((t) => {
     if (!t || typeof t !== 'object') { dropped.vide++; return; }
     const title = String(t.title || '').replace(/\s+/g, ' ').trim().slice(0, 200);
     if (!title) { dropped.vide++; return; }
     let key = t.key, pick = false;
-    if (!labels.has(key)) { key = closestKey(key, ctx.candidates) || ctx.candidates[0].key; pick = true; }
+    if (!labels.has(key)) {
+      // Catégorie inconnue (19 oct. 2026, décision d'Émilien) : clé proche reconnue sinon la tâche est ÉCARTÉE (comptée, jamais affichée).
+      const near = closestKey(key, ctx.candidates);
+      if (!near) { dropped.categorieInconnue++; return; }
+      key = near; pick = true;
+    }
     const dedupe = key + '|' + title.toLowerCase();
     if (seen.has(dedupe)) { dropped.doublon++; return; }
     if (tasks.length >= MAX_TASKS) { dropped.limite++; return; }
@@ -501,7 +505,7 @@ function finishProposal(userId, activityId, out, prep) {
   if (!parsed) throw Object.assign(httpError(502, "La réponse de l'IA était inexploitable. Réessaie ou reformule la consigne."), { unusable: true });
   const tasks = balanceDays(parsed.tasks, ctx);
   // Compteurs seulement : aucun contenu de document ni de tâche n'est journalisé.
-  console.log(`[documenttasks] trouvées=${parsed.found} retenues=${tasks.length} doublons=${parsed.dropped.doublon} vides=${parsed.dropped.vide} limite=${parsed.dropped.limite} aChoisir=${parsed.toChoose} reparee=${parsed.repaired} coupee=${aiTruncated}`);
+  console.log(`[documenttasks] trouvées=${parsed.found} retenues=${tasks.length} doublons=${parsed.dropped.doublon} vides=${parsed.dropped.vide} limite=${parsed.dropped.limite} categorieInconnue=${parsed.dropped.categorieInconnue} aChoisir=${parsed.toChoose} reparee=${parsed.repaired} coupee=${aiTruncated}`);
   // Modifications proposées (16 oct. 2026) : propositions d'avant/après sur l'existant, rien n'est écrit. Section "c" de la même réponse.
   let changes = 0;
   if (prep.want && prep.want.c) { try { changes = changeproposals.storeFromText(userId, activityId, text, prep.cctx || changeproposals.buildContext(userId, activityId)); } catch (e) { /* non bloquant */ } }

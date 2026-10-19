@@ -120,8 +120,8 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   const ctxT = { candidates: classify.buildClassificationCandidates(act), weeks: [goals.mostRecentMonday(today), goals.addDays(goals.mostRecentMonday(today), 7)] };
   const wk1 = ctxT.weeks[1];
   const pc = dt.parseDetailed('{"t":[["Appeler Paul","' + KEY + '","' + wk1 + '",30],["Envoyer devis","' + KEY + '",null,null],["Appeler Paul","' + KEY + '",null,10],["Cle inconnue","zzz","2026-02-31",2]]}', ctxT);
-  assert(pc.tasks.length === 3 && pc.dropped.doublon === 1 && pc.tasks[0].week === wk1 && pc.tasks[0].minutes === 30 && pc.tasks[1].week === null && pc.tasks[1].minutes === null, 'compact : titre/clé/semaine/durée lus, doublon écarté');
-  assert(pc.tasks[2].toChoose === true && pc.tasks[2].week === null && pc.tasks[2].minutes === null, 'compact : clé inconnue à choisir, date et durée invalides revalidées');
+  assert(pc.tasks.length === 2 && pc.dropped.doublon === 1 && pc.tasks[0].week === wk1 && pc.tasks[0].minutes === 30 && pc.tasks[1].week === null && pc.tasks[1].minutes === null, 'compact : titre/clé/semaine/durée lus, doublon écarté');
+  assert(pc.dropped.categorieInconnue === 1 && !pc.tasks.some((t) => t.title === 'Cle inconnue'), 'compact : clé inconnue écartée et comptée');
   const po = dt.parseDetailed(JSON.stringify({ tasks: [{ title: 'Ancien', key: KEY, week: wk1, minutes: 20 }] }), ctxT);
   assert(po.tasks.length === 1 && po.tasks[0].title === 'Ancien' && po.tasks[0].minutes === 20, 'ancien format {"tasks":[{…}]} toujours accepté');
   const pt = dt.parseDetailed('{"t":[["A","' + KEY + '",null,10],["B","' + KEY + '",null,15],["C coup', ctxT);
