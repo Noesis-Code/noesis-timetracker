@@ -180,42 +180,36 @@
   /* Respiration lente une fois l'ident jouée : si le chargement dure, rien
      ne doit sembler figé. Volontairement sur l'opacité seule (pas d'échelle
      ni de rotation) : ni spinner générique, ni logo qui tourne. */
-  animation: bsBreathe 2.8s ease-in-out 1.55s infinite;
+  animation: bsBreathe 2.8s ease-in-out 1.3s infinite;
 }
 
 #bootSplash .bsL { fill: #8772C7; }   /* facettes claires de l'ident */
 #bootSplash .bsD { fill: #46397D; }   /* facettes sombres */
 #bootSplash .bsS { fill: #674EA9; }   /* l'éclat — la teinte de --purple */
-/* Caches de dévoilement. Le stroke noir de 7 unités (3,5 de débord de chaque
-   côté) n'est pas décoratif : sans lui, l'anti-aliasing du bord du cache
-   laisse passer une frange d'un pixel tout autour de la facette qu'il
-   masque, et on devine le tracé complet en fantôme avant qu'il ne soit
-   dessiné. Ce débord reste très en deçà du plus étroit des interstices noirs
-   de l'ident (≈ 20 unités entre la diagonale et le jambage droit) : il ne
-   peut donc jamais mordre sur un bloc voisin. */
-#bootSplash .bsC { fill: #000000; stroke: #000000; stroke-width: 7; }
-
-/* Les trois caches. Chaque translation vaut exactement la longueur du bloc
-   dans le sens du tracé, en unités du viewBox. will-change: transform est
-   une simple indication au navigateur : sur un tout premier chargement lent,
-   le fil principal est occupé à analyser un index.html de 140 Ko pendant que
-   l'ident se joue, et sans elle le dévoilement peut saccader. */
-#bootSplash .bsC { will-change: transform; }
-#bootSplash .bsCL {
-  transform: translateY(-572px);
-  animation: bsWipeL .24s cubic-bezier(.22,.61,.36,1) .02s both;
+/* Tracé puis remplissage (613, ≤ 1,2 s, CSS pur) : le contour de chaque
+   facette se dessine (stroke-dasharray sur pathLength=1), puis le remplissage
+   violet apparaît avec un léger halo. Aucun cache, aucune nouvelle couleur.
+   État par défaut = état FINAL (contour invisible, remplissage plein, halo
+   éteint) : sous « réduire les animations », le N s'affiche d'un bloc. */
+#bootSplash .bsT {
+  stroke: #8772C7;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  stroke-opacity: 0;
+  animation:
+    bsDraw .55s cubic-bezier(.22,.61,.36,1) 0s both,
+    bsFill .4s ease-out .4s both;
 }
-#bootSplash .bsCD {
-  transform: translate(346px, 578px);
-  animation: bsWipeD .26s cubic-bezier(.22,.61,.36,1) .22s both;
+#bootSplash .bsH { opacity: 0; animation: bsHalo .7s ease-out .5s both; }
+@keyframes bsDraw {
+  0%   { stroke-dashoffset: 1; stroke-opacity: 1; }
+  75%  { stroke-dashoffset: 0; stroke-opacity: 1; }
+  100% { stroke-dashoffset: 0; stroke-opacity: 0; }
 }
-#bootSplash .bsCR {
-  transform: translateY(-604px);
-  animation: bsWipeR .30s cubic-bezier(.22,.61,.36,1) .44s both;
-}
-@keyframes bsWipeL { from { transform: translateY(0); }            to { transform: translateY(-572px); } }
-@keyframes bsWipeD { from { transform: translate(0, 0); }          to { transform: translate(346px, 578px); } }
-@keyframes bsWipeR { from { transform: translateY(0); }            to { transform: translateY(-604px); } }
+@keyframes bsFill { from { fill-opacity: 0; } to { fill-opacity: 1; } }
+@keyframes bsHalo { 0% { opacity: 0; } 45% { opacity: 1; } 100% { opacity: .35; } }
 
 /* "NOÈSIS" est dans le SVG plutôt qu'en HTML à côté : il suit ainsi
    exactement la même échelle que le logo, quelle que soit la taille
@@ -231,9 +225,9 @@
   letter-spacing: 12px;
 }
 
-#bootSplash .bsS { animation: bsPop .18s ease-out .74s both; }
-#bootSplash .bsF { opacity: 0; animation: bsFlash .62s ease-out .70s both; }
-#bootSplash .bsW { opacity: 1; animation: bsWord .5s ease-out 1.02s both; }
+#bootSplash .bsS { animation: bsPop .18s ease-out .6s both; }
+#bootSplash .bsF { opacity: 0; animation: bsFlash .5s ease-out .6s both; }
+#bootSplash .bsW { opacity: 1; animation: bsWord .4s ease-out .8s both; }
 
 @keyframes bsPop   { from { opacity: 0; } to { opacity: 1; } }
 @keyframes bsFlash { 0% { opacity: 0; } 22% { opacity: .9; } 100% { opacity: 0; } }
@@ -260,7 +254,7 @@
     var FAILSAFE = 12000;  // filet de sécurité si app.js ne se charge pas du tout
     var IDENT_MAX = 6000;  // filet si `animationend` ne vient jamais
     var done = false;
-    var identDone = false;   // l'ident a fini de se jouer
+    var identDone = true;    // 613 : plus d'attente de l'ident, l'écran part dès que l'app est prête
     var appReady = false;    // app.js a signalé que l'app est prête
     var failsafeTimer = null;
 
@@ -452,25 +446,28 @@
         <stop offset="35%" stop-color="#b9a6ee" stop-opacity=".5"/>
         <stop offset="100%" stop-color="#674ea9" stop-opacity="0"/>
       </radialGradient>
+      <radialGradient id="bootSplashHalo">
+        <stop offset="0%" stop-color="#674ea9" stop-opacity=".45"/>
+        <stop offset="100%" stop-color="#674ea9" stop-opacity="0"/>
+      </radialGradient>
     </defs>
+    <!-- Halo violet derrière le N (opacité animée). -->
     <!-- Jambage gauche, puis son cache (qui remonte pour le découvrir de bas
          en haut). Le cache est déclaré avant la diagonale : il ne peut donc
          pas la masquer en fin de course. -->
-    <polygon class="bsL" points="183,293 287,461 287,616 183,675"/>
-    <polygon class="bsD" points="287,628 287,863 184,863 184,687"/>
-    <polygon class="bsC bsCL" points="183,293 287,461 287,863 184,863"/>
+    <polygon class="bsL bsT" pathLength="1" points="183,293 287,461 287,616 183,675"/>
+    <polygon class="bsD bsT" pathLength="1" points="287,628 287,863 184,863 184,687"/>
     <!-- Diagonale, puis son cache (qui glisse le long du tracé, vers le bas
          à droite, pour la découvrir depuis le haut à gauche). -->
-    <polygon class="bsL" points="192,262 293,262 468,557 367,555"/>
-    <polygon class="bsD" points="374,565 475,568 536,670 536,835"/>
-    <polygon class="bsC bsCD" points="192,262 293,262 536,670 536,835"/>
+    <polygon class="bsL bsT" pathLength="1" points="192,262 293,262 468,557 367,555"/>
+    <polygon class="bsD bsT" pathLength="1" points="374,565 475,568 536,670 536,835"/>
     <!-- Jambage droit, biseauté en haut à droite là où l'éclat vient se
          loger, puis son cache. -->
-    <polygon class="bsL" points="556,262 616,262 659,286 661,616 556,673"/>
-    <polygon class="bsD" points="661,629 662,863 557,863 556,686"/>
-    <polygon class="bsC bsCR" points="556,262 616,262 659,286 662,863 557,863"/>
+    <polygon class="bsL bsT" pathLength="1" points="556,262 616,262 659,286 661,616 556,673"/>
+    <polygon class="bsD bsT" pathLength="1" points="661,629 662,863 557,863 556,686"/>
     <!-- L'éclat et son flash. Déclarés après tous les caches : rien ne peut
          les recouvrir. -->
+    <ellipse class="bsH" cx="423" cy="560" rx="400" ry="470" fill="url(#bootSplashHalo)"/>
     <circle class="bsF" cx="671" cy="219" r="135" fill="url(#bootSplashFlash)"/>
     <polygon class="bsS" points="729,151 612,186 635,253 708,287"/>
     <text class="bsW" x="423" y="1029" text-anchor="middle">NOÈSIS</text>
