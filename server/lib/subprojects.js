@@ -312,40 +312,10 @@ function updateSubProject(subProjectId, fields) {
   return getSubProject(subProjectId);
 }
 
-function deleteSubProject(subProjectId) {
-  // Sections, tâches et messages partent en cascade (ON DELETE CASCADE). Les
-  // sondages, eux, n'ont pas de clé étrangère vers le sous-projet — le socle
-  // commun est générique et ne connaît que (scope, scopeId) — donc ils sont
-  // supprimés explicitement, sans quoi ils resteraient en base sans lecteur.
-  deletePollsForSubProject(subProjectId);
-  db.prepare('DELETE FROM sub_projects WHERE id = ?').run(subProjectId);
-}
-
-function reorderSubProjects(activityId, orderedIds) {
-  const stmt = db.prepare('UPDATE sub_projects SET position = ? WHERE id = ? AND activityId = ?');
-  db.exec('BEGIN');
-  try {
-    orderedIds.forEach((id, index) => stmt.run(index, id, activityId));
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
-  }
-}
-
 // ===================== SECTIONS =====================
 
 function getSection(sectionId) {
   return db.prepare('SELECT * FROM sub_project_sections WHERE id = ?').get(sectionId) || null;
-}
-
-function checkSectionAccess(userId, sectionId) {
-  if (!userId) return { error: { status: 400, body: { error: 'userId requis.' } } };
-  const section = getSection(sectionId);
-  if (!section) return { error: { status: 404, body: { error: 'Section introuvable.' } } };
-  const access = checkSubProjectAccess(userId, section.subProjectId);
-  if (access.error) return access;
-  return { section, subProject: access.subProject };
 }
 
 function createSection(subProjectId, userId, kind, title) {
@@ -356,21 +326,6 @@ function createSection(subProjectId, userId, kind, title) {
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(subProjectId, kind, title || '', userId, next, new Date().toISOString());
   return getSection(info.lastInsertRowid);
-}
-
-function updateSectionTitle(sectionId, title) {
-  db.prepare('UPDATE sub_project_sections SET title = ? WHERE id = ?').run(title, sectionId);
-  return getSection(sectionId);
-}
-
-function deleteSection(sectionId) {
-  const section = getSection(sectionId);
-  if (!section) return;
-  // Retirer une section ne détruit JAMAIS de contenu, ni pour 'discussion' ni
-  // pour 'poll' : les messages sont rattachés au sous-projet et les sondages
-  // au socle commun. Retirer la section revient à masquer le bloc — il revient
-  // intact si on la remet. Seule la suppression du sous-projet emporte tout.
-  db.prepare('DELETE FROM sub_project_sections WHERE id = ?').run(sectionId);
 }
 
 // Toutes les sections d'un sous-projet, AVEC leur contenu, dans l'ordre
@@ -645,49 +600,6 @@ function deleteItem(itemId) {
   if (row) goals.recomputeForWeeklies([row.goalWeeklyId]);
 }
 
-function reorderItems(sectionId, orderedIds) {
-  const stmt = db.prepare('UPDATE sub_project_items SET position = ? WHERE id = ? AND sectionId = ?');
-  db.exec('BEGIN');
-  try {
-    orderedIds.forEach((id, index) => { if (!isItemLocked(getItemRaw(id))) stmt.run(index, id, sectionId); });
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
-  }
-}
-
-// ===================== SONDAGES : PAS D'IMPLÉMENTATION ICI =====================
-// ⚠️ Les sondages d'un sous-projet appartiennent au SOCLE COMMUN écrit par la
-// discussion "Sondages" (server/lib/polls.js), pas à ce fichier. Ils s'y
-// accrochent par (scope = 'subproject', scopeId = sub_projects.id), et la
-// garde d'accès de ce scope est enregistrée dans server/routes/polls.js — elle
-// appelle checkSubProjectAccess() ci-dessus, donc le contrôle « membre de
-// l'activité » reste défini à un seul endroit : ici.
-//
-// Une première version de ce fichier avait commencé à écrire ses propres
-// tables polls/poll_options/poll_votes ; elles ont été RETIRÉES avant
-// livraison en découvrant le socle commun sur le disque. Deux tables `polls`
-// aux colonnes différentes auraient cohabité par CREATE TABLE IF NOT EXISTS,
-// et la première créée aurait fait échouer l'autre code en silence. Ne jamais
-// réintroduire de sondage ici : une section de type 'poll' ne stocke rien,
-// elle dit seulement que ce sous-projet affiche ses sondages.
-
-// Supprime les sondages accrochés à un sous-projet. Chargement TOLÉRANT du
-// socle, sur le même principe que server/routes/polls.js vis-à-vis de ce
-// fichier : un socle absent ne doit pas empêcher de supprimer un sous-projet.
-function deletePollsForSubProject(subProjectId) {
-  try {
-    const polls = require('./polls');
-    const db2 = require('../db');
-    const rows = db2.prepare("SELECT id FROM polls WHERE scope = 'subproject' AND scopeId = ?").all(String(subProjectId));
-    for (const row of rows) db2.prepare('DELETE FROM polls WHERE id = ?').run(row.id);
-    void polls;
-  } catch (err) {
-    console.warn('[sous-projets] sondages non nettoyés :', err && err.message);
-  }
-}
-
 module.exports = {
   SECTION_KINDS,
   LOCK_DAYS,
@@ -699,19 +611,14 @@ module.exports = {
   // Accès
   isActivityMember,
   checkSubProjectAccess,
-  checkSectionAccess,
   // Sous-projets
   subProjectsForActivity,
   getSubProject,
   createSubProject,
   updateSubProject,
-  deleteSubProject,
-  reorderSubProjects,
   // Sections
   getSection,
   createSection,
-  updateSectionTitle,
-  deleteSection,
   sectionsForSubProject,
   // Todolist
   itemsForSection,
@@ -720,12 +627,8 @@ module.exports = {
   createItem,
   updateItem,
   deleteItem,
-  reorderItems,
   // Badges « non vu » (25 septembre 2026, volet Objectifs page 1/2/3) — voir
   // server/lib/goalstasks.js pour les compteurs par activité/catégorie.
   markItemSeen,
-  // Sondages : voir server/lib/polls.js (socle commun). Rien ici hormis le
-  // nettoyage à la suppression d'un sous-projet.
-  deletePollsForSubProject,
   // Fil de discussion
 };

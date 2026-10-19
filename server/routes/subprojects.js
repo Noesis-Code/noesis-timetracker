@@ -12,7 +12,6 @@
 // ⚠️ ORDRE DES ROUTES : les routes littérales avant celles à paramètre de même forme.
 
 const express = require('express');
-const db = require('../db');
 const sp = require('../lib/subprojects');
 // Chantier Objectifs — C (auto-planification Offre1, 15 septembre 2026) :
 // déclenché après création/modification d'une tâche, jamais bloquant.
@@ -20,8 +19,6 @@ const goalsauto = require('../lib/goalsauto');
 const offerquota = require('../lib/offerquota');
 const subprojectqueue = require('../lib/subprojectqueue');
 
-const MAX_NAME_LENGTH = 120;
-const MAX_DESCRIPTION_LENGTH = 2000;
 const MAX_ITEM_LABEL_LENGTH = 300;
 
 const router = express.Router();
@@ -35,72 +32,7 @@ function handleSubProjectsError(res, err) {
   return res.status(500).json({ error: 'Erreur serveur.' });
 }
 
-function str(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-// Contrôle d'accès au niveau ACTIVITÉ (liste/création de sous-projets).
-//
-// ⚠️ Volontairement SANS la condition membersCount >= 2 de
-// checkSharedActivityAccess (server/routes/community.js) : découper sa propre
-// activité solo est le cas d'usage principal des sous-projets.
-function checkActivityAccess(userId, activityId) {
-  if (!userId) return { error: { status: 400, body: { error: 'userId requis.' } } };
-  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
-  if (!user) return { error: { status: 404, body: { error: 'Profil introuvable.' } } };
-  const activity = db.prepare('SELECT id, name, ownerId FROM activities WHERE id = ?').get(activityId);
-  if (!activity) return { error: { status: 404, body: { error: 'Activité introuvable.' } } };
-  if (!sp.isActivityMember(userId, activityId)) {
-    return { error: { status: 403, body: { error: "Tu n'es pas membre de cette activité." } } };
-  }
-  return { activity };
-}
-
 // ===================== SOUS-PROJETS =====================
-
-router.get('/activities/:activityId/sub-projects', (req, res) => {
-  const userId = req.userId;
-  const activityId = Number(req.params.activityId);
-  const check = checkActivityAccess(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  // ?includeClosed=1 : les sous-projets dont la date de clôture est passée
-  // reviennent dans la liste, marqués `closed`. Sans ce paramètre ils sont
-  // masqués, et `closedCount` dit seulement COMBIEN il y en a — c'est ce qui
-  // permet à l'écran d'afficher « 2 sous-projets clôturés » sans les charger.
-  const includeClosed = req.query.includeClosed === '1' || req.query.includeClosed === 'true';
-  const subProjects = sp.subProjectsForActivity(activityId, includeClosed);
-  const closedCount = includeClosed
-    ? subProjects.filter((s) => s.closed).length
-    : sp.subProjectsForActivity(activityId, true).filter((s) => s.closed).length;
-
-  res.json({
-    activityId,
-    activityName: check.activity.name,
-    isActivityOwner: check.activity.ownerId === userId,
-    progress: sp.progressForActivity(userId, activityId),
-    subProjects,
-    closedCount,
-    includeClosed,
-  });
-});
-
-router.post('/activities/:activityId/sub-projects', (req, res) => {
-  const userId = req.userId;
-  const activityId = Number(req.params.activityId);
-  const check = checkActivityAccess(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  const name = str(req.body.name);
-  if (!name) return res.status(400).json({ error: 'Nom du sous-projet requis.' });
-  if (name.length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'Nom trop long (120 caractères maximum).' });
-  const description = str(req.body.description);
-  if (description.length > MAX_DESCRIPTION_LENGTH) {
-    return res.status(400).json({ error: 'Description trop longue (2000 caractères maximum).' });
-  }
-
-  res.status(201).json(sp.createSubProject(activityId, userId, name, description, req.body.closesAt));
-});
 
 // Cocher/décocher ou renommer une tâche : tout membre de l'activité. C'est le
 // point d'entrée de l'avancement — une case cochée change immédiatement le
