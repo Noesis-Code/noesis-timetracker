@@ -8360,6 +8360,7 @@
   // plus bas). Chargés une fois par ouverture de sous-projet, dans
   // loadSubProjectDetail — jamais un appel par tâche.
   var subProjectDetailMembers = [];
+  var subProjectMemberEstimates = {};
 
   // Éditeur de la date de clôture d'un sous-projet (4 septembre 2026).
   //
@@ -9054,6 +9055,16 @@
         subProjectDetailData = results[0];
         subProjectDetailMembers = results[1].members || [];
         renderSubProjectDetail(subProjectDetailData);
+        // Estimation indicative par membre (lecture seule, sans IA) : le menu s'enrichit une fois reçue.
+        var cat = results[0].goalCategory || (results[0].subProject && results[0].subProject.goalCategory) || '';
+        if (!cat || subProjectDetailMembers.length < 2) { subProjectMemberEstimates = {}; return; }
+        api('GET', '/api/activities/' + activityId + '/goals/member-estimates?userId=' + profile.id + '&category=' + encodeURIComponent(cat))
+          .then(function (r) {
+            if (String(id) !== String(currentSubProjectId)) return;
+            subProjectMemberEstimates = r.estimates || {};
+            renderSubProjectDetail(subProjectDetailData);
+          })
+          .catch(function () { /* information facultative */ });
       })
       .catch(function () { /* sous-projet supprimé entre-temps */ });
   }
@@ -9310,7 +9321,10 @@
     subProjectDetailMembers.forEach(function (m) {
       var opt = document.createElement('option');
       opt.value = m.id;
-      opt.textContent = m.name;
+      var est = subProjectMemberEstimates[m.id];
+      opt.textContent = subProjectDetailMembers.length > 1
+        ? m.name + ' — ' + (est ? t('estimation') + ' ~' + est.minutes + ' min' : t('pas assez de données'))
+        : m.name;
       if (item.plannedUserId != null && String(item.plannedUserId) === String(m.id)) opt.selected = true;
       select.appendChild(opt);
     });

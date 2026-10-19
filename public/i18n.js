@@ -1397,6 +1397,8 @@
     "Non rattaché aux Objectifs — toucher pour lier": "Not linked to Goals — tap to link",
     "Membre prévu pour cette tâche (planning Objectifs)": "Member planned for this task (Goals planning)",
     "Non prévu": "Not planned",
+    "estimation": "estimate",
+    "pas assez de données": "not enough data",
     "Retirer le pôle « {name} » ?": "Remove the pole \"{name}\"?",
     "Retirer le secteur « {name} » ?": "Remove the sector \"{name}\"?",
     "Vérification des tâches affiliées…": "Checking linked tasks…",

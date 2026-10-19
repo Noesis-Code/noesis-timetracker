@@ -175,6 +175,21 @@ router.get('/activities/:id/goals/all-for-pole', (req, res) => {
   }
 });
 
+// Estimation indicative du temps par membre (médiane de ses entrées de temps sur la
+// même catégorie), lecture seule, sans IA — membres de l'activité seulement.
+router.get('/activities/:id/goals/member-estimates', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    res.json({ estimates: require('../lib/memberestimate').memberEstimates(activityId, String(req.query.category || '')) });
+  } catch (err) {
+    handleGoalsError(res, err);
+  }
+});
+
 // 15 septembre 2026 (chantier Objectifs — C, lien Sous-projets → Objectifs) —
 // liste seule des membres de l'activité (même source que planningForActivity,
 // membersForActivity), pour le sélecteur "membre prévu" d'une tâche
