@@ -159,6 +159,15 @@ CREATE TABLE IF NOT EXISTS link_nonces (
   expiresAt TEXT NOT NULL
 );
 
+-- Appareils déjà vus par utilisateur (empreinte du user-agent) : un nouvel appareil déclenche une alerte.
+CREATE TABLE IF NOT EXISTS known_devices (
+  userId INTEGER NOT NULL REFERENCES tt_users(id) ON DELETE CASCADE,
+  uaHash TEXT NOT NULL,
+  firstSeenAt TEXT NOT NULL,
+  lastSeenAt TEXT NOT NULL,
+  PRIMARY KEY (userId, uaHash)
+);
+
 -- Journal d'audit INALTÉRABLE : ajout seulement (déclencheurs ci-dessous) + chaîne de hachages (chaque ligne couvre la précédente).
 -- Jamais de secret, de code ni de jeton dans une ligne. userId sans clé étrangère : le journal survit à tout.
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -176,6 +185,11 @@ CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(userId, id);
 CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log est immuable'); END;
 CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log est immuable'); END;
 `);
+  // Sessions durcies : inactivité (lastSeenAt), liaison à l'appareil (uaHash), niveau d'authentification (0 = lien seul, 1 = TOTP vérifié), dernière ré-authentification.
+  addColumnIfMissing(db, 'sessions', 'lastSeenAt', 'TEXT');
+  addColumnIfMissing(db, 'sessions', 'uaHash', 'TEXT');
+  addColumnIfMissing(db, 'sessions', 'authLevel', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(db, 'sessions', 'stepUpAt', 'TEXT');
 }
 
 function openDb(file) {

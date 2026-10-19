@@ -9,7 +9,9 @@ const { isProduction: isProd } = require('./preflight');
 
 const LINK_TTL_MS = 2 * 60 * 1000;
 const AUDIENCE = 'trade-tracker';
-const SESSION_TTL_MS = 12 * 3600 * 1000;
+const SESSION_TTL_MS = 12 * 3600 * 1000; // durée ABSOLUE d'une session (expert et autres : 12 h)
+const SESSION_IDLE_MS = 15 * 60 * 1000;  // inactivité maximale
+const STEPUP_TTL_MS = 5 * 60 * 1000;      // validité d'une ré-authentification TOTP
 const INVITE_TTL_MS = 7 * 24 * 3600 * 1000;
 
 const b64u = (buf) => Buffer.from(buf).toString('base64url');
@@ -75,20 +77,31 @@ function listInvitations(db, now = Date.now()) {
     .map((i) => ({ id: i.id, email: i.email, role: i.role, createdAt: i.createdAt, expiresAt: i.expiresAt, used: i.usedBy != null }));
 }
 
-function newSession(db, userId, now) {
+function newSession(db, userId, now, { ua, authLevel = 1 } = {}) {
   const token = crypto.randomBytes(32).toString('base64url');
-  db.prepare('INSERT INTO sessions (tokenHash, userId, createdAt, expiresAt) VALUES (?,?,?,?)').run(sha256(token), userId, iso(now), iso(now + SESSION_TTL_MS));
+  db.prepare('INSERT INTO sessions (tokenHash, userId, createdAt, expiresAt, lastSeenAt, uaHash, authLevel, stepUpAt) VALUES (?,?,?,?,?,?,?,?)')
+    .run(sha256(token), userId, iso(now), iso(now + SESSION_TTL_MS), iso(now), ua === undefined ? null : uaHash(ua), authLevel, authLevel >= 1 ? iso(now) : null);
   return token;
+}
+
+// Enregistre l'appareil ; retourne true s'il est NOUVEAU pour un utilisateur qui en avait déjà (alerte « nouvel appareil »).
+function noteDevice(db, userId, ua, now = Date.now()) {
+  const h = uaHash(ua);
+  const had = db.prepare('SELECT COUNT(*) n FROM known_devices WHERE userId = ?').get(userId).n > 0;
+  const known = db.prepare('SELECT 1 FROM known_devices WHERE userId = ? AND uaHash = ?').get(userId, h);
+  if (known) db.prepare('UPDATE known_devices SET lastSeenAt = ? WHERE userId = ? AND uaHash = ?').run(iso(now), userId, h);
+  else db.prepare('INSERT INTO known_devices (userId, uaHash, firstSeenAt, lastSeenAt) VALUES (?,?,?,?)').run(userId, h, iso(now), iso(now));
+  return !known && had;
 }
 
 // Consomme un jeton de lien : vérifie, marque le nonce, trouve/crée l'utilisateur
 // (expert amorcé par TRADE_EXPERT_TMT_IDS, sinon invitation valide requise), ouvre une session.
-function consumeLink(db, token, { invite, env = process.env, now = Date.now(), ua } = {}) {
+function consumeLink(db, token, { invite, env = process.env, now = Date.now(), ua, mfaRequired } = {}) {
   const v = verifyLinkToken(token, getSecret(env), now, { ua, allowUnbound: !isProd(env) });
   if (!v.ok) return v;
   const p = v.payload;
   db.prepare('DELETE FROM link_nonces WHERE expiresAt < ?').run(iso(now));
-  db.prepare('DELETE FROM sessions WHERE expiresAt < ?').run(iso(now));
+  db.prepare('DELETE FROM sessions WHERE expiresAt < ? OR lastSeenAt < ?').run(iso(now), iso(now - SESSION_IDLE_MS));
   if (db.prepare('SELECT 1 FROM link_nonces WHERE nonce = ?').get(p.jti)) return { ok: false, error: 'replayed' };
 
   let user = db.prepare('SELECT * FROM tt_users WHERE tmtUserId = ?').get(p.sub);
@@ -108,18 +121,52 @@ function consumeLink(db, token, { invite, env = process.env, now = Date.now(), u
     if (inv) db.prepare('UPDATE invitations SET usedBy = ?, usedAt = ? WHERE id = ?').run(user.id, iso(now), inv.id);
   }
   db.prepare('INSERT INTO link_nonces (nonce, expiresAt) VALUES (?,?)').run(p.jti, iso(p.exp + 60000));
-  return { ok: true, user, session: newSession(db, user.id, now), maxAgeSec: SESSION_TTL_MS / 1000 };
+  const newDevice = ua === undefined ? false : noteDevice(db, user.id, ua, now);
+  // mfaRequired(user) : TOTP exigé (expert, compte avec courtier ou TOTP activé) => la session démarre au niveau 0 (rien d'accessible avant la vérification).
+  const needMfa = typeof mfaRequired === 'function' ? !!mfaRequired(user) : false;
+  return { ok: true, user, session: newSession(db, user.id, now, { ua, authLevel: needMfa ? 0 : 1 }), maxAgeSec: SESSION_TTL_MS / 1000, newDevice };
 }
 
-function getSessionUser(db, token, now = Date.now()) {
+// Session valide ? Contrôles : existence, durée absolue, inactivité (15 min), liaison à l'appareil (user-agent).
+// touch=false : lecture sans prolonger l'inactivité (rafraîchissement automatique de l'interface, sans action de la personne).
+// Retourne { user, session } ou { error: 'expired' | 'idle' | 'device' } (session supprimée dans ces trois cas) ou null (inconnue).
+function getSession(db, token, { now = Date.now(), ua, touch = true } = {}) {
   if (!token) return null;
-  const row = db.prepare('SELECT u.id, u.name, u.email, u.role, s.expiresAt FROM sessions s JOIN tt_users u ON u.id = s.userId WHERE s.tokenHash = ?').get(sha256(token));
-  if (!row || row.expiresAt <= iso(now)) return null;
-  return { id: row.id, name: row.name, email: row.email, role: row.role };
+  const h = sha256(token);
+  const row = db.prepare('SELECT u.id, u.name, u.email, u.role, s.* FROM sessions s JOIN tt_users u ON u.id = s.userId WHERE s.tokenHash = ?').get(h);
+  if (!row) return null;
+  const kill = (error) => { db.prepare('DELETE FROM sessions WHERE tokenHash = ?').run(h); return { error, userId: row.id }; };
+  if (row.expiresAt <= iso(now)) return kill('expired');
+  if ((row.lastSeenAt || row.createdAt) <= iso(now - SESSION_IDLE_MS)) return kill('idle');
+  if (row.uaHash && ua !== undefined && !crypto.timingSafeEqual(Buffer.from(row.uaHash), Buffer.from(uaHash(ua)))) return kill('device');
+  if (touch) db.prepare('UPDATE sessions SET lastSeenAt = ? WHERE tokenHash = ?').run(iso(now), h);
+  return { user: { id: row.id, name: row.name, email: row.email, role: row.role },
+    session: { hash: h, createdAt: row.createdAt, expiresAt: row.expiresAt, authLevel: row.authLevel, stepUpAt: row.stepUpAt } };
+}
+function getSessionUser(db, token, now = Date.now(), ua) {
+  const s = getSession(db, token, { now, ua });
+  return s && s.user ? s.user : null;
+}
+
+// Rotation de l'identifiant de session à chaque élévation (vérification TOTP, ré-authentification) : l'ancien jeton cesse de fonctionner.
+// Retourne le NOUVEAU jeton (à poser en cookie).
+function rotateSession(db, token, { authLevel, stepUp = false, now = Date.now() } = {}) {
+  const fresh = crypto.randomBytes(32).toString('base64url');
+  const r = db.prepare('UPDATE sessions SET tokenHash = ?, authLevel = COALESCE(?, authLevel), stepUpAt = CASE WHEN ? THEN ? ELSE stepUpAt END, lastSeenAt = ? WHERE tokenHash = ?')
+    .run(sha256(fresh), authLevel == null ? null : authLevel, stepUp ? 1 : 0, iso(now), iso(now), sha256(token));
+  return Number(r.changes) === 1 ? fresh : null;
+}
+
+function revokeAllSessions(db, userId) { return Number(db.prepare('DELETE FROM sessions WHERE userId = ?').run(userId).changes); }
+
+function listSessions(db, userId, currentToken, now = Date.now()) {
+  const cur = currentToken ? sha256(currentToken) : null;
+  return db.prepare('SELECT tokenHash, createdAt, expiresAt, lastSeenAt, authLevel, uaHash FROM sessions WHERE userId = ? AND expiresAt > ? ORDER BY createdAt DESC').all(userId, iso(now))
+    .map((s) => ({ current: s.tokenHash === cur, createdAt: s.createdAt, lastSeenAt: s.lastSeenAt || s.createdAt, expiresAt: s.expiresAt, verified: s.authLevel >= 1 }));
 }
 
 function destroySession(db, token) {
   if (token) db.prepare('DELETE FROM sessions WHERE tokenHash = ?').run(sha256(token));
 }
 
-module.exports = { AUDIENCE, uaHash, LINK_TTL_MS, SESSION_TTL_MS, getSecret, signLinkToken, verifyLinkToken, createInvitation, listInvitations, consumeLink, getSessionUser, destroySession };
+module.exports = { AUDIENCE, uaHash, LINK_TTL_MS, SESSION_TTL_MS, SESSION_IDLE_MS, STEPUP_TTL_MS, noteDevice, getSession, rotateSession, revokeAllSessions, listSessions, getSecret, signLinkToken, verifyLinkToken, createInvitation, listInvitations, consumeLink, getSessionUser, destroySession };

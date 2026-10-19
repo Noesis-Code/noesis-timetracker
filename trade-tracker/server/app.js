@@ -107,10 +107,15 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const h = req.headers.authorization || '';
     return h.startsWith('Bearer ') ? h.slice(7) : parseCookies(req.headers.cookie).tt_session;
   };
+  // Session : durée absolue, inactivité 15 min, liaison au user-agent. Le rafraîchissement automatique de l'interface (X-TT-Poll: 1)
+  // ne prolonge PAS l'inactivité, sauf si la personne a agi récemment (X-TT-Active: 1) : un onglet laissé ouvert finit par expirer.
   const auth = (req, res, next) => {
-    const u = A.getSessionUser(db, sessionToken(req));
-    if (!u) return err(res, 401, 'unauthenticated');
-    req.user = u; next();
+    const tok = sessionToken(req);
+    const touch = !(req.headers['x-tt-poll'] === '1' && req.headers['x-tt-active'] !== '1');
+    const s = A.getSession(db, tok, { ua: ctxOf(req).ua, touch });
+    if (!s) return err(res, 401, 'unauthenticated');
+    if (s.error) { aud(req, 'session_' + s.error, {}, s.userId); return err(res, 401, 'session_' + s.error); }
+    req.user = s.user; req.session = s.session; req.sessionToken = tok; next();
   };
   const expertOnly = (req, res, next) => (req.user.role === 'expert' ? next() : err(res, 403, 'forbidden'));
   const expertUser = () => db.prepare("SELECT * FROM tt_users WHERE role = 'expert' ORDER BY id LIMIT 1").get();
@@ -253,6 +258,15 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     res.status(201).json(inv);
   });
   app.get('/api/invitations', expertOnly, (req, res) => res.json({ invitations: A.listInvitations(db) }));
+
+  // Sessions du compte ; « fermer toutes mes sessions » (appareil perdu, doute) : toutes les sessions disparaissent, celle-ci comprise.
+  app.get('/api/security/sessions', (req, res) => res.json({ sessions: A.listSessions(db, req.user.id, req.sessionToken) }));
+  app.post('/api/security/sessions/revoke-all', (req, res) => {
+    const n = A.revokeAllSessions(db, req.user.id);
+    aud(req, 'sessions_revoked_all', { count: n });
+    res.setHeader('Set-Cookie', sessionCookie(req, '', 0));
+    res.json({ ok: true, closed: n });
+  });
 
   // Journal d'audit du compte connecté (ses propres lignes uniquement) + état de la chaîne.
   app.get('/api/security/audit', (req, res) => {
