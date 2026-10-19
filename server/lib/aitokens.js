@@ -18,19 +18,19 @@ function cleanLabel(label) {
   return s || 'Mon IA';
 }
 
-function createToken(userId, label) {
+function createToken(userId, label, canWrite) {
   const active = db.prepare('SELECT COUNT(*) AS n FROM ai_tokens WHERE userId = ? AND revokedAt IS NULL').get(userId).n;
   if (active >= MAX_ACTIVE) {
     throw Object.assign(new Error('Maximum ' + MAX_ACTIVE + ' jetons actifs : révoque-en un d\'abord.'), { statusCode: 400 });
   }
   const token = 'tmt_' + crypto.randomBytes(32).toString('hex');
   const now = new Date().toISOString();
-  const info = db.prepare('INSERT INTO ai_tokens (userId, label, tokenHash, createdAt) VALUES (?, ?, ?, ?)').run(userId, cleanLabel(label), hash(token), now);
-  return { id: Number(info.lastInsertRowid), label: cleanLabel(label), createdAt: now, token };
+  const info = db.prepare('INSERT INTO ai_tokens (userId, label, tokenHash, createdAt, canWrite) VALUES (?, ?, ?, ?, ?)').run(userId, cleanLabel(label), hash(token), now, canWrite ? 1 : 0);
+  return { id: Number(info.lastInsertRowid), label: cleanLabel(label), createdAt: now, canWrite: !!canWrite, token };
 }
 
 function listTokens(userId) {
-  return db.prepare('SELECT id, label, createdAt, lastUsedAt FROM ai_tokens WHERE userId = ? AND revokedAt IS NULL ORDER BY id DESC').all(userId);
+  return db.prepare('SELECT id, label, createdAt, lastUsedAt, canWrite FROM ai_tokens WHERE userId = ? AND revokedAt IS NULL ORDER BY id DESC').all(userId);
 }
 
 function revokeToken(userId, id) {
@@ -42,9 +42,9 @@ function revokeToken(userId, id) {
 // Retourne { userId, tokenId } pour un jeton valide non révoqué, sinon null.
 function authenticate(token) {
   if (!token || typeof token !== 'string') return null;
-  const row = db.prepare('SELECT id, userId FROM ai_tokens WHERE tokenHash = ? AND revokedAt IS NULL').get(hash(token));
+  const row = db.prepare('SELECT id, userId, canWrite FROM ai_tokens WHERE tokenHash = ? AND revokedAt IS NULL').get(hash(token));
   if (!row) return null;
-  return { userId: row.userId, tokenId: row.id };
+  return { userId: row.userId, tokenId: row.id, canWrite: !!row.canWrite };
 }
 
 function touch(tokenId) {
@@ -61,4 +61,14 @@ function rateOk(tokenId, now) {
   return true;
 }
 
-module.exports = { MAX_ACTIVE, RATE_LIMIT, createToken, listTokens, revokeToken, authenticate, touch, rateOk, hash };
+const NOTIF_PER_DAY = 10;
+// Réserve une notification pour ce jeton (fenêtre de 24 h) ; false si le plafond est atteint.
+function takeNotifSlot(tokenId) {
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const n = db.prepare('SELECT COUNT(*) AS n FROM ai_token_notifs WHERE tokenId = ? AND sentAt > ?').get(tokenId, since).n;
+  if (n >= NOTIF_PER_DAY) return false;
+  db.prepare('INSERT INTO ai_token_notifs (tokenId, sentAt) VALUES (?, ?)').run(tokenId, new Date().toISOString());
+  return true;
+}
+
+module.exports = { NOTIF_PER_DAY, takeNotifSlot, MAX_ACTIVE, RATE_LIMIT, createToken, listTokens, revokeToken, authenticate, touch, rateOk, hash };

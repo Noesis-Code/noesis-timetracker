@@ -2455,7 +2455,12 @@ CREATE TABLE IF NOT EXISTS ai_tokens (
   tokenHash TEXT NOT NULL UNIQUE,
   createdAt TEXT NOT NULL,
   lastUsedAt TEXT,
-  revokedAt TEXT
+  revokedAt TEXT,
+  canWrite INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS ai_token_notifs (
+  tokenId INTEGER NOT NULL REFERENCES ai_tokens(id) ON DELETE CASCADE,
+  sentAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ai_tokens_user ON ai_tokens(userId);
 `);

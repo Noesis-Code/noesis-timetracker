@@ -9,3 +9,6 @@
 .aiConnectInfo .hint { margin: 0; }
 .aiConnectActions { display: flex; gap: 6px; align-items: center; }
 .aiConnectActions .hint { margin: 0; }
+.aiConnectWrite { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 10px 0 4px; }
+.aiConnectActions { flex-shrink: 0; }
+.aiConnectActions .hint { white-space: nowrap; }
