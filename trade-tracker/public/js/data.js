@@ -17,11 +17,23 @@
       return { accountId: a.id, label: a.label, status: e ? e.status : 'OK', lastSync: e ? e.at : null };
     });
   }
+  // GET /api/compare (clientPct/expertPct/gapPts) -> forme interne des écrans (mePct/expertPct/gapPts)
+  function normCompare(c, purchases) {
+    if (!c) return null;
+    return {
+      asOf: c.expertSyncedAt, expertName: 'Expert', me: { totalValueCad: c.clientTotalValueCad }, expert: { totalValueCad: c.expertTotalValueCad },
+      sectors: c.bySector.map(function (r) { return { key: r.key, label: r.label, mePct: r.clientPct, expertPct: r.expertPct, gapPts: r.gapPts }; }),
+      positions: c.byPosition.map(function (r) { return { symbol: r.symbol, name: r.label, sector: r.sector, mePct: r.clientPct, expertPct: r.expertPct, gapPts: r.gapPts }; }),
+      lastSync: c.expertSyncedAt ? { at: c.expertSyncedAt, status: 'OK' } : null,
+      purchases: purchases || []   // GET /api/purchases : pas encore au contrat, liste vide tant qu'absent
+    };
+  }
   function loadApi() {
     return Promise.all([get('/api/me'), get('/api/portfolio'), get('/api/positions'), get('/api/history'), get('/api/sync-log?limit=50'),
-      get('/api/compare').catch(function (e) { if (e.code === 401) throw e; return null; })]).then(function (r) {
+      get('/api/compare').catch(function (e) { if (e.code === 401) throw e; return null; }),
+      get('/api/purchases').then(function (x) { return x.purchases; }).catch(function (e) { if (e.code === 401) throw e; return []; })]).then(function (r) {
       return { me: r[0], portfolio: r[1], positions: r[2].positions, history: r[3], syncLog: r[4].entries,
-        connections: connectionsFrom(r[1], r[4].entries), broker: 'Courtier (lecture seule)', compare: r[5], source: 'api' };
+        connections: connectionsFrom(r[1], r[4].entries), broker: 'Courtier (lecture seule)', compare: normCompare(r[5], r[6]), source: 'api' };
     });
   }
   function loadDemo() { var d = Object.assign({ source: 'demo' }, window.TT_DEMO); return Promise.resolve(d); }
