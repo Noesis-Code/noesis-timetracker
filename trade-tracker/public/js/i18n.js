@@ -3,7 +3,7 @@
    - en : les nœuds de texte et les attributs visibles (aria-label, placeholder, title) sont traduits au rendu,
      par correspondance exacte (DICT) puis par motifs (PATTERNS) pour les textes qui contiennent une valeur.
    Les données (noms de titres, secteurs, courriels) ne sont jamais traduites.
-   Langue : localStorage 'tt_lang' (préférence d'affichage seulement), sinon langue du navigateur. Changer de langue recharge la page. */
+   Langue : localStorage 'tt_lang' (préférence d'affichage seulement), sinon langue du navigateur. Le choix se fait dans Réglages (comme TimeTracker) et recharge la page. */
 (function () {
   var DICT = {
     'Accueil': 'Home', 'Positions': 'Holdings', 'Répartition': 'Allocation', 'Historique': 'History', 'Expert': 'Expert', 'Synchro': 'Sync',
@@ -69,7 +69,7 @@
     'Chargement impossible': 'Loading failed', 'Le serveur ne répond pas comme prévu. Réessaie dans un instant.': 'The server is not responding as expected. Try again in a moment.', 'Réessayer': 'Try again',
     'La première synchro est en cours ou n’a rien trouvé. Reviens dans quelques minutes.': 'The first sync is running or found nothing. Come back in a few minutes.', 'Connecte ton courtier pour voir ton portefeuille ici.': 'Connect your broker to see your portfolio here.',
     'janv.': 'Jan', 'févr.': 'Feb', 'mars': 'Mar', 'avr.': 'Apr', 'mai': 'May', 'juin': 'Jun', 'juil.': 'Jul', 'août': 'Aug', 'sept.': 'Sep', 'oct.': 'Oct', 'nov.': 'Nov', 'déc.': 'Dec',
-    'Langue : français. Passer à l’anglais.': 'Language: English. Switch to French.'
+    'Réglages': 'Settings', 'Langue': 'Language', 'Français': 'Français', 'English': 'English'
   };
   var AGO = [[/il y a (\d+) min/g, '$1 min ago'], [/il y a (\d+) h/g, '$1 h ago'], [/il y a (\d+) j/g, '$1 d ago'], [/à l’instant/g, 'just now']];
   var PATTERNS = [
@@ -81,6 +81,7 @@
     [/^Échec de l’envoi \((\d+)\)\.$/, 'Sending failed ($1).'], [/^Échec de la déconnexion \((\d+)\)\.$/, 'Disconnecting failed ($1).'], [/^Synchronisation · (.+)$/, 'Synchronization · $1'], [/ \(taux manquant\)$/, ' (rate missing)'],
     [/^(\d+) (janv\.|févr\.|mars|avr\.|mai|juin|juil\.|août|sept\.|oct\.|nov\.|déc\.)( \d{4})?$/, function (m, d, mo, y) { return DICT[mo] + ' ' + d + (y || ''); }],
     [/^(janv\.|févr\.|mars|avr\.|mai|juin|juil\.|août|sept\.|oct\.|nov\.|déc\.) (\d{4})$/, function (m, mo, y) { return DICT[mo] + ' ' + y; }],
+    [/^Dernière synchro : (.+?)( · vérifié à (.+))?$/, function (m, a, b, t) { return 'Last sync: ' + a.replace(/^jamais$/, 'never') + (t ? ' · checked at ' + t : ''); }],
     [/^(\d+) k\$$/, '$$$1k']
   ];
   var lang = 'fr';
@@ -128,13 +129,7 @@
         });
       }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
     }
-    var b = document.getElementById('langBtn');
-    if (b) {
-      b.textContent = lang === 'en' ? 'FR' : 'EN';
-      b.setAttribute('aria-label', lang === 'en' ? 'Language: English. Switch to French.' : 'Langue : français. Passer à l’anglais.');
-      b.addEventListener('click', function () { try { localStorage.setItem('tt_lang', lang === 'en' ? 'fr' : 'en'); } catch (e) {} location.reload(); });
-    }
   }
-  window.TTI = { lang: lang, locale: lang === 'en' ? 'en-CA' : 'fr-CA', t: function (s) { return lang === 'en' ? tr(s) : s; }, months: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'].map(function (m) { return lang === 'en' ? DICT[m] : m; }) };
+  window.TTI = { lang: lang, setLang: function (l) { try { localStorage.setItem('tt_lang', l === 'en' ? 'en' : 'fr'); } catch (e) {} location.reload(); }, locale: lang === 'en' ? 'en-CA' : 'fr-CA', t: function (s) { return lang === 'en' ? tr(s) : s; }, months: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'].map(function (m) { return lang === 'en' ? DICT[m] : m; }) };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

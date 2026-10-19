@@ -152,7 +152,7 @@
       '<div class="card" id="secState"></div><div class="card" id="secSessions"><div class="skel" style="height:60px"></div></div>' +
       '<div class="card" id="secAudit"><div class="skel" style="height:90px"></div></div>';
     flash = '';
-    el.querySelector('#closePage').addEventListener('click', function () { location.hash = '#/sync'; });
+    el.querySelector('#closePage').addEventListener('click', function () { location.hash = '#/settings'; });
 
     section(el, '#secState', '<div class="cardHead" style="margin:0"><div><div class="cardLabel">Vérification en deux étapes</div><div class="syncBannerVal">' + (mfa.enrolled ? 'Activée' : 'Non activée') + '</div></div>' +
       '<span class="statusBadge ' + (mfa.enrolled ? 'ok' : 'warn') + '"><span class="syncDot"></span>' + (mfa.enrolled ? 'Actif' : (mfa.required ? 'Obligatoire' : 'Recommandé')) + '</span></div>' +
