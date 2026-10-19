@@ -441,6 +441,7 @@ router.post('/profile', (req, res) => {
   const directoryConsent = req.body.directoryConsent === true ? 1 : 0;
   db.prepare('INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, marketingConsent, marketingConsentAt, marketingConsentVersion, directoryConsent, termsAcceptedAt, termsVersion, privacyVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)')
     .run(id, name, lastName, phone, email, color, createdAt, makePinRecord(pin), 'dark', lang, marketingConsent, createdAt, MARKETING_CONSENT_VERSION, directoryConsent, createdAt, TERMS_VERSION, PRIVACY_VERSION);
+  db.prepare('UPDATE users SET modules = ? WHERE id = ?').run(JSON.stringify(require('../lib/modules').defaults()), id); // défaut nouveau compte : NEW_ACCOUNT_DEFAULT_MODULES
   // Système de session (chantier 1) : la création d'un profil vaut
   // connexion — le témoin posé ici est ce qui authentifiera ensuite chaque
   // appel de ce profil, plutôt que l'id renvoyé ci-dessous (gardé pour
@@ -713,6 +714,23 @@ router.put('/profile/:id/ai-mode', (req, res) => {
   const r = db.prepare('UPDATE users SET aiMode = ? WHERE id = ?').run(mode, req.params.id);
   if (!r.changes) return res.status(404).json({ error: 'Profil introuvable.' });
   res.json({ ok: true, mode });
+});
+
+// Modules activables (socle, 19 oct. 2026) : lecture/écriture de l'état ; ne masque rien encore, ne supprime aucune donnée.
+router.get('/profile/:id/modules', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux lire que ton propre profil.' });
+  const modules = require('../lib/modules');
+  const state = modules.getModules(req.params.id);
+  if (!state) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json({ modules: state, list: modules.list() });
+});
+router.put('/profile/:id/modules', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux modifier que ton propre profil.' });
+  const r = require('../lib/modules').setModules(req.params.id, req.body && req.body.modules);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  res.json({ ok: true, modules: r.modules });
 });
 
 // Vérifie le code d'un profil avant de le "récupérer" depuis "J'ai déjà un

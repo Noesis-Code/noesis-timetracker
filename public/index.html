@@ -2909,6 +2909,22 @@
             </div>
 
 
+            <!-- 19 oct. 2026 : « Modules » — interrupteurs par module (public/js/modules.js). Socle : ne masque rien encore. -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" id="modulesHeader" aria-expanded="false">
+                <span class="sectionTitle">Modules</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+                <div class="settingsCard">
+                  <p class="hint">Désactiver un module ne supprime aucune donnée.</p>
+                  <div id="modulesList"></div>
+                  <p id="modulesMsg" class="msg"></p>
+                </div>
+              </div>
+            </div>
+
+
             <!-- Notifications (1er septembre 2026, demande d'Emilien ; remplacée le
                  10 septembre 2026 par une bascule par activité — même demande :
                  « le nom de chaque activité créée par l'utilisateur et un bouton
@@ -3708,5 +3724,6 @@
 <script src="/js/stats-avance.js"></script>
 <script src="/js/activite-stats-taches.js"></script>
 <script src="/js/connexion-ia.js"></script>
+<script src="/js/modules.js"></script>
 </body>
 </html>

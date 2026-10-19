@@ -186,6 +186,8 @@ async function main() {
 
   try { execFileSync('node', [path.join(__dirname, 'offer1access-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'accès anticipé Offre 1 : tests passés'); }
   catch (e) { assert(false, 'accès anticipé Offre 1 : tests échoués'); }
+  try { execFileSync('node', [path.join(__dirname, 'modules-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'modules activables : tests passés'); }
+  catch (e) { assert(false, 'modules activables : tests échoués'); }
 
   try { execFileSync('node', [path.join(__dirname, 'parseplan-test.js')], { encoding: 'utf8' }); assert(true, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) passe'); }
   catch (e) { assert(false, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) échoue'); }

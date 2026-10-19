@@ -2265,6 +2265,10 @@ if (!columnExists('users', 'aiMode')) {
 if (!columnExists('users', 'communityNotifyEnabled')) {
   db.exec('ALTER TABLE users ADD COLUMN communityNotifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
+// Modules activables (JSON ; NULL = tous actifs, comptes existants inchangés) — voir server/lib/modules.js.
+if (!columnExists('users', 'modules')) {
+  db.exec('ALTER TABLE users ADD COLUMN modules TEXT');
+}
 
 // 10 oct. 2026 (conformité Loi 25, trames 2/4/5) : consentement commercial, annuaire de connexion,
 // preuve d'acceptation des CGU/Politique. ALTER TABLE idempotents ; `users` n'est jamais reconstruite.
