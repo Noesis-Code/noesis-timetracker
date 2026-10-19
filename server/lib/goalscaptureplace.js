@@ -382,7 +382,8 @@ function weekHasRoom(userId, activityId, mon, today, own, itemId) {
 // modifiable (dueDateAuto=2) ; le texte de la tâche est une donnée, jamais une instruction.
 const MAX_AI_CANDIDATES = 60;
 const LEX_THRESHOLD = 0.3;
-const AI_MIN_CONFIDENCE = 0.5;
+// Seuil de confiance du placement IA (0 à 1). Réglable : NOESIS_CAPTUREPLACE_MIN_CONFIDENCE en pourcentage (défaut 50, inchangé).
+const AI_MIN_CONFIDENCE = (() => { const n = Number(process.env.NOESIS_CAPTUREPLACE_MIN_CONFIDENCE); return Number.isFinite(n) && n >= 0 && n <= 100 ? n / 100 : 0.5; })();
 const EXTRA_STOP = new Set(['faire', 'fait', 'tout', 'tous', 'toute', 'toutes', 'nouveau', 'nouvelle', 'etre', 'avoir', 'des', 'les', 'une', 'aux', 'sur', 'ses', 'mes', 'est', 'sont', 'cet', 'cette']);
 const SUFFIXES = ['ements', 'ement', 'ations', 'ation', 'ages', 'age', 'eurs', 'eur', 'ions', 'ion', 'ees', 'ee', 'ers', 'er', 'es', 'ez', 'ons', 'ent', 'e', 's'];
 function stem(w) {

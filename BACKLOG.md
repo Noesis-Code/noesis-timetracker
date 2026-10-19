@@ -72,3 +72,20 @@ Prochaines pistes (à mesurer avec le rapport sur données réelles avant d'agir
 3. Raccourcir `SYSTEM_PROMPT` de inter-secteurs et hebdo (consignes redondantes) avec jeu d'évaluation du chantier 6 pour garantir zéro perte.
 4. Passer les plans quotidien/hebdo générés la nuit en API Batch (-50 %), comme Drive.
 5. Exclure du prompt les catégories archivées/vides et tronquer les descriptions longues dans le payload du classement.
+
+## Précision des tâches (chantier permanent n°6, 19 oct. 2026)
+
+**Cartographie.** Où l'IA classe/génère/filtre : `goalstaskclassify.js` (classement pôle/secteur, Haiku puis repli fort, seuil `NOESIS_CLASSIFY_MIN_CONFIDENCE` 80, mode strict = INCERTAIN -> l'utilisateur choisit) ; `goalscaptureplace.js` (placement calendrier, seuil `NOESIS_CAPTUREPLACE_MIN_CONFIDENCE` 50, désormais réglable) ; `documenttasks.js` + `docanalysis.js` (tâches issues de documents, seuil `NOESIS_DOC_MIN_CONFIDENCE` 80) ; `goalsweeklyauto.js` (`NOESIS_WEEKLY_MIN_CONFIDENCE` 80) ; `goalsauto.js`, `crosssectorinference.js`, `dailysuggestioncron.js`, `goalsrewrite.js`. La stratégie (6 champs : but, échéance, priorités 1-3, à ignorer ; `strategy.js`, route `/strategy`) n'est injectée QUE dans le prompt de `documenttasks` (bloc `<strategie>`) et dans les modifications proposées (`changeproposals`) ; le classement et le placement des saisies manuelles ne la voient pas.
+
+**Méthode.** Jeu fixe `test/fixtures/task-precision/cases.json` (42 cas FR : classement, rejet « à ignorer », doublon, incertitude). Harnais `node scripts/eval-task-precision.js` (`--fake` par défaut, déterministe, sans réseau ; `--live` = clé réelle, lancé par Émilien seulement ; `--json`, `--min-confidence=N`). Fournisseur injectable. Chaîne rejouée : titre nettoyé -> « à ignorer » (tâches proposées par l'IA seulement, jamais une saisie manuelle) -> doublon -> fournisseur -> seuil. Garde-fous dans `test/precision-taches-test.js` (inclus dans `run-tests.js`).
+
+**Fait.** `server/lib/taskprecision.js` (règles pures) branché dans `documenttasks.parseDetailed` : titres IA nettoyés (puces, numérotation, ponctuation finale), « à ignorer » appliqué strictement AVANT affichage (compté `dropped.ignore`, jamais affiché), dédoublonnage insensible aux accents/casse/ordre des mots. Seuil de placement réglable par variable d'environnement (défaut inchangé).
+
+**Métriques actuelles (fournisseur simulé, seuil 80).** précision 96,3 %, rappel 89,7 %, refus 21,4 % (100 % justes), incertitude 14,3 % (66,7 % justifiée), exactitude 92,9 %. Écarts connus : « Payer la facture du fournisseur de grains verts » (le sujet l'emporte sur l'action), deux cas incertains à tort. Ces chiffres mesurent les règles et la chaîne, PAS la qualité du vrai modèle.
+
+**5 prochaines pistes.**
+1. [Émilien, clé réelle] `node scripts/eval-task-precision.js --live` (~42 appels Haiku) pour mesurer le vrai modèle ; comparer aux chiffres simulés, ajuster `NOESIS_CLASSIFY_MIN_CONFIDENCE`.
+2. [Émilien, clé réelle] Même jeu avec `NOESIS_CLASSIFY_FAST_MODEL=off` (modèle fort seul) : le repli Haiku -> fort vaut-il son coût ?
+3. Injecter le bloc stratégie (priorités, but) dans le prompt de classement `goalstaskclassify.buildPrompt` pour départager les cas ambigus (test avant/après avec `--live`).
+4. Étendre le jeu à 100+ cas tirés de corrections réelles (`goalsclassifyexamples`, anonymisées) ; ajouter les cas « action vs sujet ».
+5. Utiliser `priorityRank` (déjà écrit, informatif) pour ordonner les tâches proposées par l'IA selon les priorités de la stratégie, après validation d'Émilien (changement d'affichage).

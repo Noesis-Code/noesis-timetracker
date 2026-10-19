@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "note": "Cas réalistes en français. kind=classify : saisie manuelle (jamais rejetée par « à ignorer ») ; kind=generate : tâche proposée par l'IA (« à ignorer » appliqué). expect.outcome : place (avec key) | reject (à ignorer) | duplicate | uncertain.",
+  "contexts": {
+    "cafe": {
+      "name": "Torréfacteur de café",
+      "candidates": [
+        { "key": "appro", "label": "Production → Approvisionnement", "description": "achat café vert fournisseurs commandes livraisons importateur" },
+        { "key": "torref", "label": "Production → Torréfaction", "description": "torréfier profils de cuisson lots machine entretien" },
+        { "key": "emball", "label": "Production → Emballage", "description": "emballer sacs étiquettes expédition colis" },
+        { "key": "boutique", "label": "Ventes → Boutique en ligne", "description": "site web produits photos commandes clients en ligne" },
+        { "key": "pro", "label": "Ventes → Clients professionnels", "description": "cafés restaurants grossistes soumissions prospection" },
+        { "key": "compta", "label": "Administration → Comptabilité et finances", "description": "factures taxes TPS TVQ paiements budget" },
+        { "key": "rh", "label": "Administration → Ressources humaines", "description": "employés horaires formation embauche paie" }
+      ],
+      "strategy": {
+        "goal": "Lancer la boutique en ligne avant Noël",
+        "deadline": "2026-12-01",
+        "priorities": ["Boutique en ligne", "Clients professionnels", "Qualité de la torréfaction"],
+        "ignore": "refonte du logo, réseaux sociaux, embauche"
+      }
+    },
+    "pige": {
+      "name": "Designer graphique pigiste",
+      "candidates": [
+        { "key": "clients", "label": "Clients", "description": "projets en cours maquettes livrables retours révisions" },
+        { "key": "prospect", "label": "Prospection", "description": "trouver de nouveaux clients soumissions démarchage portfolio" },
+        { "key": "admin", "label": "Administration", "description": "facturation factures comptable impôts contrats assurance" },
+        { "key": "forma", "label": "Formation", "description": "apprendre cours outils veille tutoriels" }
+      ],
+      "strategy": {
+        "goal": "Doubler la clientèle de PME d'ici juin",
+        "deadline": "2027-06-30",
+        "priorities": ["Prospecter de nouveaux clients", "Terminer les projets en cours", ""],
+        "ignore": "newsletter; podcast; refaire le site"
+      }
+    },
+    "etu": {
+      "name": "Étudiante",
+      "candidates": [
+        { "key": "cours", "label": "Cours", "description": "lectures notes examens révision" },
+        { "key": "travaux", "label": "Travaux", "description": "rédiger remettre dissertation rapport présentation équipe" },
+        { "key": "perso", "label": "Vie personnelle", "description": "santé rendez-vous épicerie budget loyer" }
+      ],
+      "strategy": { "goal": "", "deadline": "", "priorities": ["", "", ""], "ignore": "" }
+    }
+  },
+  "cases": [
+    { "id": "c01", "context": "cafe", "kind": "classify", "label": "Commander 120 kg de café vert au fournisseur", "expect": { "outcome": "place", "key": "appro" } },
+    { "id": "c02", "context": "cafe", "kind": "classify", "label": "Torréfier le lot du Guatemala", "expect": { "outcome": "place", "key": "torref" } },
+    { "id": "c03", "context": "cafe", "kind": "classify", "label": "Imprimer les étiquettes pour les sacs de 340 g", "expect": { "outcome": "place", "key": "emball" } },
+    { "id": "c04", "context": "cafe", "kind": "classify", "label": "Photographier les nouveaux produits pour le site", "expect": { "outcome": "place", "key": "boutique" } },
+    { "id": "c05", "context": "cafe", "kind": "classify", "label": "Envoyer une soumission au restaurant Chez Léa", "expect": { "outcome": "place", "key": "pro" } },
+    { "id": "c06", "context": "cafe", "kind": "classify", "label": "Payer la facture du fournisseur de grains verts", "expect": { "outcome": "place", "key": "compta" } },
+    { "id": "c07", "context": "cafe", "kind": "classify", "label": "Former le nouvel employé à l'emballage", "expect": { "outcome": "place", "key": "rh" } },
+    { "id": "c08", "context": "cafe", "kind": "classify", "label": "  - 1) déclarer la TPS/TVQ du trimestre. ", "expect": { "outcome": "place", "key": "compta" } },
+    { "id": "c09", "context": "cafe", "kind": "classify", "label": "Appeler Marc", "expect": { "outcome": "uncertain" } },
+    { "id": "c10", "context": "cafe", "kind": "classify", "label": "Réparer la machine à torréfier", "expect": { "outcome": "place", "key": "torref" } },
+    { "id": "c11", "context": "cafe", "kind": "classify", "label": "Tester le paiement sur la boutique en ligne", "expect": { "outcome": "place", "key": "boutique" } },
+    { "id": "c12", "context": "cafe", "kind": "classify", "label": "Prospecter les cafés du Plateau", "expect": { "outcome": "place", "key": "pro" } },
+    { "id": "c13", "context": "cafe", "kind": "classify", "label": "Refaire le logo", "expect": { "outcome": "uncertain" }, "comment": "Saisie MANUELLE d'un sujet « à ignorer » : jamais rejetée en silence ; sans catégorie évidente, on demande." },
+    { "id": "c14", "context": "cafe", "kind": "generate", "label": "Planifier une refonte du logo", "expect": { "outcome": "reject" } },
+    { "id": "c15", "context": "cafe", "kind": "generate", "label": "Publier trois posts sur les réseaux sociaux", "expect": { "outcome": "reject" } },
+    { "id": "c16", "context": "cafe", "kind": "generate", "label": "Rédiger l'offre d'embauche pour un aide-torréfacteur", "expect": { "outcome": "reject" } },
+    { "id": "c17", "context": "cafe", "kind": "generate", "label": "Mettre en ligne la fiche produit Éthiopie", "expect": { "outcome": "place", "key": "boutique" } },
+    { "id": "c18", "context": "cafe", "kind": "generate", "label": "Écrire au restaurant pour la dégustation", "expect": { "outcome": "place", "key": "pro" } },
+    { "id": "c19", "context": "cafe", "kind": "generate", "label": "Commander le café vert", "existing": ["commander le café vert."], "expect": { "outcome": "duplicate" } },
+    { "id": "c20", "context": "cafe", "kind": "generate", "label": "Payer la facture du transporteur", "existing": ["Payer la facture du fournisseur"], "expect": { "outcome": "place", "key": "compta" }, "comment": "Un seul mot diffère (transporteur / fournisseur) : pas un doublon." },
+    { "id": "c21", "context": "cafe", "kind": "generate", "label": "Relancer les employés pour les horaires", "expect": { "outcome": "place", "key": "rh" } },
+    { "id": "c22", "context": "cafe", "kind": "generate", "label": "Écrire au webmestre du réseau d'affaires", "expect": { "outcome": "uncertain" } },
+    { "id": "c23", "context": "pige", "kind": "classify", "label": "Envoyer la maquette finale au client Boulangerie Dupuis", "expect": { "outcome": "place", "key": "clients" } },
+    { "id": "c24", "context": "pige", "kind": "classify", "label": "Envoyer ma facture de mars", "expect": { "outcome": "place", "key": "admin" } },
+    { "id": "c25", "context": "pige", "kind": "classify", "label": "Mettre à jour le portfolio pour démarchage", "expect": { "outcome": "place", "key": "prospect" } },
+    { "id": "c26", "context": "pige", "kind": "classify", "label": "Suivre un tutoriel sur Figma", "expect": { "outcome": "place", "key": "forma" } },
+    { "id": "c27", "context": "pige", "kind": "generate", "label": "Préparer l'envoi de la newsletter de juin", "expect": { "outcome": "reject" } },
+    { "id": "c28", "context": "pige", "kind": "generate", "label": "Enregistrer un épisode de podcast sur le design", "expect": { "outcome": "reject" } },
+    { "id": "c29", "context": "pige", "kind": "generate", "label": "Refaire le site vitrine en Webflow", "expect": { "outcome": "reject" } },
+    { "id": "c30", "context": "pige", "kind": "generate", "label": "Contacter 10 PME pour une soumission", "expect": { "outcome": "place", "key": "prospect" } },
+    { "id": "c31", "context": "pige", "kind": "generate", "label": "Réviser le site web du client après ses retours", "expect": { "outcome": "place", "key": "clients" }, "comment": "« refaire le site » est à ignorer, pas « site web du client » : ne doit pas être rejeté." },
+    { "id": "c32", "context": "pige", "kind": "generate", "label": "Réviser les retours du client", "existing": ["Retours du client : réviser"], "expect": { "outcome": "duplicate" } },
+    { "id": "c33", "context": "pige", "kind": "classify", "label": "Réunion", "expect": { "outcome": "uncertain" } },
+    { "id": "c34", "context": "pige", "kind": "classify", "label": "Déclarer mes impôts de travailleuse autonome", "expect": { "outcome": "place", "key": "admin" } },
+    { "id": "c35", "context": "etu", "kind": "classify", "label": "Réviser le chapitre 4 pour l'examen", "expect": { "outcome": "place", "key": "cours" } },
+    { "id": "c36", "context": "etu", "kind": "classify", "label": "Rédiger la dissertation de philosophie", "expect": { "outcome": "place", "key": "travaux" } },
+    { "id": "c37", "context": "etu", "kind": "classify", "label": "Acheter l'épicerie", "expect": { "outcome": "place", "key": "perso" } },
+    { "id": "c38", "context": "etu", "kind": "classify", "label": "Prendre rendez-vous chez le dentiste", "expect": { "outcome": "place", "key": "perso" } },
+    { "id": "c39", "context": "etu", "kind": "classify", "label": "Préparer la présentation d'équipe", "expect": { "outcome": "place", "key": "travaux" } },
+    { "id": "c40", "context": "etu", "kind": "generate", "label": "Remettre le rapport de laboratoire", "expect": { "outcome": "place", "key": "travaux" } },
+    { "id": "c41", "context": "etu", "kind": "generate", "label": "Remettre le rapport de laboratoire", "existing": ["remettre le rapport de laboratoire"], "expect": { "outcome": "duplicate" } },
+    { "id": "c42", "context": "etu", "kind": "classify", "label": "Payer le loyer", "expect": { "outcome": "place", "key": "perso" } }
+  ]
+}
