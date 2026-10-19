@@ -152,10 +152,10 @@ async function main() {
   await backup.runBackupOnce({ log() {}, warn() {}, error() {} });
   await new Promise((r) => setTimeout(r, 1100));
   await backup.runBackupOnce({ log() {}, warn() {}, error() {} });
-  const afterFive = (await client.listObjects('noesis-backups/')).map((o) => o.key).sort();
+  const afterFive = await client.listObjects('noesis-backups/');
   // Une sauvegarde par jour est conservée (la plus récente) : plusieurs copies faites en quelques secondes
   // = 1 seule, ou 2 si le test enjambe minuit UTC. (Ancien test « 3 conservées » : NOESIS_BACKUP_KEEP n'existe plus.)
-  const days = new Set(afterFive.map((k) => (/(\d{4}-\d{2}-\d{2})T/.exec(k) || [])[1]));
+  const days = new Set(afterFive.map((o) => (/(\d{4}-\d{2}-\d{2})T/.exec(o.key) || [])[1]));
   assert(afterFive.length >= 1 && afterFive.length <= 2 && afterFive.length === days.size, `une seule sauvegarde conservée par jour, les doublons sont purgés (obtenu : ${afterFive.length})`);
 
   console.log('\n8. Base absente (premier démarrage, avant toute donnée)');
