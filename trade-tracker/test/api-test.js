@@ -6,11 +6,12 @@ const { createApp } = require('../server/app');
 const A = require('../server/lib/auth');
 const { syncAll } = require('../server/lib/sync');
 const { takeSnapshot } = require('../server/lib/snapshot');
+const { enrollAndVerify } = require('./mfa-helper');
 
 (async () => {
   const secret = crypto.randomBytes(16).toString('hex');
   const adminTok = crypto.randomBytes(16).toString('hex');
-  const env = { TRADE_LINK_SECRET: secret, TRADE_EXPERT_TMT_IDS: 'tmt-e', TRADE_ADMIN_TOKEN: adminTok };
+  const env = { TRADE_LINK_SECRET: secret, TRADE_EXPERT_TMT_IDS: 'tmt-e', TRADE_ADMIN_TOKEN: adminTok, TRADE_TOKEN_KEY: crypto.randomBytes(16).toString('hex') };
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys = ON'); migrate(db);
   const server = createApp(db, { env }).listen(0);
   const base = 'http://127.0.0.1:' + server.address().port;
@@ -32,7 +33,11 @@ const { takeSnapshot } = require('../server/lib/snapshot');
     const ex = await login('tmt-e', 'e@ex.test');
     assert.strictEqual(ex.r.status, 302); assert.strictEqual(ex.r.headers.get('location'), '/');
     assert(/HttpOnly/.test(ex.r.headers.get('set-cookie')));
-    assert.deepStrictEqual(await (await get('/api/me', ex.cookie)).json(), { id: 1, name: 'tmt-e', role: 'expert', brokerConnected: false });
+    // l'expert doit d'abord activer le TOTP : rien d'autre ne répond avant
+    assert.strictEqual((await get('/api/portfolio', ex.cookie)).status, 403);
+    ex.cookie = (await enrollAndVerify(base, ex.cookie)).cookie;
+    const me = await (await get('/api/me', ex.cookie)).json();
+    assert.deepStrictEqual([me.id, me.name, me.role, me.brokerConnected, me.mfa.required, me.mfa.verified], [1, 'tmt-e', 'expert', false, true, true]);
     // invitation -> client
     let iv = await fetch(base + '/api/invitations', { method: 'POST', headers: { cookie: ex.cookie, 'content-type': 'application/json' }, body: JSON.stringify({ role: 'client', email: 'c@ex.test' }) });
     assert.strictEqual(iv.status, 201); const { code } = await iv.json();

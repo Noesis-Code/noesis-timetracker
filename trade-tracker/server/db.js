@@ -159,6 +159,24 @@ CREATE TABLE IF NOT EXISTS link_nonces (
   expiresAt TEXT NOT NULL
 );
 
+-- TOTP (RFC 6238) : secret chiffré (clé versionnée), confirmé au premier code valide ; lastStep = dernier pas consommé (anti-rejeu).
+CREATE TABLE IF NOT EXISTS mfa_totp (
+  userId INTEGER PRIMARY KEY REFERENCES tt_users(id) ON DELETE CASCADE,
+  secretEnc TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  confirmedAt TEXT,
+  lastStep INTEGER NOT NULL DEFAULT 0
+);
+-- Codes de secours : hachés (scrypt + sel), usage unique.
+CREATE TABLE IF NOT EXISTS mfa_backup_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId INTEGER NOT NULL REFERENCES tt_users(id) ON DELETE CASCADE,
+  salt TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  usedAt TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_backup_user ON mfa_backup_codes(userId);
+
 -- Appareils déjà vus par utilisateur (empreinte du user-agent) : un nouvel appareil déclenche une alerte.
 CREATE TABLE IF NOT EXISTS known_devices (
   userId INTEGER NOT NULL REFERENCES tt_users(id) ON DELETE CASCADE,

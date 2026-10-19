@@ -4,6 +4,7 @@ const B = require('./brokertoken');
 
 // { table, col, ctx(row), key: colonnes d'identité de la ligne }
 const ENCRYPTED = [
+  { table: 'mfa_totp', col: 'secretEnc', ids: ['userId'], ctx: (r) => 'totp:' + r.userId },
   { table: 'broker_tokens', col: 'tokenEnc', ids: ['userId', 'broker'], ctx: (r) => B.brokerCtx(r.userId, r.broker) },
 ];
 

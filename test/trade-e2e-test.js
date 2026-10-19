@@ -100,11 +100,14 @@ function tradeScript(code) {
 
   // 3. Trade : /link crée une session ; rejeu, falsifié, expiré refusés
   r = await fetch(link.url, { redirect: 'manual' });
-  const expertSession = setCookie(r);
+  let expertSession = setCookie(r);
   assert(r.status === 302 && r.headers.get('location') === '/' && expertSession, '/link?token= : 302 vers / + cookie tt_session');
   r = await fetch(TRADE + '/api/me', { headers: { Cookie: expertSession } });
   let me = await r.json();
   assert(r.status === 200 && me.role === 'expert', 'session valide : /api/me expert');
+  r = await fetch(TRADE + '/api/portfolio', { headers: { Cookie: expertSession } });
+  assert(r.status === 403, 'expert : rien avant la vérification en deux étapes');
+  expertSession = (await require('../trade-tracker/test/mfa-helper').enrollAndVerify(TRADE, expertSession)).cookie;
   r = await fetch(link.url, { redirect: 'manual' });
   assert(r.status === 302 && /linkError=denied/.test(r.headers.get('location')) && !setCookie(r), 'jeton rejoué (usage unique) : refusé');
   const tok = decodeURIComponent(link.url.split('token=')[1]);

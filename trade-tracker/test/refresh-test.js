@@ -12,13 +12,13 @@ const { syncAll } = require('../server/lib/sync');
 
 (async () => {
   const secret = crypto.randomBytes(16).toString('hex');
-  const env = { TRADE_LINK_SECRET: secret, TRADE_EXPERT_TMT_IDS: 'tmt-e' };
+  const env = { TRADE_LINK_SECRET: secret, TRADE_EXPERT_TMT_IDS: 'tmt-e', TRADE_TOKEN_KEY: crypto.randomBytes(16).toString('hex') };
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys = ON'); migrate(db);
   const server = createApp(db, { env }).listen(0);
   const base = 'http://127.0.0.1:' + server.address().port;
   try {
     const l = await fetch(base + '/link?token=' + A.signLinkToken({ sub: 'tmt-e', name: 'e', email: 'e@ex.test', ua: 'node' }, secret), { redirect: 'manual' });
-    const cookie = l.headers.get('set-cookie').split(';')[0];
+    const cookie = (await require('./mfa-helper').enrollAndVerify(base, l.headers.get('set-cookie').split(';')[0])).cookie;
     await syncAll(db);
 
     // --- serveur : ETag + 304 ---

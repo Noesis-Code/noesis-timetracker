@@ -76,7 +76,7 @@ const { createApp } = require('../server/app');
     await get('/api/me', ck, 'Agent/1', { 'x-tt-poll': '1', 'x-tt-active': '1' });
     assert(Date.now() - Date.parse(db2.prepare('SELECT lastSeenAt FROM sessions').get().lastSeenAt) < 5000, 'activité réelle prolonge');
     // sessions listées + déconnexion globale
-    const ck2 = await login('Agent/1');
+    const ck2 = (await require('./mfa-helper').enrollAndVerify(base, await login('Agent/1'), { 'user-agent': 'Agent/1' })).cookie;
     const list = await (await get('/api/security/sessions', ck2, 'Agent/1')).json();
     assert(list.sessions.length === 2 && list.sessions.filter((x) => x.current).length === 1);
     assert(!JSON.stringify(list).match(/tokenHash|[A-Za-z0-9_-]{40,}/), 'aucun identifiant de session exposé');

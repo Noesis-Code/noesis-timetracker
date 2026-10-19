@@ -192,7 +192,7 @@ assert.strictEqual(Q.parseTokenResponse(fx('token'), 1000).apiServer, 'https://a
     const server = app.listen(0), base = 'http://127.0.0.1:' + server.address().port;
     try {
       const l = await fetch(base + '/link?token=' + A.signLinkToken({ sub: 'tmt-e', name: 'e', email: 'e@ex.test', ua: 'node' }, tl), { redirect: 'manual' });
-      const cookie = l.headers.get('set-cookie').split(';')[0];
+      const cookie = (await require('./mfa-helper').enrollAndVerify(base, l.headers.get('set-cookie').split(';')[0])).cookie;
       const user = d.prepare('SELECT * FROM tt_users').get();
       B.saveBrokerToken(d, user.id, OLD, { env });
       const bad = Q.createQuestradeConnector({ db: d, env, http: fakeQuestrade({ refresh: () => ({ status: 400, body: fx('error-invalid-grant') }) }).http, now: () => NOW, sleep: noSleep });

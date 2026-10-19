@@ -11,6 +11,7 @@ const { buildPortfolio, latestUsdCad } = require('./lib/portfolio');
 const { compareProportions } = require('./lib/compare');
 const BT = require('./lib/brokertoken');
 const audit = require('./lib/audit');
+const M = require('./lib/mfa');
 
 function parseCookies(h) {
   const out = {};
@@ -94,7 +95,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   app.get(['/health', '/api/health'], (req, res) => res.json({ ok: true }));
 
   app.get('/link', (req, res) => {
-    const r = A.consumeLink(db, String(req.query.token || ''), { invite: req.query.invite ? String(req.query.invite) : undefined, env, ua: String(req.headers['user-agent'] || '') });
+    const r = A.consumeLink(db, String(req.query.token || ''), { invite: req.query.invite ? String(req.query.invite) : undefined, env, ua: String(req.headers['user-agent'] || ''), mfaRequired: (u) => M.isRequired(db, u) });
     // Réponses uniformes : un échec ne dit jamais POURQUOI (jeton falsifié, rejoué, utilisateur non invité...). Seuls « expiré » et « indisponible » sont distincts.
     if (!r.ok) { aud(req, 'link_refused', { reason: r.error }, null); }
     else aud(req, 'link_ok', { role: r.user.role }, r.user.id);
@@ -132,9 +133,34 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
 
   app.use('/api', (req, res, next) => (req.path === '/health' ? next() : auth(req, res, next)));
 
+  // Porte d'authentification forte : tant que le TOTP exigé (expert, courtier connecté, TOTP activé) n'est pas vérifié sur CETTE session,
+  // seules l'identité, l'enrôlement/la vérification, la déconnexion et la fermeture des sessions répondent. Aucune donnée financière.
+  const MFA_OPEN = new Set(['/me', '/logout', '/security/sessions/revoke-all']);
+  app.use('/api', (req, res, next) => {
+    if (MFA_OPEN.has(req.path) || req.path.startsWith('/auth/')) return next();
+    if (req.session.authLevel >= 1 || !M.isRequired(db, req.user)) return next();
+    err(res, 403, M.isEnrolled(db, req.user.id) ? 'mfa_required' : 'mfa_enroll_required', 'Vérification en deux étapes requise.');
+  });
+  const mfaState = (req) => {
+    const required = M.isRequired(db, req.user), enrolled = M.isEnrolled(db, req.user.id);
+    const su = req.session.stepUpAt ? Date.parse(req.session.stepUpAt) + A.STEPUP_TTL_MS : 0;
+    return { required, enrolled, verified: req.session.authLevel >= 1, stepUpUntil: su > Date.now() ? new Date(su).toISOString() : null, backupRemaining: enrolled ? M.backupRemaining(db, req.user.id) : 0 };
+  };
+  // Nouvel identifiant de session après élévation (TOTP vérifié) : cookie neuf ; l'ancien jeton est mort. Bearer : jeton neuf dans le corps.
+  const elevate = (req, res, { authLevel = 1 } = {}) => {
+    const fresh = A.rotateSession(db, req.sessionToken, { authLevel, stepUp: true });
+    if (!fresh) return null;
+    const left = Math.max(60, Math.floor((Date.parse(req.session.expiresAt) - Date.now()) / 1000));
+    res.setHeader('Set-Cookie', sessionCookie(req, fresh, left));
+    req.sessionToken = fresh;
+    return fresh;
+  };
+  const mfaFail = (res, v) => err(res, 401, 'invalid_code', 'Code invalide.'); // réponse identique pour tout échec (format, faux, rejoué, secours)
+
+
   app.get('/api/me', (req, res) => {
     const connected = !!db.prepare('SELECT 1 FROM broker_tokens WHERE userId = ?').get(req.user.id);
-    res.json({ id: req.user.id, name: req.user.name, role: req.user.role, brokerConnected: connected });
+    res.json({ id: req.user.id, name: req.user.name, role: req.user.role, brokerConnected: connected, mfa: mfaState(req) });
   });
 
   app.get('/api/portfolio', (req, res) => {
@@ -226,6 +252,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const token = req.body && req.body.token;
     if (typeof token !== 'string' || !BT.isValidTokenFormat(token.trim())) return err(res, 422, 'invalid_token', 'Format de jeton refusé.');
     if (!BT.hasEncryptionKey(env)) return err(res, 503, 'broker_unavailable', 'Connexion du courtier indisponible : la clé de chiffrement TRADE_TOKEN_KEY n’est pas configurée sur le serveur.');
+    if (!M.isEnrolled(db, req.user.id)) return err(res, 403, 'mfa_enroll_required', 'Active d’abord la vérification en deux étapes.');
     const had = BT.hasBrokerToken(db, req.user.id);
     try { BT.saveBrokerToken(db, req.user.id, token.trim(), { env }); } catch { return err(res, 500, 'store_failed', 'Jeton non enregistré.'); }
     aud(req, had ? 'broker_token_replaced' : 'broker_token_set', {});
@@ -258,6 +285,37 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     res.status(201).json(inv);
   });
   app.get('/api/invitations', expertOnly, (req, res) => res.json({ invitations: A.listInvitations(db) }));
+
+  // --- Authentification forte (TOTP) ---
+  // Enrôlement : clé + QR local (rien n'est envoyé à un tiers). Non confirmé tant qu'un premier code valide n'a pas été saisi.
+  app.post('/api/auth/totp/enroll', (req, res) => {
+    try {
+      const e = M.startEnroll(db, req.user, env);
+      aud(req, 'totp_enroll_started', {});
+      res.json({ secret: e.secret, otpauth: e.otpauth, qrSvg: e.qrSvg });
+    } catch (x) {
+      if (x.code === 'already_enrolled') return err(res, 409, 'already_enrolled', 'Déjà activé.');
+      if (x.code === 'no_key') return err(res, 503, 'mfa_unavailable', 'Vérification en deux étapes indisponible : TRADE_TOKEN_KEY n’est pas configurée.');
+      err(res, 500, 'server_error', 'Erreur du serveur.');
+    }
+  });
+  app.post('/api/auth/totp/confirm', (req, res) => {
+    const v = M.confirmEnroll(db, req.user.id, req.body && req.body.code, env);
+    if (!v.ok) { aud(req, 'totp_confirm_failed', {}); return mfaFail(res, v); }
+    aud(req, 'totp_enrolled', {});
+    const fresh = elevate(req, res);
+    res.json({ ok: true, backupCodes: v.backupCodes, ...(req.headers.authorization ? { session: fresh } : {}) });
+  });
+  // Connexion (niveau 0 -> 1) ET ré-authentification (valide 5 min) : même route, même vérification. L'identifiant de session change.
+  app.post('/api/auth/verify', (req, res) => {
+    if (!M.isEnrolled(db, req.user.id)) return err(res, 403, 'mfa_enroll_required', 'Active d’abord la vérification en deux étapes.');
+    const wasLogin = req.session.authLevel < 1;
+    const v = M.verifyCode(db, req.user.id, req.body && req.body.code, env);
+    if (!v.ok) { aud(req, wasLogin ? 'totp_failed' : 'stepup_failed', {}); return mfaFail(res, v); }
+    const fresh = elevate(req, res);
+    aud(req, v.method === 'backup' ? 'backup_code_used' : wasLogin ? 'totp_verified' : 'stepup_ok', v.method === 'backup' ? { remaining: v.remaining } : {});
+    res.json({ ok: true, method: v.method, ...(v.method === 'backup' ? { backupRemaining: v.remaining } : {}), ...(req.headers.authorization ? { session: fresh } : {}) });
+  });
 
   // Sessions du compte ; « fermer toutes mes sessions » (appareil perdu, doute) : toutes les sessions disparaissent, celle-ci comprise.
   app.get('/api/security/sessions', (req, res) => res.json({ sessions: A.listSessions(db, req.user.id, req.sessionToken) }));

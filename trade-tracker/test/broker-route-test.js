@@ -6,6 +6,7 @@ const { migrate } = require('../server/db');
 const { createApp } = require('../server/app');
 const A = require('../server/lib/auth');
 const B = require('../server/lib/brokertoken');
+const { enrollAndVerify } = require('./mfa-helper');
 
 (async () => {
   const secret = crypto.randomBytes(16).toString('hex');
@@ -15,10 +16,11 @@ const B = require('../server/lib/brokertoken');
     const server = createApp(db, { env: { TRADE_LINK_SECRET: secret, ...env }, limits }).listen(0);
     return { db, server, base: 'http://127.0.0.1:' + server.address().port };
   };
-  const login = async (ctx, sub) => {
+  const login = async (ctx, sub, { enroll = true } = {}) => {
     ctx.db.prepare("INSERT OR IGNORE INTO tt_users (tmtUserId,name,role) VALUES (?,?,'client')").run(sub, sub);
     const r = await fetch(ctx.base + '/link?token=' + A.signLinkToken({ sub, name: sub, ua: 'node' }, secret), { redirect: 'manual' });
-    return r.headers.get('set-cookie').split(';')[0];
+    if (!enroll) return r.headers.get('set-cookie').split(';')[0];
+    return (await enrollAndVerify(ctx.base, r.headers.get('set-cookie').split(';')[0])).cookie; // le TOTP est exigé pour connecter un courtier
   };
   const call = (ctx, method, p, cookie, body) => fetch(ctx.base + p, { method, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)) });
   const servers = [];
@@ -80,7 +82,7 @@ const B = require('../server/lib/brokertoken');
 
     // clé absente : refus clair, rien de stocké
     const nk = mk({}); servers.push(nk.server);
-    const cn = await login(nk, 'u1');
+    const cn = await login(nk, 'u1', { enroll: false });
     r = await call(nk, 'POST', '/api/broker/token', cn, { token: secretTok });
     const nt = await r.text();
     assert.strictEqual(r.status, 503); assert(nt.includes('TRADE_TOKEN_KEY')); assert(!nt.includes(secretTok));
