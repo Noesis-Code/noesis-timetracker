@@ -1349,6 +1349,7 @@
     "Proposition de Noèsis": "Noèsis suggestion",
     "Garder le mien": "Keep mine",
     "Appliquer": "Apply",
+    "Secteur": "Sector",
     "Ce plafond serait dépassé. Nouveau plan proposé (rien n'est modifié sans ta validation).": "This limit would be exceeded. New plan proposed (nothing changes without your approval).",
     "Modifier la tâche": "Edit task",
     "Nom de la tâche": "Task name",

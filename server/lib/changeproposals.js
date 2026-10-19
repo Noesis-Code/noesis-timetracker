@@ -60,7 +60,7 @@ const FIELDS = {
   task: { date: 'date', text: 'text', retirer: 'retirer' },
   weekly: { time: 'time', instruction: 'instruction' },
 };
-const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne', retirer: 'Retirer (hors stratégie)' };
+const FIELD_LABEL = { date: 'Date', text: 'Texte', time: 'Temps estimé', instruction: 'Consigne', retirer: 'Retirer (hors stratégie)', category: 'Secteur' };
 
 // ---------- Contexte ----------
 function buildContext(userId, activityId) {
@@ -222,13 +222,38 @@ function withLabels(rows, viewerId) {
   });
 }
 
+// Suggestions inter-secteurs (moteur crosssectorinference.js, aucun appel IA ici) : une tâche libre jugée mieux placée dans un
+// autre secteur devient une ligne 'pending' (champ « category », avant/après = clés) dans CETTE fenêtre. Hash par tâche + cible :
+// un refus est mémorisé et la proposition n'est jamais refaite. Rien n'est déplacé avant validation.
+function syncCrossSector(activityId) {
+  try {
+    const sug = db.prepare("SELECT * FROM goal_cross_sector_suggestions WHERE activityId = ? AND status = 'pending' AND sourceType = 'task' AND sourceItemId IS NOT NULL").all(activityId);
+    if (!sug.length) return;
+    const setSt = db.prepare('UPDATE goal_cross_sector_suggestions SET status = ?, updatedAt = ? WHERE id = ?');
+    const getItem = db.prepare(`SELECT i.id, i.done, i.plannedUserId AS uid, sp.createdBy AS cb, sp.goalCategory AS cat FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId WHERE i.id = ? AND sp.activityId = ?`);
+    const now = new Date().toISOString();
+    sug.forEach((x) => {
+      const it = getItem.get(x.sourceItemId, activityId);
+      if (!it || it.done || it.cat !== x.sourceCategory || it.cat === x.targetCategory || !goals.isValidCategoryOrSecteurForActivity(activityId, x.targetCategory)) { setSt.run('obsolete', now, x.id); return; }
+      const uid = it.uid || it.cb || (db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(activityId) || {}).ownerId;
+      if (!uid) return;
+      store(uid, activityId, [{ target: 'task', targetId: it.id, field: 'category', before: it.cat, after: x.targetCategory, reason: String(x.reason || '').slice(0, 160) }]);
+      setSt.run('proposed', now, x.id);
+    });
+  } catch (e) { /* non bloquant : la fenêtre s'affiche sans ces propositions */ }
+}
+
 function list(activityId, viewerId) {
+  syncCrossSector(activityId);
   const today = todayIso();
   // Exclut les reports dont la cause est une date déjà passée (y compris les lignes déjà stockées).
   const rows = db.prepare("SELECT * FROM change_proposals WHERE activityId = ? AND status = 'pending' ORDER BY createdAt DESC, id DESC").all(activityId)
     .filter((r) => !(r.target === 'task' && r.field === 'date' && r.beforeValue && r.beforeValue < today))
     .filter((r) => !isSpellingOnly(r.field, r.beforeValue, r.afterValue, r.reason)); // corrections orthographiques déjà stockées : masquées
-  return withLabels(rows, viewerId);
+  const out = withLabels(rows, viewerId);
+  const catLabel = (k) => { try { const f = require('./crosssectorinference').flattenCategories(activityId).find((c) => c.key === k); return f ? f.label : k; } catch (e) { return k; } };
+  out.forEach((o) => { if (o.field === 'category') { o.before = catLabel(o.before); o.after = catLabel(o.after); } });
+  return out;
 }
 
 // Stocke des changements validés ('pending' uniquement) ; renvoie le nombre de nouvelles lignes.
@@ -443,6 +468,12 @@ function applyOne(userId, activityId, r) {
     const cur = db.prepare(`SELECT i.id, i.label, i.dueDate, i.done FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
       WHERE i.id = ? AND sp.activityId = ?`).get(r.targetId, activityId);
     if (!cur || cur.done) return 'tâche introuvable ou terminée';
+    if (r.field === 'category') { // envoi vers un autre secteur : fonction de déplacement existante, après contrôle de l'état d'origine
+      const sp = db.prepare('SELECT sp.goalCategory AS cat FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId WHERE i.id = ?').get(r.targetId);
+      if (!sp || sp.cat !== r.beforeValue) return 'déjà modifiée depuis la proposition';
+      require('./goalstasks').moveCategoryTask(activityId, userId, r.targetId, r.afterValue);
+      return null;
+    }
     const now = r.field === 'date' ? (cur.dueDate || '') : cur.label;
     if (now !== (r.beforeValue || '')) return 'déjà modifiée depuis la proposition';
     if (r.field === 'retirer') { subprojects.deleteItem(r.targetId); return null; } // validé par l'utilisateur

@@ -269,6 +269,8 @@ async function main() {
 
   try { execFileSync('node', [path.join(__dirname, 'hebdo-recentdone-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'prompt hebdo : dernières tâches terminées bornées (test/hebdo-recentdone-test.js) passe'); }
   catch (e) { assert(false, 'prompt hebdo : dernières tâches terminées bornées (test/hebdo-recentdone-test.js) échoue'); }
+  try { execFileSync('node', [path.join(__dirname, 'intersecteurs-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'suggestions inter-secteurs dans Modifications proposées (test/intersecteurs-test.js) passe'); }
+  catch (e) { assert(false, 'suggestions inter-secteurs dans Modifications proposées (test/intersecteurs-test.js) échoue'); }
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });
