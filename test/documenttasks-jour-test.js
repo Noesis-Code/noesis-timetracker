@@ -83,9 +83,10 @@ const fin = (rows, doc) => {
   const y = Number(nextMon.slice(0, 4));
   goals.setYearGoal(act, key, 'OBJ-ANNUEL-XYZ', y);
   goals.ensurePlan(act, key); goals.planningForActivity(act, key);
-  const per = db.prepare('SELECT id, periodNumber FROM goal_periods WHERE activityId = ? AND category = ? AND startDate <= ? AND endDate >= ?').get(act, key, nextMon, nextMon);
+  const per = db.prepare('SELECT id, periodNumber, startDate FROM goal_periods WHERE activityId = ? AND category = ? AND startDate <= ? AND endDate >= ?').get(act, key, nextMon, nextMon);
   db.prepare("UPDATE goal_periods SET mainGoalText = 'OBJ-PERIODIQUE-XYZ' WHERE id = ?").run(per.id);
-  goals.setWeekly(act, key, per.periodNumber, 1, 'OBJ-HEBDO-XYZ', '', 60);
+  const wi = Math.round((Date.parse(nextMon) - Date.parse(per.startDate)) / (7 * 86400000)) + 1; // semaine de nextMon dans la période (dépend de la date du jour)
+  goals.setWeekly(act, key, per.periodNumber, wi, 'OBJ-HEBDO-XYZ', '', 60);
   const ctx = dt.buildContext('own', act);
   const stable = dt.buildUserParts(ctx, 'x', '').stable;
   assert(/OBJ-ANNUEL-XYZ/.test(stable) && /OBJ-PERIODIQUE-XYZ/.test(stable) && /OBJ-HEBDO-XYZ/.test(stable), 'prompt : objectifs annuel + périodique + hebdomadaire');
