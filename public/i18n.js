@@ -383,6 +383,8 @@
     "Être trouvable dans la recherche de l'écran de connexion": 'Be findable in the sign-in screen search',
     'Joindre une photo ou un document': 'Attach a photo or document',
     'Message envoyé. Merci !': 'Message sent. Thank you!',
+    'Une amélioration à suggérer ?': 'An improvement to suggest?',
+    'Merci pour ta suggestion.': 'Thanks for your suggestion.',
     // 'Écrire aux membres' : placeholder du composeur de Communauté
     // (#communityMyPostsInput), 3 septembre 2026, demande d'Emilien.
     'Écrire aux membres': 'Write to members',
