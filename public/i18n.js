@@ -55,7 +55,6 @@
     "Noèsis s'ouvre dans sa propre fenêtre, accessible depuis ton bureau ou ton menu de démarrage.": 'Noèsis opens in its own window, accessible from your desktop or start menu.',
     'Tape ton nom complet...': 'Type your full name...',
     'Tape au moins 3 caractères de ton nom complet pour retrouver ton profil.': 'Type at least 3 characters of your full name to find your profile.',
-    "Comment veux-tu qu'on t'appelle ?": 'What should we call you?',
     "Comment t'appelles-tu ?": "What's your name?",
     'Prénom ou pseudo': 'First name or nickname',
     'Prénom': 'First name',
@@ -76,34 +75,10 @@
     // ---- Onboarding "à la iPhone" (15 septembre 2026, chantier
     // "Onboarding à la iPhone") : écran de bienvenue, choix du thème,
     // suggestions d'activités et mini-tour de 6 cartes. ----
-    'Bienvenue sur Noèsis': 'Welcome to Noèsis',
-    "Le temps est la seule ressource qu'on ne récupère jamais. Noèsis existe pour t'aider à voir où passe le tien — pas pour te surveiller, mais pour t'aider à avancer, seul ou avec les tiens, vers ce qui compte vraiment pour toi.": "Time is the one resource you never get back. Noèsis exists to help you see where yours goes — not to watch over you, but to help you move forward, alone or with the people around you, toward what truly matters to you.",
-    'Commencer': 'Get started',
-    'Tu pourras en changer à tout moment dans Réglages.': 'You can change this anytime in Settings.',
-    "Une activité, c'est un projet, un rôle, une part de ta vie que tu veux suivre dans le temps. Choisis-en une ou deux pour commencer — tu pourras en ajouter/modifier plus tard dans Activité.": "An activity is a project, a role, a part of your life you want to track over time. Pick one or two to start — you can add or edit them later in Activity.",
-    '+ Créer une activité personnalisée': '+ Create a custom activity',
-    'Travail': 'Work',
-    'Études': 'Studies',
-    'Famille': 'Family',
-    'Loisirs': 'Leisure',
-    'Bénévolat': 'Volunteering',
     'Passer': 'Skip',
-    'Suivant': 'Next',
     'Terminer': 'Done',
     'Aide': 'Help',
-    'Revoir le tour de bienvenue': 'Replay the welcome tour',
-    'Pourquoi Noèsis existe': 'Why Noèsis exists',
-    "On ne peut pas vraiment gérer ce qu'on ne voit pas. La plupart d'entre nous sentons que notre temps nous échappe, sans jamais savoir précisément où il part. Noèsis rend ton temps visible, pour que tes choix redeviennent les tiens.": "You can't really manage what you can't see. Most of us feel our time slipping away without ever knowing exactly where it goes. Noèsis makes your time visible, so your choices become yours again.",
-    'Chrono — le geste le plus simple': 'Chrono — the simplest gesture',
-    "Un tap suffit pour démarrer ou arrêter. Moins la mesure demande d'effort, plus elle reflète ta vraie journée — pas une reconstitution approximative faite le soir venu.": "One tap is all it takes to start or stop. The less effort tracking takes, the more it reflects your real day — not a rough reconstruction made at the end of it.",
     'Statistiques — voir avant de juger': 'Statistics — see before you judge',
-    "Les chiffres ne mentent pas, mais ils n'accusent pas non plus. Tes statistiques existent pour t'informer, jamais pour te culpabiliser : vois-les comme une carte, pas comme une note.": "Numbers don't lie, but they don't accuse either. Your stats are there to inform you, never to make you feel guilty — think of them as a map, not a grade.",
-    'Objectifs — donner une direction au temps': 'Goals — giving time a direction',
-    "Suivre son temps sans savoir pourquoi finit par lasser. Fixe-toi des objectifs qui comptent vraiment pour toi : le temps suivi prend alors un sens, pas seulement une mesure.": "Tracking time without knowing why gets tiring. Set goals that truly matter to you, and the time you track gains meaning — not just a measurement.",
-    'Communauté — avancer avec les tiens': 'Community — moving forward together',
-    "Certains efforts se tiennent mieux à plusieurs. Communauté te permet de partager ton avancement avec les personnes qui comptent pour toi, pour vous encourager mutuellement plutôt que de rester seul face à tes chiffres.": "Some efforts are easier to sustain together. Community lets you share your progress with the people who matter to you, so you can encourage each other instead of facing your numbers alone.",
-    'Activité — ton fil du temps': 'Activity — your timeline',
-    "Un journal complet de ce que tu as accompli, activité par activité. De quoi te rendre compte, avec le recul, de tout ce que tu as réellement fait — souvent plus que tu ne le crois.": "A complete log of what you've accomplished, activity by activity. Enough to realize, in hindsight, everything you actually got done — often more than you think.",
     // Variante "dans Activité" : le texte HTML actuel dit désormais "Activité"
     // (renommage du volet de gestion des activités survenu après l'écriture
     // de la clé ci-dessus, qui est donc orpheline) — clé ci-dessus gardée
@@ -129,7 +104,6 @@
 
     // ---- Chrono ----
     'Quelle activité ?': 'Which activity?',
-    "Aucune activité pour l'instant — ajoutes-en une dans Profil.": 'No activities yet — add one in Profile.',
     // Même défaut que ci-dessus, même cause (renommage "Profil" → "Activité"
     // du volet de gestion des activités) : clé ci-dessus orpheline, celle-ci
     // ajoutée pour le texte réellement affiché. Trouvée et comblée le
@@ -138,7 +112,6 @@
     "Aucune activité pour l'instant — ajoutes-en une dans Activité.": 'No activities yet — add one in Activity.',
     'Note': 'Note',
     'Envoyer à la communauté': 'Send to community',
-    "Cette activité n'est partagée avec personne pour l'instant — choisis \"communauté\" ou partage-la depuis Profil.": 'This activity is not shared with anyone yet — choose "community", or share it from Profile.',
     "Confirmer l'arrêt": 'Confirm stop',
     'Heure de début': 'Start time',
     'Heure de fin': 'End time',
@@ -153,8 +126,6 @@
     'Visibilité': 'Visibility',
     'Fusionner avec…': 'Merge with…',
     'Modifier cette activité': 'Edit this activity',
-    'Visible dans tes statistiques, pas dans celles des autres. Les membres d’une activité partagée voient quand même tes statistiques de cette activité. Ce réglage est le tien.': 'Visible in your statistics, not in other people’s. Members of a shared activity still see your statistics for that activity. This setting is yours.',
-    'Visible dans les statistiques que voient les autres. Ce réglage est le tien.': 'Visible in the statistics others see. This setting is yours.',
     'Absent': 'Off',
     'Gestion de l\'IA': 'AI management',
     'Tâche': 'Task',
@@ -243,13 +214,8 @@
     'Communauté': 'Community',
     'Membres': 'Members',
     'Suivi': 'Following',
-    'Les personnes que tu suis, et leurs activités/notes si elles ont activé "Partager mon profil" (Profil > Réglages).': 'The people you follow, and their sessions and notes if they share their profile (Profile > Settings).',
-    "Tu ne suis personne pour l'instant — trouve un membre ci-dessus et clique sur \"Suivre\".": 'You are not following anyone yet — find a member above and click "Follow".',
-    "Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit aucune session n'a encore été enregistrée.": 'Nothing to show yet: either nobody shares their profile with you, or no session has been recorded.',
     'Mes activités partagées': 'My shared activities',
-    "Rien à afficher pour l'instant pour cette activité.": 'Nothing to show yet for this activity.',
     'Partagée': 'Shared',
-    "Rien à afficher pour l'instant.": 'Nothing to show yet.',
     'Fermer': 'Close',
     'Voir les membres': 'View members',
     // ---- Fusion de deux activités (2 septembre 2026) ----
@@ -273,22 +239,14 @@
     'Supprimer cette adresse': 'Delete this address',
     'Supprimer cette adresse ?': 'Delete this address?',
     'Noèsis ne lira plus cet agenda.': 'Noèsis will no longer read this calendar.',
-    'Mon agenda': 'My calendar',
-    'Colle l\u2019adresse ICS de ton agenda': 'Paste your calendar ICS address',
     'Colle d\u2019abord l\u2019adresse de ton agenda.': 'Paste your calendar address first.',
     'Agenda enregistré.': 'Calendar saved.',
-    'Réglages enregistrés.': 'Settings saved.',
     'Enregistré.': 'Saved.',
     'Répartition selon mon agenda': 'Planning based on my calendar',
-    'Heures chez moi les jours travaillés ailleurs': 'Hours at home on days worked elsewhere',
-    'Heures chez moi les autres jours': 'Hours at home on other days',
-    'Agenda retiré.': 'Calendar removed.',
     'Exporter mes données vers le calendrier': 'Export my data to the calendar',
     'Importer un calendrier dans l\'appli': 'Import a calendar into the app',
     "Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis ne garde que les heures occupées et compare les titres à tes règles, rien d'autre.": "Paste the ICS address of a calendar (Google Calendar, Apple Calendar…); you can add several. Noèsis only keeps busy hours and compares titles with your rules, nothing else.",
     "Chaque règle s'applique aux jours où un événement a un titre contenant un de ses mots ; si plusieurs s'appliquent, la plus restrictive gagne. Seuls les titres sont comparés, rien n'est conservé.": "Each rule applies to days with an event whose title contains one of its words; if several apply, the strictest wins. Only titles are compared, nothing is kept.",
-    "Connecte d'abord un agenda ci-dessus pour activer ces règles.": "Connect a calendar above first to enable these rules.",
-    'Tous les autres jours': 'All other days',
     'Si le titre contient': 'If the title contains',
     'vacances, congé': 'vacation, leave',
     'bureau': 'office',
@@ -297,8 +255,6 @@
     'max. h': 'max. h',
     'Supprimer cette règle': 'Delete this rule',
     'Tu peux créer 20 règles au maximum.': 'You can create up to 20 rules.',
-    '+ Ajouter une règle': '+ Add a rule',
-    'Tous les autres jours : heures chez moi': 'All other days: hours at home',
     'Retirer': 'Remove',
     'Joindre un document ou une image': 'Attach a document or an image',
     'Image illisible.': 'Unreadable image.',
@@ -324,7 +280,6 @@
     'Demande envoyée': 'Request sent',
     'Annuler la demande': 'Cancel the request',
     'Suivre': 'Follow',
-    'Aucune demande en attente.': 'No pending request.',
     // 10 septembre 2026 : phrase unique du panneau de l'avion en papier,
     // affichée seulement quand il n'y a NI invitation NI demande de suivi.
     // Les deux clés par liste ('Aucune demande en attente.',
@@ -475,8 +430,6 @@
     'Choisis où placer les tâches de ce secteur.': 'Choose where to place this sector’s tasks.',
     'Responsable': 'Assignee',
     'Apparence': 'Appearance',
-    '☀️ Clair': '☀️ Light',
-    '🌙 Sombre': '🌙 Dark',
     // Option Contact (7 septembre 2026, demande d'Emilien : autoriser ses
     // abonnés à contacter par email/téléphone) : gap de traduction trouvé et
     // comblé le 10 septembre 2026 (signalé par Emilien — « certains
@@ -488,7 +441,6 @@
     'Nouveau code (4 à 6 chiffres)': 'New PIN (4 to 6 digits)',
     'Confirme le nouveau code': 'Confirm the new PIN',
     'Changer mon code': 'Change my PIN',
-    "Importer l'historique existant": 'Import existing history',
 
     // ---- Doublons d'import (30 août 2026, rétabli le 1er septembre) ----
     'Format non supporté — choisis une image PNG, JPEG ou WebP.': 'Unsupported format — choose a PNG, JPEG or WebP image.',
@@ -502,25 +454,20 @@
     'Le nouveau code doit comporter 4 à 6 chiffres.': 'The new PIN must have 4 to 6 digits.',
     'Code mis à jour.': 'PIN updated.',
     'Se déconnecter de ce profil sur cet appareil ?': 'Log out of this profile on this device?',
-    "Aucune activité pour l'instant — ajoute la première ci-dessous.": 'No activity yet — add your first one below.',
     'Glisse pour réordonner, touche le nom ou la couleur pour les modifier.': 'Drag to reorder, tap the name or the colour to change them.',
     'Déplacer cette activité': 'Move this activity',
     'Déplacer ce projet': 'Move this project',
     'Changer la couleur': 'Change the colour',
     'Supprimer cette activité': 'Delete this activity',
-    'Fusionner cette activité': 'Merge this activity',
     'Partager': 'Share',
     'Séparer': 'Split off',
     'Supprimer définitivement': 'Delete permanently',
-    'Aucune invitation en attente.': 'No pending invitation.',
 
     // ---- Phrases à emplacement variable ({nom} remplacé à l'affichage) ----
     'Code de {name}': 'PIN for {name}',
     'Définis un code pour {name}': 'Set a PIN for {name}',
     'Durée : {duration}': 'Duration: {duration}',
-    'Te désabonner de {name} ?': 'Unfollow {name}?',
     'Confirmer le désabonnement ?': 'Confirm unfollow?',
-    'Confirmer le blocage ?': 'Confirm block?',
     'Bloqué': 'Blocked',
     'Bloquer {name} ? Cette personne sera retirée de tes abonnés et ne pourra plus te suivre tant que tu ne l\'auras pas débloquée.': 'Block {name}? This person will be removed from your followers and won\'t be able to follow you again until you unblock them.',
     '{name} souhaite te suivre.': '{name} wants to follow you.',
@@ -536,7 +483,6 @@
     // (10 septembre 2026, demande d'Emilien — texte du champ et confirmation
     // revus au second passage : recherche seule à l'écran, une suggestion
     // cliquée ouvre directement Valider/Annuler) ----
-    'Rechercher...': 'Search...',
     'Voulez-vous inviter {name} à rejoindre cette activité ?': 'Do you want to invite {name} to join this activity?',
     'Exclure': 'Exclude',
     'Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.':
@@ -632,7 +578,6 @@
     "Arrête le chrono en cours sur l'activité à fusionner avant d'accepter.": 'Stop the running timer on the activity to merge before accepting.',
     "Cette activité n'est pas partagée, il n'y a rien à séparer.": 'This activity is not shared, there is nothing to split off.',
     "Cette activité n'est pas partagée.": 'This activity is not shared.',
-    "Cette activité n'est pas partagée avec d'autres membres.": 'This activity is not shared with other members.',
     "Cette activité n'existe plus.": 'This activity no longer exists.',
     'Arrête le chrono en cours sur cette activité avant de la séparer.': 'Stop the running timer on this activity before splitting it off.',
     'Arrête le chrono en cours sur cette activité avant de la supprimer.': 'Stop the running timer on this activity before deleting it.',
@@ -670,7 +615,6 @@
     'Format de photo invalide.': 'Invalid photo format.',
     'Photo trop lourde — réessaie avec une image plus petite.': 'Photo too large — try again with a smaller image.',
     "Ce profil n'a pas encore de code.": 'This profile has no PIN yet.',
-    "Trop d'essais. Réessaie dans une minute.": 'Too many attempts. Try again in a minute.',
     'Code incorrect.': 'Wrong PIN.',
     'Code actuel incorrect.': 'Wrong current PIN.',
     'Non authentifié. Reconnecte-toi.': 'Not signed in. Please sign in again.',
@@ -728,7 +672,6 @@
     '{n} projet(s)': '{n} project(s)',
     'Quelques profils à découvrir.': 'A few profiles to discover.',
     'Aucun projet': 'No project',
-    "Aucun message pour l'instant.": 'No message yet.',
     "Rien d'enregistré pour l'instant.": 'Nothing recorded yet.',
     'Connecte-toi pour voir ce profil.': 'Sign in to view this profile.',
     'Tu dois suivre ce profil pour voir ses messages.': 'You need to follow this profile to see its messages.',
@@ -767,9 +710,6 @@
     // 'Sous-projets' retiré le 16 septembre 2026 (discussion Objectifs — C) :
     // c'était la seule traduction de ce texte, remplacé par "Tâches" sur le
     // bouton de la fenêtre activité (clé 'Tâches' déjà présente plus bas).
-    'Nom du sous-projet': 'Sub-project name',
-    'Ex. Refonte du site': 'E.g. Website redesign',
-    'Description (facultatif)': 'Description (optional)',
     'Tâches': 'Tasks',
     'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
     'Ajouter une tâche...': 'Add a task...',
@@ -862,16 +802,10 @@
     'scope et scopeId requis.': 'scope and scopeId are required.',
     'Accès refusé.': 'Access denied.',
     // ---- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) ----
-    'Retirer les sondages': 'Remove the polls',
-    'Retirer la discussion': 'Remove the discussion',
-    'Retirer cette section': 'Remove this section',
-    'Retirer cette section ?': 'Remove this section?',
     'sondages': 'polls',
     'discussion': 'discussion',
     'vide': 'empty',
-    'Tout son contenu sera supprimé pour tous les membres. Confirmer ?': 'All of its content will be deleted for every member. Confirm?',
     // Messages d'erreur renvoyés par server/routes/subprojects.js
-    'Section introuvable.': 'Section not found.',
 
 
     // ---- Sous-projets : anneau d'avancement et mode édition (3 sept. 2026) ----
@@ -917,8 +851,6 @@
     'Objectifs hebdomadaires proposés': 'Suggested weekly objectives',
     'Modifie ou vide une ligne, puis valide. Rien n’est enregistré avant ta validation.': 'Edit or clear a line, then confirm. Nothing is saved until you confirm.',
     'Nouvelle tâche': 'New task',
-    'Nouveau sondage': 'New poll',
-    'Nouvelle discussion': 'New discussion',
     'Glisse pour réordonner, touche le nom pour le modifier.': 'Drag to reorder, tap the name to change it.',
     'Supprimer « ': 'Delete “',
     ' » ?': '”?',
@@ -933,16 +865,9 @@
     'Sans sous-projet': 'No sub-project',
     // Messages renvoyés par le serveur (server/lib/entrysubproject.js).
     'Sous-projet invalide.': 'Invalid sub-project.',
-    "Ce sous-projet n'appartient pas à cette activité.": 'This sub-project does not belong to this activity.',
-    'Ce sous-projet est clôturé.': 'This sub-project is closed.',
 
     // ---- Date de clôture sur la ligne d'un sous-projet (4 septembre 2026) ----
-    'toucher pour modifier': 'tap to change',
     'Clôture': 'Closing date',
-    "Retirer l'échéance": 'Remove the deadline',
-    'Choisis une date, ou touche « Retirer l\'échéance ».': 'Pick a date, or tap “Remove the deadline”.',
-    'Clôture le ': 'Closes on ',
-    'Clôturé le ': 'Closed on ',
 
     // ---- Flux calendrier des échéances (4 septembre 2026) ----
     'Calendrier': 'Calendar',
@@ -1000,10 +925,8 @@
     'Écris ta réponse.': 'Write your answer.',
     'Annuler la création du sondage': 'Cancel poll creation',
     'Annuler la création': 'Cancel',
-    'Sortir': 'Exit',
     ' sous-projet clôturé': ' closed sub-project',
     ' sous-projets clôturés': ' closed sub-projects',
-    ' — afficher': ' — show',
 
     // ---- Objectifs (planning annuel) — Chantier 1, 12 septembre 2026 ----
     // 'Semaine' et 'Année' existent déjà plus haut (Statistiques) et sont
@@ -1018,9 +941,6 @@
     'Ajoute une activité pour commencer à te fixer des objectifs.': 'Add an activity to start setting yourself goals.',
     'Période précédente': 'Previous period',
     'Période suivante': 'Next period',
-    'Grand objectif de la période': 'Main goal for the period',
-    "Qu'est-ce que tu veux accomplir sur ces 4 semaines ?": 'What do you want to achieve over these 4 weeks?',
-    'Objectifs hebdomadaires — choisis 3 semaines sur 4': 'Weekly goals — pick 3 weeks out of 4',
     'Non atteint': 'Not met',
     'Partiel': 'Partial',
     'Atteint': 'Met',
@@ -1028,7 +948,6 @@
     'Pas encore assez d’historique pour estimer ce temps.': 'Not enough history yet to estimate this time.',
     'Estimation suggérée': 'Suggested estimate',
     'confiance': 'confidence',
-    'Réel': 'Actual',
     'justesse': 'accuracy',
     'Période': 'Period',
     'Tout': 'All',
@@ -1038,10 +957,7 @@
     'Faites à la date prévue': 'Done on the planned date',
     'En retard': 'Overdue',
     'Aucune tâche sur cette période.': 'No tasks in this period.',
-    'Pas encore commencée': 'Not started yet',
     'Reporté automatiquement depuis une semaine précédente, non atteinte.': 'Automatically carried over from a previous, unmet week.',
-    'Objectif de cette semaine (optionnel)': 'This week’s goal (optional)',
-    'Remplacer le temps saisi par l’estimation de Noèsis ?': 'Replace the entered time with Noèsis’s estimate?',
     'd’après le temps de la période': 'based on the period’s time',
     'Tous': 'All',
     'Public': 'Public',
@@ -1056,12 +972,10 @@
     'Décrire cet objectif': 'Describe this goal',
     'En cours': 'Current',
     'objectif(s) hebdomadaire(s) atteint(s).': 'weekly goal(s) met.',
-    'Bilan publié automatiquement dans le fil de discussion.': 'Recap automatically posted to the discussion thread.',
     'Bilan de la période': 'Period recap',
     'sur': 'out of',
     'objectifs hebdomadaires atteints': 'weekly goals met',
     'Aujourd’hui': 'Today',
-    'Temps pointé ce jour': 'Time tracked this day',
     'Impossible d’ajouter la tâche.': 'Could not add the task.',
 
     // ---- 20 septembre 2026 (discussion Objectifs — Logique métier, chantier
@@ -1081,7 +995,6 @@
     'Nouvelle tâche… Noèsis choisit son pôle': 'New task… Noèsis picks its division',
     // 22 sept. 2026 — capture hors ligne (zone « À classer »)
     'À classer': 'To sort',
-    'en attente de connexion': 'waiting for connection',
     'non ajoutée': 'not added',
     'Hors ligne — connecte-toi à internet pour continuer.': 'Offline — connect to the internet to continue.',
     // 25 sept. 2026 — données hors ligne
@@ -1104,11 +1017,7 @@
     'Arrêt hors ligne synchronisé ({activity}).': 'Offline stop synced ({activity}).',
     'Chrono hors ligne non synchronisé : {error}': 'Offline timer not synced: {error}',
     'Déplacer ce pôle': 'Move this division',
-    'Retirer ce pôle': 'Remove this division',
-    'Retirer ce pôle ? Son historique reste consultable mais il ne recevra plus de nouveaux objectifs.': 'Remove this division? Its history stays available but it will no longer receive new goals.',
     'Nom de pôle requis.': 'Division name required.',
-    'Chargement des pôles…': 'Loading divisions…',
-    'Impossible de charger les pôles Objectifs.': 'Unable to load Goals divisions.',
     'Maximum de pôles atteint ({max}).': 'Maximum number of divisions reached ({max}).',
     'Nouveau pôle': 'New division',
     'Ajouter un pôle': 'Add a division',
@@ -1116,35 +1025,26 @@
     'Cette activité n’a pas encore de pôle.': 'This activity has no division yet.',
     'Crée ton premier pôle pour organiser tes tâches et tes objectifs.': 'Create your first division to organise your tasks and goals.',
     'Nom de secteur requis.': 'Sector name required.',
-    'Monter ce secteur': 'Move this sector up',
-    'Descendre ce secteur': 'Move this sector down',
-    'Retirer ce secteur': 'Remove this sector',
-    'Retirer ce secteur ? Son historique reste consultable.': 'Remove this sector? Its history stays available.',
     'Nouveau secteur…': 'New sector…',
     'Déplacer vers…': 'Move to…',
     'Nouveau pôle': 'New division',
     'Nom du pôle': 'Division name',
-    'Description (facultative)': 'Description (optional)',
     'Ajouter un pôle': 'Add a division',
     'Voir mes dossiers connectés': 'View my connected folders',
-    'Mes dossiers connectés': 'My connected folders',
     'Déconnecter Drive': 'Disconnect Drive',
     'Nouvelles tâches': 'New tasks',
     'Modifications': 'Changes',
     'Rien à valider.': 'Nothing to review.',
     'Drive connecté': 'Drive connected',
     'Choisir un dossier': 'Choose a folder',
-    'Ajouter un dossier': 'Add a folder',
     'Aucun dossier connecté.': 'No connected folder.',
     'Réglages du dossier': 'Folder settings',
     'Modifier les réglages de ce dossier': 'Edit this folder’s settings',
-    'Surveillance active (décoche pour la mettre en pause)': 'Monitoring on (uncheck to pause it)',
     'Ajouter automatiquement les nouvelles tâches (sinon elles te sont proposées pour validation)': 'Add new tasks automatically (otherwise they are suggested for your approval)',
     'Consigne permanente (facultative)': 'Standing instruction (optional)',
     'Synchroniser maintenant': 'Sync now',
     '(en pause)': '(paused)',
     'Dossier introuvable.': 'Folder not found.',
-    'Lire un fichier avec l’IA': 'Read a file with the AI',
     // ---- Stratégie d'une activité (19 oct. 2026) ----
     'Stratégie': 'Strategy',
     'Stratégie de l’activité': 'Activity strategy',
