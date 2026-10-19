@@ -191,7 +191,7 @@ assert.strictEqual(Q.parseTokenResponse(fx('token'), 1000).apiServer, 'https://a
     const app = createApp(d, { env: { TRADE_LINK_SECRET: tl, TRADE_EXPERT_TMT_IDS: 'tmt-e', TRADE_TOKEN_KEY: env.TRADE_TOKEN_KEY } });
     const server = app.listen(0), base = 'http://127.0.0.1:' + server.address().port;
     try {
-      const l = await fetch(base + '/link?token=' + A.signLinkToken({ sub: 'tmt-e', name: 'e', email: 'e@ex.test' }, tl), { redirect: 'manual' });
+      const l = await fetch(base + '/link?token=' + A.signLinkToken({ sub: 'tmt-e', name: 'e', email: 'e@ex.test', ua: 'node' }, tl), { redirect: 'manual' });
       const cookie = l.headers.get('set-cookie').split(';')[0];
       const user = d.prepare('SELECT * FROM tt_users').get();
       B.saveBrokerToken(d, user.id, OLD, { env });

@@ -15,7 +15,7 @@ const { takeSnapshot } = require('../server/lib/snapshot');
   const server = createApp(db, { env }).listen(0);
   const base = 'http://127.0.0.1:' + server.address().port;
   const get = (p, cookie) => fetch(base + p, { redirect: 'manual', headers: cookie ? { cookie } : {} });
-  const tok = (sub, email) => A.signLinkToken({ sub, name: sub, email }, secret);
+  const tok = (sub, email) => A.signLinkToken({ sub, name: sub, email, ua: 'node' }, secret);
   const login = async (sub, email, invite) => {
     const r = await get('/link?token=' + tok(sub, email) + (invite ? '&invite=' + invite : ''));
     const sc = r.headers.get('set-cookie');
@@ -26,8 +26,8 @@ const { takeSnapshot } = require('../server/lib/snapshot');
     assert.strictEqual((await (await get('/api/health')).json()).ok, true);
     assert.strictEqual((await get('/api/portfolio')).status, 401);
     // lien invalide / non invité
-    let r = await get('/link?token=bidon'); assert.strictEqual(r.status, 302); assert(r.headers.get('location').includes('linkError=invalid'));
-    r = (await login('tmt-x', 'x@ex.test')).r; assert(r.headers.get('location').includes('not_invited'));
+    let r = await get('/link?token=bidon'); assert.strictEqual(r.status, 302); assert(r.headers.get('location').includes('linkError=denied'));
+    r = (await login('tmt-x', 'x@ex.test')).r; assert(r.headers.get('location').includes('linkError=denied'));
     // expert
     const ex = await login('tmt-e', 'e@ex.test');
     assert.strictEqual(ex.r.status, 302); assert.strictEqual(ex.r.headers.get('location'), '/');
@@ -112,7 +112,7 @@ const { takeSnapshot } = require('../server/lib/snapshot');
     assert.strictEqual((await get('/api/inconnue', ex.cookie)).status, 404);
     // rejeu d'un jeton
     const t = tok('tmt-e', ''); await get('/link?token=' + t);
-    assert((await get('/link?token=' + t)).headers.get('location').includes('replayed'));
+    assert((await get('/link?token=' + t)).headers.get('location').includes('linkError=denied'));
     console.log('api-test OK');
   } finally { server.close(); }
 })().catch((e) => { console.error(e); process.exit(1); });

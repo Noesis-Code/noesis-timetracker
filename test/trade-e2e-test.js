@@ -106,12 +106,12 @@ function tradeScript(code) {
   let me = await r.json();
   assert(r.status === 200 && me.role === 'expert', 'session valide : /api/me expert');
   r = await fetch(link.url, { redirect: 'manual' });
-  assert(r.status === 302 && /linkError=replayed/.test(r.headers.get('location')) && !setCookie(r), 'jeton rejoué (usage unique) : refusé');
+  assert(r.status === 302 && /linkError=denied/.test(r.headers.get('location')) && !setCookie(r), 'jeton rejoué (usage unique) : refusé');
   const tok = decodeURIComponent(link.url.split('token=')[1]);
   const [pl, sg] = tok.split('.');
   r = await fetch(TRADE + '/link?token=' + encodeURIComponent(pl + '.' + sg.slice(0, -2) + (sg.endsWith('AA') ? 'BB' : 'AA')), { redirect: 'manual' });
-  assert(r.status === 302 && /linkError=invalid/.test(r.headers.get('location')) && !setCookie(r), 'jeton falsifié : invalid');
-  const old = tradeLib.signLinkToken({ sub: EXPERT, name: 'x' }, LINK_SECRET, Date.now() - 10 * 60 * 1000);
+  assert(r.status === 302 && /linkError=denied/.test(r.headers.get('location')) && !setCookie(r), 'jeton falsifié : invalid');
+  const old = tradeLib.signLinkToken({ sub: EXPERT, name: 'x', ua: 'node' }, LINK_SECRET, Date.now() - 10 * 60 * 1000);
   r = await fetch(TRADE + '/link?token=' + encodeURIComponent(old), { redirect: 'manual' });
   assert(r.status === 302 && /linkError=expired/.test(r.headers.get('location')) && !setCookie(r), 'jeton expiré : expired');
   r = await fetch(TRADE + '/api/me');
@@ -160,7 +160,7 @@ function tradeScript(code) {
   r = await fetch(TRADE + '/api/purchases', { headers: { Cookie: expertSession } });
   const pu = await r.json();
   assert(r.status === 200 && pu.purchases.some((p) => p.symbol === 'NEW.TO' && p.quantity === 30), '/api/purchases liste le nouvel achat');
-  const cl = await fetch(TRADE + '/link?token=' + encodeURIComponent(tradeLib.signLinkToken({ sub: CLIENT, name: 'Client E2E' }, LINK_SECRET)), { redirect: 'manual' });
+  const cl = await fetch(TRADE + '/link?token=' + encodeURIComponent(tradeLib.signLinkToken({ sub: CLIENT, name: 'Client E2E', ua: 'node' }, LINK_SECRET)), { redirect: 'manual' });
   const clientSession = setCookie(cl);
   assert(cl.status === 302 && clientSession, 'client existant : session créée');
   r = await fetch(TRADE + '/api/compare', { headers: { Cookie: clientSession } });

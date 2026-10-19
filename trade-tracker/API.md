@@ -5,8 +5,8 @@ Serveur autonome (`node trade-tracker/server/index.js`, port `PORT`, défaut 398
 Conventions : JSON UTF-8 ; montants en nombres arrondis à 2 décimales ; pourcentages en points (`12.34` = 12,34 %) ; dates `YYYY-MM-DD` (fuseau America/Montreal) ; horodatages ISO 8601 UTC. Montants `…Cad` = convertis en CAD au taux USD/CAD courant ; `…Native` = devise du titre (`currency`). Erreur : statut HTTP + `{ "error": "code", "message": "…" }`.
 
 ## Entrée et session
-- TMT émet un jeton court `<payload>.<signature>` (HMAC-SHA256, secret `TRADE_LINK_SECRET`, expiration 5 min, usage unique) et ouvre `GET /link?token=<jeton>[&invite=<code>]`.
-- Succès : cookie `tt_session` (HttpOnly, SameSite=Lax, 12 h) puis redirection 302 vers `/`. Échec : redirection 302 vers `/?linkError=<code>` avec code parmi `invalid | expired | replayed | not_invited | server_misconfigured`.
+- TMT émet un jeton court `<payload>.<signature>` (HMAC-SHA256, secret `TRADE_LINK_SECRET`, expiration 2 min, usage unique par `jti`, lié à l’utilisateur `sub`, à l’audience `aud=trade-tracker` et au navigateur `uah` = SHA-256 du user-agent) et ouvre `GET /link?token=<jeton>[&invite=<code>]`.
+- Succès : cookie `tt_session` (HttpOnly, SameSite=Lax, 12 h) puis redirection 302 vers `/`. Échec : redirection 302 vers `/?linkError=<code>` avec code parmi `denied` (jeton invalide, rejoué, falsifié, autre navigateur ou non invité : réponse uniforme) `| expired | unavailable`.
 - Toutes les routes `/api/*` (sauf `/api/health`) exigent ce cookie (ou `Authorization: Bearer <session>`). Sans session : 401 `{ "error": "unauthenticated" }`.
 - Rôles : `expert` (la source, voit tout, invite) et `client` (voit son portefeuille + celui de l'expert en lecture). Accès sur invitation seulement.
 

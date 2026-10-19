@@ -13,16 +13,31 @@ const now = Date.now();
 // signature / vérification
 const t = A.signLinkToken({ sub: 'tmt-expert', name: 'Expert' }, secret, now);
 assert(A.verifyLinkToken(t, secret, now + 1000).ok);
-assert.strictEqual(A.verifyLinkToken(t, secret, now + 5 * 60 * 1000 + 1).error, 'expired');
+assert.strictEqual(A.verifyLinkToken(t, secret, now + 2 * 60 * 1000 + 1).error, 'expired');
 assert.strictEqual(A.verifyLinkToken(t, secret + 'x', now).error, 'invalid');
 assert.strictEqual(A.verifyLinkToken(t.slice(0, -2) + 'AA', secret, now).error, 'invalid');
 assert.strictEqual(A.verifyLinkToken('n.importe', secret, now).error, 'invalid');
 assert.strictEqual(A.verifyLinkToken(t, null, now).error, 'server_misconfigured');
 // jeton à durée de vie trop longue refusé
-const body = Buffer.from(JSON.stringify({ sub: 'x', iat: now, exp: now + 3600e3, nonce: 'n' })).toString('base64url');
+const body = Buffer.from(JSON.stringify({ sub: 'x', iat: now, exp: now + 3600e3, aud: A.AUDIENCE, jti: 'j'.repeat(32), uah: A.uaHash('x') })).toString('base64url');
 const sig = crypto.createHmac('sha256', secret).update(body).digest().toString('base64url');
 assert.strictEqual(A.verifyLinkToken(body + '.' + sig, secret, now).error, 'invalid');
 assert.strictEqual(A.getSecret({ TRADE_LINK_SECRET: 'court' }), null);
+// audience, utilisateur et navigateur liés
+{
+  const mkRaw = (over) => { const p = { sub: 'u', iat: now, exp: now + 60e3, aud: A.AUDIENCE, jti: 'j'.repeat(32), uah: A.uaHash('UA-1'), ...over }; const b = Buffer.from(JSON.stringify(p)).toString('base64url'); return b + '.' + crypto.createHmac('sha256', secret).update(b).digest().toString('base64url'); };
+  assert(A.verifyLinkToken(mkRaw({}), secret, now, { ua: 'UA-1' }).ok);
+  assert.strictEqual(A.verifyLinkToken(mkRaw({}), secret, now, { ua: 'UA-2' }).error, 'invalid', 'autre navigateur : refusé');
+  assert.strictEqual(A.verifyLinkToken(mkRaw({ aud: 'autre-service' }), secret, now, { ua: 'UA-1' }).error, 'invalid', 'mauvaise audience');
+  assert.strictEqual(A.verifyLinkToken(mkRaw({ aud: undefined }), secret, now, { ua: 'UA-1' }).error, 'invalid', 'audience absente');
+  assert.strictEqual(A.verifyLinkToken(mkRaw({ jti: undefined }), secret, now, { ua: 'UA-1' }).error, 'invalid', 'jti absent');
+  assert.strictEqual(A.verifyLinkToken(mkRaw({ jti: 'court' }), secret, now, { ua: 'UA-1' }).error, 'invalid', 'jti trop court');
+  assert.strictEqual(A.verifyLinkToken(mkRaw({ uah: undefined }), secret, now, { ua: 'UA-1' }).error, 'invalid', 'empreinte absente');
+  assert.strictEqual(A.verifyLinkToken(mkRaw({ exp: now + 3 * 60e3 }), secret, now, { ua: 'UA-1' }).error, 'invalid', 'durée > 2 min');
+  const tk = A.signLinkToken({ sub: 'z', ua: 'UA-9' }, secret, now);
+  assert.strictEqual(A.consumeLink(db, tk, { env, now, ua: 'UA-8' }).error, 'invalid');
+  assert.strictEqual(A.consumeLink(db, tk, { env, now, ua: 'UA-9' }).error, 'not_invited', 'jeton non consommé par le refus précédent');
+}
 
 // expert amorcé par l'environnement ; usage unique
 let r = A.consumeLink(db, t, { env, now });

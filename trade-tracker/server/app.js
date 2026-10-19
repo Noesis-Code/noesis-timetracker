@@ -91,8 +91,9 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   app.get(['/health', '/api/health'], (req, res) => res.json({ ok: true }));
 
   app.get('/link', (req, res) => {
-    const r = A.consumeLink(db, String(req.query.token || ''), { invite: req.query.invite ? String(req.query.invite) : undefined, env });
-    if (!r.ok) return res.redirect(302, '/?linkError=' + encodeURIComponent(r.error));
+    const r = A.consumeLink(db, String(req.query.token || ''), { invite: req.query.invite ? String(req.query.invite) : undefined, env, ua: String(req.headers['user-agent'] || '') });
+    // Réponses uniformes : un échec ne dit jamais POURQUOI (jeton falsifié, rejoué, utilisateur non invité...). Seuls « expiré » et « indisponible » sont distincts.
+    if (!r.ok) return res.redirect(302, '/?linkError=' + (r.error === 'expired' ? 'expired' : r.error === 'server_misconfigured' ? 'unavailable' : 'denied'));
     res.setHeader('Set-Cookie', sessionCookie(req, r.session, r.maxAgeSec));
     res.redirect(302, '/');
   });

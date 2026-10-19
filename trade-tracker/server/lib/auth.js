@@ -1,16 +1,20 @@
 // Trade Tracker — authentification par jeton court émis par TMT.
 // Jeton : base64url(JSON payload) + '.' + base64url(HMAC-SHA256). Secret :
-// variable d'environnement TRADE_LINK_SECRET (jamais en dur). Expiration 5 min,
-// usage unique (nonce). Le rôle vient de la base (invitation), jamais du jeton.
+// variable d'environnement TRADE_LINK_SECRET (jamais en dur). Expiration 2 min,
+// usage unique (jti mémorisé), lié à l'utilisateur (sub), à l'audience (aud) et au navigateur (uah = SHA-256 du user-agent).
+// Le rôle vient de la base (invitation), jamais du jeton.
 
 const crypto = require('node:crypto');
+const { isProduction: isProd } = require('./preflight');
 
-const LINK_TTL_MS = 5 * 60 * 1000;
+const LINK_TTL_MS = 2 * 60 * 1000;
+const AUDIENCE = 'trade-tracker';
 const SESSION_TTL_MS = 12 * 3600 * 1000;
 const INVITE_TTL_MS = 7 * 24 * 3600 * 1000;
 
 const b64u = (buf) => Buffer.from(buf).toString('base64url');
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
+const uaHash = (ua) => sha256(String(ua || ''));
 const iso = (ms) => new Date(ms).toISOString();
 
 function getSecret(env = process.env) {
@@ -18,20 +22,22 @@ function getSecret(env = process.env) {
   return s && s.length >= 16 ? s : null;
 }
 
+function safeEq(a, b) { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); }
+
 function sign(data, secret) {
   return crypto.createHmac('sha256', secret).update(data).digest();
 }
 
 // Côté TMT (et tests/démo) : émet un jeton.
-function signLinkToken({ sub, name, email }, secret, now = Date.now()) {
+function signLinkToken({ sub, name, email, ua, aud = AUDIENCE }, secret, now = Date.now()) {
   if (!secret) throw new Error('secret manquant');
-  const payload = { sub: String(sub), name: name || '', email: email || '', iat: now, exp: now + LINK_TTL_MS, nonce: crypto.randomBytes(12).toString('hex') };
+  const payload = { sub: String(sub), name: name || '', email: email || '', iat: now, exp: now + LINK_TTL_MS, aud, jti: crypto.randomBytes(16).toString('hex'), uah: ua === null ? null : uaHash(ua) }; // ua === null : jeton non lié (démo/développement seulement, refusé en production)
   const body = b64u(JSON.stringify(payload));
   return body + '.' + b64u(sign(body, secret));
 }
 
-// Retourne { ok, payload } ou { ok:false, error } (invalid | expired).
-function verifyLinkToken(token, secret, now = Date.now()) {
+// Retourne { ok, payload } ou { ok:false, error } (invalid | expired). ua : user-agent de la requête /link (lié au jeton si fourni).
+function verifyLinkToken(token, secret, now = Date.now(), { ua, allowUnbound = false } = {}) {
   if (!secret) return { ok: false, error: 'server_misconfigured' };
   if (typeof token !== 'string' || token.length > 2048) return { ok: false, error: 'invalid' };
   const parts = token.split('.');
@@ -41,8 +47,12 @@ function verifyLinkToken(token, secret, now = Date.now()) {
   if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return { ok: false, error: 'invalid' };
   let p;
   try { p = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')); } catch { return { ok: false, error: 'invalid' }; }
-  if (!p || typeof p.sub !== 'string' || !p.sub || typeof p.nonce !== 'string' || !Number.isFinite(p.exp) || !Number.isFinite(p.iat)) return { ok: false, error: 'invalid' };
-  if (p.exp - p.iat > LINK_TTL_MS) return { ok: false, error: 'invalid' }; // durée de vie plafonnée à 5 min
+  if (!p || typeof p.sub !== 'string' || !p.sub || typeof p.jti !== 'string' || p.jti.length < 16 || p.jti.length > 64 || !Number.isFinite(p.exp) || !Number.isFinite(p.iat)) return { ok: false, error: 'invalid' };
+  if (p.aud !== AUDIENCE) return { ok: false, error: 'invalid' }; // jeton émis pour un autre service
+  if (p.uah === null) { if (!allowUnbound) return { ok: false, error: 'invalid' }; }
+  else if (typeof p.uah !== 'string' || !/^[0-9a-f]{64}$/.test(p.uah)) return { ok: false, error: 'invalid' };
+  else if (ua !== undefined && !safeEq(p.uah, uaHash(ua))) return { ok: false, error: 'invalid' }; // lien volé et ouvert depuis un autre navigateur
+  if (p.exp - p.iat > LINK_TTL_MS) return { ok: false, error: 'invalid' }; // durée de vie plafonnée à 2 min
   if (now >= p.exp || p.iat > now + 30000) return { ok: false, error: 'expired' };
   return { ok: true, payload: p };
 }
@@ -73,13 +83,13 @@ function newSession(db, userId, now) {
 
 // Consomme un jeton de lien : vérifie, marque le nonce, trouve/crée l'utilisateur
 // (expert amorcé par TRADE_EXPERT_TMT_IDS, sinon invitation valide requise), ouvre une session.
-function consumeLink(db, token, { invite, env = process.env, now = Date.now() } = {}) {
-  const v = verifyLinkToken(token, getSecret(env), now);
+function consumeLink(db, token, { invite, env = process.env, now = Date.now(), ua } = {}) {
+  const v = verifyLinkToken(token, getSecret(env), now, { ua, allowUnbound: !isProd(env) });
   if (!v.ok) return v;
   const p = v.payload;
   db.prepare('DELETE FROM link_nonces WHERE expiresAt < ?').run(iso(now));
   db.prepare('DELETE FROM sessions WHERE expiresAt < ?').run(iso(now));
-  if (db.prepare('SELECT 1 FROM link_nonces WHERE nonce = ?').get(p.nonce)) return { ok: false, error: 'replayed' };
+  if (db.prepare('SELECT 1 FROM link_nonces WHERE nonce = ?').get(p.jti)) return { ok: false, error: 'replayed' };
 
   let user = db.prepare('SELECT * FROM tt_users WHERE tmtUserId = ?').get(p.sub);
   let inv = null;
@@ -97,7 +107,7 @@ function consumeLink(db, token, { invite, env = process.env, now = Date.now() } 
     user = db.prepare('SELECT * FROM tt_users WHERE id = ?').get(Number(r.lastInsertRowid));
     if (inv) db.prepare('UPDATE invitations SET usedBy = ?, usedAt = ? WHERE id = ?').run(user.id, iso(now), inv.id);
   }
-  db.prepare('INSERT INTO link_nonces (nonce, expiresAt) VALUES (?,?)').run(p.nonce, iso(p.exp + 60000));
+  db.prepare('INSERT INTO link_nonces (nonce, expiresAt) VALUES (?,?)').run(p.jti, iso(p.exp + 60000));
   return { ok: true, user, session: newSession(db, user.id, now), maxAgeSec: SESSION_TTL_MS / 1000 };
 }
 
@@ -112,4 +122,4 @@ function destroySession(db, token) {
   if (token) db.prepare('DELETE FROM sessions WHERE tokenHash = ?').run(sha256(token));
 }
 
-module.exports = { LINK_TTL_MS, SESSION_TTL_MS, getSecret, signLinkToken, verifyLinkToken, createInvitation, listInvitations, consumeLink, getSessionUser, destroySession };
+module.exports = { AUDIENCE, uaHash, LINK_TTL_MS, SESSION_TTL_MS, getSecret, signLinkToken, verifyLinkToken, createInvitation, listInvitations, consumeLink, getSessionUser, destroySession };

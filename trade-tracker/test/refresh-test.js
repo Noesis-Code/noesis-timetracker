@@ -17,7 +17,7 @@ const { syncAll } = require('../server/lib/sync');
   const server = createApp(db, { env }).listen(0);
   const base = 'http://127.0.0.1:' + server.address().port;
   try {
-    const l = await fetch(base + '/link?token=' + A.signLinkToken({ sub: 'tmt-e', name: 'e', email: 'e@ex.test' }, secret), { redirect: 'manual' });
+    const l = await fetch(base + '/link?token=' + A.signLinkToken({ sub: 'tmt-e', name: 'e', email: 'e@ex.test', ua: 'node' }, secret), { redirect: 'manual' });
     const cookie = l.headers.get('set-cookie').split(';')[0];
     await syncAll(db);
 

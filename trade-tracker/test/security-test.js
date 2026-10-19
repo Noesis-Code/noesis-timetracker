@@ -22,7 +22,7 @@ const B = require('../server/lib/brokertoken');
       const srv = createApp(dbm, { env: { ...env, ...e } }).listen(0);
       try {
         const b = 'http://127.0.0.1:' + srv.address().port;
-        const r = await fetch(b + '/link?token=' + A.signLinkToken({ sub: 'e' }, secret), { redirect: 'manual', headers: hdr || {} });
+        const r = await fetch(b + '/link?token=' + A.signLinkToken({ sub: 'e', ua: 'node' }, secret), { redirect: 'manual', headers: hdr || {} });
         return { cookie: r.headers.get('set-cookie'), csp: (await fetch(b + '/api/health')).headers.get('content-security-policy') };
       } finally { srv.close(); }
     };
@@ -58,7 +58,7 @@ const B = require('../server/lib/brokertoken');
   const now = Date.now();
   const tok = A.signLinkToken({ sub: 'x' }, secret, now);
   assert.strictEqual(A.verifyLinkToken(tok, secret, now + 1000).ok, true);
-  assert.strictEqual(A.verifyLinkToken(tok, secret, now + 5 * 60e3 + 1).error, 'expired');
+  assert.strictEqual(A.verifyLinkToken(tok, secret, now + 2 * 60e3 + 1).error, 'expired');
   assert.strictEqual(A.verifyLinkToken(tok, 'autre-secret-assez-long', now).error, 'invalid');
   const [body, sig] = tok.split('.');
   const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(body, 'base64url')), sub: 'admin' })).toString('base64url') + '.' + sig;

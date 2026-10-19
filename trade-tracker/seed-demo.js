@@ -38,6 +38,6 @@ const { signLinkToken, getSecret } = require('./server/lib/auth');
   if (!secret) return console.log('TRADE_LINK_SECRET absent (>= 16 car.) : aucun lien généré.');
   const port = process.env.PORT || 3980;
   for (const [sub, label] of [['demo-expert', 'expert'], ['demo-client', 'client']]) {
-    console.log(`${label} : http://localhost:${port}/link?token=${signLinkToken({ sub, name: label + ' démo' }, secret)}`);
+    console.log(`${label} : http://localhost:${port}/link?token=${signLinkToken({ sub, name: label + ' démo', ua: null }, secret)}`);
   }
 })();

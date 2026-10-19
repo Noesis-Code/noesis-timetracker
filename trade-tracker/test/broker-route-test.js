@@ -17,7 +17,7 @@ const B = require('../server/lib/brokertoken');
   };
   const login = async (ctx, sub) => {
     ctx.db.prepare("INSERT OR IGNORE INTO tt_users (tmtUserId,name,role) VALUES (?,?,'client')").run(sub, sub);
-    const r = await fetch(ctx.base + '/link?token=' + A.signLinkToken({ sub, name: sub }, secret), { redirect: 'manual' });
+    const r = await fetch(ctx.base + '/link?token=' + A.signLinkToken({ sub, name: sub, ua: 'node' }, secret), { redirect: 'manual' });
     return r.headers.get('set-cookie').split(';')[0];
   };
   const call = (ctx, method, p, cookie, body) => fetch(ctx.base + p, { method, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)) });
