@@ -2194,6 +2194,7 @@
     mainFormForceKey = periodNumber + '|' + category; // seule entrée qui ouvre d'emblée la création d'objectif périodique
     if (!applyGoalsMonthState(category, periodNumber)) { mainFormForceKey = null; return; }
     TMT.setGoalsPage2Mode('month', { keep: true });
+    renderGoalsMonthSectors(); // bug #71 : la bulle du secteur cliqué doit être celle sélectionnée (sinon reste sur le premier)
     showGoalsMonthContent(category);
   }
 
