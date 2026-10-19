@@ -15,6 +15,23 @@ const B = require('../server/lib/brokertoken');
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys = ON'); migrate(db);
   const server = createApp(db, { env, limits: { link: 3, write: 2 } }).listen(0);
   const base = 'http://127.0.0.1:' + server.address().port;
+  // modes du cookie et de l'iframe
+  {
+    const dbm = new DatabaseSync(':memory:'); migrate(dbm);
+    const run = async (e, hdr) => {
+      const srv = createApp(dbm, { env: { ...env, ...e } }).listen(0);
+      try {
+        const b = 'http://127.0.0.1:' + srv.address().port;
+        const r = await fetch(b + '/link?token=' + A.signLinkToken({ sub: 'e' }, secret), { redirect: 'manual', headers: hdr || {} });
+        return { cookie: r.headers.get('set-cookie'), csp: (await fetch(b + '/api/health')).headers.get('content-security-policy') };
+      } finally { srv.close(); }
+    };
+    let m = await run({}); assert(/SameSite=Lax/.test(m.cookie) && !/Secure/.test(m.cookie)); assert.strictEqual(m.csp, "frame-ancestors 'none'");
+    m = await run({ TMT_BASE_URL: 'https://tmt.example.test/app' }, { 'x-forwarded-proto': 'https' });
+    assert(/SameSite=None; Secure/.test(m.cookie) && /HttpOnly/.test(m.cookie)); assert.strictEqual(m.csp, 'frame-ancestors https://tmt.example.test');
+    dbm.exec('DELETE FROM link_nonces');
+    m = await run({ TRADE_COOKIE_CROSS_SITE: '1' }); assert(/SameSite=None; Secure/.test(m.cookie));
+  }
   try {
     // en-têtes
     const h = await fetch(base + '/api/health');

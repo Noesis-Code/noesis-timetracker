@@ -22,10 +22,18 @@ function parseCookies(h) {
 function createApp(db, { env = process.env, limits = {} } = {}) {
   const app = express();
   app.disable('x-powered-by');
+  const tmtOrigin = (() => { try { return env.TMT_BASE_URL ? new URL(env.TMT_BASE_URL).origin : null; } catch { return null; } })();
+  // Cookie de session : SameSite=None; Secure en HTTPS (ou TRADE_COOKIE_CROSS_SITE=1) pour survivre à l'iframe TMT ; Lax en HTTP local.
+  const sessionCookie = (req, value, maxAge) => {
+    const secure = req.secure || req.headers['x-forwarded-proto'] === 'https' || env.TRADE_COOKIE_CROSS_SITE === '1';
+    return `tt_session=${value}; HttpOnly; ${secure ? 'SameSite=None; Secure' : 'SameSite=Lax'}; Path=/; Max-Age=${maxAge}`;
+  };
   app.set('trust proxy', 1); // Railway : un saut de proxy ; req.ip = vrai client
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
+    // Intégration en iframe : seul TMT (origine de TMT_BASE_URL) peut afficher l'app ; sinon personne.
+    res.setHeader('Content-Security-Policy', `frame-ancestors ${tmtOrigin || "'none'"}`);
+    if (!tmtOrigin) res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer'); // le jeton de lien est dans l'URL
     res.setHeader('Cache-Control', 'no-store');
     next();
@@ -63,8 +71,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   app.get('/link', (req, res) => {
     const r = A.consumeLink(db, String(req.query.token || ''), { invite: req.query.invite ? String(req.query.invite) : undefined, env });
     if (!r.ok) return res.redirect(302, '/?linkError=' + encodeURIComponent(r.error));
-    const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
-    res.setHeader('Set-Cookie', `tt_session=${r.session}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${r.maxAgeSec}${secure ? '; Secure' : ''}`);
+    res.setHeader('Set-Cookie', sessionCookie(req, r.session, r.maxAgeSec));
     res.redirect(302, '/');
   });
 
@@ -190,7 +197,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
 
   app.post('/api/logout', (req, res) => {
     A.destroySession(db, sessionToken(req));
-    res.setHeader('Set-Cookie', 'tt_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+    res.setHeader('Set-Cookie', sessionCookie(req, '', 0));
     res.json({ ok: true });
   });
 
