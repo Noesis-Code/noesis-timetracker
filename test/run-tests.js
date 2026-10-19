@@ -284,6 +284,8 @@ async function main() {
   catch (e) { assert(false, 'prompt hebdo : dernières tâches terminées bornées (test/hebdo-recentdone-test.js) échoue'); }
   try { execFileSync('node', [path.join(__dirname, 'intersecteurs-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'suggestions inter-secteurs dans Modifications proposées (test/intersecteurs-test.js) passe'); }
   catch (e) { assert(false, 'suggestions inter-secteurs dans Modifications proposées (test/intersecteurs-test.js) échoue'); }
+  try { execFileSync('node', [path.join(__dirname, 'intersecteurs-payload-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'payload inter-secteurs sans champs vides (test/intersecteurs-payload-test.js) passe'); }
+  catch (e) { assert(false, 'payload inter-secteurs sans champs vides (test/intersecteurs-payload-test.js) échoue'); }
   try { execFileSync('node', [path.join(__dirname, 'debit-sauvegardes-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'limitation de débit et rétention des sauvegardes (test/debit-sauvegardes-test.js) passe'); }
   catch (e) { assert(false, 'limitation de débit et rétention des sauvegardes (test/debit-sauvegardes-test.js) échoue'); }
   try { execFileSync('node', [path.join(__dirname, 'signalement-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'signalement de messages et mots bloqués (test/signalement-test.js) passe'); }

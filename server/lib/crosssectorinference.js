@@ -258,6 +258,23 @@ function writeSuggestions(activityId, sourceCategory, source, suggestions) {
 // Une même évaluation (mêmes entrées exactes) n'est jamais refaite pendant 24 h (capture répétée, objectif réenregistré,
 // rechargement) — et ne ré-ouvre donc pas une suggestion déjà traitée. Plafond par activité et par jour : CROSS_MAX_PER_ACTIVITY_DAY (défaut 30).
 const evaluated = new Map(); // hash -> expiration
+
+// Charge utile envoyée au modèle. Économie de jetons sans perte : les champs vides (description, objectif actuel)
+// sont omis au lieu d'être envoyés vides (le prompt système les décrit déjà comme « éventuels »).
+function buildPayload(sourceInfo, type, text, candidates, mainGoalOf) {
+  const cat = { key: sourceInfo.key, label: sourceInfo.label };
+  if (sourceInfo.description) cat.description = sourceInfo.description;
+  return {
+    source: { category: cat, type, text },
+    candidates: candidates.map((c) => {
+      const o = { key: c.key, label: c.label };
+      if (c.description) o.description = c.description;
+      const g = mainGoalOf(c.key);
+      if (g) o.currentMainGoalText = g;
+      return o;
+    }),
+  };
+}
 const dayCount = new Map(); // 'activité|jour' -> n
 function crossMaxPerDay() { const n = parseInt(process.env.CROSS_MAX_PER_ACTIVITY_DAY, 10); return Number.isFinite(n) && n >= 0 ? n : 30; }
 async function evaluateCrossSectorLinks(activityId, sourceCategory, source) {
@@ -272,19 +289,7 @@ async function evaluateCrossSectorLinks(activityId, sourceCategory, source) {
 
     const sourceInfo = all.find((c) => c.key === sourceCategory) || { key: sourceCategory, label: sourceCategory, description: '' };
 
-    const payload = {
-      source: {
-        category: { key: sourceInfo.key, label: sourceInfo.label, description: sourceInfo.description },
-        type: source.type,
-        text,
-      },
-      candidates: candidates.map((c) => ({
-        key: c.key,
-        label: c.label,
-        description: c.description,
-        currentMainGoalText: currentMainGoalText(activityId, c.key),
-      })),
-    };
+    const payload = buildPayload(sourceInfo, source.type, text, candidates, (key) => currentMainGoalText(activityId, key));
 
     const hash = require('crypto').createHash('sha256').update(JSON.stringify(payload)).digest('hex');
     if ((evaluated.get(hash) || 0) > Date.now()) return { skipped: 'unchanged' };
@@ -338,4 +343,5 @@ module.exports = {
   // Exportés pour les tests (bac à sable) uniquement.
   flattenCategories,
   parseSuggestions,
+  buildPayload,
 };
