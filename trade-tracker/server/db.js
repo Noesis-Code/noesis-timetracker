@@ -133,6 +133,19 @@ CREATE TABLE IF NOT EXISTS sessions (
   expiresAt TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL,                      -- 'purchase'
+  userId INTEGER NOT NULL REFERENCES tt_users(id) ON DELETE CASCADE,
+  transactionId INTEGER NOT NULL,          -- idempotence : un événement par transaction et par type
+  payload TEXT NOT NULL,                   -- JSON du corps envoyé à TMT
+  createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  notifyStatus TEXT NOT NULL DEFAULT 'PENDING' CHECK (notifyStatus IN ('PENDING','SENT','DRYRUN','SKIPPED','ECHEC')),
+  notifyAttempts INTEGER NOT NULL DEFAULT 0,
+  notifiedAt TEXT,
+  UNIQUE (type, transactionId)
+);
+
 CREATE TABLE IF NOT EXISTS broker_tokens (
   userId INTEGER NOT NULL REFERENCES tt_users(id) ON DELETE CASCADE,
   broker TEXT NOT NULL DEFAULT 'questrade',
