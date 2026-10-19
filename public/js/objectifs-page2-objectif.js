@@ -558,16 +558,6 @@
     return cols[0] || null;
   }
   TMT.goalsMonthSecteur = goalsMonthSecteur;
-  // ‹ › / balayage du cadre en page du milieu : secteur précédent/suivant (circulaire).
-  function cycleGoalsSecteur(delta) {
-    var cols = goalsMonthColumns();
-    if (cols.length < 2) return;
-    var cur = goalsMonthSecteur(), idx = 0;
-    cols.forEach(function (c, i) { if (cur && c.key === cur.key) idx = i; });
-    TMT.currentGoalsSelectedSecteurKey = cols[((idx + delta) % cols.length + cols.length) % cols.length].key;
-    if (TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
-  }
-
   // Remplit un cadre (le vrai, ou un clone pendant le glissé) pour la page « mensuel » (secteur) ou pour Tâches/Objectifs (pôle).
   function applyGoalsHeaderState(hdr, monthOn, pole, shade) {
     var dot = hdr.querySelector('.goalsActivityNameWrap .dot');

@@ -960,40 +960,6 @@
     if (!$('goalsTasksArchivePanel').classList.contains('hidden')) loadGoalsTasksArchives();
   }
 
-  function buildGoalsDailyRow(task, grey) {
-    var row = document.createElement('div');
-    row.className = 'subProjectItem goalsDailyItem' + (grey ? ' goalsDailyGrey' : '');
-    row.dataset.taskId = String(task.id);
-    var cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.addEventListener('change', function () {
-      cb.disabled = true;
-      api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: true })
-        .then(function () { loadGoalsTasksOverview(); })
-        .catch(function (err) { cb.checked = false; alert(err.message); })
-        .then(function () { cb.disabled = false; });
-    });
-    row.appendChild(cb);
-    var label = document.createElement('span');
-    label.className = 'subProjectItemLabel';
-    appendLinkified(label, task.label);
-    row.appendChild(label);
-    if (grey && task.dueDate) {
-      var when = document.createElement('span');
-      when.className = 'meta goalsDailyWhen';
-      when.textContent = TMT.calendarDayLabel(task.dueDate) || task.dueDate;
-      row.appendChild(when);
-    }
-    if (!grey && task.dueDate && task.dueDate < localIso(new Date())) {
-      var lateDays = Math.round((new Date(localIso(new Date())) - new Date(task.dueDate)) / 86400000);
-      var lb = document.createElement('span');
-      lb.className = 'goalsLateBadge';
-      lb.textContent = t('en retard de ') + lateDays + ' j';
-      row.appendChild(lb);
-    }
-    return row;
-  }
-
   // Archives : tâches cochées (7 derniers jours), la plus récente d'abord ; décocher = retour dans la liste.
   function loadGoalsTasksArchives() {
     var activityId = TMT.currentGoalsActivityId;

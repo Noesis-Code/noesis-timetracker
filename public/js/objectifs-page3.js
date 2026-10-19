@@ -299,23 +299,6 @@
   }
 
 
-  // Estimation SUGGÉRÉE (par similarité avec des objectifs passés de cette
-  // même activité) — jamais imposée, l'utilisateur reste libre de saisir la
-  // sienne en tête de l'objectif s'il préfère (aucun champ dédié en v1, le
-  // texte de l'objectif reste le seul qui compte : voir setWeekly/setMainGoal
-  // côté serveur, qui ne font QUE suggérer une durée, jamais un texte).
-  function formatEstimateHint(minutes, source, confidence) {
-    if (minutes == null) {
-      return t('Pas encore assez d’historique pour suggérer une durée.');
-    }
-    var label = t('Estimation suggérée') + ' : ' + formatGoalHours(minutes);
-    if (source === 'similarity' || source === 'similarity-fallback') {
-      var pct = confidence != null ? Math.round(confidence * 100) : null;
-      label += ' (' + t('confiance') + (pct != null ? ' ' + pct + '%' : '') + ')';
-    }
-    return label;
-  }
-
 
   // 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
   // « bandeau plein largeur » — formatActualHint()/renderGoalStatusButtons()
@@ -394,59 +377,6 @@
   var mainEditKey = null; // « période|pôle » dont l'objectif périodique est en modification sur place
 
 
-  function ensureGoalDescModal() {
-    var modal = $('goalDescModal');
-    if (modal) return modal;
-    modal = document.createElement('div');
-    modal.id = 'goalDescModal';
-    modal.className = 'communityMembersModal hidden';
-    modal.innerHTML =
-      '<div class="communityMembersModalCard">' +
-        '<div class="profileSubWindowHeader">' +
-          '<span class="sectionTitle goalDescModalTitle" id="goalDescModalTitle"></span>' +
-          '<button type="button" class="menuBtn" id="goalDescModalClose" aria-label="Fermer">✕</button>' +
-        '</div>' +
-        '<div class="categoryDetailBody">' +
-          '<textarea id="goalDescModalText" rows="6" maxlength="600" autocomplete="off"></textarea>' +
-          '<div class="rowActions"><button type="button" id="goalDescModalSave" class="iconBtn btnBrique">Enregistrer</button></div>' +
-          '<p id="goalDescModalMsg" class="msg"></p>' +
-        '</div>' +
-      '</div>';
-    document.body.appendChild(modal);
-    return modal;
-  }
-
-  // o : { title, description, onSave(description) -> Promise }
-  function openGoalDescModal(o) {
-    var modal = ensureGoalDescModal();
-    var ta = $('goalDescModalText');
-    var msg = $('goalDescModalMsg');
-    $('goalDescModalTitle').textContent = o.title;
-    ta.placeholder = t('Décris plus précisément cet objectif : ce que tu veux accomplir, comment tu sauras que c’est fait. Plus c’est précis, mieux Noèsis planifie pour toi.');
-    ta.value = o.description || '';
-    msg.textContent = '';
-    modal.classList.remove('hidden');
-    function close() { modal.classList.add('hidden'); }
-    $('goalDescModalClose').onclick = close;
-    $('goalDescModalSave').onclick = function () {
-      var value = ta.value.trim();
-      if (value === (o.description || '')) { close(); return; }
-      o.onSave(value).then(close).catch(function (err) { msg.textContent = err.message; });
-    };
-    try { ta.blur(); ta.scrollTop = 0; } catch (e) {}
-  }
-
-  // Rangée « description en petit (1 ligne, tronquée) + ✎ » sous un titre d'objectif.
-  function syncGoalDescRow(rowEl, previewEl, btnEl, description, canEdit, onClick) {
-    previewEl.textContent = description || '';
-    previewEl.classList.toggle('hidden', !description);
-    btnEl.innerHTML = GOAL_DESC_EDIT_ICON;
-    btnEl.title = t('Décrire cet objectif');
-    btnEl.setAttribute('aria-label', t('Décrire cet objectif'));
-    btnEl.onclick = onClick;
-    rowEl.classList.toggle('hidden', !canEdit);
-  }
-
   // 8 oct. 2026 (Émilien) : les objectifs hebdomadaires suivent le mode « gestion de l'IA ». Premier objectif
   // périodique saisi avant toute capture : le pop-up de choix s'affiche d'abord (fermé = enregistré sans proposition).
   function withAiMode(title, doSave) {
@@ -523,11 +453,6 @@
       });
   }
 
-  function saveWeeklyDescription(periodNumber, weekIndex, title, description) {
-    return api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: title, description: description, category: TMT.currentGoalsCategory })
-      .then(reloadGoalsAll);
-  }
-
 
   function saveMainGoalText(periodNumber, text) {
     return withAiMode(text, function () { return doSaveMainGoalText(periodNumber, text); });
@@ -548,12 +473,6 @@
       .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
   }
 
-
-  function saveMainGoalStatus(periodNumber, status) {
-    api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/main-status', { status: status, category: TMT.currentGoalsCategory })
-      .then(reloadGoalsAll)
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
 
 
   // 7 oct. 2026 (gratuit, validé par Émilien) : Noèsis reformule le texte saisi
@@ -650,12 +569,6 @@
       .catch(function () {});
   }
 
-  function saveWeeklyText(periodNumber, weekIndex, text) {
-    api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text, category: TMT.currentGoalsCategory })
-      .then(reloadGoalsAll)
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
 
   function saveWeeklyCapacity(periodNumber, weekIndex, text, minutes) {
     api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/periods/' + periodNumber + '/weekly/' + weekIndex, { text: text, estimateMinutes: minutes, category: TMT.currentGoalsCategory })
@@ -671,48 +584,6 @@
   }
 
 
-  // 14 septembre 2026 (demande d'Emilien) : confie (ou retire, userId null)
-  // UN membre de l'activité à cet objectif hebdomadaire, pour que le travail
-  // de chaque catégorie soit assigné visiblement (la vue "Répartition" qui
-  // exploitait aussi ce champ a été retirée le 15 septembre 2026, 7e passage).
-  function saveWeeklyAssignee(weeklyId, userId) {
-    api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/assignee', { userId: userId || null })
-      .then(reloadGoalsAll)
-      .catch(function (err) { $('activityGoalsMsg').textContent = err.message; });
-  }
-
-
-  // 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
-  // d'Emilien : déclenche la répartition jour par jour des tâches de cette
-  // semaine (server/lib/goalsdailyauto.js) — voir le bouton dans
-  // renderGoalsWeeklyList() ci-dessus. Désactive le bouton pendant l'appel
-  // (peut prendre quelques secondes côté IA) puis rafraîchit tout
-  // (reloadGoalsAll — les nouvelles dueDate doivent apparaître dans le
-  // calendrier de la période, chargé par la même fonction) une fois terminé.
-  function generateDailyPlan(weeklyId, btn, period) {
-    var originalLabel = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = t('Génération en cours…');
-    $('activityGoalsMsg').textContent = '';
-    api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/weekly/' + weeklyId + '/daily-plan', {})
-      .then(function (data) {
-        var msg;
-        if (!data.total) {
-          msg = t('Aucune tâche à dater sur cette semaine (déjà planifiée ou vide).');
-        } else {
-          msg = data.assigned + '/' + data.total + ' ' + t('tâche(s) datée(s)') + ' — '
-            + (data.usedAi ? t('par Noèsis') : t('répartition automatique'));
-          if (data.aiError) msg += ' (' + t('Noèsis indisponible, repli automatique utilisé') + ')';
-        }
-        $('activityGoalsMsg').textContent = msg;
-        return reloadGoalsAll();
-      })
-      .catch(function (err) {
-        btn.disabled = false;
-        btn.textContent = originalLabel;
-        $('activityGoalsMsg').textContent = err.message;
-      });
-  }
 
 
   // 14 septembre 2026 (troisième passage, demande d'Emilien) : remplace la
