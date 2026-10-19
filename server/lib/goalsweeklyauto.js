@@ -84,6 +84,7 @@
 // cohérence des données.
 
 const aibudget = require('./aibudget');
+const aicache = require('./aicache');
 const db = require('../db');
 const goals = require('./goals');
 
@@ -121,7 +122,16 @@ Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Mark
 {"weeklyGoals":[{"weekIndex":N,"text":"...","description":"..."}]}
 Contraintes : un objet par numéro de semaine demandé, jamais un numéro non demandé ; "text" est le TITRE de l'objectif de la semaine : court (moins de 100 caractères), en français, une action concrète ; "description" précise en 1 à 3 phrases ce qu'il faut accomplir et comment on saura que c'est fait (moins de ${MAX_WEEKLY_DESC_LENGTH} caractères). Jamais une reformulation vague du grand objectif.`;
 
-async function callAi(payload, requestedWeeks) {
+// 19 oct. 2026 (doublons) : mêmes entrées => même réponse pendant 15 min (aperçu « Partiel » puis application, double envoi client, rechargement) ;
+// appels simultanés identiques fusionnés. Au-delà de 15 min, ou si l'objectif/les semaines changent, nouvel appel (une régénération reste possible).
+// Réglage : GOALS_WEEKLY_MEMO_MIN (défaut 15 ; 0 = désactivé).
+function callAi(payload, requestedWeeks) {
+  const min = process.env.GOALS_WEEKLY_MEMO_MIN === undefined ? 15 : Number(process.env.GOALS_WEEKLY_MEMO_MIN);
+  if (!(min > 0)) return callAiRetry(payload, requestedWeeks);
+  return aicache.memoize(['hebdo', ANTHROPIC_MODEL, payload, requestedWeeks], () => callAiRetry(payload, requestedWeeks), { ttlMs: min * 60000, cacheIf: (v) => Array.isArray(v) && v.length > 0 });
+}
+
+async function callAiRetry(payload, requestedWeeks) {
   // 9 oct. 2026 : une réponse illisible (coupée ou entourée de texte) est relancée une fois.
   try {
     return await callAiOnce(payload, requestedWeeks);
@@ -286,6 +296,7 @@ module.exports = {
   MAX_WEEKLY_TEXT_LENGTH,
   emptyWeekIndexes,
   generateForPeriod,
+  callAi,
   // Exportés pour les tests (bac à sable) uniquement.
   parseWeeklyGoals,
 };

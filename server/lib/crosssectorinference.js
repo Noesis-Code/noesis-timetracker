@@ -255,6 +255,11 @@ function writeSuggestions(activityId, sourceCategory, source, suggestions) {
 // periodNumber?, itemId? }. Ne lève JAMAIS — un échec IA laisse simplement
 // aucune suggestion posée, jamais bloquant pour l'appelant (fire-and-forget
 // dans les deux points de déclenchement).
+// 19 oct. 2026 (doublons) : une même évaluation (mêmes entrées exactes) n'est jamais refaite pendant 24 h (capture répétée, objectif réenregistré,
+// rechargement) — et ne ré-ouvre donc pas une suggestion déjà traitée. Plafond par activité et par jour : CROSS_MAX_PER_ACTIVITY_DAY (défaut 30).
+const evaluated = new Map(); // hash -> expiration
+const dayCount = new Map(); // 'activité|jour' -> n
+function crossMaxPerDay() { const n = parseInt(process.env.CROSS_MAX_PER_ACTIVITY_DAY, 10); return Number.isFinite(n) && n >= 0 ? n : 30; }
 async function evaluateCrossSectorLinks(activityId, sourceCategory, source) {
   try {
     if (!aiConfigured()) return { skipped: 'ai-not-configured' };
@@ -281,7 +286,15 @@ async function evaluateCrossSectorLinks(activityId, sourceCategory, source) {
       })),
     };
 
+    const hash = require('crypto').createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+    if ((evaluated.get(hash) || 0) > Date.now()) return { skipped: 'unchanged' };
+    const dk = activityId + '|' + new Date().toISOString().slice(0, 10);
+    if ((dayCount.get(dk) || 0) >= crossMaxPerDay()) return { skipped: 'daily-cap' };
+    dayCount.set(dk, (dayCount.get(dk) || 0) + 1);
+    if (dayCount.size > 500) dayCount.delete(dayCount.keys().next().value);
     const suggestions = await callAi(payload, candidates.map((c) => c.key));
+    if (evaluated.size >= 1000) evaluated.delete(evaluated.keys().next().value);
+    evaluated.set(hash, Date.now() + 24 * 3600 * 1000);
     writeSuggestions(activityId, sourceCategory, { type: source.type, text, periodNumber: source.periodNumber, itemId: source.itemId }, suggestions);
 
     return { written: suggestions.length, evaluated: candidates.length };

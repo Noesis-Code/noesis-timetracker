@@ -70,7 +70,15 @@ function requestParams({ parts, want, model }) {
 }
 
 // Appel direct immédiat. Renvoie { text, stopReason }.
-async function call({ parts, want, feature, model }) {
+// 19 oct. 2026 (doublons) : même requête exacte (modèle, consigne, contexte, document ; temp. 0) => réponse réutilisée 24 h, tous chemins
+// confondus (surveillance Drive, « Ajouter des tâches », modifications proposées, redistribution) et tous membres d'une activité partagée ;
+// appels simultanés identiques fusionnés. Jamais mémorisé : réponse tronquée (max_tokens) ou vide. DOCANALYSIS_MEMO=off pour couper.
+function call(args) {
+  if (caller || String(process.env.DOCANALYSIS_MEMO || '').toLowerCase() === 'off') return callRaw(args);
+  return aicache.memoize(['docanalysis', requestParams(args)], () => callRaw(args), { cacheIf: (v) => v && v.text && v.stopReason !== 'max_tokens' });
+}
+
+async function callRaw({ parts, want, feature, model }) {
   if (caller) {
     const out = await caller({ system: SYSTEM, user: parts.stable + '\n\n' + parts.variable, stable: parts.stable, variable: parts.variable, want });
     return out && typeof out === 'object' ? { text: out.text, stopReason: out.stopReason || null } : { text: out, stopReason: null };

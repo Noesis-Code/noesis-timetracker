@@ -1,5 +1,5 @@
 // Surveillance permanente des dossiers Drive choisis (sous-dossiers compris, réglages par dossier : mode, consigne, pause) (Essor, 16 oct. 2026).
-// Toutes les DRIVE_SYNC_INTERVAL_MIN minutes (défaut 30), pour chaque connexion Essor active :
+// Toutes les DRIVE_SYNC_INTERVAL_MIN minutes (défaut 60), pour chaque connexion Essor active :
 // liste les dossiers choisis (10 max) SEULEMENT (drive.listFiles / readFileText vérifient le parent), ignore
 // les fichiers dont modifiedTime n'a pas changé, relit les modifiés, saute l'IA si l'empreinte du
 // texte normalisé est identique, sinon appelle la même extraction que documenttasks.propose,
@@ -58,10 +58,10 @@ function maxCalls() {
   return Number.isFinite(n) && n >= 0 ? n : 40; // 40 appels/jour/utilisateur par défaut (19 oct. 2026 : l'absence de plafond a coûté cher)
 }
 function intervalMin() {
-  const raw = String(process.env.DRIVE_SYNC_INTERVAL_MIN == null ? '30' : process.env.DRIVE_SYNC_INTERVAL_MIN).trim().toLowerCase();
+  const raw = String(process.env.DRIVE_SYNC_INTERVAL_MIN == null ? '60' : process.env.DRIVE_SYNC_INTERVAL_MIN).trim().toLowerCase();
   if (raw === 'off') return 0;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 1 ? n : (n === 0 ? 0 : 30);
+  return Number.isFinite(n) && n >= 1 ? n : (n === 0 ? 0 : 60); // défaut 60 min depuis le 19 oct. 2026 (30 avant) : un fichier inchangé ne coûte déjà aucun appel IA
 }
 function today() { return new Date().toISOString().slice(0, 10); }
 const taskKey = (title) => documenttasks.norm(title).slice(0, 200);

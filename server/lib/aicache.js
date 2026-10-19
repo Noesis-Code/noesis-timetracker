@@ -31,15 +31,17 @@ function cacheable(system, stable) { return estimateTokens(system) + estimateTok
 const crypto = require('crypto');
 const MEMO_MAX = 500, MEMO_TTL_MS = 24 * 3600 * 1000;
 const memoStore = new Map(), memoPending = new Map();
-async function memoize(parts, fn) {
+async function memoize(parts, fn, opts) {
+  const ttl = (opts && opts.ttlMs) || MEMO_TTL_MS;
   const key = crypto.createHash('sha256').update(JSON.stringify(parts)).digest('hex');
   const hit = memoStore.get(key);
   if (hit && hit.exp > Date.now()) return hit.value;
   if (memoPending.has(key)) return memoPending.get(key);
   const p = (async () => {
     const value = await fn();
+    if (opts && opts.cacheIf && !opts.cacheIf(value)) return value;
     if (memoStore.size >= MEMO_MAX) memoStore.delete(memoStore.keys().next().value);
-    memoStore.set(key, { value, exp: Date.now() + MEMO_TTL_MS });
+    memoStore.set(key, { value, exp: Date.now() + ttl });
     return value;
   })();
   memoPending.set(key, p);
