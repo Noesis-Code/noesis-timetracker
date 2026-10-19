@@ -633,4 +633,35 @@ function timesheetMonthForUser(userId, monthOffset, opts) {
   return { monthOffset: offset, isCurrentMonth: offset === 0, start, end, label, hasMoreBefore, weeks };
 }
 
-module.exports = { ownVisibilityExcludedIds, hiddenActivityIdsFor, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser };
+// Feuille de temps, vue Année : 12 colonnes (mois) x une ligne par activité
+// (pôle ; les secteurs remontent au pôle, jamais affichés). yearOffset (>= 0) :
+// 0 = année en cours, 1 = précédente. Les durées viennent de breakdownForRange
+// (mêmes totaux que le camembert, donc réconciliables).
+function timesheetYearForUser(userId, yearOffset, opts) {
+  const offset = Math.max(0, Math.floor(Number(yearOffset)) || 0);
+  const year = new Date().getFullYear() - offset;
+  const excl = (opts && opts.excludeActivityIds) || [];
+  const rowsById = {};
+  const monthTotals = [];
+  for (let m = 0; m < 12; m++) {
+    const first = new Date(year, m, 1);
+    const last = new Date(year, m + 1, 0);
+    const b = breakdownForRange(userId, isoDateOf(first), isoDateOf(last), excl);
+    monthTotals.push(b.totalSeconds);
+    b.activities.forEach((a) => {
+      if (!rowsById[a.activityId]) {
+        rowsById[a.activityId] = { activityId: a.activityId, name: a.name, color: a.color, months: new Array(12).fill(0), totalSeconds: 0 };
+      }
+      rowsById[a.activityId].months[m] = a.seconds;
+      rowsById[a.activityId].totalSeconds += a.seconds;
+    });
+  }
+  const rows = Object.keys(rowsById).map((k) => rowsById[k]).sort((a, b) => b.totalSeconds - a.totalSeconds);
+  const start = `${year}-01-01`;
+  const end = `${year}-12-31`;
+  const earliest = db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
+  const hasMoreBefore = !!(earliest && earliest.d && earliest.d < start);
+  return { yearOffset: offset, isCurrentYear: offset === 0, start, end, label: String(year), hasMoreBefore, monthTotals, rows };
+}
+
+module.exports = { ownVisibilityExcludedIds, hiddenActivityIdsFor, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser, timesheetYearForUser };

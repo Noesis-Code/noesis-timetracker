@@ -44,6 +44,15 @@ const T = makeCounter(); const assert = T.assert;
     const ts = await c.get(`/api/category-timesheet?activityId=${A}`);
     assert(ts.status === 200 && ts.body.breakdown && Array.isArray(ts.body.days), 'feuille de temps catégories répond');
 
+    // Feuille de temps, vue Année : 12 mois par pôle, total = 2 h (7200 s), même que le camembert
+    const yr = await c.get('/api/stats/timesheet?period=year');
+    assert(yr.status === 200 && yr.body.period === 'year' && yr.body.isCurrentYear && yr.body.label === String(y), 'feuille annee répond');
+    const yrow = yr.body.rows.find((r) => r.activityId === A);
+    assert(yrow && yrow.months.length === 12 && yrow.totalSeconds === 7200, 'feuille annee : ligne du pôle, 7200 s');
+    assert(yr.body.breakdown && yr.body.breakdown.totalSeconds === 7200, 'feuille annee : répartition alignée');
+    assert((await c.get('/api/stats/timesheet?period=year&yearOffset=-1')).status === 400, 'yearOffset invalide = 400');
+    assert((await c.get('/api/stats/timesheet?period=year&yearOffset=1')).body.rows.length === 0, 'année précédente vide');
+
     // Garde-fous
     assert((await c.get('/api/category-stats?activityId=abc&period=week')).status === 400, 'activité invalide = 400');
     assert((await c.get(`/api/category-stats?activityId=${A}&from=2026-12-31&to=2026-01-01`)).status === 400, 'période inversée = 400');

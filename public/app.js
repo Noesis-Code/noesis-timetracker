@@ -50,9 +50,10 @@
   // (voir totalRangeForUser côté serveur), seule la granularité des points
   // se choisit ('day' | 'week' | 'month', 'day' par défaut).
   var currentChartGranularity = 'day';
-  var currentTimesheetPeriod = 'week'; // 'week' | 'month' — pas d'"année" pour la Feuille de temps (demande d'Emilien)
+  var currentTimesheetPeriod = 'week'; // 'week' | 'month' | 'year'
   var currentTimesheetOffset = 0; // décalage en semaines calendaires ; repart à 0 à chaque ouverture de l'onglet Statistiques
   var currentTimesheetMonthOffset = 0; // décalage en mois (vue calendrier) ; repart à 0 lui aussi
+  var currentTimesheetYearOffset = 0; // décalage en années (vue Année)
   var currentHistoryWeekOffset = 0; // idem, pour l'historique modifiable du Chrono (#chronoHistoryPanel)
   var lastDailyBreakdown = []; // dernier détail journalier chargé, pour redessiner le Graphique sans refetch (ex : couleur de la courbe Total après un changement de thème)
   // Ni la Feuille de temps (retiré le 1er septembre 2026) ni le Graphique
@@ -2085,6 +2086,7 @@
       currentTimesheetPeriod = 'week';
       currentTimesheetOffset = 0;
       currentTimesheetMonthOffset = 0;
+      currentTimesheetYearOffset = 0;
       syncPeriodMenuActive($('tsPeriodMenu'), 'week');
       // La Répartition repart toujours SYNCHRONISÉE sur la Feuille de temps
       // (3 septembre 2026, demande d'Emilien : « je souhaite que la
@@ -3462,6 +3464,7 @@
     // période, plutôt que de convertir un décalage semaine en décalage mois
     // (les deux ne correspondent à rien l'un pour l'autre).
     if (period === 'month') currentTimesheetMonthOffset = 0;
+    else if (period === 'year') currentTimesheetYearOffset = 0;
     else currentTimesheetOffset = 0;
     loadTimesheet();
   });
@@ -5283,6 +5286,7 @@
   // ids, comportement adapté à la vue affichée.
   $('tsPrevWeek').addEventListener('click', function () {
     if (currentTimesheetPeriod === 'month') currentTimesheetMonthOffset += 1;
+    else if (currentTimesheetPeriod === 'year') currentTimesheetYearOffset += 1;
     else currentTimesheetOffset += 1;
     loadTimesheet();
   });
@@ -5290,6 +5294,9 @@
     if (currentTimesheetPeriod === 'month') {
       if (currentTimesheetMonthOffset === 0) return;
       currentTimesheetMonthOffset -= 1;
+    } else if (currentTimesheetPeriod === 'year') {
+      if (currentTimesheetYearOffset === 0) return;
+      currentTimesheetYearOffset -= 1;
     } else {
       if (currentTimesheetOffset === 0) return;
       currentTimesheetOffset -= 1;
@@ -5305,7 +5312,12 @@
   // Deux lignes, aucune logique de la Feuille de temps modifiée.
   function loadTimesheet() {
     if (!profile) return;
-    if (currentTimesheetPeriod === 'month') {
+    if (currentTimesheetPeriod === 'year') {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=year&yearOffset=' + currentTimesheetYearOffset + statsVisParam()).then(function (data) {
+        renderTimesheetYear(data);
+        renderPieFromTimesheet(data);
+      });
+    } else if (currentTimesheetPeriod === 'month') {
       api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset + statsVisParam()).then(function (data) {
         renderTimesheetMonth(data);
         renderPieFromTimesheet(data);
@@ -5495,6 +5507,45 @@
 
     $(I.frozen).innerHTML = frozen;
     $(I.calendar).innerHTML = '<div class="tsCalendarGrid">' + html + '</div>';
+  }
+
+  // ----- Feuille de temps, vue "Année" : colonnes = 12 mois, lignes = pôles
+  // (activités ; les secteurs remontent au pôle). Même structure que la vue
+  // Mois (colonne figée + calendrier), mêmes classes. Chaque case porte la
+  // durée du mois et une barre proportionnelle au mois le plus chargé. -----
+  var MONTH_NAMES_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  function renderTimesheetYear(data, idsIn) {
+    var I = tsIds(idsIn);
+    $(I.calendar).classList.remove('hidden');
+    $(I.grid).classList.add('hidden');
+    $(I.grid).parentNode.classList.remove('tsWeekScroll');
+    $(I.frozen).classList.remove('hidden');
+    $(I.frozen).classList.add('tsFrozenCal');
+
+    $(I.weekLabel).textContent = data.label + (data.isCurrentYear ? t(' (en cours)') : '');
+    $(I.nextBtn).disabled = data.isCurrentYear;
+    $(I.prevBtn).disabled = !data.hasMoreBefore;
+    $(I.emptyHint).classList.toggle('hidden', data.rows.length > 0);
+
+    var max = 0;
+    data.rows.forEach(function (r) { r.months.forEach(function (s) { if (s > max) max = s; }); });
+    var frozen = '<div class="tsCalCorner"></div>';
+    var html = '';
+    MONTH_NAMES_FR.forEach(function (name) {
+      html += '<div class="tsCalHeaderCell">' + t(name).slice(0, 3) + '</div>';
+    });
+    data.rows.forEach(function (r) {
+      var rowName = r.name || t('Sans pôle');
+      frozen += '<div class="tsCalWeekLabel" style="overflow:hidden;text-overflow:ellipsis;display:block;line-height:var(--cal-row)" title="' + escapeHtml(rowName) + '">' + escapeHtml(rowName) + '</div>';
+      r.months.forEach(function (sec, m) {
+        html += '<div class="tsCalDay" title="' + escapeHtml(rowName) + ' · ' + t(MONTH_NAMES_FR[m]) + '">';
+        html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>';
+        html += '<div class="tsSlot tsSlot-filled" style="height:6px;width:' + (sec > 0 && max > 0 ? Math.max(8, Math.round(sec / max * 100)) : 0)
+          + '%;background:' + r.color + '"></div></div>';
+      });
+    });
+    $(I.frozen).innerHTML = frozen;
+    $(I.calendar).innerHTML = '<div class="tsCalendarGrid" style="grid-template-columns:repeat(12,minmax(56px,1fr))">' + html + '</div>';
   }
 
   // ===================== COMMUNAUTÉ =====================

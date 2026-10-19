@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { ownVisibilityExcludedIds, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser } = require('../lib/stats');
+const { ownVisibilityExcludedIds, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser, timesheetYearForUser } = require('../lib/stats');
 const { isoDateOf, mondayOf } = require('../lib/dates');
 
 const router = express.Router();
@@ -28,6 +28,7 @@ function displayedRange(result) {
   if (result.days && result.days.length) {
     return { start: result.days[0].isoDate, end: result.days[result.days.length - 1].isoDate };
   }
+  if (result.rows && result.start && result.end) return { start: result.start, end: result.end }; // vue Année
   return null;
 }
 
@@ -92,8 +93,16 @@ router.get('/stats/timesheet', (req, res) => {
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  const period = req.query.period === 'month' ? 'month' : 'week';
+  const period = req.query.period === 'month' ? 'month' : req.query.period === 'year' ? 'year' : 'week';
   const excl = ownVisibilityExcludedIds(userId, req.query.visibility);
+
+  if (period === 'year') {
+    const yearOffset = parseInt(req.query.yearOffset, 10);
+    if (req.query.yearOffset !== undefined && (isNaN(yearOffset) || yearOffset < 0)) {
+      return res.status(400).json({ error: 'yearOffset invalide.' });
+    }
+    return res.json(Object.assign({ period }, withBreakdown(userId, timesheetYearForUser(userId, isNaN(yearOffset) ? 0 : yearOffset, { excludeActivityIds: excl }), excl)));
+  }
 
   if (period === 'month') {
     const monthOffset = parseInt(req.query.monthOffset, 10);
