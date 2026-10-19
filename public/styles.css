@@ -2865,15 +2865,17 @@ body.scrollLock { overflow: hidden; }
 }
 /* Fenêtre d'édition d'une tâche (appui long) : même gabarit, mais au-dessus des plein écran (#goalsDetailPage z 101). */
 .goalTaskEditModal { z-index: 110; }
-/* 2 oct. 2026 (Emilien) : ligne fine sur le contour supérieur de toutes les fenêtres qui montent du bas
-   (style profil d'un membre). Les pages plein écran (#activityPage, #profilePage, Objectifs) en sont exclues. */
+/* 19 oct. 2026 (charte Simplification) : pop-up CENTRÉS, plus de fenêtre qui monte du bas. Liseré fin sur tout le contour.
+   Les pages plein écran (#activityPage, #profilePage, Objectifs) en sont exclues. */
+.communityMembersModal:not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage),
+.goalTaskEditModal { align-items: center; padding: 16px; box-sizing: border-box; }
 .communityMembersModal:not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage) > .communityMembersModalCard,
-.goalTaskEditCard, .goalsDiscSheet { border-top: 1px solid var(--sheet-line); }
+.goalTaskEditCard, .goalsDiscSheet { border: 1px solid var(--sheet-line); border-radius: var(--radius-xl); }
 /* Fenêtres imbriquées dans une page plein écran (ex. Membres dans la fenêtre d'activité) : mêmes règles, ligne fine incluse. */
 #activityPage .communityMembersModal > .communityMembersModalCard,
 #profilePage .communityMembersModal > .communityMembersModalCard,
 #goalsActivitySwitcher .communityMembersModal > .communityMembersModalCard,
-#goalsDetailPage .communityMembersModal > .communityMembersModalCard { border-top: 1px solid var(--glass-border); }
+#goalsDetailPage .communityMembersModal > .communityMembersModalCard { border: 1px solid var(--glass-border); }
 .announcementBody { white-space: pre-wrap; line-height: 1.5; margin: 0; }
 .communityMembersModalHeader {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
@@ -6211,8 +6213,8 @@ button { -webkit-user-select: none; user-select: none; }
 .catEditForm .timeCapsMax { min-height: 44px; width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--text); font: inherit; font-size: 15px; font-variant-numeric: tabular-nums; cursor: pointer; }
 .catEditForm .timeCapsMax.isEmpty { color: var(--text-light); }
 .catEditForm .timeCapsMax:disabled { opacity: .6; cursor: default; }
-.durPickerOverlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; justify-content: center; }
-.durPickerSheet { width: 100%; max-width: 480px; box-sizing: border-box; margin: 0 8px calc(8px + env(safe-area-inset-bottom)); padding: 12px 16px 16px; border-radius: 22px; background: rgba(38,40,48,.94); color: var(--white); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+.durPickerOverlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
+.durPickerSheet { width: 100%; max-width: 480px; box-sizing: border-box; margin: 0 8px; padding: 12px 16px 16px; border-radius: 22px; background: rgba(38,40,48,.94); color: var(--white); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 10px 40px rgba(0,0,0,.4); }
 .durPickerHead { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; }
 .durPickerClose { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: rgba(255,255,255,.75); font-size: 18px; cursor: pointer; }
 .durPickerWheels { position: relative; display: flex; justify-content: center; gap: 24px; height: 220px; margin: 4px 0 8px; }
