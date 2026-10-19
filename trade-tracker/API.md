@@ -53,6 +53,14 @@ Tri par défaut : `valueCad` décroissant (le tri fin est fait côté interface)
 { entries: [ { id, at, accountId|null, kind, status: "OK"|"PARTIEL"|"ECHEC", message, itemsCount } ] }
 ```
 
+`GET /api/compare` (portefeuille de l'utilisateur connecté comparé à celui de l'expert EN DIRECT ; écarts = client - expert, en points de %) ->
+```
+{ expertSyncedAt, clientTotalValueCad, expertTotalValueCad, maxAbsGapPts,
+  bySector:   [ { key, label, clientPct, expertPct, gapPts } ],   // inclut key "cash" (Encaisse), tri par |gapPts| décroissant
+  byPosition: [ { symbol, label, sector, clientPct, expertPct, gapPts } ] }  // titres agrégés par symbole, tous comptes
+```
+Pour l'expert lui-même, tous les écarts valent 0. Les poids sont en % de la valeur totale (encaisse incluse).
+
 Expert seulement (client : 403 `forbidden`) :
 - `POST /api/invitations` `{ email, role: "client"|"expert" }` -> `{ id, code, email, role, expiresAt }` (le code n'est montré qu'une fois ; valide 7 jours).
 - `GET /api/invitations` -> `{ invitations: [ { id, email, role, createdAt, expiresAt, used } ] }`.
@@ -61,5 +69,20 @@ Expert seulement (client : 403 `forbidden`) :
 
 Jeton courtier : chaque utilisateur (expert ou client) connecte son propre compte courtier ; le jeton est stocké chiffré par utilisateur (clé `TRADE_TOKEN_KEY`) et n'est jamais renvoyé par l'API. `GET /api/me` expose seulement `brokerConnected: boolean`.
 
+## Synchro et connecteurs
+Chaque utilisateur est synchronisé périodiquement (`TRADE_SYNC_INTERVAL_MIN`, défaut 15 ; l'expert d'abord) par un connecteur `async fetchPortfolio(user)` (voir `server/lib/connectors/demo.js` pour la forme des données). Seul le connecteur `demo` (fictif) existe ; Questrade viendra avec la même interface. Chaque synchro écrit une ligne dans `sync-log` (`OK`/`ECHEC`). Un instantané quotidien alimente `/api/history`.
+
+## Événement d'achat -> TMT
+Chaque NOUVELLE transaction `ACHAT` de l'expert détectée par une synchro crée un événement `purchase` (table `events`, un seul par transaction ; la toute première synchro d'un utilisateur n'en crée pas). Le notificateur envoie :
+
+`POST ${TMT_BASE_URL}/api/trade-events` — `Content-Type: application/json`, en-têtes `X-Trade-Timestamp` (secondes Unix), `X-Trade-Event-Id`, `X-Trade-Signature: sha256=<hex>` où hex = HMAC-SHA256 de la chaîne `"<X-Trade-Timestamp>.<corps brut>"` avec `TRADE_NOTIFY_SECRET` (même secret des deux côtés ; TMT doit refuser un horodatage de plus de 5 min et dédupliquer sur `X-Trade-Event-Id`).
+```
+{ "userId": "<id TMT de l'expert>", "symbol": "AAA.TO", "quantity": 50, "price": 20, "account": "CELI", "occurredAt": "2026-06-02" }
+```
+Réponse attendue : 2xx. Sinon l'événement reste `ECHEC` et est renvoyé à la synchro suivante (5 essais max). `TRADE_NOTIFY_DRYRUN=1` : requête construite et enregistrée `DRYRUN`, aucun appel réseau. Sans `TMT_BASE_URL`/`TRADE_NOTIFY_SECRET` : `SKIPPED`.
+
+## Variables d'environnement
+`TRADE_LINK_SECRET` (signature des liens, >= 16 car., partagé avec TMT), `TRADE_TOKEN_KEY` (chiffrement des jetons courtier), `TRADE_EXPERT_TMT_IDS` (ids TMT amorçant le rôle expert, séparés par des virgules), `TRADE_NOTIFY_SECRET`, `TMT_BASE_URL`, `TRADE_CONNECTOR` (défaut `demo`), `TRADE_SYNC_DISABLE`, `TRADE_SYNC_INTERVAL_MIN`, `TRADE_NOTIFY_DRYRUN`, `PORT` (3980), `NOESIS_DATA_DIR`. Aucun secret n'est stocké dans le code.
+
 ## Hors v0
-Connecteur courtier (Questrade), prix et taux automatiques, écriture de transactions : non inclus ; la synchro n'alimente pour l'instant que `sync_log` et les données de démo.
+Connecteur courtier (Questrade), prix et taux automatiques, écriture de transactions : non inclus ; la synchro n'utilise que le connecteur de démonstration.
