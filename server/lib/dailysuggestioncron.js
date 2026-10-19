@@ -26,6 +26,7 @@
 // goal_period_due_reminders. Heure fixe, fuseau du serveur (process.env.TZ).
 
 const db = require('../db');
+const modules = require('./modules');
 const cron = require('node-cron');
 const goalsdailypriority = require('./goalsdailypriority');
 const push = require('./push');
@@ -75,11 +76,13 @@ function runDailySuggestionSweep() {
   let notified = 0;
   for (const userId of userIds) {
     try {
+      if (!modules.isEnabled(userId, 'roadmap') || !modules.isEnabled(userId, 'notifications')) continue; // module désactivé : aucun calcul ni notification
       const urgent = goalsdailypriority.mostUrgentTaskForUser(userId);
       if (!urgent) continue; // rien à proposer : pas de notification vide
       const t = textsFor(userId);
       const url = '/?notif=dailypriority&activityId=' + urgent.activityId + '&taskId=' + urgent.taskId;
       push.sendToUsers([userId], {
+        module: 'roadmap',
         title: t.title,
         body: t.body,
         tag: 'daily-suggestion',

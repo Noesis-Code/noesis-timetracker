@@ -61,7 +61,7 @@ function notifyAssigned(itemId, actorId) {
     let url = '/?notif=taskassigned&activityId=' + row.activityId + '&taskId=' + row.id;
     if (poleKey) url += '&category=' + encodeURIComponent(poleKey);
     if (per) url += '&periodNumber=' + per.periodNumber + '&weekIndex=' + per.weekIndex;
-    push.sendToUsers([row.plannedUserId], { title: TEXTS[lang].title, body, tag: 'task-assigned-' + row.id, url });
+    push.sendToUsers([row.plannedUserId], { module: 'roadmap', title: TEXTS[lang].title, body, tag: 'task-assigned-' + row.id, url });
     return true;
   } catch (e) {
     console.warn('[taskassignnotif] échec :', e.message);

@@ -10,6 +10,7 @@
 // facturation. Pure JS, aucune compilation native — cohérent avec la
 // contrainte déjà posée pour server/lib/session.js.
 const cron = require('node-cron');
+const modules = require('./modules');
 const offerdelivery = require('./offerdelivery');
 const offerquota = require('./offerquota');
 const { revealDueReplacements } = require('./subprojectqueue');
@@ -27,6 +28,7 @@ function dueSubscriptions() {
 async function runMonthlyRegeneration() {
   const due = dueSubscriptions();
   for (const row of due) {
+    if (!modules.isEnabled(row.ownerId, 'ai') || !modules.isEnabled(row.ownerId, 'roadmap')) continue; // pas d'appel IA pour un module désactivé
     try {
       await offerdelivery.regenerateActivityRoadmap(row.activityId, row.ownerId);
       // Uniquement après un succès : le quota des 3 pôles repart à zéro et le

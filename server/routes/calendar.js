@@ -213,6 +213,8 @@ router.get('/calendar/:file', guardEnabled, (req, res) => {
   // Jeton inconnu ou révoqué : 404, jamais 403. Un 403 confirmerait que
   // l'URL a existé.
   if (!userId) return res.status(404).type('text/plain').send('Not found');
+  // Module Calendrier désactivé : le flux ne sort plus (même 404 neutre ; jeton et données conservés).
+  if (!require('../lib/modules').isEnabled(userId, 'calendar')) return res.status(404).type('text/plain').send('Not found');
 
   const body = feed.buildFeedForUser(userId);
   feed.touchToken(userId);

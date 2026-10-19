@@ -32,6 +32,7 @@
 //     déclarés par des chantiers différents.
 
 const db = require('../db');
+const modules = require('./modules');
 const push = require('./push');
 
 // Les deux mêmes seuils que sous-projets, du plus lointain au plus proche.
@@ -171,6 +172,7 @@ function runGoalRemindersAll(now) {
       if (left === null || left < 0) continue;
 
       for (const userId of members) {
+        if (!modules.isEnabled(userId, 'roadmap') || !modules.isEnabled(userId, 'calendar')) continue; // module désactivé : ni rappel ni marquage
         const pending = THRESHOLDS.filter((th) => left <= th && !alreadySent(period.id, userId, period.endDate, th));
         if (!pending.length) continue;
 
@@ -181,6 +183,7 @@ function runGoalRemindersAll(now) {
         const lang = langOf(userId);
         const catLabel = categoryLabel(lang, period.category);
         push.sendToUsers([userId], {
+          module: 'roadmap',
           title: activity.name,
           body: textFor(lang, catLabel, period.periodIndexInCycle, left),
           tag: 'goalperiod-due-' + period.id + '-' + toSend,

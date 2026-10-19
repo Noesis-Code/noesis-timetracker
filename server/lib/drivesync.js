@@ -26,6 +26,7 @@
 // listé « trop volumineux » après DRIVE_SYNC_MAX_DEFER_PASSES (24) passages ; entrée skip:* non relue tant que le fichier n'a pas changé (doublon : tant que l'original est inchangé).
 const crypto = require('crypto');
 const db = require('../db');
+const modules = require('./modules');
 const drive = require('./drive');
 const documenttasks = require('./documenttasks');
 const aibudget = require('./aibudget');
@@ -208,7 +209,7 @@ function notify(userId, activityId, added, proposed) {
     let body;
     if (added) body = fr ? `${n} tâche${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''} depuis ton Drive` : `${n} task${n > 1 ? 's' : ''} added from your Drive`;
     else body = fr ? `${n} nouvelle${n > 1 ? 's' : ''} tâche${n > 1 ? 's' : ''} proposée${n > 1 ? 's' : ''} depuis ton Drive` : `${n} new task${n > 1 ? 's' : ''} suggested from your Drive`;
-    push.sendToUsers([userId], { title: 'TiMeTracker', body, tag: 'drive-sync-' + activityId, url: '/?notif=drivesync&activityId=' + activityId });
+    push.sendToUsers([userId], { module: 'ai', title: 'TiMeTracker', body, tag: 'drive-sync-' + activityId, url: '/?notif=drivesync&activityId=' + activityId });
   } catch (e) { /* une notification ratée ne doit rien bloquer */ }
 }
 
@@ -659,6 +660,7 @@ async function runSweep() {
   let n = 0;
   for (const r of rows) {
     if (!activityHasEssor(r.activityId, r.userId)) continue;
+    if (!modules.isEnabled(r.userId, 'ai')) continue; // module IA désactivé : aucune surveillance, aucun appel IA
     try { await syncConnection(r.userId, r.activityId); n++; }
     catch (e) { console.error('[drivesync] échec (code ' + (e.statusCode || '?') + ')'); }
   }

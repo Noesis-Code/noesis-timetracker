@@ -34,6 +34,7 @@
 // avalent donc leurs erreurs et se contentent de les journaliser.
 
 const db = require('../db');
+const modules = require('./modules');
 
 const PUBLIC_KEY = process.env.NOESIS_VAPID_PUBLIC_KEY || '';
 const PRIVATE_KEY = process.env.NOESIS_VAPID_PRIVATE_KEY || '';
@@ -121,7 +122,9 @@ function textsFor(userId) {
 function sendToUsers(userIds, payload) {
   if (!configured) return;
 
-  const ids = Array.from(new Set((userIds || []).filter(Boolean)));
+  let ids = Array.from(new Set((userIds || []).filter(Boolean)));
+  // Modules (19 oct. 2026) : aucune notification si « Notifications » est désactivé pour la personne, ni pour un module (payload.module) qu'elle a désactivé.
+  ids = ids.filter((id) => { try { return modules.isEnabled(id, 'notifications') && (!payload || !payload.module || modules.isEnabled(id, payload.module)); } catch (e) { return true; } });
   if (ids.length === 0) return;
 
   const placeholders = ids.map(() => '?').join(',');
@@ -224,6 +227,7 @@ function notifyActivityMessage(activityId, authorId, messageBody, messageId) {
     sendToUsers(recipients, {
       title: '💬 ' + activity.name,
       body: author.name + ' : ' + truncate(messageBody, MESSAGE_MAX),
+      module: 'sharing',
       tag: 'activity-message-' + activityId,
       url: '/?notif=activity&activityId=' + activityId + (messageId ? '&messageId=' + messageId : ''),
     });
@@ -263,6 +267,7 @@ function notifyCommunityPost(authorId, postBody, postId) {
     recipients.forEach((userId) => {
       const t = textsFor(userId);
       sendToUsers([userId], {
+        module: 'community',
         title: t.postTitle,
         body: body,
         // Un tag par auteur : deux publications d'affilée de la même personne
@@ -289,6 +294,7 @@ function notifyActivityInvite(toUserId, fromUserId, activityName) {
     sendToUsers([toUserId], {
       title: t.inviteTitle,
       body: t.inviteBody(from.name, activityName),
+      module: 'sharing',
       tag: 'invite',
       url: '/?notif=invite',
     });
@@ -316,6 +322,7 @@ function notifyFollowRequest(toUserId, fromUserId) {
     sendToUsers([toUserId], {
       title: t.followTitle,
       body: t.followBody(from.name),
+      module: 'community',
       tag: 'follow-request-' + fromUserId,
       url: '/?notif=follow' + (pending ? '&followId=' + pending.id : ''),
     });

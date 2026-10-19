@@ -1199,6 +1199,7 @@ function runGoalsSweepAll() {
   plans.forEach((row) => {
     try {
       const activity = { id: row.activityId, name: row.activityName, ownerId: row.ownerId };
+      if (!require('./modules').isEnabled(row.ownerId, 'roadmap')) return; // module désactivé : ni report ni bilan automatique
       const plan = getPlan(activity.id, row.category);
       if (!plan) return;
       carryOverWeekly(activity.id, row.category, plan.startDate);

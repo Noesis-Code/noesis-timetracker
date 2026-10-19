@@ -107,6 +107,7 @@ function runAll() {
   const today = todayLocal();
   let created = 0;
   db.prepare('SELECT activityId, userId FROM activity_members').all().forEach((m) => {
+    if (!require('./modules').isEnabled(m.userId, 'roadmap')) return; // module désactivé : aucun recalcul
     try { created += runForUser(m.userId, m.activityId, today); } catch (e) { console.error('[goalsrecalc] échec (' + m.activityId + '/' + m.userId + ') :', e.message); }
   });
   return created;

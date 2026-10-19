@@ -20,6 +20,7 @@
 // jamais rien reçu.
 
 const db = require('../db');
+const modules = require('./modules');
 const push = require('./push');
 const { subProjectsForActivity } = require('./subprojects');
 
@@ -188,6 +189,7 @@ function runDueReminders(now) {
         // plus proche. `left <= threshold` et non `===` : si le serveur est
         // resté éteint un jour, le rappel part quand même, avec un jour de
         // retard, plutôt que d'être perdu.
+        if (!modules.isEnabled(userId, 'roadmap')) continue; // module désactivé : ni rappel ni marquage
         const pending = THRESHOLDS.filter((th) => left <= th && !alreadySent(sp.id, userId, sp.closesAt, th));
         if (!pending.length) continue;
 
@@ -199,6 +201,7 @@ function runDueReminders(now) {
 
         const lang = langOf(userId);
         push.sendToUsers([userId], {
+          module: 'roadmap',
           title: activity.name,
           body: textFor(lang, sp.name, left),
           // Un `tag` par (sous-projet, seuil) : deux rappels différents

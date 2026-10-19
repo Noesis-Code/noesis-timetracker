@@ -103,6 +103,7 @@ app.use(express.json({ limit: '15mb' }));
 // désormais sur req.userId plutôt que sur un userId envoyé par le client.
 app.use(require('./lib/session').middleware);
 app.use((req, res, next) => require('./lib/aibudget').runAs(req.userId, next)); // utilisateur courant pour le budget IA
+app.use(require('./lib/modulegate').moduleGate); // modules désactivés : 403 « module_off » (données conservées), voir server/lib/modulegate.js
 app.use('/api', require('./routes/aibudget'));
 app.use(require('./routes/mcp')); // « Connecter mon IA » : POST /mcp (lecture seule) + /api/ai-tokens
 

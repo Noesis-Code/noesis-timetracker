@@ -11,6 +11,7 @@ const goalstasks = require('../lib/goalstasks');
 const goalsauto = require('../lib/goalsauto');
 const sp = require('../lib/subprojects');
 const push = require('../lib/push');
+const modules = require('../lib/modules');
 const { requireAuth } = require('../lib/session');
 
 const router = express.Router();
@@ -219,11 +220,16 @@ Object.assign(tools, {
       if (!message) throw toolError('message requis.');
       const titre = String(args.titre || 'Mon IA').trim().slice(0, 50);
       if (!aitokens.takeNotifSlot(ctx.tokenId)) throw toolError('Limite atteinte : ' + aitokens.NOTIF_PER_DAY + ' notifications par jour.');
-      push.sendToUsers([userId], { title: '🤖 ' + titre, body: message, tag: 'ai-' + ctx.tokenId, url: '/' });
+      push.sendToUsers([userId], { module: 'ai', title: '🤖 ' + titre, body: message, tag: 'ai-' + ctx.tokenId, url: '/' });
       return { envoyee: true };
     },
   },
 });
+
+// Modules (19 oct. 2026) : module requis par outil (défaut roadmap ; lister_activites = noyau ; notifier = notifications).
+// Un outil dont le module est désactivé pour l'utilisateur disparaît de tools/list et refuse l'appel ; « Assistant IA » désactivé = tout le MCP refusé (voir handleMcpPost).
+for (const n of Object.keys(tools)) tools[n].module = n === 'lister_activites' ? 'core' : (n === 'notifier' ? 'notifications' : 'roadmap');
+const toolOn = (userId, name) => modules.isEnabled(userId, tools[name].module);
 
 // ---------------------------------------------------------------- JSON-RPC
 function rpcError(id, code, message) { return { jsonrpc: '2.0', id: id == null ? null : id, error: { code, message } }; }
@@ -247,11 +253,12 @@ function handleRpc(msg, ctx) {
     case 'ping':
       return ok({});
     case 'tools/list':
-      return ok({ tools: Object.keys(tools).filter((n) => !tools[n].write || ctx.canWrite).map((name) => ({ name, description: tools[name].description, inputSchema: tools[name].inputSchema, annotations: { readOnlyHint: !tools[name].write } })) });
+      return ok({ tools: Object.keys(tools).filter((n) => (!tools[n].write || ctx.canWrite) && toolOn(userId, n)).map((name) => ({ name, description: tools[name].description, inputSchema: tools[name].inputSchema, annotations: { readOnlyHint: !tools[name].write } })) });
     case 'tools/call': {
       const p = msg.params || {};
       const tool = Object.prototype.hasOwnProperty.call(tools, p.name) ? tools[p.name] : null;
       if (!tool) return isNotification ? null : rpcError(msg.id, -32602, 'Outil inconnu : ' + p.name);
+      if (!toolOn(userId, p.name)) return isNotification ? null : ok({ isError: true, content: [{ type: 'text', text: 'Module désactivé dans TimeTracker pour cet outil.' }] });
       if (tool.write && !ctx.canWrite) { const e = new Error("Ce jeton est en lecture seule."); e.forbidden = true; throw e; }
       try {
         const data = tool.run(userId, p.arguments && typeof p.arguments === 'object' ? p.arguments : {}, ctx);
@@ -272,6 +279,7 @@ function handleMcpPost(req, res, token) {
     res.set('WWW-Authenticate', 'Bearer realm="timetracker"');
     return res.status(401).json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Jeton invalide ou révoqué.' } });
   }
+  if (!modules.isEnabled(auth.userId, 'ai')) return res.status(403).json(rpcError(null, -32004, 'Module « Assistant IA » désactivé dans TimeTracker.'));
   if (!aitokens.rateOk(auth.tokenId)) {
     res.set('Retry-After', '60');
     return res.status(429).json(rpcError(null, -32002, 'Trop d\'appels : 60 par minute maximum.'));
