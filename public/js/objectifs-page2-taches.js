@@ -1281,6 +1281,7 @@
           if (task.plannedUserId === m.id) o.selected = true;
           assignSel.appendChild(o);
         });
+        if (TMT.attachMemberEstimates) TMT.attachMemberEstimates(assignSel, TMT.currentGoalsActivityId, function () { return TMT.currentGoalsCategory; })();
       }).catch(function () {});
     }
 
