@@ -62,18 +62,6 @@ router.get('/community', (req, res) => {
   res.json(sharedActivitiesForUser(userId, period, req.query.date || null));
 });
 
-// Flux "Partagée" : sessions des autres membres des activités que je
-// partage actuellement — voir sharedFeedForUser dans lib/community.js.
-router.get('/community/shared-feed', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-
-  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
-  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
-
-  res.json(sharedFeedForUser(userId));
-});
-
 // Détail d'UNE activité partagée précise (section Membres > sélecteur
 // d'activité) : sessions + notes des AUTRES membres de cette activité
 // uniquement, jamais de toutes les activités partagées mélangées — voir
