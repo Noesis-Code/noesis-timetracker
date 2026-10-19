@@ -90,7 +90,5 @@ module.exports = {
   startSubscriptionCron,
   // Exportés pour les tests et un déclenchement manuel (admin) sans attendre
   // le prochain passage planifié.
-  runMonthlyRegeneration,
-  runReplacementSweep,
   dueSubscriptions,
 };

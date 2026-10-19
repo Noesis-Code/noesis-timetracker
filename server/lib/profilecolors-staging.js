@@ -1,4 +1,4 @@
-// 30 sept. 2026 (demande d'Emilien) : applique les nouvelles couleurs de profil « crayeuses » aux profils DÉJÀ
+// Applique les nouvelles couleurs de profil « crayeuses » aux profils DÉJÀ
 // existants, sur STAGING uniquement (jamais en production : RAILWAY_ENVIRONMENT_NAME absent ou "production" = no-op).
 // Idempotent : on ne remappe que les anciennes couleurs connues (par index) vers les nouvelles ; une fois fait,
 // plus aucune ligne ne correspond. Les couleurs d'activités ne sont PAS touchées.
@@ -8,7 +8,7 @@ const OLD_PROFILE = ['#4CAF50', '#3498db', '#E74C3C', '#F39C12', '#9B59B6', '#1A
 const OLD_DARK = ['#9E2E2E', '#9B5D27', '#8B7923', '#328540', '#2E828A', '#3659A1', '#573EA3', '#833B9B'];
 const V1_PROFILE = ['#7FA07B', '#7A9BB5', '#B9705F', '#C4A062', '#A08BAE', '#77A89E', '#BC8D6B', '#8E86B8']; // 1re version, trop pâle
 const CHALKY_PROFILE = ['#6E9669', '#6A93B5', '#B5604D', '#C49A4A', '#9678AC', '#5F9E92', '#BC8158', '#7E74B5']; // version « crayeuse »
-// 30 sept. 2026 : palette B « Minéral » (profils 9 couleurs ; activités 9 couleurs sombres + jumelles claires).
+// Palette B « Minéral » (profils 9 couleurs ; activités 9 couleurs sombres + jumelles claires).
 const PALE_B_PROFILE = ['#B0787D', '#B08B78', '#B09F78', '#9DB078', '#78B094', '#78ABB0', '#7894B0', '#8178B0', '#A678B0']; // B pâle (3fa87c5)
 const NEW_PROFILE = ['#A04B52', '#A0674B', '#A0864B', '#83A04B', '#4BA075', '#4B98A0', '#4B75A0', '#594BA0', '#914BA0']; // = DARK_PALETTE
 const { DARK_PALETTE, LIGHT_PALETTE, LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE } = require('../../public/theme-palette.js');

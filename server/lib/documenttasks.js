@@ -1,4 +1,4 @@
-// « Ajouter des tâches » depuis un document (Essor, 15 oct. 2026).
+// « Ajouter des tâches » depuis un document (Essor).
 // L'utilisateur joint un document et écrit une consigne ; l'IA PROPOSE une liste de tâches
 // (titre, secteur/pôle, jour cible, durée estimée). Rien n'est écrit avant `apply`, qui
 // n'écrit QUE les tâches cochées par l'utilisateur, via goalstasks.addCategoryTask (même
@@ -165,7 +165,7 @@ async function documentText(files) {
 }
 
 // ---------- Contexte ----------
-// Horizon (17 oct. 2026) : tous les lundis de la semaine courante jusqu'à la dernière semaine de la dernière année
+// Horizon : tous les lundis de la semaine courante jusqu'à la dernière semaine de la dernière année
 // créée de CETTE activité (même borne que le défilement des périodes). Sans année au-delà : ce qui existe, au minimum la semaine courante.
 function weeksContext(activityId) {
   const monday = goals.mostRecentMonday(todayIso());
@@ -179,7 +179,7 @@ function weeksContext(activityId) {
   return out.length ? out : [monday];
 }
 
-// Données de l'application (16 oct. 2026, Émilien) : objectifs hebdomadaires à venir et tâches ouvertes de CETTE activité.
+// Données de l'application (Émilien) : objectifs hebdomadaires à venir et tâches ouvertes de CETTE activité.
 // Sans document joint, l'IA s'appuie sur elles ; avec un document, elles s'ajoutent comme ressources.
 function appData(activityId, weeks) {
   const monday = weeks[0], end = goals.addDays(weeks[weeks.length - 1], 6);
@@ -194,7 +194,7 @@ function appData(activityId, weeks) {
     open = db.prepare(`SELECT i.label, i.dueDate, sp.goalCategory AS cat FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
       WHERE sp.activityId = ? AND i.done = 0 ORDER BY i.dueDate, i.id LIMIT 80`).all(activityId);
   } catch (e) { /* données absentes : l'IA répond avec la consigne seule */ }
-  // Hiérarchie (17 oct. 2026) : objectif ANNUEL par catégorie (années de l'horizon) puis objectif PÉRIODIQUE (grand objectif des périodes de l'horizon).
+  // Hiérarchie : objectif ANNUEL par catégorie (années de l'horizon) puis objectif PÉRIODIQUE (grand objectif des périodes de l'horizon).
   let yearGoals = [], periodGoals = [];
   try {
     for (let y = Number(monday.slice(0, 4)); y <= Number(end.slice(0, 4)); y++) {
@@ -320,7 +320,7 @@ function isRealDate(s) {
   const d = new Date(s + 'T00:00:00Z');
   return !isNaN(d) && d.toISOString().slice(0, 10) === s;
 }
-// ---------- Jours (17 oct. 2026) ----------
+// ---------- Jours ----------
 const dowOf = (iso) => new Date(iso + 'T00:00:00Z').getUTCDay();
 const isWorkday = (iso) => WORK_DAYS.includes(dowOf(iso));
 // Capacité d'un jour (minutes) : agenda externe de l'utilisateur (ctx.dayCaps : 0 = vacances, X/Y réglés) sinon capacité par défaut ; null = illimitée.
@@ -392,7 +392,7 @@ function parseDetailed(text, ctx) {
     if (!title) { dropped.vide++; return; }
     let key = t.key, pick = false;
     if (!labels.has(key)) {
-      // Catégorie inconnue (19 oct. 2026, décision d'Émilien) : clé proche reconnue sinon la tâche est ÉCARTÉE (comptée, jamais affichée).
+      // Catégorie inconnue (décision d'Émilien) : clé proche reconnue sinon la tâche est ÉCARTÉE (comptée, jamais affichée).
       const near = closestKey(key, ctx.candidates);
       if (!near) { dropped.categorieInconnue++; return; }
       key = near; pick = true;
@@ -432,7 +432,7 @@ function dayWarnings(tasks, ctx) {
     .map((d) => ({ day: d, week: goals.mostRecentMonday(d), minutes: load[d], capacityMinutes: capOf(ctx, d) }));
 }
 
-// Contrôle déterministe (« Semaine qui dépasse sa capacité », 17 oct. 2026). Charge d'un jour = tâches ACCEPTÉES + PROPOSÉES.
+// Contrôle déterministe (« Semaine qui dépasse sa capacité »). Charge d'un jour = tâches ACCEPTÉES + PROPOSÉES.
 // Jour en dépassement : on déplace d'abord les tâches PROPOSÉES les moins importantes (fin de liste), jamais celles à date exacte du
 // document, jamais une tâche acceptée, vers le prochain jour travaillé avec de la place (même semaine d'abord, puis semaines suivantes
 // de l'horizon). Aucune place : la tâche reste sans jour (`day` null, `noRoom`) et l'utilisateur choisit. Modifie `tasks` en place.
@@ -455,7 +455,7 @@ function balanceDays(tasks, ctx) {
         if (capOf(ctx, d) == null || (load[d] || 0) + mins(t) <= capOf(ctx, d)) { dest = d; break; }
       }
       if (dest) {
-        // Changement de JOUR dans la même semaine : silencieux (18 oct. 2026, Émilien), aucune indication. Autre semaine : signalé (`moved`).
+        // Changement de JOUR dans la même semaine : silencieux (Émilien), aucune indication. Autre semaine : signalé (`moved`).
         load[dest] = (load[dest] || 0) + mins(t); t.fromWeek = t.week; t.day = dest; t.week = goals.mostRecentMonday(dest);
         if (t.week !== t.fromWeek) t.moved = true;
       }
@@ -506,7 +506,7 @@ function finishProposal(userId, activityId, out, prep) {
   const tasks = balanceDays(parsed.tasks, ctx);
   // Compteurs seulement : aucun contenu de document ni de tâche n'est journalisé.
   console.log(`[documenttasks] trouvées=${parsed.found} retenues=${tasks.length} doublons=${parsed.dropped.doublon} vides=${parsed.dropped.vide} limite=${parsed.dropped.limite} categorieInconnue=${parsed.dropped.categorieInconnue} aChoisir=${parsed.toChoose} reparee=${parsed.repaired} coupee=${aiTruncated}`);
-  // Modifications proposées (16 oct. 2026) : propositions d'avant/après sur l'existant, rien n'est écrit. Section "c" de la même réponse.
+  // Modifications proposées : propositions d'avant/après sur l'existant, rien n'est écrit. Section "c" de la même réponse.
   let changes = 0;
   if (prep.want && prep.want.c) { try { changes = changeproposals.storeFromText(userId, activityId, text, prep.cctx || changeproposals.buildContext(userId, activityId)); } catch (e) { /* non bloquant */ } }
   const doc = prep.doc || {};

@@ -1,4 +1,4 @@
-// Plafonds de temps facultatifs par pôle/secteur (7 oct. 2026, demande d'Emilien) :
+// Plafonds de temps facultatifs par pôle/secteur (demande d'Emilien) :
 // max par jour et max par semaine (minutes), par utilisateur. NULL = aucun plafond.
 // Le temps d'un secteur compte aussi dans son pôle. Un dépassement ne REFUSE jamais
 // rien : il alimente le plan PROPOSÉ de goalsoverload.js (validation obligatoire).
@@ -117,7 +117,7 @@ function weeklyCapFor(userId, activityId, key) {
   return row && row.maxWeekMinutes != null ? row.maxWeekMinutes : null;
 }
 
-// 8 oct. 2026 (Émilien) : la « Cible » saisie sur un objectif hebdomadaire (goal_weekly.estimateSource
+// La « Cible » saisie sur un objectif hebdomadaire (goal_weekly.estimateSource
 // = 'manual') PRIME sur le plafond de semaine de « Gérer mon temps », pour CETTE semaine seulement.
 // Renvoie { lundi ISO : minutes } pour le pôle/secteur `key` (un pôle regroupe ses secteurs).
 function weekCapsFor(activityId, key) {

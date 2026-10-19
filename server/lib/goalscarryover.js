@@ -1,4 +1,4 @@
-// Report entre périodes et cible irréaliste (7 oct. 2026, fonctions gratuites validées par Emilien).
+// Report entre périodes et cible irréaliste (fonctions gratuites validées par Emilien).
 // Règle produit : tout est PROPOSÉ, rien ne bouge sans clic. Une date saisie par l'utilisateur
 // (dueDateAuto = 0) n'est déplacée que par un « Reporter » explicite sur cette tâche.
 //  - unfinished() : tâches non cochées en retard + grands objectifs de période non atteints, avec

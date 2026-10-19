@@ -1,4 +1,4 @@
-// Estimation INDICATIVE du temps par membre (chantier #73, 19 oct. 2026).
+// Estimation INDICATIVE du temps par membre (chantier #73).
 // Lecture seule, sans IA : médiane des durées des entrées de temps du membre
 // dans la MÊME activité et le MÊME pôle (goalCategory, secteurs ramenés au pôle). Information
 // seulement : ne modifie jamais rien. Moins de MIN_SAMPLES entrées => null

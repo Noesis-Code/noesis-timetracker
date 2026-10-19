@@ -133,7 +133,7 @@ function fallbackCapacityMinutes(activityId) {
 // simple et prévisible, à la charge de l'utilisateur de le retirer quand la
 // situation redevient normale.
 
-// 2 oct. 2026 (Emilien) : l'ajustement manuel a priorité sur le calcul auto
+// L'ajustement manuel a priorité sur le calcul auto
 // pendant OVERRIDE_PRIORITY_DAYS jours à partir du jour de saisie ; ensuite le
 // calcul automatique repart de cette valeur (voir capacityMinutesForMember).
 const OVERRIDE_PRIORITY_DAYS = 14;
@@ -183,7 +183,7 @@ function clearCapacityOverride(activityId, category, userId) {
 }
 
 // Capacité hebdomadaire dérivée du temps estimé de la période en cours
-// (6 oct. 2026, demande d'Émilien) : estimation de la période ÷ nombre de
+// (demande d'Émilien) : estimation de la période ÷ nombre de
 // semaines. null si la période courante n'a pas d'estimation.
 function periodDerivedWeeklyMinutes(activityId, category) {
   const plan = goals.getPlan(activityId, category);
@@ -194,9 +194,9 @@ function periodDerivedWeeklyMinutes(activityId, category) {
   return row && row.m > 0 ? Math.max(1, Math.round(row.m / goals.WEEKS_PER_PERIOD)) : null;
 }
 
-// 7 oct. 2026 : plafonné par le max hebdomadaire (facultatif) du pôle/secteur, s'il existe.
+// Plafonné par le max hebdomadaire (facultatif) du pôle/secteur, s'il existe.
 function capacityMinutesForMember(activityId, category, userId) {
-  // 8 oct. 2026 (Émilien) : c'est le MAXIMUM qui compte, pas la moyenne — Noèsis vise le maximum sans
+  // C'est le MAXIMUM qui compte, pas la moyenne — Noèsis vise le maximum sans
   // le dépasser. Max hebdo posé : la capacité EST ce max (borné par le max de la période, s'il y en a un).
   const cap = require('./timecaps').weeklyCapFor(userId, activityId, category);
   if (cap != null) {
@@ -405,15 +405,12 @@ function onSubProjectItemChanged(activityId, category) {
 module.exports = {
   periodDerivedWeeklyMinutes,
   RECENT_WEEKS_WINDOW,
-  isOffre1Active,
   activateOffre1,
   deactivateOffre1,
   capacityMinutesForMember,
   getCapacityOverrideMinutes,
   getCapacityOverrideRow,
-  OVERRIDE_PRIORITY_DAYS,
   setCapacityOverrideMinutes,
   clearCapacityOverride,
-  reorganizeCategory,
   onSubProjectItemChanged,
 };

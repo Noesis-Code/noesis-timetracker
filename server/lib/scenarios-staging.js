@@ -1,4 +1,4 @@
-// Activité de test « Scénarios Feuille de route (test) » (7 oct. 2026, demande d'Emilien) : fait apparaître d'un
+// Activité de test « Scénarios Feuille de route (test) » (demande d'Emilien) : fait apparaître d'un
 // coup TOUS les messages/cartes complexes du volet Feuille de route pour régler design et format.
 // STAGING UNIQUEMENT (RAILWAY_ENVIRONMENT_NAME défini et != "production") ; au démarrage seulement si SEED_SCENARIOS=1.
 // Idempotent : l'activité est retrouvée par son nom (propriétaire = Emilien), ses seules données sont supprimées puis

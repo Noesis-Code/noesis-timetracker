@@ -1,4 +1,4 @@
-// Exemples de correction du classement IA des taches (3 oct. 2026).
+// Exemples de correction du classement IA des taches.
 // Un deplacement manuel d'une tache vers un autre secteur/pole est memorise
 // PAR ACTIVITE ; les derniers exemples sont reinjectes dans le prompt de
 // classement de cette meme activite (jamais d'une autre : aucune donnee ne

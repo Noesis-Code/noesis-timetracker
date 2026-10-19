@@ -271,9 +271,7 @@ function requireAuth(req, res, next) {
   next();
 }
 
-module.exports = {
-  COOKIE_NAME,
-  middleware,
+module.exports = {  middleware,
   requireAuth,
   setSessionCookie,
   clearSessionCookie,

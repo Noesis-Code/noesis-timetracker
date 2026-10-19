@@ -1,4 +1,4 @@
-// Surveillance permanente des dossiers Drive choisis (sous-dossiers compris, réglages par dossier : mode, consigne, pause) (Essor, 16 oct. 2026).
+// Surveillance permanente des dossiers Drive choisis (sous-dossiers compris, réglages par dossier : mode, consigne, pause) (Essor).
 // Toutes les DRIVE_SYNC_INTERVAL_MIN minutes (défaut 60), pour chaque connexion Essor active :
 // liste les dossiers choisis (10 max) SEULEMENT (drive.listFiles / readFileText vérifient le parent), ignore
 // les fichiers dont modifiedTime n'a pas changé, relit les modifiés, saute l'IA si l'empreinte du
@@ -8,7 +8,7 @@
 //   - mode 'propose' : stocke en 'pending' ; rien n'est écrit avant la validation de l'utilisateur.
 // Les « modifications proposées » ne sont demandées qu'aux lectures suivantes d'un fichier (pas à la première : rien à comparer) ;
 // elles sortent de propose() (un seul passage), plus d'appel séparé ici (il doublait l'appel déjà fait par propose).
-// Tâches PARTAGÉES par activité (18 oct. 2026) : drive_seen_tasks a une ligne par (activityId, taskKey), commune à tous les membres ; liste, comptes, validation,
+// Tâches PARTAGÉES par activité : drive_seen_tasks a une ligne par (activityId, taskKey), commune à tous les membres ; liste, comptes, validation,
 // refus, suppression et annulation ne filtrent plus par utilisateur (un refus / un ajout vaut pour tous ; le scan d'un membre ne duplique pas celui d'un autre).
 // userId = « qui l'a trouvée » ; seule la notification « tâches ajoutées » (ack) reste par utilisateur.
 // Règles : une tâche supprimée ou refusée n'est jamais rajoutée (la ligne drive_seen_tasks reste) ;
@@ -40,7 +40,7 @@ const { activityHasEssor } = require('./offer1access');
 const subprojects = require('./subprojects');
 
 const OLD_DEFAULT_INSTRUCTION = 'Extrais toutes les tâches écrites dans le document';
-// Consigne par défaut DURCIE (19 oct. 2026, coût et pertinence) : peu de tâches, claires, actionnables ; elle prime sur la règle d'exhaustivité du système.
+// Consigne par défaut DURCIE (coût et pertinence) : peu de tâches, claires, actionnables ; elle prime sur la règle d'exhaustivité du système.
 const DEFAULT_INSTRUCTION = "Ne retiens QUE les tâches clairement actionnables : concrètes, formulées par un verbe d'action, que la personne doit elle-même accomplir. Jamais d'idées, de notes, d'historique, de comptes rendus, de titres ni de tâches déjà faites (cochées, barrées, au passé). Au plus 8 tâches par document, les plus importantes ; en cas de doute, n'en retiens aucune. Réponse JSON courte, sans commentaire.";
 const MAX_TASKS_PER_FILE = Number(process.env.DRIVE_SYNC_MAX_TASKS_PER_FILE) > 0 ? Number(process.env.DRIVE_SYNC_MAX_TASKS_PER_FILE) : 8;
 // Première lecture d'un fichier : seulement ceux modifiés dans les N derniers jours (DRIVE_SYNC_FIRST_DAYS, défaut 30).

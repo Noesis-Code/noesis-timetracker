@@ -1,4 +1,4 @@
-// Budget de coût IA par utilisateur (16 oct. 2026, demande d'Emilien).
+// Budget de coût IA par utilisateur (demande d'Emilien).
 // Cible : ~10 $/mois en moyenne, JAMAIS plus de 15 $/mois pour un utilisateur.
 // Pour éviter de tout dépenser avant la fin du mois, le blocage est HEBDOMADAIRE :
 // le mois est découpé en 4 tranches (jours 1-7, 8-14, 15-21, 22-fin) ; le plafond
@@ -12,7 +12,7 @@
 //
 // Tarifs en $/million de jetons ; surchargeables sans code : AI_PRICE_IN_PER_M,
 // AI_PRICE_OUT_PER_M (valent pour tous les modèles), AI_BUDGET_MONTH_USD (défaut 15).
-// 19 oct. 2026 : TOUS les comptes sont plafonnés (codes d'accès, Emilien, Gaspard compris) ; garde-fou JOURNALIER en plus des tranches :
+// TOUS les comptes sont plafonnés (codes d'accès, Emilien, Gaspard compris) ; garde-fou JOURNALIER en plus des tranches :
 // AI_BUDGET_DAY_USD (défaut 2 $/jour/utilisateur). Les appels sans utilisateur identifiable ('system') sont plafonnés eux aussi :
 // AI_BUDGET_SYSTEM_DAY_USD (défaut 3 $/jour). Le coût compté = réel enregistré + coût maximal estimé des appels directs en vol (réservés avant l'envoi)
 // + coût maximal des lots soumis non relevés (drive_batches.estCost) : un lot compte dès sa soumission.
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS ai_usage_log (
 CREATE INDEX IF NOT EXISTS idx_ai_usage_log_day ON ai_usage_log(day, userId);
 `);
 
-// 19 oct. 2026 : détail du cache de prompt par fonctionnalité (jetons lus / écrits dans le cache), pour mesurer l'efficacité.
+// Détail du cache de prompt par fonctionnalité (jetons lus / écrits dans le cache), pour mesurer l'efficacité.
 for (const col of ['cacheReadTokens', 'cacheWriteTokens']) {
   try { db.exec('ALTER TABLE ai_usage_log ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* colonne déjà présente */ }
 }

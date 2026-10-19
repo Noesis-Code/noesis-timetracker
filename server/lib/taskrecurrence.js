@@ -1,4 +1,4 @@
-// Tâches récurrentes (9 oct. 2026, demande d'Émilien) : « tous les N jours/semaines/mois », libre.
+// Tâches récurrentes (demande d'Émilien) : « tous les N jours/semaines/mois », libre.
 // Une seule occurrence ouverte à la fois : quand elle est cochée, la suivante est créée (même texte, même
 // rangement, même responsable) à la date précédente + l'intervalle. « Arrêter la récurrence » = retirer l'intervalle.
 const db = require('../db');

@@ -1,4 +1,4 @@
-// Masquage côté serveur des modules désactivés (lots 7a/7b, 19 oct. 2026). Les données ne sont JAMAIS supprimées : une route d'un module
+// Masquage côté serveur des modules désactivés (lots 7a/7b). Les données ne sont JAMAIS supprimées : une route d'un module
 // désactivé répond 403 {error, code:'module_off', module} (jamais 500). Tout actif = aucun effet. `core` n'est jamais bloqué.
 // Les routeurs sont tous montés sur /api sans préfixe propre : le filtrage se fait donc ici, par chemin, avant eux (un seul endroit).
 const modules = require('./modules');

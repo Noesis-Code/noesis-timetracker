@@ -1,23 +1,9 @@
 // Rattachement d'un temps enregistré à une catégorie Objectifs — Chrono +
 // Statistiques, server/routes/timer.js et server/routes/history.js.
 //
-// 17 septembre 2026 (suppression totale des sous-projets, cadré avec
-// Emilien via AskUserQuestion, citation directe : « je souhaite supprimer
-// complètement les sous-projets de l'application [...] c'est les
-// catégories qui remplacent et qui prennent les fonctions des sous-projets
-// [...] ils sont visibles dans le chrono, ils sont visibles dans le stat
-// [...] je ne veux plus qu'on parle de sous-projets ni qu'on garde la
-// fonction en arrière plan, je veux un changement total et propre. ») —
-// ce fichier est le point d'entrée du Chrono/Historique (l'ancien module de
-// rattachement par sous-projet a été retiré).
-//
-// Même structure que son prédécesseur — un seul endroit pour la règle
-// partagée par les deux routes — mais plus SIMPLE : une catégorie n'est pas
-// une entité à propriétaire séparé comme l'était un sous-projet (pas de
-// checkSubProjectAccess), elle appartient directement à l'activité, déjà
-// vérifiée par requireMembership/isActivityMember côté appelant. Pas de
-// paramètre userId ici, donc — rien à autoriser au-delà de l'appartenance à
-// l'activité, déjà acquise avant l'appel.
+// Même structure que l'ancien rattachement, mais plus simple : une catégorie appartient
+// directement à l'activité, déjà vérifiée par requireMembership/isActivityMember côté appelant.
+// Pas de paramètre userId : rien à autoriser au-delà de l'appartenance à l'activité, déjà acquise avant l'appel.
 //
 // ⚠️ CE FICHIER N'INTERROGE JAMAIS activity_goal_categories DIRECTEMENT. Tout
 // passe par server/lib/goals.js (isValidCategoryForActivity/isReadableCategory/

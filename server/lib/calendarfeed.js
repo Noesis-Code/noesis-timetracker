@@ -213,7 +213,7 @@ function setExportIncluded(userId, activityId, poleKey, included) {
   else db.prepare('INSERT OR IGNORE INTO calendar_export_excluded (userId, activityId, poleKey) VALUES (?, ?, ?)').run(userId, activityId, key);
 }
 
-// Tâches datées et objectifs hebdomadaires (demande d'Emilien, 8 oct. 2026).
+// Tâches datées et objectifs hebdomadaires (demande d'Emilien).
 function goalContentEventsForUser(userId, excl) {
   const events = [];
   for (const activity of activitiesForUser(userId)) {
@@ -581,7 +581,6 @@ function createDayTask(userId, activityId, category, isoDate, label) {
 
 module.exports = {
   isFeedEnabled,
-  generateToken,
   getTokenRow,
   findUserIdByToken,
   issueToken,
@@ -589,7 +588,6 @@ module.exports = {
   touchToken,
   addDay,
   activitiesForUser,
-  eventsForUser,
   exportSelectionForUser,
   setExportIncluded,
   buildFeedForUser,

@@ -232,7 +232,7 @@ async function callModelRaw(prompt, maxTokens, feature, model) {
 // candidates, suggested } pour que le client demande à l'utilisateur ; un
 // seul candidat reste un placement direct. opts.forcedKey : choix de
 // l'utilisateur (validé contre les candidats), aucun appel IA.
-// 19 oct. 2026 (décision d'Emilien, coût) : Haiku d'abord, repli sur le modèle fort (modelName(), NOESIS_TASK_CATEGORY_MODEL)
+// Haiku d'abord, repli sur le modèle fort (modelName(), NOESIS_TASK_CATEGORY_MODEL)
 // seulement si Haiku est peu sûr : appel en échec, clé inconnue/sortie invalide, INCERTAIN, ou confiance < seuil (ou absente).
 // Réglages : NOESIS_CLASSIFY_FAST_MODEL (défaut claude-haiku-4-5 ; 'off' = toujours le modèle fort), NOESIS_CLASSIFY_MIN_CONFIDENCE (défaut 80).
 // Journal : feature 'classement-tache' (Haiku) et 'classement-tache:repli' (modèle fort) => taux de repli dans usageReport().
@@ -447,7 +447,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
   const forcedCategory = opts && opts.forcedCategory ? String(opts.forcedCategory) : null;
   const absence = !!(opts && opts.aiMode === 'absence');
 
-  // Récurrence (9 oct. 2026) : Autonome = seulement si le mot « récurrente » est écrit ; Partiel = Noèsis propose
+  // Récurrence : Autonome = seulement si le mot « récurrente » est écrit ; Partiel = Noèsis propose
   // (champ recurrenceSuggestion, l'utilisateur confirme dans le pop-up) ; Absent = rien.
   const taskrecurrence = require('./taskrecurrence');
   let recurrence = null;
@@ -472,7 +472,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
         continue;
       }
       let item = await addTaskWithAutoCategory(activityId, userId, label, { strict: true, forcedKey: forcedCategory, skipAi: absence, recurrence });
-      // 5 oct. 2026 (Emilien) : mode Partiel — tri introuvable => Noèsis propose le secteur LE PLUS UTILISÉ ;
+      // Mode Partiel — tri introuvable => Noèsis propose le secteur LE PLUS UTILISÉ ;
       // le pop-up de rangement permet ensuite de rectifier. (Autonome/Absence : on redemande à l'utilisateur.)
       if (item.unresolved && opts && opts.aiMode === 'partiel' && item.candidates && item.candidates.length) {
         let bestKey = item.candidates[0].key;
@@ -507,7 +507,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
       if (opts && opts.aiMode === 'autonome') {
         try { require('./taskassignnotif').notifyAssigned(item.id, userId); } catch (e) { /* non bloquant */ }
       }
-      // 5 oct. 2026 (Emilien) : détail du rangement pour le pop-up de la page 1.
+      // Détail du rangement pour le pop-up de la page 1.
       let placement = {};
       try {
         const fresh = db.prepare('SELECT plannedUserId, dueDate FROM sub_project_items WHERE id = ?').get(item.id) || {};
@@ -532,9 +532,7 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
   return results;
 }
 
-module.exports = {
-  callTiered,
-  callModel,
+module.exports = {  callModel,
   configured,
   modelName,
   classifyCategory,
@@ -543,6 +541,5 @@ module.exports = {
   suggestWeeklyObjective,
   addTaskWithAutoCategory,
   captureTaskForActivities,
-  normalizeTitle,
   hasOpenDuplicate,
 };

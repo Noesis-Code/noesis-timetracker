@@ -2,7 +2,7 @@
 // activité de prod sur celle d'un fichier exporté de staging
 // (data/structure-noesis.json, voir scripts/export-activity-structure.js).
 //
-// Décisions d'Émilien (11 oct. 2026) : structure seulement (aucun temps, tâche
+// Décisions d'Émilien : structure seulement (aucun temps, tâche
 // ni objectif du staging) ; les éléments de prod de même nom sont mis à jour
 // EN PLACE (clé de prod conservée -> données rattachées intactes) ; ceux
 // absents du fichier sont GELÉS (removedAt), jamais supprimés.

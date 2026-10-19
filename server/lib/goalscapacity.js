@@ -1,4 +1,4 @@
-// Capacité périodique et hebdomadaire (8 oct. 2026, demande d'Émilien).
+// Capacité périodique et hebdomadaire (demande d'Émilien).
 // Trois niveaux, du moins au plus prioritaire :
 //  1. historique chronométré de l'utilisateur (moyenne par période de 4 semaines ÷ 4) : valeur par défaut ;
 //  2. « Cible » hebdomadaire de Gérer mon temps (feuille des activités) : période = 4 × cible ;

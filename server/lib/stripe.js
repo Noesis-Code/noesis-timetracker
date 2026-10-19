@@ -166,7 +166,6 @@ function constructEvent(rawBody, signatureHeader) {
 
 module.exports = {
   secretKeyConfigured,
-  webhookSecretConfigured,
   createCheckoutSession,
   retrieveSubscription,
   constructEvent,

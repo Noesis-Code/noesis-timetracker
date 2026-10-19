@@ -1,4 +1,4 @@
-// Stratégie d'une activité (19 oct. 2026, décision d'Émilien) : consignes d'organisation saisies par l'utilisateur (but global,
+// Stratégie d'une activité (décision d'Émilien) : consignes d'organisation saisies par l'utilisateur (but global,
 // échéance, 3 priorités, ce qui est à ignorer), dès la version gratuite. L'IA les suit exactement :
 //  - effet 1 : bloc <strategie> ajouté au prompt existant (documenttasks.buildUserParts), l'IA n'écarte que les tâches hors stratégie ;
 //  - effet 2 : après une modification, la section « c » (changeproposals) peut demander le retrait de tâches devenues hors stratégie.

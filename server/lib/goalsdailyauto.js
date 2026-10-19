@@ -128,7 +128,7 @@ function deterministicAssignments(items, dates) {
 
 
 // ---------------------------------------------------------------------------
-// 8 oct. 2026 (Émilien) : le temps de la SEMAINE prime sur celui du jour.
+// Le temps de la SEMAINE prime sur celui du jour.
 // Plafond du jour = jamais dépassé ; budget de la semaine = total que la somme
 // des jours ne peut pas dépasser (déjà chronométré + déjà daté déduits). Les
 // tâches sont servies par importance décroissante ; ce qui ne rentre plus
@@ -444,6 +444,5 @@ module.exports = {
   configured,
   modelName,
   generateDailyPlanForWeekly,
-  placeWithinCaps,
   spanParts,
 };

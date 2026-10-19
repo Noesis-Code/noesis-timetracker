@@ -1,4 +1,4 @@
-// API Batch d'Anthropic (17 oct. 2026) : lots asynchrones à 50 % du prix, réservés à la SURVEILLANCE programmée de Drive
+// API Batch d'Anthropic : lots asynchrones à 50 % du prix, réservés à la SURVEILLANCE programmée de Drive
 // (drivesync.js). Fonctions : submit(requests) -> { id } ; get(id) -> { processing_status, results_url } ; results(url) -> lignes JSONL
 // { custom_id, result: { type: succeeded|errored|canceled|expired, message? } }. fetch natif, injectable pour les tests (setFetch).
 // Jamais de contenu de document ni de tâche dans les logs.

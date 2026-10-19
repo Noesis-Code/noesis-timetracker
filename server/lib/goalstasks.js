@@ -324,7 +324,7 @@ function reassignHistoryTask(userId, itemId, newActivityId, newCategoryKey, newD
   if (!goals.isValidCategoryOrSecteurForActivity(newActivityId, newCategoryKey)) {
     throw Object.assign(new Error('Catégorie invalide pour cette activité.'), { statusCode: 400 });
   }
-  // Même garde-fou que addCategoryTask ci-dessus (27 sept. 2026) : un pôle
+  // Même garde-fou que addCategoryTask ci-dessus : un pôle
   // qui a des secteurs ne reçoit pas de tâche directe.
   if (goals.parentKeyFor(newActivityId, newCategoryKey) === null && goals.secteursForPole(newActivityId, newCategoryKey).length > 0) {
     throw Object.assign(new Error('Ce pôle a des secteurs : choisissez-en un.'), { statusCode: 400 });
@@ -553,13 +553,13 @@ function tasksOverviewForActivity(activityId, todayParam) {
     const targets = isPoleGroup ? [pole] : secteurs;
 
     targets.forEach((target) => {
-      // 2 oct. 2026 (Emilien) : avancement QUOTIDIEN — une tâche cochée avant minuit
+      // Avancement QUOTIDIEN — une tâche cochée avant minuit
       // (doneAt antérieur à aujourd'hui) disparaît de l'écran Tâches et ne compte plus ;
       // les non cochées restent d'un jour à l'autre.
       const today = validToday(todayParam);
       const tasks = tasksForCategory(activityId, target.key)
         .filter((task) => !(task.done && task.doneAt && todayLocal(new Date(task.doneAt)) < today));
-      // 5 oct. 2026 (Emilien) : « Avancement quotidien » — compte UNIQUEMENT les tâches du jour :
+      // « Avancement quotidien » — compte UNIQUEMENT les tâches du jour :
       // à faire (échéance aujourd'hui, en retard ou sans date) + cochées aujourd'hui. Les tâches
       // à venir (grises) n'y entrent pas ; celles cochées avant minuit sont déjà décomptées.
       const doneToday = tasks.filter((task) => task.done && (task.dueDate || today) <= today); // une grise cochée d'avance ne compte pas
@@ -591,7 +591,7 @@ function tasksOverviewForActivity(activityId, todayParam) {
     });
   });
 
-  // 5 oct. 2026 (Emilien) : liste « du jour » (blanches) + à venir (grises).
+  // Liste « du jour » (blanches) + à venir (grises).
   const daily = dailyListForActivity(activityId, validToday(todayParam));
 
   return {
@@ -604,7 +604,7 @@ function tasksOverviewForActivity(activityId, todayParam) {
 }
 
 // ---------------------------------------------------------------------------
-// 5 oct. 2026 (Emilien) — onglet Tâches de la Page 2 : liste « du jour » + archives.
+// Onglet Tâches de la Page 2 : liste « du jour » + archives.
 const ARCHIVE_RETENTION_DAYS = 7;
 const DAILY_MIN_LINES = 5;
 const DAILY_UPCOMING_CAP = 80;
@@ -640,7 +640,7 @@ function allTasksWithGroup(activityId) {
   return out;
 }
 
-// 10 oct. 2026 (Emilien) : plus de purge physique. Les tâches terminées restent en base (les statistiques
+// Plus de purge physique. Les tâches terminées restent en base (les statistiques
 // Année/Tout en dépendent) ; elles sont seulement masquées des listes (tasksForCategory) et verrouillées
 // (subprojects.assertItemEditable) après 7 jours.
 
@@ -671,7 +671,6 @@ function archivesForActivity(activityId) {
 module.exports = {
   allTasksWithGroup,
   archivesForActivity,
-  dailyListForActivity,
   subProjectsForCategory,
   ensureHomeSubProject,
   ensureCategoryTaskSection,

@@ -1,4 +1,4 @@
-// Statistiques — page 2 « tâches réalisées » (2 oct. 2026, demande d'Émilien).
+// Statistiques — page 2 « tâches réalisées » (demande d'Émilien).
 // LECTURE SEULE : aucune écriture, aucune matérialisation de période (on ne
 // passe pas par goals.planningForActivity, qui écrit).
 //

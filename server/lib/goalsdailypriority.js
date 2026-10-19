@@ -1,62 +1,17 @@
-// Liste quotidienne de tâches priorisées — Brief B (22 septembre 2026,
-// Aiguillage), segment « Objectifs — Logique métier ». Voir
-// noesis-timetracker-audit-produit-2026-09-22.md (section 5) et
-// noesis-timetracker-objectifs.md pour le cadrage initial.
+// Liste quotidienne de tâches priorisées. Ce module ne fait QUE calculer une proposition : il n'écrit
+// jamais rien et ne place jamais une tâche à une heure précise (règle verrouillée). Toujours gratuit.
 //
-// FUSIONNÉ le 22 septembre 2026 avec le mécanisme déjà codé (V1, jamais
-// poussé en Git) du segment « Suggestion quotidienne » / discussion
-// « Daily suggestion feature » — décision explicite d'Emilien (« on fusionne
-// avec la V1 déjà codée »), cadrée en 2 tours d'AskUserQuestion le même
-// jour. Ce segment absorbe désormais aussi server/lib/dailysuggestion.js
-// (contenu retiré, logique reprise ici) et server/lib/dailysuggestioncron.js
-// (conservé, simplifié — voir son en-tête). Détail complet du cadrage :
-// noesis-timetracker-chantiers-en-cours.md (encart 46).
+// 5 signaux :
+//  1. Temps estimé par tâche — estimateForGoal().
+//  2. Historique réel par secteur/pôle — moyenne quotidienne des SECTEUR_HISTORY_DAYS derniers jours
+//     (time_entries.goalCategory), favorise le secteur ACTIF, jamais le négligé.
+//  3. Urgence — pression des objectifs périodiques/hebdo (goalPressureForPole) + échéance de la tâche
+//     (dueDate), en moyenne pondérée, l'objectif restant dominant : URGENCE_OBJECTIF_SHARE/URGENCE_DEADLINE_SHARE.
+//  4. Position manuelle — respecte l'ordre donné par l'utilisateur (positionScoreForTask, 1/(1+rang)).
+//  5. Activité récente de CETTE activité sur les ACTIVITY_HISTORY_DAYS derniers jours, en ratio de la
+//     capacité du jour (la route est par ACTIVITÉ, jamais globale à la personne).
 //
-// Ce module ne fait QUE calculer une proposition — il n'écrit jamais rien, ne
-// place jamais une tâche à une heure précise (règle verrouillée du produit,
-// voir noesis-timetracker-objectifs.md, « Règles verrouillées »). Toujours
-// gratuit, jamais gaté par Offre1.
-//
-// 5 signaux retenus par Emilien (fusion des 3 de Brief B + des 3 de V1,
-// remaniés — cadrage confirmé via AskUserQuestion le 22 septembre 2026) :
-//  1. Temps estimé par tâche (Brief B, inchangé) — estimateForGoal(),
-//     moteur de similarité déjà utilisé par les objectifs hebdo/périodiques.
-//  2. Historique réel par secteur/pôle (Brief B, inchangé) — moyenne
-//     quotidienne réelle des SECTEUR_HISTORY_DAYS derniers jours
-//     (time_entries.goalCategory), favorise le secteur ACTIF, jamais le
-//     négligé (décision explicite d'Emilien, réutilisée telle quelle).
-//  3. Urgence (fusion) — pression des objectifs périodiques/hebdo en cours
-//     (Brief B, goalPressureForPole) + échéance de la tâche elle-même
-//     (dueDate, signal V1 — la V1 le portait sur closesAt du SOUS-PROJET,
-//     affiné ici au niveau de la TÂCHE puisque dueDate existe désormais par
-//     tâche, brief A/Objectifs — Tâches, livré le 22 sept.). Combinées en
-//     une moyenne pondérée, l'objectif restant dominant (cœur de Brief B,
-//     déjà validé) : URGENCE_OBJECTIF_SHARE/URGENCE_DEADLINE_SHARE.
-//  4. Position manuelle (V1, réutilisée telle quelle) — respecte l'ordre
-//     déjà donné par l'utilisateur dans sa liste de tâches
-//     (positionScoreForTask, même formule 1/(1+rang) que V1).
-//  5. Synchronisation avec les autres activités (nouveau, demandé le 22
-//     sept.) — moyenne d'heures réelles/jour de l'utilisateur sur CETTE
-//     activité, sur les ACTIVITY_HISTORY_DAYS derniers jours, ramenée en
-//     ratio de la capacité du jour : favorise l'activité déjà active, même
-//     philosophie que le signal 2. Note de portée : cette route étant par
-//     ACTIVITÉ (jamais globale à la personne — règle verrouillée), le signal
-//     est ici une comparaison à SA PROPRE capacité, pas une normalisation
-//     croisée entre activités (qui nécessiterait une route agrégée, non
-//     demandée à ce jour). Le second volet demandé par Emilien (données de
-//     calendrier externe) N'EST PAS codé ici — brief transmis à Aiguillage,
-//     voir noesis-timetracker-chantiers-en-cours.md (encart 46).
-//
-// Source des tâches : le format RÉEL du brief A (Objectifs — Tâches, livré
-// le 22 sept.) — server/lib/goalstasks.js#tasksForCategory, qui expose des
-// tâches par pôle ET par secteur (goalstaskclassify.js, 21-22 sept.).
-// Remplace l'ancien accès direct à sub_project_items de la première version
-// de ce fichier, comme annoncé dès l'encart 45 (« consommera le futur format
-// du brief A sans changement ailleurs qu'à cette seule fonction »).
-//
-// Affichage : hors périmètre de ce segment depuis le 20 septembre 2026 —
-// confié à Objectifs — Planification IA (bloc « capacité + génération jour
-// par jour » déjà existant dans l'UI, cadrage confirmé le 22 sept.).
+// Source des tâches : server/lib/goalstasks.js#tasksForCategory (pôles ET secteurs).
 
 const db = require('../db');
 const externalcalendar = require('./externalcalendar');
@@ -72,10 +27,10 @@ const WEIGHT_POSITION = 0.10;
 const WEIGHT_SYNC = 0.20;
 
 const SECTEUR_HISTORY_DAYS = 14;
-const ACTIVITY_HISTORY_DAYS = 14; // même fenêtre que le signal secteur, et que V1
+const ACTIVITY_HISTORY_DAYS = 14; // même fenêtre que le signal secteur
 
 // Poids internes du signal Urgence — l'objectif en cours reste dominant
-// (cœur du Brief B déjà validé), la date limite de tâche (V1) le nuance.
+// la date limite de tâche le nuance.
 const URGENCE_OBJECTIF_SHARE = 0.6;
 const URGENCE_DEADLINE_SHARE = 0.4;
 
@@ -161,7 +116,7 @@ function goalPressureForPole(activityId, poleKey) {
   return Math.min(1, score);
 }
 
-// Signal V1 (« deadline »), réutilisé tel quel — repli 0.1 (pas d'échéance ne
+// Signal « deadline » — repli 0.1 (pas d'échéance ne
 // veut pas dire priorité nulle), sinon 1/(1+joursRestants), une échéance
 // dépassée (négative) traitée comme aujourd'hui (urgence maximale).
 function deadlineScoreForTask(dueDate, today) {
@@ -170,7 +125,7 @@ function deadlineScoreForTask(dueDate, today) {
   return 1 / (1 + daysUntil);
 }
 
-// Signal V1 (« position »), réutilisé tel quel.
+// Signal « position ».
 function positionScoreForTask(rankIndex) {
   return 1 / (1 + rankIndex);
 }
@@ -179,8 +134,7 @@ function positionScoreForTask(rankIndex) {
 // activité, sur les derniers `days` jours TERMINÉS (hier inclus, aujourd'hui
 // exclu — journée en cours pas encore complète) — même fenêtre/philosophie
 // que le signal secteur, mais scoped utilisateur+activité plutôt
-// qu'activité seule (V1 le faisait déjà pour la capacité globale, ici
-// réutilisé par activité pour le signal de synchronisation).
+// qu'activité seule .
 function historicalAverageMinutesPerDayForActivity(userId, activityId, days) {
   const today = todayLocal();
   const start = goals.addDays(today, -days);
@@ -237,7 +191,7 @@ function computeDailyPriorityList(activityId, userId) {
       const score = WEIGHT_TEMPS * tempsScore + WEIGHT_SECTEUR * secteurScore + WEIGHT_URGENCE * urgenceScore
         + WEIGHT_POSITION * positionScore + WEIGHT_SYNC * syncScore;
 
-      // Importance (3 oct. 2026) : objectif lié + durée/charge ; PRIME sur le score ci-dessus.
+      // Importance : objectif lié + durée/charge ; PRIME sur le score ci-dessus.
       const importance = goalsimportance.computeImportance({
         today, goal: goalCtx[t.id], minutes: estimatedMinutes, capacity: capacityMinutes, dayLoadMinutes: 0,
       });
@@ -263,11 +217,7 @@ function computeDailyPriorityList(activityId, userId) {
 }
 
 // --- Utilisée uniquement par server/lib/dailysuggestioncron.js -------------
-// Ne construit pas une vraie liste combinée (pas de route HTTP dessus, la
-// surface d'affichage reste par activité, voir computeDailyPriorityList
-// ci-dessus) — sert seulement à décider s'il y a quelque chose à notifier ce
-// matin, une activité en échec ne bloque jamais les autres (même principe
-// que l'ancien dailysuggestioncron.js#runDailySuggestionSweep, V1).
+// Pas de liste combinée : l'affichage reste par activité (computeDailyPriorityList).
 function activeActivitiesForUser(userId) {
   return db.prepare(`
     SELECT a.id AS id FROM activities a
@@ -276,30 +226,8 @@ function activeActivitiesForUser(userId) {
   `).all(userId).map((r) => r.id);
 }
 
-function anyDailyPriorityForUser(userId) {
-  const activityIds = activeActivitiesForUser(userId);
-  for (const activityId of activityIds) {
-    try {
-      const result = computeDailyPriorityList(activityId, userId);
-      if (result.items.some((t) => t.selected)) return true;
-    } catch (e) {
-      // une activité en échec ne doit jamais bloquer les autres
-    }
-  }
-  return false;
-}
-
-// 28 septembre 2026 — décision d'Emilien relayée par Notifications (voir
-// noesis-timetracker-notifications-deep-link.md, « Décisions d'Emilien »,
-// cas 4) : la notification du matin doit pointer sur l'activité qui contient
-// la tâche la plus urgente, X et T « devant venir de computeDailyPriorityList,
-// la même source que la liste elle-même » — jamais un calcul séparé, règle
-// verrouillée le 22 sept. contre la désynchronisation notif/liste (bug réel
-// de la V1, voir l'en-tête de ce fichier). Remplace anyDailyPriorityForUser
-// comme unique source pour dailysuggestioncron.js : un seul passage sur les
-// activités actives de l'utilisateur, au lieu de deux (l'ancien « y a-t-il
-// quelque chose » puis un second calcul pour savoir quoi) — voir son appel
-// dans dailysuggestioncron.js#runDailySuggestionSweep.
+// Notification du matin : pointe sur l'activité qui contient la tâche la plus urgente, issue de computeDailyPriorityList
+// (même source que la liste, jamais un calcul séparé). Un seul passage sur les activités actives.
 //
 // Chaque tâche n'est comparable qu'AU SEIN de son activité — capacityMinutes
 // et tous les signaux de computeDailyPriorityList sont scopés à une seule
@@ -332,6 +260,6 @@ module.exports = {
   SECTEUR_HISTORY_DAYS, ACTIVITY_HISTORY_DAYS,
   pendingTasksForActivity, recentDailyMinutesForCategory, goalPressureForPole,
   deadlineScoreForTask, positionScoreForTask, historicalAverageMinutesPerDayForActivity,
-  todayLocal, computeDailyPriorityList, activeActivitiesForUser, anyDailyPriorityForUser,
+  todayLocal, computeDailyPriorityList, activeActivitiesForUser,
   mostUrgentTaskForUser,
 };

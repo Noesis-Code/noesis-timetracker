@@ -1,4 +1,4 @@
-// Pré-filtre LOCAL avant l'IA pour la surveillance programmée de Drive (17 oct. 2026, réduction du coût IA).
+// Pré-filtre LOCAL avant l'IA pour la surveillance programmée de Drive (réduction du coût IA).
 // Règle absolue d'Émilien : ne JAMAIS perdre de contenu important. Seuls gestes permis :
 //   (a) ignorer un fichier vide ou de moins de 20 mots (jamais s'il contient des puces, cases ou lignes numérotées) ; (b) ignorer un doublon exact d'un fichier déjà traité de la même connexion
 //   (fait dans drivesync.js : même contentHash) ; (c) nettoyer SANS toucher aux phrases : espaces multiples, lignes vides en trop,

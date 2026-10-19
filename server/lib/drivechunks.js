@@ -1,4 +1,4 @@
-// Lire seulement ce qui a changé (17 oct. 2026, réduction du coût IA). Loi 25 : AUCUN contenu n'est stocké, seulement des
+// Lire seulement ce qui a changé (réduction du coût IA). Loi 25 : AUCUN contenu n'est stocké, seulement des
 // EMPREINTES (sha256) par bloc de texte dans drive_seen_chunks(userId, activityId, fileId, chunkHash).
 // Découpage : titres markdown (#) + paragraphes (lignes vides) ; un paragraphe trop long est coupé par lignes (~1500 caractères).
 // Fichier déjà vu qui change : seuls les blocs à empreinte nouvelle partent à l'IA, précédés d'un en-tête court (nom du fichier + fil

@@ -128,29 +128,7 @@ function dueActivities() {
   `).all();
 }
 
-// Etat du quota d'un pôle, pour l'affichage ("Plafond atteint — augmentez
-// votre abonnement" + date de la prochaine régénération). `budget: null`
-// signifie illimité (100% de l'activité abonnée). Renvoie null pour un
-// sous-projet sans slot (rien à afficher).
-function poleQuotaInfo(subProjectId) {
-  const row = db.prepare('SELECT activityId, slot, renewalsUsedThisPeriod FROM sub_projects WHERE id = ?').get(subProjectId);
-  if (!row || row.slot === null || row.slot === undefined) return null;
-  const budget = budgetForActivity(row.activityId);
-  const cycle = getCycle(row.activityId);
-  return {
-    renewalsUsed: row.renewalsUsedThisPeriod,
-    budget: Number.isFinite(budget) ? budget : null,
-    capped: Number.isFinite(budget) && row.renewalsUsedThisPeriod >= budget,
-    nextRenewalAt: cycle ? cycle.cycleEnd : null,
-  };
-}
-
-module.exports = {
-  RENEWAL_BASE_PER_POLE_PER_MONTH,
-  RENEWAL_INCREMENT_PER_SUBSCRIBER,
-  liveSubscriberCount,
-  totalMemberCount,
-  budgetForActivity,
+module.exports = {  liveSubscriberCount,
   canRevealReplacement,
   incrementRenewalsUsed,
   seedRenewalsUsed,
@@ -159,5 +137,4 @@ module.exports = {
   ensureCycleStarted,
   advanceCycle,
   dueActivities,
-  poleQuotaInfo,
 };

@@ -29,13 +29,13 @@ function periodRange(period, refDate, tz) {
   // excluant le lundi réel (aujourd'hui) de la plage retournée — jusqu'au
   // lendemain (mardi), où le même décalage d'un jour retombe encore dans la
   // semaine courante et cesse d'être visible. Reproduit et vérifié en bac à
-  // sable avant correctif (voir noesis-timetracker-chrono.md, 28 sept.).
+  // sable avant correctif (voir noesis-timetracker-chrono.md).
   // Correctif : ajouter une heure locale explicite force JS à interpréter la
   // chaîne comme minuit LOCAL (fuseau du processus serveur, déjà fixé sur
   // America/Toronto par server/index.js) plutôt que minuit UTC — comportement
   // strictement inchangé quand `refDate` est absent (branche `new Date()`,
   // non touchée).
-  // 9 oct. 2026 : une date AAAA-MM-JJ explicite est déjà une date CALENDAIRE de l'utilisateur ; la relire dans son
+  // Une date AAAA-MM-JJ explicite est déjà une date CALENDAIRE de l'utilisateur ; la relire dans son
   // fuseau décalait d'un jour (minuit Toronto = dimanche soir à Vancouver) -> lundi vu comme la semaine précédente.
   // On l'ancre donc à midi local et on ignore `tz` ; sans date, `tz` sert à lire « maintenant ».
   const ref = refDate ? new Date(refDate + 'T12:00:00') : new Date();

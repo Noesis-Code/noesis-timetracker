@@ -1,4 +1,4 @@
-// 10 oct. 2026 (demande d'Emilien) : sur STAGING seulement, remise à zéro UNIQUE des invites de consentement
+// Sur STAGING seulement, remise à zéro UNIQUE des invites de consentement
 // (usage commercial) et de l'information IA pour le compte de test « Emilien Staging », afin de pouvoir les
 // retester. Jamais en production. Un fichier marqueur empêche de recommencer aux déploiements suivants ;
 // pour la rejouer, changer RESET_TOKEN.

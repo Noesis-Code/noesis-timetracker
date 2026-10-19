@@ -121,7 +121,7 @@ function migrateActivity(activityId) {
 }
 
 // Une seule fois (drapeau en base) : gèle tout pôle « Nouveau pôle » VIDE, pour
-// toutes les activités. Plus aucun pôle par défaut n'existe (11 oct. 2026) ;
+// toutes les activités. Plus aucun pôle par défaut n'existe ;
 // un pôle de ce nom portant des données est conservé tel quel.
 function freezeEmptyDefaultPoles() {
   db.exec('CREATE TABLE IF NOT EXISTS migration_flags (name TEXT PRIMARY KEY, doneAt TEXT NOT NULL)');
@@ -194,7 +194,7 @@ function runPass1() {
   return out;
 }
 
-// 2e PASSE (décision d'Émilien, 11 oct. 2026) : les sous-projets restés non migrés
+// 2e PASSE (décision d'Émilien) : les sous-projets restés non migrés
 // à cause du plafond de 5 pôles (goalCategory NULL, activité déjà marquée migrée)
 // deviennent des SECTEURS du dernier pôle actif (le 5e). Un pôle avec secteurs ne
 // portant pas de tâches en direct, ses tâches/objectifs directs basculent d'abord

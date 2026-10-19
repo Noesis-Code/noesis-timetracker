@@ -1,4 +1,4 @@
-// Connecteur Google Drive en lecture seule (Essor, 15 oct. 2026).
+// Connecteur Google Drive en lecture seule (Essor).
 // OAuth 2.0 (code flow, access_type=offline, prompt=consent), scope drive.readonly.
 // Le refresh token est chiffré au repos (AES-256-GCM, clé DRIVE_TOKEN_KEY). Aucune
 // journalisation de token ni de contenu ; le contenu des fichiers n'est jamais persisté.
@@ -35,7 +35,7 @@ function ensureTable() {
     connectedAt TEXT NOT NULL,
     PRIMARY KEY (userId, activityId)
   )`);
-  // Dossiers surveillés (plusieurs par activité, 16 oct. 2026) : source de vérité ; drive_connections.folderId
+  // Dossiers surveillés (plusieurs par activité) : source de vérité ; drive_connections.folderId
   // ne garde que le premier (compat).
   db.exec(`CREATE TABLE IF NOT EXISTS drive_folders (
     userId TEXT NOT NULL,
@@ -51,7 +51,7 @@ function ensureTable() {
   // Migration idempotente : l'ancien dossier unique devient une ligne (un retrait remet folderId au suivant ou à NULL).
   db.exec(`INSERT OR IGNORE INTO drive_folders (userId, activityId, folderId, folderName, addedAt)
     SELECT userId, activityId, folderId, COALESCE(folderName, ''), connectedAt FROM drive_connections WHERE folderId IS NOT NULL AND folderId != ''`);
-  // Réglages par dossier (16 oct. 2026) : migration idempotente, valeurs initiales reprises de drive_sync.
+  // Réglages par dossier : migration idempotente, valeurs initiales reprises de drive_sync.
   const dfCols = db.prepare('PRAGMA table_info(drive_folders)').all().map((c) => c.name);
   if (!dfCols.includes('mode')) {
     db.exec("ALTER TABLE drive_folders ADD COLUMN mode TEXT NOT NULL DEFAULT 'propose'");
@@ -63,7 +63,7 @@ function ensureTable() {
         instruction = COALESCE((SELECT s.instruction FROM drive_sync s WHERE s.userId = drive_folders.userId AND s.activityId = drive_folders.activityId), '')`);
     }
   }
-  // Surveillance permanente du dossier (16 oct. 2026). Aucun contenu de document : seulement
+  // Surveillance permanente du dossier. Aucun contenu de document : seulement
   // des empreintes, des clés normalisées et les titres de tâches proposées/ajoutées.
   db.exec(`CREATE TABLE IF NOT EXISTS drive_sync (
     userId TEXT NOT NULL,
@@ -138,7 +138,7 @@ function ensureTable() {
   if (!db.prepare('PRAGMA table_info(drive_batches)').all().some((c) => c.name === 'estCost')) db.exec('ALTER TABLE drive_batches ADD COLUMN estCost REAL NOT NULL DEFAULT 0');
   if (!db.prepare('PRAGMA table_info(drive_skipped)').all().some((c) => c.name === 'dupHash')) db.exec('ALTER TABLE drive_skipped ADD COLUMN dupHash TEXT');
   if (!db.prepare('PRAGMA table_info(drive_seen_tasks)').all().some((c) => c.name === 'day')) db.exec('ALTER TABLE drive_seen_tasks ADD COLUMN day TEXT'); // jour proposé (rééquilibré) ; NULL pour les anciennes lignes : on retombe sur la semaine
-  // Tâches Drive PARTAGÉES par activité (18 oct. 2026) : une ligne par (activityId, taskKey), quel que soit l'utilisateur.
+  // Tâches Drive PARTAGÉES par activité : une ligne par (activityId, taskKey), quel que soit l'utilisateur.
   // Migration idempotente : on garde UNE ligne par clé (priorité added > dismissed > pending, puis la plus ancienne), les autres sont des doublons par membre.
   if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'idx_drive_seen_tasks_key'").get() || !db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'idx_drive_seen_tasks_act_key'").get()) { // ancien index présent (ou nouveau absent) : migration à faire
   db.exec('BEGIN');

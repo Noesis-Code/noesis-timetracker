@@ -1,6 +1,6 @@
 'use strict';
 
-// 16 oct. 2026 (Émilien) : la capture de la zone libre (Page 1) posait
+// La capture de la zone libre (Page 1) posait
 // systématiquement « aujourd'hui ». Ce module PUR lit les indices de date
 // écrits dans le texte d'une tâche (« vendredi », « la semaine prochaine »,
 // « avant le 30 ») et renvoie une cible : un JOUR, une SEMAINE (lundi) ou une

@@ -52,7 +52,7 @@ function todayLocal() {
 // PURE. tasks : [{id,label,category,dueDate,minutes,dueDateAuto,importance:{score,level,reasons},
 // long?,spanDays?,rest?}] non cochées, datées. Une tâche longue (long) occupe `spanDays` jours
 // dès sa date (budget chaque jour, `rest` le dernier) et n'est jamais déplacée.
-// Plan par IMPORTANCE (3 oct. 2026) : sur chaque jour de la semaine à venir (aujourd'hui = tâches
+// Plan par IMPORTANCE : sur chaque jour de la semaine à venir (aujourd'hui = tâches
 // du jour + reportées), si la charge dépasse le budget, les tâches les PLUS importantes restent,
 // les MOINS importantes sont décalées au prochain créneau libre. Seules les dates posées par le
 // moteur (dueDateAuto) bougent : une date saisie par l'utilisateur est épinglée, jamais déplacée.
@@ -214,7 +214,7 @@ function getProposal(userId, activityId, poleKey) {
   const budget = budgetFor(activityId, userId, poleKey);
   const tasks = loadTasks(activityId, budget, today, poleKey);
   const p = computeProposal({ today, budgetMinutes: budget, tasks });
-  // Plafonds de temps (7 oct. 2026) : appliqués APRÈS le plan de surcharge, mêmes règles
+  // Plafonds de temps : appliqués APRÈS le plan de surcharge, mêmes règles
   // (proposé seulement, dates posées par le moteur uniquement).
   const afterOverload = new Map();
   if (p) p.moves.forEach((m) => afterOverload.set(m.id, m.to));

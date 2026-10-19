@@ -1,4 +1,4 @@
-// Planificateur de semaines (15 oct. 2026, lot A, aucune UI).
+// Planificateur de semaines (lot A, aucune UI).
 // - planWeeks : orchestrateur PUR (aucune base, aucune IA, aucun effet de bord).
 //   Il ne fait que PROPOSER (deleguer / reporter / non_planifiable), jamais appliquer.
 // - get/setWeeklyCapacity : capacite hebdomadaire par utilisateur (minutes, toutes

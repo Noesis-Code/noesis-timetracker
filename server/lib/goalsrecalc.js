@@ -1,4 +1,4 @@
-// Recalcul régulier d'après le temps réel (7 oct. 2026, fonction gratuite).
+// Recalcul régulier d'après le temps réel (fonction gratuite).
 // Règle produit : l'IA PROPOSE, ne décide jamais. Le job nocturne ne modifie AUCUN objectif : il
 // enregistre une proposition (table goal_recalc_proposals) que l'utilisateur applique ou écarte.
 //  - Rythme réel = moyenne hebdo chronométrée sur 4 semaines de la catégorie (timecaps.averages,

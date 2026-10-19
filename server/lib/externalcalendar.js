@@ -1,4 +1,4 @@
-// 22 sept. 2026 — brief "Objectifs — Logique métier", cadré avec Emilien
+// Brief "Objectifs — Logique métier", cadré avec Emilien
 // (AskUserQuestion : source = flux ICS externe, portée = heures occupées
 // uniquement, jamais le contenu des événements). Lecture d'un calendrier
 // externe via une URL ICS d'abonnement — symétrique de server/lib/ical.js
@@ -9,7 +9,7 @@ const db = require('../db');
 const dates = require('./dates');
 
 function ensureTable() {
-  // 9 oct. 2026 : userId est un identifiant TEXTE (uuid) ; l'ancienne colonne INTEGER refusait toute écriture.
+  // userId est un identifiant TEXTE (uuid) ; l'ancienne colonne INTEGER refusait toute écriture.
   // La table n'a jamais pu contenir de ligne (aucun écran), on la recrée.
   try {
     const col = db.prepare('PRAGMA table_info(external_calendar_subscriptions)').all().find((c) => c.name === 'userId');
@@ -20,7 +20,7 @@ function ensureTable() {
     icsUrl TEXT NOT NULL,
     updatedAt TEXT NOT NULL
   )`);
-  // 9 oct. 2026 : PLUSIEURS adresses par personne (une ligne par adresse). L'ancienne table (une adresse) est reprise.
+  // PLUSIEURS adresses par personne (une ligne par adresse). L'ancienne table (une adresse) est reprise.
   db.exec(`CREATE TABLE IF NOT EXISTS external_calendar_urls (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     userId TEXT NOT NULL,
@@ -89,12 +89,6 @@ function parseIcsDate(value) {
   return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[5], +m[6], +m[7]));
 }
 
-// Minutes occupées qui tombent dans la journée isoDate (heure serveur, même
-// limite documentée ci-dessus).
-function busyMinutesForDay(icsText, isoDate) {
-  return busyMinutesForTexts([icsText], isoDate);
-}
-
 // Plusieurs agendas : l'union des plages (deux rendez-vous qui se chevauchent ne comptent qu'une fois).
 function busyMinutesForTexts(texts, isoDate) {
   const dayStart = new Date(isoDate + 'T00:00:00Z');
@@ -158,7 +152,7 @@ function clearBusyCache(userId) {
   Array.from(busyCache.keys()).forEach((k) => { if (k.startsWith(userId + '|')) busyCache.delete(k); });
 }
 
-// ---------- Capacité par jour selon l'agenda (18 oct. 2026, demande d'Émilien, offre gratuite incluse) ----------
+// ---------- Capacité par jour selon l'agenda (demande d'Émilien, offre gratuite incluse) ----------
 // Les TITRES des événements sont lus UNIQUEMENT pour les comparer, en mémoire, aux mots des règles de l'utilisateur
 // ; ils ne sont ni stockés ni journalisés ni envoyés à l'IA.
 //  - règle « aucune tâche » -> capacité 0 ; « temps limité » -> son maximum ; plusieurs règles le même jour : la plus restrictive gagne ;
@@ -173,7 +167,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS external_calendar_settings (
   workDayMinutes INTEGER,
   freeDayMinutes INTEGER
 )`);
-// 18 oct. 2026 : RÈGLES (« si le titre contient … -> aucune tâche / temps limité ») à la place des 4 champs.
+// RÈGLES (« si le titre contient … -> aucune tâche / temps limité ») à la place des 4 champs.
 // Colonne rules (JSON) ; freeDayMinutes devient les heures par défaut (« tous les autres jours »).
 try { db.exec('ALTER TABLE external_calendar_settings ADD COLUMN rules TEXT'); } catch (e) { /* déjà ajoutée */ }
 
@@ -347,13 +341,8 @@ module.exports = {
   getSettings, setSettings, migrateLegacySettings, parseIcsEvents, dayCapacityFromTexts, dayCapacities, DEFAULT_VACATION_WORDS,
   cachedBusyMinutes,
   refreshBusy,
-  clearBusyCache,
   listUrls,
   addUrl,
   removeUrl,
-  MAX_URLS,
-  busyMinutesForTexts,
-  parseIcsBusyIntervals,
-  busyMinutesForDay,
   busyMinutesTodayForUser,
 };

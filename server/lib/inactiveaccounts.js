@@ -244,7 +244,7 @@ async function runIfDue() {
 
 // Lancement au démarrage si dernière exécution > 24 h (délai de 1 min), puis vérification périodique.
 function startInactiveAccountsCron() {
-  // 10 oct. 2026 (décision d'Emilien) : fermeture automatique INACTIVE tant qu'il n'y a pas de domaine Resend vérifié
+  // Fermeture automatique INACTIVE tant qu'il n'y a pas de domaine Resend vérifié
   // (sans domaine, aucun courriel d'avis ne peut partir). Pour l'activer plus tard : INACTIVE_ACCOUNTS_ENABLED=true.
   if (process.env.INACTIVE_ACCOUNTS_ENABLED !== 'true') {
     console.log('[inactifs] Fermeture automatique des comptes inactifs désactivée (INACTIVE_ACCOUNTS_ENABLED non défini).');

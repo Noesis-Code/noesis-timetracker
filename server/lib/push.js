@@ -123,7 +123,7 @@ function sendToUsers(userIds, payload) {
   if (!configured) return;
 
   let ids = Array.from(new Set((userIds || []).filter(Boolean)));
-  // Modules (19 oct. 2026) : aucune notification si « Notifications » est désactivé pour la personne, ni pour un module (payload.module) qu'elle a désactivé.
+  // Modules : aucune notification si « Notifications » est désactivé pour la personne, ni pour un module (payload.module) qu'elle a désactivé.
   ids = ids.filter((id) => { try { return modules.isEnabled(id, 'notifications') && (!payload || !payload.module || modules.isEnabled(id, payload.module)); } catch (e) { return true; } });
   if (ids.length === 0) return;
 

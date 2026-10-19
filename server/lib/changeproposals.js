@@ -1,4 +1,4 @@
-// « Modifications proposées » (Essor, 16 oct. 2026). Décision d'Émilien : une saisie manuelle
+// « Modifications proposées » (Essor). Décision d'Émilien : une saisie manuelle
 // ne change que PAR PROPOSITION VALIDÉE, montrant l'avant et l'après, champ par champ.
 //
 // L'IA propose de modifier des éléments existants (texte ou date d'une tâche ; temps estimé ou
@@ -40,7 +40,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS change_proposals (
   createdAt TEXT NOT NULL,
   resolvedAt TEXT
 )`);
-// 16 oct. 2026 : état coché/décoché mémorisé côté serveur (suit l'utilisateur d'un appareil à l'autre). Migration additive.
+// État coché/décoché mémorisé côté serveur (suit l'utilisateur d'un appareil à l'autre). Migration additive.
 if (!db.prepare('PRAGMA table_info(change_proposals)').all().some((c) => c.name === 'checked')) {
   db.exec('ALTER TABLE change_proposals ADD COLUMN checked INTEGER NOT NULL DEFAULT 1');
 }
@@ -120,7 +120,7 @@ function isRealDate(s) {
   return !isNaN(d) && d.toISOString().slice(0, 10) === s;
 }
 
-// 16 oct. 2026 : une correction d'orthographe/grammaire/ponctuation n'est plus une proposition.
+// Une correction d'orthographe/grammaire/ponctuation n'est plus une proposition.
 const SPELL_REASON = /orthograph|grammat|ponctuat|accord\b|accords|typograph|conjugaison|coquille|faute|accent|majuscule|espace/i;
 function isSpellingOnly(field, before, after, reason) {
   if (field !== 'text' && field !== 'instruction') return false;
@@ -283,7 +283,7 @@ async function generate(userId, activityId, opts) {
   return { added: store(userId, activityId, kept) };
 }
 
-// ---------- Redistribution déclenchée par un objectif hebdomadaire (17 oct. 2026, Émilien) ----------
+// ---------- Redistribution déclenchée par un objectif hebdomadaire (Émilien) ----------
 // Création/modification d'un objectif hebdomadaire => analyse CIBLÉE (en arrière-plan, après un délai) : l'IA compare les tâches
 // ouvertes de la même catégorie (autres semaines) à cet objectif et PROPOSE des changements de date. Mêmes lignes 'pending' que
 // le reste (aucune écriture avant validation, refus mémorisé par hash). Sortie limitée à des changements `date` de tâches existantes.

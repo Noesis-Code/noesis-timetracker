@@ -1,29 +1,8 @@
-// Notification matinale — FUSIONNÉE le 22 septembre 2026 dans le segment
-// Objectifs — Logique métier (décision explicite d'Emilien, voir
-// noesis-timetracker-chantiers-en-cours.md encart 46). Le calcul détaillé
-// (signaux, sélection, capacité) vit désormais entièrement dans
-// server/lib/goalsdailypriority.js — ce fichier ne fait plus que déclencher
-// un simple rappel quotidien, jamais le contenu de la liste elle-même.
+// Notification matinale : simple rappel quotidien qui oriente vers l'écran de liste (toujours une LISTE à valider
+// chaque matin), jamais le contenu de la liste, pour ne pas désynchroniser notif et liste. Le calcul vit dans
+// server/lib/goalsdailypriority.js.
 //
-// Choix cadré avec Emilien (22 sept.) : « toujours une LISTE à valider
-// chaque matin » — la notification ne fait donc plus qu'orienter vers
-// l'écran de liste (Objectifs — Planification IA) plutôt que d'en afficher
-// un aperçu en dur, pour ne jamais désynchroniser le contenu de la notif et
-// celui de la vraie liste (les deux étaient calculés séparément en V1).
-//
-// Conserve node-cron/push.js tels quels (V1, 21 septembre 2026) — seule la
-// source de la décision « y a-t-il quelque chose à notifier » change,
-// server/lib/goalsdailypriority.js#anyDailyPriorityForUser remplaçant
-// l'ancien calcul local de candidats de ce fichier.
-//
-// Sollicite l'infrastructure de push PARTAGÉE server/lib/push.js
-// (sendToUsers) sans en modifier une seule ligne. Ne touche PAS
-// server/lib/goalreminders.js (infrastructure de rappels spécifique au
-// segment Objectifs — Calendrier & intégrations).
-//
-// Pas de fuseau par utilisateur : aucun n'est stocké sur `users` (voir
-// server/db.js) — même limite déjà acceptée par subscriptioncron.js et
-// goal_period_due_reminders. Heure fixe, fuseau du serveur (process.env.TZ).
+// Pas de fuseau par utilisateur : aucun n'est stocké sur `users`. Heure fixe, fuseau du serveur (process.env.TZ).
 
 const db = require('../db');
 const modules = require('./modules');
@@ -53,24 +32,9 @@ function allUserIds() {
   return db.prepare('SELECT DISTINCT userId FROM activity_members').all().map((r) => r.userId);
 }
 
-// Notifie chaque utilisateur ayant au moins une tâche sélectionnée
-// aujourd'hui sur au moins une de ses activités — une activité en échec ne
-// doit jamais bloquer les autres (même principe que l'ancien
-// runDailySuggestionSweep, V1, 21 sept. 2026).
-//
-// 28 septembre 2026 — décision d'Emilien relayée par Notifications (voir
-// noesis-timetracker-notifications-deep-link.md, cas 4) : l'adresse pointe
-// désormais sur l'activité qui contient la tâche la plus urgente, calculée
-// par goalsdailypriority.mostUrgentTaskForUser — MÊME SOURCE que la liste
-// elle-même (computeDailyPriorityList), jamais un calcul séparé, pour ne
-// jamais désynchroniser la notification de la vraie liste (règle verrouillée
-// le 22 sept. contre le bug réel de la V1, voir l'en-tête de ce fichier). Un
-// seul appel remplace l'ancien anyDailyPriorityForUser : mostUrgentTaskForUser
-// renvoie null quand il n'y a rien à proposer (mêmes garanties, un passage
-// de calcul en moins). Repli sur l'ancienne adresse générique si aucune
-// tâche urgente n'est trouvée malgré tout (garde défensive, ne devrait pas
-// arriver en pratique) — côté client, Notifications replie déjà cette
-// adresse sur la Page 1 des Objectifs quand activityId est absent.
+// Notifie chaque utilisateur ayant au moins une tâche sélectionnée aujourd'hui ; une activité en échec ne bloque
+// pas les autres. L'adresse pointe sur l'activité de la tâche la plus urgente (goalsdailypriority.mostUrgentTaskForUser,
+// MÊME SOURCE que la liste), qui renvoie null quand il n'y a rien à proposer.
 function runDailySuggestionSweep() {
   const userIds = allUserIds();
   let notified = 0;
@@ -98,13 +62,12 @@ function runDailySuggestionSweep() {
 
 let started = false;
 
-// Démarré depuis server/index.js, APRÈS l'écoute du port — inchangé depuis
-// la V1 (21 sept. 2026).
+// Démarré depuis server/index.js, APRÈS l'écoute du port.
 function startDailySuggestionCron() {
   if (started) return;
   started = true;
 
-  // Quotidien, 6h du matin (heure du serveur) — inchangé depuis la V1.
+  // Quotidien, 6h du matin (heure du serveur).
   cron.schedule('0 6 * * *', () => {
     try {
       runDailySuggestionSweep();

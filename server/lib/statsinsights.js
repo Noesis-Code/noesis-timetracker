@@ -12,7 +12,6 @@ const goalsauto = require('./goalsauto');
 const externalcalendar = require('./externalcalendar');
 
 const WEEKDAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const DAY_MS = 86400000;
 
 function todayLocal(now) {
   const d = now instanceof Date ? now : new Date();

@@ -54,7 +54,7 @@ const goals = require('./goals');
 // vue Mois) et ne garde qu'une activité dominante par créneau — inutilisable
 // pour des totaux justes. C'est la raison pour laquelle ce calcul reste
 // serveur au lieu d'être refait côté client à partir de la grille.
-// 6 oct. 2026 (Emilien) : activités CONFIDENTIELLES de `ownerId` que `viewerId` ne doit pas voir dans
+// Activités CONFIDENTIELLES de `ownerId` que `viewerId` ne doit pas voir dans
 // ses statistiques — celles marquées confidentielles par lui, sauf si le visiteur est membre de la
 // même activité (activité partagée). Le propriétaire se voit toujours en entier.
 function hiddenActivityIdsFor(ownerId, viewerId) {
@@ -66,7 +66,7 @@ function hiddenActivityIdsFor(ownerId, viewerId) {
   `).all(ownerId, viewerId || '').map((r) => r.id);
 }
 
-// 6 oct. 2026 (Emilien) : filtre de l'onglet Statistiques — ses PROPRES activités publiques ou
+// Filtre de l'onglet Statistiques — ses PROPRES activités publiques ou
 // confidentielles. 'public' exclut les confidentielles, 'confidential' exclut les publiques, sinon rien.
 function ownVisibilityExcludedIds(userId, visibility) {
   if (visibility !== 'public' && visibility !== 'confidential') return [];
@@ -363,7 +363,6 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
 // recalculé à chaque appel. Cette fenêtre glissante est propre à la vue
 // Semaine ; la vue Mois (calendrier, plus bas) reste, elle, calée sur de
 // vraies semaines lundi-dimanche — c'est ce que sa forme calendaire exige.
-const SLOTS_PER_DAY = 96; // 24h / 15 min
 const SLOT_MINUTES = 15;
 
 // Segmentation utilisée par la vue "Mois" (calendrier) de la Feuille de

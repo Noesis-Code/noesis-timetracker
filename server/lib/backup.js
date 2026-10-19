@@ -283,7 +283,6 @@ module.exports = {
   readConfig,
   runBackupOnce,
   startBackupSchedule,
-  encryptBuffer,
   decryptBuffer,
   snapshotDatabase,
   dbPath,

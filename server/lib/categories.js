@@ -160,8 +160,7 @@ function assertReadableCategory(activityId, category) {
   }
 }
 
-// 17 septembre 2026 (suppression totale des sous-projets, chantier Chrono —
-// server/lib/entrycategory.js) : PLUS LARGE qu'isReadableCategory ci-dessus.
+// Pour server/lib/entrycategory.js : PLUS LARGE qu'isReadableCategory ci-dessus.
 // isReadableCategory exige qu'un PLAN Objectifs ait déjà démarré pour cette
 // catégorie — hors de propos pour un simple rattachement de temps : une
 // catégorie tout juste créée, jamais utilisée pour un plan hebdomadaire mais
@@ -215,8 +214,7 @@ function categoryLabelFor(activityId, category) {
   if (active) return active.label;
   const frozen = frozenCategoriesForActivity(activityId).find((c) => c.key === category);
   if (frozen) return frozen.label;
-  // 17 septembre 2026 (suppression totale des sous-projets, bug trouvé par un
-  // smoke test du chantier Statistiques) : une catégorie retirée SANS avoir
+  // Une catégorie retirée SANS avoir
   // jamais eu de plan Objectifs (créée puis utilisée seulement pour du temps
   // chronométré, comme le permet categoryEverExisted ci-dessus) n'apparaît ni
   // dans les actives ni dans frozenCategoriesForActivity (qui ne regarde que
@@ -261,7 +259,7 @@ function assertCategoryDescription(description) {
 // pour ne jamais réutiliser une clé déjà portée par une catégorie retirée
 // (voir le commentaire sur activity_goal_categories dans server/db.js).
 function nextCategoryKey(activityId) {
-  // 12 oct. 2026 : « nombre de lignes + 1 » ne suffit pas — une activité dont
+  // « nombre de lignes + 1 » ne suffit pas — une activité dont
   // les clés ont un trou (ligne supprimée, migrations) retombait sur une clé
   // déjà prise et la contrainte UNIQUE(activityId, key) renvoyait « Erreur
   // serveur » à chaque création de pôle ou de secteur. On saute les clés prises.
@@ -283,7 +281,7 @@ function nextCategoryKey(activityId) {
 // renameCategory, removeCategory, reorderCategories) — jamais depuis une
 // écriture de plan/objectif, qui n'en a pas besoin (clé TEXT libre).
 function ensureDefaultCategory(activityId) {
-  // 11 oct. 2026 (décision d'Émilien) : AUCUN pôle par défaut — une activité
+  // AUCUN pôle par défaut — une activité
   // sans pôle créé par l'utilisateur en a zéro. Plus de matérialisation.
   return activeCategoryRows(activityId);
 }
@@ -388,7 +386,7 @@ function addCategory(activityId, label, parentKey, atTop) {
 function migratePoleDirectDataToSecteur(activityId, poleKey, secteurKey) {
   db.prepare('UPDATE sub_projects SET goalCategory = ? WHERE activityId = ? AND goalCategory = ?')
     .run(secteurKey, activityId, poleKey);
-  // Par année (9 oct. 2026) : seules l'année en cours et les suivantes passent au
+  // Par année : seules l'année en cours et les suivantes passent au
   // secteur ; les années passées gardent l'arbre du pôle. Le plan du pôle reste
   // (copié, même date de départ pour que la numérotation des périodes concorde).
   const plan = db.prepare('SELECT startDate FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, poleKey);
@@ -452,7 +450,7 @@ function renameCategory(activityId, key, label, description) {
 //    retrait gèle EN CASCADE tous ses secteurs actifs — « Retrait : retirer
 //    un pôle gèle automatiquement (cascade) tous ses secteurs actifs »,
 //    « masque, ne supprime pas » comme partout ailleurs dans l'app.
-// 16 oct. 2026 : goal_weekly.carriedOverFromId/carriedToId référencent goal_weekly(id) SANS cascade.
+// goal_weekly.carriedOverFromId/carriedToId référencent goal_weekly(id) SANS cascade.
 // Supprimer des périodes dont un objectif hebdo a été reporté depuis/vers une période conservée
 // échouait (FOREIGN KEY constraint failed → « Erreur serveur » à la suppression d'un secteur).
 // On détache d'abord ces liens (les objectifs restants gardent leur texte, seul le renvoi disparaît).
@@ -473,9 +471,9 @@ function removeCategory(activityId, key, opts) {
   const affected = [key].concat(row.parentKey ? [] : existing.filter((r) => r.parentKey === key).map((r) => r.key));
   const taskCount = countTasksForKeys(activityId, affected);
   const choice = opts && opts.tasks;
-  // Secteur (9 oct. 2026) : retrait PAR ANNÉE — périodes supprimées à partir de la
+  // Secteur : retrait PAR ANNÉE — périodes supprimées à partir de la
   // période en cours, jamais les passées ; tâches ouvertes redistribuées aux autres secteurs.
-  // 19 oct. 2026 : `mode` explicite — 'delete' (supprime les tâches du secteur) ou
+  // `mode` explicite — 'delete' (supprime les tâches du secteur) ou
   // 'move' (les déplace toutes vers `target`, un secteur actif d'un pôle quelconque).
   // Sans `mode` : comportement historique (redistribution des tâches ouvertes).
   const mode = opts && opts.mode;
@@ -514,7 +512,7 @@ function removeCategory(activityId, key, opts) {
   db.exec('BEGIN');
   try {
     if (taskCount > 0) applyTaskChoice(activityId, affected, row.parentKey || null, choice);
-    // 3 oct. 2026 : suppression « tout supprimer » — plus d'orphelins : plannings,
+    // Suppression « tout supprimer » — plus d'orphelins : plannings,
     // périodes/objectifs (enfants en cascade), capacités et exemples IA de ces clés.
     if (choice !== 'keep') purgeCategoryPlanning(activityId, affected);
     const result = removeCategoryRows(activityId, key, row, existing);

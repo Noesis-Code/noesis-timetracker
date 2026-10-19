@@ -257,7 +257,5 @@ module.exports = {
   activateActivitySubscription,
   regenerateActivityRoadmap,
   // Exportés séparément pour les tests et un futur outil d'admin.
-  loadFormsPayload,
-  generateSubProjectsPlan,
   parsePlan,
 };

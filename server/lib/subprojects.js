@@ -31,13 +31,11 @@ const taskrecurrence = require('./taskrecurrence');
 require('./strategy'); // migration de la colonne `origin` (tâche saisie par l'utilisateur ou créée par l'IA)
 const { isoDateOf } = require('./dates');
 
-// 5 oct. 2026 : aucune tâche n'existe sans date. Faute de mieux (tâche que Noèsis ne
+// Aucune tâche n'existe sans date. Faute de mieux (tâche que Noèsis ne
 // sait pas classer, ajout manuel sans jour…), la date par défaut est AUJOURD'HUI, posée
 // avec dueDateAuto = 2 : « défaut », déplaçable par le moteur (contrairement à une date
 // saisie, épinglée) mais traitée comme « à dater » par la planification quotidienne.
 function todayIso() { return isoDateOf(new Date()); }
-
-const SECTION_KINDS = ['tasks'];
 
 // Un sous-projet appartient à l'ACTIVITÉ, pas à la personne qui l'a créé
 // (cadrage d'Emilien : « communs à l'activité »). Le contrôle d'accès est
@@ -298,7 +296,7 @@ function updateSubProject(subProjectId, fields) {
       // Corrigé vers le nom réellement exporté, déjà utilisé ailleurs pour ce
       // même besoin (server/routes/goals.js, route manuelle d'ajout de
       // tâche) — accepte pôle ET secteur, cohérent avec « Secteurs dans
-      // l'arbre périodique » (21 sept.) qui permet de rattacher une tâche
+      // l'arbre périodique » qui permet de rattacher une tâche
       // directement à un secteur.
       if (!goals.isValidCategoryOrSecteurForActivity(current.activityId, clean)) {
         throw Object.assign(new Error('Pôle ou secteur invalide pour cette activité.'), { statusCode: 400 });
@@ -414,7 +412,7 @@ function itemsForSection(sectionId) {
 // booléen côté API. Normalisé dans le seul endroit qui lit une ligne d'item —
 // sans ça, la création renverrait `done: 1` pendant que la liste renvoie
 // `done: true`.
-// 10 oct. 2026 (Emilien) : une tâche terminée depuis plus de 7 jours est verrouillée (lecture seule).
+// Une tâche terminée depuis plus de 7 jours est verrouillée (lecture seule).
 // L'historique est conservé pour les statistiques ; seules les actions de l'utilisateur sont refusées.
 const LOCK_DAYS = 7;
 const LOCKED_MESSAGE = 'Tâche verrouillée : terminée depuis plus de 7 jours.';
@@ -490,7 +488,7 @@ function createItem(section, label, extra) {
   `).run(section.subProjectId, section.id, label, next, new Date().toISOString(),
     opts.dueDate || todayIso(), opts.dueDate ? 0 : 2, opts.plannedUserId || null, opts.autoCaptured ? 1 : 0,
     rec ? rec.every : null, rec ? rec.unit : null, opts.origin === 'ai' ? 'ai' : 'user');
-  // 16 oct. 2026 : correction orthographique silencieuse, après l'enregistrement (jamais bloquante).
+  // Correction orthographique silencieuse, après l'enregistrement (jamais bloquante).
   if (!opts.noSpellfix) require('./silentspellfix').schedule(info.lastInsertRowid);
   return getItem(info.lastInsertRowid);
 }
@@ -561,13 +559,13 @@ function updateItem(itemId, fields, userId) {
 
   db.prepare('UPDATE sub_project_items SET label = ?, done = ?, doneBy = ?, doneAt = ?, plannedUserId = ?, goalWeeklyId = ?, dueDate = ?, dueDateAuto = CASE WHEN dueDate IS ? THEN dueDateAuto ELSE 0 END WHERE id = ?')
     .run(label, done, doneBy, doneAt, plannedUserId, goalWeeklyId, dueDate, dueDate, itemId);
-  // Tâche touchée (libellé, coche, jour) par l'utilisateur : elle devient « à lui », plus jamais retirée en silence (stratégie, 19 oct. 2026).
+  // Tâche touchée (libellé, coche, jour) par l'utilisateur : elle devient « à lui », plus jamais retirée en silence (stratégie).
   if (current.origin === 'ai' && (label !== current.label || done !== current.done || dueDate !== current.dueDate)) db.prepare("UPDATE sub_project_items SET origin = 'user' WHERE id = ?").run(itemId);
-  // Statut automatique des objectifs (9 oct. 2026) : coche/décoche, libellé ou rattachement modifié.
+  // Statut automatique des objectifs : coche/décoche, libellé ou rattachement modifié.
   goals.recomputeForWeeklies([current.goalWeeklyId, goalWeeklyId]);
   if (label !== current.label) require('./silentspellfix').schedule(itemId); // correction silencieuse (16 oct. 2026)
 
-  // Récurrence (9 oct. 2026) : `recurrence` absent => inchangée ; null => on l'arrête ; { every, unit } => on la pose.
+  // Récurrence : `recurrence` absent => inchangée ; null => on l'arrête ; { every, unit } => on la pose.
   if ('recurrence' in fields) {
     const rec = taskrecurrence.normalize(fields.recurrence);
     db.prepare('UPDATE sub_project_items SET recurEvery = ?, recurUnit = ? WHERE id = ?')
@@ -600,10 +598,7 @@ function deleteItem(itemId) {
   if (row) goals.recomputeForWeeklies([row.goalWeeklyId]);
 }
 
-module.exports = {
-  SECTION_KINDS,
-  LOCK_DAYS,
-  isItemLocked,
+module.exports = {  isItemLocked,
   assertItemEditable,
   // Contrat "Général" — ne pas changer sans le prévenir (R6).
   progressForActivities,
@@ -621,7 +616,6 @@ module.exports = {
   createSection,
   sectionsForSubProject,
   // Todolist
-  itemsForSection,
   getItem,
   getItemRaw,
   createItem,

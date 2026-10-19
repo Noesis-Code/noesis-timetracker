@@ -1,4 +1,4 @@
-// Activité de test « Exemple statistiques (test) » (10 oct. 2026, demande d'Emilien) : une activité PUBLIQUE, riche
+// Activité de test « Exemple statistiques (test) » (demande d'Emilien) : une activité PUBLIQUE, riche
 // et réaliste (~2 ans, plus d'un millier de tâches, 4 membres) où l'on voit VRAIMENT toutes les cartes de
 // Statistiques (Tâches et Objectifs), le détail « Où ça glisse », les statistiques par membre (fenêtre Activité)
 // et le profil visité. Jumeau de scenarios-staging.js : STAGING UNIQUEMENT (RAILWAY_ENVIRONMENT_NAME défini et

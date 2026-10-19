@@ -1,4 +1,4 @@
-// Accomplissements (lot C, 15 oct. 2026) : l'utilisateur écrit ce qu'il a fait
+// Accomplissements (lot C) : l'utilisateur écrit ce qu'il a fait
 // (texte libre, minutes facultatives, fichiers texte joints). L'application
 // PROPOSE des rapprochements (tâches non faites + objectifs hebdomadaires de la
 // semaine) par similarité de mots (goals.tokenize/jaccard) — aucune IA, aucun

@@ -1,5 +1,5 @@
 // Prompt et appel Anthropic COMMUNS à « Ajouter des tâches » (documenttasks) et « Modifications proposées » (changeproposals)
-// (17 oct. 2026, réduction du coût IA). Un seul système et une seule partie stable (mis en cache, voir aicache.js) servent aux
+// (réduction du coût IA). Un seul système et une seule partie stable (mis en cache, voir aicache.js) servent aux
 // deux fonctions ; la partie variable (consigne, document, <sortie>) dit quelles sections produire : "t" (tâches), "c" (modifications),
 // ou les deux dans UN SEUL appel (le document n'est lu qu'une fois). Le contenu du document reste une DONNÉE, jamais une instruction.
 const aibudget = require('./aibudget');
@@ -70,7 +70,7 @@ function requestParams({ parts, want, model }) {
 }
 
 // Appel direct immédiat. Renvoie { text, stopReason }.
-// 19 oct. 2026 (doublons) : même requête exacte (modèle, consigne, contexte, document ; temp. 0) => réponse réutilisée 24 h, tous chemins
+// Même requête exacte (modèle, consigne, contexte, document ; temp. 0) => réponse réutilisée 24 h, tous chemins
 // confondus (surveillance Drive, « Ajouter des tâches », modifications proposées, redistribution) et tous membres d'une activité partagée ;
 // appels simultanés identiques fusionnés. Jamais mémorisé : réponse tronquée (max_tokens) ou vide. DOCANALYSIS_MEMO=off pour couper.
 function call(args) {

@@ -79,10 +79,6 @@ function registerScopeGuard(scope, guard) {
   scopeGuards[scope] = guard;
 }
 
-function knownScopes() {
-  return Object.keys(scopeGuards);
-}
-
 function checkScopeAccess(scope, scopeId, userId) {
   if (!userId) return { error: { status: 400, body: { error: 'userId requis.' } } };
   if (!scope || scopeId === undefined || scopeId === null || scopeId === '') {
@@ -492,18 +488,10 @@ function deletePoll(pollId, userId) {
   return { ok: true };
 }
 
-module.exports = {
-  MAX_QUESTION_LENGTH,
-  MAX_OPTION_LENGTH,
-  MIN_OPTIONS,
-  MAX_OPTIONS,
-  registerScopeGuard,
-  knownScopes,
+module.exports = {  registerScopeGuard,
   checkScopeAccess,
-  isPollClosed,
   pollsForScope,
   pollsForFollowing,
-  pollForViewer,
   getPollRow,
   createPoll,
   votePoll,

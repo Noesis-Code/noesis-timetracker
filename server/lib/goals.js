@@ -48,7 +48,7 @@
 const db = require('../db');
 const { postActivityMessage } = require('./community');
 
-// Objectif de l'année (8 oct. 2026) : un texte libre par secteur (ou par pôle
+// Objectif de l'année : un texte libre par secteur (ou par pôle
 // sans secteur) et par année, saisi par l'utilisateur. Gratuit : jamais
 // réécrit par Noèsis ; c'est la cible des recalculs de l'Offre 1.
 db.exec(`CREATE TABLE IF NOT EXISTS goal_year_goals (
@@ -60,7 +60,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS goal_year_goals (
   PRIMARY KEY (activityId, category, year)
 )`);
 
-// Secteurs par année (9 oct. 2026) : un secteur est visible dans l'arbre d'une
+// Secteurs par année : un secteur est visible dans l'arbre d'une
 // année Y si fromYear est NULL ou ≤ Y, et s'il n'est pas retiré ou Y ≤ removedYear.
 // removedFromDate : début de la période en cours au retrait (périodes suivantes supprimées).
 (function ensureSectorYearColumns() {
@@ -170,12 +170,6 @@ const CATEGORY_LABELS = { entreprise: 'Entreprise', communaute: 'Communauté', p
 
 function isValidCategory(category) {
   return CATEGORIES.includes(category);
-}
-
-function assertCategory(category) {
-  if (!isValidCategory(category)) {
-    throw Object.assign(new Error('Catégorie invalide.'), { statusCode: 400 });
-  }
 }
 
 const {
@@ -437,7 +431,7 @@ function migratePlansToYearGrid(dryRun) {
   const report = [];
   plans.forEach((pl) => {
     if (isYearAnchor(pl.startDate)) return;
-    // Cas courant (16 oct. 2026) : plan calé sur l'ancienne ancre (lundi de la semaine
+    // Cas courant : plan calé sur l'ancienne ancre (lundi de la semaine
     // du 1er janvier) -> recalage sur le premier lundi de janvier. Les numéros de
     // période ne changent pas ; seules les dates (décalage de 0 ou 7 jours) bougent.
     const legacyYear = Number(addDays(pl.startDate, 6).slice(0, 4));
@@ -755,7 +749,7 @@ function statusLabel(status) {
 }
 
 function postBilanIfDue(activity, category, planStartDate) {
-  // 10 oct. 2026 (décision d'Emilien) : plus AUCUN bilan automatique de fin de période dans la discussion ni la communauté.
+  // Plus AUCUN bilan automatique de fin de période dans la discussion ni la communauté.
   return;
   // eslint-disable-next-line no-unreachable
   const today = todayLocal();
@@ -781,7 +775,7 @@ function postBilanIfDue(activity, category, planStartDate) {
 
     // Statut du grand objectif toujours non tranché à la fin de la période :
     // compte comme non atteint, même logique que les objectifs hebdomadaires.
-    // 9 oct. 2026 : statut de période dérivé des objectifs hebdomadaires (voir recomputePeriodStatus) ; plus de règle « sans statut -> non atteint ».
+    // Statut de période dérivé des objectifs hebdomadaires (voir recomputePeriodStatus) ; plus de règle « sans statut -> non atteint ».
     recomputePeriodStatus(period.id);
     period.mainGoalStatus = db.prepare('SELECT mainGoalStatus FROM goal_periods WHERE id = ?').get(period.id).mainGoalStatus;
 
@@ -808,7 +802,7 @@ function postBilanIfDue(activity, category, planStartDate) {
 // sont créées, fait tourner le report automatique et l'envoi du bilan, puis
 // renvoie l'état complet du planning de cette (activité, catégorie), plus la
 // liste des membres de l'activité (pour l'assignation et la répartition).
-// 9 oct. 2026 (Émilien) : statut automatique des objectifs, calculé par Noèsis.
+// Statut automatique des objectifs, calculé par Noèsis.
 // OBJECTIF HEBDOMADAIRE : ratio = temps estimé des tâches terminées / temps estimé total des tâches liées
 // (sub_project_items.goalWeeklyId ; une tâche « glissée » garde son goalWeeklyId : elle compte toujours pour
 // l'objectif d'origine). Le temps réel ne compte pas. >= 90 % atteint ; 75 à 90 % partiel ; sinon non atteint.
@@ -912,7 +906,7 @@ function planningForActivity(activityId, category) {
 
   const periods = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? ORDER BY periodNumber')
     .all(activityId, category)
-    // Borne (16 oct. 2026) : jamais de période au-delà de la dernière année créée (un report
+    // Borne : jamais de période au-delà de la dernière année créée (un report
     // ou un étalement peut avoir matérialisé la période 14+ ; elle reste cachée tant que
     // l'utilisateur n'a pas créé l'année suivante).
     .filter((p) => p.periodNumber <= cycleLastPeriodNumber)
@@ -961,7 +955,7 @@ function weekIsOver(periodStart, weekIndex) {
 // ---------------------------------------------------------------------------
 // Écritures
 
-// Description détaillée (2 oct. 2026) : undefined = conserver l'existante ;
+// Description détaillée : undefined = conserver l'existante ;
 // trim + 600 caractères max. L'IA ne la change que par PROPOSITION validée (server/lib/changeproposals.js).
 const GOAL_DESCRIPTION_MAX = 600;
 function cleanDescription(description) {
@@ -970,7 +964,7 @@ function cleanDescription(description) {
   return d;
 }
 
-// estimateMinutes (3 oct. 2026) : undefined = on garde une valeur saisie à la main pour CETTE
+// estimateMinutes : undefined = on garde une valeur saisie à la main pour CETTE
 // période (source 'manual'), sinon estimation automatique ; nombre = valeur manuelle (valable
 // pour cette période seulement : les périodes suivantes recalculent d'après le temps passé) ;
 // null = revenir à l'estimation automatique.
@@ -1007,7 +1001,7 @@ function setMainGoal(activityId, category, periodNumber, text, description, esti
   return { ...estimate };
 }
 
-// Suppression d'un objectif périodique (9 oct. 2026) : vide le grand objectif de la période
+// Suppression d'un objectif périodique : vide le grand objectif de la période
 // et supprime ses objectifs hebdomadaires. La période elle-même reste (case vide).
 function deleteWeeklyRows(ids) {
   ids.forEach((id) => {
@@ -1032,20 +1026,6 @@ function deleteWeekly(activityId, category, periodNumber, weekIndex) {
   if (!period) return;
   deleteWeeklyRows(db.prepare('SELECT id FROM goal_weekly WHERE periodId = ? AND weekIndex = ? AND carriedOverFromId IS NULL').all(period.id, weekIndex).map((r) => r.id));
   recomputePeriodStatus(period.id);
-}
-
-// 9 oct. 2026 : le statut de période est dérivé (recomputePeriodStatus) ; ce réglage manuel n'est plus exposé (la route répond 410).
-function setMainGoalStatus(activityId, category, periodNumber, status) {
-  // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : élargi aux
-  // secteurs (assertCategoryOrSecteurForActivity) — un objectif peut
-  // désormais être posé directement sur un secteur, plus seulement sur un
-  // pôle. N'affecte QUE ces 4 écritures de plan ; assertCategoryForActivity
-  // elle-même reste strictement pôle et continue de gater tout le reste
-  // (gestion de catégorie, Tâches, Feuille de temps, Graphique, Répartition).
-  assertCategoryOrSecteurForActivity(activityId, category);
-  if (!STATUSES.includes(status)) throw Object.assign(new Error('Statut invalide.'), { statusCode: 400 });
-  db.prepare('UPDATE goal_periods SET mainGoalStatus = ? WHERE activityId = ? AND category = ? AND periodNumber = ?')
-    .run(status, activityId, category, periodNumber);
 }
 
 // Crée ou remplace le texte de l'objectif hebdomadaire (weekIndex 1-4) de
@@ -1236,7 +1216,6 @@ function startGoalsSweep() {
 module.exports = {
   CATEGORIES,
   CATEGORY_LABELS,
-  isValidCategory,
   // Utilisés paresseusement par server/lib/categories.js.
   todayLocal,
   currentYear,
@@ -1245,7 +1224,6 @@ module.exports = {
   planningForActivity,
   membersForActivity,
   setMainGoal,
-  setMainGoalStatus,
   setWeekly,
   setWeeklyStatus,
   weeklyStatusFromTasks,
@@ -1258,7 +1236,6 @@ module.exports = {
   recomputeForWeeklies,
   DEFAULT_TASK_MINUTES,
   setWeeklyAssignee,
-  periodAssigneesFor,
   setPeriodAssignees,
   runGoalsSweepAll,
   startGoalsSweep,
@@ -1319,7 +1296,6 @@ module.exports = {
   weekBounds,
   periodNumberForDate,
   estimateForGoal,
-  accuracyScore,
   buildBilanText,
   addDays,
   // Exportés pour server/lib/goalsauto.js (chantier Objectifs — C,
@@ -1332,7 +1308,6 @@ module.exports = {
   actualSecondsForRange,
   ensurePlan,
   ensurePeriodRow,
-  ensurePeriodsUpTo,
   weeklyForPeriod,
   // Exportée pour server/lib/goalsdailypriority.js (Brief B, liste
   // quotidienne priorisée, 22 septembre 2026) — même fonction interne que

@@ -91,7 +91,7 @@ function globalDailyCapacityMinutes(userId) {
   return Math.max(1, Math.round(total));
 }
 
-// TÂCHE LONGUE (2 oct. 2026, demande d'Emilien) : durée estimée > capacité
+// TÂCHE LONGUE (demande d'Emilien) : durée estimée > capacité
 // quotidienne moyenne C (même capacité que goalsoverload.budgetFor, import
 // paresseux : goalsoverload dépend déjà de ce fichier). Elle est placée seule
 // sur son jour de départ, consomme C minutes par jour sur n = ceil(d/C) jours
@@ -280,7 +280,7 @@ function autoPlaceTask(userId, activityId, categoryKey, itemId, taskLabel) {
   return date;
 }
 
-// 1er oct. 2026 (Gaspard) : tâches NON faites dont le jour est passé ET dont la
+// Tâches NON faites dont le jour est passé ET dont la
 // date a été posée par le moteur (dueDateAuto=1) => replacées sur un jour
 // futur (aujourd'hui inclus) qui tient dans le budget, sinon le moins chargé.
 // Jamais une date saisie par l'utilisateur. Idempotent : une fois déplacée, la
@@ -318,11 +318,11 @@ function redispatchOverdue(userId, activityId) {
   return lateLong.length + lateShort.length;
 }
 
-// 5 oct. 2026 (Emilien) : rangement par défaut à la capture (page 1) — date = aujourd'hui ;
+// Rangement par défaut à la capture (page 1) — date = aujourd'hui ;
 // responsable = le membre nommé dans le texte (prénom), l'unique membre d'une activité
 // solo, sinon AUCUN (pas assez de données). Modifiable ensuite dans le pop-up.
 function normName(x) { return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
-// 8 oct. 2026 (Émilien) : responsable proposé d'après l'HISTORIQUE — membre le plus souvent responsable
+// Responsable proposé d'après l'HISTORIQUE — membre le plus souvent responsable
 // des tâches similaires de l'activité (mots communs, pondérés par la ressemblance). null si rien de comparable.
 function suggestAssigneeFromHistory(activityId, taskLabel, members) {
   const ids = new Set(members.map((m) => m.id));
@@ -341,7 +341,7 @@ function suggestAssigneeFromHistory(activityId, taskLabel, members) {
   score.forEach((v, k) => { if (v > bestV) { bestV = v; best = k; } });
   return best;
 }
-// 16 oct. 2026 (Émilien) : la date n'est plus « aujourd'hui » par défaut. Indice dans le texte
+// La date n'est plus « aujourd'hui » par défaut. Indice dans le texte
 // (jour / semaine / échéance) => jour cohérent, choisi selon la capacité ; sans indice => répartition
 // par capacité (semaines de l'activité, ordre logique). Suggestion modifiable (dueDateAuto=2).
 function pickDayInRange(userId, activityId, days, ownMinutes, itemId) {
@@ -371,7 +371,7 @@ function weekHasRoom(userId, activityId, mon, today, own, itemId) {
   } catch (e) { /* capacité indisponible : on ne bloque pas */ }
   return day;
 }
-// 16 oct. 2026 (Émilien) : sans indice de date, la tâche est rangée selon les OBJECTIFS existants,
+// Sans indice de date, la tâche est rangée selon les OBJECTIFS existants,
 // sur TOUT l'horizon (semaines futures de toutes les périodes en cours) : d'abord ceux du pôle de la
 // tâche (le secteur remonte au pôle), puis, si rien ne correspond, ceux des autres pôles de
 // l'activité. (1) un objectif hebdomadaire pertinent => la tâche va DANS sa semaine (même lointaine),
@@ -617,9 +617,7 @@ function placeCaptureDefault(userId, activityId, categoryKey, itemId, taskLabel,
   return date;
 }
 
-module.exports = {
-  suggestAssigneeFromHistory,
-  placeCaptureDefault,
+module.exports = {  placeCaptureDefault,
   dateForCapture,
   objectiveTarget,
   matchObjective,
@@ -629,11 +627,6 @@ module.exports = {
   redispatchOverdue,
   LOOKAHEAD_DAYS,
   DEFAULT_TASK_MINUTES,
-  globalDailyCapacityMinutes,
-  activityWeeklyCapacityMinutes,
-  activityMinutesByDay,
-  committedMinutesByDay,
-  chooseAutoPlacementDate,
   autoPlaceTask,
   longSpan,
   taskMinutes,

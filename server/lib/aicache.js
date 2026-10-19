@@ -1,4 +1,4 @@
-// Cache de prompt Anthropic (17 oct. 2026, réduction du coût IA). Le `system` devient un tableau de blocs
+// Cache de prompt Anthropic (réduction du coût IA). Le `system` devient un tableau de blocs
 // avec cache_control ephemeral ; le message user est coupé en une partie STABLE (catégories, semaines,
 // capacité, application : identique d'un fichier à l'autre) et une partie VARIABLE (consigne, document).
 // Le point d'arrêt du cache est posé à la fin de la partie stable : tout le préfixe (système + stable) est mis en cache.
@@ -25,7 +25,7 @@ function messageParams({ model, maxTokens, system, stable, variable, images }) {
 // Vrai si le préfixe (système + partie stable) dépasse le minimum cachable.
 function cacheable(system, stable) { return estimateTokens(system) + estimateTokens(stable) >= MIN_CACHE_TOKENS; }
 
-// Mémo des réponses IA à température 0 (19 oct. 2026, coût) : même entrée => même sortie, donc inutile de repayer l'appel.
+// Mémo des réponses IA à température 0 (coût) : même entrée => même sortie, donc inutile de repayer l'appel.
 // Clé = hash de (modèle, plafond, prompt complet) ; mémoire seulement (redémarrage = vide), TTL 24 h, 500 entrées max.
 // Les échecs ne sont jamais mémorisés. Les appels simultanés identiques partagent la même requête.
 const crypto = require('crypto');
@@ -49,7 +49,7 @@ async function memoize(parts, fn, opts) {
 }
 function memoClear() { memoStore.clear(); memoPending.clear(); }
 
-// Paliers « modèle rapide d'abord, modèle fort en repli » (19 oct. 2026, décision d'Emilien). Modèle rapide lu dans la variable d'environnement
+// Paliers « modèle rapide d'abord, modèle fort en repli » (décision d'Emilien). Modèle rapide lu dans la variable d'environnement
 // `envModel` (défaut claude-haiku-4-5 ; 'off' ou égal au modèle fort = désactivé), seuil de confiance (0-100) dans `envConf` (défaut 80).
 function fastModelFor(envModel, strongModel) {
   const m = String(process.env[envModel] || 'claude-haiku-4-5').trim();

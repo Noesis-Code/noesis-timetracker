@@ -1,4 +1,4 @@
-// 5 oct. 2026 (Emilien) : notification « Noèsis » au responsable quand une tâche
+// Notification « Noèsis » au responsable quand une tâche
 // lui est attribuée par quelqu'un d'autre (activité partagée) à la création.
 // Contenu : tâche, activité, pôle › secteur, date. Clic → Feuille de route, page 2,
 // onglet du détail de période, à l'objectif périodique et à l'objectif hebdomadaire

@@ -111,7 +111,7 @@ Réponds UNIQUEMENT avec un objet JSON de cette forme exacte, sans texte ni Mark
 {"suggestions":[{"targetCategory":"...","text":"...","reason":"..."}]}
 Contraintes : "targetCategory" doit être une des clés listées (jamais une clé inventée) ; "text" fait moins de ${MAX_SUGGESTION_TEXT_LENGTH} caractères, en français, un objectif concret (pas une reformulation de la source) ; "reason" fait moins de ${MAX_REASON_LENGTH} caractères, une phrase courte expliquant le lien ; jamais deux entrées pour la même "targetCategory".`;
 
-// 19 oct. 2026 (décision d'Emilien, coût) : Haiku d'abord, repli sur ANTHROPIC_MODEL (fort) si Haiku est peu sûr : JSON illisible,
+// Haiku d'abord, repli sur ANTHROPIC_MODEL (fort) si Haiku est peu sûr : JSON illisible,
 // catégorie cible inconnue, ou confiance (champ "confidence" 0-100 demandé par suggestion) < seuil.
 // Réglages : NOESIS_CROSS_FAST_MODEL (défaut claude-haiku-4-5 ; 'off' = modèle fort seul), NOESIS_CROSS_MIN_CONFIDENCE (défaut 80).
 // Journal : feature 'inter-secteurs' (Haiku) / 'inter-secteurs:repli' (modèle fort).
@@ -148,7 +148,7 @@ function fastOutputIsSure(text, allowedKeys) {
 }
 
 async function callAiStrong(payload, allowedKeys, feature) {
-  // 9 oct. 2026 : une réponse illisible est relancée une fois.
+  // Une réponse illisible est relancée une fois.
   try {
     return await callAiOnce(payload, allowedKeys, ANTHROPIC_MODEL, feature);
   } catch (err) {
@@ -255,7 +255,7 @@ function writeSuggestions(activityId, sourceCategory, source, suggestions) {
 // periodNumber?, itemId? }. Ne lève JAMAIS — un échec IA laisse simplement
 // aucune suggestion posée, jamais bloquant pour l'appelant (fire-and-forget
 // dans les deux points de déclenchement).
-// 19 oct. 2026 (doublons) : une même évaluation (mêmes entrées exactes) n'est jamais refaite pendant 24 h (capture répétée, objectif réenregistré,
+// Une même évaluation (mêmes entrées exactes) n'est jamais refaite pendant 24 h (capture répétée, objectif réenregistré,
 // rechargement) — et ne ré-ouvre donc pas une suggestion déjà traitée. Plafond par activité et par jour : CROSS_MAX_PER_ACTIVITY_DAY (défaut 30).
 const evaluated = new Map(); // hash -> expiration
 const dayCount = new Map(); // 'activité|jour' -> n
@@ -321,17 +321,6 @@ function suggestCrossSectorLinks(activityId, sourceKey, opts) {
   });
 }
 
-// Lecture des suggestions en attente pour une catégorie CIBLE — exposée pour
-// le futur brief d'affichage (hors scope de ce chantier-ci, voir en tête de
-// fichier), pas encore consommée par aucune route.
-function pendingSuggestionsForCategory(activityId, category) {
-  return db.prepare(`
-    SELECT * FROM goal_cross_sector_suggestions
-    WHERE activityId = ? AND targetCategory = ? AND status = 'pending'
-    ORDER BY updatedAt DESC
-  `).all(activityId, category);
-}
-
 // Toutes les catégories d'une activité ayant un objectif périodique actuel
 // non vide — utilisé par scripts/cross-sector-retroactive-sweep.js (passage
 // rétroactif, décision 4 en tête de fichier) : jamais appelé automatiquement.
@@ -343,11 +332,8 @@ function categoriesWithMainGoal(activityId) {
 
 module.exports = {
   callAi,
-  MAX_SUGGESTION_TEXT_LENGTH,
-  MAX_REASON_LENGTH,
   evaluateCrossSectorLinks,
   suggestCrossSectorLinks,
-  pendingSuggestionsForCategory,
   categoriesWithMainGoal,
   // Exportés pour les tests (bac à sable) uniquement.
   flattenCategories,

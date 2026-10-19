@@ -1,12 +1,5 @@
 // Répartition du temps d'UNE activité par CATÉGORIE Objectifs, sur la
 // fenêtre de jours réellement affichée par la Feuille de temps.
-//
-// 17 septembre 2026 — suppression totale des sous-projets (« je souhaite
-// supprimer complètement les sous-projets de l'application [...] c'est les
-// catégories qui remplacent et qui prennent les fonctions des sous-projets »).
-// Remplace l'ancien module de statistiques par sous-projet (retiré). Aucune
-// table de sous-projets n'est supprimée : « masque, ne supprime pas ».
-//
 // C'est le pendant, un cran plus bas, de breakdownForRange
 // (server/lib/stats.js, Répartition) : celle-ci découpe le temps PAR ACTIVITÉ,
 // celui-ci le découpe PAR CATÉGORIE à l'intérieur d'une seule activité.

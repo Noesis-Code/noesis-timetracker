@@ -1,5 +1,5 @@
 // Reformulation (gratuite, aucun verrou d'abonnement) du texte d'un objectif
-// saisi à la main — validée par Émilien (7 oct. 2026) : « Noèsis reformule le
+// saisi à la main — validée par Émilien : « Noèsis reformule le
 // texte saisi à la main, mais ne l'applique pas tout de suite. La case se
 // colore ; quand l'utilisateur clique dessus, Noèsis propose le changement. »
 //

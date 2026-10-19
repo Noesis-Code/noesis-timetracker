@@ -88,39 +88,7 @@ function revealDueReplacements() {
   return revealed;
 }
 
-// Même fenêtre de 24h que la requête SQL de revealDueReplacements ci-dessus,
-// mais côté JS (comparaison de chaînes ISO-8601 UTC, valide tant que les deux
-// bouts sont en UTC — c'est le cas ici, `doneAt` posé par
-// `new Date().toISOString()` dans server/lib/subprojects.js).
-function replacementDueSince(doneAt) {
-  if (!doneAt) return false;
-  const deadline = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  return doneAt <= deadline;
-}
-
-// ===================== ÉTAT "EN ATTENTE", POUR L'AFFICHAGE =====================
-// Lecture seule — AUCUN effet de bord, contrairement à revealDueReplacements
-// (qui révèle et consomme réellement le backlog). Sert exclusivement à
-// server/routes/subprojects.js pour dériver `awaitingRenewal` sur CHAQUE
-// tâche cochée individuellement (modèle "précis, tâche par tâche" retenu le
-// 9 septembre 2026 pour la carte "Plafond atteint" — pas une bannière globale
-// dès que le pôle est plafonné).
-//
-// Renvoie 'capped' UNIQUEMENT quand cette tâche précise aurait déjà dû être
-// remplacée (24h passées, remplaçant prêt dans le backlog) mais que le
-// plafond du pôle en cours l'en empêche. Renvoie null dans tous les autres
-// cas, y compris "backlog vide" (silencieux, comme avant ce pivot — rien à
-// signaler tant qu'une régénération mensuelle n'a pas réalimenté le backlog)
-// et "pas encore dû" (24h pas encore passées).
-function pendingReplacementState(item) {
-  if (!item || !item.done || item.replacementRevealedAt || !replacementDueSince(item.doneAt)) return null;
-  if (!nextQueuedItem(item.sectionId)) return null; // backlog vide : silencieux
-  return offerquota.canRevealReplacement(item.subProjectId) ? null : 'capped';
-}
-
 module.exports = {
   replaceQueue,
-  nextQueuedItem,
   revealDueReplacements,
-  pendingReplacementState,
 };
