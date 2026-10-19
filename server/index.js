@@ -104,7 +104,6 @@ app.use(express.json({ limit: '15mb' }));
 app.use(require('./lib/session').middleware);
 app.use((req, res, next) => require('./lib/aibudget').runAs(req.userId, next)); // utilisateur courant pour le budget IA
 app.use(require('./lib/modulegate').moduleGate); // modules désactivés : 403 « module_off » (données conservées), voir server/lib/modulegate.js
-app.use('/api', require('./routes/aibudget'));
 app.use(require('./routes/mcp')); // « Connecter mon IA » : POST /mcp (lecture seule) + /api/ai-tokens
 
 // Sauvegarde chiffrée hors site (Cloudflare R2, compte de Gaspard — après un
@@ -216,7 +215,6 @@ app.use('/api', require('./routes/feedback'));
 // pour toute route non-API, et un lecteur de calendrier recevrait alors du
 // HTML au lieu du flux.
 app.use('/api', require('./routes/calendar'));
-app.use('/api', require('./routes/accomplishments'));
 app.use('/api', require('./routes/documenttasks'));
 app.use('/api', require('./routes/changeproposals'));
 app.use('/api', require('./routes/drive'));
