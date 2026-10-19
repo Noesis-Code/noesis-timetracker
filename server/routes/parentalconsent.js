@@ -1,5 +1,5 @@
 // Confirmation du consentement parental par le représentant légal d'un
-// souscripteur de 16-17 ans à l'Offre 1 — point 5 du volet Légal du chantier
+// souscripteur de 16-17 ans à Expansion — point 5 du volet Légal du chantier
 // paiement/abonnements (cadré le 13 septembre 2026, codé le 14).
 //
 // Distinct de server/routes/offercheckout.js : l'appelant ici n'est PAS
@@ -62,8 +62,8 @@ router.get('/offer/parental-consent/:token', (req, res) => {
   res.send(page({
     title: 'Consentement parental',
     body: `
-      <h1>Consentement à un abonnement Offre 1</h1>
-      <p><strong>${escapeHtml(request.guardianName)}</strong>, tu es indiqué·e comme représentant légal d'un utilisateur de Noèsis TimeTracker âgé de 16 ou 17 ans qui souhaite souscrire à l'Offre 1 (${OFFER1_PRICE_LABEL}, résiliable à tout moment).</p>
+      <h1>Consentement à un abonnement Expansion</h1>
+      <p><strong>${escapeHtml(request.guardianName)}</strong>, tu es indiqué·e comme représentant légal d'un utilisateur de Noèsis TimeTracker âgé de 16 ou 17 ans qui souhaite souscrire à Expansion (${OFFER1_PRICE_LABEL}, résiliable à tout moment).</p>
       <p>En vertu de l'article 157 du Code civil du Québec, cet engagement financier récurrent nécessite ton consentement exprès avant d'être activé.</p>
       <form method="post" action="/api/offer/parental-consent/${encodeURIComponent(request.token)}">
         <button type="submit">Je consens à cet abonnement</button>
@@ -81,7 +81,7 @@ router.post('/offer/parental-consent/:token', (req, res) => {
 
   res.send(page({
     title: 'Merci',
-    body: "<h1>Merci, c'est confirmé</h1><p>Ton consentement a été enregistré. La personne concernée peut maintenant retourner dans l'application pour terminer son abonnement à l'Offre 1.</p>",
+    body: "<h1>Merci, c'est confirmé</h1><p>Ton consentement a été enregistré. La personne concernée peut maintenant retourner dans l'application pour terminer son abonnement à Expansion.</p>",
   }));
 });
 

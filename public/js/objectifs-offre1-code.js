@@ -22,7 +22,7 @@
         <button type="button" class="menuBtn" id="offer1CodeClose" aria-label="Fermer">✕</button>
       </div>
       <div class="accompScroll">
-        <p class="hint">Entre ton code d’accès gratuit à l’Offre 1.</p>
+        <p class="hint">Entre ton code d’accès gratuit à Expansion.</p>
         <div class="accompBox">
           <div class="accompBoxRow">
             <input type="text" id="offer1CodeInput" class="offer1CodeInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Code d’accès" aria-label="Code d’accès">

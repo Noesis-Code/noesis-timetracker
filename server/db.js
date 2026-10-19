@@ -2248,6 +2248,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_suggestions_user_date ON daily_sugge
 // et s'exécute après elles — une colonne ajoutée avant ce bloc serait reperdue
 // au passage. C'est exactement ce qui arrive aujourd'hui à stripeCustomerId
 // (voir le signalement au segment Offre 1 / Abonnement & Paiement).
+// Correctif Expansion : la reconstruction de users (plus haut) perd stripeCustomerId ; sans lui,
+// le webhook Stripe et POST /offer/checkout échouent (« no such column »). Réajouté ici, idempotent.
+if (!columnExists('users', 'stripeCustomerId')) {
+  db.exec('ALTER TABLE users ADD COLUMN stripeCustomerId TEXT');
+}
 if (!columnExists('activity_members', 'notifyEnabled')) {
   db.exec('ALTER TABLE activity_members ADD COLUMN notifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
