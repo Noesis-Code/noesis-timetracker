@@ -15,13 +15,6 @@
     notifications: 'Notifications',
     profile: 'Profil'
   };
-  // Ensembles A/B (au moins un actif, validé côté serveur), puis optionnels et autres modules.
-  var GROUPS = [
-    { title: 'Temps', ids: ['stats'] },
-    { title: 'Tâches et objectifs', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'] },
-    { title: 'Optionnel', ids: ['community', 'profile'] },
-    { title: 'Autres', ids: ['sharing', 'notifications'] }
-  ];
   var state = null, loadedFor = null;
   var box = document.getElementById('modulesList');
   var msg = document.getElementById('modulesMsg');
@@ -34,27 +27,49 @@
   }
   function setMsg(t) { if (msg) msg.textContent = t || ''; }
 
+  // Deux ensembles au choix (au moins un, validé aussi côté serveur) + deux ajouts optionnels.
+  // Calendrier et Assistant IA se rattachent à l'ensemble B ; partage et notifications restent actifs (noyau), sans interrupteur ici.
+  var BUNDLES = [
+    { key: 'time', title: 'Temps', desc: 'Chrono, statistiques du chrono et feuille de temps', ids: ['stats'], anchor: 'stats' },
+    { key: 'tasks', title: 'Tâches et objectifs', desc: 'Objectifs (Feuille de route) et statistiques des tâches', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap' }
+  ];
+  var OPTIONAL = ['community', 'profile'];
+
+  function put(patch) {
+    setMsg('');
+    return call('PUT', { modules: patch }).then(function (d) { state = d.modules; }).catch(function (e) { setMsg(e.message); }).then(paint);
+  }
+
   function paint() {
     if (!box || !state) return;
     box.innerHTML = '';
-    GROUPS.forEach(function (g) {
-      var h = document.createElement('p'); h.className = 'hint'; h.textContent = tr(g.title); box.appendChild(h);
-      g.ids.forEach(addRow);
+    BUNDLES.forEach(function (b) {
+      var on = !!state[b.anchor];
+      var card = document.createElement('button'); card.type = 'button'; card.className = 'moduleCard' + (on ? ' selected' : '');
+      card.setAttribute('aria-pressed', on ? 'true' : 'false');
+      var t = document.createElement('span'); t.className = 'moduleCardTitle'; t.textContent = tr(b.title);
+      var d = document.createElement('span'); d.className = 'moduleCardDesc'; d.textContent = tr(b.desc);
+      card.appendChild(t); card.appendChild(d);
+      card.addEventListener('click', function () {
+        var other = BUNDLES.filter(function (x) { return x !== b; })[0];
+        if (on && !state[other.anchor]) { setMsg(tr('Garde au moins un ensemble.')); return; }
+        var patch = {}; b.ids.forEach(function (id) { patch[id] = !on; });
+        put(patch);
+      });
+      box.appendChild(card);
     });
-    function addRow(id) {
+    var h = document.createElement('p'); h.className = 'hint modulesAddTitle'; h.textContent = tr('Ajouter'); box.appendChild(h);
+    OPTIONAL.forEach(function (id) {
       var row = document.createElement('div'); row.className = 'notifRow';
       var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(LABELS[id]);
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
       var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!state[id];
       var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
-      inp.addEventListener('change', function () {
-        var patch = {}; patch[id] = inp.checked; setMsg('');
-        call('PUT', { modules: patch }).then(function (d) { state = d.modules; }).catch(function (e) { setMsg(e.message); }).then(paint);
-      });
+      inp.addEventListener('change', function () { var patch = {}; patch[id] = inp.checked; put(patch); });
       sw.appendChild(inp); sw.appendChild(track);
       row.appendChild(label); row.appendChild(sw);
       box.appendChild(row);
-    }
+    });
   }
 
   function load() {
