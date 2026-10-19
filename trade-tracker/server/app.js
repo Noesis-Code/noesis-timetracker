@@ -12,6 +12,7 @@ const { compareProportions } = require('./lib/compare');
 const BT = require('./lib/brokertoken');
 const audit = require('./lib/audit');
 const M = require('./lib/mfa');
+const L = require('./lib/lockout');
 
 function parseCookies(h) {
   const out = {};
@@ -22,7 +23,7 @@ function parseCookies(h) {
   return out;
 }
 
-function createApp(db, { env = process.env, limits = {} } = {}) {
+function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
   const app = express();
   app.disable('x-powered-by');
   const tmtOrigin = (() => { try { return env.TMT_BASE_URL ? new URL(env.TMT_BASE_URL).origin : null; } catch { return null; } })();
@@ -72,6 +73,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   };
   const ctxOf = (req) => ({ ip: req.ip || '', ua: String(req.headers['user-agent'] || '') });
   const aud = (req, event, detail, userId) => { try { audit.log(db, { ...ctxOf(req), userId: userId === undefined ? (req.user ? req.user.id : null) : userId, event, detail }); } catch (e) { console.warn('[trade-tracker] audit :', e.message); } };
+  const alertUser = (userId, kind) => { if (typeof onAlert === 'function') onAlert(userId, kind); };
   const err = (res, status, error, message) => res.status(status).json({ error, message: message || error });
 
   // Admin (hors session) : import d'un export CSV du Sheet. Protégé par TRADE_ADMIN_TOKEN
@@ -95,11 +97,22 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   app.get(['/health', '/api/health'], (req, res) => res.json({ ok: true }));
 
   app.get('/link', (req, res) => {
-    const r = A.consumeLink(db, String(req.query.token || ''), { invite: req.query.invite ? String(req.query.invite) : undefined, env, ua: String(req.headers['user-agent'] || ''), mfaRequired: (u) => M.isRequired(db, u) });
-    // Réponses uniformes : un échec ne dit jamais POURQUOI (jeton falsifié, rejoué, utilisateur non invité...). Seuls « expiré » et « indisponible » sont distincts.
-    if (!r.ok) { aud(req, 'link_refused', { reason: r.error }, null); }
-    else aud(req, 'link_ok', { role: r.user.role }, r.user.id);
-    if (!r.ok) return res.redirect(302, '/?linkError=' + (r.error === 'expired' ? 'expired' : r.error === 'server_misconfigured' ? 'unavailable' : 'denied'));
+    const ipKey = 'ip:' + (req.ip || 'inconnu');
+    if (L.status(db, ipKey).locked) { aud(req, 'link_refused', { reason: 'ip_locked' }, null); return res.redirect(302, '/?linkError=denied'); }
+    const r = A.consumeLink(db, String(req.query.token || ''), { invite: req.query.invite ? String(req.query.invite) : undefined, env, ua: String(req.headers['user-agent'] || ''), mfaRequired: (u) => M.isRequired(db, u),
+      isLocked: (sub) => L.status(db, 'linksub:' + sub).locked });
+    if (!r.ok) {
+      const known = r.sub ? db.prepare('SELECT id FROM tt_users WHERE tmtUserId = ?').get(r.sub) : null;
+      aud(req, 'link_refused', { reason: r.error }, known ? known.id : null); // visible dans le journal du compte visé
+      L.fail(db, ipKey, { threshold: 10 });
+      if (r.sub) L.fail(db, 'linksub:' + r.sub, { threshold: 5 });
+      // Réponses uniformes : un échec ne dit jamais POURQUOI (jeton falsifié, rejoué, utilisateur non invité, compte verrouillé...). Seuls « expiré » et « indisponible » sont distincts.
+      return res.redirect(302, '/?linkError=' + (r.error === 'expired' ? 'expired' : r.error === 'server_misconfigured' ? 'unavailable' : 'denied'));
+    }
+    L.clear(db, 'linksub:' + r.user.tmtUserId);
+    aud(req, 'link_ok', { role: r.user.role, newDevice: r.newDevice }, r.user.id);
+    if (r.newDevice) { aud(req, 'new_device', {}, r.user.id); alertUser(r.user.id, 'new_device'); }
+    else if (!M.isRequired(db, r.user)) alertUser(r.user.id, 'login'); // sans TOTP exigé : la connexion est complète ici
     res.setHeader('Set-Cookie', sessionCookie(req, r.session, r.maxAgeSec));
     res.redirect(302, '/');
   });
@@ -252,7 +265,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const token = req.body && req.body.token;
     if (typeof token !== 'string' || !BT.isValidTokenFormat(token.trim())) return err(res, 422, 'invalid_token', 'Format de jeton refusé.');
     if (!BT.hasEncryptionKey(env)) return err(res, 503, 'broker_unavailable', 'Connexion du courtier indisponible : la clé de chiffrement TRADE_TOKEN_KEY n’est pas configurée sur le serveur.');
-    if (!M.isEnrolled(db, req.user.id)) return err(res, 403, 'mfa_enroll_required', 'Active d’abord la vérification en deux étapes.');
+    if (!needStepUp(req, res)) return;
     const had = BT.hasBrokerToken(db, req.user.id);
     try { BT.saveBrokerToken(db, req.user.id, token.trim(), { env }); } catch { return err(res, 500, 'store_failed', 'Jeton non enregistré.'); }
     aud(req, had ? 'broker_token_replaced' : 'broker_token_set', {});
@@ -270,6 +283,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
 
   // Suppression RÉELLE : jeton + données de synchro de l'utilisateur (comptes, positions, soldes, transactions, historique, journal, événements). La confirmation est faite côté client.
   app.delete('/api/broker/token', rlBroker, (req, res) => {
+    if (!needStepUp(req, res)) return;
     try { BT.deleteBrokerToken(db, req.user.id); BT.purgeSyncData(db, req.user.id); } catch { return err(res, 500, 'delete_failed', 'Suppression non terminée.'); }
     aud(req, 'broker_token_deleted', {});
     res.json({ ok: true, brokerConnected: false });
@@ -279,6 +293,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     const role = req.body && req.body.role;
     const email = req.body && req.body.email;
     if (!['client', 'expert'].includes(role)) return err(res, 400, 'bad_role');
+    if (!needStepUp(req, res)) return;
     if (email != null && (typeof email !== 'string' || email.length > 200)) return err(res, 400, 'bad_email');
     const inv = A.createInvitation(db, { invitedBy: req.user.id, email, role });
     aud(req, role === 'expert' ? 'invitation_created_expert' : 'invitation_created', { role });
@@ -299,9 +314,37 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
       err(res, 500, 'server_error', 'Erreur du serveur.');
     }
   });
+  // Verrouillage progressif par compte (5 échecs) ET par IP (10) sur toute saisie de code. Pendant le verrou, le code n'est même pas examiné.
+  const codeGate = (req, res) => {
+    const a = L.status(db, 'acct:' + req.user.id), i = L.status(db, 'ip:' + (req.ip || 'inconnu'));
+    if (!a.locked && !i.locked) return true;
+    const wait = Math.max(a.retryAfter, i.retryAfter);
+    res.setHeader('Retry-After', String(wait));
+    aud(req, 'code_locked', { wait });
+    err(res, 429, 'locked', 'Trop d’essais. Réessaie dans ' + wait + ' s.');
+    return false;
+  };
+  const codeFailed = (req, res, event) => {
+    const a = L.fail(db, 'acct:' + req.user.id, { threshold: 5 });
+    L.fail(db, 'ip:' + (req.ip || 'inconnu'), { threshold: 10 });
+    aud(req, event, { fails: a.fails });
+    if (a.fails === 3 || (a.fails >= 5 && a.fails % 5 === 0)) { aud(req, 'auth_failures_repeated', { fails: a.fails }); alertUser(req.user.id, 'auth_failures'); }
+    return mfaFail(res);
+  };
+  // Ré-authentification (step-up) : action sensible = TOTP vérifié il y a moins de 5 min, sinon 403 stepup_required (l'interface demande le code puis rejoue).
+  const needStepUp = (req, res) => {
+    if (!M.isEnrolled(db, req.user.id)) { err(res, 403, 'mfa_enroll_required', 'Active d’abord la vérification en deux étapes.'); return false; }
+    const t = req.session.stepUpAt ? Date.parse(req.session.stepUpAt) : 0;
+    if (!(Date.now() - t <= A.STEPUP_TTL_MS) || req.session.authLevel < 1) { aud(req, 'stepup_required', { path: req.path }); err(res, 403, 'stepup_required', 'Confirme avec ton code à 6 chiffres.'); return false; }
+    return true;
+  };
+  app.use('/api/export', (req, res, next) => (needStepUp(req, res) ? next() : undefined)); // exports futurs : ré-authentification d'office
+
   app.post('/api/auth/totp/confirm', (req, res) => {
+    if (!codeGate(req, res)) return;
     const v = M.confirmEnroll(db, req.user.id, req.body && req.body.code, env);
-    if (!v.ok) { aud(req, 'totp_confirm_failed', {}); return mfaFail(res, v); }
+    if (!v.ok) return codeFailed(req, res, 'totp_confirm_failed');
+    L.clear(db, 'acct:' + req.user.id);
     aud(req, 'totp_enrolled', {});
     const fresh = elevate(req, res);
     res.json({ ok: true, backupCodes: v.backupCodes, ...(req.headers.authorization ? { session: fresh } : {}) });
@@ -309,12 +352,30 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   // Connexion (niveau 0 -> 1) ET ré-authentification (valide 5 min) : même route, même vérification. L'identifiant de session change.
   app.post('/api/auth/verify', (req, res) => {
     if (!M.isEnrolled(db, req.user.id)) return err(res, 403, 'mfa_enroll_required', 'Active d’abord la vérification en deux étapes.');
+    if (!codeGate(req, res)) return;
     const wasLogin = req.session.authLevel < 1;
     const v = M.verifyCode(db, req.user.id, req.body && req.body.code, env);
-    if (!v.ok) { aud(req, wasLogin ? 'totp_failed' : 'stepup_failed', {}); return mfaFail(res, v); }
+    if (!v.ok) return codeFailed(req, res, wasLogin ? 'totp_failed' : 'stepup_failed');
+    L.clear(db, 'acct:' + req.user.id);
     const fresh = elevate(req, res);
     aud(req, v.method === 'backup' ? 'backup_code_used' : wasLogin ? 'totp_verified' : 'stepup_ok', v.method === 'backup' ? { remaining: v.remaining } : {});
+    if (v.method === 'backup') alertUser(req.user.id, 'backup_code');
+    if (wasLogin) alertUser(req.user.id, 'login');
     res.json({ ok: true, method: v.method, ...(v.method === 'backup' ? { backupRemaining: v.remaining } : {}), ...(req.headers.authorization ? { session: fresh } : {}) });
+  });
+  // Nouveaux codes de secours (les anciens meurent) et changement d'appareil d'authentification : ré-authentification requise.
+  app.post('/api/auth/backup-codes', (req, res) => {
+    if (!needStepUp(req, res)) return;
+    const codes = M.regenerateBackupCodes(db, req.user.id);
+    aud(req, 'backup_codes_regenerated', {});
+    res.json({ backupCodes: codes });
+  });
+  app.post('/api/auth/totp/reset', (req, res) => {
+    if (!needStepUp(req, res)) return;
+    M.resetMfa(db, req.user.id);
+    db.prepare('UPDATE sessions SET authLevel = 0, stepUpAt = NULL WHERE userId = ?').run(req.user.id); // à re-vérifier avec le nouvel appareil
+    aud(req, 'totp_reset', {});
+    res.json({ ok: true });
   });
 
   // Sessions du compte ; « fermer toutes mes sessions » (appareil perdu, doute) : toutes les sessions disparaissent, celle-ci comprise.

@@ -50,12 +50,12 @@ function verifyLinkToken(token, secret, now = Date.now(), { ua, allowUnbound = f
   let p;
   try { p = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')); } catch { return { ok: false, error: 'invalid' }; }
   if (!p || typeof p.sub !== 'string' || !p.sub || typeof p.jti !== 'string' || p.jti.length < 16 || p.jti.length > 64 || !Number.isFinite(p.exp) || !Number.isFinite(p.iat)) return { ok: false, error: 'invalid' };
-  if (p.aud !== AUDIENCE) return { ok: false, error: 'invalid' }; // jeton émis pour un autre service
+  if (p.aud !== AUDIENCE) return { ok: false, error: 'invalid', sub: p.sub }; // jeton émis pour un autre service
   if (p.uah === null) { if (!allowUnbound) return { ok: false, error: 'invalid' }; }
   else if (typeof p.uah !== 'string' || !/^[0-9a-f]{64}$/.test(p.uah)) return { ok: false, error: 'invalid' };
-  else if (ua !== undefined && !safeEq(p.uah, uaHash(ua))) return { ok: false, error: 'invalid' }; // lien volé et ouvert depuis un autre navigateur
+  else if (ua !== undefined && !safeEq(p.uah, uaHash(ua))) return { ok: false, error: 'invalid', sub: p.sub }; // lien volé et ouvert depuis un autre navigateur
   if (p.exp - p.iat > LINK_TTL_MS) return { ok: false, error: 'invalid' }; // durée de vie plafonnée à 2 min
-  if (now >= p.exp || p.iat > now + 30000) return { ok: false, error: 'expired' };
+  if (now >= p.exp || p.iat > now + 30000) return { ok: false, error: 'expired', sub: p.sub };
   return { ok: true, payload: p };
 }
 
@@ -96,13 +96,14 @@ function noteDevice(db, userId, ua, now = Date.now()) {
 
 // Consomme un jeton de lien : vérifie, marque le nonce, trouve/crée l'utilisateur
 // (expert amorcé par TRADE_EXPERT_TMT_IDS, sinon invitation valide requise), ouvre une session.
-function consumeLink(db, token, { invite, env = process.env, now = Date.now(), ua, mfaRequired } = {}) {
+function consumeLink(db, token, { invite, env = process.env, now = Date.now(), ua, mfaRequired, isLocked } = {}) {
   const v = verifyLinkToken(token, getSecret(env), now, { ua, allowUnbound: !isProd(env) });
   if (!v.ok) return v;
   const p = v.payload;
+  if (typeof isLocked === 'function' && isLocked(p.sub)) return { ok: false, error: 'locked', sub: p.sub }; // compte verrouillé (échecs répétés)
   db.prepare('DELETE FROM link_nonces WHERE expiresAt < ?').run(iso(now));
   db.prepare('DELETE FROM sessions WHERE expiresAt < ? OR lastSeenAt < ?').run(iso(now), iso(now - SESSION_IDLE_MS));
-  if (db.prepare('SELECT 1 FROM link_nonces WHERE nonce = ?').get(p.jti)) return { ok: false, error: 'replayed' };
+  if (db.prepare('SELECT 1 FROM link_nonces WHERE nonce = ?').get(p.jti)) return { ok: false, error: 'replayed', sub: p.sub };
 
   let user = db.prepare('SELECT * FROM tt_users WHERE tmtUserId = ?').get(p.sub);
   let inv = null;
@@ -115,7 +116,7 @@ function consumeLink(db, token, { invite, env = process.env, now = Date.now(), u
         (!inv.email || (p.email && inv.email === String(p.email).trim().toLowerCase()));
       if (okInv) role = inv.role; else inv = null;
     }
-    if (!role) return { ok: false, error: 'not_invited' };
+    if (!role) return { ok: false, error: 'not_invited', sub: p.sub };
     const r = db.prepare('INSERT INTO tt_users (tmtUserId, name, email, role) VALUES (?,?,?,?)').run(p.sub, p.name || '', p.email || null, role);
     user = db.prepare('SELECT * FROM tt_users WHERE id = ?').get(Number(r.lastInsertRowid));
     if (inv) db.prepare('UPDATE invitations SET usedBy = ?, usedAt = ? WHERE id = ?').run(user.id, iso(now), inv.id);

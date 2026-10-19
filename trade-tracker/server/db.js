@@ -159,6 +159,14 @@ CREATE TABLE IF NOT EXISTS link_nonces (
   expiresAt TEXT NOT NULL
 );
 
+-- Verrouillage progressif anti-force brute (clés « acct:<id> », « ip:<ip> », « linksub:<tmtId> »).
+CREATE TABLE IF NOT EXISTS auth_lockouts (
+  key TEXT PRIMARY KEY,
+  fails INTEGER NOT NULL,
+  lastFailAt TEXT NOT NULL,
+  lockedUntil TEXT
+);
+
 -- TOTP (RFC 6238) : secret chiffré (clé versionnée), confirmé au premier code valide ; lastStep = dernier pas consommé (anti-rejeu).
 CREATE TABLE IF NOT EXISTS mfa_totp (
   userId INTEGER PRIMARY KEY REFERENCES tt_users(id) ON DELETE CASCADE,
