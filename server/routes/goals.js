@@ -21,7 +21,6 @@ const goalsweeklyauto = require('../lib/goalsweeklyauto');
 // server/lib/crosssectorinference.js pour le cadrage complet) : chaîné après
 // goalsweeklyauto ci-dessous, jamais un hook indépendant.
 const crosssectorinference = require('../lib/crosssectorinference');
-const goalsdailyauto = require('../lib/goalsdailyauto');
 // Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
 // priorisées, voir server/lib/goalsdailypriority.js.
 const goalsdailypriority = require('../lib/goalsdailypriority');
@@ -371,11 +370,6 @@ router.get('/activities/:id/goals/periods/:periodNumber/capacity-plan', (req, re
   }
 });
 
-// Le statut d'une période est calculé par Noèsis d'après ses objectifs hebdomadaires ; plus de réglage manuel.
-router.put('/activities/:id/goals/periods/:periodNumber/main-status', (req, res) => {
-  res.status(410).json({ error: 'Le statut de la période est calculé automatiquement par Noèsis.' });
-});
-
 // Mode Partiel : propose les semaines vides SANS rien écrire ; le client fait valider puis enregistre.
 router.post('/activities/:id/goals/periods/:periodNumber/weekly-proposals', async (req, res) => {
   const userId = req.userId;
@@ -479,26 +473,6 @@ router.put('/activities/:id/goals/weekly/:weeklyId/status', (req, res) => {
 
   try {
     goals.setWeeklyStatus(activityId, weeklyId, req.body.status);
-    res.json({ ok: true });
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
-// 14 septembre 2026 — assigne (ou retire, userId: null) un membre de
-// l'activité à un objectif hebdomadaire, pour la répartition du travail par
-// personne à travers les 3 catégories.
-router.put('/activities/:id/goals/weekly/:weeklyId/assignee', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.params.id);
-  const weeklyId = Number(req.params.weeklyId);
-
-  const check = requireMembership(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  try {
-    goals.setWeeklyAssignee(activityId, weeklyId, req.body.userId || null);
     res.json({ ok: true });
   } catch (err) {
     handleGoalsError(res, err);
@@ -644,7 +618,6 @@ function recalcDecision(fn) {
   };
 }
 router.post('/activities/:id/goals/recalc/:pid/apply', recalcDecision(goalsrecalc.apply));
-router.post('/activities/:id/goals/recalc/:pid/dismiss', recalcDecision(goalsrecalc.dismiss));
 
 // Plafonds de temps facultatifs (max/jour, max/semaine) d'un pôle ou secteur,
 // avec la moyenne historique en lecture seule. Logique : server/lib/timecaps.js.
@@ -998,27 +971,6 @@ router.put('/activities/:id/goals/capacity', (req, res) => {
     }
     const result = goalsauto.setCapacityOverrideMinutes(activityId, category, userId, req.body.weeklyMinutes);
     res.json({ ok: true, override: result.weeklyMinutes });
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
-// 17 septembre 2026 (discussion A — Offre1, cadré avec Emilien) : génère la
-// feuille de route jour par jour d'un objectif hebdomadaire déjà rempli par
-// goalsauto.js — voir server/lib/goalsdailyauto.js. Jamais automatique,
-// toujours à la demande explicite d'un membre (coût par appel IA).
-router.post('/activities/:id/goals/weekly/:weeklyId/daily-plan', async (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.params.id);
-  const weeklyId = Number(req.params.weeklyId);
-
-  const check = requireMembership(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  try {
-    const result = await goalsdailyauto.generateDailyPlanForWeekly(activityId, weeklyId, userId);
-    res.json({ ok: true, ...result });
   } catch (err) {
     handleGoalsError(res, err);
   }

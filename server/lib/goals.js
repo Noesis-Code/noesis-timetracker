@@ -1091,26 +1091,6 @@ function setWeeklyStatus(activityId, weeklyId, status) {
   recomputePeriodStatus(db.prepare('SELECT periodId FROM goal_weekly WHERE id = ?').get(weeklyId).periodId);
 }
 
-// Assigne (ou retire, si userId est null) UN membre de l'activité à cet
-// objectif hebdomadaire — 14 septembre 2026, demande d'Emilien, pour que le
-// travail de chaque catégorie se répartisse visiblement entre les membres.
-// Le grand objectif de période n'est volontairement pas assignable (règle 1
-// en tête de fichier : le plan appartient à l'activité).
-function setWeeklyAssignee(activityId, weeklyId, userId) {
-  const row = db.prepare(`
-    SELECT w.id FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId
-    WHERE w.id = ? AND p.activityId = ?
-  `).get(weeklyId, activityId);
-  if (!row) throw Object.assign(new Error('Objectif hebdomadaire introuvable.'), { statusCode: 404 });
-
-  const cleanUserId = userId ? String(userId) : null;
-  if (cleanUserId) {
-    const member = db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, cleanUserId);
-    if (!member) throw Object.assign(new Error("Ce membre n'appartient pas à cette activité."), { statusCode: 400 });
-  }
-  db.prepare('UPDATE goal_weekly SET assignedUserId = ? WHERE id = ?').run(cleanUserId, weeklyId);
-}
-
 // ---------------------------------------------------------------------------
 // Assignation de l'objectif périodique (ex-« grand objectif ») — 14 septembre
 // 2026, troisième passage, demande d'Emilien : contrairement à l'objectif
@@ -1238,7 +1218,6 @@ module.exports = {
   recomputePeriodStatus,
   recomputeForWeeklies,
   DEFAULT_TASK_MINUTES,
-  setWeeklyAssignee,
   setPeriodAssignees,
   runGoalsSweepAll,
   startGoalsSweep,
