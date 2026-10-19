@@ -212,6 +212,11 @@ async function main() {
   try { execFileSync('node', [path.join(__dirname, 'categorie-inconnue-test.js')], { encoding: 'utf8' }); } catch (e) { ciOk = false; }
   assert(ciOk, 'tâche IA à catégorie inconnue écartée (test/categorie-inconnue-test.js) passe');
 
+  // Suppression d'un secteur : supprimer ou déplacer ses tâches.
+  let sdOk = true;
+  try { execFileSync('node', [path.join(__dirname, 'category-delete-mode-test.js')], { encoding: 'utf8' }); } catch (e) { sdOk = false; }
+  assert(sdOk, 'suppression de secteur : supprimer/déplacer les tâches (test/category-delete-mode-test.js) passe');
+
   // Horizon étendu de « Ajouter des tâches ».
   let dthOk = true;
   try { execFileSync('node', [path.join(__dirname, 'documenttasks-horizon-test.js')], { encoding: 'utf8' }); } catch (e) { dthOk = false; }
