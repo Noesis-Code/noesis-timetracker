@@ -6290,8 +6290,9 @@ button { -webkit-user-select: none; user-select: none; }
 /* Estimation indicative du temps par membre (activité partagée), sous « Gérer mon temps ». */
 .catEditForm .goalMemberEst { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
 .catEditForm .goalMemberEst.hidden { display: none; }
-.catEditForm .goalMemberEstTitle { font-size: 13px; font-weight: 700; color: var(--text-light); }
-.catEditForm .goalMemberEstName { font-weight: 600; font-size: 14px; color: var(--text); margin-top: 4px; }
+.catEditForm .goalMemberEstToggle { font-size: 14px; }
+.catEditForm .goalMemberEstBody { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.catEditForm .goalMemberEstBody.hidden { display: none; }
 .catEditForm .goalMemberEstTable .timeCapsAvg { font-size: 13px; color: var(--text-light); }
 .catEditForm .goalMemberEstBack { grid-column: 1 / -1; justify-self: start; font-size: 13px; }
 .catEditForm .timeCapsTable { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px 8px; align-items: center; }

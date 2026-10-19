@@ -7130,7 +7130,7 @@
     var save = document.createElement('button');
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     actions.appendChild(del); actions.appendChild(cancel); actions.appendChild(save);
-    var caps = buildTimeCapsBlock(activityId, st.key);
+    var caps = buildTimeCapsBlock(activityId, st.key, !st.poleKey);
     fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
@@ -7492,7 +7492,7 @@
   // Bloc plafonds du formulaire en place : renvoie { node, read() }.
   // Tableau Moyenne (lecture seule) / Maximum (boutons -> openDurationPicker).
   // Maximum 0:00 = aucun plafond (null), affiché en gris.
-  function buildTimeCapsBlock(activityId, key) {
+  function buildTimeCapsBlock(activityId, key, isPole) {
     var state = { loaded: false, avgDay: 0, avgWeek: 0, day: null, week: null };
     var node = document.createElement('div');
     node.className = 'timeCapsBlock';
@@ -7531,46 +7531,56 @@
     body.appendChild(table); body.appendChild(use);
     // Estimation indicative du temps par membre et par pôle (activité partagée seulement,
     // lecture seule, sans IA) : médiane de ses entrées de temps, « pas assez de données » sous 3 entrées.
+    // Estimation indicative du temps par membre POUR CE PÔLE (pôles seulement : le temps des secteurs
+    // remonte au pôle). Liste repliée par défaut ; lecture seule + valeur saisie facultative.
     var memberEst = document.createElement('div'); memberEst.className = 'goalMemberEst hidden';
-    body.appendChild(memberEst);
-    function paintMemberEst(r) {
-      memberEst.textContent = '';
-      var title = document.createElement('div'); title.className = 'goalMemberEstTitle'; title.textContent = t('Estimation du temps par membre');
-      memberEst.appendChild(title);
-      r.members.forEach(function (m) {
-        var name = document.createElement('div'); name.className = 'goalMemberEstName'; name.textContent = m.name;
-        memberEst.appendChild(name);
-        var table = document.createElement('div'); table.className = 'timeCapsTable goalMemberEstTable';
-        m.poles.forEach(function (p) {
-          var lbl = document.createElement('div'); lbl.className = 'timeCapsRowLabel'; lbl.textContent = p.label;
-          var calc = document.createElement('div'); calc.className = 'timeCapsAvg';
-          calc.textContent = p.estimate ? '~' + p.estimate.minutes + ' min' : t('pas assez de données');
-          var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'timeCapsMax';
-          var shown = p.custom || (p.estimate && p.estimate.minutes) || 0;
-          btn.textContent = fmtCapMinutes(shown) || '0:00';
-          btn.classList.toggle('isEmpty', !p.custom);
-          function save(v) {
-            api('PUT', '/api/activities/' + activityId + '/goals/member-estimates', { memberId: m.id, category: p.key, minutes: v > 0 ? v : null })
-              .then(function () { p.custom = v > 0 ? v : null; paintMemberEst(r); }).catch(function () {});
-          }
-          btn.addEventListener('click', function () {
-            openDurationPicker({ title: 'Cible', minutes: shown, onDone: save });
-          });
-          table.appendChild(lbl); table.appendChild(calc); table.appendChild(btn);
-          if (p.custom) {
-            var back = document.createElement('button'); back.type = 'button'; back.className = 'linkBtn goalMemberEstBack';
-            back.textContent = t('Revenir à l’estimation calculée');
-            back.addEventListener('click', function () { save(0); });
-            table.appendChild(back);
-          }
-        });
-        memberEst.appendChild(table);
-      });
-      memberEst.classList.remove('hidden');
+    var memEstToggle = document.createElement('button'); memEstToggle.type = 'button'; memEstToggle.className = 'linkBtn goalMemberEstToggle';
+    var memEstBody = document.createElement('div'); memEstBody.className = 'goalMemberEstBody hidden';
+    var memEstOpen = false;
+    function paintMemEstToggle() {
+      memEstToggle.textContent = (memEstOpen ? '▾ ' : '▸ ') + t('Estimation du temps par membre');
+      memEstToggle.setAttribute('aria-expanded', memEstOpen ? 'true' : 'false');
+      memEstBody.classList.toggle('hidden', !memEstOpen);
     }
-    api('GET', '/api/activities/' + activityId + '/goals/member-estimates?all=1').then(function (r) {
-      if (!r || !r.members || r.members.length < 2 || !r.members.some(function (m) { return m.poles.length; })) return;
-      paintMemberEst(r);
+    memEstToggle.addEventListener('click', function () { memEstOpen = !memEstOpen; paintMemEstToggle(); });
+    memberEst.appendChild(memEstToggle); memberEst.appendChild(memEstBody);
+    if (isPole) body.appendChild(memberEst);
+    function paintMemberEst(rows) {
+      memEstBody.textContent = '';
+      var table = document.createElement('div'); table.className = 'timeCapsTable goalMemberEstTable';
+      rows.forEach(function (m) {
+        var p = m.pole;
+        var lbl = document.createElement('div'); lbl.className = 'timeCapsRowLabel'; lbl.textContent = m.name;
+        var calc = document.createElement('div'); calc.className = 'timeCapsAvg';
+        calc.textContent = p.estimate ? '~' + p.estimate.minutes + ' min' : t('pas assez de données');
+        var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'timeCapsMax';
+        var shown = p.custom || (p.estimate && p.estimate.minutes) || 0;
+        btn.textContent = fmtCapMinutes(shown) || '0:00';
+        btn.classList.toggle('isEmpty', !p.custom);
+        function save(v) {
+          api('PUT', '/api/activities/' + activityId + '/goals/member-estimates', { memberId: m.id, category: key, minutes: v > 0 ? v : null })
+            .then(function () { p.custom = v > 0 ? v : null; paintMemberEst(rows); }).catch(function () {});
+        }
+        btn.addEventListener('click', function () { openDurationPicker({ title: 'Cible', minutes: shown, onDone: save }); });
+        table.appendChild(lbl); table.appendChild(calc); table.appendChild(btn);
+        if (p.custom) {
+          var back = document.createElement('button'); back.type = 'button'; back.className = 'linkBtn goalMemberEstBack';
+          back.textContent = t('Revenir à l’estimation calculée');
+          back.addEventListener('click', function () { save(0); });
+          table.appendChild(back);
+        }
+      });
+      memEstBody.appendChild(table);
+    }
+    if (isPole) api('GET', '/api/activities/' + activityId + '/goals/member-estimates?all=1').then(function (r) {
+      if (!r || !r.members || r.members.length < 2) return;
+      var rows = r.members.map(function (m) {
+        var p = m.poles.filter(function (x) { return x.key === key; })[0];
+        return p ? { id: m.id, name: m.name, pole: p } : null;
+      }).filter(Boolean);
+      if (!rows.length) return;
+      paintMemberEst(rows); paintMemEstToggle();
+      memberEst.classList.remove('hidden');
     }).catch(function () {});
     node.appendChild(toggle); node.appendChild(body);
     api('GET', '/api/activities/' + activityId + '/goals/timecaps/' + key).then(function (c) {
