@@ -6,14 +6,21 @@
 
   // Sert-on des données gardées par le service worker (hors ligne) ?
   var stale = false;
+  // Inactivité côté serveur (15 min) : le rafraîchissement automatique ne prolonge la session que si la personne a agi récemment.
+  var polling = false, lastActive = Date.now();
+  if (window.addEventListener) ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(function (t) { window.addEventListener(t, function () { lastActive = Date.now(); }, { passive: true, capture: true }); });
   // Requêtes conditionnelles : ETag mémorisé par chemin ; 304 ou corps identique => MÊME objet (comparaison par identité).
   var ec = {};
   function get(path) {
     var c = ec[path], hd = { Accept: 'application/json' };
+    if (polling) { hd['X-TT-Poll'] = '1'; if (Date.now() - lastActive < 90000) hd['X-TT-Active'] = '1'; }
     if (c && c.tag) hd['If-None-Match'] = c.tag;
     return fetch(path, { credentials: 'same-origin', headers: hd }).then(function (r) {
       if (r.headers.get('X-TT-Cache') === '1') stale = true;
       if (r.status === 401) { var e = new Error('unauthenticated'); e.code = 401; throw e; }
+      if (r.status === 403) return r.json().catch(function () { return {}; }).then(function (j) {
+        var e = new Error(/^mfa_/.test(j.error || '') ? 'mfa' : path + ' 403'); e.code = /^mfa_/.test(j.error || '') ? 'mfa' : 403; throw e;
+      });
       if (r.status === 503) { var o = new Error('offline'); o.code = 'offline'; throw o; }
       if (r.status === 404) { var n = new Error('no-server'); n.code = 404; throw n; }   // hébergement statique : pas d'API
       if (r.status === 304 && c) return c.body;
@@ -47,8 +54,8 @@
   function loadApi() {
     stale = false;
     return Promise.all([get('/api/me'), get('/api/portfolio'), get('/api/positions'), get('/api/history'), get('/api/sync-log?limit=50'),
-      get('/api/compare').catch(function (e) { if (e.code === 401 || e.code === 'offline') throw e; return null; }),
-      get('/api/purchases').catch(function (e) { if (e.code === 401) throw e; return { purchases: [] }; })]).then(function (r) {
+      get('/api/compare').catch(function (e) { if (e.code === 401 || e.code === 'offline' || e.code === 'mfa') throw e; return null; }),
+      get('/api/purchases').catch(function (e) { if (e.code === 401 || e.code === 'mfa') throw e; return { purchases: [] }; })]).then(function (r) {
       if (cmpMemo.src !== r[5] || cmpMemo.pur !== r[6]) cmpMemo = { src: r[5], pur: r[6], out: normCompare(r[5], r[6].purchases) };
       return { me: r[0], portfolio: r[1], positions: r[2].positions, history: r[3], syncLog: r[4].entries,
         connections: connectionsFrom(r[1], r[4].entries), broker: 'Courtier (lecture seule)', compare: cmpMemo.out, source: 'api', stale: stale,
@@ -99,7 +106,9 @@
     reset: function () { cache = null; },
     // Recharge conditionnelle (304 le plus souvent) ; résout { data, changed: [clés de données modifiées] }.
     refresh: function () {
-      return Promise.all([cache, loadApi()]).then(function (r) {
+      polling = true;
+      var load = loadApi(); load.then(function () { polling = false; }, function () { polling = false; });
+      return Promise.all([cache, load]).then(function (r) {
         var prev = r[0]._parts || {}, next = r[1]._parts, changed = Object.keys(next).filter(function (k) { return prev[k] !== next[k]; });
         cache = Promise.resolve(r[1]);
         return { data: r[1], changed: changed };

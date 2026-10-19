@@ -9,7 +9,7 @@ var SHELL = CACHE_VERSION + '-shell';
 var SHELL_FILES = ['./', 'index.html', 'styles.css', 'tokens.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png',
   'js/i18n.js', 'js/format.js', 'js/demo-data.js', 'js/data.js', 'js/charts.js', 'js/screen-dashboard.js', 'js/screen-positions.js',
   'js/screen-allocation.js', 'js/screen-history.js', 'js/screen-compare.js', 'js/screen-sync.js', 'js/screen-broker.js',
-  'js/screen-invite.js', 'js/app.js'];
+  'js/screen-invite.js', 'js/screen-security.js', 'security.css', 'js/app.js'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(SHELL).then(function (c) {

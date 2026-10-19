@@ -29,14 +29,19 @@
     var email = input.value.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { out.className = 'formMsg error'; out.textContent = 'Entre une adresse courriel valide.'; input.focus(); return; }
     btn.disabled = true; out.className = 'formMsg'; out.textContent = 'Envoi…';
-    fetch('/api/invitations', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, role: role }) })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { r: r, j: j }; }); })
-      .then(function (x) {
-        btn.disabled = false;
-        if (x.r.ok) { fresh = x.j; list = null; TTApp.refresh(); return; }
-        out.className = 'formMsg error';
-        out.textContent = x.r.status === 403 ? 'Réservé à l’expert.' : x.r.status === 400 || x.r.status === 422 ? 'Invitation refusée : vérifie l’adresse.' : 'Échec de l’envoi (' + x.r.status + ').';
-      }, function () { btn.disabled = false; out.className = 'formMsg error'; out.textContent = 'Hors ligne : l’invitation n’a pas été créée.'; });
+    function post() {
+      return fetch('/api/invitations', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, role: role }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { r: r, j: j }; }); })
+        .then(function (x) {
+          // Inviter est une action sensible : ré-authentification TOTP (valide 5 min), puis on rejoue la demande.
+          if (x.r.status === 403 && x.j.error === 'stepup_required') return TTSec.stepUp().then(post, function () { btn.disabled = false; out.className = 'formMsg error'; out.textContent = 'Ré-authentification annulée : l’invitation n’a pas été créée.'; });
+          btn.disabled = false;
+          if (x.r.ok) { fresh = x.j; list = null; TTApp.refresh(); return; }
+          out.className = 'formMsg error';
+          out.textContent = x.r.status === 403 && x.j.error === 'mfa_enroll_required' ? 'Active d’abord la vérification en deux étapes (page Sécurité).' : x.r.status === 403 ? 'Réservé à l’expert.' : x.r.status === 400 || x.r.status === 422 ? 'Invitation refusée : vérifie l’adresse.' : 'Échec de l’envoi (' + x.r.status + ').';
+        }, function () { btn.disabled = false; out.className = 'formMsg error'; out.textContent = 'Hors ligne : l’invitation n’a pas été créée.'; });
+    }
+    post();
   }
   window.TTScreens.invite = {
     render: function (el, state, raw) {

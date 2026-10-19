@@ -12,7 +12,7 @@ const A = require('../server/lib/auth');
   try {
     for (let i = 0; i < 50; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch {} await new Promise((r) => setTimeout(r, 100)); }
     const link = '/link?token=' + A.signLinkToken({ sub: 'e2e', name: 'Testeur', ua: null }, secret);
-    const r = spawnSync('python3', ['-I', path.join(__dirname, 'e2e-broker.py')], { env: { ...process.env, TT_BASE: base, TT_LINK: base + link, TT_DB: path.join(dir, 'trade-tracker.db') }, encoding: 'utf8' });
+    const r = spawnSync('python3', ['-I', path.join(__dirname, 'e2e-broker.py')], { env: { ...process.env, TT_BASE: base, TT_LINK: base + link, TT_LINK2: base + '/link?token=' + A.signLinkToken({ sub: 'e2e', name: 'Testeur', ua: null }, secret), TT_DB: path.join(dir, 'trade-tracker.db') }, encoding: 'utf8' });
     if (r.status === 77) { console.log('  (e2e broker ignoré : Playwright/Chromium absents)'); code = 0; }
     else { code = r.status === 0 ? 0 : 1; if (code) console.error(r.stdout, r.stderr); }
   } finally { srv.kill(); fs.rmSync(dir, { recursive: true, force: true }); }

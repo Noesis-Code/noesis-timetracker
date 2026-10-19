@@ -43,7 +43,7 @@
   }
   function show() {
     var tab = current(), el = document.getElementById('screen');
-    renderTabs(tab === 'broker' || tab === 'invite' ? 'sync' : tab);
+    renderTabs(tab === 'broker' || tab === 'invite' || tab === 'security' ? 'sync' : tab);
     window.scrollTo(0, 0);
     el.setAttribute('aria-busy', 'true');
     if (!state.data) el.innerHTML = SKELETON;
@@ -56,6 +56,8 @@
       var h = el.querySelector('.screenTitle'); if (h) { h.setAttribute('role', 'heading'); h.setAttribute('aria-level', '1'); document.title = h.textContent + ' · Trade Tracker'; }
     }).catch(function (e) {
       el.setAttribute('aria-busy', 'false');
+      if (e && e.code === 'mfa') return window.TTSec.gate(el); // vérification en deux étapes exigée (ou à activer) avant toute donnée
+      document.body.classList.remove('gate');
       el.innerHTML = errorState(e);
       var b = el.querySelector('[data-retry]'); if (b) b.addEventListener('click', function () { TTD.reset(); show(); });
     });
@@ -111,7 +113,7 @@
       var tab = current(), el = document.getElementById('screen');
       if (r.changed.some(function (k) { return USES[tab].indexOf(k) >= 0; }) && !document.querySelector('#modalRoot .modalVeil')) redraw(); else stamp();
     }).catch(function (e) {
-      if (e && e.code === 401) { busy = false; return show(); }
+      if (e && (e.code === 401 || e.code === 'mfa')) { busy = false; TTD.reset(); return show(); }
       fails++; stamp();
     }).then(function () { busy = false; schedule(); });
   }

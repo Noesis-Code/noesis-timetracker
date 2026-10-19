@@ -15,14 +15,22 @@
     var token = input.value.trim();
     if (!token) { out.className = 'formMsg error'; out.textContent = 'Colle d’abord ton jeton.'; input.focus(); return; }
     input.value = ''; btn.disabled = true; input.disabled = true; out.className = 'formMsg'; out.textContent = 'Envoi…';
-    fetch('/api/broker/token', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
-      .then(function (r) {
-        token = null;
-        if (r.ok) { msg = { cls: 'ok', text: 'Courtier connecté. La première synchro démarre.' }; TTD.reset(); TTApp.refresh(); return; }
-        if (r.status === 503) return r.json().catch(function () { return {}; }).then(function (j) { fail(j.message || 'Connexion du courtier indisponible sur ce serveur.'); });
-        var text = r.status === 404 ? 'Connexion du courtier pas encore disponible sur ce serveur.' : r.status === 400 || r.status === 422 ? 'Jeton refusé (16 à 512 caractères, sans espace). Vérifie-le et réessaie.' : r.status === 401 ? 'Session expirée.' : r.status === 429 ? 'Trop d’essais. Réessaie dans une minute.' : 'Échec de l’envoi (' + r.status + ').';
-        fail(text);
-      }, function () { token = null; fail('Hors ligne : le jeton n’a pas été envoyé.'); });
+    function post() {
+      return fetch('/api/broker/token', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
+        .then(function (r) {
+          if (r.ok) { token = null; msg = { cls: 'ok', text: 'Courtier connecté. La première synchro démarre.' }; TTD.reset(); TTApp.refresh(); return; }
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            // Ré-authentification TOTP (5 min) avant de remplacer le jeton : le jeton reste en mémoire le temps du code, jamais stocké.
+            if (r.status === 403 && j.error === 'stepup_required') return TTSec.stepUp().then(post, function () { token = null; fail('Ré-authentification annulée : le jeton n’a pas été envoyé.'); });
+            token = null;
+            if (r.status === 403 && j.error === 'mfa_enroll_required') { fail('Active d’abord la vérification en deux étapes (page Sécurité).'); setTimeout(function () { location.hash = '#/security'; }, 1200); return; }
+            if (r.status === 503) return fail(j.message || 'Connexion du courtier indisponible sur ce serveur.');
+            var text = r.status === 404 ? 'Connexion du courtier pas encore disponible sur ce serveur.' : r.status === 400 || r.status === 422 ? 'Jeton refusé (16 à 512 caractères, sans espace). Vérifie-le et réessaie.' : r.status === 401 ? 'Session expirée.' : r.status === 429 ? 'Trop d’essais. Réessaie dans une minute.' : 'Échec de l’envoi (' + r.status + ').';
+            fail(text);
+          });
+        }, function () { token = null; fail('Hors ligne : le jeton n’a pas été envoyé.'); });
+    }
+    post();
     function fail(text) { msg = { cls: 'error', text: text }; input.disabled = false; btn.disabled = false; out.className = 'formMsg error'; out.textContent = text; input.focus(); }
   }
   // GET /api/broker/status : dernière synchro réussie et, s'il y en a un, message d'erreur de la dernière tentative.
@@ -45,11 +53,18 @@
     m.root.querySelector('#discNo').addEventListener('click', m.close);
     m.root.querySelector('#discYes').addEventListener('click', function () {
       var b = this; b.disabled = true;
-      fetch('/api/broker/token', { method: 'DELETE', credentials: 'same-origin' }).then(function (r) {
-        m.close();
-        msg = r.ok ? { cls: 'ok', text: 'Courtier déconnecté.' } : { cls: 'error', text: r.status === 404 ? 'Déconnexion pas encore disponible sur ce serveur.' : 'Échec de la déconnexion (' + r.status + ').' };
-        TTD.reset(); TTApp.refresh();
-      }, function () { m.close(); msg = { cls: 'error', text: 'Hors ligne : rien n’a changé.' }; TTApp.refresh(); });
+      function del() {
+        return fetch('/api/broker/token', { method: 'DELETE', credentials: 'same-origin' }).then(function (r) {
+          if (r.status === 403) return r.json().catch(function () { return {}; }).then(function (j) {
+            if (j.error === 'stepup_required') { m.close(); return TTSec.stepUp().then(del, function () { msg = { cls: 'error', text: 'Ré-authentification annulée : rien n’a changé.' }; TTApp.refresh(); }); }
+            m.close(); msg = { cls: 'error', text: 'Échec de la déconnexion (403).' }; TTD.reset(); TTApp.refresh();
+          });
+          m.close();
+          msg = r.ok ? { cls: 'ok', text: 'Courtier déconnecté.' } : { cls: 'error', text: r.status === 404 ? 'Déconnexion pas encore disponible sur ce serveur.' : 'Échec de la déconnexion (' + r.status + ').' };
+          TTD.reset(); TTApp.refresh();
+        }, function () { m.close(); msg = { cls: 'error', text: 'Hors ligne : rien n’a changé.' }; TTApp.refresh(); });
+      }
+      del();
     });
   }
   window.TTScreens.broker = {
