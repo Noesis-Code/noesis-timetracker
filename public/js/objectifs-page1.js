@@ -1694,6 +1694,7 @@
     }
 
     function submit() {
+      if (btn.disabled) return; // capture IA déjà en cours : pas de double envoi (Entrée)
       if (files.length) { submitFiles(); return; }
       var label = textarea.value.trim();
       if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }

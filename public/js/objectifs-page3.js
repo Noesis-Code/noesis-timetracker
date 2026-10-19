@@ -556,17 +556,26 @@
     paintGoalRewrite(key);
   }
   // Appel en arrière-plan après une saisie manuelle enregistrée ; échec = silence.
+  var goalRewriteSent = {};
   function requestGoalRewrite(key, text) {
     if (!text || !TMT.currentGoalsActivityId) return;
+    // Anti-rebond IA : même texte déjà envoyé (réponse reçue ou en vol) = aucun nouvel appel ;
+    // texte différent = la requête précédente de ce champ est annulée.
+    var last = goalRewriteSent[key];
+    if (last && last.text === text) return;
+    if (last && last.ctrl) { try { last.ctrl.abort(); } catch (e) {} }
     delete goalRewriteProposals[key];
     paintGoalRewrite(key);
-    api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/rewrite', { text: text })
+    var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    goalRewriteSent[key] = { text: text, ctrl: ctrl };
+    api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/rewrite', { text: text }, ctrl ? { signal: ctrl.signal } : undefined)
       .then(function (r) {
         if (!r || !r.proposal) return;
+        if (goalRewriteSent[key] && goalRewriteSent[key].text !== text) return;
         goalRewriteProposals[key] = { text: text, proposal: r.proposal };
         paintGoalRewrite(key);
       })
-      .catch(function () {});
+      .catch(function () { if (goalRewriteSent[key] && goalRewriteSent[key].text === text) delete goalRewriteSent[key]; });
   }
 
 

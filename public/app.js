@@ -240,7 +240,8 @@
     clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
   } catch (e) { /* ignore — repli serveur sur le fuseau par défaut */ }
 
-  function api(method, url, body) {
+  // 19 oct. 2026 (anti-rebond IA) : 4e argument facultatif `opts.signal` (AbortController) pour annuler une requête IA devenue obsolète.
+  function api(method, url, body, opts) {
     // 25 septembre 2026 (consultation et modifications hors ligne) : voir le
     // bloc « DONNÉES HORS LIGNE » juste en dessous. Toutes les lectures (GET)
     // passent par une copie locale ; certaines écritures (pôles/secteurs)
@@ -267,7 +268,7 @@
         throw err;
       });
     }
-    return apiNetwork(method, url, body);
+    return apiNetwork(method, url, body, opts);
   }
 
   // ===================== DONNÉES HORS LIGNE (25 septembre 2026) =====================
@@ -648,8 +649,9 @@
     else setTimeout(start, 3000);
   }
 
-  function apiNetwork(method, url, body) {
+  function apiNetwork(method, url, body, extra) {
     var opts = { method: method, headers: {} };
+    if (extra && extra.signal) opts.signal = extra.signal;
     if (clientTimezone) opts.headers['X-Client-Tz'] = clientTimezone;
     if (body !== undefined) {
       opts.headers['Content-Type'] = 'application/json';
@@ -6360,6 +6362,7 @@
     msg.className = 'msg';
 
     function submit() {
+      if (btn.disabled) return; // appel IA déjà en cours : pas de double envoi (Entrée)
       var label = textarea.value.trim();
       if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
       msg.textContent = '';
