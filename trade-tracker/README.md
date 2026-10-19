@@ -9,7 +9,7 @@ Extension Noèsis : suivi du portefeuille d'un expert et de ses clients. Autonom
 
 ## Déployer comme service Railway séparé
 Rien n'est déployé automatiquement. Marche à suivre (Émilien) :
-1. Railway > nouveau service depuis le dépôt `noesis-timetracker`, branche `staging`, **Root Directory = `trade-tracker`** (utilise `trade-tracker/package.json`, `railway.json`, `Procfile`; health-check `/api/health`).
+1. Railway > nouveau service depuis le dépôt `noesis-timetracker`, branche `staging`, **Root Directory = `trade-tracker`** (utilise `trade-tracker/package.json`, `railway.json`, `Procfile`; health-check `/health`; détail dans `DEPLOY.md`).
 2. Volume monté sur `/data` (la base SQLite y vit) et `NOESIS_DATA_DIR=/data`.
 3. Variables (valeurs jamais dans le dépôt) :
    - `TRADE_LINK_SECRET` : >= 16 car., **identique** à celui de TMT (signature des liens).

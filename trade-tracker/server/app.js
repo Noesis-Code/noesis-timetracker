@@ -77,7 +77,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
 
   app.use(express.json({ limit: '50kb' }));
 
-  app.get('/api/health', (req, res) => res.json({ ok: true }));
+  app.get(['/health', '/api/health'], (req, res) => res.json({ ok: true }));
 
   app.get('/link', (req, res) => {
     const r = A.consumeLink(db, String(req.query.token || ''), { invite: req.query.invite ? String(req.query.invite) : undefined, env });

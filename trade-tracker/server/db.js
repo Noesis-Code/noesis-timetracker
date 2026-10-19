@@ -7,9 +7,9 @@ const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 
 function dataDir() {
-  return process.env.NOESIS_DATA_DIR
-    ? path.resolve(process.env.NOESIS_DATA_DIR)
-    : path.join(__dirname, '..', 'data');
+  // TRADE_DATA_DIR prioritaire (service Railway dédié) ; NOESIS_DATA_DIR reste accepté.
+  const d = process.env.TRADE_DATA_DIR || process.env.NOESIS_DATA_DIR;
+  return d ? path.resolve(d) : path.join(__dirname, '..', 'data');
 }
 
 function hasColumn(db, table, column) {
