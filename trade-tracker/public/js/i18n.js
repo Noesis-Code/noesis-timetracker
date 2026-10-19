@@ -53,6 +53,7 @@
   };
   var AGO = [[/il y a (\d+) min/g, '$1 min ago'], [/il y a (\d+) h/g, '$1 h ago'], [/il y a (\d+) j/g, '$1 d ago'], [/à l’instant/g, 'just now']];
   var PATTERNS = [
+    [/^(\d+) masquée?s? \(< (.+)\)$/, '$1 hidden (< $2)'], [/^· (\d+) masquée?s? \(< (.+)\)$/, '· $1 hidden (< $2)'],
     [/^Valeur totale · (.+)$/, 'Total value · $1'], [/^(\d+) positions?(?: · gain)?$/, null], [/^· (\d+) positions?$/, null],
     [/^(.+) du total$/, '$1 of total'], [/^apports : (.+)$/, 'deposits: $1'], [/^· apport (.+)$/, '· deposit $1'], [/^Prix et taux USD\/CAD : (.+?)( \(taux manquant\))?$/, 'Prices and USD/CAD rate: $1$2'],
     [/^Code d’invitation pour (.+)$/, 'Invitation code for $1'], [/^Affiché une seule fois\. Valide jusqu’au (.+)\.$/, 'Shown only once. Valid until $1.'],
