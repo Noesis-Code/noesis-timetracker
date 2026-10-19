@@ -1584,10 +1584,77 @@
     btn.className = 'iconBtn btnBrique';
     btn.textContent = t('Ajouter');
 
+    // Pièces jointes (documents texte/PDF/docx ou images), DANS la zone d'écriture. Rien n'est stocké :
+    // le fichier part une seule fois vers la proposition de tâches (l'utilisateur coche ce qui est ajouté).
+    var MAX_FILES = 3, MAX_BYTES = 5 * 1024 * 1024, files = [];
+    var attach = document.createElement('label');
+    attach.className = 'chatAttachBtn goalsCaptureAttach';
+    attach.title = t('Joindre un document ou une image');
+    attach.setAttribute('aria-label', t('Joindre un document ou une image'));
+    attach.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file'; fileInput.className = 'hidden'; fileInput.multiple = true;
+    fileInput.accept = '.txt,.md,.markdown,.csv,.docx,.pdf,text/*,image/*';
+    attach.appendChild(fileInput);
+    var chips = document.createElement('div');
+    chips.className = 'docTasksFilesBox goalsCaptureFiles';
+    function renderChips() {
+      chips.innerHTML = '';
+      files.forEach(function (f, i) {
+        var c = document.createElement('span'); c.className = 'docTasksChip';
+        c.appendChild(document.createTextNode(f.fileName + ' '));
+        var x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', t('Retirer'));
+        x.addEventListener('click', function () { files.splice(i, 1); renderChips(); });
+        c.appendChild(x); chips.appendChild(c);
+      });
+    }
+    // Image réduite côté client (≤1024 px, JPEG) : coût IA minimal.
+    function shrinkImage(file) {
+      return new Promise(function (resolve, reject) {
+        var url = URL.createObjectURL(file), img = new Image();
+        img.onload = function () {
+          var k = Math.min(1, 1024 / Math.max(img.width, img.height));
+          var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(img.width * k)); cv.height = Math.max(1, Math.round(img.height * k));
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          URL.revokeObjectURL(url);
+          resolve({ fileName: file.name.replace(/\.\w+$/, '') + '.jpg', mimeType: 'image/jpeg', dataUrl: cv.toDataURL('image/jpeg', 0.6) });
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); reject(new Error(t('Image illisible.'))); };
+        img.src = url;
+      });
+    }
+    fileInput.addEventListener('change', function () {
+      var picked = Array.prototype.slice.call(fileInput.files || []);
+      fileInput.value = '';
+      picked.forEach(function (f) {
+        if (files.length >= MAX_FILES) { msg.textContent = t('3 fichiers maximum.'); return; }
+        if (f.size > MAX_BYTES) { msg.textContent = t('Fichier trop lourd (5 Mo max).'); return; }
+        if (/^image\//.test(f.type)) {
+          shrinkImage(f).then(function (o) { files.push(o); renderChips(); }).catch(function (e) { msg.textContent = e.message; });
+          return;
+        }
+        var r = new FileReader();
+        r.onload = function () { files.push({ fileName: f.name, mimeType: f.type, dataUrl: r.result }); renderChips(); };
+        r.readAsDataURL(f);
+      });
+    });
+
     var msg = document.createElement('p');
     msg.className = 'msg';
 
+    function submitFiles() {
+      // Un document concerne UNE activité (la proposition est faite pour elle).
+      if (goalsCaptureSelectedActivityIds.length !== 1) { msg.textContent = t('Choisis une seule activité pour un document.'); return; }
+      if (!TMT.docTasksPrefill) return;
+      var text = textarea.value.trim() || t('Propose les tâches à partir de ce document.');
+      var list = files.slice();
+      msg.textContent = '';
+      TMT.docTasksPrefill(goalsCaptureSelectedActivityIds[0], text, list);
+      files = []; renderChips(); textarea.value = '';
+    }
+
     function submit() {
+      if (files.length) { submitFiles(); return; }
       var label = textarea.value.trim();
       if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
       if (!goalsCaptureSelectedActivityIds.length) {
@@ -1707,8 +1774,10 @@
     // toujours goalsCaptureSelectedActivityIds au moment où elle est
     // rappelée par toggleGoalsCaptureActivitySelection().
     wrap.appendChild(textarea);
+    wrap.appendChild(attach);
     wrap.appendChild(btn);
     wrap.appendChild(msg);
+    outer.appendChild(chips);
 
     return outer;
   }

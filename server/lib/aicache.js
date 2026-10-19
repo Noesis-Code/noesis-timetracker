@@ -10,9 +10,10 @@ const estimateTokens = (t) => Math.ceil(String(t || '').length / 4); // approxim
 const EPHEMERAL = { type: 'ephemeral' };
 
 // Paramètres d'un appel /v1/messages (et d'une requête de lot). Les textes vides ne sont jamais envoyés (l'API les refuse).
-function messageParams({ model, maxTokens, system, stable, variable }) {
+function messageParams({ model, maxTokens, system, stable, variable, images }) {
   const content = [];
   if (stable && String(stable).trim()) content.push({ type: 'text', text: String(stable), cache_control: EPHEMERAL });
+  (images || []).forEach((im) => content.push({ type: 'image', source: { type: 'base64', media_type: im.media_type, data: im.data } }));
   content.push({ type: 'text', text: String(variable || '').trim() ? String(variable) : '.' });
   return {
     model, max_tokens: maxTokens, temperature: 0,

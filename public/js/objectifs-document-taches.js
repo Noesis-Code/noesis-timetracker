@@ -92,6 +92,15 @@
   function open() { $('docTasksPage').classList.remove('hidden'); loadDrive(); checkAdded(); loadChanges(); }
   function close() { $('docTasksPage').classList.add('hidden'); }
   TMT.openDocTasks = open;
+  // Zone libre IA (Page 1) : ouvre cette fenêtre pour l'activité choisie, joint les fichiers et lance la proposition
+  // (l'IA propose, l'utilisateur coche ; rien n'est écrit avant « Ajouter les tâches cochées »).
+  TMT.docTasksPrefill = function (activityId, text, list) {
+    TMT.currentGoalsActivityId = String(activityId);
+    open();
+    $('docTasksText').value = String(text || '').slice(0, 1500);
+    files = (list || []).slice(); renderFiles();
+    $('docTasksSend').click();
+  };
   $('docTasksClose').addEventListener('click', close);
   function actId() { return TMT.currentGoalsActivityId; }
   function msg(t) { $('docTasksMsg').textContent = t || ''; }

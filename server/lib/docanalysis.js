@@ -66,7 +66,7 @@ function maxTokensFor(want) { return (want.t ? MAX_TOKENS_TASKS : 0) + (want.c ?
 // Corps d'une requête /v1/messages (aussi utilisé tel quel comme params d'une requête de lot).
 // model : modèle moins cher réservé à l'extraction de tâches seules (jamais quand les modifications proposées "c" sont demandées).
 function requestParams({ parts, want, model }) {
-  return aicache.messageParams({ model: (model && !want.c) ? model : classify.modelName(), maxTokens: maxTokensFor(want), system: SYSTEM, stable: parts.stable, variable: parts.variable });
+  return aicache.messageParams({ model: (model && !want.c) ? model : classify.modelName(), maxTokens: maxTokensFor(want), system: SYSTEM, stable: parts.stable, variable: parts.variable, images: parts.images });
 }
 
 // Appel direct immédiat. Renvoie { text, stopReason }.
