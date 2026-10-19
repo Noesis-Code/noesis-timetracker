@@ -87,6 +87,15 @@
         { "key": "compta", "label": "Admin → Finances", "description": "invoice facture taxes paiement budget billing" }
       ],
       "strategy": { "goal": "", "deadline": "", "priorities": ["", "", ""], "ignore": "webinaire, conférence" }
+    },
+    "dup": {
+      "name": "Deux secteurs aux libellés proches",
+      "candidates": [
+        { "key": "ventes", "label": "Ventes → Clients", "description": "clients soumissions suivi" },
+        { "key": "service", "label": "Service → Clients", "description": "clients soumissions suivi" },
+        { "key": "compta", "label": "Administration → Comptabilité", "description": "factures taxes paiements" }
+      ],
+      "strategy": { "goal": "", "deadline": "", "priorities": ["", "", ""], "ignore": "" }
     }
   },
   "cases": [
@@ -203,6 +212,19 @@
     { "id": "s03", "context": "cafe", "kind": "classify", "label": "Torréfier", "expect": {"outcome": "place", "key": "torref"} },
     { "id": "s04", "context": "cafe", "kind": "classify", "label": "Facture", "expect": {"outcome": "place", "key": "compta"} },
     { "id": "s05", "context": "resto", "kind": "classify", "label": "Réserver terrasse", "expect": {"outcome": "place", "key": "salle"} },
-    { "id": "s06", "context": "cafe", "kind": "classify", "label": "Commander café vert", "expect": {"outcome": "place", "key": "appro"} }
+    { "id": "s06", "context": "cafe", "kind": "classify", "label": "Commander café vert", "expect": {"outcome": "place", "key": "appro"} },
+    { "id": "d01", "context": "pige", "kind": "classify", "label": "Appeler Marc lundi", "expect": {"outcome": "uncertain"} },
+    { "id": "d02", "context": "pige", "kind": "classify", "label": "Appeler Marc lundi pour les retouches de la maquette", "expect": {"outcome": "place", "key": "clients"} },
+    { "id": "d03", "context": "pige", "kind": "classify", "label": "Facture avant le 15", "expect": {"outcome": "place", "key": "admin"} },
+    { "id": "d04", "context": "cafe", "kind": "classify", "label": "Payer la facture du fournisseur avant le 15 novembre", "expect": {"outcome": "place", "key": "compta"} },
+    { "id": "d05", "context": "cafe", "kind": "classify", "label": "Commander café vert jeudi", "expect": {"outcome": "place", "key": "appro"} },
+    { "id": "d06", "context": "etu", "kind": "classify", "label": "Remettre la dissertation demain", "expect": {"outcome": "place", "key": "travaux"} },
+    { "id": "d07", "context": "etu", "kind": "classify", "label": "Réviser les notes de cours le 3 nov.", "expect": {"outcome": "place", "key": "cours"} },
+    { "id": "d08", "context": "pige", "kind": "classify", "label": "Envoyer la soumission à un nouveau client vendredi", "expect": {"outcome": "place", "key": "prospect"} },
+    { "id": "d09", "context": "cafe", "kind": "classify", "label": "Rappeler lundi", "expect": {"outcome": "uncertain"} },
+    { "id": "q01", "context": "dup", "kind": "classify", "label": "Appeler le client", "expect": {"outcome": "uncertain"} },
+    { "id": "q02", "context": "dup", "kind": "classify", "label": "Suivi client soumission", "expect": {"outcome": "uncertain"} },
+    { "id": "q03", "context": "dup", "kind": "classify", "label": "Envoyer la facture", "expect": {"outcome": "place", "key": "compta"} },
+    { "id": "q04", "context": "dup", "kind": "classify", "label": "Suivi des clients demain", "expect": {"outcome": "uncertain"} }
   ]
 }
