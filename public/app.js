@@ -8369,6 +8369,60 @@
       });
   }
 
+  // Menu ⋮ d'un message (une seule action : Signaler) et pop-up de signalement.
+  // Le message signalé disparaît pour le signaleur seulement (côté serveur).
+  function openMessageMenu(anchor, messageId) {
+    var old = document.querySelector('.msgMenuPop');
+    if (old) old.remove();
+    var pop = document.createElement('div');
+    pop.className = 'msgMenuPop';
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = t('Signaler');
+    b.addEventListener('click', function () { pop.remove(); openReportDialog(messageId); });
+    pop.appendChild(b);
+    var r = anchor.getBoundingClientRect();
+    pop.style.top = (r.bottom + 4) + 'px';
+    pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+    document.body.appendChild(pop);
+    setTimeout(function () {
+      document.addEventListener('click', function close() { pop.remove(); document.removeEventListener('click', close); });
+    }, 0);
+  }
+
+  function openReportDialog(messageId) {
+    var reasons = [['abusif', 'Harcèlement ou propos abusifs'], ['spam', 'Pourriel ou publicité'], ['inapproprie', 'Contenu inapproprié'], ['autre', 'Autre']];
+    var ov = document.createElement('div');
+    ov.className = 'reportOverlay';
+    var card = document.createElement('div');
+    card.className = 'reportCard';
+    card.innerHTML =
+      '<div class="reportHead"><strong>' + escapeHtml(t('Signaler ce message')) + '</strong>' +
+      '<button type="button" class="menuBtn reportClose" aria-label="' + escapeHtml(t('Fermer')) + '">✕</button></div>' +
+      reasons.map(function (r, i) {
+        return '<label class="reportReason"><input type="radio" name="reportReason" value="' + r[0] + '"' + (i === 0 ? ' checked' : '') + '> ' + escapeHtml(t(r[1])) + '</label>';
+      }).join('') +
+      '<div class="chatComposerRow"><textarea rows="2" maxlength="300" placeholder="' + escapeHtml(t('Précision (facultatif)')) + '"></textarea>' +
+      '<button type="button" class="iconBtn btnBrique">' + escapeHtml(t('Envoyer')) + '</button></div>' +
+      '<p class="msg"></p>';
+    ov.appendChild(card);
+    document.body.appendChild(ov);
+    function close() { ov.remove(); }
+    card.querySelector('.reportClose').addEventListener('click', close);
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    var send = card.querySelector('.iconBtn'), msgEl = card.querySelector('.msg');
+    send.addEventListener('click', function () {
+      send.disabled = true; msgEl.textContent = '';
+      api('POST', '/api/community/activity-messages/' + messageId + '/report', {
+        userId: profile.id,
+        reason: card.querySelector('input[name=reportReason]:checked').value,
+        detail: card.querySelector('textarea').value,
+      }).then(function () {
+        close(); discussionRenderedIds = ''; loadDiscussion(false);
+        alert(t('Merci, le message est signalé et masqué pour toi.'));
+      }).catch(function (err) { msgEl.textContent = err.message; send.disabled = false; });
+    });
+  }
+
   function renderDiscussion(messages) {
     var box = $('communityDiscussionList');
     $('communityDiscussionEmptyHint').classList.toggle('hidden', messages.length > 0);
@@ -8442,6 +8496,17 @@
         // Placée dans la ligne d'en-tête (et pas en position absolue) pour ne
         // jamais recouvrir l'horodatage, quelle que soit la longueur du nom.
         msg.querySelector('.discussionMsgTop').appendChild(del);
+      }
+
+      // Signalement : menu ⋮ sur les messages des AUTRES (pas sur les siens).
+      if (!mine) {
+        var more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'discussionMsgDelete discussionMsgMore';
+        more.textContent = '⋮';
+        more.setAttribute('aria-label', t('Plus d\'actions'));
+        more.addEventListener('click', function (e) { e.stopPropagation(); openMessageMenu(more, m.id); });
+        msg.querySelector('.discussionMsgTop').appendChild(more);
       }
 
       box.appendChild(msg);

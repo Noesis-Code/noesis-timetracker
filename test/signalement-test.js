@@ -1,0 +1,25 @@
+// Tests signalement de messages + mots bloqués. Usage : node test/signalement-test.js
+const fs = require('fs'), os = require('os'), path = require('path');
+process.env.NOESIS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sig-'));
+let failed = 0;
+const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const { containsBlockedWord } = require('../server/lib/blockedwords');
+assert(!containsBlockedWord('bonjour'), 'liste vide : rien bloqué');
+assert(containsBlockedWord('Un MÔT Interdit ici', ['mot interdit']), 'sans accents ni casse');
+assert(!containsBlockedWord('motion', ['mot']), 'mots entiers seulement');
+process.env.BLOCKED_WORDS = 'vilain, Sale';
+assert(containsBlockedWord('quel vilain!') && containsBlockedWord('SALE'), 'liste par variable d\'environnement');
+fs.writeFileSync(path.join(process.env.NOESIS_DATA_DIR, 'blocked-words.txt'), '# c\nfichier\n');
+assert(containsBlockedWord('un mot fichier'), 'liste par fichier');
+const db = require('../server/db');
+const mr = require('../server/lib/messagereports');
+const r1 = mr.createReport('u1', 'activity:1', 'spam', 'x');
+assert(r1.ok, 'signalement créé');
+assert(mr.createReport('u1', 'activity:1', 'spam').status === 409, 'une seule fois par message et par personne');
+assert(mr.createReport('u1', 'activity:2', 'bidon').status === 400, 'motif invalide refusé');
+assert(mr.hiddenRefsFor('u1', 'activity:').join() === 'activity:1' && mr.hiddenRefsFor('u2', 'activity:').length === 0, 'masqué pour le signaleur seulement');
+for (let i = 3; i < 12; i++) mr.createReport('u1', 'activity:' + i, 'autre');
+assert(mr.createReport('u1', 'activity:99', 'autre').status === 429, 'limite de débit');
+assert(mr.createReport('u1', 'activity:98', 'autre', '', new Date(Date.now() + 2 * 3600000)).ok, 'limite levée après une heure');
+fs.rmSync(process.env.NOESIS_DATA_DIR, { recursive: true, force: true });
+process.exit(failed ? 1 : 0);

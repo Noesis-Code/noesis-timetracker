@@ -888,6 +888,8 @@ router.post('/profile/posts', (req, res) => {
   if (!body) return res.status(400).json({ error: 'Message vide.' });
   if (body.length > MAX_POST_LENGTH) return res.status(400).json({ error: 'Message trop long (2000 caractères maximum).' });
 
+  if (require('../lib/blockedwords').containsBlockedWord(body)) return res.status(422).json({ error: require('../lib/blockedwords').BLOCKED_MESSAGE, blocked: true });
+
   const createdAt = new Date().toISOString();
   const info = db.prepare('INSERT INTO profile_posts (userId, body, createdAt) VALUES (?, ?, ?)').run(userId, body, createdAt);
 

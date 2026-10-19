@@ -7,6 +7,10 @@ const {
 } = require('../lib/community');
 const { notifyActivityMessage } = require('../lib/push');
 const discussionFiles = require('../lib/discussionfiles');
+const messageReports = require('../lib/messagereports');
+const { containsBlockedWord, BLOCKED_MESSAGE } = require('../lib/blockedwords');
+const { sendMail } = require('../lib/mail');
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'confidentialite.noesis@gmail.com';
 // ⚠️ 3 septembre 2026 (Activité — général) : import ajouté pour renvoyer le
 // LIBELLÉ de la période du graphique ("Cette semaine", "Ce mois-ci"...).
 // periodRange est déjà la source de ces libellés partout ailleurs — aucune
@@ -112,7 +116,9 @@ router.get('/community/activity-messages', (req, res) => {
   }
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
-  const messages = discussionFiles.attachFiles(activityMessagesForUser(activityId));
+  // Messages que CE membre a signalés : masqués pour lui seulement.
+  const hidden = new Set(messageReports.hiddenRefsFor(userId, 'activity:'));
+  const messages = discussionFiles.attachFiles(activityMessagesForUser(activityId).filter((m) => !hidden.has('activity:' + m.id)));
 
   // markRead=0 permet de rafraîchir le fil en arrière-plan (rechargement
   // périodique tant que l'écran est ouvert) sans effacer la pastille de
@@ -141,6 +147,8 @@ router.post('/community/activity-messages', (req, res) => {
   if (!body && !upload) return res.status(400).json({ error: 'Message vide.' });
   if (body.length > MAX_MESSAGE_LENGTH) return res.status(400).json({ error: 'Message trop long (2000 caractères maximum).' });
 
+  if (containsBlockedWord(body)) return res.status(422).json({ error: BLOCKED_MESSAGE, blocked: true });
+
   const message = postActivityMessage(activityId, userId, body);
   if (upload) discussionFiles.saveFile(message.id, upload);
   discussionFiles.attachFiles(message);
@@ -167,6 +175,29 @@ router.delete('/community/activity-messages/:id', (req, res) => {
   discussionFiles.deleteFilesOfMessage(message.id);
   db.prepare('DELETE FROM activity_messages WHERE id = ?').run(message.id);
   res.json({ ok: true });
+});
+
+// Signalement d'un message du fil (une seule fois par message et par membre).
+// Le message est masqué pour le signaleur seulement ; l'administrateur reçoit
+// un courriel (ref + motif, sans copier le texte) et la ligne reste en base.
+router.post('/community/activity-messages/:id/report', async (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const message = db.prepare('SELECT id, activityId, userId FROM activity_messages WHERE id = ?').get(req.params.id);
+  if (!message) return res.status(404).json({ error: 'Message introuvable.' });
+  const check = checkSharedActivityAccess(userId, message.activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  if (message.userId === userId) return res.status(400).json({ error: 'Tu ne peux pas signaler ton propre message.' });
+
+  const r = messageReports.createReport(userId, 'activity:' + message.id, req.body.reason, req.body.detail);
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.status(201).json({ ok: true });
+
+  const text = 'Signalement #' + r.report.id + ' : ' + r.report.messageRef + ' (activité ' + message.activityId + ')\n' +
+    'Motif : ' + messageReports.REASON_LABELS[r.report.reason] + (r.report.detail ? '\nPrécision : ' + r.report.detail : '') +
+    '\nSignaleur : ' + userId + ' · auteur : ' + message.userId;
+  sendMail({ to: CONTACT_EMAIL, subject: '[Noèsis — Signalement de message] #' + r.report.id, text })
+    .catch((err) => console.error('[signalement] courriel non envoyé : ' + err.message));
 });
 
 // Pièce jointe d'un message : réservée aux membres ACTUELS de l'activité
