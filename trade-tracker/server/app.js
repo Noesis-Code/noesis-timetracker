@@ -28,9 +28,11 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
   app.disable('x-powered-by');
   const tmtOrigin = (() => { try { return env.TMT_BASE_URL ? new URL(env.TMT_BASE_URL).origin : null; } catch { return null; } })();
   // Cookie de session : SameSite=None; Secure en HTTPS (ou TRADE_COOKIE_CROSS_SITE=1) pour survivre à l'iframe TMT ; Lax en HTTP local.
+  // En HTTPS : préfixe __Host- (Secure, Path=/, sans Domain : ni sous-domaine ni écrasement par un autre site), SameSite=None (iframe TMT, site différent),
+  // Partitioned (CHIPS : le cookie reste lié au site qui intègre l'iframe). En HTTP local (développement) : SameSite=Lax. Toujours HttpOnly.
   const sessionCookie = (req, value, maxAge) => {
     const secure = req.secure || req.headers['x-forwarded-proto'] === 'https' || env.TRADE_COOKIE_CROSS_SITE === '1';
-    return `tt_session=${value}; HttpOnly; ${secure ? 'SameSite=None; Secure' : 'SameSite=Lax'}; Path=/; Max-Age=${maxAge}`;
+    return `${secure ? '__Host-' : ''}tt_session=${value}; HttpOnly; ${secure ? 'SameSite=None; Secure; Partitioned' : 'SameSite=Lax'}; Path=/; Max-Age=${maxAge}`;
   };
   app.set('trust proxy', 1); // Railway : un saut de proxy ; req.ip = vrai client
   app.use((req, res, next) => {
@@ -41,7 +43,11 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     if (req.secure || req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
     if (!tmtOrigin) res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer'); // le jeton de lien est dans l'URL
-    res.setHeader('Cache-Control', 'no-store');
+    // Aucune réponse (données financières, état de session, pages) ne doit être conservée par un cache, un proxy ou le navigateur.
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
     next();
   });
   // Limitation de débit : /link (jetons), écritures (POST), échecs d'authentification admin, lecture générale.
@@ -119,7 +125,9 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
 
   const sessionToken = (req) => {
     const h = req.headers.authorization || '';
-    return h.startsWith('Bearer ') ? h.slice(7) : parseCookies(req.headers.cookie).tt_session;
+    if (h.startsWith('Bearer ')) return h.slice(7);
+    const ck = parseCookies(req.headers.cookie);
+    return ck['__Host-tt_session'] || ck.tt_session;
   };
   // Session : durée absolue, inactivité 15 min, liaison au user-agent. Le rafraîchissement automatique de l'interface (X-TT-Poll: 1)
   // ne prolonge PAS l'inactivité, sauf si la personne a agi récemment (X-TT-Active: 1) : un onglet laissé ouvert finit par expirer.
@@ -386,6 +394,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     const n = A.revokeAllSessions(db, req.user.id);
     aud(req, 'sessions_revoked_all', { count: n });
     res.setHeader('Set-Cookie', sessionCookie(req, '', 0));
+    res.setHeader('Clear-Site-Data', '"cache"'); // retire aussi toute copie gardée par le navigateur
     res.json({ ok: true, closed: n });
   });
 
@@ -399,6 +408,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     aud(req, 'logout', {});
     A.destroySession(db, sessionToken(req));
     res.setHeader('Set-Cookie', sessionCookie(req, '', 0));
+    res.setHeader('Clear-Site-Data', '"cache"');
     res.json({ ok: true });
   });
 
