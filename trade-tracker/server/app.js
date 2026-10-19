@@ -111,7 +111,10 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
       const known = r.sub ? db.prepare('SELECT id FROM tt_users WHERE tmtUserId = ?').get(r.sub) : null;
       aud(req, 'link_refused', { reason: r.error }, known ? known.id : null); // visible dans le journal du compte visé
       L.fail(db, ipKey, { threshold: 10 });
-      if (r.sub) L.fail(db, 'linksub:' + r.sub, { threshold: 5 });
+      if (r.sub) {
+        const f = L.fail(db, 'linksub:' + r.sub, { threshold: 5 });
+        if (known && (f.fails === 3 || (f.fails >= 5 && f.fails % 5 === 0))) { aud(req, 'auth_failures_repeated', { fails: f.fails, via: 'link' }, known.id); alertUser(known.id, 'auth_failures'); }
+      }
       // Réponses uniformes : un échec ne dit jamais POURQUOI (jeton falsifié, rejoué, utilisateur non invité, compte verrouillé...). Seuls « expiré » et « indisponible » sont distincts.
       return res.redirect(302, '/?linkError=' + (r.error === 'expired' ? 'expired' : r.error === 'server_misconfigured' ? 'unavailable' : 'denied'));
     }

@@ -51,7 +51,7 @@ const { enrollAndVerify, cookieOf } = require('./mfa-helper');
     // ré-authentification : code rejeté s'il est faux ou déjà utilisé ; sinon nouvel identifiant de session
     ageStepUp(6);
     assert.strictEqual((await call('POST', '/api/auth/verify', ck, { code: '111111' })).status, 401);
-    assert.strictEqual((await call('POST', '/api/auth/verify', ck, { code: T.totpAt(en.secret, Date.now()) })).status, 401, 'pas déjà consommé à l\'enrôlement');
+    assert.strictEqual((await call('POST', '/api/auth/verify', ck, { code: en.confirmCode })).status, 401, 'pas déjà consommé à l\'enrôlement');
     const r = await call('POST', '/api/auth/verify', ck, { code: T.totpAt(en.secret, Date.now() + 30000) });
     assert.strictEqual(r.status, 200); const ck2 = cookieOf(r); assert(ck2 && ck2 !== ck);
     assert.strictEqual((await call('GET', '/api/me', ck)).status, 401, 'ancien identifiant mort');

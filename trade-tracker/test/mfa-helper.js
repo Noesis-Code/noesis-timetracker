@@ -6,9 +6,10 @@ const cookieOf = (r) => (r.headers.get('set-cookie') || '').split(';')[0];
 async function enrollAndVerify(base, cookie, headers = {}) {
   const h = { cookie, 'content-type': 'application/json', ...headers };
   const e = await (await fetch(base + '/api/auth/totp/enroll', { method: 'POST', headers: h, body: '{}' })).json();
-  const r = await fetch(base + '/api/auth/totp/confirm', { method: 'POST', headers: h, body: JSON.stringify({ code: T.totpAt(e.secret, Date.now()) }) });
+  const confirmCode = T.totpAt(e.secret, Date.now()); // code du pas consommé à l'enrôlement (sert aux tests de rejeu)
+  const r = await fetch(base + '/api/auth/totp/confirm', { method: 'POST', headers: h, body: JSON.stringify({ code: confirmCode }) });
   const j = await r.json();
   if (!r.ok) throw new Error('confirm TOTP refusé : ' + JSON.stringify(j));
-  return { cookie: cookieOf(r) || cookie, secret: e.secret, backupCodes: j.backupCodes };
+  return { cookie: cookieOf(r) || cookie, secret: e.secret, backupCodes: j.backupCodes, confirmCode };
 }
 module.exports = { enrollAndVerify, cookieOf };

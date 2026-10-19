@@ -64,9 +64,10 @@ const { cookieOf } = require('./mfa-helper');
     assert(/^[A-Z2-7]{32}$/.test(en.secret) && en.otpauth.includes(en.secret) && en.qrSvg.startsWith('<svg'));
     assert(!JSON.stringify(db.prepare('SELECT * FROM mfa_totp').all()).includes(en.secret), 'secret chiffré au repos');
     assert.strictEqual((await post('/api/auth/totp/confirm', ck, { code: '000000' })).status, 401, 'code faux');
-    const wrongT = T.totpAt(en.secret, Date.now() + 5 * 30000);
+    const wrongT = T.totpAt(en.secret, Date.now() + 5 * 30000); // 5 pas plus loin : hors fenêtre
     assert.strictEqual((await post('/api/auth/totp/confirm', ck, { code: wrongT })).status, 401, 'code hors fenêtre');
-    const cf = await post('/api/auth/totp/confirm', ck, { code: T.totpAt(en.secret, Date.now()) });
+    const confirmCode = T.totpAt(en.secret, Date.now());
+    const cf = await post('/api/auth/totp/confirm', ck, { code: confirmCode });
     const cfj = await cf.json();
     assert.strictEqual(cf.status, 200); assert.strictEqual(cfj.backupCodes.length, 10);
     assert(cfj.backupCodes.every((c) => /^[A-Z2-9]{5}-[A-Z2-9]{5}$/.test(c)) && new Set(cfj.backupCodes).size === 10);
@@ -80,7 +81,7 @@ const { cookieOf } = require('./mfa-helper');
     const ck2 = await linkIn('e');
     let r = await get('/api/portfolio', ck2); assert.strictEqual(r.status, 403); assert.strictEqual((await r.json()).error, 'mfa_required');
     // même code (même pas) déjà consommé à l'enrôlement : rejeu refusé ; réponse identique à un code faux
-    const bad = await post('/api/auth/verify', ck2, { code: T.totpAt(en.secret, Date.now()) });
+    const bad = await post('/api/auth/verify', ck2, { code: confirmCode });
     const bad2 = await post('/api/auth/verify', ck2, { code: '000000' });
     const b1 = await bad.text(), b2 = await bad2.text();
     assert.deepStrictEqual([bad.status, bad2.status], [401, 401]); assert.strictEqual(b1, b2, 'réponse uniforme : rejeu = code faux');

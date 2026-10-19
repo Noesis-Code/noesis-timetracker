@@ -60,6 +60,15 @@ const { enrollAndVerify, cookieOf } = require('./mfa-helper');
     const cc = await linkIn('c', 'UA-C', { invite: inv.code, email: 'c@ex.test' }); await tick();
     assert(cc); assert.deepStrictEqual(kinds, ['login']);
 
+    // liens refusés en série visant un compte connu : alerte au 3e
+    db.exec('DELETE FROM auth_lockouts');
+    const rep = A.signLinkToken({ sub: 'e', ua: 'UA-1' }, secret);
+    const hit = () => fetch(base + '/link?token=' + rep, { redirect: 'manual', headers: { 'user-agent': 'UA-1' } });
+    await hit(); await tick(); kinds.length = 0;
+    await hit(); await hit(); assert.deepStrictEqual(kinds, []); await hit(); await tick();
+    assert.deepStrictEqual(kinds, ['auth_failures'], 'liens rejoués : alerte au 3e échec');
+    db.exec('DELETE FROM auth_lockouts');
+
     // requêtes signées vers TMT : contenu minimal, signature valide, jamais de secret ni de montant
     await tick();
     const rows = db.prepare("SELECT * FROM events WHERE type = 'security' ORDER BY id").all();
