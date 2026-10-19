@@ -104,6 +104,7 @@ app.use(express.json({ limit: '15mb' }));
 app.use(require('./lib/session').middleware);
 app.use((req, res, next) => require('./lib/aibudget').runAs(req.userId, next)); // utilisateur courant pour le budget IA
 app.use('/api', require('./routes/aibudget'));
+app.use(require('./routes/mcp')); // « Connecter mon IA » : POST /mcp (lecture seule) + /api/ai-tokens
 
 // Sauvegarde chiffrée hors site (Cloudflare R2, compte de Gaspard — après un
 // aller-retour via OVHcloud le 7 septembre 2026, voir GUIDE-SAUVEGARDE-R2.md
