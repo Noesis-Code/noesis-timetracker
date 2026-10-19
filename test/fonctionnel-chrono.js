@@ -1,0 +1,69 @@
+// Test fonctionnel HTTP : chrono démarrer/arrêter et historique. Usage : node test/fonctionnel-chrono.js (serveur réel, données temporaires, aucun appel réseau).
+const { startServer, makeCounter, newUser } = require('./fonctionnel-lib');
+const T = makeCounter(); const assert = T.assert;
+const iso = (ms) => new Date(Date.now() + ms).toISOString();
+
+(async () => {
+  const s = await startServer();
+  try {
+    const u = await newUser(s.base, 'chr');
+    const { c, activityId: A } = u;
+    const other = await newUser(s.base, 'chr2');
+
+    assert((await c.get('/api/timer/status')).body.running === false, 'aucun chrono au départ');
+    assert((await c.post('/api/timer/start', { activityId: 99999 })).status === 400, 'activité inconnue refusée');
+    assert((await c.post('/api/timer/start', { activityId: other.activityId })).status === 403, "activité d'un autre refusée (403)");
+    assert((await c.post('/api/timer/stop', {})).status === 400, 'arrêt sans chrono = 400');
+
+    const st = await c.post('/api/timer/start', { activityId: A, startTime: iso(-3600e3) });
+    assert(st.status === 200 && st.body.alreadyRunning === false, 'démarrage accepté');
+    assert((await c.post('/api/timer/start', { activityId: A })).body.alreadyRunning === true, 'second démarrage = alreadyRunning');
+    const status = await c.get('/api/timer/status');
+    assert(status.body.running === true && status.body.activity.id === A, 'statut : en cours sur la bonne activité');
+    assert((await c.post('/api/timer/start', { activityId: A, startTime: 'nimporte' })).status === 200, 'chrono déjà en cours : startTime ignoré');
+
+    const stop = await c.post('/api/timer/stop', { note: 'ma note' });
+    assert(stop.status === 200 && stop.body.entryId > 0, 'arrêt enregistre une entrée');
+    assert((await c.get('/api/timer/status')).body.running === false, 'plus de chrono après arrêt');
+
+    const h = await c.get('/api/history?period=year');
+    const e = h.body.find((x) => x.id === stop.body.entryId);
+    assert(h.status === 200 && e, "l'entrée apparaît dans l'historique");
+    assert(e && e.durationSeconds >= 3599 && e.durationSeconds <= 3605, 'durée ~1 h');
+    assert(e && e.note === 'ma note' && e.activity === 'Activité chr', 'note et activité conservées');
+
+    // Heure de départ invalide / fin avant début
+    assert((await c.post('/api/timer/start', { activityId: A, startTime: iso(60 * 60e3) })).status === 400, 'départ dans le futur refusé');
+    await c.post('/api/timer/start', { activityId: A });
+    assert((await c.post('/api/timer/stop', { endTime: iso(-86400e3) })).status === 400, 'fin avant début refusée');
+    await c.post('/api/timer/stop', {});
+
+    // Historique : ajout manuel, édition, suppression
+    const add = await c.post('/api/history', { activityId: A, startTime: iso(-7200e3), endTime: iso(-5400e3) });
+    assert(add.status === 201, 'ajout manuel accepté');
+    assert((await c.post('/api/history', { activityId: A, startTime: iso(-5400e3), endTime: iso(-7200e3) })).status === 400, 'ajout manuel fin<début refusé');
+    const upd = await c.put('/api/history/' + add.body.id, { note: 'modifiée' });
+    assert(upd.status === 200, 'édition acceptée');
+    const h2 = await c.get('/api/history?period=year');
+    const e2 = h2.body.find((x) => x.id === add.body.id);
+    assert(e2 && e2.note === 'modifiée', 'édition visible dans la liste');
+    assert((await other.c.put('/api/history/' + add.body.id, { note: 'piratage' })).status === 403, "édition par un autre compte = 403");
+    assert((await other.c.del('/api/history/' + add.body.id)).status === 403, "suppression par un autre compte = 403");
+    assert((await c.del('/api/history/' + add.body.id)).status === 200, 'suppression acceptée');
+    assert(!(await c.get('/api/history?period=year')).body.some((x) => x.id === add.body.id), 'entrée supprimée absente');
+    assert((await c.del('/api/history/' + add.body.id)).status === 404, 'seconde suppression = 404');
+    assert((await other.c.get('/api/history?period=year')).body.length === 0, "historique d'un autre compte vide");
+
+    // Catégorie du chrono
+    const cats = await c.post(`/api/activities/${A}/goals/categories`, { label: 'Pôle chrono' });
+    const pk = cats.body.categories[0].key;
+    await c.post('/api/timer/start', { activityId: A });
+    const cat = await c.post('/api/timer/category', { category: pk });
+    assert(cat.status === 200 && cat.body.category && cat.body.category.key === pk, 'catégorie rattachée en cours de chrono');
+    assert((await c.post('/api/timer/category', { category: 'zzz' })).status >= 400, 'catégorie invalide refusée');
+    const stop2 = await c.post('/api/timer/stop', { startTime: iso(-1800e3) });
+    assert(stop2.body.category && stop2.body.category.key === pk, "l'arrêt garde la catégorie");
+  } finally { s.stop(); }
+  console.log(`\n${T.passed} ok, ${T.failed} échec(s)`);
+  process.exit(T.failed ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); });

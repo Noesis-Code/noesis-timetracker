@@ -254,6 +254,13 @@ async function main() {
     assert(ok, `${label} (test/${f}) passe`);
   }
 
+  // Parcours fonctionnels HTTP (serveur réel sur données temporaires) : chrono, tâches, modules, secteurs, stats, export.
+  for (const [f, label] of [['fonctionnel-chrono.js', 'parcours chrono'], ['fonctionnel-taches.js', 'parcours tâches'], ['fonctionnel-modules.js', 'parcours modules'], ['fonctionnel-secteurs.js', 'parcours suppression de secteur'], ['fonctionnel-stats.js', 'parcours statistiques'], ['fonctionnel-export.js', 'parcours export']]) {
+    let ok = true;
+    try { execFileSync('node', [path.join(__dirname, f)], { encoding: 'utf8', stdio: 'pipe' }); } catch (e) { ok = false; }
+    assert(ok, `${label} (test/${f}) passe`);
+  }
+
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });
