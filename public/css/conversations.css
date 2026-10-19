@@ -1,0 +1,35 @@
+/* Conversations par projet, notes de tâches, tâches éphémères : pop-up centré (✕), sombre, violet = couleur principale. */
+.projConvPop { position: fixed; inset: 0; z-index: 106; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .55); }
+.projConvPop.hidden { display: none; }
+.projConvCard { width: 100%; max-width: 440px; max-height: 86vh; display: flex; flex-direction: column; padding: 14px; border-radius: 18px; color: var(--text);
+  background: radial-gradient(circle 260px at 50% 115%, rgba(var(--halo-n2-rgb), var(--halo-n2-a)) 0%, rgba(var(--halo-n2-rgb), 0) 72%), var(--glass-bg), #0b0b0f;
+  border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.projConvHead { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 700; }
+.projConvTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.projConvBody { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.projConvSection { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.projConvSectionHead { font-size: 13px; font-weight: 600; color: var(--text-light); }
+.projConvRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 12px; text-align: left; font: inherit; font-size: 14px; color: var(--text);
+  background: var(--vc-bg); border: 1px solid var(--vc-line); border-radius: var(--radius-lg); cursor: pointer; }
+.projConvRow:hover { background: var(--hover-bg); }
+.projConvRowText { display: flex; flex-direction: column; min-width: 0; }
+.projConvRowText strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.projConvUnread { min-width: 18px; padding: 0 6px; border-radius: 999px; background: #f59a3c; color: #000; font-size: 11px; font-weight: 700; text-align: center; line-height: 18px; }
+.projConvNew { display: flex; flex-direction: column; gap: 6px; }
+.projConvNew select { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 999px; border: 1px solid var(--vc-line); background: var(--vc-bg); color: inherit; font: inherit; font-size: 14px; }
+.projConvComposer textarea { min-height: 0; }
+.projConvThread { max-height: 48vh; overflow-y: auto; }
+.projConvNote { padding: 8px 10px; border: 1px solid var(--vc-line); border-radius: var(--radius-md); background: var(--vc-bg); font-size: 13px; display: flex; flex-direction: column; gap: 2px; }
+.projConvFab { position: fixed; right: 14px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 55; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0;
+  border-radius: 999px; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); cursor: pointer; }
+.projConvFab.hidden { display: none; }
+.projConvFabDot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: #f59a3c; }
+.projConvFabDot.hidden { display: none; }
+.projConvBubbles { margin: 8px 0 12px; }
+.projConvBubbles.hidden { display: none; }
+.projConvBubbleRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.projConvBubble { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; font: inherit; font-size: 14px; color: var(--text); background: var(--vc-bg); border: 1px solid var(--vc-line); border-radius: 999px; cursor: pointer; }
+.projConvBubble:hover { border-color: var(--purple); }
+#activityPageConvBtn { width: auto; padding: 0 10px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.projConvProfileRow { display: flex; justify-content: center; margin: 6px 0; }
+.projConvProfileRow.hidden { display: none; }

@@ -12899,6 +12899,7 @@
 
   function openProfileViewModal(userId, name, color) {
     viewProfileUserId = userId;
+    document.dispatchEvent(new CustomEvent('tmt:viewprofile', { detail: { userId: userId } })); // bouton « Message » (conversations.js)
 
     // Remise à zéro complète : la modale est réutilisée d'un profil à
     // l'autre, il ne doit jamais rester une miette du précédent affichée le
