@@ -6,7 +6,6 @@
 :root[data-theme="dark"] { --vc-bg: rgba(255,255,255,.05); --vc-line: rgba(255,255,255,.12); }
 #chronoRunning,
 #goalsTasksHistoryHeader,
-#newSubProjectClosesAt,
 #profileSettingsPanel .settingsSectionHeader,
 #settingsPinSaveBtn,
 #settingsSaveBtn,
@@ -53,8 +52,6 @@
 .settingsCard,
 .statsSection,
 .stopDateTimeRow input,
-.subProjectGoalCategorySelect,
-.subProjectItemPlannedSelect,
 .subProjectSelect,
 .themeBtn,
 .viewProfileProjectCase,
@@ -73,9 +70,9 @@ textarea
    Mêmes jetons ; menus et colonnes figées plus denses (--vc-bg-strong) pour rester lisibles quand le contenu défile derrière. */
 :root { --vc-bg-strong: rgba(255,255,255,.82); --vc-blur-strong: blur(18px) saturate(1.15); }
 :root[data-theme="dark"] { --vc-bg-strong: rgba(24,24,30,.74); }
-:root .categoryDropdownMenu, :root .categoryPickerPanel, :root .statsPeriodMenu, :root .subProjectAddMenu, :root .chartTooltip,
+:root .categoryDropdownMenu, :root .categoryPickerPanel, :root .statsPeriodMenu, :root .chartTooltip,
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel,
-:root .categoryDropdownTrigger, :root .categoryPickerBtn, :root .subProjectSelect, :root .subProjectGoalCategorySelect, :root .subProjectItemPlannedSelect {
+:root .categoryDropdownTrigger, :root .categoryPickerBtn, :root .subProjectSelect {
   background: var(--vc-bg-strong); box-shadow: inset 0 0 0 1px var(--vc-line); -webkit-backdrop-filter: var(--vc-blur-strong); backdrop-filter: var(--vc-blur-strong);
 }
 :root select { background-color: var(--vc-bg); border-color: var(--vc-line); }
@@ -188,7 +185,7 @@ textarea
           .activityProgressCard, .goalsTasksGroup, .dailyPriorityItem, .goalWeeklyCard, .goalsCalendarRow, .onboarding-card,
           .activityGoalsCategoryAutoTaskBubble, #chronoRunning)
   :is(.iconBtn, .menuBtn, .topIconBtn, input, select, textarea, .categoryDropdownTrigger, .categoryPickerBtn, .subProjectSelect,
-      .attachmentRow, .historyRowIconBtn, .periodBtn, .themeBtn, .seekingTagBtn, .goalAssigneeChip, .subProjectItemPlannedSelect):not(.btnBrique):not(.btn-primary):not([type="checkbox"]):not([type="radio"]) {
+      .attachmentRow, .historyRowIconBtn, .periodBtn, .themeBtn, .seekingTagBtn, .goalAssigneeChip):not(.btnBrique):not(.btn-primary):not([type="checkbox"]):not([type="radio"]) {
   background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 :root .historyNav .iconBtn, :root .historyNav .menuBtn, :root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,

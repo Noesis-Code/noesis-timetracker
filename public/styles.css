@@ -982,8 +982,7 @@ body { isolation: isolate; }
 #csTsPeriodBtn,
 #csChartPeriodBtn,
 #viewProfilePiePeriodBtn,
-#viewProfileChartPeriodBtn,
-.subProjectRowHeader .subProjectAddBtn {
+#viewProfileChartPeriodBtn {
   background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
@@ -3610,10 +3609,6 @@ button { -webkit-user-select: none; user-select: none; }
    .discussionList / .discussionMsg / .discussionComposer (fils de
    discussion). */
 
-#activitySubProjectsBlock {
-  margin-top: 18px;
-}
-
 .subProjectRow {
   cursor: default;
 }
@@ -3665,13 +3660,7 @@ button { -webkit-user-select: none; user-select: none; }
    les lignes qui ne sont pas utiles entre les sections »). Elle doublait la
    barre de progression du sous-projet, juste au-dessus — deux traits collés
    pour une seule séparation. Le détail se contente d'un espace. */
-/* `position: relative` : c'est le repère du menu "Ajouter", qui FLOTTE
-   au-dessus du contenu (voir .subProjectAddMenu plus bas). */
-#subProjectDetail {
-  position: relative;
-  margin-top: 10px;
-  padding-top: 4px;
-}
+
 
 /* ----- En-tête collant d'un sous-projet OUVERT (3 septembre 2026) -----
    Nom, "Ajouter", croix de fermeture et l'unique barre large restent en haut
@@ -3699,60 +3688,6 @@ button { -webkit-user-select: none; user-select: none; }
   padding-top: 0;
 }
 
-.subProjectSticky.open {
-  position: sticky;
-  top: 0;
-  z-index: 4;   /* sous .topbar/.tabbar (10), au-dessus du contenu de la carte */
-  /* Marges négatives LATÉRALES seulement : l'en-tête couvre toute la largeur
-     de la carte, sinon le contenu défilerait visiblement dans ses 12 px de
-     padding gauche/droite. */
-  margin: 0 -12px;
-  padding: 12px 12px 8px;
-  background: var(--card);
-  /* Elle se fond dans la barre du haut : plus d'arrondi côté butée, et un
-     filet en bas qui la sépare du contenu qui glisse dessous. */
-  border-radius: 0;
-  border-bottom: 1px solid var(--border);
-  /* 🆕 28 septembre 2026 : même correctif que #activityPageSectionSwitch
-     (voir son commentaire, plus haut dans ce fichier) — ce bloc vit dans la
-     MÊME zone de défilement (#activityPageScroll) et repose sur le même
-     motif fond-opaque-sur-sticky, donc exposé au même bug de rendu iOS
-     (bande transparente laissant passer le contenu qui défile dessous).
-     Appliqué préventivement ici aussi, sur demande explicite d'Emilien
-     d'étendre la règle à toutes les sections de la feuille d'activité. */
-  will-change: transform;
-  /* 🆕 28 septembre 2026 : même renfort que #activityPageSectionSwitch
-     ci-dessus (will-change seul insuffisant sur l'appareil d'Emilien). */
-  transform: translateZ(0);
-}
-
-/* Le bouton "Sortir" ne s'affiche que sur le sous-projet ouvert : il est
-   construit en JS, il n'y a rien à masquer ici — juste à ne pas le laisser
-   s'étirer entre le badge et le bouton "Ajouter". */
-.subProjectCloseBtn {
-  flex: 0 0 auto;
-  padding: 4px 10px;
-  white-space: nowrap;
-}
-
-/* Le "+" seul, sans titre à sa gauche : il reste calé à droite. */
-.subProjectsHeadRow {
-  justify-content: flex-end;
-}
-
-/* L indication "Aucun sous-projet" partage la ligne du "+" (5 septembre
-   2026, Activite solo). margin-right: auto plutot que space-between sur la
-   ligne : quand l indication est masquee, le cas normal, le "+" doit
-   rester colle a droite, ce que space-between ne ferait pas avec un enfant
-   unique. */
-.subProjectsHeadRow #subProjectsEmptyHint {
-  margin: 0 auto 0 0;
-  text-align: left;
-}
-
-.subProjectSection {
-  margin-bottom: 14px;
-}
 
 .subProjectItems {
   display: flex;
@@ -3833,11 +3768,6 @@ button { -webkit-user-select: none; user-select: none; }
 .historyEditTaskLabel {
   width: 100%;
   box-sizing: border-box;
-}
-
-.subProjectItemWho {
-  flex: 0 0 auto;
-  white-space: nowrap;
 }
 
 .subProjectItemAdd {
@@ -4071,83 +4001,15 @@ button { -webkit-user-select: none; user-select: none; }
   color: var(--mine-violet-text);
 }
 
-/* ----- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) -----
-   Un sous-projet ne contient plus une todolist et un fil imposés, mais des
-   sections ajoutées une par une. Uniquement des classes spécifiques ici — les
-   sondages réutilisent telles quelles .pollsBlock/.pollForm/.pollCard du socle
-   commun (discussion "Sondages"), aucune n'est redéfinie. */
-
-.subProjectSectionHead {
-  margin-bottom: 6px;
-}
 
 /* UNE SEULE ligne fine entre deux sections, jamais avant la première : la
    bordure est portée par chaque bloc SAUF quand rien ne le précède. Les blocs
    masqués (sondages ou discussion absents) ne comptent pas — d'où les
    sélecteurs :not(.hidden). */
-#subProjectDetail .pollsBlock,
-#subProjectDetail .discussionBlock {
-  margin-top: 14px;
-  padding-top: 10px;
-}
 
-#subProjectDetail .subProjectSection + .subProjectSection,
-#subProjectSections:not(:empty) ~ .pollsBlock:not(.hidden),
-#subProjectSections:not(:empty) ~ .discussionBlock:not(.hidden),
-#subProjectDetail .pollsBlock:not(.hidden) ~ .discussionBlock:not(.hidden) {
-  border-top: 1px solid var(--border);
-}
-
-/* ----- Sous-projets : espacement, bouton "Ajouter" et son menu déroulant -----
-   3 septembre 2026, demandes d'Emilien : un espace entre deux sous-projets, le
-   bouton "Ajouter" à droite du nom, et un vrai menu déroulant sous ce bouton. */
-
-/* Les lignes de sous-projets ne se touchent plus. */
-#subProjectsList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* Le formulaire de création vit désormais SOUS la liste : il en est séparé du
-   même écart que deux sous-projets entre eux. */
-#newSubProjectCard {
-  margin-top: 10px;
-}
-
-.subProjectRowHeader .subProjectAddBtn {
-  flex: 0 0 auto;
-  margin-left: 8px;
-  padding: 4px 10px;
-}
 
 /* Menu déroulant : ancré juste sous la ligne, options empilées pleine largeur
    — plus lisible au pouce qu'une rangée de boutons serrés. */
-.subProjectAddMenu {
-  margin-top: 6px;
-}
-
-.subProjectAddMenuOptions {
-  display: flex;
-  flex-direction: column;
-}
-
-.subProjectAddMenuItem {
-  display: block;
-  width: 100%;
-  padding: 10px 8px;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.subProjectAddMenuItem:hover:not(:disabled) {
-  background: var(--hover-bg);
-}
 
 /* ⚠️ .subProjectAddMenuItem:disabled et .subProjectAddMenuSep ont été retirés
    le 3 septembre 2026 : les options déjà utilisées DISPARAISSENT du menu au
@@ -4216,47 +4078,11 @@ button { -webkit-user-select: none; user-select: none; }
    Demande d'Emilien : « encadrée dans une section étroite, bien définie ».
    Il occupait jusqu'ici toute la largeur de la ligne. */
 
-/* ⚠️ Il FLOTTE (3 septembre 2026) : `absolute` dans #subProjectDetail, donc il
-   se superpose aux tâches et au texte au lieu de les pousser vers le bas. Il
-   occupait auparavant une place réelle dans la mise en page — ouvrir le menu
-   faisait sauter tout le contenu du sous-projet. */
-.subProjectAddMenu {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 6;   /* au-dessus de l'en-tête collant (4) et du contenu */
-  width: max-content;
-  min-width: 190px;
-  max-width: 100%;
-  margin: 0;
-  padding: 4px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-}
-
-.subProjectAddMenuItem { padding: 9px 12px; }
-
-/* Ligne « N sous-projet clôturé — afficher », sous la liste. */
-.subProjectsClosedToggle {
-  margin: 10px 0 0;
-  cursor: pointer;
-  text-decoration: underline;
-}
 
 /* En-tête du formulaire de création : titre + croix d'abandon. Le filet que
    .activitySettingsPanel pose en haut n'a plus lieu d'être — la carte a
    maintenant un titre, qui dit à lui seul où commence le formulaire (Emilien,
    3 septembre 2026 : « supprimer les lignes qui ne sont pas utiles »). */
-#newSubProjectCard .activitySettingsPanel {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.newSubProjectHead {
-  margin-bottom: 6px;
-}
 
 /* Le champ de date suit le même gabarit que les autres champs du panneau
    (même règle que le formulaire de projet du Profil) : sans ça, il déborde du
@@ -4267,71 +4093,14 @@ button { -webkit-user-select: none; user-select: none; }
    de projet du Profil, corrigé le 2 septembre 2026. Le texte est centré
    (demande d'Emilien, 3 septembre 2026) : sans ça, la date se colle à gauche
    sur Android et au milieu sur iOS, deux dessins pour un même champ. */
-#newSubProjectClosesAt {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 10px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--card);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 14px;
-  text-align: center;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-/* ----- Mode édition de la liste (appui long) ----- */
-
-.subProjectEditBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 6px 2px;
-}
-
-.subProjectRow.editing .subProjectRowHeader {
-  gap: 10px;
-  cursor: default;
-}
-
-.subProjectRow.dragging {
-  opacity: 0.75;
-  border-color: var(--purple);
-  z-index: 2;   /* la ligne tirée passe AU-DESSUS de celles qui s'écartent */
-  position: relative;
-}
 
 /* ⭐ Les voisines s'écartent pour ouvrir la place (demande d'Emilien,
    3 septembre 2026). Le glissement est animé, mais UNIQUEMENT sur les lignes
    qui s'écartent : la ligne tirée doit suivre le doigt sans retard, sinon le
    geste paraît mou. D'où le `:not(.dragging)`. */
-#subProjectsList.dragging .subProjectRow:not(.dragging) {
-  transition: transform 0.16s ease;
-}
 
 /* ⚠️ SEUL élément qui neutralise le geste natif : le reste de la page défile
    normalement, même en mode édition. */
-.subProjectDragHandle {
-  flex: 0 0 auto;
-  padding: 4px 8px;
-  color: var(--text-light);
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-}
-
-.subProjectNameInput {
-  flex: 1 1 auto;
-  min-width: 0;
-}
 
 .subProjectDeleteX {
   flex: 0 0 auto;
@@ -4620,133 +4389,7 @@ button { -webkit-user-select: none; user-select: none; }
   border-radius: var(--radius-sm);
 }
 
-.subProjectStatsList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
-}
 
-.subProjectStatsRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.subProjectStatsDot {
-  flex: 0 0 auto;
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-}
-
-.subProjectStatsLabel {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.subProjectStatsValue {
-  flex: 0 0 auto;
-  color: var(--text-light);
-  font-size: 0.85rem;
-}
-
-/* ---- Date de clôture sur la ligne d'un sous-projet (4 septembre 2026,
-   discussion "Calendrier des clôtures", débordement signalé dans la zone
-   Sous-projets). Une seule classe propre, préfixée ; aucune générique de
-   Design redéfinie, et `--purple` est consommée telle quelle.
-   `flex: 0 0 auto` : c'est le NOM (`.activityRowName`, flex: 1 avec ellipse)
-   qui se rétrécit, jamais la date — une date tronquée ne veut plus rien dire. */
-.subProjectDue {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  font-size: 12px;
-  line-height: 1.4;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  /* Depuis le 4 septembre 2026 c'est un <button> (il ouvre l'éditeur de date) :
-     on neutralise l'apparence native pour qu'il reste exactement la pastille
-     d'avant, en gardant le curseur qui dit qu'on peut cliquer. */
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-/* Le dernier jour où le sous-projet est encore là. */
-.subProjectDue.today {
-  border-color: var(--purple);
-  color: var(--purple);
-  font-weight: bold;
-}
-/* Déjà clôturé : visible seulement via « afficher les sous-projets clôturés ». */
-.subProjectDue.closed { opacity: 0.55; }
-
-/* ===== Lien Sous-projets → Objectifs (15 septembre 2026, chantier Objectifs
-   — C : moteur d'auto-planification, gratuit, jamais gaté — voir
-   server/lib/goalsauto.js et noesis-timetracker-offre1-definition.md pour la
-   distinction avec la « vraie » Offre 1, chantier séparé porté par A).
-   Mêmes conventions visuelles que .subProjectDue / .subProjectDueEditor
-   juste au-dessus : un bouton-pastille dans l'en-tête, un éditeur en ligne
-   entière plus bas s'il est ouvert. */
-.subProjectGoalCategoryBtn {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  font-size: 12px;
-  line-height: 1.4;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.subProjectGoalCategoryBtn.unset {
-  border-style: dashed;
-  color: var(--text-light);
-}
-.subProjectGoalCategoryEditor {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-.subProjectGoalCategorySelect {
-  flex: 1 1 200px;
-  min-width: 0;
-  font-size: 13px;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 8px);
-  background: var(--card);
-  color: var(--text);
-}
-.subProjectGoalCategoryActions { flex: 1 1 100%; }
-.subProjectGoalCategoryHint { flex: 1 1 100%; margin: 0; }
-
-/* Membre prévu pour une tâche (même volet) : petit sélecteur discret dans la
-   ligne de la tâche, visible seulement quand son sous-projet est rattaché à
-   une catégorie Objectifs. */
-.subProjectItemPlannedSelect {
-  flex: 0 0 auto;
-  max-width: 112px;
-  font-size: 11px;
-  padding: 2px 4px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--text-light);
-}
 .subProjectItemAutoBadge {
   flex: 0 0 auto;
   font-size: 12px;
@@ -4755,21 +4398,6 @@ button { -webkit-user-select: none; user-select: none; }
 /* ---- Éditeur de la date de clôture (4 septembre 2026)
    Une ligne entière sous l'en-tête plutôt qu'un panneau flottant : rien à
    positionner dans un conteneur qui défile ET qui colle. */
-.subProjectDueEditor {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-.subProjectDueInput {
-  flex: 1 1 150px;
-  min-width: 0;
-}
-.subProjectDueActions { flex: 1 1 100%; }
-.subProjectDueHint { flex: 1 1 100%; margin: 0; }
 
 /* ===== Page d'activite : zone sure de l'appareil (5 septembre 2026) =====
    BUG signale par Emilien, capture a l'appui : « lorsque mon frere ouvre la
