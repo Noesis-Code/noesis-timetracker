@@ -160,7 +160,6 @@
   // modifier public/theme-palette.js — pas cette ligne.
   var PALETTES = {
     dark: NOESIS_THEME_PALETTES.DARK_PALETTE,
-    light: NOESIS_THEME_PALETTES.LIGHT_PALETTE,
   };
 
   function loadProfile() {
@@ -948,7 +947,7 @@
   // clair) — valable pour n'importe quelle couleur des deux palettes,
   // puisqu'elles sont justement construites pour ça (voir PALETTES).
   function textColorForTheme(theme) {
-    return theme === 'light' ? '#222222' : '#ffffff';
+    return '#ffffff'; // sombre uniquement
   }
 
   // Applique le thème clair/sombre à toute l'app (attribut sur <html>, lu
@@ -991,7 +990,7 @@
     var palette = PALETTES[currentTheme];
     containerEl.className = 'colorSwatches' + (compact ? ' compact' : '');
     containerEl.innerHTML = '';
-    var legacy = (currentTheme === 'light' ? NOESIS_THEME_PALETTES.LEGACY_LIGHT_PALETTE : NOESIS_THEME_PALETTES.LEGACY_DARK_PALETTE) || [];
+    var legacy = NOESIS_THEME_PALETTES.LEGACY_DARK_PALETTE || [];
     // Ancienne couleur par défaut d'une activité existante : conservée telle quelle (aucune pastille cochée).
     var isLegacy = !!(selected && legacy.indexOf(selected) !== -1 && palette.indexOf(selected) === -1);
     var current = (selected && (palette.indexOf(selected) !== -1 || isLegacy)) ? selected : palette[0];
@@ -4160,15 +4159,9 @@
     var L = labLightness(hex);
     var seuil = 56;
     var vers, ecart;
-    if (currentTheme === 'light') {
-      if (L <= seuil) return hex;
-      vers = '#000000';
-      ecart = Math.min((L - seuil) / (100 - seuil), 1);
-    } else {
-      if (L >= seuil) return hex;
-      vers = '#ffffff';
-      ecart = Math.min((seuil - L) / seuil, 1);
-    }
+    if (L >= seuil) return hex;
+    vers = '#ffffff';
+    ecart = Math.min((seuil - L) / seuil, 1);
     var amount = ecart * 0.6;
     var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
     var r2 = parseInt(vers.slice(1, 3), 16), g2 = parseInt(vers.slice(3, 5), 16), b2 = parseInt(vers.slice(5, 7), 16);

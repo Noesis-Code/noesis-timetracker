@@ -216,8 +216,6 @@
 .offer1PromoText span{background:linear-gradient(90deg,#c9b8ff,#fff);-webkit-background-clip:text;background-clip:text;color:transparent}
 .offer1PromoSub{display:block;font-size:12.5px;opacity:.85;margin:-6px 0 16px}
 .offer1PromoBtn{display:inline-block;padding:11px 20px;border:0;border-radius:999px;background:#C2694A;color:#fff;font-weight:600;font-size:14px;font-family:inherit}
-:root[data-theme="light"] .offer1PromoText span{background:linear-gradient(90deg,#4a3980,#674EA7);-webkit-background-clip:text;background-clip:text}
-:root[data-theme="light"] .offer1Promo{border-color:rgba(103,78,167,.5)}
 #offer1SubscribedEmptyHint{display:none}
 
 /* 3 oct. 2026 : fenêtre de confirmation de capture (doublon / tri incertain), gabarit .goalTaskEditModal. */

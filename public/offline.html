@@ -7,7 +7,7 @@
 <!-- Page volontairement autonome (styles en ligne, aucun fichier externe) :
      elle doit s'afficher même quand plus rien d'autre n'est disponible. -->
 <style>
-  :root { color-scheme: dark light; }
+  :root { color-scheme: dark; }
   body {
     margin: 0; min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
@@ -29,11 +29,6 @@
   }
   button:active { transform: scale(0.98); }
   .note { margin: 18px 0 0; font-size: 13px; }
-  @media (prefers-color-scheme: light) {
-    body { background: #f5f5f7; color: #333; }
-    .card { background: #fff; border-color: #e0e0e0; box-shadow: 0 12px 30px rgba(0,0,0,.12); }
-    p { color: #777; }
-  }
 </style>
 </head>
 <body>
