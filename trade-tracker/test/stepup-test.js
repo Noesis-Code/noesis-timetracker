@@ -23,7 +23,7 @@ const { enrollAndVerify, cookieOf } = require('./mfa-helper');
   const secret = crypto.randomBytes(16).toString('hex');
   const env = { TRADE_LINK_SECRET: secret, TRADE_EXPERT_TMT_IDS: 'e', TRADE_TOKEN_KEY: crypto.randomBytes(16).toString('hex') };
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys = ON'); migrate(db);
-  const server = createApp(db, { env, limits: { write: 1000, link: 1000, read: 1000, broker: 1000 } }).listen(0);
+  const server = createApp(db, { env, limits: { auth: 1000, write: 1000, link: 1000, read: 1000, broker: 1000 } }).listen(0);
   const base = 'http://127.0.0.1:' + server.address().port;
   const call = (method, p, ck, body) => fetch(base + p, { method, headers: { cookie: ck, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
   const linkIn = async (sub, extra) => cookieOf(await fetch(base + '/link?token=' + A.signLinkToken({ sub, name: sub, email: extra && extra.email, ua: 'node' }, secret) + (extra && extra.invite ? '&invite=' + extra.invite : ''), { redirect: 'manual' }));

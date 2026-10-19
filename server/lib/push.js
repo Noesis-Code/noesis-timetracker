@@ -101,6 +101,7 @@ const TEXTS = {
       broker_token_replaced: 'Jeton courtier remplacé.', broker_token_deleted: 'Jeton courtier supprimé.',
       auth_failures: 'Plusieurs échecs de vérification sur ton compte.', backup_code: 'Un code de secours a été utilisé.',
       passkey_added: 'Une passkey a été ajoutée à ton compte.', passkey_removed: 'Une passkey a été retirée de ton compte.', passkey_clone: 'Une passkey a été refusée : copie possible. Vérifie ton compte.',
+      prices_stale: 'Les prix de ton portefeuille ne se mettent plus à jour (synchro en retard).',
     },
     tradeSecurityHint: 'Pas toi ? Ferme toutes les sessions dans Trade Tracker.',
     announcementTitle: 'Noèsis',
@@ -118,6 +119,7 @@ const TEXTS = {
       broker_token_replaced: 'Broker token replaced.', broker_token_deleted: 'Broker token deleted.',
       auth_failures: 'Several failed verifications on your account.', backup_code: 'A backup code was used.',
       passkey_added: 'A passkey was added to your account.', passkey_removed: 'A passkey was removed from your account.', passkey_clone: 'A passkey was rejected: possible copy. Check your account.',
+      prices_stale: 'Your portfolio prices are no longer updating (sync is late).',
     },
     tradeSecurityHint: 'Not you? Close all sessions in Trade Tracker.',
     announcementTitle: 'Noèsis',
@@ -393,7 +395,7 @@ function notifyTradePurchase(toUserId, ev) {
 
 // Alerte de sécurité Trade Tracker (POST /api/trade-events, type « security ») : connexion, nouvel appareil, jeton courtier, échecs répétés.
 // Aucune donnée financière dans le texte. Pas de filtre par module « trade » (une alerte de sécurité ne doit pas dépendre d'un réglage d'affichage).
-const TRADE_SECURITY_KINDS = ['login', 'new_device', 'broker_token_set', 'broker_token_replaced', 'broker_token_deleted', 'auth_failures', 'backup_code', 'passkey_added', 'passkey_removed', 'passkey_clone'];
+const TRADE_SECURITY_KINDS = ['login', 'new_device', 'broker_token_set', 'broker_token_replaced', 'broker_token_deleted', 'auth_failures', 'backup_code', 'passkey_added', 'passkey_removed', 'passkey_clone', 'prices_stale'];
 function notifyTradeSecurity(toUserId, ev) {
   if (!configured) return;
   try {
@@ -401,7 +403,7 @@ function notifyTradeSecurity(toUserId, ev) {
     const t = textsFor(toUserId);
     sendToUsers([toUserId], {
       title: t.tradeTitle,
-      body: t.tradeSecurity[ev.kind] + ' ' + t.tradeSecurityHint,
+      body: ev.kind === 'prices_stale' ? t.tradeSecurity[ev.kind] : t.tradeSecurity[ev.kind] + ' ' + t.tradeSecurityHint,
       tag: 'trade-secu-' + ev.eventId,
       url: '/?notif=trade&secu=' + encodeURIComponent(ev.kind),
     });

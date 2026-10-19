@@ -6,6 +6,7 @@ const express = require('express');
 const { importSheet, ensureUser } = require('./lib/importsheet');
 const A = require('./lib/auth');
 const { createLimiter } = require('./lib/ratelimit');
+const PW = require('./lib/pricewatch');
 const C = require('./lib/calc');
 const { buildPortfolio, latestUsdCad } = require('./lib/portfolio');
 const { compareProportions } = require('./lib/compare');
@@ -58,6 +59,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
   const rlWrite = createLimiter({ max: limits.write || 30 })(ip);
   const rlAdmin = createLimiter({ max: limits.admin || 10 })(ip);
   const rlRead = createLimiter({ max: limits.read || 300 })(ip);
+  const rlAuth = createLimiter({ max: limits.auth || 20 })(ip); // saisies de codes/passkeys/step-up : en plus de la limite d'écriture et des verrouillages par compte/IP
   const rlBroker = createLimiter({ max: limits.broker || 10 })(ip); // en plus de la limite d'écriture générale
   // CSRF : le cookie peut être SameSite=None (iframe TMT). Toute écriture portant un en-tête Origin doit venir de cette app ou de TMT.
   app.use('/api', (req, res, next) => {
@@ -69,6 +71,7 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
     res.status(403).json({ error: 'bad_origin', message: 'Origine refusée.' });
   });
   app.use('/link', rlLink);
+  app.use('/api/auth', (req, res, next) => (req.method === 'POST' || req.method === 'DELETE' ? rlAuth(req, res, next) : next()));
   app.use('/api', (req, res, next) => (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE' ? rlWrite : rlRead)(req, res, next));
   // Réponse JSON avec ETag fort (empreinte du corps) : If-None-Match identique => 304 sans corps.
   const sendJson = (req, res, obj) => {
@@ -106,7 +109,13 @@ function createApp(db, { env = process.env, limits = {}, onAlert } = {}) {
 
   app.use(express.json({ limit: '50kb' }));
 
-  app.get(['/health', '/api/health'], (req, res) => res.json({ ok: true }));
+  // Santé : toujours 200 tant que le processus répond (le health-check Railway ne doit pas redémarrer pour un retard de prix).
+  // Au passage, vérifie la fraîcheur des prix (alerte push TMT dédupliquée, voir lib/pricewatch.js) et l'indique par un simple booléen.
+  app.get(['/health', '/api/health'], (req, res) => {
+    let pricesStale = false;
+    try { pricesStale = PW.checkAndAlert(db, { onAlert: (u, k) => alertUser(u, k), env }).length > 0; } catch (e) { console.warn('[trade-tracker] santé :', e.message); }
+    res.json({ ok: true, pricesStale });
+  });
 
   app.get('/link', (req, res) => {
     const ipKey = 'ip:' + (req.ip || 'inconnu');

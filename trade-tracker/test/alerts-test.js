@@ -20,7 +20,7 @@ const { enrollAndVerify, cookieOf } = require('./mfa-helper');
   const notifier = { notify: async (e) => { const r = await base0.notify(e); sentReq.push(r.request); return r; } };
   const kinds = [];
   const alerter = createAlerter(db, notifier);
-  const server = createApp(db, { env, onAlert: (uid, kind) => { kinds.push(kind); return alerter(uid, kind); }, limits: { write: 1000, link: 1000, read: 1000, broker: 1000 } }).listen(0);
+  const server = createApp(db, { env, onAlert: (uid, kind) => { kinds.push(kind); return alerter(uid, kind); }, limits: { auth: 1000, write: 1000, link: 1000, read: 1000, broker: 1000 } }).listen(0);
   const base = 'http://127.0.0.1:' + server.address().port;
   const call = (method, p, ck, body, ua) => fetch(base + p, { method, headers: { cookie: ck, 'content-type': 'application/json', ...(ua ? { 'user-agent': ua } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
   const linkIn = async (sub, ua, extra) => cookieOf(await fetch(base + '/link?token=' + A.signLinkToken({ sub, name: sub, email: extra && extra.email, ua }, secret) + (extra && extra.invite ? '&invite=' + extra.invite : ''), { redirect: 'manual', headers: { 'user-agent': ua } }));

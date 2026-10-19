@@ -26,7 +26,7 @@ const { VirtualAuthenticator } = require('./passkey-helper');
   const env = { TRADE_LINK_SECRET: secret, TRADE_EXPERT_TMT_IDS: 'e', TRADE_TOKEN_KEY: crypto.randomBytes(16).toString('hex'), TMT_BASE_URL: TMT, TRADE_RP_ID: RP, TRADE_ORIGIN: ORIGIN };
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys = ON'); migrate(db);
   const kinds = [];
-  const mk = (e) => createApp(db, { env: e, onAlert: (u, k) => kinds.push(k), limits: { write: 1000, link: 1000, read: 1000, broker: 1000 } }).listen(0);
+  const mk = (e) => createApp(db, { env: e, onAlert: (u, k) => kinds.push(k), limits: { auth: 1000, write: 1000, link: 1000, read: 1000, broker: 1000 } }).listen(0);
   const server = mk(env), base = 'http://127.0.0.1:' + server.address().port;
   const call = (method, p, ck, body) => fetch(base + p, { method, headers: { cookie: ck, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
   const J = async (r) => ({ status: r.status, j: await r.json().catch(() => ({})), ck: cookieOf(r) });
@@ -231,7 +231,7 @@ const { VirtualAuthenticator } = require('./passkey-helper');
   // --- indisponible sans TRADE_RP_ID en production
   { const db2 = new DatabaseSync(':memory:'); db2.exec('PRAGMA foreign_keys = ON'); migrate(db2);
     const e2 = { ...env, NODE_ENV: 'production' }; delete e2.TRADE_RP_ID; delete e2.TRADE_ORIGIN;
-    const s2 = createApp(db2, { env: e2, limits: { write: 1000, link: 1000, read: 1000 } }).listen(0), b2 = 'http://127.0.0.1:' + s2.address().port;
+    const s2 = createApp(db2, { env: e2, limits: { auth: 1000, write: 1000, link: 1000, read: 1000 } }).listen(0), b2 = 'http://127.0.0.1:' + s2.address().port;
     try {
       const c = cookieOf(await fetch(b2 + '/link?token=' + A.signLinkToken({ sub: 'e', name: 'e', ua: 'node' }, secret), { redirect: 'manual', headers: { 'user-agent': 'node' } }));
       const e = await enrollAndVerify(b2, c);

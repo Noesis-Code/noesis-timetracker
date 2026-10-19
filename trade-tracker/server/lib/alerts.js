@@ -3,7 +3,7 @@
 // Le message n'embarque AUCUNE donnée financière ni secret : seulement { type, kind, userId (id TMT), occurredAt }.
 const { notifyPending } = require('./notifier');
 
-const KINDS = ['login', 'new_device', 'broker_token_set', 'broker_token_replaced', 'broker_token_deleted', 'auth_failures', 'backup_code', 'passkey_added', 'passkey_removed', 'passkey_clone'];
+const KINDS = ['login', 'new_device', 'broker_token_set', 'broker_token_replaced', 'broker_token_deleted', 'auth_failures', 'backup_code', 'passkey_added', 'passkey_removed', 'passkey_clone', 'prices_stale'];
 
 // Retourne onAlert(userId (id Trade), kind) : enregistre l'événement puis tente l'envoi tout de suite (sans bloquer la requête).
 function createAlerter(db, notifier, { now = () => Date.now(), onError = (e) => console.warn('[trade-tracker] alerte :', e.message) } = {}) {

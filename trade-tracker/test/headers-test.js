@@ -11,7 +11,7 @@ const { enrollAndVerify } = require('./mfa-helper');
   const secret = crypto.randomBytes(16).toString('hex');
   const env = { TRADE_LINK_SECRET: secret, TRADE_EXPERT_TMT_IDS: 'e', TRADE_TOKEN_KEY: crypto.randomBytes(16).toString('hex'), TMT_BASE_URL: 'https://tmt.example.test' };
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys = ON'); migrate(db);
-  const server = createApp(db, { env, limits: { write: 1000, link: 1000, read: 1000 } }).listen(0);
+  const server = createApp(db, { env, limits: { auth: 1000, write: 1000, link: 1000, read: 1000 } }).listen(0);
   const base = 'http://127.0.0.1:' + server.address().port;
   try {
     const tok = () => A.signLinkToken({ sub: 'e', name: 'e', ua: 'node' }, secret);

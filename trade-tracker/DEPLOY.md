@@ -26,6 +26,7 @@ Rien n'est déployé automatiquement. Le serveur **refuse de démarrer en produc
 | `TRADE_RP_ID` | domaine de Trade sans `https://` (ex. `web-trade-xxxx.up.railway.app`) ; active les passkeys (sans lui : indisponibles). Changer le domaine invalide les passkeys existantes |
 | `TRADE_ORIGIN` | facultatif, défaut `https://<TRADE_RP_ID>` |
 | `TRADE_ADMIN_TOKEN` | facultatif, >= 16 car. ; active l'import admin |
+| `TRADE_PRICE_STALE_MIN` | facultatif (défaut 120) : minutes sans synchro de prix avant l'alerte push `prices_stale` (au plus une par 24 h) ; `/health` répond toujours 200 avec `pricesStale` |
 | `TRADE_CONNECTOR` | `demo` (défaut) ou `questrade` (voir ci-dessous) |
 | `TRADE_COOKIE_CROSS_SITE` | `1` si le cookie doit passer en iframe sans HTTPS détecté (inutile derrière Railway HTTPS) |
 | `TRADE_DATA_DIR` | `/data` (le volume) ; `NOESIS_DATA_DIR` accepté en repli |
@@ -34,10 +35,10 @@ Rien n'est déployé automatiquement. Le serveur **refuse de démarrer en produc
 1. Railway : nouveau service depuis le dépôt, branche `staging`, **Root Directory = `trade-tracker`** (`railway.json`, `Procfile` : `node server/index.js`, santé `GET /health`).
 2. Ajouter un volume monté sur `/data`, puis `TRADE_DATA_DIR=/data`. Un seul réplica.
 3. Générer les secrets (`openssl`), renseigner les variables de Trade (sans `TMT_BASE_URL` si TMT n'a pas encore d'URL finale : le redéployer ensuite).
-4. Déployer Trade, vérifier `https://<trade>/health` -> `{"ok":true}`. Un échec au démarrage affiche les variables manquantes dans les logs.
+4. Déployer Trade (Railway exécute `npm ci` grâce à `package-lock.json` ; en local ou dans un worktree : `cd trade-tracker && npm ci` avant `npm start` ou `npm test`), vérifier `https://<trade>/health` -> `{"ok":true}`. Un échec au démarrage affiche les variables manquantes dans les logs.
 5. Côté TMT : ajouter `TRADE_ALLOWED_USER_IDS`, `TRADE_LINK_SECRET`, `TRADE_BASE_URL` (URL de Trade), `TRADE_NOTIFY_SECRET`, puis redéployer TMT.
 6. Activer le module Trade pour ton compte dans TMT, ouvrir l'onglet, vérifier l'entrée par lien.
-7. Données de départ (facultatif) : `node trade-tracker/import-sheet.js <dossier-csv> --user <idTMT>` ou endpoint admin ; sauvegarde : `npm run backup` planifié.
+7. Données de départ (facultatif) : `node trade-tracker/import-sheet.js <dossier-csv> --user <idTMT>` ou endpoint admin ; sauvegarde : `npm run backup` planifié ; restauration (service arrêté) : `node restore.js <sauvegarde.db> [--force]`.
 
 ## Activer Questrade (lecture seule)
 1. Portail API Questrade : créer une application personnelle (lecture seule) et générer un jeton d'API (refresh token).

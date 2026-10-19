@@ -1,10 +1,11 @@
 # Trade Tracker (serveur)
 
-Extension Noèsis : suivi du portefeuille d'un expert et de ses clients. Autonome : même pile que TMT (Node 22, Express, `node:sqlite`), aucune dépendance propre ; déplaçable telle quelle vers son propre dépôt/service (ajouter alors un `package.json` avec `express`).
+Extension Noèsis : suivi du portefeuille d'un expert et de ses clients. Autonome : même pile que TMT (Node 22, Express, `node:sqlite`) ; dépendances propres (`express`, `@simplewebauthn/server`, versions figées par `package-lock.json`) ; déplaçable telle quelle vers son propre dépôt/service.
 
+- Installer (une fois par clone ou worktree, obligatoire avant démarrage et tests) : `cd trade-tracker && npm ci` (Railway le fait au déploiement, Root Directory = `trade-tracker`).
 - Démarrer : `NOESIS_DATA_DIR=<dossier> TRADE_LINK_SECRET=<16+ car.> PORT=3980 node trade-tracker/server/index.js`
 - Démo fictive : `node trade-tracker/seed-demo.js` (affiche des liens d'entrée).
-- Tests : `node trade-tracker/test/run.js` (inclus dans `node test/run-tests.js`).
+- Tests : `cd trade-tracker && npm ci && node test/run.js` (inclus dans `node test/run-tests.js`).
 - Contrat d'API, variables d'environnement, événements vers TMT : voir `API.md`.
 - Sécurité (TOTP obligatoire, sessions, audit, alertes, lecture seule) : `SECURITY.md` ; mise en service : « Checklist de mise en service sécurisée » dans `DEPLOY.md`. Scripts d'exploitation : `node rotate-key.js [--dry-run]` (rotation de `TRADE_TOKEN_KEY`), `node mfa-reset.js <idTMT>` (urgence).
 
@@ -20,5 +21,5 @@ Rien n'est déployé automatiquement. Marche à suivre (Émilien) :
    - `TRADE_ADMIN_TOKEN` (facultatif, >= 16 car.) : active l'import admin ; `TRADE_CONNECTOR` (`demo` par défaut ; `questrade` = lecture seule, voir `DEPLOY.md`), `TRADE_SYNC_INTERVAL_MIN`.
    - Générer un secret : `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 4. Un seul réplica (SQLite, planificateurs en processus).
-5. Sauvegarde : `npm run backup` (`node backup.js`, `VACUUM INTO` daté dans `/data/backups`, 14 conservées) en tâche planifiée Railway, plus les sauvegardes de volume Railway ; copier périodiquement hors du volume (R2, voir `GUIDE-SAUVEGARDE-R2.md` à la racine).
+5. Sauvegarde : `npm run backup` (`node backup.js`, `VACUUM INTO` daté dans `/data/backups`, 14 conservées) en tâche planifiée Railway, plus les sauvegardes de volume Railway ; copier périodiquement hors du volume (R2, voir `GUIDE-SAUVEGARDE-R2.md` à la racine). Restauration (service arrêté) : `node restore.js <sauvegarde.db> [--force]` : contrôle d'intégrité et de la chaîne d'audit, refuse d'écraser sans `--force`, conserve l'ancienne base.
 6. Données de départ : `node trade-tracker/import-sheet.js <dossier-csv> --user <idTMT>` (ou endpoint admin).
