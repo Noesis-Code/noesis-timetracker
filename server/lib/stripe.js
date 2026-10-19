@@ -90,7 +90,23 @@ async function createCheckoutSession({ mode, priceId, successUrl, cancelUrl, cus
   if (!priceId) throw new Error('priceId requis.');
   if (!successUrl || !cancelUrl) throw new Error('successUrl et cancelUrl requis.');
 
-  return stripeRequest('POST', '/checkout/sessions', {
+  const params = buildCheckoutParams({ mode, priceId, successUrl, cancelUrl, customerId, customerEmail, metadata });
+  try {
+    return await stripeRequest('POST', '/checkout/sessions', params);
+  } catch (e) {
+    // Stripe Tax non configuré dans le compte : message clair, sans détail Stripe.
+    if (params.automatic_tax) {
+      console.error('[stripe] Checkout refusé avec Stripe Tax activé :', String(e.message).slice(0, 200));
+      throw new Error('Calcul des taxes indisponible pour le moment. Réessaie plus tard.');
+    }
+    throw e;
+  }
+}
+
+// Corps de la requête Checkout (pur, testable sans réseau). Taxes TPS/TVQ
+// automatiques UNIQUEMENT si STRIPE_TAX_ENABLED=1 ; sinon comportement inchangé.
+function buildCheckoutParams({ mode, priceId, successUrl, cancelUrl, customerId, customerEmail, metadata }) {
+  const params = {
     mode,
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: successUrl,
@@ -100,7 +116,13 @@ async function createCheckoutSession({ mode, priceId, successUrl, cancelUrl, cus
     // client existant fait foi) — jamais les deux en même temps.
     customer_email: customerId ? undefined : (customerEmail || undefined),
     metadata: metadata || {},
-  });
+  };
+  if (process.env.STRIPE_TAX_ENABLED === '1') {
+    params.automatic_tax = { enabled: true };
+    if (customerId) params.customer_update = { address: 'auto' };
+    else params.billing_address_collection = 'auto';
+  }
+  return params;
 }
 
 // Nécessaire pour connaître le statut/les dates de période d'un abonnement
@@ -167,6 +189,7 @@ function constructEvent(rawBody, signatureHeader) {
 module.exports = {
   secretKeyConfigured,
   createCheckoutSession,
+  buildCheckoutParams,
   retrieveSubscription,
   constructEvent,
 };
