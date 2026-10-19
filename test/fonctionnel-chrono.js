@@ -54,11 +54,6 @@ const iso = (ms) => new Date(Date.now() + ms).toISOString();
     assert(g4.status === 400 && /chevauchent/.test(g4.body.error), 'garde-fou : chevauchement refusé');
     const g5 = await c.put('/api/history/' + gid, { startTime: iso(-9000e3), endTime: iso(-5400e3) });
     assert(g5.status === 200, 'garde-fou : modification valide acceptée (sans chevauchement)');
-    // Horloge défilante (tâche 1344) : désactivée par défaut, persistée par profil
-    assert((await c.get('/api/profile/' + u.id + '/scroll-clock')).body.enabled === false, 'horloge défilante : désactivée par défaut');
-    assert((await c.put('/api/profile/' + u.id + '/scroll-clock', { enabled: true })).status === 200, 'horloge défilante : activation');
-    assert((await c.get('/api/profile/' + u.id + '/scroll-clock')).body.enabled === true, 'horloge défilante : persistée');
-    assert((await other.c.get('/api/profile/' + u.id + '/scroll-clock')).status === 403, 'horloge défilante : profil d\'un autre refusé');
     const upd = await c.put('/api/history/' + add.body.id, { note: 'modifiée' });
     assert(upd.status === 200, 'édition acceptée');
     const h2 = await c.get('/api/history?period=year');

@@ -24,10 +24,7 @@
   // activité qu'on vient de quitter (même motif que viewProfileUserId).
   var chronoRunningActivityId = null;
   var chronoRunningCategory = null;
-  // 22 septembre 2026 : couleur de base de l'activité en cours, mémorisée
-  // pour teinter l'en-tête de #secteurTasksModal (subProjectShade() a besoin
-  // de cette couleur de départ pour recalculer la nuance du secteur — voir
-  // openSecteurTasksModal).
+  // Couleur de base de l'activité en cours (mémorisée pour le sélecteur pôle/secteur).
   var chronoRunningActivityColor = null;
   // Périodes indépendantes par section de Statistiques — 30 août 2026, sur
   // demande d'Emilien : plus de sélecteur global (#statsPeriodSwitch), chaque
@@ -2501,9 +2498,7 @@
   // précis). Cliquer un pôle qui a des secteurs rattache le temps au pôle
   // ENTIER *immédiatement* (comportement inchangé du <select> natif — un pôle
   // reste sélectionnable seul) tout en affichant ses secteurs juste après,
-  // pour affiner sans rouvrir le menu. « Visualiser » (secteur uniquement)
-  // ouvre #secteurTasksModal — voir openSecteurTasksModal plus bas — sans
-  // jamais déclencher le commit du rattachement (stopPropagation).
+  // pour affiner sans rouvrir le menu.
   function createCategoryPicker(container, onCommit, onVisualiser) {
     var state = { list: [], current: null, open: false, drill: null };
 
@@ -2578,13 +2573,7 @@
       });
       row.appendChild(main);
 
-      // 22 septembre 2026, demande d'Emilien : « on enlève l'option pour
-      // visualiser les tâches des pôles ou des secteurs » à l'étape Arrêt —
-      // `stopCategoryPicker` instancie désormais ce widget avec `onVisualiser`
-      // à `null` (voir plus bas) ; le bouton ne doit alors pas apparaître du
-      // tout dans ce contexte, tout en restant inchangé pour le sélecteur du
-      // Chrono en cours (`chronoCategoryPicker`, `onVisualiser` toujours
-      // `openSecteurTasksModal`).
+      // Le bouton « Visualiser » n'apparaît que si `onVisualiser` est fourni.
       if (secteur && onVisualiser) {
         var visBtn = document.createElement('button');
         visBtn.type = 'button';
@@ -2731,10 +2720,7 @@
   // suffit donc à faire disparaître le bouton dans tous les contextes du
   // sélecteur pôle/secteur, sans dupliquer `buildRow`/`render()`. Le choix
   // d'un pôle ou d'un secteur pour l'enregistrement du chrono reste inchangé
-  // (commitStay/teinte violette/panneau qui reste ouvert). `openSecteurTasksModal`,
-  // la fenêtre `#secteurTasksModal`, et les routes serveur associées sont
-  // laissés en place mais ne sont plus appelés nulle part (convention du
-  // projet : masquer côté client, ne pas supprimer côté serveur).
+  // (commitStay/teinte violette/panneau qui reste ouvert).
 
   function renderChronoCategorySelector(activity, category) {
     var wrap = $('chronoCategoryWrap');

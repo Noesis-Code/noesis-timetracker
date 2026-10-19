@@ -807,7 +807,7 @@ input[type=time]:focus, select:focus, textarea:focus {
 .tabBtn.active .tabIcon,
 :root[data-theme="dark"] .tabBtn.active .tabIcon {
   background: linear-gradient(180deg, rgba(133, 108, 200, 0.55) 0%, rgba(var(--purple-rgb), 0.38) 100%);
-  border-color: rgba(170, 150, 230, 0.55);
+  border-color: color-mix(in srgb, var(--onb-purple) 55%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 6px 18px rgba(var(--purple-rgb), 0.45);
   color: var(--white);
 }
@@ -3293,15 +3293,8 @@ button { -webkit-user-select: none; user-select: none; }
    bonnes classes (.viewProfileIdentity / .viewProfileScroll) mais la règle de
    défilement était portée par un ID (#viewProfileScroll), pas par la classe :
    elle ne s'appliquait donc qu'à la page de visite d'un profil. */
-/* 22 septembre 2026 (Chrono — fenêtre « visualiser », demande d'Emilien :
-   « l'entête [...] reste fixe [...] les jours et les tâches défilent en
-   dessous ») : #secteurTasksModal ajouté aux deux mêmes groupes, pour la même
-   raison que #categoryStatsModal ci-dessus (5 septembre 2026) — la fenêtre
-   avait déjà les bonnes classes (.viewProfileIdentity / .viewProfileScroll)
-   mais pas les sélecteurs, donc son en-tête défilait avec le reste. */
 #viewProfileModal .communityMembersModalCard,
-#categoryStatsModal .communityMembersModalCard,
-#secteurTasksModal .communityMembersModalCard {
+#categoryStatsModal .communityMembersModalCard {
   display: flex; flex-direction: column; padding: 0; overflow: hidden;
 }
 #viewProfileScroll,
@@ -3357,13 +3350,6 @@ button { -webkit-user-select: none; user-select: none; }
 }
 #categoryStatsModal .viewProfileIdentity.tinted #categoryStatsClose:hover {
   background: rgba(255, 255, 255, 0.18);
-}
-
-/* 22 septembre 2026 (Chrono — fenêtre « visualiser ») : même traitement que
-   #categoryStatsModal ci-dessus, posé par paintSecteurTasksHeader() en JS
-   (couleur du secteur via subProjectShade(), voir son commentaire). */
-#secteurTasksModal .viewProfileIdentity.tinted {
-  border-bottom-color: rgba(0, 0, 0, 0.2);
 }
 
 /* Point vert « chrono en cours » du profil visité (3 septembre 2026, demande
@@ -4233,27 +4219,6 @@ button { -webkit-user-select: none; user-select: none; }
   font-size: 13px;
   cursor: pointer;
 }
-
-/* ===================== FENÊTRE « VISUALISER » — TÂCHES D'UN SECTEUR
-   (21 septembre 2026, complétée le 22 septembre 2026) =====================
-   #secteurTasksModal reprend .communityMembersModal/.communityMembersModalCard
-   telles quelles (aucune redéfinition ici) — seul le contenu interne
-   (regroupement par jour) a ses propres classes, ci-dessous. L'en-tête fixe
-   et coloré (#secteurTasksModal .viewProfileIdentity.tinted, plus bas dans
-   ce fichier avec la même règle pour #categoryStatsModal) et le
-   display:flex/overflow qui la rend réellement fixe (voir le commentaire du
-   2 septembre 2026 sur .viewProfileIdentity) sont ajoutés à leurs groupes de
-   sélecteurs existants plutôt que redéfinis ici. */
-
-/* 22 septembre 2026, demande d'Emilien : flèches de navigation entre
-   semaines, remplace l'ancien bloc d'ajout de tâche (.secteurTasksAddRow,
-   retiré). */
-
-/* Objectif hebdomadaire (goal_weekly) affiché en tête de liste — demande
-   d'Emilien : « ajouter en haut de la liste des tâches, les objectifs
-   hebdomadaires pour chaque semaine ». Vide (aucun objectif écrit pour cette
-   semaine) → masqué par la classe .hidden posée en JS, pas de place
-   réservée dans ce cas. */
 
 /* ---- Flux calendrier (4 septembre 2026, discussion "Calendrier des clôtures")
    Une seule classe propre, préfixée, aucune générique de Design redéfinie.
@@ -6204,7 +6169,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catEditForm .timeCapsMax { min-height: 44px; width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--text); font: inherit; font-size: 15px; font-variant-numeric: tabular-nums; cursor: pointer; }
 .catEditForm .timeCapsMax.isEmpty { color: var(--text-light); }
 .catEditForm .timeCapsMax:disabled { opacity: .6; cursor: default; }
-.durPickerOverlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
+.durPickerOverlay { position: fixed; inset: 0; z-index: 400; background: var(--veil); display: flex; align-items: center; justify-content: center; }
 .durPickerSheet { width: 100%; max-width: 480px; box-sizing: border-box; margin: 0 8px; padding: 12px 16px 16px; border-radius: 22px; background: rgba(38,40,48,.94); color: var(--white); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 10px 40px rgba(0,0,0,.4); }
 .durPickerHead { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; }
 .durPickerClose { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: rgba(255,255,255,.75); font-size: 18px; cursor: pointer; }
