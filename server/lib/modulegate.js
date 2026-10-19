@@ -16,7 +16,9 @@ const RULES = [
   [['roadmap', 'ai'], /^\/api\/activities\/[^/]+\/(document-tasks|change-proposals|strategy)(\/|$)/],
   [['roadmap', 'ai'], /^\/api\/activities\/[^/]+\/goals\/(rewrite|categories\/auto-task|periods\/[^/]+\/weekly-proposals|weekly\/[^/]+\/daily-plan)$/],
   ['calendar', /^\/api\/(calendar\/(feed|export-selection|external|external-settings)|activities\/[^/]+\/goals-days)(\/|$)/],
-  ['ai', /^\/api\/(drive|ai-tokens)(\/|$)/],
+  ['ai', /^\/api\/drive(\/|$)/],
+  // Jetons de connexion IA : lister et révoquer restent toujours possibles (Loi 25) ; seule la création dépend du module.
+  ['ai', /^\/api\/ai-tokens(\/|$)/, (p, m) => m !== 'POST'],
   ['roadmap', /^\/api\/activities\/[^/]+\/goals(\/|$)/, (p) => CATEGORY_CRUD.test(p) && !CATEGORY_TASK.test(p)],
   ['sharing', /^\/api\/(invites(\/|$)|community\/(activity-[a-z-]+|unread-messages))/],
   ['community', /^\/api\/(community(\/(shared-feed|following-feed))?|follows|blocks|users\/search|polls)(\/|$)/],
@@ -24,10 +26,10 @@ const RULES = [
   ['profile', /^\/api\/profile\/[^/]+\/(public|projects|posts)$/],
 ];
 
-function blockedModule(userId, path) {
+function blockedModule(userId, path, method) {
   for (const [mod, re, exempt] of RULES) {
     if (!re.test(path)) continue;
-    if (exempt && exempt(path)) return null;
+    if (exempt && exempt(path, method)) return null;
     return [].concat(mod).find((m) => !modules.isEnabled(userId, m)) || null;
   }
   return null;
@@ -43,7 +45,7 @@ function moduleOff(res, mod) {
 function moduleGate(req, res, next) {
   if (!req.userId || !req.path.startsWith('/api/')) return next();
   let mod = null;
-  try { mod = blockedModule(req.userId, req.path); } catch (e) { return next(); }
+  try { mod = blockedModule(req.userId, req.path, req.method); } catch (e) { return next(); }
   if (mod) return moduleOff(res, mod);
   next();
 }

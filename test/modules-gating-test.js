@@ -19,7 +19,7 @@ db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u2', 'Autre', '2026
 for (const u of ['u1', 'u2']) db.prepare("INSERT INTO push_subscriptions (userId, endpoint, p256dh, auth, createdAt) VALUES (?, ?, 'p', 'a', '2026')").run(u, 'ep-' + u);
 
 function call(userId, urlPath) {
-  const req = { userId, path: urlPath };
+  const req = { userId, path: urlPath, method: urlPath === '/api/ai-tokens' ? 'POST' : 'GET' };
   let status = 200, body = null, passed = false;
   const res = { status(s) { status = s; return this; }, json(b) { body = b; return this; } };
   G.moduleGate(req, res, () => { passed = true; });
@@ -49,6 +49,7 @@ for (const mod of ['roadmap', 'stats-tasks', 'calendar', 'ai', 'sharing', 'commu
   const r = call('u1', p);
   assert(!r.passed && r.status === 403 && r.body.code === 'module_off' && r.body.module === mod && /désactivé/.test(r.body.error), p + ' -> 403 ' + mod);
 }
+for (const m of ['GET', 'DELETE']) { const r = { userId: 'u1', path: '/api/ai-tokens', method: m }; let ok = false; G.moduleGate(r, { status() { return this; }, json() { return this; } }, () => { ok = true; }); assert(ok, m + ' /api/ai-tokens reste ouvert (révocation, Loi 25)'); }
 for (const p of ALWAYS_OPEN.concat(ROUTES.stats)) assert(call('u1', p).passed, p + ' reste ouvert (noyau ou stats actif)');
 assert(call('u2', '/api/goals/capture').passed, 'autre utilisateur non touché');
 M.setModules('u1', { stats: false, roadmap: true });
