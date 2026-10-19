@@ -14,8 +14,12 @@ const T = makeCounter(); const assert = T.assert;
     assert(g.status === 200 && g.body.modules.core === true && g.body.modules.stats === true && g.body.modules.roadmap === true, 'GET : état par défaut (noyau, stats, feuille de route actifs)');
     assert(g.body.modules.community === false && g.body.modules.profile === false, 'GET : Communauté/Profil inactifs par défaut');
     assert(Array.isArray(g.body.list) && g.body.list.some((m) => m.id === 'stats'), 'GET : liste des modules');
-    assert((await c.get(`/api/profile/${other.id}/modules`)).status === 403, "lecture des modules d'un autre = 403");
-    assert((await c.put(`/api/profile/${other.id}/modules`, { modules: { stats: false } })).status === 403, "écriture des modules d'un autre = 403");
+    // Les modules suivent la session : l'id de l'URL ne donne jamais accès au compte d'un autre.
+    const viaOther = await c.get(`/api/profile/${other.id}/modules`);
+    assert(viaOther.status === 200 && JSON.stringify(viaOther.body.modules) === JSON.stringify(g.body.modules), "lecture via l'id d'un autre = ses propres modules");
+    const wOther = await c.put(`/api/profile/${other.id}/modules`, { modules: { community: true } });
+    assert(wOther.status === 200 && (await c.get(url)).body.modules.community === true, "écriture via l'id d'un autre = sur son propre compte seulement");
+    await c.put(url, { modules: { community: false } });
     assert((await client(s.base).get(url)).status === 401, 'sans session = 401');
 
     assert((await c.get(`/api/category-stats?activityId=${A}&period=week`)).status === 200, 'stats ouvertes quand le module est actif');
