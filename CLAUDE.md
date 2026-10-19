@@ -50,7 +50,7 @@ Chacun dirige sa propre discussion Claude sur le même dépôt. Pour ne pas s'é
 
 `NOESIS_DATA_DIR=$D RAILWAY_ENVIRONMENT_NAME=staging node scripts/dev-seed.js` (affiche l'id d'Emilien), puis `NOESIS_DATA_DIR=$D PORT=3999 node server/index.js &`, puis `python3 scripts/visual-check.py <id> <dossier> [dark|light]` et lire les PNG. Pour un écran précis, copier le script et cliquer jusqu'à lui. Toute retouche de design se vérifie en capture avant de rendre la main.
 
-Toute modification d'interface suit `DESIGN.md` (lexique de design) ; relire ce fichier avant de coder et signaler tout écart.
+Toute modification d'interface suit `DESIGN.md` (lexique de design) ; relire ce fichier avant de coder et signaler tout écart. L'application n'a PAS de mode clair : sombre uniquement.
 
 ## Travailleurs en arrière-plan (depuis le 30 sept. 2026)
 

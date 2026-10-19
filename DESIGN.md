@@ -4,41 +4,40 @@ Extrait du code réel (`public/styles.css`, `public/css/*.css`, `public/theme-pa
 
 ## 1. Principes
 
+- **Sombre uniquement : aucun mode clair, ne jamais ajouter de variante claire** (règle ferme d'Émilien, 19 oct. 2026).
 - **Violet = couleur principale** (`--purple`), halos compris. Une autre teinte n'est jamais introduite sans demande explicite d'Émilien.
 - **Seuls les pôles portent une couleur** (palette `theme-palette.js`) ; jamais les secteurs.
-- **Direction « verre »** : fonds translucides + flou + liseré clair (`--glass-*`, `--vc-*`), halo violet flou en bas de l'écran. Fond de l'app = noir pur en sombre ; la barre du haut est noire dans les deux thèmes.
+- **Direction « verre »** : fonds translucides + flou + liseré clair (`--glass-*`, `--vc-*`), halo violet flou en bas de l'écran. Fond de l'app = noir pur ; la barre du haut est noire.
 - **Barres sans séparation visible** : `.tabbar` = même fond que la page, sans bordure ni ombre (icônes « flottantes »). Pas de trait de séparation nouveau.
 - **Une seule technique d'interaction par fonction** : fermeture d'un plein écran = croix ✕ ; réordonnancement = glisser-déposer ; bouton d'envoi DANS la zone d'écriture ; une LISTE de tâches, jamais un horaire à créneaux.
 - Les actions destructrices/« rouges » sont des boutons orange brique (voir 2.1), les pastilles/états restent rouges.
-- Deux thèmes : sombre (par défaut) et clair, via `<html data-theme="dark|light">`. Tout se vérifie dans les deux.
 
 ## 2. Jetons
 
-### 2.1 Couleurs (`:root` clair / `:root[data-theme="dark"]`)
+### 2.1 Couleurs (thème sombre, le seul)
 
-| Variable | Clair | Sombre |
-|---|---|---|
-| `--purple` / `--purple-dark` / `--purple-rgb` | `#674EA7` / `#4a3980` / `103, 78, 167` | idem |
-| `--green` (états actifs, interrupteur ON) | `#4CAF50` | idem |
-| `--red` (pastilles, états) | `#E74C3C` | idem |
-| `--blue` / `--grey` | `#3498db` / `#CCCCCC` | idem |
-| `--bg` (fond page/fenêtres) | `#f5f5f7` | `#000000` |
-| `--card` | `#ffffff` | `#1f2229` |
-| `--bg-raised` (sans consommateur actif) | `#ffffff` | `#121214` |
-| `--text` / `--text-light` | `#333333` / `#777777` | `#eef0f2` / `#9a9ea6` |
-| `--border` | `#e0e0e0` | `#33363d` |
-| `--track-bg` / `--hover-bg` | `#eeeeee` / `#fafafa` | `#2b2e35` / `#2a2d34` |
-| `--sheet-line` (liseré haut des feuilles) | `rgba(0,0,0,.16)` | `rgba(255,255,255,.3)` |
-| `--mine-violet` / `--mine-violet-text` | `#B7AED3` / `#1E1833` | idem |
+| Variable | Valeur |
+|---|---|
+| `--purple` / `--purple-dark` / `--purple-rgb` | `#674EA7` / `#4a3980` / `103, 78, 167` |
+| `--green` (états actifs, interrupteur ON) | `#4CAF50` |
+| `--red` (pastilles, états) | `#E74C3C` |
+| `--blue` / `--grey` | `#3498db` / `#CCCCCC` |
+| `--bg` (fond page/fenêtres) | `#000000` |
+| `--card` | `#1f2229` |
+| `--bg-raised` (sans consommateur actif) | `#121214` |
+| `--text` / `--text-light` | `#eef0f2` / `#9a9ea6` |
+| `--border` | `#33363d` |
+| `--track-bg` / `--hover-bg` | `#2b2e35` / `#2a2d34` |
+| `--sheet-line` (liseré haut des feuilles) | `rgba(255,255,255,.3)` |
+| `--mine-violet` / `--mine-violet-text` | `#B7AED3` / `#1E1833` |
 
 Accent « orange brique » des boutons d'action/suppression : `#C2694A` (bordure), `#E08A69` (texte), `#C4483F` (stop du chrono, `.chronoBtn-stop`), `#f59a3c` (pastilles non lues). Définis en dur (voir §5).
 
 **Couleurs de pôle** (`theme-palette.js`, source unique, 9 teintes, jumelles par index) :
-- Sombre : `#A04B52 #A0674B #A0864B #83A04B #4BA075 #4B98A0 #4B75A0 #594BA0 #914BA0` (texte blanc dessus).
-- Clair : `#C8979B #C8A797 #C8B997 #B7C897 #97C8AF #97C3C8 #97AFC8 #9F97C8 #BF97C8` (texte foncé dessus).
+- `#A04B52 #A0674B #A0864B #83A04B #4BA075 #4B98A0 #4B75A0 #594BA0 #914BA0` (texte blanc dessus).
 - Anciennes palettes `LEGACY_*` : restent valides, jamais réécrites.
 
-**Halos** : `--halo-n1-rgb: 80, 96, 210` (indigo, fenêtres niveau 1) et `--halo-n2-rgb: 158, 72, 168` (prune, niveau 2), opacité `--halo-n*-a` 0.22 clair / 0.54 sombre. Halo d'accueil `#app::before` : `rgba(var(--purple-rgb), .16)` clair / `.32` sombre, flou 60px.
+**Halos** : `--halo-n1-rgb: 80, 96, 210` (indigo, fenêtres niveau 1) et `--halo-n2-rgb: 158, 72, 168` (prune, niveau 2), opacité `--halo-n*-a` 0.54. Halo d'accueil `#app::before` : `rgba(var(--purple-rgb), .32)`, flou 60px.
 
 ### 2.2 Rayons
 
@@ -46,10 +45,10 @@ Accent « orange brique » des boutons d'action/suppression : `#C2694A` (bordure
 
 ### 2.3 Ombres, verre, transitions
 
-- `--shadow-card` : clair `0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04)` ; sombre `0 2px 10px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.04)`.
-- `--shadow-elevated` : clair `0 12px 30px rgba(0,0,0,.25)` ; sombre `0 16px 40px rgba(0,0,0,.5)`. Aussi `--shadow-topbar`, `--shadow-tabbar`, `--shadow-badge`.
-- **Verre** : `--glass-bg` (clair `linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.3))` ; sombre `…rgba(255,255,255,.14) → .06`), `--glass-border` (`rgba(0,0,0,.08)` / `rgba(255,255,255,.16)`), `--glass-shadow` (liseré interne haut + ombre portée), toujours avec `backdrop-filter: blur(24px) saturate(160%)` (variante feuilles/menus : `blur(40px) saturate(160%)`).
-- **Verre calme** (`css/verre-calme.css`, chargé en dernier) : `--vc-bg` (clair `rgba(255,255,255,.62)`, sombre `rgba(255,255,255,.05)`), `--vc-line` (`rgba(0,0,0,.09)` / `rgba(255,255,255,.12)`), `--vc-blur: blur(12px) saturate(1.1)`. Remplace le fond gris `--card` des cartes/lignes/champs listés dans ce fichier.
+- `--shadow-card` : `0 2px 10px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.04)`.
+- `--shadow-elevated` : `0 16px 40px rgba(0,0,0,.5)`. Aussi `--shadow-topbar`, `--shadow-tabbar`, `--shadow-badge`.
+- **Verre** : `--glass-bg` (`linear-gradient` blanc `.14 → .06`), `--glass-border` (`rgba(255,255,255,.16)`), `--glass-shadow` (liseré interne haut + ombre portée), toujours avec `backdrop-filter: blur(24px) saturate(160%)` (variante feuilles/menus : `blur(40px) saturate(160%)`).
+- **Verre calme** (`css/verre-calme.css`, chargé en dernier) : `--vc-bg` (`rgba(255,255,255,.05)`), `--vc-line` (`rgba(255,255,255,.12)`), `--vc-blur: blur(12px) saturate(1.1)`. Remplace le fond gris `--card` des cartes/lignes/champs listés dans ce fichier.
 - Transition : `--transition-fast: 0.15s ease`. `prefers-reduced-motion` coupe tout.
 - Focus clavier : `outline: 2px solid var(--purple); offset 2px`. Focus champ : halo `0 0 0 3px rgba(var(--purple-rgb), .18)`.
 
@@ -83,10 +82,10 @@ Accent « orange brique » des boutons d'action/suppression : `#C2694A` (bordure
 
 À faire :
 - Utiliser les variables (`var(--card)`, `var(--border)`, `--radius-*`, `--shadow-*`, `--glass-*`, `rgba(var(--purple-rgb), a)`) ; réutiliser les classes existantes (§3) avant d'en créer.
-- Écrire d'abord la règle de base (clair), puis `:root[data-theme="dark"] …` seulement si nécessaire.
+- Écrire la règle de base directement avec les valeurs sombres ; aucune variante claire.
 - Nouvelle couleur de pôle : uniquement dans `theme-palette.js`.
 - Respecter la cartographie (un propriétaire par fichier CSS partagé ; styles d'un écran dans son `css/*.css`).
-- Vérifier clair ET sombre, mobile étroit (360 px), puis capture (`scripts/visual-check.py`) avant livraison.
+- Vérifier en mobile étroit (360 px), puis capture (`scripts/visual-check.py`) avant livraison.
 
 À ne pas faire :
 - Aucune couleur en dur (`#xxxxxx`, `rgb()`), sauf accent orange brique déjà défini ; aucune nouvelle teinte principale autre que le violet.
