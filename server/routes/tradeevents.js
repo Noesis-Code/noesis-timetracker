@@ -43,6 +43,9 @@ router.post('/trade-events', express.raw({ type: () => true, limit: '64kb' }), (
   if (!ev || typeof ev.userId !== 'string' || !ev.userId || typeof ev.symbol !== 'string' || !ev.symbol.trim()) return res.status(400).json({ error: 'invalid' });
   const symbol = ev.symbol.trim().slice(0, 40);
 
+  // Rejeu avec un autre X-Trade-Event-Id : l'identifiant n'est pas couvert par la signature, donc la signature elle-même est dédupliquée.
+  const sigKey = 'sig:' + crypto.createHash('sha256').update(sig).digest('hex');
+  if (!db.prepare('INSERT OR IGNORE INTO trade_events_seen (eventId, userId, symbol, receivedAt) VALUES (?,?,?,?)').run(sigKey, null, null, new Date().toISOString()).changes) return res.json({ ok: true, duplicate: true });
   const ins = db.prepare('INSERT OR IGNORE INTO trade_events_seen (eventId, userId, symbol, receivedAt) VALUES (?,?,?,?)')
     .run(eventId, ev.userId, symbol, new Date().toISOString());
   if (!ins.changes) return res.json({ ok: true, duplicate: true });
