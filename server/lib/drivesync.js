@@ -166,13 +166,19 @@ function resolvePending(userId, activityId, items) {
 }
 
 // ---------- Pop-up « tâches ajoutées » ----------
+// Par activité (comme listPending : les lignes sont écrites au nom du propriétaire), réservé aux membres.
+function assertMember(userId, activityId) {
+  if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) throw httpError(403, 'Accès refusé.');
+}
 function listAdded(userId, activityId) {
-  const rows = db.prepare("SELECT id, title, catKey AS key, week, day FROM drive_seen_tasks WHERE userId = ? AND activityId = ? AND status = 'added' AND ack = 0 AND itemId IS NOT NULL ORDER BY id").all(userId, activityId);
+  assertMember(userId, activityId);
+  const rows = db.prepare("SELECT id, title, catKey AS key, week, day FROM drive_seen_tasks WHERE activityId = ? AND status = 'added' AND ack = 0 AND itemId IS NOT NULL ORDER BY id").all(activityId);
   const labels = new Map(classify.buildClassificationCandidates(activityId).map((c) => [c.key, c.label]));
   return { tasks: rows.map((r) => ({ ...r, categoryLabel: labels.get(r.key) || '' })) };
 }
 function ackAdded(userId, activityId) {
-  db.prepare("UPDATE drive_seen_tasks SET ack = 1 WHERE userId = ? AND activityId = ? AND status = 'added'").run(userId, activityId);
+  assertMember(userId, activityId);
+  db.prepare("UPDATE drive_seen_tasks SET ack = 1 WHERE activityId = ? AND status = 'added'").run(activityId);
   return { ok: true };
 }
 // Supprime la tâche ajoutée et marque sa clé 'dismissed' : jamais rajoutée.

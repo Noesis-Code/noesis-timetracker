@@ -261,6 +261,9 @@ async function main() {
     assert(ok, `${label} (test/${f}) passe`);
   }
 
+  try { execFileSync('node', [path.join(__dirname, 'relecture-ecarts-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'Drive ajoutées par activité + roadmap par membre (test/relecture-ecarts-test.js) passe'); }
+  catch (e) { assert(false, 'Drive ajoutées par activité + roadmap par membre (test/relecture-ecarts-test.js) échoue'); }
+
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });

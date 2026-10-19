@@ -1179,7 +1179,10 @@ function runGoalsSweepAll() {
   plans.forEach((row) => {
     try {
       const activity = { id: row.activityId, name: row.activityName, ownerId: row.ownerId };
-      if (!require('./modules').isEnabled(row.ownerId, 'roadmap')) return; // module désactivé : ni report ni bilan automatique
+      // Règle par utilisateur : on ne traite que si au moins un membre a le module « roadmap » actif (celui du propriétaire seul ne décide pas pour les autres).
+      const mods = require('./modules');
+      const members = db.prepare('SELECT userId FROM activity_members WHERE activityId = ?').all(row.activityId);
+      if (!members.some((m) => mods.isEnabled(m.userId, 'roadmap'))) return;
       const plan = getPlan(activity.id, row.category);
       if (!plan) return;
       carryOverWeekly(activity.id, row.category, plan.startDate);
