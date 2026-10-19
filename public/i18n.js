@@ -427,7 +427,6 @@
     // Sous-projets) : même défaut, jamais traduit du tout — ajoutée en
     // passant le 10 septembre 2026 pour ne pas laisser l'anglais afficher du
     // français, sans autre changement au fichier de Sous-projets.
-    'Écrire dans ce sous-projet...': 'Write in this sub-project...',
     // ⚠️ Débordement signalé (Communauté, 3 septembre 2026) : "Écrire au
     // membre..." (#profileDiscussionCommunityInput, posé par Profil le même
     // jour) n'avait pas sa traduction non plus — ajoutée ici en passant pour
@@ -757,9 +756,6 @@
     // ---- Sous-projets d'une activité (discussion "Sous-projets", 3 septembre 2026) ----
     // ---- Page d'une activité (discussion "Activité — général", 3 septembre 2026) ----
     'Discussion': 'Discussion',
-    "Cette activité n'a encore aucun sous-projet. Ajoute-en un pour ouvrir sa page.":
-      'This activity has no sub-project yet. Add one to open its page.',
-    'Ajouter le sous-projet': 'Add sub-project',
     // Période "Aujourd'hui", ajoutée au menu "⋮" de la Répartition d'une
     // activité le 3 septembre 2026. Le libellé renvoyé par periodRange est
     // "Aujourd'hui" lui aussi : une seule entrée couvre le bouton ET le
@@ -771,12 +767,9 @@
     // 'Sous-projets' retiré le 16 septembre 2026 (discussion Objectifs — C) :
     // c'était la seule traduction de ce texte, remplacé par "Tâches" sur le
     // bouton de la fenêtre activité (clé 'Tâches' déjà présente plus bas).
-    'Ajouter un sous-projet': 'Add a sub-project',
     'Nom du sous-projet': 'Sub-project name',
     'Ex. Refonte du site': 'E.g. Website redesign',
     'Description (facultatif)': 'Description (optional)',
-    'À quoi sert ce sous-projet ?': 'What is this sub-project for?',
-    'Aucun sous-projet — clique sur « + » pour découper cette activité en objectifs.': 'No sub-project yet — tap “+” to split this activity into goals.',
     'Tâches': 'Tasks',
     'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
     'Ajouter une tâche...': 'Add a task...',
@@ -791,7 +784,6 @@
     'Pôle et secteur non trouvés — où placer cette tâche ?': 'Pole and sector not found — where should this task go?',
     'Sélection du pôle & secteur': 'Select pole & sector',
     'Autre…': 'Other…',
-    'Le nom du sous-projet est requis.': 'The sub-project name is required.',
     // Messages d'erreur renvoyés par server/routes/subprojects.js
     'Sous-projet introuvable.': 'Sub-project not found.',
     'Intitulé de la tâche requis.': 'Task label required.',
@@ -871,11 +863,8 @@
     'scope et scopeId requis.': 'scope and scopeId are required.',
     'Accès refusé.': 'Access denied.',
     // ---- Sections d'un sous-projet (deuxième passage, 3 septembre 2026) ----
-    'Ce sous-projet est vide — clique sur « Ajouter » pour y mettre des tâches, des sondages ou une discussion.': 'This sub-project is empty — tap "Add" to put tasks, polls or a discussion in it.',
     'Retirer les sondages': 'Remove the polls',
-    'Retirer les sondages de ce sous-projet ?': 'Remove the polls from this sub-project?',
     'Retirer la discussion': 'Remove the discussion',
-    'Retirer la discussion de ce sous-projet ?': 'Remove the discussion from this sub-project?',
     'Retirer cette section': 'Remove this section',
     'Retirer cette section ?': 'Remove this section?',
     'sondages': 'polls',
@@ -939,21 +928,16 @@
     'Nouveau sondage': 'New poll',
     'Nouvelle discussion': 'New discussion',
     'Glisse pour réordonner, touche le nom pour le modifier.': 'Drag to reorder, tap the name to change it.',
-    'Déplacer ce sous-projet': 'Move this sub-project',
-    'Supprimer ce sous-projet': 'Delete this sub-project',
     'Supprimer « ': 'Delete “',
     ' » ?': '”?',
 
     // ----- Chrono → sous-projets (4 septembre 2026) -----
     // Rattachement optionnel d'une session à un sous-projet de son activité.
     'Sous-projet': 'Sub-project',
-    'Sous-projet (facultatif)': 'Sub-project (optional)',
-    'Aucun sous-projet': 'No sub-project',
     'clôturé': 'closed',
     // Activité solo, 5 septembre 2026. 'Sans sous-projet' était déjà
     // employée par la fenêtre de détail par sous-projet sans avoir jamais été
     // traduite : lacune corrigée au passage (débordement d'une ligne signalé).
-    'Par sous-projet': 'By sub-project',
     'Sans sous-projet': 'No sub-project',
     // Messages renvoyés par le serveur (server/lib/entrysubproject.js).
     'Sous-projet invalide.': 'Invalid sub-project.',
@@ -965,11 +949,8 @@
     'Clôture': 'Closing date',
     "Retirer l'échéance": 'Remove the deadline',
     'Choisis une date, ou touche « Retirer l\'échéance ».': 'Pick a date, or tap “Remove the deadline”.',
-    'Retirer la date de clôture ? Le sous-projet restera dans la liste indéfiniment.': 'Remove the closing date? The sub-project will stay in the list indefinitely.',
-    'Le sous-projet reste visible le jour de sa clôture et disparaît le lendemain. Rien n\'est supprimé.': 'The sub-project stays visible on its closing day and drops off the next day. Nothing is deleted.',
     'Clôture le ': 'Closes on ',
     'Clôturé le ': 'Closed on ',
-    'Dernier jour : ce sous-projet disparaît de la liste demain.': 'Last day: this sub-project drops off the list tomorrow.',
 
     // ---- Flux calendrier des échéances (4 septembre 2026) ----
     'Calendrier': 'Calendar',
@@ -1000,7 +981,6 @@
     // sub-project attached » à « No sub-project ». Signalé à Activité solo.
     // ----- Filtre par sous-projet, section Statistiques d'une activité
     //       (4 septembre 2026, troisième passage) -----
-    'Tous les sous-projets': 'All sub-projects',
     // Décalage de version entre index.html et app.js (6 septembre 2026).
     "L'application vient d'être mise à jour. Recharge la page.":
       'The app was just updated. Please reload the page.',
@@ -1027,13 +1007,8 @@
     'Ta réponse...': 'Your answer...',
     'Écris ta réponse.': 'Write your answer.',
     'Annuler la création du sondage': 'Cancel poll creation',
-    'Nouveau sous-projet': 'New sub-project',
     'Annuler la création': 'Cancel',
-    'Passé cette date, le sous-projet disparaît de la liste. Rien n\'est supprimé : il reste accessible par « afficher les sous-projets clôturés ».':
-      'After this date the sub-project disappears from the list. Nothing is deleted: it stays reachable through “show closed sub-projects”.',
     'Sortir': 'Exit',
-    'Sortir de ce sous-projet': 'Exit this sub-project',
-    'Masquer les sous-projets clôturés': 'Hide closed sub-projects',
     ' sous-projet clôturé': ' closed sub-project',
     ' sous-projets clôturés': ' closed sub-projects',
     ' — afficher': ' — show',
@@ -1615,7 +1590,6 @@
     "Supprimer le pôle « {name} » ?": "Delete the division \"{name}\"?",
     "Supprimer le secteur « {name} » ?": "Delete the sector \"{name}\"?",
     "Êtes-vous sûr de vouloir supprimer le pôle ? Les secteurs affiliés ainsi que les tâches seront également supprimés.": "Are you sure you want to delete the division? Its linked sectors and tasks will also be deleted.",
-    "Les tâches de ce sous-projet, une fois un membre prévu assigné, seront placées automatiquement dans le planning hebdomadaire Objectifs de ce membre.": "Once a planned member is assigned, this sub-project's tasks will be placed automatically in that member's weekly Goals planning.",
     "Répartition du temps par membre": "Time breakdown by member",
     "Votre accord est retiré. Vos données ne servent plus qu'au fonctionnement de l'application.": "Your consent is withdrawn. Your data is now used only to run the app.",
     "Colle d’abord l’adresse de ton agenda.": "Paste your calendar's address first.",
