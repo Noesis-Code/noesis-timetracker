@@ -21,6 +21,9 @@ const T = makeCounter(); const assert = T.assert;
     assert(wOther.status === 200 && (await c.get(url)).body.modules.community === true, "écriture via l'id d'un autre = sur son propre compte seulement");
     await c.put(url, { modules: { community: false } });
     assert((await client(s.base).get(url)).status === 401, 'sans session = 401');
+    // Sans session, les routes qui exigeaient « userId » répondent 401 needsLogin (le client redemande le code, jamais un écran vide).
+    const noSess = await client(s.base).get('/api/activities');
+    assert(noSess.status === 401 && noSess.body.needsLogin === true, 'activités sans session = 401 needsLogin (pas 400)');
 
     assert((await c.get(`/api/category-stats?activityId=${A}&period=week`)).status === 200, 'stats ouvertes quand le module est actif');
 

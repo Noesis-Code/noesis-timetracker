@@ -1731,7 +1731,7 @@
     // Montre la page 1 (capture) par défaut ; openGoalsForActivity() n'est appelée que depuis showGoalsPolesPage()
     // (clic sur une activité, texte vide) ou openGoalsPeriodFromNotification() (lien profond de notification).
     var ready = TMT.getActivitiesCache() && TMT.getActivitiesCache().length ? Promise.resolve(TMT.getActivitiesCache()) : refreshActivities();
-    ready.then(function () { showGoalsCapturePage(); });
+    ready.then(function () { showGoalsCapturePage(); }, function () { showGoalsCapturePage(); });
   }
 
 

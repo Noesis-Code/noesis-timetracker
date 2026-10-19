@@ -261,6 +261,18 @@ function touchLastSeen(userId) {
 function middleware(req, res, next) {
   req.userId = readSessionUserId(req);
   if (req.userId) touchLastSeen(req.userId);
+  // Sans session valide, une route qui répond « userId requis. » (400) doit dire « reconnecte-toi » (401 needsLogin) :
+  // le client redemande alors le code au lieu d'afficher un écran vide (Feuille de route, Stats) sans explication.
+  if (!req.userId) {
+    const json = res.json.bind(res);
+    res.json = (body) => {
+      if (res.statusCode === 400 && body && body.error === 'userId requis.') {
+        res.status(401);
+        return json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+      }
+      return json(body);
+    };
+  }
   const headerTz = req.get('X-Client-Tz');
   req.timezone = isValidTimezone(headerTz) ? headerTz : DEFAULT_TIMEZONE;
   next();

@@ -218,7 +218,11 @@
     // rechargeait la page à l'infini → écran noir). Au plus 1 rechargement / 15 s.
     try {
       var last = Number(sessionStorage.getItem('noesisSessionLostAt') || 0);
-      if (Date.now() - last < 15000) return;
+      if (Date.now() - last < 15000) {
+        // Déjà rechargé à l'instant et toujours sans session : redemande le code ici plutôt que d'afficher une app vide.
+        if (profile) { showOnboarding(); showOnbPinStep({ id: profile.id, name: profile.name, lastName: profile.lastName || '', color: profile.color, hasPin: true }); }
+        return;
+      }
       sessionStorage.setItem('noesisSessionLostAt', String(Date.now()));
     } catch (e) {}
     if (!profile) return; // pas connecté : rien à recharger, l'écran de connexion s'affiche
@@ -15877,7 +15881,8 @@
     // fois le témoin posé (POST .../verify-pin), les prochains démarrages
     // repassent par la branche silencieuse ci-dessus, exactement comme
         // avant.
-    api('GET', '/api/session/me').then(function (session) {
+    // Réseau direct (jamais la copie hors ligne de api()) : une ancienne réponse « c'est bien toi » ferait entrer sans session.
+    apiNetwork('GET', '/api/session/me').then(function (session) {
       if (session.userId && session.userId === profile.id) {
         refreshProfileAndEnter();
       } else {
