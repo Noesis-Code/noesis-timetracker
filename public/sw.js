@@ -72,6 +72,7 @@ const SHELL = [
   '/js/objectifs-document-taches.js',
   '/js/objectifs-page3.js',
   '/js/axis-lock.js',
+  '/js/a11y-popups.js',
   '/js/stats-avance.js',
   '/js/activite-stats-taches.js',
   '/js/connexion-ia.js',

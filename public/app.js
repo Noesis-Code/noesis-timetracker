@@ -847,6 +847,7 @@
     removeBtn.className = 'iconBtn danger attachmentRemove';
     removeBtn.textContent = '×';
     removeBtn.title = t('Supprimer cette pièce jointe');
+    removeBtn.setAttribute('aria-label', removeBtn.title);
     removeBtn.addEventListener('click', function () {
       if (!confirm(t('Supprimer cette pièce jointe ?'))) return;
       if (deleteApiPath === null) { onRemoved(att.id); return; }
@@ -6217,6 +6218,7 @@
     del.className = 'discussionMsgDelete';
     del.textContent = '✕';
     del.title = t('Supprimer cette tâche');
+    del.setAttribute('aria-label', del.title);
     del.addEventListener('click', function () {
       if (!confirm(t('Supprimer cette tâche ?'))) return;
       api('DELETE', '/api/sub-project-items/' + item.id + '?userId=' + profile.id)
@@ -8446,6 +8448,7 @@
         del.className = 'discussionMsgDelete';
         del.textContent = '✕';
         del.title = t('Supprimer ce message');
+        del.setAttribute('aria-label', del.title);
         del.addEventListener('click', function () {
           if (!confirm(t('Supprimer ce message ?'))) return;
           api('DELETE', '/api/community/activity-messages/' + m.id + '?userId=' + profile.id)
@@ -8487,7 +8490,7 @@
     var span = document.createElement('span');
     span.textContent = '📎 ' + f.fileName;
     var x = document.createElement('button');
-    x.type = 'button'; x.textContent = '✕'; x.title = t('Retirer');
+    x.type = 'button'; x.textContent = '✕'; x.title = t('Retirer'); x.setAttribute('aria-label', x.title);
     x.addEventListener('click', function () { setDiscussionPendingFile(null); });
     box.appendChild(span); box.appendChild(x);
   }
@@ -10063,6 +10066,7 @@
       del.className = 'discussionMsgDelete';
       del.textContent = '✕';
       del.title = t('Supprimer ce message');
+      del.setAttribute('aria-label', del.title);
       del.addEventListener('click', function () {
         if (!confirm(t('Supprimer ce message ?'))) return;
         api('DELETE', '/api/profile/posts/' + entry.id + '?userId=' + profile.id)
@@ -10483,7 +10487,7 @@
       if (indent) r.style.paddingLeft = '18px';
       var l = document.createElement('span'); l.className = 'notifRowLabel'; l.textContent = label;
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
-      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = checked; inp.disabled = disabled;
+      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = checked; inp.disabled = disabled; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', label);
       inp.addEventListener('change', function () { onChange(inp.checked); });
       var tr = document.createElement('span'); tr.className = 'toggleSwitchTrack';
       sw.appendChild(inp); sw.appendChild(tr); r.appendChild(l); r.appendChild(sw);
@@ -10502,7 +10506,7 @@
       l.textContent = (open ? '▾ ' : '▸ ') + a.name;
       l.addEventListener('click', function (ev) { ev.stopPropagation(); if (!a.included) return; calExportOpen[a.id] = !open; renderCalendarExportList(data); });
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
-      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = a.included;
+      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = a.included; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', a.name);
       inp.addEventListener('change', function () {
         // Désélectionnée : repliée. Resélectionnée : dépliée, tous les pôles cochés (serveur).
         calExportOpen[a.id] = inp.checked;
@@ -11073,7 +11077,7 @@
       var row = document.createElement('div');
       row.className = 'notifRow';
       row.innerHTML = '<span class="notifRowLabel">' + escapeHtml(a.name) + '</span>' +
-        '<label class="toggleSwitch"><input type="checkbox" data-activity-id="' + a.id + '"' + (a.notifyEnabled ? ' checked' : '') + '><span class="toggleSwitchTrack"></span></label>';
+        '<label class="toggleSwitch"><input type="checkbox" data-activity-id="' + a.id + '" role="switch" aria-label="' + escapeHtml(a.name) + '"' + (a.notifyEnabled ? ' checked' : '') + '><span class="toggleSwitchTrack"></span></label>';
       box.appendChild(row);
     });
   }
@@ -13530,6 +13534,7 @@
         del.className = 'discussionMsgDelete';
         del.textContent = '✕';
         del.title = t('Supprimer ce message');
+        del.setAttribute('aria-label', del.title);
         del.addEventListener('click', function () {
           if (!confirm(t('Supprimer ce message ?'))) return;
           api('DELETE', cfg.deleteUrl(post))
@@ -13864,6 +13869,7 @@
     del.className = 'discussionMsgDelete';
     del.textContent = '✕';
     del.title = t('Supprimer ce message');
+    del.setAttribute('aria-label', del.title);
     del.addEventListener('click', function () {
       if (!confirm(t('Supprimer ce message ?'))) return;
       api('DELETE', '/api/profile/posts/' + post.id + '?userId=' + profile.id)
@@ -14162,6 +14168,7 @@
       del.className = 'discussionMsgDelete';
       del.textContent = '✕';
       del.title = t('Supprimer ce sondage');
+      del.setAttribute('aria-label', del.title);
       del.addEventListener('click', function () {
         if (!confirm(t('Supprimer ce sondage et tous ses votes ?'))) return;
         api('DELETE', '/api/polls/' + poll.id + '?userId=' + profile.id)
@@ -14420,6 +14427,7 @@
       rm.className = 'menuBtn';
       rm.textContent = '✕';
       rm.title = t('Retirer cette réponse');
+      rm.setAttribute('aria-label', rm.title);
       rm.addEventListener('click', function () {
         if (box.children.length <= 2) return;
         box.removeChild(row);
@@ -15244,6 +15252,7 @@
     var cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !conf;
+    cb.setAttribute('role', 'switch');
     var track = document.createElement('span');
     track.className = 'toggleSwitchTrack';
     sw.appendChild(cb);

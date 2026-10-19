@@ -73,7 +73,7 @@
       var row = document.createElement('div'); row.className = 'notifRow';
       var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(r.label);
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
-      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!st[r.anchor];
+      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!st[r.anchor]; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', tr(r.label));
       var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
       inputs.push({ row: r, inp: inp });
       inp.addEventListener('change', function () {
@@ -169,7 +169,7 @@
     var row = document.createElement('div'); row.className = 'notifRow';
     var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = 'Trade Tracker';
     var sw = document.createElement('label'); sw.className = 'toggleSwitch';
-    var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!state && state.trade === true;
+    var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!state && state.trade === true; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', 'Trade Tracker');
     var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
     inp.addEventListener('change', function () {
       keepEdit = true;

@@ -202,6 +202,8 @@ async function main() {
 
   try { execFileSync('node', [path.join(__dirname, 'parseplan-test.js')], { encoding: 'utf8' }); assert(true, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) passe'); }
   catch (e) { assert(false, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) échoue'); }
+  try { execFileSync('node', [path.join(__dirname, 'a11y-attributs-test.js')], { encoding: 'utf8' }); assert(true, 'accessibilité : attributs (test/a11y-attributs-test.js) passe'); }
+  catch (e) { assert(false, 'accessibilité : attributs (test/a11y-attributs-test.js) échoue'); }
 
   // Planificateur de semaines (lot A) : suite autonome, base temporaire propre.
   let wpOk = true;

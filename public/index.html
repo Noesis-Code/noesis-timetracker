@@ -514,7 +514,7 @@
            stopPropagation. -->
       <p class="onbLegalCheck">
         <label class="toggleSwitch">
-          <input type="checkbox" id="onbLegalTermsCheckbox">
+          <input type="checkbox" id="onbLegalTermsCheckbox" role="switch">
           <span class="toggleSwitchTrack"></span>
         </label>
         <label for="onbLegalTermsCheckbox" class="onbLegalText">J'ai lu et j'accepte les <a href="#" id="onbLegalTermsLink">conditions d'utilisation</a> et la <a href="#" id="onbPrivacyPolicyLink">politique de confidentialité</a>, et j'ai 16 ans ou plus.</label>
@@ -523,7 +523,7 @@
       <div class="onbOptionalConsents">
         <div class="onbLegalCheck onbConsentRow">
           <label class="toggleSwitch">
-            <input type="checkbox" id="onbMarketingCheckbox">
+            <input type="checkbox" id="onbMarketingCheckbox" role="switch">
             <span class="toggleSwitchTrack"></span>
           </label>
           <div class="onbConsentBody">
@@ -536,7 +536,7 @@
         </div>
         <div class="onbLegalCheck onbConsentRow">
           <label class="toggleSwitch">
-            <input type="checkbox" id="onbDirectoryCheckbox">
+            <input type="checkbox" id="onbDirectoryCheckbox" role="switch">
             <span class="toggleSwitchTrack"></span>
           </label>
           <div class="onbConsentBody">
@@ -757,13 +757,13 @@
             <p class="stepLabel">Confirmer l'arrêt</p>
             <p class="stopFieldLabel">Heure de début</p>
             <div class="stopDateTimeRow">
-              <input type="date" id="stopStartDateInput" class="stopDateInput">
-              <input type="time" id="stopStartTimeInput" step="1" class="stopTimeInput">
+              <input type="date" id="stopStartDateInput" aria-label="Heure de début" class="stopDateInput">
+              <input type="time" id="stopStartTimeInput" aria-label="Heure de début" step="1" class="stopTimeInput">
             </div>
             <p class="stopFieldLabel">Heure de fin</p>
             <div class="stopDateTimeRow">
-              <input type="date" id="stopEndDateInput" class="stopDateInput">
-              <input type="time" id="stopEndTimeInput" step="1" class="stopTimeInput">
+              <input type="date" id="stopEndDateInput" aria-label="Heure de fin" class="stopDateInput">
+              <input type="time" id="stopEndTimeInput" aria-label="Heure de fin" step="1" class="stopTimeInput">
             </div>
             <!-- Dernière chance de corriger la catégorie avant que la
                  session ne soit enregistrée (demande d'Emilien). Masqué s'il
@@ -1180,7 +1180,7 @@
     <section id="tab-activity" class="tab hidden">
       <div class="sectionTitleRow">
         <p class="sectionTitle">Activités</p>
-        <button id="addActivityBtn" class="menuBtn" title="Ajouter une activité">+</button>
+        <button id="addActivityBtn" class="menuBtn" title="Ajouter une activité" aria-label="Ajouter une activité">+</button>
       </div>
       <div class="activityRow hidden" id="newActivityCard">
         <div class="activityRowHeader">
@@ -2208,7 +2208,7 @@
             <button type="button" class="menuBtn" id="catComposerTargetClear" aria-label="Annuler">✕</button>
           </div>
           <div class="catComposerRow">
-            <input type="text" id="activityGoalsCategoryAddInput" maxlength="40" autocomplete="off" enterkeyhint="send">
+            <input type="text" id="activityGoalsCategoryAddInput" aria-label="Ajouter" maxlength="40" autocomplete="off" enterkeyhint="send">
             <button type="button" id="catComposerAddBtn" class="iconBtn btnBrique">Ajouter</button>
           </div>
           <p id="catComposerMsg" class="msg"></p>
@@ -2603,7 +2603,7 @@
           <div class="activitySettingsPanel projectMoreDetails hidden" id="newProjectMoreDetails">
           <input type="text" id="newProjectLink" placeholder="Lien externe (optionnel)">
           <p class="hint">Date de début (optionnel)</p>
-          <input type="date" id="newProjectStartDate">
+          <input type="date" id="newProjectStartDate" aria-label="Date de début (optionnel)">
           </div>
           <p class="meta" id="newProjectMsg"></p>
           <div class="rowActions">
@@ -2747,14 +2747,14 @@
                 <div class="notifRow">
                   <span class="notifRowLabel">Autoriser mes abonnés à me contacter par email</span>
                   <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsContactShareEmail">
+                    <input type="checkbox" id="settingsContactShareEmail" role="switch" aria-label="Autoriser mes abonnés à me contacter par email">
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>
                 <div class="notifRow">
                   <span class="notifRowLabel">Autoriser mes abonnés à me contacter par téléphone</span>
                   <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsContactSharePhone">
+                    <input type="checkbox" id="settingsContactSharePhone" role="switch" aria-label="Autoriser mes abonnés à me contacter par téléphone">
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>
@@ -2846,7 +2846,7 @@
                 <div class="notifRow">
                   <span class="notifRowLabel">Utilisation commerciale de mes données</span>
                   <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsMarketingConsent">
+                    <input type="checkbox" id="settingsMarketingConsent" role="switch" aria-label="Utilisation commerciale de mes données">
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>
@@ -2856,7 +2856,7 @@
                 <div class="notifRow">
                   <span class="notifRowLabel">Être trouvable dans la recherche de l'écran de connexion</span>
                   <label class="toggleSwitch">
-                    <input type="checkbox" id="settingsDirectoryConsent">
+                    <input type="checkbox" id="settingsDirectoryConsent" role="switch" aria-label="Être trouvable dans la recherche de l'écran de connexion">
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>
@@ -2983,7 +2983,7 @@
               <div class="notifRow">
                 <span class="notifRowLabel">Communauté</span>
                 <label class="toggleSwitch">
-                  <input type="checkbox" id="notifCommunityToggle">
+                  <input type="checkbox" id="notifCommunityToggle" role="switch" aria-label="Communauté">
                   <span class="toggleSwitchTrack"></span>
                 </label>
               </div>
@@ -3066,7 +3066,7 @@
                   <button type="button" id="calendarFeedCreateBtn" class="iconBtn">Créer mon lien de calendrier</button>
                 </div>
                 <div id="calendarFeedOn" class="hidden">
-                  <input type="text" id="calendarFeedUrl" class="calendarFeedUrl hidden" readonly>
+                  <input type="text" id="calendarFeedUrl" aria-label="Lien de mon calendrier" class="calendarFeedUrl hidden" readonly>
                   <!-- Raccourcis d'abonnement (7 septembre 2026, demande d'Emilien :
                        boutons + instructions pas-à-pas) — désormais les SEULS
                        gestes disponibles ici (voir l'avertissement ci-dessus). -->
@@ -3641,7 +3641,7 @@
       <p class="hint">20 $/mois, par activité, résiliable à tout moment.</p>
 
       <p class="hint">Activité</p>
-      <select id="offer1ActivitySelect"></select>
+      <select id="offer1ActivitySelect" aria-label="Activité"></select>
       <input type="text" id="offer1NewActivityName" placeholder="Nom de la nouvelle activité" maxlength="60" class="hidden">
 
       <div class="rowActions">
@@ -3760,5 +3760,6 @@
 <script src="/js/stats-avance.js"></script>
 <script src="/js/activite-stats-taches.js"></script>
 <script src="/js/connexion-ia.js"></script>
+<script src="/js/a11y-popups.js"></script>
 </body>
 </html>

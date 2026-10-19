@@ -117,6 +117,7 @@
     "Confirmer l'arrêt": 'Confirm stop',
     'Heure de début': 'Start time',
     'Heure de fin': 'End time',
+    'Lien de mon calendrier': 'My calendar link',
     'Annuler': 'Cancel',
     'Autonome': 'Autonomous',
     'Partiel': 'Partial',
