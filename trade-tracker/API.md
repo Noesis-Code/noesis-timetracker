@@ -13,7 +13,7 @@ Conventions : JSON UTF-8 ; montants en nombres arrondis à 2 décimales ; pource
 ## Routes
 `GET /api/health` -> `{ ok: true }` (public).
 
-`GET /api/me` -> `{ id, name, role: "expert"|"client", brokerConnected: false }`.
+`GET /api/me` -> `{ id, name, role: "expert"|"client", brokerConnected: boolean }`.
 
 Portefeuille. Paramètre commun `scope=me` (défaut) `| expert` (portefeuille de l'expert, lisible par les clients). Un client sans compte ni donnée reçoit des tableaux vides, pas une erreur.
 
@@ -72,6 +72,13 @@ Expert seulement (client : 403 `forbidden`) :
 
 `POST /api/logout` -> `{ ok: true }`.
 
+### Jeton courtier (session requise, jamais en cache)
+- `POST /api/broker/token` `{ token }` -> `{ ok: true, brokerConnected: true }`. Format : une chaîne sans espace, 16 à 512 caractères `[A-Za-z0-9._~+/=-]`, sinon 422 `invalid_token`. Sans `TRADE_TOKEN_KEY` (>= 16 car.) sur le serveur : 503 `broker_unavailable` (message clair, rien n'est stocké). Le jeton est chiffré (AES-256-GCM), stocké PAR utilisateur, remplace l'ancien, et n'est jamais renvoyé, journalisé, ni repris dans une erreur (JSON mal formé : 400 générique).
+- `DELETE /api/broker/token` -> `{ ok: true, brokerConnected: false }`. Suppression RÉELLE et définitive (la confirmation se fait côté client) : le jeton chiffré ET toutes les données de synchro de cet utilisateur (comptes, positions, soldes, transactions, historique, journal de synchro, événements d'achat). Taux de change et secteurs, partagés, restent. Idempotent.
+- `GET /api/broker/status` -> `{ connected: boolean, lastSyncAt: ISO|null, error?: string }` ; `lastSyncAt` = dernière synchro non échouée, `error` = message de la dernière synchro si elle a échoué (sans secret).
+- Limites : écritures générales 30/min/IP, plus 10/min/IP propres aux POST/DELETE `/api/broker/token`.
+- Synchro : un connecteur qui déclare `requiresToken` (futur Questrade) n'est exécuté que pour les utilisateurs ayant un jeton, lu à chaque synchro ; l'échec est journalisé (`ECHEC`) avec le jeton masqué. Le connecteur `demo` (seul enregistré ; Questrade reste non enregistré) ignore le jeton et synchronise tout le monde, donc après un DELETE ses données fictives reviennent à la synchro suivante.
+
 Jeton courtier : chaque utilisateur (expert ou client) connecte son propre compte courtier ; le jeton est stocké chiffré par utilisateur (clé `TRADE_TOKEN_KEY`) et n'est jamais renvoyé par l'API. `GET /api/me` expose seulement `brokerConnected: boolean`.
 
 ## Import du Sheet (A9)
@@ -101,7 +108,6 @@ Connecteur courtier (Questrade), prix et taux automatiques, écriture de transac
 Limites par IP (fenêtre 1 min, 429 + `Retry-After`) : `/link` 20, écritures `POST/PUT/DELETE` 30, import admin 10, lecture 300. Cookie `SameSite=None; Secure; HttpOnly` en HTTPS ou si `TRADE_COOKIE_CROSS_SITE=1` (iframe TMT), `Lax` en HTTP local ; `Content-Security-Policy: frame-ancestors <origine de TMT_BASE_URL>` (sinon `'none'` + `X-Frame-Options: DENY`). En-têtes `nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`. Signature de lien comparée à temps constant, expiration 5 min (plafonnée), nonce à usage unique, sessions expirées purgées, jeton courtier chiffré AES-256-GCM, aucun secret journalisé ni en dur (test `security-test.js`).
 
 ## Demandes à la piste serveur
-Demandées par l'interface (phase 2) ; l'écran « Connecter mon courtier » les appelle déjà et affiche « pas encore disponible » tant qu'elles répondent 404.
-- `POST /api/broker/token` `{ token }` -> `{ ok: true, brokerConnected: true }` (400/422 si le jeton est refusé). Chiffre et stocke (`saveBrokerToken`), ne renvoie jamais le jeton ; réponse jamais mise en cache. Le client n'envoie le jeton qu'à cette route et ne le garde pas.
-- `DELETE /api/broker/token` -> `{ ok: true, brokerConnected: false }` (efface le jeton chiffré de l'utilisateur connecté).
+Faites le 19 oct. 2026 (branche `claude/trade-broker-token`) : les routes courtier ci-dessous existent (voir « Jeton courtier »).
+- [fait] `POST /api/broker/token`, `DELETE /api/broker/token`, `GET /api/broker/status`.
 - `GET /api/purchases` -> `{ purchases: [ { id, at, symbol, name, sector, accountType, quantity, price, currency, amountCad } ] }` (derniers achats de l'expert, pour « Moi et l'expert » ; liste vide tant que l'endpoint est absent).
