@@ -1,5 +1,5 @@
 /* Noèsis TimeTracker — « Stratégie » d'une activité : formulaire guidé, enregistrement automatique.
- * L'IA suit ces consignes (filtre des tâches proposées, retrait des tâches hors stratégie). Bouton dans la fenêtre Activité. */
+ * L'IA suit ces consignes (filtre des tâches proposées, retrait des tâches hors stratégie). Icône dans l’en-tête de la Page 2 de l’activité. */
 (function () {
   'use strict';
   var TMT = window.TMT = window.TMT || {};
@@ -45,9 +45,9 @@
   $('strategyClose').addEventListener('click', close);
   $('strategyPop').addEventListener('click', function (e) { if (e.target === $('strategyPop')) close(); });
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('#activityPageStrategyBtn');
+    var b = e.target.closest && e.target.closest('#goalsStrategyBtn');
     if (!b) return;
-    aid = b.dataset.aid; if (!aid) return;
+    aid = TMT.currentGoalsActivityId; if (!aid) return;
     $('strategyState').textContent = '';
     TMT.api('GET', '/api/activities/' + aid + '/strategy').then(function (r) {
       canEdit = !!r.canEdit; fill(r.strategy || {});
