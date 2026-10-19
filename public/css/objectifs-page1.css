@@ -215,7 +215,7 @@
 .offer1PromoText{margin:0 0 16px;font-size:19px;line-height:1.3;font-weight:700}
 .offer1PromoText span{background:linear-gradient(90deg,var(--violet-promo),var(--white));-webkit-background-clip:text;background-clip:text;color:transparent}
 .offer1PromoSub{display:block;font-size:12.5px;opacity:.85;margin:-6px 0 16px}
-.offer1PromoBtn{display:inline-block;padding:11px 20px;border:0;border-radius:999px;background:var(--brique);color:var(--white);font-weight:600;font-size:14px;font-family:inherit}
+.offer1PromoBtn{display:inline-block;padding:11px 20px;border:0;border-radius:999px;background:var(--purple);color:var(--white);font-weight:600;font-size:14px;font-family:inherit}
 #offer1SubscribedEmptyHint{display:none}
 
 /* fenêtre de confirmation de capture (doublon / tri incertain), gabarit .goalTaskEditModal. */
@@ -336,7 +336,7 @@
 
 /* Offre 1 pas encore disponible : badge « À venir » et bouton grisé, non cliquable. */
 .offer1SoonBadge{display:inline-block;margin-bottom:10px;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
-.offer1PromoBtn:disabled{background:var(--brique);color:var(--white);opacity:.5;box-shadow:none;cursor:not-allowed}
+.offer1PromoBtn:disabled{background:var(--purple);color:var(--white);opacity:.5;box-shadow:none;cursor:not-allowed}
 /* Zone libre IA : trombone (document ou image) DANS la zone d'écriture, à gauche d'Ajouter. */
 .activityGoalsCategoryAutoTaskBubble .goalsCaptureAttach { z-index: 3; left: auto; right: 96px; }
 .activityGoalsCategoryAutoTaskBubble:has(.goalsCaptureAttach) textarea { padding-right: 130px; }

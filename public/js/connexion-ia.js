@@ -75,7 +75,7 @@
       });
       box.appendChild(main);
       if (connected) {
-        var rev = el('button', 'iconBtn btnBrique', tr("Révoquer l'accès")); rev.type = 'button';
+        var rev = el('button', 'iconBtn btnBrique btnDanger', tr("Révoquer l'accès")); rev.type = 'button';
         rev.addEventListener('click', function () {
           var run = function () { return revokeAll(data); };
           if (window.TMT && typeof window.TMT.confirmDelete === 'function') {

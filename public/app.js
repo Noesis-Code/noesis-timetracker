@@ -8953,7 +8953,7 @@
       var header = row.querySelector('.activityRowHeader');
       var excludeBtn = document.createElement('button');
       excludeBtn.type = 'button';
-      excludeBtn.className = 'iconBtn';
+      excludeBtn.className = 'iconBtn btnBrique btnDanger';
       excludeBtn.textContent = t('Exclure');
       excludeBtn.addEventListener('click', function () {
         if (!confirm(t('Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.', { name: displayName, activity: opts.activityName }))) return;
@@ -9023,7 +9023,7 @@
     if (isShared) {
       var leaveBtn = document.createElement('button');
       leaveBtn.type = 'button';
-      leaveBtn.className = 'iconBtn btnBrique';
+      leaveBtn.className = 'iconBtn btnBrique btnDanger';
       leaveBtn.textContent = t('Quitter la communauté');
       leaveBtn.addEventListener('click', function () {
         if (!confirm(t('Quitter "{activity}" ? Tu gardes ta propre activité personnelle du même nom, avec tout ton historique déjà enregistré. Les autres membres ne sont pas concernés.', { activity: a.name }))) return;
@@ -9396,10 +9396,12 @@
       if (p.aiNoticeCurrentVersion && p.aiNoticeVersion !== p.aiNoticeCurrentVersion) $('aiNoticeModal').classList.remove('hidden');
     }).catch(function () {});
   }
-  $('aiNoticeAck').addEventListener('click', function () {
+  function ackAiNotice() {
     api('PUT', '/api/profile/ai-notice-ack').catch(function () { /* hors ligne : rien d'enregistré, la fenêtre reviendra */ })
       .then(function () { $('aiNoticeModal').classList.add('hidden'); });
-  });
+  }
+  $('aiNoticeAck').addEventListener('click', ackAiNotice);
+  $('aiNoticeClose').addEventListener('click', ackAiNotice);
   function putMarketingConsent(consent) {
     return api('PUT', '/api/profile/marketing-consent', { consent: consent });
   }

@@ -41,7 +41,7 @@
 .docTasksConsent { font-size: 12px; opacity: .75; margin: 8px 0 0; line-height: 1.4; }
 .docTasksPick { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
 .docTasksPick:hover { background: rgba(124, 92, 255, .18); }
-.docTasksLink { background: none; border: 0; color: var(--brique-text); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
+.docTasksLink { background: none; border: 0; color: var(--purple); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
 .docTasksX { background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 2px 6px; }
 .docTasksConfirm { font-size: 13px; margin: 4px 0 10px; }
 /* Surveillance du dossier Drive + pop-up des tâches ajoutées (sombre seulement, même verre/halo). */
@@ -81,7 +81,7 @@
 .docTasksRow { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-bottom: 1px solid var(--border, rgba(127,127,127,.35)); border-radius: 0; margin-top: 0; padding: 12px 2px; opacity: 1; }
 .docTasksRowWrap:last-of-type .docTasksRow, .docTasksRowWrap:last-child .docTasksRow { border-bottom: 0; }
 .docTasksCancelRow { text-align: center; margin: 6px 0 20px; }
-.docTasksPickOn { background: rgba(var(--brique-rgb), .22); border-color: var(--brique); opacity: 1; }
+.docTasksPickOn { background: rgba(var(--purple-rgb), .22); border-color: var(--purple); opacity: 1; }
 /* Dossiers surveillés (liste repliable, corbeille de l'app à droite). */
 .docTasksFolderList { margin-bottom: 6px; }
 .docTasksFolderRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 14px; }

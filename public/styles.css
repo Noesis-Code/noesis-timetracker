@@ -2502,17 +2502,23 @@ body.scrollLock { overflow: hidden; }
   /* 30 sept. 2026 (demande d'Emilien) : TOUS les boutons Ajouter/Rechercher/Envoyer (zones d'écriture, IA,
      discussions, création pôle/secteur/projet…) = contour fin + texte orange brique, fond transparent
      (pas de verre : règle verrouillée). Classe .btnBrique à poser sur tout nouveau bouton de ce type. */
+  background: transparent; border: 1px solid var(--purple); color: var(--text);
+  -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+}
+/* 19 oct. 2026 : l'orange brique ne sert plus qu'aux actions destructrices (.btnDanger : Quitter, Exclure, Révoquer, Déconnexion). */
+.btnBrique.btnBrique.btnDanger, .iconBtn.btnDanger.btnDanger {
   background: transparent; border: 1px solid var(--brique); color: var(--brique-text);
   -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
 }
+.btnDanger.btnDanger:hover:not(:disabled) { background: rgba(var(--brique-rgb), 0.14); }
 .chatComposerRow .iconBtn:hover:not(:disabled),
-.btnBrique.btnBrique:hover:not(:disabled) { background: rgba(var(--brique-rgb), 0.14); }
+.btnBrique.btnBrique:hover:not(:disabled) { background: rgba(var(--purple-rgb), 0.14); }
 .chatComposerRow .iconBtn:disabled,
 .btnBrique.btnBrique:disabled { opacity: 0.45; }
 /* Bouton orange brique PLEIN (2e recette de bouton, avec le contour .btnBrique ci-dessus) : fond --brique, texte blanc.
    Seules les dimensions/graisses propres à chaque bouton restent dans leur fichier. */
 .docTasksApplyBtn, .docTasksDriveBtn, .accompCodeOk {
-  background: var(--brique); color: var(--white); border: 0; font: inherit; cursor: pointer;
+  background: var(--purple); color: var(--white); border: 0; font: inherit; cursor: pointer;
 }
 .chatComposer .msg { text-align: right; margin-top: 6px; }
 .chatComposer .msg:empty { display: none; }
