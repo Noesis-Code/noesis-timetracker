@@ -63,6 +63,9 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 1. Cas restants c12 et c54 du jeu d'évaluation.
 2. Cas en anglais : étendre le jeu et mesurer.
 3. Seuils de confiance : revérifier avec `scripts/eval-task-precision.js`.
+4. Cas limites : titres très courts (1-2 mots) dans le jeu d'évaluation. *(fait 19 oct. : s01-s06 ; seuil 80 confirmé, plateau 50-80 à 98,1 %, 85+ régresse)*
+5. Cas limites : dates dans le titre (« jeudi », « 3 nov. », « demain ») : le titre garde la date, le classement l'ignore ; ajouter les cas et mesurer.
+6. Cas limites : doublons de secteur (deux secteurs aux libellés ou descriptions très proches) : vérifier que le résultat est « incertain » avec les deux suggestions, jamais un choix arbitraire.
 
 **7. Principal et pilotage**
 1. État des worktrees et branches à nettoyer (`scripts/chantiers-status.js`), liste pour Émilien si suppression distante.

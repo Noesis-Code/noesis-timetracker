@@ -197,6 +197,12 @@
     { "id": "m12", "context": "cafe", "kind": "classify", "label": "Order café vert chez le fournisseur", "expect": {"outcome": "place", "key": "appro"} },
     { "id": "m13", "context": "pige", "kind": "classify", "label": "Envoyer the final maquette au client", "expect": {"outcome": "place", "key": "clients"} },
     { "id": "m14", "context": "resto", "kind": "classify", "label": "Book la terrasse pour samedi", "expect": {"outcome": "place", "key": "salle"} },
-    { "id": "m15", "context": "resto", "kind": "classify", "label": "Reserver the terase pour samedi", "expect": {"outcome": "place", "key": "salle"} }
+    { "id": "m15", "context": "resto", "kind": "classify", "label": "Reserver the terase pour samedi", "expect": {"outcome": "place", "key": "salle"} },
+    { "id": "s01", "context": "resto", "kind": "classify", "label": "Payer loyer", "expect": {"outcome": "uncertain"} },
+    { "id": "s02", "context": "resto", "kind": "classify", "label": "Menu", "expect": {"outcome": "place", "key": "cuisine"} },
+    { "id": "s03", "context": "cafe", "kind": "classify", "label": "Torréfier", "expect": {"outcome": "place", "key": "torref"} },
+    { "id": "s04", "context": "cafe", "kind": "classify", "label": "Facture", "expect": {"outcome": "place", "key": "compta"} },
+    { "id": "s05", "context": "resto", "kind": "classify", "label": "Réserver terrasse", "expect": {"outcome": "place", "key": "salle"} },
+    { "id": "s06", "context": "cafe", "kind": "classify", "label": "Commander café vert", "expect": {"outcome": "place", "key": "appro"} }
   ]
 }
