@@ -8,6 +8,7 @@
     money0: function (v) { return cur0.format(v || 0); },
     num: function (v) { return num.format(v || 0); },
     pct: function (v, signed) {
+      if (Math.abs(v || 0) < 0.05) v = 0;
       var s = (Math.abs(v || 0)).toLocaleString('fr-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
       return signed ? ((v > 0 ? '+' : v < 0 ? '−' : '') + s) : s;
     },

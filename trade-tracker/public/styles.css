@@ -186,3 +186,8 @@ a { color: inherit; text-decoration: none; }
 .barTrack.thin { height: 4px; margin: 8px 0 0; }
 .detailRow { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--glass-calm-line); font-size: 14px; }
 .detailRow span:first-child { color: var(--text-light); }
+.card > .detailRow:first-child { border-top: none; padding-top: 0; }
+.card > .detailRow:last-child { padding-bottom: 0; }
+
+/* ---- B5 : historique ---- */
+.cardHead .chipRow { margin: 0; }
