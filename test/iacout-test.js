@@ -570,6 +570,50 @@ const touch = (id, text) => { docs[id].text = text; docs[id].mt = new Date(Date.
   assert(dl.includes('n5a-aaaaa'), 'N5 : skip dont le fichier a changé (modifiedTime) => relu et réévalué');
   drive.setFetch(mockFetch); delete process.env.DRIVE_SYNC_BATCH; dt.setCaller(null);
 
+  // ---- Haiku d'abord (plan hebdomadaire, analyse de document) : confiant => pas de repli ; peu sûr / JSON invalide => repli Sonnet ----
+  {
+    const aibudget = require('../server/lib/aibudget'), weekly = require('../server/lib/goalsweeklyauto'), da = require('../server/lib/docanalysis');
+    process.env.ANTHROPIC_API_KEY = 'k'; process.env.GOALS_WEEKLY_MEMO_MIN = '0'; process.env.DOCANALYSIS_MEMO = 'off'; delete process.env.NOESIS_WEEKLY_FAST_MODEL; delete process.env.NOESIS_DOC_FAST_MODEL;
+    const realFetch = global.fetch; const seen = []; let script = [];
+    global.fetch = async (url, init) => {
+      const m = JSON.parse(init.body).model; seen.push(m);
+      const text = script.shift();
+      const body = { model: m, content: [{ type: 'text', text }], usage: { input_tokens: 100, output_tokens: 50 }, stop_reason: 'end_turn' };
+      return { ok: true, status: 200, json: async () => body, clone() { return { json: async () => body }; } };
+    };
+    const wk = (conf) => JSON.stringify(Object.assign({ weeklyGoals: [{ weekIndex: 1, text: 'Semaine un', description: 'Faire' }] }, conf === undefined ? {} : { confidence: conf }));
+    const isHaiku = (m) => /haiku/i.test(m);
+    seen.length = 0; script = [wk(95)];
+    let out = await weekly.callAi({ g: 1 }, [1]);
+    assert(seen.length === 1 && isHaiku(seen[0]) && out.length === 1, 'Haiku hebdo : confiant => un seul appel Haiku, pas de repli');
+    seen.length = 0; script = [wk(40), wk()];
+    out = await weekly.callAi({ g: 2 }, [1]);
+    assert(seen.length === 2 && isHaiku(seen[0]) && !isHaiku(seen[1]) && out.length === 1, 'Haiku hebdo : peu sûr => repli Sonnet');
+    seen.length = 0; script = ['pas du json', wk()];
+    out = await weekly.callAi({ g: 3 }, [1]);
+    assert(seen.length === 2 && !isHaiku(seen[1]) && out.length === 1, 'Haiku hebdo : JSON invalide => repli Sonnet');
+    process.env.NOESIS_WEEKLY_FAST_MODEL = 'off'; seen.length = 0; script = [wk()];
+    await weekly.callAi({ g: 4 }, [1]);
+    assert(seen.length === 1 && !isHaiku(seen[0]), 'Haiku hebdo : off => Sonnet seul');
+    delete process.env.NOESIS_WEEKLY_FAST_MODEL;
+
+    const parts = { stable: 'S', variable: 'V' }, want = { t: true, c: false };
+    const dj = (conf) => JSON.stringify(Object.assign({ t: [['Appeler Paul', KEY, null, 30]] }, conf === undefined ? {} : { confidence: conf }));
+    seen.length = 0; script = [dj(92)];
+    let r = await da.call({ parts, want, feature: 'document-taches' });
+    assert(seen.length === 1 && isHaiku(seen[0]) && !('confidence' in JSON.parse(r.text)) && JSON.parse(r.text).t.length === 1, 'Haiku document : confiant => pas de repli, confiance retirée de la sortie');
+    seen.length = 0; script = [dj(30), dj()];
+    r = await da.call({ parts, want, feature: 'document-taches' });
+    assert(seen.length === 2 && isHaiku(seen[0]) && !isHaiku(seen[1]), 'Haiku document : peu sûr => repli Sonnet');
+    seen.length = 0; script = ['{"t":[["a"', dj()];
+    r = await da.call({ parts, want, feature: 'document-taches' });
+    assert(seen.length === 2 && !isHaiku(seen[1]) && JSON.parse(r.text).t.length === 1, 'Haiku document : JSON invalide => repli Sonnet');
+    const rep = aibudget.fallbackReport(1);
+    const f = (n) => rep.find((x) => x.feature === n);
+    assert(f('objectifs-hebdo') && f('objectifs-hebdo').fallbackCalls === 2 && f('objectifs-hebdo').fallbackRate > 0 && f('document-taches') && f('document-taches').fallbackCalls === 2, 'Haiku : taux de repli journalisé dans fallbackReport (hebdo + document)');
+    global.fetch = realFetch; delete process.env.ANTHROPIC_API_KEY; delete process.env.GOALS_WEEKLY_MEMO_MIN; delete process.env.DOCANALYSIS_MEMO;
+  }
+
   console.log(failed ? failed + ' échec(s)' : 'OK');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

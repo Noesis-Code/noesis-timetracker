@@ -65,8 +65,8 @@ function maxTokensFor(want) { return (want.t ? MAX_TOKENS_TASKS : 0) + (want.c ?
 
 // Corps d'une requête /v1/messages (aussi utilisé tel quel comme params d'une requête de lot).
 // model : modèle moins cher réservé à l'extraction de tâches seules (jamais quand les modifications proposées "c" sont demandées).
-function requestParams({ parts, want, model }) {
-  return aicache.messageParams({ model: (model && !want.c) ? model : classify.modelName(), maxTokens: maxTokensFor(want), system: SYSTEM, stable: parts.stable, variable: parts.variable, images: parts.images });
+function requestParams({ parts, want, model, tier }) {
+  return aicache.messageParams({ model: (model && (!want.c || tier)) ? model : classify.modelName(), maxTokens: maxTokensFor(want), system: SYSTEM, stable: parts.stable, variable: parts.variable, images: parts.images });
 }
 
 // Appel direct immédiat. Renvoie { text, stopReason }.
@@ -74,13 +74,32 @@ function requestParams({ parts, want, model }) {
 // confondus (surveillance Drive, « Ajouter des tâches », modifications proposées, redistribution) et tous membres d'une activité partagée ;
 // appels simultanés identiques fusionnés. Jamais mémorisé : réponse tronquée (max_tokens) ou vide. DOCANALYSIS_MEMO=off pour couper.
 function call(args) {
-  if (caller || String(process.env.DOCANALYSIS_MEMO || '').toLowerCase() === 'off') return callRaw(args);
-  return aicache.memoize(['docanalysis', requestParams(args)], () => callRaw(args), { cacheIf: (v) => v && v.text && v.stopReason !== 'max_tokens' });
+  if (caller || String(process.env.DOCANALYSIS_MEMO || '').toLowerCase() === 'off') return callTiered(args);
+  return aicache.memoize(['docanalysis', requestParams(args)], () => callTiered(args), { cacheIf: (v) => v && v.text && v.stopReason !== 'max_tokens' });
 }
 
-async function callRaw({ parts, want, feature, model }) {
+// Haiku d'abord, repli sur le modèle fort si Haiku est peu sûr : appel en échec, JSON invalide, réponse tronquée, ou confiance (champ racine
+// "confidence", 0-100) < seuil. Réglages : NOESIS_DOC_FAST_MODEL ('off' = fort seul), NOESIS_DOC_MIN_CONFIDENCE (défaut 80).
+// Sans effet si l'appelant impose déjà un modèle (surveillance Drive). Journal : 'document-taches' (Haiku) / 'document-taches:repli' (fort).
+// Avec un appelant injecté (tests), le palier n'agit que si NOESIS_DOC_FAST_MODEL est défini explicitement.
+const DOC_CONF = '\n\nAjoute à la racine de l\'objet JSON un champ "confidence" (entier 0-100, ta confiance dans cette analyse ; sous 80 si tu hésites).';
+async function callTiered(args) {
+  const fast = args.model || (caller && !process.env.NOESIS_DOC_FAST_MODEL) ? null : aicache.fastModelFor('NOESIS_DOC_FAST_MODEL', classify.modelName());
+  if (!fast) return callRaw(args);
+  try {
+    const out = await callRaw({ ...args, model: fast, tier: true, parts: { ...args.parts, variable: args.parts.variable + DOC_CONF } });
+    const j = out.stopReason === 'max_tokens' ? null : JSON.parse(out.text);
+    if (j && typeof j === 'object' && Number(j.confidence) >= aicache.minConfidenceFor('NOESIS_DOC_MIN_CONFIDENCE')) {
+      delete j.confidence;
+      return { text: JSON.stringify(j), stopReason: out.stopReason };
+    }
+  } catch (err) { if (err && (err.creditLow || err.aiBlocked)) throw err; /* repli sur le modèle fort */ }
+  return callRaw({ ...args, feature: (args.feature || 'document-taches') + ':repli' });
+}
+
+async function callRaw({ parts, want, feature, model, tier }) {
   if (caller) {
-    const out = await caller({ system: SYSTEM, user: parts.stable + '\n\n' + parts.variable, stable: parts.stable, variable: parts.variable, want });
+    const out = await caller({ model, system: SYSTEM, user: parts.stable + '\n\n' + parts.variable, stable: parts.stable, variable: parts.variable, want });
     return out && typeof out === 'object' ? { text: out.text, stopReason: out.stopReason || null } : { text: out, stopReason: null };
   }
   const controller = new AbortController();
@@ -89,7 +108,7 @@ async function callRaw({ parts, want, feature, model }) {
     const res = await aibudget.fetchAnthropic(feature || 'document-taches', API_URL, {
       method: 'POST', signal: controller.signal,
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestParams({ parts, want, model })),
+      body: JSON.stringify(requestParams({ parts, want, model, tier })),
     });
     if (!res.ok) {
       let detail = '';

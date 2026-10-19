@@ -127,22 +127,37 @@ Contraintes : un objet par numéro de semaine demandé, jamais un numéro non de
 // Réglage : GOALS_WEEKLY_MEMO_MIN (défaut 15 ; 0 = désactivé).
 function callAi(payload, requestedWeeks) {
   const min = process.env.GOALS_WEEKLY_MEMO_MIN === undefined ? 15 : Number(process.env.GOALS_WEEKLY_MEMO_MIN);
-  if (!(min > 0)) return callAiRetry(payload, requestedWeeks);
-  return aicache.memoize(['hebdo', ANTHROPIC_MODEL, payload, requestedWeeks], () => callAiRetry(payload, requestedWeeks), { ttlMs: min * 60000, cacheIf: (v) => Array.isArray(v) && v.length > 0 });
+  if (!(min > 0)) return callAiTiered(payload, requestedWeeks);
+  return aicache.memoize(['hebdo', ANTHROPIC_MODEL, payload, requestedWeeks], () => callAiTiered(payload, requestedWeeks), { ttlMs: min * 60000, cacheIf: (v) => Array.isArray(v) && v.length > 0 });
 }
 
-async function callAiRetry(payload, requestedWeeks) {
+// Haiku d'abord, repli sur le modèle fort si Haiku est peu sûr : appel en échec, JSON illisible, aucune semaine, ou confiance (champ racine
+// "confidence", 0-100) < seuil. Réglages : NOESIS_WEEKLY_FAST_MODEL ('off' = fort seul), NOESIS_WEEKLY_MIN_CONFIDENCE (défaut 80).
+// Journal : features 'objectifs-hebdo' (Haiku) / 'objectifs-hebdo:repli' (fort).
+const WEEKLY_CONF = '\nAjoute à la racine de l\'objet JSON un champ "confidence" (entier 0-100, ta confiance dans ce plan ; sous 80 si tu hésites).';
+async function callAiTiered(payload, requestedWeeks) {
+  const fast = aicache.fastModelFor('NOESIS_WEEKLY_FAST_MODEL', ANTHROPIC_MODEL);
+  if (fast) {
+    try {
+      const r = await callAiOnce(payload, requestedWeeks, fast, 'objectifs-hebdo', WEEKLY_CONF);
+      if (r.goals.length && r.confidence >= aicache.minConfidenceFor('NOESIS_WEEKLY_MIN_CONFIDENCE')) return r.goals;
+    } catch (err) { /* repli sur le modèle fort */ }
+  }
+  return callAiRetry(payload, requestedWeeks, fast ? 'objectifs-hebdo:repli' : 'objectifs-hebdo');
+}
+
+async function callAiRetry(payload, requestedWeeks, feature) {
   // Une réponse illisible (coupée ou entourée de texte) est relancée une fois.
   try {
-    return await callAiOnce(payload, requestedWeeks);
+    return (await callAiOnce(payload, requestedWeeks, ANTHROPIC_MODEL, feature)).goals;
   } catch (err) {
     if (!/illisible/.test(err.message)) throw err;
-    return callAiOnce(payload, requestedWeeks);
+    return (await callAiOnce(payload, requestedWeeks, ANTHROPIC_MODEL, feature)).goals;
   }
 }
 
-async function callAiOnce(payload, requestedWeeks) {
-  const res = await aibudget.fetchAnthropic('objectifs-hebdo', ANTHROPIC_API_URL, {
+async function callAiOnce(payload, requestedWeeks, model, feature, extraSystem) {
+  const res = await aibudget.fetchAnthropic(feature || 'objectifs-hebdo', ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
@@ -150,9 +165,9 @@ async function callAiOnce(payload, requestedWeeks) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
+      model: model || ANTHROPIC_MODEL,
       max_tokens: 3000,
-      system: SYSTEM_PROMPT,
+      system: SYSTEM_PROMPT + (extraSystem || ''),
       messages: [{ role: 'user', content: JSON.stringify(payload) }],
     }),
   });
@@ -169,7 +184,10 @@ async function callAiOnce(payload, requestedWeeks) {
   const body = await res.json();
   const text = (body.content || []).map((block) => block.text || '').join('');
   try {
-    return parseWeeklyGoals(text, requestedWeeks);
+    const goalsOut = parseWeeklyGoals(text, requestedWeeks);
+    let confidence = NaN;
+    if (extraSystem) { try { confidence = Number(JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)).confidence); } catch (e) { /* confiance absente */ } }
+    return { goals: goalsOut, confidence };
   } catch (err) {
     console.error('[objectifs][remplissage IA hebdomadaire] réponse illisible — arrêt : ' + body.stop_reason + ', début : ' + JSON.stringify(String(text).slice(0, 200)));
     throw err;
