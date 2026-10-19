@@ -35,7 +35,14 @@ function fromCache(cacheName, req, mark) {
 function api(req) {
   return fetch(req).then(function (res) {
     if (res.status === 401) { caches.delete(DATA); return res; }
-    if (res.ok) { var copy = res.clone(); caches.open(DATA).then(function (c) { c.put(req, copy); }); }
+    if (res.ok) {
+      var copy = res.clone(), isMe = new URL(req.url).pathname === '/api/me';
+      // Autre utilisateur sur le même appareil (sans déconnexion passée par ici) : on repart d'un cache vide.
+      var prep = isMe ? Promise.all([fromCache(DATA, req, false), res.clone().json().catch(function () { return {}; })]).then(function (a) {
+        return a[0] ? a[0].json().then(function (o) { return o && o.id !== a[1].id ? caches.delete(DATA) : null; }).catch(function () { return caches.delete(DATA); }) : null;
+      }) : Promise.resolve();
+      prep.then(function () { return caches.open(DATA); }).then(function (c) { return c.put(req, copy); });
+    }
     return res;
   }).catch(function () {
     return fromCache(DATA, req, true).then(function (r) { return r || new Response(JSON.stringify({ error: 'offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } }); });
