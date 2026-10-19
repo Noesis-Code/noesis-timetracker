@@ -1956,6 +1956,7 @@
   // niveau supérieur de CE fichier s'exécute avant que la page 2 ait inséré son
   // HTML, puisque objectifs-page1.js charge en premier).
   TMT.loadGoalsTab = loadGoalsTab;
+  TMT.floatingWhereMenu = floatingWhereMenu; // réutilisé par la suppression d'un secteur (app.js)
   TMT.openGoalsPeriodFromNotification = openGoalsPeriodFromNotification;
   TMT.renderGoalsCaptureActivities = renderGoalsCaptureActivities;
   TMT.showGoalsCapturePage = showGoalsCapturePage;
