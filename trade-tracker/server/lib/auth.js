@@ -78,6 +78,7 @@ function consumeLink(db, token, { invite, env = process.env, now = Date.now() } 
   if (!v.ok) return v;
   const p = v.payload;
   db.prepare('DELETE FROM link_nonces WHERE expiresAt < ?').run(iso(now));
+  db.prepare('DELETE FROM sessions WHERE expiresAt < ?').run(iso(now));
   if (db.prepare('SELECT 1 FROM link_nonces WHERE nonce = ?').get(p.nonce)) return { ok: false, error: 'replayed' };
 
   let user = db.prepare('SELECT * FROM tt_users WHERE tmtUserId = ?').get(p.sub);

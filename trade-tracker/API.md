@@ -94,3 +94,6 @@ Réponse attendue : 2xx. Sinon l'événement reste `ECHEC` et est renvoyé à la
 
 ## Hors v0
 Connecteur courtier (Questrade), prix et taux automatiques, écriture de transactions : non inclus ; la synchro n'utilise que le connecteur de démonstration.
+
+## Sécurité (relecture du 19 oct. 2026)
+Limites par IP (fenêtre 1 min, 429 + `Retry-After`) : `/link` 20, écritures `POST/PUT/DELETE` 30, import admin 10, lecture 300. En-têtes `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`. Signature de lien comparée à temps constant, expiration 5 min (plafonnée), nonce à usage unique, sessions expirées purgées, jeton courtier chiffré AES-256-GCM, aucun secret journalisé ni en dur (test `security-test.js`).

@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const { importSheet, ensureUser } = require('./lib/importsheet');
 const A = require('./lib/auth');
+const { createLimiter } = require('./lib/ratelimit');
 const C = require('./lib/calc');
 const { buildPortfolio, latestUsdCad } = require('./lib/portfolio');
 const { compareProportions } = require('./lib/compare');
@@ -13,19 +14,35 @@ function parseCookies(h) {
   const out = {};
   for (const part of String(h || '').split(';')) {
     const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    if (i > 0) { try { out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim()); } catch { /* cookie malformé ignoré */ } }
   }
   return out;
 }
 
-function createApp(db, { env = process.env } = {}) {
+function createApp(db, { env = process.env, limits = {} } = {}) {
   const app = express();
   app.disable('x-powered-by');
+  app.set('trust proxy', 1); // Railway : un saut de proxy ; req.ip = vrai client
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer'); // le jeton de lien est dans l'URL
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
+  // Limitation de débit : /link (jetons), écritures (POST), échecs d'authentification admin, lecture générale.
+  const ip = (req) => req.ip || 'inconnu';
+  const rlLink = createLimiter({ max: limits.link || 20 })(ip);
+  const rlWrite = createLimiter({ max: limits.write || 30 })(ip);
+  const rlAdmin = createLimiter({ max: limits.admin || 10 })(ip);
+  const rlRead = createLimiter({ max: limits.read || 300 })(ip);
+  app.use('/link', rlLink);
+  app.use('/api', (req, res, next) => (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE' ? rlWrite : rlRead)(req, res, next));
   const err = (res, status, error, message) => res.status(status).json({ error, message: message || error });
 
   // Admin (hors session) : import d'un export CSV du Sheet. Protégé par TRADE_ADMIN_TOKEN
   // (en-tête X-Admin-Token, comparaison à temps constant) ; absent => route inexistante (404).
-  app.post('/api/admin/import-sheet', express.json({ limit: '5mb' }), (req, res) => {
+  app.post('/api/admin/import-sheet', rlAdmin, express.json({ limit: '5mb' }), (req, res) => {
     const want = env.TRADE_ADMIN_TOKEN;
     if (!want || want.length < 16) return err(res, 404, 'not_found');
     const given = Buffer.from(String(req.headers['x-admin-token'] || ''));
