@@ -16135,7 +16135,10 @@
     if (profile) { loadPendingInvites(); loadFollowRequests(); refreshUnreadBadges(); }
   }
   document.addEventListener('tmt:modules', onModulesChange);
-  onModulesChange();
+  // Premier passage DIFFÉRÉ (après tous les scripts) : en synchrone, un état en cache sans Chrono appelait switchTab('goals') avant que
+  // objectifs-page1.js ne définisse TMT.loadGoalsTab -> TypeError qui interrompait app.js ici, AVANT l'export de TMT.getProfile
+  // (aucun GET /modules, Feuille de route réduite à Offre 1/Historique). Un échec ne doit jamais couper la suite de ce fichier.
+  setTimeout(function () { try { onModulesChange(); } catch (e) { if (window.console) console.error(e); } }, 0);
   window.TMT.whenElementReady = whenElementReady;
   window.TMT.focusWhenReady = focusWhenReady;
   window.TMT.setActivityPageSection = setActivityPageSection;

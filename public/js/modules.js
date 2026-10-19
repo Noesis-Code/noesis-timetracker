@@ -9,10 +9,13 @@
   var state = null, loadedFor = null, tradeAllowed = false;
   var CACHE_KEY = 'noesis_modules';
   // Dernier état connu (démarrage hors ligne / avant la réponse du serveur) : évite un flash d'interface masquée ou non.
+  // Un état où ni Chrono (stats) ni Feuille de route (roadmap) n'est actif n'est jamais valide (le serveur le rallume) : traité comme « tout actif ».
+  function usable(st) { return !!st && typeof st === 'object' && (st.stats !== false || st.roadmap !== false); }
   try {
     var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
     var lp = JSON.parse(localStorage.getItem('noesis_profile') || 'null');
-    if (cached && cached.state && lp && cached.id === lp.id) state = cached.state;
+    if (cached && cached.state && lp && cached.id === lp.id && usable(cached.state)) state = cached.state;
+    else if (cached) localStorage.removeItem(CACHE_KEY); // autre profil ou état invalide : cache vidé
   } catch (e) { /* cache illisible : tout actif */ }
   var box = document.getElementById('modulesList');
   var msg = document.getElementById('modulesMsg');
@@ -43,7 +46,7 @@
     try { document.dispatchEvent(new CustomEvent('tmt:modules')); } catch (e) { /* vieux navigateur */ }
   }
   function remember() {
-    try { if (state && pid()) localStorage.setItem(CACHE_KEY, JSON.stringify({ id: pid(), state: state })); } catch (e) { /* stockage plein */ }
+    try { if (usable(state) && pid()) localStorage.setItem(CACHE_KEY, JSON.stringify({ id: pid(), state: state })); } catch (e) { /* stockage plein */ }
   }
   function setMsg(t) { if (msg) msg.textContent = t || ''; }
 
@@ -120,8 +123,15 @@
   function load() {
     if (!pid()) return Promise.resolve(null);
     var id = pid();
-    return call('GET').then(function (d) { state = d.modules; tradeAllowed = !!d.tradeAllowed; loadedFor = id; remember(); apply(); applyOrder(); openFirstTab(); paint(); return state; }).catch(function () { return null; });
+    // Toujours rafraîchi depuis le serveur, même avec un cache. Réponse inutilisable (tout coupé) = tout actif ; échec = on garde le dernier état valide et on réessaie.
+    return call('GET').then(function (d) {
+      state = usable(d.modules) ? d.modules : null; tradeAllowed = !!d.tradeAllowed; loadedFor = id; loadFails = 0; remember(); apply(); applyOrder(); openFirstTab(); paint(); return state;
+    }).catch(function () { if (loadFails++ < 5) setTimeout(function () { if (loadedFor !== pid()) load(); }, 2000 * loadFails); return null; });
   }
+  var loadFails = 0;
+  // Retour au premier plan / du réseau : nouvel état serveur (un changement fait ailleurs, ou un GET manqué au démarrage).
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && pid()) load(); });
+  window.addEventListener('online', function () { if (pid()) load(); });
 
   // ===== Barre du bas modulable =====
   // Appui long sur un volet = mode édition : glisser-déposer pour réordonner (ordre mémorisé par utilisateur, localStorage),
