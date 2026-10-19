@@ -1,5 +1,5 @@
 /* Noèsis TimeTracker — panneau « J'ai un code » (code d'accès gratuit Offre 1, carte de la Feuille de route).
- * Extrait de l'ancien objectifs-accomplissements.js (zone Accomplissements retirée de l'UI le 15 oct. 2026).
+ * Extrait de l'ancien objectifs-accomplissements.js (zone Accomplissements retirée de l'UI ).
  */
 (function () {
   'use strict';

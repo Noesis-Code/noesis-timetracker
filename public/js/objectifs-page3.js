@@ -1,6 +1,6 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 3 (détail d'une période)
  *
- * 28 septembre 2026 — chantier de restructuration (demande d'Emilien) :
+ * chantier de restructuration (demande d'Emilien) :
  * extrait de public/app.js et public/index.html — voir l'en-tête de
  * objectifs-page1.js pour le contexte complet. Déplacement PUR.
  *
@@ -30,7 +30,7 @@
               <button type="button" class="menuBtn" id="activityGoalsNextBtn" aria-label="Période suivante">›</button>
             </div>
 
-            <!-- 15 septembre 2026 (discussion "Objectifs — D"), demande
+            <!-- (discussion "Objectifs — D"), demande
                  d'Emilien : hiérarchie d'en-tête revue — activité seule tout
                  en haut (#goalsDetailTitle, .activityPageHeader plus haut
                  dans ce fichier), période juste au-dessus (.goalsPeriodNav),
@@ -40,7 +40,7 @@
                  currentGoalsCategory. -->
             <p class="goalsCategoryLabel" id="activityGoalsCategoryLabel"></p>
 
-            <!-- 15 septembre 2026 (discussion "Objectifs — D"), demande
+            <!-- (discussion "Objectifs — D"), demande
                  d'Emilien : « réduire la section de l'objectif périodique au
                  titre, au nombre d'heures à réaliser estimées et à une
                  visualisation de l'avancement total ». Statut manuel (à
@@ -51,13 +51,13 @@
                  ici — remplacés par la seule barre d'avancement ci-dessous
                  (temps réel / estimation, même pattern que la barre unique
                  des sous-projets, .subProjectProgressTrack/Fill dans ce
-                 même fichier). 17 septembre 2026 : cette carte devient un
+                 même fichier). : cette carte devient un
                  bandeau plein largeur de la couleur de catégorie (voir
                  renderActivityGoals(), app.js). -->
             <p class="goalCardLabel goalsWeeklyLabel goalsMainOutLabel">Objectif périodique</p>
             <button type="button" class="goalMainEmptyBar hidden" id="activityGoalsMainEmptyBar"><span>Aucun objectif périodique</span><span class="goalMainEmptyAdd">+ Ajouter</span></button>
             <div class="goalCard goalMainCard" id="activityGoalsMainCard">
-              <!-- 16 septembre 2026 (discussion "Objectifs — D"), demande
+              <!-- (discussion "Objectifs — D"), demande
                    d'Emilien : « la zone de texte [...] moins grande [...]
                    mais plus longue afin qu'on puisse voir le mot qu'on
                    écrit » — 1 ligne (pleine largeur, déjà width:100% dans
@@ -93,7 +93,7 @@
                 <button type="button" class="historyRowIconBtn goalDescEditBtn" id="activityGoalsMainDescBtn"></button>
               </div>
 
-              <!-- 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
+              <!-- (discussion "B. Objectifs — Calendrier &
                    intégrations"), demande d'Emilien : conserver et rendre
                    plus attirante l'invite déjà existante (ce textarea,
                    inchangé) tant qu'aucun objectif périodique n'est
@@ -123,7 +123,7 @@
                   <div class="goalMainProgressTrack"><div class="goalMainProgressFill" id="activityGoalsMainProgressFill"></div></div>
                   <span class="goalMainProgressPct" id="activityGoalsMainProgressPct"></span>
                 </div>
-                <!-- 17 septembre 2026 (discussion "Objectifs — A : Offre1"),
+                <!-- (discussion "Objectifs — A : Offre1"),
                      demande d'Emilien : pouvoir ajuster manuellement la
                      capacité hebdomadaire utilisée par l'auto-planification
                      (server/lib/goalsauto.js), pour couvrir le cas d'une
@@ -135,7 +135,7 @@
               </div>
             </div>
 
-            <!-- 22 septembre 2026 (discussion "Objectifs — Logique métier") :
+            <!-- (discussion "Objectifs — Logique métier") :
                  liste quotidienne de tâches priorisées, consomme GET
                  /activities/:id/goals/daily-priority
                  (server/lib/goalsdailypriority.js) — toujours une
@@ -143,7 +143,7 @@
                  automatiquement. Contenu entièrement construit par
                  renderGoalsDailyPriority() (app.js) — vide au chargement,
                  même pattern que .goalCapacityRow juste au-dessus.
-                 ⚠️ 25 septembre 2026, demande directe d'Emilien (restructuration
+                 demande directe d'Emilien (restructuration
                  du volet Objectifs en 3 pages) : « s'il veut voir tous les
                  détails, cette liste est véritablement présente de manière
                  fixe longtemps à l'avance, UNIQUEMENT dans la section
@@ -160,32 +160,32 @@
               <div class="dailyPriorityList" id="activityGoalsDailyPriorityList"></div>
             </div>
 
-            <!-- 16 septembre 2026 (discussion "Objectifs — D", 7e passage) —
+            <!-- (discussion "Objectifs — D", 7e passage) —
                  retour à l'affichage PERMANENT des 4 cartes hebdomadaires
                  entre l'objectif périodique et le calendrier, sur demande
                  explicite d'Emilien après avoir vu la bulle flottante du
                  passage précédent (« ce n'est pas ce que j'ai demandé [...]
                  reprends la version précédente [...] une sorte de sommaire
                  [...] qui affiche tous les objectifs hebdomadaires de la
-                 période »). Défait la fusion du 15 septembre (soir) qui les
+                 période »). Défait la fusion (soir) qui les
                  masquait derrière un clic sur le calendrier — celui-ci fait
                  maintenant défiler jusqu'à la carte concernée plutôt que
                  d'ouvrir quoi que ce soit (openGoalsWeekEditor(), app.js).
                  Ces 4 cartes ont toujours servi de sommaire de la période
                  (texte, statut, assignation), seule leur visibilité
-                 permanente est restaurée ici. 17 septembre 2026 (bandeau
+                 permanente est restaurée ici. (bandeau
                  plein largeur) : renderGoalsWeeklyList() (app.js) rend
                  désormais chaque semaine en UNE LIGNE compacte plutôt qu'une
                  carte, fonctionnalité inchangée — voir son commentaire de
                  fonction. -->
-            <!-- 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
+            <!-- (discussion "B. Objectifs — Calendrier &
                  intégrations") : les objectifs hebdomadaires et le
                  calendrier n'ont de sens qu'une fois l'objectif périodique
                  renseigné pour cette période — masqués/révélés avec
                  #activityGoalsMainMeta ci-dessus par hasMainGoal dans
                  renderActivityGoals() (app.js), voir le commentaire sur
                  .goalMainSaveRow plus haut. -->
-            <!-- 28 septembre 2026 (discussion "B. Objectifs — Calendrier &
+            <!-- (discussion "B. Objectifs — Calendrier &
                  intégrations"), demande d'Emilien : fusion des objectifs
                  hebdomadaires et du calendrier de la période — la section
                  "Calendrier de la période" séparée qui vivait ici (une ligne
@@ -233,7 +233,7 @@
     return TMT.GOALS_CATEGORY_LABELS[key] || key;
   }
 
-  // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien : « la
+  // « la
   // couleur qui encadre l'objectif périodique et les objectifs hebdomadaires
   // soit la même nuance [...] que la couleur choisie [...] pour la
   // catégorie » — source unique de cette couleur, réutilisée par la carte
@@ -241,7 +241,7 @@
   // (.goalWeeklyCard) et le calendrier (renderGoalsCalendarDays()), pour que
   // les 3 restent identiques par construction plutôt que par 3 calculs
   // séparés.
-  // ⚠️ 16 septembre 2026 (8e passage, discussion Objectifs — B, débordement
+  // (8e passage, discussion Objectifs — B, débordement
   // sur cette fonction de D — même fichier, aucune ligne en commun,
   // détecté au device_list_dir juste avant écriture) : `c.color` a disparu
   // du serveur le même jour (couleur 100% automatique, cadré séparément avec
@@ -262,14 +262,14 @@
   }
 
 
-  // 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+  // 
   // « bandeau plein largeur » — categoryColorTint() (teinte de fond légère,
   // 12e/13e passages) est retirée, remplacée par un fond PLEIN de la couleur
   // de catégorie sur .goalMainCard (voir renderActivityGoals() plus bas) ;
   // la lisibilité du texte est assurée par readableTextOn() (fonction déjà
   // existante — voir plus haut dans ce fichier, utilisée jusqu'ici pour les
   // badges de catégorie de la grille), pas une nouvelle fonction dupliquée.
-  // 15 septembre 2026 (discussion D — Calendrier & intégrations) : numéro de
+  // numéro de
   // requête pour le calendrier de la page 2 (garde-fou anti-réponse-en-retard,
   // voir loadGoalsCalendarDays()/closeGoalsDetail() plus bas).
   var goalsCalendarRequestId = 0;
@@ -300,7 +300,7 @@
 
 
 
-  // 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+  // 
   // « bandeau plein largeur » — formatActualHint()/renderGoalStatusButtons()
   // (3 boutons de statut texte par semaine, .goalStatusRow/.goalStatusBtn)
   // sont retirées, remplacées par un simple point de couleur cliquable
@@ -310,7 +310,7 @@
   // la vue compacte ; l'avancement agrégé reste visible sur le bandeau de
   // l'objectif périodique ci-dessus.
 
-  // 27 septembre 2026 (discussion "B. Objectifs — Calendrier & intégrations"),
+  // (discussion "B. Objectifs — Calendrier & intégrations"),
   // bug signalé par Emilien (relayé, puis confirmé sans reproduction côté
   // serveur à l'encart 72 du journal de chantiers — le déclenchement IA est
   // bien câblé et s'exécute) : « les objectifs hebdomadaires ne se sont pas
@@ -365,7 +365,7 @@
   }
 
 
-  // 2 oct. 2026 : description détaillée d'un objectif (titre = quelques mots).
+  // description détaillée d'un objectif (titre = quelques mots).
   // Fenêtre bas d'écran calquée sur celle des pôles/secteurs (#categoryDetailModal) :
   // mêmes classes (.communityMembersModal, .profileSubWindowHeader, .categoryDetailBody),
   // croix ✕, textarea, bouton Enregistrer DANS la zone.
@@ -377,7 +377,7 @@
   var mainEditKey = null; // « période|pôle » dont l'objectif périodique est en modification sur place
 
 
-  // 8 oct. 2026 (Émilien) : les objectifs hebdomadaires suivent le mode « gestion de l'IA ». Premier objectif
+  // les objectifs hebdomadaires suivent le mode « gestion de l'IA ». Premier objectif
   // périodique saisi avant toute capture : le pop-up de choix s'affiche d'abord (fermé = enregistré sans proposition).
   function withAiMode(title, doSave) {
     if (!title || !title.trim() || !TMT.ensureAiMode) return doSave();
@@ -475,7 +475,7 @@
 
 
 
-  // 7 oct. 2026 (gratuit, validé par Émilien) : Noèsis reformule le texte saisi
+  // Noèsis reformule le texte saisi
   // à la main mais ne l'applique pas. La case se colore (violet) ; au clic,
   // une bulle propose le changement (Appliquer / Garder le mien). Rien n'est
   // écrit sans clic. Les propositions survivent aux re-rendus (clé -> {text, proposal}).
@@ -595,7 +595,7 @@
 
 
 
-  // 14 septembre 2026 (troisième passage, demande d'Emilien) : remplace la
+  // remplace la
   // liste COMPLÈTE des membres travaillant sur l'objectif périodique de
   // cette période — contrairement à saveWeeklyAssignee ci-dessus (UN SEUL
   // membre), PLUSIEURS peuvent être cochés à la fois (voir
@@ -608,12 +608,12 @@
   }
 
 
-  // 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+  // 
   // « bandeau plein largeur » — remplace la carte par semaine (label +
   // texte + estimation + 3 boutons de statut + ligne d'assignation, ~6
   // lignes chacune) par UNE LIGNE COMPACTE par semaine : badge "S1"-"S4"
   // (même style que .goalsCalendarWeekBadge), texte TOUJOURS visible et
-  // éditable (contrainte déjà posée le 16 septembre, 5e→7e passages : jamais
+  // éditable (contrainte déjà posée 5e→7e passages : jamais
   // masqué derrière un clic), point de statut coloré cliquable qui fait
   // défiler le cycle non atteint → partiel → atteint (remplace les 3
   // boutons texte), sélecteur d'assignation compact (natif, inchangé dans
@@ -623,13 +623,13 @@
   // et le "Reporté automatiquement" par semaine n'ont plus de ligne dédiée
   // (retirés de la vue compacte, l'avancement agrégé reste sur le bandeau
   // périodique ci-dessus) — le report reste visible en survol (title). Le
-  // bouton "feuille de route jour par jour" (17 septembre, discussion
+  // bouton "feuille de route jour par jour" (discussion
   // "Objectifs — A : Offre1", generateDailyPlan() ci-dessus) est conservé
   // TEL QUEL fonctionnellement, seulement réduit à une icône compacte en
   // fin de ligne (.goalWeeklyDailyPlanBtn) — la ligne repasse en
   // flex-wrap si son texte temporaire ("Génération en cours…") ne tient
   // plus, plutôt que de casser la mise en page.
-  // 28 septembre 2026 (discussion "B. Objectifs — Calendrier &
+  // (discussion "B. Objectifs — Calendrier &
   // intégrations"), demande d'Emilien : fusionner objectifs hebdomadaires et
   // calendrier — un chevron par carte déplie ses 7 jours (goalWeekDaysPanelN,
   // rempli par renderGoalsCalendarDays() plus bas) juste en dessous, au lieu
@@ -748,13 +748,13 @@
   function renderGoalsWeeklyList(period) {
     var box = $('activityGoalsWeeklyList');
     box.innerHTML = '';
-    // 16 septembre 2026 (12e passage), demande d'Emilien : « les objectifs
+    // « les objectifs
     // hebdomadaires [...] entourés par la même nuance de couleur attribuée à
     // la catégorie » — même source que mainCardEl plus haut
     // (currentGoalsCategoryColor()), posée sur le cadre UNIQUE qui entoure
     // les 4 semaines (.goalsWeeklyList), inchangé par ce passage.
     box.style.borderColor = currentGoalsCategoryColor();
-    // 1er oct. 2026 (Gaspard) : ordre DESCENDANT, S4 (le plus futur) en haut.
+    // ordre DESCENDANT, S4 (le plus futur) en haut.
     for (var weekIndex = 4; weekIndex >= 1; weekIndex -= 1) {
       (function (weekIndex) {
         var w = null;
@@ -764,7 +764,7 @@
 
         var row = document.createElement('div');
         row.className = 'goalCard goalWeeklyCard';
-        // 28 septembre 2026 : id stable, requis par openGoalsWeekEditor()
+        // id stable, requis par openGoalsWeekEditor()
         // plus bas — #activityGoalsWeeklyList contient désormais aussi les
         // panneaux de jours (goalWeekDaysPanelN, un par semaine) intercalés
         // entre les cartes, donc `list.children[weekIndex - 1]` (ancien
@@ -875,13 +875,13 @@
         }
 
         if (w) {
-          // 8 oct. 2026 (Émilien) : la pastille de statut est retirée de la ligne.
+          // la pastille de statut est retirée de la ligne.
 
-          // 8 oct. 2026 (Emilien) : plus de responsable ni de petit calendrier sur
+          // plus de responsable ni de petit calendrier sur
           // les objectifs hebdomadaires — l'assignation est réservée aux tâches.
         }
 
-        // 28 septembre 2026 : chevron de dépliage des jours de cette semaine
+        // chevron de dépliage des jours de cette semaine
         // — voir le commentaire de fonction plus haut. Bouton DÉDIÉ (plutôt
         // que la ligne entière cliquable) pour ne jamais interférer avec le
         // clic/focus du textarea, du sélecteur d'assignation ou de la
@@ -948,7 +948,7 @@
     if (!period) return;
 
     var title = t('Période') + ' ' + period.periodIndexInCycle;
-    // 9 oct. 2026 : année calendaire de la période (au lieu de « Année 2 »), seulement hors année en cours.
+    // année calendaire de la période (au lieu de « Année 2 »), seulement hors année en cours.
     var pm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(period.startDate || ''));
     var periodYear = pm ? new Date(Date.UTC(+pm[1], +pm[2] - 1, +pm[3] + 6)).getUTCFullYear() : null;
     if (periodYear && periodYear !== new Date().getFullYear()) title += ' · ' + periodYear;
@@ -956,19 +956,19 @@
     $('activityGoalsPeriodTitle').textContent = title;
     $('activityGoalsPeriodDates').textContent = formatGoalPeriodDates(period.startDate, period.endDate);
 
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // 
     // le nom de la catégorie se place désormais ici (en dessous de la
     // période, au-dessus du titre de l'objectif périodique) — il a déménagé
     // depuis #goalsDetailTitle, voir openGoalsDetail() plus bas.
     var catLabelEl = $('activityGoalsCategoryLabel');
     if (catLabelEl) catLabelEl.textContent = t(goalsCategoryLabel(TMT.currentGoalsCategory));
 
-    // 16 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // 
     // « la couleur qui encadre l'objectif périodique [...] soit la même
     // nuance [...] attribuée à la catégorie » — remplace le violet fixe de
     // .goalMainCard (styles.css) par la couleur de la catégorie courante,
     // même source que le calendrier ci-dessous (currentGoalsCategoryColor()).
-    // 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // 
     // « bandeau plein largeur » — remplace le fond teinté (12e/13e passages,
     // categoryColorTint(), retirée) par un fond PLEIN de la couleur de
     // catégorie sur toute la carte périodique ; la couleur de texte n'est
@@ -999,14 +999,14 @@
     var draftKey = period.periodNumber + '|' + TMT.currentGoalsCategory;
     if (!(period.mainGoalText && period.mainGoalText.trim()) && mainDraft && mainDraft.key === draftKey && mainDraft.text) mainInput.value = mainDraft.text;
     mainInput.placeholder = t('Titre de l’objectif');
-    $('activityGoalsMainDescRow').classList.add('hidden'); // remplacé par la lecture + modification sur place (3 oct. 2026)
-    // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
+    $('activityGoalsMainDescRow').classList.add('hidden'); // remplacé par la lecture + modification sur place
+    // (discussion "B. Objectifs — Calendrier &
     // intégrations"), demande d'Emilien : garder l'enregistrement au blur
     // (inchangé) ET ajouter un bouton "Enregistrer" explicite — factorisé
     // dans commitMainGoalText() pour que les deux déclencheurs partagent
     // strictement la même logique (pas de duplication, pas de dérive future
     // entre les deux chemins).
-    // 27 septembre 2026 (discussion "C. Objectifs — Page 1 / Logique métier"),
+    // (discussion "C. Objectifs — Page 1 / Logique métier"),
     // bug réel trouvé en investiguant le rapport d'Emilien (2 PUT .../main
     // identiques à la même milliseconde, 16:26:49 UTC) : cliquer sur
     // "Enregistrer" pendant que le textarea a encore le focus déclenche
@@ -1037,7 +1037,7 @@
     };
     var mainSaveBtn = $('activityGoalsMainSaveBtn');
     if (mainSaveBtn) mainSaveBtn.onclick = commitMainGoalText;
-    // 30 sept. 2026 (Gaspard, O3·03) : bloc plus compact — une fois l'objectif
+    // bloc plus compact — une fois l'objectif
     // enregistré, « Enregistrer » ne reste affiché que tant que le texte a été
     // modifié (l'enregistrement au blur est inchangé).
     var mainSaveRow = mainSaveBtn && mainSaveBtn.parentNode;
@@ -1058,12 +1058,12 @@
     mainInput.addEventListener('input', mainInput._draftListener);
     syncMainSaveRow();
 
-    // 3 oct. 2026 (demande d'Emilien) : une fois l'objectif enregistré, la carte n'affiche que
+    // une fois l'objectif enregistré, la carte n'affiche que
     // le titre et la description en dessous, avec un bouton modifier à côté ; le bouton
     // transforme la carte en formulaire sur place (titre, description, Annuler/Enregistrer),
     // sans fenêtre séparée. Tant qu'aucun objectif n'existe : saisie du titre comme avant.
     var hasMainNow = !!(period.mainGoalText && period.mainGoalText.trim());
-    // 4 oct. 2026 : tant qu'aucun objectif n'est saisi pour cette période, la carte s'ouvre directement
+    // tant qu'aucun objectif n'est saisi pour cette période, la carte s'ouvre directement
     // dans le formulaire de modification (sans Annuler : rien à annuler).
     var curKey = period.periodNumber + '|' + TMT.currentGoalsCategory;
     var editing = !hasMainNow || mainEditKey === curKey;
@@ -1172,7 +1172,7 @@
     }
     editBtn.onclick = function () { mainEditKey = period.periodNumber + '|' + TMT.currentGoalsCategory; renderActivityGoals(); };
 
-    // 27 septembre 2026 (discussion "B. Objectifs — Calendrier &
+    // (discussion "B. Objectifs — Calendrier &
     // intégrations"), demande d'Emilien (confirmée après question posée) :
     // « le déclencheur est bien une réduction de la page 3 si aucun objectif
     // périodique n'a été rempli pour cette période précise et non pour
@@ -1213,7 +1213,7 @@
 
     paintPeriodEstimate(period);
 
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // 
     // « réduire la section de l'objectif périodique au titre, au nombre
     // d'heures à réaliser estimées et à une visualisation de l'avancement
     // total » — remplace les boutons de statut manuel et les puces
@@ -1237,16 +1237,16 @@
       }
     }
 
-    // 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
+    // (discussion "Objectifs — A : Offre1"), demande
     // d'Emilien : ajustement manuel de la capacité hebdomadaire utilisée par
     // l'auto-planification (server/lib/goalsauto.js) — voir renderGoalsCapacity()
     // plus bas.
     renderGoalsCapacity();
 
-    // 22 septembre 2026 (discussion "Objectifs — Logique métier") : liste
+    // liste
     // quotidienne de tâches priorisées — voir renderGoalsDailyPriority()
     // plus bas.
-    // ⚠️ 25 septembre 2026, demande directe d'Emilien (restructuration du
+    // demande directe d'Emilien (restructuration du
     // volet Objectifs en 3 pages) : ce résumé du jour dans le détail de
     // période fait désormais doublon avec la page 3 (calendrier, seule
     // responsable de la liste complète et détaillée à présent) — appel
@@ -1254,9 +1254,9 @@
     // fonction laissée intacte (masque, ne supprime pas).
     // renderGoalsDailyPriority();
 
-    // 16 septembre 2026 (discussion "Objectifs — D", 7e passage) : retour à
+    // retour à
     // un affichage PERMANENT des 4 cartes hebdomadaires (défait la fusion du
-    // 15 septembre soir, qui les masquait derrière une bulle ouverte depuis
+    // soir, qui les masquait derrière une bulle ouverte depuis
     // le calendrier) — demande explicite d'Emilien, « reprends la version
     // précédente [...] une sorte de sommaire [...] qui affiche tous les
     // objectifs hebdomadaires de la période ». Rendues à chaque période
@@ -1266,7 +1266,7 @@
     var bilan = $('activityGoalsBilan');
     if (period.isPast && period.weeklies.length) {
       var doneCount = period.weeklies.filter(function (w) { return w.status === 'atteint'; }).length;
-      // 30 sept. 2026 (Gaspard, O3·08) : libellé explicite — « 3/4 objectif(s)
+      // libellé explicite — « 3/4 objectif(s)
       // hebdomadaire(s) atteint(s). » ne disait pas qu'il s'agit du bilan de
       // la période terminée.
       var text = t('Bilan de la période') + ' : ' + doneCount + ' ' + t('sur') + ' ' + period.weeklies.length + ' ' + t('objectifs hebdomadaires atteints') + '.';
@@ -1281,7 +1281,7 @@
   }
 
 
-  // 14 septembre 2026 (troisième passage, demande d'Emilien) : « en dessous
+  // « en dessous
   // des grands objectifs [...] le nom des membres de l'activité qui
   // travaillent sur l'objectif périodique. Plusieurs utilisateurs peuvent
   // travailler sur un objectif périodique ». Une puce cliquable PAR MEMBRE de
@@ -1316,7 +1316,7 @@
 
 
   // ===================== OBJECTIFS — PAGE 2 : CAPACITÉ HEBDOMADAIRE =====================
-  // 17 septembre 2026 (discussion "Objectifs — A : Offre1"), demande
+  // (discussion "Objectifs — A : Offre1"), demande
   // d'Emilien : pouvoir ajuster manuellement la capacité hebdomadaire que
   // l'auto-planification (server/lib/goalsauto.js) lui attribue — cas d'une
   // activité volontairement mise de côté un temps : la moyenne calculée sur
@@ -1473,7 +1473,7 @@
 
 
   // ===================== OBJECTIFS — PAGE 2 : LISTE QUOTIDIENNE =====================
-  // 22 septembre 2026 (discussion "Objectifs — Logique métier") : liste
+  // liste
   // quotidienne de tâches priorisées, calcul fait côté serveur
   // (server/lib/goalsdailypriority.js) — GET
   // /activities/:id/goals/daily-priority, toujours une PROPOSITION en
@@ -1549,7 +1549,7 @@
 
 
   // ===================== OBJECTIFS — PAGE 2 : CALENDRIER DE LA PÉRIODE =====================
-  // 15 septembre 2026, discussion "Objectifs — D : Calendrier & intégrations",
+  // discussion "Objectifs — D : Calendrier & intégrations",
   // demande d'Emilien : « intégrer un calendrier au volet objectif (page 2)
   // [...] chaque ligne représente 1 jour ». Une ligne par jour de la
   // période (28), avec sa semaine (S1 à S4, même découpage que les 4 cartes
@@ -1578,7 +1578,7 @@
       })
       .catch(function () {
         if (requestId !== goalsCalendarRequestId) return;
-        // 28 septembre 2026 : plus une seule liste à plat
+        // plus une seule liste à plat
         // (#activityGoalsCalendarList, retirée) mais 4 panneaux par semaine
         // (goalWeekDaysPanel1-4) — vidés individuellement en cas d'échec.
         for (var wi = 1; wi <= 4; wi++) {
@@ -1590,7 +1590,7 @@
 
 
   // ----- Aller à la carte hebdomadaire correspondante, depuis le calendrier -----
-  // 16 septembre 2026 (discussion "Objectifs — D", 7e passage) : les 4 cartes
+  // les 4 cartes
   // hebdomadaires (renderGoalsWeeklyList(), inchangée) sont de nouveau
   // PERMANENTES entre l'objectif périodique et le calendrier (voir
   // renderActivityGoals() plus haut) — sur demande explicite d'Emilien, qui
@@ -1600,7 +1600,7 @@
   // apparaître ni disparaître quoi que ce soit : il fait simplement défiler
   // jusqu'à la carte de cette semaine, déjà visible dans le sommaire
   // au-dessus, puis y place le focus.
-  // 28 septembre 2026 : repérage par id stable (#goalWeekCardN, voir
+  // repérage par id stable (#goalWeekCardN, voir
   // renderGoalsWeeklyList()) plutôt que par position dans les enfants de la
   // liste — #activityGoalsWeeklyList contient désormais aussi les panneaux
   // de jours intercalés entre les cartes. Ouvre aussi le panneau de la
@@ -1625,7 +1625,7 @@
 
 
   // ----- Tâche du jour, ajoutée depuis le calendrier -----
-  // 15 septembre 2026 (discussion "Objectifs — D") : POST .../goals-days/task
+  // POST .../goals-days/task
   // (server/lib/calendarfeed.js#createDayTask) — crée (ou réutilise) le
   // sous-projet "catégorie" de l'activité et y ajoute la tâche, rattachée à ce
   // jour précis. Recharge le calendrier de la période plutôt que d'insérer la
@@ -1662,7 +1662,7 @@
     input.placeholder = t('Ajouter une tâche...');
     var btn = document.createElement('button');
     btn.type = 'button';
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // 
     // « la case doit être beaucoup plus grande [...] la largeur de l'écran
     // avec seulement une place pour le bouton ajouter » — classe dédiée
     // (plus .iconBtn, réutilisée telle quelle ailleurs dans ce fichier) pour
@@ -1677,7 +1677,7 @@
       if (!label) { msg.textContent = t('Écris une tâche avant d\'ajouter.'); return; }
       msg.textContent = '';
       btn.disabled = true;
-      // 30 sept. 2026 (Gaspard, O3·07) : l'erreur s'affichait seulement dans
+      // l'erreur s'affichait seulement dans
       // #activityGoalsMsg, tout en bas de la page, hors de vue — le bouton
       // semblait ne rien faire. Elle s'affiche maintenant dans le formulaire.
       addGoalsDayTask(period, day.date, label)
@@ -1696,7 +1696,7 @@
   }
 
 
-  // 28 septembre 2026 (discussion "B. Objectifs — Calendrier &
+  // (discussion "B. Objectifs — Calendrier &
   // intégrations"), demande d'Emilien : fusion objectifs hebdomadaires +
   // calendrier — cette fonction ne remplit plus une seule liste à plat
   // (#activityGoalsCalendarList, retirée) mais un panneau PAR SEMAINE
@@ -1710,9 +1710,9 @@
   // jusqu'au premier jour (« lundi ») en dernier.
   function renderGoalsCalendarDays(days, period) {
     goalsCalDaysCache = { key: goalsCalDaysKey(period), days: days };
-    // 15 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien :
+    // 
     // « chaque dimanche entouré par la couleur dédiée à la catégorie » —
-    // 16 septembre 2026 : calcul déplacé dans currentGoalsCategoryColor()
+    // calcul déplacé dans currentGoalsCategoryColor()
     // ci-dessus (réutilisée aussi par .goalMainCard/.goalWeeklyCard) plutôt
     // que recalculé ici, pour que les 3 endroits restent identiques par
     // construction.
@@ -1752,7 +1752,7 @@
         var dateEl = document.createElement('span');
         dateEl.className = 'goalsCalendarDate';
         dateEl.textContent = calendarDayLabel(day.date);
-        // 30 sept. 2026 (Gaspard, O3·05) : le jour courant n'était distingué
+        // le jour courant n'était distingué
         // que par un fond léger — pastille « Aujourd'hui » explicite.
         if (day.isToday) {
           var todayBadge = document.createElement('span');
@@ -1768,7 +1768,7 @@
         minutesEl.title = t('Temps estimé des tâches de ce jour');
         row.appendChild(minutesEl);
 
-        // 28 septembre 2026 : le badge "S1"-"S4" cliquable (weekEl) est
+        // le badge "S1"-"S4" cliquable (weekEl) est
         // retiré ici — chaque jour vit déjà dans le panneau de SA semaine
         // (fusion objectifs hebdomadaires/calendrier), le répéter par jour
         // n'apporte plus rien. .goalsCalendarWeekBadge (styles.css) reste
@@ -1788,7 +1788,7 @@
         });
         row.appendChild(addBtn);
 
-        // 1er oct. 2026 (Gaspard) : l'objectif hebdomadaire n'est pas une tâche —
+        // l'objectif hebdomadaire n'est pas une tâche —
         // plus de barre d'objectif dans la liste des jours (reste sur la carte S1-S4).
 
         panel.appendChild(row);
@@ -1810,7 +1810,7 @@
           taskLabel.textContent = task.label;
           taskRow.appendChild(taskLabel);
 
-          // 26 septembre 2026, correctif du bug « tâche capturée absente du
+          // correctif du bug « tâche capturée absente du
           // calendrier » (voir server/lib/calendarfeed.js#dayTasksByDate) :
           // le calendrier montre désormais les tâches de TOUTE l'activité,
           // pas seulement du secteur actuellement ouvert — une tâche classée
@@ -1824,7 +1824,7 @@
             taskRow.appendChild(otherCat);
           }
 
-          // 25 septembre 2026 (badges « non vu », restructuration du volet
+          // (badges « non vu », restructuration du volet
           // Objectifs en 3 pages), demande directe d'Emilien : « dans le
           // calendrier, il y ait un petit point violet à droite des tâches
           // nouvellement ajoutées [...] une fois qu'elles sont visualisées,
@@ -1872,7 +1872,7 @@
   }
 
 
-  // 1er octobre 2026 (demande de Gaspard) : appui long (~500 ms, annulé si le
+  // appui long (~500 ms, annulé si le
   // doigt bouge de plus de 10 px — même geste que bindActivityLongPress,
   // app.js) sur une tâche du détail de période => fenêtre d'édition (nom, date,
   // secteur/pôle). Un simple tap garde son comportement (case à cocher seule).
@@ -2021,7 +2021,7 @@
   });
 
 
-  // 15 septembre 2026 (7e passage, demande d'Emilien — "un seul mode : la
+  // (7e passage, demande d'Emilien — "un seul mode : la
   // grille (arbre)") : renderGoalsViewToggle()/renderGoalsDistribution() et
   // la vue "Répartition" sont retirés entièrement, pas seulement masqués —
   // #goalsViewToggle et #goalsDistribution n'existent plus dans index.html.
@@ -2035,13 +2035,13 @@
   // #activityPage), ouverte au clic sur une cellule de la grille de la
   // page 1.
   //
-  // 14 septembre 2026 (troisième passage) : prend désormais AUSSI la
+  // prend désormais AUSSI la
   // catégorie en paramètre — une cellule de la grille appartient à une
   // colonne précise (Entreprise/Communauté/Produit), il n'y a plus un seul
   // onglet de catégorie pour le déterminer implicitement. TMT.currentGoalsPlanning
   // vient directement de TMT.currentGoalsAllPlannings (déjà chargé pour la
   // grille) : aucun nouvel appel serveur pour ouvrir cette page.
-  // 2 oct. 2026 (Emilien) : le détail de période n'est plus une fenêtre plein écran mais la page du MILIEU (mensuel)
+  // le détail de période n'est plus une fenêtre plein écran mais la page du MILIEU (mensuel)
   // de la Page 2 (#goalsMonthView, entre Tâches et l'arbre périodique) ; #goalsDetailPage reste masquée en permanence.
   function applyGoalsMonthState(category, periodNumber) {
     var byCategory = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.byCategory) || {};
@@ -2060,7 +2060,7 @@
     if (sc) sc.scrollTop = 0;
     renderActivityGoals();
     TMT.updateGoalsScrubVisibility();
-    // 25 septembre 2026 (badges « non vu ») : ouvrir ce nœud le marque vu.
+    // ouvrir ce nœud le marque vu.
     if (TMT.currentGoalsActivityId) {
       api('POST', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/categories/' + encodeURIComponent(category) + '/mark-seen')
         .then(loadGoalsCaptureBadges)

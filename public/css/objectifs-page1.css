@@ -1,6 +1,6 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 1 (capture)
  *
- * 28 septembre 2026 — chantier de restructuration (demande d'Emilien) :
+ * chantier de restructuration (demande d'Emilien) :
  * extrait de public/styles.css pour que les 3 pages du volet Objectifs
  * puissent être modifiées en parallèle sans jamais se marcher dessus.
  * Déplacement PUR — aucune règle changée, seulement son fichier. Les classes
@@ -44,7 +44,7 @@
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
 }
 
-/* 29 septembre 2026, demande directe d'Emilien : « trop de couleurs [...]
+/* « trop de couleurs [...]
  * bulle grise avec seulement le point coloré ». ⚠️ MÊME JOUR, correction :
  * cette demande ne visait QUE l'état « au repos » (pas en train d'écrire) —
  * voir objectifs-page1.js#renderGoalsCaptureActivities() pour le détail des
@@ -57,7 +57,7 @@
  * SANS teinte, cohérent avec l'esprit « seulement le point coloré » de
  * l'état au repos. */
 .goalsCaptureActivityChip.selected { border-color: var(--text); }
-/* 1er oct. 2026 (Gaspard) : message de discussion non lu = point rouge sur la puce. */
+/* message de discussion non lu = point rouge sur la puce. */
 .goalsCaptureUnreadDot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--unread); flex-shrink: 0; }
 
 .goalsCaptureActivityChipName { flex: 1; text-align: left; }
@@ -75,7 +75,7 @@
 
 .goalsCaptureBubbleWrap { display: flex; flex-direction: column; }
 
-/* 28 septembre 2026, 2e retour d'Emilien le même jour (captures d'écran du
+/* 2e retour d'Emilien le même jour (captures d'écran du
    panneau Historique RÉEL du Chrono à l'appui) : le bouton "Historique" de
    la page 1 doit être « encadré et centré exactement comme dans la page
    chrono, avec la même distance entre le bouton et les activités ». Copie
@@ -92,7 +92,7 @@
 }
 #goalsTasksHistoryHeader:hover { background: var(--hover-bg); }
 #goalsTasksHistoryHeader .sectionTitle { margin: 0; }
-/* 28 septembre 2026, 3e retour d'Emilien : « décoller légèrement le bouton
+/* 3e retour d'Emilien : « décoller légèrement le bouton
    historique des activités [...] même espace que dans le chrono ». Chrono
    lui-même est passé par CE MÊME palier avant d'arriver à son 4px actuel —
    voir public/styles.css, commentaire "Historique modifiable (Chrono)" :
@@ -102,7 +102,7 @@
    palier intermédiaire de Chrono, 10px net, plutôt qu'inventer une valeur.
    .goalsCapturePage espace tous ses enfants directs de 14px (flex gap) : un
    margin-top négatif de -4px (au lieu de -10px) ramenait l'écart net à
-   14 - 4 = 10px. ⚠️ 29 septembre 2026, nouvelle demande d'Emilien, plus
+   14 - 4 = 10px. nouvelle demande d'Emilien, plus
    explicite : « véritablement décoller [...] la même distance [...] qu'il y
    a dans le chrono » — ce 10px n'était qu'un ancien palier PAR LEQUEL Chrono
    était passé, pas sa valeur réelle actuelle (4px, toujours en vigueur dans
@@ -113,7 +113,7 @@
 #goalsTasksHistorySection { margin-top: -10px; padding-bottom: 72px; } /* espace vide permanent sous « Historique », au-dessus des 3 points */
 #goalsTasksHistoryPanel { margin-top: 10px; }
 
-/* 28 septembre 2026 (réaffectation activité/pôle/secteur/période/semaine/
+/* (réaffectation activité/pôle/secteur/période/semaine/
    jour depuis l'Historique, demande d'Emilien) — les 5 sélecteurs héritent
    déjà du thème générique input/select de styles.css (Design, non touché
    ici) ; seule la mise en page verticale + le petit libellé au-dessus de
@@ -134,7 +134,7 @@
   box-sizing: border-box;
 }
 .historyReassign input[type="date"] {
-  /* 5 oct. 2026 (Emilien) : champ de date centré, même recette que les heures du Chrono. */
+  /* champ de date centré, même recette que les heures du Chrono. */
   appearance: none; -webkit-appearance: none;
   width: 100%; max-width: 220px; min-width: 0;
   display: block; margin: 0 auto;
@@ -145,7 +145,7 @@
   margin-top: 2px;
 }
 
-/* 28 septembre 2026, suite (9) — demande directe d'Emilien, maquettes Design
+/* suite (9) — demande directe d'Emilien, maquettes Design
  * à l'appui (Option B « groupé par jour » + édition « Où / Quand ») :
  * - le formulaire Activité/Pôle-secteur passe de 2 lignes empilées à 1 seule
  *   ligne "Où", d'où .historyReassignRow (flex, les 2 select se partagent la
@@ -210,7 +210,7 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* Offre 1 — carte promo verre lumineux (1er oct. 2026, modèle C) */
+/* Offre 1 — carte promo verre lumineux */
 .offer1Promo{position:relative;overflow:hidden;border-radius:20px;padding:22px 20px;background:linear-gradient(180deg,rgba(var(--purple-rgb), .28),rgba(var(--purple-rgb), .08));border:1px solid rgba(160,135,230,.55);box-shadow:0 0 30px rgba(var(--purple-rgb), .35),inset 0 1px 0 rgba(255,255,255,.18);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .offer1PromoText{margin:0 0 16px;font-size:19px;line-height:1.3;font-weight:700}
 .offer1PromoText span{background:linear-gradient(90deg,var(--violet-promo),var(--white));-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -218,7 +218,7 @@
 .offer1PromoBtn{display:inline-block;padding:11px 20px;border:0;border-radius:999px;background:var(--brique);color:var(--white);font-weight:600;font-size:14px;font-family:inherit}
 #offer1SubscribedEmptyHint{display:none}
 
-/* 3 oct. 2026 : fenêtre de confirmation de capture (doublon / tri incertain), gabarit .goalTaskEditModal. */
+/* fenêtre de confirmation de capture (doublon / tri incertain), gabarit .goalTaskEditModal. */
 .goalsCaptureConfirmModal { z-index: 140; }
 .goalsCaptureConfirmTask { margin: 0 0 8px; overflow-wrap: anywhere; }
 .goalsCaptureConfirmList { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
@@ -226,27 +226,27 @@
 .goalsCaptureConfirmActions { display: flex; gap: 10px; margin-top: 12px; }
 .goalsCaptureConfirmActions .iconBtn { flex: 1 1 0; }
 
-/* 5 oct. 2026 : pop-up de rangement après création */
+/* pop-up de rangement après création */
 .goalsPlacementBox { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--border); }
 .goalsPlacementField { display: flex; flex-direction: column; gap: 4px; }
 .goalsPlacementField select, .goalsPlacementField input { width: 100%; max-width: 100%; font-size: 14px; }
 
-/* 5 oct. 2026 : pop-up de rangement au centre de l'écran (pas une feuille du bas) */
+/* pop-up de rangement au centre de l'écran (pas une feuille du bas) */
 .goalTaskEditModal.goalsPlacementModal { align-items: center; padding: 16px; box-sizing: border-box; }
 .goalTaskEditModal.goalsPlacementModal .goalTaskEditCard { border-radius: var(--radius-xl); max-width: 440px; max-height: 85vh; }
 
-/* 5 oct. 2026 : choix du mode « gestion de l'IA » (pop-up de 1re capture + Réglages). */
+/* choix du mode « gestion de l'IA » (pop-up de 1re capture + Réglages). */
 .aiModeChoices { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .aiModeChoice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; width: 100%; padding: 12px 16px; border-radius: 20px; background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); border: 0; color: var(--text); font-family: inherit; }
 .aiModeChoice.on { box-shadow: inset 0 0 0 2px var(--purple); }
 .aiModeChoiceTitle { font-weight: 600; font-size: 15px; }
 .aiModeChoiceDesc { font-size: 13px; }
 
-/* 5 oct. 2026 : pop-up du mode IA — choix encadrés d'un orange léger, barre sous le titre et la croix. */
+/* pop-up du mode IA — choix encadrés d'un orange léger, barre sous le titre et la croix. */
 .aiModeModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--glass-calm-line); }
 :root .aiModeModal .goalTaskEditCard { box-shadow: inset 0 0 0 1.5px rgba(217, 130, 90, 0.55), var(--shadow-elevated); }
 
-/* 5 oct. 2026 : pop-up de rangement (mode Partiel) — modèle de modification de la page 2. */
+/* pop-up de rangement (mode Partiel) — modèle de modification de la page 2. */
 .goalsPlacementBox { border-top: 0; padding: 4px 0 10px; }
 .goalsPlacementBox + .goalsPlacementBox { border-top: 1px solid var(--glass-calm-line); padding-top: 12px; }
 :root .goalsPlacementBox textarea.goalsTaskEditText { resize: none; overflow: hidden; width: 100%; box-sizing: border-box; font-family: inherit; line-height: 1.35; text-align: left; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 6px 0; font-size: 16px; color: var(--text); -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -255,11 +255,11 @@
 :root .goalsPlacementField select, :root .goalsPlacementField input[type="date"] { min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; text-align-last: left; -webkit-appearance: none; appearance: none; background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; border: 0 !important; border-radius: 999px !important; }
 :root .goalsPlacementField input[type="date"] { text-align: center; display: block; margin: 0 auto; width: 100%; }
 
-/* 5 oct. 2026 : choix de secteur (Autonome/Absence) — propositions moins opaques, liste déroulante pour « Autre ». */
+/* choix de secteur (Autonome/Absence) — propositions moins opaques, liste déroulante pour « Autre ». */
 :root .aiModeModal .goalsCaptureConfirmChoice { background: color-mix(in srgb, var(--glass-calm-bg) 45%, transparent); box-shadow: inset 0 0 0 1px var(--glass-calm-line); border: 0; border-radius: 999px; }
 :root .aiModeModal .goalsCaptureConfirmList { margin-top: 12px; }
 
-/* 5 oct. 2026 : pop-up de rangement — titre/croix fixes, contenu défilant ; activité au-dessus de la tâche ; activités espacées. */
+/* pop-up de rangement — titre/croix fixes, contenu défilant ; activité au-dessus de la tâche ; activités espacées. */
 .goalTaskEditModal.goalsPlacementModal .goalTaskEditCard { display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; }
 .goalsPlacementModal .goalTaskEditHeader { flex: 0 0 auto; }
 .goalsPlacementScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
@@ -270,14 +270,14 @@
 .goalsPlacementModal .goalsPlacementField { margin-top: 2px; }
 :root .goalsPlacementBox textarea.goalsTaskEditText { min-height: 0 !important; }
 
-/* 5 oct. 2026 : barre sous le titre et la croix + moins d'espace au-dessus (choix de secteur, doublon). */
+/* barre sous le titre et la croix + moins d'espace au-dessus (choix de secteur, doublon). */
 .goalsBarModal .goalTaskEditHeader { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--glass-calm-line); }
 :root .goalsBarModal .goalTaskEditCard { padding-top: 12px; }
 :root .goalsBarModal .goalTaskEditHeader { gap: 20px; }
 :root .goalsBarModal .goalTaskEditHeader .sectionTitle { padding-right: 8px; }
 :root .goalsBarModal .goalTaskEditHeader .sectionTitle { margin-top: 0; }
 
-/* 5 oct. 2026 : « Autre… » (Autonome/Absence) — bulle flottante pôles/secteurs dans le même pop-up. */
+/* « Autre… » (Autonome/Absence) — bulle flottante pôles/secteurs dans le même pop-up. */
 .aiModeModal .goalTaskEditCard { position: relative; }
 .aiModeModal .goalTaskEditCard:has(.goalsCaptureFloat) { min-height: 380px; }
 .goalsCaptureFloat { position: absolute; left: 16px; right: 16px; top: 64px; bottom: 16px; overflow-y: auto; padding: 8px; border-radius: 20px; background: color-mix(in srgb, var(--bg) 92%, transparent); box-shadow: inset 0 0 0 1px var(--glass-calm-line), 0 8px 24px var(--veil); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); z-index: 2; }
@@ -286,18 +286,18 @@
 .goalsCaptureFloatItem.sector { padding-left: 26px; }
 .goalsCaptureFloatItem:active { background: var(--glass-calm-bg); }
 
-/* 5 oct. 2026 : menu flottant « Autre… » gris, par-dessus le pop-up (pas de nouveau pop-up). */
+/* menu flottant « Autre… » gris, par-dessus le pop-up (pas de nouveau pop-up). */
 .goalsCaptureFloat { top: auto; bottom: 16px; max-height: 60%; background: var(--float-bg); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
 .goalsCaptureFloatPole { color: var(--white); }
 .goalsCaptureFloatItem { color: var(--float-text); }
 .goalsCaptureFloatItem:active { background: var(--float-active); }
 
-/* 5 oct. 2026 : bouton du menu flottant pôle/secteur (remplace le <select> natif). */
+/* bouton du menu flottant pôle/secteur (remplace le <select> natif). */
 :root .goalsWhereBtn { display: block; width: 100%; min-height: 38px; padding: 8px 14px; box-sizing: border-box; text-align: left; font-family: inherit; font-size: 14px; color: var(--text); background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; border: 0 !important; border-radius: 999px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .goalsWhereFloat { position: fixed; overflow-y: auto; }
 .goalsCaptureFloatItem.on::before { content: '✓ '; }
 
-/* 5 oct. 2026 : nom d'activité (pop-up partiel) — sans barre, plus grand, point de la couleur de l'activité à gauche. */
+/* nom d'activité (pop-up partiel) — sans barre, plus grand, point de la couleur de l'activité à gauche. */
 :root .goalsPlacementModal .goalsPlacementActivity { display: flex; align-items: center; gap: 10px; border-bottom: 0; padding: 0 4px 6px; font-size: 18px; font-weight: 700; letter-spacing: 0; }
 .goalsPlacementActivityDot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; }
 
@@ -305,25 +305,25 @@
 .goalsCaptureFloat .goalsCaptureFloatPole:first-child { border-top: 0; }
 .goalsCaptureFloatTop { overflow-y: auto; border-radius: 20px; }
 
-/* 5 oct. 2026 : menus flottants pôle/secteur transparents (verre) et non gris. */
+/* menus flottants pôle/secteur transparents (verre) et non gris. */
 :root .goalsCaptureFloat { background: rgba(24, 24, 30, 0.35); -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 8px 24px rgba(0,0,0,.35); }
 :root .goalsCaptureFloat .goalsCaptureFloatPole { color: rgba(255,255,255,.7); border-top-color: rgba(255,255,255,.14); }
 :root .goalsCaptureFloatItem { color: var(--white); }
 :root .goalsCaptureFloatItem:active { background: var(--glass-calm-line); }
 
-/* 5 oct. 2026 : verre liquide, même opacité que le menu natif du Chrono (capture d'Emilien). */
+/* verre liquide, même opacité que le menu natif du Chrono (capture d'Emilien). */
 :root .goalsCaptureFloat { background: rgba(44, 44, 50, 0.72); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,.18), 0 12px 32px rgba(0,0,0,.4); }
 
-/* 5 oct. 2026 : menu flottant étroit (≈ capture du menu natif) et très peu opaque. */
+/* menu flottant étroit (≈ capture du menu natif) et très peu opaque. */
 :root .goalsCaptureFloat { width: 230px !important; max-width: calc(100vw - 48px); background: rgba(40, 40, 46, 0.28); -webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8); }
 
-/* 5 oct. 2026 : Historique — la 2e case « Où » garde son format de <select> ; une couche transparente ouvre le menu flottant. */
+/* Historique — la 2e case « Où » garde son format de <select> ; une couche transparente ouvre le menu flottant. */
 .goalsWhereKeep { position: relative; display: block; flex: 1; min-width: 0; }
 .goalsWhereKeep select { width: 100%; }
 .historyReassignRow .goalsWhereKeep select { flex: none; }
 .goalsWhereOverlay { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0; margin: 0; opacity: 0; cursor: pointer; z-index: 2; }
 
-/* 5 oct. 2026 : Historique — cellule pôle/secteur de la même taille que celle de l'activité, texte « Pôle → Secteur » coupé par « … ». */
+/* Historique — cellule pôle/secteur de la même taille que celle de l'activité, texte « Pôle → Secteur » coupé par « … ». */
 .goalsWhereKeep select.goalsWhereHideText { color: transparent; text-shadow: none; width: 100%; box-sizing: border-box; }
 .goalsWhereKeep select.goalsWhereHideText option, .goalsWhereKeep select.goalsWhereHideText optgroup { color: initial; }
 .goalsWhereLabel { position: absolute; left: 10px; right: 30px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text); font: inherit; font-size: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 1; }
@@ -334,7 +334,7 @@
 .historyReassignRow .goalsWhereKeep select { height: 100%; min-height: 0; }
 .goalsWhereKeep::after { content: ""; position: absolute; right: 9px; top: 50%; width: 5px; height: 5px; border-right: 1.5px solid var(--text); border-bottom: 1.5px solid var(--text); transform: translateY(-70%) rotate(45deg); pointer-events: none; z-index: 1; }
 
-/* Offre 1 pas encore disponible (9 oct. 2026) : badge « À venir » et bouton grisé, non cliquable. */
+/* Offre 1 pas encore disponible : badge « À venir » et bouton grisé, non cliquable. */
 .offer1SoonBadge{display:inline-block;margin-bottom:10px;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
 .offer1PromoBtn:disabled{background:var(--brique);color:var(--white);opacity:.5;box-shadow:none;cursor:not-allowed}
 /* Zone libre IA : trombone (document ou image) DANS la zone d'écriture, à gauche d'Ajouter. */

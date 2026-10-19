@@ -1,4 +1,4 @@
-/* Noèsis TimeTracker — « Stratégie » d'une activité (19 oct. 2026) : formulaire guidé, enregistrement automatique.
+/* Noèsis TimeTracker — « Stratégie » d'une activité : formulaire guidé, enregistrement automatique.
  * L'IA suit ces consignes (filtre des tâches proposées, retrait des tâches hors stratégie). Bouton dans la fenêtre Activité. */
 (function () {
   'use strict';

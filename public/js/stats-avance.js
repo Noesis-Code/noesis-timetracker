@@ -1,4 +1,4 @@
-/* Statistiques — page 2 « tâches réalisées » (2 oct. 2026, demande d'Émilien).
+/* Statistiques — page 2 « tâches réalisées ».
  * Même mécanisme que la Page 2 du volet Objectifs (objectifs-page2-taches.js :
  * setGoalsPage2Mode) : balayage droite → gauche, défilement latéral animé de
  * 280 ms, points en bas au milieu, aucun bouton d'onglet. La page actuelle de
@@ -54,7 +54,7 @@
       var tg = e.target;
       if (!tg.closest || tg.closest('input, textarea, select, .statsPeriodMenu, .saChips')) return;
       var mods = document.querySelectorAll('.communityMembersModal:not(.hidden)'); // une fenêtre ouverte AU-DESSUS (pas celle qui contient la zone) bloque le geste
-      for (var mi = 0; mi < mods.length; mi++) if (mods[mi].contains(tg) && !mods[mi].contains(zone)) return; // 18 oct. 2026 : seule une fenêtre qui reçoit réellement le toucher bloque le geste (un sélecteur resté « ouvert » hors écran bloquait le glissement des Nouvelles tâches)
+      for (var mi = 0; mi < mods.length; mi++) if (mods[mi].contains(tg) && !mods[mi].contains(zone)) return; // seule une fenêtre qui reçoit réellement le toucher bloque le geste (un sélecteur resté « ouvert » hors écran bloquait le glissement des Nouvelles tâches)
       var sc = hScroller(tg);
       g = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), sc: sc, startLeft: sc ? sc.scrollLeft : 0, drag: null, swallow: false, lock: TMT.axisLock.start(tg), tg: tg };
     }, { passive: true });
@@ -113,7 +113,7 @@
     zone.addEventListener('touchcancel', function (e) { finish(e, true); }, { passive: true });
   }
 
-  // 9 oct. 2026 : le contenu (onglets Tâches | Objectifs, graphique, cartes) est une « instance » réutilisable.
+  // le contenu (onglets Tâches | Objectifs, graphique, cartes) est une « instance » réutilisable.
   // cfg.root : élément hôte ; cfg.visitor : true = profil d'un AUTRE utilisateur (lecture seule : cartes fixes,
   // pas d'ajout/retrait, pas de feuilles « par secteur ») ; cfg.activities() : pastilles ; cfg.fetch(activityId, qs) : Promise des données.
   function createInstance(cfg) {
@@ -131,7 +131,7 @@
   }
 
   // ---------- Construction (une fois) ----------
-  // 9 oct. 2026 : refonte (maquette validée) — deux onglets Tâches | Objectifs,
+  // refonte (maquette validée) — deux onglets Tâches | Objectifs,
   // graphique « Chemin parcouru et à parcourir » (Année/Mois/Semaine), cartes
   // d'information par défaut + cartes ajoutables (choix mémorisé par onglet).
   // Données : GET /api/stats/activity-insights (server/lib/statsinsights.js) ;

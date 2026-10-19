@@ -1,8 +1,8 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 2 — onglet « TÂCHES » (écran Tâches + coque de la fenêtre)
  *
- * 29 septembre 2026 — scission physique de objectifs-page2.js en 2 fichiers
+ * scission physique de objectifs-page2.js en 2 fichiers
  * exclusifs, un par onglet de la Page 2 (décision d'Emilien, même principe que
- * le découpage en 3 pages du 28 septembre) :
+ * le découpage en 3 pages ) :
  *   - CE FICHIER (E. Objectifs — PAGE 2) : la coque de la fenêtre
  *     #goalsActivitySwitcher (en-tête titre+croix, bascule à 2 segments
  *     Tâches/Objectifs, ouverture pour une activité) + l'écran Tâches
@@ -22,10 +22,10 @@
  *      gardée par un `if`, l'écran Tâches marche même sans l'autre fichier.
  * Ordre de chargement : ce fichier AVANT objectifs-page2-objectif.js.
  *
- * Historique antérieur à la scission (extraction du 28 septembre, passage en
- * fenêtre du 29 septembre, etc.) : voir les commentaires conservés ci-dessous.
+ * Historique antérieur à la scission (extraction passage en
+ * fenêtre etc.) : voir les commentaires conservés ci-dessous.
  *
- * ⚠️ 29 septembre 2026, chantier « Épuration visuelle » (Aiguillage, demande
+ * chantier « Épuration visuelle » (Aiguillage, demande
  * d'Emilien : « je souhaite que la page 2 soit une fenêtre dans le même
  * style que la fenêtre des activités et que la page 3 ») : #goalsActivitySwitcher
  * est injecté directement dans #content (<main>), hors de toute section .tab,
@@ -45,17 +45,17 @@
   document.getElementById('content').insertAdjacentHTML('beforeend', `
       <div id="goalsActivitySwitcher" class="goalsActivitySwitcher communityMembersModal hidden">
       <div class="communityMembersModalCard">
-        <!-- 29 septembre 2026, chantier « Épuration visuelle » : en-tête
+        <!-- chantier « Épuration visuelle » : en-tête
              fixe titre+croix, repris à l'identique du montage #activityPage
              (.activityPageHeader nu, sans .goalsActivityHeader — cette
              combinaison-là reste réservée au cadre du pôle plus bas,
              INCHANGÉ). Remplace l'ancienne ligne .goalsActivityPlainRow
-             (flèche ‹ + nom simple, 26 septembre) : même id/même écouteur
+             (flèche ‹ + nom simple, ) : même id/même écouteur
              pour #goalsBackToCaptureBtn (TMT.showGoalsCapturePage(),
              inchangé plus bas dans ce fichier) et #goalsActivityName, seuls
              le glyphe (‹ → ✕) et la position (après le titre, plus avant)
              changent — même précédent déjà posé pour la croix de
-             #goalsDetailPage le 26 septembre (« uniformiser avec
+             #goalsDetailPage (« uniformiser avec
              #activityPageClose »). Fixe en haut (.activityPageHeader,
              flex:0 0 auto, styles.css) pendant que le reste défile dans
              #goalsActivitySwitcherScroll ci-dessous — même mécanique que
@@ -75,17 +75,17 @@
         </div>
         <div id="goalsActivitySwitcherScroll">
 
-        <!-- 27 septembre 2026, chantier « Tâches quotidiennes intégrées à la
+        <!-- chantier « Tâches quotidiennes intégrées à la
              Page 2 » (Aiguillage, maquette approuvée par Emilien dans le
              canvas Design partagé — voir claude/noesis-timetracker-taches-
              quotidiennes-page2.md, Script 1). Bascule à 2 segments Tâches/
              Objectifs — Tâches par défaut à l'arrivée sur cette page, comme
              demandé.
-             ⚠️ 29 septembre 2026, chantier « Épuration visuelle », demande
+             chantier « Épuration visuelle », demande
              directe d'Emilien : « je souhaite que les boutons pour choisir
              la tâche ou l'objectif soient les mêmes que les boutons des
              onglets de la fenêtre des activités » — remplace le gabarit du
-             28 septembre ci-dessus (piste pilule translucide, classes
+             ci-dessus (piste pilule translucide, classes
              .goalsPage2Mode*, retirées de objectifs-page2.css) par
              .periodSwitch/.periodBtn (styles.css), le motif déjà réutilisé 3
              fois sur ce projet (Abonnés/Abonnements, Statistiques/
@@ -103,11 +103,11 @@
         <div class="periodSwitch" id="goalsPage2ModeSwitch">
           <button type="button" class="periodBtn active" id="goalsPage2ModeTasksBtn" data-mode="tasks">Tâches</button>
           <button type="button" class="periodBtn" id="goalsPage2ModeGoalsBtn" data-mode="goals">Objectifs</button>
-          <!-- 15 oct. 2026 (Emilien) : le bouton Discussion est retiré de l'interface (routes et messages conservés). Remplacé par « Ajouter », réservé aux activités Essor (GET /api/activities/:id/offer1). -->
+          <!-- (Emilien) : le bouton Discussion est retiré de l'interface (routes et messages conservés). Remplacé par « Ajouter », réservé aux activités Essor (GET /api/activities/:id/offer1). -->
           <button type="button" class="periodBtn hidden" id="goalsPage2AddBtn" aria-label="Ajouter" title="Ajouter"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
 
-        <!-- Écran « Tâches » — 27 septembre 2026 (création), refondu le 28
+        <!-- Écran « Tâches » — (création), refondu le 28
              septembre 2026 sur demande directe d'Emilien : « je souhaite que
              dans tâches, il y ait une zone avancement identique à la zone
              d'avancement actuelle dans le main section sous projet [...]
@@ -131,7 +131,7 @@
              reste visible mais n'est pas une navigation propre à cet écran). -->
         <div id="goalsTasksView" class="goalsTasksView">
           <div id="goalsOverloadCard" class="goalsOverloadCard hidden"></div>
-          <!-- 8 oct. 2026 (Émilien) : tri des tâches par responsable, même gabarit que le filtre Public/Confidentiel des Statistiques. -->
+          <!-- (Émilien) : tri des tâches par responsable, même gabarit que le filtre Public/Confidentiel des Statistiques. -->
           <div id="goalsRespFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
             <button type="button" class="caSubProjectBtn" id="goalsRespBtn" aria-haspopup="true"><span id="goalsRespBtnLabel">Tous</span></button>
             <div class="statsPeriodMenu caSubProjectMenu hidden" id="goalsRespMenu"></div>
@@ -149,7 +149,7 @@
           </div>
           <div id="goalsTasksGroups" class="goalsTasksGroups"></div>
           <p id="goalsTasksEmptyHint" class="hint hidden"></p>
-          <!-- 5 oct. 2026 (Emilien) : bouton Archives = même gabarit/CSS que le bouton Historique du Chrono (voir objectifs-page2-taches.css). -->
+          <!-- (Emilien) : bouton Archives = même gabarit/CSS que le bouton Historique du Chrono (voir objectifs-page2-taches.css). -->
           <div id="goalsTasksArchiveSection">
             <div class="sectionTitleRow historyHeaderClickable" id="goalsTasksArchiveHeader">
               <p class="sectionTitle">Archives</p>
@@ -161,10 +161,10 @@
           </div>
         </div>
 
-        <!-- 2 oct. 2026 (Emilien) : plus de boutons Tâches/Objectifs — on glisse de droite à gauche ; 3 points en bas au milieu (celui du milieu est réservé à une prochaine demande). -->
+        <!-- (Emilien) : plus de boutons Tâches/Objectifs — on glisse de droite à gauche ; 3 points en bas au milieu (celui du milieu est réservé à une prochaine demande). -->
         <div id="goalsPage2Dots" role="group"><button type="button" class="goalsDotBtn on" data-dot="tasks" aria-label="Tâches"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="next" aria-label="Mensuel"><span class="goalsDot"></span></button><button type="button" class="goalsDotBtn" data-dot="goals" aria-label="Annuel"><span class="goalsDot"></span></button></div>
 
-        <!-- ⚠️ 29 septembre 2026, scission Tâches / Objectifs de la Page 2 :
+        <!-- scission Tâches / Objectifs de la Page 2 :
              emplacement de l'écran « Objectifs ». Son CONTENU (arbre
              périodique, rail tactile) est injecté par
              objectifs-page2-objectif.js, chargé APRÈS ce fichier (voir l'ordre
@@ -174,7 +174,7 @@
              juste avant #goalsPage2ModeSwitch. -->
         <div id="goalsMonthView" class="hidden"></div>
         <div id="goalsObjectifsView" class="hidden"></div>
-        <!-- Onglet « Discussion » (30 septembre 2026) : le bloc #communityDiscussionBlock (index.html, logique dans app.js : TMT.discussion) y est déplacé juste après l'injection. -->
+        <!-- Onglet « Discussion » () : le bloc #communityDiscussionBlock (index.html, logique dans app.js : TMT.discussion) y est déplacé juste après l'injection. -->
         <div id="goalsDiscView" class="goalsDiscView hidden"></div>
         </div>
         <!-- fin #goalsActivitySwitcherScroll -->
@@ -189,7 +189,7 @@
     var blk = document.getElementById('communityDiscussionBlock');
     var host = document.getElementById('goalsDiscView');
     if (blk && host) {
-      // 2 oct. 2026 (Emilien) : la Discussion s'ouvre dans une fenêtre type « profil d'un autre utilisateur » (en-tête fixe + ✕, contenu dessous).
+      // la Discussion s'ouvre dans une fenêtre type « profil d'un autre utilisateur » (en-tête fixe + ✕, contenu dessous).
       var sheet = document.createElement('div');
       sheet.className = 'goalsDiscSheet';
       sheet.innerHTML = '<div class="profileSubWindowHeader"><p class="sectionTitle" id="goalsDiscSheetTitle">Discussion</p>'
@@ -213,16 +213,16 @@
 
 
   // ===================== VOLET OBJECTIFS — sélecteur d'activité =====================
-  // 13 septembre 2026 (demande d'Emilien) : Objectifs n'est plus une section
+  // Objectifs n'est plus une section
   // de la page d'activité, c'est son propre onglet de la barre du bas — une
   // seule activité affichée à la fois, la première de TMT.getActivitiesCache() à
   // l'ouverture, puis on en change en balayant horizontalement le nom de
   // l'activité (glissement, voir bindGoalsSwipe() plus bas, même mécanisme
-  // touchstart/touchend que le retour tactile de Réglages, 10 septembre 2026)
-  // — ou, 14 septembre 2026, en tapant l'une des deux flèches ‹/› ajoutées de
+  // touchstart/touchend que le retour tactile de Réglages, )
+  // — ou, en tapant l'une des deux flèches ‹/› ajoutées de
   // part et d'autre du nom (même changement d'activité, juste un second
   // moyen d'y accéder pour les appareils sans geste tactile).
-  // 11 oct. 2026 : une activité sans AUCUN pôle (état par défaut) affiche un état vide
+  // une activité sans AUCUN pôle (état par défaut) affiche un état vide
   // clair à la place des 3 pages ; l'utilisateur crée son premier pôle ici.
   TMT.updateGoalsNoPoleState = function (isEmpty) {
     var sw = $('goalsActivitySwitcher');
@@ -272,7 +272,7 @@
     currentGoalsTasksOpenGroups = {};
 
     TMT.currentGoalsActivityColor = a.color;
-    // 26 septembre 2026, demande directe d'Emilien (page 2, point a) : le
+    // demande directe d'Emilien (page 2, point a) : le
     // nom de l'activité s'affiche désormais seul, « rien d'autre » — plus de
     // pastille de couleur à côté (#goalsActivityDot retiré d'index.html,
     // voir #goalsActivityPlainRow) ; la pastille qui reste sur cette page
@@ -283,9 +283,9 @@
     // un autre utilisateur ; sinon caché et fil arrêté.
     // Bouton « Ajouter » : visible seulement si le serveur confirme Essor pour cette activité.
     syncGoalsAddBtn(a.id);
-    if (TMT.discussion) TMT.discussion.close(); // Discussion retirée de l'UI (15 oct. 2026)
+    if (TMT.discussion) TMT.discussion.close(); // Discussion retirée de l'UI
 
-    // Renvoie la promesse (15 septembre 2026, discussion D) : permet à
+    // Renvoie la promesse : permet à
     // openGoalsPeriodFromNotification() de n'ouvrir la page 2 qu'une fois
     // les données chargées, sans dupliquer reloadGoalsAll() — ne change
     // rien pour les appelants existants, qui ignoraient déjà la valeur de
@@ -297,7 +297,7 @@
 
 
   // ===================== VOLET OBJECTIFS — PAGE 2 : ÉCRAN « TÂCHES » =====================
-  // 27 septembre 2026, chantier « Tâches quotidiennes intégrées à la Page 2 »
+  // chantier « Tâches quotidiennes intégrées à la Page 2 »
   // (routé par Aiguillage, coordonné avec Tâche - Pôles & secteurs sur le
   // contrat de données). Page 2 s'ouvre désormais par défaut sur cet écran
   // (bascule 2 segments, gabarit .communityModeSwitch) plutôt que directement
@@ -312,8 +312,8 @@
   //   ] }
   // isPole=true : pôle SANS secteur (aucune imbrication). isPole=false :
   // secteur. Un pôle AVEC secteurs ne peut pas posséder ses propres tâches
-  // (confirmé par Emilien, 27 septembre 2026) — n'apparaît donc jamais
-  // lui-même dans "groups", seuls ses secteurs y figurent. ⚠️ 28 septembre
+  // — n'apparaît donc jamais
+  // lui-même dans "groups", seuls ses secteurs y figurent. 
   // 2026 : isPole ne pilote plus l'affichage de buildGoalsTasksGroup()
   // ci-dessous — tout groupe (secteur ou pôle sans secteur) est désormais un
   // accordéon replié par défaut, chevron, état retenu dans
@@ -335,7 +335,7 @@
   // Hypothèse signalée à Tâche - Pôles & secteurs pour confirmation/
   // correction — à ajuster ici si les routes réelles diffèrent.
   //
-  // ⚠️ 28 septembre 2026, demande directe d'Emilien : « je souhaite que dans
+  // « je souhaite que dans
   // tâches, les secteurs apparaissent exactement dans le même format que la
   // section actuelle sous projet [...] Prends comme modèle le code de la
   // section sous-projet du main actuel ». buildGoalsTasksGroup()/
@@ -350,7 +350,7 @@
   // gabarit propre — voir le commentaire à côté de #goalsTasksProgressWrap,
   // index.html.
   var goalsPage2BaseMode = 'tasks';
-  // 2 oct. 2026 (Emilien) : 3 pages qui défilent — quotidien (Tâches) · mensuel (détail de période, ex-Page 3) · annuel (arbre périodique).
+  // 3 pages qui défilent — quotidien (Tâches) · mensuel (détail de période, ex-Page 3) · annuel (arbre périodique).
   var GOALS_PAGE2_ORDER = ['tasks', 'month', 'goals'];
   function goalsPage2ViewFor(m) { return $(m === 'tasks' ? 'goalsTasksView' : m === 'month' ? 'goalsMonthView' : 'goalsObjectifsView'); }
   TMT.getGoalsPage2Mode = function () { return currentGoalsPage2Mode; };
@@ -421,7 +421,7 @@
       };
     }
     if (mode === 'tasks') loadGoalsTasksOverview();
-    // Défilement automatique vers la période en cours supprimé (demande d'Émilien, 9 oct. 2026).
+    // Défilement automatique vers la période en cours supprimé.
     if (mode === 'month' && !opts.keep && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
     var discBtn = $('goalsPage2ModeDiscBtn');
     if (discBtn) discBtn.classList.toggle('active', mode === 'disc');
@@ -443,7 +443,7 @@
 
   $('goalsPage2ModeGoalsBtn').addEventListener('click', function () { setGoalsPage2Mode('goals'); });
 
-  // Balayage horizontal « glissé » (2 oct. 2026, Emilien : « je souhaite faire glisser les volets ») : les pages suivent le doigt,
+  // Balayage horizontal « glissé » : les pages suivent le doigt,
   // la page voisine apparaît à côté ; au relâchement elle se pose si on a assez glissé (25 % de la largeur, ou geste rapide), sinon revient.
   // Ignoré depuis le cadre de pôle (qui change de pôle), les champs et toute zone défilant horizontalement (sauf au bord gauche de l'arbre).
   (function bindPage2ModeSwipe() {
@@ -591,9 +591,9 @@
 
   TMT.setGoalsPage2Mode = setGoalsPage2Mode;
 
-  // 25 septembre 2026 (restructuration du volet Objectifs en 3 pages) — voir
+  // voir
   // le commentaire du bouton dans index.html. Déplacé ici depuis
-  // objectifs-page1.js le 28 septembre 2026 (correctif régression c10fce8) :
+  // objectifs-page1.js le 
   // #goalsBackToCaptureBtn est injecté par CETTE page (page 2), donc son
   // écouteur doit être posé ici — un $('goalsBackToCaptureBtn') au niveau
   // supérieur d'un autre fichier de page s'exécute avant que ce HTML-ci
@@ -603,7 +603,7 @@
   });
 
 
-  // 7 oct. 2026 (Emilien) : design commun des cartes d'alerte (Journée surchargée, Non réalisées,
+  // design commun des cartes d'alerte (Journée surchargée, Non réalisées,
   // cible irréaliste, recalcul) : orange, repliées par défaut, croix = masquée pour AUJOURD'HUI
   // seulement (localStorage, clé carte+activité+jour local ; revient d'elle-même le lendemain).
   var alertOpen = {};
@@ -611,7 +611,7 @@
   function alertDayKey(key) { return 'tmt_alert_hide_' + key + '_' + (TMT.currentGoalsActivityId || '') + '_' + (TMT.currentGoalsSelectedPoleKey || ''); }
   function alertHiddenToday(key) { try { return localStorage.getItem(alertDayKey(key)) === localIso(new Date()); } catch (e) { return false; } }
   // Prépare la carte (déjà vidée) et renvoie le conteneur du contenu, ou null si masquée aujourd'hui.
-  // 7 oct. 2026 : les cartes d'alerte reviennent enroulées à chaque changement d'onglet (appelé par switchTab).
+  // les cartes d'alerte reviennent enroulées à chaque changement d'onglet (appelé par switchTab).
   TMT.collapseGoalsAlerts = function () {
     alertOpen = {};
     if (typeof resetRespFilter === 'function') resetRespFilter();
@@ -649,7 +649,7 @@
     return body;
   }
 
-  // 2 oct. 2026 (Emilien, option B) : carte « surcharge » — plan PROPOSÉ, rien n'est
+  // carte « surcharge » — plan PROPOSÉ, rien n'est
   // modifié avant « Valider ». Serveur : server/lib/goalsoverload.js.
   function loadGoalsOverloadCard() {
     var activityId = TMT.currentGoalsActivityId;
@@ -685,7 +685,7 @@
     }).catch(function () { card.classList.add('hidden'); });
   }
 
-  // 7 oct. 2026 : « Non réalisées » (report tâche par tâche ou tout d'un coup) et « cible peut-être
+  // « Non réalisées » (report tâche par tâche ou tout d'un coup) et « cible peut-être
   // irréaliste » (3 options). Tout est PROPOSÉ : rien ne bouge sans clic. Serveur : server/lib/goalscarryover.js.
   function loadGoalsReportCard() {
     var activityId = TMT.currentGoalsActivityId;
@@ -777,7 +777,7 @@
     }).catch(function () { card.classList.add('hidden'); });
   }
 
-  // 7 oct. 2026 : recalcul d'après le temps réel. Proposition créée par le job nocturne (serveur :
+  // recalcul d'après le temps réel. Proposition créée par le job nocturne (serveur :
   // server/lib/goalsrecalc.js) ; rien ne change sans « Appliquer ».
   function loadGoalsRecalcCard() {
     var activityId = TMT.currentGoalsActivityId;
@@ -894,7 +894,7 @@
     // de pôle (TMT.currentGoalsSelectedPoleKey) — seuls les secteurs (ou le
     // pôle sans secteur) de CE pôle, avec leurs tâches et leur avancement.
     var selPole = TMT.currentGoalsSelectedPoleKey;
-    if (data && selPole) { // 2 oct. 2026 : filtre TOUJOURS (un pôle sans tâche n'affichait auparavant que tous les secteurs de l'activité)
+    if (data && selPole) { // filtre TOUJOURS (un pôle sans tâche n'affichait auparavant que tous les secteurs de l'activité)
       var fg = data.groups.filter(function (g) { return g.poleKey === selPole; });
       var fd = 0, ft = 0;
       fg.forEach(function (g) { fd += g.done || 0; ft += g.total || 0; });
@@ -904,7 +904,7 @@
     // Règle R1 (même principe que renderActivityProgressRing()) : jamais de
     // « 0% » trompeur avant le premier chargement réel — l'anneau reste
     // masqué tant que percent est null/undefined.
-    // 1er oct. 2026 (Emilien) : affiché TOUJOURS une fois les données chargées,
+    // affiché TOUJOURS une fois les données chargées,
     // même sans tâche dans le pôle (0 % — 0 / 0).
     if (!data) {
       wrap.classList.add('hidden');
@@ -917,10 +917,10 @@
       var fill = $('goalsTasksProgressRingFill');
       fill.style.strokeDasharray = circumference.toFixed(2);
       fill.style.strokeDashoffset = (circumference * (1 - data.percent / 100)).toFixed(2);
-      // 2 oct. 2026 (Emilien) : à 100 % (au moins une tâche) → anneau vert, crochet et contour vert (Avancement global seulement).
+      // à 100 % (au moins une tâche) → anneau vert, crochet et contour vert (Avancement global seulement).
       var allDone = data.percent >= 100 && data.total > 0;
       wrap.classList.toggle('isComplete', allDone);
-      // 8 oct. 2026 : tant que ce n'est pas terminé, contour = couleur du pôle.
+      // tant que ce n'est pas terminé, contour = couleur du pôle.
       if (allDone || !TMT.subProjectShade) wrap.style.removeProperty('--progressEdge');
       else wrap.style.setProperty('--progressEdge', TMT.subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, TMT.SUB_PROJECT_SHADE_COUNT));
       if (allDone) $('goalsTasksProgressPercent').innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><polyline points="4 12.5 9.5 18 20 6.5"/></svg>';
@@ -931,7 +931,7 @@
 
     var list = $('goalsTasksGroups');
     list.innerHTML = '';
-    // 5 oct. 2026 (Emilien) : liste « du jour » (blanches) complétée à 5 lignes minimum
+    // liste « du jour » (blanches) complétée à 5 lignes minimum
     // par les prochaines tâches datées (grises, sous « À venir »). Jamais de tâche inventée.
     var daily = data && data.daily;
     var allToday = (daily && daily.todayTasks) || [];
@@ -942,7 +942,7 @@
     var byWho = function (x) { return !who || x.plannedUserId === who; };
     var todayTasks = allToday.filter(byPole).filter(byWho);
     var upcoming = allUpcoming.filter(byPole).filter(byWho).slice(0, Math.max(0, ((daily && daily.minLines) || 5) - todayTasks.length));
-    // 5 oct. 2026 : les tâches restent RANGÉES PAR SECTEUR (accordéon replié par défaut, croix de
+    // les tâches restent RANGÉES PAR SECTEUR (accordéon replié par défaut, croix de
     // suppression, glisser entre secteurs du pôle, ajout en ligne) ; seul le contenu de chaque
     // secteur change : tâches du jour (blanc) puis tâches à venir (gris, avec leur date).
     var perGroup = {};
@@ -1003,7 +1003,7 @@
     var p = function (n) { return String(n).padStart(2, '0'); };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
-  // 5 oct. 2026 (Emilien) : même comportement que « Historique » du Chrono — à l'ouverture, la
+  // même comportement que « Historique » du Chrono — à l'ouverture, la
   // fenêtre remonte pour mettre « Archives » tout en haut (réserve d'espace sous la section si la
   // liste est courte), on peut toujours défiler vers les tâches ; à la fermeture, retour à la
   // position d'avant. Un espace vide (72 px) reste en permanence sous le bouton, au-dessus des 3 points.
@@ -1044,7 +1044,7 @@
   });
 
 
-  // 5 oct. 2026 (Emilien) : Archives revient enroulé quand on quitte l'onglet Tâches ou la page.
+  // Archives revient enroulé quand on quitte l'onglet Tâches ou la page.
   function collapseGoalsArchives() {
     var panel = $('goalsTasksArchivePanel');
     if (!panel || panel.classList.contains('hidden')) return;
@@ -1070,10 +1070,10 @@
   // le commentaire en tête de section. Tout groupe (secteur OU pôle sans
   // secteur) est un accordéon replié par défaut, état retenu dans
   // currentGoalsTasksOpenGroups le temps de rester sur cet écran.
-  // ⚠️ 28 septembre 2026, demande directe d'Emilien (capture à l'appui) : « il
+  // demande directe d'Emilien (capture à l'appui) : « il
   // y a présentement encore des secteurs qui ne sont pas enroulés » — un pôle
   // sans secteur (g.isPole, voir le commentaire en tête de section) restait
-  // jusqu'ici TOUJOURS déplié, sans chevron (données 27 septembre, converties
+  // jusqu'ici TOUJOURS déplié, sans chevron (données converties
   // en choix d'affichage ce jour-là). Emilien veut désormais le même
   // comportement replié/chevron pour ces groupes-là aussi — g.isPole ne sert
   // donc plus qu'à distinguer la ligne dans le contrat de données, plus à
@@ -1117,7 +1117,7 @@
     // Description du pôle/secteur (attribuée via la fenêtre d'activité,
     // section Catégories) — demande explicite d'Emilien, affichée seulement
     // si présente, même gabarit que .subProjectRowDesc.
-    // 5 oct. 2026 (Emilien) : descriptif masqué sur la page 2 (conservé dans la fenêtre d'activité).
+    // descriptif masqué sur la page 2 (conservé dans la fenêtre d'activité).
     if (false && g.description) {
       var desc = document.createElement('p');
       desc.className = 'meta subProjectRowDesc';
@@ -1158,7 +1158,7 @@
 
   var GOALS_TASK_EDIT_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>';
 
-  // Tâche récurrente (9 oct. 2026) : champ « Répéter » partagé (onglet 1 capture, onglet 2 édition).
+  // Tâche récurrente : champ « Répéter » partagé (onglet 1 capture, onglet 2 édition).
   // initial = { every, unit } ou null. get() renvoie { every, unit } ou null (= ne se répète pas).
   function buildRecurrenceField(initial) {
     var wrap = document.createElement('div');
@@ -1289,7 +1289,7 @@
   function buildGoalsTaskRow(task, groupKey) {
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (task.done ? ' done' : '') + (task.grey ? ' goalsDailyGrey' : '');
-    // 28 septembre 2026, demande de Notifications (coordination, voir
+    // demande de Notifications (coordination, voir
     // noesis-timetracker-notifications-deep-link.md) : repère cette ligne
     // pour le halo de la notification « Tâches quotidiennes »
     // (?notif=dailypriority&activityId=X&taskId=T) — Notifications réutilise
@@ -1332,14 +1332,14 @@
       row.appendChild(when);
     }
 
-    // 28 septembre 2026, demande directe d'Emilien : « en dessous les tâches
+    // « en dessous les tâches
     // avec une croix rouge pour les supprimer », précisée le même jour :
     // « je souhaite que la croix [...] soit rouge, dans le même style que la
     // croix pour supprimer les secteurs dans la feuille des activités » —
     // .subProjectDeleteX (styles.css). Classe partagée avec Sous-projets/la
     // feuille d'activité (croix de secteur, buildPoleSecteursBlock, app.js) —
     // réutilisée telle quelle, jamais modifiée ici.
-    // ⚠️ 28 septembre 2026 (même jour, retour d'Emilien après capture) : « je
+    // « je
     // souhaite que la croix pour supprimer une tâche ne soit pas encadrée » —
     // .subProjectDeleteX cadrée/bordée reste la référence pour la croix de
     // SECTEUR (feuille d'activité, demande initiale ci-dessus), mais pas pour
@@ -1354,9 +1354,9 @@
     // Déplacer vers un autre pôle/secteur de la même activité : bouton discret
     // qui ouvre une liste (select natif, optgroup par pôle ; secteurs sans
     // couleur) sous la tâche. PUT .../goals/tasks/:id/category.
-    // 5 oct. 2026 (Emilien) : poignée ≡ et déplacement des tâches entre secteurs supprimés.
+    // poignée ≡ et déplacement des tâches entre secteurs supprimés.
 
-    // 5 oct. 2026 (Emilien) : la corbeille devient « modifier » ; le panneau permet de
+    // la corbeille devient « modifier » ; le panneau permet de
     // changer le texte, la date et (activité partagée) le responsable, et garde la suppression.
     var edit = document.createElement('button');
     edit.type = 'button';

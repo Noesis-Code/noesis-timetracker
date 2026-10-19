@@ -1,6 +1,6 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 3 (détail d'une période)
  *
- * 28 septembre 2026 — chantier de restructuration (demande d'Emilien) :
+ * chantier de restructuration (demande d'Emilien) :
  * extrait de public/styles.css pour que les 3 pages du volet Objectifs
  * puissent être modifiées en parallèle sans jamais se marcher dessus.
  * Déplacement PUR — aucune règle changée, seulement son fichier. Les classes
@@ -85,7 +85,7 @@
 .goalMainCard textarea {
   background: transparent; border: none; border-radius: 0; padding: 2px 0;
   color: inherit; font-size: 15px; font-weight: 600;
-  /* 30 sept. 2026 (Gaspard, O3·03) : bloc plus compact — le min-height: 80px
+  /* bloc plus compact — le min-height: 80px
      global de textarea laissait ~60px vides sous le titre de l'objectif. */
   min-height: 0; resize: none; field-sizing: content;
 }
@@ -221,7 +221,7 @@
 
 .goalWeeklyDailyPlanBtn:disabled { opacity: 0.6; cursor: default; }
 
-/* 28 septembre 2026 (discussion "B. Objectifs — Calendrier &
+/* (discussion "B. Objectifs — Calendrier &
    intégrations"), demande d'Emilien : fusion objectifs hebdomadaires +
    calendrier — .goalsCalendarLabel/.goalsCalendarList (l'ancienne section
    "Calendrier de la période" séparée) sont retirées avec le gabarit HTML qui
@@ -346,7 +346,7 @@
   color: var(--text-light); font-size: 11px; white-space: nowrap;
 }
 
-/* 29 septembre 2026 — régression signalée par Emilien, cause identifiée par
+/* régression signalée par Emilien, cause identifiée par
    la discussion Page 2 : le commit b8b1779 (Page 2 devenue fenêtre plein
    écran) injecte #goalsActivitySwitcher en fin de #content avec la même
    classe .communityMembersModal (donc le même z-index:100, styles.css) que
@@ -376,10 +376,10 @@
 .goalTaskEditSave { width: 100%; }
 .goalsCalendarTaskRow { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
-/* 1er oct. 2026 (Gaspard) : jours passés en violet foncé. */
+/* jours passés en violet foncé. */
 .goalsCalendarRow.past .goalsCalendarDate { color: var(--purple-dark); font-weight: 600; }
 
-/* 2 oct. 2026 (Emilien) : le détail de période (ex-Page 3) vit désormais DANS la Page 2, au milieu (mensuel) — la page 2 défile. */
+/* le détail de période (ex-Page 3) vit désormais DANS la Page 2, au milieu (mensuel) — la page 2 défile. */
 #goalsMonthView #goalsDetailScroll { flex: none; overflow: visible; padding: 0; }
 
 /* Bulles des secteurs (page mensuel) — style des puces d'activité de Statistiques, sans pastille colorée. */
@@ -389,7 +389,7 @@
 .gmChip { flex: 0 0 auto; padding: 7px 12px; border-radius: 999px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); }
 .gmChip.on { border-color: var(--chipEdge, var(--purple)); box-shadow: 0 0 0 1px var(--chipEdge, var(--purple)) inset; font-weight: 600; }
 
-/* Page mensuel : carte de l'objectif périodique en verre de l'app (2 oct. 2026) ; la couleur du pôle ne sert plus qu'au contour et à la jauge. */
+/* Page mensuel : carte de l'objectif périodique en verre de l'app ; la couleur du pôle ne sert plus qu'au contour et à la jauge. */
 #goalsMonthView #activityGoalsMainCard {
   background: var(--glass-bg) !important; color: var(--text) !important;
   border: 2px solid var(--cardEdge, var(--glass-border)) !important; box-shadow: var(--glass-shadow) !important;
@@ -397,13 +397,13 @@
 #goalsMonthView #activityGoalsMainCard .goalMainProgressTrack { background: var(--track-bg) !important; }
 #goalsMonthView #activityGoalsMainCard .goalMainProgressFill { background: var(--cardEdge, var(--purple)); }
 
-/* Page mensuel (2 oct. 2026) : pas de titre de secteur au-dessus de l'objectif ; section hebdomadaire translucide, sans contour coloré. */
+/* Page mensuel : pas de titre de secteur au-dessus de l'objectif ; section hebdomadaire translucide, sans contour coloré. */
 #goalsMonthView #activityGoalsCategoryLabel { display: none; }
 #goalsMonthView .goalsWeeklyList { background: var(--glass-bg); border: none !important; box-shadow: none !important; outline: none !important; gap: 0; }
 #goalsMonthView .goalsWeeklyList .goalWeeklyCard { background: transparent !important; box-shadow: none !important; border: none !important; border-top: 1px solid var(--glass-border) !important; }
 #goalsMonthView .goalsWeeklyList .goalWeeklyCard:first-child { border-top: none !important; }
 
-/* 2 oct. 2026 : titre court + description d'un objectif (périodique et hebdomadaire), fenêtre calquée sur celle des pôles. */
+/* titre court + description d'un objectif (périodique et hebdomadaire), fenêtre calquée sur celle des pôles. */
 .goalWeeklyTextWrap { flex: 1; min-width: 80px; display: flex; flex-direction: column; }
 .goalWeeklyTextWrap .goalWeeklyText { flex: none; width: 100%; box-sizing: border-box; min-height: 0; field-sizing: content; }
 .goalDescRow { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -412,7 +412,7 @@
 .goalDescPreview.hidden { display: none; }
 .goalDescEditBtn { margin-left: auto; flex: 0 0 auto; }
 
-/* 3 oct. 2026 : objectif périodique en lecture (titre + description) avec bouton modifier à côté. */
+/* objectif périodique en lecture (titre + description) avec bouton modifier à côté. */
 .goalMainRead { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .goalMainReadHead { display: flex; align-items: flex-start; gap: 8px; }
 .goalMainReadTitle { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
@@ -420,7 +420,7 @@
 #activityGoalsMainDescInput { margin-top: 6px; font-size: 14px; font-weight: 400; field-sizing: content; min-height: 60px; }
 #activityGoalsMainCancelBtn { margin-right: 8px; }
 
-/* 3 oct. 2026 : titre « Objectif périodique » hors de la carte ; carte épurée (plus de barre de progression,
+/* titre « Objectif périodique » hors de la carte ; carte épurée (plus de barre de progression,
    plus de pastille « calculé automatiquement » ni de bouton « Ajuster » — le code reste, seule la vue est masquée). */
 #goalsMonthView .goalsMainOutLabel { margin: 0 0 8px; }
 #goalsMonthView .goalMainProgressRow { display: none; }
@@ -443,10 +443,10 @@
 /* Annuler : neutre, sans couleur. */
 #activityGoalsMainCard .goalMainCancelPlain { color: inherit; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.14)); }
 #activityGoalsMainDescInput::placeholder { font-size: 14px; }
-/* 8 oct. 2026 : la description ne défile ni ne se redimensionne ; vide, elle occupe toute la bulle (texte d'aide en entier). */
+/* la description ne défile ni ne se redimensionne ; vide, elle occupe toute la bulle (texte d'aide en entier). */
 #activityGoalsMainDescInput { overflow: hidden; resize: none; min-height: 150px; font-size: 16px; }
 
-/* Reformulation proposée par Noèsis (7 oct. 2026) : case teintée violet, bulle au clic. */
+/* Reformulation proposée par Noèsis : case teintée violet, bulle au clic. */
 .goalRewriteHint { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.85); background-color: rgba(139, 92, 246, 0.14); cursor: pointer; border-radius: 8px; }
 .goalRewriteBubble { position: relative; margin: 6px 0; padding: 10px 34px 10px 12px; border: 1px solid rgba(139, 92, 246, 0.7); border-radius: 12px; background: rgba(139, 92, 246, 0.12); backdrop-filter: blur(10px); color: inherit; font-size: 14px; text-align: left; }
 .goalRewriteTitle { font-weight: 600; font-size: 12px; opacity: .8; margin-bottom: 4px; }
@@ -523,5 +523,5 @@
 .goalWeeklyCapInfo { font-size: 12px; color: var(--text-light); padding: 2px 0; }
 .goalWeeklyProposal { font-size: 12px; align-self: flex-start; }
 
-/* 9 oct. 2026 : corbeille tout à gauche des formulaires de modification (objectif périodique / hebdomadaire). */
+/* corbeille tout à gauche des formulaires de modification (objectif périodique / hebdomadaire). */
 .goalMainSaveRow > .historyRowIconBtn.danger, .goalWeeklyEditActions > .historyRowIconBtn.danger { margin-right: auto; }

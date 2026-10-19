@@ -1,6 +1,6 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 2 — onglet « OBJECTIFS » (arbre périodique)
  *
- * 29 septembre 2026 — scission physique de objectifs-page2.js en 2 fichiers
+ * scission physique de objectifs-page2.js en 2 fichiers
  * exclusifs, un par onglet de la Page 2 (décision d'Emilien). Voir l'en-tête
  * de objectifs-page2-taches.js pour la répartition complète et le contrat
  * minimal entre les 2 fichiers. Ce fichier contient :
@@ -26,16 +26,16 @@
   // (créés par objectifs-page2-taches.js, chargé avant ce fichier).
   document.getElementById('goalsPage2ModeSwitch').insertAdjacentHTML('beforebegin', `
 
-        <!-- 28 septembre 2026, demande directe d'Emilien : le cadre du pôle
+        <!-- demande directe d'Emilien : le cadre du pôle
              sélectionné (#goalsActivityHeader) remonte ICI, entre l'en-tête
              fixe ci-dessus et la bascule Tâches/Objectifs — il reste
              désormais TOUJOURS VISIBLE, qu'on soit dans l'écran Tâches ou
              Objectifs, au lieu de vivre uniquement dans #goalsObjectifsView
-             (26 septembre). Aucun changement JS requis : renderGoalsPoleSwitcher(),
+             (). Aucun changement JS requis : renderGoalsPoleSwitcher(),
              openGoalsForPole(), bindGoalsSwipe() et les écouteurs de
              #goalsPrevPoleBtn/#goalsNextPoleBtn (app.js) ciblent tous cet
              élément par son id, sans hypothèse sur son parent DOM — INCHANGÉ
-             par le passage en fenêtre (29 septembre) : seul son ENVELOPPE
+             par le passage en fenêtre () : seul son ENVELOPPE
              (#goalsActivitySwitcher/#goalsActivitySwitcherScroll) a bougé. -->
         <div class="activityPageHeader goalsActivityHeader" id="goalsActivityHeader">
           <button type="button" class="menuBtn goalsSwipeBtn" id="goalsPrevPoleBtn" aria-label="Pôle précédent">‹</button>
@@ -49,7 +49,7 @@
 
   // Contenu de l'écran Objectifs (arbre périodique + rail tactile).
   document.getElementById('goalsObjectifsView').insertAdjacentHTML('beforeend', `
-      <!-- ⚠️ 14 septembre 2026, demande d'Emilien : ce volet devient une
+      <!-- demande d'Emilien : ce volet devient une
            PAGE 1 (celle-ci) qui ne montre que le nom des grands objectifs,
            enchaînés en arbre esthétique — le détail d'une période (grand
            objectif, 4 semaines, bilan) part sur une PAGE 2 séparée,
@@ -58,14 +58,14 @@
            un nœud de l'arbre — voir openGoalsDetail()/renderGoalsTree() dans
            app.js.
 
-           14 septembre 2026 (second passage, demande d'Emilien) :
+           (second passage, demande d'Emilien) :
             - la bande de tendance des 13 périodes (#activityGoalsTrendRow)
               déménage ICI depuis #goalsDetailPage — elle appartient à la
               vue d'ensemble (page 1), pas au détail d'une période ;
             - 3 catégories par activité (Entreprise/Communauté/Produit),
               chacune son propre plan/cycle/arbre.
 
-           14 septembre 2026 (troisième passage, demande d'Emilien : « je
+           (troisième passage, demande d'Emilien : « je
            souhaite qu'il y ait 3 arbres visibles [...] que l'on puisse les
            comparer ») : les 3 catégories ne se consultent plus l'une après
            l'autre par onglet (#goalsCategoryTabs, retiré) — elles sont
@@ -81,14 +81,14 @@
            cliquable, sans bulle (règle explicite d'Emilien) — voir
            .goalsGridCell--empty, styles.css. -->
 
-        <!-- ⚠️ 26 septembre 2026 : le menu déroulant de pôles qui vivait ici
-             depuis le 21 septembre 2026 (#goalsPoleTabBar,
+        <!-- : le menu déroulant de pôles qui vivait ici
+             depuis (#goalsPoleTabBar,
              renderGoalsPoleDropdown()) est RETIRÉ — remplacé par le
              sélecteur intégré au cadre ci-dessus (voir le commentaire en
              tête de ce bloc). Historique conservé dans
              noesis-timetracker-chantiers-en-cours.md plutôt que retapé ici. -->
 
-        <!-- ⚠️ 15 septembre 2026 (nuit, demande directe d'Emilien) : un seul
+        <!-- (nuit, demande directe d'Emilien) : un seul
              mode reste sur la page 1 — la grille (arbre). Le bouton bascule
              (#goalsViewToggle, Arbre/Répartition) et la vue "Répartition"
              elle-même (#goalsDistribution, renderGoalsDistribution() dans
@@ -96,7 +96,7 @@
              aucun moyen d'y accéder. currentGoalsView disparaît avec eux
              (toujours "tree" implicitement désormais). -->
 
-        <!-- ⚠️ 15 septembre 2026 (5e passage, demande d'Emilien — mockup
+        <!-- (5e passage, demande d'Emilien — mockup
              validé par itérations successives) : #goalsFixedBar (en-têtes +
              bande de points, TOUJOURS position: fixed) est RETIRÉ. Deux
              raisons cumulées d'Emilien : (1) « je souhaite que le nom des
@@ -114,16 +114,16 @@
         <!-- En-têtes des colonnes de la grille — simple repère visuel,
              jamais de logique propre. Aligné sur les mêmes colonnes que
              #goalsGrid juste en dessous (même largeur, même écart) — demande
-             d'Emilien du 15 septembre : « je souhaite que les catégories
+             d'Emilien : « je souhaite que les catégories
              soient alignées avec les lignes ». Défile avec le contenu, ne
              reste plus fixe.
-             15 septembre 2026 (nuit, discussion Objectifs — B) : contenu
+             (nuit, discussion Objectifs — B) : contenu
              désormais entièrement dynamique — de 1 à 5 catégories selon la
              personnalisation de l'activité (categories/maxCategories, voir
              GET .../goals/all), plus les 3 catégories fixes historiques pour
              une activité non personnalisée. Rempli par
              renderGoalsGridHead() (app.js), jamais statique. -->
-        <!-- 16 septembre 2026 (8e passage), demande d'Emilien : « au-delà de
+        <!-- (8e passage), demande d'Emilien : « au-delà de
              deux catégories, les catégories suivantes n'apparaissent pas
              directement [...] il faut swiper de gauche à droite [...] le
              même principe que pour la feuille de temps ». #goalsGridScroll
@@ -140,7 +140,7 @@
              posées par app.js qu'au-delà de 2 — voir renderGoalsGridHead()/
              renderGoalsGrid()). -->
         <div id="goalsGridScroll" class="goalsGridScroll">
-          <!-- 20 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
+          <!-- (discussion "Objectifs — Ajout de catégorie") :
                contour unique en pointillés de la zone "ajouter un secteur"
                (en-tête + 13 cases), remplace les bordures par case
                (styles.css, .goalsGridAddOutline) — positionné/dimensionné en
@@ -150,7 +150,7 @@
                z-index dédié nécessaire, display:none par défaut tant que
                positionGoalsAddOutline() ne l'active pas). -->
           <div id="goalsGridAddOutline" class="goalsGridAddOutline"></div>
-          <!-- 22 septembre 2026 (discussion "Objectifs — Arbre périodique"),
+          <!-- (discussion "Objectifs — Arbre périodique"),
                v3 — Emilien signale un sautillement (« lorsque je fais défiler
                vers le haut ou vers le bas ») avec la v2 (positionnement
                vertical recalculé en JS à chaque événement 'scroll', voir
@@ -206,7 +206,7 @@
              local — voir goToGoalsCategorySettings(), app.js. Plus aucun
              élément propre à ajouter ici. -->
 
-        <!-- Rail tactile du bord gauche (5e passage, 15 septembre 2026,
+        <!-- Rail tactile du bord gauche (5e passage, 
              demande d'Emilien : « je souhaite les mettre sur la verticale à
              gauche [...] et je souhaite qu'il s'affiche uniquement lorsque
              l'utilisateur appuie et fait défiler »). Invisible par défaut
@@ -217,7 +217,7 @@
              Placée À L'INTÉRIEUR de #goalsActivitySwitcher (et non de
              #goalsGrid) : \`.hidden\` sur ce conteneur (aucune activité
              chargée) la masque déjà sans logique dédiée.
-             ⚠️ 29 septembre 2026 : la mention « \`.tab.hidden\` sur #tab-goals
+             : la mention « \`.tab.hidden\` sur #tab-goals
              fait de même en dehors de cet onglet » ci-dessus décrivait
              l'ancien emplacement de #goalsActivitySwitcher (imbriqué dans
              #tab-goals) — devenue fausse depuis le passage en fenêtre plein
@@ -256,7 +256,7 @@
       formatGoalPeriodDates = TMT.formatGoalPeriodDates,
       reloadGoalsGridForPole = TMT.reloadGoalsGridForPole,
 
-      // 28 septembre 2026 — correctif BUG CRITIQUE signalé par B. Objectifs —
+      // correctif BUG CRITIQUE signalé par B. Objectifs —
       // Calendrier & intégrations (voir noesis-timetracker-chantiers-en-cours.md) :
       // renderGoalsGrid() (plus bas) utilisait goalPeriodByNumber SANS l'aliaser
       // depuis TMT, contrairement à objectifs-page3.js (même alias, ligne ~190).
@@ -268,7 +268,7 @@
       goalPeriodByNumber = TMT.goalPeriodByNumber;
 
   // ===================== RAIL TACTILE DU BORD GAUCHE =====================
-  // 15 septembre 2026 (5e passage, demande d'Emilien) : remplace l'ancienne
+  // remplace l'ancienne
   // bande de tendance TOUJOURS visible (renderGoalsTrend()/
   // setGoalsTrendActiveIndex()/syncGoalsFixedBarHeightVar()/
   // updateGoalsTrendFromScroll()/scrollGoalsGridToPeriod(), retirées) — « je
@@ -292,7 +292,7 @@
   var goalsCurrentPeriodIdx = -1;
 
 
-  // 17 septembre 2026 (discussion "Objectifs — Rail périodique"), demande
+  // (discussion "Objectifs — Rail périodique"), demande
   // d'Emilien : le rail cesse d'être un geste tactile déclenché à la demande
   // (9e/11e passages ci-dessous, conservés en historique) pour devenir un
   // rail PERMANENT, toujours visible tant que la grille est affichée, dont
@@ -340,7 +340,7 @@
     var toggle = $('goalsGridHead');
     if (!toggle) return;
     var bottom = toggle.getBoundingClientRect().bottom;
-    // 17 septembre 2026 (suite du 14e passage) : marge resserrée de 14px à
+    // marge resserrée de 14px à
     // 6px — demande d'Emilien, « le rail [...] plus haut en haut » — même
     // petite marge de sécurité (6px) que celle déjà utilisée ailleurs dans
     // l'onglet Objectifs (ex. .goalsGridHeadCell, padding 6px), au lieu
@@ -359,7 +359,7 @@
   // #goalsScrubZone vit À L'INTÉRIEUR de #goalsActivitySwitcher/#tab-goals
   // (voir index.html), `.hidden`/`.tab.hidden` la masquent donc
   // automatiquement avec le reste. Un seul mode grille désormais, donc plus
-  // de condition sur currentGoalsView ici. 17 septembre 2026 : au retour sur
+  // de condition sur currentGoalsView ici. au retour sur
   // la page 1 (closeGoalsDetail()), on redéclenche immédiatement
   // goalsScrubTick() — hideGoalsScrub() avait effacé l'état "actif" pendant
   // que la page 2 était ouverte, il ne faut pas attendre un nouveau scroll
@@ -374,7 +374,7 @@
   }
 
 
-  // 17 septembre 2026 : repérage par ligne .goalsGridRow réellement affichée
+  // repérage par ligne .goalsGridRow réellement affichée
   // à l'écran (plus par la position verticale d'un doigt sur
   // #goalsScrubZone, ce dernier n'ayant de toute façon jamais capté le
   // toucher — voir le commentaire du 9e passage resté sur bindGoalsScrub).
@@ -385,7 +385,7 @@
     if (!grid) return 0;
     var rows = grid.querySelectorAll('.goalsGridRow');
     if (!rows.length) return 0;
-    // 17 septembre 2026 (suite du 14e passage) : bug réel signalé par
+    // bug réel signalé par
     // Emilien — les périodes 1 et 13 ne devenaient jamais "actives". Cause :
     // la comparaison "ligne dont le centre est le plus proche du milieu de
     // l'écran" ne peut matériellement JAMAIS désigner la 1ère ou la 13e
@@ -486,7 +486,7 @@
   var goalsScrubTick = function () {};
 
 
-  // 17 septembre 2026 (discussion "Objectifs — Rail périodique"), demande
+  // (discussion "Objectifs — Rail périodique"), demande
   // d'Emilien : remplace entièrement le geste tactile à seuil de distance
   // (9e/11e passages, historique ci-dessus sur showGoalsScrub/hideGoalsScrub)
   // par une simple écoute du défilement de la FENÊTRE (jamais un conteneur
@@ -533,13 +533,13 @@
   })();
 
 
-  // 26 septembre 2026, demande directe d'Emilien (page 2, point d) : « je
+  // demande directe d'Emilien (page 2, point d) : « je
   // souhaite que le pôle remplace le nom actuel de l'activité [...] on
   // reprend la même fonctionnalité utilisée pour les activités, mais à la
   // place, c'est le pôle qui peut swiper de gauche à droite ou avec les
   // flèches [...] je souhaite donc que le point coloré prenne la nuance du
   // pôle, une des cinq nuances disponibles. » Remplace le menu déroulant du
-  // 21 septembre (renderGoalsPoleDropdown(), #goalsPoleTabBar, retirés) :
+  // (renderGoalsPoleDropdown(), #goalsPoleTabBar, retirés) :
   // #goalsActivityHeader n'est plus le nom de l'activité (déplacé dans
   // #goalsActivityPlainRow, voir openGoalsForActivity() ci-dessus et
   // index.html) mais le sélecteur de pôle lui-même, avec la même mécanique
@@ -596,7 +596,7 @@
     if (index === -1) index = 0;
     TMT.currentGoalsPoleIndex = index;
     var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
-    applyGoalsHeaderState(header, false, poles[index], shade); // cadre = PÔLE sur toutes les pages (2 oct. : les secteurs sont des bulles en page mensuel)
+    applyGoalsHeaderState(header, false, poles[index], shade); // cadre = PÔLE sur toutes les pages
     if (TMT.rerenderGoalsTasksOverview) TMT.rerenderGoalsTasksOverview();
   }
 
@@ -623,7 +623,7 @@
 
 
   // ===================== OBJECTIFS — PAGE 1 : GRILLE COMPARATIVE =====================
-  // 14 septembre 2026 (troisième passage, demande d'Emilien, cadré par
+  // (troisième passage, demande d'Emilien, cadré par
   // AskUserQuestion avant ce chantier) : « je souhaite qu'il y ait 3 arbres
   // visibles 1. entreprise 2. produits et 3. communautés [...] que l'on
   // puisse les comparer [...] une grille alignée par période ». Remplace
@@ -634,18 +634,18 @@
   // 1 à 13) même si chacune a démarré son propre plan à sa propre date —
   // c'est justement ce qui les rend comparables d'un coup d'œil.
   //
-  // Cellule sans objectif périodique écrit : 6e passage (15 septembre 2026)
+  // Cellule sans objectif périodique écrit : 6e passage
   // — pavé fantôme + trait de continuité entre périodes, voir
   // .goalsGridCell--empty et .goalsGridCell::before, styles.css. Chaque
   // cellule (pleine ou vide) reste cliquable : elle ouvre la page 2 pour
   // CETTE (catégorie, période) — inchangée, confirmé par Emilien
   // (AskUserQuestion).
-  // 15 septembre 2026 (7e passage, demande d'Emilien — "un seul mode : la
+  // (7e passage, demande d'Emilien — "un seul mode : la
   // grille") : l'en-tête de colonnes n'est plus statique (3 <span> fixes dans
   // index.html) — il reflète activeGoalsCategories(), donc de 1 à 5 colonnes
   // selon les catégories personnalisées de l'activité affichée. Appelée par
   // reloadGoalsAll() avant renderGoalsGrid(), et lors du changement d'activité.
-  // 16 septembre 2026 (8e passage, demande d'Emilien) : nom de catégorie
+  // nom de catégorie
   // CENTRÉ et encadré dans un cadre coloré — une NUANCE de la couleur de
   // l'activité, une nuance différente par catégorie, même mécanisme que les
   // 5 nuances des sous-projets (subProjectShade(), plus haut dans ce
@@ -664,7 +664,7 @@
   // horizontalement — même principe que la Feuille de temps (défilement
   // natif, `overflow-x: auto`, jamais un geste JS dédié). Voir renderGoalsGrid()
   // juste en dessous pour la même bascule sur chaque ligne de la grille.
-  // 16 septembre 2026 (9e passage), demande d'Emilien : « je souhaite que le
+  // « je souhaite que le
   // titre de la catégorie la plus à droite soit un peu plus courte pour
   // laisser place à un + sur sa droite [...] cela me permet de rajouter des
   // catégories directement depuis le volet objectif ». Le bouton + est un
@@ -676,14 +676,14 @@
   // (maxCategories, posé par /goals/all — voir server/routes/goals.js) :
   // au plafond, ajouter n'a plus de sens, même garde que le formulaire
   // d'ajout du panneau de gestion (fenêtre activité, activityGoalsCategoryAddWrap).
-  // 20 septembre 2026 (discussion "Objectifs — Ajout de catégorie") : plus
+  // plus
   // aucune catégorie réelle active — categories vide (état transitoire avant
   // chargement, ou toutes gelées) OU l'unique catégorie active est encore la
   // catégorie factice synthétisée côté serveur sans écriture (c.custom ===
   // false, jamais vrai pour une catégorie créée/renommée par l'utilisateur,
   // voir categoriesForActivity(), server/lib/goals.js). Remplace l'ancien
   // traitement séparé "0 catégorie" (verrouillage du défilement) et "1
-  // catégorie factice" (.goalsGridHeadCell--defaultAdd, 16 septembre) par UN
+  // catégorie factice" par UN
   // SEUL état unifié — demande d'Emilien, « si une activité n'a aucun pôle,
   // je souhaite que cette présentation [la boîte "ajouter un secteur"] soit
   // directement sur la première page sans swiper » : dans les deux cas, il
@@ -695,7 +695,7 @@
 
 
 
-  // ===================== ANNÉE DE L'ARBRE (9 oct. 2026) ======================
+  // ===================== ANNÉE DE L'ARBRE ======================
   // Sélecteur en haut à gauche : « Nouveau + » (année suivante), puis les années de la plus
   // haute à la plus basse. Une année passée se consulte sans se modifier.
   function goalsCurrentYear() { return (TMT.goalsYears && TMT.goalsYears.currentYear) || new Date().getFullYear(); }
@@ -720,7 +720,7 @@
       renderGoalsGridHead(); renderGoalsGrid();
     }).catch(function () { goalsYearsLoadingFor = null; });
   }
-  // Défilement automatique vers la période en cours (9 oct. 2026) : quand l'utilisateur est
+  // Défilement automatique vers la période en cours : quand l'utilisateur est
   // complètement arrivé sur l'onglet 3 (glissement terminé) et n'a plus le doigt sur l'écran.
   var goalsTouchCount = 0;
   document.addEventListener('touchstart', function (e) { goalsTouchCount = e.touches.length; }, { passive: true, capture: true });
@@ -809,7 +809,7 @@
     if (willOpen) menu.classList.remove('hidden');
   });
 
-  // ===================== OBJECTIF DE L'ANNÉE (8 oct. 2026) ===================
+  // ===================== OBJECTIF DE L'ANNÉE ===================
   // Un texte libre par secteur (ou par pôle sans secteur), sous le titre du
   // secteur, jamais plus large que sa colonne. Replié par défaut (titre seul,
   // même distance avec l'arbre qu'avant) ; déplié = bulle à la couleur du
@@ -928,13 +928,13 @@
     var maxCategories = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.maxCategories) || 5;
     var hasNoRealCategory = goalsHasNoRealCategory(categories);
     head.classList.toggle('goalsGridHead--paged', !hasNoRealCategory && categories.length > 2);
-    // 17 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
+    // 
     // verrouiller le défilement horizontal de #goalsGridScroll à exactement
     // une page (voir .goalsGridScroll--locked, styles.css) tant qu'il n'y a
     // aucune catégorie réelle — voir goalsHasNoRealCategory() ci-dessus.
     var gridScrollEl = $('goalsGridScroll');
     if (gridScrollEl) gridScrollEl.classList.toggle('goalsGridScroll--locked', hasNoRealCategory);
-    // 26 septembre 2026, demande directe d'Emilien (page 2, point f) : « si
+    // demande directe d'Emilien (page 2, point f) : « si
     // l'utilisateur n'a pas créé de secteur pour son pôle, mais a un arbre
     // périodique, alors pas de titre du secteur. Le titre du pôle ne se
     // répète pas 2 fois pour remplacer le titre du secteur inexistant. » —
@@ -947,11 +947,11 @@
     var isPoleFallbackColumn = !!TMT.currentGoalsSelectedPoleKey
       && categories.length === 1
       && categories[0].key === TMT.currentGoalsSelectedPoleKey;
-    // 28 septembre 2026, demande directe d'Emilien (captures à l'appui) :
+    // demande directe d'Emilien (captures à l'appui) :
     // « dans la section objectif, lorsqu'aucun secteur n'a été rempli, je
     // souhaite que la bulle où se trouve normalement du secteur n'apparaisse
     // pas [...] l'arbre périodique se rapproche des boutons ». isPoleFallbackColumn
-    // (ci-dessus, 26 septembre) supprimait déjà le TEXTE de cette unique
+    // supprimait déjà le TEXTE de cette unique
     // colonne (pas de titre en double avec #goalsPoleName) mais continuait à
     // créer le <span class="goalsGridHeadCell"> — un badge encadré/souligné
     // (voir styles.css) qui restait visible, vide, exactement la « bulle »
@@ -967,7 +967,7 @@
         span.className = 'goalsGridHeadCell';
         span.textContent = t(c.label);
         var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
-        // 17 septembre 2026 (discussion "Objectifs — Titres des catégories"),
+        // (discussion "Objectifs — Titres des catégories"),
         // demande d'Emilien : « je laisse la couleur noire à l'intérieur et
         // mets le titre de la catégorie en couleur » — fond transparent (la
         // page se voit au travers, thème clair ou sombre), texte et liseré
@@ -976,14 +976,14 @@
         // liseré noir/blanc translucide du passage précédent, devenus sans
         // objet : il n'y a plus de fond rempli dont dériver un contraste.
         var displayColor = eclairciPourLisibilite(shade);
-        // 8 oct. 2026 : format des puces de l'onglet 2 (.gmChip), largeur de colonne conservée, contour = couleur du pôle.
+        // format des puces de l'onglet 2 (.gmChip), largeur de colonne conservée, contour = couleur du pôle.
         span.style.borderColor = shade;
-        // 26 septembre 2026 (retour direct d'Emilien après l'encart 53) :
+        // 
         // badge violet « non vu » posé ICI, sur l'arbre périodique
         // lui-même — c'est le vrai emplacement des « objectifs
         // périodiques » demandé, pas le menu déroulant de pôle (voir
         // renderGoalsPoleSwitcher() ci-dessus, jamais de badge sur le
-        // sélecteur de pôle). ⚠️ 26 septembre 2026 : Emilien demande de
+        // sélecteur de pôle). Emilien demande de
         // déplacer ce badge encore une fois, directement sur la période où
         // la tâche a été appliquée plutôt qu'ici sur le titre — reporté,
         // nécessite un nouveau signal serveur (quelle période précise) que
@@ -992,7 +992,7 @@
         // `c.key` est déjà correctement scopé par activeGoalsCategories()
         // selon le niveau affiché : les pôles eux-mêmes tant qu'aucun
         // pôle réel n'a été choisi (vue comparative), ou les secteurs du
-        // pôle sélectionné une fois qu'on y est entré (21 septembre 2026,
+        // pôle sélectionné une fois qu'on y est entré (
         // « Secteurs dans l'arbre périodique ») — donc ce même badge
         // couvre pôle ET secteur sans code supplémentaire, contrairement
         // à la simplification notée dans l'encart 53 (agrégation par
@@ -1016,7 +1016,7 @@
       head.appendChild(buildGoalsYearColumn(poleCat, null, poleShade));
       loadGoalsYearGoals(); loadGoalsYears();
     }
-    // 16 septembre 2026 (11e passage), demande d'Emilien : « je souhaite que
+    // « je souhaite que
     // le bouton + ne s'affiche plus à droite des catégories, mais qu'il
     // s'affiche au milieu d'une nouvelle page lorsque je défile sur la
     // droite » — le petit bouton carré du 9e passage (.goalsGridHeadAddBtn,
@@ -1028,7 +1028,7 @@
     // fois le DOM en place, pas ici (getBoundingClientRect() ici donnerait
     // la largeur d'AVANT l'ajout de cette case, donc fausse).
     //
-    // 26 septembre 2026, demande directe d'Emilien (Objectifs — Arbre
+    // demande directe d'Emilien (Objectifs — Arbre
     // périodique, restructuration Page 2, maquette approuvée « C'est bon,
     // code. », point 4) : « je souhaite qu'il n'y ait plus de possibilité
     // d'ajouter un secteur ni même un pôle dans cette section. L'ajout se
@@ -1057,8 +1057,8 @@
 
 
   // ===================== PAGE « + » (ajout de catégorie, volet Objectifs) ===
-  // 16 septembre 2026 (9e passage) : une bulle flottante locale permettait
-  // d'ajouter une catégorie sans quitter le volet Objectifs. 16 septembre
+  // une bulle flottante locale permettait
+  // d'ajouter une catégorie sans quitter le volet Objectifs. 
   // 2026 (11e passage), Emilien change d'avis sur la FORME (pas le fond) :
   // « je clique simplement n'importe où sur une nouvelle page qui est vide
   // [...] et cela me renvoie aux paramètres pour créer une catégorie » — la
@@ -1078,7 +1078,7 @@
     whenElementReady('#activitiesList .activityRow[data-activity-id="' + activityId + '"] .activityRowHeader', function (header) {
       header.click();
       setActivityPageSection('sub');
-      // 25 septembre 2026 : le « + » (#addSubProjectBtn) est retiré,
+      // le « + » (#addSubProjectBtn) est retiré,
       // remplacé par la bulle texte + bouton « Ajouter » en bas de la liste
       // des pôles (buildAddPoleRow(), #activityGoalsCategoryAddInput) —
       // c'est désormais ce champ qu'on pointe.
@@ -1096,7 +1096,7 @@
   // ou détruire des .goalsGridHeadCell--add/.goalsGridCell--add à tout
   // moment) et au redimensionnement (rotation d'écran) — même schéma que
   // syncGoalsScrubZoneTopVar() plus haut.
-  // ⚠️ 16 septembre 2026 (discussion "Objectifs — Arbre périodique") :
+  // 
   // renommée syncGoalsAddSlotWidths() → syncGoalsGridWidths(), qui fait
   // maintenant CE calcul ET la correction ci-dessous dans le même passage
   // (l'ordre compte : la largeur des lignes doit être mesurée APRÈS avoir
@@ -1122,7 +1122,7 @@
   // naturelle, ses cellules paginées restent correctement dimensionnées, et
   // seul le trait pointillé s'étire jusqu'au bord réel du contenu. Sans
   // effet visuel quand rien ne déborde (repli à 100%, styles.css).
-  // ⚠️ 16 septembre 2026 (même passage) : SECOND bug découvert au même
+  // SECOND bug découvert au même
   // endroit, plus grave — repéré en testant l'état par défaut (1 seule
   // catégorie, voir le « + » ci-dessus). Avec 1 OU 2 vraies catégories
   // (jamais paginées, .goalsGridHeadCell/.goalsGridCell restent en CSS
@@ -1142,7 +1142,7 @@
   // .goalsGridRow--paged (styles.css) fixent déjà leurs cellules en
   // calc(50% - 5px), qui est DÉJÀ une largeur fixe (pas proportionnelle),
   // donc déjà à l'abri de ce problème.
-  // 20 septembre 2026 (discussion "Objectifs — Ajout de catégorie") :
+  // 
   // positionne/dimensionne #goalsGridAddOutline (styles.css) — le contour en
   // pointillés UNIQUE de la boîte "ajouter un secteur" (en-tête + 13 cases),
   // qui remplace les bordures par case (ne peut donc plus avoir de coupure
@@ -1175,7 +1175,7 @@
   }
 
 
-  // 21 septembre 2026, demande d'Emilien — v2, sens inverse de la version
+  // v2, sens inverse de la version
   // précédente de cette fonction : « les modifications [...] sont
   // exactement l'inverse de ce que j'ai demandé. Le bouton [...] se
   // décale de gauche à droite, mais ne se décale pas de haut en bas. [...]
@@ -1192,7 +1192,7 @@
   //   scroll.scrollLeft, donc défile normalement avec le contenu horizontal,
   //   aucun recalcul au scroll nécessaire (contrairement à la v1, qui
   //   suivait par erreur le défilement horizontal).
-  // - VERTICAL : 22 septembre 2026, v3 — entièrement retiré d'ici. Emilien
+  // - VERTICAL : entièrement retiré d'ici. Emilien
   //   signalait un sautillement au défilement avec le recalcul en JS sur
   //   l'événement 'scroll' (v2, un cadre de retard sur le rendu natif,
   //   surtout en défilement inertiel) ; le centrage + le bornage sont
@@ -1219,7 +1219,7 @@
     var categories = activeGoalsCategories();
     var maxCategories = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.maxCategories) || 5;
     var hasNoRealCategory = goalsHasNoRealCategory(categories);
-    // 20 septembre 2026 : quand il n'y a aucune catégorie réelle, la case
+    // quand il n'y a aucune catégorie réelle, la case
     // d'ajout occupe toute la largeur disponible (flex: 1 1 0, comme une
     // catégorie normale seule) plutôt qu'une largeur fixe — demande
     // d'Emilien, « directement sur la première page sans swiper » (rien à
@@ -1235,7 +1235,7 @@
       });
     }
 
-    // 26 septembre 2026, demande directe d'Emilien (Objectifs — Arbre
+    // demande directe d'Emilien (Objectifs — Arbre
     // périodique, restructuration Page 2, point 4) : plus aucune case
     // d'ajout créée sur cette page (secteur OU tout premier pôle) — élargit
     // la version plus étroite ci-dessus (« page 2, point e »). Toujours
@@ -1256,7 +1256,7 @@
       });
     }
 
-    // 20 septembre 2026 : le séparateur horizontal de période
+    // le séparateur horizontal de période
     // (.goalsGridRow::before, styles.css) ne doit plus traverser la case
     // "ajouter un secteur" — demande d'Emilien, « supprime [...] les lignes
     // pointillées horizontale dans cette zone ». Sa largeur s'arrête donc au
@@ -1279,8 +1279,8 @@
 
   window.addEventListener('orientationchange', syncGoalsGridWidths);
 
-  // 22 septembre 2026, v3 : l'écouteur 'scroll' qui recalculait le TOP de
-  // #goalsGridAddContent à chaque défilement de la page (v2, 21 septembre)
+  // l'écouteur 'scroll' qui recalculait le TOP de
+  // #goalsGridAddContent à chaque défilement de la page
   // est retiré — Emilien signalait un sautillement (toujours un cadre de
   // retard sur le rendu natif en défilement rapide/inertiel). Le centrage
   // vertical est désormais purement CSS (#goalsGridAddStickyAnchor,
@@ -1295,12 +1295,12 @@
     grid.style.setProperty('--poleTree', subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT));
     var byCategory = TMT.currentGoalsAllPlannings.byCategory || {};
     var categories = activeGoalsCategories();
-    // 16 septembre 2026 (11e passage) : même garde que renderGoalsGridHead()
+    // même garde que renderGoalsGridHead()
     // ci-dessus — la colonne « page + » (voir plus bas dans cette fonction)
     // n'existe que sous le plafond de catégories, jamais au-delà.
     var maxCategories = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.maxCategories) || 5;
     var hasNoRealCategory = goalsHasNoRealCategory(categories);
-    // 26 septembre 2026, demande directe d'Emilien (Objectifs — Arbre
+    // demande directe d'Emilien (Objectifs — Arbre
     // périodique, restructuration Page 2, point 4) : la colonne « page + »
     // ne s'affiche plus JAMAIS sur cette page (secteur OU tout premier
     // pôle) — élargit la version plus étroite ci-dessus (« page 2, point
@@ -1308,7 +1308,7 @@
     // fonction (voir le bloc `if (showAddSlot)` ci-dessous, jamais
     // atteint).
     var showAddSlot = false;
-    // 21 septembre 2026 : le "+"/libellé ne sont plus dupliqués sur une
+    // le "+"/libellé ne sont plus dupliqués sur une
     // période précise (ex-addCenterPeriodIndex = 7) — voir
     // #goalsGridAddContent (index.html/styles.css) et
     // positionGoalsAddCenterContent() (plus haut), désormais un élément
@@ -1324,7 +1324,7 @@
       indexByCategory[c.key] = {};
       var planning = byCategory[c.key];
       if (!planning) return;
-      // 9 oct. 2026 : le cycle affiché est celui de l'ANNÉE choisie (sélecteur en haut).
+      // le cycle affiché est celui de l'ANNÉE choisie (sélecteur en haut).
       var cycleIndex = goalsTreeYearNow() - goalsYearOfStart(planning.plan && planning.plan.startDate) + 1;
       (planning.periods || []).forEach(function (p) {
         if (p.cycleIndex === cycleIndex) indexByCategory[c.key][p.periodIndexInCycle] = p;
@@ -1361,7 +1361,7 @@
 
           if (p && p.mainGoalText) {
             cell.className = 'goalsGridCell goalsGridCell--filled' + (p.isCurrent ? ' current' : '');
-            // 16 septembre 2026 (discussion "Objectifs — Arbre périodique") :
+            // 
             // le petit point de statut (.goalsGridCellDot, en haut à gauche
             // de la bulle) est retiré — demande d'Emilien, « supprimer le
             // petit point [...] qui est inutile ». goalStatusClass(p.mainGoalStatus)
@@ -1372,7 +1372,7 @@
             txt.className = 'goalsGridCellText';
             txt.textContent = p.mainGoalText;
             cell.appendChild(txt);
-            // 17 septembre 2026 (discussion "Objectifs — Arbre périodique") :
+            // 
             // changement de plan d'Emilien sur le fond des bulles remplies
             // (revient sur les 5 maquettes A-E proposées au 12e passage,
             // encore non tranchées) — citation exacte : « je souhaite que
@@ -1396,11 +1396,11 @@
             cell.style.borderColor = filledShade;
             txt.style.color = 'var(--bg)';
 
-            // 17 septembre 2026 (discussion "Objectifs — Arbre périodique") :
+            // 
             // trait vertical de continuité coloré à la nuance de la
             // catégorie, uniquement quand la bulle du dessus (période
             // précédente) est elle aussi remplie — demande d'Emilien.
-            // 20 septembre 2026 : ancien schéma à DEUX éléments/variables
+            // ancien schéma à DEUX éléments/variables
             // (.goalsGridCell::before pour la moitié haute + ::after pour la
             // moitié basse, chacun lisant sa propre variable) remplacé par UN
             // SEUL élément par écart, entièrement possédé par la cellule DU
@@ -1416,7 +1416,7 @@
             if (prevP && prevP.mainGoalText) cell.style.setProperty('--goalsCellLineColor', filledShade);
           } else {
             // Aucun objectif périodique pour cette (période, catégorie) —
-            // pavé fantôme + trait de continuité, revu le 15 septembre 2026
+            // pavé fantôme + trait de continuité, revu 
             // (6e passage), voir .goalsGridCell--empty, styles.css.
             cell.className = 'goalsGridCell goalsGridCell--empty' + (p && p.isCurrent ? ' current' : '');
           }
@@ -1460,7 +1460,7 @@
         });
         row.appendChild(marker);
 
-        // 26 septembre 2026 : colonne « page + » retirée définitivement de
+        // colonne « page + » retirée définitivement de
         // cette page (voir le commentaire au-dessus de `showAddSlot`,
         // toujours false désormais) — bloc conservé en commentaire pour
         // mémoire, plus jamais exécuté (showAddSlot === false).
@@ -1482,7 +1482,7 @@
   }
 
 
-  // 26 septembre 2026, demande directe d'Emilien (page 2, point d) : ces
+  // demande directe d'Emilien (page 2, point d) : ces
   // flèches et ce balayage naviguaient entre ACTIVITÉS — elles naviguent
   // désormais entre PÔLES (#goalsActivityHeader est le sélecteur de pôle,
   // voir renderGoalsPoleSwitcher()/openGoalsForPole() plus haut ; changer
@@ -1498,7 +1498,7 @@
 
 
   // Balayage horizontal sur le sélecteur de pôle — mêmes seuils que le
-  // geste de retour tactile de Réglages (10 septembre 2026, ≥60px, plus
+  // geste de retour tactile de Réglages (≥60px, plus
   // horizontal que vertical) pour rester cohérent dans toute l'app.
   (function bindGoalsSwipe() {
     var header = $('goalsActivityHeader');
@@ -1539,7 +1539,7 @@
     TMT.currentGoalsViewPeriodNumber = null;
     TMT.currentGoalsCategory = 'entreprise';
     TMT.currentGoalsAllPlannings = null;
-    // 21 septembre 2026 (« Secteurs dans l'arbre périodique ») : le pôle
+    // le pôle
     // sélectionné et les colonnes de la grille n'ont aucune raison d'être
     // pertinents pour la nouvelle activité — repartent à vide, comme le
     // reste ci-dessus ; reloadGoalsAll() retombe sur le premier pôle réel de

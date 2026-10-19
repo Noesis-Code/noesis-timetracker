@@ -1,4 +1,4 @@
-/* VERRE CALME — test du 1er oct. 2026 (modèle B). Fichier AUTONOME chargé en dernier :
+/* VERRE CALME — test (modèle B). Fichier AUTONOME chargé en dernier :
    il remplace les fonds gris var(--card) par du verre translucide, sans toucher aux autres fichiers.
    RETOUR ARRIÈRE : supprimer la ligne <link ... verre-calme.css> d'index.html (ou git revert du commit « Verre calme »).
    Les éléments qui doivent rester lisibles/opaques (menus, infobulles, colonnes figées, interrupteurs) sont exclus. */
@@ -62,7 +62,7 @@ input[type=time],
 select,
 textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur); }
 
-/* ---- Volet 2 (1er oct. 2026) : menus de sélection, Statistiques, feuille de temps, zone d'écriture IA, épingles/pièces jointes ----
+/* ---- Volet 2 : menus de sélection, Statistiques, feuille de temps, zone d'écriture IA, épingles/pièces jointes ----
    Mêmes jetons ; menus et colonnes figées plus denses (--glass-calm-bg-strong) pour rester lisibles quand le contenu défile derrière. */
 :root .categoryDropdownMenu, :root .categoryPickerPanel, :root .statsPeriodMenu, :root .chartTooltip,
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel,
@@ -84,7 +84,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 }
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel { box-shadow: none; }
 
-/* ---- Volet 3 (1er oct. 2026) : champs « ajouter une tâche », puces d'activité de la capture, bulle d'écriture IA ---- */
+/* ---- Volet 3 : champs « ajouter une tâche », puces d'activité de la capture, bulle d'écriture IA ---- */
 :root .subProjectItemAdd input,
 :root .subProjectItemAdd textarea,
 :root .goalsCaptureActivityChip,
@@ -97,14 +97,14 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 /* Les puces de capture posent leur fond en style inline (JS) : !important nécessaire. */
 :root .goalsCaptureActivityChip { background: var(--glass-calm-bg) !important; }
 
-/* ---- Volet 4 (1er oct. 2026) : modification des enregistrements Chrono (date/heure, pôle) et confirmation d'arrêt ---- */
+/* ---- Volet 4 : modification des enregistrements Chrono (date/heure, pôle) et confirmation d'arrêt ---- */
 :root .historyEditFields input[type=datetime-local], :root .historyEditFields select, :root .historyEditCategory,
 :root .stopDateTimeRow input, :root #stopConfirmPanel select, :root #stopConfirmPanel input {
   background: var(--glass-calm-bg) !important; border-color: var(--glass-calm-line) !important; color: var(--text);
   -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
 
-/* ---- Volet 5 (1er oct. 2026) : Statistiques / feuille de temps — données posées directement sur la section ----
+/* ---- Volet 5 : Statistiques / feuille de temps — données posées directement sur la section ----
    Aucune zone intermédiaire : fonds, liserés et flou retirés sur les contenants INTERNES (la section .statsSection garde son verre). */
 :root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot,
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel {
@@ -112,14 +112,14 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
-/* ---- Volet 5 (1er oct. 2026) : feuille de temps et graphique = données posées directement sur la section, sans zone intermédiaire ---- */
+/* ---- Volet 5 : feuille de temps et graphique = données posées directement sur la section, sans zone intermédiaire ---- */
 :root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot,
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel {
   background: transparent !important; box-shadow: none !important; border-color: transparent !important;
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
-/* ---- Volet 6 (1er oct. 2026) : publications (profil + Communauté) en verre calme, épingle et images insérées ---- */
+/* ---- Volet 6 : publications (profil + Communauté) en verre calme, épingle et images insérées ---- */
 :root .discussionMsg.feedMine, :root .discussionMsg.feedPost {
   --mine-violet-text: var(--text);
   background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line);
@@ -139,7 +139,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
   background: var(--glass-calm-bg) !important; border-color: var(--glass-calm-line) !important; color: color-mix(in srgb, var(--purple) 55%, var(--text));
 }
 
-/* ---- Volet 7 (1er oct. 2026) : création de sondage — options avancées, cases à cocher, champs, sans blanc ---- */
+/* ---- Volet 7 : création de sondage — options avancées, cases à cocher, champs, sans blanc ---- */
 :root .pollFormAdvanced {
   background: var(--glass-calm-bg); border-color: var(--glass-calm-line);
   -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
@@ -159,7 +159,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 }
 :root .pollChoice input[type="checkbox"], :root .pollChoice input[type="radio"] { accent-color: var(--purple); }
 
-/* ---- Volet 8 (1er oct. 2026) : boutons flèches, réglages, trombone et « Aujourd'hui » — fond beaucoup plus transparent, partout ---- */
+/* ---- Volet 8 : boutons flèches, réglages, trombone et « Aujourd'hui » — fond beaucoup plus transparent, partout ---- */
 :root .historyNav .iconBtn, :root .historyNav .menuBtn,
 :root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
 :root #goalsPrevPoleBtn, :root #goalsNextPoleBtn, :root #statsPieTodayBtn,
@@ -168,7 +168,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
 
-/* ---- Volet 9 (1er oct. 2026) : le verre posé sur du verre n'ajoute PAS d'opacité ----
+/* ---- Volet 9 : le verre posé sur du verre n'ajoute PAS d'opacité ----
    Tout élément de verre (bouton, champ, menu déroulant, case, rangée) situé DANS une zone de verre n'a plus de fond ni de flou propres :
    seul son liseré fin le distingue. La zone parente fournit seule la teinte. */
 :root .statsSection, :root .activityRow, :root .settingsCard, :root .goalCard, :root .goalsActivityHeader, :root .historyEntry,
@@ -193,7 +193,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
   -webkit-backdrop-filter: var(--glass-blur) !important; backdrop-filter: var(--glass-blur) !important;
 }
 
-/* ---- Volet 9 bis (rectifié 1er oct. 2026) : une FENÊTRE ne compte pas comme une zone de verre ----
+/* ---- Volet 9 bis (rectifié ) : une FENÊTRE ne compte pas comme une zone de verre ----
    Seul l'empilement à l'intérieur d'une SECTION (carte) est neutralisé. Les sections posées directement dans une fenêtre
    (cartes, rangées, champs, boutons) gardent leur verre normal. */
 :root :is(.statsSection, .timesheetBlock) :is(.timesheetFrame, .timesheetGrid, .pieWrap, .statsSummary, .statsSection) {

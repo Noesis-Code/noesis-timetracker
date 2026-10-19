@@ -1,4 +1,4 @@
-/* Fenêtre Activité > Statistiques > page 2 « Tâches par membre » (10 oct. 2026). Voir public/js/activite-stats-taches.js. */
+/* Fenêtre Activité > Statistiques > page 2 « Tâches par membre ». Voir public/js/activite-stats-taches.js. */
 #caStatsPages { position: relative; }
 #caStatsDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 200; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 0; }
 #caStatsDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
@@ -15,6 +15,6 @@
 .caTaskFill.bad { background: var(--bad); }
 .caTaskLine { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 2px 0; }
 .caTaskPage > .sectionTitleRow { margin: 0 4px 10px; }
-/* 10 oct. 2026 : page Tâches par membre — « Sans pôle » retiré du filtre ; graphique en tête. */
+/* page Tâches par membre — « Sans pôle » retiré du filtre ; graphique en tête. */
 #caCategoryMenu.caNoNone [data-category="none"] { display: none; }
 .caTaskChartCard { margin-bottom: 10px; }

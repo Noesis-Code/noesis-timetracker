@@ -1,4 +1,4 @@
-/* Statistiques — page 2 « tâches réalisées » (2 oct. 2026). Voir public/js/stats-avance.js. */
+/* Statistiques — page 2 « tâches réalisées ». Voir public/js/stats-avance.js. */
 #statsPages { position: relative; }
 #statsPageDots {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
@@ -12,7 +12,7 @@
 .saChip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 13px; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); }
 .saChip.on { border-color: var(--chipEdge, var(--purple)); box-shadow: 0 0 0 1px var(--chipEdge, var(--purple)) inset; font-weight: 600; }
 .saChipDot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
-/* Refonte 9 oct. 2026 : onglets Tâches | Objectifs, graphique, cartes d'information. */
+/* Refonte onglets Tâches | Objectifs, graphique, cartes d'information. */
 .saBody { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .saBody > * { grid-column: 1 / -1; min-width: 0; }
 .saBody > .saHalf { grid-column: auto; }
@@ -20,7 +20,7 @@
 .saHalf .saCard, .saCard.saHalf { padding: 8px 10px; }
 .saHalf h3 { font-size: 12.5px; }
 .saGlass { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: var(--glass-shadow, none); }
-/* 9 oct. 2026 : même verre que les sections de l'onglet 1 (.statsSection, verre-calme.css) : fond --glass-calm-bg, liseré intérieur, flou. */
+/* même verre que les sections de l'onglet 1 (.statsSection, verre-calme.css) : fond --glass-calm-bg, liseré intérieur, flou. */
 :root .saGlass { background: var(--glass-calm-bg); border: 0; box-shadow: inset 0 0 0 1px var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur); }
 .saCard { padding: 12px; }
 .saHd { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
@@ -73,12 +73,12 @@
 .saCancel { border: 1px solid var(--glass-border); background: rgba(255, 255, 255, .05); }
 .saApply { border: 1px solid var(--brique); background: transparent; color: var(--brique-text); font-weight: 600; }
 
-/* 3 oct. 2026 : zone tactile au-dessus de la barre d'onglets (ne la recouvre pas), point visuel au même endroit qu'avant. */
+/* zone tactile au-dessus de la barre d'onglets (ne la recouvre pas), point visuel au même endroit qu'avant. */
 #statsPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
-/* 9 oct. 2026 : bouton ⋮ sans fond (comme dans .statsSection, verre-calme.css : seul le liseré le distingue). */
+/* bouton ⋮ sans fond (comme dans .statsSection, verre-calme.css : seul le liseré le distingue). */
 :root .saGlass .menuBtn { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 
-/* 9 oct. 2026 : jours travaillés (période de 28 jours / semaine) avec flèches ‹ › comme la Feuille de temps. */
+/* jours travaillés (période de 28 jours / semaine) avec flèches ‹ › comme la Feuille de temps. */
 .saDaysNav { justify-content: center; gap: 10px; margin-bottom: 4px; }
 .saDays28 { gap: 2px; }
 .saDl28 { gap: 2px; }
@@ -92,23 +92,23 @@
 .saModalHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
 .saModalTitle { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
 .saModalSub { margin: 0 0 12px; }
-/* 9 oct. 2026 : jours travaillés = tâches faites (barre) contre tâches prévues (contour pointillé). */
+/* jours travaillés = tâches faites (barre) contre tâches prévues (contour pointillé). */
 .saDays { height: 56px; }
 .saDayCol { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
 .saDayCol i { width: 100%; position: relative; z-index: 1; }
 .saDayPlan { position: absolute; left: 0; right: 0; bottom: 0; border: 1px dashed var(--text); opacity: .55; border-radius: 3px 3px 0 0; box-sizing: border-box; z-index: 2; pointer-events: none; }
 .saDayCol.future::after { content: ''; width: 100%; height: 3px; border: 1px dashed var(--track-bg); box-sizing: border-box; }
-/* 9 oct. 2026 : fenêtre « Retirer cette information ? » — filet sous le titre et la croix, en-tête un peu plus haut (classe posée seulement depuis les stats). */
+/* fenêtre « Retirer cette information ? » — filet sous le titre et la croix, en-tête un peu plus haut (classe posée seulement depuis les stats). */
 #categoryRemoveModal.saConfirm .communityMembersModalCard { padding-top: 2px; }
 #categoryRemoveModal.saConfirm .communityMembersModalHeader { padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--glass-border); }
-/* 9 oct. 2026 : le liseré de sélection épouse exactement la carte (cartes d'une même ligne de même hauteur et de même largeur). */
+/* le liseré de sélection épouse exactement la carte (cartes d'une même ligne de même hauteur et de même largeur). */
 .saGh { display: flex; }
 .saGh > .saGin { flex: 1; display: flex; min-width: 0; }
 .saGh > .saGin > .saCard { flex: 1; min-width: 0; margin: 0; }
 
-/* 9 oct. 2026 : statistiques d'un profil visité — deux pages horizontales + points de pagination. */
+/* statistiques d'un profil visité — deux pages horizontales + points de pagination. */
 #viewProfileStatsPages { position: relative; }
-/* 10 oct. 2026 : points fixes au premier plan (même technique que #statsPageDots), ne bougent pas au défilement. */
+/* points fixes au premier plan (même technique que #statsPageDots), ne bougent pas au défilement. */
 .vpsDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 200; bottom: env(safe-area-inset-bottom, 0px); display: flex; gap: 0; }
 .vpsDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
 .vpsDots .goalsDot { box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
@@ -118,7 +118,7 @@
 .vpsDots .goalsDotBtn.on .goalsDot { opacity: 1; }
 #viewProfileStatsPage2 .saChips { padding-top: 0; }
 
-/* 9 oct. 2026 : détail au clic d'une bulle « Où ça glisse » (feuille du bas). */
+/* détail au clic d'une bulle « Où ça glisse » (feuille du bas). */
 .saTileBtn { font: inherit; color: var(--text); cursor: pointer; }
 .saTileBtn:disabled { cursor: default; }
 .saGexp { font-size: 11.5px; opacity: .7; margin: 8px 0; line-height: 1.4; }
@@ -129,7 +129,7 @@
 .saGrow small { font-size: 12px; opacity: .85; white-space: nowrap; }
 .saGmore { background: none; border: 0; padding: 6px 0 0; color: var(--text); opacity: .6; font: inherit; font-size: 12px; }
 
-/* 10 oct. 2026 : feuille du bas à en-tête FIXE (titre, ✕, chiffre, explication, barre, bulles) ; seules les listes défilent. */
+/* feuille du bas à en-tête FIXE (titre, ✕, chiffre, explication, barre, bulles) ; seules les listes défilent. */
 .communityMembersModalCard.saSheetCard { display: flex; flex-direction: column; overflow: hidden; }
 .saSheetCard .saModalFixed { flex: 0 0 auto; }
 .saSheetCard .saModalScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
@@ -137,6 +137,6 @@
 /* Pages Temps | Tâches | Objectifs glissantes : la page hôte sert de repère aux voisines posées en absolu pendant le glissement. */
 #statsAvancePage, #viewProfileStatsPage2 { position: relative; }
 
-/* 10 oct. 2026 : sélecteur d'année sous les pastilles d'activité, au-dessus des informations. */
+/* sélecteur d'année sous les pastilles d'activité, au-dessus des informations. */
 /* Haut du bouton d'année = haut de la 1re carte de la page Temps (mesuré : 126 px) ; les infos dessous ne bougent pas. */
 .saChips + .caSubProjectFilter { margin: -1px 0 13px; }

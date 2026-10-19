@@ -1,6 +1,6 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 2 — onglet « TÂCHES » (coque de la fenêtre + écran Tâches)
  *
- * 29 septembre 2026 — scission de objectifs-page2.css en 2 fichiers exclusifs,
+ * scission de objectifs-page2.css en 2 fichiers exclusifs,
  * un par onglet (voir l'en-tête de js/objectifs-page2-taches.js). Déplacement
  * PUR : aucune règle changée. Contient la coque #goalsActivitySwitcher (fenêtre
  * plein écran, zone défilante, bouton de fermeture) et les règles
@@ -8,13 +8,13 @@
  * là-bas. L'arbre périodique et le rail sont dans css/objectifs-page2-objectif.css.
  */
 
-/* ⚠️ 29 septembre 2026, chantier « Épuration visuelle » (demande d'Emilien :
+/* chantier « Épuration visuelle » (demande d'Emilien :
    « je souhaite que la page 2 soit une fenêtre dans le même style que la
    fenêtre des activités et que la page 3 ») : #goalsActivitySwitcher cesse
    d'être un simple bloc flex dans #tab-goals (ancienne règle ci-dessous,
    retirée) pour devenir une fenêtre plein écran — même montage que
    #activityPage (styles.css, .communityMembersModal/.communityMembersModalCard,
-   déjà réutilisé pour Réglages le 26 septembre). Classe .communityMembersModal
+   déjà réutilisé pour Réglages ). Classe .communityMembersModal
    posée sur l'élément en HTML (objectifs-page2.js) : la règle générique
    (styles.css) pose déjà position:fixed/inset:0/fond noir 50%/centrage —
    seules les 2 dérogations "page plein écran, pas modale du bas" restent à
@@ -34,22 +34,22 @@
 }
 
 /* Reprend l'ancien display:flex/flex-direction:column/gap:14px de
-   .goalsActivitySwitcher (ci-dessus jusqu'au 28 septembre) : c'est
+   .goalsActivitySwitcher (ci-dessus jusqu'au ) : c'est
    désormais la zone qui défile SOUS l'en-tête fixe (titre + croix,
    .activityPageHeader, objectifs-page2.js), pas plus de nouvelle mise en
    page que le simple déplacement de ces 3 déclarations. */
 #goalsActivitySwitcherScroll {
   position: relative;
   flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
-  overscroll-behavior: none; /* 3 oct. 2026 : plus d'effet élastique */
+  overscroll-behavior: none; /* plus d'effet élastique */
   display: flex; flex-direction: column; gap: 14px;
 }
 
 #goalsBackToCaptureBtn { flex-shrink: 0; }
 
 
-/* ⚠️ 29 septembre 2026, chantier « Épuration visuelle » : .goalsActivityPlainRow/
-   .goalsActivityPlainName (ligne de titre + flèche ‹, 26 septembre) et
+/* chantier « Épuration visuelle » : .goalsActivityPlainRow/
+   .goalsActivityPlainName et
    .goalsPage2ModeSwitch/.goalsPage2ModeBtn* (piste pilule translucide, 27-28
    septembre) sont retirées — plus aucune ligne du gabarit (objectifs-page2.js)
    ne porte ces classes. La première est remplacée par l'en-tête fixe titre+croix
@@ -59,7 +59,7 @@
    d'Emilien) — les deux réutilisent des classes déjà partagées, aucune reprise
    propre à cette page n'est plus nécessaire ici.
 
-   28 septembre 2026, demande directe d'Emilien : « je dois resserrer les
+   « je dois resserrer les
    bulles des différents secteurs » — 10px -> 8px, même échelle que le
    gap:8px interne de .activityRow (Design) plutôt qu'un intervalle propre à
    cette page. */
@@ -73,7 +73,7 @@
 
 .goalsTasksGroup.open .goalsTasksGroupChevron { transform: rotate(90deg); }
 
-/* 28 septembre 2026, demande directe d'Emilien : « il y a présentement
+/* « il y a présentement
    encore des secteurs qui ne sont pas enroulés » — un pôle sans secteur
    restait jusqu'ici toujours déplié, sans chevron (.goalsTasksGroupFlat,
    posée par buildGoalsTasksGroup() selon g.isPole). Devenu un accordéon
@@ -92,7 +92,7 @@
    .subProjectRow.open (styles.css) reste intact pour son usage d'origine. */
 .goalsTasksGroup.open { padding-top: 12px; }
 
-/* 28 septembre 2026, demande directe d'Emilien : « surtout en dessous de
+/* « surtout en dessous de
    "Ajouter une tâche", il y a un espace en trop ». Cause trouvée par lecture
    du Design (styles.css) : .msg (message d'erreur de appendGoalsTaskAddRow,
    réutilisée telle quelle) réserve min-height:18px MÊME VIDE — .subProjectItemAdd
@@ -105,7 +105,7 @@
 .goalsTasksGroup .subProjectItemAdd { margin-top: 6px; }
 .goalsTasksGroup .msg:empty { display: none; }
 
-/* 28 septembre 2026, retour direct d'Emilien (même jour que la croix rouge
+/* retour direct d'Emilien (même jour que la croix rouge
    ci-dessus, capture à l'appui) : « je souhaite que la croix pour supprimer
    une tâche ne soit pas encadrée ». .subProjectDeleteX (styles.css, cadrée/
    bordée en rouge plein) reste la référence pour la croix de SECTEUR
@@ -123,7 +123,7 @@
 }
 
 
-/* ⚠️ 29 septembre 2026 : ancienne règle #goalsBackToCaptureBtn (margin-right:4px,
+/* ancienne règle #goalsBackToCaptureBtn (margin-right:4px,
    pensée pour la flèche ‹ avant le titre) retirée — doublon avec la nouvelle
    règle du même id plus haut (flex-shrink:0 seul), posée juste après la
    nouvelle règle #goalsActivitySwitcherScroll : le bouton est désormais la
@@ -133,7 +133,7 @@
 /* Déplacer une tâche vers un autre pôle/secteur : bouton discret (même
    gabarit que la croix de suppression de tâche) + liste sous la tâche. */
 
-/* 1er oct. 2026 (Emilien) : poignée ≡ à gauche de la case, corbeille du Chrono,
+/* poignée ≡ à gauche de la case, corbeille du Chrono,
    case grise (couleur de la section). */
 .goalsTasksGroup .subProjectItem .goalsTaskTrashBtn { display: inline-flex; align-items: center; justify-content: center; padding: 6px; color: var(--text-light); }
 .goalsTasksGroup .subProjectItem input[type="checkbox"] {
@@ -148,15 +148,15 @@
 
 #goalsTasksProgressWrap:not(.isComplete) { border-color: var(--progressEdge, var(--glass-border)) !important; }
 
-/* 100 % (2 oct. 2026) : vert calme. Uniquement sur l'Avancement global. */
+/* 100 % : vert calme. Uniquement sur l'Avancement global. */
 #goalsTasksProgressWrap.isComplete { border-color: rgba(111, 201, 160, 0.55) !important; }
 #goalsTasksProgressWrap.isComplete .activityProgressRingFill { stroke: var(--good); }
 #goalsTasksProgressWrap.isComplete .activityProgressPercent { color: var(--good-text); }
 
-/* 2 oct. 2026 (Emilien) : aucun grisé au toucher/survol d'une tâche (le :hover générique restait collé après un appui). */
+/* aucun grisé au toucher/survol d'une tâche (le :hover générique restait collé après un appui). */
 .goalsTasksGroup .subProjectItem:hover, .goalsTasksGroup .subProjectItem:active, .goalsTasksGroup .subProjectItem:focus-within { background: transparent; }
 
-/* 2 oct. 2026 (Emilien) : la Discussion s'ouvre par une bulle ronde en bas à droite (même bouton, mêmes id et logique que l'ancien onglet).
+/* la Discussion s'ouvre par une bulle ronde en bas à droite (même bouton, mêmes id et logique que l'ancien onglet).
    Masquée pendant que le fil est affiché (les onglets Tâches/Objectifs ramènent à la page). */
 #goalsPage2AddBtn {
   position: fixed; right: 18px; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 120;
@@ -168,7 +168,7 @@
 #goalsPage2AddBtn.hidden, #goalsPage2AddBtn.active { display: none; }
 #goalsPage2AddBtn .notifDot { top: 8px; right: 8px; }
 
-/* Fenêtre Discussion (2 oct. 2026) : même gabarit que le profil d'un autre utilisateur — fond assombri, carte ancrée en bas, en-tête fixe avec ✕. */
+/* Fenêtre Discussion : même gabarit que le profil d'un autre utilisateur — fond assombri, carte ancrée en bas, en-tête fixe avec ✕. */
 #goalsDiscView:not(.hidden) {
   position: fixed; inset: 0; z-index: 130; background: var(--veil);
   display: flex; align-items: flex-end; justify-content: center;
@@ -182,14 +182,14 @@
 .goalsDiscSheet #communityDiscussionList { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; overscroll-behavior: contain; }
 .goalsDiscSheet .discussionComposer { flex: 0 0 auto; }
 
-/* 2 oct. 2026 (Emilien) : bulle Discussion transparente, même verre que Tâches/Objectifs ; icône claire. */
+/* bulle Discussion transparente, même verre que Tâches/Objectifs ; icône claire. */
 :root #goalsActivitySwitcher #goalsPage2AddBtn {
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; color: var(--text) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 8px 22px rgba(0, 0, 0, 0.35) !important;
   -webkit-backdrop-filter: var(--glass-blur) !important; backdrop-filter: var(--glass-blur) !important;
 }
 
-/* Fenêtre Discussion (2 oct. 2026) : zone d'écriture en verre flottant (même verre et même forme que la recherche de Communauté),
+/* Fenêtre Discussion : zone d'écriture en verre flottant (même verre et même forme que la recherche de Communauté),
    les bulles défilent SOUS elle. */
 .goalsDiscSheet { position: relative; }
 .goalsDiscSheet .discussionComposer {
@@ -202,10 +202,10 @@
   -webkit-backdrop-filter: var(--glass-blur-sheet) !important; backdrop-filter: var(--glass-blur-sheet) !important; border-radius: 22px !important;
 }
 
-/* 2 oct. 2026 : le trombone passait SOUS le champ en verre (backdrop-filter = contexte d'empilement, champ placé après dans le DOM) → au-dessus. */
+/* le trombone passait SOUS le champ en verre (backdrop-filter = contexte d'empilement, champ placé après dans le DOM) → au-dessus. */
 .goalsDiscSheet .chatAttachBtn { z-index: 5; color: var(--text); opacity: 1; }
 
-/* 2 oct. 2026 : carte « journée surchargée » (plan proposé, style verre ; violet = couleur principale). */
+/* carte « journée surchargée » (plan proposé, style verre ; violet = couleur principale). */
 .goalsOverloadCard { padding: 14px 16px; margin-bottom: 12px; border-radius: 18px; background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur-sheet); backdrop-filter: var(--glass-blur-sheet); }
 .goalsOverloadCard.hidden { display: none; }
 .goalsOverloadTitle { margin: 0 0 4px; font-weight: 700; color: var(--text); }
@@ -214,7 +214,7 @@
 .goalsOverloadActions button { flex: 1; padding: 10px; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text); font-weight: 600; }
 .goalsOverloadActions .goalsOverloadOk { background: var(--purple); border-color: transparent; color: var(--white); }
 
-/* 7 oct. 2026 (Emilien) : design commun des cartes d'alerte (surcharge, non réalisées, cible irréaliste,
+/* design commun des cartes d'alerte (surcharge, non réalisées, cible irréaliste,
    recalcul) — orange, repliées par défaut, croix = masquée pour aujourd'hui. Le violet y devient orange ;
    il reste la couleur principale partout ailleurs. */
 .goalsAlertCard { --alert: var(--warn-orange); padding: 0; border: 1px solid rgba(255,159,46,.42); background: linear-gradient(rgba(255,159,46,.045), rgba(255,159,46,.045)), var(--glass-bg); }
@@ -237,7 +237,7 @@
 .goalsAlertCard .goalsLateBadge { color: var(--warn-text-2); opacity: .9; }
 .goalsAlertCard .goalsReportBlock + .goalsReportBlock { margin-top: 10px; }
 
-/* 2 oct. 2026 (Emilien) : boutons Tâches/Objectifs retirés (balayage + 3 points) ; la bulle Discussion (fixed) reste dans le conteneur. */
+/* boutons Tâches/Objectifs retirés (balayage + 3 points) ; la bulle Discussion (fixed) reste dans le conteneur. */
 #goalsPage2ModeSwitch { display: contents; }
 #goalsPage2ModeTasksBtn, #goalsPage2ModeGoalsBtn { display: none; }
 #goalsPage2Dots {
@@ -249,10 +249,10 @@
 #goalsPage2Dots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; }
 #goalsPage2Dots .goalsDotBtn.on .goalsDot { opacity: 1; }
 
-/* 3 oct. 2026 : page figée en haut quand tout tient à l'écran (posé par lockPage2Scroll, objectifs-page2-taches.js). */
+/* page figée en haut quand tout tient à l'écran (posé par lockPage2Scroll, objectifs-page2-taches.js). */
 #goalsActivitySwitcherScroll.noScroll { overflow-y: hidden; touch-action: pan-x; }
 
-/* 5 oct. 2026 (Emilien) : liste « du jour » (blanches) + « À venir » (grises) + bouton Archives (même gabarit que Historique du Chrono). */
+/* liste « du jour » (blanches) + « À venir » (grises) + bouton Archives (même gabarit que Historique du Chrono). */
 .goalsDailyGrey .subProjectItemLabel { color: var(--text-light); }
 .goalsDailyWhen { flex: 0 0 auto; font-size: 12px; color: var(--text-light); white-space: nowrap; }
 #goalsTasksArchiveSection { margin-top: 14px; padding-bottom: 72px; } /* espace vide permanent sous « Archives », au-dessus des 3 points */
@@ -268,7 +268,7 @@
 #goalsTasksArchiveHeader .sectionTitle { margin: 0; }
 #goalsTasksArchivePanel { margin-top: 10px; }
 
-/* 5 oct. 2026 : panneau « modifier une tâche » — case à gauche, crayon à droite, jamais au-dessus/dessous */
+/* panneau « modifier une tâche » — case à gauche, crayon à droite, jamais au-dessus/dessous */
 .goalsTasksGroup .subProjectItem { flex-wrap: wrap; align-items: center; }
 .goalsTasksGroup .subProjectItem > input[type="checkbox"] { flex: 0 0 auto; }
 .goalsTasksGroup .subProjectItem > .subProjectItemLabel { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
@@ -279,10 +279,10 @@
 .goalsTaskEditPanel input[type="date"] { display: block; margin: 0 auto; }
 .goalsTaskEditPanel .rowActions { width: 100%; max-width: 320px; }
 
-/* 5 oct. 2026 (Emilien) : clavier ouvert => bulle Discussion et 3 points masqués. */
+/* clavier ouvert => bulle Discussion et 3 points masqués. */
 :root.kbOpen #goalsPage2Dots, :root.kbOpen #goalsPage2AddBtn { display: none !important; }
 
-/* 5 oct. 2026 (Emilien) : en modification, le texte de la tâche est éditable sur place (pas de doublon),
+/* en modification, le texte de la tâche est éditable sur place (pas de doublon),
    plus de case à cocher ; champs de date arrondis sans contour (aussi dans les historiques) ; Responsable à gauche. */
 .goalsTasksGroup .goalsTaskEditing > input[type="checkbox"], .goalsTasksGroup .goalsTaskEditing > .subProjectItemLabel, .goalsTasksGroup .goalsTaskEditing > .goalsDailyWhen { display: none !important; }
 .goalsTaskEditPanel { padding-top: 0; }
@@ -301,18 +301,18 @@
   background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; border: 0 !important; border-radius: 999px !important;
 }
 
-/* 5 oct. 2026 : dates = même bulle arrondie que Responsable (fond verre + liseré fin), partout. */
+/* dates = même bulle arrondie que Responsable (fond verre + liseré fin), partout. */
 :root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"] { background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; }
-/* 5 oct. 2026 : en modification, une bulle arrondie entoure toute la tâche (texte + date + responsable + boutons). */
+/* en modification, une bulle arrondie entoure toute la tâche (texte + date + responsable + boutons). */
 :root .goalsTasksGroup .subProjectItem.goalsTaskEditing {
   background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); border-radius: 20px;
   padding: 10px 14px; margin: 6px 0; -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
 }
-/* 5 oct. 2026 : bulle de modification plus transparente. */
+/* bulle de modification plus transparente. */
 :root .goalsTasksGroup .subProjectItem.goalsTaskEditing { background: color-mix(in srgb, var(--glass-calm-bg) 40%, transparent); }
 :root .goalsTaskEditPanel textarea.goalsTaskEditText { min-height: 0 !important; }
 
-/* 7 oct. 2026 : report entre périodes, cible irréaliste, indicateur de retard (discret, violet). */
+/* report entre périodes, cible irréaliste, indicateur de retard (discret, violet). */
 .goalsReportBlock + .goalsReportBlock { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--glass-border); }
 .goalsReportItem { display: flex; align-items: center; gap: 8px; margin: 6px 0; list-style: none; }
 .goalsReportList { padding-left: 0; }
@@ -325,7 +325,7 @@
 .goalsReportDel:disabled { opacity: .5; }
 .goalsLateBadge { flex: 0 0 auto; font-size: 11px; color: var(--purple); opacity: .85; white-space: nowrap; }
 
-/* Tâche récurrente (9 oct. 2026) : champ « Répéter » partagé (édition d'une tâche, pop-ups de capture). */
+/* Tâche récurrente : champ « Répéter » partagé (édition d'une tâche, pop-ups de capture). */
 .recurField { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .recurField .recurMode { width: 100%; max-width: 100%; }
 .recurRow { display: flex; align-items: center; gap: 8px; }
@@ -342,7 +342,7 @@
 .taskLocked { opacity: 0.55; }
 .taskLocked input[type="checkbox"] { cursor: default; }
 
-/* Activité sans pôle (11 oct. 2026) : état vide à la place des 3 pages. */
+/* Activité sans pôle : état vide à la place des 3 pages. */
 .goalsNoPoleState { padding: 24px 16px; display: flex; flex-direction: column; gap: 12px; }
 .goalsNoPoleTitle { font-weight: 600; font-size: 1.05rem; margin: 0; }
 .goalsNoPoleForm { display: flex; flex-direction: column; gap: 10px; }
@@ -352,5 +352,5 @@
 .goalsNoPoleForm input { padding: 12px; font-size: 1rem; }
 .goalsNoPoleForm button { width: 100%; height: auto; min-height: 44px; padding: 10px 14px; white-space: normal; }
 
-/* 15 oct. 2026 (Emilien) : bouton « Ajouter » (Essor) à la place de la bulle Discussion ; le ＋ ouvre directement la page « Ajouter des tâches ». */
+/* bouton « Ajouter » (Essor) à la place de la bulle Discussion ; le ＋ ouvre directement la page « Ajouter des tâches ». */
 #goalsPage2AddBtn .notifDot { display: none; }

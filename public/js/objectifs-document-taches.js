@@ -1,4 +1,4 @@
-/* Noèsis TimeTracker — Objectifs, Page 2 — bouton ＋ > « Ajouter des tâches » (Essor, 15 oct. 2026)
+/* Noèsis TimeTracker — Objectifs, Page 2 — bouton ＋ > « Ajouter des tâches »
  *
  * Fenêtre plein écran (fermeture = croix ✕, bouton d'envoi DANS la zone d'écriture de la consigne).
  * L'utilisateur joint un document ET écrit une consigne (ou touche un raccourci) ; l'IA PROPOSE des
@@ -510,14 +510,14 @@
     renderPTasks();
   }
   // Nouvelles tâches proposées par la surveillance Drive (partie « Nouvelles tâches » de la même fenêtre).
-  // 18 oct. 2026 : parcours en 3 écrans (Sommaire › Pôle › Secteur › semaines › tâches), rien de coché d'avance.
+  // parcours en 3 écrans (Sommaire › Pôle › Secteur › semaines › tâches), rien de coché d'avance.
   var ptasks = [], pcats = [], ptree = null, pnodes = {}, psel = {}, pexp = {}, pidx = {};
-  // 18 oct. 2026 : « Modifications proposées » réutilise le MÊME parcours que « Nouvelles tâches » (mode du pop-up).
+  // « Modifications proposées » réutilise le MÊME parcours que « Nouvelles tâches » (mode du pop-up).
   // Tâches : sélection en mémoire (psel). Modifications : coche mémorisée côté serveur (c.checked, /check).
   function isCh() { return $('docTasksChangesPop').getAttribute('data-mode') !== 'tasks'; }
   function items() { return isCh() ? changes : ptasks; }
   function isOn(t) { return isCh() ? t.checked !== 0 : !!psel[t.id]; }
-  // 18 oct. 2026 : rien de coché d'avance (comme Nouvelles tâches) ; seules les coches faites pendant cette session comptent.
+  // rien de coché d'avance (comme Nouvelles tâches) ; seules les coches faites pendant cette session comptent.
   var cSessionOn = {};
   function normCh(list) { list.forEach(function (c) { c.checked = cSessionOn[c.id] ? 1 : 0; }); return list; }
   function setOn(t, on) { if (isCh()) { t.checked = on ? 1 : 0; if (on) cSessionOn[t.id] = true; else delete cSessionOn[t.id]; } else if (on) psel[t.id] = true; else delete psel[t.id]; }
@@ -587,7 +587,7 @@
     d.setUTCDate(d.getUTCDate() + 4 - day);
     return 'S' + Math.ceil(((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
   }
-  // 18 oct. 2026 : PARCOURS EN 3 ÉCRANS dans le pop-up (Sommaire › Un pôle › Un secteur), glissement horizontal, points en bas.
+  // PARCOURS EN 3 ÉCRANS dans le pop-up (Sommaire › Un pôle › Un secteur), glissement horizontal, points en bas.
   // Seul l'écran visible est rendu. Couleur d'un pôle = nuance automatique de l'app (TMT.subProjectShade), jamais pour un secteur.
   var nav = { s: 0, p: null, g: null }, pcolors = {};
   function poleColor(pk) {
@@ -867,7 +867,7 @@
         if (!pview) return null;
         var t = nav.s + dir, st;
         if (dir < 0) { if (nav.s < 1) return null; st = { s: t, p: t > 0 ? nav.p : null, g: t > 1 ? nav.g : null }; }
-        else return null; // 18 oct. 2026 : pas de glissement vers la gauche (on avance en touchant une carte)
+        else return null; // pas de glissement vers la gauche (on avance en touchant une carte)
         var cur = panes()[nav.s], nb = panes()[t], keepNav = nav;
         return {
           cur: cur, nb: nb, host: pview,
@@ -906,7 +906,7 @@
   $('docTasksChangesBtn').addEventListener('click', function () { openChangesPop('changes'); });
   $('docTasksTasksBtn').addEventListener('click', function () { openChangesPop('tasks'); });
   $('docTasksChangesClose').addEventListener('click', function () { $('docTasksChangesPop').classList.add('hidden'); });
-  // 18 oct. 2026 : « Tout supprimer » (Nouvelles tâches ET Modifications proposées) = refuser tout ce qui est en attente ; un refus est mémorisé (pas reproposé).
+  // « Tout supprimer » (Nouvelles tâches ET Modifications proposées) = refuser tout ce qui est en attente ; un refus est mémorisé (pas reproposé).
   // Confirmation sur place (pas de fenêtre système) : un 1er appui arme le bouton 5 s, le 2e supprime.
   var delTimer = null;
   function delArmReset() { clearTimeout(delTimer); delTimer = null; var b = $('docTasksDelAll'); if (b) { b.textContent = 'Tout supprimer'; b.removeAttribute('data-armed'); } }

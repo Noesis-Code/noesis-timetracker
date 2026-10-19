@@ -1,4 +1,4 @@
-// Fenêtre Activité > Statistiques > page 2 « Tâches par membre » (10 oct. 2026).
+// Fenêtre Activité > Statistiques > page 2 « Tâches par membre ».
 // Page 1 = Temps (Répartition + Graphique, inchangés) ; page 2 = réalisation des tâches par membre
 // (GET /api/stats/activity-members : membres seulement, agrégats, filtre « pôle » de la pastille). Glissement : TMT.slidePager (stats-avance.js).
 (function () {

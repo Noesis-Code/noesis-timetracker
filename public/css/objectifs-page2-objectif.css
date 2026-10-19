@@ -1,14 +1,14 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 2 — onglet « OBJECTIFS » (arbre périodique)
  *
- * 29 septembre 2026 — scission de objectifs-page2.css en 2 fichiers exclusifs,
+ * scission de objectifs-page2.css en 2 fichiers exclusifs,
  * un par onglet (voir l'en-tête de js/objectifs-page2-taches.js). Déplacement
  * PUR : aucune règle changée. Contient le cadre de pôle (.goalsActivityHeader,
  * .goalsSwipeBtn), la grille (.goalsGrid*) et le rail tactile (.goalsScrub*).
  * Historique antérieur à la scission conservé ci-dessous (ancien en-tête :
- * extraction du 28 septembre 2026 depuis styles.css).
+ * extraction depuis styles.css).
  */
 
-/* ⚠️ 28 septembre 2026, revirement direct d'Emilien (capture à l'appui) :
+/* revirement direct d'Emilien (capture à l'appui) :
    « par défaut, le rail périodique est encore trop espacé [...] je souhaite
    que le rail soit toujours plus resserré en dessous des boutons tâches et
    objectifs ». Remplace la réponse du même jour à la question de
@@ -27,7 +27,7 @@
    .goalsPage2ModeSwitch (14px, plus haut dans ce fichier), inchangée. Padding
    horizontal (4px) conservé pour que les bulles ne touchent pas le bord.
 
-   ⚠️ 29 septembre 2026, retour d'Emilien (2 points distincts sur l'onglet
+   retour d'Emilien (2 points distincts sur l'onglet
    Objectifs) : (1) le rail reste « trop espacé » à son goût malgré ce
    correctif — PAS retouché encore une fois ici, voir la proposition de
    nouveaux designs du rail (hors CSS, maquettes séparées) plutôt qu'un 3ᵉ
@@ -62,7 +62,7 @@
   flex: 0 0 auto; min-width: 0; min-height: 46px; padding: 0;
   display: flex; align-items: center; justify-content: center;
   position: relative; background: transparent; border: none; cursor: pointer;
-  /* 20 septembre 2026 : .goalsGridHeadCell (base, plus haut) pose un
+  /* .goalsGridHeadCell (base, plus haut) pose un
      outline/box-shadow pour l'apparence "badge" des vraies catégories —
      border: none seul ne les efface pas (outline est une propriété séparée
      de border), d'où un rectangle plein résiduel visible malgré le contour
@@ -250,36 +250,36 @@
 .goalsScrubLabel b { display: block; color: var(--text); font-size: 12px; font-weight: 700; }
 
 
-/* 2 oct. 2026 (Emilien) : cadre du pôle moins épais (hauteur réduite), pleine longueur conservée. */
+/* cadre du pôle moins épais (hauteur réduite), pleine longueur conservée. */
 .goalsActivityHeader { padding-top: 6px; padding-bottom: 6px; }
 
-/* 2 oct. 2026 (Emilien) : cadre du pôle = même verre que les boutons Tâches/Objectifs (jetons --glass-*). */
+/* cadre du pôle = même verre que les boutons Tâches/Objectifs (jetons --glass-*). */
 :root #goalsActivitySwitcher .goalsActivityHeader {
   background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
   -webkit-backdrop-filter: var(--glass-blur) !important; backdrop-filter: var(--glass-blur) !important;
 }
 
-/* 2 oct. 2026 (Emilien) : flèches du cadre de pôle seules, sans zone carrée autour. */
+/* flèches du cadre de pôle seules, sans zone carrée autour. */
 :root #goalsActivitySwitcher #goalsActivityHeader .goalsSwipeBtn {
   background: transparent !important; border: none !important; box-shadow: none !important;
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
-/* 2 oct. 2026 (Emilien, option 4) : page du milieu — cadre = sélecteur de SECTEUR, teinte + contour de la couleur automatique du pôle. */
+/* page du milieu — cadre = sélecteur de SECTEUR, teinte + contour de la couleur automatique du pôle. */
 .goalsPoleTxt { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .goalsPoleSmall { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: rgb(var(--poleRgb, 255, 255, 255)); line-height: 1.1; }
 :root #goalsActivitySwitcher #goalsActivityHeader.isMonth {
   border-color: rgba(var(--poleRgb), .7) !important;
 }
-/* 2 oct. 2026 (Emilien) : page du milieu — ni pastille ni teinte, seulement le contour coloré. */
+/* page du milieu — ni pastille ni teinte, seulement le contour coloré. */
 #goalsActivityHeader.isMonth #goalsPoleDot { display: none; }
 
-/* 8 oct. 2026 : aucune bordure visible sur les cases de l'arbre (la bordure transparente garde les largeurs égales). */
+/* aucune bordure visible sur les cases de l'arbre (la bordure transparente garde les largeurs égales). */
 .goalsGrid .goalsGridCell--filled, .goalsGrid .goalsGridCell--empty { border-color: transparent !important; box-shadow: none !important; }
 .goalsGridRow:not(:first-child)::before { display: none !important; }
 
-/* Objectif de l'année (8 oct. 2026) : colonne = titre du secteur + bulle, jamais plus large que l'arbre. */
+/* Objectif de l'année : colonne = titre du secteur + bulle, jamais plus large que l'arbre. */
 .goalsYearCol { position: relative; flex: 1 1 0; min-width: 0; max-width: 100%; box-sizing: border-box; border-radius: 18px; overflow-wrap: anywhere; }
 .goalsGridHead--paged .goalsYearCol { flex: 0 0 calc(50% - 5px); }
 .goalsYearCol .goalsGridHeadCell { display: block; width: 100%; box-sizing: border-box; cursor: pointer; }
@@ -296,7 +296,7 @@
 .goalsYearCol--noPill.goalsYearCol--vide { padding: 3px; }
 .goalsYearCol--noPill .goalsYearAdd { padding: 10px; }
 
-/* Sélecteur d'année de l'arbre (9 oct. 2026) : même bouton et même menu que le filtre de pôle des Statistiques. */
+/* Sélecteur d'année de l'arbre : même bouton et même menu que le filtre de pôle des Statistiques. */
 .goalsYearPickWrap { padding: 0 4px 10px 4px; }
 .goalsYearRow { display: flex; align-items: center; }
 .goalsYearRow .statsPeriodMenuItem { flex: 1 1 auto; }

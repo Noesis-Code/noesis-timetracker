@@ -1,4 +1,4 @@
-/* Verrouillage d'axe des gestes de glissement de pages (10 oct. 2026, demande d'Émilien).
+/* Verrouillage d'axe des gestes de glissement de pages.
  * UN helper commun à tous les « pagers » (slidePager de stats-avance.js, Page 2 de la feuille de route) :
  * au premier mouvement dépassant un petit seuil, l'axe est décidé d'après |dx| / |dy| (léger biais horizontal)
  * puis verrouillé jusqu'à la fin du geste. Horizontal : le défilement vertical des conteneurs est suspendu
