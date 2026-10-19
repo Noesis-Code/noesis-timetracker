@@ -45,6 +45,11 @@ CREATE TABLE IF NOT EXISTS ai_usage_log (
 CREATE INDEX IF NOT EXISTS idx_ai_usage_log_day ON ai_usage_log(day, userId);
 `);
 
+// 19 oct. 2026 : détail du cache de prompt par fonctionnalité (jetons lus / écrits dans le cache), pour mesurer l'efficacité.
+for (const col of ['cacheReadTokens', 'cacheWriteTokens']) {
+  try { db.exec('ALTER TABLE ai_usage_log ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* colonne déjà présente */ }
+}
+
 function todayLocal(now) {
   const d = now instanceof Date ? now : new Date();
   const p = (n) => String(n).padStart(2, '0');
@@ -185,13 +190,24 @@ function record(userId, model, usage, feature, now, factor) {
     const u = usage || {};
     const inTok = (Number(u.input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0) + (Number(u.cache_read_input_tokens) || 0);
     const outTok = Number(u.output_tokens) || 0;
-    db.prepare(`INSERT INTO ai_usage_log (userId, day, model, feature, calls, inputTokens, outputTokens, costUsd)
-      VALUES (?, ?, ?, ?, 1, ?, ?, ?)
+    db.prepare(`INSERT INTO ai_usage_log (userId, day, model, feature, calls, inputTokens, outputTokens, costUsd, cacheReadTokens, cacheWriteTokens)
+      VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
       ON CONFLICT(userId, day, model, feature) DO UPDATE SET calls = calls + 1,
         inputTokens = inputTokens + excluded.inputTokens, outputTokens = outputTokens + excluded.outputTokens,
-        costUsd = costUsd + excluded.costUsd`)
-      .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u) * (Number.isFinite(factor) && factor > 0 ? factor : 1));
+        costUsd = costUsd + excluded.costUsd,
+        cacheReadTokens = cacheReadTokens + excluded.cacheReadTokens, cacheWriteTokens = cacheWriteTokens + excluded.cacheWriteTokens`)
+      .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u) * (Number.isFinite(factor) && factor > 0 ? factor : 1),
+        Number(u.cache_read_input_tokens) || 0, Number(u.cache_creation_input_tokens) || 0);
   } catch (e) { console.warn('[aibudget] enregistrement impossible :', e && e.message); }
+}
+
+// Rapport de coût par fonctionnalité et modèle sur les `days` derniers jours (tous comptes) : appels, jetons, cache, $.
+function usageReport(days) {
+  const n = Math.max(1, Math.floor(Number(days)) || 30);
+  const d = new Date(); d.setDate(d.getDate() - n + 1);
+  return db.prepare(`SELECT feature, model, SUM(calls) AS calls, SUM(inputTokens) AS inputTokens, SUM(outputTokens) AS outputTokens,
+      SUM(cacheReadTokens) AS cacheReadTokens, SUM(cacheWriteTokens) AS cacheWriteTokens, ROUND(SUM(costUsd), 4) AS costUsd
+    FROM ai_usage_log WHERE day >= ? GROUP BY feature, model ORDER BY costUsd DESC`).all(todayLocal(d));
 }
 
 // Utilisateur courant du contexte asynchrone (posé par le middleware HTTP ou runAs).
@@ -220,4 +236,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER };
+module.exports = { usageReport, check, record, status, computeCost, priceFor, trancheOf, nextTrancheStart, blockedMessage, spentMonth, spentDay, capMonth, capDay, capSystemDay, estimateMaxCost, runAs, currentUser, fetchAnthropic, todayLocal, SYSTEM_USER };

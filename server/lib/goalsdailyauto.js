@@ -42,6 +42,7 @@
 // contrôle.
 
 const aibudget = require('./aibudget');
+const aicache = require('./aicache');
 const db = require('../db');
 const goals = require('./goals');
 
@@ -283,7 +284,11 @@ function validateAssignments(raw, items, dates) {
   return { valid, missing };
 }
 
-async function callModel(prompt) {
+function callModel(prompt) {
+  return aicache.memoize([modelName(), MAX_OUTPUT_TOKENS, prompt], () => callModelRaw(prompt));
+}
+
+async function callModelRaw(prompt) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {

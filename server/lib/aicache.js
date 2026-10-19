@@ -25,4 +25,26 @@ function messageParams({ model, maxTokens, system, stable, variable, images }) {
 // Vrai si le préfixe (système + partie stable) dépasse le minimum cachable.
 function cacheable(system, stable) { return estimateTokens(system) + estimateTokens(stable) >= MIN_CACHE_TOKENS; }
 
-module.exports = { messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };
+// Mémo des réponses IA à température 0 (19 oct. 2026, coût) : même entrée => même sortie, donc inutile de repayer l'appel.
+// Clé = hash de (modèle, plafond, prompt complet) ; mémoire seulement (redémarrage = vide), TTL 24 h, 500 entrées max.
+// Les échecs ne sont jamais mémorisés. Les appels simultanés identiques partagent la même requête.
+const crypto = require('crypto');
+const MEMO_MAX = 500, MEMO_TTL_MS = 24 * 3600 * 1000;
+const memoStore = new Map(), memoPending = new Map();
+async function memoize(parts, fn) {
+  const key = crypto.createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+  const hit = memoStore.get(key);
+  if (hit && hit.exp > Date.now()) return hit.value;
+  if (memoPending.has(key)) return memoPending.get(key);
+  const p = (async () => {
+    const value = await fn();
+    if (memoStore.size >= MEMO_MAX) memoStore.delete(memoStore.keys().next().value);
+    memoStore.set(key, { value, exp: Date.now() + MEMO_TTL_MS });
+    return value;
+  })();
+  memoPending.set(key, p);
+  try { return await p; } finally { memoPending.delete(key); }
+}
+function memoClear() { memoStore.clear(); memoPending.clear(); }
+
+module.exports = { memoize, memoClear, messageParams, estimateTokens, cacheable, MIN_CACHE_TOKENS };

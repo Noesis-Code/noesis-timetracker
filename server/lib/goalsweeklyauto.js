@@ -141,7 +141,7 @@ async function callAiOnce(payload, requestedWeeks) {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 6000,
+      max_tokens: 3000,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: JSON.stringify(payload) }],
     }),

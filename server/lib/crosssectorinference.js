@@ -131,7 +131,7 @@ async function callAiOnce(payload, allowedKeys) {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 4096,
+      max_tokens: 2500,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: JSON.stringify(payload) }],
     }),

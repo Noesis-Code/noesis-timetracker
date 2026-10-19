@@ -61,6 +61,7 @@ const goalscaptureplace = require('./goalscaptureplace');
 // crosssectorinference.js pour le cadrage complet). Fire-and-forget,
 // n'affecte jamais la réponse de capture elle-même.
 const crosssectorinference = require('./crosssectorinference');
+const aicache = require('./aicache');
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_API_VERSION = '2023-06-01';
@@ -174,7 +175,13 @@ function extractUncertain(text, categories) {
   return keys;
 }
 
-async function callModel(prompt, maxTokens, feature) {
+// `model` (4e paramètre, facultatif) : modèle imposé par l'appelant (ex. Haiku pour la correction d'orthographe).
+// Température 0 : réponse mémorisée par hash de l'entrée (aicache.memoize), 24 h.
+function callModel(prompt, maxTokens, feature, model) {
+  return aicache.memoize([model || modelName(), maxTokens || MAX_OUTPUT_TOKENS, prompt], () => callModelRaw(prompt, maxTokens, feature, model));
+}
+
+async function callModelRaw(prompt, maxTokens, feature, model) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -187,7 +194,7 @@ async function callModel(prompt, maxTokens, feature) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: modelName(),
+        model: model || modelName(),
         max_tokens: maxTokens || MAX_OUTPUT_TOKENS,
         temperature: 0,
         messages: [{ role: 'user', content: prompt }],

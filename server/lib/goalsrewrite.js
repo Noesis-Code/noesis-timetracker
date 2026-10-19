@@ -10,6 +10,7 @@
 // expire, ou si la réponse est vide/identique/inexploitable.
 
 const aibudget = require('./aibudget');
+const aicache = require('./aicache');
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_API_VERSION = '2023-06-01';
 const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
@@ -37,7 +38,11 @@ function buildPrompt(text) {
   ].join('\n');
 }
 
-async function callModel(prompt) {
+function callModel(prompt) {
+  return aicache.memoize([modelName(), MAX_OUTPUT_TOKENS, prompt], () => callModelRaw(prompt));
+}
+
+async function callModelRaw(prompt) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
