@@ -42,3 +42,6 @@ Dernière mise à jour : 30 sept. 2026 (construit à partir de `chantiers-en-cou
 ## 7. Dette / méta
 - 🟡 Aucune suite de tests fonctionnelle (seulement les sauvegardes) : créer un smoke test qui démarre le serveur sur base neuve et appelle les routes principales — **à proposer à Émilien (nouveau mécanisme)**.
 - 🟡 Archiver les règles « device_list_dir / SHA-256 / verrou 🔒 » : obsolètes depuis le passage au flux Git (fait dans CLAUDE.md, reste à nettoyer dans les docs du projet Claude).
+
+## À supprimer par Émilien (tables inertes)
+- Tables des conversations par projet / notes de tâches / tâches éphémères (créées par l'ancien server/lib/conversations.js, retiré) : plus utilisées, données laissées en base.

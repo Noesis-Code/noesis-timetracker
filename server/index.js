@@ -167,8 +167,6 @@ app.use('/api', require('./routes/follows'));
 app.use('/api', require('./routes/timer'));
 app.use('/api', require('./routes/stats'));
 app.use('/api', require('./routes/community'));
-// Conversations par projet, notes de tâches, tâches éphémères (server/lib/conversations.js).
-app.use('/api', require('./routes/conversations'));
 // Sous-projets d'une activité (découpage, todolist, fil par sous-projet,
 // avancement) — discussion "Sous-projets", 3 septembre 2026.
 app.use('/api', require('./routes/subprojects'));

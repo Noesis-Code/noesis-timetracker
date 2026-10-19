@@ -283,8 +283,6 @@ async function main() {
   catch (e) { assert(false, 'limitation de débit et rétention des sauvegardes (test/debit-sauvegardes-test.js) échoue'); }
   try { execFileSync('node', [path.join(__dirname, 'signalement-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'signalement de messages et mots bloqués (test/signalement-test.js) passe'); }
   catch (e) { assert(false, 'signalement de messages et mots bloqués (test/signalement-test.js) échoue'); }
-  try { execFileSync('node', [path.join(__dirname, 'conversations-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'conversations par projet, notes, tâches éphémères (test/conversations-test.js) passe'); }
-  catch (e) { assert(false, 'conversations par projet, notes, tâches éphémères (test/conversations-test.js) échoue'); }
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });
