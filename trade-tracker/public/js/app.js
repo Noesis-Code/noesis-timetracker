@@ -23,16 +23,17 @@
   }
   function renderPill(sync) {
     var p = document.getElementById('syncPill'), t = document.getElementById('syncPillText');
-    if (!sync) return;
-    p.className = 'syncPill ' + sync.status;
-    t.textContent = sync.status === 'error' ? 'Échec synchro' : sync.status === 'warn' ? 'Partielle' : TTF.ago(sync.lastSync);
+    if (!sync) { p.className = 'syncPill'; t.textContent = 'Jamais'; return; }
+    var cls = { OK: 'ok', PARTIEL: 'warn', ECHEC: 'error' }[sync.status] || '';
+    p.className = 'syncPill ' + cls;
+    t.textContent = sync.status === 'ECHEC' ? 'Échec synchro' : sync.status === 'PARTIEL' ? 'Partielle' : TTF.ago(sync.at);
   }
   function show() {
     var tab = current(), el = document.getElementById('screen');
     renderTabs(tab);
     window.scrollTo(0, 0);
     TTD.load().then(function (data) {
-      state.data = data; renderPill(data.sync);
+      state.data = data; renderPill(data.portfolio.lastSync);
       window.TTScreens[tab].render(el, state, data);
     }).catch(function () {
       el.innerHTML = '<div class="emptyState">Impossible de charger les données.</div>';
