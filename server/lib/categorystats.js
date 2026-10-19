@@ -4,10 +4,8 @@
 // 17 septembre 2026 — suppression totale des sous-projets (« je souhaite
 // supprimer complètement les sous-projets de l'application [...] c'est les
 // catégories qui remplacent et qui prennent les fonctions des sous-projets »).
-// Remplace server/lib/subprojectstats.js, gardé en place mais orphelin (plus
-// jamais require()) — même convention que entrysubproject.js, laissé de côté
-// le 17 septembre 2026 au profit de entrycategory.js. Aucune table de
-// sous-projets n'est supprimée : « masque, ne supprime pas ».
+// Remplace l'ancien module de statistiques par sous-projet (retiré). Aucune
+// table de sous-projets n'est supprimée : « masque, ne supprime pas ».
 //
 // C'est le pendant, un cran plus bas, de breakdownForRange
 // (server/lib/stats.js, Répartition) : celle-ci découpe le temps PAR ACTIVITÉ,

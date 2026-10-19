@@ -3,9 +3,7 @@
 // 17 septembre 2026 (suppression totale des sous-projets : « je ne veux plus
 // qu'on parle de sous-projets ni qu'on garde la fonction en arrière plan »).
 //
-// Remplace server/routes/subprojectstats.js, gardé en place mais orphelin
-// (plus jamais require() depuis server/index.js) — même convention que
-// entrysubproject.js, laissé de côté au profit de entrycategory.js.
+// Remplace l'ancienne route de statistiques par sous-projet (retirée).
 //
 // Une seule route sert les DEUX écrans demandés par Emilien :
 //   - onglet Statistiques : appuyer sur la couleur d'une activité (case de la

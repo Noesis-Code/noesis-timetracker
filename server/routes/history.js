@@ -4,8 +4,8 @@ const { isoDateOf, dayNameOf } = require('../lib/dates');
 const { periodRange } = require('../lib/period');
 const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/attachments');
 // Même validation que le Chrono, au même endroit — voir l'en-tête du module.
-// Remplace resolveSubProjectId/subProjectSummary (entrysubproject.js, 17
-// septembre 2026, suppression totale des sous-projets).
+// Remplace l'ancien rattachement par sous-projet (17 septembre 2026,
+// suppression totale des sous-projets).
 const { resolveCategoryKey, categorySummary } = require('../lib/entrycategory');
 
 const router = express.Router();

@@ -65,8 +65,6 @@ function daysBetween(fromDay, toDay) {
   return Math.round((b - a) / 86400000);
 }
 
-const WEEKDAY_LABELS_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-
 // Sous-projets d'une activité déjà rattachés à cette catégorie, les plus
 // anciens en premier (id croissant) — y COMPRIS clôturés : un sous-projet
 // fermé garde ses tâches lisibles ici (masque, ne supprime pas) ; seul
@@ -149,43 +147,6 @@ function tasksByCategoryForActivity(activityId) {
     out[c.key] = tasks;
   });
   return out;
-}
-
-// 21 septembre 2026 (Chrono — fenêtre « visualiser » d'un secteur, cadré avec
-// Emilien via AskUserQuestion : « seulement les tâches déjà datées cette
-// semaine ») — tâches du secteur (ou du pôle, la fonction est générique) dont
-// dueDate tombe dans la semaine calendaire courante (lundi-dimanche, même
-// convention que goals.js#mostRecentMonday), groupées par jour. Un jour sans
-// tâche datée n'apparaît PAS dans le résultat (le gabarit HTML, calqué sur la
-// fenêtre profil, affiche lui-même les 7 jours et laisse les absents vides).
-//
-// 22 septembre 2026, demande d'Emilien : « ajouter une flèche pour faire
-// défiler les semaines [...] voir les tâches des semaines futures. Pas
-// passées [...] uniquement futur. » — `weekOffset` (0 = semaine courante, 1 =
-// semaine suivante, etc.) décale la semaine calculée d'autant de fois 7 jours
-// ; la route appelante (server/routes/goals.js) est seule responsable de
-// refuser un décalage négatif, cette fonction se contente de l'appliquer tel
-// quel.
-function tasksForCategoryThisWeek(activityId, categoryKey, weekOffset) {
-  const offset = Number(weekOffset) || 0;
-  const monday = goals.addDays(goals.mostRecentMonday(todayLocal()), offset * 7);
-  const days = [];
-  for (let i = 0; i < 7; i += 1) days.push(goals.addDays(monday, i));
-
-  const byDay = {};
-  days.forEach((day) => { byDay[day] = []; });
-
-  tasksForCategory(activityId, categoryKey).forEach((task) => {
-    if (task.dueDate && Object.prototype.hasOwnProperty.call(byDay, task.dueDate)) {
-      byDay[task.dueDate].push(task);
-    }
-  });
-
-  return days.map((day, i) => ({
-    date: day,
-    weekday: WEEKDAY_LABELS_FR[new Date(day + 'T00:00:00Z').getUTCDay()],
-    tasks: byDay[day],
-  }));
 }
 
 // 22 septembre 2026, demande d'Emilien : « ajouter en haut de la liste des
@@ -289,7 +250,7 @@ function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
   subprojects.assertItemEditable(item);
 
   // Cohérence activité / tâche, validée ICI côté serveur — même garde que
-  // resolveSubProjectId (server/lib/entrysubproject.js) pour le Chrono :
+  // resolveCategoryKey (server/lib/entrycategory.js) pour le Chrono :
   // sans elle, un identifiant de tâche d'une autre activité pourrait être
   // déplacé par appel direct à cette route.
   const currentSubProject = subprojects.getSubProject(item.subProjectId);
@@ -462,7 +423,7 @@ function markCategoriesSeen(activityId, categoryKey) {
 // septembre : « historique de tâches, même modèle que le Chrono » — signalé
 // par Emilien comme absent, jamais codé jusqu'ici) — puis DEUX refontes le
 // même jour. La première (retirée) groupait par JOUR sur une semaine filtrée
-// par dueDate, sur le modèle de tasksForCategoryThisWeek (Chrono, fenêtre
+// par dueDate, sur le modèle de l'ancienne vue « visualiser » du Chrono (fenêtre
 // "visualiser" d'un secteur). Emilien a corrigé, captures d'écran du panneau
 // Historique RÉEL du Chrono à l'appui (« sers-toi de cette base ») : pas de
 // jours, « juste... par semaine » ; et surtout, la semaine courante
@@ -716,7 +677,6 @@ module.exports = {
   ensureCategoryTaskSection,
   tasksForCategory,
   tasksByCategoryForActivity,
-  tasksForCategoryThisWeek,
   weeklyObjectiveForWeek,
   addCategoryTask,
   moveCategoryTask,

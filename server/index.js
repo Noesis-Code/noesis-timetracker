@@ -178,6 +178,8 @@ app.use('/api', require('./routes/statsactivityprogress'));
 // 12 septembre 2026) — 13 périodes de 4 semaines par activité, voir
 // server/lib/goals.js.
 app.use('/api', require('./routes/goals'));
+// Pôles/secteurs (gestion des catégories), extraits de routes/goals.js.
+app.use('/api', require('./routes/categories'));
 // Parcours d'achat de l'Offre 1 (8 septembre 2026) : démarrage du paiement
 // (crée la Stripe Checkout Session) — la confirmation, elle, arrive par
 // webhook et est montée à part, tout en haut de ce fichier (voir plus haut).

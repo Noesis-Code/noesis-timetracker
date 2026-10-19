@@ -8,9 +8,8 @@
 // [...] ils sont visibles dans le chrono, ils sont visibles dans le stat
 // [...] je ne veux plus qu'on parle de sous-projets ni qu'on garde la
 // fonction en arrière plan, je veux un changement total et propre. ») —
-// ce fichier REMPLACE server/lib/entrysubproject.js comme point d'entrée du
-// Chrono/Historique. entrysubproject.js reste en place, non branché nulle
-// part côté Chrono/Stats depuis ce chantier (« masque, ne supprime pas »).
+// ce fichier est le point d'entrée du Chrono/Historique (l'ancien module de
+// rattachement par sous-projet a été retiré).
 //
 // Même structure que son prédécesseur — un seul endroit pour la règle
 // partagée par les deux routes — mais plus SIMPLE : une catégorie n'est pas
@@ -49,7 +48,7 @@ function isDetachValue(raw) {
 // removeCategory dans goals.js) à rester attachée si elle l'était déjà :
 // le retrait masque une catégorie pour l'avenir, il ne doit jamais faire
 // disparaître un rattachement déjà écrit ailleurs (même principe que la
-// clôture d'un sous-projet, côté entrysubproject.js).
+// clôture d'un sous-projet, ancien module retiré).
 function resolveCategoryKey(activityId, raw, current) {
   if (raw === undefined) return { categoryKey: current || null };
   if (isDetachValue(raw)) return { categoryKey: null };
