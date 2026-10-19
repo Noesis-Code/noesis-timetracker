@@ -69,9 +69,7 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 **6. Précision des tâches générées**
 1. Cas restants c12 et c54 du jeu d'évaluation.
 2. Cas en anglais : étendre le jeu et mesurer.
-3. Journal des échecs (refus, corrections) : lecture et regroupement par cause.
-4. Secteurs mal classés : relever et corriger les consignes.
-5. Seuils de confiance : revérifier avec `scripts/eval-task-precision.js`.
+3. Seuils de confiance : revérifier avec `scripts/eval-task-precision.js`.
 
 **7. Principal et pilotage**
 1. État des worktrees et branches à nettoyer (`scripts/chantiers-status.js`), liste pour Émilien si suppression distante.
