@@ -2941,6 +2941,26 @@
             </div>
 
 
+            <!-- 19 oct. 2026 (tâche 1344) : option du Chrono, bascule existante (.notifRow/.toggleSwitch), désactivée par défaut. -->
+            <div class="settingsSection">
+              <button type="button" class="settingsSectionHeader" aria-expanded="false">
+                <span class="sectionTitle">Chrono</span>
+                <span class="settingsSectionChevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settingsSectionBody hidden">
+                <div class="settingsCard">
+                  <div class="notifRow">
+                    <span class="notifRowLabel">Horloge défilante</span>
+                    <label class="toggleSwitch">
+                      <input type="checkbox" id="scrollClockToggle">
+                      <span class="toggleSwitchTrack"></span>
+                    </label>
+                  </div>
+                  <p id="scrollClockMsg" class="msg"></p>
+                </div>
+              </div>
+            </div>
+
             <!-- 19 oct. 2026 : « Modules » — interrupteurs par module (public/js/modules.js). Socle : ne masque rien encore. -->
             <div class="settingsSection">
               <button type="button" class="settingsSectionHeader" id="modulesHeader" aria-expanded="false">

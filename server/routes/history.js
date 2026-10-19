@@ -7,6 +7,7 @@ const { MAX_ATTACHMENTS_PER_NOTE, validateAttachmentPayload } = require('../lib/
 // Remplace l'ancien rattachement par sous-projet (17 septembre 2026,
 // suppression totale des sous-projets).
 const { resolveCategoryKey, categorySummary } = require('../lib/entrycategory');
+const { checkEntryTimes } = require('../lib/entryguard');
 
 const router = express.Router();
 
@@ -118,6 +119,8 @@ router.put('/history/:id', (req, res) => {
   if (isNaN(startTime) || isNaN(endTime) || endTime <= startTime) {
     return res.status(400).json({ error: 'Heures invalides (fin doit être après le début).' });
   }
+  const guardMsg = checkEntryTimes(entry.userId, startTime, endTime, entry.id);
+  if (guardMsg) return res.status(400).json({ error: guardMsg });
   const durationSeconds = Math.round((endTime - startTime) / 1000);
   const note = req.body.note !== undefined ? req.body.note.trim() : entry.note;
 

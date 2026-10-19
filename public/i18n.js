@@ -148,6 +148,7 @@
     'Ajouter cette tâche ?': 'Add this task?',
     'Confirmer chaque tâche ajoutée par l\'IA': 'Confirm each task added by the AI',
     'Confirmer': 'Confirm',
+    'Confirmer la modification': 'Confirm the change', 'La durée de cette entrée change de plus de 4 h. Confirmer ?': 'This entry\'s duration changes by more than 4 h. Confirm?', 'Horloge défilante': 'Scrolling clock',
     'Modifier cette tâche': 'Edit this task',
     'Durée : —': 'Duration: —',
     'Durée : ': 'Duration: ',

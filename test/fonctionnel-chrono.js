@@ -42,6 +42,23 @@ const iso = (ms) => new Date(Date.now() + ms).toISOString();
     const add = await c.post('/api/history', { activityId: A, startTime: iso(-7200e3), endTime: iso(-5400e3) });
     assert(add.status === 201, 'ajout manuel accepté');
     assert((await c.post('/api/history', { activityId: A, startTime: iso(-5400e3), endTime: iso(-7200e3) })).status === 400, 'ajout manuel fin<début refusé');
+    // Garde-fou des heures (tâche 1348)
+    const gid = add.body.id;
+    const g1 = await c.put('/api/history/' + gid, { startTime: iso(-5400e3), endTime: iso(-7200e3) });
+    assert(g1.status === 400, 'garde-fou : fin avant début refusée');
+    const g2 = await c.put('/api/history/' + gid, { startTime: iso(-30 * 3600e3), endTime: iso(-5400e3) });
+    assert(g2.status === 400 && /24 h/.test(g2.body.error), 'garde-fou : durée > 24 h refusée');
+    const g3 = await c.put('/api/history/' + gid, { startTime: iso(3600e3), endTime: iso(7200e3) });
+    assert(g3.status === 400 && /futur/.test(g3.body.error), 'garde-fou : date future refusée');
+    const g4 = await c.put('/api/history/' + gid, { startTime: iso(-1800e3), endTime: iso(-600e3) });
+    assert(g4.status === 400 && /chevauchent/.test(g4.body.error), 'garde-fou : chevauchement refusé');
+    const g5 = await c.put('/api/history/' + gid, { startTime: iso(-9000e3), endTime: iso(-5400e3) });
+    assert(g5.status === 200, 'garde-fou : modification valide acceptée (sans chevauchement)');
+    // Horloge défilante (tâche 1344) : désactivée par défaut, persistée par profil
+    assert((await c.get('/api/profile/' + u.id + '/scroll-clock')).body.enabled === false, 'horloge défilante : désactivée par défaut');
+    assert((await c.put('/api/profile/' + u.id + '/scroll-clock', { enabled: true })).status === 200, 'horloge défilante : activation');
+    assert((await c.get('/api/profile/' + u.id + '/scroll-clock')).body.enabled === true, 'horloge défilante : persistée');
+    assert((await other.c.get('/api/profile/' + u.id + '/scroll-clock')).status === 403, 'horloge défilante : profil d\'un autre refusé');
     const upd = await c.put('/api/history/' + add.body.id, { note: 'modifiée' });
     assert(upd.status === 200, 'édition acceptée');
     const h2 = await c.get('/api/history?period=year');

@@ -733,6 +733,23 @@ router.put('/profile/:id/ai-confirm', (req, res) => {
   res.json({ ok: true, enabled: !!enabled });
 });
 
+// 19 oct. 2026 (tâche 1344) : « Horloge défilante » du Chrono (désactivée par défaut), par profil.
+router.get('/profile/:id/scroll-clock', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux lire que ton propre profil.' });
+  const user = db.prepare('SELECT chronoScrollClock FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json({ enabled: user.chronoScrollClock === 1 });
+});
+router.put('/profile/:id/scroll-clock', (req, res) => {
+  if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });
+  if (req.userId !== req.params.id) return res.status(403).json({ error: 'Tu ne peux modifier que ton propre profil.' });
+  const enabled = req.body.enabled ? 1 : 0;
+  const r = db.prepare('UPDATE users SET chronoScrollClock = ? WHERE id = ?').run(enabled, req.params.id);
+  if (!r.changes) return res.status(404).json({ error: 'Profil introuvable.' });
+  res.json({ ok: true, enabled: !!enabled });
+});
+
 // Modules activables (socle, 19 oct. 2026) : lecture/écriture de l'état ; ne masque rien encore, ne supprime aucune donnée.
 router.get('/profile/:id/modules', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: 'Non authentifié. Reconnecte-toi.', needsLogin: true });

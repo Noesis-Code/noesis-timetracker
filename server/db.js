@@ -2266,6 +2266,10 @@ if (!columnExists('users', 'aiMode')) {
 if (!columnExists('users', 'aiConfirmEach')) {
   db.exec('ALTER TABLE users ADD COLUMN aiConfirmEach INTEGER NOT NULL DEFAULT 1');
 }
+// 19 oct. 2026 (tâche 1344) : option « Horloge défilante » du Chrono (0 par défaut).
+if (!columnExists('users', 'chronoScrollClock')) {
+  db.exec('ALTER TABLE users ADD COLUMN chronoScrollClock INTEGER NOT NULL DEFAULT 0');
+}
 if (!columnExists('users', 'communityNotifyEnabled')) {
   db.exec('ALTER TABLE users ADD COLUMN communityNotifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
