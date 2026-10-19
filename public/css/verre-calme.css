@@ -106,18 +106,21 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 
 /* ---- Volet 5 : Statistiques / feuille de temps — données posées directement sur la section ----
    Aucune zone intermédiaire : fonds, liserés et flou retirés sur les contenants INTERNES (la section .statsSection garde son verre). */
-:root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot,
+:root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot:not([style]),
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel {
   background: transparent !important; box-shadow: none !important; border-color: transparent !important;
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
 /* ---- Volet 5 : feuille de temps et graphique = données posées directement sur la section, sans zone intermédiaire ---- */
-:root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot,
+:root .chartWrap, :root .chartScroll, :root .timesheetScroll, :root .tsCalSlot:not([style]),
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel {
   background: transparent !important; box-shadow: none !important; border-color: transparent !important;
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
+
+/* Cases remplies (couleur posée en style inline) : le fond transparent !important ci-dessus les rendait invisibles (vue Mois vide). */
+:root .tsCalSlot[style] { box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* ---- Volet 6 : publications (profil + Communauté) en verre calme, épingle et images insérées ---- */
 :root .discussionMsg.feedMine, :root .discussionMsg.feedPost {
