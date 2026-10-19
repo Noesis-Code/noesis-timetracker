@@ -3706,7 +3706,7 @@
     svg.setAttribute('viewBox', '0 0 100 100');
     svg.setAttribute('class', 'pieSvg');
     svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', t('Répartition du temps par activité'));
+    svg.setAttribute('aria-label', (ids && ids.ariaLabel) || t('Répartition du temps par activité'));
 
     // Centre du donut — total par défaut, ou `ids.centerOverride` ({ value,
     // label }, 22 septembre 2026 — voir `ids.onGroupTap` plus bas) affiché à
@@ -8620,7 +8620,7 @@
       // Libellé de période seul, dans le bloc Répartition lui-même (motif
       // .statsSummary de l'onglet Statistiques). Le total qui l'accompagnait
       // a été retiré le 6 septembre 2026 — Emilien : « le temps total est
-      // marqué deux fois dans répartition » — renderActivityPie l'écrivant
+      // marqué deux fois dans répartition » — renderPie l'écrivant
       // déjà au centre du camembert. block.totalSeconds continue de lui être
       // passé, c'est lui qui alimente ce centre.
       $('communityActivityStatsLabel').textContent = t(block.label);
@@ -8633,7 +8633,10 @@
       (data.dailyBreakdown || []).forEach(function (d) { seen.push(d.members); });
       rememberActivityMembers(activityId, seen);
 
-      renderActivityPie(block.members, block.totalSeconds);
+      renderPie(activityMembersAsPieParts(block.members), block.totalSeconds, {
+        wrap: 'communityActivityPie', emptyHint: 'communityActivityPieEmptyHint',
+        ariaLabel: t('Répartition du temps par membre'),
+      });
 
       lastActivityDailyBreakdown = data.dailyBreakdown || [];
       renderActivityChart(lastActivityDailyBreakdown);
@@ -8649,94 +8652,15 @@
     });
   }
 
-  // ----- Section Camembert : répartition de la période en cours, une part
-  // par MEMBRE de cette activité, couleur = couleur personnelle de ce membre
-  // sur cette activité (activity_members.color) — pendant exact de
-  // renderPie, réindexé par membre au lieu d'activité. -----
-  // ⚠️ 4 septembre 2026 (Chrono — sous-projets, débordement signalé) : cette
-  // fonction avait reçu le matin même un paramètre `tapRange` qui rendait la
-  // couleur d'un membre cliquable, comme dans le volet Statistiques. Emilien
-  // l'a explicitement écarté pour cet écran le même jour : « je souhaite que
-  // l'affichage ne se fasse plus avec un clic rapide sur la couleur d'une
-  // activité (ce qui est le cas pour le volet stat) mais grâce à un bouton et
-  // des options pour sélectionner le sous-projet que l'on désire observer ».
-  // Le paramètre a donc été retiré, et la fonction est revenue exactement à ce
-  // qu'elle était : le filtre vit désormais au-dessus (#caCategoryBtn, 17
-  // septembre 2026 : remplace #caSubProjectBtn), il change ce que le serveur
-  // renvoie, pas ce que cette fonction dessine. La comparaison entre MEMBRES
-  // est ainsi conservée à l'identique, catégorie par catégorie — ce
-  // qu'Emilien demandait (« comparer entre eux leurs enregistrements
-  // globaux […] ainsi que leurs enregistrements par catégorie »), et qu'une
-  // fenêtre par membre ne permettait pas.
-  function renderActivityPie(members, totalSeconds) {
-    var wrap = $('communityActivityPie');
-    wrap.innerHTML = '';
-    $('communityActivityPieEmptyHint').classList.toggle('hidden', members.length > 0);
-    if (members.length === 0) return;
-
-    var svgNS = 'http://www.w3.org/2000/svg';
-    var cx = 50, cy = 50, rOuter = 46, rInner = 27;
-    var gap = members.length > 1 ? 0.035 : 0;
-
-    var svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('viewBox', '0 0 100 100');
-    svg.setAttribute('class', 'pieSvg');
-    svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', t('Répartition du temps par membre'));
-
-    var angle = -Math.PI / 2;
-    members.forEach(function (m) {
-      var frac = totalSeconds > 0 ? m.seconds / totalSeconds : 0;
-      var sweep = frac * Math.PI * 2;
-      var start = angle + Math.min(gap / 2, sweep / 2);
-      var end = angle + sweep - Math.min(gap / 2, sweep / 2);
-      if (end < start) end = start;
-      var path = document.createElementNS(svgNS, 'path');
-      path.setAttribute('d', donutSlicePath(cx, cy, rOuter, rInner, start, end));
-      path.setAttribute('fill', activityMemberColor(m.userId, m.color));
-      path.setAttribute('class', 'pieSlice');
-      var title = document.createElementNS(svgNS, 'title');
-      title.textContent = m.name + ' — ' + formatHM(m.seconds) + ' (' + m.percent + '%)';
-      path.appendChild(title);
-      svg.appendChild(path);
-      angle += sweep;
+  // ----- Section Camembert : une part par MEMBRE (couleur = nuance personnelle
+  // du membre sur cette activité), dessinée par renderPie — voir
+  // activityMembersAsPieParts. Le filtre par catégorie (#caCategoryBtn) change
+  // ce que le serveur renvoie, pas ce qui est dessiné ; aucune tranche
+  // cliquable ici (décision d'Emilien, 4 sept. 2026). -----
+  function activityMembersAsPieParts(members) {
+    return members.map(function (m) {
+      return { name: m.name, seconds: m.seconds, percent: m.percent, color: activityMemberColor(m.userId, m.color) };
     });
-
-    var chartArea = document.createElement('div');
-    chartArea.className = 'pieChartArea';
-    chartArea.appendChild(svg);
-
-    var center = document.createElement('div');
-    center.className = 'pieCenter';
-    var centerVal = document.createElement('span');
-    centerVal.className = 'pieCenterValue';
-    centerVal.textContent = formatHM(totalSeconds);
-    var centerLabel = document.createElement('span');
-    centerLabel.className = 'pieCenterLabel';
-    centerLabel.textContent = 'total';
-    center.appendChild(centerVal);
-    center.appendChild(centerLabel);
-    chartArea.appendChild(center);
-    wrap.appendChild(chartArea);
-
-    var legend = document.createElement('div');
-    legend.className = 'pieLegend';
-    members.forEach(function (m) {
-      var row = document.createElement('div');
-      row.className = 'pieLegendRow';
-      var dot = document.createElement('span');
-      dot.className = 'pieLegendDot';
-      dot.style.background = activityMemberColor(m.userId, m.color);
-      var label = document.createElement('span');
-      label.className = 'pieLegendLabel';
-      label.textContent = m.name;
-      var value = document.createElement('span');
-      value.className = 'pieLegendValue';
-      value.textContent = formatHM(m.seconds) + ' · ' + m.percent + '%';
-      row.appendChild(dot); row.appendChild(label); row.appendChild(value);
-      legend.appendChild(row);
-    });
-    wrap.appendChild(legend);
   }
 
   // ----- Section Graphique : une courbe d'évolution par MEMBRE sur la
