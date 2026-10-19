@@ -1,4 +1,4 @@
-/* Modules activables (Réglages > Modules) — socle du 19 oct. 2026 ; masquage côté client le même jour.
+/* Modules activables (Réglages > Modules).
  * TMT.modules.isOn(id) ; état serveur : GET/PUT /api/profile/:id/modules (server/lib/modules.js).
  * Masquer = poser sur <html> data-modules-off="id id…" ; styles.css cache les éléments [data-module] et quelques ids.
  * Aucune donnée n'est supprimée. Un changement d'interrupteur ré-applique tout de suite et émet l'événement document « tmt:modules ». */
@@ -119,7 +119,7 @@
     return call('GET').then(function (d) { state = d.modules; loadedFor = id; remember(); apply(); applyOrder(); openFirstTab(); paint(); return state; }).catch(function () { return null; });
   }
 
-  // ===== Barre du bas modulable (19 oct. 2026) =====
+  // ===== Barre du bas modulable =====
   // Appui long sur un volet = mode édition : glisser-déposer pour réordonner (ordre mémorisé par utilisateur, localStorage),
   // ✕ pour retirer = désactiver son module (même effet et même garde-fou que Réglages > Modules). Activité et Stats ne sont pas retirables.
   var nav = document.querySelector('.tabbar');
@@ -237,8 +237,6 @@
   TMT.modules = {
     isOn: on,
     tabOn: tabOn,
-    all: function () { return Object.assign({}, state || {}); },
-    load: load,
     mountChoice: mountChoice
   };
 

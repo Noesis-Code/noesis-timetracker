@@ -1,12 +1,5 @@
 /* Écran de premier choix des modules : un peu d'air avant « Valider ». */
 .onbModulesFooter { margin-top: 16px; }
-/* Réglages > Modules : deux cartes de choix (Temps / Tâches et objectifs) + section « Ajouter ». Violet principal. */
-.moduleCard { display: block; width: 100%; text-align: left; margin: 0 0 12px; padding: 14px; border-radius: var(--radius-lg); border: 1px solid var(--vc-line, var(--border)); background: var(--vc-bg, var(--card)); color: var(--text); font: inherit; cursor: pointer; box-shadow: var(--shadow-card); }
-.moduleCard .moduleCardTitle { display: block; font-size: 16px; font-weight: 700; margin: 0 0 4px; }
-.moduleCard .moduleCardDesc { display: block; font-size: 13px; color: var(--muted, var(--text)); opacity: .8; }
-.moduleCard.selected { border-color: var(--purple); box-shadow: 0 0 0 1px var(--purple), 0 0 18px rgba(var(--purple-rgb), .45); }
-.moduleCard:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
-.modulesAddTitle { margin: 16px 0 4px; }
 /* Premier lancement : liste défilante + pied fixe contenant le bouton de validation. */
 #onbModules { display: flex; flex-direction: column; min-height: 0; text-align: left; }
 #onbModulesList { overflow-y: auto; min-height: 0; padding: 8px; margin: 0 -8px; max-height: calc(100dvh - 300px); }
