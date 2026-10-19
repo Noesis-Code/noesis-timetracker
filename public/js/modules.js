@@ -37,7 +37,8 @@
   function on(id) { return id === 'core' || !state || state[id] !== false; }
   // Onglets de la barre du bas : Activité = noyau ; ensemble « Temps » = onglets Chrono ET Stats ensemble ; le reste = son module.
   function tabOn(tab) {
-    if (tab === 'stats' || tab === 'chrono') return on('stats');
+    if (tab === 'chrono') return on('stats');
+    if (tab === 'stats') return on('stats') || on('stats-tasks');  // « Temps » off : l'onglet Stats ne garde que les stats des tâches (ensemble B)
     if (tab === 'goals') return on('roadmap');
     if (tab === 'community') return on('community');
     return true;
@@ -45,6 +46,7 @@
   function apply() {
     var off = [];
     Object.keys(state || {}).forEach(function (id) { if (state[id] === false) off.push(id); });
+    if (!tabOn('stats')) off.push('tab-stats');
     var root = document.documentElement;
     if (off.length) root.setAttribute('data-modules-off', off.join(' ')); else root.removeAttribute('data-modules-off');
     try { document.dispatchEvent(new CustomEvent('tmt:modules')); } catch (e) { /* vieux navigateur */ }

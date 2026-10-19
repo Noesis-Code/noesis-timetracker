@@ -620,9 +620,9 @@
       '/api/stats/timesheet?userId=' + id + '&period=week&weekOffset=0',
       '/api/stats/timesheet?userId=' + id + '&period=month&monthOffset=0',
       '/api/activities?all=1&userId=' + id,
-      '/api/community?userId=' + id,
       '/api/category-stats/activities?userId=' + id + '&from=2000-01-01&to=' + today,
     ];
+    if (modOn('community')) urls.push('/api/community?userId=' + id);
     (activitiesCache || []).forEach(function (a) {
       urls.push('/api/activities/' + a.id + '/goals/categories');
       urls.push('/api/activities/' + a.id + '/goals/all');
@@ -2071,7 +2071,8 @@
 
     if (tab === 'stats') {
       // 3 oct. 2026 : on revient toujours sur la page 1 (stats de temps), jamais sur celle des tâches .
-      if (TMT.setStatsPage) TMT.setStatsPage(1, { noAnim: true });
+      if (TMT.setStatsPage) TMT.setStatsPage(modOn('stats') ? 1 : 2, { noAnim: true });
+      if (!modOn('stats')) { refreshScrollLock(); return; }
       loadStats();
       // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
       // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
@@ -14679,9 +14680,11 @@
     }
     Promise.all([
       api('GET', '/api/activities?all=1&userId=' + profile.id),
-      api('GET', '/api/community?userId=' + profile.id).catch(function () { return { activities: [] }; })
+      // Communauté désactivée : /api/community répond 403 ; les activités partagées se déduisent alors de membersCount (noyau).
+      modOn('community') ? api('GET', '/api/community?userId=' + profile.id).catch(function () { return { activities: [] }; }) : Promise.resolve({ activities: [] })
     ]).then(function (res) {
-      renderActivitiesSettings(res[0], (res[1] && res[1].activities) || []);
+      var sharedFromCore = modOn('community') ? null : (res[0] || []).filter(function (a) { return a.membersCount > 1; }).map(function (a) { return { activityId: a.id }; });
+      renderActivitiesSettings(res[0], sharedFromCore || (res[1] && res[1].activities) || []);
     });
   }
 
