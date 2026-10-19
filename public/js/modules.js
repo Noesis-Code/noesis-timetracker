@@ -45,11 +45,11 @@
   }
   function setMsg(t) { if (msg) msg.textContent = t || ''; }
 
-  // Trois lignes, un interrupteur chacune : Temps, Tâches et objectifs, Communauté et profil (au moins l'un des deux premiers).
+  // Trois lignes, un interrupteur chacune : Chrono, Feuille de route, Communauté et profil. Au moins l'un des deux premiers reste actif : couper le dernier rallume l'autre.
   // Calendrier et Assistant IA se rattachent à « Tâches et objectifs » ; partage et notifications restent actifs (noyau), sans interrupteur.
   var ROWS = [
-    { label: 'Temps', ids: ['stats'], anchor: 'stats', bundle: true },
-    { label: 'Tâches et objectifs', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
+    { label: 'Chrono', ids: ['stats'], anchor: 'stats', bundle: true },
+    { label: 'Feuille de route', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
     { label: 'Communauté et profil', ids: ['community', 'profile'], anchor: 'community', bundle: false }
   ];
   var BUNDLES = ROWS.filter(function (r) { return r.bundle; });
@@ -60,20 +60,24 @@
   }
 
   // Dessine les trois lignes dans `target` pour l'état `st` ; `apply(patch)` reçoit chaque changement.
-  // `lastOk` : autorise de tout désactiver (écran de premier choix, la validation reste bloquée) ; sinon au moins Temps ou Tâches.
+  // `lastOk` : autorise de tout désactiver (écran de premier choix, la validation reste bloquée) ; sinon couper l'un des deux rallume l'autre.
   function render(target, st, apply, lastOk) {
     target.innerHTML = '';
+    var inputs = [];
     ROWS.forEach(function (r) {
       var row = document.createElement('div'); row.className = 'notifRow';
       var label = document.createElement('span'); label.className = 'notifRowLabel'; label.textContent = tr(r.label);
       var sw = document.createElement('label'); sw.className = 'toggleSwitch';
       var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!st[r.anchor];
       var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
+      inputs.push({ row: r, inp: inp });
       inp.addEventListener('change', function () {
-        if (r.bundle && !inp.checked && !lastOk && !BUNDLES.some(function (b) { return b !== r && st[b.anchor]; })) {
-          inp.checked = true; setMsg(tr('Garde au moins Temps ou Tâches et objectifs.')); return;
-        }
         var patch = {}; r.ids.forEach(function (id) { patch[id] = inp.checked; });
+        // Règle croisée : couper le dernier des deux ensembles rallume l'autre (affichage immédiat de sa bascule).
+        if (r.bundle && !inp.checked && !lastOk && !BUNDLES.some(function (b) { return b !== r && st[b.anchor]; })) {
+          BUNDLES.forEach(function (b) { if (b !== r) b.ids.forEach(function (id) { patch[id] = true; }); });
+          inputs.forEach(function (o) { if (o.row !== r && o.row.bundle) o.inp.checked = true; });
+        }
         apply(patch);
       });
       sw.appendChild(inp); sw.appendChild(track);
@@ -134,16 +138,16 @@
   function saveOrder() {
     try { if (pid()) localStorage.setItem(ORDER_KEY(), JSON.stringify(tabBtns().map(function (b) { return b.dataset.tab; }))); } catch (e) { /* stockage plein */ }
   }
-  // Retrait : onglet -> patch de modules. Chrono = ensemble Temps ; Feuille de route = ensemble Tâches et objectifs ; Communauté = Communauté et profil.
+  // Retrait : onglet -> patch de modules. Chrono = ensemble Chrono ; Feuille de route = ensemble Feuille de route (couper l'un rallume l'autre s'il était coupé) ; Communauté = Communauté et profil.
   function removalPatch(tab) {
-    if (tab === 'chrono') return BUNDLES[0].ids.reduce(function (p, id) { p[id] = false; return p; }, {});
-    if (tab === 'goals') return BUNDLES[1].ids.reduce(function (p, id) { p[id] = false; return p; }, {});
+    var p = {};
+    function set(b, v) { b.ids.forEach(function (id) { p[id] = v; }); }
+    if (tab === 'chrono') { set(BUNDLES[0], false); if (!on('roadmap')) set(BUNDLES[1], true); return p; }
+    if (tab === 'goals') { set(BUNDLES[1], false); if (!on('stats')) set(BUNDLES[0], true); return p; }
     if (tab === 'community') return { community: false, profile: false };
     return null;
   }
   function removalAllowed(tab) {
-    if (tab === 'chrono') return on('roadmap');
-    if (tab === 'goals') return on('stats');
     return true;
   }
   function clearBadges() { tabBtns().forEach(function (b) { var x = b.querySelector('.tabRemove'); if (x) x.remove(); }); }

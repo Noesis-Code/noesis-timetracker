@@ -2157,7 +2157,7 @@
   // celle d'#activityPage et de Réglages. Le test sur e.target est
   // indispensable : sans lui, tout clic DANS la page la refermerait.
   $('profilePage').addEventListener('click', function (e) {
-    if (e.target === $('profilePage')) closeProfilePage();
+    if (e.target === $('profilePage') && $('profileSettingsPanel').classList.contains('hidden')) closeProfilePage();
   });
 
   // ===================== ACTIVITÉ =====================
@@ -10841,9 +10841,7 @@
   // alors le seul moyen de fermeture, d'où le retrait de son ancien masquage
   // sur pointeur tactile (styles.css). Activité vit exactement la même
   // situation depuis le 3 septembre 2026.
-  $('profileSettingsPanel').addEventListener('click', function (e) {
-    if (e.target === $('profileSettingsPanel')) closeSettingsPanel();
-  });
+  // (Clic sur le fond retiré le 19 oct. 2026 : seule la croix ferme Réglages.)
 
   // ⚠️ Le geste de retour tactile (balayage gauche → droite sur le panneau,
   // 9 septembre 2026) a été RETIRÉ le 26 septembre 2026 à la demande d'Emilien,
@@ -10875,12 +10873,8 @@
   // Réglages en plus de la modale, renvoyant Emilien jusqu'au Profil. Ces
   // trois modales ne sont jamais ouvertes que depuis Réglages : un clic
   // dedans doit rester sans effet sur le panneau lui-même.
-  document.addEventListener('click', function (e) {
-    if ($('profileSettingsPanel').classList.contains('hidden')) return;
-    if (e.target.closest('.settingsWrap') || e.target.closest('#profileSettingsPanel')) return;
-    if (e.target.closest('#legalTermsModal') || e.target.closest('#privacyPolicyModal') || e.target.closest('#legalNoticesModal')) return;
-    closeSettingsPanel();
-  });
+  // 19 oct. 2026 (Émilien) : Réglages ne se ferme QUE par la croix ✕. L'ancien écouteur « clic hors du panneau » est
+  // retiré : un clic sur une bascule dont la ligne était reconstruite (cible détachée du DOM) refermait la page.
 
   // ===================== NOTIFICATIONS PUSH (Réglages) =====================
   // 1er septembre 2026, demande d'Emilien : recevoir une notification sur le
@@ -16034,7 +16028,8 @@
   function onModulesChange() {
     var active = document.querySelector('.tabBtn.active');
     if (active && !tabAllowed(active.dataset.tab)) { switchTab(firstTab()); return; }
-    if (!modOn('community')) closeProfilePage();
+    // Réglages ouvert : on ne le ferme jamais ici (seule la croix le ferme) ; la page Profil se referme à sa fermeture.
+    if (!modOn('community')) { if ($('profileSettingsPanel').classList.contains('hidden')) closeProfilePage(); else $('profilePage').classList.add('hidden'); }
     if (profile) { loadPendingInvites(); loadFollowRequests(); refreshUnreadBadges(); }
   }
   document.addEventListener('tmt:modules', onModulesChange);

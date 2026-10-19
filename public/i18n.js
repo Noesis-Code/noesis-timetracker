@@ -141,8 +141,6 @@
     'Chrono, statistiques du chrono et feuille de temps': 'Timer, timer statistics and timesheet',
     'Choisis ce dont tu as besoin': 'Choose what you need',
     'Objectifs (Feuille de route) et statistiques des tâches': 'Goals (Roadmap) and task statistics',
-    'Garde au moins Temps ou Tâches et objectifs.': 'Keep at least Time or Tasks and goals.',
-    'Tâches et objectifs': 'Tasks and goals',
     'Optionnel': 'Optional',
     'Autres': 'Other',
     'Tâche': 'Task',
