@@ -9,6 +9,7 @@ const { createLimiter } = require('./lib/ratelimit');
 const C = require('./lib/calc');
 const { buildPortfolio, latestUsdCad } = require('./lib/portfolio');
 const { compareProportions } = require('./lib/compare');
+const BT = require('./lib/brokertoken');
 
 function parseCookies(h) {
   const out = {};
@@ -44,6 +45,7 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   const rlWrite = createLimiter({ max: limits.write || 30 })(ip);
   const rlAdmin = createLimiter({ max: limits.admin || 10 })(ip);
   const rlRead = createLimiter({ max: limits.read || 300 })(ip);
+  const rlBroker = createLimiter({ max: limits.broker || 10 })(ip); // en plus de la limite d'écriture générale
   app.use('/link', rlLink);
   app.use('/api', (req, res, next) => (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE' ? rlWrite : rlRead)(req, res, next));
   const err = (res, status, error, message) => res.status(status).json({ error, message: message || error });
@@ -186,6 +188,15 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
     res.json({ purchases, limit, offset, hasMore: more });
   });
 
+  // Jeton courtier : chiffré (TRADE_TOKEN_KEY), propre à l'utilisateur connecté, jamais renvoyé ni journalisé.
+  app.post('/api/broker/token', rlBroker, (req, res) => {
+    const token = req.body && req.body.token;
+    if (typeof token !== 'string' || !BT.isValidTokenFormat(token.trim())) return err(res, 422, 'invalid_token', 'Format de jeton refusé.');
+    if (!BT.hasEncryptionKey(env)) return err(res, 503, 'broker_unavailable', 'Connexion du courtier indisponible : la clé de chiffrement TRADE_TOKEN_KEY n’est pas configurée sur le serveur.');
+    try { BT.saveBrokerToken(db, req.user.id, token.trim(), { env }); } catch { return err(res, 500, 'store_failed', 'Jeton non enregistré.'); }
+    res.json({ ok: true, brokerConnected: true });
+  });
+
   app.post('/api/invitations', expertOnly, (req, res) => {
     const role = req.body && req.body.role;
     const email = req.body && req.body.email;
@@ -202,6 +213,11 @@ function createApp(db, { env = process.env, limits = {} } = {}) {
   });
 
   app.use('/api', (req, res) => err(res, 404, 'not_found'));
+  // Erreurs (ex. JSON mal formé) : message générique, jamais le corps de la requête.
+  app.use((e, req, res, next) => { // eslint-disable-line no-unused-vars
+    const status = e && e.status >= 400 && e.status < 500 ? e.status : 500;
+    err(res, status, status === 500 ? 'server_error' : 'bad_request', status === 500 ? 'Erreur du serveur.' : 'Requête invalide.');
+  });
   const pub = path.join(__dirname, '..', 'public');
   if (fs.existsSync(pub)) app.use(express.static(pub));
   return app;

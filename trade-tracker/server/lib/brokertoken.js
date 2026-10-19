@@ -38,4 +38,29 @@ function hasBrokerToken(db, userId, broker = 'questrade') {
   return !!db.prepare('SELECT 1 FROM broker_tokens WHERE userId = ? AND broker = ?').get(userId, broker);
 }
 
-module.exports = { encrypt, decrypt, saveBrokerToken, getBrokerToken, hasBrokerToken };
+// Format accepté : une seule « chaîne » sans espace (jetons OAuth/refresh usuels), 16 à 512 caractères.
+const TOKEN_RE = /^[A-Za-z0-9._~+\/=-]{16,512}$/;
+function isValidTokenFormat(t) { return typeof t === 'string' && TOKEN_RE.test(t); }
+
+// Clé de chiffrement utilisable ? (sans la divulguer)
+function hasEncryptionKey(env = process.env) {
+  try { keyOf(env); return true; } catch { return false; }
+}
+
+function deleteBrokerToken(db, userId, broker = 'questrade') {
+  return Number(db.prepare('DELETE FROM broker_tokens WHERE userId = ? AND broker = ?').run(userId, broker).changes) > 0;
+}
+
+// Supprime pour de bon les données dérivées de la synchro de CET utilisateur
+// (comptes -> positions/soldes/transactions en cascade, historique, journal, événements).
+// Les taux de change et les secteurs sont partagés et restent.
+function purgeSyncData(db, userId) {
+  db.exec('BEGIN');
+  try {
+    for (const sql of ['DELETE FROM events WHERE userId = ?', 'DELETE FROM history WHERE userId = ?',
+      'DELETE FROM sync_log WHERE userId = ?', 'DELETE FROM accounts WHERE userId = ?']) db.prepare(sql).run(userId);
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+
+module.exports = { encrypt, decrypt, saveBrokerToken, getBrokerToken, hasBrokerToken, isValidTokenFormat, hasEncryptionKey, deleteBrokerToken, purgeSyncData };
