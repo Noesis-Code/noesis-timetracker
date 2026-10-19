@@ -262,7 +262,6 @@
   }
 
 
-  // 
   // « bandeau plein largeur » — categoryColorTint() (teinte de fond légère,
   // 12e/13e passages) est retirée, remplacée par un fond PLEIN de la couleur
   // de catégorie sur .goalMainCard (voir renderActivityGoals() plus bas) ;
@@ -300,7 +299,6 @@
 
 
 
-  // 
   // « bandeau plein largeur » — formatActualHint()/renderGoalStatusButtons()
   // (3 boutons de statut texte par semaine, .goalStatusRow/.goalStatusBtn)
   // sont retirées, remplacées par un simple point de couleur cliquable
@@ -608,7 +606,6 @@
   }
 
 
-  // 
   // « bandeau plein largeur » — remplace la carte par semaine (label +
   // texte + estimation + 3 boutons de statut + ligne d'assignation, ~6
   // lignes chacune) par UNE LIGNE COMPACTE par semaine : badge "S1"-"S4"
@@ -956,14 +953,12 @@
     $('activityGoalsPeriodTitle').textContent = title;
     $('activityGoalsPeriodDates').textContent = formatGoalPeriodDates(period.startDate, period.endDate);
 
-    // 
     // le nom de la catégorie se place désormais ici (en dessous de la
     // période, au-dessus du titre de l'objectif périodique) — il a déménagé
     // depuis #goalsDetailTitle, voir openGoalsDetail() plus bas.
     var catLabelEl = $('activityGoalsCategoryLabel');
     if (catLabelEl) catLabelEl.textContent = t(goalsCategoryLabel(TMT.currentGoalsCategory));
 
-    // 
     // « la couleur qui encadre l'objectif périodique [...] soit la même
     // nuance [...] attribuée à la catégorie » — remplace le violet fixe de
     // .goalMainCard (styles.css) par la couleur de la catégorie courante,
@@ -1213,7 +1208,6 @@
 
     paintPeriodEstimate(period);
 
-    // 
     // « réduire la section de l'objectif périodique au titre, au nombre
     // d'heures à réaliser estimées et à une visualisation de l'avancement
     // total » — remplace les boutons de statut manuel et les puces
@@ -1662,7 +1656,6 @@
     input.placeholder = t('Ajouter une tâche...');
     var btn = document.createElement('button');
     btn.type = 'button';
-    // 
     // « la case doit être beaucoup plus grande [...] la largeur de l'écran
     // avec seulement une place pour le bouton ajouter » — classe dédiée
     // (plus .iconBtn, réutilisée telle quelle ailleurs dans ce fichier) pour
@@ -1710,13 +1703,6 @@
   // jusqu'au premier jour (« lundi ») en dernier.
   function renderGoalsCalendarDays(days, period) {
     goalsCalDaysCache = { key: goalsCalDaysKey(period), days: days };
-    // 
-    // « chaque dimanche entouré par la couleur dédiée à la catégorie » —
-    // calcul déplacé dans currentGoalsCategoryColor()
-    // ci-dessus (réutilisée aussi par .goalMainCard/.goalWeeklyCard) plutôt
-    // que recalculé ici, pour que les 3 endroits restent identiques par
-    // construction.
-    var goalsCalCatColor = currentGoalsCategoryColor();
     var nowD = new Date();
     var todayIso = nowD.getFullYear() + '-' + String(nowD.getMonth() + 1).padStart(2, '0') + '-' + String(nowD.getDate()).padStart(2, '0');
 

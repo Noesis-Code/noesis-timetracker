@@ -928,7 +928,6 @@
     var maxCategories = (TMT.currentGoalsAllPlannings && TMT.currentGoalsAllPlannings.maxCategories) || 5;
     var hasNoRealCategory = goalsHasNoRealCategory(categories);
     head.classList.toggle('goalsGridHead--paged', !hasNoRealCategory && categories.length > 2);
-    // 
     // verrouiller le défilement horizontal de #goalsGridScroll à exactement
     // une page (voir .goalsGridScroll--locked, styles.css) tant qu'il n'y a
     // aucune catégorie réelle — voir goalsHasNoRealCategory() ci-dessus.
@@ -978,7 +977,6 @@
         var displayColor = eclairciPourLisibilite(shade);
         // format des puces de l'onglet 2 (.gmChip), largeur de colonne conservée, contour = couleur du pôle.
         span.style.borderColor = shade;
-        // 
         // badge violet « non vu » posé ICI, sur l'arbre périodique
         // lui-même — c'est le vrai emplacement des « objectifs
         // périodiques » demandé, pas le menu déroulant de pôle (voir
@@ -1361,7 +1359,6 @@
 
           if (p && p.mainGoalText) {
             cell.className = 'goalsGridCell goalsGridCell--filled' + (p.isCurrent ? ' current' : '');
-            // 
             // le petit point de statut (.goalsGridCellDot, en haut à gauche
             // de la bulle) est retiré — demande d'Emilien, « supprimer le
             // petit point [...] qui est inutile ». goalStatusClass(p.mainGoalStatus)
@@ -1372,7 +1369,6 @@
             txt.className = 'goalsGridCellText';
             txt.textContent = p.mainGoalText;
             cell.appendChild(txt);
-            // 
             // changement de plan d'Emilien sur le fond des bulles remplies
             // (revient sur les 5 maquettes A-E proposées au 12e passage,
             // encore non tranchées) — citation exacte : « je souhaite que
@@ -1396,7 +1392,6 @@
             cell.style.borderColor = filledShade;
             txt.style.color = 'var(--bg)';
 
-            // 
             // trait vertical de continuité coloré à la nuance de la
             // catégorie, uniquement quand la bulle du dessus (période
             // précédente) est elle aussi remplie — demande d'Emilien.
