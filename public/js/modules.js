@@ -1,5 +1,7 @@
-/* Modules activables (Réglages > Modules) — socle du 19 oct. 2026 : charge et enregistre l'état, ne masque encore rien.
- * TMT.modules.isOn(id) ; état serveur : GET/PUT /api/profile/:id/modules (server/lib/modules.js). */
+/* Modules activables (Réglages > Modules) — socle du 19 oct. 2026 ; masquage côté client le même jour.
+ * TMT.modules.isOn(id) ; état serveur : GET/PUT /api/profile/:id/modules (server/lib/modules.js).
+ * Masquer = poser sur <html> data-modules-off="id id…" ; styles.css cache les éléments [data-module] et quelques ids.
+ * Aucune donnée n'est supprimée. Un changement d'interrupteur ré-applique tout de suite et émet l'événement document « tmt:modules ». */
 (function () {
   'use strict';
   var TMT = window.TMT = window.TMT || {};
@@ -16,6 +18,13 @@
     profile: 'Profil'
   };
   var state = null, loadedFor = null;
+  var CACHE_KEY = 'noesis_modules';
+  // Dernier état connu (démarrage hors ligne / avant la réponse du serveur) : évite un flash d'interface masquée ou non.
+  try {
+    var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    var lp = JSON.parse(localStorage.getItem('noesis_profile') || 'null');
+    if (cached && cached.state && lp && cached.id === lp.id) state = cached.state;
+  } catch (e) { /* cache illisible : tout actif */ }
   var box = document.getElementById('modulesList');
   var msg = document.getElementById('modulesMsg');
   var head = document.getElementById('modulesHeader');
@@ -24,6 +33,25 @@
   function call(method, body) {
     return fetch('/api/profile/' + encodeURIComponent(pid()) + '/modules', { method: method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(d.error || 'Erreur.'); throw e; } return d; }); });
+  }
+  function on(id) { return id === 'core' || !state || state[id] !== false; }
+  // Onglets de la barre du bas : Chrono et Activité = noyau ; Stats = Temps (stats) ou Tâches (stats-tasks) ; le reste = son module.
+  function tabOn(tab) {
+    if (tab === 'stats') return on('stats') || on('stats-tasks');
+    if (tab === 'goals') return on('roadmap');
+    if (tab === 'community') return on('community');
+    return true;
+  }
+  function apply() {
+    var off = [];
+    Object.keys(state || {}).forEach(function (id) { if (state[id] === false) off.push(id); });
+    if (!tabOn('stats')) off.push('tab-stats');
+    var root = document.documentElement;
+    if (off.length) root.setAttribute('data-modules-off', off.join(' ')); else root.removeAttribute('data-modules-off');
+    try { document.dispatchEvent(new CustomEvent('tmt:modules')); } catch (e) { /* vieux navigateur */ }
+  }
+  function remember() {
+    try { if (state && pid()) localStorage.setItem(CACHE_KEY, JSON.stringify({ id: pid(), state: state })); } catch (e) { /* stockage plein */ }
   }
   function setMsg(t) { if (msg) msg.textContent = t || ''; }
 
@@ -38,7 +66,7 @@
 
   function put(patch) {
     setMsg('');
-    return call('PUT', { modules: patch }).then(function (d) { state = d.modules; }).catch(function (e) { setMsg(e.message); }).then(paint);
+    return call('PUT', { modules: patch }).then(function (d) { state = d.modules; remember(); apply(); }).catch(function (e) { setMsg(e.message); }).then(paint);
   }
 
   // Dessine les deux cartes + « Ajouter » dans `target` pour l'état `st` ; `apply(patch)` reçoit chaque changement.
@@ -95,18 +123,20 @@
   function load() {
     if (!pid()) return Promise.resolve(null);
     var id = pid();
-    return call('GET').then(function (d) { state = d.modules; loadedFor = id; paint(); return state; }).catch(function () { return null; });
+    return call('GET').then(function (d) { state = d.modules; loadedFor = id; remember(); apply(); paint(); return state; }).catch(function () { return null; });
   }
 
   // Tant que rien n'est chargé (hors ligne, avant connexion), tout est considéré actif : comportement d'avant le socle.
   TMT.modules = {
-    isOn: function (id) { return id === 'core' || !state || state[id] !== false; },
+    isOn: on,
+    tabOn: tabOn,
     all: function () { return Object.assign({}, state || {}); },
     load: load,
     mountChoice: mountChoice
   };
 
   // Chargement au démarrage : dès que le profil est connu (réessaie brièvement), puis à l'ouverture de la section.
+  apply();
   var tries = 0;
   (function boot() { if (pid()) { load(); } else if (tries++ < 40) { setTimeout(boot, 500); } })();
   if (head) head.addEventListener('click', function () { if (loadedFor !== pid()) load(); else paint(); });

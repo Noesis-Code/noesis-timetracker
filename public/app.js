@@ -2035,7 +2035,11 @@
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
   });
 
+  // Modules désactivés (js/modules.js) : un onglet masqué se replie sur Chrono ; sans modules.js, tout est actif.
+  function tabAllowed(tab) { return !(window.TMT && TMT.modules && TMT.modules.tabOn) || TMT.modules.tabOn(tab); }
+  function modOn(id) { return !(window.TMT && TMT.modules) || TMT.modules.isOn(id); }
   function switchTab(tab) {
+    if (!tabAllowed(tab)) tab = 'chrono';
     // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
     collapseChronoHistory();
     if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
@@ -2065,8 +2069,9 @@
     $('profileSettingsBtn').classList.remove('active');
 
     if (tab === 'stats') {
-      // 3 oct. 2026 : on revient toujours sur la page 1 (stats de temps), jamais sur celle des tâches.
-      if (TMT.setStatsPage) TMT.setStatsPage(1, { noAnim: true });
+      // 3 oct. 2026 : on revient toujours sur la page 1 (stats de temps), jamais sur celle des tâches (sauf si « Temps » est désactivé).
+      if (TMT.setStatsPage) TMT.setStatsPage(modOn('stats') ? 1 : 2, { noAnim: true });
+      if (!modOn('stats')) { refreshScrollLock(); return; }
       loadStats();
       // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
       // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
@@ -2122,6 +2127,7 @@
   // n'importe où sans avoir à mémoriser d'où l'on venait (l'ancien
   // lastMainTab, retiré le 31 août, n'a pas à revenir).
   function openProfile() {
+    if (!modOn('community')) return;
     $('profilePage').classList.remove('hidden');
     showProfileMain();
     loadPendingInvites();
@@ -8364,7 +8370,7 @@
   TMT.syncUnreadChipDots = syncUnreadChipDots;
 
   function refreshUnreadBadges() {
-    if (!profile) return;
+    if (!profile || !modOn('sharing')) return;
     api('GET', '/api/community/unread-messages?userId=' + profile.id).then(function (data) {
       document.querySelectorAll('#activitiesList .unreadBadge').forEach(function (badge) {
         var n = data.byActivity[badge.dataset.activityId] || 0;
@@ -9534,6 +9540,7 @@
   }
 
   function loadFollowRequests() {
+    if (!modOn('community')) return;
     if (!profile) return;
     api('GET', '/api/follows/requests?userId=' + profile.id).then(renderFollowRequests);
   }
@@ -11205,6 +11212,11 @@
     }
 
     if (target === 'announcement') { showAnnouncement(true); return; }
+
+    // Module désactivé (Réglages > Modules) : la notification est ignorée sans erreur.
+    var NOTIF_MODULES = { activity: ['roadmap', 'sharing'], post: ['community'], follow: ['community'], community: ['community'], profile: ['community'],
+      invite: ['sharing'], dailypriority: ['roadmap'], drivesync: ['roadmap', 'ai'], taskassigned: ['roadmap'], goalperiod: ['roadmap'] };
+    if ((NOTIF_MODULES[target] || []).some(function (m) { return !modOn(m); })) return;
 
     if (target === 'activity') {
       var activityId = params.get('activityId');
@@ -15668,6 +15680,7 @@
   // sur une de ses activités, l'invitation reste en attente ici jusqu'à ce
   // que tu l'acceptes ou la refuses.
   function loadPendingInvites() {
+    if (!modOn('sharing')) return;
     if (!profile) return;
     // Charge aussi MES activités actives : sert à proposer, à l'acceptation
     // d'une invitation, de la fusionner avec une activité qu'on suit déjà
@@ -15917,6 +15930,14 @@
   window.TMT.readableTextOn = readableTextOn;
   window.TMT.appendLinkified = appendLinkified;
   window.TMT.switchTab = switchTab;
+  // Bascule d'un module (Réglages > Modules) : l'interface se met à jour sans recharger l'app.
+  document.addEventListener('tmt:modules', function () {
+    var active = document.querySelector('.tabBtn.active');
+    if (active && !tabAllowed(active.dataset.tab)) { switchTab('chrono'); return; }
+    if (active && active.dataset.tab === 'stats') switchTab('stats');
+    if (!modOn('community')) closeProfilePage();
+    loadPendingInvites(); loadFollowRequests(); refreshUnreadBadges();
+  });
   window.TMT.whenElementReady = whenElementReady;
   window.TMT.focusWhenReady = focusWhenReady;
   window.TMT.setActivityPageSection = setActivityPageSection;

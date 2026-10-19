@@ -644,7 +644,7 @@
          appelée à chaque bascule pour que --topbar-h reste juste). -->
     <div class="topbarDefault">
       <!-- 29 septembre 2026, demande d'Emilien (direction « Piste B ») : « Noèsis » retiré de cet état ; la photo de profil (#whoami) passe à gauche, les réglages (.settingsWrap, ex-.identityHeader) à droite en carré de verre. « Noèsis » reste affiché, centré, dans #topbarProfile. -->
-      <button type="button" class="whoami" id="whoami" aria-label="Ouvrir le profil">
+      <button type="button" class="whoami" id="whoami" data-module="community" aria-label="Ouvrir le profil">
           <span class="whoamiAvatar" id="whoamiAvatar">
             <img id="whoamiAvatarImg" class="hidden" alt="">
             <span id="whoamiAvatarInitial"></span>
@@ -1210,7 +1210,7 @@
              clique sur STOP, ni avec les notes de session listées plus bas.
              Placé en tête du détail : c'est ce qu'on vient voir en premier
              quand quelqu'un a écrit. -->
-        <div id="communityDiscussionBlock" class="discussionBlock">
+        <div id="communityDiscussionBlock" class="discussionBlock" data-module="sharing">
           <!-- ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que le
                titre discussion - "activité" disparaisse ». Il répétait deux
                informations déjà à l'écran à trois centimètres de là : le
@@ -1269,7 +1269,7 @@
              membres — qui est masqué quand l'activité n'est pas partagée.
              Aucun id ni aucune classe existante n'a changé : seul un div
              englobant a été ajouté. -->
-        <div id="communityActivityMembersPart">
+        <div id="communityActivityMembersPart" data-module="sharing">
         <!-- ⚠️ 3 septembre 2026 (Activité — général) : le nom de l'activité
              était répété ici, en petit, à la suite du titre de section. Il est
              désormais écrit en gros dans l'en-tête de la page, juste au-dessus
@@ -2135,8 +2135,8 @@
              Dessinée en SVG inline plutôt qu'en emoji : elle suit alors le
              thème (stroke: currentColor) et garde la même taille sur tous les
              appareils, ce qu'un emoji ne fait ni l'un ni l'autre. -->
-          <button type="button" class="menuBtn" id="activityPageStrategyBtn" aria-label="Stratégie" title="Stratégie">Stratégie</button>
-          <button type="button" class="menuBtn" id="activityPageMembersBtn" aria-label="Membres" title="Membres">
+          <button type="button" class="menuBtn" id="activityPageStrategyBtn" data-module="ai" aria-label="Stratégie" title="Stratégie">Stratégie</button>
+          <button type="button" class="menuBtn" id="activityPageMembersBtn" data-module="sharing" aria-label="Membres" title="Membres">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <circle cx="9" cy="8" r="3.2"></circle>
               <path d="M3 20v-1a5.5 5.5 0 0 1 5.5-5.5h1.5"></path>
@@ -2164,7 +2164,7 @@
              plus bas). id/data-section restent "sub" (inchangés, pour ne
              pas casser les liens profonds existants type
              setActivityPageSection('sub')). -->
-        <div class="periodSwitch" id="activityPageSectionSwitch">
+        <div class="periodSwitch" id="activityPageSectionSwitch" data-module="stats">
           <button type="button" class="periodBtn active" data-section="sub">Catégories</button>
           <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
           <!-- 30 septembre 2026 : l'onglet Discussion a déménagé dans la Page 2 du volet Feuille de route (#goalsPage2ModeDiscBtn). -->
@@ -2956,7 +2956,7 @@
                  par profil : le téléphone et l'ordinateur s'activent séparément,
                  c'est pour ça que le texte parle de "cet appareil". Voir
                  server/lib/push.js et le bloc "push" de public/sw.js. -->
-            <div class="settingsSection">
+            <div class="settingsSection" data-module="notifications">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
                 <span class="sectionTitle">Notifications</span>
                 <span class="settingsSectionChevron" aria-hidden="true">▾</span>
@@ -2979,7 +2979,7 @@
 
             <!-- 5 oct. 2026 (Emilien) : Gestion de l'IA — mode Autonome / Partiel / Absence, modifiable à tout moment.
                  Rendu par TMT.renderAiModeSection() (public/js/objectifs-page1.js). -->
-            <div class="settingsSection">
+            <div class="settingsSection" data-module="ai">
               <button type="button" class="settingsSectionHeader" aria-expanded="false">
                 <span class="sectionTitle">Gestion de l'IA</span>
                 <span class="settingsSectionChevron" aria-hidden="true">▾</span>
@@ -2994,7 +2994,7 @@
 
 
             <!-- 19 oct. 2026 : « Connecter mon IA » — jetons du serveur MCP en lecture seule (public/js/connexion-ia.js). -->
-            <div class="settingsSection">
+            <div class="settingsSection" data-module="ai">
               <button type="button" class="settingsSectionHeader" id="aiConnectHeader" aria-expanded="false">
                 <span class="sectionTitle">Connecter mon IA</span>
                 <span class="settingsSectionChevron" aria-hidden="true">▾</span>
@@ -3048,7 +3048,7 @@
                    directs de #calendarFeedSection, sans changement d'id ni de
                    logique (renderCalendarFeedState continue de basculer leur
                    "hidden" tel quel). -->
-              <div id="calendarFeedSection" class="settingsFlat hidden">
+              <div id="calendarFeedSection" class="settingsFlat hidden" data-module="calendar">
                 <p class="sectionTitle settingsFlatTitle">Exporter mes données vers le calendrier</p>
                 <div id="calendarFeedOff" class="hidden">
                   <button type="button" id="calendarFeedCreateBtn" class="iconBtn">Créer mon lien de calendrier</button>
@@ -3070,7 +3070,7 @@
                 <p id="calendarFeedMsg" class="msg"></p>
               </div>
               <!-- 9 oct. 2026 : agenda externe lu par Noèsis (sens inverse du flux ci-dessus). -->
-              <div class="settingsFlat">
+              <div class="settingsFlat" data-module="calendar">
                 <p class="sectionTitle settingsFlatTitle">Importer un calendrier dans l'appli <span class="infoTipWrap"><button type="button" class="infoTipBtn" aria-label="Informations" aria-expanded="false" data-tip="Colle l'adresse ICS d'un agenda (Google Agenda, Apple Calendar…) ; tu peux en ajouter plusieurs. Noèsis ne garde que les heures occupées et compare les titres à tes règles, rien d'autre.">i</button></span></p>
                 <input type="text" id="externalCalendarUrl" class="calendarFeedUrl" inputmode="url" placeholder="https://…/basic.ics" autocomplete="off">
                 <div class="shareActions">
@@ -3130,7 +3130,7 @@
             <div class="settingsCard">
               <div class="feedbackCategorySwitch">
                 <button id="shareAppBtn" type="button" class="themeBtn">Partager l'app</button>
-                <button id="shareProfileBtn" type="button" class="themeBtn">Partager mon profil</button>
+                <button id="shareProfileBtn" type="button" class="themeBtn" data-module="community">Partager mon profil</button>
               </div>
               <div id="shareQrCode" class="shareQr" aria-hidden="true"></div>
               <p id="shareMsg" class="msg"></p>
@@ -3213,7 +3213,7 @@
       </span>
       <span class="tabLabel">Chrono</span>
     </button>
-    <button class="tabBtn" data-tab="stats" aria-label="Statistiques">
+    <button class="tabBtn" data-tab="stats" data-module="tab-stats" aria-label="Statistiques">
       <span class="tabIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3,17 9,10 13,14 21,5"/>
@@ -3261,7 +3261,7 @@
          même couleur (currentColor, suit l'état actif/inactif) que les 4 autres
          icônes, et un libellé visible « Feuille de route » est ajouté sous elle.
          aria-label="Objectifs" inchangé : seule l'étiquette affichée change. -->
-    <button class="tabBtn" data-tab="goals" aria-label="Objectifs">
+    <button class="tabBtn" data-tab="goals" data-module="roadmap" aria-label="Objectifs">
       <span class="tabIcon">
         <svg viewBox="163 131 586 752" fill="currentColor" aria-hidden="true" focusable="false">
           <polygon points="183,293 287,461 287,616 183,675"/>
@@ -3276,7 +3276,7 @@
       <span class="tabBtnDot hidden" id="goalsTabUnreadDot" aria-hidden="true"></span>
       <span class="tabLabel">Feuille de route</span>
     </button>
-    <button class="tabBtn" data-tab="community" aria-label="Communauté">
+    <button class="tabBtn" data-tab="community" data-module="community" aria-label="Communauté">
       <span class="tabIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="6" cy="12" r="3"/>
@@ -3720,6 +3720,8 @@
 <script src="/legal-en.js"></script>
 <!-- 22 sept. 2026 : file d'attente des tâches capturées hors ligne (partagée avec sw.js) -->
 <script src="/offline-queue.js"></script>
+<!-- 19 oct. 2026 : avant app.js pour que le masquage des modules soit posé dès le premier rendu -->
+<script src="/js/modules.js"></script>
 <script src="/app.js"></script>
 <script src="/js/axis-lock.js"></script>
 <script src="/js/objectifs-page1.js"></script>
@@ -3734,6 +3736,5 @@
 <script src="/js/stats-avance.js"></script>
 <script src="/js/activite-stats-taches.js"></script>
 <script src="/js/connexion-ia.js"></script>
-<script src="/js/modules.js"></script>
 </body>
 </html>

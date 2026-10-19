@@ -942,8 +942,11 @@
     var lp = page === 1 ? 1 : (inst.getTab() === 'o' ? 3 : 2);
     if (dots) Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle('on', i === lp - 1); });
   }
+  // Modules (js/modules.js) : page 1 = « stats » (Temps), pages 2-3 = « stats-tasks » (Tâches, Objectifs).
+  function pageOn(n) { return !TMT.modules || TMT.modules.isOn(n === 1 ? 'stats' : 'stats-tasks'); }
   function setStatsPage(n, opts) {
     opts = opts || {};
+    if (!pageOn(n)) return;
     var ph = n === 1 ? 1 : 2;
     if (ph === page) { if (ph === 2) inst.goTab(n === 3 ? 'o' : 't'); return; }
     var from = page === 1 ? page1 : page2, to = ph === 1 ? page1 : page2;
@@ -978,7 +981,7 @@
     swallow: function (dir) { return dir > 0 && curIdx() === 2; },
     neighbor: function (dir) {
       var i = curIdx(), t = i + dir;
-      if (t < 0 || t > 2) return null;
+      if (t < 0 || t > 2 || !pageOn(t + 1)) return null;
       if (i === 0 || t === 0) {
         return {
           cur: i === 0 ? page1 : page2, nb: t === 0 ? page1 : page2, host: pages,
