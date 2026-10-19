@@ -23,6 +23,14 @@ db.exec(`CREATE TABLE IF NOT EXISTS trade_events_seen (
 // Limite de débit par IP (généreuse : un achat = 1 événement, Trade en envoie quelques-uns par minute au plus).
 const limiter = createLimiter({ ipMax: Number(process.env.TRADE_EVENTS_PER_MIN) > 0 ? Number(process.env.TRADE_EVENTS_PER_MIN) : 600 });
 
+// Purge des événements vus (idempotence) au-delà de 30 jours : la fenêtre de rejeu n'est que de 5 min.
+const SEEN_TTL_DAYS = 30;
+function purgeSeen(now = Date.now()) {
+  return db.prepare('DELETE FROM trade_events_seen WHERE receivedAt < ?').run(new Date(now - SEEN_TTL_DAYS * 86400000).toISOString()).changes;
+}
+try { purgeSeen(); } catch (e) { /* purge au démarrage, non bloquante */ }
+setInterval(() => { try { purgeSeen(); } catch (e) { console.warn('[trade] purge trade_events_seen :', e.message); } }, 3600000).unref();
+
 function expectedSignature(secret, ts, raw) {
   return 'sha256=' + crypto.createHmac('sha256', secret).update(ts + '.' + raw).digest('hex');
 }
@@ -68,3 +76,4 @@ router.post('/trade-events', express.raw({ type: () => true, limit: '64kb' }), (
 });
 
 module.exports = router;
+module.exports.purgeSeen = purgeSeen;

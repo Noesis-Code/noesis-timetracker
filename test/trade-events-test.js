@@ -67,6 +67,12 @@ const srv = app.listen(0, async () => {
   let got429 = false;
   for (let i = 0; i < 30 && !got429; i++) { r = await post(ev, { id: 'flood' + i }); if (r.status === 429) got429 = true; }
   assert(got429, 'déluge de requêtes : 429 (limite de débit par IP)');
+  // Purge : les entrées de plus de 30 jours disparaissent, les récentes restent.
+  const R = require('../server/routes/tradeevents');
+  db.prepare("INSERT INTO trade_events_seen (eventId, userId, symbol, receivedAt) VALUES ('old1', NULL, NULL, ?)").run(new Date(Date.now() - 31 * 86400000).toISOString());
+  db.prepare("INSERT INTO trade_events_seen (eventId, userId, symbol, receivedAt) VALUES ('new1', NULL, NULL, ?)").run(new Date(Date.now() - 29 * 86400000).toISOString());
+  const n = R.purgeSeen();
+  assert(n >= 1 && !db.prepare("SELECT 1 FROM trade_events_seen WHERE eventId='old1'").get() && db.prepare("SELECT 1 FROM trade_events_seen WHERE eventId='new1'").get(), 'purge trade_events_seen : > 30 jours supprimé, récent conservé');
   srv.close();
   process.exit(failed ? 1 : 0);
 });
