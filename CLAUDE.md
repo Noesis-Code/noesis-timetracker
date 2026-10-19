@@ -37,7 +37,7 @@ Décision d'Émilien, 30 sept. 2026 : **plus d'autonomie, plus de demande de per
 ## Travail à deux (Émilien + Gaspard)
 
 Chacun dirige sa propre discussion Claude sur le même dépôt. Pour ne pas s'écraser :
-- **Un propriétaire par segment à la fois** (cartographie ci-dessous). On déclare son chantier dans `COORDINATION.md` (ligne + push immédiat) avant de coder ; un segment déjà pris ne se touche pas.
+- **Un propriétaire par segment à la fois** (cartographie ci-dessous) ; un segment déjà pris ne se touche pas.
 - **Une branche par chantier** : `claude/<sujet>` depuis `origin/staging` à jour.
 - **Rebase obligatoire avant chaque push** : `git fetch origin && git rebase origin/staging`, puis vérifier `git diff origin/staging` (que ce qui est voulu), puis `git push origin HEAD:staging`. Jamais de `--force` sur `staging`. Un push refusé (non fast-forward) = refaire le rebase, pas forcer.
 - Fichiers très partagés : petits commits, rebase juste avant le push. Un conflit que Claude ne peut pas résoudre sans perdre le travail de l'autre → s'arrêter et prévenir.
@@ -53,7 +53,7 @@ Chacun dirige sa propre discussion Claude sur le même dépôt. Pour ne pas s'é
 
 ## Vérifier avant de livrer
 
-- `node --check` sur chaque `.js` touché ; parseur CSS sur les `.css` ; `node test/run-tests.js` (sauvegardes uniquement — aucune suite fonctionnelle n'existe encore).
+- `node --check` sur chaque `.js` touché ; parseur CSS sur les `.css` ; `node test/run-tests.js` (unitaires, parcours fonctionnels `test/fonctionnel-*.js`, Trade Tracker ; Trade exige `cd trade-tracker && npm ci` une fois, `scripts/new-worktree.sh` lie ses `node_modules`).
 - Test fonctionnel : `NOESIS_DATA_DIR=$(mktemp -d) PORT=3999 node server/index.js` puis appeler les routes touchées (données de test : `server/lib/seed-staging.js`).
 - Toute régression silencieuse déjà vue ici : un correctif qui « disparaît » d'un fichier partagé. Avant de conclure, `git diff origin/staging` doit ne contenir QUE ce qui est voulu.
 

@@ -5,7 +5,12 @@ const os = require('os'), fs = require('fs'), path = require('path');
 const { spawn, execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const TMT_PORT = 3968, TRADE_PORT = 3969;
+// Ports libres choisis dynamiquement (jamais de collision avec un serveur orphelin ou un autre chantier).
+const [TMT_PORT, TRADE_PORT] = JSON.parse(execFileSync('node', ['-e', `
+const net = require('net'); const get = () => new Promise((r) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
+Promise.all([get(), get()]).then((p) => console.log(JSON.stringify(p)));`], { encoding: 'utf8' }));
+try { require.resolve('@simplewebauthn/server', { paths: [path.join(ROOT, 'trade-tracker')] }); }
+catch (e) { console.error('Dépendances de Trade absentes. Exécuter une fois : cd trade-tracker && npm ci  (ou scripts/new-worktree.sh, qui lie node_modules)'); process.exit(1); }
 const TMT = 'http://localhost:' + TMT_PORT, TRADE = 'http://localhost:' + TRADE_PORT;
 const tmtDir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-tmt-'));
 const tradeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-trade-'));
@@ -49,6 +54,9 @@ console.log(JSON.stringify(out));`], { cwd: ROOT, env: envTmt, encoding: 'utf8' 
 const cookies = JSON.parse(prep.trim().split('\n').pop());
 
 const procs = [];
+const killAll = () => procs.forEach((p) => { try { p.kill('SIGKILL'); } catch (e) { /* déjà arrêté */ } });
+process.on('exit', killAll);
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(130));
 function start(file, env, port, label) {
   const p = spawn('node', [file], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
   p.stderr.on('data', (d) => process.stderr.write('[' + label + '] ' + d));

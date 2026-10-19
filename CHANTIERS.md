@@ -14,9 +14,7 @@ Sept chantiers tournent **en permanence**. Quand l'un se termine, le coordinateu
 
 Les noms de secteurs ci-dessus sont exacts (ne pas les reformuler). **Règle** : le coordinateur lit les nouvelles tâches de chaque chantier par secteur (MCP TiMeTracker, `lister_taches`), en plus de `BACKLOG.md`.
 
-**Drive NOÈSIS** (dossier partagé avec Gaspard) : suit les pôles/secteurs de l'app (TiMeTracker, Communauté, Entreprise, PARTNERS ; secteurs de TiMeTracker = ceux du tableau). Renommage seul, jamais de nouveau document sans demande.
-
-**Paiement Stripe** : `staging` = clés de test uniquement, aucun vrai paiement ; le bouton d'achat Expansion n'est actif que sur staging.
+Drive NOÈSIS et paiement Stripe : voir `CLAUDE.md` (source unique).
 
 ## Règles automatiques du chantier 7 (décision d'Émilien, 19 oct. 2026)
 1. **Sept chantiers actifs en tout temps** (directive d'Émilien, 19 oct. 2026) : il ne doit jamais y en avoir moins de sept. Quand un chantier finit, le coordinateur le relance aussitôt avec la première tâche disponible, dans cet ordre : (a) tâches non réservées du secteur principal (`lister_taches`) ; (b) la liste de repli du chantier (section « Listes de repli ») ; (c) à défaut, le chantier génère lui-même 3 tâches utiles dans son périmètre et les inscrit à la fin de sa liste de repli. Aucune question à Émilien pour relancer ; ses réponses éventuelles passent en tête de file.
@@ -70,14 +68,13 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 
 **7. Principal et pilotage**
 1. État des worktrees et branches à nettoyer (`scripts/chantiers-status.js`), liste pour Émilien si suppression distante.
-2. Tests flaky : repérer et stabiliser.
-3. Relecture croisée des dernières livraisons de `staging`.
-4. Mise à jour du Projet Claude NOÈSIS (journal des chantiers).
-5. Cohérence de `CLAUDE.md`, `CHANTIERS.md`, `BACKLOG.md` (doublons, périmé).
+2. Relecture croisée des dernières livraisons de `staging`.
+3. Mise à jour du Projet Claude NOÈSIS (journal des chantiers).
+4. Cohérence de `BACKLOG.md` (doublons, périmé).
 
 ## Règles communes
 - Un chantier = une branche `claude/<sujet>` depuis `origin/staging`, un worktree ; rebase avant push ; jamais `--force` ; **jamais `git stash`** (partagé entre worktrees) : utiliser un commit WIP.
-- **Démarrer** par `scripts/new-worktree.sh <sujet>` (worktree + branche depuis `origin/staging`, `node_modules` lié, PORT libre et `NOESIS_DATA_DIR` temporaire dans `.chantier.env`) : jamais deux chantiers sur le même port ni les mêmes données. Un `git stash` est partagé par tous les worktrees : il a déjà mélangé le travail de plusieurs agents (interdit, commit WIP à la place).
+- **Démarrer** par `scripts/new-worktree.sh <sujet>` (worktree + branche depuis `origin/staging`, `node_modules` (et `trade-tracker/node_modules`) liés, PORT libre et `NOESIS_DATA_DIR` temporaire dans `.chantier.env`) : jamais deux chantiers sur le même port ni les mêmes données. Un `git stash` est partagé par tous les worktrees : il a déjà mélangé le travail de plusieurs agents (interdit, commit WIP à la place).
 - **CACHE_VERSION** (`public/sw.js`) : ne jamais l'éditer à la main ; après le rebase, `node scripts/bump-sw.js` (écrit max(staging, local)+1 ; `--dry` pour voir). Un seul bump par push.
 - **Garde d'intégrité** : `test/guard-integrity.js` (appelé par `node test/run-tests.js`) échoue si un fichier de `public/`, `server/`, `trade-tracker/` est vide, si un fichier critique manque ou si un fichier perd > 60 % de ses lignes vs `origin/staging` (suppression voulue : `GUARD_ALLOW_SHRINK=chemin`). Incident d'origine : eb769ac (deux fichiers Trade Tracker à 0 octet).
 - **Vue d'ensemble** : `node scripts/chantiers-status.js [--fetch] [--since="2 days ago"]` (worktrees, branches distantes, derniers commits de staging). Brief standard à coller aux agents : `docs/brief-chantier.md`.
