@@ -45,3 +45,15 @@ Dernière mise à jour : 30 sept. 2026 (construit à partir de `chantiers-en-cou
 
 ## À supprimer par Émilien (tables inertes)
 - Tables des conversations par projet / notes de tâches / tâches éphémères (créées par l'ancien server/lib/conversations.js, retiré) : plus utilisées, données laissées en base.
+
+## Propositions du Simplificateur (19 oct. 2026, passe 1 ; non exécutées, par impact)
+1. Réglage « Confirmer chaque tâche ajoutée par l'IA » (Mon IA, 49a7324) : option de plus ; garder la confirmation toujours active et retirer la bascule (si #1451 ne la demandait pas mot pour mot).
+2. Modules : deux chemins vers « désactiver un module » (Réglages > Modules ET appui long + ✕ dans la barre du bas) ; n'en garder qu'un.
+3. Réglages > Calendrier : « Exporter vers le calendrier », « Activités exportées », « Importer » et « Exporter mes données » en 4 blocs ; fusionner export agenda + activités en un seul bloc.
+4. Chrono : zone « Une amélioration à suggérer ? » (57b813a) double le signalement/feedback existant ; RÉSERVÉ Émilien (touche le Chrono).
+5. Signalement de messages + mots bloqués configurables (7328aab) : surface de modération ; RÉSERVÉ Émilien (légal/Loi 25), à évaluer pour réduction.
+6. Écran d'onboarding « Choisis ce dont tu as besoin » (a35e500) doublon de Réglages > Modules ; défaut tout actif et retirer l'écran.
+7. « Mon IA » : sous-section « détails repliés » de la connexion MCP, à réduire à état + bouton + révocation.
+8. Bouton « Tout supprimer » (Nouvelles tâches / Modifications proposées, 7405e05) : doublon du tri case par case ; à confirmer utile.
+9. Feuille de temps : vue Année dans le menu de période (8675c9f), à garder seulement si utilisée ; sinon retirer.
+10. Textes d'aide ⓘ des Réglages agenda : raccourcir à une ligne.
