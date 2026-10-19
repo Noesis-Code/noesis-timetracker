@@ -16,7 +16,7 @@
 <body>
 <div id="app">
   <header class="topbar">
-    <div class="brand">Trade Tracker</div>
+    <div class="brand">Trade Tracker<span class="demoPill" id="demoPill" hidden title="Données fictives">démo</span></div>
     <div class="topbarRight">
       <button class="syncPill" id="syncPill" type="button" aria-label="État de la synchronisation"><span class="syncDot"></span><span id="syncPillText">—</span></button>
       <a class="topIconBtn" id="tmtLink" href="https://web-staging-6d1b.up.railway.app" aria-label="Retour à TimeTracker" title="TimeTracker">
@@ -27,7 +27,7 @@
 
   <div id="offlineBar" class="offlineBar" role="status" hidden></div>
 
-  <main id="screen" class="screen" aria-live="polite"></main>
+  <main id="screen" class="screen" aria-busy="true"></main>
 
   <nav class="tabbar" id="tabbar" aria-label="Navigation principale"></nav>
 </div>

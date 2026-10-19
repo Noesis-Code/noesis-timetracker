@@ -29,14 +29,33 @@
     p.className = 'syncPill ' + cls;
     t.textContent = sync.status === 'ECHEC' ? 'Échec synchro' : sync.status === 'PARTIEL' ? 'Partielle' : TTF.ago(sync.at);
   }
+  var SKELETON = '<div class="skel" style="height:34px;width:60%"></div><div class="skel" style="height:120px"></div><div class="grid2"><div class="skel" style="height:84px"></div><div class="skel" style="height:84px"></div></div><div class="skel" style="height:170px"></div>';
+  // Écran vide : aucune donnée à montrer (portefeuille pas encore synchronisé). Une action est toujours proposée.
+  function emptyFor(tab, data) {
+    var none = !data.positions.length && !(data.portfolio.totalValueCad > 0);
+    var noHist = tab === 'history' && (!data.history || !data.history.points || data.history.points.length < 2);
+    if (!(none && (tab === 'dashboard' || tab === 'positions' || tab === 'allocation')) && !noHist) return '';
+    var connected = data.me && data.me.brokerConnected;
+    return '<div class="stateScreen"><div class="stateIcon"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-6 4 3 8-10"/><path d="M3 21h18"/></svg></div>' +
+      '<div class="stateTitle">' + (noHist ? 'Pas encore d’historique' : 'Aucune position pour l’instant') + '</div>' +
+      '<div class="stateMsg">' + (connected ? 'La première synchro est en cours ou n’a rien trouvé. Reviens dans quelques minutes.' : 'Connecte ton courtier pour voir ton portefeuille ici.') + '</div>' +
+      (connected ? '' : '<a class="btnPrimary" href="#/broker">Connecter mon courtier</a>') + '</div>';
+  }
   function show() {
     var tab = current(), el = document.getElementById('screen');
     renderTabs(tab === 'broker' || tab === 'invite' ? 'sync' : tab);
     window.scrollTo(0, 0);
+    el.setAttribute('aria-busy', 'true');
+    if (!state.data) el.innerHTML = SKELETON;
     TTD.load().then(function (data) {
-      state.data = data; document.body.classList.toggle('demoMode', data.source === 'demo'); renderPill(data.portfolio.lastSync); renderOffline(data);
-      window.TTScreens[tab].render(el, state, data);
+      state.data = data; document.body.classList.toggle('demoMode', data.source === 'demo'); document.getElementById('demoPill').hidden = data.source !== 'demo'; renderPill(data.portfolio.lastSync); renderOffline(data);
+      var empty = emptyFor(tab, data);
+      if (empty) el.innerHTML = '<div class="screenTitle">' + (TABS.filter(function (t) { return t[0] === tab; })[0] || ['', ''])[1] + '</div>' + empty;
+      else window.TTScreens[tab].render(el, state, data);
+      el.setAttribute('aria-busy', 'false');
+      var h = el.querySelector('.screenTitle'); if (h) { h.setAttribute('role', 'heading'); h.setAttribute('aria-level', '1'); document.title = h.textContent + ' · Trade Tracker'; }
     }).catch(function (e) {
+      el.setAttribute('aria-busy', 'false');
       el.innerHTML = errorState(e);
       var b = el.querySelector('[data-retry]'); if (b) b.addEventListener('click', function () { TTD.reset(); show(); });
     });

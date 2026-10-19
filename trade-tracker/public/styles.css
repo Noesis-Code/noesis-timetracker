@@ -93,7 +93,7 @@ a { color: inherit; text-decoration: none; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 6px 18px rgba(var(--purple-rgb), 0.45);
 }
 .tabLabel { font-size: 10px; line-height: 1; color: var(--text-light); white-space: nowrap; }
-.tabBtn.active .tabLabel { font-weight: 600; color: var(--purple); }
+.tabBtn.active .tabLabel { font-weight: 600; color: var(--violet-soft); }
 /* 6 volets : carrés de 46 px */
 .tabBtn { min-width: 46px; }
 .tabIcon { width: 46px; height: 46px; border-radius: 15px; }
@@ -229,8 +229,9 @@ a { color: inherit; text-decoration: none; }
 .buyRow:nth-child(2) { border-top: none; }
 .legendList.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
 .duoDonuts .donutTop { font-size: 12px; }
-/* Bandeau discret en mode démonstration (données fictives) */
-body.demoMode .brand::after { content: 'démo'; margin-left: 8px; font-size: 10px; font-weight: bold; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--glass-calm-line); color: var(--text-light); vertical-align: 2px; }
+/* Pastille « démo » : visible seulement quand les données sont fictives */
+.demoPill { margin-left: 8px; font-size: 10px; font-weight: bold; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--glass-calm-line); color: var(--text-light); vertical-align: 2px; }
+.demoPill[hidden] { display: none; }
 
 /* ---- Phase 2 : hors ligne, états ---- */
 .offlineBar { margin: calc(70px + env(safe-area-inset-top)) 14px 0; text-align: center; font-size: 12px; font-weight: bold; padding: 5px 12px; border-radius: 999px; color: var(--text); background: var(--glass-calm-bg); border: 1px solid var(--glass-calm-line); }
@@ -269,3 +270,9 @@ body.demoMode .brand::after { content: 'démo'; margin-left: 8px; font-size: 10p
 .invMail { min-width: 0; overflow-wrap: anywhere; }
 .invMail .hint { display: block; }
 .detailRow .invMail { color: var(--text); }
+
+/* ---- Phase 2 : squelettes, accessibilité ---- */
+.skel { border-radius: var(--radius-lg); background: linear-gradient(90deg, var(--glass-calm-bg) 0%, rgba(255, 255, 255, .10) 50%, var(--glass-calm-bg) 100%); background-size: 200% 100%; animation: skel 1.3s ease-in-out infinite; }
+@keyframes skel { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } * { transition-duration: 0.01ms !important; } }
+.topIconBtn:focus-visible, .chip:focus-visible, .sendBtn:focus-visible, .tabBtn:focus-visible .tabIcon { outline: 2px solid var(--violet-soft); outline-offset: 2px; }
