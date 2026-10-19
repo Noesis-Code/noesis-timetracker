@@ -475,10 +475,23 @@ function removeCategory(activityId, key, opts) {
   const choice = opts && opts.tasks;
   // Secteur (9 oct. 2026) : retrait PAR ANNÉE — périodes supprimées à partir de la
   // période en cours, jamais les passées ; tâches ouvertes redistribuées aux autres secteurs.
+  // 19 oct. 2026 : `mode` explicite — 'delete' (supprime les tâches du secteur) ou
+  // 'move' (les déplace toutes vers `target`, un secteur actif d'un pôle quelconque).
+  // Sans `mode` : comportement historique (redistribution des tâches ouvertes).
+  const mode = opts && opts.mode;
+  if (row.parentKey && mode !== undefined && mode !== null && mode !== 'delete' && mode !== 'move') {
+    throw Object.assign(new Error('Mode de suppression invalide.'), { statusCode: 400 });
+  }
+  if (row.parentKey && mode === 'move') {
+    const target = existing.find((r) => r.key === opts.target && r.parentKey && r.key !== key);
+    if (!target) throw Object.assign(new Error('Secteur de destination invalide.'), { statusCode: 400 });
+  }
   if (row.parentKey && choice !== 'delete' && choice !== 'keep') {
     db.exec('BEGIN');
     try {
-      redistributeSecteurTasks(activityId, row, existing, opts && opts.assignments);
+      if (mode === 'delete') deleteSecteurTasks(activityId, key);
+      else if (mode === 'move') moveSecteurTasks(activityId, key, opts.target);
+      else redistributeSecteurTasks(activityId, row, existing, opts && opts.assignments);
       const today = G().todayLocal();
       const del = db.prepare('SELECT id, startDate FROM goal_periods WHERE activityId = ? AND category = ? AND endDate >= ?').all(activityId, key, today);
       const from = del.length ? del.map((d) => d.startDate).sort()[0] : today;
@@ -511,6 +524,30 @@ function removeCategory(activityId, key, opts) {
     db.exec('ROLLBACK');
     throw e;
   }
+}
+
+// Supprime toutes les tâches d'un secteur comme deleteItem (subprojects.js) : ligne retirée,
+// statut des objectifs hebdo liés recalculé. Le temps chrono déjà enregistré reste (historique,
+// clé du secteur retiré => remonte toujours à son pôle).
+function deleteSecteurTasks(activityId, key) {
+  const items = db.prepare(`
+    SELECT i.id, i.goalWeeklyId FROM sub_project_items i
+    JOIN sub_projects sp ON sp.id = i.subProjectId
+    WHERE sp.activityId = ? AND sp.goalCategory = ?
+  `).all(activityId, key);
+  const del = db.prepare('DELETE FROM sub_project_items WHERE id = ?');
+  items.forEach((it) => del.run(it.id));
+  G().recomputeForWeeklies(items.map((it) => it.goalWeeklyId));
+}
+
+// Déplace toutes les tâches (ouvertes et faites) vers un autre secteur, même pôle ou non :
+// le temps chrono rattaché à ces tâches suit (goalCategory), il remonte donc au pôle de la cible.
+function moveSecteurTasks(activityId, key, target) {
+  const ids = db.prepare('SELECT id FROM sub_projects WHERE activityId = ? AND goalCategory = ?').all(activityId, key).map((r) => r.id);
+  if (!ids.length) return;
+  const ph = ids.map(() => '?').join(',');
+  db.prepare(`UPDATE sub_projects SET goalCategory = ? WHERE id IN (${ph})`).run(target, ...ids);
+  db.prepare(`UPDATE time_entries SET goalCategory = ? WHERE activityId = ? AND goalCategory = ? AND subProjectId IN (${ph})`).run(target, activityId, key, ...ids);
 }
 
 // Sous-projets d'un secteur qui portent encore au moins une tâche ouverte (à redistribuer).

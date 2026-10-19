@@ -319,7 +319,7 @@ router.delete('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req
 
   try {
     assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
-    const secteurs = goals.removeCategory(activityId, req.params.secteurKey, { tasks: (req.body && req.body.tasks) || req.query.tasks, assignments: req.body && req.body.assignments });
+    const secteurs = goals.removeCategory(activityId, req.params.secteurKey, { tasks: (req.body && req.body.tasks) || req.query.tasks, assignments: req.body && req.body.assignments, mode: req.body && req.body.mode, target: req.body && req.body.target });
     res.json({ ok: true, secteurs });
   } catch (err) {
     handleGoalsError(res, err);

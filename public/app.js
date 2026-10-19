@@ -7060,8 +7060,8 @@
       .then(function () { activityGoalsCategoriesRefresh(activityId); });
   }
 
-  function removePoleSecteur(activityId, poleKey, secteurKey, tasks, assignments) {
-    return api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey, tasks ? { tasks: tasks } : { assignments: assignments || {} })
+  function removePoleSecteur(activityId, poleKey, secteurKey, tasks, assignments, extra) {
+    return api('DELETE', '/api/activities/' + activityId + '/goals/categories/' + poleKey + '/secteurs/' + secteurKey, extra || (tasks ? { tasks: tasks } : { assignments: assignments || {} }))
       .then(function () { activityGoalsCategoriesRefresh(activityId); });
   }
 
@@ -7621,6 +7621,14 @@
     var modal = $('categoryRemoveModal');
     if (!modal) return;
     var isPole = !o.poleKey;
+    // Secteur contenant des tâches (19 oct. 2026) : choix explicite supprimer / déplacer / annuler.
+    if (!isPole && o.taskCount === undefined) {
+      api('GET', '/api/activities/' + o.activityId + '/goals/categories/' + o.key + '/removal-preview').then(function (r) {
+        o.taskCount = (r && r.taskCount) || 0;
+        if (o.taskCount > 0) openSecteurTasksChoiceModal(o); else openCategoryRemoveModal(o);
+      }).catch(function () { o.taskCount = 0; openCategoryRemoveModal(o); });
+      return;
+    }
     var msg = $('categoryRemoveMsg');
     var delBtn = $('categoryRemoveDeleteTasksBtn');
     var keepBtn = $('categoryRemoveKeepTasksBtn');
@@ -7690,6 +7698,73 @@
       p.then(close).catch(function (err) { msg.textContent = err.message; })
         .then(function () { delBtn.disabled = false; });
     };
+    $('categoryRemoveClose').onclick = close;
+    $('categoryRemoveCancelBtn').onclick = close;
+  }
+
+  // Suppression d'un secteur qui contient des tâches : (1) supprimer aussi ses tâches (irréversible,
+  // confirmation explicite), (2) les déplacer vers un autre secteur (même pôle ou autre pôle, liste
+  // groupée par pôle), (3) annuler. Même fenêtre que les autres confirmations de suppression.
+  function openSecteurTasksChoiceModal(o) {
+    var modal = $('categoryRemoveModal');
+    var msg = $('categoryRemoveMsg');
+    var delBtn = $('categoryRemoveDeleteTasksBtn');
+    var moveBtn = $('categoryRemoveKeepTasksBtn');
+    var n = o.taskCount;
+    var assignBox = $('categoryRemoveAssign');
+    if (!assignBox) {
+      assignBox = document.createElement('div');
+      assignBox.id = 'categoryRemoveAssign';
+      $('categoryRemoveText').insertAdjacentElement('afterend', assignBox);
+    }
+    function close() { modal.classList.add('hidden'); }
+    function nTasks() { return t(n > 1 ? '{n} tâches' : '{n} tâche', { n: n }); }
+    function run(extra, btn) {
+      btn.disabled = true; msg.textContent = '';
+      removePoleSecteur(o.activityId, o.poleKey, o.key, null, null, extra).then(close)
+        .catch(function (err) { msg.textContent = err.message; })
+        .then(function () { btn.disabled = false; });
+    }
+    function stepChoice() {
+      $('categoryRemoveTitle').textContent = t('Supprimer le secteur « {name} » ?', { name: o.label });
+      $('categoryRemoveText').textContent = t('Ce secteur contient {tasks}. Que faire de ces tâches ?', { tasks: nTasks() });
+      assignBox.innerHTML = ''; msg.textContent = '';
+      delBtn.textContent = t('Supprimer aussi ses tâches'); delBtn.classList.remove('hidden'); delBtn.disabled = false;
+      moveBtn.textContent = t('Déplacer les tâches vers un autre secteur'); moveBtn.classList.remove('hidden'); moveBtn.disabled = false;
+      delBtn.onclick = stepConfirmDelete;
+      moveBtn.onclick = stepMove;
+    }
+    function stepConfirmDelete() {
+      $('categoryRemoveText').textContent = t('Le secteur et ses {tasks} seront supprimés définitivement. Cette action est irréversible.', { tasks: nTasks() });
+      msg.textContent = '';
+      moveBtn.classList.add('hidden');
+      delBtn.textContent = t('Supprimer définitivement');
+      delBtn.onclick = function () { run({ mode: 'delete' }, delBtn); };
+    }
+    function stepMove() {
+      $('categoryRemoveText').textContent = t('Choisis le secteur qui recevra les {tasks}.', { tasks: nTasks() });
+      msg.textContent = '';
+      assignBox.innerHTML = '';
+      var sel = document.createElement('select');
+      sel.id = 'categoryRemoveTarget';
+      sel.style.width = '100%'; sel.style.margin = '8px 0';
+      var ph = document.createElement('option'); ph.value = ''; ph.textContent = t('Choisir un secteur…'); sel.appendChild(ph);
+      currentActivityGoalsCategories.forEach(function (pole) {
+        var list = (pole.secteurs || []).filter(function (s) { return s.key !== o.key; });
+        if (!list.length) return;
+        var grp = document.createElement('optgroup'); grp.label = pole.label;
+        list.forEach(function (s) { var op = document.createElement('option'); op.value = s.key; op.textContent = s.label; grp.appendChild(op); });
+        sel.appendChild(grp);
+      });
+      assignBox.appendChild(sel);
+      if (sel.options.length < 2) { var none = document.createElement('p'); none.className = 'meta'; none.textContent = t('Aucun autre secteur disponible.'); assignBox.appendChild(none); }
+      delBtn.classList.add('hidden');
+      moveBtn.textContent = t('Déplacer et supprimer le secteur'); moveBtn.disabled = true;
+      sel.addEventListener('change', function () { moveBtn.disabled = !sel.value; });
+      moveBtn.onclick = function () { run({ mode: 'move', target: sel.value }, moveBtn); };
+    }
+    stepChoice();
+    modal.classList.remove('hidden');
     $('categoryRemoveClose').onclick = close;
     $('categoryRemoveCancelBtn').onclick = close;
   }
