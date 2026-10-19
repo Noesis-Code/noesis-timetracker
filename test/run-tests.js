@@ -288,6 +288,8 @@ async function main() {
   catch (e) { assert(false, 'limitation de débit et rétention des sauvegardes (test/debit-sauvegardes-test.js) échoue'); }
   try { execFileSync('node', [path.join(__dirname, 'signalement-test.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'signalement de messages et mots bloqués (test/signalement-test.js) passe'); }
   catch (e) { assert(false, 'signalement de messages et mots bloqués (test/signalement-test.js) échoue'); }
+  try { execFileSync('node', [path.join(__dirname, 'guard-integrity.js')], { encoding: 'utf8', stdio: 'pipe' }); assert(true, 'intégrité des fichiers : aucun vide/tronqué (test/guard-integrity.js) passe'); }
+  catch (e) { assert(false, 'intégrité des fichiers (test/guard-integrity.js) échoue : ' + String(e.stdout || e.message).trim().split('\n').slice(0, 5).join(' | ')); }
   // Nettoyage
   db.close();
   fs.rmSync(workDir, { recursive: true, force: true });
