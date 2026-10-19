@@ -40,3 +40,28 @@ Environ 1 500 tokens d'entrée, 1 800 de sortie : ~0,01 $ avec Haiku, ~0,03 $ av
 3. Réservé à l'offre payante (Expansion) ou gratuit ?
 4. Où montrer l'analyse (notes de la proposition) : suffisant, ou écran dédié (non fait sans accord) ?
 5. Seuil de rejet des segments trop incertains ; langue de sortie selon la zone ?
+
+## 7. Grille de facteurs par secteur d'activité (proposition écrite, aucun code)
+
+Point de départ pour l'étape 4 : amorce injectée dans le prompt, que l'IA doit compléter et corriger à CHAQUE lancement (jamais une liste figée ni copiée telle quelle d'un secteur à l'autre). Chiffres : toujours marqués `estimation` sans source.
+
+| Secteur | Besoin typique | Facteurs internes de variation | Facteurs externes de variation | Types de clientèle |
+|---|---|---|---|---|
+| Restauration | Remplir les tables et lisser les creux (midi/soir/semaine) ; réduire le coût des denrées | Capacité (places, terrasse), carte, marge sur plats, personnel disponible, réputation | Saison et météo, prix des denrées, loyers, événements locaux, tourisme, réglementation (permis, hygiène) | Résidents du quartier, travailleurs du midi, touristes, groupes/événements, clients de livraison |
+| Vêtements | Trouver le bon produit au bon prix, écouler les stocks sans brader | Positionnement et marque, marges, délais de production, taille des séries, canal (boutique/en ligne) | Saisons et tendances, coût matières et transport, taux de change, douane, concurrence ultra-bon-marché | Particuliers par style/âge, boutiques indépendantes (revente), entreprises (uniformes, merch), clubs et associations |
+| Minier | Fournir équipements, services ou main-d'œuvre à un site d'exploitation ; sécuriser l'accès au site | Taille du gisement et du site, étape (exploration/construction/production), capacité financière, certifications sécurité | Cours des métaux, permis et consultations des communautés, réglementation environnementale, accès routier/énergie, climat | Minières juniors vs majeures, sous-traitants, communautés et fournisseurs locaux, bureaux d'ingénierie |
+| SaaS | Gagner du temps ou réduire une erreur coûteuse dans un processus précis | Maturité du produit, prix et paliers, coût d'acquisition et de support, intégrations | Concurrence (outils existants, tableurs), cycle d'achat et budget des clients, réglementation des données, adoption de l'IA, saisonnalité du secteur client | Petites équipes, PME, grands comptes (achat long), indépendants, revendeurs/intégrateurs |
+| Services professionnels | Obtenir une expertise ponctuelle ou récurrente sans l'embaucher | Spécialité, tarif horaire/forfait, capacité disponible, références et portfolio | Cycles fiscaux et budgétaires, réglementation de la profession, bouche-à-oreille local, conjoncture économique | PME locales, travailleurs autonomes, OBNL, grandes entreprises (appels d'offres), clients récurrents vs ponctuels |
+
+### Questions de recherche à relancer à chaque exécution (identiques dans la forme, réponses recalculées pour {zone} et {secteur})
+1. Quel est le besoin précis, qui le ressent le plus et à quelle fréquence ? Que coûte de ne pas le combler ?
+2. Quelles solutions concurrentes ou de contournement existent déjà dans {zone} ? Prix typiques (`estimation`) ?
+3. Quels facteurs internes (taille, étape, capacité, marges) font passer le même besoin de faible à fort selon l'entreprise ?
+4. Quels facteurs externes ont changé récemment dans {zone} (réglementation, prix, saison, événements, technologie) ?
+5. Quels cycles de calendrier (saison, exercice fiscal, budgets) disent QUAND approcher chaque type de clientèle ?
+6. Quels signaux publics repèrent le bon client (annuaires, permis, appels d'offres, offres d'emploi, événements, réseaux) ?
+7. Qui décide l'achat et par quel canal faut-il le joindre ? Quelle langue et quelles normes locales ?
+8. Quel facteur propre à ce secteur n'est PAS dans cette grille ? (obligation d'en proposer au moins un nouveau, pour éviter le gabarit figé)
+9. Quelles tâches concrètes de prospection en découlent, rangées dans quel pôle/secteur de l'activité, sans toucher à « à ignorer » ?
+
+Sortie : mêmes champs que le schéma de la section 3 ; la grille ci-dessus n'est qu'une amorce de prompt, jamais un affichage.

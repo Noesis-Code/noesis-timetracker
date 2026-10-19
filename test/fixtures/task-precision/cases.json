@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Cas réalistes en français. kind=classify : saisie manuelle (jamais rejetée par « à ignorer ») ; kind=generate : tâche proposée par l'IA (« à ignorer » appliqué). expect.outcome : place (avec key) | reject (à ignorer) | duplicate | uncertain.",
+  "note": "Cas réalistes en français, en anglais (e*) et mixtes fr/en (m*). kind=classify : saisie manuelle (jamais rejetée par « à ignorer ») ; kind=generate : tâche proposée par l'IA (« à ignorer » appliqué). expect.outcome : place (avec key) | reject (à ignorer) | duplicate | uncertain.",
   "contexts": {
     "cafe": {
       "name": "Torréfacteur de café",
@@ -54,6 +54,39 @@
         { "key": "compta", "label": "Gestion → Comptabilité", "description": "factures taxes TPS TVQ paiements budget" }
       ],
       "strategy": { "goal": "Ouvrir la terrasse en mai", "deadline": "2027-05-01", "priorities": ["Terrasse","Menu d'été","Réservations en ligne"], "ignore": "livraison à domicile; programme de fidélité" }
+    },
+    "roast": {
+      "name": "Coffee roaster (EN)",
+      "candidates": [
+        { "key": "sourcing", "label": "Production → Sourcing", "description": "order green coffee beans suppliers importer shipments purchase" },
+        { "key": "roast", "label": "Production → Roasting", "description": "roast roasting profiles batches machine maintenance" },
+        { "key": "pack", "label": "Production → Packaging", "description": "pack bags labels shipping parcels" },
+        { "key": "shop", "label": "Sales → Online store", "description": "website products photos orders customers online checkout" },
+        { "key": "wholesale", "label": "Sales → Wholesale clients", "description": "cafes restaurants wholesalers quotes prospecting outreach" },
+        { "key": "fin", "label": "Admin → Accounting", "description": "invoices taxes payments budget bills" },
+        { "key": "hr", "label": "Admin → Staff", "description": "employees schedules hiring training payroll" }
+      ],
+      "strategy": { "goal": "Launch the online store before Christmas", "deadline": "2026-12-01", "priorities": ["Online store", "Wholesale clients", "Roast quality"], "ignore": "logo redesign, social media, hiring" }
+    },
+    "free": {
+      "name": "Freelance designer (EN)",
+      "candidates": [
+        { "key": "clients", "label": "Clients", "description": "projects in progress mockups deliverables feedback revisions" },
+        { "key": "prospect", "label": "Prospecting", "description": "find new clients quotes outreach portfolio" },
+        { "key": "admin", "label": "Admin", "description": "invoicing invoices accountant taxes contracts insurance" },
+        { "key": "learn", "label": "Learning", "description": "learn courses tools tutorials" }
+      ],
+      "strategy": { "goal": "Double the SME client base by June", "deadline": "2027-06-30", "priorities": ["Find new clients", "Finish current projects", ""], "ignore": "newsletter; podcast; redo website" }
+    },
+    "saas": {
+      "name": "Startup SaaS bilingue (Montréal)",
+      "candidates": [
+        { "key": "produit", "label": "Produit → Développement", "description": "code bug feature release deploy développement correctif connexion" },
+        { "key": "support", "label": "Clients → Support", "description": "tickets support customers help réponses" },
+        { "key": "ventes", "label": "Ventes → Démos", "description": "demo prospects trial essai démonstration pipeline" },
+        { "key": "compta", "label": "Admin → Finances", "description": "invoice facture taxes paiement budget billing" }
+      ],
+      "strategy": { "goal": "", "deadline": "", "priorities": ["", "", ""], "ignore": "webinaire, conférence" }
     }
   },
   "cases": [
@@ -119,6 +152,51 @@
     { "id": "c60", "context": "resto", "kind": "classify", "label": "Payer la facture du fournisseur de légumes", "expect": { "outcome": "place", "key": "compta" } },
     { "id": "c61", "context": "resto", "kind": "classify", "label": "Former les serveurs au nouveau menu", "expect": { "outcome": "place", "key": "rh" } },
     { "id": "c62", "context": "cafe", "kind": "classify", "label": "Photographier les sacs emballés pour la boutique", "expect": { "outcome": "place", "key": "boutique" } },
-    { "id": "c63", "context": "etu", "kind": "classify", "label": "Payer le loyer et le budget du mois", "expect": { "outcome": "place", "key": "perso" } }
+    { "id": "c63", "context": "etu", "kind": "classify", "label": "Payer le loyer et le budget du mois", "expect": { "outcome": "place", "key": "perso" } },
+    { "id": "e01", "context": "roast", "kind": "classify", "label": "Order 120 kg of green coffee from the supplier", "expect": {"outcome": "place", "key": "sourcing"} },
+    { "id": "e02", "context": "roast", "kind": "classify", "label": "Roast the Guatemala batch", "expect": {"outcome": "place", "key": "roast"} },
+    { "id": "e03", "context": "roast", "kind": "classify", "label": "Print labels for the 340 g bags", "expect": {"outcome": "place", "key": "pack"} },
+    { "id": "e04", "context": "roast", "kind": "classify", "label": "Photograph the new products for the website", "expect": {"outcome": "place", "key": "shop"} },
+    { "id": "e05", "context": "roast", "kind": "classify", "label": "Send a quote to the restaurant Chez Léa", "expect": {"outcome": "place", "key": "wholesale"} },
+    { "id": "e06", "context": "roast", "kind": "classify", "label": "Pay the supplier invoice for green beans", "expect": {"outcome": "place", "key": "fin"} },
+    { "id": "e07", "context": "roast", "kind": "classify", "label": "Train the new employee on packing", "expect": {"outcome": "place", "key": "hr"} },
+    { "id": "e08", "context": "roast", "kind": "classify", "label": "File the quarterly tax return", "expect": {"outcome": "place", "key": "fin"} },
+    { "id": "e09", "context": "roast", "kind": "classify", "label": "Call Marc", "expect": {"outcome": "uncertain"} },
+    { "id": "e10", "context": "roast", "kind": "classify", "label": "Fix the roasting machine", "expect": {"outcome": "place", "key": "roast"} },
+    { "id": "e11", "context": "roast", "kind": "classify", "label": "Test checkout on the online store", "expect": {"outcome": "place", "key": "shop"} },
+    { "id": "e12", "context": "roast", "kind": "generate", "label": "Plan a logo redesign", "expect": {"outcome": "reject"} },
+    { "id": "e13", "context": "roast", "kind": "generate", "label": "Post three updates on social media", "expect": {"outcome": "reject"} },
+    { "id": "e14", "context": "roast", "kind": "generate", "label": "Hire a part-time employee", "expect": {"outcome": "reject"} },
+    { "id": "e15", "context": "roast", "kind": "generate", "label": "Order the green coffee", "existing": ["Order the green coffee."], "expect": {"outcome": "duplicate"} },
+    { "id": "e16", "context": "roast", "kind": "generate", "label": "Pay the carrier's invoice", "existing": ["Pay the supplier invoice"], "expect": {"outcome": "place", "key": "fin"}, "comment": "Un seul mot diffère : pas un doublon." },
+    { "id": "e17", "context": "roast", "kind": "generate", "label": "Email the café about the tasting", "expect": {"outcome": "place", "key": "wholesale"} },
+    { "id": "e18", "context": "free", "kind": "classify", "label": "Send the final mockup to client Dupuis Bakery", "expect": {"outcome": "place", "key": "clients"} },
+    { "id": "e19", "context": "free", "kind": "classify", "label": "Send my March invoice", "expect": {"outcome": "place", "key": "admin"} },
+    { "id": "e20", "context": "free", "kind": "classify", "label": "Update the portfolio for outreach", "expect": {"outcome": "place", "key": "prospect"} },
+    { "id": "e21", "context": "free", "kind": "classify", "label": "Follow a Figma tutorial", "expect": {"outcome": "place", "key": "learn"} },
+    { "id": "e22", "context": "free", "kind": "generate", "label": "Record a podcast episode about design", "expect": {"outcome": "reject"} },
+    { "id": "e23", "context": "free", "kind": "generate", "label": "Redo the website in Webflow", "expect": {"outcome": "reject"} },
+    { "id": "e24", "context": "free", "kind": "generate", "label": "Revise the client's site after their feedback", "expect": {"outcome": "place", "key": "clients"}, "comment": "« redo website » est à ignorer, pas « client site » : ne doit pas être rejeté." },
+    { "id": "e25", "context": "free", "kind": "classify", "label": "Meeting", "expect": {"outcome": "uncertain"} },
+    { "id": "e26", "context": "roast", "kind": "classify", "label": "Sort that out", "expect": {"outcome": "uncertain"} },
+    { "id": "e27", "context": "roast", "kind": "classify", "label": "Ordr green cofee from the suplier", "expect": {"outcome": "place", "key": "sourcing"} },
+    { "id": "e28", "context": "free", "kind": "generate", "label": "Review the client feedback", "existing": ["Feedback from the client: review"], "expect": {"outcome": "duplicate"} },
+    { "id": "e29", "context": "roast", "kind": "generate", "label": "Call the supplier to confirm the 120 kg green coffee order, then check delivery with the importer and email the whole team", "expect": {"outcome": "place", "key": "sourcing"} },
+    { "id": "e30", "context": "free", "kind": "generate", "label": "Finish the mockups", "existing": ["Finish the mockup"], "expect": {"outcome": "duplicate"} },
+    { "id": "m01", "context": "saas", "kind": "classify", "label": "Fix the bug de connexion", "expect": {"outcome": "place", "key": "produit"} },
+    { "id": "m02", "context": "saas", "kind": "classify", "label": "Répondre au ticket du client Acme", "expect": {"outcome": "place", "key": "support"} },
+    { "id": "m03", "context": "saas", "kind": "classify", "label": "Préparer la demo pour le prospect", "expect": {"outcome": "place", "key": "ventes"} },
+    { "id": "m04", "context": "saas", "kind": "classify", "label": "Envoyer the invoice de mai", "expect": {"outcome": "place", "key": "compta"} },
+    { "id": "m05", "context": "saas", "kind": "classify", "label": "Release la nouvelle feature vendredi", "expect": {"outcome": "place", "key": "produit"} },
+    { "id": "m06", "context": "saas", "kind": "classify", "label": "Pay la facture AWS", "expect": {"outcome": "place", "key": "compta"} },
+    { "id": "m07", "context": "saas", "kind": "classify", "label": "Follow-up avec le prospect après le trial", "expect": {"outcome": "place", "key": "ventes"} },
+    { "id": "m08", "context": "saas", "kind": "generate", "label": "Organiser un webinaire pour les clients", "expect": {"outcome": "reject"} },
+    { "id": "m09", "context": "saas", "kind": "generate", "label": "Inscrire l'équipe à la conférence", "expect": {"outcome": "reject"} },
+    { "id": "m10", "context": "saas", "kind": "generate", "label": "Fix the bug de connexion", "existing": ["Fix the bug de connexion."], "expect": {"outcome": "duplicate"} },
+    { "id": "m11", "context": "saas", "kind": "classify", "label": "Appeler Marc about the thing", "expect": {"outcome": "uncertain"} },
+    { "id": "m12", "context": "cafe", "kind": "classify", "label": "Order café vert chez le fournisseur", "expect": {"outcome": "place", "key": "appro"} },
+    { "id": "m13", "context": "pige", "kind": "classify", "label": "Envoyer the final maquette au client", "expect": {"outcome": "place", "key": "clients"} },
+    { "id": "m14", "context": "resto", "kind": "classify", "label": "Book la terrasse pour samedi", "expect": {"outcome": "place", "key": "salle"} },
+    { "id": "m15", "context": "resto", "kind": "classify", "label": "Reserver the terase pour samedi", "expect": {"outcome": "place", "key": "salle"} }
   ]
 }

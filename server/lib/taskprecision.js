@@ -2,7 +2,9 @@
 // appliquées avant/après l'IA. Rien ici ne modifie une saisie manuelle : ces règles ne touchent que les tâches PROPOSÉES par l'IA
 // (titres normalisés, doublons, « à ignorer » de la stratégie) ou servent de mesure (scripts/eval-task-precision.js).
 
-const STOP = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'un', 'une', 'et', 'ou', 'a', 'au', 'aux', 'en', 'pour', 'sur', 'dans', 'd', 'l', 'ne', 'pas', 'tout', 'tous', 'avec', 'par', 'mon', 'ma', 'mes', 'ce', 'cette', 'faire', 'ignorer', 'eviter']);
+const STOP = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'un', 'une', 'et', 'ou', 'a', 'au', 'aux', 'en', 'pour', 'sur', 'dans', 'd', 'l', 'ne', 'pas', 'tout', 'tous', 'avec', 'par', 'mon', 'ma', 'mes', 'ce', 'cette', 'faire', 'ignorer', 'eviter',
+  // anglais (titres rédigés en anglais ou mixtes fr/en)
+  'the', 'for', 'and', 'with', 'from', 'our', 'your', 'that', 'this', 'about', 'after', 'before', 'into', 'then', 'them', 'their', 'his', 'her', 'its', 'all', 'you', 'are', 'was']);
 
 // Titre proposé : sans puces/numérotation/case à cocher, sans ponctuation finale, espaces réduits, 200 caractères.
 function cleanTitle(raw) {
@@ -25,9 +27,12 @@ function tokens(v) {
 function stem(w) {
   if (w.length <= 3 || /\d/.test(w)) return w;
   let s = w.replace(/(.)\1+/g, '$1');                       // lettres doublées (fautes de frappe : terrasse/terase)
-  if (s.length > 5) s = s.replace(/(?:ations?|tions?|ions?)$/, '');
-  if (s.length > 3) s = s.replace(/[sx]$/, '');
-  if (s.length > 4) s = s.replace(/(?:ement|ent|er|ez|e)$/, '');
+  if (s.length > 4) s = s.replace(/ies$/, 'y');             // anglais : companies/company
+  if (s.length > 3) s = s.replace(/[sx]$/, '');             // pluriel AVANT le suffixe (révisions/révision -> révis, comme réviser)
+  if (s.length > 5) s = s.replace(/ction$/, 'ct').replace(/(?:ations?|tions?|ions?)$/, ''); // prospection/prospecter -> prospect
+  if (s.length > 5) s = s.replace(/ing$/, '');              // anglais : hiring/hire, roasting/roast
+  if (s.length > 4) s = s.replace(/ed$/, '');               // anglais : roasted/roast
+  if (s.length > 3) s = s.replace(/(?:ement|ent|er|ez|e)$/, '');
   return s;
 }
 
@@ -68,7 +73,7 @@ function isDuplicate(title, others) { return (others || []).some((o) => sameTitl
 
 // « Action contre sujet » : le verbe d'ouverture dit le domaine (« Payer la facture du fournisseur » = finances, pas approvisionnement).
 // Renvoie les mots-thèmes (racines) à pondérer en plus des mots du titre ; liste fermée, volontairement courte, 0 hasard.
-const ACTION_THEMES = { pay: ['paiement'], rembours: ['paiement'], declar: ['impot', 'taxe'], form: ['formation'], embauch: ['embauche'], photographi: ['photo'] };
+const ACTION_THEMES = { pay: ['paiement', 'payment', 'invoice'], rembours: ['paiement'], declar: ['impot', 'taxe'], form: ['formation'], embauch: ['embauche'], photographi: ['photo'] };
 function actionHints(title) {
   const first = tokens(title)[0];
   return first && ACTION_THEMES[first] ? ACTION_THEMES[first].map(stem) : [];
