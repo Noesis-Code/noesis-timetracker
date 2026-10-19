@@ -239,13 +239,9 @@ async function runBackupOnce(logger = console) {
 
 async function purgeOldBackups(client, cfg, logger = console) {
   try {
-    const objects = await client.listObjects(cfg.prefix);
-    objects.sort((a, b) => (a.key < b.key ? 1 : -1)); // plus récent d'abord (horodatage ISO dans la clé)
-    const toDelete = objects.slice(cfg.keep);
-    for (const obj of toDelete) {
-      await client.deleteObject(obj.key);
-      logger.log(`[backup] Purge : ${obj.key} (au-delà des ${cfg.keep} sauvegardes conservées)`);
-    }
+    // Rétention 14 j / 8 sem. / 12 mois ; simulation sauf BACKUP_RETENTION_APPLY=1
+    // (voir backupretention.js). NOESIS_BACKUP_KEEP n'est plus utilisé.
+    await require('./backupretention').applyRetention(client, cfg.prefix, logger);
   } catch (err) {
     // Une purge ratée n'invalide jamais la sauvegarde qui vient de réussir.
     logger.error('[backup] Échec de la purge (sans conséquence sur la sauvegarde) :', err.message);
@@ -266,7 +262,7 @@ function startBackupSchedule(logger = console) {
     return;
   }
 
-  logger.log(`[backup] Activées — première copie dans 2 minutes, puis toutes les ${cfg.intervalHours} h. Rétention : ${cfg.keep} copies.`);
+  logger.log(`[backup] Activées — première copie dans 2 minutes, puis toutes les ${cfg.intervalHours} h. Rétention : 14 j / 8 sem. / 12 mois (simulation tant que BACKUP_RETENTION_APPLY≠1).`);
 
   const twoMinutes = 2 * 60 * 1000;
   const intervalMs = cfg.intervalHours * 60 * 60 * 1000;

@@ -105,6 +105,7 @@ app.use(express.json({ limit: '15mb' }));
 // le client. Doit être monté AVANT toutes les routes /api, qui s'appuient
 // désormais sur req.userId plutôt que sur un userId envoyé par le client.
 app.use(require('./lib/session').middleware);
+app.use(require('./lib/ratelimit').middleware()); // limitation de débit des écritures /api (par IP et par utilisateur), voir server/lib/ratelimit.js
 app.use((req, res, next) => require('./lib/aibudget').runAs(req.userId, next)); // utilisateur courant pour le budget IA
 app.use(require('./lib/modulegate').moduleGate); // modules désactivés : 403 « module_off » (données conservées), voir server/lib/modulegate.js
 app.use(require('./routes/mcp')); // « Connecter mon IA » : POST /mcp (lecture seule) + /api/ai-tokens
