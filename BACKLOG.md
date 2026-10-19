@@ -98,3 +98,11 @@ Prochaines pistes (à mesurer avec le rapport sur données réelles avant d'agir
 **Ne doit PAS l'interrompre** : correctifs, fonctionnalités cohérentes avec la demande, conflits de merge résolus, choix techniques (signalés en une ligne dans le compte rendu).
 **Cadence cible** : lots courts (≤ 1 h de travail par agent), chantiers permanents toujours relancés (jamais de créneau vide), agents en parallèle sur segments disjoints, un seul agent à la fois sur un fichier très partagé ; push direct sur `staging` dès que testé ; point de situation (`scripts/chantiers-status.js`) à chaque relance ; au plus un message à Émilien par heure hors alerte, un récapitulatif par jour.
 
+
+## Basic — à décider (chantier 2, lot 1, 19 oct. 2026)
+Tâches du pôle TiMeTracker / « Time Tracker – Gratuit » examinées, non exécutées (elles ajoutent des fonctions ou de l'interface, contredisent la charte, ou sont déjà faites). Aucune ne corrige un défaut restant.
+- Déjà faites (à clore) : #68 / #1360 défilement de la zone libre IA (74e8e5c) ; #71 / #1359 clic d'une période sur le mauvais secteur (5dd0715) ; #1252 / #1265 défauts de confidentialité (création de profil : partage coordonnées désactivé) ; #1361 dates suggérées (116495d).
+- Refusées par la charte / journal « Refusé » : #532, #533, #1450, #1451 (pop-up ou bascule de confirmation IA) ; #542-#544, #1457 (un design par fonction, contredit DESIGN.md) ; #1366-#1380 (conversations de groupe, notes, tâches éphémères, bulles).
+- Ajoutent de l'interface ou une fonction (à décider par Émilien) : #535-#537, #1258, #1259 (vues jour/semaine/mois/année de la Feuille de route) ; #541, #1456 (regrouper modifier/supprimer) ; #581, #1476 (prise de RDV) ; #613 (animation N) ; #622, #1490 (phase découverte) ; #623, #1491 (case commentaire d'amélioration) ; #703, #1507-#1509, #704 (liste d'objectifs, couleurs, bouton « besoin »).
+- Relèvent d'Expansion / paiement / IA : #22, #477, #1278, #1282 (paiement, CGU) ; #72, #1362 (contexte IA) ; #77, #1364 (cross-secteur) ; #689, #716, #736 (prompt Feuille de route).
+- Performance mesurée (60 000 entrées, 30 activités) : aucune requête lente due à un index manquant ; GET /api/stats et /api/profile/:id/stats (~540 ms, 5 Mo) renvoient tout l'historique jour par jour (conception du Graphique), à plafonner côté produit si besoin.
