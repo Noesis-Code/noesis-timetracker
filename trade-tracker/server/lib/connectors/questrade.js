@@ -15,6 +15,7 @@
 // Les numéros de compte servent d'externalId ; ils ne sont jamais renvoyés par l'API publique.
 const crypto = require('node:crypto');
 const brokertoken = require('../brokertoken');
+const { assertReadOnlyRequest } = require('../readonlyguard');
 
 const LOGIN_URL = 'https://login.questrade.com/oauth2/token';
 const ACCOUNT_TYPES = { TFSA: 'CELI', RRSP: 'REER', FHSA: 'CELIAPP' };
@@ -43,6 +44,7 @@ function parseTokenResponse(j, now = Date.now()) {
 // Ne lève que pour une panne réseau, avec un message SANS URL (le jeton est dans l'URL du renouvellement).
 function createFetchHttp({ fetchImpl = globalThis.fetch, timeoutMs = 20000 } = {}) {
   return async function http({ url, method = 'GET', headers = {} }) {
+    assertReadOnlyRequest({ url, method }); // dernier garde-fou avant le réseau : GET sur liste blanche seulement
     let res;
     try { res = await fetchImpl(url, { method, headers: { Accept: 'application/json', ...headers }, signal: AbortSignal.timeout(timeoutMs) }); }
     catch (e) { throw new QuestradeError('Questrade injoignable (' + (e && e.name === 'TimeoutError' ? 'délai dépassé' : 'erreur réseau') + ')', { code: 'NETWORK' }); }
@@ -112,6 +114,7 @@ function createQuestradeConnector({ db, env = process.env, http, now = () => Dat
 
   // Requête avec recul : 429 (Retry-After), 5xx et pannes réseau sont rejoués ; le reste est rendu tel quel.
   async function request(req, secrets) {
+    assertReadOnlyRequest(req); // lecture seule : jamais d'écriture chez le courtier (voir readonlyguard.js)
     for (let attempt = 0; ; attempt++) {
       let res = null, netErr = null;
       try { res = await getHttp()(req); } catch (e) { netErr = e; }

@@ -161,10 +161,10 @@ assert.strictEqual(Q.parseTokenResponse(fx('token'), 1000).apiServer, 'https://a
 
   // --- client fetch de production (faux fetch) : jamais d'URL dans l'erreur réseau ---
   { const h = Q.createFetchHttp({ fetchImpl: async () => ({ status: 200, headers: new Map([['retry-after', '3']]), json: async () => ({ a: 1 }) }) });
-    const o = await h({ url: 'https://login.questrade.com/x?refresh_token=' + OLD });
+    const o = await h({ url: 'https://login.questrade.com/oauth2/token?grant_type=refresh_token&refresh_token=' + OLD });
     assert.deepStrictEqual([o.status, o.body.a, o.headers['retry-after']], [200, 1, '3']);
     const h2 = Q.createFetchHttp({ fetchImpl: async (u) => { throw new Error('fail ' + u); } });
-    await assert.rejects(() => h2({ url: 'https://login.questrade.com/x?refresh_token=' + OLD }), (e) => !e.message.includes(OLD)); }
+    await assert.rejects(() => h2({ url: 'https://login.questrade.com/oauth2/token?grant_type=refresh_token&refresh_token=' + OLD }), (e) => !e.message.includes(OLD)); }
 
   // --- incrémental : seule la fin de l'historique est redemandée une fois les transactions connues ---
   { const d = fresh(), u = addUser(d, 'x'); B.saveBrokerToken(d, u, OLD, { env });

@@ -3,30 +3,54 @@
 // Le connecteur réel viendra plus tard ; ici, seulement le stockage sûr.
 const crypto = require('node:crypto');
 
-function keyOf(env = process.env) {
-  const k = env.TRADE_TOKEN_KEY;
-  if (!k || k.length < 16) throw new Error('TRADE_TOKEN_KEY manquante ou trop courte');
+// Anneau de clés versionné. TRADE_TOKEN_KEY = clé COURANTE, version TRADE_TOKEN_KEY_VERSION (défaut 1).
+// Anciennes clés (rotation) : TRADE_TOKEN_KEY_V<n> (n = ancienne version). Procédure : trade-tracker/DEPLOY.md, script rotate-key.js.
+function currentVersion(env = process.env) {
+  const v = Number(env.TRADE_TOKEN_KEY_VERSION || 1);
+  if (!Number.isInteger(v) || v < 1 || v > 9999) throw new Error('TRADE_TOKEN_KEY_VERSION invalide');
+  return v;
+}
+function keyOf(env = process.env, version = currentVersion(env)) {
+  const k = version === currentVersion(env) ? env.TRADE_TOKEN_KEY : env['TRADE_TOKEN_KEY_V' + version];
+  if (!k || k.length < 16) throw new Error(version === currentVersion(env) ? 'TRADE_TOKEN_KEY manquante ou trop courte' : 'clé de chiffrement version ' + version + ' absente');
   return crypto.createHash('sha256').update(k).digest();
 }
 
-function encrypt(plain, env) {
+// Format : v<version>.iv.tag.données (base64url). Le contexte (ex. « broker:12:questrade ») est lié au chiffré (AAD) :
+// un chiffré copié vers une autre ligne/utilisateur ne se déchiffre plus. Ancien format « iv.tag.données » = version 1, sans AAD.
+function encrypt(plain, env, ctx = '') {
+  const version = currentVersion(env);
   const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv('aes-256-gcm', keyOf(env), iv);
+  const c = crypto.createCipheriv('aes-256-gcm', keyOf(env, version), iv);
+  c.setAAD(Buffer.from('tt1|' + version + '|' + ctx));
   const data = Buffer.concat([c.update(String(plain), 'utf8'), c.final()]);
-  return [iv, c.getAuthTag(), data].map((b) => b.toString('base64url')).join('.');
+  return 'v' + version + '.' + [iv, c.getAuthTag(), data].map((b) => b.toString('base64url')).join('.');
 }
 
-function decrypt(enc, env) {
-  const [iv, tag, data] = String(enc).split('.').map((x) => Buffer.from(x, 'base64url'));
-  const d = crypto.createDecipheriv('aes-256-gcm', keyOf(env), iv);
+function parseEnc(enc) {
+  const parts = String(enc).split('.');
+  if (parts.length === 4 && /^v\d+$/.test(parts[0])) return { version: Number(parts[0].slice(1)), parts: parts.slice(1), legacy: false };
+  if (parts.length === 3) return { version: 1, parts, legacy: true };
+  throw new Error('format chiffré invalide');
+}
+function encVersion(enc) { return parseEnc(enc).version; }
+function encIsLegacy(enc) { return parseEnc(enc).legacy; }
+
+function decrypt(enc, env, ctx = '') {
+  const { version, parts, legacy } = parseEnc(enc);
+  const [iv, tag, data] = parts.map((x) => Buffer.from(x, 'base64url'));
+  const d = crypto.createDecipheriv('aes-256-gcm', keyOf(env, version), iv);
+  if (!legacy) d.setAAD(Buffer.from('tt1|' + version + '|' + ctx));
   d.setAuthTag(tag);
   return Buffer.concat([d.update(data), d.final()]).toString('utf8');
 }
 
+const brokerCtx = (userId, broker) => 'broker:' + userId + ':' + broker;
+
 function saveBrokerToken(db, userId, plain, { broker = 'questrade', env = process.env, now = Date.now() } = {}) {
   db.prepare(`INSERT INTO broker_tokens (userId, broker, tokenEnc, updatedAt) VALUES (?,?,?,?)
     ON CONFLICT(userId, broker) DO UPDATE SET tokenEnc = excluded.tokenEnc, updatedAt = excluded.updatedAt`)
-    .run(userId, broker, encrypt(plain, env), new Date(now).toISOString());
+    .run(userId, broker, encrypt(plain, env, brokerCtx(userId, broker)), new Date(now).toISOString());
 }
 
 // Rotation d'un jeton à usage unique : remplace `oldPlain` par `newPlain` en une transaction (BEGIN IMMEDIATE).
@@ -44,7 +68,7 @@ function rotateBrokerToken(db, userId, oldPlain, newPlain, { broker = 'questrade
 
 function getBrokerToken(db, userId, { broker = 'questrade', env = process.env } = {}) {
   const r = db.prepare('SELECT tokenEnc FROM broker_tokens WHERE userId = ? AND broker = ?').get(userId, broker);
-  return r ? decrypt(r.tokenEnc, env) : null;
+  return r ? decrypt(r.tokenEnc, env, brokerCtx(userId, broker)) : null;
 }
 
 function hasBrokerToken(db, userId, broker = 'questrade') {
@@ -76,4 +100,4 @@ function purgeSyncData(db, userId) {
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
-module.exports = { encrypt, decrypt, saveBrokerToken, rotateBrokerToken, getBrokerToken, hasBrokerToken, isValidTokenFormat, hasEncryptionKey, deleteBrokerToken, purgeSyncData };
+module.exports = { encrypt, decrypt, encVersion, encIsLegacy, currentVersion, brokerCtx, saveBrokerToken, rotateBrokerToken, getBrokerToken, hasBrokerToken, isValidTokenFormat, hasEncryptionKey, deleteBrokerToken, purgeSyncData };
