@@ -35,7 +35,7 @@ function serializeActivity(a, userId) {
     // arriver ici) est traité comme activé, par cohérence avec le DEFAULT 1
     // de la colonne.
     notifyEnabled: membership ? !!membership.notifyEnabled : true,
-    // 6 oct. 2026 : Publique (false, défaut) / Confidentielle (true) — personnel à chaque membre.
+    // Publique (false, défaut) / Confidentielle (true) — personnel à chaque membre.
     confidential: membership ? !!membership.confidential : false,
   };
 }
@@ -187,7 +187,7 @@ router.put('/activities/:id', (req, res) => {
       .run(req.body.notifyEnabled ? 1 : 0, activity.id, userId);
   }
 
-  // 6 oct. 2026 : confidentialité — chaque membre règle sa propre part.
+  // Confidentialité — chaque membre règle sa propre part.
   if (req.body.confidential !== undefined) {
     db.prepare('UPDATE activity_members SET confidential = ? WHERE activityId = ? AND userId = ?')
       .run(req.body.confidential ? 1 : 0, activity.id, userId);
@@ -490,7 +490,7 @@ router.post('/activities/:id/merge', (req, res) => {
     // resteraient rattachés à un sous-projet d'une autre activité, et rien ne
     // le signalerait. Le temps, lui, est intégralement conservé.
     // AC·04 : pôles, secteurs, tâches et plans suivent (avant le temps).
-    // 9 oct. 2026 (Émilien) : la fusion n'importe NI pôles, NI secteurs, NI tâches, NI objectifs.
+    // La fusion n'importe NI pôles, NI secteurs, NI tâches, NI objectifs.
     // Seul le temps est conservé, sans pôle (goalCategory NULL) ni sous-projet.
     db.prepare('UPDATE time_entries SET activityId = ?, subProjectId = NULL, goalCategory = NULL WHERE activityId = ? AND userId = ?')
       .run(target.id, source.id, userId);

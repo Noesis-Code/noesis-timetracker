@@ -278,7 +278,7 @@ router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, r
   }
 });
 
-// Redistribution des tâches d'un secteur retiré (9 oct. 2026) : selon le mode de
+// Redistribution des tâches d'un secteur retiré : selon le mode de
 // Noèsis de l'utilisateur — autonome : propositions appliquées d'office par le
 // client ; partiel : propositions à valider ; absence : aucun choix proposé.
 router.get('/activities/:id/goals/categories/:key/secteurs/:secteurKey/redistribution', async (req, res) => {

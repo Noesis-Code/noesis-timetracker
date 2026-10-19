@@ -162,7 +162,7 @@ router.get('/stats/today', (req, res) => {
   res.json({ day: today, label: "Aujourd'hui", breakdown: breakdownForRange(userId, today, today, ownVisibilityExcludedIds(userId, req.query.visibility)) });
 });
 
-// 2 oct. 2026 (Emilien) : mode « Semaine » du bouton de la Répartition — semaine calendaire en cours, depuis lundi jusqu'à aujourd'hui.
+// Mode « Semaine » du bouton de la Répartition — semaine calendaire en cours, depuis lundi jusqu'à aujourd'hui.
 router.get('/stats/week-so-far', (req, res) => {
   const userId = req.userId;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);

@@ -74,7 +74,7 @@ router.put('/sub-project-items/:id', (req, res) => {
     goalsauto.onSubProjectItemChanged(access.subProject.activityId, access.subProject.goalCategory);
   }
 
-  // 5 oct. 2026 : pop-up de rangement enregistré (page 1) → le responsable choisi (autre que
+  // Pop-up de rangement enregistré (page 1) → le responsable choisi (autre que
   // l'auteur) reçoit une notification. Le client envoie notifyAssignee à l'enregistrement.
   if (req.body && req.body.notifyAssignee === true) {
     require('../lib/taskassignnotif').notifyAssigned(item.id, userId);

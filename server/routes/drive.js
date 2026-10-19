@@ -17,7 +17,7 @@ function guard(req, res, next) {
   req.activityId = id;
   next();
 }
-// 18 oct. 2026 : seul le PROPRIÉTAIRE de l'activité connecte et gère Drive (limite les appels IA / la lecture de documents). Les autres membres
+// Seul le PROPRIÉTAIRE de l'activité connecte et gère Drive (limite les appels IA / la lecture de documents). Les autres membres
 // voient et trient les mêmes « Nouvelles tâches » (pending, resolve, added...), sans connecter ni changer de dossier.
 function ownerOnly(req, res, next) {
   const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(req.activityId);
@@ -38,7 +38,7 @@ function ownerIdOf(req) {
   const a = db.prepare('SELECT ownerId FROM activities WHERE id = ?').get(req.activityId);
   return a ? a.ownerId : req.userId;
 }
-// 19 oct. 2026 : les membres Essor VOIENT la connexion, les dossiers et les documents du propriétaire (lecture) ; seul le propriétaire connecte/déconnecte/ajoute/retire un dossier.
+// Les membres Essor VOIENT la connexion, les dossiers et les documents du propriétaire (lecture) ; seul le propriétaire connecte/déconnecte/ajoute/retire un dossier.
 router.get('/drive/status', ...chain, wrap((req) => {
   const oid = ownerIdOf(req);
   const s = drive.status(oid, req.activityId); s.isOwner = oid === req.userId; return s;

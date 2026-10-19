@@ -1,4 +1,4 @@
-// « Connecter mon IA » — serveur MCP distant, LECTURE SEULE (19 oct. 2026).
+// « Connecter mon IA » — serveur MCP distant, LECTURE SEULE.
 // POST /mcp : Streamable HTTP, JSON-RPC 2.0 sans état. Authentification par
 // jeton personnel (Authorization: Bearer ... ou POST /mcp/t/<jeton>), voir server/lib/aitokens.js.
 // Aucun outil n'écrit : les fonctions appelées ici sont des lectures.
@@ -226,7 +226,7 @@ Object.assign(tools, {
   },
 });
 
-// Modules (19 oct. 2026) : module requis par outil (défaut roadmap ; lister_activites = noyau ; notifier = notifications).
+// Modules : module requis par outil (défaut roadmap ; lister_activites = noyau ; notifier = notifications).
 // Un outil dont le module est désactivé pour l'utilisateur disparaît de tools/list et refuse l'appel ; « Assistant IA » désactivé = tout le MCP refusé (voir handleMcpPost).
 for (const n of Object.keys(tools)) tools[n].module = n === 'lister_activites' ? 'core' : (n === 'notifier' ? 'notifications' : 'roadmap');
 const toolOn = (userId, name) => modules.isEnabled(userId, tools[name].module);

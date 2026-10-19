@@ -325,7 +325,7 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
     // CHAÎNÉ ici via .then() — jamais un second .catch() indépendant posé en
     // parallèle, pour ne jamais avoir deux appels IA concurrents sur le même
     // événement.
-    // 8 oct. 2026 (Émilien) : les objectifs hebdomadaires suivent le mode « gestion de l'IA ».
+    // Les objectifs hebdomadaires suivent le mode « gestion de l'IA ».
     // Autonome : remplissage automatique (comme avant). Partiel : le client demande la proposition
     // (POST …/weekly-proposals) et l'utilisateur valide. Absence ou mode jamais choisi : rien.
     const modeRow = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(userId);
@@ -371,7 +371,7 @@ router.get('/activities/:id/goals/periods/:periodNumber/capacity-plan', (req, re
   }
 });
 
-// 9 oct. 2026 : le statut d'une période est calculé par Noèsis d'après ses objectifs hebdomadaires ; plus de réglage manuel.
+// Le statut d'une période est calculé par Noèsis d'après ses objectifs hebdomadaires ; plus de réglage manuel.
 router.put('/activities/:id/goals/periods/:periodNumber/main-status', (req, res) => {
   res.status(410).json({ error: 'Le statut de la période est calculé automatiquement par Noèsis.' });
 });
@@ -587,7 +587,7 @@ router.get('/activities/:id/goals/tasks/overview', (req, res) => {
   }
 });
 
-// 5 oct. 2026 (Emilien) : archives des tâches cochées (7 derniers jours) ; efface au passage
+// Archives des tâches cochées (7 derniers jours) ; efface au passage
 // les tâches cochées depuis plus de 7 jours (ligne de tâche seulement).
 router.get('/activities/:id/goals/tasks/archives', (req, res) => {
   const userId = req.userId;
@@ -602,7 +602,7 @@ router.get('/activities/:id/goals/tasks/archives', (req, res) => {
   }
 });
 
-// 2 oct. 2026 (Emilien, option B) — surcharge quotidienne : plan PROPOSÉ,
+// Surcharge quotidienne : plan PROPOSÉ,
 // jamais appliqué sans validation. Logique : server/lib/goalsoverload.js.
 function overloadRoute(fn) {
   return (req, res) => {
@@ -622,7 +622,7 @@ router.get('/activities/:id/goals/overload', overloadRoute((u, a, b, q) => goals
 router.post('/activities/:id/goals/overload/apply', overloadRoute((u, a, b) => goalsoverload.applyProposal(u, a, b.signature, b.poleKey || undefined)));
 router.post('/activities/:id/goals/overload/dismiss', overloadRoute((u, a, b) => goalsoverload.dismissProposal(u, a, b.poleKey || undefined)));
 
-// 7 oct. 2026 — report entre périodes (liste « Non réalisées », tout proposé) et cible irréaliste
+// Report entre périodes (liste « Non réalisées », tout proposé) et cible irréaliste
 // (choix de l'utilisateur). Logique : server/lib/goalscarryover.js.
 router.get('/activities/:id/goals/unfinished', overloadRoute((u, a, b, q) => ({
   ...goalscarryover.unfinished(u, a, q.pole || undefined), realism: goalscarryover.realismAll(u, a, q.pole || undefined),
@@ -630,7 +630,7 @@ router.get('/activities/:id/goals/unfinished', overloadRoute((u, a, b, q) => ({
 router.post('/activities/:id/goals/unfinished/apply', overloadRoute((u, a, b) => goalscarryover.applyCarry(u, a, b, b.poleKey || undefined)));
 router.post('/activities/:id/goals/realism', overloadRoute((u, a, b) => goalscarryover.applyRealism(u, a, b)));
 
-// 7 oct. 2026 — recalcul d'après le temps réel : propositions en attente (créées par le job nocturne
+// Recalcul d'après le temps réel : propositions en attente (créées par le job nocturne
 // server/lib/goalsrecalc.js), appliquées ou écartées par l'utilisateur seulement.
 router.get('/activities/:id/goals/recalc', overloadRoute((u, a, b, q) => ({ proposals: goalsrecalc.listPending(u, a, q.pole || undefined) })));
 function recalcDecision(fn) {
@@ -646,7 +646,7 @@ function recalcDecision(fn) {
 router.post('/activities/:id/goals/recalc/:pid/apply', recalcDecision(goalsrecalc.apply));
 router.post('/activities/:id/goals/recalc/:pid/dismiss', recalcDecision(goalsrecalc.dismiss));
 
-// 7 oct. 2026 — plafonds de temps facultatifs (max/jour, max/semaine) d'un pôle ou secteur,
+// Plafonds de temps facultatifs (max/jour, max/semaine) d'un pôle ou secteur,
 // avec la moyenne historique en lecture seule. Logique : server/lib/timecaps.js.
 function timecapsRoute(fn) {
   return (req, res) => {
@@ -785,7 +785,7 @@ router.post('/goals/capture', async (req, res) => {
   const rawIds = Array.isArray(req.body.activityIds) ? req.body.activityIds : [];
   if (!rawIds.length) return res.status(400).json({ error: 'Au moins une activité doit être sélectionnée.' });
 
-  // 5 oct. 2026 (Emilien) : mode « gestion de l'IA » obligatoire avant la 1re capture.
+  // Mode « gestion de l'IA » obligatoire avant la 1re capture.
   const aiRow = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(userId);
   const aiMode = aiRow && aiRow.aiMode ? aiRow.aiMode : null;
   if (!aiMode) return res.status(409).json({ error: "Choisis d'abord comment Noèsis gère tes tâches.", needsAiMode: true });
@@ -801,7 +801,7 @@ router.post('/goals/capture', async (req, res) => {
 
   try {
     const ok = allowed.length ? await goalstaskclassify.captureTaskForActivities(allowed, userId, req.body.label, {
-      // 3 oct. 2026 : confirmations côté client (doublon, tri incertain) — voir
+      // Confirmations côté client (doublon, tri incertain) — voir
       // goalstaskclassify.js. Résultats avec `needs` ('duplicate' | 'category')
       // = rien créé, le client redemande puis renvoie allowDuplicate / forcedCategory.
       allowDuplicate: req.body.allowDuplicate === true,
@@ -838,7 +838,7 @@ router.get('/goals/capture/badges', (req, res) => {
     const out = {};
     activities.forEach((a) => {
       out[a.id] = goalstasks.unseenCountsForActivity(a.id);
-      // 5 oct. 2026 (Emilien) : X/Y des tâches du jour, affiché sur la puce de la page 1.
+      // X/Y des tâches du jour, affiché sur la puce de la page 1.
       try {
         const ov = goalstasks.tasksOverviewForActivity(a.id, req.query.today);
         out[a.id].daily = { done: ov.done, total: ov.total };

@@ -27,7 +27,7 @@ const { validateAttachmentPayload } = require('../lib/attachments');
 
 const router = express.Router();
 
-// Destination unique des messages d'aide (trame 12, 10 oct. 2026) : variable
+// Destination unique des messages d'aide (trame 12) : variable
 // d'environnement CONTACT_EMAIL, par défaut confidentialite.noesis@gmail.com
 // (adresse du compte Resend ; Gaspard la transfère ensuite vers la boîte de la compagnie).
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'confidentialite.noesis@gmail.com';
