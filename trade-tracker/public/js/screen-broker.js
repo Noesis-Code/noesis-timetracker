@@ -19,14 +19,28 @@
       .then(function (r) {
         token = null;
         if (r.ok) { msg = { cls: 'ok', text: 'Courtier connecté. La première synchro démarre.' }; TTD.reset(); TTApp.refresh(); return; }
-        var text = r.status === 404 ? 'Connexion du courtier pas encore disponible sur ce serveur.' : r.status === 400 || r.status === 422 ? 'Jeton refusé. Vérifie-le et réessaie.' : r.status === 401 ? 'Session expirée.' : 'Échec de l’envoi (' + r.status + ').';
+        if (r.status === 503) return r.json().catch(function () { return {}; }).then(function (j) { fail(j.message || 'Connexion du courtier indisponible sur ce serveur.'); });
+        var text = r.status === 404 ? 'Connexion du courtier pas encore disponible sur ce serveur.' : r.status === 400 || r.status === 422 ? 'Jeton refusé (16 à 512 caractères, sans espace). Vérifie-le et réessaie.' : r.status === 401 ? 'Session expirée.' : r.status === 429 ? 'Trop d’essais. Réessaie dans une minute.' : 'Échec de l’envoi (' + r.status + ').';
         fail(text);
       }, function () { token = null; fail('Hors ligne : le jeton n’a pas été envoyé.'); });
     function fail(text) { msg = { cls: 'error', text: text }; input.disabled = false; btn.disabled = false; out.className = 'formMsg error'; out.textContent = text; input.focus(); }
   }
+  // GET /api/broker/status : dernière synchro réussie et, s'il y en a un, message d'erreur de la dernière tentative.
+  function loadStatus(el) {
+    var box = el.querySelector('#brokerSyncInfo'); if (!box) return;
+    fetch('/api/broker/status', { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (r) {
+      if (!r.ok) throw new Error('status ' + r.status);
+      return r.json();
+    }).then(function (st) {
+      if (!box.isConnected) return;
+      box.innerHTML = '<span>Dernière synchro :</span> <span>' + (st.lastSyncAt ? TTF.esc(TTF.ago(st.lastSyncAt)) : 'Jamais') + '</span>' +
+        (st.lastSyncAt ? '<div class="hint">' + TTF.esc(TTF.dateTime(st.lastSyncAt)) + '</div>' : '') +
+        (st.error ? '<div class="formMsg error" role="alert"><span>Dernière synchro en échec :</span> <span>' + TTF.esc(st.error) + '</span></div>' : '');
+    }).catch(function () { if (box.isConnected) box.innerHTML = '<span class="formMsg error">État de la synchro indisponible.</span>'; });
+  }
   function confirmDisconnect() {
     var m = TTUI.modal('Déconnecter le courtier ?',
-      '<p class="hint" style="margin:0 0 14px">Le jeton sera effacé du serveur et la synchronisation s’arrêtera. Tes données déjà lues restent affichées.</p>' +
+      '<p class="hint" style="margin:0 0 14px">Le jeton sera effacé du serveur, la synchronisation s’arrêtera et les données synchronisées de ton compte (positions, historique, journal) seront supprimées définitivement.</p>' +
       '<div class="btnRow"><button type="button" class="btnGhost" id="discNo">Annuler</button><button type="button" class="btnDanger" id="discYes">Déconnecter</button></div>');
     m.root.querySelector('#discNo').addEventListener('click', m.close);
     m.root.querySelector('#discYes').addEventListener('click', function () {
@@ -44,7 +58,8 @@
       el.innerHTML =
         '<div class="pageHead"><div class="screenTitle">Connecter mon courtier</div><button type="button" class="topIconBtn" id="closePage" aria-label="Fermer">✕</button></div>' +
         '<div class="card"><div class="cardHead" style="margin:0"><div><div class="cardLabel">État</div><div class="syncBannerVal">' + (connected ? 'Connecté' : 'Non connecté') + '</div></div>' +
-        '<span class="statusBadge ' + (connected ? 'ok' : '') + '"><span class="syncDot"></span>' + (connected ? 'Actif' : 'Inactif') + '</span></div></div>' +
+        '<span class="statusBadge ' + (connected ? 'ok' : '') + '"><span class="syncDot"></span>' + (connected ? 'Actif' : 'Inactif') + '</span></div>' +
+        (connected && !demo ? '<div class="cardMeta" id="brokerSyncInfo" aria-live="polite">Lecture de l’état…</div>' : '') + '</div>' +
         '<div class="card"><div class="cardLabel">En 3 étapes</div><ol class="stepList">' + STEPS.map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ol></div>' +
         '<div class="card"><label class="cardLabel" for="brokerToken">' + (connected ? 'Remplacer le jeton' : 'Jeton d’accès') + '</label>' +
         '<div class="sendField"><input id="brokerToken" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Colle ton jeton ici"' + (demo ? ' disabled' : '') + ' aria-describedby="brokerMsg">' +
@@ -55,6 +70,7 @@
       el.querySelector('#closePage').addEventListener('click', function () { location.hash = '#/sync'; });
       el.querySelector('#brokerSend').addEventListener('click', function () { send(el, raw); });
       el.querySelector('#brokerToken').addEventListener('keydown', function (e) { if (e.key === 'Enter') send(el, raw); });
+      if (connected && !demo) loadStatus(el);
       var d = el.querySelector('#brokerDisc'); if (d) d.addEventListener('click', confirmDisconnect);
     }
   };
