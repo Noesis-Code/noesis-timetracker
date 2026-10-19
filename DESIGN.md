@@ -94,15 +94,12 @@ Accent « orange brique » des boutons d'action/suppression : `#C2694A` (bordure
 - Pas de ✕ remplacé par « Retour »/flèche pour fermer un plein écran, pas de bouton d'envoi hors de la zone d'écriture, pas de réordonnancement par flèches.
 - Ne pas appliquer un style demandé pour UN état aux autres.
 
-## 5. Incohérences constatées (non corrigées)
+## 5. Nettoyage du 19 oct. 2026 (bloc Tokens)
 
-1. **Couleurs en dur** : ~96 hex dans `styles.css` et ~80 dans `css/*.css` (surtout `objectifs-document-taches.css` 25, `objectifs-page1.css` 16). Récurrents : `#c2694a`/`#e08a69` (accent orange brique, 21 usages, sans variable), `#f59a3c` (pastilles), `#121214` (nuance `--bg-raised` écrite en littéral), `#eef0f2` (= `--text` sombre), `#2b2e35` (= `--track-bg`), `#7c5cff` (violet différent de `--purple`, `accent-color` des cases à cocher et `strategie.css`, avec repli en dur).
-2. **Violet incertain** : `#7c5cff` ≠ `#674EA7` ; `objectifs-page1.css` écrit `#4a3980`/`#674EA7`/`rgba(103,78,167,…)` en dur au lieu de `--purple*`.
-3. **Boutons multiples** : `.btn.btn-primary`, `.iconBtn`, `.menuBtn`, `.historyRowIconBtn`, `.chronoBtn`, `.activityChoiceBtn`, boutons capsule des fenêtres Objectifs : recettes proches mais distinctes (rayons 8/12/14/999, tailles 12/14/16). Le style « verre » est réappliqué bouton par bouton via de longues listes d'ID (`styles.css` l. 890-935) au lieu d'une classe unique.
-4. **Rouge vs orange** : `--red` (`#E74C3C`) reste défini mais les boutons danger sont passés à l'orange brique par surcharges doublées (`.iconBtn.danger.danger`, `.chronoBtn-stop.chronoBtn-stop`, l. 6035-6043) ; `.iconBtn.danger` d'origine (l. 1341) est donc contredit plus bas.
-5. **Pop-ups dupliquées** : `.communityMembersModal` (z 100) et `.goalTaskEditModal` (z 110) ont la même recette (voile, carte `--bg`, max 480, 80vh) en deux copies ; `.durPickerOverlay` (voile `.35`, z 400) diffère du voile `.5`.
-6. **Verre à deux systèmes** : `--glass-*` (blur 24 px) et `--vc-*` (blur 12 px, `verre-calme.css`) coexistent ; flous 24/30/40 px et `saturate(160%)` vs `1.8` / `1.4` mélangés. `verre-calme.css` est un « test » chargé en dernier qui surcharge les fonds `--card`.
-7. **Variable morte** : `--bg-raised` n'a plus de consommateur mais son littéral `#121214` est réutilisé 5 fois.
-8. **`.topbarDefault .topIconBtn`** recopie le verre sombre en dur (pas de jetons) ; `!important` omniprésents dans `objectifs-page1.css` (champs capsule).
-9. **Pas d'échelle d'espacement** ni de composant d'état vide/chargement dédié : chaque écran fixe ses marges et son message vide.
-10. **Blocs de commentaires historiques** très longs (en tête de `styles.css`) décrivant des états abandonnés (`--bg-raised`, `.tabbar`) : risque de contresens ; ce fichier prime.
+- **Un seul endroit pour ajuster le design** : bloc « TOKENS » en tête de `public/styles.css` (couleurs, accents orange brique, états, rayons, ombres, verre, halos, voile `--veil`). Plus aucune couleur hex en dur dans le CSS (hors commentaires) ; nouvelle couleur = nouvelle variable dans ce bloc.
+- **`#7c5cff` fusionné dans `--purple`** (`#674EA7`) ; `rgba(103,78,167,x)` → `rgba(var(--purple-rgb), x)` ; orange brique : `--brique`, `--brique-text`, `--brique-stop`, `--brique-rgb`.
+- **Verre : un seul jeu `--glass-*`**, deux niveaux : liquide (`--glass-bg/-border/-shadow/-blur/-blur-sheet`, flou 24/40 px) et calme (`--glass-calm-*`, ex-`--vc-*`, flou 12 px). Les valeurs n'ont pas été fusionnées (rendu inchangé).
+- **Modales** : `.communityMembersModal`/`.goalTaskEditModal` (et leurs cartes) partagent une seule recette (z-index 110 pour la seconde).
+- **Boutons orange brique** : contour = `.btnBrique` ; plein = groupe `.docTasksApplyBtn, .docTasksDriveBtn, .docTasksPill, .accompCodeOk` (styles.css).
+- Restent à unifier : rayons de boutons (8/12/14/999), `!important` des champs capsule d'`objectifs-page1.css`, échelle d'espacement, couleurs `rgba()` en dur (92 blancs translucides, jaunes d'alerte).
+
