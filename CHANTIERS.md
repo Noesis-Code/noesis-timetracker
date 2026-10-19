@@ -49,8 +49,6 @@ Alimentent un chantier quand son secteur principal n'a plus de tâche (règle 1)
 
 **4. Crédits Claude et API**
 1. Rapport de coût par fonction IA (`scripts/ai-cost-report.js`, `ai_usage_log`).
-2. Choix du modèle par tâche (Haiku d'abord) : tableau fonction / modèle / coût ; changement visible = proposé à Émilien.
-3. Répartition du travail Claude pour tenir ~14 % du quota par jour.
 
 **5. Simplification et design général**
 1. Propositions 6 à 10 du Simplificateur non réservées : les exécuter.
