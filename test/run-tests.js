@@ -194,6 +194,8 @@ async function main() {
   catch (e) { assert(false, 'Trade Tracker : jeton de lien : tests échoués'); }
   try { execFileSync('node', [path.join(__dirname, 'trade-events-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'Trade Tracker : événements d\'achat : tests passés'); }
   catch (e) { assert(false, 'Trade Tracker : événements d\'achat : tests échoués'); }
+  try { execFileSync('node', [path.join(__dirname, 'trade-e2e-test.js')], { encoding: 'utf8', stdio: 'inherit' }); assert(true, 'Trade Tracker : bout en bout TMT <-> Trade : tests passés'); }
+  catch (e) { assert(false, 'Trade Tracker : bout en bout TMT <-> Trade : tests échoués'); }
 
   try { execFileSync('node', [path.join(__dirname, 'parseplan-test.js')], { encoding: 'utf8' }); assert(true, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) passe'); }
   catch (e) { assert(false, 'parsePlan tolère les clôtures markdown (test/parseplan-test.js) échoue'); }
